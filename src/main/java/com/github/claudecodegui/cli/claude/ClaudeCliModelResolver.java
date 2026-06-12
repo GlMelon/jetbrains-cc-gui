@@ -19,9 +19,9 @@ final class ClaudeCliModelResolver {
     private enum ModelFamily { OPUS, HAIKU, SONNET, OTHER }
 
     private static ModelFamily detectFamily(String normalizedModel) {
-        if (normalizedModel.contains("opus"))  return ModelFamily.OPUS;
-        if (normalizedModel.contains("haiku")) return ModelFamily.HAIKU;
-        if (normalizedModel.contains("sonnet")) return ModelFamily.SONNET;
+        if (normalizedModel.contains("opus")) { return ModelFamily.OPUS; }
+        if (normalizedModel.contains("haiku")) { return ModelFamily.HAIKU; }
+        if (normalizedModel.contains("sonnet")) { return ModelFamily.SONNET; }
         return ModelFamily.OTHER;
     }
 
@@ -171,8 +171,10 @@ final class ClaudeCliModelResolver {
 
     private static JsonObject toJsonObject(Map<String, String> env) {
         JsonObject json = new JsonObject();
-        if (env == null) return json;
-        env.forEach((k, v) -> { if (k != null && v != null) json.addProperty(k, v); });
+        if (env == null) { return json; }
+        env.forEach((k, v) -> {
+            if (k != null && v != null) { json.addProperty(k, v); }
+        });
         return json;
     }
 
