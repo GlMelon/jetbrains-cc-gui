@@ -37,7 +37,9 @@ public class CliMcpConfig {
      * 首次调用时从磁盘或全局配置加载 MCP server 列表，后续调用为空操作。
      */
     public void ensureInitialized() {
-        if (initialized) return;
+        if (initialized) {
+            return;
+        }
         doInitialize();
     }
 
