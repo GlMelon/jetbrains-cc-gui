@@ -190,12 +190,8 @@ public class McpServerHandler extends BaseMessageHandler {
 
             LOG.info("[McpServerHandler] Getting tools for server: " + serverId);
 
-            String cwd = context.getProject() != null
-                ? context.getProject().getBasePath()
-                : null;
-
             // Wait for bridge to be ready before fetching tool list
-            waitForBridgeAndFetchTools(serverId, cwd, gson);
+            waitForBridgeAndFetchTools(serverId, gson);
         } catch (Exception e) {
             LOG.error("[McpServerHandler] Failed to get MCP server tools: " + e.getMessage(), e);
         }
@@ -205,7 +201,7 @@ public class McpServerHandler extends BaseMessageHandler {
      * Wait for bridge readiness then fetch server tool list.
      * Prevents tool fetching failure when bridge is not ready on first load.
      */
-    private void waitForBridgeAndFetchTools(String serverId, String cwd, Gson gson) {
+    private void waitForBridgeAndFetchTools(String serverId, Gson gson) {
         CompletableFuture.runAsync(() -> {
             try {
                 // If bridge not ready, wait up to 10 seconds
@@ -221,7 +217,9 @@ public class McpServerHandler extends BaseMessageHandler {
                 }
 
                 // Call Claude SDK Bridge to get tool list
-                context.getClaudeSDKBridge().getMcpServerTools(serverId, cwd)
+                String toolsCwd = context.getProject() != null
+                        ? context.getProject().getBasePath() : null;
+                context.getClaudeSDKBridge().getMcpServerTools(serverId, toolsCwd)
                     .thenAccept(result -> {
                         String resultJson = gson.toJson(result);
                         LOG.info("[McpServerHandler] Got tools result: " + resultJson);

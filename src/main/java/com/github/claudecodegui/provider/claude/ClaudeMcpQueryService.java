@@ -153,7 +153,7 @@ class ClaudeMcpQueryService {
 
     CompletableFuture<JsonObject> getMcpServerTools(String serverId, String cwd) {
         return CompletableFuture.supplyAsync(() -> {
-            log.info("[McpTools] Starting getMcpServerTools, serverId=" + serverId + ", cwd=" + cwd);
+            log.info("[McpTools] Starting getMcpServerTools, serverId=" + serverId);
 
             JsonObject stdinInput = new JsonObject();
             stdinInput.addProperty("serverId", serverId != null ? serverId : "");
