@@ -375,6 +375,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
             String model,
             String agentPrompt,  // Agent prompt (appended to message for Codex)
             String reasoningEffort,  // Codex reasoning effort (thinking depth)
+            String serviceTier,  // Codex service tier: null uses Codex defaults; "fast" matches CLI /fast
             MessageCallback callback
     ) {
         return CompletableFuture.supplyAsync(() -> {
@@ -430,6 +431,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
                 stdinInput.addProperty("model", model != null ? model : "");
                 // Reasoning effort (thinking depth)
                 stdinInput.addProperty("reasoningEffort", reasoningEffort != null ? reasoningEffort : "medium");
+                stdinInput.addProperty("serviceTier", serviceTier != null ? serviceTier : "");
 
                 // API configuration — skip for CLI Login mode (uses native OAuth from ~/.codex/auth.json)
                 boolean isCodexCliLogin = isCodexCliLoginActive();
@@ -604,12 +606,12 @@ public class CodexSDKBridge extends BaseSDKBridge {
         }
 
         if (CodemossSettingsService.CODEX_RUNTIME_ACCESS_INACTIVE.equals(accessMode)) {
-            return sendMessage(channelId, message, threadId, cwd, attachments, permissionMode, model, agentPrompt, reasoningEffort, callback);
+            return sendMessage(channelId, message, threadId, cwd, attachments, permissionMode, model, agentPrompt, reasoningEffort, null, callback);
         }
 
         File bridgeDir = getDirectoryResolver().findSdkDir();
         if (bridgeDir == null || !bridgeDir.exists()) {
-            return sendMessage(channelId, message, threadId, cwd, attachments, permissionMode, model, agentPrompt, reasoningEffort, callback);
+            return sendMessage(channelId, message, threadId, cwd, attachments, permissionMode, model, agentPrompt, reasoningEffort, null, callback);
         }
 
         setCodexExecutablePermission(bridgeDir);
@@ -617,7 +619,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
         DaemonBridge daemon = daemonCoordinator.getDaemonBridge();
         if (daemon == null) {
             LOG.info("[Codex] Daemon unavailable, using per-process mode");
-            return sendMessage(channelId, message, threadId, cwd, attachments, permissionMode, model, agentPrompt, reasoningEffort, callback);
+            return sendMessage(channelId, message, threadId, cwd, attachments, permissionMode, model, agentPrompt, reasoningEffort, null, callback);
         }
 
         String finalMessage = message;

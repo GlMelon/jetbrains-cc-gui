@@ -23,6 +23,7 @@ import java.util.concurrent.CompletableFuture;
  * Owns message-send orchestration while ClaudeSession remains the public session facade.
  */
 public class SessionSendService {
+    public static final String CODEX_FAST_SERVICE_TIER = "fast";
 
     private static final Logger LOG = Logger.getInstance(SessionSendService.class);
 
@@ -389,5 +390,50 @@ public class SessionSendService {
             LOG.warn("[Agent] ✗ Failed to get agent prompt: " + e.getMessage());
         }
         return null;
+    }
+
+    public static String normalizeRequestedCodexServiceTier(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        if ("fast".equalsIgnoreCase(trimmed) || "priority".equalsIgnoreCase(trimmed)) {
+            return CODEX_FAST_SERVICE_TIER;
+        }
+        if ("normal".equalsIgnoreCase(trimmed)
+                || "standard".equalsIgnoreCase(trimmed)
+                || "default".equalsIgnoreCase(trimmed)
+                || "none".equalsIgnoreCase(trimmed)) {
+            return null;
+        }
+        LOG.warn("[Codex] Invalid fast mode/service tier ignored: " + value);
+        return null;
+    }
+
+    public static String resolveEffectiveCodexServiceTier(String requestedValue, String sessionValue) {
+        String requested = normalizeRequestedCodexServiceTier(requestedValue);
+        if (requested != null) {
+            return requested;
+        }
+        if (isExplicitCodexStandardMode(requestedValue)) {
+            return null;
+        }
+
+        String session = normalizeRequestedCodexServiceTier(sessionValue);
+        return session;
+    }
+
+    public static boolean isExplicitCodexStandardMode(String value) {
+        if (value == null) {
+            return false;
+        }
+        String trimmed = value.trim();
+        return "normal".equalsIgnoreCase(trimmed)
+                || "standard".equalsIgnoreCase(trimmed)
+                || "default".equalsIgnoreCase(trimmed)
+                || "none".equalsIgnoreCase(trimmed);
     }
 }

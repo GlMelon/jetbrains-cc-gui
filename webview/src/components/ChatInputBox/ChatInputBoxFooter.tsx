@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import type { TFunction } from 'i18next';
-import type { DropdownItemData, DropdownPosition, PermissionMode, ReasoningEffort, SelectedAgent } from './types.js';
+import type { CodexFastMode, DropdownItemData, DropdownPosition, PermissionMode, ReasoningEffort, SelectedAgent } from './types.js';
 import type { TooltipState } from './hooks/useTooltip.js';
 import { ButtonArea } from './ButtonArea.js';
 import { CompletionDropdown } from './Dropdown/index.js';
@@ -35,6 +35,8 @@ export const ChatInputBoxFooter = memo(function ChatInputBoxFooter({
   onEnhancePrompt,
   alwaysThinkingEnabled,
   onToggleThinking,
+  codexFastMode: _codexFastMode,
+  onCodexFastModeChange: _onCodexFastModeChange,
   streamingEnabled,
   onStreamingEnabledChange,
   selectedAgent,
@@ -70,6 +72,8 @@ export const ChatInputBoxFooter = memo(function ChatInputBoxFooter({
   onEnhancePrompt: () => void;
   alwaysThinkingEnabled?: boolean;
   onToggleThinking?: (enabled: boolean) => void;
+  codexFastMode?: CodexFastMode;
+  onCodexFastModeChange?: (mode: CodexFastMode) => void;
   streamingEnabled?: boolean;
   onStreamingEnabledChange?: (enabled: boolean) => void;
   selectedAgent?: SelectedAgent | null;

@@ -117,6 +117,8 @@ const SettingsView = ({
     setMinNodeVersion,
     savingNodePath,
     setSavingNodePath,
+    cliPath,
+    setCliPath,
     workingDirectory,
     setWorkingDirectory,
     savingWorkingDirectory,
@@ -125,6 +127,8 @@ const SettingsView = ({
     setEditorFontConfig,
     uiFontConfig,
     setUiFontConfig,
+    codeFontConfig,
+    setCodeFontConfig,
     setLocalStreamingEnabled,
     streamingEnabled,
     codexSandboxMode,
@@ -149,6 +153,9 @@ const SettingsView = ({
     handleUiFontSelectionChange,
     handleSaveUiFontCustomPath,
     handleBrowseUiFontFile,
+    handleCodeFontSelectionChange,
+    handleSaveCodeFontCustomPath,
+    handleBrowseCodeFontFile,
     handleStreamingEnabledChange,
     handleCodexSandboxModeChange,
     handleSendShortcutChange,
@@ -183,8 +190,6 @@ const SettingsView = ({
     handlePromptEnhancerResetToDefault,
     invocationMode,
     setInvocationMode,
-    cliPath,
-    setCliPath,
     handleInvocationModeChange,
     handleCliPathChange,
   } = useSettingsBasicActions({
@@ -285,6 +290,7 @@ const SettingsView = ({
     setNodeVersion,
     setMinNodeVersion,
     setSavingNodePath,
+    setCliPath,
     setWorkingDirectory,
     setSavingWorkingDirectory,
     setCommitPrompt,
@@ -295,6 +301,7 @@ const SettingsView = ({
     setSavingProjectCommitPrompt,
     setEditorFontConfig,
     setUiFontConfig,
+    setCodeFontConfig,
     setIdeTheme,
     setLocalStreamingEnabled,
     setCodexSandboxMode,
@@ -325,7 +332,6 @@ const SettingsView = ({
     setStatusBarWidgetEnabled,
     setTaskCompletionNotificationEnabled,
     setInvocationMode,
-    setCliPath,
   });
 
   // Save provider (wrapper function with validation logic)
@@ -445,15 +451,21 @@ const SettingsView = ({
               savingNodePath={savingNodePath}
               nodeVersion={nodeVersion}
               minNodeVersion={minNodeVersion}
+              cliPath={cliPath}
+              onCliPathChange={handleCliPathChange}
               workingDirectory={workingDirectory}
               onWorkingDirectoryChange={setWorkingDirectory}
               onSaveWorkingDirectory={handleSaveWorkingDirectory}
               savingWorkingDirectory={savingWorkingDirectory}
               editorFontConfig={editorFontConfig}
               uiFontConfig={uiFontConfig}
+              codeFontConfig={codeFontConfig}
               onUiFontSelectionChange={handleUiFontSelectionChange}
               onSaveUiFontCustomPath={handleSaveUiFontCustomPath}
               onBrowseUiFontFile={handleBrowseUiFontFile}
+              onCodeFontSelectionChange={handleCodeFontSelectionChange}
+              onSaveCodeFontCustomPath={handleSaveCodeFontCustomPath}
+              onBrowseCodeFontFile={handleBrowseCodeFontFile}
               streamingEnabled={streamingEnabled}
               onStreamingEnabledChange={handleStreamingEnabledChange}
               sendShortcut={sendShortcut}
@@ -492,8 +504,6 @@ const SettingsView = ({
               onTaskCompletionNotificationEnabledChange={handleTaskCompletionNotificationEnabledChange}
               invocationMode={invocationMode}
               onInvocationModeChange={handleInvocationModeChange}
-              cliPath={cliPath}
-              onCliPathChange={handleCliPathChange}
               permissionDialogTimeoutSeconds={permissionDialogTimeoutSeconds}
               onPermissionDialogTimeoutChange={handlePermissionDialogTimeoutChange}
             />

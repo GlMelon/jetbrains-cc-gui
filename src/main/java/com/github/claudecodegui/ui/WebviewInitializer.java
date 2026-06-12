@@ -20,6 +20,7 @@ import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.ui.jcef.JBCefBrowser;
 import com.intellij.ui.jcef.JBCefBrowserBase;
@@ -227,6 +228,25 @@ public class WebviewInitializer {
                 }
             });
 
+            // Create a dedicated JSQuery for hiding the CCG panel via Shift+Esc
+            JBCefJSQuery hidePanelQuery = JBCefJSQuery.create(browserBase);
+            hidePanelQuery.addHandler((msg) -> {
+                try {
+                    Project project = host.getProject();
+                    if (project != null && !project.isDisposed()) {
+                        ApplicationManager.getApplication().invokeLater(() -> {
+                            ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow("CCG");
+                            if (toolWindow != null && toolWindow.isVisible()) {
+                                toolWindow.hide();
+                            }
+                        });
+                    }
+                } catch (Exception ex) {
+                    LOG.warn("Failed to hide CCG panel via shortcut: " + ex.getMessage());
+                }
+                return new JBCefJSQuery.Response("ok");
+            });
+
             HtmlLoader htmlLoader = host.getHtmlLoader();
             String htmlContent = htmlLoader.loadChatHtml();
 
@@ -241,6 +261,21 @@ public class WebviewInitializer {
 
                     String injection = "window.sendToJava = function(msg) { " + jsQuery.inject("msg") + " };";
                     cefBrowser.executeJavaScript(injection, cefBrowser.getURL(), 0);
+
+                    // Register Shift+Esc shortcut handler.
+                    // Intercepted at the JavaScript level — JCEF forwards keydown events
+                    // to the renderer before Chromium processes them for Task Manager.
+                    String shiftEscInjection =
+                        "document.addEventListener('keydown', function(e) {" +
+                        "  if (e.key === 'Escape' && e.shiftKey) {" +
+                        "    e.preventDefault();" +
+                        "    e.stopPropagation();" +
+                        "    " + hidePanelQuery.inject("''",
+                            "function() {}",
+                            "function() {}") +
+                        "  }" +
+                        "}, true);";
+                    cefBrowser.executeJavaScript(shiftEscInjection, cefBrowser.getURL(), 0);
 
                     // Inject clipboard path retrieval function
                     String clipboardPathInjection =
@@ -297,6 +332,19 @@ public class WebviewInitializer {
                     );
                     cefBrowser.executeJavaScript(uiFontConfigInjection, cefBrowser.getURL(), 0);
                     LOG.info("[UiFontSync] UI font config injected into frontend");
+
+                    // Pass effective code font configuration to the frontend
+                    String codeFontConfig = FontConfigService.getResolvedCodeFontConfigJson(host.getHandlerContext().getSettingsService());
+                    LOG.info("[CodeFontSync] Retrieved code font config");
+                    String escapedCodeFontConfig = JsUtils.escapeJs(codeFontConfig);
+                    String codeFontConfigInjection = String.format(
+                        "(function(){ var c = JSON.parse('%s'); " +
+                        "if (window.applyCodeFontConfig) { window.applyCodeFontConfig(c); } " +
+                        "else { window.__pendingCodeFontConfig = c; } })()",
+                        escapedCodeFontConfig
+                    );
+                    cefBrowser.executeJavaScript(codeFontConfigInjection, cefBrowser.getURL(), 0);
+                    LOG.info("[CodeFontSync] Code font config injected into frontend");
 
                     // Pass IDEA language configuration to the frontend
                     String languageConfig = LanguageConfigService.getLanguageConfigJson(host.getHandlerContext().getSettingsService());

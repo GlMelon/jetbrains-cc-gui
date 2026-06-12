@@ -6,7 +6,7 @@ import {
   normalizeClaudeModelId,
   strip1MContextSuffix,
 } from '../../components/ChatInputBox/types';
-import type { PermissionMode, ReasoningEffort } from '../../components/ChatInputBox/types';
+import type { CodexFastMode, PermissionMode, ReasoningEffort } from '../../components/ChatInputBox/types';
 
 const STORAGE_KEY = 'model-selection-state';
 const REASONING_VALUES = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
@@ -23,6 +23,11 @@ const getCustomModels = (key: string): { id: string }[] => {
 const isReasoningEffort = (value: unknown): value is ReasoningEffort =>
   typeof value === 'string' && (REASONING_VALUES as readonly string[]).includes(value);
 
+const CODEX_FAST_MODE_VALUES = ['normal', 'fast'] as const;
+
+const isCodexFastMode = (value: unknown): value is CodexFastMode =>
+  typeof value === 'string' && (CODEX_FAST_MODE_VALUES as readonly string[]).includes(value);
+
 export interface UseModelStatePersistenceOptions {
   // Cross-slice load setters (run once on mount)
   setCurrentProvider: (value: string) => void;
@@ -33,6 +38,7 @@ export interface UseModelStatePersistenceOptions {
   setPermissionMode: (value: PermissionMode) => void;
   setLongContextEnabled: (value: boolean) => void;
   setReasoningEffort: (value: ReasoningEffort) => void;
+  setCodexFastMode: (value: CodexFastMode) => void;
   // Cross-slice save deps (re-saves on any change)
   currentProvider: string;
   selectedClaudeModel: string;
@@ -41,6 +47,7 @@ export interface UseModelStatePersistenceOptions {
   codexPermissionMode: PermissionMode;
   longContextEnabled: boolean;
   reasoningEffort: ReasoningEffort;
+  codexFastMode: CodexFastMode;
 }
 
 /**
@@ -62,6 +69,7 @@ export function useModelStatePersistence(options: UseModelStatePersistenceOption
     setPermissionMode,
     setLongContextEnabled,
     setReasoningEffort,
+    setCodexFastMode,
     currentProvider,
     selectedClaudeModel,
     selectedCodexModel,
@@ -69,6 +77,7 @@ export function useModelStatePersistence(options: UseModelStatePersistenceOption
     codexPermissionMode,
     longContextEnabled,
     reasoningEffort,
+    codexFastMode,
   } = options;
 
     // Hydrate local UI preferences from localStorage (mount only).
@@ -102,6 +111,9 @@ export function useModelStatePersistence(options: UseModelStatePersistenceOption
 
         if (isReasoningEffort(state.reasoningEffort)) {
           setReasoningEffort(state.reasoningEffort);
+        }
+        if (isCodexFastMode(state.codexFastMode)) {
+          setCodexFastMode(state.codexFastMode);
         }
 
         const savedClaudeCustomModels = getCustomModels('claude-custom-models');
@@ -147,6 +159,7 @@ export function useModelStatePersistence(options: UseModelStatePersistenceOption
         codexPermissionMode,
         longContextEnabled,
         reasoningEffort,
+        codexFastMode,
       }));
     } catch {
       // Failed to save model selection state — non-fatal.
@@ -159,5 +172,6 @@ export function useModelStatePersistence(options: UseModelStatePersistenceOption
     codexPermissionMode,
     longContextEnabled,
     reasoningEffort,
+    codexFastMode,
   ]);
 }

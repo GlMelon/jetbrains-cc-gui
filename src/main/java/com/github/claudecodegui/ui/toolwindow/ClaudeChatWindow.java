@@ -944,6 +944,14 @@ public class ClaudeChatWindow {
         }
     }
 
+    public void focusInputPane() {
+        if (disposed || browser == null) {
+            return;
+        }
+        browser.getComponent().requestFocus();
+        executeJavaScriptCode("window.focusChatInput?.()");
+    }
+
     // ==================== Dispose ====================
 
     public synchronized void dispose() {

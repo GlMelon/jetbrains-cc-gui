@@ -484,8 +484,8 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
     /**
      * Get MCP server tools list.
      */
-    public CompletableFuture<JsonObject> getMcpServerTools(String serverId) {
-        return mcpQueryService.getMcpServerTools(serverId);
+    public CompletableFuture<JsonObject> getMcpServerTools(String serverId, String cwd) {
+        return mcpQueryService.getMcpServerTools(serverId, cwd);
     }
 
     // ============================================================================

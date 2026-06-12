@@ -159,6 +159,20 @@ public class CodexProviderOperations {
     }
 
     /**
+     * Drop the cached subscription quota so the UI refetches for the newly active account.
+     * A cli_login snapshot belongs to the previous OAuth account and must not linger.
+     */
+    private void invalidateCodexQuotaCache() {
+        try {
+            ApplicationManager.getApplication()
+                    .getService(com.github.claudecodegui.service.CodexSubscriptionQuotaService.class)
+                    .invalidateCache();
+        } catch (Exception e) {
+            LOG.warn("[ProviderHandler] Failed to invalidate Codex quota cache: " + e.getMessage());
+        }
+    }
+
+    /**
      * Switch Codex provider
      */
     public void handleSwitchCodexProvider(String content) {
@@ -174,6 +188,7 @@ public class CodexProviderOperations {
 
             context.getSettingsService().switchCodexProvider(id);
             context.getSettingsService().applyActiveProviderToCodexSettings();
+            invalidateCodexQuotaCache();
 
             ApplicationManager.getApplication().invokeLater(() -> {
                 String successMsg = com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("toast.providerSwitchSuccess")
@@ -211,6 +226,7 @@ public class CodexProviderOperations {
                     .equals(activeProvider.get("id").getAsString());
 
             context.getSettingsService().setCodexLocalConfigAuthorized(false);
+            invalidateCodexQuotaCache();
 
             if (wasCliLoginActive) {
                 context.getSettingsService().switchCodexProvider(fallbackProviderId);
@@ -246,6 +262,7 @@ public class CodexProviderOperations {
             // Update config.json to set CLI login as current
             context.getSettingsService().switchCodexProvider(
                     com.github.claudecodegui.settings.CodexProviderManager.CODEX_CLI_LOGIN_PROVIDER_ID);
+            invalidateCodexQuotaCache();
 
             LOG.info("[ProviderHandler] Authorized local Codex config provider");
 

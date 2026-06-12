@@ -72,7 +72,7 @@ const BashToolBlock = memo(function BashToolBlock({ input, result, toolId }: Bas
                   {isError && (
                     <span className="codicon codicon-error" style={ERROR_ICON_STYLE} />
                   )}
-                  <span>{output}</span>
+                  <span className="bash-output-text">{output}</span>
                 </div>
               )}
             </div>
@@ -84,4 +84,3 @@ const BashToolBlock = memo(function BashToolBlock({ input, result, toolId }: Bas
 });
 
 export default BashToolBlock;
-

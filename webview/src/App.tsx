@@ -258,6 +258,7 @@ const App = () => {
     handleConfirmInterrupt, handleCancelInterrupt,
     loadHistorySession, deleteHistorySession, deleteHistorySessions, exportHistorySession,
     toggleFavoriteSession, updateHistoryTitle, applyHistoryTitleLocal,
+    convertToCliSession,
   } = useSessionManagement({
     messages, loading, historyData, currentSessionId,
     setHistoryData, setMessages, setCurrentView, setCurrentSessionId,
@@ -517,6 +518,7 @@ const App = () => {
           onExportSession={exportHistorySession}
           onToggleFavorite={toggleFavoriteSession}
           onUpdateTitle={updateHistoryTitle}
+          onConvertToCliSession={convertToCliSession}
         />
       )}
 

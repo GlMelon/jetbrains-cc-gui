@@ -744,6 +744,20 @@ public class ClaudeSession {
     }
 
     /**
+     * Set the Codex service tier.
+     */
+    public void setCodexServiceTier(String serviceTier) {
+        state.setCodexServiceTier(serviceTier);
+    }
+
+    /**
+     * Get the Codex service tier.
+     */
+    public String getCodexServiceTier() {
+        return state.getCodexServiceTier();
+    }
+
+    /**
      * Get the list of available slash commands.
      */
     public List<String> getSlashCommands() {

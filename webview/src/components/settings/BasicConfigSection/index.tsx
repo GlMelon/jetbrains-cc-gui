@@ -2,7 +2,7 @@ import {useState} from 'react';
 import styles from './style.module.less';
 import {useTranslation} from 'react-i18next';
 import type {DiffThemeMode} from '../../../utils/diffTheme';
-import type {UiFontConfig} from '../hooks/useSettingsBasicActions';
+import type {UiFontConfig, CodeFontConfig} from '../hooks/useSettingsBasicActions';
 import AppearanceTab from './AppearanceTab';
 import BehaviorTab from './BehaviorTab';
 import EnvironmentTab from './EnvironmentTab';
@@ -52,6 +52,10 @@ interface BasicConfigSectionProps {
   onUiFontSelectionChange?: (selection: string) => void;
   onSaveUiFontCustomPath?: (path: string) => void;
   onBrowseUiFontFile?: () => void;
+  codeFontConfig?: CodeFontConfig;
+  onCodeFontSelectionChange?: (selection: string) => void;
+  onSaveCodeFontCustomPath?: (path: string) => void;
+  onBrowseCodeFontFile?: () => void;
   // Streaming configuration
   streamingEnabled?: boolean;
   onStreamingEnabledChange?: (enabled: boolean) => void;

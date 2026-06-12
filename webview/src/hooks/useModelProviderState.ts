@@ -58,6 +58,7 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     selectedCodexModel, setSelectedCodexModel,
     codexPermissionMode, setCodexPermissionMode,
     reasoningEffort, setReasoningEffort,
+    codexFastMode, setCodexFastMode,
   } = codex;
 
   // ── Persistence: load on mount + save on change ──
@@ -70,6 +71,7 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     setPermissionMode,
     setLongContextEnabled,
     setReasoningEffort,
+    setCodexFastMode,
     currentProvider,
     selectedClaudeModel,
     selectedCodexModel,
@@ -77,6 +79,7 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     codexPermissionMode,
     longContextEnabled,
     reasoningEffort,
+    codexFastMode,
   });
 
   // ── Computed values ──

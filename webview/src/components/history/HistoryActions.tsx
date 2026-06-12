@@ -81,6 +81,7 @@ export const HistoryActions = memo(({
         onClick={onDeepSearch}
         disabled={isDeepSearching}
         title={t('history.deepSearchTooltip')}
+        aria-label={t('history.deepSearchTooltip')}
       >
         {isDeepSearching ? <SyncIcon size={14} spinning /> : <RefreshIcon size={14} />}
       </button>

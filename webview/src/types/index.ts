@@ -113,6 +113,8 @@ export interface TodoItem {
   id?: string;
   content: string;
   status: 'pending' | 'in_progress' | 'completed';
+  /** IDs of tasks that block this task (numeric string format from TaskCreate/TaskUpdate, e.g., "1", "2") */
+  blockedBy?: string[];
 }
 
 export interface HistorySessionSummary {
@@ -124,6 +126,7 @@ export interface HistorySessionSummary {
   favoritedAt?: number;
   provider?: string; // 'claude' or 'codex'
   fileSize?: number;
+  entrypoint?: string; // Session entrypoint: 'cli', 'sdk-cli', 'claude-vscode', etc.
 }
 
 export interface HistoryData {

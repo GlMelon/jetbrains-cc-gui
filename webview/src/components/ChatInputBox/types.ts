@@ -181,6 +181,11 @@ export interface SelectedAgent {
 export type PermissionMode = 'default' | 'acceptEdits' | 'plan' | 'bypassPermissions';
 
 /**
+ * Codex fast mode type
+ */
+export type CodexFastMode = 'normal' | 'fast';
+
+/**
  * Mode information
  */
 export interface ModeInfo {
@@ -651,6 +656,10 @@ export interface ChatInputBoxProps {
   onReasoningChange?: (effort: ReasoningEffort) => void;
   /** Toggle thinking mode */
   onToggleThinking?: (enabled: boolean) => void;
+  /** Codex fast mode */
+  codexFastMode?: CodexFastMode;
+  /** Switch Codex fast mode callback */
+  onCodexFastModeChange?: (mode: CodexFastMode) => void;
   /** Whether streaming is enabled */
   streamingEnabled?: boolean;
   /** Toggle streaming */

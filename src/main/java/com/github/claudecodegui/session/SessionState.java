@@ -82,6 +82,8 @@ public class SessionState {
     private volatile String permissionSessionId = null;
     // Reasoning effort (thinking depth)
     private volatile String reasoningEffort = CommonConstants.DEFAULT_REASONING_EFFORT;
+    // Codex service tier
+    private volatile String codexServiceTier = null;
     // Context window override from frontend (null = use backend default)
     private volatile Integer contextWindowOverride;
 
@@ -163,6 +165,10 @@ public class SessionState {
 
     public String getReasoningEffort() {
         return reasoningEffort;
+    }
+
+    public String getCodexServiceTier() {
+        return codexServiceTier;
     }
 
     public String getRuntimeSessionEpoch() {
@@ -278,6 +284,10 @@ public class SessionState {
 
     public void setReasoningEffort(String reasoningEffort) {
         this.reasoningEffort = reasoningEffort;
+    }
+
+    public void setCodexServiceTier(String codexServiceTier) {
+        this.codexServiceTier = codexServiceTier;
     }
 
     public void setRuntimeSessionEpoch(String runtimeSessionEpoch) {

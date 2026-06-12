@@ -1,6 +1,7 @@
 // hooks/useSettingsBasicActions.ts
 import {useCallback, useEffect, useState} from 'react';
-import type {UiFontConfig} from '../../../types/uiFontConfig';
+import type {UiFontConfig, CodeFontConfig} from '../../../types/uiFontConfig';
+export type {UiFontConfig, CodeFontConfig} from '../../../types/uiFontConfig';
 import type {CommitAiConfig, CommitAiProvider} from '../../../types/aiFeatureConfig';
 import {DEFAULT_COMMIT_AI_CONFIG} from '../../../types/aiFeatureConfig';
 import type {PromptEnhancerConfig, PromptEnhancerProvider} from '../../../types/promptEnhancer';
@@ -12,8 +13,6 @@ import {
     SKIP_NEW_SESSION_CONFIRM_EVENT,
     type SkipNewSessionConfirmChangedDetail,
 } from '../../../utils/skipNewSessionConfirm';
-
-export type { UiFontConfig } from '../../../types/uiFontConfig';
 
 const sendToJava = (event: string, payload = '') => {
   sendBridgeEvent(event, payload);
@@ -48,6 +47,7 @@ export interface UseSettingsBasicActionsReturn {
       }
     | undefined;
   uiFontConfig: UiFontConfig | undefined;
+  codeFontConfig: CodeFontConfig | undefined;
   /** Streaming enabled state (prefers prop over local state) */
   streamingEnabled: boolean;
   localStreamingEnabled: boolean;
@@ -83,6 +83,9 @@ export interface UseSettingsBasicActionsReturn {
   handleUiFontSelectionChange: (selection: string) => void;
   handleSaveUiFontCustomPath: (path: string) => void;
   handleBrowseUiFontFile: () => void;
+  handleCodeFontSelectionChange: (selection: string) => void;
+  handleSaveCodeFontCustomPath: (path: string) => void;
+  handleBrowseCodeFontFile: () => void;
   handleStreamingEnabledChange: (enabled: boolean) => void;
   handleCodexSandboxModeChange: (mode: 'workspace-write' | 'danger-full-access') => void;
   handleSendShortcutChange: (shortcut: 'enter' | 'cmdEnter') => void;
@@ -124,6 +127,7 @@ export interface UseSettingsBasicActionsReturn {
       | undefined
   ) => void;
   /** @internal */ setUiFontConfig: (config: UiFontConfig | undefined) => void;
+  /** @internal */ setCodeFontConfig: (config: CodeFontConfig | undefined) => void;
   /** @internal */ setLocalStreamingEnabled: (enabled: boolean) => void;
   /** @internal */ setCodexSandboxMode: (mode: 'workspace-write' | 'danger-full-access') => void;
   /** @internal */ setLocalSendShortcut: (shortcut: 'enter' | 'cmdEnter') => void;
@@ -175,6 +179,7 @@ export function useSettingsBasicActions({
     | undefined
   >();
   const [uiFontConfig, setUiFontConfig] = useState<UiFontConfig | undefined>();
+  const [codeFontConfig, setCodeFontConfig] = useState<CodeFontConfig | undefined>();
 
   // Streaming configuration - prefer props, fallback to local state
   const [localStreamingEnabled, setLocalStreamingEnabled] = useState<boolean>(false);
@@ -308,6 +313,31 @@ export function useSettingsBasicActions({
 
   const handleBrowseUiFontFile = useCallback(() => {
     sendToJava('browse_ui_font_file');
+  }, []);
+
+  const handleCodeFontSelectionChange = useCallback((selection: string) => {
+    if (selection === 'followEditor') {
+      sendToJava(`set_code_font_config:${JSON.stringify({ mode: 'followEditor' })}`);
+      return;
+    }
+
+    if (selection === 'customFile' && codeFontConfig?.customFontPath) {
+      sendToJava(`set_code_font_config:${JSON.stringify({
+        mode: 'customFile',
+        customFontPath: codeFontConfig.customFontPath,
+      })}`);
+    }
+  }, [codeFontConfig?.customFontPath]);
+
+  const handleSaveCodeFontCustomPath = useCallback((path: string) => {
+    sendToJava(`set_code_font_config:${JSON.stringify({
+      mode: 'customFile',
+      customFontPath: path,
+    })}`);
+  }, []);
+
+  const handleBrowseCodeFontFile = useCallback(() => {
+    sendToJava('browse_code_font_file:');
   }, []);
 
   // Streaming toggle change handler
@@ -533,6 +563,8 @@ export function useSettingsBasicActions({
     setEditorFontConfig,
     uiFontConfig,
     setUiFontConfig,
+    codeFontConfig,
+    setCodeFontConfig,
     localStreamingEnabled,
     setLocalStreamingEnabled,
     streamingEnabled,
@@ -559,6 +591,9 @@ export function useSettingsBasicActions({
     handleUiFontSelectionChange,
     handleSaveUiFontCustomPath,
     handleBrowseUiFontFile,
+    handleCodeFontSelectionChange,
+    handleSaveCodeFontCustomPath,
+    handleBrowseCodeFontFile,
     handleStreamingEnabledChange,
     handleCodexSandboxModeChange,
     handleSendShortcutChange,
