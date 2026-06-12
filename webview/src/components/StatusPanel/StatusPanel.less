@@ -54,9 +54,8 @@
 
   /* 分割线 - 除了最后一个 tab */
   &:not(:last-child) {
-    border-right: 1px solid var(--bg-chat-border);
-    border-radius: 4px 0 0 4px;
-    margin-right: -1px;
+    border-right: none;
+    margin-right: 0;
   }
 
   &:last-child {
@@ -70,7 +69,8 @@
 
   &.active {
     color: var(--text-primary);
-    background: var(--bg-tertiary);
+    background: rgba(255, 255, 255, 0.1);
+    font-weight: 600;
   }
 
   svg {
@@ -1186,4 +1186,11 @@
 .status-panel-spin-icon {
   animation: status-spin 1s linear infinite;
   will-change: transform;
+}
+
+/* ============================================================
+   Light Theme Overrides
+   ============================================================ */
+[data-theme="light"] .status-panel-tab.active {
+  background: rgba(0, 0, 0, 0.08);
 }
