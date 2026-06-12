@@ -178,6 +178,11 @@
         "hintText": "pour obtenir le chemin de l'exécutable Node.js réel. Laisser vide pour la détection automatique.",
         "versionTooLow": "La version de Node.js est trop ancienne. Le plugin nécessite v{{minVersion}} ou supérieur pour fonctionner correctement"
       },
+      "claudeCliPath": {
+        "label": "Chemin de Claude CLI",
+        "placeholder": "Laisser vide pour la détection automatique, ou spécifier le chemin de l'exécutable claude",
+        "hint": "Spécifie le chemin de l'exécutable Claude CLI. Laisser vide pour détecter automatiquement dans PATH."
+      },
       "workingDirectory": {
         "label": "Working Directory",
         "placeholder": "e.g. project1 or leave empty to use project root",
@@ -202,6 +207,17 @@
         "browse": "Parcourir",
         "warningUnavailable": "La police est indisponible, la police de l'éditeur est utilisée",
         "statusFollowEditor": "Police actuelle de l'éditeur : {{font}}",
+        "statusCustom": "Police personnalisée actuellement utilisée : {{font}}"
+      },
+      "codeFont": {
+        "label": "Police de code",
+        "followOption": "Suivre l'éditeur ({{font}})",
+        "customOption": "Fichier de police personnalisé",
+        "customPathLabel": "Chemin du fichier de police",
+        "customPathPlaceholder": "Sélectionner ou entrer le chemin d'un fichier de police .ttf / .otf",
+        "browse": "Parcourir",
+        "warningUnavailable": "Police non disponible, utilisation de la police de l'éditeur",
+        "statusFollowEditor": "Suivant la police de l'éditeur : {{font}}",
         "statusCustom": "Police personnalisée actuellement utilisée : {{font}}"
       },
       "streaming": {

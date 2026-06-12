@@ -178,6 +178,11 @@
         "hintText": "वास्तविक Node.js निष्पादन योग्य फ़ाइल पथ प्राप्त करें। खाली होने पर प्लगइन स्वचालित रूप से Node.js का पता लगाने का प्रयास करेगा।",
         "versionTooLow": "Node.js संस्करण बहुत पुराना है। प्लगइन को ठीक से चलाने के लिए v{{minVersion}} या उच्चतर की आवश्यकता है"
       },
+      "claudeCliPath": {
+        "label": "Claude CLI पथ",
+        "placeholder": "स्वतः खोजने के लिए खाली छोड़ें, या claude निष्पादन योग्य फ़ाइल पथ निर्दिष्ट करें",
+        "hint": "Claude CLI निष्पादन योग्य फ़ाइल पथ निर्दिष्ट करें। PATH में स्वतः खोजने के लिए खाली छोड़ें।"
+      },
       "workingDirectory": {
         "label": "Working Directory",
         "placeholder": "e.g. project1 or leave empty to use project root",
@@ -202,6 +207,17 @@
         "browse": "ब्राउज़ करें",
         "warningUnavailable": "फ़ॉन्ट उपलब्ध नहीं है, अभी एडिटर फ़ॉन्ट उपयोग में है",
         "statusFollowEditor": "अभी एडिटर फ़ॉन्ट उपयोग में है: {{font}}",
+        "statusCustom": "अभी कस्टम फ़ॉन्ट उपयोग में है: {{font}}"
+      },
+      "codeFont": {
+        "label": "कोड फ़ॉन्ट",
+        "followOption": "एडिटर का अनुसरण करें ({{font}})",
+        "customOption": "कस्टम फ़ॉन्ट फ़ाइल",
+        "customPathLabel": "फ़ॉन्ट फ़ाइल पथ",
+        "customPathPlaceholder": ".ttf / .otf फ़ॉन्ट फ़ाइल पथ चुनें या दर्ज करें",
+        "browse": "ब्राउज़",
+        "warningUnavailable": "फ़ॉन्ट उपलब्ध नहीं है, अभी एडिटर फ़ॉन्ट उपयोग हो रहा है",
+        "statusFollowEditor": "अभी एडिटर फ़ॉन्ट का अनुसरण हो रहा है: {{font}}",
         "statusCustom": "अभी कस्टम फ़ॉन्ट उपयोग में है: {{font}}"
       },
       "streaming": {

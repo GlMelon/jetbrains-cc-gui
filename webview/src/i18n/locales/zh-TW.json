@@ -190,6 +190,11 @@
         "hintText": "獲取實際的 Node.js 可執行檔案路徑。為空時外掛會自動嘗試檢測 Node.js。",
         "versionTooLow": "Node.js 版本過低，外掛需要 v{{minVersion}} 或更高版本才能正常運行"
       },
+      "claudeCliPath": {
+        "label": "Claude CLI 路徑",
+        "placeholder": "留空自動偵測，或指定 claude 可執行檔案路徑",
+        "hint": "指定 Claude CLI 可執行檔案路徑。留空則自動在 PATH 中偵測。"
+      },
       "workingDirectory": {
         "label": "Working Directory",
         "placeholder": "e.g. project1 or leave empty to use project root",
@@ -207,6 +212,17 @@
       "editorFont": {
         "label": "字體",
         "hint": "這裡修改的是外掛介面字體；字級和行高仍跟隨編輯器。",
+        "followOption": "跟隨編輯器（{{font}}）",
+        "customOption": "自訂字體檔案",
+        "customPathLabel": "字體檔案路徑",
+        "customPathPlaceholder": "選擇或輸入 .ttf / .otf 字體檔案路徑",
+        "browse": "瀏覽",
+        "warningUnavailable": "字體不可用，目前已回退到編輯器字體",
+        "statusFollowEditor": "目前跟隨編輯器字體：{{font}}",
+        "statusCustom": "目前使用自訂字體：{{font}}"
+      },
+      "codeFont": {
+        "label": "程式碼字體",
         "followOption": "跟隨編輯器（{{font}}）",
         "customOption": "自訂字體檔案",
         "customPathLabel": "字體檔案路徑",

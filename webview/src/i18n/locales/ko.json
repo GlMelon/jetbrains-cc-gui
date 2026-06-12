@@ -178,6 +178,11 @@
         "hintText": "을 실행하여 실제 Node.js 실행 파일 경로를 확인하세요. 비워두면 자동 감지합니다.",
         "versionTooLow": "Node.js 버전이 너무 낮습니다. 플러그인을 정상적으로 실행하려면 v{{minVersion}} 이상이 필요합니다"
       },
+      "claudeCliPath": {
+        "label": "Claude CLI 경로",
+        "placeholder": "비워두면 자동 감지, 또는 claude 실행 파일 경로 지정",
+        "hint": "Claude CLI 실행 파일 경로를 지정합니다. 비워두면 PATH에서 자동 감지합니다."
+      },
       "workingDirectory": {
         "label": "작업 디렉토리",
         "placeholder": "예: project1 또는 프로젝트 루트를 사용하려면 비워두세요",
@@ -202,6 +207,17 @@
         "browse": "찾아보기",
         "warningUnavailable": "글꼴을 사용할 수 없어 현재 에디터 글꼴을 사용 중입니다",
         "statusFollowEditor": "현재 에디터 글꼴 사용 중: {{font}}",
+        "statusCustom": "현재 사용자 지정 글꼴 사용 중: {{font}}"
+      },
+      "codeFont": {
+        "label": "코드 글꼴",
+        "followOption": "에디터 따라가기 ({{font}})",
+        "customOption": "사용자 지정 글꼴 파일",
+        "customPathLabel": "글꼴 파일 경로",
+        "customPathPlaceholder": ".ttf / .otf 글꼴 파일 경로 선택 또는 입력",
+        "browse": "찾아보기",
+        "warningUnavailable": "글꼴을 사용할 수 없습니다. 현재 에디터 글꼴 사용 중",
+        "statusFollowEditor": "현재 에디터 글꼴 따라가기: {{font}}",
         "statusCustom": "현재 사용자 지정 글꼴 사용 중: {{font}}"
       },
       "streaming": {

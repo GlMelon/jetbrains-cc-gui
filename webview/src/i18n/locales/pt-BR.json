@@ -178,6 +178,11 @@
         "hintText": "para obter o caminho real do executável Node.js. Deixe vazio para detecção automática.",
         "versionTooLow": "A versão do Node.js é muito baixa. O plugin requer v{{minVersion}} ou superior para funcionar corretamente"
       },
+      "claudeCliPath": {
+        "label": "Caminho do Claude CLI",
+        "placeholder": "Deixe vazio para detecção automática, ou especifique o caminho do executável claude",
+        "hint": "Especifique o caminho do executável Claude CLI. Deixe vazio para detectar automaticamente no PATH."
+      },
       "workingDirectory": {
         "label": "Diretório de Trabalho",
         "placeholder": "ex: projeto1 ou deixe vazio para usar a raiz do projeto",
@@ -202,6 +207,17 @@
         "browse": "Procurar",
         "warningUnavailable": "A fonte está indisponível, usando a fonte do editor",
         "statusFollowEditor": "Usando atualmente a fonte do editor: {{font}}",
+        "statusCustom": "Usando atualmente a fonte personalizada: {{font}}"
+      },
+      "codeFont": {
+        "label": "Fonte de código",
+        "followOption": "Seguir editor ({{font}})",
+        "customOption": "Arquivo de fonte personalizado",
+        "customPathLabel": "Caminho do arquivo de fonte",
+        "customPathPlaceholder": "Selecione ou digite o caminho do arquivo de fonte .ttf / .otf",
+        "browse": "Procurar",
+        "warningUnavailable": "Fonte indisponível, usando a fonte do editor",
+        "statusFollowEditor": "Seguindo a fonte do editor: {{font}}",
         "statusCustom": "Usando atualmente a fonte personalizada: {{font}}"
       },
       "streaming": {

@@ -178,6 +178,11 @@
         "hintText": "実際のNode.js実行可能ファイルのパスを取得します。空欄の場合は自動検出します。",
         "versionTooLow": "Node.jsのバージョンが低すぎます。プラグインを正常に動作させるにはv{{minVersion}}以上が必要です"
       },
+      "claudeCliPath": {
+        "label": "Claude CLI パス",
+        "placeholder": "空欄で自動検出、または claude 実行可能ファイルのパスを指定",
+        "hint": "Claude CLI 実行可能ファイルのパスを指定します。空欄の場合は PATH から自動検出します。"
+      },
       "workingDirectory": {
         "label": "作業ディレクトリ",
         "placeholder": "例: project1 または空欄でプロジェクトルートを使用",
@@ -202,6 +207,17 @@
         "browse": "参照",
         "warningUnavailable": "フォントを利用できないため、現在はエディタフォントを使用しています",
         "statusFollowEditor": "現在はエディタフォントを使用中: {{font}}",
+        "statusCustom": "現在はカスタムフォントを使用中: {{font}}"
+      },
+      "codeFont": {
+        "label": "コードフォント",
+        "followOption": "エディタに従う ({{font}})",
+        "customOption": "カスタムフォントファイル",
+        "customPathLabel": "フォントファイルのパス",
+        "customPathPlaceholder": ".ttf / .otf フォントファイルのパスを選択または入力",
+        "browse": "参照",
+        "warningUnavailable": "フォントが利用できません。現在エディタフォントを使用中",
+        "statusFollowEditor": "現在エディタフォントに従う: {{font}}",
         "statusCustom": "現在はカスタムフォントを使用中: {{font}}"
       },
       "streaming": {

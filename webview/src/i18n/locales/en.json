@@ -203,6 +203,11 @@
         "invalidFileName": "Path must end with node.exe on Windows, or node on macOS/Linux",
         "cannotExecute": "File exists but cannot be executed, please check file permissions"
       },
+      "claudeCliPath": {
+        "label": "Claude CLI Path",
+        "placeholder": "Leave empty for auto-detection, or specify claude executable path",
+        "hint": "Specify the Claude CLI executable path. Leave empty to auto-detect in PATH."
+      },
       "workingDirectory": {
         "label": "Working Directory",
         "placeholder": "e.g. project1 or leave empty to use project root",
@@ -220,6 +225,17 @@
       "editorFont": {
         "label": "Font",
         "hint": "Font family changes apply immediately here. Font size and line spacing still follow the editor.",
+        "followOption": "Follow editor ({{font}})",
+        "customOption": "Custom font file",
+        "customPathLabel": "Font file path",
+        "customPathPlaceholder": "Choose or enter a .ttf / .otf font file path",
+        "browse": "Browse",
+        "warningUnavailable": "Font unavailable, currently using editor font",
+        "statusFollowEditor": "Currently following editor font: {{font}}",
+        "statusCustom": "Currently using custom font: {{font}}"
+      },
+      "codeFont": {
+        "label": "Code Font",
         "followOption": "Follow editor ({{font}})",
         "customOption": "Custom font file",
         "customPathLabel": "Font file path",

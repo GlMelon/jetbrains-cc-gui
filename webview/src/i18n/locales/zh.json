@@ -203,6 +203,11 @@
         "invalidFileName": "Windows 下路径必须以 node.exe 结尾，macOS/Linux 下必须以 node 结尾",
         "cannotExecute": "文件存在但无法执行，请检查文件权限"
       },
+      "claudeCliPath": {
+        "label": "Claude CLI 路径",
+        "placeholder": "留空自动检测，或指定 claude 可执行文件路径",
+        "hint": "指定 Claude CLI 可执行文件路径。留空则自动在 PATH 中检测。"
+      },
       "workingDirectory": {
         "label": "工作目录",
         "placeholder": "例如 project1 或留空使用项目根目录",
@@ -229,6 +234,17 @@
       "editorFont": {
         "label": "字体",
         "hint": "这里修改的是插件界面字体；字号和行高仍跟随编辑器。",
+        "followOption": "跟随编辑器（{{font}}）",
+        "customOption": "自定义字体文件",
+        "customPathLabel": "字体文件路径",
+        "customPathPlaceholder": "选择或输入 .ttf / .otf 字体文件路径",
+        "browse": "浏览",
+        "warningUnavailable": "字体不可用，当前已回退到编辑器字体",
+        "statusFollowEditor": "当前跟随编辑器字体：{{font}}",
+        "statusCustom": "当前使用自定义字体：{{font}}"
+      },
+      "codeFont": {
+        "label": "代码字体",
         "followOption": "跟随编辑器（{{font}}）",
         "customOption": "自定义字体文件",
         "customPathLabel": "字体文件路径",
