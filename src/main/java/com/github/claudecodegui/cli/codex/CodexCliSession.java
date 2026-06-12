@@ -108,7 +108,6 @@ public class CodexCliSession {
     public CodexCliSession(String tabId) {
         this.tabId = tabId;
         this.mcpConfig = new CliMcpConfig(tabId);
-        this.mcpConfig.initialize();
     }
 
     public CompletableFuture<Void> send(CliSendRequest request, CliSessionCallback callback) {

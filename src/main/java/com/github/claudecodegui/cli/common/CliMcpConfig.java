@@ -24,6 +24,7 @@ public class CliMcpConfig {
     private final Path configPath;
     private final RuntimeSharedConfigService sharedConfigService = new RuntimeSharedConfigService();
     private JsonObject servers = new JsonObject();
+    private volatile boolean initialized = false;
 
     public CliMcpConfig(String tabId) {
         this.tabId = tabId;
@@ -32,10 +33,19 @@ public class CliMcpConfig {
     }
 
     /**
+     * 确保配置已初始化（懒加载）。
+     * 首次调用时从磁盘或全局配置加载 MCP server 列表，后续调用为空操作。
+     */
+    public void ensureInitialized() {
+        if (initialized) return;
+        doInitialize();
+    }
+
+    /**
      * 从 Claude 全局 settings.json 中的 mcpServers 初始化 per-tab 配置。
      * 如果文件已存在则直接加载。
      */
-    public void initialize() {
+    private void doInitialize() {
         try {
             if (Files.exists(configPath)) {
                 String content = Files.readString(configPath, StandardCharsets.UTF_8);
@@ -47,6 +57,7 @@ public class CliMcpConfig {
                     } else {
                         servers = existing;
                     }
+                    initialized = true;
                     return;
                 }
             }
@@ -55,14 +66,17 @@ public class CliMcpConfig {
         } catch (Exception e) {
             LOG.warn("[CliMcpConfig] Failed to initialize MCP config for tab " + tabId, e);
         }
+        initialized = true;
     }
 
     /** 返回配置文件路径，传给 --mcp-config。 */
     public String getConfigFilePath() {
+        ensureInitialized();
         return configPath.toAbsolutePath().toString();
     }
 
     public boolean hasServers() {
+        ensureInitialized();
         return servers.size() > 0;
     }
 

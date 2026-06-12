@@ -51,7 +51,6 @@ public class ClaudeCliSession {
     public ClaudeCliSession(String tabId) {
         this.tabId = tabId;
         this.mcpConfig = new CliMcpConfig(tabId);
-        this.mcpConfig.initialize();
     }
 
     private static long elapsedMillis(long startNanos) {
