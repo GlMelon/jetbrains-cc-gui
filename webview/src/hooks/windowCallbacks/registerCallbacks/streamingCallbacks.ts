@@ -488,6 +488,7 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
     // show incomplete content (e.g., last delta missing) or duplicated content in raw blocks.
     let backendSnapshotContent: string | undefined;
     let backendSnapshotRaw: ClaudeRawMessage | string | undefined = undefined;
+    const pendingToolResultMsgs: Array<{ content: string; raw: Record<string, unknown> }> = [];
 
     // Helper to extract assistant raw from an updateMessages JSON payload.
     const extractAssistantRaw = (json: string): { content?: string; raw?: ClaudeRawMessage | string } => {
@@ -501,6 +502,17 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
             const raw = (rawVal != null && (typeof rawVal === 'object' || typeof rawVal === 'string'))
               ? rawVal as ClaudeRawMessage | string : undefined;
             return { content: content || undefined, raw };
+          }
+        }
+        // Collect tool_result user messages from the pending snapshot so that
+        // completed tool calls are not lost when the rAF is cancelled below.
+        for (let i = 0; i < parsed.length; i++) {
+          const msg = parsed[i];
+          if (msg?.type === 'user' && typeof msg.content === 'string' && msg.content.trim() === '[tool_result]') {
+            const raw = msg.raw as Record<string, unknown> | undefined;
+            if (raw != null && typeof raw === 'object') {
+              pendingToolResultMsgs.push({ content: '[tool_result]', raw });
+            }
           }
         }
       } catch { /* ignore parse errors */ }

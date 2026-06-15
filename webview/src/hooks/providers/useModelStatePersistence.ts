@@ -87,8 +87,6 @@ export function useModelStatePersistence(options: UseModelStatePersistenceOption
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       let restoredProvider = 'claude';
-      let restoredClaudeModel = CLAUDE_MODELS[0].id;
-      let restoredCodexModel = CODEX_MODELS[0].id;
       let restoredClaudePermissionMode: PermissionMode = 'default';
       let restoredCodexPermissionMode: PermissionMode = 'default';
 
