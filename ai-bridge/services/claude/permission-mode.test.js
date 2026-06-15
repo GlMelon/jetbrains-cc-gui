@@ -149,6 +149,73 @@ test('plan mode: non-allowed tool falls through to plan-specific deny', async ()
   assert.equal(result?.hookSpecificOutput?.permissionDecision, 'deny');
 });
 
+// ======== AskUserQuestion / ExitPlanMode interception (all modes) ========
+// These tests verify that interactive tools are ALWAYS intercepted by the hook
+// and routed through canUseTool / requestPlanApproval, regardless of permission mode.
+// This ensures dialogs appear even in subagent contexts and bypassPermissions mode.
+
+test('default mode: AskUserQuestion is intercepted (not YIELD_TO_SDK)', async () => {
+  const hook = createPreToolUseHook({ value: 'default' }, '/tmp/test-cwd');
+  const result = await Promise.race([
+    hook({
+      tool_name: 'AskUserQuestion',
+      tool_input: { questions: [{ question: 'test', header: 'h', options: [], multiSelect: false }] },
+    }),
+    new Promise(r => setTimeout(() => r({ TIMEOUT: true }), 3000)),
+  ]);
+  // Hook should intercept (not yield to SDK), even though no Java process is running.
+  // The TIMEOUT means it entered canUseTool → requestAskUserQuestionAnswers → wrote file → waited.
+  assert.notEqual(result?.continue, true, 'AskUserQuestion must NOT yield to SDK in default mode');
+});
+
+test('plan mode: AskUserQuestion is intercepted (not YIELD_TO_SDK)', async () => {
+  const hook = createPreToolUseHook({ value: 'plan' }, '/tmp/test-cwd');
+  const result = await Promise.race([
+    hook({
+      tool_name: 'AskUserQuestion',
+      tool_input: { questions: [] },
+    }),
+    new Promise(r => setTimeout(() => r({ TIMEOUT: true }), 3000)),
+  ]);
+  assert.notEqual(result?.continue, true, 'AskUserQuestion must NOT yield to SDK in plan mode');
+});
+
+test('bypassPermissions mode: AskUserQuestion is intercepted (not YIELD_TO_SDK)', async () => {
+  const hook = createPreToolUseHook({ value: 'bypassPermissions' }, '/tmp/test-cwd');
+  const result = await Promise.race([
+    hook({
+      tool_name: 'AskUserQuestion',
+      tool_input: { questions: [] },
+    }),
+    new Promise(r => setTimeout(() => r({ TIMEOUT: true }), 3000)),
+  ]);
+  assert.notEqual(result?.continue, true, 'AskUserQuestion must NOT yield to SDK in bypassPermissions mode');
+});
+
+test('default mode: ExitPlanMode is intercepted (not YIELD_TO_SDK)', async () => {
+  const hook = createPreToolUseHook({ value: 'default' }, '/tmp/test-cwd');
+  const result = await Promise.race([
+    hook({
+      tool_name: 'ExitPlanMode',
+      tool_input: { plan: 'test plan' },
+    }),
+    new Promise(r => setTimeout(() => r({ TIMEOUT: true }), 3000)),
+  ]);
+  assert.notEqual(result?.continue, true, 'ExitPlanMode must NOT yield to SDK in default mode');
+});
+
+test('acceptEdits mode: AskUserQuestion is intercepted (not YIELD_TO_SDK)', async () => {
+  const hook = createPreToolUseHook({ value: 'acceptEdits' }, '/tmp/test-cwd');
+  const result = await Promise.race([
+    hook({
+      tool_name: 'AskUserQuestion',
+      tool_input: { questions: [] },
+    }),
+    new Promise(r => setTimeout(() => r({ TIMEOUT: true }), 3000)),
+  ]);
+  assert.notEqual(result?.continue, true, 'AskUserQuestion must NOT yield to SDK in acceptEdits mode');
+});
+
 // ======== SDK-shape validator self-tests ========
 // These prove the schema mirror in permission-mode-schema.js would have caught
 // the PR #1121/#1126 bug that PR #1213 fixed. If they fail, the validator no

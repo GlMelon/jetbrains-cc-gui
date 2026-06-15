@@ -128,45 +128,89 @@ export function createPreToolUseHook(permissionModeState, cwd = null, onModeChan
       };
     }
 
-    // ======== PLAN MODE ========
-    if (currentPermissionMode === 'plan') {
-      // Step 1: ExitPlanMode triggers plan approval dialog (must check BEFORE safe tools
-      // because ExitPlanMode is in SAFE_ALWAYS_ALLOW_TOOLS but needs special handling here)
-      if (toolName === 'ExitPlanMode') {
-        try {
-          const result = await requestPlanApproval(input?.tool_input);
-          if (result?.approved) {
-            const nextMode = result.targetMode || 'default';
-            currentPermissionMode = await updatePermissionMode(nextMode);
-            return {
-              hookSpecificOutput: {
-                hookEventName: 'PreToolUse',
-                permissionDecision: 'allow',
-                updatedInput: {
-                  ...input.tool_input,
-                  approved: true,
-                  targetMode: nextMode
-                }
-              }
-            };
-          }
+    // ======== INTERACTIVE TOOLS - always route through canUseTool for dialog ========
+    // AskUserQuestion must ALWAYS go through canUseTool → requestAskUserQuestionAnswers
+    // to write the permission file and show the Java-side dialog. This applies to ALL
+    // permission modes (including bypassPermissions) and ALL contexts (main session AND
+    // subagents spawned by Agent/Task tools). Without this explicit interception, the
+    // hook returns YIELD_TO_SDK which in bypassPermissions mode auto-approves without
+    // calling canUseTool, and in subagent child processes may not forward to the parent
+    // canUseTool callback at all.
+    if (toolName === 'AskUserQuestion') {
+      debugLog('PERMISSION_HOOK', 'AskUserQuestion intercepted — routing through canUseTool');
+      try {
+        const result = await canUseTool(toolName, input?.tool_input);
+        if (result?.behavior === 'allow') {
           return {
             hookSpecificOutput: {
               hookEventName: 'PreToolUse',
-              permissionDecision: 'deny'
-            },
-            reason: result?.message || 'Plan was rejected by user'
-          };
-        } catch (error) {
-          return {
-            hookSpecificOutput: {
-              hookEventName: 'PreToolUse',
-              permissionDecision: 'deny'
-            },
-            reason: 'Plan approval failed: ' + (error?.message || String(error))
+              permissionDecision: 'allow',
+              updatedInput: result.updatedInput ?? input?.tool_input
+            }
           };
         }
+        return {
+          hookSpecificOutput: {
+            hookEventName: 'PreToolUse',
+            permissionDecision: 'deny'
+          },
+          reason: result?.message || 'User did not provide answers'
+        };
+      } catch (error) {
+        debugLog('PERMISSION_HOOK', 'AskUserQuestion failed', { error: String(error) });
+        return {
+          hookSpecificOutput: {
+            hookEventName: 'PreToolUse',
+            permissionDecision: 'deny'
+          },
+          reason: 'AskUserQuestion failed: ' + (error?.message || String(error))
+        };
       }
+    }
+
+    // ExitPlanMode must ALWAYS go through requestPlanApproval to show the plan
+    // approval dialog. This applies in ALL modes (not just plan mode), because
+    // subagents or resumed sessions may call ExitPlanMode from non-plan contexts.
+    if (toolName === 'ExitPlanMode') {
+      debugLog('PERMISSION_HOOK', 'ExitPlanMode intercepted — routing through requestPlanApproval');
+      try {
+        const result = await requestPlanApproval(input?.tool_input);
+        if (result?.approved) {
+          const nextMode = result.targetMode || 'default';
+          currentPermissionMode = await updatePermissionMode(nextMode);
+          return {
+            hookSpecificOutput: {
+              hookEventName: 'PreToolUse',
+              permissionDecision: 'allow',
+              updatedInput: {
+                ...input.tool_input,
+                approved: true,
+                targetMode: nextMode
+              }
+            }
+          };
+        }
+        return {
+          hookSpecificOutput: {
+            hookEventName: 'PreToolUse',
+            permissionDecision: 'deny'
+          },
+          reason: result?.message || 'Plan was rejected by user'
+        };
+      } catch (error) {
+        return {
+          hookSpecificOutput: {
+            hookEventName: 'PreToolUse',
+            permissionDecision: 'deny'
+          },
+          reason: 'Plan approval failed: ' + (error?.message || String(error))
+        };
+      }
+    }
+
+    // ======== PLAN MODE ========
+    if (currentPermissionMode === 'plan') {
+      // Step 1: ExitPlanMode is now handled above (intercepted for ALL modes)
 
       // Step 2: Safe always-allow tools yield to SDK so settings.json deny rules can fire.
       if (SAFE_ALWAYS_ALLOW_TOOLS.has(toolName)) {
