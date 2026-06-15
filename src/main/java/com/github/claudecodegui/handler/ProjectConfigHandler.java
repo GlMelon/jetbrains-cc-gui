@@ -288,7 +288,7 @@ public class ProjectConfigHandler {
     private String readDefaultPermissionMode(String provider) {
         String mode = PropertiesComponent.getInstance().getValue(PermissionModeHandler.PERMISSION_MODE_PROPERTY_KEY);
         if (mode == null || mode.trim().isEmpty()) {
-            mode = "acceptEdits";
+            mode = "default";
         } else {
             mode = mode.trim();
         }

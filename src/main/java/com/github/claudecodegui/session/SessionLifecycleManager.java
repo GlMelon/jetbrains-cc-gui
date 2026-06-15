@@ -445,7 +445,7 @@ public class SessionLifecycleManager {
     private String readDefaultPermissionMode(String provider) {
         String mode = PropertiesComponent.getInstance().getValue(PERMISSION_MODE_PROPERTY_KEY);
         if (mode == null || mode.trim().isEmpty() || !SessionState.isValidPermissionMode(mode)) {
-            mode = CommonConstants.DEFAULT_PERMISSION_MODE;
+            mode = CommonConstants.PERMISSION_MODE_DEFAULT;
         } else {
             mode = mode.trim();
         }
