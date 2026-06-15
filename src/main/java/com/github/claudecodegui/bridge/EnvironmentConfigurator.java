@@ -43,7 +43,7 @@ public class EnvironmentConfigurator {
     private volatile Map<String, String> cachedCodexEnvVars = null;
 
     public EnvironmentConfigurator() {
-        this(new CodemossSettingsService());
+        this(CodemossSettingsService.getInstance());
     }
 
     EnvironmentConfigurator(CodemossSettingsService settingsService) {
@@ -441,7 +441,7 @@ public class EnvironmentConfigurator {
         }
 
         try {
-            String accessMode = new CodemossSettingsService().getCodexRuntimeAccessMode();
+            String accessMode = CodemossSettingsService.getInstance().getCodexRuntimeAccessMode();
             if (CodemossSettingsService.CODEX_RUNTIME_ACCESS_INACTIVE.equals(accessMode)) {
                 LOG.debug("[Codex] Skipping env_key sync from ~/.codex/config.toml: local access is not authorized");
                 return;

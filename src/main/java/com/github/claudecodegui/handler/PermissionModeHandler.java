@@ -1,6 +1,7 @@
 package com.github.claudecodegui.handler;
 
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.util.GsonHolder;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -18,7 +19,7 @@ public class PermissionModeHandler {
     static final String PERMISSION_MODE_PROPERTY_KEY = "claude.code.permission.mode";
 
     private final HandlerContext context;
-    private final Gson gson = new Gson();
+    private final Gson gson = GsonHolder.GSON;
 
     public PermissionModeHandler(HandlerContext context) {
         this.context = context;
@@ -61,17 +62,7 @@ public class PermissionModeHandler {
      */
     public void handleSetMode(String content) {
         try {
-            String mode = content;
-            if (content != null && !content.isEmpty()) {
-                try {
-                    JsonObject json = gson.fromJson(content, JsonObject.class);
-                    if (json.has("mode")) {
-                        mode = json.get("mode").getAsString();
-                    }
-                } catch (Exception e) {
-                    // content itself is the mode
-                }
-            }
+            String mode = parseMode(content);
 
             // Check if session exists
             if (context.getSession() != null) {
@@ -88,5 +79,34 @@ public class PermissionModeHandler {
         } catch (Exception e) {
             LOG.error("[PermissionModeHandler] Failed to set mode: " + e.getMessage(), e);
         }
+    }
+
+    public void handleSetSessionMode(String content) {
+        try {
+            String mode = parseMode(content);
+            if (context.getSession() != null) {
+                context.getSession().setPermissionMode(mode);
+                com.github.claudecodegui.notifications.ClaudeNotifier.setMode(context.getProject(), mode);
+            } else {
+                LOG.warn("[PermissionModeHandler] Session is null; cannot set session permission mode");
+            }
+        } catch (Exception e) {
+            LOG.error("[PermissionModeHandler] Failed to set session mode: " + e.getMessage(), e);
+        }
+    }
+
+    private String parseMode(String content) {
+        String mode = content;
+        if (content != null && !content.isEmpty()) {
+            try {
+                JsonObject json = gson.fromJson(content, JsonObject.class);
+                if (json.has("mode")) {
+                    mode = json.get("mode").getAsString();
+                }
+            } catch (Exception e) {
+                // content itself is the mode
+            }
+        }
+        return mode;
     }
 }

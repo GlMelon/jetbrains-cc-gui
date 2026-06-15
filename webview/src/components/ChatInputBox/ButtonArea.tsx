@@ -1,11 +1,12 @@
-import { useCallback, useMemo, useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
-import type { ButtonAreaProps, CodexFastMode, ModelInfo, PermissionMode, ReasoningEffort } from './types';
-import { CodexFastModeSelect, ConfigSelect, ModelSelect, ModeSelect, ProviderSelect, ReasoningSelect } from './selectors';
-import { CLAUDE_MODELS, CODEX_MODELS } from './types';
-import { STORAGE_KEYS, validateCodexCustomModels } from '../../types/provider';
-import type { CodexCustomModel } from '../../types/provider';
-import { readClaudeModelMapping } from '../../utils/claudeModelMapping';
+import {memo, useCallback, useEffect, useMemo, useState} from 'react';
+import {useTranslation} from 'react-i18next';
+import type {ButtonAreaProps, ModelInfo, PermissionMode, ReasoningEffort} from './types';
+import {CLAUDE_MODELS, CODEX_MODELS, strip1MContextSuffix} from './types';
+import {ConfigSelect, ModelSelect, ModeSelect, ProviderSelect, ReasoningSelect} from './selectors';
+import type {CodexCustomModel} from '../../types/provider';
+import {STORAGE_KEYS, validateCodexCustomModels} from '../../types/provider';
+import {readClaudeModelMapping} from '../../utils/claudeModelMapping';
+import {SendIcon, SparklesIcon, StopIcon} from '../Icons';
 
 /**
  * Get custom Codex model list from localStorage
@@ -24,9 +25,10 @@ function getCustomCodexModels(): ModelInfo[] {
     // Use runtime type validation
     const validModels = validateCodexCustomModels(parsed);
     return validModels.map(m => ({
-      id: m.id,
-      label: m.label || m.id,
+      id: strip1MContextSuffix(m.id),  // Strip [1m] from ID for clean display
+      label: m.label || strip1MContextSuffix(m.id),
       description: m.description,
+      contextWindow: m.contextWindow,
     }));
   } catch {
     return [];
@@ -53,9 +55,10 @@ function getCustomClaudeModels(): ModelInfo[] {
     return parsed
       .filter((m): m is CodexCustomModel => !!m && typeof m === 'object' && typeof m.id === 'string' && m.id.trim().length > 0)
       .map(m => ({
-        id: m.id,
-        label: m.label || m.id,
+        id: strip1MContextSuffix(m.id),  // Strip [1m] from ID for clean display
+        label: m.label || strip1MContextSuffix(m.id),
         description: m.description,
+        contextWindow: m.contextWindow,
       }));
   } catch {
     return [];
@@ -66,7 +69,7 @@ function getCustomClaudeModels(): ModelInfo[] {
  * ButtonArea - Bottom toolbar component
  * Contains mode selector, model selector, attachment button, prompt enhancer button, send/stop button
  */
-export const ButtonArea = ({
+export const ButtonArea = memo(function ButtonArea({
   disabled = false,
   hasInputContent = false,
   isLoading = false,
@@ -75,14 +78,12 @@ export const ButtonArea = ({
   permissionMode = 'default',
   currentProvider = 'claude',
   reasoningEffort = 'high',
-  codexFastMode = 'normal',
   onSubmit,
   onStop,
   onModeSelect,
   onModelSelect,
   onProviderSelect,
   onReasoningChange,
-  onCodexFastModeChange,
   onEnhancePrompt,
   alwaysThinkingEnabled = false,
   onToggleThinking,
@@ -94,7 +95,7 @@ export const ButtonArea = ({
   onAddModel,
   longContextEnabled = true,
   onLongContextChange,
-}: ButtonAreaProps) => {
+}: ButtonAreaProps) {
   const { t } = useTranslation();
   // const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -219,8 +220,12 @@ export const ButtonArea = ({
    * Handle model selection
    */
   const handleModelSelect = useCallback((modelId: string) => {
-    onModelSelect?.(modelId);
-  }, [onModelSelect]);
+      // Strip [1m] suffix and look up contextWindow from the merged model list
+      const stripped = strip1MContextSuffix(modelId);
+      const modelInfo = availableModels.find(m => m.id === stripped);
+      // Pass clean model ID (no [1m]) to the bridge
+      onModelSelect?.(stripped, modelInfo?.contextWindow);
+  }, [onModelSelect, availableModels]);
 
   /**
    * Handle provider selection
@@ -235,13 +240,6 @@ export const ButtonArea = ({
   const handleReasoningChange = useCallback((effort: ReasoningEffort) => {
     onReasoningChange?.(effort);
   }, [onReasoningChange]);
-
-  /**
-   * Handle Codex speed mode selection
-   */
-  const handleCodexFastModeChange = useCallback((mode: CodexFastMode) => {
-    onCodexFastModeChange?.(mode);
-  }, [onCodexFastModeChange]);
 
   /**
    * Handle enhance prompt button click
@@ -265,17 +263,18 @@ export const ButtonArea = ({
           onOpenAgentSettings={onOpenAgentSettings}
           currentProvider={currentProvider}
         />
+        <span className="selector-separator" />
         <ProviderSelect
           value={currentProvider}
           onChange={handleProviderSelect}
           compact
         />
+        <span className="selector-separator" />
         <ModeSelect value={permissionMode} onChange={handleModeSelect} provider={currentProvider} />
+        <span className="selector-separator" />
         <ModelSelect value={selectedModel} onChange={handleModelSelect} models={availableModels} currentProvider={currentProvider} onAddModel={onAddModel} longContextEnabled={longContextEnabled} onLongContextChange={onLongContextChange} />
+        <span className="selector-separator" />
         <ReasoningSelect value={reasoningEffort} onChange={handleReasoningChange} selectedModel={selectedModel} currentProvider={currentProvider} />
-        {currentProvider === 'codex' && (
-          <CodexFastModeSelect value={codexFastMode} onChange={handleCodexFastModeChange} />
-        )}
       </div>
 
       {/* Right side: tool buttons */}
@@ -289,7 +288,13 @@ export const ButtonArea = ({
           disabled={disabled || !hasInputContent || isLoading || isEnhancing}
           data-tooltip={`${t('promptEnhancer.tooltip')} (${t('promptEnhancer.shortcut')})`}
         >
-          <span className={`codicon ${isEnhancing ? 'codicon-loading codicon-modifier-spin' : 'codicon-sparkle'}`} />
+          {isEnhancing ? (
+            <svg className="icon spinning" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 12a9 9 0 11-6.219-8.56" />
+            </svg>
+          ) : (
+            <SparklesIcon size={16} />
+          )}
         </button>
 
         {/* Send/Stop button */}
@@ -299,7 +304,7 @@ export const ButtonArea = ({
             onClick={handleStopClick}
             title={t('chat.stopGeneration')}
           >
-            <span className="codicon codicon-debug-stop" />
+            <StopIcon size={14} />
           </button>
         ) : (
           <button
@@ -308,12 +313,12 @@ export const ButtonArea = ({
             disabled={disabled || !hasInputContent}
             title={t('chat.sendMessageEnter')}
           >
-            <span className="codicon codicon-send" />
+            <SendIcon size={16} />
           </button>
         )}
       </div>
     </div>
   );
-};
+});
 
 export default ButtonArea;

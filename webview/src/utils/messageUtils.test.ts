@@ -19,6 +19,7 @@ import {
   extractCompactItems,
   buildCompactNotification,
   TASK_STATUS_COLORS,
+  normalizeBlocks as normalizeContentBlocks,
 } from './messageUtils';
 
 // ---------------------------------------------------------------------------
@@ -130,6 +131,59 @@ describe('getContentBlocks', () => {
     expect(result.map((block) => block.type)).toEqual(['tool_use', 'text']);
     expect((result[1] as any).text).toBe('命令已经执行完成。');
   });
+
+  it('does not append provider error content that is already rendered in details', () => {
+    const details = 'Codex CLI 请求失败，原因：Reconnecting... 1/5 (stream disconnected before completion: stream closed before response.completed)';
+    const message: ClaudeMessage = {
+      type: 'assistant',
+      content: details,
+      raw: {
+        content: [
+          {
+            type: 'provider_error',
+            provider: 'codex',
+            summary: 'Reconnecting... 1/5 (stream disconnected before completion: stream closed before response.completed)',
+            details,
+            exitCode: 1,
+          },
+        ],
+      } as any,
+    };
+
+    const result = getContentBlocks(message, normalizeBlocks, localizeMessage);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].type).toBe('provider_error');
+  });
+});
+
+describe('normalizeBlocks provider_error', () => {
+  it('preserves provider error fields from raw content blocks', () => {
+    const result = normalizeContentBlocks(
+      {
+        content: [
+          {
+            type: 'provider_error',
+            provider: 'codex',
+            summary: '服务暂时不可用',
+            details: 'Codex CLI 请求失败，原因：服务暂时不可用 (503)',
+            exitCode: 1,
+          },
+        ],
+      } as any,
+      (text) => text,
+      ((key: string) => key) as any,
+    );
+
+    expect(result).toHaveLength(1);
+    expect(result?.[0]).toEqual({
+      type: 'provider_error',
+      provider: 'codex',
+      summary: '服务暂时不可用',
+      details: 'Codex CLI 请求失败，原因：服务暂时不可用 (503)',
+      exitCode: 1,
+    });
+  });
 });
 
 describe('isSyntheticToolMessageContent', () => {
@@ -217,6 +271,25 @@ describe('mergeConsecutiveAssistantMessages', () => {
     const result = mergeConsecutiveAssistantMessages(messages, normalizeBlocks);
     expect(result).toHaveLength(2);
     expect(result.map((message) => message.__turnId)).toEqual([10, 11]);
+  });
+
+  it('does not merge assistant messages that are separate groups in the same response', () => {
+    const messages: ClaudeMessage[] = [
+      makeMsg('assistant', 'first group', {
+        __responseId: 'response-1',
+        raw: { content: [{ type: 'text', text: 'first group' }] } as any,
+      }),
+      makeMsg('assistant', 'second group', {
+        __responseId: 'response-1',
+        raw: { content: [{ type: 'text', text: 'second group' }] } as any,
+      }),
+    ];
+
+    const result = mergeConsecutiveAssistantMessages(messages, normalizeBlocks);
+
+    expect(result).toHaveLength(2);
+    expect(result.map((message) => message.content)).toEqual(['first group', 'second group']);
+    expect(result.map((message) => message.__responseId)).toEqual(['response-1', 'response-1']);
   });
 
   it('does not merge streaming message (has __turnId) with history message (no __turnId)', () => {
@@ -312,7 +385,7 @@ describe('mergeConsecutiveAssistantMessages', () => {
     expect(mergedRaw.content?.some((b) => b.type === 'text')).toBe(true);
   });
 
-  it('keeps tool_use separated from final answer for streaming messages (has __turnId)', () => {
+  it('merges tool_use with final answer for streaming messages from the same turn', () => {
     const messages: ClaudeMessage[] = [
       makeMsg('assistant', '', {
         __turnId: 1,
@@ -328,9 +401,72 @@ describe('mergeConsecutiveAssistantMessages', () => {
     ];
 
     const result = mergeConsecutiveAssistantMessages(messages, normalizeBlocks);
-    // Should have 2 assistant messages: tool_use block and final answer block
-    // (user tool_result is skipped, but assistant blocks stay separated)
-    expect(result.filter((m) => m.type === 'assistant')).toHaveLength(2);
+    expect(result).toHaveLength(1);
+    const mergedRaw = result[0].raw as { content?: Array<{ type?: string }> };
+    expect(mergedRaw.content?.some((b) => b.type === 'tool_use')).toBe(true);
+    expect(mergedRaw.content?.some((b) => b.type === 'text')).toBe(true);
+    expect(result[0].__turnId).toBe(1);
+  });
+
+  it('merges Codex CLI streamed text and tool snapshot from the same turn', () => {
+    const messages: ClaudeMessage[] = [
+      makeMsg('assistant', '明白了，预警判断应该跟设备挂钩', {
+        __turnId: 7,
+        raw: {
+          message: {
+            content: [
+              { type: 'text', text: '明白了，预警判断应该跟设备挂钩' },
+            ],
+          },
+        } as any,
+      }),
+      makeMsg('assistant', '', {
+        __turnId: 7,
+        raw: {
+          message: {
+            content: [
+              { type: 'tool_use', id: 'read-1', name: 'Read', input: { file_path: 'init.sql' } },
+            ],
+          },
+        } as any,
+      }),
+    ];
+
+    const result = mergeConsecutiveAssistantMessages(messages, normalizeBlocks);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].content).toBe('明白了，预警判断应该跟设备挂钩');
+    const mergedRaw = result[0].raw as { content?: Array<{ type?: string; id?: string; text?: string }> };
+    expect(mergedRaw.content?.map((block) => block.type)).toEqual(['text', 'tool_use']);
+    expect(mergedRaw.content?.[0].text).toBe('明白了，预警判断应该跟设备挂钩');
+    expect(mergedRaw.content?.[1].id).toBe('read-1');
+  });
+
+  it('preserves provider error blocks when merging history assistant messages', () => {
+    const messages: ClaudeMessage[] = [
+      makeMsg('assistant', 'partial answer', {
+        raw: { content: [{ type: 'text', text: 'partial answer' }] } as any,
+      }),
+      makeMsg('assistant', '服务暂时不可用', {
+        raw: {
+          content: [
+            {
+              type: 'provider_error',
+              provider: 'codex',
+              summary: '服务暂时不可用',
+              details: 'Codex CLI 请求失败，原因：服务暂时不可用 (503)',
+            },
+          ],
+        } as any,
+      }),
+    ];
+
+    const result = mergeConsecutiveAssistantMessages(messages, normalizeBlocks);
+
+    expect(result).toHaveLength(1);
+    const mergedRaw = result[0].raw as { content?: Array<{ type?: string; details?: string }> };
+    expect(mergedRaw.content?.map((block) => block.type)).toEqual(['text', 'provider_error']);
+    expect(mergedRaw.content?.[1].details).toBe('Codex CLI 请求失败，原因：服务暂时不可用 (503)');
   });
 });
 
@@ -1053,4 +1189,3 @@ describe('buildCompactNotification', () => {
     expect(result!.content).toBe('/compact');
   });
 });
-

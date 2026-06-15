@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ToolInput, ToolResultBlock } from '../../types';
 import { useIsToolDenied } from '../../hooks/useIsToolDenied';
@@ -64,7 +64,7 @@ const PARAM_VALUE_STYLE: React.CSSProperties = {
   flex: 1,
 };
 
-const ReadToolBlock = ({ input, result, toolId }: ReadToolBlockProps) => {
+const ReadToolBlock = memo(function ReadToolBlock({ input, result, toolId }: ReadToolBlockProps) {
   const [expanded, setExpanded] = useState(false);
   const { t } = useTranslation();
   const isDenied = useIsToolDenied(toolId);
@@ -175,6 +175,6 @@ const ReadToolBlock = ({ input, result, toolId }: ReadToolBlockProps) => {
       )}
     </div>
   );
-};
+});
 
 export default ReadToolBlock;

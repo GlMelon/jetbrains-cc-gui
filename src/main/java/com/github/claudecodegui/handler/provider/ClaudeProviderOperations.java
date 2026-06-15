@@ -1,10 +1,11 @@
 package com.github.claudecodegui.handler.provider;
 
-import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.settings.ProviderManager;
 
 import com.github.claudecodegui.model.DeleteResult;
+import com.github.claudecodegui.util.PlatformUtils;
+import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
@@ -20,7 +21,7 @@ import java.nio.file.Paths;
  */
 public class ClaudeProviderOperations {
     private static final Logger LOG = Logger.getInstance(ClaudeProviderOperations.class);
-    private static final Gson GSON = new Gson();
+    private static final Gson GSON = GsonHolder.GSON;
 
     private final HandlerContext context;
 
@@ -274,7 +275,7 @@ public class ClaudeProviderOperations {
 
             if (ProviderManager.LOCAL_SETTINGS_PROVIDER_ID.equals(id)) {
                 // Validate settings.json exists
-                Path settingsPath = Paths.get(NodeDetector.resolveHomeForFileOps(), ".claude", "settings.json");
+                Path settingsPath = Paths.get(PlatformUtils.getHomeDirectory(), ".claude", "settings.json");
                 if (!Files.exists(settingsPath)) {
                     LOG.warn("[ProviderHandler] Local settings.json does not exist at: " + settingsPath);
                     ApplicationManager.getApplication().invokeLater(() -> {

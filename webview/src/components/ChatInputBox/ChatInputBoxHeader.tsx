@@ -1,10 +1,11 @@
+import { memo } from 'react';
 import type { TFunction } from 'i18next';
 import type { Attachment, SelectedAgent, QueuedMessage } from './types.js';
 import { AttachmentList } from './AttachmentList.js';
 import { ContextBar } from './ContextBar.js';
 import { MessageQueue } from './MessageQueue.js';
 
-export function ChatInputBoxHeader({
+export const ChatInputBoxHeader = memo(function ChatInputBoxHeader({
   sdkStatusLoading,
   sdkInstalled,
   currentProvider,
@@ -17,6 +18,7 @@ export function ChatInputBoxHeader({
   usagePercentage,
   usageUsedTokens,
   usageMaxTokens,
+  tokenDetail,
   showUsage,
   onClearContext,
   onAddAttachment,
@@ -32,6 +34,7 @@ export function ChatInputBoxHeader({
   onDismissOpenSourceBanner,
   autoOpenFileEnabled,
   onRequestEnableFileContext,
+  selectedModel,
 }: {
   sdkInstalled: boolean;
   sdkStatusLoading: boolean;
@@ -45,6 +48,7 @@ export function ChatInputBoxHeader({
   usagePercentage: number;
   usageUsedTokens?: number;
   usageMaxTokens?: number;
+  tokenDetail?: any;
   showUsage: boolean;
   onClearContext?: () => void;
   onAddAttachment: (files: FileList) => void;
@@ -60,6 +64,7 @@ export function ChatInputBoxHeader({
   onDismissOpenSourceBanner?: () => void;
   autoOpenFileEnabled?: boolean;
   onRequestEnableFileContext?: () => void;
+  selectedModel?: string;
 }) {
   return (
     <>
@@ -127,6 +132,7 @@ export function ChatInputBoxHeader({
         percentage={usagePercentage}
         usedTokens={usageUsedTokens}
         maxTokens={usageMaxTokens}
+        tokenDetail={tokenDetail}
         showUsage={showUsage}
         onClearFile={onClearContext}
         onAddAttachment={onAddAttachment}
@@ -139,8 +145,9 @@ export function ChatInputBoxHeader({
         onToggleStatusPanel={onToggleStatusPanel}
         autoOpenFileEnabled={autoOpenFileEnabled}
         onRequestEnableFileContext={onRequestEnableFileContext}
+        selectedModel={selectedModel}
       />
     </>
   );
-}
+});
 

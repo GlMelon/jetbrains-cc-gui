@@ -1,8 +1,9 @@
 package com.github.claudecodegui.skill;
 
-import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.settings.CodexSettingsManager;
+import com.github.claudecodegui.util.PlatformUtils;
+import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -40,7 +41,7 @@ import java.util.regex.Pattern;
  */
 public class CodexSkillService {
     private static final Logger LOG = Logger.getInstance(CodexSkillService.class);
-    private static final Gson gson = new Gson();
+    private static final Gson gson = GsonHolder.GSON;
     private static final int MAX_SCAN_LEVELS = 3;
 
     // Shared instance to avoid repeated instantiation (I1)
@@ -150,7 +151,7 @@ public class CodexSkillService {
         }
 
         // User-level directories
-        String userHome = NodeDetector.resolveHomeForFileOps();
+        String userHome = PlatformUtils.getHomeDirectory();
 
         // ~/.agents/skills/ (Codex community skills)
         String agentsDir = Paths.get(userHome, ".agents", "skills").toString();
@@ -438,7 +439,7 @@ public class CodexSkillService {
 
         String targetDir;
         if ("user".equals(scope)) {
-            targetDir = Paths.get(NodeDetector.resolveHomeForFileOps(), ".agents", "skills").toString();
+            targetDir = Paths.get(PlatformUtils.getHomeDirectory(), ".agents", "skills").toString();
         } else {
             if (cwd == null || cwd.isEmpty()) {
                 result.addProperty("success", false);
@@ -570,7 +571,7 @@ public class CodexSkillService {
             }
             String baseDir;
             if ("user".equals(scope)) {
-                baseDir = Paths.get(NodeDetector.resolveHomeForFileOps(), ".agents", "skills").toString();
+                baseDir = Paths.get(PlatformUtils.getHomeDirectory(), ".agents", "skills").toString();
             } else {
                 if (cwd == null || cwd.isEmpty()) {
                     result.addProperty("success", false);
@@ -591,7 +592,7 @@ public class CodexSkillService {
         // Security: verify the skill directory is inside a legitimate skills directory
         // Collect all valid skills base directories
         List<Path> validBaseDirs = new ArrayList<>();
-        String userHome = NodeDetector.resolveHomeForFileOps();
+        String userHome = PlatformUtils.getHomeDirectory();
         validBaseDirs.add(Paths.get(userHome, ".agents", "skills"));
         validBaseDirs.add(Paths.get(userHome, ".codex", "skills"));
         validBaseDirs.add(Paths.get(userHome, ".codex", "skills", ".system"));
@@ -731,7 +732,7 @@ public class CodexSkillService {
 
     private static boolean isCodexLocalConfigAuthorized() {
         try {
-            return new CodemossSettingsService().isCodexLocalConfigAuthorized();
+            return CodemossSettingsService.getInstance().isCodexLocalConfigAuthorized();
         } catch (Exception e) {
             LOG.warn("[CodexSkills] Failed to read Codex local authorization state: " + e.getMessage());
             return false;

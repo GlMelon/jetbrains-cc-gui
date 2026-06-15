@@ -1,12 +1,14 @@
 package com.github.claudecodegui.handler.history;
 
-import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.handler.NodeJsServiceCaller;
 import com.github.claudecodegui.handler.core.HandlerContext;
 
 import com.github.claudecodegui.cache.SessionIndexCache;
 import com.github.claudecodegui.cache.SessionIndexManager;
+import com.github.claudecodegui.util.AttachmentStorageService;
 import com.github.claudecodegui.util.PathUtils;
+import com.github.claudecodegui.util.PlatformUtils;
+import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -33,7 +35,7 @@ import java.util.stream.Stream;
 class HistoryDeleteService {
 
     private static final Logger LOG = Logger.getInstance(HistoryDeleteService.class);
-    private static final Gson GSON = new Gson();
+    private static final Gson GSON = GsonHolder.GSON;
 
     // Reject anything outside [A-Za-z0-9._-] to defeat path-traversal payloads such as "../foo"
     // before they reach Path.resolve. Session IDs in both providers are alphanumeric/UUID style.
@@ -71,6 +73,7 @@ class HistoryDeleteService {
 
                 LOG.info("[HistoryHandler] Delete completed - Main file: " + (result.mainDeleted ? "deleted" : "not found") + ", Agent files: " + result.agentFilesDeleted);
 
+                cleanupSessionAttachments(currentProvider, sessionId);
                 if (result.mainDeleted) {
                     cleanupSessionMetadata(sessionId);
                 }
@@ -106,6 +109,7 @@ class HistoryDeleteService {
                 for (String sessionId : sessionIds) {
                     try {
                         DeleteResult result = deleteSessionFiles(sessionId, currentProvider);
+                        cleanupSessionAttachments(currentProvider, sessionId);
                         if (result.mainDeleted) {
                             mainDeletedCount++;
                             cleanupSessionMetadata(sessionId);
@@ -179,9 +183,7 @@ class HistoryDeleteService {
             return new DeleteResult(deleteCodexSession(sessionId), 0);
         }
 
-        String rawPath = context.getProject().getBasePath();
-        String nodePath = NodeDetector.getInstance().getCachedNodePath();
-        String projectPath = NodeDetector.isWslPath(nodePath) ? NodeDetector.convertToWslPath(rawPath) : rawPath;
+        String projectPath = context.getProject().getBasePath();
         if (projectPath == null) {
             LOG.warn("[HistoryHandler] Project base path is null, cannot delete Claude session");
             return new DeleteResult(false, 0);
@@ -192,7 +194,7 @@ class HistoryDeleteService {
     }
 
     private boolean deleteCodexSession(String sessionId) throws java.io.IOException {
-        String homeDir = NodeDetector.resolveHomeForFileOps();
+        String homeDir = PlatformUtils.getHomeDirectory();
         Path sessionDir = Paths.get(homeDir, ".codex", "sessions");
 
         if (!Files.exists(sessionDir)) {
@@ -237,7 +239,7 @@ class HistoryDeleteService {
      * @return int[2]: [mainDeleted(0/1), agentFilesDeleted]
      */
     private int[] deleteClaudeSession(String sessionId, String projectPath) throws java.io.IOException {
-        String homeDir = NodeDetector.resolveHomeForFileOps();
+        String homeDir = PlatformUtils.getHomeDirectory();
         Path claudeDir = Paths.get(homeDir, ".claude");
         Path projectsDir = claudeDir.resolve("projects");
         String sanitizedPath = PathUtils.sanitizePath(projectPath);
@@ -301,9 +303,7 @@ class HistoryDeleteService {
 
     private void cleanupCache(String currentProvider) {
         try {
-            String rawPath2 = context.getProject().getBasePath();
-            String nodePath2 = NodeDetector.getInstance().getCachedNodePath();
-            String projectPath = NodeDetector.isWslPath(nodePath2) ? NodeDetector.convertToWslPath(rawPath2) : rawPath2;
+            String projectPath = context.getProject().getBasePath();
             if ("codex".equals(currentProvider)) {
                 SessionIndexCache.getInstance().clearAllCodexCache();
                 SessionIndexManager.getInstance().clearAllCodexIndex();
@@ -313,6 +313,16 @@ class HistoryDeleteService {
             }
         } catch (Exception e) {
             LOG.warn("[HistoryHandler] Failed to clean up cache (does not affect deletion): " + e.getMessage());
+        }
+    }
+
+    private void cleanupSessionAttachments(String provider, String sessionId) {
+        try {
+            AttachmentStorageService storageService = AttachmentStorageService.getInstance();
+            storageService.deleteSessionRecords(provider, sessionId);
+            storageService.cleanupOrphanedResources(storageService.collectAllReferencedHashes());
+        } catch (Exception e) {
+            LOG.warn("[HistoryHandler] Failed to clean up session attachments: " + e.getMessage());
         }
     }
 

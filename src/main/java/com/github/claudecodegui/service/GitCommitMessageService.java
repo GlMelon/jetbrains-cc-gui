@@ -137,7 +137,7 @@ Footer 包含：
 
     public GitCommitMessageService(@NotNull Project project) {
         this.project = project;
-        this.settingsService = new CodemossSettingsService();
+        this.settingsService = CodemossSettingsService.getInstance();
     }
 
     /**
@@ -474,9 +474,9 @@ Footer 包含：
             // Simple callback handler
             StringBuilder result = new StringBuilder();
 
-            // CodexSDKBridge.sendMessage requires 11 parameters:
-            // (channelId, message, threadId, cwd, attachments, permissionMode, model, agentPrompt, reasoningEffort, serviceTier, callback)
-            bridge.sendMessage(
+            // CodexSDKBridge.sendMessage requires 10 parameters:
+            // (channelId, message, threadId, cwd, attachments, permissionMode, model, agentPrompt, reasoningEffort, callback)
+            bridge.sendMessageWithDaemonPreferred(
                 "git-commit-message",      // channelId
                 prompt,                     // message
                 null,                       // threadId (null = new session)
@@ -486,7 +486,6 @@ Footer 包含：
                 model,                      // model
                 null,                       // agentPrompt (not needed)
                 null,                       // reasoningEffort (use default)
-                null,                       // serviceTier (standard)
                 new MessageCallback() {
                     @Override
                     public void onMessage(String type, String content) {

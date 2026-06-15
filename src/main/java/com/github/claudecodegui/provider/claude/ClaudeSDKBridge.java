@@ -2,7 +2,6 @@ package com.github.claudecodegui.provider.claude;
 
 import com.google.gson.JsonObject;
 
-import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.session.ClaudeSession;
 import com.github.claudecodegui.model.NodeDetectionResult;
 import com.github.claudecodegui.provider.common.BaseSDKBridge;
@@ -114,7 +113,7 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
      * Prewarm daemon asynchronously to reduce first-message latency.
      */
     public void prewarmDaemonAsync(String cwd, String runtimeSessionEpoch) {
-        daemonCoordinator.prewarmDaemonAsync(normalizeCwdForNode(cwd), runtimeSessionEpoch, null);
+        daemonCoordinator.prewarmDaemonAsync(cwd, runtimeSessionEpoch, null);
     }
 
     /**
@@ -126,11 +125,16 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
      * @param sessionId The historical session ID to resume
      */
     public void prewarmDaemonAsync(String cwd, String runtimeSessionEpoch, String sessionId) {
-        daemonCoordinator.prewarmDaemonAsync(normalizeCwdForNode(cwd), runtimeSessionEpoch, sessionId);
+        daemonCoordinator.prewarmDaemonAsync(cwd, runtimeSessionEpoch, sessionId);
     }
 
     public void resetPersistentRuntime(String runtimeSessionEpoch) {
         daemonCoordinator.resetPersistentRuntime(runtimeSessionEpoch);
+    }
+
+    public void refreshInvocationMode() {
+        // Invocation mode is resolved per request. This method remains for
+        // compatibility with older handlers that call it after settings changes.
     }
 
     @Override
@@ -149,7 +153,7 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
         if (db != null && db.isAlive()) {
             LOG.info("[ClaudeSDKBridge] Sending daemon abort for channel: " + channelId);
             try {
-                db.sendAbort();
+                db.sendAbort(channelId);
             } catch (Exception e) {
                 LOG.error("[ClaudeSDKBridge] Daemon abort failed: " + e.getMessage());
             }
@@ -403,34 +407,22 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
             String reasoningEffort,
             MessageCallback callback
     ) {
-        String normalizedCwd = normalizeCwdForNode(cwd);
+        LOG.debug("[ClaudeSDKBridge][DIAG] sendMessage called, attachments="
+                + (attachments == null ? "NULL" : attachments.size()));
 
         // Try daemon mode first (avoids per-request Node.js process spawning)
-        DaemonBridge db = daemonCoordinator.getDaemonBridge();
+        DaemonBridge db = getDaemonBridgeForSend();
         if (db != null) {
-            return sendMessageViaDaemon(db, channelId, message, sessionId, runtimeSessionEpoch, normalizedCwd,
+            return sendViaDaemonBridge(db, channelId, message, sessionId, runtimeSessionEpoch, cwd,
                     attachments, permissionMode, model, openedFiles, agentPrompt,
                     streaming, disableThinking, reasoningEffort, callback);
         }
 
         // Fallback: per-process mode (spawns a new Node.js process per request)
         LOG.info("[ClaudeSDKBridge] Using per-process mode (daemon not available)");
-        return processInvoker.sendMessage(
-                channelId,
-                message,
-                sessionId,
-                runtimeSessionEpoch,
-                normalizedCwd,
-                attachments,
-                permissionMode,
-                model,
-                openedFiles,
-                agentPrompt,
-                streaming,
-                disableThinking,
-                reasoningEffort,
-                callback
-        );
+        return sendViaProcessInvoker(channelId, message, sessionId, runtimeSessionEpoch, cwd,
+                attachments, permissionMode, model, openedFiles, agentPrompt,
+                streaming, disableThinking, reasoningEffort, callback);
     }
 
     /**
@@ -438,6 +430,44 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
      */
     public List<JsonObject> getSessionMessages(String sessionId, String cwd) {
         return sessionQueryService.getSessionMessages(sessionId, cwd);
+    }
+
+    public CompletableFuture<SDKResult> sendMessage(
+            String channelId,
+            String message,
+            String sessionId,
+            String runtimeSessionEpoch,
+            String cwd,
+            List<ClaudeSession.Attachment> attachments,
+            String permissionMode,
+            String model,
+            JsonObject openedFiles,
+            String agentPrompt,
+            Boolean streaming,
+            Boolean disableThinking,
+            String reasoningEffort,
+            String invocationMode,
+            MessageCallback callback
+    ) {
+        if (invocationMode != null && !invocationMode.isBlank() && !"sdk".equals(invocationMode)) {
+            LOG.info("[ClaudeSDKBridge] Ignoring non-SDK invocation mode in SDK bridge for channel "
+                    + channelId + ": " + invocationMode);
+        }
+
+        DaemonBridge db = getDaemonBridgeForSend();
+        if (db != null) {
+            return sendViaDaemonBridge(db, channelId, message, sessionId, runtimeSessionEpoch, cwd,
+                    attachments, permissionMode, model, openedFiles, agentPrompt,
+                    streaming, disableThinking, reasoningEffort, callback);
+        }
+
+        return sendViaProcessInvoker(channelId, message, sessionId, runtimeSessionEpoch, cwd,
+                attachments, permissionMode, model, openedFiles, agentPrompt,
+                streaming, disableThinking, reasoningEffort, callback);
+    }
+
+    protected DaemonBridge getDaemonBridgeForSend() {
+        return daemonCoordinator.getDaemonBridge();
     }
 
     public JsonObject getLatestClaudeUserMessage(String sessionId, String cwd) {
@@ -448,21 +478,14 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
      * Get MCP server connection status.
      */
     public CompletableFuture<List<JsonObject>> getMcpServerStatus(String cwd) {
-        return mcpQueryService.getMcpServerStatus(normalizeCwdForNode(cwd));
+        return mcpQueryService.getMcpServerStatus(cwd);
     }
 
     /**
      * Get MCP server tools list.
      */
-    public CompletableFuture<JsonObject> getMcpServerTools(String serverId) {
-        return mcpQueryService.getMcpServerTools(serverId, null);
-    }
-
-    /**
-     * Get MCP server tools list with working directory for project-specific config resolution.
-     */
     public CompletableFuture<JsonObject> getMcpServerTools(String serverId, String cwd) {
-        return mcpQueryService.getMcpServerTools(serverId, normalizeCwdForNode(cwd));
+        return mcpQueryService.getMcpServerTools(serverId, cwd);
     }
 
     // ============================================================================
@@ -637,21 +660,65 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
     }
 
     /**
-     * Converts a Windows-style cwd to a WSL path when the active node executable is a WSL binary.
-     * On non-WSL setups this is a no-op.
+     * Testable hook for daemon routing.
      */
-    private String normalizeCwdForNode(String cwd) {
-        if (cwd == null || cwd.isEmpty()) {
-            LOG.info("[ClaudeSDKBridge.normalizeCwdForNode] cwd is null/empty, no-op");
-            return cwd;
-        }
-        String nodePath = nodeDetector.getCachedNodePath();
-        boolean isWsl = nodePath != null && NodeDetector.isWslPath(nodePath);
-        String result = isWsl ? NodeDetector.convertToWslPath(cwd) : cwd;
-        LOG.info("[ClaudeSDKBridge.normalizeCwdForNode] cwd=" + cwd
-                + " nodePath=" + nodePath
-                + " isWsl=" + isWsl
-                + " result=" + result);
-        return result;
+    protected CompletableFuture<SDKResult> sendViaDaemonBridge(
+            DaemonBridge daemon,
+            String channelId,
+            String message,
+            String sessionId,
+            String runtimeSessionEpoch,
+            String cwd,
+            List<ClaudeSession.Attachment> attachments,
+            String permissionMode,
+            String model,
+            JsonObject openedFiles,
+            String agentPrompt,
+            Boolean streaming,
+            Boolean disableThinking,
+            String reasoningEffort,
+            MessageCallback callback
+    ) {
+        return sendMessageViaDaemon(daemon, channelId, message, sessionId, runtimeSessionEpoch, cwd,
+                attachments, permissionMode, model, openedFiles, agentPrompt,
+                streaming, disableThinking, reasoningEffort, callback);
     }
+
+    /**
+     * Testable hook for per-process routing.
+     */
+    protected CompletableFuture<SDKResult> sendViaProcessInvoker(
+            String channelId,
+            String message,
+            String sessionId,
+            String runtimeSessionEpoch,
+            String cwd,
+            List<ClaudeSession.Attachment> attachments,
+            String permissionMode,
+            String model,
+            JsonObject openedFiles,
+            String agentPrompt,
+            Boolean streaming,
+            Boolean disableThinking,
+            String reasoningEffort,
+            MessageCallback callback
+    ) {
+        return processInvoker.sendMessage(
+                channelId,
+                message,
+                sessionId,
+                runtimeSessionEpoch,
+                cwd,
+                attachments,
+                permissionMode,
+                model,
+                openedFiles,
+                agentPrompt,
+                streaming,
+                disableThinking,
+                reasoningEffort,
+                callback
+        );
+    }
+
 }

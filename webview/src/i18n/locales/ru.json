@@ -35,6 +35,7 @@
     "emptyMessage": "Пустое сообщение",
     "clickToPreview": "Нажмите для просмотра",
     "userUploadedImage": "Загружено изображение",
+    "imageLoadFailed": "Не удалось загрузить изображение",
     "inputPlaceholder": "@файлы, #агенты, Enter — отправить",
     "inputPlaceholderEnter": "@файлы, #агенты, Enter — отправить",
     "inputPlaceholderCmdEnter": "@файлы, #агенты, ⌘Enter — отправить",
@@ -91,8 +92,13 @@
     "streamingConnected": "{{provider}} обрабатывает запрос",
     "showEarlierMessages": "Показать предыдущие сообщения ({{count}})",
     "totalDuration": "Этот ответ занял",
-    "tokenUsage": "вход {{input}} / выход {{output}}",
-    "tokenUsageDetail": "Итог хода — вход {{input}} · запись кэша {{cacheWrite}} · чтение кэша {{cacheRead}} · выход {{output}}",
+    "waitingTimedOutDuration": "Ожидание истекло",
+    "streamStalledRetrying": "Вывод модели не поступал некоторое время. CLI может всё ещё повторять попытку; при сбое будет показана итоговая ошибка.",
+    "usageStats": {
+      "input": "Вход：",
+      "output": "Выход：",
+      "duration": "Время："
+    },
     "search": {
       "ariaLabel": "Поиск в беседе",
       "placeholder": "Поиск в беседе…",
@@ -117,6 +123,18 @@
       "userContext": "Контекст: «{{context}}»",
       "expand": "Развернуть сводку",
       "collapse": "Свернуть сводку"
+    },
+    "tokenIndicator": {
+      "contextStats": "Статистика контекста",
+      "inputToken": "Входные токены",
+      "outputToken": "Выходные токены",
+      "cacheRead": "Чтение кэша",
+      "cacheWrite": "Запись в кэш",
+      "cacheHitRate": "{{rate}}% попаданий",
+      "total": "Итого {{used}} / {{max}}",
+      "sessionInfo": "Текущая сессия · {{model}} · {{maxTokens}} окно контекста",
+      "includes": "Включает: системный промпт, сообщения, контекст файлов, результаты инструментов, чтение кэша",
+      "source": "Источник: Системный промпт · История сообщений · Текущий файл · Ввод/вывод инструментов"
     }
   },
   "settings": {
@@ -161,9 +179,9 @@
         "versionTooLow": "Версия Node.js слишком старая. Плагин требует v{{minVersion}} или выше"
       },
       "claudeCliPath": {
-        "label": "Путь к Claude CLI (переопределение)",
-        "placeholder": "напр. /usr/local/bin/claude — оставьте пустым для использования встроенного SDK",
-        "hint": "Необязательно. Если задано, плагин запускает этот исполняемый файл вместо встроенного @anthropic-ai/claude-agent-sdk. При сохранении демон перезапускается."
+        "label": "Путь к Claude CLI",
+        "placeholder": "Оставьте пустым для автоопределения или укажите путь к исполняемому файлу claude",
+        "hint": "Укажите путь к исполняемому файлу Claude CLI. Оставьте пустым для автоопределения в PATH."
       },
       "workingDirectory": {
         "label": "Рабочая директория",
@@ -180,28 +198,27 @@
         "level6": "Максимальный (140%)"
       },
       "editorFont": {
-        "label": "UI-шрифт",
-        "hint": "Здесь меняется шрифт интерфейса плагина; для кода можно выбрать отдельный шрифт.",
-        "followOption": "Использовать UI-шрифт IDEA ({{font}})",
-        "customOption": "Пользовательский файл UI-шрифта",
-        "customPathLabel": "Путь к файлу UI-шрифта",
-        "customPathPlaceholder": "Выберите или введите путь к файлу .ttf / .otf для UI-шрифта",
+        "label": "Шрифт",
+        "hint": "Здесь меняется шрифт интерфейса плагина; размер и межстрочный интервал по-прежнему берутся из редактора.",
+        "followOption": "Следовать шрифту редактора ({{font}})",
+        "customOption": "Пользовательский файл шрифта",
+        "customPathLabel": "Путь к файлу шрифта",
+        "customPathPlaceholder": "Выберите или введите путь к файлу .ttf / .otf",
         "browse": "Обзор",
-        "warningUnavailable": "UI-шрифт недоступен, сейчас используется UI-шрифт IDEA",
-        "statusFollowEditor": "Сейчас используется UI-шрифт IDEA: {{font}}",
-        "statusCustom": "Сейчас используется пользовательский UI-шрифт: {{font}}"
+        "warningUnavailable": "Шрифт недоступен, сейчас используется шрифт редактора",
+        "statusFollowEditor": "Сейчас используется шрифт редактора: {{font}}",
+        "statusCustom": "Сейчас используется пользовательский шрифт: {{font}}"
       },
       "codeFont": {
         "label": "Шрифт кода",
-        "hint": "Markdown-код и блоки команд используют этот шрифт.",
         "followOption": "Следовать шрифту редактора ({{font}})",
-        "customOption": "Пользовательский файл шрифта кода",
-        "customPathLabel": "Путь к файлу шрифта кода",
-        "customPathPlaceholder": "Выберите или введите путь к файлу .ttf / .otf для шрифта кода",
+        "customOption": "Пользовательский файл шрифта",
+        "customPathLabel": "Путь к файлу шрифта",
+        "customPathPlaceholder": "Выберите или введите путь к файлу шрифта .ttf / .otf",
         "browse": "Обзор",
-        "warningUnavailable": "Шрифт кода недоступен, сейчас используется шрифт редактора",
-        "statusFollowEditor": "Сейчас используется шрифт редактора: {{font}}",
-        "statusCustom": "Сейчас используется пользовательский шрифт кода: {{font}}"
+        "warningUnavailable": "Шрифт недоступен, используется шрифт редактора",
+        "statusFollowEditor": "Следует шрифту редактора: {{font}}",
+        "statusCustom": "Сейчас используется пользовательский шрифт: {{font}}"
       },
       "streaming": {
         "label": "Потоковый вывод",
@@ -766,12 +783,6 @@
     "copySessionId": "Копировать ID сессии для CLI resume",
     "sessionIdCopied": "ID сессии скопирован",
     "copyFailed": "Не удалось скопировать",
-    "convertToCliSession": "Преобразовать в сессию, распознаваемую CLI",
-    "convertButton": "Преобразовать в CLI",
-    "convertSuccess": "Сессия преобразована для распознавания CLI",
-    "convertFailed": "Ошибка преобразования",
-    "confirmConvert": "Преобразовать в сессию CLI?",
-    "convertConfirmMessage": "Это изменит entrypoint сессии, чтобы она отображалась в списке /resume CLI Claude Code.",
     "timeAgo": {
       "yearsAgo_one": "{{count}} год назад",
       "yearsAgo_other": "{{count}} лет назад",
@@ -794,26 +805,6 @@
       "hoursAgo_many": "{{count}} часов назад",
       "minutesAgo_few": "{{count}} минуты назад",
       "minutesAgo_many": "{{count}} минут назад"
-    },
-    "conversionErrors": {
-      "INVALID_SESSION_ID": "Недействительный ID сеанса",
-      "SESSION_ACTIVE": "Невозможно преобразовать текущий активный сеанс. Сначала начните новый сеанс, затем преобразуйте этот",
-      "SESSION_NOT_FOUND": "Файл сеанса не найден",
-      "FILE_NOT_EXIST": "Файл сеанса не существует",
-      "FILE_LOCKED": "Файл сеанса используется другим процессом",
-      "NOT_SDK_SESSION": "Этот сеанс не был создан SDK (entrypoint не sdk-cli)",
-      "ALREADY_CLI_SESSION": "Этот сеанс уже является CLI сеансом",
-      "CONVERSION_FAILED": "Не удалось выполнить преобразование, попробуйте позже"
-    },
-    "entrypointLabel": {
-      "sdk-cli": "SDK сеанс",
-      "claude-vscode": "VS Code",
-      "remote": "Удаленный"
-    },
-    "entrypointTooltip": {
-      "sdk-cli": "Этот сеанс был создан плагином через SDK и по умолчанию не отображается в CLI. Нажмите 'Преобразовать в CLI', чтобы он появился в списке /resume терминала CLI",
-      "claude-vscode": "Этот сеанс был создан расширением VS Code и по умолчанию не отображается в CLI. Нажмите 'Преобразовать в CLI', чтобы он появился в списке /resume терминала CLI",
-      "remote": "Этот сеанс был создан удаленным экземпляром Claude Code"
     }
   },
   "permission": {
@@ -1379,10 +1370,6 @@
       "opus48": {
         "label": "Opus 4.8",
         "description": "Opus 4.8 · Новейшая и самая мощная"
-      },
-      "fable5": {
-        "label": "Fable 5",
-        "description": "Fable 5 · Самая мощная · класс Mythos"
       }
     },
     "longContext": {
@@ -1593,6 +1580,7 @@
     "dbParseProviderFailed": "Не удалось разобрать конфигурацию провайдера",
     "aiResponseEmpty": "Пустой ответ AI",
     "enhancementFailed": "Ошибка улучшения",
+    "unsupportedImageVision": "Текущая модель не поддерживает распознавание изображений, или совместимый с Claude Code интерфейс этого провайдера не поддерживает результаты инструментов для изображений.\nПереключитесь на модель с поддержкой зрения и повторите попытку.",
     "uploadedImages": "Загружено {{count}} изображений",
     "uploadedAttachments": "Вложения загружены",
     "emptyMessage": "Пустое сообщение",

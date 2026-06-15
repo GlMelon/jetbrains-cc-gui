@@ -5,6 +5,7 @@ import type { TFunction } from 'i18next';
 import type { FileChangeSummary } from '../../types';
 import { showEditableDiff, openFile } from '../../utils/bridge';
 import FileIcon from './FileIcon';
+import { LoadingIcon, TrashIcon, UndoIcon, DiffViewIcon, KeepAllIcon } from '../Icons';
 
 interface FileChangesListProps {
   fileChanges: FileChangeSummary[];
@@ -84,7 +85,7 @@ const FileChangeRow = memo(({ fileChange, isUndoing, onOpen, onShowDiff, onUndo,
           onClick={handleShowDiff}
           title={t('statusPanel.showDiff')}
         >
-          <span className="codicon codicon-diff" />
+          <DiffViewIcon size={15} />
         </button>
         <button
           className="file-change-action-btn undo-btn"
@@ -93,9 +94,9 @@ const FileChangeRow = memo(({ fileChange, isUndoing, onOpen, onShowDiff, onUndo,
           disabled={isUndoing}
         >
           {isUndoing ? (
-            <span className="codicon codicon-loading codicon-modifier-spin" />
+            <LoadingIcon size={15} className="status-panel-spin-icon" />
           ) : (
-            <span className="codicon codicon-discard" />
+            <UndoIcon size={15} />
           )}
         </button>
       </div>
@@ -145,9 +146,9 @@ const FileChangesList = memo(({
           title={t('statusPanel.discardAll')}
         >
           {isDiscardingAll ? (
-            <span className="codicon codicon-loading codicon-modifier-spin" />
+            <LoadingIcon size={16} className="status-panel-spin-icon" />
           ) : (
-            <span className="codicon codicon-trash" />
+            <TrashIcon size={16} />
           )}
           <span>{t('statusPanel.discardAll')}</span>
         </button>
@@ -156,7 +157,7 @@ const FileChangesList = memo(({
           onClick={onKeepAllClick}
           title={t('statusPanel.keepAll')}
         >
-          <span className="codicon codicon-check-all" />
+          <KeepAllIcon size={16} />
           <span>{t('statusPanel.keepAll')}</span>
         </button>
       </div>

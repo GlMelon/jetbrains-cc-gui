@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { sendBridgeEvent } from '../utils/bridge';
 
 /**
  * Manages IDE theme initialization and synchronization.
@@ -66,6 +67,7 @@ export function useThemeInit() {
     const savedUserMsgColor = localStorage.getItem('userMsgColor');
     if (savedUserMsgColor && isValidHexColor(savedUserMsgColor)) {
       document.documentElement.style.setProperty('--color-message-user-bg', savedUserMsgColor);
+      document.documentElement.style.setProperty('--color-message-user-fade', savedUserMsgColor);
     }
 
     // Apply the user's explicit theme choice (light/dark) first
@@ -80,7 +82,7 @@ export function useThemeInit() {
 
     const requestIdeTheme = () => {
       if (window.sendToJava) {
-        window.sendToJava('get_ide_theme:');
+        sendBridgeEvent('get_ide_theme');
       } else {
         retryCount++;
         if (retryCount < MAX_RETRIES) {

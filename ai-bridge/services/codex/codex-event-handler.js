@@ -26,8 +26,10 @@ import {
   DEBUG_LEVEL, MAX_TOOL_RESULT_CHARS,
   SESSION_PATCH_SCAN_MAX_LINES, SESSION_CONTEXT_SCAN_MAX_LINES,
   logWarn, logInfo, logDebug,
-  isAutoEditPermissionMode, isReconnectNotice, emitStatusMessage
+  isAutoEditPermissionMode, isReconnectNotice, emitStatusMessage,
+  isIgnorableWindowsTerminationNoiseLine
 } from './codex-utils.js';
+export { isIgnorableWindowsTerminationNoiseLine };
 import {
   normalizeMcpToolName, normalizeMcpToolInput,
   parseFunctionCallArguments, normalizeFunctionCallTool,
@@ -35,6 +37,53 @@ import {
 } from './codex-tool-normalization.js';
 
 const COMMAND_DENIED_ABORT_ERROR = '__CODEX_COMMAND_DENIED_ABORT__';
+
+function createCodexAbortError() {
+  const error = new Error('Codex turn aborted by user');
+  error.name = 'AbortError';
+  error.code = 'ABORT_ERR';
+  return error;
+}
+
+function isAbortLikeError(error) {
+  const message = `${error?.name || ''}\n${error?.code || ''}\n${error?.message || ''}`;
+  return /AbortError|ABORT_ERR|aborted|abort|cancel|interrupt/i.test(message);
+}
+
+async function nextEventWithAbort(iterator, signal) {
+  if (!signal) {
+    return iterator.next();
+  }
+  if (signal.aborted) {
+    throw createCodexAbortError();
+  }
+
+  let abortListener = null;
+  const abortPromise = new Promise((_, reject) => {
+    abortListener = () => reject(createCodexAbortError());
+    signal.addEventListener('abort', abortListener, { once: true });
+  });
+
+  try {
+    return await Promise.race([iterator.next(), abortPromise]);
+  } catch (error) {
+    if (isAbortLikeError(error) && typeof iterator.return === 'function') {
+      try { await iterator.return(); } catch { /* best effort */ }
+    }
+    throw error;
+  } finally {
+    if (abortListener) {
+      signal.removeEventListener('abort', abortListener);
+    }
+  }
+}
+
+export function shouldSuppressCodexStreamParseErrorAfterCompletion(errorMessage, state) {
+  if (!state?.turnCompletedObserved) return false;
+  if (typeof errorMessage !== 'string' || !errorMessage.includes('Failed to parse item:')) return false;
+  const parsedItem = errorMessage.replace(/^.*Failed to parse item:\s*/i, '').trim();
+  return isIgnorableWindowsTerminationNoiseLine(parsedItem);
+}
 
 export function isWindowsTaskkillParseNoise(message) {
   if (typeof message !== 'string') return false;
@@ -126,9 +175,11 @@ export function createInitialEventState(emitMessage) {
     reasoningTextCache: new Map(),
     assistantTextCache: new Map(),
     reasoningObserved: false,
+    turnCompletedObserved: false,
     commandApprovalAbortRequested: false,
     runtimePolicyLogged: false,
     suppressNoResponseFallback: false,
+    userAbortObserved: false,
     turnCompleted: false,
     currentThreadId: null,
     finalResponse: '',
@@ -172,6 +223,16 @@ function ensureSessionFilePath(state, threadId) {
   return state.sessionFilePath;
 }
 
+function resolveSessionThreadId(state, config) {
+  const configuredThreadId = typeof config?.threadId === 'string' && config.threadId.trim()
+    ? config.threadId.trim()
+    : null;
+  if (configuredThreadId) return configuredThreadId;
+  return typeof state?.currentThreadId === 'string' && state.currentThreadId.trim()
+    ? state.currentThreadId.trim()
+    : null;
+}
+
 function splitSessionJsonlEntries(content) {
   if (typeof content !== 'string' || !content.length) return [];
   return content.split('\n').filter((line) => line.trim());
@@ -205,7 +266,7 @@ async function readLatestTurnContextFromSession(state, threadId) {
 }
 
 async function collectPatchOperationsFromSession(state, config) {
-  const sessionPath = ensureSessionFilePath(state, config.threadId);
+  const sessionPath = ensureSessionFilePath(state, resolveSessionThreadId(state, config));
   if (!sessionPath) return [];
   let content = '';
   try { content = await readFile(sessionPath, 'utf8'); } catch (error) {
@@ -246,7 +307,7 @@ async function collectPatchOperationsFromSession(state, config) {
 }
 
 async function replayMissingFunctionCallsFromSession(state, config) {
-  const sessionPath = ensureSessionFilePath(state, config.threadId);
+  const sessionPath = ensureSessionFilePath(state, resolveSessionThreadId(state, config));
   if (!sessionPath) return { toolUses: 0, toolResults: 0 };
 
   let content = '';
@@ -495,7 +556,7 @@ function maybeEmitReasoning(state, item) {
 
 async function maybeLogRuntimePolicy(state, config) {
   if (state.runtimePolicyLogged) return;
-  const turnContext = await readLatestTurnContextFromSession(state, config.threadId);
+  const turnContext = await readLatestTurnContextFromSession(state, resolveSessionThreadId(state, config));
   if (!turnContext) return;
   const actualApproval = typeof turnContext.approval_policy === 'string' ? turnContext.approval_policy : '';
   const actualSandbox = turnContext?.sandbox_policy?.type || '';
@@ -541,7 +602,11 @@ function handleAgentMessage(item, state, { emitSnapshot = true } = {}) {
   console.log('[DEBUG] agent_message text length:', text.length);
   console.log('[DEBUG] agent_message text (first 100 chars):', text.substring(0, 100));
   const stableId = getStableItemId(item) ?? 'agent_message';
-  const previousText = state.assistantTextCache.get(stableId) ?? '';
+  const cachedText = state.assistantTextCache.get(stableId);
+  let previousText = cachedText ?? '';
+  if (cachedText === undefined && state.assistantText && text.startsWith(state.assistantText)) {
+    previousText = state.assistantText;
+  }
   const delta = extractAppendedDelta(previousText, text);
   state.finalResponse = text;
   state.assistantTextCache.set(stableId, text);
@@ -646,8 +711,13 @@ function handleMcpToolCall(item, state) {
  */
 export async function processCodexEventStream(events, state, config) {
   let rawEventIndex = 0;
+  const iterator = events[Symbol.asyncIterator]();
+  const signal = config?.turnAbortController?.signal;
   try {
-    for await (const event of events) {
+    while (true) {
+      const next = await nextEventWithAbort(iterator, signal);
+      if (next.done) break;
+      const event = next.value;
       rawEventIndex += 1;
       const rawEventJson = stringifyRawEvent(event);
       if (rawEventJson && DEBUG_LEVEL >= 5) console.log(`[RAW_EVENT][${rawEventIndex}]`, rawEventJson);
@@ -673,7 +743,7 @@ export async function processCodexEventStream(events, state, config) {
 
       case 'turn.started': {
         state.turnCompleted = false;
-        const sessionPath = ensureSessionFilePath(state, config.threadId);
+        const sessionPath = ensureSessionFilePath(state, resolveSessionThreadId(state, config));
         if (sessionPath && existsSync(sessionPath)) {
           try {
             const content = await readFile(sessionPath, 'utf8');
@@ -744,6 +814,7 @@ export async function processCodexEventStream(events, state, config) {
       case 'turn.completed': {
         state.turnCompleted = true;
         console.log('[DEBUG] Turn completed');
+        state.turnCompletedObserved = true;
         const replayed = await replayMissingFunctionCallsFromSession(state, config);
         if (replayed.toolUses > 0 || replayed.toolResults > 0) {
           console.log('[DEBUG] Replayed session function calls:', JSON.stringify(replayed));
@@ -835,13 +906,19 @@ export async function processCodexEventStream(events, state, config) {
     }
   } catch (streamError) {
     const streamErrorMessage = streamError?.message || String(streamError);
-    if (state.commandApprovalAbortRequested && (
+    if (signal?.aborted && isAbortLikeError(streamError)) {
+      state.userAbortObserved = true;
+      state.suppressNoResponseFallback = true;
+      logInfo('CODEX_ABORT', `Suppress user-aborted Codex stream: ${streamErrorMessage}`);
+    } else if (state.commandApprovalAbortRequested && (
       streamErrorMessage === COMMAND_DENIED_ABORT_ERROR ||
       /aborted|abort|cancel|interrupt/i.test(streamErrorMessage)
     )) {
       logInfo('PERM_DEBUG', `Suppress streamed turn abort after command denial: ${streamErrorMessage}`);
     } else if (state.turnCompleted && isWindowsTaskkillParseNoise(streamErrorMessage)) {
       console.warn('[DEBUG] Suppressed post-completion Codex taskkill parse noise:', streamErrorMessage);
+    } else if (shouldSuppressCodexStreamParseErrorAfterCompletion(streamErrorMessage, state)) {
+      logWarn('CODEX_JSON_STREAM', `Suppress post-completion Windows termination noise: ${streamErrorMessage}`);
     } else {
       throw streamError;
     }

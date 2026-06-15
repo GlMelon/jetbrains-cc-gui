@@ -1,10 +1,11 @@
 package com.github.claudecodegui.session;
 
-import com.github.claudecodegui.session.ClaudeSession.Message;
-import com.github.claudecodegui.handler.SettingsHandler;
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.notifications.ClaudeNotifier;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.SDKResult;
+import com.github.claudecodegui.session.ClaudeSession.Message;
+import com.github.claudecodegui.util.ClaudeHistoryWriter;
 import com.github.claudecodegui.util.TokenUsageUtils;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -29,6 +30,7 @@ public class ClaudeMessageHandler implements MessageCallback {
     private final MessageMerger messageMerger;
     private final ReplayDeduplicator replayDedup = new ReplayDeduplicator();
     private final Gson gson;
+    private final String expectedRuntimeSessionEpoch;
 
     // Content accumulator for the current assistant message
     private final StringBuilder assistantContent = new StringBuilder();
@@ -63,7 +65,8 @@ public class ClaudeMessageHandler implements MessageCallback {
             CallbackHandler callbackHandler,
             MessageParser messageParser,
             MessageMerger messageMerger,
-            Gson gson
+            Gson gson,
+            String expectedRuntimeSessionEpoch
     ) {
         this.project = project;
         this.state = state;
@@ -71,6 +74,15 @@ public class ClaudeMessageHandler implements MessageCallback {
         this.messageParser = messageParser;
         this.messageMerger = messageMerger;
         this.gson = gson;
+        this.expectedRuntimeSessionEpoch = expectedRuntimeSessionEpoch;
+    }
+
+    private boolean isStaleRuntimeEpoch() {
+        if (expectedRuntimeSessionEpoch == null || expectedRuntimeSessionEpoch.isEmpty()) {
+            return false;
+        }
+        String currentEpoch = state.getRuntimeSessionEpoch();
+        return currentEpoch != null && !expectedRuntimeSessionEpoch.equals(currentEpoch);
     }
 
     /**
@@ -88,18 +100,22 @@ public class ClaudeMessageHandler implements MessageCallback {
      */
     @Override
     public void onMessage(String type, String content) {
+        if (isStaleRuntimeEpoch()) {
+            LOG.debug("Ignoring stale Claude callback message for epoch: " + expectedRuntimeSessionEpoch);
+            return;
+        }
         // Route to the appropriate handler based on message type
         switch (type) {
-            case "user":
+            case CommonConstants.MSG_TYPE_USER:
                 handleUserMessage(content);
                 break;
-            case "assistant":
+            case CommonConstants.MSG_TYPE_ASSISTANT:
                 handleAssistantMessage(content);
                 break;
-            case "thinking":
+            case CommonConstants.MSG_TYPE_THINKING:
                 handleThinkingMessage();
                 break;
-            case "content":
+            case CommonConstants.MSG_TYPE_TEXT:
                 // Non-streaming mode: complete content block, update message
                 handleContent(content);
                 break;
@@ -124,11 +140,17 @@ public class ClaudeMessageHandler implements MessageCallback {
             case "session_id":
                 handleSessionId(content);
                 break;
-            case "tool_result":
+            case CommonConstants.MSG_TYPE_TOOL_USE:
+                handleToolUse(content);
+                break;
+            case CommonConstants.MSG_TYPE_TOOL_RESULT:
                 handleToolResult(content);
                 break;
             case "message_end":
                 handleMessageEnd();
+                break;
+            case "message_start":
+                handleNewTurnStart();
                 break;
             case "result":
                 handleResult(content);
@@ -154,6 +176,10 @@ public class ClaudeMessageHandler implements MessageCallback {
      */
     @Override
     public void onError(String error) {
+        if (isStaleRuntimeEpoch()) {
+            LOG.debug("Ignoring stale Claude callback error for epoch: " + expectedRuntimeSessionEpoch);
+            return;
+        }
         if (errorReportedThisTurn && error != null && error.equals(lastReportedError)) {
             LOG.debug("Suppressing duplicate error for current Claude turn");
             return;
@@ -175,17 +201,44 @@ public class ClaudeMessageHandler implements MessageCallback {
         state.setError(error);
         state.setBusy(false);
         state.setLoading(false);
+        state.setQueueDisplayState(ClaudeSession.SessionCallback.QueueDisplayState.NONE);
+        state.setQueueAheadCount(0);
 
-        Message errorMessage = new Message(Message.Type.ERROR, error);
-        state.addMessage(errorMessage);
+        appendProviderErrorToAssistantMessage(error);
+        persistProviderError(error);
         callbackHandler.notifyMessageUpdate(state.getMessages());
         if (wasStreaming) {
             callbackHandler.notifyStreamEnd();
         }
+        callbackHandler.notifyQueueDisplayStateChanged(state.getQueueDisplayState(), state.getQueueAheadCount());
         callbackHandler.notifyStateChange(state.isBusy(), state.isLoading(), state.getError());
+        // Sync status bar: error also means the turn is over, clear stale status.
+        ClaudeNotifier.clearStatus(project);
+    }
 
-        // Show error in status bar
-        ClaudeNotifier.showError(project, error);
+    private void appendProviderErrorToAssistantMessage(String error) {
+        currentAssistantMessage = ProviderErrorMessageSupport.appendToAssistantMessage(
+                state,
+                currentAssistantMessage,
+                CommonConstants.PROVIDER_CLAUDE,
+                error
+        );
+    }
+
+    private void persistProviderError(String error) {
+        String sessionId = state.getSessionId();
+        String cwd = state.getCwd();
+        if (sessionId == null || sessionId.isBlank() || cwd == null || cwd.isBlank()
+                || error == null || error.isBlank()) {
+            return;
+        }
+        ClaudeHistoryWriter.appendProviderError(
+                cwd,
+                sessionId,
+                ProviderErrorMessageSupport.summarize(error),
+                error,
+                null
+        );
     }
 
     /**
@@ -193,6 +246,18 @@ public class ClaudeMessageHandler implements MessageCallback {
      */
     @Override
     public void onComplete(SDKResult result) {
+        if (isStaleRuntimeEpoch()) {
+            LOG.debug("Ignoring stale Claude callback completion for epoch: " + expectedRuntimeSessionEpoch);
+            return;
+        }
+        if (result != null && result.interrupted) {
+            handleInterruptedCompletion(result);
+            return;
+        }
+        if (result != null && !result.success && result.error != null && !result.error.isBlank() && !errorReportedThisTurn) {
+            onError(result.error);
+            return;
+        }
         if (streamEndedThisTurn) {
             streamEndedThisTurn = false;
             errorReportedThisTurn = false;
@@ -204,7 +269,13 @@ public class ClaudeMessageHandler implements MessageCallback {
             // from getting stuck in "responding" state.
             state.setBusy(false);
             state.setLoading(false);
+            state.setQueueDisplayState(ClaudeSession.SessionCallback.QueueDisplayState.COMPLETED);
+            state.setQueueAheadCount(0);
+            callbackHandler.notifyQueueDisplayStateChanged(state.getQueueDisplayState(), state.getQueueAheadCount());
             callbackHandler.notifyStateChange(state.isBusy(), state.isLoading(), state.getError());
+            // Sync status bar: stream_end may not trigger message_end in all cases,
+            // so ensure the status bar is cleared on completion.
+            ClaudeNotifier.clearStatus(project);
             return;
         }
 
@@ -229,6 +300,8 @@ public class ClaudeMessageHandler implements MessageCallback {
         state.setBusy(false);
         state.setLoading(false);
         state.updateLastModifiedTime();
+        state.setQueueDisplayState(ClaudeSession.SessionCallback.QueueDisplayState.COMPLETED);
+        state.setQueueAheadCount(0);
 
         if (wasStreaming) {
             LOG.warn("onComplete called without prior stream_end — forcing stream cleanup");
@@ -236,7 +309,65 @@ public class ClaudeMessageHandler implements MessageCallback {
             callbackHandler.notifyStreamEnd();
         }
 
+        callbackHandler.notifyQueueDisplayStateChanged(state.getQueueDisplayState(), state.getQueueAheadCount());
         callbackHandler.notifyStateChange(state.isBusy(), state.isLoading(), state.getError());
+        // Sync status bar: when onComplete fires without stream_end (SDK error, timeout, etc.)
+        // the status bar would otherwise remain stuck in the last status (e.g., "waiting").
+        ClaudeNotifier.clearStatus(project);
+    }
+
+    private void handleInterruptedCompletion(SDKResult result) {
+        boolean wasStreaming = isStreaming;
+        isStreaming = false;
+        textSegmentActive = false;
+        thinkingSegmentActive = false;
+        replayDedup.reset();
+
+        if (isThinking) {
+            isThinking = false;
+            callbackHandler.notifyThinkingStatusChanged(false);
+        }
+
+        errorReportedThisTurn = false;
+        lastReportedError = null;
+        state.setError(null);
+        state.setBusy(false);
+        state.setLoading(false);
+        state.updateLastModifiedTime();
+        state.setQueueDisplayState(ClaudeSession.SessionCallback.QueueDisplayState.COMPLETED);
+        state.setQueueAheadCount(0);
+
+        String interruptionMessage = result.error;
+        if (interruptionMessage != null && !interruptionMessage.isBlank()) {
+            state.addMessage(new Message(Message.Type.ASSISTANT, interruptionMessage));
+            // Persist the interruption message to JSONL so it appears in history
+            String sessionId = state.getSessionId();
+            String cwd = state.getCwd();
+            if (sessionId != null && cwd != null) {
+                ClaudeHistoryWriter.appendAssistantMessage(cwd, sessionId, interruptionMessage);
+            }
+        }
+
+        callbackHandler.notifyMessageUpdate(state.getMessages());
+        if (wasStreaming && !streamEndedThisTurn) {
+            callbackHandler.notifyStreamEnd();
+        }
+        streamEndedThisTurn = false;
+        callbackHandler.notifyQueueDisplayStateChanged(state.getQueueDisplayState(), state.getQueueAheadCount());
+        callbackHandler.notifyStateChange(state.isBusy(), state.isLoading(), state.getError());
+        // Sync status bar: interruption also means the turn is over.
+        ClaudeNotifier.clearStatus(project);
+    }
+
+    @Override
+    public void onQueueDisplayStateChanged(ClaudeSession.SessionCallback.QueueDisplayState queueState, int aheadCount) {
+        if (isStaleRuntimeEpoch()) {
+            LOG.debug("Ignoring stale Claude queue update for epoch: " + expectedRuntimeSessionEpoch);
+            return;
+        }
+        state.setQueueDisplayState(queueState);
+        state.setQueueAheadCount(aheadCount);
+        callbackHandler.notifyQueueDisplayStateChanged(state.getQueueDisplayState(), state.getQueueAheadCount());
     }
 
     // ===== Private methods: handle different message types =====
@@ -300,21 +431,8 @@ public class ClaudeMessageHandler implements MessageCallback {
 
             // Streaming: check if the message contains tool calls
             // If tool_use is present, we need to update messages even in streaming mode to render tool blocks
-            boolean hasToolUse = false;
-            if (mergedRaw.has("message") && mergedRaw.getAsJsonObject("message").has("content")) {
-                var contentArray = mergedRaw.getAsJsonObject("message").get("content");
-                if (contentArray.isJsonArray()) {
-                    for (var element : contentArray.getAsJsonArray()) {
-                        if (element.isJsonObject() && element.getAsJsonObject().has("type")) {
-                            String type = element.getAsJsonObject().get("type").getAsString();
-                            if ("tool_use".equals(type)) {
-                                hasToolUse = true;
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
+            boolean hasToolUse = RawMessageHelper.hasToolUse(mergedRaw);
+            boolean shouldNotifyMessageUpdate = !isStreaming || hasToolUse;
 
             // Tool calls act as segment boundaries: subsequent text/thinking should go into new blocks
             if (hasToolUse) {
@@ -323,10 +441,12 @@ public class ClaudeMessageHandler implements MessageCallback {
                 thinkingSegmentActive = toolSeg.thinkingActive;
             }
 
-            // Assistant messages carry structural changes (tool_use blocks, thinking
-            // blocks, segment boundaries). Unlike text deltas these MUST be pushed to
-            // the frontend so tool cards and collapsible thinking sections render.
-            callbackHandler.notifyMessageUpdate(state.getMessages());
+            // Tool snapshots carry structural changes that the delta channel cannot
+            // represent. Pure thinking/text progress is already rendered via deltas
+            // and is finalized by stream_end.
+            if (shouldNotifyMessageUpdate) {
+                callbackHandler.notifyMessageUpdate(state.getMessages());
+            }
 
             // Update status bar with usage from the final assistant message (matches CLI's PP1 behavior).
             // This ensures the displayed value matches what resume shows from JSONL history.
@@ -347,14 +467,16 @@ public class ClaudeMessageHandler implements MessageCallback {
             // [USAGE] tags emitted by emitUsageTag() in persistent-query-service.executeTurn become
             // the only authoritative source — handled by handleUsage(). Do not move the [USAGE]
             // emission behind shouldOutputMessage without re-routing this final-usage update.
-            if (mergedRaw.has("message") && mergedRaw.get("message").isJsonObject()) {
-                JsonObject messageObj = mergedRaw.getAsJsonObject("message");
-                if (messageObj.has("usage") && messageObj.get("usage").isJsonObject()) {
-                    JsonObject usage = messageObj.getAsJsonObject("usage");
+            if (mergedRaw.has(CommonConstants.JSON_KEY_MESSAGE) && mergedRaw.get(CommonConstants.JSON_KEY_MESSAGE).isJsonObject()) {
+                JsonObject messageObj = mergedRaw.getAsJsonObject(CommonConstants.JSON_KEY_MESSAGE);
+                if (messageObj.has(CommonConstants.JSON_KEY_USAGE) && messageObj.get(CommonConstants.JSON_KEY_USAGE).isJsonObject()) {
+                    JsonObject usage = messageObj.getAsJsonObject(CommonConstants.JSON_KEY_USAGE);
                     int usedTokens = TokenUsageUtils.extractUsedTokens(usage, state.getProvider());
-                    int maxTokens = SettingsHandler.getModelContextLimit(state.getModel());
+                    int maxTokens = state.getEffectiveMaxTokens();
                     ClaudeNotifier.setTokenUsage(project, usedTokens, maxTokens);
-                    callbackHandler.notifyUsageUpdate(usedTokens, maxTokens);
+                    callbackHandler.notifyUsageUpdate(
+                            TokenUsageUtils.buildUsageUpdatePayload(usage, state.getProvider(), maxTokens).toString()
+                    );
                     LOG.debug("Updated token usage from assistant message: " + usedTokens);
                 }
             }
@@ -457,6 +579,12 @@ public class ClaudeMessageHandler implements MessageCallback {
      * Handle session ID received from the SDK.
      */
     private void handleSessionId(String content) {
+        String currentSessionId = state.getSessionId();
+        if (currentSessionId != null && !currentSessionId.equals(content)) {
+            LOG.warn("Session ID changed unexpectedly: " + currentSessionId + " -> " + content
+                    + ". Keeping original session ID to prevent session split.");
+            return;
+        }
         state.setSessionId(content);
         callbackHandler.notifySessionIdReceived(content);
         LOG.info("Captured session ID: " + content);
@@ -478,7 +606,7 @@ public class ClaudeMessageHandler implements MessageCallback {
             // Check if the message contains a tool_result
             if (messageParser.hasToolResult(userMsg)) {
                 // This is a user message with tool_result; add it to the message list
-                Message toolResultMessage = new Message(Message.Type.USER, "[tool_result]", userMsg);
+                Message toolResultMessage = new Message(Message.Type.USER, CommonConstants.TOOL_RESULT_PLACEHOLDER, userMsg);
                 state.addMessage(toolResultMessage);
                 LOG.debug("Added tool_result user message to state");
                 callbackHandler.notifyMessageUpdate(state.getMessages());
@@ -525,7 +653,30 @@ public class ClaudeMessageHandler implements MessageCallback {
     }
 
     /**
-     * Handle a tool call result.
+     * 处理 tool_use 事件，将其包装为 assistant 消息后交给 handleAssistantMessage 处理。
+     * 使用 {@link RawMessageHelper#wrapAsAssistantRaw} 统一包装。
+     *
+     * @param content tool_use 块的 JSON 内容
+     */
+    private void handleToolUse(String content) {
+        if (content == null || !content.startsWith("{")) {
+            return;
+        }
+
+        try {
+            JsonObject toolUseBlock = gson.fromJson(content, JsonObject.class);
+            JsonObject rawAssistant = RawMessageHelper.wrapAsAssistantRaw(toolUseBlock);
+            handleAssistantMessage(rawAssistant.toString());
+        } catch (Exception e) {
+            LOG.warn("Failed to parse tool_use JSON: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 处理 tool_result 事件，将其包装为 user 消息并添加到消息列表。
+     * 使用 {@link RawMessageHelper#wrapAsUserRaw} 统一包装。
+     *
+     * @param content tool_result 块的 JSON 内容
      */
     private void handleToolResult(String content) {
         if (!content.startsWith("{")) {
@@ -534,24 +685,13 @@ public class ClaudeMessageHandler implements MessageCallback {
 
         try {
             JsonObject toolResultBlock = gson.fromJson(content, JsonObject.class);
-            String toolUseId = toolResultBlock.has("tool_use_id")
-                    ? toolResultBlock.get("tool_use_id").getAsString()
+            String toolUseId = toolResultBlock.has(CommonConstants.JSON_KEY_TOOL_USE_ID)
+                    ? toolResultBlock.get(CommonConstants.JSON_KEY_TOOL_USE_ID).getAsString()
                     : null;
 
             if (toolUseId != null) {
-                // Build a user message containing the tool_result
-                JsonArray contentArray = new JsonArray();
-                contentArray.add(toolResultBlock);
-
-                JsonObject messageObj = new JsonObject();
-                messageObj.add("content", contentArray);
-
-                JsonObject rawUser = new JsonObject();
-                rawUser.addProperty("type", "user");
-                rawUser.add("message", messageObj);
-
-                // Create the user message and add it to the message list
-                Message toolResultMessage = new Message(Message.Type.USER, "[tool_result]", rawUser);
+                JsonObject rawUser = RawMessageHelper.wrapAsUserRaw(toolResultBlock);
+                Message toolResultMessage = new Message(Message.Type.USER, CommonConstants.TOOL_RESULT_PLACEHOLDER, rawUser);
                 state.addMessage(toolResultMessage);
 
                 LOG.debug("Tool result received for tool_use_id: " + toolUseId);
@@ -581,6 +721,32 @@ public class ClaudeMessageHandler implements MessageCallback {
     }
 
     /**
+     * Handle the start of a new turn within an agentic CLI session.
+     * When isStreaming is true and message_start fires again, it means a new
+     * assistant turn is starting (after tool use). Reset message state so the
+     * new turn's content goes into a fresh assistant message instead of being
+     * mixed into the previous turn's message.
+     */
+    private void handleNewTurnStart() {
+        if (!isStreaming) {
+            return;
+        }
+        if (currentAssistantMessage == null && assistantContent.length() == 0) {
+            textSegmentActive = false;
+            thinkingSegmentActive = false;
+            replayDedup.reset();
+            return;
+        }
+        callbackHandler.notifyBlockReset();
+        currentAssistantMessage = null;
+        assistantContent.setLength(0);
+        textSegmentActive = false;
+        thinkingSegmentActive = false;
+        replayDedup.reset();
+        LOG.debug("New turn started in agentic session, reset message state for new assistant message");
+    }
+
+    /**
      * Handle the result message as a fallback for non-streaming mode.
      * In streaming mode, usage is updated via handleUsage() from [USAGE] tags.
      * In non-streaming mode, [USAGE] tags may not be emitted, so result.usage
@@ -594,28 +760,26 @@ public class ClaudeMessageHandler implements MessageCallback {
         try {
             JsonObject resultJson = gson.fromJson(content, JsonObject.class);
             LOG.debug("Result message received");
+            // Fallback: only update usage from result if no usage was received via [USAGE] tag or assistant message
             if (resultJson.has("usage") && resultJson.get("usage").isJsonObject()
                     && currentAssistantMessage != null && currentAssistantMessage.raw != null) {
-                // SDKResultMessage.usage aggregates every API call of the turn. Stamp it as the
-                // top-level turnUsage field for the per-turn token display in the webview.
-                // Distinct from message.usage below, which tracks per-call context occupancy
-                // for the status bar and must keep its semantics.
-                currentAssistantMessage.raw.add("turnUsage", resultJson.getAsJsonObject("usage").deepCopy());
-
-                // Fallback: only update usage from result if no usage was received via [USAGE] tag or assistant message
-                JsonObject msg = currentAssistantMessage.raw.has("message")
-                        && currentAssistantMessage.raw.get("message").isJsonObject()
-                        ? currentAssistantMessage.raw.getAsJsonObject("message") : null;
-                boolean hasExistingUsage = msg != null && msg.has("usage") && msg.get("usage").isJsonObject();
+                JsonObject msg = currentAssistantMessage.raw.has(CommonConstants.JSON_KEY_MESSAGE)
+                        && currentAssistantMessage.raw.get(CommonConstants.JSON_KEY_MESSAGE).isJsonObject()
+                        ? currentAssistantMessage.raw.getAsJsonObject(CommonConstants.JSON_KEY_MESSAGE) : null;
+                boolean hasExistingUsage = msg != null && msg.has(CommonConstants.JSON_KEY_USAGE) && msg.get(CommonConstants.JSON_KEY_USAGE).isJsonObject();
                 if (!hasExistingUsage) {
                     JsonObject usageJson = resultJson.getAsJsonObject("usage");
                     if (msg != null) {
-                        msg.add("usage", usageJson);
+                        msg.add(CommonConstants.JSON_KEY_USAGE, usageJson);
                     }
                     int usedTokens = TokenUsageUtils.extractUsedTokens(usageJson, state.getProvider());
-                    int maxTokens = SettingsHandler.getModelContextLimit(state.getModel());
+                    int maxTokens = state.getEffectiveMaxTokens();
                     ClaudeNotifier.setTokenUsage(project, usedTokens, maxTokens);
-                    callbackHandler.notifyUsageUpdate(usedTokens, maxTokens);
+                    callbackHandler.notifyUsageUpdate(
+                            TokenUsageUtils.buildUsageUpdatePayload(usageJson, state.getProvider(), maxTokens).toString()
+                    );
+                    // Push updated messages so the frontend receives the raw with usage data
+                    callbackHandler.notifyMessageUpdate(state.getMessages());
                     LOG.debug("Fallback: updated token usage from result message: " + usedTokens);
                 }
             }
@@ -705,12 +869,20 @@ public class ClaudeMessageHandler implements MessageCallback {
         ensureRawBlocksConsistency();
 
         // After streaming ends, send a final message update to ensure the message list is in sync
+        callbackHandler.notifyStreamCompleted();
         callbackHandler.notifyMessageUpdate(state.getMessages());
         callbackHandler.notifyStreamEnd();
         state.setBusy(false);
         state.setLoading(false);
+        state.setQueueDisplayState(ClaudeSession.SessionCallback.QueueDisplayState.COMPLETED);
+        state.setQueueAheadCount(0);
         state.updateLastModifiedTime();
+        callbackHandler.notifyQueueDisplayStateChanged(state.getQueueDisplayState(), state.getQueueAheadCount());
         callbackHandler.notifyStateChange(state.isBusy(), state.isLoading(), state.getError());
+        // Sync status bar: stream_end is the definitive turn boundary.
+        // If message_end was not emitted (or lost), the status bar would stay stuck
+        // in "waiting" / "thinking" / "generating". Clear it here as a safety net.
+        ClaudeNotifier.clearStatus(project);
     }
 
     /**
@@ -751,47 +923,42 @@ public class ClaudeMessageHandler implements MessageCallback {
             // CRITICAL: Only notify frontend when delta was actually applied.
             // Frontend has no dedup and will accumulate, causing duplication.
             callbackHandler.notifyThinkingDelta(novelContent);
-            // Thinking blocks are structural: the frontend renders them from
-            // raw blocks in collapsible UI sections, so raw must stay in sync.
-            callbackHandler.notifyMessageUpdate(state.getMessages());
+            // During streaming, onThinkingDelta drives the visible thinking
+            // block. Full message snapshots are reserved for structural changes
+            // and stream end to avoid racing cumulative frontend buffers.
+            if (!isStreaming) {
+                callbackHandler.notifyMessageUpdate(state.getMessages());
+            }
         } else {
             LOG.debug("Skipping duplicate thinking delta (len=" + content.length() + ")");
         }
     }
 
+    /**
+     * 确保当前存在一个有效的 assistant 消息用于流式 raw 更新。
+     * 如果不存在则创建空的 assistant 消息并添加到消息列表；
+     * 如果 raw 为 null 则通过 {@link RawMessageHelper#ensureAssistantRaw} 初始化结构。
+     */
     private void ensureCurrentAssistantMessageExists() {
         if (currentAssistantMessage == null) {
-            JsonObject raw = new JsonObject();
-            raw.addProperty("type", "assistant");
-            JsonObject messageObj = new JsonObject();
-            messageObj.add("content", new JsonArray());
-            raw.add("message", messageObj);
+            JsonObject raw = RawMessageHelper.ensureAssistantRaw(null);
             currentAssistantMessage = new Message(Message.Type.ASSISTANT, "", raw);
             state.addMessage(currentAssistantMessage);
         }
         if (currentAssistantMessage.raw == null) {
-            JsonObject raw = new JsonObject();
-            raw.addProperty("type", "assistant");
-            JsonObject messageObj = new JsonObject();
-            messageObj.add("content", new JsonArray());
-            raw.add("message", messageObj);
-            currentAssistantMessage.raw = raw;
+            currentAssistantMessage.raw = RawMessageHelper.ensureAssistantRaw(null);
         }
     }
 
+    /**
+     * 获取或创建当前 assistant raw 中的 message.content 数组。
+     * 先确保 assistant 消息存在，再委托给 {@link RawMessageHelper#ensureContentArray} 获取内容数组。
+     *
+     * @return message.content JsonArray
+     */
     private JsonArray ensureAssistantContentArray() {
         ensureCurrentAssistantMessageExists();
-        JsonObject raw = currentAssistantMessage.raw;
-        JsonObject message = raw.has("message") && raw.get("message").isJsonObject()
-                ? raw.getAsJsonObject("message")
-                : new JsonObject();
-        JsonArray content = message.has("content") && message.get("content").isJsonArray()
-                ? message.getAsJsonArray("content")
-                : new JsonArray();
-        message.add("content", content);
-        raw.add("message", message);
-        currentAssistantMessage.raw = raw;
-        return content;
+        return RawMessageHelper.ensureContentArray(currentAssistantMessage.raw);
     }
 
     private boolean applyTextDeltaToRaw(String delta) {
@@ -807,7 +974,7 @@ public class ClaudeMessageHandler implements MessageCallback {
                     continue;
                 }
                 JsonObject block = contentArray.get(i).getAsJsonObject();
-                if (block.has("type") && "text".equals(block.get("type").getAsString())) {
+                if (block.has(CommonConstants.JSON_KEY_TYPE) && CommonConstants.BLOCK_TYPE_TEXT.equals(block.get(CommonConstants.JSON_KEY_TYPE).getAsString())) {
                     target = block;
                     break;
                 }
@@ -816,16 +983,16 @@ public class ClaudeMessageHandler implements MessageCallback {
 
         if (target == null) {
             target = new JsonObject();
-            target.addProperty("type", "text");
-            target.addProperty("text", "");
+            target.addProperty(CommonConstants.JSON_KEY_TYPE, CommonConstants.BLOCK_TYPE_TEXT);
+            target.addProperty(CommonConstants.JSON_KEY_TEXT, "");
             contentArray.add(target);
         }
 
-        String existing = target.has("text") && !target.get("text").isJsonNull()
-                ? target.get("text").getAsString()
+        String existing = target.has(CommonConstants.JSON_KEY_TEXT) && !target.get(CommonConstants.JSON_KEY_TEXT).isJsonNull()
+                ? target.get(CommonConstants.JSON_KEY_TEXT).getAsString()
                 : "";
 
-        target.addProperty("text", existing + delta);
+        target.addProperty(CommonConstants.JSON_KEY_TEXT, existing + delta);
         return true;
     }
 
@@ -850,12 +1017,12 @@ public class ClaudeMessageHandler implements MessageCallback {
             return;
         }
         JsonObject raw = this.currentAssistantMessage.raw;
-        JsonObject message = raw.has("message") && raw.get("message").isJsonObject()
-                ? raw.getAsJsonObject("message") : null;
-        if (message == null || !message.has("content") || !message.get("content").isJsonArray()) {
+        JsonObject message = raw.has(CommonConstants.JSON_KEY_MESSAGE) && raw.get(CommonConstants.JSON_KEY_MESSAGE).isJsonObject()
+                ? raw.getAsJsonObject(CommonConstants.JSON_KEY_MESSAGE) : null;
+        if (message == null || !message.has(CommonConstants.JSON_KEY_CONTENT) || !message.get(CommonConstants.JSON_KEY_CONTENT).isJsonArray()) {
             return;
         }
-        JsonArray contentArray = message.getAsJsonArray("content");
+        JsonArray contentArray = message.getAsJsonArray(CommonConstants.JSON_KEY_CONTENT);
 
         String accumulatedText = this.assistantContent.toString();
         if (accumulatedText.isEmpty()) {
@@ -872,20 +1039,20 @@ public class ClaudeMessageHandler implements MessageCallback {
                 continue;
             }
             JsonObject block = contentArray.get(i).getAsJsonObject();
-            String blockType = block.has("type") && !block.get("type").isJsonNull()
-                    ? block.get("type").getAsString() : "";
-            if ("text".equals(blockType)) {
+            String blockType = block.has(CommonConstants.JSON_KEY_TYPE) && !block.get(CommonConstants.JSON_KEY_TYPE).isJsonNull()
+                    ? block.get(CommonConstants.JSON_KEY_TYPE).getAsString() : "";
+            if (CommonConstants.BLOCK_TYPE_TEXT.equals(blockType)) {
                 lastTextBlock = block;
-                precedingTextLength += block.has("text") && !block.get("text").isJsonNull()
-                        ? block.get("text").getAsString().length() : 0;
+                precedingTextLength += block.has(CommonConstants.JSON_KEY_TEXT) && !block.get(CommonConstants.JSON_KEY_TEXT).isJsonNull()
+                        ? block.get(CommonConstants.JSON_KEY_TEXT).getAsString().length() : 0;
             }
         }
 
         // The last iteration added the last block's length to precedingTextLength,
         // so subtract it to get the actual preceding length.
         if (lastTextBlock != null) {
-            String lastBlockText = lastTextBlock.has("text") && !lastTextBlock.get("text").isJsonNull()
-                    ? lastTextBlock.get("text").getAsString() : "";
+            String lastBlockText = lastTextBlock.has(CommonConstants.JSON_KEY_TEXT) && !lastTextBlock.get(CommonConstants.JSON_KEY_TEXT).isJsonNull()
+                    ? lastTextBlock.get(CommonConstants.JSON_KEY_TEXT).getAsString() : "";
             precedingTextLength -= lastBlockText.length();
 
             // Invariant: assistantContent must cover all preceding text blocks.
@@ -902,7 +1069,7 @@ public class ClaudeMessageHandler implements MessageCallback {
             // starting from the end of all preceding text blocks.
             String expectedLastBlockText = accumulatedText.substring(precedingTextLength);
             if (lastBlockText.length() < expectedLastBlockText.length()) {
-                lastTextBlock.addProperty("text", expectedLastBlockText);
+                lastTextBlock.addProperty(CommonConstants.JSON_KEY_TEXT, expectedLastBlockText);
             }
         }
     }
@@ -915,13 +1082,19 @@ public class ClaudeMessageHandler implements MessageCallback {
         try {
             JsonObject usageJson = gson.fromJson(content, JsonObject.class);
             int usedTokens = TokenUsageUtils.extractUsedTokens(usageJson, state.getProvider());
-            int maxTokens = SettingsHandler.getModelContextLimit(state.getModel());
+            int maxTokens = state.getEffectiveMaxTokens();
             ClaudeNotifier.setTokenUsage(project, usedTokens, maxTokens);
             // Notify webview of usage update
-            callbackHandler.notifyUsageUpdate(usedTokens, maxTokens);
+            callbackHandler.notifyUsageUpdate(
+                    TokenUsageUtils.buildUsageUpdatePayload(usageJson, state.getProvider(), maxTokens).toString()
+            );
             // Ensure assistant message exists before backfilling usage
             ensureCurrentAssistantMessageExists();
             backfillUsageToAssistantMessage(usageJson);
+            // Push updated messages to frontend so per-message usage is available in raw.
+            // Without this, text-only turns never emit notifyMessageUpdate, leaving the
+            // frontend's message raw without usage data for MessageUsageStats display.
+            callbackHandler.notifyMessageUpdate(state.getMessages());
             LOG.debug("Updated token usage from [USAGE] tag: " + usedTokens);
         } catch (Exception e) {
             LOG.warn("Failed to parse usage data: " + e.getMessage());
@@ -941,12 +1114,12 @@ public class ClaudeMessageHandler implements MessageCallback {
      */
     private void backfillUsageToAssistantMessage(JsonObject usageJson) {
         if (currentAssistantMessage == null || currentAssistantMessage.raw == null) { return; }
-        JsonObject message = currentAssistantMessage.raw.has("message") && currentAssistantMessage.raw.get("message").isJsonObject()
-                ? currentAssistantMessage.raw.getAsJsonObject("message") : null;
+        JsonObject message = currentAssistantMessage.raw.has(CommonConstants.JSON_KEY_MESSAGE) && currentAssistantMessage.raw.get(CommonConstants.JSON_KEY_MESSAGE).isJsonObject()
+                ? currentAssistantMessage.raw.getAsJsonObject(CommonConstants.JSON_KEY_MESSAGE) : null;
         if (message == null) { return; }
 
         // Always update usage during streaming to capture accumulating values
-        message.add("usage", usageJson);
+        message.add(CommonConstants.JSON_KEY_USAGE, usageJson);
         LOG.debug("Updated assistant message usage from [USAGE] tag");
     }
 
@@ -963,7 +1136,7 @@ public class ClaudeMessageHandler implements MessageCallback {
                     continue;
                 }
                 JsonObject block = contentArray.get(i).getAsJsonObject();
-                if (block.has("type") && "thinking".equals(block.get("type").getAsString())) {
+                if (block.has(CommonConstants.JSON_KEY_TYPE) && CommonConstants.BLOCK_TYPE_THINKING.equals(block.get(CommonConstants.JSON_KEY_TYPE).getAsString())) {
                     target = block;
                     break;
                 }
@@ -972,16 +1145,47 @@ public class ClaudeMessageHandler implements MessageCallback {
 
         if (target == null) {
             target = new JsonObject();
-            target.addProperty("type", "thinking");
-            target.addProperty("thinking", "");
-            contentArray.add(target);
+            target.addProperty(CommonConstants.JSON_KEY_TYPE, CommonConstants.BLOCK_TYPE_THINKING);
+            target.addProperty(CommonConstants.JSON_KEY_THINKING, "");
+            // Insert before the first text block to ensure thinking renders above text.
+            int insertPos = 0;
+            for (int j = 0; j < contentArray.size(); j++) {
+                if (contentArray.get(j).isJsonObject()) {
+                    JsonObject b = contentArray.get(j).getAsJsonObject();
+                    if (b.has(CommonConstants.JSON_KEY_TYPE) && CommonConstants.BLOCK_TYPE_TEXT.equals(b.get(CommonConstants.JSON_KEY_TYPE).getAsString())) {
+                        insertPos = j;
+                        break;
+                    }
+                    insertPos = j + 1;
+                }
+            }
+            JsonArray reordered = new JsonArray();
+            for (int j = 0; j < insertPos; j++) {
+                reordered.add(contentArray.get(j));
+            }
+            reordered.add(target);
+            for (int j = insertPos; j < contentArray.size(); j++) {
+                reordered.add(contentArray.get(j));
+            }
+            // Replace the content array in the parent message object
+            JsonObject msg = currentAssistantMessage.raw.has(CommonConstants.JSON_KEY_MESSAGE)
+                    && currentAssistantMessage.raw.get(CommonConstants.JSON_KEY_MESSAGE).isJsonObject()
+                    ? currentAssistantMessage.raw.getAsJsonObject(CommonConstants.JSON_KEY_MESSAGE) : null;
+            if (msg != null) {
+                msg.add(CommonConstants.JSON_KEY_CONTENT, reordered);
+            } else {
+                // Fallback: should not happen, but just append
+                contentArray.add(target);
+                return true;
+            }
         }
 
-        String existing = target.has("thinking") && !target.get("thinking").isJsonNull()
-                ? target.get("thinking").getAsString()
+        String existing = target.has(CommonConstants.JSON_KEY_THINKING) && !target.get(CommonConstants.JSON_KEY_THINKING).isJsonNull()
+                ? target.get(CommonConstants.JSON_KEY_THINKING).getAsString()
                 : "";
 
-        target.addProperty("thinking", existing + delta);
+        target.addProperty(CommonConstants.JSON_KEY_THINKING, existing + delta);
         return true;
     }
+
 }

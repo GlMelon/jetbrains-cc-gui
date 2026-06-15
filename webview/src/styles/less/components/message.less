@@ -8,10 +8,19 @@
     overflow-anchor: none; /* 手动跟随到底时禁用锚定，避免和程序滚动抢控制权 */
     padding: 0;
     background: var(--bg-chat);
+    display: flex;
+    flex-direction: column;
 }
 
 .messages-container.scroll-anchor-enabled {
     overflow-anchor: auto; /* 用户离开底部后，交还给浏览器维持当前可见位置 */
+}
+
+.message-list {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
 }
 
 /* Collapsed messages indicator */
@@ -46,43 +55,10 @@
  * Performance impact of skipping the optimization is minimal: chat sessions
  * rarely exceed 100 messages, and `contain: layout style` already isolates
  * each message from cross-recalculation during scroll. */
-.message {
-    padding: 16px 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    border-bottom: 1px solid var(--color-message-divider);
-    min-width: 0; /* 允许内容缩小 */
-    max-width: 100%; /* 防止超出容器 */
-    contain: layout style; /* Isolate layout — prevents cross-message recalculation during scroll */
-}
 
-.message:last-child {
-    border-bottom: none;
-}
+/* NOTE: .message base styles are now in chat-message-avatar.less */
 
-/* User Message: Bubble style */
-.message.user {
-    background-color: transparent;
-    border-left: none;
-    align-items: flex-end;
-    padding-top: 16px;
-    padding-bottom: 16px;
-    position: relative; /* Enable absolute positioning for copy button */
-}
-
-.message.user .message-content {
-    background-color: var(--color-message-user-bg);
-    color: var(--color-message-user-text);
-    padding: 10px 14px;
-    border-radius: 12px 12px 2px 12px;
-    max-width: 85%;
-    border: 1px solid rgba(255,255,255,0.06);
-    word-wrap: break-word;
-    word-break: break-word;
-    overflow-wrap: break-word;
-    white-space: pre-wrap;
-}
+/* User Message: Bubble style - Override in chat-message-avatar.less */
 
 /* System notification messages: left-aligned, no bubble (task_notification + compact_notification + non-human origin) */
 .message.task_notification,
@@ -92,6 +68,7 @@
     border-left: none;
     align-items: flex-start;
     padding: 8px 20px;
+    max-width: 100%;
 }
 
 .message.task_notification .message-content,
@@ -117,18 +94,7 @@
     line-height: 1;
 }
 
-/* Assistant Message: Row layout for alignment */
-.message.assistant {
-    background: transparent;
-    flex-direction: column; /* Revert to column to avoid alignment issues without dot */
-    gap: 6px;
-    padding-left: 20px;
-}
-
-.message.assistant .message-content {
-    max-width: 100%; /* 防止内容超出容器 */
-    min-width: 0; /* 允许内容缩小 */
-}
+/* Assistant Message: styles moved to chat-message-avatar.less */
 
 .message.assistant .message-role-label {
     display: none; /* Hide label for assistant */
@@ -150,7 +116,7 @@
     align-items: center;
     justify-content: center;
     color: var(--text-secondary);
-    transition: opacity 0.2s ease, visibility 0.2s ease, background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    transition: opacity 0.2s ease, visibility 0.2s ease, background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
     z-index: 10;
     opacity: 0;
     visibility: hidden;
@@ -273,9 +239,11 @@
     }
 }
 
+/* Error message styles - keep original */
 .message.error {
     background: rgba(90, 29, 29, 0.1);
     border-left: 2px solid var(--color-message-error-border);
+    max-width: 100%;
 }
 
 /* Provider Not Configured - override error styling to use amber/warning tone */
@@ -339,7 +307,7 @@
     font-size: 13px;
     font-weight: 500;
     cursor: pointer;
-    transition: background 0.15s ease, border-color 0.15s ease;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
 
     &:hover {
         background: var(--color-provider-card-action-hover-bg);
@@ -483,7 +451,7 @@
     font-size: 11.5px;
     font-weight: 500;
     cursor: pointer;
-    transition: background 0.15s ease;
+    transition: background-color 0.15s ease;
     flex-shrink: 0;
 
     &:hover {
@@ -516,7 +484,7 @@
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
-    transition: background 0.15s ease, border-color 0.15s ease;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
 
     &:hover {
         background: var(--color-provider-card-action-hover-bg);
@@ -577,13 +545,7 @@
     color: var(--color-message-error-border);
 }
 
-/* Message Content */
-.message-content {
-    font-size: var(--idea-editor-font-size, 13.5px);
-    line-height: 1.6;
-    color: var(--text-primary);
-    min-width: 0; /* Allow flex items to shrink below content size */
-}
+/* Message Content - styles moved to chat-message-avatar.less */
 
 /* Content Block */
 .content-block {
@@ -671,7 +633,7 @@
     align-items: center;
     justify-content: center;
     color: var(--text-secondary);
-    transition: opacity 0.2s ease, background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    transition: opacity 0.2s ease, background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
     z-index: 10;
     opacity: 0.7;
 
@@ -1000,6 +962,27 @@
     line-height: 1.4;
 }
 
+@keyframes streaming-connect-enter {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.streaming-connect-enter {
+    animation: streaming-connect-enter 350ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .streaming-connect-enter {
+        animation-duration: 0.01ms;
+    }
+}
+
 @keyframes thinking-pulse {
     0%, 100% {
         opacity: 1;
@@ -1158,7 +1141,7 @@
     border: 2px solid var(--border-secondary);
     cursor: pointer;
     pointer-events: auto;
-    transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
     z-index: 1;
 
     /* Expand hit area with invisible pseudo-element */
@@ -1260,8 +1243,8 @@
 }
 
 @keyframes file-link-tooltip-fade-in {
-    from { opacity: 0; margin-top: -4px; }
-    to { opacity: 1; margin-top: 0; }
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 /* Hide anchor rail on narrow panels (IntelliJ side panels can be small) */
@@ -1350,6 +1333,93 @@
     .task-notification-icon {
         color: var(--text-tertiary);
     }
+}
+
+.provider-error-block {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 8px 0 2px;
+    padding: 10px 12px;
+    border: 1px solid rgba(239, 68, 68, 0.32);
+    border-left: 3px solid var(--color-error, #ef4444);
+    border-radius: 6px;
+    background: rgba(239, 68, 68, 0.08);
+    color: var(--text-primary);
+}
+
+.provider-error-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.provider-error-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    margin-top: 2px;
+    border-radius: 50%;
+    background: var(--color-error, #ef4444);
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.provider-error-heading {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.provider-error-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.provider-error-summary {
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--text-secondary);
+    overflow-wrap: anywhere;
+}
+
+.provider-error-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    padding-left: 24px;
+    font-size: 12px;
+    color: var(--text-tertiary);
+}
+
+.provider-error-details {
+    padding-left: 24px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.provider-error-details summary {
+    width: fit-content;
+    cursor: pointer;
+    color: var(--text-secondary);
+}
+
+.provider-error-details pre {
+    margin: 8px 0 0;
+    max-height: 180px;
+    overflow: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-family: var(--idea-editor-font-family, 'JetBrains Mono', 'Consolas', monospace);
+    font-size: 12px;
+    line-height: 1.45;
 }
 
 /* Compact Notification Block - matching CLI's compact output display */

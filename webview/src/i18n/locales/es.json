@@ -35,6 +35,7 @@
     "emptyMessage": "Mensaje vacío",
     "clickToPreview": "Haz clic para previsualizar",
     "userUploadedImage": "Imagen subida por el usuario",
+    "imageLoadFailed": "Error al cargar la imagen",
     "inputPlaceholder": "@referenciar archivos, #invocar agentes, Enter para enviar",
     "inputPlaceholderEnter": "@referenciar archivos, #invocar agentes, Enter para enviar",
     "inputPlaceholderCmdEnter": "@referenciar archivos, #invocar agentes, ⌘Enter para enviar",
@@ -91,8 +92,13 @@
     "streamingConnected": "{{provider}} conectado, entendiendo tu pregunta",
     "showEarlierMessages": "Mostrar {{count}} mensajes anteriores",
     "totalDuration": "Esta respuesta tardó",
-    "tokenUsage": "{{input}} entrada / {{output}} salida",
-    "tokenUsageDetail": "Total del turno — entrada {{input}} · escritura caché {{cacheWrite}} · lectura caché {{cacheRead}} · salida {{output}}",
+    "waitingTimedOutDuration": "Tiempo de espera agotado",
+    "streamStalledRetrying": "No se recibió salida del modelo durante un tiempo. Es posible que la CLI siga reintentando; si falla, aparecerá el error final.",
+    "usageStats": {
+      "input": "Entrada：",
+      "output": "Salida：",
+      "duration": "Duración："
+    },
     "search": {
       "ariaLabel": "Buscar en la conversación",
       "placeholder": "Buscar en la conversación…",
@@ -117,6 +123,18 @@
       "userContext": "Contexto: \"{{context}}\"",
       "expand": "Expandir resumen",
       "collapse": "Contraer resumen"
+    },
+    "tokenIndicator": {
+      "contextStats": "Estadísticas de contexto",
+      "inputToken": "Tokens de entrada",
+      "outputToken": "Tokens de salida",
+      "cacheRead": "Lectura de caché",
+      "cacheWrite": "Escritura de caché",
+      "cacheHitRate": "{{rate}}% acierto",
+      "total": "Total {{used}} / {{max}}",
+      "sessionInfo": "Sesión actual · {{model}} · {{maxTokens}} ventana de contexto",
+      "includes": "Incluye: prompt del sistema, mensajes, contexto de archivo, resultados de herramientas, lecturas de caché",
+      "source": "Fuente: Prompt del sistema · Mensajes del historial · Archivo actual · E/S de herramientas"
     }
   },
   "settings": {
@@ -161,9 +179,9 @@
         "versionTooLow": "La versión de Node.js es demasiado baja. El plugin requiere v{{minVersion}} o superior para funcionar correctamente"
       },
       "claudeCliPath": {
-        "label": "Ruta del CLI de Claude (anulación)",
-        "placeholder": "p. ej. /usr/local/bin/claude — déjalo vacío para usar el SDK integrado",
-        "hint": "Opcional. Cuando se establece, el complemento ejecuta este binario en lugar del @anthropic-ai/claude-agent-sdk integrado. El daemon se reinicia al guardar."
+        "label": "Ruta de Claude CLI",
+        "placeholder": "Dejar vacío para detección automática, o especificar la ruta del ejecutable claude",
+        "hint": "Especifica la ruta del ejecutable de Claude CLI. Dejar vacío para detectar automáticamente en PATH."
       },
       "workingDirectory": {
         "label": "Working Directory",
@@ -180,28 +198,27 @@
         "level6": "Máximo (140%)"
       },
       "editorFont": {
-        "label": "Fuente UI",
-        "hint": "Aquí cambias la fuente de la interfaz del plugin; el código puede usar una fuente aparte.",
-        "followOption": "Seguir la fuente UI de IDEA ({{font}})",
-        "customOption": "Archivo de fuente UI personalizado",
-        "customPathLabel": "Ruta del archivo de fuente UI",
-        "customPathPlaceholder": "Elige o escribe la ruta de un archivo .ttf / .otf para la fuente UI",
+        "label": "Fuente",
+        "hint": "Aquí cambias la fuente de la interfaz del plugin; el tamaño y el interlineado siguen al editor.",
+        "followOption": "Seguir al editor ({{font}})",
+        "customOption": "Archivo de fuente personalizado",
+        "customPathLabel": "Ruta del archivo de fuente",
+        "customPathPlaceholder": "Elige o escribe la ruta de un archivo .ttf / .otf",
         "browse": "Examinar",
-        "warningUnavailable": "La fuente UI no está disponible; se usa la fuente UI de IDEA",
-        "statusFollowEditor": "Actualmente se usa la fuente UI de IDEA: {{font}}",
-        "statusCustom": "Actualmente se usa la fuente UI personalizada: {{font}}"
+        "warningUnavailable": "La fuente no está disponible; se usa la fuente del editor",
+        "statusFollowEditor": "Actualmente se usa la fuente del editor: {{font}}",
+        "statusCustom": "Actualmente se usa la fuente personalizada: {{font}}"
       },
       "codeFont": {
         "label": "Fuente de código",
-        "hint": "El código Markdown y los bloques de comando usan esta fuente.",
-        "followOption": "Seguir la fuente del editor ({{font}})",
-        "customOption": "Archivo de fuente de código personalizado",
-        "customPathLabel": "Ruta del archivo de fuente de código",
-        "customPathPlaceholder": "Elige o escribe la ruta de un archivo .ttf / .otf para la fuente de código",
+        "followOption": "Seguir al editor ({{font}})",
+        "customOption": "Archivo de fuente personalizado",
+        "customPathLabel": "Ruta del archivo de fuente",
+        "customPathPlaceholder": "Seleccionar o ingresar ruta de archivo de fuente .ttf / .otf",
         "browse": "Examinar",
-        "warningUnavailable": "La fuente de código no está disponible; se usa la fuente del editor",
-        "statusFollowEditor": "Actualmente se usa la fuente del editor: {{font}}",
-        "statusCustom": "Actualmente se usa la fuente de código personalizada: {{font}}"
+        "warningUnavailable": "Fuente no disponible, actualmente usando la fuente del editor",
+        "statusFollowEditor": "Siguiendo la fuente del editor: {{font}}",
+        "statusCustom": "Actualmente se usa la fuente personalizada: {{font}}"
       },
       "streaming": {
         "label": "Streaming",
@@ -754,12 +771,6 @@
     "copySessionId": "Copiar ID de sesión para CLI resume",
     "sessionIdCopied": "ID de sesión copiado",
     "copyFailed": "Error al copiar",
-    "convertToCliSession": "Convertir a sesión reconocida por CLI",
-    "convertButton": "Convertir a CLI",
-    "convertSuccess": "Sesión convertida para ser reconocida por CLI",
-    "convertFailed": "Error en la conversión",
-    "confirmConvert": "¿Convertir a sesión CLI?",
-    "convertConfirmMessage": "Esto modificará el entrypoint de la sesión para que sea visible en la lista /resume del CLI de Claude Code.",
     "timeAgo": {
       "yearsAgo": "hace años",
       "monthsAgo": "hace meses",
@@ -767,26 +778,6 @@
       "hoursAgo": "hace horas",
       "minutesAgo": "hace minutos",
       "secondsAgo": "hace segundos"
-    },
-    "conversionErrors": {
-      "INVALID_SESSION_ID": "ID de sesión inválido",
-      "SESSION_ACTIVE": "No se puede convertir la sesión actualmente activa. Inicie una nueva sesión primero y luego convierta esta",
-      "SESSION_NOT_FOUND": "Archivo de sesión no encontrado",
-      "FILE_NOT_EXIST": "El archivo de sesión no existe",
-      "FILE_LOCKED": "El archivo de sesión está siendo accedido por otro proceso",
-      "NOT_SDK_SESSION": "Esta sesión no fue creada por el SDK (entrypoint no es sdk-cli)",
-      "ALREADY_CLI_SESSION": "Esta sesión ya es una sesión CLI",
-      "CONVERSION_FAILED": "Conversión fallida, por favor intente más tarde"
-    },
-    "entrypointLabel": {
-      "sdk-cli": "Sesión SDK",
-      "claude-vscode": "VS Code",
-      "remote": "Remoto"
-    },
-    "entrypointTooltip": {
-      "sdk-cli": "Esta sesión fue creada por el plugin via SDK y no se muestra en CLI por defecto. Haz clic en 'Convertir a CLI' para que aparezca en la lista /resume del CLI del terminal",
-      "claude-vscode": "Esta sesión fue creada por la extensión de VS Code y no se muestra en CLI por defecto. Haz clic en 'Convertir a CLI' para que aparezca en la lista /resume del CLI del terminal",
-      "remote": "Esta sesión fue creada por una instancia remota de Claude Code"
     }
   },
   "permission": {
@@ -1353,10 +1344,6 @@
       "opus48": {
         "label": "Opus 4.8",
         "description": "Opus 4.8 · El más reciente y capaz"
-      },
-      "fable5": {
-        "label": "Fable 5",
-        "description": "Fable 5 · El más potente · clase Mythos"
       }
     },
     "longContext": {
@@ -1567,6 +1554,7 @@
     "dbParseProviderFailed": "Error al analizar la configuración del proveedor",
     "aiResponseEmpty": "La respuesta de AI está vacía",
     "enhancementFailed": "Mejora fallida",
+    "unsupportedImageVision": "El modelo actual no admite el reconocimiento de imágenes, o la interfaz compatible con Claude Code de este proveedor no admite resultados de herramientas de imagen.\nCambie a un modelo compatible con visión e inténtelo de nuevo.",
     "uploadedImages": "{{count}} imagen(es) subida(s)",
     "uploadedAttachments": "Archivo(s) adjunto(s) subido(s)",
     "emptyMessage": "Mensaje vacío",

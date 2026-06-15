@@ -9,6 +9,7 @@ import {
   getRawUuid,
   getMessageTimestampMs,
   preserveLastAssistantIdentity,
+  preserveAssistantResponseGrouping,
   preserveLatestMessagesOnShrink,
   preserveMessageIdentity,
   preserveStreamingAssistantContent,
@@ -364,6 +365,147 @@ describe('appendOptimisticMessageIfMissing', () => {
     expect(Array.isArray(raw?.message?.content)).toBe(true);
     const hasAttachment = raw.message.content.some((b: any) => b.type === 'attachment');
     expect(hasAttachment).toBe(true);
+  });
+
+  it('keeps optimistic base64 image as preview fallback for matched backend resource image', () => {
+    const ts = new Date().toISOString();
+    const optimisticImage = {
+      type: 'image',
+      src: 'data:image/png;base64,QUJDRA==',
+      mediaType: 'image/png',
+      sourceKind: 'base64',
+    };
+    const backendImage = {
+      type: 'image',
+      src: 'jcef://cc-gui-local-image/session/image-1.png',
+      mediaType: 'image/png',
+      sourceKind: 'resource_url',
+    };
+    const optimistic = makeUserMsg('see image', {
+      isOptimistic: true,
+      timestamp: ts,
+      raw: {
+        message: {
+          content: [optimisticImage, { type: 'text', text: 'see image' }],
+        },
+      } as any,
+    });
+    const backendMsg = makeUserMsg('see image', {
+      timestamp: ts,
+      raw: {
+        message: {
+          content: [backendImage, { type: 'text', text: 'see image' }],
+        },
+      } as any,
+    });
+
+    const result = appendOptimisticMessageIfMissing([optimistic], [backendMsg]);
+
+    expect(result).toHaveLength(1);
+    const raw = result[0].raw as any;
+    const imageBlocks = raw.message.content.filter((b: any) => b.type === 'image');
+    expect(imageBlocks).toHaveLength(1);
+    expect(imageBlocks[0]).toMatchObject({
+      src: backendImage.src,
+      thumbnailSrc: optimisticImage.src,
+      previewSrc: optimisticImage.src,
+    });
+  });
+
+  it('keeps optimistic base64 image fallback when backend adds an attachment summary text', () => {
+    const ts = new Date().toISOString();
+    const optimisticImage = {
+      type: 'image',
+      src: 'data:image/png;base64,QUJDRA==',
+      mediaType: 'image/png',
+      sourceKind: 'base64',
+    };
+    const backendImage = {
+      type: 'image',
+      src: 'https://cc-gui-attachment.local/image-1.png',
+      mediaType: 'image/png',
+      sourceKind: 'resource_url',
+    };
+    const optimistic = makeUserMsg('', {
+      isOptimistic: true,
+      timestamp: ts,
+      raw: {
+        message: {
+          content: [optimisticImage],
+        },
+      } as any,
+    });
+    const backendMsg = makeUserMsg('[Uploaded Attachments: image.png]', {
+      timestamp: ts,
+      raw: {
+        message: {
+          content: [
+            backendImage,
+            { type: 'text', text: '[Uploaded Attachments: image.png]' },
+          ],
+        },
+      } as any,
+    });
+
+    const result = appendOptimisticMessageIfMissing([optimistic], [backendMsg]);
+
+    expect(result).toHaveLength(1);
+    const raw = result[0].raw as any;
+    const imageBlocks = raw.message.content.filter((b: any) => b.type === 'image');
+    expect(imageBlocks).toHaveLength(1);
+    expect(imageBlocks[0]).toMatchObject({
+      src: backendImage.src,
+      thumbnailSrc: optimisticImage.src,
+      previewSrc: optimisticImage.src,
+    });
+  });
+
+  it('keeps optimistic base64 image fallback after an assistant message is appended', () => {
+    const ts = new Date().toISOString();
+    const optimisticImage = {
+      type: 'image',
+      src: 'data:image/png;base64,QUJDRA==',
+      mediaType: 'image/png',
+      sourceKind: 'base64',
+    };
+    const backendImage = {
+      type: 'image',
+      src: 'https://cc-gui-attachment.local/image-1.png',
+      mediaType: 'image/png',
+      sourceKind: 'resource_url',
+    };
+    const optimistic = makeUserMsg('image content', {
+      isOptimistic: true,
+      timestamp: ts,
+      raw: {
+        message: {
+          content: [optimisticImage, { type: 'text', text: 'image content' }],
+        },
+      } as any,
+    });
+    const assistant = makeAssistantMsg('I will inspect the image.');
+    const backendMsg = makeUserMsg('image content', {
+      timestamp: ts,
+      raw: {
+        message: {
+          content: [backendImage, { type: 'text', text: 'image content' }],
+        },
+      } as any,
+    });
+
+    const result = appendOptimisticMessageIfMissing(
+      [optimistic, assistant],
+      [backendMsg, assistant],
+    );
+
+    const raw = result[0].raw as any;
+    const imageBlocks = raw.message.content.filter((b: any) => b.type === 'image');
+    expect(imageBlocks).toHaveLength(1);
+    expect(imageBlocks[0]).toMatchObject({
+      src: backendImage.src,
+      thumbnailSrc: optimisticImage.src,
+      previewSrc: optimisticImage.src,
+    });
   });
 
   it('does not append optimistic message when it is newer than everything in nextList (stale update)', () => {
@@ -900,6 +1042,62 @@ describe('preserveLastAssistantIdentity — turn ID guards', () => {
     const result = preserveLastAssistantIdentity(prev, next, findLastAssistantIndex);
     expect(result).toBe(next);
     expect(result[0].timestamp).not.toBe(prevTs);
+  });
+});
+
+describe('preserveAssistantResponseGrouping', () => {
+  it('copies response ids from streamed assistant groups into backend snapshots by assistant order', () => {
+    const prev = [
+      makeUserMsg('q'),
+      makeAssistantMsg('read file', { __responseId: 'response-1', __turnId: 1 }),
+      makeAssistantMsg('edit file', { __responseId: 'response-1', __turnId: 2 }),
+      makeAssistantMsg('summary', { __responseId: 'response-1', __turnId: 3 }),
+    ];
+    const next = [
+      makeUserMsg('q'),
+      makeAssistantMsg('read file'),
+      makeAssistantMsg('edit file'),
+      makeAssistantMsg('summary'),
+    ];
+
+    const result = preserveAssistantResponseGrouping(prev, next);
+
+    expect(result).not.toBe(next);
+    expect(result.filter((message) => message.type === 'assistant').map((message) => message.__responseId)).toEqual([
+      'response-1',
+      'response-1',
+      'response-1',
+    ]);
+  });
+
+  it('returns next list unchanged when there is no streamed response grouping to preserve', () => {
+    const prev = [makeAssistantMsg('history 1')];
+    const next = [makeAssistantMsg('history 1'), makeAssistantMsg('history 2')];
+
+    const result = preserveAssistantResponseGrouping(prev, next);
+
+    expect(result).toBe(next);
+  });
+
+  it('preserves response ids by overall assistant order without assigning them to older ungrouped assistant messages', () => {
+    const prev = [
+      makeAssistantMsg('older assistant'),
+      makeUserMsg('q'),
+      makeAssistantMsg('read file', { __responseId: 'response-1', __turnId: 1 }),
+      makeAssistantMsg('edit file', { __responseId: 'response-1', __turnId: 2 }),
+    ];
+    const next = [
+      makeAssistantMsg('older assistant snapshot'),
+      makeUserMsg('q'),
+      makeAssistantMsg('read file'),
+      makeAssistantMsg('edit file'),
+    ];
+
+    const result = preserveAssistantResponseGrouping(prev, next);
+
+    expect(result[0].__responseId).toBeUndefined();
+    expect(result[2].__responseId).toBe('response-1');
+    expect(result[3].__responseId).toBe('response-1');
   });
 });
 

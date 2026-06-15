@@ -16,6 +16,7 @@ import {
   appendOptimisticMessageIfMissing,
   ensureStreamingAssistantInList,
   getRawUuid,
+  preserveAssistantResponseGrouping,
   preserveLastAssistantIdentity,
   preserveLatestMessagesOnShrink,
   preserveStreamingAssistantContent,
@@ -24,6 +25,7 @@ import {
 import { releaseSessionTransition } from '../sessionTransition';
 import { parseSequence } from '../parseSequence';
 import { collectUnresolvedToolUseIds } from './streamingCallbacks';
+import { getActiveStreamScopeKey, queueScopedPendingUpdate } from '../streamScopeState';
 
 const isTruthy = (v: unknown) => v === true || v === 'true';
 
@@ -110,7 +112,8 @@ export function registerMessageCallbacks(
       resultList,
       options.currentProviderRef.current,
     );
-    return ensureStreamingAssistantPreserved(prevList, withoutDuplicateToolTail);
+    const withResponseGrouping = preserveAssistantResponseGrouping(prevList, withoutDuplicateToolTail);
+    return ensureStreamingAssistantPreserved(prevList, withResponseGrouping);
   };
 
   // During streaming, buffer updateMessages calls and process only the latest
@@ -220,6 +223,12 @@ export function registerMessageCallbacks(
                 result[lastAssistantIdx] = {
                   ...result[lastAssistantIdx],
                   __turnId: streamingTurnIdRef.current,
+                  __responseId: window.__activeStreamingResponseId ?? result[lastAssistantIdx].__responseId,
+                };
+              } else if (!result[lastAssistantIdx].__responseId && window.__activeStreamingResponseId) {
+                result[lastAssistantIdx] = {
+                  ...result[lastAssistantIdx],
+                  __responseId: window.__activeStreamingResponseId,
                 };
               }
 
@@ -319,6 +328,7 @@ export function registerMessageCallbacks(
             patched[patchedAssistantIdx] = patchAssistantForStreaming({
               ...patchedAssistant,
               __turnId: currentTurnId,
+              __responseId: window.__activeStreamingResponseId ?? patchedAssistant.__responseId,
             });
           }
         }
@@ -397,6 +407,7 @@ export function registerMessageCallbacks(
       pendingUpdateSequence = sequence;
       window.__pendingUpdateJson = json;
       window.__pendingUpdateSequence = sequence;
+      queueScopedPendingUpdate(getActiveStreamScopeKey(), json, sequence);
       if (pendingUpdateRaf === null) {
         const timerId = setTimeout(() => {
           pendingUpdateRaf = null;
@@ -445,6 +456,8 @@ export function registerMessageCallbacks(
   };
 
   window.showLoading = (value) => {
+      if (window.__sessionTransitioning) return;
+
     const isLoading = isTruthy(value);
 
     // FIX: Ignore loading=false during streaming — onStreamEnd handles it uniformly.
@@ -612,6 +625,12 @@ export function registerMessageCallbacks(
   // Also clear stream-ended markers since history messages don't have __turnId
   window.historyLoadComplete = () => {
     releaseSessionTransition();
+      resetTransientUiState();
+      setLoading(false);
+      setLoadingStartTime(null);
+      setIsThinking(false);
+      options.setQueueDisplayState('NONE');
+      options.setQueueAheadCount(0);
     const pendingToast = window.__pendingSessionTransitionToast;
     if (pendingToast) {
       window.__pendingSessionTransitionToast = undefined;
@@ -635,9 +654,30 @@ export function registerMessageCallbacks(
     setMessages((prev) => {
       if (prev.length === 0) return prev;
       orphanIds = collectUnresolvedToolUseIds(prev, 'all');
-      // Shallow copy forces ChatMessages to re-render so the now-denied IDs are
-      // picked up by BashToolGroupBlock's deniedToolIds prop.
-      return prev.map(m => ({ ...m }));
+      if (orphanIds.length === 0) {
+        return prev.map(m => ({ ...m }));
+      }
+
+      const syntheticResults: ClaudeMessage[] = orphanIds.map((id) => ({
+        type: 'user',
+        content: '[tool_result]',
+        timestamp: new Date().toISOString(),
+        raw: {
+          role: 'user',
+          origin: { kind: 'tool_result' },
+          content: [{
+            type: 'tool_result',
+            tool_use_id: id,
+            content: 'Interrupted during history replay',
+            is_error: true,
+          }],
+        },
+      }));
+
+      // Shallow-copy existing messages to force a re-render, then append
+      // synthetic tool_result blocks so any UI path relying on findToolResult()
+      // also settles orphaned historical tool_use entries.
+      return [...prev.map(m => ({ ...m })), ...syntheticResults];
     });
     for (const id of orphanIds) {
       window.__deniedToolIds.add(id);

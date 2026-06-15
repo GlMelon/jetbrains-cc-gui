@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { TFunction } from 'i18next';
 import type { CodexFastMode, DropdownItemData, DropdownPosition, PermissionMode, ReasoningEffort, SelectedAgent } from './types.js';
 import type { TooltipState } from './hooks/useTooltip.js';
@@ -16,7 +17,7 @@ interface CompletionController {
   handleMouseEnter: (index: number) => void;
 }
 
-export function ChatInputBoxFooter({
+export const ChatInputBoxFooter = memo(function ChatInputBoxFooter({
   disabled,
   hasInputContent,
   isLoading,
@@ -25,17 +26,17 @@ export function ChatInputBoxFooter({
   permissionMode,
   currentProvider,
   reasoningEffort,
-  codexFastMode,
   onSubmit,
   onStop,
   onModeSelect,
   onModelSelect,
   onProviderSelect,
   onReasoningChange,
-  onCodexFastModeChange,
   onEnhancePrompt,
   alwaysThinkingEnabled,
   onToggleThinking,
+  codexFastMode: _codexFastMode,
+  onCodexFastModeChange: _onCodexFastModeChange,
   streamingEnabled,
   onStreamingEnabledChange,
   selectedAgent,
@@ -62,17 +63,17 @@ export function ChatInputBoxFooter({
   permissionMode: PermissionMode;
   currentProvider: string;
   reasoningEffort: ReasoningEffort;
-  codexFastMode?: CodexFastMode;
   onSubmit: () => void;
   onStop?: () => void;
   onModeSelect?: (mode: PermissionMode) => void;
   onModelSelect?: (modelId: string) => void;
   onProviderSelect?: (providerId: string) => void;
   onReasoningChange?: (effort: ReasoningEffort) => void;
-  onCodexFastModeChange?: (mode: CodexFastMode) => void;
   onEnhancePrompt: () => void;
   alwaysThinkingEnabled?: boolean;
   onToggleThinking?: (enabled: boolean) => void;
+  codexFastMode?: CodexFastMode;
+  onCodexFastModeChange?: (mode: CodexFastMode) => void;
   streamingEnabled?: boolean;
   onStreamingEnabledChange?: (enabled: boolean) => void;
   selectedAgent?: SelectedAgent | null;
@@ -111,14 +112,12 @@ export function ChatInputBoxFooter({
         permissionMode={permissionMode}
         currentProvider={currentProvider}
         reasoningEffort={reasoningEffort}
-        codexFastMode={codexFastMode}
         onSubmit={onSubmit}
         onStop={onStop}
         onModeSelect={onModeSelect}
         onModelSelect={onModelSelect}
         onProviderSelect={onProviderSelect}
         onReasoningChange={onReasoningChange}
-        onCodexFastModeChange={onCodexFastModeChange}
         onEnhancePrompt={onEnhancePrompt}
         alwaysThinkingEnabled={alwaysThinkingEnabled}
         onToggleThinking={onToggleThinking}
@@ -236,4 +235,5 @@ export function ChatInputBoxFooter({
       />
     </>
   );
-}
+});
+

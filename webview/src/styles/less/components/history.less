@@ -117,7 +117,7 @@
     font-size: 14px;
     padding: 6px 8px;
     border-radius: 4px;
-    transition: all 0.2s;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -127,6 +127,10 @@
 
     .codicon {
         font-size: 14px;
+    }
+
+    svg {
+        flex-shrink: 0;
     }
 
     &:hover:not(:disabled) {
@@ -152,6 +156,12 @@
         white-space: nowrap;
     }
 
+    /* SVG 图标样式 */
+    svg + span {
+        font-size: 12px;
+        white-space: nowrap;
+    }
+
     &.history-toolbar-danger:hover:not(:disabled) {
         background-color: rgba(255, 59, 48, 0.15);
         border-color: #ff3b30;
@@ -165,6 +175,12 @@
         color: #0a84ff;
         border-color: #0a84ff;
     }
+}
+
+/* 旋转动画（用于 SyncIcon） */
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 /* 搜索容器样式 */
@@ -233,7 +249,7 @@
     font-size: 14px;
     padding: 6px;
     border-radius: 4px;
-    transition: all 0.2s;
+    transition: background-color 0.2s ease, color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -242,6 +258,11 @@
 
     .codicon {
         font-size: 14px;
+        pointer-events: none;
+    }
+
+    svg {
+        flex-shrink: 0;
         pointer-events: none;
     }
 }
@@ -255,7 +276,7 @@
     font-size: 14px;
     padding: 6px;
     border-radius: 4px;
-    transition: all 0.2s;
+    transition: background-color 0.2s ease, color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -264,6 +285,11 @@
 
     .codicon {
         font-size: 14px;
+        pointer-events: none;
+    }
+
+    svg {
+        flex-shrink: 0;
         pointer-events: none;
     }
 
@@ -283,7 +309,7 @@
     font-size: 14px;
     padding: 6px;
     border-radius: 4px;
-    transition: all 0.2s;
+    transition: background-color 0.2s ease, color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -292,6 +318,11 @@
 
     .codicon {
         font-size: 14px;
+        pointer-events: none;
+    }
+
+    svg {
+        flex-shrink: 0;
         pointer-events: none;
     }
 }
@@ -373,7 +404,7 @@
     font-size: 14px;
     padding: 6px;
     border-radius: 4px;
-    transition: all 0.2s;
+    transition: background-color 0.2s ease, color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -382,6 +413,11 @@
 
     .codicon {
         font-size: 14px;
+        pointer-events: none;
+    }
+
+    svg {
+        flex-shrink: 0;
         pointer-events: none;
     }
 }
@@ -437,7 +473,7 @@
     font-size: 16px;
     padding: 6px;
     border-radius: 4px;
-    transition: all 0.2s;
+    transition: background-color 0.2s ease, transform 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -445,6 +481,10 @@
 
     .codicon {
         font-size: 16px;
+    }
+
+    svg {
+        flex-shrink: 0;
     }
 }
 
@@ -466,7 +506,7 @@
     font-size: 16px;
     padding: 6px;
     border-radius: 4px;
-    transition: all 0.2s;
+    transition: background-color 0.2s ease, transform 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -474,6 +514,10 @@
 
     .codicon {
         font-size: 16px;
+    }
+
+    svg {
+        flex-shrink: 0;
     }
 }
 
@@ -509,7 +553,7 @@
     font-size: 12px;
     padding: 2px 4px;
     border-radius: 3px;
-    transition: all 0.2s;
+    transition: background-color 0.2s ease, color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -518,6 +562,11 @@
 
     .codicon {
         font-size: 12px;
+        pointer-events: none;
+    }
+
+    svg {
+        flex-shrink: 0;
         pointer-events: none;
     }
 }

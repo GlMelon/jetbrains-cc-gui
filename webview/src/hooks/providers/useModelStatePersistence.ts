@@ -1,18 +1,15 @@
 import { useEffect } from 'react';
-import { sendBridgeEvent } from '../../utils/bridge';
 import {
   CLAUDE_MODELS,
   CODEX_MODELS,
   isValidPermissionMode,
   normalizeClaudeModelId,
-  apply1MContextSuffix,
   strip1MContextSuffix,
 } from '../../components/ChatInputBox/types';
 import type { CodexFastMode, PermissionMode, ReasoningEffort } from '../../components/ChatInputBox/types';
 
 const STORAGE_KEY = 'model-selection-state';
 const REASONING_VALUES = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
-const CODEX_FAST_MODE_VALUES = ['normal', 'fast'] as const;
 
 const getCustomModels = (key: string): { id: string }[] => {
   try {
@@ -25,6 +22,8 @@ const getCustomModels = (key: string): { id: string }[] => {
 
 const isReasoningEffort = (value: unknown): value is ReasoningEffort =>
   typeof value === 'string' && (REASONING_VALUES as readonly string[]).includes(value);
+
+const CODEX_FAST_MODE_VALUES = ['normal', 'fast'] as const;
 
 const isCodexFastMode = (value: unknown): value is CodexFastMode =>
   typeof value === 'string' && (CODEX_FAST_MODE_VALUES as readonly string[]).includes(value);
@@ -53,11 +52,10 @@ export interface UseModelStatePersistenceOptions {
 
 /**
  * Two effects for persisting cross-slice provider/model state to localStorage:
- *  1. On mount: hydrate state from localStorage and sync the restored values
- *     to the backend (retrying until the JCEF bridge is ready).
+ *  1. On mount: hydrate local UI preferences from localStorage.
  *  2. On change: re-save the snapshot to localStorage.
  *
- * Save uses `JSON.stringify` of the persisted keys; load applies
+ * Save uses `JSON.stringify` of the seven persisted keys; load applies
  * defensive validation (custom models lookup, permission mode allowlist,
  * reasoning effort allowlist) before invoking the slice setters.
  */
@@ -82,7 +80,7 @@ export function useModelStatePersistence(options: UseModelStatePersistenceOption
     codexFastMode,
   } = options;
 
-  // Hydrate from localStorage and sync to backend (mount only).
+    // Hydrate local UI preferences from localStorage (mount only).
   // Setters are stable; deps left empty to ensure single execution.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -93,8 +91,6 @@ export function useModelStatePersistence(options: UseModelStatePersistenceOption
       let restoredCodexModel = CODEX_MODELS[0].id;
       let restoredClaudePermissionMode: PermissionMode = 'default';
       let restoredCodexPermissionMode: PermissionMode = 'default';
-      let restoredLongContextEnabled = true;
-      let restoredCodexFastMode: CodexFastMode = 'normal';
 
       if (saved) {
         const state = JSON.parse(saved);
@@ -108,13 +104,10 @@ export function useModelStatePersistence(options: UseModelStatePersistenceOption
           restoredClaudePermissionMode = state.claudePermissionMode;
         }
         if (isValidPermissionMode(state.codexPermissionMode)) {
-          restoredCodexPermissionMode = state.codexPermissionMode === 'plan'
-            ? 'default'
-            : state.codexPermissionMode;
+          restoredCodexPermissionMode = state.codexPermissionMode;
         }
 
         if (typeof state.longContextEnabled === 'boolean') {
-          restoredLongContextEnabled = state.longContextEnabled;
           setLongContextEnabled(state.longContextEnabled);
         }
 
@@ -122,8 +115,7 @@ export function useModelStatePersistence(options: UseModelStatePersistenceOption
           setReasoningEffort(state.reasoningEffort);
         }
         if (isCodexFastMode(state.codexFastMode)) {
-          restoredCodexFastMode = state.codexFastMode;
-          setCodexFastMode(restoredCodexFastMode);
+          setCodexFastMode(state.codexFastMode);
         }
 
         const savedClaudeCustomModels = getCustomModels('claude-custom-models');
@@ -133,7 +125,6 @@ export function useModelStatePersistence(options: UseModelStatePersistenceOption
           CLAUDE_MODELS.find(m => m.id === normalizedClaudeModel) ||
           savedClaudeCustomModels.find(m => m.id === normalizedClaudeModel)
         ) {
-          restoredClaudeModel = normalizedClaudeModel;
           setSelectedClaudeModel(normalizedClaudeModel);
         }
 
@@ -142,7 +133,6 @@ export function useModelStatePersistence(options: UseModelStatePersistenceOption
           CODEX_MODELS.find(m => m.id === state.codexModel) ||
           savedCodexCustomModels.find(m => m.id === state.codexModel)
         ) {
-          restoredCodexModel = state.codexModel;
           setSelectedCodexModel(state.codexModel);
         }
       }
@@ -154,26 +144,6 @@ export function useModelStatePersistence(options: UseModelStatePersistenceOption
       setCodexPermissionMode(restoredCodexPermissionMode);
       setPermissionMode(initialPermissionMode);
 
-      let syncRetryCount = 0;
-      const MAX_SYNC_RETRIES = 30;
-
-      const syncToBackend = () => {
-        if (window.sendToJava) {
-          sendBridgeEvent('set_provider', restoredProvider);
-          const modelToSync = restoredProvider === 'codex'
-            ? restoredCodexModel
-            : apply1MContextSuffix(restoredClaudeModel, restoredLongContextEnabled);
-          sendBridgeEvent('set_model', modelToSync);
-          sendBridgeEvent('set_mode', initialPermissionMode);
-          sendBridgeEvent('set_codex_fast_mode', restoredCodexFastMode);
-        } else {
-          syncRetryCount++;
-          if (syncRetryCount < MAX_SYNC_RETRIES) {
-            setTimeout(syncToBackend, 100);
-          }
-        }
-      };
-      setTimeout(syncToBackend, 200);
     } catch {
       // Failed to load model selection state — fall back to defaults already
       // set by individual slice hooks.

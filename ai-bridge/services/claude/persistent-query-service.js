@@ -265,6 +265,18 @@ async function executeTurn(runtime, requestContext, turnMeta) {
     turnMeta.state = turnState;
   }
 
+  // 创建中断信号 Promise，让 disposeRuntime 能立即打断挂起的 query.next()
+  // 不用 AbortController 是因为不确定 SDK 是否支持 signal
+  const abortPromise = new Promise((_, reject) => {
+    runtime._turnAbortReject = (reason) => {
+      const err = new Error(reason || 'Runtime aborted');
+      err.runtimeTerminated = true;
+      reject(err);
+    };
+  });
+  // 防止无人消费时产生 unhandled rejection
+  abortPromise.catch(() => {});
+
   try {
     beginRuntimeTurn(runtime);
 
@@ -276,6 +288,11 @@ async function executeTurn(runtime, requestContext, turnMeta) {
     runtime.inputStream.enqueue(requestContext.userMessage);
 
     while (true) {
+      if (runtime.closed) {
+        const err = new Error('Runtime was disposed during turn');
+        err.runtimeTerminated = true;
+        throw err;
+      }
       let next;
       try {
         // Receive message from perpetual reader via turnSink
@@ -376,6 +393,8 @@ async function executeTurn(runtime, requestContext, turnMeta) {
       }
     }
   } finally {
+    // 清理中断信号，防止对后续 turn 产生残留影响
+    runtime._turnAbortReject = null;
     endRuntimeTurn(runtime);
     // Clear turnSink after endRuntimeTurn (reverse of creation order)
     runtime.turnSink = null;

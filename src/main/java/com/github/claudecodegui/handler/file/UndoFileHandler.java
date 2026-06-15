@@ -3,6 +3,7 @@ package com.github.claudecodegui.handler.file;
 import com.github.claudecodegui.util.WslPathUtil;
 import com.github.claudecodegui.handler.core.BaseMessageHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.util.GsonHolder;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -24,7 +25,7 @@ import java.io.IOException;
 public class UndoFileHandler extends BaseMessageHandler {
 
     private static final Logger LOG = Logger.getInstance(UndoFileHandler.class);
-    private static final Gson gson = new Gson();
+    private static final Gson gson = GsonHolder.GSON;
 
     private static final String[] SUPPORTED_TYPES = {
         "undo_file_changes",

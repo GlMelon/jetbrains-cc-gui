@@ -181,6 +181,11 @@ export interface SelectedAgent {
 export type PermissionMode = 'default' | 'acceptEdits' | 'plan' | 'bypassPermissions';
 
 /**
+ * Codex fast mode type
+ */
+export type CodexFastMode = 'normal' | 'fast';
+
+/**
  * Mode information
  */
 export interface ModeInfo {
@@ -248,17 +253,43 @@ export interface ModelInfo {
   id: string;
   label: string;
   description?: string;
+    /** Base context window size in tokens; undefined = use backend default (200K) */
+    contextWindow?: number;
 }
 
 /**
  * Check if a model supports 1M context window.
- * All models support 1M except Haiku (matched by name substring).
+ *
+ * 判断逻辑：
+ * 1. 已知 Claude 模型（非 Haiku）→ 支持（通过 [1m] 后缀）
+ * 2. 自定义/第三方模型：看 contextWindow 字段，>= 1M 则支持
+ * 3. 其他所有模型 → 不支持（保守默认）
+ *
+ * @param modelId 模型 ID（可能带 [1m] 后缀）
+ * @param models 可选的模型列表（含自定义模型），不传则用内置列表
  */
-export function modelSupports1MContext(modelId: string | undefined | null): boolean {
-  if (!modelId) {
+export function modelSupports1MContext(
+    modelId: string | undefined | null,
+    models?: ModelInfo[]
+): boolean {
+    if (!modelId) return false;
+
+    const baseId = strip1MContextSuffix(modelId);
+
+    // 1. 已知 Claude 模型（非 Haiku）默认支持 1M（通过 [1m] 后缀）
+    if (baseId.startsWith('claude-') && !baseId.toLowerCase().includes('haiku')) {
+        return true;
+    }
+
+    // 2. 自定义/第三方模型：通过 contextWindow 字段判断
+    const allModels = models ?? [...CLAUDE_MODELS, ...CODEX_MODELS];
+    const modelInfo = allModels.find(m => m.id === baseId);
+    if (modelInfo?.contextWindow !== undefined) {
+        return modelInfo.contextWindow >= 1_000_000;
+    }
+
+    // 3. 未知模型：保守假设不支持
     return false;
-  }
-  return !modelId.replace(/\[1m\]$/i, '').toLowerCase().includes('haiku');
 }
 
 /**
@@ -314,29 +345,34 @@ export function normalizeClaudeModelId(modelId: string | undefined | null): stri
  */
 export const CLAUDE_MODELS: ModelInfo[] = [
   {
+    id: 'claude-sonnet-4-6',
+    label: 'Sonnet 4.6',
+    description: 'Sonnet 4.6 · Use the default model',
+      contextWindow: 200_000,
+  },
+  {
     id: 'claude-opus-4-8',
     label: 'Opus 4.8',
     description: 'Opus 4.8 · Latest and most capable',
+      contextWindow: 200_000,
   },
   {
     id: 'claude-opus-4-7',
     label: 'Opus 4.7',
     description: 'Opus 4.7 · Previous flagship model',
+      contextWindow: 200_000,
   },
   {
-    id: 'claude-fable-5',
-    label: 'Fable 5',
-    description: 'Fable 5 · Most powerful · Mythos-class',
-  },
-  {
-    id: 'claude-sonnet-4-6',
-    label: 'Sonnet 4.6',
-    description: 'Sonnet 4.6 · Use the default model',
+    id: 'claude-opus-4-6',
+    label: 'Opus 4.6',
+    description: 'Opus 4.6 for long sessions',
+      contextWindow: 200_000,
   },
   {
     id: 'claude-haiku-4-5',
     label: 'Haiku 4.5',
     description: 'Haiku 4.5 · Fastest for quick answers',
+      contextWindow: 200_000,
   },
 ];
 
@@ -348,46 +384,55 @@ export const CODEX_MODELS: ModelInfo[] = [
     id: 'gpt-5.5',
     label: 'GPT-5.5',
     description: 'Latest frontier model with stronger capabilities.',
+      contextWindow: 1_000_000,
   },
   {
     id: 'gpt-5.4',
     label: 'GPT-5.4',
     description: 'Latest frontier model with enhanced capabilities.',
+      contextWindow: 1_000_000,
   },
   {
     id: 'gpt-5.2-codex',
     label: 'GPT-5.2-Codex',
     description: 'Frontier agentic coding model.',
+      contextWindow: 258_000,
   },
   {
     id: 'gpt-5.1-codex-max',
     label: 'GPT-5.1-Codex-Max',
     description: 'Codex-optimized flagship for deep and fast reasoning.',
+      contextWindow: 258_000,
   },
   {
     id: 'gpt-5.4-mini',
     label: 'GPT-5.4-Mini',
     description: 'Smaller frontier agentic coding model.',
+      contextWindow: 400_000,
   },
   {
     id: 'gpt-5.3-codex',
     label: 'GPT-5.3-Codex',
     description: 'Latest frontier agentic coding model with enhanced capabilities.',
+      contextWindow: 258_000,
   },
   {
     id: 'gpt-5.3-codex-spark',
     label: 'GPT-5.3-Codex-Spark',
     description: 'Ultra-fast coding model.',
+      contextWindow: 258_000,
   },
   {
     id: 'gpt-5.2',
     label: 'GPT-5.2',
     description: 'Optimized for professional work and long-running agents.',
+      contextWindow: 258_000,
   },
   {
     id: 'gpt-5.1-codex-mini',
     label: 'GPT-5.1-Codex-Mini',
     description: 'Optimized for Codex. Cheaper, faster, but less capable.',
+      contextWindow: 128_000,
   },
 ];
 
@@ -421,7 +466,6 @@ export const AVAILABLE_PROVIDERS: ProviderInfo[] = [
  * Based on: https://code.claude.com/docs/en/model-config#adjust-effort-level
  */
 export const EFFORT_SUPPORTED_CLAUDE_MODELS = new Set([
-  'claude-fable-5',
   'claude-opus-4-8',
   'claude-opus-4-7',
   'claude-opus-4-6',
@@ -431,9 +475,9 @@ export const EFFORT_SUPPORTED_CLAUDE_MODELS = new Set([
 
 /**
  * Claude models that additionally support the 'xhigh' effort level.
+ * Opus 4.7 is currently the only Claude Code model with xhigh support.
  */
 export const XHIGH_EFFORT_CLAUDE_MODELS = new Set([
-  'claude-fable-5',
   'claude-opus-4-8',
   'claude-opus-4-7',
 ]);
@@ -442,7 +486,6 @@ export const XHIGH_EFFORT_CLAUDE_MODELS = new Set([
  * Claude models that support the 'max' effort level.
  */
 export const MAX_EFFORT_CLAUDE_MODELS = new Set([
-  'claude-fable-5',
   'claude-opus-4-8',
   'claude-opus-4-7',
   'claude-opus-4-6',
@@ -457,12 +500,6 @@ export const MAX_EFFORT_CLAUDE_MODELS = new Set([
  * Codex API values: low, medium, high, xhigh
  */
 export type ReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
-
-/**
- * Codex execution speed mode.
- * Standard uses Codex defaults; Fast maps to service_tier=fast at send time.
- */
-export type CodexFastMode = 'normal' | 'fast';
 
 /**
  * Reasoning level information
@@ -571,6 +608,8 @@ export interface ChatInputBoxProps {
   usageUsedTokens?: number;
   /** Maximum context tokens */
   usageMaxTokens?: number;
+  /** Detailed token breakdown */
+  tokenDetail?: TokenDetail;
   /** Whether to show usage */
   showUsage?: boolean;
   /** Whether always thinking is enabled */
@@ -608,19 +647,19 @@ export interface ChatInputBoxProps {
   /** Switch mode */
   onModeSelect?: (mode: PermissionMode) => void;
   /** Switch model */
-  onModelSelect?: (modelId: string) => void;
+  onModelSelect?: (modelId: string, contextWindow?: number) => void;
   /** Switch provider */
   onProviderSelect?: (providerId: string) => void;
   /** Current reasoning effort */
   reasoningEffort?: ReasoningEffort;
   /** Switch reasoning effort callback */
   onReasoningChange?: (effort: ReasoningEffort) => void;
-  /** Codex speed mode */
-  codexFastMode?: CodexFastMode;
-  /** Switch Codex speed mode callback */
-  onCodexFastModeChange?: (mode: CodexFastMode) => void;
   /** Toggle thinking mode */
   onToggleThinking?: (enabled: boolean) => void;
+  /** Codex fast mode */
+  codexFastMode?: CodexFastMode;
+  /** Switch Codex fast mode callback */
+  onCodexFastModeChange?: (mode: CodexFastMode) => void;
   /** Whether streaming is enabled */
   streamingEnabled?: boolean;
   /** Toggle streaming */
@@ -696,19 +735,15 @@ export interface ButtonAreaProps {
   currentProvider?: string;
   /** Current reasoning effort */
   reasoningEffort?: ReasoningEffort;
-  /** Codex speed mode */
-  codexFastMode?: CodexFastMode;
 
   // Event callbacks
   onSubmit?: () => void;
   onStop?: () => void;
   onModeSelect?: (mode: PermissionMode) => void;
-  onModelSelect?: (modelId: string) => void;
+  onModelSelect?: (modelId: string, contextWindow?: number) => void;
   onProviderSelect?: (providerId: string) => void;
   /** Switch reasoning effort callback */
   onReasoningChange?: (effort: ReasoningEffort) => void;
-  /** Switch Codex speed mode callback */
-  onCodexFastModeChange?: (mode: CodexFastMode) => void;
   /** Enhance prompt callback */
   onEnhancePrompt?: () => void;
   /** Whether always thinking enabled */
@@ -758,17 +793,43 @@ export interface DropdownProps {
 }
 
 /**
+ * Detailed token information breakdown
+ */
+export interface TokenDetail {
+  /** Input tokens */
+  inputTokens: number;
+  /** Output tokens */
+  outputTokens: number;
+  /** Cache creation tokens */
+  cacheCreationTokens: number;
+  /** Cache read tokens */
+  cacheReadTokens: number;
+  /** Total tokens used */
+  totalTokens: number;
+  /** Maximum token limit */
+  maxTokens: number;
+  /** Usage percentage (0-100) */
+  percentage: number;
+  /** Cache hit rate (cache_read / total_input * 100) */
+  cacheHitRate: number;
+}
+
+/**
  * TokenIndicator component props
  */
 export interface TokenIndicatorProps {
   /** Percentage (0-100) */
   percentage: number;
-  /** Size */
+  /** Size (deprecated, kept for API compat) */
   size?: number;
   /** Used context tokens */
   usedTokens?: number;
   /** Maximum context tokens */
   maxTokens?: number;
+  /** Detailed token breakdown */
+  tokenDetail?: TokenDetail;
+  /** Model name for display in tooltip header */
+  modelName?: string;
 }
 
 /**

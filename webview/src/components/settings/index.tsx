@@ -1,11 +1,11 @@
-import { useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
-import type { CodexProviderConfig } from '../../types/provider';
-import { ToastContainer } from '../Toast';
+import {useMemo} from 'react';
+import {useTranslation} from 'react-i18next';
+import type {CodexProviderConfig} from '../../types/provider';
+import {ToastContainer} from '../Toast';
 
 // Import split-out components
 import SettingsHeader from './SettingsHeader';
-import SettingsSidebar, { type SettingsTab } from './SettingsSidebar';
+import SettingsSidebar, {type SettingsTab} from './SettingsSidebar';
 import BasicConfigSection from './BasicConfigSection';
 import ProviderTabSection from './ProviderTabSection';
 import DependencySection from './DependencySection';
@@ -18,19 +18,20 @@ import PromptSection from './PromptSection';
 import CommitSection from './CommitSection';
 import PromptEnhancerSection from './PromptEnhancerSection';
 import OtherSettingsSection from './OtherSettingsSection';
-import { SkillsSettingsSection } from '../skills';
+import {SkillsSettingsSection} from '../skills';
 import SettingsDialogs from './SettingsDialogs';
-import { setNewSessionConfirmEnabled as persistNewSessionConfirmEnabled } from '../../utils/skipNewSessionConfirm';
+import {setNewSessionConfirmEnabled as persistNewSessionConfirmEnabled} from '../../utils/skipNewSessionConfirm';
+import { sendBridgeEvent } from '../../utils/bridge';
 
 // Import custom hooks
 import {
-  useProviderManagement,
-  useCodexProviderManagement,
-  useAgentManagement,
-  useSettingsWindowCallbacks,
-  useSettingsPageState,
-  useSettingsThemeSync,
-  useSettingsBasicActions,
+    useAgentManagement,
+    useCodexProviderManagement,
+    useProviderManagement,
+    useSettingsBasicActions,
+    useSettingsPageState,
+    useSettingsThemeSync,
+    useSettingsWindowCallbacks,
 } from './hooks';
 
 import styles from './style.module.less';
@@ -116,10 +117,8 @@ const SettingsView = ({
     setMinNodeVersion,
     savingNodePath,
     setSavingNodePath,
-    claudeCliPath,
-    setClaudeCliPath,
-    savingClaudeCliPath,
-    setSavingClaudeCliPath,
+    cliPath,
+    setCliPath,
     workingDirectory,
     setWorkingDirectory,
     savingWorkingDirectory,
@@ -143,14 +142,6 @@ const SettingsView = ({
     setCommitPrompt,
     savingCommitPrompt,
     setSavingCommitPrompt,
-    soundNotificationEnabled,
-    setSoundNotificationEnabled,
-    soundOnlyWhenUnfocused,
-    setSoundOnlyWhenUnfocused,
-    selectedSound,
-    setSelectedSound,
-    customSoundPath,
-    setCustomSoundPath,
     diffExpandedByDefault,
     setDiffExpandedByDefault,
     historyCompletionEnabled,
@@ -158,7 +149,6 @@ const SettingsView = ({
     skipNewSessionConfirm,
     setSkipNewSessionConfirm,
     handleSaveNodePath,
-    handleSaveClaudeCliPath,
     handleSaveWorkingDirectory,
     handleUiFontSelectionChange,
     handleSaveUiFontCustomPath,
@@ -170,13 +160,6 @@ const SettingsView = ({
     handleCodexSandboxModeChange,
     handleSendShortcutChange,
     handleAutoOpenFileEnabledChange,
-    handleSoundNotificationEnabledChange,
-    handleSoundOnlyWhenUnfocusedChange,
-    handleSelectedSoundChange,
-    handleCustomSoundPathChange,
-    handleSaveCustomSoundPath,
-    handleTestSound,
-    handleBrowseSound,
     handleSaveCommitPrompt,
     projectCommitPrompt,
     setProjectCommitPrompt,
@@ -205,6 +188,10 @@ const SettingsView = ({
     handlePromptEnhancerProviderChange,
     handlePromptEnhancerModelChange,
     handlePromptEnhancerResetToDefault,
+    invocationMode,
+    setInvocationMode,
+    handleInvocationModeChange,
+    handleCliPathChange,
   } = useSettingsBasicActions({
     streamingEnabledProp,
     onStreamingEnabledChangeProp,
@@ -303,8 +290,7 @@ const SettingsView = ({
     setNodeVersion,
     setMinNodeVersion,
     setSavingNodePath,
-    setClaudeCliPath,
-    setSavingClaudeCliPath,
+    setCliPath,
     setWorkingDirectory,
     setSavingWorkingDirectory,
     setCommitPrompt,
@@ -341,14 +327,11 @@ const SettingsView = ({
     addToast,
     onStreamingEnabledChangeProp,
     onSendShortcutChangeProp,
-    setSoundNotificationEnabled,
-    setSoundOnlyWhenUnfocused,
-    setSelectedSound,
-    setCustomSoundPath,
     setCommitGenerationEnabled,
     setAiTitleGenerationEnabled,
     setStatusBarWidgetEnabled,
     setTaskCompletionNotificationEnabled,
+    setInvocationMode,
   });
 
   // Save provider (wrapper function with validation logic)
@@ -388,7 +371,7 @@ const SettingsView = ({
         id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
         ...updates
       };
-      window.sendToJava?.(`add_provider:${JSON.stringify(newProvider)}`);
+      sendBridgeEvent('add_provider', JSON.stringify(newProvider));
       addToast(t('toast.providerAdded'), 'success');
     } else {
       // Update existing provider
@@ -404,7 +387,7 @@ const SettingsView = ({
         id: providerId,
         updates,
       };
-      window.sendToJava?.(`update_provider:${JSON.stringify(updateData)}`);
+      sendBridgeEvent('update_provider', JSON.stringify(updateData));
       addToast(t('toast.providerUpdated'), 'success');
 
       // If this is the currently active provider, immediately re-apply the configuration after update
@@ -415,7 +398,7 @@ const SettingsView = ({
         });
         // Use setTimeout for a slight delay to ensure update_provider finishes first
         setTimeout(() => {
-          window.sendToJava?.(`switch_provider:${JSON.stringify({ id: providerId })}`);
+          sendBridgeEvent('switch_provider', JSON.stringify({ id: providerId }));
         }, 100);
       }
     }
@@ -437,7 +420,7 @@ const SettingsView = ({
   return (
     <div className={styles.settingsPage}>
       {/* Top header bar */}
-      <SettingsHeader onClose={onClose} />
+      <SettingsHeader onClose={onClose} version="0.4.5" />
 
       {/* Main content */}
       <div className={styles.settingsMain}>
@@ -449,6 +432,8 @@ const SettingsView = ({
           onToggleCollapse={toggleManualCollapse}
           disabledTabs={disabledTabs}
           onDisabledTabClick={() => addToast(t('settings.codexFeatureUnavailable'), 'warning')}
+          providerCount={providers.length}
+          agentCount={agents.length}
         />
 
         {/* Content area */}
@@ -466,10 +451,8 @@ const SettingsView = ({
               savingNodePath={savingNodePath}
               nodeVersion={nodeVersion}
               minNodeVersion={minNodeVersion}
-              claudeCliPath={claudeCliPath}
-              onClaudeCliPathChange={setClaudeCliPath}
-              onSaveClaudeCliPath={handleSaveClaudeCliPath}
-              savingClaudeCliPath={savingClaudeCliPath}
+              cliPath={cliPath}
+              onCliPathChange={handleCliPathChange}
               workingDirectory={workingDirectory}
               onWorkingDirectoryChange={setWorkingDirectory}
               onSaveWorkingDirectory={handleSaveWorkingDirectory}
@@ -517,19 +500,10 @@ const SettingsView = ({
                 setSkipNewSessionConfirm(!enabled);
                 persistNewSessionConfirmEnabled(enabled);
               }}
-              soundNotificationEnabled={soundNotificationEnabled}
-              onSoundNotificationEnabledChange={handleSoundNotificationEnabledChange}
-              soundOnlyWhenUnfocused={soundOnlyWhenUnfocused}
-              onSoundOnlyWhenUnfocusedChange={handleSoundOnlyWhenUnfocusedChange}
-              selectedSound={selectedSound}
-              onSelectedSoundChange={handleSelectedSoundChange}
-              customSoundPath={customSoundPath}
-              onCustomSoundPathChange={handleCustomSoundPathChange}
-              onSaveCustomSoundPath={handleSaveCustomSoundPath}
-              onTestSound={handleTestSound}
-              onBrowseSound={handleBrowseSound}
               taskCompletionNotificationEnabled={taskCompletionNotificationEnabled}
               onTaskCompletionNotificationEnabledChange={handleTaskCompletionNotificationEnabledChange}
+              invocationMode={invocationMode}
+              onInvocationModeChange={handleInvocationModeChange}
               permissionDialogTimeoutSeconds={permissionDialogTimeoutSeconds}
               onPermissionDialogTimeoutChange={handlePermissionDialogTimeoutChange}
             />

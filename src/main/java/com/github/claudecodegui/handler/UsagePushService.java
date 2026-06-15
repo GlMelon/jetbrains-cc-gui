@@ -6,6 +6,7 @@ import com.github.claudecodegui.session.ClaudeSession;
 import com.github.claudecodegui.util.TokenUsageUtils;
 import com.github.claudecodegui.util.IgnoreRuleMatcher;
 import com.github.claudecodegui.settings.CodemossSettingsService;
+import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.application.ApplicationManager;
@@ -26,7 +27,7 @@ public class UsagePushService {
     private static final Logger LOG = Logger.getInstance(UsagePushService.class);
 
     private final HandlerContext context;
-    private final Gson gson = new Gson();
+    private final Gson gson = GsonHolder.GSON;
 
     public UsagePushService(HandlerContext context) {
         this.context = context;
@@ -53,10 +54,16 @@ public class UsagePushService {
                 sendUsageUpdate(0, newMaxTokens);
                 return;
             }
-            int usedTokens = TokenUsageUtils.extractUsedTokens(lastUsage, context.getCurrentProvider());
 
-            // Send update
-            sendUsageUpdate(usedTokens, newMaxTokens);
+            // Extract detailed token information
+            int usedTokens = TokenUsageUtils.extractUsedTokens(lastUsage, context.getCurrentProvider());
+            int inputTokens = lastUsage.has("input_tokens") ? lastUsage.get("input_tokens").getAsInt() : 0;
+            int outputTokens = lastUsage.has("output_tokens") ? lastUsage.get("output_tokens").getAsInt() : 0;
+            int cacheCreationTokens = lastUsage.has("cache_creation_input_tokens") ? lastUsage.get("cache_creation_input_tokens").getAsInt() : 0;
+            int cacheReadTokens = lastUsage.has("cache_read_input_tokens") ? lastUsage.get("cache_read_input_tokens").getAsInt() : 0;
+
+            // Send update with detailed breakdown
+            sendUsageUpdate(usedTokens, newMaxTokens, inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens);
 
         } catch (Exception e) {
             LOG.error("[UsagePushService] Failed to push usage update after model change: " + e.getMessage(), e);
@@ -64,20 +71,28 @@ public class UsagePushService {
     }
 
     /**
-     * Send usage update to the frontend.
+     * Send usage update to the frontend with detailed token breakdown.
      */
     public void sendUsageUpdate(int usedTokens, int maxTokens) {
+        sendUsageUpdate(usedTokens, maxTokens, 0, 0, 0, 0);
+    }
+
+    /**
+     * Send usage update to the frontend with detailed token breakdown.
+     */
+    public void sendUsageUpdate(int usedTokens, int maxTokens, int inputTokens, int outputTokens,
+                                int cacheCreationTokens, int cacheReadTokens) {
         int percentage = Math.min(100, maxTokens > 0 ? (int) ((usedTokens * 100.0) / maxTokens) : 0);
 
-        LOG.info("[UsagePushService] Sending usage update: usedTokens=" + usedTokens + ", maxTokens=" + maxTokens + ", percentage=" + percentage + "%");
+        LOG.info("[UsagePushService] Sending usage update: usedTokens=" + usedTokens + ", maxTokens=" + maxTokens +
+                 ", percentage=" + percentage + "%");
 
-        // Build usage update data
-        JsonObject usageUpdate = new JsonObject();
-        usageUpdate.addProperty("percentage", percentage);
-        usageUpdate.addProperty("totalTokens", usedTokens);
-        usageUpdate.addProperty("limit", maxTokens);
-        usageUpdate.addProperty("usedTokens", usedTokens);
-        usageUpdate.addProperty("maxTokens", maxTokens);
+        JsonObject rawUsage = new JsonObject();
+        rawUsage.addProperty("input_tokens", inputTokens);
+        rawUsage.addProperty("output_tokens", outputTokens);
+        rawUsage.addProperty("cache_creation_input_tokens", cacheCreationTokens);
+        rawUsage.addProperty("cache_read_input_tokens", cacheReadTokens);
+        JsonObject usageUpdate = TokenUsageUtils.buildUsageUpdatePayload(rawUsage, context.getCurrentProvider(), maxTokens);
 
         String usageJson = gson.toJson(usageUpdate);
 
@@ -109,7 +124,7 @@ public class UsagePushService {
                 // Check if auto-open file is enabled
                 String projectPath = context.getProject().getBasePath();
                 if (projectPath != null) {
-                    CodemossSettingsService settingsService = new CodemossSettingsService();
+                    CodemossSettingsService settingsService = CodemossSettingsService.getInstance();
                     boolean autoOpenFileEnabled = settingsService.getAutoOpenFileEnabled(projectPath);
                     if (!autoOpenFileEnabled) {
                         // If auto-open file is disabled, clear the ContextBar display

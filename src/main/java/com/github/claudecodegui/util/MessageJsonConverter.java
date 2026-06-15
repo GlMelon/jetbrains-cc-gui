@@ -31,7 +31,7 @@ public class MessageJsonConverter {
      * Convert a list of session messages to JSON string for webview transport.
      */
     public static String convertMessagesToJson(List<ClaudeSession.Message> messages) {
-        Gson gson = new Gson();
+        Gson gson = GsonHolder.GSON;
         JsonArray messagesArray = new JsonArray();
         for (ClaudeSession.Message msg : messages) {
             JsonObject msgObj = new JsonObject();
@@ -199,12 +199,8 @@ public class MessageJsonConverter {
         copyFieldIfPresent(raw, transport, "summarizeMetadata");
         // Origin field for distinguishing human input from synthetic messages
         copyFieldIfPresent(raw, transport, "origin");
-        // Whole-turn aggregated usage stamped by ClaudeMessageHandler.handleResult /
-        // CodexMessageHandler.handleResultMessage, for the per-turn token display.
-        // Deliberately NOT copying the top-level usage or message.usage fields:
-        // those carry per-call / session-cumulative values for the status bar and
-        // would be misleading if rendered per message.
-        copyFieldIfPresent(raw, transport, "turnUsage");
+        // Copy top-level usage data for per-message stats display
+        copyFieldIfPresent(raw, transport, "usage");
 
         if (raw.has("content")) {
             transport.add("content", raw.get("content").deepCopy());
@@ -215,6 +211,10 @@ public class MessageJsonConverter {
             JsonObject transportMessage = new JsonObject();
             if (sourceMessage.has("content")) {
                 transportMessage.add("content", sourceMessage.get("content").deepCopy());
+            }
+            // Copy usage data (input_tokens, output_tokens, etc.) for per-message stats display
+            if (sourceMessage.has("usage") && sourceMessage.get("usage").isJsonObject()) {
+                transportMessage.add("usage", sourceMessage.get("usage").deepCopy());
             }
             if (transportMessage.size() > 0) {
                 transport.add("message", transportMessage);
@@ -267,19 +267,16 @@ public class MessageJsonConverter {
 
             String currentProvider = handlerContext.getCurrentProvider();
             int usedTokens = TokenUsageUtils.extractUsedTokens(lastUsage, currentProvider);
-            int maxTokens = SettingsHandler.getModelContextLimit(handlerContext.getCurrentModel());
+            int maxTokens = handlerContext.getSession() != null
+                    ? handlerContext.getSession().getState().getEffectiveMaxTokens()
+                    : SettingsHandler.getModelContextLimit(handlerContext.getCurrentModel());
             int percentage = Math.min(100, maxTokens > 0 ? (int) ((usedTokens * 100.0) / maxTokens) : 0);
 
             LOG.debug("Pushing usage update: provider=" + currentProvider + ", usedTokens=" + usedTokens + ", max=" + maxTokens + ", percentage=" + percentage + "%");
 
-            JsonObject usageUpdate = new JsonObject();
-            usageUpdate.addProperty("percentage", percentage);
-            usageUpdate.addProperty("totalTokens", usedTokens);
-            usageUpdate.addProperty("limit", maxTokens);
-            usageUpdate.addProperty("usedTokens", usedTokens);
-            usageUpdate.addProperty("maxTokens", maxTokens);
+            JsonObject usageUpdate = TokenUsageUtils.buildUsageUpdatePayload(lastUsage, currentProvider, maxTokens);
 
-            String usageJson = new Gson().toJson(usageUpdate);
+            String usageJson = GsonHolder.GSON.toJson(usageUpdate);
             ApplicationManager.getApplication().invokeLater(() -> {
                 if (browser != null && !disposed) {
                     // Use safe call pattern, check if function exists

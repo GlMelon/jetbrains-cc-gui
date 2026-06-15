@@ -35,6 +35,7 @@
     "emptyMessage": "メッセージが空です",
     "clickToPreview": "クリックしてプレビュー",
     "userUploadedImage": "ユーザーがアップロードした画像",
+    "imageLoadFailed": "画像の読み込みに失敗しました",
     "inputPlaceholder": "@でファイルを参照、#でエージェントを呼び出し、Enterで送信",
     "inputPlaceholderEnter": "@でファイルを参照、#でエージェントを呼び出し、Enterで送信",
     "inputPlaceholderCmdEnter": "@でファイルを参照、#でエージェントを呼び出し、⌘Enterで送信",
@@ -91,8 +92,13 @@
     "streamingConnected": "{{provider}}に接続しました、質問を理解しています",
     "showEarlierMessages": "以前の{{count}}件のメッセージを表示",
     "totalDuration": "今回の応答時間",
-    "tokenUsage": "入力 {{input}} / 出力 {{output}}",
-    "tokenUsageDetail": "ターン合計 — 入力 {{input}} · キャッシュ書き込み {{cacheWrite}} · キャッシュ読み取り {{cacheRead}} · 出力 {{output}}",
+    "waitingTimedOutDuration": "待機がタイムアウトしました",
+    "streamStalledRetrying": "しばらくモデル出力を受信していません。CLI はまだ再試行中の可能性があり、失敗した場合は最終エラーが表示されます。",
+    "usageStats": {
+      "input": "入力：",
+      "output": "出力：",
+      "duration": "所要時間："
+    },
     "search": {
       "ariaLabel": "会話内を検索",
       "placeholder": "会話内を検索...",
@@ -117,6 +123,18 @@
       "userContext": "コンテキスト：「{{context}}」",
       "expand": "要約を展開",
       "collapse": "要約を折りたたむ"
+    },
+    "tokenIndicator": {
+      "contextStats": "コンテキスト統計",
+      "inputToken": "入力 Token",
+      "outputToken": "出力 Token",
+      "cacheRead": "キャッシュ読み取り",
+      "cacheWrite": "キャッシュ書き込み",
+      "cacheHitRate": "{{rate}}% ヒット",
+      "total": "合計 {{used}} / {{max}}",
+      "sessionInfo": "現在のセッション · {{model}} · {{maxTokens}} コンテキストウィンドウ",
+      "includes": "含む：システムプロンプト、メッセージ、ファイルコンテキスト、ツール結果、キャッシュ読み取り",
+      "source": "出典：システムプロンプト · 履歴メッセージ · 現在のファイル · ツールI/O"
     }
   },
   "settings": {
@@ -161,9 +179,9 @@
         "versionTooLow": "Node.jsのバージョンが低すぎます。プラグインを正常に動作させるにはv{{minVersion}}以上が必要です"
       },
       "claudeCliPath": {
-        "label": "Claude CLI パス（オーバーライド）",
-        "placeholder": "例: /usr/local/bin/claude — 空欄の場合は内蔵 SDK を使用",
-        "hint": "任意。設定すると、内蔵の @anthropic-ai/claude-agent-sdk の代わりにこのバイナリを起動します。保存時にデーモンが再起動されます。"
+        "label": "Claude CLI パス",
+        "placeholder": "空欄で自動検出、または claude 実行可能ファイルのパスを指定",
+        "hint": "Claude CLI 実行可能ファイルのパスを指定します。空欄の場合は PATH から自動検出します。"
       },
       "workingDirectory": {
         "label": "作業ディレクトリ",
@@ -180,28 +198,27 @@
         "level6": "最大 (140%)"
       },
       "editorFont": {
-        "label": "UI フォント",
-        "hint": "ここではプラグイン UI のフォントを変更します。コード用のフォントは別に設定できます。",
-        "followOption": "IDEA UI フォントに従う ({{font}})",
-        "customOption": "カスタム UI フォントファイル",
-        "customPathLabel": "UI フォントファイルのパス",
-        "customPathPlaceholder": ".ttf / .otf UI フォントファイルのパスを選択または入力",
+        "label": "フォント",
+        "hint": "ここではプラグインUIのフォントを変更します。文字サイズと行間は引き続きエディタに従います。",
+        "followOption": "エディタに従う ({{font}})",
+        "customOption": "カスタムフォントファイル",
+        "customPathLabel": "フォントファイルのパス",
+        "customPathPlaceholder": ".ttf / .otf フォントファイルのパスを選択または入力",
         "browse": "参照",
-        "warningUnavailable": "UI フォントを利用できないため、現在は IDEA UI フォントを使用しています",
-        "statusFollowEditor": "現在は IDEA UI フォントを使用中: {{font}}",
-        "statusCustom": "現在はカスタム UI フォントを使用中: {{font}}"
+        "warningUnavailable": "フォントを利用できないため、現在はエディタフォントを使用しています",
+        "statusFollowEditor": "現在はエディタフォントを使用中: {{font}}",
+        "statusCustom": "現在はカスタムフォントを使用中: {{font}}"
       },
       "codeFont": {
         "label": "コードフォント",
-        "hint": "Markdown のコードやコマンドブロックで使用されます。",
-        "followOption": "エディタフォントに従う ({{font}})",
-        "customOption": "カスタムコードフォントファイル",
-        "customPathLabel": "コードフォントファイルのパス",
-        "customPathPlaceholder": ".ttf / .otf コードフォントファイルのパスを選択または入力",
+        "followOption": "エディタに従う ({{font}})",
+        "customOption": "カスタムフォントファイル",
+        "customPathLabel": "フォントファイルのパス",
+        "customPathPlaceholder": ".ttf / .otf フォントファイルのパスを選択または入力",
         "browse": "参照",
-        "warningUnavailable": "コードフォントを利用できないため、現在はエディタフォントを使用しています",
-        "statusFollowEditor": "現在はエディタフォントを使用中: {{font}}",
-        "statusCustom": "現在はカスタムコードフォントを使用中: {{font}}"
+        "warningUnavailable": "フォントが利用できません。現在エディタフォントを使用中",
+        "statusFollowEditor": "現在エディタフォントに従う: {{font}}",
+        "statusCustom": "現在はカスタムフォントを使用中: {{font}}"
       },
       "streaming": {
         "label": "Streaming",
@@ -759,12 +776,6 @@
     "copySessionId": "CLI resume用にセッションIDをコピー",
     "sessionIdCopied": "セッションIDをコピーしました",
     "copyFailed": "コピーに失敗しました",
-    "convertToCliSession": "CLI認識セッションに変換",
-    "convertButton": "CLIに変換",
-    "convertSuccess": "セッションをCLI認識可能に変換しました",
-    "convertFailed": "変換に失敗しました",
-    "confirmConvert": "CLIセッションに変換しますか？",
-    "convertConfirmMessage": "セッションのentrypointを変更し、Claude Code CLIの/resumeリストに表示されるようにします。",
     "timeAgo": {
       "yearsAgo": "年前",
       "monthsAgo": "ヶ月前",
@@ -772,26 +783,6 @@
       "hoursAgo": "時間前",
       "minutesAgo": "分前",
       "secondsAgo": "秒前"
-    },
-    "conversionErrors": {
-      "INVALID_SESSION_ID": "無効なセッションID",
-      "SESSION_ACTIVE": "現在アクティブなセッションは変換できません。先に新しいセッションを開始してから変換してください",
-      "SESSION_NOT_FOUND": "セッションファイルが見つかりません",
-      "FILE_NOT_EXIST": "セッションファイルが存在しません",
-      "FILE_LOCKED": "セッションファイルは別のプロセスによってアクセスされています",
-      "NOT_SDK_SESSION": "このセッションはSDKで作成されていません（entrypointがsdk-cliではありません）",
-      "ALREADY_CLI_SESSION": "このセッションはすでにCLIセッションです",
-      "CONVERSION_FAILED": "変換に失敗しました。後でもう一度お試しください"
-    },
-    "entrypointLabel": {
-      "sdk-cli": "SDKセッション",
-      "claude-vscode": "VS Code",
-      "remote": "リモート"
-    },
-    "entrypointTooltip": {
-      "sdk-cli": "このセッションはSDK経由でプラグインによって作成されており、CLIではデフォルトで表示されません。ターミナルCLIの/resumeリストに表示するには「CLIに変換」をクリックしてください",
-      "claude-vscode": "このセッションはVS Code拡張機能によって作成されており、CLIではデフォルトで表示されません。ターミナルCLIの/resumeリストに表示するには「CLIに変換」をクリックしてください",
-      "remote": "このセッションはリモートのClaude Codeインスタンスによって作成されました"
     }
   },
   "permission": {
@@ -1364,10 +1355,6 @@
       "opus48": {
         "label": "Opus 4.8",
         "description": "Opus 4.8 · 最新かつ最も優れたモデル"
-      },
-      "fable5": {
-        "label": "Fable 5",
-        "description": "Fable 5 · 最も強力 · Mythosクラス"
       }
     },
     "codex": {
@@ -1572,6 +1559,7 @@
     "dbParseProviderFailed": "プロバイダー設定の解析に失敗しました",
     "aiResponseEmpty": "AI レスポンスが空です",
     "enhancementFailed": "強化に失敗しました",
+    "unsupportedImageVision": "現在のモデルは画像認識をサポートしていないか、このプロバイダーの Claude Code 互換インターフェースが画像ツール結果をサポートしていません。\n視覚対応モデルに切り替えて、もう一度お試しください。",
     "uploadedImages": "{{count}} 枚の画像をアップロードしました",
     "uploadedAttachments": "添付ファイルをアップロードしました",
     "emptyMessage": "空のメッセージ",

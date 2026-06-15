@@ -4,6 +4,7 @@ import com.github.claudecodegui.permission.PermissionManager;
 import com.github.claudecodegui.permission.PermissionRequest;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
 import com.github.claudecodegui.provider.codex.CodexSDKBridge;
+import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
@@ -27,7 +28,7 @@ public class ClaudeSession {
      */
     private static final int MAX_FILE_SIZE_BYTES = 100 * 1024;
 
-    private final Gson gson = new Gson();
+    private final Gson gson = GsonHolder.GSON;
     private final Project project;
 
     // Session state manager
@@ -83,6 +84,13 @@ public class ClaudeSession {
      * Callback interface for session events.
      */
     public interface SessionCallback {
+        enum QueueDisplayState {
+            NONE,
+            QUEUED,
+            PROCESSING,
+            COMPLETED
+        }
+
         void onMessageUpdate(List<Message> messages);
 
         void onStateChange(boolean busy, boolean loading, String error);
@@ -109,6 +117,9 @@ public class ClaudeSession {
         default void onStreamEnd() {
         }
 
+        default void onStreamCompleted() {
+        }
+
         default void onContentDelta(String delta) {
         }
 
@@ -127,7 +138,13 @@ public class ClaudeSession {
         default void onUsageUpdate(int usedTokens, int maxTokens) {
         }
 
+        default void onUsageUpdate(String usageJson) {
+        }
+
         default void onUserMessageUuidPatched(String content, String uuid) {
+        }
+
+        default void onQueueDisplayStateChanged(QueueDisplayState state, int aheadCount) {
         }
     }
 
@@ -356,37 +373,17 @@ public class ClaudeSession {
      * requestedPermissionMode priority: payload > sessionMode > default.
      */
     public CompletableFuture<Void> send(String input, String agentPrompt, List<String> fileTagPaths, String requestedPermissionMode) {
-        return send(input, null, agentPrompt, fileTagPaths, requestedPermissionMode, null, null);
+        return send(input, null, agentPrompt, fileTagPaths, requestedPermissionMode, null);
     }
 
-    /**
-     * Send a message with a specific agent prompt, file tags, requested permission mode,
-     * and requested reasoning effort.
-     */
     public CompletableFuture<Void> send(
             String input,
             String agentPrompt,
             List<String> fileTagPaths,
             String requestedPermissionMode,
-            String requestedReasoningEffort
+            String requestedInvocationMode
     ) {
-        return send(input, null, agentPrompt, fileTagPaths, requestedPermissionMode, requestedReasoningEffort, null);
-    }
-
-    /**
-     * Send a message with a specific agent prompt, file tags, requested permission mode,
-     * requested reasoning effort, and Codex fast mode.
-     * The Codex fast mode maps to the official service tier used by Codex CLI /fast.
-     */
-    public CompletableFuture<Void> send(
-            String input,
-            String agentPrompt,
-            List<String> fileTagPaths,
-            String requestedPermissionMode,
-            String requestedReasoningEffort,
-            String requestedCodexFastMode
-    ) {
-        return send(input, null, agentPrompt, fileTagPaths, requestedPermissionMode, requestedReasoningEffort, requestedCodexFastMode);
+        return send(input, null, agentPrompt, fileTagPaths, requestedPermissionMode, requestedInvocationMode);
     }
 
     /**
@@ -436,51 +433,64 @@ public class ClaudeSession {
             List<String> fileTagPaths,
             String requestedPermissionMode
     ) {
-        return send(input, attachments, agentPrompt, fileTagPaths, requestedPermissionMode, null, null);
+        return send(input, attachments, agentPrompt, fileTagPaths, requestedPermissionMode, null);
     }
 
-    /**
-     * Send a message with attachments, agent prompt, file tags, requested permission mode,
-     * requested reasoning effort, and Codex fast mode.
-     * The effective mode is resolved with priority:
-     * Priority: requestedPermissionMode > sessionMode > default.
-     * The Codex fast mode maps to the official service tier used by Codex CLI /fast.
-     */
     public CompletableFuture<Void> send(
             String input,
             List<Attachment> attachments,
             String agentPrompt,
             List<String> fileTagPaths,
             String requestedPermissionMode,
-            String requestedReasoningEffort,
-            String requestedCodexFastMode
+            String requestedInvocationMode
     ) {
+        LOG.debug("[ClaudeSession][DIAG] send() called, attachments="
+                + (attachments == null ? "NULL" : attachments.size()));
+        if (attachments != null) {
+            for (int i = 0; i < attachments.size(); i++) {
+                Attachment att = attachments.get(i);
+                LOG.debug("[ClaudeSession][DIAG] att[" + i + "]: fileName=" + att.fileName
+                        + ", localPath=" + att.localPath
+                        + ", data=" + (att.data != null ? att.data.length() + "chars" : "null")
+                        + ", resourceUrl=" + att.resourceUrl);
+            }
+        }
         String normalizedInput = (input != null) ? input.trim() : "";
         Message userMessage = contextService.buildUserMessage(normalizedInput, attachments);
         sendService.updateSessionStateForSend(userMessage, normalizedInput);
+        final long sendInvalidationEpoch = state.capturePendingSendInvalidationEpoch();
 
         final String finalAgentPrompt = agentPrompt;
         final List<String> finalFileTagPaths = fileTagPaths;
         final String finalRequestedPermissionMode = requestedPermissionMode;
-        final String finalRequestedReasoningEffort = requestedReasoningEffort;
-        final String finalRequestedCodexFastMode = requestedCodexFastMode;
+        final String finalRequestedInvocationMode = requestedInvocationMode;
 
         return launchClaude().thenCompose(chId -> {
+            if (!state.isPendingSendOperationCurrent(sendInvalidationEpoch)) {
+                return CompletableFuture.completedFuture(null);
+            }
             sendService.prepareContextCollector(contextCollector);
 
-            return contextCollector.collectContext().thenCompose(openedFilesJson ->
-                    sendService.sendMessageToProvider(
-                            chId,
-                            userMessage.content,
-                            attachments,
-                            openedFilesJson,
-                            finalAgentPrompt,
-                            finalFileTagPaths,
-                            finalRequestedPermissionMode,
-                            finalRequestedReasoningEffort,
-                            finalRequestedCodexFastMode
-                    )
-            ).thenCompose(v -> syncUserMessageUuidsAfterSend());
+            return contextCollector.collectContext().thenCompose(openedFilesJson -> {
+                if (!state.isPendingSendOperationCurrent(sendInvalidationEpoch)) {
+                    return CompletableFuture.completedFuture(null);
+                }
+                return sendService.sendMessageToProvider(
+                        chId,
+                        userMessage.content,
+                        attachments,
+                        openedFilesJson,
+                        finalAgentPrompt,
+                        finalFileTagPaths,
+                        finalRequestedPermissionMode,
+                        finalRequestedInvocationMode
+                );
+            }).thenCompose(v -> {
+                if (!state.isPendingSendOperationCurrent(sendInvalidationEpoch)) {
+                    return CompletableFuture.completedFuture(null);
+                }
+                return syncUserMessageUuidsAfterSend();
+            });
         }).exceptionally(ex -> {
             state.setError(ex.getMessage());
             state.setBusy(false);
@@ -498,12 +508,18 @@ public class ClaudeSession {
      * Interrupt the current execution.
      */
     public CompletableFuture<Void> interrupt() {
+        state.invalidatePendingSendOperations();
         if (state.getChannelId() == null) {
+            state.setError(null);
+            state.setBusy(false);
+            state.setLoading(false);
+            callbackFacade.notifyStateChange(state.isBusy(), state.isLoading(), state.getError());
             return CompletableFuture.completedFuture(null);
         }
 
         return CompletableFuture.runAsync(() -> {
             try {
+                sendService.interruptRuntime(state.getProvider(), state.getChannelId(), state.getChannelId());
                 providerRouter.interruptChannel(state.getProvider(), state.getChannelId());
                 state.setError(null);  // Clear previous error state
                 state.setBusy(false);
@@ -550,12 +566,58 @@ public class ClaudeSession {
         public String fileName;
         public String mediaType;
         public String data; // Base64 encoded data
+        public String localPath;
+        public String resourceUrl;
+        public String thumbnailUrl;
+        public String attachmentHash;
 
         public Attachment(String fileName, String mediaType, String data) {
             this.fileName = fileName;
             this.mediaType = mediaType;
             this.data = data;
         }
+
+        public Attachment(
+                String fileName,
+                String mediaType,
+                String data,
+                String localPath,
+                String resourceUrl,
+                String thumbnailUrl,
+                String attachmentHash
+        ) {
+            this.fileName = fileName;
+            this.mediaType = mediaType;
+            this.data = data;
+            this.localPath = localPath;
+            this.resourceUrl = resourceUrl;
+            this.thumbnailUrl = thumbnailUrl;
+            this.attachmentHash = attachmentHash;
+        }
+    }
+
+    /**
+     * Dispose this session, releasing all held resources and breaking reference chains.
+     * Must be called when the associated tab/window is closed to prevent memory leaks.
+     */
+    public void dispose() {
+        LOG.info("[ClaudeSession] Disposing session, channelId=" + state.getChannelId());
+        providerRouter.cleanupProviderSession(state.getProvider(), state.getSessionId(), state.getCwd());
+
+        // Interrupt any active request
+        try {
+            interrupt();
+        } catch (Exception e) {
+            LOG.debug("[ClaudeSession] Interrupt during dispose failed: " + e.getMessage());
+        }
+
+        // Clear callback reference to break: PermissionManager -> lambda -> callbackFacade -> UI
+        callbackFacade.setCallback(null);
+
+        // Clear permission callback to break reference chain
+        permissionManager.setOnPermissionRequestedCallback(null);
+
+        state.setChannelId(null);
     }
 
     /**
@@ -633,6 +695,23 @@ public class ClaudeSession {
         return state.getProvider();
     }
 
+    public String getClaudeInvocationMode() {
+        return state.getClaudeInvocationMode();
+    }
+
+    public void setClaudeInvocationMode(String invocationMode) {
+        state.setClaudeInvocationMode(invocationMode);
+        LOG.info("Claude invocation mode updated to: " + state.getClaudeInvocationMode());
+    }
+
+    public String getPermissionSessionId() {
+        return state.getPermissionSessionId();
+    }
+
+    public void setPermissionSessionId(String permissionSessionId) {
+        state.setPermissionSessionId(permissionSessionId);
+    }
+
     /**
      * Get the current runtime session epoch.
      */
@@ -665,11 +744,10 @@ public class ClaudeSession {
     }
 
     /**
-     * Set the Codex service tier. Null means use Codex defaults; "fast" matches Codex CLI /fast.
+     * Set the Codex service tier.
      */
     public void setCodexServiceTier(String serviceTier) {
         state.setCodexServiceTier(serviceTier);
-        LOG.info("Codex service tier updated to: " + (serviceTier != null ? serviceTier : "standard"));
     }
 
     /**

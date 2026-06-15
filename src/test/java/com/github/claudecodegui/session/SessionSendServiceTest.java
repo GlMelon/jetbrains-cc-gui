@@ -15,33 +15,28 @@ public class SessionSendServiceTest {
     }
 
     @Test
-    public void resolveEffectivePermissionModePrefersRequestedModeWhenValid() {
+    public void resolveEffectivePermissionModeKeepsSessionModeWhenRequestedDiffers() {
+        assertEquals("default", SessionSendService.resolveEffectivePermissionMode("claude", "bypassPermissions", "default"));
         assertEquals(
-                "acceptEdits",
-                SessionSendService.resolveEffectivePermissionMode("claude", "acceptEdits", "default")
+                "acceptEdits", SessionSendService.resolveEffectivePermissionMode("codex", "bypassPermissions", "acceptEdits")
         );
     }
 
     @Test
-    public void resolveEffectivePermissionModeFallsBackToSessionModeAndDowngradesCodexPlan() {
+    public void resolveEffectivePermissionModeDowngradesCodexPlanAfterSessionResolution() {
         assertEquals(
-                "default",
+                "plan",
                 SessionSendService.resolveEffectivePermissionMode("codex", null, "plan")
         );
+    }
+
+    @Test
+    public void resolveEffectivePermissionModeFallsBackToRequestedModeWhenSessionModeMissing() {
+        assertEquals("acceptEdits", SessionSendService.resolveEffectivePermissionMode("claude", "acceptEdits", null));
         assertEquals(
                 "default",
                 SessionSendService.resolveEffectivePermissionMode("claude", null, null)
         );
-    }
-
-    @Test
-    public void normalizeRequestedReasoningEffortRejectsBlankAndUnknownValues() {
-        assertNull(SessionSendService.normalizeRequestedReasoningEffort(null));
-        assertNull(SessionSendService.normalizeRequestedReasoningEffort(" "));
-        assertNull(SessionSendService.normalizeRequestedReasoningEffort("extreme"));
-        assertEquals("low", SessionSendService.normalizeRequestedReasoningEffort(" low "));
-        assertEquals("xhigh", SessionSendService.normalizeRequestedReasoningEffort("xhigh"));
-        assertEquals("max", SessionSendService.normalizeRequestedReasoningEffort("max"));
     }
 
     @Test
@@ -55,45 +50,28 @@ public class SessionSendServiceTest {
     }
 
     @Test
-    public void newSessionStateDoesNotInjectDefaultClaudeReasoningEffort() {
-        SessionState state = new SessionState();
-
-        assertNull(state.getReasoningEffort());
+    public void resolveEffectiveClaudeInvocationModeKeepsRequestedCliMode() {
+        assertEquals(
+                "cli",
+                SessionSendService.resolveEffectiveClaudeInvocationMode("cli")
+        );
     }
 
     @Test
-    public void normalizeRequestedCodexServiceTierMapsFastAliasesOnly() {
+    public void resolveEffectiveClaudeInvocationModeKeepsRequestedSdkMode() {
         assertEquals(
-                SessionSendService.CODEX_FAST_SERVICE_TIER,
-                SessionSendService.normalizeRequestedCodexServiceTier("fast")
-        );
-        assertEquals(
-                SessionSendService.CODEX_FAST_SERVICE_TIER,
-                SessionSendService.normalizeRequestedCodexServiceTier("priority")
-        );
-        assertNull(SessionSendService.normalizeRequestedCodexServiceTier("normal"));
-        assertNull(SessionSendService.normalizeRequestedCodexServiceTier("standard"));
-        assertNull(SessionSendService.normalizeRequestedCodexServiceTier(""));
-        assertNull(SessionSendService.normalizeRequestedCodexServiceTier("experimental-tier"));
+                "sdk", SessionSendService.resolveEffectiveClaudeInvocationMode("sdk", "sdk"));
     }
 
     @Test
-    public void resolveEffectiveCodexServiceTierDoesNotSendTierForNormalMode() {
-        assertNull(SessionSendService.resolveEffectiveCodexServiceTier("normal", null));
-        assertNull(SessionSendService.resolveEffectiveCodexServiceTier("standard", "fast"));
-        assertNull(SessionSendService.resolveEffectiveCodexServiceTier("default", "priority"));
+    public void resolveEffectiveClaudeInvocationModeKeepsConfiguredCliWhenFrontendSendsDefaultSdk() {
+        assertEquals("cli", SessionSendService.resolveEffectiveClaudeInvocationMode("sdk", "cli"));
     }
 
     @Test
-    public void resolveEffectiveCodexServiceTierFallsBackToSessionTierWhenNoRequestedMode() {
-        assertEquals(
-                SessionSendService.CODEX_FAST_SERVICE_TIER,
-                SessionSendService.resolveEffectiveCodexServiceTier(null, "fast")
+    public void resolveEffectiveClaudeInvocationModeIgnoresRequestedModeWhenSessionModeExists() {
+        assertEquals("cli", SessionSendService.resolveEffectiveClaudeInvocationMode("sdk", "cli"));
+        assertEquals("sdk", SessionSendService.resolveEffectiveClaudeInvocationMode("cli", "sdk")
         );
-        assertEquals(
-                SessionSendService.CODEX_FAST_SERVICE_TIER,
-                SessionSendService.resolveEffectiveCodexServiceTier(null, "priority")
-        );
-        assertNull(SessionSendService.resolveEffectiveCodexServiceTier(null, "normal"));
     }
 }

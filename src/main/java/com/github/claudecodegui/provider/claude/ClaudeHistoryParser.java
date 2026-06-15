@@ -2,6 +2,7 @@ package com.github.claudecodegui.provider.claude;
 
 import com.github.claudecodegui.util.TagExtractor;
 import com.github.claudecodegui.util.TextSanitizer;
+import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
 import com.intellij.openapi.diagnostic.Logger;
 
@@ -22,7 +23,7 @@ class ClaudeHistoryParser {
 
     private static final Logger LOG = Logger.getInstance(ClaudeHistoryParser.class);
 
-    private final Gson gson = new Gson();
+    private final Gson gson = GsonHolder.GSON;
     private final BiConsumer<Path, Exception> scanFailureReporter;
 
     ClaudeHistoryParser() {
@@ -94,7 +95,6 @@ class ClaudeHistoryParser {
             session.messageCount = messages.size();
             session.lastTimestamp = lastTimestamp;
             session.firstTimestamp = firstTimestamp;
-            session.entrypoint = sniffEntrypoint(messages);
 
             return session;
         } catch (Exception e) {
@@ -110,20 +110,6 @@ class ClaudeHistoryParser {
         }
 
         LOG.warn("[ClaudeHistoryReader] Skipping unreadable session during scan: " + path + " (" + e.getMessage() + ")");
-    }
-
-    /**
-     * Sniff the session entrypoint from the earliest message that carries one.
-     * Mirrors the lite-read pipeline so fallback full scans persist the same
-     * entrypoint into the index instead of leaving it null forever.
-     */
-    private static String sniffEntrypoint(List<ClaudeHistoryReader.ConversationMessage> messages) {
-        for (ClaudeHistoryReader.ConversationMessage msg : messages) {
-            if (msg.entrypoint != null && !msg.entrypoint.isEmpty()) {
-                return msg.entrypoint;
-            }
-        }
-        return null;
     }
 
     /**

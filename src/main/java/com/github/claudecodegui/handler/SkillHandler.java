@@ -1,11 +1,12 @@
 package com.github.claudecodegui.handler;
 
-import com.github.claudecodegui.bridge.NodeDetector;
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.core.BaseMessageHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
 
 import com.github.claudecodegui.skill.CodexSkillService;
 import com.github.claudecodegui.skill.SkillService;
+import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.application.ApplicationManager;
@@ -31,7 +32,7 @@ import java.util.concurrent.CompletableFuture;
 public class SkillHandler extends BaseMessageHandler {
 
     private static final Logger LOG = Logger.getInstance(SkillHandler.class);
-    private static final Gson GSON = new Gson();
+    private static final Gson GSON = GsonHolder.GSON;
 
     private static final String[] SUPPORTED_TYPES = {
         "get_all_skills",
@@ -77,7 +78,7 @@ public class SkillHandler extends BaseMessageHandler {
      * Get all skills (dispatches to Claude or Codex service based on provider).
      */
     private void handleGetAllSkills() {
-        boolean isCodex = "codex".equalsIgnoreCase(context.getCurrentProvider());
+        boolean isCodex = CommonConstants.PROVIDER_CODEX.equalsIgnoreCase(context.getCurrentProvider());
         try {
             String workspaceRoot = context.getProject().getBasePath();
 
@@ -110,7 +111,7 @@ public class SkillHandler extends BaseMessageHandler {
         try {
             JsonObject json = GSON.fromJson(content, JsonObject.class);
             String scope = json.has("scope") ? json.get("scope").getAsString() : "global";
-            boolean isCodex = "codex".equalsIgnoreCase(context.getCurrentProvider());
+            boolean isCodex = CommonConstants.PROVIDER_CODEX.equalsIgnoreCase(context.getCurrentProvider());
 
             ApplicationManager.getApplication().invokeLater(() -> {
                 FileChooserDescriptor descriptor;
@@ -141,7 +142,7 @@ public class SkillHandler extends BaseMessageHandler {
                 VirtualFile initialDir = null;
                 String projectPath = context.getProject().getBasePath();
                 if (projectPath != null) {
-                    initialDir = LocalFileSystem.getInstance().findFileByPath(NodeDetector.toVfsPath(projectPath));
+                    initialDir = LocalFileSystem.getInstance().findFileByPath(projectPath);
                 }
 
                 VirtualFile[] selectedFiles = FileChooser.chooseFiles(descriptor, context.getProject(), initialDir);
@@ -192,7 +193,7 @@ public class SkillHandler extends BaseMessageHandler {
             String scope = json.has("scope") ? json.get("scope").getAsString() : "global";
             boolean enabled = json.has("enabled") ? json.get("enabled").getAsBoolean() : true;
             String workspaceRoot = context.getProject().getBasePath();
-            boolean isCodex = "codex".equalsIgnoreCase(context.getCurrentProvider());
+            boolean isCodex = CommonConstants.PROVIDER_CODEX.equalsIgnoreCase(context.getCurrentProvider());
 
             CompletableFuture.runAsync(() -> {
                 try {
@@ -246,7 +247,7 @@ public class SkillHandler extends BaseMessageHandler {
             String scope = json.has("scope") ? json.get("scope").getAsString() : "global";
             boolean currentEnabled = json.has("enabled") ? json.get("enabled").getAsBoolean() : true;
             String workspaceRoot = context.getProject().getBasePath();
-            boolean isCodex = "codex".equalsIgnoreCase(context.getCurrentProvider());
+            boolean isCodex = CommonConstants.PROVIDER_CODEX.equalsIgnoreCase(context.getCurrentProvider());
 
             CompletableFuture.runAsync(() -> {
                 try {
@@ -315,7 +316,7 @@ public class SkillHandler extends BaseMessageHandler {
     private boolean isInsideSkillsDirectory(String path) {
         try {
             Path normalized = Paths.get(path).toAbsolutePath().normalize();
-            String userHome = NodeDetector.resolveHomeForFileOps();
+            String userHome = com.github.claudecodegui.util.PlatformUtils.getHomeDirectory();
             String projectBase = context.getProject().getBasePath();
 
             // Claude skills directories
@@ -382,7 +383,7 @@ public class SkillHandler extends BaseMessageHandler {
             ReadAction
                 .nonBlocking(() -> {
                     // Find the file in a background thread (this is a slow operation)
-                    return LocalFileSystem.getInstance().findFileByPath(NodeDetector.toVfsPath(fileToOpen));
+                    return LocalFileSystem.getInstance().findFileByPath(fileToOpen);
                 })
                 .finishOnUiThread(com.intellij.openapi.application.ModalityState.defaultModalityState(), virtualFile -> {
                     // Open the file on the UI thread

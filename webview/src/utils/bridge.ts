@@ -155,6 +155,11 @@ const isValidFqcn = (className: string): boolean => {
   return isJavaFqcnCandidate(trimmed);
 };
 
+type BridgeEnvelope = {
+  type: string;
+  content: string;
+};
+
 const callBridge = (payload: string) => {
   if (window.sendToJava) {
     window.sendToJava(payload);
@@ -166,7 +171,8 @@ const callBridge = (payload: string) => {
 };
 
 export const sendBridgeEvent = (event: string, content = '') => {
-  return callBridge(`${event}:${content}`);
+  const envelope: BridgeEnvelope = { type: event, content };
+  return callBridge(JSON.stringify(envelope));
 };
 
 export const resolveFilePath = (filePath?: string) => {
@@ -225,7 +231,7 @@ export const openBrowser = (url?: string) => {
   sendBridgeEvent('open_browser', url);
 };
 
-export const sendToJava = (message: string, payload: any = {}) => {
+export const sendToJava = (message: string, payload: Record<string, unknown> | string = {}) => {
   const payloadStr = typeof payload === 'string' ? payload : JSON.stringify(payload);
   sendBridgeEvent(message, payloadStr);
 };
@@ -270,48 +276,6 @@ export const showEditableDiff = (
     return;
   }
   sendToJava('show_editable_diff', { filePath, operations, status });
-};
-
-/**
- * Show edit preview diff (current content → after edit)
- * Used to preview the effect before executing edits
- * @param filePath - Absolute path to the file
- * @param edits - Array of edit operations to preview
- * @param title - Optional title for the diff view
- */
-export const showEditPreviewDiff = (
-  filePath: string,
-  edits: Array<{ oldString: string; newString: string; replaceAll?: boolean }>,
-  title?: string
-) => {
-  if (!isValidMutatingPath(filePath)) {
-    return;
-  }
-  sendToJava('show_edit_preview_diff', { filePath, edits, title });
-};
-
-/**
- * Show edit full diff (original content → modified content)
- * Used to show complete file comparison before and after modification
- * @param filePath - Absolute path to the file
- * @param oldString - The original string that was replaced
- * @param newString - The new string that replaced the original
- * @param originalContent - Optional cached original file content (for full file diff)
- * @param replaceAll - Whether to replace all occurrences
- * @param title - Optional title for the diff view
- */
-export const showEditFullDiff = (
-  filePath: string,
-  oldString: string,
-  newString: string,
-  originalContent?: string,
-  replaceAll?: boolean,
-  title?: string
-) => {
-  if (!isValidMutatingPath(filePath)) {
-    return;
-  }
-  sendToJava('show_edit_full_diff', { filePath, oldString, newString, originalContent, replaceAll, title });
 };
 
 /**

@@ -1,19 +1,17 @@
 package com.github.claudecodegui.handler.diff;
 
-import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
-import com.intellij.openapi.vfs.LocalFileSystem;
-import com.intellij.openapi.vfs.VirtualFile;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 /**
  * Handles show_interactive_diff messages.
@@ -75,7 +73,7 @@ public class InteractiveDiffMessageHandler implements DiffActionHandler {
             LOG.info("Showing interactive diff for file: " + filePath);
 
             if (!isNewFile) {
-                File file = new File(NodeDetector.toVfsPath(filePath));
+                File file = new File(filePath);
                 if (!file.exists()) {
                     LOG.warn("File does not exist: " + filePath);
                     browserBridge.showErrorToast(ClaudeCodeGuiBundle.message("diff.fileNotFoundDetail", filePath));
@@ -85,7 +83,7 @@ public class InteractiveDiffMessageHandler implements DiffActionHandler {
             }
 
             String finalTabName = tabName;
-            ApplicationManager.getApplication().invokeLater(() ->
+            ApplicationManager.getApplication().executeOnPooledThread(() ->
                     showInteractiveDiff(filePath, newFileContents, finalTabName, isNewFile)
             );
         } catch (Exception e) {
@@ -97,12 +95,10 @@ public class InteractiveDiffMessageHandler implements DiffActionHandler {
         try {
             String originalContent = "";
             if (!isNewFile) {
-                VirtualFile vFile = LocalFileSystem.getInstance().refreshAndFindFileByPath(NodeDetector.toVfsPath(filePath));
-                if (vFile != null) {
-                    vFile.refresh(false, false);
-                    Charset charset = vFile.getCharset() != null ? vFile.getCharset() : StandardCharsets.UTF_8;
+                Path path = Path.of(filePath);
+                if (Files.exists(path)) {
                     try {
-                        originalContent = new String(vFile.contentsToByteArray(), charset);
+                        originalContent = Files.readString(path, StandardCharsets.UTF_8);
                     } catch (IOException e) {
                         LOG.error("Failed to read file content: " + filePath, e);
                         browserBridge.showErrorToast(ClaudeCodeGuiBundle.message("diff.fileReadFailedDetail", e.getMessage()));

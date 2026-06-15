@@ -1,7 +1,7 @@
 package com.github.claudecodegui.skill;
 
-import com.github.claudecodegui.bridge.NodeDetector;
-import com.google.gson.Gson;
+import com.github.claudecodegui.util.PlatformUtils;
+import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
@@ -246,7 +246,7 @@ public final class SlashCommandRegistry {
             }
             array.add(obj);
         }
-        return new Gson().toJson(array);
+        return GsonHolder.GSON.toJson(array);
     }
 
     /**
@@ -513,7 +513,7 @@ public final class SlashCommandRegistry {
     }
 
     private static String resolveUserHome() {
-        String home = NodeDetector.resolveHomeForFileOps();
+        String home = PlatformUtils.getHomeDirectory();
         return home != null ? home : "";
     }
 

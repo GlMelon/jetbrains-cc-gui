@@ -14,12 +14,14 @@ import {
   BashToolBlock,
   BashToolGroupBlock,
   SearchToolGroupBlock,
-  AgentGroupBlock,
 } from '../toolBlocks';
 import { ContentBlockRenderer } from './ContentBlockRenderer';
 import { formatTime } from '../../utils/helpers';
 import { copyToClipboard } from '../../utils/copyUtils';
-import { READ_TOOL_NAMES, EDIT_TOOL_NAMES, BASH_TOOL_NAMES, SEARCH_TOOL_NAMES, AGENT_TOOL_NAMES, isToolName } from '../../utils/toolConstants';
+import { READ_TOOL_NAMES, EDIT_TOOL_NAMES, BASH_TOOL_NAMES, SEARCH_TOOL_NAMES, isToolName } from '../../utils/toolConstants';
+import { MessageAvatar } from './MessageAvatar';
+import { MessageUsageStats } from './MessageUsageStats';
+import { extractMessageUsage } from '../../utils/messageUsage';
 
 export interface MessageItemProps {
   message: ClaudeMessage;
@@ -39,6 +41,13 @@ export interface MessageItemProps {
   toolResultSignature?: string;
   /** Current active provider id (e.g. 'claude', 'codex'); drives the streaming-connect label. */
   currentProvider?: string;
+  /** Rendered inside a grouped assistant response container. */
+  withinResponseGroup?: boolean;
+  /** Render only message blocks, without avatar, bubble, copy button, or usage stats. */
+  renderMode?: 'full' | 'response-segment';
+  /** Play the messageFadeIn entry animation on this card. Set only on the card's
+   *  first logical appearance so React remounts never replay the animation. */
+  shouldAnimateIn?: boolean;
 }
 
 /** Map provider id to a human-readable label used in UI text. */
@@ -52,8 +61,7 @@ type GroupedBlock =
   | { type: 'read_group'; blocks: ClaudeContentBlock[]; startIndex: number }
   | { type: 'edit_group'; blocks: ClaudeContentBlock[]; startIndex: number }
   | { type: 'bash_group'; blocks: ClaudeContentBlock[]; startIndex: number }
-  | { type: 'search_group'; blocks: ClaudeContentBlock[]; startIndex: number }
-  | { type: 'agent_group'; agentBlock: ClaudeContentBlock; followingBlocks: ClaudeContentBlock[]; startIndex: number };
+  | { type: 'search_group'; blocks: ClaudeContentBlock[]; startIndex: number };
 
 /** Shared copy icon SVG used by both user and assistant message copy buttons */
 const CopyIcon = () => (
@@ -71,7 +79,7 @@ interface CopyButtonProps {
   copySuccessText: string;
 }
 
-const CopyButton = memo(function CopyButton({
+export const CopyButton = memo(function CopyButton({
   className,
   isCopied,
   onClick,
@@ -94,77 +102,11 @@ const CopyButton = memo(function CopyButton({
   );
 });
 
-function formatDurationMs(durationMs: number): string {
-  const seconds = Math.max(0, Math.floor(durationMs / 1000));
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const remainder = seconds % 60;
-  if (hours > 0) {
-    return `${hours}:${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
-  }
-  return `${minutes}:${String(remainder).padStart(2, '0')}`;
-}
-
-interface TokenUsageInfo {
-  /** Total input-side tokens for the turn (non-cache input + cache write + cache read). */
-  inputTokens: number;
-  outputTokens: number;
-  nonCacheInputTokens: number;
-  cacheCreationTokens: number;
-  cacheReadTokens: number;
-}
-
-/**
- * Extract whole-turn token usage from a message's raw JSON.
- *
- * Reads the `turnUsage` field stamped by the backend when a turn completes
- * (ClaudeMessageHandler.handleResult / CodexMessageHandler.handleResultMessage).
- * It aggregates every API call in the turn, normalized to the Claude usage
- * schema (input_tokens excludes cache; cache fields are separate).
- *
- * Do NOT read `raw.message.usage` or `raw.usage` here: those carry per-API-call
- * and session-cumulative values that feed the context-usage status bar, and
- * would understate (Claude) or overstate (Codex) what this turn consumed.
- *
- * Returns null when no turn usage is available (aborted turns, history replay).
- */
-function extractTokenUsage(raw: ClaudeMessage['raw']): TokenUsageInfo | null {
-  if (!raw || typeof raw !== 'object') return null;
-  const usageSrc = (raw as Record<string, unknown>).turnUsage;
-  if (!usageSrc || typeof usageSrc !== 'object') return null;
-  const usage = usageSrc as Record<string, unknown>;
-  const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 0);
-  const nonCacheInput = num(usage.input_tokens);
-  const cacheCreation = num(usage.cache_creation_input_tokens);
-  const cacheRead = num(usage.cache_read_input_tokens);
-  const output = num(usage.output_tokens);
-  const input = nonCacheInput + cacheCreation + cacheRead;
-  if (input === 0 && output === 0) return null;
-  return {
-    inputTokens: input,
-    outputTokens: output,
-    nonCacheInputTokens: nonCacheInput,
-    cacheCreationTokens: cacheCreation,
-    cacheReadTokens: cacheRead,
-  };
-}
-
-/** Format a token count for compact display (e.g., 1234 → "1.2K"). */
-function formatTokenCount(count: number): string {
-  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`;
-  if (count >= 1_000) return `${(count / 1_000).toFixed(1)}K`;
-  return String(count);
-}
-
 function isToolBlockOfType(block: ClaudeContentBlock, toolNames: Set<string>): boolean {
   return block.type === 'tool_use' && isToolName(block.name, toolNames);
 }
 
-// Groups consecutive content blocks for rendering. Agent groups absorb the
-// tool_use blocks that follow them using a purely structural rule (see the
-// forEach below), so live streaming and history reload yield identical groups.
-// Exported for unit testing.
-export function groupBlocks(blocks: ClaudeContentBlock[]): GroupedBlock[] {
+function groupBlocks(blocks: ClaudeContentBlock[]): GroupedBlock[] {
   const groupedBlocks: GroupedBlock[] = [];
   let currentReadGroup: ClaudeContentBlock[] = [];
   let readGroupStartIndex = -1;
@@ -174,9 +116,6 @@ export function groupBlocks(blocks: ClaudeContentBlock[]): GroupedBlock[] {
   let bashGroupStartIndex = -1;
   let currentSearchGroup: ClaudeContentBlock[] = [];
   let searchGroupStartIndex = -1;
-  let currentAgentBlock: ClaudeContentBlock | null = null;
-  let agentFollowingText: ClaudeContentBlock[] = [];
-  let agentGroupStartIndex = -1;
 
   const flushReadGroup = () => {
     if (currentReadGroup.length > 0) {
@@ -226,49 +165,8 @@ export function groupBlocks(blocks: ClaudeContentBlock[]): GroupedBlock[] {
     }
   };
 
-  const flushAgentGroup = () => {
-    if (currentAgentBlock) {
-      groupedBlocks.push({
-        type: 'agent_group',
-        agentBlock: currentAgentBlock,
-        followingBlocks: [...agentFollowingText],
-        startIndex: agentGroupStartIndex,
-      });
-      currentAgentBlock = null;
-      agentFollowingText = [];
-      agentGroupStartIndex = -1;
-    }
-  };
-
   blocks.forEach((block, idx) => {
-    // While inside an agent group, absorb subsequent tool_use blocks until a
-    // structural boundary: the next agent tool, a non-tool block (text/thinking),
-    // or the end of the message. Keeping this purely structural guarantees that
-    // live streaming and history reload produce identical groups — the previous
-    // streaming-only "frozen count" could not be reconstructed from a snapshot,
-    // so reloaded agent groups dropped all their absorbed children.
-    if (currentAgentBlock) {
-      if (isToolBlockOfType(block, AGENT_TOOL_NAMES)) {
-        // Next agent tool — close this group and open a new one below.
-        flushAgentGroup();
-      } else if (block.type === 'tool_use') {
-        // Absorb the following tool_use into the running agent group.
-        agentFollowingText.push(block);
-        return;
-      } else {
-        // Non-tool block (text/thinking/...) ends the group; process it normally.
-        flushAgentGroup();
-      }
-    }
-
-    if (isToolBlockOfType(block, AGENT_TOOL_NAMES)) {
-      flushReadGroup();
-      flushEditGroup();
-      flushBashGroup();
-      flushSearchGroup();
-      currentAgentBlock = block;
-      agentGroupStartIndex = idx;
-    } else if (isToolBlockOfType(block, READ_TOOL_NAMES)) {
+    if (isToolBlockOfType(block, READ_TOOL_NAMES)) {
       flushEditGroup();
       flushBashGroup();
       flushSearchGroup();
@@ -309,7 +207,6 @@ export function groupBlocks(blocks: ClaudeContentBlock[]): GroupedBlock[] {
     }
   });
 
-  flushAgentGroup();
   flushReadGroup();
   flushEditGroup();
   flushBashGroup();
@@ -335,6 +232,9 @@ export const MessageItem = memo(function MessageItem({
   onNavigateToDependencySettings,
   toolResultSignature: _toolResultSignature,
   currentProvider,
+  withinResponseGroup = false,
+  renderMode = 'full',
+  shouldAnimateIn = false,
 }: MessageItemProps): React.ReactElement {
   const [copiedMessageIndex, setCopiedMessageIndex] = useState<number | null>(null);
   const [showStreamingConnectHint, setShowStreamingConnectHint] = useState(false);
@@ -369,6 +269,13 @@ export const MessageItem = memo(function MessageItem({
 
   const isLastAssistantMessage = message.type === 'assistant' && isLast;
   const isMessageStreaming = streamingActive && isLastAssistantMessage;
+  const durationLabelKey =
+    message.streamEndSource === 'watchdog' || message.streamEndReason === 'stalled'
+      ? 'chat.waitingTimedOutDuration'
+      : 'chat.usageStats.duration';
+
+  // Cache per-message token usage extraction
+  const messageUsage = useMemo(() => extractMessageUsage(message), [message]);
 
   // Cache markdown content extraction for better performance
   const markdownContent = useMemo(() => {
@@ -413,9 +320,11 @@ export const MessageItem = memo(function MessageItem({
 
   // Memoize blocks and grouped blocks to avoid recalculation on every render
   const blocks = useMemo(() => getContentBlocks(message), [message, getContentBlocks]);
+  const shouldSuppressStreamingConnectHint = message.__suppressStreamingConnectHint === true;
   const isEmptyStreamingPlaceholder =
     message.type === 'assistant' &&
     isMessageStreaming &&
+    !shouldSuppressStreamingConnectHint &&
     blocks.length === 0 &&
     !(message.content && message.content.trim().length > 0);
 
@@ -507,7 +416,7 @@ export const MessageItem = memo(function MessageItem({
 
     if (isEmptyStreamingPlaceholder) {
       return (
-        <div className="streaming-connect-status">
+        <div className="streaming-connect-status streaming-connect-enter">
           <span className="streaming-connect-text">
             {t('chat.streamingConnected', { provider: getProviderDisplayName(currentProvider) })}
           </span>
@@ -643,23 +552,6 @@ export const MessageItem = memo(function MessageItem({
         );
       }
 
-      if (grouped.type === 'agent_group') {
-        const agentToolId = grouped.agentBlock.type === 'tool_use' ? grouped.agentBlock.id : undefined;
-        return (
-          <div key={`agentgroup-${agentToolId ?? grouped.startIndex}`} className="content-block">
-            <AgentGroupBlock
-              agentBlock={grouped.agentBlock}
-              followingBlocks={grouped.followingBlocks}
-              messageIndex={messageIndex}
-              isStreaming={isMessageStreaming}
-              isLastMessage={isLast}
-              isThinking={isThinking}
-              findToolResult={findToolResult}
-            />
-          </div>
-        );
-      }
-
       const { block, originalIndex: blockIndex } = grouped;
 
       return (
@@ -686,84 +578,96 @@ export const MessageItem = memo(function MessageItem({
     return <></>;
   }
 
+  if (renderMode === 'response-segment') {
+    return (
+      <div className={`message-response-segment-content ${message.type}`}>
+        {renderGroupedBlocks()}
+      </div>
+    );
+  }
+
+  // 判断是否为用户或助手消息（需要显示头像）
+  const showAvatar = message.type === 'user' || message.type === 'assistant';
+
   return (
     <div
-      className={`message ${message.type}${isLast ? ' is-last-message' : ''}${isProviderNotConfigured ? ' provider-not-configured' : ''}`}
+      className={`message ${message.type}${isLast ? ' is-last-message' : ''}${isProviderNotConfigured ? ' provider-not-configured' : ''}${withinResponseGroup ? ' in-response-group' : ''}${shouldAnimateIn ? ' animate-in' : ''}`}
       ref={anchorRefCallback}
       data-message-anchor-id={message.type === 'user' ? messageKey : undefined}
     >
-      {/* Timestamp and copy button for user messages */}
-      {message.type === 'user' && message.timestamp && (
-        <div className="message-header-row">
-          <div className="message-timestamp-header">
-            {formatTime(message.timestamp)}
+      {/* Avatar row - only for user and assistant messages */}
+      {showAvatar ? (
+        <div className="message-avatar-row">
+          <MessageAvatar type={message.type} />
+          <div className="message-content-wrapper">
+            {/* Timestamp and copy button for user messages */}
+            {message.type === 'user' && message.timestamp && (
+              <div className="message-header-row">
+                <div className="message-timestamp-header">
+                  {formatTime(message.timestamp)}
+                </div>
+                {hasCopyableText && (
+                  <CopyButton
+                    className="message-copy-btn-inline"
+                    isCopied={copiedMessageIndex === messageIndex}
+                    onClick={handleCopyMessage}
+                    copyLabel={t('markdown.copyMessage')}
+                    copySuccessText={t('markdown.copySuccess')}
+                  />
+                )}
+              </div>
+            )}
+
+            {/* Copy button for assistant messages only */}
+            {message.type === 'assistant' && !isMessageStreaming && hasCopyableText && (
+              <CopyButton
+                isCopied={copiedMessageIndex === messageIndex}
+                onClick={handleCopyMessage}
+                copyLabel={t('markdown.copyMessage')}
+                copySuccessText={t('markdown.copySuccess')}
+              />
+            )}
+
+            <div className="message-content">
+              {renderGroupedBlocks()}
+            </div>
+
+            {/* Usage stats bar after completed assistant message */}
+            {message.type === 'assistant' && !isMessageStreaming && (
+              <MessageUsageStats
+                inputTokens={messageUsage?.inputTokens ?? null}
+                outputTokens={messageUsage?.outputTokens ?? null}
+                durationMs={typeof message.durationMs === 'number' ? message.durationMs : null}
+                durationLabelKey={durationLabelKey}
+                t={t}
+              />
+            )}
           </div>
-          {hasCopyableText && (
-            <CopyButton
-              className="message-copy-btn-inline"
-              isCopied={copiedMessageIndex === messageIndex}
-              onClick={handleCopyMessage}
-              copyLabel={t('markdown.copyMessage')}
-              copySuccessText={t('markdown.copySuccess')}
+        </div>
+      ) : (
+        <>
+          {/* Role label for non-user/assistant messages — hidden for notification types */}
+          {message.type !== 'notification' && message.type !== 'task_notification' && (
+            <div className="message-role-label">
+              {message.type}
+            </div>
+          )}
+
+          <div className="message-content">
+            {renderGroupedBlocks()}
+          </div>
+
+          {/* Usage stats bar for non-avatar assistant message */}
+          {message.type === 'assistant' && !isMessageStreaming && (
+            <MessageUsageStats
+              inputTokens={messageUsage?.inputTokens ?? null}
+              outputTokens={messageUsage?.outputTokens ?? null}
+              durationMs={typeof message.durationMs === 'number' ? message.durationMs : null}
+              durationLabelKey={durationLabelKey}
+              t={t}
             />
           )}
-        </div>
-      )}
-
-      {/* Copy button for assistant messages only */}
-      {message.type === 'assistant' && !isMessageStreaming && hasCopyableText && (
-        <CopyButton
-          isCopied={copiedMessageIndex === messageIndex}
-          onClick={handleCopyMessage}
-          copyLabel={t('markdown.copyMessage')}
-          copySuccessText={t('markdown.copySuccess')}
-        />
-      )}
-
-      {/* Role label for non-user/assistant messages — hidden for notification types */}
-      {message.type !== 'assistant' && message.type !== 'user'
-        && message.type !== 'notification' && message.type !== 'task_notification' && (
-        <div className="message-role-label">
-          {message.type}
-        </div>
-      )}
-
-      <div className="message-content">
-        {renderGroupedBlocks()}
-      </div>
-
-      {/* Duration and token display after last assistant message */}
-      {message.type === 'assistant' && !isMessageStreaming && typeof message.durationMs === 'number' && (
-        <div className="message-duration">
-          <span className="message-duration-inner">
-            <span className="message-duration-flag codicon codicon-clock"></span>
-            <span className="message-duration-cost">{t('chat.totalDuration')}</span>
-            <span className="message-duration-value">{formatDurationMs(message.durationMs)}</span>
-            {(() => {
-              const tokenInfo = extractTokenUsage(message.raw);
-              if (!tokenInfo) return null;
-              return (
-                <>
-                  <span className="message-duration-separator">·</span>
-                  <span
-                    className="message-duration-tokens"
-                    title={t('chat.tokenUsageDetail', {
-                      input: formatTokenCount(tokenInfo.nonCacheInputTokens),
-                      cacheWrite: formatTokenCount(tokenInfo.cacheCreationTokens),
-                      cacheRead: formatTokenCount(tokenInfo.cacheReadTokens),
-                      output: formatTokenCount(tokenInfo.outputTokens),
-                    })}
-                  >
-                    {t('chat.tokenUsage', {
-                      input: formatTokenCount(tokenInfo.inputTokens),
-                      output: formatTokenCount(tokenInfo.outputTokens),
-                    })}
-                  </span>
-                </>
-              );
-            })()}
-          </span>
-        </div>
+        </>
       )}
     </div>
   );

@@ -31,10 +31,12 @@
     "confirmNewSession": "Current session has messages. Are you sure you want to create a new session?",
     "confirmInterrupt": "A conversation is in progress. Creating a new session will interrupt it. Continue?",
     "requestInterrupted": "Request interrupted by user",
+    "userInterrupted": "User interrupted",
     "uploadedFiles": "Uploaded files: {{files}}",
     "emptyMessage": "Empty message",
     "clickToPreview": "Click to preview",
     "userUploadedImage": "User uploaded image",
+    "imageLoadFailed": "Failed to load image",
     "inputPlaceholder": "@reference files, #invoke agents, !insert prompts, Enter to send",
     "inputPlaceholderEnter": "@reference files, #invoke agents, !insert prompts, Enter to send",
     "inputPlaceholderCmdEnter": "@reference files, #invoke agents, !insert prompts, ⌘Enter to send",
@@ -49,6 +51,7 @@
     "addAttachment": "Add attachment",
     "stopGeneration": "Stop generation",
     "generatingResponse": "Generating response",
+    "queueWaiting": "Queued, {{count}} request(s) ahead",
     "elapsedTime": "Elapsed {{time}}",
     "minutesAndSeconds": "{{minutes}}m {{seconds}}s",
     "imagePreview": "Preview",
@@ -81,6 +84,9 @@
     "disabled": "Disabled",
     "sdkNotInstalled": "{{provider}} SDK is not installed. Please install the SDK to start chatting.",
     "sdkStatusLoading": "Checking SDK status...",
+    "sdkStatusCheckDeferred": "{{provider}} SDK status is still loading. Sending will continue and the backend will verify it before execution.",
+    "planModeEnabled": "Plan mode enabled",
+    "invocationModeRequired": "Invocation mode is not loaded. Please choose SDK or CLI mode in Settings before sending.",
     "openSourceBanner": "This project is guaranteed to be 100% open source (beware of pirated projects)",
     "goInstallSdk": "Go to Install",
     "commandNotImplemented": "`{{command}}` feature is not yet implemented.",
@@ -91,8 +97,20 @@
     "streamingConnected": "{{provider}} connected, understanding your question",
     "showEarlierMessages": "Show {{count}} earlier messages",
     "totalDuration": "This reply took",
-    "tokenUsage": "{{input}} in / {{output}} out",
-    "tokenUsageDetail": "Turn total — input {{input}} · cache write {{cacheWrite}} · cache read {{cacheRead}} · output {{output}}",
+    "waitingTimedOutDuration": "Wait timed out",
+    "streamStalledRetrying": "No model output was received for a while. The CLI may still be retrying; the final error will appear if it fails.",
+    "providerError": {
+      "title": "This response stopped",
+      "details": "Error details",
+      "provider": "Service: {{provider}}",
+      "exitCode": "Exit code: {{exitCode}}",
+      "fallbackSummary": "Codex response failed"
+    },
+    "usageStats": {
+      "input": "Input:",
+      "output": "Output:",
+      "duration": "Duration:"
+    },
     "search": {
       "ariaLabel": "Search in conversation",
       "placeholder": "Search in conversation…",
@@ -117,6 +135,18 @@
       "userContext": "Context: \"{{context}}\"",
       "expand": "Expand summary",
       "collapse": "Collapse summary"
+    },
+    "tokenIndicator": {
+      "contextStats": "Context Stats",
+      "inputToken": "Input Tokens",
+      "outputToken": "Output Tokens",
+      "cacheRead": "Cache Read",
+      "cacheWrite": "Cache Write",
+      "cacheHitRate": "{{rate}}% hit",
+      "total": "Total {{used}} / {{max}}",
+      "sessionInfo": "Current session · {{model}} · {{maxTokens}} context window",
+      "includes": "Includes: system prompt, messages, file context, tool results, cache reads",
+      "source": "Source: System prompt · History messages · Current file · Tool I/O"
     }
   },
   "settings": {
@@ -152,6 +182,15 @@
         "korean": "한국어",
         "portuguese": "Português (Brasil)"
       },
+      "invocationMode": {
+        "label": "Invocation Mode",
+        "sdk": "SDK Mode",
+        "sdkDesc": "Use the official SDK integration (default, stable, supports permission prompts)",
+        "cli": "CLI Mode",
+        "cliDesc": "Invoke the local Claude CLI directly",
+        "cliPathPlaceholder": "Path to the Claude CLI executable (leave blank to auto-detect)",
+        "hint": "CLI mode does not support thinking, /context and a few other features. Permission mode follows the setting above."
+      },
       "nodePath": {
         "label": "Node.js Path",
         "placeholder": "Windows: C:\\Program Files\\nodejs\\node.exe (must end with .exe) | macOS/Linux: /usr/local/bin/node",
@@ -165,9 +204,9 @@
         "cannotExecute": "File exists but cannot be executed, please check file permissions"
       },
       "claudeCliPath": {
-        "label": "Claude CLI Path (override)",
-        "placeholder": "e.g. /usr/local/bin/claude — leave empty to use the bundled SDK",
-        "hint": "Optional. When set, the plugin spawns this binary instead of the bundled @anthropic-ai/claude-agent-sdk. Daemon restarts on save."
+        "label": "Claude CLI Path",
+        "placeholder": "Leave empty for auto-detection, or specify claude executable path",
+        "hint": "Specify the Claude CLI executable path. Leave empty to auto-detect in PATH."
       },
       "workingDirectory": {
         "label": "Working Directory",
@@ -184,28 +223,27 @@
         "level6": "Largest (140%)"
       },
       "editorFont": {
-        "label": "UI Font",
-        "hint": "This controls the plugin UI font only. Code can use a separate code font.",
-        "followOption": "Follow IDEA UI font ({{font}})",
-        "customOption": "Custom UI font file",
-        "customPathLabel": "UI font file path",
-        "customPathPlaceholder": "Choose or enter a .ttf / .otf UI font file path",
+        "label": "Font",
+        "hint": "Font family changes apply immediately here. Font size and line spacing still follow the editor.",
+        "followOption": "Follow editor ({{font}})",
+        "customOption": "Custom font file",
+        "customPathLabel": "Font file path",
+        "customPathPlaceholder": "Choose or enter a .ttf / .otf font file path",
         "browse": "Browse",
-        "warningUnavailable": "UI font unavailable, currently using IDEA UI font",
-        "statusFollowEditor": "Currently following IDEA UI font: {{font}}",
-        "statusCustom": "Currently using custom UI font: {{font}}"
+        "warningUnavailable": "Font unavailable, currently using editor font",
+        "statusFollowEditor": "Currently following editor font: {{font}}",
+        "statusCustom": "Currently using custom font: {{font}}"
       },
       "codeFont": {
         "label": "Code Font",
-        "hint": "Markdown code and command blocks use this font.",
-        "followOption": "Follow editor font ({{font}})",
-        "customOption": "Custom code font file",
-        "customPathLabel": "Code font file path",
-        "customPathPlaceholder": "Choose or enter a .ttf / .otf code font file path",
+        "followOption": "Follow editor ({{font}})",
+        "customOption": "Custom font file",
+        "customPathLabel": "Font file path",
+        "customPathPlaceholder": "Choose or enter a .ttf / .otf font file path",
         "browse": "Browse",
-        "warningUnavailable": "Code font unavailable, currently using editor font",
+        "warningUnavailable": "Font unavailable, currently using editor font",
         "statusFollowEditor": "Currently following editor font: {{font}}",
-        "statusCustom": "Currently using custom code font: {{font}}"
+        "statusCustom": "Currently using custom font: {{font}}"
       },
       "streaming": {
         "label": "Streaming",
@@ -286,28 +324,6 @@
         "softDark": "Soft Dark",
         "softDarkDesc": "Keep code contrast without the harsh black background"
       },
-      "soundNotification": {
-        "label": "Task Completion Sound",
-        "enabled": "Enabled",
-        "disabled": "Disabled",
-        "hint": "When enabled, a notification sound will play when AI completes a task, so you'll know even when away from the screen.",
-        "onlyWhenUnfocused": "Play only when IDE is not focused",
-        "onlyWhenUnfocusedHint": "When enabled, the sound will only play when the IDE window is not in focus.",
-        "selectSound": "Notification Sound",
-        "soundDefault": "Default",
-        "soundChime": "Chime",
-        "soundBell": "Bell",
-        "soundDing": "Ding",
-        "soundSuccess": "Success",
-        "soundCustom": "Custom...",
-        "customSound": "Custom Sound File",
-        "customSoundPlaceholder": "Select or enter audio file path",
-        "customSoundHint": "Supports WAV, MP3, AIFF formats",
-        "testSound": "Test",
-        "browse": "Browse",
-        "useDefault": "Use Default",
-        "customSoundSaved": "Custom sound saved"
-      },
       "userMsgColor": {
         "label": "User Message Color",
         "custom": "Custom",
@@ -335,7 +351,9 @@
       "title": "Custom Models",
       "description": "Custom models added here will be visible under all providers, shown at the top of the model selector",
       "dialogTitle": "Manage Custom Models",
-      "manage": "Manage Models"
+      "manage": "Manage Models",
+      "contextWindow": "Context Window",
+      "contextWindowPlaceholder": "Custom tokens"
     },
     "dependencies": "SDK Dependencies",
     "dependenciesDesc": "Manage AI SDK dependency installations and updates",
@@ -475,7 +493,14 @@
     "codexFeatureUnavailable": "This settings section is not available in Codex yet. Please switch to Claude Code.",
     "sidebar": {
       "expand": "Expand Sidebar",
-      "collapse": "Collapse Sidebar"
+      "collapse": "Collapse Sidebar",
+      "search": "Search settings...",
+      "group": {
+        "core": "Core",
+        "tools": "Tools",
+        "resources": "Resources",
+        "other": "Other"
+      }
     },
     "community": "Community",
     "communityDesc": "Scan the QR code below to join the official WeChat group for the latest news and technical support",
@@ -932,32 +957,6 @@
     "copySessionId": "Copy session ID for CLI resume",
     "sessionIdCopied": "Session ID copied",
     "copyFailed": "Copy failed",
-    "entrypointLabel": {
-      "sdk-cli": "SDK Session",
-      "claude-vscode": "VS Code",
-      "remote": "Remote"
-    },
-    "entrypointTooltip": {
-      "sdk-cli": "This session was created by the plugin via SDK and is not shown in CLI by default. Click 'Convert to CLI' to make it appear in terminal CLI's /resume list",
-      "claude-vscode": "This session was created by VS Code extension and is not shown in CLI by default. Click 'Convert to CLI' to make it appear in terminal CLI's /resume list",
-      "remote": "This session was created by a remote Claude Code instance"
-    },
-    "convertToCliSession": "Convert to CLI-recognizable session",
-    "convertButton": "Convert to CLI",
-    "convertSuccess": "Session converted, now visible in CLI /resume",
-    "convertFailed": "Conversion failed",
-    "confirmConvert": "Convert to CLI Session?",
-    "convertConfirmMessage": "This will modify the session's entrypoint to make it visible in Claude Code CLI's /resume list.",
-    "conversionErrors": {
-      "INVALID_SESSION_ID": "Invalid session ID",
-      "SESSION_ACTIVE": "Cannot convert the currently active session. Start a new session first, then convert this one",
-      "SESSION_NOT_FOUND": "Session file not found",
-      "FILE_NOT_EXIST": "Session file does not exist",
-      "FILE_LOCKED": "Session file is being accessed by another process",
-      "NOT_SDK_SESSION": "This session is not an SDK-created session (entrypoint is not sdk-cli)",
-      "ALREADY_CLI_SESSION": "This session is already a CLI session",
-      "CONVERSION_FAILED": "Conversion failed, please try again later"
-    },
     "timeAgo": {
       "yearsAgo": "years ago",
       "monthsAgo": "months ago",
@@ -1049,19 +1048,6 @@
       "loading": "Loading providers...",
       "empty": "No providers available",
       "switched": "Switched to {{provider}}"
-    },
-    "codexQuota": {
-      "title": "Codex quota",
-      "loading": "Loading quota...",
-      "unavailable": "Quota unavailable",
-      "lastUpdated": "Updated {{value}}",
-      "fiveHour": "5h usage",
-      "weekly": "Weekly usage",
-      "windowRemainingPercent": "{{percent}}% remaining",
-      "windowRemainingPercentWithReset": "{{percent}}% remaining · Resets {{value}}",
-      "windowUsedOnly": "{{used}} used",
-      "windowUnavailable": "Unavailable",
-      "apiKeyMode": "API key mode has no subscription quota"
     },
     "nodeProcesses": {
       "title": "Node Process Manager",
@@ -1308,8 +1294,6 @@
     "runCommand": "Run Command",
     "contextEngine": "Context Engine",
     "task": "Task",
-    "agent": "Agent",
-    "agentGroupToggle": "Toggle agent group details",
     "readFile": "Read File",
     "editFile": "Edit File",
     "writeFile": "Write File",
@@ -1382,7 +1366,6 @@
     "noTodos": "No tasks running",
     "noSubagents": "No subagents running",
     "noFileChanges": "No file changes",
-    "blockedBy": "Blocked by: {{ids}}",
     "showDiff": "Show Diff",
     "expand": "Expand status panel",
     "collapse": "Collapse status panel",
@@ -1575,7 +1558,7 @@
       "label": "1M",
       "shortLabel": "1M context",
       "tooltipEnabled": "Toggle 1M context window on/off",
-      "tooltipDisabled": "1M context not available for Haiku"
+      "tooltipDisabled": "1M context not available for this model"
     },
     "claude": {
       "sonnet46": {
@@ -1597,10 +1580,6 @@
       "opus48": {
         "label": "Opus 4.8",
         "description": "Opus 4.8 · Latest and most capable"
-      },
-      "fable5": {
-        "label": "Fable 5",
-        "description": "Fable 5 · Most powerful · Mythos-class"
       }
     },
     "codex": {
@@ -1843,6 +1822,7 @@
     "dbParseProviderFailed": "Failed to parse provider config",
     "aiResponseEmpty": "AI response is empty",
     "enhancementFailed": "Enhancement failed",
+    "unsupportedImageVision": "The current model does not support image recognition, or this provider's Claude Code compatible interface does not support image tool results.\nPlease switch to a vision-capable model and try again.",
     "uploadedImages": "Uploaded {{count}} image(s)",
     "uploadedAttachments": "Uploaded attachment(s)",
     "emptyMessage": "Empty message",
@@ -1852,17 +1832,6 @@
     "title": "What's New",
     "close": "Got it",
     "page": "{{current}} / {{total}}"
-  },
-  "codexFastMode": {
-    "title": "Select Codex speed mode",
-    "normal": {
-      "label": "Standard",
-      "description": "Codex default response speed"
-    },
-    "fast": {
-      "label": "Fast",
-      "description": "Codex fast response mode (uses additional credits)"
-    }
   },
   "error": {
     "providerNotConfigured": "Provider Not Configured",

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { ClaudeContentBlock, ClaudeMessage, ToolResultBlock } from '../../types';
 import { extractMarkdownContent } from '../../utils/copyUtils';
@@ -20,7 +20,10 @@ vi.mock('../toolBlocks', () => ({
 
 vi.mock('./ContentBlockRenderer', () => ({
   ContentBlockRenderer: ({ block }: { block: ClaudeContentBlock }) => (
-    <div data-testid={`content-block-${block.type}`}>{block.type}</div>
+    <div data-testid={`content-block-${block.type}`}>
+      {block.type}
+      {block.type === 'provider_error' ? `:${(block as any).summary}` : ''}
+    </div>
   ),
 }));
 
@@ -29,22 +32,16 @@ vi.mock('./ProviderNotConfiguredCard', () => ({
   isProviderNotConfiguredError: () => false,
 }));
 
-const t = ((key: string, opts?: Record<string, string>) => {
+const t = ((key: string) => {
   const translations: Record<string, string> = {
     'markdown.copyMessage': '复制消息',
     'markdown.copySuccess': '已复制',
     'chat.streamingConnected': '已连接',
     'chat.totalDuration': '本次耗时',
-    'chat.tokenUsage': '输入 {{input}} / 输出 {{output}}',
-    'chat.tokenUsageDetail': '本轮合计 — 输入 {{input}} · 缓存写入 {{cacheWrite}} · 缓存读取 {{cacheRead}} · 输出 {{output}}',
+    'chat.waitingTimedOutDuration': '等待超时',
+    'chat.usageStats.duration': '本次耗时',
   };
-  let result = translations[key] ?? key;
-  if (opts) {
-    for (const [k, v] of Object.entries(opts)) {
-      result = result.replace(`{{${k}}}`, v);
-    }
-  }
-  return result;
+  return translations[key] ?? key;
 }) as any;
 
 const getMessageText = (message: ClaudeMessage) => message.content ?? '';
@@ -66,7 +63,10 @@ const getContentBlocks = (message: ClaudeMessage): ClaudeContentBlock[] => {
 
 const findToolResult = (_toolId: string | undefined, _messageIndex: number): ToolResultBlock | null => null;
 
-function renderMessageItem(message: ClaudeMessage) {
+function renderMessageItem(
+  message: ClaudeMessage,
+  overrides: Partial<React.ComponentProps<typeof MessageItem>> = {},
+) {
   return render(
     <MessageItem
       message={message}
@@ -80,6 +80,7 @@ function renderMessageItem(message: ClaudeMessage) {
       getContentBlocks={getContentBlocks}
       findToolResult={findToolResult}
       extractMarkdownContent={extractMarkdownContent}
+      {...overrides}
     />
   );
 }
@@ -160,127 +161,97 @@ describe('MessageItem copy button visibility', () => {
     expect(screen.getByTestId('bash-tool-group-block')).toBeTruthy();
     expect(screen.queryAllByTestId('content-block-tool_use')).toHaveLength(0);
   });
-});
 
-describe('MessageItem token usage display', () => {
-  it('shows whole-turn token usage alongside duration when turnUsage is present', () => {
+  it('renders Codex apply_patch tool uses through the edit tool block', () => {
     const message: ClaudeMessage = {
       type: 'assistant',
-      content: 'Hello',
-      durationMs: 16000,
       raw: {
-        message: {
-          content: [{ type: 'text', text: 'Hello' }],
-        },
-        turnUsage: {
-          input_tokens: 1200,
-          output_tokens: 456,
-        },
-      } as any,
-    };
-
-    renderMessageItem(message);
-
-    expect(screen.getByText('0:16')).toBeTruthy();
-    expect(screen.getByText('输入 1.2K / 输出 456')).toBeTruthy();
-  });
-
-  it('counts cache tokens in the input total and details them in the tooltip', () => {
-    const message: ClaudeMessage = {
-      type: 'assistant',
-      content: 'Hello',
-      durationMs: 10000,
-      raw: {
-        message: {
-          content: [{ type: 'text', text: 'Hello' }],
-        },
-        turnUsage: {
-          input_tokens: 37,
-          cache_creation_input_tokens: 0,
-          cache_read_input_tokens: 36310,
-          output_tokens: 353,
-        },
-      } as any,
-    };
-
-    renderMessageItem(message);
-
-    // Input shows the full input side (37 + 0 + 36310 = 36347 → "36.3K"),
-    // so heavy cache reads are never hidden from the user.
-    const tokens = screen.getByText('输入 36.3K / 输出 353');
-    expect(tokens).toBeTruthy();
-    expect(tokens.getAttribute('title')).toBe(
-      '本轮合计 — 输入 37 · 缓存写入 0 · 缓存读取 36.3K · 输出 353'
-    );
-  });
-
-  it('ignores per-call usage fields (message.usage / top-level usage)', () => {
-    // Regression guard: message.usage is the per-call context-occupancy value
-    // for the status bar and top-level usage is the session-cumulative Codex
-    // value — rendering either would misstate what the turn consumed.
-    const message: ClaudeMessage = {
-      type: 'assistant',
-      content: 'Hello',
-      durationMs: 5000,
-      raw: {
-        content: [{ type: 'text', text: 'Hello' }],
-        usage: {
-          input_tokens: 500000,
-          output_tokens: 9000,
-        },
-        message: {
-          content: [{ type: 'text', text: 'Hello' }],
-          usage: {
-            input_tokens: 37,
-            output_tokens: 353,
+        content: [
+          {
+            type: 'tool_use',
+            id: 'patch-1',
+            name: 'apply_patch',
+            input: {
+              patch: '*** Update File: README.md\n-old\n+new',
+              file_path: 'README.md',
+            },
           },
-        },
+        ],
       } as any,
     };
 
     renderMessageItem(message);
 
-    expect(screen.getByText('0:05')).toBeTruthy();
-    expect(screen.queryByText(/输入/)).toBeNull();
+    expect(screen.getByTestId('edit-tool-block')).toBeTruthy();
+    expect(screen.queryAllByTestId('content-block-tool_use')).toHaveLength(0);
   });
 
-  it('does not show token usage when no turnUsage is present', () => {
+  it('labels watchdog-ended assistant duration as a waiting timeout', () => {
     const message: ClaudeMessage = {
       type: 'assistant',
-      content: 'Hello',
-      durationMs: 3000,
-      raw: {
-        message: {
-          content: [{ type: 'text', text: 'Hello' }],
-        },
-      } as any,
+      content: 'partial answer',
+      durationMs: 181_000,
+      streamEndSource: 'watchdog',
+      streamEndReason: 'stalled',
     };
 
     renderMessageItem(message);
 
-    expect(screen.getByText('0:03')).toBeTruthy();
-    expect(screen.queryByText(/输入/)).toBeNull();
+    expect(screen.getByText('等待超时')).toBeTruthy();
+    expect(screen.getByText('3:01')).toBeTruthy();
+    expect(screen.queryByText('本次耗时')).toBeNull();
   });
 
-  it('does not show token usage when tokens are all zero', () => {
+  it('does not show the streaming connection hint for block-reset assistant placeholders', () => {
+    vi.useFakeTimers();
     const message: ClaudeMessage = {
       type: 'assistant',
-      content: 'Hello',
-      durationMs: 3000,
+      content: '',
+      isStreaming: true,
+      __turnId: 2,
+      __suppressStreamingConnectHint: true,
+    };
+
+    renderMessageItem(message, {
+      isLast: true,
+      streamingActive: true,
+      currentProvider: 'claude',
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
+    expect(screen.queryByText('已连接')).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it('renders provider errors inside the assistant message card', () => {
+    const message: ClaudeMessage = {
+      type: 'assistant',
+      content: 'Codex 已连接，正在理解问题',
       raw: {
-        message: {
-          content: [{ type: 'text', text: 'Hello' }],
-        },
-        turnUsage: {
-          input_tokens: 0,
-          output_tokens: 0,
-        },
+        content: [
+          {
+            type: 'text',
+            text: 'Codex 已连接，正在理解问题',
+          },
+          {
+            type: 'provider_error',
+            provider: 'codex',
+            summary: '服务暂时不可用',
+            details: 'Codex CLI 请求失败，原因：服务暂时不可用 (503)',
+            exitCode: 1,
+          },
+        ],
       } as any,
     };
 
     renderMessageItem(message);
 
-    expect(screen.getByText('0:03')).toBeTruthy();
-    expect(screen.queryByText(/输入/)).toBeNull();
+    expect(screen.getByTestId('content-block-text')).toBeTruthy();
+    expect(screen.getByTestId('content-block-provider_error').textContent).toContain('provider_error:服务暂时不可用');
+    expect(document.querySelector('.message.assistant')).toBeTruthy();
+    expect(document.querySelector('.message.error')).toBeNull();
   });
 });

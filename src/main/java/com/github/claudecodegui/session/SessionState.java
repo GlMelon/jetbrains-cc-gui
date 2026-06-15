@@ -1,12 +1,10 @@
 package com.github.claudecodegui.session;
 
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import com.github.claudecodegui.common.CommonConstants;
+
+import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Session state management.
@@ -19,14 +17,26 @@ public class SessionState {
      * Shared across SessionHandler (payload validation) and ClaudeSession (mode resolution).
      */
     public static final Set<String> VALID_PERMISSION_MODES;
+    public static final Set<String> VALID_CLAUDE_INVOCATION_MODES;
+    public static final Set<String> VALID_PROVIDERS;
     static {
         Set<String> modes = new HashSet<>();
-        modes.add("default");
-        modes.add("plan");
-        modes.add("acceptEdits");
-        modes.add("autoEdit");
-        modes.add("bypassPermissions");
+        modes.add(CommonConstants.PERMISSION_MODE_DEFAULT);
+        modes.add(CommonConstants.PERMISSION_MODE_PLAN);
+        modes.add(CommonConstants.PERMISSION_MODE_ACCEPT_EDITS);
+        modes.add(CommonConstants.PERMISSION_MODE_AUTO_EDIT);
+        modes.add(CommonConstants.PERMISSION_MODE_BYPASS);
         VALID_PERMISSION_MODES = Collections.unmodifiableSet(modes);
+
+        Set<String> invocationModes = new HashSet<>();
+        invocationModes.add(CommonConstants.INVOCATION_MODE_SDK);
+        invocationModes.add(CommonConstants.INVOCATION_MODE_CLI);
+        VALID_CLAUDE_INVOCATION_MODES = Collections.unmodifiableSet(invocationModes);
+
+        Set<String> providers = new HashSet<>();
+        providers.add(CommonConstants.PROVIDER_CLAUDE);
+        providers.add(CommonConstants.PROVIDER_CODEX);
+        VALID_PROVIDERS = Collections.unmodifiableSet(providers);
     }
 
     /**
@@ -36,25 +46,8 @@ public class SessionState {
         return mode != null && VALID_PERMISSION_MODES.contains(mode.trim());
     }
 
-    /**
-     * Canonical whitelist of valid Claude/Codex reasoning effort levels.
-     */
-    public static final Set<String> VALID_REASONING_EFFORTS;
-    static {
-        Set<String> efforts = new HashSet<>();
-        efforts.add("low");
-        efforts.add("medium");
-        efforts.add("high");
-        efforts.add("xhigh");
-        efforts.add("max");
-        VALID_REASONING_EFFORTS = Collections.unmodifiableSet(efforts);
-    }
-
-    /**
-     * Check whether the given reasoning effort string is recognized.
-     */
-    public static boolean isValidReasoningEffort(String effort) {
-        return effort != null && VALID_REASONING_EFFORTS.contains(effort.trim());
+    public static boolean isValidClaudeInvocationMode(String mode) {
+        return mode != null && VALID_CLAUDE_INVOCATION_MODES.contains(mode.trim());
     }
 
     // Session identifiers
@@ -66,6 +59,9 @@ public class SessionState {
     private boolean busy = false;
     private boolean loading = false;
     private String error = null;
+    private ClaudeSession.SessionCallback.QueueDisplayState queueDisplayState =
+            ClaudeSession.SessionCallback.QueueDisplayState.NONE;
+    private int queueAheadCount = 0;
 
     // Message history
     private final List<ClaudeSession.Message> messages = new ArrayList<>();
@@ -79,22 +75,29 @@ public class SessionState {
     // Configuration fields below are volatile because set_mode / set_model / set_provider
     // and send_message may execute on different async handler threads with no other
     // happens-before guarantee between them.
-    // Default to "default" (prompt on each tool call). "bypassPermissions" must be an
-    // explicit, informed opt-in — see security remediation A: shipping bypass as the
-    // out-of-the-box default removed the only confirmation gate for AI-issued commands.
-    private volatile String permissionMode = "default";
-    private volatile String model = "claude-sonnet-4-6";
-    private volatile String provider = "claude";
+    // Default to PERMISSION_MODE_DEFAULT ("default" — prompt on each tool call).
+    // "bypassPermissions" must be an explicit, informed opt-in — see security remediation A:
+    // shipping bypass as the out-of-the-box default removed the only confirmation gate for
+    // AI-issued commands. NOTE: intentionally NOT CommonConstants.DEFAULT_PERMISSION_MODE,
+    // which is "acceptEdits" (a 0.4.x default retained for back-compat, not the safe default).
+    private volatile String permissionMode = CommonConstants.PERMISSION_MODE_DEFAULT;
+    private volatile String model = CommonConstants.DEFAULT_MODEL;
+    private volatile String provider = CommonConstants.DEFAULT_PROVIDER;
+    private volatile String claudeInvocationMode = null;
+    private volatile String permissionSessionId = null;
     // Reasoning effort (thinking depth). Null means "do not override SDK/settings".
     private volatile String reasoningEffort = null;
     // Codex service tier: null = use Codex defaults, "fast" = Codex /fast.
     private volatile String codexServiceTier = null;
+    // Context window override from frontend (null = use backend default)
+    private volatile Integer contextWindowOverride;
 
     // Slash commands — volatile for cross-thread visibility (same reason as permissionMode/model/provider)
     private volatile List<String> slashCommands = new ArrayList<>();
 
     // PSI context collection toggle
     private boolean psiContextEnabled = true;
+    private final AtomicLong pendingSendInvalidationEpoch = new AtomicLong(0);
 
     // Getters
     public String getSessionId() {
@@ -115,6 +118,14 @@ public class SessionState {
 
     public String getError() {
         return error;
+    }
+
+    public ClaudeSession.SessionCallback.QueueDisplayState getQueueDisplayState() {
+        return queueDisplayState;
+    }
+
+    public int getQueueAheadCount() {
+        return queueAheadCount;
     }
 
     public List<ClaudeSession.Message> getMessages() {
@@ -149,6 +160,14 @@ public class SessionState {
         return provider;
     }
 
+    public String getClaudeInvocationMode() {
+        return claudeInvocationMode;
+    }
+
+    public String getPermissionSessionId() {
+        return permissionSessionId;
+    }
+
     public String getReasoningEffort() {
         return reasoningEffort;
     }
@@ -171,6 +190,18 @@ public class SessionState {
         return psiContextEnabled;
     }
 
+    public long capturePendingSendInvalidationEpoch() {
+        return pendingSendInvalidationEpoch.get();
+    }
+
+    public long invalidatePendingSendOperations() {
+        return pendingSendInvalidationEpoch.incrementAndGet();
+    }
+
+    public boolean isPendingSendOperationCurrent(long epoch) {
+        return pendingSendInvalidationEpoch.get() == epoch;
+    }
+
     // Setters
     public void setSessionId(String sessionId) {
         this.sessionId = sessionId;
@@ -190,6 +221,16 @@ public class SessionState {
 
     public void setError(String error) {
         this.error = error;
+    }
+
+    public void setQueueDisplayState(ClaudeSession.SessionCallback.QueueDisplayState queueDisplayState) {
+        this.queueDisplayState = queueDisplayState != null
+                ? queueDisplayState
+                : ClaudeSession.SessionCallback.QueueDisplayState.NONE;
+    }
+
+    public void setQueueAheadCount(int queueAheadCount) {
+        this.queueAheadCount = Math.max(0, queueAheadCount);
     }
 
     public void setSummary(String summary) {
@@ -217,19 +258,37 @@ public class SessionState {
     }
 
     public void setProvider(String provider) {
-        this.provider = provider;
+        if (provider == null) {
+            return;
+        }
+        String trimmed = provider.trim();
+        if (VALID_PROVIDERS.contains(trimmed)) {
+            this.provider = trimmed;
+        }
+    }
+
+    public void setClaudeInvocationMode(String claudeInvocationMode) {
+        if (claudeInvocationMode == null) {
+            return;
+        }
+        String trimmed = claudeInvocationMode.trim();
+        if (VALID_CLAUDE_INVOCATION_MODES.contains(trimmed)) {
+            this.claudeInvocationMode = trimmed;
+        }
+    }
+
+    public void setPermissionSessionId(String permissionSessionId) {
+        if (permissionSessionId == null) {
+            return;
+        }
+        String trimmed = permissionSessionId.trim();
+        if (!trimmed.isEmpty()) {
+            this.permissionSessionId = trimmed;
+        }
     }
 
     public void setReasoningEffort(String reasoningEffort) {
-        if (reasoningEffort == null || reasoningEffort.trim().isEmpty()) {
-            this.reasoningEffort = null;
-            return;
-        }
-        String trimmed = reasoningEffort.trim();
-        if (!isValidReasoningEffort(trimmed)) {
-            return;
-        }
-        this.reasoningEffort = trimmed;
+        this.reasoningEffort = reasoningEffort;
     }
 
     public void setCodexServiceTier(String codexServiceTier) {
@@ -258,6 +317,33 @@ public class SessionState {
 
     public void setPsiContextEnabled(boolean psiContextEnabled) {
         this.psiContextEnabled = psiContextEnabled;
+    }
+
+    public Integer getContextWindowOverride() {
+        return contextWindowOverride;
+    }
+
+    /**
+     * Get effective max tokens: use frontend override if set, capped at model's actual limit.
+     * For known models (in MODEL_CONTEXT_LIMITS), the override is capped.
+     * For unknown models, the override is trusted as-is.
+     */
+    public int getEffectiveMaxTokens() {
+        if (contextWindowOverride != null && contextWindowOverride > 0) {
+            // Strip [1m]/[258k] suffix to look up the base model's limit
+            String baseModel = model != null
+                    ? model.replaceFirst("(?i)\\s*\\[[0-9.]+[kKmM]\\]\\s*$", "")
+                    : null;
+            int modelMaxLimit = com.github.claudecodegui.handler.provider.ModelProviderHandler
+                    .getModelContextLimit(baseModel);
+            // Cap at model's actual limit for known models
+            return Math.min(contextWindowOverride, modelMaxLimit);
+        }
+        return com.github.claudecodegui.handler.provider.ModelProviderHandler.getModelContextLimit(model);
+    }
+
+    public void setContextWindowOverride(Integer contextWindowOverride) {
+        this.contextWindowOverride = contextWindowOverride;
     }
 
     /**

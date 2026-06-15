@@ -15,11 +15,10 @@ import {
   subscribeCodexProviderList,
   subscribeProviderList,
 } from '../../../utils/runtimeProviderCapabilities';
+import { sendBridgeEvent } from '../../../utils/bridge';
 
-const sendToJava = (message: string) => {
-  if (window.sendToJava) {
-    window.sendToJava(message);
-  }
+const sendToJava = (event: string, payload = '') => {
+  sendBridgeEvent(event, payload);
 };
 
 export interface SettingsWindowCallbacksDeps {
@@ -28,8 +27,6 @@ export interface SettingsWindowCallbacksDeps {
   setNodeVersion: (version: string | null) => void;
   setMinNodeVersion: (version: number) => void;
   setSavingNodePath: (saving: boolean) => void;
-  setClaudeCliPath: (path: string) => void;
-  setSavingClaudeCliPath: (saving: boolean) => void;
   setWorkingDirectory: (dir: string) => void;
   setSavingWorkingDirectory: (saving: boolean) => void;
   setCommitPrompt: (prompt: string) => void;
@@ -53,11 +50,9 @@ export interface SettingsWindowCallbacksDeps {
   setAiTitleGenerationEnabled?: (enabled: boolean) => void;
   setStatusBarWidgetEnabled?: (enabled: boolean) => void;
   setTaskCompletionNotificationEnabled?: (enabled: boolean) => void;
-  // Sound notification setters
-  setSoundNotificationEnabled?: (enabled: boolean) => void;
-  setSoundOnlyWhenUnfocused?: (enabled: boolean) => void;
-  setSelectedSound?: (soundId: string) => void;
-  setCustomSoundPath?: (path: string) => void;
+  // Invocation mode setters
+  setInvocationMode: (mode: 'sdk' | 'cli') => void;
+  setCliPath: (path: string) => void;
 
   // Hook functions
   updateProviders: (providers: ProviderConfig[]) => void;
@@ -133,7 +128,6 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
       d().showAlert('error', t('toast.operationFailed'), message);
       d().setLoading(false);
       d().setSavingNodePath(false);
-      d().setSavingClaudeCliPath(false);
       d().setSavingWorkingDirectory(false);
       d().setSavingCommitPrompt(false);
       d().setSavingProjectCommitPrompt(false);
@@ -159,17 +153,6 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
       window.dispatchEvent(new CustomEvent('nodePathReady'));
     };
 
-    window.updateClaudeCliPath = (jsonStr: string) => {
-      try {
-        const data = JSON.parse(jsonStr);
-        d().setClaudeCliPath(data.path || '');
-      } catch (e) {
-        console.warn('[SettingsView] Failed to parse updateClaudeCliPath JSON, fallback to legacy format:', e);
-        d().setClaudeCliPath(jsonStr || '');
-      }
-      d().setSavingClaudeCliPath(false);
-    };
-
     window.updateWorkingDirectory = (jsonStr: string) => {
       try {
         const data = JSON.parse(jsonStr);
@@ -184,7 +167,6 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
     window.showSuccess = (message: string) => {
       d().showAlert('success', t('toast.operationSuccess'), message);
       d().setSavingNodePath(false);
-      d().setSavingClaudeCliPath(false);
       d().setSavingWorkingDirectory(false);
     };
 
@@ -209,16 +191,6 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
         window.applyUiFontConfig?.(config);
       } catch {
         // Silently ignore malformed UI font config from backend
-      }
-    };
-
-    window.onCodeFontConfigReceived = (jsonStr: string) => {
-      try {
-        const config = JSON.parse(jsonStr);
-        d().setCodeFontConfig(config);
-        window.applyCodeFontConfig?.(config);
-      } catch {
-        // Silently ignore malformed code font config from backend
       }
     };
 
@@ -367,24 +339,21 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
       }
     };
 
-    // Sound notification config callback
-    window.updateSoundNotificationConfig = (jsonStr: string) => {
+    // Invocation mode callback
+      const previousUpdateInvocationMode = window.updateInvocationMode;
+    window.updateInvocationMode = (jsonStr: string) => {
       try {
+          previousUpdateInvocationMode?.(jsonStr);
         const data = JSON.parse(jsonStr);
-        if (data.enabled !== undefined) {
-          d().setSoundNotificationEnabled?.(data.enabled);
+        const mode = data.invocationMode;
+        if (mode === 'sdk' || mode === 'cli') {
+          d().setInvocationMode(mode);
         }
-        if (data.onlyWhenUnfocused !== undefined) {
-          d().setSoundOnlyWhenUnfocused?.(data.onlyWhenUnfocused);
-        }
-        if (data.selectedSound !== undefined) {
-          d().setSelectedSound?.(data.selectedSound);
-        }
-        if (data.customSoundPath !== undefined) {
-          d().setCustomSoundPath?.(data.customSoundPath);
+        if (data.cliPath !== undefined) {
+          d().setCliPath(data.cliPath);
         }
       } catch (error) {
-        console.error('[SettingsView] Failed to parse sound notification config:', error);
+        console.error('[SettingsView] Failed to parse invocation mode:', error);
       }
     };
 
@@ -512,23 +481,21 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
     d().loadAgents();
     // Note: loadPrompts is now handled by PromptSection component
     d().loadPrompts?.();
-    sendToJava('get_node_path:');
-    sendToJava('get_claude_cli_path:');
-    sendToJava('get_working_directory:');
-    sendToJava('get_editor_font_config:');
-    sendToJava('get_ui_font_config:');
-    sendToJava('get_code_font_config:');
-    sendToJava('get_streaming_enabled:');
-    sendToJava('get_codex_sandbox_mode:');
-    sendToJava('get_commit_prompt:');
-    sendToJava('get_commit_ai_config:');
-    sendToJava('get_prompt_enhancer_config:');
-    sendToJava('get_sound_notification_config:');
-    sendToJava('get_commit_generation_enabled:');
-    sendToJava('get_ai_title_generation_enabled:');
-    sendToJava('get_status_bar_widget_enabled:');
-    sendToJava('get_task_completion_notification_enabled:');
-    sendToJava('get_permission_dialog_timeout:');
+    sendToJava('get_node_path');
+    sendToJava('get_working_directory');
+    sendToJava('get_editor_font_config');
+    sendToJava('get_ui_font_config');
+    sendToJava('get_streaming_enabled');
+    sendToJava('get_codex_sandbox_mode');
+    sendToJava('get_commit_prompt');
+    sendToJava('get_commit_ai_config');
+    sendToJava('get_prompt_enhancer_config');
+    sendToJava('get_commit_generation_enabled');
+    sendToJava('get_ai_title_generation_enabled');
+    sendToJava('get_status_bar_widget_enabled');
+    sendToJava('get_task_completion_notification_enabled');
+    sendToJava('get_invocation_mode');
+    sendToJava('get_permission_dialog_timeout');
 
     return () => {
       d().cleanupAgentsTimeout();
@@ -541,13 +508,11 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
       window.showError = undefined;
       window.showSwitchSuccess = undefined;
       window.updateNodePath = undefined;
-      window.updateClaudeCliPath = undefined;
       window.updateWorkingDirectory = undefined;
       window.showSuccess = undefined;
       window.showSuccessI18n = undefined;
       window.onEditorFontConfigReceived = undefined;
       window.onUiFontConfigReceived = undefined;
-      window.onCodeFontConfigReceived = undefined;
       window.onIdeThemeReceived = previousOnIdeThemeReceived;
       if (!d().onStreamingEnabledChangeProp) {
         window.updateStreamingEnabled = previousUpdateStreamingEnabled;
@@ -560,11 +525,11 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
       window.updateCommitAiConfig = undefined;
       window.updatePromptEnhancerConfig = undefined;
       window.updateProjectCommitPrompt = undefined;
-      window.updateSoundNotificationConfig = undefined;
       window.updateCommitGenerationEnabled = undefined;
       window.updateAiTitleGenerationEnabled = undefined;
       window.updateStatusBarWidgetEnabled = undefined;
       window.updateTaskCompletionNotificationEnabled = undefined;
+        window.updateInvocationMode = previousUpdateInvocationMode;
       window.updateAgents = previousUpdateAgents;
       window.agentOperationResult = undefined;
       window.agentImportPreviewResult = undefined;

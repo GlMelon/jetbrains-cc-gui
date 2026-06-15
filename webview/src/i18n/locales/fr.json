@@ -35,6 +35,7 @@
     "emptyMessage": "Message vide",
     "clickToPreview": "Cliquer pour prévisualiser",
     "userUploadedImage": "Image téléchargée par l'utilisateur",
+    "imageLoadFailed": "Échec du chargement de l'image",
     "inputPlaceholder": "@référencer fichiers, #invoquer agents, Entrée pour envoyer",
     "inputPlaceholderEnter": "@référencer fichiers, #invoquer agents, Entrée pour envoyer",
     "inputPlaceholderCmdEnter": "@référencer fichiers, #invoquer agents, ⌘Entrée pour envoyer",
@@ -91,8 +92,13 @@
     "streamingConnected": "{{provider}} connecté, en train de comprendre votre question",
     "showEarlierMessages": "Afficher {{count}} messages précédents",
     "totalDuration": "Cette réponse a pris",
-    "tokenUsage": "{{input}} entrée / {{output}} sortie",
-    "tokenUsageDetail": "Total du tour — entrée {{input}} · écriture cache {{cacheWrite}} · lecture cache {{cacheRead}} · sortie {{output}}",
+    "waitingTimedOutDuration": "Délai d'attente dépassé",
+    "streamStalledRetrying": "Aucune sortie du modèle n'a été reçue depuis un moment. La CLI peut encore réessayer ; l'erreur finale s'affichera en cas d'échec.",
+    "usageStats": {
+      "input": "Entrée：",
+      "output": "Sortie：",
+      "duration": "Durée："
+    },
     "search": {
       "ariaLabel": "Rechercher dans la conversation",
       "placeholder": "Rechercher dans la conversation…",
@@ -117,6 +123,18 @@
       "userContext": "Contexte : « {{context}} »",
       "expand": "Développer le résumé",
       "collapse": "Réduire le résumé"
+    },
+    "tokenIndicator": {
+      "contextStats": "Statistiques de contexte",
+      "inputToken": "Tokens d'entrée",
+      "outputToken": "Tokens de sortie",
+      "cacheRead": "Lecture cache",
+      "cacheWrite": "Écriture cache",
+      "cacheHitRate": "{{rate}}% succès",
+      "total": "Total {{used}} / {{max}}",
+      "sessionInfo": "Session en cours · {{model}} · {{maxTokens}} fenêtre de contexte",
+      "includes": "Inclus : prompt système, messages, contexte de fichier, résultats d'outils, lectures cache",
+      "source": "Source : Prompt système · Messages historiques · Fichier actuel · E/S outils"
     }
   },
   "settings": {
@@ -161,9 +179,9 @@
         "versionTooLow": "La version de Node.js est trop ancienne. Le plugin nécessite v{{minVersion}} ou supérieur pour fonctionner correctement"
       },
       "claudeCliPath": {
-        "label": "Chemin du CLI Claude (remplacement)",
-        "placeholder": "ex. /usr/local/bin/claude — laissez vide pour utiliser le SDK intégré",
-        "hint": "Facultatif. Lorsqu'il est défini, le plugin lance ce binaire au lieu du @anthropic-ai/claude-agent-sdk intégré. Le démon redémarre lors de l'enregistrement."
+        "label": "Chemin de Claude CLI",
+        "placeholder": "Laisser vide pour la détection automatique, ou spécifier le chemin de l'exécutable claude",
+        "hint": "Spécifie le chemin de l'exécutable Claude CLI. Laisser vide pour détecter automatiquement dans PATH."
       },
       "workingDirectory": {
         "label": "Working Directory",
@@ -180,28 +198,27 @@
         "level6": "Maximale (140%)"
       },
       "editorFont": {
-        "label": "Police UI",
-        "hint": "Ici vous changez la police de l'interface du plugin ; le code peut utiliser une police séparée.",
-        "followOption": "Suivre la police UI d'IDEA ({{font}})",
-        "customOption": "Fichier de police UI personnalisé",
-        "customPathLabel": "Chemin du fichier de police UI",
-        "customPathPlaceholder": "Choisissez ou saisissez le chemin d'un fichier .ttf / .otf pour la police UI",
+        "label": "Police",
+        "hint": "Ici vous changez la police de l'interface du plugin ; la taille et l'interligne suivent toujours l'éditeur.",
+        "followOption": "Suivre l'éditeur ({{font}})",
+        "customOption": "Fichier de police personnalisé",
+        "customPathLabel": "Chemin du fichier de police",
+        "customPathPlaceholder": "Choisissez ou saisissez le chemin d'un fichier .ttf / .otf",
         "browse": "Parcourir",
-        "warningUnavailable": "La police UI est indisponible, la police UI d'IDEA est utilisée",
-        "statusFollowEditor": "Police UI d'IDEA actuellement utilisée : {{font}}",
-        "statusCustom": "Police UI personnalisée actuellement utilisée : {{font}}"
+        "warningUnavailable": "La police est indisponible, la police de l'éditeur est utilisée",
+        "statusFollowEditor": "Police actuelle de l'éditeur : {{font}}",
+        "statusCustom": "Police personnalisée actuellement utilisée : {{font}}"
       },
       "codeFont": {
         "label": "Police de code",
-        "hint": "Le code Markdown et les blocs de commande utilisent cette police.",
-        "followOption": "Suivre la police de l'éditeur ({{font}})",
-        "customOption": "Fichier de police de code personnalisé",
-        "customPathLabel": "Chemin du fichier de police de code",
-        "customPathPlaceholder": "Choisissez ou saisissez le chemin d'un fichier .ttf / .otf pour la police de code",
+        "followOption": "Suivre l'éditeur ({{font}})",
+        "customOption": "Fichier de police personnalisé",
+        "customPathLabel": "Chemin du fichier de police",
+        "customPathPlaceholder": "Sélectionner ou entrer le chemin d'un fichier de police .ttf / .otf",
         "browse": "Parcourir",
-        "warningUnavailable": "La police de code est indisponible, la police de l'éditeur est utilisée",
-        "statusFollowEditor": "Police de l'éditeur actuellement utilisée : {{font}}",
-        "statusCustom": "Police de code personnalisée actuellement utilisée : {{font}}"
+        "warningUnavailable": "Police non disponible, utilisation de la police de l'éditeur",
+        "statusFollowEditor": "Suivant la police de l'éditeur : {{font}}",
+        "statusCustom": "Police personnalisée actuellement utilisée : {{font}}"
       },
       "streaming": {
         "label": "Streaming",
@@ -754,12 +771,6 @@
     "copySessionId": "Copier l'ID de session pour CLI resume",
     "sessionIdCopied": "ID de session copié",
     "copyFailed": "Échec de la copie",
-    "convertToCliSession": "Convertir en session reconnue par le CLI",
-    "convertButton": "Convertir en CLI",
-    "convertSuccess": "Session convertie pour être reconnue par le CLI",
-    "convertFailed": "Échec de la conversion",
-    "confirmConvert": "Convertir en session CLI ?",
-    "convertConfirmMessage": "Cela modifiera l'entrypoint de la session pour la rendre visible dans la liste /resume du CLI de Claude Code.",
     "timeAgo": {
       "yearsAgo": "il y a des années",
       "monthsAgo": "il y a des mois",
@@ -767,26 +778,6 @@
       "hoursAgo": "il y a des heures",
       "minutesAgo": "il y a des minutes",
       "secondsAgo": "il y a des secondes"
-    },
-    "conversionErrors": {
-      "INVALID_SESSION_ID": "ID de session invalide",
-      "SESSION_ACTIVE": "Impossible de convertir la session actuellement active. Démarrez d'abord une nouvelle session, puis convertissez celle-ci",
-      "SESSION_NOT_FOUND": "Fichier de session introuvable",
-      "FILE_NOT_EXIST": "Le fichier de session n'existe pas",
-      "FILE_LOCKED": "Le fichier de session est utilisé par un autre processus",
-      "NOT_SDK_SESSION": "Cette session n'a pas été créée par le SDK (entrypoint n'est pas sdk-cli)",
-      "ALREADY_CLI_SESSION": "Cette session est déjà une session CLI",
-      "CONVERSION_FAILED": "Échec de la conversion, veuillez réessayer plus tard"
-    },
-    "entrypointLabel": {
-      "sdk-cli": "Session SDK",
-      "claude-vscode": "VS Code",
-      "remote": "Distant"
-    },
-    "entrypointTooltip": {
-      "sdk-cli": "Cette session a été créée par le plugin via SDK et n'est pas affichée dans CLI par défaut. Cliquez sur 'Convertir en CLI' pour qu'elle apparaisse dans la liste /resume du CLI du terminal",
-      "claude-vscode": "Cette session a été créée par l'extension VS Code et n'est pas affichée dans CLI par défaut. Cliquez sur 'Convertir en CLI' pour qu'elle apparaisse dans la liste /resume du CLI du terminal",
-      "remote": "Cette session a été créée par une instance distante de Claude Code"
     }
   },
   "permission": {
@@ -1353,10 +1344,6 @@
       "opus48": {
         "label": "Opus 4.8",
         "description": "Opus 4.8 · Le plus récent et le plus performant"
-      },
-      "fable5": {
-        "label": "Fable 5",
-        "description": "Fable 5 · Le plus puissant · classe Mythos"
       }
     },
     "longContext": {
@@ -1567,6 +1554,7 @@
     "dbParseProviderFailed": "Échec de l'analyse de la configuration du fournisseur",
     "aiResponseEmpty": "La réponse de l'IA est vide",
     "enhancementFailed": "Échec de l'amélioration",
+    "unsupportedImageVision": "Le modèle actuel ne prend pas en charge la reconnaissance d'images, ou l'interface compatible Claude Code de ce fournisseur ne prend pas en charge les résultats d'outils d'image.\nVeuillez passer à un modèle compatible avec la vision, puis réessayer.",
     "uploadedImages": "{{count}} image(s) téléchargée(s)",
     "uploadedAttachments": "Pièce(s) jointe(s) téléchargée(s)",
     "emptyMessage": "Message vide",

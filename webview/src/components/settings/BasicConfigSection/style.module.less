@@ -1,29 +1,31 @@
 .configSection {
-  max-width: 800px;
+  max-width: 860px;
   padding-bottom: 24px;
 }
 
 .sectionTitle {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 600;
-  margin: 0 0 8px 0;
+  margin: 0 0 6px 0;
   color: var(--text-primary);
 }
 
 .sectionDesc {
   color: var(--text-tertiary);
-  margin: 0 0 16px 0;
+  margin: 0 0 24px 0;
   font-size: 13px;
+  line-height: 1.5;
 }
 
 /* Basic config sub-tab selector */
 .basicTabSelector {
-  display: flex;
-  background: var(--bg-secondary);
-  padding: 4px;
-  border-radius: 6px;
+  display: inline-flex;
+  background: var(--bg-tertiary);
+  padding: 3px;
+  border-radius: 8px;
   border: 1px solid var(--border-secondary);
   margin-bottom: 20px;
+  gap: 2px;
 }
 
 .basicTabBtn {
@@ -32,30 +34,48 @@
   gap: 6px;
   padding: 6px 16px;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   background: transparent;
-  color: var(--text-primary);
+  color: var(--text-secondary);
   font-size: 13px;
   cursor: pointer;
-  transition: all 0.2s;
-  flex: 1;
+  transition: background-color 0.2s ease, color 0.2s ease;
   justify-content: center;
-
-  .codicon {
-    font-size: 14px;
-  }
+  white-space: nowrap;
 
   &:hover {
     background: var(--bg-hover);
+    color: var(--text-primary);
+
+    .tabIcon {
+      color: var(--text-primary);
+    }
   }
 
   &.active {
     background: var(--button-primary-background, #0078d4);
     color: #ffffff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 
-    .codicon {
+    .tabIcon {
       color: #ffffff;
     }
+  }
+}
+
+.tabIcon {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+  transition: color 0.15s ease;
+
+  svg {
+    width: 14px;
+    height: 14px;
   }
 }
 
@@ -100,7 +120,7 @@
   border: 2px solid var(--border-secondary);
   border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
 
   &:hover {
     border-color: var(--border-hover);
@@ -133,7 +153,7 @@
   border: 2px solid var(--border-secondary);
   border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
   position: relative;
 
   &:hover {
@@ -334,7 +354,7 @@
   font-size: 13px;
   font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 
   &:hover {
     border-color: var(--border-hover);
@@ -382,7 +402,7 @@
   font-size: 13px;
   font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 
   &:hover {
     border-color: var(--border-hover);
@@ -476,7 +496,7 @@
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
-  transition: all 0.2s;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
 
   &:hover {
     background: rgba(255, 255, 255, 0.1);
@@ -530,10 +550,19 @@
 .toggleWrapper {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
   cursor: pointer;
   user-select: none;
   margin-bottom: 8px;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+
+  &:hover {
+    border-color: var(--border-hover);
+  }
 }
 
 .toggleInput {
@@ -547,7 +576,7 @@
   background: var(--bg-tertiary);
   border: 1px solid var(--border-secondary);
   border-radius: 12px;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
   flex-shrink: 0;
 
   &::after {
@@ -559,7 +588,7 @@
     height: 18px;
     background: var(--text-tertiary);
     border-radius: 50%;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, left 0.2s ease;
   }
 }
 
@@ -601,7 +630,7 @@
   cursor: pointer;
   padding: 2px;
   border: 2px solid var(--border-secondary);
-  transition: all 0.2s;
+  transition: border-color 0.2s ease, transform 0.2s ease;
 
   &:hover {
     border-color: var(--border-hover);
@@ -699,7 +728,7 @@
   color: var(--text-secondary);
   cursor: pointer;
   font-size: 12px;
-  transition: all 0.2s;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
   white-space: nowrap;
 
   .codicon {
@@ -721,58 +750,6 @@
   align-items: center;
 }
 
-/* 提示音选择区域 */
-.customSoundSection {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border-secondary);
-}
-
-/* 仅在非聚焦时播放开关区域 */
-.soundOnlyWhenUnfocusedSection {
-  margin-bottom: 16px;
-}
-
-/* 提示音下拉 + 试听按钮行 */
-.soundSelectRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  max-width: 400px;
-
-  .languageSelect {
-    flex: 1;
-    max-width: none;
-  }
-}
-
-/* 试听图标按钮（紧凑） */
-.soundTestBtn {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  border: 1px solid var(--border-secondary);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.2s;
-
-  &:hover {
-    border-color: var(--accent-primary);
-    color: var(--accent-primary);
-    background: rgba(0, 120, 212, 0.06);
-  }
-}
-
-/* 自定义音频文件路径区域 */
-.customSoundFileSection {
-  margin-top: 12px;
-}
 
 /* 向上弹出的自定义下拉选择器 */
 .upwardSelect {
@@ -791,7 +768,7 @@
   font-size: 13px;
   font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
   text-align: left;
   appearance: none;
   position: relative;
@@ -845,7 +822,7 @@
   font-size: 13px;
   color: var(--text-primary);
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background-color 0.15s;
 
   &:hover {
     background: var(--bg-tertiary);

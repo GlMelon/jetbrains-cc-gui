@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Token Ring & Tabs 优化对比</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #1e1e1e;
+    color: #ccc;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+    gap: 48px;
+  }
+
+  h1 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #e0e0e0;
+    text-align: center;
+  }
+
+  .comparison {
+    display: flex;
+    gap: 32px;
+    width: 100%;
+    max-width: 1200px;
+    justify-content: center;
+  }
+
+  .panel {
+    flex: 1;
+    max-width: 520px;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #444;
+  }
+
+  .panel-header {
+    padding: 12px 20px;
+    font-size: 14px;
+    font-weight: 700;
+    text-align: center;
+    letter-spacing: 0.5px;
+  }
+
+  .panel-header.before {
+    background: linear-gradient(135deg, #5c2e2e, #3a2020);
+    color: #f07178;
+  }
+
+  .panel-header.after {
+    background: linear-gradient(135deg, #1e4a3a, #1a3a2e);
+    color: #4cc38a;
+  }
+
+  /* ========== 模拟聊天界面容器 ========== */
+  .chat-container {
+    background: #2b2d30;
+    padding: 0;
+  }
+
+  /* ========== 消息区域 ========== */
+  .messages-area {
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .message {
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .message.user {
+    background: rgba(99, 102, 241, 0.12);
+    color: #e0e0e0;
+    border: 1px solid rgba(99, 102, 241, 0.15);
+  }
+
+  .message.assistant {
+    background: rgba(255, 255, 255, 0.03);
+    color: #ccc;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  /* ========== 输入区域 ========== */
+  .input-area {
+    padding: 8px 16px 12px;
+  }
+
+  .input-box {
+    background: #1e1e1e;
+    border: 1px solid #3e3e42;
+    border-radius: 8px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .input-placeholder {
+    flex: 1;
+    color: #6e6e6e;
+    font-size: 13px;
+  }
+
+  /* ========== BEFORE: Token Ring 32x32 ========== */
+  .ring-indicator-before {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    cursor: default;
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+
+  .ring-indicator-before .ring {
+    position: absolute;
+    inset: 2px;
+    border-radius: 50%;
+    background: conic-gradient(#e7b85a 0 62%, rgba(255,255,255,0.14) 62% 100%);
+  }
+
+  .ring-indicator-before .ring::before {
+    content: "";
+    position: absolute;
+    inset: 3px;
+    border-radius: 50%;
+    background: #2f2f2f;
+  }
+
+  .ring-indicator-before .ring-pct {
+    position: relative;
+    z-index: 1;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 10px;
+    font-weight: 800;
+    color: #e7b85a;
+    line-height: 1;
+  }
+
+  /* ========== AFTER: Token Ring 24x24 ========== */
+  .ring-indicator-after {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    cursor: default;
+    border-radius: 5px;
+    flex-shrink: 0;
+  }
+
+  .ring-indicator-after .ring {
+    position: absolute;
+    inset: 2px;
+    border-radius: 50%;
+    background: conic-gradient(#e7b85a 0 62%, rgba(255,255,255,0.14) 62% 100%);
+  }
+
+  .ring-indicator-after .ring::before {
+    content: "";
+    position: absolute;
+    inset: 2.5px;
+    border-radius: 50%;
+    background: #2f2f2f;
+  }
+
+  .ring-indicator-after .ring-pct {
+    position: relative;
+    z-index: 1;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 8.5px;
+    font-weight: 800;
+    color: #e7b85a;
+    line-height: 1;
+    letter-spacing: -0.3px;
+  }
+
+  /* ========== BEFORE: StatusPanel Tabs ========== */
+  .status-panel-tabs-before {
+    display: flex;
+    align-items: center;
+    background: var(--undefined, rgba(0,0,0,0));
+    /* 模拟未定义变量回退到透明 */
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 5px 8px;
+    gap: 0;
+    font-size: 80%;
+    margin: 0 20px 8px;
+  }
+
+  .status-panel-tabs-before .tab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 4px 8px;
+    font-weight: 500;
+    color: #666;
+    cursor: pointer;
+    border-radius: 4px;
+    background: transparent;
+    transition: color 0.15s, background 0.15s;
+    white-space: nowrap;
+  }
+
+  .status-panel-tabs-before .tab:not(:last-child) {
+    border-right: 1px solid transparent;
+  }
+
+  .status-panel-tabs-before .tab:hover {
+    color: #ccc;
+    background: #35373c;
+  }
+
+  .status-panel-tabs-before .tab.active {
+    color: #ccc;
+    background: #2b2d31;
+  }
+
+  .tab svg {
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.8;
+  }
+
+  .tab.active svg { opacity: 1; }
+
+  .tab-label { font-weight: 500; }
+
+  .tab-progress {
+    font-size: 10px;
+    color: #858585;
+    font-family: 'Consolas', monospace;
+  }
+
+  .tab.active .tab-progress { color: #ccc; }
+
+  .tab-stats {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-family: 'Consolas', monospace;
+    font-weight: 600;
+  }
+
+  .stat-additions { color: #89d185; }
+  .stat-deletions { color: #ff6b6b; }
+
+  /* ========== AFTER: StatusPanel Tabs (优化) ========== */
+  .status-panel-tabs-after {
+    display: flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 4px 6px;
+    gap: 2px;
+    font-size: 80%;
+    margin: 0 20px 8px;
+    backdrop-filter: blur(4px);
+  }
+
+  .status-panel-tabs-after .tab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 5px 10px;
+    font-weight: 500;
+    color: #858585;
+    cursor: pointer;
+    border-radius: 4px;
+    background: transparent;
+    transition: color 0.15s, background 0.15s;
+    white-space: nowrap;
+    position: relative;
+  }
+
+  .status-panel-tabs-after .tab:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 20%;
+    height: 60%;
+    width: 1px;
+    background: rgba(255,255,255,0.08);
+  }
+
+  .status-panel-tabs-after .tab:hover {
+    color: #ccc;
+    background: rgba(255,255,255,0.06);
+  }
+
+  .status-panel-tabs-after .tab.active {
+    color: #e0e0e0;
+    background: rgba(255,255,255,0.1);
+    font-weight: 600;
+  }
+
+  .status-panel-tabs-after .tab svg {
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.7;
+  }
+
+  .status-panel-tabs-after .tab.active svg { opacity: 1; }
+
+  /* ========== 按钮区 ========== */
+  .send-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: #007fd4;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .send-btn svg {
+    width: 14px;
+    height: 14px;
+    stroke: white;
+    stroke-width: 2;
+    fill: none;
+  }
+
+  /* ========== 标注 ========== */
+  .annotation {
+    position: relative;
+  }
+
+  .annotation-marker {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+
+  .annotation-marker.issue {
+    background: rgba(240, 113, 120, 0.15);
+    color: #f07178;
+    border: 1px solid rgba(240, 113, 120, 0.3);
+  }
+
+  .annotation-marker.fix {
+    background: rgba(76, 195, 138, 0.15);
+    color: #4cc38a;
+    border: 1px solid rgba(76, 195, 138, 0.3);
+  }
+
+  /* ========== 差异高亮 ========== */
+  .highlight-ring {
+    outline: 2px dashed rgba(240, 113, 120, 0.5);
+    outline-offset: 3px;
+    border-radius: 8px;
+  }
+
+  .highlight-tabs {
+    outline: 2px dashed rgba(240, 113, 120, 0.5);
+    outline-offset: 3px;
+    border-radius: 8px;
+  }
+
+  .highlight-ring-fix {
+    outline: 2px dashed rgba(76, 195, 138, 0.5);
+    outline-offset: 3px;
+    border-radius: 7px;
+  }
+
+  .highlight-tabs-fix {
+    outline: 2px dashed rgba(76, 195, 138, 0.5);
+    outline-offset: 3px;
+    border-radius: 8px;
+  }
+
+  /* ========== 尺寸对比区域 ========== */
+  .size-comparison {
+    width: 100%;
+    max-width: 1200px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 24px;
+  }
+
+  .size-comparison h2 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #e0e0e0;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+
+  .size-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+
+  .size-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 20px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .size-item .label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #858585;
+  }
+
+  .size-item .size-text {
+    font-size: 11px;
+    color: #666;
+    font-family: 'Consolas', monospace;
+  }
+
+  .size-item.current .label { color: #f07178; }
+  .size-item.proposed .label { color: #4cc38a; }
+  .size-item.alternative .label { color: #4ea1ff; }
+
+  /* Ring sizes for comparison */
+  .ring-demo {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ring-demo .ring-outer {
+    position: absolute;
+    border-radius: 50%;
+  }
+
+  .ring-demo .ring-inner {
+    position: absolute;
+    border-radius: 50%;
+    background: #2f2f2f;
+  }
+
+  .ring-demo .ring-text {
+    position: relative;
+    z-index: 1;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-weight: 800;
+    color: #e7b85a;
+    line-height: 1;
+  }
+
+  /* 32px current */
+  .ring-32 { width: 32px; height: 32px; }
+  .ring-32 .ring-outer { inset: 2px; background: conic-gradient(#e7b85a 0 62%, rgba(255,255,255,0.14) 62% 100%); }
+  .ring-32 .ring-inner { inset: 5px; }
+  .ring-32 .ring-text { font-size: 10px; }
+
+  /* 24px proposed */
+  .ring-24 { width: 24px; height: 24px; }
+  .ring-24 .ring-outer { inset: 2px; background: conic-gradient(#e7b85a 0 62%, rgba(255,255,255,0.14) 62% 100%); }
+  .ring-24 .ring-inner { inset: 4.5px; }
+  .ring-24 .ring-text { font-size: 8.5px; letter-spacing: -0.3px; }
+
+  /* 20px alternative */
+  .ring-20 { width: 20px; height: 20px; }
+  .ring-20 .ring-outer { inset: 1.5px; background: conic-gradient(#e7b85a 0 62%, rgba(255,255,255,0.14) 62% 100%); }
+  .ring-20 .ring-inner { inset: 3.5px; }
+  .ring-20 .ring-text { font-size: 7px; letter-spacing: -0.3px; }
+
+  /* ========== 颜色方案对比 ========== */
+  .color-comparison {
+    width: 100%;
+    max-width: 1200px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 24px;
+  }
+
+  .color-comparison h2 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #e0e0e0;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+
+  .color-swatches {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .swatch-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .swatch-group .group-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #858585;
+  }
+
+  .swatch-pair {
+    display: flex;
+    gap: 3px;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .swatch {
+    width: 48px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+    font-family: 'Consolas', monospace;
+    color: rgba(255,255,255,0.7);
+  }
+
+  .swatch-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .swatch-info {
+    font-size: 11px;
+    color: #888;
+    font-family: 'Consolas', monospace;
+  }
+
+  /* ========== CSS 变量修复建议 ========== */
+  .css-fix-section {
+    width: 100%;
+    max-width: 1200px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 24px;
+  }
+
+  .css-fix-section h2 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #e0e0e0;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+
+  .code-block {
+    background: #1e1e1e;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 16px 20px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #ccc;
+    overflow-x: auto;
+  }
+
+  .code-block .comment { color: #6a9955; }
+  .code-block .selector { color: #d7ba7d; }
+  .code-block .property { color: #9cdcfe; }
+  .code-block .value { color: #ce9178; }
+  .code-block .added { background: rgba(76, 195, 138, 0.12); display: inline; }
+  .code-block .removed { background: rgba(240, 113, 120, 0.12); text-decoration: line-through; opacity: 0.6; }
+
+  .fix-note {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: rgba(78, 161, 255, 0.08);
+    border-left: 3px solid #4ea1ff;
+    border-radius: 0 6px 6px 0;
+    font-size: 12px;
+    color: #aaa;
+    line-height: 1.5;
+  }
+
+  .fix-note strong { color: #4ea1ff; }
+</style>
+</head>
+<body>
+
+<h1>Token Ring & StatusPanel Tabs 样式优化</h1>
+
+<!-- ==================== 主对比区域 ==================== -->
+<div class="comparison">
+  <!-- BEFORE -->
+  <div class="panel">
+    <div class="panel-header before">⬤ 当前效果 (Before)</div>
+    <div class="chat-container">
+      <!-- 消息区域 -->
+      <div class="messages-area">
+        <div class="message user">帮我优化一下这个页面的样式</div>
+        <div class="message assistant">好的，我来分析当前的布局并给出优化建议。主要涉及两个方面...</div>
+      </div>
+
+      <!-- BEFORE: StatusPanel Tabs -->
+      <div class="status-panel-tabs-before highlight-tabs">
+        <div class="tab active">
+          <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          <span class="tab-label">任务</span>
+          <span class="tab-progress">2/3</span>
+        </div>
+        <div class="tab">
+          <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <span class="tab-label">子代理</span>
+          <span class="tab-progress">1/2</span>
+        </div>
+        <div class="tab">
+          <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          <span class="tab-label">编辑</span>
+          <span class="tab-stats">
+            <span class="stat-additions">+24</span>
+            <span class="stat-deletions">-8</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- BEFORE: Input with 32px ring -->
+      <div class="input-area">
+        <div class="input-box">
+          <div class="ring-indicator-before highlight-ring">
+            <span class="ring"></span>
+            <span class="ring-pct">62%</span>
+          </div>
+          <span class="input-placeholder">引用文件，#唤起智能体，!插入提示词，Enter 发送</span>
+          <button class="send-btn">
+            <svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- 问题标注 -->
+      <div style="padding: 10px 20px 14px; display: flex; gap: 8px; flex-wrap: wrap;">
+        <span class="annotation-marker issue">🔴 Token 圆环 32px 偏大</span>
+        <span class="annotation-marker issue">🔴 标签栏背景透明，融入底色</span>
+        <span class="annotation-marker issue">🔴 标签分割线不可见</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- AFTER -->
+  <div class="panel">
+    <div class="panel-header after">✅ 优化效果 (After)</div>
+    <div class="chat-container">
+      <!-- 消息区域 -->
+      <div class="messages-area">
+        <div class="message user">帮我优化一下这个页面的样式</div>
+        <div class="message assistant">好的，我来分析当前的布局并给出优化建议。主要涉及两个方面...</div>
+      </div>
+
+      <!-- AFTER: StatusPanel Tabs -->
+      <div class="status-panel-tabs-after highlight-tabs-fix">
+        <div class="tab active">
+          <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          <span class="tab-label">任务</span>
+          <span class="tab-progress">2/3</span>
+        </div>
+        <div class="tab">
+          <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <span class="tab-label">子代理</span>
+          <span class="tab-progress">1/2</span>
+        </div>
+        <div class="tab">
+          <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          <span class="tab-label">编辑</span>
+          <span class="tab-stats">
+            <span class="stat-additions">+24</span>
+            <span class="stat-deletions">-8</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- AFTER: Input with 24px ring -->
+      <div class="input-area">
+        <div class="input-box">
+          <div class="ring-indicator-after highlight-ring-fix">
+            <span class="ring"></span>
+            <span class="ring-pct">62%</span>
+          </div>
+          <span class="input-placeholder">引用文件，#唤起智能体，!插入提示词，Enter 发送</span>
+          <button class="send-btn">
+            <svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- 修复标注 -->
+      <div style="padding: 10px 20px 14px; display: flex; gap: 8px; flex-wrap: wrap;">
+        <span class="annotation-marker fix">🟢 Token 圆环缩小至 24px</span>
+        <span class="annotation-marker fix">🟢 标签栏背景 rgba(255,255,255,0.05)</span>
+        <span class="annotation-marker fix">🟢 分割线可见，active 状态更明显</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 尺寸对比 ==================== -->
+<div class="size-comparison">
+  <h2>Token Ring 尺寸对比</h2>
+  <div class="size-grid">
+    <!-- 当前 32px -->
+    <div class="size-item current">
+      <div class="label">当前 (32×32px)</div>
+      <div class="ring-demo ring-32">
+        <div class="ring-outer"></div>
+        <div class="ring-inner"></div>
+        <span class="ring-text">62%</span>
+      </div>
+      <div class="size-text">32×32 · font 10px</div>
+    </div>
+    <!-- 推荐 24px -->
+    <div class="size-item proposed">
+      <div class="label">★ 推荐 (24×24px)</div>
+      <div class="ring-demo ring-24">
+        <div class="ring-outer"></div>
+        <div class="ring-inner"></div>
+        <span class="ring-text">62%</span>
+      </div>
+      <div class="size-text">24×24 · font 8.5px</div>
+    </div>
+    <!-- 备选 20px -->
+    <div class="size-item alternative">
+      <div class="label">备选 (20×20px)</div>
+      <div class="ring-demo ring-20">
+        <div class="ring-outer"></div>
+        <div class="ring-inner"></div>
+        <span class="ring-text">62%</span>
+      </div>
+      <div class="size-text">20×20 · font 7px</div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 颜色方案对比 ==================== -->
+<div class="color-comparison">
+  <h2>标签栏背景颜色对比</h2>
+  <div class="color-swatches">
+    <!-- 当前 -->
+    <div class="swatch-group">
+      <div class="group-label">当前 (transparent)</div>
+      <div class="swatch-row">
+        <div class="swatch" style="background: transparent; border: 1px dashed #555;">--</div>
+        <div class="swatch-info">与 #2b2d30 融为一体</div>
+      </div>
+    </div>
+
+    <!-- 推荐 -->
+    <div class="swatch-group">
+      <div class="group-label" style="color: #4cc38a;">★ 推荐</div>
+      <div class="swatch-row">
+        <div class="swatch" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);">5%</div>
+        <div class="swatch-info">rgba(255,255,255,0.05) 微透</div>
+      </div>
+    </div>
+
+    <!-- 备选A -->
+    <div class="swatch-group">
+      <div class="group-label" style="color: #4ea1ff;">备选 A</div>
+      <div class="swatch-row">
+        <div class="swatch" style="background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1);">7%</div>
+        <div class="swatch-info">rgba(255,255,255,0.07) 稍亮</div>
+      </div>
+    </div>
+
+    <!-- 备选B -->
+    <div class="swatch-group">
+      <div class="group-label" style="color: #e7b85a;">备选 B</div>
+      <div class="swatch-row">
+        <div class="swatch" style="background: #323438; border: 1px solid #3e4045;">实色</div>
+        <div class="swatch-info">#323438 实色背景</div>
+      </div>
+    </div>
+
+    <!-- 参考底色 -->
+    <div class="swatch-group">
+      <div class="group-label">底色参考</div>
+      <div class="swatch-row">
+        <div class="swatch" style="background: #2b2d30; border: 1px solid #444;">--</div>
+        <div class="swatch-info">#2b2d30 页面底色</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== CSS 修复代码 ==================== -->
+<div class="css-fix-section">
+  <h2>具体 CSS 修改</h2>
+
+  <h3 style="font-size: 14px; color: #e0e0e0; margin: 16px 0 8px;">修复 1: Token Ring 缩小 (selectors.css)</h3>
+  <div class="code-block">
+    <span class="comment">/* 32×32 → 24×24 */</span><br>
+    <span class="selector">.ring-indicator</span> {<br>
+    &nbsp;&nbsp;position: relative;<br>
+    &nbsp;&nbsp;display: inline-flex;<br>
+    &nbsp;&nbsp;align-items: center;<br>
+    &nbsp;&nbsp;justify-content: center;<br>
+    &nbsp;&nbsp;<span class="removed">width: 32px;</span> <span class="added">width: 24px;</span><br>
+    &nbsp;&nbsp;<span class="removed">height: 32px;</span> <span class="added">height: 24px;</span><br>
+    &nbsp;&nbsp;cursor: default;<br>
+    &nbsp;&nbsp;outline: none;<br>
+    &nbsp;&nbsp;<span class="removed">border-radius: 6px;</span> <span class="added">border-radius: 5px;</span><br>
+    &nbsp;&nbsp;transition: background-color 0.15s ease;<br>
+    }<br><br>
+    <span class="comment">/* 圆环内圆切孔 — inset 适配新尺寸 */</span><br>
+    <span class="selector">.ring-indicator .ring::before</span> {<br>
+    &nbsp;&nbsp;content: "";<br>
+    &nbsp;&nbsp;position: absolute;<br>
+    &nbsp;&nbsp;<span class="removed">inset: 3px;</span> <span class="added">inset: 2.5px;</span><br>
+    &nbsp;&nbsp;border-radius: 50%;<br>
+    &nbsp;&nbsp;background: var(--context-bar-bg);<br>
+    }<br><br>
+    <span class="comment">/* 中心百分比文字 */</span><br>
+    <span class="selector">.ring-indicator .ring-pct</span> {<br>
+    &nbsp;&nbsp;position: relative;<br>
+    &nbsp;&nbsp;z-index: 1;<br>
+    &nbsp;&nbsp;font-family: 'Consolas', 'Monaco', 'Courier New', monospace;<br>
+    &nbsp;&nbsp;<span class="removed">font-size: 10px;</span> <span class="added">font-size: 8.5px;</span><br>
+    &nbsp;&nbsp;font-weight: 800;<br>
+    &nbsp;&nbsp;line-height: 1;<br>
+    &nbsp;&nbsp;<span class="added">letter-spacing: -0.3px;</span><br>
+    }
+  </div>
+
+  <h3 style="font-size: 14px; color: #e0e0e0; margin: 20px 0 8px;">修复 2: StatusPanel Tabs 背景可见化 (StatusPanel.less)</h3>
+  <div class="code-block">
+    <span class="comment">/* 方案 A: 直接使用已有变量 */</span><br>
+    <span class="selector">.status-panel-tabs</span> {<br>
+    &nbsp;&nbsp;display: flex;<br>
+    &nbsp;&nbsp;align-items: center;<br>
+    &nbsp;&nbsp;<span class="removed">background: var(--bg-chat-overlay-light);</span><br>
+    &nbsp;&nbsp;<span class="added">background: rgba(255, 255, 255, 0.05);</span><br>
+    &nbsp;&nbsp;<span class="removed">border: 1px solid var(--bg-chat-border);</span><br>
+    &nbsp;&nbsp;<span class="added">border: 1px solid rgba(255, 255, 255, 0.08);</span><br>
+    &nbsp;&nbsp;border-radius: 6px;<br>
+    &nbsp;&nbsp;padding: 4px 6px;<br>
+    &nbsp;&nbsp;gap: 2px;<br>
+    }<br><br>
+    <span class="comment">/* Tab 分割线 */</span><br>
+    <span class="selector">.status-panel-tab:not(:last-child)</span> {<br>
+    &nbsp;&nbsp;<span class="removed">border-right: 1px solid var(--bg-chat-border);</span><br>
+    &nbsp;&nbsp;<span class="added">border-right: none;</span><br>
+    }<br><br>
+    <span class="comment">/* 改用伪元素分割线 — 更精致 */</span><br>
+    <span class="selector">.status-panel-tab:not(:last-child)::after</span> {<br>
+    &nbsp;&nbsp;<span class="added">content: '';</span><br>
+    &nbsp;&nbsp;<span class="added">position: absolute;</span><br>
+    &nbsp;&nbsp;<span class="added">right: 0;</span><br>
+    &nbsp;&nbsp;<span class="added">top: 20%;</span><br>
+    &nbsp;&nbsp;<span class="added">height: 60%;</span><br>
+    &nbsp;&nbsp;<span class="added">width: 1px;</span><br>
+    &nbsp;&nbsp;<span class="added">background: rgba(255, 255, 255, 0.08);</span><br>
+    }<br><br>
+    <span class="selector">.status-panel-tab</span> {<br>
+    &nbsp;&nbsp;...<br>
+    &nbsp;&nbsp;<span class="added">position: relative;</span><br>
+    }<br><br>
+    <span class="comment">/* active 状态更明显 */</span><br>
+    <span class="selector">.status-panel-tab.active</span> {<br>
+    &nbsp;&nbsp;color: var(--text-primary);<br>
+    &nbsp;&nbsp;<span class="removed">background: var(--bg-tertiary);</span><br>
+    &nbsp;&nbsp;<span class="added">background: rgba(255, 255, 255, 0.1);</span><br>
+    &nbsp;&nbsp;<span class="added">font-weight: 600;</span><br>
+    }
+  </div>
+
+  <h3 style="font-size: 14px; color: #e0e0e0; margin: 20px 0 8px;">修复 3: 亮色主题适配 (StatusPanel.less)</h3>
+  <div class="code-block">
+    <span class="selector">[data-theme="light"] .status-panel-tabs</span> {<br>
+    &nbsp;&nbsp;<span class="added">background: rgba(0, 0, 0, 0.04);</span><br>
+    &nbsp;&nbsp;<span class="added">border: 1px solid rgba(0, 0, 0, 0.08);</span><br>
+    }<br><br>
+    <span class="selector">[data-theme="light"] .status-panel-tab:not(:last-child)::after</span> {<br>
+    &nbsp;&nbsp;<span class="added">background: rgba(0, 0, 0, 0.1);</span><br>
+    }<br><br>
+    <span class="selector">[data-theme="light"] .status-panel-tab.active</span> {<br>
+    &nbsp;&nbsp;<span class="added">background: rgba(0, 0, 0, 0.06);</span><br>
+    }
+  </div>
+
+  <div class="fix-note">
+    <strong>⚠ 根因分析：</strong><code>--bg-chat-overlay-light</code> 和 <code>--bg-chat-border</code> 两个 CSS 变量在项目中<strong>从未被定义</strong>。
+    它们仅在 <code>StatusPanel.less</code> 中被引用，但 <code>variables.less</code> 中没有声明，也没有通过 JS 动态注入。
+    这导致 <code>var()</code> 回退为空值（transparent），使得标签栏背景完全透明，与 #2b2d30 底色融为一体。
+    <br><br>
+    <strong>修复策略：</strong>不新增变量，直接使用 <code>rgba()</code> 半透明色值，既能适配暗色/亮色主题，又不增加变量维护负担。
+  </div>
+</div>
+
+</body>
+</html>

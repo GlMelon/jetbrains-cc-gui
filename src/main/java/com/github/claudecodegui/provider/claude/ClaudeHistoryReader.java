@@ -1,6 +1,7 @@
 package com.github.claudecodegui.provider.claude;
 
-import com.github.claudecodegui.bridge.NodeDetector;
+import com.github.claudecodegui.util.PlatformUtils;
+import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
 import com.intellij.openapi.diagnostic.Logger;
 
@@ -24,31 +25,12 @@ public class ClaudeHistoryReader {
 
     private static final Logger LOG = Logger.getInstance(ClaudeHistoryReader.class);
 
-    private static volatile Path claudeDir;
+    private static final String HOME_DIR = PlatformUtils.getHomeDirectory();
+    private static final Path CLAUDE_DIR = Paths.get(HOME_DIR, ".claude");
+    private static final Path HISTORY_FILE = CLAUDE_DIR.resolve("history.jsonl");
+    static final Path PROJECTS_DIR = CLAUDE_DIR.resolve("projects");
 
-    private static Path claudeDir() {
-        Path dir = claudeDir;
-        if (dir == null) {
-            synchronized (ClaudeHistoryReader.class) {
-                dir = claudeDir;
-                if (dir == null) {
-                    dir = Paths.get(NodeDetector.resolveHomeForFileOps(), ".claude");
-                    claudeDir = dir;
-                }
-            }
-        }
-        return dir;
-    }
-
-    private static Path historyFile() {
-        return claudeDir().resolve("history.jsonl");
-    }
-
-    static Path projectsDir() {
-        return claudeDir().resolve("projects");
-    }
-
-    private final Gson gson = new Gson();
+    private final Gson gson = GsonHolder.GSON;
 
     // Sub-services
     private final ClaudeHistoryParser parser;
@@ -57,11 +39,10 @@ public class ClaudeHistoryReader {
     private final ClaudeHistorySearchService searchService;
 
     public ClaudeHistoryReader() {
-        Path projectsDir = projectsDir();
         this.parser = new ClaudeHistoryParser();
-        this.indexService = new ClaudeHistoryIndexService(projectsDir, parser);
-        this.usageAggregator = new ClaudeUsageAggregator(projectsDir, parser);
-        this.searchService = new ClaudeHistorySearchService(projectsDir, this, indexService);
+        this.indexService = new ClaudeHistoryIndexService(PROJECTS_DIR, parser);
+        this.usageAggregator = new ClaudeUsageAggregator(PROJECTS_DIR, parser);
+        this.searchService = new ClaudeHistorySearchService(PROJECTS_DIR, this, indexService);
     }
 
     // ==================== DTO Inner Classes ====================
@@ -150,6 +131,7 @@ public class ClaudeHistoryReader {
         public UsageData usage;
         public double cost;
         public String summary;
+        public String entrypoint;
     }
 
     public static class DailyUsage {
@@ -261,12 +243,11 @@ public class ClaudeHistoryReader {
     public List<HistoryEntry> readHistory() throws IOException {
         List<HistoryEntry> history = new ArrayList<>();
 
-        Path historyFile = historyFile();
-        if (!Files.exists(historyFile)) {
+        if (!Files.exists(HISTORY_FILE)) {
             return history;
         }
 
-        try (BufferedReader reader = Files.newBufferedReader(historyFile, java.nio.charset.StandardCharsets.UTF_8)) {
+        try (BufferedReader reader = Files.newBufferedReader(HISTORY_FILE, java.nio.charset.StandardCharsets.UTF_8)) {
             String line;
             while ((line = reader.readLine()) != null) {
                 if (!line.trim().isEmpty()) {

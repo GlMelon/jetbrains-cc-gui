@@ -3,17 +3,11 @@ package com.github.claudecodegui.notifications;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.intellij.openapi.Disposable;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.wm.CustomStatusBarWidget;
-import com.intellij.openapi.wm.StatusBar;
-import com.intellij.openapi.wm.StatusBarWidget;
-import com.intellij.openapi.wm.StatusBarWidgetFactory;
-import com.intellij.openapi.wm.ToolWindowManager;
-import com.intellij.openapi.wm.WindowManager;
+import com.intellij.openapi.wm.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
-import com.intellij.openapi.application.ApplicationManager;
 
 import javax.swing.*;
 import java.awt.event.MouseAdapter;
@@ -160,18 +154,16 @@ public class ClaudeStatusBarWidget implements CustomStatusBarWidget, StatusBarWi
 
         StringBuilder text = new StringBuilder("GUI " + icon);
 
-        // Add Model Info (Shorten names)
+        // Add Model Info — match webview ModelSelect display names
         if (model != null && !model.isEmpty()) {
-            String shortModel = model;
-            if (model.contains("sonnet")) { shortModel = "Sonnet"; }
-            else if (model.contains("opus")) { shortModel = "Opus"; }
-            else if (model.contains("haiku")) { shortModel = "Haiku"; }
+            String shortModel = shortenModelName(model);
             text.append(" [").append(shortModel).append("]");
         }
 
-        // Add Mode Info
-        if (mode != null && !"default".equals(mode)) {
+        // Add Mode Info — always show mode, matching webview ModeSelect labels
+        if (mode != null && !mode.isEmpty()) {
             String modeLabel = switch (mode) {
+                case "default" -> ClaudeCodeGuiBundle.message("status.mode.default");
                 case "plan" -> ClaudeCodeGuiBundle.message("status.mode.plan");
                 case "acceptEdits" -> ClaudeCodeGuiBundle.message("status.mode.acceptEdits");
                 case "bypassPermissions" -> ClaudeCodeGuiBundle.message("status.mode.bypassPermissions");
@@ -204,6 +196,47 @@ public class ClaudeStatusBarWidget implements CustomStatusBarWidget, StatusBarWi
         }
 
         updateLabel(text.toString(), tooltip.toString());
+    }
+
+    /**
+     * Shorten model ID to a display name matching the webview ModelSelect component.
+     * e.g. "claude-sonnet-4-6" → "Sonnet 4.6", "gpt-5.4" → "GPT-5.4"
+     */
+    private static String shortenModelName(String model) {
+        // Claude models with version numbers
+        if (model.contains("sonnet")) {
+            if (model.contains("4-6")) {
+                return "Sonnet 4.6";
+            }
+            return "Sonnet";
+        }
+        if (model.contains("opus")) {
+            if (model.contains("4-8")) {
+                return "Opus 4.8";
+            }
+            if (model.contains("4-7")) {
+                return "Opus 4.7";
+            }
+            if (model.contains("4-6")) {
+                return "Opus 4.6";
+            }
+            return "Opus";
+        }
+        if (model.contains("haiku")) {
+            if (model.contains("4-5")) {
+                return "Haiku 4.5";
+            }
+            return "Haiku";
+        }
+        // GPT / Codex models — capitalize like webview
+        if (model.startsWith("gpt-")) {
+            return "GPT-" + model.substring(4);
+        }
+        if (model.startsWith("o") && model.length() <= 3) {
+            return model.toUpperCase(); // o1, o3 etc
+        }
+        // Fallback: return raw ID
+        return model;
     }
 
     public void show(String text, String tooltip, long durationMs) {
@@ -263,7 +296,7 @@ public class ClaudeStatusBarWidget implements CustomStatusBarWidget, StatusBarWi
         public boolean isAvailable(@NotNull Project project) {
             if (project == null) { return false; }
             try {
-                return new CodemossSettingsService().getStatusBarWidgetEnabled();
+                return CodemossSettingsService.getInstance().getStatusBarWidgetEnabled();
             } catch (Exception e) {
                 return true;
             }

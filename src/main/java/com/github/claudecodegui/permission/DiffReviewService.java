@@ -1,25 +1,21 @@
 package com.github.claudecodegui.permission;
 
-import com.github.claudecodegui.util.WslPathUtil;
 import com.github.claudecodegui.handler.diff.DiffResult;
 import com.github.claudecodegui.handler.diff.InteractiveDiffManager;
 import com.github.claudecodegui.handler.diff.InteractiveDiffRequest;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.LocalFileSystem;
-import com.intellij.openapi.vfs.VirtualFile;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
-import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.util.Computable;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -68,9 +64,19 @@ public class DiffReviewService {
 
         // Security: validate file path is within project directory
         String projectBasePath = project.getBasePath();
-        if (projectBasePath != null && !WslPathUtil.isPathWithinDirectory(filePath, projectBasePath)) {
-            LOG.warn("DiffReview: Security - file path outside project: " + filePath);
-            return null;
+        if (projectBasePath != null) {
+            try {
+                String canonicalFile = new File(filePath).getCanonicalPath();
+                String canonicalBase = new File(projectBasePath).getCanonicalPath();
+                if (!canonicalFile.startsWith(canonicalBase + File.separator)
+                        && !canonicalFile.equals(canonicalBase)) {
+                    LOG.warn("DiffReview: Security - file path outside project: " + filePath);
+                    return null;
+                }
+            } catch (IOException e) {
+                LOG.warn("DiffReview: Security - failed to validate path: " + filePath, e);
+                return null;
+            }
         }
 
         LOG.info("DiffReview: Starting review for " + toolName + " on " + filePath);
@@ -144,19 +150,16 @@ public class DiffReviewService {
      */
     @Nullable
     private static String readFileContent(@NotNull String filePath) {
-        return ApplicationManager.getApplication().runReadAction((Computable<String>) () -> {
-            try {
-                VirtualFile vFile = LocalFileSystem.getInstance()
-                        .refreshAndFindFileByPath(WslPathUtil.toVfsPath(filePath));
-                if (vFile != null && vFile.exists() && !vFile.isDirectory()) {
-                    Charset charset = vFile.getCharset() != null ? vFile.getCharset() : StandardCharsets.UTF_8;
-                    return new String(vFile.contentsToByteArray(), charset);
-                }
-            } catch (IOException e) {
-                LOG.warn("DiffReview: Failed to read file: " + filePath, e);
+        try {
+            Path path = Path.of(filePath);
+            if (!Files.exists(path) || Files.isDirectory(path)) {
+                return null;
             }
+            return Files.readString(path, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            LOG.warn("DiffReview: Failed to read file: " + filePath, e);
             return null;
-        });
+        }
     }
 
     /**

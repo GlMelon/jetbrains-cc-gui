@@ -1,7 +1,8 @@
 package com.github.claudecodegui.provider.codex;
 
-import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.settings.CodemossSettingsService;
+import com.github.claudecodegui.util.PlatformUtils;
+import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
@@ -22,18 +23,17 @@ public class CodexHistoryReader {
 
     private static final Logger LOG = Logger.getInstance(CodexHistoryReader.class);
 
+    private static final String HOME_DIR = PlatformUtils.getHomeDirectory();
+    private static final Path CODEX_SESSIONS_DIR = Paths.get(HOME_DIR, ".codex", "sessions");
+
     private final Gson gson;
     private final CodexHistoryParser parser;
     private final CodexHistoryIndexService indexService;
     private final CodexUsageAggregator usageAggregator;
     private final CodexHistorySessionService sessionService;
 
-    private static Path defaultSessionsDir() {
-        return Paths.get(NodeDetector.resolveHomeForFileOps(), ".codex", "sessions");
-    }
-
     public CodexHistoryReader() {
-        this(defaultSessionsDir(), new Gson());
+        this(CODEX_SESSIONS_DIR, GsonHolder.GSON);
     }
 
     CodexHistoryReader(Path sessionsDir, Gson gson) {
@@ -289,7 +289,7 @@ public class CodexHistoryReader {
 
     boolean isCodexLocalConfigAuthorized() {
         try {
-            return new CodemossSettingsService().isCodexLocalConfigAuthorized();
+            return CodemossSettingsService.getInstance().isCodexLocalConfigAuthorized();
         } catch (Exception e) {
             LOG.warn("[CodexHistoryReader] Failed to read Codex local authorization state: " + e.getMessage());
             return false;

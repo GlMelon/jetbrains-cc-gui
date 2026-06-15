@@ -1,5 +1,3 @@
-export type ClaudeRole = 'user' | 'assistant' | 'error' | 'task_notification' | 'notification' | 'compact_notification' | string;
-
 export type ToolInput = Record<string, unknown>;
 
 export interface CompactNotificationItem {
@@ -33,8 +31,26 @@ export type ClaudeContentBlock =
   | { type: 'text'; text?: string }
   | { type: 'thinking'; thinking?: string; text?: string }
   | { type: 'tool_use'; id?: string; name?: string; input?: ToolInput }
-  | { type: 'image'; src?: string; mediaType?: string; alt?: string }
+  | {
+      type: 'image';
+      src?: string;
+      mediaType?: string;
+      alt?: string;
+      previewSrc?: string;
+      thumbnailSrc?: string;
+      sourceKind?: 'base64' | 'resource_url';
+      localPath?: string;
+    }
   | { type: 'attachment'; fileName?: string; mediaType?: string }
+  | {
+      type: 'provider_error';
+      provider?: string;
+      summary?: string;
+      details?: string;
+      exitCode?: number | string;
+      requestId?: string;
+      url?: string;
+    }
   | { type: 'task_notification'; icon: string; summary: string; status: string }
   | { type: 'compact_notification'; headerText: string; items: CompactNotificationItem[] }
   | { type: 'compact_summary'; title: string; content: string; metadata?: CompactSummaryMetadata };
@@ -63,12 +79,15 @@ export interface ClaudeRawMessage {
 
 /** Represents a single message in the chat conversation. */
 export interface ClaudeMessage {
-  type: ClaudeRole;
+  type: 'user' | 'assistant' | 'error' | 'task_notification' | 'notification' | 'compact_notification';
   content?: string;
   raw?: ClaudeRawMessage | string;
-  timestamp?: string;
-  isStreaming?: boolean;
-  isOptimistic?: boolean;
+    timestamp?: string;
+    isStreaming?: boolean;
+    isOptimistic?: boolean;
+    durationMs?: number;
+    streamEndSource?: 'backend' | 'watchdog';
+    streamEndReason?: string;
   /**
    * Runtime-only: numeric turn identifier for streaming assistant isolation.
    * Set by frontend during streaming to distinguish messages from different
@@ -76,6 +95,17 @@ export interface ClaudeMessage {
    * be merged. Undefined for history messages loaded from JSONL files.
    */
   __turnId?: number;
+  /**
+   * Runtime-only: groups multiple assistant content groups that belong to the
+   * same streamed model response. Used by the frontend to render one response
+   * container with lightweight internal separators.
+   */
+  __responseId?: string;
+  /**
+   * Runtime-only: suppresses the initial streaming connection hint on assistant
+   * placeholders created for later stream segments.
+   */
+  __suppressStreamingConnectHint?: boolean;
   [key: string]: unknown;
 }
 
