@@ -494,16 +494,7 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
     const extractAssistantRaw = (json: string): { content?: string; raw?: ClaudeRawMessage | string } => {
       try {
         const parsed = JSON.parse(json) as Array<Record<string, unknown>>;
-        for (let i = parsed.length - 1; i >= 0; i--) {
-          if (parsed[i]?.type === 'assistant') {
-            const rawContent = parsed[i].content;
-            const content = typeof rawContent === 'string' ? rawContent : '';
-            const rawVal = parsed[i].raw;
-            const raw = (rawVal != null && (typeof rawVal === 'object' || typeof rawVal === 'string'))
-              ? rawVal as ClaudeRawMessage | string : undefined;
-            return { content: content || undefined, raw };
-          }
-        }
+
         // Collect tool_result user messages from the pending snapshot so that
         // completed tool calls are not lost when the rAF is cancelled below.
         for (let i = 0; i < parsed.length; i++) {
@@ -513,6 +504,18 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
             if (raw != null && typeof raw === 'object') {
               pendingToolResultMsgs.push({ content: '[tool_result]', raw });
             }
+          }
+        }
+
+        // Extract the latest assistant message content and raw.
+        for (let i = parsed.length - 1; i >= 0; i--) {
+          if (parsed[i]?.type === 'assistant') {
+            const rawContent = parsed[i].content;
+            const content = typeof rawContent === 'string' ? rawContent : '';
+            const rawVal = parsed[i].raw;
+            const raw = (rawVal != null && (typeof rawVal === 'object' || typeof rawVal === 'string'))
+              ? rawVal as ClaudeRawMessage | string : undefined;
+            return { content: content || undefined, raw };
           }
         }
       } catch { /* ignore parse errors */ }

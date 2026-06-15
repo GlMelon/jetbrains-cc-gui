@@ -22,15 +22,15 @@ describe('bridge navigation helpers', () => {
     openFile('/Users/demo/%C3%BCber.txt');
     openFile('file:///Users/demo/my%20file.ts');
 
-    expect(window.sendToJava).toHaveBeenNthCalledWith(1, 'open_file:/Users/demo/my file.ts');
-    expect(window.sendToJava).toHaveBeenNthCalledWith(2, 'open_file:/Users/demo/über.txt');
-    expect(window.sendToJava).toHaveBeenNthCalledWith(3, 'open_file:/Users/demo/my file.ts');
+    expect(window.sendToJava).toHaveBeenNthCalledWith(1, bridgeCall('open_file', '/Users/demo/my file.ts'));
+    expect(window.sendToJava).toHaveBeenNthCalledWith(2, bridgeCall('open_file', '/Users/demo/über.txt'));
+    expect(window.sendToJava).toHaveBeenNthCalledWith(3, bridgeCall('open_file', '/Users/demo/my file.ts'));
   });
 
   it('parses line numbers from normalized navigation paths', () => {
     openFile('/Users/demo/my%20file.ts:42');
 
-    expect(window.sendToJava).toHaveBeenCalledWith('open_file:/Users/demo/my file.ts:42');
+    expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('open_file', '/Users/demo/my file.ts:42'));
   });
 
   it('allows relative navigation paths for openFile', () => {

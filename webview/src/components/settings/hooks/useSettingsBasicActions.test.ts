@@ -79,10 +79,10 @@ describe('useSettingsBasicActions', () => {
     });
 
     expect(window.sendToJava).not.toHaveBeenCalledWith(
-      'set_ui_font_config:{"mode":"customFile"}'
+      bridgeCall('set_ui_font_config', '{"mode":"customFile"}')
     );
     expect(window.sendToJava).toHaveBeenCalledWith(
-      'set_code_font_config:{"mode":"followEditor"}'
+      bridgeCall('set_code_font_config', '{"mode":"followEditor"}')
     );
   });
 
@@ -107,7 +107,7 @@ describe('useSettingsBasicActions', () => {
     });
 
     expect(window.sendToJava).toHaveBeenCalledWith(
-      'set_code_font_config:{"mode":"customFile","customFontPath":"/tmp/my-code-font.ttf"}'
+      bridgeCall('set_code_font_config', '{"mode":"customFile","customFontPath":"/tmp/my-code-font.ttf"}')
     );
   });
 

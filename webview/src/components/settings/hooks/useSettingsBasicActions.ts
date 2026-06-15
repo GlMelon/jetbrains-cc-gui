@@ -317,23 +317,23 @@ export function useSettingsBasicActions({
 
   const handleCodeFontSelectionChange = useCallback((selection: string) => {
     if (selection === 'followEditor') {
-      sendToJava(`set_code_font_config:${JSON.stringify({ mode: 'followEditor' })}`);
+      sendToJava('set_code_font_config', JSON.stringify({ mode: 'followEditor' }));
       return;
     }
 
     if (selection === 'customFile' && codeFontConfig?.customFontPath) {
-      sendToJava(`set_code_font_config:${JSON.stringify({
+      sendToJava('set_code_font_config', JSON.stringify({
         mode: 'customFile',
         customFontPath: codeFontConfig.customFontPath,
-      })}`);
+      }));
     }
   }, [codeFontConfig?.customFontPath]);
 
   const handleSaveCodeFontCustomPath = useCallback((path: string) => {
-    sendToJava(`set_code_font_config:${JSON.stringify({
+    sendToJava('set_code_font_config', JSON.stringify({
       mode: 'customFile',
       customFontPath: path,
-    })}`);
+    }));
   }, []);
 
   const handleBrowseCodeFontFile = useCallback(() => {

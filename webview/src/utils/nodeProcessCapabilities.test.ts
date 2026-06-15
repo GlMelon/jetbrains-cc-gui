@@ -28,37 +28,41 @@ describe('nodeProcessCapabilities', () => {
     delete (window as { nodeProcessKillResult?: unknown }).nodeProcessKillResult;
   });
 
+  const bridgeCall = (type: string, content = '') =>
+    JSON.stringify({ type, content });
+
   describe('bridge events', () => {
     it('fetchNodeProcesses sends get_node_processes event', () => {
       fetchNodeProcesses();
-      expect(sentMessages).toEqual(['get_node_processes:']);
+      expect(sentMessages).toEqual([bridgeCall('get_node_processes')]);
     });
 
     it('killNodeProcess sends pid payload', () => {
       killNodeProcess(12345);
       expect(sentMessages).toHaveLength(1);
-      expect(sentMessages[0]).toMatch(/^kill_node_process:/);
-      const payload = JSON.parse(sentMessages[0].substring('kill_node_process:'.length));
-      expect(payload).toEqual({ pid: 12345 });
+      const parsed = JSON.parse(sentMessages[0]);
+      expect(parsed.type).toBe('kill_node_process');
+      expect(JSON.parse(parsed.content)).toEqual({ pid: 12345 });
     });
 
     it('killNodeProcess includes id when provided', () => {
       killNodeProcess(12345, 'daemon-claude-12345');
-      const payload = JSON.parse(sentMessages[0].substring('kill_node_process:'.length));
-      expect(payload).toEqual({ pid: 12345, id: 'daemon-claude-12345' });
+      const parsed = JSON.parse(sentMessages[0]);
+      expect(parsed.type).toBe('kill_node_process');
+      expect(JSON.parse(parsed.content)).toEqual({ pid: 12345, id: 'daemon-claude-12345' });
     });
 
     it('killAllOrphanProcesses sends kill_all_orphans event', () => {
       killAllOrphanProcesses();
-      expect(sentMessages).toEqual(['kill_all_orphans:']);
+      expect(sentMessages).toEqual([bridgeCall('kill_all_orphans')]);
     });
 
     it('restartNodeDaemon sends pid payload', () => {
       restartNodeDaemon(987);
       expect(sentMessages).toHaveLength(1);
-      expect(sentMessages[0]).toMatch(/^restart_node_daemon:/);
-      const payload = JSON.parse(sentMessages[0].substring('restart_node_daemon:'.length));
-      expect(payload).toEqual({ pid: 987 });
+      const parsed = JSON.parse(sentMessages[0]);
+      expect(parsed.type).toBe('restart_node_daemon');
+      expect(JSON.parse(parsed.content)).toEqual({ pid: 987 });
     });
   });
 
