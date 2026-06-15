@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ChangelogEntry } from '../version/changelog';
+import { BaseDialog } from './shared/BaseDialog';
 
 interface ChangelogDialogProps {
   isOpen: boolean;
@@ -109,23 +110,22 @@ const ChangelogDialog = ({ isOpen, onClose, entries, initialPage = 0 }: Changelo
     }
   }, [isOpen, initialPage]);
 
-  // Keyboard navigation
+  // Custom keyboard navigation (arrows + escape)
   useEffect(() => {
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      } else if (e.key === 'ArrowLeft') {
+      if (e.key === 'ArrowLeft') {
         setCurrentPage(prev => Math.max(0, prev - 1));
       } else if (e.key === 'ArrowRight') {
         setCurrentPage(prev => Math.min(entries.length - 1, prev + 1));
       }
+      // ESC is handled by BaseDialog
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, entries.length, onClose]);
+  }, [isOpen, entries.length]);
 
   const handlePrev = useCallback(() => {
     setCurrentPage(prev => Math.max(0, prev - 1));
@@ -144,7 +144,7 @@ const ChangelogDialog = ({ isOpen, onClose, entries, initialPage = 0 }: Changelo
   const hasNext = currentPage < totalPages - 1;
 
   return (
-    <div className="changelog-overlay">
+    <BaseDialog isOpen={isOpen} onClose={onClose} ariaLabel={t('changelog.title')}>
       <div className="changelog-dialog">
         {/* Header */}
         <div className="changelog-header">
@@ -211,7 +211,7 @@ const ChangelogDialog = ({ isOpen, onClose, entries, initialPage = 0 }: Changelo
           </button>
         </div>
       </div>
-    </div>
+    </BaseDialog>
   );
 };
 

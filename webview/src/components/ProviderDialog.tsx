@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ProviderConfig } from '../types/provider';
 import { CLAUDE_MODEL_MAPPING_ENV_KEYS, PROVIDER_PRESETS } from '../types/provider';
+import { BaseDialog } from './shared/BaseDialog';
 
 const INFO_ICON_STYLE: React.CSSProperties = { fontSize: '12px', marginRight: '4px' };
 const NOTICE_MT_STYLE: React.CSSProperties = { marginTop: '8px' };
@@ -311,18 +312,7 @@ export default function ProviderDialog({
     }
   }, [isOpen, provider]);
 
-  // Close on ESC key press
-  useEffect(() => {
-    if (isOpen) {
-      const handleEscape = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') {
-          onClose();
-        }
-      };
-      window.addEventListener('keydown', handleEscape);
-      return () => window.removeEventListener('keydown', handleEscape);
-    }
-  }, [isOpen, onClose]);
+  // ESC is handled by BaseDialog
 
   const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newApiKey = e.target.value;
@@ -456,7 +446,7 @@ export default function ProviderDialog({
   }
 
   return (
-    <div className="dialog-overlay">
+    <BaseDialog isOpen={isOpen} onClose={onClose} size="lg" ariaLabel={isAdding ? t('settings.provider.dialog.addTitle') : t('settings.provider.dialog.editTitle')}>
       <div className="dialog provider-dialog">
         <div className="dialog-header">
           <h3>{isAdding ? t('settings.provider.dialog.addTitle') : t('settings.provider.dialog.editTitle', { name: provider?.name })}</h3>
@@ -701,6 +691,6 @@ export default function ProviderDialog({
           </div>
         </div>
       </div>
-    </div>
+    </BaseDialog>
   );
 }

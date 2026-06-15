@@ -1,4 +1,5 @@
-import { useEffect, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
+import { BaseDialog, DialogHeader, DialogBody, DialogFooter } from './shared/BaseDialog';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -27,42 +28,22 @@ const ConfirmDialog = ({
   onCancel,
   children,
 }: ConfirmDialogProps) => {
-  useEffect(() => {
-    if (isOpen) {
-      const handleEscape = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') {
-          onCancel();
-        }
-      };
-      window.addEventListener('keydown', handleEscape);
-      return () => window.removeEventListener('keydown', handleEscape);
-    }
-  }, [isOpen]); // Remove onCancel from dependencies - it's stable from props
-
-  if (!isOpen) {
-    return null;
-  }
-
   return (
-    <div className="confirm-dialog-overlay" onClick={onCancel}>
-      <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
-        <div className="confirm-dialog-header">
-          <h3 className="confirm-dialog-title">{title}</h3>
-        </div>
-        <div className="confirm-dialog-body">
-          <p className="confirm-dialog-message">{message}</p>
-          {children}
-        </div>
-        <div className="confirm-dialog-footer">
-          <button className="confirm-dialog-button cancel-button" onClick={onCancel}>
-            {cancelText}
-          </button>
-          <button className="confirm-dialog-button confirm-button" onClick={onConfirm} autoFocus>
-            {confirmText}
-          </button>
-        </div>
-      </div>
-    </div>
+    <BaseDialog isOpen={isOpen} onClose={onCancel} ariaLabel={title}>
+      <DialogHeader title={title} onClose={onCancel} />
+      <DialogBody>
+        <p className="confirm-dialog-message">{message}</p>
+        {children}
+      </DialogBody>
+      <DialogFooter>
+        <button className="btn btn-secondary" onClick={onCancel}>
+          {cancelText}
+        </button>
+        <button className="btn btn-primary" onClick={onConfirm} autoFocus>
+          {confirmText}
+        </button>
+      </DialogFooter>
+    </BaseDialog>
   );
 };
 

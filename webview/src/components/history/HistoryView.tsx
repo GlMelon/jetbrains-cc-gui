@@ -4,9 +4,10 @@ import type { HistoryData, HistorySessionSummary } from '../../types';
 import VirtualList from './VirtualList';
 import { sendBridgeEvent } from '../../utils/bridge';
 import { copyToClipboard } from '../../utils/copyUtils';
-import { HistoryListItem, stopPropagationHandler } from './HistoryListItem';
+import { HistoryListItem } from './HistoryListItem';
 import { HistoryFilters } from './HistoryFilters';
 import { HistoryActions } from './HistoryActions';
+import ConfirmDialog from '../ConfirmDialog';
 
 // Deep search timeout (milliseconds)
 const DEEP_SEARCH_TIMEOUT_MS = 30000;
@@ -512,57 +513,37 @@ const HistoryView = ({ historyData, currentProvider, currentSessionId, onLoadSes
       </div>
 
       {/* Delete confirmation dialog */}
-      {deletingSessionId && (
-        <div className="modal-overlay" onClick={cancelDelete} role="presentation">
-          <div className="modal-content" onClick={stopPropagationHandler}>
-            <h3>{t('history.confirmDelete')}</h3>
-            <p>{t('history.deleteMessage')}</p>
-            <div className="modal-actions">
-              <button className="modal-btn modal-btn-cancel" onClick={cancelDelete}>
-                {t('common.cancel')}
-              </button>
-              <button className="modal-btn modal-btn-danger" onClick={confirmDelete}>
-                {t('common.delete')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        isOpen={!!deletingSessionId}
+        title={t('history.confirmDelete')}
+        message={t('history.deleteMessage')}
+        confirmText={t('common.delete')}
+        cancelText={t('common.cancel')}
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
+      />
 
       {/* Convert to CLI confirmation dialog */}
-      {convertingSessionId && (
-        <div className="modal-overlay" onClick={cancelConvert} role="presentation">
-          <div className="modal-content" onClick={stopPropagationHandler} role="dialog" aria-modal="true" aria-labelledby="convert-session-title">
-            <h3 id="convert-session-title">{t('history.confirmConvert')}</h3>
-            <p>{t('history.convertConfirmMessage')}</p>
-            <div className="modal-actions">
-              <button className="modal-btn modal-btn-cancel" onClick={cancelConvert}>
-                {t('common.cancel')}
-              </button>
-              <button className="modal-btn modal-btn-primary" onClick={confirmConvert}>
-                {t('history.convertButton')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        isOpen={!!convertingSessionId}
+        title={t('history.confirmConvert')}
+        message={t('history.convertConfirmMessage')}
+        confirmText={t('history.convertButton')}
+        cancelText={t('common.cancel')}
+        onConfirm={confirmConvert}
+        onCancel={cancelConvert}
+      />
 
-      {isDeletingSelected && (
-        <div className="modal-overlay" onClick={handleCancelDeleteSelected} role="presentation">
-          <div className="modal-content" onClick={stopPropagationHandler} role="dialog" aria-modal="true" aria-labelledby="delete-selected-title">
-            <h3 id="delete-selected-title">{t('history.confirmDeleteSelected')}</h3>
-            <p>{t('history.deleteSelectedMessage', { count: selectedCount })}</p>
-            <div className="modal-actions">
-              <button className="modal-btn modal-btn-cancel" onClick={handleCancelDeleteSelected}>
-                {t('common.cancel')}
-              </button>
-              <button className="modal-btn modal-btn-danger" onClick={confirmDeleteSelected}>
-                {t('common.delete')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Delete selected confirmation dialog */}
+      <ConfirmDialog
+        isOpen={isDeletingSelected}
+        title={t('history.confirmDeleteSelected')}
+        message={t('history.deleteSelectedMessage', { count: selectedCount })}
+        confirmText={t('common.delete')}
+        cancelText={t('common.cancel')}
+        onConfirm={confirmDeleteSelected}
+        onCancel={handleCancelDeleteSelected}
+      />
     </div>
   );
 };

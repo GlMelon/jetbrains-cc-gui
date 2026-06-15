@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { PromptConfig } from '../types/prompt';
-
-const FOOTER_ACTIONS_STYLE: React.CSSProperties = { marginLeft: 'auto' };
+import { BaseDialog, DialogHeader, DialogBody, DialogFooter } from './shared/BaseDialog';
 
 interface PromptDialogProps {
   isOpen: boolean;
@@ -40,19 +39,6 @@ export default function PromptDialog({
     }
   }, [isOpen, prompt]);
 
-  // Close on ESC key
-  useEffect(() => {
-    if (isOpen) {
-      const handleEscape = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') {
-          onClose();
-        }
-      };
-      window.addEventListener('keydown', handleEscape);
-      return () => window.removeEventListener('keydown', handleEscape);
-    }
-  }, [isOpen, onClose]);
-
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     // Limit to 30 characters max
@@ -83,79 +69,69 @@ export default function PromptDialog({
     });
   };
 
-  if (!isOpen) {
-    return null;
-  }
-
   return (
-    <div className="dialog-overlay">
-      <div className="dialog prompt-dialog">
-        <div className="dialog-header">
-          <h3>{isAdding ? t('settings.prompt.dialog.addTitle') : t('settings.prompt.dialog.editTitle')}</h3>
-          <button className="close-btn" onClick={onClose}>
-            <span className="codicon codicon-close"></span>
-          </button>
+    <BaseDialog isOpen={isOpen} onClose={onClose} size="md" ariaLabel={isAdding ? t('settings.prompt.dialog.addTitle') : t('settings.prompt.dialog.editTitle')}>
+      <DialogHeader
+        title={isAdding ? t('settings.prompt.dialog.addTitle') : t('settings.prompt.dialog.editTitle')}
+        onClose={onClose}
+      />
+
+      <DialogBody>
+        <div className="form-group">
+          <label htmlFor="promptName">
+            {t('settings.prompt.dialog.name')}
+            <span className="required">*</span>
+          </label>
+          <div className="input-with-counter">
+            <input
+              id="promptName"
+              type="text"
+              className={`form-input ${nameError ? 'has-error' : ''}`}
+              placeholder={t('settings.prompt.dialog.namePlaceholder')}
+              value={name}
+              onChange={handleNameChange}
+              maxLength={30}
+            />
+            <span className="char-counter">{name.length}/30</span>
+          </div>
+          {nameError && (
+            <p className="form-error">
+              <span className="codicon codicon-error" />
+              {nameError}
+            </p>
+          )}
         </div>
 
-        <div className="dialog-body">
-          <div className="form-group">
-            <label htmlFor="promptName">
-              {t('settings.prompt.dialog.name')}
-              <span className="required">*</span>
-            </label>
-            <div className="input-with-counter">
-              <input
-                id="promptName"
-                type="text"
-                className={`form-input ${nameError ? 'has-error' : ''}`}
-                placeholder={t('settings.prompt.dialog.namePlaceholder')}
-                value={name}
-                onChange={handleNameChange}
-                maxLength={30}
-              />
-              <span className="char-counter">{name.length}/30</span>
-            </div>
-            {nameError && (
-              <p className="form-error">
-                <span className="codicon codicon-error" />
-                {nameError}
-              </p>
-            )}
+        <div className="form-group">
+          <label htmlFor="promptContent">
+            {t('settings.prompt.dialog.content')}
+          </label>
+          <div className="textarea-with-counter">
+            <textarea
+              id="promptContent"
+              className="form-textarea"
+              placeholder={t('settings.prompt.dialog.contentPlaceholder')}
+              value={content}
+              onChange={handleContentChange}
+              maxLength={100000}
+              rows={10}
+            />
+            <span className="char-counter">{content.length}/100000</span>
           </div>
-
-          <div className="form-group">
-            <label htmlFor="promptContent">
-              {t('settings.prompt.dialog.content')}
-            </label>
-            <div className="textarea-with-counter">
-              <textarea
-                id="promptContent"
-                className="form-textarea"
-                placeholder={t('settings.prompt.dialog.contentPlaceholder')}
-                value={content}
-                onChange={handleContentChange}
-                maxLength={100000}
-                rows={10}
-              />
-              <span className="char-counter">{content.length}/100000</span>
-            </div>
-            <small className="form-hint">{t('settings.prompt.dialog.contentHint')}</small>
-          </div>
+          <small className="form-hint">{t('settings.prompt.dialog.contentHint')}</small>
         </div>
+      </DialogBody>
 
-        <div className="dialog-footer">
-          <div className="footer-actions" style={FOOTER_ACTIONS_STYLE}>
-            <button className="btn btn-secondary" onClick={onClose}>
-              <span className="codicon codicon-close" />
-              {t('common.cancel')}
-            </button>
-            <button className="btn btn-primary" onClick={handleSave}>
-              <span className="codicon codicon-save" />
-              {isAdding ? t('settings.prompt.dialog.confirmAdd') : t('settings.prompt.dialog.saveChanges')}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+      <DialogFooter>
+        <button className="btn btn-secondary" onClick={onClose}>
+          <span className="codicon codicon-close" />
+          {t('common.cancel')}
+        </button>
+        <button className="btn btn-primary" onClick={handleSave}>
+          <span className="codicon codicon-save" />
+          {isAdding ? t('settings.prompt.dialog.confirmAdd') : t('settings.prompt.dialog.saveChanges')}
+        </button>
+      </DialogFooter>
+    </BaseDialog>
   );
 }

@@ -6,6 +6,7 @@ import { DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS } from '../utils/permissionDi
 import MarkdownBlock from './MarkdownBlock';
 import { useDialogResize } from '../hooks/useDialogResize';
 import { isEditableEventTarget } from '../utils/isEditableEventTarget';
+import { BaseDialog } from './shared/BaseDialog';
 
 export interface PermissionRequest {
   channelId: string;
@@ -183,7 +184,7 @@ const PermissionDialog = ({
     : t('permission.allowAlways');
 
   return (
-    <div className="permission-dialog-overlay">
+    <BaseDialog isOpen={isOpen} onClose={handleSkip} className="permission-dialog-overlay">
       <div
         ref={dialogRef}
         className="permission-dialog-v3"
@@ -257,7 +258,7 @@ const PermissionDialog = ({
           </button>
         </div>
       </div>
-    </div>
+    </BaseDialog>
   );
 };
 

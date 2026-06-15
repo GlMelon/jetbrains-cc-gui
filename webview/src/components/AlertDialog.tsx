@@ -1,12 +1,7 @@
-import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { BaseDialog, DialogBody, DialogFooter } from './shared/BaseDialog';
 
 export type AlertType = 'error' | 'warning' | 'info' | 'success';
-
-const DIALOG_HEADER_STYLE: React.CSSProperties = { display: 'flex', alignItems: 'center' };
-const DIALOG_TITLE_STYLE: React.CSSProperties = { margin: 0, lineHeight: 1.2 };
-const PRE_WRAP_STYLE: React.CSSProperties = { whiteSpace: 'pre-wrap' };
-const JUSTIFY_CENTER_STYLE: React.CSSProperties = { justifyContent: 'center' };
 
 interface AlertDialogProps {
   isOpen: boolean;
@@ -27,21 +22,6 @@ const AlertDialog = ({
 }: AlertDialogProps) => {
   const { t } = useTranslation();
   const buttonText = confirmText || t('common.confirm');
-  useEffect(() => {
-    if (isOpen) {
-      const handleEscape = (e: KeyboardEvent) => {
-        if (e.key === 'Escape' || e.key === 'Enter') {
-          onClose();
-        }
-      };
-      window.addEventListener('keydown', handleEscape);
-      return () => window.removeEventListener('keydown', handleEscape);
-    }
-  }, [isOpen]); // Remove onClose from dependencies - it's stable from props
-
-  if (!isOpen) {
-    return null;
-  }
 
   const getIconClass = () => {
     switch (type) {
@@ -59,43 +39,39 @@ const AlertDialog = ({
   const getIconColor = () => {
     switch (type) {
       case 'error':
-        return '#f48771';
+        return 'var(--color-error, #f48771)';
       case 'warning':
-        return '#cca700';
+        return 'var(--color-warning, #cca700)';
       case 'success':
-        return '#89d185';
+        return 'var(--color-success, #89d185)';
       default:
-        return '#75beff';
+        return 'var(--color-info, #75beff)';
     }
   };
 
-  const iconStyle: React.CSSProperties = {
-    color: getIconColor(),
-    marginRight: '8px',
-    fontSize: '16px',
-    lineHeight: 1,
-  };
-
   return (
-    <div className="confirm-dialog-overlay" onClick={onClose}>
-      <div className="confirm-dialog alert-dialog" onClick={(e) => e.stopPropagation()}>
-        <div className="confirm-dialog-header" style={DIALOG_HEADER_STYLE}>
-          <span
-            className={`codicon ${getIconClass()}`}
-            style={iconStyle}
-          />
-          <h3 className="confirm-dialog-title" style={DIALOG_TITLE_STYLE}>{title}</h3>
-        </div>
-        <div className="confirm-dialog-body">
-          <p className="confirm-dialog-message" style={PRE_WRAP_STYLE}>{message}</p>
-        </div>
-        <div className="confirm-dialog-footer" style={JUSTIFY_CENTER_STYLE}>
-          <button className="confirm-dialog-button confirm-button" onClick={onClose} autoFocus>
-            {buttonText}
-          </button>
-        </div>
+    <BaseDialog isOpen={isOpen} onClose={onClose} ariaLabel={title}>
+      <div className="dialog-header" style={{ display: 'flex', alignItems: 'center' }}>
+        <span
+          className={`codicon ${getIconClass()}`}
+          style={{
+            color: getIconColor(),
+            marginRight: '8px',
+            fontSize: '16px',
+            lineHeight: 1,
+          }}
+        />
+        <h3 className="dialog-title" style={{ margin: 0, lineHeight: 1.2 }}>{title}</h3>
       </div>
-    </div>
+      <DialogBody>
+        <p style={{ whiteSpace: 'pre-wrap' }}>{message}</p>
+      </DialogBody>
+      <DialogFooter align="center">
+        <button className="btn btn-primary" onClick={onClose} autoFocus>
+          {buttonText}
+        </button>
+      </DialogFooter>
+    </BaseDialog>
   );
 };
 

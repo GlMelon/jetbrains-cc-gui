@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { CodexProviderConfig, EnvVarEntry } from '../types/provider';
 import { validateEnvVarEntries, ENV_VAR_VALUE_MAX_LENGTH } from '../types/provider';
 import EnvVarEditor from './EnvVarEditor';
+import { BaseDialog } from './shared/BaseDialog';
 
 const FORM_HEADER_STYLE: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'center' };
 const FORMAT_BUTTON_STYLE: React.CSSProperties = { padding: '4px 8px', fontSize: '12px' };
@@ -90,18 +91,7 @@ wire_api = "responses"`);
     }
   };
 
-  // ESC key to close
-  useEffect(() => {
-    if (isOpen) {
-      const handleEscape = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') {
-          onClose();
-        }
-      };
-      window.addEventListener('keydown', handleEscape);
-      return () => window.removeEventListener('keydown', handleEscape);
-    }
-  }, [isOpen, onClose]);
+  // ESC is handled by BaseDialog
 
   const reportEnvVarIssue = (
     issue: { reason: string; key?: string },
@@ -176,7 +166,7 @@ wire_api = "responses"`);
   }
 
   return (
-    <div className="dialog-overlay">
+    <BaseDialog isOpen={isOpen} onClose={onClose} size="lg" ariaLabel={isAdding ? t('settings.codexProvider.dialog.addTitle') : t('settings.codexProvider.dialog.editTitle')}>
       <div className="dialog provider-dialog codex-provider-dialog">
         <div className="dialog-header">
           <h3>
@@ -310,6 +300,6 @@ wire_api = "responses"`);
           </div>
         </div>
       </div>
-    </div>
+    </BaseDialog>
   );
 }

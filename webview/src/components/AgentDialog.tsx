@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AgentConfig } from '../types/agent';
-
-const FOOTER_ACTIONS_STYLE: React.CSSProperties = { marginLeft: 'auto' };
+import { BaseDialog, DialogHeader, DialogBody, DialogFooter } from './shared/BaseDialog';
 
 interface AgentDialogProps {
   isOpen: boolean;
@@ -40,19 +39,6 @@ export default function AgentDialog({
     }
   }, [isOpen, agent]);
 
-  // Close on ESC key
-  useEffect(() => {
-    if (isOpen) {
-      const handleEscape = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') {
-          onClose();
-        }
-      };
-      window.addEventListener('keydown', handleEscape);
-      return () => window.removeEventListener('keydown', handleEscape);
-    }
-  }, [isOpen]); // Remove onClose from dependencies - it's stable from props
-
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     // Limit to 20 characters max
@@ -83,82 +69,70 @@ export default function AgentDialog({
     });
   };
 
-  if (!isOpen) {
-    return null;
-  }
-
   return (
-    <div className="dialog-overlay">
-      <div className="dialog agent-dialog">
-        <div className="dialog-header">
-          <h3>
-            <span className="codicon codicon-person" style={{ fontSize: '16px', color: 'var(--violet)' }} />
-            {isAdding ? t('settings.agent.dialog.addTitle') : t('settings.agent.dialog.editTitle')}
-          </h3>
-          <button className="close-btn" onClick={onClose}>
-            <span className="codicon codicon-close"></span>
-          </button>
+    <BaseDialog isOpen={isOpen} onClose={onClose} size="md" ariaLabel={isAdding ? t('settings.agent.dialog.addTitle') : t('settings.agent.dialog.editTitle')}>
+      <DialogHeader
+        title={isAdding ? t('settings.agent.dialog.addTitle') : t('settings.agent.dialog.editTitle')}
+        icon={<span className="codicon codicon-person" style={{ fontSize: '16px', color: 'var(--violet)' }} />}
+        onClose={onClose}
+      />
+
+      <DialogBody>
+        <div className="form-group">
+          <label htmlFor="agentName">
+            {t('settings.agent.dialog.name')}
+            <span className="required">*</span>
+          </label>
+          <div className="input-with-counter">
+            <input
+              id="agentName"
+              type="text"
+              className={`form-input ${nameError ? 'has-error' : ''}`}
+              placeholder={t('settings.agent.dialog.namePlaceholder')}
+              value={name}
+              onChange={handleNameChange}
+              maxLength={20}
+            />
+            <span className="char-counter">{name.length}/20</span>
+          </div>
+          {nameError && (
+            <p className="form-error">
+              <span className="codicon codicon-error" />
+              {nameError}
+            </p>
+          )}
         </div>
 
-        <div className="dialog-body">
-          <div className="form-group">
-            <label htmlFor="agentName">
-              {t('settings.agent.dialog.name')}
-              <span className="required">*</span>
-            </label>
-            <div className="input-with-counter">
-              <input
-                id="agentName"
-                type="text"
-                className={`form-input ${nameError ? 'has-error' : ''}`}
-                placeholder={t('settings.agent.dialog.namePlaceholder')}
-                value={name}
-                onChange={handleNameChange}
-                maxLength={20}
-              />
-              <span className="char-counter">{name.length}/20</span>
-            </div>
-            {nameError && (
-              <p className="form-error">
-                <span className="codicon codicon-error" />
-                {nameError}
-              </p>
-            )}
+        <div className="form-group">
+          <label htmlFor="agentPrompt">
+            {t('settings.agent.dialog.prompt')}
+          </label>
+          <div className="textarea-with-counter">
+            <textarea
+              id="agentPrompt"
+              className="form-textarea"
+              placeholder={t('settings.agent.dialog.promptPlaceholder')}
+              value={prompt}
+              onChange={handlePromptChange}
+              maxLength={100000}
+              rows={8}
+            />
+            <span className="char-counter">{prompt.length}/100000</span>
           </div>
-
-          <div className="form-group">
-            <label htmlFor="agentPrompt">
-              {t('settings.agent.dialog.prompt')}
-            </label>
-            <div className="textarea-with-counter">
-              <textarea
-                id="agentPrompt"
-                className="form-textarea"
-                placeholder={t('settings.agent.dialog.promptPlaceholder')}
-                value={prompt}
-                onChange={handlePromptChange}
-                maxLength={100000}
-                rows={8}
-              />
-              <span className="char-counter">{prompt.length}/100000</span>
-            </div>
-            <small className="form-hint">{t('settings.agent.dialog.promptHint')}</small>
-          </div>
+          <small className="form-hint">{t('settings.agent.dialog.promptHint')}</small>
         </div>
+      </DialogBody>
 
-        <div className="dialog-footer">
-          <div className="footer-actions" style={FOOTER_ACTIONS_STYLE}>
-            <button className="btn btn-secondary" onClick={onClose}>
-              <span className="codicon codicon-close" />
-              {t('common.cancel')}
-            </button>
-            <button className="btn btn-primary" onClick={handleSave}>
-              <span className="codicon codicon-save" />
-              {isAdding ? t('settings.agent.dialog.confirmAdd') : t('settings.agent.dialog.saveChanges')}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+      <DialogFooter>
+        <button className="btn btn-secondary" onClick={onClose}>
+          <span className="codicon codicon-close" />
+          {t('common.cancel')}
+        </button>
+        <button className="btn btn-primary" onClick={handleSave}>
+          <span className="codicon codicon-save" />
+          {isAdding ? t('settings.agent.dialog.confirmAdd') : t('settings.agent.dialog.saveChanges')}
+        </button>
+      </DialogFooter>
+    </BaseDialog>
   );
 }
