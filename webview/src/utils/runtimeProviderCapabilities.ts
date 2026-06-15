@@ -11,24 +11,27 @@
  * produced non-deterministic teardown when more than one consumer was alive.
  */
 
+import { createCallbackChannel } from './createCallbackChannel';
+
 type ProviderListListener = (json: string) => void;
 type ActiveProviderListener = (json: string) => void;
 
-const providerListListeners = new Set<ProviderListListener>();
-const activeProviderListeners = new Set<ActiveProviderListener>();
-const codexProviderListListeners = new Set<ProviderListListener>();
-const activeCodexProviderListeners = new Set<ActiveProviderListener>();
+// 创建 4 个回调通道
+const providerListChannel = createCallbackChannel<string>({
+  name: 'runtimeProvider:providerList',
+});
 
-function emit<T>(listeners: Set<(value: T) => void>, value: T): void {
-  // Snapshot to avoid mutation during iteration.
-  Array.from(listeners).forEach((listener) => {
-    try {
-      listener(value);
-    } catch (error) {
-      console.error('[runtimeProviderCapabilities] Listener threw:', error);
-    }
-  });
-}
+const activeProviderChannel = createCallbackChannel<string>({
+  name: 'runtimeProvider:activeProvider',
+});
+
+const codexProviderListChannel = createCallbackChannel<string>({
+  name: 'runtimeProvider:codexProviderList',
+});
+
+const activeCodexProviderChannel = createCallbackChannel<string>({
+  name: 'runtimeProvider:activeCodexProvider',
+});
 
 /**
  * Installs (or re-installs) the single dispatcher on `window`. Safe to call
@@ -37,61 +40,46 @@ function emit<T>(listeners: Set<(value: T) => void>, value: T): void {
  */
 export function installRuntimeProviderDispatchers(): void {
   window.updateProviders = (json: string) => {
-    emit(providerListListeners, json);
+    providerListChannel.emit(json);
   };
 
   window.updateActiveProvider = (json: string) => {
-    emit(activeProviderListeners, json);
+    activeProviderChannel.emit(json);
   };
 
   window.updateCodexProviders = (json: string) => {
-    emit(codexProviderListListeners, json);
+    codexProviderListChannel.emit(json);
   };
 
   window.updateActiveCodexProvider = (json: string) => {
-    emit(activeCodexProviderListeners, json);
+    activeCodexProviderChannel.emit(json);
   };
 }
 
-function ensureInstalled(): void {
-  // The dispatcher is cheap to (re)install — make subscription self-bootstrapping
-  // so that consumers do not depend on a separate bootstrap call.
+const ensureInstalled = (): void => {
   if (typeof window === 'undefined') return;
   if (window.updateProviders && window.updateActiveProvider
       && window.updateCodexProviders && window.updateActiveCodexProvider) {
     return;
   }
   installRuntimeProviderDispatchers();
-}
+};
+
+// 自动安装 dispatchers
+ensureInstalled();
 
 export function subscribeProviderList(listener: ProviderListListener): () => void {
-  ensureInstalled();
-  providerListListeners.add(listener);
-  return () => {
-    providerListListeners.delete(listener);
-  };
+  return providerListChannel.subscribe(listener);
 }
 
 export function subscribeActiveProvider(listener: ActiveProviderListener): () => void {
-  ensureInstalled();
-  activeProviderListeners.add(listener);
-  return () => {
-    activeProviderListeners.delete(listener);
-  };
+  return activeProviderChannel.subscribe(listener);
 }
 
 export function subscribeCodexProviderList(listener: ProviderListListener): () => void {
-  ensureInstalled();
-  codexProviderListListeners.add(listener);
-  return () => {
-    codexProviderListListeners.delete(listener);
-  };
+  return codexProviderListChannel.subscribe(listener);
 }
 
 export function subscribeActiveCodexProvider(listener: ActiveProviderListener): () => void {
-  ensureInstalled();
-  activeCodexProviderListeners.add(listener);
-  return () => {
-    activeCodexProviderListeners.delete(listener);
-  };
+  return activeCodexProviderChannel.subscribe(listener);
 }

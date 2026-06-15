@@ -3,7 +3,7 @@ import type {TFunction} from 'i18next';
 import {sendBridgeEvent} from '../utils/bridge';
 import type {PermissionMode} from '../components/ChatInputBox/types';
 import {modelSupports1MContext, normalizeClaudeModelId, strip1MContextSuffix,} from '../components/ChatInputBox/types';
-import {isSpecialProviderId} from '../types/provider';
+import {isSpecialProviderId, PROVIDER_PRESETS} from '../types/provider';
 import {useClaudeProvider} from './providers/useClaudeProvider';
 import {useCodexProvider} from './providers/useCodexProvider';
 import {useUsageTracking} from './providers/useUsageTracking';
@@ -41,6 +41,11 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
   // mirror anti-pattern (rule 5.15).
   const currentProviderRef = useRef(currentProvider);
   currentProviderRef.current = currentProvider;
+
+  // Get provider preset for current provider
+  const currentProviderPreset = useMemo(() => {
+    return PROVIDER_PRESETS.find(p => p.id === currentProvider);
+  }, [currentProvider]);
 
   // ── Provider-specific sub-hooks ──
   const claude = useClaudeProvider();
@@ -109,14 +114,14 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
       setSelectedClaudeModel(normalizedModelId);
 
       // Auto-reset: disable longContext if new model doesn't support 1M
-      if (longContextEnabled && !modelSupports1MContext(normalizedModelId)) {
+      if (longContextEnabled && !modelSupports1MContext(normalizedModelId, undefined, currentProviderPreset)) {
         setLongContextEnabled(false);
       }
 
       // Calculate effective contextWindow based on toggle + model capability
-      const effectiveContextWindow = longContextEnabled && modelSupports1MContext(normalizedModelId)
+      const effectiveContextWindow = longContextEnabled && modelSupports1MContext(normalizedModelId, undefined, currentProviderPreset)
         ? 1_000_000
-        : (contextWindow ?? 200_000);
+        : (contextWindow ?? currentProviderPreset?.defaultContextWindow ?? 200_000);
 
       // Send clean model ID (no [1m]) + contextWindow to backend
       // Backend will handle [1m] suffix internally for Claude models
@@ -131,7 +136,7 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
             : modelId;
         sendBridgeEvent('set_session_model', payload);
     }
-  }, [currentProvider, longContextEnabled, setSelectedClaudeModel, setSelectedCodexModel]);
+  }, [currentProvider, longContextEnabled, setSelectedClaudeModel, setSelectedCodexModel, currentProviderPreset]);
 
     const handleProviderSelect = useCallback((providerId: string, contextWindow?: number) => {
     setCurrentProvider(providerId);
@@ -147,10 +152,13 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
       ? selectedCodexModel
       : selectedClaudeModel;  // Clean ID, no [1m]
 
+    // Get preset for the NEW provider
+    const newProviderPreset = PROVIDER_PRESETS.find(p => p.id === providerId);
+
     // Calculate effective contextWindow
-    const effectiveContextWindow = (providerId === 'claude' && longContextEnabled && modelSupports1MContext(selectedClaudeModel))
+    const effectiveContextWindow = (providerId === 'claude' && longContextEnabled && modelSupports1MContext(selectedClaudeModel, undefined, newProviderPreset))
       ? 1_000_000
-      : (contextWindow ?? 200_000);
+      : (contextWindow ?? newProviderPreset?.defaultContextWindow ?? 200_000);
 
     sendBridgeEvent('set_session_model', JSON.stringify({
       model: newModel,
@@ -168,9 +176,9 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     setLongContextEnabled(enabled);
     if (currentProvider === 'claude') {
       // Calculate effective contextWindow
-      const effectiveContextWindow = enabled && modelSupports1MContext(selectedClaudeModel)
+      const effectiveContextWindow = enabled && modelSupports1MContext(selectedClaudeModel, undefined, currentProviderPreset)
         ? 1_000_000
-        : (contextWindow ?? 200_000);
+        : (contextWindow ?? currentProviderPreset?.defaultContextWindow ?? 200_000);
 
       // Send clean model ID (no [1m]) + contextWindow to backend
       sendBridgeEvent('set_session_model', JSON.stringify({
@@ -178,7 +186,7 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
         contextWindow: effectiveContextWindow,
       }));
     }
-  }, [currentProvider, selectedClaudeModel, setLongContextEnabled]);
+  }, [currentProvider, selectedClaudeModel, setLongContextEnabled, currentProviderPreset]);
 
   const handleToggleThinking = useCallback((enabled: boolean) => {
     const config = settings.activeProviderConfig;

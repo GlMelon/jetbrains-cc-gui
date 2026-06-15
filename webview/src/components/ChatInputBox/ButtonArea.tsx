@@ -4,7 +4,7 @@ import type {ButtonAreaProps, ModelInfo, PermissionMode, ReasoningEffort} from '
 import {CLAUDE_MODELS, CODEX_MODELS, strip1MContextSuffix} from './types';
 import {ConfigSelect, ModelSelect, ModeSelect, ProviderSelect, ReasoningSelect} from './selectors';
 import type {CodexCustomModel} from '../../types/provider';
-import {STORAGE_KEYS, validateCodexCustomModels} from '../../types/provider';
+import {STORAGE_KEYS, validateCodexCustomModels, PROVIDER_PRESETS} from '../../types/provider';
 import {readClaudeModelMapping} from '../../utils/claudeModelMapping';
 import {SendIcon, SparklesIcon, StopIcon} from '../Icons';
 
@@ -102,6 +102,11 @@ export const ButtonArea = memo(function ButtonArea({
   // Track changes to custom models in localStorage
   // When localStorage changes, updating this version number triggers useMemo recalculation
   const [customModelsVersion, setCustomModelsVersion] = useState(0);
+
+  // Get provider preset for current provider
+  const currentProviderPreset = useMemo(() => {
+    return PROVIDER_PRESETS.find(p => p.id === currentProvider);
+  }, [currentProvider]);
 
   // Listen for localStorage changes (cross-tab sync + same-tab custom events)
   useEffect(() => {
@@ -272,7 +277,7 @@ export const ButtonArea = memo(function ButtonArea({
         <span className="selector-separator" />
         <ModeSelect value={permissionMode} onChange={handleModeSelect} provider={currentProvider} />
         <span className="selector-separator" />
-        <ModelSelect value={selectedModel} onChange={handleModelSelect} models={availableModels} currentProvider={currentProvider} onAddModel={onAddModel} longContextEnabled={longContextEnabled} onLongContextChange={onLongContextChange} />
+        <ModelSelect value={selectedModel} onChange={handleModelSelect} models={availableModels} currentProvider={currentProvider} onAddModel={onAddModel} longContextEnabled={longContextEnabled} onLongContextChange={onLongContextChange} providerPreset={currentProviderPreset} />
         <span className="selector-separator" />
         <ReasoningSelect value={reasoningEffort} onChange={handleReasoningChange} selectedModel={selectedModel} currentProvider={currentProvider} />
       </div>

@@ -10,6 +10,7 @@
  */
 
 import { sendBridgeEvent } from './bridge';
+import { createCallbackChannel } from './createCallbackChannel';
 
 export type NodeProcessKind = 'DAEMON' | 'CHANNEL' | 'ORPHAN';
 
@@ -55,19 +56,6 @@ export interface NodeProcessKillResult {
 type SnapshotListener = (snapshot: NodeProcessSnapshot) => void;
 type KillResultListener = (result: NodeProcessKillResult) => void;
 
-const snapshotListeners = new Set<SnapshotListener>();
-const killResultListeners = new Set<KillResultListener>();
-
-function emit<T>(listeners: Set<(value: T) => void>, value: T): void {
-  Array.from(listeners).forEach((listener) => {
-    try {
-      listener(value);
-    } catch (error) {
-      console.error('[nodeProcessCapabilities] Listener threw:', error);
-    }
-  });
-}
-
 function safeParseSnapshot(json: string): NodeProcessSnapshot | null {
   try {
     const parsed = JSON.parse(json) as NodeProcessSnapshot;
@@ -90,38 +78,42 @@ function safeParseKillResult(json: string): NodeProcessKillResult | null {
   }
 }
 
+// 创建回调通道
+const snapshotChannel = createCallbackChannel<NodeProcessSnapshot>({
+  name: 'nodeProcess:snapshot',
+});
+
+const killResultChannel = createCallbackChannel<NodeProcessKillResult>({
+  name: 'nodeProcess:killResult',
+});
+
 export function installNodeProcessDispatchers(): void {
   window.updateNodeProcesses = (json: string) => {
     const snapshot = safeParseSnapshot(json);
-    if (snapshot) emit(snapshotListeners, snapshot);
+    if (snapshot) snapshotChannel.emit(snapshot);
   };
 
   window.nodeProcessKillResult = (json: string) => {
     const result = safeParseKillResult(json);
-    if (result) emit(killResultListeners, result);
+    if (result) killResultChannel.emit(result);
   };
 }
 
-function ensureInstalled(): void {
+const ensureInstalled = (): void => {
   if (typeof window === 'undefined') return;
   if (window.updateNodeProcesses && window.nodeProcessKillResult) return;
   installNodeProcessDispatchers();
-}
+};
+
+// 自动安装 dispatchers
+ensureInstalled();
 
 export function subscribeNodeProcesses(listener: SnapshotListener): () => void {
-  ensureInstalled();
-  snapshotListeners.add(listener);
-  return () => {
-    snapshotListeners.delete(listener);
-  };
+  return snapshotChannel.subscribe(listener);
 }
 
 export function subscribeNodeProcessKillResult(listener: KillResultListener): () => void {
-  ensureInstalled();
-  killResultListeners.add(listener);
-  return () => {
-    killResultListeners.delete(listener);
-  };
+  return killResultChannel.subscribe(listener);
 }
 
 /** Request the latest snapshot from Java. The response arrives via `window.updateNodeProcesses`. */

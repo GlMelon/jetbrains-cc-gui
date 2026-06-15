@@ -311,6 +311,10 @@ export interface ProviderPreset {
   nameKey: string;
   /** Environment variable configuration */
   env: Record<string, string>;
+  /** Default context window for models from this provider (in tokens) */
+  defaultContextWindow?: number;
+  /** Models that support 1M context window */
+  supports1MContext?: boolean;
 }
 
 /**
@@ -335,6 +339,8 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       ANTHROPIC_DEFAULT_SONNET_MODEL: 'glm-4.7',
       ANTHROPIC_DEFAULT_OPUS_MODEL: 'glm-4.7',
     },
+    defaultContextWindow: 200_000,
+    supports1MContext: false,
   },
   {
     id: 'kimi',
@@ -346,6 +352,8 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       ANTHROPIC_DEFAULT_SONNET_MODEL: 'kimi-k2.5',
       ANTHROPIC_DEFAULT_OPUS_MODEL: 'kimi-k2.5',
     },
+    defaultContextWindow: 200_000,
+    supports1MContext: false,
   },
   {
     id: 'deepseek',
@@ -358,6 +366,8 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       ANTHROPIC_DEFAULT_OPUS_MODEL: 'deepseek-v4-pro[1m]',
       CLAUDE_CODE_EFFORT_LEVEL: 'max',
     },
+    defaultContextWindow: 1_000_000,
+    supports1MContext: true,
   },
   {
     id: 'minimax',
@@ -372,6 +382,8 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       ANTHROPIC_DEFAULT_OPUS_MODEL: 'MiniMax-M2.1',
       ANTHROPIC_DEFAULT_HAIKU_MODEL: 'MiniMax-M2.1',
     },
+    defaultContextWindow: 200_000,
+    supports1MContext: false,
   },
   {
     id: 'xiaomi',
@@ -383,6 +395,8 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       ANTHROPIC_DEFAULT_SONNET_MODEL: 'mimo-v2.5-pro',
       ANTHROPIC_DEFAULT_OPUS_MODEL: 'mimo-v2.5-pro',
     },
+    defaultContextWindow: 1_000_000,
+    supports1MContext: true,
   },
   {
     id: 'xiaomi-plan',
@@ -394,6 +408,8 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       ANTHROPIC_DEFAULT_SONNET_MODEL: 'mimo-v2.5-pro',
       ANTHROPIC_DEFAULT_OPUS_MODEL: 'mimo-v2.5-pro',
     },
+    defaultContextWindow: 1_000_000,
+    supports1MContext: true,
   },
   {
     id: 'qwen',
@@ -405,6 +421,8 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       ANTHROPIC_DEFAULT_SONNET_MODEL: 'qwen3-max',
       ANTHROPIC_DEFAULT_OPUS_MODEL: 'qwen3-max',
     },
+    defaultContextWindow: 200_000,
+    supports1MContext: false,
   },
   {
     id: 'openrouter',

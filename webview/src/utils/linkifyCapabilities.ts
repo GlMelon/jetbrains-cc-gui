@@ -1,3 +1,5 @@
+import { createCallbackChannel } from './createCallbackChannel';
+
 export type LinkifyCapabilities = {
   classNavigationEnabled: boolean;
 };
@@ -9,7 +11,11 @@ export const DEFAULT_LINKIFY_CAPABILITIES: LinkifyCapabilities = Object.freeze({
 type LinkifyCapabilitiesListener = (capabilities: LinkifyCapabilities) => void;
 
 let currentCapabilities: LinkifyCapabilities = { ...DEFAULT_LINKIFY_CAPABILITIES };
-const listeners = new Set<LinkifyCapabilitiesListener>();
+
+// 创建回调通道
+const channel = createCallbackChannel<LinkifyCapabilities>({
+  name: 'linkifyCapabilities',
+});
 
 function normalizeLinkifyCapabilities(value: unknown): LinkifyCapabilities {
   if (!value || typeof value !== 'object') {
@@ -24,11 +30,6 @@ function normalizeLinkifyCapabilities(value: unknown): LinkifyCapabilities {
 
 function cloneCapabilities(capabilities: LinkifyCapabilities): LinkifyCapabilities {
   return { ...capabilities };
-}
-
-function emitCapabilitiesChanged(capabilities: LinkifyCapabilities): void {
-  const snapshot = cloneCapabilities(capabilities);
-  listeners.forEach((listener) => listener(snapshot));
 }
 
 function areCapabilitiesEqual(
@@ -49,7 +50,7 @@ export function setLinkifyCapabilities(value: unknown): LinkifyCapabilities {
   }
 
   currentCapabilities = nextCapabilities;
-  emitCapabilitiesChanged(currentCapabilities);
+  channel.emit(currentCapabilities);
   return cloneCapabilities(currentCapabilities);
 }
 
@@ -64,10 +65,7 @@ export function applyLinkifyCapabilitiesPayload(json: string): LinkifyCapabiliti
 export function subscribeLinkifyCapabilities(
   listener: LinkifyCapabilitiesListener,
 ): () => void {
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
-  };
+  return channel.subscribe(listener);
 }
 
 export function resetLinkifyCapabilities(): void {

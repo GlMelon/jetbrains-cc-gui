@@ -1,4 +1,5 @@
 import { sendBridgeEvent } from './bridge';
+import { createCallbackChannel } from './createCallbackChannel';
 
 export interface CodexSubscriptionQuotaWindow {
   windowLabel: string;
@@ -30,18 +31,6 @@ export interface CodexSubscriptionQuotaSnapshot {
 
 type QuotaListener = (snapshot: CodexSubscriptionQuotaSnapshot) => void;
 
-const listeners = new Set<QuotaListener>();
-
-function emit(value: CodexSubscriptionQuotaSnapshot): void {
-  Array.from(listeners).forEach((listener) => {
-    try {
-      listener(value);
-    } catch (error) {
-      console.error('[codexSubscriptionQuotaCapabilities] Listener threw:', error);
-    }
-  });
-}
-
 function safeParseSnapshot(json: string): CodexSubscriptionQuotaSnapshot | null {
   try {
     const parsed = JSON.parse(json) as CodexSubscriptionQuotaSnapshot;
@@ -58,25 +47,29 @@ function safeParseSnapshot(json: string): CodexSubscriptionQuotaSnapshot | null 
   }
 }
 
+// 创建回调通道
+const quotaChannel = createCallbackChannel<CodexSubscriptionQuotaSnapshot>({
+  name: 'codexSubscriptionQuota',
+});
+
 export function installCodexSubscriptionQuotaDispatchers(): void {
   window.updateCodexSubscriptionQuota = (json: string) => {
     const snapshot = safeParseSnapshot(json);
-    if (snapshot) emit(snapshot);
+    if (snapshot) quotaChannel.emit(snapshot);
   };
 }
 
-function ensureInstalled(): void {
+const ensureInstalled = (): void => {
   if (typeof window === 'undefined') return;
   if (window.updateCodexSubscriptionQuota) return;
   installCodexSubscriptionQuotaDispatchers();
-}
+};
+
+// 自动安装 dispatchers
+ensureInstalled();
 
 export function subscribeCodexSubscriptionQuota(listener: QuotaListener): () => void {
-  ensureInstalled();
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
-  };
+  return quotaChannel.subscribe(listener);
 }
 
 export function fetchCodexSubscriptionQuota(): void {

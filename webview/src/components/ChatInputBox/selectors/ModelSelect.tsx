@@ -31,6 +31,7 @@ interface ModelSelectProps {
   onAddModel?: () => void;
   longContextEnabled?: boolean;
   onLongContextChange?: (enabled: boolean) => void;
+  providerPreset?: { supports1MContext?: boolean; defaultContextWindow?: number };
 }
 
 const DEFAULT_MODEL_MAP: Record<string, ModelInfo> = AVAILABLE_MODELS.reduce(
@@ -132,7 +133,7 @@ const resolveModelIdForIcon = (
  * ModelSelect - Model selector component
  * Supports switching between Sonnet 4.5, Opus 4.5, and other models, including Codex models
  */
-export const ModelSelect = ({ value, onChange, models = AVAILABLE_MODELS, currentProvider = 'claude', onAddModel, longContextEnabled = true, onLongContextChange }: ModelSelectProps) => {
+export const ModelSelect = ({ value, onChange, models = AVAILABLE_MODELS, currentProvider = 'claude', onAddModel, longContextEnabled = true, onLongContextChange, providerPreset }: ModelSelectProps) => {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -187,8 +188,8 @@ export const ModelSelect = ({ value, onChange, models = AVAILABLE_MODELS, curren
   };
 
   const append1MContextSuffix = (label: string, modelId: string, show1MContext: boolean): string => {
-    // Only show 1M context suffix for Claude provider
-      if (currentProvider === 'claude' && show1MContext && modelSupports1MContext(modelId, models) && longContextEnabled) {
+    // Show 1M context suffix for providers that support it
+    if (show1MContext && modelSupports1MContext(modelId, models, providerPreset) && longContextEnabled) {
       return `${label} (${t('models.longContext.shortLabel')})`;
     }
     return label;
@@ -345,7 +346,7 @@ export const ModelSelect = ({ value, onChange, models = AVAILABLE_MODELS, curren
               })}
             </div>
           )}
-          {currentProvider === 'claude' && onLongContextChange && (
+          {onLongContextChange && (
             <>
               <div className="selector-divider" />
               <div
@@ -356,8 +357,8 @@ export const ModelSelect = ({ value, onChange, models = AVAILABLE_MODELS, curren
                 <span style={LONG_CONTEXT_LABEL_STYLE}>{t('models.longContext.shortLabel')}</span>
                 <Switch
                   size="small"
-                  checked={modelSupports1MContext(value, models) ? longContextEnabled : false}
-                  disabled={!modelSupports1MContext(value, models)}
+                  checked={modelSupports1MContext(value, models, providerPreset) ? longContextEnabled : false}
+                  disabled={!modelSupports1MContext(value, models, providerPreset)}
                   onChange={onLongContextChange}
                 />
               </div>
