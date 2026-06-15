@@ -2,6 +2,7 @@ import { useState, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ToolInput, ToolResultBlock } from '../../types';
 import { useIsToolDenied } from '../../hooks/useIsToolDenied';
+import { ToolBlockShell } from './ToolBlockShell';
 
 const TASK_DETAILS_STYLE: React.CSSProperties = { padding: 0, border: 'none' };
 const TASK_CONTENT_WRAPPER_STYLE: React.CSSProperties = { paddingLeft: '40px', position: 'relative', zIndex: 1 };
@@ -45,41 +46,41 @@ const BashToolBlock = memo(function BashToolBlock({ input, result, toolId }: Bas
     }
   }
 
+  const titleContent = (
+    <>
+      <span className="codicon codicon-terminal bash-tool-icon" />
+      <span className="bash-tool-title">{t('tools.runCommand')}</span>
+      <span className="bash-tool-description">{description}</span>
+    </>
+  );
+
   return (
-    <div className="task-container">
-      <div
-        className={`task-header bash-tool-header ${expanded ? 'expanded' : ''}`}
-        onClick={() => setExpanded((prev) => !prev)}
-      >
-        <div className="task-title-section">
-          <span className="codicon codicon-terminal bash-tool-icon" />
-          <span className="bash-tool-title">{t('tools.runCommand')}</span>
-          <span className="bash-tool-description">{description}</span>
-        </div>
+    <ToolBlockShell
+      expanded={expanded}
+      onToggle={() => setExpanded((prev) => !prev)}
+      isCompleted={isCompleted}
+      isError={isError}
+      titleContent={titleContent}
+      headerClassName="bash-tool-header"
+    >
+      <div className="task-details" style={TASK_DETAILS_STYLE}>
+        <div className="bash-tool-content">
+          <div className="bash-tool-line" />
+          <div className="task-content-wrapper" style={TASK_CONTENT_WRAPPER_STYLE}>
+            <div className="bash-command-block">{command}</div>
 
-        <div className={`tool-status-indicator ${isError ? 'error' : isCompleted ? 'completed' : 'pending'}`} />
-      </div>
-
-      {expanded && (
-        <div className="task-details" style={TASK_DETAILS_STYLE}>
-          <div className="bash-tool-content">
-            <div className="bash-tool-line" />
-            <div className="task-content-wrapper" style={TASK_CONTENT_WRAPPER_STYLE}>
-              <div className="bash-command-block">{command}</div>
-
-              {output && (
-                <div className={`bash-output-block ${isError ? 'error' : 'normal'}`}>
-                  {isError && (
-                    <span className="codicon codicon-error" style={ERROR_ICON_STYLE} />
-                  )}
-                  <span className="bash-output-text">{output}</span>
-                </div>
-              )}
-            </div>
+            {output && (
+              <div className={`bash-output-block ${isError ? 'error' : 'normal'}`}>
+                {isError && (
+                  <span className="codicon codicon-error" style={ERROR_ICON_STYLE} />
+                )}
+                <span className="bash-output-text">{output}</span>
+              </div>
+            )}
           </div>
         </div>
-      )}
-    </div>
+      </div>
+    </ToolBlockShell>
   );
 });
 

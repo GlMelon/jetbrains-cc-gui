@@ -6,6 +6,7 @@ import { openFile } from '../../utils/bridge';
 import { useResolvedFileLinkTooltip } from '../../hooks/useResolvedFileLinkTooltip';
 import { getFileIcon, getFolderIcon } from '../../utils/fileIcons';
 import { getToolLineInfo, resolveToolTarget } from '../../utils/toolPresentation';
+import { ToolBlockShell } from './ToolBlockShell';
 
 interface ReadToolBlockProps {
   input?: ToolInput;
@@ -117,49 +118,45 @@ const ReadToolBlock = memo(function ReadToolBlock({ input, result, toolId }: Rea
     key !== 'description'   // Omit Codex description field
   );
 
-  const headerStyle: React.CSSProperties = {
-    borderBottom: expanded ? '1px solid var(--border-primary)' : undefined,
-  };
+  const titleContent = (
+    <>
+      <span className={`codicon ${iconClass} tool-title-icon`} />
+
+      <span className="tool-title-text">
+        {actionText}
+      </span>
+      <span
+        className={`tool-title-summary ${!isDirectory ? 'clickable-file' : ''}`}
+        onClick={!isDirectory ? handleFileClick : undefined}
+        {...(!isDirectory ? fileLinkTooltip : {})}
+        style={FILE_LINK_STYLE}
+      >
+        <span
+          style={FILE_ICON_STYLE}
+          dangerouslySetInnerHTML={{ __html: getFileIconSvg() }}
+        />
+        {target?.displayPath || filePath}
+      </span>
+
+      {lineInfo.start && (
+        <span className="tool-title-summary" style={LINE_INFO_STYLE}>
+          {lineInfo.end && lineInfo.end !== lineInfo.start
+            ? t('tools.lineRange', { start: lineInfo.start, end: lineInfo.end })
+            : t('tools.lineSingle', { line: lineInfo.start })}
+        </span>
+      )}
+    </>
+  );
 
   return (
-    <div className="task-container">
-      <div
-        className="task-header"
-        onClick={() => setExpanded((prev) => !prev)}
-        style={headerStyle}
-      >
-        <div className="task-title-section">
-          <span className={`codicon ${iconClass} tool-title-icon`} />
-
-          <span className="tool-title-text">
-            {actionText}
-          </span>
-          <span
-            className={`tool-title-summary ${!isDirectory ? 'clickable-file' : ''}`}
-            onClick={!isDirectory ? handleFileClick : undefined}
-            {...(!isDirectory ? fileLinkTooltip : {})}
-            style={FILE_LINK_STYLE}
-          >
-            <span
-              style={FILE_ICON_STYLE}
-              dangerouslySetInnerHTML={{ __html: getFileIconSvg() }}
-            />
-            {target?.displayPath || filePath}
-          </span>
-
-          {lineInfo.start && (
-            <span className="tool-title-summary" style={LINE_INFO_STYLE}>
-              {lineInfo.end && lineInfo.end !== lineInfo.start
-                ? t('tools.lineRange', { start: lineInfo.start, end: lineInfo.end })
-                : t('tools.lineSingle', { line: lineInfo.start })}
-            </span>
-          )}
-        </div>
-
-        <div className={`tool-status-indicator ${isError ? 'error' : isCompleted ? 'completed' : 'pending'}`} />
-      </div>
-
-      {expanded && params.length > 0 && (
+    <ToolBlockShell
+      expanded={expanded}
+      onToggle={() => setExpanded((prev) => !prev)}
+      isCompleted={isCompleted}
+      isError={isError}
+      titleContent={titleContent}
+    >
+      {params.length > 0 && (
         <div className="task-details" style={TASK_DETAILS_STYLE}>
           <div style={PARAMS_CONTAINER_STYLE}>
             {params.map(([key, value]) => (
@@ -173,7 +170,7 @@ const ReadToolBlock = memo(function ReadToolBlock({ input, result, toolId }: Rea
           </div>
         </div>
       )}
-    </div>
+    </ToolBlockShell>
   );
 });
 

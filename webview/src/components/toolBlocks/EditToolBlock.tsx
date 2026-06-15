@@ -8,6 +8,7 @@ import { getFileIcon } from '../../utils/fileIcons';
 import { getToolLineInfo, getToolEditCount, resolveToolTarget } from '../../utils/toolPresentation';
 import { normalizeToolInput } from '../../utils/toolInputNormalization';
 import GenericToolBlock from './GenericToolBlock';
+import { ToolBlockShell } from './ToolBlockShell';
 
 interface EditToolBlockProps {
   name?: string;
@@ -93,8 +94,6 @@ const LINE_INFO_STYLE: React.CSSProperties = {
   color: 'var(--text-muted)',
   fontFamily: 'var(--idea-editor-font-family, monospace)',
 };
-
-const TASK_CONTAINER_STYLE: React.CSSProperties = { margin: 0 };
 
 const FILE_LINK_STYLE: React.CSSProperties = {
   display: 'flex',
@@ -339,6 +338,63 @@ const EditToolBlock = memo(function EditToolBlock({ name, input, result, toolId 
     return getFileIcon(extension ?? '', target.cleanFileName);
   };
 
+  const titleContent = (
+    <>
+      <span className="codicon codicon-edit tool-title-icon" />
+
+      <span className="tool-title-text">
+        {t('tools.editFileTitle')}
+      </span>
+      {/* 文件引用 - 使用蓝色链接样式 */}
+      <span
+        className="tool-title-summary clickable-file"
+        onClick={handleFileClick}
+        {...fileLinkTooltip}
+        style={{
+          ...FILE_LINK_STYLE,
+          color: 'var(--accent-primary)',
+          background: 'rgba(78, 161, 255, 0.1)',
+          border: '1px solid rgba(78, 161, 255, 0.2)',
+          borderRadius: '4px',
+          padding: '2px 8px',
+          fontSize: '12px',
+          fontFamily: "var(--idea-editor-font-family, 'JetBrains Mono', monospace)",
+          cursor: 'pointer',
+          transition: 'background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease',
+        }}
+      >
+        <span
+          style={FILE_ICON_STYLE}
+          dangerouslySetInnerHTML={{ __html: getFileIconSvg() }}
+        />
+        {target?.displayPath || filePath}
+      </span>
+      {/* 行号信息 */}
+      {lineInfo.start && (
+        <span className="tool-title-summary" style={LINE_INFO_STYLE}>
+          {lineInfo.end && lineInfo.end !== lineInfo.start
+            ? t('tools.lineRange', { start: lineInfo.start, end: lineInfo.end })
+            : t('tools.lineSingle', { line: lineInfo.start })}
+          {extraEditCount > 0 ? ` +${extraEditCount}${t('tools.editLocationsSuffix')}` : ''}
+        </span>
+      )}
+      {!lineInfo.start && extraEditCount > 0 && (
+        <span className="tool-title-summary" style={LINE_INFO_STYLE}>
+          +{extraEditCount}{t('tools.editLocationsSuffix')}
+        </span>
+      )}
+
+      {/* 增删统计 - 使用绿色/红色 */}
+      {(diff.additions > 0 || diff.deletions > 0) && (
+        <span style={STATS_STYLE}>
+          {diff.additions > 0 && <span style={ADDED_TEXT_STYLE}>+{diff.additions}</span>}
+          {diff.additions > 0 && diff.deletions > 0 && <span style={STATS_SPACER_STYLE} />}
+          {diff.deletions > 0 && <span style={DELETED_TEXT_STYLE}>-{diff.deletions}</span>}
+        </span>
+      )}
+    </>
+  );
+
   return (
     <div style={ROOT_STYLE}>
       {/* Top Row: Buttons (Right aligned) */}
@@ -384,67 +440,15 @@ const EditToolBlock = memo(function EditToolBlock({ name, input, result, toolId 
         </div>
       </div>
 
-      <div className="task-container" style={TASK_CONTAINER_STYLE}>
-        <div className="task-header" onClick={() => setExpanded((prev) => !prev)}>
-          <div className="task-title-section">
-            <span className="codicon codicon-edit tool-title-icon" />
-
-            <span className="tool-title-text">
-              {t('tools.editFileTitle')}
-            </span>
-            {/* 文件引用 - 使用蓝色链接样式 */}
-            <span
-              className="tool-title-summary clickable-file"
-              onClick={handleFileClick}
-              {...fileLinkTooltip}
-              style={{
-                ...FILE_LINK_STYLE,
-                color: 'var(--accent-primary)',
-                background: 'rgba(78, 161, 255, 0.1)',
-                border: '1px solid rgba(78, 161, 255, 0.2)',
-                borderRadius: '4px',
-                padding: '2px 8px',
-                fontSize: '12px',
-                fontFamily: "var(--idea-editor-font-family, 'JetBrains Mono', monospace)",
-                cursor: 'pointer',
-                transition: 'background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease',
-              }}
-            >
-              <span
-                style={FILE_ICON_STYLE}
-                dangerouslySetInnerHTML={{ __html: getFileIconSvg() }}
-              />
-              {target?.displayPath || filePath}
-            </span>
-            {/* 行号信息 */}
-            {lineInfo.start && (
-              <span className="tool-title-summary" style={LINE_INFO_STYLE}>
-                {lineInfo.end && lineInfo.end !== lineInfo.start
-                  ? t('tools.lineRange', { start: lineInfo.start, end: lineInfo.end })
-                  : t('tools.lineSingle', { line: lineInfo.start })}
-                {extraEditCount > 0 ? ` +${extraEditCount}${t('tools.editLocationsSuffix')}` : ''}
-              </span>
-            )}
-            {!lineInfo.start && extraEditCount > 0 && (
-              <span className="tool-title-summary" style={LINE_INFO_STYLE}>
-                +{extraEditCount}{t('tools.editLocationsSuffix')}
-              </span>
-            )}
-
-            {/* 增删统计 - 使用绿色/红色 */}
-            {(diff.additions > 0 || diff.deletions > 0) && (
-              <span style={STATS_STYLE}>
-                {diff.additions > 0 && <span style={ADDED_TEXT_STYLE}>+{diff.additions}</span>}
-                {diff.additions > 0 && diff.deletions > 0 && <span style={STATS_SPACER_STYLE} />}
-                {diff.deletions > 0 && <span style={DELETED_TEXT_STYLE}>-{diff.deletions}</span>}
-              </span>
-            )}
-          </div>
-
-          <div className={`tool-status-indicator ${isError ? 'error' : isCompleted ? 'completed' : 'pending'}`} />
-        </div>
-
-        {expanded && (
+      <ToolBlockShell
+        expanded={expanded}
+        onToggle={() => setExpanded((prev) => !prev)}
+        isCompleted={isCompleted}
+        isError={isError}
+        titleContent={titleContent}
+        className="task-container-custom"
+        headerClassName=""
+      >
         <div className="task-details" style={TASK_DETAILS_STYLE}>
           <div style={DIFF_CONTAINER_STYLE}>
             {/* Inner wrapper stretches to scrollWidth so row backgrounds fill the full width */}
@@ -471,8 +475,7 @@ const EditToolBlock = memo(function EditToolBlock({ name, input, result, toolId 
             </div>
           </div>
         </div>
-        )}
-      </div>
+      </ToolBlockShell>
     </div>
   );
 });
