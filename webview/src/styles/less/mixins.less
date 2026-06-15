@@ -101,3 +101,37 @@
         opacity: 1;
     }
 }
+
+// ===== 滚动条 Mixins =====
+
+/**
+ * 自定义滚动条样式
+ * @param size - 滚动条宽度/高度，默认 6px
+ * @param radius - 滚动条圆角，默认 3px
+ *
+ * 使用方式：
+ * .my-scrollable-container {
+ *     .custom-scrollbar();
+ *     // 或自定义参数
+ *     .custom-scrollbar(8px, 4px);
+ * }
+ */
+.custom-scrollbar(@size: 6px; @radius: 3px) {
+    &::-webkit-scrollbar {
+        width: @size;
+        height: @size;
+    }
+
+    &::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background: var(--scrollbar-thumb);
+        border-radius: @radius;
+
+        &:hover {
+            background: var(--scrollbar-thumb-hover);
+        }
+    }
+}
