@@ -198,7 +198,7 @@ public class CodexMcpServerHandler extends BaseMessageHandler {
                 .thenAccept(result -> {
                     String resultJson = gson.toJson(result);
                     ApplicationManager.getApplication().invokeLater(() ->
-                        dispatchEvent("mcp.server_tools", escapeJs(resultJson))
+                        dispatchEvent("codex.mcp.server_tools", escapeJs(resultJson))
                     );
                 })
                 .exceptionally(e -> {
@@ -220,7 +220,7 @@ public class CodexMcpServerHandler extends BaseMessageHandler {
         errorResult.add("tools", new com.google.gson.JsonArray());
         String json = gson.toJson(errorResult);
         ApplicationManager.getApplication().invokeLater(() ->
-            dispatchEvent("mcp.server_tools", escapeJs(json))
+            dispatchEvent("codex.mcp.server_tools", escapeJs(json))
         );
     }
 

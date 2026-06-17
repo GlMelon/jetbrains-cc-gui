@@ -11,6 +11,7 @@ import com.github.claudecodegui.notifications.ClaudeNotifier;
 import com.github.claudecodegui.session.ClaudeSession;
 import com.github.claudecodegui.session.SessionSendService;
 import com.github.claudecodegui.session.SessionState;
+import com.github.claudecodegui.session.runtime.EffectiveRuntimeResolver;
 import com.github.claudecodegui.util.AttachmentStorageService;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.github.claudecodegui.util.GsonHolder;
@@ -504,20 +505,14 @@ public class SessionHandler extends BaseMessageHandler {
     private boolean isCliModeActive(String requestedInvocationMode) {
         ClaudeSession currentSession = context.getSession();
         String provider = currentSession != null ? currentSession.getProvider() : context.getCurrentProvider();
-
-        if (CommonConstants.PROVIDER_CODEX.equals(provider)) {
-            return true;
-        }
-
-        if (!CommonConstants.PROVIDER_CLAUDE.equals(provider)) {
-            return false;
-        }
-        // 与路由层(SessionSendService.resolveEffectiveClaudeInvocationMode)共用同一套优先级
-        // (sessionMode > requestedMode > settings)，避免"是否需要 Node/SDK 校验"的判断与
-        // 实际 CLI/SDK 路由因优先级相反而错位。
         String sessionMode = currentSession != null ? currentSession.getClaudeInvocationMode() : null;
-        String effectiveMode = SessionSendService.resolveEffectiveClaudeInvocationMode(requestedInvocationMode, sessionMode);
-        return CommonConstants.INVOCATION_MODE_CLI.equals(effectiveMode);
+        return EffectiveRuntimeResolver
+                .isCliMode(
+                        provider,
+                        requestedInvocationMode,
+                        sessionMode,
+                        context.getSettingsService().getRuntimePolicy()
+                );
     }
 
     private String validateRequiredSdk(String requestedInvocationMode) {

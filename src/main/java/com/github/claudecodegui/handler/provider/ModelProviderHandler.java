@@ -1,6 +1,7 @@
 package com.github.claudecodegui.handler.provider;
 
 import com.github.claudecodegui.common.CommonConstants;
+import com.github.claudecodegui.config.ModelRegistryConfig;
 import com.github.claudecodegui.handler.UsagePushService;
 import com.github.claudecodegui.handler.core.HandlerContext;
 
@@ -31,7 +32,7 @@ public class ModelProviderHandler {
             "sonnet", CommonConstants.ENV_ANTHROPIC_SONNET_MODEL
     );
 
-    static final Map<String, Integer> MODEL_CONTEXT_LIMITS = new HashMap<>();
+    private static final Map<String, Integer> MODEL_CONTEXT_LIMITS = new HashMap<>();
     static {
         // Claude models with 1M context (base IDs)
         MODEL_CONTEXT_LIMITS.put("claude-sonnet-4-6", 200_000);
@@ -48,6 +49,7 @@ public class ModelProviderHandler {
         // Haiku - no 1M context available
         MODEL_CONTEXT_LIMITS.put("claude-haiku-4-5", 200_000);
         // Codex/GPT models
+        MODEL_CONTEXT_LIMITS.put("gpt-5.5", 1_000_000);
         MODEL_CONTEXT_LIMITS.put("gpt-5.4", 1_000_000);
         MODEL_CONTEXT_LIMITS.put("gpt-5.4-mini", 400_000);
         MODEL_CONTEXT_LIMITS.put("gpt-5.3-codex", 258_000);
@@ -163,7 +165,11 @@ public class ModelProviderHandler {
 
         // Calculate effective max tokens (capped at model's actual limit)
         String resolvedModelForUsage = resolveConfiguredClaudeModelFromSettings(model);
-        int modelMaxLimit = getModelContextLimit(resolvedModelForUsage);
+        int modelMaxLimit = context.getSettingsService()
+                .getModelRegistry()
+                .find(resolvedModelForUsage)
+                .map(modelConfig -> modelConfig.contextWindow())
+                .orElseGet(() -> getModelContextLimit(resolvedModelForUsage));
         int newMaxTokens = (contextWindowOverride != null && contextWindowOverride > 0)
                 ? Math.min(contextWindowOverride, modelMaxLimit)
                 : modelMaxLimit;
@@ -471,6 +477,10 @@ public class ModelProviderHandler {
     }
 
     public static int getModelContextLimit(String model) {
+        return getModelContextLimit(ModelRegistryConfig.getDefault(), model);
+    }
+
+    public static int getModelContextLimit(ModelRegistryConfig registry, String model) {
         if (model == null || model.isEmpty()) {
             return 200_000;
         }
@@ -493,6 +503,25 @@ public class ModelProviderHandler {
             }
         }
 
-        return MODEL_CONTEXT_LIMITS.getOrDefault(model, 200_000);
+        if (registry != null) {
+            var configured = registry.find(model);
+            if (configured.isPresent()) {
+                return configured.get().contextWindow();
+            }
+        }
+
+        String baseModel = ModelRegistryConfig.stripCapacitySuffix(model);
+        return MODEL_CONTEXT_LIMITS.getOrDefault(baseModel, 200_000);
+    }
+
+    public static boolean isKnownModel(ModelRegistryConfig registry, String model) {
+        if (model == null || model.isEmpty()) {
+            return false;
+        }
+        if (registry != null && registry.find(model).isPresent()) {
+            return true;
+        }
+        String baseModel = ModelRegistryConfig.stripCapacitySuffix(model);
+        return MODEL_CONTEXT_LIMITS.containsKey(baseModel);
     }
 }
