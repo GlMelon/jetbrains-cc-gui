@@ -9,7 +9,6 @@ import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.model.NodeDetectionResult;
 import com.github.claudecodegui.notifications.ClaudeNotifier;
 import com.github.claudecodegui.session.ClaudeSession;
-import com.github.claudecodegui.session.SessionSendService;
 import com.github.claudecodegui.session.SessionState;
 import com.github.claudecodegui.session.runtime.EffectiveRuntimeResolver;
 import com.github.claudecodegui.util.AttachmentStorageService;
