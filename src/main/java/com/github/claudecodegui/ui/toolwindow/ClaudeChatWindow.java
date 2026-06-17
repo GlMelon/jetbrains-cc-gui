@@ -156,10 +156,6 @@ public class ClaudeChatWindow {
      * title event listener.
      */ // Daemon event listener for AI title forwarding. Held so it can be removed on dispose.
     private DaemonBridge.DaemonEventListener titleEventListener;
-    /**
-     * fetched slash commands count.
-     */
-    private volatile int fetchedSlashCommandsCount = 0;
 
     // Coalesces session_updated reloads. SessionState's message list is not
     // thread-safe and loadFromServer() runs async, so concurrent background-task
@@ -180,10 +176,6 @@ public class ClaudeChatWindow {
      * permission handler.
      */
     private PermissionHandler permissionHandler;
-    /**
-     * history handler.
-     */
-    private HistoryHandler historyHandler;
     /**
      * session lifecycle manager.
      */
@@ -352,7 +344,7 @@ public class ClaudeChatWindow {
 
             @Override
             public void setFetchedSlashCommandsCount(int count) {
-                fetchedSlashCommandsCount = count;
+                // No-op: count is reported but no longer consumed.
             }
 
             @Override
@@ -1449,7 +1441,7 @@ public class ClaudeChatWindow {
 
             @Override
             public void setHistoryHandler(HistoryHandler h) {
-                historyHandler = h;
+                // No-op: handler is set but no longer consumed.
             }
 
             @Override
@@ -1499,7 +1491,7 @@ public class ClaudeChatWindow {
 
             @Override
             public void setFetchedSlashCommandsCount(int count) {
-                fetchedSlashCommandsCount = count;
+                // No-op: count is reported but no longer consumed.
             }
 
             @Override

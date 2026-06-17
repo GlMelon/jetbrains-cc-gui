@@ -30,7 +30,6 @@ public class ClaudeSession {
     private static final int MAX_FILE_SIZE_BYTES = 100 * 1024;
 
     private final Gson gson = GsonHolder.GSON;
-    private final Project project;
 
     // Session state manager
     private final com.github.claudecodegui.session.SessionState state;
@@ -48,10 +47,6 @@ public class ClaudeSession {
 
     // Callback facade
     private final SessionCallbackFacade callbackFacade;
-
-    // SDK bridges
-    private final ClaudeSDKBridge claudeSDKBridge;
-    private final CodexSDKBridge codexSDKBridge;
 
     // Permission manager
     private final PermissionManager permissionManager = new PermissionManager();
@@ -150,10 +145,6 @@ public class ClaudeSession {
     }
 
     public ClaudeSession(Project project, ClaudeSDKBridge claudeSDKBridge, CodexSDKBridge codexSDKBridge) {
-        this.project = project;
-        this.claudeSDKBridge = claudeSDKBridge;
-        this.codexSDKBridge = codexSDKBridge;
-
         // Initialize managers
         this.state = new com.github.claudecodegui.session.SessionState();
         this.messageParser = new com.github.claudecodegui.session.MessageParser();
