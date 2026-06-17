@@ -8,6 +8,7 @@ import { normalizeToolInput } from '../../utils/toolInputNormalization';
 import { useResolvedFileLinkTooltip } from '../../hooks/useResolvedFileLinkTooltip';
 
 interface EditItem {
+  toolId?: string;
   filePath: string;
   openPath: string;
   displayPath: string;
@@ -399,7 +400,7 @@ const EditToolGroupBlock = ({ items }: EditToolGroupBlockProps) => {
         >
           {editItems.map((item, index) => (
             <EditFileItem
-              key={index}
+              key={item.toolId ?? `${item.openPath}:${item.lineStart ?? 0}:${index}`}
               item={item}
               onFileClick={handleFileClick}
               onShowDiff={handleShowDiff}

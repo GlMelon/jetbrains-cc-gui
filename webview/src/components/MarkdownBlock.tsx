@@ -755,28 +755,35 @@ const MarkdownBlock = ({ content = '', isStreaming = false }: MarkdownBlockProps
     }
   }, [content, isStreaming, i18n.language, linkifyCapabilities, t]);
 
-  // Force DOM refresh when streaming ends to fix potential layout corruption from streaming render
+  // When streaming ends, the non-streaming pipeline produces the full HTML
+  // (mermaid, highlighted code, linkify) via the `html` memo above, and React
+  // applies it through dangerouslySetInnerHTML during commit. We previously
+  // force-rewrote containerRef.innerHTML here on top of React's own update —
+  // that was a redundant full-DOM teardown/rebuild and the source of the
+  // end-of-stream flicker. The only thing React's commit doesn't do is render
+  // mermaid diagrams (the streaming renderer emits plain <pre><code>), so we
+  // run just that once after the final HTML is in the DOM.
   useEffect(() => {
     if (prevIsStreamingRef.current && !isStreaming && containerRef.current) {
       let rafId2: number | null = null;
       let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
       let done = false;
 
-      const applyRefresh = () => {
+      const applyMermaid = () => {
         if (done || !containerRef.current) return;
         done = true;
-        containerRef.current.innerHTML = html;
         renderMermaidDiagrams();
       };
 
-      // Use double requestAnimationFrame to ensure DOM is fully updated
+      // Wait one frame so React has committed the final HTML before we scan
+      // for mermaid code blocks.
       const rafId1 = requestAnimationFrame(() => {
         rafId2 = requestAnimationFrame(() => {
-          applyRefresh();
+          applyMermaid();
         });
         // Fallback: use setTimeout in case rAF doesn't fire in some environments
         fallbackTimer = setTimeout(() => {
-          applyRefresh();
+          applyMermaid();
         }, 100);
       });
 

@@ -214,13 +214,31 @@ const GenericToolBlock = ({ name, input, result, toolId }: GenericToolBlockProps
   const [expanded, setExpanded] = useState(false);
   const isDenied = useIsToolDenied(toolId);
 
+  // Resolve hook inputs defensively so the tooltip hook below can run
+  // unconditionally (rules of hooks) while input may still be undefined
+  // during streaming. Calling a hook after an early return throws
+  // "Rendered fewer hooks than expected".
+  const target = input ? resolveToolTarget(input, name) : undefined;
+  const filePath = target?.rawPath;
+  const commandStr = input
+    ? ((typeof input.command === 'string' ? input.command : undefined) ??
+       (typeof input.cmd === 'string' ? input.cmd : undefined))
+    : undefined;
+  const isCommandRead = isCommandToolName(lowerName) && commandStr
+    ? parseCommandType(commandStr).type === 'read'
+    : false;
+  const effectiveIsFile = (target?.isFile ?? false) || isCommandRead;
+  const tooltipFallback = target?.displayPath ?? filePath ?? '';
+
+  const fileLinkTooltip = useResolvedFileLinkTooltip(
+    effectiveIsFile ? filePath : undefined,
+    tooltipFallback || undefined,
+  );
+
   // Ignore write_stdin tool - it's waiting for previous command result
   if (lowerName === 'write_stdin') {
     return null;
   }
-
-  const target = input ? resolveToolTarget(input, name) : undefined;
-  const filePath = target?.rawPath;
 
   // Determine tool call status based on result
   // If denied, treat as completed (show error state)
@@ -237,10 +255,6 @@ const GenericToolBlock = ({ name, input, result, toolId }: GenericToolBlockProps
 
   const displayName = getToolDisplayName(t, name, input);
   const codicon = getToolCodicon(name, input);
-
-  // Codex uses 'cmd', others use 'command'
-  const commandStr = (typeof input.command === 'string' ? input.command : undefined) ??
-    (typeof input.cmd === 'string' ? input.cmd : undefined);
 
   let summary: string | null = null;
   if (target) {
@@ -265,12 +279,7 @@ const GenericToolBlock = ({ name, input, result, toolId }: GenericToolBlockProps
 
   const hasExpandableContent = otherParams.length > 0;
   const isDirectoryPath = target?.isDirectory ?? false;
-  const isFilePath = target?.isFile ?? false;
   const lineInfo = input && target ? getToolLineInfo(input, target) : {};
-
-  // For command-executing tools with read type, treat as file if we have a path
-  const isCommandRead = isCommandToolName(lowerName) && commandStr && parseCommandType(commandStr).type === 'read';
-  const effectiveIsFile = isFilePath || isCommandRead;
 
   const handleFileClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -287,12 +296,6 @@ const GenericToolBlock = ({ name, input, result, toolId }: GenericToolBlockProps
     const extension = target.cleanFileName.includes('.') ? target.cleanFileName.split('.').pop() : '';
     return getFileIcon(extension ?? '', target.cleanFileName);
   };
-
-  const tooltipPath = target?.displayPath ?? filePath ?? summary ?? '';
-  const fileLinkTooltip = useResolvedFileLinkTooltip(
-    effectiveIsFile ? filePath : undefined,
-    tooltipPath || undefined,
-  );
 
   // Extract all file paths for apply_patch tool
   const patchContent = lowerName === 'apply_patch'

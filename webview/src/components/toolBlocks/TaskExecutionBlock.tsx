@@ -162,10 +162,9 @@ const TaskExecutionBlock = memo(function TaskExecutionBlock({ name, input, resul
   const currentSessionId = useSessionId();
   const getToolResultRaw = useGetToolResultRaw();
 
-  if (!input) {
-    return null;
-  }
-
+  // Compute derived values defensively so the effects below run unconditionally
+  // (rules of hooks) even while input is still streaming in. Calling useEffect
+  // after an early return throws "Rendered fewer hooks than expected".
   const normalizedName = normalizeToolName(name ?? '');
   const isSpawnAgent = normalizedName === 'spawn_agent';
   const isAgentTool = normalizedName === 'agent' || normalizedName === 'task' || normalizedName === 'spawn_agent';
@@ -183,12 +182,10 @@ const TaskExecutionBlock = memo(function TaskExecutionBlock({ name, input, resul
     agent_path: _agentPath,
     agentPath: _agentPathCamel,
     ...rest
-  } = input;
-  const spawnMeta = isSpawnAgent ? parseSpawnAgentMeta(input, result) : {};
+  } = input ?? ({} as ToolInput);
+  const spawnMeta = isSpawnAgent && input ? parseSpawnAgentMeta(input, result) : {};
   const agentToolMeta = !isSpawnAgent ? parseAgentToolMeta(getToolResultRaw, toolId) : {};
   const agentId = spawnMeta.agentId ?? agentToolMeta.agentId;
-  const identityLabel = spawnMeta.nickname || (typeof subagentType === 'string' && subagentType ? subagentType : undefined);
-  const shortAgentId = shortenAgentId(agentId);
 
   // Determine status based on result
   const isCompleted = result !== undefined && result !== null;
@@ -196,17 +193,18 @@ const TaskExecutionBlock = memo(function TaskExecutionBlock({ name, input, resul
   const history = (toolId ? getSubagentHistory(toolId) : undefined) ?? (agentId ? getSubagentHistory(agentId) : undefined);
 
   useEffect(() => {
-    if (!expanded || !isAgentTool || !currentSessionId || !toolId || history) return;
+    if (!input || !expanded || !isAgentTool || !currentSessionId || !toolId || history) return;
     sendBridgeEvent('load_subagent_session', JSON.stringify({
       sessionId: currentSessionId,
       agentId,
       description: typeof description === 'string' ? description : undefined,
       toolUseId: toolId,
     }));
-  }, [agentId, currentSessionId, description, expanded, history, isAgentTool, toolId]);
+  }, [agentId, currentSessionId, description, expanded, history, input, isAgentTool, toolId]);
 
   const shouldPollHistory = expanded
     && isAgentTool
+    && Boolean(input)
     && Boolean(currentSessionId)
     && Boolean(toolId)
     && isStreaming
@@ -227,6 +225,13 @@ const TaskExecutionBlock = memo(function TaskExecutionBlock({ name, input, resul
     }, 2_000);
     return () => window.clearInterval(timer);
   }, [agentId, currentSessionId, description, shouldPollHistory, toolId]);
+
+  if (!input) {
+    return null;
+  }
+
+  const identityLabel = spawnMeta.nickname || (typeof subagentType === 'string' && subagentType ? subagentType : undefined);
+  const shortAgentId = shortenAgentId(agentId);
 
   return (
     <div className="task-container">

@@ -1,6 +1,18 @@
 import { useState, useCallback, useRef } from 'react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 import { sendToJava } from '../utils/bridge.js';
+import { bridgeHub, registerLegacyAlias } from '../bridge';
+
+// [归一化] onClipboardRead → clipboard.read。
+// 该回调是请求/响应语义(read_clipboard 触发,后端回包一次),且 handler 动态设置。
+// 用模块级单次 handler 槽保持「last-writer-wins + 一次性消费」语义,替代旧 window.xxx 覆盖。
+let currentClipboardHandler: ((text: string) => void) | null = null;
+registerLegacyAlias('onClipboardRead', 'clipboard.read');
+bridgeHub.subscribe('clipboard.read', (text) => {
+  const handler = currentClipboardHandler;
+  currentClipboardHandler = null;
+  handler?.(text as string);
+});
 
 interface ContextMenuState {
   visible: boolean;
@@ -118,12 +130,11 @@ export function cutSelection(
 
 /** Paste clipboard text at saved range via Java bridge */
 export function pasteAtCursor(savedRange: Range | null, el: HTMLElement, onComplete?: () => void): void {
-  // Capture handler reference so timeout only clears its own registration,
-  // preventing accidental cancellation of a concurrent paste call.
+  // [归一化] 注册到模块级单次 handler 槽,由 bridgeHub clipboard.read 订阅者一次性消费。
   const handler = (text: string) => {
     clearTimeout(timeoutId);
-    if (window.onClipboardRead === handler) {
-      window.onClipboardRead = undefined;
+    if (currentClipboardHandler === handler) {
+      currentClipboardHandler = null;
     }
     if (!text || !el.isConnected) return;
     el.focus();
@@ -133,12 +144,12 @@ export function pasteAtCursor(savedRange: Range | null, el: HTMLElement, onCompl
   };
 
   const timeoutId = setTimeout(() => {
-    if (window.onClipboardRead === handler) {
-      window.onClipboardRead = undefined;
+    if (currentClipboardHandler === handler) {
+      currentClipboardHandler = null;
     }
   }, 3000);
 
-  window.onClipboardRead = handler;
+  currentClipboardHandler = handler;
   sendToJava('read_clipboard', '');
 }
 

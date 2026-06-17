@@ -19,6 +19,9 @@ interface BashToolBlockProps {
 const BashToolBlock = memo(function BashToolBlock({ input, result, toolId }: BashToolBlockProps) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
+  // Keep all hook(-shaped) calls above the early return below so the hook
+  // order stays stable while input streams in.
+  const isDenied = useIsToolDenied(toolId);
 
   if (!input) {
     return null;
@@ -26,8 +29,6 @@ const BashToolBlock = memo(function BashToolBlock({ input, result, toolId }: Bas
 
   const command = typeof input.command === 'string' ? input.command : '';
   const description = typeof input.description === 'string' ? input.description : '';
-
-  const isDenied = useIsToolDenied(toolId);
 
   // Determine tool call status based on result
   // If denied, treat as completed (show error state)

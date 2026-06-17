@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import type { Attachment } from '../types.js';
 import type { Dispatch, SetStateAction } from 'react';
 
@@ -66,7 +66,17 @@ export function useSubmitHandler({
   addToast,
   t,
 }: UseSubmitHandlerOptions) {
+  // In-flight guard: prevents a rapid second invocation (double-Enter, or
+  // Enter + send-button within the deferred-onSubmit window) from creating a
+  // duplicate optimistic message / duplicate backend request. The text path is
+  // mostly protected by clearInput(), but attachments settle asynchronously and
+  // the button path bypasses the input-empty check, so this lock is the single
+  // source of truth.
+  const isSubmittingRef = useRef(false);
+
   return useCallback(() => {
+    if (isSubmittingRef.current) return;
+
     // Force fresh DOM read to avoid stale cache (e.g., after paste)
     invalidateCache();
     const content = getTextContent();
@@ -114,9 +124,14 @@ export function useSubmitHandler({
       clearAttachmentsDraft?.();
     }
 
+    // We are committing to a submit — hold the lock until the deferred
+    // onSubmit fires, so concurrent invocations in this window no-op.
+    isSubmittingRef.current = true;
+
     // Call onSubmit even when loading - let parent handle queueing
     setTimeout(() => {
       onSubmit?.(content, attachmentsToSend);
+      isSubmittingRef.current = false;
     }, 10);
   }, [
     getTextContent,

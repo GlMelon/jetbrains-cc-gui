@@ -207,6 +207,7 @@ const AgentGroupBlock = memo(function AgentGroupBlock({
               <div key={blockKey} className="content-block">
                 <ContentBlockRenderer
                   block={block}
+                  blockIndex={idx}
                   messageIndex={messageIndex}
                   messageType="assistant"
                   isStreaming={isStreaming}
