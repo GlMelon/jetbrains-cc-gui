@@ -228,7 +228,29 @@ const GenericToolBlock = ({ name, input, result, toolId }: GenericToolBlockProps
     ? parseCommandType(commandStr).type === 'read'
     : false;
   const effectiveIsFile = (target?.isFile ?? false) || isCommandRead;
-  const tooltipFallback = target?.displayPath ?? filePath ?? '';
+  // Compute the display summary early so the tooltip fallback can use it
+  // while still invoking the hook unconditionally (rules-of-hooks).
+  // Guarded on `input` since search_term/pattern only apply once input
+  // arrives; before that summary stays null.
+  let summary: string | null = null;
+  if (input) {
+    if (target) {
+      summary = target.cleanFileName || target.displayPath;
+    } else if (commandStr) {
+      const parsed = parseCommandType(commandStr);
+      if (parsed.type === 'read' && parsed.path) {
+        const pathParts = parsed.path.split('/');
+        summary = pathParts[pathParts.length - 1] || parsed.path;
+      } else {
+        summary = summarizeToolCommand(commandStr) ?? truncate(commandStr);
+      }
+    } else if (typeof input.search_term === 'string') {
+      summary = truncate(input.search_term);
+    } else if (typeof input.pattern === 'string') {
+      summary = truncate(input.pattern);
+    }
+  }
+  const tooltipFallback = target?.displayPath ?? filePath ?? summary ?? '';
 
   const fileLinkTooltip = useResolvedFileLinkTooltip(
     effectiveIsFile ? filePath : undefined,
@@ -255,23 +277,6 @@ const GenericToolBlock = ({ name, input, result, toolId }: GenericToolBlockProps
 
   const displayName = getToolDisplayName(t, name, input);
   const codicon = getToolCodicon(name, input);
-
-  let summary: string | null = null;
-  if (target) {
-    summary = target.cleanFileName || target.displayPath;
-  } else if (commandStr) {
-    const parsed = parseCommandType(commandStr);
-    if (parsed.type === 'read' && parsed.path) {
-      const pathParts = parsed.path.split('/');
-      summary = pathParts[pathParts.length - 1] || parsed.path;
-    } else {
-      summary = summarizeToolCommand(commandStr) ?? truncate(commandStr);
-    }
-  } else if (typeof input.search_term === 'string') {
-    summary = truncate(input.search_term);
-  } else if (typeof input.pattern === 'string') {
-    summary = truncate(input.pattern);
-  }
 
   const otherParams = Object.entries(input).filter(
     ([key]) => !omitFields.has(key) && key !== 'pattern',
