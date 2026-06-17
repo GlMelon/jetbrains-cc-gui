@@ -86,6 +86,14 @@ describe('bridge navigation helpers', () => {
     expect(window.sendToJava).not.toHaveBeenCalled();
   });
 
+  it('rejects control-character-obfuscated navigation targets', () => {
+    openFile('java\nscript:alert(1)');
+    openClass('com.github.foo.Bar\u0000Baz');
+    showEditableDiff('..\u0000/shared/utils.ts', [], 'M');
+
+    expect(window.sendToJava).not.toHaveBeenCalled();
+  });
+
   it('encodes bridge events as structured JSON to preserve special characters', () => {
     sendBridgeEvent('search_project', 'Checking SDK status|get_dependency_status\n---main.tsx---(foo');
 

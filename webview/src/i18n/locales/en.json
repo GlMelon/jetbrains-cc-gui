@@ -213,6 +213,24 @@
         "placeholder": "e.g. project1 or leave empty to use project root",
         "hint": "Specify the directory where Claude works. Can use relative path (relative to project root) or absolute path. Leave empty to use project root."
       },
+      "runtimePolicy": {
+        "label": "Runtime Routing Policy",
+        "hint": "Configure the default SDK or CLI runtime route for each provider. Saved changes apply immediately.",
+        "loaded": "Runtime policy loaded",
+        "saveSuccess": "Runtime policy saved",
+        "resetSuccess": "Default runtime policy restored",
+        "loadFailed": "Failed to load runtime policy",
+        "saveFailed": "Failed to save runtime policy",
+        "save": "Save Policy",
+        "reset": "Restore Default",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "default": "Default",
+        "providers": {
+          "claude": "Claude",
+          "codex": "Codex"
+        }
+      },
       "fontSize": {
         "label": "Font Size",
         "level1": "Small (80%)",
@@ -354,6 +372,15 @@
       "manage": "Manage Models",
       "contextWindow": "Context Window",
       "contextWindowPlaceholder": "Custom tokens"
+    },
+    "models": {
+      "title": "Model Configuration",
+      "description": "Manage Claude and Codex model IDs, context windows, and 1M support. Invalid configs are rejected by the backend.",
+      "supports1M": "Supports 1M",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "saveSuccess": "Model configuration saved",
+      "saveFailed": "Model configuration rejected"
     },
     "dependencies": "SDK Dependencies",
     "dependenciesDesc": "Manage AI SDK dependency installations and updates",
@@ -607,11 +634,18 @@
             "item2": "Make sure the ~/.claude/settings.json file and .env file are empty",
             "item3": "Restart IDEA, and you can chat normally",
             "emptyConfigCodeLabel": "~/.claude/settings.json",
-            "emptyConfigCode": "{\n  \"env\": {\n  }\n}",
+            "emptyConfigCode": {
+              "env": {}
+            },
             "noteTitle": "Special Case Notes:",
             "note1": "If you have done the above but the plugin still does not respond, try setting ~/.claude/settings.json .env to:",
             "proxyConfigCodeLabel": "~/.claude/settings.json",
-            "proxyConfigCode": "{\n  \"env\": {\n    \"HTTP_PROXY\": \"http://127.0.0.1:7897\",\n    \"HTTPS_PROXY\": \"http://127.0.0.1:7897\"\n  }\n}",
+            "proxyConfigCode": {
+              "env": {
+                "HTTP_PROXY": "http://127.0.0.1:7897",
+                "HTTPS_PROXY": "http://127.0.0.1:7897"
+              }
+            },
             "issuePrefix": "If it still doesn't work, please report an issue on GitHub: ",
             "issueUrl": "https://github.com/zhukunpenglinyutong/idea-claude-code-gui/issues"
           },

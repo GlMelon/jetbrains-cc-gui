@@ -182,15 +182,6 @@
         "korean": "한국어",
         "portuguese": "Português (Brasil)"
       },
-      "invocationMode": {
-        "label": "调用模式",
-        "sdk": "SDK 模式",
-        "sdkDesc": "使用官方 SDK 集成（默认，稳定，支持权限确认）",
-        "cli": "CLI 模式",
-        "cliDesc": "直接调用本地 Claude CLI",
-        "cliPathPlaceholder": "Claude CLI 可执行文件路径（留空自动检测）",
-        "hint": "CLI 模式不支持 thinking / /context 等部分能力，权限模式跟随上方设置。"
-      },
       "nodePath": {
         "label": "Node.js 路径",
         "placeholder": "Windows: C:\\Program Files\\nodejs\\node.exe (必须以 .exe 结尾) | macOS/Linux: /usr/local/bin/node",
@@ -212,6 +203,24 @@
         "label": "工作目录",
         "placeholder": "例如 project1 或留空使用项目根目录",
         "hint": "指定 Claude 工作的目录。可以使用相对路径（相对于项目根目录）或绝对路径。留空则使用项目根目录。"
+      },
+      "runtimePolicy": {
+        "label": "运行时路由策略",
+        "hint": "配置各 provider 使用 SDK 或 CLI 的默认路由。保存后立即生效。",
+        "loaded": "路由策略已加载",
+        "saveSuccess": "路由策略已保存",
+        "resetSuccess": "已恢复默认路由策略",
+        "loadFailed": "路由策略加载失败",
+        "saveFailed": "路由策略保存失败",
+        "save": "保存策略",
+        "reset": "恢复默认",
+        "enabled": "已启用",
+        "disabled": "已停用",
+        "default": "默认",
+        "providers": {
+          "claude": "Claude",
+          "codex": "Codex"
+        }
       },
       "invocationMode": {
         "label": "调用模式",
@@ -363,6 +372,15 @@
       "manage": "管理模型",
       "contextWindow": "上下文窗口",
       "contextWindowPlaceholder": "自定义 tokens"
+    },
+    "models": {
+      "title": "模型配置",
+      "description": "管理 Claude 和 Codex 的模型 ID、上下文窗口与 1M 能力。错误配置会由后端拒绝。",
+      "supports1M": "支持 1M",
+      "enabled": "启用",
+      "disabled": "已禁用",
+      "saveSuccess": "模型配置已保存",
+      "saveFailed": "模型配置被拒绝"
     },
     "dependencies": "SDK 依赖",
     "dependenciesDesc": "管理 AI SDK 依赖包的安装和更新",
