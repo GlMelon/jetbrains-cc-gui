@@ -46,28 +46,21 @@ public class LanguageConfigService {
         }
 
         // Direct mapping for other languages
-        switch (language) {
-            case "en":
-                return "en";
-            case "hi":
-                return "hi";
-            case "es":
-                return "es";
-            case "fr":
-                return "fr";
-            case "ja":
-                return "ja";
-            case "ru":
-                return "ru";
-            case "ko":
-                return "ko";
-            case "pt":
-                return "pt-BR";  // Portuguese -> Brazilian Portuguese
-            default:
+        return switch (language) {
+            case "en" -> "en";
+            case "hi" -> "hi";
+            case "es" -> "es";
+            case "fr" -> "fr";
+            case "ja" -> "ja";
+            case "ru" -> "ru";
+            case "ko" -> "ko";
+            case "pt" -> "pt-BR";  // Portuguese -> Brazilian Portuguese
+            default -> {
                 // Unsupported language, fall back to English
                 LOG.info("[LanguageConfig] Unsupported language '" + language + "', falling back to English");
-                return "en";
-        }
+                yield "en";
+            }
+        };
     }
 
     /**

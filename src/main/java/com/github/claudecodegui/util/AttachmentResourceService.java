@@ -230,22 +230,15 @@ public final class AttachmentResourceService {
     }
 
     private static String mimeTypeForExtension(String extension) {
-        switch (extension) {
-            case ".jpg":
-            case ".jpeg":
-                return "image/jpeg";
-            case ".gif":
-                return "image/gif";
-            case ".webp":
-                return "image/webp";
-            case ".bmp":
-                return "image/bmp";
-            case ".svg":
-                return "image/svg+xml";
-            case ".png":
-            default:
-                return "image/png";
-        }
+        return switch (extension) {
+            case ".jpg", ".jpeg" -> "image/jpeg";
+            case ".gif" -> "image/gif";
+            case ".webp" -> "image/webp";
+            case ".bmp" -> "image/bmp";
+            case ".svg" -> "image/svg+xml";
+            case ".png" -> "image/png";
+            default -> "image/png";
+        };
     }
 
     public record AttachmentResource(
