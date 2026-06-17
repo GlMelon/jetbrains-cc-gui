@@ -384,6 +384,24 @@ tasks.register('buildWebview', Exec) {
     doLast { println "Webview build completed." }
 }
 
+// ── Protocol SSOT: Generate protocol-manifest.json from Java enums ──
+tasks.register('generateProtocol', JavaExec) {
+    description = 'Generate protocol-manifest.json from UpstreamAction/DownstreamEvent enums'
+    group = 'protocol'
+
+    dependsOn 'classes'
+
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.github.claudecodegui.protocol.ProtocolManifestGenerator'
+
+    // Output to webview/src/generated/ so frontend build can consume it
+    def manifestPath = file("${projectDir}/webview/src/generated/protocol-manifest.json").absolutePath
+    args = [manifestPath]
+
+    doFirst { println "Generating protocol manifest..." }
+    doLast  { println "Protocol manifest generation completed." }
+}
+
 // Ensure processResources runs after buildWebview
 // Use mustRunAfter for execution order, trigger buildWebview before compileJava
 tasks.named('compileJava') {
