@@ -14,9 +14,8 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.intellij.notification.Notification;
+import com.intellij.notification.NotificationGroupManager;
 import com.intellij.notification.NotificationType;
-import com.intellij.notification.Notifications;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.fileChooser.FileChooser;
@@ -450,12 +449,7 @@ public class PromptHandler extends BaseMessageHandler {
                 }
 
                 if (prompts.isEmpty()) {
-                    Notifications.Bus.notify(new Notification(
-                            "Codemoss",
-                            "Export Failed",
-                            "No prompts to export",
-                            NotificationType.WARNING
-                    ));
+                    showNotification("Export Failed", "No prompts to export", NotificationType.WARNING);
                     return;
                 }
 
@@ -499,29 +493,14 @@ public class PromptHandler extends BaseMessageHandler {
                     gson.toJson(exportData, writer);
                     LOG.info("[PromptHandler] Successfully exported " + prompts.size() + " prompts to " + file.getAbsolutePath());
 
-                    Notifications.Bus.notify(new Notification(
-                            "Codemoss",
-                            "Export Successful",
-                            "Exported " + prompts.size() + " prompts to " + filename,
-                            NotificationType.INFORMATION
-                    ));
+                    showNotification("Export Successful", "Exported " + prompts.size() + " prompts to " + filename, NotificationType.INFORMATION);
                 } catch (Exception e) {
                     LOG.error("[PromptHandler] Failed to write export file: " + e.getMessage(), e);
-                    Notifications.Bus.notify(new Notification(
-                            "Codemoss",
-                            "Export Failed",
-                            "Failed to write file: " + e.getMessage(),
-                            NotificationType.ERROR
-                    ));
+                    showNotification("Export Failed", "Failed to write file: " + e.getMessage(), NotificationType.ERROR);
                 }
             } catch (Exception e) {
                 LOG.error("[PromptHandler] Failed to export prompts: " + e.getMessage(), e);
-                Notifications.Bus.notify(new Notification(
-                        "Codemoss",
-                        "Export Failed",
-                        "Failed to export prompts: " + e.getMessage(),
-                        NotificationType.ERROR
-                ));
+                showNotification("Export Failed", "Failed to export prompts: " + e.getMessage(), NotificationType.ERROR);
             }
         });
     }
@@ -573,12 +552,7 @@ public class PromptHandler extends BaseMessageHandler {
                 long fileSize = file.length();
                 long maxSize = MAX_IMPORT_FILE_SIZE;
                 if (fileSize > maxSize) {
-                    Notifications.Bus.notify(new Notification(
-                            "Codemoss",
-                            "Import Failed",
-                            "File size exceeds 5MB limit",
-                            NotificationType.ERROR
-                    ));
+                    showNotification("Import Failed", "File size exceeds 5MB limit", NotificationType.ERROR);
                     return;
                 }
 
@@ -588,22 +562,12 @@ public class PromptHandler extends BaseMessageHandler {
 
                 // Validate format
                 if (!importData.has("format") || !importData.get("format").getAsString().startsWith("claude-code-prompts-export-v")) {
-                    Notifications.Bus.notify(new Notification(
-                            "Codemoss",
-                            "Import Failed",
-                            "Invalid file format. Please select a valid prompts export file.",
-                            NotificationType.ERROR
-                    ));
+                    showNotification("Import Failed", "Invalid file format. Please select a valid prompts export file.", NotificationType.ERROR);
                     return;
                 }
 
                 if (!importData.has("prompts")) {
-                    Notifications.Bus.notify(new Notification(
-                            "Codemoss",
-                            "Import Failed",
-                            "No prompts found in file",
-                            NotificationType.ERROR
-                    ));
+                    showNotification("Import Failed", "No prompts found in file", NotificationType.ERROR);
                     return;
                 }
 
@@ -656,12 +620,7 @@ public class PromptHandler extends BaseMessageHandler {
 
             } catch (Exception e) {
                 LOG.error("[PromptHandler] Failed to import prompts file: " + e.getMessage(), e);
-                Notifications.Bus.notify(new Notification(
-                        "Codemoss",
-                        "Import Failed",
-                        "Failed to read file: " + e.getMessage(),
-                        NotificationType.ERROR
-                ));
+                showNotification("Import Failed", "Failed to read file: " + e.getMessage(), NotificationType.ERROR);
             }
         });
     }
@@ -723,22 +682,12 @@ public class PromptHandler extends BaseMessageHandler {
                 if (success) {
                     String message = String.format("Imported %d prompts (%d new, %d updated, %d skipped)",
                             imported + updated, imported, updated, skipped);
-                    Notifications.Bus.notify(new Notification(
-                            "Codemoss",
-                            "Import Successful",
-                            message,
-                            NotificationType.INFORMATION
-                    ));
+                    showNotification("Import Successful", message, NotificationType.INFORMATION);
                 } else {
                     @SuppressWarnings("unchecked")
                     List<String> errors = (List<String>) result.get("errors");
                     String errorMsg = errors.isEmpty() ? "Unknown error" : errors.get(0);
-                    Notifications.Bus.notify(new Notification(
-                            "Codemoss",
-                            "Import Failed",
-                            errorMsg,
-                            NotificationType.ERROR
-                    ));
+                    showNotification("Import Failed", errorMsg, NotificationType.ERROR);
                 }
 
                 LOG.info(String.format("[PromptHandler] Import completed: %d imported, %d updated, %d skipped",
@@ -760,12 +709,17 @@ public class PromptHandler extends BaseMessageHandler {
         errorResult.addProperty("error", error);
         ApplicationManager.getApplication().invokeLater(() -> {
             dispatchEvent("prompt.import_result", escapeJs(gson.toJson(errorResult)));
-            Notifications.Bus.notify(new Notification(
-                    "Codemoss",
-                    "Import Failed",
-                    error,
-                    NotificationType.ERROR
-            ));
+            showNotification("Import Failed", error, NotificationType.ERROR);
         });
+    }
+
+    /**
+     * Show a balloon notification via the registered "CC GUI Notifications" group.
+     */
+    private void showNotification(String title, String content, NotificationType type) {
+        NotificationGroupManager.getInstance()
+                .getNotificationGroup("CC GUI Notifications")
+                .createNotification(title, content, type)
+                .notify(context.getProject());
     }
 }
