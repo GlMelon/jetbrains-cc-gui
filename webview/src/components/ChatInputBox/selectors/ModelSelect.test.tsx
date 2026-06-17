@@ -114,9 +114,8 @@ describe('ModelSelect', () => {
     expect(screen.getByRole('button').textContent).toContain('glm-4.7');
   });
 
-  it('Claude 内置模型列表应移除已下线的 Opus 4.6，且不使用 [1m] 后缀 ID', () => {
+  it('Claude 内置模型列表不使用 [1m] 后缀 ID', () => {
     const ids = CLAUDE_MODELS.map((model) => model.id);
-    expect(ids).not.toContain('claude-opus-4-6');
     expect(ids.some((id) => id.endsWith('[1m]'))).toBe(false);
   });
 

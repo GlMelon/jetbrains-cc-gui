@@ -2,7 +2,7 @@ import {useMemo, useState} from 'react';
 import styles from './style.module.less';
 import { useTranslation } from 'react-i18next';
 
-export type SettingsTab = 'basic' | 'providers' | 'dependencies' | 'usage' | 'permissions' | 'promptEnhancer' | 'commit' | 'mcp' | 'agents' | 'prompts' | 'skills' | 'other' | 'community';
+export type SettingsTab = 'basic' | 'providers' | 'models' | 'dependencies' | 'usage' | 'permissions' | 'promptEnhancer' | 'commit' | 'mcp' | 'agents' | 'prompts' | 'skills' | 'other' | 'community';
 
 interface SidebarItem {
   key: SettingsTab;
@@ -21,6 +21,7 @@ const sidebarGroups: SidebarGroup[] = [
     items: [
       { key: 'basic', icon: 'settings', labelKey: 'settings.basic.title' },
       { key: 'providers', icon: 'plug', labelKey: 'settings.providers' },
+      { key: 'models', icon: 'list', labelKey: 'settings.models.title' },
       { key: 'dependencies', icon: 'package', labelKey: 'settings.dependencies' },
       { key: 'usage', icon: 'barChart', labelKey: 'settings.usage' },
     ],
@@ -62,6 +63,9 @@ const iconPaths: Record<string, string> = {
   // Package
   package:
     '<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+  // List
+  list:
+    '<line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/>',
   // Bar Chart
   barChart:
     '<path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/>',

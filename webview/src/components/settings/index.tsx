@@ -18,6 +18,7 @@ import PromptSection from './PromptSection';
 import CommitSection from './CommitSection';
 import PromptEnhancerSection from './PromptEnhancerSection';
 import OtherSettingsSection from './OtherSettingsSection';
+import ModelRegistrySection from './ModelRegistrySection';
 import {SkillsSettingsSection} from '../skills';
 import SettingsDialogs from './SettingsDialogs';
 import {setNewSessionConfirmEnabled as persistNewSessionConfirmEnabled} from '../../utils/skipNewSessionConfirm';
@@ -528,6 +529,11 @@ const SettingsView = ({
                 onRevokeCodexLocalConfigAuthorization={handleRevokeCodexLocalConfigAuthorization}
                 addToast={addToast}
               />
+          </div>
+
+          {/* Model registry */}
+          <div style={currentTab === 'models' ? BLOCK_STYLE : NONE_STYLE}>
+            <ModelRegistrySection addToast={addToast} />
           </div>
 
           {/* SDK dependency management */}

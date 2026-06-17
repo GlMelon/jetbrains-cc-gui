@@ -255,6 +255,8 @@ export interface ModelInfo {
   description?: string;
     /** Base context window size in tokens; undefined = use backend default (200K) */
     contextWindow?: number;
+    /** Whether the model can use the 1M context toggle even when base contextWindow is lower. */
+    supports1MContext?: boolean;
 }
 
 /**
@@ -287,6 +289,9 @@ export function modelSupports1MContext(
     // 2. 自定义/第三方模型：通过 contextWindow 字段判断
     const allModels = models ?? [...CLAUDE_MODELS, ...CODEX_MODELS];
     const modelInfo = allModels.find(m => m.id === baseId);
+    if (modelInfo?.supports1MContext !== undefined) {
+        return modelInfo.supports1MContext;
+    }
     if (modelInfo?.contextWindow !== undefined) {
         return modelInfo.contextWindow >= 1_000_000;
     }

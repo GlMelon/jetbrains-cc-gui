@@ -337,7 +337,7 @@ export function useSettingsBasicActions({
   }, []);
 
   const handleBrowseCodeFontFile = useCallback(() => {
-    sendToJava('browse_code_font_file:');
+    sendToJava('browse_code_font_file');
   }, []);
 
   // Streaming toggle change handler

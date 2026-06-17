@@ -6,6 +6,7 @@ import type {UiFontConfig, CodeFontConfig} from '../hooks/useSettingsBasicAction
 import AppearanceTab from './AppearanceTab';
 import BehaviorTab from './BehaviorTab';
 import EnvironmentTab from './EnvironmentTab';
+import RuntimePolicySection from './RuntimePolicySection';
 
 type BasicTab = 'appearance' | 'behavior' | 'environment';
 
@@ -157,28 +158,31 @@ const BasicConfigSection = (props: BasicConfigSectionProps) => {
       )}
 
       {activeTab === 'behavior' && (
-        <BehaviorTab
-          sendShortcut={props.sendShortcut}
-          onSendShortcutChange={props.onSendShortcutChange}
-          streamingEnabled={props.streamingEnabled}
-          onStreamingEnabledChange={props.onStreamingEnabledChange}
-          autoOpenFileEnabled={props.autoOpenFileEnabled}
-          onAutoOpenFileEnabledChange={props.onAutoOpenFileEnabledChange}
-          diffExpandedByDefault={props.diffExpandedByDefault}
-          onDiffExpandedByDefaultChange={props.onDiffExpandedByDefaultChange}
-          commitGenerationEnabled={props.commitGenerationEnabled}
-          onCommitGenerationEnabledChange={props.onCommitGenerationEnabledChange}
-          statusBarWidgetEnabled={props.statusBarWidgetEnabled}
-          onStatusBarWidgetEnabledChange={props.onStatusBarWidgetEnabledChange}
-          aiTitleGenerationEnabled={props.aiTitleGenerationEnabled}
-          onAiTitleGenerationEnabledChange={props.onAiTitleGenerationEnabledChange}
-          newSessionConfirmEnabled={props.newSessionConfirmEnabled}
-          onNewSessionConfirmEnabledChange={props.onNewSessionConfirmEnabledChange}
-          taskCompletionNotificationEnabled={props.taskCompletionNotificationEnabled}
-          onTaskCompletionNotificationEnabledChange={props.onTaskCompletionNotificationEnabledChange}
-          permissionDialogTimeoutSeconds={props.permissionDialogTimeoutSeconds}
-          onPermissionDialogTimeoutChange={props.onPermissionDialogTimeoutChange}
-        />
+        <>
+          <BehaviorTab
+            sendShortcut={props.sendShortcut}
+            onSendShortcutChange={props.onSendShortcutChange}
+            streamingEnabled={props.streamingEnabled}
+            onStreamingEnabledChange={props.onStreamingEnabledChange}
+            autoOpenFileEnabled={props.autoOpenFileEnabled}
+            onAutoOpenFileEnabledChange={props.onAutoOpenFileEnabledChange}
+            diffExpandedByDefault={props.diffExpandedByDefault}
+            onDiffExpandedByDefaultChange={props.onDiffExpandedByDefaultChange}
+            commitGenerationEnabled={props.commitGenerationEnabled}
+            onCommitGenerationEnabledChange={props.onCommitGenerationEnabledChange}
+            statusBarWidgetEnabled={props.statusBarWidgetEnabled}
+            onStatusBarWidgetEnabledChange={props.onStatusBarWidgetEnabledChange}
+            aiTitleGenerationEnabled={props.aiTitleGenerationEnabled}
+            onAiTitleGenerationEnabledChange={props.onAiTitleGenerationEnabledChange}
+            newSessionConfirmEnabled={props.newSessionConfirmEnabled}
+            onNewSessionConfirmEnabledChange={props.onNewSessionConfirmEnabledChange}
+            taskCompletionNotificationEnabled={props.taskCompletionNotificationEnabled}
+            onTaskCompletionNotificationEnabledChange={props.onTaskCompletionNotificationEnabledChange}
+            permissionDialogTimeoutSeconds={props.permissionDialogTimeoutSeconds}
+            onPermissionDialogTimeoutChange={props.onPermissionDialogTimeoutChange}
+          />
+          <RuntimePolicySection />
+        </>
       )}
 
       {activeTab === 'environment' && (
