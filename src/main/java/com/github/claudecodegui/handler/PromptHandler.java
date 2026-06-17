@@ -101,34 +101,41 @@ public class PromptHandler extends BaseMessageHandler {
 
     @Override
     public boolean handle(String type, String content) {
-        switch (type) {
-            case "get_prompts":
+        return switch (type) {
+            case "get_prompts" -> {
                 handleGetPrompts(content);
-                return true;
-            case "get_project_info":
+                yield true;
+            }
+            case "get_project_info" -> {
                 handleGetProjectInfo(content);
-                return true;
-            case "add_prompt":
+                yield true;
+            }
+            case "add_prompt" -> {
                 handleAddPrompt(content);
-                return true;
-            case "update_prompt":
+                yield true;
+            }
+            case "update_prompt" -> {
                 handleUpdatePrompt(content);
-                return true;
-            case "delete_prompt":
+                yield true;
+            }
+            case "delete_prompt" -> {
                 handleDeletePrompt(content);
-                return true;
-            case "export_prompts":
+                yield true;
+            }
+            case "export_prompts" -> {
                 handleExportPrompts(content);
-                return true;
-            case "import_prompts_file":
+                yield true;
+            }
+            case "import_prompts_file" -> {
                 handleImportPromptsFile(content);
-                return true;
-            case "save_imported_prompts":
+                yield true;
+            }
+            case "save_imported_prompts" -> {
                 handleSaveImportedPrompts(content);
-                return true;
-            default:
-                return false;
-        }
+                yield true;
+            }
+            default -> false;
+        };
     }
 
     /**
