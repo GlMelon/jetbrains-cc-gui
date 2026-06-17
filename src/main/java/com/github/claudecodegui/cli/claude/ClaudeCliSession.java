@@ -1,6 +1,7 @@
 package com.github.claudecodegui.cli.claude;
 
 import com.github.claudecodegui.cli.CliSendRequest;
+import com.github.claudecodegui.cli.CliSession;
 import com.github.claudecodegui.cli.CliSessionCallback;
 import com.github.claudecodegui.cli.CliSessionExecutor;
 import com.github.claudecodegui.cli.common.*;
@@ -32,7 +33,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * Claude CLI 会话：每个 Tab 独立实例，使用 one-shot 模式（每轮消息启动独立进程）。
  * 通过 --resume 实现多轮连续对话，完全兼容 Windows。
  */
-public class ClaudeCliSession {
+public class ClaudeCliSession implements CliSession {
 
     private static final Logger LOG = Logger.getInstance(ClaudeCliSession.class);
 

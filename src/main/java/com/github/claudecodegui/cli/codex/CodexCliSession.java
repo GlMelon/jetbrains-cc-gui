@@ -1,6 +1,7 @@
 package com.github.claudecodegui.cli.codex;
 
 import com.github.claudecodegui.cli.CliSendRequest;
+import com.github.claudecodegui.cli.CliSession;
 import com.github.claudecodegui.cli.CliSessionCallback;
 import com.github.claudecodegui.cli.CliSessionExecutor;
 import com.github.claudecodegui.cli.common.*;
@@ -33,7 +34,7 @@ import java.util.regex.Pattern;
  * 通过 resume --last 实现多轮连续对话。
  * 完全不依赖 SDK / ai-bridge。
  */
-public class CodexCliSession {
+public class CodexCliSession implements CliSession {
 
     private static final Logger LOG = Logger.getInstance(CodexCliSession.class);
     private static final String ENV_CODEX_SANDBOX_NETWORK_DISABLED = CliConstants.ENV_CODEX_SANDBOX_NETWORK_DISABLED;
@@ -1239,7 +1240,6 @@ public class CodexCliSession {
         }
     }
 }
-
 
 
 

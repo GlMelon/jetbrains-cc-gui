@@ -8,21 +8,27 @@ import com.github.claudecodegui.provider.common.SDKResult;
 import com.github.claudecodegui.ui.toolwindow.TabPerformanceLogger;
 import com.intellij.openapi.diagnostic.Logger;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
  * CLI 模式统一入口。每个 Tab 拥有独立的 ClaudeCliSession / CodexCliSession。
  * 完全不依赖 SDK / ai-bridge。
+ * <p>
+ * 面向 {@link CliSession} 接口容器，按 (tabId, provider) 解析。
  */
 public class CliSessionManager {
 
     private static final Logger LOG = Logger.getInstance(CliSessionManager.class);
 
-    private final ConcurrentHashMap<String, ClaudeCliSession> claudeSessions = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, CodexCliSession> codexSessions = new ConcurrentHashMap<>();
+    /**
+     * 统一容器：tabId → (provider → CliSession)。
+     * 替代原先 claudeSessions / codexSessions 双 Map。
+     */
+    private final ConcurrentHashMap<String, ConcurrentHashMap<String, CliSession>> sessions = new ConcurrentHashMap<>();
+
     // 每个 tab 当前进行中的 send future,用于 per-tab 串行化,避免并发竞态。
     private final ConcurrentHashMap<String, CompletableFuture<SDKResult>> inFlight = new ConcurrentHashMap<>();
 
@@ -45,43 +51,52 @@ public class CliSessionManager {
     }
 
     private CompletableFuture<SDKResult> dispatchSend(CliSendRequest request, MessageCallback callback) {
-        return switch (request.provider()) {
-            case CliConstants.PROVIDER_CLAUDE -> sendClaude(request, callback);
-            case CliConstants.PROVIDER_CODEX -> sendCodex(request, callback);
-            default -> CompletableFuture.failedFuture(
-                    new IllegalArgumentException("Unknown CLI provider: " + request.provider()));
+        String tabId = request.tabId();
+        String provider = request.provider();
+        CliSession session = resolveSession(tabId, provider);
+        return sendToSession(request, callback, session);
+    }
+
+    /**
+     * 按 (tabId, provider) 解析 CliSession 实例。
+     * 不存在时按 provider 类型创建新实例。
+     */
+    private CliSession resolveSession(String tabId, String provider) {
+        ConcurrentHashMap<String, CliSession> providerMap =
+                sessions.computeIfAbsent(tabId, k -> new ConcurrentHashMap<>());
+        return providerMap.computeIfAbsent(provider, k -> createSession(provider, tabId));
+    }
+
+    private static CliSession createSession(String provider, String tabId) {
+        return switch (provider) {
+            case CliConstants.PROVIDER_CLAUDE -> new ClaudeCliSession(tabId);
+            case CliConstants.PROVIDER_CODEX -> new CodexCliSession(tabId);
+            default -> throw new IllegalArgumentException("Unknown CLI provider: " + provider);
         };
     }
 
     public void interrupt(String tabId, String provider) {
-        switch (normalizeInterruptProvider(provider)) {
-            case CliConstants.PROVIDER_CLAUDE -> {
-                ClaudeCliSession s = claudeSessions.get(tabId);
-                if (s != null) { s.interrupt(); }
+        String normalizedProvider = normalizeInterruptProvider(provider);
+        ConcurrentHashMap<String, CliSession> providerMap = sessions.get(tabId);
+        if (providerMap != null) {
+            CliSession session = providerMap.get(normalizedProvider);
+            if (session != null) {
+                session.interrupt();
             }
-            case CliConstants.PROVIDER_CODEX -> {
-                CodexCliSession s = codexSessions.get(tabId);
-                if (s != null) { s.interrupt(); }
-            }
-            default -> {}
         }
     }
 
     public void disposeTab(String tabId) {
         long startNanos = System.nanoTime();
-        ClaudeCliSession cs = claudeSessions.remove(tabId);
-        if (cs != null) {
-            long claudeDisposeStartNanos = System.nanoTime();
-            cs.dispose();
-            LOG.info("[TabPerf] Claude CLI session dispose returned in "
-                    + TabPerformanceLogger.elapsedMillis(claudeDisposeStartNanos) + "ms: tab=" + tabId);
-        }
-        CodexCliSession xs = codexSessions.remove(tabId);
-        if (xs != null) {
-            long codexDisposeStartNanos = System.nanoTime();
-            xs.dispose();
-            LOG.info("[TabPerf] Codex CLI session dispose returned in "
-                    + TabPerformanceLogger.elapsedMillis(codexDisposeStartNanos) + "ms: tab=" + tabId);
+        ConcurrentHashMap<String, CliSession> providerMap = sessions.remove(tabId);
+        if (providerMap != null) {
+            for (Map.Entry<String, CliSession> entry : providerMap.entrySet()) {
+                long disposeStartNanos = System.nanoTime();
+                entry.getValue().dispose();
+                LOG.info("[TabPerf] CLI session dispose returned in "
+                        + TabPerformanceLogger.elapsedMillis(disposeStartNanos) + "ms: tab=" + tabId
+                        + ", provider=" + entry.getKey());
+            }
         }
         LOG.info("[TabPerf] CliSessionManager.disposeTab returned in "
                 + TabPerformanceLogger.elapsedMillis(startNanos) + "ms: tab=" + tabId);
@@ -89,25 +104,12 @@ public class CliSessionManager {
 
     // ── private ──────────────────────────────────────────────────────────────
 
-    private CompletableFuture<SDKResult> sendClaude(CliSendRequest request, MessageCallback callback) {
-        return sendToSession(request, callback, claudeSessions, ClaudeCliSession::new,
-                (session, cb) -> session.send(request, cb));
-    }
-
-    private CompletableFuture<SDKResult> sendCodex(CliSendRequest request, MessageCallback callback) {
-        return sendToSession(request, callback, codexSessions, CodexCliSession::new,
-                (session, cb) -> session.send(request, cb));
-    }
-
-    private <S> CompletableFuture<SDKResult> sendToSession(
+    private CompletableFuture<SDKResult> sendToSession(
             CliSendRequest request,
             MessageCallback callback,
-            ConcurrentHashMap<String, S> sessions,
-            Function<String, S> sessionFactory,
-            BiFunction<S, CliSessionCallback, CompletableFuture<Void>> sender
+            CliSession session
     ) {
-        S session = sessions.computeIfAbsent(request.tabId(), sessionFactory);
-        return sender.apply(session, adapt(callback))
+        return session.send(request, adapt(callback))
                 .thenApply(v -> SDKResult.success(null))
                 .exceptionally(ex -> {
                     SDKResult r = SDKResult.error(ex.getMessage());
