@@ -152,12 +152,6 @@ public class PermissionService {
         PermissionSessionRegistry.removeInstance(sessionId);
     }
 
-    @Deprecated(since = "0.1.6", forRemoval = true)
-    public static synchronized PermissionService getInstance(Project project) {
-        return PermissionSessionRegistry.getLegacyInstance(
-                () -> new PermissionService(project, PermissionSessionRegistry.newLegacySessionId()));
-    }
-
     // ── Public API ─────────────────────────────────────────────────────
 
     public void setDecisionListener(PermissionDecisionListener listener) {
@@ -191,14 +185,6 @@ public class PermissionService {
 
     public void setLastActiveProject(Project project) {
         dialogRouter.setLastActiveProject(project);
-    }
-
-    @Deprecated
-    public void setDialogShower(PermissionDialogShower shower) {
-        if (shower != null && this.project != null) {
-            dialogRouter.registerPermissionDialogShower(this.project, shower);
-        }
-        debugLog("CONFIG", "Dialog shower set (legacy): " + (shower != null));
     }
 
     public void clearDecisionMemory() {

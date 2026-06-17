@@ -285,7 +285,13 @@ public class ChatWindowDelegate {
 
         messageDispatcher.registerHandler(new WindowEventHandler(handlerContext, new WindowEventHandler.Callback() {
             @Override public void onHeartbeat(String content) { host.getWebviewWatchdog().handleHeartbeat(content); }
-            @Override public void onTabLoadingChanged(boolean loading) { updateTabLoadingState(loading); }
+            @Override public void onTabLoadingChanged(boolean loading) {
+                if (loading) {
+                    updateTabStatus(TabAnswerStatus.PROCESSING);
+                } else if (currentTabStatus != TabAnswerStatus.COMPLETED) {
+                    updateTabStatus(TabAnswerStatus.IDLE);
+                }
+            }
             @Override public void onTabStatusChanged(String statusStr) {
                 TabAnswerStatus status;
                 switch (statusStr) {
@@ -408,15 +414,6 @@ public class ChatWindowDelegate {
             }
             parentContent.setDisplayName(displayName);
         });
-    }
-
-    @Deprecated
-    public void updateTabLoadingState(boolean loading) {
-        if (loading) {
-            updateTabStatus(TabAnswerStatus.PROCESSING);
-        } else if (currentTabStatus != TabAnswerStatus.COMPLETED) {
-            updateTabStatus(TabAnswerStatus.IDLE);
-        }
     }
 
     private static Icon createStatusDotIcon(Color color) {

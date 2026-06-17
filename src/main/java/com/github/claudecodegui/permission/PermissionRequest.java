@@ -27,16 +27,6 @@ public class PermissionRequest {
     }
 
     /**
-     * Backward-compatible constructor (without project).
-     *
-     * @deprecated Use the constructor that includes a project parameter.
-     */
-    @Deprecated
-    public PermissionRequest(String channelId, String toolName, Map<String, Object> inputs, JsonObject suggestions) {
-        this(channelId, toolName, inputs, suggestions, null);
-    }
-
-    /**
      * Approve the permission request.
      */
     public void accept(Map<String, Object> updatedInput, JsonObject updatedPermissions) {

@@ -585,11 +585,6 @@ public class ClaudeChatWindow {
         chatWindowDelegate.updateTabStatus(status);
     }
 
-    @Deprecated
-    public void updateTabLoadingState(boolean loading) {
-        chatWindowDelegate.updateTabLoadingState(loading);
-    }
-
     public void sendQuickFixMessage(String prompt, boolean isQuickFix, MessageCallback callback) {
         chatWindowDelegate.sendQuickFixMessage(prompt, isQuickFix, callback);
     }

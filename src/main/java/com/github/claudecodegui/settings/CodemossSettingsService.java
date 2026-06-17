@@ -877,14 +877,6 @@ public class CodemossSettingsService {
         return providerManager.deleteClaudeProvider(id);
     }
 
-    @Deprecated
-    public void deleteClaudeProviderWithException(String id) throws IOException {
-        DeleteResult result = deleteClaudeProvider(id);
-        if (!result.isSuccess()) {
-            throw new IOException(result.getUserFriendlyMessage());
-        }
-    }
-
     public void switchClaudeProvider(String id) throws IOException {
         providerManager.switchClaudeProvider(id);
     }
@@ -1102,68 +1094,6 @@ public class CodemossSettingsService {
      */
     public Map<String, Object> batchImportPrompts(List<JsonObject> promptsToImport, ConflictStrategy strategy, PromptScope scope, Project project) throws IOException {
         return getPromptManager(scope, project).batchImportPrompts(promptsToImport, strategy);
-    }
-
-    // ==================== Deprecated Backward-Compatible Methods ====================
-
-    /**
-     * Get a PromptManager (defaults to GLOBAL scope).
-     *
-     * @deprecated Use {@link #getPromptManager(PromptScope, Project)} instead
-     */
-    @Deprecated
-    public AbstractPromptManager getPromptManager() {
-        return getPromptManager(PromptScope.GLOBAL, null);
-    }
-
-    /**
-     * Get prompts (defaults to GLOBAL scope).
-     *
-     * @deprecated Use {@link #getPrompts(PromptScope, Project)} instead
-     */
-    @Deprecated
-    public List<JsonObject> getPrompts() throws IOException {
-        return getPrompts(PromptScope.GLOBAL, null);
-    }
-
-    /**
-     * Add a prompt (defaults to GLOBAL scope).
-     *
-     * @deprecated Use {@link #addPrompt(JsonObject, PromptScope, Project)} instead
-     */
-    @Deprecated
-    public void addPrompt(JsonObject prompt) throws IOException {
-        addPrompt(prompt, PromptScope.GLOBAL, null);
-    }
-
-    /**
-     * Update a prompt (defaults to GLOBAL scope).
-     *
-     * @deprecated Use {@link #updatePrompt(String, JsonObject, PromptScope, Project)} instead
-     */
-    @Deprecated
-    public void updatePrompt(String id, JsonObject updates) throws IOException {
-        updatePrompt(id, updates, PromptScope.GLOBAL, null);
-    }
-
-    /**
-     * Delete a prompt (defaults to GLOBAL scope).
-     *
-     * @deprecated Use {@link #deletePrompt(String, PromptScope, Project)} instead
-     */
-    @Deprecated
-    public boolean deletePrompt(String id) throws IOException {
-        return deletePrompt(id, PromptScope.GLOBAL, null);
-    }
-
-    /**
-     * Get a prompt by ID (defaults to GLOBAL scope).
-     *
-     * @deprecated Use {@link #getPrompt(String, PromptScope, Project)} instead
-     */
-    @Deprecated
-    public JsonObject getPrompt(String id) throws IOException {
-        return getPrompt(id, PromptScope.GLOBAL, null);
     }
 
     // ==================== Task Completion Notification Management ====================

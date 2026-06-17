@@ -92,16 +92,6 @@ public class PermissionManager {
     }
 
     /**
-     * Create a new permission request (backward compatible).
-     *
-     * @deprecated Use the method that includes a project parameter.
-     */
-    @Deprecated
-    public PermissionRequest createRequest(String channelId, String toolName, Map<String, Object> inputs, JsonObject suggestions) {
-        return createRequest(channelId, toolName, inputs, suggestions, null);
-    }
-
-    /**
      * Handle a permission decision (with remember option).
      */
     public void handlePermissionDecision(String channelId, boolean allow, boolean rememberDecision, String rejectMessage) {
