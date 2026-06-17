@@ -47,6 +47,11 @@
             <property name="id" value="NoUserHomeProperty"/>
             <property name="files" value="PlatformUtils\.java"/>
         </module>
+        <!-- Allow build-time tools (non-IDE runtime) to use System.out/err -->
+        <module name="SuppressionXpathSingleFilter">
+            <property name="files" value="ProtocolManifestGenerator\.java"/>
+            <property name="checks" value="RegexpSinglelineJava"/>
+        </module>
 
         <!-- ===== Annotations ===== -->
 
