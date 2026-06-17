@@ -25,6 +25,7 @@ function renderBlock(block: ClaudeContentBlock) {
   return render(
     <ContentBlockRenderer
       block={block}
+      blockIndex={0}
       messageIndex={0}
       messageType="assistant"
       isStreaming={false}

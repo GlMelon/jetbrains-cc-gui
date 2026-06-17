@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import type { TFunction } from 'i18next';
 import type { PermissionRequest } from '../components/PermissionDialog';
 import type { AskUserQuestionRequest } from '../components/AskUserQuestionDialog';
@@ -87,7 +87,7 @@ export function useDialogManagement({ t }: UseDialogManagementOptions): UseDialo
   const [contextUsageDialogOpen, setContextUsageDialogOpen] = useState(false);
   const [contextUsageIsLoading, setContextUsageIsLoading] = useState(false);
   const [contextUsageData, setContextUsageData] = useState<ContextUsageData | null>(null);
-  const contextUsageRequestIdRef = { current: null as string | null };
+  const contextUsageRequestIdRef = useRef<string | null>(null);
 
   // Permission handlers
   const handlePermissionApprove = useCallback((channelId: string) => {
@@ -185,7 +185,7 @@ export function useDialogManagement({ t }: UseDialogManagementOptions): UseDialo
     return true;
   }, []);
 
-  return {
+  return useMemo<UseDialogManagementReturn>(() => ({
     // Permission dialog
     permissionDialogOpen: permissionDialog.isOpen,
     currentPermissionRequest: permissionDialog.currentRequest,
@@ -227,5 +227,19 @@ export function useDialogManagement({ t }: UseDialogManagementOptions): UseDialo
     openContextUsageDialog,
     updateContextUsageData,
     closeContextUsageDialog,
-  };
+  }), [
+    // State values that can change; the memoized value only updates when one
+    // of these changes, so useDialogs() consumers avoid spurious re-renders.
+    permissionDialog.isOpen, permissionDialog.currentRequest, permissionDialog.open,
+    handlePermissionApprove, handlePermissionApproveAlways, handlePermissionSkip,
+    askUserQuestionDialog.isOpen, askUserQuestionDialog.currentRequest, askUserQuestionDialog.open,
+    handleAskUserQuestionSubmit, handleAskUserQuestionCancel,
+    planApprovalDialog.isOpen, planApprovalDialog.currentRequest, planApprovalDialog.open,
+    handlePlanApprovalApprove, handlePlanApprovalReject,
+    rewindDialogOpen, setRewindDialogOpen, currentRewindRequest, setCurrentRewindRequest,
+    isRewinding, setIsRewinding,
+    rewindSelectDialogOpen, setRewindSelectDialogOpen,
+    contextUsageDialogOpen, contextUsageIsLoading, contextUsageData,
+    openContextUsageDialog, updateContextUsageData, closeContextUsageDialog,
+  ]);
 }

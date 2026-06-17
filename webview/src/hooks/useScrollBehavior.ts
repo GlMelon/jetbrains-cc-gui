@@ -79,8 +79,10 @@ export function useScrollBehavior({
   //     end-positioning. Even though step 1 alone is usually sufficient, this
   //     extra call hardens against intermediate scroll targets when the last
   //     message grows in multiple paint phases (e.g. tool blocks streaming
-  //     in one-by-one). Force-reading `getBoundingClientRect`/`offsetTop`
-  //     beforehand ensures layout is up-to-date before the scroll command.
+  //     in one-by-one). Note: reading `scrollHeight` below already forces
+  //     layout to flush, so no separate forced reflow is needed — the previous
+  //     getBoundingClientRect/offsetTop reads were pure layout thrash that
+  //     caused per-frame stutter during streaming.
   const scrollToBottom = useCallback(() => {
     const container = messagesContainerRef.current;
     const endElement = messagesEndRef.current;
@@ -90,11 +92,6 @@ export function useScrollBehavior({
     isAutoScrollingRef.current = true;
     isUserAtBottomRef.current = true;
     container?.classList.remove(SCROLL_ANCHOR_ENABLED_CLASS);
-
-    if (endElement) {
-      void endElement.getBoundingClientRect();
-      void endElement.offsetTop;
-    }
 
     // Step 1: deterministic scrollTop adjustment.
     if (container) {

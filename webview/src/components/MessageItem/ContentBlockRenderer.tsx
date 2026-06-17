@@ -130,6 +130,7 @@ const CompactSummaryBlock = memo(function CompactSummaryBlock({ block, t }: Comp
 
 export interface ContentBlockRendererProps {
   block: ClaudeContentBlock;
+  blockIndex: number;
   messageIndex: number;
   messageType: string;
   isStreaming: boolean;
@@ -138,12 +139,13 @@ export interface ContentBlockRendererProps {
   isLastMessage: boolean;
   isLastBlock?: boolean;
   t: TFunction;
-  onToggleThinking: () => void;
+  onToggleThinking: (blockIndex: number) => void;
   findToolResult: (toolId: string | undefined, messageIndex: number) => ToolResultBlock | null | undefined;
 }
 
-export function ContentBlockRenderer({
+export const ContentBlockRenderer = memo(function ContentBlockRenderer({
   block,
+  blockIndex,
   messageIndex,
   messageType,
   isStreaming,
@@ -291,7 +293,7 @@ export function ContentBlockRenderer({
       <div className={`thinking-section${isThinkingExpanded ? ' expanded' : ''}`}>
         <div
           className="thinking-section-header"
-          onClick={onToggleThinking}
+          onClick={() => onToggleThinking(blockIndex)}
         >
           <svg className="thinking-section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M9.5 2A2.5 2.5 0 0112 4.5v15a2.5 2.5 0 01-4.96.44 2.5 2.5 0 01-2.96-3.08 3 3 0 01-.34-5.58 2.5 2.5 0 011.32-4.24 2.5 2.5 0 011.98-3A2.5 2.5 0 019.5 2z" />
@@ -413,4 +415,4 @@ export function ContentBlockRenderer({
   }
 
   return null;
-}
+});

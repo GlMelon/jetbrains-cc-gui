@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { createContext, useContext, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDialogManagement } from '../hooks/useDialogManagement';
 
@@ -14,17 +14,9 @@ const DialogContext = createContext<DialogManagementValue | null>(null);
  */
 export function DialogProvider({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
-  const dialogState = useDialogManagement({ t });
-
-  // useDialogManagement already returns a stable object shape per render;
-  // wrap in useMemo over its full set of fields to avoid re-creating the
-  // context value reference unnecessarily across consumer renders.
-  const value = useMemo<DialogManagementValue>(
-    () => dialogState,
-    // The hook returns ~20 fields; spread into deps so we react to any change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    Object.values(dialogState),
-  );
+  // useDialogManagement memoizes its return value internally, so this only
+  // produces a new context reference when dialog state actually changes.
+  const value = useDialogManagement({ t });
 
   return <DialogContext.Provider value={value}>{children}</DialogContext.Provider>;
 }

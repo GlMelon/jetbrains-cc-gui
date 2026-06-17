@@ -143,6 +143,7 @@ export const ModelSelect = ({ value, onChange, models = AVAILABLE_MODELS, curren
   const { positionedStyle, maxHeight, recalculate } = useDropdownPosition({
     buttonRef,
     dropdownRef,
+    isOpen,
     preferredAlignment: 'right',
   });
 

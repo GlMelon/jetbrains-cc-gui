@@ -162,6 +162,7 @@ export const ConfigSelect = ({
   const { positionedStyle: mainPositionedStyle, recalculate: mainRecalculate } = useDropdownPosition({
     buttonRef,
     dropdownRef,
+    isOpen,
   });
   const { positionedStyle: agentSubmenuPositionedStyle, maxHeight: agentSubmenuMaxHeight, recalculate: agentSubmenuRecalculate } = useDropdownPosition({
     buttonRef: agentTriggerRef,

@@ -46,6 +46,7 @@ export const ReasoningSelect = ({ value, onChange, disabled, selectedModel, curr
   const { positionedStyle, recalculate } = useDropdownPosition({
     buttonRef,
     dropdownRef,
+    isOpen,
     preferredAlignment: 'right',
   });
 

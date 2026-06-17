@@ -135,6 +135,13 @@ export const ChatScreen = ({
     searchOpen, setSearchOpen,
   } = useUIState();
 
+  // Stable callback so MessageList's memo isn't busted by a fresh inline
+  // function on every ChatScreen render (these setters are stable).
+  const handleNavigateToDependencySettings = useCallback(() => {
+    setSettingsInitialTab('dependencies');
+    setCurrentView('settings');
+  }, [setSettingsInitialTab, setCurrentView]);
+
   // Signal that the search hook can listen to for re-scanning. Combines
   // length + last timestamp + streaming flag + last-message content size.
   //
@@ -229,10 +236,7 @@ export const ChatScreen = ({
                   onMessageNodeRef={onMessageNodeRef}
                   onCollapsedCountChange={setAnchorCollapsedCount}
                   onNavigateToProviderSettings={onNavigateToProviderSettings}
-                  onNavigateToDependencySettings={() => {
-                    setSettingsInitialTab('dependencies');
-                    setCurrentView('settings');
-                  }}
+                  onNavigateToDependencySettings={handleNavigateToDependencySettings}
                   currentProvider={currentProvider}
                 />
               </ToolResultRawContext.Provider>

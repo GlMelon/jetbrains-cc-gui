@@ -322,13 +322,27 @@ export function useStreamingMessages(): UseStreamingMessagesReturn {
         ? rawObj.content
         : Array.isArray(msg?.content) ? msg.content : [];
 
-      let blocks = [...rawContent] as ContentBlock[];
-      blocks = syncThinkingBlocksWithContent(blocks, deltaThinking);
-      blocks = syncTextBlocksWithContent(blocks, bestContent);
+      // sync* return the SAME array reference when nothing changed. Track that
+      // so we can reuse the original `raw` object identity — this keeps the
+      // WeakMap cache in useMessageProcessing (keyed by `raw`) valid across
+      // streaming ticks and stabilizes block object identity, so
+      // memoized ContentBlockRenderer instances for unchanged blocks skip
+      // re-render instead of all busting every frame.
+      let blocks = rawContent as ContentBlock[];
+      let changed = false;
 
-      patchedRaw = (msg
-        ? { ...rawObj, message: { ...msg, content: blocks } }
-        : { ...rawObj, content: blocks }) as ClaudeMessage['raw'];
+      const afterThinking = syncThinkingBlocksWithContent(blocks, deltaThinking);
+      if (afterThinking !== blocks) { blocks = afterThinking; changed = true; }
+
+      const afterText = syncTextBlocksWithContent(blocks, bestContent);
+      if (afterText !== blocks) { blocks = afterText; changed = true; }
+
+      if (changed) {
+        patchedRaw = (msg
+          ? { ...rawObj, message: { ...msg, content: blocks } }
+          : { ...rawObj, content: blocks }) as ClaudeMessage['raw'];
+      }
+      // else: patchedRaw stays === assistant.raw (identity preserved)
     } else if (deltaThinking) {
       let blocks: ContentBlock[] = [];
       blocks = syncThinkingBlocksWithContent(blocks, deltaThinking);

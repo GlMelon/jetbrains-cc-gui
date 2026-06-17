@@ -1,4 +1,4 @@
-import { useCallback, useState, type CSSProperties, type RefObject } from 'react';
+import { useCallback, useEffect, useState, type CSSProperties, type RefObject } from 'react';
 import { getAppViewport } from '../utils/viewport';
 
 type DropdownAlignment = 'left' | 'right';
@@ -11,6 +11,13 @@ interface UseDropdownPositionOptions {
   submenuMaxHeight?: number;
   submenuBottomClearance?: number;
   submenu?: boolean;
+  /**
+   * When true, the hook attaches capture-phase scroll + resize listeners so
+   * the (position:fixed) dropdown repositions itself as its anchor button
+   * moves — e.g. while streaming output auto-scrolls the chat. Omit to keep
+   * the legacy "compute once" behavior.
+   */
+  isOpen?: boolean;
 }
 
 interface PositionState {
@@ -50,6 +57,7 @@ export function useDropdownPosition({
   submenuMaxHeight = 300,
   submenuBottomClearance = 96,
   submenu = false,
+  isOpen = false,
 }: UseDropdownPositionOptions): {
   positionedStyle: CSSProperties;
   maxHeight: number | undefined;
@@ -119,6 +127,30 @@ export function useDropdownPosition({
 
     setPositionState({ left, bottom: bottomValue, maxHeight: dropdownMaxHeight, submenuSide: 'right' });
   }, [buttonRef, dropdownRef, preferredAlignment, minWidth, submenu, submenuBottomClearance, submenuMaxHeight]);
+
+  // While open, keep the fixed-positioned dropdown aligned with its anchor as
+  // the page scrolls or resizes (e.g. chat auto-scroll during streaming).
+  // Throttled to one recalculation per animation frame to avoid layout thrash.
+  useEffect(() => {
+    if (!isOpen) return;
+    let rafId: number | null = null;
+    const schedule = () => {
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        recalculate();
+      });
+    };
+    // capture phase: the dropdown is position:fixed, so ancestor scroll moves
+    // the button without bubbling a scroll event on window.
+    window.addEventListener('scroll', schedule, true);
+    window.addEventListener('resize', schedule);
+    return () => {
+      window.removeEventListener('scroll', schedule, true);
+      window.removeEventListener('resize', schedule);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
+  }, [isOpen, recalculate]);
 
   if (!positionState) {
     if (submenu) {

@@ -215,6 +215,9 @@ function groupBlocks(blocks: ClaudeContentBlock[]): GroupedBlock[] {
   return groupedBlocks;
 }
 
+/** Stable no-op for ContentBlockRenderer instances that never toggle thinking. */
+const noopThinkingToggle = (_blockIndex: number) => {};
+
 export const MessageItem = memo(function MessageItem({
   message,
   messageIndex,
@@ -459,6 +462,7 @@ export const MessageItem = memo(function MessageItem({
         const editItems = grouped.blocks.map((b) => {
           const block = b as { type: 'tool_use'; id?: string; name?: string; input?: Record<string, unknown> };
           return {
+            toolId: block.id,
             name: block.name,
             input: block.input,
             result: findToolResult(block.id, messageIndex),
@@ -530,6 +534,7 @@ export const MessageItem = memo(function MessageItem({
             <div key={`${messageIndex}-searchgroup-${grouped.startIndex}`} className="content-block">
               <ContentBlockRenderer
                 block={grouped.blocks[0]}
+                blockIndex={grouped.startIndex}
                 messageIndex={messageIndex}
                 messageType={message.type}
                 isStreaming={isMessageStreaming}
@@ -538,7 +543,7 @@ export const MessageItem = memo(function MessageItem({
                 isLastMessage={isLast}
                 isLastBlock={grouped.startIndex === blocks.length - 1}
                 t={t}
-                onToggleThinking={() => {}}
+                onToggleThinking={noopThinkingToggle}
                 findToolResult={findToolResult}
               />
             </div>
@@ -558,6 +563,7 @@ export const MessageItem = memo(function MessageItem({
         <div key={`${messageIndex}-${blockIndex}`} className="content-block">
           <ContentBlockRenderer
             block={block}
+            blockIndex={blockIndex}
             messageIndex={messageIndex}
             messageType={message.type}
             isStreaming={isMessageStreaming}
@@ -566,7 +572,7 @@ export const MessageItem = memo(function MessageItem({
             isLastMessage={isLast}
             isLastBlock={blockIndex === blocks.length - 1}
             t={t}
-            onToggleThinking={() => toggleThinking(blockIndex)}
+            onToggleThinking={toggleThinking}
             findToolResult={findToolResult}
           />
         </div>

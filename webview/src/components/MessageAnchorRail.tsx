@@ -72,6 +72,22 @@ export const MessageAnchorRail = memo(function MessageAnchorRail({
   // Cleanup timer on unmount
   useEffect(() => clearTooltipTimer, [clearTooltipTimer]);
 
+  // Stable signature of the visible user-message set. During streaming the
+  // `messages` array reference changes every tick even though the set of user
+  // messages is unchanged; keying off this string keeps anchors (and the
+  // IntersectionObserver below) from being rebuilt on every streaming frame.
+  const userMessageSignature = useMemo(() => {
+    const startIndex = collapsedCount;
+    const parts: string[] = [];
+    for (let i = startIndex; i < messages.length; i++) {
+      if (messages[i].type === 'user') {
+        parts.push(getMessageKey(messages[i], i));
+      }
+    }
+    return parts.join('|');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, collapsedCount]);
+
   // Compute anchor items from visible user messages only (skip collapsed ones)
   const anchors = useMemo<AnchorItem[]>(() => {
     const userMessages: AnchorItem[] = [];
@@ -92,7 +108,9 @@ export const MessageAnchorRail = memo(function MessageAnchorRail({
       ...item,
       position: 0.04 + (idx / (userMessages.length - 1)) * 0.92,
     }));
-  }, [messages, collapsedCount]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- depends on the
+    // stable signature so streaming ticks don't recompute anchors.
+  }, [userMessageSignature]);
 
   // Scroll to a specific anchor message
   const scrollToAnchor = useCallback((messageId: string) => {

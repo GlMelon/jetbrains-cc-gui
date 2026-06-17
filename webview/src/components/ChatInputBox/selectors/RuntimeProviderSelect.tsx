@@ -52,6 +52,7 @@ export const RuntimeProviderSelect = ({ currentProvider, embedded = false, trigg
     buttonRef: (embedded ? triggerRef : buttonRef) as React.RefObject<HTMLElement | null>,
     dropdownRef,
     submenu: embedded,
+    isOpen,
     minWidth: embedded ? 260 : 200,
   });
 

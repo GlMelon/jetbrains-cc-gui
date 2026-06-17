@@ -58,6 +58,7 @@ export const ModeSelect = ({ value, onChange, provider }: ModeSelectProps) => {
   const { positionedStyle, recalculate } = useDropdownPosition({
     buttonRef,
     dropdownRef,
+    isOpen,
     preferredAlignment: 'right',
   });
 

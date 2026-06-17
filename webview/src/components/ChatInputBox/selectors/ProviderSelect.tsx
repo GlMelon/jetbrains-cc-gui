@@ -82,7 +82,7 @@ export const ProviderSelect = ({ value, onChange, compact = false }: ProviderSel
   const [submenuBottom, setSubmenuBottom] = useState(0);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { positionedStyle, recalculate } = useDropdownPosition({ buttonRef, dropdownRef });
+  const { positionedStyle, recalculate } = useDropdownPosition({ buttonRef, dropdownRef, isOpen });
 
   const currentProvider = AVAILABLE_PROVIDERS.find(p => p.id === value) || AVAILABLE_PROVIDERS[0];
 

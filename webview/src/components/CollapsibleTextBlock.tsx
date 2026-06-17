@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 
 interface CollapsibleTextBlockProps {
   content: string;
@@ -11,24 +11,29 @@ const CollapsibleTextBlock: React.FC<CollapsibleTextBlockProps> = ({ content }) 
   const [isOverflowing, setIsOverflowing] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
+  const checkHeight = useCallback(() => {
+    if (contentRef.current) {
+      setIsOverflowing(contentRef.current.scrollHeight > MAX_HEIGHT);
+    }
+  }, []);
+
+  // Create the ResizeObserver once; tearing it down on every content change
+  // (the previous implementation) caused observer churn and forced layout
+  // reads whenever the parent re-rendered with a new content reference.
   useEffect(() => {
-    if (!contentRef.current) return;
-
-    const checkHeight = () => {
-      if (contentRef.current) {
-        setIsOverflowing(contentRef.current.scrollHeight > MAX_HEIGHT);
-      }
-    };
-
-    // Check initially
-    checkHeight();
-
-    // Use ResizeObserver to detect size changes (e.g. window resize or content loading)
+    const el = contentRef.current;
+    if (!el) return;
     const observer = new ResizeObserver(checkHeight);
-    observer.observe(contentRef.current);
-
+    observer.observe(el);
     return () => observer.disconnect();
-  }, [content]);
+  }, [checkHeight]);
+
+  // Re-measure immediately when content changes (the observer also fires, but
+  // asynchronously — this keeps the toggle button in sync without recreating
+  // the observer).
+  useEffect(() => {
+    checkHeight();
+  }, [content, checkHeight]);
 
   const toggleExpand = (e: React.MouseEvent) => {
     e.stopPropagation();
