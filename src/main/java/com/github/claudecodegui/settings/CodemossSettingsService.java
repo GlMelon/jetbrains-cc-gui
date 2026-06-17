@@ -5,10 +5,17 @@ import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.model.ConflictStrategy;
 import com.github.claudecodegui.model.DeleteResult;
 import com.github.claudecodegui.model.PromptScope;
+import com.github.claudecodegui.config.ModelConfig;
+import com.github.claudecodegui.config.ModelConfigValidator;
+import com.github.claudecodegui.config.ModelRegistryConfig;
+import com.github.claudecodegui.session.runtime.ProviderType;
+import com.github.claudecodegui.session.runtime.RuntimeType;
 import com.github.claudecodegui.util.FontConfigService;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonNull;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.intellij.openapi.application.ApplicationManager;
@@ -61,6 +68,7 @@ public class CodemossSettingsService {
     public static final String CODEX_RUNTIME_ACCESS_CLI_LOGIN = "cli_login";
     private static final String COMMIT_AI_KEY = "commitAi";
     private static final String PROMPT_ENHANCER_KEY = "promptEnhancer";
+    private static final String MODEL_REGISTRY_KEY = "models";
     private static final String AI_FEATURE_PROVIDER_KEY = "provider";
     private static final String AI_FEATURE_MODELS_KEY = "models";
     private static final String AI_FEATURE_EFFECTIVE_PROVIDER_KEY = "effectiveProvider";
@@ -1620,5 +1628,271 @@ public class CodemossSettingsService {
 
     public void saveCodexProviderOrder(List<String> orderedIds) throws IOException {
         codexProviderManager.saveProviderOrder(orderedIds);
+    }
+
+    // ==================== Model Registry Config Management ====================
+
+    /**
+     * Read the configurable model registry. Missing or invalid config falls back
+     * to defaults that match the previous hard-coded model lists.
+     */
+    public ModelRegistryConfig getModelRegistry() {
+        try {
+            JsonObject config = readConfig();
+            if (!config.has(MODEL_REGISTRY_KEY) || !config.get(MODEL_REGISTRY_KEY).isJsonObject()) {
+                return ModelRegistryConfig.getDefault();
+            }
+            ModelRegistryConfig registry = parseModelRegistry(config.getAsJsonObject(MODEL_REGISTRY_KEY));
+            ModelConfigValidator.ValidationResult validation = registry.validate();
+            if (!validation.isValid()) {
+                LOG.warn("[CodemossSettings] Loaded model registry is invalid, using defaults: "
+                        + validation.errors());
+                return ModelRegistryConfig.getDefault();
+            }
+            return registry;
+        } catch (Exception e) {
+            LOG.warn("[CodemossSettings] Failed to read model registry, using defaults: " + e.getMessage());
+            return ModelRegistryConfig.getDefault();
+        }
+    }
+
+    /**
+     * Save the configurable model registry. Invalid config is rejected and not persisted.
+     */
+    public ModelConfigValidator.ValidationResult setModelRegistry(ModelRegistryConfig registry) {
+        ModelConfigValidator.ValidationResult validation = ModelConfigValidator.validate(registry);
+        if (!validation.isValid()) {
+            LOG.warn("[CodemossSettings] Model registry validation failed, not saving: " + validation.errors());
+            return validation;
+        }
+        try {
+            JsonObject config = readConfig();
+            config.add(MODEL_REGISTRY_KEY, serializeModelRegistry(registry));
+            writeConfig(config);
+            LOG.info("[CodemossSettings] Saved model registry");
+            return validation;
+        } catch (Exception e) {
+            LOG.error("[CodemossSettings] Failed to save model registry: " + e.getMessage());
+            var errors = new java.util.ArrayList<String>();
+            errors.add("保存失败: " + e.getMessage());
+            return new ModelConfigValidator.ValidationResult(errors, java.util.List.of());
+        }
+    }
+
+    /**
+     * Remove persisted model registry so defaults are used again.
+     */
+    public void resetModelRegistry() {
+        try {
+            JsonObject config = readConfig();
+            config.remove(MODEL_REGISTRY_KEY);
+            writeConfig(config);
+            LOG.info("[CodemossSettings] Reset model registry to defaults");
+        } catch (Exception e) {
+            LOG.error("[CodemossSettings] Failed to reset model registry: " + e.getMessage());
+        }
+    }
+
+    private ModelRegistryConfig parseModelRegistry(JsonObject modelRegistryObj) {
+        List<ModelConfig> models = new java.util.ArrayList<>();
+        if (modelRegistryObj.has("items") && modelRegistryObj.get("items").isJsonArray()) {
+            JsonArray items = modelRegistryObj.getAsJsonArray("items");
+            for (JsonElement item : items) {
+                if (!item.isJsonObject()) {
+                    continue;
+                }
+                JsonObject obj = item.getAsJsonObject();
+                String id = readString(obj, "id");
+                String provider = readString(obj, "provider");
+                String label = readString(obj, "label");
+                String description = readString(obj, "description");
+                int contextWindow = obj.has("contextWindow") && obj.get("contextWindow").isJsonPrimitive()
+                        ? obj.get("contextWindow").getAsInt()
+                        : 200_000;
+                boolean supports1MContext = obj.has("supports1MContext")
+                        && obj.get("supports1MContext").getAsBoolean();
+                boolean enabled = !obj.has("enabled") || obj.get("enabled").getAsBoolean();
+                models.add(new ModelConfig(id, provider, label, description, contextWindow, supports1MContext, enabled));
+            }
+        }
+        return new ModelRegistryConfig(models);
+    }
+
+    private JsonObject serializeModelRegistry(ModelRegistryConfig registry) {
+        JsonObject root = new JsonObject();
+        JsonArray items = new JsonArray();
+        for (ModelConfig model : registry.models()) {
+            JsonObject obj = new JsonObject();
+            obj.addProperty("id", model.id());
+            obj.addProperty("provider", model.provider());
+            obj.addProperty("label", model.label());
+            if (model.description() == null || model.description().isEmpty()) {
+                obj.add("description", JsonNull.INSTANCE);
+            } else {
+                obj.addProperty("description", model.description());
+            }
+            obj.addProperty("contextWindow", model.contextWindow());
+            obj.addProperty("supports1MContext", model.supports1MContext());
+            obj.addProperty("enabled", model.enabled());
+            items.add(obj);
+        }
+        root.add("items", items);
+        return root;
+    }
+
+    private static String readString(JsonObject obj, String key) {
+        if (!obj.has(key) || obj.get(key).isJsonNull()) {
+            return "";
+        }
+        return obj.get(key).getAsString();
+    }
+
+    // ==================== Runtime Policy Config Management ====================
+
+    private static final String RUNTIME_POLICY_KEY = "runtime";
+
+    /**
+     * 读取路由策略配置。配置缺失或损坏时回退默认配置。
+     */
+    public com.github.claudecodegui.config.RuntimePolicyConfig getRuntimePolicy() {
+        try {
+            JsonObject config = readConfig();
+            if (!config.has(RUNTIME_POLICY_KEY) || !config.get(RUNTIME_POLICY_KEY).isJsonObject()) {
+                LOG.info("[CodemossSettings] No runtime policy config found, using default");
+                return com.github.claudecodegui.config.RuntimePolicyConfig.getDefault();
+            }
+            JsonObject runtimeObj = config.getAsJsonObject(RUNTIME_POLICY_KEY);
+            return parseRuntimePolicy(runtimeObj);
+        } catch (Exception e) {
+            LOG.warn("[CodemossSettings] Failed to read runtime policy, using default: " + e.getMessage());
+            return com.github.claudecodegui.config.RuntimePolicyConfig.getDefault();
+        }
+    }
+
+    /**
+     * 保存路由策略配置。先校验，errors 非空则拒绝落盘。
+     *
+     * @param policyConfig 待保存的配置
+     * @return 校验结果（errors 非空表示被拒绝）
+     */
+    public com.github.claudecodegui.config.RuntimePolicyValidator.ValidationResult setRuntimePolicy(
+            com.github.claudecodegui.config.RuntimePolicyConfig policyConfig) {
+        var validationResult = com.github.claudecodegui.config.RuntimePolicyValidator.validate(policyConfig);
+        if (!validationResult.isValid()) {
+            LOG.warn("[CodemossSettings] Runtime policy validation failed, not saving: " + validationResult.errors());
+            return validationResult;
+        }
+        try {
+            JsonObject config = readConfig();
+            JsonObject runtimeObj = serializeRuntimePolicy(policyConfig);
+            config.add(RUNTIME_POLICY_KEY, runtimeObj);
+            writeConfig(config);
+            LOG.info("[CodemossSettings] Saved runtime policy config");
+        } catch (Exception e) {
+            LOG.error("[CodemossSettings] Failed to save runtime policy: " + e.getMessage());
+            var errors = new java.util.ArrayList<String>();
+            errors.add("保存失败: " + e.getMessage());
+            return new com.github.claudecodegui.config.RuntimePolicyValidator.ValidationResult(errors, java.util.List.of());
+        }
+        return validationResult;
+    }
+
+    /**
+     * 重置路由策略为默认配置。
+     */
+    public void resetRuntimePolicy() {
+        try {
+            JsonObject config = readConfig();
+            config.remove(RUNTIME_POLICY_KEY);
+            writeConfig(config);
+            LOG.info("[CodemossSettings] Reset runtime policy to default");
+        } catch (Exception e) {
+            LOG.error("[CodemossSettings] Failed to reset runtime policy: " + e.getMessage());
+        }
+    }
+
+    private com.github.claudecodegui.config.RuntimePolicyConfig parseRuntimePolicy(JsonObject runtimeObj) {
+        var config = new com.github.claudecodegui.config.RuntimePolicyConfig();
+        var providers = new java.util.LinkedHashMap<ProviderType,
+                com.github.claudecodegui.config.ProviderRuntimePolicy>();
+
+        if (runtimeObj.has("providers") && runtimeObj.get("providers").isJsonObject()) {
+            JsonObject providersObj = runtimeObj.getAsJsonObject("providers");
+            for (String key : providersObj.keySet()) {
+                ProviderType pt =
+                        ProviderType.fromString(key);
+                if (providersObj.get(key).isJsonObject()) {
+                    JsonObject policyObj = providersObj.getAsJsonObject(key);
+                    boolean enabled = policyObj.has("enabled") && policyObj.get("enabled").getAsBoolean();
+                    var supported = new java.util.HashSet<RuntimeType>();
+                    if (policyObj.has("supported") && policyObj.get("supported").isJsonArray()) {
+                        for (var el : policyObj.getAsJsonArray("supported")) {
+                            String rtStr = el.getAsString();
+                            if ("SDK".equalsIgnoreCase(rtStr)) {
+                                supported.add(RuntimeType.SDK);
+                            } else if ("CLI".equalsIgnoreCase(rtStr)) {
+                                supported.add(RuntimeType.CLI);
+                            }
+                        }
+                    }
+                    RuntimeType defaultRt = null;
+                    if (policyObj.has("default") && !policyObj.get("default").isJsonNull()) {
+                        String defStr = policyObj.get("default").getAsString();
+                        if ("SDK".equalsIgnoreCase(defStr)) {
+                            defaultRt = RuntimeType.SDK;
+                        } else if ("CLI".equalsIgnoreCase(defStr)) {
+                            defaultRt = RuntimeType.CLI;
+                        }
+                    }
+                    try {
+                        providers.put(pt, new com.github.claudecodegui.config.ProviderRuntimePolicy(
+                                enabled, supported, defaultRt));
+                    } catch (Exception e) {
+                        LOG.warn("[CodemossSettings] Invalid runtime policy for " + key + ": " + e.getMessage());
+                    }
+                }
+            }
+        }
+
+        config.setProviders(providers);
+
+        // 校验：损坏则回退默认
+        var validationResult = com.github.claudecodegui.config.RuntimePolicyValidator.validate(config);
+        if (!validationResult.isValid()) {
+            LOG.warn("[CodemossSettings] Loaded runtime policy is invalid, falling back to default: "
+                    + validationResult.errors());
+            return com.github.claudecodegui.config.RuntimePolicyConfig.getDefault();
+        }
+
+        return config;
+    }
+
+    private JsonObject serializeRuntimePolicy(com.github.claudecodegui.config.RuntimePolicyConfig policyConfig) {
+        JsonObject runtimeObj = new JsonObject();
+        JsonObject providersObj = new JsonObject();
+
+        for (var entry : policyConfig.providers().entrySet()) {
+            String key = entry.getKey().toLowerCase();
+            com.github.claudecodegui.config.ProviderRuntimePolicy policy = entry.getValue();
+            JsonObject policyObj = new JsonObject();
+            policyObj.addProperty("enabled", policy.enabled());
+
+            var supportedArray = new com.google.gson.JsonArray();
+            if (policy.supported() != null) {
+                for (var rt : policy.supported()) {
+                    supportedArray.add(rt.name());
+                }
+            }
+            policyObj.add("supported", supportedArray);
+
+            if (policy.defaultRuntime() != null) {
+                policyObj.addProperty("default", policy.defaultRuntime().name());
+            }
+
+            providersObj.add(key, policyObj);
+        }
+
+        runtimeObj.add("providers", providersObj);
+        return runtimeObj;
     }
 }

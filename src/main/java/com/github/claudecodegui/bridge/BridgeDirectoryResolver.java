@@ -202,7 +202,7 @@ public class BridgeDirectoryResolver {
                 return null;
             }
 
-            File pluginDir = pluginLocation.pluginDir;
+            File pluginDir = pluginLocation.pluginDir();
             LOG.info("[BridgeResolver] Plugin directory: " + pluginDir.getAbsolutePath());
             LOG.info("[BridgeResolver] Plugin directory exists: " + pluginDir.exists());
 

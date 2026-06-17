@@ -26,14 +26,7 @@ final class BridgeArchiveLocator {
      * Resolution result: the plugin directory plus plugin version used for the
      * archive freshness signature.
      */
-    static final class PluginLocation {
-        final File pluginDir;
-        final String version;
-
-        PluginLocation(File pluginDir, String version) {
-            this.pluginDir = pluginDir;
-            this.version = version;
-        }
+    public record PluginLocation(File pluginDir, String version) {
     }
 
     private BridgeArchiveLocator() {
@@ -180,7 +173,9 @@ final class BridgeArchiveLocator {
             int climbs = 0;
             while (climbs < 6) {
                 File parent = ancestor.getParentFile();
-                if (parent == null) { break; }
+                if (parent == null) {
+                    break;
+                }
 
                 File maybeTopPlugins = new File(parent, "plugins");
                 if (maybeTopPlugins.exists() && maybeTopPlugins.isDirectory()) {
