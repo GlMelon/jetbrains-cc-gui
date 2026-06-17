@@ -8,6 +8,8 @@
     "delete": "删除",
     "edit": "编辑",
     "add": "添加",
+    "all": "全部",
+    "reset": "重置",
     "back": "返回",
     "close": "关闭",
     "newSession": "新会话",
