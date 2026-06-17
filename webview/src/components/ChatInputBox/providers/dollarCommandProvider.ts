@@ -1,6 +1,7 @@
 import type { CommandItem, DropdownItemData } from '../types';
 import { debugLog, debugWarn } from '../../../utils/debug.js';
 import i18n from '../../../i18n/config';
+import { bridgeHub, registerLegacyAlias } from '../../../bridge';
 
 // ============================================================================
 // State Management
@@ -28,19 +29,16 @@ export function resetDollarCommandsState() {
   cachedCommands = [];
   loadingState = 'idle';
   callbackRegistered = false;
-  // Clear the window callback to prevent handler chain growth on repeated provider switches
-  if (typeof window !== 'undefined') {
-    delete window.updateDollarCommands;
-  }
   debugLog('[DollarCommand] State reset');
 }
 
 /**
  * Register window.updateDollarCommands callback to receive $ commands from backend.
+ * [归一化] 经 bridgeHub 订阅,替代旧 window.xxx 覆盖 + 链式转发。
  */
 export function setupDollarCommandsCallback() {
   if (typeof window === 'undefined') return;
-  if (callbackRegistered && window.updateDollarCommands) return;
+  if (callbackRegistered) return;
 
   loadingState = 'loading';
 
@@ -77,13 +75,8 @@ export function setupDollarCommandsCallback() {
     }
   };
 
-  // Preserve original handler for chaining (e.g., main.tsx placeholder)
-  const originalHandler = window.updateDollarCommands;
-
-  window.updateDollarCommands = (json: string) => {
-    handler(json);
-    originalHandler?.(json);
-  };
+  registerLegacyAlias('updateDollarCommands', 'slash.dollar_commands');
+  bridgeHub.subscribe('slash.dollar_commands', (json) => handler(json as string));
   callbackRegistered = true;
   debugLog('[DollarCommand] Callback registered');
 

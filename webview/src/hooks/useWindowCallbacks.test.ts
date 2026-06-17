@@ -299,7 +299,7 @@ describe('useWindowCallbacks integration', () => {
     const longAiTitle = 'A very long AI-generated session title that exceeds fifty characters easily';
 
     act(() => {
-      window.updateSessionTitle!('sess-123', longAiTitle);
+      window.updateSessionTitle!(JSON.stringify({ sessionId: 'sess-123', title: longAiTitle }));
     });
 
     expect(opts.applyHistoryTitleLocal).toHaveBeenCalledWith('sess-123', longAiTitle);
@@ -314,7 +314,7 @@ describe('useWindowCallbacks integration', () => {
     renderHook(() => useWindowCallbacks(opts));
 
     act(() => {
-      window.updateSessionTitle!('sess-stale', 'Stale AI title');
+      window.updateSessionTitle!(JSON.stringify({ sessionId: 'sess-stale', title: 'Stale AI title' }));
     });
 
     expect(opts.applyHistoryTitleLocal).not.toHaveBeenCalled();
@@ -329,7 +329,7 @@ describe('useWindowCallbacks integration', () => {
     renderHook(() => useWindowCallbacks(opts));
 
     act(() => {
-      window.updateSessionTitle!('sess-123', '   ');
+      window.updateSessionTitle!(JSON.stringify({ sessionId: 'sess-123', title: '   ' }));
     });
 
     expect(opts.applyHistoryTitleLocal).not.toHaveBeenCalled();

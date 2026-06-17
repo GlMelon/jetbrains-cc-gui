@@ -22,6 +22,7 @@ public class HandlerContext {
     private final CodexSDKBridge codexSDKBridge;
     private final CodemossSettingsService settingsService;
     private final JsCallback jsCallback;
+    private volatile FrontendReadyChecker frontendReadyChecker;
 
     // Mutable state accessed via getters/setters — volatile for thread safety
     private volatile ClaudeSession session;
@@ -37,6 +38,15 @@ public class HandlerContext {
     public interface JsCallback {
         void callJavaScript(String functionName, String... args);
         String escapeJs(String str);
+
+        /**
+         * 下行总线语义化入口(归一化重构)。Phase 0 双轨:内部走 window.__bridge.dispatch,
+         * 经既有 callJavaScript 路径,行为等价于旧 window.xxx 调用。
+         * 详见 plan: typed-booping-newt.md。
+         */
+        default void dispatchEvent(String type, String payloadJson) {
+            callJavaScript("window.__bridge.dispatch", type, payloadJson == null ? "" : payloadJson);
+        }
     }
 
     public HandlerContext(
@@ -90,6 +100,28 @@ public class HandlerContext {
         return disposed;
     }
 
+    /**
+     * Check if the frontend (webview) is ready to receive JavaScript calls.
+     */
+    public boolean isFrontendReady() {
+        FrontendReadyChecker checker = this.frontendReadyChecker;
+        return checker != null && checker.isFrontendReady();
+    }
+
+    /**
+     * Set the frontend readiness checker.
+     */
+    public void setFrontendReadyChecker(FrontendReadyChecker checker) {
+        this.frontendReadyChecker = checker;
+    }
+
+    /**
+     * Interface for checking frontend readiness.
+     */
+    public interface FrontendReadyChecker {
+        boolean isFrontendReady();
+    }
+
     // Setters
     public void setSession(ClaudeSession session) {
         this.session = session;
@@ -122,6 +154,14 @@ public class HandlerContext {
     // JavaScript callback proxy methods
     public void callJavaScript(String functionName, String... args) {
         jsCallback.callJavaScript(functionName, args);
+    }
+
+    /**
+     * 下行总线语义化入口代理。Phase 0 双轨,详见 plan: typed-booping-newt.md。
+     * 后续 Phase handler 由 callJavaScript("window.xxx") 迁移到本方法。
+     */
+    public void dispatchEvent(String type, String payloadJson) {
+        jsCallback.dispatchEvent(type, payloadJson);
     }
 
     public String escapeJs(String str) {

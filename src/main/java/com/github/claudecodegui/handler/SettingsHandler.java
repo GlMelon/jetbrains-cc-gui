@@ -110,7 +110,7 @@ public class SettingsHandler extends BaseMessageHandler {
     private void registerThemeChangeListener() {
         ThemeConfigService.registerThemeChangeListener(themeConfig -> {
             ApplicationManager.getApplication().invokeLater(() -> {
-                callJavaScript("window.onIdeThemeChanged", escapeJs(themeConfig.toString()));
+                dispatchEvent("theme.changed", escapeJs(themeConfig.toString()));
             });
         });
     }
@@ -356,7 +356,7 @@ public class SettingsHandler extends BaseMessageHandler {
         JsonObject response = new JsonObject();
         response.addProperty("language", userLanguage != null ? userLanguage : "");
         response.addProperty("manuallySet", userLanguage != null);
-        callJavaScript("window.onUserLanguage", escapeJs(response.toString()));
+        dispatchEvent("language.user_language", escapeJs(response.toString()));
     }
 
     /**
@@ -377,7 +377,7 @@ public class SettingsHandler extends BaseMessageHandler {
 
     private void pushLanguageConfig() {
         JsonObject languageConfig = LanguageConfigService.getLanguageConfig(context.getSettingsService());
-        callJavaScript("window.applyIdeaLanguageConfig", escapeJs(languageConfig.toString()));
+        dispatchEvent("language.apply", escapeJs(languageConfig.toString()));
     }
 
     /**

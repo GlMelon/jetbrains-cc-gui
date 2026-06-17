@@ -6,6 +6,7 @@
  */
 import i18n from '../i18n/config';
 import { debugLog } from '../utils/debug';
+import { bridgeHub, registerLegacyAlias } from '../bridge';
 
 /**
  * Apply language configuration to i18n
@@ -56,10 +57,14 @@ function applyLanguageConfig(rawConfig: { language: string; source?: string; ide
 /**
  * Register global language config handler and apply any pending config that
  * was delivered by the Java side before JS finished loading.
+ *
+ * [归一化重构] applyIdeaLanguageConfig 经 compat 别名转发到 bridgeHub,
+ * 订阅者直接调用 DOM 操作函数(不进 React state)。pending drain 保留。
  */
 export function initLanguage() {
-  // Register the applyIdeaLanguageConfig function
-  window.applyIdeaLanguageConfig = applyLanguageConfig;
+  // [归一化] applyIdeaLanguageConfig → language.apply
+  registerLegacyAlias('applyIdeaLanguageConfig', 'language.apply');
+  bridgeHub.subscribe('language.apply', (json) => applyLanguageConfig(json as string));
 
   // Check for pending language config (Java side may execute before JS)
   if (window.__pendingLanguageConfig) {

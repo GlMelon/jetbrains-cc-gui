@@ -3,6 +3,7 @@ import { getFileIcon, getFolderIcon } from '../../../utils/fileIcons';
 import { icon_terminal, icon_server } from '../../../utils/icons';
 import { debugError, debugLog, debugWarn } from '../../../utils/debug.js';
 import { sendBridgeEvent } from '../../../utils/bridge';
+import { bridgeHub, registerLegacyAlias } from '../../../bridge';
 
 // Request queue management
 let pendingResolve: ((files: FileItem[]) => void) | null = null;
@@ -21,29 +22,32 @@ export function resetFileReferenceState() {
 }
 
 /**
- * Register Java callback
+ * Register Java callback（[归一化] 经 bridgeHub 订阅,替代旧 window.xxx 覆盖）
  */
+let fileListCallbackInstalled = false;
 function setupFileListCallback() {
-  if (typeof window !== 'undefined' && !window.onFileListResult) {
-    window.onFileListResult = (json: string) => {
-      try {
-        const data = JSON.parse(json);
-        let files: FileItem[] = data.files || data || [];
+  if (typeof window === 'undefined') return;
+  if (fileListCallbackInstalled) return;
+  fileListCallbackInstalled = true;
+  registerLegacyAlias('onFileListResult', 'file.list_result');
+  bridgeHub.subscribe('file.list_result', (json) => {
+    try {
+      const data = JSON.parse(json as string);
+      let files: FileItem[] = data.files || data || [];
 
-        // Filter out files that should be hidden
-        files = files.filter(file => !shouldHideFile(file.name));
+      // Filter out files that should be hidden
+      files = files.filter(file => !shouldHideFile(file.name));
 
-        const result = files.length > 0 ? files : filterFiles(DEFAULT_FILES, lastQuery);
-        pendingResolve?.(result);
-      } catch (error) {
-        debugError('[fileReferenceProvider] Parse error:', error);
-        pendingReject?.(error as Error);
-      } finally {
-        pendingResolve = null;
-        pendingReject = null;
-      }
-    };
-  }
+      const result = files.length > 0 ? files : filterFiles(DEFAULT_FILES, lastQuery);
+      pendingResolve?.(result);
+    } catch (error) {
+      debugError('[fileReferenceProvider] Parse error:', error);
+      pendingReject?.(error as Error);
+    } finally {
+      pendingResolve = null;
+      pendingReject = null;
+    }
+  });
 }
 
 /**

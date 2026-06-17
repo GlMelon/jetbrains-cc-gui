@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Skill, SkillsConfig, SkillScope, SkillFilter, SkillEnabledFilter } from '../../types/skill';
 import { sendToJava } from '../../utils/bridge';
+import { bridgeHub, registerLegacyAlias } from '../../bridge';
 import { SkillHelpDialog } from './SkillHelpDialog';
 import { SkillConfirmDialog } from './SkillConfirmDialog';
 import { ToastContainer, type ToastMessage } from '../Toast';
@@ -131,12 +132,19 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
     sendToJava('get_all_skills', {});
   }, []);
 
-  // Initialization
+  // Initialization（[归一化] 经 bridgeHub 订阅,替代旧 window.xxx 覆盖）
   useEffect(() => {
-    // Register callback: Java side returns Skills list
-    window.updateSkills = (jsonStr: string) => {
+    registerLegacyAlias('updateSkills', 'skill.list');
+    registerLegacyAlias('skillImportResult', 'skill.import_result');
+    registerLegacyAlias('skillDeleteResult', 'skill.delete_result');
+    registerLegacyAlias('skillToggleResult', 'skill.toggle_result');
+
+    const unsubs: Array<() => void> = [];
+
+    // Java side returns Skills list
+    unsubs.push(bridgeHub.subscribe('skill.list', (jsonStr) => {
       try {
-        const data: SkillsConfig = JSON.parse(jsonStr);
+        const data: SkillsConfig = JSON.parse(jsonStr as string);
         setSkills(data);
         setLoading(false);
 
@@ -144,12 +152,12 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
         console.error('[SkillsSettings] Failed to parse skills:', error);
         setLoading(false);
       }
-    };
+    }));
 
-    // Register callback: import result
-    window.skillImportResult = (jsonStr: string) => {
+    // import result
+    unsubs.push(bridgeHub.subscribe('skill.import_result', (jsonStr) => {
       try {
-        const result = JSON.parse(jsonStr);
+        const result = JSON.parse(jsonStr as string);
         if (result.success) {
           const count = result.count || 0;
           const total = result.total || 0;
@@ -168,12 +176,12 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
       } catch (error) {
         console.error('[SkillsSettings] Failed to parse import result:', error);
       }
-    };
+    }));
 
-    // Register callback: delete result
-    window.skillDeleteResult = (jsonStr: string) => {
+    // delete result
+    unsubs.push(bridgeHub.subscribe('skill.delete_result', (jsonStr) => {
       try {
-        const result = JSON.parse(jsonStr);
+        const result = JSON.parse(jsonStr as string);
         if (result.success) {
           addToast(t('skills.deleteSuccess'), 'success');
           loadSkills();
@@ -183,12 +191,12 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
       } catch (error) {
         console.error('[SkillsSettings] Failed to parse delete result:', error);
       }
-    };
+    }));
 
-    // Register callback: enable/disable result
-    window.skillToggleResult = (jsonStr: string) => {
+    // enable/disable result
+    unsubs.push(bridgeHub.subscribe('skill.toggle_result', (jsonStr) => {
       try {
-        const result = JSON.parse(jsonStr);
+        const result = JSON.parse(jsonStr as string);
         // Remove in-progress state
         setTogglingSkills(prev => {
           const newSet = new Set(prev);
@@ -217,7 +225,7 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
         console.error('[SkillsSettings] Failed to parse toggle result:', error);
         setTogglingSkills(new Set()); // Clear on error
       }
-    };
+    }));
 
     // Load Skills
     loadSkills();
@@ -231,10 +239,7 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
     document.addEventListener('click', handleClickOutside);
 
     return () => {
-      window.updateSkills = undefined;
-      window.skillImportResult = undefined;
-      window.skillDeleteResult = undefined;
-      window.skillToggleResult = undefined;
+      unsubs.forEach((u) => u());
       document.removeEventListener('click', handleClickOutside);
     };
   }, [loadSkills, addToast]);

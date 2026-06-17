@@ -10,6 +10,7 @@
  */
 
 import { sendBridgeEvent } from './bridge';
+import { bridgeHub, registerLegacyAlias } from '../bridge';
 import { createCallbackChannel } from './createCallbackChannel';
 
 export type NodeProcessKind = 'DAEMON' | 'CHANNEL' | 'ORPHAN';
@@ -87,21 +88,26 @@ const killResultChannel = createCallbackChannel<NodeProcessKillResult>({
   name: 'nodeProcess:killResult',
 });
 
+let dispatcherSubscribed = false;
 export function installNodeProcessDispatchers(): void {
-  window.updateNodeProcesses = (json: string) => {
-    const snapshot = safeParseSnapshot(json);
+  // [归一化] 经 bridgeHub 订阅,替代旧 window.xxx 覆盖。
+  // 别名每次重新注册(幂等,刷新 window.xxx 转发函数);订阅只发生一次避免累积。
+  registerLegacyAlias('updateNodeProcesses', 'node.process_list');
+  registerLegacyAlias('nodeProcessKillResult', 'node.process_kill_result');
+  if (dispatcherSubscribed) return;
+  dispatcherSubscribed = true;
+  bridgeHub.subscribe('node.process_list', (json) => {
+    const snapshot = safeParseSnapshot(json as string);
     if (snapshot) snapshotChannel.emit(snapshot);
-  };
-
-  window.nodeProcessKillResult = (json: string) => {
-    const result = safeParseKillResult(json);
+  });
+  bridgeHub.subscribe('node.process_kill_result', (json) => {
+    const result = safeParseKillResult(json as string);
     if (result) killResultChannel.emit(result);
-  };
+  });
 }
 
 const ensureInstalled = (): void => {
   if (typeof window === 'undefined') return;
-  if (window.updateNodeProcesses && window.nodeProcessKillResult) return;
   installNodeProcessDispatchers();
 };
 

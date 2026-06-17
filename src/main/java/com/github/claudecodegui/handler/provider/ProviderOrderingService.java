@@ -44,7 +44,7 @@ public class ProviderOrderingService {
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to save provider order: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() ->
-                context.callJavaScript("window.showError", context.escapeJs("Failed to save provider order: " + e.getMessage())));
+                context.dispatchEvent("toast.error", context.escapeJs("Failed to save provider order: " + e.getMessage())));
         }
     }
 
@@ -61,7 +61,7 @@ public class ProviderOrderingService {
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to save Codex provider order: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() ->
-                context.callJavaScript("window.showError", context.escapeJs("Failed to save provider order: " + e.getMessage())));
+                context.dispatchEvent("toast.error", context.escapeJs("Failed to save provider order: " + e.getMessage())));
         }
     }
 

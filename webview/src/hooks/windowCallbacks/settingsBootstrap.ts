@@ -162,6 +162,11 @@ export const startThinkingEnabledRequest = (): void => {
  * Drain any pending window.__pending* values captured by main.tsx before
  * the React callbacks were registered.  Must be called after the corresponding
  * window.updateXxx / window.onXxx callbacks have been assigned.
+ *
+ * [归一化重构] drain 通过 compat 别名间接路由到 bridgeHub 订阅者:window.updateXxx?(pending)
+ * 触发 compat → dispatch(type, pending) → hub 订阅者。pendingSlots 占位符仍负责挂载前
+ * 早期捕获;本 drain 在 registerUsageModeCallbacks 末尾触发,在 compat 别名安装之后,
+ * 保证 pending 值正确回放。Hub 缓冲队列(Phase 4 引入)将在后续取代此 drain 机制。
  */
 export const drainPendingSettings = (): void => {
   if (typeof window === 'undefined') {

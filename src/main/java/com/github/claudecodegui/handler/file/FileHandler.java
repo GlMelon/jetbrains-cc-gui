@@ -95,34 +95,62 @@ public class FileHandler extends BaseMessageHandler {
     private void sendLinkifyCapabilities() {
         String capabilitiesJson = OpenClassHandler.buildCapabilitiesJson();
         ApplicationManager.getApplication().invokeLater(() ->
-            callJavaScript("window.updateLinkifyCapabilities", escapeJs(capabilitiesJson))
+            dispatchEvent("linkify.update", escapeJs(capabilitiesJson))
         );
     }
 
     /**
      * Resolve a file path to a project-relative display path and return the result to the frontend.
+     *
+     * [归一化重构] 后端收到的 content 是 JSON 格式 { path, __requestId }(由前端 bridgeHub.request 注入)。
+     * 响应经 dispatchEvent("file_path.resolved", ...) 派发到 hub 的响应路由,携带 __requestId 供
+     * hub 按 requestId 匹配并 resolve 对应的 Promise。兼容旧格式(纯字符串 content)作为 fallback。
      */
-    private void handleResolveFilePath(String filePath) {
+    private void handleResolveFilePath(String content) {
+        // 解析 content:新格式 { path, __requestId } 或旧格式纯字符串(兼容)。
+        String filePath = content;
+        String requestId = null;
+        try {
+            JsonObject parsed = GSON.fromJson(content, JsonObject.class);
+            if (parsed != null && parsed.has("path")) {
+                filePath = parsed.get("path").getAsString();
+                if (parsed.has("__requestId")) {
+                    requestId = parsed.get("__requestId").getAsString();
+                }
+            }
+        } catch (Exception ignored) {
+            // 非 JSON(旧格式纯字符串 filePath)——用原始 content 作为 filePath。
+        }
+
+        final String finalFilePath = filePath;
+        final String finalRequestId = requestId;
+
         CompletableFuture.runAsync(() -> {
             try {
-                String resolvedPath = openFileHandler.resolveDisplayPath(filePath);
+                String resolvedPath = openFileHandler.resolveDisplayPath(finalFilePath);
 
                 JsonObject result = new JsonObject();
-                result.addProperty("path", filePath);
+                result.addProperty("path", finalFilePath);
                 result.addProperty("resolvedPath", resolvedPath);
+                if (finalRequestId != null) {
+                    result.addProperty("__requestId", finalRequestId);
+                }
                 String resultJson = GSON.toJson(result);
 
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    callJavaScript("window.onFilePathResolved", escapeJs(resultJson));
+                    dispatchEvent("file_path.resolved", resultJson);
                 });
             } catch (Exception e) {
                 LOG.error("[FileHandler] Failed to resolve file path: " + e.getMessage(), e);
                 JsonObject errorResult = new JsonObject();
-                errorResult.addProperty("path", filePath);
+                errorResult.addProperty("path", finalFilePath);
                 errorResult.addProperty("resolvedPath", (String) null);
+                if (finalRequestId != null) {
+                    errorResult.addProperty("__requestId", finalRequestId);
+                }
                 String errorJson = GSON.toJson(errorResult);
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    callJavaScript("window.onFilePathResolved", escapeJs(errorJson));
+                    dispatchEvent("file_path.resolved", errorJson);
                 });
             }
         }, AppExecutorUtil.getAppExecutorService());
@@ -183,7 +211,7 @@ public class FileHandler extends BaseMessageHandler {
         String resultJson = GSON.toJson(result);
 
         ApplicationManager.getApplication().invokeLater(() -> {
-            callJavaScript("window.onFileListResult", escapeJs(resultJson));
+            dispatchEvent("file.list_result", escapeJs(resultJson));
         });
     }
 

@@ -10,6 +10,7 @@ import PromptExportDialog from './PromptExportDialog';
 import PromptImportConfirmDialog from './PromptImportConfirmDialog';
 import styles from './style.module.less';
 import { sendBridgeEvent } from '../../../utils/bridge';
+import { bridgeHub, registerLegacyAlias } from '../../../bridge';
 
 interface PromptSectionProps {
   onSuccess?: (message: string) => void;
@@ -62,20 +63,20 @@ export default function PromptSection({
     return () => cleanupPromptsTimeout();
   }, [loadAllPrompts, cleanupPromptsTimeout]);
 
-  // Setup window callbacks
+  // Setup window callbacks（[归一化] 经 bridgeHub 订阅,替代旧 window.xxx 覆盖 + 链式转发）
   useEffect(() => {
-    // Save original callbacks to restore on unmount
-    const originalUpdateGlobalPrompts = window.updateGlobalPrompts;
-    const originalUpdateProjectPrompts = window.updateProjectPrompts;
-    const originalUpdateProjectInfo = window.updateProjectInfo;
-    const originalPromptOperationResult = window.promptOperationResult;
-    const originalPromptImportPreviewResult = window.promptImportPreviewResult;
-    const originalPromptImportResult = window.promptImportResult;
+    registerLegacyAlias('updateGlobalPrompts', 'prompt.global_list');
+    registerLegacyAlias('updateProjectPrompts', 'prompt.project_list');
+    registerLegacyAlias('updateProjectInfo', 'prompt.project_info');
+    registerLegacyAlias('promptOperationResult', 'prompt.operation_result');
+    registerLegacyAlias('promptImportPreviewResult', 'prompt.import_preview');
+    registerLegacyAlias('promptImportResult', 'prompt.import_result');
 
-    // Chain our handlers with existing ones
-    window.updateGlobalPrompts = (json: string) => {
+    const unsubs: Array<() => void> = [];
+
+    unsubs.push(bridgeHub.subscribe('prompt.global_list', (json) => {
       try {
-        const promptsList = JSON.parse(json);
+        const promptsList = JSON.parse(json as string);
         updateGlobalPrompts(promptsList);
 
         // ✅ Sync update promptProvider cache
@@ -89,13 +90,11 @@ export default function PromptSection({
       } catch (error) {
         console.error('[PromptSection] Failed to parse global prompts:', error);
       }
-      // Call original handler if exists
-      originalUpdateGlobalPrompts?.(json);
-    };
+    }));
 
-    window.updateProjectPrompts = (json: string) => {
+    unsubs.push(bridgeHub.subscribe('prompt.project_list', (json) => {
       try {
-        const promptsList = JSON.parse(json);
+        const promptsList = JSON.parse(json as string);
         updateProjectPrompts(promptsList);
 
         // ✅ Sync update promptProvider cache
@@ -109,63 +108,46 @@ export default function PromptSection({
       } catch (error) {
         console.error('[PromptSection] Failed to parse project prompts:', error);
       }
-      // Call original handler if exists
-      originalUpdateProjectPrompts?.(json);
-    };
+    }));
 
-    window.updateProjectInfo = (json: string) => {
+    unsubs.push(bridgeHub.subscribe('prompt.project_info', (json) => {
       try {
-        const info = JSON.parse(json);
+        const info = JSON.parse(json as string);
         updateProjectInfo(info);
       } catch (error) {
         console.error('[PromptSection] Failed to parse project info:', error);
       }
-      // Call original handler if exists
-      originalUpdateProjectInfo?.(json);
-    };
+    }));
 
-    window.promptOperationResult = (json: string) => {
+    unsubs.push(bridgeHub.subscribe('prompt.operation_result', (json) => {
       try {
-        const result = JSON.parse(json);
+        const result = JSON.parse(json as string);
         handlePromptOperationResult(result);
       } catch (error) {
         console.error('[PromptSection] Failed to parse prompt operation result:', error);
       }
-      // Call original handler if exists
-      originalPromptOperationResult?.(json);
-    };
+    }));
 
-    window.promptImportPreviewResult = (json: string) => {
+    unsubs.push(bridgeHub.subscribe('prompt.import_preview', (json) => {
       try {
-        const previewData = JSON.parse(json);
+        const previewData = JSON.parse(json as string);
         handlePromptImportPreviewResult(previewData);
       } catch (error) {
         console.error('[PromptSection] Failed to parse prompt import preview result:', error);
       }
-      // Call original handler if exists
-      originalPromptImportPreviewResult?.(json);
-    };
+    }));
 
-    window.promptImportResult = (json: string) => {
+    unsubs.push(bridgeHub.subscribe('prompt.import_result', (json) => {
       try {
-        const result = JSON.parse(json);
+        const result = JSON.parse(json as string);
         handlePromptImportResult(result);
       } catch (error) {
         console.error('[PromptSection] Failed to parse prompt import result:', error);
       }
-      // Call original handler if exists
-      originalPromptImportResult?.(json);
-    };
+    }));
 
     return () => {
-      // Restore original callbacks instead of deleting them
-      // This ensures other components (like promptProvider) continue to receive updates
-      window.updateGlobalPrompts = originalUpdateGlobalPrompts;
-      window.updateProjectPrompts = originalUpdateProjectPrompts;
-      window.updateProjectInfo = originalUpdateProjectInfo;
-      window.promptOperationResult = originalPromptOperationResult;
-      window.promptImportPreviewResult = originalPromptImportPreviewResult;
-      window.promptImportResult = originalPromptImportResult;
+      unsubs.forEach((u) => u());
     };
   }, [
     updateGlobalPrompts,

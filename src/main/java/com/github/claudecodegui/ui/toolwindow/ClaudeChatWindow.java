@@ -613,6 +613,24 @@ public class ClaudeChatWindow {
     private static final java.util.regex.Pattern SAFE_JS_FUNCTION_NAME =
             java.util.regex.Pattern.compile("^[a-zA-Z_$][a-zA-Z0-9_$.]*$");
 
+    /**
+     * 下行总线(Java → 前端)的语义化入口。归一化重构(详见 plan: typed-booping-newt.md)。
+     *
+     * 后端调用语义化事件名 + payload,经前端 window.__bridge.dispatch(type, payloadJson) 单一入口
+     * 派发到各业务模块的订阅者。Phase 0 双轨:内部仍走既有 callJavaScript 路径(包 typeof 检查与
+     * try/catch),行为与旧 window.xxx 调用等价。后续 Phase 各 handler 由 callJavaScript("window.xxx")
+     * 逐步迁移到本方法,旧 window.xxx 经前端 compat 兼容别名保留一阶段。
+     *
+     * @param type        事件类型(见前端 webview/src/bridge/events/)
+     * @param payloadJson payload 的 JSON 字符串;可为 null/空(前端收到 undefined)
+     */
+    void dispatchEvent(String type, String payloadJson) {
+        // 经既有 callJavaScript 路径派发到 window.__bridge.dispatch。传入全限定名,因含点,
+        // callJavaScript 不会重复加 "window." 前缀(见其 contains(".") 判定);SAFE_JS_FUNCTION_NAME
+        // 正则允许点号,故 "window.__bridge.dispatch" 通过校验。
+        callJavaScript("window.__bridge.dispatch", type, payloadJson == null ? "" : payloadJson);
+    }
+
     void callJavaScript(String functionName, String... args) {
         if (disposed || browser == null) {
             LOG.warn("Cannot call JS function " + functionName + ": disposed=" + disposed + ", browser=" + (browser == null ? "null" : "exists"));
@@ -835,8 +853,11 @@ public class ClaudeChatWindow {
                     if (genSessionId != null && title != null) {
                         ApplicationManager.getApplication().invokeLater(() -> {
                             if (!disposed) {
-                                callJavaScript("updateSessionTitle",
-                                        JsUtils.escapeJs(genSessionId), JsUtils.escapeJs(title));
+                                // [归一化] updateSessionTitle(sessionId, title) 原为两参数,归一化为单 JSON {sessionId, title}
+                                com.google.gson.JsonObject titlePayload = new com.google.gson.JsonObject();
+                                titlePayload.addProperty("sessionId", genSessionId);
+                                titlePayload.addProperty("title", title);
+                                dispatchEvent("session.title", JsUtils.escapeJs(titlePayload.toString()));
                             }
                         });
                     }

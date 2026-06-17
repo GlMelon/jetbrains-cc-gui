@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { ProviderConfig } from '../../../types/provider';
 import { SPECIAL_PROVIDER_IDS } from '../../../types/provider';
 import { sendToJava } from '../../../utils/bridge';
+import { bridgeHub, registerLegacyAlias } from '../../../bridge';
 import { useDragSort } from '../hooks/useDragSort';
 import ImportConfirmDialog from './ImportConfirmDialog';
 import styles from './style.module.less';
@@ -71,15 +72,17 @@ export default function ProviderList({
       }
     };
 
-    // Register CLI login account info callback
-    window.updateCliLoginAccountInfo = (email: string) => {
+    // [归一化] CLI login account info → provider.cli_login_account
+    registerLegacyAlias('updateCliLoginAccountInfo', 'provider.cli_login_account');
+    const unsubCliLogin = bridgeHub.subscribe('provider.cli_login_account', (email) => {
       if (mountedRef.current) {
-        setCliLoginAccountEmail(email);
+        setCliLoginAccountEmail(email as string);
       }
-    };
+    });
 
-    // Register global callback functions for Java invocation
-    window.import_preview_result = (dataOrStr) => {
+    // [归一化] import_preview_result → provider.import_preview(转发为 CustomEvent,保持既有监听者)
+    registerLegacyAlias('import_preview_result', 'provider.import_preview');
+    const unsubImportPreview = bridgeHub.subscribe('provider.import_preview', (dataOrStr) => {
         let data: unknown = dataOrStr;
         if (typeof data === 'string') {
             try {
@@ -90,7 +93,7 @@ export default function ProviderList({
         }
         const event = new CustomEvent('import_preview_result', { detail: data });
         window.dispatchEvent(event);
-    };
+    });
 
     window.backend_notification = (...args: unknown[]) => {
         let data: any = {};
@@ -145,10 +148,10 @@ export default function ProviderList({
       document.removeEventListener('mousedown', handleClickOutside);
       window.removeEventListener('import_preview_result', handleImportPreview as EventListener);
       window.removeEventListener('backend_notification', handleBackendNotification as EventListener);
-      
-      // Clean up global functions
-      delete window.updateCliLoginAccountInfo;
-      delete window.import_preview_result;
+
+      // Clean up subscriptions
+      unsubCliLogin();
+      unsubImportPreview();
       delete window.backend_notification;
     };
   }, [addToast]);

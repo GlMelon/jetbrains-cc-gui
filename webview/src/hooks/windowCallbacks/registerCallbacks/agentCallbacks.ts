@@ -7,6 +7,7 @@
  */
 
 import type { UseWindowCallbacksOptions } from '../../useWindowCallbacks';
+import { bridgeHub, registerLegacyAlias } from '../../../bridge';
 
 export function registerAgentAndSelectionCallbacks(options: UseWindowCallbacksOptions): void {
   const {
@@ -42,13 +43,15 @@ export function registerAgentAndSelectionCallbacks(options: UseWindowCallbacksOp
     setContextInfo(null);
   };
 
-  window.onSelectedAgentReceived = (json) => {
+  // [归一化] onSelectedAgentReceived → agent.selected_received（透明字符串管道）
+  registerLegacyAlias('onSelectedAgentReceived', 'agent.selected_received');
+  bridgeHub.subscribe('agent.selected_received', (json) => {
     try {
       if (!json || json === 'null' || json === '{}') {
         setSelectedAgent(null);
         return;
       }
-      const data = JSON.parse(json);
+      const data = JSON.parse(json as string);
       const agentFromNewShape = data?.agent;
       const agentFromLegacyShape = data;
 
@@ -71,16 +74,18 @@ export function registerAgentAndSelectionCallbacks(options: UseWindowCallbacksOp
       console.error('[Frontend] Failed to parse selected agent:', error);
       setSelectedAgent(null);
     }
-  };
+  });
 
-  window.onSelectedAgentChanged = (json) => {
+  // [归一化] onSelectedAgentChanged → agent.selected_changed
+  registerLegacyAlias('onSelectedAgentChanged', 'agent.selected_changed');
+  bridgeHub.subscribe('agent.selected_changed', (json) => {
     try {
       if (!json || json === 'null' || json === '{}') {
         setSelectedAgent(null);
         return;
       }
 
-      const data = JSON.parse(json);
+      const data = JSON.parse(json as string);
       if (data?.success === false) {
         return;
       }
@@ -99,5 +104,5 @@ export function registerAgentAndSelectionCallbacks(options: UseWindowCallbacksOp
     } catch (error) {
       console.error('[Frontend] Failed to parse selected agent changed:', error);
     }
-  };
+  });
 }

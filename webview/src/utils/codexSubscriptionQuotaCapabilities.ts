@@ -1,4 +1,5 @@
 import { sendBridgeEvent } from './bridge';
+import { bridgeHub, registerLegacyAlias } from '../bridge';
 import { createCallbackChannel } from './createCallbackChannel';
 
 export interface CodexSubscriptionQuotaWindow {
@@ -52,16 +53,20 @@ const quotaChannel = createCallbackChannel<CodexSubscriptionQuotaSnapshot>({
   name: 'codexSubscriptionQuota',
 });
 
+let dispatcherSubscribed = false;
 export function installCodexSubscriptionQuotaDispatchers(): void {
-  window.updateCodexSubscriptionQuota = (json: string) => {
-    const snapshot = safeParseSnapshot(json);
+  // [归一化] 经 bridgeHub 订阅,替代旧 window.xxx 覆盖。别名每次重注册;订阅只发生一次。
+  registerLegacyAlias('updateCodexSubscriptionQuota', 'codex.subscription_quota');
+  if (dispatcherSubscribed) return;
+  dispatcherSubscribed = true;
+  bridgeHub.subscribe('codex.subscription_quota', (json) => {
+    const snapshot = safeParseSnapshot(json as string);
     if (snapshot) quotaChannel.emit(snapshot);
-  };
+  });
 }
 
 const ensureInstalled = (): void => {
   if (typeof window === 'undefined') return;
-  if (window.updateCodexSubscriptionQuota) return;
   installCodexSubscriptionQuotaDispatchers();
 };
 

@@ -18,6 +18,7 @@ import {
 } from './versioning';
 import styles from './style.module.less';
 import { sendBridgeEvent } from '../../../utils/bridge';
+import { bridgeHub, registerLegacyAlias } from '../../../bridge';
 
 interface DependencySectionProps {
   addToast?: (message: string, type: 'info' | 'success' | 'warning' | 'error') => void;
@@ -204,20 +205,22 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
 
   // Setup window callbacks - run once on mount only
   useEffect(() => {
-    // Capture current callback references (may have been set by App.tsx)
-    const savedUpdateDependencyStatus = window.updateDependencyStatus;
-    const savedDependencyInstallProgress = window.dependencyInstallProgress;
-    const savedDependencyInstallResult = window.dependencyInstallResult;
-    const savedDependencyUninstallResult = window.dependencyUninstallResult;
-    const savedDependencyUpdateAvailable = window.dependencyUpdateAvailable;
-    const savedDependencyVersionsLoaded = window.dependencyVersionsLoaded;
-    const savedNodeEnvironmentStatus = window.nodeEnvironmentStatus;
-    const savedCheckNodeEnvironment = window.checkNodeEnvironment;
-    const savedRunNodeEnvironmentStressTest = window.runNodeEnvironmentStressTest;
+    // [归一化] 所有 dependency/node 回调经 bridgeHub 订阅,替代旧 window.xxx 覆盖 + 链式转发。
+    // bridgeHub 广播到所有订阅者(sessionCallbacks 的 dependency.status 订阅也会被调用)。
+    registerLegacyAlias('updateDependencyStatus', 'dependency.status');
+    registerLegacyAlias('dependencyInstallProgress', 'dependency.install_progress');
+    registerLegacyAlias('dependencyInstallResult', 'dependency.install_result');
+    registerLegacyAlias('dependencyUninstallResult', 'dependency.uninstall_result');
+    registerLegacyAlias('dependencyUpdateAvailable', 'dependency.update_available');
+    registerLegacyAlias('dependencyVersionsLoaded', 'dependency.versions_loaded');
+    registerLegacyAlias('nodeEnvironmentStatus', 'node.env_status');
+    registerLegacyAlias('checkNodeEnvironment', 'node.check_env');
 
-    window.updateDependencyStatus = (jsonStr: string) => {
+    const unsubs: Array<() => void> = [];
+
+    unsubs.push(bridgeHub.subscribe('dependency.status', (jsonStr) => {
       try {
-        const status = JSON.parse(jsonStr);
+        const status = JSON.parse(jsonStr as string);
         setSdkStatus(status);
         sdkStatusRef.current = status;
         setLoading(false);
@@ -225,30 +228,20 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
         console.error('[DependencySection] Failed to parse dependency status:', error);
         setLoading(false);
       }
-      if (typeof savedUpdateDependencyStatus === 'function') {
-        try { savedUpdateDependencyStatus(jsonStr); } catch (e) {
-          console.error('[DependencySection] Error in chained updateDependencyStatus:', e);
-        }
-      }
-    };
+    }));
 
-    window.dependencyInstallProgress = (jsonStr: string) => {
+    unsubs.push(bridgeHub.subscribe('dependency.install_progress', (jsonStr) => {
       try {
-        const progress: InstallProgress = JSON.parse(jsonStr);
+        const progress: InstallProgress = JSON.parse(jsonStr as string);
         setInstallLogs((prev) => prev + progress.log + '\n');
       } catch (error) {
         console.error('[DependencySection] Failed to parse install progress:', error);
       }
-      if (typeof savedDependencyInstallProgress === 'function') {
-        try { savedDependencyInstallProgress(jsonStr); } catch (e) {
-          console.error('[DependencySection] Error in chained dependencyInstallProgress:', e);
-        }
-      }
-    };
+    }));
 
-    window.dependencyInstallResult = (jsonStr: string) => {
+    unsubs.push(bridgeHub.subscribe('dependency.install_result', (jsonStr) => {
       try {
-        const result: InstallResult = JSON.parse(jsonStr);
+        const result: InstallResult = JSON.parse(jsonStr as string);
         const wasUpdating = updatingSdkRef.current === result.sdkId;
         setInstallingSdk(null);
         setUpdatingSdk(null);
@@ -273,16 +266,11 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
         setUpdatingSdk(null);
         updatingSdkRef.current = null;
       }
-      if (typeof savedDependencyInstallResult === 'function') {
-        try { savedDependencyInstallResult(jsonStr); } catch (e) {
-          console.error('[DependencySection] Error in chained dependencyInstallResult:', e);
-        }
-      }
-    };
+    }));
 
-    window.dependencyUninstallResult = (jsonStr: string) => {
+    unsubs.push(bridgeHub.subscribe('dependency.uninstall_result', (jsonStr) => {
       try {
-        const result: UninstallResult = JSON.parse(jsonStr);
+        const result: UninstallResult = JSON.parse(jsonStr as string);
         setUninstallingSdk(null);
 
         if (result.success) {
@@ -307,30 +295,20 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
         console.error('[DependencySection] Failed to parse uninstall result:', error);
         setUninstallingSdk(null);
       }
-      if (typeof savedDependencyUninstallResult === 'function') {
-        try { savedDependencyUninstallResult(jsonStr); } catch (e) {
-          console.error('[DependencySection] Error in chained dependencyUninstallResult:', e);
-        }
-      }
-    };
+    }));
 
-    window.dependencyUpdateAvailable = (jsonStr: string) => {
+    unsubs.push(bridgeHub.subscribe('dependency.update_available', (jsonStr) => {
       try {
-        const updatePayload: UpdateCheckResult = JSON.parse(jsonStr);
+        const updatePayload: UpdateCheckResult = JSON.parse(jsonStr as string);
         setSdkStatus((prev) => mergeDependencyUpdates(prev, updatePayload));
       } catch (error) {
         console.error('[DependencySection] Failed to parse dependency update result:', error);
       }
-      if (typeof savedDependencyUpdateAvailable === 'function') {
-        try { savedDependencyUpdateAvailable(jsonStr); } catch (e) {
-          console.error('[DependencySection] Error in chained dependencyUpdateAvailable:', e);
-        }
-      }
-    };
+    }));
 
-    window.dependencyVersionsLoaded = (jsonStr: string) => {
+    unsubs.push(bridgeHub.subscribe('dependency.versions_loaded', (jsonStr) => {
       try {
-        const versionsPayload: DependencyVersionResult = JSON.parse(jsonStr);
+        const versionsPayload: DependencyVersionResult = JSON.parse(jsonStr as string);
         setSdkVersions((prev) => ({ ...prev, ...versionsPayload }));
         setLoadingVersions((prev) => {
           const next = { ...prev };
@@ -362,45 +340,34 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
       } catch (error) {
         console.error('[DependencySection] Failed to parse dependency versions result:', error);
       }
-      if (typeof savedDependencyVersionsLoaded === 'function') {
-        try { savedDependencyVersionsLoaded(jsonStr); } catch (e) {
-          console.error('[DependencySection] Error in chained dependencyVersionsLoaded:', e);
-        }
-      }
-    };
+    }));
 
-    window.nodeEnvironmentStatus = (jsonStr: string) => {
+    unsubs.push(bridgeHub.subscribe('node.env_status', (jsonStr) => {
       try {
-        const status: NodeEnvironmentStatus = JSON.parse(jsonStr);
+        const status: NodeEnvironmentStatus = JSON.parse(jsonStr as string);
         setNodeAvailable(status.available);
       } catch (error) {
         console.error('[DependencySection] Failed to parse node environment status:', error);
       }
-      if (typeof savedNodeEnvironmentStatus === 'function') {
-        try { savedNodeEnvironmentStatus(jsonStr); } catch (e) {
-          console.error('[DependencySection] Error in chained nodeEnvironmentStatus:', e);
-        }
-      }
-    };
-    window.checkNodeEnvironment = () => {
+    }));
+
+    unsubs.push(bridgeHub.subscribe('node.check_env', () => {
       sendToJava('check_node_environment');
-      savedCheckNodeEnvironment?.();
-    };
+    }));
     if (import.meta.env.DEV) {
       window.runNodeEnvironmentStressTest = (count: number = 10) => {
         for (let i = 0; i < count; i += 1) {
           sendToJava('check_node_environment');
         }
-        savedRunNodeEnvironmentStressTest?.(count);
       };
     }
 
     if (window.__pendingDependencyUpdates) {
-      window.dependencyUpdateAvailable(window.__pendingDependencyUpdates);
+      bridgeHub.dispatch('dependency.update_available', window.__pendingDependencyUpdates);
       window.__pendingDependencyUpdates = undefined;
     }
     if (window.__pendingDependencyVersions) {
-      window.dependencyVersionsLoaded(window.__pendingDependencyVersions);
+      bridgeHub.dispatch('dependency.versions_loaded', window.__pendingDependencyVersions);
       window.__pendingDependencyVersions = undefined;
     }
 
@@ -413,15 +380,7 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
     window.addEventListener('nodePathReady', handleNodePathReady);
 
     return () => {
-      window.updateDependencyStatus = savedUpdateDependencyStatus;
-      window.dependencyInstallProgress = savedDependencyInstallProgress;
-      window.dependencyInstallResult = savedDependencyInstallResult;
-      window.dependencyUninstallResult = savedDependencyUninstallResult;
-      window.dependencyUpdateAvailable = savedDependencyUpdateAvailable;
-      window.dependencyVersionsLoaded = savedDependencyVersionsLoaded;
-      window.nodeEnvironmentStatus = savedNodeEnvironmentStatus;
-      window.checkNodeEnvironment = savedCheckNodeEnvironment;
-      window.runNodeEnvironmentStressTest = savedRunNodeEnvironmentStressTest;
+      unsubs.forEach((u) => u());
       window.removeEventListener('nodePathReady', handleNodePathReady);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps

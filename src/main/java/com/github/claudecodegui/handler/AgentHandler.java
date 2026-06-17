@@ -104,12 +104,12 @@ public class AgentHandler extends BaseMessageHandler {
             String agentsJson = gson.toJson(agents);
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                callJavaScript("window.updateAgents", escapeJs(agentsJson));
+                dispatchEvent("agent.list", escapeJs(agentsJson));
             });
         } catch (Exception e) {
             LOG.error("[AgentHandler] Failed to get agents: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
-                callJavaScript("window.updateAgents", escapeJs("[]"));
+                dispatchEvent("agent.list", escapeJs("[]"));
             });
         }
     }
@@ -125,7 +125,7 @@ public class AgentHandler extends BaseMessageHandler {
             // Refresh the list
             ApplicationManager.getApplication().invokeLater(() -> {
                 handleGetAgents();
-                callJavaScript("window.agentOperationResult", escapeJs("{\"success\":true,\"operation\":\"add\"}"));
+                dispatchEvent("agent.operation_result", escapeJs("{\"success\":true,\"operation\":\"add\"}"));
             });
         } catch (Exception e) {
             LOG.error("[AgentHandler] Failed to add agent: " + e.getMessage(), e);
@@ -134,7 +134,7 @@ public class AgentHandler extends BaseMessageHandler {
             errorResult.addProperty("operation", "add");
             errorResult.addProperty("error", e.getMessage());
             ApplicationManager.getApplication().invokeLater(() -> {
-                callJavaScript("window.agentOperationResult", escapeJs(gson.toJson(errorResult)));
+                dispatchEvent("agent.operation_result", escapeJs(gson.toJson(errorResult)));
             });
         }
     }
@@ -153,7 +153,7 @@ public class AgentHandler extends BaseMessageHandler {
             // Refresh the list
             ApplicationManager.getApplication().invokeLater(() -> {
                 handleGetAgents();
-                callJavaScript("window.agentOperationResult", escapeJs("{\"success\":true,\"operation\":\"update\"}"));
+                dispatchEvent("agent.operation_result", escapeJs("{\"success\":true,\"operation\":\"update\"}"));
             });
         } catch (Exception e) {
             LOG.error("[AgentHandler] Failed to update agent: " + e.getMessage(), e);
@@ -162,7 +162,7 @@ public class AgentHandler extends BaseMessageHandler {
             errorResult.addProperty("operation", "update");
             errorResult.addProperty("error", e.getMessage());
             ApplicationManager.getApplication().invokeLater(() -> {
-                callJavaScript("window.agentOperationResult", escapeJs(gson.toJson(errorResult)));
+                dispatchEvent("agent.operation_result", escapeJs(gson.toJson(errorResult)));
             });
         }
     }
@@ -184,7 +184,7 @@ public class AgentHandler extends BaseMessageHandler {
                     if (id.equals(selectedId)) {
                         settingsService.setSelectedAgentId(null);
                         // Notify frontend to clear the selection
-                        callJavaScript("window.onSelectedAgentChanged", escapeJs("null"));
+                        dispatchEvent("agent.selected_changed", escapeJs("null"));
                     }
                 } catch (Exception e) {
                     LOG.warn("[AgentHandler] Failed to check/clear selected agent: " + e.getMessage());
@@ -193,7 +193,7 @@ public class AgentHandler extends BaseMessageHandler {
                 // Refresh the list
                 ApplicationManager.getApplication().invokeLater(() -> {
                     handleGetAgents();
-                    callJavaScript("window.agentOperationResult", escapeJs("{\"success\":true,\"operation\":\"delete\"}"));
+                    dispatchEvent("agent.operation_result", escapeJs("{\"success\":true,\"operation\":\"delete\"}"));
                 });
             } else {
                 JsonObject errorResult = new JsonObject();
@@ -201,7 +201,7 @@ public class AgentHandler extends BaseMessageHandler {
                 errorResult.addProperty("operation", "delete");
                 errorResult.addProperty("error", "Agent not found");
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    callJavaScript("window.agentOperationResult", escapeJs(gson.toJson(errorResult)));
+                    dispatchEvent("agent.operation_result", escapeJs(gson.toJson(errorResult)));
                 });
             }
         } catch (Exception e) {
@@ -211,7 +211,7 @@ public class AgentHandler extends BaseMessageHandler {
             errorResult.addProperty("operation", "delete");
             errorResult.addProperty("error", e.getMessage());
             ApplicationManager.getApplication().invokeLater(() -> {
-                callJavaScript("window.agentOperationResult", escapeJs(gson.toJson(errorResult)));
+                dispatchEvent("agent.operation_result", escapeJs(gson.toJson(errorResult)));
             });
         }
     }
@@ -240,12 +240,12 @@ public class AgentHandler extends BaseMessageHandler {
 
             String resultJson = gson.toJson(result);
             ApplicationManager.getApplication().invokeLater(() -> {
-                callJavaScript("window.onSelectedAgentReceived", escapeJs(resultJson));
+                dispatchEvent("agent.selected_received", escapeJs(resultJson));
             });
         } catch (Exception e) {
             LOG.error("[AgentHandler] Failed to get selected agent: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
-                callJavaScript("window.onSelectedAgentReceived", escapeJs("{\"selectedAgentId\":null}"));
+                dispatchEvent("agent.selected_received", escapeJs("{\"selectedAgentId\":null}"));
             });
         }
     }
@@ -291,7 +291,7 @@ public class AgentHandler extends BaseMessageHandler {
 
             String resultJson = gson.toJson(result);
             ApplicationManager.getApplication().invokeLater(() -> {
-                callJavaScript("window.onSelectedAgentChanged", escapeJs(resultJson));
+                dispatchEvent("agent.selected_changed", escapeJs(resultJson));
             });
         } catch (Exception e) {
             LOG.error("[AgentHandler] Failed to set selected agent: " + e.getMessage(), e);
@@ -299,7 +299,7 @@ public class AgentHandler extends BaseMessageHandler {
             errorResult.addProperty("success", false);
             errorResult.addProperty("error", e.getMessage());
             ApplicationManager.getApplication().invokeLater(() -> {
-                callJavaScript("window.onSelectedAgentChanged", escapeJs(gson.toJson(errorResult)));
+                dispatchEvent("agent.selected_changed", escapeJs(gson.toJson(errorResult)));
             });
         }
     }
@@ -480,7 +480,7 @@ public class AgentHandler extends BaseMessageHandler {
                     previewResult.add("summary", summary);
 
                     String resultJson = gson.toJson(previewResult);
-                    callJavaScript("window.agentImportPreviewResult", escapeJs(resultJson));
+                    dispatchEvent("agent.import_preview", escapeJs(resultJson));
                 } else {
                     LOG.info("[AgentHandler] Import cancelled by user");
                 }
@@ -537,7 +537,7 @@ public class AgentHandler extends BaseMessageHandler {
                 importResult.addProperty("updated", updated);
                 importResult.addProperty("skipped", skipped);
 
-                callJavaScript("window.agentImportResult", escapeJs(gson.toJson(importResult)));
+                dispatchEvent("agent.import_result", escapeJs(gson.toJson(importResult)));
             });
         } catch (Exception e) {
             LOG.error("[AgentHandler] Failed to save imported agents: " + e.getMessage(), e);
@@ -550,7 +550,7 @@ public class AgentHandler extends BaseMessageHandler {
                 JsonObject errorResult = new JsonObject();
                 errorResult.addProperty("success", false);
                 errorResult.addProperty("error", e.getMessage());
-                callJavaScript("window.agentImportResult", escapeJs(gson.toJson(errorResult)));
+                dispatchEvent("agent.import_result", escapeJs(gson.toJson(errorResult)));
             });
         }
     }

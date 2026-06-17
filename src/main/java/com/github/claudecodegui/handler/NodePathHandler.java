@@ -85,12 +85,12 @@ public class NodePathHandler {
                     response.addProperty("path", finalPath);
                     response.addProperty("version", finalVersion);
                     response.addProperty("minVersion", NodeDetector.MIN_NODE_MAJOR_VERSION);
-                    context.callJavaScript("window.updateNodePath", context.escapeJs(gson.toJson(response)));
+                    context.dispatchEvent("node.path", context.escapeJs(gson.toJson(response)));
                 });
             } catch (Exception e) {
                 LOG.error("[NodePathHandler] Failed to get Node.js path: " + e.getMessage(), e);
                 ApplicationManager.getApplication().invokeLater(() ->
-                    context.callJavaScript("window.showError", context.escapeJs("获取 Node.js 路径失败: " + e.getMessage()))
+                    context.dispatchEvent("toast.error", context.escapeJs("获取 Node.js 路径失败: " + e.getMessage()))
                 );
             }
         }, AppExecutorUtil.getAppExecutorService()).exceptionally(ex -> {
@@ -118,7 +118,7 @@ public class NodePathHandler {
         } catch (Exception e) {
             LOG.error("[NodePathHandler] Failed to parse set_node_path content: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() ->
-                context.callJavaScript("window.showError", context.escapeJs("保存 Node.js 路径失败: " + e.getMessage()))
+                context.dispatchEvent("toast.error", context.escapeJs("保存 Node.js 路径失败: " + e.getMessage()))
             );
             return;
         }
@@ -180,23 +180,23 @@ public class NodePathHandler {
                     response.addProperty("path", finalPathToSend);
                     response.addProperty("version", finalVersionToSend);
                     response.addProperty("minVersion", NodeDetector.MIN_NODE_MAJOR_VERSION);
-                    context.callJavaScript("window.updateNodePath", context.escapeJs(gson.toJson(response)));
+                    context.dispatchEvent("node.path", context.escapeJs(gson.toJson(response)));
 
                     if (successFlag) {
                         // Trigger environment re-check, no IDE restart needed
-                        context.callJavaScript("window.showSwitchSuccess", context.escapeJs("Node.js 路径已保存并生效,无需重启IDE"));
+                        context.dispatchEvent("toast.switch_success", context.escapeJs("Node.js 路径已保存并生效,无需重启IDE"));
 
                         // Notify DependencySection to re-check Node.js environment
-                        context.callJavaScript("window.checkNodeEnvironment");
+                        context.dispatchEvent("node.check_env", "");
                     } else {
                         String msg = failureMsgFinal != null ? failureMsgFinal : "无法验证指定的 Node.js 路径";
-                        context.callJavaScript("window.showError", context.escapeJs("保存的 Node.js 路径无效: " + msg));
+                        context.dispatchEvent("toast.error", context.escapeJs("保存的 Node.js 路径无效: " + msg));
                     }
                 });
             } catch (Exception e) {
                 LOG.error("[NodePathHandler] Failed to set Node.js path: " + e.getMessage(), e);
                 ApplicationManager.getApplication().invokeLater(() ->
-                    context.callJavaScript("window.showError", context.escapeJs("保存 Node.js 路径失败: " + e.getMessage()))
+                    context.dispatchEvent("toast.error", context.escapeJs("保存 Node.js 路径失败: " + e.getMessage()))
                 );
             }
         }, AppExecutorUtil.getAppExecutorService()).exceptionally(ex -> {

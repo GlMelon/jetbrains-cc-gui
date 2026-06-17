@@ -88,7 +88,7 @@ public class CodexMcpServerHandler extends BaseMessageHandler {
             try {
                 if (!isCodexLocalConfigAuthorized()) {
                     ApplicationManager.getApplication().invokeLater(() -> {
-                        callJavaScript("window.updateCodexMcpServers", escapeJs("[]"));
+                        dispatchEvent("codex.mcp.server_list", escapeJs("[]"));
                     });
                     return;
                 }
@@ -100,12 +100,12 @@ public class CodexMcpServerHandler extends BaseMessageHandler {
                 LOG.info("[CodexMcpServerHandler] Loaded " + servers.size() + " Codex MCP servers");
 
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    callJavaScript("window.updateCodexMcpServers", escapeJs(serversJson));
+                    dispatchEvent("codex.mcp.server_list", escapeJs(serversJson));
                 });
             } catch (Exception e) {
                 LOG.error("[CodexMcpServerHandler] Failed to get Codex MCP servers: " + e.getMessage(), e);
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    callJavaScript("window.updateCodexMcpServers", escapeJs("[]"));
+                    dispatchEvent("codex.mcp.server_list", escapeJs("[]"));
                 });
             }
         }, AppExecutorUtil.getAppExecutorService()).exceptionally(ex -> {
@@ -125,7 +125,7 @@ public class CodexMcpServerHandler extends BaseMessageHandler {
             try {
                 if (!isCodexLocalConfigAuthorized()) {
                     ApplicationManager.getApplication().invokeLater(() -> {
-                        callJavaScript("window.updateCodexMcpServerStatus", escapeJs("[]"));
+                        dispatchEvent("codex.mcp.server_status", escapeJs("[]"));
                     });
                     return;
                 }
@@ -144,12 +144,12 @@ public class CodexMcpServerHandler extends BaseMessageHandler {
                 }
 
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    callJavaScript("window.updateCodexMcpServerStatus", escapeJs(statusJson));
+                    dispatchEvent("codex.mcp.server_status", escapeJs(statusJson));
                 });
             } catch (Exception e) {
                 LOG.error("[CodexMcpServerHandler] Failed to get Codex MCP server status: " + e.getMessage(), e);
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    callJavaScript("window.updateCodexMcpServerStatus", escapeJs("[]"));
+                    dispatchEvent("codex.mcp.server_status", escapeJs("[]"));
                 });
             }
         }, AppExecutorUtil.getAppExecutorService()).exceptionally(ex -> {
@@ -198,7 +198,7 @@ public class CodexMcpServerHandler extends BaseMessageHandler {
                 .thenAccept(result -> {
                     String resultJson = gson.toJson(result);
                     ApplicationManager.getApplication().invokeLater(() ->
-                        callJavaScript("window.updateMcpServerTools", escapeJs(resultJson))
+                        dispatchEvent("mcp.server_tools", escapeJs(resultJson))
                     );
                 })
                 .exceptionally(e -> {
@@ -220,7 +220,7 @@ public class CodexMcpServerHandler extends BaseMessageHandler {
         errorResult.add("tools", new com.google.gson.JsonArray());
         String json = gson.toJson(errorResult);
         ApplicationManager.getApplication().invokeLater(() ->
-            callJavaScript("window.updateMcpServerTools", escapeJs(json))
+            dispatchEvent("mcp.server_tools", escapeJs(json))
         );
     }
 
@@ -247,14 +247,14 @@ public class CodexMcpServerHandler extends BaseMessageHandler {
             LOG.info("[CodexMcpServerHandler] Added Codex MCP server: " + serverId);
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                callJavaScript("window.codexMcpServerAdded", escapeJs(content));
+                dispatchEvent("codex.mcp.server_added", escapeJs(content));
                 handleGetMcpServers();
             });
         } catch (Exception e) {
             LOG.error("[CodexMcpServerHandler] Failed to add Codex MCP server: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
                 String errorMsg = escapeJs("Failed to add Codex MCP server: " + e.getMessage());
-                callJavaScript("window.showError", errorMsg);
+                dispatchEvent("toast.error", errorMsg);
             });
         }
     }
@@ -273,14 +273,14 @@ public class CodexMcpServerHandler extends BaseMessageHandler {
             LOG.info("[CodexMcpServerHandler] Updated Codex MCP server: " + serverId);
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                callJavaScript("window.codexMcpServerUpdated", escapeJs(content));
+                dispatchEvent("codex.mcp.server_updated", escapeJs(content));
                 handleGetMcpServers();
             });
         } catch (Exception e) {
             LOG.error("[CodexMcpServerHandler] Failed to update Codex MCP server: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
                 String errorMsg = escapeJs("Failed to update Codex MCP server: " + e.getMessage());
-                callJavaScript("window.showError", errorMsg);
+                dispatchEvent("toast.error", errorMsg);
             });
         }
     }
@@ -299,21 +299,21 @@ public class CodexMcpServerHandler extends BaseMessageHandler {
             if (success) {
                 LOG.info("[CodexMcpServerHandler] Deleted Codex MCP server: " + serverId);
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    callJavaScript("window.codexMcpServerDeleted", escapeJs(serverId));
+                    dispatchEvent("codex.mcp.server_deleted", escapeJs(serverId));
                     handleGetMcpServers();
                 });
             } else {
                 LOG.warn("[CodexMcpServerHandler] Codex MCP server not found: " + serverId);
                 ApplicationManager.getApplication().invokeLater(() -> {
                     String errorMsg = escapeJs("Codex MCP server not found: " + serverId);
-                    callJavaScript("window.showError", errorMsg);
+                    dispatchEvent("toast.error", errorMsg);
                 });
             }
         } catch (Exception e) {
             LOG.error("[CodexMcpServerHandler] Failed to delete Codex MCP server: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
                 String errorMsg = escapeJs("Failed to delete Codex MCP server: " + e.getMessage());
-                callJavaScript("window.showError", errorMsg);
+                dispatchEvent("toast.error", errorMsg);
             });
         }
     }
@@ -335,14 +335,14 @@ public class CodexMcpServerHandler extends BaseMessageHandler {
             LOG.info("[CodexMcpServerHandler] Toggled Codex MCP server: " + serverName + " (enabled: " + isEnabled + ")");
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                callJavaScript("window.codexMcpServerToggled", escapeJs(content));
+                dispatchEvent("codex.mcp.server_toggled", escapeJs(content));
                 handleGetMcpServers();
             });
         } catch (Exception e) {
             LOG.error("[CodexMcpServerHandler] Failed to toggle Codex MCP server: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
                 String errorMsg = escapeJs("Failed to toggle Codex MCP server: " + e.getMessage());
-                callJavaScript("window.showError", errorMsg);
+                dispatchEvent("toast.error", errorMsg);
             });
         }
     }
@@ -359,7 +359,7 @@ public class CodexMcpServerHandler extends BaseMessageHandler {
             String validationJson = gson.toJson(validation);
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                callJavaScript("window.codexMcpServerValidated", escapeJs(validationJson));
+                dispatchEvent("codex.mcp.server_validated", escapeJs(validationJson));
             });
         } catch (Exception e) {
             LOG.error("[CodexMcpServerHandler] Failed to validate Codex MCP server: " + e.getMessage(), e);

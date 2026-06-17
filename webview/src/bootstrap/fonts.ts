@@ -8,6 +8,7 @@
  */
 import { debugLog } from '../utils/debug';
 import type { UiFontConfig } from '../types/uiFontConfig';
+import { bridgeHub, registerLegacyAlias } from '../bridge';
 
 // ---------------------------------------------------------------------------
 // State (module-scoped)
@@ -151,11 +152,20 @@ function applyUiFontConfig(config: UiFontConfig | string) {
 /**
  * Register global font config handlers and apply any pending configs that
  * were delivered by the Java side before JS finished loading.
+ *
+ * [归一化重构] applyIdeaFontConfig/applyUiFontConfig 经 compat 别名转发到 bridgeHub,
+ * 订阅者直接调用 DOM 操作函数(不进 React state)。pending drain 保留(Java 可在 JS 加载前推送)。
  */
 export function initFonts() {
-  // Register the applyIdeaFontConfig function
-  window.applyIdeaFontConfig = applyEditorTypographyConfig;
-  window.applyUiFontConfig = applyUiFontConfig;
+  // [归一化] applyIdeaFontConfig → font.apply_editor / applyUiFontConfig → font.apply_ui
+  registerLegacyAlias('applyIdeaFontConfig', 'font.apply_editor');
+  bridgeHub.subscribe('font.apply_editor', (raw) => {
+    // 后端发送 JSON 对象(非字符串),hub 传递原始 payloadJson 字符串,需解析。
+    const config = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    applyEditorTypographyConfig(config);
+  });
+  registerLegacyAlias('applyUiFontConfig', 'font.apply_ui');
+  bridgeHub.subscribe('font.apply_ui', (raw) => applyUiFontConfig(raw as string));
 
   // Check for pending font config (Java side may execute before JS)
   if (window.__pendingFontConfig) {

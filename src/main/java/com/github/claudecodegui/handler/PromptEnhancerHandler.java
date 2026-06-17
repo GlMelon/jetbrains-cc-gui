@@ -489,7 +489,7 @@ public class PromptEnhancerHandler extends BaseMessageHandler {
         String resultJson = gson.toJson(result);
 
         ApplicationManager.getApplication().invokeLater(() -> {
-            callJavaScript("window.updateEnhancedPrompt", escapeJs(resultJson));
+            dispatchEvent("prompt.enhanced", escapeJs(resultJson));
         });
     }
 }

@@ -39,4 +39,17 @@ public class SDKResult {
         result.error = errorMessage;
         return result;
     }
+
+    /**
+     * 构造一个带完整状态的结果,供需要显式设置 interrupted/finalResult/error 的调用方
+     * (如 CLI 适配层)使用,避免直接改写 public 字段。
+     */
+    public static SDKResult completed(boolean success, String finalResult, String error, boolean interrupted) {
+        SDKResult result = new SDKResult();
+        result.success = success;
+        result.finalResult = finalResult;
+        result.error = error;
+        result.interrupted = interrupted;
+        return result;
+    }
 }

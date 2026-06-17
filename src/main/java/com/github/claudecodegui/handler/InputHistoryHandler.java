@@ -41,12 +41,12 @@ public class InputHistoryHandler {
             try {
                 String result = callInputHistoryService("getAllHistoryData", null);
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    context.callJavaScript("window.onInputHistoryLoaded", context.escapeJs(result));
+                    context.dispatchEvent("input_history.loaded", context.escapeJs(result));
                 });
             } catch (Exception e) {
                 LOG.error("[InputHistoryHandler] Failed to get input history: " + e.getMessage(), e);
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    context.callJavaScript("window.onInputHistoryLoaded", context.escapeJs("{\"items\":[],\"counts\":{}}"));
+                    context.dispatchEvent("input_history.loaded", context.escapeJs("{\"items\":[],\"counts\":{}}"));
                 });
             }
         });
@@ -61,7 +61,7 @@ public class InputHistoryHandler {
             try {
                 String result = callInputHistoryServiceWithArray("recordHistory", content);
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    context.callJavaScript("window.onInputHistoryRecorded", context.escapeJs(result));
+                    context.dispatchEvent("input_history.recorded", context.escapeJs(result));
                 });
             } catch (Exception e) {
                 LOG.error("[InputHistoryHandler] Failed to record input history: " + e.getMessage(), e);
@@ -78,7 +78,7 @@ public class InputHistoryHandler {
             try {
                 String result = callInputHistoryService("deleteHistoryItem", content);
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    context.callJavaScript("window.onInputHistoryDeleted", context.escapeJs(result));
+                    context.dispatchEvent("input_history.deleted", context.escapeJs(result));
                 });
             } catch (Exception e) {
                 LOG.error("[InputHistoryHandler] Failed to delete input history item: " + e.getMessage(), e);
@@ -94,7 +94,7 @@ public class InputHistoryHandler {
             try {
                 String result = callInputHistoryService("clearAllHistory", null);
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    context.callJavaScript("window.onInputHistoryCleared", context.escapeJs(result));
+                    context.dispatchEvent("input_history.cleared", context.escapeJs(result));
                 });
             } catch (Exception e) {
                 LOG.error("[InputHistoryHandler] Failed to clear input history: " + e.getMessage(), e);

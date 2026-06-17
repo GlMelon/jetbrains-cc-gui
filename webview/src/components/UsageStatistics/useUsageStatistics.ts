@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { sendToJava } from '../../utils/bridge.js';
 import { debugLog } from '../../utils/debug';
 import type { ProjectStatistics, DailyUsage } from '../../types/usage';
+import { bridgeHub, registerLegacyAlias } from '../../bridge';
 
 export type TabType = 'overview' | 'models' | 'sessions' | 'timeline';
 export type ScopeType = 'current' | 'all';
@@ -44,16 +45,18 @@ export function useUsageStatistics(currentProvider?: string) {
   }, [projectScope, currentProvider, dateRange]);
 
   useEffect(() => {
-    window.updateUsageStatistics = (jsonStr: string) => {
+    // [归一化] updateUsageStatistics → usage.statistics
+    registerLegacyAlias('updateUsageStatistics', 'usage.statistics');
+    bridgeHub.subscribe('usage.statistics', (jsonStr) => {
       try {
-        const data: ProjectStatistics = JSON.parse(jsonStr);
+        const data: ProjectStatistics = JSON.parse(jsonStr as string);
         setStatistics(data);
         setLoading(false);
       } catch (error) {
         console.error('Failed to parse usage statistics:', error);
         setLoading(false);
       }
-    };
+    });
 
     if (isFirstMount.current && window.__pendingUsageStatistics) {
       debugLog('[UsageStatisticsSection] Found pending usage statistics, applying...');

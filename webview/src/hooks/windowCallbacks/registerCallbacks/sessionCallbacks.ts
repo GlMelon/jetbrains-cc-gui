@@ -12,6 +12,7 @@ import { downloadJSON } from '../../../utils/exportMarkdown';
 import { releaseSessionTransition } from '../sessionTransition';
 import { drainAndRequestDependencyStatus } from '../settingsBootstrap';
 import { sendBridgeEvent } from '../../../utils/bridge';
+import { bridgeHub, registerLegacyAlias } from '../../../bridge';
 
 // Matches session-titles-service.cjs#updateTitle, which rejects longer titles.
 const CUSTOM_TITLE_MAX_LENGTH = 50;
@@ -34,6 +35,21 @@ export function registerSessionAndSdkCallbacks(
     applyHistoryTitleLocal,
     setCustomSessionTitle,
   } = options;
+
+  // [归一化] updateSessionTitle → session.title
+  registerLegacyAlias('updateSessionTitle', 'session.title');
+  bridgeHub.subscribe('session.title', (json) => {
+    try {
+      const data = JSON.parse(json as string);
+      const { sessionId, title } = data;
+      if (!title || !title.trim() || !sessionId) return;
+      if (currentSessionIdRef.current !== sessionId) return;
+      setCustomSessionTitle(title.trim());
+      applyHistoryTitleLocal(sessionId, title.trim());
+    } catch (error) {
+      console.error('[Frontend] Failed to parse session title:', error);
+    }
+  });
 
   window.setSessionId = (sessionId: string) => {
     const oldId = currentSessionIdRef.current;
@@ -87,25 +103,19 @@ export function registerSessionAndSdkCallbacks(
   // SDK Status Callbacks
   // =========================================================================
 
-  const originalUpdateDependencyStatus = window.updateDependencyStatus;
-  window.updateDependencyStatus = (jsonStr: string) => {
+  // [归一化] updateDependencyStatus → dependency.status。
+  // bridgeHub 广播:DependencySection 也订阅同 type(本地 state),两者皆被调用,无需手动链式转发。
+  registerLegacyAlias('updateDependencyStatus', 'dependency.status');
+  bridgeHub.subscribe('dependency.status', (jsonStr) => {
     try {
-      const data = JSON.parse(jsonStr);
+      const data = JSON.parse(jsonStr as string);
       setSdkStatus(data);
       setSdkStatusLoaded(true);
     } catch (error) {
       console.error('[Frontend] Failed to parse dependency status:', error);
       setSdkStatusLoaded(true);
     }
-    if (
-      originalUpdateDependencyStatus &&
-      originalUpdateDependencyStatus !== window.updateDependencyStatus
-    ) {
-      originalUpdateDependencyStatus(jsonStr);
-    }
-  };
-  (window as unknown as Record<string, unknown>)._appUpdateDependencyStatus =
-    window.updateDependencyStatus;
+  });
 
   drainAndRequestDependencyStatus();
 
@@ -131,19 +141,6 @@ export function registerSessionAndSdkCallbacks(
       setCurrentRewindRequest(null);
       window.addToast?.(tRef.current('rewind.parseError'), 'error');
     }
-  };
-
-  // =========================================================================
-  // AI Title Callback
-  // =========================================================================
-
-  window.updateSessionTitle = (sessionId: string, title: string) => {
-    if (!title || !title.trim() || !sessionId) return;
-    // Only apply the title if it matches the current session to prevent
-    // stale events from overwriting the wrong session's title.
-    if (currentSessionIdRef.current !== sessionId) return;
-    setCustomSessionTitle(title.trim());
-    applyHistoryTitleLocal(sessionId, title.trim());
   };
 
   // =========================================================================

@@ -243,6 +243,7 @@ public class ChatWindowDelegate {
         CodexSDKBridge codexSDKBridge = host.getCodexSDKBridge();
         CodemossSettingsService settingsService = host.getSettingsService();
 
+        HandlerContext.FrontendReadyChecker frontendReadyChecker = () -> host.isFrontendReady();
         HandlerContext.JsCallback jsCallback = new HandlerContext.JsCallback() {
             @Override
             public void callJavaScript(String functionName, String... args) {
@@ -256,6 +257,7 @@ public class ChatWindowDelegate {
 
         HandlerContext handlerContext = new HandlerContext(project, claudeSDKBridge, codexSDKBridge, settingsService, jsCallback);
         handlerContext.setSession(host.getSession());
+        handlerContext.setFrontendReadyChecker(frontendReadyChecker);
         host.setHandlerContext(handlerContext);
 
         MessageDispatcher messageDispatcher = new MessageDispatcher();

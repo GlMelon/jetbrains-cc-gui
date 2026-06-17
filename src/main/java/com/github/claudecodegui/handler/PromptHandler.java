@@ -69,12 +69,12 @@ public class PromptHandler extends BaseMessageHandler {
             settingsService,
             (scope, promptsJson) -> {
                 // When file changes, notify frontend to update cache
-                final String callbackName = scope == PromptScope.GLOBAL
-                    ? "window.updateGlobalPrompts"
-                    : "window.updateProjectPrompts";
+                final String eventType = scope == PromptScope.GLOBAL
+                    ? "prompt.global_list"
+                    : "prompt.project_list";
 
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    callJavaScript(callbackName, escapeJs(promptsJson));
+                    dispatchEvent(eventType, escapeJs(promptsJson));
                 });
 
                 LOG.info("[PromptHandler] File watcher triggered update for scope=" + scope.getValue());
@@ -175,13 +175,13 @@ public class PromptHandler extends BaseMessageHandler {
             String promptsJson = gson.toJson(prompts);
 
             // Call different window callbacks based on scope
-            final String callbackName = scope == PromptScope.GLOBAL
-                ? "window.updateGlobalPrompts"
-                : "window.updateProjectPrompts";
+            final String eventType = scope == PromptScope.GLOBAL
+                ? "prompt.global_list"
+                : "prompt.project_list";
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                LOG.debug("[PromptHandler] Sending " + prompts.size() + " prompts to frontend via " + callbackName);
-                callJavaScript(callbackName, escapeJs(promptsJson));
+                LOG.debug("[PromptHandler] Sending " + prompts.size() + " prompts to frontend via " + eventType);
+                dispatchEvent(eventType, escapeJs(promptsJson));
             });
         } catch (IllegalStateException e) {
             // If project prompts are requested but project is not ready yet, silently fail
@@ -194,26 +194,26 @@ public class PromptHandler extends BaseMessageHandler {
             }
 
             // For other errors, send empty array
-            final String callbackName = scope == PromptScope.GLOBAL
-                ? "window.updateGlobalPrompts"
-                : "window.updateProjectPrompts";
+            final String eventType = scope == PromptScope.GLOBAL
+                ? "prompt.global_list"
+                : "prompt.project_list";
 
             ApplicationManager.getApplication().invokeLater(() -> {
                 LOG.error("[PromptHandler] Sending empty prompts list due to error: " + e.getMessage());
-                callJavaScript(callbackName, escapeJs("[]"));
+                dispatchEvent(eventType, escapeJs("[]"));
             });
         } catch (Exception e) {
             LOG.error("[PromptHandler] Failed to get prompts: " + e.getMessage(), e);
 
             // Parse scope again for error callback
             PromptScope scope = parseScopeFromData(content);
-            final String callbackName = scope == PromptScope.GLOBAL
-                ? "window.updateGlobalPrompts"
-                : "window.updateProjectPrompts";
+            final String eventType = scope == PromptScope.GLOBAL
+                ? "prompt.global_list"
+                : "prompt.project_list";
 
             ApplicationManager.getApplication().invokeLater(() -> {
                 LOG.error("[PromptHandler] Sending empty prompts list due to error");
-                callJavaScript(callbackName, escapeJs("[]"));
+                dispatchEvent(eventType, escapeJs("[]"));
             });
         }
     }
@@ -242,7 +242,7 @@ public class PromptHandler extends BaseMessageHandler {
             String projectInfoJson = gson.toJson(projectInfo);
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                callJavaScript("window.updateProjectInfo", escapeJs(projectInfoJson));
+                dispatchEvent("prompt.project_info", escapeJs(projectInfoJson));
             });
         } catch (Exception e) {
             LOG.error("[PromptHandler] Failed to get project info: " + e.getMessage(), e);
@@ -254,7 +254,7 @@ public class PromptHandler extends BaseMessageHandler {
             projectInfo.addProperty("path", (String) null);
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                callJavaScript("window.updateProjectInfo", escapeJs(gson.toJson(projectInfo)));
+                dispatchEvent("prompt.project_info", escapeJs(gson.toJson(projectInfo)));
             });
         }
     }
@@ -293,7 +293,7 @@ public class PromptHandler extends BaseMessageHandler {
                 // Refresh with the same scope
                 String scopeJson = "{\"scope\":\"" + finalScope.getValue() + "\"}";
                 handleGetPrompts(scopeJson);
-                callJavaScript("window.promptOperationResult", escapeJs("{\"success\":true,\"operation\":\"add\"}"));
+                dispatchEvent("prompt.operation_result", escapeJs("{\"success\":true,\"operation\":\"add\"}"));
             });
         } catch (Exception e) {
             LOG.error("[PromptHandler] Failed to add prompt: " + e.getMessage(), e);
@@ -340,7 +340,7 @@ public class PromptHandler extends BaseMessageHandler {
                 // Refresh with the same scope
                 String scopeJson = "{\"scope\":\"" + finalScope.getValue() + "\"}";
                 handleGetPrompts(scopeJson);
-                callJavaScript("window.promptOperationResult", escapeJs("{\"success\":true,\"operation\":\"update\"}"));
+                dispatchEvent("prompt.operation_result", escapeJs("{\"success\":true,\"operation\":\"update\"}"));
             });
         } catch (Exception e) {
             LOG.error("[PromptHandler] Failed to update prompt: " + e.getMessage(), e);
@@ -382,7 +382,7 @@ public class PromptHandler extends BaseMessageHandler {
                     // Refresh with the same scope
                     String scopeJson = "{\"scope\":\"" + finalScope.getValue() + "\"}";
                     handleGetPrompts(scopeJson);
-                    callJavaScript("window.promptOperationResult", escapeJs("{\"success\":true,\"operation\":\"delete\"}"));
+                    dispatchEvent("prompt.operation_result", escapeJs("{\"success\":true,\"operation\":\"delete\"}"));
                 });
             } else {
                 JsonObject errorResult = new JsonObject();
@@ -390,7 +390,7 @@ public class PromptHandler extends BaseMessageHandler {
                 errorResult.addProperty("operation", "delete");
                 errorResult.addProperty("error", "Prompt not found");
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    callJavaScript("window.promptOperationResult", escapeJs(gson.toJson(errorResult)));
+                    dispatchEvent("prompt.operation_result", escapeJs(gson.toJson(errorResult)));
                 });
             }
         } catch (Exception e) {
@@ -408,7 +408,7 @@ public class PromptHandler extends BaseMessageHandler {
         errorResult.addProperty("operation", operation);
         errorResult.addProperty("error", error);
         ApplicationManager.getApplication().invokeLater(() -> {
-            callJavaScript("window.promptOperationResult", escapeJs(gson.toJson(errorResult)));
+            dispatchEvent("prompt.operation_result", escapeJs(gson.toJson(errorResult)));
         });
     }
 
@@ -650,7 +650,7 @@ public class PromptHandler extends BaseMessageHandler {
 
                 // Send preview to frontend
                 String previewJson = gson.toJson(previewData);
-                callJavaScript("window.promptImportPreviewResult", escapeJs(previewJson));
+                dispatchEvent("prompt.import_preview", escapeJs(previewJson));
 
                 LOG.info("[PromptHandler] Prepared import preview with " + itemsArray.size() + " prompts");
 
@@ -708,7 +708,7 @@ public class PromptHandler extends BaseMessageHandler {
             final PromptScope finalScope = scope;
             ApplicationManager.getApplication().invokeLater(() -> {
                 String resultJson = gson.toJson(result);
-                callJavaScript("window.promptImportResult", escapeJs(resultJson));
+                dispatchEvent("prompt.import_result", escapeJs(resultJson));
 
                 // Refresh the list with the same scope
                 String scopeJson = "{\"scope\":\"" + finalScope.getValue() + "\"}";
@@ -759,7 +759,7 @@ public class PromptHandler extends BaseMessageHandler {
         errorResult.addProperty("success", false);
         errorResult.addProperty("error", error);
         ApplicationManager.getApplication().invokeLater(() -> {
-            callJavaScript("window.promptImportResult", escapeJs(gson.toJson(errorResult)));
+            dispatchEvent("prompt.import_result", escapeJs(gson.toJson(errorResult)));
             Notifications.Bus.notify(new Notification(
                     "Codemoss",
                     "Import Failed",

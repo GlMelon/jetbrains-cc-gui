@@ -20,6 +20,15 @@ public abstract class BaseMessageHandler implements MessageHandler {
     }
 
     /**
+     * 下行总线语义化入口(归一化重构)。Phase 0 双轨:内部走 window.__bridge.dispatch,
+     * 行为与旧 callJavaScript("window.xxx") 等价。后续 Phase handler 逐步迁移到本方法。
+     * 详见 plan: typed-booping-newt.md。
+     */
+    protected void dispatchEvent(String type, String payloadJson) {
+        context.dispatchEvent(type, payloadJson);
+    }
+
+    /**
      * Escape a JavaScript string.
      */
     protected String escapeJs(String str) {

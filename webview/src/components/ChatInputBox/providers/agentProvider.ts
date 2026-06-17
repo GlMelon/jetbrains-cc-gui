@@ -1,6 +1,7 @@
 import type { DropdownItemData } from '../types';
 import type { AgentConfig } from '../../../types/agent';
 import { sendBridgeEvent } from '../../../utils/bridge';
+import { bridgeHub, registerLegacyAlias } from '../../../bridge';
 import i18n from '../../../i18n/config';
 import { debugError, debugLog, debugWarn } from '../../../utils/debug.js';
 
@@ -47,7 +48,7 @@ export function resetAgentsState() {
 
 export function setupAgentsCallback() {
   if (typeof window === 'undefined') return;
-  if (callbackRegistered && window.updateAgents) return;
+  if (callbackRegistered) return;
 
   const handler = (json: string) => {
     debugLog('[AgentProvider] Received data from backend, length=' + json.length);
@@ -78,15 +79,9 @@ export function setupAgentsCallback() {
     }
   };
 
-  // Save original callback
-  const originalHandler = window.updateAgents;
-
-  window.updateAgents = (json: string) => {
-    // Call our handler
-    handler(json);
-    // Also call original handler (if exists)
-    originalHandler?.(json);
-  };
+  // [归一化] updateAgents → agent.list。经 bridgeHub 订阅(useSettingsWindowCallbacks 也订阅同 type)。
+  registerLegacyAlias('updateAgents', 'agent.list');
+  bridgeHub.subscribe('agent.list', (json) => handler(json as string));
 
   callbackRegistered = true;
   debugLog('[AgentProvider] Callback registered');

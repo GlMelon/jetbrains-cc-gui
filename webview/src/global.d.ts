@@ -3,6 +3,17 @@
  */
 interface Window {
   /**
+   * 下行总线(Java → 前端)的唯一入口。
+   * 由 bridge/hub.ts 的 installBridge() 在 React 挂载前安装。
+   * 后端通过 executeJavaScript 调用:window.__bridge.dispatch(type, payloadJson)
+   * 完整类型见 webview/src/bridge/types.ts 的 WindowBridge。此处内联避免 global.d.ts 变为模块。
+   * 详见 plan: typed-booping-newt.md。
+   */
+  __bridge?: {
+    dispatch: (type: string, payloadJson?: string) => void;
+  };
+
+  /**
    * Send message to Java backend
    */
   sendToJava?: (message: string) => void;

@@ -45,12 +45,12 @@ public class ClaudeCliPathHandler {
                 ApplicationManager.getApplication().invokeLater(() -> {
                     JsonObject response = new JsonObject();
                     response.addProperty("path", pathToSend);
-                    context.callJavaScript("window.updateClaudeCliPath", context.escapeJs(gson.toJson(response)));
+                    context.dispatchEvent("config.claude_cli_path", context.escapeJs(gson.toJson(response)));
                 });
             } catch (Exception e) {
                 LOG.error("[ClaudeCliPathHandler] Failed to get Claude CLI path: " + e.getMessage(), e);
                 ApplicationManager.getApplication().invokeLater(() ->
-                    context.callJavaScript("window.showError", context.escapeJs("Failed to load Claude CLI path: " + e.getMessage()))
+                    context.dispatchEvent("toast.error", context.escapeJs("Failed to load Claude CLI path: " + e.getMessage()))
                 );
             }
         }, AppExecutorUtil.getAppExecutorService()).exceptionally(ex -> {
@@ -74,7 +74,7 @@ public class ClaudeCliPathHandler {
         } catch (Exception e) {
             LOG.error("[ClaudeCliPathHandler] Failed to parse set_claude_cli_path content: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() ->
-                context.callJavaScript("window.showError", context.escapeJs("Failed to save Claude CLI path: " + e.getMessage()))
+                context.dispatchEvent("toast.error", context.escapeJs("Failed to save Claude CLI path: " + e.getMessage()))
             );
             return;
         }
@@ -125,22 +125,22 @@ public class ClaudeCliPathHandler {
                 ApplicationManager.getApplication().invokeLater(() -> {
                     JsonObject response = new JsonObject();
                     response.addProperty("path", pathToEcho);
-                    context.callJavaScript("window.updateClaudeCliPath", context.escapeJs(gson.toJson(response)));
+                    context.dispatchEvent("config.claude_cli_path", context.escapeJs(gson.toJson(response)));
 
                     if (successFlag) {
                         String msg = finalPathToSend.isEmpty()
                             ? "Claude CLI path cleared, using bundled SDK"
                             : "Claude CLI path saved: " + finalPathToSend;
-                        context.callJavaScript("window.showSwitchSuccess", context.escapeJs(msg));
+                        context.dispatchEvent("toast.switch_success", context.escapeJs(msg));
                     } else {
                         String msg = failureMsgFinal != null ? failureMsgFinal : "Invalid Claude CLI path";
-                        context.callJavaScript("window.showError", context.escapeJs(msg));
+                        context.dispatchEvent("toast.error", context.escapeJs(msg));
                     }
                 });
             } catch (Exception e) {
                 LOG.error("[ClaudeCliPathHandler] Failed to set Claude CLI path: " + e.getMessage(), e);
                 ApplicationManager.getApplication().invokeLater(() ->
-                    context.callJavaScript("window.showError", context.escapeJs("Failed to save Claude CLI path: " + e.getMessage()))
+                    context.dispatchEvent("toast.error", context.escapeJs("Failed to save Claude CLI path: " + e.getMessage()))
                 );
             }
         }, AppExecutorUtil.getAppExecutorService()).exceptionally(ex -> {

@@ -16,6 +16,7 @@ import {
   subscribeProviderList,
 } from '../../../utils/runtimeProviderCapabilities';
 import { sendBridgeEvent } from '../../../utils/bridge';
+import { bridgeHub, registerLegacyAlias } from '../../../bridge';
 
 const sendToJava = (event: string, payload = '') => {
   sendBridgeEvent(event, payload);
@@ -124,22 +125,54 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
       }
     });
 
-    window.showError = (message: string) => {
-      d().showAlert('error', t('toast.operationFailed'), message);
+    // [归一化] 所有回调经 bridgeHub 订阅,替代旧 window.xxx 覆盖 + 链式转发。bridgeHub 广播到所有订阅者。
+    registerLegacyAlias('showError', 'toast.error');
+    registerLegacyAlias('showSwitchSuccess', 'toast.switch_success');
+    registerLegacyAlias('showSuccess', 'toast.success');
+    registerLegacyAlias('showSuccessI18n', 'toast.success_i18n');
+    registerLegacyAlias('updateNodePath', 'node.path');
+    registerLegacyAlias('updateWorkingDirectory', 'config.working_directory');
+    registerLegacyAlias('onEditorFontConfigReceived', 'font.editor_config_received');
+    registerLegacyAlias('onUiFontConfigReceived', 'font.ui_config_received');
+    registerLegacyAlias('onIdeThemeReceived', 'theme.received');
+    registerLegacyAlias('updateCodexSandboxMode', 'config.codex_sandbox_mode');
+    registerLegacyAlias('updateCommitPrompt', 'config.commit_prompt');
+    registerLegacyAlias('updatePromptEnhancerConfig', 'config.prompt_enhancer');
+    registerLegacyAlias('updateCommitAiConfig', 'config.commit_ai');
+    registerLegacyAlias('updateProjectCommitPrompt', 'config.project_commit_prompt');
+    registerLegacyAlias('updateCommitGenerationEnabled', 'config.commit_generation');
+    registerLegacyAlias('updateAiTitleGenerationEnabled', 'config.ai_title_generation');
+    registerLegacyAlias('updateStatusBarWidgetEnabled', 'config.status_bar_widget');
+    registerLegacyAlias('updateTaskCompletionNotificationEnabled', 'config.task_completion_notification');
+    registerLegacyAlias('updateInvocationMode', 'config.invocation_mode');
+    registerLegacyAlias('updateAgents', 'agent.list');
+    registerLegacyAlias('agentOperationResult', 'agent.operation_result');
+    registerLegacyAlias('agentImportPreviewResult', 'agent.import_preview');
+    registerLegacyAlias('agentImportResult', 'agent.import_result');
+    registerLegacyAlias('updatePrompts', 'prompt.list');
+    registerLegacyAlias('promptOperationResult', 'prompt.operation_result');
+    registerLegacyAlias('promptImportPreviewResult', 'prompt.import_preview');
+    registerLegacyAlias('promptImportResult', 'prompt.import_result');
+    registerLegacyAlias('updateCurrentCodexConfig', 'provider.codex_config');
+
+    const unsubs: Array<() => void> = [];
+
+    unsubs.push(bridgeHub.subscribe('toast.error', (message) => {
+      d().showAlert('error', t('toast.operationFailed'), message as string);
       d().setLoading(false);
       d().setSavingNodePath(false);
       d().setSavingWorkingDirectory(false);
       d().setSavingCommitPrompt(false);
       d().setSavingProjectCommitPrompt(false);
-    };
+    }));
 
-    window.showSwitchSuccess = (message: string) => {
-      d().showAlert('success', t('toast.switchSuccess'), message);
-    };
+    unsubs.push(bridgeHub.subscribe('toast.switch_success', (message) => {
+      d().showAlert('success', t('toast.switchSuccess'), message as string);
+    }));
 
-    window.updateNodePath = (jsonStr: string) => {
+    unsubs.push(bridgeHub.subscribe('node.path', (jsonStr) => {
       try {
-        const data = JSON.parse(jsonStr);
+        const data = JSON.parse(jsonStr as string);
         d().setNodePath(data.path || '');
         d().setNodeVersion(data.version || null);
         if (data.minVersion) {
@@ -147,83 +180,80 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
         }
       } catch (e) {
         console.warn('[SettingsView] Failed to parse updateNodePath JSON, fallback to legacy format:', e);
-        d().setNodePath(jsonStr || '');
+        d().setNodePath((jsonStr as string) || '');
       }
       d().setSavingNodePath(false);
       window.dispatchEvent(new CustomEvent('nodePathReady'));
-    };
+    }));
 
-    window.updateWorkingDirectory = (jsonStr: string) => {
+    unsubs.push(bridgeHub.subscribe('config.working_directory', (jsonStr) => {
       try {
-        const data = JSON.parse(jsonStr);
+        const data = JSON.parse(jsonStr as string);
         d().setWorkingDirectory(data.customWorkingDir || '');
         d().setSavingWorkingDirectory(false);
       } catch (error) {
         console.error('[SettingsView] Failed to parse working directory:', error);
         d().setSavingWorkingDirectory(false);
       }
-    };
+    }));
 
-    window.showSuccess = (message: string) => {
-      d().showAlert('success', t('toast.operationSuccess'), message);
+    unsubs.push(bridgeHub.subscribe('toast.success', (message) => {
+      d().showAlert('success', t('toast.operationSuccess'), message as string);
       d().setSavingNodePath(false);
       d().setSavingWorkingDirectory(false);
-    };
+    }));
 
-    window.showSuccessI18n = (i18nKey: string) => {
-      const message = t(i18nKey);
+    unsubs.push(bridgeHub.subscribe('toast.success_i18n', (i18nKey) => {
+      const message = t(i18nKey as string);
       d().addToast(message, 'success');
-    };
+    }));
 
-    window.onEditorFontConfigReceived = (jsonStr: string) => {
+    unsubs.push(bridgeHub.subscribe('font.editor_config_received', (jsonStr) => {
       try {
-        const config = JSON.parse(jsonStr);
+        const config = JSON.parse(jsonStr as string);
         d().setEditorFontConfig(config);
       } catch (error) {
         console.error('[SettingsView] Failed to parse editor font config:', error);
       }
-    };
+    }));
 
-    window.onUiFontConfigReceived = (jsonStr: string) => {
+    unsubs.push(bridgeHub.subscribe('font.ui_config_received', (jsonStr) => {
       try {
-        const config = JSON.parse(jsonStr);
+        const config = JSON.parse(jsonStr as string);
         d().setUiFontConfig(config);
         window.applyUiFontConfig?.(config);
       } catch {
         // Silently ignore malformed UI font config from backend
       }
-    };
+    }));
 
     // IDE theme callback
-    const previousOnIdeThemeReceived = window.onIdeThemeReceived;
-    window.onIdeThemeReceived = (jsonStr: string) => {
+    unsubs.push(bridgeHub.subscribe('theme.received', (jsonStr) => {
       try {
-        const themeData = JSON.parse(jsonStr);
+        const themeData = JSON.parse(jsonStr as string);
         const theme = themeData.isDark ? 'dark' : 'light';
         d().setIdeTheme(theme);
-        previousOnIdeThemeReceived?.(jsonStr);
       } catch (error) {
         console.error('[SettingsView] Failed to parse IDE theme:', error);
       }
-    };
+    }));
 
     // Streaming configuration callback
-    const previousUpdateStreamingEnabled = window.updateStreamingEnabled;
     if (!d().onStreamingEnabledChangeProp) {
-      window.updateStreamingEnabled = (jsonStr: string) => {
+      unsubs.push(bridgeHub.subscribe('setting.streaming_enabled', (jsonStr) => {
         try {
-          const data = JSON.parse(jsonStr);
+          const data = JSON.parse(jsonStr as string);
           d().setLocalStreamingEnabled(data.streamingEnabled ?? true);
         } catch (error) {
           console.error('[SettingsView] Failed to parse streaming config:', error);
         }
-      };
+      }));
     }
 
     // Codex sandbox mode callback
-    window.updateCodexSandboxMode = (jsonStr: string) => {
+    unsubs.push(bridgeHub.subscribe('config.codex_sandbox_mode', (jsonStr) => {
       try {
-        const data = JSON.parse(jsonStr);
+        const data = JSON.parse(jsonStr as string);
         const mode = data?.sandboxMode;
         if (mode === 'workspace-write' || mode === 'danger-full-access') {
           d().setCodexSandboxMode?.(mode);
@@ -231,25 +261,24 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
       } catch (error) {
         console.error('[SettingsView] Failed to parse Codex sandbox mode config:', error);
       }
-    };
+    }));
 
     // Send shortcut configuration callback
-    const previousUpdateSendShortcut = window.updateSendShortcut;
     if (!d().onSendShortcutChangeProp) {
-      window.updateSendShortcut = (jsonStr: string) => {
+      unsubs.push(bridgeHub.subscribe('setting.send_shortcut', (jsonStr) => {
         try {
-          const data = JSON.parse(jsonStr);
+          const data = JSON.parse(jsonStr as string);
           d().setLocalSendShortcut(data.sendShortcut ?? 'enter');
         } catch (error) {
           console.error('[SettingsView] Failed to parse send shortcut config:', error);
         }
-      };
+      }));
     }
 
     // Commit AI prompt callback
-    window.updateCommitPrompt = (jsonStr: string) => {
+    unsubs.push(bridgeHub.subscribe('config.commit_prompt', (jsonStr) => {
       try {
-        const data = JSON.parse(jsonStr);
+        const data = JSON.parse(jsonStr as string);
         d().setCommitPrompt(data.commitPrompt || '');
         d().setSavingCommitPrompt(false);
         if (data.projectCommitPrompt !== undefined) {
@@ -263,30 +292,30 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
         d().setSavingCommitPrompt(false);
         d().addToast(t('toast.saveFailed'), 'error');
       }
-    };
+    }));
 
-    window.updatePromptEnhancerConfig = (jsonStr: string) => {
+    unsubs.push(bridgeHub.subscribe('config.prompt_enhancer', (jsonStr) => {
       try {
-        const data = JSON.parse(jsonStr);
+        const data = JSON.parse(jsonStr as string);
         d().setPromptEnhancerConfig(data);
       } catch (error) {
         console.error('[SettingsView] Failed to parse prompt enhancer config:', error);
       }
-    };
+    }));
 
-    window.updateCommitAiConfig = (jsonStr: string) => {
+    unsubs.push(bridgeHub.subscribe('config.commit_ai', (jsonStr) => {
       try {
-        const data = JSON.parse(jsonStr);
+        const data = JSON.parse(jsonStr as string);
         d().setCommitAiConfig(data);
       } catch (error) {
         console.error('[SettingsView] Failed to parse commit AI config:', error);
       }
-    };
+    }));
 
     // Project-level commit AI prompt callback
-    window.updateProjectCommitPrompt = (jsonStr: string) => {
+    unsubs.push(bridgeHub.subscribe('config.project_commit_prompt', (jsonStr) => {
       try {
-        const data = JSON.parse(jsonStr);
+        const data = JSON.parse(jsonStr as string);
         d().setProjectCommitPrompt(data.projectCommitPrompt || '');
         d().setSavingProjectCommitPrompt(false);
         if (data.saved) {
@@ -297,54 +326,52 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
         d().setSavingProjectCommitPrompt(false);
         d().addToast(t('toast.saveFailed'), 'error');
       }
-    };
+    }));
 
     // AI commit generation config callback
-    window.updateCommitGenerationEnabled = (jsonStr: string) => {
+    unsubs.push(bridgeHub.subscribe('config.commit_generation', (jsonStr) => {
       try {
-        const data = JSON.parse(jsonStr);
+        const data = JSON.parse(jsonStr as string);
         d().setCommitGenerationEnabled?.(data.commitGenerationEnabled ?? true);
       } catch (error) {
         console.error('[SettingsView] Failed to parse commit generation config:', error);
       }
-    };
+    }));
 
     // AI session title generation config callback
-    window.updateAiTitleGenerationEnabled = (jsonStr: string) => {
+    unsubs.push(bridgeHub.subscribe('config.ai_title_generation', (jsonStr) => {
       try {
-        const data = JSON.parse(jsonStr);
+        const data = JSON.parse(jsonStr as string);
         d().setAiTitleGenerationEnabled?.(data.aiTitleGenerationEnabled ?? true);
       } catch (error) {
         console.error('[SettingsView] Failed to parse AI title generation config:', error);
       }
-    };
+    }));
 
     // Status bar widget config callback
-    window.updateStatusBarWidgetEnabled = (jsonStr: string) => {
+    unsubs.push(bridgeHub.subscribe('config.status_bar_widget', (jsonStr) => {
       try {
-        const data = JSON.parse(jsonStr);
+        const data = JSON.parse(jsonStr as string);
         d().setStatusBarWidgetEnabled?.(data.statusBarWidgetEnabled ?? true);
       } catch (error) {
         console.error('[SettingsView] Failed to parse status bar widget config:', error);
       }
-    };
+    }));
 
     // Task completion notification config callback (opt-in feature, default false)
-    window.updateTaskCompletionNotificationEnabled = (jsonStr: string) => {
+    unsubs.push(bridgeHub.subscribe('config.task_completion_notification', (jsonStr) => {
       try {
-        const data = JSON.parse(jsonStr);
+        const data = JSON.parse(jsonStr as string);
         d().setTaskCompletionNotificationEnabled?.(data.taskCompletionNotificationEnabled ?? false);
       } catch (error) {
         console.error('[SettingsView] Failed to parse task completion notification config:', error);
       }
-    };
+    }));
 
     // Invocation mode callback
-      const previousUpdateInvocationMode = window.updateInvocationMode;
-    window.updateInvocationMode = (jsonStr: string) => {
+    unsubs.push(bridgeHub.subscribe('config.invocation_mode', (jsonStr) => {
       try {
-          previousUpdateInvocationMode?.(jsonStr);
-        const data = JSON.parse(jsonStr);
+        const data = JSON.parse(jsonStr as string);
         const mode = data.invocationMode;
         if (mode === 'sdk' || mode === 'cli') {
           d().setInvocationMode(mode);
@@ -355,32 +382,30 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
       } catch (error) {
         console.error('[SettingsView] Failed to parse invocation mode:', error);
       }
-    };
+    }));
 
     // Agent callbacks
-    const previousUpdateAgents = window.updateAgents;
-    window.updateAgents = (jsonStr: string) => {
+    unsubs.push(bridgeHub.subscribe('agent.list', (jsonStr) => {
       try {
-        const agentsList: AgentConfig[] = JSON.parse(jsonStr);
+        const agentsList: AgentConfig[] = JSON.parse(jsonStr as string);
         d().updateAgents(agentsList);
       } catch (error) {
         console.error('[SettingsView] Failed to parse agents:', error);
       }
-      previousUpdateAgents?.(jsonStr);
-    };
+    }));
 
-    window.agentOperationResult = (jsonStr: string) => {
+    unsubs.push(bridgeHub.subscribe('agent.operation_result', (jsonStr) => {
       try {
-        const result = JSON.parse(jsonStr);
+        const result = JSON.parse(jsonStr as string);
         d().handleAgentOperationResult(result);
       } catch (error) {
         console.error('[SettingsView] Failed to parse agent operation result:', error);
       }
-    };
+    }));
 
-    window.agentImportPreviewResult = (jsonStr: string) => {
+    unsubs.push(bridgeHub.subscribe('agent.import_preview', (jsonStr) => {
       try {
-        const previewData = JSON.parse(jsonStr);
+        const previewData = JSON.parse(jsonStr as string);
         if (!Array.isArray(previewData?.items) || typeof previewData?.summary !== 'object') {
           console.error('[SettingsView] Invalid agent import preview data structure');
           return;
@@ -389,41 +414,39 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
       } catch (error) {
         console.error('[SettingsView] Failed to parse agent import preview result:', error);
       }
-    };
+    }));
 
-    window.agentImportResult = (jsonStr: string) => {
+    unsubs.push(bridgeHub.subscribe('agent.import_result', (jsonStr) => {
       try {
-        const result = JSON.parse(jsonStr);
+        const result = JSON.parse(jsonStr as string);
         d().handleAgentImportResult(result);
       } catch (error) {
         console.error('[SettingsView] Failed to parse agent import result:', error);
       }
-    };
+    }));
 
     // Prompt library callbacks (legacy support - now primarily handled by PromptSection)
-    const previousUpdatePrompts = window.updatePrompts;
-    window.updatePrompts = (jsonStr: string) => {
+    unsubs.push(bridgeHub.subscribe('prompt.list', (jsonStr) => {
       try {
-        const promptsList: PromptConfig[] = JSON.parse(jsonStr);
+        const promptsList: PromptConfig[] = JSON.parse(jsonStr as string);
         d().updatePrompts?.(promptsList);
       } catch (error) {
         console.error('[SettingsView] Failed to parse prompts:', error);
       }
-      previousUpdatePrompts?.(jsonStr);
-    };
+    }));
 
-    window.promptOperationResult = (jsonStr: string) => {
+    unsubs.push(bridgeHub.subscribe('prompt.operation_result', (jsonStr) => {
       try {
-        const result = JSON.parse(jsonStr);
+        const result = JSON.parse(jsonStr as string);
         d().handlePromptOperationResult?.(result);
       } catch (error) {
         console.error('[SettingsView] Failed to parse prompt operation result:', error);
       }
-    };
+    }));
 
-    window.promptImportPreviewResult = (jsonStr: string) => {
+    unsubs.push(bridgeHub.subscribe('prompt.import_preview', (jsonStr) => {
       try {
-        const previewData = JSON.parse(jsonStr);
+        const previewData = JSON.parse(jsonStr as string);
         if (!Array.isArray(previewData?.items) || typeof previewData?.summary !== 'object') {
           console.error('[SettingsView] Invalid prompt import preview data structure');
           return;
@@ -432,16 +455,16 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
       } catch (error) {
         console.error('[SettingsView] Failed to parse prompt import preview result:', error);
       }
-    };
+    }));
 
-    window.promptImportResult = (jsonStr: string) => {
+    unsubs.push(bridgeHub.subscribe('prompt.import_result', (jsonStr) => {
       try {
-        const result = JSON.parse(jsonStr);
+        const result = JSON.parse(jsonStr as string);
         d().handlePromptImportResult?.(result);
       } catch (error) {
         console.error('[SettingsView] Failed to parse prompt import result:', error);
       }
-    };
+    }));
 
     // Codex provider callbacks - subscribe via the registry.
     const unsubscribeCodexProviders = subscribeCodexProviderList((jsonStr: string) => {
@@ -465,15 +488,15 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
       }
     });
 
-    window.updateCurrentCodexConfig = (jsonStr: string) => {
+    unsubs.push(bridgeHub.subscribe('provider.codex_config', (jsonStr) => {
       try {
-        const config = JSON.parse(jsonStr);
+        const config = JSON.parse(jsonStr as string);
         d().updateCurrentCodexConfig(config);
       } catch (error) {
         console.error('[SettingsView] Failed to parse Codex config:', error);
         d().setCodexConfigLoading(false);
       }
-    };
+    }));
 
     // Initial data loading
     d().loadProviders();
@@ -501,44 +524,11 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
       d().cleanupAgentsTimeout();
       d().cleanupPromptsTimeout?.();
 
+      unsubs.forEach((u) => u());
       unsubscribeProviders();
       unsubscribeActiveProvider();
       unsubscribeCodexProviders();
       unsubscribeActiveCodexProvider();
-      window.showError = undefined;
-      window.showSwitchSuccess = undefined;
-      window.updateNodePath = undefined;
-      window.updateWorkingDirectory = undefined;
-      window.showSuccess = undefined;
-      window.showSuccessI18n = undefined;
-      window.onEditorFontConfigReceived = undefined;
-      window.onUiFontConfigReceived = undefined;
-      window.onIdeThemeReceived = previousOnIdeThemeReceived;
-      if (!d().onStreamingEnabledChangeProp) {
-        window.updateStreamingEnabled = previousUpdateStreamingEnabled;
-      }
-      window.updateCodexSandboxMode = undefined;
-      if (!d().onSendShortcutChangeProp) {
-        window.updateSendShortcut = previousUpdateSendShortcut;
-      }
-      window.updateCommitPrompt = undefined;
-      window.updateCommitAiConfig = undefined;
-      window.updatePromptEnhancerConfig = undefined;
-      window.updateProjectCommitPrompt = undefined;
-      window.updateCommitGenerationEnabled = undefined;
-      window.updateAiTitleGenerationEnabled = undefined;
-      window.updateStatusBarWidgetEnabled = undefined;
-      window.updateTaskCompletionNotificationEnabled = undefined;
-        window.updateInvocationMode = previousUpdateInvocationMode;
-      window.updateAgents = previousUpdateAgents;
-      window.agentOperationResult = undefined;
-      window.agentImportPreviewResult = undefined;
-      window.agentImportResult = undefined;
-      window.updatePrompts = previousUpdatePrompts;
-      window.promptOperationResult = undefined;
-      window.promptImportPreviewResult = undefined;
-      window.promptImportResult = undefined;
-      window.updateCurrentCodexConfig = undefined;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t]);

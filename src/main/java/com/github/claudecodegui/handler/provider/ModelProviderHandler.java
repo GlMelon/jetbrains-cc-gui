@@ -176,7 +176,11 @@ public class ModelProviderHandler {
                 ? (context.getSession() != null ? context.getSession().getProvider() : context.getCurrentProvider())
                 : context.getCurrentProvider();
         ApplicationManager.getApplication().invokeLater(() -> {
-            context.callJavaScript("window.onModelConfirmed", context.escapeJs(confirmedModel), context.escapeJs(confirmedProvider));
+            // [归一化] onModelConfirmed(modelId, provider) 原为两参数,归一化为单 JSON {modelId, provider}
+            JsonObject confirmedPayload = new JsonObject();
+            confirmedPayload.addProperty("modelId", confirmedModel);
+            confirmedPayload.addProperty("provider", confirmedProvider);
+            context.dispatchEvent("model.confirmed", context.escapeJs(gson.toJson(confirmedPayload)));
             usagePushService.pushUsageUpdateAfterModelChange(newMaxTokens);
         });
     }
@@ -370,7 +374,7 @@ public class ModelProviderHandler {
                 try {
                     context.callJavaScript("updateSlashCommands", context.escapeJs(json));
                     if (codexJson != null) {
-                        context.callJavaScript("window.updateDollarCommands", context.escapeJs(codexJson));
+                        context.dispatchEvent("slash.dollar_commands", context.escapeJs(codexJson));
                     }
                 } catch (Exception e) {
                     LOG.warn("[ModelProviderHandler] Failed to refresh slash commands: " + e.getMessage());

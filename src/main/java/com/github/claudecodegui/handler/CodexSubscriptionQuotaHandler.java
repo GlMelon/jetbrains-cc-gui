@@ -38,6 +38,6 @@ public class CodexSubscriptionQuotaHandler {
 
     private void sendPayload(JsonObject payload) {
         ApplicationManager.getApplication().invokeLater(() ->
-                context.callJavaScript("window.updateCodexSubscriptionQuota", context.escapeJs(GSON.toJson(payload))));
+                context.dispatchEvent("codex.subscription_quota", context.escapeJs(GSON.toJson(payload))));
     }
 }

@@ -22,6 +22,11 @@ import { initFonts } from './bootstrap/fonts';
 import { initLanguage } from './bootstrap/language';
 import { registerPendingSlots } from './bootstrap/pendingSlots';
 
+// 下行总线(Java → 前端)归一化入口。Phase 0:安装空壳(双轨,零行为变化)。
+// 必须在一切其它 bootstrap 之前安装,以便(未来)后端早期推送能被缓冲。
+// 详见 plan: typed-booping-newt.md。
+import { installBridge, bridgeHub, registerLegacyAlias } from './bridge';
+
 // Silence noisy console output in production (including third-party libs).
 // console.error is preserved so ErrorBoundary and unhandled exceptions still
 // surface in the IDE's webview devtools — silencing it would hide regressions.
@@ -38,6 +43,10 @@ if (!import.meta.env.DEV) {
 // through a deterministic subscriber registry instead of overriding
 // `window.update*Provider*` callbacks ad-hoc.
 installRuntimeProviderDispatchers();
+
+// 下行总线:安装 window.__bridge 入口(幂等)。必须在 React 挂载与任何后端早期推送之前,
+// 以便 dispatch 能缓冲。Phase 0 阶段无调用方,仅就位;握手时由 markReady() 回放缓冲。
+installBridge();
 
 // ---------------------------------------------------------------------------
 // Bootstrap initialisation (order matters)
@@ -73,12 +82,9 @@ if (enableVConsole) {
   });
 }
 
-// Register linkify capabilities handler (non-pending, immediate setup)
-if (typeof window !== 'undefined') {
-  window.updateLinkifyCapabilities = (json: string) => {
-    applyLinkifyCapabilitiesPayload(json);
-  };
-}
+// [归一化] updateLinkifyCapabilities → linkify.update(bootstrap 类,不进 React state)
+registerLegacyAlias('updateLinkifyCapabilities', 'linkify.update');
+bridgeHub.subscribe('linkify.update', (json) => applyLinkifyCapabilitiesPayload(json as string));
 
 // ---------------------------------------------------------------------------
 // React application rendering
@@ -132,6 +138,11 @@ waitForBridge(() => {
   setupSlashCommandsCallback();
   setupDollarCommandsCallback();
   startBridgeHeartbeat();
+
+  // 下行总线握手:标记前端就绪并回放缓冲队列(替代散落的 window.__pendingXxx)。
+  // Phase 0 阶段缓冲为空,此处仅建立契约;后续 Phase 迁移的回调才会真正利用缓冲。
+  // 必须在发出 frontend_ready 之前完成,以免后端收到 ready 后立即推送时错过回放窗口。
+  bridgeHub.markReady();
 
   debugLog('[Main] Sending frontend_ready signal');
   sendBridgeEvent('frontend_ready');

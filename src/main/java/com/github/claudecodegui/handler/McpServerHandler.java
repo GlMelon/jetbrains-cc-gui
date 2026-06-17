@@ -93,13 +93,13 @@ public class McpServerHandler extends BaseMessageHandler {
                 + (projectPath != null ? projectPath : "(no project)"));
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                callJavaScript("window.updateMcpServers", escapeJs(serversJson));
+                dispatchEvent("mcp.server_list", escapeJs(serversJson));
             });
         } catch (Exception e) {
             LOG.error("[McpServerHandler] Failed to get MCP servers: " + e.getMessage(), e);
             // Send empty array so frontend exits loading state instead of hanging
             ApplicationManager.getApplication().invokeLater(() -> {
-                callJavaScript("window.updateMcpServers", escapeJs("[]"));
+                dispatchEvent("mcp.server_list", escapeJs("[]"));
             });
         }
     }
@@ -157,14 +157,14 @@ public class McpServerHandler extends BaseMessageHandler {
                         }
 
                         ApplicationManager.getApplication().invokeLater(() -> {
-                            callJavaScript("window.updateMcpServerStatus", escapeJs(statusJson));
+                            dispatchEvent("mcp.server_status", escapeJs(statusJson));
                         });
                     })
                     .exceptionally(e -> {
                         LOG.error("[McpServerHandler] Failed to get MCP server status: "
                             + e.getMessage(), e);
                         ApplicationManager.getApplication().invokeLater(() -> {
-                            callJavaScript("window.updateMcpServerStatus", escapeJs("[]"));
+                            dispatchEvent("mcp.server_status", escapeJs("[]"));
                         });
                         return null;
                     });
@@ -172,7 +172,7 @@ public class McpServerHandler extends BaseMessageHandler {
                 LOG.error("[McpServerHandler] Error while waiting for bridge or fetching status: "
                     + e.getMessage(), e);
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    callJavaScript("window.updateMcpServerStatus", escapeJs("[]"));
+                    dispatchEvent("mcp.server_status", escapeJs("[]"));
                 });
             }
         });
@@ -224,7 +224,7 @@ public class McpServerHandler extends BaseMessageHandler {
                         String resultJson = gson.toJson(result);
                         LOG.info("[McpServerHandler] Got tools result: " + resultJson);
                         ApplicationManager.getApplication().invokeLater(() -> {
-                            callJavaScript("window.updateMcpServerTools", escapeJs(resultJson));
+                            dispatchEvent("mcp.server_tools", escapeJs(resultJson));
                         });
                     })
                     .exceptionally(e -> {
@@ -235,7 +235,7 @@ public class McpServerHandler extends BaseMessageHandler {
                             errorResult.addProperty("serverId", serverId);
                             errorResult.addProperty("error", e.getMessage());
                             errorResult.add("tools", new com.google.gson.JsonArray());
-                            callJavaScript("window.updateMcpServerTools", escapeJs(gson.toJson(errorResult)));
+                            dispatchEvent("mcp.server_tools", escapeJs(gson.toJson(errorResult)));
                         });
                         return null;
                     });
@@ -247,7 +247,7 @@ public class McpServerHandler extends BaseMessageHandler {
                     errorResult.addProperty("serverId", serverId);
                     errorResult.addProperty("error", e.getMessage());
                     errorResult.add("tools", new com.google.gson.JsonArray());
-                    callJavaScript("window.updateMcpServerTools", escapeJs(gson.toJson(errorResult)));
+                    dispatchEvent("mcp.server_tools", escapeJs(gson.toJson(errorResult)));
                 });
             }
         });
@@ -264,14 +264,14 @@ public class McpServerHandler extends BaseMessageHandler {
             context.getSettingsService().upsertMcpServer(server);
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                callJavaScript("window.mcpServerAdded", escapeJs(content));
+                dispatchEvent("mcp.server_added", escapeJs(content));
                 handleGetMcpServers();
             });
         } catch (Exception e) {
             LOG.error("[McpServerHandler] Failed to add MCP server: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
                 String errorMsg = escapeJs(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("mcp.addServerFailedWithReason", e.getMessage()));
-                callJavaScript("window.showError", errorMsg);
+                dispatchEvent("toast.error", errorMsg);
             });
         }
     }
@@ -287,14 +287,14 @@ public class McpServerHandler extends BaseMessageHandler {
             context.getSettingsService().upsertMcpServer(server);
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                callJavaScript("window.mcpServerUpdated", escapeJs(content));
+                dispatchEvent("mcp.server_updated", escapeJs(content));
                 handleGetMcpServers();
             });
         } catch (Exception e) {
             LOG.error("[McpServerHandler] Failed to update MCP server: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
                 String errorMsg = escapeJs(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("mcp.updateServerFailedWithReason", e.getMessage()));
-                callJavaScript("window.showError", errorMsg);
+                dispatchEvent("toast.error", errorMsg);
             });
         }
     }
@@ -312,7 +312,7 @@ public class McpServerHandler extends BaseMessageHandler {
 
             if (success) {
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    callJavaScript("window.mcpServerDeleted", escapeJs(serverId));
+                    dispatchEvent("mcp.server_deleted", escapeJs(serverId));
                     handleGetMcpServers();
                 });
             } else {
@@ -320,14 +320,14 @@ public class McpServerHandler extends BaseMessageHandler {
                     String reason = com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("mcp.serverNotFound");
                     String errorMsg = escapeJs(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message(
                             "mcp.deleteServerFailedWithReason", reason));
-                    callJavaScript("window.showError", errorMsg);
+                    dispatchEvent("toast.error", errorMsg);
                 });
             }
         } catch (Exception e) {
             LOG.error("[McpServerHandler] Failed to delete MCP server: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
                 String errorMsg = escapeJs(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("mcp.deleteServerFailedWithReason", e.getMessage()));
-                callJavaScript("window.showError", errorMsg);
+                dispatchEvent("toast.error", errorMsg);
             });
         }
     }
@@ -353,7 +353,7 @@ public class McpServerHandler extends BaseMessageHandler {
             LOG.info("[McpServerHandler] Toggled MCP server: " + serverName + " (enabled: " + isEnabled + ")");
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                callJavaScript("window.mcpServerToggled", escapeJs(content));
+                dispatchEvent("mcp.server_toggled", escapeJs(content));
                 handleGetMcpServers();
                 // Also refresh status so the UI shows the latest connection state
                 handleGetMcpServerStatus();
@@ -361,7 +361,7 @@ public class McpServerHandler extends BaseMessageHandler {
         } catch (Exception e) {
             LOG.error("[McpServerHandler] Failed to toggle MCP server: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
-                callJavaScript("window.showError", escapeJs("切换 MCP 服务器状态失败: " + e.getMessage()));
+                dispatchEvent("toast.error", escapeJs("切换 MCP 服务器状态失败: " + e.getMessage()));
             });
         }
     }
@@ -378,7 +378,7 @@ public class McpServerHandler extends BaseMessageHandler {
             String validationJson = gson.toJson(validation);
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                callJavaScript("window.mcpServerValidated", escapeJs(validationJson));
+                dispatchEvent("mcp.server_validated", escapeJs(validationJson));
             });
         } catch (Exception e) {
             LOG.error("[McpServerHandler] Failed to validate MCP server: " + e.getMessage(), e);

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { sendBridgeEvent } from '../../../utils/bridge';
+import { bridgeHub, registerLegacyAlias } from '../../../bridge';
 
 declare global {
   interface Window {
@@ -100,25 +101,25 @@ export function usePromptEnhancer({
     setIsEnhancing(false);
   }, []);
 
-  // Register enhanced prompt result callback
+  // Register enhanced prompt result callback（[归一化] 经 bridgeHub 订阅）
   useEffect(() => {
-    // Receive enhanced prompt
-    window.updateEnhancedPrompt = (result: string) => {
+    registerLegacyAlias('updateEnhancedPrompt', 'prompt.enhanced');
+    const unsubscribe = bridgeHub.subscribe('prompt.enhanced', (result) => {
       try {
-        const data = JSON.parse(result);
+        const data = JSON.parse(result as string);
         if (data.success && data.enhancedPrompt) {
           setEnhancedPrompt(data.enhancedPrompt);
         } else {
           setEnhancedPrompt(data.error || 'Enhancement failed');
         }
       } catch {
-        setEnhancedPrompt(result);
+        setEnhancedPrompt(result as string);
       }
       setIsEnhancing(false);
-    };
+    });
 
     return () => {
-      delete window.updateEnhancedPrompt;
+      unsubscribe();
     };
   }, []);
 

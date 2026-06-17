@@ -125,7 +125,7 @@ public class ClaudeSDKToolWindow implements ToolWindowFactory, DumbAware {
         for (ClaudeChatWindow window : windows) {
             try {
                 String escaped = com.github.claudecodegui.util.JsUtils.escapeJs(json);
-                window.callJavaScript("window.updateInvocationMode", escaped);
+                window.dispatchEvent("config.invocation_mode", escaped);
             } catch (Exception e) {
                 LOG.warn("[Broadcast] Failed to update invocation mode for tab: " + e.getMessage());
             }

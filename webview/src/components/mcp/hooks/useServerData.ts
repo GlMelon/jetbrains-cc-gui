@@ -6,6 +6,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { McpServer, McpServerStatusInfo, ServerToolsState, RefreshLog, CacheKeys } from '../types';
 import { sendToJava } from '../../../utils/bridge';
+import { bridgeHub, registerLegacyAlias } from '../../../bridge';
 import { readCache, readToolsCache, writeCache } from '../utils';
 
 export interface UseServerDataOptions {
@@ -264,24 +265,26 @@ export function useServerData({
       }
     };
 
-    // Register callbacks
+    // Register callbacks（[归一化] 经 bridgeHub 订阅，替代旧 window.xxx 覆盖）
     if (isCodexMode) {
-      window.updateCodexMcpServers = handleServerListUpdate;
-      window.updateCodexMcpServerStatus = handleServerStatusUpdate;
+      registerLegacyAlias('updateCodexMcpServers', 'codex.mcp.server_list');
+      registerLegacyAlias('updateCodexMcpServerStatus', 'codex.mcp.server_status');
+      const unsubList = bridgeHub.subscribe('codex.mcp.server_list', (json) => handleServerListUpdate(json as string));
+      const unsubStatus = bridgeHub.subscribe('codex.mcp.server_status', (json) => handleServerStatusUpdate(json as string));
+      return () => {
+        unsubList();
+        unsubStatus();
+      };
     } else {
-      window.updateMcpServers = handleServerListUpdate;
-      window.updateMcpServerStatus = handleServerStatusUpdate;
+      registerLegacyAlias('updateMcpServers', 'mcp.server_list');
+      registerLegacyAlias('updateMcpServerStatus', 'mcp.server_status');
+      const unsubList = bridgeHub.subscribe('mcp.server_list', (json) => handleServerListUpdate(json as string));
+      const unsubStatus = bridgeHub.subscribe('mcp.server_status', (json) => handleServerStatusUpdate(json as string));
+      return () => {
+        unsubList();
+        unsubStatus();
+      };
     }
-
-    return () => {
-      if (isCodexMode) {
-        window.updateCodexMcpServers = undefined;
-        window.updateCodexMcpServerStatus = undefined;
-      } else {
-        window.updateMcpServers = undefined;
-        window.updateMcpServerStatus = undefined;
-      }
-    };
   }, [isCodexMode, t, onLog]);
 
   return {

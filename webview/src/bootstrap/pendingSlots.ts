@@ -6,6 +6,12 @@
  * those early payloads we install lightweight placeholder functions that store
  * incoming data on `window.__pending*` properties. React components later read
  * and consume these pending values during initialisation.
+ *
+ * [归一化重构] 以下已迁移回调的 pending 槽仍保留:
+ *   updateStreamingEnabled, updateSendShortcut, updatePermissionDialogTimeout, onModeReceived
+ * drain 通过 compat 别名路由到 bridgeHub 订阅者(drainPendingSettings)。这些槽是挂载前的
+ * 安全网;后续 Phase 的 hub 缓冲机制将取代它们。
+ * 未迁移回调(updateMessages, updateStatus, showLoading 等)的 pending 槽保持不变。
  */
 
 import { debugLog } from '../utils/debug';

@@ -45,7 +45,8 @@ public class ClaudeMessageHandlerResultUsageTest {
                 new CallbackHandler(),
                 messageParser,
                 messageMerger,
-                gson
+                gson,
+                null
         );
     }
 

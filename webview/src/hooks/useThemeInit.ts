@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { sendBridgeEvent } from '../utils/bridge';
+import { bridgeHub, registerLegacyAlias } from '../bridge';
 
 /**
  * Manages IDE theme initialization and synchronization.
@@ -17,27 +18,28 @@ export function useThemeInit() {
 
   // Initialize theme and font scaling
   useEffect(() => {
-    // Register IDE theme received callback
-    window.onIdeThemeReceived = (jsonStr: string) => {
+    // [归一化] onIdeThemeReceived → theme.received / onIdeThemeChanged → theme.changed
+    registerLegacyAlias('onIdeThemeReceived', 'theme.received');
+    bridgeHub.subscribe('theme.received', (jsonStr) => {
       try {
-        const themeData = JSON.parse(jsonStr);
+        const themeData = JSON.parse(jsonStr as string);
         const theme = themeData.isDark ? 'dark' : 'light';
         setIdeTheme(theme);
       } catch {
         // Failed to parse IDE theme response
       }
-    };
+    });
 
-    // Listen for IDE theme changes (when user switches theme in the IDE)
-    window.onIdeThemeChanged = (jsonStr: string) => {
+    registerLegacyAlias('onIdeThemeChanged', 'theme.changed');
+    bridgeHub.subscribe('theme.changed', (jsonStr) => {
       try {
-        const themeData = JSON.parse(jsonStr);
+        const themeData = JSON.parse(jsonStr as string);
         const theme = themeData.isDark ? 'dark' : 'light';
         setIdeTheme(theme);
       } catch {
         // Failed to parse IDE theme change
       }
-    };
+    });
 
     // Initialize font scaling
     const savedLevel = localStorage.getItem('fontSizeLevel');

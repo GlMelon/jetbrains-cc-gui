@@ -155,11 +155,11 @@ public class DependencyHandler extends BaseMessageHandler {
                 String statusJson = this.gson.toJson(status);
 
                 ApplicationManager.getApplication().invokeLater(() ->
-                    this.callJavaScript("window.updateDependencyStatus", this.escapeJs(statusJson))
+                    this.dispatchEvent("dependency.status", this.escapeJs(statusJson))
                 );
             } catch (Exception e) {
                 LOG.error("[DependencyHandler] Failed to get dependency status: " + e.getMessage(), e);
-                this.sendErrorResult("updateDependencyStatus", e.getMessage());
+                this.sendErrorResult("dependency.status", e.getMessage());
                 this.sendShowError("获取依赖状态失败: " + e.getMessage());
             } finally {
                 long elapsed = System.currentTimeMillis() - startTime;
@@ -205,8 +205,8 @@ public class DependencyHandler extends BaseMessageHandler {
                         );
 
                         ApplicationManager.getApplication().invokeLater(() ->
-                            this.callJavaScript(
-                                "window.dependencyInstallResult",
+                            this.dispatchEvent(
+                                "dependency.install_result",
                                 this.escapeJs(this.gson.toJson(errorResult))
                             )
                         );
@@ -225,7 +225,7 @@ public class DependencyHandler extends BaseMessageHandler {
                     }
                 } catch (Exception e) {
                     LOG.error("[DependencyHandler] Failed during dependency installation: " + e.getMessage(), e);
-                    this.sendErrorResult("dependencyInstallResult", e.getMessage());
+                    this.sendErrorResult("dependency.install_result", e.getMessage());
                     this.sendShowError("依赖安装失败: " + e.getMessage());
                 }
             }, AppExecutorUtil.getAppExecutorService()).exceptionally(ex -> {
@@ -235,7 +235,7 @@ public class DependencyHandler extends BaseMessageHandler {
 
         } catch (Exception e) {
             LOG.error("[DependencyHandler] Failed to install dependency: " + e.getMessage(), e);
-            this.sendErrorResult("dependencyInstallResult", e.getMessage());
+            this.sendErrorResult("dependency.install_result", e.getMessage());
             this.sendShowError("依赖安装失败: " + e.getMessage());
         }
     }
@@ -260,14 +260,14 @@ public class DependencyHandler extends BaseMessageHandler {
                     }
 
                     ApplicationManager.getApplication().invokeLater(() ->
-                        this.callJavaScript("window.dependencyUninstallResult", this.escapeJs(this.gson.toJson(result)))
+                        this.dispatchEvent("dependency.uninstall_result", this.escapeJs(this.gson.toJson(result)))
                     );
 
                     // Refresh status after uninstall completes
                     this.handleGetStatus();
                 } catch (Exception e) {
                     LOG.error("[DependencyHandler] Failed during dependency uninstall: " + e.getMessage(), e);
-                    this.sendErrorResult("dependencyUninstallResult", e.getMessage());
+                    this.sendErrorResult("dependency.uninstall_result", e.getMessage());
                     this.sendShowError("依赖卸载失败: " + e.getMessage());
                 }
             }, AppExecutorUtil.getAppExecutorService()).exceptionally(ex -> {
@@ -277,7 +277,7 @@ public class DependencyHandler extends BaseMessageHandler {
 
         } catch (Exception e) {
             LOG.error("[DependencyHandler] Failed to uninstall dependency: " + e.getMessage(), e);
-            this.sendErrorResult("dependencyUninstallResult", e.getMessage());
+            this.sendErrorResult("dependency.uninstall_result", e.getMessage());
             this.sendShowError("依赖卸载失败: " + e.getMessage());
         }
     }
@@ -313,8 +313,8 @@ public class DependencyHandler extends BaseMessageHandler {
                         );
 
                         ApplicationManager.getApplication().invokeLater(() ->
-                            this.callJavaScript(
-                                "window.dependencyInstallResult",
+                            this.dispatchEvent(
+                                "dependency.install_result",
                                 this.escapeJs(this.gson.toJson(errorResult))
                             )
                         );
@@ -334,7 +334,7 @@ public class DependencyHandler extends BaseMessageHandler {
                     }
                 } catch (Exception e) {
                     LOG.error("[DependencyHandler] Failed during dependency update: " + e.getMessage(), e);
-                    this.sendErrorResult("dependencyInstallResult", e.getMessage());
+                    this.sendErrorResult("dependency.install_result", e.getMessage());
                     this.sendShowError("依赖更新失败: " + e.getMessage());
                 }
             }, AppExecutorUtil.getAppExecutorService()).exceptionally(ex -> {
@@ -344,7 +344,7 @@ public class DependencyHandler extends BaseMessageHandler {
 
         } catch (Exception e) {
             LOG.error("[DependencyHandler] Failed to update dependency: " + e.getMessage(), e);
-            this.sendErrorResult("dependencyInstallResult", e.getMessage());
+            this.sendErrorResult("dependency.install_result", e.getMessage());
             this.sendShowError("依赖更新失败: " + e.getMessage());
         }
     }
@@ -383,14 +383,14 @@ public class DependencyHandler extends BaseMessageHandler {
                     }
 
                     ApplicationManager.getApplication().invokeLater(
-                        () -> this.callJavaScript(
-                            "window.dependencyUpdateAvailable",
+                        () -> this.dispatchEvent(
+                            "dependency.update_available",
                             this.escapeJs(this.gson.toJson(updates))
                         )
                     );
                 } catch (Exception e) {
                     LOG.error("[DependencyHandler] Failed during update check: " + e.getMessage(), e);
-                    this.sendErrorResult("dependencyUpdateAvailable", e.getMessage());
+                    this.sendErrorResult("dependency.update_available", e.getMessage());
                     this.sendShowError("检查依赖更新失败: " + e.getMessage());
                 }
             }, AppExecutorUtil.getAppExecutorService()).exceptionally(ex -> {
@@ -400,7 +400,7 @@ public class DependencyHandler extends BaseMessageHandler {
 
         } catch (Exception e) {
             LOG.error("[DependencyHandler] Failed to check updates: " + e.getMessage(), e);
-            this.sendErrorResult("dependencyUpdateAvailable", e.getMessage());
+            this.sendErrorResult("dependency.update_available", e.getMessage());
             this.sendShowError("检查依赖更新失败: " + e.getMessage());
         }
     }
@@ -428,14 +428,14 @@ public class DependencyHandler extends BaseMessageHandler {
                     }
 
                     ApplicationManager.getApplication().invokeLater(
-                        () -> this.callJavaScript(
-                            "window.dependencyVersionsLoaded",
+                        () -> this.dispatchEvent(
+                            "dependency.versions_loaded",
                             this.escapeJs(this.gson.toJson(payload))
                         )
                     );
                 } catch (Exception e) {
                     LOG.error("[DependencyHandler] Failed to get dependency versions: " + e.getMessage(), e);
-                    this.sendErrorResult("dependencyVersionsLoaded", e.getMessage());
+                    this.sendErrorResult("dependency.versions_loaded", e.getMessage());
                 }
             }, AppExecutorUtil.getAppExecutorService()).exceptionally(ex -> {
                 LOG.error("[DependencyHandler] Unexpected error in handleGetDependencyVersions: " + ex.getMessage(), ex);
@@ -443,7 +443,7 @@ public class DependencyHandler extends BaseMessageHandler {
             });
         } catch (Exception e) {
             LOG.error("[DependencyHandler] Failed to parse dependency versions request: " + e.getMessage(), e);
-            this.sendErrorResult("dependencyVersionsLoaded", e.getMessage());
+            this.sendErrorResult("dependency.versions_loaded", e.getMessage());
         }
     }
 
@@ -527,7 +527,7 @@ public class DependencyHandler extends BaseMessageHandler {
 
     private void sendNodeEnvironmentStatus(JsonObject result) {
         ApplicationManager.getApplication().invokeLater(() ->
-            this.callJavaScript("window.nodeEnvironmentStatus", this.escapeJs(this.gson.toJson(result)))
+            this.dispatchEvent("node.env_status", this.escapeJs(this.gson.toJson(result)))
         );
     }
 
@@ -537,8 +537,8 @@ public class DependencyHandler extends BaseMessageHandler {
         progress.addProperty("log", logLine);
 
         ApplicationManager.getApplication().invokeLater(
-            () -> this.callJavaScript(
-                "window.dependencyInstallProgress",
+            () -> this.dispatchEvent(
+                "dependency.install_progress",
                 this.escapeJs(this.gson.toJson(progress))
             )
         );
@@ -557,7 +557,7 @@ public class DependencyHandler extends BaseMessageHandler {
         json.addProperty("logs", result.getLogs());
 
         ApplicationManager.getApplication().invokeLater(() ->
-            this.callJavaScript("window.dependencyInstallResult", this.escapeJs(this.gson.toJson(json)))
+            this.dispatchEvent("dependency.install_result", this.escapeJs(this.gson.toJson(json)))
         );
     }
 
@@ -602,17 +602,17 @@ public class DependencyHandler extends BaseMessageHandler {
 
     private void sendShowError(String message) {
         ApplicationManager.getApplication().invokeLater(() ->
-            this.callJavaScript("window.showError", this.escapeJs(message))
+            this.dispatchEvent("toast.error", this.escapeJs(message))
         );
     }
 
-    private void sendErrorResult(String callback, String errorMessage) {
+    private void sendErrorResult(String type, String errorMessage) {
         JsonObject error = new JsonObject();
         error.addProperty("success", false);
         error.addProperty("error", errorMessage);
 
         ApplicationManager.getApplication().invokeLater(() ->
-            this.callJavaScript("window." + callback, this.escapeJs(this.gson.toJson(error)))
+            this.dispatchEvent(type, this.escapeJs(this.gson.toJson(error)))
         );
     }
 }

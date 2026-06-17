@@ -22,6 +22,7 @@ import {
   markScopeActivity,
   setActiveStreamScopeKey,
 } from '../streamScopeState';
+import { bridgeHub, registerLegacyAlias } from '../../../bridge';
 
 /**
  * Scans assistant messages containing tool_use blocks and returns IDs that have
@@ -243,7 +244,10 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
     }, STREAM_STALL_CHECK_INTERVAL_MS);
   };
 
-  window.onStreamStart = (mode?: string | boolean) => {
+  // [归一化] onStreamStart → stream.start(passthrough 直通)
+  registerLegacyAlias('onStreamStart', 'stream.start');
+  bridgeHub.subscribePassthrough('stream.start', (raw) => {
+    const mode = raw as string | boolean | undefined;
     if (window.__sessionTransitioning) return;
     const isReplayStart = mode === 'replay' || mode === true;
     // Clear any stale pending updateMessages from previous turn.
@@ -320,7 +324,7 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
         },
       ];
     });
-  };
+  });
 
   // rAF-scheduled streaming update: frame-aligned, avoids setTimeout jank.
   // Factory that creates a throttled scheduler bound to a specific timeoutRef +
@@ -386,7 +390,10 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
     return scopeKey ? getOrCreateStreamScopeState(scopeKey) : null;
   };
 
-  window.onContentDelta = (delta: string) => {
+  // [归一化] onContentDelta → stream.content_delta(passthrough 直通,最高频)
+  registerLegacyAlias('onContentDelta', 'stream.content_delta');
+  bridgeHub.subscribePassthrough('stream.content_delta', (raw) => {
+    const delta = raw as string;
     if (window.__sessionTransitioning) return;
     if (!isStreamingRef.current) return;
     window.__lastStreamActivityAt = Date.now();
@@ -398,9 +405,12 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
       markScopeActivity(getActiveStreamScopeKey());
     }
     scheduleContentRaf();
-  };
+  });
 
-  window.onThinkingDelta = (delta: string) => {
+  // [归一化] onThinkingDelta → stream.thinking_delta(passthrough 直通,最高频)
+  registerLegacyAlias('onThinkingDelta', 'stream.thinking_delta');
+  bridgeHub.subscribePassthrough('stream.thinking_delta', (raw) => {
+    const delta = raw as string;
     if (window.__sessionTransitioning) return;
     if (!isStreamingRef.current) return;
     window.__lastStreamActivityAt = Date.now();
@@ -412,9 +422,12 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
       markScopeActivity(getActiveStreamScopeKey());
     }
     scheduleThinkingRaf();
-  };
+  });
 
-  window.onStreamEnd = (sequence?: string | number) => {
+  // [归一化] onStreamEnd → stream.end(passthrough 直通)
+  registerLegacyAlias('onStreamEnd', 'stream.end');
+  bridgeHub.subscribePassthrough('stream.end', (raw) => {
+    const sequence = raw as string | number | undefined;
     if (window.__sessionTransitioning) return;
 
     // Diagnostic: log the source of onStreamEnd for debugging premature stream-end issues
@@ -795,16 +808,18 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
     // Mark this turn as processed — idempotency guard for dual-path delivery
     window.__streamEndProcessedTurnId = endedStreamingTurnId;
     window.__streamingDeltaRenderingFrame = undefined;
-  };
+  });
 
   // Streaming heartbeat — lightweight signal from backend during tool execution
   // phases where no content deltas arrive.  Keeps the stall watchdog alive.
-  window.onStreamingHeartbeat = () => {
+  // [归一化] onStreamingHeartbeat → stream.heartbeat(passthrough 直通)
+  registerLegacyAlias('onStreamingHeartbeat', 'stream.heartbeat');
+  bridgeHub.subscribePassthrough('stream.heartbeat', () => {
     if (isStreamingRef.current && window.__lastStreamActivityAt !== undefined) {
       window.__lastStreamActivityAt = Date.now();
       markScopeActivity(getActiveStreamScopeKey());
     }
-  };
+  });
 
   // Permission denied callback — kept as a no-op for backward compatibility.
   //
@@ -815,13 +830,17 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
   // could do against pre-finalize state. Running a second setMessages here
   // would only produce a wasted re-render (React 18 batches the two calls, and
   // onStreamEnd is the last writer). See Issue #1315 investigation for details.
-  window.onPermissionDenied = () => {};
+  // [归一化] onPermissionDenied → stream.permission_denied(passthrough 直通)
+  registerLegacyAlias('onPermissionDenied', 'stream.permission_denied');
+  bridgeHub.subscribePassthrough('stream.permission_denied', () => {});
 
   // Block reset callback — clears streaming content refs when a new assistant
   // message starts within an ongoing stream (e.g., after tool_use loop iteration).
   // This prevents cross-turn content merging where new thinking/text deltas
   // would append to previous turn's buffered content.
-  window.onBlockReset = () => {
+  // [归一化] onBlockReset → stream.block_reset(passthrough 直通)
+  registerLegacyAlias('onBlockReset', 'stream.block_reset');
+  bridgeHub.subscribePassthrough('stream.block_reset', () => {
     if (!isStreamingRef.current) {
       // Stream not active, ignore (could be stale signal after stream ended)
       return;
@@ -909,5 +928,5 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
         },
       ];
     });
-  };
+  });
 }

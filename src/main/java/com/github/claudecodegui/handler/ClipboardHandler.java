@@ -55,7 +55,7 @@ public class ClipboardHandler extends BaseMessageHandler {
         long now = System.currentTimeMillis();
         if (now - lastReadTime < MIN_READ_INTERVAL_MS) {
             LOG.debug("Clipboard read rate-limited");
-            callJavaScript("window.onClipboardRead", "");
+            dispatchEvent("clipboard.read", "");
             return;
         }
         lastReadTime = now;
@@ -67,13 +67,13 @@ public class ClipboardHandler extends BaseMessageHandler {
                 Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
                 if (clipboard.isDataFlavorAvailable(DataFlavor.stringFlavor)) {
                     String text = (String) clipboard.getData(DataFlavor.stringFlavor);
-                    callJavaScript("window.onClipboardRead", escapeJs(text != null ? text : ""));
+                    dispatchEvent("clipboard.read", escapeJs(text != null ? text : ""));
                 } else {
-                    callJavaScript("window.onClipboardRead", "");
+                    dispatchEvent("clipboard.read", "");
                 }
             } catch (Exception e) {
                 LOG.warn("Failed to read clipboard", e);
-                callJavaScript("window.onClipboardRead", "");
+                dispatchEvent("clipboard.read", "");
             }
         }, ModalityState.any());
     }
