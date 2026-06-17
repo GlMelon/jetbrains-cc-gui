@@ -80,9 +80,15 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
     setEditingOriginalKey(toKey(model));
   }, []);
 
-  const removeModel = useCallback((model: ModelRegistryItem) => {
-    setRegistry((prev) => ({ items: prev.items.filter((item) => toKey(item) !== toKey(model)) }));
+  const persistRegistry = useCallback((nextRegistry: ModelRegistryPayload) => {
+    setRegistry(nextRegistry);
+    sendBridgeEvent('set_model_registry', JSON.stringify(nextRegistry));
   }, []);
+
+  const removeModel = useCallback((model: ModelRegistryItem) => {
+    const nextRegistry = { items: registry.items.filter((item) => toKey(item) !== toKey(model)) };
+    persistRegistry(nextRegistry);
+  }, [persistRegistry, registry.items]);
 
   const saveEditing = useCallback(() => {
     if (!editing) {
@@ -96,19 +102,13 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
       contextWindow: Number(editing.contextWindow),
       enabled: editing.enabled !== false,
     };
-    setRegistry((prev) => {
-      const withoutOld = editingOriginalKey
-        ? prev.items.filter((item) => toKey(item) !== editingOriginalKey)
-        : prev.items;
-      return { items: [normalized, ...withoutOld] };
-    });
+    const withoutOld = editingOriginalKey
+      ? registry.items.filter((item) => toKey(item) !== editingOriginalKey)
+      : registry.items;
+    persistRegistry({ items: [normalized, ...withoutOld] });
     setEditing(null);
     setEditingOriginalKey(null);
-  }, [editing, editingOriginalKey]);
-
-  const persist = useCallback(() => {
-    sendBridgeEvent('set_model_registry', JSON.stringify(registry));
-  }, [registry]);
+  }, [editing, editingOriginalKey, persistRegistry, registry.items]);
 
   const reset = useCallback(() => {
     sendBridgeEvent('reset_model_registry');
@@ -131,9 +131,6 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
           <button className="btn btn-secondary btn-sm" onClick={reset}>
             {t('common.reset', 'Reset')}
           </button>
-          <button className="btn btn-primary btn-sm" onClick={persist}>
-            {t('common.save', 'Save')}
-          </button>
         </div>
       </div>
 
@@ -152,7 +149,7 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
       {editing && (
         <div className={styles.editor}>
           <select
-            className="form-input"
+            className={`form-input ${styles.providerSelect}`}
             value={editing.provider}
             onChange={(event) => setEditing({ ...editing, provider: event.target.value as 'claude' | 'codex' })}
           >

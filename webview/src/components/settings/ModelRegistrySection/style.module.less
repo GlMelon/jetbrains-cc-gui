@@ -55,13 +55,17 @@
 
 .editor {
   display: grid;
-  grid-template-columns: 120px minmax(160px, 1fr) minmax(140px, 1fr);
+  grid-template-columns: minmax(128px, auto) minmax(180px, 1fr) minmax(160px, 1fr) minmax(180px, 1fr);
   gap: 8px;
   padding: 12px;
   margin-bottom: 14px;
   border: 1px solid var(--border-primary);
   border-radius: 6px;
   background: var(--bg-secondary);
+}
+
+.providerSelect {
+  min-width: 128px;
 }
 
 .contextControls {

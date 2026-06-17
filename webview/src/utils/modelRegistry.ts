@@ -34,6 +34,11 @@ let currentRegistry: ModelRegistryPayload = {
 
 let subscribed = false;
 
+function publishModelRegistry(registry: ModelRegistryPayload): void {
+  currentRegistry = registry;
+  modelRegistryListeners.forEach((listener) => listener());
+}
+
 export function ensureModelRegistrySubscription(): void {
   if (subscribed || typeof window === 'undefined') {
     return;
@@ -44,8 +49,22 @@ export function ensureModelRegistrySubscription(): void {
     if (!parsed) {
       return;
     }
-    currentRegistry = parsed;
-    modelRegistryListeners.forEach((listener) => listener());
+    publishModelRegistry(parsed);
+  });
+  bridgeHub.subscribe('model_registry_updated', (json) => {
+    try {
+      const data = typeof json === 'string' ? JSON.parse(json) : json;
+      if (!data || typeof data !== 'object' || (data as { success?: boolean }).success !== true) {
+        return;
+      }
+      const parsed = parseModelRegistryPayload((data as { registry?: unknown }).registry);
+      if (!parsed) {
+        return;
+      }
+      publishModelRegistry(parsed);
+    } catch {
+      // Ignore malformed update events; callers still receive backend errors separately.
+    }
   });
 }
 
@@ -65,6 +84,10 @@ export function subscribeModelRegistry(listener: () => void): () => void {
 export function getModelRegistrySnapshot(): ModelRegistryPayload {
   ensureModelRegistrySubscription();
   return currentRegistry;
+}
+
+export function __setModelRegistryForTests(registry: ModelRegistryPayload): void {
+  publishModelRegistry(registry);
 }
 
 export function getModelsForProvider(provider: string): ModelInfo[] {

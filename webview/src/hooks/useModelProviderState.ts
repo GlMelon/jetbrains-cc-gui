@@ -1,4 +1,4 @@
-import {useCallback, useMemo, useRef, useState} from 'react';
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import type {TFunction} from 'i18next';
 import {sendBridgeEvent} from '../utils/bridge';
 import type {PermissionMode} from '../components/ChatInputBox/types';
@@ -9,6 +9,7 @@ import {useCodexProvider} from './providers/useCodexProvider';
 import {useUsageTracking} from './providers/useUsageTracking';
 import {useProviderSettings} from './providers/useProviderSettings';
 import {useModelStatePersistence} from './providers/useModelStatePersistence';
+import {getModelsForProvider, subscribeModelRegistry} from '../utils/modelRegistry';
 
 export type ViewMode = 'chat' | 'history' | 'settings';
 
@@ -94,6 +95,9 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     [isSdkInstalled, currentProvider],
   );
 
+  const [modelRegistryVersion, setModelRegistryVersion] = useState(0);
+  useEffect(() => subscribeModelRegistry(() => setModelRegistryVersion((version) => version + 1)), []);
+
   // ── Cross-provider handlers ──
   const handleModeSelect = useCallback((mode: PermissionMode) => {
     if (currentProvider === 'codex') {
@@ -112,14 +116,16 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
       const strippedModelId = strip1MContextSuffix(modelId);
       const normalizedModelId = normalizeClaudeModelId(strippedModelId);
       setSelectedClaudeModel(normalizedModelId);
+      const registryModels = getModelsForProvider('claude');
+      const supports1M = modelSupports1MContext(normalizedModelId, registryModels, currentProviderPreset);
 
       // Auto-reset: disable longContext if new model doesn't support 1M
-      if (longContextEnabled && !modelSupports1MContext(normalizedModelId, undefined, currentProviderPreset)) {
+      if (longContextEnabled && !supports1M) {
         setLongContextEnabled(false);
       }
 
       // Calculate effective contextWindow based on toggle + model capability
-      const effectiveContextWindow = longContextEnabled && modelSupports1MContext(normalizedModelId, undefined, currentProviderPreset)
+      const effectiveContextWindow = longContextEnabled && supports1M
         ? 1_000_000
         : (contextWindow ?? currentProviderPreset?.defaultContextWindow ?? 200_000);
 
@@ -131,8 +137,11 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
       }));
     } else if (currentProvider === 'codex') {
       setSelectedCodexModel(modelId);
-        const payload = contextWindow
-            ? JSON.stringify({model: modelId, contextWindow})
+        const registryModels = getModelsForProvider('codex');
+        const modelInfo = registryModels.find((model) => model.id === strip1MContextSuffix(modelId));
+        const effectiveContextWindow = contextWindow ?? modelInfo?.contextWindow;
+        const payload = effectiveContextWindow
+            ? JSON.stringify({model: modelId, contextWindow: effectiveContextWindow})
             : modelId;
         sendBridgeEvent('set_session_model', payload);
     }
@@ -154,11 +163,14 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
 
     // Get preset for the NEW provider
     const newProviderPreset = PROVIDER_PRESETS.find(p => p.id === providerId);
+    const newProviderModels = getModelsForProvider(providerId);
 
     // Calculate effective contextWindow
-    const effectiveContextWindow = (providerId === 'claude' && longContextEnabled && modelSupports1MContext(selectedClaudeModel, undefined, newProviderPreset))
+    const modelForCapability = providerId === 'codex' ? selectedCodexModel : selectedClaudeModel;
+    const registryContextWindow = newProviderModels.find((model) => model.id === strip1MContextSuffix(modelForCapability))?.contextWindow;
+    const effectiveContextWindow = (providerId === 'claude' && longContextEnabled && modelSupports1MContext(selectedClaudeModel, newProviderModels, newProviderPreset))
       ? 1_000_000
-      : (contextWindow ?? newProviderPreset?.defaultContextWindow ?? 200_000);
+      : (contextWindow ?? registryContextWindow ?? newProviderPreset?.defaultContextWindow ?? 200_000);
 
     sendBridgeEvent('set_session_model', JSON.stringify({
       model: newModel,
@@ -175,10 +187,12 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     const handleLongContextChange = useCallback((enabled: boolean, contextWindow?: number) => {
     setLongContextEnabled(enabled);
     if (currentProvider === 'claude') {
+      const registryModels = getModelsForProvider('claude');
+      const modelInfo = registryModels.find((model) => model.id === strip1MContextSuffix(selectedClaudeModel));
       // Calculate effective contextWindow
-      const effectiveContextWindow = enabled && modelSupports1MContext(selectedClaudeModel, undefined, currentProviderPreset)
+      const effectiveContextWindow = enabled && modelSupports1MContext(selectedClaudeModel, registryModels, currentProviderPreset)
         ? 1_000_000
-        : (contextWindow ?? currentProviderPreset?.defaultContextWindow ?? 200_000);
+        : (contextWindow ?? modelInfo?.contextWindow ?? currentProviderPreset?.defaultContextWindow ?? 200_000);
 
       // Send clean model ID (no [1m]) + contextWindow to backend
       sendBridgeEvent('set_session_model', JSON.stringify({
@@ -187,6 +201,48 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
       }));
     }
   }, [currentProvider, selectedClaudeModel, setLongContextEnabled, currentProviderPreset]);
+
+  useEffect(() => {
+    if (modelRegistryVersion === 0) {
+      return;
+    }
+
+    const registryModels = getModelsForProvider(currentProvider);
+    const selectedRegistryModel = registryModels.find((model) => (
+      model.id === strip1MContextSuffix(selectedModel)
+    ));
+    if (!selectedRegistryModel) {
+      return;
+    }
+
+    if (currentProvider === 'claude') {
+      const supports1M = modelSupports1MContext(selectedClaudeModel, registryModels, currentProviderPreset);
+      if (longContextEnabled && !supports1M) {
+        setLongContextEnabled(false);
+      }
+      sendBridgeEvent('set_session_model', JSON.stringify({
+        model: selectedClaudeModel,
+        contextWindow: longContextEnabled && supports1M
+          ? 1_000_000
+          : (selectedRegistryModel.contextWindow ?? currentProviderPreset?.defaultContextWindow ?? 200_000),
+      }));
+      return;
+    }
+
+    sendBridgeEvent('set_session_model', JSON.stringify({
+      model: selectedCodexModel,
+      contextWindow: selectedRegistryModel.contextWindow ?? currentProviderPreset?.defaultContextWindow ?? 200_000,
+    }));
+  }, [
+    currentProvider,
+    currentProviderPreset,
+    longContextEnabled,
+    modelRegistryVersion,
+    selectedClaudeModel,
+    selectedCodexModel,
+    selectedModel,
+    setLongContextEnabled,
+  ]);
 
   const handleToggleThinking = useCallback((enabled: boolean) => {
     const config = settings.activeProviderConfig;

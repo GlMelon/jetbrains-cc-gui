@@ -4,6 +4,7 @@ import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { useMessageSender } from './useMessageSender';
 import type { UseMessageSenderOptions } from './useMessageSender';
+import { __setModelRegistryForTests } from '../utils/modelRegistry';
 
 describe('useMessageSender - /context command', () => {
   const t = ((key: string, opts?: any) => opts?.defaultValue ?? key) as any;
@@ -15,8 +16,6 @@ describe('useMessageSender - /context command', () => {
     currentProvider: 'claude',
     selectedModel: 'claude-opus-4-7',
     permissionMode: 'default',
-    reasoningEffort: 'high',
-    codexFastMode: 'normal',
     selectedAgent: null,
     sdkStatusLoaded: true,
     currentSdkInstalled: true,
@@ -43,6 +42,18 @@ describe('useMessageSender - /context command', () => {
   beforeEach(() => {
     window.sendToJava = vi.fn();
     window.__CLAUDE_INVOCATION_MODE__ = 'sdk';
+    __setModelRegistryForTests({
+      items: [
+        {
+          id: 'mimo-v2.5-pro',
+          provider: 'claude',
+          label: 'MiMo',
+          contextWindow: 1_000_000,
+          supports1MContext: true,
+          enabled: true,
+        },
+      ],
+    });
   });
 
   it('sends get_context_usage with base model when longContext is disabled', () => {
@@ -84,6 +95,24 @@ describe('useMessageSender - /context command', () => {
     expect(bridgePayload.type).toBe('get_context_usage');
     const payload = JSON.parse(bridgePayload.content);
     expect(payload.model).toBe('claude-opus-4-7[1m]');
+  });
+
+  it('sends get_context_usage with [1m] suffix for registry Claude models that support 1M', () => {
+    const opts = createOptions({
+      selectedModel: 'mimo-v2.5-pro',
+      longContextEnabled: true,
+    });
+
+    const { result } = renderHook(() => useMessageSender(opts));
+
+    act(() => {
+      result.current.handleSubmit('/context');
+    });
+
+    const call = (window.sendToJava as any).mock.calls[0][0] as string;
+    const bridgePayload = parseBridgeCall(call);
+    const payload = JSON.parse(bridgePayload.content);
+    expect(payload.model).toBe('mimo-v2.5-pro[1m]');
   });
 
   it('opens dialog with loading state before sending bridge event', () => {

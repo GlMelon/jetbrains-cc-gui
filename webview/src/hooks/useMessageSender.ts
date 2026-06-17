@@ -5,6 +5,7 @@ import type { ClaudeContentBlock, ClaudeMessage } from '../types';
 import { apply1MContextSuffix } from '../components/ChatInputBox/types';
 import type { Attachment, ChatInputBoxHandle, PermissionMode, SelectedAgent } from '../components/ChatInputBox/types';
 import type { ViewMode } from './useModelProviderState';
+import { getModelsForProvider } from '../utils/modelRegistry';
 
 /**
  * Command sets for local handling (shared with App.tsx to avoid duplication)
@@ -168,7 +169,7 @@ export function useMessageSender({
       // Apply [1m] suffix if long context is enabled so the SDK creates
       // a runtime with the correct context window limit.
       const sent = sendBridgeEvent('get_context_usage', JSON.stringify({
-        model: apply1MContextSuffix(selectedModel, longContextEnabled ?? false),
+        model: apply1MContextSuffix(selectedModel, longContextEnabled ?? false, getModelsForProvider('claude')),
         requestId,
       }));
 

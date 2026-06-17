@@ -351,8 +351,8 @@ export function has1MContextSuffix(modelId: string | undefined | null): boolean 
  * Apply [1m] suffix to model ID if supported and enabled.
  * Returns the original model ID if the model doesn't support 1M context.
  */
-export function apply1MContextSuffix(modelId: string, enabled: boolean): string {
-  if (!enabled || !modelSupports1MContext(modelId)) {
+export function apply1MContextSuffix(modelId: string, enabled: boolean, models?: ModelInfo[]): string {
+  if (!enabled || !modelSupports1MContext(modelId, models)) {
     // Remove any existing [1m] suffix if disabled
     return modelId.replace(/\[1m\]$/i, '');
   }
