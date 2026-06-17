@@ -1298,12 +1298,12 @@ public class CodemossSettingsService {
             response.addProperty(AI_FEATURE_PROVIDER_KEY, manualProvider);
         }
         response.add(AI_FEATURE_MODELS_KEY, models);
-        if (resolvedProvider.effectiveProvider == null) {
+        if (resolvedProvider.effectiveProvider() == null) {
             response.add(AI_FEATURE_EFFECTIVE_PROVIDER_KEY, JsonNull.INSTANCE);
         } else {
-            response.addProperty(AI_FEATURE_EFFECTIVE_PROVIDER_KEY, resolvedProvider.effectiveProvider);
+            response.addProperty(AI_FEATURE_EFFECTIVE_PROVIDER_KEY, resolvedProvider.effectiveProvider());
         }
-        response.addProperty(AI_FEATURE_RESOLUTION_SOURCE_KEY, resolvedProvider.resolutionSource);
+        response.addProperty(AI_FEATURE_RESOLUTION_SOURCE_KEY, resolvedProvider.resolutionSource());
         response.add(AI_FEATURE_AVAILABILITY_KEY, availability);
         return response;
     }
@@ -1445,14 +1445,7 @@ public class CodemossSettingsService {
         return normalized.isEmpty() ? defaultValue : normalized;
     }
 
-    private static class ResolvedAiFeatureProvider {
-        private final String effectiveProvider;
-        private final String resolutionSource;
-
-        private ResolvedAiFeatureProvider(String effectiveProvider, String resolutionSource) {
-            this.effectiveProvider = effectiveProvider;
-            this.resolutionSource = resolutionSource;
-        }
+    private record ResolvedAiFeatureProvider(String effectiveProvider, String resolutionSource) {
     }
 
     // ==================== Codex Provider Management ====================

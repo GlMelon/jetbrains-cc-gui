@@ -697,8 +697,8 @@ public class ClaudeChatWindow {
 
         BridgeMessage bridgeMessage = parseBridgeMessage(message);
         if (bridgeMessage != null) {
-            type = bridgeMessage.type;
-            content = bridgeMessage.content;
+            type = bridgeMessage.type();
+            content = bridgeMessage.content();
         } else {
             String[] parts = message.split(":", 2);
             if (parts.length < 1) {
@@ -747,14 +747,7 @@ public class ClaudeChatWindow {
         }
     }
 
-    private static final class BridgeMessage {
-        private final String type;
-        private final String content;
-
-        private BridgeMessage(String type, String content) {
-            this.type = type;
-            this.content = content;
-        }
+    private record BridgeMessage(String type, String content) {
     }
 
     // ==================== Session Delegates ====================
