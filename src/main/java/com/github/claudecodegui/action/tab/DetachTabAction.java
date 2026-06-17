@@ -54,7 +54,12 @@ public class DetachTabAction extends AnAction implements DumbAware {
             return;
         }
 
-        ContentManager contentManager = toolWindow.getContentManager();
+        ContentManager contentManager = toolWindow.getContentManagerIfCreated();
+        if (contentManager == null) {
+            LOG.warn("[DetachTabAction] Content manager not created");
+            return;
+        }
+
         Content selectedContent = contentManager.getSelectedContent();
         if (selectedContent == null) {
             LOG.warn("[DetachTabAction] No tab selected");
@@ -180,7 +185,12 @@ public class DetachTabAction extends AnAction implements DumbAware {
             return;
         }
 
-        ContentManager contentManager = toolWindow.getContentManager();
+        ContentManager contentManager = toolWindow.getContentManagerIfCreated();
+        if (contentManager == null) {
+            e.getPresentation().setEnabledAndVisible(false);
+            return;
+        }
+
         Content selectedContent = contentManager.getSelectedContent();
 
         // Enable only if there's a selected content and it's not the last tab
