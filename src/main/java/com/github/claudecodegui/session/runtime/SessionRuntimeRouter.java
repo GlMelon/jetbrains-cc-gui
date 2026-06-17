@@ -1,122 +1,54 @@
 package com.github.claudecodegui.session.runtime;
 
-import com.github.claudecodegui.cli.CliSendRequest;
 import com.github.claudecodegui.cli.CliSessionManager;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
 import com.github.claudecodegui.provider.codex.CodexSDKBridge;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.SDKResult;
-import com.github.claudecodegui.session.ClaudeSession;
-import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
 
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Selects the session runtime without exposing provider bridge details to send orchestration.
- * CLI mode routes to the new CliSessionManager (zero SDK dependency).
- * SDK mode routes to SdkSessionRuntime (ai-bridge daemon).
+ * 单一入口路由器（取代 sendClaude/sendCodex + if/else）。
+ * <p>
+ * 按 (ProviderType, RuntimeType) 路由到 4 个 SessionRuntime 实现类之一。
+ * CLI 模式路由到 CliSessionManager（零 SDK 依赖）。
+ * SDK 模式路由到 provider SDK bridge（ai-bridge daemon）。
  */
 public class SessionRuntimeRouter {
     private static final Logger LOG = Logger.getInstance(SessionRuntimeRouter.class);
 
-    private final SdkSessionRuntime sdkRuntime;
-    private final CliSessionManager cliManager;
+    private final SessionRuntimeRegistry registry;
 
     public SessionRuntimeRouter(ClaudeSDKBridge claudeSDKBridge, CodexSDKBridge codexSDKBridge) {
-        this.sdkRuntime = new SdkSessionRuntime(claudeSDKBridge, codexSDKBridge);
-        this.cliManager = new CliSessionManager();
+        this.registry = new SessionRuntimeRegistry();
+        CliSessionManager cliManager = new CliSessionManager();
+        // 注册 4 个 runtime 实现
+        registry.register(new ClaudeSdkSessionRuntime(claudeSDKBridge));
+        registry.register(new CodexSdkSessionRuntime(codexSDKBridge));
+        registry.register(new ClaudeCliSessionRuntime(cliManager));
+        registry.register(new CodexCliSessionRuntime(cliManager));
     }
 
-    public CompletableFuture<SDKResult> sendClaude(
-            String invocationMode,
-            String channelId,
-            String message,
-            String sessionId,
-            String runtimeSessionEpoch,
-            String cwd,
-            List<ClaudeSession.Attachment> attachments,
-            String permissionMode,
-            String model,
-            String permissionSessionId,
-            JsonObject openedFiles,
-            String agentPrompt,
-            Boolean streaming,
-            String reasoningEffort,
-            MessageCallback callback
-    ) {
-        if ("cli".equals(invocationMode)) {
-            String tabId = resolveTabId(channelId);
-            LOG.info(String.format(
-                    "[CliConcurrencyDiag][RuntimeRouter] routing Claude to CLI: tabId=%s, channelId=%s, sessionId=%s, epoch=%s, cwd=%s, thread=%s",
-                    tabId, channelId,
-                    sessionId != null ? sessionId : "(new)",
-                    runtimeSessionEpoch,
-                    cwd != null ? cwd : "(none)",
-                    Thread.currentThread().getName()));
-            return cliManager.send(new CliSendRequest(
-                    tabId, "claude", message, sessionId, cwd,
-                    attachments, openedFiles, List.of(),
-                    agentPrompt, permissionMode, model, reasoningEffort, permissionSessionId, Map.of()
-            ), callback);
-        }
-        return sdkRuntime.sendClaude(channelId, message, sessionId, runtimeSessionEpoch, cwd,
-                attachments, permissionMode, model, openedFiles, agentPrompt, streaming, reasoningEffort, callback);
+    /**
+     * 统一入口：按 (provider, runtimeType) 路由到对应 runtime 实现。
+     */
+    public CompletableFuture<SDKResult> send(SessionRequest req, MessageCallback cb) {
+        return registry.resolve(req.provider(), req.runtimeType()).send(req, cb);
     }
 
-    public CompletableFuture<SDKResult> sendCodex(
-            boolean useCliRuntime,
-            CliRequest cliRequest,
-            MessageCallback callback
-    ) {
-        if (useCliRuntime) {
-            String tabId = resolveTabId(cliRequest.key().channelId());
-            return cliManager.send(new CliSendRequest(
-                    tabId, "codex",
-                    cliRequest.message(),
-                    cliRequest.sessionIdOrThreadId(),
-                    cliRequest.cwd(),
-                    cliRequest.attachments(),
-                    cliRequest.openedFiles(),
-                    cliRequest.fileTagPaths(),
-                    cliRequest.agentPrompt(),
-                    cliRequest.permissionMode(),
-                    cliRequest.model(),
-                    cliRequest.reasoningEffort(),
-                    cliRequest.permissionSessionId(),
-                    cliRequest.env()
-            ), callback);
-        }
-        return sdkRuntime.sendCodex(
-                cliRequest.key().channelId(), cliRequest.message(),
-                cliRequest.sessionIdOrThreadId(), cliRequest.cwd(),
-                cliRequest.attachments(), cliRequest.permissionMode(),
-                cliRequest.model(), cliRequest.agentPrompt(),
-                cliRequest.reasoningEffort(), callback);
+    /**
+     * 统一中断：按 (provider, runtimeType) 路由到对应 runtime 实现。
+     */
+    public void interrupt(ProviderType provider, RuntimeType runtimeType, String tabId) {
+        registry.resolve(provider, runtimeType).interrupt(tabId);
     }
 
-    public JsonObject launch(String provider, String channelId, String tabId, String runtimeSessionEpoch, String sessionId, String cwd) {
-        // CLI mode: no-op launch (session starts on first send)
-        JsonObject result = new JsonObject();
-        result.addProperty("success", true);
-        result.addProperty("channelId", channelId);
-        if (sessionId != null) {
-            result.addProperty("sessionId", sessionId);
-        }
-        return result;
-    }
-
-    public void interrupt(String provider, String channelId, String tabId) {
-        cliManager.interrupt(resolveTabId(tabId != null ? tabId : channelId), provider);
-    }
-
-    public void cleanupTab(String tabId) {
-        cliManager.disposeTab(resolveTabId(tabId));
-    }
-
-    private static String resolveTabId(String value) {
-        return value != null && !value.trim().isEmpty() ? value : "default";
+    /**
+     * 释放 tab 资源：遍历所有 runtime 实现执行 disposeTab。
+     */
+    public void disposeTab(String tabId) {
+        registry.all().forEach(r -> r.disposeTab(tabId));
     }
 }

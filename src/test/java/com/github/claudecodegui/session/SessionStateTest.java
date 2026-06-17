@@ -63,4 +63,13 @@ public class SessionStateTest {
         state.setProvider("claude");
         assertEquals("claude", state.getProvider());
     }
+
+    @Test
+    public void unknownModelUsesExplicitContextWindowOverride() {
+        SessionState state = new SessionState();
+        state.setModel("mimo-v2.5-pro");
+        state.setContextWindowOverride(1_000_000);
+
+        assertEquals(1_000_000, state.getEffectiveMaxTokens());
+    }
 }

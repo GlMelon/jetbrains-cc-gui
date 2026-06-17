@@ -5,10 +5,8 @@ import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.notifications.ClaudeNotifier;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
 import com.github.claudecodegui.provider.codex.CodexSDKBridge;
-import com.github.claudecodegui.session.runtime.CliRequest;
-import com.github.claudecodegui.session.runtime.RuntimeKey;
-import com.github.claudecodegui.session.runtime.SessionRuntimeRouter;
 import com.github.claudecodegui.session.normalize.MessageNormalizers;
+import com.github.claudecodegui.session.runtime.*;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -67,11 +65,23 @@ public class SessionSendService {
     }
 
     public void interruptRuntime(String provider, String channelId, String tabId) {
-        runtimeRouter.interrupt(provider, channelId, tabId);
+        RuntimeType runtimeType = RuntimeType.SDK;
+        try {
+            EffectiveRuntimeResolver.Runtime runtime = EffectiveRuntimeResolver.resolve(
+                    provider,
+                    state.getClaudeInvocationMode(),
+                    null,
+                    CodemossSettingsService.getInstance().getRuntimePolicy()
+            );
+            runtimeType = runtime.runtimeType();
+        } catch (Exception e) {
+            LOG.warn("[Runtime] Failed to resolve runtime for interrupt, defaulting to SDK: " + e.getMessage());
+        }
+        runtimeRouter.interrupt(ProviderType.fromString(provider), runtimeType, tabId != null ? tabId : channelId);
     }
 
     public void cleanupRuntimeTab(String tabId) {
-        runtimeRouter.cleanupTab(tabId);
+        runtimeRouter.disposeTab(tabId);
     }
 
     public void updateSessionStateForSend(ClaudeSession.Message userMessage, String normalizedInput) {
@@ -238,14 +248,21 @@ public class SessionSendService {
         String contextAppend = contextService.buildCodexContextAppend(openedFilesJson, fileTagPaths);
         String finalInput = (input != null ? input : "") + contextAppend;
 
+        EffectiveRuntimeResolver.Runtime runtime = resolveRuntime(
+                CommonConstants.PROVIDER_CODEX,
+                null,
+                null
+        );
         RuntimeKey key = new RuntimeKey(
                 CommonConstants.PROVIDER_CODEX,
                 channelId,
                 channelId,
                 state.getRuntimeSessionEpoch()
         );
-        CliRequest request = new CliRequest(
+        SessionRequest request = new SessionRequest(
                 key,
+                runtime.provider(),
+                runtime.runtimeType(),
                 finalInput,
                 state.getSessionId(),
                 state.getCwd(),
@@ -257,16 +274,17 @@ public class SessionSendService {
                 state.getModel(),
                 state.getReasoningEffort(),
                 state.getPermissionSessionId(),
+                null,
                 Map.of()
         );
 
-        boolean useCliRuntime = CodemossSettingsService.CODEX_RUNTIME_ACCESS_MANAGED.equals(accessMode)
-                || CodemossSettingsService.CODEX_RUNTIME_ACCESS_CLI_LOGIN.equals(accessMode);
-
-        return runtimeRouter.sendCodex(
-                useCliRuntime,
+        return runtimeRouter.send(
                 request,
-                MessageNormalizers.forRuntime(CommonConstants.PROVIDER_CODEX, useCliRuntime ? CommonConstants.INVOCATION_MODE_CLI : CommonConstants.INVOCATION_MODE_SDK, handler)
+                MessageNormalizers.forRuntime(
+                        CommonConstants.PROVIDER_CODEX,
+                        toInvocationMode(runtime.runtimeType()),
+                        handler
+                )
         ).thenApply(result -> null);
     }
 
@@ -316,23 +334,49 @@ public class SessionSendService {
                 + ", cwd=" + state.getCwd()
                 + ", model=" + currentModel);
 
-        return runtimeRouter.sendClaude(
-                        effectiveInvocationMode,
-                        channelId,
-                        input,
-                        state.getSessionId(),
-                        runtimeSessionEpoch,
-                        state.getCwd(),
-                        attachments,
-                        effectivePermissionMode,
-                        currentModel,
-                        state.getPermissionSessionId(),
-                        openedFilesJson,
-                        agentPrompt,
-                        streaming,
-                        state.getReasoningEffort(),
-                MessageNormalizers.forRuntime(CommonConstants.PROVIDER_CLAUDE, effectiveInvocationMode, handler)
+        EffectiveRuntimeResolver.Runtime runtime = resolveRuntime(
+                CommonConstants.PROVIDER_CLAUDE,
+                state.getClaudeInvocationMode(),
+                effectiveInvocationMode
+        );
+        SessionRequest request = new SessionRequest(
+                new RuntimeKey(CommonConstants.PROVIDER_CLAUDE, channelId, channelId, runtimeSessionEpoch),
+                runtime.provider(),
+                runtime.runtimeType(),
+                input,
+                state.getSessionId(),
+                state.getCwd(),
+                attachments,
+                openedFilesJson,
+                List.of(),
+                agentPrompt,
+                effectivePermissionMode,
+                currentModel,
+                state.getReasoningEffort(),
+                state.getPermissionSessionId(),
+                streaming,
+                Map.of()
+        );
+
+        return runtimeRouter.send(
+                request,
+                MessageNormalizers.forRuntime(CommonConstants.PROVIDER_CLAUDE, toInvocationMode(runtime.runtimeType()), handler)
         ).thenApply(result -> null);
+    }
+
+    private EffectiveRuntimeResolver.Runtime resolveRuntime(String provider, String sessionMode, String requestedMode) {
+        return EffectiveRuntimeResolver.resolve(
+                provider,
+                sessionMode,
+                requestedMode,
+                CodemossSettingsService.getInstance().getRuntimePolicy()
+        );
+    }
+
+    private static String toInvocationMode(RuntimeType runtimeType) {
+        return runtimeType == RuntimeType.CLI
+                ? CommonConstants.INVOCATION_MODE_CLI
+                : CommonConstants.INVOCATION_MODE_SDK;
     }
 
     private boolean readAutoOpenFileEnabled() {

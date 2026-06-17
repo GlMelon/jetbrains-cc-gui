@@ -330,12 +330,11 @@ public class SessionState {
      */
     public int getEffectiveMaxTokens() {
         if (contextWindowOverride != null && contextWindowOverride > 0) {
-            // Strip [1m]/[258k] suffix to look up the base model's limit
-            String baseModel = model != null
-                    ? model.replaceFirst("(?i)\\s*\\[[0-9.]+[kKmM]\\]\\s*$", "")
-                    : null;
+            if (!com.github.claudecodegui.handler.provider.ModelProviderHandler.isKnownModel(null, model)) {
+                return contextWindowOverride;
+            }
             int modelMaxLimit = com.github.claudecodegui.handler.provider.ModelProviderHandler
-                    .getModelContextLimit(baseModel);
+                    .getModelContextLimit(model);
             // Cap at model's actual limit for known models
             return Math.min(contextWindowOverride, modelMaxLimit);
         }
