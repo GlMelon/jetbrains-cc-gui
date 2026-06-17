@@ -61,7 +61,7 @@ public class SessionLifecycleManager {
                                                           : CompletableFuture.completedFuture(null);
 
         interruptFuture.thenRun(() -> {
-            if (oldSession != null) {
+            if (oldSession != null && !isClaudeCliSession(oldSession)) {
                 host.getClaudeSDKBridge().resetPersistentRuntime(oldSession.getRuntimeSessionEpoch());
                 LOG.info("[Lifecycle] Requested daemon runtime reset for old epoch=" + oldSession.getRuntimeSessionEpoch());
             }
@@ -102,7 +102,7 @@ public class SessionLifecycleManager {
                 : CompletableFuture.completedFuture(null);
 
         interruptFuture.thenRun(() -> {
-            if (oldSession != null) {
+            if (oldSession != null && !isClaudeCliSession(oldSession)) {
                 host.getClaudeSDKBridge().resetPersistentRuntime(oldSession.getRuntimeSessionEpoch());
                 LOG.info("[Lifecycle] Requested daemon runtime reset for old epoch=" + oldSession.getRuntimeSessionEpoch());
             }
@@ -194,7 +194,7 @@ public class SessionLifecycleManager {
                 : CompletableFuture.completedFuture(null);
 
         interruptFuture.thenRun(() -> {
-            if (oldSession != null) {
+            if (oldSession != null && !isClaudeCliSession(oldSession)) {
                 host.getClaudeSDKBridge().resetPersistentRuntime(oldSession.getRuntimeSessionEpoch());
                 LOG.info("[Lifecycle] Requested daemon runtime reset before history load for old epoch="
                         + oldSession.getRuntimeSessionEpoch());
@@ -327,7 +327,7 @@ public class SessionLifecycleManager {
 
                 // Push Codex skills as separate channel for $ autocomplete
                 if (codexSkillsJson != null) {
-                    host.callJavaScript("window.updateDollarCommands", JsUtils.escapeJs(codexSkillsJson));
+                    host.getHandlerContext().dispatchEvent("slash.dollar_commands", JsUtils.escapeJs(codexSkillsJson));
                 }
             } catch (Exception e) {
                 LOG.warn("Failed to send slash commands to frontend: " + e.getMessage(), e);
@@ -354,7 +354,7 @@ public class SessionLifecycleManager {
 
             ApplicationManager.getApplication().invokeLater(() -> {
                 if (!host.isDisposed() && host.getBrowser() != null) {
-                    host.callJavaScript("window.onModeReceived", JsUtils.escapeJs(modeToSend));
+                    host.getHandlerContext().dispatchEvent("mode.received", JsUtils.escapeJs(modeToSend));
                 }
             });
         } catch (Exception e) {
@@ -378,17 +378,9 @@ public class SessionLifecycleManager {
 
         String usageJson = GsonHolder.GSON.toJson(usageUpdate);
 
-        JBCefBrowser browser = host.getBrowser();
-        if (browser != null && !host.isDisposed()) {
-            String js = "(function() {" +
-                                "  if (typeof window.onUsageUpdate === 'function') {" +
-                                "    window.onUsageUpdate('" + JsUtils.escapeJs(usageJson) + "');" +
-                                "    console.log('[Backend->Frontend] Usage reset for new session');" +
-                                "  } else {" +
-                                "    console.warn('[Backend->Frontend] window.onUsageUpdate not found');" +
-                                "  }" +
-                                "})();";
-            browser.getCefBrowser().executeJavaScript(js, browser.getCefBrowser().getURL(), 0);
+        if (!host.isDisposed()) {
+            // [归一化] 直接走下行总线 dispatchEvent,替代旧 window.onUsageUpdate 字面调用。
+            host.getHandlerContext().dispatchEvent("usage.update", JsUtils.escapeJs(usageJson));
         }
     }
 
@@ -396,6 +388,16 @@ public class SessionLifecycleManager {
         return session != null
                 && "claude".equals(session.getProvider())
                 && !"cli".equals(session.getClaudeInvocationMode());
+    }
+
+    /**
+     * 当前会话是否为 Claude provider 的 CLI 运行模式。CLI 模式不依赖 SDK daemon,
+     * 跳过 resetPersistentRuntime 等 SDK bridge 调用。
+     */
+    private boolean isClaudeCliSession(ClaudeSession session) {
+        return session != null
+                && "claude".equals(session.getProvider())
+                && "cli".equals(session.getClaudeInvocationMode());
     }
 
     private String readClaudeInvocationMode() {
@@ -490,7 +492,7 @@ public class SessionLifecycleManager {
             payload.addProperty("claudeInvocationMode", session.getClaudeInvocationMode());
         }
         String json = GsonHolder.GSON.toJson(payload);
-        ApplicationManager.getApplication().invokeLater(() -> host.callJavaScript("window.updateSessionRuntimeState", JsUtils.escapeJs(json)));
+        ApplicationManager.getApplication().invokeLater(() -> host.getHandlerContext().dispatchEvent("session.runtime_state", JsUtils.escapeJs(json)));
     }
 
     /**

@@ -1,5 +1,6 @@
 package com.github.claudecodegui.session;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.permission.PermissionManager;
 import com.github.claudecodegui.permission.PermissionRequest;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
@@ -286,6 +287,12 @@ public class ClaudeSession {
         state.setError(null);
         state.setChannelId(UUID.randomUUID().toString());
 
+        // CLI 模式无需 SDK daemon launch(会话在首次 send 时由 CliSessionManager 启动),
+        // 直接返回 channelId,跳过 providerRouter.launchChannel 的 SDK bridge 调用。
+        if (isClaudeCliRuntime()) {
+            return CompletableFuture.completedFuture(state.getChannelId());
+        }
+
         return CompletableFuture.supplyAsync(() -> {
                     try {
                         // Validate and clean invalid sessionId (e.g., path instead of UUID)
@@ -520,7 +527,11 @@ public class ClaudeSession {
         return CompletableFuture.runAsync(() -> {
             try {
                 sendService.interruptRuntime(state.getProvider(), state.getChannelId(), state.getChannelId());
-                providerRouter.interruptChannel(state.getProvider(), state.getChannelId());
+                // CLI 模式下 sendService.interruptRuntime 已路由到 CliSessionManager,
+                // 无需再调用 providerRouter.interruptChannel(SDK bridge,CLI 模式无活跃 channel)。
+                if (!isClaudeCliRuntime()) {
+                    providerRouter.interruptChannel(state.getProvider(), state.getChannelId());
+                }
                 state.setError(null);  // Clear previous error state
                 state.setBusy(false);
                 state.setLoading(false);  // Also reset loading state
@@ -602,7 +613,10 @@ public class ClaudeSession {
      */
     public void dispose() {
         LOG.info("[ClaudeSession] Disposing session, channelId=" + state.getChannelId());
-        providerRouter.cleanupProviderSession(state.getProvider(), state.getSessionId(), state.getCwd());
+        // CLI 模式的会话清理由 CliSessionManager.disposeTab 处理,跳过 SDK bridge 调用。
+        if (!isClaudeCliRuntime()) {
+            providerRouter.cleanupProviderSession(state.getProvider(), state.getSessionId(), state.getCwd());
+        }
 
         // Interrupt any active request
         try {
@@ -697,6 +711,17 @@ public class ClaudeSession {
 
     public String getClaudeInvocationMode() {
         return state.getClaudeInvocationMode();
+    }
+
+    /**
+     * 当前是否为 Claude provider 的 CLI 运行模式(不依赖 SDK/ai-bridge daemon)。
+     * CLI 模式下跳过 providerRouter 的 SDK bridge 调用(launchChannel/interruptChannel/cleanupProviderSession),
+     * 它们由 CliSessionManager 在 send/interrupt/disposeTab 时独立处理。
+     * 注意:仅对 claude+cli 生效,不影响 claude SDK 模式与 codex 的现有行为。
+     */
+    private boolean isClaudeCliRuntime() {
+        return CommonConstants.PROVIDER_CLAUDE.equals(state.getProvider())
+                && CommonConstants.INVOCATION_MODE_CLI.equals(state.getClaudeInvocationMode());
     }
 
     public void setClaudeInvocationMode(String invocationMode) {

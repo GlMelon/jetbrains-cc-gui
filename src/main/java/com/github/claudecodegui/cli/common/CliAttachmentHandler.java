@@ -1,8 +1,8 @@
 package com.github.claudecodegui.cli.common;
 
-import com.github.claudecodegui.bridge.ProcessManager;
 import com.github.claudecodegui.session.ClaudeSession;
 import com.github.claudecodegui.util.AttachmentStorageService;
+import com.github.claudecodegui.util.CliTempDir;
 import com.intellij.openapi.diagnostic.Logger;
 
 import java.io.File;
@@ -197,7 +197,7 @@ public class CliAttachmentHandler {
         // PR #1191 review M3: put CLI temp attachments under the same managed
         // directory as the rest of the plugin so cleanupTempFiles' allow-list
         // covers them and they don't pollute the system /tmp.
-        File tempDir = new ProcessManager().prepareClaudeTempDir();
+        File tempDir = CliTempDir.getManagedTempDir();
         File tmp = tempDir != null
                 ? File.createTempFile("cli-att-", getExt(att.mediaType, att.fileName), tempDir)
                 : File.createTempFile("cli-att-", getExt(att.mediaType, att.fileName));

@@ -23,7 +23,9 @@ import java.nio.CharBuffer;
 import java.nio.charset.*;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
 
 /**
@@ -90,6 +92,8 @@ public class CodexCliSession {
     // 当前活跃进程（用于中断）
     private volatile CliProcessHandle activeHandle;
     private final AtomicBoolean userInterrupted = new AtomicBoolean(false);
+    // 为缺失 id/call_id 的事件项生成唯一 fallback id,避免同轮多个工具块塌缩成同一 id 被去重吞掉。
+    private final AtomicLong fallbackIdSeq = new AtomicLong();
     private final Map<String, String> assistantTextByItemId = new HashMap<>();
     private final Map<String, String> reasoningTextByItemId = new HashMap<>();
     private final Set<String> emittedToolUseIds = new HashSet<>();
@@ -97,6 +101,8 @@ public class CodexCliSession {
     private final Set<String> emittedThinkingStartIds = new HashSet<>();
     private String pendingAgentMessageText = "";
     private SegmentKind lastSegmentKind = SegmentKind.NONE;
+    // turn.completed 后置位,其后非 JSON 行视为进程收尾噪声,不再作为正文 delta 输出。
+    private volatile boolean turnCompleted;
 
     private enum SegmentKind {
         NONE,
@@ -187,7 +193,10 @@ public class CodexCliSession {
                     }
                 }
 
-                process.waitFor();
+                if (!process.waitFor(CliConstants.PROCESS_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+                    process.destroyForcibly();
+                    process.waitFor();
+                }
                 int exitCode = process.exitValue();
 
                 if (wasInterrupted()) {
@@ -205,6 +214,7 @@ public class CodexCliSession {
                     }
                 } else if (shouldReportExitError(exitCode)) {
                     String err = buildExitError(exitCode, diagnostic, cliError, requestHasImages);
+                    maybeResetThreadAfterResumeFailure(!cliError.isEmpty() ? cliError : diagnostic);
                     callback.onError(err);
                     callback.onComplete(false, assistantContent.toString(), err);
                 }
@@ -240,6 +250,14 @@ public class CodexCliSession {
         userInterrupted.set(false);
         lastSegmentKind = SegmentKind.NONE;
         pendingAgentMessageText = "";
+        turnCompleted = false;
+        // 清理上一轮累积的去重/增量状态,避免跨轮污染(例如降级回首轮模式后 item id 从 item_0 重新计数,
+        // 会命中上一轮残留的 id 导致工具块被 emitXxxOnce 吞掉)。
+        assistantTextByItemId.clear();
+        reasoningTextByItemId.clear();
+        emittedToolUseIds.clear();
+        emittedToolResultIds.clear();
+        emittedThinkingStartIds.clear();
     }
 
     boolean wasInterrupted() {
@@ -249,6 +267,23 @@ public class CodexCliSession {
 
     boolean shouldReportExitError(int exitCode) {
         return exitCode != 0 && !wasInterrupted();
+    }
+
+    /**
+     * resume --last 失败时(thread 已损坏/被删),重置 threadId 使下一轮回到首轮模式,避免死循环。
+     */
+    private void maybeResetThreadAfterResumeFailure(CharSequence diagnostic) {
+        if (threadId == null || diagnostic == null) {
+            return;
+        }
+        String text = diagnostic.toString().toLowerCase(Locale.ROOT);
+        boolean resumeFailure = text.contains("no previous") || text.contains("no last")
+                || text.contains("session not found") || text.contains("no conversation")
+                || text.contains("resume target") || text.contains("conversation not found");
+        if (resumeFailure) {
+            LOG.info("[CodexCliSession] resume --last failed, resetting threadId to fall back to first turn: tab=" + tabId);
+            threadId = null;
+        }
     }
 
     public void dispose() {
@@ -329,6 +364,7 @@ public class CodexCliSession {
                     }
                 }
                 case "turn.completed" -> {
+                    turnCompleted = true;
                     flushPendingAgentMessageAsContent(callback, assistantContent);
                     if (event.has("usage") && event.get("usage").isJsonObject()) {
                         callback.onMessage(CliConstants.MSG_USAGE, event.getAsJsonObject("usage").toString());
@@ -377,6 +413,10 @@ public class CodexCliSession {
             String text = line + "\n";
             if (lastSegmentKind == SegmentKind.TOOL) {
                 emitThinkingText(callback, text);
+            } else if (turnCompleted) {
+                // turn 已完成,后续非 JSON 行是进程收尾噪声,静默忽略
+                // (不进 cliError 以免 exitCode==0 时误报错,也不作为正文 delta)。
+                LOG.debug("[CodexCliSession] ignoring post-turn non-JSON line: " + line);
             } else {
                 assistantContent.append(text);
                 markSegment(callback, SegmentKind.TEXT);
@@ -578,6 +618,14 @@ public class CodexCliSession {
 
         String delta = appendedDelta(assistantContent.toString(), text);
         if (!delta.isEmpty()) {
+            // 当已有正文且 text 不是其前缀时,这是一段独立的新正文(而非纯追加),
+            // 把整段当 delta 追加会与已有正文拼接重复。此时先重置块再作为新内容输出。
+            boolean freshBlock = assistantContent.length() > 0 && !text.startsWith(assistantContent.toString());
+            if (freshBlock) {
+                callback.onMessage(CliConstants.MSG_BLOCK_RESET, "");
+                assistantContent.setLength(0);
+                delta = text;
+            }
             assistantContent.append(delta);
             markSegment(callback, SegmentKind.TEXT);
             callback.onMessage(CliConstants.MSG_CONTENT_DELTA, delta);
@@ -856,9 +904,9 @@ public class CodexCliSession {
         return el.isJsonPrimitive() ? el.getAsString() : el.toString();
     }
 
-    private static String stableItemId(JsonObject item, String fallback) {
+    private String stableItemId(JsonObject item, String fallback) {
         String id = firstNonBlank(getString(item, "id"), getString(item, "call_id"));
-        return id != null ? id : fallback;
+        return id != null ? id : fallback + "-" + fallbackIdSeq.incrementAndGet();
     }
 
     private static String appendedDelta(String previous, String next) {

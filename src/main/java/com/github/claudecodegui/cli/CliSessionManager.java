@@ -23,8 +23,28 @@ public class CliSessionManager {
 
     private final ConcurrentHashMap<String, ClaudeCliSession> claudeSessions = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, CodexCliSession> codexSessions = new ConcurrentHashMap<>();
+    // 每个 tab 当前进行中的 send future,用于 per-tab 串行化,避免并发竞态。
+    private final ConcurrentHashMap<String, CompletableFuture<SDKResult>> inFlight = new ConcurrentHashMap<>();
 
     public CompletableFuture<SDKResult> send(CliSendRequest request, MessageCallback callback) {
+        String tabId = request.tabId();
+        // per-tab 串行:同一 tab 的 send 必须排队执行(前一个完成或异常后才轮到下一个),
+        // 避免并发落到同一非线程安全的 ClaudeCliSession/CodexCliSession 实例
+        // (activeHandle 被覆盖致孤儿进程、userInterrupted 被清零致中断失效、
+        // Codex 的 HashMap/HashSet 并发损坏)。compute 保证后到的 send 必然链在前一个之后。
+        return inFlight.compute(tabId, (k, prev) -> {
+            // 等前一个 send 完成(吞掉异常以放行后续),再开始当前 send。
+            CompletableFuture<SDKResult> waitChain = (prev != null)
+                    ? prev.exceptionally(ex -> null)
+                    : CompletableFuture.completedFuture(null);
+            CompletableFuture<SDKResult> next = waitChain.thenComposeAsync(
+                    v -> dispatchSend(request, callback), CliSessionExecutor.executor());
+            next.whenComplete((r, ex) -> inFlight.remove(tabId, next));
+            return next;
+        });
+    }
+
+    private CompletableFuture<SDKResult> dispatchSend(CliSendRequest request, MessageCallback callback) {
         return switch (request.provider()) {
             case CliConstants.PROVIDER_CLAUDE -> sendClaude(request, callback);
             case CliConstants.PROVIDER_CODEX -> sendCodex(request, callback);
@@ -98,6 +118,9 @@ public class CliSessionManager {
     }
 
     static String normalizeInterruptProvider(String provider) {
+        if (provider == null) {
+            return CliConstants.PROVIDER_CLAUDE;
+        }
         return switch (provider) {
             case CliConstants.PROVIDER_CODEX -> CliConstants.PROVIDER_CODEX;
             default -> CliConstants.PROVIDER_CLAUDE;
@@ -117,21 +140,12 @@ public class CliSessionManager {
             }
             @Override
             public void onComplete(boolean success, String finalResult, String error) {
-                SDKResult result = success ? SDKResult.success(finalResult) : SDKResult.error(error);
-                result.success = success;
-                result.finalResult = finalResult;
-                result.error = error;
-                callback.onComplete(result);
+                callback.onComplete(SDKResult.completed(success, finalResult, error, false));
             }
 
             @Override
             public void onInterrupted(String finalResult, String message) {
-                SDKResult result = SDKResult.error(message);
-                result.success = false;
-                result.interrupted = true;
-                result.finalResult = finalResult;
-                result.error = message;
-                callback.onComplete(result);
+                callback.onComplete(SDKResult.completed(false, finalResult, message, true));
             }
         };
     }

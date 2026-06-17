@@ -25,6 +25,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -44,6 +45,8 @@ public class ClaudeCliSession {
 
     // 当前 session_id（从 stream-json 输出中获取）
     private volatile String sessionId;
+    // readOutput 收到 result 事件后置位,避免 exitCode!=0 时重复发 onError/onComplete。
+    private volatile boolean resultEmitted;
     // 当前活跃进程（用于中断）
     private volatile CliProcessHandle activeHandle;
     private final AtomicBoolean userInterrupted = new AtomicBoolean(false);
@@ -375,7 +378,10 @@ public class ClaudeCliSession {
                 AtomicBoolean interruptHandled = new AtomicBoolean(false);
                 readOutput(callback, diagnostic, sendStartNanos, completedWithStructuredError, interruptHandled);
 
-                process.waitFor();
+                if (!process.waitFor(CliConstants.PROCESS_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+                    process.destroyForcibly();
+                    process.waitFor();
+                }
                 int exitCode = process.exitValue();
                 boolean interrupted = wasInterrupted();
                 LOG.info(
@@ -388,6 +394,7 @@ public class ClaudeCliSession {
                     callback.onInterrupted(null, CliConstants.I18N_REQUEST_INTERRUPTED);
                 } else if (shouldReportExitError(exitCode, completedWithStructuredError.get())) {
                     String err = buildExitError(exitCode, diagnostic);
+                    maybeResetSessionAfterResumeFailure(diagnostic);
                     callback.onError(err);
                     callback.onComplete(false, null, err);
                 }
@@ -409,6 +416,7 @@ public class ClaudeCliSession {
 
     void prepareForSend() {
         userInterrupted.set(false);
+        resultEmitted = false;
     }
 
     private void readOutput(CliSessionCallback callback, StringBuilder diagnostic, long sendStartNanos,
@@ -463,6 +471,7 @@ public class ClaudeCliSession {
                         callback.onMessage(CliConstants.MSG_SESSION_ID, sessionId);
                     }
                     boolean success = !hadError.get() && result.success;
+                    resultEmitted = true;
                     completedWithStructuredError.set(!success && result.error != null && !result.error.isBlank());
                     callback.onComplete(success, success ? assistantContent.toString() : null, success ? null : result.error);
                     return;
@@ -494,7 +503,25 @@ public class ClaudeCliSession {
     }
 
     boolean shouldReportExitError(int exitCode, boolean completedWithStructuredError) {
-        return exitCode != 0 && !completedWithStructuredError && !wasInterrupted();
+        // resultEmitted:readOutput 已因 result 事件发过 onComplete,不再因 exitCode!=0 重复发错误。
+        return exitCode != 0 && !completedWithStructuredError && !wasInterrupted() && !resultEmitted;
+    }
+
+    /**
+     * --resume 失败时(会话已损坏/不存在),重置 sessionId 使下一轮重新开始,避免死循环。
+     */
+    private void maybeResetSessionAfterResumeFailure(CharSequence diagnostic) {
+        if (sessionId == null || diagnostic == null) {
+            return;
+        }
+        String text = diagnostic.toString().toLowerCase(Locale.ROOT);
+        boolean resumeFailure = text.contains("no conversation") || text.contains("conversation not found")
+                || text.contains("session not found")
+                || text.contains("resume") && (text.contains("not found") || text.contains("fail"));
+        if (resumeFailure) {
+            LOG.info("[ClaudeCliSession] --resume failed, resetting sessionId to start fresh: tab=" + tabId);
+            sessionId = null;
+        }
     }
 
     private String getPermissionDirectory() {

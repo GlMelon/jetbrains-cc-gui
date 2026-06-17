@@ -12,6 +12,7 @@ import com.google.gson.JsonObject;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
+import com.intellij.util.Alarm;
 import com.intellij.util.concurrency.AppExecutorUtil;
 
 import java.util.Map;
@@ -108,6 +109,49 @@ public class PermissionHandler extends BaseMessageHandler {
         future.whenComplete((ignored, error) -> cancellableTask.cancel());
     }
 
+    /**
+     * Show a dialog with frontend readiness check.
+     * Waits for the frontend to be ready before executing JavaScript.
+     * Falls back to JavaScript retry mechanism if frontend doesn't become ready in time.
+     *
+     * @param directJsSupplier    Supplier for the direct JS code (when frontend is ready)
+     * @param fallbackJsSupplier  Supplier for the fallback JS code with retry (when frontend not ready)
+     * @param logPrefix           Log prefix for debugging
+     */
+    private void showDialogWithFrontendCheck(
+            java.util.function.Supplier<String> directJsSupplier,
+            java.util.function.Supplier<String> fallbackJsSupplier,
+            String logPrefix) {
+        final int maxWaitAttempts = 50; // 50 * 200ms = 10 seconds max wait
+        // Reuse a single Alarm instance for all retry attempts to avoid creating
+        // a new Alarm object on each iteration (resource cleanup on completion).
+        final Alarm alarm = new Alarm(Alarm.ThreadToUse.SWING_THREAD);
+
+        Runnable checkAndShow = new Runnable() {
+            private int waitAttempts = 0;
+
+            @Override
+            public void run() {
+                if (context.isFrontendReady()) {
+                    // Frontend is ready, show the dialog directly
+                    LOG.debug(logPrefix + " Frontend ready, showing dialog directly");
+                    context.executeJavaScriptOnEDT(directJsSupplier.get());
+                } else if (waitAttempts < maxWaitAttempts) {
+                    // Frontend not ready yet, wait and retry using Alarm for proper EDT scheduling
+                    waitAttempts++;
+                    LOG.debug(logPrefix + " Frontend not ready, waiting... attempt " + waitAttempts);
+                    alarm.addRequest(this, 200);
+                } else {
+                    // Max wait attempts reached, try anyway with JavaScript retry mechanism
+                    LOG.warn(logPrefix + " Frontend not ready after max wait attempts, trying JavaScript fallback");
+                    context.executeJavaScriptOnEDT(fallbackJsSupplier.get());
+                }
+            }
+        };
+
+        checkAndShow.run();
+    }
+
     public void setPermissionDeniedCallback(PermissionDeniedCallback callback) {
         this.deniedCallback = callback;
     }
@@ -162,17 +206,20 @@ public class PermissionHandler extends BaseMessageHandler {
 
             ApplicationManager.getApplication().invokeLater(() -> {
                 LOG.info("[PERM_SHOW] Executing JS to show dialog for channelId=" + channelId);
-                String jsCode = "(function retryShowDialog(retries) { " +
-                    "  if (window.showPermissionDialog) { " +
-                    "    window.showPermissionDialog('" + escapedJson + "'); " +
-                    "  } else if (retries > 0) { " +
-                    "    setTimeout(function() { retryShowDialog(retries - 1); }, 200); " +
-                    "  } else { " +
-                    "    console.error('[PERM_DEBUG][JS] FAILED: showPermissionDialog not available!'); " +
-                    "  } " +
-                    "})(30);";
-
-                context.executeJavaScriptOnEDT(jsCode);
+                // Check if frontend is ready before executing JavaScript
+                showDialogWithFrontendCheck(
+                    () -> "window.showPermissionDialog('" + escapedJson + "');",
+                    () -> "(function retryShowDialog(retries) { " +
+                        "  if (window.showPermissionDialog) { " +
+                        "    window.showPermissionDialog('" + escapedJson + "'); " +
+                        "  } else if (retries > 0) { " +
+                        "    setTimeout(function() { retryShowDialog(retries - 1); }, 200); " +
+                        "  } else { " +
+                        "    console.error('[PERM_DEBUG][JS] FAILED: showPermissionDialog not available!'); " +
+                        "  } " +
+                        "})(30);",
+                    "[PERM_SHOW]"
+                );
             });
 
             scheduleSafetyNet(future, () -> {
@@ -379,17 +426,20 @@ public class PermissionHandler extends BaseMessageHandler {
             String escapedJson = escapeJs(requestJson);
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                String jsCode = "(function retryShowAskUserQuestion(retries) { " +
-                    "  if (window.showAskUserQuestionDialog) { " +
-                    "    window.showAskUserQuestionDialog('" + escapedJson + "'); " +
-                    "  } else if (retries > 0) { " +
-                    "    setTimeout(function() { retryShowAskUserQuestion(retries - 1); }, 200); " +
-                    "  } else { " +
-                    "    console.error('[ASK_USER_QUESTION][JS] FAILED: showAskUserQuestionDialog not available!'); " +
-                    "  } " +
-                    "})(30);";
-
-                context.executeJavaScriptOnEDT(jsCode);
+                // Check if frontend is ready before executing JavaScript
+                showDialogWithFrontendCheck(
+                    () -> "window.showAskUserQuestionDialog('" + escapedJson + "');",
+                    () -> "(function retryShowAskUserQuestion(retries) { " +
+                        "  if (window.showAskUserQuestionDialog) { " +
+                        "    window.showAskUserQuestionDialog('" + escapedJson + "'); " +
+                        "  } else if (retries > 0) { " +
+                        "    setTimeout(function() { retryShowAskUserQuestion(retries - 1); }, 200); " +
+                        "  } else { " +
+                        "    console.error('[ASK_USER_QUESTION][JS] FAILED: showAskUserQuestionDialog not available!'); " +
+                        "  } " +
+                        "})(30);",
+                    "[ASK_USER_QUESTION][SHOW_DIALOG]"
+                );
             });
 
             scheduleSafetyNet(future, () -> {
@@ -453,17 +503,20 @@ public class PermissionHandler extends BaseMessageHandler {
             String escapedJson = escapeJs(requestJson);
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                String jsCode = "(function retryShowPlanApproval(retries) { " +
-                    "  if (window.showPlanApprovalDialog) { " +
-                    "    window.showPlanApprovalDialog('" + escapedJson + "'); " +
-                    "  } else if (retries > 0) { " +
-                    "    setTimeout(function() { retryShowPlanApproval(retries - 1); }, 200); " +
-                    "  } else { " +
-                    "    console.error('[PLAN_APPROVAL][JS] FAILED: showPlanApprovalDialog not available!'); " +
-                    "  } " +
-                    "})(30);";
-
-                context.executeJavaScriptOnEDT(jsCode);
+                // Check if frontend is ready before executing JavaScript
+                showDialogWithFrontendCheck(
+                    () -> "window.showPlanApprovalDialog('" + escapedJson + "');",
+                    () -> "(function retryShowPlanApproval(retries) { " +
+                        "  if (window.showPlanApprovalDialog) { " +
+                        "    window.showPlanApprovalDialog('" + escapedJson + "'); " +
+                        "  } else if (retries > 0) { " +
+                        "    setTimeout(function() { retryShowPlanApproval(retries - 1); }, 200); " +
+                        "  } else { " +
+                        "    console.error('[PLAN_APPROVAL][JS] FAILED: showPlanApprovalDialog not available!'); " +
+                        "  } " +
+                        "})(30);",
+                    "[PLAN_APPROVAL][SHOW_DIALOG]"
+                );
             });
 
             scheduleSafetyNet(future, () -> {

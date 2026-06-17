@@ -16,6 +16,9 @@ public final class CliConstants {
     public static final String PROVIDER_CLAUDE = "claude";
     public static final String PROVIDER_CODEX = "codex";
 
+    /** 进程等待超时(毫秒),防止中断未真正结束子进程时 waitFor 永久阻塞导致 Future 无法完成。 */
+    public static final long PROCESS_WAIT_TIMEOUT_MS = 30_000L;
+
     // ── I18N 消息键 ────────────────────────────────────────────────────────────
 
     public static final String I18N_REQUEST_INTERRUPTED = "__I18N__:chat.requestInterrupted";

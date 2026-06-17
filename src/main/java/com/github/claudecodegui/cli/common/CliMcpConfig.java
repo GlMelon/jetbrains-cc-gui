@@ -22,7 +22,9 @@ public class CliMcpConfig {
 
     private final String tabId;
     private final Path configPath;
-    private final RuntimeSharedConfigService sharedConfigService = new RuntimeSharedConfigService();
+    // 懒加载:构造时不创建 RuntimeSharedConfigService(它会触发 CodemossSettingsService.getInstance(),
+    // 依赖 IDE Application)。延迟到 doInitialize(运行时一定是 IDE 环境)再创建,使本类可在纯单元测试中实例化。
+    private RuntimeSharedConfigService sharedConfigService;
     private JsonObject servers = new JsonObject();
     private volatile boolean initialized = false;
 
@@ -49,6 +51,9 @@ public class CliMcpConfig {
      */
     private void doInitialize() {
         try {
+            if (sharedConfigService == null) {
+                sharedConfigService = new RuntimeSharedConfigService();
+            }
             if (Files.exists(configPath)) {
                 String content = Files.readString(configPath, StandardCharsets.UTF_8);
                 JsonObject existing = GSON.fromJson(content, JsonObject.class);

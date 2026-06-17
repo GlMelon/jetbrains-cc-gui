@@ -1,6 +1,7 @@
 package com.github.claudecodegui.cli;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -24,5 +25,12 @@ public final class CliSessionExecutor {
 
     public static CompletableFuture<Void> runAsync(Runnable runnable) {
         return CompletableFuture.runAsync(runnable, EXECUTOR);
+    }
+
+    /**
+     * 暴露内部线程池,供调用方做 future 链式编排(如 CliSessionManager 的 per-tab 串行)。
+     */
+    public static Executor executor() {
+        return EXECUTOR;
     }
 }
