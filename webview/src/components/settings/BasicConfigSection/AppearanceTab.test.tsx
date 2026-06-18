@@ -214,4 +214,58 @@ describe('AppearanceTab ui font selector', () => {
     expect(onUiFontSelectionChange).toHaveBeenCalledTimes(1);
     expect(onUiFontSelectionChange).toHaveBeenCalledWith('customFile');
   });
+
+  it('picks the per-theme default background color from the resolvedTheme prop', () => {
+    window.sendToJava = vi.fn();
+
+    // resolvedTheme=light → 颜色选择器默认值应是亮色默认(#ffffff)
+    const { container: lightContainer } = render(
+      <AppearanceTab
+        {...({
+          theme: 'light',
+          resolvedTheme: 'light',
+          onThemeChange: vi.fn(),
+          fontSizeLevel: 3,
+          onFontSizeLevelChange: vi.fn(),
+          editorFontConfig: { fontFamily: 'Monaco', fontSize: 14, lineSpacing: 1.35 },
+          uiFontConfig: { mode: 'followEditor', effectiveMode: 'followEditor', fontFamily: 'Monaco', fontSize: 14, lineSpacing: 1.35 },
+          codeFontConfig: { mode: 'followEditor', effectiveMode: 'followEditor', fontFamily: 'Monaco', fontSize: 14, lineSpacing: 1.35 },
+          onUiFontSelectionChange: vi.fn(),
+          onUiFontCustomPathChange: vi.fn(),
+          onSaveUiFontCustomPath: vi.fn(),
+          onBrowseUiFontFile: vi.fn(),
+          onCodeFontSelectionChange: vi.fn(),
+          onSaveCodeFontCustomPath: vi.fn(),
+          onBrowseCodeFontFile: vi.fn(),
+        } as any)}
+      />
+    );
+    const lightPicker = lightContainer.querySelector('input[type="color"]') as HTMLInputElement;
+    expect(lightPicker.value).toBe('#ffffff');
+
+    // 对照:resolvedTheme=dark → 暗色默认(#1e1e1e),证明按主题隔离
+    const { container: darkContainer } = render(
+      <AppearanceTab
+        {...({
+          theme: 'dark',
+          resolvedTheme: 'dark',
+          onThemeChange: vi.fn(),
+          fontSizeLevel: 3,
+          onFontSizeLevelChange: vi.fn(),
+          editorFontConfig: { fontFamily: 'Monaco', fontSize: 14, lineSpacing: 1.35 },
+          uiFontConfig: { mode: 'followEditor', effectiveMode: 'followEditor', fontFamily: 'Monaco', fontSize: 14, lineSpacing: 1.35 },
+          codeFontConfig: { mode: 'followEditor', effectiveMode: 'followEditor', fontFamily: 'Monaco', fontSize: 14, lineSpacing: 1.35 },
+          onUiFontSelectionChange: vi.fn(),
+          onUiFontCustomPathChange: vi.fn(),
+          onSaveUiFontCustomPath: vi.fn(),
+          onBrowseUiFontFile: vi.fn(),
+          onCodeFontSelectionChange: vi.fn(),
+          onSaveCodeFontCustomPath: vi.fn(),
+          onBrowseCodeFontFile: vi.fn(),
+        } as any)}
+      />
+    );
+    const darkPicker = darkContainer.querySelector('input[type="color"]') as HTMLInputElement;
+    expect(darkPicker.value).toBe('#1e1e1e');
+  });
 });

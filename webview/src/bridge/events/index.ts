@@ -57,6 +57,7 @@ export const BRIDGE_EVENTS: readonly BridgeEventDef[] = [
   { type: 'font.apply_editor', kind: 'bootstrap' },        // 旧 applyIdeaFontConfig
   { type: 'font.apply_ui', kind: 'bootstrap' },            // 旧 applyUiFontConfig
   { type: 'language.apply', kind: 'bootstrap' },           // 旧 applyIdeaLanguageConfig
+  { type: 'appearance.apply', kind: 'bootstrap' },         // 旧 applyAppearanceConfig
   { type: 'theme.received', kind: 'bootstrap' },           // 旧 onIdeThemeReceived
   { type: 'theme.changed', kind: 'bootstrap' },            // 旧 onIdeThemeChanged
   { type: 'linkify.update', kind: 'bootstrap' },           // 旧 updateLinkifyCapabilities

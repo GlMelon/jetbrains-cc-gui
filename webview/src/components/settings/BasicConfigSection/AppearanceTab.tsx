@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import styles from './style.module.less';
 import { useTranslation } from 'react-i18next';
 import { sendBridgeEvent } from '../../../utils/bridge';
 import type { DiffThemeMode } from '../../../utils/diffTheme';
+import type { Theme } from '../../../utils/appearanceColors';
 import type { UiFontConfig, CodeFontConfig } from '../hooks/useSettingsBasicActions';
 
 // Preset colors (module-level constants to avoid recreating on each render)
@@ -98,6 +99,8 @@ const SystemIcon = () => (
 export interface AppearanceTabProps {
   theme: 'light' | 'dark' | 'system';
   onThemeChange: (theme: 'light' | 'dark' | 'system') => void;
+  /** 解析后的实际主题(亮/暗),决定颜色预设与默认色;由父 hook(themePreference + ideTheme)派生 */
+  resolvedTheme?: Theme;
   fontSizeLevel: number;
   onFontSizeLevelChange: (level: number) => void;
   editorFontConfig?: {
@@ -124,6 +127,7 @@ export interface AppearanceTabProps {
 const AppearanceTab = ({
   theme,
   onThemeChange,
+  resolvedTheme = 'dark',
   fontSizeLevel,
   onFontSizeLevelChange,
   editorFontConfig,
@@ -201,11 +205,6 @@ const AppearanceTab = ({
     window.addEventListener('language-config-applied', resync);
     return () => window.removeEventListener('language-config-applied', resync);
   }, [i18n.language]);
-
-  const resolvedTheme = useMemo(() => {
-    if (theme !== 'system') return theme;
-    return (document.documentElement.getAttribute('data-theme') as 'light' | 'dark') || 'dark';
-  }, [theme]);
 
   const defaultBgColor = resolvedTheme === 'light' ? DEFAULT_LIGHT_BG : DEFAULT_DARK_BG;
   const presets = resolvedTheme === 'light' ? LIGHT_PRESETS : DARK_PRESETS;

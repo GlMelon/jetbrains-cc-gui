@@ -510,6 +510,29 @@ interface Window {
   };
 
   /**
+   * Apply appearance config (theme/fontSize/diffTheme/colors) from Java backend.
+   * Cold-cache hydration source: only fills missing localStorage keys.
+   */
+  applyAppearanceConfig?: (config: {
+    themePreference?: string;
+    fontSizeLevel?: number;
+    diffTheme?: string;
+    chatBgColor?: { light?: string; dark?: string };
+    userMsgColor?: { light?: string; dark?: string };
+  } | string) => void;
+
+  /**
+   * Pending appearance config before applyAppearanceConfig is registered
+   */
+  __pendingAppearanceConfig?: {
+    themePreference?: string;
+    fontSizeLevel?: number;
+    diffTheme?: string;
+    chatBgColor?: { light?: string; dark?: string };
+    userMsgColor?: { light?: string; dark?: string };
+  };
+
+  /**
    * Update enhanced prompt result (for prompt enhancer feature)
    */
   updateEnhancedPrompt?: (result: string) => void;

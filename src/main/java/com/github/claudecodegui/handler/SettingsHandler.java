@@ -11,6 +11,7 @@ import com.github.claudecodegui.session.runtime.RuntimeType;
 import com.github.claudecodegui.util.LanguageConfigService;
 import com.github.claudecodegui.util.ThemeConfigService;
 import com.github.claudecodegui.util.GsonHolder;
+import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.application.ApplicationManager;
@@ -98,6 +99,8 @@ public class SettingsHandler extends BaseMessageHandler {
         "set_user_language",
         "get_user_language",
         "clear_user_language",
+        // Appearance (theme preference / font size / diff theme / per-theme colors)
+        "set_appearance_config",
         // Runtime policy
         "get_runtime_policy",
         "set_runtime_policy",
@@ -346,6 +349,10 @@ public class SettingsHandler extends BaseMessageHandler {
             case "clear_user_language":
                 handleClearUserLanguage();
                 return true;
+            // Appearance config (persisted to config.json, survives cache clear)
+            case "set_appearance_config":
+                handleSetAppearanceConfig(content);
+                return true;
             // Runtime policy
             case "get_runtime_policy":
                 handleGetRuntimePolicy();
@@ -418,6 +425,29 @@ public class SettingsHandler extends BaseMessageHandler {
     private void pushLanguageConfig() {
         JsonObject languageConfig = LanguageConfigService.getLanguageConfig(context.getSettingsService());
         dispatchEvent("language.apply", escapeJs(languageConfig.toString()));
+    }
+
+    /**
+     * Handle set_appearance_config: persist webview appearance settings (theme preference,
+     * font size, diff theme, per-theme colors) to config.json so they survive IDE cache
+     * invalidation. Pushes the authoritative config back so the webview can hydrate / roll
+     * back optimistic updates, mirroring the language config flow.
+     */
+    private void handleSetAppearanceConfig(String content) {
+        try {
+            JsonObject json = gson.fromJson(content, JsonObject.class);
+            context.getSettingsService().setAppearanceConfig(json);
+            LOG.debug("[SettingsHandler] Saved appearance config");
+            pushAppearanceConfig();
+        } catch (Exception e) {
+            LOG.error("[SettingsHandler] Failed to save appearance config: " + e.getMessage(), e);
+            pushAppearanceConfig();
+        }
+    }
+
+    private void pushAppearanceConfig() {
+        String configJson = CodemossSettingsService.getAppearanceConfigJson(context.getSettingsService());
+        dispatchEvent("appearance.apply", escapeJs(configJson));
     }
 
     /**

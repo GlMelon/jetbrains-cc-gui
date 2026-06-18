@@ -2,6 +2,7 @@ import {useState} from 'react';
 import styles from './style.module.less';
 import {useTranslation} from 'react-i18next';
 import type {DiffThemeMode} from '../../../utils/diffTheme';
+import type {Theme} from '../../../utils/appearanceColors';
 import type {UiFontConfig, CodeFontConfig} from '../hooks/useSettingsBasicActions';
 import AppearanceTab from './AppearanceTab';
 import BehaviorTab from './BehaviorTab';
@@ -32,6 +33,7 @@ const subTabIconPaths: Record<string, string> = {
 interface BasicConfigSectionProps {
   theme: 'light' | 'dark' | 'system';
   onThemeChange: (theme: 'light' | 'dark' | 'system') => void;
+  resolvedTheme?: Theme;
   fontSizeLevel: number;
   onFontSizeLevelChange: (level: number) => void;
   nodePath: string;
@@ -141,6 +143,7 @@ const BasicConfigSection = (props: BasicConfigSectionProps) => {
         <AppearanceTab
           theme={props.theme}
           onThemeChange={props.onThemeChange}
+          resolvedTheme={props.resolvedTheme}
           fontSizeLevel={props.fontSizeLevel}
           onFontSizeLevelChange={props.onFontSizeLevelChange}
           editorFontConfig={props.editorFontConfig}

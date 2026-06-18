@@ -97,6 +97,7 @@ public enum UpstreamAction {
     SET_USER_LANGUAGE("set_user_language"),
     GET_USER_LANGUAGE("get_user_language"),
     CLEAR_USER_LANGUAGE("clear_user_language"),
+    SET_APPEARANCE_CONFIG("set_appearance_config"),
 
     // ── Runtime Policy ──
     GET_RUNTIME_POLICY("get_runtime_policy"),

@@ -357,6 +357,21 @@ public class WebviewInitializer {
                     cefBrowser.executeJavaScript(languageConfigInjection, cefBrowser.getURL(), 0);
                     LOG.info("[LanguageSync] Language config injected into frontend");
 
+                    // Pass persisted appearance configuration (theme preference / font size / diff theme /
+                    // per-theme colors) to the frontend so it can hydrate from config.json when localStorage
+                    // was wiped by IDE cache invalidation. Mirrors the UI font injection (escape + JSON.parse).
+                    String appearanceConfig = CodemossSettingsService.getAppearanceConfigJson(host.getHandlerContext().getSettingsService());
+                    LOG.info("[AppearanceSync] Retrieved appearance config");
+                    String escapedAppearanceConfig = JsUtils.escapeJs(appearanceConfig);
+                    String appearanceConfigInjection = String.format(
+                        "(function(){ var c = JSON.parse('%s'); " +
+                        "if (window.applyAppearanceConfig) { window.applyAppearanceConfig(c); } " +
+                        "else { window.__pendingAppearanceConfig = c; } })()",
+                        escapedAppearanceConfig
+                    );
+                    cefBrowser.executeJavaScript(appearanceConfigInjection, cefBrowser.getURL(), 0);
+                    LOG.info("[AppearanceSync] Appearance config injected into frontend");
+
                     LOG.debug("onLoadEnd completed, waiting for frontend_ready signal");
                 }
             }, browser.getCefBrowser());

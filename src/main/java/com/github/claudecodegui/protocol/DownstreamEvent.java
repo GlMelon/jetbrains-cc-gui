@@ -61,11 +61,12 @@ public enum DownstreamEvent {
     FONT_UI_CONFIG_RECEIVED("font.ui_config_received"),
     FONT_CODE_CONFIG_RECEIVED("font.code_config_received"),
 
-    // ── Theme/Language ──
+    // ── Theme/Language/Appearance ──
     THEME_RECEIVED("theme.received"),
     THEME_CHANGED("theme.changed"),
     LANGUAGE_APPLY("language.apply"),
     LANGUAGE_USER_LANGUAGE("language.user_language"),
+    APPEARANCE_APPLY("appearance.apply"),
 
     // ── Linkify ──
     LINKIFY_UPDATE("linkify.update"),

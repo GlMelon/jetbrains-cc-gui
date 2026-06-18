@@ -1,6 +1,16 @@
 // hooks/useSettingsThemeSync.ts
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { applyDiffTheme, getStoredDiffTheme, type DiffThemeMode } from '../../../utils/diffTheme';
+import {
+  migrateLegacyScopedColor,
+  readScopedColor,
+  writeScopedColor,
+  clearScopedColor,
+  applyChatBackground,
+  applyUserMsgColor,
+  type Theme,
+} from '../../../utils/appearanceColors';
+import { sendBridgeEvent } from '../../../utils/bridge';
 
 // Extend window type for IDE theme injection
 declare global {
@@ -9,11 +19,49 @@ declare global {
   }
 }
 
+/** 按主题分别存储的颜色(light/dark 各一份,空串表示未设 → 走主题默认) */
+type ScopedColors = { light: string; dark: string };
+
+/** 从 localStorage + Java 注入值解析初始实际主题(供 useState 初始化与遗留值迁移归属) */
+function resolveInitialTheme(): Theme {
+  const saved = localStorage.getItem('theme');
+  if (saved === 'light' || saved === 'dark') return saved;
+  const inj = window.__INITIAL_IDE_THEME__;
+  if (inj === 'light' || inj === 'dark') return inj;
+  return 'dark';
+}
+
+function readScopedColors(baseKey: 'chatBgColor' | 'userMsgColor'): ScopedColors {
+  return {
+    light: readScopedColor(baseKey, 'light') ?? '',
+    dark: readScopedColor(baseKey, 'dark') ?? '',
+  };
+}
+
+/** 归一化外观对象为快照字符串用于比较(空串/undefined 统一为缺省) */
+function normalizeAppearanceForCompare(obj: {
+  themePreference: string;
+  fontSizeLevel: number;
+  diffTheme: string;
+  chatBgColor: ScopedColors;
+  userMsgColor: ScopedColors;
+}): string {
+  return JSON.stringify({
+    themePreference: obj.themePreference,
+    fontSizeLevel: obj.fontSizeLevel,
+    diffTheme: obj.diffTheme,
+    chatBgColor: { light: obj.chatBgColor.light || undefined, dark: obj.chatBgColor.dark || undefined },
+    userMsgColor: { light: obj.userMsgColor.light || undefined, dark: obj.userMsgColor.dark || undefined },
+  });
+}
+
 export interface UseSettingsThemeSyncReturn {
   themePreference: 'light' | 'dark' | 'system';
   setThemePreference: (theme: 'light' | 'dark' | 'system') => void;
   ideTheme: 'light' | 'dark' | null;
   setIdeTheme: (theme: 'light' | 'dark' | null) => void;
+  /** 解析后的实际主题(亮/暗);颜色预设与按主题存储都以它为准 */
+  resolvedTheme: Theme;
   fontSizeLevel: number;
   setFontSizeLevel: (level: number) => void;
   chatBgColor: string;
@@ -44,6 +92,9 @@ export function useSettingsThemeSync(): UseSettingsThemeSyncReturn {
     return null;
   });
 
+  // [按主题] 解析后的实际主题:system 模式跟随 ideTheme,否则取显式偏好
+  const resolvedTheme: Theme = themePreference === 'system' ? (ideTheme ?? 'dark') : themePreference;
+
   // Font size level state (1-6, default is 2, i.e. 90%)
   const [fontSizeLevel, setFontSizeLevel] = useState<number>(() => {
     const savedLevel = localStorage.getItem('fontSizeLevel');
@@ -51,26 +102,28 @@ export function useSettingsThemeSync(): UseSettingsThemeSyncReturn {
     return level >= 1 && level <= 6 ? level : 2;
   });
 
-  // Chat background color configuration
-  const [chatBgColor, setChatBgColor] = useState<string>(() => {
-    const saved = localStorage.getItem('chatBgColor');
-    if (saved && /^#[0-9a-fA-F]{6}$/.test(saved)) {
-      return saved;
-    }
-    return '';
+  // [按主题] 背景色/消息色分别存储。初始化时把遗留单值迁移到当前主题(仅一次,幂等)。
+  const [chatBgColors, setChatBgColors] = useState<ScopedColors>(() => {
+    const t = resolveInitialTheme();
+    migrateLegacyScopedColor('chatBgColor', t);
+    migrateLegacyScopedColor('userMsgColor', t);
+    return readScopedColors('chatBgColor');
   });
-
-  // User message bubble color configuration
-  const [userMsgColor, setUserMsgColor] = useState<string>(() => {
-    const saved = localStorage.getItem('userMsgColor');
-    if (saved && /^#[0-9a-fA-F]{6}$/.test(saved)) {
-      return saved;
-    }
-    return '';
-  });
+  const [userMsgColors, setUserMsgColors] = useState<ScopedColors>(() => readScopedColors('userMsgColor'));
 
   // Diff theme configuration
   const [diffTheme, setDiffTheme] = useState<DiffThemeMode>(() => getStoredDiffTheme());
+
+  // 对外暴露"当前 resolvedTheme"对应的颜色值;setter 仅写入当前主题的键
+  const chatBgColor = chatBgColors[resolvedTheme];
+  const userMsgColor = userMsgColors[resolvedTheme];
+
+  const setChatBgColor = useCallback((color: string) => {
+    setChatBgColors((prev) => ({ ...prev, [resolvedTheme]: color }));
+  }, [resolvedTheme]);
+  const setUserMsgColor = useCallback((color: string) => {
+    setUserMsgColors((prev) => ({ ...prev, [resolvedTheme]: color }));
+  }, [resolvedTheme]);
 
   // Theme switching handler (supports following IDE theme)
   useEffect(() => {
@@ -112,40 +165,99 @@ export function useSettingsThemeSync(): UseSettingsThemeSyncReturn {
     localStorage.setItem('fontSizeLevel', fontSizeLevel.toString());
   }, [fontSizeLevel]);
 
-  // Chat background color handler
+  // [按主题] 背景色 handler:写 localStorage + 应用当前主题颜色。
+  // 依赖 resolvedTheme → 主题切换时重应用对应主题颜色(问题1核心修复)。
   useEffect(() => {
-    if (chatBgColor) {
-      document.documentElement.style.setProperty('--bg-chat', chatBgColor);
-      localStorage.setItem('chatBgColor', chatBgColor);
+    const v = chatBgColors[resolvedTheme];
+    if (v) {
+      writeScopedColor('chatBgColor', resolvedTheme, v);
     } else {
-      document.documentElement.style.removeProperty('--bg-chat');
-      localStorage.removeItem('chatBgColor');
+      clearScopedColor('chatBgColor', resolvedTheme);
     }
-  }, [chatBgColor]);
+    applyChatBackground(resolvedTheme);
+  }, [resolvedTheme, chatBgColors]);
 
-  // User message bubble color handler
+  // [按主题] 用户消息气泡色 handler
   useEffect(() => {
-    if (userMsgColor) {
-      document.documentElement.style.setProperty('--color-message-user-bg', userMsgColor);
-      document.documentElement.style.setProperty('--color-message-user-fade', userMsgColor);
-      localStorage.setItem('userMsgColor', userMsgColor);
+    const v = userMsgColors[resolvedTheme];
+    if (v) {
+      writeScopedColor('userMsgColor', resolvedTheme, v);
     } else {
-      document.documentElement.style.removeProperty('--color-message-user-bg');
-      document.documentElement.style.removeProperty('--color-message-user-fade');
-      localStorage.removeItem('userMsgColor');
+      clearScopedColor('userMsgColor', resolvedTheme);
     }
-  }, [userMsgColor]);
+    applyUserMsgColor(resolvedTheme);
+  }, [resolvedTheme, userMsgColors]);
 
   // Diff theme handler
   useEffect(() => {
     applyDiffTheme(diffTheme, ideTheme);
   }, [diffTheme, ideTheme, themePreference]);
 
+  // [持久化] 防抖(400ms)落盘到 config.json,避免颜色选择器拖动时高频磁盘 IO。
+  // 颜色拖动只触发即时 CSS + localStorage,落盘防抖合并。
+  const lastHydrationRef = useRef<string | null>(null);
+  useEffect(() => {
+    const current = normalizeAppearanceForCompare({
+      themePreference,
+      fontSizeLevel,
+      diffTheme,
+      chatBgColor: chatBgColors,
+      userMsgColor: userMsgColors,
+    });
+    // 冷缓存回灌触发的那一次 state 变更,其值等于回灌快照 → 跳过回写,防止 ABA 循环
+    if (lastHydrationRef.current !== null && lastHydrationRef.current === current) {
+      lastHydrationRef.current = null;
+      return;
+    }
+    const handle = window.setTimeout(() => {
+      sendBridgeEvent('set_appearance_config', JSON.stringify({
+        themePreference,
+        fontSizeLevel,
+        diffTheme,
+        chatBgColor: { light: chatBgColors.light || undefined, dark: chatBgColors.dark || undefined },
+        userMsgColor: { light: userMsgColors.light || undefined, dark: userMsgColors.dark || undefined },
+      }));
+    }, 400);
+    return () => window.clearTimeout(handle);
+  }, [themePreference, fontSizeLevel, diffTheme, chatBgColors, userMsgColors]);
+
+  // [冷缓存回灌] Java 注入 config.json 后,bootstrap 仅填充缺失键并派发该事件。
+  // 从 localStorage 重建 state,并记录回灌快照供持久化 effect 跳过本次回写。
+  useEffect(() => {
+    const handler = () => {
+      const tp = localStorage.getItem('theme');
+      const newThemePreference: 'light' | 'dark' | 'system' =
+        tp === 'light' || tp === 'dark' || tp === 'system' ? tp : 'system';
+      const savedLevel = localStorage.getItem('fontSizeLevel');
+      const newFontSize = savedLevel ? parseInt(savedLevel, 10) : 2;
+      const newDiff = getStoredDiffTheme();
+      const newChat = readScopedColors('chatBgColor');
+      const newUserMsg = readScopedColors('userMsgColor');
+
+      lastHydrationRef.current = normalizeAppearanceForCompare({
+        themePreference: newThemePreference,
+        fontSizeLevel: newFontSize,
+        diffTheme: newDiff,
+        chatBgColor: newChat,
+        userMsgColor: newUserMsg,
+      });
+
+      setThemePreference(newThemePreference);
+      setFontSizeLevel(newFontSize);
+      setDiffTheme(newDiff);
+      setChatBgColors(newChat);
+      setUserMsgColors(newUserMsg);
+    };
+    window.addEventListener('appearance-config-applied', handler);
+    return () => window.removeEventListener('appearance-config-applied', handler);
+  }, []);
+
   return {
     themePreference,
     setThemePreference,
     ideTheme,
     setIdeTheme,
+    resolvedTheme,
     fontSizeLevel,
     setFontSizeLevel,
     chatBgColor,

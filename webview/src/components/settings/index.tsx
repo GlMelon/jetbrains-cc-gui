@@ -98,6 +98,7 @@ const SettingsView = ({
     themePreference,
     setThemePreference,
     setIdeTheme,
+    resolvedTheme,
     fontSizeLevel,
     setFontSizeLevel,
     chatBgColor,
@@ -444,6 +445,7 @@ const SettingsView = ({
             <BasicConfigSection
               theme={themePreference}
               onThemeChange={setThemePreference}
+              resolvedTheme={resolvedTheme}
               fontSizeLevel={fontSizeLevel}
               onFontSizeLevelChange={setFontSizeLevel}
               nodePath={nodePath}

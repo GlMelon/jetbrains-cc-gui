@@ -84,6 +84,19 @@ public class CodemossSettingsService {
     private static final String DEFAULT_COMMIT_AI_CLAUDE_MODEL = "claude-sonnet-4-6";
     private static final String DEFAULT_COMMIT_AI_CODEX_MODEL = "gpt-5.5";
     private static final String USER_LANGUAGE_CONFIG_KEY = "language";
+    // Appearance config (theme preference / font size / diff theme / per-theme colors).
+    // Persisted so the webview can restore appearance after IDE cache invalidation
+    // (localStorage otherwise lives inside the wiped JCEF cache directory).
+    private static final String APPEARANCE_CONFIG_KEY = "appearance";
+    private static final String APPEARANCE_THEME_PREFERENCE_KEY = "themePreference";
+    private static final String APPEARANCE_FONT_SIZE_KEY = "fontSizeLevel";
+    private static final String APPEARANCE_DIFF_THEME_KEY = "diffTheme";
+    private static final String APPEARANCE_CHAT_BG_KEY = "chatBgColor";
+    private static final String APPEARANCE_USER_MSG_KEY = "userMsgColor";
+    private static final Set<String> VALID_THEME_PREFERENCES = Set.of("system", "light", "dark");
+    private static final Set<String> VALID_DIFF_THEMES = Set.of("follow", "editor", "light", "soft-dark");
+    private static final java.util.regex.Pattern HEX_COLOR_PATTERN =
+            java.util.regex.Pattern.compile("^#[0-9a-fA-F]{6}$");
 
     private final Gson gson;
 
@@ -357,6 +370,129 @@ public class CodemossSettingsService {
         LOG.info("[CodemossSettings] Cleared user language override");
     }
 
+    // ==================== Appearance Config Management ====================
+
+    /**
+     * Get persisted appearance config (theme preference / font size / diff theme /
+     * per-theme colors). Serves as the cold-cache hydration source so the webview
+     * can restore these settings after the IDE cache is invalidated.
+     *
+     * @return normalized appearance config
+     */
+    public JsonObject getAppearanceConfig() throws IOException {
+        JsonObject config = readConfig();
+        if (!config.has(APPEARANCE_CONFIG_KEY) || !config.get(APPEARANCE_CONFIG_KEY).isJsonObject()) {
+            return createDefaultAppearanceConfig();
+        }
+        return normalizeAppearanceConfig(config.getAsJsonObject(APPEARANCE_CONFIG_KEY));
+    }
+
+    /**
+     * Persist appearance config (called from the webview via {@code set_appearance_config}).
+     *
+     * @param rawConfig raw appearance config payload from the webview
+     */
+    public void setAppearanceConfig(JsonObject rawConfig) throws IOException {
+        JsonObject config = readConfig();
+        config.add(APPEARANCE_CONFIG_KEY, normalizeAppearanceConfig(rawConfig));
+        writeConfig(config);
+        LOG.debug("[CodemossSettings] Updated appearance config");
+    }
+
+    /** Appearance config as a JSON string (for webview injection); never throws. */
+    public static String getAppearanceConfigJson(CodemossSettingsService service) {
+        try {
+            return service.getAppearanceConfig().toString();
+        } catch (Exception e) {
+            LOG.warn("[CodemossSettings] Failed to read appearance config: " + e.getMessage());
+            return new JsonObject().toString();
+        }
+    }
+
+    private JsonObject createDefaultAppearanceConfig() {
+        JsonObject appearance = new JsonObject();
+        appearance.addProperty(APPEARANCE_THEME_PREFERENCE_KEY, "system");
+        appearance.addProperty(APPEARANCE_FONT_SIZE_KEY, 2);
+        appearance.addProperty(APPEARANCE_DIFF_THEME_KEY, "follow");
+        // Colors are omitted by default (unset → webview falls back to theme defaults).
+        return appearance;
+    }
+
+    /**
+     * Normalize and validate an appearance config payload. Unknown/invalid fields
+     * fall back to defaults; per-theme colors only persist valid hex values.
+     */
+    private JsonObject normalizeAppearanceConfig(JsonObject rawConfig) {
+        if (rawConfig == null) {
+            return createDefaultAppearanceConfig();
+        }
+        JsonObject appearance = new JsonObject();
+
+        // Theme preference (system | light | dark)
+        String themePref = rawConfig.has(APPEARANCE_THEME_PREFERENCE_KEY)
+                && !rawConfig.get(APPEARANCE_THEME_PREFERENCE_KEY).isJsonNull()
+                ? rawConfig.get(APPEARANCE_THEME_PREFERENCE_KEY).getAsString()
+                : "system";
+        appearance.addProperty(APPEARANCE_THEME_PREFERENCE_KEY,
+                VALID_THEME_PREFERENCES.contains(themePref) ? themePref : "system");
+
+        // Font size level (1-6, default 2)
+        int fontSizeLevel = 2;
+        if (rawConfig.has(APPEARANCE_FONT_SIZE_KEY) && rawConfig.get(APPEARANCE_FONT_SIZE_KEY).isJsonPrimitive()) {
+            try {
+                int v = rawConfig.get(APPEARANCE_FONT_SIZE_KEY).getAsInt();
+                if (v >= 1 && v <= 6) {
+                    fontSizeLevel = v;
+                }
+            } catch (Exception ignored) {
+                // Non-numeric value → fall back to default
+            }
+        }
+        appearance.addProperty(APPEARANCE_FONT_SIZE_KEY, fontSizeLevel);
+
+        // Diff theme
+        String diffTheme = rawConfig.has(APPEARANCE_DIFF_THEME_KEY)
+                && !rawConfig.get(APPEARANCE_DIFF_THEME_KEY).isJsonNull()
+                ? rawConfig.get(APPEARANCE_DIFF_THEME_KEY).getAsString()
+                : "follow";
+        appearance.addProperty(APPEARANCE_DIFF_THEME_KEY,
+                VALID_DIFF_THEMES.contains(diffTheme) ? diffTheme : "follow");
+
+        // Per-theme colors (only valid hex values are persisted)
+        JsonObject chatBg = normalizeScopedColors(rawConfig, APPEARANCE_CHAT_BG_KEY);
+        if (chatBg != null) {
+            appearance.add(APPEARANCE_CHAT_BG_KEY, chatBg);
+        }
+        JsonObject userMsg = normalizeScopedColors(rawConfig, APPEARANCE_USER_MSG_KEY);
+        if (userMsg != null) {
+            appearance.add(APPEARANCE_USER_MSG_KEY, userMsg);
+        }
+
+        return appearance;
+    }
+
+    /** Normalize a per-theme color map ({light, dark}); null if no valid entries. */
+    private JsonObject normalizeScopedColors(JsonObject rawConfig, String key) {
+        if (!rawConfig.has(key) || !rawConfig.get(key).isJsonObject()) {
+            return null;
+        }
+        JsonObject src = rawConfig.getAsJsonObject(key);
+        JsonObject out = new JsonObject();
+        addHexIfValid(out, src, "light");
+        addHexIfValid(out, src, "dark");
+        return out.size() > 0 ? out : null;
+    }
+
+    private void addHexIfValid(JsonObject out, JsonObject src, String theme) {
+        if (!src.has(theme) || !src.get(theme).isJsonPrimitive()) {
+            return;
+        }
+        String v = src.get(theme).getAsString();
+        if (v != null && HEX_COLOR_PATTERN.matcher(v).matches()) {
+            out.addProperty(theme, v);
+        }
+    }
+
     // ==================== Claude Settings Management ====================
 
     public JsonObject getCurrentClaudeConfig() throws IOException {
@@ -431,10 +567,6 @@ public class CodemossSettingsService {
 
     public void setCustomWorkingDirectory(String projectPath, String customWorkingDir) throws IOException {
         workingDirectoryManager.setCustomWorkingDirectory(projectPath, customWorkingDir);
-    }
-
-    public Map<String, String> getAllWorkingDirectories() throws IOException {
-        return workingDirectoryManager.getAllWorkingDirectories();
     }
 
     // ==================== Commit Prompt Config Management ====================
@@ -574,10 +706,6 @@ public class CodemossSettingsService {
 
     public static final int DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS =
             PermissionDialogTimeoutSettings.DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS;
-    public static final int MIN_PERMISSION_DIALOG_TIMEOUT_SECONDS =
-            PermissionDialogTimeoutSettings.MIN_PERMISSION_DIALOG_TIMEOUT_SECONDS;
-    public static final int MAX_PERMISSION_DIALOG_TIMEOUT_SECONDS =
-            PermissionDialogTimeoutSettings.MAX_PERMISSION_DIALOG_TIMEOUT_SECONDS;
     public static final long PERMISSION_SAFETY_NET_BUFFER_SECONDS =
             PermissionDialogTimeoutSettings.PERMISSION_SAFETY_NET_BUFFER_SECONDS;
 
@@ -873,10 +1001,6 @@ public class CodemossSettingsService {
         providerManager.addClaudeProvider(provider);
     }
 
-    public void saveClaudeProvider(JsonObject provider) throws IOException {
-        providerManager.saveClaudeProvider(provider);
-    }
-
     public void updateClaudeProvider(String id, JsonObject updates) throws IOException {
         providerManager.updateClaudeProvider(id, updates);
     }
@@ -939,44 +1063,6 @@ public class CodemossSettingsService {
 
     public CodexMcpServerManager getCodexMcpServerManager() {
         return codexMcpServerManager;
-    }
-
-    public List<JsonObject> getCodexMcpServers() throws IOException {
-        return codexMcpServerManager.getMcpServers();
-    }
-
-    public void upsertCodexMcpServer(JsonObject server) throws IOException {
-        codexMcpServerManager.upsertMcpServer(server);
-    }
-
-    public boolean deleteCodexMcpServer(String serverId) throws IOException {
-        return codexMcpServerManager.deleteMcpServer(serverId);
-    }
-
-    public Map<String, Object> validateCodexMcpServer(JsonObject server) {
-        return codexMcpServerManager.validateMcpServer(server);
-    }
-
-    // ==================== Skills Management ====================
-
-    public List<JsonObject> getSkills() throws IOException {
-        return skillManager.getSkills();
-    }
-
-    public void upsertSkill(JsonObject skill) throws IOException {
-        skillManager.upsertSkill(skill);
-    }
-
-    public boolean deleteSkill(String id) throws IOException {
-        return skillManager.deleteSkill(id);
-    }
-
-    public Map<String, Object> validateSkill(JsonObject skill) {
-        return skillManager.validateSkill(skill);
-    }
-
-    public void syncSkillsToClaudeSettings() throws IOException {
-        skillManager.syncSkillsToClaudeSettings();
     }
 
     // ==================== Agents Management ====================
@@ -1075,33 +1161,6 @@ public class CodemossSettingsService {
      */
     public boolean deletePrompt(String id, PromptScope scope, Project project) throws IOException {
         return getPromptManager(scope, project).deletePrompt(id);
-    }
-
-    /**
-     * Get a prompt by ID from the specified scope.
-     *
-     * @param id      The prompt ID
-     * @param scope   The prompt scope (GLOBAL or PROJECT)
-     * @param project The IntelliJ Project instance (required for PROJECT scope, can be null for GLOBAL scope)
-     * @return The prompt JsonObject, or null if not found
-     * @throws IOException if reading fails
-     */
-    public JsonObject getPrompt(String id, PromptScope scope, Project project) throws IOException {
-        return getPromptManager(scope, project).getPrompt(id);
-    }
-
-    /**
-     * Batch import prompts to the specified scope.
-     *
-     * @param promptsToImport The prompts to import
-     * @param strategy        The conflict resolution strategy
-     * @param scope           The prompt scope (GLOBAL or PROJECT)
-     * @param project         The IntelliJ Project instance (required for PROJECT scope, can be null for GLOBAL scope)
-     * @return A map containing the results of the import operation
-     * @throws IOException if writing fails
-     */
-    public Map<String, Object> batchImportPrompts(List<JsonObject> promptsToImport, ConflictStrategy strategy, PromptScope scope, Project project) throws IOException {
-        return getPromptManager(scope, project).batchImportPrompts(promptsToImport, strategy);
     }
 
     // ==================== Task Completion Notification Management ====================
@@ -1470,10 +1529,6 @@ public class CodemossSettingsService {
         codexProviderManager.addCodexProvider(provider);
     }
 
-    public void saveCodexProvider(JsonObject provider) throws IOException {
-        codexProviderManager.saveCodexProvider(provider);
-    }
-
     public void updateCodexProvider(String id, JsonObject updates) throws IOException {
         codexProviderManager.updateCodexProvider(id, updates);
     }
@@ -1507,14 +1562,6 @@ public class CodemossSettingsService {
             LOG.warn("[CodemossSettings] Failed to check Codex local authorization: " + e.getMessage());
             return false;
         }
-    }
-
-    public void applyCodexCliLoginToSettings() throws IOException {
-        codexSettingsManager.applyCodexCliLoginToSettings();
-    }
-
-    public void removeCodexCliLoginFromSettings() throws IOException {
-        codexSettingsManager.removeCodexCliLoginFromSettings();
     }
 
     public JsonObject readCodexCliLoginAccountInfo() {
@@ -1620,10 +1667,6 @@ public class CodemossSettingsService {
         }
         writeConfig(config);
         LOG.info("[CodemossSettings] Set Claude CLI path: " + (normalized.isEmpty() ? "(auto)" : normalized));
-    }
-
-    public int saveCodexProviders(List<JsonObject> providers) throws IOException {
-        return codexProviderManager.saveProviders(providers);
     }
 
     public void saveCodexProviderOrder(List<String> orderedIds) throws IOException {
