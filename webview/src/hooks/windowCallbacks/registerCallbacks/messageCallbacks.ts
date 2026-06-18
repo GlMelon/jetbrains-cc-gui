@@ -10,6 +10,7 @@
 import type { UseWindowCallbacksOptions } from '../../useWindowCallbacks';
 import type { ClaudeMessage } from '../../../types';
 import type { ContextUsageData } from '../../../components/ContextUsageDialog';
+import type { QueueDisplayState } from '../../../contexts/MessagesContext';
 import { sendBridgeEvent } from '../../../utils/bridge';
 import { debugError } from '../../../utils/debug';
 import {
@@ -496,6 +497,22 @@ export function registerMessageCallbacks(
       }
       return isLoading;
     });
+  };
+
+  // [归一化未迁移] showQueueStatus:后端 SessionCallbackAdapter 经 callJavaScript
+  // ("showQueueStatus", state, aheadCount) 推送队列状态。此前前端从未注册 window.showQueueStatus,
+  // 导致 QUEUED/PROCESSING 状态与排队计数永远不更新(UI 卡在 NONE,且 useWindowCallbacks 的
+  // "转换期间忽略" 单测因 window.showQueueStatus?.() 永远 no-op 而成假阳性)。与 showLoading
+  // 一致带 session transition 守卫。
+  window.showQueueStatus = (state, aheadCount) => {
+    if (window.__sessionTransitioning) return;
+    if (state) {
+      options.setQueueDisplayState(state as QueueDisplayState);
+    }
+    if (aheadCount != null) {
+      const raw = typeof aheadCount === 'number' ? aheadCount : Number(aheadCount);
+      options.setQueueAheadCount(Number.isFinite(raw) ? Math.max(0, Math.floor(raw)) : 0);
+    }
   };
 
   window.showThinkingStatus = (value) => setIsThinking(isTruthy(value));
