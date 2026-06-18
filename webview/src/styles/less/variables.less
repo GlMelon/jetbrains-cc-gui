@@ -9,8 +9,12 @@
     --bg-elevated: #2d2d2d;
     --bg-hover: #35373c;
     --bg-active: #37373d;
-    /* 标题栏背景 — 与工具块(任务/子代理/编辑)一致, 使用 primary 色融合聊天区 */
-    --bg-titlebar: var(--bg-primary);
+    /* 标题栏背景 — 介于 IDE 标签栏(较亮)与聊天区(最深)之间的过渡灰。
+       ⚠️ 切勿改回 var(--bg-primary)(#1e1e1e): 工具块(task/subagent/edit)确实用
+       primary, 但工具块周围有更深的聊天区黑底衬托; header 紧贴 IDE 原生标签栏,
+       用最深色会显得是一块突兀的黑(即"又变回去了"的根源)。#323233 比 primary
+       仅亮一点, 调性仍属暗灰系(同工具块), 贴标签栏时不发黑 — mockup 认可值。 */
+    --bg-titlebar: #323233;
 
     /* 新增：聊天消息头像主题色 */
     --violet: #a989ff;
@@ -301,8 +305,10 @@
     --bg-elevated: #f5f5f5;
     --bg-hover: #e0e0e0;
     --bg-active: #d6d6d6;
-    /* 标题栏背景 — 与工具块(任务/子代理/编辑)一致, 使用 primary 色融合聊天区 */
-    --bg-titlebar: var(--bg-primary);
+    /* 标题栏背景 — 亮色下用 #e8e8e8(同 tertiary), 比工具块 primary(#fff)略深,
+       贴 IDE 标签栏时提供轻微分隔又不突兀 — mockup 认可值。
+       ⚠️ 同暗色注释: 切勿直接用 var(--bg-primary)。 */
+    --bg-titlebar: #e8e8e8;
 
     /* 新增：聊天消息头像主题色 */
     --violet: #8b5cf6;
