@@ -11,6 +11,8 @@ import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.dependency.DependencyManager;
 import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.bridge.ProcessManager;
+import com.github.claudecodegui.cli.common.CliConstants;
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.provider.common.BaseSDKBridge;
 import com.github.claudecodegui.provider.common.DaemonBridge;
 import com.github.claudecodegui.provider.common.MessageCallback;
@@ -45,6 +47,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
     private String apiKey = null;
     private static final String SANDBOX_MODE_WORKSPACE_WRITE = "workspace-write";
     private static final String SANDBOX_MODE_DANGER_FULL_ACCESS = "danger-full-access";
+    private static final String SANDBOX_MODE_READ_ONLY = "read-only";
     private static final String APPROVAL_POLICY_NEVER = "never";
     private static final String APPROVAL_POLICY_ON_REQUEST = "on-request";
     private static final String APPROVAL_POLICY_UNTRUSTED = "untrusted";
@@ -55,6 +58,16 @@ public class CodexSDKBridge extends BaseSDKBridge {
     private static final String ENV_CODEX_SANDBOX_NETWORK_DISABLED = "CODEX_SANDBOX_NETWORK_DISABLED";
     private static final long MCP_TOOLS_TIMEOUT_MS = 65_000;
     private static final int MAX_ENV_VAR_VALUE_LENGTH = 16 * 1024;
+
+    /** 图片 MIME 类型 → 文件扩展名映射（image/png 及未知类型回退 .png）。 */
+    private static final Map<String, String> MIME_TO_EXTENSION = Map.of(
+            "image/jpeg", ".jpg",
+            "image/jpg", ".jpg",
+            "image/gif", ".gif",
+            "image/webp", ".webp",
+            "image/bmp", ".bmp",
+            "image/svg+xml", ".svg"
+    );
     private final CodexHistoryReader historyReader;
     private final CodemossSettingsService settingsService = CodemossSettingsService.getInstance();
     private final CodexDaemonCoordinator daemonCoordinator;
@@ -169,7 +182,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
             return;
         }
 
-        String field = "message".equals(category) ? "messageEnvVars" : "mcpEnvVars";
+        String field = CliConstants.CODEX_CATEGORY_MESSAGE.equals(category) ? CliConstants.CODEX_FIELD_MESSAGE_ENV_VARS : CliConstants.CODEX_FIELD_MCP_ENV_VARS;
         if (!activeProvider.has(field) || !activeProvider.get(field).isJsonArray()) {
             return;
         }
@@ -235,13 +248,13 @@ public class CodexSDKBridge extends BaseSDKBridge {
                             ? msg.get("type").getAsString()
                             : "unknown";
 
-                    if ("status".equals(msgType)) {
+                    if (CliConstants.CODEX_MSG_STATUS.equals(msgType)) {
                         return;
                     }
 
                     result.messages.add(msg);
 
-                    if ("assistant".equals(msgType)) {
+                    if (CommonConstants.MSG_TYPE_ASSISTANT.equals(msgType)) {
                         try {
                             String extracted = extractAssistantText(msg);
                             if (extracted != null && !extracted.isEmpty()) {
@@ -478,7 +491,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
                 ProcessBuilder pb = new ProcessBuilder(command);
 
                 // Set working directory
-                if (cwd != null && !cwd.isEmpty() && !"undefined".equals(cwd) && !"null".equals(cwd)) {
+                if (cwd != null && !cwd.isEmpty() && !CommonConstants.UNDEFINED.equals(cwd) && !CommonConstants.NULL_SENTINEL.equals(cwd)) {
                     File userWorkDir = new File(cwd);
                     if (userWorkDir.exists() && userWorkDir.isDirectory()) {
                         pb.directory(userWorkDir);
@@ -978,23 +991,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
      */
     private String getImageExtension(String mimeType) {
         if (mimeType == null) { return ".png"; }
-
-        switch (mimeType.toLowerCase()) {
-            case "image/jpeg":
-            case "image/jpg":
-                return ".jpg";
-            case "image/gif":
-                return ".gif";
-            case "image/webp":
-                return ".webp";
-            case "image/bmp":
-                return ".bmp";
-            case "image/svg+xml":
-                return ".svg";
-            case "image/png":
-            default:
-                return ".png";
-        }
+        return MIME_TO_EXTENSION.getOrDefault(mimeType.toLowerCase(), ".png");
     }
 
     private String extractAssistantText(JsonObject msg) {
@@ -1019,7 +1016,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
             JsonObject block = el.getAsJsonObject();
             if (!block.has("type") || block.get("type").isJsonNull()) { continue; }
             String type = block.get("type").getAsString();
-            if ("text".equals(type) && block.has("text") && !block.get("text").isJsonNull()) {
+            if (CommonConstants.BLOCK_TYPE_TEXT.equals(type) && block.has("text") && !block.get("text").isJsonNull()) {
                 if (sb.length() > 0) { sb.append("\n"); }
                 sb.append(block.get("text").getAsString());
             }
@@ -1097,20 +1094,20 @@ public class CodexSDKBridge extends BaseSDKBridge {
 
     private void applyCodexPermissionModeEnv(Map<String, String> env, String sandboxMode, String permissionMode) {
         switch (permissionMode) {
-            case "bypassPermissions":
+            case CommonConstants.PERMISSION_MODE_BYPASS:
                 env.put(ENV_CODEX_SANDBOX_MODE, SANDBOX_MODE_DANGER_FULL_ACCESS);
                 env.put(ENV_CODEX_SANDBOX, SANDBOX_MODE_DANGER_FULL_ACCESS);
                 env.put(ENV_CODEX_APPROVAL_POLICY, APPROVAL_POLICY_NEVER);
                 break;
-            case "acceptEdits":
-            case "autoEdit":
+            case CommonConstants.PERMISSION_MODE_ACCEPT_EDITS:
+            case CommonConstants.PERMISSION_MODE_AUTO_EDIT:
                 env.put(ENV_CODEX_SANDBOX_MODE, sandboxMode);
                 env.put(ENV_CODEX_SANDBOX, sandboxMode);
                 env.put(ENV_CODEX_APPROVAL_POLICY, APPROVAL_POLICY_ON_REQUEST);
                 break;
-            case "plan":
-                env.put(ENV_CODEX_SANDBOX_MODE, "read-only");
-                env.put(ENV_CODEX_SANDBOX, "read-only");
+            case CommonConstants.PERMISSION_MODE_PLAN:
+                env.put(ENV_CODEX_SANDBOX_MODE, SANDBOX_MODE_READ_ONLY);
+                env.put(ENV_CODEX_SANDBOX, SANDBOX_MODE_READ_ONLY);
                 env.put(ENV_CODEX_APPROVAL_POLICY, APPROVAL_POLICY_UNTRUSTED);
                 break;
             default:

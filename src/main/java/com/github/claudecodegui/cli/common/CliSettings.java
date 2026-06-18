@@ -116,7 +116,7 @@ public final class CliSettings {
             }
             String apiKeyHelper = safeString(settings, "apiKeyHelper");
             if (apiKeyHelper != null) {
-                putIfAllowed(env, CliConstants.ENV_ANTHROPIC_API_KEY_HELPER, apiKeyHelper);
+                putIfAllowed(env, CommonConstants.ENV_ANTHROPIC_API_KEY_HELPER, apiKeyHelper);
             }
         } catch (Exception ignored) {
         }

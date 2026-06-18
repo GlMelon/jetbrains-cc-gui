@@ -40,6 +40,7 @@ public class ClaudeSdkSessionRuntime implements SessionRuntime {
                 req.attachments(),
                 req.permissionMode(),
                 req.model(),
+                req.actualModel(),
                 req.openedFiles(),
                 req.agentPrompt(),
                 req.streaming(),

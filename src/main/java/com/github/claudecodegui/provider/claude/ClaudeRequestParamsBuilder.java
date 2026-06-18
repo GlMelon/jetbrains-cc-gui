@@ -34,6 +34,7 @@ class ClaudeRequestParamsBuilder {
             String cwd,
             String permissionMode,
             String model,
+            String actualModel,
             List<ClaudeSession.Attachment> attachments,
             JsonObject openedFiles,
             String agentPrompt,
@@ -49,6 +50,9 @@ class ClaudeRequestParamsBuilder {
         params.addProperty("cwd", cwd != null ? cwd : "");
         params.addProperty("permissionMode", permissionMode != null ? permissionMode : "");
         params.addProperty("model", model != null ? model : "");
+        if (actualModel != null && !actualModel.isBlank()) {
+            params.addProperty("actualModel", actualModel);
+        }
 
         JsonArray attachmentArray = serializeAttachments(attachments, tempFiles);
         if (attachmentArray != null && attachmentArray.size() > 0) {

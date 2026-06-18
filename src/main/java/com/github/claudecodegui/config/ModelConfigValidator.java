@@ -1,5 +1,8 @@
 package com.github.claudecodegui.config;
 
+import com.github.claudecodegui.common.ClaudeRole;
+import com.github.claudecodegui.common.CommonConstants;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -51,8 +54,16 @@ public final class ModelConfigValidator {
             if (model.id().length() > MAX_MODEL_ID_LENGTH) {
                 errors.add("model id is too long: " + model.id());
             }
-            if (!"claude".equals(model.provider()) && !"codex".equals(model.provider())) {
+            if (!CommonConstants.PROVIDER_CLAUDE.equals(model.provider()) && !CommonConstants.PROVIDER_CODEX.equals(model.provider())) {
                 errors.add("model provider must be claude or codex: " + model.id());
+            }
+            if (CommonConstants.PROVIDER_CLAUDE.equals(model.provider())) {
+                if (!isClaudeRole(model.role())) {
+                    errors.add("claude model role must be sonnet, opus, fable, or haiku: " + model.id());
+                }
+            }
+            if (CommonConstants.PROVIDER_CODEX.equals(model.provider()) && !model.role().isBlank()) {
+                errors.add("codex model role must be empty: " + model.id());
             }
             String duplicateKey = model.provider() + "\n" + model.id().toLowerCase(Locale.ROOT);
             if (!seen.add(duplicateKey)) {
@@ -61,14 +72,14 @@ public final class ModelConfigValidator {
             if (model.contextWindow() < MIN_CONTEXT_WINDOW || model.contextWindow() > MAX_CONTEXT_WINDOW) {
                 errors.add("contextWindow out of range for " + model.id());
             }
-            if (model.supports1MContext() && !"claude".equals(model.provider())
+            if (model.supports1MContext() && !CommonConstants.PROVIDER_CLAUDE.equals(model.provider())
                     && model.contextWindow() < 1_000_000) {
                 errors.add("supports1MContext requires contextWindow >= 1000000 for " + model.id());
             }
-            if (model.enabled() && "claude".equals(model.provider())) {
+            if (model.enabled() && CommonConstants.PROVIDER_CLAUDE.equals(model.provider())) {
                 hasEnabledClaude = true;
             }
-            if (model.enabled() && "codex".equals(model.provider())) {
+            if (model.enabled() && CommonConstants.PROVIDER_CODEX.equals(model.provider())) {
                 hasEnabledCodex = true;
             }
         }
@@ -78,5 +89,9 @@ public final class ModelConfigValidator {
         }
 
         return new ValidationResult(errors, warnings);
+    }
+
+    private static boolean isClaudeRole(String role) {
+        return ClaudeRole.fromShortName(role) != null;
     }
 }

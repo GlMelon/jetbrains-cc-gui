@@ -1,5 +1,6 @@
 package com.github.claudecodegui.handler;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.core.BaseMessageHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
 
@@ -163,17 +164,17 @@ public class PermissionHandler extends BaseMessageHandler {
 
     @Override
     public boolean handle(String type, String content) {
-        if ("permission_decision".equals(type)) {
+        if (CommonConstants.REQUEST_TYPE_PERMISSION_DECISION.equals(type)) {
             LOG.debug("[PERM_DEBUG][BRIDGE_RECV] Received permission_decision from JS");
             LOG.debug("[PERM_DEBUG][BRIDGE_RECV] payloadLength=" + payloadLength(content));
             handlePermissionDecision(content);
             return true;
-        } else if ("ask_user_question_response".equals(type)) {
+        } else if (CommonConstants.REQUEST_TYPE_ASK_USER_QUESTION_RESPONSE.equals(type)) {
             LOG.debug("[ASK_USER_QUESTION][BRIDGE_RECV] Received ask_user_question_response from JS");
             LOG.debug("[ASK_USER_QUESTION][BRIDGE_RECV] payloadLength=" + payloadLength(content));
             handleAskUserQuestionResponse(content);
             return true;
-        } else if ("plan_approval_response".equals(type)) {
+        } else if (CommonConstants.REQUEST_TYPE_PLAN_APPROVAL_RESPONSE.equals(type)) {
             LOG.debug("[PLAN_APPROVAL][BRIDGE_RECV] Received plan_approval_response from JS");
             LOG.debug("[PLAN_APPROVAL][BRIDGE_RECV] payloadLength=" + payloadLength(content));
             handlePlanApprovalResponse(content);

@@ -1,6 +1,7 @@
 package com.github.claudecodegui.handler.history;
 
 import com.github.claudecodegui.bridge.NodeDetector;
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.NodeJsServiceCaller;
 import com.github.claudecodegui.handler.core.HandlerContext;
 
@@ -57,7 +58,7 @@ class HistoryLoadService {
                 }
 
                 // Choose a different reader based on the provider
-                if ("codex".equals(provider)) {
+                if (CommonConstants.PROVIDER_CODEX.equals(provider)) {
                     // Use CodexHistoryReader to read Codex sessions (filtered by project)
                     LOG.info("[HistoryHandler] 使用 CodexHistoryReader 读取 Codex 会话 (项目: " + projectPath + ")");
                     CodexHistoryReader codexReader = new CodexHistoryReader();
@@ -137,7 +138,7 @@ class HistoryLoadService {
         LOG.info("[HistoryHandler] ========== 开始深度搜索 ========== provider=" + provider);
 
         try {
-            if ("codex".equals(provider)) {
+            if (CommonConstants.PROVIDER_CODEX.equals(provider)) {
                 SessionIndexCache.getInstance().clearAllCodexCache();
                 SessionIndexManager.getInstance().clearAllCodexIndex();
             } else if (projectPath != null) {

@@ -32,8 +32,8 @@ public class CodemossSettingsServiceModelRegistryTest {
 
         ModelRegistryConfig config = new CodemossSettingsService().getModelRegistry();
 
-        assertTrue(config.models().stream().anyMatch(model -> model.id().equals("claude-sonnet-4-6")));
-        assertTrue(config.models().stream().anyMatch(model -> model.id().equals("gpt-5.5")));
+        assertTrue(config.models().stream().anyMatch(model -> model.id().equals("claude-role-sonnet")));
+        assertFalse(config.models().stream().anyMatch(model -> model.provider().equals("codex")));
     }
 
     @Test
@@ -42,11 +42,12 @@ public class CodemossSettingsServiceModelRegistryTest {
         CodemossSettingsService service = new CodemossSettingsService();
 
         ModelRegistryConfig invalid = new ModelRegistryConfig(List.of(
-                new ModelConfig("bad", "codex", "Bad", "", 200_000, true, true)
+                new ModelConfig("bad", "codex", "", "Bad", "", "", 200_000, true, true)
         ));
 
         assertFalse(service.setModelRegistry(invalid).isValid());
-        assertTrue(service.getModelRegistry().models().stream().anyMatch(model -> model.id().equals("gpt-5.5")));
+        assertTrue(service.getModelRegistry().models().stream().anyMatch(model -> model.id().equals("claude-role-sonnet")));
+        assertFalse(service.getModelRegistry().models().stream().anyMatch(model -> model.provider().equals("codex")));
     }
 
     @Test
@@ -54,14 +55,66 @@ public class CodemossSettingsServiceModelRegistryTest {
         useTemporaryHomeDirectory(Files.createTempDirectory("model-registry-persist-home"));
         CodemossSettingsService service = new CodemossSettingsService();
         ModelRegistryConfig config = new ModelRegistryConfig(List.of(
-                new ModelConfig("mimo-v2.5-pro", "claude", "Mimo V2.5 Pro", "", 1_000_000, true, true)
+                new ModelConfig("claude-role-opus", "claude", "opus",
+                        "Mimo V2.5 Pro", "mimo-v2.5-pro", "", 1_000_000, true, true)
         ));
 
         assertTrue(service.setModelRegistry(config).isValid());
 
         ModelConfig saved = service.getModelRegistry().models().get(0);
-        assertEquals("mimo-v2.5-pro", saved.id());
+        assertEquals("claude-role-opus", saved.id());
+        assertEquals("mimo-v2.5-pro", saved.actualModel());
         assertEquals(1_000_000, saved.contextWindow());
+    }
+
+    @Test
+    public void resolvesClaudeRegistryActualModelFromSelectedRole() {
+        ModelRegistryConfig config = new ModelRegistryConfig(List.of(
+                new ModelConfig("claude-role-sonnet", "claude", "sonnet", "GLM 5.2",
+                        "glm5.2", "", 1_000_000, true, true)
+        ));
+
+        ModelRegistryConfig.ResolvedModelSelection resolved =
+                config.resolveModelSelection("claude", "claude-role-sonnet[1m]");
+
+        assertEquals("claude-role-sonnet[1m]", resolved.selectedModel());
+        assertEquals("sonnet", resolved.role());
+        assertEquals("glm5.2[1m]", resolved.actualModel());
+        assertEquals(1_000_000, resolved.contextWindow());
+        assertTrue(resolved.supports1MContext());
+    }
+
+    @Test
+    public void resolvesSelectedClaudeRegistryModelWithSharedRole() {
+        ModelRegistryConfig config = new ModelRegistryConfig(List.of(
+                new ModelConfig("mimo-v2.5", "claude", "sonnet", "MiMo V2.5",
+                        "mimo-v2.5", "", 1_000_000, true, true),
+                new ModelConfig("mimo-v2.5-pro", "claude", "sonnet", "MiMo V2.5 Pro",
+                        "mimo-v2.5-pro", "", 1_000_000, true, true)
+        ));
+
+        ModelRegistryConfig.ResolvedModelSelection resolved =
+                config.resolveModelSelection("claude", "mimo-v2.5-pro");
+
+        assertEquals("mimo-v2.5-pro", resolved.selectedModel());
+        assertEquals("sonnet", resolved.role());
+        assertEquals("mimo-v2.5-pro", resolved.actualModel());
+        assertEquals(1_000_000, resolved.contextWindow());
+        assertTrue(resolved.supports1MContext());
+    }
+
+    @Test
+    public void resolvesCodexRegistryIdAsActualModel() {
+        ModelRegistryConfig config = new ModelRegistryConfig(List.of(
+                new ModelConfig("glm5.2", "codex", "", "GLM 5.2", "", "", 1_000_000, true, true)
+        ));
+
+        ModelRegistryConfig.ResolvedModelSelection resolved =
+                config.resolveModelSelection("codex", "glm5.2");
+
+        assertEquals("glm5.2", resolved.selectedModel());
+        assertEquals(null, resolved.role());
+        assertEquals("glm5.2", resolved.actualModel());
     }
 
     private void useTemporaryHomeDirectory(Path tempHome) throws Exception {

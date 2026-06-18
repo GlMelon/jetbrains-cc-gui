@@ -1,5 +1,6 @@
 package com.github.claudecodegui.handler.provider;
 
+import com.github.claudecodegui.common.ClaudeRole;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.config.ModelRegistryConfig;
 import com.github.claudecodegui.handler.UsagePushService;
@@ -25,48 +26,6 @@ import java.util.concurrent.CompletableFuture;
 public class ModelProviderHandler {
 
     private static final Logger LOG = Logger.getInstance(ModelProviderHandler.class);
-
-    private static final Map<String, String> MODEL_VARIANT_ENV_MAP = Map.of(
-            "opus", CommonConstants.ENV_ANTHROPIC_OPUS_MODEL,
-            "haiku", CommonConstants.ENV_ANTHROPIC_HAIKU_MODEL,
-            "sonnet", CommonConstants.ENV_ANTHROPIC_SONNET_MODEL
-    );
-
-    private static final Map<String, Integer> MODEL_CONTEXT_LIMITS = new HashMap<>();
-    static {
-        // Claude models with 1M context (base IDs)
-        MODEL_CONTEXT_LIMITS.put("claude-sonnet-4-6", 200_000);
-        MODEL_CONTEXT_LIMITS.put("claude-fable-5", 200_000);
-        MODEL_CONTEXT_LIMITS.put("claude-opus-4-8", 200_000);
-        MODEL_CONTEXT_LIMITS.put("claude-opus-4-7", 200_000);
-        MODEL_CONTEXT_LIMITS.put("claude-opus-4-6", 200_000);
-        // Claude models with [1m] suffix - 1M context
-        MODEL_CONTEXT_LIMITS.put("claude-sonnet-4-6[1m]", 1_000_000);
-        MODEL_CONTEXT_LIMITS.put("claude-fable-5[1m]", 1_000_000);
-        MODEL_CONTEXT_LIMITS.put("claude-opus-4-8[1m]", 1_000_000);
-        MODEL_CONTEXT_LIMITS.put("claude-opus-4-7[1m]", 1_000_000);
-        MODEL_CONTEXT_LIMITS.put("claude-opus-4-6[1m]", 1_000_000);
-        // Haiku - no 1M context available
-        MODEL_CONTEXT_LIMITS.put("claude-haiku-4-5", 200_000);
-        // Codex/GPT models
-        MODEL_CONTEXT_LIMITS.put("gpt-5.5", 1_000_000);
-        MODEL_CONTEXT_LIMITS.put("gpt-5.4", 1_000_000);
-        MODEL_CONTEXT_LIMITS.put("gpt-5.4-mini", 400_000);
-        MODEL_CONTEXT_LIMITS.put("gpt-5.3-codex", 258_000);
-        MODEL_CONTEXT_LIMITS.put("gpt-5.2-codex", 258_000);
-        MODEL_CONTEXT_LIMITS.put("gpt-5.2", 258_000);
-        MODEL_CONTEXT_LIMITS.put("gpt-5.1", 128_000);
-        MODEL_CONTEXT_LIMITS.put("gpt-5.1-codex", 128_000);
-        MODEL_CONTEXT_LIMITS.put("gpt-4o", 128_000);
-        MODEL_CONTEXT_LIMITS.put("gpt-4o-mini", 128_000);
-        MODEL_CONTEXT_LIMITS.put("gpt-4-turbo", 128_000);
-        MODEL_CONTEXT_LIMITS.put("gpt-4", 8_192);
-        MODEL_CONTEXT_LIMITS.put("o3", 200_000);
-        MODEL_CONTEXT_LIMITS.put("o3-mini", 200_000);
-        MODEL_CONTEXT_LIMITS.put("o1", 200_000);
-        MODEL_CONTEXT_LIMITS.put("o1-mini", 128_000);
-        MODEL_CONTEXT_LIMITS.put("o1-preview", 128_000);
-    }
 
     private final HandlerContext context;
     private final UsagePushService usagePushService;
@@ -164,10 +123,15 @@ public class ModelProviderHandler {
         }
 
         // Calculate effective max tokens (capped at model's actual limit)
-        String resolvedModelForUsage = resolveConfiguredClaudeModelFromSettings(model);
+        ModelRegistryConfig.ResolvedModelSelection registrySelection = context.getSettingsService()
+                .getModelRegistry()
+                .resolveModelSelection(confirmedProviderForModelChange(isSessionOnly), model);
+        String resolvedModelForUsage = registrySelection.actualModel() != null
+                ? registrySelection.actualModel()
+                : resolveConfiguredClaudeModelFromSettings(model);
         int modelMaxLimit = context.getSettingsService()
                 .getModelRegistry()
-                .find(resolvedModelForUsage)
+                .find(confirmedProviderForModelChange(isSessionOnly), model)
                 .map(modelConfig -> modelConfig.contextWindow())
                 .orElseGet(() -> getModelContextLimit(resolvedModelForUsage));
         int newMaxTokens = (contextWindowOverride != null && contextWindowOverride > 0)
@@ -407,6 +371,13 @@ public class ModelProviderHandler {
         return model;
     }
 
+    private String confirmedProviderForModelChange(boolean isSessionOnly) {
+        if (isSessionOnly && context.getSession() != null) {
+            return context.getSession().getProvider();
+        }
+        return context.getCurrentProvider();
+    }
+
     private String parseProvider(String content) {
         String provider = content;
         if (content != null && !content.isEmpty()) {
@@ -446,19 +417,18 @@ public class ModelProviderHandler {
             return mainModel;
         }
 
-        String lowerBaseModel = baseModel.toLowerCase();
-        boolean isClaudeModel = lowerBaseModel.startsWith("claude-") || lowerBaseModel.startsWith("claude_");
-        if (!isClaudeModel) {
+        ClaudeRole role = ClaudeRole.fromModelId(baseModel);
+        if (role == null) {
             return baseModel;
         }
 
-        for (Map.Entry<String, String> entry : MODEL_VARIANT_ENV_MAP.entrySet()) {
-            if (lowerBaseModel.contains(entry.getKey())) {
-                String mapped = readConfiguredEnvValue(env, entry.getValue());
-                return mapped != null ? mapped : baseModel;
+        // envKeys 已含 fallback 顺序(Fable→Opus、Haiku→SMALL_FAST→DEFAULT_HAIKU)
+        for (String envKey : role.envKeys()) {
+            String mapped = readConfiguredEnvValue(env, envKey);
+            if (mapped != null) {
+                return mapped;
             }
         }
-
         return baseModel;
     }
 
@@ -511,7 +481,8 @@ public class ModelProviderHandler {
         }
 
         String baseModel = ModelRegistryConfig.stripCapacitySuffix(model);
-        return MODEL_CONTEXT_LIMITS.getOrDefault(baseModel, 200_000);
+        ClaudeRole role = ClaudeRole.fromModelId(baseModel);
+        return role != null ? role.contextWindow() : 200_000;
     }
 
     public static boolean isKnownModel(ModelRegistryConfig registry, String model) {
@@ -522,6 +493,6 @@ public class ModelProviderHandler {
             return true;
         }
         String baseModel = ModelRegistryConfig.stripCapacitySuffix(model);
-        return MODEL_CONTEXT_LIMITS.containsKey(baseModel);
+        return ClaudeRole.fromModelId(baseModel) != null;
     }
 }

@@ -114,10 +114,10 @@ function buildSystemPromptAppend(params) {
   return buildIDEContextPrompt(openedFiles, agentPrompt);
 }
 
-function resolveRequestModelState(modelId, settingsEnv) {
+function resolveRequestModelState(modelId, settingsEnv, actualModel = null) {
   return {
     sdkModelName: mapModelIdToSdkName(modelId),
-    resolvedModelId: resolveModelFromSettings(modelId, settingsEnv),
+    resolvedModelId: resolveModelFromSettings(modelId, settingsEnv, actualModel),
   };
 }
 
@@ -201,7 +201,8 @@ async function buildRequestContext(params, withAttachments, overrides = {}) {
 
   const settings = overrides.settings ?? loadClaudeSettings();
   const modelId = params.model || null;
-  const { sdkModelName, resolvedModelId } = resolveRequestModelState(modelId, settings?.env);
+  const actualModel = params.actualModel || null;
+  const { sdkModelName, resolvedModelId } = resolveRequestModelState(modelId, settings?.env, actualModel);
   setModelEnvironmentVariables(resolvedModelId, modelId);
 
   const permissionMode = normalizePermissionMode(params.permissionMode);
@@ -220,7 +221,7 @@ async function buildRequestContext(params, withAttachments, overrides = {}) {
 
   const userMessage = await buildUserMessage(params, withAttachments, requestedSessionId, resolvedModelId);
 
-  const runtimeSignature = buildRuntimeSignature(options, systemPromptAppend, streamingEnabled, runtimeSessionEpoch);
+  const runtimeSignature = buildRuntimeSignature(options, systemPromptAppend, streamingEnabled, runtimeSessionEpoch, resolvedModelId);
   console.log('[LIFECYCLE] buildRequestContext sessionId=' + (requestedSessionId || '(new)')
     + ' epoch=' + (runtimeSessionEpoch || '(none)')
     + ' signature=' + runtimeSignature);
@@ -635,7 +636,7 @@ export async function getContextUsagePersistent(params = {}, overrides = {}) {
   const modelId = safeParams.model || null; // Original model ID, may contain [1m] suffix
   return withScopedContextWindowPreference(modelId, async () => {
     const settings = overrides?.settings ?? loadClaudeSettings();
-    const { resolvedModelId } = resolveRequestModelState(modelId, settings?.env);
+    const { resolvedModelId } = resolveRequestModelState(modelId, settings?.env, safeParams.actualModel || null);
     const targetModel = resolvedModelId || modelId || null;
     let runtime = null;
 
@@ -717,8 +718,8 @@ export const __testing = {
   async buildRequestContext(params = {}, withAttachments = false, overrides = {}) {
     return buildRequestContext(params, withAttachments, overrides);
   },
-  resolveRequestModelState(modelId, settingsEnv) {
-    return resolveRequestModelState(modelId, settingsEnv);
+  resolveRequestModelState(modelId, settingsEnv, actualModel = null) {
+    return resolveRequestModelState(modelId, settingsEnv, actualModel);
   },
   applyExactModelForContextUsage(requestContext) {
     return applyExactModelForContextUsage(requestContext);

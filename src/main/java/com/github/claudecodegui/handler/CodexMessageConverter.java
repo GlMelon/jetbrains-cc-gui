@@ -1,10 +1,12 @@
 package com.github.claudecodegui.handler;
 
+import com.github.claudecodegui.cli.common.CliConstants;
+import com.github.claudecodegui.common.CommonConstants;
+import com.github.claudecodegui.util.UserMessageSanitizer;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.github.claudecodegui.util.UserMessageSanitizer;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -104,7 +106,7 @@ public class CodexMessageConverter {
                         JsonObject claudeBlock = new JsonObject();
 
                         // Convert Codex "input_text" and "output_text" to Claude "text"
-                        if ("input_text".equals(type) || "output_text".equals(type) || "text".equals(type)) {
+                        if (CommonConstants.BLOCK_TYPE_INPUT_TEXT.equals(type) || CommonConstants.BLOCK_TYPE_OUTPUT_TEXT.equals(type) || CommonConstants.BLOCK_TYPE_TEXT.equals(type)) {
                             claudeBlock.addProperty("type", "text");
                             if (itemObj.has("text")) {
                                 claudeBlock.addProperty("text", itemObj.get("text").getAsString());
@@ -112,7 +114,7 @@ public class CodexMessageConverter {
                             claudeBlocks.add(claudeBlock);
                         }
                         // Handle tool use (if present in Codex)
-                        else if ("tool_use".equals(type)) {
+                        else if (CommonConstants.BLOCK_TYPE_TOOL_USE.equals(type)) {
                             claudeBlock.addProperty("type", "tool_use");
                             if (itemObj.has("id")) {
                                 claudeBlock.addProperty("id", itemObj.get("id").getAsString());
@@ -126,7 +128,7 @@ public class CodexMessageConverter {
                             claudeBlocks.add(claudeBlock);
                         }
                         // Handle tool result
-                        else if ("tool_result".equals(type)) {
+                        else if (CommonConstants.BLOCK_TYPE_TOOL_RESULT.equals(type)) {
                             claudeBlock.addProperty("type", "tool_result");
                             if (itemObj.has("tool_use_id")) {
                                 claudeBlock.addProperty("tool_use_id", itemObj.get("tool_use_id").getAsString());
@@ -140,7 +142,7 @@ public class CodexMessageConverter {
                             claudeBlocks.add(claudeBlock);
                         }
                         // Handle thinking block
-                        else if ("thinking".equals(type)) {
+                        else if (CommonConstants.BLOCK_TYPE_THINKING.equals(type)) {
                             claudeBlock.addProperty("type", "thinking");
                             if (itemObj.has("thinking")) {
                                 claudeBlock.addProperty("thinking", itemObj.get("thinking").getAsString());
@@ -151,7 +153,7 @@ public class CodexMessageConverter {
                             claudeBlocks.add(claudeBlock);
                         }
                         // Handle image
-                        else if ("image".equals(type)) {
+                        else if (CommonConstants.BLOCK_TYPE_IMAGE.equals(type)) {
                             claudeBlock.addProperty("type", "image");
                             if (itemObj.has("src")) {
                                 claudeBlock.addProperty("src", itemObj.get("src").getAsString());
@@ -208,7 +210,7 @@ public class CodexMessageConverter {
                     JsonObject itemObj = item.getAsJsonObject();
 
                     // Flatten supported text-like blocks into a single preview string for the frontend.
-                    if (itemObj.has("type") && "text".equals(itemObj.get("type").getAsString())) {
+                    if (itemObj.has("type") && CommonConstants.BLOCK_TYPE_TEXT.equals(itemObj.get("type").getAsString())) {
                         if (itemObj.has("text")) {
                             if (sb.length() > 0) {
                                 sb.append("\n");
@@ -217,7 +219,7 @@ public class CodexMessageConverter {
                         }
                     }
                     // Extract input_text type (Codex user messages)
-                    else if (itemObj.has("type") && "input_text".equals(itemObj.get("type").getAsString())) {
+                    else if (itemObj.has("type") && CommonConstants.BLOCK_TYPE_INPUT_TEXT.equals(itemObj.get("type").getAsString())) {
                         if (itemObj.has("text")) {
                             if (sb.length() > 0) {
                                 sb.append("\n");
@@ -226,7 +228,7 @@ public class CodexMessageConverter {
                         }
                     }
                     // Extract output_text type (Codex AI assistant messages)
-                    else if (itemObj.has("type") && "output_text".equals(itemObj.get("type").getAsString())) {
+                    else if (itemObj.has("type") && CommonConstants.BLOCK_TYPE_OUTPUT_TEXT.equals(itemObj.get("type").getAsString())) {
                         if (itemObj.has("text")) {
                             if (sb.length() > 0) {
                                 sb.append("\n");
@@ -257,10 +259,10 @@ public class CodexMessageConverter {
     public static JsonObject convertCodexMessageToFrontend(JsonObject payload, String timestamp) {
         String contentStr = extractContentAsString(payload.get("content"));
         String role = payload.has("role") ? payload.get("role").getAsString() : "user";
-        if (!"user".equals(role) && !"assistant".equals(role)) {
+        if (!CommonConstants.MSG_TYPE_USER.equals(role) && !CommonConstants.MSG_TYPE_ASSISTANT.equals(role)) {
             return null;
         }
-        boolean userMessage = "user".equals(role);
+        boolean userMessage = CommonConstants.MSG_TYPE_USER.equals(role);
         boolean strippedSystemTags = false;
 
         if (userMessage) {
@@ -402,7 +404,7 @@ public class CodexMessageConverter {
      * @return converted tool name, or null if the tool should be filtered out (e.g. write_stdin).
      */
     public static String convertToolName(String toolName, JsonElement toolInput) {
-        if ("shell_command".equals(toolName) && toolInput != null && toolInput.isJsonObject()) {
+        if (CliConstants.CODEX_TOOL_SHELL_COMMAND.equals(toolName) && toolInput != null && toolInput.isJsonObject()) {
             JsonObject inputObj = toolInput.getAsJsonObject();
             if (inputObj.has("command")) {
                 String command = inputObj.get("command").getAsString().trim();
@@ -420,14 +422,14 @@ public class CodexMessageConverter {
                 }
             }
         }
-        if ("update_plan".equals(toolName) && toolInput != null && toolInput.isJsonObject()) {
+        if (CliConstants.CODEX_TOOL_UPDATE_PLAN.equals(toolName) && toolInput != null && toolInput.isJsonObject()) {
             JsonObject inputObj = toolInput.getAsJsonObject();
             if (inputObj.has("plan") && inputObj.get("plan").isJsonArray()) {
                 return "todowrite";
             }
         }
         // Ignore write_stdin - it's waiting for previous command result
-        if ("write_stdin".equals(toolName)) {
+        if (CliConstants.CODEX_TOOL_WRITE_STDIN.equals(toolName)) {
             return null;
         }
         return toolName;
@@ -439,7 +441,7 @@ public class CodexMessageConverter {
      */
     public static JsonElement convertToolInput(String toolName, JsonElement toolInput) {
         // Capture the write target when a terminal session starts writing to a file.
-        if ("exec_command".equals(toolName) && toolInput != null && toolInput.isJsonObject()) {
+        if (CliConstants.CODEX_TOOL_EXEC_COMMAND.equals(toolName) && toolInput != null && toolInput.isJsonObject()) {
             JsonObject inputObj = toolInput.getAsJsonObject();
             if (inputObj.has("cmd") && inputObj.has("session_id")) {
                 String cmd = inputObj.get("cmd").getAsString();
@@ -462,7 +464,7 @@ public class CodexMessageConverter {
         // branch only fires when replaying Codex history (function_call payload retains `cmd`).
         // Without this mapping BashToolGroupBlock renders blank timeline rows because
         // parseBashItem only reads input.command.
-        if (("exec_command".equals(toolName) || "shell_command".equals(toolName))
+        if ((CliConstants.CODEX_TOOL_EXEC_COMMAND.equals(toolName) || CliConstants.CODEX_TOOL_SHELL_COMMAND.equals(toolName))
                 && toolInput != null && toolInput.isJsonObject()) {
             JsonObject inputObj = toolInput.getAsJsonObject();
             if (inputObj.has("cmd") && !inputObj.has("command")) {
@@ -473,7 +475,7 @@ public class CodexMessageConverter {
         }
 
         // Enrich incremental writes with the previously discovered destination path.
-        if ("write".equals(toolName) && toolInput != null && toolInput.isJsonObject()) {
+        if (CliConstants.CODEX_TOOL_WRITE.equals(toolName) && toolInput != null && toolInput.isJsonObject()) {
             JsonObject inputObj = toolInput.getAsJsonObject();
             if (inputObj.has("session_id")) {
                 int sessionId = inputObj.get("session_id").getAsInt();
@@ -490,7 +492,7 @@ public class CodexMessageConverter {
         }
 
         // Translate plan updates into the todo structure expected by the Claude-style frontend.
-        if (!"todowrite".equals(toolName) || toolInput == null || !toolInput.isJsonObject()) {
+        if (!CliConstants.CODEX_TOOL_TODO_WRITE.equals(toolName) || toolInput == null || !toolInput.isJsonObject()) {
             return toolInput;
         }
 
@@ -575,7 +577,7 @@ public class CodexMessageConverter {
         input.addProperty("patch", toolInput);
 
         // Surface the first touched file so the frontend can show a concrete target for patch-based edits.
-        if ("apply_patch".equals(toolName)
+        if (CliConstants.CODEX_TOOL_APPLY_PATCH.equals(toolName)
                 && (toolInput.contains("*** Add File:") || toolInput.contains("*** Update File:"))) {
             String[] lines = toolInput.split("\n");
             for (String line : lines) {

@@ -1,5 +1,7 @@
 package com.github.claudecodegui.dependency;
 
+import com.github.claudecodegui.common.CommonConstants;
+
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -114,9 +116,9 @@ public enum SdkDefinition {
      * Finds the corresponding SDK by provider name.
      */
     public static SdkDefinition fromProvider(String provider) {
-        if ("claude".equalsIgnoreCase(provider)) {
+        if (CommonConstants.PROVIDER_CLAUDE.equalsIgnoreCase(provider)) {
             return CLAUDE_SDK;
-        } else if ("codex".equalsIgnoreCase(provider)) {
+        } else if (CommonConstants.PROVIDER_CODEX.equalsIgnoreCase(provider)) {
             return CODEX_SDK;
         }
         return null;

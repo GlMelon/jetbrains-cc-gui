@@ -31,8 +31,8 @@ const DEFAULT_PROMPT_ENHANCER_CONFIG = {
   effectiveProvider: 'claude',
   resolutionSource: 'auto',
   models: {
-    claude: 'claude-sonnet-4-6',
-    codex: 'gpt-5.5',
+    claude: 'claude-role-sonnet',
+    codex: '',
   },
   availability: {
     claude: false,

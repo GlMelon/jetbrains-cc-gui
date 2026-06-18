@@ -32,13 +32,91 @@ public final class CliConstants {
     public static final String MSG_MESSAGE_START = "message_start";
     public static final String MSG_MESSAGE_END = "message_end";
     public static final String MSG_CONTENT_DELTA = "content_delta";
-    public static final String MSG_THINKING = "thinking";
+    // MSG_THINKING 已合并至 CommonConstants.MSG_TYPE_THINKING（通用消息类型统一归 common）
     public static final String MSG_THINKING_DELTA = "thinking_delta";
     public static final String MSG_BLOCK_RESET = "block_reset";
     public static final String MSG_USAGE = "usage";
     public static final String MSG_RESULT = "result";
-    public static final String MSG_ASSISTANT = "assistant";
-    public static final String MSG_USER = "user";
+    // MSG_ASSISTANT/MSG_USER 已合并至 CommonConstants.MSG_TYPE_ASSISTANT/MSG_TYPE_USER
+    /** stream-json 顶层事件类型：内部承载 Anthropic SSE 事件（content_block_* 等）。 */
+    public static final String MSG_STREAM_EVENT = "stream_event";
+    /** 非流式完整回复内容（result 事件兜底回填 assistant 内容）。 */
+    public static final String MSG_CONTENT = "content";
+    /** 可用斜杠命令列表事件。 */
+    public static final String MSG_SLASH_COMMANDS = "slash_commands";
+    /** Node.js 进程日志转发事件。 */
+    public static final String MSG_NODE_LOG = "node_log";
+
+    // ── Codex 专有协议事件类型（Codex message-service wire 协议） ──────────────
+
+    public static final String CODEX_MSG_EVENT_MSG = "event_msg";
+    public static final String CODEX_MSG_STATUS = "status";
+    public static final String CODEX_MSG_TOKEN_COUNT = "token_count";
+
+    // ── Codex 环境变量配置 category / 字段名 ──────────────────────────────────
+
+    public static final String CODEX_CATEGORY_MESSAGE = "message";
+    public static final String CODEX_FIELD_MESSAGE_ENV_VARS = "messageEnvVars";
+    public static final String CODEX_FIELD_MCP_ENV_VARS = "mcpEnvVars";
+
+    // ── Codex CLI 流式事件类型（--json stream type 字段） ──────────────────────
+    // Codex CLI 流式输出的事件类型，由 CodexCliSession 解析。集中管理以便协议升级时单点修改。
+
+    public static final String CODEX_EVENT_THREAD_STARTED = "thread.started";
+    public static final String CODEX_EVENT_TURN_STARTED = "turn.started";
+    public static final String CODEX_EVENT_ITEM_STARTED = "item.started";
+    public static final String CODEX_EVENT_ITEM_UPDATED = "item.updated";
+    public static final String CODEX_EVENT_ITEM_COMPLETED = "item.completed";
+    public static final String CODEX_EVENT_RESPONSE_ITEM = "response_item";
+    public static final String CODEX_EVENT_TURN_COMPLETED = "turn.completed";
+    public static final String CODEX_EVENT_TURN_FAILED = "turn.failed";
+    public static final String CODEX_EVENT_ERROR = "error";
+
+    // ── Codex CLI item.type 值 ────────────────────────────────────────────────
+
+    public static final String CODEX_ITEM_REASONING = "reasoning";
+    public static final String CODEX_ITEM_AGENT_MESSAGE = "agent_message";
+    public static final String CODEX_ITEM_COMMAND_EXECUTION = "command_execution";
+    public static final String CODEX_ITEM_MCP_TOOL_CALL = "mcp_tool_call";
+
+    // ── Codex CLI response payload.type 值 ────────────────────────────────────
+
+    public static final String CODEX_PAYLOAD_FUNCTION_CALL = "function_call";
+    public static final String CODEX_PAYLOAD_FUNCTION_CALL_OUTPUT = "function_call_output";
+    public static final String CODEX_PAYLOAD_CUSTOM_TOOL_CALL = "custom_tool_call";
+
+    // ── Codex CLI item.status 值（失败状态） ──────────────────────────────────
+
+    public static final String CODEX_STATUS_FAILED = "failed";
+    public static final String CODEX_STATUS_ERROR = "error";
+
+    // ── Codex 历史回放消息 type 值（HistoryMessageInjector 解析） ──────────────
+
+    public static final String CODEX_MSG_SESSION_META = "session_meta";
+    public static final String CODEX_MSG_PROVIDER_ERROR = "provider_error";
+
+    // ── Codex response payload 扩展 type 值 ───────────────────────────────────
+    // 注意 CODEX_PAYLOAD_MESSAGE 与 CODEX_CATEGORY_MESSAGE 同值 "message"，但语义不同：
+    // 此处为 response payload 的 type；CODEX_CATEGORY_MESSAGE 为 env config 的 category。
+
+    public static final String CODEX_PAYLOAD_MESSAGE = "message";
+    public static final String CODEX_PAYLOAD_USER_MESSAGE = "user_message";
+
+    // ── Anthropic 流式事件类型（stream_event.event.type / delta.type 解析） ────
+    // 这些是 Anthropic Messages API 的 wire 事件名，由 claude CLI stream-json 透传，
+    // 仅在 ClaudeCliStreamParser 中解析。集中管理以便协议升级时单点修改。
+
+    public static final String STREAM_CONTENT_BLOCK_START = "content_block_start";
+    public static final String STREAM_CONTENT_BLOCK_DELTA = "content_block_delta";
+    public static final String STREAM_CONTENT_BLOCK_STOP = "content_block_stop";
+    public static final String STREAM_MESSAGE_DELTA = "message_delta";
+    public static final String STREAM_MESSAGE_STOP = "message_stop";
+    /** content_block_delta 的 delta.type 文本增量（thinking_delta 复用 MSG_THINKING_DELTA）。 */
+    public static final String DELTA_TEXT = "text_delta";
+    /** content_block_delta 的 delta.type 工具输入增量（部分输入，解析器跳过）。 */
+    public static final String DELTA_INPUT_JSON = "input_json_delta";
+    /** system 事件 subtype：init 提取 session_id，status（如 requesting）跳过。 */
+    public static final String SUBTYPE_INIT = "init";
 
     // ── Claude CLI 参数 ────────────────────────────────────────────────────────
 
@@ -97,18 +175,7 @@ public final class CliConstants {
     );
 
     // ── 环境变量名 (Anthropic / Claude) ────────────────────────────────────────
-
-    public static final String ENV_ANTHROPIC_MODEL = "ANTHROPIC_MODEL";
-    public static final String ENV_ANTHROPIC_DEFAULT_OPUS_MODEL = "ANTHROPIC_DEFAULT_OPUS_MODEL";
-    public static final String ENV_ANTHROPIC_DEFAULT_SONNET_MODEL = "ANTHROPIC_DEFAULT_SONNET_MODEL";
-    public static final String ENV_ANTHROPIC_SMALL_FAST_MODEL = "ANTHROPIC_SMALL_FAST_MODEL";
-    public static final String ENV_ANTHROPIC_DEFAULT_HAIKU_MODEL = "ANTHROPIC_DEFAULT_HAIKU_MODEL";
-    public static final String ENV_ANTHROPIC_MODEL_CAPABILITIES = "ANTHROPIC_MODEL_CAPABILITIES";
-    public static final String ENV_ANTHROPIC_DEFAULT_OPUS_MODEL_CAPS = "ANTHROPIC_DEFAULT_OPUS_MODEL_CAPABILITIES";
-    public static final String ENV_ANTHROPIC_DEFAULT_SONNET_MODEL_CAPS = "ANTHROPIC_DEFAULT_SONNET_MODEL_CAPABILITIES";
-    public static final String ENV_ANTHROPIC_SMALL_FAST_MODEL_CAPS = "ANTHROPIC_SMALL_FAST_MODEL_CAPABILITIES";
-    public static final String ENV_ANTHROPIC_DEFAULT_HAIKU_MODEL_CAPS = "ANTHROPIC_DEFAULT_HAIKU_MODEL_CAPABILITIES";
-    public static final String ENV_ANTHROPIC_API_KEY_HELPER = "ANTHROPIC_API_KEY_HELPER";
+    // 已迁出至 CommonConstants（统一权威定义，消除重复）。请引用 CommonConstants.ENV_ANTHROPIC_*。
 
     // ── 环境变量名 (Codex / OpenAI) ────────────────────────────────────────────
 
@@ -150,6 +217,21 @@ public final class CliConstants {
     public static final Set<String> IMAGE_EXTENSIONS = Set.of(
             ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"
     );
+
+    // ── Claude 内置工具名 ──────────────────────────────────────────────────────
+
+    /** Claude 内置工具：读取文件（用于识别图片读取场景）。 */
+    public static final String TOOL_NAME_READ = "Read";
+
+    // ── Codex CLI 工具名（CodexMessageConverter 识别） ────────────────────────
+
+    public static final String CODEX_TOOL_SHELL_COMMAND = "shell_command";
+    public static final String CODEX_TOOL_UPDATE_PLAN = "update_plan";
+    public static final String CODEX_TOOL_WRITE_STDIN = "write_stdin";
+    public static final String CODEX_TOOL_EXEC_COMMAND = "exec_command";
+    public static final String CODEX_TOOL_WRITE = "write";
+    public static final String CODEX_TOOL_TODO_WRITE = "todowrite";
+    public static final String CODEX_TOOL_APPLY_PATCH = "apply_patch";
 
     // ── Prompt 模板片段 ────────────────────────────────────────────────────────
 

@@ -1,5 +1,6 @@
 package com.github.claudecodegui.notifications;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.session.ClaudeSession;
 import com.github.claudecodegui.util.SystemNotificationService;
@@ -41,15 +42,15 @@ public class ClaudeNotifier {
     private static final int CONDENSE_MAX_INPUT = 4096;
 
     public static void setThinking(@NotNull Project project) {
-        update(project, "thinking", ClaudeCodeGuiBundle.message("notifier.thinking"));
+        update(project, CommonConstants.SESSION_STATUS_THINKING,ClaudeCodeGuiBundle.message("notifier.thinking"));
     }
 
     public static void setGenerating(@NotNull Project project) {
-        update(project, "generating", ClaudeCodeGuiBundle.message("notifier.generating"));
+        update(project, CommonConstants.SESSION_STATUS_GENERATING,ClaudeCodeGuiBundle.message("notifier.generating"));
     }
 
     public static void setWaiting(@NotNull Project project) {
-        update(project, "waiting", ClaudeCodeGuiBundle.message("notifier.waiting"));
+        update(project, CommonConstants.SESSION_STATUS_WAITING,ClaudeCodeGuiBundle.message("notifier.waiting"));
     }
 
     public static void showSuccess(@NotNull Project project, String message) {
@@ -173,7 +174,7 @@ public class ClaudeNotifier {
                     continue;
                 }
                 JsonObject block = element.getAsJsonObject();
-                if (block.has("type") && "text".equals(block.get("type").getAsString())
+                if (block.has("type") && CommonConstants.BLOCK_TYPE_TEXT.equals(block.get("type").getAsString())
                         && block.has("text")) {
                     lastText = block.get("text").getAsString();
                 }
@@ -193,7 +194,7 @@ public class ClaudeNotifier {
     }
 
     public static void clearStatus(@NotNull Project project) {
-        update(project, "ready", null);
+        update(project, CommonConstants.SESSION_STATUS_READY,null);
     }
     
     public static void setTokenUsage(@NotNull Project project, int usedTokens, int maxTokens) {

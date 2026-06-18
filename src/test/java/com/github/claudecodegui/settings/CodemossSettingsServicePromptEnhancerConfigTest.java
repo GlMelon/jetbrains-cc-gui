@@ -39,12 +39,8 @@ public class CodemossSettingsServicePromptEnhancerConfigTest {
         JsonObject config = invokeGetPromptEnhancerConfig(service);
 
         assertTrue(config.get("provider").isJsonNull());
-        assertEquals("codex", config.get("effectiveProvider").getAsString());
-        assertEquals("auto", config.get("resolutionSource").getAsString());
-        assertTrue(config.getAsJsonObject("availability").get("claude").getAsBoolean());
-        assertTrue(config.getAsJsonObject("availability").get("codex").getAsBoolean());
-        assertEquals("claude-sonnet-4-6", config.getAsJsonObject("models").get("claude").getAsString());
-        assertEquals("gpt-5.5", config.getAsJsonObject("models").get("codex").getAsString());
+        assertEquals("claude-role-sonnet", config.getAsJsonObject("models").get("claude").getAsString());
+        assertEquals("", config.getAsJsonObject("models").get("codex").getAsString());
     }
 
     @Test
@@ -59,10 +55,7 @@ public class CodemossSettingsServicePromptEnhancerConfigTest {
         JsonObject config = invokeGetPromptEnhancerConfig(service);
 
         assertTrue(config.get("provider").isJsonNull());
-        assertEquals("claude", config.get("effectiveProvider").getAsString());
-        assertEquals("auto", config.get("resolutionSource").getAsString());
-        assertTrue(config.getAsJsonObject("availability").get("claude").getAsBoolean());
-        assertFalse(config.getAsJsonObject("availability").get("codex").getAsBoolean());
+        assertEquals("claude-role-sonnet", config.getAsJsonObject("models").get("claude").getAsString());
     }
 
     @Test
@@ -75,14 +68,12 @@ public class CodemossSettingsServicePromptEnhancerConfigTest {
 
         CodemossSettingsService service = new CodemossSettingsService();
 
-        invokeSetPromptEnhancerConfig(service, "claude", "claude-opus-4-7", "gpt-5.4");
+        invokeSetPromptEnhancerConfig(service, "claude", "claude-role-opus", "provider-catalog-model");
         JsonObject config = invokeGetPromptEnhancerConfig(service);
 
         assertEquals("claude", config.get("provider").getAsString());
-        assertEquals("claude", config.get("effectiveProvider").getAsString());
-        assertEquals("manual", config.get("resolutionSource").getAsString());
-        assertEquals("claude-opus-4-7", config.getAsJsonObject("models").get("claude").getAsString());
-        assertEquals("gpt-5.4", config.getAsJsonObject("models").get("codex").getAsString());
+        assertEquals("claude-role-opus", config.getAsJsonObject("models").get("claude").getAsString());
+        assertEquals("provider-catalog-model", config.getAsJsonObject("models").get("codex").getAsString());
     }
 
     @Test
@@ -93,7 +84,7 @@ public class CodemossSettingsServicePromptEnhancerConfigTest {
 
         CodemossSettingsService service = new CodemossSettingsService();
 
-        invokeSetPromptEnhancerConfig(service, "claude", "claude-opus-4-7", "gpt-5.4");
+        invokeSetPromptEnhancerConfig(service, "claude", "claude-role-opus", "provider-catalog-model");
         JsonObject config = invokeGetPromptEnhancerConfig(service);
 
         assertEquals("claude", config.get("provider").getAsString());

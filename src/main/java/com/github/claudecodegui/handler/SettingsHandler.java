@@ -541,7 +541,13 @@ public class SettingsHandler extends BaseMessageHandler {
             JsonObject obj = new JsonObject();
             obj.addProperty("id", model.id());
             obj.addProperty("provider", model.provider());
+            obj.addProperty("role", model.role());
             obj.addProperty("label", model.label());
+            if (model.actualModel() == null || model.actualModel().isEmpty()) {
+                obj.add("actualModel", com.google.gson.JsonNull.INSTANCE);
+            } else {
+                obj.addProperty("actualModel", model.actualModel());
+            }
             obj.addProperty("description", model.description());
             obj.addProperty("contextWindow", model.contextWindow());
             obj.addProperty("supports1MContext", model.supports1MContext());
@@ -562,7 +568,9 @@ public class SettingsHandler extends BaseMessageHandler {
                 JsonObject obj = item.getAsJsonObject();
                 String id = readString(obj, "id");
                 String provider = readString(obj, "provider");
+                String role = readString(obj, "role");
                 String label = readString(obj, "label");
+                String actualModel = readString(obj, "actualModel");
                 String description = readString(obj, "description");
                 int contextWindow = obj.has("contextWindow") && !obj.get("contextWindow").isJsonNull()
                         ? obj.get("contextWindow").getAsInt()
@@ -572,7 +580,7 @@ public class SettingsHandler extends BaseMessageHandler {
                         && obj.get("supports1MContext").getAsBoolean();
                 boolean enabled = !obj.has("enabled") || obj.get("enabled").isJsonNull()
                         || obj.get("enabled").getAsBoolean();
-                models.add(new ModelConfig(id, provider, label, description,
+                models.add(new ModelConfig(id, provider, role, label, actualModel, description,
                         contextWindow, supports1MContext, enabled));
             }
         }

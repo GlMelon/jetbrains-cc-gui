@@ -83,14 +83,14 @@ export function createTurnSink() {
   };
 }
 
-export function buildRuntimeSignature(options, systemPromptAppend, streamingEnabled, runtimeSessionEpoch) {
+export function buildRuntimeSignature(options, systemPromptAppend, streamingEnabled, runtimeSessionEpoch, resolvedModelId = null) {
   const material = {
     cwd: options.cwd || '',
     additionalDirectories: options.additionalDirectories || [],
     systemPromptAppend: systemPromptAppend || '',
     streamingEnabled: !!streamingEnabled,
     runtimeSessionEpoch: runtimeSessionEpoch || '',
-    model: options.model || '',
+    model: resolvedModelId || options.model || '',
     effort: options.effort || ''
   };
   return JSON.stringify(material);
@@ -164,7 +164,7 @@ async function createRuntime(requestContext, callbacks) {
     sessionId: requestContext.requestedSessionId || null,
     runtimeSessionEpoch: requestContext.runtimeSessionEpoch || null,
     runtimeSignature: requestContext.runtimeSignature,
-    currentModel: requestContext.sdkModelName || null,
+    currentModel: requestContext.resolvedModelId || requestContext.sdkModelName || null,
     modelId: requestContext.modelId || null, // Original model ID, may contain [1m] suffix
     currentPermissionMode: initialPermissionMode,
     permissionModeState: { value: initialPermissionMode },
@@ -388,11 +388,12 @@ async function applyDynamicControls(runtime, requestContext) {
     }
   }
 
-  const targetModel = requestContext.sdkModelName || null;
+  const targetModel = requestContext.resolvedModelId || requestContext.sdkModelName || null;
   if (runtime.currentModel !== targetModel && typeof runtime.query?.setModel === 'function') {
     try {
       await runtime.query.setModel(targetModel || undefined);
       runtime.currentModel = targetModel;
+      runtime.modelId = requestContext.modelId || null;
     } catch (error) {
       console.error('[DAEMON] setModel failed:', error.message);
     }

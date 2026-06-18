@@ -1,5 +1,6 @@
 package com.github.claudecodegui.notifications;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.intellij.openapi.Disposable;
@@ -27,10 +28,10 @@ public class ClaudeStatusBarWidget implements CustomStatusBarWidget, StatusBarWi
     private final AtomicLong visibleUntil = new AtomicLong(0);
 
     // Thread-safe state for display
-    private final AtomicReference<String> currentStatus = new AtomicReference<>("ready");
+    private final AtomicReference<String> currentStatus = new AtomicReference<>(CommonConstants.SESSION_STATUS_READY);
     private final AtomicReference<String> currentTokenInfo = new AtomicReference<>("");
     private final AtomicReference<String> currentModel = new AtomicReference<>("");
-    private final AtomicReference<String> currentMode = new AtomicReference<>("default");
+    private final AtomicReference<String> currentMode = new AtomicReference<>(CommonConstants.PERMISSION_MODE_DEFAULT);
     private final AtomicReference<String> currentAgent = new AtomicReference<>("");
 
     // Timer management for proper resource cleanup
@@ -133,22 +134,22 @@ public class ClaudeStatusBarWidget implements CustomStatusBarWidget, StatusBarWi
         String tokenInfo = currentTokenInfo.get();
 
         String icon = switch (status) {
-            case "thinking" -> "💭";
-            case "generating" -> "✏️";
-            case "waiting" -> "⏳";
-            case "success" -> "✓";
-            case "error" -> "✗";
+            case CommonConstants.SESSION_STATUS_THINKING -> "💭";
+            case CommonConstants.SESSION_STATUS_GENERATING -> "✏️";
+            case CommonConstants.SESSION_STATUS_WAITING -> "⏳";
+            case CommonConstants.SESSION_STATUS_SUCCESS -> "✓";
+            case CommonConstants.SESSION_STATUS_ERROR -> "✗";
             default -> "🤖";
         };
 
         String statusText = "";
-        if ("thinking".equals(status)) {
+        if (CommonConstants.SESSION_STATUS_THINKING.equals(status)) {
             statusText = ClaudeCodeGuiBundle.message("status.thinking");
-        } else if ("generating".equals(status)) {
+        } else if (CommonConstants.SESSION_STATUS_GENERATING.equals(status)) {
             statusText = ClaudeCodeGuiBundle.message("status.generating");
-        } else if ("waiting".equals(status)) {
+        } else if (CommonConstants.SESSION_STATUS_WAITING.equals(status)) {
             statusText = ClaudeCodeGuiBundle.message("status.waiting");
-        } else if ("error".equals(status)) {
+        } else if (CommonConstants.SESSION_STATUS_ERROR.equals(status)) {
             statusText = ClaudeCodeGuiBundle.message("status.error");
         }
 
@@ -163,10 +164,10 @@ public class ClaudeStatusBarWidget implements CustomStatusBarWidget, StatusBarWi
         // Add Mode Info — always show mode, matching webview ModeSelect labels
         if (mode != null && !mode.isEmpty()) {
             String modeLabel = switch (mode) {
-                case "default" -> ClaudeCodeGuiBundle.message("status.mode.default");
-                case "plan" -> ClaudeCodeGuiBundle.message("status.mode.plan");
-                case "acceptEdits" -> ClaudeCodeGuiBundle.message("status.mode.acceptEdits");
-                case "bypassPermissions" -> ClaudeCodeGuiBundle.message("status.mode.bypassPermissions");
+                case CommonConstants.PERMISSION_MODE_DEFAULT -> ClaudeCodeGuiBundle.message("status.mode.default");
+                case CommonConstants.PERMISSION_MODE_PLAN -> ClaudeCodeGuiBundle.message("status.mode.plan");
+                case CommonConstants.PERMISSION_MODE_ACCEPT_EDITS -> ClaudeCodeGuiBundle.message("status.mode.acceptEdits");
+                case CommonConstants.PERMISSION_MODE_BYPASS -> ClaudeCodeGuiBundle.message("status.mode.bypassPermissions");
                 default -> mode;
             };
             text.append(" {").append(modeLabel).append("}");

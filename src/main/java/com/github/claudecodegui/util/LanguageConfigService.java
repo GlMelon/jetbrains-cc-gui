@@ -7,6 +7,7 @@ import com.intellij.openapi.diagnostic.Logger;
 
 import java.io.IOException;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -21,6 +22,27 @@ public class LanguageConfigService {
             "zh", "en", "zh-TW", "hi", "es", "fr", "ja", "ru", "ko", "pt-BR"
     );
 
+    // 语言/国家码常量：用于逻辑判断与 fallback 默认值。
+    // 注意：SUPPORTED_LANGUAGES 内的字面量是校验数据集（数据声明，非逻辑分支），保持原样。
+    private static final String LANG_EN = "en";
+    private static final String LANG_ZH = "zh";
+    private static final String LANG_ZH_TW = "zh-TW";
+    private static final String LANG_PT_BR = "pt-BR";
+    private static final String COUNTRY_TW = "TW";
+    private static final String COUNTRY_HK = "HK";
+
+    /** IDEA 语言码 → i18n 语言码直接映射（"zh" 简繁特殊处理在 mapIdeaLocaleToI18n 单独保留）。 */
+    private static final Map<String, String> IDEA_LANG_TO_I18N = Map.of(
+            "en", LANG_EN,
+            "hi", "hi",
+            "es", "es",
+            "fr", "fr",
+            "ja", "ja",
+            "ru", "ru",
+            "ko", "ko",
+            "pt", LANG_PT_BR
+    );
+
     /**
      * Map IDEA locale codes to i18n-supported language codes.
      * IDEA locale format: zh_CN, en, ja, ko, etc.
@@ -31,36 +53,29 @@ public class LanguageConfigService {
      */
     private static String mapIdeaLocaleToI18n(Locale ideaLocale) {
         if (ideaLocale == null) {
-            return "en";  // default to English
+            return LANG_EN;  // default to English
         }
 
         String language = ideaLocale.getLanguage();
         String country = ideaLocale.getCountry();
 
-        // Special handling for Chinese: distinguish Simplified and Traditional
-        if ("zh".equals(language)) {
-            if ("TW".equals(country) || "HK".equals(country)) {
-                return "zh-TW";  // Traditional Chinese
+        // 中文特殊处理：区分简体/繁体
+        if (LANG_ZH.equals(language)) {
+            if (COUNTRY_TW.equals(country) || COUNTRY_HK.equals(country)) {
+                return LANG_ZH_TW;  // 繁体中文
             }
-            return "zh";  // Simplified Chinese
+            return LANG_ZH;  // 简体中文
         }
 
-        // Direct mapping for other languages
-        return switch (language) {
-            case "en" -> "en";
-            case "hi" -> "hi";
-            case "es" -> "es";
-            case "fr" -> "fr";
-            case "ja" -> "ja";
-            case "ru" -> "ru";
-            case "ko" -> "ko";
-            case "pt" -> "pt-BR";  // Portuguese -> Brazilian Portuguese
-            default -> {
-                // Unsupported language, fall back to English
-                LOG.info("[LanguageConfig] Unsupported language '" + language + "', falling back to English");
-                yield "en";
-            }
-        };
+        // 其他语言通过映射表直接查找
+        String mapped = IDEA_LANG_TO_I18N.get(language);
+        if (mapped != null) {
+            return mapped;
+        }
+
+        // 不支持的语言，回退到英文
+        LOG.info("[LanguageConfig] Unsupported language '" + language + "', falling back to English");
+        return LANG_EN;
     }
 
     /**
@@ -151,9 +166,9 @@ public class LanguageConfigService {
 
         } catch (Exception e) {
             // Fall back to English on exception
-            config.addProperty("language", "en");
+            config.addProperty("language", LANG_EN);
             config.addProperty("source", "fallback");
-            config.addProperty("ideaLocale", "en");
+            config.addProperty("ideaLocale", LANG_EN);
             LOG.error("[LanguageConfig] Failed to get language config, using default (en): " + e.getMessage(), e);
         }
 
@@ -184,7 +199,7 @@ public class LanguageConfigService {
             return mapIdeaLocaleToI18n(currentLocale);
         } catch (Exception e) {
             LOG.error("[LanguageConfig] Failed to get current language: " + e.getMessage());
-            return "en";
+            return LANG_EN;
         }
     }
 }

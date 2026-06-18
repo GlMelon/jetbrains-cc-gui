@@ -1,5 +1,6 @@
 package com.github.claudecodegui.ui;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.session.ClaudeSession;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.handler.AgentHandler;
@@ -60,10 +61,41 @@ public class ChatWindowDelegate {
 
 
     public enum TabAnswerStatus {
-        IDLE,
-        QUEUED,
-        PROCESSING,
-        COMPLETED
+        IDLE("idle"),
+        QUEUED("queued"),
+        PROCESSING("processing"),
+        COMPLETED("completed");
+
+        private final String value;
+
+        TabAnswerStatus(String value) {
+            this.value = value;
+        }
+
+        public String value() {
+            return value;
+        }
+
+        /**
+         * 前端传入的 tab 状态字符串映射到枚举值。
+         * processing 与 answering 均归为 PROCESSING；未知/null 归为 IDLE。
+         */
+        public static TabAnswerStatus fromValue(String str) {
+            if (str == null) {
+                return IDLE;
+            }
+            switch (str) {
+                case "queued":
+                    return QUEUED;
+                case "processing":
+                case "answering":
+                    return PROCESSING;
+                case "completed":
+                    return COMPLETED;
+                default:
+                    return IDLE;
+            }
+        }
     }
 
     public interface DelegateHost {
@@ -293,23 +325,7 @@ public class ChatWindowDelegate {
                 }
             }
             @Override public void onTabStatusChanged(String statusStr) {
-                TabAnswerStatus status;
-                switch (statusStr) {
-                    case "queued":
-                        status = TabAnswerStatus.QUEUED;
-                        break;
-                    case "processing":
-                    case "answering":
-                        status = TabAnswerStatus.PROCESSING;
-                        break;
-                    case "completed":
-                        status = TabAnswerStatus.COMPLETED;
-                        break;
-                    default:
-                        status = TabAnswerStatus.IDLE;
-                        break;
-                }
-                updateTabStatus(status);
+                updateTabStatus(TabAnswerStatus.fromValue(statusStr));
             }
             @Override public void onCreateNewSession() {
                 host.getSessionLifecycleManager().createNewSession();
@@ -340,10 +356,10 @@ public class ChatWindowDelegate {
             if (project == null || host.isDisposed()) { return; }
 
             ClaudeSession session = host.getSession();
-            String mode = session != null ? session.getPermissionMode() : "default";
+            String mode = session != null ? session.getPermissionMode() : CommonConstants.PERMISSION_MODE_DEFAULT;
             com.github.claudecodegui.notifications.ClaudeNotifier.setMode(project, mode);
 
-            String model = session != null ? session.getModel() : "claude-sonnet-4-6";
+            String model = session != null ? session.getModel() : HandlerContext.DEFAULT_MODEL;
             com.github.claudecodegui.notifications.ClaudeNotifier.setModel(project, model);
 
             try {

@@ -5,6 +5,7 @@ import com.github.claudecodegui.cli.CliSession;
 import com.github.claudecodegui.cli.CliSessionCallback;
 import com.github.claudecodegui.cli.CliSessionExecutor;
 import com.github.claudecodegui.cli.common.*;
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.session.runtime.CodexCliResolver;
 import com.github.claudecodegui.ui.toolwindow.TabPerformanceLogger;
 import com.github.claudecodegui.util.GsonHolder;
@@ -335,7 +336,7 @@ public class CodexCliSession implements CliSession {
             }
 
             switch (type) {
-                case "thread.started" -> {
+                case CliConstants.CODEX_EVENT_THREAD_STARTED -> {
                     String id = getString(event, "thread_id");
                     if (id != null) {
                         threadId = id;
@@ -345,22 +346,22 @@ public class CodexCliSession implements CliSession {
                     callback.onMessage(CliConstants.MSG_STREAM_START, "");
                     callback.onMessage(CliConstants.MSG_MESSAGE_START, "");
                 }
-                case "turn.started" -> {
+                case CliConstants.CODEX_EVENT_TURN_STARTED -> {
                     lastSegmentKind = SegmentKind.NONE;
                     callback.onMessage(CliConstants.MSG_MESSAGE_START, "");
                 }
-                case "item.started", "item.updated", "item.completed" -> {
+                case CliConstants.CODEX_EVENT_ITEM_STARTED, CliConstants.CODEX_EVENT_ITEM_UPDATED, CliConstants.CODEX_EVENT_ITEM_COMPLETED -> {
                     if (event.has("item") && event.get("item").isJsonObject()) {
                         JsonObject item = event.getAsJsonObject("item");
                         handleItem(type, item, callback, assistantContent);
                     }
                 }
-                case "response_item" -> {
+                case CliConstants.CODEX_EVENT_RESPONSE_ITEM -> {
                     if (event.has("payload") && event.get("payload").isJsonObject()) {
                         handleResponseItem(event.getAsJsonObject("payload"), callback);
                     }
                 }
-                case "turn.completed" -> {
+                case CliConstants.CODEX_EVENT_TURN_COMPLETED -> {
                     turnCompleted = true;
                     flushPendingAgentMessageAsContent(callback, assistantContent);
                     if (event.has("usage") && event.get("usage").isJsonObject()) {
@@ -368,7 +369,7 @@ public class CodexCliSession implements CliSession {
                         callback.onMessage(CliConstants.MSG_RESULT, buildUsageResultMessage(event.getAsJsonObject("usage")).toString());
                     }
                 }
-                case "turn.failed" -> {
+                case CliConstants.CODEX_EVENT_TURN_FAILED -> {
                     String msg = extractErrorMessage(event, "Turn failed");
                     if (cliError != null) {
                         CliErrorFormatter.appendDiagnosticLine(cliError, msg);
@@ -376,7 +377,7 @@ public class CodexCliSession implements CliSession {
                         callback.onError(formatCodexError(msg, false));
                     }
                 }
-                case "error" -> {
+                case CliConstants.CODEX_EVENT_ERROR -> {
                     String msg = getString(event, "message");
                     if (msg == null) {
                         msg = event.toString();
@@ -441,10 +442,10 @@ public class CodexCliSession implements CliSession {
             return;
         }
         switch (itemType) {
-            case "reasoning" -> handleReasoningItem(item, callback);
-            case "agent_message" -> handleAgentMessageItem(item, callback, assistantContent);
-            case "command_execution" -> handleCommandExecutionItem(eventType, item, callback);
-            case "mcp_tool_call" -> handleMcpToolCallItem(eventType, item, callback);
+            case CliConstants.CODEX_ITEM_REASONING -> handleReasoningItem(item, callback);
+            case CliConstants.CODEX_ITEM_AGENT_MESSAGE -> handleAgentMessageItem(item, callback, assistantContent);
+            case CliConstants.CODEX_ITEM_COMMAND_EXECUTION -> handleCommandExecutionItem(eventType, item, callback);
+            case CliConstants.CODEX_ITEM_MCP_TOOL_CALL -> handleMcpToolCallItem(eventType, item, callback);
             default -> {
             }
         }
@@ -467,7 +468,7 @@ public class CodexCliSession implements CliSession {
         markSegment(callback, SegmentKind.THINKING);
         // 首次遇到该 reasoning item 时发送 thinking 开始信号
         if (emittedThinkingStartIds.add(id)) {
-            callback.onMessage(CliConstants.MSG_THINKING, "");
+            callback.onMessage(CommonConstants.MSG_TYPE_THINKING, "");
         }
         String previous = reasoningTextByItemId.getOrDefault(id, "");
         String delta = appendedDelta(previous, text);
@@ -557,9 +558,9 @@ public class CodexCliSession implements CliSession {
             return;
         }
         switch (payloadType) {
-            case "function_call" -> handleFunctionCallPayload(payload, callback);
-            case "function_call_output" -> handleFunctionCallOutputPayload(payload, callback);
-            case "custom_tool_call" -> handleCustomToolCallPayload(payload, callback);
+            case CliConstants.CODEX_PAYLOAD_FUNCTION_CALL -> handleFunctionCallPayload(payload, callback);
+            case CliConstants.CODEX_PAYLOAD_FUNCTION_CALL_OUTPUT -> handleFunctionCallOutputPayload(payload, callback);
+            case CliConstants.CODEX_PAYLOAD_CUSTOM_TOOL_CALL -> handleCustomToolCallPayload(payload, callback);
             default -> {
             }
         }
@@ -627,7 +628,7 @@ public class CodexCliSession implements CliSession {
             markSegment(callback, SegmentKind.TEXT);
             callback.onMessage(CliConstants.MSG_CONTENT_DELTA, delta);
         }
-        callback.onMessage(CliConstants.MSG_ASSISTANT, buildAssistantMessage(text).toString());
+        callback.onMessage(CommonConstants.MSG_TYPE_ASSISTANT, buildAssistantMessage(text).toString());
     }
 
     /**
@@ -655,7 +656,7 @@ public class CodexCliSession implements CliSession {
             return;
         }
         markSegment(callback, SegmentKind.THINKING);
-        callback.onMessage(CliConstants.MSG_THINKING, "");
+        callback.onMessage(CommonConstants.MSG_TYPE_THINKING, "");
         callback.onMessage(CliConstants.MSG_THINKING_DELTA, text);
     }
 
@@ -739,14 +740,14 @@ public class CodexCliSession implements CliSession {
         if (!emittedToolUseIds.add(id)) {
             return;
         }
-        callback.onMessage(CliConstants.MSG_ASSISTANT, buildToolUseMessage(id, name, input).toString());
+        callback.onMessage(CommonConstants.MSG_TYPE_ASSISTANT, buildToolUseMessage(id, name, input).toString());
     }
 
     private void emitToolResultOnce(CliSessionCallback callback, String id, boolean isError, String content) {
         if (!emittedToolResultIds.add(id)) {
             return;
         }
-        callback.onMessage(CliConstants.MSG_USER, buildToolResultMessage(id, isError, content).toString());
+        callback.onMessage(CommonConstants.MSG_TYPE_USER, buildToolResultMessage(id, isError, content).toString());
     }
 
     private JsonObject parseFunctionCallArguments(JsonObject payload) {
@@ -979,7 +980,7 @@ public class CodexCliSession implements CliSession {
                 for (JsonElement element : content) {
                     if (element.isJsonObject()) {
                         JsonObject block = element.getAsJsonObject();
-                        if ("text".equals(getString(block, "type"))) {
+                        if (CommonConstants.BLOCK_TYPE_TEXT.equals(getString(block, "type"))) {
                             String text = getString(block, "text");
                             if (text != null && !text.isBlank()) {
                                 parts.add(text);
@@ -1016,7 +1017,7 @@ public class CodexCliSession implements CliSession {
 
     private static boolean isItemError(JsonObject item) {
         String status = getString(item, "status");
-        if (status != null && ("failed".equalsIgnoreCase(status) || "error".equalsIgnoreCase(status))) {
+        if (status != null && (CliConstants.CODEX_STATUS_FAILED.equalsIgnoreCase(status) || CliConstants.CODEX_STATUS_ERROR.equalsIgnoreCase(status))) {
             return true;
         }
         if (item.has("is_error") && item.get("is_error").isJsonPrimitive() && item.get("is_error").getAsBoolean()) {

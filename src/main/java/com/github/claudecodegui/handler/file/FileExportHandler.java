@@ -1,5 +1,6 @@
 package com.github.claudecodegui.handler.file;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.core.BaseMessageHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.util.GsonHolder;
@@ -43,11 +44,11 @@ public class FileExportHandler extends BaseMessageHandler {
 
     @Override
     public boolean handle(String type, String content) {
-        if ("save_markdown".equals(type)) {
+        if (CommonConstants.REQUEST_TYPE_SAVE_MARKDOWN.equals(type)) {
             LOG.info("[FileExportHandler] 处理: save_markdown");
             handleSaveFile(content, ".md", com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("file.saveMarkdownDialog"));
             return true;
-        } else if ("save_json".equals(type)) {
+        } else if (CommonConstants.REQUEST_TYPE_SAVE_JSON.equals(type)) {
             LOG.info("[FileExportHandler] 处理: save_json");
             handleSaveFile(content, ".json", com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("file.saveJsonDialog"));
             return true;

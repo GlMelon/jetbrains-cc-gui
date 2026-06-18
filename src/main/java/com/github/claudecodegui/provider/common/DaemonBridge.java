@@ -212,7 +212,7 @@ public class DaemonBridge {
             if (daemonStdin != null) {
                 JsonObject shutdown = new JsonObject();
                 shutdown.addProperty("id", "shutdown");
-                shutdown.addProperty("method", "shutdown");
+                shutdown.addProperty("method", DaemonConstants.METHOD_SHUTDOWN);
                 synchronized (daemonStdin) {
                     daemonStdin.write(shutdown.toString());
                     daemonStdin.newLine();
@@ -276,7 +276,7 @@ public class DaemonBridge {
             if (daemonStdin != null && isRunning.get()) {
                 JsonObject abort = new JsonObject();
                 abort.addProperty("id", "abort-" + System.currentTimeMillis());
-                abort.addProperty("method", "abort");
+                abort.addProperty("method", DaemonConstants.METHOD_ABORT);
                 if (channelId != null && !channelId.isBlank()) {
                     abort.addProperty("channelId", channelId);
                 }
@@ -361,7 +361,7 @@ public class DaemonBridge {
 
         String requestId = String.valueOf(requestIdCounter.incrementAndGet());
         CompletableFuture<Boolean> future = new CompletableFuture<>();
-        boolean countsAsActiveRequest = !"heartbeat".equals(method) && !"status".equals(method);
+        boolean countsAsActiveRequest = !DaemonConstants.METHOD_HEARTBEAT.equals(method) && !DaemonConstants.METHOD_STATUS.equals(method);
 
         String channelId = extractChannelId(params);
         RequestHandler handler = new RequestHandler(requestId, channelId, callback, future);
@@ -470,7 +470,7 @@ public class DaemonBridge {
                     // Send heartbeat
                     JsonObject hb = new JsonObject();
                     hb.addProperty("id", "hb-" + System.currentTimeMillis());
-                    hb.addProperty("method", "heartbeat");
+                    hb.addProperty("method", DaemonConstants.METHOD_HEARTBEAT);
                     synchronized (daemonStdin) {
                         daemonStdin.write(hb.toString());
                         daemonStdin.newLine();
@@ -511,19 +511,19 @@ public class DaemonBridge {
             if (obj.has("type")) {
                 String type = obj.get("type").getAsString();
 
-                if ("daemon".equals(type)) {
+                if (DaemonConstants.TYPE_DAEMON.equals(type)) {
                     handleDaemonEvent(obj);
                     return;
                 }
 
-                if ("heartbeat".equals(type)) {
+                if (DaemonConstants.TYPE_HEARTBEAT.equals(type)) {
                     // Heartbeat response — daemon is alive
                     lastHeartbeatResponse.set(System.currentTimeMillis());
                     markDaemonActivity();
                     return;
                 }
 
-                if ("status".equals(type)) {
+                if (DaemonConstants.TYPE_STATUS.equals(type)) {
                     // Status response
                     return;
                 }
@@ -571,11 +571,11 @@ public class DaemonBridge {
     }
 
     private void handleDaemonEvent(JsonObject obj) {
-        String event = obj.has("event") ? obj.get("event").getAsString() : "unknown";
+        String event = obj.has("event") ? obj.get("event").getAsString() : DaemonConstants.UNKNOWN;
         LOG.info("[DaemonBridge] Daemon event: " + event);
 
         switch (event) {
-            case "ready":
+            case DaemonConstants.EVENT_READY:
                 if (obj.has("sdkPreloaded")) {
                     sdkPreloaded.set(obj.get("sdkPreloaded").getAsBoolean());
                 }
@@ -585,24 +585,24 @@ public class DaemonBridge {
                 }
                 break;
 
-            case "sdk_loaded":
+            case DaemonConstants.EVENT_SDK_LOADED:
                 sdkPreloaded.set(true);
                 LOG.info("[DaemonBridge] SDK pre-loaded successfully");
                 break;
 
-            case "sdk_load_error":
-                String error = obj.has("error") ? obj.get("error").getAsString() : "unknown";
+            case DaemonConstants.EVENT_SDK_LOAD_ERROR:
+                String error = obj.has("error") ? obj.get("error").getAsString() : DaemonConstants.UNKNOWN;
                 LOG.warn("[DaemonBridge] SDK pre-load failed: " + error);
                 break;
 
-            case "shutdown":
+            case DaemonConstants.EVENT_SHUTDOWN:
                 LOG.info("[DaemonBridge] Daemon shutting down");
                 break;
 
-            case "title_log": {
-                String titleLevel = obj.has("level") ? obj.get("level").getAsString() : "info";
+            case DaemonConstants.EVENT_TITLE_LOG: {
+                String titleLevel = obj.has("level") ? obj.get("level").getAsString() : DaemonConstants.LEVEL_INFO;
                 String titleMsg = obj.has("message") ? obj.get("message").getAsString() : "";
-                if ("error".equals(titleLevel) || "warn".equals(titleLevel)) {
+                if (DaemonConstants.LEVEL_ERROR.equals(titleLevel) || DaemonConstants.LEVEL_WARN.equals(titleLevel)) {
                     LOG.warn("[TitleService] " + titleMsg);
                 } else {
                     LOG.info("[TitleService] " + titleMsg);
@@ -610,7 +610,7 @@ public class DaemonBridge {
                 break;
             }
 
-            case "title_generated": {
+            case DaemonConstants.EVENT_TITLE_GENERATED: {
                 LOG.info("[DaemonBridge] AI title generated: sessionId="
                         + (obj.has("sessionId") ? obj.get("sessionId").getAsString() : "?")
                         + ", title=" + (obj.has("title") ? obj.get("title").getAsString() : "?"));
@@ -618,13 +618,13 @@ public class DaemonBridge {
                 break;
             }
 
-            case "queue_waiting":
-            case "queue_started":
-            case "queue_cleared": {
+            case DaemonConstants.EVENT_QUEUE_WAITING:
+            case DaemonConstants.EVENT_QUEUE_STARTED:
+            case DaemonConstants.EVENT_QUEUE_CLEARED: {
                 String requestId = obj.has("requestId") ? obj.get("requestId").getAsString() : null;
-                if ("queue_started".equals(event) && requestId != null) {
+                if (DaemonConstants.EVENT_QUEUE_STARTED.equals(event) && requestId != null) {
                     activeRequestId.set(requestId);
-                } else if ("queue_cleared".equals(event) && requestId != null) {
+                } else if (DaemonConstants.EVENT_QUEUE_CLEARED.equals(event) && requestId != null) {
                     clearActiveRequestId(requestId);
                 }
                 if (requestId != null) {
@@ -637,7 +637,7 @@ public class DaemonBridge {
                 break;
             }
 
-            case "session_updated": {
+            case DaemonConstants.EVENT_SESSION_UPDATED: {
                 // Extract and validate sessionId
                 String sessionId = obj.has("sessionId") ? obj.get("sessionId").getAsString() : null;
                 if (sessionId == null || sessionId.isEmpty()) {

@@ -14,8 +14,8 @@ test('resolvePromptEnhancerRuntimeConfig prefers Codex when auto mode has both p
       effectiveProvider: 'codex',
       resolutionSource: 'auto',
       models: {
-        claude: 'claude-sonnet-4-6',
-        codex: 'gpt-5.5',
+        claude: 'claude-role-sonnet',
+        codex: '',
       },
       availability: {
         claude: true,
@@ -25,7 +25,7 @@ test('resolvePromptEnhancerRuntimeConfig prefers Codex when auto mode has both p
   });
 
   assert.equal(resolved.provider, 'codex');
-  assert.equal(resolved.model, 'gpt-5.5');
+  assert.equal(resolved.model, '');
 });
 
 test('resolvePromptEnhancerRuntimeConfig throws a strict error when manual provider is unavailable', () => {

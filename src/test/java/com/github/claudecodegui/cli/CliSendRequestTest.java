@@ -24,6 +24,7 @@ public class CliSendRequestTest {
                 null,
                 "acceptEdits",
                 "claude-sonnet-4-6",
+                null,
                 "high",
                 "permission-session-123",
                 Map.of()
@@ -46,6 +47,7 @@ public class CliSendRequestTest {
                 null,
                 "default",
                 "gpt-5.3-codex",
+                null,
                 "high",
                 null,
                 Map.of()

@@ -1,5 +1,6 @@
 package com.github.claudecodegui.handler.history;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.NodeJsServiceCaller;
 import com.github.claudecodegui.handler.core.HandlerContext;
 
@@ -179,7 +180,7 @@ class HistoryDeleteService {
             LOG.warn("[HistoryHandler] Delete session rejected: invalid sessionId");
             return new DeleteResult(false, 0);
         }
-        if ("codex".equals(currentProvider)) {
+        if (CommonConstants.PROVIDER_CODEX.equals(currentProvider)) {
             return new DeleteResult(deleteCodexSession(sessionId), 0);
         }
 
@@ -304,7 +305,7 @@ class HistoryDeleteService {
     private void cleanupCache(String currentProvider) {
         try {
             String projectPath = context.getProject().getBasePath();
-            if ("codex".equals(currentProvider)) {
+            if (CommonConstants.PROVIDER_CODEX.equals(currentProvider)) {
                 SessionIndexCache.getInstance().clearAllCodexCache();
                 SessionIndexManager.getInstance().clearAllCodexIndex();
             } else if (projectPath != null) {

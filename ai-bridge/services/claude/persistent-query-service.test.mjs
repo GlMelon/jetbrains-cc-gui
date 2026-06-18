@@ -78,6 +78,37 @@ function createQueryFactory() {
   };
 }
 
+function createModelTrackingQueryFactory() {
+  const runtimes = [];
+  return {
+    runtimes,
+    queryFn({ prompt, options }) {
+      const reader = createBlockingNext();
+      const runtime = {
+        prompt,
+        options,
+        closed: false,
+        setModelCalls: [],
+        setPermissionMode: async () => {},
+        setModel: async (model) => {
+          runtime.setModelCalls.push(model || null);
+          runtime.currentModel = model || null;
+        },
+        setMaxThinkingTokens: async () => {},
+        close() {
+          this.closed = true;
+          reader.markClosed();
+        },
+        next() {
+          return reader.next();
+        },
+      };
+      runtimes.push(runtime);
+      return runtime;
+    },
+  };
+}
+
 /**
  * Create a query factory that returns next() results in sequence.
  * @param {Array<(() => Promise<{done: boolean, value?: any}>) | {done: boolean, value?: any}>} steps
@@ -255,6 +286,35 @@ test('restore-history continuation keeps runtime bound to restored session after
 
   assert.equal(restoredRuntime, restoredRuntimeAgain);
   assert.equal(__testing.getRuntimeForSession('hist-restore'), restoredRuntime);
+});
+
+test('session runtime switches when actual model changes within same SDK role bucket', async () => {
+  const factory = createModelTrackingQueryFactory();
+  __testing.setQueryFn(factory.queryFn);
+
+  const firstContext = await __testing.buildRequestContext({
+    sessionId: 'same-role-model-switch',
+    runtimeSessionEpoch: 'epoch-model-switch',
+    cwd: process.cwd(),
+    message: 'first',
+    model: 'glm-5.2',
+    actualModel: 'glm-5.2',
+  }, false, { settings: { env: {} } });
+  const runtime = await __testing.acquireRuntime(firstContext);
+
+  const secondContext = await __testing.buildRequestContext({
+    sessionId: 'same-role-model-switch',
+    runtimeSessionEpoch: 'epoch-model-switch',
+    cwd: process.cwd(),
+    message: 'second',
+    model: 'mimo-v2.5',
+    actualModel: 'mimo-v2.5',
+  }, false, { settings: { env: {} } });
+  const reusedRuntime = await __testing.acquireRuntime(secondContext);
+
+  assert.equal(reusedRuntime, runtime);
+  assert.deepEqual(factory.runtimes[0].setModelCalls, ['mimo-v2.5']);
+  assert.equal(reusedRuntime.currentModel, 'mimo-v2.5');
 });
 
 test('active session runtime is not disposed by idle cleanup while a turn is executing', async () => {

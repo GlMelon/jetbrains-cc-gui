@@ -1,5 +1,6 @@
 package com.github.claudecodegui.util;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.SettingsHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.session.ClaudeSession;
@@ -116,7 +117,7 @@ public class MessageJsonConverter {
             if (!block.has("type") || block.get("type").isJsonNull()) { continue; }
             String blockType = block.get("type").getAsString();
             // Check tool_result blocks for oversized content
-            if ("tool_result".equals(blockType)) {
+            if (CommonConstants.BLOCK_TYPE_TOOL_RESULT.equals(blockType)) {
                 if (!block.has("content") || block.get("content").isJsonNull()) { continue; }
                 JsonElement c = block.get("content");
                 if (c.isJsonPrimitive() && c.getAsJsonPrimitive().isString()) {
@@ -127,7 +128,7 @@ public class MessageJsonConverter {
                 }
             }
             // Check text blocks for oversized error content
-            if ("text".equals(blockType) && block.has("text") && !block.get("text").isJsonNull()) {
+            if (CommonConstants.BLOCK_TYPE_TEXT.equals(blockType) && block.has("text") && !block.get("text").isJsonNull()) {
                 JsonElement t = block.get("text");
                 if (t.isJsonPrimitive() && t.getAsJsonPrimitive().isString()) {
                     String s = t.getAsString();
@@ -157,7 +158,7 @@ public class MessageJsonConverter {
             if (!block.has("type") || block.get("type").isJsonNull()) { continue; }
             String blockType = block.get("type").getAsString();
             // Truncate oversized tool_result content
-            if ("tool_result".equals(blockType)) {
+            if (CommonConstants.BLOCK_TYPE_TOOL_RESULT.equals(blockType)) {
                 if (!block.has("content") || block.get("content").isJsonNull()) { continue; }
                 JsonElement c = block.get("content");
                 if (c.isJsonPrimitive() && c.getAsJsonPrimitive().isString()) {
@@ -173,7 +174,7 @@ public class MessageJsonConverter {
                 }
             }
             // Truncate error content in text blocks
-            if ("text".equals(blockType) && block.has("text") && !block.get("text").isJsonNull()) {
+            if (CommonConstants.BLOCK_TYPE_TEXT.equals(blockType) && block.has("text") && !block.get("text").isJsonNull()) {
                 JsonElement t = block.get("text");
                 if (t.isJsonPrimitive() && t.getAsJsonPrimitive().isString()) {
                     String s = t.getAsString();

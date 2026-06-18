@@ -442,7 +442,7 @@ function handleSendError(error, streamState, sdkStderrLines) {
  * @param {string} agentPrompt - Agent prompt (optional)
  * @param {boolean} streaming - Whether to enable streaming (optional, defaults to config value)
  */
-export async function sendMessage(message, resumeSessionId = null, cwd = null, permissionMode = null, model = null, openedFiles = null, agentPrompt = null, streaming = null, disableThinking = false, reasoningEffort = null) {
+export async function sendMessage(message, resumeSessionId = null, cwd = null, permissionMode = null, model = null, actualModel = null, openedFiles = null, agentPrompt = null, streaming = null, disableThinking = false, reasoningEffort = null) {
   console.log('[DIAG] ========== sendMessage() START ==========');
   console.log('[DIAG] params:', { msgLen: message ? message.length : 0, resumeSessionId: resumeSessionId || '(new)', cwd, permissionMode, model });
 
@@ -463,7 +463,7 @@ export async function sendMessage(message, resumeSessionId = null, cwd = null, p
 
     const sdkModelName = mapModelIdToSdkName(model);
     const settings = loadClaudeSettings();
-    const resolvedModel = resolveModelFromSettings(model, settings?.env);
+    const resolvedModel = resolveModelFromSettings(model, settings?.env, actualModel);
     console.log('[DEBUG] Model:', model, '->', sdkModelName, '(API:', resolvedModel + ')');
     setModelEnvironmentVariables(resolvedModel, model);
 
@@ -533,7 +533,8 @@ export async function sendMessageWithAttachments(message, resumeSessionId = null
 
     const sdkModelName = mapModelIdToSdkName(model);
     const settings = loadClaudeSettings();
-    const resolvedAttachModel = resolveModelFromSettings(model, settings?.env);
+    const actualModel = stdinData?.actualModel || null;
+    const resolvedAttachModel = resolveModelFromSettings(model, settings?.env, actualModel);
     console.log('[DEBUG] (withAttachments) Model:', model, '->', resolvedAttachModel);
     setModelEnvironmentVariables(resolvedAttachModel, model);
 

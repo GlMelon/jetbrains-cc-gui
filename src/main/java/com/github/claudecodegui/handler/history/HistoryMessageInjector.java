@@ -1,5 +1,7 @@
 package com.github.claudecodegui.handler.history;
 
+import com.github.claudecodegui.cli.common.CliConstants;
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.handler.CodexMessageConverter;
 import com.github.claudecodegui.handler.core.HandlerContext;
@@ -75,7 +77,7 @@ public class HistoryMessageInjector {
         LOG.info("[HistoryHandler] Loading history session: " + resolvedSessionId
                 + " from project: " + projectPath + ", provider: " + provider);
 
-        if ("codex".equals(provider)) {
+        if (CommonConstants.PROVIDER_CODEX.equals(provider)) {
             // Codex session: read session info and restore session state
             loadCodexSession(resolvedSessionId);
         } else {
@@ -155,7 +157,7 @@ public class HistoryMessageInjector {
 
         for (int i = 0; i < messages.size(); i++) {
             JsonObject msg = messages.get(i).getAsJsonObject();
-            if (msg.has("type") && "session_meta".equals(msg.get("type").getAsString())) {
+            if (msg.has("type") && CliConstants.CODEX_MSG_SESSION_META.equals(msg.get("type").getAsString())) {
                 if (msg.has("payload")) {
                     JsonObject payload = msg.getAsJsonObject("payload");
                     if (payload.has("cwd")) {
@@ -269,7 +271,7 @@ public class HistoryMessageInjector {
                 continue;
             }
             JsonObject block = element.getAsJsonObject();
-            if (block.has("type") && "image".equals(block.get("type").getAsString())) {
+            if (block.has("type") && CommonConstants.BLOCK_TYPE_IMAGE.equals(block.get("type").getAsString())) {
                 return true;
             }
         }
@@ -286,7 +288,7 @@ public class HistoryMessageInjector {
                 continue;
             }
             JsonObject block = element.getAsJsonObject();
-            if (block.has("type") && "tool_result".equals(block.get("type").getAsString())) {
+            if (block.has("type") && CommonConstants.BLOCK_TYPE_TOOL_RESULT.equals(block.get("type").getAsString())) {
                 return true;
             }
         }
@@ -336,7 +338,7 @@ public class HistoryMessageInjector {
     }
 
     private static boolean isUserMessage(JsonObject message) {
-        return "user".equals(getStringProperty(message, "type"));
+        return CommonConstants.MSG_TYPE_USER.equals(getStringProperty(message, "type"));
     }
 
     private static String getStringProperty(JsonObject object, String propertyName) {
@@ -388,22 +390,9 @@ public class HistoryMessageInjector {
         }
 
         String type = frontendMsg.get("type").getAsString();
-        ClaudeSession.Message.Type messageType;
-        switch (type) {
-            case "user":
-                messageType = ClaudeSession.Message.Type.USER;
-                break;
-            case "assistant":
-                messageType = ClaudeSession.Message.Type.ASSISTANT;
-                break;
-            case "system":
-                messageType = ClaudeSession.Message.Type.SYSTEM;
-                break;
-            case "error":
-                messageType = ClaudeSession.Message.Type.ERROR;
-                break;
-            default:
-                return null;
+        ClaudeSession.Message.Type messageType = ClaudeSession.Message.Type.fromValue(type);
+        if (messageType == null) {
+            return null;
         }
 
         String content = frontendMsg.has("content") ? frontendMsg.get("content").getAsString() : "";
@@ -444,32 +433,32 @@ public class HistoryMessageInjector {
             return List.of();
         }
 
-        if ("provider_error".equals(type)) {
+        if (CliConstants.CODEX_MSG_PROVIDER_ERROR.equals(type)) {
             JsonObject converted = convertProviderErrorToFrontend(payload, timestamp);
             return converted == null ? List.of() : List.of(converted);
         }
 
         // Handle event_msg containing user_message
-        if ("event_msg".equals(type)) {
+        if (CliConstants.CODEX_MSG_EVENT_MSG.equals(type)) {
             JsonObject converted = convertEventMsgToFrontend(payload, timestamp);
             return converted == null ? List.of() : List.of(converted);
         }
 
         // Handle response_item (assistant messages, function calls, etc.)
-        if ("response_item".equals(type)) {
+        if (CliConstants.CODEX_EVENT_RESPONSE_ITEM.equals(type)) {
             if (!payload.has("type")) {
                 return List.of();
             }
             String payloadType = payload.get("type").getAsString();
 
             JsonObject converted = null;
-            if ("message".equals(payloadType)) {
+            if (CliConstants.CODEX_PAYLOAD_MESSAGE.equals(payloadType)) {
                 converted = CodexMessageConverter.convertCodexMessageToFrontend(payload, timestamp);
-            } else if ("function_call".equals(payloadType)) {
+            } else if (CliConstants.CODEX_PAYLOAD_FUNCTION_CALL.equals(payloadType)) {
                 converted = CodexMessageConverter.convertFunctionCallToToolUse(payload, timestamp);
-            } else if ("function_call_output".equals(payloadType)) {
+            } else if (CliConstants.CODEX_PAYLOAD_FUNCTION_CALL_OUTPUT.equals(payloadType)) {
                 converted = CodexMessageConverter.convertFunctionCallOutputToToolResult(payload, timestamp);
-            } else if ("custom_tool_call".equals(payloadType)) {
+            } else if (CliConstants.CODEX_PAYLOAD_CUSTOM_TOOL_CALL.equals(payloadType)) {
                 converted = CodexMessageConverter.convertCustomToolCallToToolUse(payload, timestamp);
             }
             return converted == null ? List.of() : List.of(converted);
@@ -544,7 +533,7 @@ public class HistoryMessageInjector {
         }
 
         String itemType = item.get("type").getAsString();
-        if ("agent_message".equals(itemType)) {
+        if (CliConstants.CODEX_ITEM_AGENT_MESSAGE.equals(itemType)) {
             String text = getString(item, "text");
             if (text == null || text.isBlank()) {
                 return List.of();
@@ -552,11 +541,11 @@ public class HistoryMessageInjector {
             return List.of(createTextAssistantMessage(text, timestamp));
         }
 
-        if ("command_execution".equals(itemType)) {
+        if (CliConstants.CODEX_ITEM_COMMAND_EXECUTION.equals(itemType)) {
             return convertCliCommandExecutionItem(eventType, item, timestamp, emittedToolUseIds);
         }
 
-        if ("mcp_tool_call".equals(itemType)) {
+        if (CliConstants.CODEX_ITEM_MCP_TOOL_CALL.equals(itemType)) {
             return convertCliMcpToolCallItem(eventType, item, timestamp, emittedToolUseIds);
         }
 
@@ -695,7 +684,7 @@ public class HistoryMessageInjector {
 
     private static boolean isCliItemError(JsonObject item) {
         String status = getString(item, "status");
-        if (status != null && ("failed".equalsIgnoreCase(status) || "error".equalsIgnoreCase(status))) {
+        if (status != null && (CliConstants.CODEX_STATUS_FAILED.equalsIgnoreCase(status) || CliConstants.CODEX_STATUS_ERROR.equalsIgnoreCase(status))) {
             return true;
         }
         if (item.has("is_error") && item.get("is_error").isJsonPrimitive() && item.get("is_error").getAsBoolean()) {
@@ -749,7 +738,7 @@ public class HistoryMessageInjector {
                         continue;
                     }
                     JsonObject block = element.getAsJsonObject();
-                    if ("text".equals(getString(block, "type"))) {
+                    if (CommonConstants.BLOCK_TYPE_TEXT.equals(getString(block, "type"))) {
                         String text = getString(block, "text");
                         if (text != null && !text.isBlank()) {
                             parts.add(text);
@@ -818,7 +807,7 @@ public class HistoryMessageInjector {
      * Convert event_msg with user_message payload to frontend format.
      */
     private static JsonObject convertEventMsgToFrontend(JsonObject payload, String timestamp) {
-        if (!payload.has("type") || !"user_message".equals(payload.get("type").getAsString())) {
+        if (!payload.has("type") || !CliConstants.CODEX_PAYLOAD_USER_MESSAGE.equals(payload.get("type").getAsString())) {
             return null;
         }
         boolean hasLocalImages = hasLocalImages(payload);

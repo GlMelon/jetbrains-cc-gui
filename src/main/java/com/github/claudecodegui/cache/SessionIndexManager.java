@@ -1,6 +1,7 @@
 package com.github.claudecodegui.cache;
 
 import com.github.claudecodegui.bridge.NodeDetector;
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.util.TextSanitizer;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -461,11 +462,11 @@ public class SessionIndexManager {
      */
     public void clearProjectIndex(String provider, String projectPath) {
         synchronized (indexFileLock) {
-            if ("claude".equals(provider)) {
+            if (CommonConstants.PROVIDER_CLAUDE.equals(provider)) {
                 SessionIndex index = readIndex(getClaudeIndexPath());
                 index.projects.remove(projectPath);
                 saveIndex(getClaudeIndexPath(), index);
-            } else if ("codex".equals(provider)) {
+            } else if (CommonConstants.PROVIDER_CODEX.equals(provider)) {
                 SessionIndex index = readIndex(getCodexIndexPath());
                 index.projects.remove(projectPath);
                 saveIndex(getCodexIndexPath(), index);

@@ -1,5 +1,6 @@
 package com.github.claudecodegui.settings;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -332,11 +333,11 @@ public class CodexMcpServerManager {
             JsonObject serverSpec = server.getAsJsonObject("server");
             String type = serverSpec.has("type") ? serverSpec.get("type").getAsString() : "stdio";
 
-            if ("stdio".equals(type)) {
+            if (CommonConstants.MCP_TRANSPORT_STDIO.equals(type)) {
                 if (!serverSpec.has("command") || serverSpec.get("command").getAsString().isEmpty()) {
                     errors.add("Command cannot be empty for STDIO type");
                 }
-            } else if ("http".equals(type) || "sse".equals(type)) {
+            } else if (CommonConstants.MCP_TRANSPORT_HTTP.equals(type) || CommonConstants.MCP_TRANSPORT_SSE.equals(type)) {
                 if (!serverSpec.has("url") || serverSpec.get("url").getAsString().isEmpty()) {
                     errors.add("URL cannot be empty for HTTP/SSE type");
                 } else {
@@ -495,7 +496,7 @@ public class CodexMcpServerManager {
         String type = serverConfig.has("type") ? serverConfig.get("type").getAsString() : "stdio";
 
         try {
-            if ("http".equals(type) || "sse".equals(type)) {
+            if (CommonConstants.MCP_TRANSPORT_HTTP.equals(type) || CommonConstants.MCP_TRANSPORT_SSE.equals(type)) {
                 // HTTP/SSE server: try to connect
                 status.addProperty("status", checkHttpServer(serverConfig, serverName));
             } else {
@@ -504,7 +505,7 @@ public class CodexMcpServerManager {
             }
 
             // Add server info if available
-            if ("connected".equals(status.get("status").getAsString())) {
+            if (CommonConstants.MCP_STATUS_CONNECTED.equals(status.get("status").getAsString())) {
                 JsonObject serverInfo = new JsonObject();
                 serverInfo.addProperty("name", serverName);
                 serverInfo.addProperty("version", "unknown");

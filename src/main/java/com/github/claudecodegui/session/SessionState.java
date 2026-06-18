@@ -329,7 +329,7 @@ public class SessionState {
 
     /**
      * Get effective max tokens: use frontend override if set, capped at model's actual limit.
-     * For known models (in MODEL_CONTEXT_LIMITS), the override is capped.
+     * For known models (registered or ClaudeRole enum), the override is capped.
      * For unknown models, the override is trusted as-is.
      */
     public int getEffectiveMaxTokens() {

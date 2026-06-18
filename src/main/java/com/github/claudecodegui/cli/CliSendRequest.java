@@ -22,6 +22,7 @@ public record CliSendRequest(
         String agentPrompt,
         String permissionMode,
         String model,
+        String actualModel,
         String reasoningEffort,
         String permissionSessionId,
         Map<String, String> extraEnv

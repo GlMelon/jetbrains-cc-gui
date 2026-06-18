@@ -1,5 +1,6 @@
 package com.github.claudecodegui.handler.file;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.util.WslPathUtil;
 import com.github.claudecodegui.handler.core.BaseMessageHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
@@ -43,11 +44,11 @@ public class UndoFileHandler extends BaseMessageHandler {
 
     @Override
     public boolean handle(String type, String content) {
-        if ("undo_file_changes".equals(type)) {
+        if (CommonConstants.REQUEST_TYPE_UNDO_FILE_CHANGES.equals(type)) {
             LOG.info("[UndoFileHandler] Handling: undo_file_changes");
             handleUndoFileChanges(content);
             return true;
-        } else if ("undo_all_file_changes".equals(type)) {
+        } else if (CommonConstants.REQUEST_TYPE_UNDO_ALL_FILE_CHANGES.equals(type)) {
             LOG.info("[UndoFileHandler] Handling: undo_all_file_changes");
             handleUndoAllFileChanges(content);
             return true;

@@ -1,31 +1,94 @@
 /**
  * Model utilities module.
  * Handles model ID mapping and environment variable configuration.
+ *
+ * 模型相关字面量（role 名、role modelId、环境变量名、前缀）统一收敛到 MODEL_CONSTANTS，
+ * 与后端 Java CommonConstants.ENV_ANTHROPIC_* / DEFAULT_MODEL('claude-role-sonnet') 对齐。
  */
 
 /**
+ * 模型相关常量：集中管理 role 名、role→SDK modelId 映射、环境变量名、模型前缀。
+ * 与后端 Java CommonConstants.ENV_ANTHROPIC_* / DEFAULT_MODEL('claude-role-sonnet') 对齐。
+ */
+export const MODEL_CONSTANTS = Object.freeze({
+  /** Claude 角色桶名（内部稳定标识，用于 settings/env 查找）。 */
+  ROLE: Object.freeze({
+    SONNET: 'sonnet',
+    OPUS: 'opus',
+    HAIKU: 'haiku',
+    FABLE: 'fable',
+  }),
+  /** 角色 → SDK 识别的 role modelId（getClaudeRoleFromModelId 匹配的 role selector）。 */
+  ROLE_MODEL_ID: Object.freeze({
+    FABLE: 'claude-role-fable',
+    OPUS: 'claude-role-opus',
+    HAIKU: 'claude-role-haiku',
+    SONNET: 'claude-role-sonnet',
+  }),
+  /** 环境变量名（与 Java CommonConstants.ENV_ANTHROPIC_* 对齐）。 */
+  ENV: Object.freeze({
+    ANTHROPIC_MODEL: 'ANTHROPIC_MODEL',
+    DEFAULT_FABLE_MODEL: 'ANTHROPIC_DEFAULT_FABLE_MODEL',
+    DEFAULT_OPUS_MODEL: 'ANTHROPIC_DEFAULT_OPUS_MODEL',
+    DEFAULT_HAIKU_MODEL: 'ANTHROPIC_DEFAULT_HAIKU_MODEL',
+    DEFAULT_SONNET_MODEL: 'ANTHROPIC_DEFAULT_SONNET_MODEL',
+  }),
+  /** Anthropic 官方模型前缀（用于 vision 能力判定）。 */
+  CLAUDE_PREFIX: 'claude-',
+});
+
+const { ROLE, ROLE_MODEL_ID, ENV, CLAUDE_PREFIX } = MODEL_CONSTANTS;
+
+/**
  * Map a full model ID to the short name expected by the Claude SDK.
- * @param {string} modelId - Full model ID (e.g. 'claude-sonnet-4-5')
+ * @param {string} modelId - Internal role model ID (e.g. 'claude-role-sonnet')
  * @returns {string} SDK model name (e.g. 'sonnet')
  */
 export function mapModelIdToSdkName(modelId) {
   if (!modelId || typeof modelId !== 'string') {
-    return 'sonnet'; // Default to sonnet
+    return ROLE.SONNET; // Default to sonnet
   }
 
-  const lowerModel = modelId.toLowerCase();
-
-  // Mapping rules:
-  // - Contains 'opus' -> 'opus'
-  // - Contains 'haiku' -> 'haiku'
-  // - Otherwise (contains 'sonnet' or unknown) -> 'sonnet'
-  if (lowerModel.includes('opus')) {
-    return 'opus';
-  } else if (lowerModel.includes('haiku')) {
-    return 'haiku';
-  } else {
-    return 'sonnet';
+  const role = getClaudeRoleFromModelId(modelId);
+  // Mapping rules（基于 role selector，具体模型 ID 不在此识别）:
+  // - role 'fable'/'opus' -> 'opus'
+  // - role 'haiku' -> 'haiku'
+  // - Otherwise（sonnet role 或非 role / 未知）-> 'sonnet'
+  if (role === ROLE.OPUS || role === ROLE.FABLE) {
+    return ROLE.OPUS;
   }
+  if (role === ROLE.HAIKU) {
+    return ROLE.HAIKU;
+  }
+  return ROLE.SONNET;
+}
+
+/**
+ * Resolve a Claude role selector ID to the stable role bucket used for
+ * settings/env lookup. Concrete historical model IDs are intentionally not
+ * treated as roles.
+ *
+ * @param {string} modelId
+ * @returns {'sonnet'|'opus'|'fable'|'haiku'|null}
+ */
+export function getClaudeRoleFromModelId(modelId) {
+  if (!modelId || typeof modelId !== 'string') {
+    return null;
+  }
+  const lowerModel = modelId.toLowerCase().replace(/\[1m\]$/i, '');
+  if (lowerModel === ROLE_MODEL_ID.FABLE) {
+    return ROLE.FABLE;
+  }
+  if (lowerModel === ROLE_MODEL_ID.OPUS) {
+    return ROLE.OPUS;
+  }
+  if (lowerModel === ROLE_MODEL_ID.HAIKU) {
+    return ROLE.HAIKU;
+  }
+  if (lowerModel === ROLE_MODEL_ID.SONNET) {
+    return ROLE.SONNET;
+  }
+  return null;
 }
 
 /**
@@ -34,7 +97,7 @@ export function mapModelIdToSdkName(modelId) {
  * those values are written to ~/.claude/settings.json as ANTHROPIC_DEFAULT_*_MODEL env vars.
  * This function checks those settings and returns the mapped model name if configured.
  *
- * Priority: ANTHROPIC_MODEL (global override) > ANTHROPIC_DEFAULT_*_MODEL > original modelId
+ * Priority: request actualModel > ANTHROPIC_DEFAULT_*_MODEL > ANTHROPIC_MODEL fallback > original modelId
  *
  * IMPORTANT: The `[1m]` suffix is controlled by the input modelId from the
  * webview, not by stale settings.env mappings.
@@ -44,14 +107,16 @@ export function mapModelIdToSdkName(modelId) {
  * If the request disables 1M, strip any suffix from the mapped value so an old
  * settings.json env value cannot force the 1M context window back on.
  *
- * @param {string} modelId - Internal model ID from frontend (e.g. 'claude-sonnet-4-6' or 'claude-sonnet-4-6[1m]')
+ * @param {string} modelId - Internal model ID from frontend (e.g. 'claude-role-sonnet')
  * @param {object} userEnv - The env object from settings.json (settings.env)
+ * @param {string} actualModel - Request-owned actual model from Model Registry
  * @returns {string} The resolved model name for API calls, with the `[1m]` suffix preserved
  */
-export function resolveModelFromSettings(modelId, userEnv) {
-  if (!modelId || !userEnv) return modelId;
+export function resolveModelFromSettings(modelId, userEnv, actualModel = null) {
+  if (!modelId) return modelId;
 
-  const lowerModel = modelId.toLowerCase();
+  const role = getClaudeRoleFromModelId(modelId);
+  const isClaudeRoleModel = role !== null;
   const requestHas1M = /\[1m\]$/i.test(modelId);
   // The request owns 1M state. Settings mappings may provide the provider's base
   // model ID, but they must not force the context-window suffix.
@@ -60,31 +125,46 @@ export function resolveModelFromSettings(modelId, userEnv) {
     return requestHas1M ? `${base}[1m]` : base;
   };
 
-  // ANTHROPIC_MODEL is a global override that applies to all model types
-  if (userEnv.ANTHROPIC_MODEL && String(userEnv.ANTHROPIC_MODEL).trim()) {
-    return applySuffix(String(userEnv.ANTHROPIC_MODEL).trim());
+  if (actualModel && String(actualModel).trim()) {
+    return applySuffix(String(actualModel).trim());
   }
 
-  // Check model-specific env vars based on the internal model ID's type
-  if (lowerModel.includes('opus')) {
-    const mapped = userEnv.ANTHROPIC_DEFAULT_OPUS_MODEL;
+  if (!userEnv) return modelId;
+
+  // Check model-specific env vars based on the internal role ID's type.
+  if (role === ROLE.FABLE) {
+    const mapped = userEnv[ENV.DEFAULT_FABLE_MODEL]
+      || userEnv[ENV.DEFAULT_OPUS_MODEL];
     if (mapped && String(mapped).trim()) {
       return applySuffix(String(mapped).trim());
     }
-  } else if (lowerModel.includes('haiku')) {
-    const mapped = userEnv.ANTHROPIC_DEFAULT_HAIKU_MODEL;
+  } else if (role === ROLE.OPUS) {
+    const mapped = userEnv[ENV.DEFAULT_OPUS_MODEL];
     if (mapped && String(mapped).trim()) {
       return applySuffix(String(mapped).trim());
     }
-  } else if (lowerModel.includes('sonnet')) {
+  } else if (role === ROLE.HAIKU) {
+    const mapped = userEnv[ENV.DEFAULT_HAIKU_MODEL];
+    if (mapped && String(mapped).trim()) {
+      return applySuffix(String(mapped).trim());
+    }
+  } else if (role === ROLE.SONNET) {
     // Only apply sonnet mapping when the model ID actually contains 'sonnet'.
     // Non-Anthropic model names (e.g. 'qwen3.5-plus', 'deepseek-v3') should NOT be
     // remapped to the sonnet setting, as they are already the intended model name.
-    const mapped = userEnv.ANTHROPIC_DEFAULT_SONNET_MODEL;
+    const mapped = userEnv[ENV.DEFAULT_SONNET_MODEL];
     if (mapped && String(mapped).trim()) {
       return applySuffix(String(mapped).trim());
     }
   }
+
+  // ANTHROPIC_MODEL is a fallback for Claude role selectors. Explicit custom
+  // model IDs from the webview already are the intended upstream model and must
+  // not be rewritten by stale provider defaults.
+  if (isClaudeRoleModel && userEnv[ENV.ANTHROPIC_MODEL] && String(userEnv[ENV.ANTHROPIC_MODEL]).trim()) {
+    return applySuffix(String(userEnv[ENV.ANTHROPIC_MODEL]).trim());
+  }
+
   // For non-Anthropic model IDs that don't contain 'opus'/'haiku'/'sonnet',
   // skip mapping and use the original model ID as-is.
 
@@ -114,24 +194,29 @@ export function setModelEnvironmentVariables(modelId, baseModelId) {
   // Use baseModelId to determine model category (which env var to set).
   // This is necessary when modelId is a custom name like 'MiniMax-M2.5'
   // that doesn't contain 'opus'/'haiku'/'sonnet'.
-  const lowerBase = (baseModelId || modelId).toLowerCase();
+  const role = getClaudeRoleFromModelId(baseModelId || modelId);
 
-  process.env.ANTHROPIC_MODEL = modelId;
+  process.env[ENV.ANTHROPIC_MODEL] = modelId;
 
   // Set the corresponding environment variable based on model type
   // so the SDK knows which specific version to use
-  if (lowerBase.includes('opus')) {
-    process.env.ANTHROPIC_DEFAULT_OPUS_MODEL = modelId;
-    console.log('[MODEL_ENV] Set ANTHROPIC_DEFAULT_OPUS_MODEL =', modelId);
-  } else if (lowerBase.includes('haiku')) {
-    process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL = modelId;
-    console.log('[MODEL_ENV] Set ANTHROPIC_DEFAULT_HAIKU_MODEL =', modelId);
+  if (role === ROLE.FABLE) {
+    process.env[ENV.DEFAULT_FABLE_MODEL] = modelId;
+    process.env[ENV.DEFAULT_OPUS_MODEL] = modelId;
+    console.log(`[MODEL_ENV] Set ${ENV.DEFAULT_FABLE_MODEL} =`, modelId);
+    console.log(`[MODEL_ENV] Set ${ENV.DEFAULT_OPUS_MODEL} =`, modelId);
+  } else if (role === ROLE.OPUS) {
+    process.env[ENV.DEFAULT_OPUS_MODEL] = modelId;
+    console.log(`[MODEL_ENV] Set ${ENV.DEFAULT_OPUS_MODEL} =`, modelId);
+  } else if (role === ROLE.HAIKU) {
+    process.env[ENV.DEFAULT_HAIKU_MODEL] = modelId;
+    console.log(`[MODEL_ENV] Set ${ENV.DEFAULT_HAIKU_MODEL} =`, modelId);
   } else {
     // Covers 'sonnet' and any non-Anthropic model names (e.g. 'qwen3.5-plus', 'deepseek-v3')
     // Since mapModelIdToSdkName() defaults to 'sonnet' for unknown models,
     // the SDK will look up ANTHROPIC_DEFAULT_SONNET_MODEL for the actual model name
-    process.env.ANTHROPIC_DEFAULT_SONNET_MODEL = modelId;
-    console.log('[MODEL_ENV] Set ANTHROPIC_DEFAULT_SONNET_MODEL =', modelId);
+    process.env[ENV.DEFAULT_SONNET_MODEL] = modelId;
+    console.log(`[MODEL_ENV] Set ${ENV.DEFAULT_SONNET_MODEL} =`, modelId);
   }
 }
 
@@ -163,7 +248,7 @@ export function modelSupportsVision(modelId) {
   // model names that merely contain the substring "claude" (e.g.
   // "claude-compatible-proxy"), which historically yielded false positives
   // and dropped images for proxies that don't speak Anthropic vision blocks.
-  return lower.startsWith('claude-');
+  return lower.startsWith(CLAUDE_PREFIX);
 }
 
 // Note: getClaudeCliPath() has been removed.

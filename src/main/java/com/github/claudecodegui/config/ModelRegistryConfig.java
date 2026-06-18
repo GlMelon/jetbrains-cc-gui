@@ -1,15 +1,20 @@
 package com.github.claudecodegui.config;
 
+import com.github.claudecodegui.common.ClaudeRole;
+import com.github.claudecodegui.common.CommonConstants;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 /**
- * Configurable model registry. Defaults mirror the previous hard-coded model
- * lists and context limits.
+ * Configurable model registry. Defaults expose stable Claude role selectors;
+ * Codex models are supplied by provider catalogs or user configuration.
  */
 public class ModelRegistryConfig {
     private static final ModelRegistryConfig DEFAULT = buildDefault();
+    private static final String SUFFIX_1M = "[1m]";
 
     private final List<ModelConfig> models;
 
@@ -33,6 +38,50 @@ public class ModelRegistryConfig {
                 .findFirst();
     }
 
+    public Optional<ModelConfig> find(String provider, String modelId) {
+        String normalizedProvider = normalizeProvider(provider);
+        String baseModel = stripCapacitySuffix(modelId);
+        return models.stream()
+                .filter(ModelConfig::enabled)
+                .filter(model -> model.provider().equals(normalizedProvider))
+                .filter(model -> model.id().equalsIgnoreCase(baseModel))
+                .findFirst();
+    }
+
+    public ResolvedModelSelection resolveModelSelection(String provider, String selectedModel) {
+        String normalizedProvider = normalizeProvider(provider);
+        String selected = selectedModel == null ? "" : selectedModel.trim();
+        String baseSelected = stripCapacitySuffix(selected);
+        Optional<ModelConfig> configured = find(normalizedProvider, selected);
+
+        if (CommonConstants.PROVIDER_CODEX.equals(normalizedProvider)) {
+            ModelConfig model = configured.orElse(null);
+            String actual = model != null && !model.actualModel().isBlank()
+                    ? model.actualModel()
+                    : baseSelected;
+            return new ResolvedModelSelection(
+                    selected,
+                    null,
+                    actual,
+                    model != null ? model.contextWindow() : 200_000,
+                    model != null && model.supports1MContext()
+            );
+        }
+
+        ModelConfig model = configured.orElse(null);
+        String role = model != null && !model.role().isBlank()
+                ? model.role()
+                : roleFromModelId(baseSelected);
+        String actual = model != null ? applyRequestCapacity(selected, model.actualModel()) : "";
+        return new ResolvedModelSelection(
+                selected,
+                role,
+                actual.isBlank() ? null : actual,
+                model != null ? model.contextWindow() : 200_000,
+                model != null && model.supports1MContext()
+        );
+    }
+
     public static ModelRegistryConfig getDefault() {
         return new ModelRegistryConfig(DEFAULT.models);
     }
@@ -42,6 +91,15 @@ public class ModelRegistryConfig {
             return "";
         }
         return modelId.trim().replaceFirst("(?i)\\s*\\[[0-9.]+[kKmM]\\]\\s*$", "");
+    }
+
+    public record ResolvedModelSelection(
+            String selectedModel,
+            String role,
+            String actualModel,
+            int contextWindow,
+            boolean supports1MContext
+    ) {
     }
 
     private static List<ModelConfig> normalize(List<ModelConfig> source) {
@@ -56,44 +114,56 @@ public class ModelRegistryConfig {
 
     private static ModelRegistryConfig buildDefault() {
         List<ModelConfig> defaults = new ArrayList<>();
-        defaults.add(new ModelConfig("claude-sonnet-4-6", "claude", "Sonnet 4.6",
-                "Sonnet 4.6 · Use the default model", 200_000, true, true));
-        defaults.add(new ModelConfig("claude-opus-4-8", "claude", "Opus 4.8",
-                "Opus 4.8 · Latest and most capable", 200_000, true, true));
-        defaults.add(new ModelConfig("claude-opus-4-7", "claude", "Opus 4.7",
-                "Opus 4.7 · Previous flagship model", 200_000, true, true));
-        defaults.add(new ModelConfig("claude-opus-4-6", "claude", "Opus 4.6",
-                "Opus 4.6 for long sessions", 200_000, true, true));
-        defaults.add(new ModelConfig("claude-haiku-4-5", "claude", "Haiku 4.5",
-                "Haiku 4.5 · Fastest for quick answers", 200_000, false, true));
-
-        defaults.add(new ModelConfig("gpt-5.5", "codex", "GPT-5.5",
-                "Latest frontier model with stronger capabilities.", 1_000_000, true, true));
-        defaults.add(new ModelConfig("gpt-5.4", "codex", "GPT-5.4",
-                "Latest frontier model with enhanced capabilities.", 1_000_000, true, true));
-        defaults.add(new ModelConfig("gpt-5.2-codex", "codex", "GPT-5.2-Codex",
-                "Frontier agentic coding model.", 258_000, false, true));
-        defaults.add(new ModelConfig("gpt-5.1-codex-max", "codex", "GPT-5.1-Codex-Max",
-                "Codex-optimized flagship for deep and fast reasoning.", 258_000, false, true));
-        defaults.add(new ModelConfig("gpt-5.4-mini", "codex", "GPT-5.4-Mini",
-                "Smaller frontier agentic coding model.", 400_000, false, true));
-        defaults.add(new ModelConfig("gpt-5.3-codex", "codex", "GPT-5.3-Codex",
-                "Latest frontier agentic coding model with enhanced capabilities.", 258_000, false, true));
-        defaults.add(new ModelConfig("gpt-5.3-codex-spark", "codex", "GPT-5.3-Codex-Spark",
-                "Ultra-fast coding model.", 258_000, false, true));
-        defaults.add(new ModelConfig("gpt-5.2", "codex", "GPT-5.2",
-                "Optimized for professional work and long-running agents.", 258_000, false, true));
-        defaults.add(new ModelConfig("gpt-5.1-codex-mini", "codex", "GPT-5.1-Codex-Mini",
-                "Optimized for Codex. Cheaper, faster, but less capable.", 128_000, false, true));
-        defaults.add(new ModelConfig("o3", "codex", "o3", "OpenAI reasoning model.", 200_000, false, true));
-        defaults.add(new ModelConfig("o3-mini", "codex", "o3-mini", "OpenAI compact reasoning model.", 200_000, false, true));
-        defaults.add(new ModelConfig("o1", "codex", "o1", "OpenAI reasoning model.", 200_000, false, true));
-        defaults.add(new ModelConfig("o1-mini", "codex", "o1-mini", "OpenAI compact reasoning model.", 128_000, false, true));
-        defaults.add(new ModelConfig("o1-preview", "codex", "o1-preview", "OpenAI preview reasoning model.", 128_000, false, true));
-        defaults.add(new ModelConfig("gpt-4o", "codex", "GPT-4o", "OpenAI GPT-4o model.", 128_000, false, true));
-        defaults.add(new ModelConfig("gpt-4o-mini", "codex", "GPT-4o Mini", "OpenAI GPT-4o mini model.", 128_000, false, true));
-        defaults.add(new ModelConfig("gpt-4-turbo", "codex", "GPT-4 Turbo", "OpenAI GPT-4 Turbo model.", 128_000, false, true));
-        defaults.add(new ModelConfig("gpt-4", "codex", "GPT-4", "OpenAI GPT-4 model.", 8_192, false, true));
+        // roleId / shortName / contextWindow / supports1MContext 由 ClaudeRole 单一数据源派生,
+        // 消除重复的 "claude-role-*" 字面量;description 为 UI 展示文案,保留于此。
+        defaults.add(roleConfig(ClaudeRole.SONNET, "Sonnet role · Uses ANTHROPIC_DEFAULT_SONNET_MODEL"));
+        defaults.add(roleConfig(ClaudeRole.OPUS, "Opus role · Uses ANTHROPIC_DEFAULT_OPUS_MODEL"));
+        defaults.add(roleConfig(ClaudeRole.FABLE, "Fable role · Uses ANTHROPIC_DEFAULT_FABLE_MODEL"));
+        defaults.add(roleConfig(ClaudeRole.HAIKU, "Haiku role · Uses ANTHROPIC_DEFAULT_HAIKU_MODEL"));
         return new ModelRegistryConfig(defaults);
+    }
+
+    private static ModelConfig roleConfig(ClaudeRole role, String description) {
+        return new ModelConfig(
+                role.roleId(),
+                CommonConstants.PROVIDER_CLAUDE,
+                role.shortName(),
+                capitalize(role.shortName()),
+                "",
+                description,
+                role.contextWindow(),
+                role.supports1MContext(),
+                true
+        );
+    }
+
+    private static String capitalize(String value) {
+        if (value == null || value.isEmpty()) {
+            return value;
+        }
+        return value.substring(0, 1).toUpperCase(Locale.ROOT) + value.substring(1);
+    }
+
+    private static String applyRequestCapacity(String selectedModel, String actualModel) {
+        if (actualModel == null || actualModel.isBlank()) {
+            return "";
+        }
+        String baseActual = actualModel.trim().replaceFirst("(?i)\\[1m\\]$", "");
+        return has1MSuffix(selectedModel) ? baseActual + SUFFIX_1M : baseActual;
+    }
+
+    private static boolean has1MSuffix(String modelId) {
+        return modelId != null && modelId.trim().matches("(?i).*\\[1m\\]$");
+    }
+
+    private static String normalizeProvider(String provider) {
+        return CommonConstants.PROVIDER_CODEX.equalsIgnoreCase(provider)
+                ? CommonConstants.PROVIDER_CODEX
+                : CommonConstants.PROVIDER_CLAUDE;
+    }
+
+    private static String roleFromModelId(String modelId) {
+        ClaudeRole role = ClaudeRole.fromModelId(modelId);
+        return role != null ? role.shortName() : null;
     }
 }

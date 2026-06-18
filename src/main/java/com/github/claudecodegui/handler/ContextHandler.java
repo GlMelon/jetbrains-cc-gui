@@ -1,5 +1,6 @@
 package com.github.claudecodegui.handler;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.core.BaseMessageHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.util.GsonHolder;
@@ -31,7 +32,7 @@ public class ContextHandler extends BaseMessageHandler {
 
     @Override
     public boolean handle(String type, String content) {
-        if ("get_context_usage".equals(type)) {
+        if (CommonConstants.REQUEST_TYPE_GET_CONTEXT_USAGE.equals(type)) {
             LOG.info("[ContextHandler] Handling: get_context_usage");
             handleGetContextUsage(content);
             return true;

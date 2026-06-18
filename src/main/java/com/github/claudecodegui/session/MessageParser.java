@@ -30,7 +30,7 @@ public class MessageParser {
             return null;
         }
 
-        if ("user".equals(type)) {
+        if (CommonConstants.MSG_TYPE_USER.equals(type)) {
             String content = extractMessageContent(msg);
             // Check if it contains a tool_result
             if (content == null || content.trim().isEmpty()) {
@@ -43,7 +43,7 @@ public class MessageParser {
                 return null;
             }
             return new ClaudeSession.Message(ClaudeSession.Message.Type.USER, content, msg);
-        } else if ("assistant".equals(type)) {
+        } else if (CommonConstants.MSG_TYPE_ASSISTANT.equals(type)) {
             String content = extractMessageContent(msg);
             return new ClaudeSession.Message(ClaudeSession.Message.Type.ASSISTANT, content, msg);
         }
@@ -58,7 +58,7 @@ public class MessageParser {
      */
     private boolean shouldFilterCommandMessage(JsonObject msg, String type) {
         // Only filter user messages - assistant messages may contain command tags in code examples
-        if (!"user".equals(type)) {
+        if (!CommonConstants.MSG_TYPE_USER.equals(type)) {
             return false;
         }
 
@@ -82,7 +82,7 @@ public class MessageParser {
                 JsonElement element = contentArray.get(i);
                 if (element.isJsonObject()) {
                     JsonObject block = element.getAsJsonObject();
-                    if (block.has("type") && "text".equals(block.get("type").getAsString()) &&
+                    if (block.has("type") && CommonConstants.BLOCK_TYPE_TEXT.equals(block.get("type").getAsString()) &&
                         block.has("text")) {
                         contentStr = block.get("text").getAsString();
                         break;
@@ -200,7 +200,7 @@ public class MessageParser {
                     ? block.get("type").getAsString()
                     : null;
 
-                if ("text".equals(blockType) && block.has("text") && !block.get("text").isJsonNull()) {
+                if (CommonConstants.BLOCK_TYPE_TEXT.equals(blockType) && block.has("text") && !block.get("text").isJsonNull()) {
                     if (sb.length() > 0) {
                         sb.append("\n");
                     }

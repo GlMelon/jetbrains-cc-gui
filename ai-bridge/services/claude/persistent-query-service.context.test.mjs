@@ -121,7 +121,7 @@ test('buildRequestContext preserves resolved model mapping for context usage run
   try {
     const requestContext = await __testing.buildRequestContext(
       {
-        model: 'claude-sonnet-4-6',
+        model: 'claude-role-sonnet',
         cwd: process.cwd(),
       },
       false,
@@ -137,7 +137,7 @@ test('buildRequestContext preserves resolved model mapping for context usage run
     const exactContext = __testing.applyExactModelForContextUsage(requestContext);
 
     assert.deepEqual(
-      __testing.resolveRequestModelState('claude-sonnet-4-6', {
+      __testing.resolveRequestModelState('claude-role-sonnet', {
         ANTHROPIC_DEFAULT_SONNET_MODEL: 'custom-sonnet-model',
       }),
       {
@@ -160,7 +160,7 @@ test('buildRequestContext preserves resolved model mapping for context usage run
     assert.equal(process.env.ANTHROPIC_DEFAULT_SONNET_MODEL, 'custom-sonnet-model');
     assert.equal(exactContext.options.model, 'custom-sonnet-model');
     assert.equal(exactContext.sdkModelName, 'custom-sonnet-model');
-    assert.equal(exactContext.modelId, 'claude-sonnet-4-6');
+    assert.equal(exactContext.modelId, 'claude-role-sonnet');
   } finally {
     if (previousAnthropicModel === undefined) {
       delete process.env.ANTHROPIC_MODEL;
@@ -218,7 +218,7 @@ test('getContextUsagePersistent reuses runtime and calls setModel when model cha
   // Pre-acquire a runtime for session 'sess-2' with model 'opus'
   const requestContext = await __testing.buildRequestContext({
     sessionId: 'sess-2',
-    model: 'claude-opus-4-7',
+    model: 'claude-role-opus',
     cwd: process.cwd(),
   });
   await __testing.acquireRuntime(requestContext);

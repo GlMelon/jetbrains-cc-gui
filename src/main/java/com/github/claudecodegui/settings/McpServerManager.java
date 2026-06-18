@@ -1,6 +1,7 @@
 package com.github.claudecodegui.settings;
 
 import com.github.claudecodegui.bridge.NodeDetector;
+import com.github.claudecodegui.common.CommonConstants;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -467,11 +468,11 @@ public class McpServerManager {
             JsonObject serverSpec = server.getAsJsonObject("server");
             String type = serverSpec.has("type") ? serverSpec.get("type").getAsString() : "stdio";
 
-            if ("stdio".equals(type)) {
+            if (CommonConstants.MCP_TRANSPORT_STDIO.equals(type)) {
                 if (!serverSpec.has("command") || serverSpec.get("command").getAsString().isEmpty()) {
                     errors.add("Command must not be empty");
                 }
-            } else if ("http".equals(type) || "sse".equals(type)) {
+            } else if (CommonConstants.MCP_TRANSPORT_HTTP.equals(type) || CommonConstants.MCP_TRANSPORT_SSE.equals(type)) {
                 if (!serverSpec.has("url") || serverSpec.get("url").getAsString().isEmpty()) {
                     errors.add("URL must not be empty");
                 } else {

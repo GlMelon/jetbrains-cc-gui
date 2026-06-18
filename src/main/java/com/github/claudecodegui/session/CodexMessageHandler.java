@@ -1,5 +1,6 @@
 package com.github.claudecodegui.session;
 
+import com.github.claudecodegui.cli.common.CliConstants;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.CodexMessageConverter;
 import com.github.claudecodegui.provider.common.MessageCallback;
@@ -102,40 +103,40 @@ public class CodexMessageHandler implements MessageCallback {
             case CommonConstants.MSG_TYPE_TOOL_RESULT:
                 handleToolResult(content);
                 break;
-            case "result":
+            case CliConstants.MSG_RESULT:
                 handleResultMessage(content);
                 break;
-            case "session_id":
+            case CliConstants.MSG_SESSION_ID:
                 handleSessionId(content);
                 break;
-            case "event_msg":
+            case CliConstants.CODEX_MSG_EVENT_MSG:
                 handleEventMessage(content);
                 break;
-            case "stream_start":
+            case CliConstants.MSG_STREAM_START:
                 handleStreamStart();
                 break;
             case CommonConstants.MSG_TYPE_THINKING:
                 handleThinkingMessage();
                 break;
-            case "stream_end":
+            case CliConstants.MSG_STREAM_END:
                 handleStreamEnd();
                 break;
-            case "block_reset":
+            case CliConstants.MSG_BLOCK_RESET:
                 handleBlockReset();
                 break;
-            case "thinking_delta":
+            case CliConstants.MSG_THINKING_DELTA:
                 handleThinkingDelta(content);
                 break;
-            case "content_delta":
+            case CliConstants.MSG_CONTENT_DELTA:
             case CommonConstants.MSG_TYPE_TEXT:
                 handleContentDelta(content);
                 break;
-            case "status":
+            case CliConstants.CODEX_MSG_STATUS:
                 if (content != null && !content.trim().isEmpty()) {
                     callbackHandler.notifyStatusMessage(content);
                 }
                 break;
-            case "message_end":
+            case CliConstants.MSG_MESSAGE_END:
                 handleMessageEnd();
                 break;
             default:
@@ -508,7 +509,7 @@ public class CodexMessageHandler implements MessageCallback {
             }
 
             com.google.gson.JsonObject payload = msgJson.getAsJsonObject("payload");
-            if (!payload.has("type") || !"token_count".equals(payload.get("type").getAsString())) {
+            if (!payload.has("type") || !CliConstants.CODEX_MSG_TOKEN_COUNT.equals(payload.get("type").getAsString())) {
                 return;
             }
 

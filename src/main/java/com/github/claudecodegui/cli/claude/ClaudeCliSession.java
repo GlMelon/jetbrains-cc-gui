@@ -5,6 +5,8 @@ import com.github.claudecodegui.cli.CliSession;
 import com.github.claudecodegui.cli.CliSessionCallback;
 import com.github.claudecodegui.cli.CliSessionExecutor;
 import com.github.claudecodegui.cli.common.*;
+import com.github.claudecodegui.common.ClaudeRole;
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.provider.claude.ClaudeCliDetector;
 import com.github.claudecodegui.provider.claude.ClaudeCliStreamParser;
 import com.github.claudecodegui.provider.common.MessageCallback;
@@ -124,7 +126,10 @@ public class ClaudeCliSession implements CliSession {
     // ── command builder ──────────────────────────────────────────────────────
 
     private List<String> buildCommand(String cliPath, CliSendRequest request, String prompt, List<String> addDirs) {
-        ClaudeCliModelResolver.ResolvedModel profile = ClaudeCliModelResolver.resolveProfile(request.model());
+        ClaudeCliModelResolver.ResolvedModel profile = ClaudeCliModelResolver.resolveProfile(
+                request.model(),
+                request.actualModel()
+        );
         return buildCommand(
                 cliPath,
                 request,
@@ -337,6 +342,10 @@ public class ClaudeCliSession implements CliSession {
                 cliEnv.clear();
                 cliEnv.putAll(CliEnvironmentBuilder.buildBaseEnvironment());
                 cliEnv.putAll(CliSettings.readClaudeCliEnvironment());
+                configureRequestModelEnvironment(cliEnv, request, ClaudeCliModelResolver.resolveProfile(
+                        request.model(),
+                        request.actualModel()
+                ));
                 cliEnv.put(CliConstants.ARG_NO_COLOR, "1");
                 CliEnvironmentBuilder.configureClaudePermissionEnv(
                         cliEnv,
@@ -413,6 +422,29 @@ public class ClaudeCliSession implements CliSession {
                 userInterrupted.set(false);
             }
         });
+    }
+
+    static void configureRequestModelEnvironment(
+            Map<String, String> cliEnv,
+            CliSendRequest request,
+            ClaudeCliModelResolver.ResolvedModel profile
+    ) {
+        if (cliEnv == null || profile == null || profile.model() == null || profile.model().isBlank()) {
+            return;
+        }
+
+        String resolvedModel = profile.model().trim();
+        cliEnv.put(CommonConstants.ENV_ANTHROPIC_MODEL, resolvedModel);
+
+        String selectedModel = request != null ? request.model() : null;
+        ClaudeRole role = ClaudeRole.fromModelId(selectedModel);
+        if (role != null) {
+            // 角色模型:写入该角色的全部模型覆盖通道(含 fallback,如 Fable→Opus、Haiku→SMALL_FAST)
+            role.applyModelEnv(cliEnv, resolvedModel);
+        } else {
+            // 非显式角色模型:写入默认 sonnet 通道
+            cliEnv.put(CommonConstants.ENV_ANTHROPIC_DEFAULT_SONNET_MODEL, resolvedModel);
+        }
     }
 
     void prepareForSend() {

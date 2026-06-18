@@ -25,6 +25,7 @@ public record SessionRequest(
         String agentPrompt,
         String permissionMode,
         String model,
+        String actualModel,
         String reasoningEffort,
         String permissionSessionId,
         Boolean streaming,
@@ -44,5 +45,6 @@ public record SessionRequest(
         attachments = attachments != null ? List.copyOf(attachments) : List.of();
         fileTagPaths = fileTagPaths != null ? List.copyOf(fileTagPaths) : List.of();
         env = env != null ? Map.copyOf(env) : Map.of();
+        actualModel = actualModel != null && !actualModel.isBlank() ? actualModel : null;
     }
 }

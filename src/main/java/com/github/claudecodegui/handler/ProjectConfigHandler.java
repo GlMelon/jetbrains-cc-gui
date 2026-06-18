@@ -1,5 +1,6 @@
 package com.github.claudecodegui.handler;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.core.HandlerContext;
 
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
@@ -282,7 +283,7 @@ public class ProjectConfigHandler {
         response.addProperty("provider", provider);
         response.addProperty("model", model);
         response.addProperty("permissionMode", permissionMode);
-        if ("claude".equals(provider)) {
+        if (CommonConstants.PROVIDER_CLAUDE.equals(provider)) {
             response.addProperty("claudeInvocationMode", invocationMode);
         }
         return response;
@@ -850,7 +851,7 @@ public class ProjectConfigHandler {
                     }
                 }
                 String json;
-                if ("codex".equals(provider)) {
+                if (CommonConstants.PROVIDER_CODEX.equals(provider)) {
                     CodexHistoryReader reader = new CodexHistoryReader();
                     CodexHistoryReader.ProjectStatistics stats = reader.getProjectStatistics(projectPath, cutoffTime);
                     LOG.info("[ProjectConfigHandler] Codex statistics - sessions: " + stats.totalSessions +

@@ -1,5 +1,6 @@
 package com.github.claudecodegui.handler.core;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
 import com.github.claudecodegui.provider.codex.CodexSDKBridge;
 import com.github.claudecodegui.session.ClaudeSession;
@@ -14,8 +15,8 @@ import com.intellij.ui.jcef.JBCefBrowser;
  */
 public class HandlerContext {
 
-    public static final String DEFAULT_MODEL = "claude-sonnet-4-6";
-    public static final String DEFAULT_PROVIDER = "claude";
+    public static final String DEFAULT_MODEL = CommonConstants.DEFAULT_MODEL;
+    public static final String DEFAULT_PROVIDER = CommonConstants.DEFAULT_PROVIDER;
 
     private final Project project;
     private final ClaudeSDKBridge claudeSDKBridge;

@@ -5,6 +5,7 @@ import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.model.ConflictStrategy;
 import com.github.claudecodegui.model.DeleteResult;
 import com.github.claudecodegui.model.PromptScope;
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.config.ModelConfig;
 import com.github.claudecodegui.config.ModelConfigValidator;
 import com.github.claudecodegui.config.ModelRegistryConfig;
@@ -79,10 +80,10 @@ public class CodemossSettingsService {
     private static final String AI_FEATURE_RESOLUTION_MANUAL = "manual";
     private static final String AI_FEATURE_RESOLUTION_AUTO = "auto";
     private static final String AI_FEATURE_RESOLUTION_UNAVAILABLE = "unavailable";
-    private static final String DEFAULT_PROMPT_ENHANCER_CLAUDE_MODEL = "claude-sonnet-4-6";
-    private static final String DEFAULT_PROMPT_ENHANCER_CODEX_MODEL = "gpt-5.5";
-    private static final String DEFAULT_COMMIT_AI_CLAUDE_MODEL = "claude-sonnet-4-6";
-    private static final String DEFAULT_COMMIT_AI_CODEX_MODEL = "gpt-5.5";
+    private static final String DEFAULT_PROMPT_ENHANCER_CLAUDE_MODEL = CommonConstants.DEFAULT_MODEL;
+    private static final String DEFAULT_PROMPT_ENHANCER_CODEX_MODEL = "";
+    private static final String DEFAULT_COMMIT_AI_CLAUDE_MODEL = CommonConstants.DEFAULT_MODEL;
+    private static final String DEFAULT_COMMIT_AI_CODEX_MODEL = "";
     private static final String USER_LANGUAGE_CONFIG_KEY = "language";
     // Appearance config (theme preference / font size / diff theme / per-theme colors).
     // Persisted so the webview can restore appearance after IDE cache invalidation
@@ -1747,7 +1748,9 @@ public class CodemossSettingsService {
                 JsonObject obj = item.getAsJsonObject();
                 String id = readString(obj, "id");
                 String provider = readString(obj, "provider");
+                String role = readString(obj, "role");
                 String label = readString(obj, "label");
+                String actualModel = readString(obj, "actualModel");
                 String description = readString(obj, "description");
                 int contextWindow = obj.has("contextWindow") && obj.get("contextWindow").isJsonPrimitive()
                         ? obj.get("contextWindow").getAsInt()
@@ -1755,7 +1758,8 @@ public class CodemossSettingsService {
                 boolean supports1MContext = obj.has("supports1MContext")
                         && obj.get("supports1MContext").getAsBoolean();
                 boolean enabled = !obj.has("enabled") || obj.get("enabled").getAsBoolean();
-                models.add(new ModelConfig(id, provider, label, description, contextWindow, supports1MContext, enabled));
+                models.add(new ModelConfig(id, provider, role, label, actualModel,
+                        description, contextWindow, supports1MContext, enabled));
             }
         }
         return new ModelRegistryConfig(models);
@@ -1768,7 +1772,13 @@ public class CodemossSettingsService {
             JsonObject obj = new JsonObject();
             obj.addProperty("id", model.id());
             obj.addProperty("provider", model.provider());
+            obj.addProperty("role", model.role());
             obj.addProperty("label", model.label());
+            if (model.actualModel() == null || model.actualModel().isEmpty()) {
+                obj.add("actualModel", JsonNull.INSTANCE);
+            } else {
+                obj.addProperty("actualModel", model.actualModel());
+            }
             if (model.description() == null || model.description().isEmpty()) {
                 obj.add("description", JsonNull.INSTANCE);
             } else {
@@ -1866,9 +1876,9 @@ public class CodemossSettingsService {
                 // 若配置里 codex 之后还有笔误的键(如 "cluade"),会把 claude 的策略覆盖掉。
                 // 此处显式校验,无法识别的键告警并跳过。
                 ProviderType pt;
-                if ("claude".equalsIgnoreCase(key)) {
+                if (CommonConstants.PROVIDER_CLAUDE.equalsIgnoreCase(key)) {
                     pt = ProviderType.CLAUDE;
-                } else if ("codex".equalsIgnoreCase(key)) {
+                } else if (CommonConstants.PROVIDER_CODEX.equalsIgnoreCase(key)) {
                     pt = ProviderType.CODEX;
                 } else {
                     LOG.warn("[CodemossSettings] Unrecognized runtime policy provider key '"

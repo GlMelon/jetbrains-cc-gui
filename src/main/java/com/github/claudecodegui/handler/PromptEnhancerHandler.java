@@ -1,5 +1,6 @@
 package com.github.claudecodegui.handler;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.core.BaseMessageHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
 
@@ -22,9 +23,11 @@ import com.intellij.openapi.vfs.VirtualFile;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import static java.util.Map.entry;
 
 /**
  * Prompt enhancement message handler.
@@ -51,8 +54,39 @@ public class PromptEnhancerHandler extends BaseMessageHandler {
     private static final int CURSOR_CONTEXT_LINES = 10;
 
     private static final String[] SUPPORTED_TYPES = {
-        "enhance_prompt"
+        CommonConstants.REQUEST_TYPE_ENHANCE_PROMPT
     };
+
+    private static final String DEFAULT_LANGUAGE = "text";
+
+    /** 文件扩展名 → 编程语言名映射（未知扩展名回退 text）。 */
+    private static final Map<String, String> EXTENSION_TO_LANGUAGE = Map.ofEntries(
+            entry("java", "java"),
+            entry("kt", "kotlin"), entry("kts", "kotlin"),
+            entry("js", "javascript"), entry("jsx", "javascript"),
+            entry("ts", "typescript"), entry("tsx", "typescript"),
+            entry("py", "python"),
+            entry("go", "go"),
+            entry("rs", "rust"),
+            entry("rb", "ruby"),
+            entry("php", "php"),
+            entry("c", "c"), entry("h", "c"),
+            entry("cpp", "cpp"), entry("cc", "cpp"), entry("hpp", "cpp"),
+            entry("cs", "csharp"),
+            entry("swift", "swift"),
+            entry("scala", "scala"),
+            entry("vue", "vue"),
+            entry("html", "html"), entry("htm", "html"),
+            entry("css", "css"),
+            entry("scss", "scss"),
+            entry("less", "less"),
+            entry("json", "json"),
+            entry("xml", "xml"),
+            entry("yaml", "yaml"), entry("yml", "yaml"),
+            entry("md", "markdown"), entry("markdown", "markdown"),
+            entry("sql", "sql"),
+            entry("sh", "bash"), entry("bash", "bash"), entry("zsh", "bash")
+    );
 
     // System prompt for prompt enhancement
     // Note: Must emphasize "only output the enhanced prompt" to prevent the AI from adding explanatory text
@@ -116,7 +150,7 @@ public class PromptEnhancerHandler extends BaseMessageHandler {
 
     @Override
     public boolean handle(String type, String content) {
-        if ("enhance_prompt".equals(type)) {
+        if (CommonConstants.REQUEST_TYPE_ENHANCE_PROMPT.equals(type)) {
             handleEnhancePrompt(content);
             return true;
         }
@@ -312,36 +346,8 @@ public class PromptEnhancerHandler extends BaseMessageHandler {
      * @return language type name
      */
     private String getLanguageFromExtension(String extension) {
-        if (extension == null) { return "text"; }
-
-        switch (extension.toLowerCase()) {
-            case "java": return "java";
-            case "kt": case "kts": return "kotlin";
-            case "js": case "jsx": return "javascript";
-            case "ts": case "tsx": return "typescript";
-            case "py": return "python";
-            case "go": return "go";
-            case "rs": return "rust";
-            case "rb": return "ruby";
-            case "php": return "php";
-            case "c": case "h": return "c";
-            case "cpp": case "cc": case "hpp": return "cpp";
-            case "cs": return "csharp";
-            case "swift": return "swift";
-            case "scala": return "scala";
-            case "vue": return "vue";
-            case "html": case "htm": return "html";
-            case "css": return "css";
-            case "scss": return "scss";
-            case "less": return "less";
-            case "json": return "json";
-            case "xml": return "xml";
-            case "yaml": case "yml": return "yaml";
-            case "md": case "markdown": return "markdown";
-            case "sql": return "sql";
-            case "sh": case "bash": case "zsh": return "bash";
-            default: return "text";
-        }
+        if (extension == null) { return DEFAULT_LANGUAGE; }
+        return EXTENSION_TO_LANGUAGE.getOrDefault(extension.toLowerCase(), DEFAULT_LANGUAGE);
     }
 
     /**

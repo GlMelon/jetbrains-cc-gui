@@ -1,14 +1,18 @@
 package com.github.claudecodegui.cli.claude;
 
 import com.github.claudecodegui.cli.CliSendRequest;
+import com.github.claudecodegui.cli.common.CliConstants;
+import com.github.claudecodegui.common.CommonConstants;
 import com.google.gson.JsonObject;
 import org.junit.Test;
 
+import java.util.HashMap;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -25,6 +29,24 @@ public class ClaudeCliSessionTest {
         assertTrue(command.contains("mimo-v2.5-pro"));
         assertFalse(command.contains("--effort"));
         assertFalse(command.contains("high"));
+    }
+
+    @Test
+    public void requestModelEnvironmentOverridesStaleSonnetMappingForCustomModel() {
+        Map<String, String> env = new HashMap<>();
+        env.put(CommonConstants.ENV_ANTHROPIC_MODEL, "glm-5.2");
+        env.put(CommonConstants.ENV_ANTHROPIC_DEFAULT_SONNET_MODEL, "glm-5.2[1M]");
+        CliSendRequest request = request("mimo-v2.5", null, "mimo-v2.5");
+        ClaudeCliModelResolver.ResolvedModel profile = ClaudeCliModelResolver.resolveProfile(
+                request.model(),
+                request.actualModel(),
+                new JsonObject()
+        );
+
+        ClaudeCliSession.configureRequestModelEnvironment(env, request, profile);
+
+        assertEquals("mimo-v2.5", env.get(CommonConstants.ENV_ANTHROPIC_MODEL));
+        assertEquals("mimo-v2.5", env.get(CommonConstants.ENV_ANTHROPIC_DEFAULT_SONNET_MODEL));
     }
 
     @Test
@@ -153,6 +175,10 @@ public class ClaudeCliSessionTest {
     }
 
     private static CliSendRequest request(String model, String reasoningEffort) {
+        return request(model, reasoningEffort, null);
+    }
+
+    private static CliSendRequest request(String model, String reasoningEffort, String actualModel) {
         return new CliSendRequest(
                 "tab-claude",
                 "claude",
@@ -165,6 +191,7 @@ public class ClaudeCliSessionTest {
                 null,
                 "default",
                 model,
+                actualModel,
                 reasoningEffort,
                 null,
                 Map.of()

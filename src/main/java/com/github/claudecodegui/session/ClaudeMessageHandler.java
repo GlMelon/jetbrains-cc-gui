@@ -1,5 +1,6 @@
 package com.github.claudecodegui.session;
 
+import com.github.claudecodegui.cli.common.CliConstants;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.notifications.ClaudeNotifier;
 import com.github.claudecodegui.provider.common.MessageCallback;
@@ -119,25 +120,25 @@ public class ClaudeMessageHandler implements MessageCallback {
                 // Non-streaming mode: complete content block, update message
                 handleContent(content);
                 break;
-            case "content_delta":
+            case CliConstants.MSG_CONTENT_DELTA:
                 // Streaming: incremental content, forward to frontend
                 handleContentDelta(content);
                 break;
             // Streaming: thinking delta
-            case "thinking_delta":
+            case CliConstants.MSG_THINKING_DELTA:
                 handleThinkingDelta(content);
                 break;
             // Streaming: start and end markers
-            case "stream_start":
+            case CliConstants.MSG_STREAM_START:
                 handleStreamStart();
                 break;
-            case "stream_end":
+            case CliConstants.MSG_STREAM_END:
                 handleStreamEnd();
                 break;
-            case "block_reset":
+            case CliConstants.MSG_BLOCK_RESET:
                 handleBlockReset();
                 break;
-            case "session_id":
+            case CliConstants.MSG_SESSION_ID:
                 handleSessionId(content);
                 break;
             case CommonConstants.MSG_TYPE_TOOL_USE:
@@ -146,25 +147,25 @@ public class ClaudeMessageHandler implements MessageCallback {
             case CommonConstants.MSG_TYPE_TOOL_RESULT:
                 handleToolResult(content);
                 break;
-            case "message_end":
+            case CliConstants.MSG_MESSAGE_END:
                 handleMessageEnd();
                 break;
-            case "message_start":
+            case CliConstants.MSG_MESSAGE_START:
                 handleNewTurnStart();
                 break;
-            case "result":
+            case CliConstants.MSG_RESULT:
                 handleResult(content);
                 break;
-            case "usage":
+            case CliConstants.MSG_USAGE:
                 handleUsage(content);
                 break;
-            case "slash_commands":
+            case CliConstants.MSG_SLASH_COMMANDS:
                 handleSlashCommands(content);
                 break;
-            case "system":
+            case CommonConstants.MSG_TYPE_SYSTEM:
                 handleSystemMessage(content);
                 break;
-            case "node_log":
+            case CliConstants.MSG_NODE_LOG:
                 // Forward Node.js logs to frontend console
                 callbackHandler.notifyNodeLog(content);
                 break;

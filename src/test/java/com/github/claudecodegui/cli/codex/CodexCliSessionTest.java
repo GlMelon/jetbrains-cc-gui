@@ -567,6 +567,7 @@ public class CodexCliSessionTest {
                 "gpt-5.3-codex",
                 null,
                 null,
+                null,
                 java.util.Map.of()
         );
 
@@ -813,7 +814,6 @@ public class CodexCliSessionTest {
     private record Event(String type, String content) {
     }
 }
-
 
 
 

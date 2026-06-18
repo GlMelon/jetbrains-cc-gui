@@ -1,5 +1,6 @@
 package com.github.claudecodegui.handler;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.core.BaseMessageHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.util.GsonHolder;
@@ -35,7 +36,7 @@ public class RewindHandler extends BaseMessageHandler {
 
     @Override
     public boolean handle(String type, String content) {
-        if ("rewind_files".equals(type)) {
+        if (CommonConstants.REQUEST_TYPE_REWIND_FILES.equals(type)) {
             LOG.info("[RewindHandler] Handling: rewind_files, content: " + content);
             handleRewindFiles(content);
             return true;

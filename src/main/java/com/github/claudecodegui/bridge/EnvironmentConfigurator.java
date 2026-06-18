@@ -1,6 +1,7 @@
 // TODO: consider extracting WSL env propagation into a dedicated helper class
 package com.github.claudecodegui.bridge;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.github.claudecodegui.util.ShellExecutor;
@@ -398,7 +399,7 @@ public class EnvironmentConfigurator {
      * Configures project path environment variables.
      */
     public void configureProjectPath(Map<String, String> env, String cwd) {
-        if (env == null || cwd == null || cwd.isEmpty() || "undefined".equals(cwd) || "null".equals(cwd)) {
+        if (env == null || cwd == null || cwd.isEmpty() || CommonConstants.UNDEFINED.equals(cwd) || CommonConstants.NULL_SENTINEL.equals(cwd)) {
             return;
         }
         env.put("IDEA_PROJECT_PATH", cwd);

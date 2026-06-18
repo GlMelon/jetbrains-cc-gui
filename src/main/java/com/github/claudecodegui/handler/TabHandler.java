@@ -1,5 +1,6 @@
 package com.github.claudecodegui.handler;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.core.BaseMessageHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
 
@@ -38,7 +39,7 @@ public class TabHandler extends BaseMessageHandler {
 
     @Override
     public boolean handle(String type, String content) {
-        if ("create_new_tab".equals(type)) {
+        if (CommonConstants.REQUEST_TYPE_CREATE_NEW_TAB.equals(type)) {
             LOG.debug("[TabHandler] Processing create_new_tab");
             handleCreateNewTab();
             return true;

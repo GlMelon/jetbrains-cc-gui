@@ -10,14 +10,35 @@ import static org.junit.Assert.assertTrue;
 public class ClaudeCliModelResolverTest {
 
     @Test
-    public void shouldUseMainModelOverrideBeforeFamilyMapping() {
+    public void shouldUseFamilyMappingBeforeMainModelFallback() {
         JsonObject env = new JsonObject();
         env.addProperty("ANTHROPIC_MODEL", "mimo-v2.5-pro");
+        env.addProperty("ANTHROPIC_DEFAULT_SONNET_MODEL", "mapped-sonnet");
+
+        String resolved = ClaudeCliModelResolver.resolveMapped("claude-role-sonnet", env);
+
+        assertEquals("mapped-sonnet", resolved);
+    }
+
+    @Test
+    public void shouldUseActualModelBeforeEnvironmentMappings() {
+        JsonObject env = new JsonObject();
+        env.addProperty("ANTHROPIC_MODEL", "mimo-v2.5");
         env.addProperty("ANTHROPIC_DEFAULT_SONNET_MODEL", "ignored-sonnet");
 
-        String resolved = ClaudeCliModelResolver.resolveMapped("claude-sonnet-4-6", env);
+        String resolved = ClaudeCliModelResolver.resolveMapped("claude-role-sonnet", "glm5.2", env);
 
-        assertEquals("mimo-v2.5-pro", resolved);
+        assertEquals("glm5.2", resolved);
+    }
+
+    @Test
+    public void shouldPreserveRequestLongContextSuffixForActualModel() {
+        JsonObject env = new JsonObject();
+        env.addProperty("ANTHROPIC_MODEL", "ignored-global");
+
+        String resolved = ClaudeCliModelResolver.resolveMapped("claude-role-sonnet[1m]", "glm5.2", env);
+
+        assertEquals("glm5.2[1m]", resolved);
     }
 
     @Test
@@ -25,19 +46,19 @@ public class ClaudeCliModelResolverTest {
         JsonObject env = new JsonObject();
         env.addProperty("ANTHROPIC_DEFAULT_SONNET_MODEL", "mimo-v2.5-pro");
 
-        String resolved = ClaudeCliModelResolver.resolveMapped("claude-sonnet-4-6", env);
+        String resolved = ClaudeCliModelResolver.resolveMapped("claude-role-sonnet", env);
 
         assertEquals("mimo-v2.5-pro", resolved);
     }
 
     @Test
-    public void shouldStripLongContextSuffixBeforeResolvingFamilyMapping() {
+    public void shouldPreserveLongContextSuffixAfterResolvingFamilyMapping() {
         JsonObject env = new JsonObject();
         env.addProperty("ANTHROPIC_DEFAULT_OPUS_MODEL", "mimo-opus-pro");
 
-        String resolved = ClaudeCliModelResolver.resolveMapped("claude-opus-4-7[1m]", env);
+        String resolved = ClaudeCliModelResolver.resolveMapped("claude-role-opus[1m]", env);
 
-        assertEquals("mimo-opus-pro", resolved);
+        assertEquals("mimo-opus-pro[1m]", resolved);
     }
 
     @Test
@@ -56,7 +77,7 @@ public class ClaudeCliModelResolverTest {
         env.addProperty("ANTHROPIC_SMALL_FAST_MODEL", "mimo-fast");
         env.addProperty("ANTHROPIC_DEFAULT_HAIKU_MODEL", "ignored-haiku");
 
-        String resolved = ClaudeCliModelResolver.resolveMapped("claude-haiku-4-5", env);
+        String resolved = ClaudeCliModelResolver.resolveMapped("claude-role-haiku", env);
 
         assertEquals("mimo-fast", resolved);
     }
@@ -67,7 +88,7 @@ public class ClaudeCliModelResolverTest {
         env.addProperty("ANTHROPIC_DEFAULT_SONNET_MODEL", "mimo-v2.5-pro");
 
         ClaudeCliModelResolver.ResolvedModel resolved = ClaudeCliModelResolver.resolveProfile(
-                "claude-sonnet-4-6", env);
+                "claude-role-sonnet", env);
 
         assertEquals("mimo-v2.5-pro", resolved.model());
         assertFalse(resolved.capabilities().supportsEffort());
@@ -76,9 +97,9 @@ public class ClaudeCliModelResolverTest {
     @Test
     public void shouldEnableEffortForCanonicalClaudeModels() {
         ClaudeCliModelResolver.ResolvedModel resolved = ClaudeCliModelResolver.resolveProfile(
-                "claude-sonnet-4-6", new JsonObject());
+                "claude-role-sonnet", new JsonObject());
 
-        assertEquals("claude-sonnet-4-6", resolved.model());
+        assertEquals("claude-role-sonnet", resolved.model());
         assertTrue(resolved.capabilities().supportsEffort());
     }
 
@@ -89,7 +110,7 @@ public class ClaudeCliModelResolverTest {
         env.addProperty("ANTHROPIC_MODEL_CAPABILITIES", "effort,tools");
 
         ClaudeCliModelResolver.ResolvedModel resolved = ClaudeCliModelResolver.resolveProfile(
-                "claude-sonnet-4-6", env);
+                "claude-role-sonnet", env);
 
         assertEquals("mimo-v2.5-pro", resolved.model());
         assertTrue(resolved.capabilities().supportsEffort());
@@ -103,7 +124,7 @@ public class ClaudeCliModelResolverTest {
                 "no-effort,no-mcp,no-add-dir,no-partial-messages");
 
         ClaudeCliModelResolver.ResolvedModel resolved = ClaudeCliModelResolver.resolveProfile(
-                "claude-sonnet-4-6", env);
+                "claude-role-sonnet", env);
 
         assertFalse(resolved.capabilities().supportsEffort());
         assertFalse(resolved.capabilities().supportsMcp());

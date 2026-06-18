@@ -1,6 +1,8 @@
 package com.github.claudecodegui.provider.claude;
 
+import com.github.claudecodegui.cli.common.CliConstants;
 import com.github.claudecodegui.cli.common.CliErrorFormatter;
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.SDKResult;
 import com.google.gson.Gson;
@@ -77,53 +79,54 @@ public class ClaudeCliStreamParser {
         String eventType = event.has("type") ? event.get("type").getAsString() : "";
 
         switch (eventType) {
-            case "message_start":
+            case CliConstants.MSG_MESSAGE_START:
                 textBlockAfterToolStructure = false;
                 nextTextBlockIsAfterToolStructure = false;
                 emitStreamStartIfNeeded(callback);
                 emitMessageStartIfNeeded(callback);
                 break;
 
-            case "content_block_start":
+            case CliConstants.STREAM_CONTENT_BLOCK_START:
                 if (event.has("content_block")) {
                     JsonObject block = event.getAsJsonObject("content_block");
                     String blockType = block.has("type") ? block.get("type").getAsString() : "";
-                    if ("thinking".equals(blockType)) {
-                        callback.onMessage("thinking", "");
+                    if (CommonConstants.BLOCK_TYPE_THINKING.equals(blockType)) {
+                        callback.onMessage(CommonConstants.MSG_TYPE_THINKING, "");
                         thinkingActive = true;
                         currentTextBlockRoute = TextBlockRoute.NONE;
-                    } else if ("text".equals(blockType)) {
+                    } else if (CommonConstants.BLOCK_TYPE_TEXT.equals(blockType)) {
                         currentTextBlockRoute = TextBlockRoute.UNKNOWN;
                         textBlockAfterToolStructure = nextTextBlockIsAfterToolStructure;
                         nextTextBlockIsAfterToolStructure = false;
                         pendingTextBlock.setLength(0);
                     } else {
                         currentTextBlockRoute = TextBlockRoute.NONE;
-                        if ("tool_use".equals(blockType) || "server_tool_use".equals(blockType)) {
+                        if (CommonConstants.BLOCK_TYPE_TOOL_USE.equals(blockType)
+                                || CommonConstants.BLOCK_TYPE_SERVER_TOOL_USE.equals(blockType)) {
                             nextTextBlockIsAfterToolStructure = true;
                         }
                     }
                 }
                 break;
 
-            case "content_block_delta":
+            case CliConstants.STREAM_CONTENT_BLOCK_DELTA:
                 if (event.has("delta")) {
                     JsonObject delta = event.getAsJsonObject("delta");
                     String deltaType = delta.has("type") ? delta.get("type").getAsString() : "";
                     switch (deltaType) {
-                        case "text_delta":
+                        case CliConstants.DELTA_TEXT:
                             String text = delta.has("text") ? delta.get("text").getAsString() : "";
                             if (!text.isEmpty()) {
                                 handleTextDelta(text, callback, assistantContent);
                             }
                             break;
-                        case "thinking_delta":
+                        case CliConstants.MSG_THINKING_DELTA:
                             String thinking = delta.has("thinking") ? delta.get("thinking").getAsString() : "";
                             if (!thinking.isEmpty()) {
-                                callback.onMessage("thinking_delta", thinking);
+                                callback.onMessage(CliConstants.MSG_THINKING_DELTA, thinking);
                             }
                             break;
-                        case "input_json_delta":
+                        case CliConstants.DELTA_INPUT_JSON:
                             // 工具调用的部分输入，暂时跳过
                             break;
                         default:
@@ -132,7 +135,7 @@ public class ClaudeCliStreamParser {
                 }
                 break;
 
-            case "content_block_stop":
+            case CliConstants.STREAM_CONTENT_BLOCK_STOP:
                 flushPendingTextBlock(callback, assistantContent, false);
                 if (thinkingActive) {
                     thinkingActive = false;
@@ -141,20 +144,20 @@ public class ClaudeCliStreamParser {
                 textBlockAfterToolStructure = false;
                 break;
 
-            case "message_delta":
+            case CliConstants.STREAM_MESSAGE_DELTA:
                 // 包含 stop_reason 和 usage
                 if (event.has("usage")) {
-                    callback.onMessage("usage", event.get("usage").toString());
+                    callback.onMessage(CliConstants.MSG_USAGE, event.get("usage").toString());
                 }
                 break;
 
-            case "message_stop":
+            case CliConstants.STREAM_MESSAGE_STOP:
                 flushPendingTextBlock(callback, assistantContent, false);
                 // CLI agentic 模式下，Claude 会有多个 assistant turn（文字→工具调用→继续输出）。
                 // message_stop 只是单个 turn 的结束，不是整个会话的结束。
                 // 发送 message_end 清除 thinking 状态，重置 messageStarted 让下一个 turn
                 // 的 message_start 能重新触发，从而在 handler 中创建新的 assistant 消息。
-                callback.onMessage("message_end", "");
+                callback.onMessage(CliConstants.MSG_MESSAGE_END, "");
                 messageStarted = false;
                 LOG.debug("[CliStreamParser] message_stop received, emitted message_end for turn boundary");
                 break;
@@ -194,19 +197,19 @@ public class ClaudeCliStreamParser {
         String type = obj.get("type").getAsString();
 
         switch (type) {
-            case "system":
+            case CommonConstants.MSG_TYPE_SYSTEM:
                 handleSystem(obj, callback);
                 break;
-            case "stream_event":
+            case CliConstants.MSG_STREAM_EVENT:
                 handleStreamEvent(obj, callback, assistantContent, suppressThinking);
                 break;
-            case "assistant":
+            case CommonConstants.MSG_TYPE_ASSISTANT:
                 handleAssistant(obj, callback);
                 break;
-            case "user":
+            case CommonConstants.MSG_TYPE_USER:
                 handleUser(obj, callback);
                 break;
-            case "result":
+            case CliConstants.MSG_RESULT:
                 handleResult(obj, callback, result, assistantContent);
                 break;
             default:
@@ -218,11 +221,11 @@ public class ClaudeCliStreamParser {
     private void handleSystem(JsonObject obj, MessageCallback callback) {
         String subtype = obj.has("subtype") ? obj.get("subtype").getAsString() : "";
 
-        if ("init".equals(subtype)) {
+        if (CliConstants.SUBTYPE_INIT.equals(subtype)) {
             // 提取 session_id
             if (obj.has("session_id")) {
                 String sessionId = obj.get("session_id").getAsString();
-                callback.onMessage("session_id", sessionId);
+                callback.onMessage(CliConstants.MSG_SESSION_ID,sessionId);
             }
             emitStreamStartIfNeeded(callback);
             emitMessageStartIfNeeded(callback);
@@ -242,16 +245,16 @@ public class ClaudeCliStreamParser {
         for (JsonElement elem : content) {
             JsonObject block = elem.getAsJsonObject();
             String blockType = block.has("type") ? block.get("type").getAsString() : "";
-            if ("tool_use".equals(blockType)) {
+            if (CommonConstants.BLOCK_TYPE_TOOL_USE.equals(blockType)) {
                 nextTextBlockIsAfterToolStructure = true;
-                if ("Read".equals(getString(block, "name"))) {
+                if (CliConstants.TOOL_NAME_READ.equals(getString(block, "name"))) {
                     readToolUseSeen = true;
                     if (isImagePath(getToolUseFilePath(block))) {
                         imageReadToolUseSeen = true;
                     }
                 }
-                callback.onMessage("tool_use", block.toString());
-            } else if ("server_tool_use".equals(blockType)) {
+                callback.onMessage(CommonConstants.MSG_TYPE_TOOL_USE,block.toString());
+            } else if (CommonConstants.BLOCK_TYPE_SERVER_TOOL_USE.equals(blockType)) {
                 nextTextBlockIsAfterToolStructure = true;
             }
             // text 类型的内容已通过 content_block_delta 接收，跳过
@@ -266,12 +269,12 @@ public class ClaudeCliStreamParser {
                 for (JsonElement elem : content) {
                     JsonObject block = elem.getAsJsonObject();
                     String blockType = block.has("type") ? block.get("type").getAsString() : "";
-                    if ("tool_result".equals(blockType)) {
+                    if (CommonConstants.BLOCK_TYPE_TOOL_RESULT.equals(blockType)) {
                         nextTextBlockIsAfterToolStructure = true;
                         if (imageReadToolUseSeen && containsImageToolResult(block)) {
                             imageToolResultSeen = true;
                         }
-                        callback.onMessage("tool_result", block.toString());
+                        callback.onMessage(CommonConstants.MSG_TYPE_TOOL_RESULT,block.toString());
                     }
                 }
             }
@@ -284,7 +287,7 @@ public class ClaudeCliStreamParser {
 
         // 提取 usage
         if (obj.has("usage")) {
-            callback.onMessage("usage", obj.get("usage").toString());
+            callback.onMessage(CliConstants.MSG_USAGE,obj.get("usage").toString());
         }
 
         boolean isErrorResult = obj.has("is_error") && obj.get("is_error").isJsonPrimitive() && obj.get("is_error").getAsBoolean();
@@ -296,22 +299,22 @@ public class ClaudeCliStreamParser {
                 // 没有通过 delta 收到内容时，使用 result
                 assistantContent.append(resultText);
                 markImageUnderstandingObserved(resultText);
-                callback.onMessage("content", resultText);
+                callback.onMessage(CliConstants.MSG_CONTENT,resultText);
             }
         }
 
         // 提取 session_id（可能和 init 中的一致）
         if (obj.has("session_id")) {
             String sessionId = obj.get("session_id").getAsString();
-            callback.onMessage("session_id", sessionId);
+            callback.onMessage(CliConstants.MSG_SESSION_ID,sessionId);
         }
 
         // result 是 CLI 会话的最终事件，在这里发送 stream_end 和 message_end。
         // 不能在 message_stop 时发送 stream_end，因为 agentic 模式下
         // 可能有多个 assistant turn（工具调用 → 结果 → 继续输出），
         // message_stop 只是单个 turn 的结束。
-        callback.onMessage("stream_end", "");
-        callback.onMessage("message_end", "");
+        callback.onMessage(CliConstants.MSG_STREAM_END,"");
+        callback.onMessage(CliConstants.MSG_MESSAGE_END,"");
 
         if (isErrorResult) {
             String rawError = obj.has("result") && obj.get("result").isJsonPrimitive() ? obj.get("result").getAsString() : obj.toString();
@@ -336,7 +339,7 @@ public class ClaudeCliStreamParser {
 
     private void handleTextDelta(String text, MessageCallback callback, StringBuilder assistantContent) {
         if (currentTextBlockRoute == TextBlockRoute.TOOL_TRACE) {
-            callback.onMessage("thinking_delta", text);
+            callback.onMessage(CliConstants.MSG_THINKING_DELTA,text);
             return;
         }
         if (currentTextBlockRoute == TextBlockRoute.CONTENT || currentTextBlockRoute == TextBlockRoute.NONE) {
@@ -350,7 +353,7 @@ public class ClaudeCliStreamParser {
         if (isToolTraceText(candidate)) {
             currentTextBlockRoute = TextBlockRoute.TOOL_TRACE;
             pendingTextBlock.setLength(0);
-            callback.onMessage("thinking_delta", candidate);
+            callback.onMessage(CliConstants.MSG_THINKING_DELTA,candidate);
             return;
         }
         if (!isPotentialToolTracePrefix(candidate)) {
@@ -367,7 +370,7 @@ public class ClaudeCliStreamParser {
         String text = pendingTextBlock.toString();
         pendingTextBlock.setLength(0);
         if (forceToolTrace || currentTextBlockRoute == TextBlockRoute.TOOL_TRACE || isToolTraceText(text)) {
-            callback.onMessage("thinking_delta", text);
+            callback.onMessage(CliConstants.MSG_THINKING_DELTA,text);
             return;
         }
         markImageUnderstandingObserved(text);
@@ -376,7 +379,7 @@ public class ClaudeCliStreamParser {
 
     private void emitContentDelta(String text, MessageCallback callback, StringBuilder assistantContent) {
         assistantContent.append(text);
-        callback.onMessage("content_delta", text);
+        callback.onMessage(CliConstants.MSG_CONTENT_DELTA,text);
     }
 
     private void markImageUnderstandingObserved(String text) {
@@ -470,13 +473,13 @@ public class ClaudeCliStreamParser {
         if (element.isJsonObject()) {
             JsonObject obj = element.getAsJsonObject();
             String type = getString(obj, "type");
-            if ("image".equals(type) || (type != null && type.startsWith("image/"))) {
+            if (CommonConstants.BLOCK_TYPE_IMAGE.equals(type) || (type != null && type.startsWith("image/"))) {
                 return true;
             }
             JsonObject source = obj.has("source") && obj.get("source").isJsonObject()
                     ? obj.getAsJsonObject("source")
                     : null;
-            if (source != null && "base64".equals(getString(source, "type"))) {
+            if (source != null && CommonConstants.IMAGE_SOURCE_BASE64.equals(getString(source, "type"))) {
                 return true;
             }
             for (String key : obj.keySet()) {
@@ -603,14 +606,14 @@ public class ClaudeCliStreamParser {
     private void emitStreamStartIfNeeded(MessageCallback callback) {
         if (!streamStarted) {
             streamStarted = true;
-            callback.onMessage("stream_start", "");
+            callback.onMessage(CliConstants.MSG_STREAM_START,"");
         }
     }
 
     private void emitMessageStartIfNeeded(MessageCallback callback) {
         if (!messageStarted) {
             messageStarted = true;
-            callback.onMessage("message_start", "");
+            callback.onMessage(CliConstants.MSG_MESSAGE_START,"");
         }
     }
 }

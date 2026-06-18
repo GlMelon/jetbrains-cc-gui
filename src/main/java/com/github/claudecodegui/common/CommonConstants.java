@@ -52,7 +52,7 @@ public final class CommonConstants {
     // 新会话创建时使用的默认参数
 
     /** 默认 AI 模型 */
-    public static final String DEFAULT_MODEL = "claude-sonnet-4-6";
+    public static final String DEFAULT_MODEL = "claude-role-sonnet";
     /** 默认权限模式 */
     public static final String DEFAULT_PERMISSION_MODE = "acceptEdits";
     /** 默认推理努力程度（thinking depth） */
@@ -79,6 +79,10 @@ public final class CommonConstants {
     public static final String MSG_TYPE_TEXT = "text";
     /** 图片内容消息类型 */
     public static final String MSG_TYPE_IMAGE = "image";
+    /** 系统消息类型(前端会话消息:系统提示/通知,与 ClaudeSession.Message.Type.SYSTEM 对齐) */
+    public static final String MSG_TYPE_SYSTEM = "system";
+    /** 错误消息类型(前端会话消息:错误反馈,与 ClaudeSession.Message.Type.ERROR 对齐) */
+    public static final String MSG_TYPE_ERROR = "error";
 
     // ===== 内容块类型 =====
     // message.content 数组中各内容块的 type 字段值
@@ -89,6 +93,8 @@ public final class CommonConstants {
     public static final String BLOCK_TYPE_THINKING = "thinking";
     /** 工具调用内容块 */
     public static final String BLOCK_TYPE_TOOL_USE = "tool_use";
+    /** 服务端工具调用内容块（Anthropic 服务端执行的工具，如 web 搜索） */
+    public static final String BLOCK_TYPE_SERVER_TOOL_USE = "server_tool_use";
     /** 工具结果内容块 */
     public static final String BLOCK_TYPE_TOOL_RESULT = "tool_result";
     /** 输入文本内容块（Codex 格式） */
@@ -97,6 +103,8 @@ public final class CommonConstants {
     public static final String BLOCK_TYPE_OUTPUT_TEXT = "output_text";
     /** 图片内容块 */
     public static final String BLOCK_TYPE_IMAGE = "image";
+    /** 图片源编码类型：base64 */
+    public static final String IMAGE_SOURCE_BASE64 = "base64";
 
     // ===== JSON 键名 =====
     // 消息 JSON 结构中常用的字段名，统一管理避免拼写错误
@@ -194,17 +202,35 @@ public final class CommonConstants {
     /** 权限模式持久化属性键 */
     public static final String PROP_PERMISSION_MODE = "claude.code.permission.mode";
 
-    // ===== 环境变量名 =====
-    // Anthropic API 相关的环境变量
+    // ===== 环境变量名 (Anthropic / Claude) =====
+    // 权威定义：cli 包与 handler 包统一引用此处，消除与 CliConstants 的历史重复。
 
     /** 环境变量：指定默认使用的模型 */
     public static final String ENV_ANTHROPIC_MODEL = "ANTHROPIC_MODEL";
     /** 环境变量：Opus 模型覆盖 */
-    public static final String ENV_ANTHROPIC_OPUS_MODEL = "ANTHROPIC_DEFAULT_OPUS_MODEL";
+    public static final String ENV_ANTHROPIC_DEFAULT_OPUS_MODEL = "ANTHROPIC_DEFAULT_OPUS_MODEL";
     /** 环境变量：Haiku 模型覆盖 */
-    public static final String ENV_ANTHROPIC_HAIKU_MODEL = "ANTHROPIC_DEFAULT_HAIKU_MODEL";
+    public static final String ENV_ANTHROPIC_DEFAULT_HAIKU_MODEL = "ANTHROPIC_DEFAULT_HAIKU_MODEL";
     /** 环境变量：Sonnet 模型覆盖 */
-    public static final String ENV_ANTHROPIC_SONNET_MODEL = "ANTHROPIC_DEFAULT_SONNET_MODEL";
+    public static final String ENV_ANTHROPIC_DEFAULT_SONNET_MODEL = "ANTHROPIC_DEFAULT_SONNET_MODEL";
+    /** 环境变量：Fable 模型覆盖 */
+    public static final String ENV_ANTHROPIC_DEFAULT_FABLE_MODEL = "ANTHROPIC_DEFAULT_FABLE_MODEL";
+    /** 环境变量：小快模型（Haiku 的别名通道） */
+    public static final String ENV_ANTHROPIC_SMALL_FAST_MODEL = "ANTHROPIC_SMALL_FAST_MODEL";
+    /** 环境变量：模型能力覆盖（逗号分隔的能力 token） */
+    public static final String ENV_ANTHROPIC_MODEL_CAPABILITIES = "ANTHROPIC_MODEL_CAPABILITIES";
+    /** 环境变量：Opus 模型能力覆盖 */
+    public static final String ENV_ANTHROPIC_DEFAULT_OPUS_MODEL_CAPABILITIES = "ANTHROPIC_DEFAULT_OPUS_MODEL_CAPABILITIES";
+    /** 环境变量：Fable 模型能力覆盖 */
+    public static final String ENV_ANTHROPIC_DEFAULT_FABLE_MODEL_CAPABILITIES = "ANTHROPIC_DEFAULT_FABLE_MODEL_CAPABILITIES";
+    /** 环境变量：Sonnet 模型能力覆盖 */
+    public static final String ENV_ANTHROPIC_DEFAULT_SONNET_MODEL_CAPABILITIES = "ANTHROPIC_DEFAULT_SONNET_MODEL_CAPABILITIES";
+    /** 环境变量：小快模型能力覆盖 */
+    public static final String ENV_ANTHROPIC_SMALL_FAST_MODEL_CAPABILITIES = "ANTHROPIC_SMALL_FAST_MODEL_CAPABILITIES";
+    /** 环境变量：Haiku 模型能力覆盖 */
+    public static final String ENV_ANTHROPIC_DEFAULT_HAIKU_MODEL_CAPABILITIES = "ANTHROPIC_DEFAULT_HAIKU_MODEL_CAPABILITIES";
+    /** 环境变量：API key helper 脚本 */
+    public static final String ENV_ANTHROPIC_API_KEY_HELPER = "ANTHROPIC_API_KEY_HELPER";
 
     // ===== 代理环境变量名 =====
     // HTTP/HTTPS 代理配置
@@ -268,4 +294,47 @@ public final class CommonConstants {
     public static final String SETTING_CODEX_SANDBOX_MODE = "codexSandboxMode";
     /** 设置键：Claude 环境变量配置 */
     public static final String SETTING_CLAUDE_ENV = "claudeEnv";
+
+    // ===== 会话状态值（状态栏 UI 显示状态） =====
+    // 与 MSG_TYPE_THINKING/ERROR 的 wire 值重叠，但语义为整体会话状态（非消息类型）。
+
+    /** 会话状态：就绪 */
+    public static final String SESSION_STATUS_READY = "ready";
+    /** 会话状态：思考中 */
+    public static final String SESSION_STATUS_THINKING = "thinking";
+    /** 会话状态：生成中 */
+    public static final String SESSION_STATUS_GENERATING = "generating";
+    /** 会话状态：等待中 */
+    public static final String SESSION_STATUS_WAITING = "waiting";
+    /** 会话状态：成功 */
+    public static final String SESSION_STATUS_SUCCESS = "success";
+    /** 会话状态：错误 */
+    public static final String SESSION_STATUS_ERROR = "error";
+
+    // ===== MCP 传输类型 =====
+    // MCP 服务器配置的传输协议类型（stdio/http/sse）
+
+    /** MCP 服务器传输类型：标准输入输出 */
+    public static final String MCP_TRANSPORT_STDIO = "stdio";
+    /** MCP 服务器传输类型：HTTP */
+    public static final String MCP_TRANSPORT_HTTP = "http";
+    /** MCP 服务器传输类型：SSE */
+    public static final String MCP_TRANSPORT_SSE = "sse";
+    /** MCP 服务器连接状态：已连接 */
+    public static final String MCP_STATUS_CONNECTED = "connected";
+
+    // ===== 前端请求动作类型（前端→后端 message type） =====
+    // 前端通过 JSON message 的 type 字段标识请求的动作，由对应 Handler 路由处理。
+
+    public static final String REQUEST_TYPE_GET_CONTEXT_USAGE = "get_context_usage";
+    public static final String REQUEST_TYPE_PERMISSION_DECISION = "permission_decision";
+    public static final String REQUEST_TYPE_ASK_USER_QUESTION_RESPONSE = "ask_user_question_response";
+    public static final String REQUEST_TYPE_PLAN_APPROVAL_RESPONSE = "plan_approval_response";
+    public static final String REQUEST_TYPE_REWIND_FILES = "rewind_files";
+    public static final String REQUEST_TYPE_UNDO_FILE_CHANGES = "undo_file_changes";
+    public static final String REQUEST_TYPE_UNDO_ALL_FILE_CHANGES = "undo_all_file_changes";
+    public static final String REQUEST_TYPE_SAVE_MARKDOWN = "save_markdown";
+    public static final String REQUEST_TYPE_SAVE_JSON = "save_json";
+    public static final String REQUEST_TYPE_CREATE_NEW_TAB = "create_new_tab";
+    public static final String REQUEST_TYPE_ENHANCE_PROMPT = "enhance_prompt";
 }

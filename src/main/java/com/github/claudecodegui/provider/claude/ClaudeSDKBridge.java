@@ -400,6 +400,7 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
             List<ClaudeSession.Attachment> attachments,
             String permissionMode,
             String model,
+            String actualModel,
             JsonObject openedFiles,
             String agentPrompt,
             Boolean streaming,
@@ -414,15 +415,35 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
         DaemonBridge db = getDaemonBridgeForSend();
         if (db != null) {
             return sendViaDaemonBridge(db, channelId, message, sessionId, runtimeSessionEpoch, cwd,
-                    attachments, permissionMode, model, openedFiles, agentPrompt,
+                    attachments, permissionMode, model, actualModel, openedFiles, agentPrompt,
                     streaming, disableThinking, reasoningEffort, callback);
         }
 
         // Fallback: per-process mode (spawns a new Node.js process per request)
         LOG.info("[ClaudeSDKBridge] Using per-process mode (daemon not available)");
         return sendViaProcessInvoker(channelId, message, sessionId, runtimeSessionEpoch, cwd,
-                attachments, permissionMode, model, openedFiles, agentPrompt,
+                attachments, permissionMode, model, actualModel, openedFiles, agentPrompt,
                 streaming, disableThinking, reasoningEffort, callback);
+    }
+
+    public CompletableFuture<SDKResult> sendMessage(
+            String channelId,
+            String message,
+            String sessionId,
+            String runtimeSessionEpoch,
+            String cwd,
+            List<ClaudeSession.Attachment> attachments,
+            String permissionMode,
+            String model,
+            JsonObject openedFiles,
+            String agentPrompt,
+            Boolean streaming,
+            Boolean disableThinking,
+            String reasoningEffort,
+            MessageCallback callback
+    ) {
+        return sendMessage(channelId, message, sessionId, runtimeSessionEpoch, cwd, attachments, permissionMode,
+                model, null, openedFiles, agentPrompt, streaming, disableThinking, reasoningEffort, callback);
     }
 
     /**
@@ -430,6 +451,41 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
      */
     public List<JsonObject> getSessionMessages(String sessionId, String cwd) {
         return sessionQueryService.getSessionMessages(sessionId, cwd);
+    }
+
+    public CompletableFuture<SDKResult> sendMessage(
+            String channelId,
+            String message,
+            String sessionId,
+            String runtimeSessionEpoch,
+            String cwd,
+            List<ClaudeSession.Attachment> attachments,
+            String permissionMode,
+            String model,
+            String actualModel,
+            JsonObject openedFiles,
+            String agentPrompt,
+            Boolean streaming,
+            Boolean disableThinking,
+            String reasoningEffort,
+            String invocationMode,
+            MessageCallback callback
+    ) {
+        if (invocationMode != null && !invocationMode.isBlank() && !"sdk".equals(invocationMode)) {
+            LOG.info("[ClaudeSDKBridge] Ignoring non-SDK invocation mode in SDK bridge for channel "
+                    + channelId + ": " + invocationMode);
+        }
+
+        DaemonBridge db = getDaemonBridgeForSend();
+        if (db != null) {
+            return sendViaDaemonBridge(db, channelId, message, sessionId, runtimeSessionEpoch, cwd,
+                    attachments, permissionMode, model, actualModel, openedFiles, agentPrompt,
+                    streaming, disableThinking, reasoningEffort, callback);
+        }
+
+        return sendViaProcessInvoker(channelId, message, sessionId, runtimeSessionEpoch, cwd,
+                attachments, permissionMode, model, actualModel, openedFiles, agentPrompt,
+                streaming, disableThinking, reasoningEffort, callback);
     }
 
     public CompletableFuture<SDKResult> sendMessage(
@@ -449,21 +505,9 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
             String invocationMode,
             MessageCallback callback
     ) {
-        if (invocationMode != null && !invocationMode.isBlank() && !"sdk".equals(invocationMode)) {
-            LOG.info("[ClaudeSDKBridge] Ignoring non-SDK invocation mode in SDK bridge for channel "
-                    + channelId + ": " + invocationMode);
-        }
-
-        DaemonBridge db = getDaemonBridgeForSend();
-        if (db != null) {
-            return sendViaDaemonBridge(db, channelId, message, sessionId, runtimeSessionEpoch, cwd,
-                    attachments, permissionMode, model, openedFiles, agentPrompt,
-                    streaming, disableThinking, reasoningEffort, callback);
-        }
-
-        return sendViaProcessInvoker(channelId, message, sessionId, runtimeSessionEpoch, cwd,
-                attachments, permissionMode, model, openedFiles, agentPrompt,
-                streaming, disableThinking, reasoningEffort, callback);
+        return sendMessage(channelId, message, sessionId, runtimeSessionEpoch, cwd, attachments, permissionMode,
+                model, null, openedFiles, agentPrompt, streaming, disableThinking, reasoningEffort,
+                invocationMode, callback);
     }
 
     protected DaemonBridge getDaemonBridgeForSend() {
@@ -633,6 +677,7 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
             List<ClaudeSession.Attachment> attachments,
             String permissionMode,
             String model,
+            String actualModel,
             JsonObject openedFiles,
             String agentPrompt,
             Boolean streaming,
@@ -650,6 +695,7 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
                 attachments,
                 permissionMode,
                 model,
+                actualModel,
                 openedFiles,
                 agentPrompt,
                 streaming,
@@ -672,6 +718,7 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
             List<ClaudeSession.Attachment> attachments,
             String permissionMode,
             String model,
+            String actualModel,
             JsonObject openedFiles,
             String agentPrompt,
             Boolean streaming,
@@ -680,7 +727,7 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
             MessageCallback callback
     ) {
         return sendMessageViaDaemon(daemon, channelId, message, sessionId, runtimeSessionEpoch, cwd,
-                attachments, permissionMode, model, openedFiles, agentPrompt,
+                attachments, permissionMode, model, actualModel, openedFiles, agentPrompt,
                 streaming, disableThinking, reasoningEffort, callback);
     }
 
@@ -696,6 +743,7 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
             List<ClaudeSession.Attachment> attachments,
             String permissionMode,
             String model,
+            String actualModel,
             JsonObject openedFiles,
             String agentPrompt,
             Boolean streaming,
@@ -712,6 +760,7 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
                 attachments,
                 permissionMode,
                 model,
+                actualModel,
                 openedFiles,
                 agentPrompt,
                 streaming,

@@ -16,7 +16,7 @@ public class ModelProviderHandlerTest {
         env.addProperty("ANTHROPIC_MODEL", "glm-4.7");
         env.addProperty("ANTHROPIC_DEFAULT_SONNET_MODEL", "ignored-sonnet");
 
-        String resolved = ModelProviderHandler.resolveConfiguredClaudeModel("claude-opus-4-6", env);
+        String resolved = ModelProviderHandler.resolveConfiguredClaudeModel("claude-role-opus", env);
 
         assertEquals("glm-4.7", resolved);
     }
@@ -26,7 +26,7 @@ public class ModelProviderHandlerTest {
         JsonObject env = new JsonObject();
         env.addProperty("ANTHROPIC_DEFAULT_HAIKU_MODEL", "haiku-proxy");
 
-        String resolved = ModelProviderHandler.resolveConfiguredClaudeModel("claude-haiku-4-5", env);
+        String resolved = ModelProviderHandler.resolveConfiguredClaudeModel("claude-role-haiku", env);
 
         assertEquals("haiku-proxy", resolved);
     }
@@ -36,9 +36,9 @@ public class ModelProviderHandlerTest {
         JsonObject env = new JsonObject();
         env.addProperty("ANTHROPIC_SMALL_FAST_MODEL", "legacy-haiku-proxy");
 
-        String resolved = ModelProviderHandler.resolveConfiguredClaudeModel("claude-haiku-4-5", env);
+        String resolved = ModelProviderHandler.resolveConfiguredClaudeModel("claude-role-haiku", env);
 
-        assertEquals("claude-haiku-4-5", resolved);
+        assertEquals("claude-role-haiku", resolved);
     }
 
     @Test
@@ -56,32 +56,25 @@ public class ModelProviderHandlerTest {
         JsonObject env = new JsonObject();
         env.addProperty("ANTHROPIC_DEFAULT_SONNET_MODEL", "glm-4.7[1M]");
 
-        String resolved = ModelProviderHandler.resolveConfiguredClaudeModel("claude-sonnet-4-6", env);
+        String resolved = ModelProviderHandler.resolveConfiguredClaudeModel("claude-role-sonnet", env);
 
         assertEquals("glm-4.7[1M]", resolved);
         assertEquals(1_000_000, ModelProviderHandler.getModelContextLimit(resolved));
     }
 
     @Test
-    public void shouldKeepExpectedContextLimitsForVisibleCodexModels() {
-        assertEquals(1_000_000, ModelProviderHandler.getModelContextLimit("gpt-5.5"));
-        assertEquals(258_000, ModelProviderHandler.getModelContextLimit("gpt-5.3-codex"));
-        assertEquals(1_000_000, ModelProviderHandler.getModelContextLimit("gpt-5.4"));
-        assertEquals(258_000, ModelProviderHandler.getModelContextLimit("gpt-5.2-codex"));
+    public void shouldNotHardCodeContextLimitsForConcreteCodexModels() {
+        assertEquals(200_000, ModelProviderHandler.getModelContextLimit("gpt-provider-model"));
+        assertEquals(1_000_000, ModelProviderHandler.getModelContextLimit("gpt-provider-model[1m]"));
     }
 
     @Test
-    public void shouldReturnCorrectContextLimitsForClaudeModels() {
-        // Base IDs without [1m] suffix - 200k context by default
-        assertEquals(200_000, ModelProviderHandler.getModelContextLimit("claude-sonnet-4-6"));
-        assertEquals(200_000, ModelProviderHandler.getModelContextLimit("claude-opus-4-7"));
-        assertEquals(200_000, ModelProviderHandler.getModelContextLimit("claude-opus-4-6"));
-        // IDs with [1m] suffix - 1M context
-        assertEquals(1_000_000, ModelProviderHandler.getModelContextLimit("claude-sonnet-4-6[1m]"));
-        assertEquals(1_000_000, ModelProviderHandler.getModelContextLimit("claude-opus-4-7[1m]"));
-        assertEquals(1_000_000, ModelProviderHandler.getModelContextLimit("claude-opus-4-6[1m]"));
-        // Haiku - no 1M context available
-        assertEquals(200_000, ModelProviderHandler.getModelContextLimit("claude-haiku-4-5"));
+    public void shouldReturnCorrectContextLimitsForClaudeRoleModels() {
+        assertEquals(200_000, ModelProviderHandler.getModelContextLimit("claude-role-sonnet"));
+        assertEquals(200_000, ModelProviderHandler.getModelContextLimit("claude-role-opus"));
+        assertEquals(200_000, ModelProviderHandler.getModelContextLimit("claude-role-fable"));
+        assertEquals(200_000, ModelProviderHandler.getModelContextLimit("claude-role-haiku"));
+        assertEquals(1_000_000, ModelProviderHandler.getModelContextLimit("claude-role-sonnet[1m]"));
     }
 
     @Test

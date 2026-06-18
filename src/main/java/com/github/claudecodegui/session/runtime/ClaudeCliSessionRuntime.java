@@ -63,6 +63,7 @@ public class ClaudeCliSessionRuntime implements SessionRuntime {
                 req.agentPrompt(),
                 req.permissionMode(),
                 req.model(),
+                req.actualModel(),
                 req.reasoningEffort(),
                 req.permissionSessionId(),
                 req.env()

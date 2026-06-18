@@ -1,5 +1,6 @@
 package com.github.claudecodegui.session;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.permission.PermissionManager;
 import com.github.claudecodegui.permission.PermissionRequest;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
@@ -57,7 +58,34 @@ public class ClaudeSession {
      */
     public static class Message {
         public enum Type {
-            USER, ASSISTANT, SYSTEM, ERROR
+            USER(CommonConstants.MSG_TYPE_USER),
+            ASSISTANT(CommonConstants.MSG_TYPE_ASSISTANT),
+            SYSTEM(CommonConstants.MSG_TYPE_SYSTEM),
+            ERROR(CommonConstants.MSG_TYPE_ERROR);
+
+            private final String value;
+
+            Type(String value) {
+                this.value = value;
+            }
+
+            /** 该类型的序列化值(wire format),与 {@link CommonConstants#MSG_TYPE_USER} 等对齐。 */
+            public String value() {
+                return value;
+            }
+
+            /** 从序列化值反查类型;未知值或 null 返回 null。 */
+            public static Type fromValue(String value) {
+                if (value == null) {
+                    return null;
+                }
+                for (Type type : values()) {
+                    if (type.value.equals(value)) {
+                        return type;
+                    }
+                }
+                return null;
+            }
         }
 
         public Type type;
@@ -634,7 +662,7 @@ public class ClaudeSession {
         } else if ("acceptEdits".equals(mode) || "autoEdit".equals(mode)) {
             pmMode = PermissionManager.PermissionMode.ACCEPT_EDITS;
             LOG.info("Permission mode set to ACCEPT_EDITS for mode: " + mode);
-        } else if ("plan".equals(mode)) {
+        } else if (CommonConstants.PERMISSION_MODE_PLAN.equals(mode)) {
             pmMode = PermissionManager.PermissionMode.DENY_ALL;
             LOG.info("Permission mode set to DENY_ALL for mode: " + mode);
         } else {

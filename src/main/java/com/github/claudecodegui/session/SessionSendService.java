@@ -1,6 +1,7 @@
 package com.github.claudecodegui.session;
 
 import com.github.claudecodegui.common.CommonConstants;
+import com.github.claudecodegui.config.ModelRegistryConfig;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.notifications.ClaudeNotifier;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
@@ -260,6 +261,8 @@ public class SessionSendService {
                 channelId,
                 state.getRuntimeSessionEpoch()
         );
+        ModelRegistryConfig.ResolvedModelSelection codexModelSelection =
+                resolveModelSelection(CommonConstants.PROVIDER_CODEX, state.getModel());
         SessionRequest request = new SessionRequest(
                 key,
                 runtime.provider(),
@@ -273,6 +276,7 @@ public class SessionSendService {
                 agentPrompt,
                 effectivePermissionMode,
                 state.getModel(),
+                codexModelSelection.actualModel(),
                 state.getReasoningEffort(),
                 state.getPermissionSessionId(),
                 null,
@@ -330,10 +334,13 @@ public class SessionSendService {
         Boolean streaming = readStreamingEnabled();
         final String runtimeSessionEpoch = state.getRuntimeSessionEpoch();
         final String currentModel = state.getModel();
+        final ModelRegistryConfig.ResolvedModelSelection modelSelection =
+                resolveModelSelection(CommonConstants.PROVIDER_CLAUDE, currentModel);
         LOG.info("[Lifecycle] sendToClaude sessionId=" + (state.getSessionId() != null ? state.getSessionId() : "(new)")
                 + ", epoch=" + runtimeSessionEpoch
                 + ", cwd=" + state.getCwd()
-                + ", model=" + currentModel);
+                + ", model=" + currentModel
+                + ", actualModel=" + (modelSelection.actualModel() != null ? modelSelection.actualModel() : "(registry-fallback)"));
 
         EffectiveRuntimeResolver.Runtime runtime = resolveRuntime(
                 CommonConstants.PROVIDER_CLAUDE,
@@ -353,6 +360,7 @@ public class SessionSendService {
                 agentPrompt,
                 effectivePermissionMode,
                 currentModel,
+                modelSelection.actualModel(),
                 state.getReasoningEffort(),
                 state.getPermissionSessionId(),
                 streaming,
@@ -372,6 +380,18 @@ public class SessionSendService {
                 requestedMode,
                 CodemossSettingsService.getInstance().getRuntimePolicy()
         );
+    }
+
+    private ModelRegistryConfig.ResolvedModelSelection resolveModelSelection(String provider, String selectedModel) {
+        try {
+            return CodemossSettingsService.getInstance()
+                    .getModelRegistry()
+                    .resolveModelSelection(provider, selectedModel);
+        } catch (Exception e) {
+            LOG.warn("[ModelRegistry] Failed to resolve selected model, falling back to request model: "
+                    + e.getMessage());
+            return ModelRegistryConfig.getDefault().resolveModelSelection(provider, selectedModel);
+        }
     }
 
     private static String toInvocationMode(RuntimeType runtimeType) {
