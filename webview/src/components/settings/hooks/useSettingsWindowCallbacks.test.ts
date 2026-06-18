@@ -136,7 +136,7 @@ describe('useSettingsWindowCallbacks', () => {
       mode: 'customFile',
       effectiveMode: 'customFile',
       customFontPath: '/tmp/MapleMono.ttf',
-      fontFamily: 'CC GUI Custom',
+      fontFamily: 'CC GUI UI Custom',
       fontSize: 14,
       lineSpacing: 1.35,
     }));
@@ -144,7 +144,7 @@ describe('useSettingsWindowCallbacks', () => {
     expect((deps as any).setUiFontConfig).toHaveBeenCalledWith(expect.objectContaining({
       mode: 'customFile',
       customFontPath: '/tmp/MapleMono.ttf',
-      fontFamily: 'CC GUI Custom',
+      fontFamily: 'CC GUI UI Custom',
     }));
   });
 
@@ -157,7 +157,7 @@ describe('useSettingsWindowCallbacks', () => {
       mode: 'customFile',
       effectiveMode: 'customFile',
       customFontPath: '/tmp/MapleMono.ttf',
-      fontFamily: 'CC GUI Custom',
+      fontFamily: 'CC GUI UI Custom',
       fontSize: 14,
       lineSpacing: 1.35,
       fontBase64: 'AAECA',

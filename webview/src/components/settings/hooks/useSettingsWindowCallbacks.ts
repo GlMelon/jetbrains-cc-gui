@@ -134,6 +134,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
     registerLegacyAlias('updateWorkingDirectory', 'config.working_directory');
     registerLegacyAlias('onEditorFontConfigReceived', 'font.editor_config_received');
     registerLegacyAlias('onUiFontConfigReceived', 'font.ui_config_received');
+    registerLegacyAlias('onCodeFontConfigReceived', 'font.code_config_received');
     registerLegacyAlias('onIdeThemeReceived', 'theme.received');
     registerLegacyAlias('updateCodexSandboxMode', 'config.codex_sandbox_mode');
     registerLegacyAlias('updateCommitPrompt', 'config.commit_prompt');
@@ -224,6 +225,16 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
         window.applyUiFontConfig?.(config);
       } catch {
         // Silently ignore malformed UI font config from backend
+      }
+    }));
+
+    // [归一化] 代码字体配置回显(与 editor/ui 字体平行,迁移期遗漏已补)
+    unsubs.push(bridgeHub.subscribe('font.code_config_received', (jsonStr) => {
+      try {
+        const config = JSON.parse(jsonStr as string);
+        d().setCodeFontConfig(config);
+      } catch (error) {
+        console.error('[SettingsView] Failed to parse code font config:', error);
       }
     }));
 
