@@ -51,6 +51,15 @@ export class AsyncStream {
 
   async return() {
     this.isDone = true;
+    // Resolve any pending next() reader. Without this, when the SDK calls
+    // return() (early break / abort), the awaiting reader coroutine hangs
+    // forever on its readResolve promise — leaking the persistent query and
+    // blocking graceful shutdown.
+    if (this.readResolve) {
+      const resolve = this.readResolve;
+      this.readResolve = undefined;
+      resolve({ done: true, value: undefined });
+    }
     return { done: true, value: undefined };
   }
 }

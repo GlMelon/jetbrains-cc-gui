@@ -15,6 +15,19 @@ import { hasValidMcpResponse, createInitializeRequest } from './mcp-protocol.js'
 export function safeKillProcess(child, serverName) {
   if (!child) return;
 
+  // Close stdio pipe handles BEFORE signalling. An open stdin keeps the child's
+  // read pipe alive (and on Windows can keep a shell-spawned child from exiting
+  // even after SIGTERM), and the unclosed pipe handles leak file descriptors.
+  for (const stream of [child.stdin, child.stdout, child.stderr]) {
+    try {
+      if (stream && typeof stream.destroy === 'function' && !stream.destroyed) {
+        stream.destroy();
+      }
+    } catch (_) {
+      // best-effort; stream may already be torn down
+    }
+  }
+
   try {
     if (!child.killed) {
       child.kill('SIGTERM');

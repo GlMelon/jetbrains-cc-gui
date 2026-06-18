@@ -428,12 +428,10 @@ async function processRequest(request) {
   }
 
   if (method === 'shutdown') {
-    await shutdownPersistentRuntimes();
-    resetCodexThreadCache();
-    sendDaemonEvent('shutdown', { reason: 'requested' });
+    // Acknowledge the request first, then run the unified cleanup path so child
+    // processes are torn down in the correct order (see gracefulShutdown).
     writeRawLine({ id: id || '0', done: true, success: true });
-    isDaemonMode = false;
-    setTimeout(() => _originalExit(0), 100);
+    await gracefulShutdown('requested');
     return;
   }
 
@@ -497,6 +495,69 @@ async function processRequest(request) {
   }
 }
 
+/**
+ * Unified, idempotent graceful shutdown. Centralises the cleanup that every
+ * termination path must perform, so a child process (Claude persistent query /
+ * Codex transport) is never leaked regardless of HOW the daemon is told to stop:
+ *
+ *   - explicit `shutdown` command from the Java parent
+ *   - stdin close (parent closed the pipe / parent exiting)
+ *   - parent-process disappearance (IDEA crash / force-kill)
+ *   - POSIX signals (SIGINT / SIGTERM / SIGHUP) and Windows SIGBREAK
+ *
+ * Ordering matters: the in-flight Codex turn must be aborted and awaited BEFORE
+ * the cached transport is reset, otherwise resetCodexThreadCache() drops a thread
+ * that the SDK is still streaming through, leaking the child node process behind it.
+ */
+let shuttingDown = false;
+async function gracefulShutdown(reason) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+
+  const forceExitTimer = setTimeout(() => {
+    _originalStderrWrite(`[daemon] Shutdown timeout (5s, reason=${reason}), forcing exit\n`, 'utf8');
+    _originalExit(0);
+  }, 5000);
+  forceExitTimer.unref();
+
+  // Stop accepting new requests immediately.
+  isDaemonMode = false;
+
+  try {
+    // 1. Close the persistent Claude query (terminates the long-lived Claude process).
+    await shutdownPersistentRuntimes();
+  } catch (e) {
+    _originalStderrWrite(`[daemon] Failed to shutdown persistent runtimes: ${e.message}\n`, 'utf8');
+  }
+
+  try {
+    // 2. Abort any in-flight Codex turn and wait for it to fully unwind BEFORE
+    //    clearing the cached transport. Resetting mid-stream leaks the child node
+    //    process backing the Codex SDK; awaiting prevents that.
+    abortCurrentCodexTurn();
+    await waitForCodexTurnCompletion();
+  } catch (e) {
+    _originalStderrWrite(`[daemon] Failed to abort codex turn: ${e.message}\n`, 'utf8');
+  }
+
+  try {
+    // 3. Drop cached Codex thread/transport state.
+    resetCodexThreadCache();
+  } catch (e) {
+    _originalStderrWrite(`[daemon] Failed to reset codex thread cache: ${e.message}\n`, 'utf8');
+  }
+
+  clearTimeout(forceExitTimer);
+
+  try {
+    sendDaemonEvent('shutdown', { reason });
+  } catch (_) {
+    // stdout may already be torn down during force-close; non-fatal.
+  }
+
+  _originalExit(0);
+}
+
 (async () => {
   process.on('uncaughtException', (error) => {
     _originalStderrWrite(
@@ -514,6 +575,11 @@ async function processRequest(request) {
       activeRequestId = null;
       activeRequestChannelId = null;
     }
+    // An uncaught exception leaves daemon invariants broken; continuing risks
+    // leaking the Claude/Codex child processes and corrupting the SDK stream
+    // state. Tear everything down via the unified path instead of soldiering on.
+    // Not awaited (handler is sync); gracefulShutdown has a 5s force-exit backstop.
+    gracefulShutdown('uncaught_exception');
   });
 
   process.on('unhandledRejection', (reason) => {
@@ -647,43 +713,38 @@ async function processRequest(request) {
   });
 
   rl.on('close', async () => {
-    const forceExitTimer = setTimeout(() => {
-      _originalStderrWrite('[daemon] Shutdown timeout (5s), forcing exit\n', 'utf8');
-      _originalExit(0);
-    }, 5000);
-    forceExitTimer.unref();
-
-    try {
-      await shutdownPersistentRuntimes();
-    } catch (e) {
-      _originalStderrWrite(`[daemon] Failed to shutdown persistent runtimes: ${e.message}\n`, 'utf8');
-    }
-    resetCodexThreadCache();
-    clearTimeout(forceExitTimer);
-    sendDaemonEvent('shutdown', { reason: 'stdin_closed' });
-    isDaemonMode = false;
-    _originalExit(0);
+    await gracefulShutdown('stdin_closed');
   });
+
+  // --- Signal handlers ---
+  // If the daemon is explicitly signalled (kill, terminal hangup, Windows
+  // Ctrl-Break), clean up child processes instead of dying abruptly and
+  // orphaning the Claude/Codex SDK processes. SIGBREAK only exists on Windows;
+  // the try/catch guards registration so platforms lacking a given signal are
+  // skipped instead of throwing ERR_UNKNOWN_SIGNAL.
+  for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP', 'SIGBREAK']) {
+    try {
+      process.on(sig, () => {
+        _originalStderrWrite(`[daemon] Received ${sig}, shutting down\n`, 'utf8');
+        gracefulShutdown(sig);
+      });
+    } catch (_) {
+      // Signal not supported on this platform; skip.
+    }
+  }
 
   // --- Parent process monitoring ---
   // Periodically verify the Java parent is still alive. When IDEA crashes or is
   // force-killed, stdin may not close cleanly, leaving orphan daemon processes.
   // On Unix, process.ppid changes to 1 (init/launchd) when the parent dies.
   //
-  // L11 fix: poll every 3s instead of 10s. The previous 10s window meant orphan
-  // daemons could linger for up to 10s after a hard IDE crash before noticing
-  // their parent was gone. 3s tightens the worst-case orphan duration. The
-  // check itself is a cheap kill(pid, 0) syscall + a comparison, so the
-  // increased polling rate is negligible overhead.
-  //
-  // Tuning guide:
-  //  - Lower (e.g. 1000)  → faster orphan detection at the cost of more wakeups.
-  //                         Useful when many concurrent daemons are expected.
-  //  - Higher (e.g. 10000) → matches the legacy behaviour; orphans may persist
-  //                         briefly visible in `ps`/`Activity Monitor`.
-  //  - Don't go below 500: `setInterval` precision degrades and the wakeup
-  //                         overhead starts to dominate on low-power machines.
-  const PPID_CHECK_INTERVAL_MS = 3000;
+  // L11 fix: poll every 1.5s instead of the legacy 10s (then 3s). The previous
+  // windows let orphan daemons linger after a hard IDE crash before noticing
+  // their parent was gone. 1.5s tightens the worst-case orphan duration further
+  // while staying well above the setInterval precision floor. The check is a
+  // cheap kill(pid, 0) syscall + a comparison, so the increased polling rate is
+  // negligible overhead.
+  const PPID_CHECK_INTERVAL_MS = 1500;
   const initialPpid = process.ppid;
   const ppidMonitor = setInterval(() => {
     const currentPpid = process.ppid;
@@ -705,8 +766,10 @@ async function processRequest(request) {
         `[daemon] Parent process (ppid=${initialPpid}) is gone (current ppid=${currentPpid}), exiting\n`,
         'utf8'
       );
-      isDaemonMode = false;
-      _originalExit(0);
+      // Run the unified cleanup so child SDK processes are killed, not orphaned.
+      // Not awaited: the interval callback is sync; gracefulShutdown has its own
+      // force-exit backstop.
+      gracefulShutdown('parent_gone');
     }
   }, PPID_CHECK_INTERVAL_MS);
   ppidMonitor.unref();

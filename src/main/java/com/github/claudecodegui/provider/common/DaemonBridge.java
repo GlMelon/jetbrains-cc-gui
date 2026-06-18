@@ -53,6 +53,7 @@ public class DaemonBridge {
     private volatile BufferedWriter daemonStdin;
     private volatile Thread readerThread;
     private volatile Thread heartbeatThread;
+    private volatile Thread stderrThread;
     private final AtomicBoolean isRunning = new AtomicBoolean(false);
     private final AtomicBoolean sdkPreloaded = new AtomicBoolean(false);
     private final AtomicLong requestIdCounter = new AtomicLong(0);
@@ -253,18 +254,20 @@ public class DaemonBridge {
                 Thread.currentThread().interrupt();
             }
         }
+        // The stderr reader blocks on readLine() of the daemon's error stream.
+        // Once the process is killed above the stream closes and the thread exits,
+        // but we still interrupt+join so stop() never returns with a dangling reader.
+        if (stderrThread != null) {
+            stderrThread.interrupt();
+            try {
+                stderrThread.join(2000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            stderrThread = null;
+        }
 
         LOG.info("[DaemonBridge] Daemon stopped");
-    }
-
-    /**
-     * Send an abort command to cancel the currently executing request.
-     * The abort bypasses the daemon's command queue and is processed immediately.
-     * Also completes the currently active request future so Java-side blocking calls unblock
-     * without dropping queued follow-up requests.
-     */
-    public void sendAbort() {
-        sendAbort(null);
     }
 
     public void sendAbort(String channelId) {
@@ -424,7 +427,7 @@ public class DaemonBridge {
     }
 
     private void startStderrReaderThread() {
-        Thread stderrThread = new Thread(() -> {
+        stderrThread = new Thread(() -> {
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(daemonProcess.getErrorStream(), StandardCharsets.UTF_8))) {
                 String line;
@@ -723,10 +726,6 @@ public class DaemonBridge {
     // Setters
     // =========================================================================
 
-    public void setLifecycleListener(DaemonLifecycleListener listener) {
-        this.lifecycleListener = listener;
-    }
-
     /**
      * Register a listener for custom daemon events (e.g., title_generated).
      * Multiple listeners may coexist; each is invoked on every matching event.
@@ -744,10 +743,6 @@ public class DaemonBridge {
     public void removeEventListener(DaemonEventListener listener) {
         if (listener == null) { return; }
         eventListeners.remove(listener);
-    }
-
-    public boolean isSdkPreloaded() {
-        return sdkPreloaded.get();
     }
 
     static boolean shouldTreatAsUnresponsive(long heartbeatAgeMs, long activityAgeMs, int activeRequestCount) {

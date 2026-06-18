@@ -5,10 +5,12 @@ import com.intellij.execution.process.ProcessHandler;
 import com.intellij.execution.process.ProcessListener;
 import com.intellij.execution.ui.RunContentDescriptor;
 import com.intellij.execution.ui.RunContentManager;
+import com.intellij.openapi.Disposable;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.startup.ProjectActivity;
+import com.intellij.openapi.util.Disposer;
 import com.intellij.openapi.util.Key;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowManager;
@@ -38,6 +40,17 @@ public class RunConfigMonitorService implements ProjectActivity {
     private static final Logger LOG = Logger.getInstance(RunConfigMonitorService.class);
 
     /**
+     * Disposable that owns the MessageBusConnection and all ContentManagerListeners
+     * registered by this service. It is registered with the project so that, even if
+     * no explicit dispose() runs, project disposal still releases every listener
+     * (preventing the listener accumulation that previously depended on tool-window
+     * teardown alone). WeakHashMap keys let an unreachable ContentManager be GC'd.
+     */
+    private final Disposable parentDisposable = Disposer.newDisposable("RunConfigMonitorService");
+    private final Map<ContentManager, ContentManagerListener> attachedManagers =
+            Collections.synchronizedMap(new java.util.WeakHashMap<>());
+
+    /**
      * Buffer storage for run configuration output using WeakHashMap.
      * Buffers are automatically cleaned up when the associated descriptor is garbage collected.
      */
@@ -53,20 +66,48 @@ public class RunConfigMonitorService implements ProjectActivity {
 
     private static final int MAX_BUFFER_SIZE = 100000; // Keep last 100k chars
 
-    private final Set<ContentManager> attachedManagers = Collections.synchronizedSet(new HashSet<>());
     private Project currentProject;
 
     @Nullable
     @Override
     public Object execute(@NotNull Project project, @NotNull Continuation<? super Unit> continuation) {
         this.currentProject = project;
+        // Bind parentDisposable to the project so every listener is released when the
+        // project closes, regardless of whether an explicit dispose() runs.
+        try {
+            Disposer.register(project, parentDisposable);
+            // Remove every tracked ContentManagerListener when the parent is disposed,
+            // so listeners never outlive the project even if a tool window lingers.
+            Disposer.register(parentDisposable, () -> disposeListeners());
+        } catch (Exception alreadyRegistered) {
+            // Already bound (defensive against duplicate execute); safe to ignore.
+        }
         ApplicationManager.getApplication().invokeLater(() -> monitorRunConfigurations(project));
         return Unit.INSTANCE;
     }
 
+    /**
+     * Detach and forget every ContentManagerListener we registered. Called from the
+     * parentDisposable cleanup so project close releases all listeners deterministically.
+     */
+    private void disposeListeners() {
+        synchronized (attachedManagers) {
+            for (Map.Entry<ContentManager, ContentManagerListener> entry : attachedManagers.entrySet()) {
+                try {
+                    entry.getKey().removeContentManagerListener(entry.getValue());
+                } catch (Exception ignored) {
+                    // ContentManager may already be disposed; nothing to do.
+                }
+            }
+            attachedManagers.clear();
+        }
+    }
+
     private void monitorRunConfigurations(@NotNull Project project) {
-        // Listen for Run ToolWindow changes
-        project.getMessageBus().connect().subscribe(ToolWindowManagerListener.TOPIC, new ToolWindowManagerListener() {
+        // Listen for Run ToolWindow changes. Connect through parentDisposable so the
+        // connection is torn down with the project instead of leaking.
+        project.getMessageBus().connect(parentDisposable)
+                .subscribe(ToolWindowManagerListener.TOPIC, new ToolWindowManagerListener() {
             @Override
             public void stateChanged(@NotNull ToolWindowManager toolWindowManager) {
                 setupRunListener(project);
@@ -107,12 +148,11 @@ public class RunConfigMonitorService implements ProjectActivity {
         if (contentManager == null) { return; }
 
         // Check if already attached
-        if (attachedManagers.contains(contentManager)) {
+        if (attachedManagers.containsKey(contentManager)) {
             return;
         }
-        attachedManagers.add(contentManager);
 
-        contentManager.addContentManagerListener(new ContentManagerListener() {
+        ContentManagerListener listener = new ContentManagerListener() {
             @Override
             public void contentAdded(@NotNull ContentManagerEvent event) {
                 LOG.debug("Content added to " + windowName + ": " + event.getContent().getDisplayName());
@@ -130,7 +170,9 @@ public class RunConfigMonitorService implements ProjectActivity {
             public void contentRemoved(@NotNull ContentManagerEvent event) {
                 LOG.debug("Content removed from " + windowName + ": " + event.getContent().getDisplayName());
             }
-        });
+        };
+        contentManager.addContentManagerListener(listener);
+        attachedManagers.put(contentManager, listener);
 
         LOG.debug("ContentManager listener attached for: " + windowName);
         

@@ -234,7 +234,7 @@ public class ClaudeChatWindow {
             public HandlerContext getHandlerContext() {
                 return handlerContext;
             }
-        });
+        }, project);
 
         this.webviewWatchdog = new WebviewWatchdog(
                 mainPanel,

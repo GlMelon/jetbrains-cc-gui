@@ -3,6 +3,7 @@ package com.github.claudecodegui.ui;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.util.IgnoreRuleMatcher;
 import com.github.claudecodegui.util.JsUtils;
+import com.intellij.openapi.Disposable;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Editor;
@@ -14,6 +15,7 @@ import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileEditor.FileEditorManagerEvent;
 import com.intellij.openapi.fileEditor.FileEditorManagerListener;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.util.Disposer;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.util.Alarm;
 import com.intellij.util.messages.MessageBusConnection;
@@ -37,6 +39,13 @@ public class EditorContextTracker {
 
     private final Project project;
     private final ContextCallback callback;
+    /**
+     * Parent Disposable that owns the MessageBusConnection and the Alarm. It is
+     * registered with the project so that, even if dispose() never runs, project
+     * disposal still releases both — preventing the connection/alarm leak that
+     * previously relied solely on an explicit dispose() call.
+     */
+    private final Disposable parentDisposable = Disposer.newDisposable("EditorContextTracker");
     private Alarm contextUpdateAlarm;
     private MessageBusConnection connection;
     private volatile boolean disposed = false;
@@ -50,8 +59,15 @@ public class EditorContextTracker {
      * Register editor event listeners for file switching and text selection.
      */
     public void registerListeners() {
-        contextUpdateAlarm = new Alarm(Alarm.ThreadToUse.SWING_THREAD);
-        connection = project.getMessageBus().connect();
+        // Bind parentDisposable to the project so the connection and alarm are
+        // released on project close regardless of whether dispose() runs.
+        try {
+            Disposer.register(project, parentDisposable);
+        } catch (Exception ignored) {
+            // Already bound (defensive); safe to ignore.
+        }
+        contextUpdateAlarm = new Alarm(Alarm.ThreadToUse.SWING_THREAD, parentDisposable);
+        connection = project.getMessageBus().connect(parentDisposable);
 
         // Monitor file switching
         connection.subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, new FileEditorManagerListener() {
@@ -168,11 +184,13 @@ public class EditorContextTracker {
      */
     public void dispose() {
         disposed = true;
-        if (connection != null) {
-            connection.disconnect();
-        }
-        if (contextUpdateAlarm != null) {
-            contextUpdateAlarm.dispose();
+        // Disposing the parent releases the MessageBusConnection and the Alarm
+        // that were registered against it. Safe to call even if registerListeners()
+        // was never invoked.
+        try {
+            Disposer.dispose(parentDisposable);
+        } catch (Exception ignored) {
+            // Already disposed (e.g. via project close); nothing to do.
         }
     }
 }
