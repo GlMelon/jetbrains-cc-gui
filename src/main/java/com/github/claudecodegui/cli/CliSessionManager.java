@@ -9,6 +9,7 @@ import com.github.claudecodegui.ui.toolwindow.TabPerformanceLogger;
 import com.intellij.openapi.diagnostic.Logger;
 
 import java.util.Map;
+import java.util.function.BiConsumer;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -86,6 +87,12 @@ public class CliSessionManager {
     }
 
     public void disposeTab(String tabId) {
+        // 先取消该 tab 进行中的 send future:防止 dispose 后队列里残留的串行 send 再次启动 CLI 子进程,
+        // 也避免 dispose() 释放的 CliSession 被正在运行的 send 继续写入(并发损坏/孤儿进程)。
+        CompletableFuture<SDKResult> inflight = inFlight.remove(tabId);
+        if (inflight != null) {
+            inflight.cancel(true);
+        }
         long startNanos = System.nanoTime();
         ConcurrentHashMap<String, CliSession> providerMap = sessions.remove(tabId);
         if (providerMap != null) {
@@ -99,6 +106,37 @@ public class CliSessionManager {
         }
         LOG.info("[TabPerf] CliSessionManager.disposeTab returned in "
                 + TabPerformanceLogger.elapsedMillis(startNanos) + "ms: tab=" + tabId);
+    }
+
+    /**
+     * 收集指定 tab 当前活跃的 CLI 子进程,供 NodeProcessRegistry 进程面板注册可见。
+     * sink 接收 (provider, process);仅回传仍存活的进程。CLI 模式此前面板漏显、不可杀。
+     */
+    public void collectActiveProcesses(String tabId, BiConsumer<String, Process> sink) {
+        if (tabId == null || sink == null) {
+            return;
+        }
+        ConcurrentHashMap<String, CliSession> providerMap = sessions.get(tabId);
+        if (providerMap == null) {
+            return;
+        }
+        for (Map.Entry<String, CliSession> entry : providerMap.entrySet()) {
+            Process p;
+            try {
+                p = entry.getValue().activeProcess();
+            } catch (Exception e) {
+                continue;
+            }
+            if (p == null) {
+                continue;
+            }
+            try {
+                if (p.isAlive()) {
+                    sink.accept(entry.getKey(), p);
+                }
+            } catch (Exception ignored) {
+            }
+        }
     }
 
     // ── private ──────────────────────────────────────────────────────────────

@@ -584,7 +584,8 @@ public class ClaudeSession {
      * Must be called when the associated tab/window is closed to prevent memory leaks.
      */
     public void dispose() {
-        LOG.info("[ClaudeSession] Disposing session, channelId=" + state.getChannelId());
+        String tabId = state.getChannelId();
+        LOG.info("[ClaudeSession] Disposing session, channelId=" + tabId);
         // CLI 模式的会话清理由 CliSessionManager.disposeTab 处理,跳过 SDK bridge 调用。
         if (!isCliRuntime()) {
             providerRouter.cleanupProviderSession(state.getProvider(), state.getSessionId(), state.getCwd());
@@ -597,6 +598,18 @@ public class ClaudeSession {
             LOG.debug("[ClaudeSession] Interrupt during dispose failed: " + e.getMessage());
         }
 
+        // 释放 runtime tab 资源:取消进行中的 CLI send future 并释放 CLI 子进程/会话。
+        // 此前注释声称"CLI 清理由 CliSessionManager.disposeTab 处理",但 dispose 链从未调用它,
+        // 导致关闭 tab 时 CLI 子进程/会话泄漏(孤儿进程)。SDK runtime 的 disposeTab 是 no-op
+        // (共享 daemon 不按 tab 释放),只有 CLI runtime 实际生效。
+        try {
+            if (tabId != null) {
+                sendService.cleanupRuntimeTab(tabId);
+            }
+        } catch (Exception e) {
+            LOG.warn("[ClaudeSession] cleanupRuntimeTab during dispose failed: " + e.getMessage());
+        }
+
         // Clear callback reference to break: PermissionManager -> lambda -> callbackFacade -> UI
         callbackFacade.setCallback(null);
 
@@ -604,6 +617,24 @@ public class ClaudeSession {
         permissionManager.setOnPermissionRequestedCallback(null);
 
         state.setChannelId(null);
+    }
+
+    /**
+     * 收集当前 tab 活跃的 CLI 子进程，供 NodeProcessRegistry 进程面板注册可见。
+     * CLI 模式的 claude/codex 子进程此前不在任何 SDK bridge 的 processManager 里，面板漏显（不可见、不可杀）。
+     */
+    public void collectCliProcesses(java.util.function.BiConsumer<String, Process> sink) {
+        if (sink == null) {
+            return;
+        }
+        try {
+            String tabId = state.getChannelId();
+            if (tabId != null) {
+                sendService.collectCliProcesses(tabId, sink);
+            }
+        } catch (Exception e) {
+            LOG.warn("[ClaudeSession] collectCliProcesses failed: " + e.getMessage());
+        }
     }
 
     /**
@@ -727,6 +758,13 @@ public class ClaudeSession {
 
     /**
      * Rotate the runtime session epoch.
+     * <p>
+     * 当前设计:每个会话在 SessionState 构造时分配随机 epoch 并在会话生命周期内保持不变
+     * (作为 RuntimeKey 去重键、SDK daemon {@code resetPersistentRuntime} 标识、attachment
+     * pending→real 映射键)。"重置会话"走新建 ClaudeSession 路径(自带新 epoch),不调用本方法,
+     * 故本方法目前无生产调用者。保留为预留 API,供未来"会话内软重置"(复用同一 ClaudeSession
+     * 实例但切换底层 runtime 上下文)场景使用——届时在 reset 点调用即可让旧 epoch 的在途
+     * 请求/attachment 失效。这不是遗漏,删它前请确认无此规划。
      */
     public String rotateRuntimeSessionEpoch() {
         String epoch = state.rotateRuntimeSessionEpoch();

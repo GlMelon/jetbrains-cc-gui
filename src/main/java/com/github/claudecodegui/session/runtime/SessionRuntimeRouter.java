@@ -20,10 +20,12 @@ public class SessionRuntimeRouter {
     private static final Logger LOG = Logger.getInstance(SessionRuntimeRouter.class);
 
     private final SessionRuntimeRegistry registry;
+    // CLI 子进程聚合器(进程面板可见性 #12):提升为字段,使 router 能对外收集 CLI 子进程。
+    private final CliSessionManager cliManager;
 
     public SessionRuntimeRouter(ClaudeSDKBridge claudeSDKBridge, CodexSDKBridge codexSDKBridge) {
         this.registry = new SessionRuntimeRegistry();
-        CliSessionManager cliManager = new CliSessionManager();
+        this.cliManager = new CliSessionManager();
         // 注册 4 个 runtime 实现
         registry.register(new ClaudeSdkSessionRuntime(claudeSDKBridge));
         registry.register(new CodexSdkSessionRuntime(codexSDKBridge));
@@ -50,5 +52,13 @@ public class SessionRuntimeRouter {
      */
     public void disposeTab(String tabId) {
         registry.all().forEach(r -> r.disposeTab(tabId));
+    }
+
+    /**
+     * 收集指定 tab 的 CLI 子进程（委托 CliSessionManager），供进程面板可见。
+     * SDK runtime 无 CLI 子进程，此方法仅 CLI 模式生效。
+     */
+    public void collectCliProcesses(String tabId, java.util.function.BiConsumer<String, Process> sink) {
+        cliManager.collectActiveProcesses(tabId, sink);
     }
 }
