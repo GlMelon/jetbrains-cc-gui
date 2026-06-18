@@ -4,6 +4,37 @@ import assert from 'node:assert/strict';
 import { __testing, getContextUsagePersistent } from './persistent-query-service.js';
 
 /**
+ * Mock SDK query reader helper: make next() block (like the real SDK while
+ * idle) and let close() release the pending reader so the perpetual reader
+ * loop exits cleanly. Returning done:true immediately from next() made the
+ * perpetual reader dispose the freshly created runtime before
+ * acquireRuntime()'s ownership check ran — which does not reflect production
+ * behavior and made acquireRuntime throw "Runtime is closed".
+ */
+function createBlockingNext() {
+  return {
+    _resolveNext: null,
+    next() {
+      if (this._closed) return Promise.resolve({ done: true, value: undefined });
+      return new Promise((resolve) => {
+        this._resolveNext = resolve;
+      });
+    },
+    release() {
+      if (this._resolveNext) {
+        const resolve = this._resolveNext;
+        this._resolveNext = null;
+        resolve({ done: true, value: undefined });
+      }
+    },
+    markClosed() {
+      this._closed = true;
+      this.release();
+    }
+  };
+}
+
+/**
  * Create a query factory whose runtimes have getContextUsage() and setModel().
  * The runtime's currentModel is set from options.model at creation time.
  * Also stores modelId to track [1m] suffix state for context window changes.
@@ -14,6 +45,7 @@ function createContextAwareQueryFactory(contextUsageResult = { totalTokens: 1000
   return {
     runtimes,
     queryFn({ prompt, options }) {
+      const reader = createBlockingNext();
       // Set currentModel from options.model (matches SDK behavior)
       // Also store the original modelId for [1m] suffix tracking
       const runtime = {
@@ -30,9 +62,10 @@ function createContextAwareQueryFactory(contextUsageResult = { totalTokens: 1000
         getContextUsage: async () => contextUsageResult,
         close() {
           this.closed = true;
+          reader.markClosed();
         },
-        async next() {
-          return { done: true, value: undefined };
+        next() {
+          return reader.next();
         }
       };
       runtimes.push(runtime);
@@ -41,8 +74,44 @@ function createContextAwareQueryFactory(contextUsageResult = { totalTokens: 1000
   };
 }
 
+// Environment variables set by the user's Claude Code environment (e.g.
+// ANTHROPIC_DEFAULT_SONNET_MODEL=glm-5.2[1M]) affect resolveModelFromSettings,
+// making getContextUsagePersistent map 'claude-sonnet-4-6' to a custom model
+// ID and breaking tests that assert the exact model ID passes through.
+// Temporarily clear all model-mapping env vars so the tests run against a
+// clean, deterministic configuration, then restore them after each test.
+const MODEL_ENV_KEYS = [
+  'ANTHROPIC_DEFAULT_SONNET_MODEL',
+  'ANTHROPIC_DEFAULT_SONNET_MODEL_NAME',
+  'ANTHROPIC_DEFAULT_OPUS_MODEL',
+  'ANTHROPIC_DEFAULT_OPUS_MODEL_NAME',
+  'ANTHROPIC_DEFAULT_HAIKU_MODEL',
+  'ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME',
+  'ANTHROPIC_DEFAULT_FABLE_MODEL',
+  'ANTHROPIC_DEFAULT_FABLE_MODEL_NAME',
+  'ANTHROPIC_MODEL',
+  'ANTHROPIC_REASONING_MODEL',
+];
+
+const savedModelEnv = {};
+
 test.beforeEach(async () => {
   await __testing.resetState();
+  for (const key of MODEL_ENV_KEYS) {
+    savedModelEnv[key] = process.env[key];
+    delete process.env[key];
+  }
+});
+
+test.after(async () => {
+  await __testing.resetState();
+  for (const key of MODEL_ENV_KEYS) {
+    if (savedModelEnv[key] !== undefined) {
+      process.env[key] = savedModelEnv[key];
+    } else {
+      delete process.env[key];
+    }
+  }
 });
 
 test('buildRequestContext preserves resolved model mapping for context usage runtimes', async () => {
@@ -167,7 +236,7 @@ test('getContextUsagePersistent reuses runtime and calls setModel when model cha
       sessionId: 'sess-2',
       model: 'claude-sonnet-4-6',
       cwd: process.cwd(),
-    });
+    }, { settings: {} });
 
     // Should still be 1 runtime (reused), not recreated
     assert.equal(factory.runtimes.length, 1,
@@ -194,7 +263,7 @@ test('getContextUsagePersistent acquires new runtime when none exists', async ()
     await getContextUsagePersistent({
       model: 'claude-sonnet-4-6',
       cwd: process.cwd(),
-    });
+    }, { settings: {} });
 
     // Should have created a runtime via acquireRuntime
     assert.equal(factory.runtimes.length, 1, 'should create 1 runtime via acquireRuntime');
@@ -212,6 +281,7 @@ test('getContextUsagePersistent throws when getContextUsage is not available', a
   // Create a factory WITHOUT getContextUsage on the runtime
   const factory = {
     queryFn({ prompt, options }) {
+      const reader = createBlockingNext();
       return {
         prompt,
         options,
@@ -219,8 +289,8 @@ test('getContextUsagePersistent throws when getContextUsage is not available', a
         setPermissionMode: async () => {},
         setModel: async () => {},
         setMaxThinkingTokens: async () => {},
-        close() { this.closed = true; },
-        async next() { return { done: true }; }
+        close() { this.closed = true; reader.markClosed(); },
+        next() { return reader.next(); }
       };
     }
   };
@@ -234,7 +304,7 @@ test('getContextUsagePersistent throws when getContextUsage is not available', a
       () => getContextUsagePersistent({
         model: 'claude-sonnet-4-6',
         cwd: process.cwd(),
-      }),
+      }, { settings: {} }),
       /getContextUsage is not available/,
     );
   } finally {
@@ -307,7 +377,7 @@ test('getContextUsagePersistent recreates runtime when existing runtime model is
       sessionId: 'sess-unknown-model',
       model: requestedModel,
       cwd: process.cwd(),
-    });
+    }, { settings: {} });
 
     assert.equal(factory.runtimes.length, 2, 'should recreate runtime when modelId is unknown');
 
@@ -328,6 +398,7 @@ test('getContextUsagePersistent temporarily disables 1M context when model has n
   const observedValues = [];
   const factory = {
     queryFn({ prompt, options }) {
+      const reader = createBlockingNext();
       return {
         prompt,
         options,
@@ -341,12 +412,8 @@ test('getContextUsagePersistent temporarily disables 1M context when model has n
           observedValues.push(process.env.CLAUDE_CODE_DISABLE_1M_CONTEXT || null);
           return { totalTokens: 1234, rawMaxTokens: 200000, maxTokens: 200000 };
         },
-        close() {
-          this.closed = true;
-        },
-        async next() {
-          return { done: true, value: undefined };
-        }
+        close() { this.closed = true; reader.markClosed(); },
+        next() { return reader.next(); }
       };
     }
   };
@@ -363,7 +430,7 @@ test('getContextUsagePersistent temporarily disables 1M context when model has n
       sessionId: 'sess-disable-1m',
       model: 'claude-opus-4-7',
       cwd: process.cwd(),
-    });
+    }, { settings: {} });
 
     assert.deepEqual(observedValues, ['1'], 'should disable 1M context during /context query');
     assert.equal(process.env.CLAUDE_CODE_DISABLE_1M_CONTEXT, undefined,
@@ -382,6 +449,7 @@ test('getContextUsagePersistent temporarily clears 1M disable override for expli
   const observedValues = [];
   const factory = {
     queryFn({ prompt, options }) {
+      const reader = createBlockingNext();
       return {
         prompt,
         options,
@@ -395,12 +463,8 @@ test('getContextUsagePersistent temporarily clears 1M disable override for expli
           observedValues.push(process.env.CLAUDE_CODE_DISABLE_1M_CONTEXT || null);
           return { totalTokens: 1234, rawMaxTokens: 1000000, maxTokens: 1000000 };
         },
-        close() {
-          this.closed = true;
-        },
-        async next() {
-          return { done: true, value: undefined };
-        }
+        close() { this.closed = true; reader.markClosed(); },
+        next() { return reader.next(); }
       };
     }
   };
@@ -417,7 +481,7 @@ test('getContextUsagePersistent temporarily clears 1M disable override for expli
       sessionId: 'sess-keep-1m',
       model: 'claude-opus-4-7[1m]',
       cwd: process.cwd(),
-    });
+    }, { settings: {} });
 
     assert.deepEqual(observedValues, [null],
       'explicit [1m] requests should temporarily clear the disable-1M override');

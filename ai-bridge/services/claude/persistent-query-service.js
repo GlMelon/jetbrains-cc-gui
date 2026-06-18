@@ -629,12 +629,12 @@ export async function abortCurrentTurn() {
  * Outputs the result as JSON to stdout for the Java daemon bridge to collect.
  * @param {object} params - { sessionId?: string, cwd?: string, model?: string }
  */
-export async function getContextUsagePersistent(params = {}) {
+export async function getContextUsagePersistent(params = {}, overrides = {}) {
   const safeParams = params || {};
   const sessionId = safeParams.sessionId || null;
   const modelId = safeParams.model || null; // Original model ID, may contain [1m] suffix
   return withScopedContextWindowPreference(modelId, async () => {
-    const settings = loadClaudeSettings();
+    const settings = overrides?.settings ?? loadClaudeSettings();
     const { resolvedModelId } = resolveRequestModelState(modelId, settings?.env);
     const targetModel = resolvedModelId || modelId || null;
     let runtime = null;
@@ -659,7 +659,7 @@ export async function getContextUsagePersistent(params = {}) {
         runtime = null;
       }
       const requestContext = applyExactModelForContextUsage(
-        await buildRequestContext(safeParams, false)
+        await buildRequestContext(safeParams, false, overrides)
       );
       runtime = await acquireRuntime(requestContext, { registerActiveQueryResult, removeSession });
     } else {

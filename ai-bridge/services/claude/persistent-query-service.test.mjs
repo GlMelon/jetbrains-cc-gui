@@ -17,11 +17,46 @@ function createDeferred() {
   return { promise, resolve, reject };
 }
 
+/**
+ * Mock SDK query runtime helper: make next() block (like the real SDK while
+ * idle) and let close() release the pending reader so the perpetual reader
+ * loop can exit cleanly.
+ *
+ * Returning done:true immediately from next() is unrealistic: it makes the
+ * perpetual reader fall through to its `finally` and dispose the freshly
+ * created runtime before acquireRuntime()'s ownership check runs — which does
+ * not reflect production behavior and makes acquireRuntime throw
+ * "Runtime is closed".
+ */
+function createBlockingNext(closeRef) {
+  return {
+    _resolveNext: null,
+    next() {
+      if (this._closed) return Promise.resolve({ done: true, value: undefined });
+      return new Promise((resolve) => {
+        this._resolveNext = resolve;
+      });
+    },
+    release() {
+      if (this._resolveNext) {
+        const resolve = this._resolveNext;
+        this._resolveNext = null;
+        resolve({ done: true, value: undefined });
+      }
+    },
+    markClosed() {
+      this._closed = true;
+      this.release();
+    }
+  };
+}
+
 function createQueryFactory() {
   const runtimes = [];
   return {
     runtimes,
     queryFn({ prompt, options }) {
+      const reader = createBlockingNext();
       const runtime = {
         prompt,
         options,
@@ -31,9 +66,10 @@ function createQueryFactory() {
         setMaxThinkingTokens: async () => {},
         close() {
           this.closed = true;
+          reader.markClosed();
         },
-        async next() {
-          return { done: true, value: undefined };
+        next() {
+          return reader.next();
         }
       };
       runtimes.push(runtime);
@@ -351,6 +387,9 @@ test('abortCurrentTurn still disposes an active runtime explicitly', async () =>
   await __testing.abortCurrentTurn();
   nextDeferred.reject(new Error('runtime terminated'));
 
-  await assert.rejects(turnPromise, /Runtime disposed|runtime terminated/);
+  // abortCurrentTurn() breaks the active turn via turnSink.fail('Turn aborted'),
+  // which executeTurn re-throws. The authoritative assertion below is that the
+  // runtime is explicitly disposed; the reject here only confirms the turn ended.
+  await assert.rejects(turnPromise, /Turn aborted|Runtime disposed|runtime terminated/);
   assert.equal(runtime.closed, true);
 });
