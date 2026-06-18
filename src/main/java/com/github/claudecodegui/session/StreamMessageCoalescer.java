@@ -3,6 +3,7 @@ package com.github.claudecodegui.session;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.util.JsUtils;
 import com.github.claudecodegui.util.MessageJsonConverter;
+import com.intellij.openapi.Disposable;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.ui.jcef.JBCefBrowser;
@@ -55,8 +56,8 @@ public class StreamMessageCoalescer {
     private static final int HEARTBEAT_INTERVAL_MS = 10_000;       // 10s
 
     private final Object lock = new Object();
-    private final Alarm updateAlarm = new Alarm(Alarm.ThreadToUse.SWING_THREAD);
-    private final Alarm heartbeatAlarm = new Alarm(Alarm.ThreadToUse.SWING_THREAD);
+    private final Alarm updateAlarm;
+    private final Alarm heartbeatAlarm;
     private volatile boolean streamActive = false;
     private volatile boolean updateScheduled = false;
     private volatile long lastUpdateAtMs = 0L;
@@ -82,7 +83,26 @@ public class StreamMessageCoalescer {
     }
 
     public StreamMessageCoalescer(JsCallbackTarget callbackTarget) {
+        this(callbackTarget, null);
+    }
+
+    /**
+     * @param parentDisposable optional parent that owns the coalescer's Alarms.
+     *                         When provided, both Alarms are created with the
+     *                         parent so they are released on project close even
+     *                         if {@link #dispose()} is never invoked — a backstop
+     *                         against the Alarm-without-disposable leak. Pass
+     *                         {@code null} for lightweight usage (e.g. tests).
+     */
+    public StreamMessageCoalescer(JsCallbackTarget callbackTarget, Disposable parentDisposable) {
         this.callbackTarget = callbackTarget;
+        if (parentDisposable != null) {
+            this.updateAlarm = new Alarm(Alarm.ThreadToUse.SWING_THREAD, parentDisposable);
+            this.heartbeatAlarm = new Alarm(Alarm.ThreadToUse.SWING_THREAD, parentDisposable);
+        } else {
+            this.updateAlarm = new Alarm(Alarm.ThreadToUse.SWING_THREAD);
+            this.heartbeatAlarm = new Alarm(Alarm.ThreadToUse.SWING_THREAD);
+        }
     }
 
     /**
