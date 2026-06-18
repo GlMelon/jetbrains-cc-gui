@@ -1003,11 +1003,16 @@ public class ClaudeChatWindow {
     }
 
     private void onStreamCompleted() {
-        if (session == null) {
-            return;
-        }
-        notificationAlarm.cancelAllRequests();
-        notificationAlarm.addRequest(this::maybeShowTaskCompletionNotification, 500);
+        // 从流读取线程调用,而 notificationAlarm 是 SWING_THREAD Alarm,
+        // cancelAllRequests/addRequest 必须在 EDT 执行,否则违反 Alarm 线程约束
+        // (非 EDT 操作 SWING_THREAD Alarm 行为未定义,可能丢失请求或抛异常)。
+        ApplicationManager.getApplication().invokeLater(() -> {
+            if (disposed || session == null) {
+                return;
+            }
+            notificationAlarm.cancelAllRequests();
+            notificationAlarm.addRequest(this::maybeShowTaskCompletionNotification, 500);
+        });
     }
 
     public void onSendStarted() {
