@@ -6,8 +6,8 @@
   align-items: center;
   justify-content: space-between;
     padding: 4px 8px;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
+    border-top: 1px solid var(--button-area-border, rgba(255, 255, 255, 0.05));
+    background: var(--button-area-bg, linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)));
     backdrop-filter: blur(10px);
   font-family: inherit;
   /* Enable container queries for responsive button behavior */
@@ -36,8 +36,8 @@
 .button-divider {
   width: 1px;
   height: 16px;
-    background: rgba(255, 255, 255, 0.06);
-    opacity: 1;
+    background: var(--chip-border);
+    opacity: 0.5;
 }
 
 @container button-area (max-width: 520px) {

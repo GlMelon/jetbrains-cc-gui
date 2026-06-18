@@ -44,6 +44,13 @@
   --success-color: var(--color-success, #4caf50);
   --context-bar-bg: #2f2f2f;
   --ring-track: rgba(255, 255, 255, 0.14);
+  /* Chip/Selector button background */
+  --chip: #32343a;
+  --chip-border: #464950;
+  --chip-hover: #3a3d44;
+  /* Button area background */
+  --button-area-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
+  --button-area-border: rgba(255, 255, 255, 0.05);
 }
 
 /* ============================================================
@@ -73,4 +80,11 @@
   --success-color: var(--color-success, #107c10);
   --context-bar-bg: #f0f0f0;
   --ring-track: rgba(0, 0, 0, 0.1);
+  /* Chip/Selector button background */
+  --chip: #e0e0e0;
+  --chip-border: #cccccc;
+  --chip-hover: #d5d5d5;
+  /* Button area background */
+  --button-area-bg: linear-gradient(135deg, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.01));
+  --button-area-border: rgba(0, 0, 0, 0.08);
 }

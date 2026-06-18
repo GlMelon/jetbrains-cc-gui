@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>新建会话弹窗 · 毛玻璃遮罩 + 配色修复 - 效果图</title>
+<style>
+  /* ─────────── Reset & Base ─────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: #14141c; color: #ccc; padding: 28px 32px 56px; min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ─────────── 顶部说明 ─────────── */
+  h1 { color: #fff; font-size: 22px; font-weight: 700; margin-bottom: 6px; letter-spacing: .2px; }
+  .subtitle { color: #9a9aa8; font-size: 13px; line-height: 1.75; max-width: 1040px; margin-bottom: 16px; }
+  .subtitle code, .note code, .diff code, .fix code {
+    background: rgba(255,255,255,0.08); color: #d6b6ff; padding: 1px 6px; border-radius: 4px;
+    font-family: 'SFMono-Regular', Consolas, Menlo, monospace; font-size: 12px;
+  }
+  .bug { color: #ff8a72; font-weight: 600; }
+  .ok  { color: #4cc38a; font-weight: 600; }
+
+  .toolbar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 26px; }
+  .theme-selector { display: inline-flex; gap: 6px; background: rgba(255,255,255,0.05); padding: 4px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.07); }
+  .theme-btn { padding: 7px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 12.5px; font-weight: 600; color: #aaa; background: transparent; transition: all .18s; }
+  .theme-btn:hover { color: #ddd; }
+  .theme-btn.active { color: #fff; background: rgba(0,127,212,0.85); box-shadow: 0 2px 8px rgba(0,127,212,0.35); }
+  .tip { font-size: 12px; color: rgba(160,160,180,0.78); }
+
+  /* ─────────── 主题变量(对齐 variables.less)─────────── */
+  body.theme-dark {
+    --bg-primary:#1e1e1e; --bg-secondary:#252526; --bg-tertiary:#2b2d31; --bg-titlebar:#323233; --bg-hover:#35373c;
+    --text-primary:#cccccc; --text-secondary:#e0e0e0; --text-tertiary:#858585;
+    --border-primary:#333; --border-secondary:#3e3e42; --color-dialog-border:#3e3e42;
+    --color-dialog-button-primary:#007fd4; --color-dialog-button-primary-hover:#026ec1;
+    --color-user-bubble:#005fb8;
+    --color-message-card-bg:rgba(255,255,255,0.03); --color-message-card-border:rgba(255,255,255,0.1);
+    --code-bg:#1e1e1e;
+    --ov-mask-bg:rgba(0,0,0,0.40);      /* 方案一毛玻璃:暗 0.4 */
+    --ov-current-bg:rgba(0,0,0,0.60);   /* 现状 */
+  }
+  body.theme-light {
+    --bg-primary:#ffffff; --bg-secondary:#f7f7f8; --bg-tertiary:#ececed; --bg-titlebar:#ececed; --bg-hover:#e6e6e9;
+    --text-primary:#333333; --text-secondary:#1a1a1a; --text-tertiary:#666666;
+    --border-primary:#d6d6d6; --border-secondary:#c8c8cc; --color-dialog-border:#d0d0d4;
+    --color-dialog-button-primary:#0078d4; --color-dialog-button-primary-hover:#106ebe;
+    --color-user-bubble:#0078d4;
+    --color-message-card-bg:rgba(0,0,0,0.025); --color-message-card-border:rgba(0,0,0,0.08);
+    --code-bg:#f3f3f4;
+    --ov-mask-bg:rgba(40,44,52,0.18);
+    --ov-current-bg:rgba(0,0,0,0.42);
+  }
+
+  /* ─────────── 对比卡 ─────────── */
+  .grid { display: flex; gap: 26px; align-items: flex-start; flex-wrap: wrap; }
+  .card { width: 540px; }
+  .card-head { margin-bottom: 12px; padding: 0 2px; }
+  .tag { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; letter-spacing: .5px; padding: 3px 9px; border-radius: 5px; margin-bottom: 8px; }
+  .tag.bad  { background: rgba(245,110,90,0.14); color: #ff8a72; border: 1px solid rgba(245,110,90,0.34); }
+  .tag.good { background: rgba(76,195,138,0.14); color: #4cc38a; border: 1px solid rgba(76,195,138,0.34); }
+  .card-title { font-size: 15.5px; font-weight: 700; color: #f1f1f5; margin-bottom: 4px; }
+  .card-desc { font-size: 12.5px; color: #9a9aa8; line-height: 1.6; }
+
+  /* ─────────── 舞台:聊天 + 遮罩 + 弹窗 ─────────── */
+  .stage { position: relative; height: 470px; width: 100%; overflow: hidden; border-radius: 10px;
+           border: 1px solid rgba(255,255,255,0.09); box-shadow: 0 10px 30px rgba(0,0,0,0.45); background: var(--bg-primary); }
+  .chat-bg { position: absolute; inset: 0; display: flex; flex-direction: column; }
+  .chat-titlebar { height: 36px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 0 12px;
+    background: var(--bg-titlebar); border-bottom: 1px solid var(--border-primary); font-size: 12.5px; color: var(--text-secondary); font-weight: 600; }
+  .dots { display: flex; gap: 6px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--border-secondary); }
+  .chat-stream { flex: 1; padding: 14px; display: flex; flex-direction: column; gap: 11px; overflow: hidden; }
+  .msg { max-width: 84%; font-size: 12.5px; line-height: 1.55; }
+  .msg.user { align-self: flex-end; background: var(--color-user-bubble); color: #fff; padding: 7px 11px; border-radius: 11px 11px 3px 11px; }
+  .msg.ai { align-self: flex-start; background: var(--color-message-card-bg); border: 1px solid var(--color-message-card-border); color: var(--text-primary); padding: 8px 11px; border-radius: 11px 11px 11px 3px; }
+  .code-line { margin-top: 7px; font-family: Consolas, Menlo, monospace; font-size: 11px; background: var(--code-bg); border: 1px solid var(--border-primary); border-radius: 5px; padding: 5px 8px; color: #9cdcfe; white-space: nowrap; overflow: hidden; }
+  .code-line .kw { color: #c586c0; } .code-line .fn { color: #dcdcaa; }
+  .avatar { display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: #d97757; margin-right: 6px; vertical-align: -3px; }
+
+  /* ───── 遮罩层 ───── */
+  .overlay { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; animation: ovIn .25s ease-out both; }
+  @keyframes ovIn { from { opacity: 0; } to { opacity: 1; } }
+  /* 现状遮罩 */
+  .overlay--current { background: var(--ov-current-bg); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+  /* 方案一毛玻璃 */
+  .overlay--frosted { background: var(--ov-mask-bg); backdrop-filter: blur(12px) saturate(125%); -webkit-backdrop-filter: blur(12px) saturate(125%); }
+
+  /* ───── 弹窗(模拟 .dialog-base / .dialog-header / .dialog-body)───── */
+  .dialog { position: relative; z-index: 6; width: 340px; max-width: 86%; animation: dlgIn .28s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes dlgIn { from { transform: translateY(-14px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .dialog-head { display: flex; align-items: center; justify-content: space-between; padding: 13px 16px; border-bottom: 1px solid var(--color-dialog-border); }
+  .dialog-title { font-size: 14px; font-weight: 600; }
+  .dialog-close { width: 24px; height: 24px; border: none; background: transparent; cursor: pointer; font-size: 16px; line-height: 1; border-radius: 5px; display: flex; align-items: center; justify-content: center; color: var(--text-tertiary); }
+  .dialog-close:hover { background: var(--bg-hover); color: var(--text-primary); }
+  .dialog-body { padding: 16px; }
+  .dialog-msg { font-size: 12.5px; line-height: 1.6; margin-bottom: 6px; color: var(--text-primary); }
+  .dialog-sub  { font-size: 11.5px; line-height: 1.55; color: var(--text-tertiary); }
+  .dont-ask { margin-top: 13px; display: flex; align-items: center; gap: 7px; font-size: 11.5px; cursor: pointer; user-select: none; color: var(--text-secondary); }
+  .dont-ask input { margin: 0; cursor: pointer; accent-color: var(--color-dialog-button-primary); }
+  .dialog-foot { padding: 11px 16px; border-top: 1px solid var(--color-dialog-border); display: flex; justify-content: flex-end; gap: 8px; }
+  .btn { padding: 7px 15px; border-radius: 5px; font-size: 12.5px; font-weight: 500; cursor: pointer; transition: background .18s, border-color .18s, color .18s; }
+  .btn-cancel { background: transparent; border: 1px solid var(--border-secondary); color: var(--text-primary); }
+  .btn-cancel:hover { background: var(--bg-hover); border-color: var(--border-secondary); }
+  .btn-primary { background: var(--color-dialog-button-primary); border: 1px solid transparent; color: #fff; }
+  .btn-primary:hover { background: var(--color-dialog-button-primary-hover); }
+
+  /* === 现状(有 bug)=== */
+  .dialog--bad      { /* 无 background —— 这就是“背景透明”根因 */ }
+  .dialog--bad .dialog-head { background: transparent; }
+  .dialog--bad .dialog-title { color: var(--text-primary); }            /* #ccc 灰标题 */
+  .dialog--bad .dialog-body, .dialog--bad .dialog-foot { background: transparent; }
+
+  /* === 修复后(方案一)=== */
+  .dialog--good { background: var(--bg-secondary); border: 1px solid var(--border-secondary); border-radius: 10px;
+    box-shadow: 0 14px 38px rgba(0,0,0,0.55); overflow: hidden; }
+  .dialog--good .dialog-head { background: var(--bg-tertiary); }        /* header 用主题三级背景,与 body 形成层次 */
+  .dialog--good .dialog-title { color: var(--text-secondary); }          /* 更亮的主题标题色 */
+  .dialog--good .dialog-body, .dialog--good .dialog-foot { background: var(--bg-secondary); }
+
+  /* 角标 */
+  .badge { position: absolute; top: 10px; right: 10px; z-index: 7; font-size: 10px; font-weight: 700; letter-spacing: .5px; padding: 3px 8px; border-radius: 4px; }
+  .badge.bad { background: #ff8a72; color: #1a1a1a; }
+  .badge.good { background: #4cc38a; color: #0f2a1d; }
+
+  /* ─────────── 底部:修复要点 + 落地清单 ─────────── */
+  .panel { margin-top: 32px; border: 1px solid rgba(255,255,255,0.09); border-radius: 12px; overflow: hidden; }
+  .panel h2 { font-size: 14px; color: #e6e6ee; padding: 13px 18px; background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.07); }
+  .panel-body { padding: 16px 18px; }
+  .fix { display: flex; gap: 12px; padding: 11px 0; border-bottom: 1px dashed rgba(255,255,255,0.07); font-size: 12.5px; line-height: 1.65; color: #c4c4d0; }
+  .fix:last-child { border-bottom: none; }
+  .fix .idx { flex-shrink: 0; width: 22px; height: 22px; border-radius: 6px; background: rgba(0,127,212,0.18); color: #6cb6ff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .fix strong { color: #f1f1f5; }
+  .diff {
+    display: block; margin-top: 7px; font-family: Consolas, Menlo, monospace; font-size: 11.5px;
+    background: rgba(0,0,0,0.32); border: 1px solid rgba(255,255,255,0.06); border-radius: 7px; padding: 9px 12px;
+    color: #cfd6e4; white-space: pre-wrap; line-height: 1.6;
+  }
+  .diff .del { color: #ff8a72; } .diff .add { color: #6ee7a8; }
+  .note { margin-top: 16px; font-size: 12px; color: #82828f; line-height: 1.75; }
+</style>
+</head>
+<body class="theme-dark">
+
+  <header>
+    <h1>新建会话弹窗 · 毛玻璃遮罩(方案一)+ 弹窗配色修复</h1>
+    <p class="subtitle">
+      <strong style="color:#c9c9d8">已选定:</strong>遮罩采用<strong style="color:#6cb6ff">方案一 毛玻璃</strong>(<code>blur(12px) saturate(125%)</code> + <code>rgba(0,0,0,.4)</code>)。
+      <br>同时定位并修复了弹窗本身的两个连带 bug —— ConfirmDialog 走的是裸 <code>BaseDialog</code>,其外层容器 <code>.dialog-base</code> 在整个 less 工程里<strong style="color:#6cb6ff">没有任何样式定义</strong>(grep 0 命中),导致:
+      <span class="bug">① “创建新会话”标题灰</span>(颜色取到偏灰的 <code>--text-primary</code>,没用更亮的标题色)、
+      <span class="bug">② 消息区背景透明</span>(<code>.dialog-base</code> / <code>.dialog-body</code> 均无 <code>background</code>,透出毛玻璃遮罩后的模糊聊天内容)。
+      下方为<span class="bug">修复前</span> vs <span class="ok">修复后</span>对比,深 / 浅主题可切换。
+    </p>
+    <div class="toolbar">
+      <div class="theme-selector">
+        <button class="theme-btn active" data-t="dark" onclick="setTheme('dark')">深色 Dark</button>
+        <button class="theme-btn" data-t="light" onclick="setTheme('light')">浅色 Light</button>
+      </div>
+      <span class="tip">→ 两卡使用<strong>同一聊天背景</strong>,仅弹窗与遮罩不同,便于直接对比。</span>
+    </div>
+  </header>
+
+  <div class="grid">
+
+    <!-- ───── 修复前(现状)───── -->
+    <div class="card">
+      <div class="card-head">
+        <span class="tag bad">● 修复前 · 现状(有 bug)</span>
+        <div class="card-title">透明弹窗 + 灰标题 + 旧遮罩</div>
+        <div class="card-desc">弹窗容器无背景,body 直接透出模糊的聊天内容,显得又脏又灰;标题取到 <code style="color:#d6b6ff">--text-primary(#ccc)</code> 偏灰。</div>
+      </div>
+      <div class="stage">
+        <span class="badge bad">现状</span>
+        <div class="chat-bg">
+          <div class="chat-titlebar"><span class="dots"><i class="dot"></i><i class="dot"></i><i class="dot"></i></span> Claude Code GUI</div>
+          <div class="chat-stream">
+            <div class="msg user">帮我把这个组件的状态管理重构成 useReducer。</div>
+            <div class="msg ai"><span class="avatar"></span>好的,当前组件同时持有 filter、sort 和分页状态,分散在多个 useState 里,适合收敛到 reducer。</div>
+            <div class="msg user">顺便加上单元测试覆盖。</div>
+            <div class="msg ai"><span class="avatar"></span>已定位文件,准备改写。<div class="code-line"><span class="kw">function</span> <span class="fn">reducer</span>(state, action) { <span class="kw">switch</span> (action.type) {</div></div>
+          </div>
+        </div>
+        <div class="overlay overlay--current">
+          <div class="dialog dialog--bad">
+            <div class="dialog-head"><span class="dialog-title">创建新会话</span><button class="dialog-close">×</button></div>
+            <div class="dialog-body">
+              <p class="dialog-msg">当前会话已有消息,确定要创建新会话吗?</p>
+              <p class="dialog-sub">新会话将清除当前所有内容。</p>
+              <label class="dont-ask"><input type="checkbox"> <span>不再询问</span></label>
+            </div>
+            <div class="dialog-foot"><button class="btn btn-cancel">取消</button><button class="btn btn-primary">确定</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ───── 修复后(方案一)───── -->
+    <div class="card">
+      <div class="card-head">
+        <span class="tag good">✓ 修复后 · 方案一定稿</span>
+        <div class="card-title">实色弹窗 + 主题标题色 + 毛玻璃遮罩</div>
+        <div class="card-desc">弹窗容器补 <code style="color:#d6b6ff">background: var(--bg-secondary)</code> 实色 + 边框/圆角/阴影;标题改用更亮的 <code style="color:#d6b6ff">--text-secondary</code>;遮罩升级为 blur(12px)。</div>
+      </div>
+      <div class="stage">
+        <span class="badge good">方案一</span>
+        <div class="chat-bg">
+          <div class="chat-titlebar"><span class="dots"><i class="dot"></i><i class="dot"></i><i class="dot"></i></span> Claude Code GUI</div>
+          <div class="chat-stream">
+            <div class="msg user">帮我把这个组件的状态管理重构成 useReducer。</div>
+            <div class="msg ai"><span class="avatar"></span>好的,当前组件同时持有 filter、sort 和分页状态,分散在多个 useState 里,适合收敛到 reducer。</div>
+            <div class="msg user">顺便加上单元测试覆盖。</div>
+            <div class="msg ai"><span class="avatar"></span>已定位文件,准备改写。<div class="code-line"><span class="kw">function</span> <span class="fn">reducer</span>(state, action) { <span class="kw">switch</span> (action.type) {</div></div>
+          </div>
+        </div>
+        <div class="overlay overlay--frosted">
+          <div class="dialog dialog--good">
+            <div class="dialog-head"><span class="dialog-title">创建新会话</span><button class="dialog-close">×</button></div>
+            <div class="dialog-body">
+              <p class="dialog-msg">当前会话已有消息,确定要创建新会话吗?</p>
+              <p class="dialog-sub">新会话将清除当前所有内容。</p>
+              <label class="dont-ask"><input type="checkbox"> <span>不再询问</span></label>
+            </div>
+            <div class="dialog-foot"><button class="btn btn-cancel">取消</button><button class="btn btn-primary">确定</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ───── 落地清单 ───── -->
+  <section class="panel">
+    <h2>落地清单 · 真实代码修复点(供开发者对照)</h2>
+    <div class="panel-body">
+
+      <div class="fix">
+        <span class="idx">1</span>
+        <div>
+          <strong>给 <code>.dialog-base</code> 补容器样式</strong>(根因修复 · 解决“背景透明”)
+          —— <code>webview/src/styles/less/components/agent-dialog.less</code> 新增(ConfirmDialog/所有 BaseDialog 共用):
+          <code class="diff"><span class="del">/* .dialog-base 此前无任何定义 → 弹窗透明 */</span>
+<span class="add">.dialog-base {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-secondary);
+  border-radius: 10px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-width: 90%;
+}</span></code>
+        </div>
+      </div>
+
+      <div class="fix">
+        <span class="idx">2</span>
+        <div>
+          <strong>标题颜色统一到主题标题色</strong>(解决“标题灰”) —— <code>.dialog-header h3</code>:
+          <code class="diff"><span class="del">color: var(--vscode-foreground, var(--text-primary));  /* 深色下 #ccc 偏灰 */</span>
+<span class="add">color: var(--text-secondary);  /* 深色 #e0e0e0 / 浅色 #1a1a1a,更亮的标题色 */</span></code>
+          <span style="color:#82828f">注:<code>mcp.less:729</code> 与 <code>skills.less:191</code> 两处同款写法,建议一并收敛。</span>
+        </div>
+      </div>
+
+      <div class="fix">
+        <span class="idx">3</span>
+        <div>
+          <strong>遮罩升级为方案一毛玻璃</strong> —— ConfirmDialog 实际走的是 <code>.dialog-overlay</code>(非 <code>.confirm-dialog-overlay</code>,后者是 legacy 死代码)。当前 <code>.dialog-overlay</code> 有两处冲突定义:
+          <code class="diff"><span class="del">agent-dialog.less:14  → blur(4px)  z-index:1100
+mcp.less:666          → blur(8px)  z-index:1000   /* 最终生效,但被前者污染 */</span>
+<span class="add">/* 合并去重,统一为方案一 */
+.dialog-overlay {
+  background: var(--overlay-mask-bg, rgba(0,0,0,0.4));
+  backdrop-filter: blur(12px) saturate(125%);
+  -webkit-backdrop-filter: blur(12px) saturate(125%);
+  z-index: var(--z-modal-backdrop, 1040);
+}</span></code>
+        </div>
+      </div>
+
+      <div class="fix">
+        <span class="idx">4</span>
+        <div>
+          <strong>遮罩色抽成主题变量</strong>(深浅适配)—— <code>variables.less</code>:
+          <code class="diff"><span class="add">/* dark */   --overlay-mask-bg: rgba(0,0,0,0.40);
+/* light */  --overlay-mask-bg: rgba(40,44,52,0.18);
+             --overlay-blur: 12px;</span></code>
+          <span style="color:#82828f">这样浅色主题下遮罩不会发黑(用半透明深灰而非纯黑)。</span>
+        </div>
+      </div>
+
+    </div>
+    <p class="note" style="padding:0 18px 16px;">
+      <strong style="color:#b6b6c8">说明:</strong>以上为纯 HTML/CSS 效果图,直接双击在浏览器打开即可。<code>backdrop-filter</code> 模糊需 Chromium 内核(JCEF / Edge / Chrome)支持,JCEF 默认满足。
+      <br>第 1 条是<strong>关键</strong>:只要给 <code>.dialog-base</code> 补上不透明背景,“背景透明”与连带产生的“弹窗看起来脏/灰”会一并消失;再配合第 2~4 条即为本图效果。
+    </p>
+  </section>
+
+<script>
+  function setTheme(t) {
+    document.body.classList.remove('theme-dark', 'theme-light');
+    document.body.classList.add('theme-' + t);
+    document.querySelectorAll('.theme-btn').forEach(function (b) {
+      b.classList.toggle('active', b.dataset.t === t);
+    });
+  }
+</script>
+</body>
+</html>

@@ -6,8 +6,8 @@
   align-items: center;
   gap: 5px;
   padding: 5px 10px;
-  background: var(--chip, #32343a);
-  border: 1px solid var(--border, #464950);
+  background: var(--chip);
+  border: 1px solid var(--chip-border);
   border-radius: 5px;
   color: var(--text-secondary);
   font-size: 12px;
@@ -17,7 +17,7 @@
 }
 
 .selector-button:hover {
-  background: var(--hover, #3a3d44);
+  background: var(--chip-hover);
   border-color: var(--input-border, #5a5d66);
   color: var(--text-primary);
 }
@@ -30,7 +30,7 @@
 }
 
 .selector-button.provider-compact:hover {
-  background: var(--hover, #3a3d44);
+  background: var(--chip-hover);
 }
 
 .runtime-provider-text {

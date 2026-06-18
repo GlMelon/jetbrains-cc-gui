@@ -1,29 +1,34 @@
-/* Agent Dialog Styles - 参考 chat-message-preview 风格 */
-.agent-dialog {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-secondary);
-    border-radius: 12px;
-    box-shadow: var(--shadow-lg);
-    width: 90%;
-    max-width: 480px;
-    display: flex;
-    flex-direction: column;
-    animation: slideIn 0.2s ease-out;
-}
-
+/* BaseDialog 共享样式家园 —— 所有 BaseDialog 弹窗共用的
+   .dialog-overlay / .dialog-base / .dialog-header / .dialog-body /
+   .dialog-footer / .btn 都定义在此处。
+   注:历史遗留的独立 agent 弹窗容器类已无任何组件引用(grep 0 命中),已删除。 */
 .dialog-overlay {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(4px);
+    /* 方案一毛玻璃:深浅主题各自取色(见 variables.less --overlay-mask-bg) */
+    background: var(--overlay-mask-bg, rgba(0, 0, 0, 0.4));
+    backdrop-filter: blur(12px) saturate(125%);
+    -webkit-backdrop-filter: blur(12px) saturate(125%);
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1100;
+    z-index: var(--z-modal-backdrop, 1100);
     animation: fadeIn 0.2s ease-out;
+}
+
+/* 弹窗容器 —— 所有 BaseDialog 共用的外层壳。
+   ⚠️ 此前 .dialog-base 无任何定义,导致 ConfirmDialog 等弹窗背景透明、
+   透出遮罩后的模糊内容;这里补齐不透明背景/边框/圆角/阴影。 */
+.dialog-base {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-secondary);
+    border-radius: 12px;
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    flex-direction: column;
 }
 
 .dialog-header {
@@ -39,7 +44,7 @@
         margin: 0;
         font-size: 15px;
         font-weight: 600;
-        color: var(--text-primary);
+        color: var(--text-secondary);
         display: flex;
         align-items: center;
         gap: 8px;

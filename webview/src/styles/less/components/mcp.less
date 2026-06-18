@@ -662,22 +662,8 @@
 
 /* ===== MCP 弹窗样式 ===== */
 
-/* 弹窗遮罩层 */
-.dialog-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    animation: fadeIn 0.2s ease-out;
-}
+/* 弹窗遮罩层 .dialog-overlay 已统一收敛至 agent-dialog.less(方案一毛玻璃)。
+   此处旧定义(blur8/z1000)已删除,消除与 agent-dialog.less 的冲突。 */
 
 @keyframes fadeIn {
     from {
@@ -726,7 +712,7 @@
     margin: 0;
     font-size: 16px;
     font-weight: 600;
-    color: var(--vscode-foreground, var(--text-primary));
+    color: var(--text-secondary);
 }
 
 .header-actions {

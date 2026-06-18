@@ -1,18 +1,17 @@
-/* Confirm Dialog Styles */
-/* z-index: 1200 确保 Alert/Confirm 弹窗始终显示在 Provider/Agent 编辑弹窗(z-index:1100)之上 */
-.confirm-dialog-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.6);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1200;
-    animation: fadeIn 0.2s ease-out;
-}
+/* Confirm Dialog Styles
+ *
+ * 说明:ConfirmDialog 组件基于 BaseDialog 渲染,实际使用的是
+ *   .dialog-overlay / .dialog-base / .dialog-header / .dialog-body / .dialog-footer
+ * 以及本文件里的 .confirm-dialog-message 与 .confirm-dialog-dont-ask-again。
+ *
+ * 历史上本文件还定义过 confirm 弹窗的若干子模块样式(容器内的 header/title/
+ * body/footer/button)以及 modal-* 一整套样式,但自 ConfirmDialog 迁移到
+ * BaseDialog 后已无任何组件引用(grep 0 命中),已删除。
+ *
+ * 仅保留以下两项仍被使用的:
+ *   1) .confirm-dialog —— 容器样式,被 SkillConfirmDialog 复用(class="skill-dialog confirm-dialog")
+ *   2) .confirm-dialog-message / .confirm-dialog-dont-ask-again —— ConfirmDialog 内部使用
+ */
 
 @keyframes fadeIn {
     from {
@@ -23,6 +22,7 @@
     }
 }
 
+/* 弹窗容器 —— SkillConfirmDialog 复用此类(class="skill-dialog confirm-dialog") */
 .confirm-dialog {
     background: var(--bg-secondary);
     border: 1px solid var(--border-secondary);
@@ -44,22 +44,7 @@
     }
 }
 
-.confirm-dialog-header {
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--color-dialog-border);
-}
-
-.confirm-dialog-title {
-    margin: 0;
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--text-secondary);
-}
-
-.confirm-dialog-body {
-    padding: 20px;
-}
-
+/* ConfirmDialog 的消息正文(<p class="confirm-dialog-message">) */
 .confirm-dialog-message {
     margin: 0;
     font-size: 13px;
@@ -68,7 +53,7 @@
 }
 
 /**
- * "Don't ask again" checkbox row, rendered inside .confirm-dialog-body
+ * "Don't ask again" checkbox row, rendered inside .dialog-body
  * via the optional `children` slot on ConfirmDialog. Currently only used by
  * the new-session confirm dialog (see AppDialogs.tsx).
  */
@@ -90,144 +75,5 @@
 
     &:hover {
         color: var(--text-primary);
-    }
-}
-
-.confirm-dialog-footer {
-    padding: 12px 20px;
-    border-top: 1px solid var(--color-dialog-border);
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-}
-
-.confirm-dialog-button {
-    padding: 8px 16px;
-    border: none;
-    border-radius: 4px;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-}
-
-.confirm-dialog-button.cancel-button {
-    background: transparent;
-    border: 1px solid var(--border-secondary);
-    color: var(--text-primary);
-}
-
-.confirm-dialog-button.cancel-button:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: var(--border-hover);
-}
-
-.confirm-dialog-button.confirm-button {
-    background: var(--color-dialog-button-primary);
-    color: var(--color-button-text);
-}
-
-.confirm-dialog-button.confirm-button:hover {
-    background: var(--color-dialog-button-primary-hover);
-}
-
-.confirm-dialog-button.confirm-button:active {
-    background: var(--color-dialog-button-primary-active);
-}
-
-/* Modal Dialog Styles (用于删除确认等) */
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.6);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1200;
-    animation: fadeIn 0.2s ease-out;
-}
-
-.modal-content {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-secondary);
-    border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-    min-width: 380px;
-    max-width: 500px;
-    padding: 24px;
-    animation: slideIn 0.2s ease-out;
-
-    h3 {
-        margin: 0 0 12px 0;
-        font-size: 16px;
-        font-weight: 600;
-        color: var(--text-secondary);
-    }
-
-    p {
-        margin: 0 0 20px 0;
-        font-size: 13px;
-        line-height: 1.6;
-        color: var(--text-primary);
-    }
-}
-
-.modal-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-}
-
-.modal-btn {
-    padding: 8px 20px;
-    border: none;
-    border-radius: 4px;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
-
-    &:active {
-        transform: scale(0.98);
-    }
-}
-
-.modal-btn-cancel {
-    background: transparent;
-    border: 1px solid var(--border-secondary);
-    color: var(--text-primary);
-
-    &:hover {
-        background: rgba(255, 255, 255, 0.1);
-        border-color: var(--border-hover);
-    }
-}
-
-.modal-btn-primary {
-    background: var(--color-dialog-button-primary);
-    color: var(--color-button-text);
-
-    &:hover {
-        background: var(--color-dialog-button-primary-hover);
-    }
-
-    &:active {
-        background: var(--color-dialog-button-primary-active);
-    }
-}
-
-.modal-btn-danger {
-    background: var(--color-dialog-button-danger);
-    color: var(--color-button-text);
-
-    &:hover {
-        background: var(--color-dialog-button-danger-hover);
-    }
-
-    &:active {
-        background: var(--color-dialog-button-danger-active);
     }
 }
