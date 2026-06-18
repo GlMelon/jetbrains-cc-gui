@@ -37,12 +37,8 @@ export function isSpecialProviderId(id: string): boolean {
  * localStorage keys for provider-related data
  */
 export const STORAGE_KEYS = {
-  /** Custom Codex model list */
-  CODEX_CUSTOM_MODELS: 'codex-custom-models',
   /** Claude model mapping configuration */
   CLAUDE_MODEL_MAPPING: 'claude-model-mapping',
-  /** Custom Claude model list */
-  CLAUDE_CUSTOM_MODELS: 'claude-custom-models',
 } as const;
 
 /**
@@ -51,8 +47,13 @@ export const STORAGE_KEYS = {
 export const CLAUDE_MODEL_MAPPING_ENV_KEYS = [
   'ANTHROPIC_MODEL',
   'ANTHROPIC_DEFAULT_HAIKU_MODEL',
+  'ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME',
   'ANTHROPIC_DEFAULT_SONNET_MODEL',
+  'ANTHROPIC_DEFAULT_SONNET_MODEL_NAME',
   'ANTHROPIC_DEFAULT_OPUS_MODEL',
+  'ANTHROPIC_DEFAULT_OPUS_MODEL_NAME',
+  'ANTHROPIC_DEFAULT_FABLE_MODEL',
+  'ANTHROPIC_DEFAULT_FABLE_MODEL_NAME',
 ] as const;
 
 // ============ Validation Helpers ============
@@ -143,6 +144,7 @@ export interface ProviderConfig {
       ANTHROPIC_DEFAULT_SONNET_MODEL?: string;
       ANTHROPIC_DEFAULT_OPUS_MODEL?: string;
       ANTHROPIC_DEFAULT_HAIKU_MODEL?: string;
+      ANTHROPIC_DEFAULT_FABLE_MODEL?: string;
       [key: string]: any;
     };
     alwaysThinkingEnabled?: boolean;
@@ -293,6 +295,8 @@ export interface CodexProviderConfig {
   authJson?: string;
   /** Custom model list */
   customModels?: CodexCustomModel[];
+  /** Provider model catalog used by Codex model selector */
+  modelCatalog?: CodexCustomModel[];
   /** Environment variables for sendMessage subprocess */
   messageEnvVars?: EnvVarEntry[];
   /** Environment variables for getMcpServerTools subprocess */
@@ -338,6 +342,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       ANTHROPIC_DEFAULT_HAIKU_MODEL: 'glm-4.7',
       ANTHROPIC_DEFAULT_SONNET_MODEL: 'glm-4.7',
       ANTHROPIC_DEFAULT_OPUS_MODEL: 'glm-4.7',
+      ANTHROPIC_DEFAULT_FABLE_MODEL: 'glm-4.7',
     },
     defaultContextWindow: 200_000,
     supports1MContext: false,
@@ -351,6 +356,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       ANTHROPIC_DEFAULT_HAIKU_MODEL: 'kimi-k2.5',
       ANTHROPIC_DEFAULT_SONNET_MODEL: 'kimi-k2.5',
       ANTHROPIC_DEFAULT_OPUS_MODEL: 'kimi-k2.5',
+      ANTHROPIC_DEFAULT_FABLE_MODEL: 'kimi-k2.5',
     },
     defaultContextWindow: 200_000,
     supports1MContext: false,
@@ -364,6 +370,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       ANTHROPIC_DEFAULT_HAIKU_MODEL: 'deepseek-v4-flash',
       ANTHROPIC_DEFAULT_SONNET_MODEL: 'deepseek-v4-pro[1m]',
       ANTHROPIC_DEFAULT_OPUS_MODEL: 'deepseek-v4-pro[1m]',
+      ANTHROPIC_DEFAULT_FABLE_MODEL: 'deepseek-v4-pro[1m]',
       CLAUDE_CODE_EFFORT_LEVEL: 'max',
     },
     defaultContextWindow: 1_000_000,
@@ -381,6 +388,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       ANTHROPIC_DEFAULT_SONNET_MODEL: 'MiniMax-M2.1',
       ANTHROPIC_DEFAULT_OPUS_MODEL: 'MiniMax-M2.1',
       ANTHROPIC_DEFAULT_HAIKU_MODEL: 'MiniMax-M2.1',
+      ANTHROPIC_DEFAULT_FABLE_MODEL: 'MiniMax-M2.1',
     },
     defaultContextWindow: 200_000,
     supports1MContext: false,
@@ -394,6 +402,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       ANTHROPIC_DEFAULT_HAIKU_MODEL: 'mimo-v2.5-pro',
       ANTHROPIC_DEFAULT_SONNET_MODEL: 'mimo-v2.5-pro',
       ANTHROPIC_DEFAULT_OPUS_MODEL: 'mimo-v2.5-pro',
+      ANTHROPIC_DEFAULT_FABLE_MODEL: 'mimo-v2.5-pro',
     },
     defaultContextWindow: 1_000_000,
     supports1MContext: true,
@@ -407,6 +416,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       ANTHROPIC_DEFAULT_HAIKU_MODEL: 'mimo-v2.5-pro',
       ANTHROPIC_DEFAULT_SONNET_MODEL: 'mimo-v2.5-pro',
       ANTHROPIC_DEFAULT_OPUS_MODEL: 'mimo-v2.5-pro',
+      ANTHROPIC_DEFAULT_FABLE_MODEL: 'mimo-v2.5-pro',
     },
     defaultContextWindow: 1_000_000,
     supports1MContext: true,
@@ -420,6 +430,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       ANTHROPIC_DEFAULT_HAIKU_MODEL: 'qwen3-max',
       ANTHROPIC_DEFAULT_SONNET_MODEL: 'qwen3-max',
       ANTHROPIC_DEFAULT_OPUS_MODEL: 'qwen3-max',
+      ANTHROPIC_DEFAULT_FABLE_MODEL: 'qwen3-max',
     },
     defaultContextWindow: 200_000,
     supports1MContext: false,
@@ -433,6 +444,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       ANTHROPIC_DEFAULT_HAIKU_MODEL: 'anthropic/claude-haiku-4.5',
       ANTHROPIC_DEFAULT_SONNET_MODEL: 'anthropic/claude-sonnet-4.5',
       ANTHROPIC_DEFAULT_OPUS_MODEL: 'anthropic/claude-opus-4.5',
+      ANTHROPIC_DEFAULT_FABLE_MODEL: 'anthropic/claude-opus-4.5',
     },
   },
 ];

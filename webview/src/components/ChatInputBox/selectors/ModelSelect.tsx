@@ -1,11 +1,16 @@
 import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AVAILABLE_MODELS, normalizeClaudeModelId, modelSupports1MContext, strip1MContextSuffix } from '../types';
+import {
+  AVAILABLE_MODELS,
+  CLAUDE_ROLE_MODEL_IDS,
+  getClaudeRoleFromModelId,
+  normalizeClaudeModelId,
+  strip1MContextSuffix,
+} from '../types';
 import type { ModelInfo } from '../types';
 import { readClaudeModelMapping } from '../../../utils/claudeModelMapping';
 import { ProviderModelIcon } from '../../shared/ProviderModelIcon';
 import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
-import { Switch } from '../../shared/Switch';
 
 const RELATIVE_INLINE_BLOCK_STYLE: React.CSSProperties = { position: 'relative', display: 'inline-block' };
 const CHEVRON_ICON_STYLE: React.CSSProperties = { fontSize: '10px', marginLeft: '2px' };
@@ -19,8 +24,6 @@ const DROPDOWN_STYLE: React.CSSProperties = {
 };
 const MODEL_OPTION_INFO_STYLE: React.CSSProperties = { display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, overflow: 'hidden' };
 const MODEL_TEXT_STYLE: React.CSSProperties = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
-const LONG_CONTEXT_OPTION_STYLE: React.CSSProperties = { justifyContent: 'space-between', cursor: 'default' };
-const LONG_CONTEXT_LABEL_STYLE: React.CSSProperties = { fontSize: '12px' };
 const MAX_VISIBLE_MODEL_OPTIONS = 100;
 
 interface ModelSelectProps {
@@ -28,10 +31,6 @@ interface ModelSelectProps {
   onChange: (modelId: string) => void;
   models?: ModelInfo[];
   currentProvider?: string;
-  onAddModel?: () => void;
-  longContextEnabled?: boolean;
-  onLongContextChange?: (enabled: boolean) => void;
-  providerPreset?: { supports1MContext?: boolean; defaultContextWindow?: number };
 }
 
 const DEFAULT_MODEL_MAP: Record<string, ModelInfo> = AVAILABLE_MODELS.reduce(
@@ -43,55 +42,28 @@ const DEFAULT_MODEL_MAP: Record<string, ModelInfo> = AVAILABLE_MODELS.reduce(
 );
 
 const MODEL_LABEL_KEYS: Record<string, string> = {
-  'claude-sonnet-4-6': 'models.claude.sonnet46.label',
-  'claude-fable-5': 'models.claude.fable5.label',
-  'claude-opus-4-8': 'models.claude.opus48.label',
-  'claude-opus-4-7': 'models.claude.opus46.label',
-  'claude-opus-4-6': 'models.claude.opus46_1m.label',
-  'claude-opus-4-6[1m]': 'models.claude.opus46_1m.label',
-  'claude-haiku-4-5': 'models.claude.haiku45.label',
-  'gpt-5.5': 'models.codex.gpt55.label',
-  'gpt-5.4': 'models.codex.gpt54.label',
-  'gpt-5.2-codex': 'models.codex.gpt52codex.label',
-  'gpt-5.1-codex-max': 'models.codex.gpt51codexMax.label',
-  'gpt-5.4-mini': 'models.codex.gpt54mini.label',
-  'gpt-5.3-codex': 'models.codex.gpt53codex.label',
-  'gpt-5.3-codex-spark': 'models.codex.gpt53codexSpark.label',
-  'gpt-5.2': 'models.codex.gpt52.label',
-  'gpt-5.1-codex-mini': 'models.codex.gpt51codexMini.label',
+  [CLAUDE_ROLE_MODEL_IDS.sonnet]: 'models.claude.roles.sonnet.label',
+  [CLAUDE_ROLE_MODEL_IDS.opus]: 'models.claude.roles.opus.label',
+  [CLAUDE_ROLE_MODEL_IDS.fable]: 'models.claude.roles.fable.label',
+  [CLAUDE_ROLE_MODEL_IDS.haiku]: 'models.claude.roles.haiku.label',
 };
 
 const MODEL_DESCRIPTION_KEYS: Record<string, string> = {
-  'claude-sonnet-4-6': 'models.claude.sonnet46.description',
-  'claude-fable-5': 'models.claude.fable5.description',
-  'claude-opus-4-8': 'models.claude.opus48.description',
-  'claude-opus-4-7': 'models.claude.opus46.description',
-  'claude-opus-4-6': 'models.claude.opus46_1m.description',
-  'claude-opus-4-6[1m]': 'models.claude.opus46_1m.description',
-  'claude-haiku-4-5': 'models.claude.haiku45.description',
-  'gpt-5.5': 'models.codex.gpt55.description',
-  'gpt-5.4': 'models.codex.gpt54.description',
-  'gpt-5.2-codex': 'models.codex.gpt52codex.description',
-  'gpt-5.1-codex-max': 'models.codex.gpt51codexMax.description',
-  'gpt-5.4-mini': 'models.codex.gpt54mini.description',
-  'gpt-5.3-codex': 'models.codex.gpt53codex.description',
-  'gpt-5.3-codex-spark': 'models.codex.gpt53codexSpark.description',
-  'gpt-5.2': 'models.codex.gpt52.description',
-  'gpt-5.1-codex-mini': 'models.codex.gpt51codexMini.description',
+  [CLAUDE_ROLE_MODEL_IDS.sonnet]: 'models.claude.roles.sonnet.description',
+  [CLAUDE_ROLE_MODEL_IDS.opus]: 'models.claude.roles.opus.description',
+  [CLAUDE_ROLE_MODEL_IDS.fable]: 'models.claude.roles.fable.description',
+  [CLAUDE_ROLE_MODEL_IDS.haiku]: 'models.claude.roles.haiku.description',
 };
 
 /**
  * Maps model IDs to mapping keys for looking up actual model names
  * from the 'claude-model-mapping' localStorage entry.
- * Legacy Opus 4.6 IDs share the same opus mapping bucket.
  */
 const MODEL_ID_TO_MAPPING_KEY: Record<string, string> = {
-  'claude-sonnet-4-6': 'sonnet',
-  'claude-opus-4-8': 'opus',
-  'claude-opus-4-7': 'opus',
-  'claude-opus-4-6': 'opus',
-  'claude-opus-4-6[1m]': 'opus',
-  'claude-haiku-4-5': 'haiku',
+  [CLAUDE_ROLE_MODEL_IDS.sonnet]: 'sonnet',
+  [CLAUDE_ROLE_MODEL_IDS.opus]: 'opus',
+  [CLAUDE_ROLE_MODEL_IDS.fable]: 'fable',
+  [CLAUDE_ROLE_MODEL_IDS.haiku]: 'haiku',
 };
 
 const resolveMappedModelName = (
@@ -107,6 +79,14 @@ const resolveMappedModelName = (
     || modelMapping.main;
 
   return mapped?.trim() || undefined;
+};
+
+const getRoleModelLabel = (modelId: string): string | null => {
+  const role = getClaudeRoleFromModelId(modelId);
+  if (!role) {
+    return null;
+  }
+  return role[0].toUpperCase() + role.slice(1);
 };
 
 /**
@@ -133,7 +113,7 @@ const resolveModelIdForIcon = (
  * ModelSelect - Model selector component
  * Supports switching between Sonnet 4.5, Opus 4.5, and other models, including Codex models
  */
-export const ModelSelect = ({ value, onChange, models = AVAILABLE_MODELS, currentProvider = 'claude', onAddModel, longContextEnabled = true, onLongContextChange, providerPreset }: ModelSelectProps) => {
+export const ModelSelect = ({ value, onChange, models = AVAILABLE_MODELS, currentProvider = 'claude' }: ModelSelectProps) => {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -150,12 +130,19 @@ export const ModelSelect = ({ value, onChange, models = AVAILABLE_MODELS, curren
   // Strip [1m] suffix for finding the model in the list
   const strippedValue = strip1MContextSuffix(value);
   const normalizedValue = currentProvider === 'claude' ? normalizeClaudeModelId(strippedValue) : strippedValue;
-  const currentModel = models.find(m => m.id === normalizedValue) || models.find(m => m.id === strippedValue) || models[0];
+  const exactSelectedModel = models.find(m => m.id === strippedValue);
+  const currentModel = exactSelectedModel || models.find(m => m.id === normalizedValue) || models[0];
   const modelMapping = readClaudeModelMapping();
 
   const isSelectedModel = (modelId: string): boolean => {
+    if (modelId === strippedValue) {
+      return true;
+    }
     if (currentProvider !== 'claude') {
-      return modelId === strippedValue;
+      return false;
+    }
+    if (exactSelectedModel) {
+      return false;
     }
     return normalizeClaudeModelId(modelId) === normalizedValue;
   };
@@ -182,24 +169,22 @@ export const ModelSelect = ({ value, onChange, models = AVAILABLE_MODELS, curren
     }
 
     if (labelKey) {
-      return append1MContextSuffix(t(labelKey), model.id, show1MContext);
+      const fallback = getRoleModelLabel(model.id) ?? model.label ?? model.id;
+      return append1MContextSuffix(t(labelKey, { defaultValue: fallback }), model.id, show1MContext);
     }
 
     return append1MContextSuffix(model.label ?? '', model.id, show1MContext);
   };
 
-  const append1MContextSuffix = (label: string, modelId: string, show1MContext: boolean): string => {
-    // Show 1M context suffix for providers that support it
-    if (show1MContext && modelSupports1MContext(modelId, models, providerPreset) && longContextEnabled) {
-      return `${label} (${t('models.longContext.shortLabel')})`;
-    }
+  const append1MContextSuffix = (label: string, _modelId: string, _show1MContext: boolean): string => {
+    // 1M context suffix removed - configuration is now centralized in settings
     return label;
   };
 
   const getModelDescription = (model: ModelInfo): string | undefined => {
     const descriptionKey = MODEL_DESCRIPTION_KEYS[model.id];
     if (descriptionKey) {
-      return t(descriptionKey);
+      return t(descriptionKey, { defaultValue: model.description ?? '' });
     }
     return model.description;
   };
@@ -347,39 +332,8 @@ export const ModelSelect = ({ value, onChange, models = AVAILABLE_MODELS, curren
               })}
             </div>
           )}
-          {onLongContextChange && (
-            <>
-              <div className="selector-divider" />
-              <div
-                className="selector-option"
-                style={LONG_CONTEXT_OPTION_STYLE}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <span style={LONG_CONTEXT_LABEL_STYLE}>{t('models.longContext.shortLabel')}</span>
-                <Switch
-                  size="small"
-                  checked={modelSupports1MContext(value, models, providerPreset) ? longContextEnabled : false}
-                  disabled={!modelSupports1MContext(value, models, providerPreset)}
-                  onChange={onLongContextChange}
-                />
-              </div>
-            </>
-          )}
-          {onAddModel && (
-            <>
-              <div className="selector-divider" />
-              <div
-                className="selector-option selector-option-add"
-                onClick={() => { onAddModel(); setIsOpen(false); setSearchQuery(''); }}
-              >
-                <span className="codicon codicon-add selector-add-icon" />
-                <span>{t('models.addModel')}</span>
-              </div>
-            </>
-          )}
         </div>
       )}
     </div>
   );
 };
-

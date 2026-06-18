@@ -1,8 +1,14 @@
-import {render, screen} from '@testing-library/react';
+import {fireEvent, render, screen} from '@testing-library/react';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 import {ModelSelect} from './ModelSelect';
 import type {ModelInfo} from '../types';
-import {CLAUDE_MODELS, CODEX_MODELS, modelSupports1MContext} from '../types';
+import {
+  CLAUDE_MODELS,
+  CLAUDE_ROLE_MODEL_IDS,
+  CODEX_MODELS,
+  modelSupports1MContext,
+  normalizeClaudeModelId,
+} from '../types';
 import {STORAGE_KEYS} from '../../../types/provider';
 
 vi.mock('react-i18next', () => ({
@@ -12,15 +18,14 @@ vi.mock('react-i18next', () => ({
 }));
 
 describe('modelSupports1MContext', () => {
-  it('returns true for known Claude non-Haiku models', () => {
-    expect(modelSupports1MContext('claude-sonnet-4-6')).toBe(true);
-    expect(modelSupports1MContext('claude-opus-4-8')).toBe(true);
-    expect(modelSupports1MContext('claude-opus-4-7')).toBe(true);
-    expect(modelSupports1MContext('claude-opus-4-6')).toBe(true);
+  it('returns true for Claude non-Haiku role models', () => {
+    expect(modelSupports1MContext(CLAUDE_ROLE_MODEL_IDS.sonnet)).toBe(true);
+    expect(modelSupports1MContext(CLAUDE_ROLE_MODEL_IDS.opus)).toBe(true);
+    expect(modelSupports1MContext(CLAUDE_ROLE_MODEL_IDS.fable)).toBe(true);
   });
 
   it('returns false for Haiku', () => {
-    expect(modelSupports1MContext('claude-haiku-4-5')).toBe(false);
+    expect(modelSupports1MContext(CLAUDE_ROLE_MODEL_IDS.haiku)).toBe(false);
   });
 
   it('returns false for unknown models without contextWindow', () => {
@@ -52,9 +57,9 @@ describe('modelSupports1MContext', () => {
 
 describe('ModelSelect', () => {
   const sonnetModel: ModelInfo = {
-    id: 'claude-sonnet-4-6',
-    label: 'Sonnet 4.6',
-    description: 'Sonnet 4.6 · Use the default model',
+    id: 'claude-role-sonnet',
+    label: 'Sonnet',
+    description: 'Sonnet role',
     contextWindow: 200_000,
   };
 
@@ -114,22 +119,57 @@ describe('ModelSelect', () => {
     expect(screen.getByRole('button').textContent).toContain('glm-4.7');
   });
 
-  it('Claude 内置模型列表不使用 [1m] 后缀 ID', () => {
+  it('Claude 内置模型列表只暴露稳定角色 ID', () => {
     const ids = CLAUDE_MODELS.map((model) => model.id);
-    expect(ids.some((id) => id.endsWith('[1m]'))).toBe(false);
+    expect(ids).toEqual([
+      CLAUDE_ROLE_MODEL_IDS.sonnet,
+      CLAUDE_ROLE_MODEL_IDS.opus,
+      CLAUDE_ROLE_MODEL_IDS.fable,
+      CLAUDE_ROLE_MODEL_IDS.haiku,
+    ]);
   });
 
-  it('Codex 内置模型列表应与目标设计一致', () => {
-    expect(CODEX_MODELS.map((model) => model.id)).toEqual([
-      'gpt-5.5',
-      'gpt-5.4',
-      'gpt-5.2-codex',
-      'gpt-5.1-codex-max',
-      'gpt-5.4-mini',
-      'gpt-5.3-codex',
-      'gpt-5.3-codex-spark',
-      'gpt-5.2',
-      'gpt-5.1-codex-mini',
-    ]);
+  it('旧 Claude 具体模型 ID 不再兼容，回退到默认 Sonnet 角色', () => {
+    expect(normalizeClaudeModelId('claude-sonnet-4-6')).toBe(CLAUDE_ROLE_MODEL_IDS.sonnet);
+    expect(normalizeClaudeModelId('claude-opus-4-8')).toBe(CLAUDE_ROLE_MODEL_IDS.sonnet);
+    expect(normalizeClaudeModelId('claude-fable-5')).toBe(CLAUDE_ROLE_MODEL_IDS.sonnet);
+    expect(normalizeClaudeModelId('claude-haiku-4-5')).toBe(CLAUDE_ROLE_MODEL_IDS.sonnet);
+    expect(normalizeClaudeModelId('glm5.2')).toBe(CLAUDE_ROLE_MODEL_IDS.sonnet);
+  });
+
+  it('Codex 不再内置具体 GPT 版本清单', () => {
+    expect(CODEX_MODELS).toEqual([]);
+  });
+
+  it('Claude 自定义模型选中态按真实模型 ID 精确匹配', () => {
+    const models: ModelInfo[] = [
+      {
+        id: 'mimo-v2.5',
+        label: 'mimo-v2.5',
+        description: 'MiMo Sonnet',
+      },
+      {
+        id: 'glm-5.2',
+        label: 'glm-5.2',
+        description: 'GLM Sonnet',
+      },
+    ];
+
+    const { container } = render(
+      <ModelSelect
+        value="mimo-v2.5"
+        onChange={vi.fn()}
+        models={models}
+        currentProvider="claude"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button'));
+
+    const selectedOptions = container.querySelectorAll('.selector-option.selected');
+    expect(selectedOptions).toHaveLength(1);
+    expect(selectedOptions[0].textContent).toContain('mimo-v2.5');
+    expect(selectedOptions[0].textContent).not.toContain('glm-5.2');
+    expect(container.querySelectorAll('.codicon-check')).toHaveLength(1);
   });
 });

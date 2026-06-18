@@ -114,9 +114,10 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     const handleModelSelect = useCallback((modelId: string, contextWindow?: number) => {
     if (currentProvider === 'claude') {
       const strippedModelId = strip1MContextSuffix(modelId);
-      const normalizedModelId = normalizeClaudeModelId(strippedModelId);
-      setSelectedClaudeModel(normalizedModelId);
       const registryModels = getModelsForProvider('claude');
+      const registryHasModel = registryModels.some((model) => model.id === strippedModelId);
+      const normalizedModelId = registryHasModel ? strippedModelId : normalizeClaudeModelId(strippedModelId);
+      setSelectedClaudeModel(normalizedModelId);
       const supports1M = modelSupports1MContext(normalizedModelId, registryModels, currentProviderPreset);
 
       // Auto-reset: disable longContext if new model doesn't support 1M

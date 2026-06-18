@@ -2,7 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useModelProviderState } from './useModelProviderState';
 import { sendBridgeEvent } from '../utils/bridge';
-import { __setModelRegistryForTests } from '../utils/modelRegistry';
+import { __setModelRegistryForTests, resetModelRegistryForTests } from '../utils/modelRegistry';
 
 vi.mock('../utils/bridge', () => ({
   sendBridgeEvent: vi.fn(),
@@ -14,6 +14,7 @@ const addToast = vi.fn();
 describe('useModelProviderState', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetModelRegistryForTests();
   });
 
   it('uses one SDK status state for callbacks and computed install status', () => {
@@ -34,6 +35,18 @@ describe('useModelProviderState', () => {
   });
 
   it('uses registry model capability when selecting a third-party Claude 1M model', () => {
+    __setModelRegistryForTests({
+      items: [{
+        id: 'mimo-v2.5-pro',
+        provider: 'claude',
+        role: 'sonnet',
+        label: 'MiMo',
+        actualModel: 'mimo-v2.5-pro',
+        contextWindow: 1_000_000,
+        supports1MContext: true,
+        enabled: true,
+      }],
+    });
     const { result } = renderHook(() => useModelProviderState({ addToast, t }));
 
     act(() => {
@@ -51,6 +64,18 @@ describe('useModelProviderState', () => {
   });
 
   it('refreshes the current session model when registry capabilities change for the selected model', () => {
+    __setModelRegistryForTests({
+      items: [{
+        id: 'mimo-v2.5-pro',
+        provider: 'claude',
+        role: 'sonnet',
+        label: 'MiMo',
+        actualModel: 'mimo-v2.5-pro',
+        contextWindow: 200_000,
+        supports1MContext: false,
+        enabled: true,
+      }],
+    });
     const { result } = renderHook(() => useModelProviderState({ addToast, t }));
 
     act(() => {

@@ -42,10 +42,7 @@ export const ChatInputBoxFooter = memo(function ChatInputBoxFooter({
   selectedAgent,
   onAgentSelect,
   onOpenAgentSettings,
-  onAddModel,
   onClearAgent,
-  longContextEnabled = true,
-  onLongContextChange,
   fileCompletion,
   commandCompletion,
   agentCompletion,
@@ -79,10 +76,7 @@ export const ChatInputBoxFooter = memo(function ChatInputBoxFooter({
   selectedAgent?: SelectedAgent | null;
   onAgentSelect?: (agent: SelectedAgent) => void;
   onOpenAgentSettings?: () => void;
-  onAddModel?: () => void;
   onClearAgent: () => void;
-  longContextEnabled?: boolean;
-  onLongContextChange?: (enabled: boolean) => void;
   fileCompletion: CompletionController;
   commandCompletion: CompletionController;
   agentCompletion: CompletionController;
@@ -126,10 +120,7 @@ export const ChatInputBoxFooter = memo(function ChatInputBoxFooter({
         selectedAgent={selectedAgent}
         onAgentSelect={(agent) => onAgentSelect?.(agent)}
         onOpenAgentSettings={onOpenAgentSettings}
-        onAddModel={onAddModel}
         onClearAgent={onClearAgent}
-        longContextEnabled={longContextEnabled}
-        onLongContextChange={onLongContextChange}
       />
 
       {/* @ file reference dropdown menu */}

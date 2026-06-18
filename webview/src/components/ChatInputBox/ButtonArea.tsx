@@ -1,11 +1,10 @@
 import {memo, useCallback, useEffect, useMemo, useState} from 'react';
 import {useTranslation} from 'react-i18next';
 import type {ButtonAreaProps, ModelInfo, PermissionMode, ReasoningEffort} from './types';
-import {CLAUDE_MODELS, strip1MContextSuffix} from './types';
+import {CLAUDE_MODELS, CLAUDE_ROLE_MODEL_IDS, getClaudeRoleFromModelId, strip1MContextSuffix} from './types';
 import {ConfigSelect, ModelSelect, ModeSelect, ProviderSelect, ReasoningSelect} from './selectors';
-import {PROVIDER_PRESETS} from '../../types/provider';
 import {readClaudeModelMapping} from '../../utils/claudeModelMapping';
-import {getModelsForProvider, requestModelRegistry, subscribeModelRegistry} from '../../utils/modelRegistry';
+import {getModelsForProvider, getModelRegistrySnapshot, requestModelRegistry, subscribeModelRegistry} from '../../utils/modelRegistry';
 import {SendIcon, SparklesIcon, StopIcon} from '../Icons';
 
 /**
@@ -17,7 +16,7 @@ export const ButtonArea = memo(function ButtonArea({
   hasInputContent = false,
   isLoading = false,
   isEnhancing = false,
-  selectedModel = 'claude-sonnet-4-6',
+  selectedModel = CLAUDE_ROLE_MODEL_IDS.sonnet,
   permissionMode = 'default',
   currentProvider = 'claude',
   reasoningEffort = 'high',
@@ -35,19 +34,11 @@ export const ButtonArea = memo(function ButtonArea({
   selectedAgent,
   onAgentSelect,
   onOpenAgentSettings,
-  onAddModel,
-  longContextEnabled = true,
-  onLongContextChange,
 }: ButtonAreaProps) {
   const { t } = useTranslation();
   // const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [modelRegistryVersion, setModelRegistryVersion] = useState(0);
-
-  // Get provider preset for current provider
-  const currentProviderPreset = useMemo(() => {
-    return PROVIDER_PRESETS.find(p => p.id === currentProvider);
-  }, [currentProvider]);
 
   useEffect(() => {
     requestModelRegistry();
@@ -57,22 +48,33 @@ export const ButtonArea = memo(function ButtonArea({
   /**
    * Apply model name mapping
    * Maps base model IDs to actual model names (e.g., versions with capacity suffixes)
+   * Only applies to built-in Claude models, not custom models
+   *
+   * When a mapping is configured:
+   * - The display label is changed to the mapped name
+   * - The model ID remains the Claude role model
+   *   (so the backend can resolve the actual request model from settings.json)
+   *
+   * Example: claude-role-sonnet → mimo-v2.5
+   *   label: "mimo-v2.5" (display)
+   *   id: "claude-role-sonnet" (sent to backend for role mapping)
    */
-  const applyModelMapping = useCallback((model: ModelInfo, mapping: { main?: string; haiku?: string; sonnet?: string; opus?: string }): ModelInfo => {
-    const modelKeyMap: Record<string, keyof typeof mapping> = {
-      'claude-sonnet-4-6': 'sonnet',
-      'claude-opus-4-8': 'opus',
-      'claude-opus-4-7': 'opus',
-      'claude-haiku-4-5': 'haiku',
-    };
+  const applyModelMapping = useCallback((model: ModelInfo, mapping: { main?: string; fable?: string; haiku?: string; sonnet?: string; opus?: string }): ModelInfo => {
+    const registryModel = getModelRegistrySnapshot().items.find((item) => item.provider === 'claude' && item.id === model.id);
+    if (registryModel?.actualModel) {
+      return model;
+    }
 
-    const key = modelKeyMap[model.id];
-    const resolvedMapping = (key ? mapping[key] : undefined) || mapping.main;
+    const key = getClaudeRoleFromModelId(model.id);
+    // Only apply mapping to built-in Claude models, keep custom model labels unchanged
+    if (!key) {
+      return model;
+    }
+
+    const resolvedMapping = mapping[key] || mapping.main;
     if (resolvedMapping) {
       const actualModel = String(resolvedMapping).trim();
       if (actualModel.length > 0) {
-        // Keep the original id as unique identifier, only modify label to custom name
-        // This ensures id remains unique even if multiple models share the same displayName
         return { ...model, label: actualModel };
       }
     }
@@ -181,7 +183,7 @@ export const ButtonArea = memo(function ButtonArea({
         <span className="selector-separator" />
         <ModeSelect value={permissionMode} onChange={handleModeSelect} provider={currentProvider} />
         <span className="selector-separator" />
-        <ModelSelect value={selectedModel} onChange={handleModelSelect} models={availableModels} currentProvider={currentProvider} onAddModel={onAddModel} longContextEnabled={longContextEnabled} onLongContextChange={onLongContextChange} providerPreset={currentProviderPreset} />
+        <ModelSelect value={selectedModel} onChange={handleModelSelect} models={availableModels} currentProvider={currentProvider} />
         <span className="selector-separator" />
         <ReasoningSelect value={reasoningEffort} onChange={handleReasoningChange} selectedModel={selectedModel} currentProvider={currentProvider} />
       </div>
@@ -229,4 +231,3 @@ export const ButtonArea = memo(function ButtonArea({
     </div>
   );
 });
-

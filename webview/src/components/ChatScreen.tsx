@@ -113,11 +113,10 @@ export const ChatScreen = ({
     sdkStatusLoaded, currentSdkInstalled,
     activeProviderConfig, claudeSettingsAlwaysThinkingEnabled,
     reasoningEffort, streamingEnabledSetting, sendShortcut, autoOpenFileEnabled,
-    longContextEnabled, usagePercentage, usageUsedTokens, usageMaxTokens, tokenDetail,
+    usagePercentage, usageUsedTokens, usageMaxTokens, tokenDetail,
     handleModeSelect, handleModelSelect, handleAgentSelect,
     handleReasoningChange, handleToggleThinking,
     handleStreamingEnabledChange, handleAutoOpenFileEnabledChange,
-    handleLongContextChange,
   } = useModelProvider();
 
   const {
@@ -128,7 +127,6 @@ export const ChatScreen = ({
   const {
     setSettingsInitialTab, setCurrentView,
     contextInfo, setContextInfo,
-    setAddModelDialogOpen,
     addToast,
     draftInput, setDraftInput,
     openChangelogDialog,
@@ -313,7 +311,8 @@ export const ChatScreen = ({
             setCurrentView('settings');
           }}
           onOpenModelSettings={() => {
-            setAddModelDialogOpen(true);
+            setSettingsInitialTab('providers');
+            setCurrentView('settings');
           }}
           hasMessages={messages.length > 0}
           onRewind={onRewind}
@@ -327,11 +326,8 @@ export const ChatScreen = ({
           onRemoveFromQueue={onRemoveFromQueue}
           autoOpenFileEnabled={autoOpenFileEnabled}
           onAutoOpenFileEnabledChange={handleAutoOpenFileEnabledChange}
-          longContextEnabled={longContextEnabled}
-          onLongContextChange={handleLongContextChange}
         />
       </div>
     </>
   );
 };
-

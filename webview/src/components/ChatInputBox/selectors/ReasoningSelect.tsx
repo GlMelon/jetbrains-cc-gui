@@ -2,11 +2,9 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { useTranslation } from 'react-i18next';
 import {
   REASONING_LEVELS,
-  EFFORT_SUPPORTED_CLAUDE_MODELS,
-  MAX_EFFORT_CLAUDE_MODELS,
-  XHIGH_EFFORT_CLAUDE_MODELS,
   type ReasoningEffort,
 } from '../types';
+import { resolveClaudeRoleForModel } from '../../../utils/modelRegistry';
 import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
 
 const RELATIVE_INLINE_BLOCK_STYLE: React.CSSProperties = { position: 'relative', display: 'inline-block' };
@@ -32,11 +30,14 @@ interface ReasoningSelectProps {
 /**
  * ReasoningSelect - Reasoning Effort Selector
  * Controls the depth of reasoning for AI models.
- * Visibility and available levels depend on the selected model:
+ * Visibility and available levels depend on the selected model's *role*:
  * - Codex: low/medium/high/xhigh
- * - Claude Opus 4.7: low/medium/high/xhigh/max
- * - Claude Opus 4.6 and Sonnet 4.6: low/medium/high/max
- * - Claude Haiku 4.5 and legacy models: hidden (no adaptive thinking support)
+ * - Claude role fable/opus: low/medium/high/xhigh/max
+ * - Claude role sonnet: low/medium/high/max
+ * - Claude role haiku(及未配置 role 的模型):隐藏(不支持 adaptive thinking)
+ *
+ * 角色来自 resolveClaudeRoleForModel:内置 claude-role-* 由 id 推导,
+ * 自定义模型由 registry.role 读取——用户在新增模型时选择的角色。
  */
 export const ReasoningSelect = ({ value, onChange, disabled, selectedModel, currentProvider }: ReasoningSelectProps) => {
   const { t } = useTranslation();
@@ -50,10 +51,14 @@ export const ReasoningSelect = ({ value, onChange, disabled, selectedModel, curr
     preferredAlignment: 'right',
   });
 
-  // Determine visibility: for Claude, hide if model doesn't support adaptive thinking
-  const isVisible = currentProvider !== 'claude' || !selectedModel || EFFORT_SUPPORTED_CLAUDE_MODELS.has(selectedModel);
+  // 解析当前模型的 role(内置 role 与自定义模型 registry.role 统一处理)。
+  const role = resolveClaudeRoleForModel(selectedModel);
+  const supportsEffort = role === 'opus' || role === 'fable' || role === 'sonnet';
 
-  // Build the list of available levels for the current model
+  // Claude:按 role 判断是否显示(支持 adaptive thinking 的 role 才显示)。
+  const isVisible = currentProvider !== 'claude' || !selectedModel || supportsEffort;
+
+  // 根据当前模型能力构建可选级别。
   const availableLevels = REASONING_LEVELS.filter(level => {
     if (currentProvider !== 'claude') {
       return level.id !== 'max';
@@ -62,10 +67,12 @@ export const ReasoningSelect = ({ value, onChange, disabled, selectedModel, curr
       return true;
     }
     if (level.id === 'xhigh') {
-      return XHIGH_EFFORT_CLAUDE_MODELS.has(selectedModel);
+      // 仅 opus/fable 支持 xhigh。
+      return role === 'opus' || role === 'fable';
     }
     if (level.id === 'max') {
-      return MAX_EFFORT_CLAUDE_MODELS.has(selectedModel);
+      // opus/fable/sonnet 支持 max。
+      return supportsEffort;
     }
     return true;
   });

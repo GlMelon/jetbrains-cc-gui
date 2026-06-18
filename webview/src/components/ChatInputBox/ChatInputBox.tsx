@@ -14,6 +14,7 @@ import type {
   ChatInputBoxProps,
   PermissionMode,
 } from './types.js';
+import { CLAUDE_ROLE_MODEL_IDS } from './types.js';
 import { ChatInputBoxHeader } from './ChatInputBoxHeader.js';
 import { ChatInputBoxFooter } from './ChatInputBoxFooter.js';
 import { ResizeHandles } from './ResizeHandles.js';
@@ -60,7 +61,7 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
   (
     {
       isLoading = false,
-      selectedModel = 'claude-sonnet-4-6',
+      selectedModel = CLAUDE_ROLE_MODEL_IDS.sonnet,
       permissionMode = 'default',
       currentProvider = 'claude',
       usagePercentage = 0,
@@ -96,7 +97,6 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
       onAgentSelect,
       onOpenAgentSettings,
       onOpenPromptSettings,
-      onOpenModelSettings,
       hasMessages = false,
       onRewind,
       statusPanelExpanded = true,
@@ -109,8 +109,6 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
       onRemoveFromQueue,
       autoOpenFileEnabled,
       onAutoOpenFileEnabledChange,
-      longContextEnabled = true,
-      onLongContextChange,
     }: ChatInputBoxProps,
     ref: React.ForwardedRef<ChatInputBoxHandle>
   ) => {
@@ -721,10 +719,7 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
           selectedAgent={selectedAgent}
           onAgentSelect={(agent) => onAgentSelect?.(agent)}
           onOpenAgentSettings={onOpenAgentSettings}
-          onAddModel={onOpenModelSettings}
           onClearAgent={() => onAgentSelect?.(null)}
-          longContextEnabled={longContextEnabled}
-          onLongContextChange={onLongContextChange}
           fileCompletion={fileCompletion}
           commandCompletion={commandCompletion}
           agentCompletion={agentCompletion}
@@ -749,4 +744,3 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
 
 // Display name for React DevTools
 ChatInputBox.displayName = 'ChatInputBox';
-

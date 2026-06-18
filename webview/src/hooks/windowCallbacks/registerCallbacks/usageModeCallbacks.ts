@@ -15,9 +15,10 @@
 
 import type { UseWindowCallbacksOptions } from '../../useWindowCallbacks';
 import type { PermissionMode } from '../../../components/ChatInputBox/types';
-import { isValidPermissionMode, normalizeClaudeModelId } from '../../../components/ChatInputBox/types';
+import { isValidPermissionMode } from '../../../components/ChatInputBox/types';
 import { drainPendingSettings, startInitialSettingsRequest } from '../settingsBootstrap';
 import { clampPermissionDialogTimeoutSeconds } from '../../../utils/permissionDialogTimeout';
+import { resolveClaudeModelId } from '../../../utils/modelRegistry';
 import { bridgeHub, registerLegacyAlias } from '../../../bridge';
 
 export function registerUsageModeCallbacks(options: UseWindowCallbacksOptions): void {
@@ -124,11 +125,13 @@ export function registerUsageModeCallbacks(options: UseWindowCallbacksOptions): 
   bridgeHub.subscribe('mode.received', (mode) => updateMode(mode as PermissionMode));
 
   // [归一化] onModelChanged → model.changed(裸字符串 modelId)
+  // resolveClaudeModelId 先查 registry,自定义模型(如 mimo-v2.5)保留原 id,
+  // 仅在 registry 未收录时回退到 role 归一化,避免合法自定义模型被改写成 sonnet。
   registerLegacyAlias('onModelChanged', 'model.changed');
   bridgeHub.subscribe('model.changed', (modelId) => {
     const provider = currentProviderRef.current;
     if (provider === 'claude') {
-      setSelectedClaudeModel(normalizeClaudeModelId(modelId as string));
+      setSelectedClaudeModel(resolveClaudeModelId(modelId as string));
     } else if (provider === 'codex') {
       setSelectedCodexModel(modelId as string);
     }
@@ -136,6 +139,7 @@ export function registerUsageModeCallbacks(options: UseWindowCallbacksOptions): 
 
   // [归一化] onModelConfirmed(modelId, provider) 原为两参数回调,后端已归一化为单 JSON 参数
   // {modelId, provider}。兼容别名转发到 model.confirmed,订阅者解析 JSON 取两字段。
+  // resolveClaudeModelId 同上,保留 registry 中已收录的自定义模型 id。
   registerLegacyAlias('onModelConfirmed', 'model.confirmed');
   bridgeHub.subscribe('model.confirmed', (json) => {
     try {
@@ -143,7 +147,7 @@ export function registerUsageModeCallbacks(options: UseWindowCallbacksOptions): 
       const modelId: string = data.modelId;
       const provider: string = data.provider;
       if (provider === 'claude') {
-        setSelectedClaudeModel(normalizeClaudeModelId(modelId));
+        setSelectedClaudeModel(resolveClaudeModelId(modelId));
       } else if (provider === 'codex') {
         setSelectedCodexModel(modelId);
       }
@@ -199,7 +203,7 @@ export function registerUsageModeCallbacks(options: UseWindowCallbacksOptions): 
                 if (provider === 'codex') {
                     setSelectedCodexModel(data.model);
                 } else {
-                    setSelectedClaudeModel(normalizeClaudeModelId(data.model));
+                    setSelectedClaudeModel(resolveClaudeModelId(data.model));
                 }
             }
 

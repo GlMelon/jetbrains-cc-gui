@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ReasoningSelect } from './ReasoningSelect';
+import { CLAUDE_ROLE_MODEL_IDS } from '../types';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -9,13 +10,13 @@ vi.mock('react-i18next', () => ({
 }));
 
 describe('ReasoningSelect', () => {
-  it('shows xhigh and max for Claude Opus 4.7', () => {
+  it('shows xhigh and max for Claude Opus role', () => {
     render(
       <ReasoningSelect
         value="high"
         onChange={vi.fn()}
         currentProvider="claude"
-        selectedModel="claude-opus-4-7"
+        selectedModel={CLAUDE_ROLE_MODEL_IDS.opus}
       />,
     );
 
@@ -25,13 +26,13 @@ describe('ReasoningSelect', () => {
     expect(screen.getByText('Max')).toBeTruthy();
   });
 
-  it('shows max but not xhigh for Claude Sonnet 4.6', () => {
+  it('shows max but not xhigh for Claude Sonnet role', () => {
     render(
       <ReasoningSelect
         value="high"
         onChange={vi.fn()}
         currentProvider="claude"
-        selectedModel="claude-sonnet-4-6"
+        selectedModel={CLAUDE_ROLE_MODEL_IDS.sonnet}
       />,
     );
 
@@ -49,7 +50,7 @@ describe('ReasoningSelect', () => {
         value="xhigh"
         onChange={onChange}
         currentProvider="claude"
-        selectedModel="claude-sonnet-4-6"
+        selectedModel={CLAUDE_ROLE_MODEL_IDS.sonnet}
       />,
     );
 
@@ -62,7 +63,7 @@ describe('ReasoningSelect', () => {
         value="high"
         onChange={vi.fn()}
         currentProvider="claude"
-        selectedModel="claude-haiku-4-5"
+        selectedModel={CLAUDE_ROLE_MODEL_IDS.haiku}
       />,
     );
 

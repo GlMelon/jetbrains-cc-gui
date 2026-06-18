@@ -371,17 +371,42 @@ export function strip1MContextSuffix(modelId: string | undefined | null): string
   return modelId.replace(/\[1m\]$/i, '');
 }
 
-const LEGACY_CLAUDE_MODEL_ID_ALIASES: Record<string, string> = {
-  'claude-opus-4-6[1m]': 'claude-opus-4-6',
+export const CLAUDE_ROLE_MODEL_IDS = {
+  sonnet: 'claude-role-sonnet',
+  opus: 'claude-role-opus',
+  fable: 'claude-role-fable',
+  haiku: 'claude-role-haiku',
+} as const;
+
+export type ClaudeRoleModelId = typeof CLAUDE_ROLE_MODEL_IDS[keyof typeof CLAUDE_ROLE_MODEL_IDS];
+
+export function getClaudeRoleFromModelId(modelId: string | undefined | null): keyof typeof CLAUDE_ROLE_MODEL_IDS | null {
+  if (!modelId) {
+    return null;
+  }
+  const stripped = strip1MContextSuffix(modelId).toLowerCase();
+  if (stripped === CLAUDE_ROLE_MODEL_IDS.fable) {
+    return 'fable';
+  }
+  if (stripped === CLAUDE_ROLE_MODEL_IDS.opus) {
+    return 'opus';
+  }
+  if (stripped === CLAUDE_ROLE_MODEL_IDS.haiku) {
+    return 'haiku';
+  }
+  if (stripped === CLAUDE_ROLE_MODEL_IDS.sonnet) {
+    return 'sonnet';
+  }
+  return null;
 };
 
 export function normalizeClaudeModelId(modelId: string | undefined | null): string {
   if (!modelId) {
-    return 'claude-sonnet-4-6';
+    return CLAUDE_ROLE_MODEL_IDS.sonnet;
   }
-  // First strip any [1m] suffix
   const stripped = strip1MContextSuffix(modelId);
-  return LEGACY_CLAUDE_MODEL_ID_ALIASES[stripped] ?? stripped;
+  const role = getClaudeRoleFromModelId(stripped);
+  return role ? CLAUDE_ROLE_MODEL_IDS[role] : CLAUDE_ROLE_MODEL_IDS.sonnet;
 }
 
 /**
@@ -390,96 +415,35 @@ export function normalizeClaudeModelId(modelId: string | undefined | null): stri
  */
 export const CLAUDE_MODELS: ModelInfo[] = [
   {
-    id: 'claude-sonnet-4-6',
-    label: 'Sonnet 4.6',
-    description: 'Sonnet 4.6 · Use the default model',
-      contextWindow: 200_000,
+    id: CLAUDE_ROLE_MODEL_IDS.sonnet,
+    label: 'Sonnet',
+    description: 'Sonnet role · Uses ANTHROPIC_DEFAULT_SONNET_MODEL',
+    contextWindow: 200_000,
   },
   {
-    id: 'claude-opus-4-8',
-    label: 'Opus 4.8',
-    description: 'Opus 4.8 · Latest and most capable',
-      contextWindow: 200_000,
+    id: CLAUDE_ROLE_MODEL_IDS.opus,
+    label: 'Opus',
+    description: 'Opus role · Uses ANTHROPIC_DEFAULT_OPUS_MODEL',
+    contextWindow: 200_000,
   },
   {
-    id: 'claude-opus-4-7',
-    label: 'Opus 4.7',
-    description: 'Opus 4.7 · Previous flagship model',
-      contextWindow: 200_000,
+    id: CLAUDE_ROLE_MODEL_IDS.fable,
+    label: 'Fable',
+    description: 'Fable role · Uses ANTHROPIC_DEFAULT_FABLE_MODEL',
+    contextWindow: 200_000,
   },
   {
-    id: 'claude-opus-4-6',
-    label: 'Opus 4.6',
-    description: 'Opus 4.6 for long sessions',
-      contextWindow: 200_000,
-  },
-  {
-    id: 'claude-haiku-4-5',
-    label: 'Haiku 4.5',
-    description: 'Haiku 4.5 · Fastest for quick answers',
-      contextWindow: 200_000,
+    id: CLAUDE_ROLE_MODEL_IDS.haiku,
+    label: 'Haiku',
+    description: 'Haiku role · Uses ANTHROPIC_DEFAULT_HAIKU_MODEL',
+    contextWindow: 200_000,
   },
 ];
 
 /**
  * Codex model list
  */
-export const CODEX_MODELS: ModelInfo[] = [
-  {
-    id: 'gpt-5.5',
-    label: 'GPT-5.5',
-    description: 'Latest frontier model with stronger capabilities.',
-      contextWindow: 1_000_000,
-  },
-  {
-    id: 'gpt-5.4',
-    label: 'GPT-5.4',
-    description: 'Latest frontier model with enhanced capabilities.',
-      contextWindow: 1_000_000,
-  },
-  {
-    id: 'gpt-5.2-codex',
-    label: 'GPT-5.2-Codex',
-    description: 'Frontier agentic coding model.',
-      contextWindow: 258_000,
-  },
-  {
-    id: 'gpt-5.1-codex-max',
-    label: 'GPT-5.1-Codex-Max',
-    description: 'Codex-optimized flagship for deep and fast reasoning.',
-      contextWindow: 258_000,
-  },
-  {
-    id: 'gpt-5.4-mini',
-    label: 'GPT-5.4-Mini',
-    description: 'Smaller frontier agentic coding model.',
-      contextWindow: 400_000,
-  },
-  {
-    id: 'gpt-5.3-codex',
-    label: 'GPT-5.3-Codex',
-    description: 'Latest frontier agentic coding model with enhanced capabilities.',
-      contextWindow: 258_000,
-  },
-  {
-    id: 'gpt-5.3-codex-spark',
-    label: 'GPT-5.3-Codex-Spark',
-    description: 'Ultra-fast coding model.',
-      contextWindow: 258_000,
-  },
-  {
-    id: 'gpt-5.2',
-    label: 'GPT-5.2',
-    description: 'Optimized for professional work and long-running agents.',
-      contextWindow: 258_000,
-  },
-  {
-    id: 'gpt-5.1-codex-mini',
-    label: 'GPT-5.1-Codex-Mini',
-    description: 'Optimized for Codex. Cheaper, faster, but less capable.',
-      contextWindow: 128_000,
-  },
-];
+export const CODEX_MODELS: ModelInfo[] = [];
 
 /**
  * Available models (backward compatibility)
@@ -507,36 +471,12 @@ export const AVAILABLE_PROVIDERS: ProviderInfo[] = [
 ];
 
 /**
- * Claude models that support adaptive thinking with effort parameter.
- * Based on: https://code.claude.com/docs/en/model-config#adjust-effort-level
+ * Reasoning effort(adaptive thinking)的支持情况按模型的 role 判断,不再使用
+ * model-id 白名单:opus/fable/sonnet 支持 effort(其中 opus/fable 额外支持
+ * xhigh),haiku 不支持。判断逻辑见 ReasoningSelect +
+ * utils/modelRegistry.resolveClaudeRoleForModel(内置 role 与自定义模型的
+ * role 字段统一处理)。
  */
-export const EFFORT_SUPPORTED_CLAUDE_MODELS = new Set([
-  'claude-opus-4-8',
-  'claude-opus-4-7',
-  'claude-opus-4-6',
-  'claude-opus-4-6[1m]',
-  'claude-sonnet-4-6',
-]);
-
-/**
- * Claude models that additionally support the 'xhigh' effort level.
- * Opus 4.7 is currently the only Claude Code model with xhigh support.
- */
-export const XHIGH_EFFORT_CLAUDE_MODELS = new Set([
-  'claude-opus-4-8',
-  'claude-opus-4-7',
-]);
-
-/**
- * Claude models that support the 'max' effort level.
- */
-export const MAX_EFFORT_CLAUDE_MODELS = new Set([
-  'claude-opus-4-8',
-  'claude-opus-4-7',
-  'claude-opus-4-6',
-  'claude-opus-4-6[1m]',
-  'claude-sonnet-4-6',
-]);
 
 /**
  * Reasoning Effort (thinking depth)
@@ -754,10 +694,6 @@ export interface ChatInputBoxProps {
   autoOpenFileEnabled?: boolean;
   /** Toggle auto open file enabled */
   onAutoOpenFileEnabledChange?: (enabled: boolean) => void;
-  /** Whether long context (1M) is enabled */
-  longContextEnabled?: boolean;
-  /** Toggle long context callback */
-  onLongContextChange?: (enabled: boolean) => void;
 }
 
 /**
@@ -807,12 +743,6 @@ export interface ButtonAreaProps {
   onClearAgent?: () => void;
   /** Open agent settings callback */
   onOpenAgentSettings?: () => void;
-  /** Navigate to model management to add models */
-  onAddModel?: () => void;
-  /** Whether long context (1M) is enabled */
-  longContextEnabled?: boolean;
-  /** Toggle long context callback */
-  onLongContextChange?: (enabled: boolean) => void;
 }
 
 /**
