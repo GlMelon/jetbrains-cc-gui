@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CC GUI 主题展示中心</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0a0a0a;
+      color: #e0e0e0;
+      min-height: 100vh;
+    }
+
+    /* Main Layout */
+    .showcase-container {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* Sidebar Controls */
+    .sidebar {
+      width: 320px;
+      background: #111;
+      border-right: 1px solid #222;
+      padding: 20px;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+
+    .sidebar h1 {
+      font-size: 16px;
+      margin-bottom: 20px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sidebar h1::before {
+      content: '🎨';
+      font-size: 20px;
+    }
+
+    .control-section {
+      margin-bottom: 24px;
+    }
+
+    .control-section h3 {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #888;
+      margin-bottom: 12px;
+    }
+
+    /* Theme Toggle */
+    .theme-toggle {
+      display: flex;
+      gap: 8px;
+    }
+
+    .theme-btn {
+      flex: 1;
+      padding: 10px;
+      border-radius: 8px;
+      border: 2px solid #333;
+      background: #1a1a1a;
+      color: #ccc;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.2s;
+      text-align: center;
+    }
+
+    .theme-btn:hover {
+      border-color: #555;
+    }
+
+    .theme-btn.active {
+      border-color: #4ea1ff;
+      background: rgba(78, 161, 255, 0.1);
+      color: #4ea1ff;
+    }
+
+    /* Color Grid */
+    .color-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .color-swatch {
+      aspect-ratio: 1;
+      border-radius: 8px;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .color-swatch:hover {
+      transform: scale(1.1);
+      z-index: 1;
+    }
+
+    .color-swatch.active {
+      border-color: #fff;
+      box-shadow: 0 0 0 2px #4ea1ff;
+    }
+
+    .color-swatch.active::after {
+      content: '✓';
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.5);
+      color: #fff;
+      font-size: 16px;
+      font-weight: bold;
+    }
+
+    .color-label {
+      font-size: 9px;
+      text-align: center;
+      margin-top: 4px;
+      color: #666;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Preview Area */
+    .preview-area {
+      flex: 1;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .preview-title {
+      font-size: 14px;
+      color: #888;
+      margin-bottom: 16px;
+    }
+
+    /* Phone Frame */
+    .phone-frame {
+      width: 420px;
+      height: 700px;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header */
+    .preview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 16px;
+      min-height: 48px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .preview-header-title {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .preview-header-btns {
+      display: flex;
+      gap: 4px;
+    }
+
+    .preview-icon-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 4px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .preview-icon-btn svg {
+      width: 14px;
+      height: 14px;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      fill: none;
+    }
+
+    /* Chat Area */
+    .preview-chat {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+
+    /* Message Card */
+    .preview-message {
+      margin-bottom: 16px;
+      max-width: 85%;
+    }
+
+    .preview-message.user {
+      margin-left: auto;
+    }
+
+    .preview-message-role {
+      font-size: 11px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .preview-avatar {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: bold;
+      color: #fff;
+    }
+
+    .preview-message-bubble {
+      padding: 12px 14px;
+      border-radius: 12px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .preview-message.user .preview-message-bubble {
+      border-bottom-right-radius: 4px;
+    }
+
+    .preview-message.assistant .preview-message-bubble {
+      border-bottom-left-radius: 4px;
+    }
+
+    /* StatusPanel */
+    .preview-status-panel {
+      margin: 0 12px 8px;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .preview-status-tabs {
+      display: flex;
+      padding: 6px 8px;
+      gap: 0;
+      font-size: 11px;
+    }
+
+    .preview-status-tab {
+      flex: 1;
+      text-align: center;
+      padding: 5px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+
+    .preview-status-tab.active {
+      background: rgba(128,128,128,0.15);
+    }
+
+    /* Input Area */
+    .preview-input-area {
+      padding: 8px 12px 12px;
+      border-top: 1px solid var(--border);
+    }
+
+    .preview-input-box {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .preview-input-content {
+      padding: 10px 12px;
+      font-size: 12px;
+      min-height: 36px;
+    }
+
+    .preview-input-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 8px;
+      border-top: 1px solid var(--border);
+    }
+
+    .preview-chip {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+    }
+
+    /* All Themes Grid */
+    .all-themes-section {
+      margin-top: 40px;
+      padding: 20px;
+      width: 100%;
+    }
+
+    .all-themes-section h2 {
+      font-size: 16px;
+      margin-bottom: 20px;
+      color: #fff;
+    }
+
+    .themes-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    .theme-card {
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #333;
+      background: #111;
+    }
+
+    .theme-card-header {
+      padding: 8px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .theme-card-preview {
+      height: 200px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .theme-card-header-bar {
+      padding: 8px 10px;
+      font-size: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .theme-card-messages {
+      flex: 1;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .theme-card-msg {
+      padding: 6px 8px;
+      border-radius: 6px;
+      font-size: 9px;
+      max-width: 80%;
+    }
+
+    .theme-card-msg.user {
+      margin-left: auto;
+      border-bottom-right-radius: 2px;
+    }
+
+    .theme-card-msg.assistant {
+      border-bottom-left-radius: 2px;
+    }
+
+    .theme-card-status {
+      padding: 4px 8px;
+      font-size: 8px;
+      border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+  <div class="showcase-container">
+    <!-- Sidebar Controls -->
+    <div class="sidebar">
+      <h1>CC GUI 主题展示</h1>
+
+      <div class="control-section">
+        <h3>主题模式</h3>
+        <div class="theme-toggle">
+          <button class="theme-btn active" onclick="setThemeMode('dark')">🌙 Dark</button>
+          <button class="theme-btn" onclick="setThemeMode('light')">☀️ Light</button>
+        </div>
+      </div>
+
+      <div class="control-section">
+        <h3>聊天背景色</h3>
+        <div class="color-grid" id="bg-colors"></div>
+      </div>
+
+      <div class="control-section">
+        <h3>用户消息气泡</h3>
+        <div class="color-grid" id="bubble-colors"></div>
+      </div>
+
+      <div class="control-section">
+        <h3>强调色</h3>
+        <div class="color-grid" id="accent-colors"></div>
+      </div>
+    </div>
+
+    <!-- Preview Area -->
+    <div class="preview-area">
+      <div class="preview-title">实时预览</div>
+      <div class="phone-frame" id="phone-frame">
+        <!-- Header -->
+        <div class="preview-header" id="preview-header">
+          <span class="preview-header-title">My Session</span>
+          <div class="preview-header-btns">
+            <button class="preview-icon-btn"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>
+            <button class="preview-icon-btn"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+            <button class="preview-icon-btn"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg></button>
+          </div>
+        </div>
+
+        <!-- Chat Area -->
+        <div class="preview-chat" id="preview-chat">
+          <!-- Assistant Message -->
+          <div class="preview-message assistant">
+            <div class="preview-message-role">
+              <div class="preview-avatar" style="background: #4ea1ff;">A</div>
+              <span id="role-assistant">Claude</span>
+            </div>
+            <div class="preview-message-bubble" id="bubble-assistant">
+              你好！我是 Claude，可以帮你解答问题、编写代码或进行分析。
+            </div>
+          </div>
+
+          <!-- User Message -->
+          <div class="preview-message user">
+            <div class="preview-message-role" style="justify-content: flex-end;">
+              <span>You</span>
+              <div class="preview-avatar" style="background: #666;">U</div>
+            </div>
+            <div class="preview-message-bubble" id="bubble-user">
+              帮我写一个 Python 快速排序函数
+            </div>
+          </div>
+
+          <!-- Assistant Message 2 -->
+          <div class="preview-message assistant">
+            <div class="preview-message-bubble" id="bubble-assistant-2">
+              <pre style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 4px; font-size: 11px; overflow-x: auto;"><code>def quicksort(arr):
+    if len(arr) <= 1:
+        return arr
+    pivot = arr[len(arr) // 2]
+    left = [x for x in arr if x < pivot]
+    middle = [x for x in arr if x == pivot]
+    right = [x for x in arr if x > pivot]
+    return quicksort(left) + middle + quicksort(right)</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- StatusPanel -->
+        <div class="preview-status-panel" id="preview-status-panel">
+          <div class="preview-status-tabs" id="preview-status-tabs">
+            <div class="preview-status-tab">📋 Tasks</div>
+            <div class="preview-status-tab active">🤖 Subagent</div>
+            <div class="preview-status-tab">✏️ Edits</div>
+          </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="preview-input-area" id="preview-input-area">
+          <div class="preview-input-box" id="preview-input-box">
+            <div class="preview-input-content" id="preview-input-content">
+              @reference files, #invoke agents...
+            </div>
+            <div class="preview-input-toolbar" id="preview-input-toolbar">
+              <div class="preview-chip" id="chip-mode">⚡ Auto Mode</div>
+              <div class="preview-chip" id="chip-model">Claude</div>
+              <div class="preview-chip" id="chip-reasoning">💡 High</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- All Themes Grid -->
+      <div class="all-themes-section">
+        <h2>所有主题组合预览</h2>
+        <div class="themes-grid" id="themes-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Color Presets
+    const darkBgColors = [
+      { color: '#1e1e1e', name: 'Default' },
+      { color: '#1a1b26', name: 'Tokyo Night' },
+      { color: '#282c34', name: 'One Dark' },
+      { color: '#2b2d30', name: 'JetBrains' },
+      { color: '#0d1117', name: 'GitHub Dark' },
+      { color: '#1e1f29', name: 'Dracula' },
+      { color: '#262335', name: 'SynthWave' },
+      { color: '#292d3e', name: 'Palenight' },
+    ];
+
+    const lightBgColors = [
+      { color: '#ffffff', name: 'Default' },
+      { color: '#fafafa', name: 'Soft White' },
+      { color: '#f5f5f5', name: 'Light Gray' },
+      { color: '#faf4ed', name: 'Rose Pine' },
+      { color: '#f6f8fa', name: 'GitHub Light' },
+      { color: '#fffbf0', name: 'Warm' },
+      { color: '#f0f4f8', name: 'Cool Blue' },
+      { color: '#f5f0eb', name: 'Solarized' },
+    ];
+
+    const darkBubbleColors = [
+      { color: '#005fb8', name: 'Default' },
+      { color: '#6366f1', name: 'Lavender' },
+      { color: '#6e40c9', name: 'Purple' },
+      { color: '#1a7f37', name: 'Green' },
+      { color: '#9a6700', name: 'Amber' },
+      { color: '#cf222e', name: 'Red' },
+      { color: '#0e6b8a', name: 'Teal' },
+      { color: '#4a5568', name: 'Gray' },
+    ];
+
+    const lightBubbleColors = [
+      { color: '#0078d4', name: 'Default' },
+      { color: '#818cf8', name: 'Lavender' },
+      { color: '#8250df', name: 'Purple' },
+      { color: '#1a7f37', name: 'Green' },
+      { color: '#bf8700', name: 'Amber' },
+      { color: '#cf222e', name: 'Red' },
+      { color: '#0e8a9a', name: 'Teal' },
+      { color: '#57606a', name: 'Gray' },
+    ];
+
+    const accentColors = [
+      { color: '#007fd4', name: 'Blue' },
+      { color: '#8b5cf6', name: 'Purple' },
+      { color: '#10b981', name: 'Green' },
+      { color: '#f59e0b', name: 'Amber' },
+      { color: '#ef4444', name: 'Red' },
+      { color: '#06b6d4', name: 'Cyan' },
+      { color: '#ec4899', name: 'Pink' },
+      { color: '#84cc16', name: 'Lime' },
+    ];
+
+    // State
+    let currentMode = 'dark';
+    let currentBg = darkBgColors[0].color;
+    let currentBubble = darkBubbleColors[0].color;
+    let currentAccent = accentColors[0].color;
+
+    // Init
+    function init() {
+      renderColorGrid('bg-colors', currentMode === 'dark' ? darkBgColors : lightBgColors, 'bg');
+      renderColorGrid('bubble-colors', currentMode === 'dark' ? darkBubbleColors : lightBubbleColors, 'bubble');
+      renderColorGrid('accent-colors', accentColors, 'accent');
+      renderAllThemesGrid();
+      updatePreview();
+    }
+
+    function renderColorGrid(containerId, colors, type) {
+      const container = document.getElementById(containerId);
+      container.innerHTML = colors.map(c => `
+        <div>
+          <div class="color-swatch ${getCurrentColor(type) === c.color ? 'active' : ''}"
+               style="background: ${c.color}"
+               onclick="setColor('${type}', '${c.color}')">
+          </div>
+          <div class="color-label">${c.name}</div>
+        </div>
+      `).join('');
+    }
+
+    function getCurrentColor(type) {
+      if (type === 'bg') return currentBg;
+      if (type === 'bubble') return currentBubble;
+      if (type === 'accent') return currentAccent;
+    }
+
+    function setThemeMode(mode) {
+      currentMode = mode;
+      currentBg = mode === 'dark' ? darkBgColors[0].color : lightBgColors[0].color;
+      currentBubble = mode === 'dark' ? darkBubbleColors[0].color : lightBubbleColors[0].color;
+
+      document.querySelectorAll('.theme-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.textContent.includes(mode === 'dark' ? 'Dark' : 'Light'));
+      });
+
+      renderColorGrid('bg-colors', mode === 'dark' ? darkBgColors : lightBgColors, 'bg');
+      renderColorGrid('bubble-colors', mode === 'dark' ? darkBubbleColors : lightBubbleColors, 'bubble');
+      updatePreview();
+    }
+
+    function setColor(type, color) {
+      if (type === 'bg') currentBg = color;
+      if (type === 'bubble') currentBubble = color;
+      if (type === 'accent') currentAccent = color;
+
+      renderColorGrid('bg-colors', currentMode === 'dark' ? darkBgColors : lightBgColors, 'bg');
+      renderColorGrid('bubble-colors', currentMode === 'dark' ? darkBubbleColors : lightBubbleColors, 'bubble');
+      renderColorGrid('accent-colors', accentColors, 'accent');
+      updatePreview();
+    }
+
+    function hexToRgb(hex) {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      } : null;
+    }
+
+    function getContrastColor(hex) {
+      const rgb = hexToRgb(hex);
+      if (!rgb) return '#ffffff';
+      const brightness = (rgb.r * 299 + rgb.g * 587 + rgb.b * 114) / 1000;
+      return brightness > 128 ? '#333333' : '#ffffff';
+    }
+
+    function adjustColor(hex, amount) {
+      const rgb = hexToRgb(hex);
+      if (!rgb) return hex;
+      const r = Math.max(0, Math.min(255, rgb.r + amount));
+      const g = Math.max(0, Math.min(255, rgb.g + amount));
+      const b = Math.max(0, Math.min(255, rgb.b + amount));
+      return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    }
+
+    function updatePreview() {
+      const frame = document.getElementById('phone-frame');
+      const isDark = currentMode === 'dark';
+      const titlebarBg = adjustColor(currentBg, isDark ? 20 : -20);
+      const textColor = isDark ? '#cccccc' : '#333333';
+      const textSecondary = isDark ? '#888888' : '#666666';
+      const border = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+      const chipBg = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
+
+      // Frame
+      frame.style.background = currentBg;
+      frame.style.color = textColor;
+
+      // Header
+      const header = document.getElementById('preview-header');
+      header.style.background = titlebarBg;
+      header.style.borderBottomColor = border;
+      header.style.color = textColor;
+
+      // Chat
+      const chat = document.getElementById('preview-chat');
+      chat.style.background = currentBg;
+
+      // Messages
+      document.querySelectorAll('#preview-chat .preview-message-role').forEach(el => {
+        el.style.color = textSecondary;
+      });
+
+      // Assistant bubble
+      const bubbleAssistant = document.getElementById('bubble-assistant');
+      const bubbleAssistant2 = document.getElementById('bubble-assistant-2');
+      const assistantBubbleBg = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)';
+      bubbleAssistant.style.background = assistantBubbleBg;
+      bubbleAssistant.style.color = textColor;
+      bubbleAssistant.style.border = `1px solid ${border}`;
+      bubbleAssistant2.style.background = assistantBubbleBg;
+      bubbleAssistant2.style.color = textColor;
+      bubbleAssistant2.style.border = `1px solid ${border}`;
+
+      // User bubble
+      const bubbleUser = document.getElementById('bubble-user');
+      bubbleUser.style.background = currentBubble;
+      bubbleUser.style.color = getContrastColor(currentBubble);
+
+      // StatusPanel
+      const statusPanel = document.getElementById('preview-status-panel');
+      statusPanel.style.background = titlebarBg;
+      statusPanel.style.borderColor = border;
+
+      const statusTabs = document.getElementById('preview-status-tabs');
+      statusTabs.style.background = titlebarBg;
+      statusTabs.querySelectorAll('.preview-status-tab').forEach(tab => {
+        tab.style.color = textSecondary;
+      });
+
+      // Input Area
+      const inputArea = document.getElementById('preview-input-area');
+      inputArea.style.background = currentBg;
+      inputArea.style.borderTopColor = border;
+
+      const inputBox = document.getElementById('preview-input-box');
+      inputBox.style.borderColor = border;
+      inputBox.style.background = isDark ? '#1a1a1a' : '#ffffff';
+
+      const inputContent = document.getElementById('preview-input-content');
+      inputContent.style.color = isDark ? '#666' : '#999';
+
+      const inputToolbar = document.getElementById('preview-input-toolbar');
+      inputToolbar.style.borderTopColor = border;
+      inputToolbar.style.background = titlebarBg;
+
+      // Chips
+      const chipMode = document.getElementById('chip-mode');
+      chipMode.style.background = chipBg;
+      chipMode.style.color = currentAccent;
+      chipMode.style.border = `1px solid ${border}`;
+
+      const chipModel = document.getElementById('chip-model');
+      chipModel.style.background = chipBg;
+      chipModel.style.color = textColor;
+      chipModel.style.border = `1px solid ${border}`;
+
+      const chipReasoning = document.getElementById('chip-reasoning');
+      chipReasoning.style.background = chipBg;
+      chipReasoning.style.color = textColor;
+      chipReasoning.style.border = `1px solid ${border}`;
+    }
+
+    function renderAllThemesGrid() {
+      const grid = document.getElementById('themes-grid');
+      const themes = [
+        { mode: 'dark', bg: '#1e1e1e', bubble: '#005fb8', name: 'Default Dark' },
+        { mode: 'dark', bg: '#1a1b26', bubble: '#6366f1', name: 'Tokyo Night' },
+        { mode: 'dark', bg: '#282c34', bubble: '#6e40c9', name: 'One Dark' },
+        { mode: 'dark', bg: '#2b2d30', bubble: '#005fb8', name: 'JetBrains' },
+        { mode: 'dark', bg: '#0d1117', bubble: '#1a7f37', name: 'GitHub Dark' },
+        { mode: 'dark', bg: '#1e1f29', bubble: '#cf222e', name: 'Dracula' },
+        { mode: 'dark', bg: '#262335', bubble: '#9a6700', name: 'SynthWave' },
+        { mode: 'light', bg: '#ffffff', bubble: '#0078d4', name: 'Default Light' },
+        { mode: 'light', bg: '#fafafa', bubble: '#818cf8', name: 'Soft White' },
+        { mode: 'light', bg: '#f5f5f5', bubble: '#8250df', name: 'Light Gray' },
+        { mode: 'light', bg: '#faf4ed', bubble: '#1a7f37', name: 'Rose Pine' },
+        { mode: 'light', bg: '#f6f8fa', bubble: '#0e8a9a', name: 'GitHub Light' },
+      ];
+
+      grid.innerHTML = themes.map(t => {
+        const isDark = t.mode === 'dark';
+        const titlebarBg = adjustColor(t.bg, isDark ? 20 : -20);
+        const textColor = isDark ? '#cccccc' : '#333333';
+        const textSecondary = isDark ? '#888888' : '#666666';
+        const border = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+        const assistantBg = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)';
+
+        return `
+          <div class="theme-card">
+            <div class="theme-card-header" style="background: ${titlebarBg}; color: ${textColor}; border-bottom: 1px solid ${border};">
+              <span>${t.name}</span>
+              <span style="font-size: 10px; opacity: 0.6;">${t.mode === 'dark' ? '🌙' : '☀️'}</span>
+            </div>
+            <div class="theme-card-preview" style="background: ${t.bg};">
+              <div class="theme-card-header-bar" style="background: ${titlebarBg}; color: ${textColor}; border-bottom: 1px solid ${border};">
+                Session
+              </div>
+              <div class="theme-card-messages">
+                <div class="theme-card-msg assistant" style="background: ${assistantBg}; color: ${textColor}; border: 1px solid ${border};">
+                  你好！我可以帮你解答问题。
+                </div>
+                <div class="theme-card-msg user" style="background: ${t.bubble}; color: ${getContrastColor(t.bubble)};">
+                  帮我写一个函数
+                </div>
+              </div>
+              <div class="theme-card-status" style="background: ${titlebarBg}; color: ${textSecondary}; border-top: 1px solid ${border};">
+                Tasks | Subagent | Edits
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    init();
+  </script>
+</body>
+</html>

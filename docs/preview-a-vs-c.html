@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>方案 A vs C 对比</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 20px;
+      background: #1e1e1e;
+      color: #ccc;
+    }
+    .container { max-width: 1000px; margin: 0 auto; }
+    h1 { font-size: 18px; margin-bottom: 16px; }
+
+    .comparison {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+
+    .card {
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid #3c3c3c;
+    }
+    .card-label {
+      padding: 10px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      background: #2a2a2a;
+      border-bottom: 1px solid #3c3c3c;
+      display: flex;
+      justify-content: space-between;
+    }
+    .card-label .code {
+      font-family: monospace;
+      font-size: 11px;
+      padding: 2px 6px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 4px;
+    }
+
+    /* Simulated layered background */
+    .layered-bg {
+      position: relative;
+      background:
+        repeating-linear-gradient(
+          45deg,
+          rgba(255,255,255,0.03) 0px,
+          rgba(255,255,255,0.03) 10px,
+          transparent 10px,
+          transparent 20px
+        ),
+        linear-gradient(135deg, #1a1a2e, #16213e);
+      min-height: 200px;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+    }
+    .header-title {
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .header-btns {
+      display: flex;
+      gap: 6px;
+    }
+    .btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 4px;
+      border: none;
+      background: rgba(255,255,255,0.1);
+      color: #999;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn svg {
+      width: 14px;
+      height: 14px;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      fill: none;
+    }
+
+    /* Chat content area */
+    .chat-area {
+      padding: 20px;
+      text-align: center;
+      font-size: 12px;
+      color: #666;
+    }
+
+    /* StatusPanel */
+    .status-tabs {
+      display: flex;
+      margin: 0 10px;
+      padding: 5px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+    .status-tab {
+      flex: 1;
+      text-align: center;
+      padding: 6px;
+      color: #888;
+    }
+    .empty-state {
+      margin: 8px 10px;
+      padding: 14px;
+      text-align: center;
+      font-size: 12px;
+      color: #666;
+      border-radius: 6px;
+    }
+
+    /* Key difference highlight */
+    .difference-box {
+      padding: 16px;
+      background: #2a2a2a;
+      border-radius: 8px;
+      margin-top: 16px;
+    }
+    .difference-box h3 {
+      font-size: 14px;
+      margin-bottom: 12px;
+      color: #4ea1ff;
+    }
+    .difference-item {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 12px;
+      padding: 12px;
+      background: #1e1e1e;
+      border-radius: 6px;
+    }
+    .difference-item .icon {
+      font-size: 20px;
+    }
+    .difference-item .text {
+      flex: 1;
+    }
+    .difference-item .label {
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .difference-item .desc {
+      font-size: 12px;
+      color: #888;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔍 方案 A vs 方案 C 详细对比</h1>
+
+    <div class="comparison">
+      <!-- 方案 A -->
+      <div class="card">
+        <div class="card-label">
+          <span>方案 A: 不透明背景</span>
+          <span class="code">#323233 (100%)</span>
+        </div>
+        <div class="layered-bg">
+          <div class="header" style="background: #323233; border-bottom: 1px solid #3c3c3c;">
+            <span class="header-title">My Session</span>
+            <div class="header-btns">
+              <button class="btn"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+              <button class="btn"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>
+            </div>
+          </div>
+          <div class="chat-area">
+            <div style="opacity: 0.3;">底层内容（完全被遮盖）</div>
+          </div>
+          <div class="status-tabs" style="background: #323233; border: 1px solid #3c3c3c;">
+            <div class="status-tab">Tasks</div>
+            <div class="status-tab" style="color: #fff; background: rgba(255,255,255,0.1);">Subagent</div>
+            <div class="status-tab">Edits</div>
+          </div>
+          <div class="empty-state" style="background: #323233;">No subagents running</div>
+        </div>
+      </div>
+
+      <!-- 方案 C -->
+      <div class="card">
+        <div class="card-label">
+          <span>方案 C: 半透明背景</span>
+          <span class="code">rgba(50,50,51, 0.95)</span>
+        </div>
+        <div class="layered-bg">
+          <div class="header" style="background: rgba(50,50,51, 0.95); border-bottom: 1px solid rgba(60,60,60,0.8);">
+            <span class="header-title">My Session</span>
+            <div class="header-btns">
+              <button class="btn"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+              <button class="btn"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>
+            </div>
+          </div>
+          <div class="chat-area">
+            <div style="opacity: 0.3;">底层内容（微微透出）</div>
+          </div>
+          <div class="status-tabs" style="background: rgba(50,50,51, 0.9); border: 1px solid rgba(60,60,60,0.8);">
+            <div class="status-tab">Tasks</div>
+            <div class="status-tab" style="color: #fff; background: rgba(255,255,255,0.1);">Subagent</div>
+            <div class="status-tab">Edits</div>
+          </div>
+          <div class="empty-state" style="background: rgba(50,50,51, 0.9);">No subagents running</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="difference-box">
+      <h3>核心区别</h3>
+
+      <div class="difference-item">
+        <div class="icon">🎨</div>
+        <div class="text">
+          <div class="label">视觉效果</div>
+          <div class="desc">
+            <strong>方案 A</strong>：纯色背景，完全遮盖底层内容，边缘清晰<br>
+            <strong>方案 C</strong>：半透明效果，底层内容微微透出，有玻璃/磨砂感
+          </div>
+        </div>
+      </div>
+
+      <div class="difference-item">
+        <div class="icon">✨</div>
+        <div class="text">
+          <div class="label">层次感</div>
+          <div class="desc">
+            <strong>方案 A</strong>：通过颜色差异（#323233 vs #1e1e1e）区分层次<br>
+            <strong>方案 C</strong>：通过透明度产生微妙的叠加效果
+          </div>
+        </div>
+      </div>
+
+      <div class="difference-item">
+        <div class="icon">🎯</div>
+        <div class="text">
+          <div class="label">适用场景</div>
+          <div class="desc">
+            <strong>方案 A</strong>：适合需要明确边界的 UI，更稳定可预测<br>
+            <strong>方案 C</strong>：适合追求现代感、玻璃态设计的 UI
+          </div>
+        </div>
+      </div>
+
+      <div class="difference-item">
+        <div class="icon">⚡</div>
+        <div class="text">
+          <div class="label">性能/兼容性</div>
+          <div class="desc">
+            <strong>方案 A</strong>：简单直接，渲染性能最佳<br>
+            <strong>方案 C</strong>：需要 backdrop-filter 配合才好看，否则效果有限
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
