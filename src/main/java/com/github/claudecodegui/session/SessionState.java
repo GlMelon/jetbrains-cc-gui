@@ -4,6 +4,7 @@ package com.github.claudecodegui.session;
 import com.github.claudecodegui.common.CommonConstants;
 
 import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -55,16 +56,19 @@ public class SessionState {
     private String channelId;
     private volatile String runtimeSessionEpoch = UUID.randomUUID().toString();
 
-    // Session state — accessed only on EDT / single handler thread, no volatile needed.
-    private boolean busy = false;
-    private boolean loading = false;
-    private String error = null;
-    private ClaudeSession.SessionCallback.QueueDisplayState queueDisplayState =
+    // Session state — 在 handler/EDT/reader 多线程间读写,加 volatile 保证可见性
+    // (setBusy/setLoading 等在 handler 线程,getMessagesReference 迭代在 reader/EDT)。
+    private volatile boolean busy = false;
+    private volatile boolean loading = false;
+    private volatile String error = null;
+    private volatile ClaudeSession.SessionCallback.QueueDisplayState queueDisplayState =
             ClaudeSession.SessionCallback.QueueDisplayState.NONE;
-    private int queueAheadCount = 0;
+    private volatile int queueAheadCount = 0;
 
-    // Message history
-    private final List<ClaudeSession.Message> messages = new ArrayList<>();
+    // Message history — CopyOnWriteArrayList:消息以追加为主、偶发清空,读端(getMessages/迭代)
+    // 可能发生在 reader/EDT/handler 多线程,原生 ArrayList 在并发 add + 拷贝迭代时会
+    // ConcurrentModificationException 或内部数组损坏。COW 以写时复制换取读端无锁安全。
+    private final List<ClaudeSession.Message> messages = new CopyOnWriteArrayList<>();
 
     // Session metadata — cwd is written in handler thread before send(), read inside send();
     // the happens-before from CompletableFuture.runAsync guarantees visibility, so volatile is not required.
