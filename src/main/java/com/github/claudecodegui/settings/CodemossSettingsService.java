@@ -1819,8 +1819,19 @@ public class CodemossSettingsService {
         if (runtimeObj.has("providers") && runtimeObj.get("providers").isJsonObject()) {
             JsonObject providersObj = runtimeObj.getAsJsonObject("providers");
             for (String key : providersObj.keySet()) {
-                ProviderType pt =
-                        ProviderType.fromString(key);
+                // 严格解析:ProviderType.fromString 会把未知键静默降级为 CLAUDE,
+                // 若配置里 codex 之后还有笔误的键(如 "cluade"),会把 claude 的策略覆盖掉。
+                // 此处显式校验,无法识别的键告警并跳过。
+                ProviderType pt;
+                if ("claude".equalsIgnoreCase(key)) {
+                    pt = ProviderType.CLAUDE;
+                } else if ("codex".equalsIgnoreCase(key)) {
+                    pt = ProviderType.CODEX;
+                } else {
+                    LOG.warn("[CodemossSettings] Unrecognized runtime policy provider key '"
+                            + key + "', skipping (valid keys: claude, codex)");
+                    continue;
+                }
                 if (providersObj.get(key).isJsonObject()) {
                     JsonObject policyObj = providersObj.getAsJsonObject(key);
                     boolean enabled = policyObj.has("enabled") && policyObj.get("enabled").getAsBoolean();

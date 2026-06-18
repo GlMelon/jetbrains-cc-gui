@@ -502,16 +502,23 @@ public class SessionHandler extends BaseMessageHandler {
     }
 
     private boolean isCliModeActive(String requestedInvocationMode) {
-        ClaudeSession currentSession = context.getSession();
-        String provider = currentSession != null ? currentSession.getProvider() : context.getCurrentProvider();
-        String sessionMode = currentSession != null ? currentSession.getClaudeInvocationMode() : null;
-        return EffectiveRuntimeResolver
-                .isCliMode(
-                        provider,
-                        requestedInvocationMode,
-                        sessionMode,
-                        context.getSettingsService().getRuntimePolicy()
-                );
+        try {
+            ClaudeSession currentSession = context.getSession();
+            String provider = currentSession != null ? currentSession.getProvider() : context.getCurrentProvider();
+            String sessionMode = currentSession != null ? currentSession.getClaudeInvocationMode() : null;
+            return EffectiveRuntimeResolver
+                    .isCliMode(
+                            provider,
+                            requestedInvocationMode,
+                            sessionMode,
+                            context.getSettingsService().getRuntimePolicy()
+                    );
+        } catch (Exception e) {
+            // 与 ClaudeSession.isCliRuntime 保持一致:解析失败(policy 缺失/禁用)默认非 CLI,
+            // 走 SDK 清理路径,避免 IllegalStateException 冒泡中断单次消息处理。
+            LOG.warn("[Runtime] Failed to resolve CLI mode, defaulting to false: " + e.getMessage());
+            return false;
+        }
     }
 
     private String validateRequiredSdk(String requestedInvocationMode) {
