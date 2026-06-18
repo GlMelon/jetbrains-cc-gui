@@ -273,4 +273,3 @@ export function forceRefreshAgents(): void {
   requestRefresh();
 }
 
-export default agentProvider;

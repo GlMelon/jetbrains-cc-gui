@@ -23,7 +23,6 @@ export type {
   DeleteAgentConfirmState,
 } from './useAgentManagement';
 
-export { usePromptManagement } from './usePromptManagement';
 export type {
   UsePromptManagementOptions,
   UsePromptManagementReturn,
@@ -34,7 +33,6 @@ export type {
 export { useSettingsWindowCallbacks } from './useSettingsWindowCallbacks';
 export type { SettingsWindowCallbacksDeps } from './useSettingsWindowCallbacks';
 
-export { useDragSort } from './useDragSort';
 
 export { useSettingsPageState } from './useSettingsPageState';
 export type { UseSettingsPageStateReturn } from './useSettingsPageState';

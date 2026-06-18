@@ -12,7 +12,6 @@ import type { RewindRequest } from '../components/RewindDialog';
 import { registerWindowCallbacks } from './windowCallbacks/registerCallbacks';
 
 // Re-export from messageSync to avoid duplicate definition
-export { OPTIMISTIC_MESSAGE_TIME_WINDOW } from './windowCallbacks/messageSync';
 
 export interface ContextInfo {
   file: string;

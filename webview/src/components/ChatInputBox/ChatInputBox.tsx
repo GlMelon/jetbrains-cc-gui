@@ -750,4 +750,3 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
 // Display name for React DevTools
 ChatInputBox.displayName = 'ChatInputBox';
 
-export default ChatInputBox;

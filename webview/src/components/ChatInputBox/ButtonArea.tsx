@@ -230,4 +230,3 @@ export const ButtonArea = memo(function ButtonArea({
   );
 });
 
-export default ButtonArea;

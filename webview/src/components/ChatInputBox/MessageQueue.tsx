@@ -43,4 +43,3 @@ export function MessageQueue({ queue, onRemove }: MessageQueueProps) {
   );
 }
 
-export default MessageQueue;

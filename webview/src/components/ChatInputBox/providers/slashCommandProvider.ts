@@ -347,4 +347,3 @@ export function preloadSlashCommands(): void {
   requestRefresh();
 }
 
-export default slashCommandProvider;

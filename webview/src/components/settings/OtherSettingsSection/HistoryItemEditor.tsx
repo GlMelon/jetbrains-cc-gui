@@ -171,4 +171,3 @@ export function HistoryItemEditor({
   );
 }
 
-export default HistoryItemEditor;

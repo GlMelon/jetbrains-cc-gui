@@ -129,4 +129,3 @@ export const AttachmentList = ({
   );
 };
 
-export default AttachmentList;

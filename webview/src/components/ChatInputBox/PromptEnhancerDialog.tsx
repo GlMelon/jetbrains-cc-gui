@@ -124,5 +124,4 @@ export const PromptEnhancerDialog = ({
   );
 };
 
-export default PromptEnhancerDialog;
 

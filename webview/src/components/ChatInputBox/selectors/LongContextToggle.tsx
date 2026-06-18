@@ -75,4 +75,3 @@ export const LongContextToggle = ({
   );
 };
 
-export default LongContextToggle;

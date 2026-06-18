@@ -383,4 +383,3 @@ export const ModelSelect = ({ value, onChange, models = AVAILABLE_MODELS, curren
   );
 };
 
-export default ModelSelect;

@@ -14,7 +14,6 @@
  */
 
 export { bridgeHub, installBridge } from './hub';
-export { bridgeState, BridgeStateKey } from './store';
 export type { BridgeStateKeyDef } from './store';
 export {
   registerLegacyAlias,
@@ -22,7 +21,6 @@ export {
   unregisterLegacyAlias,
   isCompatInstalled,
 } from './compat';
-export { BRIDGE_EVENTS, BRIDGE_EVENT_TYPES } from './events';
 export type {
   BridgeEventDef,
   BridgeEventKind,

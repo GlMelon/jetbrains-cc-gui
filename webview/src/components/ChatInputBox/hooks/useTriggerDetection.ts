@@ -486,4 +486,3 @@ export function useTriggerDetection() {
   };
 }
 
-export default useTriggerDetection;

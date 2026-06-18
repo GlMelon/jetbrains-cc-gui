@@ -189,4 +189,3 @@ export const ReasoningSelect = ({ value, onChange, disabled, selectedModel, curr
   );
 };
 
-export default ReasoningSelect;

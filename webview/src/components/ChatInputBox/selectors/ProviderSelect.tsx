@@ -371,4 +371,3 @@ export const ProviderSelect = ({ value, onChange, compact = false }: ProviderSel
   );
 };
 
-export default ProviderSelect;

@@ -181,4 +181,3 @@ export const ModeSelect = ({ value, onChange, provider }: ModeSelectProps) => {
   );
 };
 
-export default ModeSelect;

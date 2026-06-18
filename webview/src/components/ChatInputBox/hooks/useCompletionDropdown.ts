@@ -322,4 +322,3 @@ export function useCompletionDropdown<T>({
   };
 }
 
-export default useCompletionDropdown;

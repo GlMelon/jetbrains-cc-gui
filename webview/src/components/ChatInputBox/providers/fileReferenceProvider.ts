@@ -223,4 +223,3 @@ export function fileToDropdownItem(file: FileItem): DropdownItemData {
   };
 }
 
-export default fileReferenceProvider;

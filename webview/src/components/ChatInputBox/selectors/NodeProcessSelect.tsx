@@ -710,4 +710,3 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
   );
 };
 
-export default NodeProcessSelect;

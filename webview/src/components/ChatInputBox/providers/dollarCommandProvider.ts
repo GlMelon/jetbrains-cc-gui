@@ -146,4 +146,3 @@ export function dollarCommandToDropdownItem(cmd: CommandItem): DropdownItemData 
   };
 }
 
-export default dollarCommandProvider;

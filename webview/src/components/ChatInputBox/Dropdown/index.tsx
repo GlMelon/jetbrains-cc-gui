@@ -195,4 +195,3 @@ export const CompletionDropdown = ({
 };
 
 export { DropdownItem };
-export default Dropdown;

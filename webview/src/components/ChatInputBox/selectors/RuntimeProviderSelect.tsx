@@ -299,4 +299,3 @@ export const RuntimeProviderSelect = ({ currentProvider, embedded = false, trigg
   );
 };
 
-export default RuntimeProviderSelect;

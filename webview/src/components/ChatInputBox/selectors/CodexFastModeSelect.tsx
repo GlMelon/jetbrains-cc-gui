@@ -126,4 +126,3 @@ export const CodexFastModeSelect = ({ value, onChange }: CodexFastModeSelectProp
   );
 };
 
-export default CodexFastModeSelect;

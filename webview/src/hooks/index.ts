@@ -1,8 +1,7 @@
 // Hooks barrel export
 export { useScrollBehavior } from './useScrollBehavior';
-export { useDialogManagement } from './useDialogManagement';
 export { useSessionManagement } from './useSessionManagement';
-export { useStreamingMessages, THROTTLE_INTERVAL } from './useStreamingMessages';
+export { useStreamingMessages } from './useStreamingMessages';
 export { useWindowCallbacks } from './useWindowCallbacks';
 export { useRewindHandlers } from './useRewindHandlers';
 export { useHistoryLoader } from './useHistoryLoader';
@@ -24,4 +23,3 @@ export type { ViewMode, UseModelProviderStateOptions } from './useModelProviderS
 export type { UseMessageProcessingOptions } from './useMessageProcessing';
 export type { UseMessageSenderOptions } from './useMessageSender';
 export type { UseFileChangesManagementOptions, FileChange } from './useFileChangesManagement';
-export { useUsageTracking } from './providers/useUsageTracking';

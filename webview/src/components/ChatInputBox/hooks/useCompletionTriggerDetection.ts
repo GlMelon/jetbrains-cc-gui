@@ -232,4 +232,3 @@ export function useCompletionTriggerDetection({
   };
 }
 
-export default useCompletionTriggerDetection;

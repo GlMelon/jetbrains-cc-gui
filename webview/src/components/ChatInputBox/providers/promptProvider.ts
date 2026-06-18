@@ -424,4 +424,3 @@ export function forceRefreshPrompts(): void {
   requestRefresh(true);
 }
 
-export default promptProvider;

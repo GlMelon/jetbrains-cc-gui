@@ -1,6 +1,25 @@
 import { useEffect, useState } from 'react';
 import { sendBridgeEvent } from '../utils/bridge';
 import { bridgeHub, registerLegacyAlias } from '../bridge';
+import {
+  migrateLegacyScopedColor,
+  applyChatBackground,
+  applyUserMsgColor,
+  type Theme,
+} from '../utils/appearanceColors';
+
+/**
+ * 解析当前实际主题:优先读全局 data-theme(已被解析为亮/暗),回退 Java 注入值,再回退 dark。
+ * data-theme 由 useThemeInit(system 模式)与 useSettingsThemeSync(显式模式)共同维护,
+ * 是全局真相,因此颜色按主题应用时以它为准。
+ */
+function resolveCurrentTheme(): Theme {
+  const attr = document.documentElement.getAttribute('data-theme');
+  if (attr === 'light' || attr === 'dark') return attr;
+  const injected = window.__INITIAL_IDE_THEME__;
+  if (injected === 'light' || injected === 'dark') return injected;
+  return 'dark';
+}
 
 /**
  * Manages IDE theme initialization and synchronization.
@@ -58,19 +77,12 @@ export function useThemeInit() {
     const scale = fontSizeMap[fontSizeLevel] || 1.0;
     document.documentElement.style.setProperty('--font-scale', scale.toString());
 
-    // Initialize chat background color (validate hex format before applying)
-    const isValidHexColor = (c: string) => /^#[0-9a-fA-F]{6}$/.test(c);
-    const savedChatBgColor = localStorage.getItem('chatBgColor');
-    if (savedChatBgColor && isValidHexColor(savedChatBgColor)) {
-      document.documentElement.style.setProperty('--bg-chat', savedChatBgColor);
-    }
-
-    // Initialize user message bubble color
-    const savedUserMsgColor = localStorage.getItem('userMsgColor');
-    if (savedUserMsgColor && isValidHexColor(savedUserMsgColor)) {
-      document.documentElement.style.setProperty('--color-message-user-bg', savedUserMsgColor);
-      document.documentElement.style.setProperty('--color-message-user-fade', savedUserMsgColor);
-    }
+    // [按主题] 先把遗留单值颜色迁移到当前主题,再应用当前主题保存的颜色
+    const mountTheme = resolveCurrentTheme();
+    migrateLegacyScopedColor('chatBgColor', mountTheme);
+    migrateLegacyScopedColor('userMsgColor', mountTheme);
+    applyChatBackground(mountTheme);
+    applyUserMsgColor(mountTheme);
 
     // Apply the user's explicit theme choice (light/dark) first
     const savedTheme = localStorage.getItem('theme');
@@ -116,7 +128,24 @@ export function useThemeInit() {
     if (savedTheme === null || savedTheme === 'system') {
       document.documentElement.setAttribute('data-theme', ideTheme);
     }
+
+    // [按主题] 主题变化后重应用当前主题对应的颜色。data-theme 已反映解析后的主题;
+    // 显式模式下 ideTheme 变化不影响 data-theme,颜色保持不变。
+    const currentTheme = resolveCurrentTheme();
+    applyChatBackground(currentTheme);
+    applyUserMsgColor(currentTheme);
   }, [ideTheme]);
+
+  // [冷缓存回灌] Java 注入 config.json 后,bootstrap 回灌 localStorage 并派发该事件;重应用当前主题颜色
+  useEffect(() => {
+    const handler = () => {
+      const t = resolveCurrentTheme();
+      applyChatBackground(t);
+      applyUserMsgColor(t);
+    };
+    window.addEventListener('appearance-config-applied', handler);
+    return () => window.removeEventListener('appearance-config-applied', handler);
+  }, []);
 
   return { ideTheme };
 }

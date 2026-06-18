@@ -211,4 +211,3 @@ export const DropdownItem = ({
   );
 };
 
-export default DropdownItem;
