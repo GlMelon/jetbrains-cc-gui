@@ -35,6 +35,7 @@ export default function CodexProviderDialog({
   const [providerName, setProviderName] = useState('');
   const [configTomlJson, setConfigTomlJson] = useState('');
   const [authJson, setAuthJson] = useState('');
+  const [modelCatalogJson, setModelCatalogJson] = useState('');
   const [messageEnvVars, setMessageEnvVars] = useState<EnvVarEntry[]>([]);
   const [mcpEnvVars, setMcpEnvVars] = useState<EnvVarEntry[]>([]);
 
@@ -46,13 +47,14 @@ export default function CodexProviderDialog({
         setProviderName(provider.name || '');
         setConfigTomlJson(provider.configToml || '');
         setAuthJson(provider.authJson || '');
+        setModelCatalogJson(JSON.stringify(provider.modelCatalog ?? provider.customModels ?? [], null, 2));
         setMessageEnvVars(provider.messageEnvVars || []);
         setMcpEnvVars(provider.mcpEnvVars || []);
       } else {
         // Add mode - reset with default template
         setProviderName('');
         setConfigTomlJson(`disable_response_storage = true
-model = "gpt-5.1-codex"
+model = "your-model-id"
 model_reasoning_effort = "high"
 model_provider = "crs"
 
@@ -64,6 +66,7 @@ wire_api = "responses"`);
         setAuthJson(`{
   "OPENAI_API_KEY": ""
 }`);
+        setModelCatalogJson('[]');
         setMessageEnvVars([]);
         setMcpEnvVars([]);
       }
@@ -136,6 +139,22 @@ wire_api = "responses"`);
     }
 
     // Validate env vars before saving
+    let parsedModelCatalog: CodexProviderConfig['modelCatalog'] = [];
+    if (modelCatalogJson.trim()) {
+      try {
+        const parsed = JSON.parse(modelCatalogJson);
+        if (!Array.isArray(parsed)) {
+          addToast(t('settings.codexProvider.dialog.modelCatalogJsonError', 'Model catalog must be a JSON array'), 'error');
+          return;
+        }
+        parsedModelCatalog = parsed;
+      } catch {
+        addToast(t('settings.codexProvider.dialog.modelCatalogJsonError', 'Model catalog must be a JSON array'), 'error');
+        return;
+      }
+    }
+
+    // Validate env vars before saving
     const messageIssues = validateEnvVarEntries(messageEnvVars);
     if (messageIssues.length > 0) {
       reportEnvVarIssue(messageIssues[0], t('settings.codexProvider.dialog.messageEnvLabel'));
@@ -153,6 +172,8 @@ wire_api = "responses"`);
       createdAt: provider?.createdAt,
       configToml: configTomlJson.trim(),
       authJson: authJson.trim(),
+      modelCatalog: parsedModelCatalog,
+      customModels: parsedModelCatalog,
       messageEnvVars: messageEnvVars.filter(e => e.key.trim() !== ''),
       mcpEnvVars: mcpEnvVars.filter(e => e.key.trim() !== ''),
     };
@@ -255,6 +276,23 @@ wire_api = "responses"`);
               style={CODE_TEXTAREA_STYLE}
             />
             <small className="form-hint">{t('settings.codexProvider.dialog.authJsonHint')}</small>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="modelCatalogJson">
+              {t('settings.codexProvider.dialog.modelCatalog', 'Model Catalog')}
+            </label>
+            <textarea
+              id="modelCatalogJson"
+              className="form-input code-input"
+              value={modelCatalogJson}
+              onChange={(e) => setModelCatalogJson(e.target.value)}
+              rows={6}
+              style={CODE_TEXTAREA_STYLE}
+            />
+            <small className="form-hint">
+              {t('settings.codexProvider.dialog.modelCatalogHint', 'Optional JSON array. If empty, the selector uses the model from config.toml.')}
+            </small>
           </div>
 
           {/* Environment Variables */}

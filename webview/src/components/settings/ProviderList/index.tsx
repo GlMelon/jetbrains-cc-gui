@@ -8,9 +8,6 @@ import { useDragSort } from '../hooks/useDragSort';
 import ImportConfirmDialog from './ImportConfirmDialog';
 import styles from './style.module.less';
 
-const ICON_MR_8_STYLE: React.CSSProperties = { marginRight: '8px' };
-const CLI_ACCOUNT_INFO_STYLE: React.CSSProperties = { marginTop: '4px', opacity: 0.8 };
-
 interface ProviderListProps {
   providers: ProviderConfig[];
   onAdd: () => void;
@@ -64,6 +61,17 @@ export default function ProviderList({
     onSort,
     pinnedIds: [SPECIAL_PROVIDER_IDS.LOCAL_SETTINGS, SPECIAL_PROVIDER_IDS.CLI_LOGIN],
   });
+
+  const localSettingsActive = localProviders.some(
+    (provider) => provider.id === SPECIAL_PROVIDER_IDS.LOCAL_SETTINGS && provider.isActive,
+  );
+  const cliLoginActive = localProviders.some(
+    (provider) => provider.id === SPECIAL_PROVIDER_IDS.CLI_LOGIN && provider.isActive,
+  );
+  const regularProviders = localProviders.filter(
+    (provider) => provider.id !== SPECIAL_PROVIDER_IDS.LOCAL_SETTINGS &&
+      provider.id !== SPECIAL_PROVIDER_IDS.CLI_LOGIN,
+  );
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -443,8 +451,12 @@ export default function ProviderList({
       )}
 
       <div className={styles.header}>
-        <h4 className={styles.title}>{t('settings.provider.allProviders')}</h4>
-
+        <div className={styles.titleGroup}>
+          <h4 className={styles.title}>{t('settings.provider.allProviders')}</h4>
+          <span className={styles.subtitle}>
+            {t('settings.provider.managedCount', { count: regularProviders.length })}
+          </span>
+        </div>
         <div className={styles.actions}>
           <div className={styles.importMenuWrapper} ref={importMenuRef}>
             <button
@@ -510,85 +522,102 @@ export default function ProviderList({
       </div>
 
       <div className={styles.list}>
-        <>
-          <div
-            key={SPECIAL_PROVIDER_IDS.LOCAL_SETTINGS}
-            className={`${styles.card} ${localProviders.some(p => p.id === SPECIAL_PROVIDER_IDS.LOCAL_SETTINGS && p.isActive) ? styles.active : ''} ${styles.localProviderCard}`}
-          >
-            <div className={styles.cardInfo}>
-              <div className={styles.name}>
-                <span className="codicon codicon-file" style={ICON_MR_8_STYLE} />
-                {t('settings.provider.localProviderName')}
-              </div>
-              <div className={styles.website} title={t('settings.provider.localProviderDescription')}>
-                {t('settings.provider.localProviderDescription')}
-              </div>
-            </div>
-
-            <div className={styles.cardActions}>
-              {localProviders.some(p => p.id === SPECIAL_PROVIDER_IDS.LOCAL_SETTINGS && p.isActive) ? (
-                <button
-                  className={styles.revokeButton}
-                  onClick={() => setShowLocalProviderDisableConfirm(true)}
-                >
-                  <span className="codicon codicon-circle-slash" />
-                  {t('settings.provider.revokeAuthorization')}
-                </button>
-              ) : (
-                <button
-                  className={styles.useButton}
-                  onClick={() => setShowLocalProviderConfirm(true)}
-                >
-                  <span className="codicon codicon-play" />
-                  {t('settings.provider.authorizeAndEnable')}
-                </button>
-              )}
+        <section className={styles.group}>
+          <div className={styles.groupHeader}>
+            <div>
+              <h5 className={styles.groupTitle}>{t('settings.provider.localAccess')}</h5>
+              <p className={styles.groupDesc}>{t('settings.provider.localAccessDesc')}</p>
             </div>
           </div>
-
-          <div
-            key={SPECIAL_PROVIDER_IDS.CLI_LOGIN}
-            className={`${styles.card} ${localProviders.some(p => p.id === SPECIAL_PROVIDER_IDS.CLI_LOGIN && p.isActive) ? styles.active : ''} ${styles.localProviderCard}`}
-          >
-            <div className={styles.cardInfo}>
-              <div className={styles.name}>
-                <span className="codicon codicon-key" style={ICON_MR_8_STYLE} />
-                {t('settings.provider.cliLoginProviderName')}
+          <div className={styles.groupList}>
+            <div
+              key={SPECIAL_PROVIDER_IDS.LOCAL_SETTINGS}
+              className={`${styles.card} ${localSettingsActive ? styles.active : ''} ${styles.localProviderCard}`}
+            >
+              <div className={styles.statusRail} />
+              <div className={styles.cardIcon}>
+                <span className="codicon codicon-file" />
               </div>
-              <div className={styles.website} title={t('settings.provider.cliLoginProviderDescription')}>
-                {t('settings.provider.cliLoginProviderDescription')}
-              </div>
-              {cliLoginAccountEmail && localProviders.some(p => p.id === SPECIAL_PROVIDER_IDS.CLI_LOGIN && p.isActive) && (
-                <div className={styles.website} style={CLI_ACCOUNT_INFO_STYLE}>
-                  {t('settings.provider.cliLoginAccountInfo', { email: cliLoginAccountEmail })}
+              <div className={styles.cardInfo}>
+                <div className={styles.name}>{t('settings.provider.localProviderName')}</div>
+                <div className={styles.website} title={t('settings.provider.localProviderDescription')}>
+                  {t('settings.provider.localProviderDescription')}
                 </div>
-              )}
+              </div>
+
+              <div className={styles.cardActions}>
+                {localSettingsActive ? (
+                  <button
+                    className={styles.revokeButton}
+                    onClick={() => setShowLocalProviderDisableConfirm(true)}
+                  >
+                    <span className="codicon codicon-circle-slash" />
+                    {t('settings.provider.revokeAuthorization')}
+                  </button>
+                ) : (
+                  <button
+                    className={styles.useButton}
+                    onClick={() => setShowLocalProviderConfirm(true)}
+                  >
+                    <span className="codicon codicon-play" />
+                    {t('settings.provider.authorizeAndEnable')}
+                  </button>
+                )}
+              </div>
             </div>
 
-            <div className={styles.cardActions}>
-              {localProviders.some(p => p.id === SPECIAL_PROVIDER_IDS.CLI_LOGIN && p.isActive) ? (
-                <button
-                  className={styles.revokeButton}
-                  onClick={() => setShowCliLoginDisableConfirm(true)}
-                >
-                  <span className="codicon codicon-circle-slash" />
-                  {t('settings.provider.revokeAuthorization')}
-                </button>
-              ) : (
-                <button
-                  className={styles.useButton}
-                  onClick={() => setShowCliLoginConfirm(true)}
-                >
-                  <span className="codicon codicon-play" />
-                  {t('settings.provider.authorizeAndEnable')}
-                </button>
-              )}
+            <div
+              key={SPECIAL_PROVIDER_IDS.CLI_LOGIN}
+              className={`${styles.card} ${cliLoginActive ? styles.active : ''} ${styles.localProviderCard}`}
+            >
+              <div className={styles.statusRail} />
+              <div className={styles.cardIcon}>
+                <span className="codicon codicon-key" />
+              </div>
+              <div className={styles.cardInfo}>
+                <div className={styles.name}>{t('settings.provider.cliLoginProviderName')}</div>
+                <div className={styles.website} title={t('settings.provider.cliLoginProviderDescription')}>
+                  {t('settings.provider.cliLoginProviderDescription')}
+                </div>
+                {cliLoginAccountEmail && cliLoginActive && (
+                  <div className={styles.accountInfo}>
+                    {t('settings.provider.cliLoginAccountInfo', { email: cliLoginAccountEmail })}
+                  </div>
+                )}
+              </div>
+
+              <div className={styles.cardActions}>
+                {cliLoginActive ? (
+                  <button
+                    className={styles.revokeButton}
+                    onClick={() => setShowCliLoginDisableConfirm(true)}
+                  >
+                    <span className="codicon codicon-circle-slash" />
+                    {t('settings.provider.revokeAuthorization')}
+                  </button>
+                ) : (
+                  <button
+                    className={styles.useButton}
+                    onClick={() => setShowCliLoginConfirm(true)}
+                  >
+                    <span className="codicon codicon-play" />
+                    {t('settings.provider.authorizeAndEnable')}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
+        </section>
 
-          {(() => {
-            const regularProviders = localProviders.filter(p => p.id !== SPECIAL_PROVIDER_IDS.LOCAL_SETTINGS && p.id !== SPECIAL_PROVIDER_IDS.CLI_LOGIN);
-            return regularProviders.length > 0 ? (
+        <section className={styles.group}>
+          <div className={styles.groupHeader}>
+            <div>
+              <h5 className={styles.groupTitle}>{t('settings.provider.managedProviders')}</h5>
+              <p className={styles.groupDesc}>{t('settings.provider.managedProvidersDesc')}</p>
+            </div>
+          </div>
+          <div className={styles.groupList}>
+            {regularProviders.length > 0 ? (
               regularProviders.map((provider) => (
             <div
               key={provider.id}
@@ -606,6 +635,7 @@ export default function ProviderList({
               onDrop={(e) => handleDrop(e, provider.id)}
               onDragEnd={handleDragEnd}
             >
+              <div className={styles.statusRail} />
               <div
                 className={styles.dragHandle}
                 title={t('settings.provider.dragToSort')}
@@ -682,18 +712,15 @@ export default function ProviderList({
               </div>
             </div>
           ))
-        ) : null;
-          })()}
-
-          {(() => {
-            const regularProviders = localProviders.filter(p => p.id !== SPECIAL_PROVIDER_IDS.LOCAL_SETTINGS);
-            return regularProviders.length === 0 && emptyState ? (
+            ) : (
+              emptyState ? (
               <div className={styles.emptyState}>
                 {emptyState}
               </div>
-            ) : null;
-          })()}
-        </>
+              ) : null
+            )}
+          </div>
+        </section>
       </div>
     </div>
   );

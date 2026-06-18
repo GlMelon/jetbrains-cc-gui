@@ -11,16 +11,16 @@ interface ModelRegistrySectionProps {
 }
 
 const EMPTY_MODEL: ModelRegistryItem = {
-  id: '',
   provider: 'claude',
+  id: '',
+  role: 'sonnet',
   label: '',
+  actualModel: '',
   description: '',
   contextWindow: 200_000,
   supports1MContext: false,
   enabled: true,
 };
-
-const CONTEXT_PRESETS = [128_000, 200_000, 258_000, 400_000, 500_000, 1_000_000];
 
 export default function ModelRegistrySection({ addToast }: ModelRegistrySectionProps) {
   const { t } = useTranslation();
@@ -71,7 +71,9 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
   }, [providerFilter, registry.items]);
 
   const startAdd = useCallback((provider: 'claude' | 'codex' = 'claude') => {
-    setEditing({ ...EMPTY_MODEL, provider });
+    setEditing(provider === 'claude'
+      ? { ...EMPTY_MODEL, provider, id: '', role: 'sonnet', actualModel: '' }
+      : { ...EMPTY_MODEL, provider, id: '', role: undefined, actualModel: '' });
     setEditingOriginalKey(null);
   }, []);
 
@@ -94,21 +96,43 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
     if (!editing) {
       return;
     }
+    const isClaude = editing.provider === 'claude';
+    const role = isClaude ? (editing.role ?? 'sonnet') : undefined;
+    const actualModel = isClaude ? (editing.actualModel ?? '').trim() : '';
+    const id = isClaude ? actualModel : editing.id.trim();
+    if (isClaude && !actualModel) {
+      addToast(t('settings.models.actualModelRequired', 'Actual request model is required'), 'error');
+      return;
+    }
     const normalized: ModelRegistryItem = {
       ...editing,
-      id: editing.id.trim(),
-      label: editing.label.trim() || editing.id.trim(),
+      id,
+      role,
+      actualModel: isClaude ? actualModel : undefined,
+      label: editing.label.trim() || actualModel || id,
       description: editing.description?.trim() || undefined,
       contextWindow: Number(editing.contextWindow),
       enabled: editing.enabled !== false,
     };
+
+    const normalizedKey = toKey(normalized);
+
+    const duplicateExists = registry.items.some(
+      (item) => toKey(item) === normalizedKey && toKey(item) !== editingOriginalKey
+    );
+
+    if (duplicateExists) {
+      addToast(t('settings.models.duplicateModel', 'A model with this ID already exists'), 'error');
+      return;
+    }
+
     const withoutOld = editingOriginalKey
       ? registry.items.filter((item) => toKey(item) !== editingOriginalKey)
       : registry.items;
     persistRegistry({ items: [normalized, ...withoutOld] });
     setEditing(null);
     setEditingOriginalKey(null);
-  }, [editing, editingOriginalKey, persistRegistry, registry.items]);
+  }, [editing, editingOriginalKey, persistRegistry, registry.items, addToast, t]);
 
   const reset = useCallback(() => {
     sendBridgeEvent('reset_model_registry');
@@ -156,46 +180,59 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
             <option value="claude">claude</option>
             <option value="codex">codex</option>
           </select>
-          <input
-            className="form-input"
-            placeholder="model id"
-            value={editing.id}
-            onChange={(event) => setEditing({ ...editing, id: event.target.value })}
-          />
+          {editing.provider === 'claude' && (
+            <select
+              className="form-input"
+              value={editing.role ?? 'sonnet'}
+              onChange={(event) => {
+                const role = event.target.value as NonNullable<ModelRegistryItem['role']>;
+                setEditing({ ...editing, role });
+              }}
+            >
+              <option value="sonnet">Sonnet</option>
+              <option value="opus">Opus</option>
+              <option value="fable">Fable</option>
+              <option value="haiku">Haiku</option>
+            </select>
+          )}
+          {editing.provider === 'codex' && (
+            <input
+              className="form-input"
+              placeholder="model id"
+              value={editing.id}
+              onChange={(event) => setEditing({ ...editing, id: event.target.value })}
+            />
+          )}
           <input
             className="form-input"
             placeholder="label"
             value={editing.label}
             onChange={(event) => setEditing({ ...editing, label: event.target.value })}
           />
+          {editing.provider === 'claude' && (
+            <input
+              className="form-input"
+              placeholder="actual request model"
+              value={editing.actualModel ?? ''}
+              onChange={(event) => setEditing({ ...editing, actualModel: event.target.value })}
+            />
+          )}
           <input
             className="form-input"
             placeholder="description"
             value={editing.description ?? ''}
             onChange={(event) => setEditing({ ...editing, description: event.target.value })}
           />
-          <div className={styles.contextControls}>
-            {CONTEXT_PRESETS.map((value) => (
-              <button
-                key={value}
-                className={`btn btn-sm ${editing.contextWindow === value ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={() => setEditing({ ...editing, contextWindow: value })}
-              >
-                {formatContext(value)}
-              </button>
-            ))}
-            <input
-              className="form-input"
-              type="number"
-              value={editing.contextWindow}
-              onChange={(event) => setEditing({ ...editing, contextWindow: Number(event.target.value) })}
-            />
-          </div>
           <label className={styles.checkboxLabel}>
             <input
               type="checkbox"
               checked={editing.supports1MContext === true}
-              onChange={(event) => setEditing({ ...editing, supports1MContext: event.target.checked })}
+              onChange={(event) => setEditing({
+                ...editing,
+                supports1MContext: event.target.checked,
+                // 如果启用1M，自动设置上下文窗口为1M；否则重置为默认200k
+                contextWindow: event.target.checked ? 1_000_000 : 200_000,
+              })}
             />
             {t('settings.models.supports1M', 'Supports 1M')}
           </label>
@@ -211,7 +248,11 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
             <button className="btn btn-secondary btn-sm" onClick={() => setEditing(null)}>
               {t('common.cancel', 'Cancel')}
             </button>
-            <button className="btn btn-primary btn-sm" onClick={saveEditing} disabled={!editing.id.trim()}>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={saveEditing}
+              disabled={editing.provider === 'claude' ? !editing.actualModel?.trim() : !editing.id.trim()}
+            >
               {t('common.confirm', 'Confirm')}
             </button>
           </div>
@@ -225,6 +266,7 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
               <span className={styles.modelId}>{model.id}</span>
               <span className={styles.provider}>{model.provider}</span>
               {model.enabled === false && <span className={styles.disabled}>{t('settings.models.disabled', 'Disabled')}</span>}
+              {model.enabled !== false && <span className={styles.enabled}>{t('settings.models.enabledStatus', 'Enabled')}</span>}
               <div className={styles.modelLabel}>{model.label}</div>
               {model.description && <div className={styles.modelDescription}>{model.description}</div>}
             </div>

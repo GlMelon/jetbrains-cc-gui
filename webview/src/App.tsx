@@ -536,7 +536,6 @@ const App = () => {
         onRewindSelectCancel={handleRewindSelectCancel}
         onRewindConfirm={handleRewindConfirm}
         onRewindCancel={handleRewindCancel}
-        currentProvider={currentProvider}
         permissionDialogTimeoutSeconds={permissionDialogTimeoutSeconds}
       />
     </>

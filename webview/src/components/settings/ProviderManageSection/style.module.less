@@ -3,8 +3,24 @@
   padding-bottom: 24px;
 }
 
+.headerBand {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 20px;
+  align-items: stretch;
+  padding: 16px;
+  margin-bottom: 18px;
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+}
+
+.headerText {
+  min-width: 0;
+}
+
 .sectionTitle {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 600;
   margin: 0 0 8px 0;
   color: var(--text-primary);
@@ -12,8 +28,44 @@
 
 .sectionDesc {
   color: var(--text-tertiary);
-  margin: 0 0 24px 0;
+  margin: 0;
   font-size: 13px;
+  line-height: 1.5;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(84px, auto));
+  gap: 8px;
+  align-items: stretch;
+}
+
+.statItem {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  background: var(--bg-primary);
+}
+
+.statValue,
+.statLabel {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statValue {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.statLabel {
+  margin-top: 3px;
+  color: var(--text-tertiary);
+  font-size: 11px;
 }
 
 .tempNotice {
@@ -43,6 +95,12 @@
     min-width: auto;
   }
 
+  .headerBand {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 12px;
+  }
+
   .sectionTitle {
     font-size: 16px;
     margin-bottom: 6px;
@@ -50,7 +108,10 @@
 
   .sectionDesc {
     font-size: 12px;
-    margin-bottom: 16px;
+  }
+
+  .stats {
+    grid-template-columns: 1fr;
   }
 
   .tempNotice {

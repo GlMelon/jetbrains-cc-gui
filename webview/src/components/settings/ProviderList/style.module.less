@@ -11,10 +11,22 @@
   align-items: center;
   margin-bottom: 16px;
 
+  .titleGroup {
+    min-width: 0;
+  }
+
   .title {
     margin: 0;
     font-size: 14px;
-    color: var(--text-secondary);
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+
+  .subtitle {
+    display: block;
+    margin-top: 3px;
+    color: var(--text-tertiary);
+    font-size: 12px;
   }
 
   .actions {
@@ -487,25 +499,87 @@
 .list {
   display: flex;
   flex-direction: column;
+  gap: 16px;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.groupHeader {
+  display: flex;
+  justify-content: space-between;
   gap: 12px;
+  padding: 0 2px;
+}
+
+.groupTitle {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.groupDesc {
+  margin: 3px 0 0;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.groupList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .card {
+  position: relative;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 12px;
-  border-radius: 8px;
+  gap: 10px;
+  min-height: 58px;
+  padding: 10px 12px 10px 14px;
+  border-radius: 6px;
   border: 1px solid var(--border-primary);
-  background: var(--bg-secondary);
+  background: var(--bg-primary);
   transition: background-color 0.2s ease, border-color 0.2s ease;
+  overflow: hidden;
 
   &.active {
     border-color: #0078d4;
-    box-shadow: 0 0 0 1px rgba(0, 120, 212, 0.1);
+    background: color-mix(in srgb, var(--button-primary-background, #0078d4) 6%, var(--bg-primary));
   }
 
   .drag-sort-card();
+}
+
+.statusRail {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 3px;
+  background: transparent;
+}
+
+.active .statusRail {
+  background: var(--button-primary-background, #0078d4);
+}
+
+.cardIcon {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
 }
 
 .dragHandle {
@@ -522,7 +596,7 @@
   .name {
     font-size: 14px;
     font-weight: 600;
-    color: var(--text-secondary);
+    color: var(--text-primary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -539,10 +613,18 @@
   }
 }
 
+.accountInfo {
+  color: var(--text-secondary);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .cardActions {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 10px;
   flex-shrink: 0;
 }
 
@@ -550,24 +632,19 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 12px;
-  border-radius: 20px;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 6px;
   border: none;
   background: var(--button-primary-background, #0078d4);
   color: #ffffff;
   cursor: pointer;
   font-size: 12px;
   font-weight: 500;
-  transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  transition: background-color 0.2s ease;
 
   &:hover {
     background: var(--button-primary-hover-background, #0063b1);
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  }
-
-  &:active {
-    transform: translateY(0);
   }
 }
 
@@ -575,23 +652,19 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 12px;
-  border-radius: 20px;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 6px;
   border: 1px solid color-mix(in srgb, #c2410c 45%, transparent);
   background: color-mix(in srgb, #c2410c 14%, transparent);
   color: #f97316;
   cursor: pointer;
   font-size: 12px;
   font-weight: 500;
-  transition: background-color 0.2s ease, transform 0.2s ease;
+  transition: background-color 0.2s ease;
 
   &:hover {
     background: color-mix(in srgb, #c2410c 22%, transparent);
-    transform: translateY(-1px);
-  }
-
-  &:active {
-    transform: translateY(0);
   }
 }
 
@@ -599,8 +672,9 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 12px;
-  border-radius: 8px;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 6px;
   background: var(--bg-tertiary);
   color: var(--text-tertiary);
   font-size: 12px;
@@ -663,17 +737,20 @@
 }
 
 .localProviderCard {
-  border-left: 3px solid #f39c12;
-  background: linear-gradient(90deg, rgba(243, 156, 18, 0.05) 0%, transparent 50%);
-  
-  .cardInfo .name {
-    display: flex;
-    align-items: center;
-    
-    .codicon {
-      color: #f39c12;
-    }
+  background: color-mix(in srgb, #d98e04 5%, var(--bg-primary));
+
+  .cardIcon {
+    color: #d98e04;
+    border-color: color-mix(in srgb, #d98e04 35%, var(--border-primary));
   }
+}
+
+.localProviderCard .statusRail {
+  background: color-mix(in srgb, #d98e04 45%, transparent);
+}
+
+.localProviderCard.active .statusRail {
+  background: #d98e04;
 }
 
 
@@ -704,5 +781,35 @@
   :global(.codicon) {
     font-size: 32px;
     color: var(--button-primary-background, #0078d4);
+  }
+}
+
+@media (max-width: 720px) {
+  .header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+
+    .actions {
+      width: 100%;
+      justify-content: flex-start;
+      flex-wrap: wrap;
+    }
+  }
+
+  .card {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .cardInfo {
+    flex-basis: calc(100% - 52px);
+  }
+
+  .cardActions {
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    padding-left: 40px;
   }
 }

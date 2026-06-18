@@ -34,8 +34,13 @@ const createCustomProxyProvider = (): ProviderConfig => ({
       ANTHROPIC_BASE_URL: 'https://my-proxy.example.com/v1',
       ANTHROPIC_AUTH_TOKEN: 'sk-test',
       ANTHROPIC_DEFAULT_HAIKU_MODEL: 'custom-haiku',
+      ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME: 'Custom Haiku',
       ANTHROPIC_DEFAULT_SONNET_MODEL: 'custom-sonnet',
+      ANTHROPIC_DEFAULT_SONNET_MODEL_NAME: 'Custom Sonnet',
       ANTHROPIC_DEFAULT_OPUS_MODEL: 'custom-opus',
+      ANTHROPIC_DEFAULT_OPUS_MODEL_NAME: 'Custom Opus',
+      ANTHROPIC_DEFAULT_FABLE_MODEL: 'custom-fable',
+      ANTHROPIC_DEFAULT_FABLE_MODEL_NAME: 'Custom Fable',
     },
   },
 });
@@ -104,9 +109,43 @@ describe('ProviderDialog', () => {
     // Model mapping should be visible even for unrecognized proxy URLs
     expect(screen.getByText('settings.provider.dialog.modelMapping')).toBeTruthy();
     // Should have the custom model values populated
-    expect((screen.getByLabelText('settings.provider.dialog.sonnetModel') as HTMLInputElement).value).toBe('custom-sonnet');
-    expect((screen.getByLabelText('settings.provider.dialog.opusModel') as HTMLInputElement).value).toBe('custom-opus');
-    expect((screen.getByLabelText('settings.provider.dialog.haikuModel') as HTMLInputElement).value).toBe('custom-haiku');
+    const requestModels = screen.getAllByLabelText('settings.provider.dialog.requestModel') as HTMLInputElement[];
+    expect(requestModels[0].value).toBe('custom-sonnet');
+    expect(requestModels[1].value).toBe('custom-opus');
+    expect(requestModels[2].value).toBe('custom-fable');
+    expect(requestModels[3].value).toBe('custom-haiku');
+  });
+
+  it('saves display names separately from actual request models', () => {
+    const onSave = vi.fn();
+
+    render(
+      <ProviderDialog
+        isOpen
+        provider={createCustomProxyProvider()}
+        onClose={vi.fn()}
+        onSave={onSave}
+        addToast={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getAllByLabelText('settings.provider.dialog.displayName')[0], {
+      target: { value: 'mimo-v2.5' },
+    });
+    fireEvent.change(screen.getAllByLabelText('settings.provider.dialog.requestModel')[0], {
+      target: { value: 'mimo-v2.5-pro' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'settings.provider.dialog.saveChanges' }));
+
+    const payload = onSave.mock.calls[0]?.[0] as { jsonConfig: string };
+    const env = JSON.parse(payload.jsonConfig).env ?? {};
+
+    expect(env.ANTHROPIC_DEFAULT_SONNET_MODEL_NAME).toBe('mimo-v2.5');
+    expect(env.ANTHROPIC_DEFAULT_SONNET_MODEL).toBe('mimo-v2.5-pro');
+    expect(env.ANTHROPIC_DEFAULT_OPUS_MODEL_NAME).toBe('Custom Opus');
+    expect(env.ANTHROPIC_DEFAULT_FABLE_MODEL_NAME).toBe('Custom Fable');
+    expect(env.ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME).toBe('Custom Haiku');
   });
 
   it('does not backfill the Haiku field from ANTHROPIC_SMALL_FAST_MODEL', () => {
@@ -120,7 +159,7 @@ describe('ProviderDialog', () => {
       />,
     );
 
-    expect((screen.getByLabelText('settings.provider.dialog.haikuModel') as HTMLInputElement).value).toBe('');
+    expect((screen.getAllByLabelText('settings.provider.dialog.requestModel')[3] as HTMLInputElement).value).toBe('');
   });
 
   it('clearing model mapping fields should remove residual ANTHROPIC_MODEL on save', () => {
@@ -136,13 +175,17 @@ describe('ProviderDialog', () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText('settings.provider.dialog.sonnetModel'), {
+    const requestModels = screen.getAllByLabelText('settings.provider.dialog.requestModel');
+    fireEvent.change(requestModels[0], {
       target: { value: '' },
     });
-    fireEvent.change(screen.getByLabelText('settings.provider.dialog.opusModel'), {
+    fireEvent.change(requestModels[1], {
       target: { value: '' },
     });
-    fireEvent.change(screen.getByLabelText('settings.provider.dialog.haikuModel'), {
+    fireEvent.change(requestModels[2], {
+      target: { value: '' },
+    });
+    fireEvent.change(requestModels[3], {
       target: { value: '' },
     });
 
@@ -158,6 +201,7 @@ describe('ProviderDialog', () => {
     expect(env.ANTHROPIC_MODEL).toBeUndefined();
     expect(env.ANTHROPIC_DEFAULT_SONNET_MODEL).toBeUndefined();
     expect(env.ANTHROPIC_DEFAULT_OPUS_MODEL).toBeUndefined();
+    expect(env.ANTHROPIC_DEFAULT_FABLE_MODEL).toBeUndefined();
     expect(env.ANTHROPIC_DEFAULT_HAIKU_MODEL).toBeUndefined();
   });
 

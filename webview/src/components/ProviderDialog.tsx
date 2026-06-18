@@ -40,6 +40,10 @@ const readHaikuModel = (env: Record<string, unknown>): string => (
   trimString(env.ANTHROPIC_DEFAULT_HAIKU_MODEL)
 );
 
+const readStringEnv = (env: Record<string, unknown>, key: string): string => (
+  trimString(env[key])
+);
+
 export function normalizeProviderEnvForSave(
   env: Record<string, unknown>,
   options: { stripAllModelMappings?: boolean } = {}
@@ -63,6 +67,7 @@ export function normalizeProviderEnvForSave(
     trimString(nextEnv.ANTHROPIC_DEFAULT_HAIKU_MODEL),
     trimString(nextEnv.ANTHROPIC_DEFAULT_SONNET_MODEL),
     trimString(nextEnv.ANTHROPIC_DEFAULT_OPUS_MODEL),
+    trimString(nextEnv.ANTHROPIC_DEFAULT_FABLE_MODEL),
   ].filter(Boolean);
 
   if (specificModels.length === 0 || specificModels.every(model => model === mainModel)) {
@@ -129,8 +134,13 @@ export default function ProviderDialog({
   const [activePreset, setActivePreset] = useState<string>('custom');
 
   const [haikuModel, setHaikuModel] = useState('');
+  const [haikuDisplayName, setHaikuDisplayName] = useState('');
   const [sonnetModel, setSonnetModel] = useState('');
+  const [sonnetDisplayName, setSonnetDisplayName] = useState('');
   const [opusModel, setOpusModel] = useState('');
+  const [opusDisplayName, setOpusDisplayName] = useState('');
+  const [fableModel, setFableModel] = useState('');
+  const [fableDisplayName, setFableDisplayName] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
   const [jsonConfig, setJsonConfig] = useState('');
   const [jsonError, setJsonError] = useState('');
@@ -155,8 +165,13 @@ export default function ProviderDialog({
         ANTHROPIC_BASE_URL: defaultBaseUrl,
         ...(includeModelMapping ? {
           ANTHROPIC_DEFAULT_SONNET_MODEL: '',
+          ANTHROPIC_DEFAULT_SONNET_MODEL_NAME: '',
           ANTHROPIC_DEFAULT_OPUS_MODEL: '',
+          ANTHROPIC_DEFAULT_OPUS_MODEL_NAME: '',
+          ANTHROPIC_DEFAULT_FABLE_MODEL: '',
+          ANTHROPIC_DEFAULT_FABLE_MODEL_NAME: '',
           ANTHROPIC_DEFAULT_HAIKU_MODEL: '',
+          ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME: '',
         } : {}),
         ...normalizedEnv,
       }
@@ -202,8 +217,13 @@ export default function ProviderDialog({
       setApiKey('');
       setApiUrl(OFFICIAL_ANTHROPIC_URL);
       setHaikuModel('');
+      setHaikuDisplayName('');
       setSonnetModel('');
+      setSonnetDisplayName('');
       setOpusModel('');
+      setOpusDisplayName('');
+      setFableModel('');
+      setFableDisplayName('');
       setJsonError('');
       return;
     }
@@ -217,8 +237,13 @@ export default function ProviderDialog({
       setApiKey('');
       setApiUrl('');
       setHaikuModel('');
+      setHaikuDisplayName('');
       setSonnetModel('');
+      setSonnetDisplayName('');
       setOpusModel('');
+      setOpusDisplayName('');
+      setFableModel('');
+      setFableDisplayName('');
       setJsonError('');
       return;
     }
@@ -235,8 +260,13 @@ export default function ProviderDialog({
     setApiUrl(env.ANTHROPIC_BASE_URL || '');
     setApiKey(env.ANTHROPIC_AUTH_TOKEN || '');
     setHaikuModel(readHaikuModel(env));
+    setHaikuDisplayName(readStringEnv(env, 'ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME'));
     setSonnetModel(env.ANTHROPIC_DEFAULT_SONNET_MODEL || '');
+    setSonnetDisplayName(readStringEnv(env, 'ANTHROPIC_DEFAULT_SONNET_MODEL_NAME'));
     setOpusModel(env.ANTHROPIC_DEFAULT_OPUS_MODEL || '');
+    setOpusDisplayName(readStringEnv(env, 'ANTHROPIC_DEFAULT_OPUS_MODEL_NAME'));
+    setFableModel(env.ANTHROPIC_DEFAULT_FABLE_MODEL || '');
+    setFableDisplayName(readStringEnv(env, 'ANTHROPIC_DEFAULT_FABLE_MODEL_NAME'));
     setJsonError('');
   };
 
@@ -288,8 +318,13 @@ export default function ProviderDialog({
         setActivePreset(detectMatchingPreset(env));
 
         setHaikuModel(readHaikuModel(env));
+        setHaikuDisplayName(readStringEnv(env, 'ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME'));
         setSonnetModel(env.ANTHROPIC_DEFAULT_SONNET_MODEL || '');
+        setSonnetDisplayName(readStringEnv(env, 'ANTHROPIC_DEFAULT_SONNET_MODEL_NAME'));
         setOpusModel(env.ANTHROPIC_DEFAULT_OPUS_MODEL || '');
+        setOpusDisplayName(readStringEnv(env, 'ANTHROPIC_DEFAULT_OPUS_MODEL_NAME'));
+        setFableModel(env.ANTHROPIC_DEFAULT_FABLE_MODEL || '');
+        setFableDisplayName(readStringEnv(env, 'ANTHROPIC_DEFAULT_FABLE_MODEL_NAME'));
 
         const config = provider.settingsConfig || buildConfig();
         setJsonConfig(JSON.stringify(config, null, 2));
@@ -302,8 +337,13 @@ export default function ProviderDialog({
         setApiUrl(OFFICIAL_ANTHROPIC_URL);
 
         setHaikuModel('');
+        setHaikuDisplayName('');
         setSonnetModel('');
+        setSonnetDisplayName('');
         setOpusModel('');
+        setOpusDisplayName('');
+        setFableModel('');
+        setFableDisplayName('');
         const config = buildConfig();
         setJsonConfig(JSON.stringify(config, null, 2));
       }
@@ -333,16 +373,46 @@ export default function ProviderDialog({
     updateEnvField('ANTHROPIC_DEFAULT_HAIKU_MODEL', value);
   };
 
+  const handleHaikuDisplayNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setHaikuDisplayName(value);
+    updateEnvField('ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME', value);
+  };
+
   const handleSonnetModelChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSonnetModel(value);
     updateEnvField('ANTHROPIC_DEFAULT_SONNET_MODEL', value);
   };
 
+  const handleSonnetDisplayNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSonnetDisplayName(value);
+    updateEnvField('ANTHROPIC_DEFAULT_SONNET_MODEL_NAME', value);
+  };
+
   const handleOpusModelChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setOpusModel(value);
     updateEnvField('ANTHROPIC_DEFAULT_OPUS_MODEL', value);
+  };
+
+  const handleOpusDisplayNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setOpusDisplayName(value);
+    updateEnvField('ANTHROPIC_DEFAULT_OPUS_MODEL_NAME', value);
+  };
+
+  const handleFableModelChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setFableModel(value);
+    updateEnvField('ANTHROPIC_DEFAULT_FABLE_MODEL', value);
+  };
+
+  const handleFableDisplayNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setFableDisplayName(value);
+    updateEnvField('ANTHROPIC_DEFAULT_FABLE_MODEL_NAME', value);
   };
 
   const handleJsonChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -374,17 +444,42 @@ export default function ProviderDialog({
       } else {
         setHaikuModel('');
       }
+      if (Object.prototype.hasOwnProperty.call(env, 'ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME')) {
+        setHaikuDisplayName(readStringEnv(env, 'ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME'));
+      } else {
+        setHaikuDisplayName('');
+      }
 
       if (Object.prototype.hasOwnProperty.call(env, 'ANTHROPIC_DEFAULT_SONNET_MODEL')) {
         setSonnetModel(env.ANTHROPIC_DEFAULT_SONNET_MODEL || '');
       } else {
         setSonnetModel('');
       }
+      if (Object.prototype.hasOwnProperty.call(env, 'ANTHROPIC_DEFAULT_SONNET_MODEL_NAME')) {
+        setSonnetDisplayName(readStringEnv(env, 'ANTHROPIC_DEFAULT_SONNET_MODEL_NAME'));
+      } else {
+        setSonnetDisplayName('');
+      }
 
       if (Object.prototype.hasOwnProperty.call(env, 'ANTHROPIC_DEFAULT_OPUS_MODEL')) {
         setOpusModel(env.ANTHROPIC_DEFAULT_OPUS_MODEL || '');
       } else {
         setOpusModel('');
+      }
+      if (Object.prototype.hasOwnProperty.call(env, 'ANTHROPIC_DEFAULT_OPUS_MODEL_NAME')) {
+        setOpusDisplayName(readStringEnv(env, 'ANTHROPIC_DEFAULT_OPUS_MODEL_NAME'));
+      } else {
+        setOpusDisplayName('');
+      }
+      if (Object.prototype.hasOwnProperty.call(env, 'ANTHROPIC_DEFAULT_FABLE_MODEL')) {
+        setFableModel(env.ANTHROPIC_DEFAULT_FABLE_MODEL || '');
+      } else {
+        setFableModel('');
+      }
+      if (Object.prototype.hasOwnProperty.call(env, 'ANTHROPIC_DEFAULT_FABLE_MODEL_NAME')) {
+        setFableDisplayName(readStringEnv(env, 'ANTHROPIC_DEFAULT_FABLE_MODEL_NAME'));
+      } else {
+        setFableDisplayName('');
       }
       setJsonError('');
     } catch (err) {
@@ -406,8 +501,13 @@ export default function ProviderDialog({
           envOverrides: {
             ANTHROPIC_AUTH_TOKEN: apiKey,
             ANTHROPIC_DEFAULT_HAIKU_MODEL: haikuModel,
+            ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME: haikuDisplayName,
             ANTHROPIC_DEFAULT_SONNET_MODEL: sonnetModel,
+            ANTHROPIC_DEFAULT_SONNET_MODEL_NAME: sonnetDisplayName,
             ANTHROPIC_DEFAULT_OPUS_MODEL: opusModel,
+            ANTHROPIC_DEFAULT_OPUS_MODEL_NAME: opusDisplayName,
+            ANTHROPIC_DEFAULT_FABLE_MODEL: fableModel,
+            ANTHROPIC_DEFAULT_FABLE_MODEL_NAME: fableDisplayName,
           },
         }), null, 2);
       }
@@ -424,8 +524,13 @@ export default function ProviderDialog({
           ANTHROPIC_AUTH_TOKEN: apiKey,
           ANTHROPIC_BASE_URL: finalApiUrl,
           ANTHROPIC_DEFAULT_HAIKU_MODEL: haikuModel,
+          ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME: haikuDisplayName,
           ANTHROPIC_DEFAULT_SONNET_MODEL: sonnetModel,
+          ANTHROPIC_DEFAULT_SONNET_MODEL_NAME: sonnetDisplayName,
           ANTHROPIC_DEFAULT_OPUS_MODEL: opusModel,
+          ANTHROPIC_DEFAULT_OPUS_MODEL_NAME: opusDisplayName,
+          ANTHROPIC_DEFAULT_FABLE_MODEL: fableModel,
+          ANTHROPIC_DEFAULT_FABLE_MODEL_NAME: fableDisplayName,
         },
         defaultBaseUrl: activePreset === CUSTOM_PRESET_ID ? '' : finalApiUrl,
         includeModelMapping: activePreset !== CUSTOM_PRESET_ID,
@@ -585,38 +690,105 @@ export default function ProviderDialog({
             <div className="form-group">
               <label>{t('settings.provider.dialog.modelMapping')}</label>
               <div className="model-mapping-grid">
-                <div className="model-mapping-field">
-                  <label htmlFor="sonnetModel">{t('settings.provider.dialog.sonnetModel')}</label>
-                  <input
-                    id="sonnetModel"
-                    type="text"
-                    className="form-input"
-                    placeholder={t('settings.provider.dialog.sonnetModelPlaceholder')}
-                    value={sonnetModel}
-                    onChange={handleSonnetModelChange}
-                  />
+                <div className="model-mapping-row">
+                  <div className="model-mapping-role">{t('settings.provider.dialog.sonnetRole', 'Sonnet')}</div>
+                  <div className="model-mapping-field">
+                    <label htmlFor="sonnetDisplayName">{t('settings.provider.dialog.displayName', 'Display Name')}</label>
+                    <input
+                      id="sonnetDisplayName"
+                      type="text"
+                      className="form-input"
+                      placeholder={t('settings.provider.dialog.displayNamePlaceholder', 'mimo-v2.5')}
+                      value={sonnetDisplayName}
+                      onChange={handleSonnetDisplayNameChange}
+                    />
+                  </div>
+                  <div className="model-mapping-field">
+                    <label htmlFor="sonnetModel">{t('settings.provider.dialog.requestModel', 'Actual Request Model')}</label>
+                    <input
+                      id="sonnetModel"
+                      type="text"
+                      className="form-input"
+                      placeholder={t('settings.provider.dialog.sonnetModelPlaceholder')}
+                      value={sonnetModel}
+                      onChange={handleSonnetModelChange}
+                    />
+                  </div>
                 </div>
-                <div className="model-mapping-field">
-                  <label htmlFor="opusModel">{t('settings.provider.dialog.opusModel')}</label>
-                  <input
-                    id="opusModel"
-                    type="text"
-                    className="form-input"
-                    placeholder={t('settings.provider.dialog.opusModelPlaceholder')}
-                    value={opusModel}
-                    onChange={handleOpusModelChange}
-                  />
+                <div className="model-mapping-row">
+                  <div className="model-mapping-role">{t('settings.provider.dialog.opusRole', 'Opus')}</div>
+                  <div className="model-mapping-field">
+                    <label htmlFor="opusDisplayName">{t('settings.provider.dialog.displayName', 'Display Name')}</label>
+                    <input
+                      id="opusDisplayName"
+                      type="text"
+                      className="form-input"
+                      placeholder={t('settings.provider.dialog.displayNamePlaceholder', 'mimo-v2.5-pro')}
+                      value={opusDisplayName}
+                      onChange={handleOpusDisplayNameChange}
+                    />
+                  </div>
+                  <div className="model-mapping-field">
+                    <label htmlFor="opusModel">{t('settings.provider.dialog.requestModel', 'Actual Request Model')}</label>
+                    <input
+                      id="opusModel"
+                      type="text"
+                      className="form-input"
+                      placeholder={t('settings.provider.dialog.opusModelPlaceholder')}
+                      value={opusModel}
+                      onChange={handleOpusModelChange}
+                    />
+                  </div>
                 </div>
-                <div className="model-mapping-field">
-                  <label htmlFor="haikuModel">{t('settings.provider.dialog.haikuModel')}</label>
-                  <input
-                    id="haikuModel"
-                    type="text"
-                    className="form-input"
-                    placeholder={t('settings.provider.dialog.haikuModelPlaceholder')}
-                    value={haikuModel}
-                    onChange={handleHaikuModelChange}
-                  />
+                <div className="model-mapping-row">
+                  <div className="model-mapping-role">{t('settings.provider.dialog.fableRole', 'Fable')}</div>
+                  <div className="model-mapping-field">
+                    <label htmlFor="fableDisplayName">{t('settings.provider.dialog.displayName', 'Display Name')}</label>
+                    <input
+                      id="fableDisplayName"
+                      type="text"
+                      className="form-input"
+                      placeholder={t('settings.provider.dialog.displayNamePlaceholder', 'fable')}
+                      value={fableDisplayName}
+                      onChange={handleFableDisplayNameChange}
+                    />
+                  </div>
+                  <div className="model-mapping-field">
+                    <label htmlFor="fableModel">{t('settings.provider.dialog.requestModel', 'Actual Request Model')}</label>
+                    <input
+                      id="fableModel"
+                      type="text"
+                      className="form-input"
+                      placeholder={t('settings.provider.dialog.fableModelPlaceholder', 'your-fable-model')}
+                      value={fableModel}
+                      onChange={handleFableModelChange}
+                    />
+                  </div>
+                </div>
+                <div className="model-mapping-row">
+                  <div className="model-mapping-role">{t('settings.provider.dialog.haikuRole', 'Haiku')}</div>
+                  <div className="model-mapping-field">
+                    <label htmlFor="haikuDisplayName">{t('settings.provider.dialog.displayName', 'Display Name')}</label>
+                    <input
+                      id="haikuDisplayName"
+                      type="text"
+                      className="form-input"
+                      placeholder={t('settings.provider.dialog.displayNamePlaceholder', 'mimo-v2.5')}
+                      value={haikuDisplayName}
+                      onChange={handleHaikuDisplayNameChange}
+                    />
+                  </div>
+                  <div className="model-mapping-field">
+                    <label htmlFor="haikuModel">{t('settings.provider.dialog.requestModel', 'Actual Request Model')}</label>
+                    <input
+                      id="haikuModel"
+                      type="text"
+                      className="form-input"
+                      placeholder={t('settings.provider.dialog.haikuModelPlaceholder')}
+                      value={haikuModel}
+                      onChange={handleHaikuModelChange}
+                    />
+                  </div>
                 </div>
               </div>
               <small className="form-hint">{t('settings.provider.dialog.modelMappingHint')}</small>

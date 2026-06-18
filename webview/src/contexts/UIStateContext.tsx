@@ -22,8 +22,6 @@ export interface UIStateContextValue {
   clearToasts: () => void;
 
   // Misc dialogs that don't belong to useDialogManagement
-  addModelDialogOpen: boolean;
-  setAddModelDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
   showChangelogDialog: boolean;
   closeChangelogDialog: () => void;
   openChangelogDialog: () => void;
@@ -53,7 +51,6 @@ export function UIStateProvider({ children }: { children: ReactNode }) {
   const [currentView, setCurrentView] = useState<ViewMode>('chat');
   const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab | undefined>(undefined);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  const [addModelDialogOpen, setAddModelDialogOpen] = useState<boolean>(false);
   const [showChangelogDialog, setShowChangelogDialog] = useState<boolean>(() => {
     const lastSeen = localStorage.getItem(LAST_SEEN_VERSION_KEY);
     return lastSeen !== APP_VERSION;
@@ -88,7 +85,6 @@ export function UIStateProvider({ children }: { children: ReactNode }) {
       currentView, setCurrentView,
       settingsInitialTab, setSettingsInitialTab,
       toasts, addToast, dismissToast, clearToasts,
-      addModelDialogOpen, setAddModelDialogOpen,
       showChangelogDialog, closeChangelogDialog, openChangelogDialog,
       contextInfo, setContextInfo,
       draftInput, setDraftInput,
@@ -97,7 +93,6 @@ export function UIStateProvider({ children }: { children: ReactNode }) {
     [
       currentView, settingsInitialTab,
       toasts, addToast, dismissToast, clearToasts,
-      addModelDialogOpen,
       showChangelogDialog, closeChangelogDialog, openChangelogDialog,
       contextInfo, draftInput,
       searchOpen,

@@ -13,8 +13,8 @@ describe('useSettingsBasicActions', () => {
     effectiveProvider: 'codex',
     resolutionSource: 'auto',
     models: {
-      claude: 'claude-sonnet-4-6',
-      codex: 'gpt-5.5',
+      claude: 'claude-role-sonnet',
+      codex: '',
     },
     availability: {
       claude: true,
@@ -42,7 +42,7 @@ describe('useSettingsBasicActions', () => {
     expect(result.current.commitAiConfig.provider).toBe('claude');
     expect(result.current.promptEnhancerConfig).toEqual(promptEnhancerBefore);
     expect(window.sendToJava).toHaveBeenCalledWith(
-      bridgeCall('set_commit_ai_config', '{"provider":"claude","models":{"claude":"claude-sonnet-4-6","codex":"gpt-5.5"}}')
+      bridgeCall('set_commit_ai_config', '{"provider":"claude","models":{"claude":"claude-role-sonnet","codex":""}}')
     );
   });
 
@@ -67,7 +67,7 @@ describe('useSettingsBasicActions', () => {
     expect(result.current.commitAiConfig.models.codex).toBe('gpt-5.4');
     expect(result.current.promptEnhancerConfig).toEqual(promptEnhancerBefore);
     expect(window.sendToJava).toHaveBeenCalledWith(
-      bridgeCall('set_commit_ai_config', '{"provider":"codex","models":{"claude":"claude-sonnet-4-6","codex":"gpt-5.4"}}')
+      bridgeCall('set_commit_ai_config', '{"provider":"codex","models":{"claude":"claude-role-sonnet","codex":"gpt-5.4"}}')
     );
   });
 

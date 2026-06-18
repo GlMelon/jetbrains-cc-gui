@@ -2,9 +2,19 @@ import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { CodexProviderConfig } from '../../../types/provider';
 import { sendBridgeEvent } from '../../../utils/bridge';
+import { createCodexCatalogModels, getModelRegistrySnapshot } from '../../../utils/modelRegistry';
 
 const sendToJava = (event: string, payload = '') => {
   sendBridgeEvent(event, payload);
+};
+
+const syncCodexProviderCatalogToRegistry = (provider: CodexProviderConfig | null | undefined) => {
+  const catalogModels = createCodexCatalogModels(provider);
+  const registry = getModelRegistrySnapshot();
+  const nonCodexItems = registry.items.filter((item) => item.provider !== 'codex');
+  sendBridgeEvent('set_model_registry', JSON.stringify({
+    items: [...nonCodexItems, ...catalogModels],
+  }));
 };
 
 export interface CodexProviderDialogState {
@@ -64,8 +74,7 @@ export function useCodexProviderManagement(options: UseCodexProviderManagementOp
       setCodexProviders((prev) =>
         prev.map((p) => ({ ...p, isActive: p.id === activeProvider.id }))
       );
-      // Custom models are now plugin-level, managed by PluginCustomModels in ProviderTabSection.
-      // No longer sync provider-level customModels to localStorage.
+      syncCodexProviderCatalogToRegistry(activeProvider);
     }
   }, []);
 
@@ -107,6 +116,7 @@ export function useCodexProviderManagement(options: UseCodexProviderManagementOp
             configToml: providerData.configToml,
             authJson: providerData.authJson,
             customModels: providerData.customModels,
+            modelCatalog: providerData.modelCatalog,
             messageEnvVars: providerData.messageEnvVars || [],
             mcpEnvVars: providerData.mcpEnvVars || [],
           },
@@ -115,8 +125,7 @@ export function useCodexProviderManagement(options: UseCodexProviderManagementOp
         onSuccess?.(t('toast.providerUpdated'));
       }
 
-      // Custom models are now plugin-level, managed by PluginCustomModels in ProviderTabSection.
-      // No longer sync provider-level customModels to localStorage.
+      syncCodexProviderCatalogToRegistry(providerData);
 
       setCodexProviderDialog({ isOpen: false, provider: null });
       setCodexLoading(true);

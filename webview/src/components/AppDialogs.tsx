@@ -7,43 +7,12 @@ import PlanApprovalDialog from './PlanApprovalDialog';
 import RewindDialog from './RewindDialog';
 import RewindSelectDialog, { type RewindableMessage } from './RewindSelectDialog';
 import ChangelogDialog from './ChangelogDialog';
-import CustomModelDialog from './settings/CustomModelDialog';
-import { usePluginModels } from './settings/hooks/usePluginModels';
-import { STORAGE_KEYS } from '../types/provider';
 import { CHANGELOG_DATA } from '../version/changelog';
 import { useDialogs } from '../contexts/DialogContext';
 import { useUIState } from '../contexts/UIStateContext';
 import ContextUsageDialog from './ContextUsageDialog';
 import { DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS } from '../utils/permissionDialogTimeout';
 import { setSkipNewSessionConfirm } from '../utils/skipNewSessionConfirm';
-
-/**
- * Wrapper that manages plugin-level custom models for the add-model dialog.
- * Uses the shared usePluginModels hook for localStorage persistence.
- */
-const AddModelDialogWrapper = ({
-  isOpen,
-  onClose,
-  currentProvider,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  currentProvider: string;
-}) => {
-  const storageKey = currentProvider === 'codex'
-    ? STORAGE_KEYS.CODEX_CUSTOM_MODELS
-    : STORAGE_KEYS.CLAUDE_CUSTOM_MODELS;
-  const { models, updateModels } = usePluginModels(storageKey);
-  return (
-    <CustomModelDialog
-      isOpen={isOpen}
-      models={models}
-      onModelsChange={updateModels}
-      onClose={onClose}
-      initialAddMode
-    />
-  );
-};
 
 export interface AppDialogsProps {
   /** Session-management dialogs come from useSessionManagement, still passed as props. */
@@ -59,8 +28,6 @@ export interface AppDialogsProps {
   onRewindSelectCancel: ComponentProps<typeof RewindSelectDialog>['onCancel'];
   onRewindConfirm: ComponentProps<typeof RewindDialog>['onConfirm'];
   onRewindCancel: ComponentProps<typeof RewindDialog>['onCancel'];
-  /** Provider id for the add-model dialog (lives in useModelProviderState). */
-  currentProvider: string;
   /** Permission dialog timeout in seconds (from backend config). */
   permissionDialogTimeoutSeconds?: number;
 }
@@ -83,7 +50,6 @@ export const AppDialogs = ({
   onRewindSelectCancel,
   onRewindConfirm,
   onRewindCancel,
-  currentProvider,
   permissionDialogTimeoutSeconds = DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS,
 }: AppDialogsProps) => {
   const { t } = useTranslation();
@@ -99,7 +65,6 @@ export const AppDialogs = ({
   } = useDialogs();
   const {
     showChangelogDialog, closeChangelogDialog,
-    addModelDialogOpen, setAddModelDialogOpen,
   } = useUIState();
 
   // "Don't ask again" checkbox state for the new-session confirm dialog.
@@ -192,11 +157,6 @@ export const AppDialogs = ({
         isOpen={showChangelogDialog}
         onClose={closeChangelogDialog}
         entries={CHANGELOG_DATA}
-      />
-      <AddModelDialogWrapper
-        isOpen={addModelDialogOpen}
-        onClose={() => setAddModelDialogOpen(false)}
-        currentProvider={currentProvider}
       />
       {contextUsageDialogOpen ? (
         <ContextUsageDialog

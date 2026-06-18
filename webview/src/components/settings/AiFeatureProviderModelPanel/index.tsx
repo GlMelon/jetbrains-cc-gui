@@ -1,8 +1,9 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CLAUDE_MODELS, CODEX_MODELS } from '../../ChatInputBox/types';
 import { ProviderModelIcon } from '../../shared/ProviderModelIcon';
 import type { AiFeatureConfig, AiFeatureProvider } from '../../../types/aiFeatureConfig';
+import { getModelsForProvider } from '../../../utils/modelRegistry';
 import styles from './style.module.less';
 
 interface AiFeatureProviderModelPanelProps {
@@ -30,7 +31,22 @@ const AiFeatureProviderModelPanel = ({
     ?? config.effectiveProvider
     ?? fallbackProvider;
   const statusProvider = config.effectiveProvider ?? config.provider ?? fallbackProvider;
-  const modelOptions = selectedProvider === 'codex' ? CODEX_MODELS : CLAUDE_MODELS;
+  const modelOptions = useMemo(() => {
+    const configuredModel = config.models[selectedProvider];
+    const registryModels = getModelsForProvider(selectedProvider);
+    const fallbackModels = selectedProvider === 'codex' ? CODEX_MODELS : CLAUDE_MODELS;
+    const options = registryModels.length > 0 ? registryModels : fallbackModels;
+    if (configuredModel && !options.some((model) => model.id === configuredModel)) {
+      return [
+        {
+          id: configuredModel,
+          label: configuredModel,
+        },
+        ...options,
+      ];
+    }
+    return options;
+  }, [config.models, selectedProvider]);
   const isAutoMode = config.provider == null;
   const statusText = config.resolutionSource === 'auto'
     ? t(`${settingsKeyPrefix}.currentProviderAuto`, {

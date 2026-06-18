@@ -16,8 +16,8 @@ describe('PromptEnhancerSection', () => {
       effectiveProvider: 'codex',
       resolutionSource: 'auto',
       models: {
-        claude: 'claude-sonnet-4-6',
-        codex: 'gpt-5.5',
+        claude: 'claude-role-sonnet',
+        codex: '',
       },
       availability: {
         claude: true,
