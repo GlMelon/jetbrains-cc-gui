@@ -27,6 +27,8 @@ public class EffectiveRuntimeResolverTest {
 
     @Test
     public void requestedRuntimeWinsWhenProviderSupportsIt() {
+        // 方向 A:codex 经「调用模式」UI 切到 CLI(sendToCodex 透传 requestedMode="cli")时,
+        // supported 含 CLI,应解析为 CLI(请求级优先于「路由策略」面板的 default)。
         RuntimePolicyConfig policy = policy(
                 new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK),
                 new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK)
@@ -48,6 +50,22 @@ public class EffectiveRuntimeResolverTest {
         EffectiveRuntimeResolver.Runtime runtime = EffectiveRuntimeResolver.resolve(
                 "codex", null, "sdk", policy);
 
+        assertEquals(RuntimeType.CLI, runtime.runtimeType());
+    }
+
+    @Test
+    public void codexUsesPolicyDefaultWhenNoRequestedMode() {
+        // codex 无前端调用模式传递(requestedMode=null),应取 policy.default(用户在「路由策略」面板的选择),
+        // 而非被 fromInvocationMode(null)=SDK 绕过。default=CLI 时应走 CLI。
+        RuntimePolicyConfig policy = policy(
+                new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK),
+                new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.CLI)
+        );
+
+        EffectiveRuntimeResolver.Runtime runtime = EffectiveRuntimeResolver.resolve(
+                "codex", null, null, policy);
+
+        assertEquals(ProviderType.CODEX, runtime.provider());
         assertEquals(RuntimeType.CLI, runtime.runtimeType());
     }
 

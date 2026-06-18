@@ -10,9 +10,9 @@ import com.github.claudecodegui.session.SessionSendService;
  * 原先在 SessionSendService、SessionHandler.isCliModeActive、SessionRuntimeRouter
  * 三处各自计算 effective runtime，现统一到此 resolver。
  * <p>
- * 初始实现保持与当前硬编码行为完全一致（零行为变化）：
- * - Claude: 三级优先级（sessionMode > requestedMode > settings）→ CLI 或 SDK
- * - Codex: 由 runtime policy 决定，默认 policy 仍保持 CLI
+ * 解析逻辑:
+ * - Claude: 三级优先级(sessionMode > requestedMode > settings)→ CLI 或 SDK
+ * - Codex: requestedMode 明确且 supported 时用之;否则取 policy.default(默认 SDK,可在「路由策略」面板切换)
  */
 public final class EffectiveRuntimeResolver {
 
@@ -45,11 +45,15 @@ public final class EffectiveRuntimeResolver {
         }
 
         if (pt == ProviderType.CODEX) {
-            RuntimeType requestedRuntime = RuntimeType.fromInvocationMode(requestedMode);
-            RuntimeType runtime = providerPolicy.supported().contains(requestedRuntime)
-                    ? requestedRuntime
-                    : providerPolicy.defaultRuntime();
-            return new Runtime(ProviderType.CODEX, runtime);
+            // codex 由前端「调用模式」UI 统一驱动(方向 A):requestedMode 明确(cli/sdk)且 supported 支持时优先用之;
+            // 为 null(前端调用模式未加载)时回退到「路由策略」面板的 codex default(默认 SDK)。
+            if (requestedMode != null) {
+                RuntimeType requestedRuntime = RuntimeType.fromInvocationMode(requestedMode);
+                if (providerPolicy.supported().contains(requestedRuntime)) {
+                    return new Runtime(ProviderType.CODEX, requestedRuntime);
+                }
+            }
+            return new Runtime(ProviderType.CODEX, providerPolicy.defaultRuntime());
         }
 
         // Claude: 三级优先级，复用 SessionSendService 的解析逻辑

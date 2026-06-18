@@ -22,7 +22,7 @@ type RuntimePolicyPayload = {
 
 const DEFAULT_POLICY: Record<ProviderKey, ProviderPolicy> = {
   claude: { enabled: true, supported: ['SDK', 'CLI'], default: 'SDK' },
-  codex: { enabled: true, supported: ['CLI'], default: 'CLI' },
+  codex: { enabled: true, supported: ['SDK', 'CLI'], default: 'SDK' },
 };
 
 export interface RuntimePolicySectionProps {

@@ -25,6 +25,9 @@ function createContextUsageRequestId(): string {
   return `context-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+// 读取全局调用模式(由后端推送的 __CLAUDE_INVOCATION_MODE__ 承载,历史遗留命名)。
+// 方向 A:该模式现已统一控制 claude 与 codex——切换「调用模式」时两者同步走 SDK/CLI。
+// 变量名保留 CLAUDE 前缀仅为避免改动后端推送 key 与全局声明面。
 function getClaudeInvocationMode(): 'sdk' | 'cli' | undefined {
   if (window.__CLAUDE_INVOCATION_MODE__ === 'cli') return 'cli';
   if (window.__CLAUDE_INVOCATION_MODE__ === 'sdk') return 'sdk';
@@ -273,7 +276,7 @@ export function useMessageSender({
           })),
           agent: agentInfo,
           fileTags: fileTagsInfo,
-          invocationMode: currentProvider === 'claude' ? getClaudeInvocationMode() : undefined,
+          invocationMode: getClaudeInvocationMode(),
         });
         sendBridgeEvent('send_message_with_attachments', payload);
       } catch (error) {
@@ -282,7 +285,7 @@ export function useMessageSender({
           text,
           agent: agentInfo,
           fileTags: fileTagsInfo,
-          invocationMode: currentProvider === 'claude' ? getClaudeInvocationMode() : undefined,
+          invocationMode: getClaudeInvocationMode(),
         });
         sendBridgeEvent('send_message', fallbackPayload);
       }
@@ -295,7 +298,7 @@ export function useMessageSender({
       });
       sendBridgeEvent('send_message', payload);
     }
-  }, [currentProvider]);
+  }, []);
 
   /**
    * Execute message sending (from queue or directly)

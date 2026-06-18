@@ -212,6 +212,7 @@ public class SessionSendService {
         );
 
         if (CommonConstants.PROVIDER_CODEX.equals(currentProvider)) {
+            // 方向 A:codex 同样透传请求级调用模式(由前端「调用模式」UI 统一驱动 claude+codex)。
             return sendToCodex(
                     channelId,
                     input,
@@ -219,7 +220,8 @@ public class SessionSendService {
                     openedFilesJson,
                     agentPrompt,
                     fileTagPaths,
-                    effectivePermissionMode
+                    effectivePermissionMode,
+                    requestedInvocationMode
             );
         }
 
@@ -237,7 +239,8 @@ public class SessionSendService {
             JsonObject openedFilesJson,
             String agentPrompt,
             List<String> fileTagPaths,
-            String effectivePermissionMode
+            String effectivePermissionMode,
+            String requestedInvocationMode
     ) {
         CodexMessageHandler handler = new CodexMessageHandler(state, callbackFacade.getCallbackHandler());
         String accessMode = CodemossSettingsService.CODEX_RUNTIME_ACCESS_INACTIVE;
@@ -256,10 +259,12 @@ public class SessionSendService {
         String contextAppend = contextService.buildCodexContextAppend(openedFilesJson, fileTagPaths);
         String finalInput = (input != null ? input : "") + contextAppend;
 
+        // codex 无会话级调用模式(sessionMode=null),仅以请求级 requestedInvocationMode 驱动;
+        // 为 null(前端调用模式未加载)时由 resolve 回退到「路由策略」面板的 codex default。
         EffectiveRuntimeResolver.Runtime runtime = resolveRuntime(
                 CommonConstants.PROVIDER_CODEX,
                 null,
-                null
+                requestedInvocationMode
         );
         RuntimeKey key = new RuntimeKey(
                 CommonConstants.PROVIDER_CODEX,

@@ -12,7 +12,7 @@ import java.util.Set;
 /**
  * 路由策略配置。
  * <p>
- * 管理 provider×runtime 矩阵，初始默认严格等于当前硬编码行为（零行为变化）。
+ * 管理 provider×runtime 矩阵。默认配置中 Claude 与 Codex 对称:均支持 SDK+CLI,默认 SDK。
  * 存储于 ~/.codemoss/config.json 的 "runtime" 节点。
  */
 public class RuntimePolicyConfig {
@@ -20,10 +20,10 @@ public class RuntimePolicyConfig {
     private Map<ProviderType, ProviderRuntimePolicy> providers;
 
     /**
-     * 构建默认配置（=当前硬编码行为）。
+     * 构建默认配置(Claude 与 Codex 对称:均支持 SDK+CLI,默认 SDK)。
      * <ul>
      *   <li>Claude: enabled, 支持 SDK+CLI, 默认 SDK</li>
-     *   <li>Codex: enabled, 仅支持 CLI, 默认 CLI（原"永远 CLI"）</li>
+     *   <li>Codex: enabled, 支持 SDK+CLI, 默认 SDK(原重构前硬编码"永远 CLI",现已对齐 Claude)</li>
      * </ul>
      */
     private static final RuntimePolicyConfig DEFAULT = buildDefault();
@@ -52,7 +52,7 @@ public class RuntimePolicyConfig {
     }
 
     /**
-     * 返回默认配置（=当前硬编码行为）。
+     * 返回默认配置(Claude 与 Codex 对称)。
      */
     public static RuntimePolicyConfig getDefault() {
         return new RuntimePolicyConfig(new LinkedHashMap<>(DEFAULT.providers()));
@@ -61,7 +61,7 @@ public class RuntimePolicyConfig {
     private static RuntimePolicyConfig buildDefault() {
         var m = new LinkedHashMap<ProviderType, ProviderRuntimePolicy>();
         m.put(ProviderType.CLAUDE, new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK));
-        m.put(ProviderType.CODEX, new ProviderRuntimePolicy(true, Set.of(RuntimeType.CLI), RuntimeType.CLI));
+        m.put(ProviderType.CODEX, new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK));
         return new RuntimePolicyConfig(m);
     }
 }
