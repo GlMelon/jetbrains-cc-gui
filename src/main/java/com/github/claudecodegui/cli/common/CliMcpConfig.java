@@ -31,7 +31,25 @@ public class CliMcpConfig {
     public CliMcpConfig(String tabId) {
         this.tabId = tabId;
         Path base = new ConfigPathManager().getConfigDir().resolve("cli-mcp");
-        this.configPath = base.resolve(tabId + ".json");
+        // 纵深防御:tabId 可能源自前端,直接拼进文件名会带来路径穿越风险(如 "../x")。
+        // 归一化为安全文件名,确保 resolve 后路径仍在 base 目录之内。
+        this.configPath = base.resolve(safeConfigFileName(tabId));
+    }
+
+    /**
+     * 将 tabId 归一化为安全的配置文件名:仅保留 {@code [A-Za-z0-9._-]},其余字符替换为
+     * {@code '_'},并限制长度。这样 base.resolve(...) 永远不会解析到 base 目录之外。
+     */
+    private static String safeConfigFileName(String tabId) {
+        String id = (tabId == null) ? "" : tabId.trim();
+        if (id.isEmpty()) {
+            id = "default";
+        }
+        String safe = id.replaceAll("[^A-Za-z0-9._-]", "_");
+        if (safe.length() > 128) {
+            safe = safe.substring(0, 128);
+        }
+        return safe + ".json";
     }
 
     /**

@@ -8,6 +8,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 
 /**
@@ -29,6 +30,15 @@ class PermissionFileProtocol {
     private final String sessionId;
     private final Gson gson;
     private final BiConsumer<String, String> debugLog;
+    /**
+     * Per-request secret tokens written by Node into the request file and echoed
+     * back in the response, so Node can reject forged response files planted by
+     * another local process. Keyed by requestId (unguessable UUID); the single
+     * write that answers a request removes its entry. ConcurrentHashMap because
+     * the token is registered on the polling thread and consumed on the dialog
+     * future thread.
+     */
+    private final ConcurrentHashMap<String, String> pendingRequestTokens = new ConcurrentHashMap<>();
 
     PermissionFileProtocol(Path permissionDir, String sessionId, Gson gson, BiConsumer<String, String> debugLog) {
         this.permissionDir = permissionDir;
@@ -91,16 +101,29 @@ class PermissionFileProtocol {
         }
     }
 
+    /**
+     * Record the secret token Node embedded in a request so it can be echoed back
+     * in the response. Called once when a request file is read; null-safe so callers
+     * need not guard against requests that predate this protocol.
+     */
+    void registerRequestToken(String requestId, String requestToken) {
+        if (requestId != null && requestToken != null) {
+            pendingRequestTokens.put(requestId, requestToken);
+        }
+    }
+
     void writePermissionResponse(String requestId, boolean allow) {
         LOG.info("[PERM_WRITE] Writing response for requestId=" + requestId + ", allow=" + allow);
         JsonObject response = new JsonObject();
         response.addProperty("allow", allow);
+        attachEchoedToken(requestId, response);
         writeJson(resolveResponsePath(RESPONSE_FILE_PREFIX, requestId), response, "RESPONSE");
     }
 
     void writeAskUserQuestionResponse(String requestId, JsonObject answers) {
         JsonObject response = new JsonObject();
         response.add("answers", answers);
+        attachEchoedToken(requestId, response);
         writeJson(resolveResponsePath(ASK_USER_QUESTION_RESPONSE_FILE_PREFIX, requestId), response, "ASK_RESPONSE");
     }
 
@@ -108,7 +131,20 @@ class PermissionFileProtocol {
         JsonObject response = new JsonObject();
         response.addProperty("approved", approved);
         response.addProperty("targetMode", targetMode);
+        attachEchoedToken(requestId, response);
         writeJson(resolveResponsePath(PLAN_APPROVAL_RESPONSE_FILE_PREFIX, requestId), response, "PLAN_RESPONSE");
+    }
+
+    /**
+     * Copy the per-request token (registered when the request was read) into the
+     * response so Node can confirm the response originated from our request and
+     * reject any forged response file. No-op when no token was registered.
+     */
+    private void attachEchoedToken(String requestId, JsonObject response) {
+        String token = pendingRequestTokens.remove(requestId);
+        if (token != null) {
+            response.addProperty("requestToken", token);
+        }
     }
 
     private void deleteFiles(String prefix) {

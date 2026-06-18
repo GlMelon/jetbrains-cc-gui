@@ -88,9 +88,6 @@ public class PermissionService {
         public JsonObject getInputs() { return inputs; }
         public PermissionResponse getResponse() { return response; }
 
-        public boolean isAllowed() {
-            return response != null && response.isAllow();
-        }
     }
 
     public interface PermissionDecisionListener {
@@ -154,11 +151,6 @@ public class PermissionService {
 
     // ── Public API ─────────────────────────────────────────────────────
 
-    public void setDecisionListener(PermissionDecisionListener listener) {
-        this.decisionListener = listener;
-        debugLog("CONFIG", "Decision listener set: " + (listener != null));
-    }
-
     public void registerDialogShower(Project project, PermissionDialogShower shower) {
         dialogRouter.registerPermissionDialogShower(project, shower);
     }
@@ -181,10 +173,6 @@ public class PermissionService {
 
     public void unregisterPlanApprovalDialogShower(Project project) {
         dialogRouter.unregisterPlanApprovalDialogShower(project);
-    }
-
-    public void setLastActiveProject(Project project) {
-        dialogRouter.setLastActiveProject(project);
     }
 
     public void clearDecisionMemory() {
@@ -290,6 +278,14 @@ public class PermissionService {
 
     // ── Permission Request Handling ────────────────────────────────────
 
+    /** Pull the per-request secret token Node embedded in the request, if present. */
+    private static String extractRequestToken(JsonObject request) {
+        if (request != null && request.has("requestToken") && !request.get("requestToken").isJsonNull()) {
+            return request.get("requestToken").getAsString();
+        }
+        return null;
+    }
+
     private void handlePermissionRequest(Path requestFile) {
         String fileName = requestFile.getFileName().toString();
         long startTime = System.currentTimeMillis();
@@ -301,6 +297,7 @@ public class PermissionService {
         try {
             JsonObject request = gson.fromJson(content, JsonObject.class);
             String requestId = request.get("requestId").getAsString();
+            fileProtocol.registerRequestToken(requestId, extractRequestToken(request));
             String toolName = request.get("toolName").getAsString();
             JsonObject inputs = request.get("inputs").getAsJsonObject();
 
@@ -455,6 +452,7 @@ public class PermissionService {
         }
 
         String requestId = request.get("requestId").getAsString();
+        fileProtocol.registerRequestToken(requestId, extractRequestToken(request));
         AskUserQuestionDialogShower shower = dialogRouter.findAskUserQuestionDialogShower(request);
 
         if (shower != null) {
@@ -499,6 +497,7 @@ public class PermissionService {
         try {
             JsonObject request = gson.fromJson(content, JsonObject.class);
             String requestId = request.get("requestId").getAsString();
+            fileProtocol.registerRequestToken(requestId, extractRequestToken(request));
 
             // Delete immediately to prevent duplicate processing
             safeDeleteFile(requestFile, "PLAN");

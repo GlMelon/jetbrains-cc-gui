@@ -54,6 +54,19 @@ export function parsePermissionAllowResponse(content) {
   }
 }
 
+// Validate that a Java -> Node response was written by a reader that actually saw
+// the original request, by comparing the per-request secret token embedded in the
+// request file with the token echoed back in the response. A missing/mismatched
+// token means the response was NOT produced from our request (a possible forged
+// response file planted by another local process that won the filename race) and
+// is rejected fail-closed. The directory is mode 0o700 (owner-only) and the
+// requestId is an unguessable UUID, so this is a defense-in-depth backstop.
+export function responseTokenMatches(responseData, requestToken) {
+  return typeof requestToken === 'string'
+    && responseData != null
+    && responseData.requestToken === requestToken;
+}
+
 // ========== IPC directory and session config ==========
 export const PERMISSION_DIR = process.env.CLAUDE_PERMISSION_DIR
   ? process.env.CLAUDE_PERMISSION_DIR
@@ -112,6 +125,41 @@ try {
 }
 
 /**
+ * Remove stale permission/ask/plan request AND response files left in the IPC
+ * directory from a previous (crashed) run of this session. Prevents the Java
+ * side from re-processing orphaned request files on the next daemon launch and
+ * bounds tmpdir growth across many sessions.
+ */
+function cleanupStaleSessionFiles() {
+  const prefixes = [
+    `request-${SESSION_ID}-`,
+    `response-${SESSION_ID}-`,
+    `ask-user-question-${SESSION_ID}-`,
+    `ask-user-question-response-${SESSION_ID}-`,
+    `plan-approval-${SESSION_ID}-`,
+    `plan-approval-response-${SESSION_ID}-`,
+  ];
+  let files;
+  try {
+    files = readdirSync(PERMISSION_DIR);
+  } catch (_) {
+    return;
+  }
+  for (const name of files) {
+    if (!name.endsWith('.json')) continue;
+    if (prefixes.some((p) => name.startsWith(p))) {
+      try {
+        unlinkSync(join(PERMISSION_DIR, name));
+        debugLog('STALE_CLEANUP', `Removed stale IPC file: ${name}`);
+      } catch (_) {
+        // best-effort; another reader may have already removed it
+      }
+    }
+  }
+}
+cleanupStaleSessionFiles();
+
+/**
  * Request AskUserQuestion answers via file system communication with Java process.
  * @param {Object} input - AskUserQuestion tool parameters (contains questions array)
  * @returns {Promise<Object|null>} - User answers object, returns null on failure
@@ -122,6 +170,7 @@ export async function requestAskUserQuestionAnswers(input) {
 
   try {
     const requestId = `ask-${randomUUID()}`;
+    const requestToken = randomUUID();
     debugLog('ASK_USER_QUESTION_ID', `Generated request ID: ${requestId}`);
 
     const requestFile = join(PERMISSION_DIR, `ask-user-question-${SESSION_ID}-${requestId}.json`);
@@ -129,6 +178,7 @@ export async function requestAskUserQuestionAnswers(input) {
 
     const requestData = {
       requestId,
+      requestToken,
       toolName: 'AskUserQuestion',
       questions: input.questions || [],
       timestamp: new Date().toISOString(),
@@ -173,6 +223,11 @@ export async function requestAskUserQuestionAnswers(input) {
           debugLog('ASK_USER_QUESTION_RESPONSE_CONTENT', 'Response content read', describeContentForLog(responseContent));
 
           const responseData = JSON.parse(responseContent);
+          if (!responseTokenMatches(responseData, requestToken)) {
+            debugLog('ASK_USER_QUESTION_TOKEN_MISMATCH', `Response token missing/mismatched for ${requestId} — ignoring possible forged response`);
+            try { unlinkSync(responseFile); } catch (_) { /* best-effort */ }
+            return null;
+          }
           const answers = responseData.answers;
           debugLog('ASK_USER_QUESTION_RESPONSE_PARSED', `Parsed answers`, {
             ...describeAnswersForLog(answers),
@@ -215,6 +270,7 @@ export async function requestPlanApproval(input) {
 
   try {
     const requestId = `plan-${randomUUID()}`;
+    const requestToken = randomUUID();
     debugLog('PLAN_APPROVAL_ID', `Generated request ID: ${requestId}`);
 
     const requestFile = join(PERMISSION_DIR, `plan-approval-${SESSION_ID}-${requestId}.json`);
@@ -228,6 +284,7 @@ export async function requestPlanApproval(input) {
 
     const requestData = {
       requestId,
+      requestToken,
       toolName: 'ExitPlanMode',
       plan,
       allowedPrompts,
@@ -273,6 +330,11 @@ export async function requestPlanApproval(input) {
           debugLog('PLAN_APPROVAL_RESPONSE_CONTENT', 'Response content read', describeContentForLog(responseContent));
 
           const responseData = JSON.parse(responseContent);
+          if (!responseTokenMatches(responseData, requestToken)) {
+            debugLog('PLAN_APPROVAL_TOKEN_MISMATCH', `Response token missing/mismatched for ${requestId} — ignoring possible forged response`);
+            try { unlinkSync(responseFile); } catch (_) { /* best-effort */ }
+            return { approved: false, message: 'Invalid response token' };
+          }
           const approved = responseData.approved === true;
           const targetMode = responseData.targetMode || 'default';
           const message = responseData.message;
@@ -327,6 +389,7 @@ export async function requestPermissionFromJava(toolName, input) {
     }
 
     const requestId = randomUUID();
+    const requestToken = randomUUID();
     debugLog('REQUEST_ID', `Generated request ID: ${requestId}`);
 
     const requestFile = join(PERMISSION_DIR, `request-${SESSION_ID}-${requestId}.json`);
@@ -334,6 +397,7 @@ export async function requestPermissionFromJava(toolName, input) {
 
     const requestData = {
       requestId,
+      requestToken,
       toolName,
       inputs: input,
       timestamp: new Date().toISOString(),
@@ -384,7 +448,16 @@ export async function requestPermissionFromJava(toolName, input) {
           const responseContent = readFileSync(responseFile, 'utf-8');
           debugLog('RESPONSE_CONTENT', 'Response content read', describeContentForLog(responseContent));
 
-          const result = parsePermissionAllowResponse(responseContent);
+          const responseData = JSON.parse(responseContent);
+          // Fail-closed: a response that does not echo this request's secret token
+          // was not produced from our request (possible forged response file planted
+          // by another local process that won the filename race). Ignore + deny.
+          if (!responseTokenMatches(responseData, requestToken)) {
+            debugLog('RESPONSE_TOKEN_MISMATCH', `Response token missing/mismatched for ${requestId} — ignoring possible forged response`);
+            try { unlinkSync(responseFile); } catch (_) { /* best-effort */ }
+            return false;
+          }
+          const result = responseData.allow === true;
           debugLog('RESPONSE_PARSED', `Parsed response`, { allow: result, elapsed: `${Date.now() - requestStartTime}ms` });
 
           try {
