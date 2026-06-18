@@ -1,13 +1,18 @@
 /**
  * Tools List Update Hook
  * Listens for tools list update events and handles state updates
+ *
+ * [归一化] 经 bridgeHub 订阅 server_tools 事件,替代旧 window.updateMcpServerTools 覆盖。
+ * 双轨: registerLegacyAlias 兼容后端旧 callJavaScript(legacyName) 调用路径。
  */
 
 import { useEffect } from 'react';
 import type { ServerToolsState, McpTool, RefreshLog, CacheKeys } from '../types';
 import { writeToolsCache } from '../utils';
+import { bridgeHub, registerLegacyAlias } from '../../../bridge';
 
 export interface UseToolsUpdateOptions {
+  isCodexMode: boolean;
   cacheKeys: CacheKeys;
   setServerTools: React.Dispatch<React.SetStateAction<ServerToolsState>>;
   onLog: (message: string, type: RefreshLog['type'], details?: string, serverName?: string, requestInfo?: string, errorReason?: string) => void;
@@ -15,15 +20,19 @@ export interface UseToolsUpdateOptions {
 
 /**
  * Tools List Update Hook
- * Registers window.updateMcpServerTools callback
+ * 订阅 mcp.server_tools / codex.mcp.server_tools 事件(归一化下行总线)。
  */
 export function useToolsUpdate({
+  isCodexMode,
   cacheKeys,
   setServerTools,
   onLog,
 }: UseToolsUpdateOptions): void {
   useEffect(() => {
-    // Register tools list update callback
+    const type = isCodexMode ? 'codex.mcp.server_tools' : 'mcp.server_tools';
+    const legacyName = isCodexMode ? 'updateCodexMcpServerTools' : 'updateMcpServerTools';
+
+    // Tools list update handler
     const handleToolsUpdate = (jsonStr: string) => {
       try {
         const result = JSON.parse(jsonStr);
@@ -102,12 +111,15 @@ export function useToolsUpdate({
       }
     };
 
-    // Register on the window object
-    window.updateMcpServerTools = handleToolsUpdate;
+    // [归一化] 双轨订阅:
+    //  - subscribe(type): 接收后端新路径 dispatchEvent(type)
+    //  - registerLegacyAlias(legacyName, type): 兼容后端旧 callJavaScript(legacyName)
+    registerLegacyAlias(legacyName, type);
+    const unsubscribe = bridgeHub.subscribe(type, (json) => handleToolsUpdate(json as string));
 
     // Cleanup
     return () => {
-      window.updateMcpServerTools = undefined;
+      unsubscribe();
     };
-  }, [cacheKeys, setServerTools, onLog]);
+  }, [isCodexMode, cacheKeys, setServerTools, onLog]);
 }
