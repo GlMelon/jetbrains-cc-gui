@@ -40,6 +40,13 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
     private volatile boolean active = true;
     /** Guards against duplicate onStreamEnd delivery from dual-path dispatch. */
     private volatile boolean streamEndSignalSent = false;
+    /**
+     * 单调递增的"流轮次"令牌。onStreamStart 递增,onStreamEnd 的双路径(primary flush 回调 +
+     * 300ms Alarm 回退)都捕获并校验当前令牌。当上一轮的 flush 回调因慢速 JCEF IPC 延迟到
+     * 本轮才执行时,令牌不匹配使其被丢弃,避免用上一轮的 stale sequence 向前端误发 streamEnd
+     * (会提前结束本轮正在进行的流)。此前仅靠 streamEndSignalSent 单布尔守卫,无法区分跨轮次。
+     */
+    private volatile long streamEndTurn = 0L;
 
     public SessionCallbackAdapter(
             StreamMessageCoalescer streamCoalescer,
@@ -214,6 +221,9 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
         if (isInactive()) {
             return;
         }
+        // 开启新一轮流:递增 turn 令牌,令上一轮残留的 stale streamEnd 双路径回调全部失效,
+        // 避免它们用上一轮的 sequence 误发 streamEnd(会提前结束本轮流)。
+        streamEndTurn++;
         // Cancel any stale fallback alarm from the previous turn to prevent
         // it from firing during the new turn's streaming phase.
         streamEndFallbackAlarm.cancelAllRequests();
@@ -236,10 +246,10 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
             return;
         }
         // Reset the signal guard so this turn's dual-path dispatch can proceed.
-        // Thread-safety: this runs on the process reader thread; the callbacks that
-        // read/write streamEndSignalSent all run on EDT (via invokeLater or Alarm).
-        // The reset happens-before flush() schedules any callbacks, so no race exists.
         streamEndSignalSent = false;
+        // 捕获本轮 token:flush 回调可能在慢速 JCEF 下延迟到下一轮才执行,
+        // 届时 turn != streamEndTurn,该 stale 回调被丢弃,防止跨轮误发 streamEnd。
+        final long turn = streamEndTurn;
 
         // Each step is wrapped in safeRun so that a failure in one step
         // (e.g., flushNow throwing due to a disposed throttler, or JCEF
@@ -265,7 +275,7 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
 
         // Primary: ordered delivery via flush callback
         streamCoalescer.flush(sequence -> {
-            if (streamEndSignalSent) {
+            if (streamEndSignalSent || turn != streamEndTurn) {
                 return;
             }
             streamEndSignalSent = true;
@@ -276,7 +286,7 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
         // Fallback: independent delivery after timeout
         streamEndFallbackAlarm.cancelAllRequests();
         streamEndFallbackAlarm.addRequest(() -> {
-            if (streamEndSignalSent || isInactive()) {
+            if (streamEndSignalSent || isInactive() || turn != streamEndTurn) {
                 return;
             }
             streamEndSignalSent = true;
