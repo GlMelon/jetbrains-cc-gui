@@ -9,7 +9,6 @@ import com.github.claudecodegui.ui.toolwindow.TabPerformanceLogger;
 import com.intellij.openapi.diagnostic.Logger;
 
 import java.util.Map;
-import java.util.function.BiConsumer;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -106,37 +105,6 @@ public class CliSessionManager {
         }
         LOG.info("[TabPerf] CliSessionManager.disposeTab returned in "
                 + TabPerformanceLogger.elapsedMillis(startNanos) + "ms: tab=" + tabId);
-    }
-
-    /**
-     * 收集指定 tab 当前活跃的 CLI 子进程,供 NodeProcessRegistry 进程面板注册可见。
-     * sink 接收 (provider, process);仅回传仍存活的进程。CLI 模式此前面板漏显、不可杀。
-     */
-    public void collectActiveProcesses(String tabId, BiConsumer<String, Process> sink) {
-        if (tabId == null || sink == null) {
-            return;
-        }
-        ConcurrentHashMap<String, CliSession> providerMap = sessions.get(tabId);
-        if (providerMap == null) {
-            return;
-        }
-        for (Map.Entry<String, CliSession> entry : providerMap.entrySet()) {
-            Process p;
-            try {
-                p = entry.getValue().activeProcess();
-            } catch (Exception e) {
-                continue;
-            }
-            if (p == null) {
-                continue;
-            }
-            try {
-                if (p.isAlive()) {
-                    sink.accept(entry.getKey(), p);
-                }
-            } catch (Exception ignored) {
-            }
-        }
     }
 
     // ── private ──────────────────────────────────────────────────────────────

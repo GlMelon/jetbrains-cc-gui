@@ -57,17 +57,6 @@ public class ClaudeCliSession implements CliSession {
         this.mcpConfig = new CliMcpConfig(tabId);
     }
 
-    @Override
-    public Process activeProcess() {
-        // 进程面板可见性:返回当前活跃且存活的 CLI 子进程。dispose/无活跃进程时返回 null。
-        CliProcessHandle h = activeHandle;
-        try {
-            return (h != null && h.isAlive()) ? h.process() : null;
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
     private static long elapsedMillis(long startNanos) {
         return (System.nanoTime() - startNanos) / 1_000_000;
     }

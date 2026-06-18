@@ -206,10 +206,6 @@ public class ClaudeSession {
         return state.getChannelId();
     }
 
-    public boolean isBusy() {
-        return state.isBusy();
-    }
-
     public boolean isLoading() {
         return state.isLoading();
     }
@@ -620,31 +616,6 @@ public class ClaudeSession {
     }
 
     /**
-     * 收集当前 tab 活跃的 CLI 子进程，供 NodeProcessRegistry 进程面板注册可见。
-     * CLI 模式的 claude/codex 子进程此前不在任何 SDK bridge 的 processManager 里，面板漏显（不可见、不可杀）。
-     */
-    public void collectCliProcesses(java.util.function.BiConsumer<String, Process> sink) {
-        if (sink == null) {
-            return;
-        }
-        try {
-            String tabId = state.getChannelId();
-            if (tabId != null) {
-                sendService.collectCliProcesses(tabId, sink);
-            }
-        } catch (Exception e) {
-            LOG.warn("[ClaudeSession] collectCliProcesses failed: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Get the permission manager.
-     */
-    public PermissionManager getPermissionManager() {
-        return permissionManager;
-    }
-
-    /**
      * Set the permission mode.
      * Maps frontend permission mode strings to PermissionManager enum values.
      */
@@ -741,10 +712,6 @@ public class ClaudeSession {
         LOG.info("Claude invocation mode updated to: " + state.getClaudeInvocationMode());
     }
 
-    public String getPermissionSessionId() {
-        return state.getPermissionSessionId();
-    }
-
     public void setPermissionSessionId(String permissionSessionId) {
         state.setPermissionSessionId(permissionSessionId);
     }
@@ -754,22 +721,6 @@ public class ClaudeSession {
      */
     public String getRuntimeSessionEpoch() {
         return state.getRuntimeSessionEpoch();
-    }
-
-    /**
-     * Rotate the runtime session epoch.
-     * <p>
-     * 当前设计:每个会话在 SessionState 构造时分配随机 epoch 并在会话生命周期内保持不变
-     * (作为 RuntimeKey 去重键、SDK daemon {@code resetPersistentRuntime} 标识、attachment
-     * pending→real 映射键)。"重置会话"走新建 ClaudeSession 路径(自带新 epoch),不调用本方法,
-     * 故本方法目前无生产调用者。保留为预留 API,供未来"会话内软重置"(复用同一 ClaudeSession
-     * 实例但切换底层 runtime 上下文)场景使用——届时在 reset 点调用即可让旧 epoch 的在途
-     * 请求/attachment 失效。这不是遗漏,删它前请确认无此规划。
-     */
-    public String rotateRuntimeSessionEpoch() {
-        String epoch = state.rotateRuntimeSessionEpoch();
-        LOG.info("[Lifecycle] Rotated runtime session epoch to: " + epoch);
-        return epoch;
     }
 
     /**
@@ -792,28 +743,6 @@ public class ClaudeSession {
      */
     public void setCodexServiceTier(String serviceTier) {
         state.setCodexServiceTier(serviceTier);
-    }
-
-    /**
-     * Get the Codex service tier.
-     */
-    public String getCodexServiceTier() {
-        return state.getCodexServiceTier();
-    }
-
-    /**
-     * Get the list of available slash commands.
-     */
-    public List<String> getSlashCommands() {
-        return state.getSlashCommands();
-    }
-
-
-    /**
-     * Create a permission request (called by the SDK).
-     */
-    public PermissionRequest createPermissionRequest(String toolName, Map<String, Object> inputs, JsonObject suggestions, Project project) {
-        return permissionManager.createRequest(state.getChannelId(), toolName, inputs, suggestions, project);
     }
 
     /**

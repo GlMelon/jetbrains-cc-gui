@@ -117,17 +117,6 @@ public class CodexCliSession implements CliSession {
         this.mcpConfig = new CliMcpConfig(tabId);
     }
 
-    @Override
-    public Process activeProcess() {
-        // 进程面板可见性:返回当前活跃且存活的 CLI 子进程。dispose/无活跃进程时返回 null。
-        CliProcessHandle h = activeHandle;
-        try {
-            return (h != null && h.isAlive()) ? h.process() : null;
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
     public CompletableFuture<Void> send(CliSendRequest request, CliSessionCallback callback) {
         prepareForSend();
         return CliSessionExecutor.runAsync(() -> {
@@ -307,10 +296,6 @@ public class CodexCliSession implements CliSession {
                 + TabPerformanceLogger.elapsedMillis(cleanupStartNanos) + "ms: tab=" + tabId);
         LOG.info("[TabPerf] CodexCliSession.dispose returned in "
                 + TabPerformanceLogger.elapsedMillis(startNanos) + "ms: tab=" + tabId);
-    }
-
-    public String getThreadId() {
-        return threadId;
     }
 
     // ── event parsing ────────────────────────────────────────────────────────

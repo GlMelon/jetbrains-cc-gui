@@ -31,8 +31,6 @@ public class SessionSendService {
     private final MessageParser messageParser;
     private final MessageMerger messageMerger;
     private final Gson gson;
-    private final ClaudeSDKBridge claudeSDKBridge;
-    private final CodexSDKBridge codexSDKBridge;
     private final SessionContextService contextService;
     private final SessionRuntimeRouter runtimeRouter;
 
@@ -53,8 +51,6 @@ public class SessionSendService {
         this.messageParser = messageParser;
         this.messageMerger = messageMerger;
         this.gson = gson;
-        this.claudeSDKBridge = claudeSDKBridge;
-        this.codexSDKBridge = codexSDKBridge;
         this.contextService = contextService;
         this.runtimeRouter = new SessionRuntimeRouter(claudeSDKBridge, codexSDKBridge);
     }
@@ -82,14 +78,6 @@ public class SessionSendService {
 
     public void cleanupRuntimeTab(String tabId) {
         runtimeRouter.disposeTab(tabId);
-    }
-
-    /**
-     * 收集当前 tab 活跃的 CLI 子进程（委托 router → CliSessionManager），
-     * 供 NodeProcessRegistry 进程面板注册可见。SDK runtime 无 CLI 子进程，仅 CLI 模式生效。
-     */
-    public void collectCliProcesses(String channelId, java.util.function.BiConsumer<String, Process> sink) {
-        runtimeRouter.collectCliProcesses(channelId, sink);
     }
 
     public void updateSessionStateForSend(ClaudeSession.Message userMessage, String normalizedInput) {

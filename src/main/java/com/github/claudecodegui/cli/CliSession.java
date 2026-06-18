@@ -31,12 +31,4 @@ public interface CliSession {
      * 释放 CLI 会话资源（中断进程 + 清理临时文件等）。
      */
     void dispose();
-
-    /**
-     * 返回当前活跃的 CLI 子进程（若存在且存活），供 NodeProcessRegistry 进程面板注册可见。
-     * 默认返回 null（SDK runtime 无 CLI 子进程）。CLI 实现类按需 override。
-     */
-    default Process activeProcess() {
-        return null;
-    }
 }

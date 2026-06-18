@@ -54,11 +54,4 @@ public class SessionRuntimeRouter {
         registry.all().forEach(r -> r.disposeTab(tabId));
     }
 
-    /**
-     * 收集指定 tab 的 CLI 子进程（委托 CliSessionManager），供进程面板可见。
-     * SDK runtime 无 CLI 子进程，此方法仅 CLI 模式生效。
-     */
-    public void collectCliProcesses(String tabId, java.util.function.BiConsumer<String, Process> sink) {
-        cliManager.collectActiveProcesses(tabId, sink);
-    }
 }

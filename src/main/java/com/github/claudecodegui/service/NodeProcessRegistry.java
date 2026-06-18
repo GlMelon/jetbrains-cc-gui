@@ -196,41 +196,6 @@ public final class NodeProcessRegistry implements Disposable {
                 }
             }
 
-            // -- CHANNEL entries from CliSessionManager (CLI-mode subprocesses) --
-            // CLI 模式的 claude/codex 子进程不在任何 SDK bridge 的 processManager 里,
-            // 此前面板漏显(不可见、不可杀)。通过 session → router → CliSessionManager 显式收集,
-            // 归为 CHANNEL(每 tab 一个子进程),provider 标 CLI provider 以区分。加入 knownPids
-            // 避免被 orphan 扫描重复列出。
-            try {
-                ClaudeSession cliSess = safeSession(window);
-                if (cliSess != null) {
-                    cliSess.collectCliProcesses((cliProvider, process) -> {
-                        if (process == null || !process.isAlive()) {
-                            return;
-                        }
-                        long pid = process.pid();
-                        knownPids.add(pid);
-                        ProcessHandle.Info info = safeInfo(process);
-                        long startedAt = info != null
-                                ? info.startInstant().map(Instant::toEpochMilli).orElse(-1L)
-                                : -1L;
-                        result.add(NodeProcessInfo.builder()
-                                .kind(NodeProcessInfo.Kind.CHANNEL)
-                                .provider(cliProvider != null ? cliProvider : tabProvider)
-                                .pid(pid)
-                                .alive(true)
-                                .startedAtMs(startedAt)
-                                .uptimeMs(startedAt > 0 ? Math.max(0, now - startedAt) : 0L)
-                                .command(extractCommand(info))
-                                .channelId("cli:" + cliProvider)
-                                .sessionId(sessionId)
-                                .tabName(tabName)
-                                .build());
-                    });
-                }
-            } catch (Exception e) {
-                LOG.warn("[NodeProcessRegistry] Failed to collect CLI processes: " + e.getMessage());
-            }
         }
 
         // -- ORPHAN scan --
@@ -490,14 +455,6 @@ public final class NodeProcessRegistry implements Disposable {
     private static @Nullable CodexSDKBridge safeCodexBridge(ClaudeChatWindow window) {
         try {
             return window != null ? window.getCodexSDKBridge() : null;
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    private static @Nullable ClaudeSession safeSession(ClaudeChatWindow window) {
-        try {
-            return window != null ? window.getSession() : null;
         } catch (Exception e) {
             return null;
         }

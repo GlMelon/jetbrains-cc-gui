@@ -99,33 +99,6 @@ public class ErrorPanelBuilder {
     }
 
     /**
-     * Builds a simple error panel without the Node.js path input field.
-     */
-    public static JPanel buildSimple(String title, String message) {
-        JPanel errorPanel = new JPanel(new BorderLayout());
-        errorPanel.setBackground(new Color(30, 30, 30));
-
-        JLabel titleLabel = new JLabel(title);
-        titleLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
-        titleLabel.setForeground(Color.WHITE);
-        titleLabel.setBorder(BorderFactory.createEmptyBorder(20, 20, 10, 20));
-
-        JTextArea textArea = new JTextArea(message);
-        textArea.setEditable(false);
-        textArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
-        textArea.setBackground(new Color(40, 40, 40));
-        textArea.setForeground(new Color(220, 220, 220));
-        textArea.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        textArea.setLineWrap(true);
-        textArea.setWrapStyleWord(true);
-
-        errorPanel.add(titleLabel, BorderLayout.NORTH);
-        errorPanel.add(new JScrollPane(textArea), BorderLayout.CENTER);
-
-        return errorPanel;
-    }
-
-    /**
      * Build a centered icon+title+message panel (used for JCEF errors and loading).
      */
     public static JPanel buildCenteredPanel(String icon, String title, String message) {

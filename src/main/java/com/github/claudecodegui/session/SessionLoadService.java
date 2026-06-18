@@ -39,24 +39,4 @@ public class SessionLoadService {
             pendingProjectPath = null;
         }
     }
-
-    /**
-     * Requests loading a session (called by the "Session History" window).
-     */
-    public void requestLoadSession(String sessionId, String projectPath) {
-        if (listener != null) {
-            listener.onLoadSessionRequest(sessionId, projectPath);
-        } else {
-            // If the listener has not been set yet, save the request as pending
-            pendingSessionId = sessionId;
-            pendingProjectPath = projectPath;
-        }
-    }
-
-    /**
-     * Clears the listener.
-     */
-    public void clearListener() {
-        this.listener = null;
-    }
 }

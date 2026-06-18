@@ -1,8 +1,5 @@
 package com.github.claudecodegui.settings;
 
-import com.github.claudecodegui.skill.CodexSkillService;
-import com.github.claudecodegui.skill.SharedSkillConfigAggregator;
-import com.github.claudecodegui.skill.SkillService;
 import com.google.gson.JsonObject;
 
 import java.io.IOException;
@@ -48,14 +45,4 @@ public class RuntimeSharedConfigService {
         return normalized;
     }
 
-    /**
-     * Returns plugin-managed skill metadata together with Claude and Codex runtime projections.
-     * This is a read-only aggregation layer; provider-specific enable/delete/import behavior remains unchanged.
-     */
-    public JsonObject getSharedSkills(String projectPath) throws IOException {
-        List<JsonObject> sharedSkills = settingsService.getSkills();
-        JsonObject claudeSkills = SkillService.getAllSkills(projectPath);
-        JsonObject codexSkills = CodexSkillService.getAllSkills(projectPath);
-        return SharedSkillConfigAggregator.aggregate(sharedSkills, claudeSkills, codexSkills);
-    }
 }
