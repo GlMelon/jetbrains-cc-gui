@@ -61,6 +61,12 @@ public class SessionLifecycleManager {
                                                           : CompletableFuture.completedFuture(null);
 
         interruptFuture.thenRun(() -> {
+            // 并发守卫:若自本次 reset 发起后 host.session 已被更新的 reset 替换,放弃本次 bootstrap,
+            // 避免本次创建的 newSession 被覆盖而未 dispose(CLI 子进程/SDK bridge 泄漏)。
+            if (host.getSession() != oldSession) {
+                LOG.info("[Lifecycle] createNewSession superseded by a newer reset; abandoning bootstrap");
+                return;
+            }
             if (oldSession != null && !isClaudeCliSession(oldSession)) {
                 host.getClaudeSDKBridge().resetPersistentRuntime(oldSession.getRuntimeSessionEpoch());
                 LOG.info("[Lifecycle] Requested daemon runtime reset for old epoch=" + oldSession.getRuntimeSessionEpoch());
@@ -102,6 +108,12 @@ public class SessionLifecycleManager {
                 : CompletableFuture.completedFuture(null);
 
         interruptFuture.thenRun(() -> {
+            // 并发守卫:若自本次 reset 发起后 host.session 已被更新的 reset 替换,放弃本次 bootstrap,
+            // 避免本次创建的 newSession 被覆盖而未 dispose(CLI 子进程/SDK bridge 泄漏)。
+            if (host.getSession() != oldSession) {
+                LOG.info("[Lifecycle] createNewSessionFromTemplate superseded by a newer reset; abandoning bootstrap");
+                return;
+            }
             if (oldSession != null && !isClaudeCliSession(oldSession)) {
                 host.getClaudeSDKBridge().resetPersistentRuntime(oldSession.getRuntimeSessionEpoch());
                 LOG.info("[Lifecycle] Requested daemon runtime reset for old epoch=" + oldSession.getRuntimeSessionEpoch());
@@ -194,6 +206,12 @@ public class SessionLifecycleManager {
                 : CompletableFuture.completedFuture(null);
 
         interruptFuture.thenRun(() -> {
+            // 并发守卫:若自本次 reset 发起后 host.session 已被更新的 reset 替换,放弃本次 bootstrap,
+            // 避免本次创建的 newSession 被覆盖而未 dispose(CLI 子进程/SDK bridge 泄漏)。
+            if (host.getSession() != oldSession) {
+                LOG.info("[Lifecycle] loadHistorySession superseded by a newer reset; abandoning bootstrap");
+                return;
+            }
             if (oldSession != null && !isClaudeCliSession(oldSession)) {
                 host.getClaudeSDKBridge().resetPersistentRuntime(oldSession.getRuntimeSessionEpoch());
                 LOG.info("[Lifecycle] Requested daemon runtime reset before history load for old epoch="
