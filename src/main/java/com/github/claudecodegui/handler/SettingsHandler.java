@@ -552,6 +552,7 @@ public class SettingsHandler extends BaseMessageHandler {
             obj.addProperty("contextWindow", model.contextWindow());
             obj.addProperty("supports1MContext", model.supports1MContext());
             obj.addProperty("enabled", model.enabled());
+            obj.addProperty("readOnly", model.readOnly());
             items.add(obj);
         }
         root.add("items", items);
