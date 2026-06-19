@@ -20,6 +20,16 @@ export const SPECIAL_PROVIDER_IDS = {
 } as const;
 
 /**
+ * 基础 provider id 常量(与后端 CommonConstants.PROVIDER_CLAUDE/PROVIDER_CODEX 对齐)。
+ * 运行时比较 provider 时统一引用,避免散落的 'claude'/'codex' 字面量。
+ * 注:前端历史代码中 'claude'/'codex' 字面量较多,统一化重构逐步收敛到本常量。
+ */
+export const PROVIDER_IDS = {
+  CLAUDE: 'claude',
+  CODEX: 'codex',
+} as const;
+
+/**
  * Check if a provider ID is a special pseudo provider
  * @param id - Provider ID to check
  * @returns Whether this is a special pseudo provider that cannot be updated via update_provider

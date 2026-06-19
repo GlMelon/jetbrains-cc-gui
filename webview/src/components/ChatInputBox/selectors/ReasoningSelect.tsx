@@ -4,6 +4,7 @@ import {
   REASONING_LEVELS,
   type ReasoningEffort,
 } from '../types';
+import { PROVIDER_IDS } from '../../../types/provider';
 import { resolveClaudeRoleForModel } from '../../../utils/modelRegistry';
 import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
 
@@ -56,11 +57,11 @@ export const ReasoningSelect = ({ value, onChange, disabled, selectedModel, curr
   const supportsEffort = role === 'opus' || role === 'fable' || role === 'sonnet';
 
   // Claude:按 role 判断是否显示(支持 adaptive thinking 的 role 才显示)。
-  const isVisible = currentProvider !== 'claude' || !selectedModel || supportsEffort;
+  const isVisible = currentProvider !== PROVIDER_IDS.CLAUDE || !selectedModel || supportsEffort;
 
   // 根据当前模型能力构建可选级别。
   const availableLevels = REASONING_LEVELS.filter(level => {
-    if (currentProvider !== 'claude') {
+    if (currentProvider !== PROVIDER_IDS.CLAUDE) {
       return level.id !== 'max';
     }
     if (!selectedModel) {
