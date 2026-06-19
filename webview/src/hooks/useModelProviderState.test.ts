@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useModelProviderState } from './useModelProviderState';
 import { sendBridgeEvent } from '../utils/bridge';
 import { __setModelRegistryForTests, resetModelRegistryForTests } from '../utils/modelRegistry';
+import { bridgeHub } from '../bridge';
+import { DOWNSTREAM } from '../generated/protocol';
 
 vi.mock('../utils/bridge', () => ({
   sendBridgeEvent: vi.fn(),
@@ -14,6 +16,8 @@ const addToast = vi.fn();
 describe('useModelProviderState', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    bridgeHub.reset();
+    bridgeHub.markReady();
     resetModelRegistryForTests();
   });
 
@@ -104,5 +108,23 @@ describe('useModelProviderState', () => {
       model: 'mimo-v2.5-pro',
       contextWindow: 1_000_000,
     });
+  });
+
+  it('applies backend model selection event as display state', () => {
+    const { result } = renderHook(() => useModelProviderState({ addToast, t }));
+
+    act(() => {
+      bridgeHub.dispatch(DOWNSTREAM.MODEL_SELECTION, JSON.stringify({
+        provider: 'claude',
+        selectedModel: 'mimo-v2.5-pro',
+        effectiveContextWindow: 1_000_000,
+        supportsLongContext: true,
+      }));
+    });
+
+    expect(result.current.currentProvider).toBe('claude');
+    expect(result.current.selectedClaudeModel).toBe('mimo-v2.5-pro');
+    expect(result.current.selectedModel).toBe('mimo-v2.5-pro');
+    expect(result.current.longContextEnabled).toBe(true);
   });
 });

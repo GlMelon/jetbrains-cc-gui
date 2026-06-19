@@ -1,6 +1,8 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import type {TFunction} from 'i18next';
 import {sendBridgeEvent} from '../utils/bridge';
+import { DOWNSTREAM } from '../generated/protocol';
+import { subscribeEvent } from '../bridge/typed';
 import type {PermissionMode} from '../components/ChatInputBox/types';
 import {modelSupports1MContext, normalizeClaudeModelId, strip1MContextSuffix,} from '../components/ChatInputBox/types';
 import {isSpecialProviderId, PROVIDER_PRESETS} from '../types/provider';
@@ -97,6 +99,37 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
 
   const [modelRegistryVersion, setModelRegistryVersion] = useState(0);
   useEffect(() => subscribeModelRegistry(() => setModelRegistryVersion((version) => version + 1)), []);
+
+  useEffect(() => subscribeEvent(DOWNSTREAM.MODEL_SELECTION, (json) => {
+    try {
+      const data = typeof json === 'string' ? JSON.parse(json) : json;
+      if (!data || typeof data !== 'object') {
+        return;
+      }
+      const selection = data as {
+        provider?: string;
+        selectedModel?: string;
+        effectiveContextWindow?: number;
+        supportsLongContext?: boolean;
+      };
+      const selected = strip1MContextSuffix(selection.selectedModel);
+      if (!selected) {
+        return;
+      }
+      const provider = selection.provider === 'codex' ? 'codex' : 'claude';
+      setCurrentProvider(provider);
+      if (provider === 'codex') {
+        setSelectedCodexModel(selected);
+        return;
+      }
+      setSelectedClaudeModel(selected);
+      setLongContextEnabled(
+        selection.supportsLongContext === true && selection.effectiveContextWindow === 1_000_000,
+      );
+    } catch {
+      // Ignore malformed backend selection events; existing state remains authoritative for display.
+    }
+  }), [setLongContextEnabled, setSelectedClaudeModel, setSelectedCodexModel]);
 
   // ── Cross-provider handlers ──
   const handleModeSelect = useCallback((mode: PermissionMode) => {
