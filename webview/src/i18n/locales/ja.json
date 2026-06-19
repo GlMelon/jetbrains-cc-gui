@@ -140,6 +140,9 @@
   },
   "settings": {
     "title": "設定",
+    "models": {
+      "readonly": "読み取り専用"
+    },
     "basic": {
       "title": "基本設定",
       "description": "ページテーマ、言語、Node.js環境を設定",

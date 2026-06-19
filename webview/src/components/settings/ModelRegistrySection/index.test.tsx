@@ -1,10 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import ModelRegistrySection from './index';
 import { __setModelRegistryForTests } from '../../../utils/modelRegistry';
+import { sendBridgeEvent } from '../../../utils/bridge';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (_key: string, fallback?: string) => fallback ?? _key }),
+}));
+
+vi.mock('../../../utils/bridge', () => ({
+  sendBridgeEvent: vi.fn(),
 }));
 
 const mockAddToast = vi.fn();
@@ -66,5 +71,45 @@ describe('ModelRegistrySection', () => {
     // getByTitle 找不到会抛错;能取到即说明按钮存在
     expect(screen.getByTitle('Edit')).toBeTruthy();
     expect(screen.getByTitle('Delete')).toBeTruthy();
+  });
+
+  it('persist 时剥离只读项,仅发送用户自定义层', () => {
+    __setModelRegistryForTests({
+      items: [
+        {
+          id: 'claude-role-sonnet',
+          provider: 'claude',
+          role: 'sonnet',
+          label: 'Sonnet',
+          contextWindow: 200000,
+          readOnly: true,
+          enabled: true,
+        },
+        {
+          id: 'mimo',
+          provider: 'claude',
+          role: 'sonnet',
+          label: 'Mimo',
+          contextWindow: 200000,
+          readOnly: false,
+          enabled: true,
+        },
+      ],
+    });
+    vi.mocked(sendBridgeEvent).mockClear();
+
+    render(<ModelRegistrySection addToast={mockAddToast} />);
+
+    // 删除唯一的可编辑行(mimo)→ 触发 persistRegistry
+    fireEvent.click(screen.getByTitle('Delete'));
+
+    // 定位 set_model_registry 调用(跳过 useEffect 先发的 get_model_registry)
+    const setCall = vi.mocked(sendBridgeEvent).mock.calls.find(
+      (call) => call[0] === 'set_model_registry',
+    );
+    expect(setCall).toBeDefined();
+    const payload = JSON.parse(setCall![1]);
+    // 只读项 claude-role-sonnet 必须被剥离;mimo 已被删除 → 用户层为空
+    expect(payload.items).toEqual([]);
   });
 });

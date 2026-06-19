@@ -385,7 +385,8 @@
       "disabled": "已禁用",
       "saveSuccess": "模型配置已保存",
       "saveFailed": "模型配置被拒绝",
-      "duplicateModel": "已存在相同 ID 的模型"
+      "duplicateModel": "已存在相同 ID 的模型",
+      "readonly": "只读"
     },
     "dependencies": "SDK 依赖",
     "dependenciesDesc": "管理 AI SDK 依赖包的安装和更新",

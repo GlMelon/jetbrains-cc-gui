@@ -140,6 +140,9 @@
   },
   "settings": {
     "title": "설정",
+    "models": {
+      "readonly": "읽기 전용"
+    },
     "basic": {
       "title": "기본 설정",
       "description": "페이지 테마, 언어 및 Node.js 환경 설정",

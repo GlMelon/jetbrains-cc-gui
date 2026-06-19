@@ -143,6 +143,9 @@
   },
   "settings": {
     "title": "設定",
+    "models": {
+      "readonly": "唯讀"
+    },
     "basic": {
       "title": "基礎配置",
       "description": "配置頁面主題、語言和 Node.js 執行環境",

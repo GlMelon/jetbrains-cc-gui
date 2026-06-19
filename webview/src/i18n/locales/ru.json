@@ -140,6 +140,9 @@
   },
   "settings": {
     "title": "Настройки",
+    "models": {
+      "readonly": "Только чтение"
+    },
     "basic": {
       "title": "Основные настройки",
       "description": "Тема, язык и окружение Node.js",

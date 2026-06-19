@@ -140,6 +140,9 @@
   },
   "settings": {
     "title": "Configurações",
+    "models": {
+      "readonly": "Somente leitura"
+    },
     "basic": {
       "title": "Configuração Básica",
       "description": "Configurar tema da página, idioma e ambiente Node.js",

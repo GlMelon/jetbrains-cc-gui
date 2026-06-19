@@ -277,7 +277,9 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
             </div>
             <div className={styles.rowActions}>
               {model.readOnly ? (
-                <span className={`${styles.iconButton} codicon codicon-lock`} aria-hidden="true"
+                <span className={`${styles.iconButton} codicon codicon-lock`}
+                      role="img"
+                      aria-label={t('settings.models.readonly', 'Read-only')}
                       title={t('settings.models.readonly', 'Read-only')} />
               ) : (
                 <>
