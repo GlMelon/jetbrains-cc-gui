@@ -125,3 +125,9 @@ export async function handleClaudeCommand(command, args, stdinData) {
 export function getClaudeCommandList() {
   return ['send', 'sendWithAttachments', 'getSession', 'getLatestUserMessage', 'rewindFiles', 'getMcpServerStatus', 'getMcpServerTools', 'resetRuntime', 'getContextUsage'];
 }
+
+export const claudeChannelDescriptor = {
+  provider: 'claude',
+  commands: getClaudeCommandList(),
+  handle: handleClaudeCommand,
+};

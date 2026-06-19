@@ -66,3 +66,9 @@ export async function handleCodexCommand(command, args, stdinData) {
 export function getCodexCommandList() {
   return ['send', 'getMcpServerTools', 'clearThreadCache'];
 }
+
+export const codexChannelDescriptor = {
+  provider: 'codex',
+  commands: getCodexCommandList(),
+  handle: handleCodexCommand,
+};
