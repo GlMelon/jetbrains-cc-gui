@@ -66,6 +66,30 @@ describe('modelRegistry', () => {
     expect(parseModelRegistryPayload({ items: [{ id: '', provider: 'claude' }] })).toBeNull();
   });
 
+  it('reads readOnly flag when true', () => {
+    const parsed = parseModelRegistryPayload({
+      items: [
+        {
+          id: 'claude-role-sonnet',
+          provider: 'claude',
+          label: 'Sonnet',
+          contextWindow: 200000,
+          readOnly: true,
+        },
+      ],
+    });
+    expect(parsed?.items[0].readOnly).toBe(true);
+  });
+
+  it('defaults readOnly to false when absent', () => {
+    const parsed = parseModelRegistryPayload({
+      items: [
+        { id: 'mimo', provider: 'claude', label: 'Mimo', contextWindow: 200000 },
+      ],
+    });
+    expect(parsed?.items[0].readOnly).toBe(false);
+  });
+
   it('defaults do not include hard-coded Codex GPT model catalog', () => {
     const codexModels = getModelsForProvider('codex');
     expect(codexModels).toEqual([]);

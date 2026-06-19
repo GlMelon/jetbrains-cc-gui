@@ -10,6 +10,7 @@ export interface ModelRegistryItem extends ModelInfo {
   actualModel?: string;
   supports1MContext?: boolean;
   enabled?: boolean;
+  readOnly?: boolean;
 }
 
 export interface ModelRegistryPayload {
@@ -251,6 +252,7 @@ export function parseModelRegistryPayload(raw: unknown): ModelRegistryPayload | 
         contextWindow,
         supports1MContext: obj.supports1MContext === true,
         enabled: obj.enabled !== false,
+        readOnly: obj.readOnly === true,
       });
     }
     return items.length > 0 ? { items } : null;
