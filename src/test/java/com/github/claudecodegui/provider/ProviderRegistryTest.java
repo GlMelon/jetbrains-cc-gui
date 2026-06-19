@@ -1,5 +1,7 @@
 package com.github.claudecodegui.provider;
 
+import com.github.claudecodegui.provider.claude.ClaudeProviderAdapter;
+import com.github.claudecodegui.provider.codex.CodexProviderAdapter;
 import org.junit.Test;
 
 import java.util.List;
@@ -38,6 +40,24 @@ public class ProviderRegistryTest {
         ));
     }
 
+    @Test
+    public void claudeAdapterExposesProviderMetadata() {
+        ProviderAdapter adapter = new ClaudeProviderAdapter();
+
+        assertEquals(ProviderId.CLAUDE, adapter.providerId());
+        assertEquals(ProviderId.CLAUDE, adapter.viewModel().providerId());
+        assertEquals("Claude", adapter.viewModel().displayName());
+    }
+
+    @Test
+    public void codexAdapterExposesProviderMetadata() {
+        ProviderAdapter adapter = new CodexProviderAdapter();
+
+        assertEquals(ProviderId.CODEX, adapter.providerId());
+        assertEquals(ProviderId.CODEX, adapter.viewModel().providerId());
+        assertEquals("Codex", adapter.viewModel().displayName());
+    }
+
     private static final class FakeProviderAdapter implements ProviderAdapter {
         private final ProviderId providerId;
 
@@ -48,6 +68,11 @@ public class ProviderRegistryTest {
         @Override
         public ProviderId providerId() {
             return providerId;
+        }
+
+        @Override
+        public ProviderViewModel viewModel() {
+            return new ProviderViewModel(providerId, providerId.value());
         }
     }
 }
