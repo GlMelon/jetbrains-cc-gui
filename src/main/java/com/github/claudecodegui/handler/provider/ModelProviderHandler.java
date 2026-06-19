@@ -92,15 +92,17 @@ public class ModelProviderHandler {
      *
      * @param model               clean model ID (without [1m] suffix)
      * @param contextWindowOverride desired context window from frontend (null = use backend default)
-     * @param isSessionOnly       true for set_session_model (don't update HandlerContext.currentModel)
+     * @param isSessionOnly       true for set_session_model(仅影响 provider 来源,见
+     *                            {@link #confirmedProviderForModelChange};不再守卫全局默认更新)
      */
     private void applyModelChange(String model, Integer contextWindowOverride, boolean isSessionOnly) {
         LOG.info("[ModelProviderHandler] Setting model to: " + model
                 + (contextWindowOverride != null ? " (contextWindow=" + contextWindowOverride + ")" : ""));
 
-        if (!isSessionOnly) {
-            context.setCurrentModel(model);
-        }
+        // 模型选择同时更新全局默认(粘性):无论 set_model 还是 set_session_model,
+        // 都让用户最近选择的模型成为新建会话的默认。model 与 provider 成对更新
+        // (见 handleSetSessionProvider),以保证新建会话的 provider/model 一致。
+        context.setCurrentModel(model);
 
         // [1m] suffix: only for Claude models (CLI and SDK both recognize it)
         String storedModel = model;
@@ -200,11 +202,19 @@ public class ModelProviderHandler {
     public void handleSetSessionProvider(String content) {
         try {
             String provider = parseProvider(content);
+            String previousProvider = context.getCurrentProvider();
 
             LOG.info("[ModelProviderHandler] Setting session provider to: " + provider);
+            // 会话级 provider 切换也更新全局默认(粘性),与 set_model 的全局默认更新
+            // 成对,保证新建会话沿用用户最近选择的 provider(而非回退到默认)。
+            context.setCurrentProvider(provider);
             if (context.getSession() != null) {
                 context.getSession().setProvider(provider);
             }
+
+            // 与 handleSetProvider 保持一致:离开 Claude 家族时清理残留 daemon,
+            // 避免切走后 claude daemon 在会话剩余生命周期内泄漏。
+            shutdownStaleClaudeDaemonIfLeavingClaude(previousProvider, provider);
 
             refreshSlashCommandsForProvider(provider);
             usagePushService.refreshContextBar();
