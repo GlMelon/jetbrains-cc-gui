@@ -24,6 +24,7 @@ public enum DownstreamEvent implements ProtocolValue {
     MODE_RECEIVED("mode.received"),
     MODEL_CHANGED("model.changed"),
     MODEL_CONFIRMED("model.confirmed"),
+    MODEL_SELECTION("model.selection"),
 
     // ── Provider ──
     PROVIDER_LIST("provider.list"),

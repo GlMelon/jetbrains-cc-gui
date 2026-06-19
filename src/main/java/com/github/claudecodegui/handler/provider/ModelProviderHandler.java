@@ -5,6 +5,10 @@ import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.config.ModelRegistryConfig;
 import com.github.claudecodegui.handler.UsagePushService;
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.model.selection.DefaultModelCapabilityResolver;
+import com.github.claudecodegui.model.selection.ModelSelectionRequest;
+import com.github.claudecodegui.model.selection.ModelSelectionResult;
+import com.github.claudecodegui.protocol.DownstreamEvent;
 
 import com.github.claudecodegui.session.SessionSendService;
 import com.github.claudecodegui.skill.SlashCommandRegistry;
@@ -104,12 +108,17 @@ public class ModelProviderHandler {
         // (见 handleSetSessionProvider),以保证新建会话的 provider/model 一致。
         context.setCurrentModel(model);
 
-        // [1m] suffix: only for Claude models (CLI and SDK both recognize it)
-        String storedModel = model;
-        if (contextWindowOverride != null && contextWindowOverride >= 1_000_000
-                && isClaudeModel(model)) {
-            storedModel = model.replaceFirst("(?i)\\[1m\\]$", "") + "[1m]";
-        }
+        final String confirmedProvider = isSessionOnly
+                ? (context.getSession() != null ? context.getSession().getProvider() : context.getCurrentProvider())
+                : context.getCurrentProvider();
+        ModelSelectionResult selection = new DefaultModelCapabilityResolver(context.getSettingsService().getModelRegistry())
+                .resolve(new ModelSelectionRequest(
+                        confirmedProvider,
+                        model,
+                        contextWindowOverride,
+                        contextWindowOverride != null && contextWindowOverride >= 1_000_000
+                ));
+        String storedModel = selection.storedModel();
 
         if (context.getSession() != null) {
             context.getSession().setModel(storedModel);
@@ -124,35 +133,23 @@ public class ModelProviderHandler {
             context.getSession().getState().setContextWindowOverride(contextWindowOverride);
         }
 
-        // Calculate effective max tokens (capped at model's actual limit)
-        ModelRegistryConfig.ResolvedModelSelection registrySelection = context.getSettingsService()
-                .getModelRegistry()
-                .resolveModelSelection(confirmedProviderForModelChange(isSessionOnly), model);
-        String resolvedModelForUsage = registrySelection.actualModel() != null
-                ? registrySelection.actualModel()
-                : resolveConfiguredClaudeModelFromSettings(model);
-        int modelMaxLimit = context.getSettingsService()
-                .getModelRegistry()
-                .find(confirmedProviderForModelChange(isSessionOnly), model)
-                .map(modelConfig -> modelConfig.contextWindow())
-                .orElseGet(() -> getModelContextLimit(resolvedModelForUsage));
-        int newMaxTokens = (contextWindowOverride != null && contextWindowOverride > 0)
-                ? Math.min(contextWindowOverride, modelMaxLimit)
-                : modelMaxLimit;
+        int newMaxTokens = selection.maxTokens();
         LOG.info("[ModelProviderHandler] Model context limit: " + newMaxTokens
                 + " tokens for selected model: " + model
-                + ", resolved model: " + resolvedModelForUsage);
+                + ", resolved model: " + selection.resolvedActualModel());
 
         final String confirmedModel = model;
-        final String confirmedProvider = isSessionOnly
-                ? (context.getSession() != null ? context.getSession().getProvider() : context.getCurrentProvider())
-                : context.getCurrentProvider();
+        final ModelSelectionResult confirmedSelection = selection;
         ApplicationManager.getApplication().invokeLater(() -> {
             // [归一化] onModelConfirmed(modelId, provider) 原为两参数,归一化为单 JSON {modelId, provider}
             JsonObject confirmedPayload = new JsonObject();
             confirmedPayload.addProperty("modelId", confirmedModel);
             confirmedPayload.addProperty("provider", confirmedProvider);
             context.dispatchEvent("model.confirmed", context.escapeJs(gson.toJson(confirmedPayload)));
+            context.dispatchEvent(
+                    DownstreamEvent.MODEL_SELECTION.value(),
+                    context.escapeJs(gson.toJson(buildModelSelectionPayload(confirmedSelection)))
+            );
             usagePushService.pushUsageUpdateAfterModelChange(newMaxTokens);
         });
     }
@@ -167,6 +164,18 @@ public class ModelProviderHandler {
         }
         String lower = model.toLowerCase();
         return lower.startsWith("claude-") || lower.startsWith("claude_");
+    }
+
+    static JsonObject buildModelSelectionPayload(ModelSelectionResult selection) {
+        JsonObject payload = new JsonObject();
+        payload.addProperty("provider", selection.provider());
+        payload.addProperty("selectedModel", selection.selectedModel());
+        payload.addProperty("storedModel", selection.storedModel());
+        payload.addProperty("resolvedActualModel", selection.resolvedActualModel());
+        payload.addProperty("effectiveContextWindow", selection.effectiveContextWindow());
+        payload.addProperty("maxTokens", selection.maxTokens());
+        payload.addProperty("supportsLongContext", selection.supportsLongContext());
+        return payload;
     }
 
     public void handleSetProvider(String content) {
@@ -434,6 +443,9 @@ public class ModelProviderHandler {
 
         // envKeys 已含 fallback 顺序(Fable→Opus、Haiku→SMALL_FAST→DEFAULT_HAIKU)
         for (String envKey : role.envKeys()) {
+            if (CommonConstants.ENV_ANTHROPIC_SMALL_FAST_MODEL.equals(envKey)) {
+                continue;
+            }
             String mapped = readConfiguredEnvValue(env, envKey);
             if (mapped != null) {
                 return mapped;

@@ -1,5 +1,7 @@
 package com.github.claudecodegui.handler.provider;
 
+import com.github.claudecodegui.model.selection.ModelSelectionResult;
+import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.google.gson.JsonObject;
 import org.junit.Test;
 
@@ -9,6 +11,30 @@ import static org.junit.Assert.*;
  * Regression tests for Claude model resolution in {@link ModelProviderHandler}.
  */
 public class ModelProviderHandlerTest {
+
+    @Test
+    public void modelSelectionPayloadIncludesBackendResolvedContextDetails() {
+        ModelSelectionResult selection = new ModelSelectionResult(
+                "claude",
+                "claude-role-sonnet",
+                "claude-role-sonnet[1m]",
+                "mimo-v2.5-pro",
+                1_000_000,
+                1_000_000,
+                true
+        );
+
+        JsonObject payload = ModelProviderHandler.buildModelSelectionPayload(selection);
+
+        assertEquals("model.selection", DownstreamEvent.MODEL_SELECTION.value());
+        assertEquals("claude", payload.get("provider").getAsString());
+        assertEquals("claude-role-sonnet", payload.get("selectedModel").getAsString());
+        assertEquals("claude-role-sonnet[1m]", payload.get("storedModel").getAsString());
+        assertEquals("mimo-v2.5-pro", payload.get("resolvedActualModel").getAsString());
+        assertEquals(1_000_000, payload.get("effectiveContextWindow").getAsInt());
+        assertEquals(1_000_000, payload.get("maxTokens").getAsInt());
+        assertTrue(payload.get("supportsLongContext").getAsBoolean());
+    }
 
     @Test
     public void shouldPreferMainModelOverrideForAllClaudeModelFamilies() {
