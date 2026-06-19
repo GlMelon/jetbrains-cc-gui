@@ -8,7 +8,7 @@ package com.github.claudecodegui.protocol;
  *
  * <p>⚠️ 修改此文件后需运行 {@code gradle generateProtocol} 更新前端类型。
  */
-public enum UpstreamAction {
+public enum UpstreamAction implements ProtocolValue {
 
     // ── Session ──
     SEND_MESSAGE("send_message"),
@@ -104,6 +104,12 @@ public enum UpstreamAction {
     SET_RUNTIME_POLICY("set_runtime_policy"),
     RESET_RUNTIME_POLICY("reset_runtime_policy"),
     GET_RUNTIME_POLICY_SCHEMA("get_runtime_policy_schema"),
+
+    // ── Model Registry ──
+    GET_MODEL_REGISTRY("get_model_registry"),
+    SET_MODEL_REGISTRY("set_model_registry"),
+    RESET_MODEL_REGISTRY("reset_model_registry"),
+    GET_MODEL_REGISTRY_SCHEMA("get_model_registry_schema"),
 
     // ── Input History ──
     GET_INPUT_HISTORY("get_input_history"),

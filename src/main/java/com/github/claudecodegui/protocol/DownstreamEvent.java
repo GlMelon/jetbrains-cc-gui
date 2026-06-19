@@ -8,7 +8,7 @@ package com.github.claudecodegui.protocol;
  *
  * <p>⚠️ 修改此文件后需运行 {@code gradle generateProtocol} 更新前端类型。
  */
-public enum DownstreamEvent {
+public enum DownstreamEvent implements ProtocolValue {
 
     // ── Usage/Settings ──
     USAGE_UPDATE("usage.update"),
@@ -104,6 +104,11 @@ public enum DownstreamEvent {
     RUNTIME_POLICY_ERROR("runtime_policy_error"),
     RUNTIME_POLICY_UPDATED("runtime_policy_updated"),
     RUNTIME_POLICY_SCHEMA("runtime_policy_schema"),
+
+    // ── Model Registry ──
+    MODEL_REGISTRY("model_registry"),
+    MODEL_REGISTRY_UPDATED("model_registry_updated"),
+    MODEL_REGISTRY_SCHEMA("model_registry_schema"),
 
     // ── Agent ──
     AGENT_LIST("agent.list"),
