@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { bridgeHub } from '../../../bridge';
-import { sendBridgeEvent } from '../../../utils/bridge';
+import { DOWNSTREAM, UPSTREAM } from '../../../generated/protocol';
+import { sendAction, subscribeEvent } from '../../../bridge/typed';
 import type { ModelRegistryItem, ModelRegistryPayload } from '../../../utils/modelRegistry';
 import { getModelRegistrySnapshot, parseModelRegistryPayload, requestModelRegistry } from '../../../utils/modelRegistry';
 import styles from './style.module.less';
@@ -31,13 +31,13 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
 
   useEffect(() => {
     requestModelRegistry();
-    const unsubscribeRegistry = bridgeHub.subscribe('model_registry', (json) => {
+    const unsubscribeRegistry = subscribeEvent(DOWNSTREAM.MODEL_REGISTRY, (json) => {
       const parsed = parseModelRegistryPayload(json);
       if (parsed) {
         setRegistry(parsed);
       }
     });
-    const unsubscribeUpdated = bridgeHub.subscribe('model_registry_updated', (json) => {
+    const unsubscribeUpdated = subscribeEvent(DOWNSTREAM.MODEL_REGISTRY_UPDATED, (json) => {
       try {
         const data = JSON.parse(json as string) as {
           success?: boolean;
@@ -85,7 +85,7 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
   const persistRegistry = useCallback((nextRegistry: ModelRegistryPayload) => {
     const userOnly = { items: nextRegistry.items.filter((item) => !item.readOnly) };
     setRegistry(nextRegistry);
-    sendBridgeEvent('set_model_registry', JSON.stringify(userOnly));
+    sendAction(UPSTREAM.SET_MODEL_REGISTRY, userOnly);
   }, []);
 
   const removeModel = useCallback((model: ModelRegistryItem) => {
@@ -136,7 +136,7 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
   }, [editing, editingOriginalKey, persistRegistry, registry.items, addToast, t]);
 
   const reset = useCallback(() => {
-    sendBridgeEvent('reset_model_registry');
+    sendAction(UPSTREAM.RESET_MODEL_REGISTRY);
   }, []);
 
   return (

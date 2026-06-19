@@ -1,5 +1,5 @@
-import { bridgeHub } from '../bridge';
-import { sendBridgeEvent } from './bridge';
+import { DOWNSTREAM, UPSTREAM } from '../generated/protocol';
+import { sendAction, subscribeEvent } from '../bridge/typed';
 import type { ModelInfo } from '../components/ChatInputBox/types';
 import { CLAUDE_MODELS, CODEX_MODELS, getClaudeRoleFromModelId, normalizeClaudeModelId, strip1MContextSuffix } from '../components/ChatInputBox/types';
 import type { CodexCustomModel, CodexProviderConfig } from '../types/provider';
@@ -45,14 +45,14 @@ export function ensureModelRegistrySubscription(): void {
     return;
   }
   subscribed = true;
-  bridgeHub.subscribe('model_registry', (json) => {
+  subscribeEvent(DOWNSTREAM.MODEL_REGISTRY, (json) => {
     const parsed = parseModelRegistryPayload(json);
     if (!parsed) {
       return;
     }
     publishModelRegistry(parsed);
   });
-  bridgeHub.subscribe('model_registry_updated', (json) => {
+  subscribeEvent(DOWNSTREAM.MODEL_REGISTRY_UPDATED, (json) => {
     try {
       const data = typeof json === 'string' ? JSON.parse(json) : json;
       if (!data || typeof data !== 'object' || (data as { success?: boolean }).success !== true) {
@@ -71,7 +71,7 @@ export function ensureModelRegistrySubscription(): void {
 
 export function requestModelRegistry(): void {
   ensureModelRegistrySubscription();
-  sendBridgeEvent('get_model_registry');
+  sendAction(UPSTREAM.GET_MODEL_REGISTRY);
 }
 
 export function subscribeModelRegistry(listener: () => void): () => void {

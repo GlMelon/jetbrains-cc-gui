@@ -2,14 +2,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import ModelRegistrySection from './index';
 import { __setModelRegistryForTests } from '../../../utils/modelRegistry';
-import { sendBridgeEvent } from '../../../utils/bridge';
+import { sendAction } from '../../../bridge/typed';
+import { UPSTREAM } from '../../../generated/protocol';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (_key: string, fallback?: string) => fallback ?? _key }),
 }));
 
-vi.mock('../../../utils/bridge', () => ({
-  sendBridgeEvent: vi.fn(),
+vi.mock('../../../bridge/typed', () => ({
+  sendAction: vi.fn(),
+  subscribeEvent: vi.fn(() => () => {}),
 }));
 
 const mockAddToast = vi.fn();
@@ -96,7 +98,7 @@ describe('ModelRegistrySection', () => {
         },
       ],
     });
-    vi.mocked(sendBridgeEvent).mockClear();
+    vi.mocked(sendAction).mockClear();
 
     render(<ModelRegistrySection addToast={mockAddToast} />);
 
@@ -104,12 +106,11 @@ describe('ModelRegistrySection', () => {
     fireEvent.click(screen.getByTitle('Delete'));
 
     // 定位 set_model_registry 调用(跳过 useEffect 先发的 get_model_registry)
-    const setCall = vi.mocked(sendBridgeEvent).mock.calls.find(
-      (call) => call[0] === 'set_model_registry',
+    const setCall = vi.mocked(sendAction).mock.calls.find(
+      (call) => call[0] === UPSTREAM.SET_MODEL_REGISTRY,
     );
     expect(setCall).toBeDefined();
-    const payload = JSON.parse(setCall![1]);
     // 只读项 claude-role-sonnet 必须被剥离;mimo 已被删除 → 用户层为空
-    expect(payload.items).toEqual([]);
+    expect(setCall![1]).toEqual({ items: [] });
   });
 });
