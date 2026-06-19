@@ -159,6 +159,66 @@ public class CodemossSettingsServiceModelRegistryTest {
                 .anyMatch(model -> model.id().equals("claude-role-sonnet")));
     }
 
+    // ===== Codex ~/.codex/config.toml 只读默认模型覆盖(G1 测试缺口)=====
+    // 原有测试都用空 tempHome(无 ~/.codex/config.toml),Codex 只读项从未被验证。
+    // 以下 3 个用例补齐 C3 约束的 Codex 一半。
+
+    @Test
+    public void getModelRegistryIncludesReadOnlyCodexDefaultFromConfigToml() throws Exception {
+        Path tempHome = Files.createTempDirectory("model-registry-codex-toml-home");
+        useTemporaryHomeDirectory(tempHome);
+        // config.toml 标准格式:顶层 model = "gpt-5"(带引号字符串,CodexSettingsManager.parseToml 支持)
+        Files.createDirectories(tempHome.resolve(".codex"));
+        Files.writeString(tempHome.resolve(".codex").resolve("config.toml"),
+                "model = \"gpt-5\"\n", java.nio.charset.StandardCharsets.UTF_8);
+
+        ModelRegistryConfig registry = new CodemossSettingsService().getModelRegistry();
+
+        ModelConfig codexDefault = registry.models().stream()
+                .filter(model -> "codex".equals(model.provider()) && "gpt-5".equals(model.id()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("expected read-only codex/gpt-5 from config.toml"));
+        assertTrue("Codex 只读默认项必须标记 readOnly=true", codexDefault.readOnly());
+    }
+
+    @Test
+    public void setModelRegistryRejectsNewConflictWithReadOnlyCodexModel() throws Exception {
+        Path tempHome = Files.createTempDirectory("model-registry-codex-conflict-home");
+        useTemporaryHomeDirectory(tempHome);
+        Files.createDirectories(tempHome.resolve(".codex"));
+        Files.writeString(tempHome.resolve(".codex").resolve("config.toml"),
+                "model = \"gpt-5\"\n", java.nio.charset.StandardCharsets.UTF_8);
+
+        CodemossSettingsService service = new CodemossSettingsService();
+        ModelRegistryConfig conflicting = new ModelRegistryConfig(List.of(
+                new ModelConfig("gpt-5", "codex", "", "Hacked", "evil", "", 200_000, true, true)
+        ));
+
+        assertFalse("新增与只读 Codex 默认同键的项应被拒绝", service.setModelRegistry(conflicting).isValid());
+        // 未落盘:有效 registry 仍由只读默认占据 gpt-5,无用户层篡改项
+        ModelRegistryConfig after = service.getModelRegistry();
+        assertFalse(after.models().stream().anyMatch(model -> "evil".equals(model.actualModel())));
+        assertTrue(after.models().stream()
+                .filter(model -> "gpt-5".equals(model.id()) && "codex".equals(model.provider()))
+                .allMatch(ModelConfig::readOnly));
+    }
+
+    @Test
+    public void setModelRegistryAcceptsNonConflictingCodexCustomModel() throws Exception {
+        Path tempHome = Files.createTempDirectory("model-registry-codex-other-home");
+        useTemporaryHomeDirectory(tempHome);
+        Files.createDirectories(tempHome.resolve(".codex"));
+        Files.writeString(tempHome.resolve(".codex").resolve("config.toml"),
+                "model = \"gpt-5\"\n", java.nio.charset.StandardCharsets.UTF_8);
+
+        CodemossSettingsService service = new CodemossSettingsService();
+        ModelRegistryConfig nonConflicting = new ModelRegistryConfig(List.of(
+                new ModelConfig("other-model", "codex", "", "Other Model", "other-model", "", 128_000, false, true)
+        ));
+
+        assertTrue("非冲突 Codex 自定义模型应可新增", service.setModelRegistry(nonConflicting).isValid());
+    }
+
     private void useTemporaryHomeDirectory(Path tempHome) throws Exception {
         if (originalHomeDir == null) {
             originalHomeDir = getCachedHomeDirectory();

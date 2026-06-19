@@ -101,6 +101,8 @@ public class CodexProviderOperations {
                 handleGetCodexProviders(); // Refresh list
                 if (finalSynced) {
                     handleGetActiveCodexProvider(); // Refresh active provider config
+                    context.dispatchEvent("model_registry",
+                            context.escapeJs(context.getSettingsService().getModelRegistryJson()));
                 }
             });
         } catch (Exception e) {
@@ -197,6 +199,8 @@ public class CodexProviderOperations {
                 handleGetCodexProviders(); // Refresh provider list
                 handleGetCurrentCodexConfig(); // Refresh Codex CLI config display
                 handleGetActiveCodexProvider(); // Refresh active provider config
+                context.dispatchEvent("model_registry",
+                        context.escapeJs(context.getSettingsService().getModelRegistryJson()));
             });
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to switch Codex provider: " + e.getMessage(), e);
@@ -241,6 +245,8 @@ public class CodexProviderOperations {
                 handleGetCodexProviders();
                 handleGetCurrentCodexConfig();
                 handleGetActiveCodexProvider();
+                context.dispatchEvent("model_registry",
+                        context.escapeJs(context.getSettingsService().getModelRegistryJson()));
             });
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to revoke Codex local config authorization: " + e.getMessage(), e);
@@ -272,6 +278,8 @@ public class CodexProviderOperations {
                 handleGetCodexProviders();
                 handleGetCurrentCodexConfig();
                 handleGetActiveCodexProvider();
+                context.dispatchEvent("model_registry",
+                        context.escapeJs(context.getSettingsService().getModelRegistryJson()));
             });
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to switch to Codex CLI login: " + e.getMessage(), e);
