@@ -44,6 +44,7 @@
     "sendMessageEnter": "메시지 보내기 (Enter)",
     "currentMode": "현재 모드: {{mode}}",
     "currentModel": "현재 모델: {{model}}",
+    "noModelConfigured": "모델이 설정되지 않음",
     "removeAttachment": "첨부파일 제거",
     "closePreview": "미리보기 닫기",
     "loadingDropdown": "로딩 중...",

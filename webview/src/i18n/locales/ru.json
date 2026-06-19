@@ -44,6 +44,7 @@
     "sendMessageEnter": "Отправить сообщение (Enter)",
     "currentMode": "Текущий режим: {{mode}}",
     "currentModel": "Текущая модель: {{model}}",
+    "noModelConfigured": "Модель не настроена",
     "removeAttachment": "Удалить вложение",
     "closePreview": "Закрыть предпросмотр",
     "loadingDropdown": "Загрузка...",

@@ -47,6 +47,7 @@
     "sendMessageEnter": "发送消息 (Enter)",
     "currentMode": "当前模式: {{mode}}",
     "currentModel": "当前模型: {{model}}",
+    "noModelConfigured": "未配置模型",
     "removeAttachment": "移除附件",
     "closePreview": "关闭预览",
     "loadingDropdown": "加载中...",

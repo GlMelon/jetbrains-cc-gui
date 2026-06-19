@@ -44,6 +44,7 @@
     "sendMessageEnter": "संदेश भेजें (Enter)",
     "currentMode": "वर्तमान मोड: {{mode}}",
     "currentModel": "वर्तमान मॉडल: {{model}}",
+    "noModelConfigured": "कोई मॉडल कॉन्फ़िगर नहीं है",
     "removeAttachment": "अटैचमेंट हटाएं",
     "closePreview": "पूर्वावलोकन बंद करें",
     "loadingDropdown": "लोड हो रहा है...",

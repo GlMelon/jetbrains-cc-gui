@@ -45,6 +45,7 @@
     "sendMessageEnter": "Send message (Enter)",
     "currentMode": "Current mode: {{mode}}",
     "currentModel": "Current model: {{model}}",
+    "noModelConfigured": "No model configured",
     "removeAttachment": "Remove attachment",
     "closePreview": "Close preview",
     "loadingDropdown": "Loading...",
