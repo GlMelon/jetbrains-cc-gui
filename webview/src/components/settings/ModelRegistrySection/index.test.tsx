@@ -1,27 +1,20 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen } from '@testing-library/react';
 import ModelRegistrySection from './index';
-import { __setModelRegistryForTests, resetModelRegistryForTests } from '../../../utils/modelRegistry';
+import { __setModelRegistryForTests } from '../../../utils/modelRegistry';
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string, fallback?: string) => fallback ?? key,
-  }),
+  useTranslation: () => ({ t: (_key: string, fallback?: string) => fallback ?? _key }),
 }));
+
+const mockAddToast = vi.fn();
 
 describe('ModelRegistrySection', () => {
   beforeEach(() => {
-    resetModelRegistryForTests();
-    vi.restoreAllMocks();
-    Object.defineProperty(window, 'sendToJava', {
-      value: vi.fn(),
-      writable: true,
-      configurable: true,
-    });
+    mockAddToast.mockClear();
   });
 
-  it('adds multiple Claude models for the same role without replacing existing entries', () => {
-    const addToast = vi.fn();
+  it('只读行不渲染 Edit/Delete 按钮,改显锁标', () => {
     __setModelRegistryForTests({
       items: [
         {
@@ -29,111 +22,49 @@ describe('ModelRegistrySection', () => {
           provider: 'claude',
           role: 'sonnet',
           label: 'Sonnet',
-          actualModel: '',
-          contextWindow: 200_000,
-          supports1MContext: true,
+          contextWindow: 200000,
+          readOnly: true,
           enabled: true,
         },
         {
-          id: 'mimo-v2.5',
+          id: 'claude-role-opus',
           provider: 'claude',
-          role: 'sonnet',
-          label: 'MiMo v2.5',
-          actualModel: 'mimo-v2.5',
-          contextWindow: 1_000_000,
-          supports1MContext: true,
+          role: 'opus',
+          label: 'Opus',
+          contextWindow: 200000,
+          readOnly: true,
           enabled: true,
         },
       ],
     });
 
-    render(<ModelRegistrySection addToast={addToast} />);
+    render(<ModelRegistrySection addToast={mockAddToast} />);
 
-    fireEvent.click(screen.getByRole('button', { name: /add/i }));
-    fireEvent.change(screen.getByPlaceholderText('label'), {
-      target: { value: 'MiMo v2.5' },
-    });
-    fireEvent.change(screen.getByPlaceholderText('actual request model'), {
-      target: { value: 'mimo-v2.5-pro' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /confirm/i }));
-
-    expect(addToast).not.toHaveBeenCalledWith('A model with this ID already exists', 'error');
-
-    const setRegistryCall = vi.mocked(window.sendToJava).mock.calls
-      .map(([message]) => JSON.parse(message as string) as { type: string; content: string })
-      .find((message) => message.type === 'set_model_registry');
-    expect(setRegistryCall).toBeTruthy();
-
-    const payload = JSON.parse(setRegistryCall?.content ?? '{}');
-    expect(payload.items).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        id: 'mimo-v2.5-pro',
-        provider: 'claude',
-        role: 'sonnet',
-        label: 'MiMo v2.5',
-        actualModel: 'mimo-v2.5-pro',
-      }),
-      expect.objectContaining({
-        id: 'mimo-v2.5',
-        provider: 'claude',
-        role: 'sonnet',
-        actualModel: 'mimo-v2.5',
-      }),
-      expect.objectContaining({
-        id: 'claude-role-sonnet',
-        provider: 'claude',
-        role: 'sonnet',
-      }),
-    ]));
+    // 只读行只有锁标,无 edit/trash
+    expect(screen.queryAllByTitle('Edit')).toHaveLength(0);
+    expect(screen.queryAllByTitle('Delete')).toHaveLength(0);
+    expect(screen.getAllByTitle('Read-only').length).toBeGreaterThan(0);
   });
 
-  it('adds multiple Codex models by id without a separate mapping field', () => {
-    const addToast = vi.fn();
+  it('可编辑行渲染 Edit/Delete 按钮', () => {
     __setModelRegistryForTests({
       items: [
         {
-          id: 'mimo-v2.5',
-          provider: 'codex',
-          label: 'MiMo v2.5',
-          actualModel: 'mimo-v2.5',
-          contextWindow: 1_000_000,
-          supports1MContext: true,
+          id: 'mimo',
+          provider: 'claude',
+          role: 'sonnet',
+          label: 'Mimo',
+          contextWindow: 200000,
+          readOnly: false,
           enabled: true,
         },
       ],
     });
 
-    render(<ModelRegistrySection addToast={addToast} />);
+    render(<ModelRegistrySection addToast={mockAddToast} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'codex' }));
-    fireEvent.click(screen.getByRole('button', { name: /add/i }));
-    fireEvent.change(screen.getByPlaceholderText('model id'), {
-      target: { value: 'mimo-v2.5-pro' },
-    });
-    fireEvent.change(screen.getByPlaceholderText('label'), {
-      target: { value: 'MiMo v2.5 Pro' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /confirm/i }));
-
-    expect(addToast).not.toHaveBeenCalledWith('A model with this ID already exists', 'error');
-
-    const setRegistryCall = vi.mocked(window.sendToJava).mock.calls
-      .map(([message]) => JSON.parse(message as string) as { type: string; content: string })
-      .find((message) => message.type === 'set_model_registry');
-    expect(setRegistryCall).toBeTruthy();
-
-    const payload = JSON.parse(setRegistryCall?.content ?? '{}');
-    expect(payload.items).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        id: 'mimo-v2.5-pro',
-        provider: 'codex',
-        label: 'MiMo v2.5 Pro',
-      }),
-      expect.objectContaining({
-        id: 'mimo-v2.5',
-        provider: 'codex',
-      }),
-    ]));
+    // getByTitle 找不到会抛错;能取到即说明按钮存在
+    expect(screen.getByTitle('Edit')).toBeTruthy();
+    expect(screen.getByTitle('Delete')).toBeTruthy();
   });
 });

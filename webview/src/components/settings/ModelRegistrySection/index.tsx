@@ -83,8 +83,9 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
   }, []);
 
   const persistRegistry = useCallback((nextRegistry: ModelRegistryPayload) => {
+    const userOnly = { items: nextRegistry.items.filter((item) => !item.readOnly) };
     setRegistry(nextRegistry);
-    sendBridgeEvent('set_model_registry', JSON.stringify(nextRegistry));
+    sendBridgeEvent('set_model_registry', JSON.stringify(userOnly));
   }, []);
 
   const removeModel = useCallback((model: ModelRegistryItem) => {
@@ -275,12 +276,19 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
               {model.supports1MContext && <span>1M</span>}
             </div>
             <div className={styles.rowActions}>
-              <button className={styles.iconButton} onClick={() => startEdit(model)} title={t('common.edit', 'Edit')}>
-                <span className="codicon codicon-edit" aria-hidden="true" />
-              </button>
-              <button className={styles.iconButtonDanger} onClick={() => removeModel(model)} title={t('common.delete', 'Delete')}>
-                <span className="codicon codicon-trash" aria-hidden="true" />
-              </button>
+              {model.readOnly ? (
+                <span className={`${styles.iconButton} codicon codicon-lock`} aria-hidden="true"
+                      title={t('settings.models.readonly', 'Read-only')} />
+              ) : (
+                <>
+                  <button className={styles.iconButton} onClick={() => startEdit(model)} title={t('common.edit', 'Edit')}>
+                    <span className="codicon codicon-edit" aria-hidden="true" />
+                  </button>
+                  <button className={styles.iconButtonDanger} onClick={() => removeModel(model)} title={t('common.delete', 'Delete')}>
+                    <span className="codicon codicon-trash" aria-hidden="true" />
+                  </button>
+                </>
+              )}
             </div>
           </div>
         ))}

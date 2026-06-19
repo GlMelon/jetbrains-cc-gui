@@ -54,17 +54,21 @@ public class CodemossSettingsServiceModelRegistryTest {
     public void persistsValidCustomModelRegistry() throws Exception {
         useTemporaryHomeDirectory(Files.createTempDirectory("model-registry-persist-home"));
         CodemossSettingsService service = new CodemossSettingsService();
+        // 非 role 自定义 Claude 模型(id=actualModel);role 键已被冲突校验保留为只读,不可持久化。
         ModelRegistryConfig config = new ModelRegistryConfig(List.of(
-                new ModelConfig("claude-role-opus", "claude", "opus",
+                new ModelConfig("mimo-v2.5-pro", "claude", "opus",
                         "Mimo V2.5 Pro", "mimo-v2.5-pro", "", 1_000_000, true, true)
         ));
 
         assertTrue(service.setModelRegistry(config).isValid());
 
-        ModelConfig saved = service.getModelRegistry().models().get(0);
-        assertEquals("claude-role-opus", saved.id());
+        ModelConfig saved = service.getModelRegistry().models().stream()
+                .filter(model -> "mimo-v2.5-pro".equals(model.id()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("persisted custom model not found in effective registry"));
         assertEquals("mimo-v2.5-pro", saved.actualModel());
         assertEquals(1_000_000, saved.contextWindow());
+        assertFalse(saved.readOnly()); // 用户自定义项可编辑
     }
 
     @Test
