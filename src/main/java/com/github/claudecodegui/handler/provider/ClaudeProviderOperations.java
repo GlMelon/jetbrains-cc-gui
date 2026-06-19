@@ -315,6 +315,8 @@ public class ClaudeProviderOperations {
                             context.escapeJs(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("toast.localProviderSwitchSuccess")));
                     handleGetProviders();
                     handleGetActiveProvider();
+                    context.dispatchEvent("model_registry",
+                            context.escapeJs(context.getSettingsService().getModelRegistryJson()));
                 });
                 return;
             }
@@ -346,6 +348,8 @@ public class ClaudeProviderOperations {
                             context.escapeJs(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("toast.cliLoginSwitchSuccess")));
                     handleGetProviders();
                     handleGetActiveProvider();
+                    context.dispatchEvent("model_registry",
+                            context.escapeJs(context.getSettingsService().getModelRegistryJson()));
                     if (accountEmail != null) {
                         context.dispatchEvent("provider.cli_login_account",
                                 context.escapeJs(accountEmail));
@@ -363,6 +367,8 @@ public class ClaudeProviderOperations {
                 context.dispatchEvent("toast.switch_success", context.escapeJs(successMsg));
                 handleGetProviders();
                 handleGetActiveProvider();
+                context.dispatchEvent("model_registry",
+                        context.escapeJs(context.getSettingsService().getModelRegistryJson()));
             });
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to switch provider: " + e.getMessage(), e);
