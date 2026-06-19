@@ -130,8 +130,13 @@ export const ModelSelect = ({ value, onChange, models = AVAILABLE_MODELS, curren
   // Strip [1m] suffix for finding the model in the list
   const strippedValue = strip1MContextSuffix(value);
   const normalizedValue = currentProvider === 'claude' ? normalizeClaudeModelId(strippedValue) : strippedValue;
+  const hasModels = models.length > 0;
   const exactSelectedModel = models.find(m => m.id === strippedValue);
-  const currentModel = exactSelectedModel || models.find(m => m.id === normalizedValue) || models[0];
+  // Guard against empty models (e.g. Codex provider before config.toml is set):
+  // models[0] would be undefined and crash on .id access. Fall back to a null placeholder.
+  const resolvedModel: ModelInfo | null = hasModels
+    ? (exactSelectedModel || models.find(m => m.id === normalizedValue) || models[0])
+    : null;
   const modelMapping = readClaudeModelMapping();
 
   const isSelectedModel = (modelId: string): boolean => {
@@ -266,15 +271,24 @@ export const ModelSelect = ({ value, onChange, models = AVAILABLE_MODELS, curren
         ref={buttonRef}
         className="selector-button"
         onClick={handleToggle}
-        title={t('chat.currentModel', { model: getModelLabel(currentModel, true) })}
+        disabled={!hasModels}
+        title={resolvedModel
+          ? t('chat.currentModel', { model: getModelLabel(resolvedModel, true) })
+          : t('chat.noModelConfigured', 'No model configured')}
       >
-        <ProviderModelIcon
-          providerId={currentProvider}
-          modelId={resolveModelIdForIcon(currentModel.id, modelMapping, MODEL_ID_TO_MAPPING_KEY)}
-          size={12}
-          colored
-        />
-        <span className="selector-button-text">{getModelLabel(currentModel, true)}</span>
+        {resolvedModel ? (
+          <>
+            <ProviderModelIcon
+              providerId={currentProvider}
+              modelId={resolveModelIdForIcon(resolvedModel.id, modelMapping, MODEL_ID_TO_MAPPING_KEY)}
+              size={12}
+              colored
+            />
+            <span className="selector-button-text">{getModelLabel(resolvedModel, true)}</span>
+          </>
+        ) : (
+          <span className="selector-button-text">{t('chat.noModelConfigured', 'No model configured')}</span>
+        )}
         <span className={`codicon codicon-chevron-${isOpen ? 'up' : 'down'}`} style={CHEVRON_ICON_STYLE} />
       </button>
 

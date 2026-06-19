@@ -172,4 +172,19 @@ describe('ModelSelect', () => {
     expect(selectedOptions[0].textContent).not.toContain('glm-5.2');
     expect(container.querySelectorAll('.codicon-check')).toHaveLength(1);
   });
+
+  it('models 为空时不崩溃,渲染未配置占位', () => {
+    render(
+      <ModelSelect
+        value=""
+        onChange={vi.fn()}
+        models={[]}
+        currentProvider="codex"
+      />,
+    );
+
+    const button = screen.getByRole('button');
+    expect(button).toHaveProperty('disabled', true);
+    expect(button.textContent).toContain('chat.noModelConfigured');
+  });
 });
