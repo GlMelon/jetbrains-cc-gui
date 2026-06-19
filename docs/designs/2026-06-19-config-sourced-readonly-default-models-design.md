@@ -2,7 +2,8 @@
 
 - 日期：2026-06-19
 - 分支：feature/v0.4.6
-- 状态：待评审
+- 状态：方案已确认(2026-06-19 评审修订为「仅 Codex 只读默认」)
+- 修订记录：初版拟将 Claude 4 role 与 Codex 一并标只读;评审发现会破坏现有 role→actualModel 定制功能(且 Claude 本就不会崩),故收敛为**只对 Codex 注入只读默认**,Claude 保持现状(4 role 持久化、可编辑)。
 
 ## 1. 背景与问题
 
@@ -36,9 +37,9 @@ TypeError: Cannot read properties of undefined (reading 'id')
 
 ### 目标
 
-- 模型列表对 Claude 与 Codex **都不再为空、不再崩溃**。
-- 默认模型从 **CLI 工具自身配置文件**读取（Claude = `~/.claude/settings.json` env 对应的 role；Codex = `~/.codex/config.toml` 的 `model=`），作为**只读**条目：可查看，不可编辑 / 删除 / 停用。
-- 保留 Claude 的 role 抽象（后端承重，不动）。
+- 模型列表对 Codex **不再为空、不再崩溃**(Claude 本就有 4 role 兜底,不在范围内)。
+- **仅 Codex**:从 `~/.codex/config.toml` 的 `model=` 读取默认模型,作为**只读**条目注入 registry:可查看,不可编辑/删除/停用。
+- Claude 保持现状:4 role 仍由持久化默认提供,可编辑(保留 role→actualModel 定制能力,后端承重抽象不动)。
 - 用户自定义模型仍可在设置页增删改。
 
 ### 非目标
@@ -48,16 +49,18 @@ TypeError: Cannot read properties of undefined (reading 'id')
 - 不重构 Codex Provider 对话框的 `customModels` / `modelCatalog` 机制（见 §8 已知交互）。
 - 不改动 Gemini / OpenCode 等未启用 provider。
 
-## 2. 架构：registry 两层并集
+## 2. 架构：registry 用户层 + 只读 Codex 默认(运行时叠加)
 
-模型注册表变为两层运行时并集：
+模型注册表 = 持久化用户层 + 运行时只读 Codex 默认(叠加):
 
 | 层 | 来源 | 持久化 | 可编辑性 |
 |---|---|---|---|
-| **只读默认** | 运行时从 CLI 配置计算：Claude 4 role（常量）；Codex = `~/.codex/config.toml` 的 `model=` | **否**（每次现算） | 只读 |
-| **用户自定义** | `CodemossSettingsService` 持久化（现有 registry） | 是 | 完全可编辑 |
+| **只读默认(仅 Codex)** | 运行时从 `~/.codex/config.toml` 的 `model=` 计算 | **否**(每次现算) | 只读 |
+| **用户自定义** | `CodemossSettingsService` 持久化(含 Claude 4 role 默认 + 用户增删的 Claude/Codex 模型) | 是 | 完全可编辑 |
 
-`getModelRegistry()` 返回 `merge(只读默认, 用户自定义)`，只读项带 `readOnly=true` 标记。**只读默认不进持久化**——CLI 配置在磁盘改动后，下次拉取即生效（权威源）。
+`getModelRegistry()` 返回 `merge(用户层, 只读Codex默认)`,只读项带 `readOnly=true`。**只读默认不进持久化**——磁盘 `config.toml` 改动后,下次拉取即生效(权威源)。
+
+> 评审修订:Claude 4 role **不**进只读层(仍由持久化默认提供、可编辑),避免破坏 role→actualModel 定制。
 
 ## 3. 数据模型
 
@@ -79,9 +82,9 @@ TypeError: Cannot read properties of undefined (reading 'id')
 
 ### 去重规则
 
-- 键：`provider:id`（provider 小写、id 剥容量后缀 `[1m]`/`[xx k|m]` 后小写）。
-- 冲突时**只读默认优先**，冲突的用户项丢弃并 `LOG.debug`。
-- 目的：避免重复条目；保证磁盘配置的模型始终以只读形式可见。
+- 键:`provider:id`(provider 小写、id 剥容量后缀 `[1m]`/`[xx k|m]` 后小写)。
+- **用户层优先,只读填补空缺**:只读 Codex 默认仅在用户层无同键项时追加;用户层已有同键 Codex 模型 → 保留用户的(可编辑),只读默认跳过并 `LOG.debug`。
+- 目的:避免重复条目;磁盘 `model=` 在用户未配置同名 Codex 模型时以只读形式可见。
 
 ### reset 语义变化
 
@@ -91,14 +94,14 @@ TypeError: Cannot read properties of undefined (reading 'id')
 
 | 文件 / 方法 | 改动 |
 |---|---|
-| `config/ModelConfig.java` | 新增 `readOnly`、`source` 字段 + 构造器/`normalized()` 适配。 |
-| 新增 `config/ReadOnlyDefaultModels.java`（或 `ModelRegistryConfig` 静态方法） | `List<ModelConfig> compute()`：Claude = 4 role（复用 `ClaudeRole` 枚举，`readOnly=true`）；Codex = `CodexConfigReader.readCurrentModel()` 解析结果，有则 1 项（`readOnly=true`，contextWindow 默认 200_000）。 |
+| `config/ModelConfig.java` | 新增 `readOnly` 字段 + 构造器/`normalized()` 适配(无 `source` 字段,YAGNI)。 |
+| 新增 `config/ReadOnlyDefaultModels.java` | `List<ModelConfig> compute()`:**仅 Codex** = `CodexConfigReader.readCurrentModel()` 解析结果,有则 1 项(`readOnly=true`、contextWindow 默认 200_000、supports1M=false);无 `model=` 或文件缺失返回空列表。**不含 Claude role**(评审修订)。 |
 | 新增 `provider/codex/CodexConfigReader.java`（或扩 `EnvironmentConfigurator`） | 读 `~/.codex/config.toml`，正则提取 `^\s*model\s*=\s*["']([^"']+)["']`（同前端 `extractCodexCurrentModel`）。缺失/无匹配返回 `Optional.empty()`。 |
-| `settings/CodemossSettingsService.getModelRegistry()`（:1683） | 改为返回合并 effective = `merge(ReadOnlyDefaultModels.compute(), 持久化用户层)`，按去重规则。**调用点不改名**（`ModelProviderHandler`、`SettingsHandler` 三处序列化自动拿到含只读默认的 registry）。 |
+| `settings/CodemossSettingsService.getModelRegistry()`（:1683） | 读持久化用户层(缺失/无效回退 `getDefault()`=4 Claude role)后,叠加只读 Codex 默认(按去重规则)。**调用点不改名**（`ModelProviderHandler`、`SettingsHandler` 三处序列化自动拿到含只读默认的 registry）。 |
 | `CodemossSettingsService.setModelRegistry()`（:1706） | 持久化前剥离 `readOnly==true` 项（防前端注入只读项落盘），仅存用户层。 |
 | `CodemossSettingsService.parseModelRegistry()`（:1740）/ `SettingsHandler.parseModelRegistryFromJson()`（:561） | 入站强制 `readOnly=false`（后端权威，不接受前端标记）。 |
-| `handler/SettingsHandler.serializeModelRegistry()`（:537） | 逐项增发 `readOnly`。 |
-| `config/ModelConfigValidator.java` | 校验逻辑仅作用于持久化用户层（`setModelRegistry` 剥离只读项后的输入）。只读默认由代码构造，天然合法，不参与校验。 |
+| `handler/SettingsHandler.serializeModelRegistry()`（:537） + `CodemossSettingsService.serializeModelRegistry()`（:1768） | 逐项增发 `readOnly`(两套序列化均改)。 |
+| `config/ModelConfigValidator.java` | **无需改动**。校验仅作用于持久化用户层;Claude 4 role 恒在该层(`getDefault()` 兜底) → 非空与「至少一个启用」恒满足。只读默认由代码构造、不进持久化,不参与校验。 |
 
 ### 调用点零改动说明
 
@@ -149,17 +152,18 @@ Codex Provider 设置对话框（`useCodexProviderManagement` / `createCodexCata
 
 ## 9. 迁移
 
-- 现有用户持久化 registry 中可能含 4 个 Claude role（来自旧 `getDefault()`）。升级后这些 role 与只读默认同 id → 去重收敛为只读项，用户层实际保留"非 role 的自定义模型"。无数据丢失。
-- 旧前端收到带 `readOnly` 的新 payload：忽略该字段，行为退化为"可编辑"——仅影响 UI 操作权限，不影响功能。
+- 现有用户持久化 registry 中的 4 个 Claude role(来自旧 `getDefault()`)保持原样、仍可编辑(评审修订后不再收敛为只读)。无数据丢失、无行为回归。
+- 持久化层无 Codex 模型 + 磁盘 `~/.codex/config.toml` 有 `model=` → 升级后 getModelRegistry 额外注入 1 个只读 Codex 默认。
+- 旧前端收到带 `readOnly` 的新 payload:忽略该字段,行为退化为"可编辑"——仅影响 UI 操作权限,不影响功能。
 
 ## 10. 测试
 
 ### 后端
-- `ReadOnlyDefaultModels.compute()`：Claude 4 role 均 `readOnly=true`；Codex 从样例 config.toml 解析 1 项；无 `model=` 时 Codex 部分为空。
+- `ReadOnlyDefaultModels.compute()`:**仅 Codex**:样例 config.toml 解析 1 项 `readOnly=true`;无 `model=` 或文件缺失返回空列表;不含 Claude role。
 - `CodexConfigReader.readCurrentModel()`：匹配 `model = "x"`、`model='x'`、带注释/空白；缺失文件返回 empty。
-- `CodemossSettingsService.getModelRegistry()`：合并去重（用户层与只读同 id → 只读胜，用户项被丢弃并记日志）。
+- `CodemossSettingsService.getModelRegistry()`:用户层无该 Codex id 时注入只读默认(`readOnly=true`);用户层已有同 id → 保留用户项(用户优先),只读默认跳过;Claude 4 role 不受影响。
 - `setModelRegistry()`：剥离 `readOnly=true` 不落盘；持久化用户层仅含可编辑项。
-- `resetModelRegistry()`：清空用户层后 `getModelRegistry()` 仍返回 4 role 只读默认。
+- `resetModelRegistry()`：清空用户层后 `getModelRegistry()` 仍返回 4 role(持久化默认,可编辑) + 只读 Codex 默认(若有)。
 - `parseModelRegistryFromJson()`：入站 `readOnly` 被强制 `false`。
 
 ### 前端
