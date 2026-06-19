@@ -412,7 +412,7 @@ function logLoopError(error, lp) {
 /**
  * Handle top-level catch for both send functions: emit stream end on error and format error payload.
  */
-function handleSendError(error, streamState, sdkStderrLines) {
+function handleSendError(error, streamState, sdkStderrLines, resolvedModel) {
   if (streamState.streamingEnabled && streamState.streamStarted && !streamState.streamEnded) {
     // NOTE: Do NOT emit accumulatedUsage at stream end, even on error.
     // If assistant messages were received, emitUsageTag already sent the correct usage.
@@ -424,6 +424,13 @@ function handleSendError(error, streamState, sdkStderrLines) {
     const sdkErrorText = sdkStderrLines.slice(-10).join('\n');
     payload.error = `SDK-STDERR:\n\`\`\`\n${sdkErrorText}\n\`\`\`\n\n${payload.error}`;
     payload.details.sdkError = sdkErrorText;
+  }
+  // 附加实际发送给上游的模型名:上游网关错误(如 [1211][模型不存在,请检查模型代码])
+  // 通常只含数字错误码,看不出对应哪个模型,这里补上以便用户核对自定义模型的
+  // actualModel 配置是否与网关支持的模型名一致。
+  if (resolvedModel) {
+    payload.details.sentModel = resolvedModel;
+    payload.error = `${payload.error}\n\n> 实际请求的模型: \`${resolvedModel}\``;
   }
   payload.error = truncateString(payload.error);
   console.error('[SEND_ERROR]', JSON.stringify(payload));
@@ -449,6 +456,7 @@ export async function sendMessage(message, resumeSessionId = null, cwd = null, p
   const sdkStderrLines = [];
   let streamingEnabled = false;
   const outerStreamState = { streamStarted: false, streamEnded: false, accumulatedUsage: null };
+  let resolvedModel = null;
   try {
     const { baseUrl, apiKeySource, baseUrlSource } = setupApiKey();
     if (isCustomBaseUrl(baseUrl)) {
@@ -463,7 +471,7 @@ export async function sendMessage(message, resumeSessionId = null, cwd = null, p
 
     const sdkModelName = mapModelIdToSdkName(model);
     const settings = loadClaudeSettings();
-    const resolvedModel = resolveModelFromSettings(model, settings?.env, actualModel);
+    resolvedModel = resolveModelFromSettings(model, settings?.env, actualModel);
     console.log('[DEBUG] Model:', model, '->', sdkModelName, '(API:', resolvedModel + ')');
     setModelEnvironmentVariables(resolvedModel, model);
 
@@ -501,7 +509,7 @@ export async function sendMessage(message, resumeSessionId = null, cwd = null, p
     });
 
   } catch (error) {
-    handleSendError(error, { streamingEnabled, ...outerStreamState }, sdkStderrLines);
+    handleSendError(error, { streamingEnabled, ...outerStreamState }, sdkStderrLines, resolvedModel);
   }
 }
 
@@ -518,6 +526,7 @@ export async function sendMessageWithAttachments(message, resumeSessionId = null
   const sdkStderrLines = [];
   let streamingEnabled = false;
   const outerStreamState = { streamStarted: false, streamEnded: false, accumulatedUsage: null };
+  let resolvedAttachModel = null;
   try {
     setupApiKey();
     console.log('[MESSAGE_START]');
@@ -534,7 +543,7 @@ export async function sendMessageWithAttachments(message, resumeSessionId = null
     const sdkModelName = mapModelIdToSdkName(model);
     const settings = loadClaudeSettings();
     const actualModel = stdinData?.actualModel || null;
-    const resolvedAttachModel = resolveModelFromSettings(model, settings?.env, actualModel);
+    resolvedAttachModel = resolveModelFromSettings(model, settings?.env, actualModel);
     console.log('[DEBUG] (withAttachments) Model:', model, '->', resolvedAttachModel);
     setModelEnvironmentVariables(resolvedAttachModel, model);
 
@@ -584,6 +593,6 @@ export async function sendMessageWithAttachments(message, resumeSessionId = null
     });
 
   } catch (error) {
-    handleSendError(error, { streamingEnabled, ...outerStreamState }, sdkStderrLines);
+    handleSendError(error, { streamingEnabled, ...outerStreamState }, sdkStderrLines, resolvedAttachModel);
   }
 }
