@@ -1,5 +1,8 @@
 package com.github.claudecodegui.protocol;
 
+import java.util.Arrays;
+import java.util.Optional;
+
 /**
  * 上行协议动作(前端 → 后端)的唯一权威定义(SSOT)。
  * 前端 TypeScript 常量由此枚举在构建时自动生成。
@@ -262,5 +265,9 @@ public enum UpstreamAction implements ProtocolValue {
     /** 协议线上实际传输的字符串值 */
     public String value() {
         return value;
+    }
+
+    public static Optional<UpstreamAction> fromValue(String value) {
+        return Arrays.stream(values()).filter(action -> action.value.equals(value)).findFirst();
     }
 }
