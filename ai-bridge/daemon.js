@@ -20,8 +20,7 @@
 import { createInterface } from 'readline';
 import path from 'path';
 import { execFileSync } from 'child_process';
-import { handleClaudeCommand } from './channels/claude-channel.js';
-import { handleCodexCommand } from './channels/codex-channel.js';
+import { getDefaultProviderRegistry } from './channels/provider-registry.js';
 import { loadClaudeSdk, isClaudeSdkAvailable } from './utils/sdk-loader.js';
 import {
   sendMessagePersistent,
@@ -48,6 +47,7 @@ import { cleanupStaleTempImages } from './services/claude/attachment-service.js'
 injectStartupEnvVars();
 
 const DAEMON_VERSION = '1.0.0';
+const providerRegistry = getDefaultProviderRegistry();
 
 let activeRequestId = null;
 let activeRequestChannelId = null;
@@ -388,16 +388,7 @@ async function dispatchProviderCommand(method, params) {
     return;
   }
 
-  switch (provider) {
-    case 'claude':
-      await handleClaudeCommand(command, [], stdinData);
-      return;
-    case 'codex':
-      await handleCodexCommand(command, [], stdinData);
-      return;
-    default:
-      throw new Error(`Unknown provider: ${provider}`);
-  }
+  await providerRegistry.dispatch(provider, command, [], stdinData);
 }
 
 async function processRequest(request) {

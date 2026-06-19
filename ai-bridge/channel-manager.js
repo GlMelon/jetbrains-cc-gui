@@ -24,8 +24,7 @@
 
 // Shared utilities
 import { readStdinData } from './utils/stdin-utils.js';
-import { handleClaudeCommand } from './channels/claude-channel.js';
-import { handleCodexCommand } from './channels/codex-channel.js';
+import { getDefaultProviderRegistry } from './channels/provider-registry.js';
 import { getSdkStatus, isClaudeSdkAvailable, isCodexSdkAvailable } from './utils/sdk-loader.js';
 import { injectStartupEnvVars, configureCliIdentity } from './config/api-config.js';
 
@@ -114,11 +113,7 @@ async function handleSystemCommand(command, args, stdinData) {
   }
 }
 
-const providerHandlers = {
-  claude: handleClaudeCommand,
-  codex: handleCodexCommand,
-  system: handleSystemCommand
-};
+const providerRegistry = getDefaultProviderRegistry();
 
 // Execute command
 (async () => {
@@ -126,7 +121,7 @@ const providerHandlers = {
   try {
     // Validate provider
     console.log('[DIAG-EXEC] Validating provider...');
-    if (!provider || !providerHandlers[provider]) {
+    if (!provider || (provider !== 'system' && !providerRegistry.has(provider))) {
       console.error('Invalid provider. Use "claude", "codex", or "system"');
       console.log(JSON.stringify({
         success: false,
@@ -152,8 +147,11 @@ const providerHandlers = {
 
     // Dispatch to the appropriate provider handler
     console.log('[DIAG-EXEC] Dispatching to handler:', provider);
-    const handler = providerHandlers[provider];
-    await handler(command, args, stdinData);
+    if (provider === 'system') {
+      await handleSystemCommand(command, args, stdinData);
+    } else {
+      await providerRegistry.dispatch(provider, command, args, stdinData);
+    }
     console.log('[DIAG-EXEC] Handler completed successfully');
 
     // IMPORTANT: Do not use process.exit(0) here -- it terminates the process

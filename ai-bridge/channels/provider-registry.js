@@ -26,6 +26,13 @@ export function createProviderRegistry(descriptors) {
     commands(provider) {
       return [...this.require(provider).commands];
     },
+    async dispatch(provider, command, args, stdinData) {
+      const descriptor = this.require(provider);
+      if (!descriptor.commands.includes(command)) {
+        throw new Error(`Unsupported command for ${descriptor.provider}: ${command}`);
+      }
+      return descriptor.handle(command, args, stdinData);
+    },
   };
 }
 

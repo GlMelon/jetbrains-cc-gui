@@ -35,4 +35,36 @@ assert.throws(
   assert.ok(registry.commands('codex').includes('send'));
 }
 
+await assert.rejects(
+  () => createProviderRegistry([]).dispatch('missing', 'send', [], null),
+  /Unknown provider: missing/,
+);
+
+await assert.rejects(
+  () => createProviderRegistry([noopDescriptor('claude')]).dispatch('claude', 'missing', [], null),
+  /Unsupported command for claude: missing/,
+);
+
+{
+  const calls = [];
+  const descriptor = {
+    provider: 'claude',
+    commands: ['send'],
+    handle: async (command, args, stdinData) => {
+      calls.push({ command, args, stdinData });
+      return 'ok';
+    },
+  };
+  const registry = createProviderRegistry([descriptor]);
+
+  const result = await registry.dispatch('claude', 'send', ['a'], { message: 'hi' });
+
+  assert.equal(result, 'ok');
+  assert.deepEqual(calls, [{
+    command: 'send',
+    args: ['a'],
+    stdinData: { message: 'hi' },
+  }]);
+}
+
 console.log('provider-registry.test.js passed');
