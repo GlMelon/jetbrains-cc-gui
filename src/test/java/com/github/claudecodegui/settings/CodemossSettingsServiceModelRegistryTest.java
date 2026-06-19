@@ -117,6 +117,44 @@ public class CodemossSettingsServiceModelRegistryTest {
         assertEquals("glm5.2", resolved.actualModel());
     }
 
+    @Test
+    public void getModelRegistryMarksDefaultRolesReadOnly() throws Exception {
+        useTemporaryHomeDirectory(Files.createTempDirectory("model-registry-readonly-home"));
+        CodemossSettingsService service = new CodemossSettingsService();
+
+        ModelRegistryConfig registry = service.getModelRegistry();
+
+        assertTrue(registry.models().stream().anyMatch(model -> model.id().equals("claude-role-sonnet")));
+        assertTrue(registry.models().stream()
+                .filter(model -> model.id().equals("claude-role-sonnet"))
+                .allMatch(ModelConfig::readOnly));
+    }
+
+    @Test
+    public void setModelRegistryRejectsNewConflictWithReadOnlyRole() throws Exception {
+        useTemporaryHomeDirectory(Files.createTempDirectory("model-registry-conflict-home"));
+        CodemossSettingsService service = new CodemossSettingsService();
+        ModelRegistryConfig conflicting = new ModelRegistryConfig(List.of(
+                new ModelConfig("claude-role-sonnet", "claude", "sonnet",
+                        "Hacked", "evil", "", 200_000, true, true)
+        ));
+
+        assertFalse(service.setModelRegistry(conflicting).isValid());
+        // 未落盘:用户层仍为空 → getModelRegistry 只剩只读默认
+        assertFalse(service.getModelRegistry().models().stream()
+                .anyMatch(model -> "evil".equals(model.actualModel())));
+    }
+
+    @Test
+    public void setModelRegistryAcceptsEmptyUserLayerBecauseReadOnlyGuaranteesEnabled() throws Exception {
+        useTemporaryHomeDirectory(Files.createTempDirectory("model-registry-empty-home"));
+        CodemossSettingsService service = new CodemossSettingsService();
+
+        assertTrue(service.setModelRegistry(new ModelRegistryConfig(List.of())).isValid());
+        assertTrue(service.getModelRegistry().models().stream()
+                .anyMatch(model -> model.id().equals("claude-role-sonnet")));
+    }
+
     private void useTemporaryHomeDirectory(Path tempHome) throws Exception {
         if (originalHomeDir == null) {
             originalHomeDir = getCachedHomeDirectory();

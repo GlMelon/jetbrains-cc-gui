@@ -9,6 +9,7 @@ import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.config.ModelConfig;
 import com.github.claudecodegui.config.ModelConfigValidator;
 import com.github.claudecodegui.config.ModelRegistryConfig;
+import com.github.claudecodegui.config.ReadOnlyDefaultModels;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.session.runtime.RuntimeType;
 import com.github.claudecodegui.util.FontConfigService;
@@ -1677,41 +1678,42 @@ public class CodemossSettingsService {
     // ==================== Model Registry Config Management ====================
 
     /**
-     * Read the configurable model registry. Missing or invalid config falls back
-     * to defaults that match the previous hard-coded model lists.
+     * Read the effective model registry = merge(persisted user layer, read-only defaults).
+     * Read-only defaults (Claude 4 roles from settings.json + Codex from config.toml) are
+     * computed at runtime and never persisted.
      */
     public ModelRegistryConfig getModelRegistry() {
         try {
-            JsonObject config = readConfig();
-            if (!config.has(MODEL_REGISTRY_KEY) || !config.get(MODEL_REGISTRY_KEY).isJsonObject()) {
-                return ModelRegistryConfig.getDefault();
-            }
-            ModelRegistryConfig registry = parseModelRegistry(config.getAsJsonObject(MODEL_REGISTRY_KEY));
-            ModelConfigValidator.ValidationResult validation = registry.validate();
-            if (!validation.isValid()) {
-                LOG.warn("[CodemossSettings] Loaded model registry is invalid, using defaults: "
-                        + validation.errors());
-                return ModelRegistryConfig.getDefault();
-            }
-            return registry;
+            return ReadOnlyDefaultModels.mergeWithReadOnlyDefaults(readPersistedUserLayer());
         } catch (Exception e) {
-            LOG.warn("[CodemossSettings] Failed to read model registry, using defaults: " + e.getMessage());
-            return ModelRegistryConfig.getDefault();
+            LOG.warn("[CodemossSettings] Failed to read model registry, using read-only defaults: " + e.getMessage());
+            return ReadOnlyDefaultModels.mergeWithReadOnlyDefaults(new ModelRegistryConfig(java.util.List.of()));
         }
     }
 
     /**
-     * Save the configurable model registry. Invalid config is rejected and not persisted.
+     * Save the user-layer model registry. Read-only items are stripped (never persisted).
+     * New entries conflicting with read-only default keys are rejected; validation runs on
+     * the effective registry (user layer + read-only defaults) so the read-only roles
+     * guarantee "at least one enabled" — an empty user layer is therefore valid.
      */
     public ModelConfigValidator.ValidationResult setModelRegistry(ModelRegistryConfig registry) {
-        ModelConfigValidator.ValidationResult validation = ModelConfigValidator.validate(registry);
+        ModelRegistryConfig userOnly = stripReadOnly(registry);
+        ModelConfigValidator.ValidationResult conflict = checkNoNewConflictsWithReadOnly(userOnly);
+        if (!conflict.isValid()) {
+            LOG.warn("[CodemossSettings] Model registry conflicts with read-only defaults, not saving: "
+                    + conflict.errors());
+            return conflict;
+        }
+        ModelConfigValidator.ValidationResult validation =
+                ModelConfigValidator.validate(ReadOnlyDefaultModels.mergeWithReadOnlyDefaults(userOnly));
         if (!validation.isValid()) {
             LOG.warn("[CodemossSettings] Model registry validation failed, not saving: " + validation.errors());
             return validation;
         }
         try {
             JsonObject config = readConfig();
-            config.add(MODEL_REGISTRY_KEY, serializeModelRegistry(registry));
+            config.add(MODEL_REGISTRY_KEY, serializeModelRegistry(userOnly));
             writeConfig(config);
             LOG.info("[CodemossSettings] Saved model registry");
             return validation;
@@ -1735,6 +1737,64 @@ public class CodemossSettingsService {
         } catch (Exception e) {
             LOG.error("[CodemossSettings] Failed to reset model registry: " + e.getMessage());
         }
+    }
+
+    /**
+     * Read the raw persisted user layer without read-only defaults and without the
+     * getDefault() fallback. Missing/invalid config returns an empty user layer.
+     */
+    private ModelRegistryConfig readPersistedUserLayer() {
+        try {
+            JsonObject config = readConfig();
+            if (!config.has(MODEL_REGISTRY_KEY) || !config.get(MODEL_REGISTRY_KEY).isJsonObject()) {
+                return new ModelRegistryConfig(java.util.List.of());
+            }
+            ModelRegistryConfig parsed = parseModelRegistry(config.getAsJsonObject(MODEL_REGISTRY_KEY));
+            return stripReadOnly(parsed); // 防御:磁盘上不应残留只读项
+        } catch (Exception e) {
+            return new ModelRegistryConfig(java.util.List.of());
+        }
+    }
+
+    /** 剥离 readOnly=true 项(后端权威:只读默认永不进持久化)。 */
+    private static ModelRegistryConfig stripReadOnly(ModelRegistryConfig registry) {
+        java.util.List<ModelConfig> userOnly = new java.util.ArrayList<>();
+        for (ModelConfig model : registry.models()) {
+            if (!model.readOnly()) {
+                userOnly.add(model);
+            }
+        }
+        return new ModelRegistryConfig(userOnly);
+    }
+
+    /**
+     * 仅拦截"新增"冲突:用户层中、与只读默认键相同、且当前磁盘用户层不存在的项。
+     * legacy 同键项放行(合并时 role 被跳过 / codex 被用户覆盖),避免阻塞无关保存。
+     */
+    private ModelConfigValidator.ValidationResult checkNoNewConflictsWithReadOnly(ModelRegistryConfig incoming) {
+        java.util.Set<String> currentKeys = new java.util.HashSet<>();
+        for (ModelConfig model : readPersistedUserLayer().models()) {
+            currentKeys.add(ReadOnlyDefaultModels.dedupKey(model.provider(), model.id()));
+        }
+        java.util.Set<String> readOnlyKeys = new java.util.HashSet<>();
+        for (ModelConfig model : ReadOnlyDefaultModels.compute()) {
+            readOnlyKeys.add(ReadOnlyDefaultModels.dedupKey(model.provider(), model.id()));
+        }
+        java.util.List<String> errors = new java.util.ArrayList<>();
+        for (ModelConfig model : incoming.models()) {
+            String key = ReadOnlyDefaultModels.dedupKey(model.provider(), model.id());
+            if (readOnlyKeys.contains(key) && !currentKeys.contains(key)) {
+                errors.add("模型 " + model.id() + " 与配置文件默认模型冲突,无法新增");
+            }
+        }
+        return errors.isEmpty()
+                ? new ModelConfigValidator.ValidationResult(java.util.List.of(), java.util.List.of())
+                : new ModelConfigValidator.ValidationResult(errors, java.util.List.of());
+    }
+
+    /** 序列化当前 effective registry 为 JSON 字符串,供提供商切换后推送刷新。 */
+    public String getModelRegistryJson() {
+        return serializeModelRegistry(getModelRegistry()).toString();
     }
 
     private ModelRegistryConfig parseModelRegistry(JsonObject modelRegistryObj) {
@@ -1787,6 +1847,7 @@ public class CodemossSettingsService {
             obj.addProperty("contextWindow", model.contextWindow());
             obj.addProperty("supports1MContext", model.supports1MContext());
             obj.addProperty("enabled", model.enabled());
+            obj.addProperty("readOnly", model.readOnly());
             items.add(obj);
         }
         root.add("items", items);
