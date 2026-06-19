@@ -195,6 +195,16 @@ const [selectedAgent, setSelectedAgent] = useState<SelectedAgent | null>(null);
 └─────────────┘     └──────────────┘     └─────────────┘
 ```
 
+Typed protocol migration path:
+
+```
+User intent -> sendAction(UPSTREAM.*) -> Java FrontendActionDispatcher
+Java result -> context.dispatchEvent(DOWNSTREAM.*) -> subscribeEvent(...) -> React state
+```
+
+The old `sendBridgeEvent()` and direct `bridgeHub.subscribe('raw_string')`
+paths are compatibility-only for code not yet migrated.
+
 ### Message Flow
 1. User types in ChatInputBox
 2. `handleSubmit()` creates user message and calls `sendBridgeEvent('send_message', ...)`
@@ -209,6 +219,23 @@ const [selectedAgent, setSelectedAgent] = useState<SelectedAgent | null>(null);
 3. Decision sent via `sendBridgeEvent('permission_decision', ...)`
 
 ## Key Design Decisions
+
+### 0. Typed Bridge And Backend-Owned Business Results
+The webview treats Java as the business source of truth. Protocol strings come
+from generated constants in `webview/src/generated/protocol.ts`, and migrated
+model-registry traffic uses `webview/src/bridge/typed.ts` instead of ad-hoc
+string literals.
+
+Current milestone rules:
+- Upstream intent uses `sendAction(UPSTREAM.*)` and carries only user intent or
+  form data.
+- Downstream updates use `subscribeEvent(DOWNSTREAM.*)` and render backend
+  results as-is.
+- Model selection display state consumes backend `model.selection`; the
+  effective context window and max token result are not recalculated as
+  authoritative frontend business state.
+- Legacy `sendBridgeEvent()` and `window.xxx` callbacks remain for unmigrated
+  areas and should be wrapped behind typed protocol APIs as they are touched.
 
 ### 1. Hook-based Architecture
 Extracted ~800 lines of window callbacks into `useWindowCallbacks` for:
