@@ -1814,7 +1814,7 @@ public class CodemossSettingsService {
                 String description = readString(obj, "description");
                 int contextWindow = obj.has("contextWindow") && obj.get("contextWindow").isJsonPrimitive()
                         ? obj.get("contextWindow").getAsInt()
-                        : 200_000;
+                        : CommonConstants.DEFAULT_CONTEXT_WINDOW;
                 boolean supports1MContext = obj.has("supports1MContext")
                         && obj.get("supports1MContext").getAsBoolean();
                 boolean enabled = !obj.has("enabled") || obj.get("enabled").getAsBoolean();

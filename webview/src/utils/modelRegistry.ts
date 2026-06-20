@@ -1,7 +1,7 @@
 import { DOWNSTREAM, UPSTREAM } from '../generated/protocol';
 import { sendAction, subscribeEvent } from '../bridge/typed';
 import type { ModelInfo } from '../components/ChatInputBox/types';
-import { CLAUDE_MODELS, CODEX_MODELS, getClaudeRoleFromModelId, normalizeClaudeModelId, strip1MContextSuffix } from '../components/ChatInputBox/types';
+import { CLAUDE_MODELS, CODEX_MODELS, DEFAULT_CONTEXT_WINDOW, ONE_MILLION_CONTEXT_WINDOW, getClaudeRoleFromModelId, normalizeClaudeModelId, strip1MContextSuffix } from '../components/ChatInputBox/types';
 import type { CodexCustomModel, CodexProviderConfig } from '../types/provider';
 
 export interface ModelRegistryItem extends ModelInfo {
@@ -180,7 +180,7 @@ export function createCodexCatalogModels(
   return [toCodexRegistryItem({
     id: currentModel,
     label: currentModel,
-    contextWindow: 200_000,
+    contextWindow: DEFAULT_CONTEXT_WINDOW,
   })];
 }
 
@@ -195,7 +195,7 @@ function normalizeCodexCatalog(catalog: CodexCustomModel[] | undefined): ModelIn
       description: typeof model.description === 'string' ? model.description : undefined,
       contextWindow: typeof model.contextWindow === 'number' && model.contextWindow > 0
         ? model.contextWindow
-        : 200_000,
+        : DEFAULT_CONTEXT_WINDOW,
     }))
     .filter((model) => model.id);
 }
@@ -209,12 +209,12 @@ function extractCodexCurrentModel(configToml: string | undefined): string {
 }
 
 function toCodexRegistryItem(model: ModelInfo): ModelRegistryItem {
-  const contextWindow = model.contextWindow ?? 200_000;
+  const contextWindow = model.contextWindow ?? DEFAULT_CONTEXT_WINDOW;
   return {
     ...model,
     provider: 'codex',
     contextWindow,
-    supports1MContext: model.supports1MContext ?? contextWindow >= 1_000_000,
+    supports1MContext: model.supports1MContext ?? contextWindow >= ONE_MILLION_CONTEXT_WINDOW,
     enabled: true,
   };
 }
@@ -239,7 +239,7 @@ export function parseModelRegistryPayload(raw: unknown): ModelRegistryPayload | 
       }
       const contextWindow = rawContextWindow !== undefined && rawContextWindow > 0
         ? rawContextWindow
-        : 200_000;
+        : DEFAULT_CONTEXT_WINDOW;
       const label = typeof obj.label === 'string' && obj.label.trim() ? obj.label.trim() : id;
       const role = parseClaudeRole(obj.role);
       const actualModel = typeof obj.actualModel === 'string' && obj.actualModel.trim()

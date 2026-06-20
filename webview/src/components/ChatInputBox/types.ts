@@ -291,7 +291,7 @@ export function modelSupports1MContext(
         return modelInfo.supports1MContext;
     }
     if (modelInfo?.contextWindow !== undefined) {
-        return modelInfo.contextWindow >= 1_000_000;
+        return modelInfo.contextWindow >= ONE_MILLION_CONTEXT_WINDOW;
     }
 
     // 3. 未知模型：保守假设不支持
@@ -369,6 +369,17 @@ export function normalizeClaudeModelId(modelId: string | undefined | null): stri
   const role = getClaudeRoleFromModelId(stripped);
   return role ? CLAUDE_ROLE_MODEL_IDS[role] : CLAUDE_ROLE_MODEL_IDS.sonnet;
 }
+
+/**
+ * 默认模型上下文窗口大小（token 数）—— contextWindow 缺省时的 fallback。
+ * 与后端 CommonConstants.DEFAULT_CONTEXT_WINDOW 对齐（SSOT），消除前端散落硬编码 200_000。
+ */
+export const DEFAULT_CONTEXT_WINDOW = 200_000;
+/**
+ * 长上下文（1M）窗口阈值（token 数）—— 判定 supports1MContext / 1M 切换的边界。
+ * 与后端 CommonConstants.ONE_MILLION_CONTEXT_WINDOW 对齐（SSOT）。
+ */
+export const ONE_MILLION_CONTEXT_WINDOW = 1_000_000;
 
 /**
  * Claude model list (base IDs without [1m] suffix).

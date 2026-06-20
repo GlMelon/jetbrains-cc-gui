@@ -73,7 +73,7 @@ public final class ModelConfigValidator {
                 errors.add("contextWindow out of range for " + model.id());
             }
             if (model.supports1MContext() && !CommonConstants.PROVIDER_CLAUDE.equals(model.provider())
-                    && model.contextWindow() < 1_000_000) {
+                    && model.contextWindow() < CommonConstants.ONE_MILLION_CONTEXT_WINDOW) {
                 errors.add("supports1MContext requires contextWindow >= 1000000 for " + model.id());
             }
             if (model.enabled() && CommonConstants.PROVIDER_CLAUDE.equals(model.provider())) {

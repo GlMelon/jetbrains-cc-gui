@@ -81,7 +81,7 @@ public class ModelProviderHandler {
             }
             if (json.has("longContextEnabled") && !json.get("longContextEnabled").isJsonNull()) {
                 longContextEnabled = json.get("longContextEnabled").getAsBoolean();
-            } else if (contextWindowOverride != null && contextWindowOverride >= 1_000_000) {
+            } else if (contextWindowOverride != null && contextWindowOverride >= CommonConstants.ONE_MILLION_CONTEXT_WINDOW) {
                 // 向后兼容:旧前端仅发 contextWindow,从中推导 longContextEnabled
                 longContextEnabled = true;
             }
@@ -488,7 +488,7 @@ public class ModelProviderHandler {
 
     public static int getModelContextLimit(ModelRegistryConfig registry, String model) {
         if (model == null || model.isEmpty()) {
-            return 200_000;
+            return CommonConstants.DEFAULT_CONTEXT_WINDOW;
         }
 
         java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\\s*\\[([0-9.]+)([kKmM])\\]\\s*$");
@@ -518,7 +518,7 @@ public class ModelProviderHandler {
 
         String baseModel = ModelRegistryConfig.stripCapacitySuffix(model);
         ClaudeRole role = ClaudeRole.fromModelId(baseModel);
-        return role != null ? role.contextWindow() : 200_000;
+        return role != null ? role.contextWindow() : CommonConstants.DEFAULT_CONTEXT_WINDOW;
     }
 
     public static boolean isKnownModel(ModelRegistryConfig registry, String model) {

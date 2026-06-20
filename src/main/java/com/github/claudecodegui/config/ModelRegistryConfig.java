@@ -63,7 +63,7 @@ public class ModelRegistryConfig {
                     selected,
                     null,
                     actual,
-                    model != null ? model.contextWindow() : 200_000,
+                    model != null ? model.contextWindow() : CommonConstants.DEFAULT_CONTEXT_WINDOW,
                     model != null && model.supports1MContext()
             );
         }
@@ -77,7 +77,7 @@ public class ModelRegistryConfig {
                 selected,
                 role,
                 actual.isBlank() ? null : actual,
-                model != null ? model.contextWindow() : 200_000,
+                model != null ? model.contextWindow() : CommonConstants.DEFAULT_CONTEXT_WINDOW,
                 model != null && model.supports1MContext()
         );
     }

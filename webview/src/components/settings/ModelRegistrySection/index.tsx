@@ -4,6 +4,7 @@ import { DOWNSTREAM, UPSTREAM } from '../../../generated/protocol';
 import { sendAction, subscribeEvent } from '../../../bridge/typed';
 import type { ModelRegistryItem, ModelRegistryPayload } from '../../../utils/modelRegistry';
 import { getModelRegistrySnapshot, parseModelRegistryPayload, requestModelRegistry } from '../../../utils/modelRegistry';
+import { DEFAULT_CONTEXT_WINDOW, ONE_MILLION_CONTEXT_WINDOW } from '../../../components/ChatInputBox/types';
 import styles from './style.module.less';
 
 interface ModelRegistrySectionProps {
@@ -17,7 +18,7 @@ const EMPTY_MODEL: ModelRegistryItem = {
   label: '',
   actualModel: '',
   description: '',
-  contextWindow: 200_000,
+  contextWindow: DEFAULT_CONTEXT_WINDOW,
   supports1MContext: false,
   enabled: true,
 };
@@ -232,7 +233,7 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
                 ...editing,
                 supports1MContext: event.target.checked,
                 // 如果启用1M，自动设置上下文窗口为1M；否则重置为默认200k
-                contextWindow: event.target.checked ? 1_000_000 : 200_000,
+                contextWindow: event.target.checked ? ONE_MILLION_CONTEXT_WINDOW : DEFAULT_CONTEXT_WINDOW,
               })}
             />
             {t('settings.models.supports1M', 'Supports 1M')}
@@ -272,7 +273,7 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
               {model.description && <div className={styles.modelDescription}>{model.description}</div>}
             </div>
             <div className={styles.metaCell}>
-              <span>{formatContext(model.contextWindow ?? 200_000)}</span>
+              <span>{formatContext(model.contextWindow ?? DEFAULT_CONTEXT_WINDOW)}</span>
               {model.supports1MContext && <span>1M</span>}
             </div>
             <div className={styles.rowActions}>
@@ -304,7 +305,7 @@ function toKey(model: ModelRegistryItem): string {
 }
 
 function formatContext(tokens?: number): string {
-  const value = tokens ?? 200_000;
+  const value = tokens ?? DEFAULT_CONTEXT_WINDOW;
   if (value >= 1_000_000) {
     return `${value / 1_000_000}M`;
   }

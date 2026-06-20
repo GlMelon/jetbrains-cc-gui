@@ -1,6 +1,7 @@
 package com.github.claudecodegui.settings;
 
 import com.github.claudecodegui.common.ClaudeRole;
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.config.ModelConfig;
 import com.github.claudecodegui.config.ModelRegistryConfig;
 import com.github.claudecodegui.util.GsonHolder;
@@ -134,7 +135,7 @@ public final class ModelRegistryService {
                 String description = readString(obj, "description");
                 int contextWindow = obj.has("contextWindow") && !obj.get("contextWindow").isJsonNull()
                         ? obj.get("contextWindow").getAsInt()
-                        : 200_000;
+                        : CommonConstants.DEFAULT_CONTEXT_WINDOW;
                 boolean supports1MContext = obj.has("supports1MContext")
                         && !obj.get("supports1MContext").isJsonNull()
                         && obj.get("supports1MContext").getAsBoolean();

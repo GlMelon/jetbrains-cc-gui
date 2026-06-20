@@ -8,8 +8,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class DefaultModelCapabilityResolver implements ModelCapabilityResolver {
-    private static final int DEFAULT_CONTEXT_WINDOW = 200_000;
-    private static final int ONE_MILLION_CONTEXT_WINDOW = 1_000_000;
+    // 默认 / 1M 上下文窗口阈值的 SSOT 已上移至 CommonConstants（全局共享，消除散落硬编码）。
     private static final Pattern CAPACITY_SUFFIX = Pattern.compile("\\s*\\[([0-9.]+)([kKmM])\\]\\s*$");
 
     private final ModelRegistryConfig registry;
@@ -32,10 +31,10 @@ public class DefaultModelCapabilityResolver implements ModelCapabilityResolver {
         // 使「显式发 longContextEnabled」与「旧前端发 contextWindow=1M」都能触发 1M 窗口。
         boolean requestsOneMillion = request.longContextEnabled()
                 || (request.requestedContextWindow() != null
-                        && request.requestedContextWindow() >= ONE_MILLION_CONTEXT_WINDOW);
+                        && request.requestedContextWindow() >= CommonConstants.ONE_MILLION_CONTEXT_WINDOW);
         int modelLimit = resolveModelLimit(provider, selectedModel, resolvedActualModel, registrySelection);
         if (supportsLongContext && requestsOneMillion) {
-            modelLimit = Math.max(modelLimit, ONE_MILLION_CONTEXT_WINDOW);
+            modelLimit = Math.max(modelLimit, CommonConstants.ONE_MILLION_CONTEXT_WINDOW);
         }
 
         int effectiveContextWindow = request.requestedContextWindow() != null && request.requestedContextWindow() > 0
@@ -51,7 +50,7 @@ public class DefaultModelCapabilityResolver implements ModelCapabilityResolver {
                 resolvedActualModel,
                 effectiveContextWindow,
                 maxTokens,
-                supportsLongContext && modelLimit >= ONE_MILLION_CONTEXT_WINDOW
+                supportsLongContext && modelLimit >= CommonConstants.ONE_MILLION_CONTEXT_WINDOW
         );
     }
 
@@ -68,7 +67,7 @@ public class DefaultModelCapabilityResolver implements ModelCapabilityResolver {
             String resolvedActualModel,
             ModelRegistryConfig.ResolvedModelSelection selection
     ) {
-        int configuredLimit = selection.contextWindow() > 0 ? selection.contextWindow() : DEFAULT_CONTEXT_WINDOW;
+        int configuredLimit = selection.contextWindow() > 0 ? selection.contextWindow() : CommonConstants.DEFAULT_CONTEXT_WINDOW;
         if (registry.find(provider, selectedModel).isPresent()) {
             return configuredLimit;
         }
@@ -100,7 +99,7 @@ public class DefaultModelCapabilityResolver implements ModelCapabilityResolver {
         }
 
         ClaudeRole role = ClaudeRole.fromModelId(model);
-        return role != null ? role.contextWindow() : DEFAULT_CONTEXT_WINDOW;
+        return role != null ? role.contextWindow() : CommonConstants.DEFAULT_CONTEXT_WINDOW;
     }
 
     private int parseCapacitySuffix(String model) {

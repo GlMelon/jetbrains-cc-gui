@@ -110,7 +110,7 @@ public final class ReadOnlyDefaultModels {
                 codexModel,
                 "",
                 "只读 · 来自 ~/.codex/config.toml",
-                200_000,
+                CommonConstants.DEFAULT_CONTEXT_WINDOW,
                 false,
                 true,   // enabled
                 true    // readOnly

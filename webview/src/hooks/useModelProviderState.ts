@@ -4,7 +4,7 @@ import {sendBridgeEvent} from '../utils/bridge';
 import { DOWNSTREAM } from '../generated/protocol';
 import { subscribeEvent } from '../bridge/typed';
 import type {PermissionMode} from '../components/ChatInputBox/types';
-import {modelSupports1MContext, normalizeClaudeModelId, strip1MContextSuffix,} from '../components/ChatInputBox/types';
+import {DEFAULT_CONTEXT_WINDOW, ONE_MILLION_CONTEXT_WINDOW, modelSupports1MContext, normalizeClaudeModelId, strip1MContextSuffix,} from '../components/ChatInputBox/types';
 import {isSpecialProviderId} from '../types/provider';
 import {useClaudeProvider} from './providers/useClaudeProvider';
 import {useCodexProvider} from './providers/useCodexProvider';
@@ -119,7 +119,7 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
       }
       setSelectedClaudeModel(selected);
       setLongContextEnabled(
-        selection.supportsLongContext === true && selection.effectiveContextWindow === 1_000_000,
+        selection.supportsLongContext === true && selection.effectiveContextWindow === ONE_MILLION_CONTEXT_WINDOW,
       );
     } catch {
       // Ignore malformed backend selection events; existing state remains authoritative for display.
@@ -196,7 +196,7 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
       }));
     } else {
       const registryContextWindow = newProviderModels.find((model) => model.id === strip1MContextSuffix(selectedCodexModel))?.contextWindow;
-      const effectiveContextWindow = contextWindow ?? registryContextWindow ?? 200_000;
+      const effectiveContextWindow = contextWindow ?? registryContextWindow ?? DEFAULT_CONTEXT_WINDOW;
       sendBridgeEvent('set_session_model', JSON.stringify({
         model: newModel,
         contextWindow: effectiveContextWindow,
@@ -251,7 +251,7 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
 
     sendBridgeEvent('set_session_model', JSON.stringify({
       model: selectedCodexModel,
-      contextWindow: selectedRegistryModel.contextWindow ?? 200_000,
+      contextWindow: selectedRegistryModel.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
     }));
   }, [
     currentProvider,

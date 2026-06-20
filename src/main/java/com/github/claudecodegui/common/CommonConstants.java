@@ -61,6 +61,20 @@ public final class CommonConstants {
     public static final String DEFAULT_PROVIDER = "claude";
     /** 默认标签页 ID */
     public static final String DEFAULT_TAB_ID = "default";
+    /**
+     * 默认模型上下文窗口大小（token 数）。
+     * <p>contextWindow 缺省时的权威 fallback —— 全局 SSOT，消除散落硬编码 200_000。
+     * <p>引用方：DefaultModelCapabilityResolver / ModelRegistryConfig / ModelProviderHandler /
+     * ModelRegistryService / CodemossSettingsService / ReadOnlyDefaultModels。
+     */
+    public static final int DEFAULT_CONTEXT_WINDOW = 200_000;
+    /**
+     * 长上下文（1M）窗口阈值（token 数）。
+     * <p>判定 supports1MContext / 1M 切换 / 配置校验的边界 —— 全局 SSOT。
+     * <p>注：模型名 [Nm] 后缀解析中的 {@code value * 1_000_000} 是 mega 单位换算因子，
+     * 非本阈值语义，不引用此常量。
+     */
+    public static final int ONE_MILLION_CONTEXT_WINDOW = 1_000_000;
 
     // ===== JSON 消息类型 =====
     // SDK 回调消息的 type 字段值，用于路由到对应的处理方法
