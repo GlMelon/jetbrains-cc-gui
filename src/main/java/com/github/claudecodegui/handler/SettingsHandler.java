@@ -27,7 +27,6 @@ public class SettingsHandler extends BaseMessageHandler {
     private final UsagePushService usagePushService;
     private final PermissionModeHandler permissionModeHandler;
     private final ModelProviderHandler modelProviderHandler;
-    private final NodePathHandler nodePathHandler;
     private final ProjectConfigHandler projectConfigHandler;
 
     private static final String[] SUPPORTED_TYPES = {
@@ -37,8 +36,6 @@ public class SettingsHandler extends BaseMessageHandler {
         "set_provider", "set_session_provider",
         "set_reasoning_effort",
         "set_codex_fast_mode",
-        "get_node_path",
-        "set_node_path",
         "get_usage_statistics",
         "get_working_directory",
         "set_working_directory",
@@ -100,7 +97,6 @@ public class SettingsHandler extends BaseMessageHandler {
         this.usagePushService = new UsagePushService(context);
         this.permissionModeHandler = new PermissionModeHandler(context);
         this.modelProviderHandler = new ModelProviderHandler(context, usagePushService);
-        this.nodePathHandler = new NodePathHandler(context);
         this.projectConfigHandler = new ProjectConfigHandler(context);
         // Register theme change listener to automatically notify frontend when IDE theme changes
         registerThemeChangeListener();
@@ -153,13 +149,6 @@ public class SettingsHandler extends BaseMessageHandler {
                 return true;
             case "set_codex_fast_mode":
                 modelProviderHandler.handleSetCodexFastMode(content);
-                return true;
-            // Node path
-            case "get_node_path":
-                nodePathHandler.handleGetNodePath();
-                return true;
-            case "set_node_path":
-                nodePathHandler.handleSetNodePath(content);
                 return true;
             // Project configuration
             case "get_usage_statistics":

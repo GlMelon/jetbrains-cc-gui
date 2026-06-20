@@ -32,6 +32,8 @@ import com.github.claudecodegui.handler.settings.ResetModelRegistryActionHandler
 import com.github.claudecodegui.handler.settings.GetModelRegistrySchemaActionHandler;
 import com.github.claudecodegui.handler.settings.SetAppearanceConfigActionHandler;
 import com.github.claudecodegui.handler.settings.SetClaudeCliPathActionHandler;
+import com.github.claudecodegui.handler.settings.GetNodePathActionHandler;
+import com.github.claudecodegui.handler.settings.SetNodePathActionHandler;
 import com.github.claudecodegui.handler.SkillHandler;
 import com.github.claudecodegui.handler.TabHandler;
 import com.github.claudecodegui.handler.WindowEventHandler;
@@ -326,6 +328,8 @@ public class ChatWindowDelegate {
         typedHandlers.add(new GetCodexSubscriptionQuotaActionHandler());
         typedHandlers.add(new GetClaudeCliPathActionHandler());
         typedHandlers.add(new SetClaudeCliPathActionHandler());
+        typedHandlers.add(new GetNodePathActionHandler());
+        typedHandlers.add(new SetNodePathActionHandler());
         typedHandlers.addAll(LegacyMessageHandlerAdapter.from(new SettingsHandler(handlerContext)));
         host.setFrontendActionDispatcher(
                 new FrontendActionDispatcher(typedHandlers, handlerContext));
