@@ -233,10 +233,13 @@ export function parseModelRegistryPayload(raw: unknown): ModelRegistryPayload | 
       const obj = item as Record<string, unknown>;
       const id = typeof obj.id === 'string' ? obj.id.trim() : '';
       const provider = obj.provider === 'codex' ? 'codex' : obj.provider === 'claude' ? 'claude' : null;
-      const contextWindow = typeof obj.contextWindow === 'number' ? obj.contextWindow : undefined;
-      if (!id || !provider || !contextWindow || contextWindow <= 0) {
+      const rawContextWindow = typeof obj.contextWindow === 'number' ? obj.contextWindow : undefined;
+      if (!id || !provider) {
         continue;
       }
+      const contextWindow = rawContextWindow !== undefined && rawContextWindow > 0
+        ? rawContextWindow
+        : 200_000;
       const label = typeof obj.label === 'string' && obj.label.trim() ? obj.label.trim() : id;
       const role = parseClaudeRole(obj.role);
       const actualModel = typeof obj.actualModel === 'string' && obj.actualModel.trim()

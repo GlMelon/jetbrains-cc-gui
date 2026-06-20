@@ -60,6 +60,24 @@ describe('modelRegistry', () => {
     });
   });
 
+  it('defaults contextWindow to 200000 when absent, aligning with backend', () => {
+    const parsed = parseModelRegistryPayload({
+      items: [
+        { id: 'mimo', provider: 'claude', label: 'Mimo' },
+      ],
+    });
+    expect(parsed?.items[0].contextWindow).toBe(200_000);
+  });
+
+  it('defaults contextWindow to 200000 when non-positive, aligning with backend', () => {
+    const parsed = parseModelRegistryPayload({
+      items: [
+        { id: 'mimo', provider: 'claude', label: 'Mimo', contextWindow: 0 },
+      ],
+    });
+    expect(parsed?.items[0].contextWindow).toBe(200_000);
+  });
+
   it('rejects empty or malformed payloads', () => {
     expect(parseModelRegistryPayload('{bad')).toBeNull();
     expect(parseModelRegistryPayload({ items: [] })).toBeNull();
