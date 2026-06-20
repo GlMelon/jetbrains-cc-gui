@@ -28,7 +28,6 @@ public class SettingsHandler extends BaseMessageHandler {
     private final PermissionModeHandler permissionModeHandler;
     private final ModelProviderHandler modelProviderHandler;
     private final NodePathHandler nodePathHandler;
-    private final ClaudeCliPathHandler claudeCliPathHandler;
     private final ProjectConfigHandler projectConfigHandler;
 
     private static final String[] SUPPORTED_TYPES = {
@@ -40,8 +39,6 @@ public class SettingsHandler extends BaseMessageHandler {
         "set_codex_fast_mode",
         "get_node_path",
         "set_node_path",
-        "get_claude_cli_path",
-        "set_claude_cli_path",
         "get_usage_statistics",
         "get_working_directory",
         "set_working_directory",
@@ -104,7 +101,6 @@ public class SettingsHandler extends BaseMessageHandler {
         this.permissionModeHandler = new PermissionModeHandler(context);
         this.modelProviderHandler = new ModelProviderHandler(context, usagePushService);
         this.nodePathHandler = new NodePathHandler(context);
-        this.claudeCliPathHandler = new ClaudeCliPathHandler(context);
         this.projectConfigHandler = new ProjectConfigHandler(context);
         // Register theme change listener to automatically notify frontend when IDE theme changes
         registerThemeChangeListener();
@@ -164,13 +160,6 @@ public class SettingsHandler extends BaseMessageHandler {
                 return true;
             case "set_node_path":
                 nodePathHandler.handleSetNodePath(content);
-                return true;
-            // Claude CLI path
-            case "get_claude_cli_path":
-                claudeCliPathHandler.handleGetClaudeCliPath();
-                return true;
-            case "set_claude_cli_path":
-                claudeCliPathHandler.handleSetClaudeCliPath(content);
                 return true;
             // Project configuration
             case "get_usage_statistics":

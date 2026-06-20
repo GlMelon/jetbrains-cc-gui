@@ -34,7 +34,8 @@ public class SettingsHandlerTypedWiringTest {
         for (String migrated : new String[]{
                 "get_model_registry", "set_model_registry", "reset_model_registry",
                 "get_model_registry_schema", "set_appearance_config",
-                "get_codex_subscription_quota"
+                "get_codex_subscription_quota",
+                "get_claude_cli_path", "set_claude_cli_path"
         }) {
             assertTrue(UpstreamAction.fromValue(migrated).isPresent());
         }
@@ -60,7 +61,8 @@ public class SettingsHandlerTypedWiringTest {
         for (String migrated : new String[]{
                 "get_model_registry", "set_model_registry", "reset_model_registry",
                 "get_model_registry_schema", "set_appearance_config",
-                "get_codex_subscription_quota"
+                "get_codex_subscription_quota",
+                "get_claude_cli_path", "set_claude_cli_path"
         }) {
             assertFalse("migrated action '" + migrated + "' must be removed from "
                     + "SettingsHandler.SUPPORTED_TYPES to avoid FrontendActionDispatcher duplicate "
