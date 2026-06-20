@@ -66,7 +66,6 @@ CLAUDE.md
 .github/*.md
 webview/src/version/version.ts
 webview/src/generated/
-AGENTS.md
 openspec/
 
 # 自定义沙箱目录（如果启用）
