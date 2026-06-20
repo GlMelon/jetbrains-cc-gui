@@ -11,18 +11,23 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 public class AppearanceConfigActionHandlerTest {
     private String originalHome;
     private List<String[]> dispatched;
     private FrontendActionContext context;
     private AppearanceConfigService service;
+    private RecordingSettingsService settingsService;
 
     @Before
     public void setUp() throws Exception {
@@ -30,7 +35,7 @@ public class AppearanceConfigActionHandlerTest {
         SettingsHandlerTestFixtures.useTempHome(
                 Files.createTempDirectory("appearance-handler-home"));
         dispatched = new ArrayList<>();
-        CodemossSettingsService settingsService = new CodemossSettingsService();
+        settingsService = new RecordingSettingsService();
         context = SettingsHandlerTestFixtures.recordingContext(settingsService, dispatched);
         service = new AppearanceConfigService(settingsService);
     }
@@ -54,14 +59,40 @@ public class AppearanceConfigActionHandlerTest {
         assertEquals("dark", applied.get("themePreference").getAsString());
     }
 
-    // 注:无法为「fromJson 畸形/类型不符 JSON → catch(Exception) 后仍回读并派发 apply」编写可靠单测。
-    // Gradle test 默认 -ea,Gson 对解析失败抛 AssertionError(extends Error)而 catch(Exception) 捕获不到,
-    // 与原 SettingsHandler 完全相同。生产(无 -ea)下抛 JsonSyntaxException 被捕获。等价性由 fromJson
-    // 下沉到 service try 内的结构保证(与原代码 handleSetAppearanceConfig 同构)。
+    @Test
+    public void setAppearanceConfigMalformedJsonRoutesThroughCatchAndSkipsPersistence() {
+        // 非 object 的合法 JSON([1,2])让 fromJson 抛 JsonSyntaxException,在 service try 内被 catch。
+        // catch 块 LOG.error 在测试环境(无 Application)经 DefaultLogger 抛 AssertionError(cause=原
+        // JsonSyntaxException;与 ProjectConfigHandlerCodeFontConfigTest 同;原 SettingsHandler catch 块
+        // 同样 LOG.error,行为一致)。双重断言:(1) catch(AssertionError) + cause=JsonSyntaxException 直接
+        // 证明 fromJson 在 try 内被 catch——若移到 try 外(回归 bug),抛纯 JsonSyntaxException 致
+        // catch(AssertionError) 落空、测试失败;(2) setAppearanceConfig 未调用锁住持久化安全不变量。
+        try {
+            new SetAppearanceConfigActionHandler(service).handle("[1,2]", context);
+            fail("expected AssertionError from LOG.error in test mode");
+        } catch (AssertionError ae) {
+            assertNotNull("AssertionError should wrap the original parse exception", ae.getCause());
+            assertTrue("cause should be JsonSyntaxException",
+                    ae.getCause() instanceof com.google.gson.JsonSyntaxException);
+        }
+        assertFalse("malformed payload must not reach setAppearanceConfig",
+                settingsService.setAppearanceConfigCalled);
+    }
 
     @Test
     public void declaresCorrectAction() {
         assertEquals(UpstreamAction.SET_APPEARANCE_CONFIG,
                 new SetAppearanceConfigActionHandler(service).action());
+    }
+
+    /** 捕获 setAppearanceConfig 是否被调用,用于断言坏 payload 不污染持久化层。 */
+    private static class RecordingSettingsService extends CodemossSettingsService {
+        private boolean setAppearanceConfigCalled = false;
+
+        @Override
+        public void setAppearanceConfig(JsonObject rawConfig) throws IOException {
+            setAppearanceConfigCalled = true;
+            super.setAppearanceConfig(rawConfig);
+        }
     }
 }

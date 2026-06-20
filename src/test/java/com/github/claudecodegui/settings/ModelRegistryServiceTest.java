@@ -1,6 +1,7 @@
 package com.github.claudecodegui.settings;
 
 import com.github.claudecodegui.config.ModelConfig;
+import com.github.claudecodegui.config.ModelConfigValidator;
 import com.github.claudecodegui.config.ModelRegistryConfig;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.google.gson.JsonObject;
@@ -15,7 +16,9 @@ import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 public class ModelRegistryServiceTest {
     private String originalHomeDir;
@@ -85,11 +88,29 @@ public class ModelRegistryServiceTest {
         assertFalse(result.errors().isEmpty());
     }
 
-    // 注:无法为「fromJson 畸形/类型不符 JSON → catch(Exception) 返回 failure」编写可靠单测。
-    // Gradle test 默认在 -ea 下运行,Gson 对任何解析失败(JsonSyntaxException 触发条件)都先抛
-    // AssertionError(extends Error)而 catch(Exception) 捕获不到——这与原 SettingsHandler 完全
-    // 相同(原代码亦 catch Exception)。生产环境(无 -ea)下 Gson 抛 JsonSyntaxException(RuntimeException),
-    // 被捕获并返回 failure。fromJson 下沉到 service try 内的异常路径与原代码逐字同构,等价性由结构保证。
+    @Test
+    public void setRegistryMalformedJsonRoutesThroughCatchAndSkipsPersistence() throws Exception {
+        useTemporaryHomeDirectory(Files.createTempDirectory("mrs-malformed-home"));
+        RecordingSettingsService recording = new RecordingSettingsService();
+        ModelRegistryService service = new ModelRegistryService(recording);
+
+        // 非 object 的合法 JSON([1,2])让 fromJson 抛 JsonSyntaxException,在 service 的 try 内被 catch。
+        // catch 块 LOG.error 在测试环境(无 Application)经 DefaultLogger 抛 AssertionError(cause=原
+        // JsonSyntaxException;与 ProjectConfigHandlerCodeFontConfigTest 同;原 SettingsHandler catch 块
+        // 同样 LOG.error,行为完全一致)。双重断言:(1) catch(AssertionError) + cause=JsonSyntaxException
+        // 直接证明 fromJson 在 try 内且被 catch 捕获——若 fromJson 被移到 try 外(回归 b3cd6c31 之前的
+        // bug),抛的是纯 JsonSyntaxException(无 AssertionError 包装),catch(AssertionError) 落空致测试
+        // 失败;(2) setModelRegistry 未调用锁住持久化安全不变量。
+        try {
+            service.setRegistry("[1,2]");
+            fail("expected AssertionError from LOG.error in test mode");
+        } catch (AssertionError ae) {
+            assertNotNull("AssertionError should wrap the original parse exception", ae.getCause());
+            assertTrue("cause should be JsonSyntaxException",
+                    ae.getCause() instanceof com.google.gson.JsonSyntaxException);
+        }
+        assertFalse("malformed payload must not reach setModelRegistry", recording.setModelRegistryCalled);
+    }
 
     @Test
     public void resetRegistryReturnsResetSuccess() throws Exception {
@@ -108,6 +129,17 @@ public class ModelRegistryServiceTest {
         JsonObject schema = ModelRegistrySchemaResult.defaultSchema().schema();
         assertEquals("模型配置中心", schema.get("title").getAsString());
         assertTrue(schema.has("providers"));
+    }
+
+    /** 捕获 setModelRegistry 是否被调用,用于断言坏 payload 不污染持久化层。 */
+    private static class RecordingSettingsService extends CodemossSettingsService {
+        private boolean setModelRegistryCalled = false;
+
+        @Override
+        public ModelConfigValidator.ValidationResult setModelRegistry(ModelRegistryConfig registry) {
+            setModelRegistryCalled = true;
+            return super.setModelRegistry(registry);
+        }
     }
 
     private void useTemporaryHomeDirectory(Path tempHome) throws Exception {
