@@ -108,6 +108,30 @@ describe('modelRegistry', () => {
     expect(parsed?.items[0].readOnly).toBe(false);
   });
 
+  it('parsed item covers all backend ModelConfig fields (payload SSOT guard)', () => {
+    // 与后端 com.github.claudecodegui.config.ModelConfig record 字段逐一对齐。
+    // 后端守门:ModelRegistryServiceSerializeTest.serializeEmitsExactlyTheModelConfigRecordFields
+    const BACKEND_MODEL_CONFIG_FIELDS = [
+      'id', 'provider', 'role', 'label', 'actualModel',
+      'description', 'contextWindow', 'supports1MContext', 'enabled', 'readOnly',
+    ] as const;
+
+    const parsed = parseModelRegistryPayload({
+      items: [
+        {
+          id: 'mimo-v2.5', provider: 'claude', role: 'sonnet', label: 'MiMo',
+          actualModel: 'mimo-v2.5', description: 'desc', contextWindow: 1_000_000,
+          supports1MContext: true, enabled: true, readOnly: false,
+        },
+      ],
+    });
+
+    const parsedKeys = Object.keys(parsed!.items[0]);
+    for (const field of BACKEND_MODEL_CONFIG_FIELDS) {
+      expect(parsedKeys, `parsed item missing backend field: ${field}`).toContain(field);
+    }
+  });
+
   it('defaults do not include hard-coded Codex GPT model catalog', () => {
     const codexModels = getModelsForProvider('codex');
     expect(codexModels).toEqual([]);
