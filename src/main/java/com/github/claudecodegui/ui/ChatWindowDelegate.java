@@ -24,6 +24,7 @@ import com.github.claudecodegui.handler.provider.ProviderHandler;
 import com.github.claudecodegui.handler.RewindHandler;
 import com.github.claudecodegui.handler.SessionHandler;
 import com.github.claudecodegui.handler.SettingsHandler;
+import com.github.claudecodegui.handler.settings.GetCodexSubscriptionQuotaActionHandler;
 import com.github.claudecodegui.handler.settings.GetModelRegistryActionHandler;
 import com.github.claudecodegui.handler.settings.SetModelRegistryActionHandler;
 import com.github.claudecodegui.handler.settings.ResetModelRegistryActionHandler;
@@ -320,6 +321,7 @@ public class ChatWindowDelegate {
         typedHandlers.add(new ResetModelRegistryActionHandler(modelRegistryService));
         typedHandlers.add(new GetModelRegistrySchemaActionHandler(modelRegistryService));
         typedHandlers.add(new SetAppearanceConfigActionHandler(appearanceConfigService));
+        typedHandlers.add(new GetCodexSubscriptionQuotaActionHandler());
         typedHandlers.addAll(LegacyMessageHandlerAdapter.from(new SettingsHandler(handlerContext)));
         host.setFrontendActionDispatcher(
                 new FrontendActionDispatcher(typedHandlers, handlerContext));
