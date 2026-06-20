@@ -2,6 +2,8 @@ import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { CodexProviderConfig } from '../../../types/provider';
 import { sendBridgeEvent } from '../../../utils/bridge';
+import { sendAction } from '../../../bridge/typed';
+import { UPSTREAM } from '../../../generated/protocol';
 import { createCodexCatalogModels, getModelRegistrySnapshot } from '../../../utils/modelRegistry';
 
 const sendToJava = (event: string, payload = '') => {
@@ -12,9 +14,10 @@ const syncCodexProviderCatalogToRegistry = (provider: CodexProviderConfig | null
   const catalogModels = createCodexCatalogModels(provider);
   const registry = getModelRegistrySnapshot();
   const nonCodexItems = registry.items.filter((item) => item.provider !== 'codex');
-  sendBridgeEvent('set_model_registry', JSON.stringify({
+  // 走 typed sendAction,UPSTREAM.SET_MODEL_REGISTRY 来自 generated/protocol(SSOT);对象 payload 自动 stringify
+  sendAction(UPSTREAM.SET_MODEL_REGISTRY, {
     items: [...nonCodexItems, ...catalogModels],
-  }));
+  });
 };
 
 export interface CodexProviderDialogState {

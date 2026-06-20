@@ -10,7 +10,8 @@ import {
   applyUserMsgColor,
   type Theme,
 } from '../../../utils/appearanceColors';
-import { sendBridgeEvent } from '../../../utils/bridge';
+import { sendAction } from '../../../bridge/typed';
+import { UPSTREAM } from '../../../generated/protocol';
 
 // Extend window type for IDE theme injection
 declare global {
@@ -210,13 +211,14 @@ export function useSettingsThemeSync(): UseSettingsThemeSyncReturn {
       return;
     }
     const handle = window.setTimeout(() => {
-      sendBridgeEvent('set_appearance_config', JSON.stringify({
+      // 走 typed sendAction,UPSTREAM.SET_APPEARANCE_CONFIG 来自 generated/protocol(SSOT);对象 payload 自动 stringify
+      sendAction(UPSTREAM.SET_APPEARANCE_CONFIG, {
         themePreference,
         fontSizeLevel,
         diffTheme,
         chatBgColor: { light: chatBgColors.light || undefined, dark: chatBgColors.dark || undefined },
         userMsgColor: { light: userMsgColors.light || undefined, dark: userMsgColors.dark || undefined },
-      }));
+      });
     }, 400);
     return () => window.clearTimeout(handle);
   }, [themePreference, fontSizeLevel, diffTheme, chatBgColors, userMsgColors]);
