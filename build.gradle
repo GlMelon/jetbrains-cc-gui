@@ -384,9 +384,13 @@ tasks.register('buildWebview', Exec) {
     doLast { println "Webview build completed." }
 }
 
-// ── Protocol SSOT: Generate protocol-manifest.json from Java enums ──
+// ── Protocol SSOT ──
+// 注意:webview/scripts/generate-protocol-types.mjs 已改为构建时直接解析 Java 枚举源
+// (UpstreamAction.java / DownstreamEvent.java) 生成 webview/src/generated/protocol.ts,
+// 不再依赖本 task 产出的 manifest。本 task 保留为可选/兼容产物,供需要 manifest
+// 中间态的工具(ProtocolManifestGenerator)手动调用,亦可作为 mjs 解析结果的人工校验入口。
 tasks.register('generateProtocol', JavaExec) {
-    description = 'Generate protocol-manifest.json from UpstreamAction/DownstreamEvent enums'
+    description = '[可选] 生成 protocol-manifest.json(供工具消费;mjs 构建链路不依赖此产物)'
     group = 'protocol'
 
     dependsOn 'classes'
