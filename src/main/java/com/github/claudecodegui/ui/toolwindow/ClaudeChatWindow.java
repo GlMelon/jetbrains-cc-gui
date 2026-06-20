@@ -2,6 +2,7 @@ package com.github.claudecodegui.ui.toolwindow;
 
 import com.github.claudecodegui.action.SendShortcutSync;
 import com.github.claudecodegui.handler.PermissionHandler;
+import com.github.claudecodegui.handler.core.FrontendActionDispatcher;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.handler.core.MessageDispatcher;
 import com.github.claudecodegui.handler.history.HistoryHandler;
@@ -172,6 +173,10 @@ public class ClaudeChatWindow {
      * message dispatcher.
      */
     private MessageDispatcher messageDispatcher;
+    /**
+     * frontend action dispatcher (typed handlers; consulted before legacy messageDispatcher).
+     */
+    private FrontendActionDispatcher frontendActionDispatcher;
     /**
      * permission handler.
      */
@@ -721,6 +726,9 @@ public class ClaudeChatWindow {
                     Thread.currentThread().getName()));
         }
 
+        if (frontendActionDispatcher != null && frontendActionDispatcher.dispatch(type, content)) {
+            return;
+        }
         if (messageDispatcher.dispatch(type, content)) {
             return;
         }
@@ -1430,6 +1438,11 @@ public class ClaudeChatWindow {
             @Override
             public void setMessageDispatcher(MessageDispatcher d) {
                 messageDispatcher = d;
+            }
+
+            @Override
+            public void setFrontendActionDispatcher(FrontendActionDispatcher d) {
+                frontendActionDispatcher = d;
             }
 
             @Override

@@ -9,7 +9,10 @@ import com.github.claudecodegui.handler.ContextHandler;
 import com.github.claudecodegui.handler.CodexMcpServerHandler;
 import com.github.claudecodegui.handler.DependencyHandler;
 import com.github.claudecodegui.handler.DiffHandler;
+import com.github.claudecodegui.handler.core.FrontendActionDispatcher;
+import com.github.claudecodegui.handler.core.FrontendActionHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.handler.core.LegacyMessageHandlerAdapter;
 import com.github.claudecodegui.handler.history.HistoryHandler;
 import com.github.claudecodegui.handler.McpServerHandler;
 import com.github.claudecodegui.handler.core.MessageDispatcher;
@@ -21,6 +24,11 @@ import com.github.claudecodegui.handler.provider.ProviderHandler;
 import com.github.claudecodegui.handler.RewindHandler;
 import com.github.claudecodegui.handler.SessionHandler;
 import com.github.claudecodegui.handler.SettingsHandler;
+import com.github.claudecodegui.handler.settings.GetModelRegistryActionHandler;
+import com.github.claudecodegui.handler.settings.SetModelRegistryActionHandler;
+import com.github.claudecodegui.handler.settings.ResetModelRegistryActionHandler;
+import com.github.claudecodegui.handler.settings.GetModelRegistrySchemaActionHandler;
+import com.github.claudecodegui.handler.settings.SetAppearanceConfigActionHandler;
 import com.github.claudecodegui.handler.SkillHandler;
 import com.github.claudecodegui.handler.TabHandler;
 import com.github.claudecodegui.handler.WindowEventHandler;
@@ -29,6 +37,8 @@ import com.github.claudecodegui.handler.file.FileHandler;
 import com.github.claudecodegui.handler.file.OpenClassHandler;
 import com.github.claudecodegui.handler.file.UndoFileHandler;
 import com.github.claudecodegui.permission.PermissionService;
+import com.github.claudecodegui.settings.AppearanceConfigService;
+import com.github.claudecodegui.settings.ModelRegistryService;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
 import com.github.claudecodegui.provider.codex.CodexSDKBridge;
 import com.github.claudecodegui.provider.common.MessageCallback;
@@ -47,6 +57,7 @@ import com.intellij.ui.jcef.JBCefBrowser;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -115,6 +126,7 @@ public class ChatWindowDelegate {
         HandlerContext getHandlerContext();
         void setHandlerContext(HandlerContext ctx);
         void setMessageDispatcher(MessageDispatcher d);
+        void setFrontendActionDispatcher(FrontendActionDispatcher d);
         void setPermissionHandler(PermissionHandler h);
         void setHistoryHandler(HistoryHandler h);
         SessionLifecycleManager getSessionLifecycleManager();
@@ -295,12 +307,28 @@ public class ChatWindowDelegate {
         MessageDispatcher messageDispatcher = new MessageDispatcher();
         host.setMessageDispatcher(messageDispatcher);
 
+        // Typed frontend action dispatcher: migrated settings actions (model registry + appearance)
+        // are served by dedicated typed handlers; the remaining SettingsHandler actions are bridged
+        // via LegacyMessageHandlerAdapter. This dispatcher is consulted before the legacy
+        // MessageDispatcher in ClaudeChatWindow#handleMessage.
+        CodemossSettingsService settings = handlerContext.getSettingsService();
+        ModelRegistryService modelRegistryService = new ModelRegistryService(settings);
+        AppearanceConfigService appearanceConfigService = new AppearanceConfigService(settings);
+        List<FrontendActionHandler<?>> typedHandlers = new ArrayList<>();
+        typedHandlers.add(new GetModelRegistryActionHandler(modelRegistryService));
+        typedHandlers.add(new SetModelRegistryActionHandler(modelRegistryService));
+        typedHandlers.add(new ResetModelRegistryActionHandler(modelRegistryService));
+        typedHandlers.add(new GetModelRegistrySchemaActionHandler(modelRegistryService));
+        typedHandlers.add(new SetAppearanceConfigActionHandler(appearanceConfigService));
+        typedHandlers.addAll(LegacyMessageHandlerAdapter.from(new SettingsHandler(handlerContext)));
+        host.setFrontendActionDispatcher(
+                new FrontendActionDispatcher(typedHandlers, handlerContext));
+
         messageDispatcher.registerHandler(new ProviderHandler(handlerContext));
         messageDispatcher.registerHandler(new McpServerHandler(handlerContext));
         messageDispatcher.registerHandler(new CodexMcpServerHandler(handlerContext, settingsService.getCodexMcpServerManager()));
         messageDispatcher.registerHandler(new SkillHandler(handlerContext));
         messageDispatcher.registerHandler(new FileHandler(handlerContext));
-        messageDispatcher.registerHandler(new SettingsHandler(handlerContext));
         messageDispatcher.registerHandler(new SessionHandler(handlerContext));
         messageDispatcher.registerHandler(new ContextHandler(handlerContext));
         messageDispatcher.registerHandler(new FileExportHandler(handlerContext));

@@ -3,15 +3,12 @@ package com.github.claudecodegui.handler;
 import com.github.claudecodegui.handler.core.BaseMessageHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.handler.provider.ModelProviderHandler;
-import com.github.claudecodegui.config.ModelConfig;
-import com.github.claudecodegui.config.ModelRegistryConfig;
 
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.session.runtime.RuntimeType;
 import com.github.claudecodegui.util.LanguageConfigService;
 import com.github.claudecodegui.util.ThemeConfigService;
 import com.github.claudecodegui.util.GsonHolder;
-import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.application.ApplicationManager;
@@ -39,10 +36,6 @@ public class SettingsHandler extends BaseMessageHandler {
         "get_mode",
         "set_mode", "set_session_mode",
         "set_model", "set_session_model",
-        "get_model_registry",
-        "set_model_registry",
-        "reset_model_registry",
-        "get_model_registry_schema",
         "set_provider", "set_session_provider",
         "set_reasoning_effort",
         "set_codex_fast_mode",
@@ -99,8 +92,6 @@ public class SettingsHandler extends BaseMessageHandler {
         "set_user_language",
         "get_user_language",
         "clear_user_language",
-        // Appearance (theme preference / font size / diff theme / per-theme colors)
-        "set_appearance_config",
         // Runtime policy
         "get_runtime_policy",
         "set_runtime_policy",
@@ -157,18 +148,6 @@ public class SettingsHandler extends BaseMessageHandler {
                 return true;
             case "set_session_model":
                 modelProviderHandler.handleSetSessionModel(content);
-                return true;
-            case "get_model_registry":
-                handleGetModelRegistry();
-                return true;
-            case "set_model_registry":
-                handleSetModelRegistry(content);
-                return true;
-            case "reset_model_registry":
-                handleResetModelRegistry();
-                return true;
-            case "get_model_registry_schema":
-                handleGetModelRegistrySchema();
                 return true;
             case "set_provider":
                 modelProviderHandler.handleSetProvider(content);
@@ -349,10 +328,6 @@ public class SettingsHandler extends BaseMessageHandler {
             case "clear_user_language":
                 handleClearUserLanguage();
                 return true;
-            // Appearance config (persisted to config.json, survives cache clear)
-            case "set_appearance_config":
-                handleSetAppearanceConfig(content);
-                return true;
             // Runtime policy
             case "get_runtime_policy":
                 handleGetRuntimePolicy();
@@ -428,171 +403,10 @@ public class SettingsHandler extends BaseMessageHandler {
     }
 
     /**
-     * Handle set_appearance_config: persist webview appearance settings (theme preference,
-     * font size, diff theme, per-theme colors) to config.json so they survive IDE cache
-     * invalidation. Pushes the authoritative config back so the webview can hydrate / roll
-     * back optimistic updates, mirroring the language config flow.
-     */
-    private void handleSetAppearanceConfig(String content) {
-        try {
-            JsonObject json = gson.fromJson(content, JsonObject.class);
-            context.getSettingsService().setAppearanceConfig(json);
-            LOG.debug("[SettingsHandler] Saved appearance config");
-            pushAppearanceConfig();
-        } catch (Exception e) {
-            LOG.error("[SettingsHandler] Failed to save appearance config: " + e.getMessage(), e);
-            pushAppearanceConfig();
-        }
-    }
-
-    private void pushAppearanceConfig() {
-        String configJson = CodemossSettingsService.getAppearanceConfigJson(context.getSettingsService());
-        dispatchEvent("appearance.apply", escapeJs(configJson));
-    }
-
-    /**
      * Expose getModelContextLimit for callers that previously used the static method on SettingsHandler.
      */
     public static int getModelContextLimit(String model) {
         return ModelProviderHandler.getModelContextLimit(model);
-    }
-
-    // ── Model Registry Handlers ──────────────────────────────────────────────
-
-    private void handleGetModelRegistry() {
-        try {
-            dispatchEvent("model_registry", escapeJs(serializeModelRegistry(
-                    context.getSettingsService().getModelRegistry()).toString()));
-        } catch (Exception e) {
-            LOG.error("[SettingsHandler] Failed to get model registry: " + e.getMessage(), e);
-            dispatchModelRegistryError("获取模型配置失败: " + e.getMessage());
-        }
-    }
-
-    private void handleSetModelRegistry(String content) {
-        try {
-            JsonObject json = gson.fromJson(content, JsonObject.class);
-            ModelRegistryConfig registry = parseModelRegistryFromJson(json);
-            var result = context.getSettingsService().setModelRegistry(registry);
-            JsonObject response = new JsonObject();
-            response.addProperty("success", result.isValid());
-            if (result.isValid()) {
-                response.add("registry", serializeModelRegistry(context.getSettingsService().getModelRegistry()));
-            } else {
-                var errors = new com.google.gson.JsonArray();
-                result.errors().forEach(errors::add);
-                response.add("errors", errors);
-            }
-            dispatchEvent("model_registry_updated", escapeJs(response.toString()));
-            if (result.isValid()) {
-                dispatchEvent("model_registry", escapeJs(serializeModelRegistry(
-                        context.getSettingsService().getModelRegistry()).toString()));
-            }
-        } catch (Exception e) {
-            LOG.error("[SettingsHandler] Failed to set model registry: " + e.getMessage(), e);
-            JsonObject response = new JsonObject();
-            response.addProperty("success", false);
-            var errors = new com.google.gson.JsonArray();
-            errors.add("保存失败: " + e.getMessage());
-            response.add("errors", errors);
-            dispatchEvent("model_registry_updated", escapeJs(response.toString()));
-        }
-    }
-
-    private void handleResetModelRegistry() {
-        try {
-            context.getSettingsService().resetModelRegistry();
-            JsonObject response = new JsonObject();
-            response.addProperty("success", true);
-            response.addProperty("reset", true);
-            response.add("registry", serializeModelRegistry(context.getSettingsService().getModelRegistry()));
-            dispatchEvent("model_registry_updated", escapeJs(response.toString()));
-            dispatchEvent("model_registry", escapeJs(serializeModelRegistry(
-                    context.getSettingsService().getModelRegistry()).toString()));
-        } catch (Exception e) {
-            LOG.error("[SettingsHandler] Failed to reset model registry: " + e.getMessage(), e);
-            dispatchModelRegistryError("重置模型配置失败: " + e.getMessage());
-        }
-    }
-
-    private void handleGetModelRegistrySchema() {
-        JsonObject schema = new JsonObject();
-        schema.addProperty("title", "模型配置中心");
-        schema.addProperty("description", "配置 Claude/Codex 可选模型、上下文窗口与 1M 能力。错误配置会被后端拒绝。");
-        schema.addProperty("providers", "claude, codex");
-        schema.addProperty("contextWindow", "8192 到 2000000 的整数 tokens");
-        schema.addProperty("supports1MContext", "为 true 时 contextWindow 必须 >= 1000000");
-        dispatchEvent("model_registry_schema", escapeJs(schema.toString()));
-    }
-
-    private void dispatchModelRegistryError(String message) {
-        JsonObject response = new JsonObject();
-        response.addProperty("success", false);
-        var errors = new com.google.gson.JsonArray();
-        errors.add(message);
-        response.add("errors", errors);
-        dispatchEvent("model_registry_updated", escapeJs(response.toString()));
-    }
-
-    private JsonObject serializeModelRegistry(ModelRegistryConfig registry) {
-        JsonObject root = new JsonObject();
-        var items = new com.google.gson.JsonArray();
-        for (ModelConfig model : registry.models()) {
-            JsonObject obj = new JsonObject();
-            obj.addProperty("id", model.id());
-            obj.addProperty("provider", model.provider());
-            obj.addProperty("role", model.role());
-            obj.addProperty("label", model.label());
-            if (model.actualModel() == null || model.actualModel().isEmpty()) {
-                obj.add("actualModel", com.google.gson.JsonNull.INSTANCE);
-            } else {
-                obj.addProperty("actualModel", model.actualModel());
-            }
-            obj.addProperty("description", model.description());
-            obj.addProperty("contextWindow", model.contextWindow());
-            obj.addProperty("supports1MContext", model.supports1MContext());
-            obj.addProperty("enabled", model.enabled());
-            obj.addProperty("readOnly", model.readOnly());
-            items.add(obj);
-        }
-        root.add("items", items);
-        return root;
-    }
-
-    private ModelRegistryConfig parseModelRegistryFromJson(JsonObject json) {
-        var models = new java.util.ArrayList<ModelConfig>();
-        if (json != null && json.has("items") && json.get("items").isJsonArray()) {
-            for (var item : json.getAsJsonArray("items")) {
-                if (!item.isJsonObject()) {
-                    continue;
-                }
-                JsonObject obj = item.getAsJsonObject();
-                String id = readString(obj, "id");
-                String provider = readString(obj, "provider");
-                String role = readString(obj, "role");
-                String label = readString(obj, "label");
-                String actualModel = readString(obj, "actualModel");
-                String description = readString(obj, "description");
-                int contextWindow = obj.has("contextWindow") && !obj.get("contextWindow").isJsonNull()
-                        ? obj.get("contextWindow").getAsInt()
-                        : 200_000;
-                boolean supports1MContext = obj.has("supports1MContext")
-                        && !obj.get("supports1MContext").isJsonNull()
-                        && obj.get("supports1MContext").getAsBoolean();
-                boolean enabled = !obj.has("enabled") || obj.get("enabled").isJsonNull()
-                        || obj.get("enabled").getAsBoolean();
-                models.add(new ModelConfig(id, provider, role, label, actualModel, description,
-                        contextWindow, supports1MContext, enabled));
-            }
-        }
-        return new ModelRegistryConfig(models);
-    }
-
-    private static String readString(JsonObject obj, String key) {
-        if (!obj.has(key) || obj.get(key).isJsonNull()) {
-            return "";
-        }
-        return obj.get(key).getAsString();
     }
 
     // ── Runtime Policy Handlers ──────────────────────────────────────────────
