@@ -61,9 +61,11 @@ describe('useModelProviderState', () => {
       ([type]) => type === 'set_session_model',
     );
     expect(setModelCall).toBeTruthy();
+    // P1-A2:前端只发送意图(longContextEnabled),effectiveContextWindow 由后端权威计算。
+    // 1M 模型 + longContext 默认开启 → 发送 longContextEnabled: true。
     expect(JSON.parse(setModelCall![1] as string)).toMatchObject({
       model: 'mimo-v2.5-pro',
-      contextWindow: 1_000_000,
+      longContextEnabled: true,
     });
   });
 
@@ -104,9 +106,12 @@ describe('useModelProviderState', () => {
       ([type]) => type === 'set_session_model',
     );
     expect(setModelCall).toBeTruthy();
+    // P1-A2:registry 变更触发 effect 重发意图。先前选 200k 模型时 longContext 已被
+    // auto-reset 为 false,故刷新后仍发送 longContextEnabled: false(effectiveContextWindow
+    // 由后端按 registry 1M 权威计算,前端不再发送 contextWindow)。
     expect(JSON.parse(setModelCall![1] as string)).toMatchObject({
       model: 'mimo-v2.5-pro',
-      contextWindow: 1_000_000,
+      longContextEnabled: false,
     });
   });
 

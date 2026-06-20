@@ -42,21 +42,8 @@ public class ModelProviderHandler {
 
     public void handleSetModel(String content) {
         try {
-            String model;
-            Integer contextWindowOverride = null;
-
-            String trimmed = content.trim();
-            if (trimmed.startsWith("{")) {
-                JsonObject json = gson.fromJson(trimmed, JsonObject.class);
-                model = json.has("model") ? json.get("model").getAsString() : "";
-                if (json.has("contextWindow") && !json.get("contextWindow").isJsonNull()) {
-                    contextWindowOverride = json.get("contextWindow").getAsInt();
-                }
-            } else {
-                model = content;
-            }
-
-            applyModelChange(model, contextWindowOverride, false);
+            ModelChangeRequest req = parseModelChange(content);
+            applyModelChange(req.model(), req.contextWindowOverride(), req.longContextEnabled(), false);
         } catch (Exception e) {
             LOG.error("[ModelProviderHandler] Failed to set model: " + e.getMessage(), e);
         }
@@ -64,24 +51,48 @@ public class ModelProviderHandler {
 
     public void handleSetSessionModel(String content) {
         try {
-            String model;
-            Integer contextWindowOverride = null;
-
-            String trimmed = content.trim();
-            if (trimmed.startsWith("{")) {
-                JsonObject json = gson.fromJson(trimmed, JsonObject.class);
-                model = json.has("model") ? json.get("model").getAsString() : "";
-                if (json.has("contextWindow") && !json.get("contextWindow").isJsonNull()) {
-                    contextWindowOverride = json.get("contextWindow").getAsInt();
-                }
-            } else {
-                model = content;
-            }
-
-            applyModelChange(model, contextWindowOverride, true);
+            ModelChangeRequest req = parseModelChange(content);
+            applyModelChange(req.model(), req.contextWindowOverride(), req.longContextEnabled(), true);
         } catch (Exception e) {
             LOG.error("[ModelProviderHandler] Failed to set session model: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * 解析 set_model / set_session_model 上行 payload。
+     *
+     * <p>归一化后的协议(新前端):{@code {model, longContextEnabled}} —— 前端只发意图布尔,
+     * 由后端权威计算 effectiveContextWindow(见 {@link DefaultModelCapabilityResolver})。
+     *
+     * <p>向后兼容(旧前端):payload 仅含 {@code {model, contextWindow}} 而无 {@code longContextEnabled}
+     * 时,从 {@code contextWindow>=1M} 推导 longContextEnabled,保持行为等价。
+     */
+    private static ModelChangeRequest parseModelChange(String content) {
+        String model;
+        Integer contextWindowOverride = null;
+        boolean longContextEnabled = false;
+
+        String trimmed = content == null ? "" : content.trim();
+        if (trimmed.startsWith("{")) {
+            JsonObject json = GsonHolder.GSON.fromJson(trimmed, JsonObject.class);
+            model = json.has("model") ? json.get("model").getAsString() : "";
+            if (json.has("contextWindow") && !json.get("contextWindow").isJsonNull()) {
+                contextWindowOverride = json.get("contextWindow").getAsInt();
+            }
+            if (json.has("longContextEnabled") && !json.get("longContextEnabled").isJsonNull()) {
+                longContextEnabled = json.get("longContextEnabled").getAsBoolean();
+            } else if (contextWindowOverride != null && contextWindowOverride >= 1_000_000) {
+                // 向后兼容:旧前端仅发 contextWindow,从中推导 longContextEnabled
+                longContextEnabled = true;
+            }
+        } else {
+            model = content;
+        }
+        return new ModelChangeRequest(model, contextWindowOverride, longContextEnabled);
+    }
+
+    /** set_model / set_session_model 上行 payload 的解析结果。 */
+    private record ModelChangeRequest(String model, Integer contextWindowOverride, boolean longContextEnabled) {
     }
 
     /**
@@ -96,10 +107,13 @@ public class ModelProviderHandler {
      *
      * @param model               clean model ID (without [1m] suffix)
      * @param contextWindowOverride desired context window from frontend (null = use backend default)
+     * @param longContextEnabled  前端显式上送的长上下文意图(新协议权威来源);
+     *                            旧前端仅发 contextWindow 时由 {@link #parseModelChange} 兼容推导
      * @param isSessionOnly       true for set_session_model(仅影响 provider 来源,见
      *                            {@link #confirmedProviderForModelChange};不再守卫全局默认更新)
      */
-    private void applyModelChange(String model, Integer contextWindowOverride, boolean isSessionOnly) {
+    private void applyModelChange(String model, Integer contextWindowOverride,
+                                  boolean longContextEnabled, boolean isSessionOnly) {
         LOG.info("[ModelProviderHandler] Setting model to: " + model
                 + (contextWindowOverride != null ? " (contextWindow=" + contextWindowOverride + ")" : ""));
 
@@ -116,7 +130,7 @@ public class ModelProviderHandler {
                         confirmedProvider,
                         model,
                         contextWindowOverride,
-                        contextWindowOverride != null && contextWindowOverride >= 1_000_000
+                        longContextEnabled
                 ));
         String storedModel = selection.storedModel();
 

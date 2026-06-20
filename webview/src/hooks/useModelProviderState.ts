@@ -158,16 +158,11 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
         setLongContextEnabled(false);
       }
 
-      // Calculate effective contextWindow based on toggle + model capability
-      const effectiveContextWindow = longContextEnabled && supports1M
-        ? 1_000_000
-        : (contextWindow ?? currentProviderPreset?.defaultContextWindow ?? 200_000);
-
-      // Send clean model ID (no [1m]) + contextWindow to backend
-      // Backend will handle [1m] suffix internally for Claude models
+      // 仅发送「意图」(模型 ID + 长上下文开关);effectiveContextWindow 由后端权威计算,
+      // 并通过 MODEL_SELECTION 下行回推(见上方订阅)。前端不再硬编码 1M/200k 计算。
       sendBridgeEvent('set_session_model', JSON.stringify({
         model: normalizedModelId,
-        contextWindow: effectiveContextWindow,
+        longContextEnabled: longContextEnabled && supports1M,
       }));
     } else if (currentProvider === 'codex') {
       setSelectedCodexModel(modelId);
@@ -199,17 +194,21 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     const newProviderPreset = PROVIDER_PRESETS.find(p => p.id === providerId);
     const newProviderModels = getModelsForProvider(providerId);
 
-    // Calculate effective contextWindow
-    const modelForCapability = providerId === 'codex' ? selectedCodexModel : selectedClaudeModel;
-    const registryContextWindow = newProviderModels.find((model) => model.id === strip1MContextSuffix(modelForCapability))?.contextWindow;
-    const effectiveContextWindow = (providerId === 'claude' && longContextEnabled && modelSupports1MContext(selectedClaudeModel, newProviderModels, newProviderPreset))
-      ? 1_000_000
-      : (contextWindow ?? registryContextWindow ?? newProviderPreset?.defaultContextWindow ?? 200_000);
-
-    sendBridgeEvent('set_session_model', JSON.stringify({
-      model: newModel,
-      contextWindow: effectiveContextWindow,
-    }));
+    // 切换 provider 后重发当前模型。claude 仅发送意图(longContextEnabled),
+    // effectiveContextWindow 由后端权威计算;codex 仍发送 registry contextWindow。
+    if (providerId === 'claude') {
+      sendBridgeEvent('set_session_model', JSON.stringify({
+        model: newModel,
+        longContextEnabled: longContextEnabled && modelSupports1MContext(selectedClaudeModel, newProviderModels, newProviderPreset),
+      }));
+    } else {
+      const registryContextWindow = newProviderModels.find((model) => model.id === strip1MContextSuffix(selectedCodexModel))?.contextWindow;
+      const effectiveContextWindow = contextWindow ?? registryContextWindow ?? newProviderPreset?.defaultContextWindow ?? 200_000;
+      sendBridgeEvent('set_session_model', JSON.stringify({
+        model: newModel,
+        contextWindow: effectiveContextWindow,
+      }));
+    }
   }, [
     claudePermissionMode,
     codexPermissionMode,
@@ -218,20 +217,15 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     longContextEnabled,
   ]);
 
-    const handleLongContextChange = useCallback((enabled: boolean, contextWindow?: number) => {
+    const handleLongContextChange = useCallback((enabled: boolean) => {
     setLongContextEnabled(enabled);
     if (currentProvider === 'claude') {
       const registryModels = getModelsForProvider('claude');
-      const modelInfo = registryModels.find((model) => model.id === strip1MContextSuffix(selectedClaudeModel));
-      // Calculate effective contextWindow
-      const effectiveContextWindow = enabled && modelSupports1MContext(selectedClaudeModel, registryModels, currentProviderPreset)
-        ? 1_000_000
-        : (contextWindow ?? modelInfo?.contextWindow ?? currentProviderPreset?.defaultContextWindow ?? 200_000);
-
-      // Send clean model ID (no [1m]) + contextWindow to backend
+      const supports1M = modelSupports1MContext(selectedClaudeModel, registryModels, currentProviderPreset);
+      // 仅发送意图;effectiveContextWindow 由后端计算并通过 MODEL_SELECTION 回推。
       sendBridgeEvent('set_session_model', JSON.stringify({
         model: selectedClaudeModel,
-        contextWindow: effectiveContextWindow,
+        longContextEnabled: enabled && supports1M,
       }));
     }
   }, [currentProvider, selectedClaudeModel, setLongContextEnabled, currentProviderPreset]);
@@ -254,11 +248,10 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
       if (longContextEnabled && !supports1M) {
         setLongContextEnabled(false);
       }
+      // 仅发送意图;effectiveContextWindow 由后端权威计算。
       sendBridgeEvent('set_session_model', JSON.stringify({
         model: selectedClaudeModel,
-        contextWindow: longContextEnabled && supports1M
-          ? 1_000_000
-          : (selectedRegistryModel.contextWindow ?? currentProviderPreset?.defaultContextWindow ?? 200_000),
+        longContextEnabled: longContextEnabled && supports1M,
       }));
       return;
     }

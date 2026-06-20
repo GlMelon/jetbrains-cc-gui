@@ -27,9 +27,12 @@ public class DefaultModelCapabilityResolver implements ModelCapabilityResolver {
         String resolvedActualModel = resolveActualModel(selectedModel, registrySelection);
 
         boolean supportsLongContext = supportsLongContext(selectedModel, registrySelection);
+        // longContextEnabled 是前端意图的权威来源(新协议);requestedContextWindow>=1M 仅作
+        // 向后兼容 —— 旧前端不发 longContextEnabled,仅发 contextWindow=1M。两者取并集,
+        // 使「显式发 longContextEnabled」与「旧前端发 contextWindow=1M」都能触发 1M 窗口。
         boolean requestsOneMillion = request.longContextEnabled()
-                && request.requestedContextWindow() != null
-                && request.requestedContextWindow() >= ONE_MILLION_CONTEXT_WINDOW;
+                || (request.requestedContextWindow() != null
+                        && request.requestedContextWindow() >= ONE_MILLION_CONTEXT_WINDOW);
         int modelLimit = resolveModelLimit(provider, selectedModel, resolvedActualModel, registrySelection);
         if (supportsLongContext && requestsOneMillion) {
             modelLimit = Math.max(modelLimit, ONE_MILLION_CONTEXT_WINDOW);
