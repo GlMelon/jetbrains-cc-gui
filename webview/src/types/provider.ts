@@ -316,7 +316,20 @@ export interface CodexProviderConfig {
 // ============ Provider Presets ============
 
 /**
- * Provider preset configuration
+ * 第三方 provider 快捷填充模板(前端 UI 关注点)。
+ *
+ * 架构定性:PROVIDER_PRESETS 是 ProviderDialog「新建/编辑 provider」时的快捷选项,
+ * 仅服务于 UI 表单填充(预置 base_url + 默认 model name)与 base_url 反查匹配。
+ * 它不是后端业务数据表:
+ *   - 后端不消费(用户最终配置的 env 由后端透传给子进程,preset 仅是默认建议);
+ *   - 后端零持有(grep zhipu/kimi/deepseek/minimax/xiaomi/qwen/openrouter 无匹配);
+ *   - nameKey 是前端 i18n key,非后端可解释的业务值。
+ * 故不下沉后端(下沉为纯形式 SSOT —— useModelProviderState 中 currentProvider
+ * ∈ {claude,codex} 永不等于 preset id,即使订阅后端 preset,find 结果仍恒 undefined)。
+ *
+ * 模型能力(contextWindow/supports1MContext)权威来源是后端 ModelRegistry 下行
+ * (MODEL_REGISTRY/MODEL_REGISTRY_UPDATED);前端不得在此预置能力字段(历史曾有
+ * defaultContextWindow/supports1MContext 死字段,已删除以符合总则一:前端不做能力判定)。
  */
 export interface ProviderPreset {
   /** Unique preset ID */
@@ -325,17 +338,14 @@ export interface ProviderPreset {
   nameKey: string;
   /** Environment variable configuration */
   env: Record<string, string>;
-  /** Default context window for models from this provider (in tokens) */
-  defaultContextWindow?: number;
-  /** Models that support 1M context window */
-  supports1MContext?: boolean;
 }
 
 /**
- * Provider preset configuration list
- * Used for quick provider setup
+ * Provider preset configuration list, used for quick provider setup in ProviderDialog.
+ * nameKey is resolved at render time via t() to the display name for the current language.
  *
- * nameKey is resolved at render time via t() to the display name for the current language
+ * NOTE:能力字段(defaultContextWindow/supports1MContext)已移除 —— 模型能力权威来源是
+ * 后端 ModelRegistry 下行,前端不得预置(见 ProviderPreset 架构注释)。
  */
 export const PROVIDER_PRESETS: ProviderPreset[] = [
   {
@@ -354,8 +364,6 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       ANTHROPIC_DEFAULT_OPUS_MODEL: 'glm-4.7',
       ANTHROPIC_DEFAULT_FABLE_MODEL: 'glm-4.7',
     },
-    defaultContextWindow: 200_000,
-    supports1MContext: false,
   },
   {
     id: 'kimi',
@@ -368,8 +376,6 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       ANTHROPIC_DEFAULT_OPUS_MODEL: 'kimi-k2.5',
       ANTHROPIC_DEFAULT_FABLE_MODEL: 'kimi-k2.5',
     },
-    defaultContextWindow: 200_000,
-    supports1MContext: false,
   },
   {
     id: 'deepseek',
@@ -383,8 +389,6 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       ANTHROPIC_DEFAULT_FABLE_MODEL: 'deepseek-v4-pro[1m]',
       CLAUDE_CODE_EFFORT_LEVEL: 'max',
     },
-    defaultContextWindow: 1_000_000,
-    supports1MContext: true,
   },
   {
     id: 'minimax',
@@ -400,8 +404,6 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       ANTHROPIC_DEFAULT_HAIKU_MODEL: 'MiniMax-M2.1',
       ANTHROPIC_DEFAULT_FABLE_MODEL: 'MiniMax-M2.1',
     },
-    defaultContextWindow: 200_000,
-    supports1MContext: false,
   },
   {
     id: 'xiaomi',
@@ -414,8 +416,6 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       ANTHROPIC_DEFAULT_OPUS_MODEL: 'mimo-v2.5-pro',
       ANTHROPIC_DEFAULT_FABLE_MODEL: 'mimo-v2.5-pro',
     },
-    defaultContextWindow: 1_000_000,
-    supports1MContext: true,
   },
   {
     id: 'xiaomi-plan',
@@ -428,8 +428,6 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       ANTHROPIC_DEFAULT_OPUS_MODEL: 'mimo-v2.5-pro',
       ANTHROPIC_DEFAULT_FABLE_MODEL: 'mimo-v2.5-pro',
     },
-    defaultContextWindow: 1_000_000,
-    supports1MContext: true,
   },
   {
     id: 'qwen',
@@ -442,8 +440,6 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       ANTHROPIC_DEFAULT_OPUS_MODEL: 'qwen3-max',
       ANTHROPIC_DEFAULT_FABLE_MODEL: 'qwen3-max',
     },
-    defaultContextWindow: 200_000,
-    supports1MContext: false,
   },
   {
     id: 'openrouter',

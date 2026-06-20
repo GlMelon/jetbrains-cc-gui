@@ -270,12 +270,10 @@ export interface ModelInfo {
  *
  * @param modelId 模型 ID（可能带 [1m] 后缀）
  * @param models 可选的模型列表（含自定义模型），不传则用内置列表
- * @param providerPreset 可选的 provider preset 配置
  */
 export function modelSupports1MContext(
     modelId: string | undefined | null,
-    models?: ModelInfo[],
-    providerPreset?: { supports1MContext?: boolean; defaultContextWindow?: number }
+    models?: ModelInfo[]
 ): boolean {
     if (!modelId) return false;
 
@@ -296,45 +294,8 @@ export function modelSupports1MContext(
         return modelInfo.contextWindow >= 1_000_000;
     }
 
-    // 3. 通过 provider preset 的 supports1MContext 标志判断
-    if (providerPreset?.supports1MContext === true) {
-        return true;
-    }
-
-    // 4. 未知模型：保守假设不支持
+    // 3. 未知模型：保守假设不支持
     return false;
-}
-
-/**
- * Get the context window size for a model.
- *
- * @param modelId 模型 ID（可能带 [1m] 后缀）
- * @param models 可选的模型列表（含自定义模型），不传则用内置列表
- * @param providerPreset 可选的 provider preset 配置
- * @returns context window size in tokens, or undefined if unknown
- */
-export function getModelContextWindow(
-    modelId: string | undefined | null,
-    models?: ModelInfo[],
-    providerPreset?: { defaultContextWindow?: number }
-): number | undefined {
-    if (!modelId) return undefined;
-
-    const baseId = strip1MContextSuffix(modelId);
-
-    // Check model list first
-    const allModels = models ?? [...CLAUDE_MODELS, ...CODEX_MODELS];
-    const modelInfo = allModels.find(m => m.id === baseId);
-    if (modelInfo?.contextWindow !== undefined) {
-        return modelInfo.contextWindow;
-    }
-
-    // Fall back to provider preset default
-    if (providerPreset?.defaultContextWindow !== undefined) {
-        return providerPreset.defaultContextWindow;
-    }
-
-    return undefined;
 }
 
 /**
