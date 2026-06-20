@@ -6,8 +6,6 @@ import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.protocol.UpstreamAction;
 import com.github.claudecodegui.settings.ModelRegistryResult;
 import com.github.claudecodegui.settings.ModelRegistryService;
-import com.github.claudecodegui.util.GsonHolder;
-import com.google.gson.JsonObject;
 
 public final class SetModelRegistryActionHandler implements FrontendActionHandler<String> {
     private final ModelRegistryService service;
@@ -29,8 +27,9 @@ public final class SetModelRegistryActionHandler implements FrontendActionHandle
     @Override
     public void handle(String payload, FrontendActionContext context) {
         HandlerContext ctx = context.handlerContext();
-        JsonObject json = GsonHolder.GSON.fromJson(payload, JsonObject.class);
-        ModelRegistryResult result = service.setRegistry(json);
+        // payload 解析与异常处理下沉到 service:畸形 JSON 在 service 的 try 内被捕获并产出
+        // failure("保存失败: ..."),与原 SettingsHandler.handleSetModelRegistry 逐字等价。
+        ModelRegistryResult result = service.setRegistry(payload);
         ModelRegistryEvents.dispatchUpdated(ctx, result);
         if (result.success()) {
             ModelRegistryEvents.dispatchRegistry(ctx, result);

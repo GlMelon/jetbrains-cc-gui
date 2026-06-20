@@ -2,6 +2,7 @@ package com.github.claudecodegui.settings;
 
 import com.github.claudecodegui.config.ModelConfig;
 import com.github.claudecodegui.config.ModelRegistryConfig;
+import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
 
@@ -34,9 +35,12 @@ public final class ModelRegistryService {
         }
     }
 
-    public ModelRegistryResult setRegistry(JsonObject payload) {
+    public ModelRegistryResult setRegistry(String payload) {
         try {
-            ModelRegistryConfig registry = parse(payload);
+            // payload 解析置于 try 内:畸形 JSON 触发的 JsonSyntaxException 在此被捕获,
+            // 返回 failure("保存失败: ..."),与原 SettingsHandler.handleSetModelRegistry 逐字等价。
+            JsonObject json = GsonHolder.GSON.fromJson(payload, JsonObject.class);
+            ModelRegistryConfig registry = parse(json);
             var result = settingsService.setModelRegistry(registry);
             if (result.isValid()) {
                 return ModelRegistryResult.success(serialize(settingsService.getModelRegistry()));

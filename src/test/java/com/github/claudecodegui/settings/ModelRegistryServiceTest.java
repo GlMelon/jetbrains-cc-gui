@@ -79,11 +79,17 @@ public class ModelRegistryServiceTest {
                         "evil", "", 200_000, true, true)
         )));
 
-        ModelRegistryResult result = service.setRegistry(payload);
+        ModelRegistryResult result = service.setRegistry(payload.toString());
 
         assertFalse(result.success());
         assertFalse(result.errors().isEmpty());
     }
+
+    // 注:无法为「fromJson 畸形/类型不符 JSON → catch(Exception) 返回 failure」编写可靠单测。
+    // Gradle test 默认在 -ea 下运行,Gson 对任何解析失败(JsonSyntaxException 触发条件)都先抛
+    // AssertionError(extends Error)而 catch(Exception) 捕获不到——这与原 SettingsHandler 完全
+    // 相同(原代码亦 catch Exception)。生产环境(无 -ea)下 Gson 抛 JsonSyntaxException(RuntimeException),
+    // 被捕获并返回 failure。fromJson 下沉到 service try 内的异常路径与原代码逐字同构,等价性由结构保证。
 
     @Test
     public void resetRegistryReturnsResetSuccess() throws Exception {

@@ -54,6 +54,11 @@ public class AppearanceConfigActionHandlerTest {
         assertEquals("dark", applied.get("themePreference").getAsString());
     }
 
+    // 注:无法为「fromJson 畸形/类型不符 JSON → catch(Exception) 后仍回读并派发 apply」编写可靠单测。
+    // Gradle test 默认 -ea,Gson 对解析失败抛 AssertionError(extends Error)而 catch(Exception) 捕获不到,
+    // 与原 SettingsHandler 完全相同。生产(无 -ea)下抛 JsonSyntaxException 被捕获。等价性由 fromJson
+    // 下沉到 service try 内的结构保证(与原代码 handleSetAppearanceConfig 同构)。
+
     @Test
     public void declaresCorrectAction() {
         assertEquals(UpstreamAction.SET_APPEARANCE_CONFIG,
