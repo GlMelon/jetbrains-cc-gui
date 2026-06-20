@@ -1,5 +1,6 @@
 package com.github.claudecodegui.settings;
 
+import com.github.claudecodegui.common.ClaudeRole;
 import com.github.claudecodegui.config.ModelConfig;
 import com.github.claudecodegui.config.ModelRegistryConfig;
 import com.github.claudecodegui.util.GsonHolder;
@@ -84,12 +85,36 @@ public final class ModelRegistryService {
             obj.addProperty("description", model.description());
             obj.addProperty("contextWindow", model.contextWindow());
             obj.addProperty("supports1MContext", model.supports1MContext());
+            // supportedReasoningLevels 为派生字段:由 role 权威计算,不存入 ModelConfig
+            // (避免前后端双写;自定义 claude 模型的 role 由用户新增模型时选定)。
+            List<String> reasoningLevels = reasoningLevelsFor(model);
+            if (reasoningLevels != null) {
+                var levelsArr = new com.google.gson.JsonArray();
+                for (String lvl : reasoningLevels) {
+                    levelsArr.add(lvl);
+                }
+                obj.add("supportedReasoningLevels", levelsArr);
+            }
             obj.addProperty("enabled", model.enabled());
             obj.addProperty("readOnly", model.readOnly());
             items.add(obj);
         }
         root.add("items", items);
         return root;
+    }
+
+    /**
+     * 派生字段:由模型 role 权威计算支持的 reasoning effort 级别。
+     * <p>
+     * 仅 claude provider 且 role 已知时返回(自定义 claude 模型的 role 由用户新增时选定);
+     * 否则返回 {@code null}(serialize 时跳过该字段,前端不渲染)。
+     */
+    private static List<String> reasoningLevelsFor(ModelConfig model) {
+        if (!"claude".equalsIgnoreCase(model.provider()) || model.role() == null || model.role().isBlank()) {
+            return null;
+        }
+        ClaudeRole role = ClaudeRole.fromShortName(model.role());
+        return role == null ? null : role.reasoningLevels();
     }
 
     /** Parse the {@code {items:[...]}} payload back into a {@link ModelRegistryConfig}. */

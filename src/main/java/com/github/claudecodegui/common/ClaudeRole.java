@@ -115,6 +115,21 @@ public enum ClaudeRole {
     }
 
     /**
+     * 该角色支持的推理强度(reasoning effort)级别列表,由后端权威定义。
+     * <p>
+     * 前端 {@code ReasoningSelect} 据此渲染可选项,不再在前端按 role 硬编码判定能力。
+     * Sonnet/Opus/Fable 支持完整 5 档;Haiku 仅支持 low/medium/high。
+     *
+     * @return 支持的级别列表(如 {@code [low, medium, high, xhigh, max]})
+     */
+    public List<String> reasoningLevels() {
+        return switch (this) {
+            case SONNET, OPUS, FABLE -> List.of("low", "medium", "high", "xhigh", "max");
+            case HAIKU -> List.of("low", "medium", "high");
+        };
+    }
+
+    /**
      * 该角色对应的模型覆盖环境变量键列表(已含 fallback 顺序)。
      * <p>
      * 例如 Fable 为 {@code [DEFAULT_FABLE_MODEL, DEFAULT_OPUS_MODEL]},调用方按序取首个非空值。
