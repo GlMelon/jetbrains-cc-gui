@@ -1,5 +1,6 @@
 package com.github.claudecodegui.skill;
 
+import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.JsonArray;
@@ -164,7 +165,8 @@ public final class SlashCommandRegistry {
      * Gets the merged slash command list for a given provider and working directory.
      */
     public static List<SlashCommand> getCommands(String provider, String cwd, String currentFilePath) {
-        boolean isCodex = "codex".equalsIgnoreCase(provider);
+        // codex 判定经 ProviderType SSOT(总则五·开闭 / E6):fromString 忽略大小写,消除裸 "codex" 字面量。
+        boolean isCodex = ProviderType.fromString(provider) == ProviderType.CODEX;
 
         List<SlashCommand> builtins = isCodex ? CODEX_BUILTIN : CLAUDE_BUILTIN;
         String userHome = resolveUserHome();

@@ -1,11 +1,12 @@
-package com.github.claudecodegui.handler;
-
-import com.github.claudecodegui.common.CommonConstants;
-import com.github.claudecodegui.handler.core.BaseMessageHandler;
-import com.github.claudecodegui.handler.core.HandlerContext;
+package com.github.claudecodegui.handler.enhance;
 
 import com.github.claudecodegui.bridge.EnvironmentConfigurator;
 import com.github.claudecodegui.bridge.ProcessManager;
+import com.github.claudecodegui.handler.PromptEnhancerProcessRunner;
+import com.github.claudecodegui.handler.core.FrontendActionContext;
+import com.github.claudecodegui.handler.core.FrontendActionHandler;
+import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.protocol.UpstreamAction;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -30,19 +31,20 @@ import java.util.concurrent.atomic.AtomicReference;
 import static java.util.Map.entry;
 
 /**
- * Prompt enhancement message handler.
+ * Prompt enhancement typed handler.
  * Calls the AI service to optimize and rewrite the user's prompt.
  *
  * Supports automatic collection of editor context information:
  * - User's selected code snippet
  * - Current open file info (path, content, language type)
  * - Cursor position and surrounding code
+ *
+ * @see com.github.claudecodegui.handler.PromptEnhancerHandler 旧实现（待删除）
  */
-public class PromptEnhancerHandler extends BaseMessageHandler {
+public final class EnhancePromptActionHandler implements FrontendActionHandler<String> {
 
-    private static final Logger LOG = Logger.getInstance(PromptEnhancerHandler.class);
-    private final Gson gson = GsonHolder.GSON;
-    private final EnvironmentConfigurator envConfigurator = new EnvironmentConfigurator();
+    private static final Logger LOG = Logger.getInstance(EnhancePromptActionHandler.class);
+    private static final Gson gson = GsonHolder.GSON;
 
     // Hard timeout for the enhancement Node.js process. Without this, a network-stalled
     // SDK call would block the calling thread forever and leak the child process.
@@ -52,10 +54,6 @@ public class PromptEnhancerHandler extends BaseMessageHandler {
 
     // Number of context lines to capture before and after the cursor
     private static final int CURSOR_CONTEXT_LINES = 10;
-
-    private static final String[] SUPPORTED_TYPES = {
-        CommonConstants.REQUEST_TYPE_ENHANCE_PROMPT
-    };
 
     private static final String DEFAULT_LANGUAGE = "text";
 
@@ -139,51 +137,41 @@ public class PromptEnhancerHandler extends BaseMessageHandler {
         + "resource leaks, thread safety concerns, performance bottlenecks, "
         + "and provide improvement suggestions.";
 
-    public PromptEnhancerHandler(HandlerContext context) {
-        super(context);
+    @Override
+    public UpstreamAction action() {
+        return UpstreamAction.ENHANCE_PROMPT;
     }
 
     @Override
-    public String[] getSupportedTypes() {
-        return SUPPORTED_TYPES;
+    public Class<String> payloadType() {
+        return String.class;
     }
 
     @Override
-    public boolean handle(String type, String content) {
-        if (CommonConstants.REQUEST_TYPE_ENHANCE_PROMPT.equals(type)) {
-            handleEnhancePrompt(content);
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * Handle prompt enhancement request.
-     * Automatically collects editor context: selectedCode, currentFile, cursorPosition, cursorContext.
-     */
-    private void handleEnhancePrompt(String content) {
+    public void handle(String payload, FrontendActionContext context) {
+        HandlerContext ctx = context.handlerContext();
         CompletableFuture.runAsync(() -> {
             try {
-                JsonObject payload = gson.fromJson(content, JsonObject.class);
-                String originalPrompt = payload.has("prompt") ? payload.get("prompt").getAsString() : "";
-                String legacyModel = payload.has("model") ? payload.get("model").getAsString() : null;
+                JsonObject payloadObj = gson.fromJson(payload, JsonObject.class);
+                String originalPrompt = payloadObj.has("prompt") ? payloadObj.get("prompt").getAsString() : "";
+                String legacyModel = payloadObj.has("model") ? payloadObj.get("model").getAsString() : null;
 
                 if (originalPrompt.isEmpty()) {
-                    sendEnhanceResult(false, "", "Prompt is empty");
+                    sendEnhanceResult(ctx, false, "", "Prompt is empty");
                     return;
                 }
 
-                LOG.info("[PromptEnhancer] Starting prompt enhancement: " + originalPrompt.substring(0, Math.min(50, originalPrompt.length())) + "...");
+                LOG.info("[EnhancePromptActionHandler] Starting prompt enhancement: " + originalPrompt.substring(0, Math.min(50, originalPrompt.length())) + "...");
                 if (legacyModel != null) {
-                    LOG.info("[PromptEnhancer] Received legacy model from frontend: " + legacyModel);
+                    LOG.info("[EnhancePromptActionHandler] Received legacy model from frontend: " + legacyModel);
                 }
 
                 // Automatically collect context information from the editor
-                JsonObject contextObj = collectEditorContext();
+                JsonObject contextObj = collectEditorContext(ctx);
 
                 // Log context information
                 if (contextObj != null) {
-                    LOG.info("[PromptEnhancer] Editor context collected:");
+                    LOG.info("[EnhancePromptActionHandler] Editor context collected:");
                     if (contextObj.has("selectedCode")) {
                         String selectedCode = contextObj.get("selectedCode").getAsString();
                         LOG.info("  - Selected code: " + selectedCode.length() + " characters");
@@ -208,24 +196,24 @@ public class PromptEnhancerHandler extends BaseMessageHandler {
                         LOG.info("  - Cursor context: " + cursorContext.length() + " characters");
                     }
                 } else {
-                    LOG.info("[PromptEnhancer] Failed to collect editor context");
+                    LOG.info("[EnhancePromptActionHandler] Failed to collect editor context");
                 }
 
                 // Call AI service for enhancement (passing context information)
-                JsonObject promptEnhancerConfig = context.getSettingsService().getPromptEnhancerConfig();
-                String enhancedPrompt = callAIForEnhancement(originalPrompt, legacyModel, contextObj, promptEnhancerConfig);
+                JsonObject promptEnhancerConfig = ctx.getSettingsService().getPromptEnhancerConfig();
+                String enhancedPrompt = callAIForEnhancement(ctx, originalPrompt, legacyModel, contextObj, promptEnhancerConfig);
 
                 if (enhancedPrompt != null && !enhancedPrompt.isEmpty()) {
-                    LOG.info("[PromptEnhancer] Enhancement successful");
-                    sendEnhanceResult(true, enhancedPrompt, null);
+                    LOG.info("[EnhancePromptActionHandler] Enhancement successful");
+                    sendEnhanceResult(ctx, true, enhancedPrompt, null);
                 } else {
-                    LOG.warn("[PromptEnhancer] Enhancement failed: empty result returned");
-                    sendEnhanceResult(false, "", "Enhancement failed: empty result returned");
+                    LOG.warn("[EnhancePromptActionHandler] Enhancement failed: empty result returned");
+                    sendEnhanceResult(ctx, false, "", "Enhancement failed: empty result returned");
                 }
 
             } catch (Exception e) {
-                LOG.error("[PromptEnhancer] Prompt enhancement failed: " + e.getMessage(), e);
-                sendEnhanceResult(false, "", "Enhancement failed: " + e.getMessage());
+                LOG.error("[EnhancePromptActionHandler] Prompt enhancement failed: " + e.getMessage(), e);
+                sendEnhanceResult(ctx, false, "", "Enhancement failed: " + e.getMessage());
             }
         });
     }
@@ -236,7 +224,7 @@ public class PromptEnhancerHandler extends BaseMessageHandler {
      *
      * @return a JsonObject containing context information, or null if unavailable
      */
-    private JsonObject collectEditorContext() {
+    private JsonObject collectEditorContext(HandlerContext ctx) {
         AtomicReference<JsonObject> contextRef = new AtomicReference<>(null);
 
         try {
@@ -247,7 +235,7 @@ public class PromptEnhancerHandler extends BaseMessageHandler {
                         JsonObject contextObj = new JsonObject();
                         boolean hasContext = false;
 
-                        FileEditorManager fileEditorManager = FileEditorManager.getInstance(context.getProject());
+                        FileEditorManager fileEditorManager = FileEditorManager.getInstance(ctx.getProject());
                         FileEditor selectedEditor = fileEditorManager.getSelectedEditor();
 
                         if (selectedEditor instanceof TextEditor) {
@@ -305,12 +293,12 @@ public class PromptEnhancerHandler extends BaseMessageHandler {
                             contextRef.set(contextObj);
                         }
                     } catch (Exception e) {
-                        LOG.warn("[PromptEnhancer] Failed to get editor context: " + e.getMessage());
+                        LOG.warn("[EnhancePromptActionHandler] Failed to get editor context: " + e.getMessage());
                     }
                 });
             });
         } catch (Exception e) {
-            LOG.warn("[PromptEnhancer] ReadAction invocation failed: " + e.getMessage());
+            LOG.warn("[EnhancePromptActionHandler] ReadAction invocation failed: " + e.getMessage());
         }
 
         return contextRef.get();
@@ -334,7 +322,7 @@ public class PromptEnhancerHandler extends BaseMessageHandler {
 
             return document.getText().substring(startOffset, endOffset);
         } catch (Exception e) {
-            LOG.warn("[PromptEnhancer] Failed to get cursor context: " + e.getMessage());
+            LOG.warn("[EnhancePromptActionHandler] Failed to get cursor context: " + e.getMessage());
             return null;
         }
     }
@@ -345,7 +333,7 @@ public class PromptEnhancerHandler extends BaseMessageHandler {
      * @param extension the file extension
      * @return language type name
      */
-    private String getLanguageFromExtension(String extension) {
+    static String getLanguageFromExtension(String extension) {
         if (extension == null) { return DEFAULT_LANGUAGE; }
         return EXTENSION_TO_LANGUAGE.getOrDefault(extension.toLowerCase(), DEFAULT_LANGUAGE);
     }
@@ -385,43 +373,44 @@ public class PromptEnhancerHandler extends BaseMessageHandler {
      * @param promptEnhancerConfig resolved prompt enhancer configuration
      */
     private String callAIForEnhancement(
+            HandlerContext ctx,
             String originalPrompt,
             String legacyModel,
             JsonObject contextObj,
             JsonObject promptEnhancerConfig
     ) {
-        LOG.info("[PromptEnhancer] Starting AI service call for prompt enhancement");
-        LOG.info("[PromptEnhancer] Original prompt: " + originalPrompt);
-        LOG.info("[PromptEnhancer] Using provider: " + describePromptEnhancerConfig(promptEnhancerConfig));
+        LOG.info("[EnhancePromptActionHandler] Starting AI service call for prompt enhancement");
+        LOG.info("[EnhancePromptActionHandler] Original prompt: " + originalPrompt);
+        LOG.info("[EnhancePromptActionHandler] Using provider: " + describePromptEnhancerConfig(promptEnhancerConfig));
 
         try {
             // Call AI service using a Node.js script
-            String nodeExecutable = context.getClaudeSDKBridge().getNodeExecutable();
+            String nodeExecutable = ctx.getClaudeSDKBridge().getNodeExecutable();
             if (nodeExecutable == null) {
-                LOG.error("[PromptEnhancer] Node.js is not configured");
+                LOG.error("[EnhancePromptActionHandler] Node.js is not configured");
                 return null;
             }
-            LOG.info("[PromptEnhancer] Node.js path: " + nodeExecutable);
+            LOG.info("[EnhancePromptActionHandler] Node.js path: " + nodeExecutable);
 
-            File bridgeDir = context.getClaudeSDKBridge().getSdkTestDir();
+            File bridgeDir = ctx.getClaudeSDKBridge().getSdkTestDir();
             if (bridgeDir == null || !bridgeDir.exists()) {
-                LOG.error("[PromptEnhancer] AI Bridge directory does not exist");
+                LOG.error("[EnhancePromptActionHandler] AI Bridge directory does not exist");
                 return null;
             }
-            LOG.info("[PromptEnhancer] AI Bridge directory: " + bridgeDir.getAbsolutePath());
+            LOG.info("[EnhancePromptActionHandler] AI Bridge directory: " + bridgeDir.getAbsolutePath());
 
             // Build the command
             List<String> command = new ArrayList<>();
             command.add(nodeExecutable);
             command.add(new File(bridgeDir, "services/prompt-enhancer.js").getAbsolutePath());
-            LOG.info("[PromptEnhancer] Executing command: " + String.join(" ", command));
+            LOG.info("[EnhancePromptActionHandler] Executing command: " + String.join(" ", command));
 
             ProcessBuilder pb = new ProcessBuilder(command);
             pb.directory(bridgeDir);
             pb.redirectErrorStream(true);
 
-            // Set environment variables
-            envConfigurator.updateProcessEnvironment(pb, nodeExecutable);
+            // Set environment variables (lazy init: constructor calls CodemossSettingsService.getInstance())
+            new EnvironmentConfigurator().updateProcessEnvironment(pb, nodeExecutable);
 
             // Build stdin payload
             JsonObject stdinInput = new JsonObject();
@@ -443,7 +432,7 @@ public class PromptEnhancerHandler extends BaseMessageHandler {
             //  3. The process is unregistered + force-killed in finally on every exit path.
             // The original code lacked all three, leaking child processes forever when
             // the SDK call hung on a stalled network connection.
-            ProcessManager processManager = context.getClaudeSDKBridge().getProcessManager();
+            ProcessManager processManager = ctx.getClaudeSDKBridge().getProcessManager();
             StringBuilder response = new StringBuilder();
             StringBuilder allOutput = new StringBuilder();
             try {
@@ -455,7 +444,7 @@ public class PromptEnhancerHandler extends BaseMessageHandler {
                         READER_DRAIN_SECONDS,
                         line -> {
                             allOutput.append(line).append("\n");
-                            LOG.info("[PromptEnhancer] Node.js: " + line);
+                            LOG.info("[EnhancePromptActionHandler] Node.js: " + line);
                             if (line.startsWith("[ENHANCED]")) {
                                 String enhancedText = line.substring("[ENHANCED]".length()).trim();
                                 enhancedText = enhancedText.replace("{{NEWLINE}}", "\n");
@@ -463,20 +452,20 @@ public class PromptEnhancerHandler extends BaseMessageHandler {
                             }
                         }
                 );
-                LOG.info("[PromptEnhancer] Node.js process exit code: " + exitCode);
+                LOG.info("[EnhancePromptActionHandler] Node.js process exit code: " + exitCode);
             } catch (TimeoutException te) {
-                LOG.warn("[PromptEnhancer] " + te.getMessage());
+                LOG.warn("[EnhancePromptActionHandler] " + te.getMessage());
                 return null;
             }
 
             if (response.length() == 0 && allOutput.length() > 0) {
-                LOG.warn("[PromptEnhancer] [ENHANCED] marker not found, full output:\n" + allOutput);
+                LOG.warn("[EnhancePromptActionHandler] [ENHANCED] marker not found, full output:\n" + allOutput);
             }
 
             return response.toString();
 
         } catch (Exception e) {
-            LOG.error("[PromptEnhancer] AI service call failed: " + e.getMessage(), e);
+            LOG.error("[EnhancePromptActionHandler] AI service call failed: " + e.getMessage(), e);
             return null;
         }
     }
@@ -484,7 +473,7 @@ public class PromptEnhancerHandler extends BaseMessageHandler {
     /**
      * Send the enhancement result to the frontend.
      */
-    private void sendEnhanceResult(boolean success, String enhancedPrompt, String error) {
+    private void sendEnhanceResult(HandlerContext ctx, boolean success, String enhancedPrompt, String error) {
         JsonObject result = new JsonObject();
         result.addProperty("success", success);
         result.addProperty("enhancedPrompt", enhancedPrompt);
@@ -495,7 +484,7 @@ public class PromptEnhancerHandler extends BaseMessageHandler {
         String resultJson = gson.toJson(result);
 
         ApplicationManager.getApplication().invokeLater(() -> {
-            dispatchEvent("prompt.enhanced", escapeJs(resultJson));
+            ctx.dispatchEvent("prompt.enhanced", ctx.escapeJs(resultJson));
         });
     }
 }

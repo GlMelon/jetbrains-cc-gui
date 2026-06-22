@@ -12,8 +12,10 @@ import {useUsageTracking} from './providers/useUsageTracking';
 import {useProviderSettings} from './providers/useProviderSettings';
 import {useModelStatePersistence} from './providers/useModelStatePersistence';
 import {getModelsForProvider, subscribeModelRegistry} from '../utils/modelRegistry';
+import type {ViewMode} from '../types';
 
-export type ViewMode = 'chat' | 'history' | 'settings';
+// D3:ViewMode 真相源在 types/index.ts,此处 re-export 保持 hooks/index 与 useMessageSender 下游 import 兼容
+export type {ViewMode};
 
 export interface UseModelProviderStateOptions {
   addToast: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void;

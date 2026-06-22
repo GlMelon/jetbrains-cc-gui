@@ -4,10 +4,14 @@ import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.session.ClaudeSession;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.handler.AgentHandler;
-import com.github.claudecodegui.handler.ClipboardHandler;
-import com.github.claudecodegui.handler.ContextHandler;
 import com.github.claudecodegui.handler.CodexMcpServerHandler;
+import com.github.claudecodegui.handler.context.GetContextUsageActionHandler;
 import com.github.claudecodegui.handler.DependencyHandler;
+import com.github.claudecodegui.handler.enhance.EnhancePromptActionHandler;
+import com.github.claudecodegui.handler.file.SaveMarkdownActionHandler;
+import com.github.claudecodegui.handler.file.SaveJsonActionHandler;
+import com.github.claudecodegui.handler.file.UndoFileChangesActionHandler;
+import com.github.claudecodegui.handler.file.UndoAllFileChangesActionHandler;
 import com.github.claudecodegui.handler.DiffHandler;
 import com.github.claudecodegui.handler.core.FrontendActionDispatcher;
 import com.github.claudecodegui.handler.core.FrontendActionHandler;
@@ -17,11 +21,12 @@ import com.github.claudecodegui.handler.history.HistoryHandler;
 import com.github.claudecodegui.handler.McpServerHandler;
 import com.github.claudecodegui.handler.core.MessageDispatcher;
 import com.github.claudecodegui.handler.NodeProcessHandler;
-import com.github.claudecodegui.handler.PermissionHandler;
-import com.github.claudecodegui.handler.PromptEnhancerHandler;
+import com.github.claudecodegui.handler.permission.PermissionActionHandlers;
+import com.github.claudecodegui.handler.permission.PermissionDecisionActionHandler;
+import com.github.claudecodegui.handler.permission.AskUserQuestionResponseActionHandler;
+import com.github.claudecodegui.handler.permission.PlanApprovalResponseActionHandler;
 import com.github.claudecodegui.handler.PromptHandler;
 import com.github.claudecodegui.handler.provider.ProviderHandler;
-import com.github.claudecodegui.handler.RewindHandler;
 import com.github.claudecodegui.handler.SessionHandler;
 import com.github.claudecodegui.handler.SettingsHandler;
 import com.github.claudecodegui.handler.settings.GetClaudeCliPathActionHandler;
@@ -34,13 +39,14 @@ import com.github.claudecodegui.handler.settings.SetAppearanceConfigActionHandle
 import com.github.claudecodegui.handler.settings.SetClaudeCliPathActionHandler;
 import com.github.claudecodegui.handler.settings.GetNodePathActionHandler;
 import com.github.claudecodegui.handler.settings.SetNodePathActionHandler;
+import com.github.claudecodegui.handler.clipboard.ReadClipboardActionHandler;
+import com.github.claudecodegui.handler.clipboard.WriteClipboardActionHandler;
+import com.github.claudecodegui.handler.tab.CreateNewTabActionHandler;
+import com.github.claudecodegui.handler.rewind.RewindFilesActionHandler;
 import com.github.claudecodegui.handler.SkillHandler;
-import com.github.claudecodegui.handler.TabHandler;
 import com.github.claudecodegui.handler.WindowEventHandler;
-import com.github.claudecodegui.handler.file.FileExportHandler;
 import com.github.claudecodegui.handler.file.FileHandler;
 import com.github.claudecodegui.handler.file.OpenClassHandler;
-import com.github.claudecodegui.handler.file.UndoFileHandler;
 import com.github.claudecodegui.permission.PermissionService;
 import com.github.claudecodegui.settings.AppearanceConfigService;
 import com.github.claudecodegui.settings.ModelRegistryService;
@@ -132,12 +138,12 @@ public class ChatWindowDelegate {
         void setHandlerContext(HandlerContext ctx);
         void setMessageDispatcher(MessageDispatcher d);
         void setFrontendActionDispatcher(FrontendActionDispatcher d);
-        void setPermissionHandler(PermissionHandler h);
+        void setPermissionHandler(PermissionActionHandlers h);
         void setHistoryHandler(HistoryHandler h);
         SessionLifecycleManager getSessionLifecycleManager();
         StreamMessageCoalescer getStreamCoalescer();
         WebviewWatchdog getWebviewWatchdog();
-        PermissionHandler getPermissionHandler();
+        PermissionActionHandlers getPermissionHandler();
         void interruptDueToPermissionDenial();
         boolean isFrontendReady();
         void setFrontendReady(boolean ready);
@@ -330,6 +336,16 @@ public class ChatWindowDelegate {
         typedHandlers.add(new SetClaudeCliPathActionHandler());
         typedHandlers.add(new GetNodePathActionHandler());
         typedHandlers.add(new SetNodePathActionHandler());
+        typedHandlers.add(new ReadClipboardActionHandler());
+        typedHandlers.add(new WriteClipboardActionHandler());
+        typedHandlers.add(new CreateNewTabActionHandler());
+        typedHandlers.add(new RewindFilesActionHandler());
+        typedHandlers.add(new GetContextUsageActionHandler());
+        typedHandlers.add(new EnhancePromptActionHandler());
+        typedHandlers.add(new SaveMarkdownActionHandler());
+        typedHandlers.add(new SaveJsonActionHandler());
+        typedHandlers.add(new UndoFileChangesActionHandler());
+        typedHandlers.add(new UndoAllFileChangesActionHandler());
         typedHandlers.addAll(LegacyMessageHandlerAdapter.from(new SettingsHandler(handlerContext)));
         host.setFrontendActionDispatcher(
                 new FrontendActionDispatcher(typedHandlers, handlerContext));
@@ -340,17 +356,10 @@ public class ChatWindowDelegate {
         messageDispatcher.registerHandler(new SkillHandler(handlerContext));
         messageDispatcher.registerHandler(new FileHandler(handlerContext));
         messageDispatcher.registerHandler(new SessionHandler(handlerContext));
-        messageDispatcher.registerHandler(new ContextHandler(handlerContext));
-        messageDispatcher.registerHandler(new FileExportHandler(handlerContext));
         messageDispatcher.registerHandler(new DiffHandler(handlerContext));
-        messageDispatcher.registerHandler(new PromptEnhancerHandler(handlerContext));
         messageDispatcher.registerHandler(new AgentHandler(handlerContext));
         messageDispatcher.registerHandler(new PromptHandler(handlerContext));
-        messageDispatcher.registerHandler(new TabHandler(handlerContext));
-        messageDispatcher.registerHandler(new RewindHandler(handlerContext));
-        messageDispatcher.registerHandler(new UndoFileHandler(handlerContext));
         messageDispatcher.registerHandler(new DependencyHandler(handlerContext));
-        messageDispatcher.registerHandler(new ClipboardHandler(handlerContext));
         messageDispatcher.registerHandler(new NodeProcessHandler(handlerContext));
 
         messageDispatcher.registerHandler(new WindowEventHandler(handlerContext, new WindowEventHandler.Callback() {
@@ -374,10 +383,13 @@ public class ChatWindowDelegate {
             }
         }));
 
-        PermissionHandler permissionHandler = new PermissionHandler(handlerContext);
-        permissionHandler.setPermissionDeniedCallback(host::interruptDueToPermissionDenial);
-        host.setPermissionHandler(permissionHandler);
-        messageDispatcher.registerHandler(permissionHandler);
+        // Permission: shared state container + 3 typed handlers
+        PermissionActionHandlers permissionHandlers = new PermissionActionHandlers(handlerContext);
+        permissionHandlers.setPermissionDeniedCallback(host::interruptDueToPermissionDenial);
+        host.setPermissionHandler(permissionHandlers);
+        typedHandlers.add(new PermissionDecisionActionHandler(permissionHandlers));
+        typedHandlers.add(new AskUserQuestionResponseActionHandler(permissionHandlers));
+        typedHandlers.add(new PlanApprovalResponseActionHandler(permissionHandlers));
 
         HistoryHandler historyHandler = new HistoryHandler(handlerContext);
         historyHandler.setSessionLoadCallback((sessionId, projectPath, provider) ->

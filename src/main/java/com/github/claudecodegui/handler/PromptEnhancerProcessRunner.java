@@ -40,7 +40,7 @@ import java.util.function.Consumer;
  *       {@link ProcessBuilder#start()} or stdin write.</li>
  * </ol>
  */
-final class PromptEnhancerProcessRunner {
+public final class PromptEnhancerProcessRunner {
 
     private static final Logger LOG = Logger.getInstance(PromptEnhancerProcessRunner.class);
 
@@ -61,7 +61,7 @@ final class PromptEnhancerProcessRunner {
      * @return the process exit code
      * @throws TimeoutException if the child did not exit before the timeout
      */
-    static int runWithProcessManager(
+    public static int runWithProcessManager(
             ProcessBuilder pb,
             ProcessManager processManager,
             String stdinJson,

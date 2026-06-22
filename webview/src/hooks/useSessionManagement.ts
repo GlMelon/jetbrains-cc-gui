@@ -1,11 +1,9 @@
 import { useCallback, useRef, useState } from 'react';
 import type { TFunction } from 'i18next';
-import type { ClaudeMessage, HistoryData } from '../types';
+import type { ClaudeMessage, HistoryData, ViewMode } from '../types';
 import { sendBridgeEvent } from '../utils/bridge';
 import { getSkipNewSessionConfirm } from '../utils/skipNewSessionConfirm';
 import { clearAllPersistedExpanded } from '../utils/expandedState';
-
-type ViewMode = 'chat' | 'history' | 'settings';
 
 type ToastType = 'info' | 'success' | 'warning' | 'error';
 

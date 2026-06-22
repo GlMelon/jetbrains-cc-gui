@@ -1,6 +1,7 @@
 package com.github.claudecodegui.session;
 
 import com.github.claudecodegui.notifications.ClaudeNotifier;
+import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.util.TokenUsageUtils;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -75,7 +76,8 @@ public class SessionMessageOrchestrator {
     }
 
     public CompletableFuture<Void> syncUserMessageUuidsAfterSend() {
-        if ("codex".equals(state.getProvider()) || findLatestUnresolvedUserMessage() == null) {
+        // codex 跳过 UUID 同步:经 ProviderType SSOT 精确判等(总则五·开闭 / E6),消除裸 "codex" 字面量。
+        if (ProviderType.CODEX.value().equals(state.getProvider()) || findLatestUnresolvedUserMessage() == null) {
             return CompletableFuture.completedFuture(null);
         }
 

@@ -1,26 +1,13 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { Attachment } from '../types.js';
 import { debugLog, debugError } from '../../../utils/debug.js';
+import { canUseLocalStorage } from '../../../utils/storageAvailability.js';
 
 /** localStorage key for chat input attachments draft */
 export const ATTACHMENTS_DRAFT_KEY = 'chat-input-attachments-draft';
 
 /** Maximum size for serialized attachments draft (2MB) */
 const MAX_DRAFT_SIZE = 2097152; // 2 * 1024 * 1024
-
-/**
- * Check if localStorage is available and working
- */
-function canUseLocalStorage(): boolean {
-  try {
-    const testKey = '__localStorage_test__';
-    window.localStorage.setItem(testKey, 'test');
-    window.localStorage.removeItem(testKey);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Check if error is a quota exceeded error

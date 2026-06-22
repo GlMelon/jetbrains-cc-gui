@@ -38,6 +38,7 @@ function getModeIcon(modeId: PermissionMode) {
     case 'plan':
       return <TaskIcon size={14} />;
     case 'acceptEdits':
+    case 'autoEdit': // acceptEdits 历史别名,UI 同样显示 Agent 图标(C2 值域对齐)
       return <RobotIcon size={14} />;
     case 'bypassPermissions':
       return <ZapIcon size={14} />;

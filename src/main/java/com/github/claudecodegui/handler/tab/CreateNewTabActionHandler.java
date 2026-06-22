@@ -1,12 +1,12 @@
-package com.github.claudecodegui.handler;
+package com.github.claudecodegui.handler.tab;
 
-import com.github.claudecodegui.common.CommonConstants;
-import com.github.claudecodegui.handler.core.BaseMessageHandler;
+import com.github.claudecodegui.handler.core.FrontendActionContext;
+import com.github.claudecodegui.handler.core.FrontendActionHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
-
+import com.github.claudecodegui.protocol.UpstreamAction;
+import com.github.claudecodegui.settings.TabStateService;
 import com.github.claudecodegui.ui.toolwindow.ClaudeChatWindow;
 import com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow;
-import com.github.claudecodegui.settings.TabStateService;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.wm.ToolWindow;
@@ -15,43 +15,35 @@ import com.intellij.ui.content.Content;
 import com.intellij.ui.content.ContentFactory;
 import com.intellij.ui.content.ContentManager;
 
-
 /**
- * Tab management handler
- * Handles creating new chat tabs in the tool window
+ * OCP typed handler:取代旧 {@code TabHandler} 对 {@code create_new_tab} 的字符串派发
+ * (AGENTS.md §2 开闭原则)。
+ *
+ * <p>逐字搬移 {@code TabHandler.handleCreateNewTab}:在 ToolWindow 的 EDT 上创建新
+ * {@code ClaudeChatWindow} 实例(skipRegister=true,不替换主实例),按 tab 索引恢复或生成 tab 名,
+ * 挂载 {@code Content} 并选中、显示工具窗,与旧实现逐字等价。
+ *
+ * <p>payload 忽略(create_new_tab 无请求体),{@code payloadType=String} 仅为满足
+ * {@code FrontendActionDispatcher} 契约;实际逻辑不读取 payload。
  */
-public class TabHandler extends BaseMessageHandler {
+public final class CreateNewTabActionHandler implements FrontendActionHandler<String> {
 
-    private static final Logger LOG = Logger.getInstance(TabHandler.class);
+    private static final Logger LOG = Logger.getInstance(CreateNewTabActionHandler.class);
 
-    private static final String[] SUPPORTED_TYPES = {
-        "create_new_tab"
-    };
-
-    public TabHandler(HandlerContext context) {
-        super(context);
+    @Override
+    public UpstreamAction action() {
+        return UpstreamAction.CREATE_NEW_TAB;
     }
 
     @Override
-    public String[] getSupportedTypes() {
-        return SUPPORTED_TYPES;
+    public Class<String> payloadType() {
+        return String.class;
     }
 
     @Override
-    public boolean handle(String type, String content) {
-        if (CommonConstants.REQUEST_TYPE_CREATE_NEW_TAB.equals(type)) {
-            LOG.debug("[TabHandler] Processing create_new_tab");
-            handleCreateNewTab();
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * Create a new chat tab in the tool window
-     */
-    private void handleCreateNewTab() {
-        Project project = context.getProject();
+    public void handle(String payload, FrontendActionContext context) {
+        HandlerContext ctx = context.handlerContext();
+        Project project = ctx.getProject();
 
         ToolWindowManager.getInstance(project).invokeLater(() -> {
             try {
@@ -59,8 +51,8 @@ public class TabHandler extends BaseMessageHandler {
                 ToolWindow toolWindow = ToolWindowManager.getInstance(project)
                         .getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
                 if (toolWindow == null) {
-                    LOG.error("[TabHandler] Tool window not found");
-                    callJavaScript("addErrorMessage", escapeJs("无法找到 CCG 工具窗口"));
+                    LOG.error("[CreateNewTabActionHandler] Tool window not found");
+                    ctx.callJavaScript("addErrorMessage", ctx.escapeJs("无法找到 CCG 工具窗口"));
                     return;
                 }
 
@@ -79,7 +71,7 @@ public class TabHandler extends BaseMessageHandler {
                 String tabName;
                 if (savedName != null && !savedName.isEmpty()) {
                     tabName = savedName;
-                    LOG.info("[TabHandler] Restored tab name from storage: " + tabName);
+                    LOG.info("[CreateNewTabActionHandler] Restored tab name from storage: " + tabName);
                 } else {
                     tabName = ClaudeSDKToolWindow.getNextTabName(toolWindow);
                 }
@@ -97,10 +89,10 @@ public class TabHandler extends BaseMessageHandler {
                 // Ensure the tool window is visible
                 toolWindow.show(null);
 
-                LOG.info("[TabHandler] Created new tab: " + tabName);
+                LOG.info("[CreateNewTabActionHandler] Created new tab: " + tabName);
             } catch (Exception e) {
-                LOG.error("[TabHandler] Error creating new tab: " + e.getMessage(), e);
-                callJavaScript("addErrorMessage", escapeJs("创建新标签页失败: " + e.getMessage()));
+                LOG.error("[CreateNewTabActionHandler] Error creating new tab: " + e.getMessage(), e);
+                ctx.callJavaScript("addErrorMessage", ctx.escapeJs("创建新标签页失败: " + e.getMessage()));
             }
         });
     }

@@ -388,6 +388,18 @@ public class CodexSDKBridge extends BaseSDKBridge {
     // ============================================================================
 
     /**
+     * 解析下发到 Codex 的 reasoning effort(thinking depth)。
+     * <p>C3:兜底必须来自全局 SSOT {@link CommonConstants#DEFAULT_REASONING_EFFORT},
+     * 不得再出现独立的 "medium" 字面量(历史上曾与全局 "high" 默认漂移)。
+     *
+     * @param reasoningEffort 上游传入值,可能为 null(SessionState 默认 null / GitCommitMessageService 显式 null)
+     * @return 非空原样透传;null 回退全局 SSOT 默认
+     */
+    private static String resolveReasoningEffort(String reasoningEffort) {
+        return reasoningEffort != null ? reasoningEffort : CommonConstants.DEFAULT_REASONING_EFFORT;
+    }
+
+    /**
      * Send message to Codex (streaming response).
      *
      * Note: Codex uses threadId instead of sessionId
@@ -458,7 +470,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
                 stdinInput.addProperty("permissionMode", permissionMode != null ? permissionMode : "");
                 stdinInput.addProperty("model", model != null ? model : "");
                 // Reasoning effort (thinking depth)
-                stdinInput.addProperty("reasoningEffort", reasoningEffort != null ? reasoningEffort : "medium");
+                stdinInput.addProperty("reasoningEffort", resolveReasoningEffort(reasoningEffort));
 
                 // API configuration — skip for CLI Login mode (uses native OAuth from ~/.codex/auth.json)
                 boolean isCodexCliLogin = isCodexCliLoginActive();
@@ -663,7 +675,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
         stdinInput.addProperty("cwd", cwd != null ? cwd : "");
         stdinInput.addProperty("permissionMode", permissionMode != null ? permissionMode : "");
         stdinInput.addProperty("model", model != null ? model : "");
-        stdinInput.addProperty("reasoningEffort", reasoningEffort != null ? reasoningEffort : "medium");
+        stdinInput.addProperty("reasoningEffort", resolveReasoningEffort(reasoningEffort));
 
         boolean isCodexCliLogin = isCodexCliLoginActive();
         if (!isCodexCliLogin) {

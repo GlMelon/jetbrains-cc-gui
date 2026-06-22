@@ -3,6 +3,9 @@
  * Feature: 004-refactor-input-box
  */
 
+import { PERMISSION_MODE } from '../../generated/protocol';
+import type { PermissionMode, ReasoningEffort } from '../../generated/protocol';
+
 // ============================================================
 // Core Entity Types
 // ============================================================
@@ -176,9 +179,14 @@ export interface SelectedAgent {
 // ============================================================
 
 /**
- * Permission mode for conversations
+ * Permission mode for conversations.
+ *
+ * 类型 SSOT(C2):由后端 {@code protocol.PermissionMode} 枚举经构建时生成器
+ * {@code generate-protocol-types.mjs} 产出,此处 re-export。值域含 autoEdit
+ * (acceptEdits 历史别名,后端 session 可下发;UI 展示列表 AVAILABLE_MODES 不含,
+ * 但类型与校验必须覆盖,见 VALID_PERMISSION_MODE_IDS)。
  */
-export type PermissionMode = 'default' | 'acceptEdits' | 'plan' | 'bypassPermissions';
+export type { PermissionMode };
 
 /**
  * Codex fast mode type
@@ -232,11 +240,14 @@ export const AVAILABLE_MODES: ModeInfo[] = [
 ];
 
 /**
- * Set of valid permission mode IDs, derived from AVAILABLE_MODES.
+ * Set of valid permission mode IDs, derived from the SSOT PERMISSION_MODE(5 值,含 autoEdit 别名)。
+ *
+ * 刻意与展示列表 AVAILABLE_MODES(4 值,无 autoEdit)解耦:autoEdit 是 acceptEdits 的
+ * 历史别名,后端 session 可能下发,UI 不单独展示但必须接受为合法值,否则状态静默丢失。
  * Use isValidPermissionMode() for validation instead of inline checks.
  */
 export const VALID_PERMISSION_MODE_IDS: ReadonlySet<string> = new Set(
-  AVAILABLE_MODES.map((m) => m.id)
+  Object.values(PERMISSION_MODE)
 );
 
 /**
@@ -451,12 +462,13 @@ export const AVAILABLE_PROVIDERS: ProviderInfo[] = [
  */
 
 /**
- * Reasoning Effort (thinking depth)
- * Controls the depth of reasoning for AI models
- * Claude API values: low, medium, high, xhigh, max
- * Codex API values: low, medium, high, xhigh
+ * Reasoning Effort (thinking depth).
+ *
+ * 类型 SSOT(C2):由后端 {@code protocol.ReasoningEffort} 枚举经构建时生成器产出,此处 re-export。
+ * 全集 5 档(= Claude API 全集);实际展示为按 role/provider 子集过滤(Codex 无 max、HAIKU 无
+ * xhigh/max),见 {@link REASONING_LEVELS} + {@code ReasoningSelect}。
  */
-export type ReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+export type { ReasoningEffort };
 
 /**
  * Reasoning level information

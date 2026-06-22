@@ -1,5 +1,6 @@
 package com.github.claudecodegui.provider.codex;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.SDKResult;
 import org.junit.Test;
@@ -88,6 +89,27 @@ public class CodexSDKBridgeEnvTest {
         } finally {
             deleteDirectory(sessionsDir);
         }
+    }
+
+    @Test
+    public void resolveReasoningEffortUsesSsotDefaultWhenNull() throws Exception {
+        // C3 守门:reasoningEffort 为 null 时兜底必须来自全局 SSOT 常量,
+        // 不得再出现独立的 "medium" 字面量(曾与全局 "high" 默认漂移)。
+        Method method = CodexSDKBridge.class.getDeclaredMethod("resolveReasoningEffort", String.class);
+        method.setAccessible(true);
+
+        // null(SessionState 默认 / GitCommitMessageService 显式 null) → 全局 SSOT 默认
+        assertEquals(CommonConstants.DEFAULT_REASONING_EFFORT, method.invoke(null, new Object[]{null}));
+        // 非空 → 原样透传
+        assertEquals("low", method.invoke(null, "low"));
+        assertEquals("medium", method.invoke(null, "medium"));
+        assertEquals("high", method.invoke(null, "high"));
+    }
+
+    @Test
+    public void defaultReasoningEffortConstantRemainsHigh() {
+        // C3 守门:SSOT 默认值固定 high,防止被静默改回 medium 造成再次漂移
+        assertEquals("high", CommonConstants.DEFAULT_REASONING_EFFORT);
     }
 
     @Test

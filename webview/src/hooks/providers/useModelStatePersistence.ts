@@ -4,10 +4,12 @@ import {
   strip1MContextSuffix,
 } from '../../components/ChatInputBox/types';
 import type { CodexFastMode, PermissionMode, ReasoningEffort } from '../../components/ChatInputBox/types';
+import { REASONING_EFFORT } from '../../generated/protocol';
 import { getModelRegistrySnapshot, resolveClaudeModelId, subscribeModelRegistry } from '../../utils/modelRegistry';
 
 const STORAGE_KEY = 'model-selection-state';
-const REASONING_VALUES = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
+// SSOT(C2):reasoning effort 值域来自后端枚举生成,不再手写(原与 ClaudeRole.java:127 重复)
+const REASONING_VALUES: readonly ReasoningEffort[] = Object.values(REASONING_EFFORT);
 
 const isReasoningEffort = (value: unknown): value is ReasoningEffort =>
   typeof value === 'string' && (REASONING_VALUES as readonly string[]).includes(value);

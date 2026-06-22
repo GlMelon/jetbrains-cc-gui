@@ -1,13 +1,15 @@
 package com.github.claudecodegui.cli;
 
-import com.github.claudecodegui.cli.claude.ClaudeCliSession;
-import com.github.claudecodegui.cli.codex.CodexCliSession;
-import com.github.claudecodegui.cli.common.CliConstants;
+import com.github.claudecodegui.cli.claude.ClaudeCliSessionFactory;
+import com.github.claudecodegui.cli.codex.CodexCliSessionFactory;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.SDKResult;
+import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.ui.toolwindow.TabPerformanceLogger;
 import com.intellij.openapi.diagnostic.Logger;
 
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -17,6 +19,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * 完全不依赖 SDK / ai-bridge。
  * <p>
  * 面向 {@link CliSession} 接口容器，按 (tabId, provider) 解析。
+ * <p>
+ * 会话创建经 {@link CliSessionFactory} 注册表路由(总则五·开闭 / E1):
+ * 新增 CLI provider 只需新增一个工厂实现 + 装配注册一行,createSession 路由主体不变,
+ * 取代原先 createSession 内的 provider switch。
  */
 public class CliSessionManager {
 
@@ -30,6 +36,32 @@ public class CliSessionManager {
 
     // 每个 tab 当前进行中的 send future,用于 per-tab 串行化,避免并发竞态。
     private final ConcurrentHashMap<String, CompletableFuture<SDKResult>> inFlight = new ConcurrentHashMap<>();
+
+    /**
+     * CLI 会话工厂注册表:provider → factory。装配期填充(fail-fast 校验重复),
+     * 运行期只读查表(E1·开闭路由)。
+     */
+    private final Map<String, CliSessionFactory> factories;
+
+    /**
+     * 默认装配 Claude + Codex 两个工厂。
+     */
+    public CliSessionManager() {
+        this(List.of(new ClaudeCliSessionFactory(), new CodexCliSessionFactory()));
+    }
+
+    /**
+     * 显式注入工厂列表(测试 / 自定义装配用)。重复 provider fail-fast 抛异常。
+     */
+    public CliSessionManager(List<CliSessionFactory> factories) {
+        Map<String, CliSessionFactory> map = new HashMap<>();
+        for (CliSessionFactory factory : factories) {
+            if (map.putIfAbsent(factory.provider(), factory) != null) {
+                throw new IllegalArgumentException("Duplicate CLI session factory: " + factory.provider());
+            }
+        }
+        this.factories = map;
+    }
 
     public CompletableFuture<SDKResult> send(CliSendRequest request, MessageCallback callback) {
         String tabId = request.tabId();
@@ -66,12 +98,16 @@ public class CliSessionManager {
         return providerMap.computeIfAbsent(provider, k -> createSession(provider, tabId));
     }
 
-    private static CliSession createSession(String provider, String tabId) {
-        return switch (provider) {
-            case CliConstants.PROVIDER_CLAUDE -> new ClaudeCliSession(tabId);
-            case CliConstants.PROVIDER_CODEX -> new CodexCliSession(tabId);
-            default -> throw new IllegalArgumentException("Unknown CLI provider: " + provider);
-        };
+    /**
+     * 经工厂注册表创建 CliSession 实例(E1·开闭路由)。
+     * 未知 provider fail-fast 抛异常(取代原先 switch 的 default 分支)。
+     */
+    private CliSession createSession(String provider, String tabId) {
+        CliSessionFactory factory = factories.get(provider);
+        if (factory == null) {
+            throw new IllegalArgumentException("Unknown CLI provider: " + provider);
+        }
+        return factory.create(tabId);
     }
 
     public void interrupt(String tabId, String provider) {
@@ -124,14 +160,14 @@ public class CliSessionManager {
                 });
     }
 
+    /**
+     * 归一化 interrupt 的 provider 字符串到合法的 claude/codex。
+     * <p>
+     * 委托 {@link ProviderType#fromString}(null/未知→CLAUDE, codex→CODEX)消除手写 switch(E1),
+     * 语义与原 switch 完全一致:CliSessionManagerTest 4 断言逐项等价。
+     */
     static String normalizeInterruptProvider(String provider) {
-        if (provider == null) {
-            return CliConstants.PROVIDER_CLAUDE;
-        }
-        return switch (provider) {
-            case CliConstants.PROVIDER_CODEX -> CliConstants.PROVIDER_CODEX;
-            default -> CliConstants.PROVIDER_CLAUDE;
-        };
+        return ProviderType.fromString(provider).toLowerCase();
     }
 
     /** 将 CliSessionCallback 适配为 MessageCallback，统一回调格式。 */

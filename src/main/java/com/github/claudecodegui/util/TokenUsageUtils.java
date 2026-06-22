@@ -1,6 +1,7 @@
 package com.github.claudecodegui.util;
 
 import com.github.claudecodegui.session.ClaudeSession;
+import com.github.claudecodegui.session.runtime.ProviderType;
 import com.google.gson.JsonObject;
 
 import java.util.List;
@@ -33,7 +34,8 @@ public final class TokenUsageUtils {
         if (usage == null) { return 0; }
         int input = usage.has("input_tokens") ? usage.get("input_tokens").getAsInt() : 0;
         int output = usage.has("output_tokens") ? usage.get("output_tokens").getAsInt() : 0;
-        if ("codex".equals(provider)) {
+        // codex token 公式分支:经 ProviderType SSOT 精确判等(总则五·开闭 / E6),消除裸 "codex" 字面量。
+        if (ProviderType.CODEX.value().equals(provider)) {
             return input + output;
         }
         int cacheCreation = usage.has("cache_creation_input_tokens") ? usage.get("cache_creation_input_tokens").getAsInt() : 0;

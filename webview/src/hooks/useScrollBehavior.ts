@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
-import type { ClaudeMessage } from '../types';
+import type { ClaudeMessage, ViewMode } from '../types';
 
 const SCROLL_ANCHOR_ENABLED_CLASS = 'scroll-anchor-enabled';
 const BOTTOM_THRESHOLD_PX = 100;
-
-type ViewMode = 'chat' | 'history' | 'settings';
 
 export interface UseScrollBehaviorOptions {
   currentView: ViewMode;

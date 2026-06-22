@@ -10,6 +10,8 @@ import com.intellij.openapi.diagnostic.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 /**
  * Backend service for the configurable model registry.
@@ -109,14 +111,46 @@ public final class ModelRegistryService {
      * <p>
      * 仅 claude provider 且 role 已知时返回(自定义 claude 模型的 role 由用户新增时选定);
      * 否则返回 {@code null}(serialize 时跳过该字段,前端不渲染)。
+     * <p>
+     * provider 能力经 {@link ModelCapabilityProvider} 注册表查表(总则五·开闭 / E5),
+     * 取代原手写 {@code "claude".equalsIgnoreCase} 判定。查表用 provider 小写精确匹配
+     * (不归一、不 fallback):非 claude 一律无此能力,与原语义等价。
      */
     private static List<String> reasoningLevelsFor(ModelConfig model) {
-        if (!"claude".equalsIgnoreCase(model.provider()) || model.role() == null || model.role().isBlank()) {
+        if (model.role() == null || model.role().isBlank()) {
             return null;
         }
-        ClaudeRole role = ClaudeRole.fromShortName(model.role());
-        return role == null ? null : role.reasoningLevels();
+        ModelCapabilityProvider capability = model.provider() == null
+                ? null
+                : CAPABILITY_PROVIDERS.get(model.provider().toLowerCase(Locale.ROOT));
+        return capability != null ? capability.reasoningLevels(model) : null;
     }
+
+    /**
+     * 模型能力提供者:per-provider 的派生能力(总则五·开闭 / E5)。
+     * 新增 provider 若具 reasoning 能力,只需在 {@link #CAPABILITY_PROVIDERS} 注册一个 entry。
+     */
+    interface ModelCapabilityProvider {
+        String provider();
+
+        List<String> reasoningLevels(ModelConfig model);
+    }
+
+    /** 能力注册表:provider(小写)→ 能力提供者。仅 claude 注册;未注册 provider 返回 null(无此能力)。 */
+    private static final Map<String, ModelCapabilityProvider> CAPABILITY_PROVIDERS = Map.of(
+            CommonConstants.PROVIDER_CLAUDE, new ModelCapabilityProvider() {
+                @Override
+                public String provider() {
+                    return CommonConstants.PROVIDER_CLAUDE;
+                }
+
+                @Override
+                public List<String> reasoningLevels(ModelConfig model) {
+                    ClaudeRole role = ClaudeRole.fromShortName(model.role());
+                    return role == null ? null : role.reasoningLevels();
+                }
+            }
+    );
 
     /** Parse the {@code {items:[...]}} payload back into a {@link ModelRegistryConfig}. */
     public static ModelRegistryConfig parse(JsonObject json) {

@@ -340,7 +340,6 @@ public final class CommonConstants {
     // ===== 前端请求动作类型（前端→后端 message type） =====
     // 前端通过 JSON message 的 type 字段标识请求的动作，由对应 Handler 路由处理。
 
-    public static final String REQUEST_TYPE_GET_CONTEXT_USAGE = "get_context_usage";
     public static final String REQUEST_TYPE_PERMISSION_DECISION = "permission_decision";
     public static final String REQUEST_TYPE_ASK_USER_QUESTION_RESPONSE = "ask_user_question_response";
     public static final String REQUEST_TYPE_PLAN_APPROVAL_RESPONSE = "plan_approval_response";

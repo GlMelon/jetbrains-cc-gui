@@ -7,6 +7,7 @@ import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.model.SessionTemplate;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
 import com.github.claudecodegui.provider.codex.CodexSDKBridge;
+import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.skill.SlashCommandRegistry;
 import com.github.claudecodegui.util.GsonHolder;
@@ -330,7 +331,9 @@ public class SessionLifecycleManager {
         // Pre-compute Codex skills outside EDT to avoid file I/O on UI thread
         final List<SlashCommandRegistry.SlashCommand> codexSkills;
         final String codexSkillsJson;
-        if ("codex".equalsIgnoreCase(provider)) {
+        // codex 判定经 ProviderType SSOT(总则五·开闭 / E6):消除裸 "codex" 字面量。
+        // fromString 忽略大小写,与原 equalsIgnoreCase 等价。
+        if (ProviderType.fromString(provider) == ProviderType.CODEX) {
             codexSkills = SlashCommandRegistry.getCodexSkills(cwd);
             codexSkillsJson = SlashCommandRegistry.toJson(codexSkills);
             LOG.info("Codex skills resolved: " + codexSkills.size() + " skills");
@@ -404,7 +407,7 @@ public class SessionLifecycleManager {
 
     private boolean shouldPrewarmClaudeDaemon(ClaudeSession session) {
         return session != null
-                && "claude".equals(session.getProvider())
+                && ProviderType.CLAUDE.value().equals(session.getProvider())
                 && !"cli".equals(session.getClaudeInvocationMode());
     }
 
@@ -414,7 +417,7 @@ public class SessionLifecycleManager {
      */
     private boolean isClaudeCliSession(ClaudeSession session) {
         return session != null
-                && "claude".equals(session.getProvider())
+                && ProviderType.CLAUDE.value().equals(session.getProvider())
                 && "cli".equals(session.getClaudeInvocationMode());
     }
 
@@ -506,7 +509,7 @@ public class SessionLifecycleManager {
         payload.addProperty("provider", session.getProvider());
         payload.addProperty("model", session.getModel());
         payload.addProperty("permissionMode", session.getPermissionMode());
-        if ("claude".equals(session.getProvider()) && session.getClaudeInvocationMode() != null) {
+        if (ProviderType.CLAUDE.value().equals(session.getProvider()) && session.getClaudeInvocationMode() != null) {
             payload.addProperty("claudeInvocationMode", session.getClaudeInvocationMode());
         }
         String json = GsonHolder.GSON.toJson(payload);

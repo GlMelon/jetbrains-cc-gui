@@ -1,5 +1,6 @@
 package com.github.claudecodegui.protocol;
 
+import com.github.claudecodegui.session.runtime.ProviderType;
 import com.google.gson.GsonBuilder;
 
 import java.io.File;
@@ -61,6 +62,33 @@ public final class ProtocolManifestGenerator {
         }
         manifest.put("downstream", downstream);
 
+        List<Map<String, String>> permissionMode = new ArrayList<>();
+        for (PermissionMode mode : PermissionMode.values()) {
+            Map<String, String> entry = new LinkedHashMap<>();
+            entry.put("name", mode.name());
+            entry.put("value", mode.value());
+            permissionMode.add(entry);
+        }
+        manifest.put("permissionMode", permissionMode);
+
+        List<Map<String, String>> reasoningEffort = new ArrayList<>();
+        for (ReasoningEffort effort : ReasoningEffort.values()) {
+            Map<String, String> entry = new LinkedHashMap<>();
+            entry.put("name", effort.name());
+            entry.put("value", effort.value());
+            reasoningEffort.add(entry);
+        }
+        manifest.put("reasoningEffort", reasoningEffort);
+
+        List<Map<String, String>> providerType = new ArrayList<>();
+        for (ProviderType type : ProviderType.values()) {
+            Map<String, String> entry = new LinkedHashMap<>();
+            entry.put("name", type.name());
+            entry.put("value", type.value());
+            providerType.add(entry);
+        }
+        manifest.put("providerType", providerType);
+
         File output = new File(args[0]);
         output.getParentFile().mkdirs();
         try (Writer w = new OutputStreamWriter(
@@ -69,6 +97,6 @@ public final class ProtocolManifestGenerator {
         }
 
         System.out.println("[ProtocolManifestGenerator] Generated: " + output.getAbsolutePath()
-                + " (" + upstream.size() + " upstream, " + downstream.size() + " downstream)");
+                + " (" + upstream.size() + " upstream, " + downstream.size() + " downstream, " + permissionMode.size() + " permissionMode, " + reasoningEffort.size() + " reasoningEffort, " + providerType.size() + " providerType)");
     }
 }

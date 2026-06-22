@@ -1,7 +1,7 @@
 package com.github.claudecodegui.ui.toolwindow;
 
 import com.github.claudecodegui.action.SendShortcutSync;
-import com.github.claudecodegui.handler.PermissionHandler;
+import com.github.claudecodegui.handler.permission.PermissionActionHandlers;
 import com.github.claudecodegui.handler.core.FrontendActionDispatcher;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.handler.core.MessageDispatcher;
@@ -178,9 +178,9 @@ public class ClaudeChatWindow {
      */
     private FrontendActionDispatcher frontendActionDispatcher;
     /**
-     * permission handler.
+     * permission action handlers (shared state for permission dialogs and responses).
      */
-    private PermissionHandler permissionHandler;
+    private PermissionActionHandlers permissionHandler;
     /**
      * session lifecycle manager.
      */
@@ -1446,7 +1446,7 @@ public class ClaudeChatWindow {
             }
 
             @Override
-            public void setPermissionHandler(PermissionHandler h) {
+            public void setPermissionHandler(PermissionActionHandlers h) {
                 permissionHandler = h;
             }
 
@@ -1471,7 +1471,7 @@ public class ClaudeChatWindow {
             }
 
             @Override
-            public PermissionHandler getPermissionHandler() {
+            public PermissionActionHandlers getPermissionHandler() {
                 return permissionHandler;
             }
 

@@ -1,6 +1,5 @@
 package com.github.claudecodegui.session;
 
-import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.provider.ProviderAdapter;
 import com.github.claudecodegui.provider.ProviderId;
 import com.github.claudecodegui.provider.ProviderRegistry;
@@ -47,13 +46,9 @@ public class SessionProviderRouter {
     }
 
     private ProviderAdapter adapter(String provider) {
-        return providerRegistry.require(providerId(provider));
-    }
-
-    private ProviderId providerId(String provider) {
-        if (CommonConstants.PROVIDER_CODEX.equals(provider)) {
-            return ProviderId.CODEX;
-        }
-        return ProviderId.CLAUDE;
+        // 直接用 ProviderId.of(内部 trim/lowercase 归一)路由,消除手写 provider 解析(总则五·开闭 / E3)。
+        // 未知 provider 由 ProviderRegistry.require fail-fast 抛异常,对齐 registry 设计意图,
+        // 取代原先「未知静默 fallback 到 CLAUDE」的偏离行为。
+        return providerRegistry.require(ProviderId.of(provider));
     }
 }

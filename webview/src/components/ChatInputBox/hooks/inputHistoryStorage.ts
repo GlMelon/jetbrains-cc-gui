@@ -3,6 +3,10 @@
  * No React dependency — safe to import from any context.
  */
 import { sendToJava } from '../../../utils/bridge.js';
+import { canUseLocalStorage } from '../../../utils/storageAvailability.js';
+
+// D2:canUseLocalStorage 真相源在 utils/storageAvailability.ts,此处 re-export 保持下游(useInputHistory)import 兼容
+export { canUseLocalStorage };
 
 /** localStorage key for chat input history */
 export const HISTORY_STORAGE_KEY = 'chat-input-history';
@@ -94,14 +98,6 @@ export function splitTextToFragments(text: string): string[] {
   }
 
   return Array.from(result);
-}
-
-export function canUseLocalStorage(): boolean {
-  try {
-    return typeof window !== 'undefined' && !!window.localStorage;
-  } catch {
-    return false;
-  }
 }
 
 function isQuotaExceededError(err: unknown): boolean {

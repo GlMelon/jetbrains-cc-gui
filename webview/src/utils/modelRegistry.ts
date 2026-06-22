@@ -2,10 +2,10 @@ import { DOWNSTREAM, UPSTREAM } from '../generated/protocol';
 import { sendAction, subscribeEvent } from '../bridge/typed';
 import type { ModelInfo } from '../components/ChatInputBox/types';
 import { CLAUDE_MODELS, CODEX_MODELS, DEFAULT_CONTEXT_WINDOW, ONE_MILLION_CONTEXT_WINDOW, getClaudeRoleFromModelId, normalizeClaudeModelId, strip1MContextSuffix } from '../components/ChatInputBox/types';
-import type { CodexCustomModel, CodexProviderConfig } from '../types/provider';
+import type { CodexCustomModel, CodexProviderConfig, ProviderType } from '../types/provider';
 
 export interface ModelRegistryItem extends ModelInfo {
-  provider: 'claude' | 'codex';
+  provider: ProviderType;
   role?: 'sonnet' | 'opus' | 'fable' | 'haiku';
   actualModel?: string;
   supports1MContext?: boolean;

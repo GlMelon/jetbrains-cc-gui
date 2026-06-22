@@ -1,4 +1,7 @@
-export type AiFeatureProvider = 'claude' | 'codex';
+import type { ProviderType } from './provider';
+
+// C2/C9:AiFeatureProvider 值域由后端 protocol.ProviderType 枚举 SSOT 生成派生,不再手写。
+export type AiFeatureProvider = ProviderType;
 export type AiFeatureResolutionSource = 'manual' | 'auto' | 'unavailable';
 
 export const DEFAULT_AI_FEATURE_MODELS = {

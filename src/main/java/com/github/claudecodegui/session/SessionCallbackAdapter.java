@@ -1,6 +1,6 @@
 package com.github.claudecodegui.session;
 
-import com.github.claudecodegui.handler.PermissionHandler;
+import com.github.claudecodegui.handler.permission.PermissionActionHandlers;
 import com.github.claudecodegui.permission.PermissionRequest;
 import com.github.claudecodegui.util.JsUtils;
 import com.intellij.openapi.application.ApplicationManager;
@@ -31,7 +31,7 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
 
     private final StreamMessageCoalescer streamCoalescer;
     private final JsTarget jsTarget;
-    private final PermissionHandler permissionHandler;
+    private final PermissionActionHandlers permissionHandler;
     private final BooleanSupplier slashCommandsFetchedSupplier;
     private final Runnable streamEndCallback;
     private final StreamDeltaThrottler contentDeltaThrottler;
@@ -51,7 +51,7 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
     public SessionCallbackAdapter(
             StreamMessageCoalescer streamCoalescer,
             JsTarget jsTarget,
-            PermissionHandler permissionHandler,
+            PermissionActionHandlers permissionHandler,
             BooleanSupplier slashCommandsFetchedSupplier,
             Runnable streamEndCallback
     ) {

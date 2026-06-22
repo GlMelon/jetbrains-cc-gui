@@ -149,9 +149,12 @@ final class SlashCommandPathPolicy {
         try {
             String trimmedPath = declaredPath == null ? "" : declaredPath.trim();
             Path path = Paths.get(trimmedPath);
+            // 拒绝绝对路径/盘符根/分隔符开头的路径,防止 declaredPath 逃逸出 pluginDir。
+            // Windows 上 "/tmp/x" 的 isAbsolute() 为 false 且 getRoot() 为 null,
+            // 故额外用 startsWith("/") / startsWith("\\") 兜底。
             if (path.isAbsolute() || path.getRoot() != null
                     || trimmedPath.startsWith("/") || trimmedPath.startsWith("\\")) {
-                return pluginDir.resolve(path).normalize();
+                return null;
             }
             return pluginDir.resolve(path).normalize();
         } catch (Exception e) {

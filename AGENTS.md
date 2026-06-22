@@ -17,6 +17,8 @@
 - **上行**(前端 → 后端):`window.sendToJava({type, content})`,type 取值见 `protocol/UpstreamAction` 枚举。
 - **下行**(后端 → 前端):`window.__bridge.dispatch(type, payload)`,type 取值见 `protocol/DownstreamEvent` 枚举。
 
+**进程边界(Java ↔ ai-bridge)**:NDJSON 字符串契约,**无 Node 类型泄漏**。后端 `BaseSDKBridge.executeStreamingCommand` 以 `node channel-manager.js <provider> <action>` 启动子进程,经 stdin 投递 JSON、读 stdout NDJSON 行通信。ai-bridge 内部 provider 路由已遵循 Adapter 范式(`ai-bridge/channels/provider-registry.js` 用 `Map<provider, descriptor>` + `dispatch()`),是 Node 侧 Docking 正面范例。**期望(当前债务)**:Java 侧 `BaseSDKBridge` 之上应补 `SdkBridgeAdapter` 接口 + `supports(provider)`,与 ai-bridge provider registry 概念对齐;现状 provider 路由靠子类硬编码 `getProviderName()` 返回字面量,新增第 3 个 SDK 需新建子类并改多处装配(见附录 C)。
+
 **受众**:AI agent(生成代码时强制遵循)+ 人类开发者(CR/PR 对照)。
 
 **定位**:本文是长期稳定的**架构准则**,不含一次性违规清单或迁移路线(那些另行成文)。准则的抽象层级为「核心模式名 + 当前项目落地指引」,借鉴成熟工程范式(策略注册表、模板方法、事件解耦、多态序列化、配置驱动对接等)的**思想**,但**不绑定**任何特定框架(Spring / Atom / Jackson)的具体类名——本插件不依赖它们。
@@ -74,7 +76,10 @@
 
 ### 落地指引(本项目)
 
-- 新增**上行 action** 处理:**必须**实现 `handler/core/FrontendActionHandler<T>` 泛型接口(声明 `UpstreamAction`、`payloadType()`、`handle(T, ctx)`),由 `FrontendActionDispatcher` 自动注册派发。**禁止**向 `MessageDispatcher` 的线性遍历链或 `SettingsHandler.SUPPORTED_TYPES` 这类**字符串数组**里追加条目——那是违反开闭原则的旧路径。
+- 新增**上行 action** 处理:**必须**实现 `handler/core/FrontendActionHandler<T>` 泛型接口(声明 `UpstreamAction`、`payloadType()`、`handle(T, ctx)`),由 `FrontendActionDispatcher` 注册派发。**禁止**向 `MessageDispatcher` 的线性遍历链或 `SettingsHandler.SUPPORTED_TYPES` 这类**字符串数组**里追加条目——那是违反开闭原则的旧路径。
+  - **装配机制(本插件无 Spring)**:`FrontendActionDispatcher` 构造器接收 `List<FrontendActionHandler<?>>`,由 `ChatWindowDelegate.initializeHandlers()` 手工 `new` 并注入;Dispatcher 内部按 `handler.action().value()` 建 `LinkedHashMap<String, FrontendActionHandler<?>>` 路由,**重复注册即抛 `IllegalArgumentException`**。新增 typed handler 只需在装配列表加一行,不改分派主体。接口靠 `action()` 返回值声明支持范围,**无独立 `support()` 方法**。
+  - **过渡适配器**:`LegacyMessageHandlerAdapter` 把旧 `MessageHandler.getSupportedTypes()` 的字符串原地适配进 typed 注册表(`SettingsHandler` 经此桥接),是双轨期关键桥接,**禁止误删**。双轨期上行派发:typed 通道优先命中即短路,否则回退 `MessageDispatcher` 线性链(`ClaudeChatWindow.handleMessage`)。
+- 新增**下行事件**派发:type **必须**使用 `DownstreamEvent` 枚举常量(`.value()`),**禁止**散落字符串字面量(如 `"theme.changed"`、`"language.apply"`);派发**统一**经 `HandlerContext.dispatchEvent(type, payloadJson)`,**禁止**直接 `callJavaScript("window.xxx")`。现状:`SettingsHandler` 等 legacy handler 仍混用字面量,属迁移中债务(见附录 C)。
 - 新增**领域 handler**:按 `handler/{domain}/` 分目录组织,单一职责,一个 handler 只处理一个领域。
 - 新增**第三方 / 外部能力对接**:用 Adapter 接口 + `support()` 路由 + 配置外置(见总则五)。
 - 跨模块协作优先走事件或注入对方 Service 接口,**不得**直接深入对方的内部实现类。
@@ -99,10 +104,11 @@
 
 ### 落地指引(本项目)
 
-- **协议消息名(SSOT,已具备)**:上行 / 下行消息名以 Java 枚举(`UpstreamAction` / `DownstreamEvent`)为唯一来源,经 `ProtocolManifestGenerator` → `webview/scripts/generate-protocol-types.mjs` 生成 `webview/src/generated/protocol.ts`。**禁止**在前端手写协议字符串字面量。
-- **payload 字段结构(SSOT,必须补齐)**:payload 的字段结构必须从后端**单一来源**生成或校验到前端(扩展上述 manifest,或后端产出 JSON Schema → 生成 TS 类型)。**禁止**前后端各写一套解析器 / 默认值。默认值规则两端必须一致,**以后端为准**。
-- **枚举值**:业务枚举(权限模式、推理等级、provider 类型等)必须有单一来源并生成到前端,**禁止**前端手写联合类型字面量。
-- **序列化出口统一**:后端使用统一的序列化方式出口,枚举统一约定(如 `value` 存储值 + `desc` 描述),前后端不各自重新解释。
+- **协议消息名(SSOT,已具备)**:上行 / 下行消息名以 Java 枚举(`UpstreamAction` / `DownstreamEvent`)为唯一来源。生成主路径:前端 `prebuild` 钩子触发 `webview/scripts/generate-protocol-types.mjs`,**直读 Java 枚举源**(regex 解析 `NAME("value")`)同步写出 `webview/src/generated/protocol.ts` 与 `protocol-manifest.json`。`ProtocolManifestGenerator`(Gradle `generateProtocol` task)的 manifest 为**可选兼容产物,非主路径**,评估 deprecate。**禁止**在前端手写协议字符串字面量。
+  - **消费侧规范**:前端**必须**统一从 `webview/src/generated/protocol.ts` 导入 `UPSTREAM` / `DOWNSTREAM` 常量。现状债务:`webview/src/bridge/events/index.ts` 的 Central Event Registry 仍手写 ~130 条字面量,是与 `protocol.ts` 并存的**第二真相源**,须改造为引用 `DOWNSTREAM.*`(见迁移计划 P1-B)。
+- **payload 字段结构(SSOT,必须补齐)**:payload 的字段结构必须从后端**单一来源**生成或校验到前端(扩展上述 manifest,或后端产出 JSON Schema → 生成 TS 类型)。**禁止**前后端各写一套解析器 / 默认值。默认值规则两端必须一致,**以后端为准**。当前 manifest schema 仅 `{name, value}`、payload 字段未生成,属待补债务(见迁移计划 Phase 2)。
+- **枚举值**:业务枚举(权限模式、推理等级、provider 类型等)必须有单一来源并生成到前端,**禁止**前端手写联合类型字面量。当前 `PermissionMode`/`ReasoningEffort`/`CodexFastMode`/`ProviderType` 均前端手写、后端散落字符串常量,属待补债务(见迁移计划 P2-A)。
+- **序列化出口统一**:协议名已统一 `value` 出口(`ProtocolValue` 接口 + manifest 生成前端);**`desc` 描述与多态字段统一约定为规划项**(当前 `ProtocolValue` 仅声明 `value()`,见迁移计划 P2-A)。前后端不各自重新解释协议语义。
 
 ### 合规检查清单
 
@@ -155,6 +161,7 @@
 - 任何对接外部系统 / CLI / 第三方能力的代码,**禁止**用 `if (type == X) ... else if (type == Y)` 硬编码分支。必须定义 Adapter 接口 + `support()` 路由 + 注入集合。
 - 易变的协议参数(URL、token 获取、字段映射)外置为配置文件,而非写死在代码里。
 - 设计新模块时,先识别「哪些点将来会变」,为它们留接口。
+- **已落地范例(可参照)**:`SessionRuntime` 接口 + `default supports(ProviderType, RuntimeType)` + `SessionRuntimeRegistry`(`Map<Key, SessionRuntime>` 查表,路由代码零 if/else);`ProviderAdapter` 接口 + `ProviderRegistry`(`Map<ProviderId, ProviderAdapter>`,fail-fast 重复检测);`ModelConfig` record(配置驱动模型清单);`RuntimePolicyConfig`(外置到 `~/.codemoss/config.json` 的配置外置范例)。**注意**:装配阶段(`SessionRuntimeRouter` / `SessionProviderRouter` 构造函数)仍是手工 `new` + `register`,**路由开闭但装配未完全开闭**——新增 provider 仍需改装配构造函数,后续可考虑注册化(见附录 C 债务)。
 
 ### 合规检查清单
 
@@ -181,6 +188,8 @@
 | 10 | 新增常量 / 类型 / 校验是否复用已有定义 | 四 |
 | 11 | 外部能力对接是否用了 if / else 硬编码?能否改 Adapter + support 路由 | 五 |
 | 12 | 新增同类能力是否需要改既有代码?是否预留了扩展接口 | 五 |
+| 13 | 下行事件是否使用 `DownstreamEvent` 枚举常量?有无散落字面量 | 二 |
+| 14 | 协议 type 是否从 `generated/protocol.ts` 导入?有无手写字面量 | 三 |
 
 ---
 
@@ -194,8 +203,8 @@
 | 模板方法 + 钩子 | 基类固化流程,子类填钩子 | 抽象基类 + protected 钩子方法 |
 | 事件驱动解耦 | 发布 / 订阅,发布方不感知监听方 | 后端事件总线 / 回调注册 |
 | Docking 三层通用化 | 门面 → Adapter → 执行器 + 配置外置 | 任何外部对接走此三层 |
-| 序列化约定(统一枚举 + 多态字段) | 枚举 value / desc 统一、多态字段走统一约定,业务侧不写自定义序列化器 | 后端统一序列化出口 + 枚举约定;payload 走 SSOT 生成 |
-| 四对象分层(PO / DTO / Form / Query + Converter) | 持久化 / 响应 / 写入 / 查询对象分离,层间用 Converter 转换 | Java 后端 req / resp / dto 分层 + 转换器 |
+| 序列化约定(统一枚举 + 多态字段) | 枚举 value / desc 统一、多态字段走统一约定,业务侧不写自定义序列化器 | 协议名已统一 `value` 出口(`ProtocolValue` + manifest 生成);**`desc` 与多态字段统一为规划项**;payload 走 SSOT 生成(见总则三) |
+| 四对象分层(PO / DTO / Form / Query + Converter) | 持久化 / 响应 / 写入 / 查询对象分离,层间用 Converter 转换 | **当前仅少量 `*Request` record,DTO / PO / Response / Converter 尚未落地**;Settings 层仍以 `JsonObject` 半 schema-less 手拼(流式消息场景刻意保留,稳定结构可 DTO 化) |
 
 ---
 
@@ -210,4 +219,25 @@
 
 ---
 
-*本准则源自一次完整的前后端架构排查。如需查阅排查中发现的具体违规点与重构建议,可另行整理为独立文档。准则本身的修订,需经架构 review。*
+## 附录 C · 落地进度概览与迁移路线索引
+
+> 本准则正文只承载长期稳定的架构原则。下表简练标注各总则的当前落地进度;**具体违规点清单、行号佐证与改造 SOP 见迁移路线文档**,正文不重复。
+
+| 总则 | 已落地 | 主要债务(详见迁移文档) |
+|---|---|---|
+| 一·职责分离 | 后端模型权威(`DefaultModelCapabilityResolver` / `ModelConfig` record)、`MODEL_SELECTION` 下行 | 前端模型注册表双真相源(`CLAUDE_MODELS` / `DEFAULT_MODEL_REGISTRY` / `modelSupports1MContext`)、前端协议字面量、前端业务枚举手写 |
+| 二·开闭 | `FrontendActionHandler<T>` + `FrontendActionDispatcher`、V9 三切片(Codex quota / ClaudeCliPath / NodePath)+ ModelRegistry + Appearance | 上行仅 ~10/210 action 完成迁移;18 个 legacy `MessageHandler` + `SettingsHandler.SUPPORTED_TYPES` 仍是主力;下行字面量散落 |
+| 三·SSOT | `UpstreamAction` / `DownstreamEvent` 枚举、mjs 直读 Java 源生成 protocol.ts | payload 字段未生成、业务枚举 SSOT 全未落地、默认值漂移(`CodexSDKBridge` "medium" vs `CommonConstants` "high") |
+| 四·复用 | `bridge/typed.ts` 类型安全签名、部分模块已采用 generated 常量 | `bridge/events/index.ts` 第二真相源、重复实现(`canUseLocalStorage` / `ViewMode` 三处定义) |
+| 五·拓展 | `SessionRuntime` / `ProviderAdapter` / `ProviderRegistry`、ai-bridge `provider-registry`、`RuntimePolicyConfig` 外置 | CLI 工厂 / 消息归一化器 if/else、配置外置不充分、Java 侧缺 `SdkBridgeAdapter` 抽象 |
+
+**迁移路线索引(已存在文档)**:
+
+- `docs/superpowers/plans/2026-06-21-agents-architecture-migration.md` — 总迁移计划(P0–P3,根因 A 前端业务 / B 旧分派 / C SSOT 全覆盖)
+- `docs/superpowers/plans/2026-06-20-architecture-compliance-migration.md` — SSOT 与前端业务下沉五阶段
+- `docs/designs/plugin-architecture-refactor-status.md` — 重构状态快照(前端 / 后端 / Node 三边界现状)
+- V9 派发器迁移三切片:`docs/superpowers/plans/2026-06-21-v9-dispatcher-{codex-quota,claude-cli-path,node-path}-slice.md`
+
+---
+
+*本准则源自一次完整的前后端架构排查。如需查阅排查中发现的具体违规点与重构建议,见附录 C 索引的迁移路线文档。准则本身的修订,需经架构 review。*

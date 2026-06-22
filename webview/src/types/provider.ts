@@ -2,6 +2,12 @@
  * Provider configuration type definitions
  */
 
+import { PROVIDER_TYPE } from '../generated/protocol';
+
+// C2/C9:ProviderType 类型由后端 protocol.ProviderType 枚举构建时生成器产出
+// (webview/src/generated/protocol.ts),消除前端手写第二真相源。
+export type { ProviderType } from '../generated/protocol';
+
 // ============ Constants ============
 
 /**
@@ -20,14 +26,11 @@ export const SPECIAL_PROVIDER_IDS = {
 } as const;
 
 /**
- * 基础 provider id 常量(与后端 CommonConstants.PROVIDER_CLAUDE/PROVIDER_CODEX 对齐)。
+ * 基础 provider id 常量(SSOT:C2/C9,由后端 protocol.ProviderType 枚举构建时生成派生,
+ * 不再手写——原与 CommonConstants.PROVIDER_CLAUDE/PROVIDER_CODEX 重复的第二真相源)。
  * 运行时比较 provider 时统一引用,避免散落的 'claude'/'codex' 字面量。
- * 注:前端历史代码中 'claude'/'codex' 字面量较多,统一化重构逐步收敛到本常量。
  */
-export const PROVIDER_IDS = {
-  CLAUDE: 'claude',
-  CODEX: 'codex',
-} as const;
+export const PROVIDER_IDS = PROVIDER_TYPE;
 
 /**
  * Check if a provider ID is a special pseudo provider

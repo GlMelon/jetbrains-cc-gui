@@ -1,5 +1,11 @@
 export type ToolInput = Record<string, unknown>;
 
+/**
+ * 当前激活的主视图标签。
+ * D3:从 useModelProviderState / useScrollBehavior / useSessionManagement 三处重复定义收敛至此唯一来源。
+ */
+export type ViewMode = 'chat' | 'history' | 'settings';
+
 export interface CompactNotificationItem {
   type: 'stdout';
   text: string;

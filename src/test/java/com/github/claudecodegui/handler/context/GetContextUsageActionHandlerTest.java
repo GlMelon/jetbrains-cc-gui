@@ -1,8 +1,8 @@
-package com.github.claudecodegui.handler;
+package com.github.claudecodegui.handler.context;
 
+import com.github.claudecodegui.protocol.UpstreamAction;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import com.github.claudecodegui.handler.core.HandlerContext;
 import org.junit.Test;
 
 import static org.junit.Assert.assertArrayEquals;
@@ -10,11 +10,20 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
 /**
- * Tests for {@link ContextHandler} request parsing logic.
+ * 契约测试:GetContextUsageActionHandler 必须绑定 GET_CONTEXT_USAGE 枚举并以 String 为载荷类型
+ * (handler 内部 gson.fromJson 解析请求 JSON,dispatcher 不预解析);并覆盖
+ * {@code parseContextUsageRequest} 解析逻辑(逐字搬移自旧 ContextHandlerTest)。
  */
-public class ContextHandlerTest {
+public class GetContextUsageActionHandlerTest {
 
     private static final Gson GSON = new Gson();
+
+    @Test
+    public void bindsGetContextUsageUpstreamActionWithStringPayload() {
+        GetContextUsageActionHandler handler = new GetContextUsageActionHandler();
+        assertEquals(UpstreamAction.GET_CONTEXT_USAGE, handler.action());
+        assertEquals(String.class, handler.payloadType());
+    }
 
     @Test
     public void parseAllFieldsFromValidRequest() {
@@ -24,7 +33,7 @@ public class ContextHandlerTest {
         body.addProperty("model", "claude-opus-4-7[1m]");
         body.addProperty("requestId", "req-abc");
 
-        String[] result = ContextHandler.parseContextUsageRequest(GSON, body.toString());
+        String[] result = GetContextUsageActionHandler.parseContextUsageRequest(GSON, body.toString());
 
         assertEquals("sess-123", result[0]);
         assertEquals("/home/user/project", result[1]);
@@ -38,7 +47,7 @@ public class ContextHandlerTest {
         body.addProperty("model", "claude-sonnet-4-6");
         body.addProperty("requestId", "req-xyz");
 
-        String[] result = ContextHandler.parseContextUsageRequest(GSON, body.toString());
+        String[] result = GetContextUsageActionHandler.parseContextUsageRequest(GSON, body.toString());
 
         assertNull(result[0]); // sessionId
         assertNull(result[1]); // cwd
@@ -48,7 +57,7 @@ public class ContextHandlerTest {
 
     @Test
     public void parseNullContentReturnsAllNulls() {
-        String[] result = ContextHandler.parseContextUsageRequest(GSON, null);
+        String[] result = GetContextUsageActionHandler.parseContextUsageRequest(GSON, null);
 
         assertNull(result[0]);
         assertNull(result[1]);
@@ -58,7 +67,7 @@ public class ContextHandlerTest {
 
     @Test
     public void parseEmptyContentReturnsAllNulls() {
-        String[] result = ContextHandler.parseContextUsageRequest(GSON, "");
+        String[] result = GetContextUsageActionHandler.parseContextUsageRequest(GSON, "");
 
         assertNull(result[0]);
         assertNull(result[1]);
@@ -73,7 +82,7 @@ public class ContextHandlerTest {
         body.addProperty("model", "claude-opus-4-7");
         body.add("requestId", null);
 
-        String[] result = ContextHandler.parseContextUsageRequest(GSON, body.toString());
+        String[] result = GetContextUsageActionHandler.parseContextUsageRequest(GSON, body.toString());
 
         assertNull(result[0]); // sessionId is null
         assertNull(result[1]); // cwd not present
@@ -83,7 +92,7 @@ public class ContextHandlerTest {
 
     @Test
     public void parseInvalidJsonReturnsAllNulls() {
-        String[] result = ContextHandler.parseContextUsageRequest(GSON, "not valid json {{{");
+        String[] result = GetContextUsageActionHandler.parseContextUsageRequest(GSON, "not valid json {{{");
 
         assertNull(result[0]);
         assertNull(result[1]);
@@ -96,31 +105,17 @@ public class ContextHandlerTest {
         JsonObject body = new JsonObject();
         body.addProperty("model", "claude-opus-4-7[1m]");
 
-        String[] result = ContextHandler.parseContextUsageRequest(GSON, body.toString());
+        String[] result = GetContextUsageActionHandler.parseContextUsageRequest(GSON, body.toString());
 
         assertEquals("claude-opus-4-7[1m]", result[2]);
     }
 
+    // 旧 ContextHandlerTest.handlerDeclaresGetContextUsageSupport 的等价覆盖:
+    // typed handler 以 action() 绑定枚举取代 getSupportedTypes() 字符串声明,
+    // 见 bindsGetContextUsageUpstreamActionWithStringPayload。为保留回归对照,显式断言单元素值域。
     @Test
-    public void handlerDeclaresGetContextUsageSupport() {
-        HandlerContext context = new HandlerContext(
-                null,
-                null,
-                null,
-                null,
-                new HandlerContext.JsCallback() {
-                    @Override
-                    public void callJavaScript(String functionName, String... args) {
-                    }
-
-                    @Override
-                    public String escapeJs(String str) {
-                        return str;
-                    }
-                }
-        );
-
-        ContextHandler handler = new ContextHandler(context);
-        assertArrayEquals(new String[]{"get_context_usage"}, handler.getSupportedTypes());
+    public void actionValueMatchesLegacyStringType() {
+        GetContextUsageActionHandler handler = new GetContextUsageActionHandler();
+        assertArrayEquals(new String[]{"get_context_usage"}, new String[]{handler.action().value()});
     }
 }
