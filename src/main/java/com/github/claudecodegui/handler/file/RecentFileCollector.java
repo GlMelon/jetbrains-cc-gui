@@ -29,7 +29,7 @@ class RecentFileCollector {
     /**
      * Collect recently opened files.
      */
-    void collect(List<JsonObject> files, FileHandler.FileSet fileSet, String basePath, FileHandler.FileListRequest request) {
+    void collect(List<JsonObject> files, FileActionHandlers.FileSet fileSet, String basePath, FileActionHandlers.FileListRequest request) {
         ApplicationManager.getApplication().runReadAction(() -> {
             Project project = context.getProject();
             if (project == null || project.isDisposed()) {
@@ -60,7 +60,7 @@ class RecentFileCollector {
                     }
                     VirtualFile vf = recentFiles.get(i);
                     if (vf != null) {
-                        FileHandler.addVirtualFile(vf, basePath, files, fileSet, request, 2);
+                        FileActionHandlers.addVirtualFile(vf, basePath, files, fileSet, request, 2);
                         count++;
                     }
                 }

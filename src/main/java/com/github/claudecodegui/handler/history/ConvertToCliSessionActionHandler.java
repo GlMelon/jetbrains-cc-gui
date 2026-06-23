@@ -1,0 +1,14 @@
+package com.github.claudecodegui.handler.history;
+
+import com.github.claudecodegui.handler.core.FrontendActionContext;
+import com.github.claudecodegui.handler.core.FrontendActionHandler;
+import com.github.claudecodegui.protocol.UpstreamAction;
+
+/** Typed handler for {@link UpstreamAction#CONVERT_TO_CLI_SESSION}. */
+public class ConvertToCliSessionActionHandler implements FrontendActionHandler<String> {
+    private final HistoryActionHandlers handlers;
+    public ConvertToCliSessionActionHandler(HistoryActionHandlers handlers) { this.handlers = handlers; }
+    @Override public UpstreamAction action() { return UpstreamAction.CONVERT_TO_CLI_SESSION; }
+    @Override public Class<String> payloadType() { return String.class; }
+    @Override public void handle(String payload, FrontendActionContext context) { handlers.handleConvertToCliSession(payload); }
+}

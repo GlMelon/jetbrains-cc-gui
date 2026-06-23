@@ -17,7 +17,7 @@ public class DiagnosticLoggingPrivacyTest {
 
     private static final List<String> SENSITIVE_DIAGNOSTIC_FILES = List.of(
             "src/main/java/com/github/claudecodegui/session/ClaudeSession.java",
-            "src/main/java/com/github/claudecodegui/handler/SessionHandler.java",
+            "src/main/java/com/github/claudecodegui/handler/session/SessionActionHandlers.java",
             "src/main/java/com/github/claudecodegui/provider/claude/ClaudeSDKBridge.java",
             "src/main/java/com/github/claudecodegui/cli/common/CliAttachmentHandler.java",
             "src/main/java/com/github/claudecodegui/cli/claude/ClaudeCliSession.java"

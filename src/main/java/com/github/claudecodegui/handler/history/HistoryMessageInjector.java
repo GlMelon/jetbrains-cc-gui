@@ -49,7 +49,7 @@ public class HistoryMessageInjector {
     /**
      * Load a history session.
      */
-    void handleLoadSession(String sessionId, String currentProvider, HistoryHandler.SessionLoadCallback sessionLoadCallback) {
+    void handleLoadSession(String sessionId, String currentProvider, HistoryActionHandlers.SessionLoadCallback sessionLoadCallback) {
         String provider = currentProvider;
         String resolvedSessionId = sessionId;
 

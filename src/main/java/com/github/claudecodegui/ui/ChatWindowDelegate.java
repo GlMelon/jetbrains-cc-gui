@@ -3,31 +3,109 @@ package com.github.claudecodegui.ui;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.session.ClaudeSession;
 import com.github.claudecodegui.settings.CodemossSettingsService;
-import com.github.claudecodegui.handler.AgentHandler;
-import com.github.claudecodegui.handler.CodexMcpServerHandler;
+import com.github.claudecodegui.handler.agent.AgentActionHandlers;
+import com.github.claudecodegui.handler.agent.GetAgentsActionHandler;
+import com.github.claudecodegui.handler.agent.AddAgentActionHandler;
+import com.github.claudecodegui.handler.agent.UpdateAgentActionHandler;
+import com.github.claudecodegui.handler.agent.DeleteAgentActionHandler;
+import com.github.claudecodegui.handler.agent.GetSelectedAgentActionHandler;
+import com.github.claudecodegui.handler.agent.SetSelectedAgentActionHandler;
+import com.github.claudecodegui.handler.agent.ExportAgentsActionHandler;
+import com.github.claudecodegui.handler.agent.ImportAgentsFileActionHandler;
+import com.github.claudecodegui.handler.agent.SaveImportedAgentsActionHandler;
+import com.github.claudecodegui.handler.codex.CodexMcpServerActionHandlers;
+import com.github.claudecodegui.handler.codex.GetCodexMcpServersActionHandler;
+import com.github.claudecodegui.handler.codex.GetCodexMcpServerStatusActionHandler;
+import com.github.claudecodegui.handler.codex.GetCodexMcpServerToolsActionHandler;
+import com.github.claudecodegui.handler.codex.AddCodexMcpServerActionHandler;
+import com.github.claudecodegui.handler.codex.UpdateCodexMcpServerActionHandler;
+import com.github.claudecodegui.handler.codex.DeleteCodexMcpServerActionHandler;
+import com.github.claudecodegui.handler.codex.ToggleCodexMcpServerActionHandler;
+import com.github.claudecodegui.handler.codex.ValidateCodexMcpServerActionHandler;
 import com.github.claudecodegui.handler.context.GetContextUsageActionHandler;
-import com.github.claudecodegui.handler.DependencyHandler;
+import com.github.claudecodegui.handler.dependency.DependencyActionHandlers;
+import com.github.claudecodegui.handler.dependency.GetDependencyStatusActionHandler;
+import com.github.claudecodegui.handler.dependency.InstallDependencyActionHandler;
+import com.github.claudecodegui.handler.dependency.UninstallDependencyActionHandler;
+import com.github.claudecodegui.handler.dependency.UpdateDependencyActionHandler;
+import com.github.claudecodegui.handler.dependency.CheckDependencyUpdatesActionHandler;
+import com.github.claudecodegui.handler.dependency.GetDependencyVersionsActionHandler;
+import com.github.claudecodegui.handler.dependency.CheckNodeEnvironmentActionHandler;
 import com.github.claudecodegui.handler.enhance.EnhancePromptActionHandler;
 import com.github.claudecodegui.handler.file.SaveMarkdownActionHandler;
 import com.github.claudecodegui.handler.file.SaveJsonActionHandler;
 import com.github.claudecodegui.handler.file.UndoFileChangesActionHandler;
 import com.github.claudecodegui.handler.file.UndoAllFileChangesActionHandler;
-import com.github.claudecodegui.handler.DiffHandler;
+import com.github.claudecodegui.handler.diff.DiffActionHandlers;
+import com.github.claudecodegui.handler.diff.RefreshFileActionHandler;
+import com.github.claudecodegui.handler.diff.ShowDiffActionHandler;
+import com.github.claudecodegui.handler.diff.ShowMultiEditDiffActionHandler;
+import com.github.claudecodegui.handler.diff.ShowEditPreviewDiffActionHandler;
+import com.github.claudecodegui.handler.diff.ShowEditFullDiffActionHandler;
+import com.github.claudecodegui.handler.diff.ShowEditableDiffActionHandler;
+import com.github.claudecodegui.handler.diff.ShowInteractiveDiffActionHandler;
 import com.github.claudecodegui.handler.core.FrontendActionDispatcher;
 import com.github.claudecodegui.handler.core.FrontendActionHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.handler.core.LegacyMessageHandlerAdapter;
-import com.github.claudecodegui.handler.history.HistoryHandler;
-import com.github.claudecodegui.handler.McpServerHandler;
+import com.github.claudecodegui.handler.history.HistoryActionHandlers;
+import com.github.claudecodegui.handler.history.LoadHistoryDataActionHandler;
+import com.github.claudecodegui.handler.history.LoadSessionActionHandler;
+import com.github.claudecodegui.handler.history.DeleteSessionActionHandler;
+import com.github.claudecodegui.handler.history.DeleteSessionsActionHandler;
+import com.github.claudecodegui.handler.history.ExportSessionActionHandler;
+import com.github.claudecodegui.handler.history.ToggleFavoriteActionHandler;
+import com.github.claudecodegui.handler.history.UpdateTitleActionHandler;
+import com.github.claudecodegui.handler.history.DeleteTitleActionHandler;
+import com.github.claudecodegui.handler.history.DeepSearchHistoryActionHandler;
+import com.github.claudecodegui.handler.history.LoadSubagentSessionActionHandler;
+import com.github.claudecodegui.handler.history.ConvertToCliSessionActionHandler;
+import com.github.claudecodegui.handler.PermissionModeHandler;
+import com.github.claudecodegui.handler.InputHistoryHandler;
+import com.github.claudecodegui.handler.UsagePushService;
+import com.github.claudecodegui.handler.provider.ModelProviderHandler;
 import com.github.claudecodegui.handler.core.MessageDispatcher;
-import com.github.claudecodegui.handler.NodeProcessHandler;
+import com.github.claudecodegui.handler.nodeprocess.NodeProcessActionHandlers;
+import com.github.claudecodegui.handler.nodeprocess.GetNodeProcessesActionHandler;
+import com.github.claudecodegui.handler.nodeprocess.KillNodeProcessActionHandler;
+import com.github.claudecodegui.handler.nodeprocess.KillAllOrphansActionHandler;
+import com.github.claudecodegui.handler.nodeprocess.RestartNodeDaemonActionHandler;
 import com.github.claudecodegui.handler.permission.PermissionActionHandlers;
 import com.github.claudecodegui.handler.permission.PermissionDecisionActionHandler;
 import com.github.claudecodegui.handler.permission.AskUserQuestionResponseActionHandler;
 import com.github.claudecodegui.handler.permission.PlanApprovalResponseActionHandler;
-import com.github.claudecodegui.handler.PromptHandler;
-import com.github.claudecodegui.handler.provider.ProviderHandler;
-import com.github.claudecodegui.handler.SessionHandler;
+import com.github.claudecodegui.handler.prompt.PromptActionHandlers;
+import com.github.claudecodegui.handler.prompt.GetPromptsActionHandler;
+import com.github.claudecodegui.handler.prompt.GetProjectInfoActionHandler;
+import com.github.claudecodegui.handler.prompt.AddPromptActionHandler;
+import com.github.claudecodegui.handler.prompt.UpdatePromptActionHandler;
+import com.github.claudecodegui.handler.prompt.DeletePromptActionHandler;
+import com.github.claudecodegui.handler.prompt.ExportPromptsActionHandler;
+import com.github.claudecodegui.handler.prompt.ImportPromptsFileActionHandler;
+import com.github.claudecodegui.handler.prompt.SaveImportedPromptsActionHandler;
+import com.github.claudecodegui.handler.provider.ProviderActionHandlers;
+import com.github.claudecodegui.handler.provider.GetProvidersActionHandler;
+import com.github.claudecodegui.handler.provider.GetCurrentClaudeConfigActionHandler;
+import com.github.claudecodegui.handler.provider.GetThinkingEnabledActionHandler;
+import com.github.claudecodegui.handler.provider.SetThinkingEnabledActionHandler;
+import com.github.claudecodegui.handler.provider.AddProviderActionHandler;
+import com.github.claudecodegui.handler.provider.UpdateProviderActionHandler;
+import com.github.claudecodegui.handler.provider.DeleteProviderActionHandler;
+import com.github.claudecodegui.handler.provider.SwitchProviderActionHandler;
+import com.github.claudecodegui.handler.provider.GetActiveProviderActionHandler;
+import com.github.claudecodegui.handler.provider.PreviewCcSwitchImportActionHandler;
+import com.github.claudecodegui.handler.provider.OpenFileChooserForCcSwitchActionHandler;
+import com.github.claudecodegui.handler.provider.SaveImportedProvidersActionHandler;
+import com.github.claudecodegui.handler.provider.SortProvidersActionHandler;
+import com.github.claudecodegui.handler.provider.GetCodexProvidersActionHandler;
+import com.github.claudecodegui.handler.provider.GetCurrentCodexConfigActionHandler;
+import com.github.claudecodegui.handler.provider.AddCodexProviderActionHandler;
+import com.github.claudecodegui.handler.provider.UpdateCodexProviderActionHandler;
+import com.github.claudecodegui.handler.provider.DeleteCodexProviderActionHandler;
+import com.github.claudecodegui.handler.provider.SwitchCodexProviderActionHandler;
+import com.github.claudecodegui.handler.provider.RevokeCodexLocalConfigAuthorizationActionHandler;
+import com.github.claudecodegui.handler.provider.GetActiveCodexProviderActionHandler;
+import com.github.claudecodegui.handler.provider.SortCodexProvidersActionHandler;
 import com.github.claudecodegui.handler.SettingsHandler;
 import com.github.claudecodegui.handler.settings.GetClaudeCliPathActionHandler;
 import com.github.claudecodegui.handler.settings.GetCodexSubscriptionQuotaActionHandler;
@@ -36,6 +114,19 @@ import com.github.claudecodegui.handler.settings.SetModelRegistryActionHandler;
 import com.github.claudecodegui.handler.settings.ResetModelRegistryActionHandler;
 import com.github.claudecodegui.handler.settings.GetModelRegistrySchemaActionHandler;
 import com.github.claudecodegui.handler.settings.SetAppearanceConfigActionHandler;
+import com.github.claudecodegui.handler.settings.GetModeActionHandler;
+import com.github.claudecodegui.handler.settings.SetModeActionHandler;
+import com.github.claudecodegui.handler.settings.SetSessionModeActionHandler;
+import com.github.claudecodegui.handler.settings.GetInputHistoryActionHandler;
+import com.github.claudecodegui.handler.settings.RecordInputHistoryActionHandler;
+import com.github.claudecodegui.handler.settings.DeleteInputHistoryItemActionHandler;
+import com.github.claudecodegui.handler.settings.ClearInputHistoryActionHandler;
+import com.github.claudecodegui.handler.settings.SetModelActionHandler;
+import com.github.claudecodegui.handler.settings.SetSessionModelActionHandler;
+import com.github.claudecodegui.handler.settings.SetProviderActionHandler;
+import com.github.claudecodegui.handler.settings.SetSessionProviderActionHandler;
+import com.github.claudecodegui.handler.settings.SetReasoningEffortActionHandler;
+import com.github.claudecodegui.handler.settings.SetCodexFastModeActionHandler;
 import com.github.claudecodegui.handler.settings.SetClaudeCliPathActionHandler;
 import com.github.claudecodegui.handler.settings.GetNodePathActionHandler;
 import com.github.claudecodegui.handler.settings.SetNodePathActionHandler;
@@ -43,9 +134,40 @@ import com.github.claudecodegui.handler.clipboard.ReadClipboardActionHandler;
 import com.github.claudecodegui.handler.clipboard.WriteClipboardActionHandler;
 import com.github.claudecodegui.handler.tab.CreateNewTabActionHandler;
 import com.github.claudecodegui.handler.rewind.RewindFilesActionHandler;
-import com.github.claudecodegui.handler.SkillHandler;
-import com.github.claudecodegui.handler.WindowEventHandler;
-import com.github.claudecodegui.handler.file.FileHandler;
+import com.github.claudecodegui.handler.session.SessionActionHandlers;
+import com.github.claudecodegui.handler.session.SendMessageActionHandler;
+import com.github.claudecodegui.handler.session.SendMessageWithAttachmentsActionHandler;
+import com.github.claudecodegui.handler.session.InterruptSessionActionHandler;
+import com.github.claudecodegui.handler.session.RestartSessionActionHandler;
+import com.github.claudecodegui.handler.window.WindowActionHandlers;
+import com.github.claudecodegui.handler.window.HeartbeatActionHandler;
+import com.github.claudecodegui.handler.window.TabLoadingChangedActionHandler;
+import com.github.claudecodegui.handler.window.TabStatusChangedActionHandler;
+import com.github.claudecodegui.handler.window.CreateNewSessionActionHandler;
+import com.github.claudecodegui.handler.window.FrontendReadyActionHandler;
+import com.github.claudecodegui.handler.window.RefreshSlashCommandsActionHandler;
+import com.github.claudecodegui.handler.mcp.McpServerActionHandlers;
+import com.github.claudecodegui.handler.mcp.GetMcpServersActionHandler;
+import com.github.claudecodegui.handler.mcp.GetMcpServerStatusActionHandler;
+import com.github.claudecodegui.handler.mcp.GetMcpServerToolsActionHandler;
+import com.github.claudecodegui.handler.mcp.AddMcpServerActionHandler;
+import com.github.claudecodegui.handler.mcp.UpdateMcpServerActionHandler;
+import com.github.claudecodegui.handler.mcp.DeleteMcpServerActionHandler;
+import com.github.claudecodegui.handler.mcp.ToggleMcpServerActionHandler;
+import com.github.claudecodegui.handler.mcp.ValidateMcpServerActionHandler;
+import com.github.claudecodegui.handler.skill.SkillActionHandlers;
+import com.github.claudecodegui.handler.skill.GetAllSkillsActionHandler;
+import com.github.claudecodegui.handler.skill.ImportSkillActionHandler;
+import com.github.claudecodegui.handler.skill.DeleteSkillActionHandler;
+import com.github.claudecodegui.handler.skill.OpenSkillActionHandler;
+import com.github.claudecodegui.handler.skill.ToggleSkillActionHandler;
+import com.github.claudecodegui.handler.file.FileActionHandlers;
+import com.github.claudecodegui.handler.file.ListFilesActionHandler;
+import com.github.claudecodegui.handler.file.OpenFileActionHandler;
+import com.github.claudecodegui.handler.file.OpenBrowserActionHandler;
+import com.github.claudecodegui.handler.file.OpenClassActionHandler;
+import com.github.claudecodegui.handler.file.GetLinkifyCapabilitiesActionHandler;
+import com.github.claudecodegui.handler.file.ResolveFilePathActionHandler;
 import com.github.claudecodegui.handler.file.OpenClassHandler;
 import com.github.claudecodegui.permission.PermissionService;
 import com.github.claudecodegui.settings.AppearanceConfigService;
@@ -139,7 +261,6 @@ public class ChatWindowDelegate {
         void setMessageDispatcher(MessageDispatcher d);
         void setFrontendActionDispatcher(FrontendActionDispatcher d);
         void setPermissionHandler(PermissionActionHandlers h);
-        void setHistoryHandler(HistoryHandler h);
         SessionLifecycleManager getSessionLifecycleManager();
         StreamMessageCoalescer getStreamCoalescer();
         WebviewWatchdog getWebviewWatchdog();
@@ -153,6 +274,7 @@ public class ChatWindowDelegate {
     }
 
     private final DelegateHost host;
+    private PromptActionHandlers promptHandlers; // B2 迁移: 需要 dispose 停止 FileWatcher
     private TabAnswerStatus currentTabStatus = TabAnswerStatus.IDLE;
 
     private volatile String pendingQuickFixPrompt = null;
@@ -346,23 +468,36 @@ public class ChatWindowDelegate {
         typedHandlers.add(new SaveJsonActionHandler());
         typedHandlers.add(new UndoFileChangesActionHandler());
         typedHandlers.add(new UndoAllFileChangesActionHandler());
+        // Permission mode (B3 slice: permission mode)
+        PermissionModeHandler permissionModeHandler = new PermissionModeHandler(handlerContext);
+        typedHandlers.add(new GetModeActionHandler(permissionModeHandler));
+        typedHandlers.add(new SetModeActionHandler(permissionModeHandler));
+        typedHandlers.add(new SetSessionModeActionHandler(permissionModeHandler));
+        // Input history (B3 slice: input history)
+        InputHistoryHandler inputHistoryHandler = new InputHistoryHandler(handlerContext);
+        typedHandlers.add(new GetInputHistoryActionHandler(inputHistoryHandler));
+        typedHandlers.add(new RecordInputHistoryActionHandler(inputHistoryHandler));
+        typedHandlers.add(new DeleteInputHistoryItemActionHandler(inputHistoryHandler));
+        typedHandlers.add(new ClearInputHistoryActionHandler(inputHistoryHandler));
+        // Model / provider (B3 slice: model-provider)
+        ModelProviderHandler modelProviderHandler = new ModelProviderHandler(handlerContext, new UsagePushService(handlerContext));
+        typedHandlers.add(new SetModelActionHandler(modelProviderHandler));
+        typedHandlers.add(new SetSessionModelActionHandler(modelProviderHandler));
+        typedHandlers.add(new SetProviderActionHandler(modelProviderHandler));
+        typedHandlers.add(new SetSessionProviderActionHandler(modelProviderHandler));
+        typedHandlers.add(new SetReasoningEffortActionHandler(modelProviderHandler));
+        typedHandlers.add(new SetCodexFastModeActionHandler(modelProviderHandler));
         typedHandlers.addAll(LegacyMessageHandlerAdapter.from(new SettingsHandler(handlerContext)));
-        host.setFrontendActionDispatcher(
-                new FrontendActionDispatcher(typedHandlers, handlerContext));
 
-        messageDispatcher.registerHandler(new ProviderHandler(handlerContext));
-        messageDispatcher.registerHandler(new McpServerHandler(handlerContext));
-        messageDispatcher.registerHandler(new CodexMcpServerHandler(handlerContext, settingsService.getCodexMcpServerManager()));
-        messageDispatcher.registerHandler(new SkillHandler(handlerContext));
-        messageDispatcher.registerHandler(new FileHandler(handlerContext));
-        messageDispatcher.registerHandler(new SessionHandler(handlerContext));
-        messageDispatcher.registerHandler(new DiffHandler(handlerContext));
-        messageDispatcher.registerHandler(new AgentHandler(handlerContext));
-        messageDispatcher.registerHandler(new PromptHandler(handlerContext));
-        messageDispatcher.registerHandler(new DependencyHandler(handlerContext));
-        messageDispatcher.registerHandler(new NodeProcessHandler(handlerContext));
+        // Session action handlers (B2 迁移: send/interrupt/restart)
+        SessionActionHandlers sessionActionHandlers = new SessionActionHandlers(handlerContext);
+        typedHandlers.add(new SendMessageActionHandler(sessionActionHandlers));
+        typedHandlers.add(new SendMessageWithAttachmentsActionHandler(sessionActionHandlers));
+        typedHandlers.add(new InterruptSessionActionHandler(sessionActionHandlers));
+        typedHandlers.add(new RestartSessionActionHandler(sessionActionHandlers));
 
-        messageDispatcher.registerHandler(new WindowEventHandler(handlerContext, new WindowEventHandler.Callback() {
+        // Window action handlers (B2 迁移: heartbeat + tab status + session lifecycle)
+        WindowActionHandlers windowHandlers = new WindowActionHandlers(new WindowActionHandlers.Callback() {
             @Override public void onHeartbeat(String content) { host.getWebviewWatchdog().handleHeartbeat(content); }
             @Override public void onTabLoadingChanged(boolean loading) {
                 if (loading) {
@@ -381,7 +516,130 @@ public class ChatWindowDelegate {
             @Override public void onRefreshSlashCommands() {
                 host.getSessionLifecycleManager().fetchSlashCommandsOnStartup();
             }
-        }));
+        });
+        typedHandlers.add(new HeartbeatActionHandler(windowHandlers));
+        typedHandlers.add(new TabLoadingChangedActionHandler(windowHandlers));
+        typedHandlers.add(new TabStatusChangedActionHandler(windowHandlers));
+        typedHandlers.add(new CreateNewSessionActionHandler(windowHandlers));
+        typedHandlers.add(new FrontendReadyActionHandler(windowHandlers));
+        typedHandlers.add(new RefreshSlashCommandsActionHandler(windowHandlers));
+
+        // MCP server action handlers (B2 迁移: server CRUD + status + tools)
+        McpServerActionHandlers mcpServerHandlers = new McpServerActionHandlers(handlerContext);
+        typedHandlers.add(new GetMcpServersActionHandler(mcpServerHandlers));
+        typedHandlers.add(new GetMcpServerStatusActionHandler(mcpServerHandlers));
+        typedHandlers.add(new GetMcpServerToolsActionHandler(mcpServerHandlers));
+        typedHandlers.add(new AddMcpServerActionHandler(mcpServerHandlers));
+        typedHandlers.add(new UpdateMcpServerActionHandler(mcpServerHandlers));
+        typedHandlers.add(new DeleteMcpServerActionHandler(mcpServerHandlers));
+        typedHandlers.add(new ToggleMcpServerActionHandler(mcpServerHandlers));
+        typedHandlers.add(new ValidateMcpServerActionHandler(mcpServerHandlers));
+
+        // Codex MCP server action handlers (B2 迁移: Codex server CRUD + status + tools)
+        CodexMcpServerActionHandlers codexMcpServerHandlers = new CodexMcpServerActionHandlers(handlerContext, settingsService.getCodexMcpServerManager());
+        typedHandlers.add(new GetCodexMcpServersActionHandler(codexMcpServerHandlers));
+        typedHandlers.add(new GetCodexMcpServerStatusActionHandler(codexMcpServerHandlers));
+        typedHandlers.add(new GetCodexMcpServerToolsActionHandler(codexMcpServerHandlers));
+        typedHandlers.add(new AddCodexMcpServerActionHandler(codexMcpServerHandlers));
+        typedHandlers.add(new UpdateCodexMcpServerActionHandler(codexMcpServerHandlers));
+        typedHandlers.add(new DeleteCodexMcpServerActionHandler(codexMcpServerHandlers));
+        typedHandlers.add(new ToggleCodexMcpServerActionHandler(codexMcpServerHandlers));
+        typedHandlers.add(new ValidateCodexMcpServerActionHandler(codexMcpServerHandlers));
+
+        // Agent action handlers (B2 迁移: agent CRUD + selection + import/export)
+        AgentActionHandlers agentHandlers = new AgentActionHandlers(handlerContext);
+        typedHandlers.add(new GetAgentsActionHandler(agentHandlers));
+        typedHandlers.add(new AddAgentActionHandler(agentHandlers));
+        typedHandlers.add(new UpdateAgentActionHandler(agentHandlers));
+        typedHandlers.add(new DeleteAgentActionHandler(agentHandlers));
+        typedHandlers.add(new GetSelectedAgentActionHandler(agentHandlers));
+        typedHandlers.add(new SetSelectedAgentActionHandler(agentHandlers));
+        typedHandlers.add(new ExportAgentsActionHandler(agentHandlers));
+        typedHandlers.add(new ImportAgentsFileActionHandler(agentHandlers));
+        typedHandlers.add(new SaveImportedAgentsActionHandler(agentHandlers));
+
+        // Skill action handlers (B2 迁移: skill CRUD + toggle + open)
+        SkillActionHandlers skillHandlers = new SkillActionHandlers(handlerContext);
+        typedHandlers.add(new GetAllSkillsActionHandler(skillHandlers));
+        typedHandlers.add(new ImportSkillActionHandler(skillHandlers));
+        typedHandlers.add(new DeleteSkillActionHandler(skillHandlers));
+        typedHandlers.add(new OpenSkillActionHandler(skillHandlers));
+        typedHandlers.add(new ToggleSkillActionHandler(skillHandlers));
+
+        // Prompt action handlers (B2 迁移: prompt CRUD + import/export + file watcher)
+        this.promptHandlers = new PromptActionHandlers(handlerContext);
+        typedHandlers.add(new GetPromptsActionHandler(promptHandlers));
+        typedHandlers.add(new GetProjectInfoActionHandler(promptHandlers));
+        typedHandlers.add(new AddPromptActionHandler(promptHandlers));
+        typedHandlers.add(new UpdatePromptActionHandler(promptHandlers));
+        typedHandlers.add(new DeletePromptActionHandler(promptHandlers));
+        typedHandlers.add(new ExportPromptsActionHandler(promptHandlers));
+        typedHandlers.add(new ImportPromptsFileActionHandler(promptHandlers));
+        typedHandlers.add(new SaveImportedPromptsActionHandler(promptHandlers));
+
+        // Dependency action handlers (B2 迁移: SDK install/uninstall/update/versions/node env)
+        DependencyActionHandlers dependencyHandlers = new DependencyActionHandlers(handlerContext);
+        typedHandlers.add(new GetDependencyStatusActionHandler(dependencyHandlers));
+        typedHandlers.add(new InstallDependencyActionHandler(dependencyHandlers));
+        typedHandlers.add(new UninstallDependencyActionHandler(dependencyHandlers));
+        typedHandlers.add(new UpdateDependencyActionHandler(dependencyHandlers));
+        typedHandlers.add(new CheckDependencyUpdatesActionHandler(dependencyHandlers));
+        typedHandlers.add(new GetDependencyVersionsActionHandler(dependencyHandlers));
+        typedHandlers.add(new CheckNodeEnvironmentActionHandler(dependencyHandlers));
+
+        // Node process action handlers (B2 迁移: get/kill/kill-all-orphan/restart-daemon)
+        NodeProcessActionHandlers nodeProcessHandlers = new NodeProcessActionHandlers(handlerContext);
+        typedHandlers.add(new GetNodeProcessesActionHandler(nodeProcessHandlers));
+        typedHandlers.add(new KillNodeProcessActionHandler(nodeProcessHandlers));
+        typedHandlers.add(new KillAllOrphansActionHandler(nodeProcessHandlers));
+        typedHandlers.add(new RestartNodeDaemonActionHandler(nodeProcessHandlers));
+
+        // File action handlers (B2 迁移: list/open-file/open-browser/open-class/linkify/resolve-path)
+        FileActionHandlers fileHandlers = new FileActionHandlers(handlerContext);
+        typedHandlers.add(new ListFilesActionHandler(fileHandlers));
+        typedHandlers.add(new OpenFileActionHandler(fileHandlers));
+        typedHandlers.add(new OpenBrowserActionHandler(fileHandlers));
+        typedHandlers.add(new OpenClassActionHandler(fileHandlers));
+        typedHandlers.add(new GetLinkifyCapabilitiesActionHandler(fileHandlers));
+        typedHandlers.add(new ResolveFilePathActionHandler(fileHandlers));
+
+        // Diff action handlers (B2 迁移: refresh/show-diff variants via DiffRequestDispatcher 责任链)
+        DiffActionHandlers diffHandlers = new DiffActionHandlers(handlerContext);
+        typedHandlers.add(new RefreshFileActionHandler(diffHandlers));
+        typedHandlers.add(new ShowDiffActionHandler(diffHandlers));
+        typedHandlers.add(new ShowMultiEditDiffActionHandler(diffHandlers));
+        typedHandlers.add(new ShowEditPreviewDiffActionHandler(diffHandlers));
+        typedHandlers.add(new ShowEditFullDiffActionHandler(diffHandlers));
+        typedHandlers.add(new ShowEditableDiffActionHandler(diffHandlers));
+        typedHandlers.add(new ShowInteractiveDiffActionHandler(diffHandlers));
+
+        // Provider action handlers (B2 迁移: Claude + Codex provider CRUD/switch/import-export/sort)
+        ProviderActionHandlers providerHandlers = new ProviderActionHandlers(handlerContext);
+        typedHandlers.add(new GetProvidersActionHandler(providerHandlers));
+        typedHandlers.add(new GetCurrentClaudeConfigActionHandler(providerHandlers));
+        typedHandlers.add(new GetThinkingEnabledActionHandler(providerHandlers));
+        typedHandlers.add(new SetThinkingEnabledActionHandler(providerHandlers));
+        typedHandlers.add(new AddProviderActionHandler(providerHandlers));
+        typedHandlers.add(new UpdateProviderActionHandler(providerHandlers));
+        typedHandlers.add(new DeleteProviderActionHandler(providerHandlers));
+        typedHandlers.add(new SwitchProviderActionHandler(providerHandlers));
+        typedHandlers.add(new GetActiveProviderActionHandler(providerHandlers));
+        typedHandlers.add(new PreviewCcSwitchImportActionHandler(providerHandlers));
+        typedHandlers.add(new OpenFileChooserForCcSwitchActionHandler(providerHandlers));
+        typedHandlers.add(new SaveImportedProvidersActionHandler(providerHandlers));
+        typedHandlers.add(new SortProvidersActionHandler(providerHandlers));
+        typedHandlers.add(new GetCodexProvidersActionHandler(providerHandlers));
+        typedHandlers.add(new GetCurrentCodexConfigActionHandler(providerHandlers));
+        typedHandlers.add(new AddCodexProviderActionHandler(providerHandlers));
+        typedHandlers.add(new UpdateCodexProviderActionHandler(providerHandlers));
+        typedHandlers.add(new DeleteCodexProviderActionHandler(providerHandlers));
+        typedHandlers.add(new SwitchCodexProviderActionHandler(providerHandlers));
+        typedHandlers.add(new RevokeCodexLocalConfigAuthorizationActionHandler(providerHandlers));
+        typedHandlers.add(new GetActiveCodexProviderActionHandler(providerHandlers));
+        typedHandlers.add(new SortCodexProvidersActionHandler(providerHandlers));
+
+        host.setFrontendActionDispatcher(
+                new FrontendActionDispatcher(typedHandlers, handlerContext));
 
         // Permission: shared state container + 3 typed handlers
         PermissionActionHandlers permissionHandlers = new PermissionActionHandlers(handlerContext);
@@ -391,11 +649,21 @@ public class ChatWindowDelegate {
         typedHandlers.add(new AskUserQuestionResponseActionHandler(permissionHandlers));
         typedHandlers.add(new PlanApprovalResponseActionHandler(permissionHandlers));
 
-        HistoryHandler historyHandler = new HistoryHandler(handlerContext);
-        historyHandler.setSessionLoadCallback((sessionId, projectPath, provider) ->
+        // History action handlers (B4 迁移: HistoryHandler 非孤儿,按 B2 范式迁移;SessionLoadCallback 接入容器)
+        HistoryActionHandlers historyHandlers = new HistoryActionHandlers(handlerContext);
+        historyHandlers.setSessionLoadCallback((sessionId, projectPath, provider) ->
             host.getSessionLifecycleManager().loadHistorySession(sessionId, projectPath, provider));
-        host.setHistoryHandler(historyHandler);
-        messageDispatcher.registerHandler(historyHandler);
+        typedHandlers.add(new LoadHistoryDataActionHandler(historyHandlers));
+        typedHandlers.add(new LoadSessionActionHandler(historyHandlers));
+        typedHandlers.add(new DeleteSessionActionHandler(historyHandlers));
+        typedHandlers.add(new DeleteSessionsActionHandler(historyHandlers));
+        typedHandlers.add(new ExportSessionActionHandler(historyHandlers));
+        typedHandlers.add(new ToggleFavoriteActionHandler(historyHandlers));
+        typedHandlers.add(new UpdateTitleActionHandler(historyHandlers));
+        typedHandlers.add(new DeleteTitleActionHandler(historyHandlers));
+        typedHandlers.add(new DeepSearchHistoryActionHandler(historyHandlers));
+        typedHandlers.add(new LoadSubagentSessionActionHandler(historyHandlers));
+        typedHandlers.add(new ConvertToCliSessionActionHandler(historyHandlers));
 
         LOG.info("Registered " + messageDispatcher.getHandlerCount() + " message handlers");
     }
@@ -625,5 +893,8 @@ public class ChatWindowDelegate {
     }
 
     public void dispose() {
+        if (promptHandlers != null) {
+            promptHandlers.dispose();
+        }
     }
 }

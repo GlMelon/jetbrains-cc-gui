@@ -5,7 +5,6 @@ import com.github.claudecodegui.handler.permission.PermissionActionHandlers;
 import com.github.claudecodegui.handler.core.FrontendActionDispatcher;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.handler.core.MessageDispatcher;
-import com.github.claudecodegui.handler.history.HistoryHandler;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.permission.PermissionService;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
@@ -1448,11 +1447,6 @@ public class ClaudeChatWindow {
             @Override
             public void setPermissionHandler(PermissionActionHandlers h) {
                 permissionHandler = h;
-            }
-
-            @Override
-            public void setHistoryHandler(HistoryHandler h) {
-                // No-op: handler is set but no longer consumed.
             }
 
             @Override

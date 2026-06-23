@@ -61,7 +61,7 @@ class FileSystemCollector {
     /**
      * Collect files from the file system.
      */
-    void collect(List<JsonObject> files, FileHandler.FileSet fileSet, String basePath, FileHandler.FileListRequest request) {
+    void collect(List<JsonObject> files, FileActionHandlers.FileSet fileSet, String basePath, FileActionHandlers.FileListRequest request) {
         List<JsonObject> diskFiles = new ArrayList<>();
 
         // Get or create ignore rule matcher
@@ -129,13 +129,13 @@ class FileSystemCollector {
 
             String name = child.getName();
             boolean isDir = child.isDirectory();
-            String relativePath = FileHandler.getRelativePath(child, basePath);
+            String relativePath = FileActionHandlers.getRelativePath(child, basePath);
 
             if (shouldSkipInSearch(name, isDir, relativePath, ignoreMatcher)) {
                 continue;
             }
 
-            JsonObject fileObj = FileHandler.createFileObject(child, name, relativePath);
+            JsonObject fileObj = FileActionHandlers.createFileObject(child, name, relativePath);
             files.add(fileObj);
             added++;
         }
@@ -144,7 +144,7 @@ class FileSystemCollector {
     /**
      * Recursively collect files.
      */
-    private void collectFilesRecursive(File dir, String basePath, List<JsonObject> files, FileHandler.FileListRequest request, int depth, IgnoreRuleMatcher ignoreMatcher) {
+    private void collectFilesRecursive(File dir, String basePath, List<JsonObject> files, FileActionHandlers.FileListRequest request, int depth, IgnoreRuleMatcher ignoreMatcher) {
         if (depth > MAX_SEARCH_DEPTH || files.size() >= MAX_SEARCH_RESULTS) { return; }
         if (!dir.isDirectory()) { return; }
 
@@ -157,7 +157,7 @@ class FileSystemCollector {
 
             String name = child.getName();
             boolean isDir = child.isDirectory();
-            String relativePath = FileHandler.getRelativePath(child, basePath);
+            String relativePath = FileActionHandlers.getRelativePath(child, basePath);
 
             if (shouldSkipInSearch(name, isDir, relativePath, ignoreMatcher)) {
                 continue;
@@ -170,7 +170,7 @@ class FileSystemCollector {
             }
 
             if (matches) {
-                JsonObject fileObj = FileHandler.createFileObject(child, name, relativePath);
+                JsonObject fileObj = FileActionHandlers.createFileObject(child, name, relativePath);
                 files.add(fileObj);
             }
 

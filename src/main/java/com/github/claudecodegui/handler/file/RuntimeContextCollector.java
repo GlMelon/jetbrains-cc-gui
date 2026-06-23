@@ -30,7 +30,7 @@ class RuntimeContextCollector {
     /**
      * Collect active terminals.
      */
-    void collectTerminals(List<JsonObject> files, FileHandler.FileListRequest request) {
+    void collectTerminals(List<JsonObject> files, FileActionHandlers.FileListRequest request) {
         ApplicationManager.getApplication().runReadAction(() -> {
             Project project = context.getProject();
             if (project == null || project.isDisposed()) { return; }
@@ -74,7 +74,7 @@ class RuntimeContextCollector {
     /**
      * Collect active services (Run/Debug configurations).
      */
-    void collectServices(List<JsonObject> files, FileHandler.FileListRequest request) {
+    void collectServices(List<JsonObject> files, FileActionHandlers.FileListRequest request) {
         ApplicationManager.getApplication().runReadAction(() -> {
             Project project = context.getProject();
             if (project == null || project.isDisposed()) { return; }

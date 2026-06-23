@@ -27,7 +27,7 @@ class OpenFileCollector {
     /**
      * Collect currently open files.
      */
-    void collect(List<JsonObject> files, FileHandler.FileSet fileSet, String basePath, FileHandler.FileListRequest request) {
+    void collect(List<JsonObject> files, FileActionHandlers.FileSet fileSet, String basePath, FileActionHandlers.FileListRequest request) {
         ApplicationManager.getApplication().runReadAction(() -> {
             Project project = context.getProject();
             if (project == null || project.isDisposed()) {
@@ -46,7 +46,7 @@ class OpenFileCollector {
                 LOG.debug("[FileHandler] Collecting " + openFiles.length + " open files");
 
                 for (VirtualFile vf : openFiles) {
-                    FileHandler.addVirtualFile(vf, basePath, files, fileSet, request, 1);
+                    FileActionHandlers.addVirtualFile(vf, basePath, files, fileSet, request, 1);
                 }
             } catch (Exception e) {
                 LOG.warn("[FileHandler] Error collecting open files: " + e.getMessage(), e);

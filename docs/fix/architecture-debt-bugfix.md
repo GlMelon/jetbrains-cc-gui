@@ -48,7 +48,7 @@
 | E · 对接未 Docking 化 / 分层 / 序列化 | 二/五 + 附录 | 12 | 1 | 8 | 3 |
 | **合计** | — | **43** | **15** | **23** | **5** |
 
-> 截至 2026-06-22 进度:**已验证 12 项**(C3·C6·C8·C9·D2·D3·E1·E2·E3·E4·E5·E6)、**接近完成 1 项**(C2 — PermissionMode/ReasoningEffort/ProviderType 子切片落地;CodexFastMode 经根因调查降级为「无 bug · 现状可接受」)、**已豁免 1 项**(E12);其余 29 项待修复(14/43 已动)。逐项状态见 §7 表格,整体阶段路线见 §9 迁移文档索引。
+> 截至 2026-06-23 进度:**已验证 12 项**(C3·C6·C8·C9·D2·D3·E1·E2·E3·E4·E5·E6)、**已完成 2 项**(B2 — 20/20 legacy handler 全迁移;B4 — HistoryHandler 迁移)、**接近完成 1 项**(C2 — PermissionMode/ReasoningEffort/ProviderType 子切片落地;CodexFastMode 经根因调查降级为「无 bug · 现状可接受」)、**进行中 1 项**(B3 — SettingsHandler 13/~60 已迁移 permission-mode+input-history+model-provider 三子域)、**已豁免 1 项**(E12);其余 27 项待修复(16/43 已动)。逐项状态见 §7 表格,整体阶段路线见 §9 迁移文档索引。
 
 ---
 
@@ -168,17 +168,17 @@
 - **验收**:`ClaudeChatWindow.handleMessage` 仅剩 typed 通道;`MessageDispatcher` 无业务调用。
 - **关联**:迁移 P1-C / P3-C
 
-### B2 · 18 个 legacy MessageHandler 用 SUPPORTED_TYPES 字符串数组 + switch(type)
+### B2 · 20 个 legacy MessageHandler 用 SUPPORTED_TYPES 字符串数组 + switch(type)
 
-- **严重度**:高 | **状态**:进行中(8/19 迁移完,ClipboardHandler + TabHandler + RewindHandler + ContextHandler + PromptEnhancerHandler + FileExportHandler + UndoFileHandler + PermissionHandler ✓ 2026-06-22) | **归属**:总则二
+- **严重度**:高 | **状态**:**✓ 已完成(20/20)**,ClipboardHandler + TabHandler + RewindHandler + ContextHandler + PromptEnhancerHandler + FileExportHandler + UndoFileHandler + PermissionHandler + SessionHandler + WindowEventHandler + McpServerHandler + CodexMcpServerHandler + AgentHandler + SkillHandler + PromptHandler + DependencyHandler + NodeProcessHandler + FileHandler + DiffHandler + ProviderHandler ✓ 2026-06-23) | **归属**:总则二
 - **位置**(均含 `private static final String[] SUPPORTED_TYPES` + `switch(type)`):
-  - `handler/SessionHandler.java:40`、`handler/WindowEventHandler.java:17`
-  - `handler/McpServerHandler.java:26`、`handler/CodexMcpServerHandler.java:27`
-  - `handler/AgentHandler.java:37`、`handler/SkillHandler.java:37`、`handler/PromptHandler.java:45`、~~`handler/PromptEnhancerHandler.java:56`~~ ✓ 已迁移(`handler/enhance/EnhancePromptActionHandler`,2026-06-22)
-  - `handler/DependencyHandler.java:32`、`handler/NodeProcessHandler.java:36`
-  - `handler/file/FileHandler.java:33`、~~`handler/file/FileExportHandler.java:29`~~ ✓ 已迁移(`handler/file/{SaveMarkdown,SaveJson}ActionHandler`,2026-06-22)、~~`handler/file/UndoFileHandler.java:31`~~ ✓ 已迁移(`handler/file/{UndoFileChanges,UndoAllFileChanges}ActionHandler`,2026-06-22)
-  - `handler/diff/DiffHandler.java`、~~`handler/ClipboardHandler.java:22`~~ ✓ 已迁移(`handler/clipboard/{Read,Write}ClipboardActionHandler`,2026-06-22)、~~`handler/TabHandler.java:27`~~ ✓ 已迁移(`handler/tab/CreateNewTabActionHandler`,2026-06-22)、~~`handler/RewindHandler.java:24`~~ ✓ 已迁移(`handler/rewind/RewindFilesActionHandler`,2026-06-22)、~~`handler/ContextHandler.java:22`~~ ✓ 已迁移(`handler/context/GetContextUsageActionHandler`,2026-06-22)
-  - ~~`handler/PermissionHandler.java:34`~~ ✓ 已迁移(`handler/permission/{PermissionDecision,AskUserQuestionResponse,PlanApprovalResponse}ActionHandler` + `PermissionActionHandlers` 容器,2026-06-22)、`handler/provider/ProviderHandler.java:13`
+  - ~~`handler/SessionHandler.java:40`~~ ✓ 已迁移(`handler/session/{SendMessage,SendMessageWithAttachments,InterruptSession,RestartSession}ActionHandler` + `SessionActionHandlers` 容器,2026-06-22)、~~`handler/WindowEventHandler.java:17`~~ ✓ 已迁移(`handler/window/{Heartbeat,TabLoadingChanged,TabStatusChanged,CreateNewSession,FrontendReady,RefreshSlashCommands}ActionHandler` + `WindowActionHandlers` 容器,2026-06-22)
+  - ~~`handler/McpServerHandler.java:26`~~ ✓ 已迁移(`handler/mcp/{GetMcpServers,GetMcpServerStatus,GetMcpServerTools,AddMcpServer,UpdateMcpServer,DeleteMcpServer,ToggleMcpServer,ValidateMcpServer}ActionHandler` + `McpServerActionHandlers` 容器,2026-06-22)、~~`handler/CodexMcpServerHandler.java:27`~~ ✓ 已迁移(`handler/codex/{GetCodexMcpServers,GetCodexMcpServerStatus,GetCodexMcpServerTools,AddCodexMcpServer,UpdateCodexMcpServer,DeleteCodexMcpServer,ToggleCodexMcpServer,ValidateCodexMcpServer}ActionHandler` + `CodexMcpServerActionHandlers` 容器,2026-06-22)
+  - ~~`handler/AgentHandler.java:37`~~ ✓ 已迁移(`handler/agent/{GetAgents,AddAgent,UpdateAgent,DeleteAgent,GetSelectedAgent,SetSelectedAgent,ExportAgents,ImportAgentsFile,SaveImportedAgents}ActionHandler` + `AgentActionHandlers` 容器,2026-06-22)、~~`handler/SkillHandler.java:37`~~ ✓ 已迁移(`handler/skill/{GetAllSkills,ImportSkill,DeleteSkill,OpenSkill,ToggleSkill}ActionHandler` + `SkillActionHandlers` 容器,2026-06-22)、~~`handler/PromptHandler.java:45`~~ ✓ 已迁移(`handler/prompt/{GetPrompts,GetProjectInfo,AddPrompt,UpdatePrompt,DeletePrompt,ExportPrompts,ImportPromptsFile,SaveImportedPrompts}ActionHandler` + `PromptActionHandlers` 容器,2026-06-22)、~~`handler/PromptEnhancerHandler.java:56`~~ ✓ 已迁移(`handler/enhance/EnhancePromptActionHandler`,2026-06-22)
+  - ~~`handler/DependencyHandler.java:32`~~ ✓ 已迁移(`handler/dependency/{GetDependencyStatus,InstallDependency,UninstallDependency,UpdateDependency,CheckDependencyUpdates,GetDependencyVersions,CheckNodeEnvironment}ActionHandler` + `DependencyActionHandlers` 容器,2026-06-22)、~~`handler/NodeProcessHandler.java:36`~~ ✓ 已迁移(`handler/nodeprocess/{GetNodeProcesses,KillNodeProcess,KillAllOrphans,RestartNodeDaemon}ActionHandler` + `NodeProcessActionHandlers` 容器,2026-06-23)
+  - ~~`handler/file/FileHandler.java:33`~~ ✓ 已迁移(`handler/file/{ListFiles,OpenFile,OpenBrowser,OpenClass,GetLinkifyCapabilities,ResolveFilePath}ActionHandler` + `FileActionHandlers` 容器(含 static FileSet/FileListRequest/createFileObject/getRelativePath/addVirtualFile,4 个 collector 引用前缀同步改),2026-06-23)、~~`handler/file/FileExportHandler.java:29`~~ ✓ 已迁移(`handler/file/{SaveMarkdown,SaveJson}ActionHandler`,2026-06-22)、~~`handler/file/UndoFileHandler.java:31`~~ ✓ 已迁移(`handler/file/{UndoFileChanges,UndoAllFileChanges}ActionHandler`,2026-06-22)
+  - ~~`handler/diff/DiffHandler.java`~~ ✓ 已迁移(`handler/diff/{RefreshFile,ShowDiff,ShowMultiEditDiff,ShowEditPreviewDiff,ShowEditFullDiff,ShowEditableDiff,ShowInteractiveDiff}ActionHandler` + `DiffActionHandlers` 容器(承载 DiffRequestDispatcher 责任链组装),2026-06-23)、~~`handler/ClipboardHandler.java:22`~~ ✓ 已迁移(`handler/clipboard/{Read,Write}ClipboardActionHandler`,2026-06-22)、~~`handler/TabHandler.java:27`~~ ✓ 已迁移(`handler/tab/CreateNewTabActionHandler`,2026-06-22)、~~`handler/RewindHandler.java:24`~~ ✓ 已迁移(`handler/rewind/RewindFilesActionHandler`,2026-06-22)、~~`handler/ContextHandler.java:22`~~ ✓ 已迁移(`handler/context/GetContextUsageActionHandler`,2026-06-22)
+  - ~~`handler/PermissionHandler.java:34`~~ ✓ 已迁移(`handler/permission/{PermissionDecision,AskUserQuestionResponse,PlanApprovalResponse}ActionHandler` + `PermissionActionHandlers` 容器,2026-06-22)、~~`handler/provider/ProviderHandler.java:13`~~ ✓ 已迁移(`handler/provider/{GetProviders,GetCurrentClaudeConfig,GetThinkingEnabled,SetThinkingEnabled,AddProvider,UpdateProvider,DeleteProvider,SwitchProvider,GetActiveProvider,PreviewCcSwitchImport,OpenFileChooserForCcSwitch,SaveImportedProviders,SortProviders,GetCodexProviders,GetCurrentCodexConfig,AddCodexProvider,UpdateCodexProvider,DeleteCodexProvider,SwitchCodexProvider,RevokeCodexLocalConfigAuthorization,GetActiveCodexProvider,SortCodexProviders}ActionHandler` + `ProviderActionHandlers` 容器(薄委托 4 operation 类:Claude/Codex/ImportExport/Ordering),2026-06-23)
   - 装配:typed 区 `ui/ChatWindowDelegate.java:323-338`(`typedHandlers.add(...)`,B2 迁移落点)+ legacy 区 `342-356`(`registerHandler(...)` 逐个挂载,剩余未迁类)
 - **现象**:上行 action 分派依赖字符串数组 + switch,新增 action 需改既有 handler,违反开闭。
 - **根因**:尚未迁移到 `FrontendActionHandler<T>`(V9 范式)。
@@ -188,21 +188,27 @@
 
 ### B3 · SettingsHandler SUPPORTED_TYPES 60+ 字符串 + switch(type)
 
-- **严重度**:高 | **状态**:待修复 | **归属**:总则二
+- **严重度**:高 | **状态**:进行中(分批迁移,13/~60 ✓ 三个子域已完成 2026-06-23) | **归属**:总则二
 - **位置**:`handler/SettingsHandler.java:32-92`(`SUPPORTED_TYPES` ~60 字符串)、`SettingsHandler.java:122-319`(`switch(type)` 60+ case);经 `LegacyMessageHandlerAdapter.from(...)` 桥接进 typed 注册表(`ChatWindowDelegate.java:338`)
 - **现象**:最大的一处字符串分派;新增设置 action 易往数组加条目(AGENTS.md 明令禁止的旧路径)。
 - **根因**:settings 域迁移仅完成 Model Registry / Appearance / V9 三切片,余 ~50 action 仍走旧路径。
 - **修复方向**:按 SOP 拆解 63 条 action 为独立 `handler/settings/*ActionHandler.java`,每条迁移后从 `SUPPORTED_TYPES` 移除。
+- **B3 SOP(2026-06-23 验证)**:机制=`LegacyMessageHandlerAdapter.from(settingsHandler)` 对每个 SUPPORTED_TYPE 用 `UpstreamAction.fromValue()` 查 enum 包装为 LegacyActionHandler;`FrontendActionDispatcher` 用 `putIfAbsent`(重复抛 IllegalArgumentException)。**故每批必须同构建**:① 建 typed handler+测试 ② ChatWindowDelegate 在 `addAll(LegacyMessageHandlerAdapter.from(...))` **之前** add typed handler ③ 同步从 `SUPPORTED_TYPES` 移除字符串 + 移除 switch case + 移除已无引用的字段/构造初始化。④ 构建(防启动崩溃)。
+- **已迁子域**(13/60):
+  - permission-mode(3):`GetMode/SetMode/SetSessionModeActionHandler` 直接持有 `PermissionModeHandler` ✓ 2026-06-23
+  - input-history(4):`GetInputHistory/RecordInputHistory/DeleteInputHistoryItem/ClearInputHistoryActionHandler` 直接持有 `InputHistoryHandler` ✓ 2026-06-23
+  - model-provider(6):`SetModel/SetSessionModel/SetProvider/SetSessionProvider/SetReasoningEffort/SetCodexFastModeActionHandler` 经 `ModelProviderHandler`+`UsagePushService` 委托 ✓ 2026-06-23
+- **待迁子域分组**:project-config(~40,最大)、user-language(3,内联)、runtime-policy(4,内联)。
 - **验收**:`SettingsHandler.SUPPORTED_TYPES` 为空或仅剩标注废弃残留;`LegacyMessageHandlerAdapter` 无业务使用方。
 - **关联**:迁移 P1-C(优先级最高)
 
 ### B4 · HistoryHandler 孤儿(实现 MessageHandler 但未注册)
 
-- **严重度**:中 | **状态**:❌ 前提不成立,已核实 | **归属**:总则二
+- **严重度**:中 | **状态**:**✓ 已完成(迁移为 typed handler,2026-06-23)** | **归属**:总则二
 - **位置**:`handler/history/HistoryHandler.java:17`(实现 `MessageHandler`,11 个 SUPPORTED_TYPES);`ui/ChatWindowDelegate.java:388`(`messageDispatcher.registerHandler(historyHandler)`)
 - **现象**:~~该 handler 实现了 `MessageHandler` 接口,却在 `ChatWindowDelegate` 单独创建、未注册到任何 dispatcher~~ — **前提错误**。经核实,HistoryHandler 在 `ChatWindowDelegate.java:388` 已正确注册到 MessageDispatcher。
 - **根因**:登记时行号引用有误(原文称 :382,实际 :388),且遗漏了注册调用。
-- **修复方向**:~~先确认其真实使用路径;若死代码则删除,否则迁移为 typed handler 并正确注册~~ — 已确认正常注册,按 B2 常规迁移路径处理即可。
+- **修复**:已按 B2 范式迁移为 `handler/history/{LoadHistoryData,LoadSession,DeleteSession,DeleteSessions,ExportSession,ToggleFavorite,UpdateTitle,DeleteTitle,DeepSearchHistory,LoadSubagentSession,ConvertToCliSession}ActionHandler` + `HistoryActionHandlers` 容器(承载 7 service + currentProvider 共享状态 + SessionLoadCallback 接口)。附带清理 no-op 死代码:`DelegateHost.setHistoryHandler` 接口声明 + `ClaudeChatWindow` no-op 实现 + `ChatWindowDelegate` 调用全部移除(原注释 "No-op: handler is set but no longer consumed" 已坐实为死代码)。
 - **验收**:~~HistoryHandler 的使用路径明确~~ — 已明确:正常注册在 MessageDispatcher,非孤儿。
 - **关联**:归入 B2 legacy handler 迁移候选
 
@@ -585,9 +591,9 @@
 | A9 | 可回滚性判定(边界) | 低 | 待修复 | 一 | A7 |
 | A10 | PROVIDER_PRESETS 前端持业务表 | 中 | 待修复 | 一/三 | P0-2 |
 | B1 | MessageDispatcher 线性链兜底 | 中 | 待修复 | 二 | P1-C / P3-C |
-| B2 | 18 个 legacy MessageHandler SUPPORTED_TYPES | 高 | 待修复 | 二 | P1-C |
-| B3 | SettingsHandler 60+ 字符串分派 | 高 | 待修复 | 二 | P1-C |
-| B4 | HistoryHandler 孤儿 | 中 | 待修复 | 二 | P1-C 排查 |
+| B2 | 20 个 legacy MessageHandler SUPPORTED_TYPES | 高 | ✓ 已完成(20/20) | 二 | P1-C |
+| B3 | SettingsHandler 60+ 字符串分派 | 高 | 进行中(13/~60) | 二 | P1-C |
+| B4 | HistoryHandler 孤儿 | 中 | ✓ 已完成 | 二 | P1-C 排查 |
 | B5 | 下行 type 字面量散落 | 中 | 待修复 | 二 | P1-B |
 | C1 | payload 字段结构未生成 | 高 | 待修复 | 三 | Phase1 / Phase2·V3 |
 | C2 | 业务枚举 SSOT 全未落地 | 高 | 接近完成(PermissionMode/ReasoningEffort/ProviderType ✓;CodexFastMode 降级) | 三 | P2-A |

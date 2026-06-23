@@ -23,19 +23,9 @@ public class SettingsHandler extends BaseMessageHandler {
     private static final Logger LOG = Logger.getInstance(SettingsHandler.class);
     private final Gson gson = GsonHolder.GSON;
 
-    private final InputHistoryHandler inputHistoryHandler;
-    private final UsagePushService usagePushService;
-    private final PermissionModeHandler permissionModeHandler;
-    private final ModelProviderHandler modelProviderHandler;
     private final ProjectConfigHandler projectConfigHandler;
 
     private static final String[] SUPPORTED_TYPES = {
-        "get_mode",
-        "set_mode", "set_session_mode",
-        "set_model", "set_session_model",
-        "set_provider", "set_session_provider",
-        "set_reasoning_effort",
-        "set_codex_fast_mode",
         "get_usage_statistics",
         "get_working_directory",
         "set_working_directory",
@@ -76,10 +66,6 @@ public class SettingsHandler extends BaseMessageHandler {
         "set_prompt_enhancer_config",
         "get_project_commit_prompt",
         "set_project_commit_prompt",
-        "get_input_history",
-        "record_input_history",
-        "delete_input_history_item",
-        "clear_input_history",
         // User language preference
         "set_user_language",
         "get_user_language",
@@ -93,10 +79,6 @@ public class SettingsHandler extends BaseMessageHandler {
 
     public SettingsHandler(HandlerContext context) {
         super(context);
-        this.inputHistoryHandler = new InputHistoryHandler(context);
-        this.usagePushService = new UsagePushService(context);
-        this.permissionModeHandler = new PermissionModeHandler(context);
-        this.modelProviderHandler = new ModelProviderHandler(context, usagePushService);
         this.projectConfigHandler = new ProjectConfigHandler(context);
         // Register theme change listener to automatically notify frontend when IDE theme changes
         registerThemeChangeListener();
@@ -121,35 +103,6 @@ public class SettingsHandler extends BaseMessageHandler {
     @Override
     public boolean handle(String type, String content) {
         switch (type) {
-            // Permission mode
-            case "get_mode":
-                permissionModeHandler.handleGetMode();
-                return true;
-            case "set_mode":
-                permissionModeHandler.handleSetMode(content);
-                return true;
-            case "set_session_mode":
-                permissionModeHandler.handleSetSessionMode(content);
-                return true;
-            // Model and provider
-            case "set_model":
-                modelProviderHandler.handleSetModel(content);
-                return true;
-            case "set_session_model":
-                modelProviderHandler.handleSetSessionModel(content);
-                return true;
-            case "set_provider":
-                modelProviderHandler.handleSetProvider(content);
-                return true;
-            case "set_session_provider":
-                modelProviderHandler.handleSetSessionProvider(content);
-                return true;
-            case "set_reasoning_effort":
-                modelProviderHandler.handleSetReasoningEffort(content);
-                return true;
-            case "set_codex_fast_mode":
-                modelProviderHandler.handleSetCodexFastMode(content);
-                return true;
             // Project configuration
             case "get_usage_statistics":
                 projectConfigHandler.handleGetUsageStatistics(content);
@@ -276,19 +229,6 @@ public class SettingsHandler extends BaseMessageHandler {
                 return true;
             case "set_project_commit_prompt":
                 projectConfigHandler.handleSetProjectCommitPrompt(content);
-                return true;
-            // Input history
-            case "get_input_history":
-                inputHistoryHandler.handleGetInputHistory();
-                return true;
-            case "record_input_history":
-                inputHistoryHandler.handleRecordInputHistory(content);
-                return true;
-            case "delete_input_history_item":
-                inputHistoryHandler.handleDeleteInputHistoryItem(content);
-                return true;
-            case "clear_input_history":
-                inputHistoryHandler.handleClearInputHistory();
                 return true;
             // User language preference
             case "set_user_language":

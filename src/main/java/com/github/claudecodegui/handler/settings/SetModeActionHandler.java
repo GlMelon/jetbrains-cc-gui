@@ -1,0 +1,31 @@
+package com.github.claudecodegui.handler.settings;
+
+import com.github.claudecodegui.handler.PermissionModeHandler;
+import com.github.claudecodegui.handler.core.FrontendActionContext;
+import com.github.claudecodegui.handler.core.FrontendActionHandler;
+import com.github.claudecodegui.protocol.UpstreamAction;
+
+/** Typed handler for {@link UpstreamAction#SET_MODE} (B3 slice: permission mode). */
+public class SetModeActionHandler implements FrontendActionHandler<String> {
+
+    private final PermissionModeHandler permissionModeHandler;
+
+    public SetModeActionHandler(PermissionModeHandler permissionModeHandler) {
+        this.permissionModeHandler = permissionModeHandler;
+    }
+
+    @Override
+    public UpstreamAction action() {
+        return UpstreamAction.SET_MODE;
+    }
+
+    @Override
+    public Class<String> payloadType() {
+        return String.class;
+    }
+
+    @Override
+    public void handle(String payload, FrontendActionContext context) {
+        permissionModeHandler.handleSetMode(payload);
+    }
+}
