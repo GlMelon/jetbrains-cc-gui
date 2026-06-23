@@ -1,6 +1,7 @@
 package com.github.claudecodegui.handler.file;
 
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.model.FileSortItem;
 import com.github.claudecodegui.util.GsonHolder;
 import com.github.claudecodegui.util.PlatformUtils;
@@ -121,7 +122,7 @@ public class FileActionHandlers {
     public void handleGetLinkifyCapabilities() {
         String capabilitiesJson = OpenClassHandler.buildCapabilitiesJson();
         ApplicationManager.getApplication().invokeLater(() ->
-            dispatchEvent("linkify.update", escapeJs(capabilitiesJson))
+            dispatchEvent(DownstreamEvent.LINKIFY_UPDATE.value(), escapeJs(capabilitiesJson))
         );
     }
 
@@ -129,7 +130,7 @@ public class FileActionHandlers {
      * Resolve a file path to a project-relative display path and return the result to the frontend.
      *
      * [归一化重构] 后端收到的 content 是 JSON 格式 { path, __requestId }(由前端 bridgeHub.request 注入)。
-     * 响应经 dispatchEvent("file_path.resolved", ...) 派发到 hub 的响应路由,携带 __requestId 供
+     * 响应经 dispatchEvent(DownstreamEvent.FILE_PATH_RESOLVED.value(), ...) 派发到 hub 的响应路由,携带 __requestId 供
      * hub 按 requestId 匹配并 resolve 对应的 Promise。兼容旧格式(纯字符串 content)作为 fallback。
      */
     public void handleResolveFilePath(String content) {
@@ -164,7 +165,7 @@ public class FileActionHandlers {
                 String resultJson = GSON.toJson(result);
 
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    dispatchEvent("file_path.resolved", resultJson);
+                    dispatchEvent(DownstreamEvent.FILE_PATH_RESOLVED.value(), resultJson);
                 });
             } catch (Exception e) {
                 LOG.error("[FileHandler] Failed to resolve file path: " + e.getMessage(), e);
@@ -176,7 +177,7 @@ public class FileActionHandlers {
                 }
                 String errorJson = GSON.toJson(errorResult);
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    dispatchEvent("file_path.resolved", errorJson);
+                    dispatchEvent(DownstreamEvent.FILE_PATH_RESOLVED.value(), errorJson);
                 });
             }
         }, AppExecutorUtil.getAppExecutorService());
@@ -195,7 +196,7 @@ public class FileActionHandlers {
         String resultJson = GSON.toJson(result);
 
         ApplicationManager.getApplication().invokeLater(() -> {
-            dispatchEvent("file.list_result", escapeJs(resultJson));
+            dispatchEvent(DownstreamEvent.FILE_LIST_RESULT.value(), escapeJs(resultJson));
         });
     }
 

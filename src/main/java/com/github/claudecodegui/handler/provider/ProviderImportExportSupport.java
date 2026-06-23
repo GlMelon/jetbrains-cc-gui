@@ -2,6 +2,7 @@ package com.github.claudecodegui.handler.provider;
 
 import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
@@ -83,7 +84,7 @@ public class ProviderImportExportSupport {
 
                     String jsonStr = GSON.toJson(response);
                     LOG.info("[ProviderHandler] Successfully read " + providers.size() + " provider configs");
-                    context.dispatchEvent("provider.import_preview", context.escapeJs(jsonStr));
+                    context.dispatchEvent(DownstreamEvent.PROVIDER_IMPORT_PREVIEW.value(), context.escapeJs(jsonStr));
 
                 } catch (Exception e) {
                     String errorDetails = com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("provider.ccswitch.readFailed") + ": " + e.getMessage();
@@ -191,7 +192,7 @@ public class ProviderImportExportSupport {
 
                         String jsonStr = GSON.toJson(response);
                         LOG.info("[ProviderHandler] Successfully read " + providers.size() + " provider configs, sending to frontend");
-                        context.dispatchEvent("provider.import_preview", context.escapeJs(jsonStr));
+                        context.dispatchEvent(DownstreamEvent.PROVIDER_IMPORT_PREVIEW.value(), context.escapeJs(jsonStr));
 
                     } catch (Exception e) {
                         String errorDetails = com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("provider.ccswitch.readFailed") + ": " + e.getMessage();

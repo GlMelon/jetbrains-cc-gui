@@ -3,6 +3,7 @@ package com.github.claudecodegui.handler;
 import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.bridge.ProcessManager;
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.util.PlatformUtils;
 
 import com.intellij.openapi.application.ApplicationManager;
@@ -41,12 +42,12 @@ public class InputHistoryHandler {
             try {
                 String result = callInputHistoryService("getAllHistoryData", null);
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    context.dispatchEvent("input_history.loaded", context.escapeJs(result));
+                    context.dispatchEvent(DownstreamEvent.INPUT_HISTORY_LOADED.value(), context.escapeJs(result));
                 });
             } catch (Exception e) {
                 LOG.error("[InputHistoryHandler] Failed to get input history: " + e.getMessage(), e);
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    context.dispatchEvent("input_history.loaded", context.escapeJs("{\"items\":[],\"counts\":{}}"));
+                    context.dispatchEvent(DownstreamEvent.INPUT_HISTORY_LOADED.value(), context.escapeJs("{\"items\":[],\"counts\":{}}"));
                 });
             }
         });
@@ -61,7 +62,7 @@ public class InputHistoryHandler {
             try {
                 String result = callInputHistoryServiceWithArray("recordHistory", content);
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    context.dispatchEvent("input_history.recorded", context.escapeJs(result));
+                    context.dispatchEvent(DownstreamEvent.INPUT_HISTORY_RECORDED.value(), context.escapeJs(result));
                 });
             } catch (Exception e) {
                 LOG.error("[InputHistoryHandler] Failed to record input history: " + e.getMessage(), e);
@@ -78,7 +79,7 @@ public class InputHistoryHandler {
             try {
                 String result = callInputHistoryService("deleteHistoryItem", content);
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    context.dispatchEvent("input_history.deleted", context.escapeJs(result));
+                    context.dispatchEvent(DownstreamEvent.INPUT_HISTORY_DELETED.value(), context.escapeJs(result));
                 });
             } catch (Exception e) {
                 LOG.error("[InputHistoryHandler] Failed to delete input history item: " + e.getMessage(), e);
@@ -94,7 +95,7 @@ public class InputHistoryHandler {
             try {
                 String result = callInputHistoryService("clearAllHistory", null);
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    context.dispatchEvent("input_history.cleared", context.escapeJs(result));
+                    context.dispatchEvent(DownstreamEvent.INPUT_HISTORY_CLEARED.value(), context.escapeJs(result));
                 });
             } catch (Exception e) {
                 LOG.error("[InputHistoryHandler] Failed to clear input history: " + e.getMessage(), e);

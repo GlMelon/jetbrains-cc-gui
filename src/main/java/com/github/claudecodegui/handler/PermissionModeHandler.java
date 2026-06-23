@@ -1,6 +1,7 @@
 package com.github.claudecodegui.handler;
 
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.util.GsonHolder;
 
 import com.google.gson.Gson;
@@ -50,7 +51,7 @@ public class PermissionModeHandler {
             final String modeToSend = currentMode;
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent("mode.received", context.escapeJs(modeToSend));
+                context.dispatchEvent(DownstreamEvent.MODE_RECEIVED.value(), context.escapeJs(modeToSend));
             });
         } catch (Exception e) {
             LOG.error("[PermissionModeHandler] Failed to get mode: " + e.getMessage(), e);

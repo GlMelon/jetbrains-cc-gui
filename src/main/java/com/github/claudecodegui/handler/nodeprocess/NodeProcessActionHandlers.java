@@ -1,6 +1,7 @@
 package com.github.claudecodegui.handler.nodeprocess;
 
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.service.NodeProcessInfo;
 import com.github.claudecodegui.service.NodeProcessRegistry;
 import com.github.claudecodegui.util.GsonHolder;
@@ -187,13 +188,13 @@ public class NodeProcessActionHandlers {
 
     private void pushUpdate(String json) {
         ApplicationManager.getApplication().invokeLater(() ->
-            context.dispatchEvent("node.process_list", context.escapeJs(json))
+            context.dispatchEvent(DownstreamEvent.NODE_PROCESS_LIST.value(), context.escapeJs(json))
         );
     }
 
     private void pushKillResult(String json) {
         ApplicationManager.getApplication().invokeLater(() ->
-            context.dispatchEvent("node.process_kill_result", context.escapeJs(json))
+            context.dispatchEvent(DownstreamEvent.NODE_PROCESS_KILL_RESULT.value(), context.escapeJs(json))
         );
     }
 

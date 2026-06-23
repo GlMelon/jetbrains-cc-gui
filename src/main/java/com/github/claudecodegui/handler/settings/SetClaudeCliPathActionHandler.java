@@ -3,6 +3,7 @@ package com.github.claudecodegui.handler.settings;
 import com.github.claudecodegui.handler.core.FrontendActionContext;
 import com.github.claudecodegui.handler.core.FrontendActionHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.protocol.UpstreamAction;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -51,7 +52,7 @@ public final class SetClaudeCliPathActionHandler implements FrontendActionHandle
         } catch (Exception e) {
             LOG.error("[SetClaudeCliPathActionHandler] Failed to parse set_claude_cli_path content: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() ->
-                    ctx.dispatchEvent("toast.error", ctx.escapeJs("Failed to save Claude CLI path: " + e.getMessage()))
+                    ctx.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), ctx.escapeJs("Failed to save Claude CLI path: " + e.getMessage()))
             );
             return;
         }
@@ -99,22 +100,22 @@ public final class SetClaudeCliPathActionHandler implements FrontendActionHandle
                 ApplicationManager.getApplication().invokeLater(() -> {
                     JsonObject response = new JsonObject();
                     response.addProperty("path", pathToEcho);
-                    ctx.dispatchEvent("config.claude_cli_path", ctx.escapeJs(GSON.toJson(response)));
+                    ctx.dispatchEvent(DownstreamEvent.CONFIG_CLAUDE_CLI_PATH.value(), ctx.escapeJs(GSON.toJson(response)));
 
                     if (successFlag) {
                         String msg = finalPathToSend.isEmpty()
                                 ? "Claude CLI path cleared, using bundled SDK"
                                 : "Claude CLI path saved: " + finalPathToSend;
-                        ctx.dispatchEvent("toast.switch_success", ctx.escapeJs(msg));
+                        ctx.dispatchEvent(DownstreamEvent.TOAST_SWITCH_SUCCESS.value(), ctx.escapeJs(msg));
                     } else {
                         String msg = failureMsgFinal != null ? failureMsgFinal : "Invalid Claude CLI path";
-                        ctx.dispatchEvent("toast.error", ctx.escapeJs(msg));
+                        ctx.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), ctx.escapeJs(msg));
                     }
                 });
             } catch (Exception e) {
                 LOG.error("[SetClaudeCliPathActionHandler] Failed to set Claude CLI path: " + e.getMessage(), e);
                 ApplicationManager.getApplication().invokeLater(() ->
-                        ctx.dispatchEvent("toast.error", ctx.escapeJs("Failed to save Claude CLI path: " + e.getMessage()))
+                        ctx.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), ctx.escapeJs("Failed to save Claude CLI path: " + e.getMessage()))
                 );
             }
         }, AppExecutorUtil.getAppExecutorService()).exceptionally(ex -> {

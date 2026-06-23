@@ -6,6 +6,7 @@ import com.github.claudecodegui.dependency.InstallResult;
 import com.github.claudecodegui.dependency.SdkDefinition;
 import com.github.claudecodegui.dependency.UpdateInfo;
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.model.NodeDetectionResult;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
@@ -117,11 +118,11 @@ public class DependencyActionHandlers {
                 String statusJson = this.gson.toJson(status);
 
                 ApplicationManager.getApplication().invokeLater(() ->
-                    dispatchEvent("dependency.status", escapeJs(statusJson))
+                    dispatchEvent(DownstreamEvent.DEPENDENCY_STATUS.value(), escapeJs(statusJson))
                 );
             } catch (Exception e) {
                 LOG.error("[DependencyHandler] Failed to get dependency status: " + e.getMessage(), e);
-                this.sendErrorResult("dependency.status", e.getMessage());
+                this.sendErrorResult(DownstreamEvent.DEPENDENCY_STATUS.value(), e.getMessage());
                 this.sendShowError("获取依赖状态失败: " + e.getMessage());
             } finally {
                 long elapsed = System.currentTimeMillis() - startTime;
@@ -165,7 +166,7 @@ public class DependencyActionHandlers {
 
                         ApplicationManager.getApplication().invokeLater(() ->
                             dispatchEvent(
-                                "dependency.install_result",
+                                DownstreamEvent.DEPENDENCY_INSTALL_RESULT.value(),
                                 escapeJs(this.gson.toJson(errorResult))
                             )
                         );
@@ -184,7 +185,7 @@ public class DependencyActionHandlers {
                     }
                 } catch (Exception e) {
                     LOG.error("[DependencyHandler] Failed during dependency installation: " + e.getMessage(), e);
-                    this.sendErrorResult("dependency.install_result", e.getMessage());
+                    this.sendErrorResult(DownstreamEvent.DEPENDENCY_INSTALL_RESULT.value(), e.getMessage());
                     this.sendShowError("依赖安装失败: " + e.getMessage());
                 }
             }, AppExecutorUtil.getAppExecutorService()).exceptionally(ex -> {
@@ -194,7 +195,7 @@ public class DependencyActionHandlers {
 
         } catch (Exception e) {
             LOG.error("[DependencyHandler] Failed to install dependency: " + e.getMessage(), e);
-            this.sendErrorResult("dependency.install_result", e.getMessage());
+            this.sendErrorResult(DownstreamEvent.DEPENDENCY_INSTALL_RESULT.value(), e.getMessage());
             this.sendShowError("依赖安装失败: " + e.getMessage());
         }
     }
@@ -216,14 +217,14 @@ public class DependencyActionHandlers {
                     }
 
                     ApplicationManager.getApplication().invokeLater(() ->
-                        dispatchEvent("dependency.uninstall_result", escapeJs(this.gson.toJson(result)))
+                        dispatchEvent(DownstreamEvent.DEPENDENCY_UNINSTALL_RESULT.value(), escapeJs(this.gson.toJson(result)))
                     );
 
                     // Refresh status after uninstall completes
                     this.handleGetStatus();
                 } catch (Exception e) {
                     LOG.error("[DependencyHandler] Failed during dependency uninstall: " + e.getMessage(), e);
-                    this.sendErrorResult("dependency.uninstall_result", e.getMessage());
+                    this.sendErrorResult(DownstreamEvent.DEPENDENCY_UNINSTALL_RESULT.value(), e.getMessage());
                     this.sendShowError("依赖卸载失败: " + e.getMessage());
                 }
             }, AppExecutorUtil.getAppExecutorService()).exceptionally(ex -> {
@@ -233,7 +234,7 @@ public class DependencyActionHandlers {
 
         } catch (Exception e) {
             LOG.error("[DependencyHandler] Failed to uninstall dependency: " + e.getMessage(), e);
-            this.sendErrorResult("dependency.uninstall_result", e.getMessage());
+            this.sendErrorResult(DownstreamEvent.DEPENDENCY_UNINSTALL_RESULT.value(), e.getMessage());
             this.sendShowError("依赖卸载失败: " + e.getMessage());
         }
     }
@@ -267,7 +268,7 @@ public class DependencyActionHandlers {
 
                         ApplicationManager.getApplication().invokeLater(() ->
                             dispatchEvent(
-                                "dependency.install_result",
+                                DownstreamEvent.DEPENDENCY_INSTALL_RESULT.value(),
                                 escapeJs(this.gson.toJson(errorResult))
                             )
                         );
@@ -287,7 +288,7 @@ public class DependencyActionHandlers {
                     }
                 } catch (Exception e) {
                     LOG.error("[DependencyHandler] Failed during dependency update: " + e.getMessage(), e);
-                    this.sendErrorResult("dependency.install_result", e.getMessage());
+                    this.sendErrorResult(DownstreamEvent.DEPENDENCY_INSTALL_RESULT.value(), e.getMessage());
                     this.sendShowError("依赖更新失败: " + e.getMessage());
                 }
             }, AppExecutorUtil.getAppExecutorService()).exceptionally(ex -> {
@@ -297,7 +298,7 @@ public class DependencyActionHandlers {
 
         } catch (Exception e) {
             LOG.error("[DependencyHandler] Failed to update dependency: " + e.getMessage(), e);
-            this.sendErrorResult("dependency.install_result", e.getMessage());
+            this.sendErrorResult(DownstreamEvent.DEPENDENCY_INSTALL_RESULT.value(), e.getMessage());
             this.sendShowError("依赖更新失败: " + e.getMessage());
         }
     }
@@ -334,13 +335,13 @@ public class DependencyActionHandlers {
 
                     ApplicationManager.getApplication().invokeLater(
                         () -> dispatchEvent(
-                            "dependency.update_available",
+                            DownstreamEvent.DEPENDENCY_UPDATE_AVAILABLE.value(),
                             escapeJs(this.gson.toJson(updates))
                         )
                     );
                 } catch (Exception e) {
                     LOG.error("[DependencyHandler] Failed during update check: " + e.getMessage(), e);
-                    this.sendErrorResult("dependency.update_available", e.getMessage());
+                    this.sendErrorResult(DownstreamEvent.DEPENDENCY_UPDATE_AVAILABLE.value(), e.getMessage());
                     this.sendShowError("检查依赖更新失败: " + e.getMessage());
                 }
             }, AppExecutorUtil.getAppExecutorService()).exceptionally(ex -> {
@@ -350,7 +351,7 @@ public class DependencyActionHandlers {
 
         } catch (Exception e) {
             LOG.error("[DependencyHandler] Failed to check updates: " + e.getMessage(), e);
-            this.sendErrorResult("dependency.update_available", e.getMessage());
+            this.sendErrorResult(DownstreamEvent.DEPENDENCY_UPDATE_AVAILABLE.value(), e.getMessage());
             this.sendShowError("检查依赖更新失败: " + e.getMessage());
         }
     }
@@ -379,13 +380,13 @@ public class DependencyActionHandlers {
 
                     ApplicationManager.getApplication().invokeLater(
                         () -> dispatchEvent(
-                            "dependency.versions_loaded",
+                            DownstreamEvent.DEPENDENCY_VERSIONS_LOADED.value(),
                             escapeJs(this.gson.toJson(payload))
                         )
                     );
                 } catch (Exception e) {
                     LOG.error("[DependencyHandler] Failed to get dependency versions: " + e.getMessage(), e);
-                    this.sendErrorResult("dependency.versions_loaded", e.getMessage());
+                    this.sendErrorResult(DownstreamEvent.DEPENDENCY_VERSIONS_LOADED.value(), e.getMessage());
                 }
             }, AppExecutorUtil.getAppExecutorService()).exceptionally(ex -> {
                 LOG.error("[DependencyHandler] Unexpected error in handleGetDependencyVersions: " + ex.getMessage(), ex);
@@ -393,7 +394,7 @@ public class DependencyActionHandlers {
             });
         } catch (Exception e) {
             LOG.error("[DependencyHandler] Failed to parse dependency versions request: " + e.getMessage(), e);
-            this.sendErrorResult("dependency.versions_loaded", e.getMessage());
+            this.sendErrorResult(DownstreamEvent.DEPENDENCY_VERSIONS_LOADED.value(), e.getMessage());
         }
     }
 
@@ -473,7 +474,7 @@ public class DependencyActionHandlers {
 
     private void sendNodeEnvironmentStatus(JsonObject result) {
         ApplicationManager.getApplication().invokeLater(() ->
-            dispatchEvent("node.env_status", escapeJs(this.gson.toJson(result)))
+            dispatchEvent(DownstreamEvent.NODE_ENV_STATUS.value(), escapeJs(this.gson.toJson(result)))
         );
     }
 
@@ -484,7 +485,7 @@ public class DependencyActionHandlers {
 
         ApplicationManager.getApplication().invokeLater(
             () -> dispatchEvent(
-                "dependency.install_progress",
+                DownstreamEvent.DEPENDENCY_INSTALL_PROGRESS.value(),
                 escapeJs(this.gson.toJson(progress))
             )
         );
@@ -503,7 +504,7 @@ public class DependencyActionHandlers {
         json.addProperty("logs", result.getLogs());
 
         ApplicationManager.getApplication().invokeLater(() ->
-            dispatchEvent("dependency.install_result", escapeJs(this.gson.toJson(json)))
+            dispatchEvent(DownstreamEvent.DEPENDENCY_INSTALL_RESULT.value(), escapeJs(this.gson.toJson(json)))
         );
     }
 
@@ -548,7 +549,7 @@ public class DependencyActionHandlers {
 
     private void sendShowError(String message) {
         ApplicationManager.getApplication().invokeLater(() ->
-            dispatchEvent("toast.error", escapeJs(message))
+            dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), escapeJs(message))
         );
     }
 

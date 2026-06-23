@@ -159,7 +159,7 @@ public class ModelProviderHandler {
             JsonObject confirmedPayload = new JsonObject();
             confirmedPayload.addProperty("modelId", confirmedModel);
             confirmedPayload.addProperty("provider", confirmedProvider);
-            context.dispatchEvent("model.confirmed", context.escapeJs(gson.toJson(confirmedPayload)));
+            context.dispatchEvent(DownstreamEvent.MODEL_CONFIRMED.value(), context.escapeJs(gson.toJson(confirmedPayload)));
             context.dispatchEvent(
                     DownstreamEvent.MODEL_SELECTION.value(),
                     context.escapeJs(gson.toJson(buildModelSelectionPayload(confirmedSelection)))
@@ -377,7 +377,7 @@ public class ModelProviderHandler {
                 try {
                     context.callJavaScript("updateSlashCommands", context.escapeJs(json));
                     if (codexJson != null) {
-                        context.dispatchEvent("slash.dollar_commands", context.escapeJs(codexJson));
+                        context.dispatchEvent(DownstreamEvent.SLASH_DOLLAR_COMMANDS.value(), context.escapeJs(codexJson));
                     }
                 } catch (Exception e) {
                     LOG.warn("[ModelProviderHandler] Failed to refresh slash commands: " + e.getMessage());

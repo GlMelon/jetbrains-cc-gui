@@ -48,7 +48,7 @@
 | E · 对接未 Docking 化 / 分层 / 序列化 | 二/五 + 附录 | 12 | 1 | 8 | 3 |
 | **合计** | — | **43** | **15** | **23** | **5** |
 
-> 截至 2026-06-23 进度:**已验证 13 项**(B1·C3·C6·C8·C9·D2·D3·E1·E2·E3·E4·E5·E6)、**已完成 2 项**(B2 — 20/20 legacy handler 全迁移;B4 — HistoryHandler 迁移)、**接近完成 1 项**(C2 — PermissionMode/ReasoningEffort/ProviderType 子切片落地;CodexFastMode 经根因调查降级为「无 bug · 现状可接受」)、**进行中 1 项**(B3 — SettingsHandler 13/~60 已迁移 permission-mode+input-history+model-provider 三子域)、**已豁免 1 项**(E12);其余 26 项待修复(17/43 已动)。逐项状态见 §7 表格,整体阶段路线见 §9 迁移文档索引。
+> 截至 2026-06-23 进度:**已验证 14 项**(B1·B5·C3·C6·C8·C9·D2·D3·E1·E2·E3·E4·E5·E6)、**已完成 2 项**(B2 — 20/20 legacy handler 全迁移;B4 — HistoryHandler 迁移)、**接近完成 1 项**(C2 — PermissionMode/ReasoningEffort/ProviderType 子切片落地;CodexFastMode 经根因调查降级为「无 bug · 现状可接受」)、**进行中 1 项**(B3 — SettingsHandler 13/~60 已迁移 permission-mode+input-history+model-provider 三子域)、**已豁免 1 项**(E12);其余 25 项待修复(18/43 已动)。逐项状态见 §7 表格,整体阶段路线见 §9 迁移文档索引。
 
 ---
 
@@ -220,12 +220,13 @@
 
 ### B5 · 下行 type 字面量散落(未用 DownstreamEvent 枚举)
 
-- **严重度**:中 | **状态**:待修复 | **归属**:总则二
+- **严重度**:中 | **状态**:已验证 | **归属**:总则二
 - **位置**:`handler/SettingsHandler.java:111,353,374,390,393` 等 `dispatchEvent("theme.changed" / "language.apply" / "runtime_policy" / "runtime_policy_error", ...)`;其余 legacy handler 类似
 - **现象**:下行事件 type 以字符串字面量散落,与 `DownstreamEvent` 枚举 SSOT 脱钩。
 - **根因**:下行规范(AGENTS.md 总则二新增条款)此前缺失,handler 习惯手写字面量。
 - **修复方向**:全部改为 `ctx.dispatchEvent(DownstreamEvent.XXX.value(), ...)`;新派 typed handler 已是范例(`SetAppearanceConfigActionHandler.java:34`)。
 - **验收**:后端无 `dispatchEvent("裸字符串"...)`;下行 type 全部来自 `DownstreamEvent` 枚举。
+- **实际迁移**(2026-06-23 闭环):27+ handler 文件的全部 `dispatchEvent` 直调、`pushJson`/`respondWithJson`、间接 helper(`sendErrorResult`/`handleBooleanToggle`/`applyAiProviderConfig`/三元 `eventType`)的字面量 type 统一改为 `DownstreamEvent.X.value()`(`ProjectConfigHandler` 32 处最多);验收 grep `dispatchEvent("` 与 `(pushJson|respondWithJson)("` 均 0,`compileJava` 通过。
 - **关联**:迁移 P1-B(后端侧)
 
 ---
@@ -600,7 +601,7 @@
 | B2 | 20 个 legacy MessageHandler SUPPORTED_TYPES | 高 | ✓ 已完成(20/20) | 二 | P1-C |
 | B3 | SettingsHandler 60+ 字符串分派 | 高 | 进行中(13/~60) | 二 | P1-C |
 | B4 | HistoryHandler 孤儿 | 中 | ✓ 已完成 | 二 | P1-C 排查 |
-| B5 | 下行 type 字面量散落 | 中 | 待修复 | 二 | P1-B |
+| B5 | 下行 type 字面量散落 | 中 | ✓ 已验证 | 二 | P1-B |
 | C1 | payload 字段结构未生成 | 高 | 待修复 | 三 | Phase1 / Phase2·V3 |
 | C2 | 业务枚举 SSOT 全未落地 | 高 | 接近完成(PermissionMode/ReasoningEffort/ProviderType ✓;CodexFastMode 降级) | 三 | P2-A |
 | C3 | 默认值漂移(已发生) | 高 | 已验证 | 三 | P2-B / P2-A |

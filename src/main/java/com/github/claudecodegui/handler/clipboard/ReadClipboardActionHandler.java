@@ -3,6 +3,7 @@ package com.github.claudecodegui.handler.clipboard;
 import com.github.claudecodegui.handler.core.FrontendActionContext;
 import com.github.claudecodegui.handler.core.FrontendActionHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.protocol.UpstreamAction;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.ModalityState;
@@ -47,7 +48,7 @@ public final class ReadClipboardActionHandler implements FrontendActionHandler<S
         long now = System.currentTimeMillis();
         if (now - lastReadTime < MIN_READ_INTERVAL_MS) {
             LOG.debug("Clipboard read rate-limited");
-            ctx.dispatchEvent("clipboard.read", "");
+            ctx.dispatchEvent(DownstreamEvent.CLIPBOARD_READ.value(), "");
             return;
         }
         lastReadTime = now;
@@ -59,13 +60,13 @@ public final class ReadClipboardActionHandler implements FrontendActionHandler<S
                 Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
                 if (clipboard.isDataFlavorAvailable(DataFlavor.stringFlavor)) {
                     String text = (String) clipboard.getData(DataFlavor.stringFlavor);
-                    ctx.dispatchEvent("clipboard.read", ctx.escapeJs(text != null ? text : ""));
+                    ctx.dispatchEvent(DownstreamEvent.CLIPBOARD_READ.value(), ctx.escapeJs(text != null ? text : ""));
                 } else {
-                    ctx.dispatchEvent("clipboard.read", "");
+                    ctx.dispatchEvent(DownstreamEvent.CLIPBOARD_READ.value(), "");
                 }
             } catch (Exception e) {
                 LOG.warn("Failed to read clipboard", e);
-                ctx.dispatchEvent("clipboard.read", "");
+                ctx.dispatchEvent(DownstreamEvent.CLIPBOARD_READ.value(), "");
             }
         }, ModalityState.any());
     }

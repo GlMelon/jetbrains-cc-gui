@@ -1,6 +1,7 @@
 package com.github.claudecodegui.ui.toolwindow;
 
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
+import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.settings.TabStateService;
 import com.github.claudecodegui.startup.BridgePreloader;
 import com.github.claudecodegui.ui.detached.DetachedWindowManager;
@@ -125,7 +126,7 @@ public class ClaudeSDKToolWindow implements ToolWindowFactory, DumbAware {
         for (ClaudeChatWindow window : windows) {
             try {
                 String escaped = com.github.claudecodegui.util.JsUtils.escapeJs(json);
-                window.dispatchEvent("config.invocation_mode", escaped);
+                window.dispatchEvent(DownstreamEvent.CONFIG_INVOCATION_MODE.value(), escaped);
             } catch (Exception e) {
                 LOG.warn("[Broadcast] Failed to update invocation mode for tab: " + e.getMessage());
             }

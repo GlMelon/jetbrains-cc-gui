@@ -2,6 +2,7 @@ package com.github.claudecodegui.handler.codex;
 
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
+import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.settings.CodexMcpServerManager;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
@@ -37,7 +38,7 @@ public class CodexMcpServerActionHandlers {
             try {
                 if (!isCodexLocalConfigAuthorized()) {
                     ApplicationManager.getApplication().invokeLater(() -> {
-                        context.dispatchEvent("codex.mcp.server_list", context.escapeJs("[]"));
+                        context.dispatchEvent(DownstreamEvent.CODEX_MCP_SERVER_LIST.value(), context.escapeJs("[]"));
                     });
                     return;
                 }
@@ -49,12 +50,12 @@ public class CodexMcpServerActionHandlers {
                 LOG.info("[CodexMcpServerActionHandlers] Loaded " + servers.size() + " Codex MCP servers");
 
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    context.dispatchEvent("codex.mcp.server_list", context.escapeJs(serversJson));
+                    context.dispatchEvent(DownstreamEvent.CODEX_MCP_SERVER_LIST.value(), context.escapeJs(serversJson));
                 });
             } catch (Exception e) {
                 LOG.error("[CodexMcpServerActionHandlers] Failed to get Codex MCP servers: " + e.getMessage(), e);
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    context.dispatchEvent("codex.mcp.server_list", context.escapeJs("[]"));
+                    context.dispatchEvent(DownstreamEvent.CODEX_MCP_SERVER_LIST.value(), context.escapeJs("[]"));
                 });
             }
         }, AppExecutorUtil.getAppExecutorService()).exceptionally(ex -> {
@@ -68,7 +69,7 @@ public class CodexMcpServerActionHandlers {
             try {
                 if (!isCodexLocalConfigAuthorized()) {
                     ApplicationManager.getApplication().invokeLater(() -> {
-                        context.dispatchEvent("codex.mcp.server_status", context.escapeJs("[]"));
+                        context.dispatchEvent(DownstreamEvent.CODEX_MCP_SERVER_STATUS.value(), context.escapeJs("[]"));
                     });
                     return;
                 }
@@ -87,12 +88,12 @@ public class CodexMcpServerActionHandlers {
                 }
 
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    context.dispatchEvent("codex.mcp.server_status", context.escapeJs(statusJson));
+                    context.dispatchEvent(DownstreamEvent.CODEX_MCP_SERVER_STATUS.value(), context.escapeJs(statusJson));
                 });
             } catch (Exception e) {
                 LOG.error("[CodexMcpServerActionHandlers] Failed to get Codex MCP server status: " + e.getMessage(), e);
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    context.dispatchEvent("codex.mcp.server_status", context.escapeJs("[]"));
+                    context.dispatchEvent(DownstreamEvent.CODEX_MCP_SERVER_STATUS.value(), context.escapeJs("[]"));
                 });
             }
         }, AppExecutorUtil.getAppExecutorService()).exceptionally(ex -> {
@@ -138,7 +139,7 @@ public class CodexMcpServerActionHandlers {
                 .thenAccept(result -> {
                     String resultJson = gson.toJson(result);
                     ApplicationManager.getApplication().invokeLater(() ->
-                        context.dispatchEvent("codex.mcp.server_tools", context.escapeJs(resultJson))
+                        context.dispatchEvent(DownstreamEvent.CODEX_MCP_SERVER_TOOLS.value(), context.escapeJs(resultJson))
                     );
                 })
                 .exceptionally(e -> {
@@ -164,14 +165,14 @@ public class CodexMcpServerActionHandlers {
             LOG.info("[CodexMcpServerActionHandlers] Added Codex MCP server: " + serverId);
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent("codex.mcp.server_added", context.escapeJs(content));
+                context.dispatchEvent(DownstreamEvent.CODEX_MCP_SERVER_ADDED.value(), context.escapeJs(content));
                 handleGetMcpServers();
             });
         } catch (Exception e) {
             LOG.error("[CodexMcpServerActionHandlers] Failed to add Codex MCP server: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
                 String errorMsg = context.escapeJs("Failed to add Codex MCP server: " + e.getMessage());
-                context.dispatchEvent("toast.error", errorMsg);
+                context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), errorMsg);
             });
         }
     }
@@ -187,14 +188,14 @@ public class CodexMcpServerActionHandlers {
             LOG.info("[CodexMcpServerActionHandlers] Updated Codex MCP server: " + serverId);
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent("codex.mcp.server_updated", context.escapeJs(content));
+                context.dispatchEvent(DownstreamEvent.CODEX_MCP_SERVER_UPDATED.value(), context.escapeJs(content));
                 handleGetMcpServers();
             });
         } catch (Exception e) {
             LOG.error("[CodexMcpServerActionHandlers] Failed to update Codex MCP server: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
                 String errorMsg = context.escapeJs("Failed to update Codex MCP server: " + e.getMessage());
-                context.dispatchEvent("toast.error", errorMsg);
+                context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), errorMsg);
             });
         }
     }
@@ -210,21 +211,21 @@ public class CodexMcpServerActionHandlers {
             if (success) {
                 LOG.info("[CodexMcpServerActionHandlers] Deleted Codex MCP server: " + serverId);
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    context.dispatchEvent("codex.mcp.server_deleted", context.escapeJs(serverId));
+                    context.dispatchEvent(DownstreamEvent.CODEX_MCP_SERVER_DELETED.value(), context.escapeJs(serverId));
                     handleGetMcpServers();
                 });
             } else {
                 LOG.warn("[CodexMcpServerActionHandlers] Codex MCP server not found: " + serverId);
                 ApplicationManager.getApplication().invokeLater(() -> {
                     String errorMsg = context.escapeJs("Codex MCP server not found: " + serverId);
-                    context.dispatchEvent("toast.error", errorMsg);
+                    context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), errorMsg);
                 });
             }
         } catch (Exception e) {
             LOG.error("[CodexMcpServerActionHandlers] Failed to delete Codex MCP server: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
                 String errorMsg = context.escapeJs("Failed to delete Codex MCP server: " + e.getMessage());
-                context.dispatchEvent("toast.error", errorMsg);
+                context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), errorMsg);
             });
         }
     }
@@ -243,14 +244,14 @@ public class CodexMcpServerActionHandlers {
             LOG.info("[CodexMcpServerActionHandlers] Toggled Codex MCP server: " + serverName + " (enabled: " + isEnabled + ")");
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent("codex.mcp.server_toggled", context.escapeJs(content));
+                context.dispatchEvent(DownstreamEvent.CODEX_MCP_SERVER_TOGGLED.value(), context.escapeJs(content));
                 handleGetMcpServers();
             });
         } catch (Exception e) {
             LOG.error("[CodexMcpServerActionHandlers] Failed to toggle Codex MCP server: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
                 String errorMsg = context.escapeJs("Failed to toggle Codex MCP server: " + e.getMessage());
-                context.dispatchEvent("toast.error", errorMsg);
+                context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), errorMsg);
             });
         }
     }
@@ -264,7 +265,7 @@ public class CodexMcpServerActionHandlers {
             String validationJson = gson.toJson(validation);
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent("codex.mcp.server_validated", context.escapeJs(validationJson));
+                context.dispatchEvent(DownstreamEvent.CODEX_MCP_SERVER_VALIDATED.value(), context.escapeJs(validationJson));
             });
         } catch (Exception e) {
             LOG.error("[CodexMcpServerActionHandlers] Failed to validate Codex MCP server: " + e.getMessage(), e);
@@ -280,7 +281,7 @@ public class CodexMcpServerActionHandlers {
         errorResult.add("tools", new com.google.gson.JsonArray());
         String json = gson.toJson(errorResult);
         ApplicationManager.getApplication().invokeLater(() ->
-            context.dispatchEvent("codex.mcp.server_tools", context.escapeJs(json))
+            context.dispatchEvent(DownstreamEvent.CODEX_MCP_SERVER_TOOLS.value(), context.escapeJs(json))
         );
     }
 

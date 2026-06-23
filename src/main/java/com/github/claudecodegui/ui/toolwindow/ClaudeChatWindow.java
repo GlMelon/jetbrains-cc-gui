@@ -6,6 +6,7 @@ import com.github.claudecodegui.handler.core.FrontendActionDispatcher;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.permission.PermissionService;
+import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
 import com.github.claudecodegui.provider.codex.CodexSDKBridge;
 import com.github.claudecodegui.provider.common.DaemonBridge;
@@ -836,7 +837,7 @@ public class ClaudeChatWindow {
                                 com.google.gson.JsonObject titlePayload = new com.google.gson.JsonObject();
                                 titlePayload.addProperty("sessionId", genSessionId);
                                 titlePayload.addProperty("title", title);
-                                dispatchEvent("session.title", JsUtils.escapeJs(titlePayload.toString()));
+                                dispatchEvent(DownstreamEvent.SESSION_TITLE.value(), JsUtils.escapeJs(titlePayload.toString()));
                             }
                         });
                     }

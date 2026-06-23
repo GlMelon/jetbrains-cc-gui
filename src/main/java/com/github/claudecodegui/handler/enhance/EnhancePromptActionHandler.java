@@ -6,6 +6,7 @@ import com.github.claudecodegui.handler.PromptEnhancerProcessRunner;
 import com.github.claudecodegui.handler.core.FrontendActionContext;
 import com.github.claudecodegui.handler.core.FrontendActionHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.protocol.UpstreamAction;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
@@ -484,7 +485,7 @@ public final class EnhancePromptActionHandler implements FrontendActionHandler<S
         String resultJson = gson.toJson(result);
 
         ApplicationManager.getApplication().invokeLater(() -> {
-            ctx.dispatchEvent("prompt.enhanced", ctx.escapeJs(resultJson));
+            ctx.dispatchEvent(DownstreamEvent.PROMPT_ENHANCED.value(), ctx.escapeJs(resultJson));
         });
     }
 }

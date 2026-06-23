@@ -8,6 +8,7 @@ import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.action.SendShortcutSync;
 import com.github.claudecodegui.session.ClaudeSession;
 import com.github.claudecodegui.provider.claude.ClaudeHistoryReader;
+import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.provider.codex.CodexHistoryReader;
 import com.github.claudecodegui.util.FontConfigService;
 import com.github.claudecodegui.util.ThemeConfigService;
@@ -55,7 +56,7 @@ public class ProjectConfigHandler {
     private interface ThrowingProjectBooleanConsumer { void accept(String projectPath, boolean value) throws Exception; }
 
     /**
-     * [归一化重构] pushJson 改用 dispatchEvent。jsCallback 参数现为总线 type 名(如 "setting.streaming_enabled")。
+     * [归一化重构] pushJson 改用 dispatchEvent。jsCallback 参数现为下行总线 type(B5 后统一来自 {@link DownstreamEvent} 枚举)。
      */
     private void pushJson(String type, JsonElement payload) {
         String json = gson.toJson(payload);
@@ -65,12 +66,12 @@ public class ProjectConfigHandler {
 
     private void showError(String message) {
         ApplicationManager.getApplication().invokeLater(() ->
-            context.dispatchEvent("toast.error", context.escapeJs(message)));
+            context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs(message)));
     }
 
     private void showSuccess(String message) {
         ApplicationManager.getApplication().invokeLater(() ->
-            context.dispatchEvent("toast.success", context.escapeJs(message)));
+            context.dispatchEvent(DownstreamEvent.TOAST_SUCCESS.value(), context.escapeJs(message)));
     }
 
     private static JsonObject jsonOf(String key, boolean value) {
@@ -166,14 +167,14 @@ public class ProjectConfigHandler {
             String projectPath = context.getProject().getBasePath();
             if (projectPath == null) {
                 ApplicationManager.getApplication().invokeLater(() ->
-                    context.dispatchEvent("config.working_directory", "{}"));
+                    context.dispatchEvent(DownstreamEvent.CONFIG_WORKING_DIRECTORY.value(), "{}"));
                 return;
             }
             String customWorkingDir = settingsService.getCustomWorkingDirectory(projectPath);
             JsonObject response = new JsonObject();
             response.addProperty("projectPath", projectPath);
             response.addProperty("customWorkingDir", customWorkingDir != null ? customWorkingDir : "");
-            pushJson("config.working_directory", response);
+            pushJson(DownstreamEvent.CONFIG_WORKING_DIRECTORY.value(), response);
         } catch (Exception e) {
             LOG.error("[ProjectConfigHandler] Failed to get working directory: " + e.getMessage(), e);
             showError("Failed to get working directory config: " + e.getMessage());
@@ -209,7 +210,7 @@ public class ProjectConfigHandler {
     }
 
     public void handleGetStreamingEnabled() {
-        respondWithJson("setting.streaming_enabled",
+        respondWithJson(DownstreamEvent.SETTING_STREAMING_ENABLED.value(),
             () -> {
                 String projectPath = context.getProject().getBasePath();
                 boolean enabled = projectPath == null || settingsService.getStreamingEnabled(projectPath);
@@ -222,12 +223,12 @@ public class ProjectConfigHandler {
     public void handleSetStreamingEnabled(String content) {
         handleProjectBooleanToggle(content, "streamingEnabled", true, "streaming enabled",
             settingsService::setStreamingEnabled,
-            "setting.streaming_enabled",
+            DownstreamEvent.SETTING_STREAMING_ENABLED.value(),
             "Failed to save streaming config");
     }
 
     public void handleGetCodexSandboxMode() {
-        respondWithJson("config.codex_sandbox_mode",
+        respondWithJson(DownstreamEvent.CONFIG_CODEX_SANDBOX_MODE.value(),
             () -> jsonOf("sandboxMode", settingsService.getCodexSandboxMode(context.getProject().getBasePath())),
             jsonOf("sandboxMode", "workspace-write"),
             "Failed to get Codex sandbox mode");
@@ -241,9 +242,9 @@ public class ProjectConfigHandler {
             settingsService.setCodexSandboxMode(projectPath, sandboxMode);
             LOG.info("[ProjectConfigHandler] Set Codex sandbox mode: " + sandboxMode);
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent("config.codex_sandbox_mode",
+                context.dispatchEvent(DownstreamEvent.CONFIG_CODEX_SANDBOX_MODE.value(),
                     context.escapeJs(gson.toJson(jsonOf("sandboxMode", sandboxMode))));
-                context.dispatchEvent("toast.success_i18n", "toast.saveSuccess");
+                context.dispatchEvent(DownstreamEvent.TOAST_SUCCESS_I18N.value(), "toast.saveSuccess");
             });
         } catch (Exception e) {
             LOG.error("[ProjectConfigHandler] Failed to set Codex sandbox mode: " + e.getMessage(), e);
@@ -252,14 +253,14 @@ public class ProjectConfigHandler {
     }
 
     public void handleGetInvocationMode() {
-        respondWithJson("config.invocation_mode",
+        respondWithJson(DownstreamEvent.CONFIG_INVOCATION_MODE.value(),
             () -> jsonOf("invocationMode", settingsService.getClaudeInvocationMode()),
             jsonOf("invocationMode", "sdk"),
             "Failed to get Claude invocation mode");
     }
 
     public void handleGetSessionInvocationMode() {
-        respondWithJson("session.invocation_mode", () -> {
+        respondWithJson(DownstreamEvent.SESSION_INVOCATION_MODE.value(), () -> {
             String mode = context.getSession() != null ? context.getSession().getClaudeInvocationMode() : null;
             if (mode == null || mode.isBlank()) {
                 mode = settingsService.getClaudeInvocationMode();
@@ -269,7 +270,7 @@ public class ProjectConfigHandler {
     }
 
     public void handleGetSessionRuntimeState() {
-        respondWithJson("session.runtime_state", this::buildSessionRuntimeStateJson, null, "Failed to get session runtime state");
+        respondWithJson(DownstreamEvent.SESSION_RUNTIME_STATE.value(), this::buildSessionRuntimeStateJson, null, "Failed to get session runtime state");
     }
 
     public JsonObject buildSessionRuntimeStateJson() throws Exception {
@@ -307,8 +308,8 @@ public class ProjectConfigHandler {
             if (context.getSession() != null) {
                 context.getSession().setClaudeInvocationMode(settingsService.getClaudeInvocationMode());
             }
-            pushJson("config.invocation_mode", jsonOf("invocationMode", settingsService.getClaudeInvocationMode()));
-            pushJson("session.runtime_state", buildSessionRuntimeStateJson());
+            pushJson(DownstreamEvent.CONFIG_INVOCATION_MODE.value(), jsonOf("invocationMode", settingsService.getClaudeInvocationMode()));
+            pushJson(DownstreamEvent.SESSION_RUNTIME_STATE.value(), buildSessionRuntimeStateJson());
         } catch (Exception e) {
             LOG.error("[ProjectConfigHandler] Failed to set Claude invocation mode: " + e.getMessage(), e);
             showError("Failed to save Claude invocation mode: " + e.getMessage());
@@ -322,7 +323,7 @@ public class ProjectConfigHandler {
             settingsService.setClaudeCliPath(path);
             JsonObject response = new JsonObject();
             response.addProperty("claudeCliPath", settingsService.getClaudeCliPath());
-            pushJson("config.claude_cli_path", response);
+            pushJson(DownstreamEvent.CONFIG_CLAUDE_CLI_PATH.value(), response);
         } catch (Exception e) {
             LOG.error("[ProjectConfigHandler] Failed to set Claude CLI path: " + e.getMessage(), e);
             showError("Failed to save Claude CLI path: " + e.getMessage());
@@ -330,7 +331,7 @@ public class ProjectConfigHandler {
     }
 
     public void handleGetAutoOpenFileEnabled() {
-        respondWithJson("setting.auto_open_file",
+        respondWithJson(DownstreamEvent.SETTING_AUTO_OPEN_FILE.value(),
             () -> {
                 String projectPath = context.getProject().getBasePath();
                 boolean enabled = projectPath != null && settingsService.getAutoOpenFileEnabled(projectPath);
@@ -343,12 +344,12 @@ public class ProjectConfigHandler {
     public void handleSetAutoOpenFileEnabled(String content) {
         handleProjectBooleanToggle(content, "autoOpenFileEnabled", false, "auto open file enabled",
             settingsService::setAutoOpenFileEnabled,
-            "setting.auto_open_file",
+            DownstreamEvent.SETTING_AUTO_OPEN_FILE.value(),
             "Failed to save auto open file config");
     }
 
     public void handleGetPermissionDialogTimeout() {
-        respondWithJson("setting.permission_dialog_timeout",
+        respondWithJson(DownstreamEvent.SETTING_PERMISSION_DIALOG_TIMEOUT.value(),
             () -> jsonOf("permissionDialogTimeoutSeconds", settingsService.getPermissionDialogTimeoutSeconds()),
             jsonOf("permissionDialogTimeoutSeconds", CodemossSettingsService.DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS),
             "Failed to get permission dialog timeout");
@@ -359,7 +360,7 @@ public class ProjectConfigHandler {
             JsonObject response = setPermissionDialogTimeoutAndCreateResponse(content);
             LOG.info("[ProjectConfigHandler] Set permission dialog timeout: "
                     + response.get("permissionDialogTimeoutSeconds").getAsInt() + "s");
-            pushJson("setting.permission_dialog_timeout", response);
+            pushJson(DownstreamEvent.SETTING_PERMISSION_DIALOG_TIMEOUT.value(), response);
         } catch (Exception e) {
             LOG.error("[ProjectConfigHandler] Failed to set permission dialog timeout; errorClass="
                     + e.getClass().getSimpleName(), e);
@@ -392,7 +393,7 @@ public class ProjectConfigHandler {
     public void handleGetSendShortcut() {
         try {
             String sendShortcut = PropertiesComponent.getInstance().getValue(SEND_SHORTCUT_PROPERTY_KEY, "enter");
-            pushJson("setting.send_shortcut", jsonOf("sendShortcut", sendShortcut));
+            pushJson(DownstreamEvent.SETTING_SEND_SHORTCUT.value(), jsonOf("sendShortcut", sendShortcut));
         } catch (Exception e) {
             LOG.error("[ProjectConfigHandler] Failed to get send shortcut: " + e.getMessage(), e);
         }
@@ -408,7 +409,7 @@ public class ProjectConfigHandler {
             PropertiesComponent.getInstance().setValue(SEND_SHORTCUT_PROPERTY_KEY, sendShortcut);
             SendShortcutSync.sync(sendShortcut);
             LOG.info("[ProjectConfigHandler] Set send shortcut: " + sendShortcut);
-            pushJson("setting.send_shortcut", jsonOf("sendShortcut", sendShortcut));
+            pushJson(DownstreamEvent.SETTING_SEND_SHORTCUT.value(), jsonOf("sendShortcut", sendShortcut));
         } catch (Exception e) {
             LOG.error("[ProjectConfigHandler] Failed to set send shortcut: " + e.getMessage(), e);
             showError("Failed to save send shortcut setting: " + e.getMessage());
@@ -425,7 +426,7 @@ public class ProjectConfigHandler {
             JsonObject payload = new JsonObject();
             payload.addProperty("commitPrompt", commitPrompt);
             payload.addProperty("projectCommitPrompt", projectCommitPrompt);
-            pushJson("config.commit_prompt", payload);
+            pushJson(DownstreamEvent.CONFIG_COMMIT_PROMPT.value(), payload);
         } catch (Exception e) {
             LOG.error("[ProjectConfigHandler] Failed to get commit prompt: " + e.getMessage(), e);
         }
@@ -456,7 +457,7 @@ public class ProjectConfigHandler {
             JsonObject response = new JsonObject();
             response.addProperty("commitPrompt", validatedPrompt);
             response.addProperty("saved", true);
-            pushJson("config.commit_prompt", response);
+            pushJson(DownstreamEvent.CONFIG_COMMIT_PROMPT.value(), response);
         } catch (Exception e) {
             LOG.error("[ProjectConfigHandler] Failed to set commit prompt: " + e.getMessage(), e);
             showError("Failed to save commit prompt: " + e.getMessage());
@@ -465,7 +466,7 @@ public class ProjectConfigHandler {
 
     public void handleGetPromptEnhancerConfig() {
         try {
-            pushJson("config.prompt_enhancer", settingsService.getPromptEnhancerConfig());
+            pushJson(DownstreamEvent.CONFIG_PROMPT_ENHANCER.value(), settingsService.getPromptEnhancerConfig());
         } catch (Exception e) {
             LOG.error("[ProjectConfigHandler] Failed to get prompt enhancer config: " + e.getMessage(), e);
             showError(ClaudeCodeGuiBundle.message("projectConfig.promptEnhancer.getFailed", e.getMessage()));
@@ -476,14 +477,14 @@ public class ProjectConfigHandler {
         applyAiProviderConfig(content,
             settingsService::setPromptEnhancerConfig,
             settingsService::getPromptEnhancerConfig,
-            "config.prompt_enhancer",
+            DownstreamEvent.CONFIG_PROMPT_ENHANCER.value(),
             "Failed to set prompt enhancer config",
             "projectConfig.promptEnhancer.saveFailed");
     }
 
     public void handleGetCommitAiConfig() {
         try {
-            pushJson("config.commit_ai", settingsService.getCommitAiConfig());
+            pushJson(DownstreamEvent.CONFIG_COMMIT_AI.value(), settingsService.getCommitAiConfig());
         } catch (Exception e) {
             LOG.error("[ProjectConfigHandler] Failed to get commit AI config: " + e.getMessage(), e);
             showError(ClaudeCodeGuiBundle.message("projectConfig.commitAi.getFailed", e.getMessage()));
@@ -494,7 +495,7 @@ public class ProjectConfigHandler {
         applyAiProviderConfig(content,
             settingsService::setCommitAiConfig,
             settingsService::getCommitAiConfig,
-            "config.commit_ai",
+            DownstreamEvent.CONFIG_COMMIT_AI.value(),
             "Failed to set commit AI config",
             "projectConfig.commitAi.saveFailed");
     }
@@ -531,7 +532,7 @@ public class ProjectConfigHandler {
             String projectCommitPrompt = projectPath != null
                     ? settingsService.getProjectCommitPrompt(projectPath)
                     : "";
-            pushJson("config.project_commit_prompt", jsonOf("projectCommitPrompt", projectCommitPrompt));
+            pushJson(DownstreamEvent.CONFIG_PROJECT_COMMIT_PROMPT.value(), jsonOf("projectCommitPrompt", projectCommitPrompt));
         } catch (Exception e) {
             LOG.error("[ProjectConfigHandler] Failed to get project commit prompt: " + e.getMessage(), e);
         }
@@ -567,7 +568,7 @@ public class ProjectConfigHandler {
             JsonObject response = new JsonObject();
             response.addProperty("projectCommitPrompt", validatedPrompt);
             response.addProperty("saved", true);
-            pushJson("config.project_commit_prompt", response);
+            pushJson(DownstreamEvent.CONFIG_PROJECT_COMMIT_PROMPT.value(), response);
         } catch (Exception e) {
             LOG.error("[ProjectConfigHandler] Failed to set project commit prompt: " + e.getMessage(), e);
             showError("Failed to save project commit prompt: " + e.getMessage());
@@ -578,7 +579,7 @@ public class ProjectConfigHandler {
         try {
             String themeConfigJson = ThemeConfigService.getIdeThemeConfig().toString();
             ApplicationManager.getApplication().invokeLater(() ->
-                context.dispatchEvent("theme.received", context.escapeJs(themeConfigJson)));
+                context.dispatchEvent(DownstreamEvent.THEME_RECEIVED.value(), context.escapeJs(themeConfigJson)));
         } catch (Exception e) {
             LOG.error("[ProjectConfigHandler] Failed to get IDE theme: " + e.getMessage(), e);
         }
@@ -588,7 +589,7 @@ public class ProjectConfigHandler {
         try {
             String fontConfigJson = FontConfigService.getEditorFontConfig().toString();
             ApplicationManager.getApplication().invokeLater(() ->
-                context.dispatchEvent("font.editor_config_received", context.escapeJs(fontConfigJson)));
+                context.dispatchEvent(DownstreamEvent.FONT_EDITOR_CONFIG_RECEIVED.value(), context.escapeJs(fontConfigJson)));
         } catch (Exception e) {
             LOG.error("[ProjectConfigHandler] Failed to get editor font config: " + e.getMessage(), e);
         }
@@ -711,16 +712,16 @@ public class ProjectConfigHandler {
         String path = file.getPath();
         FontConfigService.ValidationResult validation = FontConfigService.validateCustomUiFontFile(path);
         if (!validation.valid()) {
-            context.dispatchEvent("toast.error", context.escapeJs("Invalid font file: " + validation.errorMessage()));
+            context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs("Invalid font file: " + validation.errorMessage()));
             return;
         }
         try {
             settingsService.setUiFontConfig(FontConfigService.UI_FONT_MODE_CUSTOM_FILE, path);
             dispatchUiFontConfigUpdate();
-            context.dispatchEvent("toast.success_i18n", context.escapeJs("toast.saveSuccess"));
+            context.dispatchEvent(DownstreamEvent.TOAST_SUCCESS_I18N.value(), context.escapeJs("toast.saveSuccess"));
         } catch (Exception e) {
             LOG.error("[ProjectConfigHandler] Failed to save selected font file: " + e.getMessage(), e);
-            context.dispatchEvent("toast.error", context.escapeJs("Failed to save font config: " + e.getMessage()));
+            context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs("Failed to save font config: " + e.getMessage()));
         }
     }
 
@@ -729,21 +730,21 @@ public class ProjectConfigHandler {
         String path = file.getPath();
         FontConfigService.ValidationResult validation = FontConfigService.validateCustomUiFontFile(path);
         if (!validation.valid()) {
-            context.dispatchEvent("toast.error", context.escapeJs("Invalid font file: " + validation.errorMessage()));
+            context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs("Invalid font file: " + validation.errorMessage()));
             return;
         }
         try {
             settingsService.setCodeFontConfig(FontConfigService.UI_FONT_MODE_CUSTOM_FILE, path);
             dispatchCodeFontConfigUpdate();
-            context.dispatchEvent("toast.success_i18n", context.escapeJs("toast.saveSuccess"));
+            context.dispatchEvent(DownstreamEvent.TOAST_SUCCESS_I18N.value(), context.escapeJs("toast.saveSuccess"));
         } catch (Exception e) {
             LOG.error("[ProjectConfigHandler] Failed to save selected code font file: " + e.getMessage(), e);
-            context.dispatchEvent("toast.error", context.escapeJs("Failed to save code font config: " + e.getMessage()));
+            context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs("Failed to save code font config: " + e.getMessage()));
         }
     }
 
     public void handleGetCommitGenerationEnabled() {
-        respondWithJson("config.commit_generation",
+        respondWithJson(DownstreamEvent.CONFIG_COMMIT_GENERATION.value(),
             () -> jsonOf("commitGenerationEnabled", settingsService.getCommitGenerationEnabled()),
             jsonOf("commitGenerationEnabled", true),
             "Failed to get commit generation enabled");
@@ -752,12 +753,12 @@ public class ProjectConfigHandler {
     public void handleSetCommitGenerationEnabled(String content) {
         handleBooleanToggle(content, "commitGenerationEnabled", true, "commit generation enabled",
             settingsService::setCommitGenerationEnabled,
-            "config.commit_generation",
+            DownstreamEvent.CONFIG_COMMIT_GENERATION.value(),
             "Failed to save AI commit generation config");
     }
 
     public void handleGetAiTitleGenerationEnabled() {
-        respondWithJson("config.ai_title_generation",
+        respondWithJson(DownstreamEvent.CONFIG_AI_TITLE_GENERATION.value(),
             () -> jsonOf("aiTitleGenerationEnabled", settingsService.getAiTitleGenerationEnabled()),
             jsonOf("aiTitleGenerationEnabled", true),
             "Failed to get AI title generation enabled");
@@ -766,12 +767,12 @@ public class ProjectConfigHandler {
     public void handleSetAiTitleGenerationEnabled(String content) {
         handleBooleanToggle(content, "aiTitleGenerationEnabled", true, "AI title generation enabled",
             settingsService::setAiTitleGenerationEnabled,
-            "config.ai_title_generation",
+            DownstreamEvent.CONFIG_AI_TITLE_GENERATION.value(),
             "Failed to save AI title generation config");
     }
 
     public void handleGetStatusBarWidgetEnabled() {
-        respondWithJson("config.status_bar_widget",
+        respondWithJson(DownstreamEvent.CONFIG_STATUS_BAR_WIDGET.value(),
             () -> jsonOf("statusBarWidgetEnabled", settingsService.getStatusBarWidgetEnabled()),
             jsonOf("statusBarWidgetEnabled", true),
             "Failed to get status bar widget enabled");
@@ -780,12 +781,12 @@ public class ProjectConfigHandler {
     public void handleSetStatusBarWidgetEnabled(String content) {
         handleBooleanToggle(content, "statusBarWidgetEnabled", true, "status bar widget enabled",
             settingsService::setStatusBarWidgetEnabled,
-            "config.status_bar_widget",
+            DownstreamEvent.CONFIG_STATUS_BAR_WIDGET.value(),
             "Failed to save status bar config");
     }
 
     public void handleGetTaskCompletionNotificationEnabled() {
-        respondWithJson("config.task_completion_notification",
+        respondWithJson(DownstreamEvent.CONFIG_TASK_COMPLETION_NOTIFICATION.value(),
             () -> jsonOf("taskCompletionNotificationEnabled", settingsService.getTaskCompletionNotificationEnabled()),
             jsonOf("taskCompletionNotificationEnabled", false),
             "Failed to get task completion notification enabled");
@@ -795,7 +796,7 @@ public class ProjectConfigHandler {
         // Default to disabled when payload is missing or the field is absent/null (opt-in feature).
         handleBooleanToggle(content, "taskCompletionNotificationEnabled", false, "task completion notification enabled",
             settingsService::setTaskCompletionNotificationEnabled,
-            "config.task_completion_notification",
+            DownstreamEvent.CONFIG_TASK_COMPLETION_NOTIFICATION.value(),
             "Failed to save task completion notification setting");
     }
 
@@ -803,8 +804,8 @@ public class ProjectConfigHandler {
         try {
             String uiFontConfigJson = FontConfigService.getResolvedUiFontConfigJson(settingsService);
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent("font.ui_config_received", context.escapeJs(uiFontConfigJson));
-                context.dispatchEvent("font.apply_ui", context.escapeJs(uiFontConfigJson));
+                context.dispatchEvent(DownstreamEvent.FONT_UI_CONFIG_RECEIVED.value(), context.escapeJs(uiFontConfigJson));
+                context.dispatchEvent(DownstreamEvent.FONT_APPLY_UI.value(), context.escapeJs(uiFontConfigJson));
             });
         } catch (Exception e) {
             LOG.error("[ProjectConfigHandler] Failed to dispatch UI font config: " + e.getMessage(), e);
@@ -815,8 +816,8 @@ public class ProjectConfigHandler {
         try {
             String codeFontConfigJson = FontConfigService.getResolvedCodeFontConfigJson(settingsService);
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent("font.code_config_received", context.escapeJs(codeFontConfigJson));
-                context.dispatchEvent("font.apply_code", context.escapeJs(codeFontConfigJson));
+                context.dispatchEvent(DownstreamEvent.FONT_CODE_CONFIG_RECEIVED.value(), context.escapeJs(codeFontConfigJson));
+                context.dispatchEvent(DownstreamEvent.FONT_APPLY_CODE.value(), context.escapeJs(codeFontConfigJson));
             });
         } catch (Exception e) {
             LOG.error("[ProjectConfigHandler] Failed to dispatch code font config: " + e.getMessage(), e);
@@ -863,7 +864,7 @@ public class ProjectConfigHandler {
                 }
                 final String statsJson = json;
                 ApplicationManager.getApplication().invokeLater(() ->
-                    context.dispatchEvent("usage.statistics", context.escapeJs(statsJson)));
+                    context.dispatchEvent(DownstreamEvent.USAGE_STATISTICS.value(), context.escapeJs(statsJson)));
             } catch (Exception e) {
                 LOG.error("[ProjectConfigHandler] Failed to get usage statistics: " + e.getMessage(), e);
                 showError("Failed to get statistics: " + e.getMessage());

@@ -5,6 +5,7 @@ import com.github.claudecodegui.handler.SettingsHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.model.SessionTemplate;
+import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
 import com.github.claudecodegui.provider.codex.CodexSDKBridge;
 import com.github.claudecodegui.session.runtime.ProviderType;
@@ -348,7 +349,7 @@ public class SessionLifecycleManager {
 
                 // Push Codex skills as separate channel for $ autocomplete
                 if (codexSkillsJson != null) {
-                    host.getHandlerContext().dispatchEvent("slash.dollar_commands", JsUtils.escapeJs(codexSkillsJson));
+                    host.getHandlerContext().dispatchEvent(DownstreamEvent.SLASH_DOLLAR_COMMANDS.value(), JsUtils.escapeJs(codexSkillsJson));
                 }
             } catch (Exception e) {
                 LOG.warn("Failed to send slash commands to frontend: " + e.getMessage(), e);
@@ -375,7 +376,7 @@ public class SessionLifecycleManager {
 
             ApplicationManager.getApplication().invokeLater(() -> {
                 if (!host.isDisposed() && host.getBrowser() != null) {
-                    host.getHandlerContext().dispatchEvent("mode.received", JsUtils.escapeJs(modeToSend));
+                    host.getHandlerContext().dispatchEvent(DownstreamEvent.MODE_RECEIVED.value(), JsUtils.escapeJs(modeToSend));
                 }
             });
         } catch (Exception e) {
@@ -401,7 +402,7 @@ public class SessionLifecycleManager {
 
         if (!host.isDisposed()) {
             // [归一化] 直接走下行总线 dispatchEvent,替代旧 window.onUsageUpdate 字面调用。
-            host.getHandlerContext().dispatchEvent("usage.update", JsUtils.escapeJs(usageJson));
+            host.getHandlerContext().dispatchEvent(DownstreamEvent.USAGE_UPDATE.value(), JsUtils.escapeJs(usageJson));
         }
     }
 
@@ -513,7 +514,7 @@ public class SessionLifecycleManager {
             payload.addProperty("claudeInvocationMode", session.getClaudeInvocationMode());
         }
         String json = GsonHolder.GSON.toJson(payload);
-        ApplicationManager.getApplication().invokeLater(() -> host.getHandlerContext().dispatchEvent("session.runtime_state", JsUtils.escapeJs(json)));
+        ApplicationManager.getApplication().invokeLater(() -> host.getHandlerContext().dispatchEvent(DownstreamEvent.SESSION_RUNTIME_STATE.value(), JsUtils.escapeJs(json)));
     }
 
     /**

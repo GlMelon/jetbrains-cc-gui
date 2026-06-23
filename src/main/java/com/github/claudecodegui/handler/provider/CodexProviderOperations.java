@@ -1,6 +1,7 @@
 package com.github.claudecodegui.handler.provider;
 
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.protocol.DownstreamEvent;
 
 import com.github.claudecodegui.model.DeleteResult;
 import com.github.claudecodegui.util.GsonHolder;
@@ -34,7 +35,7 @@ public class CodexProviderOperations {
             String providersJson = GSON.toJson(providers);
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent("provider.codex_list", context.escapeJs(providersJson));
+                context.dispatchEvent(DownstreamEvent.PROVIDER_CODEX_LIST.value(), context.escapeJs(providersJson));
             });
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to get Codex providers: " + e.getMessage(), e);
@@ -50,7 +51,7 @@ public class CodexProviderOperations {
             String configJson = GSON.toJson(config);
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent("provider.codex_config", context.escapeJs(configJson));
+                context.dispatchEvent(DownstreamEvent.PROVIDER_CODEX_CONFIG.value(), context.escapeJs(configJson));
             });
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to get current Codex config: " + e.getMessage(), e);
@@ -71,7 +72,7 @@ public class CodexProviderOperations {
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to add Codex provider: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent("toast.error", context.escapeJs(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("provider.addCodexFailed", e.getMessage())));
+                context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("provider.addCodexFailed", e.getMessage())));
             });
         }
     }
@@ -101,14 +102,14 @@ public class CodexProviderOperations {
                 handleGetCodexProviders(); // Refresh list
                 if (finalSynced) {
                     handleGetActiveCodexProvider(); // Refresh active provider config
-                    context.dispatchEvent("model_registry",
+                    context.dispatchEvent(DownstreamEvent.MODEL_REGISTRY.value(),
                             context.escapeJs(context.getSettingsService().getModelRegistryJson()));
                 }
             });
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to update Codex provider: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent("toast.error", context.escapeJs(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("provider.updateCodexFailed", e.getMessage())));
+                context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("provider.updateCodexFailed", e.getMessage())));
             });
         }
     }
@@ -127,7 +128,7 @@ public class CodexProviderOperations {
             if (!data.has("id")) {
                 LOG.error("[ProviderHandler] ERROR: Missing 'id' field in request");
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    context.dispatchEvent("toast.error", context.escapeJs(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("provider.deleteCodexMissingId")));
+                    context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("provider.deleteCodexMissingId")));
                 });
                 return;
             }
@@ -147,13 +148,13 @@ public class CodexProviderOperations {
                 String errorMsg = result.getUserFriendlyMessage();
                 LOG.warn("[ProviderHandler] Delete Codex provider failed: " + errorMsg);
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    context.dispatchEvent("toast.error", context.escapeJs(errorMsg));
+                    context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs(errorMsg));
                 });
             }
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Exception in handleDeleteCodexProvider: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent("toast.error", context.escapeJs(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("provider.deleteCodexFailed", e.getMessage())));
+                context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("provider.deleteCodexFailed", e.getMessage())));
             });
         }
 
@@ -195,17 +196,17 @@ public class CodexProviderOperations {
             ApplicationManager.getApplication().invokeLater(() -> {
                 String successMsg = com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("toast.providerSwitchSuccess")
                         + com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("provider.switchSyncCodex");
-                context.dispatchEvent("toast.switch_success", context.escapeJs(successMsg));
+                context.dispatchEvent(DownstreamEvent.TOAST_SWITCH_SUCCESS.value(), context.escapeJs(successMsg));
                 handleGetCodexProviders(); // Refresh provider list
                 handleGetCurrentCodexConfig(); // Refresh Codex CLI config display
                 handleGetActiveCodexProvider(); // Refresh active provider config
-                context.dispatchEvent("model_registry",
+                context.dispatchEvent(DownstreamEvent.MODEL_REGISTRY.value(),
                         context.escapeJs(context.getSettingsService().getModelRegistryJson()));
             });
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to switch Codex provider: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent("toast.error", context.escapeJs(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("toast.providerSwitchFailed") + ": " + e.getMessage()));
+                context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("toast.providerSwitchFailed") + ": " + e.getMessage()));
             });
         }
     }
@@ -240,18 +241,18 @@ public class CodexProviderOperations {
             }
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent("toast.switch_success", context.escapeJs(
+                context.dispatchEvent(DownstreamEvent.TOAST_SWITCH_SUCCESS.value(), context.escapeJs(
                         com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("toast.codexLocalConfigAuthorizationRevoked")));
                 handleGetCodexProviders();
                 handleGetCurrentCodexConfig();
                 handleGetActiveCodexProvider();
-                context.dispatchEvent("model_registry",
+                context.dispatchEvent(DownstreamEvent.MODEL_REGISTRY.value(),
                         context.escapeJs(context.getSettingsService().getModelRegistryJson()));
             });
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to revoke Codex local config authorization: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent("toast.error", context.escapeJs(
+                context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs(
                         com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("toast.providerSwitchFailed") + ": " + e.getMessage()));
             });
         }
@@ -273,18 +274,18 @@ public class CodexProviderOperations {
             LOG.info("[ProviderHandler] Authorized local Codex config provider");
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent("toast.switch_success", context.escapeJs(
+                context.dispatchEvent(DownstreamEvent.TOAST_SWITCH_SUCCESS.value(), context.escapeJs(
                         com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("toast.codexCliLoginSwitchSuccess")));
                 handleGetCodexProviders();
                 handleGetCurrentCodexConfig();
                 handleGetActiveCodexProvider();
-                context.dispatchEvent("model_registry",
+                context.dispatchEvent(DownstreamEvent.MODEL_REGISTRY.value(),
                         context.escapeJs(context.getSettingsService().getModelRegistryJson()));
             });
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to switch to Codex CLI login: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent("toast.error", context.escapeJs(
+                context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs(
                         com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("toast.providerSwitchFailed") + ": " + e.getMessage()));
             });
         }
@@ -299,7 +300,7 @@ public class CodexProviderOperations {
             String providerJson = GSON.toJson(provider);
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent("provider.active_codex", context.escapeJs(providerJson));
+                context.dispatchEvent(DownstreamEvent.PROVIDER_ACTIVE_CODEX.value(), context.escapeJs(providerJson));
             });
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to get active Codex provider: " + e.getMessage(), e);

@@ -1,6 +1,7 @@
 package com.github.claudecodegui.handler.provider;
 
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.settings.ProviderManager;
 
 import com.github.claudecodegui.model.DeleteResult;
@@ -41,7 +42,7 @@ public class ClaudeProviderOperations {
             String json = GSON.toJson(payload);
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent("setting.thinking_enabled", context.escapeJs(json));
+                context.dispatchEvent(DownstreamEvent.SETTING_THINKING_ENABLED.value(), context.escapeJs(json));
             });
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to get thinking enabled: " + e.getMessage(), e);
@@ -79,7 +80,7 @@ public class ClaudeProviderOperations {
             String json = GSON.toJson(payload);
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent("setting.thinking_enabled", context.escapeJs(json));
+                context.dispatchEvent(DownstreamEvent.SETTING_THINKING_ENABLED.value(), context.escapeJs(json));
             });
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to set thinking enabled: " + e.getMessage(), e);
@@ -95,7 +96,7 @@ public class ClaudeProviderOperations {
             String providersJson = GSON.toJson(providers);
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent("provider.list", context.escapeJs(providersJson));
+                context.dispatchEvent(DownstreamEvent.PROVIDER_LIST.value(), context.escapeJs(providersJson));
             });
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to get providers: " + e.getMessage(), e);
@@ -111,7 +112,7 @@ public class ClaudeProviderOperations {
             String configJson = GSON.toJson(config);
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent("provider.claude_config", context.escapeJs(configJson));
+                context.dispatchEvent(DownstreamEvent.PROVIDER_CLAUDE_CONFIG.value(), context.escapeJs(configJson));
             });
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to get current claude config: " + e.getMessage(), e);
@@ -132,7 +133,7 @@ public class ClaudeProviderOperations {
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to add provider: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent("toast.error", context.escapeJs(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("provider.addFailed", e.getMessage())));
+                context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("provider.addFailed", e.getMessage())));
             });
         }
     }
@@ -171,7 +172,7 @@ public class ClaudeProviderOperations {
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to update provider: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent("toast.error", context.escapeJs(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("provider.updateFailed", e.getMessage())));
+                context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("provider.updateFailed", e.getMessage())));
             });
         }
     }
@@ -190,7 +191,7 @@ public class ClaudeProviderOperations {
             if (!data.has("id")) {
                 LOG.error("[ProviderHandler] ERROR: Missing 'id' field in request");
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    context.dispatchEvent("toast.error", context.escapeJs(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("provider.deleteMissingId")));
+                    context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("provider.deleteMissingId")));
                 });
                 return;
             }
@@ -213,13 +214,13 @@ public class ClaudeProviderOperations {
                 LOG.warn("[ProviderHandler] Error details: " + result.getErrorMessage());
                 ApplicationManager.getApplication().invokeLater(() -> {
                     LOG.debug("[ProviderHandler] Calling window.showError with: " + errorMsg);
-                    context.dispatchEvent("toast.error", context.escapeJs(errorMsg));
+                    context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs(errorMsg));
                 });
             }
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Exception in handleDeleteProvider: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent("toast.error", context.escapeJs(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("provider.deleteFailed", e.getMessage())));
+                context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("provider.deleteFailed", e.getMessage())));
             });
         }
 
@@ -256,7 +257,7 @@ public class ClaudeProviderOperations {
                 context.getSettingsService().deactivateClaudeProvider();
 
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    context.dispatchEvent("toast.switch_success",
+                    context.dispatchEvent(DownstreamEvent.TOAST_SWITCH_SUCCESS.value(),
                             context.escapeJs(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("toast.providerDisabled")));
                     handleGetProviders();
                     handleGetActiveProvider();
@@ -279,7 +280,7 @@ public class ClaudeProviderOperations {
                 if (!Files.exists(settingsPath)) {
                     LOG.warn("[ProviderHandler] Local settings.json does not exist at: " + settingsPath);
                     ApplicationManager.getApplication().invokeLater(() -> {
-                        context.dispatchEvent("toast.error",
+                        context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(),
                                 context.escapeJs(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("error.localProviderSettingsNotFound")));
                     });
                     return;
@@ -292,7 +293,7 @@ public class ClaudeProviderOperations {
                 } catch (JsonSyntaxException e) {
                     LOG.error("[ProviderHandler] Invalid JSON in settings.json: " + e.getMessage(), e);
                     ApplicationManager.getApplication().invokeLater(() -> {
-                        context.dispatchEvent("toast.error",
+                        context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(),
                                 context.escapeJs(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("error.localProviderInvalidJson", e.getMessage())));
                     });
                     return;
@@ -311,11 +312,11 @@ public class ClaudeProviderOperations {
                 LOG.info("[ProviderHandler] Switched to LOCAL settings.json provider");
 
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    context.dispatchEvent("toast.switch_success",
+                    context.dispatchEvent(DownstreamEvent.TOAST_SWITCH_SUCCESS.value(),
                             context.escapeJs(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("toast.localProviderSwitchSuccess")));
                     handleGetProviders();
                     handleGetActiveProvider();
-                    context.dispatchEvent("model_registry",
+                    context.dispatchEvent(DownstreamEvent.MODEL_REGISTRY.value(),
                             context.escapeJs(context.getSettingsService().getModelRegistryJson()));
                 });
                 return;
@@ -344,14 +345,14 @@ public class ClaudeProviderOperations {
                         ? accountInfo.get("emailAddress").getAsString() : null;
 
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    context.dispatchEvent("toast.switch_success",
+                    context.dispatchEvent(DownstreamEvent.TOAST_SWITCH_SUCCESS.value(),
                             context.escapeJs(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("toast.cliLoginSwitchSuccess")));
                     handleGetProviders();
                     handleGetActiveProvider();
-                    context.dispatchEvent("model_registry",
+                    context.dispatchEvent(DownstreamEvent.MODEL_REGISTRY.value(),
                             context.escapeJs(context.getSettingsService().getModelRegistryJson()));
                     if (accountEmail != null) {
-                        context.dispatchEvent("provider.cli_login_account",
+                        context.dispatchEvent(DownstreamEvent.PROVIDER_CLI_LOGIN_ACCOUNT.value(),
                                 context.escapeJs(accountEmail));
                     }
                 });
@@ -364,16 +365,16 @@ public class ClaudeProviderOperations {
             ApplicationManager.getApplication().invokeLater(() -> {
                 String successMsg = com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("toast.providerSwitchSuccess")
                         + com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("provider.switchSyncClaude");
-                context.dispatchEvent("toast.switch_success", context.escapeJs(successMsg));
+                context.dispatchEvent(DownstreamEvent.TOAST_SWITCH_SUCCESS.value(), context.escapeJs(successMsg));
                 handleGetProviders();
                 handleGetActiveProvider();
-                context.dispatchEvent("model_registry",
+                context.dispatchEvent(DownstreamEvent.MODEL_REGISTRY.value(),
                         context.escapeJs(context.getSettingsService().getModelRegistryJson()));
             });
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to switch provider: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent("toast.error", context.escapeJs(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("toast.providerSwitchFailed") + ": " + e.getMessage()));
+                context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("toast.providerSwitchFailed") + ": " + e.getMessage()));
             });
         }
     }
@@ -387,7 +388,7 @@ public class ClaudeProviderOperations {
             String providerJson = GSON.toJson(provider);
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent("provider.active", context.escapeJs(providerJson));
+                context.dispatchEvent(DownstreamEvent.PROVIDER_ACTIVE.value(), context.escapeJs(providerJson));
             });
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to get active provider: " + e.getMessage(), e);

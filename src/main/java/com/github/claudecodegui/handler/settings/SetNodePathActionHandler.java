@@ -5,6 +5,7 @@ import com.github.claudecodegui.handler.core.FrontendActionContext;
 import com.github.claudecodegui.handler.core.FrontendActionHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.model.NodeDetectionResult;
+import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.protocol.UpstreamAction;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
@@ -56,7 +57,7 @@ public final class SetNodePathActionHandler implements FrontendActionHandler<Str
         } catch (Exception e) {
             LOG.error("[SetNodePathActionHandler] Failed to parse set_node_path content: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() ->
-                ctx.dispatchEvent("toast.error", ctx.escapeJs("保存 Node.js 路径失败: " + e.getMessage()))
+                ctx.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), ctx.escapeJs("保存 Node.js 路径失败: " + e.getMessage()))
             );
             return;
         }
@@ -118,23 +119,23 @@ public final class SetNodePathActionHandler implements FrontendActionHandler<Str
                     response.addProperty("path", finalPathToSend);
                     response.addProperty("version", finalVersionToSend);
                     response.addProperty("minVersion", NodeDetector.MIN_NODE_MAJOR_VERSION);
-                    ctx.dispatchEvent("node.path", ctx.escapeJs(GSON.toJson(response)));
+                    ctx.dispatchEvent(DownstreamEvent.NODE_PATH.value(), ctx.escapeJs(GSON.toJson(response)));
 
                     if (successFlag) {
                         // Trigger environment re-check, no IDE restart needed
-                        ctx.dispatchEvent("toast.switch_success", ctx.escapeJs("Node.js 路径已保存并生效,无需重启IDE"));
+                        ctx.dispatchEvent(DownstreamEvent.TOAST_SWITCH_SUCCESS.value(), ctx.escapeJs("Node.js 路径已保存并生效,无需重启IDE"));
 
                         // Notify DependencySection to re-check Node.js environment
-                        ctx.dispatchEvent("node.check_env", "");
+                        ctx.dispatchEvent(DownstreamEvent.NODE_CHECK_ENV.value(), "");
                     } else {
                         String msg = failureMsgFinal != null ? failureMsgFinal : "无法验证指定的 Node.js 路径";
-                        ctx.dispatchEvent("toast.error", ctx.escapeJs("保存的 Node.js 路径无效: " + msg));
+                        ctx.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), ctx.escapeJs("保存的 Node.js 路径无效: " + msg));
                     }
                 });
             } catch (Exception e) {
                 LOG.error("[SetNodePathActionHandler] Failed to set Node.js path: " + e.getMessage(), e);
                 ApplicationManager.getApplication().invokeLater(() ->
-                    ctx.dispatchEvent("toast.error", ctx.escapeJs("保存 Node.js 路径失败: " + e.getMessage()))
+                    ctx.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), ctx.escapeJs("保存 Node.js 路径失败: " + e.getMessage()))
                 );
             }
         }, AppExecutorUtil.getAppExecutorService()).exceptionally(ex -> {

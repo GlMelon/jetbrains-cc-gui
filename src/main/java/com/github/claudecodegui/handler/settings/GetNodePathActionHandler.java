@@ -5,6 +5,7 @@ import com.github.claudecodegui.handler.core.FrontendActionContext;
 import com.github.claudecodegui.handler.core.FrontendActionHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.model.NodeDetectionResult;
+import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.protocol.UpstreamAction;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
@@ -92,12 +93,12 @@ public final class GetNodePathActionHandler implements FrontendActionHandler<Str
                     response.addProperty("path", finalPath);
                     response.addProperty("version", finalVersion);
                     response.addProperty("minVersion", NodeDetector.MIN_NODE_MAJOR_VERSION);
-                    ctx.dispatchEvent("node.path", ctx.escapeJs(GSON.toJson(response)));
+                    ctx.dispatchEvent(DownstreamEvent.NODE_PATH.value(), ctx.escapeJs(GSON.toJson(response)));
                 });
             } catch (Exception e) {
                 LOG.error("[GetNodePathActionHandler] Failed to get Node.js path: " + e.getMessage(), e);
                 ApplicationManager.getApplication().invokeLater(() ->
-                    ctx.dispatchEvent("toast.error", ctx.escapeJs("获取 Node.js 路径失败: " + e.getMessage()))
+                    ctx.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), ctx.escapeJs("获取 Node.js 路径失败: " + e.getMessage()))
                 );
             }
         }, AppExecutorUtil.getAppExecutorService()).exceptionally(ex -> {

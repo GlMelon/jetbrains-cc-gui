@@ -3,6 +3,7 @@ package com.github.claudecodegui.handler;
 import com.github.claudecodegui.handler.core.BaseMessageHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.handler.provider.ModelProviderHandler;
+import com.github.claudecodegui.protocol.DownstreamEvent;
 
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.session.runtime.RuntimeType;
@@ -90,7 +91,7 @@ public class SettingsHandler extends BaseMessageHandler {
     private void registerThemeChangeListener() {
         ThemeConfigService.registerThemeChangeListener(themeConfig -> {
             ApplicationManager.getApplication().invokeLater(() -> {
-                dispatchEvent("theme.changed", escapeJs(themeConfig.toString()));
+                dispatchEvent(DownstreamEvent.THEME_CHANGED.value(), escapeJs(themeConfig.toString()));
             });
         });
     }
@@ -290,7 +291,7 @@ public class SettingsHandler extends BaseMessageHandler {
         JsonObject response = new JsonObject();
         response.addProperty("language", userLanguage != null ? userLanguage : "");
         response.addProperty("manuallySet", userLanguage != null);
-        dispatchEvent("language.user_language", escapeJs(response.toString()));
+        dispatchEvent(DownstreamEvent.LANGUAGE_USER_LANGUAGE.value(), escapeJs(response.toString()));
     }
 
     /**
@@ -311,7 +312,7 @@ public class SettingsHandler extends BaseMessageHandler {
 
     private void pushLanguageConfig() {
         JsonObject languageConfig = LanguageConfigService.getLanguageConfig(context.getSettingsService());
-        dispatchEvent("language.apply", escapeJs(languageConfig.toString()));
+        dispatchEvent(DownstreamEvent.LANGUAGE_APPLY.value(), escapeJs(languageConfig.toString()));
     }
 
     /**
@@ -327,10 +328,10 @@ public class SettingsHandler extends BaseMessageHandler {
         try {
             var policyConfig = context.getSettingsService().getRuntimePolicy();
             JsonObject response = serializeRuntimePolicyToJson(policyConfig);
-            dispatchEvent("runtime_policy", escapeJs(response.toString()));
+            dispatchEvent(DownstreamEvent.RUNTIME_POLICY.value(), escapeJs(response.toString()));
         } catch (Exception e) {
             LOG.error("[SettingsHandler] Failed to get runtime policy: " + e.getMessage(), e);
-            dispatchEvent("runtime_policy_error", escapeJs("获取路由策略失败: " + e.getMessage()));
+            dispatchEvent(DownstreamEvent.RUNTIME_POLICY_ERROR.value(), escapeJs("获取路由策略失败: " + e.getMessage()));
         }
     }
 
@@ -344,7 +345,7 @@ public class SettingsHandler extends BaseMessageHandler {
                 var savedConfig = context.getSettingsService().getRuntimePolicy();
                 JsonObject response = serializeRuntimePolicyToJson(savedConfig);
                 response.addProperty("success", true);
-                dispatchEvent("runtime_policy_updated", escapeJs(response.toString()));
+                dispatchEvent(DownstreamEvent.RUNTIME_POLICY_UPDATED.value(), escapeJs(response.toString()));
             } else {
                 // 校验失败，返回错误
                 JsonObject response = new JsonObject();
@@ -352,7 +353,7 @@ public class SettingsHandler extends BaseMessageHandler {
                 var errorsArray = new com.google.gson.JsonArray();
                 result.errors().forEach(errorsArray::add);
                 response.add("errors", errorsArray);
-                dispatchEvent("runtime_policy_updated", escapeJs(response.toString()));
+                dispatchEvent(DownstreamEvent.RUNTIME_POLICY_UPDATED.value(), escapeJs(response.toString()));
             }
         } catch (Exception e) {
             LOG.error("[SettingsHandler] Failed to set runtime policy: " + e.getMessage(), e);
@@ -361,7 +362,7 @@ public class SettingsHandler extends BaseMessageHandler {
             var errorsArray = new com.google.gson.JsonArray();
             errorsArray.add("保存失败: " + e.getMessage());
             response.add("errors", errorsArray);
-            dispatchEvent("runtime_policy_updated", escapeJs(response.toString()));
+            dispatchEvent(DownstreamEvent.RUNTIME_POLICY_UPDATED.value(), escapeJs(response.toString()));
         }
     }
 
@@ -372,7 +373,7 @@ public class SettingsHandler extends BaseMessageHandler {
             JsonObject response = serializeRuntimePolicyToJson(defaultConfig);
             response.addProperty("success", true);
             response.addProperty("reset", true);
-            dispatchEvent("runtime_policy_updated", escapeJs(response.toString()));
+            dispatchEvent(DownstreamEvent.RUNTIME_POLICY_UPDATED.value(), escapeJs(response.toString()));
         } catch (Exception e) {
             LOG.error("[SettingsHandler] Failed to reset runtime policy: " + e.getMessage(), e);
         }
@@ -404,7 +405,7 @@ public class SettingsHandler extends BaseMessageHandler {
         codexSchema.add("properties", codexProps);
         schema.add("codex", codexSchema);
 
-        dispatchEvent("runtime_policy_schema", escapeJs(schema.toString()));
+        dispatchEvent(DownstreamEvent.RUNTIME_POLICY_SCHEMA.value(), escapeJs(schema.toString()));
     }
 
     private JsonObject serializeRuntimePolicyToJson(

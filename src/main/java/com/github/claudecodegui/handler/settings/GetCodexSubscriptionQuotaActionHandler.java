@@ -3,6 +3,7 @@ package com.github.claudecodegui.handler.settings;
 import com.github.claudecodegui.handler.core.FrontendActionContext;
 import com.github.claudecodegui.handler.core.FrontendActionHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.protocol.UpstreamAction;
 import com.github.claudecodegui.service.CodexSubscriptionQuotaService;
 import com.google.gson.Gson;
@@ -51,6 +52,6 @@ public final class GetCodexSubscriptionQuotaActionHandler implements FrontendAct
 
     private void sendPayload(HandlerContext ctx, JsonObject payload) {
         ApplicationManager.getApplication().invokeLater(() ->
-                ctx.dispatchEvent("codex.subscription_quota", ctx.escapeJs(GSON.toJson(payload))));
+                ctx.dispatchEvent(DownstreamEvent.CODEX_SUBSCRIPTION_QUOTA.value(), ctx.escapeJs(GSON.toJson(payload))));
     }
 }

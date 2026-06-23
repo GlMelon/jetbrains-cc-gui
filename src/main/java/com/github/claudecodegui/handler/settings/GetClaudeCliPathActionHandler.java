@@ -3,6 +3,7 @@ package com.github.claudecodegui.handler.settings;
 import com.github.claudecodegui.handler.core.FrontendActionContext;
 import com.github.claudecodegui.handler.core.FrontendActionHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.protocol.UpstreamAction;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -47,12 +48,12 @@ public final class GetClaudeCliPathActionHandler implements FrontendActionHandle
                 ApplicationManager.getApplication().invokeLater(() -> {
                     JsonObject response = new JsonObject();
                     response.addProperty("path", pathToSend);
-                    ctx.dispatchEvent("config.claude_cli_path", ctx.escapeJs(GSON.toJson(response)));
+                    ctx.dispatchEvent(DownstreamEvent.CONFIG_CLAUDE_CLI_PATH.value(), ctx.escapeJs(GSON.toJson(response)));
                 });
             } catch (Exception e) {
                 LOG.error("[GetClaudeCliPathActionHandler] Failed to get Claude CLI path: " + e.getMessage(), e);
                 ApplicationManager.getApplication().invokeLater(() ->
-                        ctx.dispatchEvent("toast.error", ctx.escapeJs("Failed to load Claude CLI path: " + e.getMessage()))
+                        ctx.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), ctx.escapeJs("Failed to load Claude CLI path: " + e.getMessage()))
                 );
             }
         }, AppExecutorUtil.getAppExecutorService()).exceptionally(ex -> {

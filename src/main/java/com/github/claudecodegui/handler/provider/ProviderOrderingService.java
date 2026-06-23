@@ -1,6 +1,7 @@
 package com.github.claudecodegui.handler.provider;
 
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.util.GsonHolder;
 
 import com.google.gson.Gson;
@@ -44,7 +45,7 @@ public class ProviderOrderingService {
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to save provider order: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() ->
-                context.dispatchEvent("toast.error", context.escapeJs("Failed to save provider order: " + e.getMessage())));
+                context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs("Failed to save provider order: " + e.getMessage())));
         }
     }
 
@@ -61,7 +62,7 @@ public class ProviderOrderingService {
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to save Codex provider order: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() ->
-                context.dispatchEvent("toast.error", context.escapeJs("Failed to save provider order: " + e.getMessage())));
+                context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs("Failed to save provider order: " + e.getMessage())));
         }
     }
 

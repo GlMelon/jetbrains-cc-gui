@@ -2,6 +2,7 @@ package com.github.claudecodegui.handler.skill;
 
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.skill.CodexSkillService;
 import com.github.claudecodegui.skill.SkillService;
 import com.github.claudecodegui.util.GsonHolder;
@@ -63,13 +64,13 @@ public class SkillActionHandlers {
             }
             String skillsJson = GSON.toJson(skills);
             ApplicationManager.getApplication().invokeLater(() -> {
-                dispatchEvent("skill.list", escapeJs(skillsJson));
+                dispatchEvent(DownstreamEvent.SKILL_LIST.value(), escapeJs(skillsJson));
             });
         } catch (Exception e) {
             LOG.error("[SkillHandler] Failed to get all skills: " + e.getMessage(), e);
             String fallbackJson = isCodex ? "{\"user\":{},\"repo\":{}}" : "{\"global\":{},\"local\":{}}";
             ApplicationManager.getApplication().invokeLater(() -> {
-                dispatchEvent("skill.list", escapeJs(fallbackJson));
+                dispatchEvent(DownstreamEvent.SKILL_LIST.value(), escapeJs(fallbackJson));
             });
         }
     }
@@ -110,7 +111,7 @@ public class SkillActionHandlers {
                             }
                             String resultJson = GSON.toJson(importResult);
                             ApplicationManager.getApplication().invokeLater(() -> {
-                                dispatchEvent("skill.import_result", escapeJs(resultJson));
+                                dispatchEvent(DownstreamEvent.SKILL_IMPORT_RESULT.value(), escapeJs(resultJson));
                             });
                         } catch (Exception e) {
                             LOG.error("[SkillHandler] Import skill failed: " + e.getMessage(), e);
@@ -118,7 +119,7 @@ public class SkillActionHandlers {
                             errorResult.addProperty("success", false);
                             errorResult.addProperty("error", e.getMessage());
                             ApplicationManager.getApplication().invokeLater(() -> {
-                                dispatchEvent("skill.import_result", escapeJs(GSON.toJson(errorResult)));
+                                dispatchEvent(DownstreamEvent.SKILL_IMPORT_RESULT.value(), escapeJs(GSON.toJson(errorResult)));
                             });
                         }
                     }, AppExecutorUtil.getAppExecutorService());
@@ -154,7 +155,7 @@ public class SkillActionHandlers {
                     }
                     String resultJson = GSON.toJson(result);
                     ApplicationManager.getApplication().invokeLater(() -> {
-                        dispatchEvent("skill.delete_result", escapeJs(resultJson));
+                        dispatchEvent(DownstreamEvent.SKILL_DELETE_RESULT.value(), escapeJs(resultJson));
                     });
                 } catch (Exception e) {
                     LOG.error("[SkillHandler] Delete skill failed: " + e.getMessage(), e);
@@ -162,7 +163,7 @@ public class SkillActionHandlers {
                     errorResult.addProperty("success", false);
                     errorResult.addProperty("error", e.getMessage());
                     ApplicationManager.getApplication().invokeLater(() -> {
-                        dispatchEvent("skill.delete_result", escapeJs(GSON.toJson(errorResult)));
+                        dispatchEvent(DownstreamEvent.SKILL_DELETE_RESULT.value(), escapeJs(GSON.toJson(errorResult)));
                     });
                 }
             }, AppExecutorUtil.getAppExecutorService());
@@ -172,7 +173,7 @@ public class SkillActionHandlers {
             errorResult.addProperty("success", false);
             errorResult.addProperty("error", e.getMessage());
             ApplicationManager.getApplication().invokeLater(() -> {
-                dispatchEvent("skill.delete_result", escapeJs(GSON.toJson(errorResult)));
+                dispatchEvent(DownstreamEvent.SKILL_DELETE_RESULT.value(), escapeJs(GSON.toJson(errorResult)));
             });
         }
     }
@@ -206,7 +207,7 @@ public class SkillActionHandlers {
                     }
                     String resultJson = GSON.toJson(result);
                     ApplicationManager.getApplication().invokeLater(() -> {
-                        dispatchEvent("skill.toggle_result", escapeJs(resultJson));
+                        dispatchEvent(DownstreamEvent.SKILL_TOGGLE_RESULT.value(), escapeJs(resultJson));
                     });
                 } catch (Exception e) {
                     LOG.error("[SkillHandler] Toggle skill failed: " + e.getMessage(), e);
@@ -214,7 +215,7 @@ public class SkillActionHandlers {
                     errorResult.addProperty("success", false);
                     errorResult.addProperty("error", e.getMessage());
                     ApplicationManager.getApplication().invokeLater(() -> {
-                        dispatchEvent("skill.toggle_result", escapeJs(GSON.toJson(errorResult)));
+                        dispatchEvent(DownstreamEvent.SKILL_TOGGLE_RESULT.value(), escapeJs(GSON.toJson(errorResult)));
                     });
                 }
             }, AppExecutorUtil.getAppExecutorService());
@@ -224,7 +225,7 @@ public class SkillActionHandlers {
             errorResult.addProperty("success", false);
             errorResult.addProperty("error", e.getMessage());
             ApplicationManager.getApplication().invokeLater(() -> {
-                dispatchEvent("skill.toggle_result", escapeJs(GSON.toJson(errorResult)));
+                dispatchEvent(DownstreamEvent.SKILL_TOGGLE_RESULT.value(), escapeJs(GSON.toJson(errorResult)));
             });
         }
     }
