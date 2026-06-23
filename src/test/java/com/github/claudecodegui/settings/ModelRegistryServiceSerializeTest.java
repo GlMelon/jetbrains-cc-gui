@@ -35,12 +35,15 @@ public class ModelRegistryServiceSerializeTest {
 
         JsonObject item = payload.getAsJsonArray("items").get(0).getAsJsonObject();
 
-        Set<String> recordFields = new LinkedHashSet<>();
+        Set<String> expectedFields = new LinkedHashSet<>();
         for (RecordComponent rc : ModelConfig.class.getRecordComponents()) {
-            recordFields.add(rc.getName());
+            expectedFields.add(rc.getName());
         }
-        assertEquals("serialize payload item fields must match ModelConfig record components exactly "
-                        + "(AGENTS.md §3 payload SSOT)",
-                recordFields, item.keySet());
+        // supportedReasoningLevels 为 serialize 派生下发字段(由 role 权威计算,不存入 ModelConfig record);
+        // claude sample(role=sonnet)会下发,故期望字段集含此派生键(见 ModelRegistryService.serialize)。
+        expectedFields.add("supportedReasoningLevels");
+        assertEquals("serialize payload item fields must match ModelConfig record components + "
+                        + "supportedReasoningLevels derived field (AGENTS.md §3 payload SSOT)",
+                expectedFields, item.keySet());
     }
 }

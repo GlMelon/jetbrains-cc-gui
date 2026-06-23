@@ -4,7 +4,7 @@ import {sendBridgeEvent} from '../utils/bridge';
 import { DOWNSTREAM } from '../generated/protocol';
 import { subscribeEvent } from '../bridge/typed';
 import type {PermissionMode} from '../components/ChatInputBox/types';
-import {DEFAULT_CONTEXT_WINDOW, ONE_MILLION_CONTEXT_WINDOW, modelSupports1MContext, normalizeClaudeModelId, strip1MContextSuffix,} from '../components/ChatInputBox/types';
+import {DEFAULT_CONTEXT_WINDOW, strip1MContextSuffix,} from '../components/ChatInputBox/types';
 import {isSpecialProviderId} from '../types/provider';
 import {useClaudeProvider} from './providers/useClaudeProvider';
 import {useCodexProvider} from './providers/useCodexProvider';
@@ -120,9 +120,8 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
         return;
       }
       setSelectedClaudeModel(selected);
-      setLongContextEnabled(
-        selection.supportsLongContext === true && selection.effectiveContextWindow === ONE_MILLION_CONTEXT_WINDOW,
-      );
+      // A4:longContext 直接读后端权威布尔 supportsLongContext(见 ModelProviderHandler),不再前端按 effectiveContextWindow 数值推断。
+      setLongContextEnabled(selection.supportsLongContext === true);
     } catch {
       // Ignore malformed backend selection events; existing state remains authoritative for display.
     }
@@ -145,10 +144,10 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     if (currentProvider === 'claude') {
       const strippedModelId = strip1MContextSuffix(modelId);
       const registryModels = getModelsForProvider('claude');
-      const registryHasModel = registryModels.some((model) => model.id === strippedModelId);
-      const normalizedModelId = registryHasModel ? strippedModelId : normalizeClaudeModelId(strippedModelId);
-      setSelectedClaudeModel(normalizedModelId);
-      const supports1M = modelSupports1MContext(normalizedModelId, registryModels);
+      // A3:不再前端归一化,保留 stripped 原值;registry 是否命中不影响 state,由后端 session 下发纠正。
+      setSelectedClaudeModel(strippedModelId);
+      // A4:supports1M 读 registry item.supports1MContext(后端权威),取代前端字符串推断。
+      const supports1M = registryModels.find((model) => model.id === strippedModelId)?.supports1MContext ?? false;
 
       // Auto-reset: disable longContext if new model doesn't support 1M
       if (longContextEnabled && !supports1M) {
@@ -158,7 +157,7 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
       // 仅发送「意图」(模型 ID + 长上下文开关);effectiveContextWindow 由后端权威计算,
       // 并通过 MODEL_SELECTION 下行回推(见上方订阅)。前端不再硬编码 1M/200k 计算。
       sendBridgeEvent('set_session_model', JSON.stringify({
-        model: normalizedModelId,
+        model: strippedModelId,
         longContextEnabled: longContextEnabled && supports1M,
       }));
     } else if (currentProvider === 'codex') {
@@ -194,7 +193,7 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     if (providerId === 'claude') {
       sendBridgeEvent('set_session_model', JSON.stringify({
         model: newModel,
-        longContextEnabled: longContextEnabled && modelSupports1MContext(selectedClaudeModel, newProviderModels),
+        longContextEnabled: longContextEnabled && (newProviderModels.find((model) => model.id === strip1MContextSuffix(selectedClaudeModel))?.supports1MContext ?? false),
       }));
     } else {
       const registryContextWindow = newProviderModels.find((model) => model.id === strip1MContextSuffix(selectedCodexModel))?.contextWindow;
@@ -216,7 +215,7 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     setLongContextEnabled(enabled);
     if (currentProvider === 'claude') {
       const registryModels = getModelsForProvider('claude');
-      const supports1M = modelSupports1MContext(selectedClaudeModel, registryModels);
+      const supports1M = registryModels.find((model) => model.id === strip1MContextSuffix(selectedClaudeModel))?.supports1MContext ?? false;
       // 仅发送意图;effectiveContextWindow 由后端计算并通过 MODEL_SELECTION 回推。
       sendBridgeEvent('set_session_model', JSON.stringify({
         model: selectedClaudeModel,
@@ -239,7 +238,7 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     }
 
     if (currentProvider === 'claude') {
-      const supports1M = modelSupports1MContext(selectedClaudeModel, registryModels);
+      const supports1M = registryModels.find((model) => model.id === strip1MContextSuffix(selectedClaudeModel))?.supports1MContext ?? false;
       if (longContextEnabled && !supports1M) {
         setLongContextEnabled(false);
       }

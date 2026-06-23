@@ -258,7 +258,7 @@ describe('resolveClaudeModelId', () => {
     expect(resolveClaudeModelId('mimo-v2.5[1m]')).toBe('mimo-v2.5');
   });
 
-  it('falls back to role normalization when the model is absent from the registry', () => {
+  it('preserves the original ID when the model is absent from the registry', () => {
     __setModelRegistryForTests({
       items: [
         {
@@ -272,8 +272,8 @@ describe('resolveClaudeModelId', () => {
       ],
     });
 
-    // Unknown real model name → falls back to sonnet role, mirroring normalizeClaudeModelId.
-    expect(resolveClaudeModelId('claude-opus-4-8')).toBe('claude-role-sonnet');
+    // A3:不再归一化;未命中 registry 的 id 原样保留,由后端 session 下发纠正。
+    expect(resolveClaudeModelId('claude-opus-4-8')).toBe('claude-opus-4-8');
   });
 
   it('preserves built-in role IDs using the default registry', () => {
@@ -281,7 +281,7 @@ describe('resolveClaudeModelId', () => {
     expect(resolveClaudeModelId('claude-role-sonnet')).toBe('claude-role-sonnet');
   });
 
-  it('ignores disabled registry entries and falls back to normalization', () => {
+  it('preserves the original ID when the registry entry is disabled', () => {
     __setModelRegistryForTests({
       items: [
         {
@@ -294,13 +294,15 @@ describe('resolveClaudeModelId', () => {
       ],
     });
 
-    expect(resolveClaudeModelId('mimo-v2.5')).toBe('claude-role-sonnet');
+    // A3:disabled 不命中,但也不再归一化——原样保留。
+    expect(resolveClaudeModelId('mimo-v2.5')).toBe('mimo-v2.5');
   });
 
-  it('defaults empty input to the sonnet role', () => {
-    expect(resolveClaudeModelId('')).toBe('claude-role-sonnet');
-    expect(resolveClaudeModelId(undefined)).toBe('claude-role-sonnet');
-    expect(resolveClaudeModelId(null)).toBe('claude-role-sonnet');
+  it('returns empty string for empty input', () => {
+    // A3:不再回退 sonnet;空输入返回空字符串(strip 语义)。
+    expect(resolveClaudeModelId('')).toBe('');
+    expect(resolveClaudeModelId(undefined)).toBe('');
+    expect(resolveClaudeModelId(null)).toBe('');
   });
 });
 
@@ -309,7 +311,20 @@ describe('resolveClaudeRoleForModel', () => {
     resetModelRegistryForTests();
   });
 
-  it('derives role from built-in claude-role-* model IDs', () => {
+  it('reads the role field from registry for built-in claude-role-* model IDs', () => {
+    // A3:registry 未加载时(空)即使传入 claude-role-* id 也返回 null——不再从 id 离线推导。
+    expect(resolveClaudeRoleForModel('claude-role-sonnet')).toBeNull();
+
+    __setModelRegistryForTests({
+      items: [
+        { id: 'claude-role-sonnet', provider: 'claude', role: 'sonnet', label: 'Sonnet', contextWindow: 1_000_000, enabled: true },
+        { id: 'claude-role-opus', provider: 'claude', role: 'opus', label: 'Opus', contextWindow: 1_000_000, enabled: true },
+        { id: 'claude-role-fable', provider: 'claude', role: 'fable', label: 'Fable', contextWindow: 1_000_000, enabled: true },
+        { id: 'claude-role-haiku', provider: 'claude', role: 'haiku', label: 'Haiku', contextWindow: 200_000, enabled: true },
+      ],
+    });
+
+    // registry.role 权威下发后回填。
     expect(resolveClaudeRoleForModel('claude-role-sonnet')).toBe('sonnet');
     expect(resolveClaudeRoleForModel('claude-role-opus')).toBe('opus');
     expect(resolveClaudeRoleForModel('claude-role-fable')).toBe('fable');
@@ -373,6 +388,12 @@ describe('resolveClaudeRoleForModel', () => {
   });
 
   it('strips the [1m] suffix before resolving', () => {
+    // A3:registry 设了内置 opus,strip [1m] 后按 registry.role 解析。
+    __setModelRegistryForTests({
+      items: [
+        { id: 'claude-role-opus', provider: 'claude', role: 'opus', label: 'Opus', contextWindow: 1_000_000, enabled: true },
+      ],
+    });
     expect(resolveClaudeRoleForModel('claude-role-opus[1m]')).toBe('opus');
 
     __setModelRegistryForTests({

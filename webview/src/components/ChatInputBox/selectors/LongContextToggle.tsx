@@ -1,7 +1,7 @@
 import {useTranslation} from 'react-i18next';
 import {Switch} from '../../shared/Switch';
 import type {ModelInfo} from '../types';
-import {modelSupports1MContext} from '../types';
+import {strip1MContextSuffix} from '../types';
 
 const TOGGLE_BASE_STYLE: React.CSSProperties = {
   display: 'inline-flex',
@@ -37,7 +37,8 @@ export const LongContextToggle = ({
                                       models,
 }: LongContextToggleProps) => {
   const { t } = useTranslation();
-    const supports1M = modelSupports1MContext(modelId, models);
+    // A2:supports1M 读 registry item.supports1MContext(后端权威),取代前端字符串推断。
+    const supports1M = models?.find((model) => model.id === strip1MContextSuffix(modelId))?.supports1MContext ?? false;
 
   const displayEnabled = supports1M ? enabled : false;
 

@@ -7,7 +7,9 @@ import org.junit.Test;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 /**
  * 契约测试:GetContextUsageActionHandler 必须绑定 GET_CONTEXT_USAGE 枚举并以 String 为载荷类型
@@ -102,12 +104,49 @@ public class GetContextUsageActionHandlerTest {
 
     @Test
     public void parseModelWith1MContextSuffix() {
+        // 向后兼容:旧前端可能仍上送带 [1m] 的 model;parseContextUsageRequest 只解析不剥离,
+        // [1m] 追加(D5 apply1MSuffix)在 handle 内据 longContextEnabled 意图决定。
         JsonObject body = new JsonObject();
         body.addProperty("model", "claude-opus-4-7[1m]");
 
         String[] result = GetContextUsageActionHandler.parseContextUsageRequest(GSON, body.toString());
 
         assertEquals("claude-opus-4-7[1m]", result[2]);
+    }
+
+    // D5:longContextEnabled 意图解析(1M 构造下沉后端)。新前端上送 {model, longContextEnabled};
+    // 旧前端不发该字段 → false。覆盖 parseLongContextEnabled 契约。
+    @Test
+    public void parseLongContextEnabledTrue() {
+        JsonObject body = new JsonObject();
+        body.addProperty("model", "claude-opus-4-7");
+        body.addProperty("longContextEnabled", true);
+
+        assertTrue(GetContextUsageActionHandler.parseLongContextEnabled(GSON, body.toString()));
+    }
+
+    @Test
+    public void parseLongContextEnabledFalse() {
+        JsonObject body = new JsonObject();
+        body.addProperty("model", "claude-opus-4-7");
+        body.addProperty("longContextEnabled", false);
+
+        assertFalse(GetContextUsageActionHandler.parseLongContextEnabled(GSON, body.toString()));
+    }
+
+    @Test
+    public void parseLongContextEnabledAbsentDefaultsToFalse() {
+        JsonObject body = new JsonObject();
+        body.addProperty("model", "claude-opus-4-7");
+
+        assertFalse(GetContextUsageActionHandler.parseLongContextEnabled(GSON, body.toString()));
+    }
+
+    @Test
+    public void parseLongContextEnabledNullAndInvalidContentReturnsFalse() {
+        assertFalse(GetContextUsageActionHandler.parseLongContextEnabled(GSON, null));
+        assertFalse(GetContextUsageActionHandler.parseLongContextEnabled(GSON, ""));
+        assertFalse(GetContextUsageActionHandler.parseLongContextEnabled(GSON, "not valid json {{{"));
     }
 
     // 旧 ContextHandlerTest.handlerDeclaresGetContextUsageSupport 的等价覆盖:

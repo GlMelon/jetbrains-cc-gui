@@ -149,6 +149,16 @@ public class ModelRegistryConfig {
         return modelId != null && modelId.trim().matches("(?i).*\\[1m\\]$");
     }
 
+    /**
+     * 根据 longContextEnabled 意图给 model id 追加 [1m] 容量后缀(D5:1M 构造下沉)。
+     * 前端不再构造 [1m],只上送 longContextEnabled 布尔(已与 supports1M 取并集);
+     * 后端据此权威决定是否追加后缀,保持与旧前端 apply1MContextSuffix 行为等价。
+     */
+    public static String apply1MSuffix(String modelId, boolean longContextEnabled) {
+        String base = stripCapacitySuffix(modelId);
+        return longContextEnabled ? base + SUFFIX_1M : base;
+    }
+
     private static String normalizeProvider(String provider) {
         // 委托 ProviderType.fromString 归一(总则五·开闭 / E4,与 CliSessionManager.normalizeInterruptProvider 范式一致),
         // 消除手写 if(PROVIDER_CODEX.equalsIgnoreCase) 分支。fromString: codex→CODEX→"codex", 其余→CLAUDE→"claude"。

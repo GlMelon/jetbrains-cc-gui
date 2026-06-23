@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => ({
     models: ModelInfo[];
     currentProvider: string;
   }>,
-  registryModels: [] as ModelInfo[],
+  registryModels: [] as Array<ModelInfo & { provider?: string; role?: string }>,
 }));
 
 vi.mock('react-i18next', () => ({
@@ -22,6 +22,7 @@ vi.mock('react-i18next', () => ({
 
 vi.mock('../../utils/modelRegistry', () => ({
   getModelsForProvider: vi.fn(() => mocks.registryModels),
+  getModelRegistrySnapshot: vi.fn(() => ({ items: mocks.registryModels })),
   requestModelRegistry: vi.fn(),
   subscribeModelRegistry: vi.fn(() => () => undefined),
 }));
@@ -54,11 +55,14 @@ vi.mock('./selectors', () => ({
 import {ButtonArea} from './ButtonArea';
 
 describe('ButtonArea model mapping', () => {
-  const sonnetModel: ModelInfo = {
+  // A3:applyModelMapping 读 registryModel.role;registryModels 需含 provider/role。
+  const sonnetModel: ModelInfo & { provider: string; role: string } = {
     id: CLAUDE_ROLE_MODEL_IDS.sonnet,
     label: 'Sonnet',
     description: 'Sonnet role',
     contextWindow: 200_000,
+    provider: 'claude',
+    role: 'sonnet',
   };
 
   beforeEach(() => {

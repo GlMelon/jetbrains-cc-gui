@@ -270,68 +270,15 @@ export interface ModelInfo {
     supports1MContext?: boolean;
 }
 
-/**
- * Check if a model supports 1M context window.
- *
- * 判断逻辑：
- * 1. 已知 Claude 模型（非 Haiku）→ 支持（通过 [1m] 后缀）
- * 2. 自定义/第三方模型：看 contextWindow 字段，>= 1M 则支持
- * 3. 通过 provider preset 的 supports1MContext 标志判断
- * 4. 其他所有模型 → 不支持（保守默认）
- *
- * @param modelId 模型 ID（可能带 [1m] 后缀）
- * @param models 可选的模型列表（含自定义模型），不传则用内置列表
- */
-export function modelSupports1MContext(
-    modelId: string | undefined | null,
-    models?: ModelInfo[]
-): boolean {
-    if (!modelId) return false;
+// A4(2026-06-23):modelSupports1MContext 已删除。
+// 前端不再按「claude- 非 haiku」「contextWindow >= 1M」等字符串/数值规则推断 1M 支持——
+// 所有调用点(useModelProviderState / useMessageSender / LongContextToggle)改为读 registry item.supports1MContext,
+// 该字段由后端 ModelRegistryService.serialize 权威下发(基于 role 配置 supports1MContext)。
 
-    const baseId = strip1MContextSuffix(modelId);
-
-    // 1. 已知 Claude 模型（非 Haiku）默认支持 1M（通过 [1m] 后缀）
-    if (baseId.startsWith('claude-') && !baseId.toLowerCase().includes('haiku')) {
-        return true;
-    }
-
-    // 2. 自定义/第三方模型：通过 contextWindow 字段判断
-    const allModels = models ?? [...CLAUDE_MODELS, ...CODEX_MODELS];
-    const modelInfo = allModels.find(m => m.id === baseId);
-    if (modelInfo?.supports1MContext !== undefined) {
-        return modelInfo.supports1MContext;
-    }
-    if (modelInfo?.contextWindow !== undefined) {
-        return modelInfo.contextWindow >= ONE_MILLION_CONTEXT_WINDOW;
-    }
-
-    // 3. 未知模型：保守假设不支持
-    return false;
-}
-
-/**
- * Check if a model ID already has [1m] suffix.
- */
-export function has1MContextSuffix(modelId: string | undefined | null): boolean {
-  if (!modelId) {
-    return false;
-  }
-  return /\[1m\]$/i.test(modelId);
-}
-
-/**
- * Apply [1m] suffix to model ID if supported and enabled.
- * Returns the original model ID if the model doesn't support 1M context.
- */
-export function apply1MContextSuffix(modelId: string, enabled: boolean, models?: ModelInfo[]): string {
-  if (!enabled || !modelSupports1MContext(modelId, models)) {
-    // Remove any existing [1m] suffix if disabled
-    return modelId.replace(/\[1m\]$/i, '');
-  }
-  // Remove existing suffix first, then add new one
-  const baseId = modelId.replace(/\[1m\]$/i, '');
-  return `${baseId}[1m]`;
-}
+// D5(2026-06-23):has1MContextSuffix / apply1MContextSuffix 已删除。
+// 前端不再构造 [1m] 后缀——get_context_usage 改上送 {model: stripped, longContextEnabled} 意图,
+// 后端 GetContextUsageActionHandler 据此权威追加 [1m](与 set_session_model 范式一致);
+// 剥离 [1m] 仅用于展示/存储,见下方 strip1MContextSuffix。
 
 /**
  * Remove [1m] suffix from model ID for display/storage purposes.
@@ -352,34 +299,10 @@ export const CLAUDE_ROLE_MODEL_IDS = {
 
 export type ClaudeRoleModelId = typeof CLAUDE_ROLE_MODEL_IDS[keyof typeof CLAUDE_ROLE_MODEL_IDS];
 
-export function getClaudeRoleFromModelId(modelId: string | undefined | null): keyof typeof CLAUDE_ROLE_MODEL_IDS | null {
-  if (!modelId) {
-    return null;
-  }
-  const stripped = strip1MContextSuffix(modelId).toLowerCase();
-  if (stripped === CLAUDE_ROLE_MODEL_IDS.fable) {
-    return 'fable';
-  }
-  if (stripped === CLAUDE_ROLE_MODEL_IDS.opus) {
-    return 'opus';
-  }
-  if (stripped === CLAUDE_ROLE_MODEL_IDS.haiku) {
-    return 'haiku';
-  }
-  if (stripped === CLAUDE_ROLE_MODEL_IDS.sonnet) {
-    return 'sonnet';
-  }
-  return null;
-};
-
-export function normalizeClaudeModelId(modelId: string | undefined | null): string {
-  if (!modelId) {
-    return CLAUDE_ROLE_MODEL_IDS.sonnet;
-  }
-  const stripped = strip1MContextSuffix(modelId);
-  const role = getClaudeRoleFromModelId(stripped);
-  return role ? CLAUDE_ROLE_MODEL_IDS[role] : CLAUDE_ROLE_MODEL_IDS.sonnet;
-}
+// A3(2026-06-23):getClaudeRoleFromModelId / normalizeClaudeModelId 已删除。
+// 前端不再做「id→role 离线推导」与「未知 id 归一为 sonnet」的业务归一化——
+// role 判定改读后端 registry 的 role 字段(utils/modelRegistry.resolveClaudeRoleForModel),
+// id 规整仅剥离 [1m] 后缀(resolveClaudeModelId),业务真相源统一在后端。
 
 /**
  * 默认模型上下文窗口大小（token 数）—— contextWindow 缺省时的 fallback。
@@ -392,46 +315,10 @@ export const DEFAULT_CONTEXT_WINDOW = 200_000;
  */
 export const ONE_MILLION_CONTEXT_WINDOW = 1_000_000;
 
-/**
- * Claude model list (base IDs without [1m] suffix).
- * The 1M context suffix is applied dynamically via toggle.
- */
-export const CLAUDE_MODELS: ModelInfo[] = [
-  {
-    id: CLAUDE_ROLE_MODEL_IDS.sonnet,
-    label: 'Sonnet',
-    description: 'Sonnet role · Uses ANTHROPIC_DEFAULT_SONNET_MODEL',
-    contextWindow: 200_000,
-  },
-  {
-    id: CLAUDE_ROLE_MODEL_IDS.opus,
-    label: 'Opus',
-    description: 'Opus role · Uses ANTHROPIC_DEFAULT_OPUS_MODEL',
-    contextWindow: 200_000,
-  },
-  {
-    id: CLAUDE_ROLE_MODEL_IDS.fable,
-    label: 'Fable',
-    description: 'Fable role · Uses ANTHROPIC_DEFAULT_FABLE_MODEL',
-    contextWindow: 200_000,
-  },
-  {
-    id: CLAUDE_ROLE_MODEL_IDS.haiku,
-    label: 'Haiku',
-    description: 'Haiku role · Uses ANTHROPIC_DEFAULT_HAIKU_MODEL',
-    contextWindow: 200_000,
-  },
-];
-
-/**
- * Codex model list
- */
-export const CODEX_MODELS: ModelInfo[] = [];
-
-/**
- * Available models (backward compatibility)
- */
-export const AVAILABLE_MODELS = CLAUDE_MODELS;
+// A1(2026-06-23):CLAUDE_MODELS / CODEX_MODELS / AVAILABLE_MODELS 本地表已删除。
+// 模型真相源唯一为后端 MODEL_REGISTRY 下发(ReadOnlyDefaultModels → ModelRegistryService.serialize);
+// 前端经 utils/modelRegistry 订阅,空 registry 时显示 loading,不回退本地表。
+// 能力(supports1MContext)/归一化(normalizeClaudeModelId 等)随 A2/A3 切片进一步下沉。
 
 /**
  * AI provider information

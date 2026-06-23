@@ -169,8 +169,9 @@ const [isThinking, setIsThinking] = useState(false);
 ### Provider State
 ```typescript
 const [currentProvider, setCurrentProvider] = useState('claude');
-const [selectedClaudeModel, setSelectedClaudeModel] = useState(CLAUDE_MODELS[0].id);
-const [selectedCodexModel, setSelectedCodexModel] = useState(CODEX_MODELS[0].id);
+// A1:初始值为后端 role id 常量;模型清单由 MODEL_REGISTRY 下发,前端不再持本地表
+const [selectedClaudeModel, setSelectedClaudeModel] = useState<string>(CLAUDE_ROLE_MODEL_IDS.sonnet);
+const [selectedCodexModel, setSelectedCodexModel] = useState('');
 const [permissionMode, setPermissionMode] = useState<PermissionMode>('bypassPermissions');
 ```
 

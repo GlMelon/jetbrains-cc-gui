@@ -48,7 +48,7 @@
 | E · 对接未 Docking 化 / 分层 / 序列化 | 二/五 + 附录 | 12 | 1 | 8 | 3 |
 | **合计** | — | **43** | **15** | **23** | **5** |
 
-> 截至 2026-06-23 进度:**已验证 15 项**(B1·B5·C2·C3·C6·C8·C9·D2·D3·E1·E2·E3·E4·E5·E6)、**已完成 2 项**(B2 — 20/20 legacy handler 全迁移;B4 — HistoryHandler 迁移)、**进行中 1 项**(B3 — SettingsHandler 13/~60 已迁移 permission-mode+input-history+model-provider 三子域)、**已豁免 1 项**(E12);其余 25 项待修复(19/43 已动)。逐项状态见 §7 表格,整体阶段路线见 §9 迁移文档索引。
+> 截至 2026-06-23 进度:**已验证 19 项**(A1·A2·A3·A4·B1·B5·C2·C3·C6·C8·C9·D2·D3·E1·E2·E3·E4·E5·E6)、**已完成 2 项**(B2 — 20/20 legacy handler 全迁移;B4 — HistoryHandler 迁移)、**进行中 1 项**(B3 — SettingsHandler 13/~60 已迁移 permission-mode+input-history+model-provider 三子域)、**已豁免 1 项**(E12);其余 20 项待修复(22/43 已动)。逐项状态见 §7 表格,整体阶段路线见 §9 迁移文档索引。
 
 ---
 
@@ -56,42 +56,59 @@
 
 ### A1 · 前端模型注册表双真相源
 
-- **严重度**:高 | **状态**:待修复 | **归属**:总则一 / 四
+- **严重度**:高 | **状态**:**✓ 已验证(Slice 1,2026-06-23)** | **归属**:总则一 / 四
 - **位置**:`webview/src/components/ChatInputBox/types.ts:388-418`(`CLAUDE_MODELS` / `CODEX_MODELS`);`webview/src/utils/modelRegistry.ts:22-32`(`DEFAULT_MODEL_REGISTRY`);`types.ts:335-340`(`CLAUDE_ROLE_MODEL_IDS`)
 - **现象**:前端持有一份与后端 `config/ReadOnlyDefaultModels.java:30-47` 并行的模型真相副本,并作 fallback。
 - **根因**:违反「禁止 hardcode 业务数据表」「绝不前端也实现一份做 fallback」。
 - **修复方向**:后端 `MODEL_REGISTRY` 下发为唯一来源;前端空 registry 时显示 loading,不回退本地表。
-- **验收**:webview 无 `CLAUDE_MODELS` / `DEFAULT_MODEL_REGISTRY` 的业务用途(纯展示常量须明确标注)。
+- **验收**:**✓ 达成**。webview 已无 `CLAUDE_MODELS` / `CODEX_MODELS` / `AVAILABLE_MODELS` / `DEFAULT_MODEL_REGISTRY`(全部删除,非保留为展示常量);`currentRegistry` 初始为空,空 registry 不回退本地表。
+- **修复记录(Slice 1,2026-06-23)**:删 `types.ts` 的 `CLAUDE_MODELS`/`CODEX_MODELS`/`AVAILABLE_MODELS`、`modelRegistry.ts` 的 `DEFAULT_MODEL_REGISTRY`(`currentRegistry` 初始改 `{ items: [] }`);`ButtonArea.tsx`(L91/95)、`ModelSelect.tsx`(`DEFAULT_MODEL_MAP` + `AVAILABLE_MODELS` 默认参数 → `[]`)、`AiFeatureProviderModelPanel/index.tsx` 删本地表 fallback;`useClaudeProvider` 初始值改 `CLAUDE_ROLE_MODEL_IDS.sonnet`(`useState<string>` 显式标注避免 `as const` 字面量类型收窄导致的 4 处 tsc 错误)。
+- **测试**:`tsc --noEmit` 0 错误;webview vitest stash 基线对比 **0 新增失败**(基线 11 failed 全为预先存在回归:groupBlocks×4 / codexQuota×3 / useDialogManagement / useScrollBehavior / useWindowCallbacks,与模型域无关);模型域全绿(ModelSelect 12 / modelRegistry 26 / AiFeatureProviderModelPanel 4);删除 2 个引用已删常量的失效用例(`CLAUDE_MODELS.map` / `CODEX_MODELS`)。
+- **范围说明**:本 Slice 仅止血双真相源;A2(能力判定)/A3(归一化·映射·`[1m]`)/A4(effectiveContextWindow)随 A1-A4 全下沉,分别在 Slice 2/3 推进。
 - **关联**:迁移 P0-2 / P1-A2
 
 ### A2 · 前端能力判定函数(模型能力)
 
-- **严重度**:高 | **状态**:待修复 | **归属**:总则一
+- **严重度**:高 | **状态**:**✓ 已验证(Slice 3,2026-06-23)** | **归属**:总则一
 - **位置**:`types.ts:274-299`(`modelSupports1MContext`,按 id 字符串 `!includes('haiku')` 判定);`modelRegistry.ts:27`、`modelRegistry.ts:217`(阈值推断);`ReasoningSelect.tsx:57,70-77`(按 role `opus|fable|sonnet` 判定 reasoning)
 - **现象**:前端实现「某模型是否支持 1M / adaptive thinking」的能力判定。
 - **根因**:能力判定属业务逻辑,应后端计算后下发布尔/枚举字段。
 - **修复方向**:后端 `ModelConfig.supports1MContext` 已是权威;新增 `supportedReasoningLevels` 由 `ClaudeRole` 权威填充并下发;前端只读字段。
-- **验收**:webview 无 `modelSupports1MContext` / role→级别规则;能力均来自后端下发字段。
+- **验收**:**✓ 达成**。webview 已删 `modelSupports1MContext`(`types.ts`);`ReasoningSelect` 删 role→级别硬编码,改读后端下发 `supportedReasoningLevels`;所有 1M 支持判定读 registry `item.supports1MContext`。
+- **修复记录(Slice 3,2026-06-23)**:
+  - **协议层(`modelRegistry.ts`)**:`ModelRegistryItem` 增 `supportedReasoningLevels?: readonly ReasoningEffort[]`;`parseModelRegistryPayload` 经 `parseReasoningLevels`(校验合法级别)解析;新增 `getModelSupportedReasoningLevels(id)` helper 纯读 registry。
+  - **ReasoningSelect(能力判定下沉)**:删前端 `opus|fable|sonnet`/`haiku 隐藏` 硬编码;`availableLevels` 改 filter 后端下发 `supportedReasoningLevels`(sonnet/opus/fable=5 档含 xhigh+max,haiku=3 档);未配 role 的自定义模型不下发 → 隐藏。
+  - **1M 支持判定下沉**:`types.ts` 删 `modelSupports1MContext`(claude- 非 haiku + contextWindow>=1M 字符串/数值推断);`useModelProviderState`/`useMessageSender`/`LongContextToggle` 全部调用点改读 registry `item.supports1MContext`。
+  - **行为变化(可接受,后端权威)**:`sonnet` 现支持 5 档(含 xhigh,原前端硬编码 4 档无 xhigh);`haiku` 现 3 档可见(原前端隐藏);未在 registry 的 claude id 改保守 false(原规则1 任意 claude- 非 haiku 返回 true)。能力真相统一在后端 `ClaudeRole.reasoningLevels()` + `ModelConfig.supports1MContext`。
+- **测试**:`tsc --noEmit` 0 错误;webview vitest **813 passed / 10 failed**(10 failed 全为预先存在基线:codexQuota×3 / groupBlocks×4 / useDialogManagement / useScrollBehavior / useWindowCallbacks,与模型域无关);模型域全绿(modelRegistry / ReasoningSelect 5 / ModelSelect 3 / useModelProviderState / useMessageSender.context 10,后者补 registry `claude-opus-4-7` supports1MContext=true 反映后端权威下发);后端 `ModelRegistryServiceSerializeTest` guard 放行派生字段 `supportedReasoningLevels`(serialize 下发),`compileTestJava` 通过。
 - **关联**:迁移 P1-A1 / P1-A2 / P1-A3
 
 ### A3 · 前端模型归一化 / 映射 / 协议语义解释
 
-- **严重度**:高 | **状态**:待修复 | **归属**:总则一
+- **严重度**:高 | **状态**:**✓ 已验证(Slice 2,2026-06-23)** | **归属**:总则一
 - **位置**:`modelRegistry.ts:102-111`(`resolveClaudeModelId`)、`modelRegistry.ts:123-138`(`resolveClaudeRoleForModel`);`types.ts:344-362`(`getClaudeRoleFromModelId`)、`types.ts:364-371`(`normalizeClaudeModelId`,未知模型归一为 `claude-role-sonnet`)、`types.ts:315-323`(`apply1MContextSuffix`,前端构造 `[1m]` 后缀);`ButtonArea.tsx:62-105`(`applyModelMapping`)
 - **现象**:前端做模型 ID→role 映射、ID 归一化、`[1m]` 协议后缀构造——均为业务/协议语义。
 - **根因**:数据归一化与映射、协议语义解释一律下沉后端。
 - **修复方向**:后端下发 `role` 字段,前端只透传;`[1m]` 后缀由后端解释/构造。
-- **验收**:webview 删除 `getClaudeRoleFromModelId` / `normalizeClaudeModelId` / `apply1MContextSuffix`;`resolveClaudeRoleForModel` 改为纯读 registry `role`。
+- **验收**:**✓ 达成**。webview 已删 `getClaudeRoleFromModelId` / `normalizeClaudeModelId` / `apply1MContextSuffix` / `has1MContextSuffix`;`resolveClaudeRoleForModel` 纯读 registry `role`;`[1m]` 后缀构造移至后端 `ModelRegistryConfig.apply1MSuffix`。
+- **修复记录(Slice 2,2026-06-23)**:
+  - **归一化/role 映射下沉(阶段 2.1)**:`types.ts` 删 `getClaudeRoleFromModelId`(id→role 内置推导)/`normalizeClaudeModelId`(未知 id 归一 sonnet);`modelRegistry.ts` `resolveClaudeModelId` 改纯 strip [1m]、`resolveClaudeRoleForModel` 改纯读 registry `role`(未加载返回 null,不再内置回退);`ButtonArea.tsx` `applyModelMapping` 改读 `registryModel.role`;`ModelSelect.tsx` / `useModelProviderState.ts` 删归一化调用。
+  - **[1m] 协议后缀下沉(阶段 2.2)**:`types.ts` 删 `apply1MContextSuffix`(前端构造 [1m])+ `has1MContextSuffix`(死代码);`useMessageSender.ts` `/context` 改上送 `{model: stripped, longContextEnabled}` 意图;后端 `GetContextUsageActionHandler` 新增 `parseLongContextEnabled` + 经 `ModelRegistryConfig.apply1MSuffix(model, longContextEnabled)` 权威追加 [1m](范式对齐 `set_session_model` / `ModelProviderHandler` 的 longContextEnabled 意图通道)。
+  - **行为变化(可接受)**:`resolveClaudeModelId` 未知 id 原样保留(不再归一 sonnet);`resolveClaudeRoleForModel` registry 未加载返回 null。风险极小(MODEL_SELECTION 下发回填 role)。
+- **测试**:`tsc --noEmit` 0 错误(buildWebview `tsc && vite build` 同步成功,双重确认);webview vitest **819 passed / 10 failed**(10 failed 全为预先存在基线:codexQuota×3 / groupBlocks×4 / useDialogManagement / useScrollBehavior / useWindowCallbacks,与模型域无关);模型域全绿(modelRegistry 26 / ModelSelect 11 / ReasoningSelect 4 / ButtonArea 1 / useModelStatePersistence 3 / useMessageSender.context 10);后端 `compileTestJava` 通过,`GetContextUsageActionHandlerTest` 新增 4 个 `parseLongContextEnabled` 契约用例(true/false/缺失/空与非法)。
+- **范围说明**:A3 验收(归一化+映射+[1m] 下沉)全部达成。`modelSupports1MContext`(能力判定)属 A2,已于 Slice 3 下沉删除——`useMessageSender` 等调用点改读 registry `item.supports1MContext`。
 - **关联**:迁移 P1-A2
 
 ### A4 · useModelProviderState 前端计算 effectiveContextWindow(双轨矛盾)
 
-- **严重度**:高 | **状态**:待修复 | **归属**:总则一
+- **严重度**:高 | **状态**:**✓ 已验证(Slice 2 + Slice 3,2026-06-23)** | **归属**:总则一
 - **位置**:`webview/src/hooks/useModelProviderState.ts:121-123, 149-161, 213-264`
 - **现象**:一边订阅 `DOWNSTREAM.MODEL_SELECTION`(合规),一边又在前端用 `modelSupports1MContext` 计算 `supports1M` / `effectiveContextWindow` 决定下发内容,双轨且自相矛盾。
 - **根因**:effective context window 是业务计算结果,不应前端推导。
 - **修复方向**:三个 handler 只上送 `{model, longContextEnabled}`,由后端回推 `effectiveContextWindow` 经 `MODEL_SELECTION` 下发回填。
-- **验收**:`useModelProviderState` 无 `1_000_000` / `200_000` 字面量与 contextWindow 计算;状态改为从后端下行回填。
+- **验收**:**✓ 达成**。`useModelProviderState` 已无 `1_000_000` / `200_000` 字面量与 contextWindow 计算(`ONE_MILLION_CONTEXT_WINDOW` import 已删);三个 handler + registry 变更 effect 只上送意图;`MODEL_SELECTION` 订阅 `longContextEnabled` 改纯读后端权威 `supportsLongContext` 布尔(不再前端判 `effectiveContextWindow === 1M`)。
+- **修复记录(Slice 2 + 3,2026-06-23)**:Slice 2 三个 handler(`handleModelSelect`/`handleProviderSelect`/`handleLongContextChange`)改上送 `{model, longContextEnabled}` 意图,effectiveContextWindow 交后端 `DefaultModelCapabilityResolver` 计算;Slice 3 删 `modelSupports1MContext` 4 处调用点(改读 registry `item.supports1MContext`),`MODEL_SELECTION` 订阅改 `setLongContextEnabled(selection.supportsLongContext === true)`(后端 `ModelProviderHandler:191` 下发权威布尔),消除前端 1M 数值推断。
+- **测试**:同 A2(webview vitest 813/10 基线;`useModelProviderState` 全绿)。
 - **关联**:迁移 P1-A2
 
 ### A5 · 前端业务默认值 / 校验
@@ -587,10 +604,10 @@
 
 | 编号 | 标题 | 严重度 | 状态 | 归属 | 关联迁移 |
 |---|---|---|---|---|---|
-| A1 | 前端模型注册表双真相源 | 高 | 待修复 | 一/四 | P0-2 / P1-A2 |
-| A2 | 前端能力判定函数 | 高 | 待修复 | 一 | P1-A1/A2/A3 |
-| A3 | 前端模型归一化/映射/协议语义 | 高 | 待修复 | 一 | P1-A2 |
-| A4 | useModelProviderState 前端计算 contextWindow | 高 | 待修复 | 一 | P1-A2 |
+| A1 | 前端模型注册表双真相源 | 高 | ✓ 已验证 | 一/四 | P0-2 / P1-A2 |
+| A2 | 前端能力判定函数 | 高 | ✓ 已验证 | 一 | P1-A1/A2/A3 |
+| A3 | 前端模型归一化/映射/协议语义 | 高 | ✓ 已验证 | 一 | P1-A2 |
+| A4 | useModelProviderState 前端计算 contextWindow | 高 | ✓ 已验证 | 一 | P1-A2 |
 | A5 | 前端业务默认值/校验 | 中 | 待修复 | 一 | Phase4 / P2-B |
 | A6 | 版本决策前后端双写 | 中 | 待修复 | 一/四 | Phase4·V6 |
 | A7 | 工具分类纯前端硬编码 | 中 | 待修复 | 一 | Phase4·V7 |

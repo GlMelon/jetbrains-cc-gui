@@ -5,7 +5,7 @@ import {
   type ReasoningEffort,
 } from '../types';
 import { PROVIDER_IDS } from '../../../types/provider';
-import { resolveClaudeRoleForModel } from '../../../utils/modelRegistry';
+import { getModelSupportedReasoningLevels } from '../../../utils/modelRegistry';
 import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
 
 const RELATIVE_INLINE_BLOCK_STYLE: React.CSSProperties = { position: 'relative', display: 'inline-block' };
@@ -31,14 +31,14 @@ interface ReasoningSelectProps {
 /**
  * ReasoningSelect - Reasoning Effort Selector
  * Controls the depth of reasoning for AI models.
- * Visibility and available levels depend on the selected model's *role*:
- * - Codex: low/medium/high/xhigh
- * - Claude role fable/opus: low/medium/high/xhigh/max
- * - Claude role sonnet: low/medium/high/max
- * - Claude role haiku(及未配置 role 的模型):隐藏(不支持 adaptive thinking)
  *
- * 角色来自 resolveClaudeRoleForModel:内置 claude-role-* 由 id 推导,
- * 自定义模型由 registry.role 读取——用户在新增模型时选择的角色。
+ * A2:可选级别来自后端权威下发的 supportedReasoningLevels(派生自 ClaudeRole.reasoningLevels):
+ * - Claude role sonnet/opus/fable: low/medium/high/xhigh/max(5 档)
+ * - Claude role haiku: low/medium/high(3 档)
+ * - Codex: 前端默认 low/medium/high/xhigh(后端 codex capability 待后续补齐)
+ * - 未配置 role 的自定义 Claude 模型:不下发 supportedReasoningLevels → 隐藏
+ *
+ * registry 未加载时返回 null,组件隐藏(loading 态,registry 下发后回填)。
  */
 export const ReasoningSelect = ({ value, onChange, disabled, selectedModel, currentProvider }: ReasoningSelectProps) => {
   const { t } = useTranslation();
@@ -52,14 +52,19 @@ export const ReasoningSelect = ({ value, onChange, disabled, selectedModel, curr
     preferredAlignment: 'right',
   });
 
-  // 解析当前模型的 role(内置 role 与自定义模型 registry.role 统一处理)。
-  const role = resolveClaudeRoleForModel(selectedModel);
-  const supportsEffort = role === 'opus' || role === 'fable' || role === 'sonnet';
+  // A2:能力来自后端权威下发的 supportedReasoningLevels(派生自 role,见 ClaudeRole.reasoningLevels)。
+  // 不再在前端按 role 硬编码级别规则——sonnet/opus/fable=5 档、haiku=3 档,均由后端定义。
+  const supportedLevels = currentProvider === PROVIDER_IDS.CLAUDE && selectedModel
+    ? getModelSupportedReasoningLevels(selectedModel)
+    : null;
 
-  // Claude:按 role 判断是否显示(支持 adaptive thinking 的 role 才显示)。
+  // Claude:有后端下发的级别才显示;未选模型时 fallback 显示全部(向后兼容)。
+  // Codex 等:前端默认 low/medium/high/xhigh(后端 codex capability 待后续补齐)。
+  const supportsEffort = currentProvider !== PROVIDER_IDS.CLAUDE
+    || !selectedModel
+    || (!!supportedLevels && supportedLevels.length > 0);
   const isVisible = currentProvider !== PROVIDER_IDS.CLAUDE || !selectedModel || supportsEffort;
 
-  // 根据当前模型能力构建可选级别。
   const availableLevels = REASONING_LEVELS.filter(level => {
     if (currentProvider !== PROVIDER_IDS.CLAUDE) {
       return level.id !== 'max';
@@ -67,15 +72,10 @@ export const ReasoningSelect = ({ value, onChange, disabled, selectedModel, curr
     if (!selectedModel) {
       return true;
     }
-    if (level.id === 'xhigh') {
-      // 仅 opus/fable 支持 xhigh。
-      return role === 'opus' || role === 'fable';
+    if (!supportedLevels) {
+      return false;
     }
-    if (level.id === 'max') {
-      // opus/fable/sonnet 支持 max。
-      return supportsEffort;
-    }
-    return true;
+    return supportedLevels.includes(level.id);
   });
 
   const currentLevel = availableLevels.find(l => l.id === value) || availableLevels[availableLevels.length - 2] || availableLevels[0];

@@ -52,6 +52,15 @@ describe('useMessageSender - /context command', () => {
           supports1MContext: true,
           enabled: true,
         },
+        // A2:claude opus 支持 1M 由后端 registry 下发 supports1MContext=true(取代前端"claude- 非 haiku"字符串推断)。
+        {
+          id: 'claude-opus-4-7',
+          provider: 'claude',
+          label: 'Opus',
+          contextWindow: 200_000,
+          supports1MContext: true,
+          enabled: true,
+        },
       ],
     });
   });
@@ -74,10 +83,13 @@ describe('useMessageSender - /context command', () => {
     expect(bridgePayload.type).toBe('get_context_usage');
     const payload = JSON.parse(bridgePayload.content);
     expect(payload.model).toBe('claude-opus-4-7');
+    expect(payload.longContextEnabled).toBe(false);
     expect(payload.requestId).toBeTruthy();
   });
 
-  it('sends get_context_usage with [1m] suffix when longContext is enabled', () => {
+  it('sends get_context_usage with longContextEnabled intent when longContext is enabled', () => {
+    // D5:前端不再构造 [1m];上送 stripped model + longContextEnabled 意图,
+    // 后端 GetContextUsageActionHandler 据此权威追加 [1m](与 set_session_model 范式一致)。
     const opts = createOptions({
       selectedModel: 'claude-opus-4-7',
       longContextEnabled: true,
@@ -94,10 +106,13 @@ describe('useMessageSender - /context command', () => {
     const bridgePayload = parseBridgeCall(call);
     expect(bridgePayload.type).toBe('get_context_usage');
     const payload = JSON.parse(bridgePayload.content);
-    expect(payload.model).toBe('claude-opus-4-7[1m]');
+    expect(payload.model).toBe('claude-opus-4-7');
+    expect(payload.longContextEnabled).toBe(true);
   });
 
-  it('sends get_context_usage with [1m] suffix for registry Claude models that support 1M', () => {
+  it('sends get_context_usage with longContextEnabled intent for registry Claude models that support 1M', () => {
+    // D5:registry 模型(mimo,contextWindow=1M,supports1M=true)→ longContextEnabled=true 上送,
+    // [1m] 由后端据意图追加;model 原样上送(无 [1m])。
     const opts = createOptions({
       selectedModel: 'mimo-v2.5-pro',
       longContextEnabled: true,
@@ -112,7 +127,8 @@ describe('useMessageSender - /context command', () => {
     const call = (window.sendToJava as any).mock.calls[0][0] as string;
     const bridgePayload = parseBridgeCall(call);
     const payload = JSON.parse(bridgePayload.content);
-    expect(payload.model).toBe('mimo-v2.5-pro[1m]');
+    expect(payload.model).toBe('mimo-v2.5-pro');
+    expect(payload.longContextEnabled).toBe(true);
   });
 
   it('opens dialog with loading state before sending bridge event', () => {

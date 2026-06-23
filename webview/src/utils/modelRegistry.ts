@@ -1,7 +1,7 @@
 import { DOWNSTREAM, UPSTREAM } from '../generated/protocol';
 import { sendAction, subscribeEvent } from '../bridge/typed';
-import type { ModelInfo } from '../components/ChatInputBox/types';
-import { CLAUDE_MODELS, CODEX_MODELS, DEFAULT_CONTEXT_WINDOW, ONE_MILLION_CONTEXT_WINDOW, getClaudeRoleFromModelId, normalizeClaudeModelId, strip1MContextSuffix } from '../components/ChatInputBox/types';
+import type { ModelInfo, ReasoningEffort } from '../components/ChatInputBox/types';
+import { DEFAULT_CONTEXT_WINDOW, ONE_MILLION_CONTEXT_WINDOW, REASONING_LEVELS, strip1MContextSuffix } from '../components/ChatInputBox/types';
 import type { CodexCustomModel, CodexProviderConfig, ProviderType } from '../types/provider';
 
 export interface ModelRegistryItem extends ModelInfo {
@@ -9,6 +9,8 @@ export interface ModelRegistryItem extends ModelInfo {
   role?: 'sonnet' | 'opus' | 'fable' | 'haiku';
   actualModel?: string;
   supports1MContext?: boolean;
+  /** A2:后端权威下发的支持 reasoning 级别(派生自 role;仅 claude + role 已知时下发)。 */
+  supportedReasoningLevels?: readonly ReasoningEffort[];
   enabled?: boolean;
   readOnly?: boolean;
 }
@@ -19,19 +21,10 @@ export interface ModelRegistryPayload {
 
 const modelRegistryListeners = new Set<() => void>();
 
-const DEFAULT_MODEL_REGISTRY: ModelRegistryPayload = {
-  items: [
-    ...CLAUDE_MODELS.map((model) => ({
-      ...model,
-      provider: 'claude' as const,
-      supports1MContext: !model.id.toLowerCase().includes('haiku'),
-      enabled: true,
-    })),
-    ...CODEX_MODELS.map((model) => toCodexRegistryItem(model)),
-  ],
-};
-
-let currentRegistry: ModelRegistryPayload = DEFAULT_MODEL_REGISTRY;
+// A1(2026-06-23):DEFAULT_MODEL_REGISTRY 本地表已删除——模型真相源唯一为后端
+// MODEL_REGISTRY 下发(ReadOnlyDefaultModels → ModelRegistryService.serialize)。
+// currentRegistry 初始为空,空态由消费方显示 loading,绝不回退本地表(总则一·禁止前端 fallback)。
+let currentRegistry: ModelRegistryPayload = { items: [] };
 
 let subscribed = false;
 
@@ -88,37 +81,30 @@ export function getModelRegistrySnapshot(): ModelRegistryPayload {
 }
 
 /**
- * 将 Claude 模型 ID 解析为最终用于 selectedClaudeModel 的稳定 ID。
+ * 将外部 model id 规整为前端 selectedClaudeModel 应存的稳定 ID。
  *
- * 自定义模型(如 mimo-v2.5)的 id 不是 `claude-role-*` 形式,
- * `normalizeClaudeModelId` 会错误地把它归一化为 `claude-role-sonnet`,从而吞掉
- * 合法的自定义模型——下拉框点不中、刷新后丢失。这里先查当前 registry:
- * 若 registry 中存在该 id(provider=claude 且启用),则保留原始 id;否则才回退到
- * 归一化(兼容旧 role 体系,以及后端在 registry 加载前推送的真实模型名)。
+ * A3(2026-06-23):不再前端归一化。原逻辑在 registry 未命中时调用
+ * `normalizeClaudeModelId` 把任意 id 归一为 `claude-role-sonnet`(业务归一化),
+ * 已移除——归一化下沉,前端只透传。现仅剥离 [1m] 容量后缀:registry 命中的模型
+ * id 本就是后端权威下发的 role id;未命中的 id 原样保留,由后端 session 下发的
+ * role id 经 MODEL_SELECTION 回填纠正(见 useModelProviderState 订阅)。
  *
  * 调用点:`model.confirmed` / `model.changed` / `session.runtime_state` 等后端回调,
  * 以及 `useModelStatePersistence` 的持久化恢复。
  */
 export function resolveClaudeModelId(modelId: string | undefined | null): string {
-  const stripped = strip1MContextSuffix(modelId);
-  const inRegistry = currentRegistry.items.some(
-    (model) => model.provider === 'claude' && model.enabled !== false && model.id === stripped,
-  );
-  if (inRegistry) {
-    return stripped;
-  }
-  return normalizeClaudeModelId(stripped);
+  return strip1MContextSuffix(modelId);
 }
 
 /**
  * 解析模型对应的 Claude role,用于按 role 统一判断能力(如 reasoning effort)。
  *
- * 内置 `claude-role-*` 模型直接由 id 推导 role;自定义模型(如 mimo-v2.5)
- * 则读取当前 registry 中的 role 字段——即用户在“新增模型”时为该自定义模型
- * 选择的角色(sonnet/opus/fable/haiku)。这样自定义模型与内置模型走同一套
- * 能力判定逻辑(ReasoningSelect 显示/级别)。
+ * A3(2026-06-23):纯读 registry 的 role 字段(后端 ModelConfig.role 权威下发,
+ * 内置 claude-role-* 与自定义模型统一处理)。不再从前端 id 字符串离线推导 role
+ * (原 getClaudeRoleFromModelId builtin 分支移除)——registry 加载前返回 null,
+ * ReasoningSelect 据此显示空态,registry 下发后回填。
  *
- * 返回 null 表示既非内置 role 模型、也不在 registry 中(无法判定 role)。
+ * 返回 null 表示不在 registry 中或 registry 未加载(无法判定 role)。
  */
 export function resolveClaudeRoleForModel(
   modelId: string | undefined | null,
@@ -127,14 +113,29 @@ export function resolveClaudeRoleForModel(
   if (!stripped) {
     return null;
   }
-  const builtinRole = getClaudeRoleFromModelId(stripped);
-  if (builtinRole) {
-    return builtinRole;
-  }
   const item = currentRegistry.items.find(
     (model) => model.provider === 'claude' && model.enabled !== false && model.id === stripped,
   );
   return item?.role ?? null;
+}
+
+/**
+ * A2:读取模型后端权威下发的支持 reasoning 级别(派生自 role,仅 claude + role 已知时下发)。
+ *
+ * ReasoningSelect 据此渲染可选项,不再在前端按 role 硬编码级别规则。
+ * 返回 null 表示不在 registry 中 / registry 未加载 / 该模型无 reasoning 能力(Codex 等)。
+ */
+export function getModelSupportedReasoningLevels(
+  modelId: string | undefined | null,
+): readonly ReasoningEffort[] | null {
+  const stripped = strip1MContextSuffix(modelId);
+  if (!stripped) {
+    return null;
+  }
+  const item = currentRegistry.items.find(
+    (model) => model.provider === 'claude' && model.enabled !== false && model.id === stripped,
+  );
+  return item?.supportedReasoningLevels ?? null;
 }
 
 export function __setModelRegistryForTests(registry: ModelRegistryPayload): void {
@@ -142,9 +143,7 @@ export function __setModelRegistryForTests(registry: ModelRegistryPayload): void
 }
 
 export function resetModelRegistryForTests(): void {
-  publishModelRegistry({
-    items: DEFAULT_MODEL_REGISTRY.items.map((item) => ({ ...item })),
-  });
+  publishModelRegistry({ items: [] });
 }
 
 export function getModelsForProvider(provider: string): ModelInfo[] {
@@ -254,6 +253,7 @@ export function parseModelRegistryPayload(raw: unknown): ModelRegistryPayload | 
         description: typeof obj.description === 'string' ? obj.description : undefined,
         contextWindow,
         supports1MContext: obj.supports1MContext === true,
+        supportedReasoningLevels: parseReasoningLevels(obj.supportedReasoningLevels),
         enabled: obj.enabled !== false,
         readOnly: obj.readOnly === true,
       });
@@ -269,6 +269,23 @@ function parseClaudeRole(value: unknown): ModelRegistryItem['role'] | undefined 
     return value;
   }
   return undefined;
+}
+
+/** 合法 reasoning 级别 id 集合(派生自 REASONING_LEVELS SSOT,过滤后端下发值)。 */
+const VALID_REASONING_LEVEL_IDS = new Set<string>(REASONING_LEVELS.map((level) => level.id));
+
+/**
+ * 解析后端下发的 supportedReasoningLevels 数组,过滤非法值。
+ * 返回 undefined 表示未下发 / 为空(parseModelRegistryPayload 据此省略该能力)。
+ */
+function parseReasoningLevels(value: unknown): ReasoningEffort[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const levels = value.filter(
+    (entry): entry is ReasoningEffort => typeof entry === 'string' && VALID_REASONING_LEVEL_IDS.has(entry),
+  );
+  return levels.length > 0 ? levels : undefined;
 }
 
 function formatRegistryDescription(model: ModelRegistryItem): string | undefined {

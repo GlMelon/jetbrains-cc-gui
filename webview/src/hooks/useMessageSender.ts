@@ -2,7 +2,7 @@ import { useCallback, type RefObject } from 'react';
 import type { TFunction } from 'i18next';
 import { sendBridgeEvent } from '../utils/bridge';
 import type { ClaudeContentBlock, ClaudeMessage } from '../types';
-import { apply1MContextSuffix } from '../components/ChatInputBox/types';
+import { strip1MContextSuffix } from '../components/ChatInputBox/types';
 import type { Attachment, ChatInputBoxHandle, PermissionMode, SelectedAgent } from '../components/ChatInputBox/types';
 import type { ViewMode } from './useModelProviderState';
 import { getModelsForProvider } from '../utils/modelRegistry';
@@ -168,11 +168,14 @@ export function useMessageSender({
       // Open dialog with loading state immediately
       openContextUsageDialog(requestId, true);
 
-      // Send bridge event to fetch context usage with current model
-      // Apply [1m] suffix if long context is enabled so the SDK creates
-      // a runtime with the correct context window limit.
+      // D5:不再前端构造 [1m];上送 stripped model + longContextEnabled 意图(已与 supports1M 取并集),
+      // 后端 GetContextUsageActionHandler 据此权威追加 [1m] 后缀(与 set_session_model 范式一致)。
+      const strippedModel = strip1MContextSuffix(selectedModel);
+      // A2:supports1M 读 registry item.supports1MContext(后端权威),取代前端 modelSupports1MContext 字符串推断。
+      const supports1M = getModelsForProvider('claude').find((model) => model.id === strippedModel)?.supports1MContext ?? false;
       const sent = sendBridgeEvent('get_context_usage', JSON.stringify({
-        model: apply1MContextSuffix(selectedModel, longContextEnabled ?? false, getModelsForProvider('claude')),
+        model: strippedModel,
+        longContextEnabled: (longContextEnabled ?? false) && supports1M,
         requestId,
       }));
 

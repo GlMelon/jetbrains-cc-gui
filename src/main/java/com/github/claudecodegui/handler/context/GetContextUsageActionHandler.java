@@ -1,5 +1,6 @@
 package com.github.claudecodegui.handler.context;
 
+import com.github.claudecodegui.config.ModelRegistryConfig;
 import com.github.claudecodegui.handler.core.FrontendActionContext;
 import com.github.claudecodegui.handler.core.FrontendActionHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
@@ -47,6 +48,8 @@ public final class GetContextUsageActionHandler implements FrontendActionHandler
         String cwd = parsed[1];
         String model = parsed[2];
         String requestId = parsed[3];
+        // D5:longContextEnabled 意图由后端权威解析并据此追加 [1m] 后缀(取代前端 apply1MContextSuffix)。
+        boolean longContextEnabled = parseLongContextEnabled(gson, payload);
 
         // Fall back to session state if not provided
         if (sessionId == null || sessionId.isEmpty()) {
@@ -58,7 +61,8 @@ public final class GetContextUsageActionHandler implements FrontendActionHandler
 
         final String finalSessionId = sessionId;
         final String finalCwd = cwd;
-        final String finalModel = model;
+        // D5:按 longContextEnabled 意图构造最终 model([1m] 后缀下沉到后端)。
+        final String finalModel = ModelRegistryConfig.apply1MSuffix(model, longContextEnabled);
         final String finalRequestId = requestId;
 
         try {
@@ -150,5 +154,25 @@ public final class GetContextUsageActionHandler implements FrontendActionHandler
         }
 
         return new String[]{sessionId, cwd, model, requestId};
+    }
+
+    /**
+     * 解析 get_context_usage 请求中的 longContextEnabled 意图布尔(D5:1M 构造下沉)。
+     * 新前端上送 {model, longContextEnabled}(已与 supports1M 取并集);
+     * 旧前端不发该字段 → 返回 false(向后兼容)。
+     */
+    static boolean parseLongContextEnabled(Gson gson, String content) {
+        try {
+            if (content == null || content.isEmpty()) {
+                return false;
+            }
+            JsonObject request = gson.fromJson(content, JsonObject.class);
+            if (request != null && request.has("longContextEnabled") && !request.get("longContextEnabled").isJsonNull()) {
+                return request.get("longContextEnabled").getAsBoolean();
+            }
+        } catch (Exception e) {
+            // Return false on parse failure
+        }
+        return false;
     }
 }

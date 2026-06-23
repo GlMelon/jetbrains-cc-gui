@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CLAUDE_MODELS } from '../../components/ChatInputBox/types';
+import { CLAUDE_ROLE_MODEL_IDS } from '../../components/ChatInputBox/types';
 import type { PermissionMode } from '../../components/ChatInputBox/types';
 
 /**
@@ -8,7 +8,8 @@ import type { PermissionMode } from '../../components/ChatInputBox/types';
  * (useModelProviderState) since they need to read both Claude and Codex state.
  */
 export function useClaudeProvider() {
-  const [selectedClaudeModel, setSelectedClaudeModel] = useState(CLAUDE_MODELS[0].id);
+  // A1:初始选中值用协议常量 claude-role-sonnet(后端 role id),不再读已删除的本地表 CLAUDE_MODELS。
+  const [selectedClaudeModel, setSelectedClaudeModel] = useState<string>(CLAUDE_ROLE_MODEL_IDS.sonnet);
   const [claudePermissionMode, setClaudePermissionMode] = useState<PermissionMode>('default');
   const [longContextEnabled, setLongContextEnabled] = useState(true);
   const [claudeSettingsAlwaysThinkingEnabled, setClaudeSettingsAlwaysThinkingEnabled] = useState(true);

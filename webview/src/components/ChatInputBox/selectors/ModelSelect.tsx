@@ -1,10 +1,7 @@
 import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  AVAILABLE_MODELS,
   CLAUDE_ROLE_MODEL_IDS,
-  getClaudeRoleFromModelId,
-  normalizeClaudeModelId,
   strip1MContextSuffix,
 } from '../types';
 import type { ModelInfo } from '../types';
@@ -33,13 +30,8 @@ interface ModelSelectProps {
   currentProvider?: string;
 }
 
-const DEFAULT_MODEL_MAP: Record<string, ModelInfo> = AVAILABLE_MODELS.reduce(
-  (acc, model) => {
-    acc[model.id] = model;
-    return acc;
-  },
-  {} as Record<string, ModelInfo>
-);
+// A1:DEFAULT_MODEL_MAP(基于已删除的 AVAILABLE_MODELS/CLAUDE_MODELS)已移除。
+// 模型 label 由后端 ModelConfig.label 权威下发 + i18n labelKey 翻译,无需前端默认表对比。
 
 const MODEL_LABEL_KEYS: Record<string, string> = {
   [CLAUDE_ROLE_MODEL_IDS.sonnet]: 'models.claude.roles.sonnet.label',
@@ -81,13 +73,8 @@ const resolveMappedModelName = (
   return mapped?.trim() || undefined;
 };
 
-const getRoleModelLabel = (modelId: string): string | null => {
-  const role = getClaudeRoleFromModelId(modelId);
-  if (!role) {
-    return null;
-  }
-  return role[0].toUpperCase() + role.slice(1);
-};
+// A3(2026-06-23):getRoleModelLabel(从 id 离线推导 role 名作 label 兜底)已移除。
+// label 兜底改用后端下发的 model.label(见 getModelLabel)。
 
 /**
  * Resolve the display model name for icon matching.
@@ -113,7 +100,7 @@ const resolveModelIdForIcon = (
  * ModelSelect - Model selector component
  * Supports switching between Sonnet 4.5, Opus 4.5, and other models, including Codex models
  */
-export const ModelSelect = ({ value, onChange, models = AVAILABLE_MODELS, currentProvider = 'claude' }: ModelSelectProps) => {
+export const ModelSelect = ({ value, onChange, models = [], currentProvider = 'claude' }: ModelSelectProps) => {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -129,13 +116,12 @@ export const ModelSelect = ({ value, onChange, models = AVAILABLE_MODELS, curren
 
   // Strip [1m] suffix for finding the model in the list
   const strippedValue = strip1MContextSuffix(value);
-  const normalizedValue = currentProvider === 'claude' ? normalizeClaudeModelId(strippedValue) : strippedValue;
   const hasModels = models.length > 0;
   const exactSelectedModel = models.find(m => m.id === strippedValue);
   // Guard against empty models (e.g. Codex provider before config.toml is set):
   // models[0] would be undefined and crash on .id access. Fall back to a null placeholder.
   const resolvedModel: ModelInfo | null = hasModels
-    ? (exactSelectedModel || models.find(m => m.id === normalizedValue) || models[0])
+    ? (exactSelectedModel || models[0])
     : null;
   const modelMapping = readClaudeModelMapping();
 
@@ -149,7 +135,8 @@ export const ModelSelect = ({ value, onChange, models = AVAILABLE_MODELS, curren
     if (exactSelectedModel) {
       return false;
     }
-    return normalizeClaudeModelId(modelId) === normalizedValue;
+    // A3:不再归一化比较;仅剥离 [1m] 后缀做精确匹配。
+    return strip1MContextSuffix(modelId) === strippedValue;
   };
 
   const getModelLabel = (model: ModelInfo, show1MContext = false): string => {
@@ -163,18 +150,11 @@ export const ModelSelect = ({ value, onChange, models = AVAILABLE_MODELS, curren
       }
     }
 
-    const defaultModel = DEFAULT_MODEL_MAP[model.id];
     const labelKey = MODEL_LABEL_KEYS[model.id];
-    const hasCustomLabel = defaultModel && model.label && model.label !== defaultModel.label;
-
-    if (hasCustomLabel) {
-      // Strip [1m] suffix from custom label for clean display
-      const cleanLabel = strip1MContextSuffix(model.label ?? '');
-      return append1MContextSuffix(cleanLabel, model.id, show1MContext);
-    }
 
     if (labelKey) {
-      const fallback = getRoleModelLabel(model.id) ?? model.label ?? model.id;
+      // A3:label 兜底用后端下发的 model.label,不再从 id 离线推导 role 名。
+      const fallback = model.label ?? model.id;
       return append1MContextSuffix(t(labelKey, { defaultValue: fallback }), model.id, show1MContext);
     }
 

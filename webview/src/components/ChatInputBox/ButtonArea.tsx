@@ -1,7 +1,7 @@
 import {memo, useCallback, useEffect, useMemo, useState} from 'react';
 import {useTranslation} from 'react-i18next';
 import type {ButtonAreaProps, ModelInfo, PermissionMode, ReasoningEffort} from './types';
-import {CLAUDE_MODELS, CLAUDE_ROLE_MODEL_IDS, getClaudeRoleFromModelId, strip1MContextSuffix} from './types';
+import {CLAUDE_ROLE_MODEL_IDS, strip1MContextSuffix} from './types';
 import {ConfigSelect, ModelSelect, ModeSelect, ProviderSelect, ReasoningSelect} from './selectors';
 import {readClaudeModelMapping} from '../../utils/claudeModelMapping';
 import {getModelsForProvider, getModelRegistrySnapshot, requestModelRegistry, subscribeModelRegistry} from '../../utils/modelRegistry';
@@ -65,7 +65,8 @@ export const ButtonArea = memo(function ButtonArea({
       return model;
     }
 
-    const key = getClaudeRoleFromModelId(model.id);
+    // A3:用 registry 的 role 字段判定是否内置模型(后端权威下发),不再从 id 离线推导。
+    const key = registryModel?.role;
     // Only apply mapping to built-in Claude models, keep custom model labels unchanged
     if (!key) {
       return model;
@@ -88,11 +89,13 @@ export const ButtonArea = memo(function ButtonArea({
       return registryModels;
     }
     if (typeof window === 'undefined' || !window.localStorage) {
-      return registryModels.length > 0 ? registryModels : CLAUDE_MODELS;
+      // A1:不再回退本地表;registry 空时返回空(SSR/localStorage 不可用场景罕见)。
+      return registryModels;
     }
 
     // Apply model mapping to built-in models
-    let builtInModels = registryModels.length > 0 ? registryModels : CLAUDE_MODELS;
+    // A1:不再回退本地表 CLAUDE_MODELS;registry 为权威来源(空态由后端下发填补)。
+    let builtInModels = registryModels;
     try {
       const mapping = readClaudeModelMapping();
       if (Object.keys(mapping).length > 0) {

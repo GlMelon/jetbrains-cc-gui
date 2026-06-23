@@ -1,6 +1,5 @@
 import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CLAUDE_MODELS, CODEX_MODELS } from '../../ChatInputBox/types';
 import { ProviderModelIcon } from '../../shared/ProviderModelIcon';
 import type { AiFeatureConfig, AiFeatureProvider } from '../../../types/aiFeatureConfig';
 import { getModelsForProvider } from '../../../utils/modelRegistry';
@@ -34,8 +33,8 @@ const AiFeatureProviderModelPanel = ({
   const modelOptions = useMemo(() => {
     const configuredModel = config.models[selectedProvider];
     const registryModels = getModelsForProvider(selectedProvider);
-    const fallbackModels = selectedProvider === 'codex' ? CODEX_MODELS : CLAUDE_MODELS;
-    const options = registryModels.length > 0 ? registryModels : fallbackModels;
+    // A1:不再回退本地表 CLAUDE_MODELS/CODEX_MODELS;registry 空时仅用 configuredModel 兜底(见下)。
+    const options = registryModels;
     if (configuredModel && !options.some((model) => model.id === configuredModel)) {
       return [
         {
