@@ -48,7 +48,7 @@
 | E · 对接未 Docking 化 / 分层 / 序列化 | 二/五 + 附录 | 12 | 1 | 8 | 3 |
 | **合计** | — | **43** | **15** | **23** | **5** |
 
-> 截至 2026-06-23 进度:**已验证 14 项**(B1·B5·C3·C6·C8·C9·D2·D3·E1·E2·E3·E4·E5·E6)、**已完成 2 项**(B2 — 20/20 legacy handler 全迁移;B4 — HistoryHandler 迁移)、**接近完成 1 项**(C2 — PermissionMode/ReasoningEffort/ProviderType 子切片落地;CodexFastMode 经根因调查降级为「无 bug · 现状可接受」)、**进行中 1 项**(B3 — SettingsHandler 13/~60 已迁移 permission-mode+input-history+model-provider 三子域)、**已豁免 1 项**(E12);其余 25 项待修复(18/43 已动)。逐项状态见 §7 表格,整体阶段路线见 §9 迁移文档索引。
+> 截至 2026-06-23 进度:**已验证 15 项**(B1·B5·C2·C3·C6·C8·C9·D2·D3·E1·E2·E3·E4·E5·E6)、**已完成 2 项**(B2 — 20/20 legacy handler 全迁移;B4 — HistoryHandler 迁移)、**进行中 1 项**(B3 — SettingsHandler 13/~60 已迁移 permission-mode+input-history+model-provider 三子域)、**已豁免 1 项**(E12);其余 25 项待修复(19/43 已动)。逐项状态见 §7 表格,整体阶段路线见 §9 迁移文档索引。
 
 ---
 
@@ -245,7 +245,7 @@
 
 ### C2 · 业务枚举 SSOT 全未落地(前端手写、后端散落字符串)
 
-- **严重度**:高 | **状态**:接近完成(PermissionMode / ReasoningEffort / ProviderType ✓;CodexFastMode 经调查降级为「无 bug · 现状可接受」) | **归属**:总则三
+- **严重度**:高 | **状态**:已验证(PermissionMode / ReasoningEffort / ProviderType ✓;CodexFastMode 经调查降级为「无 bug · 现状可接受」) | **归属**:总则三
 - **位置**:
   - `PermissionMode` ✅(2026-06-22 子切片已落地):新建 `protocol/PermissionMode.java`(5 值含 `autoEdit` 别名,`implements ProtocolValue`);前端 `types.ts` re-export generated 类型,`VALID_PERMISSION_MODE_IDS` 改从 SSOT `PERMISSION_MODE` 派生(原从展示列表 `AVAILABLE_MODES` 4 值派生,漏 `autoEdit` → 后端下发时状态丢失 bug 已修)。`CliConstants.PERM_*` 散落常量待后续收敛。
   - `ReasoningEffort` ✅(2026-06-22 子切片已落地):新建 `protocol/ReasoningEffort.java`(5 值 low/medium/high/xhigh/max,全集 = Claude API,`implements ProtocolValue`);前端 `types.ts` re-export generated 类型,`useModelStatePersistence.ts` `REASONING_VALUES` 改从 SSOT `REASONING_EFFORT` 派生(原手写 5 档与 `ClaudeRole.java:127` 重复)。默认 high 与 `CommonConstants.DEFAULT_REASONING_EFFORT`(C3)对齐。`ClaudeRole.reasoningLevels()` 裸 `List.of` 待后续收敛为枚举引用。
@@ -603,7 +603,7 @@
 | B4 | HistoryHandler 孤儿 | 中 | ✓ 已完成 | 二 | P1-C 排查 |
 | B5 | 下行 type 字面量散落 | 中 | ✓ 已验证 | 二 | P1-B |
 | C1 | payload 字段结构未生成 | 高 | 待修复 | 三 | Phase1 / Phase2·V3 |
-| C2 | 业务枚举 SSOT 全未落地 | 高 | 接近完成(PermissionMode/ReasoningEffort/ProviderType ✓;CodexFastMode 降级) | 三 | P2-A |
+| C2 | 业务枚举 SSOT 全未落地 | 高 | ✓ 已验证 | 三 | P2-A |
 | C3 | 默认值漂移(已发生) | 高 | 已验证 | 三 | P2-B / P2-A |
 | C4 | 前端协议字面量第二真相源 | 高 | 待修复 | 三/四 | P1-B |
 | C5 | 业务默认值前后端手抄 | 中 | 待修复 | 三 | P2-B |
