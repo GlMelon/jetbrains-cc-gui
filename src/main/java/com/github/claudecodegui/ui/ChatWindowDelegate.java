@@ -64,7 +64,6 @@ import com.github.claudecodegui.handler.PermissionModeHandler;
 import com.github.claudecodegui.handler.InputHistoryHandler;
 import com.github.claudecodegui.handler.UsagePushService;
 import com.github.claudecodegui.handler.provider.ModelProviderHandler;
-import com.github.claudecodegui.handler.core.MessageDispatcher;
 import com.github.claudecodegui.handler.nodeprocess.NodeProcessActionHandlers;
 import com.github.claudecodegui.handler.nodeprocess.GetNodeProcessesActionHandler;
 import com.github.claudecodegui.handler.nodeprocess.KillNodeProcessActionHandler;
@@ -258,7 +257,6 @@ public class ChatWindowDelegate {
         String getSessionId();
         HandlerContext getHandlerContext();
         void setHandlerContext(HandlerContext ctx);
-        void setMessageDispatcher(MessageDispatcher d);
         void setFrontendActionDispatcher(FrontendActionDispatcher d);
         void setPermissionHandler(PermissionActionHandlers h);
         SessionLifecycleManager getSessionLifecycleManager();
@@ -437,13 +435,9 @@ public class ChatWindowDelegate {
         handlerContext.setFrontendReadyChecker(frontendReadyChecker);
         host.setHandlerContext(handlerContext);
 
-        MessageDispatcher messageDispatcher = new MessageDispatcher();
-        host.setMessageDispatcher(messageDispatcher);
-
-        // Typed frontend action dispatcher: migrated settings actions (model registry + appearance)
-        // are served by dedicated typed handlers; the remaining SettingsHandler actions are bridged
-        // via LegacyMessageHandlerAdapter. This dispatcher is consulted before the legacy
-        // MessageDispatcher in ClaudeChatWindow#handleMessage.
+        // Typed frontend action dispatcher: all actions (model registry, appearance, and the
+        // remaining SettingsHandler actions bridged via LegacyMessageHandlerAdapter) are served by
+        // dedicated typed handlers. This is the sole dispatch path in ClaudeChatWindow#handleMessage.
         CodemossSettingsService settings = handlerContext.getSettingsService();
         ModelRegistryService modelRegistryService = new ModelRegistryService(settings);
         AppearanceConfigService appearanceConfigService = new AppearanceConfigService(settings);
@@ -665,7 +659,7 @@ public class ChatWindowDelegate {
         typedHandlers.add(new LoadSubagentSessionActionHandler(historyHandlers));
         typedHandlers.add(new ConvertToCliSessionActionHandler(historyHandlers));
 
-        LOG.info("Registered " + messageDispatcher.getHandlerCount() + " message handlers");
+        LOG.info("Registered " + typedHandlers.size() + " typed action handlers");
     }
 
     public void initializeStatusBar() {

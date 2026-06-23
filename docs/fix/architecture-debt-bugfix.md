@@ -48,7 +48,7 @@
 | E · 对接未 Docking 化 / 分层 / 序列化 | 二/五 + 附录 | 12 | 1 | 8 | 3 |
 | **合计** | — | **43** | **15** | **23** | **5** |
 
-> 截至 2026-06-23 进度:**已验证 12 项**(C3·C6·C8·C9·D2·D3·E1·E2·E3·E4·E5·E6)、**已完成 2 项**(B2 — 20/20 legacy handler 全迁移;B4 — HistoryHandler 迁移)、**接近完成 1 项**(C2 — PermissionMode/ReasoningEffort/ProviderType 子切片落地;CodexFastMode 经根因调查降级为「无 bug · 现状可接受」)、**进行中 1 项**(B3 — SettingsHandler 13/~60 已迁移 permission-mode+input-history+model-provider 三子域)、**已豁免 1 项**(E12);其余 27 项待修复(16/43 已动)。逐项状态见 §7 表格,整体阶段路线见 §9 迁移文档索引。
+> 截至 2026-06-23 进度:**已验证 13 项**(B1·C3·C6·C8·C9·D2·D3·E1·E2·E3·E4·E5·E6)、**已完成 2 项**(B2 — 20/20 legacy handler 全迁移;B4 — HistoryHandler 迁移)、**接近完成 1 项**(C2 — PermissionMode/ReasoningEffort/ProviderType 子切片落地;CodexFastMode 经根因调查降级为「无 bug · 现状可接受」)、**进行中 1 项**(B3 — SettingsHandler 13/~60 已迁移 permission-mode+input-history+model-provider 三子域)、**已豁免 1 项**(E12);其余 26 项待修复(17/43 已动)。逐项状态见 §7 表格,整体阶段路线见 §9 迁移文档索引。
 
 ---
 
@@ -160,13 +160,19 @@
 
 ### B1 · MessageDispatcher 线性遍历链仍在用(typed 通道兜底)
 
-- **严重度**:中 | **状态**:待修复 | **归属**:总则二
+- **严重度**:中 | **状态**:已验证 | **归属**:总则二
 - **位置**:`handler/core/MessageDispatcher.java:10-63`(`List<MessageHandler>` + `for` 循环);入口 `ClaudeChatWindow.java:732`
 - **现象**:typed 通道未命中即回退到线性遍历的旧 dispatcher,违反 OCP。
 - **根因**:双轨期过渡残留;18 个 legacy handler 尚未迁移。
 - **修复方向**:随 B2 / B3 迁移完成后,删除 `messageDispatcher.dispatch` 兜底分支,`MessageDispatcher` 标 `@Deprecated`。
 - **验收**:`ClaudeChatWindow.handleMessage` 仅剩 typed 通道;`MessageDispatcher` 无业务调用。
 - **关联**:迁移 P1-C / P3-C
+- **修复记录**(2026-06-23,B1):
+  - **前提已满足**:B2(20/20 legacy handler 全迁移)+ B4(HistoryHandler)完成后,`MessageDispatcher` 注册 **0 个 handler**;`ClaudeChatWindow:731` 的 legacy 兜底 `dispatch` 永远返回 `false`,为纯死代码。B3 剩余 settings action 走 `LegacyMessageHandlerAdapter` 桥接到 typed dispatcher,不依赖 legacy `MessageDispatcher`,故 B1 与 B3 是否完成无关。
+  - **兜底删除**:`ClaudeChatWindow#handleMessage` 删 legacy `if (messageDispatcher.dispatch(...))` 兜底分支,仅剩 typed `frontendActionDispatcher` 单通道;同步删 `dispose()` 中的 `messageDispatcher.clear()`、`messageDispatcher` 字段、`setMessageDispatcher` setter。
+  - **装配清理**:`ChatWindowDelegate` 删 `new MessageDispatcher()` / `host.setMessageDispatcher(...)` / `DelegateHost.setMessageDispatcher` 接口声明;"Registered N message handlers" 日志改统计 typed handler 数(`typedHandlers.size()`)。
+  - **类删除(优于原建议)**:原修复方向为「标 `@Deprecated`」,但全仓清理后 `MessageDispatcher` 类**零引用**(无 main/test/resources/Adapter 依赖),**直接删除整个类**比 `@Deprecated` 更彻底消除死代码,完全满足验收「无业务调用」。`MessageHandler` 接口 / `BaseMessageHandler` / `SettingsHandler` 保留(B3 桥接依赖 `MessageHandler` 接口)。
+  - **验证**:`gradle compileJava` 通过;`compileTestJava` 通过(证明无测试引用 `MessageDispatcher`,删除安全);全仓 grep `MessageDispatcher`(排除 `FrontendActionDispatcher`)零残留。`instrumentTestCode` 失败(`D:\tools\jdk17\Packages does not exist`)为预先存在的 JDK 路径环境问题(IntelliJ 插件 gradle 插桩任务),与 B1 无关。行为零变化(删的是永远返回 false 的死路径)。
 
 ### B2 · 20 个 legacy MessageHandler 用 SUPPORTED_TYPES 字符串数组 + switch(type)
 
@@ -590,7 +596,7 @@
 | A8 | 会话标题候选判定(边界) | 低 | 待修复 | 一 | — |
 | A9 | 可回滚性判定(边界) | 低 | 待修复 | 一 | A7 |
 | A10 | PROVIDER_PRESETS 前端持业务表 | 中 | 待修复 | 一/三 | P0-2 |
-| B1 | MessageDispatcher 线性链兜底 | 中 | 待修复 | 二 | P1-C / P3-C |
+| B1 | MessageDispatcher 线性链兜底 | 中 | ✓ 已验证 | 二 | P1-C / P3-C |
 | B2 | 20 个 legacy MessageHandler SUPPORTED_TYPES | 高 | ✓ 已完成(20/20) | 二 | P1-C |
 | B3 | SettingsHandler 60+ 字符串分派 | 高 | 进行中(13/~60) | 二 | P1-C |
 | B4 | HistoryHandler 孤儿 | 中 | ✓ 已完成 | 二 | P1-C 排查 |

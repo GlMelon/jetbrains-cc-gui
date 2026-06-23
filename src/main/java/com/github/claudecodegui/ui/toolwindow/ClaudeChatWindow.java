@@ -4,7 +4,6 @@ import com.github.claudecodegui.action.SendShortcutSync;
 import com.github.claudecodegui.handler.permission.PermissionActionHandlers;
 import com.github.claudecodegui.handler.core.FrontendActionDispatcher;
 import com.github.claudecodegui.handler.core.HandlerContext;
-import com.github.claudecodegui.handler.core.MessageDispatcher;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.permission.PermissionService;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
@@ -169,11 +168,7 @@ public class ClaudeChatWindow {
      */
     private HandlerContext handlerContext;
     /**
-     * message dispatcher.
-     */
-    private MessageDispatcher messageDispatcher;
-    /**
-     * frontend action dispatcher (typed handlers; consulted before legacy messageDispatcher).
+     * frontend action dispatcher (typed handlers; sole dispatch path for upstream actions).
      */
     private FrontendActionDispatcher frontendActionDispatcher;
     /**
@@ -728,9 +723,6 @@ public class ClaudeChatWindow {
         if (frontendActionDispatcher != null && frontendActionDispatcher.dispatch(type, content)) {
             return;
         }
-        if (messageDispatcher.dispatch(type, content)) {
-            return;
-        }
 
         LOG.warn("Unknown message type: " + type);
     }
@@ -1227,10 +1219,6 @@ public class ClaudeChatWindow {
             LOG.warn("Failed to clean up browser: " + e.getMessage());
         }
 
-        if (messageDispatcher != null) {
-            messageDispatcher.clear();
-        }
-
         LOG.info("[TabPerf] ClaudeChatWindow.dispose returned in "
                 + TabPerformanceLogger.elapsedMillis(disposeStartNanos) + "ms: " + tabDescriptor);
         LOG.info("Window resources fully cleaned up, project: " + project.getName());
@@ -1432,11 +1420,6 @@ public class ClaudeChatWindow {
             @Override
             public void setHandlerContext(HandlerContext ctx) {
                 handlerContext = ctx;
-            }
-
-            @Override
-            public void setMessageDispatcher(MessageDispatcher d) {
-                messageDispatcher = d;
             }
 
             @Override
