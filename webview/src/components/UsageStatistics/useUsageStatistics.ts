@@ -1,12 +1,13 @@
 /**
  * Hook for usage statistics data loading, filtering, and formatting.
  */
+import { sendAction, subscribeEvent } from '../../bridge/typed';
+import { UPSTREAM, DOWNSTREAM } from '../../generated/protocol';
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { sendToJava } from '../../utils/bridge.js';
 import { debugLog } from '../../utils/debug';
 import type { ProjectStatistics, DailyUsage } from '../../types/usage';
-import { bridgeHub, registerLegacyAlias } from '../../bridge';
+import { registerLegacyAlias } from '../../bridge';
 
 export type TabType = 'overview' | 'models' | 'sessions' | 'timeline';
 export type ScopeType = 'current' | 'all';
@@ -37,7 +38,7 @@ export function useUsageStatistics(currentProvider?: string) {
 
   const loadStatistics = useCallback(() => {
     setLoading(true);
-    sendToJava('get_usage_statistics', {
+    sendAction(UPSTREAM.GET_USAGE_STATISTICS, {
       scope: projectScope,
       provider: currentProvider || 'claude',
       dateRange: dateRange
@@ -46,8 +47,8 @@ export function useUsageStatistics(currentProvider?: string) {
 
   useEffect(() => {
     // [归一化] updateUsageStatistics → usage.statistics
-    registerLegacyAlias('updateUsageStatistics', 'usage.statistics');
-    bridgeHub.subscribe('usage.statistics', (jsonStr) => {
+    registerLegacyAlias('updateUsageStatistics', DOWNSTREAM.USAGE_STATISTICS);
+    subscribeEvent(DOWNSTREAM.USAGE_STATISTICS, (jsonStr) => {
       try {
         const data: ProjectStatistics = JSON.parse(jsonStr as string);
         setStatistics(data);

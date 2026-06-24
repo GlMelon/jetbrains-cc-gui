@@ -1,5 +1,8 @@
+import { sendAction } from '../bridge/typed';
+import { UPSTREAM } from '../generated/protocol';
 import { useEffect } from 'react';
-import { sendBridgeEvent } from '../utils/bridge';
+
+
 
 export interface UseHistoryLoaderOptions {
   currentView: 'chat' | 'history' | 'settings';
@@ -20,7 +23,7 @@ export function useHistoryLoader(options: UseHistoryLoaderOptions): void {
 
     const requestHistoryData = () => {
       if (window.sendToJava) {
-        sendBridgeEvent('load_history_data', currentProvider);
+        sendAction(UPSTREAM.LOAD_HISTORY_DATA, currentProvider);
       } else {
         historyRetryCount++;
         if (historyRetryCount < MAX_HISTORY_RETRIES) {

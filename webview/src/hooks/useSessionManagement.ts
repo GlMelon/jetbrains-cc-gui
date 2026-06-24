@@ -1,7 +1,8 @@
+import { sendAction } from '../bridge/typed';
+import { UPSTREAM } from '../generated/protocol';
 import { useCallback, useRef, useState } from 'react';
 import type { TFunction } from 'i18next';
 import type { ClaudeMessage, HistoryData, ViewMode } from '../types';
-import { sendBridgeEvent } from '../utils/bridge';
 import { getSkipNewSessionConfirm } from '../utils/skipNewSessionConfirm';
 import { clearAllPersistedExpanded } from '../utils/expandedState';
 
@@ -154,7 +155,7 @@ export function useSessionManagement({
       // page toggle takes effect immediately.
       if (getSkipNewSessionConfirm()) {
         beginSessionTransition(null, null);
-        sendBridgeEvent('create_new_session');
+        sendAction(UPSTREAM.CREATE_NEW_SESSION);
         return;
       }
       // If there are messages but not loading, show new session confirmation
@@ -163,26 +164,26 @@ export function useSessionManagement({
     } else {
       // If empty and not loading, directly create new session
       beginSessionTransition(null, null);
-      sendBridgeEvent('create_new_session');
+      sendAction(UPSTREAM.CREATE_NEW_SESSION);
     }
   }, [beginSessionTransition, messages.length, loading]);
 
   // Force create new session (no confirmation, used by /clear /new /reset commands)
   const forceCreateNewSession = useCallback(() => {
     if (loading) {
-      sendBridgeEvent('interrupt_session');
+      sendAction(UPSTREAM.INTERRUPT_SESSION);
     }
     beginSessionTransition(null, null);
-    sendBridgeEvent('create_new_session');
+    sendAction(UPSTREAM.CREATE_NEW_SESSION);
   }, [beginSessionTransition, loading]);
 
   const forceCreateNewSessionWithProvider = useCallback((providerId: string) => {
     if (loading) {
-      sendBridgeEvent('interrupt_session');
+      sendAction(UPSTREAM.INTERRUPT_SESSION);
     }
     beginSessionTransition(null, null);
-    sendBridgeEvent('set_provider', providerId);
-    sendBridgeEvent('create_new_session');
+    sendAction(UPSTREAM.SET_PROVIDER, providerId);
+    sendAction(UPSTREAM.CREATE_NEW_SESSION);
   }, [beginSessionTransition, loading]);
 
   // Confirm new session
@@ -190,10 +191,10 @@ export function useSessionManagement({
     setShowNewSessionConfirm(false);
     // [FIX] Safety check: if loading started while dialog was open, send interrupt first
     if (loading) {
-      sendBridgeEvent('interrupt_session');
+      sendAction(UPSTREAM.INTERRUPT_SESSION);
     }
     beginSessionTransition(null, null);
-    sendBridgeEvent('create_new_session');
+    sendAction(UPSTREAM.CREATE_NEW_SESSION);
     pendingActionRef.current = null;
   }, [beginSessionTransition, loading]);
 
@@ -207,9 +208,9 @@ export function useSessionManagement({
   const handleConfirmInterrupt = useCallback(() => {
     setShowInterruptConfirm(false);
     // Send interrupt signal and create new session
-    sendBridgeEvent('interrupt_session');
+    sendAction(UPSTREAM.INTERRUPT_SESSION);
     beginSessionTransition(null, null);
-    sendBridgeEvent('create_new_session');
+    sendAction(UPSTREAM.CREATE_NEW_SESSION);
     pendingActionRef.current = null;
   }, [beginSessionTransition]);
 
@@ -223,12 +224,12 @@ export function useSessionManagement({
   const loadHistorySession = useCallback((sessionId: string, provider?: string) => {
     // [FIX] Send interrupt signal if AI is responding
     if (loading) {
-      sendBridgeEvent('interrupt_session');
+      sendAction(UPSTREAM.INTERRUPT_SESSION);
     }
 
     const session = historyDataRef.current?.sessions?.find(s => s.sessionId === sessionId);
     beginSessionTransition(sessionId, session?.title ?? null);
-    sendBridgeEvent('load_session', JSON.stringify({
+    sendAction(UPSTREAM.LOAD_SESSION, JSON.stringify({
       sessionId,
       provider: provider || session?.provider || 'claude',
     }));
@@ -238,7 +239,7 @@ export function useSessionManagement({
   // Delete history session
   const deleteHistorySession = useCallback((sessionId: string) => {
     // Send delete request to Java backend
-    sendBridgeEvent('delete_session', sessionId);
+    sendAction(UPSTREAM.DELETE_SESSION, sessionId);
     let startedSessionTransition = false;
 
     // Immediately update frontend state, remove session from history list
@@ -260,13 +261,13 @@ export function useSessionManagement({
       if (sessionId === currentSessionId) {
         // [FIX] Send interrupt signal if AI is responding
         if (loading) {
-          sendBridgeEvent('interrupt_session');
+          sendAction(UPSTREAM.INTERRUPT_SESSION);
         }
         beginSessionTransition(null, null);
         startedSessionTransition = true;
         // Set flag to suppress next updateStatus toast
         suppressNextStatusToastRef.current = true;
-        sendBridgeEvent('create_new_session');
+        sendAction(UPSTREAM.CREATE_NEW_SESSION);
       }
 
     }
@@ -280,7 +281,7 @@ export function useSessionManagement({
       return;
     }
 
-    sendBridgeEvent('delete_sessions', JSON.stringify(uniqueSessionIds));
+    sendAction(UPSTREAM.DELETE_SESSIONS, JSON.stringify(uniqueSessionIds));
     let startedSessionTransition = false;
 
     if (historyData && historyData.sessions) {
@@ -303,12 +304,12 @@ export function useSessionManagement({
 
       if (currentSessionId && deletedSessionIds.has(currentSessionId)) {
         if (loading) {
-          sendBridgeEvent('interrupt_session');
+          sendAction(UPSTREAM.INTERRUPT_SESSION);
         }
         beginSessionTransition(null, null);
         startedSessionTransition = true;
         suppressNextStatusToastRef.current = true;
-        sendBridgeEvent('create_new_session');
+        sendAction(UPSTREAM.CREATE_NEW_SESSION);
       }
 
     }
@@ -318,13 +319,13 @@ export function useSessionManagement({
   // Export history session
   const exportHistorySession = useCallback((sessionId: string, title: string) => {
     const exportData = JSON.stringify({ sessionId, title });
-    sendBridgeEvent('export_session', exportData);
+    sendAction(UPSTREAM.EXPORT_SESSION, exportData);
   }, []);
 
   // Toggle favorite status
   const toggleFavoriteSession = useCallback((sessionId: string) => {
     // Send favorite toggle request to backend
-    sendBridgeEvent('toggle_favorite', sessionId);
+    sendAction(UPSTREAM.TOGGLE_FAVORITE, sessionId);
 
     // Immediately update frontend state
     if (historyData && historyData.sessions) {
@@ -359,7 +360,7 @@ export function useSessionManagement({
   const updateHistoryTitle = useCallback((sessionId: string, newTitle: string) => {
     // Send update title request to backend
     const updateData = JSON.stringify({ sessionId, customTitle: newTitle });
-    sendBridgeEvent('update_title', updateData);
+    sendAction(UPSTREAM.UPDATE_TITLE, updateData);
 
     // Immediately update frontend state
     if (historyData && historyData.sessions) {
@@ -406,7 +407,7 @@ export function useSessionManagement({
   // immediately.  Functional update avoids depending on historyData directly,
   // keeping the callback reference stable across renders.
   const convertToCliSession = useCallback((sessionId: string) => {
-    sendBridgeEvent('convert_to_cli_session', sessionId);
+    sendAction(UPSTREAM.CONVERT_TO_CLI_SESSION, sessionId);
 
     // Optimistically change entrypoint while the backend works.
     setHistoryData(prev => {

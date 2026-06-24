@@ -4,9 +4,10 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { subscribeEvent, sendAction } from '../../../bridge/typed';
+import { DOWNSTREAM, UPSTREAM } from '../../../generated/protocol';
+import { registerLegacyAlias } from '../../../bridge';
 import type { McpServer, McpServerStatusInfo, ServerToolsState, RefreshLog, CacheKeys } from '../types';
-import { sendToJava } from '../../../utils/bridge';
-import { bridgeHub, registerLegacyAlias } from '../../../bridge';
 import { readCache, readToolsCache, writeCache } from '../utils';
 
 export interface UseServerDataOptions {
@@ -69,7 +70,7 @@ export function useServerData({
       undefined,
       `get_${messagePrefix}mcp_servers request to backend`
     );
-    sendToJava(`get_${messagePrefix}mcp_servers`, {});
+    sendAction(isCodexMode ? UPSTREAM.GET_CODEX_MCP_SERVERS : UPSTREAM.GET_MCP_SERVERS, {});
   }, [messagePrefix, t, onLog]);
 
   // Load server status
@@ -83,7 +84,7 @@ export function useServerData({
       `get_${messagePrefix}mcp_server_status request to backend`,
       `Querying MCP server connection status via ${isCodexMode ? 'Codex' : 'Claude'} SDK`
     );
-    sendToJava(`get_${messagePrefix}mcp_server_status`, {});
+    sendAction(isCodexMode ? UPSTREAM.GET_CODEX_MCP_SERVER_STATUS : UPSTREAM.GET_MCP_SERVER_STATUS, {});
   }, [messagePrefix, isCodexMode, t, onLog]);
 
   // Load server tools list
@@ -130,7 +131,7 @@ export function useServerData({
       `get_${messagePrefix}mcp_server_tools request to backend`
     );
 
-    sendToJava(`get_${messagePrefix}mcp_server_tools`, { serverId: server.id, forceRefresh });
+    sendAction(isCodexMode ? UPSTREAM.GET_CODEX_MCP_SERVER_TOOLS : UPSTREAM.GET_MCP_SERVER_TOOLS, { serverId: server.id, forceRefresh });
   }, [cacheKeys, messagePrefix, t, onLog]);
 
   // Initialization and data loading
@@ -267,19 +268,19 @@ export function useServerData({
 
     // Register callbacks（[归一化] 经 bridgeHub 订阅，替代旧 window.xxx 覆盖）
     if (isCodexMode) {
-      registerLegacyAlias('updateCodexMcpServers', 'codex.mcp.server_list');
-      registerLegacyAlias('updateCodexMcpServerStatus', 'codex.mcp.server_status');
-      const unsubList = bridgeHub.subscribe('codex.mcp.server_list', (json) => handleServerListUpdate(json as string));
-      const unsubStatus = bridgeHub.subscribe('codex.mcp.server_status', (json) => handleServerStatusUpdate(json as string));
+      registerLegacyAlias('updateCodexMcpServers', DOWNSTREAM.CODEX_MCP_SERVER_LIST);
+      registerLegacyAlias('updateCodexMcpServerStatus', DOWNSTREAM.CODEX_MCP_SERVER_STATUS);
+      const unsubList = subscribeEvent(DOWNSTREAM.CODEX_MCP_SERVER_LIST, (json) => handleServerListUpdate(json as string));
+      const unsubStatus = subscribeEvent(DOWNSTREAM.CODEX_MCP_SERVER_STATUS, (json) => handleServerStatusUpdate(json as string));
       return () => {
         unsubList();
         unsubStatus();
       };
     } else {
-      registerLegacyAlias('updateMcpServers', 'mcp.server_list');
-      registerLegacyAlias('updateMcpServerStatus', 'mcp.server_status');
-      const unsubList = bridgeHub.subscribe('mcp.server_list', (json) => handleServerListUpdate(json as string));
-      const unsubStatus = bridgeHub.subscribe('mcp.server_status', (json) => handleServerStatusUpdate(json as string));
+      registerLegacyAlias('updateMcpServers', DOWNSTREAM.MCP_SERVER_LIST);
+      registerLegacyAlias('updateMcpServerStatus', DOWNSTREAM.MCP_SERVER_STATUS);
+      const unsubList = subscribeEvent(DOWNSTREAM.MCP_SERVER_LIST, (json) => handleServerListUpdate(json as string));
+      const unsubStatus = subscribeEvent(DOWNSTREAM.MCP_SERVER_STATUS, (json) => handleServerStatusUpdate(json as string));
       return () => {
         unsubList();
         unsubStatus();

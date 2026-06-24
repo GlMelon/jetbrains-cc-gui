@@ -1,3 +1,5 @@
+import { sendAction, subscribeEvent } from '../../../bridge/typed';
+import { UPSTREAM, DOWNSTREAM } from '../../../generated/protocol';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { PromptScope } from '../../../types/prompt';
@@ -9,8 +11,7 @@ import ConfirmDialog from '../../ConfirmDialog';
 import PromptExportDialog from './PromptExportDialog';
 import PromptImportConfirmDialog from './PromptImportConfirmDialog';
 import styles from './style.module.less';
-import { sendBridgeEvent } from '../../../utils/bridge';
-import { bridgeHub, registerLegacyAlias } from '../../../bridge';
+import { registerLegacyAlias } from '../../../bridge';
 
 interface PromptSectionProps {
   onSuccess?: (message: string) => void;
@@ -57,7 +58,7 @@ export default function PromptSection({
   // Load project info and prompts on mount
   useEffect(() => {
     // Load project info first
-    sendBridgeEvent('get_project_info', '{}');
+    sendAction(UPSTREAM.GET_PROJECT_INFO, '{}');
     // Then load prompts
     loadAllPrompts();
     return () => cleanupPromptsTimeout();
@@ -65,16 +66,16 @@ export default function PromptSection({
 
   // Setup window callbacks（[归一化] 经 bridgeHub 订阅,替代旧 window.xxx 覆盖 + 链式转发）
   useEffect(() => {
-    registerLegacyAlias('updateGlobalPrompts', 'prompt.global_list');
-    registerLegacyAlias('updateProjectPrompts', 'prompt.project_list');
-    registerLegacyAlias('updateProjectInfo', 'prompt.project_info');
-    registerLegacyAlias('promptOperationResult', 'prompt.operation_result');
-    registerLegacyAlias('promptImportPreviewResult', 'prompt.import_preview');
-    registerLegacyAlias('promptImportResult', 'prompt.import_result');
+    registerLegacyAlias('updateGlobalPrompts', DOWNSTREAM.PROMPT_GLOBAL_LIST);
+    registerLegacyAlias('updateProjectPrompts', DOWNSTREAM.PROMPT_PROJECT_LIST);
+    registerLegacyAlias('updateProjectInfo', DOWNSTREAM.PROMPT_PROJECT_INFO);
+    registerLegacyAlias('promptOperationResult', DOWNSTREAM.PROMPT_OPERATION_RESULT);
+    registerLegacyAlias('promptImportPreviewResult', DOWNSTREAM.PROMPT_IMPORT_PREVIEW);
+    registerLegacyAlias('promptImportResult', DOWNSTREAM.PROMPT_IMPORT_RESULT);
 
     const unsubs: Array<() => void> = [];
 
-    unsubs.push(bridgeHub.subscribe('prompt.global_list', (json) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.PROMPT_GLOBAL_LIST, (json) => {
       try {
         const promptsList = JSON.parse(json as string);
         updateGlobalPrompts(promptsList);
@@ -92,7 +93,7 @@ export default function PromptSection({
       }
     }));
 
-    unsubs.push(bridgeHub.subscribe('prompt.project_list', (json) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.PROMPT_PROJECT_LIST, (json) => {
       try {
         const promptsList = JSON.parse(json as string);
         updateProjectPrompts(promptsList);
@@ -110,7 +111,7 @@ export default function PromptSection({
       }
     }));
 
-    unsubs.push(bridgeHub.subscribe('prompt.project_info', (json) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.PROMPT_PROJECT_INFO, (json) => {
       try {
         const info = JSON.parse(json as string);
         updateProjectInfo(info);
@@ -119,7 +120,7 @@ export default function PromptSection({
       }
     }));
 
-    unsubs.push(bridgeHub.subscribe('prompt.operation_result', (json) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.PROMPT_OPERATION_RESULT, (json) => {
       try {
         const result = JSON.parse(json as string);
         handlePromptOperationResult(result);
@@ -128,7 +129,7 @@ export default function PromptSection({
       }
     }));
 
-    unsubs.push(bridgeHub.subscribe('prompt.import_preview', (json) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.PROMPT_IMPORT_PREVIEW, (json) => {
       try {
         const previewData = JSON.parse(json as string);
         handlePromptImportPreviewResult(previewData);
@@ -137,7 +138,7 @@ export default function PromptSection({
       }
     }));
 
-    unsubs.push(bridgeHub.subscribe('prompt.import_result', (json) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.PROMPT_IMPORT_RESULT, (json) => {
       try {
         const result = JSON.parse(json as string);
         handlePromptImportResult(result);

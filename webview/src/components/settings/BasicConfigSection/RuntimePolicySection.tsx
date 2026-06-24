@@ -1,7 +1,7 @@
-import {useEffect, useMemo, useState} from 'react';
-import {useTranslation} from 'react-i18next';
-import {bridgeHub} from '../../../bridge';
-import {sendBridgeEvent} from '../../../utils/bridge';
+import { sendAction, subscribeEvent } from '../../../bridge/typed';
+import { UPSTREAM, DOWNSTREAM } from '../../../generated/protocol';
+import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styles from './style.module.less';
 
 type RuntimeType = 'SDK' | 'CLI';
@@ -84,15 +84,15 @@ const RuntimePolicySection = ({isActive = true}: RuntimePolicySectionProps) => {
     };
 
     const unsubs = [
-      bridgeHub.subscribe('runtime_policy', onPolicy),
-      bridgeHub.subscribe('runtime_policy_updated', onUpdate),
-      bridgeHub.subscribe('runtime_policy_error', (raw) => {
+      subscribeEvent(DOWNSTREAM.RUNTIME_POLICY, onPolicy),
+      subscribeEvent(DOWNSTREAM.RUNTIME_POLICY_UPDATED, onUpdate),
+      subscribeEvent(DOWNSTREAM.RUNTIME_POLICY_ERROR, (raw) => {
         setSaving(false);
         setErrors([String(raw ?? t('settings.basic.runtimePolicy.loadFailed'))]);
       }),
     ];
-    sendBridgeEvent('get_runtime_policy');
-    sendBridgeEvent('get_runtime_policy_schema');
+    sendAction(UPSTREAM.GET_RUNTIME_POLICY);
+    sendAction(UPSTREAM.GET_RUNTIME_POLICY_SCHEMA);
     return () => {
       unsubs.forEach((unsubscribe) => unsubscribe());
     };
@@ -130,14 +130,14 @@ const RuntimePolicySection = ({isActive = true}: RuntimePolicySectionProps) => {
     setSaving(true);
     setMessage('');
     setErrors([]);
-    sendBridgeEvent('set_runtime_policy', serialized);
+    sendAction(UPSTREAM.SET_RUNTIME_POLICY, serialized);
   };
 
   const handleReset = () => {
     setSaving(true);
     setMessage('');
     setErrors([]);
-    sendBridgeEvent('reset_runtime_policy');
+    sendAction(UPSTREAM.RESET_RUNTIME_POLICY);
   };
 
   if (!isActive) {

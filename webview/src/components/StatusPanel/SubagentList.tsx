@@ -1,8 +1,9 @@
+import { sendAction } from '../../bridge/typed';
+import { UPSTREAM } from '../../generated/protocol';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import type { SubagentHistoryResponse, SubagentInfo } from '../../types';
-import { sendBridgeEvent } from '../../utils/bridge';
 import SubagentProcessDetails from './SubagentProcessDetails';
 import { RobotIcon, CheckCircleIcon, XCircleIcon, CircleIcon, ChevronDownIcon, ChevronRightIcon, ClockIcon, LayersIcon } from '../Icons';
 
@@ -147,7 +148,7 @@ const SubagentList = memo(({ subagents, histories = {}, currentSessionId, isStre
 
   const requestHistory = useCallback((subagent: SubagentInfo) => {
     if (!currentSessionId) return;
-    sendBridgeEvent('load_subagent_session', JSON.stringify({
+    sendAction(UPSTREAM.LOAD_SUBAGENT_SESSION, JSON.stringify({
       sessionId: currentSessionId,
       agentId: subagent.agentId,
       description: subagent.description,

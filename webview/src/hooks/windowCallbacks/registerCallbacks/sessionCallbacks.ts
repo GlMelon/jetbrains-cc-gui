@@ -6,13 +6,14 @@
  * updateDependencyStatus, onRewindResult.
  */
 
+import { sendAction, subscribeEvent } from '../../../bridge/typed';
+import { UPSTREAM, DOWNSTREAM } from '../../../generated/protocol';
 import type { MutableRefObject } from 'react';
 import type { UseWindowCallbacksOptions } from '../../useWindowCallbacks';
 import { downloadJSON } from '../../../utils/exportMarkdown';
 import { releaseSessionTransition } from '../sessionTransition';
 import { drainAndRequestDependencyStatus } from '../settingsBootstrap';
-import { sendBridgeEvent } from '../../../utils/bridge';
-import { bridgeHub, registerLegacyAlias } from '../../../bridge';
+import { registerLegacyAlias } from '../../../bridge';
 
 // Matches session-titles-service.cjs#updateTitle, which rejects longer titles.
 const CUSTOM_TITLE_MAX_LENGTH = 50;
@@ -37,8 +38,8 @@ export function registerSessionAndSdkCallbacks(
   } = options;
 
   // [归一化] updateSessionTitle → session.title
-  registerLegacyAlias('updateSessionTitle', 'session.title');
-  bridgeHub.subscribe('session.title', (json) => {
+  registerLegacyAlias('updateSessionTitle', DOWNSTREAM.SESSION_TITLE);
+  subscribeEvent(DOWNSTREAM.SESSION_TITLE, (json) => {
     try {
       const data = JSON.parse(json as string);
       const { sessionId, title } = data;
@@ -105,8 +106,8 @@ export function registerSessionAndSdkCallbacks(
 
   // [归一化] updateDependencyStatus → dependency.status。
   // bridgeHub 广播:DependencySection 也订阅同 type(本地 state),两者皆被调用,无需手动链式转发。
-  registerLegacyAlias('updateDependencyStatus', 'dependency.status');
-  bridgeHub.subscribe('dependency.status', (jsonStr) => {
+  registerLegacyAlias('updateDependencyStatus', DOWNSTREAM.DEPENDENCY_STATUS);
+  subscribeEvent(DOWNSTREAM.DEPENDENCY_STATUS, (jsonStr) => {
     try {
       const data = JSON.parse(jsonStr as string);
       setSdkStatus(data);
@@ -153,7 +154,7 @@ export function registerSessionAndSdkCallbacks(
     const reloadHistory = () => {
       const provider = options.currentProviderRef.current;
       if (provider) {
-        sendBridgeEvent('deep_search_history', provider);
+        sendAction(UPSTREAM.DEEP_SEARCH_HISTORY, provider);
       } else {
         console.warn('[Frontend] Provider unavailable for conversion state reload');
       }

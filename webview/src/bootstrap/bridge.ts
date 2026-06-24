@@ -5,7 +5,8 @@
  * whether the webview is still alive and responsive (checks rAF, visibility,
  * focus, etc.).
  */
-import { sendBridgeEvent } from '../utils/bridge';
+import { sendAction } from '../bridge/typed';
+import { UPSTREAM } from '../generated/protocol';
 import { debugLog } from '../utils/debug';
 
 function createBridgeHeartbeatStarter() {
@@ -36,7 +37,7 @@ function createBridgeHeartbeatStarter() {
         focus: document.hasFocus(),
         seq: sequence,
       });
-      sendBridgeEvent('heartbeat', payload);
+      sendAction(UPSTREAM.HEARTBEAT, payload);
     }, intervalMs);
 
     const cleanup = () => {

@@ -1,7 +1,8 @@
 import { act, fireEvent, render } from '@testing-library/react';
 import TaskExecutionBlock from './TaskExecutionBlock';
+import { UPSTREAM } from '../../generated/protocol';
 
-const mockSendBridgeEvent = vi.fn();
+const mockSendAction = vi.fn();
 const mockGetSubagentHistory = vi.fn<(key: string) => unknown>();
 const mockUseSessionId = vi.fn<() => string | null>();
 const mockGetToolResultRaw = vi.fn<(toolUseId: string) => Record<string, unknown> | null>();
@@ -12,8 +13,8 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-vi.mock('../../utils/bridge', () => ({
-  sendBridgeEvent: (...args: unknown[]) => mockSendBridgeEvent(...args),
+vi.mock('../../bridge/typed', () => ({
+  sendAction: (...args: unknown[]) => mockSendAction(...args),
 }));
 
 vi.mock('../../contexts/SubagentContext', () => ({
@@ -25,7 +26,7 @@ vi.mock('../../contexts/SubagentContext', () => ({
 describe('TaskExecutionBlock polling', () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    mockSendBridgeEvent.mockReset();
+    mockSendAction.mockReset();
     mockGetSubagentHistory.mockReset();
     mockGetToolResultRaw.mockReset();
     mockUseSessionId.mockReset();
@@ -99,8 +100,8 @@ describe('TaskExecutionBlock polling', () => {
       vi.advanceTimersByTime(2_000);
     });
 
-    expect(mockSendBridgeEvent).toHaveBeenCalledWith(
-      'load_subagent_session',
+    expect(mockSendAction).toHaveBeenCalledWith(
+      UPSTREAM.LOAD_SUBAGENT_SESSION,
       expect.stringContaining('"toolUseId":"task-1"'),
     );
 
@@ -119,11 +120,11 @@ describe('TaskExecutionBlock polling', () => {
 
     expect(clearIntervalSpy).toHaveBeenCalled();
 
-    mockSendBridgeEvent.mockClear();
+    mockSendAction.mockClear();
     act(() => {
       vi.advanceTimersByTime(4_000);
     });
 
-    expect(mockSendBridgeEvent).not.toHaveBeenCalled();
+    expect(mockSendAction).not.toHaveBeenCalled();
   });
 });

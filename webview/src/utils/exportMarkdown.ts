@@ -1,13 +1,7 @@
+import { sendAction } from '../bridge/typed';
+import { UPSTREAM } from '../generated/protocol';
 import type { ClaudeMessage, ClaudeContentBlock, ToolResultBlock, ClaudeRawMessage } from '../types';
-import {
-  hasCommandMessageTag,
-  hasTaskNotificationTag,
-  formatCommandForResubmit,
-  formatTaskNotificationForDisplay,
-  HIDDEN_OUTPUT_TAGS,
-  INTERNAL_METADATA_TAGS,
-  containsAnyTag,
-} from './messageUtils';
+import { hasCommandMessageTag, hasTaskNotificationTag, formatCommandForResubmit, formatTaskNotificationForDisplay, HIDDEN_OUTPUT_TAGS, INTERNAL_METADATA_TAGS, containsAnyTag } from './messageUtils';
 
 // ---------------------------------------------------------------------------
 // Type guard for text blocks in raw content arrays
@@ -378,7 +372,7 @@ export function downloadJSON(content: string, filename: string): void {
     filename: filename.endsWith('.json') ? filename : `${filename}.json`
   });
 
-  if (sendBridgeEvent('save_json', payload)) {
+  if (sendAction(UPSTREAM.SAVE_JSON, payload)) {
     return;
   } else {
     console.error('[Frontend] sendToJava not available, falling back to browser download');
@@ -401,4 +395,3 @@ function fallbackBrowserDownload(content: string, filename: string): void {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
-import { sendBridgeEvent } from './bridge';

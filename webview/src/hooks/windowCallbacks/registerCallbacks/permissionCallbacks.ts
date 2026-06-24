@@ -10,8 +10,10 @@
  * 调用,触发 compat 别名 → dispatch → 订阅者。
  */
 
+import { subscribeEvent } from '../../../bridge/typed';
+import { DOWNSTREAM } from '../../../generated/protocol';
 import type { UseWindowCallbacksOptions } from '../../useWindowCallbacks';
-import { bridgeHub, registerLegacyAlias } from '../../../bridge';
+import { registerLegacyAlias } from '../../../bridge';
 
 export function registerPermissionCallbacks(options: UseWindowCallbacksOptions): void {
   const {
@@ -21,8 +23,8 @@ export function registerPermissionCallbacks(options: UseWindowCallbacksOptions):
   } = options;
 
   // [归一化] showPermissionDialog → dialog.permission
-  registerLegacyAlias('showPermissionDialog', 'dialog.permission');
-  bridgeHub.subscribe('dialog.permission', (json) => {
+  registerLegacyAlias('showPermissionDialog', DOWNSTREAM.DIALOG_PERMISSION);
+  subscribeEvent(DOWNSTREAM.DIALOG_PERMISSION, (json) => {
     try {
       const request = JSON.parse(json as string);
       openPermissionDialog(request);
@@ -44,8 +46,8 @@ export function registerPermissionCallbacks(options: UseWindowCallbacksOptions):
   }
 
   // [归一化] showAskUserQuestionDialog → dialog.ask_user_question
-  registerLegacyAlias('showAskUserQuestionDialog', 'dialog.ask_user_question');
-  bridgeHub.subscribe('dialog.ask_user_question', (json) => {
+  registerLegacyAlias('showAskUserQuestionDialog', DOWNSTREAM.DIALOG_ASK_USER_QUESTION);
+  subscribeEvent(DOWNSTREAM.DIALOG_ASK_USER_QUESTION, (json) => {
     try {
       const request = JSON.parse(json as string);
       openAskUserQuestionDialog(request);
@@ -67,8 +69,8 @@ export function registerPermissionCallbacks(options: UseWindowCallbacksOptions):
   }
 
   // [归一化] showPlanApprovalDialog → dialog.plan_approval
-  registerLegacyAlias('showPlanApprovalDialog', 'dialog.plan_approval');
-  bridgeHub.subscribe('dialog.plan_approval', (json) => {
+  registerLegacyAlias('showPlanApprovalDialog', DOWNSTREAM.DIALOG_PLAN_APPROVAL);
+  subscribeEvent(DOWNSTREAM.DIALOG_PLAN_APPROVAL, (json) => {
     try {
       const request = JSON.parse(json as string);
       openPlanApprovalDialog(request);

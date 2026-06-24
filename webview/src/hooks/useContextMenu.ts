@@ -1,14 +1,15 @@
+import { sendAction, subscribeEvent } from '../bridge/typed';
+import { UPSTREAM, DOWNSTREAM } from '../generated/protocol';
 import { useState, useCallback, useRef } from 'react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
-import { sendToJava } from '../utils/bridge.js';
-import { bridgeHub, registerLegacyAlias } from '../bridge';
+import { registerLegacyAlias } from '../bridge';
 
 // [归一化] onClipboardRead → clipboard.read。
 // 该回调是请求/响应语义(read_clipboard 触发,后端回包一次),且 handler 动态设置。
 // 用模块级单次 handler 槽保持「last-writer-wins + 一次性消费」语义,替代旧 window.xxx 覆盖。
 let currentClipboardHandler: ((text: string) => void) | null = null;
-registerLegacyAlias('onClipboardRead', 'clipboard.read');
-bridgeHub.subscribe('clipboard.read', (text) => {
+registerLegacyAlias('onClipboardRead', DOWNSTREAM.CLIPBOARD_READ);
+subscribeEvent(DOWNSTREAM.CLIPBOARD_READ, (text) => {
   const handler = currentClipboardHandler;
   currentClipboardHandler = null;
   handler?.(text as string);
@@ -103,7 +104,7 @@ export function useContextMenu() {
 /** Copy saved selection text to clipboard via Java bridge */
 export function copySelection(_savedRange: Range | null, text: string): void {
   if (!text) return;
-  sendToJava('write_clipboard', text);
+  sendAction(UPSTREAM.WRITE_CLIPBOARD, text);
 }
 
 /** Cut saved selection text via Java bridge (for contenteditable) */
@@ -114,7 +115,7 @@ export function cutSelection(
   targetFileTag?: HTMLElement | null
 ): void {
   if (!text) return;
-  sendToJava('write_clipboard', text);
+  sendAction(UPSTREAM.WRITE_CLIPBOARD, text);
   if (targetFileTag?.isConnected && el?.contains(targetFileTag)) {
     const nextSibling = targetFileTag.nextSibling;
     const previousSibling = targetFileTag.previousSibling;
@@ -150,7 +151,7 @@ export function pasteAtCursor(savedRange: Range | null, el: HTMLElement, onCompl
   }, 3000);
 
   currentClipboardHandler = handler;
-  sendToJava('read_clipboard', '');
+  sendAction(UPSTREAM.READ_CLIPBOARD, '');
 }
 
 /**

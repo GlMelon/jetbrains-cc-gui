@@ -9,7 +9,9 @@
 import { useEffect } from 'react';
 import type { ServerToolsState, McpTool, RefreshLog, CacheKeys } from '../types';
 import { writeToolsCache } from '../utils';
-import { bridgeHub, registerLegacyAlias } from '../../../bridge';
+import { registerLegacyAlias } from '../../../bridge';
+import { subscribeEvent } from '../../../bridge/typed';
+import { DOWNSTREAM } from '../../../generated/protocol';
 
 export interface UseToolsUpdateOptions {
   isCodexMode: boolean;
@@ -29,7 +31,7 @@ export function useToolsUpdate({
   onLog,
 }: UseToolsUpdateOptions): void {
   useEffect(() => {
-    const type = isCodexMode ? 'codex.mcp.server_tools' : 'mcp.server_tools';
+    const type = isCodexMode ? DOWNSTREAM.CODEX_MCP_SERVER_TOOLS : DOWNSTREAM.MCP_SERVER_TOOLS;
     const legacyName = isCodexMode ? 'updateCodexMcpServerTools' : 'updateMcpServerTools';
 
     // Tools list update handler
@@ -115,7 +117,7 @@ export function useToolsUpdate({
     //  - subscribe(type): 接收后端新路径 dispatchEvent(type)
     //  - registerLegacyAlias(legacyName, type): 兼容后端旧 callJavaScript(legacyName)
     registerLegacyAlias(legacyName, type);
-    const unsubscribe = bridgeHub.subscribe(type, (json) => handleToolsUpdate(json as string));
+    const unsubscribe = subscribeEvent(type, (json) => handleToolsUpdate(json as string));
 
     // Cleanup
     return () => {

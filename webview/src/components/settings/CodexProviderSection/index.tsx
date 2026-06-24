@@ -1,9 +1,16 @@
+import { sendAction } from '../../../bridge/typed';
+import { UPSTREAM } from '../../../generated/protocol';
 import { useState, useCallback, useMemo } from 'react';
+
 import { useTranslation } from 'react-i18next';
+
 import type { CodexProviderConfig } from '../../../types/provider';
+
 import { SPECIAL_PROVIDER_IDS } from '../../../types/provider';
-import { sendToJava } from '../../../utils/bridge';
+
+
 import { useDragSort } from '../hooks/useDragSort';
+
 import sharedStyles from '../ProviderList/style.module.less';
 import styles from './style.module.less';
 
@@ -36,7 +43,7 @@ const CodexProviderSection = ({
   const [showCliLoginDisableConfirm, setShowCliLoginDisableConfirm] = useState(false);
 
   const onSort = useCallback((orderedIds: string[]) => {
-    sendToJava('sort_codex_providers', { orderedIds });
+    sendAction(UPSTREAM.SORT_CODEX_PROVIDERS, { orderedIds });
   }, []);
 
   // Filter out CLI Login provider from drag-sort list

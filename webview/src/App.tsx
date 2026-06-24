@@ -1,30 +1,12 @@
+import { sendAction } from './bridge/typed';
+import { UPSTREAM } from './generated/protocol';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import HistoryView from './components/history/HistoryView';
 import SettingsView from './components/settings';
-import { sendBridgeEvent } from './utils/bridge';
 import { preloadSlashCommands, forceRefreshPrompts } from './components/ChatInputBox/providers';
-import {
-  useScrollBehavior,
-  useSessionManagement,
-  useStreamingMessages,
-  useWindowCallbacks,
-  useRewindHandlers,
-  useHistoryLoader,
-  useMessageQueue,
-  useThemeInit,
-  useContextActions,
-  useMessageProcessing,
-  useMessageSender,
-  useModelProviderState,
-  useChatComputations,
-} from './hooks';
-import {
-  NEW_SESSION_COMMANDS,
-  RESUME_COMMANDS,
-  PLAN_COMMANDS,
-  CONTEXT_COMMANDS,
-} from './hooks/useMessageSender';
+import { useScrollBehavior, useSessionManagement, useStreamingMessages, useWindowCallbacks, useRewindHandlers, useHistoryLoader, useMessageQueue, useThemeInit, useContextActions, useMessageProcessing, useMessageSender, useModelProviderState, useChatComputations } from './hooks';
+import { NEW_SESSION_COMMANDS, RESUME_COMMANDS, PLAN_COMMANDS, CONTEXT_COMMANDS } from './hooks/useMessageSender';
 import { applyDiffTheme, getStoredDiffTheme } from './utils/diffTheme';
 import type { Attachment, ChatInputBoxHandle } from './components/ChatInputBox/types';
 import { ChatHeader } from './components/ChatHeader';
@@ -430,7 +412,7 @@ const App = () => {
         t={t}
         onBack={() => setCurrentView('chat')}
         onNewSession={createNewSession}
-        onNewTab={() => sendBridgeEvent('create_new_tab')}
+        onNewTab={() => sendAction(UPSTREAM.CREATE_NEW_TAB)}
         onHistory={() => setCurrentView('history')}
         onSettings={() => {
           setSettingsInitialTab(undefined);

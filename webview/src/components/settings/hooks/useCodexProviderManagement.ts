@@ -1,14 +1,9 @@
 import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { CodexProviderConfig } from '../../../types/provider';
-import { sendBridgeEvent } from '../../../utils/bridge';
 import { sendAction } from '../../../bridge/typed';
 import { UPSTREAM } from '../../../generated/protocol';
 import { createCodexCatalogModels, getModelRegistrySnapshot } from '../../../utils/modelRegistry';
-
-const sendToJava = (event: string, payload = '') => {
-  sendBridgeEvent(event, payload);
-};
 
 const syncCodexProviderCatalogToRegistry = (provider: CodexProviderConfig | null | undefined) => {
   const catalogModels = createCodexCatalogModels(provider);
@@ -62,7 +57,7 @@ export function useCodexProviderManagement(options: UseCodexProviderManagementOp
   // Load Codex provider list
   const loadCodexProviders = useCallback(() => {
     setCodexLoading(true);
-    sendToJava('get_codex_providers');
+    sendAction(UPSTREAM.GET_CODEX_PROVIDERS);
   }, []);
 
   // Update Codex provider list (used by window callback)
@@ -108,7 +103,7 @@ export function useCodexProviderManagement(options: UseCodexProviderManagementOp
       const isAdding = !codexProviderDialog.provider;
 
       if (isAdding) {
-        sendToJava('add_codex_provider', JSON.stringify(providerData));
+        sendAction(UPSTREAM.ADD_CODEX_PROVIDER, JSON.stringify(providerData));
         onSuccess?.(t('toast.providerAdded'));
       } else {
         const updateData = {
@@ -124,7 +119,7 @@ export function useCodexProviderManagement(options: UseCodexProviderManagementOp
             mcpEnvVars: providerData.mcpEnvVars || [],
           },
         };
-        sendToJava('update_codex_provider', JSON.stringify(updateData));
+        sendAction(UPSTREAM.UPDATE_CODEX_PROVIDER, JSON.stringify(updateData));
         onSuccess?.(t('toast.providerUpdated'));
       }
 
@@ -139,7 +134,7 @@ export function useCodexProviderManagement(options: UseCodexProviderManagementOp
   // Switch Codex provider
   const handleSwitchCodexProvider = useCallback((id: string) => {
     const data = { id };
-    sendToJava('switch_codex_provider', JSON.stringify(data));
+    sendAction(UPSTREAM.SWITCH_CODEX_PROVIDER, JSON.stringify(data));
     setCodexLoading(true);
   }, []);
 
@@ -147,7 +142,7 @@ export function useCodexProviderManagement(options: UseCodexProviderManagementOp
     const data = {
       fallbackProviderId: fallbackProviderId ?? '',
     };
-    sendToJava('revoke_codex_local_config_authorization', JSON.stringify(data));
+    sendAction(UPSTREAM.REVOKE_CODEX_LOCAL_CONFIG_AUTHORIZATION, JSON.stringify(data));
     setCodexLoading(true);
     setCodexConfigLoading(true);
   }, []);
@@ -163,7 +158,7 @@ export function useCodexProviderManagement(options: UseCodexProviderManagementOp
     if (!provider) return;
 
     const data = { id: provider.id };
-    sendToJava('delete_codex_provider', JSON.stringify(data));
+    sendAction(UPSTREAM.DELETE_CODEX_PROVIDER, JSON.stringify(data));
     onSuccess?.(t('toast.providerDeleted'));
     setCodexLoading(true);
     setDeleteCodexConfirm({ isOpen: false, provider: null });

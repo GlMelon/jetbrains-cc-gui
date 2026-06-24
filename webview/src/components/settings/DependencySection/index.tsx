@@ -1,23 +1,10 @@
+import { sendAction, subscribeEvent } from '../../../bridge/typed';
+import { UPSTREAM, DOWNSTREAM } from '../../../generated/protocol';
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import type {
-  SdkId,
-  SdkStatus,
-  InstallProgress,
-  InstallResult,
-  UninstallResult,
-  NodeEnvironmentStatus,
-  UpdateCheckResult,
-  DependencyVersionInfo,
-  DependencyVersionResult,
-} from '../../../types/dependency';
-import {
-  buildVersionOptions,
-  getRequestedVersion,
-  getVersionAction,
-} from './versioning';
+import type { SdkId, SdkStatus, InstallProgress, InstallResult, UninstallResult, NodeEnvironmentStatus, UpdateCheckResult, DependencyVersionInfo, DependencyVersionResult } from '../../../types/dependency';
+import { buildVersionOptions, getRequestedVersion, getVersionAction } from './versioning';
 import styles from './style.module.less';
-import { sendBridgeEvent } from '../../../utils/bridge';
 import { bridgeHub, registerLegacyAlias } from '../../../bridge';
 
 interface DependencySectionProps {
@@ -33,11 +20,6 @@ interface VersionSelectProps {
   valueLabel: string;
   onChange: (version: string) => void;
 }
-
-const sendToJava = (event: string, payload?: unknown) => {
-  const content = payload === undefined ? '' : JSON.stringify(payload);
-  sendBridgeEvent(event, content);
-};
 
 const mergeDependencyUpdates = (
   previousStatus: Record<SdkId, SdkStatus>,
@@ -207,18 +189,18 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
   useEffect(() => {
     // [归一化] 所有 dependency/node 回调经 bridgeHub 订阅,替代旧 window.xxx 覆盖 + 链式转发。
     // bridgeHub 广播到所有订阅者(sessionCallbacks 的 dependency.status 订阅也会被调用)。
-    registerLegacyAlias('updateDependencyStatus', 'dependency.status');
-    registerLegacyAlias('dependencyInstallProgress', 'dependency.install_progress');
-    registerLegacyAlias('dependencyInstallResult', 'dependency.install_result');
-    registerLegacyAlias('dependencyUninstallResult', 'dependency.uninstall_result');
-    registerLegacyAlias('dependencyUpdateAvailable', 'dependency.update_available');
-    registerLegacyAlias('dependencyVersionsLoaded', 'dependency.versions_loaded');
-    registerLegacyAlias('nodeEnvironmentStatus', 'node.env_status');
-    registerLegacyAlias('checkNodeEnvironment', 'node.check_env');
+    registerLegacyAlias('updateDependencyStatus', DOWNSTREAM.DEPENDENCY_STATUS);
+    registerLegacyAlias('dependencyInstallProgress', DOWNSTREAM.DEPENDENCY_INSTALL_PROGRESS);
+    registerLegacyAlias('dependencyInstallResult', DOWNSTREAM.DEPENDENCY_INSTALL_RESULT);
+    registerLegacyAlias('dependencyUninstallResult', DOWNSTREAM.DEPENDENCY_UNINSTALL_RESULT);
+    registerLegacyAlias('dependencyUpdateAvailable', DOWNSTREAM.DEPENDENCY_UPDATE_AVAILABLE);
+    registerLegacyAlias('dependencyVersionsLoaded', DOWNSTREAM.DEPENDENCY_VERSIONS_LOADED);
+    registerLegacyAlias('nodeEnvironmentStatus', DOWNSTREAM.NODE_ENV_STATUS);
+    registerLegacyAlias('checkNodeEnvironment', DOWNSTREAM.NODE_CHECK_ENV);
 
     const unsubs: Array<() => void> = [];
 
-    unsubs.push(bridgeHub.subscribe('dependency.status', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.DEPENDENCY_STATUS, (jsonStr) => {
       try {
         const status = JSON.parse(jsonStr as string);
         setSdkStatus(status);
@@ -230,7 +212,7 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
       }
     }));
 
-    unsubs.push(bridgeHub.subscribe('dependency.install_progress', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.DEPENDENCY_INSTALL_PROGRESS, (jsonStr) => {
       try {
         const progress: InstallProgress = JSON.parse(jsonStr as string);
         setInstallLogs((prev) => prev + progress.log + '\n');
@@ -239,7 +221,7 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
       }
     }));
 
-    unsubs.push(bridgeHub.subscribe('dependency.install_result', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.DEPENDENCY_INSTALL_RESULT, (jsonStr) => {
       try {
         const result: InstallResult = JSON.parse(jsonStr as string);
         const wasUpdating = updatingSdkRef.current === result.sdkId;
@@ -252,9 +234,9 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
           const sdkName = sdkDef ? tRef.current(sdkDef.nameKey) : result.sdkId;
           const msgKey = wasUpdating ? 'settings.dependency.updateSuccess' : 'settings.dependency.installSuccess';
           addToastRef.current?.(tRef.current(msgKey, { name: sdkName }), 'success');
-          sendToJava('get_dependency_status');
-          sendToJava('check_dependency_updates', { id: result.sdkId });
-          sendToJava('get_dependency_versions', { id: result.sdkId });
+          sendAction(UPSTREAM.GET_DEPENDENCY_STATUS);
+          sendAction(UPSTREAM.CHECK_DEPENDENCY_UPDATES, { id: result.sdkId });
+          sendAction(UPSTREAM.GET_DEPENDENCY_VERSIONS, { id: result.sdkId });
         } else if (result.error === 'node_not_configured') {
           addToastRef.current?.(tRef.current('settings.dependency.nodeNotConfigured'), 'warning');
         } else {
@@ -268,7 +250,7 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
       }
     }));
 
-    unsubs.push(bridgeHub.subscribe('dependency.uninstall_result', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.DEPENDENCY_UNINSTALL_RESULT, (jsonStr) => {
       try {
         const result: UninstallResult = JSON.parse(jsonStr as string);
         setUninstallingSdk(null);
@@ -287,7 +269,7 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
               errorMessage: undefined,
             },
           }));
-          sendToJava('get_dependency_versions', { id: result.sdkId });
+          sendAction(UPSTREAM.GET_DEPENDENCY_VERSIONS, { id: result.sdkId });
         } else {
           addToastRef.current?.(tRef.current('settings.dependency.uninstallFailed', { error: result.error }), 'error');
         }
@@ -297,7 +279,7 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
       }
     }));
 
-    unsubs.push(bridgeHub.subscribe('dependency.update_available', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.DEPENDENCY_UPDATE_AVAILABLE, (jsonStr) => {
       try {
         const updatePayload: UpdateCheckResult = JSON.parse(jsonStr as string);
         setSdkStatus((prev) => mergeDependencyUpdates(prev, updatePayload));
@@ -306,7 +288,7 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
       }
     }));
 
-    unsubs.push(bridgeHub.subscribe('dependency.versions_loaded', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.DEPENDENCY_VERSIONS_LOADED, (jsonStr) => {
       try {
         const versionsPayload: DependencyVersionResult = JSON.parse(jsonStr as string);
         setSdkVersions((prev) => ({ ...prev, ...versionsPayload }));
@@ -342,7 +324,7 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
       }
     }));
 
-    unsubs.push(bridgeHub.subscribe('node.env_status', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.NODE_ENV_STATUS, (jsonStr) => {
       try {
         const status: NodeEnvironmentStatus = JSON.parse(jsonStr as string);
         setNodeAvailable(status.available);
@@ -351,13 +333,13 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
       }
     }));
 
-    unsubs.push(bridgeHub.subscribe('node.check_env', () => {
-      sendToJava('check_node_environment');
+    unsubs.push(subscribeEvent(DOWNSTREAM.NODE_CHECK_ENV, () => {
+      sendAction(UPSTREAM.CHECK_NODE_ENVIRONMENT);
     }));
     if (import.meta.env.DEV) {
       window.runNodeEnvironmentStressTest = (count: number = 10) => {
         for (let i = 0; i < count; i += 1) {
-          sendToJava('check_node_environment');
+          sendAction(UPSTREAM.CHECK_NODE_ENVIRONMENT);
         }
       };
     }
@@ -374,7 +356,7 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
     const handleNodePathReady = () => {
       isNodePathReadyRef.current = true;
       if (isActiveRef.current) {
-        sendToJava('check_node_environment');
+        sendAction(UPSTREAM.CHECK_NODE_ENVIRONMENT);
       }
     };
     window.addEventListener('nodePathReady', handleNodePathReady);
@@ -395,11 +377,11 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
       'claude-sdk': true,
       'codex-sdk': true,
     });
-    sendToJava('get_dependency_status');
-    sendToJava('check_dependency_updates');
-    sendToJava('get_dependency_versions');
+    sendAction(UPSTREAM.GET_DEPENDENCY_STATUS);
+    sendAction(UPSTREAM.CHECK_DEPENDENCY_UPDATES);
+    sendAction(UPSTREAM.GET_DEPENDENCY_VERSIONS);
     if (isNodePathReadyRef.current) {
-      sendToJava('check_node_environment');
+      sendAction(UPSTREAM.CHECK_NODE_ENVIRONMENT);
     }
   }, [isActive]);
 
@@ -412,7 +394,7 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
     setInstallingSdk(sdkId);
     setInstallLogs('');
     setShowLogs(true);
-    sendToJava('install_dependency', {
+    sendAction(UPSTREAM.INSTALL_DEPENDENCY, {
       id: sdkId,
       version: getRequestedVersion(selectedVersions[sdkId]),
     });
@@ -420,7 +402,7 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
 
   const handleUninstall = (sdkId: SdkId) => {
     setUninstallingSdk(sdkId);
-    sendToJava('uninstall_dependency', { id: sdkId });
+    sendAction(UPSTREAM.UNINSTALL_DEPENDENCY, { id: sdkId });
   };
 
   const handleUpdate = (sdkId: SdkId) => {
@@ -433,7 +415,7 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
     updatingSdkRef.current = sdkId;
     setInstallLogs('');
     setShowLogs(true);
-    sendToJava('update_dependency', {
+    sendAction(UPSTREAM.UPDATE_DEPENDENCY, {
       id: sdkId,
       version: getRequestedVersion(selectedVersions[sdkId]),
     });

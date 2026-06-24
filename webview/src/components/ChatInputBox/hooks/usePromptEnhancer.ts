@@ -1,6 +1,7 @@
+import { sendAction, subscribeEvent } from '../../../bridge/typed';
+import { UPSTREAM, DOWNSTREAM } from '../../../generated/protocol';
 import { useCallback, useEffect, useState } from 'react';
-import { sendBridgeEvent } from '../../../utils/bridge';
-import { bridgeHub, registerLegacyAlias } from '../../../bridge';
+import { registerLegacyAlias } from '../../../bridge';
 
 declare global {
   interface Window {
@@ -68,7 +69,7 @@ export function usePromptEnhancer({
     setIsEnhancing(true);
 
     // Call backend for prompt enhancement, pass current selected model
-    sendBridgeEvent('enhance_prompt', JSON.stringify({ prompt: content }));
+    sendAction(UPSTREAM.ENHANCE_PROMPT, JSON.stringify({ prompt: content }));
   }, [getTextContent]);
 
   /**
@@ -103,8 +104,8 @@ export function usePromptEnhancer({
 
   // Register enhanced prompt result callback（[归一化] 经 bridgeHub 订阅）
   useEffect(() => {
-    registerLegacyAlias('updateEnhancedPrompt', 'prompt.enhanced');
-    const unsubscribe = bridgeHub.subscribe('prompt.enhanced', (result) => {
+    registerLegacyAlias('updateEnhancedPrompt', DOWNSTREAM.PROMPT_ENHANCED);
+    const unsubscribe = subscribeEvent(DOWNSTREAM.PROMPT_ENHANCED, (result) => {
       try {
         const data = JSON.parse(result as string);
         if (data.success && data.enhancedPrompt) {

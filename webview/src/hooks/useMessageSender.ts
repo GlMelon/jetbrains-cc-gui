@@ -1,6 +1,7 @@
+import { sendAction } from '../bridge/typed';
+import { UPSTREAM } from '../generated/protocol';
 import { useCallback, type RefObject } from 'react';
 import type { TFunction } from 'i18next';
-import { sendBridgeEvent } from '../utils/bridge';
 import type { ClaudeContentBlock, ClaudeMessage } from '../types';
 import { strip1MContextSuffix } from '../components/ChatInputBox/types';
 import type { Attachment, ChatInputBoxHandle, PermissionMode, SelectedAgent } from '../components/ChatInputBox/types';
@@ -173,7 +174,7 @@ export function useMessageSender({
       const strippedModel = strip1MContextSuffix(selectedModel);
       // A2:supports1M 读 registry item.supports1MContext(后端权威),取代前端 modelSupports1MContext 字符串推断。
       const supports1M = getModelsForProvider('claude').find((model) => model.id === strippedModel)?.supports1MContext ?? false;
-      const sent = sendBridgeEvent('get_context_usage', JSON.stringify({
+      const sent = sendAction(UPSTREAM.GET_CONTEXT_USAGE, JSON.stringify({
         model: strippedModel,
         longContextEnabled: (longContextEnabled ?? false) && supports1M,
         requestId,
@@ -281,7 +282,7 @@ export function useMessageSender({
           fileTags: fileTagsInfo,
           invocationMode: getClaudeInvocationMode(),
         });
-        sendBridgeEvent('send_message_with_attachments', payload);
+        sendAction(UPSTREAM.SEND_MESSAGE_WITH_ATTACHMENTS, payload);
       } catch (error) {
         console.error('[Frontend] Failed to serialize attachments payload', error);
         const fallbackPayload = JSON.stringify({
@@ -290,7 +291,7 @@ export function useMessageSender({
           fileTags: fileTagsInfo,
           invocationMode: getClaudeInvocationMode(),
         });
-        sendBridgeEvent('send_message', fallbackPayload);
+        sendAction(UPSTREAM.SEND_MESSAGE, fallbackPayload);
       }
     } else {
       const payload = JSON.stringify({
@@ -299,7 +300,7 @@ export function useMessageSender({
         fileTags: fileTagsInfo,
         invocationMode: currentProvider === 'claude' ? getClaudeInvocationMode() : undefined,
       });
-      sendBridgeEvent('send_message', payload);
+      sendAction(UPSTREAM.SEND_MESSAGE, payload);
     }
   }, []);
 
@@ -459,7 +460,7 @@ export function useMessageSender({
     setStreamingActive(false);
     isStreamingRef.current = false;
 
-    sendBridgeEvent('interrupt_session');
+    sendAction(UPSTREAM.INTERRUPT_SESSION);
   }, []);
 
   return {

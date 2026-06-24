@@ -1,11 +1,13 @@
-vi.mock('../utils/bridge.js', () => ({
-  sendToJava: vi.fn(),
+vi.mock('../bridge/typed.js', () => ({
+  sendAction: vi.fn(),
+  subscribeEvent: vi.fn(() => () => {}),
 }));
 
 import { act, renderHook } from '@testing-library/react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 import { cutSelection, useContextMenu } from './useContextMenu.js';
-import { sendToJava } from '../utils/bridge.js';
+import { sendAction } from '../bridge/typed.js';
+import { UPSTREAM } from '../generated/protocol';
 
 function mockSelection(options?: {
   text?: string;
@@ -93,7 +95,7 @@ describe('useContextMenu', () => {
 
     cutSelection(null, '@D:\\Code\\demo.ts#L3-L9', editable, fileTag);
 
-    expect(sendToJava).toHaveBeenCalledWith('write_clipboard', '@D:\\Code\\demo.ts#L3-L9');
+    expect(sendAction).toHaveBeenCalledWith(UPSTREAM.WRITE_CLIPBOARD, '@D:\\Code\\demo.ts#L3-L9');
     expect(editable.querySelector('.file-tag')).toBeNull();
     expect(focusSpy).toHaveBeenCalled();
     expect(selection.removeAllRanges).toHaveBeenCalled();

@@ -70,8 +70,13 @@ describe('useScrollBehavior', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
-      callback(0);
-      return 1;
+      // Defer via the fake-timer scheduler so the rAF callback runs on
+      // runAllTimers(), matching the real browser's ASYNC rAF semantics.
+      // Synchronous execution broke scheduleScrollToBottom's scheduledScrollRafRef
+      // guard: `ref = rAF(cb)` would overwrite cb's `ref = null` because the mock
+      // ran cb before the assignment completed, pinning ref to the return id and
+      // permanently blocking subsequent scheduleScrollToBottom calls.
+      return setTimeout(() => callback(0), 0) as unknown as number;
     });
     vi.stubGlobal('cancelAnimationFrame', vi.fn());
     vi.stubGlobal('ResizeObserver', ResizeObserverMock);
@@ -130,6 +135,7 @@ describe('useScrollBehavior', () => {
     act(() => {
       setScrollTop(600);
       container.dispatchEvent(new WheelEvent('wheel', { deltaY: 20 }));
+      vi.runAllTimers();
     });
 
     expect(result.current.userPausedRef.current).toBe(false);
@@ -144,23 +150,6 @@ describe('useScrollBehavior', () => {
     const end = document.createElement('div');
     root.appendChild(end);
     container.appendChild(root);
-    let shouldGrowOnMeasure = false;
-    const endRectSpy = vi.spyOn(end, 'getBoundingClientRect').mockImplementation(() => {
-      if (shouldGrowOnMeasure) {
-        setScrollHeight(1400);
-      }
-      return {
-        x: 0,
-        y: 0,
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        width: 0,
-        height: 0,
-        toJSON: () => ({}),
-      } as DOMRect;
-    });
 
     const { result, rerender } = renderHook((props: HookProps) => useScrollBehavior(props), {
       initialProps: INITIAL_PROPS,
@@ -177,16 +166,24 @@ describe('useScrollBehavior', () => {
       vi.runAllTimers();
     });
 
+    // Initial: scrollHeight 1000, clientHeight 400 → max scrollTop 600.
     expect(getScrollTop()).toBe(600);
 
     act(() => {
       setScrollTop(600);
-      shouldGrowOnMeasure = true;
+      // Simulate the real browser contract: ResizeObserver fires AFTER the
+      // observed element has grown, so scrollHeight is already the new value
+      // when the callback runs. The previous mock tied growth to a
+      // getBoundingClientRect read that the layout-thrash refactor removed
+      // (see useScrollBehavior.ts scrollToBottom comment), so growth is now
+      // modelled here directly instead of as a side effect of geometry reads.
+      setScrollHeight(1400);
       resizeObserverCallback?.([], {} as ResizeObserver);
+      vi.runAllTimers();
     });
 
+    // scrollHeight 1400, clientHeight 400 → max scrollTop 1000; auto-scroll pins it.
     expect(getScrollTop()).toBe(1000);
     expect(container.classList.contains('scroll-anchor-enabled')).toBe(false);
-    expect(endRectSpy).toHaveBeenCalled();
   });
 });

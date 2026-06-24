@@ -1,7 +1,8 @@
+import { sendAction, subscribeEvent } from '../bridge/typed';
+import { UPSTREAM, DOWNSTREAM } from '../generated/protocol';
 import { useEffect } from 'react';
-import { sendBridgeEvent } from '../utils/bridge';
 import { insertNewlineAtCursor } from './useContextMenu';
-import { bridgeHub, registerLegacyAlias } from '../bridge';
+import { registerLegacyAlias } from '../bridge';
 
 /**
  * Registers IDEA shortcut action handler (copy/cut/send/newline from Java-registered Actions).
@@ -12,8 +13,8 @@ import { bridgeHub, registerLegacyAlias } from '../bridge';
 export function useContextActions() {
   useEffect(() => {
     // [归一化] execContextAction → context.action
-    registerLegacyAlias('execContextAction', 'context.action');
-    const unsubscribe = bridgeHub.subscribe('context.action', (raw) => {
+    registerLegacyAlias('execContextAction', DOWNSTREAM.CONTEXT_ACTION);
+    const unsubscribe = subscribeEvent(DOWNSTREAM.CONTEXT_ACTION, (raw) => {
       const action = raw as string;
       switch (action) {
         case 'copy': {
@@ -25,7 +26,7 @@ export function useContextActions() {
             text = window.getSelection()?.toString() ?? '';
           }
           if (text) {
-            sendBridgeEvent('write_clipboard', text);
+            sendAction(UPSTREAM.WRITE_CLIPBOARD, text);
           }
           break;
         }
@@ -47,7 +48,7 @@ export function useContextActions() {
             }
           }
           if (text) {
-            sendBridgeEvent('write_clipboard', text);
+            sendAction(UPSTREAM.WRITE_CLIPBOARD, text);
           }
           break;
         }

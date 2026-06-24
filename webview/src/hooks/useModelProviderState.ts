@@ -1,18 +1,19 @@
-import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import type {TFunction} from 'i18next';
-import {sendBridgeEvent} from '../utils/bridge';
+import { sendAction } from '../bridge/typed';
+import { UPSTREAM } from '../generated/protocol';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { TFunction } from 'i18next';
 import { DOWNSTREAM } from '../generated/protocol';
 import { subscribeEvent } from '../bridge/typed';
-import type {PermissionMode} from '../components/ChatInputBox/types';
-import {DEFAULT_CONTEXT_WINDOW, strip1MContextSuffix,} from '../components/ChatInputBox/types';
-import {isSpecialProviderId} from '../types/provider';
-import {useClaudeProvider} from './providers/useClaudeProvider';
-import {useCodexProvider} from './providers/useCodexProvider';
-import {useUsageTracking} from './providers/useUsageTracking';
-import {useProviderSettings} from './providers/useProviderSettings';
-import {useModelStatePersistence} from './providers/useModelStatePersistence';
-import {getModelsForProvider, subscribeModelRegistry} from '../utils/modelRegistry';
-import type {ViewMode} from '../types';
+import type { PermissionMode } from '../components/ChatInputBox/types';
+import { DEFAULT_CONTEXT_WINDOW, strip1MContextSuffix } from '../components/ChatInputBox/types';
+import { isSpecialProviderId } from '../types/provider';
+import { useClaudeProvider } from './providers/useClaudeProvider';
+import { useCodexProvider } from './providers/useCodexProvider';
+import { useUsageTracking } from './providers/useUsageTracking';
+import { useProviderSettings } from './providers/useProviderSettings';
+import { useModelStatePersistence } from './providers/useModelStatePersistence';
+import { getModelsForProvider, subscribeModelRegistry } from '../utils/modelRegistry';
+import type { ViewMode } from '../types';
 
 // D3:ViewMode 真相源在 types/index.ts,此处 re-export 保持 hooks/index 与 useMessageSender 下游 import 兼容
 export type {ViewMode};
@@ -132,12 +133,12 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     if (currentProvider === 'codex') {
       setPermissionMode(mode);
       setCodexPermissionMode(mode);
-        sendBridgeEvent('set_session_mode', mode);
+        sendAction(UPSTREAM.SET_SESSION_MODE, mode);
       return;
     }
     setPermissionMode(mode);
     setClaudePermissionMode(mode);
-      sendBridgeEvent('set_session_mode', mode);
+      sendAction(UPSTREAM.SET_SESSION_MODE, mode);
   }, [currentProvider, setCodexPermissionMode, setClaudePermissionMode]);
 
     const handleModelSelect = useCallback((modelId: string, contextWindow?: number) => {
@@ -156,7 +157,7 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
 
       // 仅发送「意图」(模型 ID + 长上下文开关);effectiveContextWindow 由后端权威计算,
       // 并通过 MODEL_SELECTION 下行回推(见上方订阅)。前端不再硬编码 1M/200k 计算。
-      sendBridgeEvent('set_session_model', JSON.stringify({
+      sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
         model: strippedModelId,
         longContextEnabled: longContextEnabled && supports1M,
       }));
@@ -168,19 +169,19 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
         const payload = effectiveContextWindow
             ? JSON.stringify({model: modelId, contextWindow: effectiveContextWindow})
             : modelId;
-        sendBridgeEvent('set_session_model', payload);
+        sendAction(UPSTREAM.SET_SESSION_MODEL, payload);
     }
   }, [currentProvider, longContextEnabled, setSelectedClaudeModel, setSelectedCodexModel]);
 
     const handleProviderSelect = useCallback((providerId: string, contextWindow?: number) => {
     setCurrentProvider(providerId);
-      sendBridgeEvent('set_session_provider', providerId);
+      sendAction(UPSTREAM.SET_SESSION_PROVIDER, providerId);
 
     const modeToSet: PermissionMode = providerId === 'codex'
       ? codexPermissionMode
       : claudePermissionMode;
     setPermissionMode(modeToSet);
-      sendBridgeEvent('set_session_mode', modeToSet);
+      sendAction(UPSTREAM.SET_SESSION_MODE, modeToSet);
 
     const newModel = providerId === 'codex'
       ? selectedCodexModel
@@ -191,14 +192,14 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     // 切换 provider 后重发当前模型。claude 仅发送意图(longContextEnabled),
     // effectiveContextWindow 由后端权威计算;codex 仍发送 registry contextWindow。
     if (providerId === 'claude') {
-      sendBridgeEvent('set_session_model', JSON.stringify({
+      sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
         model: newModel,
         longContextEnabled: longContextEnabled && (newProviderModels.find((model) => model.id === strip1MContextSuffix(selectedClaudeModel))?.supports1MContext ?? false),
       }));
     } else {
       const registryContextWindow = newProviderModels.find((model) => model.id === strip1MContextSuffix(selectedCodexModel))?.contextWindow;
       const effectiveContextWindow = contextWindow ?? registryContextWindow ?? DEFAULT_CONTEXT_WINDOW;
-      sendBridgeEvent('set_session_model', JSON.stringify({
+      sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
         model: newModel,
         contextWindow: effectiveContextWindow,
       }));
@@ -217,7 +218,7 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
       const registryModels = getModelsForProvider('claude');
       const supports1M = registryModels.find((model) => model.id === strip1MContextSuffix(selectedClaudeModel))?.supports1MContext ?? false;
       // 仅发送意图;effectiveContextWindow 由后端计算并通过 MODEL_SELECTION 回推。
-      sendBridgeEvent('set_session_model', JSON.stringify({
+      sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
         model: selectedClaudeModel,
         longContextEnabled: enabled && supports1M,
       }));
@@ -243,14 +244,14 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
         setLongContextEnabled(false);
       }
       // 仅发送意图;effectiveContextWindow 由后端权威计算。
-      sendBridgeEvent('set_session_model', JSON.stringify({
+      sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
         model: selectedClaudeModel,
         longContextEnabled: longContextEnabled && supports1M,
       }));
       return;
     }
 
-    sendBridgeEvent('set_session_model', JSON.stringify({
+    sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
       model: selectedCodexModel,
       contextWindow: selectedRegistryModel.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
     }));
@@ -278,7 +279,7 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
           alwaysThinkingEnabled: enabled,
         },
       } : prev);
-      sendBridgeEvent('set_thinking_enabled', JSON.stringify({ enabled }));
+      sendAction(UPSTREAM.SET_THINKING_ENABLED, JSON.stringify({ enabled }));
       addToast(enabled ? t('toast.thinkingEnabled') : t('toast.thinkingDisabled'), 'success');
       return;
     }
@@ -291,7 +292,7 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
       },
     } : null);
 
-    sendBridgeEvent('update_provider', JSON.stringify({
+    sendAction(UPSTREAM.UPDATE_PROVIDER, JSON.stringify({
       id: config.id,
       updates: {
         settingsConfig: {

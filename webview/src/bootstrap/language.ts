@@ -4,9 +4,11 @@
  * Applies language settings from the Java backend to the i18n runtime and
  * persists the selection to localStorage.
  */
+import { subscribeEvent } from '../bridge/typed';
+import { DOWNSTREAM } from '../generated/protocol';
 import i18n from '../i18n/config';
 import { debugLog } from '../utils/debug';
-import { bridgeHub, registerLegacyAlias } from '../bridge';
+import { registerLegacyAlias } from '../bridge';
 
 /**
  * Apply language configuration to i18n
@@ -63,8 +65,8 @@ function applyLanguageConfig(rawConfig: { language: string; source?: string; ide
  */
 export function initLanguage() {
   // [归一化] applyIdeaLanguageConfig → language.apply
-  registerLegacyAlias('applyIdeaLanguageConfig', 'language.apply');
-  bridgeHub.subscribe('language.apply', (json) => applyLanguageConfig(json as string));
+  registerLegacyAlias('applyIdeaLanguageConfig', DOWNSTREAM.LANGUAGE_APPLY);
+  subscribeEvent(DOWNSTREAM.LANGUAGE_APPLY, (json) => applyLanguageConfig(json as string));
 
   // Check for pending language config (Java side may execute before JS)
   if (window.__pendingLanguageConfig) {

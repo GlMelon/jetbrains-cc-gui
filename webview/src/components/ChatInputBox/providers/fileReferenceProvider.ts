@@ -2,8 +2,9 @@ import type { FileItem, DropdownItemData } from '../types';
 import { getFileIcon, getFolderIcon } from '../../../utils/fileIcons';
 import { icon_terminal, icon_server } from '../../../utils/icons';
 import { debugError, debugLog, debugWarn } from '../../../utils/debug.js';
-import { sendBridgeEvent } from '../../../utils/bridge';
-import { bridgeHub, registerLegacyAlias } from '../../../bridge';
+import { registerLegacyAlias } from '../../../bridge';
+import { sendAction, subscribeEvent } from '../../../bridge/typed';
+import { DOWNSTREAM, UPSTREAM } from '../../../generated/protocol';
 
 // Request queue management
 let pendingResolve: ((files: FileItem[]) => void) | null = null;
@@ -29,8 +30,8 @@ function setupFileListCallback() {
   if (typeof window === 'undefined') return;
   if (fileListCallbackInstalled) return;
   fileListCallbackInstalled = true;
-  registerLegacyAlias('onFileListResult', 'file.list_result');
-  bridgeHub.subscribe('file.list_result', (json) => {
+  registerLegacyAlias('onFileListResult', DOWNSTREAM.FILE_LIST_RESULT);
+  subscribeEvent(DOWNSTREAM.FILE_LIST_RESULT, (json) => {
     try {
       const data = JSON.parse(json as string);
       let files: FileItem[] = data.files || data || [];
@@ -48,15 +49,6 @@ function setupFileListCallback() {
       pendingReject = null;
     }
   });
-}
-
-/**
- * Send request to Java
- */
-function sendToJava(event: string, payload: Record<string, unknown>) {
-  if (!sendBridgeEvent(event, JSON.stringify(payload))) {
-    debugWarn('[fileReferenceProvider] sendToJava not available');
-  }
 }
 
 /**
@@ -175,10 +167,12 @@ export async function fileReferenceProvider(
     }
 
     // Send request with current path and search keyword
-    sendToJava('list_files', {
+    if (!sendAction(UPSTREAM.LIST_FILES, {
       query: searchQuery,        // Search keyword
       currentPath: currentPath,  // Current path
-    });
+    })) {
+      debugWarn('[fileReferenceProvider] sendToJava not available');
+    }
 
     // Timeout handling (3 seconds), fall back to default file list on timeout
     setTimeout(() => {

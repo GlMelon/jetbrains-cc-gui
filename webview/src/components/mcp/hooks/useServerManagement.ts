@@ -5,7 +5,8 @@
 
 import { useState, useCallback } from 'react';
 import type { McpServer, ServerToolsState, ServerRefreshState, RefreshLog, CacheKeys } from '../types';
-import { sendToJava } from '../../../utils/bridge';
+import { sendAction } from '../../../bridge/typed';
+import { UPSTREAM } from '../../../generated/protocol';
 import { clearToolsCache, clearAllToolsCache } from '../utils';
 import type { ToastMessage } from '../../Toast';
 
@@ -112,7 +113,7 @@ export function useServerManagement({
       }
     };
 
-    sendToJava(`toggle_${messagePrefix}mcp_server`, updatedServer);
+    sendAction(isCodexMode ? UPSTREAM.TOGGLE_CODEX_MCP_SERVER : UPSTREAM.TOGGLE_MCP_SERVER, updatedServer);
 
     // Show toast notification
     onToast(

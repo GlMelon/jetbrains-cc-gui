@@ -9,8 +9,9 @@
  * subscribe without overwriting each other's callbacks.
  */
 
-import { sendBridgeEvent } from './bridge';
-import { bridgeHub, registerLegacyAlias } from '../bridge';
+import { sendAction, subscribeEvent } from '../bridge/typed';
+import { UPSTREAM, DOWNSTREAM } from '../generated/protocol';
+import { registerLegacyAlias } from '../bridge';
 import { createCallbackChannel } from './createCallbackChannel';
 
 export type NodeProcessKind = 'DAEMON' | 'CHANNEL' | 'ORPHAN';
@@ -92,15 +93,15 @@ let dispatcherSubscribed = false;
 export function installNodeProcessDispatchers(): void {
   // [归一化] 经 bridgeHub 订阅,替代旧 window.xxx 覆盖。
   // 别名每次重新注册(幂等,刷新 window.xxx 转发函数);订阅只发生一次避免累积。
-  registerLegacyAlias('updateNodeProcesses', 'node.process_list');
-  registerLegacyAlias('nodeProcessKillResult', 'node.process_kill_result');
+  registerLegacyAlias('updateNodeProcesses', DOWNSTREAM.NODE_PROCESS_LIST);
+  registerLegacyAlias('nodeProcessKillResult', DOWNSTREAM.NODE_PROCESS_KILL_RESULT);
   if (dispatcherSubscribed) return;
   dispatcherSubscribed = true;
-  bridgeHub.subscribe('node.process_list', (json) => {
+  subscribeEvent(DOWNSTREAM.NODE_PROCESS_LIST, (json) => {
     const snapshot = safeParseSnapshot(json as string);
     if (snapshot) snapshotChannel.emit(snapshot);
   });
-  bridgeHub.subscribe('node.process_kill_result', (json) => {
+  subscribeEvent(DOWNSTREAM.NODE_PROCESS_KILL_RESULT, (json) => {
     const result = safeParseKillResult(json as string);
     if (result) killResultChannel.emit(result);
   });
@@ -124,20 +125,20 @@ export function subscribeNodeProcessKillResult(listener: KillResultListener): ()
 
 /** Request the latest snapshot from Java. The response arrives via `window.updateNodeProcesses`. */
 export function fetchNodeProcesses(): void {
-  sendBridgeEvent('get_node_processes');
+  sendAction(UPSTREAM.GET_NODE_PROCESSES);
 }
 
 /** Ask the backend to kill a single process by PID. */
 export function killNodeProcess(pid: number, id?: string): void {
-  sendBridgeEvent('kill_node_process', JSON.stringify(id ? { pid, id } : { pid }));
+  sendAction(UPSTREAM.KILL_NODE_PROCESS, JSON.stringify(id ? { pid, id } : { pid }));
 }
 
 /** Ask the backend to kill every detected orphan process. */
 export function killAllOrphanProcesses(): void {
-  sendBridgeEvent('kill_all_orphans');
+  sendAction(UPSTREAM.KILL_ALL_ORPHANS);
 }
 
 /** Ask the backend to restart the daemon owning the given PID (falls back to plain kill on miss). */
 export function restartNodeDaemon(pid: number): void {
-  sendBridgeEvent('restart_node_daemon', JSON.stringify({ pid }));
+  sendAction(UPSTREAM.RESTART_NODE_DAEMON, JSON.stringify({ pid }));
 }

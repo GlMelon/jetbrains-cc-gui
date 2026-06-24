@@ -15,6 +15,8 @@
  * Settings)收不到更新。归一化后单一 handler 同时完成 usageMode 逻辑与 channel 广播,消除竞争。
  */
 
+import { subscribeEvent } from '../bridge/typed';
+import { DOWNSTREAM } from '../generated/protocol';
 import { bridgeHub } from '../bridge';
 
 type ProviderListListener = (json: string) => void;
@@ -65,20 +67,20 @@ installRuntimeProviderDispatchers();
 
 export function subscribeProviderList(listener: ProviderListListener): () => void {
   ensureInstalled();
-  return bridgeHub.subscribe('provider.list', listener);
+  return subscribeEvent(DOWNSTREAM.PROVIDER_LIST, listener);
 }
 
 export function subscribeActiveProvider(listener: ActiveProviderListener): () => void {
   ensureInstalled();
-  return bridgeHub.subscribe('provider.active', listener);
+  return subscribeEvent(DOWNSTREAM.PROVIDER_ACTIVE, listener);
 }
 
 export function subscribeCodexProviderList(listener: ProviderListListener): () => void {
   ensureInstalled();
-  return bridgeHub.subscribe('provider.codex_list', listener);
+  return subscribeEvent(DOWNSTREAM.PROVIDER_CODEX_LIST, listener);
 }
 
 export function subscribeActiveCodexProvider(listener: ActiveProviderListener): () => void {
   ensureInstalled();
-  return bridgeHub.subscribe('provider.active_codex', listener);
+  return subscribeEvent(DOWNSTREAM.PROVIDER_ACTIVE_CODEX, listener);
 }

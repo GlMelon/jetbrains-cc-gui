@@ -2,7 +2,8 @@
  * Pure storage functions for chat input history (localStorage I/O).
  * No React dependency — safe to import from any context.
  */
-import { sendToJava } from '../../../utils/bridge.js';
+import { sendAction } from '../../../bridge/typed';
+import { UPSTREAM } from '../../../generated/protocol';
 import { canUseLocalStorage } from '../../../utils/storageAvailability.js';
 
 // D2:canUseLocalStorage 真相源在 utils/storageAvailability.ts,此处 re-export 保持下游(useInputHistory)import 兼容
@@ -304,7 +305,7 @@ export function deleteHistoryItem(item: string): void {
   }
 
   // Also sync to .codemoss (async)
-  sendToJava('delete_input_history_item', item);
+  sendAction(UPSTREAM.DELETE_INPUT_HISTORY_ITEM, item);
 }
 
 /**
@@ -324,7 +325,7 @@ export function clearAllHistory(): void {
   }
 
   // Also sync to .codemoss (async)
-  sendToJava('clear_input_history', {});
+  sendAction(UPSTREAM.CLEAR_INPUT_HISTORY, {});
 }
 
 /**
@@ -383,7 +384,7 @@ export function addHistoryItem(text: string, importance: number = 1): void {
   }
 
   // Sync to backend
-  sendToJava('record_input_history', JSON.stringify([sanitized]));
+  sendAction(UPSTREAM.RECORD_INPUT_HISTORY, JSON.stringify([sanitized]));
 }
 
 /**
@@ -454,8 +455,8 @@ export function updateHistoryItem(
 
   // Sync deletion of old item and addition of new
   if (oldText !== sanitizedNew) {
-    sendToJava('delete_input_history_item', oldText);
-    sendToJava('record_input_history', JSON.stringify([sanitizedNew]));
+    sendAction(UPSTREAM.DELETE_INPUT_HISTORY_ITEM, oldText);
+    sendAction(UPSTREAM.RECORD_INPUT_HISTORY, JSON.stringify([sanitizedNew]));
   }
 }
 
@@ -494,7 +495,7 @@ export function clearLowImportanceHistory(threshold: number = 1): number {
 
     // Sync deletions to backend
     for (const item of itemsToDelete) {
-      sendToJava('delete_input_history_item', item);
+      sendAction(UPSTREAM.DELETE_INPUT_HISTORY_ITEM, item);
     }
 
     return deletedCount;

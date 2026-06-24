@@ -1242,26 +1242,13 @@ describe('useWindowCallbacks integration', () => {
       expect(window.__deniedToolIds?.has('old-A')).toBe(false);
     });
 
-    it('onPermissionDenied still marks unresolved tool_use (regression guard)', () => {
-      // Sanity check that refactoring onPermissionDenied to share the helper
-      // did not change its observable behavior.
-      const assistant: ClaudeMessage = {
-        type: 'assistant',
-        content: '',
-        raw: {
-          content: [
-            { type: 'tool_use', id: 'denied-1', name: 'bash', input: { command: 'rm' } },
-          ],
-        } as never,
-        timestamp: new Date().toISOString(),
-      };
-      const { opts, buffer } = createOptsWithMessages([assistant]);
-      renderHook(() => useWindowCallbacks(opts));
-
-      act(() => { window.onPermissionDenied!(); });
-
-      expect(window.__deniedToolIds?.has('denied-1')).toBe(true);
-    });
+    // [归一化] 此处原为 'onPermissionDenied still marks unresolved tool_use
+    // (regression guard)' 守卫。该守卫 pin 的是重构前行为——onPermissionDenied
+    // 单独扫描并标记中断的 tool id。归一化重构后 onPermissionDenied 在生产中是
+    // no-op(后端 onPermissionDenied 后必紧跟 onStreamEnd,中断扫描归 onStreamEnd
+    // 独占)。此守卫断言与新设计直接矛盾且功能已被取代,故移除;真实序列 + no-op
+    // 契约见下方 'onPermissionDenied → onStreamEnd integration' 区(marks denied
+    // tool ids... / alone does NOT mutate... 两用例)。
 
     it('stale backend snapshot during streaming must not redirect streamingMessageIndexRef to prior-turn assistant', () => {
       stubSynchronousTimers();

@@ -1,5 +1,6 @@
+import { sendAction } from '../../../bridge/typed';
+import { UPSTREAM } from '../../../generated/protocol';
 import type { CommandItem, DropdownItemData } from '../types';
-import { sendBridgeEvent } from '../../../utils/bridge';
 import i18n from '../../../i18n/config';
 import { debugError, debugLog, debugWarn } from '../../../utils/debug.js';
 
@@ -201,7 +202,7 @@ function requestRefresh(): boolean {
   }
 
   const attempt = retryCount + 1;
-  const sent = sendBridgeEvent('refresh_slash_commands');
+  const sent = sendAction(UPSTREAM.REFRESH_SLASH_COMMANDS);
   if (!sent) {
     debugLog('[SlashCommand] Bridge not available yet, refresh not sent');
     return false;

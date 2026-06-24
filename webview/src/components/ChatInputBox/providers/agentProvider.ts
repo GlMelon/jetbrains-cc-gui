@@ -1,7 +1,8 @@
+import { sendAction, subscribeEvent } from '../../../bridge/typed';
+import { UPSTREAM, DOWNSTREAM } from '../../../generated/protocol';
 import type { DropdownItemData } from '../types';
 import type { AgentConfig } from '../../../types/agent';
-import { sendBridgeEvent } from '../../../utils/bridge';
-import { bridgeHub, registerLegacyAlias } from '../../../bridge';
+import { registerLegacyAlias } from '../../../bridge';
 import i18n from '../../../i18n/config';
 import { debugError, debugLog, debugWarn } from '../../../utils/debug.js';
 
@@ -80,8 +81,8 @@ export function setupAgentsCallback() {
   };
 
   // [归一化] updateAgents → agent.list。经 bridgeHub 订阅(useSettingsWindowCallbacks 也订阅同 type)。
-  registerLegacyAlias('updateAgents', 'agent.list');
-  bridgeHub.subscribe('agent.list', (json) => handler(json as string));
+  registerLegacyAlias('updateAgents', DOWNSTREAM.AGENT_LIST);
+  subscribeEvent(DOWNSTREAM.AGENT_LIST, (json) => handler(json as string));
 
   callbackRegistered = true;
   debugLog('[AgentProvider] Callback registered');
@@ -147,7 +148,7 @@ function requestRefresh(): boolean {
   }
 
   const attempt = retryCount + 1;
-  const sent = sendBridgeEvent('get_agents');
+  const sent = sendAction(UPSTREAM.GET_AGENTS);
   if (!sent) {
     debugLog('[AgentProvider] Bridge not available yet, refresh not sent');
     return false;

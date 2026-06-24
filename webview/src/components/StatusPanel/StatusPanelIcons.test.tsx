@@ -18,7 +18,6 @@ vi.mock('react-i18next', () => ({
 vi.mock('../../utils/bridge', () => ({
   showEditableDiff: vi.fn(),
   openFile: vi.fn(),
-  sendBridgeEvent: vi.fn(),
 }));
 
 const sampleFileChange: FileChangeSummary = {

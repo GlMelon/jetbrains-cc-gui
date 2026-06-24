@@ -1,3 +1,5 @@
+import { sendAction } from '../bridge/typed';
+import { UPSTREAM } from '../generated/protocol';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { TFunction } from 'i18next';
 import type { PermissionRequest } from '../components/PermissionDialog';
@@ -5,7 +7,6 @@ import type { AskUserQuestionRequest } from '../components/AskUserQuestionDialog
 import type { PlanApprovalRequest } from '../components/PlanApprovalDialog';
 import type { RewindRequest } from '../components/RewindDialog';
 import type { ContextUsageData } from '../components/ContextUsageDialog';
-import { sendBridgeEvent } from '../utils/bridge';
 import { useRequestQueueDialog } from './useRequestQueueDialog';
 
 interface UseDialogManagementOptions {
@@ -97,7 +98,7 @@ export function useDialogManagement({ t }: UseDialogManagementOptions): UseDialo
       remember: false,
       rejectMessage: null,
     });
-    sendBridgeEvent('permission_decision', payload);
+    sendAction(UPSTREAM.PERMISSION_DECISION, payload);
     permissionDialog.close();
   }, [permissionDialog.close]);
 
@@ -108,7 +109,7 @@ export function useDialogManagement({ t }: UseDialogManagementOptions): UseDialo
       remember: true,
       rejectMessage: null,
     });
-    sendBridgeEvent('permission_decision', payload);
+    sendAction(UPSTREAM.PERMISSION_DECISION, payload);
     permissionDialog.close();
   }, [permissionDialog.close]);
 
@@ -119,7 +120,7 @@ export function useDialogManagement({ t }: UseDialogManagementOptions): UseDialo
       remember: false,
       rejectMessage: t('permission.userDenied'),
     });
-    sendBridgeEvent('permission_decision', payload);
+    sendAction(UPSTREAM.PERMISSION_DECISION, payload);
     permissionDialog.close();
   }, [permissionDialog.close, t]);
 
@@ -129,7 +130,7 @@ export function useDialogManagement({ t }: UseDialogManagementOptions): UseDialo
       requestId,
       answers,
     });
-    sendBridgeEvent('ask_user_question_response', payload);
+    sendAction(UPSTREAM.ASK_USER_QUESTION_RESPONSE, payload);
     askUserQuestionDialog.close();
   }, [askUserQuestionDialog.close]);
 
@@ -138,7 +139,7 @@ export function useDialogManagement({ t }: UseDialogManagementOptions): UseDialo
       requestId,
       answers: {},
     });
-    sendBridgeEvent('ask_user_question_response', payload);
+    sendAction(UPSTREAM.ASK_USER_QUESTION_RESPONSE, payload);
     askUserQuestionDialog.close();
   }, [askUserQuestionDialog.close]);
 
@@ -149,7 +150,7 @@ export function useDialogManagement({ t }: UseDialogManagementOptions): UseDialo
       approved: true,
       targetMode,
     });
-    sendBridgeEvent('plan_approval_response', payload);
+    sendAction(UPSTREAM.PLAN_APPROVAL_RESPONSE, payload);
     planApprovalDialog.close();
   }, [planApprovalDialog.close]);
 
@@ -158,7 +159,7 @@ export function useDialogManagement({ t }: UseDialogManagementOptions): UseDialo
       requestId,
       approved: false,
     });
-    sendBridgeEvent('plan_approval_response', payload);
+    sendAction(UPSTREAM.PLAN_APPROVAL_RESPONSE, payload);
     planApprovalDialog.close();
   }, [planApprovalDialog.close]);
 
@@ -177,7 +178,9 @@ export function useDialogManagement({ t }: UseDialogManagementOptions): UseDialo
   }, []);
 
   const closeContextUsageDialog = useCallback((requestId?: string | null): boolean => {
-    if (requestId !== undefined && requestId !== contextUsageRequestIdRef.current) return false;
+    // null/undefined = force close(关闭任何打开的对话框,无视 requestId);
+    // 仅当显式传入具体 requestId 且与当前不匹配时才拒绝。
+    if (requestId != null && requestId !== contextUsageRequestIdRef.current) return false;
     setContextUsageDialogOpen(false);
     setContextUsageIsLoading(false);
     setContextUsageData(null);

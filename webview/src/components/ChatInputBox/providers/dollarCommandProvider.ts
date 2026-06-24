@@ -1,7 +1,9 @@
+import { subscribeEvent } from '../../../bridge/typed';
+import { DOWNSTREAM } from '../../../generated/protocol';
 import type { CommandItem, DropdownItemData } from '../types';
 import { debugLog, debugWarn } from '../../../utils/debug.js';
 import i18n from '../../../i18n/config';
-import { bridgeHub, registerLegacyAlias } from '../../../bridge';
+import { registerLegacyAlias } from '../../../bridge';
 
 // ============================================================================
 // State Management
@@ -75,8 +77,8 @@ export function setupDollarCommandsCallback() {
     }
   };
 
-  registerLegacyAlias('updateDollarCommands', 'slash.dollar_commands');
-  bridgeHub.subscribe('slash.dollar_commands', (json) => handler(json as string));
+  registerLegacyAlias('updateDollarCommands', DOWNSTREAM.SLASH_DOLLAR_COMMANDS);
+  subscribeEvent(DOWNSTREAM.SLASH_DOLLAR_COMMANDS, (json) => handler(json as string));
   callbackRegistered = true;
   debugLog('[DollarCommand] Callback registered');
 

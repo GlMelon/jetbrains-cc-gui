@@ -5,24 +5,16 @@
  * onStreamStart, onContentDelta, onThinkingDelta, onStreamEnd, onPermissionDenied.
  */
 
+import { sendAction, subscribePassthroughEvent } from '../../../bridge/typed';
+import { UPSTREAM, DOWNSTREAM } from '../../../generated/protocol';
 import { startTransition } from 'react';
 import type { UseWindowCallbacksOptions } from '../../useWindowCallbacks';
 import type { ClaudeMessage, ClaudeRawMessage } from '../../../types';
-import { sendBridgeEvent } from '../../../utils/bridge';
 import { THROTTLE_INTERVAL } from '../../useStreamingMessages';
 import { parseSequence } from '../parseSequence';
 import { getStreamEndHandlingMode } from '../messageSync';
-import {
-  clearStreamScopeState,
-  consumeScopedPendingUpdate,
-  getActiveStreamScopeKey,
-  getOrCreateStreamScopeState,
-  getStreamScopeKey,
-  getScopeLastActivityAt,
-  markScopeActivity,
-  setActiveStreamScopeKey,
-} from '../streamScopeState';
-import { bridgeHub, registerLegacyAlias } from '../../../bridge';
+import { clearStreamScopeState, consumeScopedPendingUpdate, getActiveStreamScopeKey, getOrCreateStreamScopeState, getStreamScopeKey, getScopeLastActivityAt, markScopeActivity, setActiveStreamScopeKey } from '../streamScopeState';
+import { registerLegacyAlias } from '../../../bridge';
 
 /**
  * Scans assistant messages containing tool_use blocks and returns IDs that have
@@ -245,8 +237,8 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
   };
 
   // [归一化] onStreamStart → stream.start(passthrough 直通)
-  registerLegacyAlias('onStreamStart', 'stream.start');
-  bridgeHub.subscribePassthrough('stream.start', (raw) => {
+  registerLegacyAlias('onStreamStart', DOWNSTREAM.STREAM_START);
+  subscribePassthroughEvent(DOWNSTREAM.STREAM_START, (raw) => {
     const mode = raw as string | boolean | undefined;
     if (window.__sessionTransitioning) return;
     const isReplayStart = mode === 'replay' || mode === true;
@@ -391,8 +383,8 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
   };
 
   // [归一化] onContentDelta → stream.content_delta(passthrough 直通,最高频)
-  registerLegacyAlias('onContentDelta', 'stream.content_delta');
-  bridgeHub.subscribePassthrough('stream.content_delta', (raw) => {
+  registerLegacyAlias('onContentDelta', DOWNSTREAM.STREAM_CONTENT_DELTA);
+  subscribePassthroughEvent(DOWNSTREAM.STREAM_CONTENT_DELTA, (raw) => {
     const delta = raw as string;
     if (window.__sessionTransitioning) return;
     if (!isStreamingRef.current) return;
@@ -408,8 +400,8 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
   });
 
   // [归一化] onThinkingDelta → stream.thinking_delta(passthrough 直通,最高频)
-  registerLegacyAlias('onThinkingDelta', 'stream.thinking_delta');
-  bridgeHub.subscribePassthrough('stream.thinking_delta', (raw) => {
+  registerLegacyAlias('onThinkingDelta', DOWNSTREAM.STREAM_THINKING_DELTA);
+  subscribePassthroughEvent(DOWNSTREAM.STREAM_THINKING_DELTA, (raw) => {
     const delta = raw as string;
     if (window.__sessionTransitioning) return;
     if (!isStreamingRef.current) return;
@@ -425,8 +417,8 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
   });
 
   // [归一化] onStreamEnd → stream.end(passthrough 直通)
-  registerLegacyAlias('onStreamEnd', 'stream.end');
-  bridgeHub.subscribePassthrough('stream.end', (raw) => {
+  registerLegacyAlias('onStreamEnd', DOWNSTREAM.STREAM_END);
+  subscribePassthroughEvent(DOWNSTREAM.STREAM_END, (raw) => {
     const sequence = raw as string | number | undefined;
     if (window.__sessionTransitioning) return;
 
@@ -477,7 +469,7 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
       window.__minAcceptedUpdateSequence = Math.max(window.__minAcceptedUpdateSequence ?? 0, parsedSequence);
     }
     // Notify backend about stream completion for tab status indicator
-    sendBridgeEvent('tab_status_changed', JSON.stringify({ status: 'completed' }));
+    sendAction(UPSTREAM.TAB_STATUS_CHANGED, JSON.stringify({ status: 'completed' }));
 
     if (handlingMode === 'minimal') {
       if (typeof window.__cancelPendingUpdateMessages === 'function') {
@@ -813,8 +805,8 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
   // Streaming heartbeat — lightweight signal from backend during tool execution
   // phases where no content deltas arrive.  Keeps the stall watchdog alive.
   // [归一化] onStreamingHeartbeat → stream.heartbeat(passthrough 直通)
-  registerLegacyAlias('onStreamingHeartbeat', 'stream.heartbeat');
-  bridgeHub.subscribePassthrough('stream.heartbeat', () => {
+  registerLegacyAlias('onStreamingHeartbeat', DOWNSTREAM.STREAM_HEARTBEAT);
+  subscribePassthroughEvent(DOWNSTREAM.STREAM_HEARTBEAT, () => {
     if (isStreamingRef.current && window.__lastStreamActivityAt !== undefined) {
       window.__lastStreamActivityAt = Date.now();
       markScopeActivity(getActiveStreamScopeKey());
@@ -831,16 +823,16 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
   // would only produce a wasted re-render (React 18 batches the two calls, and
   // onStreamEnd is the last writer). See Issue #1315 investigation for details.
   // [归一化] onPermissionDenied → stream.permission_denied(passthrough 直通)
-  registerLegacyAlias('onPermissionDenied', 'stream.permission_denied');
-  bridgeHub.subscribePassthrough('stream.permission_denied', () => {});
+  registerLegacyAlias('onPermissionDenied', DOWNSTREAM.STREAM_PERMISSION_DENIED);
+  subscribePassthroughEvent(DOWNSTREAM.STREAM_PERMISSION_DENIED, () => {});
 
   // Block reset callback — clears streaming content refs when a new assistant
   // message starts within an ongoing stream (e.g., after tool_use loop iteration).
   // This prevents cross-turn content merging where new thinking/text deltas
   // would append to previous turn's buffered content.
   // [归一化] onBlockReset → stream.block_reset(passthrough 直通)
-  registerLegacyAlias('onBlockReset', 'stream.block_reset');
-  bridgeHub.subscribePassthrough('stream.block_reset', () => {
+  registerLegacyAlias('onBlockReset', DOWNSTREAM.STREAM_BLOCK_RESET);
+  subscribePassthroughEvent(DOWNSTREAM.STREAM_BLOCK_RESET, () => {
     if (!isStreamingRef.current) {
       // Stream not active, ignore (could be stale signal after stream ended)
       return;

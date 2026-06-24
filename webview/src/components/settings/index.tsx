@@ -1,7 +1,9 @@
-import {useMemo} from 'react';
-import {useTranslation} from 'react-i18next';
-import type {CodexProviderConfig} from '../../types/provider';
-import {ToastContainer} from '../Toast';
+import { sendAction } from '../../bridge/typed';
+import { UPSTREAM } from '../../generated/protocol';
+import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { CodexProviderConfig } from '../../types/provider';
+import { ToastContainer } from '../Toast';
 
 // Import split-out components
 import SettingsHeader from './SettingsHeader';
@@ -19,21 +21,12 @@ import CommitSection from './CommitSection';
 import PromptEnhancerSection from './PromptEnhancerSection';
 import OtherSettingsSection from './OtherSettingsSection';
 import ModelRegistrySection from './ModelRegistrySection';
-import {SkillsSettingsSection} from '../skills';
+import { SkillsSettingsSection } from '../skills';
 import SettingsDialogs from './SettingsDialogs';
-import {setNewSessionConfirmEnabled as persistNewSessionConfirmEnabled} from '../../utils/skipNewSessionConfirm';
-import { sendBridgeEvent } from '../../utils/bridge';
+import { setNewSessionConfirmEnabled as persistNewSessionConfirmEnabled } from '../../utils/skipNewSessionConfirm';
 
 // Import custom hooks
-import {
-    useAgentManagement,
-    useCodexProviderManagement,
-    useProviderManagement,
-    useSettingsBasicActions,
-    useSettingsPageState,
-    useSettingsThemeSync,
-    useSettingsWindowCallbacks,
-} from './hooks';
+import { useAgentManagement, useCodexProviderManagement, useProviderManagement, useSettingsBasicActions, useSettingsPageState, useSettingsThemeSync, useSettingsWindowCallbacks } from './hooks';
 
 import styles from './style.module.less';
 
@@ -373,7 +366,7 @@ const SettingsView = ({
         id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
         ...updates
       };
-      sendBridgeEvent('add_provider', JSON.stringify(newProvider));
+      sendAction(UPSTREAM.ADD_PROVIDER, JSON.stringify(newProvider));
       addToast(t('toast.providerAdded'), 'success');
     } else {
       // Update existing provider
@@ -389,7 +382,7 @@ const SettingsView = ({
         id: providerId,
         updates,
       };
-      sendBridgeEvent('update_provider', JSON.stringify(updateData));
+      sendAction(UPSTREAM.UPDATE_PROVIDER, JSON.stringify(updateData));
       addToast(t('toast.providerUpdated'), 'success');
 
       // If this is the currently active provider, immediately re-apply the configuration after update
@@ -400,7 +393,7 @@ const SettingsView = ({
         });
         // Use setTimeout for a slight delay to ensure update_provider finishes first
         setTimeout(() => {
-          sendBridgeEvent('switch_provider', JSON.stringify({ id: providerId }));
+          sendAction(UPSTREAM.SWITCH_PROVIDER, JSON.stringify({ id: providerId }));
         }, 100);
       }
     }

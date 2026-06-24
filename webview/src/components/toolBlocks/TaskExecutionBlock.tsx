@@ -1,8 +1,9 @@
+import { sendAction } from '../../bridge/typed';
+import { UPSTREAM } from '../../generated/protocol';
 import { memo, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ToolInput, ToolResultBlock } from '../../types';
 import { normalizeToolName } from '../../utils/toolConstants';
-import { sendBridgeEvent } from '../../utils/bridge';
 import { useSubagentHistoryGetter, useSessionId, useGetToolResultRaw, type GetToolResultRawFn } from '../../contexts/SubagentContext';
 import SubagentProcessDetails from '../StatusPanel/SubagentProcessDetails';
 
@@ -194,7 +195,7 @@ const TaskExecutionBlock = memo(function TaskExecutionBlock({ name, input, resul
 
   useEffect(() => {
     if (!input || !expanded || !isAgentTool || !currentSessionId || !toolId || history) return;
-    sendBridgeEvent('load_subagent_session', JSON.stringify({
+    sendAction(UPSTREAM.LOAD_SUBAGENT_SESSION, JSON.stringify({
       sessionId: currentSessionId,
       agentId,
       description: typeof description === 'string' ? description : undefined,
@@ -216,7 +217,7 @@ const TaskExecutionBlock = memo(function TaskExecutionBlock({ name, input, resul
   useEffect(() => {
     if (!shouldPollHistory || !currentSessionId || !toolId) return;
     const timer = window.setInterval(() => {
-      sendBridgeEvent('load_subagent_session', JSON.stringify({
+      sendAction(UPSTREAM.LOAD_SUBAGENT_SESSION, JSON.stringify({
         sessionId: currentSessionId,
         agentId,
         description: typeof description === 'string' ? description : undefined,

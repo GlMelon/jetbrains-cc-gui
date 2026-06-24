@@ -191,7 +191,7 @@ const [selectedAgent, setSelectedAgent] = useState<SelectedAgent | null>(null);
                                                 │
                                                 ▼
 ┌─────────────┐     ┌──────────────┐     ┌─────────────┐
-│   Java      │◀────│sendBridgeEvent│◀────│  User       │
+│   Java      │◀────│  sendAction  │◀────│  User       │
 │  Backend    │     │              │     │  Actions    │
 └─────────────┘     └──────────────┘     └─────────────┘
 ```
@@ -203,12 +203,14 @@ User intent -> sendAction(UPSTREAM.*) -> Java FrontendActionDispatcher
 Java result -> context.dispatchEvent(DOWNSTREAM.*) -> subscribeEvent(...) -> React state
 ```
 
-The old `sendBridgeEvent()` and direct `bridgeHub.subscribe('raw_string')`
-paths are compatibility-only for code not yet migrated.
+The legacy `sendBridgeEvent()` helper and bare-string `bridgeHub.subscribe('raw_string')`
+calls have been fully removed; all upstream traffic now goes through `sendAction(UPSTREAM.*)`
+and all downstream subscriptions through `subscribeEvent(DOWNSTREAM.*)` /
+`subscribePassthroughEvent(DOWNSTREAM.*)`.
 
 ### Message Flow
 1. User types in ChatInputBox
-2. `handleSubmit()` creates user message and calls `sendBridgeEvent('send_message', ...)`
+2. `handleSubmit()` creates user message and calls `sendAction(UPSTREAM.SEND_MESSAGE, ...)`
 3. Java backend processes and calls `window.onStreamStart()`
 4. Streaming deltas arrive via `window.onContentDelta()` / `window.onThinkingDelta()`
 5. Stream ends via `window.onStreamEnd()`
@@ -217,7 +219,7 @@ paths are compatibility-only for code not yet migrated.
 ### Permission Flow
 1. Backend requests permission via `window.showPermissionDialog()`
 2. User approves/skips via `handlePermissionApprove()` / `handlePermissionSkip()`
-3. Decision sent via `sendBridgeEvent('permission_decision', ...)`
+3. Decision sent via `sendAction(UPSTREAM.PERMISSION_DECISION, ...)`
 
 ## Key Design Decisions
 
@@ -235,8 +237,10 @@ Current milestone rules:
 - Model selection display state consumes backend `model.selection`; the
   effective context window and max token result are not recalculated as
   authoritative frontend business state.
-- Legacy `sendBridgeEvent()` and `window.xxx` callbacks remain for unmigrated
-  areas and should be wrapped behind typed protocol APIs as they are touched.
+- Upstream uses only `sendAction(UPSTREAM.*)`; the legacy `sendBridgeEvent()`
+  helper has been removed (its bare-string calls were a second source of truth —
+  see debt §C4/§D1). Residual `window.xxx` downstream callbacks remain pending
+  the bridge-normalization tail (debt §C10) and are bridged via `registerLegacyAlias`.
 
 ### 1. Hook-based Architecture
 Extracted ~800 lines of window callbacks into `useWindowCallbacks` for:

@@ -1,3 +1,5 @@
+import { sendAction, subscribeEvent } from './bridge/typed';
+import { UPSTREAM, DOWNSTREAM } from './generated/protocol';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -12,7 +14,6 @@ import { setupSlashCommandsCallback } from './components/ChatInputBox/providers/
 import { setupDollarCommandsCallback } from './components/ChatInputBox/providers/dollarCommandProvider';
 import { applyLinkifyCapabilitiesPayload } from './utils/linkifyCapabilities';
 import { installRuntimeProviderDispatchers } from './utils/runtimeProviderCapabilities';
-import { sendBridgeEvent } from './utils/bridge';
 import { debugLog } from './utils/debug';
 
 // Bootstrap modules
@@ -87,8 +88,8 @@ if (enableVConsole) {
 }
 
 // [归一化] updateLinkifyCapabilities → linkify.update(bootstrap 类,不进 React state)
-registerLegacyAlias('updateLinkifyCapabilities', 'linkify.update');
-bridgeHub.subscribe('linkify.update', (json) => applyLinkifyCapabilitiesPayload(json as string));
+registerLegacyAlias('updateLinkifyCapabilities', DOWNSTREAM.LINKIFY_UPDATE);
+subscribeEvent(DOWNSTREAM.LINKIFY_UPDATE, (json) => applyLinkifyCapabilitiesPayload(json as string));
 
 // ---------------------------------------------------------------------------
 // React application rendering
@@ -149,14 +150,14 @@ waitForBridge(() => {
   bridgeHub.markReady();
 
   debugLog('[Main] Sending frontend_ready signal');
-  sendBridgeEvent('frontend_ready');
+  sendAction(UPSTREAM.FRONTEND_READY);
 
   debugLog('[Main] Sending refresh_slash_commands request');
-  sendBridgeEvent('refresh_slash_commands');
+  sendAction(UPSTREAM.REFRESH_SLASH_COMMANDS);
 
   // Ensure SDK dependency status is fetched on initial load (not only after opening Settings).
   debugLog('[Main] Requesting dependency status');
-  sendBridgeEvent('get_dependency_status');
+  sendAction(UPSTREAM.GET_DEPENDENCY_STATUS);
 
-  sendBridgeEvent('get_linkify_capabilities');
+  sendAction(UPSTREAM.GET_LINKIFY_CAPABILITIES);
 });

@@ -1,4 +1,6 @@
 // hooks/useSettingsWindowCallbacks.ts
+import { sendAction, subscribeEvent } from '../../../bridge/typed';
+import { UPSTREAM, DOWNSTREAM } from '../../../generated/protocol';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ProviderConfig, CodexProviderConfig } from '../../../types/provider';
@@ -9,18 +11,8 @@ import type { UiFontConfig, CodeFontConfig } from './useSettingsBasicActions';
 import type { PromptEnhancerConfig } from '../../../types/promptEnhancer';
 import type { AlertType } from '../../AlertDialog';
 import type { ToastMessage } from '../../Toast';
-import {
-  subscribeActiveCodexProvider,
-  subscribeActiveProvider,
-  subscribeCodexProviderList,
-  subscribeProviderList,
-} from '../../../utils/runtimeProviderCapabilities';
-import { sendBridgeEvent } from '../../../utils/bridge';
-import { bridgeHub, registerLegacyAlias } from '../../../bridge';
-
-const sendToJava = (event: string, payload = '') => {
-  sendBridgeEvent(event, payload);
-};
+import { subscribeActiveCodexProvider, subscribeActiveProvider, subscribeCodexProviderList, subscribeProviderList } from '../../../utils/runtimeProviderCapabilities';
+import { registerLegacyAlias } from '../../../bridge';
 
 export interface SettingsWindowCallbacksDeps {
   // State setters
@@ -126,39 +118,39 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
     });
 
     // [归一化] 所有回调经 bridgeHub 订阅,替代旧 window.xxx 覆盖 + 链式转发。bridgeHub 广播到所有订阅者。
-    registerLegacyAlias('showError', 'toast.error');
-    registerLegacyAlias('showSwitchSuccess', 'toast.switch_success');
-    registerLegacyAlias('showSuccess', 'toast.success');
-    registerLegacyAlias('showSuccessI18n', 'toast.success_i18n');
-    registerLegacyAlias('updateNodePath', 'node.path');
-    registerLegacyAlias('updateWorkingDirectory', 'config.working_directory');
-    registerLegacyAlias('onEditorFontConfigReceived', 'font.editor_config_received');
-    registerLegacyAlias('onUiFontConfigReceived', 'font.ui_config_received');
-    registerLegacyAlias('onCodeFontConfigReceived', 'font.code_config_received');
-    registerLegacyAlias('onIdeThemeReceived', 'theme.received');
-    registerLegacyAlias('updateCodexSandboxMode', 'config.codex_sandbox_mode');
-    registerLegacyAlias('updateCommitPrompt', 'config.commit_prompt');
-    registerLegacyAlias('updatePromptEnhancerConfig', 'config.prompt_enhancer');
-    registerLegacyAlias('updateCommitAiConfig', 'config.commit_ai');
-    registerLegacyAlias('updateProjectCommitPrompt', 'config.project_commit_prompt');
-    registerLegacyAlias('updateCommitGenerationEnabled', 'config.commit_generation');
-    registerLegacyAlias('updateAiTitleGenerationEnabled', 'config.ai_title_generation');
-    registerLegacyAlias('updateStatusBarWidgetEnabled', 'config.status_bar_widget');
-    registerLegacyAlias('updateTaskCompletionNotificationEnabled', 'config.task_completion_notification');
-    registerLegacyAlias('updateInvocationMode', 'config.invocation_mode');
-    registerLegacyAlias('updateAgents', 'agent.list');
-    registerLegacyAlias('agentOperationResult', 'agent.operation_result');
-    registerLegacyAlias('agentImportPreviewResult', 'agent.import_preview');
-    registerLegacyAlias('agentImportResult', 'agent.import_result');
-    registerLegacyAlias('updatePrompts', 'prompt.list');
-    registerLegacyAlias('promptOperationResult', 'prompt.operation_result');
-    registerLegacyAlias('promptImportPreviewResult', 'prompt.import_preview');
-    registerLegacyAlias('promptImportResult', 'prompt.import_result');
-    registerLegacyAlias('updateCurrentCodexConfig', 'provider.codex_config');
+    registerLegacyAlias('showError', DOWNSTREAM.TOAST_ERROR);
+    registerLegacyAlias('showSwitchSuccess', DOWNSTREAM.TOAST_SWITCH_SUCCESS);
+    registerLegacyAlias('showSuccess', DOWNSTREAM.TOAST_SUCCESS);
+    registerLegacyAlias('showSuccessI18n', DOWNSTREAM.TOAST_SUCCESS_I18N);
+    registerLegacyAlias('updateNodePath', DOWNSTREAM.NODE_PATH);
+    registerLegacyAlias('updateWorkingDirectory', DOWNSTREAM.CONFIG_WORKING_DIRECTORY);
+    registerLegacyAlias('onEditorFontConfigReceived', DOWNSTREAM.FONT_EDITOR_CONFIG_RECEIVED);
+    registerLegacyAlias('onUiFontConfigReceived', DOWNSTREAM.FONT_UI_CONFIG_RECEIVED);
+    registerLegacyAlias('onCodeFontConfigReceived', DOWNSTREAM.FONT_CODE_CONFIG_RECEIVED);
+    registerLegacyAlias('onIdeThemeReceived', DOWNSTREAM.THEME_RECEIVED);
+    registerLegacyAlias('updateCodexSandboxMode', DOWNSTREAM.CONFIG_CODEX_SANDBOX_MODE);
+    registerLegacyAlias('updateCommitPrompt', DOWNSTREAM.CONFIG_COMMIT_PROMPT);
+    registerLegacyAlias('updatePromptEnhancerConfig', DOWNSTREAM.CONFIG_PROMPT_ENHANCER);
+    registerLegacyAlias('updateCommitAiConfig', DOWNSTREAM.CONFIG_COMMIT_AI);
+    registerLegacyAlias('updateProjectCommitPrompt', DOWNSTREAM.CONFIG_PROJECT_COMMIT_PROMPT);
+    registerLegacyAlias('updateCommitGenerationEnabled', DOWNSTREAM.CONFIG_COMMIT_GENERATION);
+    registerLegacyAlias('updateAiTitleGenerationEnabled', DOWNSTREAM.CONFIG_AI_TITLE_GENERATION);
+    registerLegacyAlias('updateStatusBarWidgetEnabled', DOWNSTREAM.CONFIG_STATUS_BAR_WIDGET);
+    registerLegacyAlias('updateTaskCompletionNotificationEnabled', DOWNSTREAM.CONFIG_TASK_COMPLETION_NOTIFICATION);
+    registerLegacyAlias('updateInvocationMode', DOWNSTREAM.CONFIG_INVOCATION_MODE);
+    registerLegacyAlias('updateAgents', DOWNSTREAM.AGENT_LIST);
+    registerLegacyAlias('agentOperationResult', DOWNSTREAM.AGENT_OPERATION_RESULT);
+    registerLegacyAlias('agentImportPreviewResult', DOWNSTREAM.AGENT_IMPORT_PREVIEW);
+    registerLegacyAlias('agentImportResult', DOWNSTREAM.AGENT_IMPORT_RESULT);
+    registerLegacyAlias('updatePrompts', DOWNSTREAM.PROMPT_LIST);
+    registerLegacyAlias('promptOperationResult', DOWNSTREAM.PROMPT_OPERATION_RESULT);
+    registerLegacyAlias('promptImportPreviewResult', DOWNSTREAM.PROMPT_IMPORT_PREVIEW);
+    registerLegacyAlias('promptImportResult', DOWNSTREAM.PROMPT_IMPORT_RESULT);
+    registerLegacyAlias('updateCurrentCodexConfig', DOWNSTREAM.PROVIDER_CODEX_CONFIG);
 
     const unsubs: Array<() => void> = [];
 
-    unsubs.push(bridgeHub.subscribe('toast.error', (message) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.TOAST_ERROR, (message) => {
       d().showAlert('error', t('toast.operationFailed'), message as string);
       d().setLoading(false);
       d().setSavingNodePath(false);
@@ -167,11 +159,11 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
       d().setSavingProjectCommitPrompt(false);
     }));
 
-    unsubs.push(bridgeHub.subscribe('toast.switch_success', (message) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.TOAST_SWITCH_SUCCESS, (message) => {
       d().showAlert('success', t('toast.switchSuccess'), message as string);
     }));
 
-    unsubs.push(bridgeHub.subscribe('node.path', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.NODE_PATH, (jsonStr) => {
       try {
         const data = JSON.parse(jsonStr as string);
         d().setNodePath(data.path || '');
@@ -187,7 +179,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
       window.dispatchEvent(new CustomEvent('nodePathReady'));
     }));
 
-    unsubs.push(bridgeHub.subscribe('config.working_directory', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.CONFIG_WORKING_DIRECTORY, (jsonStr) => {
       try {
         const data = JSON.parse(jsonStr as string);
         d().setWorkingDirectory(data.customWorkingDir || '');
@@ -198,18 +190,18 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
       }
     }));
 
-    unsubs.push(bridgeHub.subscribe('toast.success', (message) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.TOAST_SUCCESS, (message) => {
       d().showAlert('success', t('toast.operationSuccess'), message as string);
       d().setSavingNodePath(false);
       d().setSavingWorkingDirectory(false);
     }));
 
-    unsubs.push(bridgeHub.subscribe('toast.success_i18n', (i18nKey) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.TOAST_SUCCESS_I18N, (i18nKey) => {
       const message = t(i18nKey as string);
       d().addToast(message, 'success');
     }));
 
-    unsubs.push(bridgeHub.subscribe('font.editor_config_received', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.FONT_EDITOR_CONFIG_RECEIVED, (jsonStr) => {
       try {
         const config = JSON.parse(jsonStr as string);
         d().setEditorFontConfig(config);
@@ -218,7 +210,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
       }
     }));
 
-    unsubs.push(bridgeHub.subscribe('font.ui_config_received', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.FONT_UI_CONFIG_RECEIVED, (jsonStr) => {
       try {
         const config = JSON.parse(jsonStr as string);
         d().setUiFontConfig(config);
@@ -229,7 +221,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
     }));
 
     // [归一化] 代码字体配置回显(与 editor/ui 字体平行,迁移期遗漏已补)
-    unsubs.push(bridgeHub.subscribe('font.code_config_received', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.FONT_CODE_CONFIG_RECEIVED, (jsonStr) => {
       try {
         const config = JSON.parse(jsonStr as string);
         d().setCodeFontConfig(config);
@@ -239,7 +231,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
     }));
 
     // IDE theme callback
-    unsubs.push(bridgeHub.subscribe('theme.received', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.THEME_RECEIVED, (jsonStr) => {
       try {
         const themeData = JSON.parse(jsonStr as string);
         const theme = themeData.isDark ? 'dark' : 'light';
@@ -251,7 +243,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
 
     // Streaming configuration callback
     if (!d().onStreamingEnabledChangeProp) {
-      unsubs.push(bridgeHub.subscribe('setting.streaming_enabled', (jsonStr) => {
+      unsubs.push(subscribeEvent(DOWNSTREAM.SETTING_STREAMING_ENABLED, (jsonStr) => {
         try {
           const data = JSON.parse(jsonStr as string);
           d().setLocalStreamingEnabled(data.streamingEnabled ?? true);
@@ -262,7 +254,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
     }
 
     // Codex sandbox mode callback
-    unsubs.push(bridgeHub.subscribe('config.codex_sandbox_mode', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.CONFIG_CODEX_SANDBOX_MODE, (jsonStr) => {
       try {
         const data = JSON.parse(jsonStr as string);
         const mode = data?.sandboxMode;
@@ -276,7 +268,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
 
     // Send shortcut configuration callback
     if (!d().onSendShortcutChangeProp) {
-      unsubs.push(bridgeHub.subscribe('setting.send_shortcut', (jsonStr) => {
+      unsubs.push(subscribeEvent(DOWNSTREAM.SETTING_SEND_SHORTCUT, (jsonStr) => {
         try {
           const data = JSON.parse(jsonStr as string);
           d().setLocalSendShortcut(data.sendShortcut ?? 'enter');
@@ -287,7 +279,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
     }
 
     // Commit AI prompt callback
-    unsubs.push(bridgeHub.subscribe('config.commit_prompt', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.CONFIG_COMMIT_PROMPT, (jsonStr) => {
       try {
         const data = JSON.parse(jsonStr as string);
         d().setCommitPrompt(data.commitPrompt || '');
@@ -305,7 +297,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
       }
     }));
 
-    unsubs.push(bridgeHub.subscribe('config.prompt_enhancer', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.CONFIG_PROMPT_ENHANCER, (jsonStr) => {
       try {
         const data = JSON.parse(jsonStr as string);
         d().setPromptEnhancerConfig(data);
@@ -314,7 +306,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
       }
     }));
 
-    unsubs.push(bridgeHub.subscribe('config.commit_ai', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.CONFIG_COMMIT_AI, (jsonStr) => {
       try {
         const data = JSON.parse(jsonStr as string);
         d().setCommitAiConfig(data);
@@ -324,7 +316,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
     }));
 
     // Project-level commit AI prompt callback
-    unsubs.push(bridgeHub.subscribe('config.project_commit_prompt', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.CONFIG_PROJECT_COMMIT_PROMPT, (jsonStr) => {
       try {
         const data = JSON.parse(jsonStr as string);
         d().setProjectCommitPrompt(data.projectCommitPrompt || '');
@@ -340,7 +332,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
     }));
 
     // AI commit generation config callback
-    unsubs.push(bridgeHub.subscribe('config.commit_generation', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.CONFIG_COMMIT_GENERATION, (jsonStr) => {
       try {
         const data = JSON.parse(jsonStr as string);
         d().setCommitGenerationEnabled?.(data.commitGenerationEnabled ?? true);
@@ -350,7 +342,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
     }));
 
     // AI session title generation config callback
-    unsubs.push(bridgeHub.subscribe('config.ai_title_generation', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.CONFIG_AI_TITLE_GENERATION, (jsonStr) => {
       try {
         const data = JSON.parse(jsonStr as string);
         d().setAiTitleGenerationEnabled?.(data.aiTitleGenerationEnabled ?? true);
@@ -360,7 +352,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
     }));
 
     // Status bar widget config callback
-    unsubs.push(bridgeHub.subscribe('config.status_bar_widget', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.CONFIG_STATUS_BAR_WIDGET, (jsonStr) => {
       try {
         const data = JSON.parse(jsonStr as string);
         d().setStatusBarWidgetEnabled?.(data.statusBarWidgetEnabled ?? true);
@@ -370,7 +362,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
     }));
 
     // Task completion notification config callback (opt-in feature, default false)
-    unsubs.push(bridgeHub.subscribe('config.task_completion_notification', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.CONFIG_TASK_COMPLETION_NOTIFICATION, (jsonStr) => {
       try {
         const data = JSON.parse(jsonStr as string);
         d().setTaskCompletionNotificationEnabled?.(data.taskCompletionNotificationEnabled ?? false);
@@ -380,7 +372,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
     }));
 
     // Invocation mode callback
-    unsubs.push(bridgeHub.subscribe('config.invocation_mode', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.CONFIG_INVOCATION_MODE, (jsonStr) => {
       try {
         const data = JSON.parse(jsonStr as string);
         const mode = data.invocationMode;
@@ -396,7 +388,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
     }));
 
     // Agent callbacks
-    unsubs.push(bridgeHub.subscribe('agent.list', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.AGENT_LIST, (jsonStr) => {
       try {
         const agentsList: AgentConfig[] = JSON.parse(jsonStr as string);
         d().updateAgents(agentsList);
@@ -405,7 +397,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
       }
     }));
 
-    unsubs.push(bridgeHub.subscribe('agent.operation_result', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.AGENT_OPERATION_RESULT, (jsonStr) => {
       try {
         const result = JSON.parse(jsonStr as string);
         d().handleAgentOperationResult(result);
@@ -414,7 +406,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
       }
     }));
 
-    unsubs.push(bridgeHub.subscribe('agent.import_preview', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.AGENT_IMPORT_PREVIEW, (jsonStr) => {
       try {
         const previewData = JSON.parse(jsonStr as string);
         if (!Array.isArray(previewData?.items) || typeof previewData?.summary !== 'object') {
@@ -427,7 +419,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
       }
     }));
 
-    unsubs.push(bridgeHub.subscribe('agent.import_result', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.AGENT_IMPORT_RESULT, (jsonStr) => {
       try {
         const result = JSON.parse(jsonStr as string);
         d().handleAgentImportResult(result);
@@ -437,7 +429,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
     }));
 
     // Prompt library callbacks (legacy support - now primarily handled by PromptSection)
-    unsubs.push(bridgeHub.subscribe('prompt.list', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.PROMPT_LIST, (jsonStr) => {
       try {
         const promptsList: PromptConfig[] = JSON.parse(jsonStr as string);
         d().updatePrompts?.(promptsList);
@@ -446,7 +438,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
       }
     }));
 
-    unsubs.push(bridgeHub.subscribe('prompt.operation_result', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.PROMPT_OPERATION_RESULT, (jsonStr) => {
       try {
         const result = JSON.parse(jsonStr as string);
         d().handlePromptOperationResult?.(result);
@@ -455,7 +447,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
       }
     }));
 
-    unsubs.push(bridgeHub.subscribe('prompt.import_preview', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.PROMPT_IMPORT_PREVIEW, (jsonStr) => {
       try {
         const previewData = JSON.parse(jsonStr as string);
         if (!Array.isArray(previewData?.items) || typeof previewData?.summary !== 'object') {
@@ -468,7 +460,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
       }
     }));
 
-    unsubs.push(bridgeHub.subscribe('prompt.import_result', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.PROMPT_IMPORT_RESULT, (jsonStr) => {
       try {
         const result = JSON.parse(jsonStr as string);
         d().handlePromptImportResult?.(result);
@@ -499,7 +491,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
       }
     });
 
-    unsubs.push(bridgeHub.subscribe('provider.codex_config', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.PROVIDER_CODEX_CONFIG, (jsonStr) => {
       try {
         const config = JSON.parse(jsonStr as string);
         d().updateCurrentCodexConfig(config);
@@ -515,21 +507,21 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
     d().loadAgents();
     // Note: loadPrompts is now handled by PromptSection component
     d().loadPrompts?.();
-    sendToJava('get_node_path');
-    sendToJava('get_working_directory');
-    sendToJava('get_editor_font_config');
-    sendToJava('get_ui_font_config');
-    sendToJava('get_streaming_enabled');
-    sendToJava('get_codex_sandbox_mode');
-    sendToJava('get_commit_prompt');
-    sendToJava('get_commit_ai_config');
-    sendToJava('get_prompt_enhancer_config');
-    sendToJava('get_commit_generation_enabled');
-    sendToJava('get_ai_title_generation_enabled');
-    sendToJava('get_status_bar_widget_enabled');
-    sendToJava('get_task_completion_notification_enabled');
-    sendToJava('get_invocation_mode');
-    sendToJava('get_permission_dialog_timeout');
+    sendAction(UPSTREAM.GET_NODE_PATH);
+    sendAction(UPSTREAM.GET_WORKING_DIRECTORY);
+    sendAction(UPSTREAM.GET_EDITOR_FONT_CONFIG);
+    sendAction(UPSTREAM.GET_UI_FONT_CONFIG);
+    sendAction(UPSTREAM.GET_STREAMING_ENABLED);
+    sendAction(UPSTREAM.GET_CODEX_SANDBOX_MODE);
+    sendAction(UPSTREAM.GET_COMMIT_PROMPT);
+    sendAction(UPSTREAM.GET_COMMIT_AI_CONFIG);
+    sendAction(UPSTREAM.GET_PROMPT_ENHANCER_CONFIG);
+    sendAction(UPSTREAM.GET_COMMIT_GENERATION_ENABLED);
+    sendAction(UPSTREAM.GET_AI_TITLE_GENERATION_ENABLED);
+    sendAction(UPSTREAM.GET_STATUS_BAR_WIDGET_ENABLED);
+    sendAction(UPSTREAM.GET_TASK_COMPLETION_NOTIFICATION_ENABLED);
+    sendAction(UPSTREAM.GET_INVOCATION_MODE);
+    sendAction(UPSTREAM.GET_PERMISSION_DIALOG_TIMEOUT);
 
     return () => {
       d().cleanupAgentsTimeout();

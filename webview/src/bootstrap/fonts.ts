@@ -6,9 +6,11 @@
  * - Custom @font-face injection for user-provided font files
  * - Synchronizing effective UI font family (editor vs. custom)
  */
+import { subscribeEvent } from '../bridge/typed';
+import { DOWNSTREAM } from '../generated/protocol';
 import { debugLog } from '../utils/debug';
 import type { UiFontConfig, CodeFontConfig } from '../types/uiFontConfig';
-import { bridgeHub, registerLegacyAlias } from '../bridge';
+import { registerLegacyAlias } from '../bridge';
 
 // ---------------------------------------------------------------------------
 // State (module-scoped)
@@ -218,18 +220,18 @@ function applyCodeFontConfig(config: CodeFontConfig | string) {
  */
 export function initFonts() {
   // [归一化] applyIdeaFontConfig → font.apply_editor / applyUiFontConfig → font.apply_ui
-  registerLegacyAlias('applyIdeaFontConfig', 'font.apply_editor');
-  bridgeHub.subscribe('font.apply_editor', (raw) => {
+  registerLegacyAlias('applyIdeaFontConfig', DOWNSTREAM.FONT_APPLY_EDITOR);
+  subscribeEvent(DOWNSTREAM.FONT_APPLY_EDITOR, (raw) => {
     // 后端发送 JSON 对象(非字符串),hub 传递原始 payloadJson 字符串,需解析。
     const config = typeof raw === 'string' ? JSON.parse(raw) : raw;
     applyEditorTypographyConfig(config);
   });
-  registerLegacyAlias('applyUiFontConfig', 'font.apply_ui');
-  bridgeHub.subscribe('font.apply_ui', (raw) => applyUiFontConfig(raw as string));
+  registerLegacyAlias('applyUiFontConfig', DOWNSTREAM.FONT_APPLY_UI);
+  subscribeEvent(DOWNSTREAM.FONT_APPLY_UI, (raw) => applyUiFontConfig(raw as string));
 
   // [归一化] applyCodeFontConfig → font.apply_code(对称 UI 字体;修复 v0.4.6 迁移遗漏)
-  registerLegacyAlias('applyCodeFontConfig', 'font.apply_code');
-  bridgeHub.subscribe('font.apply_code', (raw) => applyCodeFontConfig(raw as string));
+  registerLegacyAlias('applyCodeFontConfig', DOWNSTREAM.FONT_APPLY_CODE);
+  subscribeEvent(DOWNSTREAM.FONT_APPLY_CODE, (raw) => applyCodeFontConfig(raw as string));
 
   // Check for pending font config (Java side may execute before JS)
   if (window.__pendingFontConfig) {

@@ -9,8 +9,10 @@
  * 热路径(用户改色)由前端即时写 localStorage + 防抖 set_appearance_config 落盘,
  * 不经此模块;此模块只在冷启动/清缓存后回灌缺失值。
  */
+import { subscribeEvent } from '../bridge/typed';
+import { DOWNSTREAM } from '../generated/protocol';
 import { debugLog } from '../utils/debug';
-import { bridgeHub, registerLegacyAlias } from '../bridge';
+import { registerLegacyAlias } from '../bridge';
 import { writeScopedColor, isValidHexColor, type ColorBaseKey } from '../utils/appearanceColors';
 
 type ThemePreference = 'light' | 'dark' | 'system';
@@ -108,8 +110,8 @@ function applyAppearanceConfig(rawConfig: AppearanceConfigPayload | string): voi
  */
 export function initAppearance(): void {
   // [归一化] applyAppearanceConfig → appearance.apply
-  registerLegacyAlias('applyAppearanceConfig', 'appearance.apply');
-  bridgeHub.subscribe('appearance.apply', (json) => applyAppearanceConfig(json as string));
+  registerLegacyAlias('applyAppearanceConfig', DOWNSTREAM.APPEARANCE_APPLY);
+  subscribeEvent(DOWNSTREAM.APPEARANCE_APPLY, (json) => applyAppearanceConfig(json as string));
 
   // 处理 Java 早于 JS 的竞态(WebviewInitializer 注入时本函数可能尚未注册)
   if (window.__pendingAppearanceConfig) {

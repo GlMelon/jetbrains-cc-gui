@@ -2,7 +2,8 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { HistoryData } from '../../types';
-import { sendBridgeEvent } from '../../utils/bridge';
+import { sendAction } from '../../bridge/typed';
+import { UPSTREAM } from '../../generated/protocol';
 import HistoryView from './HistoryView';
 
 vi.mock('react-i18next', () => ({
@@ -41,8 +42,8 @@ vi.mock('../shared/ProviderModelIcon', () => ({
   ProviderModelIcon: () => <span data-testid="provider-icon" />,
 }));
 
-vi.mock('../../utils/bridge', () => ({
-  sendBridgeEvent: vi.fn(),
+vi.mock('../../bridge/typed', () => ({
+  sendAction: vi.fn(),
 }));
 
 vi.mock('../../utils/copyUtils', () => ({
@@ -227,7 +228,7 @@ describe('HistoryView conversion', () => {
     const deepSearchButton = screen.getByRole('button', { name: 'Deep Search' });
     fireEvent.click(deepSearchButton);
 
-    expect(sendBridgeEvent).toHaveBeenCalledWith('deep_search_history', 'claude');
+    expect(sendAction).toHaveBeenCalledWith(UPSTREAM.DEEP_SEARCH_HISTORY, 'claude');
     expect(deepSearchButton).toHaveProperty('disabled', true);
 
     rerender(

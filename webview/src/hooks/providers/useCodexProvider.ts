@@ -1,5 +1,6 @@
+import { sendAction } from '../../bridge/typed';
+import { UPSTREAM } from '../../generated/protocol';
 import { useCallback, useState } from 'react';
-import { sendBridgeEvent } from '../../utils/bridge';
 import type { CodexFastMode, PermissionMode, ReasoningEffort } from '../../components/ChatInputBox/types';
 
 /**
@@ -15,12 +16,12 @@ export function useCodexProvider() {
 
   const handleReasoningChange = useCallback((effort: ReasoningEffort) => {
     setReasoningEffort(effort);
-    sendBridgeEvent('set_reasoning_effort', effort);
+    sendAction(UPSTREAM.SET_REASONING_EFFORT, effort);
   }, []);
 
   const handleCodexFastModeChange = useCallback((mode: CodexFastMode) => {
     setCodexFastMode(mode);
-    sendBridgeEvent('set_codex_fast_mode', mode);
+    sendAction(UPSTREAM.SET_CODEX_FAST_MODE, mode);
   }, []);
 
   return {

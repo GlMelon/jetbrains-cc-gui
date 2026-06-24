@@ -1,22 +1,15 @@
 // hooks/useSettingsBasicActions.ts
-import {useCallback, useEffect, useState} from 'react';
-import type {UiFontConfig, CodeFontConfig} from '../../../types/uiFontConfig';
+import { sendAction } from '../../../bridge/typed';
+import { UPSTREAM } from '../../../generated/protocol';
+import { useCallback, useEffect, useState } from 'react';
+import type { UiFontConfig, CodeFontConfig } from '../../../types/uiFontConfig';
 export type {UiFontConfig, CodeFontConfig} from '../../../types/uiFontConfig';
-import type {CommitAiConfig, CommitAiProvider} from '../../../types/aiFeatureConfig';
-import {DEFAULT_COMMIT_AI_CONFIG} from '../../../types/aiFeatureConfig';
-import type {PromptEnhancerConfig, PromptEnhancerProvider} from '../../../types/promptEnhancer';
-import {DEFAULT_PROMPT_ENHANCER_CONFIG} from '../../../types/promptEnhancer';
-import {clampPermissionDialogTimeoutSeconds, DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS,} from '../../../utils/permissionDialogTimeout';
-import { sendBridgeEvent } from '../../../utils/bridge';
-import {
-    getSkipNewSessionConfirm,
-    SKIP_NEW_SESSION_CONFIRM_EVENT,
-    type SkipNewSessionConfirmChangedDetail,
-} from '../../../utils/skipNewSessionConfirm';
-
-const sendToJava = (event: string, payload = '') => {
-  sendBridgeEvent(event, payload);
-};
+import type { CommitAiConfig, CommitAiProvider } from '../../../types/aiFeatureConfig';
+import { DEFAULT_COMMIT_AI_CONFIG } from '../../../types/aiFeatureConfig';
+import type { PromptEnhancerConfig, PromptEnhancerProvider } from '../../../types/promptEnhancer';
+import { DEFAULT_PROMPT_ENHANCER_CONFIG } from '../../../types/promptEnhancer';
+import { clampPermissionDialogTimeoutSeconds, DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS } from '../../../utils/permissionDialogTimeout';
+import { getSkipNewSessionConfirm, SKIP_NEW_SESSION_CONFIRM_EVENT, type SkipNewSessionConfirmChangedDetail } from '../../../utils/skipNewSessionConfirm';
 
 export interface UseSettingsBasicActionsProps {
   streamingEnabledProp?: boolean;
@@ -281,23 +274,23 @@ export function useSettingsBasicActions({
   const handleSaveNodePath = useCallback(() => {
     setSavingNodePath(true);
     const payload = { path: (nodePath || '').trim() };
-    sendToJava('set_node_path', JSON.stringify(payload));
+    sendAction(UPSTREAM.SET_NODE_PATH, JSON.stringify(payload));
   }, [nodePath]);
 
   const handleSaveWorkingDirectory = useCallback(() => {
     setSavingWorkingDirectory(true);
     const payload = { customWorkingDir: (workingDirectory || '').trim() };
-    sendToJava('set_working_directory', JSON.stringify(payload));
+    sendAction(UPSTREAM.SET_WORKING_DIRECTORY, JSON.stringify(payload));
   }, [workingDirectory]);
 
   const handleUiFontSelectionChange = useCallback((selection: string) => {
     if (selection === 'followEditor') {
-      sendToJava('set_ui_font_config', JSON.stringify({ mode: 'followEditor' }));
+      sendAction(UPSTREAM.SET_UI_FONT_CONFIG, JSON.stringify({ mode: 'followEditor' }));
       return;
     }
 
     if (selection === 'customFile' && uiFontConfig?.customFontPath) {
-      sendToJava('set_ui_font_config', JSON.stringify({
+      sendAction(UPSTREAM.SET_UI_FONT_CONFIG, JSON.stringify({
         mode: 'customFile',
         customFontPath: uiFontConfig.customFontPath,
       }));
@@ -305,24 +298,24 @@ export function useSettingsBasicActions({
   }, [uiFontConfig?.customFontPath]);
 
   const handleSaveUiFontCustomPath = useCallback((path: string) => {
-    sendToJava('set_ui_font_config', JSON.stringify({
+    sendAction(UPSTREAM.SET_UI_FONT_CONFIG, JSON.stringify({
       mode: 'customFile',
       customFontPath: path,
     }));
   }, []);
 
   const handleBrowseUiFontFile = useCallback(() => {
-    sendToJava('browse_ui_font_file');
+    sendAction(UPSTREAM.BROWSE_UI_FONT_FILE);
   }, []);
 
   const handleCodeFontSelectionChange = useCallback((selection: string) => {
     if (selection === 'followEditor') {
-      sendToJava('set_code_font_config', JSON.stringify({ mode: 'followEditor' }));
+      sendAction(UPSTREAM.SET_CODE_FONT_CONFIG, JSON.stringify({ mode: 'followEditor' }));
       return;
     }
 
     if (selection === 'customFile' && codeFontConfig?.customFontPath) {
-      sendToJava('set_code_font_config', JSON.stringify({
+      sendAction(UPSTREAM.SET_CODE_FONT_CONFIG, JSON.stringify({
         mode: 'customFile',
         customFontPath: codeFontConfig.customFontPath,
       }));
@@ -330,14 +323,14 @@ export function useSettingsBasicActions({
   }, [codeFontConfig?.customFontPath]);
 
   const handleSaveCodeFontCustomPath = useCallback((path: string) => {
-    sendToJava('set_code_font_config', JSON.stringify({
+    sendAction(UPSTREAM.SET_CODE_FONT_CONFIG, JSON.stringify({
       mode: 'customFile',
       customFontPath: path,
     }));
   }, []);
 
   const handleBrowseCodeFontFile = useCallback(() => {
-    sendToJava('browse_code_font_file');
+    sendAction(UPSTREAM.BROWSE_CODE_FONT_FILE);
   }, []);
 
   // Streaming toggle change handler
@@ -349,14 +342,14 @@ export function useSettingsBasicActions({
       // Fallback to local state if no prop callback provided
       setLocalStreamingEnabled(enabled);
       const payload = { streamingEnabled: enabled };
-      sendToJava('set_streaming_enabled', JSON.stringify(payload));
+      sendAction(UPSTREAM.SET_STREAMING_ENABLED, JSON.stringify(payload));
     }
   }, [onStreamingEnabledChangeProp]);
 
   const handleCodexSandboxModeChange = useCallback((mode: 'workspace-write' | 'danger-full-access') => {
     setCodexSandboxMode(mode);
     const payload = { sandboxMode: mode };
-    sendToJava('set_codex_sandbox_mode', JSON.stringify(payload));
+    sendAction(UPSTREAM.SET_CODEX_SANDBOX_MODE, JSON.stringify(payload));
   }, []);
 
   // Send shortcut change handler
@@ -368,7 +361,7 @@ export function useSettingsBasicActions({
       // Fallback to local state if no prop callback provided
       setLocalSendShortcut(shortcut);
       const payload = { sendShortcut: shortcut };
-      sendToJava('set_send_shortcut', JSON.stringify(payload));
+      sendAction(UPSTREAM.SET_SEND_SHORTCUT, JSON.stringify(payload));
     }
   }, [onSendShortcutChangeProp]);
 
@@ -381,7 +374,7 @@ export function useSettingsBasicActions({
       // Fallback to local state if no prop callback provided
       setLocalAutoOpenFileEnabled(enabled);
       const payload = { autoOpenFileEnabled: enabled };
-      sendToJava('set_auto_open_file_enabled', JSON.stringify(payload));
+      sendAction(UPSTREAM.SET_AUTO_OPEN_FILE_ENABLED, JSON.stringify(payload));
     }
   }, [onAutoOpenFileEnabledChangeProp]);
 
@@ -389,28 +382,28 @@ export function useSettingsBasicActions({
   const handleCommitGenerationEnabledChange = useCallback((enabled: boolean) => {
     setCommitGenerationEnabled(enabled);
     const payload = { commitGenerationEnabled: enabled };
-    sendToJava('set_commit_generation_enabled', JSON.stringify(payload));
+    sendAction(UPSTREAM.SET_COMMIT_GENERATION_ENABLED, JSON.stringify(payload));
   }, []);
 
   // AI session title generation toggle change handler
   const handleAiTitleGenerationEnabledChange = useCallback((enabled: boolean) => {
     setAiTitleGenerationEnabled(enabled);
     const payload = { aiTitleGenerationEnabled: enabled };
-    sendToJava('set_ai_title_generation_enabled', JSON.stringify(payload));
+    sendAction(UPSTREAM.SET_AI_TITLE_GENERATION_ENABLED, JSON.stringify(payload));
   }, []);
 
   // Status bar widget toggle change handler
   const handleStatusBarWidgetEnabledChange = useCallback((enabled: boolean) => {
     setStatusBarWidgetEnabled(enabled);
     const payload = { statusBarWidgetEnabled: enabled };
-    sendToJava('set_status_bar_widget_enabled', JSON.stringify(payload));
+    sendAction(UPSTREAM.SET_STATUS_BAR_WIDGET_ENABLED, JSON.stringify(payload));
   }, []);
 
   // Task completion notification toggle change handler
   const handleTaskCompletionNotificationEnabledChange = useCallback((enabled: boolean) => {
     setTaskCompletionNotificationEnabled(enabled);
     const payload = { taskCompletionNotificationEnabled: enabled };
-    sendToJava('set_task_completion_notification_enabled', JSON.stringify(payload));
+    sendAction(UPSTREAM.SET_TASK_COMPLETION_NOTIFICATION_ENABLED, JSON.stringify(payload));
   }, []);
 
   // Permission dialog timeout change handler
@@ -419,7 +412,7 @@ export function useSettingsBasicActions({
     // App.tsx owns the canonical state and provides the callback in production.
     onPermissionDialogTimeoutChangeProp?.(clamped);
     const payload = { permissionDialogTimeoutSeconds: clamped };
-    sendToJava('set_permission_dialog_timeout', JSON.stringify(payload));
+    sendAction(UPSTREAM.SET_PERMISSION_DIALOG_TIMEOUT, JSON.stringify(payload));
   }, [onPermissionDialogTimeoutChangeProp]);
 
   const handleCommitAiProviderChange = useCallback((provider: CommitAiProvider) => {
@@ -431,7 +424,7 @@ export function useSettingsBasicActions({
       resolutionSource: providerAvailable ? 'manual' : 'unavailable',
     };
     setCommitAiConfig(nextConfig);
-    sendToJava('set_commit_ai_config', JSON.stringify({
+    sendAction(UPSTREAM.SET_COMMIT_AI_CONFIG, JSON.stringify({
       provider,
       models: nextConfig.models,
     }));
@@ -447,7 +440,7 @@ export function useSettingsBasicActions({
       },
     };
     setCommitAiConfig(nextConfig);
-    sendToJava('set_commit_ai_config', JSON.stringify({
+    sendAction(UPSTREAM.SET_COMMIT_AI_CONFIG, JSON.stringify({
       provider: commitAiConfig.provider,
       models: nextConfig.models,
     }));
@@ -465,7 +458,7 @@ export function useSettingsBasicActions({
         : 'unavailable',
     };
     setCommitAiConfig(nextConfig);
-    sendToJava('set_commit_ai_config', JSON.stringify({
+    sendAction(UPSTREAM.SET_COMMIT_AI_CONFIG, JSON.stringify({
       provider: null,
       models: nextConfig.models,
     }));
@@ -480,7 +473,7 @@ export function useSettingsBasicActions({
       resolutionSource: providerAvailable ? 'manual' : 'unavailable',
     };
     setPromptEnhancerConfig(nextConfig);
-    sendToJava('set_prompt_enhancer_config', JSON.stringify({
+    sendAction(UPSTREAM.SET_PROMPT_ENHANCER_CONFIG, JSON.stringify({
       provider,
       models: nextConfig.models,
     }));
@@ -496,7 +489,7 @@ export function useSettingsBasicActions({
       },
     };
     setPromptEnhancerConfig(nextConfig);
-    sendToJava('set_prompt_enhancer_config', JSON.stringify({
+    sendAction(UPSTREAM.SET_PROMPT_ENHANCER_CONFIG, JSON.stringify({
       provider: promptEnhancerConfig.provider,
       models: nextConfig.models,
     }));
@@ -514,7 +507,7 @@ export function useSettingsBasicActions({
         : 'unavailable',
     };
     setPromptEnhancerConfig(nextConfig);
-    sendToJava('set_prompt_enhancer_config', JSON.stringify({
+    sendAction(UPSTREAM.SET_PROMPT_ENHANCER_CONFIG, JSON.stringify({
       provider: null,
       models: nextConfig.models,
     }));
@@ -523,27 +516,27 @@ export function useSettingsBasicActions({
   const handleInvocationModeChange = useCallback((mode: 'sdk' | 'cli') => {
     setInvocationMode(mode);
     const payload = { invocationMode: mode };
-    sendToJava('set_invocation_mode', JSON.stringify(payload));
+    sendAction(UPSTREAM.SET_INVOCATION_MODE, JSON.stringify(payload));
   }, []);
 
   const handleCliPathChange = useCallback((path: string) => {
     setCliPath(path);
     const payload = { cliPath: path };
-    sendToJava('set_cli_path', JSON.stringify(payload));
+    sendAction(UPSTREAM.SET_CLI_PATH, JSON.stringify(payload));
   }, []);
 
   // Commit AI prompt save handler
   const handleSaveCommitPrompt = useCallback(() => {
     setSavingCommitPrompt(true);
     const payload = { prompt: commitPrompt };
-    sendToJava('set_commit_prompt', JSON.stringify(payload));
+    sendAction(UPSTREAM.SET_COMMIT_PROMPT, JSON.stringify(payload));
   }, [commitPrompt]);
 
   // Project-level commit AI prompt save handler
   const handleSaveProjectCommitPrompt = useCallback(() => {
     setSavingProjectCommitPrompt(true);
     const payload = { prompt: projectCommitPrompt };
-    sendToJava('set_project_commit_prompt', JSON.stringify(payload));
+    sendAction(UPSTREAM.SET_PROJECT_COMMIT_PROMPT, JSON.stringify(payload));
   }, [projectCommitPrompt]);
 
   return {

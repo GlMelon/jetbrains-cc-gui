@@ -6,7 +6,8 @@
 import { useState, useRef, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { McpServer, McpPreset } from '../../types/mcp';
-import { sendToJava } from '../../utils/bridge';
+import { sendAction } from '../../bridge/typed';
+import { UPSTREAM } from '../../generated/protocol';
 import { McpServerDialog } from './McpServerDialog';
 import { McpPresetDialog } from './McpPresetDialog';
 import { McpHelpDialog } from './McpHelpDialog';
@@ -189,7 +190,7 @@ export function McpSettingsSection({ currentProvider = 'claude' }: McpSettingsSe
   // Confirm deletion
   const confirmDelete = useCallback(() => {
     if (deletingServer) {
-      sendToJava(`delete_${messagePrefix}mcp_server`, { id: deletingServer.id });
+      sendAction(isCodexMode ? UPSTREAM.DELETE_CODEX_MCP_SERVER : UPSTREAM.DELETE_MCP_SERVER, { id: deletingServer.id });
       addToast(`${t('mcp.deleted')} ${deletingServer.name || deletingServer.id}`, 'success');
 
       setTimeout(() => {
@@ -223,15 +224,15 @@ export function McpSettingsSection({ currentProvider = 'claude' }: McpSettingsSe
   const handleSaveServer = useCallback((server: McpServer) => {
     if (editingServer) {
       if (editingServer.id !== server.id) {
-        sendToJava(`delete_${messagePrefix}mcp_server`, { id: editingServer.id });
-        sendToJava(`add_${messagePrefix}mcp_server`, server);
+        sendAction(isCodexMode ? UPSTREAM.DELETE_CODEX_MCP_SERVER : UPSTREAM.DELETE_MCP_SERVER, { id: editingServer.id });
+        sendAction(isCodexMode ? UPSTREAM.ADD_CODEX_MCP_SERVER : UPSTREAM.ADD_MCP_SERVER, server);
         addToast(`${t('mcp.updated')} ${server.name || server.id}`, 'success');
       } else {
-        sendToJava(`update_${messagePrefix}mcp_server`, server);
+        sendAction(isCodexMode ? UPSTREAM.UPDATE_CODEX_MCP_SERVER : UPSTREAM.UPDATE_MCP_SERVER, server);
         addToast(`${t('mcp.saved')} ${server.name || server.id}`, 'success');
       }
     } else {
-      sendToJava(`add_${messagePrefix}mcp_server`, server);
+      sendAction(isCodexMode ? UPSTREAM.ADD_CODEX_MCP_SERVER : UPSTREAM.ADD_MCP_SERVER, server);
       addToast(`${t('mcp.added')} ${server.name || server.id}`, 'success');
     }
 
@@ -260,7 +261,7 @@ export function McpSettingsSection({ currentProvider = 'claude' }: McpSettingsSe
       docs: preset.docs,
       enabled: true,
     };
-    sendToJava(`add_${messagePrefix}mcp_server`, server);
+    sendAction(isCodexMode ? UPSTREAM.ADD_CODEX_MCP_SERVER : UPSTREAM.ADD_MCP_SERVER, server);
     addToast(`${t('mcp.added')} ${preset.name}`, 'success');
 
     setTimeout(() => {

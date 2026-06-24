@@ -1,8 +1,9 @@
+import { sendAction, subscribeEvent } from '../../bridge/typed';
+import { UPSTREAM, DOWNSTREAM } from '../../generated/protocol';
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Skill, SkillsConfig, SkillScope, SkillFilter, SkillEnabledFilter } from '../../types/skill';
-import { sendToJava } from '../../utils/bridge';
-import { bridgeHub, registerLegacyAlias } from '../../bridge';
+import { registerLegacyAlias } from '../../bridge';
 import { SkillHelpDialog } from './SkillHelpDialog';
 import { SkillConfirmDialog } from './SkillConfirmDialog';
 import { ToastContainer, type ToastMessage } from '../Toast';
@@ -129,20 +130,20 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
 
   const loadSkills = useCallback(() => {
     setLoading(true);
-    sendToJava('get_all_skills', {});
+    sendAction(UPSTREAM.GET_ALL_SKILLS, {});
   }, []);
 
   // Initialization（[归一化] 经 bridgeHub 订阅,替代旧 window.xxx 覆盖）
   useEffect(() => {
-    registerLegacyAlias('updateSkills', 'skill.list');
-    registerLegacyAlias('skillImportResult', 'skill.import_result');
-    registerLegacyAlias('skillDeleteResult', 'skill.delete_result');
-    registerLegacyAlias('skillToggleResult', 'skill.toggle_result');
+    registerLegacyAlias('updateSkills', DOWNSTREAM.SKILL_LIST);
+    registerLegacyAlias('skillImportResult', DOWNSTREAM.SKILL_IMPORT_RESULT);
+    registerLegacyAlias('skillDeleteResult', DOWNSTREAM.SKILL_DELETE_RESULT);
+    registerLegacyAlias('skillToggleResult', DOWNSTREAM.SKILL_TOGGLE_RESULT);
 
     const unsubs: Array<() => void> = [];
 
     // Java side returns Skills list
-    unsubs.push(bridgeHub.subscribe('skill.list', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.SKILL_LIST, (jsonStr) => {
       try {
         const data: SkillsConfig = JSON.parse(jsonStr as string);
         setSkills(data);
@@ -155,7 +156,7 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
     }));
 
     // import result
-    unsubs.push(bridgeHub.subscribe('skill.import_result', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.SKILL_IMPORT_RESULT, (jsonStr) => {
       try {
         const result = JSON.parse(jsonStr as string);
         if (result.success) {
@@ -179,7 +180,7 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
     }));
 
     // delete result
-    unsubs.push(bridgeHub.subscribe('skill.delete_result', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.SKILL_DELETE_RESULT, (jsonStr) => {
       try {
         const result = JSON.parse(jsonStr as string);
         if (result.success) {
@@ -194,7 +195,7 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
     }));
 
     // enable/disable result
-    unsubs.push(bridgeHub.subscribe('skill.toggle_result', (jsonStr) => {
+    unsubs.push(subscribeEvent(DOWNSTREAM.SKILL_TOGGLE_RESULT, (jsonStr) => {
       try {
         const result = JSON.parse(jsonStr as string);
         // Remove in-progress state
@@ -273,7 +274,7 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
   // Import Skill
   const handleImport = (scope: SkillScope) => {
     setShowDropdown(false);
-    sendToJava('import_skill', { scope });
+    sendAction(UPSTREAM.IMPORT_SKILL, { scope });
   };
 
   // Get the primary/secondary scope values based on provider
@@ -282,7 +283,7 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
 
   // Open in editor
   const handleOpen = (skill: Skill) => {
-    sendToJava('open_skill', { path: skill.path });
+    sendAction(UPSTREAM.OPEN_SKILL, { path: skill.path });
   };
 
   // Delete Skill
@@ -294,7 +295,7 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
   // Confirm deletion
   const confirmDelete = () => {
     if (deletingSkill) {
-      sendToJava('delete_skill', {
+      sendAction(UPSTREAM.DELETE_SKILL, {
         name: deletingSkill.name,
         scope: deletingSkill.scope,
         enabled: deletingSkill.enabled,
@@ -322,7 +323,7 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
     if (togglingSkills.has(skill.id)) return; // Prevent duplicate clicks
 
     setTogglingSkills(prev => new Set(prev).add(skill.id));
-    sendToJava('toggle_skill', {
+    sendAction(UPSTREAM.TOGGLE_SKILL, {
       name: skill.name,
       scope: skill.scope,
       enabled: skill.enabled,

@@ -1,6 +1,7 @@
+import { sendAction } from '../../../bridge/typed';
+import { UPSTREAM } from '../../../generated/protocol';
 import type { DropdownItemData } from '../types';
 import type { PromptConfig, PromptScope, GetPromptsMessage } from '../../../types/prompt';
-import { sendBridgeEvent } from '../../../utils/bridge';
 import i18n from '../../../i18n/config';
 import { debugError, debugLog, debugWarn } from '../../../utils/debug.js';
 
@@ -212,8 +213,8 @@ function requestRefresh(force = false): boolean {
   const globalMessage: GetPromptsMessage = { scope: 'global' };
   const projectMessage: GetPromptsMessage = { scope: 'project' };
 
-  const globalSent = sendBridgeEvent('get_prompts', JSON.stringify(globalMessage));
-  const projectSent = sendBridgeEvent('get_prompts', JSON.stringify(projectMessage));
+  const globalSent = sendAction(UPSTREAM.GET_PROMPTS, JSON.stringify(globalMessage));
+  const projectSent = sendAction(UPSTREAM.GET_PROMPTS, JSON.stringify(projectMessage));
 
   if (!globalSent && !projectSent) {
     debugLog('[PromptProvider] Bridge not available yet, refresh not sent');

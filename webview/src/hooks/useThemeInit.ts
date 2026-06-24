@@ -1,12 +1,8 @@
+import { sendAction, subscribeEvent } from '../bridge/typed';
+import { UPSTREAM, DOWNSTREAM } from '../generated/protocol';
 import { useEffect, useState } from 'react';
-import { sendBridgeEvent } from '../utils/bridge';
-import { bridgeHub, registerLegacyAlias } from '../bridge';
-import {
-  migrateLegacyScopedColor,
-  applyChatBackground,
-  applyUserMsgColor,
-  type Theme,
-} from '../utils/appearanceColors';
+import { registerLegacyAlias } from '../bridge';
+import { migrateLegacyScopedColor, applyChatBackground, applyUserMsgColor, type Theme } from '../utils/appearanceColors';
 
 /**
  * 解析当前实际主题:优先读全局 data-theme(已被解析为亮/暗),回退 Java 注入值,再回退 dark。
@@ -38,8 +34,8 @@ export function useThemeInit() {
   // Initialize theme and font scaling
   useEffect(() => {
     // [归一化] onIdeThemeReceived → theme.received / onIdeThemeChanged → theme.changed
-    registerLegacyAlias('onIdeThemeReceived', 'theme.received');
-    bridgeHub.subscribe('theme.received', (jsonStr) => {
+    registerLegacyAlias('onIdeThemeReceived', DOWNSTREAM.THEME_RECEIVED);
+    subscribeEvent(DOWNSTREAM.THEME_RECEIVED, (jsonStr) => {
       try {
         const themeData = JSON.parse(jsonStr as string);
         const theme = themeData.isDark ? 'dark' : 'light';
@@ -49,8 +45,8 @@ export function useThemeInit() {
       }
     });
 
-    registerLegacyAlias('onIdeThemeChanged', 'theme.changed');
-    bridgeHub.subscribe('theme.changed', (jsonStr) => {
+    registerLegacyAlias('onIdeThemeChanged', DOWNSTREAM.THEME_CHANGED);
+    subscribeEvent(DOWNSTREAM.THEME_CHANGED, (jsonStr) => {
       try {
         const themeData = JSON.parse(jsonStr as string);
         const theme = themeData.isDark ? 'dark' : 'light';
@@ -96,7 +92,7 @@ export function useThemeInit() {
 
     const requestIdeTheme = () => {
       if (window.sendToJava) {
-        sendBridgeEvent('get_ide_theme');
+        sendAction(UPSTREAM.GET_IDE_THEME);
       } else {
         retryCount++;
         if (retryCount < MAX_RETRIES) {

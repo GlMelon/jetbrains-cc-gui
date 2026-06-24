@@ -13,13 +13,15 @@
  * 挂载时,会覆盖占位为 compat 别名;挂载前的早到值由 pending drain 消费)。详见 plan。
  */
 
+import { subscribeEvent } from '../../../bridge/typed';
+import { DOWNSTREAM } from '../../../generated/protocol';
 import type { UseWindowCallbacksOptions } from '../../useWindowCallbacks';
 import type { PermissionMode } from '../../../components/ChatInputBox/types';
 import { isValidPermissionMode } from '../../../components/ChatInputBox/types';
 import { drainPendingSettings, startInitialSettingsRequest } from '../settingsBootstrap';
 import { clampPermissionDialogTimeoutSeconds } from '../../../utils/permissionDialogTimeout';
 import { resolveClaudeModelId } from '../../../utils/modelRegistry';
-import { bridgeHub, registerLegacyAlias } from '../../../bridge';
+import { registerLegacyAlias } from '../../../bridge';
 
 export function registerUsageModeCallbacks(options: UseWindowCallbacksOptions): void {
   const {
@@ -45,8 +47,8 @@ export function registerUsageModeCallbacks(options: UseWindowCallbacksOptions): 
   } = options;
 
   // [归一化] onUsageUpdate → usage.update。兼容别名让后端旧 window.onUsageUpdate 调用转发到总线。
-  registerLegacyAlias('onUsageUpdate', 'usage.update');
-  bridgeHub.subscribe('usage.update', (json) => {
+  registerLegacyAlias('onUsageUpdate', DOWNSTREAM.USAGE_UPDATE);
+  subscribeEvent(DOWNSTREAM.USAGE_UPDATE, (json) => {
     try {
       const data = JSON.parse(json as string);
       if (typeof data.percentage === 'number') {
@@ -119,16 +121,16 @@ export function registerUsageModeCallbacks(options: UseWindowCallbacksOptions): 
 
   // [归一化] onModeChanged/onModeReceived → mode.changed/mode.received(裸字符串 payload)。
   // 透明管道原样传递,updateMode 收到的 mode 字符串与旧 window.onModeChanged(mode) 一致。
-  registerLegacyAlias('onModeChanged', 'mode.changed');
-  bridgeHub.subscribe('mode.changed', (mode) => updateMode(mode as PermissionMode));
-  registerLegacyAlias('onModeReceived', 'mode.received');
-  bridgeHub.subscribe('mode.received', (mode) => updateMode(mode as PermissionMode));
+  registerLegacyAlias('onModeChanged', DOWNSTREAM.MODE_CHANGED);
+  subscribeEvent(DOWNSTREAM.MODE_CHANGED, (mode) => updateMode(mode as PermissionMode));
+  registerLegacyAlias('onModeReceived', DOWNSTREAM.MODE_RECEIVED);
+  subscribeEvent(DOWNSTREAM.MODE_RECEIVED, (mode) => updateMode(mode as PermissionMode));
 
   // [归一化] onModelChanged → model.changed(裸字符串 modelId)
   // resolveClaudeModelId 先查 registry,自定义模型(如 mimo-v2.5)保留原 id,
   // 仅在 registry 未收录时回退到 role 归一化,避免合法自定义模型被改写成 sonnet。
-  registerLegacyAlias('onModelChanged', 'model.changed');
-  bridgeHub.subscribe('model.changed', (modelId) => {
+  registerLegacyAlias('onModelChanged', DOWNSTREAM.MODEL_CHANGED);
+  subscribeEvent(DOWNSTREAM.MODEL_CHANGED, (modelId) => {
     const provider = currentProviderRef.current;
     if (provider === 'claude') {
       setSelectedClaudeModel(resolveClaudeModelId(modelId as string));
@@ -140,8 +142,8 @@ export function registerUsageModeCallbacks(options: UseWindowCallbacksOptions): 
   // [归一化] onModelConfirmed(modelId, provider) 原为两参数回调,后端已归一化为单 JSON 参数
   // {modelId, provider}。兼容别名转发到 model.confirmed,订阅者解析 JSON 取两字段。
   // resolveClaudeModelId 同上,保留 registry 中已收录的自定义模型 id。
-  registerLegacyAlias('onModelConfirmed', 'model.confirmed');
-  bridgeHub.subscribe('model.confirmed', (json) => {
+  registerLegacyAlias('onModelConfirmed', DOWNSTREAM.MODEL_CONFIRMED);
+  subscribeEvent(DOWNSTREAM.MODEL_CONFIRMED, (json) => {
     try {
       const data = JSON.parse(json as string);
       const modelId: string = data.modelId;
@@ -159,11 +161,11 @@ export function registerUsageModeCallbacks(options: UseWindowCallbacksOptions): 
   // [归一化] updateActiveProvider → provider.active(合并双写竞争)。
   // 这个 handler 是 provider.active 的订阅者之一,负责 usageMode 逻辑:
   //   syncActiveProviderModelMapping + setProviderConfigVersion + setActiveProviderConfig。
-  // RuntimeProviderSelect / Settings 等消费者经 subscribeActiveProvider → bridgeHub.subscribe('provider.active')
+  // RuntimeProviderSelect / Settings 等消费者经 subscribeActiveProvider → subscribeEvent(DOWNSTREAM.PROVIDER_ACTIVE)
   // 订阅同一 type,由 dispatch 自动广播(无需手动 emit)。从而消除原「挂载后 usageMode 覆盖导致 channel
   // 订阅者收不到」的双写竞争。
-  registerLegacyAlias('updateActiveProvider', 'provider.active');
-  bridgeHub.subscribe('provider.active', (jsonStr) => {
+  registerLegacyAlias('updateActiveProvider', DOWNSTREAM.PROVIDER_ACTIVE);
+  subscribeEvent(DOWNSTREAM.PROVIDER_ACTIVE, (jsonStr) => {
     try {
       const provider = JSON.parse(jsonStr as string);
       syncActiveProviderModelMapping(provider);
@@ -175,8 +177,8 @@ export function registerUsageModeCallbacks(options: UseWindowCallbacksOptions): 
   });
 
     // [归一化] updateSessionInvocationMode → session.invocation_mode(JSON)
-    registerLegacyAlias('updateSessionInvocationMode', 'session.invocation_mode');
-    bridgeHub.subscribe('session.invocation_mode', (jsonStr) => {
+    registerLegacyAlias('updateSessionInvocationMode', DOWNSTREAM.SESSION_INVOCATION_MODE);
+    subscribeEvent(DOWNSTREAM.SESSION_INVOCATION_MODE, (jsonStr) => {
         try {
             const data = JSON.parse(jsonStr as string);
             const mode = data.invocationMode;
@@ -189,8 +191,8 @@ export function registerUsageModeCallbacks(options: UseWindowCallbacksOptions): 
     });
 
     // [归一化] updateSessionRuntimeState → session.runtime_state(JSON)
-    registerLegacyAlias('updateSessionRuntimeState', 'session.runtime_state');
-    bridgeHub.subscribe('session.runtime_state', (jsonStr) => {
+    registerLegacyAlias('updateSessionRuntimeState', DOWNSTREAM.SESSION_RUNTIME_STATE);
+    subscribeEvent(DOWNSTREAM.SESSION_RUNTIME_STATE, (jsonStr) => {
         try {
             const data = JSON.parse(jsonStr as string);
             const provider = data.provider === 'codex' ? 'codex' : 'claude';
@@ -217,8 +219,8 @@ export function registerUsageModeCallbacks(options: UseWindowCallbacksOptions): 
     });
 
   // [归一化] updateThinkingEnabled → setting.thinking_enabled
-  registerLegacyAlias('updateThinkingEnabled', 'setting.thinking_enabled');
-  bridgeHub.subscribe('setting.thinking_enabled', (jsonStr) => {
+  registerLegacyAlias('updateThinkingEnabled', DOWNSTREAM.SETTING_THINKING_ENABLED);
+  subscribeEvent(DOWNSTREAM.SETTING_THINKING_ENABLED, (jsonStr) => {
     const trimmed = ((jsonStr as string) || '').trim();
     try {
       const data = JSON.parse(trimmed);
@@ -238,8 +240,8 @@ export function registerUsageModeCallbacks(options: UseWindowCallbacksOptions): 
   });
 
   // [归一化] updateStreamingEnabled → setting.streaming_enabled
-  registerLegacyAlias('updateStreamingEnabled', 'setting.streaming_enabled');
-  bridgeHub.subscribe('setting.streaming_enabled', (jsonStr) => {
+  registerLegacyAlias('updateStreamingEnabled', DOWNSTREAM.SETTING_STREAMING_ENABLED);
+  subscribeEvent(DOWNSTREAM.SETTING_STREAMING_ENABLED, (jsonStr) => {
     try {
       const data = JSON.parse(jsonStr as string);
       setStreamingEnabledSetting(data.streamingEnabled ?? true);
@@ -249,8 +251,8 @@ export function registerUsageModeCallbacks(options: UseWindowCallbacksOptions): 
   });
 
   // [归一化] updateSendShortcut → setting.send_shortcut
-  registerLegacyAlias('updateSendShortcut', 'setting.send_shortcut');
-  bridgeHub.subscribe('setting.send_shortcut', (jsonStr) => {
+  registerLegacyAlias('updateSendShortcut', DOWNSTREAM.SETTING_SEND_SHORTCUT);
+  subscribeEvent(DOWNSTREAM.SETTING_SEND_SHORTCUT, (jsonStr) => {
     try {
       const data = JSON.parse(jsonStr as string);
       if (data.sendShortcut === 'enter' || data.sendShortcut === 'cmdEnter') {
@@ -262,8 +264,8 @@ export function registerUsageModeCallbacks(options: UseWindowCallbacksOptions): 
   });
 
   // [归一化] updateAutoOpenFileEnabled → setting.auto_open_file
-  registerLegacyAlias('updateAutoOpenFileEnabled', 'setting.auto_open_file');
-  bridgeHub.subscribe('setting.auto_open_file', (jsonStr) => {
+  registerLegacyAlias('updateAutoOpenFileEnabled', DOWNSTREAM.SETTING_AUTO_OPEN_FILE);
+  subscribeEvent(DOWNSTREAM.SETTING_AUTO_OPEN_FILE, (jsonStr) => {
     try {
       const data = JSON.parse(jsonStr as string);
       setAutoOpenFileEnabled(data.autoOpenFileEnabled ?? false);
@@ -273,8 +275,8 @@ export function registerUsageModeCallbacks(options: UseWindowCallbacksOptions): 
   });
 
   // [归一化] updatePermissionDialogTimeout → setting.permission_dialog_timeout
-  registerLegacyAlias('updatePermissionDialogTimeout', 'setting.permission_dialog_timeout');
-  bridgeHub.subscribe('setting.permission_dialog_timeout', (jsonStr) => {
+  registerLegacyAlias('updatePermissionDialogTimeout', DOWNSTREAM.SETTING_PERMISSION_DIALOG_TIMEOUT);
+  subscribeEvent(DOWNSTREAM.SETTING_PERMISSION_DIALOG_TIMEOUT, (jsonStr) => {
     try {
       const data = JSON.parse(jsonStr as string);
       setPermissionDialogTimeoutSeconds(clampPermissionDialogTimeoutSeconds(data.permissionDialogTimeoutSeconds));

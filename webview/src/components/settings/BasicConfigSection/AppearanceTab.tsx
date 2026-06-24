@@ -1,7 +1,8 @@
+import { sendAction } from '../../../bridge/typed';
+import { UPSTREAM } from '../../../generated/protocol';
 import { useState, useRef, useEffect } from 'react';
 import styles from './style.module.less';
 import { useTranslation } from 'react-i18next';
-import { sendBridgeEvent } from '../../../utils/bridge';
 import type { DiffThemeMode } from '../../../utils/diffTheme';
 import type { Theme } from '../../../utils/appearanceColors';
 import type { UiFontConfig, CodeFontConfig } from '../hooks/useSettingsBasicActions';
@@ -349,12 +350,12 @@ const AppearanceTab = ({
     setLanguageSelection(language);
 
     if (language === FOLLOW_IDEA_LANGUAGE) {
-      sendBridgeEvent('clear_user_language');
+      sendAction(UPSTREAM.CLEAR_USER_LANGUAGE);
       return;
     }
 
     i18n.changeLanguage(language);
-    sendBridgeEvent('set_user_language', JSON.stringify({ language }));
+    sendAction(UPSTREAM.SET_USER_LANGUAGE, JSON.stringify({ language }));
   };
 
   const handleUiFontSelectionChange = (event: React.ChangeEvent<HTMLSelectElement>) => {

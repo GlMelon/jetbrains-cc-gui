@@ -30,7 +30,11 @@ vi.mock('react-i18next', () => ({
 describe('ProviderSelect Codex quota submenu', () => {
   beforeEach(() => {
     window.sendToJava = vi.fn();
-    window.updateCodexSubscriptionQuota = undefined;
+    // 不要清除 window.updateCodexSubscriptionQuota:codexSubscriptionQuotaCapabilities
+    // 在模块加载时经 registerLegacyAlias 把它安装成转发 bridgeHub 的别名函数;
+    // 置 undefined 会切断 window.updateCodexSubscriptionQuota(payload) → snapshot listener
+    // 的链路,导致 submenu 永不渲染。新 ProviderSelect 实例的 codexQuota state 每次从
+    // null 开始,无跨用例串扰,故无需在此重置回调。
   });
 
   it('shows a submenu for Codex with quota details', async () => {
@@ -41,7 +45,11 @@ describe('ProviderSelect Codex quota submenu', () => {
     expect(codexRow.querySelector('.codicon-chevron-right')).toBeTruthy();
 
     fireEvent.mouseEnter(codexRow);
-    expect(window.sendToJava).toHaveBeenCalledWith('get_codex_subscription_quota:');
+    // sendAction(UPSTREAM.GET_CODEX_SUBSCRIPTION_QUOTA) 经统一桥封发 JSON 信封
+    // { type, content }(见 bridge/typed.ts sendAction),非旧的裸字符串 'action:'。
+    expect(window.sendToJava).toHaveBeenCalledWith(
+      JSON.stringify({ type: 'get_codex_subscription_quota', content: '' }),
+    );
 
     act(() => {
       window.updateCodexSubscriptionQuota?.(JSON.stringify({

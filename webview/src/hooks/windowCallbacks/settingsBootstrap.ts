@@ -1,3 +1,5 @@
+import { sendAction } from '../../bridge/typed';
+import { UPSTREAM } from '../../generated/protocol';
 /**
  * settingsBootstrap.ts
  *
@@ -6,7 +8,6 @@
  * (stored in window.__pending* slots by main.tsx).
  */
 
-import { sendBridgeEvent } from '../../utils/bridge';
 
 const MAX_RETRIES = 30;
 
@@ -25,10 +26,10 @@ export const startInitialSettingsRequest = (): void => {
       return;
     }
     if (window.sendToJava) {
-      sendBridgeEvent('get_streaming_enabled');
-      sendBridgeEvent('get_send_shortcut');
-      sendBridgeEvent('get_auto_open_file_enabled');
-      sendBridgeEvent('get_permission_dialog_timeout');
+      sendAction(UPSTREAM.GET_STREAMING_ENABLED);
+      sendAction(UPSTREAM.GET_SEND_SHORTCUT);
+      sendAction(UPSTREAM.GET_AUTO_OPEN_FILE_ENABLED);
+      sendAction(UPSTREAM.GET_PERMISSION_DIALOG_TIMEOUT);
     } else {
       settingsRetryCount++;
       if (settingsRetryCount < MAX_RETRIES) {
@@ -53,7 +54,7 @@ export const startSessionRuntimeStateRequest = (): void => {
             return;
         }
         if (window.sendToJava) {
-            sendBridgeEvent('get_session_runtime_state');
+            sendAction(UPSTREAM.GET_SESSION_RUNTIME_STATE);
         } else {
             retryCount++;
             if (retryCount < MAX_RETRIES) {
@@ -79,7 +80,7 @@ export const startActiveProviderRequest = (): void => {
       return;
     }
     if (window.sendToJava) {
-      sendBridgeEvent('get_active_provider');
+      sendAction(UPSTREAM.GET_ACTIVE_PROVIDER);
     } else {
       retryCount++;
       if (retryCount < MAX_RETRIES) {
@@ -104,7 +105,7 @@ export const startModeRequest = (): void => {
       return;
     }
     if (window.sendToJava) {
-      sendBridgeEvent('get_mode');
+      sendAction(UPSTREAM.GET_MODE);
     } else {
       modeRetryCount++;
       if (modeRetryCount < MAX_RETRIES) {
@@ -122,7 +123,7 @@ export const startInvocationModeRequest = (): void => {
   let retryCount = 0;
   const requestInvocationMode = () => {
     if (window.sendToJava) {
-        sendBridgeEvent('get_session_invocation_mode');
+        sendAction(UPSTREAM.GET_SESSION_INVOCATION_MODE);
     } else {
       retryCount++;
       if (retryCount < MAX_RETRIES) {
@@ -147,7 +148,7 @@ export const startThinkingEnabledRequest = (): void => {
       return;
     }
     if (window.sendToJava) {
-      sendBridgeEvent('get_thinking_enabled');
+      sendAction(UPSTREAM.GET_THINKING_ENABLED);
     } else {
       thinkingRetryCount++;
       if (thinkingRetryCount < MAX_RETRIES) {
@@ -236,6 +237,6 @@ export const drainAndRequestDependencyStatus = (): void => {
   }
 
   if (window.sendToJava) {
-    sendBridgeEvent('get_dependency_status');
+    sendAction(UPSTREAM.GET_DEPENDENCY_STATUS);
   }
 };

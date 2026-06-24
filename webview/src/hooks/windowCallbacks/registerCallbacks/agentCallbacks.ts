@@ -6,8 +6,10 @@
  * onSelectedAgentReceived, onSelectedAgentChanged.
  */
 
+import { subscribeEvent } from '../../../bridge/typed';
+import { DOWNSTREAM } from '../../../generated/protocol';
 import type { UseWindowCallbacksOptions } from '../../useWindowCallbacks';
-import { bridgeHub, registerLegacyAlias } from '../../../bridge';
+import { registerLegacyAlias } from '../../../bridge';
 
 export function registerAgentAndSelectionCallbacks(options: UseWindowCallbacksOptions): void {
   const {
@@ -44,8 +46,8 @@ export function registerAgentAndSelectionCallbacks(options: UseWindowCallbacksOp
   };
 
   // [归一化] onSelectedAgentReceived → agent.selected_received（透明字符串管道）
-  registerLegacyAlias('onSelectedAgentReceived', 'agent.selected_received');
-  bridgeHub.subscribe('agent.selected_received', (json) => {
+  registerLegacyAlias('onSelectedAgentReceived', DOWNSTREAM.AGENT_SELECTED_RECEIVED);
+  subscribeEvent(DOWNSTREAM.AGENT_SELECTED_RECEIVED, (json) => {
     try {
       if (!json || json === 'null' || json === '{}') {
         setSelectedAgent(null);
@@ -77,8 +79,8 @@ export function registerAgentAndSelectionCallbacks(options: UseWindowCallbacksOp
   });
 
   // [归一化] onSelectedAgentChanged → agent.selected_changed
-  registerLegacyAlias('onSelectedAgentChanged', 'agent.selected_changed');
-  bridgeHub.subscribe('agent.selected_changed', (json) => {
+  registerLegacyAlias('onSelectedAgentChanged', DOWNSTREAM.AGENT_SELECTED_CHANGED);
+  subscribeEvent(DOWNSTREAM.AGENT_SELECTED_CHANGED, (json) => {
     try {
       if (!json || json === 'null' || json === '{}') {
         setSelectedAgent(null);

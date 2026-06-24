@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SPECIAL_PROVIDER_IDS, type CodexProviderConfig, type ProviderConfig } from '../../../types/provider';
-import { sendBridgeEvent } from '../../../utils/bridge';
+import { sendAction } from '../../../bridge/typed';
+import { UPSTREAM } from '../../../generated/protocol';
 import {
   subscribeActiveCodexProvider,
   subscribeActiveProvider,
@@ -85,7 +86,7 @@ export const RuntimeProviderSelect = ({ currentProvider, embedded = false, trigg
 
   const requestProviders = useCallback((kind: ProviderKind) => {
     setLoading(true);
-    sendBridgeEvent(kind === 'codex' ? 'get_codex_providers' : 'get_providers');
+    sendAction(kind === 'codex' ? UPSTREAM.GET_CODEX_PROVIDERS : UPSTREAM.GET_PROVIDERS);
   }, []);
 
   const handleToggle = useCallback((event: React.MouseEvent) => {
@@ -102,8 +103,7 @@ export const RuntimeProviderSelect = ({ currentProvider, embedded = false, trigg
   }, [currentProvider, isOpen, providerKind, recalculate, requestProviders]);
 
   const handleSelect = useCallback((provider: RuntimeProvider) => {
-    const eventName = providerKind === 'codex' ? 'switch_codex_provider' : 'switch_provider';
-    sendBridgeEvent(eventName, JSON.stringify({ id: provider.id }));
+    sendAction(providerKind === 'codex' ? UPSTREAM.SWITCH_CODEX_PROVIDER : UPSTREAM.SWITCH_PROVIDER, JSON.stringify({ id: provider.id }));
     onProviderSwitched?.(getProviderDisplayName(provider, providerKind));
     setProvidersByKind((previous) => ({
       ...previous,

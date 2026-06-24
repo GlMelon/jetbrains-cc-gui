@@ -1,14 +1,15 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useModelProviderState } from './useModelProviderState';
-import { sendBridgeEvent } from '../utils/bridge';
+import { sendAction } from '../bridge/typed';
 import { __setModelRegistryForTests, resetModelRegistryForTests } from '../utils/modelRegistry';
 import { bridgeHub } from '../bridge';
 import { DOWNSTREAM } from '../generated/protocol';
 
-vi.mock('../utils/bridge', () => ({
-  sendBridgeEvent: vi.fn(),
-}));
+vi.mock('../bridge/typed', async () => {
+  const actual = await vi.importActual<typeof import('../bridge/typed')>('../bridge/typed');
+  return { ...actual, sendAction: vi.fn() };
+});
 
 const t = ((key: string) => key) as never;
 const addToast = vi.fn();
@@ -57,7 +58,7 @@ describe('useModelProviderState', () => {
       result.current.handleModelSelect('mimo-v2.5-pro', 1_000_000);
     });
 
-    const setModelCall = vi.mocked(sendBridgeEvent).mock.calls.find(
+    const setModelCall = vi.mocked(sendAction).mock.calls.find(
       ([type]) => type === 'set_session_model',
     );
     expect(setModelCall).toBeTruthy();
@@ -102,7 +103,7 @@ describe('useModelProviderState', () => {
       });
     });
 
-    const setModelCall = vi.mocked(sendBridgeEvent).mock.calls.find(
+    const setModelCall = vi.mocked(sendAction).mock.calls.find(
       ([type]) => type === 'set_session_model',
     );
     expect(setModelCall).toBeTruthy();

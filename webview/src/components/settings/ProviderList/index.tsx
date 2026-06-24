@@ -1,9 +1,10 @@
+import { sendAction, subscribeEvent } from '../../../bridge/typed';
+import { UPSTREAM, DOWNSTREAM } from '../../../generated/protocol';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ProviderConfig } from '../../../types/provider';
 import { SPECIAL_PROVIDER_IDS } from '../../../types/provider';
-import { sendToJava } from '../../../utils/bridge';
-import { bridgeHub, registerLegacyAlias } from '../../../bridge';
+import { registerLegacyAlias } from '../../../bridge';
 import { useDragSort } from '../hooks/useDragSort';
 import ImportConfirmDialog from './ImportConfirmDialog';
 import styles from './style.module.less';
@@ -43,7 +44,7 @@ export default function ProviderList({
   const mountedRef = useRef(true);
 
   const onSort = useCallback((orderedIds: string[]) => {
-    sendToJava('sort_providers', { orderedIds });
+    sendAction(UPSTREAM.SORT_PROVIDERS, { orderedIds });
   }, []);
 
   const {
@@ -81,16 +82,16 @@ export default function ProviderList({
     };
 
     // [归一化] CLI login account info → provider.cli_login_account
-    registerLegacyAlias('updateCliLoginAccountInfo', 'provider.cli_login_account');
-    const unsubCliLogin = bridgeHub.subscribe('provider.cli_login_account', (email) => {
+    registerLegacyAlias('updateCliLoginAccountInfo', DOWNSTREAM.PROVIDER_CLI_LOGIN_ACCOUNT);
+    const unsubCliLogin = subscribeEvent(DOWNSTREAM.PROVIDER_CLI_LOGIN_ACCOUNT, (email) => {
       if (mountedRef.current) {
         setCliLoginAccountEmail(email as string);
       }
     });
 
     // [归一化] import_preview_result → provider.import_preview(转发为 CustomEvent,保持既有监听者)
-    registerLegacyAlias('import_preview_result', 'provider.import_preview');
-    const unsubImportPreview = bridgeHub.subscribe('provider.import_preview', (dataOrStr) => {
+    registerLegacyAlias('import_preview_result', DOWNSTREAM.PROVIDER_IMPORT_PREVIEW);
+    const unsubImportPreview = subscribeEvent(DOWNSTREAM.PROVIDER_IMPORT_PREVIEW, (dataOrStr) => {
         let data: unknown = dataOrStr;
         if (typeof data === 'string') {
             try {
@@ -193,10 +194,10 @@ export default function ProviderList({
       delete newProvider.source;
 
       // 3. Save the new configuration (as an addition)
-      sendToJava('add_provider', newProvider);
+      sendAction(UPSTREAM.ADD_PROVIDER, newProvider);
 
       // 4. Delete the old configuration
-      sendToJava('delete_provider', { id: oldId });
+      sendAction(UPSTREAM.DELETE_PROVIDER, { id: oldId });
 
       setConvertingProvider(null);
       addToast(t('settings.provider.convertSuccess'), 'success');
@@ -213,7 +214,7 @@ export default function ProviderList({
     setImportMenuOpen(false);
     setIsImporting(true);
     // Let the backend open the system file chooser to get the correct absolute path
-    sendToJava('open_file_chooser_for_cc_switch');
+    sendAction(UPSTREAM.OPEN_FILE_CHOOSER_FOR_CC_SWITCH);
   };
 
   return (
@@ -224,7 +225,7 @@ export default function ProviderList({
           providers={importPreviewData}
           existingProviders={providers}
           onConfirm={(selectedProviders) => {
-            sendToJava('save_imported_providers', { providers: selectedProviders });
+            sendAction(UPSTREAM.SAVE_IMPORTED_PROVIDERS, { providers: selectedProviders });
             setShowImportDialog(false);
           }}
           onCancel={() => setShowImportDialog(false)}
@@ -474,7 +475,7 @@ export default function ProviderList({
                   onClick={() => {
                     setImportMenuOpen(false);
                     setIsImporting(true); // Start loading
-                    sendToJava('preview_cc_switch_import');
+                    sendAction(UPSTREAM.PREVIEW_CC_SWITCH_IMPORT);
                   }}
                 >
                   <span className="codicon codicon-arrow-swap" />

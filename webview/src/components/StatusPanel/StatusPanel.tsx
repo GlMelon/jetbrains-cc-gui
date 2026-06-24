@@ -1,7 +1,9 @@
+import { sendAction } from '../../bridge/typed';
+import { UPSTREAM } from '../../generated/protocol';
 import { useState, useMemo, useEffect, useRef, useCallback, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { FileChangeSummary } from '../../types';
-import { undoFileChanges, sendToJava } from '../../utils/bridge';
+import { undoFileChanges } from '../../utils/bridge';
 import { getFileName } from '../../utils/helpers';
 import TodoList from './TodoList';
 import SubagentList from './SubagentList';
@@ -127,7 +129,7 @@ const StatusPanel = memo(function StatusPanel({ todos, fileChanges, subagents, s
       })),
     }));
 
-    sendToJava('undo_all_file_changes', { files });
+    sendAction(UPSTREAM.UNDO_ALL_FILE_CHANGES, { files });
   }, [fileChanges]);
 
   const handleCancelDiscardAll = useCallback(() => {

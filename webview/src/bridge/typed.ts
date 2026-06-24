@@ -21,3 +21,15 @@ export function subscribeEvent<T = unknown>(
 ): Unsubscribe {
   return bridgeHub.subscribe(event, listener as (payload: unknown) => void);
 }
+
+/**
+ * 订阅一个 passthrough(直通)通道,整条 type 仅允许 1 个 handler。
+ * 用于高频流式 delta(stream.*):不广播、不拷贝,dispatch 直接同步调用 handler。
+ * subscribePassthrough 的类型化薄包装(语义见 bridge/hub.ts)。
+ */
+export function subscribePassthroughEvent<T = unknown>(
+  event: DownstreamEvent,
+  listener: (payload: T) => void,
+): Unsubscribe {
+  return bridgeHub.subscribePassthrough(event, listener as (payload: unknown) => void);
+}

@@ -3,11 +3,12 @@ import {
   openBrowser,
   openClass,
   openFile,
-  sendBridgeEvent,
   showEditableDiff,
   showInteractiveDiff,
   undoFileChanges,
 } from './bridge';
+import { sendAction } from '../bridge/typed';
+import { UPSTREAM } from '../generated/protocol';
 
 describe('bridge navigation helpers', () => {
   const bridgeCall = (type: string, content = '') =>
@@ -94,12 +95,12 @@ describe('bridge navigation helpers', () => {
     expect(window.sendToJava).not.toHaveBeenCalled();
   });
 
-  it('encodes bridge events as structured JSON to preserve special characters', () => {
-    sendBridgeEvent('search_project', 'Checking SDK status|get_dependency_status\n---main.tsx---(foo');
+  it('encodes bridge actions as structured JSON to preserve special characters', () => {
+    sendAction(UPSTREAM.OPEN_FILE, 'Checking SDK status|get_dependency_status\n---main.tsx---(foo');
 
     expect(window.sendToJava).toHaveBeenCalledWith(
       JSON.stringify({
-        type: 'search_project',
+        type: UPSTREAM.OPEN_FILE,
         content: 'Checking SDK status|get_dependency_status\n---main.tsx---(foo',
       }),
     );

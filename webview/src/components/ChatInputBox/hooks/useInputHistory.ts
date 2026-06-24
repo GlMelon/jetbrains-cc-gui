@@ -4,19 +4,13 @@
  * Storage functions are in `./inputHistoryStorage.ts`.
  * This file only contains the React hook and re-exports for backward compatibility.
  */
+import { sendAction } from '../../../bridge/typed';
+import { UPSTREAM } from '../../../generated/protocol';
 import { useCallback, useEffect, useRef, type RefObject } from 'react';
-import { sendToJava } from '../../../utils/bridge.js';
-import {
-  INVISIBLE_CHARS_RE,
-  MAX_HISTORY_ITEMS,
-  splitTextToFragments,
-  canUseLocalStorage,
-  loadHistory,
-  loadCounts,
-  saveHistory,
-  saveTimestamps,
-  cleanupCounts,
-} from './inputHistoryStorage.js';
+
+
+import { INVISIBLE_CHARS_RE, MAX_HISTORY_ITEMS, splitTextToFragments, canUseLocalStorage, loadHistory, loadCounts, saveHistory, saveTimestamps, cleanupCounts } from './inputHistoryStorage.js';
+
 
 // Re-export everything from storage for backward compatibility
 export {
@@ -147,7 +141,7 @@ export function useInputHistory({
     draftRef.current = '';
 
     // Also sync to .codemoss (async)
-    sendToJava('record_input_history', JSON.stringify(fragments));
+    sendAction(UPSTREAM.RECORD_INPUT_HISTORY, JSON.stringify(fragments));
   }, []);
 
   const handleKeyDown = useCallback(

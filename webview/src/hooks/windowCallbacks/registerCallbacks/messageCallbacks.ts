@@ -7,22 +7,14 @@
  * historyLoadComplete, addUserMessage.
  */
 
+import { sendAction } from '../../../bridge/typed';
+import { UPSTREAM } from '../../../generated/protocol';
 import type { UseWindowCallbacksOptions } from '../../useWindowCallbacks';
 import type { ClaudeMessage } from '../../../types';
 import type { ContextUsageData } from '../../../components/ContextUsageDialog';
 import type { QueueDisplayState } from '../../../contexts/MessagesContext';
-import { sendBridgeEvent } from '../../../utils/bridge';
 import { debugError } from '../../../utils/debug';
-import {
-  appendOptimisticMessageIfMissing,
-  ensureStreamingAssistantInList,
-  getRawUuid,
-  preserveAssistantResponseGrouping,
-  preserveLastAssistantIdentity,
-  preserveLatestMessagesOnShrink,
-  preserveStreamingAssistantContent,
-  stripDuplicateTrailingToolMessages,
-} from '../messageSync';
+import { appendOptimisticMessageIfMissing, ensureStreamingAssistantInList, getRawUuid, preserveAssistantResponseGrouping, preserveLastAssistantIdentity, preserveLatestMessagesOnShrink, preserveStreamingAssistantContent, stripDuplicateTrailingToolMessages } from '../messageSync';
 import { releaseSessionTransition } from '../sessionTransition';
 import { parseSequence } from '../parseSequence';
 import { collectUnresolvedToolUseIds } from './streamingCallbacks';
@@ -467,7 +459,7 @@ export function registerMessageCallbacks(
     }
 
     // Notify backend about loading state change for tab indicator
-    sendBridgeEvent('tab_loading_changed', JSON.stringify({ loading: isLoading }));
+    sendAction(UPSTREAM.TAB_LOADING_CHANGED, JSON.stringify({ loading: isLoading }));
 
     setLoading((prevLoading) => {
       if (isLoading) {

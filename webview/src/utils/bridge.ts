@@ -1,7 +1,8 @@
 import { isJavaFqcnCandidate, normalizeFileNavigationTarget, parseFileLinkTarget } from './linkify';
 import { bridgeHub } from '../bridge';
+import { sendAction } from '../bridge/typed';
+import { DOWNSTREAM, UPSTREAM } from '../generated/protocol';
 
-const BRIDGE_UNAVAILABLE_WARNED = new Set<string>();
 const SAFE_BROWSER_PROTOCOLS = /^(https?|mailto):/i;
 
 /** Regex to detect path traversal: matches ".." as a path segment, not as part of filenames */
@@ -40,9 +41,9 @@ export const resolveFilePathWithCallback = (
 
   // 经 hub 的 request/response RPC 通道。后端以 file_path.resolved 回包,hub 按 requestId 匹配。
   bridgeHub.request<{ path?: string; resolvedPath?: string | null }>(
-    'file_path.resolve',
+    DOWNSTREAM.FILE_PATH_RESOLVE,
     { path: normalizedPath },
-    { timeoutMs: RESOLVE_FILE_PATH_TIMEOUT_MS, responseType: 'file_path.resolved' },
+    { timeoutMs: RESOLVE_FILE_PATH_TIMEOUT_MS, responseType: DOWNSTREAM.FILE_PATH_RESOLVED },
   ).then((result) => {
     callback(result?.resolvedPath ?? null);
   }).catch(() => {
@@ -95,26 +96,6 @@ const isValidFqcn = (className: string): boolean => {
   return isJavaFqcnCandidate(trimmed);
 };
 
-type BridgeEnvelope = {
-  type: string;
-  content: string;
-};
-
-const callBridge = (payload: string) => {
-  if (window.sendToJava) {
-    window.sendToJava(payload);
-    return true;
-  }
-  // Track warned payloads to avoid spam, but don't log to console
-  BRIDGE_UNAVAILABLE_WARNED.add(payload);
-  return false;
-};
-
-export const sendBridgeEvent = (event: string, content = '') => {
-  const envelope: BridgeEnvelope = { type: event, content };
-  return callBridge(JSON.stringify(envelope));
-};
-
 export const resolveFilePath = (filePath?: string) => {
   if (!filePath) {
     return;
@@ -123,7 +104,7 @@ export const resolveFilePath = (filePath?: string) => {
   if (!normalizedPath || !isValidOpenFileTarget(normalizedPath)) {
     return;
   }
-  sendBridgeEvent('resolve_file_path', normalizedPath);
+  sendAction(UPSTREAM.RESOLVE_FILE_PATH, normalizedPath);
 };
 
 export const openFile = (filePath?: string, lineStart?: number, lineEnd?: number) => {
@@ -146,7 +127,7 @@ export const openFile = (filePath?: string, lineStart?: number, lineEnd?: number
       ? `${pathOnly}:${resolvedLineStart}-${resolvedLineEnd}`
       : `${pathOnly}:${resolvedLineStart}`;
   }
-  sendBridgeEvent('open_file', path);
+  sendAction(UPSTREAM.OPEN_FILE, path);
 };
 
 export const openClass = (className?: string) => {
@@ -155,7 +136,7 @@ export const openClass = (className?: string) => {
     return;
   }
 
-  sendBridgeEvent('open_class', trimmed);
+  sendAction(UPSTREAM.OPEN_CLASS, trimmed);
 };
 
 export const openBrowser = (url?: string) => {
@@ -168,24 +149,19 @@ export const openBrowser = (url?: string) => {
   if (!SAFE_BROWSER_PROTOCOLS.test(url)) {
     return;
   }
-  sendBridgeEvent('open_browser', url);
-};
-
-export const sendToJava = (message: string, payload: Record<string, unknown> | string = {}) => {
-  const payloadStr = typeof payload === 'string' ? payload : JSON.stringify(payload);
-  sendBridgeEvent(message, payloadStr);
+  sendAction(UPSTREAM.OPEN_BROWSER, url);
 };
 
 export const refreshFile = (filePath: string) => {
   if (!filePath) return;
-  sendToJava('refresh_file', { filePath });
+  sendAction(UPSTREAM.REFRESH_FILE, { filePath });
 };
 
 export const showDiff = (filePath: string, oldContent: string, newContent: string, title?: string) => {
   if (!isValidMutatingPath(filePath)) {
     return;
   }
-  sendToJava('show_diff', { filePath, oldContent, newContent, title });
+  sendAction(UPSTREAM.SHOW_DIFF, { filePath, oldContent, newContent, title });
 };
 
 export const showMultiEditDiff = (
@@ -196,7 +172,7 @@ export const showMultiEditDiff = (
   if (!isValidMutatingPath(filePath)) {
     return;
   }
-  sendToJava('show_multi_edit_diff', { filePath, edits, currentContent });
+  sendAction(UPSTREAM.SHOW_MULTI_EDIT_DIFF, { filePath, edits, currentContent });
 };
 
 /**
@@ -215,7 +191,7 @@ export const showEditableDiff = (
   if (!isValidMutatingPath(filePath)) {
     return;
   }
-  sendToJava('show_editable_diff', { filePath, operations, status });
+  sendAction(UPSTREAM.SHOW_EDITABLE_DIFF, { filePath, operations, status });
 };
 
 /**
@@ -235,7 +211,7 @@ export const showInteractiveDiff = (
   if (!isValidMutatingPath(filePath)) {
     return;
   }
-  sendToJava('show_interactive_diff', { filePath, newFileContents, tabName, isNewFile: isNewFile ?? false });
+  sendAction(UPSTREAM.SHOW_INTERACTIVE_DIFF, { filePath, newFileContents, tabName, isNewFile: isNewFile ?? false });
 };
 
 /**
@@ -244,7 +220,7 @@ export const showInteractiveDiff = (
  * @param userMessageId - User message UUID to rewind to
  */
 export const rewindFiles = (sessionId: string, userMessageId: string) => {
-  sendToJava('rewind_files', { sessionId, userMessageId });
+  sendAction(UPSTREAM.REWIND_FILES, { sessionId, userMessageId });
 };
 
 /**
@@ -262,5 +238,5 @@ export const undoFileChanges = (
   if (!isValidMutatingPath(filePath)) {
     return;
   }
-  sendToJava('undo_file_changes', { filePath, status, operations });
+  sendAction(UPSTREAM.UNDO_FILE_CHANGES, { filePath, status, operations });
 };

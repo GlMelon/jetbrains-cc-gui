@@ -48,7 +48,7 @@
 | E · 对接未 Docking 化 / 分层 / 序列化 | 二/五 + 附录 | 12 | 1 | 8 | 3 |
 | **合计** | — | **43** | **15** | **23** | **5** |
 
-> 截至 2026-06-23 进度:**已验证 19 项**(A1·A2·A3·A4·B1·B5·C2·C3·C6·C8·C9·D2·D3·E1·E2·E3·E4·E5·E6)、**已完成 2 项**(B2 — 20/20 legacy handler 全迁移;B4 — HistoryHandler 迁移)、**进行中 1 项**(B3 — SettingsHandler 13/~60 已迁移 permission-mode+input-history+model-provider 三子域)、**已豁免 1 项**(E12);其余 20 项待修复(22/43 已动)。逐项状态见 §7 表格,整体阶段路线见 §9 迁移文档索引。
+> 截至 2026-06-24 进度:**已验证 21 项**(A1·A2·A3·A4·B1·B5·C2·C3·**C4**·C6·C8·C9·**D1**·D2·D3·E1·E2·E3·E4·E5·E6)、**已完成 2 项**(B2 — 20/20 legacy handler 全迁移;B4 — HistoryHandler 迁移)、**进行中 1 项**(B3 — SettingsHandler 13/~60 已迁移 permission-mode+input-history+model-provider 三子域)、**已豁免 1 项**(E12);其余 18 项待修复(24/43 已动)。逐项状态见 §7 表格,整体阶段路线见 §9 迁移文档索引。
 
 ---
 
@@ -309,13 +309,14 @@
 
 ### C4 · 前端协议字面量第二真相源(Central Event Registry + 调用点)
 
-- **严重度**:高 | **状态**:待修复 | **归属**:总则三 / 四
+- **严重度**:高 | **状态**:已验证 | **归属**:总则三 / 四
 - **位置**:`webview/src/bridge/events/index.ts:23-165`(`BRIDGE_EVENTS` 手写 ~130 条 type 字面量,与 `protocol.ts` 的 `DOWNSTREAM` 并存);`generate-protocol-types.mjs` 产物仅 6 文件采用;100+ 处 `sendBridgeEvent('xxx')` / `sendToJava('xxx')` 裸字符串调用点(`useMessageSender.ts`、`useSessionManagement.ts`、`useModelProviderState.ts`、`DependencySection`、`useProviderManagement.ts` 等)
 - **现象**:`bridge/events/index.ts` 是与 `generated/protocol.ts` 并存的手写第二真相源;绝大多数调用点未使用 generated 常量。
 - **根因**:协议名 SSOT 生成链已具备,但消费侧迁移未完成。
 - **修复方向**:`BRIDGE_EVENTS.type` 改引用 `DOWNSTREAM.XXX`(保留 `kind`);227 处调用点机械替换为 `sendAction(UPSTREAM.*)` / `subscribeEvent(DOWNSTREAM.*)`。
 - **验收**:webview 无手写协议 type 字面量(除 generated);`bridge/events/index.ts` 引用 `DOWNSTREAM` 常量。
 - **关联**:迁移 P1-B
+- **修复记录**(2026-06-24):彻底统一到 typed helper——上行全迁 `sendAction(UPSTREAM.*)`、下行全迁 `subscribeEvent(DOWNSTREAM.*)` / `subscribePassthroughEvent(DOWNSTREAM.*)`,RPC 保留 `bridgeHub.request(DOWNSTREAM.*)`;删除无约束的 `sendBridgeEvent`/`sendToJava`/`callBridge`(`utils/bridge.ts` 死代码,删除即防回归守卫——残留调用 `tsc` 立即 TS2304)。删除 `bridge/events/index.ts` 的 `BRIDGE_EVENTS`/`BRIDGE_EVENT_TYPES`(零外部消费,`DOWNSTREAM` 是严格超集)。mcp/codex 双轨模板串 `` `${verb}_${prefix}mcp_server` `` 改三元常量对(`isCodexMode ? UPSTREAM.VERB_CODEX_MCP_SERVER : UPSTREAM.VERB_MCP_SERVER`)。`bridge.test.ts` 的 `search_project` 占位用例迁 `sendAction`。验收:`tsc --noEmit` 0 错;vitest 813 passed/10 failed(与基线相同失败集,零回归);`grep sendBridgeEvent|sendToJava`(源码,排除 `window.sendToJava` 与注释)零命中,helper 已删。wire 协议值不变,纯前端机械迁移,未改 Java 枚举或重新生成 `protocol.ts`。
 
 ### C5 · 业务默认值前后端手抄
 
@@ -386,11 +387,12 @@
 
 ### D1 · bridge/events 第二真相源(复用角度)
 
-- **严重度**:高 | **状态**:待修复 | **归属**:总则四(= C4 的复用切面)
+- **严重度**:高 | **状态**:已验证 | **归属**:总则四(= C4 的复用切面)
 - **位置**:同 C4(`bridge/events/index.ts` + 100+ 调用点)
 - **现象**:同一协议契约前端两套实现(generated 常量 vs 手写 registry)。
 - **根因**:未统一到 SSOT 产物。
 - **修复方向 / 验收 / 关联**:见 C4。
+- **修复记录**(2026-06-24):随 C4 一并落地(见 C4 修复记录)——删除 `bridge/events` 第二真相源,下行统一 `subscribeEvent`/`subscribePassthroughEvent` 传 `DOWNSTREAM` 常量,前端协议契约收口到 `generated/protocol.ts` 单一 SSOT。
 
 ### D2 · canUseLocalStorage 逐字重复
 
@@ -622,14 +624,14 @@
 | C1 | payload 字段结构未生成 | 高 | 待修复 | 三 | Phase1 / Phase2·V3 |
 | C2 | 业务枚举 SSOT 全未落地 | 高 | ✓ 已验证 | 三 | P2-A |
 | C3 | 默认值漂移(已发生) | 高 | 已验证 | 三 | P2-B / P2-A |
-| C4 | 前端协议字面量第二真相源 | 高 | 待修复 | 三/四 | P1-B |
+| C4 | 前端协议字面量第二真相源 | 高 | 已验证 | 三/四 | P1-B |
 | C5 | 业务默认值前后端手抄 | 中 | 待修复 | 三 | P2-B |
 | C6 | ProtocolValue 无 desc | 中 | 已验证 | 三 | P2-A |
 | C7 | 双 manifest 写入者 | 低 | 待修复 | 三 | P0-1 |
 | C8 | mjs regex 解析脆弱 | 中 | 已验证 | 三 | P0-1 |
 | C9 | ProviderType 未纳入生成 | 中 | 已验证 | 三 | P2-A |
 | C10 | window.xxx 旧回调名并存 | 中 | 待修复 | 三 | bridge 归一化 |
-| D1 | bridge/events 第二真相源(复用) | 高 | 待修复 | 四 | = C4 |
+| D1 | bridge/events 第二真相源(复用) | 高 | 已验证 | 四 | = C4 |
 | D2 | canUseLocalStorage 重复 | 中 | 已验证 | 四 | — |
 | D3 | ViewMode 三处重复定义 | 中 | 已验证 | 四 | — |
 | D4 | Dialog 无统一基类 | 中 | 待修复 | 四 | — |

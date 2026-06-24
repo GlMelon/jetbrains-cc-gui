@@ -1,6 +1,7 @@
+import { sendAction } from '../../bridge/typed';
+import { UPSTREAM } from '../../generated/protocol';
 import { useCallback, useEffect, useState } from 'react';
 import type { TFunction } from 'i18next';
-import { sendBridgeEvent } from '../../utils/bridge';
 import { writeClaudeModelMapping } from '../../utils/claudeModelMapping';
 import type { ProviderConfig } from '../../types/provider';
 import type { SelectedAgent } from '../../components/ChatInputBox/types';
@@ -49,7 +50,7 @@ export function useProviderSettings({ addToast, t }: UseProviderSettingsOptions)
 
     const loadSelectedAgent = () => {
       if (window.sendToJava) {
-        sendBridgeEvent('get_selected_agent');
+        sendAction(UPSTREAM.GET_SELECTED_AGENT);
       } else {
         retryCount++;
         if (retryCount < MAX_RETRIES) {
@@ -67,19 +68,19 @@ export function useProviderSettings({ addToast, t }: UseProviderSettingsOptions)
   const handleAgentSelect = useCallback((agent: SelectedAgent | null) => {
     setSelectedAgent(agent);
     if (agent) {
-      sendBridgeEvent('set_selected_agent', JSON.stringify({
+      sendAction(UPSTREAM.SET_SELECTED_AGENT, JSON.stringify({
         id: agent.id,
         name: agent.name,
         prompt: agent.prompt,
       }));
     } else {
-      sendBridgeEvent('set_selected_agent', '');
+      sendAction(UPSTREAM.SET_SELECTED_AGENT, '');
     }
   }, []);
 
   const handleStreamingEnabledChange = useCallback((enabled: boolean) => {
     setStreamingEnabledSetting(enabled);
-    sendBridgeEvent('set_streaming_enabled', JSON.stringify({ streamingEnabled: enabled }));
+    sendAction(UPSTREAM.SET_STREAMING_ENABLED, JSON.stringify({ streamingEnabled: enabled }));
     addToast(
       enabled ? t('settings.basic.streaming.enabled') : t('settings.basic.streaming.disabled'),
       'success',
@@ -88,12 +89,12 @@ export function useProviderSettings({ addToast, t }: UseProviderSettingsOptions)
 
   const handleSendShortcutChange = useCallback((shortcut: 'enter' | 'cmdEnter') => {
     setSendShortcut(shortcut);
-    sendBridgeEvent('set_send_shortcut', JSON.stringify({ sendShortcut: shortcut }));
+    sendAction(UPSTREAM.SET_SEND_SHORTCUT, JSON.stringify({ sendShortcut: shortcut }));
   }, []);
 
   const handleAutoOpenFileEnabledChange = useCallback((enabled: boolean) => {
     setAutoOpenFileEnabled(enabled);
-    sendBridgeEvent('set_auto_open_file_enabled', JSON.stringify({ autoOpenFileEnabled: enabled }));
+    sendAction(UPSTREAM.SET_AUTO_OPEN_FILE_ENABLED, JSON.stringify({ autoOpenFileEnabled: enabled }));
     addToast(
       enabled ? t('settings.basic.autoOpenFile.enabled') : t('settings.basic.autoOpenFile.disabled'),
       'success',

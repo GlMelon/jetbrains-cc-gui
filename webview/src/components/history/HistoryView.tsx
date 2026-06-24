@@ -1,8 +1,9 @@
+import { sendAction } from '../../bridge/typed';
+import { UPSTREAM } from '../../generated/protocol';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { HistoryData, HistorySessionSummary } from '../../types';
 import VirtualList from './VirtualList';
-import { sendBridgeEvent } from '../../utils/bridge';
 import { copyToClipboard } from '../../utils/copyUtils';
 import { HistoryListItem } from './HistoryListItem';
 import { HistoryFilters } from './HistoryFilters';
@@ -341,7 +342,7 @@ const HistoryView = ({ historyData, currentProvider, currentSessionId, onLoadSes
   const handleDeepSearch = useCallback(() => {
     setIsDeepSearching(prev => {
       if (prev) return prev;
-      sendBridgeEvent('deep_search_history', currentProvider || 'claude');
+      sendAction(UPSTREAM.DEEP_SEARCH_HISTORY, currentProvider || 'claude');
 
       if (deepSearchTimeoutRef.current) {
         clearTimeout(deepSearchTimeoutRef.current);
