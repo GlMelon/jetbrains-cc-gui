@@ -89,6 +89,15 @@ public final class ProtocolManifestGenerator {
         }
         manifest.put("providerType", providerType);
 
+        List<Map<String, String>> codexProtectedEnvKey = new ArrayList<>();
+        for (CodexProtectedEnvKey key : CodexProtectedEnvKey.values()) {
+            Map<String, String> entry = new LinkedHashMap<>();
+            entry.put("name", key.name());
+            entry.put("value", key.value());
+            codexProtectedEnvKey.add(entry);
+        }
+        manifest.put("codexProtectedEnvKey", codexProtectedEnvKey);
+
         File output = new File(args[0]);
         output.getParentFile().mkdirs();
         try (Writer w = new OutputStreamWriter(
@@ -97,6 +106,6 @@ public final class ProtocolManifestGenerator {
         }
 
         System.out.println("[ProtocolManifestGenerator] Generated: " + output.getAbsolutePath()
-                + " (" + upstream.size() + " upstream, " + downstream.size() + " downstream, " + permissionMode.size() + " permissionMode, " + reasoningEffort.size() + " reasoningEffort, " + providerType.size() + " providerType)");
+                + " (" + upstream.size() + " upstream, " + downstream.size() + " downstream, " + permissionMode.size() + " permissionMode, " + reasoningEffort.size() + " reasoningEffort, " + providerType.size() + " providerType, " + codexProtectedEnvKey.size() + " codexProtectedEnvKey)");
     }
 }

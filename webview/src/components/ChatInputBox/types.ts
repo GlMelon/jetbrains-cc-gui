@@ -304,16 +304,10 @@ export type ClaudeRoleModelId = typeof CLAUDE_ROLE_MODEL_IDS[keyof typeof CLAUDE
 // role 判定改读后端 registry 的 role 字段(utils/modelRegistry.resolveClaudeRoleForModel),
 // id 规整仅剥离 [1m] 后缀(resolveClaudeModelId),业务真相源统一在后端。
 
-/**
- * 默认模型上下文窗口大小（token 数）—— contextWindow 缺省时的 fallback。
- * 与后端 CommonConstants.DEFAULT_CONTEXT_WINDOW 对齐（SSOT），消除前端散落硬编码 200_000。
- */
-export const DEFAULT_CONTEXT_WINDOW = 200_000;
-/**
- * 长上下文（1M）窗口阈值（token 数）—— 判定 supports1MContext / 1M 切换的边界。
- * 与后端 CommonConstants.ONE_MILLION_CONTEXT_WINDOW 对齐（SSOT）。
- */
-export const ONE_MILLION_CONTEXT_WINDOW = 1_000_000;
+// C5 SSOT:context window 默认值由后端 CommonConstants 经生成链产出
+// (generated/protocol.ts#DEFAULT_CONTEXT_WINDOW / ONE_MILLION_CONTEXT_WINDOW),
+// 此处 re-export 消除手抄(原 200_000 / 1_000_000 与后端逐字重复的第二真相源)。
+export { DEFAULT_CONTEXT_WINDOW, ONE_MILLION_CONTEXT_WINDOW } from '../../generated/protocol';
 
 // A1(2026-06-23):CLAUDE_MODELS / CODEX_MODELS / AVAILABLE_MODELS 本地表已删除。
 // 模型真相源唯一为后端 MODEL_REGISTRY 下发(ReadOnlyDefaultModels → ModelRegistryService.serialize);

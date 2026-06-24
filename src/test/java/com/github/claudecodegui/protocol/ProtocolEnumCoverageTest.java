@@ -38,6 +38,42 @@ public class ProtocolEnumCoverageTest {
         assertUnique(Arrays.stream(PermissionMode.values()).map(PermissionMode::value).collect(Collectors.toList()));
         assertUnique(Arrays.stream(ReasoningEffort.values()).map(ReasoningEffort::value).collect(Collectors.toList()));
         assertUnique(Arrays.stream(ProviderType.values()).map(ProviderType::value).collect(Collectors.toList()));
+        assertUnique(Arrays.stream(CodexProtectedEnvKey.values()).map(CodexProtectedEnvKey::value).collect(Collectors.toList()));
+    }
+
+    @Test
+    public void codexProtectedEnvKeyCoversProtocolValues() {
+        // A5:CodexProtectedEnvKey SSOT —— Codex 受保护环境变量名 18 个(基础集)。
+        // 对齐前端 isProtectedEnvVarKey 校验集与后端 CodexCliCommandUtils/CodexSDKBridge 基础保护集,
+        // 消除三份手抄。CodexSDKBridge 额外 17 个运行时安全变量(NODE_OPTIONS/LD_PRELOAD 等)
+        // 属 SDK 注入路径独有,不在此枚举(单独保留)。
+        assertEquals("CODEX_USE_STDIN", CodexProtectedEnvKey.CODEX_USE_STDIN.value());
+        assertEquals("CODEX_MODEL", CodexProtectedEnvKey.CODEX_MODEL.value());
+        assertEquals("CODEX_SANDBOX_MODE", CodexProtectedEnvKey.CODEX_SANDBOX_MODE.value());
+        assertEquals("CODEX_SANDBOX", CodexProtectedEnvKey.CODEX_SANDBOX.value());
+        assertEquals("CODEX_APPROVAL_POLICY", CodexProtectedEnvKey.CODEX_APPROVAL_POLICY.value());
+        assertEquals("CODEX_CI", CodexProtectedEnvKey.CODEX_CI.value());
+        assertEquals("CODEX_SANDBOX_NETWORK_DISABLED", CodexProtectedEnvKey.CODEX_SANDBOX_NETWORK_DISABLED.value());
+        assertEquals("CODEX_HOME", CodexProtectedEnvKey.CODEX_HOME.value());
+        assertEquals("CLAUDE_SESSION_ID", CodexProtectedEnvKey.CLAUDE_SESSION_ID.value());
+        assertEquals("CLAUDE_PERMISSION_DIR", CodexProtectedEnvKey.CLAUDE_PERMISSION_DIR.value());
+        assertEquals("HOME", CodexProtectedEnvKey.HOME.value());
+        assertEquals("PATH", CodexProtectedEnvKey.PATH.value());
+        assertEquals("TMPDIR", CodexProtectedEnvKey.TMPDIR.value());
+        assertEquals("TEMP", CodexProtectedEnvKey.TEMP.value());
+        assertEquals("TMP", CodexProtectedEnvKey.TMP.value());
+        assertEquals("IDEA_PROJECT_PATH", CodexProtectedEnvKey.IDEA_PROJECT_PATH.value());
+        assertEquals("PROJECT_PATH", CodexProtectedEnvKey.PROJECT_PATH.value());
+        assertEquals("CLAUDE_USE_STDIN", CodexProtectedEnvKey.CLAUDE_USE_STDIN.value());
+        assertEquals(18, CodexProtectedEnvKey.values().length);
+    }
+
+    @Test
+    public void codexProtectedEnvKeyFromValueRoundTrip() {
+        for (CodexProtectedEnvKey key : CodexProtectedEnvKey.values()) {
+            assertEquals(Optional.of(key), CodexProtectedEnvKey.fromValue(key.value()));
+        }
+        assertEquals(Optional.empty(), CodexProtectedEnvKey.fromValue("NONEXISTENT_ENV_KEY"));
     }
 
     @Test

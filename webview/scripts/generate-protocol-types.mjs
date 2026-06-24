@@ -25,6 +25,18 @@ const permissionModeJavaPath = resolve(__dirname, '../../src/main/java/com/githu
 const reasoningEffortJavaPath = resolve(__dirname, '../../src/main/java/com/github/claudecodegui/protocol/ReasoningEffort.java');
 const providerTypeJavaPath = resolve(__dirname, '../../src/main/java/com/github/claudecodegui/session/runtime/ProviderType.java');
 const modelRegistryPayloadJavaPath = resolve(__dirname, '../../src/main/java/com/github/claudecodegui/protocol/payload/ModelRegistryPayloadField.java');
+const codexProtectedEnvKeyJavaPath = resolve(__dirname, '../../src/main/java/com/github/claudecodegui/protocol/CodexProtectedEnvKey.java');
+const commonConstantsJavaPath = resolve(__dirname, '../../src/main/java/com/github/claudecodegui/common/CommonConstants.java');
+const permissionDialogTimeoutSettingsJavaPath = resolve(__dirname, '../../src/main/java/com/github/claudecodegui/settings/PermissionDialogTimeoutSettings.java');
+
+// C5:允许暴露给前端的 int 常量白名单(防泄露后端其他 int 实现细节)
+const INT_CONSTANT_ALLOWLIST = [
+  'DEFAULT_CONTEXT_WINDOW',
+  'ONE_MILLION_CONTEXT_WINDOW',
+  'DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS',
+  'MIN_PERMISSION_DIALOG_TIMEOUT_SECONDS',
+  'MAX_PERMISSION_DIALOG_TIMEOUT_SECONDS',
+];
 
 const isStubMode = process.argv.includes('--stub');
 
@@ -82,6 +94,18 @@ ${(manifest.providerType ?? []).map(p => `  ${p.name}: '${p.value}' as const,`).
 } as const;
 
 export type ProviderType = typeof PROVIDER_TYPE[keyof typeof PROVIDER_TYPE];
+
+// ── Codex Protected Env Keys (business enum SSOT, A5) ──
+
+export const CODEX_PROTECTED_ENV_KEY = {
+${(manifest.codexProtectedEnvKey ?? []).map(k => `  ${k.name}: '${k.value}' as const,`).join('\n')}
+} as const;
+
+export type CodexProtectedEnvKey = typeof CODEX_PROTECTED_ENV_KEY[keyof typeof CODEX_PROTECTED_ENV_KEY];
+
+// ── Int Constants (business defaults SSOT, C5) ──
+
+${(manifest.intConstants ?? []).map(c => `export const ${c.name} = ${c.value} as const;`).join('\n')}
 ` + generatePayloadInterfaces(manifest.payloadSchemas);
 }
 
@@ -173,6 +197,29 @@ export function parsePayloadFieldSource(source, label = '<payload-source>') {
   return fields;
 }
 
+/**
+ * 解析 Java int 常量源码(C5):匹配 `public static final int NAME = literal;`,
+ * literal 可含 Java 数字分隔下划线(200_000),parseInt 前去下划线。allowlist 过滤,
+ * 仅暴露白名单常量(防泄露后端其他 int 实现细节,前端只取所需 5 个默认值)。
+ *
+ * @param {string} source Java 源码文本
+ * @param {string[]} allowlist 允许暴露的常量名白名单(默认空 = 不暴露任何)
+ * @param {string} label 用于定位的标签
+ * @returns {Array<{name:string,value:number}>}
+ */
+export function parseIntConstants(source, allowlist = [], label = '<int-source>') {
+  const entries = [];
+  const re = /public\s+static\s+final\s+int\s+([A-Z][A-Z0-9_]*)\s*=\s*([0-9_]+)\s*;/g;
+  let match;
+  while ((match = re.exec(source)) !== null) {
+    const name = match[1];
+    if (allowlist.includes(name)) {
+      entries.push({ name, value: parseInt(match[2].replace(/_/g, ''), 10) });
+    }
+  }
+  return entries;
+}
+
 function parseJavaEnumProtocol(javaPath) {
   const source = readFileSync(javaPath, 'utf-8');
   const entries = parseEnumSource(source, javaPath);
@@ -199,6 +246,11 @@ function generateManifestFromJavaSources() {
     permissionMode: parseJavaEnumProtocol(permissionModeJavaPath),
     reasoningEffort: parseJavaEnumProtocol(reasoningEffortJavaPath),
     providerType: parseJavaEnumProtocol(providerTypeJavaPath),
+    codexProtectedEnvKey: parseJavaEnumProtocol(codexProtectedEnvKeyJavaPath),
+    intConstants: [
+      ...parseIntConstants(readFileSync(commonConstantsJavaPath, 'utf-8'), INT_CONSTANT_ALLOWLIST, 'CommonConstants'),
+      ...parseIntConstants(readFileSync(permissionDialogTimeoutSettingsJavaPath, 'utf-8'), INT_CONSTANT_ALLOWLIST, 'PermissionDialogTimeoutSettings'),
+    ],
     payloadSchemas: {
       modelRegistry: parsePayloadSchema(modelRegistryPayloadJavaPath),
     },
@@ -236,6 +288,17 @@ export type ReasoningEffort = string;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const PROVIDER_TYPE: Record<string, string> = {};
 export type ProviderType = string;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const CODEX_PROTECTED_ENV_KEY: Record<string, string> = {};
+export type CodexProtectedEnvKey = string;
+
+// C5 int constants — stub 默认值与后端一致(从 Java 重新生成获取真值)
+export const DEFAULT_CONTEXT_WINDOW = 200000 as const;
+export const ONE_MILLION_CONTEXT_WINDOW = 1000000 as const;
+export const DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS = 300 as const;
+export const MIN_PERMISSION_DIALOG_TIMEOUT_SECONDS = 30 as const;
+export const MAX_PERMISSION_DIALOG_TIMEOUT_SECONDS = 3600 as const;
 `;
 }
 
@@ -245,11 +308,11 @@ function main() {
   mkdirSync(dirname(outputPath), { recursive: true });
 
   let content;
-  if (existsSync(upstreamJavaPath) && existsSync(downstreamJavaPath) && existsSync(permissionModeJavaPath) && existsSync(reasoningEffortJavaPath) && existsSync(providerTypeJavaPath) && existsSync(modelRegistryPayloadJavaPath)) {
+  if (existsSync(upstreamJavaPath) && existsSync(downstreamJavaPath) && existsSync(permissionModeJavaPath) && existsSync(reasoningEffortJavaPath) && existsSync(providerTypeJavaPath) && existsSync(modelRegistryPayloadJavaPath) && existsSync(codexProtectedEnvKeyJavaPath) && existsSync(commonConstantsJavaPath) && existsSync(permissionDialogTimeoutSettingsJavaPath)) {
     const manifest = generateManifestFromJavaSources();
     writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8');
     content = generateFromManifest(manifest);
-    console.log(`[generate-protocol-types] Generated from Java sources (${manifest.upstream.length} upstream, ${manifest.downstream.length} downstream, ${manifest.permissionMode?.length ?? 0} permissionMode, ${manifest.reasoningEffort?.length ?? 0} reasoningEffort, ${manifest.providerType?.length ?? 0} providerType, ${manifest.payloadSchemas?.modelRegistry?.fields?.length ?? 0} modelRegistry payload fields)`);
+    console.log(`[generate-protocol-types] Generated from Java sources (${manifest.upstream.length} upstream, ${manifest.downstream.length} downstream, ${manifest.permissionMode?.length ?? 0} permissionMode, ${manifest.reasoningEffort?.length ?? 0} reasoningEffort, ${manifest.providerType?.length ?? 0} providerType, ${manifest.codexProtectedEnvKey?.length ?? 0} codexProtectedEnvKey, ${manifest.intConstants?.length ?? 0} intConstants, ${manifest.payloadSchemas?.modelRegistry?.fields?.length ?? 0} modelRegistry payload fields)`);
   } else if (existsSync(manifestPath)) {
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'));
     content = generateFromManifest(manifest);

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { parseEnumSource, parsePayloadFieldSource, generateFromManifest } from '../../scripts/generate-protocol-types.mjs';
+import { parseEnumSource, parsePayloadFieldSource, generateFromManifest, parseIntConstants } from '../../scripts/generate-protocol-types.mjs';
 
 /**
  * C8 漂移守门测试:parseEnumSource 严格 regex 仅匹配 NAME("value") 单参,
@@ -98,6 +98,48 @@ describe('parsePayloadFieldSource — C1 payload field parsing', () => {
 });
 
 /**
+ * C5 int 字面量解析:parseIntConstants 匹配 `public static final int NAME = literal;`,
+ * literal 可含 Java 数字分隔下划线(200_000→200000),allowlist 过滤只暴露白名单常量
+ * (防泄露后端其他 int 常量实现细节)。
+ */
+describe('parseIntConstants — C5 int literal parsing', () => {
+  it('解析 int 常量并去下划线分隔(200_000→200000)', () => {
+    const src = `
+      public final class CommonConstants {
+          public static final int DEFAULT_CONTEXT_WINDOW = 200_000;
+          public static final int ONE_MILLION_CONTEXT_WINDOW = 1_000_000;
+      }
+    `;
+    const allowlist = ['DEFAULT_CONTEXT_WINDOW', 'ONE_MILLION_CONTEXT_WINDOW'];
+    expect(parseIntConstants(src, allowlist)).toEqual([
+      { name: 'DEFAULT_CONTEXT_WINDOW', value: 200000 },
+      { name: 'ONE_MILLION_CONTEXT_WINDOW', value: 1000000 },
+    ]);
+  });
+
+  it('allowlist 过滤:仅返回白名单常量,忽略其他 int 常量', () => {
+    const src = `
+      public static final int KEEP_ME = 42;
+      public static final int HIDDEN_INTERNAL = 999;
+    `;
+    expect(parseIntConstants(src, ['KEEP_ME'])).toEqual([{ name: 'KEEP_ME', value: 42 }]);
+  });
+
+  it('空源码/无匹配返回空数组', () => {
+    expect(parseIntConstants('no constants here', ['X'])).toEqual([]);
+    expect(parseIntConstants('', [])).toEqual([]);
+  });
+
+  it('不匹配非 int 常量(String/long 等)', () => {
+    const src = `
+      public static final String LABEL = "x";
+      public static final long BIG = 1_000L;
+    `;
+    expect(parseIntConstants(src, ['LABEL', 'BIG'])).toEqual([]);
+  });
+});
+
+/**
  * C1 payload 接口生成:generateFromManifest 把 manifest.payloadSchemas 转成
  * TS interface(<PascalCase(key)>PayloadWire),字段名=wireKey,optional 带 ?。
  */
@@ -108,6 +150,8 @@ describe('generateFromManifest — C1 payload interface generation', () => {
     permissionMode: [],
     reasoningEffort: [],
     providerType: [],
+    codexProtectedEnvKey: [],
+    intConstants: [],
   };
 
   it('生成 ModelRegistryPayloadWire interface:字段名=wireKey,optional 带 ?', () => {
@@ -132,5 +176,33 @@ describe('generateFromManifest — C1 payload interface generation', () => {
   it('无 payloadSchemas 时不生成 payload interface(向后兼容)', () => {
     const ts = generateFromManifest(baseManifest);
     expect(ts).not.toContain('PayloadWire');
+  });
+
+  it('生成 CODEX_PROTECTED_ENV_KEY 常量与派生类型(A5)', () => {
+    const ts = generateFromManifest({
+      ...baseManifest,
+      codexProtectedEnvKey: [
+        { name: 'CODEX_MODEL', value: 'CODEX_MODEL' },
+        { name: 'HOME', value: 'HOME' },
+      ],
+    });
+    expect(ts).toContain('export const CODEX_PROTECTED_ENV_KEY = {');
+    expect(ts).toContain("  CODEX_MODEL: 'CODEX_MODEL' as const,");
+    expect(ts).toContain("  HOME: 'HOME' as const,");
+    expect(ts).toContain(
+      'export type CodexProtectedEnvKey = typeof CODEX_PROTECTED_ENV_KEY[keyof typeof CODEX_PROTECTED_ENV_KEY];'
+    );
+  });
+
+  it('生成 int 常量为 export const X = N as const(C5)', () => {
+    const ts = generateFromManifest({
+      ...baseManifest,
+      intConstants: [
+        { name: 'DEFAULT_CONTEXT_WINDOW', value: 200000 },
+        { name: 'DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS', value: 300 },
+      ],
+    });
+    expect(ts).toContain('export const DEFAULT_CONTEXT_WINDOW = 200000 as const;');
+    expect(ts).toContain('export const DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS = 300 as const;');
   });
 });

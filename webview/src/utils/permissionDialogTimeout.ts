@@ -1,6 +1,16 @@
-export const DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS = 300;
-export const MIN_PERMISSION_DIALOG_TIMEOUT_SECONDS = 30;
-export const MAX_PERMISSION_DIALOG_TIMEOUT_SECONDS = 3600;
+// C5 SSOT:权限对话框超时默认值由后端 PermissionDialogTimeoutSettings 经生成链产出
+// (generated/protocol.ts),此处 import + re-export 消除手抄(原 300/30/3600 与后端
+// 逐字重复)。本地 clampPermissionDialogTimeoutSeconds 直接复用导入绑定。
+import {
+  DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS,
+  MIN_PERMISSION_DIALOG_TIMEOUT_SECONDS,
+  MAX_PERMISSION_DIALOG_TIMEOUT_SECONDS,
+} from '../generated/protocol';
+export {
+  DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS,
+  MIN_PERMISSION_DIALOG_TIMEOUT_SECONDS,
+  MAX_PERMISSION_DIALOG_TIMEOUT_SECONDS,
+};
 
 /**
  * Normalizes a permission dialog timeout value to a supported whole-second range.

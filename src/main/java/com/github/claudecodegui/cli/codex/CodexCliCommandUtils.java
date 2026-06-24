@@ -1,26 +1,26 @@
 package com.github.claudecodegui.cli.codex;
 
 import com.github.claudecodegui.cli.common.CliConstants;
+import com.github.claudecodegui.protocol.CodexProtectedEnvKey;
 import com.github.claudecodegui.util.PlatformUtils;
 
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Codex CLI 命令构建相关工具方法（独立于 SDK 和旧 adapter）。
  */
 public final class CodexCliCommandUtils {
 
-    private static final Set<String> PROTECTED_ENV_KEYS = Set.of(
-            "CODEX_USE_STDIN", "CODEX_MODEL", "CODEX_SANDBOX_MODE", "CODEX_SANDBOX",
-            "CODEX_APPROVAL_POLICY", "CODEX_CI", "CODEX_SANDBOX_NETWORK_DISABLED",
-            "CODEX_HOME", "CLAUDE_SESSION_ID", "CLAUDE_PERMISSION_DIR",
-            "HOME", "PATH", "TMPDIR", "TEMP", "TMP",
-            "IDEA_PROJECT_PATH", "PROJECT_PATH", "CLAUDE_USE_STDIN"
-    );
+    // A5:基础保护变量 SSOT —— CodexProtectedEnvKey 枚举(与前端经生成链同源,消除手抄)
+    private static final Set<String> PROTECTED_ENV_KEYS = Arrays.stream(CodexProtectedEnvKey.values())
+            .map(CodexProtectedEnvKey::value)
+            .collect(Collectors.toUnmodifiableSet());
 
     private CodexCliCommandUtils() {}
 

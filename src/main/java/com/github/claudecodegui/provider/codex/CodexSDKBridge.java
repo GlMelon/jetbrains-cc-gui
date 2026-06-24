@@ -13,6 +13,7 @@ import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.bridge.ProcessManager;
 import com.github.claudecodegui.cli.common.CliConstants;
 import com.github.claudecodegui.common.CommonConstants;
+import com.github.claudecodegui.protocol.CodexProtectedEnvKey;
 import com.github.claudecodegui.provider.common.BaseSDKBridge;
 import com.github.claudecodegui.provider.common.DaemonBridge;
 import com.github.claudecodegui.provider.common.MessageCallback;
@@ -75,26 +76,13 @@ public class CodexSDKBridge extends BaseSDKBridge {
 
     private static final Set<String> PROTECTED_ENV_KEYS = new HashSet<>();
     static {
-        PROTECTED_ENV_KEYS.add("CODEX_USE_STDIN");
-        PROTECTED_ENV_KEYS.add("CODEX_MODEL");
-        PROTECTED_ENV_KEYS.add("CODEX_SANDBOX_MODE");
-        PROTECTED_ENV_KEYS.add("CODEX_SANDBOX");
-        PROTECTED_ENV_KEYS.add("CODEX_APPROVAL_POLICY");
-        PROTECTED_ENV_KEYS.add("CODEX_CI");
-        PROTECTED_ENV_KEYS.add("CODEX_SANDBOX_NETWORK_DISABLED");
-        PROTECTED_ENV_KEYS.add("CODEX_HOME");
-        PROTECTED_ENV_KEYS.add("CLAUDE_SESSION_ID");
-        PROTECTED_ENV_KEYS.add("CLAUDE_PERMISSION_DIR");
-        PROTECTED_ENV_KEYS.add("HOME");
-        PROTECTED_ENV_KEYS.add("PATH");
-        PROTECTED_ENV_KEYS.add("TMPDIR");
-        PROTECTED_ENV_KEYS.add("TEMP");
-        PROTECTED_ENV_KEYS.add("TMP");
-        PROTECTED_ENV_KEYS.add("IDEA_PROJECT_PATH");
-        PROTECTED_ENV_KEYS.add("PROJECT_PATH");
-        PROTECTED_ENV_KEYS.add("CLAUDE_USE_STDIN");
+        // 基础保护变量(A5 SSOT:CodexProtectedEnvKey 枚举,与前端经生成链同源,消除手抄)
+        for (CodexProtectedEnvKey key : CodexProtectedEnvKey.values()) {
+            PROTECTED_ENV_KEYS.add(key.value());
+        }
         // Security (C): code-execution / library-injection variables must never be
         // overridable by a (possibly imported/malicious) provider's custom env vars.
+        // 额外运行时安全变量(SDK 注入路径独有,不进协议枚举)
         PROTECTED_ENV_KEYS.add("NODE_OPTIONS");
         PROTECTED_ENV_KEYS.add("NODE_EXTRA_CA_CERTS");
         PROTECTED_ENV_KEYS.add("ELECTRON_RUN_AS_NODE");

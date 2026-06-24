@@ -2,7 +2,7 @@
  * Provider configuration type definitions
  */
 
-import { PROVIDER_TYPE } from '../generated/protocol';
+import { PROVIDER_TYPE, CODEX_PROTECTED_ENV_KEY } from '../generated/protocol';
 
 // C2/C9:ProviderType 类型由后端 protocol.ProviderType 枚举构建时生成器产出
 // (webview/src/generated/protocol.ts),消除前端手写第二真相源。
@@ -210,27 +210,12 @@ export function isValidEnvVarKey(key: string): boolean {
 
 /**
  * Codex protected environment variable names that cannot be overridden by custom env vars.
+ *
+ * A5 SSOT:由后端 protocol.CodexProtectedEnvKey 枚举经生成链产出
+ * (webview/src/generated/protocol.ts#CODEX_PROTECTED_ENV_KEY),消除此处手抄的第二
+ * 真相源(与后端 CodexCliCommandUtils/CodexSDKBridge 三处同源)。
  */
-const CODEX_PROTECTED_ENV_KEYS: ReadonlySet<string> = new Set([
-  'CODEX_USE_STDIN',
-  'CODEX_MODEL',
-  'CODEX_SANDBOX_MODE',
-  'CODEX_SANDBOX',
-  'CODEX_APPROVAL_POLICY',
-  'CODEX_CI',
-  'CODEX_SANDBOX_NETWORK_DISABLED',
-  'CODEX_HOME',
-  'CLAUDE_SESSION_ID',
-  'CLAUDE_PERMISSION_DIR',
-  'HOME',
-  'PATH',
-  'TMPDIR',
-  'TEMP',
-  'TMP',
-  'IDEA_PROJECT_PATH',
-  'PROJECT_PATH',
-  'CLAUDE_USE_STDIN',
-]);
+const CODEX_PROTECTED_ENV_KEYS: ReadonlySet<string> = new Set(Object.values(CODEX_PROTECTED_ENV_KEY));
 
 /**
  * Check if an env var key is a protected Codex built-in variable.

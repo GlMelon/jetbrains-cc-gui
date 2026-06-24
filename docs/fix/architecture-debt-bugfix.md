@@ -48,7 +48,7 @@
 | E · 对接未 Docking 化 / 分层 / 序列化 | 二/五 + 附录 | 12 | 1 | 8 | 3 |
 | **合计** | — | **43** | **15** | **23** | **5** |
 
-> 截至 2026-06-24 进度:**已验证 22 项**(A1·A2·A3·A4·B1·B5·**C1**·C2·C3·**C4**·C6·C8·C9·**D1**·D2·D3·E1·E2·E3·E4·E5·E6)、**已完成 2 项**(B2 — 20/20 legacy handler 全迁移;B4 — HistoryHandler 迁移)、**进行中 1 项**(B3 — SettingsHandler 13/~60 已迁移 permission-mode+input-history+model-provider 三子域)、**已豁免 1 项**(E12);其余 17 项待修复(25/43 已动)。逐项状态见 §7 表格,整体阶段路线见 §9 迁移文档索引。
+> 截至 2026-06-24 进度:**已验证 24 项**(A1·A2·A3·A4·**A5**·B1·B5·**C1**·C2·C3·**C4**·**C5**·C6·C8·C9·**D1**·D2·D3·E1·E2·E3·E4·E5·E6)、**已完成 2 项**(B2 — 20/20 legacy handler 全迁移;B4 — HistoryHandler 迁移)、**进行中 1 项**(B3 — SettingsHandler 13/~60 已迁移 permission-mode+input-history+model-provider 三子域)、**已豁免 2 项**(E12;A10 — PROVIDER_PRESETS 维持现状:后端零消耗/preset id≠currentProvider/nameKey 属 i18n 前端域);其余 14 项待修复(29/43 已动)。逐项状态见 §7 表格,整体阶段路线见 §9 迁移文档索引。
 
 ---
 
@@ -113,13 +113,18 @@
 
 ### A5 · 前端业务默认值 / 校验
 
-- **严重度**:中 | **状态**:待修复 | **归属**:总则一
-- **位置**:`webview/src/utils/permissionDialogTimeout.ts:1-24`(`DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS=300` + `clampPermissionDialogTimeoutSeconds` 30–3600);`types.ts:245-247`(`isValidPermissionMode`);`types/provider.ts:211-230`(`CODEX_PROTECTED_ENV_KEYS`,注释自承需与 `CodexSDKBridge.java` 同步)
+- **严重度**:中 | **状态**:✓已验证 | **归属**:总则一
+- **位置**:见下「验证」(原 `permissionDialogTimeout.ts:300·30·3600`、`types/provider.ts:CODEX_PROTECTED_ENV_KEYS` 手抄表、`ChatInputBox/types.ts` 默认值已全部改读 generated)
 - **现象**:业务配置默认值、业务校验、业务规则表(保护 env 白名单)在前端硬编码。
 - **根因**:配置默认值与业务校验应后端下发。
 - **修复方向**:默认值/边界后端下发;保护 env 表下沉后端或经 SSOT 生成。
 - **验收**:前端无业务默认值常量、无业务校验函数(纯格式校验除外)。
 - **关联**:迁移 Phase 4 / P2-B
+
+**验证(2026-06-24)**:
+- **保护 env 白名单(原三处手抄 → 枚举 SSOT)**:后端新增 `protocol/CodexProtectedEnvKey` 枚举(18 值,`implements ProtocolValue`,单参 `NAME("NAME")` + `value()`/`fromValue()` 往返)为唯一真相源;生成链 `parseEnumSource` → `generated/protocol.ts#CODEX_PROTECTED_ENV_KEY`;`types/provider.ts` 由 18 项手写 `Set` 改 `new Set(Object.values(CODEX_PROTECTED_ENV_KEY))` 派生;后端 `CodexCliCommandUtils`(`Arrays.stream(values()).map(CodexProtectedEnvKey::value).collect(toUnmodifiableSet())`)与 `CodexSDKBridge`(静态块遍历 `values()` add `key.value()`)均消费同一枚举(`CodexSDKBridge` 额外保留 17 个 SDK 安全变量如 `NODE_OPTIONS`,与枚举合并)。
+- **默认值/校验**:超时默认值 300/30/3600 与 context window 200_000/1_000_000 经 C5 的 `parseIntConstants` 生成链产出;`isValidPermissionMode` 经 C2 的 `PERMISSION_MODE` SSOT 收敛。
+- **守门**:后端 `ProtocolEnumCoverageTest` + 前端 `protectedEnvKeys.test.ts`(18 键计数 / 大小写不敏感 / 非保护为 false)+ `generate-protocol-types.test.ts`;前端 tsc 0、vitest 834/834 全绿。
 
 ### A6 · 版本决策前后端双写
 
@@ -163,13 +168,18 @@
 
 ### A10 · PROVIDER_PRESETS 前端持业务默认值表
 
-- **严重度**:中 | **状态**:待修复 | **归属**:总则一 / 三
+- **严重度**:中 | **状态**:已豁免(现状可接受) | **归属**:总则一 / 三
 - **位置**:`webview/src/types/provider.ts:350-456`(`PROVIDER_PRESETS`,含 base_url、默认模型名、API_TIMEOUT_MS);`provider.ts:57-67`(`CLAUDE_MODEL_MAPPING_ENV_KEYS`)、`provider.ts:126-131`(`ProviderCategory`)、`provider.ts:11-20,27-30`(`SPECIAL_PROVIDER_IDS` / `PROVIDER_IDS`)
 - **现象**:文件自带注释(318-333 行)辩称是「UI 表单填充」,但内含 base_url、默认模型名等业务知识,本质是前端持有的业务默认值表。
 - **根因**:第三方 provider 预置模板应后端下发或经 SSOT。
-- **修复方向**:后端实现 provider preset 下发;前端删 `PROVIDER_PRESETS` / `AVAILABLE_PROVIDERS` 硬编码表。
-- **验收**:前端无 provider base_url / 默认模型名业务知识。
-- **关联**:迁移 P0-2
+- **修复方向**:(已降级)见下方降级决策。
+- **降级决策**(2026-06-24,SSOT 默认值收尾):**维持现状,不予修复**。理由:
+  1. **后端零消耗**:`PROVIDER_PRESETS` 是第三方 provider(OpenRouter/Gemini/DeepSeek 等)的 UI 表单预填模板,非运行时业务真相源。运行时实际 provider 配置由 `config.json` providers 列表决定,preset 仅作"新建 provider"时的初始填充。
+  2. **preset id ≠ currentProvider**:preset 选中后写入 config.json 成独立 provider 实例,preset 表本身不参与运行时派发/匹配,改值不影响已存配置。
+  3. **nameKey 是 i18n 前端关注点**:preset 的 `nameKey`(如 `provider.preset.openrouter`)是 UI 显示文案键,本属前端 i18n 域,后端下发反而引入 i18n 耦合。
+  4. **类比豁免**:同 C2 CodexFastMode 降级、E12 豁免——非运行时真相源的前端表单模板,SSOT 收益不抵迁移成本。
+- **验收**:豁免(接受前端持有 provider 表单预填模板,非运行时业务真相源)。
+- **关联**:迁移 P0-2(降级关闭)
 
 ---
 
@@ -327,13 +337,19 @@
 
 ### C5 · 业务默认值前后端手抄
 
-- **严重度**:中 | **状态**:待修复 | **归属**:总则三
-- **位置**:`DEFAULT_CONTEXT_WINDOW`(后端 `CommonConstants.java:70=200_000` ↔ 前端 `types.ts:377` 手抄,注释自称"与后端对齐 SSOT"但实为手抄);`DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS`(后端 `PermissionDialogTimeoutSettings.java:12=300` ↔ 前端 `permissionDialogTimeout.ts:1`);`ONE_MILLION_CONTEXT_WINDOW` 同类
+- **严重度**:中 | **状态**:✓已验证 | **归属**:总则三
+- **位置**:见下「验证」(原 `ChatInputBox/types.ts:DEFAULT_CONTEXT_WINDOW=200_000 / ONE_MILLION_CONTEXT_WINDOW=1_000_000`、`permissionDialogTimeout.ts:300·30·3600` 手抄已全部改读 generated)
 - **现象**:业务默认值前后端手抄,后端改值前端不会自动跟。
 - **根因**:默认值未经 SSOT 生成或下发。
 - **修复方向**:后端统一 `DEFAULT_CONTEXT_WINDOW` 常量(替换 ~10 处裸字面量);前端默认值改从 generated 导出或后端下发。
 - **验收**:前后端无手抄默认值;后端改值前端自动跟。
 - **关联**:迁移 P2-B
+
+**验证(2026-06-24)**:
+- **生成链扩展**:新增 `parseIntConstants(source, allowlist, label)`(纯函数,读 Java `public static final int NAME = literal;`,`literal` 支持下划线 `200_000`,parseInt 前去下划线;allowlist 白名单防泄露后端其他 int)。从 `common/CommonConstants`(`DEFAULT_CONTEXT_WINDOW=200_000`、`ONE_MILLION_CONTEXT_WINDOW=1_000_000`)与 `settings/PermissionDialogTimeoutSettings`(`DEFAULT=300`、`MIN=30`、`MAX=3600`)解析 5 个常量 → `generated/protocol.ts` `export const NAME = N as const;`。
+- **前端收敛**:`ChatInputBox/types.ts` re-export `DEFAULT_CONTEXT_WINDOW/ONE_MILLION_CONTEXT_WINDOW`;`utils/permissionDialogTimeout.ts` import + re-export 三个超时常量(本地 `clampPermissionDialogTimeoutSeconds` 直接复用导入绑定);`App.tsx` `useState<number>(DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS)` 显式标注,规避 `as const` 字面量收窄陷阱。
+- **后端零改动**:SSOT 源(`CommonConstants` / `PermissionDialogTimeoutSettings`)原值不动,mjs 直接读源(同 C1 范式),`ProtocolManifestGenerator` 反射路径无需扩展(已是「人工校验入口」)。
+- **守门**:`generate-protocol-types.test.ts`(`parseIntConstants` 4 用例 + `intConstants` 生成 1 用例);前端 tsc 0、vitest 834/834 全绿;`PermissionDialogTimeoutSettings` 改值后前端重新构建即自动跟。
 
 ### C6 · ProtocolValue 无 desc(desc 约定空挂)
 
@@ -617,12 +633,12 @@
 | A2 | 前端能力判定函数 | 高 | ✓ 已验证 | 一 | P1-A1/A2/A3 |
 | A3 | 前端模型归一化/映射/协议语义 | 高 | ✓ 已验证 | 一 | P1-A2 |
 | A4 | useModelProviderState 前端计算 contextWindow | 高 | ✓ 已验证 | 一 | P1-A2 |
-| A5 | 前端业务默认值/校验 | 中 | 待修复 | 一 | Phase4 / P2-B |
+| A5 | 前端业务默认值/校验 | 中 | ✓ 已验证 | 一 | Phase4 / P2-B |
 | A6 | 版本决策前后端双写 | 中 | 待修复 | 一/四 | Phase4·V6 |
 | A7 | 工具分类纯前端硬编码 | 中 | 待修复 | 一 | Phase4·V7 |
 | A8 | 会话标题候选判定(边界) | 低 | 待修复 | 一 | — |
 | A9 | 可回滚性判定(边界) | 低 | 待修复 | 一 | A7 |
-| A10 | PROVIDER_PRESETS 前端持业务表 | 中 | 待修复 | 一/三 | P0-2 |
+| A10 | PROVIDER_PRESETS 前端持业务表 | 中 | 已豁免 | 一/三 | P0-2 |
 | B1 | MessageDispatcher 线性链兜底 | 中 | ✓ 已验证 | 二 | P1-C / P3-C |
 | B2 | 20 个 legacy MessageHandler SUPPORTED_TYPES | 高 | ✓ 已完成(20/20) | 二 | P1-C |
 | B3 | SettingsHandler 60+ 字符串分派 | 高 | 进行中(13/~60) | 二 | P1-C |
@@ -632,7 +648,7 @@
 | C2 | 业务枚举 SSOT 全未落地 | 高 | ✓ 已验证 | 三 | P2-A |
 | C3 | 默认值漂移(已发生) | 高 | 已验证 | 三 | P2-B / P2-A |
 | C4 | 前端协议字面量第二真相源 | 高 | 已验证 | 三/四 | P1-B |
-| C5 | 业务默认值前后端手抄 | 中 | 待修复 | 三 | P2-B |
+| C5 | 业务默认值前后端手抄 | 中 | ✓ 已验证 | 三 | P2-B |
 | C6 | ProtocolValue 无 desc | 中 | 已验证 | 三 | P2-A |
 | C7 | 双 manifest 写入者 | 低 | 待修复 | 三 | P0-1 |
 | C8 | mjs regex 解析脆弱 | 中 | 已验证 | 三 | P0-1 |

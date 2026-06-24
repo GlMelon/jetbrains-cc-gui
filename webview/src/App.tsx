@@ -70,7 +70,8 @@ const App = () => {
   } = useUIState();
 
   // ── Permission dialog timeout (synced with backend config) ──
-  const [permissionDialogTimeoutSeconds, setPermissionDialogTimeoutSeconds] = useState(DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS);
+  // C5:默认值现由 generated 产出(literal 300 as const);state 显式 number,允许后续 setState 任意秒数。
+  const [permissionDialogTimeoutSeconds, setPermissionDialogTimeoutSeconds] = useState<number>(DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS);
 
   // ── Local refs (don't trigger re-render, kept in App.tsx) ──
   const isFirstMountRef = useRef(true);
