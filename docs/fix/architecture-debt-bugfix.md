@@ -48,7 +48,7 @@
 | E · 对接未 Docking 化 / 分层 / 序列化 | 二/五 + 附录 | 12 | 1 | 8 | 3 |
 | **合计** | — | **43** | **15** | **23** | **5** |
 
-> 截至 2026-06-24 进度:**已验证 21 项**(A1·A2·A3·A4·B1·B5·C2·C3·**C4**·C6·C8·C9·**D1**·D2·D3·E1·E2·E3·E4·E5·E6)、**已完成 2 项**(B2 — 20/20 legacy handler 全迁移;B4 — HistoryHandler 迁移)、**进行中 1 项**(B3 — SettingsHandler 13/~60 已迁移 permission-mode+input-history+model-provider 三子域)、**已豁免 1 项**(E12);其余 18 项待修复(24/43 已动)。逐项状态见 §7 表格,整体阶段路线见 §9 迁移文档索引。
+> 截至 2026-06-24 进度:**已验证 22 项**(A1·A2·A3·A4·B1·B5·**C1**·C2·C3·**C4**·C6·C8·C9·**D1**·D2·D3·E1·E2·E3·E4·E5·E6)、**已完成 2 项**(B2 — 20/20 legacy handler 全迁移;B4 — HistoryHandler 迁移)、**进行中 1 项**(B3 — SettingsHandler 13/~60 已迁移 permission-mode+input-history+model-provider 三子域)、**已豁免 1 项**(E12);其余 17 项待修复(25/43 已动)。逐项状态见 §7 表格,整体阶段路线见 §9 迁移文档索引。
 
 ---
 
@@ -252,13 +252,20 @@
 
 ### C1 · payload 字段结构完全未生成(前后端各写)
 
-- **严重度**:高 | **状态**:待修复 | **归属**:总则三
+- **严重度**:高 | **状态**:已验证(2026-06-24) | **归属**:总则三
 - **位置**:manifest schema 仅 `{name, value}`(`protocol/ProtocolManifestGenerator.java:44-62`);`webview/src/generated/protocol.ts` 全文无 payload interface;前端 `modelRegistry.ts:16-18` 手写 `ModelRegistryPayload` ↔ 后端 `ModelRegistryService.java` / `ModelConfig.java` 各自定义
 - **现象**:payload 字段结构前后端各写一套,字段增删/重命名无编译期校验,运行时静默断链。
 - **根因**:manifest 仅生成消息名,未生成字段结构。
 - **修复方向**:扩展 `ProtocolManifestGenerator` 反射 record components 写入 `payloadSchemas`,mjs 从 manifest 生成 TS 字段类型;先建两端字段守门测试(后端反射 ↔ 前端覆盖)。
 - **验收**:manifest 含 `payloadSchemas`;前端 payload 类型从 generated 导入;两端字段守门测试存在。
 - **关联**:迁移 Phase 1(Task 1.2/1.3 守门)+ Phase 2(V3 自动化)
+- **修复记录**(2026-06-24,ModelRegistry payload 试点):
+  - **Java SSOT**:新建 `protocol/payload/ModelRegistryPayloadField.java` enum,11 个 wire 字段显式三参声明 `NAME("wireKey","tsType",optional)`(id/provider/role?/label/actualModel?/description?/contextWindow/supports1MContext/supportedReasoningLevels?/enabled/readOnly)。提供 `wireKey()/tsType()/optional()` + `static wireKeys()`(LinkedHashSet 保序)。**为何显式声明而非反射 ModelConfig 记录组件**:serialize 还派生 `supportedReasoningLevels`(由 role 计算、不存 ModelConfig),反射记录组件会漏此派生字段产生间隙;显式声明自然含派生字段 + 守"声明==实际产出"契约。
+  - **生成链**:`generate-protocol-types.mjs` 加 `parsePayloadFieldSource`(严格三参 regex `NAME("wireKey","tsType",optional)`,与 `parseEnumSource` 单参正交不互染——单参枚举不会被误匹配)+ `generatePayloadInterfaces`(每 payloadSchema → `<PascalCase(key)>PayloadWire` interface,字段名=wireKey、optional 带 ?)+ `parsePayloadSchema`(空解析抛错防静默漏项);manifest 增 `payloadSchemas.modelRegistry.fields[]`;`generateFromManifest` 末尾拼接 payload interface 段。`generate-protocol-types.d.mts` 扩展声明(`parsePayloadFieldSource`/`generateFromManifest` + `PayloadField`/`PayloadSchema`/`ProtocolManifest` 类型)。
+  - **关键决策·.d.mts 非 .d.ts**:TS 对 `.mjs`(ESM)的类型声明查找 `.d.mts` 而非 `.d.ts`(试建 `.d.ts` 被 TS 忽略、`--listFiles` 确认只取 `.d.mts`);且 `allowJs` 在 bundler 模式下对 src 外 `.mjs` 的具名导出推导不可靠(仍 TS2305)。故复用现有 `.d.mts` 扩展声明作"导出契约",运行时仍由 esbuild/vitest 加载 mjs 实际实现(.d.mts 不参与运行,与 C1 wire SSOT 正交——后者由后端 enum + 守门保证)。
+  - **前端集成**:`utils/modelRegistry.ts` `ModelRegistryItem` 改 `extends ModelRegistryPayloadWire`(协变收窄:wire.provider:string → ProviderType、role?:string → 角色联合、supportedReasoningLevels?:readonly string[] → readonly ReasoningEffort[]),删手写 id/label/contextWindow/actualModel/supports1MContext/enabled/readOnly(统一来自 wire);`toCodexRegistryItem` 补 `readOnly: false`(wire 必填暴露的构造缺口)。生产 `ModelRegistrySection` EMPTY_MODEL + 5 测试文件共 21 处 mock 补 `supports1MContext`/`readOnly`(wire 必填契约暴露的旧 mock 疏忽,值不影响各测试断言)。
+  - **测试**:后端 `ModelRegistryPayloadFieldTest` 2 测试(完整 claude sample serialize 产出的 JSON key 集 == `wireKeys()` 声明集 + 字段计数守门,gradle BUILD SUCCESSFUL,三端守门之「后端 serialize ↔ 声明」);前端 `src/__tests__/generate-protocol-types.test.ts` 共 10 测试(parseEnumSource ×4 C8 漂移守门 + parsePayloadFieldSource ×4 含「不误匹配单参枚举」+ generateFromManifest ×2,三端守门之「生成链路」)。**位置必须在 `src/__tests__`(入库)而非 `src/generated/`(被 `.gitignore` 第 68 行整体忽略——后者本地能跑但 CI clone 后不存在,守门永不触发;连原有 4 个 parseEnumSource C8 测试此前也因此从未入库,本次一并修正移入 `src/__tests__`)**;webview tsc C1 相关清零(三端守门之「前端 extends」);vitest 824/0 全绿。
+  - **scope**:仅 ModelRegistry 试点验证 payload 生成机制;其他 payload(未来扩展)按 `payloadSchemas.<key>` 同范式增声明 + 解析即可。
 
 ### C2 · 业务枚举 SSOT 全未落地(前端手写、后端散落字符串)
 
@@ -621,7 +628,7 @@
 | B3 | SettingsHandler 60+ 字符串分派 | 高 | 进行中(13/~60) | 二 | P1-C |
 | B4 | HistoryHandler 孤儿 | 中 | ✓ 已完成 | 二 | P1-C 排查 |
 | B5 | 下行 type 字面量散落 | 中 | ✓ 已验证 | 二 | P1-B |
-| C1 | payload 字段结构未生成 | 高 | 待修复 | 三 | Phase1 / Phase2·V3 |
+| C1 | payload 字段结构未生成 | 高 | ✓ 已验证 | 三 | Phase1 / Phase2·V3 |
 | C2 | 业务枚举 SSOT 全未落地 | 高 | ✓ 已验证 | 三 | P2-A |
 | C3 | 默认值漂移(已发生) | 高 | 已验证 | 三 | P2-B / P2-A |
 | C4 | 前端协议字面量第二真相源 | 高 | 已验证 | 三/四 | P1-B |

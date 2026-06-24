@@ -49,6 +49,7 @@ describe('useModelProviderState', () => {
         actualModel: 'mimo-v2.5-pro',
         contextWindow: 1_000_000,
         supports1MContext: true,
+        readOnly: false,
         enabled: true,
       }],
     });
@@ -80,6 +81,7 @@ describe('useModelProviderState', () => {
         actualModel: 'mimo-v2.5-pro',
         contextWindow: 200_000,
         supports1MContext: false,
+        readOnly: false,
         enabled: true,
       }],
     });
@@ -98,6 +100,7 @@ describe('useModelProviderState', () => {
           label: 'MiMo',
           contextWindow: 1_000_000,
           supports1MContext: true,
+          readOnly: false,
           enabled: true,
         }],
       });

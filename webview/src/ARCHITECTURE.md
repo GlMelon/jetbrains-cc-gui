@@ -227,7 +227,11 @@ and all downstream subscriptions through `subscribeEvent(DOWNSTREAM.*)` /
 The webview treats Java as the business source of truth. Protocol strings come
 from generated constants in `webview/src/generated/protocol.ts`, and migrated
 model-registry traffic uses `webview/src/bridge/typed.ts` instead of ad-hoc
-string literals.
+string literals. Payload field structure is likewise generated: the
+`ModelRegistryPayloadWire` interface (in `generated/protocol.ts`) is derived
+from the backend `ModelRegistryPayloadField` enum via the manifest, and
+`ModelRegistryItem` extends it — so payload field add/rename/reorder is
+compile-checked end-to-end against the backend `serialize` output (debt §C1).
 
 Current milestone rules:
 - Upstream intent uses `sendAction(UPSTREAM.*)` and carries only user intent or

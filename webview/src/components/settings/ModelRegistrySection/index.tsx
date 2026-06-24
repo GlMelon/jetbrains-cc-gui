@@ -21,6 +21,7 @@ const EMPTY_MODEL: ModelRegistryItem = {
   contextWindow: DEFAULT_CONTEXT_WINDOW,
   supports1MContext: false,
   enabled: true,
+  readOnly: false,
 };
 
 export default function ModelRegistrySection({ addToast }: ModelRegistrySectionProps) {

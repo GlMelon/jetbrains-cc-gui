@@ -32,6 +32,7 @@ describe('ModelRegistrySection', () => {
           contextWindow: 200000,
           readOnly: true,
           enabled: true,
+          supports1MContext: false,
         },
         {
           id: 'claude-role-opus',
@@ -41,6 +42,7 @@ describe('ModelRegistrySection', () => {
           contextWindow: 200000,
           readOnly: true,
           enabled: true,
+          supports1MContext: false,
         },
       ],
     });
@@ -64,6 +66,7 @@ describe('ModelRegistrySection', () => {
           contextWindow: 200000,
           readOnly: false,
           enabled: true,
+          supports1MContext: false,
         },
       ],
     });
@@ -86,6 +89,7 @@ describe('ModelRegistrySection', () => {
           contextWindow: 200000,
           readOnly: true,
           enabled: true,
+          supports1MContext: false,
         },
         {
           id: 'mimo',
@@ -95,6 +99,7 @@ describe('ModelRegistrySection', () => {
           contextWindow: 200000,
           readOnly: false,
           enabled: true,
+          supports1MContext: false,
         },
       ],
     });

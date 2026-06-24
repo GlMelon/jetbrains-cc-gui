@@ -50,6 +50,7 @@ describe('useMessageSender - /context command', () => {
           label: 'MiMo',
           contextWindow: 1_000_000,
           supports1MContext: true,
+          readOnly: false,
           enabled: true,
         },
         // A2:claude opus 支持 1M 由后端 registry 下发 supports1MContext=true(取代前端"claude- 非 haiku"字符串推断)。
@@ -59,6 +60,7 @@ describe('useMessageSender - /context command', () => {
           label: 'Opus',
           contextWindow: 200_000,
           supports1MContext: true,
+          readOnly: false,
           enabled: true,
         },
       ],

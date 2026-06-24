@@ -1,18 +1,22 @@
 import { DOWNSTREAM, UPSTREAM } from '../generated/protocol';
+import type { ModelRegistryPayloadWire } from '../generated/protocol';
 import { sendAction, subscribeEvent } from '../bridge/typed';
 import type { ModelInfo, ReasoningEffort } from '../components/ChatInputBox/types';
 import { DEFAULT_CONTEXT_WINDOW, ONE_MILLION_CONTEXT_WINDOW, REASONING_LEVELS, strip1MContextSuffix } from '../components/ChatInputBox/types';
 import type { CodexCustomModel, CodexProviderConfig, ProviderType } from '../types/provider';
 
-export interface ModelRegistryItem extends ModelInfo {
+/**
+ * C1:字段结构来自后端 SSOT 生成的 {@link ModelRegistryPayloadWire}(wire 字段集 == 后端
+ * serialize 实际产出,见 ModelRegistryPayloadField 后端守门)。此处仅收窄 3 个字段的业务类型
+ * (provider→ProviderType / role→角色联合 / supportedReasoningLevels→ReasoningEffort),
+ * 不再手写 id/label/contextWindow/actualModel/supports1MContext/enabled/readOnly
+ * (统一来自 wire)。
+ */
+export interface ModelRegistryItem extends ModelRegistryPayloadWire {
   provider: ProviderType;
   role?: 'sonnet' | 'opus' | 'fable' | 'haiku';
-  actualModel?: string;
-  supports1MContext?: boolean;
   /** A2:后端权威下发的支持 reasoning 级别(派生自 role;仅 claude + role 已知时下发)。 */
   supportedReasoningLevels?: readonly ReasoningEffort[];
-  enabled?: boolean;
-  readOnly?: boolean;
 }
 
 export interface ModelRegistryPayload {
@@ -215,6 +219,7 @@ function toCodexRegistryItem(model: ModelInfo): ModelRegistryItem {
     contextWindow,
     supports1MContext: model.supports1MContext ?? contextWindow >= ONE_MILLION_CONTEXT_WINDOW,
     enabled: true,
+    readOnly: false,
   };
 }
 

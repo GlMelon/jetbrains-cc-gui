@@ -24,13 +24,14 @@ const downstreamJavaPath = resolve(__dirname, '../../src/main/java/com/github/cl
 const permissionModeJavaPath = resolve(__dirname, '../../src/main/java/com/github/claudecodegui/protocol/PermissionMode.java');
 const reasoningEffortJavaPath = resolve(__dirname, '../../src/main/java/com/github/claudecodegui/protocol/ReasoningEffort.java');
 const providerTypeJavaPath = resolve(__dirname, '../../src/main/java/com/github/claudecodegui/session/runtime/ProviderType.java');
+const modelRegistryPayloadJavaPath = resolve(__dirname, '../../src/main/java/com/github/claudecodegui/protocol/payload/ModelRegistryPayloadField.java');
 
 const isStubMode = process.argv.includes('--stub');
 
 /**
  * 从 manifest 生成完整类型文件
  */
-function generateFromManifest(manifest) {
+export function generateFromManifest(manifest) {
   return `/**
  * ⚠️ AUTO-GENERATED — DO NOT EDIT MANUALLY
  *
@@ -81,7 +82,34 @@ ${(manifest.providerType ?? []).map(p => `  ${p.name}: '${p.value}' as const,`).
 } as const;
 
 export type ProviderType = typeof PROVIDER_TYPE[keyof typeof PROVIDER_TYPE];
-`;
+` + generatePayloadInterfaces(manifest.payloadSchemas);
+}
+
+/**
+ * 生成 payload wire 接口(C1):每个 payloadSchemas entry → 一个 export interface。
+ * interface 名 = PascalCase(key) + 'PayloadWire'(modelRegistry → ModelRegistryPayloadWire)。
+ * 字段名 = wireKey,optional 字段带 ?,类型 = tsType。无 payloadSchemas 时返回空串(向后兼容)。
+ */
+function generatePayloadInterfaces(payloadSchemas) {
+  if (!payloadSchemas || typeof payloadSchemas !== 'object') {
+    return '';
+  }
+  const blocks = [];
+  for (const [key, schema] of Object.entries(payloadSchemas)) {
+    const fields = schema && Array.isArray(schema.fields) ? schema.fields : [];
+    if (fields.length === 0) {
+      continue;
+    }
+    const interfaceName = key.charAt(0).toUpperCase() + key.slice(1) + 'PayloadWire';
+    const fieldLines = fields
+      .map((f) => `  ${f.wireKey}${f.optional ? '?' : ''}: ${f.tsType};`)
+      .join('\n');
+    blocks.push(`export interface ${interfaceName} {\n${fieldLines}\n}`);
+  }
+  if (blocks.length === 0) {
+    return '';
+  }
+  return `\n// ── Payload Schemas (wire field SSOT, C1) ──\n\n${blocks.join('\n\n')}\n`;
 }
 
 /**
@@ -119,6 +147,32 @@ export function parseEnumSource(source, label = '<source>') {
   return entries;
 }
 
+/**
+ * 解析 Java payload 字段枚举源码(C1):匹配三参声明 NAME("wireKey","tsType",optional)。
+ *
+ * 与 parseEnumSource(单参 NAME("value"))正交:严格三参 regex 不匹配单参枚举,
+ * 故可安全用于 ModelRegistryPayloadField.java 而不污染 UpstreamAction/DownstreamEvent 解析。
+ * tsType 含空格(如 "readonly string[]")由 "([^"]*)" 整段捕获。
+ *
+ * @param {string} source Java 枚举源码文本
+ * @param {string} label 用于告警定位的标签
+ * @returns {Array<{name:string,wireKey:string,tsType:string,optional:boolean}>}
+ */
+export function parsePayloadFieldSource(source, label = '<payload-source>') {
+  const fields = [];
+  const fieldPattern = /^\s*([A-Z][A-Z0-9_]*)\("([^"]*)",\s*"([^"]*)",\s*(true|false)\)\s*,?/gm;
+  let match;
+  while ((match = fieldPattern.exec(source)) !== null) {
+    fields.push({
+      name: match[1],
+      wireKey: match[2],
+      tsType: match[3],
+      optional: match[4] === 'true',
+    });
+  }
+  return fields;
+}
+
 function parseJavaEnumProtocol(javaPath) {
   const source = readFileSync(javaPath, 'utf-8');
   const entries = parseEnumSource(source, javaPath);
@@ -128,6 +182,16 @@ function parseJavaEnumProtocol(javaPath) {
   return entries;
 }
 
+/** 解析 payload 字段枚举声明 → {fields:[...]}(C1)。空解析抛错防静默漏项。 */
+function parsePayloadSchema(javaPath) {
+  const source = readFileSync(javaPath, 'utf-8');
+  const fields = parsePayloadFieldSource(source, javaPath);
+  if (fields.length === 0) {
+    throw new Error(`No payload fields parsed from ${javaPath}`);
+  }
+  return { fields };
+}
+
 function generateManifestFromJavaSources() {
   return {
     upstream: parseJavaEnumProtocol(upstreamJavaPath),
@@ -135,6 +199,9 @@ function generateManifestFromJavaSources() {
     permissionMode: parseJavaEnumProtocol(permissionModeJavaPath),
     reasoningEffort: parseJavaEnumProtocol(reasoningEffortJavaPath),
     providerType: parseJavaEnumProtocol(providerTypeJavaPath),
+    payloadSchemas: {
+      modelRegistry: parsePayloadSchema(modelRegistryPayloadJavaPath),
+    },
   };
 }
 
@@ -178,11 +245,11 @@ function main() {
   mkdirSync(dirname(outputPath), { recursive: true });
 
   let content;
-  if (existsSync(upstreamJavaPath) && existsSync(downstreamJavaPath) && existsSync(permissionModeJavaPath) && existsSync(reasoningEffortJavaPath) && existsSync(providerTypeJavaPath)) {
+  if (existsSync(upstreamJavaPath) && existsSync(downstreamJavaPath) && existsSync(permissionModeJavaPath) && existsSync(reasoningEffortJavaPath) && existsSync(providerTypeJavaPath) && existsSync(modelRegistryPayloadJavaPath)) {
     const manifest = generateManifestFromJavaSources();
     writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8');
     content = generateFromManifest(manifest);
-    console.log(`[generate-protocol-types] Generated from Java sources (${manifest.upstream.length} upstream, ${manifest.downstream.length} downstream, ${manifest.permissionMode?.length ?? 0} permissionMode, ${manifest.reasoningEffort?.length ?? 0} reasoningEffort, ${manifest.providerType?.length ?? 0} providerType)`);
+    console.log(`[generate-protocol-types] Generated from Java sources (${manifest.upstream.length} upstream, ${manifest.downstream.length} downstream, ${manifest.permissionMode?.length ?? 0} permissionMode, ${manifest.reasoningEffort?.length ?? 0} reasoningEffort, ${manifest.providerType?.length ?? 0} providerType, ${manifest.payloadSchemas?.modelRegistry?.fields?.length ?? 0} modelRegistry payload fields)`);
   } else if (existsSync(manifestPath)) {
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'));
     content = generateFromManifest(manifest);
