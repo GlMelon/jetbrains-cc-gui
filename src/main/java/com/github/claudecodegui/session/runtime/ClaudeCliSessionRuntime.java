@@ -5,7 +5,6 @@ import com.github.claudecodegui.cli.CliSessionManager;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.SDKResult;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -59,7 +58,7 @@ public class ClaudeCliSessionRuntime implements SessionRuntime {
                 req.cwd(),
                 req.attachments(),
                 req.openedFiles(),
-                List.of(),
+                req.fileTagPaths(),
                 req.agentPrompt(),
                 req.permissionMode(),
                 req.model(),

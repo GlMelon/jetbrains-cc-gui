@@ -11,6 +11,7 @@ import com.intellij.openapi.diagnostic.Logger;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -36,6 +37,17 @@ public class CliSessionManager {
 
     // 每个 tab 当前进行中的 send future,用于 per-tab 串行化,避免并发竞态。
     private final ConcurrentHashMap<String, CompletableFuture<SDKResult>> inFlight = new ConcurrentHashMap<>();
+
+    /**
+     * 已销毁的 tabId 集合:拦截 {@link #disposeTab} 之后迟到的 send。
+     * <p>
+     * 竞态场景:disposeTab 清空 inFlight/sessions 与迟到 send 的 computeIfAbsent 非原子,
+     * 无防护时迟到 send 会经 {@code sessions.computeIfAbsent} 重建 CliSession 并重启 CLI 子进程。
+     * 标记后 {@link #send} 入口直接拒绝,杜绝"已关闭 tab 的迟到请求复活会话"。
+     * <p>
+     * tabId 一经销毁不复用(开新 tab 用新 tabId),故无需清理。
+     */
+    private final Set<String> disposedTabs = ConcurrentHashMap.newKeySet();
 
     /**
      * CLI 会话工厂注册表:provider → factory。装配期填充(fail-fast 校验重复),
@@ -65,6 +77,14 @@ public class CliSessionManager {
 
     public CompletableFuture<SDKResult> send(CliSendRequest request, MessageCallback callback) {
         String tabId = request.tabId();
+        // 已销毁的 tab:拒绝迟到 send,避免经 resolveSession 重建 CliSession / 重启 CLI 子进程。
+        if (disposedTabs.contains(tabId)) {
+            String error = "Session disposed, send rejected: tab=" + tabId;
+            SDKResult errorResult = SDKResult.error(error);
+            callback.onError(error);
+            callback.onComplete(errorResult);
+            return CompletableFuture.completedFuture(errorResult);
+        }
         // per-tab 串行:同一 tab 的 send 必须排队执行(前一个完成或异常后才轮到下一个),
         // 避免并发落到同一非线程安全的 ClaudeCliSession/CodexCliSession 实例
         // (activeHandle 被覆盖致孤儿进程、userInterrupted 被清零致中断失效、
@@ -122,6 +142,8 @@ public class CliSessionManager {
     }
 
     public void disposeTab(String tabId) {
+        // 标记已销毁:拦截本方法返回后迟到的 send(见 send 入口检查)。
+        disposedTabs.add(tabId);
         // 先取消该 tab 进行中的 send future:防止 dispose 后队列里残留的串行 send 再次启动 CLI 子进程,
         // 也避免 dispose() 释放的 CliSession 被正在运行的 send 继续写入(并发损坏/孤儿进程)。
         CompletableFuture<SDKResult> inflight = inFlight.remove(tabId);
