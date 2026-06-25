@@ -6,6 +6,7 @@ import type { SdkId, SdkStatus, InstallProgress, InstallResult, UninstallResult,
 import { buildVersionOptions, getRequestedVersion, resolveVersionAction } from './versioning';
 import styles from './style.module.less';
 import { bridgeHub, registerLegacyAlias } from '../../../bridge';
+import { ProviderModelIcon } from '../../shared/ProviderModelIcon';
 
 interface DependencySectionProps {
   addToast?: (message: string, type: 'info' | 'success' | 'warning' | 'error') => void;
@@ -519,7 +520,7 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
                 <div className={styles.sdkHeader}>
                   <div className={styles.sdkInfo}>
                     <div className={styles.sdkName}>
-                      <span className={`codicon ${installed ? 'codicon-check' : 'codicon-package'}`} />
+                      <ProviderModelIcon providerId={sdk.id === 'claude-sdk' ? 'claude' : 'codex'} size={18} colored />
                       <span>{t(sdk.nameKey)}</span>
                       {installed && info?.installedVersion && (
                         <span className={styles.versionBadge}>v{info.installedVersion}</span>

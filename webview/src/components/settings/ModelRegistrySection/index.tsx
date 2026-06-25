@@ -6,6 +6,7 @@ import type { ModelRegistryItem, ModelRegistryPayload } from '../../../utils/mod
 import { getModelRegistrySnapshot, parseModelRegistryPayload, requestModelRegistry } from '../../../utils/modelRegistry';
 import { DEFAULT_CONTEXT_WINDOW, ONE_MILLION_CONTEXT_WINDOW } from '../../../components/ChatInputBox/types';
 import { formatCapacity } from '../../../utils/formatNumber';
+import { ProviderModelIcon } from '../../../components/shared/ProviderModelIcon';
 import styles from './style.module.less';
 
 interface ModelRegistrySectionProps {
@@ -169,6 +170,7 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
             className={`${styles.filterButton} ${providerFilter === provider ? styles.active : ''}`}
             onClick={() => setProviderFilter(provider)}
           >
+            {provider !== 'all' && <ProviderModelIcon providerId={provider} size={12} colored />}
             {provider === 'all' ? t('common.all', 'All') : provider}
           </button>
         ))}
@@ -176,14 +178,19 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
 
       {editing && (
         <div className={styles.editor}>
-          <select
-            className={`form-input ${styles.providerSelect}`}
-            value={editing.provider}
-            onChange={(event) => setEditing({ ...editing, provider: event.target.value as 'claude' | 'codex' })}
-          >
-            <option value="claude">claude</option>
-            <option value="codex">codex</option>
-          </select>
+          <div className={styles.providerSelectWrap}>
+            <span className={styles.providerSelectIcon}>
+              <ProviderModelIcon providerId={editing.provider} size={14} colored />
+            </span>
+            <select
+              className={`form-input ${styles.providerSelect}`}
+              value={editing.provider}
+              onChange={(event) => setEditing({ ...editing, provider: event.target.value as 'claude' | 'codex' })}
+            >
+              <option value="claude">claude</option>
+              <option value="codex">codex</option>
+            </select>
+          </div>
           {editing.provider === 'claude' && (
             <select
               className="form-input"
@@ -267,8 +274,11 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
         {visibleModels.map((model) => (
           <div key={toKey(model)} className={styles.row}>
             <div className={styles.mainCell}>
-              <span className={styles.modelId}>{model.id}</span>
-              <span className={styles.provider}>{model.provider}</span>
+              <span className={styles.modelId}>{model.actualModel || model.id}</span>
+              <span className={styles.provider}>
+                <ProviderModelIcon providerId={model.provider} size={12} colored />
+                {model.provider}
+              </span>
               {model.enabled === false && <span className={styles.disabled}>{t('settings.models.disabled', 'Disabled')}</span>}
               {model.enabled !== false && <span className={styles.enabled}>{t('settings.models.enabledStatus', 'Enabled')}</span>}
               <div className={styles.modelLabel}>{model.label}</div>

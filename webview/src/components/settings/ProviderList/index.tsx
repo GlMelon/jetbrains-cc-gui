@@ -3,9 +3,10 @@ import { UPSTREAM, DOWNSTREAM } from '../../../generated/protocol';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ProviderConfig } from '../../../types/provider';
-import { SPECIAL_PROVIDER_IDS } from '../../../types/provider';
+import { SPECIAL_PROVIDER_IDS, PROVIDER_IDS } from '../../../types/provider';
 import { registerLegacyAlias } from '../../../bridge';
 import { useDragSort } from '../hooks/useDragSort';
+import { ProviderModelIcon } from '../../shared/ProviderModelIcon';
 import ImportConfirmDialog from './ImportConfirmDialog';
 import styles from './style.module.less';
 
@@ -643,6 +644,13 @@ export default function ProviderList({
                 onPointerDown={(e) => handlePointerDown(e, provider.id, e.currentTarget.closest<HTMLElement>('[data-drag-sort-id]'))}
               >
                 <span className="codicon codicon-gripper" />
+              </div>
+              <div className={styles.cardIcon}>
+                {provider.id === PROVIDER_IDS.CLAUDE || provider.id === PROVIDER_IDS.CODEX ? (
+                  <ProviderModelIcon providerId={provider.id} size={18} colored />
+                ) : (
+                  <span className="codicon codicon-server" />
+                )}
               </div>
               <div className={styles.cardInfo}>
                 <div className={styles.name}>

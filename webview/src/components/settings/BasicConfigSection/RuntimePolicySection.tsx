@@ -2,6 +2,7 @@ import { sendAction, subscribeEvent } from '../../../bridge/typed';
 import { UPSTREAM, DOWNSTREAM } from '../../../generated/protocol';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ProviderModelIcon } from '../../../components/shared/ProviderModelIcon';
 import styles from './style.module.less';
 
 type RuntimeType = 'SDK' | 'CLI';
@@ -196,6 +197,7 @@ const RuntimePolicySection = ({
               return (
                 <div key={provider} className={styles.runtimePolicyCard}>
                   <div className={styles.runtimePolicyCardTitle}>
+                    <ProviderModelIcon providerId={provider} size={18} colored />
                     {t(`settings.basic.runtimePolicy.providers.${provider}`)}
                   </div>
                   <label className={styles.toggleWrapper}>
