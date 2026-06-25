@@ -124,6 +124,66 @@ describe('ModelSelect', () => {
     expect(container.querySelectorAll('.codicon-check')).toHaveLength(1);
   });
 
+  it('自定义 Claude 模型即使 role 命中内置角色,也不被全局 role 映射覆盖 label', () => {
+    // 复现:自定义 mimo-v2.5 添加时被设 role=sonnet(与内置 claude-role-sonnet 同角色),
+    // 且有自身 actualModel。全局映射 sonnet→glm-5.2 仅应作用于内置 sonnet,
+    // 不能把 mimo 的 label 也覆盖成 glm-5.2(否则两个选项显示同名,用户无法区分/选择自定义模型)。
+    __setModelRegistryForTests({
+      items: [
+        {
+          id: 'claude-role-sonnet',
+          provider: 'claude',
+          role: 'sonnet',
+          label: 'Sonnet',
+          actualModel: 'glm-5.2',
+          contextWindow: 200_000,
+          supports1MContext: false,
+          enabled: true,
+          readOnly: true,
+        },
+        {
+          id: 'mimo-v2.5',
+          provider: 'claude',
+          role: 'sonnet',
+          label: 'mimo-v2.5',
+          actualModel: 'mimo-v2.5',
+          contextWindow: 200_000,
+          supports1MContext: false,
+          enabled: true,
+          readOnly: false,
+        },
+      ],
+    });
+    localStorage.setItem(
+      STORAGE_KEYS.CLAUDE_MODEL_MAPPING,
+      JSON.stringify({ sonnet: 'glm-5.2' }),
+    );
+
+    const models: ModelInfo[] = [
+      { id: 'claude-role-sonnet', label: 'Sonnet', description: 'Sonnet role', contextWindow: 200_000 },
+      { id: 'mimo-v2.5', label: 'mimo-v2.5', description: 'MiMo Sonnet', contextWindow: 200_000 },
+    ];
+
+    const { container } = render(
+      <ModelSelect
+        value="claude-role-sonnet"
+        onChange={vi.fn()}
+        models={models}
+        currentProvider="claude"
+      />,
+    );
+    fireEvent.click(screen.getByRole('button'));
+
+    const options = container.querySelectorAll('.selector-option');
+    // 用稳定的 description 定位 mimo 选项(getModelLabel 不覆盖 description)
+    const mimoOption = Array.from(options).find((o) => o.textContent?.includes('MiMo Sonnet'));
+    expect(mimoOption).toBeTruthy();
+
+    const labelTexts = Array.from(mimoOption!.querySelectorAll('span')).map((s) => s.textContent ?? '');
+    expect(labelTexts).toContain('mimo-v2.5');   // label 必须显示自身名
+    expect(labelTexts).not.toContain('glm-5.2'); // 不能被 role 映射覆盖成内置 sonnet 的映射名
+  });
+
   it('models 为空时不崩溃,渲染未配置占位', () => {
     render(
       <ModelSelect

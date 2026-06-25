@@ -121,13 +121,23 @@ export const ModelSelect = ({ value, onChange, models = [], currentProvider = 'c
   };
 
   const getModelLabel = (model: ModelInfo, show1MContext = false): string => {
-    const role = getRoleForModelId(model.id);
-    if (role) {
-      const mappedName = resolveMappedModelName(role, modelMapping);
-      if (mappedName) {
-        // Strip [1m] suffix from mapped name for clean display
-        const cleanName = strip1MContextSuffix(mappedName);
-        return append1MContextSuffix(cleanName, model.id, show1MContext);
+    // 仅内置 Claude role 模型(claude-role-*)套用全局 role→实际模型名映射,
+    // 显示用户在映射里配置的实际模型名。
+    // 自定义 Claude 模型(如 mimo-v2.5,虽也带 role=sonnet,但有自身 actualModel/label)
+    // 不应被 role 映射覆盖——否则会与内置 sonnet 显示成相同的映射名,用户无法区分/选择。
+    // (与 ButtonArea.applyModelMapping 的语义保持一致:自定义模型保留自身 label。)
+    const isBuiltinRoleModel = (
+      Object.values(CLAUDE_ROLE_MODEL_IDS) as readonly string[]
+    ).includes(model.id);
+    if (isBuiltinRoleModel) {
+      const role = getRoleForModelId(model.id);
+      if (role) {
+        const mappedName = resolveMappedModelName(role, modelMapping);
+        if (mappedName) {
+          // Strip [1m] suffix from mapped name for clean display
+          const cleanName = strip1MContextSuffix(mappedName);
+          return append1MContextSuffix(cleanName, model.id, show1MContext);
+        }
       }
     }
 

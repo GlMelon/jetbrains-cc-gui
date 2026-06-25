@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { ProviderModelIcon } from '../../shared/ProviderModelIcon';
 import type { AiFeatureConfig, AiFeatureProvider } from '../../../types/aiFeatureConfig';
 import { getModelsForProvider } from '../../../utils/modelRegistry';
+import { readClaudeModelMapping, resolveMappedModelName } from '../../../utils/claudeModelMapping';
+import { CLAUDE_ROLE_MODEL_IDS } from '../../ChatInputBox/types';
 import styles from './style.module.less';
 
 interface AiFeatureProviderModelPanelProps {
@@ -34,7 +36,22 @@ const AiFeatureProviderModelPanel = ({
     const configuredModel = config.models[selectedProvider];
     const registryModels = getModelsForProvider(selectedProvider);
     // A1:不再回退本地表 CLAUDE_MODELS/CODEX_MODELS;registry 空时仅用 configuredModel 兜底(见下)。
-    const options = registryModels;
+    let options = registryModels;
+    // 对 claude provider 应用 modelMapping,与对话模型下拉显示保持一致
+    if (selectedProvider === 'claude') {
+      try {
+        const mapping = readClaudeModelMapping();
+        if (Object.keys(mapping).length > 0) {
+          options = options.map((model) => {
+            const roleEntry = Object.entries(CLAUDE_ROLE_MODEL_IDS).find(([, v]) => v === model.id);
+            if (!roleEntry) return model;
+            const mappedName = resolveMappedModelName(roleEntry[0], mapping);
+            if (mappedName) return { ...model, label: mappedName };
+            return model;
+          });
+        }
+      } catch { /* mapping read failure is non-fatal */ }
+    }
     if (configuredModel && !options.some((model) => model.id === configuredModel)) {
       return [
         {
