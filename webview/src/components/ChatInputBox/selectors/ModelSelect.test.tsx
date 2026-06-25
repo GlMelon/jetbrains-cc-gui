@@ -3,6 +3,7 @@ import {beforeEach, describe, expect, it, vi} from 'vitest';
 import {ModelSelect} from './ModelSelect';
 import type {ModelInfo} from '../types';
 import {STORAGE_KEYS} from '../../../types/provider';
+import {__setModelRegistryForTests, resetModelRegistryForTests} from '../../../utils/modelRegistry';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -20,6 +21,23 @@ describe('ModelSelect', () => {
 
   beforeEach(() => {
     localStorage.clear();
+    // D5:角色解析已收口到 registry 的 role 字段(与 ButtonArea/生产同源),
+    // 内置 Claude 模型须先经后端下发入 registry 才能命中映射。测试种子 sonnet 内置项。
+    resetModelRegistryForTests();
+    __setModelRegistryForTests({
+      items: [
+        {
+          id: 'claude-role-sonnet',
+          provider: 'claude',
+          role: 'sonnet',
+          label: 'Sonnet',
+          contextWindow: 200_000,
+          supports1MContext: false,
+          enabled: true,
+          readOnly: true,
+        },
+      ],
+    });
   });
 
   it('rerender 后应读取最新的 Claude 模型映射', () => {

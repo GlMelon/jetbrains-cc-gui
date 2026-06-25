@@ -3,7 +3,7 @@ import {useTranslation} from 'react-i18next';
 import type {ButtonAreaProps, ModelInfo, PermissionMode, ReasoningEffort} from './types';
 import {CLAUDE_ROLE_MODEL_IDS, strip1MContextSuffix} from './types';
 import {ConfigSelect, ModelSelect, ModeSelect, ProviderSelect, ReasoningSelect} from './selectors';
-import {readClaudeModelMapping} from '../../utils/claudeModelMapping';
+import {readClaudeModelMapping, resolveMappedModelName} from '../../utils/claudeModelMapping';
 import {getModelsForProvider, getModelRegistrySnapshot, requestModelRegistry, subscribeModelRegistry} from '../../utils/modelRegistry';
 import {SendIcon, SparklesIcon, StopIcon} from '../Icons';
 
@@ -72,12 +72,10 @@ export const ButtonArea = memo(function ButtonArea({
       return model;
     }
 
-    const resolvedMapping = mapping[key] || mapping.main;
+    // D5:映射解析收口到 claudeModelMapping.resolveMappedModelName(与 ModelSelect 共用单一入口)
+    const resolvedMapping = resolveMappedModelName(key, mapping);
     if (resolvedMapping) {
-      const actualModel = String(resolvedMapping).trim();
-      if (actualModel.length > 0) {
-        return { ...model, label: actualModel };
-      }
+      return { ...model, label: resolvedMapping };
     }
     return model;
   }, []);

@@ -5,9 +5,10 @@ import {
   strip1MContextSuffix,
 } from '../types';
 import type { ModelInfo } from '../types';
-import { readClaudeModelMapping } from '../../../utils/claudeModelMapping';
+import { readClaudeModelMapping, resolveMappedModelName } from '../../../utils/claudeModelMapping';
 import { ProviderModelIcon } from '../../shared/ProviderModelIcon';
 import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
+import { getModelRegistrySnapshot } from '../../../utils/modelRegistry';
 
 const RELATIVE_INLINE_BLOCK_STYLE: React.CSSProperties = { position: 'relative', display: 'inline-block' };
 const CHEVRON_ICON_STYLE: React.CSSProperties = { fontSize: '10px', marginLeft: '2px' };
@@ -47,31 +48,12 @@ const MODEL_DESCRIPTION_KEYS: Record<string, string> = {
   [CLAUDE_ROLE_MODEL_IDS.haiku]: 'models.claude.roles.haiku.description',
 };
 
-/**
- * Maps model IDs to mapping keys for looking up actual model names
- * from the 'claude-model-mapping' localStorage entry.
- */
-const MODEL_ID_TO_MAPPING_KEY: Record<string, string> = {
-  [CLAUDE_ROLE_MODEL_IDS.sonnet]: 'sonnet',
-  [CLAUDE_ROLE_MODEL_IDS.opus]: 'opus',
-  [CLAUDE_ROLE_MODEL_IDS.fable]: 'fable',
-  [CLAUDE_ROLE_MODEL_IDS.haiku]: 'haiku',
-};
-
-const resolveMappedModelName = (
-  mappingKey: string | undefined,
-  modelMapping: Record<string, string | undefined>
-): string | undefined => {
-  if (!mappingKey) {
-    return modelMapping.main?.trim() || undefined;
-  }
-
-  const mapped = modelMapping[mappingKey]
-    || (mappingKey === 'opus_1m' ? modelMapping.opus : undefined)
-    || modelMapping.main;
-
-  return mapped?.trim() || undefined;
-};
+// D5:角色解析收口——用 registry 的 role 字段(后端权威下发)判定内置 Claude 模型并取角色,
+// 替代 MODEL_ID_TO_MAPPING_KEY 离线表;映射名解析复用 utils/claudeModelMapping.resolveMappedModelName
+// (与 ButtonArea.applyModelMapping 共用单一入口,顺带移除 opus_1m 死代码分支)。
+function getRoleForModelId(modelId: string): string | undefined {
+  return getModelRegistrySnapshot().items.find((it) => it.provider === 'claude' && it.id === modelId)?.role;
+}
 
 // A3(2026-06-23):getRoleModelLabel(从 id 离线推导 role 名作 label 兜底)已移除。
 // label 兜底改用后端下发的 model.label(见 getModelLabel)。
@@ -83,13 +65,12 @@ const resolveMappedModelName = (
 const resolveModelIdForIcon = (
   modelId: string,
   modelMapping: Record<string, string | undefined>,
-  mappingKeyMap: Record<string, string>
 ): string => {
-  const mappingKey = mappingKeyMap[modelId];
-  if (!mappingKey) {
+  const role = getRoleForModelId(modelId);
+  if (!role) {
     return modelId;
   }
-  const mapped = resolveMappedModelName(mappingKey, modelMapping);
+  const mapped = resolveMappedModelName(role, modelMapping);
   if (mapped) {
     return mapped;
   }
@@ -140,9 +121,9 @@ export const ModelSelect = ({ value, onChange, models = [], currentProvider = 'c
   };
 
   const getModelLabel = (model: ModelInfo, show1MContext = false): string => {
-    const mappingKey = MODEL_ID_TO_MAPPING_KEY[model.id];
-    if (mappingKey) {
-      const mappedName = resolveMappedModelName(mappingKey, modelMapping);
+    const role = getRoleForModelId(model.id);
+    if (role) {
+      const mappedName = resolveMappedModelName(role, modelMapping);
       if (mappedName) {
         // Strip [1m] suffix from mapped name for clean display
         const cleanName = strip1MContextSuffix(mappedName);
@@ -260,7 +241,7 @@ export const ModelSelect = ({ value, onChange, models = [], currentProvider = 'c
           <>
             <ProviderModelIcon
               providerId={currentProvider}
-              modelId={resolveModelIdForIcon(resolvedModel.id, modelMapping, MODEL_ID_TO_MAPPING_KEY)}
+              modelId={resolveModelIdForIcon(resolvedModel.id, modelMapping)}
               size={12}
               colored
             />
@@ -298,7 +279,7 @@ export const ModelSelect = ({ value, onChange, models = [], currentProvider = 'c
             >
               <ProviderModelIcon
                 providerId={currentProvider}
-                modelId={resolveModelIdForIcon(model.id, modelMapping, MODEL_ID_TO_MAPPING_KEY)}
+                modelId={resolveModelIdForIcon(model.id, modelMapping)}
                 size={16}
                 colored
               />
