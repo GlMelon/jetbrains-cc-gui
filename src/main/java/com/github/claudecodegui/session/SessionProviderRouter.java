@@ -13,6 +13,13 @@ import java.util.List;
 
 /**
  * Centralizes provider-specific bridge routing for session operations.
+ * <p>
+ * <b>装配 vs 路由(E7 决策·接受并标注)</b>:路由主体({@link #launchChannel} /
+ * {@link #interruptChannel} 等)经 {@link ProviderRegistry#require} Map 查表(E3),
+ * 新增 provider adapter <b>不需改主体</b>(总则五·开闭已满足),仅装配构造函数加一行 {@code new}。
+ * 装配层手工 {@code new ...Adapter} 是无 DI 环境的装配惯例;2 个 adapter 经 {@code List.of}
+ * 装进 {@link ProviderRegistry} 容器(容器本身已是注册化结构,新增 adapter 加一行即装配)。
+ * 故评估接受手工装配并标注(E7),非待修复。
  */
 public class SessionProviderRouter {
 

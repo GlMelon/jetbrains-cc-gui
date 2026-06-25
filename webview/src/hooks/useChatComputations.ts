@@ -33,6 +33,13 @@ interface UseChatComputationsParams {
   getContentBlocks: ReturnType<typeof useMessageProcessing>['getContentBlocks'];
 }
 
+/**
+ * A8 标注(架构债登记簿 §A8):本函数是「展示 fallback 候选筛选」——仅当无
+ * customSessionTitle(用户自定义/持久化标题,优先级更高)时,才从用户消息中筛选合适
+ * 文本作为会话标题兜底(见 sessionTitle useMemo 的优先级链)。过滤 [tool_result] /
+ * 非 human origin / 纯 tool_result 块属 UI 展示过滤,非业务语义判定。按 §A8 取向
+ * 保留并标注为展示过滤;标题 SSOT 以 customSessionTitle 为准。
+ */
 export function isSessionTitleUserCandidate(message: ClaudeMessage): boolean {
   if (message.type !== 'user') return false;
   if ((message.content ?? '').trim() === '[tool_result]') return false;
@@ -162,6 +169,10 @@ export function useChatComputations({
     return [];
   }, [latestTurnMessages, messages, getContentBlocks, streamingActive]);
 
+  // A9 降级标注(架构债登记簿 §A9,随 A7):本函数是「UI 可用性判定」——决定某用户消息的
+  // Rewind 按钮是否可点(其后是否存在文件修改类工具调用)。依赖 A7 的 FILE_MODIFY_TOOL_NAMES
+  // 展示分类。真实回滚动作在后端 rewind_files;此处仅为前端 UI 启用态判定,可接受前端做。
+  // 随 A7 降级:工具分类已定为展示分类,此判定消费前端分类即可,无需后端下发。
   const canRewindFromMessageIndex = useCallback(
     (userMessageIndex: number) => {
       if (userMessageIndex < 0 || userMessageIndex >= mergedMessages.length) return false;

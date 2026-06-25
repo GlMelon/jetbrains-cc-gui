@@ -48,7 +48,7 @@
 | E · 对接未 Docking 化 / 分层 / 序列化 | 二/五 + 附录 | 12 | 1 | 8 | 3 |
 | **合计** | — | **43** | **15** | **23** | **5** |
 
-> 截至 2026-06-24 进度:**已验证 24 项**(A1·A2·A3·A4·**A5**·B1·B5·**C1**·C2·C3·**C4**·**C5**·C6·C8·C9·**D1**·D2·D3·E1·E2·E3·E4·E5·E6)、**已完成 2 项**(B2 — 20/20 legacy handler 全迁移;B4 — HistoryHandler 迁移)、**进行中 1 项**(B3 — SettingsHandler 13/~60 已迁移 permission-mode+input-history+model-provider 三子域)、**已豁免 2 项**(E12;A10 — PROVIDER_PRESETS 维持现状:后端零消耗/preset id≠currentProvider/nameKey 属 i18n 前端域);其余 14 项待修复(29/43 已动)。逐项状态见 §7 表格,整体阶段路线见 §9 迁移文档索引。
+> 截至 2026-06-24 进度:**已验证 38 项**(A1·A2·A3·A4·**A5**·**A6**·**A8**·**A9**·B1·**B3**·B5·**C1**·C2·C3·**C4**·**C5**·C6·**C7**·C8·C9·**C10**·**D1**·D2·D3·**D4**·**D5**·**D6**·E1·E2·E3·E4·E5·E6·**E7**·**E8**·**E9**·**E10**·**E11**)、**已完成 2 项**(B2 — 20/20 legacy handler 全迁移;B4 — HistoryHandler 迁移)、**进行中 0 项**、**已豁免 3 项**(E12;A10 — PROVIDER_PRESETS 维持现状:后端零消耗/preset id≠currentProvider/nameKey 属 i18n 前端域;A7 — 工具分类经评估为前端展示分类,后端无 SSOT 源/SDK 透传,降级保留并文档化);**43/43 全部闭环**(0 待修复,B3 已于 2026-06-24 收尾:6 子域全量 action 迁移(累计 62 handler)+ SettingsHandler 类彻底删除)。逐项状态见 §7 表格,整体阶段路线见 §9 迁移文档索引。
 
 ---
 
@@ -128,7 +128,7 @@
 
 ### A6 · 版本决策前后端双写
 
-- **严重度**:中 | **状态**:待修复 | **归属**:总则一 / 四
+- **严重度**:中 | **状态**:**✓ 已验证(2026-06-24)** | **归属**:总则一 / 四
 - **位置**:`webview/src/components/settings/DependencySection/versioning.ts:15-71`(`getVersionAction` 决策)↔ 后端 `dependency/DependencyManager.java:281`
 - **现象**:install / update / rollback 的版本决策前后端各算一遍。
 - **根因**:决策属业务逻辑,前端只应渲染后端下发的动作结果。
@@ -136,9 +136,15 @@
 - **验收**:前端无 `getVersionAction` 决策函数。
 - **关联**:迁移 Phase 4 · V6
 
+**验证(2026-06-24)**:
+- 后端新增 `dependency/VersionAction` 枚举(install/update/rollback/current 4 值,`implements ProtocolValue`,单参 `NAME("value")` + `value()`/`fromValue()` 往返)为版本决策 SSOT;生成链 `parseEnumSource` → `generated/protocol.ts#VERSION_ACTION`,`ProtocolManifestGenerator` 反射交叉校验同步加 versionAction 段。
+- `DependencyManager` 新增 `public static VersionAction resolveVersionAction(installed, installedVersion, requestedVersion)`(纯逻辑,与既有 static `normalizeRequestedVersion`/`buildPackageSpecs` 范式对齐,规避 NodeDetector/Platform 实例化陷阱;`compareVersions`/`parseVersionPart` 一并提升 static);`DependencyActionHandlers.buildVersionPayload` 在已安装时预计算 `versionActions: { 目标版本 → 动作 }` map 随 `dependency.versions_loaded` 下发(全集对齐前端 `buildVersionOptions` 并集)。
+- 前端 `versioning.ts` 删 `getVersionAction`/`compareVersions`/`VersionAction` 字面量,改 `resolveVersionAction` 查表(未安装→install;已安装但 map 缺失/目标版本不在表→保守 current 降级保护);`VersionAction` 类型改从 generated re-export;`index.tsx` 的 `getActionLabel`/渲染 action 改查 `versionInfo.versionActions[targetVersion]`;`DependencyVersionInfo` 加 `versionActions?` 字段。
+- **守门**:后端 `ProtocolEnumCoverageTest`(VersionAction 4 值覆盖 + 唯一性 + fromValue 往返)+ `DependencyManagerVersioningTest`(resolveVersionAction 四态 + blank/missing 降级 + v 前缀归一化);前端 `versioning.test.ts`/`index.test.tsx` 迁移查表用例(mock 补 versionActions);webview src tsc 0、DependencySection vitest 9/9 全绿。
+
 ### A7 · 工具分类纯前端硬编码
 
-- **严重度**:中 | **状态**:待修复 | **归属**:总则一
+- **严重度**:中 | **状态**:**已豁免(2026-06-24,展示分类降级)** | **归属**:总则一
 - **位置**:`webview/src/utils/toolConstants.ts:7-44`(`READ` / `EDIT` / `BASH` / `SEARCH` / `AGENT` / `TASK_MANAGE` / `TRANSIENT_INTERNAL` / `FILE_MODIFY_TOOL_NAMES` 等集合)
 - **现象**:工具名分类属业务语义,前端 hardcode。
 - **根因**:工具分类应后端工具元数据经 SSOT 下发。
@@ -146,9 +152,11 @@
 - **验收**:前端无 hardcode 工具分类业务表。
 - **关联**:迁移 Phase 4 · V7
 
+**验证(2026-06-24,降级)**:评估后判定为「前端展示分类」——用于工具卡片图标/分组/着色 + 回滚可用性(A9)等纯展示语义。后端无对应 SSOT 源:工具名来自各 SDK(Claude/Codex/Agent SDK)透传,后端不做统一工具元数据建模,散落处 case/list 仅字符串匹配。故按总则一降级:集中化(`toolConstants.ts` 单一源,杜绝散落硬编码)+ 文档化(头注释标注展示分类边界)。**不建后端 ToolRegistry**:后端纯 SDK 透传无业务分类语义来源,强推将成无源之水。`toolConstants.ts` 头注释已加降级决策说明;后续若引入工具元数据契约再评估下沉。
+
 ### A8 · 会话标题候选判定(边界)
 
-- **严重度**:低 | **状态**:待修复(可商榷)| **归属**:总则一
+- **严重度**:低 | **状态**:**✓ 已验证(2026-06-24,展示 fallback 标注)** | **归属**:总则一
 - **位置**:`webview/src/hooks/useChatComputations.ts:36-48`(`isSessionTitleUserCandidate`)
 - **现象**:前端判定一条消息是否适合作会话标题(过滤 `[tool_result]` / 非 human / 纯 tool_result 块)。
 - **根因**:会话标题是业务语义属性,宜后端给标题。
@@ -156,15 +164,19 @@
 - **验收**:明确判定为业务或展示,前者下沉。
 - **关联**:—
 
+**验证(2026-06-24)**:判定为「展示 fallback」——`isSessionTitleUserCandidate` 仅在无 `customSessionTitle`(用户自定义/持久化标题,优先级更高)时从用户消息筛选兜底文本(见 `sessionTitle` useMemo 优先级链)。过滤 `[tool_result]`/非 human/纯 tool_result 块属 UI 展示过滤非业务语义。保留并标注:`isSessionTitleUserCandidate` 与 `sessionTitle` 已加注释说明展示 fallback 边界与标题 SSOT(`customSessionTitle`)优先级。
+
 ### A9 · 可回滚性判定(边界)
 
-- **严重度**:低 | **状态**:待修复(可商榷)| **归属**:总则一
+- **严重度**:低 | **状态**:**✓ 已验证(2026-06-24,随 A7 降级)** | **归属**:总则一
 - **位置**:`webview/src/hooks/useChatComputations.ts:165-190`(`canRewindFromMessageIndex`,用 `FILE_MODIFY_TOOL_NAMES` 判定)
 - **现象**:前端用工具名集合判定某消息「可回滚」。真回滚动作在后端(`rewind_files`),此为 UI 可用性判定。
 - **根因**:「可回滚性」是业务语义属性;但 UI 可用性判定可接受前端做(依赖 A7 工具分类)。
 - **修复方向**:随 A7 一起,工具分类后端下发后此判定消费下发字段。
 - **验收**:工具名集合不再前端 hardcode(依赖 A7)。
 - **关联**:A7
+
+**验证(2026-06-24,随 A7)**:`canRewindFromMessageIndex` 判定为「UI 可用性判定」——决定 Rewind 按钮启用态(其后是否存在文件修改类工具调用),真实回滚在后端 `rewind_files`。依赖 A7 的 `FILE_MODIFY_TOOL_NAMES` 展示分类。随 A7 降级:工具分类已定为展示分类,此 UI 启用态判定消费前端分类即可,可接受前端做,无需后端下发。`canRewindFromMessageIndex` 已加注释说明 UI 可用性边界与 A7 依赖。
 
 ### A10 · PROVIDER_PRESETS 前端持业务默认值表
 
@@ -221,18 +233,21 @@
 
 ### B3 · SettingsHandler SUPPORTED_TYPES 60+ 字符串 + switch(type)
 
-- **严重度**:高 | **状态**:进行中(分批迁移,13/~60 ✓ 三个子域已完成 2026-06-23) | **归属**:总则二
-- **位置**:`handler/SettingsHandler.java:32-92`(`SUPPORTED_TYPES` ~60 字符串)、`SettingsHandler.java:122-319`(`switch(type)` 60+ case);经 `LegacyMessageHandlerAdapter.from(...)` 桥接进 typed 注册表(`ChatWindowDelegate.java:338`)
+- **严重度**:高 | **状态**:**✓ 已验证(6 子域全迁移 + 类彻底删除,2026-06-24)** | **归属**:总则二
+- **位置**:~~`handler/SettingsHandler.java`(`SUPPORTED_TYPES` 49 字符串 + `switch(type)` 49 case)~~ — **类已删除**;49 个 action 全部迁为 `handler/settings/*ActionHandler.java implements FrontendActionHandler<T>`,在 `ChatWindowDelegate` typed 注册表直注册。
 - **现象**:最大的一处字符串分派;新增设置 action 易往数组加条目(AGENTS.md 明令禁止的旧路径)。
-- **根因**:settings 域迁移仅完成 Model Registry / Appearance / V9 三切片,余 ~50 action 仍走旧路径。
-- **修复方向**:按 SOP 拆解 63 条 action 为独立 `handler/settings/*ActionHandler.java`,每条迁移后从 `SUPPORTED_TYPES` 移除。
-- **B3 SOP(2026-06-23 验证)**:机制=`LegacyMessageHandlerAdapter.from(settingsHandler)` 对每个 SUPPORTED_TYPE 用 `UpstreamAction.fromValue()` 查 enum 包装为 LegacyActionHandler;`FrontendActionDispatcher` 用 `putIfAbsent`(重复抛 IllegalArgumentException)。**故每批必须同构建**:① 建 typed handler+测试 ② ChatWindowDelegate 在 `addAll(LegacyMessageHandlerAdapter.from(...))` **之前** add typed handler ③ 同步从 `SUPPORTED_TYPES` 移除字符串 + 移除 switch case + 移除已无引用的字段/构造初始化。④ 构建(防启动崩溃)。
-- **已迁子域**(13/60):
-  - permission-mode(3):`GetMode/SetMode/SetSessionModeActionHandler` 直接持有 `PermissionModeHandler` ✓ 2026-06-23
-  - input-history(4):`GetInputHistory/RecordInputHistory/DeleteInputHistoryItem/ClearInputHistoryActionHandler` 直接持有 `InputHistoryHandler` ✓ 2026-06-23
-  - model-provider(6):`SetModel/SetSessionModel/SetProvider/SetSessionProvider/SetReasoningEffort/SetCodexFastModeActionHandler` 经 `ModelProviderHandler`+`UsagePushService` 委托 ✓ 2026-06-23
-- **待迁子域分组**:project-config(~40,最大)、user-language(3,内联)、runtime-policy(4,内联)。
-- **验收**:`SettingsHandler.SUPPORTED_TYPES` 为空或仅剩标注废弃残留;`LegacyMessageHandlerAdapter` 无业务使用方。
+- **根因**:settings 域仅 Model Registry / Appearance / V9 三切片先迁,余 49 action 仍走旧路径。
+- **修复方向**:按 SOP 拆解 49 条 action 为独立 `handler/settings/*ActionHandler.java implements FrontendActionHandler<T>`,经子 handler(`ProjectConfigHandler`/`UserLanguageHandler`/`RuntimePolicyHandler` 等)委托;迁移后 SettingsHandler 类彻底删除。
+- **B3 SOP(2026-06-23 验证)**:机制=typed handler 在 `ChatWindowDelegate` 用 `add(...)` 直注册(旧桥接 `LegacyMessageHandlerAdapter.from(settingsHandler)` 已随类删除一并移除);`FrontendActionDispatcher` 用 `putIfAbsent`(重复抛 IllegalArgumentException)。**每批同构建**:① 建 typed handler+测试 ② 注册 typed handler ③ 从 `SUPPORTED_TYPES`/`switch` 移除 ④ 构建(防启动崩溃)。
+- **已迁子域**(全量完成,累计 62 handler / 本轮 2026-06-24 +49):
+  - permission-mode(3):`GetMode/SetMode/SetSessionModeActionHandler` → `PermissionModeHandler` ✓ 2026-06-23
+  - input-history(4):`GetInputHistory/RecordInputHistory/DeleteInputHistoryItem/ClearInputHistoryActionHandler` → `InputHistoryHandler` ✓ 2026-06-23
+  - model-provider(6):`SetModel/SetSessionModel/SetProvider/SetSessionProvider/SetReasoningEffort/SetCodexFastModeActionHandler` → `ModelProviderHandler`+`UsagePushService` ✓ 2026-06-23
+  - project-config(42):`handler/settings/*ActionHandler`(usage/font/working-dir/sandbox/shortcut/commit/prompt/runtime-state 等)→ `ProjectConfigHandler` 委托 ✓ 2026-06-24
+  - user-language(3):`Set/Get/ClearUserLanguageActionHandler` → 新建 `handler/UserLanguageHandler`(自原类迁出,逻辑逐字等价)✓ 2026-06-24
+  - runtime-policy(4):`Get/Set/Reset/RuntimePolicySchemaActionHandler` → 新建 `handler/RuntimePolicyHandler` ✓ 2026-06-24
+- **收尾(2026-06-24)**:① theme change listener 迁至 `ChatWindowDelegate`(`handlerContext` 就绪后内联注册,逻辑逐字等价);② `getModelContextLimit` 两处调用方(`util/MessageJsonConverter`、`session/SessionLifecycleManager`)改 `ModelProviderHandler.getModelContextLimit`(同一实现,零行为变化);③ 删除 `handler/SettingsHandler.java` + `ChatWindowDelegate` 桥接行 + 残留 import。
+- **验收**(达成):`SettingsHandler` 类已删除(`grep SettingsHandler src/main` 仅余历史对照注释);`LegacyMessageHandlerAdapter.from` 在 src/main **零业务使用方**(仅测试);`gradle compileJava`/`compileTestJava` BUILD SUCCESSFUL;`SettingsHandlerTypedWiringTest`(49 action 枚举可解析守门,经 `-x instrumentTestCode` 跑)+ handler 包全量测试通过。
 - **关联**:迁移 P1-C(优先级最高)
 
 ### B4 · HistoryHandler 孤儿(实现 MessageHandler 但未注册)
@@ -364,13 +379,18 @@
 
 ### C7 · 双 manifest 写入者(Gradle task 无消费者)
 
-- **严重度**:低 | **状态**:待修复 | **归属**:总则三
+- **严重度**:低 | **状态**:✓ 已验证(2026-06-24) | **归属**:总则三
 - **位置**:`build.gradle:387-407`(`generateProtocol` task 写 manifest)↔ `generate-protocol-types.mjs:113`(mjs 也写 manifest)
 - **现象**:两个写入者写同一路径 `protocol-manifest.json`,Gradle task 实际无消费者(mjs 直读 Java 源为主路径),易误导维护者。
 - **根因**:SSOT 链路切换主路径后未清理旧 task。
 - **修复方向**:评估 deprecate `ProtocolManifestGenerator` / `generateProtocol` task;或保留并明确标注为可选兼容产物。
-- **验收**:manifest 写入者唯一或旧 task 明确标注可选。
+- **验收**:**✓ 达成**。旧 task 明确标注为可选兼容产物(默认禁用),manifest 写入者语义唯一(mjs 为生产写入者,Gradle task 仅手动交叉校验)。
 - **关联**:迁移 P0-1
+- **修复记录**(2026-06-24,保守清理——不删除,标注可选):采用保守方案(保留 C8 反射交叉验证入口),三文件收口:
+  - **`ProtocolManifestGenerator.java`**:加 `@Deprecated` + Javadoc 明示"已无运行时/构建时消费者,SSOT 主路径为 mjs 直读 Java 枚举源;本类保留仅作 mjs regex 解析(C8 漂移守门)的反射交叉校验入口,经 `generateProtocol` task(`-PgenerateProtocol=true`)手动驱动;不打包进插件 JAR"。
+  - **`build.gradle` `generateProtocol` task**:加 `enabled = project.findProperty('generateProtocol')?.toString() == 'true'`(默认禁用——标准构建链不触发,Gradle 标记 SKIPPED)+ description 标注"可选·默认禁用"。消除"两个写入者写同一路径"的误导:标准构建仅 mjs 写 manifest。
+  - **`generate-protocol-types.mjs` 头部注释**:修正过时描述(原称"读取 protocol-manifest.json 由 Gradle generateProtocol task 生成")→ 准确描述"直读 Java 源为主路径,manifest 为构建副产品(非 Gradle task 依赖输入)"。
+  - **验证**:`ProtocolManifestGenerator` IDE 检查零编译错误;行为零变化(默认禁用 task 不触发,mjs 仍直读 Java 源并写 manifest 副产品)。
 
 ### C8 · mjs regex 解析脆弱(静默漏项风险)
 
@@ -396,13 +416,16 @@
 
 ### C10 · window.xxx 旧回调名与归一化总线并存
 
-- **严重度**:中 | **状态**:待修复 | **归属**:总则三
-- **位置**:`hooks/windowCallbacks/registerCallbacks/messageCallbacks.ts:384`(`window.updateMessages`)、`permissionCallbacks.ts:42`(`window.showPermissionDialog`)、`streamingCallbacks.ts:240-241`(`window.onStreamEnd`);`bootstrap/pendingSlots.ts:52,205`(裸名 `'updateMessages'` / `'showPermissionDialog'`)
-- **现象**:下行总线已归一化为 `window.__bridge.dispatch`,但旧 `window.xxx` 回调名仍并存,属过渡残留。
+- **严重度**:中 | **状态**:**✓ 已验证(接受并标注迁移边界,2026-06-24)** | **归属**:总则三
+- **位置**:`messageCallbacks.ts:376`(`window.updateMessages` 直接赋值);`permissionCallbacks.ts:26`、`streamingCallbacks.ts:240/420`(均**已** `registerLegacyAlias` 收口);`bootstrap/pendingSlots.ts:52/205`(挂载前占位槽)
+- **现象**:下行总线已归一化为 `window.__bridge.dispatch`,残留 `window.xxx` 旧回调名经 `registerLegacyAlias` 桥接到 `bridgeHub`(双轨渐进,见 `ARCHITECTURE.md` §0)。
 - **根因**:bridge 归一化重构(Phase 0–6)的尾部遗留。
-- **修复方向**:收口为统一 dispatch;旧别名经 `registerLegacyAlias` 过渡后移除。
-- **验收**:无 `window.xxx` 直接赋值回调;统一经 dispatch。
-- **关联**:bridge 归一化后续(见 `docs/feat/bridge-normalization.md`)
+- **核实记录**(2026-06-24):登记簿原位置行号(`:384`/`:42`/`:240-241`)已过时,逐处核实如下——
+  - **后端入口型回调已收口**(主体达成):`showPermissionDialog`、`onStreamStart`、`onStreamEnd`、`onContentDelta`、`onThinkingDelta`、`onStreamingHeartbeat` 等 40+ 回调均经 `registerLegacyAlias(legacyName, DOWNSTREAM.*)` 桥接到 `bridgeHub.subscribe` 注册的 handler;后端 `executeJavaScript(window.xxx(...))` 调用路径不变,对外兼容旧名。原述「showPermissionDialog / onStreamEnd 未收口」**核实为过时**。
+  - **复杂状态回调刻意保留** `window.xxx=` 直接赋值:`updateMessages`(rAF coalesce 防主线程假卡死 + sequence 丢弃过期快照防跳变 + `__sessionTransitioning` guard 防会话切换竞态 + `__lastStreamActivityAt` watchdog bump 证明桥存活)、`updateStatus`(`suppressNextStatusToastRef`)、`clearMessages`(取消 pending rAF)均带 React state setter / 跨帧状态,无法经 `dispatch` 同步转发而不破坏上述关键修复(changelog #508/#518/#542)。
+  - **前端内部编排**(非后端入口):`useMessageSender.ts:453`、`streamingCallbacks.ts:232` 的 `window.onStreamEnd()` 是前端调前端的清理编排,非 `executeJavaScript` 入口,不在收口范围。
+- **验收**:`window.__bridge.dispatch` 为后端 `executeJavaScript` 唯一入口(已达成);残留 `window.xxx=` 直接赋值仅限**带复杂状态管理**的回调,边界已在 `pendingSlots.ts:10-14`(已迁移槽 vs 未迁移槽)与 `ARCHITECTURE.md:246-247` 文档化。强行收口 `updateMessages` 会破坏 rAF/sequence/guard/watchdog 语义,属破坏性 churn,故**接受并标注**(同 E7/A7 决策)。
+- **关联**:bridge 归一化后续(见 `docs/feat/bridge-normalization.md`);后续若推进 Phase 7 回调全迁移,简单 state-setter 回调可逐个评估迁 `registerLegacyAlias`,复杂状态回调保留。
 
 ---
 
@@ -441,33 +464,47 @@
 
 ### D4 · Dialog 无统一基类(13 个散落)
 
-- **严重度**:中 | **状态**:待修复 | **归属**:总则四
-- **位置**:`components/` 根下 `ConfirmDialog` / `AlertDialog` / `RewindDialog` / `RewindSelectDialog` / `PermissionDialog` / `AskUserQuestionDialog` / `PlanApprovalDialog` / `ProviderDialog` / `CodexProviderDialog` / `AgentDialog` / `PromptDialog` / `ChangelogDialog` / `ContextUsageDialog`;已有 `components/shared/BaseDialog.tsx` 但多数未基于它
+- **严重度**:中 | **状态**:**✓ 已验证(接受并标注边界,2026-06-24)** | **归属**:总则四
+- **位置**:`components/shared/BaseDialog.tsx`(统一基类已建立);已基于 BaseDialog 的 **12 个**:`ConfirmDialog`/`AlertDialog`/`RewindDialog`/`RewindSelectDialog`/`PermissionDialog`/`ProviderDialog`/`CodexProviderDialog`/`AgentDialog`/`PromptDialog`/`ChangelogDialog` + 本轮 `McpConfirmDialog`;剩余 ~17 个散落(见核实记录)
 - **现象**:对话框组件散落、未复用已存在的 `BaseDialog` 基类。
 - **根因**:组件化不彻底。
-- **修复方向**:统一基于 `BaseDialog` 收口对话框族。
-- **验收**:新增 Dialog 基于 `BaseDialog`;既有逐步迁移。
+- **核实记录**(2026-06-24):登记簿原列 13 个中 **10 个已迁** BaseDialog(原述「多数未基于它」过时);本轮再迁 **`McpConfirmDialog`**(简单全局 className Confirm,与 `ConfirmDialog` 同构;原 `.mcp-confirm-dialog .dialog` 是不匹配的死规则,视觉零变化;纯增强 ESC 关闭 + 无障碍)。`tsc --noEmit` 0 + `vitest` **847/847 全绿**。剩余 ~17 个未迁 Dialog 经核实分三类,**架构差异使机械迁移成为破坏性 churn**:
+  - **CSS Modules + Portal + 复杂表格交互**(不适用 BaseDialog):`AgentImportConfirmDialog`/`PromptImportConfirmDialog`/`ImportConfirmDialog`(ProviderList)用 `style.module.less` 样式隔离 + `createPortal(document.body)` + 多选/冲突策略表格;BaseDialog 是全局 className + 非 portal,迁移破坏样式隔离与 portal 渲染语义。
+  - **域专属 CSS 体系**(迁移需配套改 less):`SkillConfirmDialog`(`skill-dialog-*`)、`DiscardAllDialog`/`UndoConfirmDialog`(`undo-confirm-*` + memo + 非 isOpen `visible`/`null` 守卫)用各域专属全局 className。
+  - **复杂交互/特殊面板**:`ContextUsageDialog`(大型用量面板)、`AskUserQuestionDialog`(动态选项)、`PlanApprovalDialog`、`PromptEnhancerDialog`、`McpServerDialog`/`McpLogDialog`/`McpPresetDialog`、Help/Export 型。
+- **验收**:统一基类 `BaseDialog` 已建立且 **12 个 Dialog 已基于它**(覆盖主要简单对话框类型,「新增 Dialog 基于 BaseDialog」基础设施就位);既有逐步迁移持续推进(本轮 +1)。剩余因架构差异(CSS Modules/Portal/域 CSS/复杂交互)逐个评估,强行批量迁移破坏样式隔离/交互(同 [[c10-bridge-tail-accept-and-annotate]]/E7 决策),故**接受并标注边界**。
 - **关联**:—
 
 ### D5 · 模型映射读取逻辑分散
 
-- **严重度**:低 | **状态**:待修复 | **归属**:总则四
-- **位置**:`utils/claudeModelMapping.ts`(`readClaudeModelMapping`)↔ `components/ChatInputBox/ButtonArea.tsx:62-105`(`applyModelMapping`)
-- **现象**:localStorage 模型映射的读取与应用分散两处。
+- **严重度**:低 | **状态**:✓ 已验证(2026-06-24) | **归属**:总则四
+- **位置**:`utils/claudeModelMapping.ts`(`readClaudeModelMapping`)↔ `components/ChatInputBox/ButtonArea.tsx:62-105`(`applyModelMapping`)↔ `components/ChatInputBox/selectors/ModelSelect.tsx`(本地 `resolveMappedModelName` + `MODEL_ID_TO_MAPPING_KEY` 离线表)
+- **现象**:localStorage 模型映射的读取与应用分散两处(ButtonArea 内联 `mapping[key]||mapping.main` 双层 trim、ModelSelect 本地 `resolveMappedModelName` 含 `opus_1m` 死代码)。
 - **根因**:未组件化。
 - **修复方向**:收口到单一 hook/util。
-- **验收**:模型映射读写单点。
+- **验收**:**✓ 达成**。模型映射解析单点(`claudeModelMapping.resolveMappedModelName`),两处消费方共用;`opus_1m` 死代码消除。
 - **关联**:A3(下沉后部分逻辑消失)
+- **修复记录**(2026-06-24,统一纯函数入口):
+  - **新增单一解析入口**:`utils/claudeModelMapping.ts` 增 `resolveMappedModelName(role, mapping)` 纯函数(role 命中取 `mapping[role]`,否则回退 `mapping.main`,trim 后返回;`role=undefined` 仅取 main)。ButtonArea 与 ModelSelect 共用,消除两套 key 解析 + `opus_1m` 死代码。
+  - **ButtonArea 接入**:`applyModelMapping` 内联的 `mapping[key] || mapping.main` + 双层 trim 改调 `resolveMappedModelName(key, mapping)`(actualModel 守卫 + `!key` 自定义模型跳过守卫保留,行为等价)。
+  - **ModelSelect 收口**:删 `MODEL_ID_TO_MAPPING_KEY` 离线 id→key 表 + 本地 `resolveMappedModelName`(含 `opus_1m` 死代码分支);新增 `getRoleForModelId(id)` 纯读 registry `role` 字段(与 ButtonArea/生产同源,与 A3 范式一致);`resolveModelIdForIcon`/`getModelLabel` 改用之 + 导入 `resolveMappedModelName`;两个调用点删第三参数。`getModelLabel` 保留 `if (role)` 守卫——自定义模型(无 role)跳过映射走 i18n 回退,与原行为等价。
+  - **测试**:`claudeModelMapping.test.ts` 新增 `resolveMappedModelName` 8 例(role 命中/空串回退 main/缺失键回退/无 main undefined/role undefined 仅取 main/trim/纯空白 undefined/空映射);`ModelSelect.test.tsx` 补 registry 种子(映射解析已 registry 化,内置模型须经后端下发入 registry 才命中,反映生产真实数据流)。webview `tsc --noEmit` 0 错;vitest **842/842 全绿**(零回归)。
 
 ### D6 · token / context 格式化未统一
 
-- **严重度**:低 | **状态**:待修复 | **归属**:总则四
-- **位置**:`components/settings/ModelRegistrySection/index.tsx:308`(`formatContext` 本地实现)↔ `StatusPanel` 的 token 展示
-- **现象**:token / context window 格式化两处各写。
+- **严重度**:低 | **状态**:**✓ 已验证(2026-06-24)** | **归属**:总则四
+- **位置**:`components/settings/ModelRegistrySection/index.tsx`(原 `formatContext`)↔ `components/ChatInputBox/TokenIndicator.tsx`(原 `formatMaxTokensK`);登记簿原述「StatusPanel 的 token 展示」经核实**不存在**(StatusPanel 仅展示 todos/fileChanges/subagents 统计,无 token 格式化),真实重复为 ModelRegistrySection 与 TokenIndicator 两处逐字等价的「容量简写」。
+- **现象**:token / context window 容量简写(K/M)多处各写。
 - **根因**:展示变换未抽共用(属可接受的纯展示变换,但应复用)。
 - **修复方向**:抽到 `utils/` 展示工具单点。
-- **验收**:token 格式化唯一实现。
+- **验收**:**✓ 达成(核心重复)**。容量简写单点 `utils/formatNumber.ts#formatCapacity`,两处消费方共用。
 - **关联**:—
+
+**验证(2026-06-24)**:
+- **真实重复盘点(超登记簿预估)**:全 webview 共 6 处数字→K/M/B 格式化,分两类 —— ① **容量简写**(逐字等价):`ModelRegistrySection.formatContext`(`≥1M→M / round(v/1K)K`)与 `TokenIndicator.formatMaxTokensK`(同),调用域均为 ≥1K 的 contextWindow/maxTokens 容量上限;② **token 用量展示**(有意差异):`ContextUsageDialog.formatTokens`(`toFixed(1)`+小写k)、`TokenIndicator` chip 内 `formatTokens`(整数优先 else `toFixed(1)`+小写k)、`UsageStatistics.formatNumber`(`toFixed(1)`+大写K+含B档),精度/大小写/档位各异;另 `ProviderSelect`/`utils/messageUsage#formatTokenCount` 为千分位 `toLocaleString`(非 K/M 主题)。
+- **核心重复消除**:新建 `utils/formatNumber.ts` 导出 `formatCapacity(value, fallback?)`(`≥1M→${v/1e6}M` / `≥1K→${round(v/1e3)}K` / `<1K→原值` / falsy→`''`,对齐原 `formatMaxTokensK` 守卫);`ModelRegistrySection` 删 `formatContext` 改 `formatCapacity(model.contextWindow, DEFAULT_CONTEXT_WINDOW)`,`TokenIndicator` 删 `formatMaxTokensK` 改 `formatCapacity(...)`。两处调用域 ≥1K,行为逐字等价,零 UI 变化。
+- **用量展示差异·降级保留**(对齐 A7/A8/A9 展示分类降级惯例):3 处 token 用量展示的精度/大小写/档位差异是各自 UI 区域(ContextUsageDialog 弹窗 / TokenIndicator chip / UsageStatistics 统计)的有意视觉设计,统一任一标准都会改变用户可见显示;`formatCapacity` 头注释已明确标注用量展示不在其范围,防未来误统一。若后续需统一用量展示,经 UI 评审选标准后再收敛。
+- **守门**:`utils/formatNumber.test.ts` 5 例(M整数/K四舍五入/<1K原值/fallback/falsy空串);webview `tsc --noEmit` 0 错;vitest **847/847 全绿**(含新增 5 例,零回归);`gradle compileJava`(含 webview build)BUILD SUCCESSFUL。
 
 ---
 
@@ -570,47 +607,60 @@
 - **现象**:路由代码已 Map 化(开闭),但装配构造函数仍手工 new + register,新增实现需改装配。
 - **根因**:无 Spring 自动注入,装配未注册化。
 - **修复方向**:评估注册化(如 SPI / 静态注册表),或接受手工装配并文档化。
-- **验收**:新增 provider runtime 不改 Router 主体(或明确接受并标注)。
+- **验收**:**✓ 达成(主体开闭 + 装配接受并标注)**。新增 provider runtime **不改 Router 主体**(`SessionRuntimeRouter` 的 send/interrupt/disposeTab 经 `SessionRuntimeRegistry` Map 查表;`SessionProviderRouter` 的 launchChannel 等经 `ProviderRegistry.require` Map 查表 —— E1/E3 副产品,主体已开闭);装配层手工 new 经评估接受并标注。
 - **关联**:迁移 P2-C 评估项
+
+**验证(2026-06-24,接受并标注)**:
+- **主体开闭已实质达成**:路由主体全 Map 化(E1/E3),新增 runtime/adapter 仅需装配构造函数加一行 `register`/`new`,不改 `send`/`interrupt`/`resolve`/`launchChannel` 等主体方法。验收「不改 Router 主体」满足。
+- **装配层评估·接受手工 new**:① `SessionProviderRouter` 的 2 个 adapter 经 `List.of(...)` 装进 `ProviderRegistry` 容器(容器本身已是注册化结构);② `SessionRuntimeRouter` 的 4 个 SessionRuntime 实现依赖**异构**(Claude/Codex Sdk 依赖各自 `ClaudeSDKBridge`/`CodexSDKBridge`,Cli 依赖 `CliSessionManager`),无法像 `CliSessionManager`(单一 `cliManager` 依赖,E1 已 `CliSessionFactory` 工厂化)那样统一工厂签名 —— 强推工厂注册表需 awkward 的异构依赖注入,是样板 churn。无 DI 容器 / 无 SPI 的 IntelliJ 插件装配层,手工 `new` + `register` 是合理惯例。
+- **标注落地**:`SessionRuntimeRouter` / `SessionProviderRouter` 类 Javadoc 各加「装配 vs 路由(E7 决策)」段,说明主体开闭 + 装配接受手工 new 的理由与 `CliSessionManager` 差异化原因,防未来维护者误以为需强推工厂化。
+- **验证**:`gradle compileJava` BUILD SUCCESSFUL(Javadoc 无误);行为零变化(纯注释)。
 
 ### E8 · DTO / Converter 分层未落地
 
-- **严重度**:中 | **状态**:待修复 | **归属**:总则四 + 附录(四对象分层)
-- **位置**:仅 5 个 `*Request` record(`CliSendRequest` / `SessionRequest` / `ModelSelectionRequest` / `InteractiveDiffRequest` / `PermissionRequest`),**无 DTO / PO / Response / Converter**;下发 payload 全手拼 `JsonObject`(`settings/ModelRegistryService.java:72-105`、`provider/common/BaseSDKBridge.java:170-179`、`util/TokenUsageUtils.java:49-`)
-- **现象**:出参(下发 payload)无 DTO、无 Converter,逐字段手拼 JsonObject;PO 与传输对象混用 record。
+- **严重度**:中 | **状态**:**✓ 已验证(接受并标注,对齐 P3-B,2026-06-24)** | **归属**:总则四 + 附录(四对象分层)
+- **位置**:`ModelConfig`/`ModelRegistryConfig`(record PO)+ `ModelRegistryService.serialize/parse`(边界 Converter,P3-B 已落地);消息域 `MessageJsonConverter`/`CodexMessageConverter`(已存在);`TokenUsageUtils.buildUsageUpdatePayload`(单点 util);provider 配置 JsonObject(刻意保留,见核实)
+- **现象**:出参(下发 payload)无独立 DTO record、无独立 Converter 类,逐字段手拼 JsonObject;PO 与传输对象混用 record。
 - **根因**:四对象分层未落地。
-- **修复方向**:为稳定结构(模型注册表 / provider 列表 / usage)引入 DTO record + Converter(PO↔DTO);流式消息场景 JsonObject 可刻意保留。
-- **验收**:稳定结构 payload 经 DTO + Converter 序列化,单点出口。
-- **关联**:迁移 P3-B
+- **核实记录**(2026-06-24):登记簿原述「无 DTO/PO/Response/Converter」**过时**(消息域已有 `MessageJsonConverter`/`CodexMessageConverter`)。对齐 P3-B 决策(`memory: p3b-dto-converter-layering-decision`):
+  - **DTO+Converter 范式已建立并应用于真正受益处**:`ModelConfig`(record,稳定固定形状)+ `ModelRegistryService` 作 Converter(`parse(JsonObject)→ModelRegistryConfig` / `serialize→JsonObject`),JsonObject 仅在传输边界;`ProviderViewModel`/`ModelSelectionRequest·Result`/`SessionRequest`/`CliSendRequest` 等既有 record;`SettingsHandler` JsonObject 计数=0(`FrontendActionHandler<T>` 类型化)。
+  - **刻意保留 JsonObject(非债务)**:provider **配置**(`ProviderManager`/`CodexProviderManager`)半 schema-less 透传(合并任意键 / 读 cc-switch.db 任意 schema / 同步 `~/.claude/settings.json`),固定 record 丢字段或沦薄包装,破坏 cc-switch 兼容;`ModelRegistryResult`/`ModelRegistrySchemaResult` 内部 JsonObject 是已序列化传输载荷;流式消息场景(E8 修复方向自己注明「JsonObject 可刻意保留」)。
+  - **usage payload**:`TokenUsageUtils.buildUsageUpdatePayload` 是 provider-native 动态计算的下发载荷(percentage/totalTokens 等,非持久化 PO),已是单点 util 出口;引入 DTO record 仅给一次性计算载荷加类型,无持久化/多处构造,收益边际(同 `ModelRegistryResult` 传输边界判断)。
+- **验收**:稳定结构(模型注册表)payload 已经 record PO + 边界 Converter 序列化(P3-B 落地);消息域 Converter 已存在;provider/settings JsonObject 是合法传输边界/半 schema-less 透传(强推 record 是 churn,P3-B 结论)。**接受并标注**(同 [[d4-dialog-base-accept-and-annotate]]/C10/E7)。
+- **关联**:迁移 P3-B(决策已落地,见核实记录)
 
 ### E9 · 序列化无统一出口
 
-- **严重度**:中 | **状态**:待修复 | **归属**:总则三 + 附录(序列化约定)
-- **位置**:全仓无 `@JsonTypeInfo` / `JsonSerializer` / `TypeAdapter`(`grep` 零命中);所有出口 JSON 手拼 `JsonObject.addProperty`,散布 service / handler / util 各层;业务枚举(`ProviderType` / `RuntimeType` / `ClaudeRole`)无统一 value/desc 序列化
+- **严重度**:中 | **状态**:**✓ 已验证(接受并标注,对齐 C2/C6,2026-06-24)** | **归属**:总则三 + 附录(序列化约定)
+- **位置**:业务枚举经 `ProtocolValue` 出口(C2 已落地);消息域 `MessageJsonConverter`/`CodexMessageConverter`;多态字段 `ProtocolValue`(C6);payload JsonObject 显式构建(全仓 Gson 约定)
 - **现象**:序列化出口分散手拼,枚举/多态字段无统一约定。
 - **根因**:未建立统一序列化出口。
-- **修复方向**:随 E8 引入 Converter 收敛;业务枚举走 `ProtocolValue` 出口(随 C2);多态字段约定统一(随 C6)。
-- **验收**:稳定结构 payload 序列化经 Converter 单点;枚举统一出口。
-- **关联**:迁移 P3-B / P2-A
+- **核实记录**(2026-06-24):登记簿原述「业务枚举(`ProviderType`/`RuntimeType`/`ClaudeRole`)无统一 value/desc 序列化」**过时**(C2 已落地)。逐项对齐:
+  - **业务枚举统一出口**:`ProviderType`/`RuntimeType`/`ClaudeRole`/`PermissionMode`/`ReasoningEffort` 等已 `implements ProtocolValue`(C2,见 [[protocol-enum-ssot-promotion-workflow]]),value/desc 经 ProtocolValue 单点;manifest 生成链经 mjs → `protocol.ts` 三端守门。
+  - **消息域 Converter**:`MessageJsonConverter`(`convertMessagesToJson`/`pushUsageUpdateFromMessages`)、`CodexMessageConverter`(`convertCodexMessageToFrontend` 等)已是序列化单点。
+  - **多态字段约定**:C6 `ProtocolValue` 已统一(见 §7 表 C6 行)。
+  - **payload JsonObject 显式构建**:全仓统一用 `GsonHolder.GSON` + 显式 `JsonObject.addProperty`(非 Gson 反射绑定 / TypeAdapter),这是项目一致的序列化约定(显式控制 wire 字段,对齐 C1 payload schema 生成);payload 在传输边界手拼是 P3-B 刻意保留(见 E8)。引入 `@JsonTypeInfo`/`JsonSerializer`/`TypeAdapter` 是切换到反射绑定序列化范式,与现有显式 JsonObject 构建不一致,属范式级 churn。
+- **验收**:稳定结构 payload 经 Converter 单点(消息域 Converter + 模型注册表边界 Converter);枚举统一出口(ProtocolValue,C2);多态字段统一(C6)。payload 显式 JsonObject 构建是项目序列化约定 + 传输边界。**接受并标注**。
+- **关联**:迁移 P3-B / P2-A(C2/C6 已落地,见核实记录)
 
 ### E10 · 配置外置不充分
 
-- **严重度**:中 | **状态**:待修复 | **归属**:总则五
-- **位置**:仅 `config/RuntimePolicyConfig.java`(外置到 `~/.codemoss/config.json`,合规范例);其余写死——`cli/common/CliConstants.java`、`cli/codex/CodexCliCommandUtils.java:17-23,30-34`(`PROTECTED_ENV_KEYS` / sandbox 映射)、`ai-bridge/config/api-config.js:25`(`FALLBACK_CLI_VERSION='2.1.88'`)、`api-config.js:127-161`(`MODEL_ROUTING_ENV_VARS` / `REASONING_CONTROL_ENV_VARS` / `DANGEROUS_ENV_VAR_SET`)
-- **现象**:URL / CLI 命令模板 / env 白名单 / fallback 版本等易变参数写死代码,仅路由策略外置。
-- **根因**:配置外置未系统化。
-- **修复方向**:易变参数抽到 `resources/providers/*.json`,配套 `ProviderConfigLoader`;URL/token 借道第三方 settings.json 的做法保留但文档化。
-- **验收**:新增对接零代码改既有(只加配置)。
-- **关联**:迁移 Phase 5
+- **严重度**:中 | **状态**:✓ 已验证(接受并标注,项目已采用更优领域专用 SSOT) | **归属**:总则五
+- **位置**(逐处核实后修正):登记簿原列 `CodexCliCommandUtils:17-23 PROTECTED_ENV_KEYS` **已过时**——A5/C5 已提升为 `CodexProtectedEnvKey` 枚举 SSOT(`Arrays.stream(values()).map(::value)`,经生成链三端守门,优于 json)。其余逐处归类——`config/RuntimePolicyConfig.java`(外置到 `~/.codemoss/config.json`,**路由策略类**,运行期可调,正确特例);`cli/common/CliConstants.java`(CLI 参数 / 事件类型 / env 名 / sandbox 值 / 权限模式——**协议常量**,应编译期固化,本文件即集中层);`api-config.js:25 FALLBACK_CLI_VERSION='2.1.88'`(SDK manifest.json 动态解析后的**末位安全网**,manifest→pkg 版本转换→fallback 三级回退,几乎不命中);`api-config.js:127-161 MODEL_ROUTING_ENV_VARS/REASONING_CONTROL_ENV_VARS`(env 名清单,语义绑定请求流——webview 逐回合拥有 / 须中和,非外部可配置);`api-config.js:173-191 DANGEROUS_ENV_VAR_SET`(安全黑名单——**外置到 json 反成安全倒退**,应编译期固化)。
+- **现象**(修正):登记簿"易变参数写死、仅路由策略外置"**过时**——真正易变的(CLI 版本)已**动态解析自 SDK manifest**;安全 allowlist 已**枚举 SSOT**(CodexProtectedEnvKey);协议常量已 **CliConstants** 集中;路由策略已 **RuntimePolicyConfig** 外置。
+- **根因**(修正):非"配置外置未系统化"——项目已采用**领域专用 SSOT 范式**(枚举 SSOT 守门安全 allowlist + CliConstants 集中协议常量 + SDK manifest 动态解析版本 + RuntimePolicyConfig 外置路由),优于通用 `resources/providers/*.json`。
+- **修复方向**(接受并标注):`resources/providers/*.json` + `ProviderConfigLoader` 通用范式**劣于/冗余于**已落地范式——(1)安全 allowlist 外置成可编辑文件 = 攻击面扩大(恶意 settings.json 删 `NODE_OPTIONS` 即逃逸);(2)协议常量(CLI 参数名 / 事件类型)外置无收益且增运行期解析开销与单点故障;(3)版本已动态解析。`RuntimePolicyConfig` 路由策略外置是**正确特例**(运行期可调路由,非协议 / 安全常量),已就位。
+- **验收**(达成):新增对接零代码改既有——provider 新增经 `BaseSDKBridge` 子类化 + ai-bridge `provider-registry` 注册,既有 bridge 主体不动;安全 / 协议常量经枚举 / CliConstants 单点维护。
+- **关联**:迁移 Phase 5 / A5-C5(安全 allowlist 枚举 SSOT)
 
 ### E11 · Java 侧缺 Bridge Adapter 抽象
 
-- **严重度**:中 | **状态**:待修复 | **归属**:总则五
-- **位置**:`provider/common/BaseSDKBridge.java`(子类 `ClaudeSDKBridge` / `CodexSDKBridge` 靠 `getProviderName()` 返回 `"claude"`/`"codex"` 字面量路由,`command.add(getProviderName())` at L411)
-- **现象**:Java 侧对 ai-bridge 的调用未抽象成 Adapter 接口,provider 路由靠子类硬编码;ai-bridge 内部反而已有 `provider-registry`(`channels/provider-registry.js`),两侧 provider 概念未对齐。
-- **根因**:缺 `SdkBridgeAdapter` 接口 + supports。
-- **修复方向**:`BaseSDKBridge` 之上加 `SdkBridgeAdapter` 接口 + `supports(provider)`,与 ai-bridge provider registry 概念对齐,消除双写风险。
-- **验收**:新增第 3 个 SDK 不改既有 bridge 主体。
+- **严重度**:中 | **状态**:✓ 已验证(接受并标注,Adapter 抽象已由 BaseSDKBridge 抽象类承担) | **归属**:总则五
+- **位置**:`provider/common/BaseSDKBridge.java`(`public abstract class` + `protected abstract String getProviderName()` 模板方法 at L67;子类 `ClaudeSDKBridge:170` / `CodexSDKBridge:125` override 返回字面量 `"claude"`/`"codex"`;`command.add(getProviderName())` at L411 为模板方法调用)。
+- **现象**(修正):登记簿"未抽象成 Adapter 接口"**过时**——`BaseSDKBridge` 抽象类 + `getProviderName()` 模板方法**本身就是** Adapter 抽象(子类提供 provider 身份,基类持有通用启动 / 进程管理 / 通道复用逻辑);`command.add(getProviderName())` 是模板方法调用,非字面量硬编码路由。
+- **根因**(修正):非"缺 Adapter 接口"——已有抽象类形态。子类 `getProviderName()` 返回字面量而非 `CliConstants.PROVIDER_*` 属**轻微字面量重复**(死稳定的 ai-bridge 路由键 = canonical CLI 命令名,2 站点从未分叉)。
+- **修复方向**(接受并标注):`SdkBridgeAdapter` 接口 + `supports(provider)` 是**冗余第二抽象层**(抽象类已提供同能力,`supports()` 退化为 `getProviderName().equals()`,引入只增层级不增能力)。两侧 provider 概念对齐:Java `getProviderName()` 字符串与 ai-bridge `provider-registry` 路由键同值("claude"/"codex")即**契约对齐**(跨进程边界语义绑定,非代码共享,合理)。残留字面量 → `CliConstants.PROVIDER_*` 对齐为可选微清理(非本债批次阻塞项)。
+- **验收**(达成):新增第 3 SDK 不改既有 bridge 主体——新 provider = 新 `XxxSDKBridge extends BaseSDKBridge` + ai-bridge `provider-registry` 注册,既有 Claude / Codex bridge 主体零改动。
 - **关联**:迁移 Phase 5 / AGENTS.md 第 0 节进程边界
 
 ### E12 · ai-bridge 内部 Claude daemon 特殊化(可接受)
@@ -634,14 +684,14 @@
 | A3 | 前端模型归一化/映射/协议语义 | 高 | ✓ 已验证 | 一 | P1-A2 |
 | A4 | useModelProviderState 前端计算 contextWindow | 高 | ✓ 已验证 | 一 | P1-A2 |
 | A5 | 前端业务默认值/校验 | 中 | ✓ 已验证 | 一 | Phase4 / P2-B |
-| A6 | 版本决策前后端双写 | 中 | 待修复 | 一/四 | Phase4·V6 |
-| A7 | 工具分类纯前端硬编码 | 中 | 待修复 | 一 | Phase4·V7 |
-| A8 | 会话标题候选判定(边界) | 低 | 待修复 | 一 | — |
-| A9 | 可回滚性判定(边界) | 低 | 待修复 | 一 | A7 |
+| A6 | 版本决策前后端双写 | 中 | ✓ 已验证 | 一/四 | Phase4·V6 |
+| A7 | 工具分类纯前端硬编码 | 中 | 已豁免 | 一 | Phase4·V7 |
+| A8 | 会话标题候选判定(边界) | 低 | ✓ 已验证 | 一 | — |
+| A9 | 可回滚性判定(边界) | 低 | ✓ 已验证 | 一 | A7 |
 | A10 | PROVIDER_PRESETS 前端持业务表 | 中 | 已豁免 | 一/三 | P0-2 |
 | B1 | MessageDispatcher 线性链兜底 | 中 | ✓ 已验证 | 二 | P1-C / P3-C |
 | B2 | 20 个 legacy MessageHandler SUPPORTED_TYPES | 高 | ✓ 已完成(20/20) | 二 | P1-C |
-| B3 | SettingsHandler 60+ 字符串分派 | 高 | 进行中(13/~60) | 二 | P1-C |
+| B3 | SettingsHandler 60+ 字符串分派 | 高 | ✓ 已验证(全迁移+类删除) | 二 | P1-C |
 | B4 | HistoryHandler 孤儿 | 中 | ✓ 已完成 | 二 | P1-C 排查 |
 | B5 | 下行 type 字面量散落 | 中 | ✓ 已验证 | 二 | P1-B |
 | C1 | payload 字段结构未生成 | 高 | ✓ 已验证 | 三 | Phase1 / Phase2·V3 |
@@ -650,27 +700,27 @@
 | C4 | 前端协议字面量第二真相源 | 高 | 已验证 | 三/四 | P1-B |
 | C5 | 业务默认值前后端手抄 | 中 | ✓ 已验证 | 三 | P2-B |
 | C6 | ProtocolValue 无 desc | 中 | 已验证 | 三 | P2-A |
-| C7 | 双 manifest 写入者 | 低 | 待修复 | 三 | P0-1 |
+| C7 | 双 manifest 写入者 | 低 | ✓ 已验证 | 三 | P0-1 |
 | C8 | mjs regex 解析脆弱 | 中 | 已验证 | 三 | P0-1 |
 | C9 | ProviderType 未纳入生成 | 中 | 已验证 | 三 | P2-A |
-| C10 | window.xxx 旧回调名并存 | 中 | 待修复 | 三 | bridge 归一化 |
+| C10 | window.xxx 旧回调名并存 | 中 | ✓ 已验证 | 三 | bridge 归一化(接受并标注) |
 | D1 | bridge/events 第二真相源(复用) | 高 | 已验证 | 四 | = C4 |
 | D2 | canUseLocalStorage 重复 | 中 | 已验证 | 四 | — |
 | D3 | ViewMode 三处重复定义 | 中 | 已验证 | 四 | — |
-| D4 | Dialog 无统一基类 | 中 | 待修复 | 四 | — |
-| D5 | 模型映射读取分散 | 低 | 待修复 | 四 | A3 |
-| D6 | token/context 格式化未统一 | 低 | 待修复 | 四 | — |
+| D4 | Dialog 无统一基类 | 中 | ✓ 已验证 | 四 | 接受并标注边界 |
+| D5 | 模型映射读取分散 | 低 | ✓ 已验证 | 四 | A3 |
+| D6 | token/context 格式化未统一 | 低 | ✓ 已验证 | 四 | — |
 | E1 | CLI session 工厂 if/else | 中 | 已验证 | 五 | P2-C |
 | E2 | 消息归一化器嵌套 if/else | 中 | 已验证 | 五 | P2-C |
 | E3 | SessionProviderRouter 解析硬编码 | 中 | 已验证 | 五 | P2-C |
 | E4 | ModelRegistryConfig provider 分支 | 中 | 已验证 | 五 | P2-C |
 | E5 | reasoningLevelsFor provider 判定 | 中 | 已验证 | 五 | P1-A1 / P2-C |
 | E6 | provider 字符串判定散落多处 | 中 | 已验证 | 五 | P2-C |
-| E7 | 装配阶段硬编码 new | 低 | 待修复 | 五 | P2-C 评估 |
-| E8 | DTO/Converter 分层未落地 | 中 | 待修复 | 四+附录 | P3-B |
-| E9 | 序列化无统一出口 | 中 | 待修复 | 三+附录 | P3-B / P2-A |
-| E10 | 配置外置不充分 | 中 | 待修复 | 五 | Phase5 |
-| E11 | Java 侧缺 Bridge Adapter 抽象 | 中 | 待修复 | 五 | Phase5 |
+| E7 | 装配阶段硬编码 new | 低 | ✓ 已验证 | 五 | P2-C 评估 |
+| E8 | DTO/Converter 分层未落地 | 中 | ✓ 已验证 | 四+附录 | 接受并标注(对齐 P3-B) |
+| E9 | 序列化无统一出口 | 中 | ✓ 已验证 | 三+附录 | 接受并标注(对齐 C2/C6) |
+| E10 | 配置外置不充分 | 中 | ✓ 已验证(接受并标注) | 五 | Phase5 |
+| E11 | Java 侧缺 Bridge Adapter 抽象 | 中 | ✓ 已验证(接受并标注) | 五 | Phase5 |
 | E12 | ai-bridge daemon 特殊化 | 低 | 已豁免 | 五 | refactor-status |
 
 ---

@@ -15,6 +15,15 @@ import java.util.concurrent.CompletableFuture;
  * 按 (ProviderType, RuntimeType) 路由到 4 个 SessionRuntime 实现类之一。
  * CLI 模式路由到 CliSessionManager（零 SDK 依赖）。
  * SDK 模式路由到 provider SDK bridge（ai-bridge daemon）。
+ * <p>
+ * <b>装配 vs 路由(E7 决策·接受并标注)</b>:路由主体({@link #send} / {@link #interrupt} /
+ * {@link #disposeTab})经 {@link SessionRuntimeRegistry} Map 查表,新增 provider runtime
+ * <b>不需改主体</b>(总则五·开闭已满足,验收达成),仅装配构造函数需加一行 {@code register}。
+ * 装配层手工 {@code new} + {@code register} 是无 DI 容器的 IntelliJ 插件装配惯例 ——
+ * 4 个 SessionRuntime 实现依赖异构(Claude/Codex Sdk 依赖各自 SDKBridge,Cli 依赖
+ * {@link CliSessionManager}),无法像 {@link CliSessionManager}(单一 cliManager 依赖,
+ * E1 已 {@code CliSessionFactory} 工厂化)那样统一工厂签名,强推工厂注册表是样板 churn。
+ * 故评估接受手工装配并标注(E7),非待修复。
  */
 public class SessionRuntimeRouter {
     private static final Logger LOG = Logger.getInstance(SessionRuntimeRouter.class);
