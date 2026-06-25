@@ -211,6 +211,25 @@ describe('useMessageSender - /context command', () => {
         );
     });
 
+    it('forwards invocation mode for codex normal messages, matching the attachments branch', () => {
+        // 修复 A:codex 无附件消息此前仅 codex 分支送 invocationMode=undefined(只有 claude 透传),
+        // 导致 codex「带附件」走调用模式值、「不带附件」走路由策略 default,两者不一致时在 cli/sdk 间跳变。
+        // 现统一透传 getClaudeInvocationMode(),与带附件分支(line 283)对齐。
+        window.__CLAUDE_INVOCATION_MODE__ = 'cli';
+        const opts = createOptions({currentProvider: 'codex'});
+
+        const {result} = renderHook(() => useMessageSender(opts));
+
+        act(() => {
+            result.current.handleSubmit('hello');
+        });
+
+        const calls = (window.sendToJava as any).mock.calls.map(([payload]: [string]) => parseBridgeCall(payload));
+        const sendMessageCall = calls.find((payload: { type: string }) => payload.type === 'send_message');
+        const payload = JSON.parse(sendMessageCall!.content);
+        expect(payload.invocationMode).toBe('cli');
+    });
+
     it('does not include permissionMode in normal send payload', () => {
         const opts = createOptions({
             currentProvider: 'codex',

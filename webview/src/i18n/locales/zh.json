@@ -209,7 +209,7 @@
       },
       "runtimePolicy": {
         "label": "运行时路由策略",
-        "hint": "配置各 provider 使用 SDK 或 CLI 的默认路由。保存后立即生效。",
+        "hint": "限制各 provider 允许使用的运行时(全局)。默认运行时会自动跟随上方「调用模式」,无需手动选择;仅当需要禁止某 provider 使用某种运行时时,在此收窄。保存后立即生效。",
         "loaded": "路由策略已加载",
         "saveSuccess": "路由策略已保存",
         "resetSuccess": "已恢复默认路由策略",
@@ -223,7 +223,12 @@
         "providers": {
           "claude": "Claude",
           "codex": "Codex"
-        }
+        },
+        "advancedLabel": "高级 · 限制可用运行时",
+        "allAllowed": "全部允许",
+        "restricted": "已限制 {{count}} 项",
+        "defaultRemovedHint": "默认运行时已自动跟随上方「调用模式」,无需手动选择;仅当需要禁止某 provider 使用某种运行时时才在此收窄。",
+        "degradePreview": "当前调用模式为 {{mode}},不在 {{provider}} 允许范围内,新请求将自动回退到 {{fallback}}。"
       },
       "invocationMode": {
         "label": "调用模式",
@@ -232,7 +237,8 @@
         "cli": "CLI 模式",
         "cliDesc": "直接调用本地 CLI，可复用本机环境与登录态，但能力和输出受 CLI 本身限制。",
         "cliPathPlaceholder": "可选：指定 Claude CLI 可执行文件路径，留空则自动检测",
-        "hint": "切换后新请求将按所选模式发起。CLI 模式下部分能力可能与 SDK 模式存在差异。"
+        "hint": "切换后新请求将按所选模式发起。CLI 模式下部分能力可能与 SDK 模式存在差异。",
+        "policyHint": "会话级运行时偏好;若所选不在下方「运行时路由策略」的允许范围内,将自动降级到该 provider 默认运行时并提示。"
       },
       "fontSize": {
         "label": "字体大小",

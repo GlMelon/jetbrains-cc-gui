@@ -37,6 +37,21 @@ public class ModelProviderHandlerTest {
     }
 
     @Test
+    public void hasModelChangedDetectsActualChange() {
+        assertTrue(ModelProviderHandler.hasModelChanged("claude-role-sonnet", "claude-role-opus"));
+    }
+
+    @Test
+    public void hasModelChangedIsFalseForSameModel() {
+        assertFalse(ModelProviderHandler.hasModelChanged("claude-role-sonnet", "claude-role-sonnet"));
+    }
+
+    @Test
+    public void hasModelChangedIsTrueWhenNoPreviousModel() {
+        assertTrue(ModelProviderHandler.hasModelChanged(null, "claude-role-sonnet"));
+    }
+
+    @Test
     public void shouldPreferMainModelOverrideForAllClaudeModelFamilies() {
         JsonObject env = new JsonObject();
         env.addProperty("ANTHROPIC_MODEL", "glm-4.7");

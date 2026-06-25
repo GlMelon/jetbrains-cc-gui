@@ -257,7 +257,9 @@ export function useSettingsBasicActions({
   );
 
   // Invocation mode configuration
-  const [invocationMode, setInvocationMode] = useState<'sdk' | 'cli'>('cli');
+  // 默认值对齐后端 CodemossSettingsService.getClaudeInvocationMode() 的默认 'sdk',
+  // 避免 settings 回显下发前 UI 短暂显示 cli 与后端不一致。
+  const [invocationMode, setInvocationMode] = useState<'sdk' | 'cli'>('sdk');
   const [cliPath, setCliPath] = useState<string>('');
 
   // Diff expanded by default handler

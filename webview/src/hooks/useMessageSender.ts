@@ -298,7 +298,9 @@ export function useMessageSender({
         text,
         agent: agentInfo,
         fileTags: fileTagsInfo,
-        invocationMode: currentProvider === 'claude' ? getClaudeInvocationMode() : undefined,
+        // 修复 A:codex 无附件消息此前送 undefined(仅 claude 透传),导致 codex「带附件」走调用模式值、
+        // 「不带附件」走路由策略 default,两者不一致时在 cli/sdk 间跳变。统一透传,与带附件分支对齐。
+        invocationMode: getClaudeInvocationMode(),
       });
       sendAction(UPSTREAM.SEND_MESSAGE, payload);
     }

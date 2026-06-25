@@ -21,7 +21,19 @@ public final class EffectiveRuntimeResolver {
     /**
      * 解析结果。
      */
-    public record Runtime(ProviderType provider, RuntimeType runtimeType) {}
+    public record Runtime(ProviderType provider, RuntimeType runtimeType, boolean degraded) {}
+
+    /**
+     * 降级时的用户面向提示文案(表现层)。runtime 未降级或为 null 时返回 null,
+     * 调用方(SessionSendService.warnIfRuntimeDegraded)据此决定是否经 notifyStatusMessage 推送 toast。
+     */
+    public static String degradedNotice(Runtime runtime) {
+        if (runtime == null || !runtime.degraded()) {
+            return null;
+        }
+        return "请求的调用模式不在路由策略允许范围内,已回退到 "
+                + runtime.runtimeType() + " 模式(见 设置-行为-路由策略)";
+    }
 
     /**
      * 解析 effective runtime。
@@ -50,19 +62,22 @@ public final class EffectiveRuntimeResolver {
             if (requestedMode != null) {
                 RuntimeType requestedRuntime = RuntimeType.fromInvocationMode(requestedMode);
                 if (providerPolicy.supported().contains(requestedRuntime)) {
-                    return new Runtime(ProviderType.CODEX, requestedRuntime);
+                    return new Runtime(ProviderType.CODEX, requestedRuntime, false);
                 }
+                // 冲突点 B:用户请求的 runtime 不在 supported 内 → 静默降级到 default。
+                // 标记 degraded=true 供调用方(SessionSendService)经 notifyStatusMessage 提示用户,
+                // 打破此前「调用模式 vs 路由策略」冲突时的零反馈。
+                return new Runtime(ProviderType.CODEX, providerPolicy.defaultRuntime(), true);
             }
-            return new Runtime(ProviderType.CODEX, providerPolicy.defaultRuntime());
+            return new Runtime(ProviderType.CODEX, providerPolicy.defaultRuntime(), false);
         }
 
         // Claude: 三级优先级，复用 SessionSendService 的解析逻辑
         String effectiveMode = SessionSendService.resolveEffectiveClaudeInvocationMode(requestedMode, sessionMode);
         RuntimeType requestedRuntime = RuntimeType.fromInvocationMode(effectiveMode);
-        RuntimeType rt = providerPolicy.supported().contains(requestedRuntime)
-                ? requestedRuntime
-                : providerPolicy.defaultRuntime();
-        return new Runtime(ProviderType.CLAUDE, rt);
+        boolean claudeDegraded = !providerPolicy.supported().contains(requestedRuntime);
+        RuntimeType rt = claudeDegraded ? providerPolicy.defaultRuntime() : requestedRuntime;
+        return new Runtime(ProviderType.CLAUDE, rt, claudeDegraded);
     }
 
     /**

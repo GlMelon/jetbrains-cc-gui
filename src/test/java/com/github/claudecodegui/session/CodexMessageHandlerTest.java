@@ -683,6 +683,50 @@ public class CodexMessageHandlerTest {
     }
 
     @Test
+    public void onMessageIgnoresStaleEpochCallbacksAfterRuntimeSwitch() {
+        // 场景:运行时切换后,旧 Codex 进程仍在回调,新请求已用新 epoch 接管。
+        SessionState state = new SessionState();
+        CallbackHandler callbackHandler = new CallbackHandler();
+        RecordingCallback callback = new RecordingCallback();
+        callbackHandler.setCallback(callback);
+
+        // handler 绑定 epoch-1,随后旋转 epoch 模拟新请求接管(epoch-2)
+        state.setRuntimeSessionEpoch("epoch-1");
+        CodexMessageHandler handler = new CodexMessageHandler(state, callbackHandler, "epoch-1");
+        state.rotateRuntimeSessionEpoch();
+
+        int messagesBefore = state.getMessages().size();
+        handler.onMessage("stream_start", "");
+        handler.onMessage("content_delta", "stale content from old runtime");
+
+        // 过期回调必须被丢弃:消息不增加,流未启动
+        assertEquals("stale-epoch onMessage must not add messages", messagesBefore, state.getMessages().size());
+        assertEquals("stale-epoch onMessage must not start stream", 0, callback.streamStartCount);
+    }
+
+    @Test
+    public void staleEpochGuardsOnErrorAndOnComplete() {
+        // 守卫覆盖所有回调通道:onError/onComplete 在 epoch 过期时同样不得清理 state 或触发流结束。
+        SessionState state = new SessionState();
+        state.setBusy(true);
+        state.setLoading(true);
+        CallbackHandler callbackHandler = new CallbackHandler();
+        RecordingCallback callback = new RecordingCallback();
+        callbackHandler.setCallback(callback);
+
+        state.setRuntimeSessionEpoch("epoch-1");
+        CodexMessageHandler handler = new CodexMessageHandler(state, callbackHandler, "epoch-1");
+        state.rotateRuntimeSessionEpoch();
+
+        handler.onError("stale error");
+        handler.onComplete(new SDKResult());
+
+        assertTrue("stale onError must not clear busy", state.isBusy());
+        assertTrue("stale onComplete must not clear loading", state.isLoading());
+        assertEquals("stale callbacks must not fire streamEnd", 0, callback.streamEndCount);
+    }
+
+    @Test
     public void userMessageWithImagePreservesImageBlockInRawContent() {
         SessionState state = new SessionState();
         CallbackHandler callbackHandler = new CallbackHandler();

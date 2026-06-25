@@ -326,6 +326,99 @@
   margin-top: 8px;
 }
 
+/* 高级折叠头:运行时路由策略收起/展开(复刻 DependencySection VersionSelect 的 chevron 旋转范式) */
+.advancedToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  margin-bottom: 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--text-secondary);
+
+  > .codicon {
+    font-size: 16px;
+    color: var(--accent-primary);
+  }
+
+  .statusBadge {
+    margin-left: auto;
+  }
+}
+
+.advancedChevron {
+  font-size: 14px;
+  color: var(--text-tertiary);
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.advancedToggle.open .advancedChevron {
+  transform: rotate(90deg);
+  color: var(--accent-primary);
+}
+
+.statusBadge {
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 10px;
+  background: var(--bg-tertiary);
+  color: var(--text-tertiary);
+  border: 1px solid var(--border-secondary);
+  white-space: nowrap;
+
+  &.restricted {
+    color: var(--color-error, #f85149);
+    border-color: rgba(248, 81, 73, 0.35);
+    background: rgba(248, 81, 73, 0.08);
+  }
+}
+
+.defaultRemovedHint {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-tertiary);
+  background: var(--bg-tertiary);
+  border: 1px dashed var(--border-secondary);
+  border-radius: 6px;
+
+  .codicon {
+    font-size: 12px;
+    margin-top: 2px;
+    flex-shrink: 0;
+  }
+}
+
+.degradeNotice {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-error, #f85149);
+  background: rgba(248, 81, 73, 0.08);
+  border: 1px solid rgba(248, 81, 73, 0.3);
+  border-radius: 6px;
+
+  .codicon {
+    font-size: 12px;
+    margin-top: 2px;
+    flex-shrink: 0;
+    color: var(--color-error, #f85149);
+  }
+}
+
 .diffThemePreview {
   width: 40px;
   height: 28px;

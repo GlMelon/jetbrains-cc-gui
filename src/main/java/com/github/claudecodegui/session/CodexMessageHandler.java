@@ -32,6 +32,10 @@ public class CodexMessageHandler implements MessageCallback {
      */
     private final CallbackHandler callbackHandler;
     /**
+     * expected runtime session epoch.
+     */
+    private final String expectedRuntimeSessionEpoch;
+    /**
      * message merger.
      */
     private final MessageMerger messageMerger = new MessageMerger();
@@ -66,14 +70,42 @@ public class CodexMessageHandler implements MessageCallback {
     private boolean isThinking = false;
 
     /**
-     * Constructor.
+     * 便捷构造器(不参与 epoch 守卫);测试与遗留路径用。
      *
      * @param state state
      * @param callbackHandler callback handler
      */
     public CodexMessageHandler(SessionState state, CallbackHandler callbackHandler) {
+        this(state, callbackHandler, null);
+    }
+
+    /**
+     * 主构造器。
+     *
+     * @param state state
+     * @param callbackHandler callback handler
+     * @param expectedRuntimeSessionEpoch 构造时绑定的运行时会话 epoch;运行时切换后,
+     *                                     旧进程的回调会因 epoch 不匹配被丢弃(防串台)。
+     *                                     null/空 表示不参与守卫。
+     */
+    public CodexMessageHandler(SessionState state, CallbackHandler callbackHandler, String expectedRuntimeSessionEpoch) {
         this.state = state;
         this.callbackHandler = callbackHandler;
+        this.expectedRuntimeSessionEpoch = expectedRuntimeSessionEpoch;
+    }
+
+    /**
+     * 判断当前回调是否来自已被替换的运行时会话(epoch 不匹配)。
+     * 与 {@link ClaudeMessageHandler} 保持一致的过期回调丢弃机制。
+     *
+     * @return true 表示该回调属于旧运行时,应被忽略
+     */
+    private boolean isStaleRuntimeEpoch() {
+        if (expectedRuntimeSessionEpoch == null || expectedRuntimeSessionEpoch.isEmpty()) {
+            return false;
+        }
+        String currentEpoch = state.getRuntimeSessionEpoch();
+        return currentEpoch != null && !expectedRuntimeSessionEpoch.equals(currentEpoch);
     }
 
     /**
@@ -84,6 +116,10 @@ public class CodexMessageHandler implements MessageCallback {
      */
     @Override
     public void onMessage(String type, String content) {
+        if (isStaleRuntimeEpoch()) {
+            LOG.debug("Ignoring stale Codex onMessage (runtime session switched): type=" + type);
+            return;
+        }
         // [FIX] Handle multiple message types
         // Codex message-service.js sends:
         // - type='assistant': contains thinking, tool_use, text
@@ -152,6 +188,10 @@ public class CodexMessageHandler implements MessageCallback {
      */
     @Override
     public void onError(String error) {
+        if (isStaleRuntimeEpoch()) {
+            LOG.debug("Ignoring stale Codex onError (runtime session switched)");
+            return;
+        }
         boolean wasStreaming = isStreaming;
         isStreaming = false;
         streamEndedThisTurn = false;
@@ -198,6 +238,10 @@ public class CodexMessageHandler implements MessageCallback {
      */
     @Override
     public void onComplete(SDKResult result) {
+        if (isStaleRuntimeEpoch()) {
+            LOG.debug("Ignoring stale Codex onComplete (runtime session switched)");
+            return;
+        }
         if (result != null && result.interrupted) {
             handleInterruptedCompletion(result);
             return;
@@ -260,6 +304,10 @@ public class CodexMessageHandler implements MessageCallback {
 
     @Override
     public void onQueueDisplayStateChanged(ClaudeSession.SessionCallback.QueueDisplayState queueState, int aheadCount) {
+        if (isStaleRuntimeEpoch()) {
+            LOG.debug("Ignoring stale Codex onQueueDisplayStateChanged (runtime session switched)");
+            return;
+        }
         state.setQueueDisplayState(queueState);
         state.setQueueAheadCount(aheadCount);
         callbackHandler.notifyQueueDisplayStateChanged(state.getQueueDisplayState(), state.getQueueAheadCount());

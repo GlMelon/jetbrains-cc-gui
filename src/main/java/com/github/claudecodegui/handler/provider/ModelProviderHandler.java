@@ -117,6 +117,10 @@ public class ModelProviderHandler {
         LOG.info("[ModelProviderHandler] Setting model to: " + model
                 + (contextWindowOverride != null ? " (contextWindow=" + contextWindowOverride + ")" : ""));
 
+        // 检测模型是否真变化:仅在实际切换时旋转运行时会话 epoch,避免重复设置同 model 触发不必要的回调丢弃
+        String previousModel = context.getCurrentModel();
+        boolean modelChanged = hasModelChanged(previousModel, model);
+
         // 模型选择同时更新全局默认(粘性):无论 set_model 还是 set_session_model,
         // 都让用户最近选择的模型成为新建会话的默认。model 与 provider 成对更新
         // (见 handleSetSessionProvider),以保证新建会话的 provider/model 一致。
@@ -136,6 +140,11 @@ public class ModelProviderHandler {
 
         if (context.getSession() != null) {
             context.getSession().setModel(storedModel);
+            if (modelChanged) {
+                // 模型切换 = 运行时意图变化:旋转 epoch 让旧模型的 in-flight 回调
+                // 被 ClaudeMessageHandler/CodexMessageHandler 守卫丢弃,避免串台到新模型会话。
+                context.getSession().getState().rotateRuntimeSessionEpoch();
+            }
             LOG.info("[ModelProviderHandler] Updated session model to: " + storedModel);
         }
 
@@ -166,6 +175,17 @@ public class ModelProviderHandler {
             );
             usagePushService.pushUsageUpdateAfterModelChange(newMaxTokens);
         });
+    }
+
+    /**
+     * 判断模型是否真变化(供 applyModelChange 决定是否旋转运行时会话 epoch)。
+     * previousModel 为 null 表示首次设置,视为变化。
+     */
+    static boolean hasModelChanged(String previousModel, String newModel) {
+        if (previousModel == null) {
+            return true;
+        }
+        return !previousModel.equals(newModel);
     }
 
     /**

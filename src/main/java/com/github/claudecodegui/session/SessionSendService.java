@@ -231,7 +231,9 @@ public class SessionSendService {
             String effectivePermissionMode,
             String requestedInvocationMode
     ) {
-        CodexMessageHandler handler = new CodexMessageHandler(state, callbackFacade.getCallbackHandler());
+        // 绑定当前运行时会话 epoch:运行时切换后(见 ModelProviderHandler 旋转 epoch),
+        // 旧 Codex 进程的回调会因 epoch 不匹配被 CodexMessageHandler 丢弃(防串台,与 Claude 侧一致)。
+        CodexMessageHandler handler = new CodexMessageHandler(state, callbackFacade.getCallbackHandler(), state.getRuntimeSessionEpoch());
         String accessMode = CodemossSettingsService.CODEX_RUNTIME_ACCESS_INACTIVE;
         try {
             accessMode = CodemossSettingsService.getInstance().getCodexRuntimeAccessMode();
@@ -255,6 +257,7 @@ public class SessionSendService {
                 null,
                 requestedInvocationMode
         );
+        warnIfRuntimeDegraded(runtime);
         RuntimeKey key = new RuntimeKey(
                 CommonConstants.PROVIDER_CODEX,
                 channelId,
@@ -347,6 +350,7 @@ public class SessionSendService {
                 state.getClaudeInvocationMode(),
                 effectiveInvocationMode
         );
+        warnIfRuntimeDegraded(runtime);
         SessionRequest request = new SessionRequest(
                 new RuntimeKey(CommonConstants.PROVIDER_CLAUDE, channelId, channelId, runtimeSessionEpoch),
                 runtime.provider(),
@@ -380,6 +384,20 @@ public class SessionSendService {
                 requestedMode,
                 CodemossSettingsService.getInstance().getRuntimePolicy()
         );
+    }
+
+    /**
+     * 冲突点 B:当用户请求的调用模式(「设置-环境-调用模式」)被「路由策略」的 supported 列表拒绝、
+     * 静默降级到 default 时,经 notifyStatusMessage → SessionCallbackAdapter.onStatusMessage →
+     * 前端 updateStatus → toast 提示用户,打破此前调用模式与路由策略冲突时的零反馈。
+     * 降级判定 + 文案由 {@link EffectiveRuntimeResolver#degradedNotice} 生成(已单测覆盖);
+     * 此处仅"有文案则推送"薄胶水(项目无 Mockito,SessionSendService 重依赖未独立单测)。
+     */
+    private void warnIfRuntimeDegraded(EffectiveRuntimeResolver.Runtime runtime) {
+        String notice = EffectiveRuntimeResolver.degradedNotice(runtime);
+        if (notice != null) {
+            callbackFacade.notifyStatusMessage(notice);
+        }
     }
 
     private ModelRegistryConfig.ResolvedModelSelection resolveModelSelection(String provider, String selectedModel) {

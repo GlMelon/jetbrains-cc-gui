@@ -1,5 +1,6 @@
 import styles from './style.module.less';
 import { useTranslation } from 'react-i18next';
+import RuntimePolicySection from './RuntimePolicySection';
 
 export interface EnvironmentTabProps {
   nodePath: string;
@@ -92,6 +93,10 @@ const EnvironmentTab = ({
             <div className={styles.themeCardDesc}>{t('settings.basic.invocationMode.cliDesc')}</div>
           </div>
         </div>
+        <small className={styles.formHint}>
+          <span className="codicon codicon-info" />
+          <span>{t('settings.basic.invocationMode.policyHint')}</span>
+        </small>
         {invocationMode === 'cli' && (
           <div className={styles.nodePathInputWrapper} style={{ marginTop: 8 }}>
             <input
@@ -110,6 +115,9 @@ const EnvironmentTab = ({
           </small>
         )}
       </div>
+
+      {/* Runtime routing policy (advanced, collapsible) — linked with the invocation mode above */}
+      <RuntimePolicySection invocationMode={invocationMode} />
 
       {/* Node.js path configuration */}
       <div className={styles.nodePathSection}>
