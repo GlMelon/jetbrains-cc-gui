@@ -248,6 +248,14 @@ tasks.named('instrumentCode') {
     enabled = false
 }
 
+// 与 instrumentCode 对称:禁用 test 插桩。
+// 否则 `./gradlew test -x instrumentTestCode` 时,test 任务仍会读取 stale 插桩产物
+// (build/instrumented/instrumentTestCode),它不会随新增测试方法更新,
+// 导致测试发现基于旧插桩字节码 → 新增 @Test 方法不被执行(假绿)。
+tasks.named('instrumentTestCode') {
+    enabled = false
+}
+
 tasks.named('jarSearchableOptions') {
     enabled = false
 }
