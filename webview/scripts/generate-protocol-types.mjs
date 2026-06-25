@@ -1,15 +1,19 @@
 /**
  * generate-protocol-types.mjs
  *
- * 读取 protocol-manifest.json (由 Gradle generateProtocol task 生成),
- * 输出 TypeScript 常量文件 webview/src/generated/protocol.ts。
+ * SSOT 主路径:构建时直接解析 Java 枚举源(UpstreamAction / DownstreamEvent /
+ * PermissionMode / ReasoningEffort / ProviderType / CodexProtectedEnvKey 及
+ * payload 字段声明、int 常量声明),生成 TypeScript 常量文件
+ * webview/src/generated/protocol.ts,供前端 import { UPSTREAM, DOWNSTREAM, ... }
+ * 引用并由 TypeScript 编译器校验拼写。
  *
- * 前端代码通过 import { UPSTREAM, DOWNSTREAM } from '../generated/protocol'
- * 引用协议常量,TypeScript 编译器自动校验拼写。
+ * protocol-manifest.json 为构建副产品(直读 Java 源后一并写出),供人工校验
+ * 及 mjs regex 解析(C8 漂移守门)的反射交叉验证;非 Gradle generateProtocol
+ * task 产出的依赖输入(该 task 默认禁用,见 build.gradle)。
  *
  * 使用方式:
- *   node scripts/generate-protocol-types.mjs          # 从 manifest 生成
- *   node scripts/generate-protocol-types.mjs --stub   # 无 manifest 时生成 stub
+ *   node scripts/generate-protocol-types.mjs          # 直读 Java 源生成(主路径)
+ *   node scripts/generate-protocol-types.mjs --stub   # 无 Java 源时生成 stub
  */
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
@@ -26,6 +30,7 @@ const reasoningEffortJavaPath = resolve(__dirname, '../../src/main/java/com/gith
 const providerTypeJavaPath = resolve(__dirname, '../../src/main/java/com/github/claudecodegui/session/runtime/ProviderType.java');
 const modelRegistryPayloadJavaPath = resolve(__dirname, '../../src/main/java/com/github/claudecodegui/protocol/payload/ModelRegistryPayloadField.java');
 const codexProtectedEnvKeyJavaPath = resolve(__dirname, '../../src/main/java/com/github/claudecodegui/protocol/CodexProtectedEnvKey.java');
+const versionActionJavaPath = resolve(__dirname, '../../src/main/java/com/github/claudecodegui/dependency/VersionAction.java');
 const commonConstantsJavaPath = resolve(__dirname, '../../src/main/java/com/github/claudecodegui/common/CommonConstants.java');
 const permissionDialogTimeoutSettingsJavaPath = resolve(__dirname, '../../src/main/java/com/github/claudecodegui/settings/PermissionDialogTimeoutSettings.java');
 
@@ -102,6 +107,14 @@ ${(manifest.codexProtectedEnvKey ?? []).map(k => `  ${k.name}: '${k.value}' as c
 } as const;
 
 export type CodexProtectedEnvKey = typeof CODEX_PROTECTED_ENV_KEY[keyof typeof CODEX_PROTECTED_ENV_KEY];
+
+// ── Version Action (business enum SSOT, A6) ──
+
+export const VERSION_ACTION = {
+${(manifest.versionAction ?? []).map(a => `  ${a.name}: '${a.value}' as const,`).join('\n')}
+} as const;
+
+export type VersionAction = typeof VERSION_ACTION[keyof typeof VERSION_ACTION];
 
 // ── Int Constants (business defaults SSOT, C5) ──
 
@@ -247,6 +260,7 @@ function generateManifestFromJavaSources() {
     reasoningEffort: parseJavaEnumProtocol(reasoningEffortJavaPath),
     providerType: parseJavaEnumProtocol(providerTypeJavaPath),
     codexProtectedEnvKey: parseJavaEnumProtocol(codexProtectedEnvKeyJavaPath),
+    versionAction: parseJavaEnumProtocol(versionActionJavaPath),
     intConstants: [
       ...parseIntConstants(readFileSync(commonConstantsJavaPath, 'utf-8'), INT_CONSTANT_ALLOWLIST, 'CommonConstants'),
       ...parseIntConstants(readFileSync(permissionDialogTimeoutSettingsJavaPath, 'utf-8'), INT_CONSTANT_ALLOWLIST, 'PermissionDialogTimeoutSettings'),
@@ -293,6 +307,10 @@ export type ProviderType = string;
 export const CODEX_PROTECTED_ENV_KEY: Record<string, string> = {};
 export type CodexProtectedEnvKey = string;
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const VERSION_ACTION: Record<string, string> = {};
+export type VersionAction = string;
+
 // C5 int constants — stub 默认值与后端一致(从 Java 重新生成获取真值)
 export const DEFAULT_CONTEXT_WINDOW = 200000 as const;
 export const ONE_MILLION_CONTEXT_WINDOW = 1000000 as const;
@@ -308,11 +326,11 @@ function main() {
   mkdirSync(dirname(outputPath), { recursive: true });
 
   let content;
-  if (existsSync(upstreamJavaPath) && existsSync(downstreamJavaPath) && existsSync(permissionModeJavaPath) && existsSync(reasoningEffortJavaPath) && existsSync(providerTypeJavaPath) && existsSync(modelRegistryPayloadJavaPath) && existsSync(codexProtectedEnvKeyJavaPath) && existsSync(commonConstantsJavaPath) && existsSync(permissionDialogTimeoutSettingsJavaPath)) {
+  if (existsSync(upstreamJavaPath) && existsSync(downstreamJavaPath) && existsSync(permissionModeJavaPath) && existsSync(reasoningEffortJavaPath) && existsSync(providerTypeJavaPath) && existsSync(modelRegistryPayloadJavaPath) && existsSync(codexProtectedEnvKeyJavaPath) && existsSync(versionActionJavaPath) && existsSync(commonConstantsJavaPath) && existsSync(permissionDialogTimeoutSettingsJavaPath)) {
     const manifest = generateManifestFromJavaSources();
     writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8');
     content = generateFromManifest(manifest);
-    console.log(`[generate-protocol-types] Generated from Java sources (${manifest.upstream.length} upstream, ${manifest.downstream.length} downstream, ${manifest.permissionMode?.length ?? 0} permissionMode, ${manifest.reasoningEffort?.length ?? 0} reasoningEffort, ${manifest.providerType?.length ?? 0} providerType, ${manifest.codexProtectedEnvKey?.length ?? 0} codexProtectedEnvKey, ${manifest.intConstants?.length ?? 0} intConstants, ${manifest.payloadSchemas?.modelRegistry?.fields?.length ?? 0} modelRegistry payload fields)`);
+    console.log(`[generate-protocol-types] Generated from Java sources (${manifest.upstream.length} upstream, ${manifest.downstream.length} downstream, ${manifest.permissionMode?.length ?? 0} permissionMode, ${manifest.reasoningEffort?.length ?? 0} reasoningEffort, ${manifest.providerType?.length ?? 0} providerType, ${manifest.codexProtectedEnvKey?.length ?? 0} codexProtectedEnvKey, ${manifest.versionAction?.length ?? 0} versionAction, ${manifest.intConstants?.length ?? 0} intConstants, ${manifest.payloadSchemas?.modelRegistry?.fields?.length ?? 0} modelRegistry payload fields)`);
   } else if (existsSync(manifestPath)) {
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'));
     content = generateFromManifest(manifest);

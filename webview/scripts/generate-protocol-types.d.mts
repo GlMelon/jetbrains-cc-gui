@@ -33,6 +33,7 @@ export interface ProtocolManifest {
   reasoningEffort?: ProtocolEnumEntry[];
   providerType?: ProtocolEnumEntry[];
   codexProtectedEnvKey?: ProtocolEnumEntry[];
+  versionAction?: ProtocolEnumEntry[];
   intConstants?: IntConstantEntry[];
   payloadSchemas?: Record<string, PayloadSchema>;
 }
