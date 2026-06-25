@@ -842,7 +842,7 @@ public class DependencyManager {
      *
      * @return negative if v1 < v2, 0 if equal, positive if v1 > v2
      */
-    private int compareVersions(String v1, String v2) {
+    private static int compareVersions(String v1, String v2) {
         if (v1 == null || v2 == null) {
             return 0;
         }
@@ -865,6 +865,39 @@ public class DependencyManager {
         }
 
         return 0;
+    }
+
+    /**
+     * 判定 SDK 版本安装动作(A6 后端 SSOT)。
+     *
+     * <p>等价于原前端 {@code getVersionAction}:未安装 → {@link VersionAction#INSTALL};
+     * installedVersion == requestedVersion → {@link VersionAction#CURRENT};
+     * installedVersion < requestedVersion → {@link VersionAction#UPDATE};
+     * installedVersion > requestedVersion → {@link VersionAction#ROLLBACK}(原前端独有语义,
+     * 后端 {@code checkForUpdates} 曾把回滚场景误报为「无更新」)。
+     *
+     * <p>经 {@code dependency.versions_loaded} 的 {@code versionActions} map 下发,
+     * 前端按用户选择的目标版本查表渲染按钮态,消除前端 {@code getVersionAction} 决策双写
+     * 与 {@code compareVersions} 算法副本。复用 {@link #compareVersions} 单一算法源。
+     *
+     * @param installed        SDK 是否已安装
+     * @param installedVersion 已安装版本(null/blank 时已安装则视为 CURRENT)
+     * @param requestedVersion 目标版本(null/blank 时已安装则视为 CURRENT)
+     * @return 版本动作
+     */
+    public static VersionAction resolveVersionAction(boolean installed, String installedVersion, String requestedVersion) {
+        if (!installed) {
+            return VersionAction.INSTALL;
+        }
+        if (installedVersion == null || installedVersion.isBlank()
+                || requestedVersion == null || requestedVersion.isBlank()) {
+            return VersionAction.CURRENT;
+        }
+        int comparison = compareVersions(installedVersion, requestedVersion);
+        if (comparison == 0) {
+            return VersionAction.CURRENT;
+        }
+        return comparison < 0 ? VersionAction.UPDATE : VersionAction.ROLLBACK;
     }
 
     /**
@@ -941,7 +974,7 @@ public class DependencyManager {
     /**
      * Parses a single segment of a version string.
      */
-    private int parseVersionPart(String part) {
+    private static int parseVersionPart(String part) {
         // Strip non-numeric suffixes (e.g. -beta, -alpha)
         Pattern pattern = Pattern.compile("^(\\d+)");
         Matcher matcher = pattern.matcher(part);

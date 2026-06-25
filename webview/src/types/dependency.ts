@@ -11,6 +11,8 @@
  * - View installation status
  */
 
+import type { VersionAction } from '../generated/protocol';
+
 /**
  * SDK ID type
  */
@@ -122,6 +124,8 @@ export interface DependencyVersionInfo {
   fallbackVersions?: string[];
   source: DependencyVersionSource;
   latestVersion?: string;
+  /** A6:后端预计算的「目标版本 → 动作」映射（仅 SDK 已安装时随 versions_loaded 下发） */
+  versionActions?: Record<string, VersionAction>;
   error?: string;
 }
 

@@ -5,6 +5,7 @@ import com.github.claudecodegui.dependency.DependencyManager;
 import com.github.claudecodegui.dependency.InstallResult;
 import com.github.claudecodegui.dependency.SdkDefinition;
 import com.github.claudecodegui.dependency.UpdateInfo;
+import com.github.claudecodegui.dependency.VersionAction;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.model.NodeDetectionResult;
@@ -16,6 +17,7 @@ import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.util.concurrency.AppExecutorUtil;
 
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -538,6 +540,25 @@ public class DependencyActionHandlers {
         String latestVersion = this.dependencyManager.getLatestVersion(sdkId);
         if (latestVersion != null && !latestVersion.isEmpty()) {
             json.addProperty("latestVersion", latestVersion);
+        }
+
+        // A6:已安装时预计算每个可选版本相对已安装版本的动作(update/rollback/current),
+        // 前端按用户选择的目标版本查表渲染按钮态,消除前端 getVersionAction 决策双写。
+        // 全集对齐前端 buildVersionOptions(effectiveVersions ∪ fallbackVersions ∪ installedVersion)。
+        if (this.dependencyManager.isInstalled(sdkId)) {
+            String installedVersion = this.dependencyManager.getInstalledVersion(sdkId);
+            LinkedHashSet<String> versionSet = new LinkedHashSet<>();
+            versionSet.addAll(effectiveVersions);
+            versionSet.addAll(fallbackVersions);
+            if (installedVersion != null && !installedVersion.isEmpty()) {
+                versionSet.add(installedVersion);
+            }
+            JsonObject versionActions = new JsonObject();
+            for (String version : versionSet) {
+                VersionAction action = DependencyManager.resolveVersionAction(true, installedVersion, version);
+                versionActions.addProperty(version, action.value());
+            }
+            json.add("versionActions", versionActions);
         }
 
         if (!usingRemote) {

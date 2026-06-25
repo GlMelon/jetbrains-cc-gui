@@ -79,6 +79,8 @@ describe('DependencySection', () => {
           versions: ['0.2.89', '0.2.88'],
           source: 'remote',
           latestVersion: '0.2.89',
+          // A6:后端已安装时随 versions_loaded 下发的「目标版本 → 动作」映射
+          versionActions: { '0.2.89': 'current', '0.2.88': 'rollback' },
         },
         'codex-sdk': {
           sdkId: 'codex-sdk',
@@ -125,6 +127,8 @@ describe('DependencySection', () => {
           versions: ['0.2.90', '0.2.89', '0.2.88'],
           source: 'remote',
           latestVersion: '0.2.90',
+          // A6:已安装 0.2.88,0.2.90/0.2.89 为 update,0.2.88 为 current
+          versionActions: { '0.2.90': 'update', '0.2.89': 'update', '0.2.88': 'current' },
         },
         'codex-sdk': {
           sdkId: 'codex-sdk',
@@ -181,6 +185,8 @@ describe('DependencySection', () => {
           versions: ['0.2.89', '0.2.88'],
           source: 'remote',
           latestVersion: '0.2.89',
+          // A6:后端已安装时随 versions_loaded 下发的「目标版本 → 动作」映射
+          versionActions: { '0.2.89': 'current', '0.2.88': 'rollback' },
         },
         'codex-sdk': {
           sdkId: 'codex-sdk',

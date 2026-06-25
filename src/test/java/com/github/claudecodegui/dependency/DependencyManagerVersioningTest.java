@@ -1,5 +1,6 @@
 package com.github.claudecodegui.dependency;
 
+import com.github.claudecodegui.dependency.VersionAction;
 import org.junit.Test;
 
 import java.util.List;
@@ -57,5 +58,61 @@ public class DependencyManagerVersioningTest {
         assertNull(DependencyManager.normalizeRequestedVersion(null));
         assertNull(DependencyManager.normalizeRequestedVersion(""));
         assertNull(DependencyManager.normalizeRequestedVersion("   "));
+    }
+
+    // ── A6:resolveVersionAction 后端 SSOT(前端 getVersionAction 决策已下沉为 versionActions map 下发) ──
+
+    @Test
+    public void shouldResolveInstallWhenNotInstalled() {
+        assertEquals(VersionAction.INSTALL,
+                DependencyManager.resolveVersionAction(false, null, "1.0.0"));
+        assertEquals(VersionAction.INSTALL,
+                DependencyManager.resolveVersionAction(false, "1.0.0", null));
+    }
+
+    @Test
+    public void shouldResolveCurrentWhenInstalledEqualsRequested() {
+        assertEquals(VersionAction.CURRENT,
+                DependencyManager.resolveVersionAction(true, "1.0.0", "1.0.0"));
+    }
+
+    @Test
+    public void shouldResolveUpdateWhenInstalledIsOlder() {
+        assertEquals(VersionAction.UPDATE,
+                DependencyManager.resolveVersionAction(true, "1.0.0", "2.0.0"));
+        assertEquals(VersionAction.UPDATE,
+                DependencyManager.resolveVersionAction(true, "1.2.3", "1.2.4"));
+    }
+
+    @Test
+    public void shouldResolveRollbackWhenInstalledIsNewer() {
+        assertEquals(VersionAction.ROLLBACK,
+                DependencyManager.resolveVersionAction(true, "2.0.0", "1.0.0"));
+        assertEquals(VersionAction.ROLLBACK,
+                DependencyManager.resolveVersionAction(true, "1.2.4", "1.2.3"));
+    }
+
+    @Test
+    public void shouldResolveCurrentWhenVersionsBlankOrMissing() {
+        // 已安装但版本信息缺失 → 无法判定方向,保守视为 CURRENT
+        assertEquals(VersionAction.CURRENT,
+                DependencyManager.resolveVersionAction(true, null, "1.0.0"));
+        assertEquals(VersionAction.CURRENT,
+                DependencyManager.resolveVersionAction(true, "1.0.0", null));
+        assertEquals(VersionAction.CURRENT,
+                DependencyManager.resolveVersionAction(true, " ", "1.0.0"));
+        assertEquals(VersionAction.CURRENT,
+                DependencyManager.resolveVersionAction(true, "1.0.0", "  "));
+    }
+
+    @Test
+    public void shouldStripLeadingVWhenComparingVersions() {
+        // compareVersions 内部剥离 v/V 前缀后比较
+        assertEquals(VersionAction.CURRENT,
+                DependencyManager.resolveVersionAction(true, "v1.0.0", "1.0.0"));
+        assertEquals(VersionAction.UPDATE,
+                DependencyManager.resolveVersionAction(true, "v1.0.0", "2.0.0"));
+        assertEquals(VersionAction.ROLLBACK,
+                DependencyManager.resolveVersionAction(true, "V2.0.0", "1.0.0"));
     }
 }

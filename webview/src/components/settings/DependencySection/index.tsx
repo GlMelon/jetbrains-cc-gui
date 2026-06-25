@@ -3,7 +3,7 @@ import { UPSTREAM, DOWNSTREAM } from '../../../generated/protocol';
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SdkId, SdkStatus, InstallProgress, InstallResult, UninstallResult, NodeEnvironmentStatus, UpdateCheckResult, DependencyVersionInfo, DependencyVersionResult } from '../../../types/dependency';
-import { buildVersionOptions, getRequestedVersion, getVersionAction } from './versioning';
+import { buildVersionOptions, getRequestedVersion, resolveVersionAction } from './versioning';
 import styles from './style.module.less';
 import { bridgeHub, registerLegacyAlias } from '../../../bridge';
 
@@ -435,12 +435,12 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
   const getTargetVersion = (sdkId: SdkId): string | undefined =>
     getRequestedVersion(selectedVersions[sdkId]);
 
-  const getActionLabel = (sdkId: SdkId, installed: boolean, installedVersion?: string) => {
+  const getActionLabel = (sdkId: SdkId, installed: boolean) => {
     const targetVersion = getTargetVersion(sdkId);
-    const action = getVersionAction({
+    const action = resolveVersionAction({
       installed,
-      installedVersion,
-      requestedVersion: targetVersion,
+      targetVersion,
+      versionActions: getVersionInfo(sdkId)?.versionActions,
     });
 
     if (!installed) {
@@ -505,10 +505,10 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
             const targetVersionLabel = targetVersion
               ? t('settings.dependency.targetVersionValue', { version: `v${targetVersion}` })
               : t('settings.dependency.targetVersion');
-            const action = getVersionAction({
+            const action = resolveVersionAction({
               installed,
-              installedVersion: info?.installedVersion,
-              requestedVersion: targetVersion,
+              targetVersion,
+              versionActions: versionInfo?.versionActions,
             });
             // Only allow one operation at a time (install, uninstall, or update)
             const isAnyOperationInProgress = installingSdk !== null || uninstallingSdk !== null || updatingSdk !== null;
@@ -564,7 +564,7 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
                               ) : (
                                 <>
                                   <span className="codicon codicon-cloud-download" />
-                                  <span>{getActionLabel(sdk.id, installed, info?.installedVersion)}</span>
+                                  <span>{getActionLabel(sdk.id, installed)}</span>
                                 </>
                               )}
                             </button>
@@ -583,7 +583,7 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
                                 ) : (
                                   <>
                                     <span className="codicon codicon-sync" />
-                                    <span>{getActionLabel(sdk.id, installed, info?.installedVersion)}</span>
+                                    <span>{getActionLabel(sdk.id, installed)}</span>
                                   </>
                                 )}
                               </button>

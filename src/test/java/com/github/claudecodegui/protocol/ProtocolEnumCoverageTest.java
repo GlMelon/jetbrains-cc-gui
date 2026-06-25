@@ -1,5 +1,6 @@
 package com.github.claudecodegui.protocol;
 
+import com.github.claudecodegui.dependency.VersionAction;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import org.junit.Test;
 
@@ -39,6 +40,7 @@ public class ProtocolEnumCoverageTest {
         assertUnique(Arrays.stream(ReasoningEffort.values()).map(ReasoningEffort::value).collect(Collectors.toList()));
         assertUnique(Arrays.stream(ProviderType.values()).map(ProviderType::value).collect(Collectors.toList()));
         assertUnique(Arrays.stream(CodexProtectedEnvKey.values()).map(CodexProtectedEnvKey::value).collect(Collectors.toList()));
+        assertUnique(Arrays.stream(VersionAction.values()).map(VersionAction::value).collect(Collectors.toList()));
     }
 
     @Test
@@ -125,6 +127,23 @@ public class ProtocolEnumCoverageTest {
             assertEquals(Optional.of(type), ProviderType.fromValue(type.value()));
         }
         assertEquals(Optional.empty(), ProviderType.fromValue("nonexistent_provider"));
+    }
+
+    @Test
+    public void versionActionCoversProtocolValues() {
+        // A6:VersionAction SSOT 4 值(install/update/rollback/current),前端版本按钮态按目标版本查表渲染
+        assertEquals("install", VersionAction.INSTALL.value());
+        assertEquals("update", VersionAction.UPDATE.value());
+        assertEquals("rollback", VersionAction.ROLLBACK.value());
+        assertEquals("current", VersionAction.CURRENT.value());
+    }
+
+    @Test
+    public void versionActionFromValueRoundTrip() {
+        for (VersionAction action : VersionAction.values()) {
+            assertEquals(Optional.of(action), VersionAction.fromValue(action.value()));
+        }
+        assertEquals(Optional.empty(), VersionAction.fromValue("nonexistent_action"));
     }
 
     private static void assertUnique(List<String> values) {

@@ -1,5 +1,6 @@
 package com.github.claudecodegui.protocol;
 
+import com.github.claudecodegui.dependency.VersionAction;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.google.gson.GsonBuilder;
 
@@ -14,9 +15,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 构建时工具:将协议枚举序列化为 JSON manifest 供前端代码生成消费。
+ * 构建时工具:将协议枚举序列化为 JSON manifest。
  *
- * <p>由 Gradle task {@code generateProtocol} 驱动,不打包进插件 JAR。
+ * @deprecated 已无运行时/构建时消费者。SSOT 主路径为 mjs 直读 Java 枚举源
+ * ({@code webview/scripts/generate-protocol-types.mjs}),标准构建链不依赖本类
+ * 产出的 manifest。本类保留仅作 mjs regex 解析(C8 漂移守门)的反射交叉校验入口,
+ * 经 Gradle task {@code generateProtocol}({@code -PgenerateProtocol=true})手动驱动。
+ * 待 C8 收敛为反射主路径后再评估删除。不打包进插件 JAR。
  *
  * <p>输出格式:
  * <pre>{@code
@@ -32,6 +37,7 @@ import java.util.Map;
  * }
  * }</pre>
  */
+@Deprecated
 public final class ProtocolManifestGenerator {
 
     private ProtocolManifestGenerator() { }
@@ -98,6 +104,15 @@ public final class ProtocolManifestGenerator {
         }
         manifest.put("codexProtectedEnvKey", codexProtectedEnvKey);
 
+        List<Map<String, String>> versionAction = new ArrayList<>();
+        for (VersionAction action : VersionAction.values()) {
+            Map<String, String> entry = new LinkedHashMap<>();
+            entry.put("name", action.name());
+            entry.put("value", action.value());
+            versionAction.add(entry);
+        }
+        manifest.put("versionAction", versionAction);
+
         File output = new File(args[0]);
         output.getParentFile().mkdirs();
         try (Writer w = new OutputStreamWriter(
@@ -106,6 +121,6 @@ public final class ProtocolManifestGenerator {
         }
 
         System.out.println("[ProtocolManifestGenerator] Generated: " + output.getAbsolutePath()
-                + " (" + upstream.size() + " upstream, " + downstream.size() + " downstream, " + permissionMode.size() + " permissionMode, " + reasoningEffort.size() + " reasoningEffort, " + providerType.size() + " providerType, " + codexProtectedEnvKey.size() + " codexProtectedEnvKey)");
+                + " (" + upstream.size() + " upstream, " + downstream.size() + " downstream, " + permissionMode.size() + " permissionMode, " + reasoningEffort.size() + " reasoningEffort, " + providerType.size() + " providerType, " + codexProtectedEnvKey.size() + " codexProtectedEnvKey, " + versionAction.size() + " versionAction)");
     }
 }

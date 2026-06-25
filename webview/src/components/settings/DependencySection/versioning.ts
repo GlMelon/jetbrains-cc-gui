@@ -1,9 +1,17 @@
-export type VersionAction = 'install' | 'update' | 'rollback' | 'current';
+import type { VersionAction } from '../../../generated/protocol';
 
-interface VersionActionInput {
+// A6:VersionAction SSOT 已下沉后端（VersionAction 枚举 → versionActions map 下发）。
+// 此处仅 re-export generated 类型,前端不再手抄 'install'|'update'|'rollback'|'current' 字面量,
+// 也不再保留 compareVersions/getVersionAction 决策副本（算法单一源在后端 DependencyManager）。
+export type { VersionAction };
+
+interface ResolveVersionActionInput {
+  /** SDK 是否已安装（未安装时后端不下发 versionActions） */
   installed: boolean;
-  installedVersion?: string;
-  requestedVersion?: string;
+  /** 用户在下拉框选择的目标版本（normalized） */
+  targetVersion?: string;
+  /** 后端预计算的「目标版本 → 动作」映射（仅已安装时随 dependency.versions_loaded 下发） */
+  versionActions?: Record<string, VersionAction>;
 }
 
 interface BuildVersionOptionsInput {
@@ -29,45 +37,24 @@ export const getRequestedVersion = (
   return normalizeVersion(selectedVersion);
 };
 
-export const compareVersions = (left?: string, right?: string): number => {
-  const normalizedLeft = normalizeVersion(left);
-  const normalizedRight = normalizeVersion(right);
-
-  if (!normalizedLeft || !normalizedRight) {
-    return 0;
-  }
-
-  const leftParts = normalizedLeft.split('.');
-  const rightParts = normalizedRight.split('.');
-  const maxLength = Math.max(leftParts.length, rightParts.length);
-
-  for (let index = 0; index < maxLength; index += 1) {
-    const leftValue = Number.parseInt(leftParts[index] ?? '0', 10);
-    const rightValue = Number.parseInt(rightParts[index] ?? '0', 10);
-
-    if (leftValue !== rightValue) {
-      return leftValue - rightValue;
-    }
-  }
-
-  return 0;
-};
-
-export const getVersionAction = ({
+/**
+ * 查表取版本动作（A6）:不再前端计算版本比较,而是从后端下发的 versionActions map
+ * 查目标版本对应动作。
+ * - 未安装 → 'install'（后端不下发 map）
+ * - 已安装但 map 缺失、目标版本为空或不在表内 → 保守 'current'（降级保护,避免误判 update/rollback）
+ */
+export const resolveVersionAction = ({
   installed,
-  installedVersion,
-  requestedVersion,
-}: VersionActionInput): VersionAction => {
+  targetVersion,
+  versionActions,
+}: ResolveVersionActionInput): VersionAction => {
   if (!installed) {
     return 'install';
   }
-
-  const comparison = compareVersions(installedVersion, requestedVersion);
-  if (comparison === 0) {
+  if (!versionActions || !targetVersion) {
     return 'current';
   }
-
-  return comparison < 0 ? 'update' : 'rollback';
+  return versionActions[targetVersion] ?? 'current';
 };
 
 export const buildVersionOptions = ({
