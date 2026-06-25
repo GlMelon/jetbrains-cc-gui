@@ -5,6 +5,7 @@ import { sendAction, subscribeEvent } from '../../../bridge/typed';
 import type { ModelRegistryItem, ModelRegistryPayload } from '../../../utils/modelRegistry';
 import { getModelRegistrySnapshot, parseModelRegistryPayload, requestModelRegistry } from '../../../utils/modelRegistry';
 import { DEFAULT_CONTEXT_WINDOW, ONE_MILLION_CONTEXT_WINDOW } from '../../../components/ChatInputBox/types';
+import { formatCapacity } from '../../../utils/formatNumber';
 import styles from './style.module.less';
 
 interface ModelRegistrySectionProps {
@@ -274,7 +275,7 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
               {model.description && <div className={styles.modelDescription}>{model.description}</div>}
             </div>
             <div className={styles.metaCell}>
-              <span>{formatContext(model.contextWindow ?? DEFAULT_CONTEXT_WINDOW)}</span>
+              <span>{formatCapacity(model.contextWindow, DEFAULT_CONTEXT_WINDOW)}</span>
               {model.supports1MContext && <span>1M</span>}
             </div>
             <div className={styles.rowActions}>
@@ -303,12 +304,4 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
 
 function toKey(model: ModelRegistryItem): string {
   return `${model.provider}:${model.id}`;
-}
-
-function formatContext(tokens?: number): string {
-  const value = tokens ?? DEFAULT_CONTEXT_WINDOW;
-  if (value >= 1_000_000) {
-    return `${value / 1_000_000}M`;
-  }
-  return `${Math.round(value / 1_000)}K`;
 }

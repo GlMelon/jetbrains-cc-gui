@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import type { TokenIndicatorProps } from './types';
 import { ArrowDownIcon, ArrowUpIcon, DatabaseIcon, LayersIcon } from '../Icons';
+import { formatCapacity } from '../../utils/formatNumber';
 
 // SVG Icon component for token detail metrics
 const TokenIcon = ({ name, size = 14 }: { name: string; size?: number }) => {
@@ -33,16 +34,6 @@ const getLevelClass = (percentage: number): string => {
  * 格式化 token 数量为人类可读格式
  */
 const formatNumber = (num: number) => num.toLocaleString('en-US');
-
-/**
- * 格式化 maxTokens 为 K 显示
- */
-const formatMaxTokensK = (maxTokens?: number): string => {
-  if (!maxTokens) return '';
-  if (maxTokens >= 1_000_000) return `${maxTokens / 1_000_000}M`;
-  if (maxTokens >= 1_000) return `${maxTokens / 1_000}K`;
-  return `${maxTokens}`;
-};
 
 /**
  * TokenIndicator - Chip 样式触发器 + 悬浮详情弹窗
@@ -110,7 +101,7 @@ export const TokenIndicator = ({
             <div className="token-detail-subtitle">
               {t('chat.tokenIndicator.sessionInfo', {
                 model: modelName || 'Unknown',
-                maxTokens: formatMaxTokensK(tokenDetail.maxTokens || maxTokens),
+                maxTokens: formatCapacity(tokenDetail.maxTokens || maxTokens),
               })}
             </div>
             <div className="token-detail-subtitle token-detail-includes">
