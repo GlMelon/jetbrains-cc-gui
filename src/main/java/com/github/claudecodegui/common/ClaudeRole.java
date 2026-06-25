@@ -184,6 +184,47 @@ public enum ClaudeRole {
     }
 
     /**
+     * 将官方 Claude canonical 模型 id(如 {@code claude-sonnet-4-6}、{@code claude-opus-4-5})
+     * 归一化为对应角色 id({@code claude-role-sonnet} 等)。
+     *
+     * <p>用途:把历史遗留的 canonical id 配置对齐到 registry 的 role id 体系,避免与 registry
+     * 列表 id 不一致触发前端兜底(AiFeatureProviderModelPanel)而出现幽灵模型项。
+     *
+     * <p>判定依据为 Claude 官方命名 {@code claude-{family}-{version}} 的 family 前缀:
+     * <ul>
+     *   <li>已是 {@code claude-role-*} role id → 返回 {@code null}(调用方据此跳过)</li>
+     *   <li>非官方 Claude 命名(用户自定义/第三方,如 {@code mimo-v2.5})→ 返回 {@code null}</li>
+     * </ul>
+     * 调用方通常需配合 registry 查询:仅在 canonical id <b>不在</b> registry 时才归一化,
+     * 以免误伤用户自定义的 {@code claude-sonnet-*} 同前缀模型。
+     *
+     * @param modelId 模型 id(可带 {@code [1m]}/{@code [200k]} 等容量后缀,大小写不敏感)
+     * @return 对应角色 id;不可识别(已是 role id 或非官方命名)返回 {@code null}
+     */
+    public static String canonicalIdToRoleId(String modelId) {
+        if (modelId == null || modelId.isBlank()) {
+            return null;
+        }
+        String normalized = CAPACITY_SUFFIX.matcher(modelId.trim()).replaceFirst("").toLowerCase(Locale.ROOT);
+        if (normalized.startsWith(ROLE_PREFIX)) {
+            return null;
+        }
+        if (normalized.startsWith("claude-sonnet")) {
+            return SONNET.roleId;
+        }
+        if (normalized.startsWith("claude-opus")) {
+            return OPUS.roleId;
+        }
+        if (normalized.startsWith("claude-fable")) {
+            return FABLE.roleId;
+        }
+        if (normalized.startsWith("claude-haiku")) {
+            return HAIKU.roleId;
+        }
+        return null;
+    }
+
+    /**
      * 将解析出的真实模型写入该角色的全部模型覆盖环境变量。
      * <p>
      * 用于 {@code ClaudeCliSession.configureRequestModelEnvironment}:当用户选择某角色时,

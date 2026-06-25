@@ -5,6 +5,7 @@ import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.model.ConflictStrategy;
 import com.github.claudecodegui.model.DeleteResult;
 import com.github.claudecodegui.model.PromptScope;
+import com.github.claudecodegui.common.ClaudeRole;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.config.ModelConfig;
 import com.github.claudecodegui.config.ModelConfigValidator;
@@ -1446,9 +1447,32 @@ public class CodemossSettingsService {
             String codexModel = rawModels.has(AI_FEATURE_PROVIDER_CODEX) && !rawModels.get(AI_FEATURE_PROVIDER_CODEX).isJsonNull()
                     ? rawModels.get(AI_FEATURE_PROVIDER_CODEX).getAsString()
                     : null;
-            return createAiFeatureModels(claudeModel, codexModel, defaultClaudeModel, defaultCodexModel);
+            return createAiFeatureModels(normalizeAiFeatureClaudeModel(claudeModel), codexModel, defaultClaudeModel, defaultCodexModel);
         }
         return createAiFeatureModels(null, null, defaultClaudeModel, defaultCodexModel);
+    }
+
+    /**
+     * 归一化 AI 功能(promptEnhancer / commitAi)记忆的 Claude 模型 id:把历史遗留的官方
+     * canonical id(如 claude-sonnet-4-6)对齐到 registry 的 role id 体系(claude-role-sonnet),
+     * 避免前端 AiFeatureProviderModelPanel 因 id 不一致触发兜底 prepend 而出现幽灵模型项。
+     *
+     * <p>安全网:已在 registry 中的 id(role id 或用户自定义模型)原样保留——这保证用户自定义的
+     * {@code claude-sonnet-*} 同前缀模型不会被误归一化。仅当 canonical id 不在 registry 时才转换。
+     *
+     * @param rawModel 持久化的 Claude 模型 id(可为 null/空)
+     * @return 归一化后的模型 id;null/空原样返回(交由 createAiFeatureModels 用默认值兜底)
+     */
+    private String normalizeAiFeatureClaudeModel(String rawModel) {
+        if (rawModel == null || rawModel.trim().isEmpty()) {
+            return rawModel;
+        }
+        String trimmed = rawModel.trim();
+        if (getModelRegistry().find(AI_FEATURE_PROVIDER_CLAUDE, trimmed).isPresent()) {
+            return trimmed;
+        }
+        String roleId = ClaudeRole.canonicalIdToRoleId(trimmed);
+        return roleId != null ? roleId : trimmed;
     }
 
     private JsonObject createAiFeatureModels(

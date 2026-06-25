@@ -1,5 +1,7 @@
 package com.github.claudecodegui.settings;
 
+import com.github.claudecodegui.config.ModelConfig;
+import com.github.claudecodegui.config.ModelRegistryConfig;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.google.gson.JsonObject;
 import org.junit.After;
@@ -9,6 +11,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -94,6 +97,68 @@ public class CodemossSettingsServicePromptEnhancerConfigTest {
         assertFalse(config.getAsJsonObject("availability").get("codex").getAsBoolean());
     }
 
+    @Test
+    public void shouldNormalizeLegacyCanonicalClaudeIdToRoleId() throws Exception {
+        Path tempHome = Files.createTempDirectory("prompt-enhancer-canonical-home");
+        useTemporaryHomeDirectory(tempHome);
+        // 历史遗留:旧版本 promptEnhancer 持久化了 canonical id(claude-sonnet-4-6),而非 role id。
+        // registry 内置 Claude 模型用 role id(claude-role-sonnet),两者 id 不一致会触发前端
+        // AiFeatureProviderModelPanel 的兜底 prepend,在下拉里多出一个幽灵项。读取时应归一化成 role id。
+        writePromptEnhancerConfig(tempHome, "claude", "claude-sonnet-4-6", "gpt-5.4");
+        installSdk(tempHome, "claude-sdk", "@anthropic-ai/claude-agent-sdk", "0.2.88");
+
+        CodemossSettingsService service = new CodemossSettingsService();
+
+        JsonObject config = invokeGetPromptEnhancerConfig(service);
+
+        assertEquals("claude", config.get("provider").getAsString());
+        assertEquals("claude-role-sonnet", config.getAsJsonObject("models").get("claude").getAsString());
+        assertEquals("gpt-5.4", config.getAsJsonObject("models").get("codex").getAsString());
+    }
+
+    @Test
+    public void shouldKeepRoleIdUnchangedForClaudeModel() throws Exception {
+        Path tempHome = Files.createTempDirectory("prompt-enhancer-role-id-home");
+        useTemporaryHomeDirectory(tempHome);
+        // role id 已与 registry id 体系一致,归一化不应改动它。
+        writePromptEnhancerConfig(tempHome, "claude", "claude-role-opus", "gpt-5.4");
+        installSdk(tempHome, "claude-sdk", "@anthropic-ai/claude-agent-sdk", "0.2.88");
+
+        CodemossSettingsService service = new CodemossSettingsService();
+
+        JsonObject config = invokeGetPromptEnhancerConfig(service);
+
+        assertEquals("claude-role-opus", config.getAsJsonObject("models").get("claude").getAsString());
+    }
+
+    @Test
+    public void shouldNotNormalizeUserCustomClaudeModelRegisteredInRegistry() throws Exception {
+        Path tempHome = Files.createTempDirectory("prompt-enhancer-custom-home");
+        useTemporaryHomeDirectory(tempHome);
+        // 用户自定义了一个与官方 canonical 同前缀(claude-sonnet-*)的模型,并已注册到 registry。
+        // 安全网:它在 registry 中,绝不能被误归一化成 claude-role-sonnet。
+        writePromptEnhancerConfig(tempHome, "claude", "claude-sonnet-myfinetune", "gpt-5.4");
+        installSdk(tempHome, "claude-sdk", "@anthropic-ai/claude-agent-sdk", "0.2.88");
+
+        CodemossSettingsService service = new CodemossSettingsService();
+        ModelConfig customModel = new ModelConfig(
+                "claude-sonnet-myfinetune",
+                "claude",
+                "sonnet",
+                "My Finetune",
+                "claude-sonnet-myfinetune",
+                "user custom",
+                200_000,
+                false,
+                true
+        );
+        service.setModelRegistry(new ModelRegistryConfig(List.of(customModel)));
+
+        JsonObject config = invokeGetPromptEnhancerConfig(service);
+
+        assertEquals("claude-sonnet-myfinetune", config.getAsJsonObject("models").get("claude").getAsString());
+    }
+
     private JsonObject invokeGetPromptEnhancerConfig(CodemossSettingsService service) throws Exception {
         Method method;
         try {
@@ -135,6 +200,32 @@ public class CodemossSettingsServicePromptEnhancerConfigTest {
     }
 
     private void writeConfig(Path tempHome, String currentClaude, String currentCodex) throws Exception {
+        Files.writeString(
+                tempHome.resolve(".codemoss").resolve("config.json"),
+                buildBaseConfig(currentClaude, currentCodex).toString()
+        );
+    }
+
+    /**
+     * 写入带 promptEnhancer 块的 config.json(基础 provider 配置 + 指定的 promptEnhancer 模型记忆)。
+     * 用于测试历史遗留 canonical id 的归一化等场景。
+     */
+    private void writePromptEnhancerConfig(Path tempHome, String provider, String claudeModel, String codexModel) throws Exception {
+        JsonObject config = buildBaseConfig("claude-a", "");
+        JsonObject promptEnhancer = new JsonObject();
+        promptEnhancer.addProperty("provider", provider);
+        JsonObject models = new JsonObject();
+        models.addProperty("claude", claudeModel);
+        models.addProperty("codex", codexModel);
+        promptEnhancer.add("models", models);
+        config.add("promptEnhancer", promptEnhancer);
+        Files.writeString(
+                tempHome.resolve(".codemoss").resolve("config.json"),
+                config.toString()
+        );
+    }
+
+    private JsonObject buildBaseConfig(String currentClaude, String currentCodex) {
         JsonObject config = new JsonObject();
 
         JsonObject claude = new JsonObject();
@@ -163,10 +254,7 @@ public class CodemossSettingsServicePromptEnhancerConfigTest {
         codex.add("providers", codexProviders);
         config.add("codex", codex);
 
-        Files.writeString(
-                tempHome.resolve(".codemoss").resolve("config.json"),
-                config.toString()
-        );
+        return config;
     }
 
     private void installSdk(Path tempHome, String sdkId, String npmPackage, String version) throws Exception {
