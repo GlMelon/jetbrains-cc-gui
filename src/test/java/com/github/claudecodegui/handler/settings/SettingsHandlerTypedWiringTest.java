@@ -1,6 +1,5 @@
 package com.github.claudecodegui.handler.settings;
 
-import com.github.claudecodegui.handler.SettingsHandler;
 import com.github.claudecodegui.handler.core.FrontendActionDispatcher;
 import com.github.claudecodegui.handler.core.FrontendActionHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
@@ -11,12 +10,8 @@ import com.github.claudecodegui.settings.AppearanceConfigService;
 import com.github.claudecodegui.settings.ModelRegistryService;
 import org.junit.Test;
 
-import java.lang.reflect.Field;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.Assert.assertEquals;
@@ -26,61 +21,66 @@ import static org.junit.Assert.assertTrue;
 public class SettingsHandlerTypedWiringTest {
 
     /**
-     * Migrated actions must remain resolvable UpstreamAction values so the typed handlers can
-     * claim them (and so they are absent from the slimmed SettingsHandler's SUPPORTED_TYPES).
+     * Every migrated action must remain a resolvable UpstreamAction value so the typed
+     * FrontendActionHandler that claims it can route through FrontendActionDispatcher.
+     *
+     * <p>The legacy SettingsHandler string-dispatch (SUPPORTED_TYPES array + 49-case switch) has
+     * been fully retired (B3): these actions are now served exclusively by dedicated typed
+     * handlers under {@code handler/settings} / {@code handler/provider}, and the SettingsHandler
+     * class itself has been deleted.
      */
     @Test
     public void migratedActionsRemainResolvable() {
         for (String migrated : new String[]{
+                // Pre-B3 typed slices (model registry / appearance / provider utility)
                 "get_model_registry", "set_model_registry", "reset_model_registry",
                 "get_model_registry_schema", "set_appearance_config",
                 "get_codex_subscription_quota",
                 "get_claude_cli_path", "set_claude_cli_path",
-                "get_node_path", "set_node_path"
+                "get_node_path", "set_node_path",
+                // B3 slice: project-config (42)
+                "get_usage_statistics", "get_working_directory", "set_working_directory",
+                "get_editor_font_config", "get_ui_font_config", "set_ui_font_config",
+                "browse_ui_font_file", "get_code_font_config", "set_code_font_config",
+                "browse_code_font_file", "get_streaming_enabled", "set_streaming_enabled",
+                "get_invocation_mode", "get_session_invocation_mode",
+                "get_session_runtime_state", "set_invocation_mode", "set_cli_path",
+                "get_codex_sandbox_mode", "set_codex_sandbox_mode",
+                "get_send_shortcut", "set_send_shortcut",
+                "get_auto_open_file_enabled", "set_auto_open_file_enabled",
+                "get_permission_dialog_timeout", "set_permission_dialog_timeout",
+                "get_commit_generation_enabled", "set_commit_generation_enabled",
+                "get_status_bar_widget_enabled", "set_status_bar_widget_enabled",
+                "get_task_completion_notification_enabled",
+                "set_task_completion_notification_enabled",
+                "get_ai_title_generation_enabled", "set_ai_title_generation_enabled",
+                "get_ide_theme", "get_commit_prompt", "set_commit_prompt",
+                "get_commit_ai_config", "set_commit_ai_config",
+                "get_prompt_enhancer_config", "set_prompt_enhancer_config",
+                "get_project_commit_prompt", "set_project_commit_prompt",
+                // B3 slice: user-language (3)
+                "set_user_language", "get_user_language", "clear_user_language",
+                // B3 slice: runtime-policy (4)
+                "get_runtime_policy", "set_runtime_policy", "reset_runtime_policy",
+                "get_runtime_policy_schema"
         }) {
-            assertTrue(UpstreamAction.fromValue(migrated).isPresent());
-        }
-    }
-
-    /**
-     * 已迁移为 typed FrontendActionHandler 的 action 必须从 SettingsHandler.SUPPORTED_TYPES
-     * 剔除,否则 LegacyMessageHandlerAdapter 会为该字符串注册 LegacyActionHandler,与 typed
-     * handler 在 FrontendActionDispatcher 构造期重复检测冲突(putIfAbsent 抛
-     * IllegalArgumentException,窗口无法启动)。本守门在运行时崩溃之前拦截该回归
-     * (AGENTS.md §2 开闭原则)。
-     *
-     * <p>反射读取 SUPPORTED_TYPES 静态字段,无需构造 SettingsHandler(避免对 IDE
-     * Application 环境的依赖)。
-     */
-    @Test
-    public void migratedActionsRemovedFromLegacySupportedTypes() throws Exception {
-        Field field = SettingsHandler.class.getDeclaredField("SUPPORTED_TYPES");
-        field.setAccessible(true);
-        String[] supportedTypes = (String[]) field.get(null);
-        Set<String> supported = new HashSet<>(Arrays.asList(supportedTypes));
-
-        for (String migrated : new String[]{
-                "get_model_registry", "set_model_registry", "reset_model_registry",
-                "get_model_registry_schema", "set_appearance_config",
-                "get_codex_subscription_quota",
-                "get_claude_cli_path", "set_claude_cli_path",
-                "get_node_path", "set_node_path"
-        }) {
-            assertFalse("migrated action '" + migrated + "' must be removed from "
-                    + "SettingsHandler.SUPPORTED_TYPES to avoid FrontendActionDispatcher duplicate "
-                    + "(AGENTS.md §2 OCP)", supported.contains(migrated));
+            assertTrue("migrated action '" + migrated
+                    + "' must resolve to an UpstreamAction (B3 typed wiring)",
+                    UpstreamAction.fromValue(migrated).isPresent());
         }
     }
 
     /**
      * The wired dispatcher must: (a) construct without a duplicate-action exception — proving the
-     * 5 typed handlers do not collide with each other; (b) route a legacy MessageHandler's actions
-     * through LegacyMessageHandlerAdapter with raw content forwarded; (c) miss unknown actions.
+     * typed handlers do not collide; (b) route a legacy MessageHandler's actions through
+     * LegacyMessageHandlerAdapter with raw content forwarded; (c) miss unknown actions.
      *
-     * We deliberately use a dummy legacy handler instead of a real SettingsHandler: constructing
-     * SettingsHandler requires a live IDE environment (ApplicationManager + sub-handlers), and
-     * dispatching its actions touches the settings service. Typed-handler dispatch behaviour is
-     * covered by ModelRegistryActionHandlerTest / AppearanceConfigActionHandlerTest.
+     * <p>A dummy legacy handler exercises LegacyMessageHandlerAdapter routing without needing a
+     * live IDE environment. Its supportedTypes ("set_model", "get_runtime_policy") are real
+     * UpstreamAction values that are NOT among the 5 typed handlers assembled in this test, so the
+     * adapter wraps them without colliding with the typed set (FrontendActionDispatcher uses
+     * putIfAbsent, which throws on duplicates). Typed-handler dispatch behaviour is covered by
+     * ModelRegistryActionHandlerTest / AppearanceConfigActionHandlerTest.
      */
     @Test
     public void wiredDispatcherConstructsAndRoutesLegacyWithoutDuplicates() {
@@ -111,7 +111,7 @@ public class SettingsHandlerTypedWiringTest {
         typed.addAll(LegacyMessageHandlerAdapter.from(dummyLegacy));
 
         // 构造不抛 IllegalArgumentException = 5 个 typed action 互不重复,且 dummy 的 set_model /
-        // get_runtime_policy 与 typed 不重叠(它们仍在 UpstreamAction 枚举中,故 adapter 会包装)
+        // get_runtime_policy 与 typed 不重叠(它们仍是合法 UpstreamAction 值,故 adapter 会包装)
         FrontendActionDispatcher dispatcher = new FrontendActionDispatcher(typed, ctx);
 
         // legacy action 经 adapter 命中 dummy handler,且透传原始 content

@@ -64,7 +64,7 @@ public enum ProviderType implements ProtocolValue {
     /**
      * 从 provider 字符串转换为 ProviderType(历史宽容解析)。
      * 兼容现有字符串常量 {@link CommonConstants#PROVIDER_CLAUDE}/{@link CommonConstants#PROVIDER_CODEX}。
-     * null/未知 → {@code CLAUDE}(路由层依赖此默认,见 SessionSendService/EffectiveRuntimeResolver/SettingsHandler)。
+     * null/未知 → {@code CLAUDE}(路由层依赖此默认,见 SessionSendService/EffectiveRuntimeResolver)。
      * <p>如需严格校验(值不匹配即失败而非降级),改用 {@link #fromValue(String)}。
      */
     public static ProviderType fromString(String provider) {

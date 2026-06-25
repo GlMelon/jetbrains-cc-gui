@@ -1,7 +1,7 @@
 package com.github.claudecodegui.session;
 
 import com.github.claudecodegui.common.CommonConstants;
-import com.github.claudecodegui.handler.SettingsHandler;
+import com.github.claudecodegui.handler.provider.ModelProviderHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.model.SessionTemplate;
@@ -390,7 +390,7 @@ public class SessionLifecycleManager {
     private void resetTokenUsage() {
         int maxTokens = host.getHandlerContext().getSession() != null
                 ? host.getHandlerContext().getSession().getState().getEffectiveMaxTokens()
-                : SettingsHandler.getModelContextLimit(host.getHandlerContext().getCurrentModel());
+                : ModelProviderHandler.getModelContextLimit(host.getHandlerContext().getCurrentModel());
         JsonObject usageUpdate = new JsonObject();
         usageUpdate.addProperty("percentage", 0);
         usageUpdate.addProperty("totalTokens", 0);

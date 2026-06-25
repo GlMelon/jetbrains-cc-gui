@@ -47,7 +47,6 @@ import com.github.claudecodegui.handler.diff.ShowInteractiveDiffActionHandler;
 import com.github.claudecodegui.handler.core.FrontendActionDispatcher;
 import com.github.claudecodegui.handler.core.FrontendActionHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
-import com.github.claudecodegui.handler.core.LegacyMessageHandlerAdapter;
 import com.github.claudecodegui.handler.history.HistoryActionHandlers;
 import com.github.claudecodegui.handler.history.LoadHistoryDataActionHandler;
 import com.github.claudecodegui.handler.history.LoadSessionActionHandler;
@@ -105,7 +104,9 @@ import com.github.claudecodegui.handler.provider.SwitchCodexProviderActionHandle
 import com.github.claudecodegui.handler.provider.RevokeCodexLocalConfigAuthorizationActionHandler;
 import com.github.claudecodegui.handler.provider.GetActiveCodexProviderActionHandler;
 import com.github.claudecodegui.handler.provider.SortCodexProvidersActionHandler;
-import com.github.claudecodegui.handler.SettingsHandler;
+import com.github.claudecodegui.handler.ProjectConfigHandler;
+import com.github.claudecodegui.handler.UserLanguageHandler;
+import com.github.claudecodegui.handler.RuntimePolicyHandler;
 import com.github.claudecodegui.handler.settings.GetClaudeCliPathActionHandler;
 import com.github.claudecodegui.handler.settings.GetCodexSubscriptionQuotaActionHandler;
 import com.github.claudecodegui.handler.settings.GetModelRegistryActionHandler;
@@ -126,6 +127,55 @@ import com.github.claudecodegui.handler.settings.SetProviderActionHandler;
 import com.github.claudecodegui.handler.settings.SetSessionProviderActionHandler;
 import com.github.claudecodegui.handler.settings.SetReasoningEffortActionHandler;
 import com.github.claudecodegui.handler.settings.SetCodexFastModeActionHandler;
+import com.github.claudecodegui.handler.settings.GetUsageStatisticsActionHandler;
+import com.github.claudecodegui.handler.settings.GetWorkingDirectoryActionHandler;
+import com.github.claudecodegui.handler.settings.SetWorkingDirectoryActionHandler;
+import com.github.claudecodegui.handler.settings.GetEditorFontConfigActionHandler;
+import com.github.claudecodegui.handler.settings.GetUiFontConfigActionHandler;
+import com.github.claudecodegui.handler.settings.SetUiFontConfigActionHandler;
+import com.github.claudecodegui.handler.settings.BrowseUiFontFileActionHandler;
+import com.github.claudecodegui.handler.settings.GetCodeFontConfigActionHandler;
+import com.github.claudecodegui.handler.settings.SetCodeFontConfigActionHandler;
+import com.github.claudecodegui.handler.settings.BrowseCodeFontFileActionHandler;
+import com.github.claudecodegui.handler.settings.GetStreamingEnabledActionHandler;
+import com.github.claudecodegui.handler.settings.SetStreamingEnabledActionHandler;
+import com.github.claudecodegui.handler.settings.GetInvocationModeActionHandler;
+import com.github.claudecodegui.handler.settings.GetSessionInvocationModeActionHandler;
+import com.github.claudecodegui.handler.settings.GetSessionRuntimeStateActionHandler;
+import com.github.claudecodegui.handler.settings.SetInvocationModeActionHandler;
+import com.github.claudecodegui.handler.settings.SetCliPathActionHandler;
+import com.github.claudecodegui.handler.settings.GetCodexSandboxModeActionHandler;
+import com.github.claudecodegui.handler.settings.SetCodexSandboxModeActionHandler;
+import com.github.claudecodegui.handler.settings.GetSendShortcutActionHandler;
+import com.github.claudecodegui.handler.settings.SetSendShortcutActionHandler;
+import com.github.claudecodegui.handler.settings.GetAutoOpenFileEnabledActionHandler;
+import com.github.claudecodegui.handler.settings.SetAutoOpenFileEnabledActionHandler;
+import com.github.claudecodegui.handler.settings.GetPermissionDialogTimeoutActionHandler;
+import com.github.claudecodegui.handler.settings.SetPermissionDialogTimeoutActionHandler;
+import com.github.claudecodegui.handler.settings.GetCommitGenerationEnabledActionHandler;
+import com.github.claudecodegui.handler.settings.SetCommitGenerationEnabledActionHandler;
+import com.github.claudecodegui.handler.settings.GetStatusBarWidgetEnabledActionHandler;
+import com.github.claudecodegui.handler.settings.SetStatusBarWidgetEnabledActionHandler;
+import com.github.claudecodegui.handler.settings.GetTaskCompletionNotificationEnabledActionHandler;
+import com.github.claudecodegui.handler.settings.SetTaskCompletionNotificationEnabledActionHandler;
+import com.github.claudecodegui.handler.settings.GetAiTitleGenerationEnabledActionHandler;
+import com.github.claudecodegui.handler.settings.SetAiTitleGenerationEnabledActionHandler;
+import com.github.claudecodegui.handler.settings.GetIdeThemeActionHandler;
+import com.github.claudecodegui.handler.settings.GetCommitPromptActionHandler;
+import com.github.claudecodegui.handler.settings.SetCommitPromptActionHandler;
+import com.github.claudecodegui.handler.settings.GetCommitAiConfigActionHandler;
+import com.github.claudecodegui.handler.settings.SetCommitAiConfigActionHandler;
+import com.github.claudecodegui.handler.settings.GetPromptEnhancerConfigActionHandler;
+import com.github.claudecodegui.handler.settings.SetPromptEnhancerConfigActionHandler;
+import com.github.claudecodegui.handler.settings.GetProjectCommitPromptActionHandler;
+import com.github.claudecodegui.handler.settings.SetProjectCommitPromptActionHandler;
+import com.github.claudecodegui.handler.settings.SetUserLanguageActionHandler;
+import com.github.claudecodegui.handler.settings.GetUserLanguageActionHandler;
+import com.github.claudecodegui.handler.settings.ClearUserLanguageActionHandler;
+import com.github.claudecodegui.handler.settings.GetRuntimePolicyActionHandler;
+import com.github.claudecodegui.handler.settings.SetRuntimePolicyActionHandler;
+import com.github.claudecodegui.handler.settings.ResetRuntimePolicyActionHandler;
+import com.github.claudecodegui.handler.settings.GetRuntimePolicySchemaActionHandler;
 import com.github.claudecodegui.handler.settings.SetClaudeCliPathActionHandler;
 import com.github.claudecodegui.handler.settings.GetNodePathActionHandler;
 import com.github.claudecodegui.handler.settings.SetNodePathActionHandler;
@@ -177,8 +227,10 @@ import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.SDKResult;
 import com.github.claudecodegui.session.SessionLifecycleManager;
 import com.github.claudecodegui.session.StreamMessageCoalescer;
+import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.util.JsUtils;
 import com.github.claudecodegui.util.MessageJsonConverter;
+import com.github.claudecodegui.util.ThemeConfigService;
 import com.google.gson.JsonObject;
 import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.openapi.application.ApplicationManager;
@@ -435,9 +487,17 @@ public class ChatWindowDelegate {
         handlerContext.setFrontendReadyChecker(frontendReadyChecker);
         host.setHandlerContext(handlerContext);
 
-        // Typed frontend action dispatcher: all actions (model registry, appearance, and the
-        // remaining SettingsHandler actions bridged via LegacyMessageHandlerAdapter) are served by
-        // dedicated typed handlers. This is the sole dispatch path in ClaudeChatWindow#handleMessage.
+        // Register theme change listener to notify frontend when the IDE theme changes (B3:
+        // migrated verbatim from SettingsHandler#registerThemeChangeListener).
+        ThemeConfigService.registerThemeChangeListener(themeConfig ->
+                ApplicationManager.getApplication().invokeLater(() ->
+                        handlerContext.dispatchEvent(DownstreamEvent.THEME_CHANGED.value(),
+                                handlerContext.escapeJs(themeConfig.toString()))));
+
+        // Typed frontend action dispatcher: all actions (model registry, appearance, project
+        // config, user language, runtime policy, etc.) are served by dedicated typed handlers.
+        // This is the sole dispatch path in ClaudeChatWindow#handleMessage (B3: the legacy
+        // SettingsHandler string-dispatch has been fully retired).
         CodemossSettingsService settings = handlerContext.getSettingsService();
         ModelRegistryService modelRegistryService = new ModelRegistryService(settings);
         AppearanceConfigService appearanceConfigService = new AppearanceConfigService(settings);
@@ -481,7 +541,61 @@ public class ChatWindowDelegate {
         typedHandlers.add(new SetSessionProviderActionHandler(modelProviderHandler));
         typedHandlers.add(new SetReasoningEffortActionHandler(modelProviderHandler));
         typedHandlers.add(new SetCodexFastModeActionHandler(modelProviderHandler));
-        typedHandlers.addAll(LegacyMessageHandlerAdapter.from(new SettingsHandler(handlerContext)));
+        // Project config (B3 slice: project-config)
+        ProjectConfigHandler projectConfigHandler = new ProjectConfigHandler(handlerContext);
+        typedHandlers.add(new GetUsageStatisticsActionHandler(projectConfigHandler));
+        typedHandlers.add(new GetWorkingDirectoryActionHandler(projectConfigHandler));
+        typedHandlers.add(new SetWorkingDirectoryActionHandler(projectConfigHandler));
+        typedHandlers.add(new GetEditorFontConfigActionHandler(projectConfigHandler));
+        typedHandlers.add(new GetUiFontConfigActionHandler(projectConfigHandler));
+        typedHandlers.add(new SetUiFontConfigActionHandler(projectConfigHandler));
+        typedHandlers.add(new BrowseUiFontFileActionHandler(projectConfigHandler));
+        typedHandlers.add(new GetCodeFontConfigActionHandler(projectConfigHandler));
+        typedHandlers.add(new SetCodeFontConfigActionHandler(projectConfigHandler));
+        typedHandlers.add(new BrowseCodeFontFileActionHandler(projectConfigHandler));
+        typedHandlers.add(new GetStreamingEnabledActionHandler(projectConfigHandler));
+        typedHandlers.add(new SetStreamingEnabledActionHandler(projectConfigHandler));
+        typedHandlers.add(new GetInvocationModeActionHandler(projectConfigHandler));
+        typedHandlers.add(new GetSessionInvocationModeActionHandler(projectConfigHandler));
+        typedHandlers.add(new GetSessionRuntimeStateActionHandler(projectConfigHandler));
+        typedHandlers.add(new SetInvocationModeActionHandler(projectConfigHandler));
+        typedHandlers.add(new SetCliPathActionHandler(projectConfigHandler));
+        typedHandlers.add(new GetCodexSandboxModeActionHandler(projectConfigHandler));
+        typedHandlers.add(new SetCodexSandboxModeActionHandler(projectConfigHandler));
+        typedHandlers.add(new GetSendShortcutActionHandler(projectConfigHandler));
+        typedHandlers.add(new SetSendShortcutActionHandler(projectConfigHandler));
+        typedHandlers.add(new GetAutoOpenFileEnabledActionHandler(projectConfigHandler));
+        typedHandlers.add(new SetAutoOpenFileEnabledActionHandler(projectConfigHandler));
+        typedHandlers.add(new GetPermissionDialogTimeoutActionHandler(projectConfigHandler));
+        typedHandlers.add(new SetPermissionDialogTimeoutActionHandler(projectConfigHandler));
+        typedHandlers.add(new GetCommitGenerationEnabledActionHandler(projectConfigHandler));
+        typedHandlers.add(new SetCommitGenerationEnabledActionHandler(projectConfigHandler));
+        typedHandlers.add(new GetStatusBarWidgetEnabledActionHandler(projectConfigHandler));
+        typedHandlers.add(new SetStatusBarWidgetEnabledActionHandler(projectConfigHandler));
+        typedHandlers.add(new GetTaskCompletionNotificationEnabledActionHandler(projectConfigHandler));
+        typedHandlers.add(new SetTaskCompletionNotificationEnabledActionHandler(projectConfigHandler));
+        typedHandlers.add(new GetAiTitleGenerationEnabledActionHandler(projectConfigHandler));
+        typedHandlers.add(new SetAiTitleGenerationEnabledActionHandler(projectConfigHandler));
+        typedHandlers.add(new GetIdeThemeActionHandler(projectConfigHandler));
+        typedHandlers.add(new GetCommitPromptActionHandler(projectConfigHandler));
+        typedHandlers.add(new SetCommitPromptActionHandler(projectConfigHandler));
+        typedHandlers.add(new GetCommitAiConfigActionHandler(projectConfigHandler));
+        typedHandlers.add(new SetCommitAiConfigActionHandler(projectConfigHandler));
+        typedHandlers.add(new GetPromptEnhancerConfigActionHandler(projectConfigHandler));
+        typedHandlers.add(new SetPromptEnhancerConfigActionHandler(projectConfigHandler));
+        typedHandlers.add(new GetProjectCommitPromptActionHandler(projectConfigHandler));
+        typedHandlers.add(new SetProjectCommitPromptActionHandler(projectConfigHandler));
+        // User language (B3 slice: user-language)
+        UserLanguageHandler userLanguageHandler = new UserLanguageHandler(handlerContext);
+        typedHandlers.add(new SetUserLanguageActionHandler(userLanguageHandler));
+        typedHandlers.add(new GetUserLanguageActionHandler(userLanguageHandler));
+        typedHandlers.add(new ClearUserLanguageActionHandler(userLanguageHandler));
+        // Runtime policy (B3 slice: runtime-policy)
+        RuntimePolicyHandler runtimePolicyHandler = new RuntimePolicyHandler(handlerContext);
+        typedHandlers.add(new GetRuntimePolicyActionHandler(runtimePolicyHandler));
+        typedHandlers.add(new SetRuntimePolicyActionHandler(runtimePolicyHandler));
+        typedHandlers.add(new ResetRuntimePolicyActionHandler(runtimePolicyHandler));
+        typedHandlers.add(new GetRuntimePolicySchemaActionHandler(runtimePolicyHandler));
 
         // Session action handlers (B2 迁移: send/interrupt/restart)
         SessionActionHandlers sessionActionHandlers = new SessionActionHandlers(handlerContext);

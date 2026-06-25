@@ -9,7 +9,7 @@ import java.util.List;
 /**
  * Utility class for token usage calculation across providers.
  * Centralizes provider-aware token extraction and usage JSON lookup
- * — used by MessageJsonConverter, SettingsHandler, and ClaudeSession.
+ * — used by MessageJsonConverter and ClaudeSession.
  */
 public final class TokenUsageUtils {
 
