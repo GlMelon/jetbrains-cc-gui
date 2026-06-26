@@ -746,9 +746,6 @@ public class ChatWindowDelegate {
         typedHandlers.add(new GetActiveCodexProviderActionHandler(providerHandlers));
         typedHandlers.add(new SortCodexProvidersActionHandler(providerHandlers));
 
-        host.setFrontendActionDispatcher(
-                new FrontendActionDispatcher(typedHandlers, handlerContext));
-
         // Permission: shared state container + 3 typed handlers
         PermissionActionHandlers permissionHandlers = new PermissionActionHandlers(handlerContext);
         permissionHandlers.setPermissionDeniedCallback(host::interruptDueToPermissionDenial);
@@ -772,6 +769,16 @@ public class ChatWindowDelegate {
         typedHandlers.add(new DeepSearchHistoryActionHandler(historyHandlers));
         typedHandlers.add(new LoadSubagentSessionActionHandler(historyHandlers));
         typedHandlers.add(new ConvertToCliSessionActionHandler(historyHandlers));
+
+        // FrontendActionDispatcher 构造时一次性把传入 list 拷进路由表(快照语义),之后对 list
+        // 的 add 不会反映到已构造的 dispatcher。因此必须在所有 typedHandlers.add 完成后构造 ——
+        // 否则后注册的 permission/history handler 不会进入路由表,前端发出的 action 会落到
+        // ClaudeChatWindow#handleJavaScriptMessage 的 unknown-type 分支被静默丢弃(B2/B4 迁移
+        // 曾因构造时机错误回归:permission_decision / load_history_data 等 14 个 action 失效)。
+        // verifyAllRegistered 自检兜底:若未来再次把构造提前,装配时立即 fail-fast。
+        FrontendActionDispatcher dispatcher = new FrontendActionDispatcher(typedHandlers, handlerContext);
+        FrontendActionDispatcher.verifyAllRegistered(dispatcher, typedHandlers);
+        host.setFrontendActionDispatcher(dispatcher);
 
         LOG.info("Registered " + typedHandlers.size() + " typed action handlers");
     }

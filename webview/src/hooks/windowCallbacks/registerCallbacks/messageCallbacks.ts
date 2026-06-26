@@ -3,7 +3,7 @@
  *
  * Registers window bridge callbacks for message management:
  * updateMessages, updateStatus, showLoading, showThinkingStatus,
- * setHistoryData, clearMessages, addErrorMessage, addHistoryMessage,
+ * setHistoryData, clearMessages, addErrorMessage,
  * historyLoadComplete, addUserMessage.
  */
 
@@ -622,11 +622,6 @@ export function registerMessageCallbacks(
     if (closeContextUsageDialog(requestId)) {
       addToast(message, 'error');
     }
-  };
-
-  window.addHistoryMessage = (message: ClaudeMessage) => {
-    if (window.__sessionTransitioning) return;
-    setMessages((prev) => [...prev, message]);
   };
 
   // History load complete callback — triggers Markdown re-rendering

@@ -180,14 +180,6 @@ public final class CommonConstants {
     // ===== JavaScript 函数名 =====
     // 后端调用前端 WebView 中的 JavaScript 函数名
 
-    /** 更新 Claude 提供者列表 */
-    public static final String JS_UPDATE_PROVIDERS = "window.updateProviders";
-    /** 更新 Codex 提供者列表 */
-    public static final String JS_UPDATE_CODEX_PROVIDERS = "window.updateCodexProviders";
-    /** 更新当前 Claude 配置 */
-    public static final String JS_UPDATE_CURRENT_CONFIG = "window.updateCurrentClaudeConfig";
-    /** 更新 MCP 服务器列表 */
-    public static final String JS_UPDATE_MCP_SERVERS = "window.updateMcpServers";
     /** 权限模式变更通知 */
     public static final String JS_ON_MODE_RECEIVED = "window.onModeReceived";
     /** 模型确认通知 */

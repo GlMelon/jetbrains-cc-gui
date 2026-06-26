@@ -123,7 +123,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
 
     @Override
     protected String getProviderName() {
-        return "codex";
+        return CommonConstants.PROVIDER_CODEX;
     }
 
     @Override

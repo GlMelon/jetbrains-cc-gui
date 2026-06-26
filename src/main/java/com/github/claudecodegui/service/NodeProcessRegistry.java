@@ -24,6 +24,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import com.github.claudecodegui.common.CommonConstants;
+
 /**
  * Project-scoped service that aggregates all Node.js subprocess data for the
  * Node Process Management panel.
@@ -413,13 +415,13 @@ public final class NodeProcessRegistry implements Disposable {
         }
         String lower = cmd.toLowerCase();
         if (lower.contains("daemon.js")) {
-            return "claude";
+            return CommonConstants.PROVIDER_CLAUDE;
         }
         if (lower.contains("codex")) {
-            return "codex";
+            return CommonConstants.PROVIDER_CODEX;
         }
         if (lower.contains("claude")) {
-            return "claude";
+            return CommonConstants.PROVIDER_CLAUDE;
         }
         return null;
     }
@@ -472,12 +474,12 @@ public final class NodeProcessRegistry implements Disposable {
     private static String safeGetCurrentProvider(ClaudeChatWindow window) {
         try {
             if (window == null) {
-                return "claude";
+                return CommonConstants.PROVIDER_CLAUDE;
             }
             String provider = window.getCurrentProvider();
-            return provider != null && !provider.isEmpty() ? provider : "claude";
+            return provider != null && !provider.isEmpty() ? provider : CommonConstants.PROVIDER_CLAUDE;
         } catch (Exception e) {
-            return "claude";
+            return CommonConstants.PROVIDER_CLAUDE;
         }
     }
 

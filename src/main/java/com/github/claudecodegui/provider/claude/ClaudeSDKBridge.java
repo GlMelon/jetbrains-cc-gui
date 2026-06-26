@@ -17,6 +17,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import com.github.claudecodegui.common.CommonConstants;
+
 /**
  * Claude Agent SDK bridge.
  * Handles Java to Node.js SDK communication, supports async and streaming responses.
@@ -168,7 +170,7 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
 
     @Override
     protected String getProviderName() {
-        return "claude";
+        return CommonConstants.PROVIDER_CLAUDE;
     }
 
     @Override
