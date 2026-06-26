@@ -5,6 +5,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+import com.github.claudecodegui.protocol.ReasoningEffort;
+
 /**
  * Claude 角色模型富枚举:统一管理角色 ID、短名、家族、上下文窗口与关联环境变量键。
  * <p>
@@ -124,8 +126,16 @@ public enum ClaudeRole {
      */
     public List<String> reasoningLevels() {
         return switch (this) {
-            case SONNET, OPUS, FABLE -> List.of("low", "medium", "high", "xhigh", "max");
-            case HAIKU -> List.of("low", "medium", "high");
+            case SONNET, OPUS, FABLE -> List.of(
+                    ReasoningEffort.LOW.value(),
+                    ReasoningEffort.MEDIUM.value(),
+                    ReasoningEffort.HIGH.value(),
+                    ReasoningEffort.XHIGH.value(),
+                    ReasoningEffort.MAX.value());
+            case HAIKU -> List.of(
+                    ReasoningEffort.LOW.value(),
+                    ReasoningEffort.MEDIUM.value(),
+                    ReasoningEffort.HIGH.value());
         };
     }
 

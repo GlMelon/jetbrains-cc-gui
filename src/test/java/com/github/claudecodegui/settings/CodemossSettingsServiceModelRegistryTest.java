@@ -3,6 +3,8 @@ package com.github.claudecodegui.settings;
 import com.github.claudecodegui.config.ModelConfig;
 import com.github.claudecodegui.config.ModelRegistryConfig;
 import com.github.claudecodegui.util.PlatformUtils;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import org.junit.After;
 import org.junit.Test;
 
@@ -13,6 +15,7 @@ import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 public class CodemossSettingsServiceModelRegistryTest {
@@ -217,6 +220,33 @@ public class CodemossSettingsServiceModelRegistryTest {
         ));
 
         assertTrue("非冲突 Codex 自定义模型应可新增", service.setModelRegistry(nonConflicting).isValid());
+    }
+
+    @Test
+    public void getModelRegistryJsonEmitsSupportedReasoningLevelsForClaudeRoles() throws Exception {
+        useTemporaryHomeDirectory(Files.createTempDirectory("model-registry-json-reasoning-home"));
+        CodemossSettingsService service = new CodemossSettingsService();
+
+        // 下发路径 getModelRegistryJson(provider 切换/登录/登出自动推送)必须含 supportedReasoningLevels,
+        // 否则前端 ReasoningSelect 拿不到档位会 return null 整体隐藏(H3:双序列化路径字段漂移)。
+        String json = service.getModelRegistryJson();
+        JsonObject root = JsonParser.parseString(json).getAsJsonObject();
+
+        JsonObject sonnetItem = null;
+        for (var elem : root.getAsJsonArray("items")) {
+            JsonObject item = elem.getAsJsonObject();
+            if ("claude-role-sonnet".equals(item.get("id").getAsString())) {
+                sonnetItem = item;
+                break;
+            }
+        }
+        assertNotNull("claude-role-sonnet 默认项必须存在于 getModelRegistryJson 下发载荷", sonnetItem);
+        assertTrue("getModelRegistryJson 必须下发 supportedReasoningLevels 派生字段"
+                        + "(provider 切换/登录推送路径须与设置面板主动加载路径字段集一致)",
+                sonnetItem.has("supportedReasoningLevels"));
+        assertTrue("claude-role-sonnet 的 supportedReasoningLevels 应为非空数组(sonnet 5 档含 xhigh)",
+                sonnetItem.get("supportedReasoningLevels").isJsonArray()
+                        && !sonnetItem.get("supportedReasoningLevels").getAsJsonArray().isEmpty());
     }
 
     private void useTemporaryHomeDirectory(Path tempHome) throws Exception {

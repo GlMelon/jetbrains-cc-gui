@@ -1397,7 +1397,14 @@ public class CodemossSettingsService {
         }
         featureConfig.add(
                 AI_FEATURE_MODELS_KEY,
-                createAiFeatureModels(claudeModel, codexModel, defaultClaudeModel, defaultCodexModel)
+                // 写入路径同样归一化 canonical→role id(M2):与读取路径 getNormalizedAiFeatureModels
+                // 对称,让 config.json 持久化的即为 role id,避免绕过读取归一化的路径拿到 canonical。
+                createAiFeatureModels(
+                        normalizeAiFeatureClaudeModel(claudeModel),
+                        codexModel,
+                        defaultClaudeModel,
+                        defaultCodexModel
+                )
         );
 
         config.add(featureKey, featureConfig);
@@ -1816,9 +1823,16 @@ public class CodemossSettingsService {
                 : new ModelConfigValidator.ValidationResult(errors, java.util.List.of());
     }
 
-    /** 序列化当前 effective registry 为 JSON 字符串,供提供商切换后推送刷新。 */
+    /**
+     * 序列化当前 effective registry 为 JSON 字符串,供提供商切换/登录后推送刷新(下发前端)。
+     *
+     * <p>必须复用 {@link ModelRegistryService#serialize} 以下发 supportedReasoningLevels 等
+     * 派生字段;否则前端 ReasoningSelect 拿不到档位会整体隐藏(H3)。与写盘路径
+     * {@code serializeModelRegistry}({@link #setModelRegistry},只持久化原始字段、派生字段不落盘)
+     * 刻意区分:下发需派生字段,写盘不需要(避免双写)。
+     */
     public String getModelRegistryJson() {
-        return serializeModelRegistry(getModelRegistry()).toString();
+        return ModelRegistryService.serialize(getModelRegistry()).toString();
     }
 
     private ModelRegistryConfig parseModelRegistry(JsonObject modelRegistryObj) {
