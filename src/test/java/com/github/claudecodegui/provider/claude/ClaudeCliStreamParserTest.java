@@ -30,6 +30,62 @@ public class ClaudeCliStreamParserTest {
     }
 
     @Test
+    public void assistantServerToolUseEmitsNormalizedToolUseEvent() {
+        ClaudeCliStreamParser parser = new ClaudeCliStreamParser(new Gson());
+        RecordingCallback callback = new RecordingCallback();
+        String line = "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"server_tool_use\",\"id\":\"srv_1\",\"name\":\"web_search\",\"input\":{\"query\":\"mcp display\"}}]}}";
+
+        parser.parseLine(line, callback, new SDKResult(), new StringBuilder(), new AtomicBoolean(false), false);
+
+        assertEquals("tool_use", callback.events.get(0).type);
+        assertTrue(callback.events.get(0).content.contains("\"type\":\"tool_use\""));
+        assertTrue(callback.events.get(0).content.contains("\"name\":\"web_search\""));
+        assertTrue(callback.events.get(0).content.contains("\"id\":\"srv_1\""));
+    }
+
+    @Test
+    public void assistantServerToolUseAddsFallbackIdAndInputWhenMissing() {
+        ClaudeCliStreamParser parser = new ClaudeCliStreamParser(new Gson());
+        RecordingCallback callback = new RecordingCallback();
+        String line = "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"server_tool_use\",\"name\":\"web_search\"}]}}";
+
+        parser.parseLine(line, callback, new SDKResult(), new StringBuilder(), new AtomicBoolean(false), false);
+
+        assertEquals("tool_use", callback.events.get(0).type);
+        assertTrue(callback.events.get(0).content.contains("\"type\":\"tool_use\""));
+        assertTrue(callback.events.get(0).content.contains("\"name\":\"web_search\""));
+        assertTrue(callback.events.get(0).content.contains("\"id\":\"server_tool_"));
+        assertTrue(callback.events.get(0).content.contains("\"input\":{\"source\":\"server_tool_use\"}"));
+    }
+
+    @Test
+    public void streamServerToolUseStartEmitsNormalizedToolUseEvent() {
+        ClaudeCliStreamParser parser = new ClaudeCliStreamParser(new Gson());
+        RecordingCallback callback = new RecordingCallback();
+        String line = "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_start\",\"content_block\":{\"type\":\"server_tool_use\",\"name\":\"web_search\"}}}";
+
+        parser.parseLine(line, callback, new SDKResult(), new StringBuilder(), new AtomicBoolean(false), false);
+
+        assertEquals("tool_use", callback.events.get(0).type);
+        assertTrue(callback.events.get(0).content.contains("\"type\":\"tool_use\""));
+        assertTrue(callback.events.get(0).content.contains("\"name\":\"web_search\""));
+        assertTrue(callback.events.get(0).content.contains("\"input\":{\"source\":\"server_tool_use\"}"));
+    }
+
+    @Test
+    public void repeatedServerToolUseFromStreamAndAssistantSnapshotEmitsOnce() {
+        ClaudeCliStreamParser parser = new ClaudeCliStreamParser(new Gson());
+        RecordingCallback callback = new RecordingCallback();
+        String streamLine = "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_start\",\"content_block\":{\"type\":\"server_tool_use\",\"name\":\"web_search\"}}}";
+        String snapshotLine = "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"server_tool_use\",\"name\":\"web_search\"}]}}";
+
+        parser.parseLine(streamLine, callback, new SDKResult(), new StringBuilder(), new AtomicBoolean(false), false);
+        parser.parseLine(snapshotLine, callback, new SDKResult(), new StringBuilder(), new AtomicBoolean(false), false);
+
+        assertEquals(1, callback.contentsOfType("tool_use").size());
+    }
+
+    @Test
     public void thinkingDeltaStillEmitsWhenSuppressFlagIsTrue() {
         ClaudeCliStreamParser parser = new ClaudeCliStreamParser(new Gson());
         RecordingCallback callback = new RecordingCallback();

@@ -12,6 +12,8 @@ import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
 
 import java.util.Locale;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -42,6 +44,7 @@ public class ClaudeCliStreamParser {
     private boolean imageToolResultSeen;
     private boolean imageUnderstandingObserved;
     private TextBlockRoute currentTextBlockRoute = TextBlockRoute.NONE;
+    private final Set<String> emittedServerToolUseIds = new LinkedHashSet<>();
 
     private static final String UNSUPPORTED_IMAGE_MESSAGE = "__I18N__:aiBridge.unsupportedImageVision";
 
@@ -59,6 +62,7 @@ public class ClaudeCliStreamParser {
         imageToolResultSeen = false;
         imageUnderstandingObserved = false;
         currentTextBlockRoute = TextBlockRoute.NONE;
+        emittedServerToolUseIds.clear();
         pendingTextBlock.setLength(0);
     }
 
@@ -104,6 +108,9 @@ public class ClaudeCliStreamParser {
                         if (CommonConstants.BLOCK_TYPE_TOOL_USE.equals(blockType)
                                 || CommonConstants.BLOCK_TYPE_SERVER_TOOL_USE.equals(blockType)) {
                             nextTextBlockIsAfterToolStructure = true;
+                            if (CommonConstants.BLOCK_TYPE_SERVER_TOOL_USE.equals(blockType)) {
+                                emitServerToolUse(block, callback);
+                            }
                         }
                     }
                 }
@@ -256,9 +263,49 @@ public class ClaudeCliStreamParser {
                 callback.onMessage(CommonConstants.MSG_TYPE_TOOL_USE,block.toString());
             } else if (CommonConstants.BLOCK_TYPE_SERVER_TOOL_USE.equals(blockType)) {
                 nextTextBlockIsAfterToolStructure = true;
+                emitServerToolUse(block, callback);
             }
             // text 类型的内容已通过 content_block_delta 接收，跳过
         }
+    }
+
+    private void emitServerToolUse(JsonObject block, MessageCallback callback) {
+        JsonObject normalized = normalizeServerToolUse(block);
+        String id = getString(normalized, CommonConstants.JSON_KEY_ID);
+        if (id != null && !id.isBlank() && !emittedServerToolUseIds.add(id)) {
+            return;
+        }
+        callback.onMessage(CommonConstants.MSG_TYPE_TOOL_USE, normalized.toString());
+    }
+
+    private JsonObject normalizeServerToolUse(JsonObject block) {
+        JsonObject normalized = block == null ? new JsonObject() : block.deepCopy();
+        normalized.addProperty(CommonConstants.JSON_KEY_TYPE, CommonConstants.BLOCK_TYPE_TOOL_USE);
+
+        String name = getString(normalized, CommonConstants.JSON_KEY_NAME);
+        if (name == null || name.isBlank()) {
+            name = getString(normalized, "tool_name");
+        }
+        if (name == null || name.isBlank()) {
+            name = "server_tool";
+        }
+        normalized.addProperty(CommonConstants.JSON_KEY_NAME, name);
+
+        if (!normalized.has(CommonConstants.JSON_KEY_ID) || normalized.get(CommonConstants.JSON_KEY_ID).isJsonNull()) {
+            String id = getString(normalized, "tool_use_id");
+            if (id == null || id.isBlank()) {
+                id = "server_tool_" + Integer.toHexString(normalized.toString().hashCode());
+            }
+            normalized.addProperty(CommonConstants.JSON_KEY_ID, id);
+        }
+
+        if (!normalized.has(CommonConstants.JSON_KEY_INPUT) || !normalized.get(CommonConstants.JSON_KEY_INPUT).isJsonObject()) {
+            JsonObject input = new JsonObject();
+            input.addProperty("source", CommonConstants.BLOCK_TYPE_SERVER_TOOL_USE);
+            normalized.add(CommonConstants.JSON_KEY_INPUT, input);
+        }
+
+        return normalized;
     }
 
     private void handleUser(JsonObject obj, MessageCallback callback) {
