@@ -8,6 +8,8 @@ import com.github.claudecodegui.provider.common.BaseSDKBridge;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.DaemonBridge;
 import com.github.claudecodegui.provider.common.SDKResult;
+import com.github.claudecodegui.bridge.EnvironmentConfigurator;
+import com.github.claudecodegui.settings.CodemossSettingsService;
 
 import java.io.File;
 import java.util.List;
@@ -40,6 +42,49 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
         super(ClaudeSDKBridge.class);
 
         // Shared dependencies extracted once to avoid repeated lambda allocation
+        java.util.function.Supplier<File> sdkDirSupplier = () -> getDirectoryResolver().findSdkDir();
+
+        this.streamAdapter = new ClaudeStreamAdapter(gson);
+        this.requestParamsBuilder = new ClaudeRequestParamsBuilder(gson);
+        this.jsonOutputExtractor = new ClaudeJsonOutputExtractor();
+        ClaudeLogSanitizer logSanitizer = new ClaudeLogSanitizer();
+
+        this.daemonCoordinator = new ClaudeDaemonCoordinator(
+                LOG, nodeDetector, this::getDirectoryResolver, envConfigurator
+        );
+        this.processInvoker = new ClaudeProcessInvoker(
+                LOG, gson, nodeDetector, sdkDirSupplier, processManager,
+                envConfigurator, requestParamsBuilder, logSanitizer, streamAdapter
+        );
+        this.queryExecutor = new ClaudeQueryExecutor(
+                gson, nodeDetector, sdkDirSupplier, processManager,
+                envConfigurator, jsonOutputExtractor
+        );
+        this.sessionQueryService = new ClaudeSessionQueryService(
+                LOG, gson, nodeDetector, sdkDirSupplier, processManager,
+                envConfigurator, jsonOutputExtractor
+        );
+        this.mcpQueryService = new ClaudeMcpQueryService(
+                LOG, gson, nodeDetector, sdkDirSupplier, processManager,
+                envConfigurator, jsonOutputExtractor
+        );
+        this.rewindService = new ClaudeRewindService(
+                LOG, gson, nodeDetector, sdkDirSupplier, processManager,
+                envConfigurator, jsonOutputExtractor
+        );
+        this.daemonRequestExecutor = new ClaudeDaemonRequestExecutor(
+                LOG, requestParamsBuilder, streamAdapter, jsonOutputExtractor
+        );
+    }
+
+    /**
+     * Test-friendly constructor. Accepts explicit dependencies so tests can run
+     * without the IntelliJ Platform application context.
+     */
+    public ClaudeSDKBridge(EnvironmentConfigurator envConfigurator,
+                             CodemossSettingsService settingsService) {
+        super(ClaudeSDKBridge.class, envConfigurator);
+
         java.util.function.Supplier<File> sdkDirSupplier = () -> getDirectoryResolver().findSdkDir();
 
         this.streamAdapter = new ClaudeStreamAdapter(gson);

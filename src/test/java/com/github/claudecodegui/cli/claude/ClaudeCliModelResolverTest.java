@@ -26,7 +26,7 @@ public class ClaudeCliModelResolverTest {
         env.addProperty("ANTHROPIC_MODEL", "mimo-v2.5");
         env.addProperty("ANTHROPIC_DEFAULT_SONNET_MODEL", "ignored-sonnet");
 
-        String resolved = ClaudeCliModelResolver.resolveMapped("claude-role-sonnet", "glm5.2", env);
+        String resolved = ClaudeCliModelResolver.resolveMapped("glm5.2", env);
 
         assertEquals("glm5.2", resolved);
     }
@@ -36,7 +36,7 @@ public class ClaudeCliModelResolverTest {
         JsonObject env = new JsonObject();
         env.addProperty("ANTHROPIC_MODEL", "ignored-global");
 
-        String resolved = ClaudeCliModelResolver.resolveMapped("claude-role-sonnet[1m]", "glm5.2", env);
+        String resolved = ClaudeCliModelResolver.resolveMapped("glm5.2[1m]", env);
 
         assertEquals("glm5.2[1m]", resolved);
     }

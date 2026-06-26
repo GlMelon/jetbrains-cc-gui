@@ -23,10 +23,10 @@ public class SessionStateTest {
     }
 
     @Test
-    public void claudeInvocationModeStartsUnknownUntilExplicitlyInitialized() {
+    public void claudeInvocationModeDefaultsToSdkUntilExplicitlyChanged() {
         SessionState state = new SessionState();
 
-        assertNull(state.getClaudeInvocationMode());
+        assertEquals("sdk", state.getClaudeInvocationMode());
 
         state.setClaudeInvocationMode("cli");
 

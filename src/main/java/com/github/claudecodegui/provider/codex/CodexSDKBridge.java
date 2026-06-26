@@ -9,6 +9,7 @@ import com.github.claudecodegui.session.ClaudeSession;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.dependency.DependencyManager;
+import com.github.claudecodegui.bridge.EnvironmentConfigurator;
 import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.bridge.ProcessManager;
 import com.github.claudecodegui.cli.common.CliConstants;
@@ -70,7 +71,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
             "image/svg+xml", ".svg"
     );
     private final CodexHistoryReader historyReader;
-    private final CodemossSettingsService settingsService = CodemossSettingsService.getInstance();
+    private final CodemossSettingsService settingsService;
     private final CodexDaemonCoordinator daemonCoordinator;
     private final CodexDaemonRequestExecutor daemonRequestExecutor;
 
@@ -101,6 +102,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
 
     public CodexSDKBridge() {
         super(CodexSDKBridge.class);
+        this.settingsService = CodemossSettingsService.getInstance();
         this.historyReader = new CodexHistoryReader();
         this.daemonCoordinator = new CodexDaemonCoordinator(
                 LOG, nodeDetector, this::getDirectoryResolver, envConfigurator
@@ -110,6 +112,22 @@ public class CodexSDKBridge extends BaseSDKBridge {
 
     CodexSDKBridge(Path sessionsDir) {
         super(CodexSDKBridge.class);
+        this.settingsService = CodemossSettingsService.getInstance();
+        this.historyReader = new CodexHistoryReader(sessionsDir, gson);
+        this.daemonCoordinator = new CodexDaemonCoordinator(
+                LOG, nodeDetector, this::getDirectoryResolver, envConfigurator
+        );
+        this.daemonRequestExecutor = new CodexDaemonRequestExecutor(LOG, this);
+    }
+
+    /**
+     * Test-friendly constructor. Accepts explicit dependencies so tests can run
+     * without the IntelliJ Platform application context.
+     */
+    protected CodexSDKBridge(Path sessionsDir, EnvironmentConfigurator envConfigurator,
+                             CodemossSettingsService settingsService) {
+        super(CodexSDKBridge.class, envConfigurator);
+        this.settingsService = settingsService;
         this.historyReader = new CodexHistoryReader(sessionsDir, gson);
         this.daemonCoordinator = new CodexDaemonCoordinator(
                 LOG, nodeDetector, this::getDirectoryResolver, envConfigurator

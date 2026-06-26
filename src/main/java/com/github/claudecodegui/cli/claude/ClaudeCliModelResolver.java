@@ -2,7 +2,6 @@ package com.github.claudecodegui.cli.claude;
 
 import com.github.claudecodegui.cli.common.CliConstants;
 import com.github.claudecodegui.cli.common.CliSettings;
-import com.github.claudecodegui.common.ClaudeRole;
 import com.github.claudecodegui.common.CommonConstants;
 import com.google.gson.JsonObject;
 
@@ -16,6 +15,16 @@ final class ClaudeCliModelResolver {
 
     private static final Pattern ONE_M_SUFFIX = Pattern.compile("(?i)\\[1m\\]$");
     private static final String SUFFIX_1M = "[1m]";
+
+    /** 模型家族枚举，用于统一 resolveMapped 和 readCapabilityOverride 中的分派逻辑。 */
+    private enum ModelFamily { OPUS, HAIKU, SONNET, OTHER }
+
+    private static ModelFamily detectFamily(String normalizedModel) {
+        if (normalizedModel.contains("opus")) { return ModelFamily.OPUS; }
+        if (normalizedModel.contains("haiku")) { return ModelFamily.HAIKU; }
+        if (normalizedModel.contains("sonnet")) { return ModelFamily.SONNET; }
+        return ModelFamily.OTHER;
+    }
 
     private ClaudeCliModelResolver() {}
 
@@ -31,55 +40,38 @@ final class ClaudeCliModelResolver {
     }
 
     static ResolvedModel resolveProfile(String selectedModel) {
-        return resolveProfile(selectedModel, null, toJsonObject(CliSettings.readClaudeCliEnvironment()));
+        return resolveProfile(selectedModel, toJsonObject(CliSettings.readClaudeCliEnvironment()));
     }
 
     static ResolvedModel resolveProfile(String selectedModel, JsonObject env) {
-        return resolveProfile(selectedModel, null, env);
-    }
-
-    static ResolvedModel resolveProfile(String selectedModel, String actualModel) {
-        return resolveProfile(selectedModel, actualModel, toJsonObject(CliSettings.readClaudeCliEnvironment()));
-    }
-
-    static ResolvedModel resolveProfile(String selectedModel, String actualModel, JsonObject env) {
-        String resolvedModel = resolveMapped(selectedModel, actualModel, env);
+        String resolvedModel = resolveMapped(selectedModel, env);
         return new ResolvedModel(resolvedModel, resolveCapabilities(selectedModel, resolvedModel, env));
     }
 
     static String resolveMapped(String selectedModel, JsonObject env) {
-        return resolveMapped(selectedModel, null, env);
-    }
-
-    static String resolveMapped(String selectedModel, String actualModel, JsonObject env) {
-        // Check if original model has [1m] suffix (to preserve it after mapping)
-        boolean has1mSuffix = ONE_M_SUFFIX.matcher(selectedModel == null ? "" : selectedModel).find();
-
-        String actual = applyRequestSuffix(selectedModel, actualModel);
-        if (actual != null) {
-            return actual;
-        }
-
         if (selectedModel == null || selectedModel.isBlank() || env == null) {
             return selectedModel;
         }
 
+        // Check if original model has [1m] suffix (to preserve it after mapping)
+        boolean has1mSuffix = ONE_M_SUFFIX.matcher(selectedModel).find();
+
         String normalized = ONE_M_SUFFIX.matcher(selectedModel).replaceFirst("").toLowerCase();
-        if (!normalized.startsWith(ClaudeRole.ROLE_PREFIX)) {
+
+        // Non-claude models (actual model IDs, not role tokens) pass through unchanged
+        if (!normalized.startsWith(CliConstants.MODEL_PREFIX) && !normalized.startsWith(CliConstants.MODEL_PREFIX_ALT)) {
             return selectedModel;
         }
 
-        ClaudeRole role = ClaudeRole.fromModelId(normalized);
-        String mapped = null;
-        if (role != null) {
-            // envKeys 已含 fallback 顺序(Fable→Opus、Haiku→DEFAULT_HAIKU),取首个非空值
-            for (String key : role.envKeys()) {
-                mapped = readEnvValue(env, key);
-                if (mapped != null) {
-                    break;
-                }
-            }
-        }
+        // Claude role models: try family-specific mapping first, then fall back to main model
+        String mapped = switch (detectFamily(normalized)) {
+            case OPUS   -> readEnvValue(env, CommonConstants.ENV_ANTHROPIC_DEFAULT_OPUS_MODEL);
+            case HAIKU  -> firstNonBlank(
+                               readEnvValue(env, CommonConstants.ENV_ANTHROPIC_SMALL_FAST_MODEL),
+                               readEnvValue(env, CommonConstants.ENV_ANTHROPIC_DEFAULT_HAIKU_MODEL));
+            case SONNET -> readEnvValue(env, CommonConstants.ENV_ANTHROPIC_DEFAULT_SONNET_MODEL);
+            case OTHER  -> null;
+        };
 
         if (mapped != null) {
             // Preserve [1m] suffix from original model if the mapped model doesn't already have it
@@ -89,21 +81,16 @@ final class ClaudeCliModelResolver {
             return mapped;
         }
 
+        // Fall back to main model for claude role models
         String mainModel = readEnvValue(env, CommonConstants.ENV_ANTHROPIC_MODEL);
         if (mainModel != null) {
-            String baseMain = ONE_M_SUFFIX.matcher(mainModel).replaceFirst("");
-            return has1mSuffix ? baseMain + SUFFIX_1M : baseMain;
+            if (has1mSuffix && !ONE_M_SUFFIX.matcher(mainModel).find()) {
+                return mainModel + SUFFIX_1M;
+            }
+            return mainModel;
         }
-        return selectedModel;
-    }
 
-    private static String applyRequestSuffix(String selectedModel, String actualModel) {
-        if (actualModel == null || actualModel.isBlank()) {
-            return null;
-        }
-        boolean has1mSuffix = ONE_M_SUFFIX.matcher(selectedModel == null ? "" : selectedModel).find();
-        String baseActual = ONE_M_SUFFIX.matcher(actualModel.trim()).replaceFirst("");
-        return has1mSuffix ? baseActual + SUFFIX_1M : baseActual;
+        return selectedModel;
     }
 
     private static Capabilities resolveCapabilities(String selectedModel, String resolvedModel, JsonObject env) {
@@ -158,21 +145,16 @@ final class ClaudeCliModelResolver {
         }
 
         String normalized = selectedModel != null ? ONE_M_SUFFIX.matcher(selectedModel).replaceFirst("").toLowerCase() : "";
-        ClaudeRole role = ClaudeRole.fromModelId(normalized);
-        if (role != null) {
-            // capsEnvKeys 与 envKeys 的 fallback 顺序对齐,取首个非空值
-            for (String key : role.capsEnvKeys()) {
-                String value = readEnvValue(env, key);
-                if (value != null) {
-                    return value;
-                }
-            }
-            return null;
-        }
-        // 非 claude-role-* 模型(canonical claude 如 claude-sonnet-4-6)回退到 sonnet 能力覆盖
-        return isCanonicalClaudeModel(resolvedModel)
-                ? readEnvValue(env, CommonConstants.ENV_ANTHROPIC_DEFAULT_SONNET_MODEL_CAPABILITIES)
-                : null;
+        return switch (detectFamily(normalized)) {
+            case OPUS   -> readEnvValue(env, CommonConstants.ENV_ANTHROPIC_DEFAULT_OPUS_MODEL_CAPABILITIES);
+            case HAIKU  -> firstNonBlank(
+                               readEnvValue(env, CommonConstants.ENV_ANTHROPIC_SMALL_FAST_MODEL_CAPABILITIES),
+                               readEnvValue(env, CommonConstants.ENV_ANTHROPIC_DEFAULT_HAIKU_MODEL_CAPABILITIES));
+            case SONNET -> readEnvValue(env, CommonConstants.ENV_ANTHROPIC_DEFAULT_SONNET_MODEL_CAPABILITIES);
+            case OTHER  -> isCanonicalClaudeModel(resolvedModel)
+                               ? readEnvValue(env, CommonConstants.ENV_ANTHROPIC_DEFAULT_SONNET_MODEL_CAPABILITIES)
+                               : null;
+        };
     }
 
     private static boolean containsCapability(String capabilities, String expected) {
@@ -190,6 +172,10 @@ final class ClaudeCliModelResolver {
 
     private static String normalizeCapabilityToken(String token) {
         return token == null ? "" : token.trim().toLowerCase().replace('-', '_');
+    }
+
+    private static String firstNonBlank(String a, String b) {
+        return a != null ? a : b;
     }
 
     private static JsonObject toJsonObject(Map<String, String> env) {

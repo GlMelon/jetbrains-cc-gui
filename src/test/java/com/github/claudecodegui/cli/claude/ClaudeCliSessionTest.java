@@ -39,7 +39,6 @@ public class ClaudeCliSessionTest {
         CliSendRequest request = request("mimo-v2.5", null, "mimo-v2.5");
         ClaudeCliModelResolver.ResolvedModel profile = ClaudeCliModelResolver.resolveProfile(
                 request.model(),
-                request.actualModel(),
                 new JsonObject()
         );
 

@@ -202,6 +202,8 @@ public class MessageJsonConverter {
         copyFieldIfPresent(raw, transport, "origin");
         // Copy top-level usage data for per-message stats display
         copyFieldIfPresent(raw, transport, "usage");
+        // Copy turnUsage for per-turn token display
+        copyFieldIfPresent(raw, transport, "turnUsage");
 
         if (raw.has("content")) {
             transport.add("content", raw.get("content").deepCopy());
@@ -213,10 +215,8 @@ public class MessageJsonConverter {
             if (sourceMessage.has("content")) {
                 transportMessage.add("content", sourceMessage.get("content").deepCopy());
             }
-            // Copy usage data (input_tokens, output_tokens, etc.) for per-message stats display
-            if (sourceMessage.has("usage") && sourceMessage.get("usage").isJsonObject()) {
-                transportMessage.add("usage", sourceMessage.get("usage").deepCopy());
-            }
+            // NOTE: message.usage feeds the status bar only and must NOT be transported per message.
+            // Per-turn token display uses the top-level turnUsage field instead.
             if (transportMessage.size() > 0) {
                 transport.add("message", transportMessage);
             }

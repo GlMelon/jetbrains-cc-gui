@@ -1,8 +1,10 @@
 package com.github.claudecodegui.provider.codex;
 
+import com.github.claudecodegui.bridge.EnvironmentConfigurator;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.SDKResult;
+import com.github.claudecodegui.settings.CodemossSettingsService;
 import org.junit.Test;
 
 import java.lang.reflect.Method;
@@ -40,7 +42,7 @@ public class CodexSDKBridgeEnvTest {
     public void populateCodexRuntimeEnvDoesNotInjectUseStdinFlag() throws Exception {
         Path sessionsDir = Files.createTempDirectory("codex-sdk-bridge-runtime-env");
         try {
-            CodexSDKBridge bridge = new CodexSDKBridge(sessionsDir);
+            CodexSDKBridge bridge = new CodexSDKBridge(sessionsDir, new EnvironmentConfigurator(new CodemossSettingsService()), new CodemossSettingsService());
             Map<String, String> env = new LinkedHashMap<>();
 
             Method method = CodexSDKBridge.class.getDeclaredMethod(
@@ -65,7 +67,7 @@ public class CodexSDKBridgeEnvTest {
     public void populateCodexRuntimeEnvMapsPlanToReadOnlySuggestMode() throws Exception {
         Path sessionsDir = Files.createTempDirectory("codex-sdk-bridge-plan-env");
         try {
-            CodexSDKBridge bridge = new CodexSDKBridge(sessionsDir);
+            CodexSDKBridge bridge = new CodexSDKBridge(sessionsDir, new EnvironmentConfigurator(new CodemossSettingsService()), new CodemossSettingsService());
             Map<String, String> env = populateRuntimeEnv(bridge, "plan");
 
             assertEquals("read-only", env.get("CODEX_SANDBOX_MODE"));
@@ -80,7 +82,7 @@ public class CodexSDKBridgeEnvTest {
     public void populateCodexRuntimeEnvMapsBypassToNeverFullAccessMode() throws Exception {
         Path sessionsDir = Files.createTempDirectory("codex-sdk-bridge-bypass-env");
         try {
-            CodexSDKBridge bridge = new CodexSDKBridge(sessionsDir);
+            CodexSDKBridge bridge = new CodexSDKBridge(sessionsDir, new EnvironmentConfigurator(new CodemossSettingsService()), new CodemossSettingsService());
             Map<String, String> env = populateRuntimeEnv(bridge, "bypassPermissions");
 
             assertEquals("danger-full-access", env.get("CODEX_SANDBOX_MODE"));
@@ -164,7 +166,7 @@ public class CodexSDKBridgeEnvTest {
 
     private static class TestCodexSDKBridge extends CodexSDKBridge {
         TestCodexSDKBridge(Path sessionsDir) {
-            super(sessionsDir);
+            super(sessionsDir, new EnvironmentConfigurator(new CodemossSettingsService()), new CodemossSettingsService());
         }
 
         void applyProviderEnv(Map<String, String> env, String stdinJson) {

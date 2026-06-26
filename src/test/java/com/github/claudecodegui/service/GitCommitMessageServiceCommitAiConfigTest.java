@@ -2,7 +2,6 @@ package com.github.claudecodegui.service;
 
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
-import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vcs.changes.Change;
 import org.junit.Test;
 
@@ -94,7 +93,7 @@ public class GitCommitMessageServiceCommitAiConfigTest {
         private String lastCodexModel;
 
         private TestableGitCommitMessageService(JsonObject config) {
-            super((Project) null);
+            super(null, new com.github.claudecodegui.settings.CodemossSettingsService());
             this.config = config;
         }
 

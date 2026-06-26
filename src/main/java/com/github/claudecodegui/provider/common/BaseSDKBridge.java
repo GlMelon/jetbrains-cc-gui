@@ -41,7 +41,7 @@ public abstract class BaseSDKBridge {
      */
     protected final NodeDetector nodeDetector = NodeDetector.getInstance();
     protected final ProcessManager processManager = new ProcessManager();
-    protected final EnvironmentConfigurator envConfigurator = new EnvironmentConfigurator();
+    protected final EnvironmentConfigurator envConfigurator;
 
     /**
      * Get the shared BridgeDirectoryResolver from BridgePreloader.
@@ -53,7 +53,18 @@ public abstract class BaseSDKBridge {
 
     protected BaseSDKBridge(Class<?> loggerClass) {
         this.LOG = Logger.getInstance(loggerClass);
+        this.envConfigurator = new EnvironmentConfigurator();
         // Inject IntelliJ's managed executor into NodeDetector for in-flight detection tasks.
+        this.nodeDetector.setDetectionExecutor(AppExecutorUtil.getAppExecutorService());
+    }
+
+    /**
+     * Test-friendly constructor. Accepts an explicit {@link EnvironmentConfigurator}
+     * so tests can run without the IntelliJ Platform application context.
+     */
+    protected BaseSDKBridge(Class<?> loggerClass, EnvironmentConfigurator envConfigurator) {
+        this.LOG = Logger.getInstance(loggerClass);
+        this.envConfigurator = envConfigurator;
         this.nodeDetector.setDetectionExecutor(AppExecutorUtil.getAppExecutorService());
     }
 

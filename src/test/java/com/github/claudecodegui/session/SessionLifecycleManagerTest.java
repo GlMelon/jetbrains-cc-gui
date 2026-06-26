@@ -70,6 +70,11 @@ public class SessionLifecycleManagerTest {
         }
 
         @Override
+        public com.github.claudecodegui.provider.opencode.OpenCodeSDKBridge getOpenCodeSDKBridge() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public ClaudeSession getSession() {
             throw new UnsupportedOperationException();
         }

@@ -15,21 +15,21 @@ public class ProtocolValueTest {
     public void descDefaultReturnsEmptyStringForValueOnlyEnums() {
         // 现有 value-only 枚举不覆盖 desc(),走 default,应返回空串(零改动合规)
         assertEquals("", UpstreamAction.SEND_MESSAGE.desc());
-        assertEquals("", DownstreamEvent.MODE_CHANGED.desc());
+        assertEquals("", DownstreamEvent.STREAM_START.desc());
     }
 
     @Test
     public void descNeverReturnsNull() {
         // desc 约定:始终非 null,便于直接序列化/下发前端消费
         assertNotNull(UpstreamAction.SEND_MESSAGE.desc());
-        assertNotNull(DownstreamEvent.MODE_CHANGED.desc());
+        assertNotNull(DownstreamEvent.STREAM_START.desc());
     }
 
     @Test
     public void valueContractUnchangedAfterDescIntroduction() {
         // 守门:value() 仍是主标识,desc() 引入不影响 value 契约
         assertEquals("send_message", UpstreamAction.SEND_MESSAGE.value());
-        assertEquals("mode.changed", DownstreamEvent.MODE_CHANGED.value());
+        assertEquals("stream.start", DownstreamEvent.STREAM_START.value());
     }
 
     @Test

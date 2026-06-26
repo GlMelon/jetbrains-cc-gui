@@ -1,5 +1,6 @@
 package com.github.claudecodegui.service;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.config.ModelRegistryConfig;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.provider.common.MessageCallback;
@@ -16,6 +17,7 @@ import com.intellij.openapi.vcs.changes.ChangesUtil;
 import com.intellij.openapi.vcs.changes.ContentRevision;
 import com.intellij.openapi.vcs.VcsException;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -29,8 +31,6 @@ public class GitCommitMessageService {
     private static final Logger LOG = Logger.getInstance(GitCommitMessageService.class);
 
     private static final int MAX_DIFF_LENGTH = 4000; // Limit diff length to avoid exceeding token limits
-    private static final String PROVIDER_CLAUDE = "claude";
-    private static final String PROVIDER_CODEX = "codex";
 
     /**
      * Built-in commit prompt (based on CCG Commits specification).
@@ -137,8 +137,12 @@ Footer 包含：
     }
 
     public GitCommitMessageService(@NotNull Project project) {
+        this(project, CodemossSettingsService.getInstance());
+    }
+
+    protected GitCommitMessageService(@Nullable Project project, @Nullable CodemossSettingsService settingsService) {
         this.project = project;
-        this.settingsService = CodemossSettingsService.getInstance();
+        this.settingsService = settingsService;
     }
 
     /**
@@ -365,12 +369,12 @@ Footer 包含：
             return;
         }
 
-        if (PROVIDER_CODEX.equals(effectiveProvider)) {
-            callCodexAPI(prompt, getResolvedCommitAiModel(commitAiConfig, PROVIDER_CODEX), callback);
+        if (CommonConstants.PROVIDER_CODEX.equals(effectiveProvider)) {
+            callCodexAPI(prompt, getResolvedCommitAiModel(commitAiConfig, CommonConstants.PROVIDER_CODEX), callback);
             return;
         }
 
-        callClaudeAPI(prompt, getResolvedCommitAiModel(commitAiConfig, PROVIDER_CLAUDE), callback);
+        callClaudeAPI(prompt, getResolvedCommitAiModel(commitAiConfig, CommonConstants.PROVIDER_CLAUDE), callback);
     }
 
     protected JsonObject getCommitAiConfig() throws IOException {
@@ -410,7 +414,7 @@ Footer 包含：
      * 场景绕过 registry 回退到 settings.json env vars。
      */
     protected void callClaudeAPI(String prompt, String model, CommitMessageCallback callback) {
-        String actualModel = resolveActualModelForCommit(PROVIDER_CLAUDE, model);
+        String actualModel = resolveActualModelForCommit(CommonConstants.PROVIDER_CLAUDE, model);
         sendClaudeCommitMessage(prompt, model, actualModel, callback);
     }
 

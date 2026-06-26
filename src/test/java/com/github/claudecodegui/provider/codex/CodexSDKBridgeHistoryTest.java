@@ -1,7 +1,9 @@
 package com.github.claudecodegui.provider.codex;
 
+import com.github.claudecodegui.bridge.EnvironmentConfigurator;
 import com.github.claudecodegui.session.ClaudeSession;
 import com.github.claudecodegui.session.MessageParser;
+import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.util.MessageJsonConverter;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -33,7 +35,7 @@ public class CodexSDKBridgeHistoryTest {
                             "{\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"output_text\",\"text\":\"Restored from Codex history\"}]}" )
             );
 
-            CodexSDKBridge bridge = new CodexSDKBridge(sessionsDir);
+            CodexSDKBridge bridge = new CodexSDKBridge(sessionsDir, new EnvironmentConfigurator(new CodemossSettingsService()), new CodemossSettingsService());
 
             List<JsonObject> messages = bridge.getSessionMessages("session-restore", sessionsDir.toString());
 
@@ -58,7 +60,7 @@ public class CodexSDKBridgeHistoryTest {
                             "{\"type\":\"function_call_output\",\"call_id\":\"call-1\",\"output\":\"command output\"}")
             );
 
-            CodexSDKBridge bridge = new CodexSDKBridge(sessionsDir);
+            CodexSDKBridge bridge = new CodexSDKBridge(sessionsDir, new EnvironmentConfigurator(new CodemossSettingsService()), new CodemossSettingsService());
             List<JsonObject> messages = bridge.getSessionMessages("session-tool-result", sessionsDir.toString());
 
             assertEquals(1, messages.size());
@@ -91,7 +93,7 @@ public class CodexSDKBridgeHistoryTest {
                             "{\"type\":\"function_call_output\",\"call_id\":\"call-search-1\",\"output\":\"src/Main.java:10: TODO\"}")
             );
 
-            CodexSDKBridge bridge = new CodexSDKBridge(sessionsDir);
+            CodexSDKBridge bridge = new CodexSDKBridge(sessionsDir, new EnvironmentConfigurator(new CodemossSettingsService()), new CodemossSettingsService());
             List<JsonObject> historyMessages =
                     bridge.getSessionMessages("session-auto-restore-transport", sessionsDir.toString());
             MessageParser parser = new MessageParser();
@@ -138,7 +140,7 @@ public class CodexSDKBridgeHistoryTest {
                             "{\"type\":\"custom_tool_call\",\"call_id\":\"custom-1\",\"name\":\"apply_patch\",\"input\":\"*** Update File: src/Main.java\\n-old\\n+new\"}")
             );
 
-            CodexSDKBridge bridge = new CodexSDKBridge(sessionsDir);
+            CodexSDKBridge bridge = new CodexSDKBridge(sessionsDir, new EnvironmentConfigurator(new CodemossSettingsService()), new CodemossSettingsService());
             List<JsonObject> messages = bridge.getSessionMessages("session-custom-tool", sessionsDir.toString());
 
             assertEquals(1, messages.size());
@@ -162,7 +164,7 @@ public class CodexSDKBridgeHistoryTest {
                             "{\"type\":\"function_call\",\"call_id\":\"call-2\",\"name\":\"shell_command\",\"arguments\":\"{\\\"command\\\":\\\"cat README.md\\\"}\"}")
             );
 
-            CodexSDKBridge bridge = new CodexSDKBridge(sessionsDir);
+            CodexSDKBridge bridge = new CodexSDKBridge(sessionsDir, new EnvironmentConfigurator(new CodemossSettingsService()), new CodemossSettingsService());
             List<JsonObject> messages = bridge.getSessionMessages("session-tool-name", sessionsDir.toString());
 
             assertEquals(1, messages.size());
@@ -187,7 +189,7 @@ public class CodexSDKBridgeHistoryTest {
                             "{\"type\":\"user_message\",\"message\":\"Restore image\",\"local_images\":[\"" + escapeJson(imagePath.toString()) + "\"]}")
             );
 
-            CodexSDKBridge bridge = new CodexSDKBridge(sessionsDir);
+            CodexSDKBridge bridge = new CodexSDKBridge(sessionsDir, new EnvironmentConfigurator(new CodemossSettingsService()), new CodemossSettingsService());
             List<JsonObject> messages = bridge.getSessionMessages("session-local-image", sessionsDir.toString());
 
             assertEquals(1, messages.size());
@@ -216,7 +218,7 @@ public class CodexSDKBridgeHistoryTest {
                             "{\"type\":\"user_message\",\"message\":\"\",\"local_images\":[\"" + escapeJson(imagePath.toString()) + "\"]}")
             );
 
-            CodexSDKBridge bridge = new CodexSDKBridge(sessionsDir);
+            CodexSDKBridge bridge = new CodexSDKBridge(sessionsDir, new EnvironmentConfigurator(new CodemossSettingsService()), new CodemossSettingsService());
             List<JsonObject> messages = bridge.getSessionMessages("session-image-only", sessionsDir.toString());
 
             assertEquals(1, messages.size());

@@ -2,9 +2,12 @@ package com.github.claudecodegui.session;
 
 import org.junit.Test;
 
+import com.github.claudecodegui.bridge.EnvironmentConfigurator;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
 import com.github.claudecodegui.provider.codex.CodexSDKBridge;
+import com.github.claudecodegui.settings.CodemossSettingsService;
 
+import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
@@ -27,7 +30,9 @@ public class ClaudeSessionTest {
     @Test
     public void disposeClearsCallbackAndCodexThreadCache() {
         RecordingCodexSDKBridge codexBridge = new RecordingCodexSDKBridge();
-        ClaudeSession session = new ClaudeSession(null, new ClaudeSDKBridge(), codexBridge);
+        ClaudeSession session = new ClaudeSession(null,
+                new ClaudeSDKBridge(new EnvironmentConfigurator(new CodemossSettingsService()), new CodemossSettingsService()),
+                codexBridge);
         RecordingCallback callback = new RecordingCallback();
         session.setCallback(callback);
         session.setProvider("codex");
@@ -79,6 +84,12 @@ public class ClaudeSessionTest {
 
     private static class RecordingCodexSDKBridge extends CodexSDKBridge {
         private String lastClearedThreadId;
+
+        RecordingCodexSDKBridge() {
+            super(Path.of(System.getProperty("java.io.tmpdir"), "test-codex-sessions"),
+                    new EnvironmentConfigurator(new CodemossSettingsService()),
+                    new CodemossSettingsService());
+        }
 
         @Override
         public void clearCachedThread(String threadId, String cwd) {

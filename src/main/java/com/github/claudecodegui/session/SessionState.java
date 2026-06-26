@@ -87,7 +87,7 @@ public class SessionState {
     private volatile String permissionMode = CommonConstants.PERMISSION_MODE_DEFAULT;
     private volatile String model = CommonConstants.DEFAULT_MODEL;
     private volatile String provider = CommonConstants.DEFAULT_PROVIDER;
-    private volatile String claudeInvocationMode = null;
+    private volatile String claudeInvocationMode = "sdk";
     private volatile String permissionSessionId = null;
     // Reasoning effort (thinking depth). Null means "do not override SDK/settings".
     private volatile String reasoningEffort = null;

@@ -47,7 +47,11 @@ public class EnvironmentConfigurator {
         this(CodemossSettingsService.getInstance());
     }
 
-    EnvironmentConfigurator(CodemossSettingsService settingsService) {
+    /**
+     * Test-friendly constructor. Accepts an explicit {@link CodemossSettingsService}
+     * so tests can run without the IntelliJ Platform application context.
+     */
+    public EnvironmentConfigurator(CodemossSettingsService settingsService) {
         this.settingsService = settingsService;
     }
 
@@ -442,7 +446,7 @@ public class EnvironmentConfigurator {
         }
 
         try {
-            String accessMode = CodemossSettingsService.getInstance().getCodexRuntimeAccessMode();
+            String accessMode = settingsService.getCodexRuntimeAccessMode();
             if (CodemossSettingsService.CODEX_RUNTIME_ACCESS_INACTIVE.equals(accessMode)) {
                 LOG.debug("[Codex] Skipping env_key sync from ~/.codex/config.toml: local access is not authorized");
                 return;

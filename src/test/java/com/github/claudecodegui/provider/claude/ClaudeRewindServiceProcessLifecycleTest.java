@@ -2,6 +2,7 @@ package com.github.claudecodegui.provider.claude;
 
 import com.github.claudecodegui.bridge.EnvironmentConfigurator;
 import com.github.claudecodegui.bridge.NodeDetector;
+import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.bridge.ProcessManager;
 import com.github.claudecodegui.testing.TrackingProcessManager;
 import com.google.gson.Gson;
@@ -59,7 +60,7 @@ public class ClaudeRewindServiceProcessLifecycleTest {
                 node,
                 () -> workDir,
                 processManager,
-                new EnvironmentConfigurator(),
+                new EnvironmentConfigurator(new CodemossSettingsService()),
                 new ClaudeJsonOutputExtractor()
         );
 

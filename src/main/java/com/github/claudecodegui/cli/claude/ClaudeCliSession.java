@@ -127,8 +127,7 @@ public class ClaudeCliSession implements CliSession {
 
     private List<String> buildCommand(String cliPath, CliSendRequest request, String prompt, List<String> addDirs) {
         ClaudeCliModelResolver.ResolvedModel profile = ClaudeCliModelResolver.resolveProfile(
-                request.model(),
-                request.actualModel()
+                request.model()
         );
         return buildCommand(
                 cliPath,
@@ -343,8 +342,7 @@ public class ClaudeCliSession implements CliSession {
                 cliEnv.putAll(CliEnvironmentBuilder.buildBaseEnvironment());
                 cliEnv.putAll(CliSettings.readClaudeCliEnvironment());
                 configureRequestModelEnvironment(cliEnv, request, ClaudeCliModelResolver.resolveProfile(
-                        request.model(),
-                        request.actualModel()
+                        request.model()
                 ));
                 cliEnv.put(CliConstants.ARG_NO_COLOR, "1");
                 CliEnvironmentBuilder.configureClaudePermissionEnv(

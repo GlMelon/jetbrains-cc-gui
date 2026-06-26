@@ -848,8 +848,8 @@ public class DependencyManager {
         }
 
         // Strip the leading 'v' prefix
-        v1 = v1.startsWith("v") ? v1.substring(1) : v1;
-        v2 = v2.startsWith("v") ? v2.substring(1) : v2;
+        v1 = (v1.startsWith("v") || v1.startsWith("V")) ? v1.substring(1) : v1;
+        v2 = (v2.startsWith("v") || v2.startsWith("V")) ? v2.substring(1) : v2;
 
         String[] parts1 = v1.split("\\.");
         String[] parts2 = v2.split("\\.");

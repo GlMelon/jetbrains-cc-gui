@@ -31,21 +31,27 @@ public class MessageParser {
         }
 
         if (CommonConstants.MSG_TYPE_USER.equals(type)) {
+            // Unwrap normalized envelope: if envelope contains "raw", use it as the actual raw payload
+            JsonObject actualRaw = msg.has("raw") && msg.get("raw").isJsonObject()
+                    ? msg.getAsJsonObject("raw") : msg;
             String content = extractMessageContent(msg);
             // Check if it contains a tool_result
             if (content == null || content.trim().isEmpty()) {
-                if (hasToolResult(msg)) {
-                    return new ClaudeSession.Message(ClaudeSession.Message.Type.USER, CommonConstants.TOOL_RESULT_PLACEHOLDER, msg);
+                if (hasToolResult(actualRaw)) {
+                    return new ClaudeSession.Message(ClaudeSession.Message.Type.USER, CommonConstants.TOOL_RESULT_PLACEHOLDER, actualRaw);
                 }
-                if (hasImageContent(msg)) {
-                    return new ClaudeSession.Message(ClaudeSession.Message.Type.USER, "", msg);
+                if (hasImageContent(actualRaw)) {
+                    return new ClaudeSession.Message(ClaudeSession.Message.Type.USER, "", actualRaw);
                 }
                 return null;
             }
-            return new ClaudeSession.Message(ClaudeSession.Message.Type.USER, content, msg);
+            return new ClaudeSession.Message(ClaudeSession.Message.Type.USER, content, actualRaw);
         } else if (CommonConstants.MSG_TYPE_ASSISTANT.equals(type)) {
             String content = extractMessageContent(msg);
-            return new ClaudeSession.Message(ClaudeSession.Message.Type.ASSISTANT, content, msg);
+            // Unwrap normalized envelope: if envelope contains "raw", use it as the actual raw payload
+            JsonObject actualRaw = msg.has("raw") && msg.get("raw").isJsonObject()
+                    ? msg.getAsJsonObject("raw") : msg;
+            return new ClaudeSession.Message(ClaudeSession.Message.Type.ASSISTANT, content, actualRaw);
         }
 
         return null;
@@ -120,16 +126,27 @@ public class MessageParser {
     }
 
     private boolean hasContentBlockType(JsonObject msg, String blockType) {
-        if (!msg.has("message") || !msg.get("message").isJsonObject()) {
-            return false;
+        // Check message.content first (old format)
+        if (msg.has("message") && msg.get("message").isJsonObject()) {
+            JsonObject message = msg.getAsJsonObject("message");
+            if (message.has("content") && message.get("content").isJsonArray()) {
+                if (contentArrayHasBlockType(message.getAsJsonArray("content"), blockType)) {
+                    return true;
+                }
+            }
         }
 
-        JsonObject message = msg.getAsJsonObject("message");
-        if (!message.has("content") || !message.get("content").isJsonArray()) {
-            return false;
+        // Check direct content field (normalized format with raw object)
+        if (msg.has("content") && msg.get("content").isJsonArray()) {
+            if (contentArrayHasBlockType(msg.getAsJsonArray("content"), blockType)) {
+                return true;
+            }
         }
 
-        JsonArray contentArray = message.getAsJsonArray("content");
+        return false;
+    }
+
+    private boolean contentArrayHasBlockType(JsonArray contentArray, String blockType) {
         for (int i = 0; i < contentArray.size(); i++) {
             JsonElement element = contentArray.get(i);
             if (element.isJsonObject()) {
@@ -139,7 +156,6 @@ public class MessageParser {
                 }
             }
         }
-
         return false;
     }
 

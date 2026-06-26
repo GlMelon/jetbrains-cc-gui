@@ -193,7 +193,8 @@ public class ClaudeNotifier {
         show(project, "Claude [WARN]", message, 6000);
     }
 
-    public static void clearStatus(@NotNull Project project) {
+    public static void clearStatus(@Nullable Project project) {
+        if (project == null) return;
         update(project, CommonConstants.SESSION_STATUS_READY,null);
     }
     
