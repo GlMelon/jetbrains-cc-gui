@@ -549,6 +549,21 @@ public class HistoryMessageInjector {
             return convertCliMcpToolCallItem(eventType, item, timestamp, emittedToolUseIds);
         }
 
+        // reasoning item 转成 thinking content block(参照实时路径 CodexCliSession.handleReasoningItem
+        // 与 ai-bridge emitThinkingBlock 的 {type:thinking,thinking,text} 结构)。H2:此前落此处的
+        // return List.of() 静默丢弃,导致重开含思考的 Codex 会话思考区全空(实时流式正常,仅历史回放丢失)。
+        if (CliConstants.CODEX_ITEM_REASONING.equals(itemType)) {
+            String text = firstNonBlank(
+                    getString(item, "text"),
+                    getString(item, "summary"),
+                    getString(item, "content")
+            );
+            if (text == null || text.isBlank()) {
+                return List.of();
+            }
+            return List.of(createThinkingAssistantMessage(text, timestamp));
+        }
+
         return List.of();
     }
 
@@ -620,6 +635,36 @@ public class HistoryMessageInjector {
         textBlock.addProperty("text", text);
         JsonArray content = new JsonArray();
         content.add(textBlock);
+
+        JsonObject rawObj = new JsonObject();
+        rawObj.add("content", content);
+        rawObj.addProperty("role", "assistant");
+        frontendMsg.add("raw", rawObj);
+
+        if (timestamp != null) {
+            frontendMsg.addProperty("timestamp", timestamp);
+        }
+        return frontendMsg;
+    }
+
+    /**
+     * 构造承载 thinking content block 的 assistant frontendMsg(历史回放批量格式)。
+     *
+     * <p>结构对齐实时路径 ai-bridge {@code emitThinkingBlock} 产出的
+     * {@code {type:"thinking", thinking, text}},前端 contentBlockNormalize 据此渲染思考区。
+     * content 顶层字段保留 reasoning 文本(与 Claude 历史 thinking 透传语义一致),不阻断正文。
+     */
+    private static JsonObject createThinkingAssistantMessage(String text, String timestamp) {
+        JsonObject frontendMsg = new JsonObject();
+        frontendMsg.addProperty("type", "assistant");
+        frontendMsg.addProperty("content", text);
+
+        JsonObject thinkingBlock = new JsonObject();
+        thinkingBlock.addProperty("type", "thinking");
+        thinkingBlock.addProperty("thinking", text);
+        thinkingBlock.addProperty("text", text);
+        JsonArray content = new JsonArray();
+        content.add(thinkingBlock);
 
         JsonObject rawObj = new JsonObject();
         rawObj.add("content", content);

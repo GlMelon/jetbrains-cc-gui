@@ -405,6 +405,29 @@ public class HistoryMessageInjectorTest {
         assertFalse(toolResult.get("is_error").getAsBoolean());
     }
 
+    @Test
+    public void convertCodexMessagesConvertsCliReasoningItemToThinkingBlock() {
+        // H2: Codex 历史回放的 reasoning item 必须转成 thinking content block,
+        // 不能在 convertCliItemToFrontendMessages 的未匹配分支 return List.of() 静默丢弃,
+        // 否则重开含思考的 Codex 会话思考区全空(实时流式正常,仅历史回放丢失)。
+        JsonArray messages = new JsonArray();
+        messages.add(cliItemMessage(
+                "2026-06-08T07:00:00.100Z",
+                "item.completed",
+                "{\"id\":\"rsn_1\",\"type\":\"reasoning\",\"text\":\"Let me analyze the request.\"}"));
+
+        List<JsonObject> result = HistoryMessageInjector.convertCodexMessagesToFrontendBatch(messages);
+
+        assertEquals("CLI reasoning item 不应被丢弃", 1, result.size());
+        assertEquals("assistant", result.get(0).get("type").getAsString());
+
+        JsonObject thinkingBlock = result.get(0).getAsJsonObject("raw").getAsJsonArray("content")
+                .get(0).getAsJsonObject();
+        assertEquals("thinking", thinkingBlock.get("type").getAsString());
+        assertEquals("Let me analyze the request.", thinkingBlock.get("thinking").getAsString());
+        assertEquals("Let me analyze the request.", thinkingBlock.get("text").getAsString());
+    }
+
     private static JsonObject responseItemUserMessage(String timestamp, String text) {
         return responseItemMessage(timestamp, "user", "input_text", text);
     }
