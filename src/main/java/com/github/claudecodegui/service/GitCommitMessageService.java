@@ -1,5 +1,6 @@
 package com.github.claudecodegui.service;
 
+import com.github.claudecodegui.config.ModelRegistryConfig;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.SDKResult;
@@ -402,29 +403,73 @@ Footer 包含：
 
     /**
      * Call the Claude API.
+     *
+     * <p>与 chat 主路径(SessionSendService)保持一致:先通过 registry 解析 actualModel,
+     * 再下发。默认 registry 的 actualModel 为空时返回 null(行为与修复前一致,零回归);
+     * 仅当用户自定义 registry actualModel(如 sonnet role → glm-5.2)时生效,避免 commit
+     * 场景绕过 registry 回退到 settings.json env vars。
      */
     protected void callClaudeAPI(String prompt, String model, CommitMessageCallback callback) {
+        String actualModel = resolveActualModelForCommit(PROVIDER_CLAUDE, model);
+        sendClaudeCommitMessage(prompt, model, actualModel, callback);
+    }
+
+    /**
+     * 通过 registry 解析 actualModel(实例入口:从 settingsService 取运行时 registry)。
+     */
+    protected String resolveActualModelForCommit(String provider, String selectedModel) {
+        return resolveActualModel(settingsService.getModelRegistry(), provider, selectedModel);
+    }
+
+    /**
+     * 纯函数:给定 registry 解析 actualModel,带 getDefault fallback。镜像
+     * SessionSendService.resolveModelSelection 的 try/catch 容错策略。提取为 public static
+     * 以便脱离 platform 单测(GitCommitMessageService 构造依赖
+     * CodemossSettingsService.getInstance() → ApplicationManager,纯 JUnit 无法实例化),
+     * 并供其他 platform 耦合的 AI 路径(promptEnhancer EnhancePromptActionHandler)复用,
+     * 保证 commitAi/promptEnhancer/chat 三路径的 actualModel 解析一致。
+     */
+    public static String resolveActualModel(ModelRegistryConfig registry, String provider, String selectedModel) {
+        try {
+            return registry.resolveModelSelection(provider, selectedModel).actualModel();
+        } catch (Exception e) {
+            LOG.warn("[ModelRegistry] Failed to resolve commit ai model, falling back to request model: "
+                    + e.getMessage());
+            return ModelRegistryConfig.getDefault().resolveModelSelection(provider, selectedModel).actualModel();
+        }
+    }
+
+    /**
+     * 通过 ClaudeSDKBridge 下发 commit 请求。独立为可重写钩子,便于测试验证 actualModel 解析链
+     * (避免真实 bridge 调用)。修复前 callClaudeAPI 直接调 12 参重载,其委托链硬编码
+     * actualModel=null,绕过了 registry 解析。
+     */
+    protected void sendClaudeCommitMessage(String prompt, String model, String actualModel, CommitMessageCallback callback) {
         ClaudeSDKBridge bridge = new ClaudeSDKBridge();
         try {
             // Simple callback handler
             StringBuilder result = new StringBuilder();
 
-            // Use the 12-parameter sendMessage overload:
-            // - model: COMMIT_MESSAGE_MODEL (Sonnet model)
+            // 调带 actualModel 的 15 参重载(channelId, message, sessionId, runtimeSessionEpoch,
+            // cwd, attachments, permissionMode, model, actualModel, openedFiles, agentPrompt,
+            // streaming, disableThinking, reasoningEffort, callback)。
             // - streaming: false (non-streaming, returns complete result at once)
             // - disableThinking: true (disable thinking mode to avoid verbose reasoning output)
             bridge.sendMessage(
                 "git-commit-message",      // channelId
                 prompt,                     // message
                 null,                       // sessionId (null = new session)
+                null,                       // runtimeSessionEpoch
                 project.getBasePath(),      // cwd
                 null,                       // attachments (not needed)
                 null,                       // permissionMode (use default)
                 model,                      // model
+                actualModel,                // actualModel (registry 解析,默认 null)
                 null,                       // openedFiles
                 null,                       // agentPrompt
                 false,                      // streaming (non-streaming mode)
                 true,                       // disableThinking (disable thinking mode)
+                null,                       // reasoningEffort
                 new MessageCallback() {
                     @Override
                     public void onMessage(String type, String content) {

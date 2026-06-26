@@ -18,7 +18,7 @@ import {
   isCodexSdkAvailable,
 } from '../utils/sdk-loader.js';
 import { setupApiKey, buildCliEnv, buildWebviewControlledSettingsOverride } from '../config/api-config.js';
-import { mapModelIdToSdkName } from '../utils/model-utils.js';
+import { resolveClaudeEnhanceModelName } from '../utils/model-utils.js';
 import { getRealHomeDir } from '../utils/path-utils.js';
 import { getClaudeCliPathOverride } from '../utils/claude-cli-path.js';
 import { buildCodexCliEnvironment } from './codex/codex-utils.js';
@@ -248,12 +248,13 @@ function normalizePromptEnhancerConfig(config) {
   };
 }
 
-export function resolvePromptEnhancerRuntimeConfig({ promptEnhancerConfig, legacyModel } = {}) {
+export function resolvePromptEnhancerRuntimeConfig({ promptEnhancerConfig, legacyModel, actualModel } = {}) {
   if (!promptEnhancerConfig) {
     return {
       provider: 'claude',
       model: legacyModel || DEFAULT_PROMPT_ENHANCER_CONFIG.models.claude,
       resolutionSource: 'legacy',
+      actualModel,
     };
   }
 
@@ -266,6 +267,7 @@ export function resolvePromptEnhancerRuntimeConfig({ promptEnhancerConfig, legac
       provider: 'codex',
       model: config.models.codex || DEFAULT_PROMPT_ENHANCER_CONFIG.models.codex,
       resolutionSource: config.resolutionSource,
+      actualModel,
     };
   }
 
@@ -274,6 +276,7 @@ export function resolvePromptEnhancerRuntimeConfig({ promptEnhancerConfig, legac
       provider: 'claude',
       model: config.models.claude || DEFAULT_PROMPT_ENHANCER_CONFIG.models.claude,
       resolutionSource: config.resolutionSource,
+      actualModel,
     };
   }
 
@@ -298,7 +301,7 @@ export function resolvePromptEnhancerRuntimeConfig({ promptEnhancerConfig, legac
   throw new Error('No available prompt enhancer provider is configured. Please configure Codex or Claude Code in Settings.');
 }
 
-async function enhancePromptWithClaude(originalPrompt, systemPrompt, model, context) {
+async function enhancePromptWithClaude(originalPrompt, systemPrompt, model, actualModel, context) {
   const sdk = await ensureClaudeSdk();
   const { query } = sdk;
 
@@ -306,8 +309,9 @@ async function enhancePromptWithClaude(originalPrompt, systemPrompt, model, cont
   console.log(`[PromptEnhancer] Auth type: ${config.authType}`);
   console.log(`[PromptEnhancer] Base URL: ${config.baseUrl || 'https://api.anthropic.com'}`);
 
-  const sdkModelName = mapModelIdToSdkName(model);
-  console.log(`[PromptEnhancer] Claude model mapping: ${model} -> ${sdkModelName}`);
+  // Bug 3:优先用 registry 解析的 actualModel(与 chat/commitAi 同源),否则 role→bucket。
+  const sdkModelName = resolveClaudeEnhanceModelName(model, actualModel);
+  console.log(`[PromptEnhancer] Claude model mapping: ${model} -> ${sdkModelName}${actualModel ? ` (registry actualModel: ${actualModel})` : ''}`);
 
   const workingDirectory = getRealHomeDir();
   const fullPrompt = buildFullPrompt(originalPrompt, context);
@@ -376,7 +380,7 @@ export function extractAppendedDelta(previousText, nextText) {
   return next.slice(previous.length);
 }
 
-async function enhancePromptWithCodex(originalPrompt, systemPrompt, model, context) {
+async function enhancePromptWithCodex(originalPrompt, systemPrompt, model, actualModel, context) {
   const sdk = await ensureCodexSdk();
   const Codex = sdk.Codex || sdk.default || sdk;
   const { cliEnv } = buildCodexCliEnvironment(process.env);
@@ -393,11 +397,14 @@ async function enhancePromptWithCodex(originalPrompt, systemPrompt, model, conte
   ].join('\n');
   console.log(`[PromptEnhancer] Full prompt length: ${fullPrompt.length}`);
 
+  // Bug 3:优先 registry actualModel(codex 具体模型 id),否则原 model。
+  const codexModel = (actualModel && String(actualModel).trim()) ? String(actualModel).trim() : model;
+
   const thread = codex.startThread({
     skipGitRepoCheck: true,
     maxTurns: 1,
     workingDirectory,
-    model,
+    model: codexModel,
     sandboxMode: 'read-only',
     approvalPolicy: 'never',
   });
@@ -442,13 +449,13 @@ async function enhancePromptWithCodex(originalPrompt, systemPrompt, model, conte
 
 async function enhancePrompt(originalPrompt, systemPrompt, runtimeConfig, context) {
   if (runtimeConfig.provider === 'codex') {
-    return enhancePromptWithCodex(originalPrompt, systemPrompt, runtimeConfig.model, context);
+    return enhancePromptWithCodex(originalPrompt, systemPrompt, runtimeConfig.model, runtimeConfig.actualModel, context);
   }
-  return enhancePromptWithClaude(originalPrompt, systemPrompt, runtimeConfig.model, context);
+  return enhancePromptWithClaude(originalPrompt, systemPrompt, runtimeConfig.model, runtimeConfig.actualModel, context);
 }
 
 export async function runPromptEnhancerRequest(data) {
-  const { prompt, systemPrompt, legacyModel, context, promptEnhancerConfig } = data;
+  const { prompt, systemPrompt, legacyModel, context, promptEnhancerConfig, actualModel } = data;
 
   if (!prompt) {
     return '';
@@ -457,6 +464,7 @@ export async function runPromptEnhancerRequest(data) {
   const runtimeConfig = resolvePromptEnhancerRuntimeConfig({
     promptEnhancerConfig,
     legacyModel,
+    actualModel,
   });
   console.log(`[PromptEnhancer] Resolved provider: ${runtimeConfig.provider}, model: ${runtimeConfig.model}, source: ${runtimeConfig.resolutionSource}`);
 

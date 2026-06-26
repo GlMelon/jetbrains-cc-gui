@@ -28,6 +28,49 @@ test('resolvePromptEnhancerRuntimeConfig prefers Codex when auto mode has both p
   assert.equal(resolved.model, '');
 });
 
+// ---------- resolvePromptEnhancerRuntimeConfig: actualModel 透传 (Bug 3) ----------
+//
+// Bug 3:registry 解析的 actualModel 必须经 runtimeConfig 透传给 enhancePromptWithClaude/Codex
+// (后者优先用它下发,使 promptEnhancer 与 chat/commitAi 同源)。这两个测试锁定
+// "runtimeConfig 必含 actualModel 字段"契约,防止未来重构静默丢失该数据流。
+
+test('resolvePromptEnhancerRuntimeConfig threads actualModel through to runtimeConfig (claude path, Bug 3)', () => {
+  const resolved = resolvePromptEnhancerRuntimeConfig({
+    promptEnhancerConfig: {
+      provider: null,
+      effectiveProvider: 'claude',
+      resolutionSource: 'auto',
+      models: { claude: 'claude-role-sonnet', codex: '' },
+      availability: { claude: true, codex: true },
+    },
+    legacyModel: 'claude-role-sonnet',
+    actualModel: 'glm-5.2',
+  });
+  assert.equal(resolved.actualModel, 'glm-5.2');
+});
+
+test('resolvePromptEnhancerRuntimeConfig threads actualModel through in legacy fallback path (Bug 3)', () => {
+  const resolved = resolvePromptEnhancerRuntimeConfig({
+    legacyModel: 'claude-role-sonnet',
+    actualModel: 'glm-5.2',
+  });
+  assert.equal(resolved.actualModel, 'glm-5.2');
+});
+
+test('resolvePromptEnhancerRuntimeConfig threads actualModel through codex path (Bug 3)', () => {
+  const resolved = resolvePromptEnhancerRuntimeConfig({
+    promptEnhancerConfig: {
+      provider: null,
+      effectiveProvider: 'codex',
+      resolutionSource: 'auto',
+      models: { claude: 'claude-role-sonnet', codex: 'gpt-5.4' },
+      availability: { claude: true, codex: true },
+    },
+    actualModel: 'gpt-5.4-custom',
+  });
+  assert.equal(resolved.actualModel, 'gpt-5.4-custom');
+});
+
 test('resolvePromptEnhancerRuntimeConfig throws a strict error when manual provider is unavailable', () => {
   assert.throws(
     () => resolvePromptEnhancerRuntimeConfig({

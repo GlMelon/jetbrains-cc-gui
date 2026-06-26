@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   mapModelIdToSdkName,
   resolveModelFromSettings,
+  resolveClaudeEnhanceModelName,
   setModelEnvironmentVariables,
   modelSupportsVision,
 } from './model-utils.js';
@@ -236,4 +237,37 @@ test('modelSupportsVision only matches the canonical claude- prefix', () => {
   assert.equal(modelSupportsVision('deepseek-v4-pro[1m]'), false);
   assert.equal(modelSupportsVision(''), true);
   assert.equal(modelSupportsVision(null), true);
+});
+
+// --- resolveClaudeEnhanceModelName --------------------------------------
+//
+// Bug 3 修复:promptEnhancer(claude 路径)下发模型名必须与 chat/commitAi 同源 ——
+// 优先用 registry 解析的 actualModel(具体模型 id,如 glm-5.2),而非仅靠
+// mapModelIdToSdkName(role→bucket)+ settings.json env 间接解析。当 registry
+// actualModel 与 settings.json env(cc-switch 写入)不同步时,旧逻辑会用错模型。
+// 语义与 resolveModelFromSettings 的 actualModel 优先 + [1m] 处理一致,但回退是
+// bucket name(promptEnhancer 的 SDK model 参数需要 bucket,而非 role id 原值)。
+
+test('resolveClaudeEnhanceModelName prefers actualModel over role bucket mapping', () => {
+  // actualModel=glm-5.2 必须直传,绕过 mapModelIdToSdkName('claude-role-sonnet')='sonnet'
+  assert.equal(resolveClaudeEnhanceModelName('claude-role-sonnet', 'glm-5.2'), 'glm-5.2');
+  assert.equal(resolveClaudeEnhanceModelName('claude-role-opus', 'mimo-v2.5-pro'), 'mimo-v2.5-pro');
+});
+
+test('resolveClaudeEnhanceModelName falls back to bucket name when actualModel absent', () => {
+  // 默认 registry(actualModel 空)→ 保持旧行为(零回归)
+  assert.equal(resolveClaudeEnhanceModelName('claude-role-sonnet', null), 'sonnet');
+  assert.equal(resolveClaudeEnhanceModelName('claude-role-opus', undefined), 'opus');
+  assert.equal(resolveClaudeEnhanceModelName('claude-role-haiku', ''), 'haiku');
+  assert.equal(resolveClaudeEnhanceModelName('claude-role-sonnet', '   '), 'sonnet');
+});
+
+test('resolveClaudeEnhanceModelName appends request [1m] suffix onto actualModel', () => {
+  // 用户开了 1M toggle(model 含 [1m]),actualModel 须带 [1m] 让 SDK 启用 1M context
+  assert.equal(resolveClaudeEnhanceModelName('claude-role-sonnet[1m]', 'glm-5.2'), 'glm-5.2[1m]');
+});
+
+test('resolveClaudeEnhanceModelName strips stale [1m] from actualModel when 1M is off', () => {
+  // request 未开 1M,actualModel 残留 [1M] 须剥离(与 resolveModelFromSettings 一致)
+  assert.equal(resolveClaudeEnhanceModelName('claude-role-sonnet', 'glm-5.2[1M]'), 'glm-5.2');
 });

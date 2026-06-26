@@ -8,6 +8,7 @@ import com.github.claudecodegui.handler.core.FrontendActionHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.protocol.UpstreamAction;
+import com.github.claudecodegui.service.GitCommitMessageService;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -367,6 +368,19 @@ public final class EnhancePromptActionHandler implements FrontendActionHandler<S
     }
 
     /**
+     * 从 promptEnhancerConfig 提取 effectiveProvider(claude/codex),供 registry 解析 actualModel。
+     */
+    private static String extractEffectiveProvider(JsonObject promptEnhancerConfig) {
+        if (promptEnhancerConfig == null
+                || !promptEnhancerConfig.has("effectiveProvider")
+                || promptEnhancerConfig.get("effectiveProvider").isJsonNull()) {
+            return null;
+        }
+        String provider = promptEnhancerConfig.get("effectiveProvider").getAsString().trim();
+        return provider.isEmpty() ? null : provider;
+    }
+
+    /**
      * Call the AI service for prompt enhancement.
      * @param originalPrompt the original prompt
      * @param legacyModel the legacy model to use as a fallback (optional)
@@ -425,6 +439,18 @@ public final class EnhancePromptActionHandler implements FrontendActionHandler<S
             }
             if (promptEnhancerConfig != null) {
                 stdinInput.add("promptEnhancerConfig", promptEnhancerConfig);
+            }
+            // 通过 registry 解析 actualModel(与 chat/commitAi 一致),注入 stdin 供 prompt-enhancer.js
+            // 优先使用。默认 registry actualModel 空 → null → 不注入 → JS 用现有 role→bucket 映射(零回归);
+            // 仅用户自定义 registry actualModel(如 sonnet role → glm-5.2)时生效,避免 promptEnhancer
+            // 绕过 registry 回退到 settings.json env vars(cc-switch 写,与 registry 不同源)。
+            String effectiveProvider = extractEffectiveProvider(promptEnhancerConfig);
+            if (effectiveProvider != null && legacyModel != null && !legacyModel.isEmpty()) {
+                String enhanceActualModel = GitCommitMessageService.resolveActualModel(
+                        ctx.getSettingsService().getModelRegistry(), effectiveProvider, legacyModel);
+                if (enhanceActualModel != null && !enhanceActualModel.isEmpty()) {
+                    stdinInput.addProperty("actualModel", enhanceActualModel);
+                }
             }
 
             // Delegate to the runner so that:

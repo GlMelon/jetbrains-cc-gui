@@ -173,6 +173,34 @@ export function resolveModelFromSettings(modelId, userEnv, actualModel = null) {
 }
 
 /**
+ * Resolve the Claude SDK model name to send for prompt enhancement (Bug 3 fix).
+ *
+ * promptEnhancer(cllaude 路径)下发的模型名必须与 chat/commitAi 同源 —— 优先用
+ * registry 解析的 actualModel(具体模型 id,如 glm-5.2),而非仅靠 role→bucket
+ * 映射 + settings.json env 间接解析。当 registry actualModel 与 settings.json env
+ * (cc-switch 写入)不同步时,旧逻辑(mapModelIdToSdkName → bucket)会用错模型。
+ *
+ * actualModel 优先 + [1m] 处理语义与 {@link resolveModelFromSettings} 一致,但回退是
+ * bucket name(promptEnhancer 的 SDK `model` 参数需要 bucket selector,而非 role id 原值)。
+ *
+ * @param {string} model - Internal role model ID (e.g. 'claude-role-sonnet'), may carry [1m]
+ * @param {string} [actualModel] - registry-resolved concrete model id
+ * @returns {string} SDK model name (actualModel[±1m], or bucket name fallback)
+ */
+export function resolveClaudeEnhanceModelName(model, actualModel) {
+  const requestHas1M = /\[1m\]$/i.test(model || '');
+  const applySuffix = (value) => {
+    const base = String(value).trim().replace(/\[1m\]$/i, '');
+    return requestHas1M ? `${base}[1m]` : base;
+  };
+
+  if (actualModel && String(actualModel).trim()) {
+    return applySuffix(String(actualModel).trim());
+  }
+  return mapModelIdToSdkName(model);
+}
+
+/**
  * Set SDK environment variables based on the model name.
  * The Claude SDK uses short names (opus/sonnet/haiku) as model selectors,
  * while the specific version is determined by ANTHROPIC_DEFAULT_*_MODEL environment variables.

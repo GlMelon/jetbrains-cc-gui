@@ -4,6 +4,7 @@ import com.github.claudecodegui.config.ModelConfig;
 import com.github.claudecodegui.config.ModelRegistryConfig;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import org.junit.After;
 import org.junit.Test;
 
@@ -129,6 +130,29 @@ public class CodemossSettingsServicePromptEnhancerConfigTest {
         JsonObject config = invokeGetPromptEnhancerConfig(service);
 
         assertEquals("claude-role-opus", config.getAsJsonObject("models").get("claude").getAsString());
+    }
+
+    @Test
+    public void shouldNormalizeCanonicalClaudeIdToRoleIdOnWrite() throws Exception {
+        Path tempHome = Files.createTempDirectory("prompt-enhancer-write-canonical-home");
+        useTemporaryHomeDirectory(tempHome);
+        writeConfig(tempHome, "claude-a", "");
+        installSdk(tempHome, "claude-sdk", "@anthropic-ai/claude-agent-sdk", "0.2.88");
+
+        CodemossSettingsService service = new CodemossSettingsService();
+
+        // 前端/外部传入 canonical id(claude-sonnet-4-6)写入。写入路径也应归一化为 role id,
+        // 让 config.json 持久化的即为 role id(SSOT 干净),与读取路径归一化对称——避免任何绕过
+        // getNormalizedAiFeatureModels 读取兜底的代码路径(直接读 config.json)拿到 canonical。
+        invokeSetPromptEnhancerConfig(service, "claude", "claude-sonnet-4-6", "gpt-5.4");
+
+        // 直接读 config.json(不经 getPromptEnhancerConfig 的读取归一化)验证写盘内容
+        String rawConfig = Files.readString(tempHome.resolve(".codemoss").resolve("config.json"));
+        JsonObject root = JsonParser.parseString(rawConfig).getAsJsonObject();
+        String storedClaude = root.getAsJsonObject("promptEnhancer")
+                .getAsJsonObject("models")
+                .get("claude").getAsString();
+        assertEquals("claude-role-sonnet", storedClaude);
     }
 
     @Test
