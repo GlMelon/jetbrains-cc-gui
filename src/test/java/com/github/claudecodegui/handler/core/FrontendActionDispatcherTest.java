@@ -10,6 +10,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 public class FrontendActionDispatcherTest {
 
@@ -48,6 +49,42 @@ public class FrontendActionDispatcherTest {
         FrontendActionDispatcher dispatcher = new FrontendActionDispatcher(List.of(), null);
 
         assertFalse(dispatcher.dispatch("missing", "{}"));
+    }
+
+    @Test
+    public void isRegisteredReflectsRoutedActions() {
+        FrontendActionDispatcher dispatcher = new FrontendActionDispatcher(
+                List.of(new NoopStringActionHandler(UpstreamAction.SET_MODE)), null);
+
+        assertTrue(dispatcher.isRegistered("set_mode"));
+        assertFalse(dispatcher.isRegistered("not_a_real_action"));
+    }
+
+    @Test
+    public void verifyAllRegisteredPassesWhenEveryHandlerIsRouted() {
+        FrontendActionHandler<?> a = new NoopStringActionHandler(UpstreamAction.SET_MODE);
+        FrontendActionHandler<?> b = new NoopStringActionHandler(UpstreamAction.LOAD_HISTORY_DATA);
+        FrontendActionDispatcher dispatcher = new FrontendActionDispatcher(List.of(a, b), null);
+
+        // 不抛 = 所有 handler 的 action 都在路由表
+        FrontendActionDispatcher.verifyAllRegistered(dispatcher, List.of(a, b));
+    }
+
+    @Test
+    public void verifyAllRegisteredFailsWhenHandlerMissingFromDispatcher() {
+        // 防回归:模拟 B2/B4 装配时机 bug —— dispatcher 用部分 list 构造后,list 又追加了
+        // handler。自检必须发现"list 里的 handler 未进入 dispatcher 路由表"并 fail-fast。
+        FrontendActionHandler<?> present = new NoopStringActionHandler(UpstreamAction.SET_MODE);
+        FrontendActionHandler<?> missing = new NoopStringActionHandler(UpstreamAction.LOAD_HISTORY_DATA);
+        FrontendActionDispatcher partial = new FrontendActionDispatcher(List.of(present), null);
+
+        try {
+            FrontendActionDispatcher.verifyAllRegistered(partial, List.of(present, missing));
+            fail("Expected IllegalStateException because 'load_history_data' is not routed");
+        } catch (IllegalStateException expected) {
+            assertTrue("message should name the missing action, got: " + expected.getMessage(),
+                    expected.getMessage().contains("load_history_data"));
+        }
     }
 
     @Test
