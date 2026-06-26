@@ -109,11 +109,6 @@ interface Window {
   onContextUsageError?: (message: string, requestId?: string) => void;
 
   /**
-   * Add single history message (used for Codex session loading)
-   */
-  addHistoryMessage?: (message: any) => void;
-
-  /**
    * History load complete callback - invoked when history messages finish loading.
    * Triggers Markdown re-rendering to fix incorrect rendering on first history load.
    */
@@ -164,19 +159,9 @@ interface Window {
   onUsageUpdate?: (json: string) => void;
 
   /**
-   * Mode changed callback
-   */
-  onModeChanged?: (mode: string) => void;
-
-  /**
    * Mode received callback - backend pushes the permission mode (called during window initialization)
    */
   onModeReceived?: (mode: string) => void;
-
-  /**
-   * Model changed callback
-   */
-  onModelChanged?: (modelId: string) => void;
 
   /**
    * Model confirmed callback - called after the backend confirms the model was set successfully
@@ -209,6 +194,11 @@ interface Window {
    * Add code snippet to input box - manually triggered, inserts a code snippet tag into the input box
    */
   addCodeSnippet?: (selectionInfo: string) => void;
+
+  /**
+   * Alias for addCodeSnippet — called by Java CodeSnippetManager
+   */
+  addCodeSnippetFromExternal?: (selectionInfo: string) => void;
 
   /**
    * Insert code snippet at cursor position - registered by ChatInputBox

@@ -40,6 +40,10 @@ export function registerAgentAndSelectionCallbacks(options: UseWindowCallbacksOp
       window.insertCodeSnippetAtCursor(selectionInfo);
     }
   };
+  // Java CodeSnippetManager 调用 window.addCodeSnippetFromExternal(selectionInfo),
+  // 与 ClaudeChatWindow.addCodeSnippet 的 callJavaScript("addCodeSnippet", ...) 不同。
+  // 此处注册别名桥接,确保两条路径都能到达同一个处理函数。
+  window.addCodeSnippetFromExternal = window.addCodeSnippet;
 
   window.clearSelectionInfo = () => {
     setContextInfo(null);
