@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import AiFeatureProviderModelPanel from './index';
 import type { CommitAiConfig } from '../../../types/aiFeatureConfig';
 
@@ -24,6 +24,7 @@ vi.mock('../../../utils/modelRegistry', () => ({
       { id: 'gpt-5.5', label: 'GPT-5.5', contextWindow: 1_000_000 },
     ]
     : []),
+  subscribeModelRegistry: vi.fn(() => () => {}),
 }));
 
 describe('AiFeatureProviderModelPanel', () => {
@@ -122,5 +123,34 @@ describe('AiFeatureProviderModelPanel', () => {
     fireEvent.change(modelSelect, { target: { value: 'gpt-5.4' } });
 
     expect(onModelChange).toHaveBeenCalledWith('gpt-5.4');
+  });
+
+  it('recomputes model options when model registry updates', async () => {
+    const { subscribeModelRegistry, getModelsForProvider } = await import('../../../utils/modelRegistry');
+    const mockedSubscribe = vi.mocked(subscribeModelRegistry);
+    const mockedGetModels = vi.mocked(getModelsForProvider);
+    let registryListener: (() => void) | undefined;
+    mockedSubscribe.mockImplementation((listener) => {
+      registryListener = listener;
+      return () => {};
+    });
+
+    render(
+      <AiFeatureProviderModelPanel
+        config={config}
+        settingsKeyPrefix="settings.commit.providerModel"
+        providerKeyPrefix="settings.basic.promptEnhancer.provider"
+        onProviderChange={vi.fn()}
+        onModelChange={vi.fn()}
+        onResetToDefault={vi.fn()}
+      />
+    );
+
+    const initialCallCount = mockedGetModels.mock.calls.length;
+
+    // 模拟 registry 推送更新:listener 触发 version 递增 → useMemo 重算 → getModelsForProvider 再次调用
+    act(() => { registryListener?.(); });
+
+    expect(mockedGetModels.mock.calls.length).toBeGreaterThan(initialCallCount);
   });
 });

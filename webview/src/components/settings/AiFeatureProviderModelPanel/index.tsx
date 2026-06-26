@@ -1,8 +1,8 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ProviderModelIcon } from '../../shared/ProviderModelIcon';
 import type { AiFeatureConfig, AiFeatureProvider } from '../../../types/aiFeatureConfig';
-import { getModelsForProvider } from '../../../utils/modelRegistry';
+import { getModelsForProvider, subscribeModelRegistry } from '../../../utils/modelRegistry';
 import { readClaudeModelMapping, resolveMappedModelName } from '../../../utils/claudeModelMapping';
 import { CLAUDE_ROLE_MODEL_IDS } from '../../ChatInputBox/types';
 import styles from './style.module.less';
@@ -28,6 +28,11 @@ const AiFeatureProviderModelPanel = ({
   onResetToDefault = () => {},
 }: AiFeatureProviderModelPanelProps) => {
   const { t } = useTranslation();
+
+  // 订阅 model registry 更新:后端推送新 registry 时递增 version,触发 useMemo 重算 modelOptions。
+  // 参照 useModelProviderState:98-99 + ButtonArea:45 的相同模式。
+  const [modelRegistryVersion, setModelRegistryVersion] = useState(0);
+  useEffect(() => subscribeModelRegistry(() => setModelRegistryVersion((v) => v + 1)), []);
 
   const selectedProvider = config.provider
     ?? config.effectiveProvider
@@ -63,7 +68,7 @@ const AiFeatureProviderModelPanel = ({
       ];
     }
     return options;
-  }, [config.models, selectedProvider]);
+  }, [config.models, selectedProvider, modelRegistryVersion]);
   const isAutoMode = config.provider == null;
   const statusText = config.resolutionSource === 'auto'
     ? t(`${settingsKeyPrefix}.currentProviderAuto`, {
