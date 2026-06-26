@@ -1,6 +1,6 @@
 # AGENTS.md — 架构开发规范
 
-> 本文件是本项目的**最高架构准则**。所有 AI agent(Claude Code / Codex / 其他)在生成或修改代码时,**必须**先阅读并遵循本文档;所有人类开发者在提交代码前,**必须**对照第 6 节「合规检查清单」自检。违反任何总则的改动,需在 PR 描述中明确说明理由并获得 review 通过。
+> 本文件是本项目的**最高架构准则**。所有 AI agent(Claude Code / Codex / 其他)在生成或修改代码时,**必须**先阅读并遵循本文档;所有人类开发者在提交代码前,**必须**对照第 6 节「合规检查清单」与第 7 节「Git 提交规范」自检。违反任何总则的改动,需在 PR 描述中明确说明理由并获得 review 通过。
 
 ---
 
@@ -190,6 +190,101 @@
 | 12 | 新增同类能力是否需要改既有代码?是否预留了扩展接口 | 五 |
 | 13 | 下行事件是否使用 `DownstreamEvent` 枚举常量?有无散落字面量 | 二 |
 | 14 | 协议 type 是否从 `generated/protocol.ts` 导入?有无手写字面量 | 三 |
+
+---
+
+## 7. Git 提交规范
+
+### 原则:按变更性质分批提交
+
+一次开发往往同时产生新功能、bug 修复、重构等多种变更。**禁止**把多种性质的改动塞进单个 commit。**必须**按变更性质拆分为多个独立 commit,每个 commit 只做一件事,且满足:
+
+- 该 commit 内的改动**可被单独 revert**,而不连带破坏其他改动;
+- 该 commit 单独通过编译 / 测试,**不引入中间不可用状态**;
+- commit 描述**准确反映**该批改动的性质与范围。
+
+### 为什么
+
+混合 commit 会导致:① 回归发生后无法用 `git bisect` 精确定位是哪一类改动引入;② revert 时连带无关改动,扩大爆炸半径;③ PR review 粒度过粗,问题难被发现;④ cherry-pick 到其他分支时被迫带入无关代码。分批提交是代码考古(blame / bisect / revert)可信的前提。
+
+### 7.1 提交信息格式(Conventional Commits)
+
+所有提交信息**必须使用英文**,遵循 Conventional Commits:
+
+```
+<type>(<scope>): <subject>
+
+<body 可选>
+```
+
+- **一律英文**:subject 与 body 全英文。中文仅允许出现在迁移登记簿编号 / V9 切片等**追溯锚点**的括注(如 `(C7)`、`(V9 OCP slice 1/3)`),正文叙述一律英文。
+- **subject 小写起首、祈使句、末尾不加句号**:`show provider icons`,**而非** `Shows provider icons.`。
+- **subject ≤ 72 字符**(硬上限);超长内容移入 body。
+- **scope 强烈建议带上**,标明改动落地的模块(见 7.4)。
+
+### 7.2 类型(type)定义
+
+| type | 含义 | 何时使用 | 本仓实例 |
+|---|---|---|---|
+| `feat` | 新功能 | 用户 / 前端可感知的新行为、新增协议字段下发 | `feat(model-registry): backend merge + strip + new-conflict check` |
+| `fix` | bug 修复 | 修复错误行为 / 崩溃 / 数据不一致 | `fix(session): prevent cross-turn stale streamEnd via turn token` |
+| `refactor` | 重构 | 既非新功能也非修 bug 的内部调整,外部行为不变 | `refactor(dialog): migrate McpConfirmDialog to BaseDialog` |
+| `docs` | 文档 | 仅改 `.md` / 设计文档 / 注释性说明 | `docs(arch-debt): sync registry to 43/43 closed` |
+| `test` | 测试 | 新增 / 修复 / 调整测试,不改产品代码 | `test: guard frontend ModelRegistryItem covers backend ModelConfig fields` |
+| `style` | 格式 | 空白 / 颜色 / 样式微调,不影响逻辑 | `style(webview): tune title bar background between tab bar and chat` |
+| `build` | 构建 / 版本 | `build.gradle` / 版本号 / checkstyle 配置 | `build: bump version to 0.4.6-Alpha1` |
+| `chore` | 杂项维护 | 清理无用 import / 依赖 / 配置 | `chore(backend): remove unused imports` |
+| `i18n` | 国际化 | locale 键值增删 | `i18n: add chat.noModelConfigured key across all locales` |
+
+> **feat 与 refactor 的边界**:凡对外部协议 / 用户可见行为有新增的,即使实现上是「下沉 / 收口」,也用 `feat`(如下发新字段);纯内部搬运、行为零变化的用 `refactor`。拿不准时问「用户 / 前端能感知到变化吗」——能 → `feat`,不能 → `refactor`。
+
+### 7.3 作用域(scope)约定
+
+scope 标明改动落地的模块,**小写、连字符、单词或紧凑词组,不得含空格**。本仓常用 scope(非穷举,沿用历史):
+
+- **分层**:`webview`(前端)、`ai-bridge`(Node 进程);后端可不带 scope 或用领域名。
+- **领域**:`session` / `settings` / `model` / `model-registry` / `protocol` / `dialog` / `runtime` / `provider` / `bridge` / `handler`。
+- **横切**:`test` / `format` / `dependency` / `config` / `arch-debt`。
+
+> **历史遗留**:早期提交出现过带空格的 scope 如 `(cli session)`、`(model-registry-section)`,后续**一律改用连字符**统一为 `(cli-session)`。
+
+### 7.4 迁移编号与多步骤切片的标注
+
+涉及架构迁移登记簿或 V9 切片的提交,**在 subject 或 body 标注编号**,便于追溯:
+
+- **登记簿项**:`(C7)` / `(D4)` / `(A6)` 等放 subject 末尾括注,对应附录 C 索引的迁移文档。
+- **V9 多切片**:`V9 OCP slice 1/3`、`2/3`、`3/3`,标明本 commit 是该序列第几步,便于按步 review 与回退。
+
+> 此类编号是**追溯锚点**,不替代类型判断——仍要按 feat / fix / refactor 正确归类。
+
+### 7.5 分批提交示例
+
+假设一次开发同时做了:① 后端新增 `supportedReasoningLevels` 下发(新功能);② 顺手修了模型 id 归一化的一处 bug;③ 把某段重复格式化代码抽成公共函数。**正确做法**是拆成三个 commit:
+
+```
+feat(model-registry): push backend-supported reasoning levels to frontend
+fix(settings): normalize legacy canonical Claude model id to role id on read
+refactor(format): extract shared capacity formatting into formatCapacity
+```
+
+**错误做法**是合成一个 `feat: model improvements` 把三者塞在一起,导致后续无法独立 revert 或 bisect。
+
+### 7.6 历史中应避免的反模式
+
+下列模式曾在本仓早期出现,**后续提交禁止再犯**:
+
+- **无 type 前缀**:如 `Replace hardcoded strings with centralized constants and enums`、`Fix stream coalescer alarm disposal` → 必须补 `refactor:` / `fix:` 前缀。
+- **subject 首字母大写 + 句号**:如 `Refine dialog and chat input styling` → 改为 `refactor(webview): refine dialog and chat input styling`。
+- **中英文混用的 subject / body**:如 `refactor: A5/C5 业务默认值收口后端 SSOT(CodexProtectedEnvKey 枚举 ...)` → 改为全英文 `refactor: sink business defaults to backend SSOT (CodexProtectedEnvKey enum)`。
+
+### 合规检查清单
+
+- [ ] 每个 commit 是否只含**单一性质**的改动?有无功能 / 修复 / 重构混提?
+- [ ] 提交信息是否**全英文**?subject 是否小写起首、无句号、≤ 72 字符?
+- [ ] type 是否选对(`feat` / `fix` / `refactor` 边界是否清晰)?
+- [ ] scope 是否标注、是否小写连字符、无空格?
+- [ ] 涉及迁移的,是否标注了登记簿编号 / V9 切片序号?
+- [ ] 是否存在「一个超大 commit 裹挟多种性质改动」的情况?能否再拆?
 
 ---
 

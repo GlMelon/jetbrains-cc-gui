@@ -84,7 +84,7 @@ Handles all `window.xxx` callback registrations for Java bridge communication.
 - Message callbacks (updateMessages, clearMessages, addErrorMessage)
 - Streaming callbacks (onStreamStart, onContentDelta, onThinkingDelta, onStreamEnd)
 - Status callbacks (updateStatus, showLoading, showThinkingStatus)
-- Settings callbacks (onUsageUpdate, onModeChanged, onModelChanged)
+- Settings callbacks (onUsageUpdate, onModeReceived, onModelConfirmed)
 - Dialog callbacks (showPermissionDialog, showAskUserQuestionDialog)
 - Context callbacks (addSelectionInfo, addCodeSnippet, clearSelectionInfo)
 - Agent callbacks (onSelectedAgentReceived, onSelectedAgentChanged)
