@@ -152,18 +152,17 @@ function generatePayloadInterfaces(payloadSchemas) {
 /**
  * 解析 Java 枚举源码为协议条目(纯函数,便于测试)。
  *
- * C8 漂移守门:严格 entryPattern 仅匹配 `NAME("value")` 单参格式。若枚举改用多参
- * (如 C2 未来加 desc:`NAME("value","desc")`),严格 regex 会静默漏解析。
- * 故用宽松启发(全大写名 + `(` + 引号)统计疑似常量声明数,与严格 regex 计数比对,
- * 不一致时显式 WARN,防止静默漏项。
+ * C8 漂移守门:entryPattern 匹配 `NAME("value",...)` 格式(支持单参/多参)。
+ * 提取第一个引号参数作为协议值;多参枚举(如 ProviderType 的 value,cliCommand,cliCommandWindows)
+ * 均可正确解析,无需特殊处理。
  *
  * @param {string} source Java 源码文本
  * @param {string} label 用于告警定位的标签(通常为文件路径)
- * @returns {Array<{name:string,value:string}>} 严格 regex 解析出的条目(多参常量会被漏,WARN 提示)
+ * @returns {Array<{name:string,value:string}>} 解析出的条目
  */
 export function parseEnumSource(source, label = '<source>') {
   const entries = [];
-  const entryPattern = /^\s*([A-Z0-9_]+)\("([^"]+)"\)\s*,?/gm;
+  const entryPattern = /^\s*([A-Z0-9_]+)\("([^"]+)"/gm;
   let match;
 
   while ((match = entryPattern.exec(source)) !== null) {
@@ -175,9 +174,9 @@ export function parseEnumSource(source, label = '<source>') {
   const looseCount = (source.match(loosePattern) || []).length;
   if (looseCount > entries.length) {
     console.warn(
-      `[generate-protocol-types] ⚠️ DRIFT WARNING (${label}): 疑似 ${looseCount} 个枚举常量声明,但严格 regex 仅解析 ${entries.length} 个(差 ${looseCount - entries.length})。\n` +
-      `  常见原因:枚举常量改用多参格式(如 NAME("value","desc")),严格 entryPattern 静默漏解析。\n` +
-      `  请核对源码:更新 parseEnumSource 的 entryPattern,或长期走反射(manifest)主路径。`
+      `[generate-protocol-types] ⚠️ DRIFT WARNING (${label}): 疑似 ${looseCount} 个枚举常量声明,但 entryPattern 仅解析 ${entries.length} 个(差 ${looseCount - entries.length})。\n` +
+      `  常见原因:枚举常量未实现 ProtocolValue 接口,或首参非字符串类型。\n` +
+      `  请核对源码:确认枚举是否正确声明为 NAME("string-value",...) 格式。`
     );
   }
 
