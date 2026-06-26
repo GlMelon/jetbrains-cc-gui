@@ -24,10 +24,10 @@ describe('bridgeHub — broadcast subscribe/dispatch (raw-string conduit)', () =
   });
 
   it('delivers raw non-JSON strings unchanged (legacy raw-arg callbacks)', () => {
-    // 模拟 onModeChanged('plan'):后端传裸字符串,总线不解析,订阅者原样收到。
+    // 模拟 onModeReceived('plan'):后端传裸字符串,总线不解析,订阅者原样收到。
     const spy = vi.fn();
-    bridgeHub.subscribe('mode.changed', spy);
-    bridgeHub.dispatch('mode.changed', 'plan');
+    bridgeHub.subscribe('mode.received', spy);
+    bridgeHub.dispatch('mode.received', 'plan');
     expect(spy).toHaveBeenCalledWith('plan');
   });
 

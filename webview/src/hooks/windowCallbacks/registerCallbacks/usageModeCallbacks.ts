@@ -2,8 +2,8 @@
  * usageModeCallbacks.ts
  *
  * Registers window bridge callbacks for usage statistics, permission modes, and
- * model/provider updates: onUsageUpdate, onModeChanged, onModeReceived,
- * onModelChanged, onModelConfirmed, updateActiveProvider, updateThinkingEnabled,
+ * model/provider updates: onUsageUpdate, onModeReceived,
+ * onModelConfirmed, updateActiveProvider, updateThinkingEnabled,
  * updateStreamingEnabled, updateSendShortcut, updateAutoOpenFileEnabled.
  *
  * [归一化重构] usage/settings 类纯事件回调已迁移到 bridgeHub 订阅(透明字符串管道,
@@ -119,25 +119,11 @@ export function registerUsageModeCallbacks(options: UseWindowCallbacksOptions): 
     }
   };
 
-  // [归一化] onModeChanged/onModeReceived → mode.changed/mode.received(裸字符串 payload)。
-  // 透明管道原样传递,updateMode 收到的 mode 字符串与旧 window.onModeChanged(mode) 一致。
-  registerLegacyAlias('onModeChanged', DOWNSTREAM.MODE_CHANGED);
-  subscribeEvent(DOWNSTREAM.MODE_CHANGED, (mode) => updateMode(mode as PermissionMode));
+  // [归一化] onModeReceived → mode.received(裸字符串 payload)。
+  // 透明管道原样传递,updateMode 收到的 mode 字符串与旧 window.onModeReceived(mode) 一致。
+  // NOTE: MODE_CHANGED (mode.changed) 已移除——后端从未 dispatch 此事件。
   registerLegacyAlias('onModeReceived', DOWNSTREAM.MODE_RECEIVED);
   subscribeEvent(DOWNSTREAM.MODE_RECEIVED, (mode) => updateMode(mode as PermissionMode));
-
-  // [归一化] onModelChanged → model.changed(裸字符串 modelId)
-  // resolveClaudeModelId 先查 registry,自定义模型(如 mimo-v2.5)保留原 id,
-  // 仅在 registry 未收录时回退到 role 归一化,避免合法自定义模型被改写成 sonnet。
-  registerLegacyAlias('onModelChanged', DOWNSTREAM.MODEL_CHANGED);
-  subscribeEvent(DOWNSTREAM.MODEL_CHANGED, (modelId) => {
-    const provider = currentProviderRef.current;
-    if (provider === 'claude') {
-      setSelectedClaudeModel(resolveClaudeModelId(modelId as string));
-    } else if (provider === 'codex') {
-      setSelectedCodexModel(modelId as string);
-    }
-  });
 
   // [归一化] onModelConfirmed(modelId, provider) 原为两参数回调,后端已归一化为单 JSON 参数
   // {modelId, provider}。兼容别名转发到 model.confirmed,订阅者解析 JSON 取两字段。

@@ -20,9 +20,7 @@ public enum DownstreamEvent implements ProtocolValue {
     SETTING_PERMISSION_DIALOG_TIMEOUT("setting.permission_dialog_timeout"),
 
     // ── Mode/Model ──
-    MODE_CHANGED("mode.changed"),
     MODE_RECEIVED("mode.received"),
-    MODEL_CHANGED("model.changed"),
     MODEL_CONFIRMED("model.confirmed"),
     MODEL_SELECTION("model.selection"),
 
@@ -42,7 +40,9 @@ public enum DownstreamEvent implements ProtocolValue {
     SESSION_TITLE("session.title"),
 
     // ── RPC ──
-    FILE_PATH_RESOLVE("file_path.resolve"),
+    // 请求/响应两侧归一化:请求用上行 action resolve_file_path(UpstreamAction.RESOLVE_FILE_PATH),
+    // 响应用下行事件 file_path.resolved。早先的 'file_path.resolve' 下行伪事件已删除(它是
+    // 误放进下行枚举的上行请求名,曾诱导前端把它当作请求 type 导致后端 dispatcher miss)。
     FILE_PATH_RESOLVED("file_path.resolved"),
 
     // ── Streaming ──

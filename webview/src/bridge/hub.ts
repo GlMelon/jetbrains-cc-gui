@@ -189,7 +189,7 @@ class BridgeHub {
   private deliver(type: string, payloadJson?: string): void {
     // 关键:总线是「透明字符串管道」,原样传递 payloadJson,不做 JSON 解析。
     // 原因:现有回调 payload 约定不统一 —— 多数为 JSON 字串(JSON.parse),但
-    // onModeChanged/onModelChanged 等接收裸字符串,onModelConfirmed 甚至两参数。
+    // onModeReceived 等接收裸字符串,onModelConfirmed 甚至两参数。
     // 若 dispatch 自动 parse,裸字符串回调会被破坏(功能不等价)。
     // 因此订阅者收到的就是原 window.xxx(json) 中的那个 json 字符串(逐字节等价)。
     // 单次解析优化是后续归一化目标,本次迁移不引入。
