@@ -8,20 +8,20 @@ import com.github.claudecodegui.provider.common.SDKResult;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Codex CLI runtime adapter。
+ * OpenCode CLI runtime adapter。
  * 将 SessionRequest 转换为 CliSendRequest，委托给 CliSessionManager。
  */
-public class CodexCliSessionRuntime implements SessionRuntime {
+public class OpenCodeCliSessionRuntime implements SessionRuntime {
 
     private final CliSessionManager cliManager;
 
-    public CodexCliSessionRuntime(CliSessionManager cliManager) {
+    public OpenCodeCliSessionRuntime(CliSessionManager cliManager) {
         this.cliManager = cliManager;
     }
 
     @Override
     public ProviderType provider() {
-        return ProviderType.CODEX;
+        return ProviderType.OPENCODE;
     }
 
     @Override
@@ -37,7 +37,7 @@ public class CodexCliSessionRuntime implements SessionRuntime {
 
     @Override
     public void interrupt(String tabId) {
-        cliManager.interrupt(tabId, ProviderType.CODEX.toLowerCase());
+        cliManager.interrupt(tabId, ProviderType.OPENCODE.value());
     }
 
     @Override
@@ -52,7 +52,7 @@ public class CodexCliSessionRuntime implements SessionRuntime {
         }
         return new CliSendRequest(
                 tabId,
-                ProviderType.CODEX.value(),
+                ProviderType.OPENCODE.value(),
                 req.message(),
                 req.sessionId(),
                 req.cwd(),

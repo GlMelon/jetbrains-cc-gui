@@ -2,6 +2,7 @@ package com.github.claudecodegui.session.runtime;
 
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.protocol.ProtocolValue;
+import com.github.claudecodegui.util.PlatformUtils;
 
 import java.util.Arrays;
 import java.util.Optional;
@@ -20,6 +21,9 @@ import java.util.Optional;
  * <p>方法分工:
  * <ul>
  *   <li>{@link #value()} —— {@link ProtocolValue} 协议值出口(SSOT),由生成器反射消费。</li>
+ *   <li>{@link #cliCommand()} —— CLI 可执行文件名(非 Windows 平台)。</li>
+ *   <li>{@link #cliCommandWindows()} —— CLI 可执行文件名(Windows 平台,含 {@code .cmd} 后缀)。</li>
+ *   <li>{@link #cliCommandForPlatform()} —— 根据当前平台返回 CLI 可执行文件名。</li>
  *   <li>{@link #fromValue(String)} —— SSOT 严格往返,值不匹配返回 {@link Optional#empty()},
  *       范式对齐 {@code PermissionMode}/{@code ReasoningEffort}。</li>
  *   <li>{@link #fromString(String)} —— 历史宽容解析(null/未知 → {@code CLAUDE}),
@@ -37,20 +41,51 @@ import java.util.Optional;
  */
 public enum ProviderType implements ProtocolValue {
 
-    CLAUDE("claude"),
-    CODEX("codex"),
+    CLAUDE("claude", "claude", "claude.cmd"),
+    CODEX("codex", "codex", "codex.cmd"),
+    OPENCODE("opencode", "opencode", "opencode.cmd"),
     ;
 
     private final String value;
+    private final String cliCommand;
+    private final String cliCommandWindows;
 
-    ProviderType(String value) {
+    ProviderType(String value, String cliCommand, String cliCommandWindows) {
         this.value = value;
+        this.cliCommand = cliCommand;
+        this.cliCommandWindows = cliCommandWindows;
     }
 
     /** 协议线上实际传输的字符串值(对齐 {@link CommonConstants#PROVIDER_CLAUDE}/{@code PROVIDER_CODEX}) */
     @Override
     public String value() {
         return value;
+    }
+
+    /**
+     * CLI 可执行文件名(非 Windows 平台)。
+     * <p>消除 {@code CodexCliResolver}/{@code OpenCodeCliResolver} 中的硬编码。
+     */
+    public String cliCommand() {
+        return cliCommand;
+    }
+
+    /**
+     * CLI 可执行文件名(Windows 平台,含 {@code .cmd} 后缀)。
+     * <p>消除 {@code CodexCliResolver}/{@code OpenCodeCliResolver} 中的硬编码。
+     */
+    public String cliCommandWindows() {
+        return cliCommandWindows;
+    }
+
+    /**
+     * 根据当前平台返回 CLI 可执行文件名。
+     * <p>消除 {@code CodexCliResolver}/{@code OpenCodeCliResolver}/{@code CodexCliCommandUtils} 中的硬编码。
+     *
+     * @return Windows 返回 {@link #cliCommandWindows()},其他平台返回 {@link #cliCommand()}
+     */
+    public String cliCommandForPlatform() {
+        return PlatformUtils.isWindows() ? cliCommandWindows : cliCommand;
     }
 
     /**
@@ -73,6 +108,7 @@ public enum ProviderType implements ProtocolValue {
         }
         return switch (provider.trim().toLowerCase()) {
             case CommonConstants.PROVIDER_CODEX -> CODEX;
+            case CommonConstants.PROVIDER_OPENCODE -> OPENCODE;
             default -> CLAUDE;
         };
     }

@@ -2,6 +2,7 @@ package com.github.claudecodegui.cli.codex;
 
 import com.github.claudecodegui.cli.common.CliConstants;
 import com.github.claudecodegui.protocol.CodexProtectedEnvKey;
+import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.util.PlatformUtils;
 
 import java.util.Arrays;
@@ -42,7 +43,7 @@ public final class CodexCliCommandUtils {
     }
 
     public static void addCodexExecutable(List<String> command, String executable) {
-        String resolved = executable != null && !executable.isBlank() ? executable : "codex";
+        String resolved = executable != null && !executable.isBlank() ? executable : ProviderType.CODEX.cliCommand();
         String lower = resolved.toLowerCase(Locale.ROOT);
         if (PlatformUtils.isWindows() && CliConstants.WINDOWS_SCRIPT_SUFFIXES.stream().anyMatch(lower::endsWith)) {
             command.add("cmd");

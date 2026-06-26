@@ -111,7 +111,7 @@ public class RuntimePolicyHandler {
         codexProps.addProperty("supported", "支持的 runtime 列表 (array: SDK, CLI)");
         codexProps.addProperty("default", "默认 runtime (SDK 或 CLI)");
         codexSchema.add("properties", codexProps);
-        schema.add("codex", codexSchema);
+        schema.add(ProviderType.CODEX.value(), codexSchema);
 
         context.dispatchEvent(DownstreamEvent.RUNTIME_POLICY_SCHEMA.value(), context.escapeJs(schema.toString()));
     }

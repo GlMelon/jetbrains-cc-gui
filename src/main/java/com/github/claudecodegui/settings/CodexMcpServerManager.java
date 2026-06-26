@@ -1,6 +1,7 @@
 package com.github.claudecodegui.settings;
 
 import com.github.claudecodegui.common.CommonConstants;
+import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -181,8 +182,8 @@ public class CodexMcpServerManager {
 
         // Mark as codex server
         JsonObject apps = new JsonObject();
-        apps.addProperty("claude", false);
-        apps.addProperty("codex", true);
+        apps.addProperty(CommonConstants.PROVIDER_CLAUDE, false);
+        apps.addProperty(ProviderType.CODEX.value(), true);
         apps.addProperty("gemini", false);
         server.add("apps", apps);
 

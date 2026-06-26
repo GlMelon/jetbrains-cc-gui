@@ -1,6 +1,7 @@
 package com.github.claudecodegui.handler;
 
 import com.github.claudecodegui.common.CommonConstants;
+import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.handler.core.HandlerContext;
 
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
@@ -518,7 +519,7 @@ public class ProjectConfigHandler {
             JsonObject models = json != null && json.has("models") && json.get("models").isJsonObject()
                     ? json.getAsJsonObject("models")
                     : new JsonObject();
-            setter.apply(provider, readString(models, "claude", null), readString(models, "codex", null));
+            setter.apply(provider, readString(models, ProviderType.CLAUDE.value(), null), readString(models, ProviderType.CODEX.value(), null));
             pushJson(jsCallback, getter.get());
         } catch (Exception e) {
             LOG.error("[ProjectConfigHandler] " + errorLogMessage + ": " + e.getMessage(), e);

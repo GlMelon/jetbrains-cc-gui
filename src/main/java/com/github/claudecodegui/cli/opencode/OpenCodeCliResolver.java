@@ -1,5 +1,6 @@
-package com.github.claudecodegui.session.runtime;
+package com.github.claudecodegui.cli.opencode;
 
+import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.util.PlatformUtils;
 
 import java.io.BufferedReader;
@@ -11,21 +12,21 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Resolves the Codex CLI executable.
+ * Resolves the OpenCode CLI executable.
  */
-public final class CodexCliResolver {
+public final class OpenCodeCliResolver {
 
-    private CodexCliResolver() {
+    private OpenCodeCliResolver() {
     }
 
     public static String findExecutable() {
         List<String> candidates = new ArrayList<>();
         if (PlatformUtils.isWindows()) {
-            candidates.add(ProviderType.CODEX.cliCommandWindows());
-            candidates.add("codex.exe");
-            candidates.add("codex.bat");
+            candidates.add(ProviderType.OPENCODE.cliCommandWindows());
+            candidates.add("opencode.exe");
+            candidates.add("opencode.bat");
         } else {
-            candidates.add(ProviderType.CODEX.cliCommand());
+            candidates.add(ProviderType.OPENCODE.cliCommand());
         }
 
         for (String candidate : candidates) {
@@ -35,7 +36,7 @@ public final class CodexCliResolver {
             }
         }
 
-        return ProviderType.CODEX.cliCommandForPlatform();
+        return ProviderType.OPENCODE.cliCommandForPlatform();
     }
 
     static String resolve(String candidate) {

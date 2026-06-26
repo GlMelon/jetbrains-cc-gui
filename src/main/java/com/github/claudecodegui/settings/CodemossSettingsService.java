@@ -77,8 +77,6 @@ public class CodemossSettingsService {
     private static final String AI_FEATURE_EFFECTIVE_PROVIDER_KEY = "effectiveProvider";
     private static final String AI_FEATURE_RESOLUTION_SOURCE_KEY = "resolutionSource";
     private static final String AI_FEATURE_AVAILABILITY_KEY = "availability";
-    private static final String AI_FEATURE_PROVIDER_CLAUDE = "claude";
-    private static final String AI_FEATURE_PROVIDER_CODEX = "codex";
     private static final String AI_FEATURE_RESOLUTION_MANUAL = "manual";
     private static final String AI_FEATURE_RESOLUTION_AUTO = "auto";
     private static final String AI_FEATURE_RESOLUTION_UNAVAILABLE = "unavailable";
@@ -330,7 +328,7 @@ public class CodemossSettingsService {
         codex.addProperty("current", "");
         codex.add("providers", new JsonObject());
         codex.addProperty("localConfigAuthorized", false);
-        config.add("codex", codex);
+        config.add(ProviderType.CODEX.value(), codex);
 
         return config;
     }
@@ -1353,8 +1351,8 @@ public class CodemossSettingsService {
         );
         JsonObject models = getNormalizedAiFeatureModels(featureConfig, defaultClaudeModel, defaultCodexModel);
         JsonObject availability = buildAiFeatureAvailability();
-        boolean claudeAvailable = availability.get(AI_FEATURE_PROVIDER_CLAUDE).getAsBoolean();
-        boolean codexAvailable = availability.get(AI_FEATURE_PROVIDER_CODEX).getAsBoolean();
+        boolean claudeAvailable = availability.get(CommonConstants.PROVIDER_CLAUDE).getAsBoolean();
+        boolean codexAvailable = availability.get(CommonConstants.PROVIDER_CODEX).getAsBoolean();
         ResolvedAiFeatureProvider resolvedProvider = resolveAiFeatureProvider(
                 manualProvider,
                 claudeAvailable,
@@ -1421,15 +1419,15 @@ public class CodemossSettingsService {
 
     private JsonObject buildAiFeatureAvailability() {
         JsonObject availability = new JsonObject();
-        availability.addProperty(AI_FEATURE_PROVIDER_CLAUDE, isAiFeatureProviderAvailable(AI_FEATURE_PROVIDER_CLAUDE));
-        availability.addProperty(AI_FEATURE_PROVIDER_CODEX, isAiFeatureProviderAvailable(AI_FEATURE_PROVIDER_CODEX));
+        availability.addProperty(CommonConstants.PROVIDER_CLAUDE, isAiFeatureProviderAvailable(CommonConstants.PROVIDER_CLAUDE));
+        availability.addProperty(CommonConstants.PROVIDER_CODEX, isAiFeatureProviderAvailable(CommonConstants.PROVIDER_CODEX));
         return availability;
     }
 
     private boolean isAiFeatureProviderAvailable(String provider) {
         try {
             DependencyManager dependencyManager = new DependencyManager();
-            if (AI_FEATURE_PROVIDER_CODEX.equals(provider)) {
+            if (CommonConstants.PROVIDER_CODEX.equals(provider)) {
                 return getActiveCodexProvider() != null && dependencyManager.isInstalled("codex-sdk");
             }
             return getActiveClaudeProvider() != null && dependencyManager.isInstalled("claude-sdk");
@@ -1448,11 +1446,11 @@ public class CodemossSettingsService {
                 && featureConfig.has(AI_FEATURE_MODELS_KEY)
                 && featureConfig.get(AI_FEATURE_MODELS_KEY).isJsonObject()) {
             JsonObject rawModels = featureConfig.getAsJsonObject(AI_FEATURE_MODELS_KEY);
-            String claudeModel = rawModels.has(AI_FEATURE_PROVIDER_CLAUDE) && !rawModels.get(AI_FEATURE_PROVIDER_CLAUDE).isJsonNull()
-                    ? rawModels.get(AI_FEATURE_PROVIDER_CLAUDE).getAsString()
+            String claudeModel = rawModels.has(CommonConstants.PROVIDER_CLAUDE) && !rawModels.get(CommonConstants.PROVIDER_CLAUDE).isJsonNull()
+                    ? rawModels.get(CommonConstants.PROVIDER_CLAUDE).getAsString()
                     : null;
-            String codexModel = rawModels.has(AI_FEATURE_PROVIDER_CODEX) && !rawModels.get(AI_FEATURE_PROVIDER_CODEX).isJsonNull()
-                    ? rawModels.get(AI_FEATURE_PROVIDER_CODEX).getAsString()
+            String codexModel = rawModels.has(CommonConstants.PROVIDER_CODEX) && !rawModels.get(CommonConstants.PROVIDER_CODEX).isJsonNull()
+                    ? rawModels.get(CommonConstants.PROVIDER_CODEX).getAsString()
                     : null;
             return createAiFeatureModels(normalizeAiFeatureClaudeModel(claudeModel), codexModel, defaultClaudeModel, defaultCodexModel);
         }
@@ -1475,7 +1473,7 @@ public class CodemossSettingsService {
             return rawModel;
         }
         String trimmed = rawModel.trim();
-        if (getModelRegistry().find(AI_FEATURE_PROVIDER_CLAUDE, trimmed).isPresent()) {
+        if (getModelRegistry().find(CommonConstants.PROVIDER_CLAUDE, trimmed).isPresent()) {
             return trimmed;
         }
         String roleId = ClaudeRole.canonicalIdToRoleId(trimmed);
@@ -1490,11 +1488,11 @@ public class CodemossSettingsService {
     ) {
         JsonObject models = new JsonObject();
         models.addProperty(
-                AI_FEATURE_PROVIDER_CLAUDE,
+                CommonConstants.PROVIDER_CLAUDE,
                 normalizeAiFeatureModel(claudeModel, defaultClaudeModel)
         );
         models.addProperty(
-                AI_FEATURE_PROVIDER_CODEX,
+                CommonConstants.PROVIDER_CODEX,
                 normalizeAiFeatureModel(codexModel, defaultCodexModel)
         );
         return models;
@@ -1506,7 +1504,7 @@ public class CodemossSettingsService {
             boolean codexAvailable
     ) {
         if (manualProvider != null) {
-            boolean manualProviderAvailable = AI_FEATURE_PROVIDER_CODEX.equals(manualProvider)
+            boolean manualProviderAvailable = CommonConstants.PROVIDER_CODEX.equals(manualProvider)
                     ? codexAvailable
                     : claudeAvailable;
             if (manualProviderAvailable) {
@@ -1515,10 +1513,10 @@ public class CodemossSettingsService {
             return new ResolvedAiFeatureProvider(null, AI_FEATURE_RESOLUTION_UNAVAILABLE);
         }
         if (codexAvailable) {
-            return new ResolvedAiFeatureProvider(AI_FEATURE_PROVIDER_CODEX, AI_FEATURE_RESOLUTION_AUTO);
+            return new ResolvedAiFeatureProvider(CommonConstants.PROVIDER_CODEX, AI_FEATURE_RESOLUTION_AUTO);
         }
         if (claudeAvailable) {
-            return new ResolvedAiFeatureProvider(AI_FEATURE_PROVIDER_CLAUDE, AI_FEATURE_RESOLUTION_AUTO);
+            return new ResolvedAiFeatureProvider(CommonConstants.PROVIDER_CLAUDE, AI_FEATURE_RESOLUTION_AUTO);
         }
         return new ResolvedAiFeatureProvider(null, AI_FEATURE_RESOLUTION_UNAVAILABLE);
     }
@@ -1531,7 +1529,7 @@ public class CodemossSettingsService {
         if (normalized.isEmpty()) {
             return null;
         }
-        if (AI_FEATURE_PROVIDER_CLAUDE.equals(normalized) || AI_FEATURE_PROVIDER_CODEX.equals(normalized)) {
+        if (CommonConstants.PROVIDER_CLAUDE.equals(normalized) || CommonConstants.PROVIDER_CODEX.equals(normalized)) {
             return normalized;
         }
         return null;
@@ -1611,10 +1609,10 @@ public class CodemossSettingsService {
 
     public boolean isCodexLocalConfigAuthorized() throws IOException {
         JsonObject config = readConfig();
-        if (!config.has("codex") || !config.get("codex").isJsonObject()) {
+        if (!config.has(ProviderType.CODEX.value()) || !config.get(ProviderType.CODEX.value()).isJsonObject()) {
             return false;
         }
-        JsonObject codex = config.getAsJsonObject("codex");
+        JsonObject codex = config.getAsJsonObject(ProviderType.CODEX.value());
         return codex.has("localConfigAuthorized")
                 && !codex.get("localConfigAuthorized").isJsonNull()
                 && codex.get("localConfigAuthorized").getAsBoolean();
@@ -1623,13 +1621,13 @@ public class CodemossSettingsService {
     public void setCodexLocalConfigAuthorized(boolean authorized) throws IOException {
         JsonObject config = readConfig();
         JsonObject codex;
-        if (config.has("codex") && config.get("codex").isJsonObject()) {
-            codex = config.getAsJsonObject("codex");
+        if (config.has(ProviderType.CODEX.value()) && config.get(ProviderType.CODEX.value()).isJsonObject()) {
+            codex = config.getAsJsonObject(ProviderType.CODEX.value());
         } else {
             codex = new JsonObject();
             codex.add("providers", new JsonObject());
             codex.addProperty("current", "");
-            config.add("codex", codex);
+            config.add(ProviderType.CODEX.value(), codex);
         }
 
         codex.addProperty("localConfigAuthorized", authorized);
@@ -1638,11 +1636,11 @@ public class CodemossSettingsService {
 
     public String getCodexRuntimeAccessMode() throws IOException {
         JsonObject config = readConfig();
-        if (!config.has("codex") || !config.get("codex").isJsonObject()) {
+        if (!config.has(ProviderType.CODEX.value()) || !config.get(ProviderType.CODEX.value()).isJsonObject()) {
             return CODEX_RUNTIME_ACCESS_INACTIVE;
         }
 
-        JsonObject codex = config.getAsJsonObject("codex");
+        JsonObject codex = config.getAsJsonObject(ProviderType.CODEX.value());
         String currentId = codex.has("current") && !codex.get("current").isJsonNull()
                 ? codex.get("current").getAsString().trim()
                 : "";

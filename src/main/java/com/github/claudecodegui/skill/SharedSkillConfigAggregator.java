@@ -1,5 +1,6 @@
 package com.github.claudecodegui.skill;
 
+import com.github.claudecodegui.session.runtime.ProviderType;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -27,8 +28,8 @@ public final class SharedSkillConfigAggregator {
         JsonObject skills = new JsonObject();
         Map<String, String> sharedNameIndex = new LinkedHashMap<>();
 
-        projections.add("claude", claudeProjection != null ? claudeProjection.deepCopy() : new JsonObject());
-        projections.add("codex", codexProjection != null ? codexProjection.deepCopy() : new JsonObject());
+        projections.add(ProviderType.CLAUDE.value(), claudeProjection != null ? claudeProjection.deepCopy() : new JsonObject());
+        projections.add(ProviderType.CODEX.value(), codexProjection != null ? codexProjection.deepCopy() : new JsonObject());
 
         if (sharedSkills != null) {
             for (JsonObject source : sharedSkills) {
@@ -64,8 +65,8 @@ public final class SharedSkillConfigAggregator {
             }
         }
 
-        mergeRuntimeProjection(skills, sharedNameIndex, "claude", claudeProjection);
-        mergeRuntimeProjection(skills, sharedNameIndex, "codex", codexProjection);
+        mergeRuntimeProjection(skills, sharedNameIndex, ProviderType.CLAUDE.value(), claudeProjection);
+        mergeRuntimeProjection(skills, sharedNameIndex, ProviderType.CODEX.value(), codexProjection);
 
         result.add("shared", shared);
         result.add("projections", projections);

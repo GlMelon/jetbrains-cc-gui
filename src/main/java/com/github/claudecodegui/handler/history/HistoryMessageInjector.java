@@ -483,7 +483,7 @@ public class HistoryMessageInjector {
 
         JsonObject errorBlock = new JsonObject();
         errorBlock.addProperty("type", "provider_error");
-        errorBlock.addProperty("provider", firstNonBlank(getString(payload, "provider"), "codex"));
+        errorBlock.addProperty("provider", firstNonBlank(getString(payload, "provider"), CommonConstants.PROVIDER_CODEX));
         errorBlock.addProperty("summary", summary);
         errorBlock.addProperty("details", details);
         if (payload.has("exitCode") && !payload.get("exitCode").isJsonNull()) {

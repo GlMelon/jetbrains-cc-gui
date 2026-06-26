@@ -12,9 +12,7 @@ public final class CliConstants {
     }
 
     // ── Provider 标识 ──────────────────────────────────────────────────────────
-
-    public static final String PROVIDER_CLAUDE = "claude";
-    public static final String PROVIDER_CODEX = "codex";
+    // 已迁移至 CommonConstants（统一权威定义，消除重复）。请引用 CommonConstants.PROVIDER_*。
 
     /** 进程等待超时(毫秒),防止中断未真正结束子进程时 waitFor 永久阻塞导致 Future 无法完成。 */
     public static final long PROCESS_WAIT_TIMEOUT_MS = 30_000L;
@@ -151,6 +149,27 @@ public final class CliConstants {
     public static final String CODEX_ARG_LAST = "--last";
     public static final String CODEX_ARG_C_CONFIG = "-c";
     public static final String CODEX_ARG_I_CONFIG = "-i";
+
+    // ── OpenCode CLI 参数 ────────────────────────────────────────────────────────
+
+    public static final String OPENCODE_ARG_API = "api";
+    public static final String OPENCODE_ARG_DATA = "-d";
+    public static final String OPENCODE_ARG_HEADER = "-H";
+    public static final String OPENCODE_ARG_SERVE = "serve";
+    public static final String OPENCODE_ARG_SERVICE = "service";
+    public static final String OPENCODE_ARG_START = "start";
+    public static final String OPENCODE_ARG_STOP = "stop";
+    public static final String OPENCODE_ARG_STATUS = "status";
+    public static final String OPENCODE_ARG_PORT = "--port";
+    public static final String OPENCODE_ARG_HOSTNAME = "--hostname";
+
+    // ── OpenCode API 端点 ───────────────────────────────────────────────────────
+
+    public static final String OPENCODE_API_SESSION_CREATE = "POST /api/session";
+    public static final String OPENCODE_API_SESSION_PROMPT = "POST /api/session/:id/prompt";
+    public static final String OPENCODE_API_SESSION_ABORT = "POST /api/session/:id/abort";
+    public static final String OPENCODE_API_SESSION_EVENT = "GET /api/session/:id/event";
+    public static final String OPENCODE_API_HEALTH = "GET /api/health";
 
     // ── Sandbox 模式值 ─────────────────────────────────────────────────────────
 

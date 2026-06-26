@@ -1,6 +1,7 @@
 package com.github.claudecodegui.settings;
 
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
+import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.model.DeleteResult;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -52,8 +53,8 @@ public class CodexProviderManager {
         List<JsonObject> result = new ArrayList<>();
 
         String currentId = null;
-        if (config.has("codex") && config.get("codex").isJsonObject()) {
-            JsonObject codex = config.getAsJsonObject("codex");
+        if (config.has(ProviderType.CODEX.value()) && config.get(ProviderType.CODEX.value()).isJsonObject()) {
+            JsonObject codex = config.getAsJsonObject(ProviderType.CODEX.value());
             if (codex.has("current") && !codex.get("current").isJsonNull()) {
                 currentId = codex.get("current").getAsString();
             }
@@ -64,11 +65,11 @@ public class CodexProviderManager {
         result.add(createCodexCliLoginProviderObject(
                 CODEX_CLI_LOGIN_PROVIDER_ID.equals(currentId) && cliLoginAuthorized));
 
-        if (!config.has("codex")) {
+        if (!config.has(ProviderType.CODEX.value())) {
             return result;
         }
 
-        JsonObject codex = config.getAsJsonObject("codex");
+        JsonObject codex = config.getAsJsonObject(ProviderType.CODEX.value());
         if (!codex.has("providers")) {
             return result;
         }
@@ -101,14 +102,14 @@ public class CodexProviderManager {
     public void saveProviderOrder(List<String> orderedIds) throws IOException {
         JsonObject config = configReader.apply(null);
 
-        if (!config.has("codex")) {
+        if (!config.has(ProviderType.CODEX.value())) {
             JsonObject codex = new JsonObject();
             codex.add("providers", new JsonObject());
             codex.addProperty("current", "");
-            config.add("codex", codex);
+            config.add(ProviderType.CODEX.value(), codex);
         }
 
-        JsonObject codex = config.getAsJsonObject("codex");
+        JsonObject codex = config.getAsJsonObject(ProviderType.CODEX.value());
         ProviderOrderHelper.setProviderOrder(codex, orderedIds);
 
         configWriter.accept(config);
@@ -121,11 +122,11 @@ public class CodexProviderManager {
     public JsonObject getActiveCodexProvider() {
         JsonObject config = configReader.apply(null);
 
-        if (!config.has("codex")) {
+        if (!config.has(ProviderType.CODEX.value())) {
             return null;
         }
 
-        JsonObject codex = config.getAsJsonObject("codex");
+        JsonObject codex = config.getAsJsonObject(ProviderType.CODEX.value());
         if (!codex.has("current")) {
             return null;
         }
@@ -172,14 +173,14 @@ public class CodexProviderManager {
         JsonObject config = configReader.apply(null);
 
         // Ensure codex configuration exists
-        if (!config.has("codex")) {
+        if (!config.has(ProviderType.CODEX.value())) {
             JsonObject codex = new JsonObject();
             codex.add("providers", new JsonObject());
             codex.addProperty("current", "");
-            config.add("codex", codex);
+            config.add(ProviderType.CODEX.value(), codex);
         }
 
-        JsonObject codex = config.getAsJsonObject("codex");
+        JsonObject codex = config.getAsJsonObject(ProviderType.CODEX.value());
         JsonObject providers = codex.getAsJsonObject("providers");
 
         String id = provider.get("id").getAsString();
@@ -212,14 +213,14 @@ public class CodexProviderManager {
         JsonObject config = configReader.apply(null);
 
         // Ensure codex configuration exists
-        if (!config.has("codex")) {
+        if (!config.has(ProviderType.CODEX.value())) {
             JsonObject codex = new JsonObject();
             codex.add("providers", new JsonObject());
             codex.addProperty("current", "");
-            config.add("codex", codex);
+            config.add(ProviderType.CODEX.value(), codex);
         }
 
-        JsonObject codex = config.getAsJsonObject("codex");
+        JsonObject codex = config.getAsJsonObject(ProviderType.CODEX.value());
         JsonObject providers = codex.getAsJsonObject("providers");
 
         String id = provider.get("id").getAsString();
@@ -246,11 +247,11 @@ public class CodexProviderManager {
     public void updateCodexProvider(String id, JsonObject updates) throws IOException {
         JsonObject config = configReader.apply(null);
 
-        if (!config.has("codex")) {
+        if (!config.has(ProviderType.CODEX.value())) {
             throw new IllegalArgumentException("No codex configuration found");
         }
 
-        JsonObject codex = config.getAsJsonObject("codex");
+        JsonObject codex = config.getAsJsonObject(ProviderType.CODEX.value());
         JsonObject providers = codex.getAsJsonObject("providers");
 
         if (!providers.has(id)) {
@@ -292,7 +293,7 @@ public class CodexProviderManager {
             configFilePath = pathManager.getConfigFilePath();
             backupFilePath = pathManager.getConfigDir().resolve(BACKUP_FILE_NAME);
 
-            if (!config.has("codex")) {
+            if (!config.has(ProviderType.CODEX.value())) {
                 return DeleteResult.failure(
                     DeleteResult.ErrorType.FILE_NOT_FOUND,
                     "No codex configuration found",
@@ -301,7 +302,7 @@ public class CodexProviderManager {
                 );
             }
 
-            JsonObject codex = config.getAsJsonObject("codex");
+            JsonObject codex = config.getAsJsonObject(ProviderType.CODEX.value());
             JsonObject providers = codex.getAsJsonObject("providers");
 
             if (!providers.has(id)) {
@@ -376,14 +377,14 @@ public class CodexProviderManager {
     public void switchCodexProvider(String id) throws IOException {
         JsonObject config = configReader.apply(null);
 
-        if (!config.has("codex")) {
+        if (!config.has(ProviderType.CODEX.value())) {
             JsonObject codexSection = new JsonObject();
             codexSection.add("providers", new JsonObject());
             codexSection.addProperty("current", "");
-            config.add("codex", codexSection);
+            config.add(ProviderType.CODEX.value(), codexSection);
         }
 
-        JsonObject codex = config.getAsJsonObject("codex");
+        JsonObject codex = config.getAsJsonObject(ProviderType.CODEX.value());
 
         if (id == null || id.trim().isEmpty()) {
             codex.addProperty("current", "");
@@ -461,8 +462,8 @@ public class CodexProviderManager {
     public boolean isCodexCliLoginProviderActive() {
         try {
             JsonObject config = configReader.apply(null);
-            if (!config.has("codex")) { return false; }
-            JsonObject codex = config.getAsJsonObject("codex");
+            if (!config.has(ProviderType.CODEX.value())) { return false; }
+            JsonObject codex = config.getAsJsonObject(ProviderType.CODEX.value());
             if (!codex.has("current")) { return false; }
             return CODEX_CLI_LOGIN_PROVIDER_ID.equals(codex.get("current").getAsString())
                     && isCodexCliLoginAuthorized(config);
@@ -472,10 +473,10 @@ public class CodexProviderManager {
     }
 
     private boolean isCodexCliLoginAuthorized(JsonObject config) {
-        if (config == null || !config.has("codex") || !config.get("codex").isJsonObject()) {
+        if (config == null || !config.has(ProviderType.CODEX.value()) || !config.get(ProviderType.CODEX.value()).isJsonObject()) {
             return false;
         }
-        JsonObject codex = config.getAsJsonObject("codex");
+        JsonObject codex = config.getAsJsonObject(ProviderType.CODEX.value());
         return codex.has("localConfigAuthorized")
                 && !codex.get("localConfigAuthorized").isJsonNull()
                 && codex.get("localConfigAuthorized").getAsBoolean();

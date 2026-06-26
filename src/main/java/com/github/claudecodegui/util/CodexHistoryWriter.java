@@ -1,5 +1,6 @@
 package com.github.claudecodegui.util;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
@@ -57,7 +58,7 @@ public final class CodexHistoryWriter {
             line.addProperty("type", "provider_error");
 
             JsonObject payload = new JsonObject();
-            payload.addProperty("provider", "codex");
+            payload.addProperty("provider", CommonConstants.PROVIDER_CODEX);
             payload.addProperty("summary", normalizeSummary(summary, details));
             payload.addProperty("details", details);
             if (exitCode != null) {
