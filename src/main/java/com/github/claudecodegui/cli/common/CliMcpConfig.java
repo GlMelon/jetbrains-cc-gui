@@ -1,5 +1,6 @@
 package com.github.claudecodegui.cli.common;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.settings.ConfigPathManager;
 import com.github.claudecodegui.settings.RuntimeSharedConfigService;
 import com.google.gson.Gson;
@@ -43,7 +44,7 @@ public class CliMcpConfig {
     private static String safeConfigFileName(String tabId) {
         String id = (tabId == null) ? "" : tabId.trim();
         if (id.isEmpty()) {
-            id = "default";
+            id = CommonConstants.DEFAULT_TAB_ID;
         }
         String safe = id.replaceAll("[^A-Za-z0-9._-]", "_");
         if (safe.length() > 128) {

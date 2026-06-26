@@ -1,5 +1,6 @@
 package com.github.claudecodegui.handler;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.util.GsonHolder;
@@ -31,7 +32,7 @@ public class PermissionModeHandler {
      */
     public void handleGetMode() {
         try {
-            String currentMode = "default";  // Default value (prompt on each tool call)
+            String currentMode = CommonConstants.PERMISSION_MODE_DEFAULT;  // Default value (prompt on each tool call)
 
             // Prefer getting from session first
             if (context.getSession() != null) {

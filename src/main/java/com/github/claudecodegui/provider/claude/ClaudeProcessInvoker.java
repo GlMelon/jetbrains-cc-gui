@@ -1,5 +1,6 @@
 package com.github.claudecodegui.provider.claude;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.session.ClaudeSession;
 import com.github.claudecodegui.bridge.EnvironmentConfigurator;
 import com.github.claudecodegui.bridge.NodeDetector;
@@ -27,7 +28,7 @@ import java.util.function.Supplier;
  */
 class ClaudeProcessInvoker {
 
-    private static final String PROVIDER_NAME = "claude";
+    private static final String PROVIDER_NAME = CommonConstants.PROVIDER_CLAUDE;
     private static final String CHANNEL_SCRIPT = "channel-manager.js";
 
     private final Logger log;

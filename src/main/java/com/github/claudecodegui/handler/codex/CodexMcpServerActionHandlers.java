@@ -2,6 +2,7 @@ package com.github.claudecodegui.handler.codex;
 
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
+import com.github.claudecodegui.provider.common.DaemonConstants;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.settings.CodexMcpServerManager;
 import com.github.claudecodegui.util.GsonHolder;
@@ -82,7 +83,7 @@ public class CodexMcpServerActionHandlers {
                 for (JsonObject status : statusList) {
                     if (status.has("name")) {
                         String serverName = status.get("name").getAsString();
-                        String serverStatus = status.has("status") ? status.get("status").getAsString() : "unknown";
+                        String serverStatus = status.has("status") ? status.get("status").getAsString() : DaemonConstants.UNKNOWN;
                         LOG.info("[CodexMcpServerActionHandlers] Server: " + serverName + ", Status: " + serverStatus);
                     }
                 }
@@ -161,7 +162,7 @@ public class CodexMcpServerActionHandlers {
 
             codexMcpServerManager.upsertMcpServer(server);
 
-            String serverId = server.has("id") ? server.get("id").getAsString() : "unknown";
+            String serverId = server.has("id") ? server.get("id").getAsString() : DaemonConstants.UNKNOWN;
             LOG.info("[CodexMcpServerActionHandlers] Added Codex MCP server: " + serverId);
 
             ApplicationManager.getApplication().invokeLater(() -> {
@@ -184,7 +185,7 @@ public class CodexMcpServerActionHandlers {
 
             codexMcpServerManager.upsertMcpServer(server);
 
-            String serverId = server.has("id") ? server.get("id").getAsString() : "unknown";
+            String serverId = server.has("id") ? server.get("id").getAsString() : DaemonConstants.UNKNOWN;
             LOG.info("[CodexMcpServerActionHandlers] Updated Codex MCP server: " + serverId);
 
             ApplicationManager.getApplication().invokeLater(() -> {

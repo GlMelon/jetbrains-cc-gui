@@ -2,6 +2,7 @@ package com.github.claudecodegui.handler;
 
 import com.github.claudecodegui.cli.common.CliConstants;
 import com.github.claudecodegui.common.CommonConstants;
+import com.github.claudecodegui.provider.common.DaemonConstants;
 import com.github.claudecodegui.util.UserMessageSanitizer;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -337,7 +338,7 @@ public class CodexMessageConverter {
      * Convert Codex function_call to Claude tool_use format.
      */
     public static JsonObject convertFunctionCallToToolUse(JsonObject payload, String timestamp) {
-        String toolName = payload.has("name") ? payload.get("name").getAsString() : "unknown";
+        String toolName = payload.has("name") ? payload.get("name").getAsString() : DaemonConstants.UNKNOWN;
         JsonElement toolInput = parseToolArguments(payload);
 
         // Normalize tool identities first so downstream input conversion can target the displayed tool name.
@@ -356,7 +357,7 @@ public class CodexMessageConverter {
         // Build tool_use format
         JsonObject toolUse = new JsonObject();
         toolUse.addProperty("type", "tool_use");
-        toolUse.addProperty("id", payload.has("call_id") ? payload.get("call_id").getAsString() : "unknown");
+        toolUse.addProperty("id", payload.has("call_id") ? payload.get("call_id").getAsString() : DaemonConstants.UNKNOWN);
         toolUse.addProperty("name", toolName);
 
         if (toolInput != null) {
@@ -534,7 +535,7 @@ public class CodexMessageConverter {
 
         JsonObject toolResult = new JsonObject();
         toolResult.addProperty("type", "tool_result");
-        toolResult.addProperty("tool_use_id", payload.has("call_id") ? payload.get("call_id").getAsString() : "unknown");
+        toolResult.addProperty("tool_use_id", payload.has("call_id") ? payload.get("call_id").getAsString() : DaemonConstants.UNKNOWN);
 
         String output = safeGetAsString(payload.get("output"), "");
         toolResult.addProperty("content", output);
@@ -564,13 +565,13 @@ public class CodexMessageConverter {
         JsonObject frontendMsg = new JsonObject();
         frontendMsg.addProperty("type", "assistant");
 
-        String toolName = payload.has("name") ? payload.get("name").getAsString() : "unknown";
+        String toolName = payload.has("name") ? payload.get("name").getAsString() : DaemonConstants.UNKNOWN;
 
         String toolInput = safeGetAsString(payload.get("input"), "");
 
         JsonObject toolUse = new JsonObject();
         toolUse.addProperty("type", "tool_use");
-        toolUse.addProperty("id", payload.has("call_id") ? payload.get("call_id").getAsString() : "unknown");
+        toolUse.addProperty("id", payload.has("call_id") ? payload.get("call_id").getAsString() : DaemonConstants.UNKNOWN);
         toolUse.addProperty("name", toolName);
 
         JsonObject input = new JsonObject();

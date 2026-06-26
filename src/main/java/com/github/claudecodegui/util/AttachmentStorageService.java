@@ -1,5 +1,6 @@
 package com.github.claudecodegui.util;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.settings.ConfigPathManager;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -373,7 +374,7 @@ public final class AttachmentStorageService {
     }
 
     private Path indexPath(String provider, String sessionKey) {
-        String providerKey = (provider == null || provider.isBlank()) ? "claude" : provider;
+        String providerKey = (provider == null || provider.isBlank()) ? CommonConstants.PROVIDER_CLAUDE : provider;
         Path root = sessionKey != null && sessionKey.startsWith("epoch-") ? pendingDir : indexDir.resolve(providerKey);
         return root.resolve(sessionKey + ".json");
     }

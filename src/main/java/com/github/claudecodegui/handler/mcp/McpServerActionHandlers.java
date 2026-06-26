@@ -2,6 +2,7 @@ package com.github.claudecodegui.handler.mcp;
 
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
+import com.github.claudecodegui.provider.common.DaemonConstants;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.startup.BridgePreloader;
 import com.github.claudecodegui.util.GsonHolder;
@@ -219,7 +220,7 @@ public class McpServerActionHandlers {
                         for (JsonObject status : statusList) {
                             if (status.has("name")) {
                                 String serverName = status.get("name").getAsString();
-                                String serverStatus = status.has("status") ? status.get("status").getAsString() : "unknown";
+                                String serverStatus = status.has("status") ? status.get("status").getAsString() : DaemonConstants.UNKNOWN;
                                 LOG.info("[McpServerActionHandlers] Server: " + serverName + ", Status: " + serverStatus);
                             }
                         }

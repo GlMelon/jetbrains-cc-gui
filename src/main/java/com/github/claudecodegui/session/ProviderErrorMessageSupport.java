@@ -1,6 +1,7 @@
 package com.github.claudecodegui.session;
 
 import com.github.claudecodegui.common.CommonConstants;
+import com.github.claudecodegui.provider.common.DaemonConstants;
 import com.github.claudecodegui.session.ClaudeSession.Message;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -44,7 +45,7 @@ public final class ProviderErrorMessageSupport {
         String normalizedDetails = details != null ? details : "";
         JsonObject errorBlock = new JsonObject();
         errorBlock.addProperty(CommonConstants.JSON_KEY_TYPE, "provider_error");
-        errorBlock.addProperty("provider", provider != null && !provider.isBlank() ? provider : "unknown");
+        errorBlock.addProperty("provider", provider != null && !provider.isBlank() ? provider : DaemonConstants.UNKNOWN);
         errorBlock.addProperty("summary", summary != null && !summary.isBlank()
                 ? summary
                 : summarize(normalizedDetails));

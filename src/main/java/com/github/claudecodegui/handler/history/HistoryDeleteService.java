@@ -310,7 +310,7 @@ class HistoryDeleteService {
                 SessionIndexManager.getInstance().clearAllCodexIndex();
             } else if (projectPath != null) {
                 SessionIndexCache.getInstance().clearProject(projectPath);
-                SessionIndexManager.getInstance().clearProjectIndex("claude", projectPath);
+                SessionIndexManager.getInstance().clearProjectIndex(CommonConstants.PROVIDER_CLAUDE, projectPath);
             }
         } catch (Exception e) {
             LOG.warn("[HistoryHandler] Failed to clean up cache (does not affect deletion): " + e.getMessage());

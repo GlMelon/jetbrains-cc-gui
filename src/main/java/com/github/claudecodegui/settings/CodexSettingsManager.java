@@ -1,6 +1,7 @@
 package com.github.claudecodegui.settings;
 
 import com.github.claudecodegui.bridge.NodeDetector;
+import com.github.claudecodegui.provider.common.DaemonConstants;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -164,7 +165,7 @@ public class CodexSettingsManager {
             }
         }
 
-        String providerId = provider.has("id") ? provider.get("id").getAsString() : "unknown";
+        String providerId = provider.has("id") ? provider.get("id").getAsString() : DaemonConstants.UNKNOWN;
         LOG.info("[CodexSettingsManager] Applied provider to ~/.codex: " + providerId);
     }
 

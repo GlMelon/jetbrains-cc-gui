@@ -1,5 +1,6 @@
 package com.github.claudecodegui.provider.claude;
 
+import com.github.claudecodegui.provider.common.DaemonConstants;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.SDKResult;
 import com.google.gson.Gson;
@@ -51,7 +52,7 @@ class ClaudeStreamAdapter {
             try {
                 JsonObject msg = gson.fromJson(jsonStr, JsonObject.class);
                 result.messages.add(msg);
-                String type = msg.has("type") ? msg.get("type").getAsString() : "unknown";
+                String type = msg.has("type") ? msg.get("type").getAsString() : DaemonConstants.UNKNOWN;
                 callback.onMessage(type, jsonStr);
             } catch (Exception ignored) {
             }

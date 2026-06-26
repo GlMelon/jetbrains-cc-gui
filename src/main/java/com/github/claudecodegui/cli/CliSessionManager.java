@@ -2,6 +2,7 @@ package com.github.claudecodegui.cli;
 
 import com.github.claudecodegui.cli.claude.ClaudeCliSessionFactory;
 import com.github.claudecodegui.cli.codex.CodexCliSessionFactory;
+import com.github.claudecodegui.cli.opencode.OpenCodeCliSessionFactory;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.SDKResult;
 import com.github.claudecodegui.session.runtime.ProviderType;
@@ -56,10 +57,11 @@ public class CliSessionManager {
     private final Map<String, CliSessionFactory> factories;
 
     /**
-     * 默认装配 Claude + Codex 两个工厂。
+     * 默认装配 Claude + Codex + OpenCode 三个工厂。
      */
     public CliSessionManager() {
-        this(List.of(new ClaudeCliSessionFactory(), new CodexCliSessionFactory()));
+        this(List.of(new ClaudeCliSessionFactory(), new CodexCliSessionFactory(),
+                new OpenCodeCliSessionFactory()));
     }
 
     /**

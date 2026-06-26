@@ -1,5 +1,7 @@
 package com.github.claudecodegui.util;
 
+import com.github.claudecodegui.common.CommonConstants;
+import com.github.claudecodegui.handler.history.SessionEntrypoint;
 import com.github.claudecodegui.session.ProviderErrorMessageSupport;
 import com.google.gson.*;
 import com.intellij.openapi.diagnostic.Logger;
@@ -106,7 +108,7 @@ public final class ClaudeHistoryWriter {
             line.addProperty("uuid", messageUuid);
             line.addProperty("timestamp", timestamp);
             line.addProperty("userType", "external");
-            line.addProperty("entrypoint", "cli");
+            line.addProperty("entrypoint", SessionEntrypoint.CLI.getValue());
             line.addProperty("cwd", projectPath);
             line.addProperty("sessionId", sessionId);
 
@@ -191,7 +193,7 @@ public final class ClaudeHistoryWriter {
 
             JsonArray contentArray = new JsonArray();
             contentArray.add(ProviderErrorMessageSupport.createProviderErrorBlock(
-                    "claude",
+                    CommonConstants.PROVIDER_CLAUDE,
                     details,
                     summary,
                     exitCode
@@ -212,7 +214,7 @@ public final class ClaudeHistoryWriter {
             line.addProperty("uuid", messageUuid);
             line.addProperty("timestamp", timestamp);
             line.addProperty("userType", "external");
-            line.addProperty("entrypoint", "cli");
+            line.addProperty("entrypoint", SessionEntrypoint.CLI.getValue());
             line.addProperty("cwd", projectPath);
             line.addProperty("sessionId", sessionId);
 

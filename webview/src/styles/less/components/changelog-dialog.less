@@ -15,10 +15,8 @@
 }
 
 .changelog-dialog {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-secondary);
-  border-radius: 10px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  /* background/border/shadow/border-radius 由外层 .dialog-base 统一提供，
+     此处仅保留布局与尺寸约束，避免双层边框视觉。 */
   width: 90%;
   max-width: 520px;
   max-height: 80vh;

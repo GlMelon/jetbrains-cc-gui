@@ -1,6 +1,7 @@
 package com.github.claudecodegui.settings;
 
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.model.DeleteResult;
 import com.google.gson.Gson;
@@ -57,7 +58,7 @@ public class ProviderManager {
         JsonObject config = configReader.apply(null);
         List<JsonObject> result = new ArrayList<>();
         String currentId = normalizeCurrentClaudeProviderId(config);
-        JsonObject claude = config.getAsJsonObject("claude");
+        JsonObject claude = config.getAsJsonObject(CommonConstants.PROVIDER_CLAUDE);
 
         // Add local provider using the extracted method
         result.add(createLocalProviderObject(LOCAL_SETTINGS_PROVIDER_ID.equals(currentId)));
@@ -95,14 +96,14 @@ public class ProviderManager {
     public void saveProviderOrder(List<String> orderedIds) throws IOException {
         JsonObject config = configReader.apply(null);
 
-        if (!config.has("claude")) {
+        if (!config.has(CommonConstants.PROVIDER_CLAUDE)) {
             JsonObject claude = new JsonObject();
             claude.add("providers", new JsonObject());
             claude.addProperty("current", LOCAL_SETTINGS_PROVIDER_ID);
-            config.add("claude", claude);
+            config.add(CommonConstants.PROVIDER_CLAUDE, claude);
         }
 
-        JsonObject claude = config.getAsJsonObject("claude");
+        JsonObject claude = config.getAsJsonObject(CommonConstants.PROVIDER_CLAUDE);
         ProviderOrderHelper.setProviderOrder(claude, orderedIds);
 
         configWriter.accept(config);
@@ -115,7 +116,7 @@ public class ProviderManager {
     public JsonObject getActiveClaudeProvider() {
         JsonObject config = configReader.apply(null);
         String currentId = normalizeCurrentClaudeProviderId(config);
-        JsonObject claude = config.getAsJsonObject("claude");
+        JsonObject claude = config.getAsJsonObject(CommonConstants.PROVIDER_CLAUDE);
 
         // Return local provider using the extracted method
         if (LOCAL_SETTINGS_PROVIDER_ID.equals(currentId)) {
@@ -156,14 +157,14 @@ public class ProviderManager {
         JsonObject config = configReader.apply(null);
 
         // Ensure claude config exists
-        if (!config.has("claude")) {
+        if (!config.has(CommonConstants.PROVIDER_CLAUDE)) {
             JsonObject claude = new JsonObject();
             claude.add("providers", new JsonObject());
             claude.addProperty("current", LOCAL_SETTINGS_PROVIDER_ID);
-            config.add("claude", claude);
+            config.add(CommonConstants.PROVIDER_CLAUDE, claude);
         }
 
-        JsonObject claude = config.getAsJsonObject("claude");
+        JsonObject claude = config.getAsJsonObject(CommonConstants.PROVIDER_CLAUDE);
         JsonObject providers = claude.getAsJsonObject("providers");
 
         String id = provider.get("id").getAsString();
@@ -196,14 +197,14 @@ public class ProviderManager {
         JsonObject config = configReader.apply(null);
 
         // Ensure claude config exists
-        if (!config.has("claude")) {
+        if (!config.has(CommonConstants.PROVIDER_CLAUDE)) {
             JsonObject claude = new JsonObject();
             claude.add("providers", new JsonObject());
             claude.addProperty("current", LOCAL_SETTINGS_PROVIDER_ID);
-            config.add("claude", claude);
+            config.add(CommonConstants.PROVIDER_CLAUDE, claude);
         }
 
-        JsonObject claude = config.getAsJsonObject("claude");
+        JsonObject claude = config.getAsJsonObject(CommonConstants.PROVIDER_CLAUDE);
         JsonObject providers = claude.getAsJsonObject("providers");
 
         String id = provider.get("id").getAsString();
@@ -231,11 +232,11 @@ public class ProviderManager {
     public void updateClaudeProvider(String id, JsonObject updates) throws IOException {
         JsonObject config = configReader.apply(null);
 
-        if (!config.has("claude")) {
+        if (!config.has(CommonConstants.PROVIDER_CLAUDE)) {
             throw new IllegalArgumentException("No claude configuration found");
         }
 
-        JsonObject claude = config.getAsJsonObject("claude");
+        JsonObject claude = config.getAsJsonObject(CommonConstants.PROVIDER_CLAUDE);
         JsonObject providers = claude.getAsJsonObject("providers");
 
         if (!providers.has(id)) {
@@ -278,7 +279,7 @@ public class ProviderManager {
             configFilePath = pathManager.getConfigFilePath();
             backupFilePath = pathManager.getConfigDir().resolve(BACKUP_FILE_NAME);
 
-            if (!config.has("claude")) {
+            if (!config.has(CommonConstants.PROVIDER_CLAUDE)) {
                 return DeleteResult.failure(
                         DeleteResult.ErrorType.FILE_NOT_FOUND,
                         "No claude configuration found",
@@ -287,7 +288,7 @@ public class ProviderManager {
                 );
             }
 
-            JsonObject claude = config.getAsJsonObject("claude");
+            JsonObject claude = config.getAsJsonObject(CommonConstants.PROVIDER_CLAUDE);
             JsonObject providers = claude.getAsJsonObject("providers");
 
             if (!providers.has(id)) {
@@ -363,11 +364,11 @@ public class ProviderManager {
     public void switchClaudeProvider(String id) throws IOException {
         JsonObject config = configReader.apply(null);
 
-        if (!config.has("claude")) {
+        if (!config.has(CommonConstants.PROVIDER_CLAUDE)) {
             throw new IllegalArgumentException("No claude configuration found");
         }
 
-        JsonObject claude = config.getAsJsonObject("claude");
+        JsonObject claude = config.getAsJsonObject(CommonConstants.PROVIDER_CLAUDE);
         JsonObject providers = claude.getAsJsonObject("providers");
 
         if (!providers.has(id)) {
@@ -385,13 +386,13 @@ public class ProviderManager {
     public void deactivateClaudeProvider() throws IOException {
         JsonObject config = configReader.apply(null);
 
-        if (!config.has("claude")) {
+        if (!config.has(CommonConstants.PROVIDER_CLAUDE)) {
             JsonObject claude = new JsonObject();
             claude.add("providers", new JsonObject());
             claude.addProperty("current", "");
-            config.add("claude", claude);
+            config.add(CommonConstants.PROVIDER_CLAUDE, claude);
         } else {
-            config.getAsJsonObject("claude").addProperty("current", "");
+            config.getAsJsonObject(CommonConstants.PROVIDER_CLAUDE).addProperty("current", "");
         }
 
         configWriter.accept(config);
@@ -422,11 +423,11 @@ public class ProviderManager {
      */
     public boolean setAlwaysThinkingEnabledInActiveProvider(boolean enabled) throws IOException {
         JsonObject config = configReader.apply(null);
-        if (!config.has("claude") || config.get("claude").isJsonNull()) {
+        if (!config.has(CommonConstants.PROVIDER_CLAUDE) || config.get(CommonConstants.PROVIDER_CLAUDE).isJsonNull()) {
             return false;
         }
 
-        JsonObject claude = config.getAsJsonObject("claude");
+        JsonObject claude = config.getAsJsonObject(CommonConstants.PROVIDER_CLAUDE);
         if (!claude.has("current") || claude.get("current").isJsonNull()) {
             return false;
         }
@@ -465,9 +466,9 @@ public class ProviderManager {
     public void applyActiveProviderToClaudeSettings() throws IOException {
         JsonObject config = configReader.apply(null);
 
-        if (config.has("claude") &&
-                config.getAsJsonObject("claude").has("current")) {
-            String currentId = config.getAsJsonObject("claude").get("current").getAsString();
+        if (config.has(CommonConstants.PROVIDER_CLAUDE) &&
+                config.getAsJsonObject(CommonConstants.PROVIDER_CLAUDE).has("current")) {
+            String currentId = config.getAsJsonObject(CommonConstants.PROVIDER_CLAUDE).get("current").getAsString();
             if (LOCAL_SETTINGS_PROVIDER_ID.equals(currentId) || CLI_LOGIN_PROVIDER_ID.equals(currentId)) {
                 LOG.info("[ProviderManager] " + currentId + " provider active, skipping sync to settings.json");
                 return;
@@ -737,12 +738,12 @@ public class ProviderManager {
         boolean changed = false;
         JsonObject claude;
 
-        if (!config.has("claude") || config.get("claude").isJsonNull()) {
+        if (!config.has(CommonConstants.PROVIDER_CLAUDE) || config.get(CommonConstants.PROVIDER_CLAUDE).isJsonNull()) {
             claude = new JsonObject();
-            config.add("claude", claude);
+            config.add(CommonConstants.PROVIDER_CLAUDE, claude);
             changed = true;
         } else {
-            claude = config.getAsJsonObject("claude");
+            claude = config.getAsJsonObject(CommonConstants.PROVIDER_CLAUDE);
         }
 
         if (!claude.has("providers") || claude.get("providers").isJsonNull()) {
@@ -786,10 +787,10 @@ public class ProviderManager {
 
     public boolean isLocalProviderActive() {
         JsonObject config = configReader.apply(null);
-        if (!config.has("claude")) {
+        if (!config.has(CommonConstants.PROVIDER_CLAUDE)) {
             return false;
         }
-        JsonObject claude = config.getAsJsonObject("claude");
+        JsonObject claude = config.getAsJsonObject(CommonConstants.PROVIDER_CLAUDE);
         if (!claude.has("current")) {
             return false;
         }
@@ -798,10 +799,10 @@ public class ProviderManager {
 
     public boolean isCliLoginProviderActive() {
         JsonObject config = configReader.apply(null);
-        if (!config.has("claude")) {
+        if (!config.has(CommonConstants.PROVIDER_CLAUDE)) {
             return false;
         }
-        JsonObject claude = config.getAsJsonObject("claude");
+        JsonObject claude = config.getAsJsonObject(CommonConstants.PROVIDER_CLAUDE);
         if (!claude.has("current")) {
             return false;
         }

@@ -1,5 +1,7 @@
 package com.github.claudecodegui.cli.common;
 
+import com.github.claudecodegui.common.CommonConstants;
+
 import java.util.List;
 import java.util.Set;
 
@@ -54,6 +56,7 @@ public final class CliConstants {
     // ── Codex 环境变量配置 category / 字段名 ──────────────────────────────────
 
     public static final String CODEX_CATEGORY_MESSAGE = "message";
+    public static final String CODEX_CATEGORY_MCP = "mcp";
     public static final String CODEX_FIELD_MESSAGE_ENV_VARS = "messageEnvVars";
     public static final String CODEX_FIELD_MCP_ENV_VARS = "mcpEnvVars";
 
@@ -181,16 +184,11 @@ public final class CliConstants {
             SANDBOX_READ_ONLY, SANDBOX_WORKSPACE_WRITE, SANDBOX_DANGER_FULL_ACCESS
     );
 
-    // ── 权限模式值 ─────────────────────────────────────────────────────────────
-
-    public static final String PERM_BYPASS = "bypassPermissions";
-    public static final String PERM_DEFAULT = "default";
-    public static final String PERM_ACCEPT_EDITS = "acceptEdits";
-    public static final String PERM_PLAN = "plan";
-    public static final String PERM_AUTO_EDIT = "autoEdit";
+    // ── 权限模式值（Claude CLI 专用子集） ──────────────────────────────────────
+    // 完整定义见 CommonConstants.PERMISSION_MODE_*；此处保留子集用于 CLI 参数校验。
 
     public static final Set<String> VALID_PERMISSION_MODES = Set.of(
-            PERM_DEFAULT, PERM_ACCEPT_EDITS, PERM_PLAN
+            CommonConstants.PERMISSION_MODE_DEFAULT, CommonConstants.PERMISSION_MODE_ACCEPT_EDITS, CommonConstants.PERMISSION_MODE_PLAN
     );
 
     // ── 环境变量名 (Anthropic / Claude) ────────────────────────────────────────

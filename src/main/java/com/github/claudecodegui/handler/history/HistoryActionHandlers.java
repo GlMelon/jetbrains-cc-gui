@@ -1,5 +1,6 @@
 package com.github.claudecodegui.handler.history;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.NodeJsServiceCaller;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.intellij.openapi.diagnostic.Logger;
@@ -22,7 +23,7 @@ public class HistoryActionHandlers {
     }
 
     private SessionLoadCallback sessionLoadCallback;
-    private String currentProvider = "claude"; // Default to claude
+    private String currentProvider = CommonConstants.PROVIDER_CLAUDE; // Default to claude
 
     private final HandlerContext context;
     private final HistoryLoadService historyLoadService;
@@ -55,7 +56,7 @@ public class HistoryActionHandlers {
 
     public void handleLoadHistoryData(String content) {
         LOG.debug("[HistoryHandler] 处理: load_history_data, provider=" + content);
-        this.currentProvider = content != null && !content.isEmpty() ? content : "claude";
+        this.currentProvider = content != null && !content.isEmpty() ? content : CommonConstants.PROVIDER_CLAUDE;
         historyLoadService.handleLoadHistoryData(currentProvider);
     }
 
@@ -96,7 +97,7 @@ public class HistoryActionHandlers {
 
     public void handleDeepSearchHistory(String content) {
         LOG.info("[HistoryHandler] 处理: deep_search_history, provider=" + content);
-        this.currentProvider = content != null && !content.isEmpty() ? content : "claude";
+        this.currentProvider = content != null && !content.isEmpty() ? content : CommonConstants.PROVIDER_CLAUDE;
         historyLoadService.handleDeepSearchHistory(currentProvider);
     }
 

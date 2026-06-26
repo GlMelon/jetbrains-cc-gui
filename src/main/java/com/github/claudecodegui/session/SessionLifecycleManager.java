@@ -221,7 +221,8 @@ public class SessionLifecycleManager {
             }
 
             ClaudeSession newSession = new ClaudeSession(
-                    host.getProject(), host.getClaudeSDKBridge(), host.getCodexSDKBridge());
+                    host.getProject(), host.getClaudeSDKBridge(), host.getCodexSDKBridge(),
+                    host.getOpenCodeSDKBridge());
             newSession.setPermissionMode(previousPermissionMode);
             newSession.setProvider(provider != null && !provider.trim().isEmpty() ? provider : previousProvider);
             newSession.setModel(previousModel);
@@ -314,7 +315,7 @@ public class SessionLifecycleManager {
         }
 
         // Determine current provider
-        String provider = "claude";
+        String provider = CommonConstants.DEFAULT_PROVIDER;
         if (currentSession != null && currentSession.getProvider() != null) {
             provider = currentSession.getProvider();
         }
@@ -362,7 +363,7 @@ public class SessionLifecycleManager {
      */
     public void sendCurrentPermissionMode() {
         try {
-            String currentMode = "default";
+            String currentMode = CommonConstants.PERMISSION_MODE_DEFAULT;
 
             ClaudeSession currentSession = host.getSession();
             if (currentSession != null) {
@@ -409,7 +410,7 @@ public class SessionLifecycleManager {
     private boolean shouldPrewarmClaudeDaemon(ClaudeSession session) {
         return session != null
                 && ProviderType.CLAUDE.value().equals(session.getProvider())
-                && !"cli".equals(session.getClaudeInvocationMode());
+                && !CommonConstants.INVOCATION_MODE_CLI.equals(session.getClaudeInvocationMode());
     }
 
     /**
@@ -419,16 +420,16 @@ public class SessionLifecycleManager {
     private boolean isClaudeCliSession(ClaudeSession session) {
         return session != null
                 && ProviderType.CLAUDE.value().equals(session.getProvider())
-                && "cli".equals(session.getClaudeInvocationMode());
+                && CommonConstants.INVOCATION_MODE_CLI.equals(session.getClaudeInvocationMode());
     }
 
     private String readClaudeInvocationMode() {
         try {
             String mode = CodemossSettingsService.getInstance().getClaudeInvocationMode();
-            return SessionState.isValidClaudeInvocationMode(mode) ? mode : "sdk";
+            return SessionState.isValidClaudeInvocationMode(mode) ? mode : CommonConstants.INVOCATION_MODE_SDK;
         } catch (Exception e) {
             LOG.warn("Failed to read Claude invocation mode, defaulting to sdk: " + e.getMessage());
-            return "sdk";
+            return CommonConstants.INVOCATION_MODE_SDK;
         }
     }
 
@@ -437,7 +438,8 @@ public class SessionLifecycleManager {
     }
 
     private ClaudeSession createDefaultSession() {
-        ClaudeSession session = new ClaudeSession(host.getProject(), host.getClaudeSDKBridge(), host.getCodexSDKBridge());
+        ClaudeSession session = new ClaudeSession(host.getProject(), host.getClaudeSDKBridge(), host.getCodexSDKBridge(),
+                host.getOpenCodeSDKBridge());
         initializeSessionRuntimeDefaults(session);
         return session;
     }
@@ -526,6 +528,8 @@ public class SessionLifecycleManager {
         ClaudeSDKBridge getClaudeSDKBridge();
 
         CodexSDKBridge getCodexSDKBridge();
+
+        com.github.claudecodegui.provider.opencode.OpenCodeSDKBridge getOpenCodeSDKBridge();
 
         ClaudeSession getSession();
 

@@ -1,5 +1,6 @@
 package com.github.claudecodegui.provider.claude;
 
+import com.github.claudecodegui.provider.common.DaemonConstants;
 import com.github.claudecodegui.util.PathUtils;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -29,7 +30,7 @@ class ClaudeUsageAggregator {
 
     private static final String ALL_PROJECTS = "all";
     private static final String JSONL_SUFFIX = ".jsonl";
-    private static final String UNKNOWN_MODEL = "unknown";
+    private static final String UNKNOWN_MODEL = DaemonConstants.UNKNOWN;
     private static final String DEFAULT_MODEL = "claude-sonnet-4-6";
     private static final double ONE_MILLION = 1_000_000.0;
     private static final long TIER_THRESHOLD = 200_000;

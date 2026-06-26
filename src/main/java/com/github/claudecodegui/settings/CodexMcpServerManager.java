@@ -1,6 +1,8 @@
 package com.github.claudecodegui.settings;
 
 import com.github.claudecodegui.common.CommonConstants;
+import com.github.claudecodegui.cli.common.CliConstants;
+import com.github.claudecodegui.provider.common.DaemonConstants;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.google.gson.JsonArray;
@@ -475,7 +477,7 @@ public class CodexMcpServerManager {
      */
     private JsonObject checkServerStatus(JsonObject server) {
         JsonObject status = new JsonObject();
-        String serverId = server.has("id") ? server.get("id").getAsString() : "unknown";
+        String serverId = server.has("id") ? server.get("id").getAsString() : DaemonConstants.UNKNOWN;
         String serverName = server.has("name") ? server.get("name").getAsString() : serverId;
 
         status.addProperty("name", serverName);
@@ -489,7 +491,7 @@ public class CodexMcpServerManager {
 
         // Get server configuration
         if (!server.has("server") || !server.get("server").isJsonObject()) {
-            status.addProperty("status", "failed");
+            status.addProperty("status", CliConstants.CODEX_STATUS_FAILED);
             return status;
         }
 
@@ -514,7 +516,7 @@ public class CodexMcpServerManager {
             }
         } catch (Exception e) {
             LOG.warn("[CodexMcpServerManager] Failed to check server " + serverName + ": " + e.getMessage());
-            status.addProperty("status", "failed");
+            status.addProperty("status", CliConstants.CODEX_STATUS_FAILED);
         }
 
         return status;
@@ -525,7 +527,7 @@ public class CodexMcpServerManager {
      */
     private String checkHttpServer(JsonObject serverConfig, String serverName) {
         if (!serverConfig.has("url")) {
-            return "failed";
+            return CliConstants.CODEX_STATUS_FAILED;
         }
 
         String url = serverConfig.get("url").getAsString();
@@ -546,13 +548,13 @@ public class CodexMcpServerManager {
 
             // If we get any response, consider the server reachable
             if (response.statusCode() >= 200 && response.statusCode() < 500) {
-                return "connected";
+                return CommonConstants.MCP_STATUS_CONNECTED;
             } else {
-                return "failed";
+                return CliConstants.CODEX_STATUS_FAILED;
             }
         } catch (Exception e) {
             LOG.info("[CodexMcpServerManager] HTTP server " + serverName + " not reachable: " + e.getMessage());
-            return "failed";
+            return CliConstants.CODEX_STATUS_FAILED;
         }
     }
 
@@ -561,7 +563,7 @@ public class CodexMcpServerManager {
      */
     private String checkStdioServer(JsonObject serverConfig, String serverName) {
         if (!serverConfig.has("command")) {
-            return "failed";
+            return CliConstants.CODEX_STATUS_FAILED;
         }
 
         String command = serverConfig.get("command").getAsString();
@@ -572,7 +574,7 @@ public class CodexMcpServerManager {
             return checkStdioStatus(serverConfig, serverName, command);
         }else {
             LOG.info("[CodexMcpServerManager] Command not found in PATH for " + serverName + ": " + command);
-            return "failed";
+            return CliConstants.CODEX_STATUS_FAILED;
         }
 
     }
@@ -614,7 +616,7 @@ public class CodexMcpServerManager {
             return performStdioHandshake(process, serverName);
         } catch (Exception e) {
             LOG.info("[CodexMcpServerManager] Failed to start STDIO server " + serverName + ": " + e.getMessage());
-            return "failed";
+            return CliConstants.CODEX_STATUS_FAILED;
         } finally {
             if (process != null) {
                 try {
@@ -654,12 +656,12 @@ public class CodexMcpServerManager {
                 } else {
                     LOG.info("[CodexMcpServerManager] STDIO handshake timeout for " + serverName);
                 }
-                return "failed";
+                return CliConstants.CODEX_STATUS_FAILED;
             }
 
             if (response.has("error")) {
                 LOG.info("[CodexMcpServerManager] Error response from STDIO server " + serverName + ": " + response.get("error"));
-                return "failed";
+                return CliConstants.CODEX_STATUS_FAILED;
             }
 
             if (response.has("result")) {
@@ -668,17 +670,17 @@ public class CodexMcpServerManager {
                 } catch (IOException e) {
                     LOG.debug("[CodexMcpServerManager] Failed to send initialized notification for " + serverName + ": " + e.getMessage());
                 }
-                return "connected";
+                return CommonConstants.MCP_STATUS_CONNECTED;
             }
 
             LOG.info("[CodexMcpServerManager] Invalid initialize response from " + serverName);
-            return "failed";
+            return CliConstants.CODEX_STATUS_FAILED;
         } catch (TimeoutException e) {
             LOG.info("[CodexMcpServerManager] Handshake timeout for " + serverName);
-            return "failed";
+            return CliConstants.CODEX_STATUS_FAILED;
         } catch (Exception e) {
             LOG.info("[CodexMcpServerManager] Handshake failed for " + serverName + ": " + e.getMessage());
-            return "failed";
+            return CliConstants.CODEX_STATUS_FAILED;
         } finally {
             executor.shutdownNow();
             try {

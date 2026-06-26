@@ -1,6 +1,7 @@
 package com.github.claudecodegui.handler.provider;
 
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.settings.ProviderManager;
 
@@ -300,13 +301,13 @@ public class ClaudeProviderOperations {
                 }
 
                 JsonObject config = context.getSettingsService().readConfig();
-                if (!config.has("claude")) {
+                if (!config.has(CommonConstants.PROVIDER_CLAUDE)) {
                     JsonObject claude = new JsonObject();
                     claude.add("providers", new JsonObject());
                     claude.addProperty("current", "");
-                    config.add("claude", claude);
+                    config.add(CommonConstants.PROVIDER_CLAUDE, claude);
                 }
-                config.getAsJsonObject("claude").addProperty("current", id);
+                config.getAsJsonObject(CommonConstants.PROVIDER_CLAUDE).addProperty("current", id);
                 context.getSettingsService().writeConfig(config);
 
                 LOG.info("[ProviderHandler] Switched to LOCAL settings.json provider");
@@ -328,13 +329,13 @@ public class ClaudeProviderOperations {
 
                 // Update config.json to set CLI login as current provider
                 JsonObject config = context.getSettingsService().readConfig();
-                if (!config.has("claude")) {
+                if (!config.has(CommonConstants.PROVIDER_CLAUDE)) {
                     JsonObject claude = new JsonObject();
                     claude.add("providers", new JsonObject());
                     claude.addProperty("current", "");
-                    config.add("claude", claude);
+                    config.add(CommonConstants.PROVIDER_CLAUDE, claude);
                 }
-                config.getAsJsonObject("claude").addProperty("current", id);
+                config.getAsJsonObject(CommonConstants.PROVIDER_CLAUDE).addProperty("current", id);
                 context.getSettingsService().writeConfig(config);
 
                 LOG.info("[ProviderHandler] Switched to CLI login provider");

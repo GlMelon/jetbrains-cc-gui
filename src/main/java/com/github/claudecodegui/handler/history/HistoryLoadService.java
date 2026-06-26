@@ -143,7 +143,7 @@ class HistoryLoadService {
                 SessionIndexManager.getInstance().clearAllCodexIndex();
             } else if (projectPath != null) {
                 SessionIndexCache.getInstance().clearProject(projectPath);
-                SessionIndexManager.getInstance().clearProjectIndex("claude", projectPath);
+                SessionIndexManager.getInstance().clearProjectIndex(CommonConstants.PROVIDER_CLAUDE, projectPath);
             }
 
             LOG.info("[HistoryHandler] 缓存清理完成，开始重新加载历史数据...");

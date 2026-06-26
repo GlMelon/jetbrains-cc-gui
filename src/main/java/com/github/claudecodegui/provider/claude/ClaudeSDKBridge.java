@@ -518,7 +518,7 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
             String invocationMode,
             MessageCallback callback
     ) {
-        if (invocationMode != null && !invocationMode.isBlank() && !"sdk".equals(invocationMode)) {
+        if (invocationMode != null && !invocationMode.isBlank() && !CommonConstants.INVOCATION_MODE_SDK.equals(invocationMode)) {
             LOG.info("[ClaudeSDKBridge] Ignoring non-SDK invocation mode in SDK bridge for channel "
                     + channelId + ": " + invocationMode);
         }

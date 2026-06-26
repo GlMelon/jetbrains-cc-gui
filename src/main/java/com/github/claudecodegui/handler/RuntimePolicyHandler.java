@@ -101,7 +101,7 @@ public class RuntimePolicyHandler {
         claudeProps.addProperty("supported", "支持的 runtime 列表 (array: SDK, CLI)");
         claudeProps.addProperty("default", "默认 runtime (SDK 或 CLI)");
         claudeSchema.add("properties", claudeProps);
-        schema.add("claude", claudeSchema);
+        schema.add(ProviderType.CLAUDE.value(), claudeSchema);
 
         var codexSchema = new JsonObject();
         codexSchema.addProperty("type", "object");

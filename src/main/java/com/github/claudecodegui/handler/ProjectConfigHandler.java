@@ -1,6 +1,7 @@
 package com.github.claudecodegui.handler;
 
 import com.github.claudecodegui.common.CommonConstants;
+import com.github.claudecodegui.provider.common.DaemonConstants;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.handler.core.HandlerContext;
 
@@ -256,7 +257,7 @@ public class ProjectConfigHandler {
     public void handleGetInvocationMode() {
         respondWithJson(DownstreamEvent.CONFIG_INVOCATION_MODE.value(),
             () -> jsonOf("invocationMode", settingsService.getClaudeInvocationMode()),
-            jsonOf("invocationMode", "sdk"),
+            jsonOf("invocationMode", CommonConstants.INVOCATION_MODE_SDK),
             "Failed to get Claude invocation mode");
     }
 
@@ -267,7 +268,7 @@ public class ProjectConfigHandler {
                 mode = settingsService.getClaudeInvocationMode();
             }
             return jsonOf("invocationMode", mode);
-        }, jsonOf("invocationMode", "unknown"), "Failed to get Claude session invocation mode");
+        }, jsonOf("invocationMode", DaemonConstants.UNKNOWN), "Failed to get Claude session invocation mode");
     }
 
     public void handleGetSessionRuntimeState() {
@@ -294,7 +295,7 @@ public class ProjectConfigHandler {
     private String readDefaultPermissionMode(String provider) {
         String mode = PropertiesComponent.getInstance().getValue(PermissionModeHandler.PERMISSION_MODE_PROPERTY_KEY);
         if (mode == null || mode.trim().isEmpty()) {
-            mode = "default";
+            mode = CommonConstants.PERMISSION_MODE_DEFAULT;
         } else {
             mode = mode.trim();
         }
@@ -304,7 +305,7 @@ public class ProjectConfigHandler {
     public void handleSetInvocationMode(String content) {
         try {
             JsonObject json = gson.fromJson(content, JsonObject.class);
-            String mode = readString(json, "invocationMode", "sdk");
+            String mode = readString(json, "invocationMode", CommonConstants.INVOCATION_MODE_SDK);
             settingsService.setClaudeInvocationMode(mode);
             if (context.getSession() != null) {
                 context.getSession().setClaudeInvocationMode(settingsService.getClaudeInvocationMode());
@@ -503,7 +504,7 @@ public class ProjectConfigHandler {
 
     @FunctionalInterface
     private interface AiProviderSetter {
-        void apply(String provider, String claudeModel, String codexModel) throws Exception;
+        void apply(String provider, String claudeModel, String codexModel, String opencodeModel) throws Exception;
     }
 
     @FunctionalInterface
@@ -519,7 +520,12 @@ public class ProjectConfigHandler {
             JsonObject models = json != null && json.has("models") && json.get("models").isJsonObject()
                     ? json.getAsJsonObject("models")
                     : new JsonObject();
-            setter.apply(provider, readString(models, ProviderType.CLAUDE.value(), null), readString(models, ProviderType.CODEX.value(), null));
+            setter.apply(
+                    provider,
+                    readString(models, ProviderType.CLAUDE.value(), null),
+                    readString(models, ProviderType.CODEX.value(), null),
+                    readString(models, ProviderType.OPENCODE.value(), null)
+            );
             pushJson(jsCallback, getter.get());
         } catch (Exception e) {
             LOG.error("[ProjectConfigHandler] " + errorLogMessage + ": " + e.getMessage(), e);
@@ -830,7 +836,7 @@ public class ProjectConfigHandler {
         CompletableFuture.runAsync(() -> {
             try {
                 String projectPath = "all";
-                String provider = "claude";
+                String provider = CommonConstants.PROVIDER_CLAUDE;
                 long cutoffTime = 0;
                 if (content != null && !content.isEmpty() && !content.equals("{}")) {
                     try {

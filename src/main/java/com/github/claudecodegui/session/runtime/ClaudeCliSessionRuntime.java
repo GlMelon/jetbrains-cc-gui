@@ -1,6 +1,7 @@
 package com.github.claudecodegui.session.runtime;
 
 import com.github.claudecodegui.cli.CliSendRequest;
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.cli.CliSessionManager;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.SDKResult;
@@ -37,7 +38,7 @@ public class ClaudeCliSessionRuntime implements SessionRuntime {
 
     @Override
     public void interrupt(String tabId) {
-        cliManager.interrupt(tabId, "claude");
+        cliManager.interrupt(tabId, CommonConstants.PROVIDER_CLAUDE);
     }
 
     @Override
@@ -52,7 +53,7 @@ public class ClaudeCliSessionRuntime implements SessionRuntime {
         }
         return new CliSendRequest(
                 tabId,
-                "claude",
+                CommonConstants.PROVIDER_CLAUDE,
                 req.message(),
                 req.sessionId(),
                 req.cwd(),

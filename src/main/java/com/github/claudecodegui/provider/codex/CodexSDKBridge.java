@@ -17,6 +17,7 @@ import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.protocol.CodexProtectedEnvKey;
 import com.github.claudecodegui.provider.common.BaseSDKBridge;
 import com.github.claudecodegui.provider.common.DaemonBridge;
+import com.github.claudecodegui.provider.common.DaemonConstants;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.SDKResult;
 import com.github.claudecodegui.util.PlatformUtils;
@@ -173,7 +174,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
      * Skips any keys that match protected built-in variable names.
      *
      * @param env      ProcessBuilder environment map
-     * @param category "message" or "mcp" to select the correct env var list
+     * @param category {@link CliConstants#CODEX_CATEGORY_MESSAGE} or {@link CliConstants#CODEX_CATEGORY_MCP}
      */
     private void injectCustomEnvVars(Map<String, String> env, String category) {
         JsonObject activeProvider;
@@ -252,7 +253,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
                 if (msg != null) {
                     String msgType = msg.has("type") && !msg.get("type").isJsonNull()
                             ? msg.get("type").getAsString()
-                            : "unknown";
+                            : DaemonConstants.UNKNOWN;
 
                     if (CliConstants.CODEX_MSG_STATUS.equals(msgType)) {
                         return;
@@ -469,7 +470,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
                 // Build stdin input JSON
                 // Note: Codex uses 'threadId' (not 'sessionId')
                 JsonObject stdinInput = new JsonObject();
-                stdinInput.addProperty("message", finalMessage);
+                stdinInput.addProperty(CommonConstants.JSON_KEY_MESSAGE, finalMessage);
                 stdinInput.addProperty("channelId", channelId != null ? channelId : "");
                 stdinInput.addProperty("threadId", threadId != null ? threadId : "");
                 stdinInput.addProperty("cwd", cwd != null ? cwd : "");
@@ -543,7 +544,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
                 envConfigurator.configureCodexEnv(env);
 
                 // Inject custom "message" env vars from active provider
-                injectCustomEnvVars(env, "message");
+                injectCustomEnvVars(env, CliConstants.CODEX_CATEGORY_MESSAGE);
 
                 LOG.info("[Codex] Final Node permission env snapshot: CODEX_SANDBOX_MODE=" +
                         env.get(ENV_CODEX_SANDBOX_MODE) + ", CODEX_SANDBOX=" +
@@ -675,7 +676,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
 
         final List<File> tempImageFiles = new ArrayList<>();
         JsonObject stdinInput = new JsonObject();
-        stdinInput.addProperty("message", finalMessage);
+        stdinInput.addProperty(CommonConstants.JSON_KEY_MESSAGE, finalMessage);
         stdinInput.addProperty("channelId", channelId != null ? channelId : "");
         stdinInput.addProperty("threadId", threadId != null ? threadId : "");
         stdinInput.addProperty("cwd", cwd != null ? cwd : "");
@@ -698,7 +699,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
             stdinInput.add("attachments", attachmentsArray);
             LOG.info("[Codex] Prepared " + attachmentsArray.size() + " daemon image attachment(s)");
         }
-        stdinInput.add("env", buildCodexRuntimeEnv(cwd, permissionMode, model, "message"));
+        stdinInput.add("env", buildCodexRuntimeEnv(cwd, permissionMode, model, CliConstants.CODEX_CATEGORY_MESSAGE));
 
         return daemonRequestExecutor.sendMessageViaDaemon(daemon, stdinInput, callback, tempImageFiles);
     }
@@ -780,7 +781,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
                 pb.environment().put("CODEX_USE_STDIN", "true");
 
                 // Inject custom "mcp" env vars from active provider
-                injectCustomEnvVars(pb.environment(), "mcp");
+                injectCustomEnvVars(pb.environment(), CliConstants.CODEX_CATEGORY_MCP);
 
                 process = pb.start();
                 processManager.registerProcess(channelId, process);
@@ -1014,9 +1015,9 @@ public class CodexSDKBridge extends BaseSDKBridge {
 
     private String extractAssistantText(JsonObject msg) {
         if (msg == null) { return ""; }
-        if (!msg.has("message") || !msg.get("message").isJsonObject()) { return ""; }
+        if (!msg.has(CommonConstants.JSON_KEY_MESSAGE) || !msg.get(CommonConstants.JSON_KEY_MESSAGE).isJsonObject()) { return ""; }
 
-        JsonObject message = msg.getAsJsonObject("message");
+        JsonObject message = msg.getAsJsonObject(CommonConstants.JSON_KEY_MESSAGE);
         if (!message.has("content") || message.get("content").isJsonNull()) { return ""; }
 
         JsonElement contentEl = message.get("content");

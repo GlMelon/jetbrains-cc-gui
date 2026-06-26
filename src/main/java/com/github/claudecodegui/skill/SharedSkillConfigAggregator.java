@@ -1,5 +1,6 @@
 package com.github.claudecodegui.skill;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -152,8 +153,8 @@ public final class SharedSkillConfigAggregator {
         aggregate.addProperty("shared", shared);
         aggregate.addProperty("source", sourceName);
         JsonObject projectionRefs = new JsonObject();
-        projectionRefs.add("claude", new JsonArray());
-        projectionRefs.add("codex", new JsonArray());
+        projectionRefs.add(CommonConstants.PROVIDER_CLAUDE, new JsonArray());
+        projectionRefs.add(CommonConstants.PROVIDER_CODEX, new JsonArray());
         aggregate.add("projections", projectionRefs);
         return aggregate;
     }

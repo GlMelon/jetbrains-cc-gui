@@ -1,6 +1,7 @@
 package com.github.claudecodegui.ui;
 
 import com.github.claudecodegui.bridge.NodeDetector;
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.model.NodeDetectionResult;
@@ -167,7 +168,7 @@ public class WebviewInitializer {
         // transitions cannot accidentally reuse stale anonymous runtime ownership.
         // Skip daemon prewarm when CLI invocation mode is active — CLI mode uses a separate
         // process per request and does not need the Node.js daemon.
-        if (!"cli".equals(getClaudeInvocationMode())) {
+        if (!CommonConstants.INVOCATION_MODE_CLI.equals(getClaudeInvocationMode())) {
             claudeSDKBridge.prewarmDaemonAsync(host.getProject().getBasePath(), host.getHandlerContext().getSession() != null
                     ? host.getHandlerContext().getSession().getRuntimeSessionEpoch()
                     : null);
@@ -727,7 +728,7 @@ public class WebviewInitializer {
             return CodemossSettingsService.getInstance().getClaudeInvocationMode();
         } catch (Exception e) {
             LOG.warn("Failed to read Claude invocation mode, defaulting to sdk: " + e.getMessage());
-            return "sdk";
+            return CommonConstants.INVOCATION_MODE_SDK;
         }
     }
 }

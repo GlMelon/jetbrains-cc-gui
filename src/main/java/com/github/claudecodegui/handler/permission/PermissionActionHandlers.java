@@ -1,5 +1,6 @@
 package com.github.claudecodegui.handler.permission;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.permission.PermissionRequest;
 import com.github.claudecodegui.permission.PermissionService;
@@ -300,7 +301,7 @@ public class PermissionActionHandlers {
             scheduleSafetyNet(future, () -> {
                 JsonObject timeoutResponse = new JsonObject();
                 timeoutResponse.addProperty("approved", false);
-                timeoutResponse.addProperty("targetMode", "default");
+                timeoutResponse.addProperty("targetMode", CommonConstants.PERMISSION_MODE_DEFAULT);
                 timeoutResponse.addProperty("message", "Plan approval timed out");
                 if (future.complete(timeoutResponse)) {
                     LOG.warn("[PLAN_APPROVAL][SHOW_DIALOG] Safety-net timeout fired (webview unreachable) for requestId=" + requestId);
@@ -313,7 +314,7 @@ public class PermissionActionHandlers {
             pendingPlanApprovalRequests.remove(requestId);
             JsonObject errorResponse = new JsonObject();
             errorResponse.addProperty("approved", false);
-            errorResponse.addProperty("targetMode", "default");
+            errorResponse.addProperty("targetMode", CommonConstants.PERMISSION_MODE_DEFAULT);
             errorResponse.addProperty("message", "Error showing plan approval dialog");
             future.complete(errorResponse);
         }
@@ -403,7 +404,7 @@ public class PermissionActionHandlers {
 
             String requestId = response.get("requestId").getAsString();
             boolean approved = response.has("approved") && response.get("approved").getAsBoolean();
-            String targetMode = response.has("targetMode") ? response.get("targetMode").getAsString() : "default";
+            String targetMode = response.has("targetMode") ? response.get("targetMode").getAsString() : CommonConstants.PERMISSION_MODE_DEFAULT;
 
             CompletableFuture<JsonObject> pendingFuture = pendingPlanApprovalRequests.remove(requestId);
 

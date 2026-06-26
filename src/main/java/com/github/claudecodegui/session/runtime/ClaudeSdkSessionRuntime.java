@@ -1,5 +1,6 @@
 package com.github.claudecodegui.session.runtime;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.SDKResult;
@@ -46,7 +47,7 @@ public class ClaudeSdkSessionRuntime implements SessionRuntime {
                 req.streaming(),
                 false,
                 req.reasoningEffort(),
-                "sdk",
+                CommonConstants.INVOCATION_MODE_SDK,
                 callback
         );
     }

@@ -10,6 +10,7 @@ import javax.swing.*;
 import java.nio.file.*;
 import java.util.Set;
 import java.util.concurrent.*;
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.util.GsonHolder;
 
 /**
@@ -507,7 +508,7 @@ public class PermissionService {
                 dispatchPlanApprovalDialog(shower, requestId, request, fileName);
             } else {
                 debugLog("PLAN_NO_DIALOG", "No dialog shower, denying");
-                fileProtocol.writePlanApprovalResponse(requestId, false, "default");
+                fileProtocol.writePlanApprovalResponse(requestId, false, CommonConstants.PERMISSION_MODE_DEFAULT);
                 processingRequests.remove(fileName);
             }
         } catch (Exception e) {
@@ -526,17 +527,17 @@ public class PermissionService {
             debugLog("PLAN_RESPONSE", "Got response after " + (System.currentTimeMillis() - dialogStart) + "ms");
             try {
                 boolean approved = response.has("approved") && response.get("approved").getAsBoolean();
-                String targetMode = response.has("targetMode") ? response.get("targetMode").getAsString() : "default";
+                String targetMode = response.has("targetMode") ? response.get("targetMode").getAsString() : CommonConstants.PERMISSION_MODE_DEFAULT;
                 fileProtocol.writePlanApprovalResponse(requestId, approved, targetMode);
             } catch (Exception e) {
                 LOG.error("Error occurred", e);
-                fileProtocol.writePlanApprovalResponse(requestId, false, "default");
+                fileProtocol.writePlanApprovalResponse(requestId, false, CommonConstants.PERMISSION_MODE_DEFAULT);
             } finally {
                 processingRequests.remove(fileName);
             }
         }).exceptionally(ex -> {
             debugLog("PLAN_EXCEPTION", "Dialog exception: " + ex.getMessage());
-            fileProtocol.writePlanApprovalResponse(requestId, false, "default");
+            fileProtocol.writePlanApprovalResponse(requestId, false, CommonConstants.PERMISSION_MODE_DEFAULT);
             processingRequests.remove(fileName);
             return null;
         });
