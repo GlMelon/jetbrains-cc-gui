@@ -46,6 +46,9 @@ export interface SettingsWindowCallbacksDeps {
   // Invocation mode setters
   setInvocationMode: (mode: 'sdk' | 'cli') => void;
   setCliPath: (path: string) => void;
+  // Claude CLI path setters
+  setClaudeCliPath?: (path: string) => void;
+  setSavingClaudeCliPath?: (saving: boolean) => void;
 
   // Hook functions
   updateProviders: (providers: ProviderConfig[]) => void;
@@ -138,6 +141,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
     registerLegacyAlias('updateStatusBarWidgetEnabled', DOWNSTREAM.CONFIG_STATUS_BAR_WIDGET);
     registerLegacyAlias('updateTaskCompletionNotificationEnabled', DOWNSTREAM.CONFIG_TASK_COMPLETION_NOTIFICATION);
     registerLegacyAlias('updateInvocationMode', DOWNSTREAM.CONFIG_INVOCATION_MODE);
+    registerLegacyAlias('updateClaudeCliPath', DOWNSTREAM.CONFIG_CLAUDE_CLI_PATH);
     registerLegacyAlias('updateAgents', DOWNSTREAM.AGENT_LIST);
     registerLegacyAlias('agentOperationResult', DOWNSTREAM.AGENT_OPERATION_RESULT);
     registerLegacyAlias('agentImportPreviewResult', DOWNSTREAM.AGENT_IMPORT_PREVIEW);
@@ -188,6 +192,16 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
         console.error('[SettingsView] Failed to parse working directory:', error);
         d().setSavingWorkingDirectory(false);
       }
+    }));
+
+    unsubs.push(subscribeEvent(DOWNSTREAM.CONFIG_CLAUDE_CLI_PATH, (jsonStr) => {
+      try {
+        const data = JSON.parse(jsonStr as string);
+        d().setClaudeCliPath?.(data.path || '');
+      } catch (e) {
+        d().setClaudeCliPath?.((jsonStr as string) || '');
+      }
+      d().setSavingClaudeCliPath?.(false);
     }));
 
     unsubs.push(subscribeEvent(DOWNSTREAM.TOAST_SUCCESS, (message) => {
@@ -522,6 +536,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
     sendAction(UPSTREAM.GET_TASK_COMPLETION_NOTIFICATION_ENABLED);
     sendAction(UPSTREAM.GET_INVOCATION_MODE);
     sendAction(UPSTREAM.GET_PERMISSION_DIALOG_TIMEOUT);
+    sendAction(UPSTREAM.GET_CLAUDE_CLI_PATH);
 
     return () => {
       d().cleanupAgentsTimeout();

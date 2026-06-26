@@ -39,6 +39,10 @@ interface BasicConfigSectionProps {
   onNodePathChange: (path: string) => void;
   onSaveNodePath: () => void;
   savingNodePath: boolean;
+  claudeCliPath?: string;
+  onClaudeCliPathChange?: (path: string) => void;
+  onSaveClaudeCliPath?: () => void;
+  savingClaudeCliPath?: boolean;
   nodeVersion?: string | null;
   minNodeVersion?: number;
   workingDirectory?: string;
@@ -190,6 +194,10 @@ const BasicConfigSection = (props: BasicConfigSectionProps) => {
           onNodePathChange={props.onNodePathChange}
           onSaveNodePath={props.onSaveNodePath}
           savingNodePath={props.savingNodePath}
+          claudeCliPath={props.claudeCliPath}
+          onClaudeCliPathChange={props.onClaudeCliPathChange}
+          onSaveClaudeCliPath={props.onSaveClaudeCliPath}
+          savingClaudeCliPath={props.savingClaudeCliPath}
           nodeVersion={props.nodeVersion}
           minNodeVersion={props.minNodeVersion}
           workingDirectory={props.workingDirectory}

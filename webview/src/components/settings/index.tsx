@@ -112,6 +112,10 @@ const SettingsView = ({
     setMinNodeVersion,
     savingNodePath,
     setSavingNodePath,
+    claudeCliPath,
+    setClaudeCliPath,
+    savingClaudeCliPath,
+    setSavingClaudeCliPath,
     cliPath,
     setCliPath,
     workingDirectory,
@@ -144,6 +148,7 @@ const SettingsView = ({
     skipNewSessionConfirm,
     setSkipNewSessionConfirm,
     handleSaveNodePath,
+    handleSaveClaudeCliPath,
     handleSaveWorkingDirectory,
     handleUiFontSelectionChange,
     handleSaveUiFontCustomPath,
@@ -286,6 +291,8 @@ const SettingsView = ({
     setMinNodeVersion,
     setSavingNodePath,
     setCliPath,
+    setClaudeCliPath,
+    setSavingClaudeCliPath,
     setWorkingDirectory,
     setSavingWorkingDirectory,
     setCommitPrompt,
@@ -445,6 +452,10 @@ const SettingsView = ({
               onNodePathChange={setNodePath}
               onSaveNodePath={handleSaveNodePath}
               savingNodePath={savingNodePath}
+              claudeCliPath={claudeCliPath}
+              onClaudeCliPathChange={setClaudeCliPath}
+              onSaveClaudeCliPath={handleSaveClaudeCliPath}
+              savingClaudeCliPath={savingClaudeCliPath}
               nodeVersion={nodeVersion}
               minNodeVersion={minNodeVersion}
               cliPath={cliPath}

@@ -67,11 +67,14 @@ export interface UseSettingsBasicActionsReturn {
   promptEnhancerConfig: PromptEnhancerConfig;
   invocationMode: 'sdk' | 'cli';
   cliPath: string;
+  claudeCliPath: string;
+  savingClaudeCliPath: boolean;
 
   // =========================================================================
   // Handler functions (public API for components)
   // =========================================================================
   handleSaveNodePath: () => void;
+  handleSaveClaudeCliPath: () => void;
   handleSaveWorkingDirectory: () => void;
   handleUiFontSelectionChange: (selection: string) => void;
   handleSaveUiFontCustomPath: (path: string) => void;
@@ -140,6 +143,8 @@ export interface UseSettingsBasicActionsReturn {
   /** @internal */ setPromptEnhancerConfig: (config: PromptEnhancerConfig) => void;
   /** @internal */ setInvocationMode: (mode: 'sdk' | 'cli') => void;
   /** @internal */ setCliPath: (path: string) => void;
+  /** @internal */ setClaudeCliPath: (path: string) => void;
+  /** @internal */ setSavingClaudeCliPath: (saving: boolean) => void;
 }
 
 export function useSettingsBasicActions({
@@ -157,6 +162,10 @@ export function useSettingsBasicActions({
   const [nodeVersion, setNodeVersion] = useState<string | null>(null);
   const [minNodeVersion, setMinNodeVersion] = useState(18);
   const [savingNodePath, setSavingNodePath] = useState(false);
+
+  // Claude CLI path
+  const [claudeCliPath, setClaudeCliPath] = useState('');
+  const [savingClaudeCliPath, setSavingClaudeCliPath] = useState(false);
 
   // Working directory configuration
   const [workingDirectory, setWorkingDirectory] = useState('');
@@ -278,6 +287,12 @@ export function useSettingsBasicActions({
     const payload = { path: (nodePath || '').trim() };
     sendAction(UPSTREAM.SET_NODE_PATH, JSON.stringify(payload));
   }, [nodePath]);
+
+  const handleSaveClaudeCliPath = useCallback(() => {
+    setSavingClaudeCliPath(true);
+    const payload = { path: (claudeCliPath || '').trim() };
+    sendAction(UPSTREAM.SET_CLAUDE_CLI_PATH, JSON.stringify(payload));
+  }, [claudeCliPath]);
 
   const handleSaveWorkingDirectory = useCallback(() => {
     setSavingWorkingDirectory(true);
@@ -550,6 +565,10 @@ export function useSettingsBasicActions({
     setMinNodeVersion,
     savingNodePath,
     setSavingNodePath,
+    claudeCliPath,
+    setClaudeCliPath,
+    savingClaudeCliPath,
+    setSavingClaudeCliPath,
     workingDirectory,
     setWorkingDirectory,
     savingWorkingDirectory,
@@ -582,6 +601,7 @@ export function useSettingsBasicActions({
     skipNewSessionConfirm,
     setSkipNewSessionConfirm,
     handleSaveNodePath,
+    handleSaveClaudeCliPath,
     handleSaveWorkingDirectory,
     handleUiFontSelectionChange,
     handleSaveUiFontCustomPath,
