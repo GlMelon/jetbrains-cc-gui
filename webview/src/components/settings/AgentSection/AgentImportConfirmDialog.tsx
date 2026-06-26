@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { AgentConfig } from '../../../types/agent';
 import type { ImportPreviewResult, ConflictStrategy } from '../../../types/import';
 import styles from '../ProviderList/style.module.less';
+import { AlertIcon, CloseIcon } from '../../Icons';
 
 interface AgentImportConfirmDialogProps {
   previewData: ImportPreviewResult<AgentConfig>;
@@ -64,7 +65,7 @@ export default function AgentImportConfirmDialog({
         <div className={styles.dialogHeader}>
           <h3>{t('settings.agent.importDialog.title')}</h3>
           <button className={styles.closeBtn} onClick={onCancel}>
-            <span className="codicon codicon-close" />
+            <CloseIcon size={16} />
           </button>
         </div>
 
@@ -177,7 +178,7 @@ export default function AgentImportConfirmDialog({
                     </span>
                     {item.conflict && (
                       <span className={styles.conflictIcon} title={t('settings.agent.importDialog.conflictWarning')}>
-                        <span className="codicon codicon-warning" />
+                        <AlertIcon size={16} />
                       </span>
                     )}
                   </div>

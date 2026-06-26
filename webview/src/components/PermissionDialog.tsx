@@ -7,6 +7,7 @@ import MarkdownBlock from './MarkdownBlock';
 import { useDialogResize } from '../hooks/useDialogResize';
 import { isEditableEventTarget } from '../utils/isEditableEventTarget';
 import { BaseDialog } from './shared/BaseDialog';
+import { ChevronDownIcon, ChevronUpIcon, ClockIcon, AlertIcon } from './Icons';
 
 export interface PermissionRequest {
   channelId: string;
@@ -194,13 +195,13 @@ const PermissionDialog = ({
         <div className="permission-dialog-v3-header-row">
           <h3 className="permission-dialog-v3-title">{getToolTitle(request.toolName)}</h3>
           <span className={`countdown-timer ${isTimeWarning ? 'warning' : ''}`}>
-            <span className="codicon codicon-clock" />
+            <ClockIcon size={16} />
             <span className="countdown-time">{formatCountdown(remainingSeconds)}</span>
           </span>
         </div>
         {isTimeWarning && (
           <div className="timeout-warning-banner">
-            <span className="codicon codicon-warning" />
+            <AlertIcon size={16} />
             <span>{t('permission.timeoutWarning', 'Please answer soon, dialog will close in {{seconds}} seconds', { seconds: remainingSeconds })}</span>
           </div>
         )}
@@ -216,7 +217,7 @@ const PermissionDialog = ({
               onClick={() => setShowCommand(!showCommand)}
               title={showCommand ? t('chat.collapse') : t('chat.expand')}
             >
-              <span className={`codicon codicon-chevron-${showCommand ? 'up' : 'down'}`} />
+              {showCommand ? <ChevronUpIcon size={16} /> : <ChevronDownIcon size={16} />}
             </button>
           </div>
 

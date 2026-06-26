@@ -11,6 +11,7 @@ import {
   type HistoryItem,
 } from '../../ChatInputBox/hooks/useInputHistory.js';
 import { HistoryItemEditor } from './HistoryItemEditor.js';
+import { ChevronDownIcon, ChevronRightIcon, EditIcon, FilterIcon, HistoryIcon, InboxIcon, InfoIcon, PlusIcon, TrashIcon, AlertIcon, CloseIcon } from '../../Icons';
 
 /**
  * Error boundary for OtherSettingsSection
@@ -42,7 +43,7 @@ class OtherSettingsErrorBoundary extends Component<
     if (this.state.hasError) {
       return (
         <div className={styles.errorFallback}>
-          <span className="codicon codicon-warning" />
+          <AlertIcon size={16} />
           <span>{this.props.fallbackMessage}</span>
         </div>
       );
@@ -195,7 +196,7 @@ const OtherSettingsSection = ({
       {/* History input completion toggle */}
       <div className={styles.historyCompletionSection}>
         <div className={styles.fieldHeader}>
-          <span className="codicon codicon-history" />
+          <HistoryIcon size={16} />
           <span className={styles.fieldLabel}>{t('settings.other.historyCompletion.label')}</span>
         </div>
         <label className={styles.toggleWrapper}>
@@ -213,7 +214,7 @@ const OtherSettingsSection = ({
           </span>
         </label>
         <small className={styles.formHint}>
-          <span className="codicon codicon-info" />
+          <InfoIcon size={16} />
           <span>{t('settings.other.historyCompletion.hint')}</span>
         </small>
 
@@ -224,7 +225,7 @@ const OtherSettingsSection = ({
             className={styles.expandButton}
             onClick={() => setShowHistoryList(!showHistoryList)}
           >
-            <span className={`codicon codicon-chevron-${showHistoryList ? 'down' : 'right'}`} />
+            {showHistoryList ? <ChevronDownIcon size={16} /> : <ChevronRightIcon size={16} />}
             <span>{t('settings.other.historyCompletion.manageHistory')}</span>
             {historyItems.length > 0 && showHistoryList && (
               <span className={styles.historyCount}>({historyItems.length})</span>
@@ -235,7 +236,7 @@ const OtherSettingsSection = ({
             <div className={styles.historyListContainer}>
               {historyItems.length === 0 ? (
                 <div className={styles.emptyHistory}>
-                  <span className="codicon codicon-inbox" />
+                  <InboxIcon size={16} />
                   <span>{t('settings.other.historyCompletion.empty')}</span>
                 </div>
               ) : (
@@ -246,7 +247,7 @@ const OtherSettingsSection = ({
                       className={styles.addButton}
                       onClick={handleOpenAddEditor}
                     >
-                      <span className="codicon codicon-add" />
+                      <PlusIcon size={16} />
                       <span>{t('settings.other.historyCompletion.add')}</span>
                     </button>
                     <div className={styles.actionsSpacer} />
@@ -257,7 +258,7 @@ const OtherSettingsSection = ({
                         onClick={handleClearLowImportance}
                         title={t('settings.other.historyCompletion.clearLowHint')}
                       >
-                        <span className="codicon codicon-filter" />
+                        <FilterIcon size={16} />
                         <span>
                           {t('settings.other.historyCompletion.clearLow')} ({lowImportanceCount})
                         </span>
@@ -268,7 +269,7 @@ const OtherSettingsSection = ({
                       className={styles.clearAllButton}
                       onClick={handleClearAll}
                     >
-                      <span className="codicon codicon-trash" />
+                      <TrashIcon size={16} />
                       <span>{t('settings.other.historyCompletion.clearAll')}</span>
                     </button>
                   </div>
@@ -293,7 +294,7 @@ const OtherSettingsSection = ({
                             onClick={() => handleOpenEditEditor(item)}
                             title={t('settings.other.historyCompletion.edit')}
                           >
-                            <span className="codicon codicon-edit" />
+                            <EditIcon size={16} />
                           </button>
                           <button
                             type="button"
@@ -301,7 +302,7 @@ const OtherSettingsSection = ({
                             onClick={() => handleDeleteItem(item)}
                             title={t('settings.other.historyCompletion.delete')}
                           >
-                            <span className="codicon codicon-close" />
+                            <CloseIcon size={16} />
                           </button>
                         </div>
                       </li>
@@ -318,7 +319,7 @@ const OtherSettingsSection = ({
                     className={styles.addButton}
                     onClick={handleOpenAddEditor}
                   >
-                    <span className="codicon codicon-add" />
+                    <PlusIcon size={16} />
                     <span>{t('settings.other.historyCompletion.add')}</span>
                   </button>
                 </div>

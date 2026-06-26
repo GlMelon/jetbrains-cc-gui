@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { BracesIcon, ChevronRightIcon, SaveIcon, CloseIcon } from './Icons';;
 import type { CodexProviderConfig, EnvVarEntry } from '../types/provider';
 import { validateEnvVarEntries, ENV_VAR_VALUE_MAX_LENGTH } from '../types/provider';
 import EnvVarEditor from './EnvVarEditor';
@@ -196,7 +197,7 @@ wire_api = "responses"`);
               : t('settings.codexProvider.dialog.editTitle', { name: provider?.name })}
           </h3>
           <button className="close-btn" onClick={onClose}>
-            <span className="codicon codicon-close"></span>
+            <CloseIcon size={16} />
           </button>
         </div>
 
@@ -236,7 +237,7 @@ wire_api = "responses"`);
                 onClick={handleFormatConfigJson}
                 style={FORMAT_BUTTON_STYLE}
               >
-                <span className="codicon codicon-symbol-namespace" />
+                <BracesIcon size={14} />
                 {t('settings.codexProvider.dialog.formatJson')}
               </button>
             </div>
@@ -263,7 +264,7 @@ wire_api = "responses"`);
                 onClick={handleFormatAuthJson}
                 style={FORMAT_BUTTON_STYLE}
               >
-                <span className="codicon codicon-symbol-namespace" />
+                <BracesIcon size={14} />
                 {t('settings.codexProvider.dialog.formatJson')}
               </button>
             </div>
@@ -298,7 +299,7 @@ wire_api = "responses"`);
           {/* Environment Variables */}
           <details className="advanced-section">
             <summary className="advanced-toggle">
-              <span className="codicon codicon-chevron-right" />
+              <ChevronRightIcon size={16} />
               {t('settings.codexProvider.dialog.envVarsTitle')}
             </summary>
 
@@ -328,11 +329,11 @@ wire_api = "responses"`);
         <div className="dialog-footer">
           <div className="footer-actions" style={FOOTER_ACTIONS_STYLE}>
             <button className="btn btn-secondary" onClick={onClose}>
-              <span className="codicon codicon-close" />
+              <CloseIcon size={16} />
               {t('common.cancel')}
             </button>
             <button className="btn btn-primary" onClick={handleSave} disabled={!providerName.trim()}>
-              <span className="codicon codicon-save" />
+              <SaveIcon size={16} />
               {isAdding ? t('settings.provider.dialog.confirmAdd') : t('settings.provider.dialog.saveChanges')}
             </button>
           </div>

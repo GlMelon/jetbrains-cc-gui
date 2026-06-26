@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import type { TFunction } from 'i18next';
+import { SearchIcon } from '../Icons';
 
 export interface HistoryFiltersProps {
   inputValue: string;
@@ -17,7 +18,7 @@ export const HistoryFilters = memo(({ inputValue, onInputChange, t }: HistoryFil
         value={inputValue}
         onChange={onInputChange}
       />
-      <span className="codicon codicon-search history-search-icon"></span>
+      <SearchIcon size={16} className="history-search-icon" />
     </div>
   );
 });

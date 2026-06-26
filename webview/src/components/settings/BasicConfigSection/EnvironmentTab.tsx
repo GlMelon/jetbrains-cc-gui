@@ -1,6 +1,7 @@
 import styles from './style.module.less';
 import { useTranslation } from 'react-i18next';
 import RuntimePolicySection from './RuntimePolicySection';
+import { CheckIcon, FolderIcon, InfoIcon, RocketIcon, ServerProcessIcon, TerminalIcon, AlertIcon } from '../../Icons';
 
 export interface EnvironmentTabProps {
   nodePath: string;
@@ -64,7 +65,7 @@ const EnvironmentTab = ({
       {/* Invocation mode configuration */}
       <div className={styles.streamingSection}>
         <div className={styles.fieldHeader}>
-          <span className="codicon codicon-server-process" />
+          <ServerProcessIcon size={16} />
           <span className={styles.fieldLabel}>{t('settings.basic.invocationMode.label')}</span>
         </div>
         <div className={styles.themeGrid}>
@@ -74,7 +75,7 @@ const EnvironmentTab = ({
           >
             {invocationMode === 'sdk' && (
               <div className={styles.checkBadge}>
-                <span className="codicon codicon-check" />
+                <CheckIcon size={16} />
               </div>
             )}
             <div className={styles.themeCardTitle}>{t('settings.basic.invocationMode.sdk')}</div>
@@ -86,7 +87,7 @@ const EnvironmentTab = ({
           >
             {invocationMode === 'cli' && (
               <div className={styles.checkBadge}>
-                <span className="codicon codicon-check" />
+                <CheckIcon size={16} />
               </div>
             )}
             <div className={styles.themeCardTitle}>{t('settings.basic.invocationMode.cli')}</div>
@@ -94,7 +95,7 @@ const EnvironmentTab = ({
           </div>
         </div>
         <small className={styles.formHint}>
-          <span className="codicon codicon-info" />
+          <InfoIcon size={16} />
           <span>{t('settings.basic.invocationMode.policyHint')}</span>
         </small>
         {invocationMode === 'cli' && (
@@ -110,7 +111,7 @@ const EnvironmentTab = ({
         )}
         {invocationMode === 'cli' && (
           <small className={styles.formHint}>
-            <span className="codicon codicon-info" />
+            <InfoIcon size={16} />
             <span>{t('settings.basic.invocationMode.hint')}</span>
           </small>
         )}
@@ -122,7 +123,7 @@ const EnvironmentTab = ({
       {/* Node.js path configuration */}
       <div className={styles.nodePathSection}>
         <div className={styles.fieldHeader}>
-          <span className="codicon codicon-terminal" />
+          <TerminalIcon size={16} />
           <span className={styles.fieldLabel}>{t('settings.basic.nodePath.label')}</span>
           {nodeVersion && (
             <span className={`${styles.versionBadge} ${isVersionTooLow ? styles.versionBadgeError : styles.versionBadgeOk}`}>
@@ -132,7 +133,7 @@ const EnvironmentTab = ({
         </div>
         {isVersionTooLow && (
           <div className={styles.versionWarning}>
-            <span className="codicon codicon-warning" />
+            <AlertIcon size={16} />
             {t('settings.basic.nodePath.versionTooLow', { minVersion: minNodeVersion })}
           </div>
         )}
@@ -158,7 +159,7 @@ const EnvironmentTab = ({
           </button>
         </div>
         <small className={styles.formHint}>
-          <span className="codicon codicon-info" />
+          <InfoIcon size={16} />
           <span>
             {t('settings.basic.nodePath.hint')} <code>{t('settings.basic.nodePath.hintCommand')}</code> {t('settings.basic.nodePath.hintText')}
           </span>
@@ -168,7 +169,7 @@ const EnvironmentTab = ({
       {/* Custom Claude CLI path */}
       <div className={styles.nodePathSection}>
         <div className={styles.fieldHeader}>
-          <span className="codicon codicon-rocket" />
+          <RocketIcon size={16} />
           <span className={styles.fieldLabel}>{t('settings.basic.claudeCliPath.label')}</span>
         </div>
         <div className={styles.nodePathInputWrapper}>
@@ -193,7 +194,7 @@ const EnvironmentTab = ({
           </button>
         </div>
         <small className={styles.formHint}>
-          <span className="codicon codicon-info" />
+          <InfoIcon size={16} />
           <span>{t('settings.basic.claudeCliPath.hint')}</span>
         </small>
       </div>
@@ -201,7 +202,7 @@ const EnvironmentTab = ({
       {/* Working directory configuration */}
       <div className={styles.workingDirSection}>
         <div className={styles.fieldHeader}>
-          <span className="codicon codicon-folder" />
+          <FolderIcon size={16} />
           <span className={styles.fieldLabel}>{t('settings.basic.workingDirectory.label')}</span>
         </div>
         <div className={styles.nodePathInputWrapper}>
@@ -226,7 +227,7 @@ const EnvironmentTab = ({
           </button>
         </div>
         <small className={styles.formHint}>
-          <span className="codicon codicon-info" />
+          <InfoIcon size={16} />
           <span>
             {t('settings.basic.workingDirectory.hint')}
           </span>

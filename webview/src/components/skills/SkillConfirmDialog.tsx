@@ -1,3 +1,4 @@
+import { AlertIcon, CloseIcon } from '../Icons';
 interface SkillConfirmDialogProps {
   title: string;
   message: string;
@@ -33,14 +34,14 @@ export function SkillConfirmDialog({
         <div className="dialog-header">
           <h3>{title}</h3>
           <button className="close-btn" onClick={onCancel}>
-            <span className="codicon codicon-close"></span>
+            <CloseIcon size={16} />
           </button>
         </div>
 
         {/* Content */}
         <div className="dialog-content">
           <div className="confirm-message">
-            <span className="codicon codicon-warning warning-icon"></span>
+            <AlertIcon size={16} className="warning-icon" />
             <p>{message}</p>
           </div>
         </div>

@@ -23,7 +23,7 @@ const UndoConfirmDialog = memo(({ fileChange, onConfirm, onCancel }: UndoConfirm
     <div className="undo-confirm-overlay" onClick={onCancel}>
       <div className="undo-confirm-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="undo-confirm-header">
-          <UndoIcon size={18} />
+          <UndoIcon size={20} />
           <h3>{t('statusPanel.undoConfirmTitle')}</h3>
         </div>
         <div className="undo-confirm-body">
@@ -40,7 +40,7 @@ const UndoConfirmDialog = memo(({ fileChange, onConfirm, onCancel }: UndoConfirm
           </div>
           <div className="undo-warning">
             <span className="warning-icon" aria-hidden="true">
-              <AlertIcon size={18} />
+              <AlertIcon size={20} />
             </span>
             <div className="warning-text">
               <p>

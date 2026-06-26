@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { PromptConfig } from '../types/prompt';
 import { BaseDialog, DialogHeader, DialogBody, DialogFooter } from './shared/BaseDialog';
+import { SaveIcon, XCircleIcon, CloseIcon } from './Icons';
 
 interface PromptDialogProps {
   isOpen: boolean;
@@ -96,7 +97,7 @@ export default function PromptDialog({
           </div>
           {nameError && (
             <p className="form-error">
-              <span className="codicon codicon-error" />
+              <XCircleIcon size={16} />
               {nameError}
             </p>
           )}
@@ -124,11 +125,11 @@ export default function PromptDialog({
 
       <DialogFooter>
         <button className="btn btn-secondary" onClick={onClose}>
-          <span className="codicon codicon-close" />
+          <CloseIcon size={16} />
           {t('common.cancel')}
         </button>
         <button className="btn btn-primary" onClick={handleSave}>
-          <span className="codicon codicon-save" />
+          <SaveIcon size={16} />
           {isAdding ? t('settings.prompt.dialog.confirmAdd') : t('settings.prompt.dialog.saveChanges')}
         </button>
       </DialogFooter>

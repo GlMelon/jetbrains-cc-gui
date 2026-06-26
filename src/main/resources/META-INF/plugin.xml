@@ -96,7 +96,7 @@
         <!-- Action to send selected code to CC GUI -->
         <action id="ClaudeCodeGUI.SendSelectionToTerminalAction"
                 class="com.github.claudecodegui.action.editor.SendSelectionToTerminalAction"
-                icon="/icons/cc-gui-icon.svg">
+                icon="/icons/send-to-terminal.svg">
             <!-- Add to editor context menu (displayed at the top) -->
             <add-to-group group-id="EditorPopupMenu" anchor="first"/>
             <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt K"/>
@@ -107,7 +107,7 @@
         <!-- Copy AI Reference Action -->
         <action id="ClaudeCodeGUI.CopySelectionReferenceAction"
                 class="com.github.claudecodegui.action.editor.CopySelectionReferenceAction"
-                icon="/icons/cc-gui-icon.svg">
+                icon="/icons/copy-reference.svg">
             <add-to-group group-id="EditorPopupMenu"
                            anchor="after"
                            relative-to-action="ClaudeCodeGUI.SendSelectionToTerminalAction"/>
@@ -116,7 +116,7 @@
         <!-- Quick Fix with Claude Action -->
         <action id="ClaudeCodeGUI.QuickFixWithClaudeAction"
                 class="com.github.claudecodegui.action.editor.QuickFixWithClaudeAction"
-                icon="/icons/cc-gui-icon.svg">
+                icon="/icons/quick-fix.svg">
             <add-to-group group-id="EditorPopupMenu"
                            anchor="after"
                            relative-to-action="ClaudeCodeGUI.SendSelectionToTerminalAction"/>
@@ -148,7 +148,7 @@
         <!-- Create From Template Action -->
         <action id="ClaudeCodeGUI.CreateFromTemplateAction"
                 class="com.github.claudecodegui.action.CreateFromTemplateAction"
-                icon="AllIcons.Actions.AddMulticaret"/>
+                icon="/icons/create-from-template.svg"/>
 
         <!-- Open DevTools Action for JCEF debugging -->
         <action id="ClaudeCodeGUI.OpenDevToolsAction"
@@ -158,7 +158,7 @@
         <!-- Action to send file path from the file tree to the input box -->
         <action id="ClaudeCodeGUI.SendFilePathToInputAction"
                 class="com.github.claudecodegui.action.editor.SendFilePathToInputAction"
-                icon="/icons/cc-gui-icon.svg">
+                icon="/icons/file-to-input.svg">
             <!-- Add to project file tree and editor tab context menus -->
             <add-to-group group-id="ProjectViewPopupMenu" anchor="first"/>
             <add-to-group group-id="EditorTabPopupMenu" anchor="first"/>
@@ -167,14 +167,14 @@
         <!-- Action to send the selected console text to CC GUI -->
         <action id="ClaudeCodeGUI.SendConsoleSelectionToInputAction"
                 class="com.github.claudecodegui.action.console.SendConsoleSelectionToInputAction"
-                icon="/icons/cc-gui-icon.svg">
+                icon="/icons/terminal-to-input.svg">
             <add-to-group group-id="ConsoleView.PopupMenu" anchor="last"/>
         </action>
 
         <!-- Generate Commit Message with AI Action -->
         <action id="ClaudeCodeGUI.GenerateCommitMessageAction"
                 class="com.github.claudecodegui.action.vcs.GenerateCommitMessageAction"
-                icon="/icons/logo-16.png">
+                icon="AllIcons.Vcs.Commit">
             <!-- Add to VCS Commit toolbar -->
             <add-to-group group-id="Vcs.MessageActionGroup" anchor="last"/>
         </action>

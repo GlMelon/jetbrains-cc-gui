@@ -2,6 +2,7 @@ import { memo, useState, useCallback } from 'react';
 import type { TFunction } from 'i18next';
 import type { DiagnosticPattern, DiagnosticStep } from '../../utils/errorMatcher';
 import { copyToClipboard } from '../../utils/copyUtils';
+import { InfoIcon, CopyIcon, CheckIcon, ArrowRightIcon } from '../Icons';
 
 interface ErrorDiagnosticCardProps {
   t: TFunction;
@@ -9,31 +10,6 @@ interface ErrorDiagnosticCardProps {
   onNavigateToDependencySettings?: () => void;
 }
 
-const InfoIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
-    <path d="M12 8h.01M11 12h1v5h1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-const CopyIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M4 4l0 8a2 2 0 0 0 2 2l8 0a2 2 0 0 0 2 -2l0 -8a2 2 0 0 0 -2 -2l-8 0a2 2 0 0 0 -2 2zm2 0l8 0l0 8l-8 0l0 -8z" fill="currentColor"/>
-    <path d="M2 2l0 8l-2 0l0 -8a2 2 0 0 1 2 -2l8 0l0 2l-8 0z" fill="currentColor" fillOpacity="0.6"/>
-  </svg>
-);
-
-const CheckIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M5 12l5 5L20 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-const ArrowRightIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M5 12h14m-7-7 7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
 
 interface CommandBlockProps {
   command: string;

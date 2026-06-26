@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { ProjectStatistics } from '../../types/usage';
+import { CommentIcon, CreditCardIcon, FolderIcon, GraphIcon, NumberIcon } from '../Icons';
 
 function getBarFillStyle(percentage: number): React.CSSProperties {
   return { width: `${percentage}%` };
@@ -26,13 +27,13 @@ export const UsageOverviewTab = ({
   return (
     <div className="overview-tab">
       <div className="project-info-simple">
-        <span className="codicon codicon-folder" />
+        <FolderIcon size={16} />
         <span className="project-name">{statistics.projectName}</span>
       </div>
 
       <div className="stat-cards">
         <div className="stat-card cost-card">
-          <div className="stat-icon"><span className="codicon codicon-credit-card" /></div>
+          <div className="stat-icon"><CreditCardIcon size={16} /></div>
           <div className="stat-content">
             <div className="stat-label">{t('usage.totalCost')}</div>
             <div className="stat-value">{formatCost(statistics.estimatedCost)}</div>
@@ -41,7 +42,7 @@ export const UsageOverviewTab = ({
         </div>
 
         <div className="stat-card sessions-card">
-          <div className="stat-icon"><span className="codicon codicon-comment-discussion" /></div>
+          <div className="stat-icon"><CommentIcon size={16} /></div>
           <div className="stat-content">
             <div className="stat-label">{t('usage.totalSessions')}</div>
             <div className="stat-value">{statistics.totalSessions}</div>
@@ -50,7 +51,7 @@ export const UsageOverviewTab = ({
         </div>
 
         <div className="stat-card tokens-card">
-          <div className="stat-icon"><span className="codicon codicon-symbol-numeric" /></div>
+          <div className="stat-icon"><NumberIcon size={16} /></div>
           <div className="stat-content">
             <div className="stat-label">{t('usage.totalTokens')}</div>
             <div className="stat-value">{formatNumber(statistics.totalUsage.totalTokens)}</div>
@@ -59,7 +60,7 @@ export const UsageOverviewTab = ({
         </div>
 
         <div className="stat-card avg-card">
-          <div className="stat-icon"><span className="codicon codicon-graph" /></div>
+          <div className="stat-icon"><GraphIcon size={16} /></div>
           <div className="stat-content">
             <div className="stat-label">{t('usage.avgPerSession')}</div>
             <div className="stat-value">

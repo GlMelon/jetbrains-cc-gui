@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { CloseIcon } from './Icons';
 
 export interface ToastMessage {
   id: string;
@@ -35,7 +36,7 @@ const Toast: React.FC<ToastProps> = ({ message, onDismiss, duration = 1000 }) =>
             setTimeout(() => onDismiss(message.id), 300);
           }}
         >
-          <span className="codicon codicon-close" />
+          <CloseIcon size={16} />
         </button>
       </div>
     </div>

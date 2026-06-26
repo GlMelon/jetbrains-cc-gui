@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ToolInput, ToolResultBlock } from '../../types';
 import { truncate } from '../../utils/helpers';
+import { SearchIcon } from '../Icons';
 
 interface SearchItem {
   toolName: string;
@@ -181,7 +182,7 @@ const SearchToolGroupBlock = ({ items }: SearchToolGroupBlockProps) => {
         style={headerStyle}
       >
         <div className="task-title-section" style={TITLE_SECTION_STYLE}>
-          <span className="codicon codicon-search tool-title-icon" />
+          <SearchIcon size={16} className="tool-title-icon" />
           <span className="tool-title-text" style={TITLE_TEXT_STYLE}>
             {t('tools.searchBatchTitle')}
           </span>

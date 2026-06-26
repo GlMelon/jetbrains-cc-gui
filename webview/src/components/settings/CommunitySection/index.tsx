@@ -4,6 +4,7 @@ import ChangelogDialog from '../../ChangelogDialog';
 import { CHANGELOG_DATA } from '../../../version/changelog';
 import wxqImage from '../../../assets/images/wxq.png';
 import styles from './style.module.less';
+import { GitHubIcon, HistoryIcon } from '../../Icons';
 
 const GITHUB_URL = 'https://github.com/zhukunpenglinyutong/idea-claude-code-gui';
 
@@ -49,7 +50,7 @@ const CommunitySection = ({ addToast }: CommunitySectionProps) => {
           className={styles.githubBtn}
           onClick={handleCopyGitHub}
         >
-          <span className="codicon codicon-github" />
+          <GitHubIcon size={16} />
           {t('settings.githubCopyBtn')}
         </button>
       </div>
@@ -62,7 +63,7 @@ const CommunitySection = ({ addToast }: CommunitySectionProps) => {
           className={styles.versionHistoryBtn}
           onClick={() => setShowChangelog(true)}
         >
-          <span className="codicon codicon-history" />
+          <HistoryIcon size={16} />
           {t('settings.versionHistory')}
         </button>
       </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ChevronRightIcon, CloudIcon, CodeIcon, InfoIcon, SaveIcon, ShieldIcon, XCircleIcon, CloseIcon } from './Icons';;
 import type { ProviderConfig } from '../types/provider';
 import { CLAUDE_MODEL_MAPPING_ENV_KEYS, PROVIDER_PRESETS } from '../types/provider';
 import { BaseDialog } from './shared/BaseDialog';
@@ -556,7 +557,7 @@ export default function ProviderDialog({
         <div className="dialog-header">
           <h3>{isAdding ? t('settings.provider.dialog.addTitle') : t('settings.provider.dialog.editTitle', { name: provider?.name })}</h3>
           <button className="close-btn" onClick={onClose}>
-            <span className="codicon codicon-close"></span>
+            <CloseIcon size={16} />
           </button>
         </div>
 
@@ -566,7 +567,7 @@ export default function ProviderDialog({
           </p>
 
           <div className="notice-box notice-box--info">
-            <span className="codicon codicon-shield" />
+            <ShieldIcon size={16} />
             {t('settings.provider.dialog.securityNotice')}
           </div>
 
@@ -673,14 +674,14 @@ export default function ProviderDialog({
               readOnly={isOfficialDirectMode}
             />
             <small className="form-hint">
-              <span className="codicon codicon-info" style={INFO_ICON_STYLE} />
+              <InfoIcon size={16} style={INFO_ICON_STYLE} />
               {isOfficialDirectMode
                 ? t('settings.provider.dialog.apiUrlLockedHint')
                 : t('settings.provider.dialog.apiUrlHint')}
             </small>
             {!isOfficialAnthropicEndpoint(apiUrl) && (
               <div className="notice-box notice-box--warning" style={NOTICE_MT_STYLE}>
-                <span className="codicon codicon-cloud" />
+                <CloudIcon size={16} />
                 {t('settings.provider.dialog.proxyEndpointWarning')}
               </div>
             )}
@@ -797,7 +798,7 @@ export default function ProviderDialog({
 
           <details className="advanced-section" open>
             <summary className="advanced-toggle">
-              <span className="codicon codicon-chevron-right" />
+              <ChevronRightIcon size={16} />
               {t('settings.provider.dialog.jsonConfig')}
             </summary>
             <div className="json-config-section">
@@ -813,7 +814,7 @@ export default function ProviderDialog({
                   onClick={handleFormatJson}
                   title={t('settings.provider.dialog.formatJson') || '格式化 JSON'}
                 >
-                  <span className="codicon codicon-symbol-keyword" />
+                  <CodeIcon size={14} />
                   {t('settings.provider.dialog.formatJson') || '格式化'}
                 </button>
               </div>
@@ -841,7 +842,7 @@ export default function ProviderDialog({
                 />
                 {jsonError && (
                   <p className="json-error">
-                    <span className="codicon codicon-error" />
+                    <XCircleIcon size={16} />
                     {jsonError}
                   </p>
                 )}
@@ -853,11 +854,11 @@ export default function ProviderDialog({
         <div className="dialog-footer">
           <div className="footer-actions" style={FOOTER_ACTIONS_STYLE}>
             <button className="btn btn-secondary" onClick={onClose}>
-              <span className="codicon codicon-close" />
+              <CloseIcon size={16} />
               {t('common.cancel')}
             </button>
             <button className="btn btn-primary" onClick={handleSave}>
-              <span className="codicon codicon-save" />
+              <SaveIcon size={16} />
               {isAdding ? t('settings.provider.dialog.confirmAdd') : t('settings.provider.dialog.saveChanges')}
             </button>
           </div>

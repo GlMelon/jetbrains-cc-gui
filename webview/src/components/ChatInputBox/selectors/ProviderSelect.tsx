@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { CheckIcon, ChevronDownIcon, ChevronRightIcon, ChevronUpIcon, GaugeIcon } from '../../Icons';;
 import { useTranslation } from 'react-i18next';
 import { AVAILABLE_PROVIDERS } from '../types';
 import { ProviderModelIcon } from '../../shared/ProviderModelIcon';
@@ -257,7 +258,7 @@ export const ProviderSelect = ({ value, onChange, compact = false }: ProviderSel
         }}
       >
         <div className="selector-option disabled" style={{ cursor: 'default' }}>
-          <span className="codicon codicon-dashboard" />
+          <GaugeIcon size={14} />
           <div style={SUBMENU_ROW_STYLE}>
             <span>{t('config.codexQuota.title', { defaultValue: 'Codex quota' })}</span>
             <span className="model-description">
@@ -298,7 +299,7 @@ export const ProviderSelect = ({ value, onChange, compact = false }: ProviderSel
           {!compact && (
             <>
               <span>{getProviderLabel(currentProvider.id)}</span>
-              <span className={`codicon codicon-chevron-${isOpen ? 'up' : 'down'}`} style={CHEVRON_ICON_STYLE} />
+              {isOpen ? <ChevronUpIcon size={16} style={CHEVRON_ICON_STYLE} /> : <ChevronDownIcon size={16} style={CHEVRON_ICON_STYLE} />}
             </>
           )}
         </button>
@@ -343,11 +344,11 @@ export const ProviderSelect = ({ value, onChange, compact = false }: ProviderSel
                 <ProviderModelIcon providerId={provider.id} size={16} colored />
                 <span>{getProviderLabel(provider.id)}</span>
                 {provider.id === value && (
-                  <span className="codicon codicon-check check-mark" />
+                  <CheckIcon size={16} className="check-mark" />
                 )}
                 {provider.id === 'codex' && (
-                  <span
-                    className="codicon codicon-chevron-right"
+                  <ChevronRightIcon
+                    size={16}
                     style={{ fontSize: '10px', marginLeft: provider.id === value ? '2px' : 'auto' }}
                   />
                 )}

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { TFunction } from 'i18next';
 
-import { BackIcon, SearchIcon, PlusIcon, LayoutIcon, HistoryIcon, SettingsIcon, CheckIcon, CloseIcon, EditIcon } from '../Icons';
+import { BackIcon, SearchIcon, PlusIcon, NewTabIcon, HistoryIcon, SettingsIcon, CheckIcon, CloseIcon, EditIcon } from '../Icons';
 
 export interface ChatHeaderProps {
   currentView: 'chat' | 'history' | 'settings';
@@ -154,7 +154,7 @@ export function ChatHeader({
               onClick={onNewTab}
               data-tooltip={t('common.newTab')}
             >
-              <LayoutIcon size={16} />
+              <NewTabIcon size={16} />
             </button>
             <button
               className="icon-button"

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styles from './style.module.less';
+import { ClockIcon, InfoIcon } from '../../Icons';
 import {
   DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS,
   MAX_PERMISSION_DIALOG_TIMEOUT_SECONDS,
@@ -33,7 +34,7 @@ export function PermissionDialogTimeoutSetting({
   return (
     <div className={styles.streamingSection}>
       <div className={styles.fieldHeader}>
-        <span className="codicon codicon-clock" />
+        <ClockIcon size={16} />
         <span className={styles.fieldLabel}>{t('settings.basic.permissionDialogTimeout.label')}</span>
       </div>
       <div className={`${styles.nodePathInputWrapper} ${styles.timeoutInputWrapper}`}>
@@ -58,7 +59,7 @@ export function PermissionDialogTimeoutSetting({
         <span className={styles.formHint}>{t('settings.basic.permissionDialogTimeout.unit')}</span>
       </div>
       <small className={styles.formHint}>
-        <span className="codicon codicon-info" />
+        <InfoIcon size={16} />
         <span>{t('settings.basic.permissionDialogTimeout.hint')}</span>
       </small>
     </div>

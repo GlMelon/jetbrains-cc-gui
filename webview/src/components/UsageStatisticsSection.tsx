@@ -4,6 +4,7 @@ import { UsageOverviewTab } from './UsageStatistics/UsageOverviewTab.js';
 import { UsageModelsTab } from './UsageStatistics/UsageModelsTab.js';
 import { UsageSessionsTab } from './UsageStatistics/UsageSessionsTab.js';
 import { UsageTimelineTab } from './UsageStatistics/UsageTimelineTab.js';
+import { CodeIcon, FolderIcon, FolderLibraryIcon, GaugeIcon, GraphIcon, GraphLineIcon, ListIcon, RefreshIcon, SyncIcon, AlertIcon } from './Icons';
 
 const UsageStatisticsSection = ({ currentProvider }: { currentProvider?: string }) => {
   const { t } = useTranslation();
@@ -32,10 +33,10 @@ const UsageStatisticsSection = ({ currentProvider }: { currentProvider?: string 
     return (
       <div className="usage-statistics-section">
         <div className="empty-container">
-          <span className="codicon codicon-graph" />
+          <GraphIcon size={16} />
           <p>{t('usage.noData')}</p>
           <button onClick={handleRefresh} className="btn-primary">
-            <span className="codicon codicon-refresh" />
+            <RefreshIcon size={16} />
             {t('usage.loadData')}
           </button>
         </div>
@@ -47,7 +48,7 @@ const UsageStatisticsSection = ({ currentProvider }: { currentProvider?: string 
     <div className="usage-statistics-section">
       {/* Estimate notice */}
       <div className="notice-box notice-box--warning">
-        <span className="codicon codicon-warning" />
+        <AlertIcon size={16} />
         {t('usage.estimateNotice')}
       </div>
 
@@ -59,14 +60,14 @@ const UsageStatisticsSection = ({ currentProvider }: { currentProvider?: string 
               className={`scope-btn ${projectScope === 'current' ? 'active' : ''}`}
               onClick={() => handleScopeChange('current')}
             >
-              <span className="codicon codicon-folder" />
+              <FolderIcon size={16} />
               {t('usage.currentProject')}
             </button>
             <button
               className={`scope-btn ${projectScope === 'all' ? 'active' : ''}`}
               onClick={() => handleScopeChange('all')}
             >
-              <span className="codicon codicon-folder-library" />
+              <FolderLibraryIcon size={16} />
               {t('usage.allProjects')}
             </button>
           </div>
@@ -101,19 +102,19 @@ const UsageStatisticsSection = ({ currentProvider }: { currentProvider?: string 
       {/* Tab navigation */}
       <div className="usage-tabs">
         <button className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>
-          <span className="codicon codicon-dashboard" />
+          <GaugeIcon size={16} />
           {t('usage.overview')}
         </button>
         <button className={`tab-btn ${activeTab === 'models' ? 'active' : ''}`} onClick={() => setActiveTab('models')}>
-          <span className="codicon codicon-symbol-class" />
+          <CodeIcon size={16} />
           {t('usage.models')}
         </button>
         <button className={`tab-btn ${activeTab === 'sessions' ? 'active' : ''}`} onClick={() => setActiveTab('sessions')}>
-          <span className="codicon codicon-list-unordered" />
+          <ListIcon size={16} />
           {t('usage.sessions')}
         </button>
         <button className={`tab-btn ${activeTab === 'timeline' ? 'active' : ''}`} onClick={() => setActiveTab('timeline')}>
-          <span className="codicon codicon-graph-line" />
+          <GraphLineIcon size={16} />
           {t('usage.timeline')}
         </button>
       </div>
@@ -168,7 +169,7 @@ const UsageStatisticsSection = ({ currentProvider }: { currentProvider?: string 
       {/* Last updated time */}
       {statistics.lastUpdated && (
         <div className="last-updated">
-          <span className="codicon codicon-sync" />
+          <SyncIcon size={16} />
           <span>{t('usage.lastUpdated')}: {formatRelativeTime(statistics.lastUpdated)}</span>
         </div>
       )}

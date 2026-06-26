@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { ChevronDownIcon } from './Icons';
 
 interface CollapsibleTextBlockProps {
   content: string;
@@ -66,7 +67,7 @@ const CollapsibleTextBlock: React.FC<CollapsibleTextBlockProps> = ({ content }) 
 
       {isOverflowing && (
         <div className="collapse-toggle" onClick={toggleExpand}>
-            <span className="codicon codicon-chevron-down" style={chevronStyle}></span>
+            <ChevronDownIcon size={16} style={chevronStyle} />
         </div>
       )}
     </div>

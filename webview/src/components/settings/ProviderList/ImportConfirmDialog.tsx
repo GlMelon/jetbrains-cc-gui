@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import styles from './style.module.less';
+import { CloseIcon } from '../../Icons';
 
 interface ImportConfirmDialogProps {
   providers: any[];
@@ -65,7 +66,7 @@ export default function ImportConfirmDialog({
         <div className={styles.dialogHeader}>
           <h3>{t('settings.provider.importDialog.title')}</h3>
           <button className={styles.closeBtn} onClick={onCancel}>
-            <span className="codicon codicon-close" />
+            <CloseIcon size={16} />
           </button>
         </div>
         

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { CodexFastMode } from '../types';
+import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from '../../Icons';
 
 const RELATIVE_INLINE_BLOCK_STYLE: React.CSSProperties = { position: 'relative', display: 'inline-block' };
 const CHEVRON_ICON_STYLE: React.CSSProperties = { fontSize: '10px', marginLeft: '2px' };
@@ -94,7 +95,7 @@ export const CodexFastModeSelect = ({ value, onChange }: CodexFastModeSelectProp
       >
         <span className={`codicon ${currentMode.icon}`} />
         <span className="selector-button-text">{getModeText(currentMode, 'label')}</span>
-        <span className={`codicon codicon-chevron-${isOpen ? 'up' : 'down'}`} style={CHEVRON_ICON_STYLE} />
+        {isOpen ? <ChevronUpIcon size={16} style={CHEVRON_ICON_STYLE} /> : <ChevronDownIcon size={16} style={CHEVRON_ICON_STYLE} />}
       </button>
 
       {isOpen && (
@@ -116,7 +117,7 @@ export const CodexFastModeSelect = ({ value, onChange }: CodexFastModeSelectProp
                 <span className="mode-description">{getModeText(mode, 'description')}</span>
               </div>
               {mode.id === value && (
-                <span className="codicon codicon-check check-mark" />
+                <CheckIcon size={16} className="check-mark" />
               )}
             </div>
           ))}

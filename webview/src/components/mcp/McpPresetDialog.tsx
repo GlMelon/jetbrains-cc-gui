@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { McpPreset } from '../../types/mcp';
+import { InfoIcon, PlusIcon, CloseIcon } from '../Icons';
 
 interface McpPresetDialogProps {
   onClose: () => void;
@@ -133,7 +134,7 @@ export function McpPresetDialog({ onClose, onSelect }: McpPresetDialogProps) {
         <div className="dialog-header">
           <h3>选择预设服务器</h3>
           <button className="close-btn" onClick={onClose}>
-            <span className="codicon codicon-close"></span>
+            <CloseIcon size={16} />
           </button>
         </div>
 
@@ -168,7 +169,7 @@ export function McpPresetDialog({ onClose, onSelect }: McpPresetDialogProps) {
                     )}
                   </div>
                 </div>
-                <span className="add-icon codicon codicon-add"></span>
+                <PlusIcon size={16} className="add-icon" />
               </div>
             ))}
           </div>
@@ -176,7 +177,7 @@ export function McpPresetDialog({ onClose, onSelect }: McpPresetDialogProps) {
 
         <div className="dialog-footer">
           <div className="footer-hint">
-            <span className="codicon codicon-info"></span>
+            <InfoIcon size={16} />
             点击预设项即可添加
           </div>
           <button className="btn btn-secondary" onClick={onClose}>取消</button>

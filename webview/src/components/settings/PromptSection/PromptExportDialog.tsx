@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import type { PromptConfig } from '../../../types/prompt';
 import styles from '../ProviderList/style.module.less';
+import { CloseIcon } from '../../Icons';
 
 interface PromptExportDialogProps {
   prompts: PromptConfig[];
@@ -63,7 +64,7 @@ export default function PromptExportDialog({
         <div className={styles.dialogHeader}>
           <h3>{t('settings.prompt.exportDialog.title')}</h3>
           <button className={styles.closeBtn} onClick={onCancel}>
-            <span className="codicon codicon-close" />
+            <CloseIcon size={16} />
           </button>
         </div>
 

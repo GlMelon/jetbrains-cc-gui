@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { CheckIcon, ChevronDownIcon, ChevronUpIcon, CommandLineIcon, InfoIcon, KeyIcon } from '../../Icons';;
 import { SPECIAL_PROVIDER_IDS, type CodexProviderConfig, type ProviderConfig } from '../../../types/provider';
 import { sendAction } from '../../../bridge/typed';
 import { UPSTREAM } from '../../../generated/protocol';
@@ -248,7 +249,7 @@ export const RuntimeProviderSelect = ({ currentProvider, embedded = false, trigg
         </div>
       ) : visibleProviders.length === 0 ? (
         <div className="selector-option disabled" style={DISABLED_OPTION_STYLE}>
-          <span className="codicon codicon-info" />
+          <InfoIcon size={16} />
           <span>{t('config.runtimeProvider.empty')}</span>
         </div>
       ) : (
@@ -262,12 +263,12 @@ export const RuntimeProviderSelect = ({ currentProvider, embedded = false, trigg
               onClick={() => handleSelect(provider)}
               title={description || getProviderDisplayName(provider, providerKind)}
             >
-              <span className="codicon codicon-key" />
+              <KeyIcon size={16} />
               <div style={PROVIDER_INFO_STYLE}>
                 <span className="runtime-provider-name">{getProviderDisplayName(provider, providerKind)}</span>
                 {description ? <span className="model-description">{description}</span> : null}
               </div>
-              {selected && <span className="codicon codicon-check check-mark" />}
+              {selected && <CheckIcon size={16} className="check-mark" />}
             </div>
           );
         })
@@ -289,9 +290,9 @@ export const RuntimeProviderSelect = ({ currentProvider, embedded = false, trigg
         aria-label={t('config.runtimeProvider.title')}
         title={`${t('config.runtimeProvider.title')}: ${activeName}`}
       >
-        <span className="codicon codicon-vm-connect" />
+        <CommandLineIcon size={14} />
         <span className="selector-button-text runtime-provider-text">{activeName}</span>
-        <span className={`codicon codicon-chevron-${isOpen ? 'up' : 'down'}`} style={CHEVRON_ICON_STYLE} />
+        {isOpen ? <ChevronUpIcon size={16} style={CHEVRON_ICON_STYLE} /> : <ChevronDownIcon size={16} style={CHEVRON_ICON_STYLE} />}
       </button>
 
       {isOpen && renderProviderDropdown()}

@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { SessionSummary } from '../../types/usage';
+import { ChevronLeftIcon, ChevronRightIcon } from '../Icons';
 
 interface SessionsTabProps {
   filteredSessions: SessionSummary[];
@@ -76,7 +77,7 @@ export const UsageSessionsTab = ({
             disabled={sessionPage === 1}
             className="page-btn"
           >
-            <span className="codicon codicon-chevron-left" />
+            <ChevronLeftIcon size={16} />
           </button>
           <span className="page-info">
             {sessionPage} / {totalPages}
@@ -86,7 +87,7 @@ export const UsageSessionsTab = ({
             disabled={sessionPage === totalPages}
             className="page-btn"
           >
-            <span className="codicon codicon-chevron-right" />
+            <ChevronRightIcon size={16} />
           </button>
         </div>
       )}

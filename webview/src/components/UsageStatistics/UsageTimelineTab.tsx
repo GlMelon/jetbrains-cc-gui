@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { DailyUsage } from '../../types/usage';
+import { InfoIcon } from '../Icons';
 
 function getGridLineStyle(index: number): React.CSSProperties {
   return { bottom: `${index * 25}%` };
@@ -92,7 +93,7 @@ export const UsageTimelineTab = ({
           })()
         ) : (
           <div className="empty-timeline">
-            <span className="codicon codicon-info" />
+            <InfoIcon size={16} />
             <p>{t('usage.noDataInRange')}</p>
           </div>
         )}

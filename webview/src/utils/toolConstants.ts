@@ -54,8 +54,18 @@ export const FILE_MODIFY_TOOL_NAMES = new Set([
 
 export function normalizeToolName(toolName: string): string {
   const lower = toolName.toLowerCase();
-  const mcpMatch = /^mcp__[^_]+__(.+)$/.exec(lower);
-  return mcpMatch ? mcpMatch[1] : lower;
+  const mcpMatch = /^mcp__(.+?)__(.+)$/.exec(lower);
+  return mcpMatch ? mcpMatch[2] : lower;
+}
+
+export function parseMcpToolName(toolName: string | undefined): { server: string; tool: string } | null {
+  if (!toolName) return null;
+  const match = /^mcp__(.+?)__(.+)$/.exec(toolName);
+  if (!match) return null;
+  return {
+    server: match[1],
+    tool: match[2],
+  };
 }
 
 /**

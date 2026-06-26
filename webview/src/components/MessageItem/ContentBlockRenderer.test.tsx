@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import type { ComponentProps } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { ClaudeContentBlock } from '../../types';
 import { ContentBlockRenderer } from './ContentBlockRenderer';
@@ -21,7 +22,10 @@ function getProviderErrorDetailsText(): string | null | undefined {
   return document.querySelector('.provider-error-details pre')?.textContent;
 }
 
-function renderBlock(block: ClaudeContentBlock) {
+function renderBlock(
+  block: ClaudeContentBlock,
+  findToolResult: ComponentProps<typeof ContentBlockRenderer>['findToolResult'] = () => null,
+) {
   return render(
     <ContentBlockRenderer
       block={block}
@@ -35,7 +39,7 @@ function renderBlock(block: ClaudeContentBlock) {
       isLastBlock={true}
       t={t}
       onToggleThinking={() => undefined}
-      findToolResult={() => null}
+      findToolResult={findToolResult}
     />,
   );
 }
@@ -95,5 +99,44 @@ describe('ContentBlockRenderer provider_error', () => {
 
     expect(document.querySelector('.provider-error-summary')).toBeNull();
     expect(getProviderErrorDetailsText()).toBe(details);
+  });
+});
+
+describe('ContentBlockRenderer tool cards', () => {
+  it('renders skill_use blocks as skill cards with truncated title args', () => {
+    const longArgs = 'render skill and mcp card previews inside the assistant message card with enough detail to confirm visual grouping and prevent title overflow in compact layouts';
+
+    renderBlock({
+      type: 'skill_use',
+      name: 'systematic-debugging',
+      command: '$systematic-debugging',
+      args: longArgs,
+      source: 'command-message',
+    });
+
+    expect(screen.getByText('Skill: systematic-debugging')).toBeTruthy();
+    expect(screen.getByText('skill')).toBeTruthy();
+    expect(document.querySelector('.skill-tool-card')).toBeTruthy();
+    expect(document.querySelector('.tool-title-summary')?.textContent).toMatch(/\.\.\.$/);
+  });
+
+  it('renders MCP tool cards even when input is missing', () => {
+    renderBlock(
+      {
+        type: 'tool_use',
+        id: 'mcp_1',
+        name: 'mcp__idea_mcp__search_symbols',
+      },
+      () => ({
+        type: 'tool_result',
+        tool_use_id: 'mcp_1',
+        content: 'found symbols',
+      }),
+    );
+
+    expect(screen.getByText('MCP: idea_mcp.search_symbols')).toBeTruthy();
+    expect(screen.getByText('mcp')).toBeTruthy();
+    expect(screen.getByText('idea_mcp')).toBeTruthy();
+    expect(document.querySelector('.mcp-tool-card')).toBeTruthy();
   });
 });

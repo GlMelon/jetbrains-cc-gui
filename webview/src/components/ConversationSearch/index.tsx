@@ -18,7 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { useConversationSearch, DEFAULT_SEARCH_OPTIONS } from '../../hooks/useConversationSearch';
 import type { SearchOptions } from '../../hooks/useConversationSearch';
 import type { MessageListRevealHandle } from './types';
-import { SearchIcon, ChevronLeftIcon, ChevronRightIcon, CloseIcon } from '../Icons';
+import { SearchIcon, ChevronLeftIcon, ChevronRightIcon, CloseIcon, WholeWordIcon, RegexIcon } from '../Icons';
 
 const STORAGE_KEY = 'cc-gui.search.options';
 
@@ -65,26 +65,6 @@ export interface ConversationSearchProps {
   /** Optional ref to scroll-behavior's auto-scroll flag for cooperation. */
   isAutoScrollingRef?: React.RefObject<boolean>;
 }
-
-// SVG icons for search toggles
-
-const WholeWordIcon = ({ size = 14 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M5 6v12" />
-    <path d="M19 6v12" />
-    <path d="M8 9l2 6 2-4 2 4 2-6" />
-  </svg>
-);
-
-const RegexIcon = ({ size = 14 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="7.5" cy="12" r="1.5" />
-    <path d="M13 8v8" />
-    <path d="M10 12h6" />
-    <path d="M11.5 9.5l3 5" />
-    <path d="M14.5 9.5l-3 5" />
-  </svg>
-);
 
 export const ConversationSearch = memo(function ConversationSearch({
   open,
@@ -277,7 +257,7 @@ export const ConversationSearch = memo(function ConversationSearch({
         title={t('chat.search.previous', { defaultValue: 'Previous match (Shift+Enter)' })}
         aria-label={t('chat.search.previous', { defaultValue: 'Previous match' })}
       >
-        <ChevronLeftIcon size={15} />
+        <ChevronLeftIcon size={16} />
       </button>
       <button
         type="button"
@@ -287,7 +267,7 @@ export const ConversationSearch = memo(function ConversationSearch({
         title={t('chat.search.next', { defaultValue: 'Next match (Enter)' })}
         aria-label={t('chat.search.next', { defaultValue: 'Next match' })}
       >
-        <ChevronRightIcon size={15} />
+        <ChevronRightIcon size={16} />
       </button>
       <button
         type="button"
@@ -296,7 +276,7 @@ export const ConversationSearch = memo(function ConversationSearch({
         title={t('chat.search.close', { defaultValue: 'Close (Esc)' })}
         aria-label={t('chat.search.close', { defaultValue: 'Close' })}
       >
-        <CloseIcon size={15} />
+        <CloseIcon size={16} />
       </button>
       {expandedCount > 0 && (
         <div className="cc-search-hint" role="status">

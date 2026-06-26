@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>会话内搜索 · 图标备选</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --bg-grad:#eef0f4;
+    --card:#ffffff; --card-2:#fafbfc;
+    --border:#e6e8ec; --soft:#eef1f5;
+    --text:#1f2330; --muted:#6b7280; --faint:#9aa3b2;
+    --accent:#7c5cff; --accent-soft:#efebff;
+    --good:#10a37f; --good-soft:#e4f6ef;
+    --shadow:0 1px 2px rgba(16,24,40,.04),0 4px 16px rgba(16,24,40,.06);
+    --shadow-lg:0 10px 40px rgba(16,24,40,.10);
+  }
+  [data-theme="dark"]{
+    --bg:#0e1014; --bg-grad:#15181f; --card:#171a21; --card-2:#1c2029;
+    --border:#272c36; --soft:#1d212a; --text:#e6e8ee; --muted:#9aa3b2; --faint:#6b7280;
+    --accent:#9d86ff; --accent-soft:#241f3a; --good:#34d399; --good-soft:#10261f;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.35);
+    --shadow-lg:0 12px 44px rgba(0,0,0,.5);
+  }
+  *{box-sizing:border-box} html,body{margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",Roboto,Helvetica,Arial,sans-serif;
+    background:radial-gradient(1200px 600px at 85% -10%, var(--accent-soft), transparent 60%),linear-gradient(180deg,var(--bg-grad),var(--bg));
+    color:var(--text);-webkit-font-smoothing:antialiased;line-height:1.55;min-height:100vh}
+  .wrap{max-width:1080px;margin:0 auto;padding:36px 24px 80px}
+  .hero{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:24px 28px;box-shadow:var(--shadow-lg);position:relative;overflow:hidden}
+  .hero h1{margin:0 0 6px;font-size:21px}
+  .hero p{margin:0;color:var(--muted);font-size:13.5px;max-width:720px}
+  .theme-btn{position:absolute;right:20px;top:20px;background:var(--soft);border:1px solid var(--border);color:var(--text);width:36px;height:36px;border-radius:10px;cursor:pointer;font-size:15px}
+  .sec{margin-top:30px}
+  .sec-head{display:flex;align-items:baseline;gap:10px;margin-bottom:4px}
+  .sec-head h2{margin:0;font-size:16px}
+  .sec-head .rec{margin-left:auto;font-size:12.5px;color:var(--muted)}
+  .sec-head .rec b{color:var(--good)}
+  .sec-desc{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  @media(max-width:760px){.row{grid-template-columns:repeat(2,1fr)}}
+  .v{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 14px 14px;box-shadow:var(--shadow);position:relative;transition:.15s}
+  .v:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
+  .v.win{border-color:color-mix(in srgb,var(--good) 45%,var(--border));background:linear-gradient(180deg,var(--good-soft),var(--card) 60%)}
+  .v .badge{position:absolute;top:10px;right:10px;font-size:10.5px;font-weight:700;color:var(--good);background:var(--good-soft);border:1px solid color-mix(in srgb,var(--good) 35%,transparent);padding:1.5px 7px;border-radius:999px}
+  .v .letter{font-size:11px;font-weight:700;color:var(--accent);background:var(--accent-soft);width:20px;height:20px;border-radius:6px;display:flex;align-items:center;justify-content:center;margin-bottom:10px}
+  .ico-big{width:72px;height:72px;border-radius:12px;background:var(--card-2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;color:var(--text)}
+  .v.win .ico-big{color:var(--good)}
+  .v .name{font-weight:600;font-size:13.5px;text-align:center;margin-bottom:4px}
+  .v .why{text-align:center;font-size:12px;color:var(--muted);line-height:1.5;min-height:36px}
+  .src{margin-top:10px;display:flex;justify-content:center;gap:5px;flex-wrap:wrap}
+  .src span{font-size:10.5px;color:var(--faint);background:var(--soft);border:1px solid var(--border);padding:1.5px 7px;border-radius:999px}
+  .src span.vs{color:var(--accent);background:var(--accent-soft)}
+  svg.ic{width:34px;height:34px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .note{margin-top:14px;font-size:13px;color:var(--muted);background:var(--card);border:1px dashed var(--border);border-radius:12px;padding:12px 16px}
+  .note b{color:var(--text)}
+  footer{text-align:center;margin-top:28px;color:var(--faint);font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <button class="theme-btn" id="themeBtn">🌙</button>
+    <h1>会话内搜索 · 图标备选</h1>
+    <p>三个匹配/搜索开关,每个给出 3–4 个候选。<b style="color:var(--good)">绿框 = 我的推荐</b>。优先选有"VS Code 原款"标签的 —— 用户在 IDE 里已有肌肉记忆,零学习成本。</p>
+  </div>
+
+  <!-- 全字匹配 -->
+  <div class="sec">
+    <div class="sec-head"><h2>① 全字匹配</h2><span class="rec">推荐 <b>B · VS Code 原款</b></span></div>
+    <p class="sec-desc">语义:只匹配完整单词,不匹配子串(如 "cat" 不命中 "concatenate")。</p>
+    <div class="row">
+
+      <div class="v">
+        <div class="letter">A</div>
+        <div class="ico-big"><svg class="ic" viewBox="0 0 24 24"><text x="12" y="18" text-anchor="middle" font-size="20" font-family="Georgia,'Times New Roman',serif" font-weight="700" fill="currentColor" stroke="none">“ ”</text></svg></div>
+        <div class="name">引号 “”</div>
+        <div class="why">"精确字面"的通用符,语义清晰</div>
+        <div class="src"><span class="vs">业界通用</span></div>
+      </div>
+
+      <div class="v win">
+        <div class="badge">✓ 推荐</div>
+        <div class="letter">B</div>
+        <div class="ico-big"><svg class="ic" viewBox="0 0 24 24"><text x="12" y="15" text-anchor="middle" font-size="12.5" font-family="-apple-system,Segoe UI,sans-serif" font-weight="700" fill="currentColor" stroke="none">ab</text><path d="M7 17h10"/></svg></div>
+        <div class="name">ab + 下划线</div>
+        <div class="why">与 VS Code 搜索栏<b>完全一致</b>,用户零学习成本</div>
+        <div class="src"><span class="vs">VS Code 原款</span><span>JetBrains 习惯</span></div>
+      </div>
+
+      <div class="v">
+        <div class="letter">C</div>
+        <div class="ico-big"><svg class="ic" viewBox="0 0 24 24"><path d="M8 5H5v14h3"/><path d="M16 5h3v14h-3"/><text x="12" y="16" text-anchor="middle" font-size="12" font-family="ui-monospace,monospace" font-weight="700" fill="currentColor" stroke="none">W</text></svg></div>
+        <div class="name">方括号 [W]</div>
+        <div class="why">"把整词框成一个单元",表意 OK</div>
+        <div class="src"><span>原创</span></div>
+      </div>
+
+      <div class="v">
+        <div class="letter">D</div>
+        <div class="ico-big"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><text x="12" y="16" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor" stroke="none">W</text></svg></div>
+        <div class="name">圆圈锁字</div>
+        <div class="why">"靶心锁定",但易与"大小写 Aa"混淆</div>
+        <div class="src"><span>原创</span></div>
+      </div>
+
+    </div>
+    <div class="note"><b>取舍:</b> B 最稳(用户每天都见)。若想跟 VS Code 拉开风格,选 A(引号)—— 也是业界惯例,语义无歧义。C/D 偏小众,仅作补充。</div>
+  </div>
+
+  <!-- 正则 -->
+  <div class="sec">
+    <div class="sec-head"><h2>② 正则匹配</h2><span class="rec">推荐 <b>A · VS Code 原款</b></span></div>
+    <p class="sec-desc">语义:把搜索词当作正则表达式解析。</p>
+    <div class="row">
+
+      <div class="v win">
+        <div class="badge">✓ 推荐</div>
+        <div class="letter">A</div>
+        <div class="ico-big"><svg class="ic" viewBox="0 0 24 24"><text x="12" y="17" text-anchor="middle" font-size="16" font-family="ui-monospace,'Cascadia Code',monospace" font-weight="700" fill="currentColor" stroke="none">.*</text></svg></div>
+        <div class="name">字符 .*</div>
+        <div class="why">正则的<b>世界语</b>,与 VS Code / 几乎所有编辑器一致</div>
+        <div class="src"><span class="vs">VS Code 原款</span><span>程序员直觉</span></div>
+      </div>
+
+      <div class="v">
+        <div class="letter">B</div>
+        <div class="ico-big"><svg class="ic" viewBox="0 0 24 24"><path d="M8 6 5.5 18"/><path d="M18.5 6 16 18"/><circle cx="10" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="13.5" cy="12" r="1" fill="currentColor" stroke="none"/></svg></div>
+        <div class="name">斜杠字面量 /…/</div>
+        <div class="why">JS 正则字面量 <code>/.../</code> 的写法,前端熟悉</div>
+        <div class="src"><span>JS 习惯</span></div>
+      </div>
+
+      <div class="v">
+        <div class="letter">C</div>
+        <div class="ico-big"><svg class="ic" viewBox="0 0 24 24"><circle cx="6.5" cy="12" r="1.6" fill="currentColor" stroke="none"/><path d="M17 5v14"/><path d="m10.5 8.5 13 7"/><path d="m10.5 15.5 13-7"/></svg></div>
+        <div class="name">点 + 星号(图形)</div>
+        <div class="why">把 <code>.*</code> 画成图形,但星号易看成"乘号/装饰"</div>
+        <div class="src"><span>原创</span></div>
+      </div>
+
+      <div class="v">
+        <div class="letter">D</div>
+        <div class="ico-big"><svg class="ic" viewBox="0 0 24 24"><path d="M10 7H8a4 4 0 0 0 0 10h2"/><path d="M14 7h2a4 4 0 0 1 0 10h-2"/><circle cx="9.5" cy="12" r=".9" fill="currentColor" stroke="none"/><circle cx="14.5" cy="12" r=".9" fill="currentColor" stroke="none"/></svg></div>
+        <div class="name">捕获组 (…)</div>
+        <div class="why">强调"分组捕获",语义偏窄,不如 .* 直接</div>
+        <div class="src"><span>原创</span></div>
+      </div>
+
+    </div>
+    <div class="note"><b>取舍:</b> A 没有争议。<code>.*</code> 是正则最短最通用的代表,任何程序员一眼认。若团队特别想强调"JS 正则"语境才考虑 B。</div>
+  </div>
+
+  <!-- 深度搜索 -->
+  <div class="sec">
+    <div class="sec-head"><h2>③ 深度搜索(历史)</h2><span class="rec">推荐 <b>A · 通用钻取</b> · 若偏 AI 增强则 <b>B</b></span></div>
+    <p class="sec-desc">语义:区别于普通搜索,扫描全部历史会话/更深的范围。核心是要和"普通放大镜"+"刷新"划清界限。</p>
+    <div class="row">
+
+      <div class="v win">
+        <div class="badge">✓ 推荐</div>
+        <div class="letter">A</div>
+        <div class="ico-big"><svg class="ic" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-5-5"/><path d="M10.5 7.5v5"/><path d="m8 10.5 2.5 2.5 2.5-2.5"/></svg></div>
+        <div class="name">放大镜 + 钻取↓</div>
+        <div class="why">镜内向下的钻取箭头 = <b>"挖得更深"</b>,与刷新彻底区分</div>
+        <div class="src"><span class="vs">业界通用</span></div>
+      </div>
+
+      <div class="v">
+        <div class="letter">B</div>
+        <div class="ico-big"><svg class="ic" viewBox="0 0 24 24"><circle cx="9.5" cy="10.5" r="6"/><path d="m18 18.5-4-4"/><path d="M16 3l1.1 2.9L20 7l-2.9 1.1L16 11l-1.1-2.9L12 7l2.9-1.1z"/></svg></div>
+        <div class="name">放大镜 + ✨</div>
+        <div class="why">星花 = <b>AI/智能增强</b>。若"深度"靠 AI 重排结果,这个最贴</div>
+        <div class="src"><span>AI 类通用</span></div>
+      </div>
+
+      <div class="v">
+        <div class="letter">C</div>
+        <div class="ico-big"><svg class="ic" viewBox="0 0 24 24"><circle cx="9.5" cy="9.5" r="6"/><path d="m17.5 17.5-3.5-3.5"/><path d="m17 11 3.5 1.8-3.5 1.7-3.5-1.7z"/><path d="m17 14.5 3.5 1.8-3.5 1.7-3.5-1.7z"/></svg></div>
+        <div class="name">放大镜 + 层叠</div>
+        <div class="why">右下层叠 = <b>"翻遍所有层"</b>,强调全量</div>
+        <div class="src"><span>原创</span></div>
+      </div>
+
+      <div class="v">
+        <div class="letter">D</div>
+        <div class="ico-big"><svg class="ic" viewBox="0 0 24 24"><circle cx="9.5" cy="9.5" r="6"/><path d="m17.5 17.5-3.5-3.5"/><ellipse cx="18" cy="15.5" rx="3.2" ry="1.3"/><path d="M14.8 15.5v2.2c0 .7 1.4 1.3 3.2 1.3s3.2-.6 3.2-1.3v-2.2"/><path d="M14.8 17.5c0 .7 1.4 1.3 3.2 1.3s3.2-.6 3.2-1.3"/></svg></div>
+        <div class="name">放大镜 + 数据库</div>
+        <div class="why">圆柱 = <b>"搜全库"</b>。若深度=全量库扫描,这个最准</div>
+        <div class="src"><span>原创</span></div>
+      </div>
+
+    </div>
+    <div class="note"><b>取舍:</b> 取决于"深度搜索"的真实行为 ——<br>
+    • 只是"比普通搜索挖得深" → <b>A(钻取)</b>,最通用最安全。<br>
+    • 搜索结果由 AI 重排/增强 → <b>B(✨)</b>,呼应项目已有的 Sparkles 视觉语言。<br>
+    • 强调"扫描全部历史会话" → <b>C 或 D</b>,把"全量"画出来。<br>
+    C/D 信息密度偏高,小尺寸下不如 A/B 清爽,仅作备选。</div>
+  </div>
+
+  <footer>本页为备选对比,未改任何项目代码 · 挑好后告诉我每项选哪个(如 "①B ②A ③A"),我再据此出最终方案</footer>
+</div>
+<script>
+  const b=document.getElementById('themeBtn'),h=document.documentElement;
+  b.onclick=()=>{const c=h.getAttribute('data-theme')==='dark'?'light':'dark';h.setAttribute('data-theme',c);b.textContent=c==='dark'?'☀️':'🌙'};
+</script>
+</body>
+</html>

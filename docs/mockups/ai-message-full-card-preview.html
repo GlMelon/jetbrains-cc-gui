@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Message Full Card Preview</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0f1114;
+      --surface: #1b1f24;
+      --surface-2: #242a31;
+      --surface-3: #171b20;
+      --border: #343c45;
+      --border-soft: #2b323a;
+      --text: #e7ebef;
+      --muted: #9da7b3;
+      --soft: #c8d0d8;
+      --green: #58c783;
+      --blue: #6db8f2;
+      --amber: #e7b95e;
+      --violet: #b29cff;
+      --cyan: #66d2d2;
+      --red: #ef7676;
+      --chip: #2b323a;
+      --code: #12161b;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      padding: 28px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .preview-shell {
+      width: min(980px, 100%);
+      margin: 0 auto;
+    }
+
+    .thread {
+      display: grid;
+      gap: 16px;
+    }
+
+    .message {
+      display: grid;
+      grid-template-columns: 32px minmax(0, 1fr);
+      column-gap: 12px;
+      align-items: start;
+    }
+
+    .avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      margin-top: 2px;
+    }
+
+    .avatar.user {
+      background: #516070;
+    }
+
+    .avatar.ai {
+      background: #2e736c;
+    }
+
+    .message-card {
+      border: 1px solid var(--border-soft);
+      border-radius: 8px;
+      background: var(--surface);
+      padding: 14px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
+    }
+
+    .user-card {
+      background: #20252b;
+      max-width: 720px;
+    }
+
+    .message-text {
+      margin: 0;
+      color: var(--text);
+    }
+
+    .ai-stack {
+      display: grid;
+      gap: 9px;
+      margin: 12px 0;
+    }
+
+    .block {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface-2);
+      overflow: hidden;
+    }
+
+    .block-header {
+      min-height: 42px;
+      display: grid;
+      grid-template-columns: 26px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 11px;
+    }
+
+    .icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      display: grid;
+      place-items: center;
+      color: #111417;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .icon.thinking {
+      background: var(--violet);
+    }
+
+    .icon.tool {
+      background: var(--cyan);
+    }
+
+    .icon.command {
+      background: var(--green);
+    }
+
+    .icon.skill {
+      background: var(--amber);
+    }
+
+    .icon.mcp {
+      background: var(--blue);
+    }
+
+    .main {
+      min-width: 0;
+    }
+
+    .title-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      color: var(--text);
+      font-weight: 650;
+    }
+
+    .title-row > span:first-child {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 1px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      height: 18px;
+      padding: 0 6px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: var(--chip);
+      color: var(--soft);
+      font-size: 11px;
+      font-weight: 500;
+      flex: 0 0 auto;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+
+    .dot.running {
+      background: var(--amber);
+    }
+
+    .dot.error {
+      background: var(--red);
+    }
+
+    .block-body {
+      border-top: 1px solid var(--border);
+      padding: 10px 11px 11px 47px;
+      display: grid;
+      gap: 8px;
+      color: var(--soft);
+    }
+
+    .thinking-body {
+      background: linear-gradient(180deg, rgba(178, 156, 255, 0.08), rgba(178, 156, 255, 0));
+    }
+
+    .kv {
+      display: grid;
+      grid-template-columns: 108px minmax(0, 1fr);
+      gap: 6px 10px;
+    }
+
+    .key {
+      color: var(--muted);
+    }
+
+    .value {
+      overflow-wrap: anywhere;
+    }
+
+    .result-line {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+    }
+
+    .result-line strong {
+      color: var(--soft);
+      font-weight: 650;
+    }
+
+    pre {
+      margin: 0;
+      padding: 9px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border-soft);
+      background: var(--code);
+      color: #dce4ec;
+      overflow: auto;
+      font-size: 12px;
+      line-height: 1.45;
+      font-family: "JetBrains Mono", Consolas, monospace;
+    }
+
+    .answer {
+      margin: 12px 0 0;
+      padding-top: 12px;
+      border-top: 1px solid var(--border-soft);
+      color: var(--text);
+    }
+
+    .answer p {
+      margin: 0 0 8px;
+    }
+
+    .answer ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    .usage {
+      margin-top: 12px;
+      padding-top: 9px;
+      border-top: 1px solid var(--border-soft);
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .usage span {
+      display: inline-flex;
+      align-items: center;
+      height: 22px;
+      padding: 0 7px;
+      border-radius: 4px;
+      background: var(--surface-3);
+      border: 1px solid var(--border-soft);
+    }
+
+    @media (max-width: 680px) {
+      body {
+        padding: 14px;
+      }
+
+      .message {
+        grid-template-columns: 1fr;
+        row-gap: 8px;
+      }
+
+      .avatar {
+        display: none;
+      }
+
+      .block-header {
+        grid-template-columns: 24px minmax(0, 1fr);
+      }
+
+      .status {
+        grid-column: 2;
+        justify-self: start;
+      }
+
+      .block-body {
+        padding-left: 11px;
+      }
+
+      .kv {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="preview-shell">
+    <section class="thread">
+      <article class="message">
+        <div class="avatar user">U</div>
+        <div class="message-card user-card">
+          <p class="message-text">排查看看为什么配置的 MCP 和 Skill 没有在消息卡片中展示，并说明根因。</p>
+        </div>
+      </article>
+
+      <article class="message">
+        <div class="avatar ai">AI</div>
+        <div class="message-card">
+          <p class="message-text">我会按消息链路排查：先读取相关规范，再检查 ai-bridge 输出、Java 消息归一化，以及 webview 消息卡片渲染。</p>
+
+          <div class="ai-stack">
+            <section class="block">
+              <header class="block-header">
+                <div class="icon thinking">?</div>
+                <div class="main">
+                  <div class="title-row">
+                    <span>思考区</span>
+                    <span class="badge">thinking</span>
+                  </div>
+                  <div class="subtitle">确认问题属于“事件是否进入消息卡片”的数据流排查</div>
+                </div>
+                <div class="status"><span class="dot"></span>已完成</div>
+              </header>
+              <div class="block-body thinking-body">
+                <div>我需要先确认 MCP/Skill 在运行时分别是什么事件类型，再判断是后端没有下发、Java 没有保留，还是前端没有渲染。</div>
+              </div>
+            </section>
+
+            <section class="block">
+              <header class="block-header">
+                <div class="icon skill">S</div>
+                <div class="main">
+                  <div class="title-row">
+                    <span>Skill: systematic-debugging</span>
+                    <span class="badge">skill</span>
+                  </div>
+                  <div class="subtitle">加载调试流程，要求先定位根因再做修复</div>
+                </div>
+                <div class="status"><span class="dot"></span>已加载</div>
+              </header>
+              <div class="block-body">
+                <div class="kv">
+                  <div class="key">来源</div>
+                  <div class="value">C:/Users/32979/.codex/skills/superpowers/systematic-debugging/SKILL.md</div>
+                  <div class="key">触发原因</div>
+                  <div class="value">用户反馈运行时表现异常，需要追踪多组件边界</div>
+                </div>
+              </div>
+            </section>
+
+            <section class="block">
+              <header class="block-header">
+                <div class="icon tool">T</div>
+                <div class="main">
+                  <div class="title-row">
+                    <span>工具调用: read_file</span>
+                    <span class="badge">tool</span>
+                  </div>
+                  <div class="subtitle">读取消息卡片渲染入口 ContentBlockRenderer.tsx</div>
+                </div>
+                <div class="status"><span class="dot"></span>已完成</div>
+              </header>
+              <div class="block-body">
+                <div class="kv">
+                  <div class="key">文件</div>
+                  <div class="value">webview/src/components/MessageItem/ContentBlockRenderer.tsx</div>
+                  <div class="key">发现</div>
+                  <div class="value">前端只对 type=tool_use 的块进入工具卡片渲染</div>
+                </div>
+              </div>
+            </section>
+
+            <section class="block">
+              <header class="block-header">
+                <div class="icon command">&gt;</div>
+                <div class="main">
+                  <div class="title-row">
+                    <span>命令行调用: rg server_tool_use</span>
+                    <span class="badge">command</span>
+                  </div>
+                  <div class="subtitle">搜索 Java 与 ai-bridge 中对 server_tool_use 的处理</div>
+                </div>
+                <div class="status"><span class="dot"></span>已完成</div>
+              </header>
+              <div class="block-body">
+                <pre>rg -n "server_tool_use|tool_use|mcp_tool_call" src/main/java ai-bridge webview/src</pre>
+                <div class="result-line"><strong>结果</strong><span>Claude CLI parser 只标记 server_tool_use 边界，没有下发 tool_use 回调</span></div>
+              </div>
+            </section>
+
+            <section class="block">
+              <header class="block-header">
+                <div class="icon mcp">M</div>
+                <div class="main">
+                  <div class="title-row">
+                    <span>MCP: idea_mcp.search_symbols</span>
+                    <span class="badge">mcp</span>
+                    <span class="badge">idea_mcp</span>
+                  </div>
+                  <div class="subtitle">通过 MCP 服务查询消息归一化相关符号</div>
+                </div>
+                <div class="status"><span class="dot running"></span>执行中</div>
+              </header>
+              <div class="block-body">
+                <div class="kv">
+                  <div class="key">server</div>
+                  <div class="value">idea_mcp</div>
+                  <div class="key">tool</div>
+                  <div class="value">search_symbols</div>
+                  <div class="key">query</div>
+                  <div class="value">RawMessageHelper.hasToolUse ClaudeCliStreamParser server_tool_use</div>
+                </div>
+              </div>
+            </section>
+
+            <section class="block">
+              <header class="block-header">
+                <div class="icon mcp">M</div>
+                <div class="main">
+                  <div class="title-row">
+                    <span>MCP: filesystem.read_text_file</span>
+                    <span class="badge">mcp</span>
+                    <span class="badge">filesystem</span>
+                  </div>
+                  <div class="subtitle">读取 ClaudeCliStreamParser.java 中的 assistant content 处理逻辑</div>
+                </div>
+                <div class="status"><span class="dot"></span>已完成</div>
+              </header>
+              <div class="block-body">
+                <div class="result-line"><strong>结果</strong><span>server_tool_use 被识别但没有转换成消息卡片可渲染的 tool_use</span></div>
+                <pre>} else if (blockType.equals("server_tool_use")) {
+  nextTextBlockIsAfterToolStructure = true;
+  // 当前缺少: callback.onMessage("tool_use", normalizedBlock)
+}</pre>
+              </div>
+            </section>
+          </div>
+
+          <section class="answer">
+            <p>结论：当前 UI 可以展示思考区、普通工具调用和命令行调用；MCP 与 Skill 没有明确卡片，原因不同。</p>
+            <ul>
+              <li>MCP 需要把不同来源的事件统一归一成消息卡片可消费的结构，并保留 server/tool 信息。</li>
+              <li>Skill 当前是用户命令文本展示，不是工具调用块；如果要卡片化，需要新增 Skill 事件块或在用户命令消息中生成结构化展示块。</li>
+              <li>最终消息卡片可以按上面的顺序连续展示，不需要把 MCP/Skill 放到单独区域。</li>
+            </ul>
+          </section>
+
+          <footer class="usage">
+            <span>输入 18.4k tokens</span>
+            <span>输出 2.1k tokens</span>
+            <span>耗时 24.6s</span>
+          </footer>
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

@@ -5,6 +5,7 @@
 
 import type { ServerToolsState, McpTool } from './types';
 import { getToolIcon } from './utils';
+import { RefreshIcon, SyncIcon } from '../Icons';
 
 const WARNING_HEADER_STYLE: React.CSSProperties = { color: 'var(--color-warning)' };
 
@@ -43,7 +44,7 @@ export function ServerToolsPanel({
                 }}
                 title={t('mcp.loadTools')}
               >
-                <span className="codicon codicon-refresh"></span>
+                <RefreshIcon size={16} />
               </button>
             )}
             {toolsInfo && !toolsInfo.loading && (
@@ -55,7 +56,7 @@ export function ServerToolsPanel({
                 }}
                 title={t('mcp.logs.forceRefreshTools')}
               >
-                <span className="codicon codicon-sync"></span>
+                <SyncIcon size={16} />
               </button>
             )}
             {toolsInfo?.loading && (

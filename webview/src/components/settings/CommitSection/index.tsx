@@ -4,6 +4,7 @@ import type { CommitAiConfig, CommitAiProvider } from '../../../types/aiFeatureC
 import { DEFAULT_COMMIT_AI_CONFIG } from '../../../types/aiFeatureConfig';
 import AiFeatureProviderModelPanel from '../AiFeatureProviderModelPanel';
 import AiFeatureSettingsCard from '../AiFeatureSettingsCard';
+import { EditIcon, FolderIcon, InfoIcon } from '../../Icons';
 
 interface CommitSectionProps {
   commitAiConfig?: CommitAiConfig;
@@ -57,7 +58,7 @@ const CommitSection = ({
       {/* Commit AI prompt configuration */}
       <div className={styles.promptSection}>
         <div className={styles.fieldHeader}>
-          <span className="codicon codicon-edit" />
+          <EditIcon size={16} />
           <span className={styles.fieldLabel}>{t('settings.commit.prompt.label')}</span>
         </div>
         <div className={styles.promptInputWrapper}>
@@ -80,7 +81,7 @@ const CommitSection = ({
           </button>
         </div>
         <small className={styles.formHint}>
-          <span className="codicon codicon-info" />
+          <InfoIcon size={16} />
           <span>{t('settings.commit.prompt.hint')}</span>
         </small>
       </div>
@@ -88,7 +89,7 @@ const CommitSection = ({
       {/* Project-level commit prompt configuration */}
       <div className={styles.promptSection}>
         <div className={styles.fieldHeader}>
-          <span className="codicon codicon-folder" />
+          <FolderIcon size={16} />
           <span className={styles.fieldLabel}>{t('settings.commit.projectPrompt.label')}</span>
         </div>
         <div className={styles.promptInputWrapper}>
@@ -111,7 +112,7 @@ const CommitSection = ({
           </button>
         </div>
         <small className={styles.formHint}>
-          <span className="codicon codicon-info" />
+          <InfoIcon size={16} />
           <span>{t('settings.commit.projectPrompt.hint')}</span>
         </small>
       </div>

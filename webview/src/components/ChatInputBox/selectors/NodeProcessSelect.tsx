@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import ConfirmDialog from '../../ConfirmDialog';
 import { getAppViewport } from '../../../utils/viewport';
+import { InfoIcon, TrashIcon } from '../../Icons';
 import {
   fetchNodeProcesses,
   killAllOrphanProcesses,
@@ -635,7 +636,7 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
         </div>
       ) : totalCount === 0 ? (
         <div style={EMPTY_STATE_STYLE}>
-          <span className="codicon codicon-info" />
+          <InfoIcon size={16} />
           <span style={{ marginLeft: 6 }}>{t('config.nodeProcesses.empty')}</span>
         </div>
       ) : (
@@ -669,7 +670,7 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
             onClick={(e) => { e.stopPropagation(); handleKillAllOrphans(); }}
             title={t('config.nodeProcesses.killAllHint')}
           >
-            <span className="codicon codicon-trash" style={{ marginRight: 4 }} />
+            <TrashIcon size={16} style={{ marginRight: 4 }} />
             {t('config.nodeProcesses.killAll', { count: orphanCount })}
           </button>
         </div>

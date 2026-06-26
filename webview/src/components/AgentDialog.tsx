@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AgentConfig } from '../types/agent';
 import { BaseDialog, DialogHeader, DialogBody, DialogFooter } from './shared/BaseDialog';
+import { UserIcon, SaveIcon, XCircleIcon, CloseIcon } from './Icons';
 
 interface AgentDialogProps {
   isOpen: boolean;
@@ -73,7 +74,7 @@ export default function AgentDialog({
     <BaseDialog isOpen={isOpen} onClose={onClose} size="md" ariaLabel={isAdding ? t('settings.agent.dialog.addTitle') : t('settings.agent.dialog.editTitle')}>
       <DialogHeader
         title={isAdding ? t('settings.agent.dialog.addTitle') : t('settings.agent.dialog.editTitle')}
-        icon={<span className="codicon codicon-person" style={{ fontSize: '16px', color: 'var(--violet)' }} />}
+        icon={<UserIcon size={16} style={{ fontSize: '16px', color: 'var(--violet)' }} />}
         onClose={onClose}
       />
 
@@ -97,7 +98,7 @@ export default function AgentDialog({
           </div>
           {nameError && (
             <p className="form-error">
-              <span className="codicon codicon-error" />
+              <XCircleIcon size={16} />
               {nameError}
             </p>
           )}
@@ -125,11 +126,11 @@ export default function AgentDialog({
 
       <DialogFooter>
         <button className="btn btn-secondary" onClick={onClose}>
-          <span className="codicon codicon-close" />
+          <CloseIcon size={16} />
           {t('common.cancel')}
         </button>
         <button className="btn btn-primary" onClick={handleSave}>
-          <span className="codicon codicon-save" />
+          <SaveIcon size={16} />
           {isAdding ? t('settings.agent.dialog.confirmAdd') : t('settings.agent.dialog.saveChanges')}
         </button>
       </DialogFooter>

@@ -1,5 +1,6 @@
 import { useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { CheckIcon, EditIcon, SparklesIcon, CloseIcon } from '../Icons';
 
 interface PromptEnhancerDialogProps {
   isOpen: boolean;
@@ -60,11 +61,11 @@ export const PromptEnhancerDialog = ({
         {/* Header */}
         <div className="prompt-enhancer-header">
           <div className="prompt-enhancer-title">
-            <span className="codicon codicon-sparkle" />
+            <SparklesIcon size={16} />
             <h3>{t('promptEnhancer.title')}</h3>
           </div>
           <button className="prompt-enhancer-close" onClick={onClose}>
-            <span className="codicon codicon-close" />
+            <CloseIcon size={16} />
           </button>
         </div>
 
@@ -73,7 +74,7 @@ export const PromptEnhancerDialog = ({
           {/* Original prompt */}
           <div className="prompt-section">
             <div className="prompt-section-header">
-              <span className="codicon codicon-edit" />
+              <EditIcon size={16} />
               <span>{t('promptEnhancer.originalPrompt')}</span>
             </div>
             <div className="prompt-text original-prompt">
@@ -84,7 +85,7 @@ export const PromptEnhancerDialog = ({
           {/* Enhanced prompt */}
           <div className="prompt-section">
             <div className="prompt-section-header">
-              <span className="codicon codicon-sparkle" />
+              <SparklesIcon size={16} />
               <span>{t('promptEnhancer.enhancedPrompt')}</span>
             </div>
             <div className="prompt-text enhanced-prompt">
@@ -107,7 +108,7 @@ export const PromptEnhancerDialog = ({
             onClick={onKeepOriginal}
             disabled={isLoading}
           >
-            <span className="codicon codicon-close" />
+            <CloseIcon size={16} />
             {t('promptEnhancer.keepOriginal')}
           </button>
           <button
@@ -115,7 +116,7 @@ export const PromptEnhancerDialog = ({
             onClick={onUseEnhanced}
             disabled={isLoading || !enhancedPrompt}
           >
-            <span className="codicon codicon-check" />
+            <CheckIcon size={16} />
             {t('promptEnhancer.useEnhanced')}
           </button>
         </div>

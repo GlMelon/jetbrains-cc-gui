@@ -21,6 +21,7 @@ import {
   TASK_STATUS_COLORS,
   normalizeBlocks as normalizeContentBlocks,
 } from './messageUtils';
+import { parseMcpToolName } from './toolConstants';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -183,6 +184,50 @@ describe('normalizeBlocks provider_error', () => {
       details: 'Codex CLI 请求失败，原因：服务暂时不可用 (503)',
       exitCode: 1,
     });
+  });
+});
+
+describe('normalizeBlocks skill_use', () => {
+  it('converts skill-format user command messages to skill_use blocks', () => {
+    const result = normalizeContentBlocks(
+      {
+        type: 'user',
+        message: {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: '<command-message>systematic-debugging</command-message><command-name>$systematic-debugging</command-name><command-args>排查问题</command-args><skill-format>true</skill-format>',
+            },
+          ],
+        },
+      } as any,
+      (text) => text,
+      ((key: string) => key) as any,
+    );
+
+    expect(result).toEqual([
+      {
+        type: 'skill_use',
+        name: 'systematic-debugging',
+        command: '$systematic-debugging',
+        args: '排查问题',
+        source: 'command-message',
+      },
+    ]);
+  });
+});
+
+describe('parseMcpToolName', () => {
+  it('extracts server and tool names from MCP tool ids', () => {
+    expect(parseMcpToolName('mcp__idea_mcp__search_symbols')).toEqual({
+      server: 'idea_mcp',
+      tool: 'search_symbols',
+    });
+  });
+
+  it('returns null for non-MCP tool ids', () => {
+    expect(parseMcpToolName('read_file')).toBeNull();
   });
 });
 

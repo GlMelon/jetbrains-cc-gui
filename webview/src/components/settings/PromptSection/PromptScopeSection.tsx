@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { PromptConfig, PromptScope } from '../../../types/prompt';
 import styles from './style.module.less';
+import { BookmarkIcon, DownloadIcon, EditIcon, UploadIcon, KebabVerticalIcon, PlusIcon, TrashIcon } from '../../Icons';
 
 interface PromptScopeSectionProps {
   /** Section title (e.g., "Global Prompts" or "Project Prompts - ProjectName") */
@@ -77,7 +78,7 @@ export default function PromptScopeSection({
             onClick={onExport}
             title={t('settings.prompt.export')}
           >
-            <span className="codicon codicon-export" />
+            <UploadIcon size={16} />
             {t('settings.prompt.export')}
           </button>
           <button
@@ -85,7 +86,7 @@ export default function PromptScopeSection({
             onClick={onImport}
             title={t('settings.prompt.import')}
           >
-            <span className="codicon codicon-cloud-download" />
+            <DownloadIcon size={16} />
             {t('settings.prompt.import')}
           </button>
           <button
@@ -93,7 +94,7 @@ export default function PromptScopeSection({
             onClick={onAdd}
             title={t('settings.prompt.create')}
           >
-            <span className="codicon codicon-add" />
+            <PlusIcon size={16} />
             {t('settings.prompt.create')}
           </button>
         </div>
@@ -116,7 +117,7 @@ export default function PromptScopeSection({
           {prompts.map((prompt) => (
             <div key={prompt.id} className={styles.promptCard}>
               <div className={styles.promptIcon}>
-                <span className="codicon codicon-bookmark" />
+                <BookmarkIcon size={16} />
               </div>
               <div className={styles.promptInfo}>
                 <div className={styles.promptName}>{prompt.name}</div>
@@ -140,7 +141,7 @@ export default function PromptScopeSection({
                   aria-expanded={openMenuId === prompt.id}
                   aria-haspopup="true"
                 >
-                  <span className="codicon codicon-kebab-vertical" />
+                  <KebabVerticalIcon size={16} />
                 </button>
                 {openMenuId === prompt.id && (
                   <div className={styles.dropdownMenu} role="menu">
@@ -149,7 +150,7 @@ export default function PromptScopeSection({
                       onClick={() => handleEditClick(prompt)}
                       role="menuitem"
                     >
-                      <span className="codicon codicon-edit" />
+                      <EditIcon size={16} />
                       {t('common.edit')}
                     </button>
                     <button
@@ -157,7 +158,7 @@ export default function PromptScopeSection({
                       onClick={() => handleDeleteClick(prompt)}
                       role="menuitem"
                     >
-                      <span className="codicon codicon-trash" />
+                      <TrashIcon size={16} />
                       {t('common.delete')}
                     </button>
                   </div>

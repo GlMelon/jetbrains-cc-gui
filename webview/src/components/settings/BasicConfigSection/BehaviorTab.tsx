@@ -2,6 +2,7 @@ import styles from './style.module.less';
 import {useTranslation} from 'react-i18next';
 import {DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS} from '../../../utils/permissionDialogTimeout';
 import {PermissionDialogTimeoutSetting} from './PermissionDialogTimeoutSetting';
+import { BellIcon, CheckIcon, CommentIcon, DiffIcon, FileIcon, GitCommitIcon, InfoIcon, KeyboardIcon, LayoutIcon, SparklesIcon, SyncIcon } from '../../Icons';
 
 export interface BehaviorTabProps {
   sendShortcut?: 'enter' | 'cmdEnter';
@@ -61,7 +62,7 @@ const BehaviorTab = ({
       {/* Send shortcut configuration */}
       <div className={styles.sendShortcutSection}>
         <div className={styles.fieldHeader}>
-          <span className="codicon codicon-keyboard" />
+          <KeyboardIcon size={16} />
           <span className={styles.fieldLabel}>{t('settings.basic.sendShortcut.label')}</span>
         </div>
         <div className={styles.themeGrid}>
@@ -71,7 +72,7 @@ const BehaviorTab = ({
           >
             {sendShortcut === 'enter' && (
               <div className={styles.checkBadge}>
-                <span className="codicon codicon-check" />
+                <CheckIcon size={16} />
               </div>
             )}
             <div className={styles.themeCardTitle}>{t('settings.basic.sendShortcut.enter')}</div>
@@ -84,7 +85,7 @@ const BehaviorTab = ({
           >
             {sendShortcut === 'cmdEnter' && (
               <div className={styles.checkBadge}>
-                <span className="codicon codicon-check" />
+                <CheckIcon size={16} />
               </div>
             )}
             <div className={styles.themeCardTitle}>{t('settings.basic.sendShortcut.cmdEnter')}</div>
@@ -101,7 +102,7 @@ const BehaviorTab = ({
       {/* Streaming configuration */}
       <div className={styles.streamingSection}>
         <div className={styles.fieldHeader}>
-          <span className="codicon codicon-sync" />
+          <SyncIcon size={16} />
           <span className={styles.fieldLabel}>{t('settings.basic.streaming.label')}</span>
         </div>
         <label className={styles.toggleWrapper}>
@@ -119,7 +120,7 @@ const BehaviorTab = ({
           </span>
         </label>
         <small className={styles.formHint}>
-          <span className="codicon codicon-info" />
+          <InfoIcon size={16} />
           <span>{t('settings.basic.streaming.hint')}</span>
         </small>
       </div>
@@ -127,7 +128,7 @@ const BehaviorTab = ({
       {/* Auto open file configuration */}
       <div className={styles.streamingSection}>
         <div className={styles.fieldHeader}>
-          <span className="codicon codicon-file" />
+          <FileIcon size={16} />
           <span className={styles.fieldLabel}>{t('settings.basic.autoOpenFile.label')}</span>
         </div>
         <label className={styles.toggleWrapper}>
@@ -145,7 +146,7 @@ const BehaviorTab = ({
           </span>
         </label>
         <small className={styles.formHint}>
-          <span className="codicon codicon-info" />
+          <InfoIcon size={16} />
           <span>{t('settings.basic.autoOpenFile.hint')}</span>
         </small>
       </div>
@@ -153,7 +154,7 @@ const BehaviorTab = ({
       {/* Diff expanded by default configuration */}
       <div className={styles.streamingSection}>
         <div className={styles.fieldHeader}>
-          <span className="codicon codicon-diff" />
+          <DiffIcon size={16} />
           <span className={styles.fieldLabel}>{t('settings.basic.diffExpanded.label')}</span>
         </div>
         <label className={styles.toggleWrapper}>
@@ -171,7 +172,7 @@ const BehaviorTab = ({
           </span>
         </label>
         <small className={styles.formHint}>
-          <span className="codicon codicon-info" />
+          <InfoIcon size={16} />
           <span>{t('settings.basic.diffExpanded.hint')}</span>
         </small>
       </div>
@@ -179,7 +180,7 @@ const BehaviorTab = ({
       {/* AI commit generation toggle */}
       <div className={styles.streamingSection}>
         <div className={styles.fieldHeader}>
-          <span className="codicon codicon-git-commit" />
+          <GitCommitIcon size={16} />
           <span className={styles.fieldLabel}>{t('settings.basic.commitGeneration.label')}</span>
         </div>
         <label className={styles.toggleWrapper}>
@@ -197,7 +198,7 @@ const BehaviorTab = ({
           </span>
         </label>
         <small className={styles.formHint}>
-          <span className="codicon codicon-info" />
+          <InfoIcon size={16} />
           <span>{t('settings.basic.commitGeneration.hint')}</span>
         </small>
       </div>
@@ -205,7 +206,7 @@ const BehaviorTab = ({
       {/* Status bar widget toggle */}
       <div className={styles.streamingSection}>
         <div className={styles.fieldHeader}>
-          <span className="codicon codicon-layout-statusbar" />
+          <LayoutIcon size={16} />
           <span className={styles.fieldLabel}>{t('settings.basic.statusBarWidget.label')}</span>
         </div>
         <label className={styles.toggleWrapper}>
@@ -223,7 +224,7 @@ const BehaviorTab = ({
           </span>
         </label>
         <small className={styles.formHint}>
-          <span className="codicon codicon-info" />
+          <InfoIcon size={16} />
           <span>{t('settings.basic.statusBarWidget.hint')}</span>
         </small>
       </div>
@@ -231,7 +232,7 @@ const BehaviorTab = ({
       {/* Task completion notification toggle */}
       <div className={styles.streamingSection}>
         <div className={styles.fieldHeader}>
-          <span className="codicon codicon-bell" />
+          <BellIcon size={16} />
           <span className={styles.fieldLabel}>{t('settings.basic.taskCompletionNotification.label')}</span>
         </div>
         <label className={styles.toggleWrapper}>
@@ -249,7 +250,7 @@ const BehaviorTab = ({
           </span>
         </label>
         <small className={styles.formHint}>
-          <span className="codicon codicon-info" />
+          <InfoIcon size={16} />
           <span>{t('settings.basic.taskCompletionNotification.hint')}</span>
         </small>
       </div>
@@ -257,7 +258,7 @@ const BehaviorTab = ({
       {/* AI session title generation toggle */}
       <div className={styles.streamingSection}>
         <div className={styles.fieldHeader}>
-          <span className="codicon codicon-sparkle" />
+          <SparklesIcon size={16} />
           <span className={styles.fieldLabel}>{t('settings.other.aiTitleGeneration.label')}</span>
         </div>
         <label className={styles.toggleWrapper}>
@@ -275,7 +276,7 @@ const BehaviorTab = ({
           </span>
         </label>
         <small className={styles.formHint}>
-          <span className="codicon codicon-info" />
+          <InfoIcon size={16} />
           <span>{t('settings.other.aiTitleGeneration.hint')}</span>
         </small>
       </div>
@@ -285,7 +286,7 @@ const BehaviorTab = ({
           layer in utils/skipNewSessionConfirm.ts owns the negation. */}
       <div className={styles.streamingSection}>
         <div className={styles.fieldHeader}>
-          <span className="codicon codicon-comment-discussion" />
+          <CommentIcon size={16} />
           <span className={styles.fieldLabel}>{t('settings.basic.newSessionConfirm.label')}</span>
         </div>
         <label className={styles.toggleWrapper}>
@@ -303,7 +304,7 @@ const BehaviorTab = ({
           </span>
         </label>
         <small className={styles.formHint}>
-          <span className="codicon codicon-info" />
+          <InfoIcon size={16} />
           <span>{t('settings.basic.newSessionConfirm.hint')}</span>
         </small>
       </div>

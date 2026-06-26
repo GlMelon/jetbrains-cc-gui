@@ -85,7 +85,7 @@ const FileChangeRow = memo(({ fileChange, isUndoing, onOpen, onShowDiff, onUndo,
           onClick={handleShowDiff}
           title={t('statusPanel.showDiff')}
         >
-          <DiffViewIcon size={15} />
+          <DiffViewIcon size={16} />
         </button>
         <button
           className="file-change-action-btn undo-btn"
@@ -94,9 +94,9 @@ const FileChangeRow = memo(({ fileChange, isUndoing, onOpen, onShowDiff, onUndo,
           disabled={isUndoing}
         >
           {isUndoing ? (
-            <LoadingIcon size={15} className="status-panel-spin-icon" />
+            <LoadingIcon size={16} className="status-panel-spin-icon" />
           ) : (
-            <UndoIcon size={15} />
+            <UndoIcon size={16} />
           )}
         </button>
       </div>

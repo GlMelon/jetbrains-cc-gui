@@ -9,6 +9,7 @@ import { readClaudeModelMapping, resolveMappedModelName } from '../../../utils/c
 import { ProviderModelIcon } from '../../shared/ProviderModelIcon';
 import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
 import { getModelRegistrySnapshot } from '../../../utils/modelRegistry';
+import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from '../../Icons';
 
 const RELATIVE_INLINE_BLOCK_STYLE: React.CSSProperties = { position: 'relative', display: 'inline-block' };
 const CHEVRON_ICON_STYLE: React.CSSProperties = { fontSize: '10px', marginLeft: '2px' };
@@ -252,7 +253,7 @@ export const ModelSelect = ({ value, onChange, models = [], currentProvider = 'c
             <ProviderModelIcon
               providerId={currentProvider}
               modelId={resolveModelIdForIcon(resolvedModel.id, modelMapping)}
-              size={12}
+              size={14}
               colored
             />
             <span className="selector-button-text">{getModelLabel(resolvedModel, true)}</span>
@@ -260,7 +261,7 @@ export const ModelSelect = ({ value, onChange, models = [], currentProvider = 'c
         ) : (
           <span className="selector-button-text">{t('chat.noModelConfigured', 'No model configured')}</span>
         )}
-        <span className={`codicon codicon-chevron-${isOpen ? 'up' : 'down'}`} style={CHEVRON_ICON_STYLE} />
+        {isOpen ? <ChevronUpIcon size={16} style={CHEVRON_ICON_STYLE} /> : <ChevronDownIcon size={16} style={CHEVRON_ICON_STYLE} />}
       </button>
 
       {isOpen && (
@@ -300,7 +301,7 @@ export const ModelSelect = ({ value, onChange, models = [], currentProvider = 'c
                 )}
               </div>
               {isSelectedModel(model.id) && (
-                <span className="codicon codicon-check check-mark" />
+                <CheckIcon size={16} className="check-mark" />
               )}
             </div>
           ))}

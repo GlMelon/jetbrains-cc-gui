@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AVAILABLE_MODES, type PermissionMode } from '../types';
-import { ChatIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, RobotIcon, TaskIcon, ZapIcon } from '../../Icons';
+import { ChatIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, FileCheckIcon, TaskIcon, UnlockIcon } from '../../Icons';
 import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
 
 const RELATIVE_INLINE_BLOCK_STYLE: React.CSSProperties = { position: 'relative', display: 'inline-block' };
@@ -38,10 +38,10 @@ function getModeIcon(modeId: PermissionMode) {
     case 'plan':
       return <TaskIcon size={14} />;
     case 'acceptEdits':
-    case 'autoEdit': // acceptEdits 历史别名,UI 同样显示 Agent 图标(C2 值域对齐)
-      return <RobotIcon size={14} />;
+    case 'autoEdit': // acceptEdits 历史别名,UI 同样显示文件确认图标(C2 值域对齐)
+      return <FileCheckIcon size={14} />;
     case 'bypassPermissions':
-      return <ZapIcon size={14} />;
+      return <UnlockIcon size={14} />;
     default:
       return <ChatIcon size={14} />;
   }
@@ -148,7 +148,7 @@ export const ModeSelect = ({ value, onChange, provider }: ModeSelectProps) => {
       >
         {getModeIcon(currentMode.id)}
         <span className="selector-button-text">{getModeText(currentMode.id, 'label')}</span>
-        {isOpen ? <ChevronUpIcon size={10} style={CHEVRON_ICON_STYLE} /> : <ChevronDownIcon size={10} style={CHEVRON_ICON_STYLE} />}
+        {isOpen ? <ChevronUpIcon size={14} style={CHEVRON_ICON_STYLE} /> : <ChevronDownIcon size={14} style={CHEVRON_ICON_STYLE} />}
       </button>
 
       {isOpen && (

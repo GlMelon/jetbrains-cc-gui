@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MCP and Skill Card Preview</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101214;
+      --panel: #1c2025;
+      --panel-2: #242a31;
+      --border: #343c45;
+      --border-soft: #2b323a;
+      --text: #e6e9ed;
+      --muted: #9da6b2;
+      --soft: #c7cdd5;
+      --green: #57c785;
+      --blue: #67b7f7;
+      --amber: #e8b85a;
+      --red: #ef7373;
+      --chip: #2a3139;
+      --code: #15191e;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 28px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .preview {
+      width: min(920px, 100%);
+    }
+
+    .message {
+      display: grid;
+      grid-template-columns: 32px minmax(0, 1fr);
+      column-gap: 12px;
+      align-items: start;
+    }
+
+    .avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: #2f6f69;
+      display: grid;
+      place-items: center;
+      color: white;
+      font-weight: 700;
+      font-size: 12px;
+      margin-top: 2px;
+    }
+
+    .message-card {
+      background: var(--panel);
+      border: 1px solid var(--border-soft);
+      border-radius: 8px;
+      padding: 14px 14px 16px;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+    }
+
+    .message-text {
+      margin: 0 0 12px;
+      color: var(--text);
+    }
+
+    .tool-stack {
+      display: grid;
+      gap: 8px;
+      margin: 10px 0 12px;
+    }
+
+    .tool-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel-2);
+      overflow: hidden;
+    }
+
+    .tool-header {
+      min-height: 42px;
+      display: grid;
+      grid-template-columns: 26px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 11px;
+    }
+
+    .tool-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      display: grid;
+      place-items: center;
+      font-size: 14px;
+      font-weight: 700;
+      color: #101214;
+    }
+
+    .tool-icon.mcp {
+      background: var(--blue);
+    }
+
+    .tool-icon.skill {
+      background: var(--amber);
+    }
+
+    .tool-icon.cmd {
+      background: var(--green);
+    }
+
+    .tool-main {
+      min-width: 0;
+    }
+
+    .tool-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .tool-title span:first-child {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .tool-subtitle {
+      margin-top: 1px;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 12px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      height: 18px;
+      padding: 0 6px;
+      border-radius: 4px;
+      background: var(--chip);
+      border: 1px solid var(--border);
+      color: var(--soft);
+      font-size: 11px;
+      font-weight: 500;
+      flex: 0 0 auto;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+
+    .dot.pending {
+      background: var(--amber);
+    }
+
+    .tool-body {
+      border-top: 1px solid var(--border);
+      padding: 10px 11px 11px 47px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .kv-grid {
+      display: grid;
+      grid-template-columns: 98px minmax(0, 1fr);
+      gap: 6px 10px;
+      color: var(--soft);
+    }
+
+    .key {
+      color: var(--muted);
+    }
+
+    .value {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    pre {
+      margin: 0;
+      padding: 9px 10px;
+      border-radius: 6px;
+      background: var(--code);
+      border: 1px solid var(--border-soft);
+      color: #dce3ea;
+      overflow: auto;
+      font-size: 12px;
+      line-height: 1.45;
+      font-family: "JetBrains Mono", Consolas, monospace;
+    }
+
+    .result-strip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .result-strip strong {
+      color: var(--soft);
+      font-weight: 600;
+    }
+
+    .final-answer {
+      margin: 12px 0 0;
+      padding-top: 12px;
+      border-top: 1px solid var(--border-soft);
+      color: var(--text);
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 14px;
+      }
+
+      .message {
+        grid-template-columns: 1fr;
+        row-gap: 8px;
+      }
+
+      .avatar {
+        display: none;
+      }
+
+      .message-card {
+        padding: 12px;
+      }
+
+      .tool-header {
+        grid-template-columns: 24px minmax(0, 1fr);
+      }
+
+      .status {
+        grid-column: 2;
+        justify-self: start;
+      }
+
+      .tool-body {
+        padding-left: 11px;
+      }
+
+      .kv-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="preview">
+    <section class="message">
+      <div class="avatar">AI</div>
+      <article class="message-card">
+        <p class="message-text">我会先加载相关 Skill，并通过配置的 MCP 服务读取项目上下文，然后给出结论。</p>
+
+        <div class="tool-stack">
+          <section class="tool-card">
+            <header class="tool-header">
+              <div class="tool-icon skill">S</div>
+              <div class="tool-main">
+                <div class="tool-title">
+                  <span>Skill: systematic-debugging</span>
+                  <span class="badge">skill</span>
+                </div>
+                <div class="tool-subtitle">加载调试流程，用于定位消息卡片未展示的问题</div>
+              </div>
+              <div class="status"><span class="dot"></span>已加载</div>
+            </header>
+            <div class="tool-body">
+              <div class="kv-grid">
+                <div class="key">来源</div>
+                <div class="value">C:/Users/32979/.codex/skills/superpowers/systematic-debugging/SKILL.md</div>
+                <div class="key">触发原因</div>
+                <div class="value">用户反馈运行时展示异常，需要先追踪根因再改代码</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="tool-card">
+            <header class="tool-header">
+              <div class="tool-icon mcp">M</div>
+              <div class="tool-main">
+                <div class="tool-title">
+                  <span>MCP: idea_mcp.search_symbols</span>
+                  <span class="badge">mcp</span>
+                  <span class="badge">idea_mcp</span>
+                </div>
+                <div class="tool-subtitle">在 IDE 索引中搜索消息卡片和工具调用渲染入口</div>
+              </div>
+              <div class="status"><span class="dot pending"></span>执行中</div>
+            </header>
+            <div class="tool-body">
+              <div class="kv-grid">
+                <div class="key">server</div>
+                <div class="value">idea_mcp</div>
+                <div class="key">tool</div>
+                <div class="value">search_symbols</div>
+                <div class="key">query</div>
+                <div class="value">ContentBlockRenderer GenericToolBlock tool_use</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="tool-card">
+            <header class="tool-header">
+              <div class="tool-icon mcp">M</div>
+              <div class="tool-main">
+                <div class="tool-title">
+                  <span>MCP: filesystem.read_text_file</span>
+                  <span class="badge">mcp</span>
+                  <span class="badge">filesystem</span>
+                </div>
+                <div class="tool-subtitle">读取 webview/src/components/MessageItem/ContentBlockRenderer.tsx</div>
+              </div>
+              <div class="status"><span class="dot"></span>已完成</div>
+            </header>
+            <div class="tool-body">
+              <div class="result-strip">
+                <strong>结果</strong>
+                <span>命中 tool_use 渲染分支，发现 server_tool_use 未进入此路径</span>
+              </div>
+              <pre>if (block.type === 'tool_use') {
+  return &lt;GenericToolBlock name={block.name} input={block.input} /&gt;;
+}</pre>
+            </div>
+          </section>
+
+          <section class="tool-card">
+            <header class="tool-header">
+              <div class="tool-icon cmd">&gt;</div>
+              <div class="tool-main">
+                <div class="tool-title">
+                  <span>Command: rg server_tool_use</span>
+                  <span class="badge">command</span>
+                </div>
+                <div class="tool-subtitle">命令行调用仍按现有样式展示，和 MCP/Skill 卡片保持同一视觉体系</div>
+              </div>
+              <div class="status"><span class="dot"></span>已完成</div>
+            </header>
+          </section>
+        </div>
+
+        <p class="final-answer">
+          结论：MCP 和 Skill 可以都作为结构化卡片嵌入同一个 AI 回复消息卡片中。MCP 卡片展示 server、tool、参数和结果；Skill 卡片展示 skill 名称、来源和触发原因。这样不会和思考区、命令行调用混在一起，也能保持对话流连续。
+        </p>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

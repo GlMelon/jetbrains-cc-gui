@@ -38,6 +38,13 @@ export type ClaudeContentBlock =
   | { type: 'thinking'; thinking?: string; text?: string }
   | { type: 'tool_use'; id?: string; name?: string; input?: ToolInput }
   | {
+      type: 'skill_use';
+      name: string;
+      command?: string;
+      args?: string;
+      source?: string;
+    }
+  | {
       type: 'image';
       src?: string;
       mediaType?: string;

@@ -6,6 +6,7 @@ import { getFileIcon } from '../../utils/fileIcons';
 import { resolveToolTarget, getToolLineInfo } from '../../utils/toolPresentation';
 import { normalizeToolInput } from '../../utils/toolInputNormalization';
 import { useResolvedFileLinkTooltip } from '../../hooks/useResolvedFileLinkTooltip';
+import { DiffIcon, EditIcon, RefreshIcon } from '../Icons';
 
 interface EditItem {
   toolId?: string;
@@ -270,14 +271,14 @@ const EditFileItem = ({ item, onFileClick, onShowDiff, onRefresh, t }: EditFileI
           title={t('tools.showDiffInIdea')}
           className="edit-group-action-btn"
         >
-          <span className="codicon codicon-diff" style={ACTION_ICON_STYLE} />
+          <DiffIcon size={16} style={ACTION_ICON_STYLE} />
         </button>
         <button
           onClick={(e) => onRefresh(item.openPath, e)}
           title={t('tools.refreshFileInIdea')}
           className="edit-group-action-btn"
         >
-          <span className="codicon codicon-refresh" style={ACTION_ICON_STYLE} />
+          <RefreshIcon size={16} style={ACTION_ICON_STYLE} />
         </button>
       </div>
 
@@ -374,7 +375,7 @@ const EditToolGroupBlock = ({ items }: EditToolGroupBlockProps) => {
         style={headerStyle}
       >
         <div className="task-title-section" style={TITLE_SECTION_STYLE}>
-          <span className="codicon codicon-edit tool-title-icon" />
+          <EditIcon size={16} className="tool-title-icon" />
           <span className="tool-title-text" style={TITLE_TEXT_STYLE}>
             {t('tools.editBatchTitle')}
           </span>

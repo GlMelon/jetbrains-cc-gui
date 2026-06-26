@@ -1,5 +1,6 @@
 import { sendAction } from '../../../bridge/typed';
 import { UPSTREAM } from '../../../generated/protocol';
+import { CodeIcon, CommentIcon, DiffIcon, TrashIcon, ImageIcon, FolderOpenedIcon, GlobeIcon, InfoIcon, PaletteIcon, TypeIcon } from '../../Icons';;
 import { useState, useRef, useEffect } from 'react';
 import styles from './style.module.less';
 import { useTranslation } from 'react-i18next';
@@ -383,7 +384,7 @@ const AppearanceTab = ({
       {/* Theme switcher */}
       <div className={styles.themeSection}>
         <div className={styles.fieldHeader}>
-          <span className="codicon codicon-symbol-color" />
+          <PaletteIcon size={16} />
           <span className={styles.fieldLabel}>{t('settings.basic.theme.label')}</span>
         </div>
 
@@ -423,7 +424,7 @@ const AppearanceTab = ({
       {/* Language switcher */}
       <div className={styles.languageSection}>
         <div className={styles.fieldHeader}>
-          <span className="codicon codicon-globe" />
+          <GlobeIcon size={16} />
           <span className={styles.fieldLabel}>{t('settings.basic.language.label')}</span>
         </div>
         <select
@@ -442,7 +443,7 @@ const AppearanceTab = ({
       {/* Font size selector */}
       <div className={styles.fontSizeSection}>
         <div className={styles.fieldHeader}>
-          <span className="codicon codicon-text-size" />
+          <TypeIcon size={16} />
           <span className={styles.fieldLabel}>{t('settings.basic.fontSize.label')}</span>
         </div>
         <select
@@ -462,7 +463,7 @@ const AppearanceTab = ({
       {/* UI font selector */}
       <div className={styles.editorFontSection}>
         <div className={styles.fieldHeader}>
-          <span className="codicon codicon-symbol-text" />
+          <TypeIcon size={16} />
           <label className={styles.fieldLabel} htmlFor={UI_FONT_SELECT_ID}>
             {t('settings.basic.editorFont.label')}
           </label>
@@ -487,7 +488,7 @@ const AppearanceTab = ({
         {isCustomUiFontSelected && (
           <div className={styles.nodePathSection} style={NODE_PATH_SECTION_STYLE}>
             <div className={styles.fieldHeader}>
-              <span className="codicon codicon-file-media" />
+              <ImageIcon size={16} />
               <label className={styles.fieldLabel} htmlFor={UI_FONT_CUSTOM_PATH_ID}>
                 {t('settings.basic.editorFont.customPathLabel')}
               </label>
@@ -508,7 +509,7 @@ const AppearanceTab = ({
                 aria-label={t('settings.basic.editorFont.browse')}
                 title={t('settings.basic.editorFont.browse')}
               >
-                <span className="codicon codicon-folder-opened" />
+                <FolderOpenedIcon size={16} />
               </button>
               <button
                 type="button"
@@ -523,7 +524,7 @@ const AppearanceTab = ({
         )}
 
         <small className={styles.formHint}>
-          <span className="codicon codicon-info" />
+          <InfoIcon size={16} />
           <span>{uiFontHint}</span>
         </small>
       </div>
@@ -531,7 +532,7 @@ const AppearanceTab = ({
       {/* Code font selector */}
       <div className={styles.editorFontSection}>
         <div className={styles.fieldHeader}>
-          <span className="codicon codicon-code" />
+          <CodeIcon size={16} />
           <label className={styles.fieldLabel} htmlFor={CODE_FONT_SELECT_ID}>
             {t('settings.basic.codeFont.label')}
           </label>
@@ -568,7 +569,7 @@ const AppearanceTab = ({
         {isCustomCodeFontSelected && (
           <div className={styles.nodePathSection} style={NODE_PATH_SECTION_STYLE}>
             <div className={styles.fieldHeader}>
-              <span className="codicon codicon-file-media" />
+              <ImageIcon size={16} />
               <label className={styles.fieldLabel} htmlFor={CODE_FONT_CUSTOM_PATH_ID}>
                 {t('settings.basic.codeFont.customPathLabel')}
               </label>
@@ -589,7 +590,7 @@ const AppearanceTab = ({
                 aria-label={t('settings.basic.codeFont.browse')}
                 title={t('settings.basic.codeFont.browse')}
               >
-                <span className="codicon codicon-folder-opened" />
+                <FolderOpenedIcon size={16} />
               </button>
               <button
                 type="button"
@@ -604,7 +605,7 @@ const AppearanceTab = ({
         )}
 
         <small className={styles.formHint}>
-          <span className="codicon codicon-info" />
+          <InfoIcon size={16} />
           <span>{codeFontHint}</span>
         </small>
       </div>
@@ -612,7 +613,7 @@ const AppearanceTab = ({
       {/* Diff theme */}
       <div className={styles.themeSection}>
         <div className={styles.fieldHeader}>
-          <span className="codicon codicon-diff" />
+          <DiffIcon size={16} />
           <span className={styles.fieldLabel}>{t('settings.basic.diffTheme.label')}</span>
         </div>
 
@@ -632,7 +633,7 @@ const AppearanceTab = ({
       {/* Chat background color */}
       <div className={styles.bgColorSection}>
         <div className={styles.fieldHeader}>
-          <span className="codicon codicon-paintcan" />
+          <PaletteIcon size={16} />
           <span className={styles.fieldLabel}>{t('settings.basic.chatBgColor.label')}</span>
         </div>
 
@@ -693,14 +694,14 @@ const AppearanceTab = ({
               onClick={handleResetBgColor}
               title={t('settings.basic.chatBgColor.reset')}
             >
-              <span className="codicon codicon-discard" />
+              <TrashIcon size={16} />
               {t('settings.basic.chatBgColor.reset')}
             </button>
           )}
         </div>
 
         <small className={styles.formHint}>
-          <span className="codicon codicon-info" />
+          <InfoIcon size={16} />
           <span>{t('settings.basic.chatBgColor.hint')}</span>
         </small>
       </div>
@@ -708,7 +709,7 @@ const AppearanceTab = ({
       {/* User message bubble color */}
       <div className={styles.bgColorSection}>
         <div className={styles.fieldHeader}>
-          <span className="codicon codicon-comment" />
+          <CommentIcon size={16} />
           <span className={styles.fieldLabel}>{t('settings.basic.userMsgColor.label')}</span>
         </div>
 
@@ -769,14 +770,14 @@ const AppearanceTab = ({
               onClick={handleResetUserMsgColor}
               title={t('settings.basic.userMsgColor.reset')}
             >
-              <span className="codicon codicon-discard" />
+              <TrashIcon size={16} />
               {t('settings.basic.userMsgColor.reset')}
             </button>
           )}
         </div>
 
         <small className={styles.formHint}>
-          <span className="codicon codicon-info" />
+          <InfoIcon size={16} />
           <span>{t('settings.basic.userMsgColor.hint')}</span>
         </small>
       </div>

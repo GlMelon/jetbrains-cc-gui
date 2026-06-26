@@ -7,6 +7,7 @@ import { buildVersionOptions, getRequestedVersion, resolveVersionAction } from '
 import styles from './style.module.less';
 import { bridgeHub, registerLegacyAlias } from '../../../bridge';
 import { ProviderModelIcon } from '../../shared/ProviderModelIcon';
+import { CheckIcon, ChevronDownIcon, DownloadIcon, FolderIcon, InfoIcon, SyncIcon, TrashIcon, AlertIcon, CloseIcon } from '../../Icons';
 
 interface DependencySectionProps {
   addToast?: (message: string, type: 'info' | 'success' | 'warning' | 'error') => void;
@@ -107,7 +108,7 @@ const VersionSelect = ({
         aria-label={valueLabel}
       >
         <span className={styles.versionSelectValue}>{displayValue}</span>
-        <span className={`codicon codicon-chevron-down ${styles.versionSelectIcon}`} />
+        <ChevronDownIcon size={16} className={styles.versionSelectIcon} />
       </button>
 
       {open && (
@@ -128,7 +129,7 @@ const VersionSelect = ({
                 }}
               >
                 <span>{`v${version}`}</span>
-                {selected && <span className="codicon codicon-check" />}
+                {selected && <CheckIcon size={16} />}
               </button>
             );
           })}
@@ -468,14 +469,14 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
 
       {/* SDK Install Policy Tip */}
       <div className={styles.sdkWarningBar}>
-        <span className="codicon codicon-info" />
+        <InfoIcon size={16} />
         <span className={styles.warningText}>{t('settings.dependency.installPolicyTip')}</span>
       </div>
 
       {/* Node.js Environment Warning */}
       {nodeAvailable === false && (
         <div className={styles.warningBanner}>
-          <span className="codicon codicon-warning" />
+          <AlertIcon size={16} />
           <span>{t('settings.dependency.nodeNotConfigured')}</span>
         </div>
       )}
@@ -520,7 +521,7 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
                 <div className={styles.sdkHeader}>
                   <div className={styles.sdkInfo}>
                     <div className={styles.sdkName}>
-                      <ProviderModelIcon providerId={sdk.id === 'claude-sdk' ? 'claude' : 'codex'} size={18} colored />
+                      <ProviderModelIcon providerId={sdk.id === 'claude-sdk' ? 'claude' : 'codex'} size={20} colored />
                       <span>{t(sdk.nameKey)}</span>
                       {installed && info?.installedVersion && (
                         <span className={styles.versionBadge}>v{info.installedVersion}</span>
@@ -564,7 +565,7 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
                                 </>
                               ) : (
                                 <>
-                                  <span className="codicon codicon-cloud-download" />
+                                  <DownloadIcon size={16} />
                                   <span>{getActionLabel(sdk.id, installed)}</span>
                                 </>
                               )}
@@ -583,7 +584,7 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
                                   </>
                                 ) : (
                                   <>
-                                    <span className="codicon codicon-sync" />
+                                    <SyncIcon size={16} />
                                     <span>{getActionLabel(sdk.id, installed)}</span>
                                   </>
                                 )}
@@ -600,7 +601,7 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
                                   </>
                                 ) : (
                                   <>
-                                    <span className="codicon codicon-trash" />
+                                    <TrashIcon size={16} />
                                     <span>{t('settings.dependency.uninstall')}</span>
                                   </>
                                 )}
@@ -641,7 +642,7 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
                 {/* Install path info */}
                 {installed && info?.installPath && (
                   <div className={styles.installPath}>
-                    <span className="codicon codicon-folder" />
+                    <FolderIcon size={16} />
                     <span>{info.installPath}</span>
                   </div>
                 )}
@@ -657,7 +658,7 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
           <div className={styles.logsHeader}>
             <span>{t('settings.dependency.installLogs')}</span>
             <button className={styles.closeLogsBtn} onClick={() => setShowLogs(false)}>
-              <span className="codicon codicon-close" />
+              <CloseIcon size={16} />
             </button>
           </div>
           <div className={styles.logsContainer} ref={logContainerRef}>

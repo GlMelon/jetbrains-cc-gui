@@ -3,6 +3,7 @@ import type { ProviderConfig } from '../../../types/provider';
 import { SPECIAL_PROVIDER_IDS } from '../../../types/provider';
 import ProviderList from '../ProviderList';
 import styles from './style.module.less';
+import { InfoIcon } from '../../Icons';
 
 interface ProviderManageSectionProps {
   providers: ProviderConfig[];
@@ -77,7 +78,7 @@ const ProviderManageSection = ({
           addToast={addToast}
           emptyState={
             <>
-              <span className="codicon codicon-info" />
+              <InfoIcon size={16} />
               <p>{t('settings.provider.emptyProvider')}</p>
             </>
           }

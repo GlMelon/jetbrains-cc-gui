@@ -7,8 +7,14 @@
 
 import React from 'react';
 
+/** Size tokens — preferred values for icon sizing */
+export const ICON_SM = 14 as const;
+export const ICON_MD = 16 as const;
+export const ICON_LG = 20 as const;
+export type IconSize = typeof ICON_SM | typeof ICON_MD | typeof ICON_LG;
+
 interface IconProps {
-  size?: number;
+  size?: IconSize;
   className?: string;
   style?: React.CSSProperties;
 }
@@ -79,6 +85,13 @@ export const ArrowDownIcon = createIcon(
   <>
     <path d="M12 5v14" />
     <path d="M19 12l-7 7-7-7" />
+  </>
+);
+
+export const ArrowRightIcon = createIcon(
+  <>
+    <path d="M5 12h14" />
+    <path d="M12 5l7 7-7 7" />
   </>
 );
 
@@ -781,26 +794,19 @@ export const DiffIcon = createIcon(
   </>
 );
 
-// Dual-column diff view icon — double brackets with center axis
+// Dual-column diff view icon — left/right panes (标准 diff 对照视图)
 export const DiffViewIcon = createIcon(
   <>
-    <path d="M7 5H5v14h2" />
-    <path d="M17 5h2v14h-2" />
-    <path d="M10 9h4" />
-    <path d="M10 15h4" />
-    <path d="M12 5v14" />
+    <rect x="3" y="5" width="8" height="14" rx="1.5" />
+    <rect x="13" y="5" width="8" height="14" rx="1.5" />
   </>
 );
 
-// Keep-all / checklist icon — multiple lines with checkmarks
+// Keep-all icon — double checkmarks ("全部确认/保留所有改动")
 export const KeepAllIcon = createIcon(
   <>
-    <path d="M9 6h10" />
-    <path d="M9 12h10" />
-    <path d="M9 18h10" />
-    <polyline points="4 6 5.5 7.5 7.5 5.5" />
-    <polyline points="4 12 5.5 13.5 7.5 11.5" />
-    <polyline points="4 18 5.5 19.5 7.5 17.5" />
+    <path d="M18 6 7 17l-5-5" />
+    <path d="m22 10-7.5 7.5L12 15" />
   </>
 );
 
@@ -924,14 +930,173 @@ export const TriangleIcon = createIcon(<path d="M10.29 3.86L1.82 18a2 2 0 001.71
 
 export const DiamondIcon = createIcon(<rect x="4.5" y="4.5" width="15" height="15" rx="1" transform="rotate(45 12 12)" />);
 
-// ==================== History Page Icons ====================
+// ==================== Self-Explanatory Functional Icons ====================
+// (Part A · 图标自表意优化) 语义清晰的专用图标,替换原"看图标猜不出功能"的图形。
+// 设计:气泡/圆柱/文件+对勾等承载"会发生什么"的语义,而非抽象符号。
 
-export const ChecklistIcon = createIcon(
+// 回退上一轮对话 — 气泡 + 左箭头(区别于刷新/重置)
+export const ChatRewindIcon = createIcon(
   <>
-    <path d="M9 11l3 3L22 4" />
-    <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
+    <path d="M21 11.5a8.5 8.5 0 0 1-12.6 7.4L3 21l1.9-5.4A8.5 8.5 0 0 1 12.5 3a8.5 8.5 0 0 1 8.5 8.5z" />
+    <path d="M9 11.5 7 13.5 9 15.5" />
+    <path d="M7 13.5h5" />
   </>
 );
+
+// 缓存写入 token — 圆柱 + 下箭头(与"缓存读取"统一为圆柱系,箭头表写入)
+export const CacheWriteIcon = createIcon(
+  <>
+    <path d="M12 3v6" />
+    <path d="m9 6 3 3 3-3" />
+    <ellipse cx="12" cy="16" rx="7" ry="2.6" />
+    <path d="M5 16v2c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6v-2" />
+  </>
+);
+
+// 新开标签页/窗口 — 窗口 + 加号(区别于田字格布局 与 PlusIcon 新建会话)
+export const NewTabIcon = createIcon(
+  <>
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <path d="M3 8h18" />
+    <path d="M17 13.5v4" />
+    <path d="m15 15.5 2-2 2 2" />
+  </>
+);
+
+// 自动接受编辑模式 (acceptEdits) — 文件 + 对勾
+export const FileCheckIcon = createIcon(
+  <>
+    <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+    <path d="M14 3v5h6" />
+    <path d="m8.5 14.5 2 2 4-4" />
+  </>
+);
+
+// 全字匹配 — ab + 下划线(对齐 VS Code / IntelliJ 搜索栏,零学习成本)
+export const WholeWordIcon = createIcon(
+  <>
+    <text x="12" y="15" textAnchor="middle" fontSize="12.5" fontFamily="ui-sans-serif, system-ui, sans-serif" fontWeight="700" fill="currentColor" stroke="none">ab</text>
+    <path d="M7 17h10" />
+  </>
+);
+
+// 正则匹配 — 字符 .*(正则世界语)
+export const RegexIcon = createIcon(
+  <text x="12" y="17" textAnchor="middle" fontSize="16" fontFamily="ui-monospace, 'Cascadia Code', monospace" fontWeight="700" fill="currentColor" stroke="none">.*</text>
+);
+
+// 深度搜索(历史)— 放大镜 + 内部十字钻取(区别于刷新/同步)
+export const SearchDeepIcon = createIcon(
+  <>
+    <circle cx="11" cy="11" r="7" />
+    <path d="m21 21-4.3-4.3" />
+    <path d="M8 11h6" />
+    <path d="M11 8v6" />
+  </>
+);
+
+// Edits / 文件改动标签 — 文件 + diff 行(明确"列改动"非"编辑动作")
+export const FileDiffIcon = createIcon(
+  <>
+    <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+    <path d="M14 3v5h6" />
+    <path d="M8.5 12.5h3l-3 4h3" />
+    <path d="M16 11v5" />
+    <path d="M13.5 13.5h5" />
+  </>
+);
+
+// 命令行 / 运行时(Node 进程)入口 — 终端 >_
+export const CommandLineIcon = createIcon(
+  <>
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <path d="M3 9h18" />
+    <path d="m7 13 3 3-3 3" />
+    <path d="M13 16h4" />
+  </>
+);
+
+// 配额 / 用量查询 — 量表 (gauge,仪表表盘 = 余额计量)
+export const GaugeIcon = createIcon(
+  <>
+    <path d="M3.5 19a10 10 0 1 1 17 0" />
+    <path d="m12 14 4-4" />
+    <circle cx="12" cy="14" r="1.2" fill="currentColor" stroke="none" />
+  </>
+);
+
+// 日志 / 输出 — 文档 + 行(MCP 日志等)
+export const LogIcon = createIcon(
+  <>
+    <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+    <path d="M14 3v5h6" />
+    <path d="M8 12h8" />
+    <path d="M8 15.5h8" />
+    <path d="M8 9h2" />
+  </>
+);
+
+// 转换为 CLI 会话 — 终端 + 箭头(目标形态可见)
+export const TerminalArrowIcon = createIcon(
+  <>
+    <rect x="3" y="4" width="14" height="16" rx="2" />
+    <path d="m7 9 3 3-3 3" />
+    <path d="M17 12h4" />
+    <path d="M19 10l2 2-2 2" />
+  </>
+);
+
+// 命名空间符号 — 花括号 {}
+export const BracesIcon = createIcon(
+  <>
+    <path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1" />
+    <path d="M16 3h1a2 2 0 0 1 2 2v5c0 1.1.9 2 2 2a2 2 0 0 1-2 2v5a2 2 0 0 1-2 2h-1" />
+  </>
+);
+
+// 颜色符号 — 调色板
+export const PaletteIcon = createIcon(
+  <path d="M12 2.7 17.7 8.3a8 8 0 1 1-11.4 0z" />
+);
+
+// 文本符号 — 字母 A
+export const TypeIcon = createIcon(
+  <>
+    <polyline points="4 7 4 4 20 4 20 7" />
+    <path d="M9 20h6" />
+    <path d="M12 4v16" />
+  </>
+);
+
+// 启用开关 — 电源
+export const PowerIcon = createIcon(
+  <>
+    <path d="M12 2v10" />
+    <path d="M18.4 6.6a9 9 0 1 1-12.8 0" />
+  </>
+);
+
+// 禁用 — 禁止圈
+export const BanIcon = createIcon(
+  <>
+    <circle cx="12" cy="12" r="9" />
+    <path d="m5.6 5.6 12.8 12.8" />
+  </>
+);
+
+// 拖拽手柄 — 六点
+export const GripIcon = createIcon(
+  <>
+    <circle cx="9" cy="6" r="1.3" fill="currentColor" stroke="none" />
+    <circle cx="9" cy="12" r="1.3" fill="currentColor" stroke="none" />
+    <circle cx="9" cy="18" r="1.3" fill="currentColor" stroke="none" />
+    <circle cx="15" cy="6" r="1.3" fill="currentColor" stroke="none" />
+    <circle cx="15" cy="12" r="1.3" fill="currentColor" stroke="none" />
+    <circle cx="15" cy="18" r="1.3" fill="currentColor" stroke="none" />
+  </>
+);
+
+// ==================== History Page Icons ====================
 
 export const CheckAllIcon = createIcon(
   <>
@@ -977,6 +1142,148 @@ export const SyncIcon: React.FC<IconProps & { spinning?: boolean }> = ({
     <path d="M3 22v-6h6" />
     <path d="M21 12a9 9 0 01-15.36 6.36L3 16" />
   </svg>
+);
+
+// ==================== Missing Codicon Mappings ====================
+
+export const GraphIcon = createIcon(
+  <>
+    <circle cx="12" cy="5" r="2" />
+    <circle cx="5" cy="19" r="2" />
+    <circle cx="19" cy="19" r="2" />
+    <path d="M12 7v4m0 0l-5 6m5-6l5 6" />
+  </>
+);
+
+export const CommentIcon = createIcon(
+  <>
+    <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" />
+  </>
+);
+
+export const InboxIcon = createIcon(
+  <>
+    <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+    <path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z" />
+  </>
+);
+
+export const KeyIcon = createIcon(
+  <>
+    <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
+  </>
+);
+
+export const NumberIcon = createIcon(
+  <>
+    <path d="M4 17l2-4m2 4l2-8m2 8l2-6m2 6l2-4" />
+    <circle cx="4" cy="17" r="1" fill="currentColor" stroke="none" />
+    <circle cx="8" cy="13" r="1" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="17" r="1" fill="currentColor" stroke="none" />
+    <circle cx="16" cy="11" r="1" fill="currentColor" stroke="none" />
+    <circle cx="20" cy="17" r="1" fill="currentColor" stroke="none" />
+  </>
+);
+
+export const RocketIcon = createIcon(
+  <>
+    <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 00-2.91-.09z" />
+    <path d="M12 15l-3-3a22 22 0 012-3.95A12.88 12.88 0 0122 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 01-4 2z" />
+    <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
+    <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
+  </>
+);
+
+export const ServerProcessIcon = createIcon(
+  <>
+    <rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
+    <rect x="2" y="14" width="20" height="8" rx="2" ry="2" />
+    <line x1="6" y1="6" x2="6.01" y2="6" />
+    <line x1="6" y1="18" x2="6.01" y2="18" />
+  </>
+);
+
+export const CreditCardIcon = createIcon(
+  <>
+    <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+    <line x1="1" y1="10" x2="23" y2="10" />
+  </>
+);
+
+export const FolderLibraryIcon = createIcon(
+  <>
+    <path d="M4 20h16a2 2 0 002-2V8a2 2 0 00-2-2h-7.93a2 2 0 01-1.66-.9l-.82-1.2A2 2 0 007.93 3H4a2 2 0 00-2 2v13c0 1.1.9 2 2 2z" />
+    <path d="M8 12h8M8 16h5" />
+  </>
+);
+
+export const GraphLineIcon = createIcon(
+  <>
+    <path d="M3 3v18h18" />
+    <path d="M7 16l4-4 4 2 5-6" />
+  </>
+);
+
+export const BookIcon = createIcon(
+  <>
+    <path d="M4 19.5A2.5 2.5 0 016.5 17H20" />
+    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" />
+  </>
+);
+
+export const ExtensionsIcon = createIcon(
+  <>
+    <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4" />
+    <polyline points="10 17 15 12 10 7" />
+    <line x1="15" y1="12" x2="3" y2="12" />
+  </>
+);
+
+export const HomeIcon = createIcon(
+  <>
+    <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+    <polyline points="9 22 9 12 15 12 15 22" />
+  </>
+);
+
+export const KebabVerticalIcon = createIcon(
+  <>
+    <circle cx="12" cy="5" r="1.5" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="19" r="1.5" fill="currentColor" stroke="none" />
+  </>
+);
+
+export const FolderOpenedIcon = createIcon(
+  <>
+    <path d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h6a2 2 0 012 2v1" />
+    <path d="M2 14l3.5 5h13l3.5-5" />
+  </>
+);
+
+export const KeyboardIcon = createIcon(
+  <>
+    <rect x="2" y="4" width="20" height="16" rx="2" ry="2" />
+    <line x1="6" y1="8" x2="6.01" y2="8" />
+    <line x1="10" y1="8" x2="10.01" y2="8" />
+    <line x1="14" y1="8" x2="14.01" y2="8" />
+    <line x1="18" y1="8" x2="18.01" y2="8" />
+    <line x1="6" y1="12" x2="6.01" y2="12" />
+    <line x1="10" y1="12" x2="10.01" y2="12" />
+    <line x1="14" y1="12" x2="14.01" y2="12" />
+    <line x1="18" y1="12" x2="18.01" y2="12" />
+    <line x1="8" y1="16" x2="16" y2="16" />
+  </>
+);
+
+export const GitHubIcon = createIcon(
+  <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 00-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0020 4.77 5.07 5.07 0 0019.91 1S18.73.65 16 2.48a13.38 13.38 0 00-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 005 4.77a5.44 5.44 0 00-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 009 18.13V22" />
+);
+
+export const WrenchIcon = createIcon(
+  <>
+    <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" />
+  </>
 );
 
 // Export all icons as a map for convenience
@@ -1104,9 +1411,27 @@ export const Icons = {
   squareFilled: SquareFilledIcon,
   triangle: TriangleIcon,
   diamond: DiamondIcon,
-  checklist: ChecklistIcon,
+  checklist: TaskIcon,
   checkAll: CheckAllIcon,
   clearAll: ClearAllIcon,
+  chatRewind: ChatRewindIcon,
+  cacheWrite: CacheWriteIcon,
+  newTab: NewTabIcon,
+  fileCheck: FileCheckIcon,
+  wholeWord: WholeWordIcon,
+  regex: RegexIcon,
+  searchDeep: SearchDeepIcon,
+  fileDiff: FileDiffIcon,
+  commandLine: CommandLineIcon,
+  gauge: GaugeIcon,
+  log: LogIcon,
+  terminalArrow: TerminalArrowIcon,
+  braces: BracesIcon,
+  palette: PaletteIcon,
+  type: TypeIcon,
+  power: PowerIcon,
+  ban: BanIcon,
+  grip: GripIcon,
   sync: SyncIcon,
 } as const;
 

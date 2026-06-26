@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { copyToClipboard } from '../../utils/copyUtils';
+import { ExtensionsIcon, ExternalLinkIcon, FileCodeIcon, FolderIcon, GearIcon, LightbulbIcon, CloseIcon } from '../Icons';
 
 const COPIED_INDICATOR_STYLE: React.CSSProperties = {
   marginLeft: '8px',
@@ -50,7 +51,7 @@ export function SkillHelpDialog({ onClose, currentProvider = 'claude' }: SkillHe
         <div className="dialog-header">
           <h3>{t(`${hp}.title`)}</h3>
           <button className="close-btn" onClick={onClose}>
-            <span className="codicon codicon-close"></span>
+            <CloseIcon size={16} />
           </button>
         </div>
 
@@ -58,7 +59,7 @@ export function SkillHelpDialog({ onClose, currentProvider = 'claude' }: SkillHe
         <div className="dialog-content help-content">
           <section className="help-section">
             <h4>
-              <span className="codicon codicon-extensions"></span>
+              <ExtensionsIcon size={16} />
               {t(`${hp}.overview.title`)}
             </h4>
             <p>{t(`${hp}.overview.description`)}</p>
@@ -66,7 +67,7 @@ export function SkillHelpDialog({ onClose, currentProvider = 'claude' }: SkillHe
 
           <section className="help-section">
             <h4>
-              <span className="codicon codicon-folder"></span>
+              <FolderIcon size={16} />
               {t(`${hp}.structure.title`)}
             </h4>
             <p>{t(`${hp}.structure.description`)}</p>
@@ -77,7 +78,7 @@ export function SkillHelpDialog({ onClose, currentProvider = 'claude' }: SkillHe
 
           <section className="help-section">
             <h4>
-              <span className="codicon codicon-file-code"></span>
+              <FileCodeIcon size={16} />
               {t(`${hp}.format.title`)}
             </h4>
             <p>{t(`${hp}.format.description`)}</p>
@@ -91,7 +92,7 @@ export function SkillHelpDialog({ onClose, currentProvider = 'claude' }: SkillHe
 
           <section className="help-section">
             <h4>
-              <span className="codicon codicon-gear"></span>
+              <GearIcon size={16} />
               {t(`${hp}.configuration.title`)}
             </h4>
             <p>{t(`${hp}.configuration.description`)}</p>
@@ -124,7 +125,7 @@ export function SkillHelpDialog({ onClose, currentProvider = 'claude' }: SkillHe
 
           <section className="help-section">
             <h4>
-              <span className="codicon codicon-lightbulb"></span>
+              <LightbulbIcon size={16} />
               {t(`${hp}.tips.title`)}
             </h4>
             <ul>
@@ -138,7 +139,7 @@ export function SkillHelpDialog({ onClose, currentProvider = 'claude' }: SkillHe
 
           <section className="help-section">
             <h4>
-              <span className="codicon codicon-link-external"></span>
+              <ExternalLinkIcon size={16} />
               {t(`${hp}.learnMore.title`)}
             </h4>
             <p>{t(`${hp}.learnMore.description`)}</p>

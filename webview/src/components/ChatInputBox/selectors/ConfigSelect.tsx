@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { CheckIcon, ChevronRightIcon, CommandLineIcon, LightbulbIcon, RobotIcon, ServerProcessIcon, SettingsIcon, SyncIcon } from '../../Icons';;
 import { useTranslation } from 'react-i18next';
 import { Switch } from '../../shared/Switch';
 import { agentProvider, CREATE_NEW_AGENT_ID, EMPTY_STATE_ID, type AgentItem } from '../providers/agentProvider';
@@ -365,7 +366,7 @@ export const ConfigSelect = ({
                   <span className="model-description" style={AGENT_DESC_PLAIN_STYLE}>{t('settings.agent.createAgentHint')}</span>
                 ) : null}
               </div>
-              {isSelected && <span className="codicon codicon-check check-mark" />}
+              {isSelected && <CheckIcon size={16} className="check-mark" />}
             </div>
           );
         })
@@ -383,7 +384,7 @@ export const ConfigSelect = ({
         style={TOGGLE_BUTTON_STYLE}
         title={t('settings.configure', 'Configure')}
       >
-        <span className="codicon codicon-settings" />
+        <SettingsIcon size={16} />
       </button>
 
       {isOpen && (
@@ -404,7 +405,7 @@ export const ConfigSelect = ({
             onMouseLeave={() => setActiveSubmenu('none')}
             style={SELECTOR_OPTION_RELATIVE_STYLE}
           >
-            <span className="codicon codicon-robot" />
+            <RobotIcon size={16} />
             <div style={ITEM_INFO_STYLE}>
               <span>{t('settings.agent.title')}</span>
               {selectedAgent?.name ? (
@@ -414,7 +415,7 @@ export const ConfigSelect = ({
               ) : null}
             </div>
             <div style={ARROW_CONTAINER_STYLE}>
-              <span className="codicon codicon-chevron-right" style={ARROW_ICON_STYLE} />
+              <ChevronRightIcon size={16} style={ARROW_ICON_STYLE} />
             </div>
 
             {activeSubmenu === 'agent' && renderAgentSubmenu()}
@@ -431,12 +432,12 @@ export const ConfigSelect = ({
             onMouseLeave={() => setActiveSubmenu('none')}
             style={SELECTOR_OPTION_RELATIVE_STYLE}
           >
-            <span className="codicon codicon-vm-connect" />
+            <CommandLineIcon size={14} />
             <div style={ITEM_INFO_STYLE}>
               <span>{t('config.runtimeProvider.title')}</span>
             </div>
             <div style={ARROW_CONTAINER_STYLE}>
-              <span className="codicon codicon-chevron-right" style={ARROW_ICON_STYLE} />
+              <ChevronRightIcon size={16} style={ARROW_ICON_STYLE} />
             </div>
 
             {activeSubmenu === 'runtimeProvider' && (
@@ -463,7 +464,7 @@ export const ConfigSelect = ({
             onMouseLeave={() => setActiveSubmenu('none')}
             style={SELECTOR_OPTION_RELATIVE_STYLE}
           >
-            <span className="codicon codicon-server-process" />
+            <ServerProcessIcon size={16} />
             <div style={ITEM_INFO_STYLE}>
               <span>{t('config.nodeProcesses.title', { defaultValue: 'Node 进程管理' })}</span>
               {nodeProcessTotals.all > 0 ? (
@@ -482,7 +483,7 @@ export const ConfigSelect = ({
               ) : null}
             </div>
             <div style={ARROW_CONTAINER_STYLE}>
-              <span className="codicon codicon-chevron-right" style={ARROW_ICON_STYLE} />
+              <ChevronRightIcon size={16} style={ARROW_ICON_STYLE} />
             </div>
 
             {activeSubmenu === 'nodeProcesses' && (
@@ -511,7 +512,7 @@ export const ConfigSelect = ({
             style={SWITCH_OPTION_STYLE}
           >
             <div style={SWITCH_LABEL_STYLE}>
-              <span className="codicon codicon-sync" />
+              <SyncIcon size={16} />
               <span>{t('settings.basic.streaming.label')}</span>
             </div>
             <Switch
@@ -538,7 +539,7 @@ export const ConfigSelect = ({
             style={SWITCH_OPTION_STYLE}
           >
             <div style={SWITCH_LABEL_STYLE}>
-              <span className="codicon codicon-lightbulb" />
+              <LightbulbIcon size={16} />
               <span>{t('common.thinking')}</span>
             </div>
             <Switch

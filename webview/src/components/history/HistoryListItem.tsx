@@ -3,7 +3,7 @@ import type { TFunction } from 'i18next';
 import type { HistorySessionSummary } from '../../types';
 import { extractCommandMessageContent } from '../../utils/messageUtils';
 import { ProviderModelIcon } from '../shared/ProviderModelIcon';
-import { EditIcon, DownloadIcon, TrashIcon, StarIcon, StarFilledIcon, CheckIcon, CloseIcon, CopyIcon, XCircleIcon } from '../Icons';
+import { EditIcon, DownloadIcon, TrashIcon, StarIcon, StarFilledIcon, CheckIcon, CloseIcon, CopyIcon, XCircleIcon, TerminalArrowIcon } from '../Icons';
 
 // Module-level style constants (avoid breaking memoization)
 const PROVIDER_BADGE_STYLE: React.CSSProperties = {
@@ -342,7 +342,7 @@ export const HistoryListItem = memo(({
             title={isCopied ? t('history.sessionIdCopied') : isCopyFailed ? t('history.copyFailed') : t('history.copySessionId')}
             aria-label={t('history.copySessionId')}
           >
-            {isCopied ? <CheckIcon size={12} /> : isCopyFailed ? <XCircleIcon size={12} /> : <CopyIcon size={12} />}
+            {isCopied ? <CheckIcon size={14} /> : isCopyFailed ? <XCircleIcon size={14} /> : <CopyIcon size={14} />}
           </button>
         </div>
         {showConvertButton && (
@@ -352,7 +352,7 @@ export const HistoryListItem = memo(({
             title={t('history.convertToCliSession')}
             aria-label={t('history.convertToCliSession')}
           >
-            <span className="codicon codicon-arrow-swap"></span>
+            <TerminalArrowIcon size={14} />
             {t('history.convertButton')}
           </button>
         )}

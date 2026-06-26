@@ -12,13 +12,13 @@ interface TodoListProps {
 function renderStatusIcon(status: TodoItem['status']) {
   switch (status) {
     case 'pending':
-      return <CircleIcon size={12} />;
+      return <CircleIcon size={14} />;
     case 'in_progress':
-      return <LoadingIcon size={12} spinning={true} />;
+      return <LoadingIcon size={14} spinning={true} />;
     case 'completed':
-      return <CheckIcon size={12} />;
+      return <CheckIcon size={14} />;
     default:
-      return <CircleIcon size={12} />;
+      return <CircleIcon size={14} />;
   }
 }
 

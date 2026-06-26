@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import styles from './style.module.less';
 import { AVAILABLE_PROVIDERS } from '../ChatInputBox/types';
 import { ProviderModelIcon } from '../shared/ProviderModelIcon';
+import { CheckIcon } from '../Icons';
 
 const ROOT_STYLE: React.CSSProperties = {
   position: 'relative',
@@ -170,7 +171,7 @@ export const BlinkingLogo = ({ provider, modelId, onProviderChange }: BlinkingLo
               <ProviderModelIcon providerId={p.id} size={16} colored />
               <span>{getProviderLabel(p.id)}</span>
               {p.id === provider && (
-                <span className="codicon codicon-check check-mark" />
+                <CheckIcon size={16} className="check-mark" />
               )}
             </div>
           ))}

@@ -5,6 +5,7 @@ import { useDialogCountdownTimeout } from '../hooks/useDialogCountdownTimeout';
 import { DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS } from '../utils/permissionDialogTimeout';
 import { isEditableEventTarget } from '../utils/isEditableEventTarget';
 import './AskUserQuestionDialog.css';
+import { CheckIcon, ChevronDownIcon, ChevronUpIcon, CircleFilledIcon, CircleIcon, ClockIcon, AlertIcon } from './Icons';
 
 // Special marker to identify the "Other" option
 const OTHER_OPTION_MARKER = '__OTHER__';
@@ -286,14 +287,14 @@ const AskUserQuestionDialog = ({
             aria-label={isCollapsed ? t('askUserQuestion.expand', '展开') : t('askUserQuestion.collapse', '收起')}
             aria-expanded={!isCollapsed}
           >
-            <span className={`codicon codicon-chevron-${isCollapsed ? 'up' : 'down'}`} />
+            {isCollapsed ? <ChevronUpIcon size={16} /> : <ChevronDownIcon size={16} />}
           </button>
         </div>
 
         {/* Timeout warning notice */}
         {isTimeWarning && !isCollapsed && (
           <div className="timeout-warning-banner">
-            <span className="codicon codicon-warning" />
+            <AlertIcon size={16} />
             <span>{t('askUserQuestion.timeoutWarning', '请尽快回答，对话框将在 {{seconds}} 秒后自动关闭', { seconds: remainingSeconds })}</span>
           </div>
         )}
@@ -309,7 +310,7 @@ const AskUserQuestionDialog = ({
             </span>
             {isTimeWarning && (
               <span className="collapsed-timer warning">
-                <span className="codicon codicon-warning" />
+                <AlertIcon size={16} />
                 {formatCountdown(remainingSeconds)}
               </span>
             )}
@@ -331,7 +332,7 @@ const AskUserQuestionDialog = ({
               </span>
               {/* Countdown display */}
               <span className={`countdown-timer ${isTimeWarning ? 'warning' : ''}`}>
-                <span className="codicon codicon-clock" />
+                <ClockIcon size={16} />
                 <span className="countdown-time">{formatCountdown(remainingSeconds)}</span>
               </span>
             </div>
@@ -355,9 +356,9 @@ const AskUserQuestionDialog = ({
                     >
                       <div className="option-checkbox">
                         {currentQuestion.multiSelect ? (
-                          <span className={`codicon codicon-${isSelected ? 'check' : 'blank'}`} />
+                          isSelected ? <CheckIcon size={16} /> : null
                         ) : (
-                          <span className={`codicon codicon-${isSelected ? 'circle-filled' : 'circle-outline'}`} />
+                          isSelected ? <CircleFilledIcon size={16} /> : <CircleIcon size={16} />
                         )}
                       </div>
                       <div className="option-content">
@@ -375,9 +376,9 @@ const AskUserQuestionDialog = ({
                 >
                   <div className="option-checkbox">
                     {currentQuestion.multiSelect ? (
-                      <span className={`codicon codicon-${isOtherSelected ? 'check' : 'blank'}`} />
+                      isOtherSelected ? <CheckIcon size={16} /> : null
                     ) : (
-                      <span className={`codicon codicon-${isOtherSelected ? 'circle-filled' : 'circle-outline'}`} />
+                      isOtherSelected ? <CircleFilledIcon size={16} /> : <CircleIcon size={16} />
                     )}
                   </div>
                   <div className="option-content">

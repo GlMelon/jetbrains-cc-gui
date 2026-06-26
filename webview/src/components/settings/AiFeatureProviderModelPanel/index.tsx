@@ -6,6 +6,7 @@ import { getModelsForProvider } from '../../../utils/modelRegistry';
 import { readClaudeModelMapping, resolveMappedModelName } from '../../../utils/claudeModelMapping';
 import { CLAUDE_ROLE_MODEL_IDS } from '../../ChatInputBox/types';
 import styles from './style.module.less';
+import { ChevronDownIcon, InfoIcon } from '../../Icons';
 
 interface AiFeatureProviderModelPanelProps {
   config: AiFeatureConfig;
@@ -99,7 +100,7 @@ const AiFeatureProviderModelPanel = ({
               </option>
             ))}
           </select>
-          <span className={`codicon codicon-chevron-down ${styles.selectArrow}`} />
+          <ChevronDownIcon size={16} className={styles.selectArrow} />
         </div>
 
         <div className={styles.selectWrap}>
@@ -116,13 +117,13 @@ const AiFeatureProviderModelPanel = ({
               </option>
             ))}
           </select>
-          <span className={`codicon codicon-chevron-down ${styles.selectArrow}`} />
+          <ChevronDownIcon size={16} className={styles.selectArrow} />
         </div>
       </div>
 
       <div className={styles.actionsRow} data-testid="ai-feature-actions-row">
         <div className={styles.statusHint} data-testid="ai-feature-status-hint">
-          <span className="codicon codicon-info" />
+          <InfoIcon size={16} />
           <span className={styles.statusText} title={statusText}>{statusText}</span>
         </div>
 

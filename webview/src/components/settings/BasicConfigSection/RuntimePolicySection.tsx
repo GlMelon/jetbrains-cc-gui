@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ProviderModelIcon } from '../../../components/shared/ProviderModelIcon';
 import styles from './style.module.less';
+import { ChevronRightIcon, InfoIcon, RefreshIcon, SaveIcon, SettingsIcon, AlertIcon } from '../../Icons';
 
 type RuntimeType = 'SDK' | 'CLI';
 type ProviderKey = 'claude' | 'codex';
@@ -173,20 +174,20 @@ const RuntimePolicySection = ({
         onClick={() => setCollapsed((value) => !value)}
         aria-expanded={!collapsed}
       >
-        <span className="codicon codicon-settings" />
+        <SettingsIcon size={16} />
         <span className={styles.fieldLabel}>{t('settings.basic.runtimePolicy.advancedLabel')}</span>
         <span className={`${styles.statusBadge} ${restrictedCount > 0 ? styles.restricted : ''}`}>
           {restrictedCount > 0
             ? t('settings.basic.runtimePolicy.restricted', {count: restrictedCount})
             : t('settings.basic.runtimePolicy.allAllowed')}
         </span>
-        <span className={`codicon codicon-chevron-right ${styles.advancedChevron}`} />
+        <ChevronRightIcon size={16} className={styles.advancedChevron} />
       </button>
 
       {!collapsed && (
         <>
           <p className={styles.defaultRemovedHint}>
-            <span className="codicon codicon-info" />
+            <InfoIcon size={16} />
             <span>{t('settings.basic.runtimePolicy.defaultRemovedHint')}</span>
           </p>
           <div className={styles.runtimePolicyGrid}>
@@ -197,7 +198,7 @@ const RuntimePolicySection = ({
               return (
                 <div key={provider} className={styles.runtimePolicyCard}>
                   <div className={styles.runtimePolicyCardTitle}>
-                    <ProviderModelIcon providerId={provider} size={18} colored />
+                    <ProviderModelIcon providerId={provider} size={20} colored />
                     {t(`settings.basic.runtimePolicy.providers.${provider}`)}
                   </div>
                   <label className={styles.toggleWrapper}>
@@ -226,7 +227,7 @@ const RuntimePolicySection = ({
                   </div>
                   {degraded && (
                     <p className={styles.degradeNotice}>
-                      <span className="codicon codicon-warning" />
+                      <AlertIcon size={16} />
                       <span>
                         {t('settings.basic.runtimePolicy.degradePreview', {
                           mode: requestedRuntime,
@@ -242,11 +243,11 @@ const RuntimePolicySection = ({
           </div>
           <div className={styles.runtimePolicyActions}>
             <button type="button" className={styles.saveBtn} onClick={handleSave} disabled={saving || !loaded}>
-              <span className="codicon codicon-save" />
+              <SaveIcon size={16} />
               <span>{t('settings.basic.runtimePolicy.save')}</span>
             </button>
             <button type="button" className={styles.saveBtn} onClick={handleReset} disabled={saving}>
-              <span className="codicon codicon-refresh" />
+              <RefreshIcon size={16} />
               <span>{t('settings.basic.runtimePolicy.reset')}</span>
             </button>
           </div>

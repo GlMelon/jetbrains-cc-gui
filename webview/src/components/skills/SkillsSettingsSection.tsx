@@ -1,4 +1,5 @@
 import { sendAction, subscribeEvent } from '../../bridge/typed';
+import { BanIcon, CheckIcon, DownloadIcon, EditIcon, ExtensionsIcon, FolderIcon, GlobeIcon, PlusIcon, HelpIcon, SearchIcon, TrashIcon } from '../Icons';;
 import { UPSTREAM, DOWNSTREAM } from '../../generated/protocol';
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -386,7 +387,7 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEnabledFilter(enabledFilter === 'enabled' ? 'all' : 'enabled'); } }}
             title={t('skills.filterEnabled')}
           >
-            <span className="codicon codicon-check"></span>
+            <CheckIcon size={16} />
             {t('skills.enabled')} <span className="count-badge">{enabledCount}</span>
           </div>
           <div
@@ -398,7 +399,7 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEnabledFilter(enabledFilter === 'disabled' ? 'all' : 'disabled'); } }}
             title={t('skills.filterDisabled')}
           >
-            <span className="codicon codicon-circle-slash"></span>
+            <BanIcon size={16} />
             {t('skills.disabled')} <span className="count-badge">{disabledCount}</span>
           </div>
         </div>
@@ -407,7 +408,7 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
         <div className="toolbar-right">
           {/* Search box */}
           <div className="search-box">
-            <span className="codicon codicon-search"></span>
+            <SearchIcon size={16} />
             <input
               type="text"
               className="search-input"
@@ -423,7 +424,7 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
             onClick={() => setShowHelpDialog(true)}
             title={t('skills.whatIsSkills')}
           >
-            <span className="codicon codicon-question"></span>
+            <HelpIcon size={16} />
           </button>
 
           {/* Import button */}
@@ -433,16 +434,16 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
               onClick={() => setShowDropdown(!showDropdown)}
               title={t('skills.importSkill')}
             >
-              <span className="codicon codicon-add"></span>
+              <PlusIcon size={16} />
             </button>
             {showDropdown && (
               <div className="dropdown-menu">
                 <div className="dropdown-item" onClick={() => handleImport(primaryScope)}>
-                  <span className="codicon codicon-globe"></span>
+                  <GlobeIcon size={16} />
                   {isCodex ? t('skills.importUserSkill') : t('skills.importGlobalSkill')}
                 </div>
                 <div className="dropdown-item" onClick={() => handleImport(secondaryScope)}>
-                  <span className="codicon codicon-desktop-download"></span>
+                  <DownloadIcon size={16} />
                   {isCodex ? t('skills.importRepoSkill') : t('skills.importLocalSkill')}
                 </div>
               </div>
@@ -480,14 +481,14 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
                 {togglingSkills.has(skill.id) ? (
                   <span className="codicon codicon-loading codicon-modifier-spin"></span>
                 ) : skill.enabled ? (
-                  <span className="codicon codicon-check"></span>
+                  <CheckIcon size={16} />
                 ) : (
-                  <span className="codicon codicon-circle-slash"></span>
+                  <BanIcon size={16} />
                 )}
               </button>
 
               <div className="skill-icon-wrapper" style={getSkillIconStyle(skill.id, skill.enabled)}>
-                <span className="codicon codicon-folder"></span>
+                <FolderIcon size={16} />
               </div>
 
               <div className="skill-info">
@@ -527,10 +528,10 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
 
                 <div className="actions-section">
                   <button className="action-btn edit-btn" onClick={() => handleOpen(skill)}>
-                    <span className="codicon codicon-edit"></span> {t('common.edit')}
+                    <EditIcon size={16} /> {t('common.edit')}
                   </button>
                   <button className="action-btn delete-btn" onClick={() => handleDelete(skill)}>
-                    <span className="codicon codicon-trash"></span> {t('common.delete')}
+                    <TrashIcon size={16} /> {t('common.delete')}
                   </button>
                 </div>
               </div>
@@ -541,7 +542,7 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
         {/* Empty state */}
         {filteredSkills.length === 0 && !loading && (
           <div className="empty-state">
-            <span className="codicon codicon-extensions"></span>
+            <ExtensionsIcon size={16} />
             <p>{t('skills.noMatchingSkills')}</p>
             <p className="hint">{t('skills.importHint')}</p>
           </div>

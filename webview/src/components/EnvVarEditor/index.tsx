@@ -7,6 +7,7 @@ import {
   ENV_VAR_VALUE_MAX_LENGTH,
 } from '../../types/provider';
 import styles from './style.module.less';
+import { PlusIcon, TrashIcon } from '../Icons';
 
 interface EnvVarEditorProps {
   /** Current env var entries */
@@ -161,7 +162,7 @@ export default function EnvVarEditor({ entries, onChange, disabled }: EnvVarEdit
                   disabled={disabled}
                   title={t('common.delete')}
                 >
-                  <span className="codicon codicon-trash" />
+                  <TrashIcon size={16} />
                 </button>
               </div>
             );
@@ -179,7 +180,7 @@ export default function EnvVarEditor({ entries, onChange, disabled }: EnvVarEdit
         onClick={handleAdd}
         disabled={disabled}
       >
-        <span className="codicon codicon-add" />
+        <PlusIcon size={16} />
         {t('settings.codexProvider.dialog.addEnvVar')}
       </button>
     </div>

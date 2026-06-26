@@ -78,7 +78,7 @@ const SubagentProcessDetails = memo(function SubagentProcessDetails({
               <div className="subagent-file-grid">
                 {process.readFiles.map((file) => (
                   <div key={file} className="subagent-file-chip" title={file}>
-                    <FileCodeIcon size={12} />
+                    <FileCodeIcon size={14} />
                     <span>{file}</span>
                   </div>
                 ))}

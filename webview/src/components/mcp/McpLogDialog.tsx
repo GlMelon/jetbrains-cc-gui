@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { McpLogEntry } from '../../types/mcp';
+import { ClearAllIcon, LogIcon, CloseIcon } from '../Icons';;
 
 function getLevelColorStyle(color: string): React.CSSProperties {
   return { color };
@@ -64,17 +65,17 @@ export function McpLogDialog({ logs, onClose, onClear }: McpLogDialogProps) {
       <div className="dialog mcp-log-dialog">
         <div className="dialog-header">
           <h3>
-            <span className="codicon codicon-output"></span>
+            <LogIcon size={16} />
             {t('mcp.logs.title')}
           </h3>
           <div className="header-actions">
             {logs.length > 0 && (
               <button className="clear-btn" onClick={onClear} title={t('mcp.logs.clear')}>
-                <span className="codicon codicon-clear-all"></span>
+                <ClearAllIcon size={16} />
               </button>
             )}
             <button className="close-btn" onClick={onClose}>
-              <span className="codicon codicon-close"></span>
+              <CloseIcon size={16} />
             </button>
           </div>
         </div>
@@ -82,7 +83,7 @@ export function McpLogDialog({ logs, onClose, onClear }: McpLogDialogProps) {
         <div className="dialog-body">
           {logs.length === 0 ? (
             <div className="empty-logs">
-              <span className="codicon codicon-output"></span>
+              <LogIcon size={16} />
               <p>{t('mcp.logs.empty')}</p>
             </div>
           ) : (

@@ -42,7 +42,7 @@ describe('ProviderSelect Codex quota submenu', () => {
 
     fireEvent.click(screen.getByRole('button'));
     const codexRow = screen.getByText('Codex').closest('.selector-option')!;
-    expect(codexRow.querySelector('.codicon-chevron-right')).toBeTruthy();
+    expect(codexRow.querySelector('svg')).toBeTruthy();
 
     fireEvent.mouseEnter(codexRow);
     // sendAction(UPSTREAM.GET_CODEX_SUBSCRIPTION_QUOTA) 经统一桥封发 JSON 信封

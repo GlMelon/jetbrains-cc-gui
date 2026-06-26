@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>图标自表意优化 · 前后对比效果图</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --bg-grad:#eef0f4;
+    --card:#ffffff; --card-2:#fafbfc;
+    --border:#e6e8ec; --soft:#eef1f5;
+    --text:#1f2330; --muted:#6b7280; --faint:#9aa3b2;
+    --accent:#7c5cff; --accent-soft:#efebff;
+    --good:#10a37f; --good-soft:#e4f6ef;
+    --bad:#e5534b; --bad-soft:#fdeceb;
+    --warn:#d98a00; --warn-soft:#fdf2dc;
+    --shadow:0 1px 2px rgba(16,24,40,.04),0 4px 16px rgba(16,24,40,.06);
+    --shadow-lg:0 10px 40px rgba(16,24,40,.10);
+  }
+  [data-theme="dark"]{
+    --bg:#0e1014; --bg-grad:#15181f;
+    --card:#171a21; --card-2:#1c2029;
+    --border:#272c36; --soft:#1d212a;
+    --text:#e6e8ee; --muted:#9aa3b2; --faint:#6b7280;
+    --accent:#9d86ff; --accent-soft:#241f3a;
+    --good:#34d399; --good-soft:#10261f;
+    --bad:#f87171; --bad-soft:#2a1614;
+    --warn:#fbbf24; --warn-soft:#2a2010;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.35);
+    --shadow-lg:0 12px 44px rgba(0,0,0,.5);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",Roboto,Helvetica,Arial,sans-serif;
+    background:
+      radial-gradient(1200px 600px at 85% -10%, var(--accent-soft), transparent 60%),
+      linear-gradient(180deg,var(--bg-grad),var(--bg));
+    color:var(--text);
+    -webkit-font-smoothing:antialiased;
+    line-height:1.55;
+    min-height:100vh;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:36px 24px 80px}
+
+  /* hero */
+  .hero{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:30px 32px;box-shadow:var(--shadow-lg);position:relative;overflow:hidden}
+  .hero::after{content:"";position:absolute;right:-60px;top:-60px;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,var(--accent-soft),transparent 70%)}
+  .hero h1{margin:0 0 6px;font-size:24px;letter-spacing:.2px}
+  .hero h1 .pill{font-size:12px;font-weight:600;color:var(--accent);background:var(--accent-soft);padding:3px 10px;border-radius:999px;margin-left:8px;vertical-align:middle}
+  .hero p.sub{margin:0;color:var(--muted);font-size:14px;max-width:760px}
+  .theme-btn{position:absolute;right:24px;top:24px;background:var(--soft);border:1px solid var(--border);color:var(--text);width:38px;height:38px;border-radius:10px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:.15s}
+  .theme-btn:hover{transform:translateY(-1px);box-shadow:var(--shadow)}
+
+  /* stats */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:22px}
+  .stat{background:var(--card-2);border:1px solid var(--border);border-radius:14px;padding:16px 18px}
+  .stat .n{font-size:26px;font-weight:700;line-height:1}
+  .stat .n.bad{color:var(--bad)} .stat .n.warn{color:var(--warn)} .stat .n.good{color:var(--good)} .stat .n.accent{color:var(--accent)}
+  .stat .l{font-size:12.5px;color:var(--muted);margin-top:7px}
+
+  /* section */
+  .sec{margin-top:34px}
+  .sec-head{display:flex;align-items:center;gap:10px;margin:0 0 4px}
+  .sec-head .dot{width:26px;height:26px;border-radius:8px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+  .sec-head h2{margin:0;font-size:17px}
+  .sec-head .hint{margin-left:auto;font-size:12.5px;color:var(--muted)}
+  .sec-desc{color:var(--muted);font-size:13.5px;margin:2px 0 16px 36px}
+
+  /* compare grid */
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+  @media(max-width:880px){.grid{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}}
+  .cmp{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow);transition:.15s}
+  .cmp:hover{box-shadow:var(--shadow-lg);transform:translateY(-1px)}
+  .cmp-top{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+  .cmp-name{font-weight:600;font-size:14.5px}
+  .tag{font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;letter-spacing:.3px}
+  .tag.bad{color:var(--bad);background:var(--bad-soft)}
+  .tag.warn{color:var(--warn);background:var(--warn-soft)}
+  .tag.free{color:var(--good);background:var(--good-soft)}
+  .tag.fix{color:var(--accent);background:var(--accent-soft)}
+  .loc{font-size:11.5px;color:var(--faint);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;margin-left:auto}
+
+  .cmp-body{display:grid;grid-template-columns:1fr 28px 1fr;align-items:stretch;gap:6px}
+  .side{background:var(--card-2);border:1px solid var(--border);border-radius:11px;padding:14px 12px 12px;display:flex;flex-direction:column;align-items:center;text-align:center}
+  .side.cur{border-color:color-mix(in srgb,var(--bad) 35%,var(--border))}
+  .side.new{border-color:color-mix(in srgb,var(--good) 38%,var(--border));background:var(--good-soft)}
+  .arrow{display:flex;align-items:center;justify-content:center;color:var(--faint);font-size:18px}
+  .ico{width:64px;height:64px;border-radius:12px;background:var(--card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;margin-bottom:9px}
+  .side.cur .ico{color:#9aa3b2}
+  [data-theme="dark"] .side.cur .ico{color:#6b7280}
+  .side.new .ico{color:var(--good);background:var(--card)}
+  .side .lab{font-size:11.5px;font-weight:600;color:var(--muted);margin-bottom:4px}
+  .side.new .lab{color:var(--good)}
+  .side .txt{font-size:12px;color:var(--faint);line-height:1.45}
+  .side .txt b{color:var(--text);font-weight:600}
+
+  .reason{margin-top:11px;font-size:12.5px;color:var(--muted);border-top:1px dashed var(--border);padding-top:9px}
+  .reason b{color:var(--text)}
+
+  /* callouts */
+  .callout{margin-top:16px;border-radius:14px;padding:14px 16px;font-size:13.5px;border:1px solid var(--border)}
+  .callout.free{background:var(--good-soft);border-color:color-mix(in srgb,var(--good) 40%,var(--border));color:var(--text)}
+  .callout b{color:var(--good)}
+  .callout.sys{background:var(--card);color:var(--muted)}
+  .callout.sys b{color:var(--accent)}
+
+  /* svg base */
+  svg.ic{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  svg.ic.sm{width:22px;height:22px}
+
+  .legend{margin-top:30px;display:flex;gap:18px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);justify-content:center}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  footer{text-align:center;margin-top:26px;color:var(--faint);font-size:12.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HERO -->
+  <div class="hero">
+    <button class="theme-btn" id="themeBtn" title="切换明暗主题">🌙</button>
+    <h1>图标自表意优化方案 <span class="pill">效果图 · 未改任何代码</span></h1>
+    <p class="sub">目标是<b>看图标就知道功能</b>,不必 hover 或看描述。下图把每个"不自表意"的图标按"当前 ❌ → 优化后 ✅"真实画出,前端 webview 与后端 plugin action 一并覆盖。所有"优化后"图形已对齐项目 <code>Icons.tsx</code> 规范(viewBox 24 / stroke 1.8 / 单色 currentColor),可直接落地。</p>
+    <div class="stats">
+      <div class="stat"><div class="n bad">7</div><div class="l">后端 Action 复用同一品牌 logo<br>(功能各异却长一样)</div></div>
+      <div class="stat"><div class="n warn">18</div><div class="l">前端不自表意图标<br>(❌完全猜不出 + ⚠️需想一下)</div></div>
+      <div class="stat"><div class="n good">2</div><div class="l">孤儿 SVG 资源已存在<br>接线即修复(零成本)</div></div>
+      <div class="stat"><div class="n accent">3</div><div class="l">并存图标体系<br>(新 SVG 库 / Codicon / 文件图标)</div></div>
+    </div>
+  </div>
+
+  <!-- §0 体系问题 -->
+  <div class="sec">
+    <div class="sec-head"><span class="dot">0</span><h2>根因:三套图标体系并存</h2></div>
+    <p class="sec-desc">同一个功能在代码里有两套图标,视觉不统一,是"看不出功能"的系统性来源。</p>
+    <div class="callout sys">
+      <b>现状:</b> 新代码用统一 SVG 库 <code>Icons.tsx</code>(A,推荐);几乎所有 Settings / Dialog / 选择器仍用 VS Code 的 Codicon 字体(B,~250 处);文件树用彩色文件 SVG(C,装饰)。<br>
+      <b>建议方向(§6 详述):</b> 把 Codicon 与一次性内联 SVG 收敛到 <code>Icons.tsx</code> 单一来源,"齿轮/机器人/刷新"只保留一套,顺手统一 size token(当前 12/14/15/16/20/24 混用)。
+    </div>
+  </div>
+
+  <!-- §1 输入框与对话区 -->
+  <div class="sec">
+    <div class="sec-head"><span class="dot">1</span><h2>输入框与对话区</h2><span class="hint">最高频 · 用户每天都在点</span></div>
+    <p class="sec-desc">这一组是"误操作重灾区":刷新 vs 回退、层叠 vs 缓存,语义全靠猜。</p>
+    <div class="grid">
+
+      <!-- Rewind -->
+      <div class="cmp">
+        <div class="cmp-top"><span class="cmp-name">回退上一轮对话</span><span class="tag bad">❌ 猜不出</span><span class="loc">ContextBar.tsx:297</span></div>
+        <div class="cmp-body">
+          <div class="side cur">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><polyline points="3 2 3 8 9 8"/><path d="M3 8a9 9 0 1 0 3-7"/></svg></div>
+            <div class="lab">当前 · 逆时针弧形箭头</div>
+            <div class="txt">长得就是<b>"刷新/重置"</b>,用户根本想不到是"撤回最近一条消息+AI回复"</div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="side new">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M21 11.5a8.5 8.5 0 0 1-12.6 7.4L3 21l1.9-5.4A8.5 8.5 0 0 1 12.5 3a8.5 8.5 0 0 1 8.5 8.5z"/><path d="M9 11.5 7 13.5 9 15.5"/><path d="M7 13.5h5"/></svg></div>
+            <div class="lab">优化后 · 气泡 + 左箭头</div>
+            <div class="txt">"对话<b>回退一步</b>",与刷新彻底区分</div>
+          </div>
+        </div>
+        <div class="reason"><b>理由:</b> 把"刷新"语义换成"消息撤回"。气泡表明对象是对话,左箭头表明方向是回退。</div>
+      </div>
+
+      <!-- Cache Write -->
+      <div class="cmp">
+        <div class="cmp-top"><span class="cmp-name">缓存写入 token</span><span class="tag bad">❌ 猜不出</span><span class="loc">TokenIndicator.tsx:145</span></div>
+        <div class="cmp-body">
+          <div class="side cur">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/><path d="M3 17l9 5 9-5"/></svg></div>
+            <div class="lab">当前 · 层叠方块 (Layers)</div>
+            <div class="txt">同卡片"缓存读取"却是圆柱 —— <b>写/读两个图标风格都不一致</b>,更别说表意</div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="side new">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v6"/><path d="m9 6 3 3 3-3"/><ellipse cx="12" cy="16" rx="7" ry="2.6"/><path d="M5 16v0c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6"/><path d="M5 16v2c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6v-2"/></svg></div>
+            <div class="lab">优化后 · 圆柱 + 下箭头</div>
+            <div class="txt">与"缓存读取"统一为<b>圆柱(缓存)</b>,下箭头表"写入"</div>
+          </div>
+        </div>
+        <div class="reason"><b>理由:</b> 读/写共用圆柱(=缓存),用箭头方向区分。<b>消除"同概念两套图标"。</b></div>
+      </div>
+
+      <!-- PanelCollapse -->
+      <div class="cmp">
+        <div class="cmp-top"><span class="cmp-name">展开/收起 状态面板</span><span class="tag warn">⚠️ 需想</span><span class="loc">ContextBar.tsx:285</span></div>
+        <div class="cmp-body">
+          <div class="side cur">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 14h18"/><path d="m9 18 3-3 3 3"/></svg></div>
+            <div class="lab">当前 · 方框+底栏+下箭头</div>
+            <div class="txt">收起/展开<b>两态用同一图标</b>,且像"向下折叠"</div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="side new">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><polyline points="6 15 12 9 18 15"/></svg></div>
+            <div class="lab">优化后 · 双态 chevron</div>
+            <div class="txt">展开态 <code>▾</code> / 收起态 <code>▴</code> <b>状态即图标</b></div>
+          </div>
+        </div>
+        <div class="reason"><b>理由:</b> 用 chevron 上下方向表达当前状态,一眼能看出"现在能不能点开/收起"。</div>
+      </div>
+
+      <!-- 新标签页 LayoutIcon -->
+      <div class="cmp">
+        <div class="cmp-top"><span class="cmp-name">新开标签页 / 新窗口</span><span class="tag warn">⚠️ 易混</span><span class="loc">ChatHeader.tsx:157</span></div>
+        <div class="cmp-body">
+          <div class="side cur">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg></div>
+            <div class="lab">当前 · 田字格 (Layout)</div>
+            <div class="txt">更像"切换布局/分栏",与旁边的 <b>PlusIcon(新建会话)并列时极易点错</b></div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="side new">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 8h18"/><path d="M17 13.5v4"/><path d="m15 15.5 2-2 2 2"/></svg></div>
+            <div class="lab">优化后 · 窗口 + 加号</div>
+            <div class="txt">明确的"新建<b>窗口/标签</b>",与 PlusIcon(会话)区分</div>
+          </div>
+        </div>
+        <div class="reason"><b>理由:</b> 田字格是布局语义;新窗口图标直接表意"开一个新窗口",不再与会话新建混淆。</div>
+      </div>
+
+      <!-- acceptEdits -->
+      <div class="cmp">
+        <div class="cmp-top"><span class="cmp-name">模式:自动接受编辑</span><span class="tag warn">⚠️ 靠惯例</span><span class="loc">ModeSelect.tsx:42</span></div>
+        <div class="cmp-body">
+          <div class="side cur">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="8" width="16" height="11" rx="3"/><path d="M12 8V4"/><path d="M8 4h4"/><path d="M9 13v2"/><path d="M15 13v2"/></svg></div>
+            <div class="lab">当前 · 机器人 (Bot)</div>
+            <div class="txt">机器人 = Agent 通用符,<b>看不出"自动接受编辑"</b></div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="side new">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h6"/><path d="m8.5 14.5 2 2 4-4"/></svg></div>
+            <div class="lab">优化后 · 文件 + 对勾</div>
+            <div class="txt">"编辑<b>自动通过</b>" —— 文件改动直接打勾</div>
+          </div>
+        </div>
+        <div class="reason"><b>理由:</b> 让模式图标承载"会发生什么"的语义(改动被批准),而非抽象的"机器人"。</div>
+      </div>
+
+      <!-- bypassPermissions -->
+      <div class="cmp">
+        <div class="cmp-top"><span class="cmp-name">模式:绕过权限</span><span class="tag warn">⚠️ 歧义</span><span class="loc">ModeSelect.tsx:44</span></div>
+        <div class="cmp-body">
+          <div class="side cur">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/></svg></div>
+            <div class="lab">当前 · 闪电 (Zap)</div>
+            <div class="txt">闪电=快/危险,但<b>无文字时想不到是"绕过权限"</b></div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="side new">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg></div>
+            <div class="lab">优化后 · 开口锁 (解锁)</div>
+            <div class="txt">"<b>权限不锁</b>" —— 锁是开的,明确"跳过鉴权"</div>
+          </div>
+        </div>
+        <div class="reason"><b>理由:</b> 闪电表"危险等级"而非"行为";开口锁直接表达"权限关卡被打开"。</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- §2 搜索 -->
+  <div class="sec">
+    <div class="sec-head"><span class="dot">2</span><h2>会话内搜索</h2></div>
+    <p class="sec-desc">匹配模式三连弹,标准 IDE 用 <code>.*</code> / <code>“”</code> / <code>Aa</code>,用户有肌肉记忆,当前却自创了一套抽象图形。</p>
+    <div class="grid">
+
+      <!-- WholeWord -->
+      <div class="cmp">
+        <div class="cmp-top"><span class="cmp-name">全字匹配</span><span class="tag warn">⚠️ 像"引号"</span><span class="loc">ConversationSearch:259</span></div>
+        <div class="cmp-body">
+          <div class="side cur">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M7 7v4"/><path d="M11 7c-1.8 0-3 1.4-3 3.4V15h4v-4H8.6"/><path d="M17 7v4"/><path d="M13 7c1.8 0 3 1.4 3 3.4V15h-4v-4h3.4"/></svg></div>
+            <div class="lab">当前 · 双竖线+波浪</div>
+            <div class="txt">像<b>引号/分隔符</b>,不像"全字"</div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="side new">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M7.5 7C6 7 5 8.3 5 10v3.5h3.5V10H6.6"/><path d="M16.5 7c-1.5 0-2.5 1.3-2.5 3v3.5h3.5V10h-1.9"/><path d="M3 18h18"/></svg></div>
+            <div class="lab">优化后 · 引号 “ ”</div>
+            <div class="txt">标准的"精确字面"符,<b>对齐 IDE 习惯</b></div>
+          </div>
+        </div>
+        <div class="reason"><b>理由:</b> 沿用 VS Code / IntelliJ 的引号约定,零学习成本。</div>
+      </div>
+
+      <!-- Regex -->
+      <div class="cmp">
+        <div class="cmp-top"><span class="cmp-name">正则匹配</span><span class="tag warn">⚠️ 像"乘号"</span><span class="loc">ConversationSearch:269</span></div>
+        <div class="cmp-body">
+          <div class="side cur">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><circle cx="7" cy="7" r="1.6"/><path d="M9 8 16 18"/><path d="m15 5 3 5 3-5"/></svg></div>
+            <div class="lab">当前 · 点+星号斜杠</div>
+            <div class="txt">像<b>乘号/星号</b>,不如标准写法直观</div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="side new">
+            <div class="ico" style="stroke-width:0"><text x="12" y="17" text-anchor="middle" font-size="13" font-family="ui-monospace,monospace" font-weight="700" fill="currentColor" stroke="none">.*</text></svg></div>
+            <div class="lab">优化后 · 字符 .*</div>
+            <div class="txt">正则的<b>通用符号</b>,程序员一眼认</div>
+          </div>
+        </div>
+        <div class="reason"><b>理由:</b> 文本 <code>.*</code> 比抽象图形更直接,且与全字匹配的"引号"形成"字面 vs 模式"对照。</div>
+      </div>
+
+      <!-- 深度搜索 -->
+      <div class="cmp">
+        <div class="cmp-top"><span class="cmp-name">深度搜索(历史)</span><span class="tag warn">⚠️ 像刷新</span><span class="loc">HistoryActions.tsx:86</span></div>
+        <div class="cmp-body">
+          <div class="side cur">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21 4 21 9 16 9"/></svg></div>
+            <div class="lab">当前 · 刷新/同步箭头</div>
+            <div class="txt">两个刷新类图标(触发/进行中),<b>想不到是"深度搜索"</b></div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="side new">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/><path d="M8 11h6"/><path d="M11 8v6"/></svg></div>
+            <div class="lab">优化后 · 放大镜 + 钻取</div>
+            <div class="txt">放大镜(搜索)+ 内部<b>十字钻取</b>(深度)</div>
+          </div>
+        </div>
+        <div class="reason"><b>理由:</b> 保留"搜索"主体,加钻取符号区分"深度",与普通刷新划清界限。</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- §3 状态栏与文件改动 -->
+  <div class="sec">
+    <div class="sec-head"><span class="dot">3</span><h2>状态面板 · 文件改动</h2></div>
+    <p class="sec-desc">Diff / 全部保留 / Edits 标签,当前都用了"相近形状",成对出现时才勉强能猜。</p>
+    <div class="grid">
+
+      <!-- DiffView -->
+      <div class="cmp">
+        <div class="cmp-top"><span class="cmp-name">查看 Diff</span><span class="tag warn">⚠️ 像括号</span><span class="loc">FileChangesList.tsx:88</span></div>
+        <div class="cmp-body">
+          <div class="side cur">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M7 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h2"/><path d="M17 4h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-2"/><path d="M12 3v18"/></svg></div>
+            <div class="lab">当前 · 双方括号+中轴</div>
+            <div class="txt">像<b>代码括号</b>,不像"对比差异"</div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="side new">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="5" width="8" height="14" rx="1.5"/><rect x="13" y="5" width="8" height="14" rx="1.5"/></svg></div>
+            <div class="lab">优化后 · 左右分栏</div>
+            <div class="txt">标准的 <b>diff 对照视图</b>(左旧/右新)</div>
+          </div>
+        </div>
+        <div class="reason"><b>理由:</b> 双栏是 diff 的世界语,与 IDE / Git GUI 完全一致。</div>
+      </div>
+
+      <!-- KeepAll -->
+      <div class="cmp">
+        <div class="cmp-top"><span class="cmp-name">全部保留改动</span><span class="tag warn">⚠️ 像清单</span><span class="loc">FileChangesList.tsx:160</span></div>
+        <div class="cmp-body">
+          <div class="side cur">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h10"/><path d="m15 17 2 2 4-4"/></svg></div>
+            <div class="lab">当前 · 三行 + 对勾</div>
+            <div class="txt">像<b>"清单/全选"</b>,要靠对偶的垃圾桶反推</div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="side new">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M18 6 7 17l-5-5"/><path d="m22 10-7.5 7.5L12 15"/></svg></div>
+            <div class="lab">优化后 · 双对勾</div>
+            <div class="txt"><b>"全部确认"</b> —— 一次性保留所有</div>
+          </div>
+        </div>
+        <div class="reason"><b>理由:</b> 双勾是"全部通过"的强信号,与"全部丢弃(垃圾桶)"形成清晰正反对照。</div>
+      </div>
+
+      <!-- Edits tab -->
+      <div class="cmp">
+        <div class="cmp-top"><span class="cmp-name">Edits / 文件改动 标签页</span><span class="tag warn">⚠️ 像"编辑"</span><span class="loc">StatusPanel.tsx:273</span></div>
+        <div class="cmp-body">
+          <div class="side cur">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h6"/><path d="m13.5 14.5 2-2 2 2-5.5 5.5H8v-2z"/></svg></div>
+            <div class="lab">当前 · 铅笔 + 文件</div>
+            <div class="txt">更像<b>"编辑文件"动作</b>,不像"改动清单"标签</div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="side new">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h6"/><path d="M8.5 12.5h3l-3 4h3"/><path d="M16 11v5"/><path d="M13.5 13.5h5"/></svg></div>
+            <div class="lab">优化后 · 文件 + diff 行</div>
+            <div class="txt">文件带 <code>+/-</code> 改动行,<b>明确"这里列改动"</b></div>
+          </div>
+        </div>
+        <div class="reason"><b>理由:</b> 把"编辑"语义换成"改动差异",与 Git 改动视图的视觉语言一致。</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- §4 设置与 Dialog -->
+  <div class="sec">
+    <div class="sec-head"><span class="dot">4</span><h2>设置 / 选择器 / Dialog</h2><span class="hint">几乎全是 Codicon 字体</span></div>
+    <p class="sec-desc">这一片是 Codicon 重灾区:VS Code 抽象符号(vm-connect / dashboard / symbol-*)脱离 IDE 语境后几乎无表意。</p>
+    <div class="grid">
+
+      <!-- 运行时入口 -->
+      <div class="cmp">
+        <div class="cmp-top"><span class="cmp-name">运行时 / Node 进程 入口</span><span class="tag bad">❌ 猜不出</span><span class="loc">ConfigSelect.tsx:434</span></div>
+        <div class="cmp-body">
+          <div class="side cur">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 18v3"/><path d="M16 18v3"/><path d="M12 4V2"/><circle cx="9" cy="11" r="1"/><path d="M12 11h4"/></svg></div>
+            <div class="lab">当前 · vm-connect (插头/连接)</div>
+            <div class="txt">"虚拟机连接"图标,表意"Node 进程"<b>完全靠猜</b></div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="side new">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/><path d="m7 13 3 3-3 3"/><path d="M13 16h4"/></svg></div>
+            <div class="lab">优化后 · 终端 >_</div>
+            <div class="txt">"<b>进程/命令行</b>",终端是运行时的通用语</div>
+          </div>
+        </div>
+        <div class="reason"><b>理由:</b> 与下方"server-process"统一为终端系,消除"同概念多个相近图标"。</div>
+      </div>
+
+      <!-- Codex 配额 -->
+      <div class="cmp">
+        <div class="cmp-top"><span class="cmp-name">Codex 配额查询</span><span class="tag bad">❌ 猜不出</span><span class="loc">ProviderSelect.tsx:260</span></div>
+        <div class="cmp-body">
+          <div class="side cur">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg></div>
+            <div class="lab">当前 · 仪表盘 (Dashboard)</div>
+            <div class="txt">在 provider 菜单里,<b>想不到是"查配额"</b></div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="side new">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M3.5 19a10 10 0 1 1 17 0"/><path d="m12 14 4-4"/><circle cx="12" cy="14" r="1.2" fill="currentColor" stroke="none"/></svg></div>
+            <div class="lab">优化后 · 量表 (Gauge)</div>
+            <div class="txt">"<b>额度/用量</b>",仪表表盘 = 余额计量</div>
+          </div>
+        </div>
+        <div class="reason"><b>理由:</b> 仪表量表天然表达"剩余额度",比抽象方格更接近"配额"。</div>
+      </div>
+
+      <!-- output 日志 -->
+      <div class="cmp">
+        <div class="cmp-top"><span class="cmp-name">MCP 日志</span><span class="tag warn">⚠️ 抽象</span><span class="loc">McpLogDialog.tsx:67</span></div>
+        <div class="cmp-body">
+          <div class="side cur">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M4 5h12l4 4v10a0 0 0 0 1 0 0H4z"/><path d="M16 5v4h4"/><path d="M7 18l3-3"/><path d="M7 15l3 3"/></svg></div>
+            <div class="lab">当前 · output (抽象箭头框)</div>
+            <div class="txt">表意"日志输出"<b>需要想</b></div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="side new">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h6"/><path d="M8 12h8"/><path d="M8 15.5h8"/><path d="M8 9h2"/></svg></div>
+            <div class="lab">优化后 · 文档 + 行</div>
+            <div class="txt">带文本行的文档 = <b>"日志/输出"</b></div>
+          </div>
+        </div>
+        <div class="reason"><b>理由:</b> 行式文档是"日志"的通用图,一眼到位。</div>
+      </div>
+
+      <!-- 转 CLI -->
+      <div class="cmp">
+        <div class="cmp-top"><span class="cmp-name">转换为 CLI 会话</span><span class="tag warn">⚠️ 需字</span><span class="loc">HistoryListItem.tsx:355</span></div>
+        <div class="cmp-body">
+          <div class="side cur">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M7 4 3 8l4 4"/><path d="M17 20l4-4-4-4"/><path d="M3 8h14"/><path d="M21 16H7"/></svg></div>
+            <div class="lab">当前 · 双向箭头 (swap)</div>
+            <div class="txt">"交换"通用符,<b>看不出目标是 CLI</b></div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="side new">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="14" height="16" rx="2"/><path d="m7 9 3 3-3 3"/><path d="M17 12h4"/><path d="M19 10l2 2-2 2"/></svg></div>
+            <div class="lab">优化后 · 终端 + 箭头</div>
+            <div class="txt">"变成<b>终端会话</b>",目标形态可见</div>
+          </div>
+        </div>
+        <div class="reason"><b>理由:</b> 把"转换"具象到"转成终端",目标清晰。</div>
+      </div>
+
+      <!-- symbol-* 抽象符号组 -->
+      <div class="cmp">
+        <div class="cmp-top"><span class="cmp-name">VS Code 抽象符号组 (×4)</span><span class="tag bad">❌ 脱语境无意义</span><span class="loc">Provider/Codex/Appearance Dialogs</span></div>
+        <div class="cmp-body">
+          <div class="side cur">
+            <div class="ico" style="color:#9aa3b2">
+              <svg class="ic sm" viewBox="0 0 24 24"><path d="M4 7V5a2 2 0 0 1 2-2h2"/><path d="M16 3h2a2 2 0 0 1 2 2v2"/><path d="M20 17v2a2 2 0 0 1-2 2h-2"/><path d="M8 21H6a2 2 0 0 1-2-2v-2"/><circle cx="9" cy="9" r="1"/><path d="m8.5 9.5 5 5"/></svg>
+            </div>
+            <div class="lab">当前 · symbol-keyword/namespace/color/text</div>
+            <div class="txt">这些是 IDE 语法符号,<b>离开代码语境完全看不懂</b></div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="side new" style="gap:6px">
+            <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center">
+              <div class="ico" style="width:34px;height:34px"><svg class="ic sm" viewBox="0 0 24 24"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg></div>
+              <div class="ico" style="width:34px;height:34px"><svg class="ic sm" viewBox="0 0 24 24"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1"/><path d="M16 3h1a2 2 0 0 1 2 2v5c0 1.1.9 2 2 2a2 2 0 0 1-2 2v5a2 2 0 0 1-2 2h-1"/></svg></div>
+              <div class="ico" style="width:34px;height:34px"><svg class="ic sm" viewBox="0 0 24 24"><path d="M12 2.7 17.7 8.3a8 8 0 1 1-11.4 0z"/></svg></div>
+              <div class="ico" style="width:34px;height:34px"><svg class="ic sm" viewBox="0 0 24 24"><polyline points="4 7 4 4 20 4 20 7"/><path d="M9 20h6"/><path d="M12 4v16"/></svg></div>
+            </div>
+            <div class="lab">优化后 · 具象化</div>
+            <div class="txt"><code>&lt;/&gt;</code> 类型 / <code>{}</code> 命名空间 / 调色板 颜色 / <b>A</b> 文本</div>
+          </div>
+        </div>
+        <div class="reason"><b>理由:</b> 用程序员都认得的具象符替代 IDE 内部符号,脱离语境也能懂。</div>
+      </div>
+
+      <!-- 启用/禁用/拖拽 -->
+      <div class="cmp">
+        <div class="cmp-top"><span class="cmp-name">启用 / 禁用 / 拖拽(CodexProvider/Skills)</span><span class="tag warn">⚠️ 需想</span><span class="loc">CodexProviderSection / SkillsSettingsSection</span></div>
+        <div class="cmp-body">
+          <div class="side cur">
+            <div class="ico" style="color:#9aa3b2">
+              <svg class="ic sm" viewBox="0 0 24 24"><path d="M7 4v16"/><path d="m3 8 4-4 4 4"/><path d="M17 20v-16"/><path d="m13 16 4 4 4-4"/></svg>
+            </div>
+            <div class="lab">当前 · play 三角 / circle-slash</div>
+            <div class="txt">三角像"运行",禁止圈<b>需结合上下文</b></div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="side new" style="gap:6px">
+            <div style="display:flex;gap:8px;justify-content:center">
+              <div class="ico" style="width:36px;height:36px"><svg class="ic sm" viewBox="0 0 24 24"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/></svg></div>
+              <div class="ico" style="width:36px;height:36px"><svg class="ic sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></svg></div>
+              <div class="ico" style="width:36px;height:36px;color:#9aa3b2"><svg class="ic sm" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.3"/><circle cx="9" cy="12" r="1.3"/><circle cx="9" cy="18" r="1.3"/><circle cx="15" cy="6" r="1.3"/><circle cx="15" cy="12" r="1.3"/><circle cx="15" cy="18" r="1.3"/></svg></div>
+            </div>
+            <div class="lab">优化后 · 电源 / 禁止 / 六点</div>
+            <div class="txt">电源=启用开关 · 禁止圈=禁用 · <b>六点=拖拽</b>(标准)</div>
+          </div>
+        </div>
+        <div class="reason"><b>理由:</b> power/ban/grip 是业界通用控件图标,语义无需上下文。</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- §5 后端 Action -->
+  <div class="sec">
+    <div class="sec-head"><span class="dot">5</span><h2>后端 Plugin Action 图标</h2><span class="hint">JetBrains 工具栏 / 右键菜单</span></div>
+    <p class="sec-desc">同一个品牌 logo <code>cc-gui-icon.svg</code> 被挂在 7 个功能迥异的 action 上 —— 这是最该优先修的一组。其中 2 个修法是<b>接线已有孤儿资源</b>,几乎零成本。</p>
+
+    <div class="callout free">
+      🎯 <b>零成本修复(资源已存在,改 plugin.xml 的 <code>icon=</code> 即可):</b>
+      <code>icons/quick-fix.svg</code> → QuickFixWithClaudeAction · <code>icons/send-to-terminal.svg</code> → SendSelectionToTerminalAction。两个 SVG 当初就是为这两个 action 画的,却从未接上。
+    </div>
+
+    <div class="grid" style="margin-top:14px">
+
+      <!-- 发选中代码到对话 -->
+      <div class="cmp">
+        <div class="cmp-top"><span class="cmp-name">把选中代码发到对话窗</span><span class="tag bad">❌ logo</span><span class="tag free">接孤儿资源</span><span class="loc">plugin.xml:99</span></div>
+        <div class="cmp-body">
+          <div class="side cur">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M9 14c1.5 1.5 4.5 1.5 6 0" /><circle cx="9.5" cy="10.5" r="1" fill="currentColor" stroke="none"/><circle cx="14.5" cy="10.5" r="1" fill="currentColor" stroke="none"/></svg></div>
+            <div class="lab">当前 · 品牌 logo</div>
+            <div class="txt">与"发送代码"<b>毫无语义关联</b></div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="side new">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="m8 8-4 4 4 4"/><path d="m16 8 4 4-4 4"/><path d="M14 5l-4 14"/></svg></div>
+            <div class="lab">优化后 · 代码 + 箭头(接线 send-to-terminal.svg)</div>
+            <div class="txt"><code>&lt;/&gt;</code> + 发送,<b>"把代码发出去"</b></div>
+          </div>
+        </div>
+        <div class="reason"><b>理由:</b> 直接启用已存在的 <code>send-to-terminal.svg</code>;或用"代码括号 + 右箭头"。</div>
+      </div>
+
+      <!-- 快速修复 -->
+      <div class="cmp">
+        <div class="cmp-top"><span class="cmp-name">AI 快速修复</span><span class="tag bad">❌ logo</span><span class="tag free">接孤儿资源</span><span class="loc">plugin.xml:119</span></div>
+        <div class="cmp-body">
+          <div class="side cur">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M9 14c1.5 1.5 4.5 1.5 6 0"/><circle cx="9.5" cy="10.5" r="1" fill="currentColor" stroke="none"/><circle cx="14.5" cy="10.5" r="1" fill="currentColor" stroke="none"/></svg></div>
+            <div class="lab">当前 · 品牌 logo</div>
+            <div class="txt">看不出是"AI 修复建议"</div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="side new">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15 14c.2-1 .7-1.8 1.4-2.5A4.6 4.6 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.2 1.5 1.4 2.5"/><path d="m9 11 1.5 1.5L13 10"/></svg></div>
+            <div class="lab">优化后 · 灯泡 + 对勾(接线 quick-fix.svg)</div>
+            <div class="txt">灯泡=AI 建议,<b>对勾=可一键采纳</b></div>
+          </div>
+        </div>
+        <div class="reason"><b>理由:</b> 启用已存在的 <code>quick-fix.svg</code>;灯泡+勾是"智能修复"的标准语。</div>
+      </div>
+
+      <!-- 复制 AI 引用 -->
+      <div class="cmp">
+        <div class="cmp-top"><span class="cmp-name">复制 AI 引用</span><span class="tag bad">❌ logo</span><span class="loc">plugin.xml:110</span></div>
+        <div class="cmp-body">
+          <div class="side cur">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M9 14c1.5 1.5 4.5 1.5 6 0"/><circle cx="9.5" cy="10.5" r="1" fill="currentColor" stroke="none"/><circle cx="14.5" cy="10.5" r="1" fill="currentColor" stroke="none"/></svg></div>
+            <div class="lab">当前 · 品牌 logo</div>
+            <div class="txt">"复制引用"<b>无任何线索</b></div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="side new">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></div>
+            <div class="lab">优化后 · 链接 (Link)</div>
+            <div class="txt">"<b>引用/链接</b>",复制一份上下文引用</div>
+          </div>
+        </div>
+        <div class="reason"><b>理由:</b> 链接图标是"引用/锚点"的通用符号。</div>
+      </div>
+
+      <!-- 发文件路径 -->
+      <div class="cmp">
+        <div class="cmp-top"><span class="cmp-name">发送文件路径到输入框</span><span class="tag bad">❌ logo</span><span class="loc">plugin.xml:161</span></div>
+        <div class="cmp-body">
+          <div class="side cur">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M9 14c1.5 1.5 4.5 1.5 6 0"/><circle cx="9.5" cy="10.5" r="1" fill="currentColor" stroke="none"/><circle cx="14.5" cy="10.5" r="1" fill="currentColor" stroke="none"/></svg></div>
+            <div class="lab">当前 · 品牌 logo</div>
+            <div class="txt">看不出是"塞文件路径"</div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="side new">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h6"/><path d="M15 13h4"/><path d="m17 11 2 2-2 2"/></svg></div>
+            <div class="lab">优化后 · 文件 + 箭头</div>
+            <div class="txt"><b>文件 + 送入</b>,目标明确</div>
+          </div>
+        </div>
+        <div class="reason"><b>理由:</b> 文件图标 + 右箭头,直观表达"把文件送进输入框"。</div>
+      </div>
+
+      <!-- 发控制台/终端选中 -->
+      <div class="cmp">
+        <div class="cmp-top"><span class="cmp-name">发送控制台/终端选中到输入框</span><span class="tag bad">❌ logo ×2</span><span class="loc">plugin.xml:170 · terminal-features.xml:14</span></div>
+        <div class="cmp-body">
+          <div class="side cur">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M9 14c1.5 1.5 4.5 1.5 6 0"/><circle cx="9.5" cy="10.5" r="1" fill="currentColor" stroke="none"/><circle cx="14.5" cy="10.5" r="1" fill="currentColor" stroke="none"/></svg></div>
+            <div class="lab">当前 · 品牌 logo ×2</div>
+            <div class="txt">两个不同入口(控制台/终端)却<b>共用同一 logo</b></div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="side new">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="13" height="16" rx="2"/><path d="m7 9 3 3-3 3"/><path d="M16 12h5"/><path d="m19 10 2 2-2 2"/></svg></div>
+            <div class="lab">优化后 · 终端 + 箭头</div>
+            <div class="txt">"<b>从终端取出选中</b>送入输入"</div>
+          </div>
+        </div>
+        <div class="reason"><b>理由:</b> 终端 + 右箭头,与"发文件路径(文件+箭头)"形态统一、语义区分。</div>
+      </div>
+
+      <!-- 从模板新建 -->
+      <div class="cmp">
+        <div class="cmp-top"><span class="cmp-name">从模板新建</span><span class="tag bad">❌ 错配</span><span class="loc">plugin.xml:149</span></div>
+        <div class="cmp-body">
+          <div class="side cur">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M5 12a3 3 0 1 0 6 0"/><path d="M13 12a3 3 0 1 0 6 0"/><path d="M5 12V8"/><path d="M19 12V8"/><path d="M8 9h8"/></svg></div>
+            <div class="lab">当前 · AddMulticaret(多光标)</div>
+            <div class="txt">"多光标"图标表"从模板新建"<b>纯错配</b></div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="side new">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h6"/><path d="M12 11v6"/><path d="M9 14h6"/></svg></div>
+            <div class="lab">优化后 · 文件 + 加号</div>
+            <div class="txt">"<b>新建文件</b>",与 CreateNewTab(+) 形成层级</div>
+          </div>
+        </div>
+        <div class="reason"><b>理由:</b> 复用项目内 <code>TabMenuIcons.createFromTemplate()</code> 同款"文档+加号",前后端统一。</div>
+      </div>
+
+      <!-- 生成 commit message -->
+      <div class="cmp">
+        <div class="cmp-top"><span class="cmp-name">AI 生成 Commit Message</span><span class="tag bad">❌ 旧PNG</span><span class="loc">plugin.xml:177</span></div>
+        <div class="cmp-body">
+          <div class="side cur">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M9 14c1.5 1.5 4.5 1.5 6 0"/><circle cx="9.5" cy="10.5" r="1" fill="currentColor" stroke="none"/><circle cx="14.5" cy="10.5" r="1" fill="currentColor" stroke="none"/></svg></div>
+            <div class="lab">当前 · 旧版 PNG logo</div>
+            <div class="txt">与 VCS 工具栏其他原生图标<b>视觉不统一</b></div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="side new">
+            <div class="ico"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M3 12h6"/><path d="M15 12h6"/></svg></div>
+            <div class="lab">优化后 · git-commit 节点</div>
+            <div class="txt">标准 <b>VCS commit</b> 符号,融入工具栏</div>
+          </div>
+        </div>
+        <div class="reason"><b>理由:</b> 用 <code>AllIcons.Vcs.Commit</code> 或同款 SVG,与 Git 工具栏原生图标一致。</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- §6 体系统一 -->
+  <div class="sec">
+    <div class="sec-head"><span class="dot">6</span><h2>可选下一步:体系统一</h2></div>
+    <p class="sec-desc">上面是"换图标"的最小修复;真正治本是把三套体系收敛为一套。这步可独立排期,不影响上面的图标替换。</p>
+    <div class="callout sys">
+      <b>收敛目标:</b> 所有图标统一走 <code>Icons.tsx</code> 单一来源 —— 删除 ~250 处 Codicon 字体引用(及其 ttf 依赖),回收各组件里一次性内联的 CopyIcon / ArrowRightIcon / BrainIcon 等重复定义,建立 <code>size token</code>(如 sm=14 / md=16 / lg=20)。<br>
+      <b>收益:</b> 同功能只剩一套图标(齿轮/机器人/刷新不再各有两版),包体更小,主题与无障碍(color-contrast)集中可控。<br>
+      <b>风险:</b> Codicon 覆盖面广,建议按 Settings → Dialog → Selectors 分批迁移,每批配可视化回归。
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><span class="tag bad">❌</span> 完全猜不出(最高优先)</span>
+    <span><span class="tag warn">⚠️</span> 需想一下</span>
+    <span><span class="tag free">接孤儿资源</span> 零成本修复</span>
+    <span><span class="tag fix">优化后</span> 已对齐 Icons.tsx 规范</span>
+  </div>
+
+  <footer>
+    本页为纯静态效果图(mockup),未修改任何项目代码 · 所有"优化后"SVG 可直接移植进 <code>webview/src/components/Icons.tsx</code> 与 <code>plugin.xml</code>
+  </footer>
+
+</div>
+
+<script>
+  const btn=document.getElementById('themeBtn'),html=document.documentElement;
+  btn.addEventListener('click',()=>{
+    const cur=html.getAttribute('data-theme')==='dark'?'light':'dark';
+    html.setAttribute('data-theme',cur);
+    btn.textContent=cur==='dark'?'☀️':'🌙';
+  });
+</script>
+</body>
+</html>

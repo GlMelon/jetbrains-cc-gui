@@ -7,6 +7,7 @@ import type { McpServer, McpServerStatusInfo } from '../../types/mcp';
 import type { ServerRefreshState, ServerToolsState, McpTool } from './types';
 import { getServerStatusInfo, getStatusIcon, getStatusColor, getStatusText, getIconColor, getServerInitial, isServerEnabled } from './utils';
 import { ServerToolsPanel } from './ServerToolsPanel';
+import { BookIcon, CopyIcon, EditIcon, HomeIcon, TrashIcon } from '../Icons';
 
 export interface ServerCardProps {
   server: McpServer;
@@ -89,7 +90,7 @@ export function ServerCard({
             }}
             title={t('chat.editConfig')}
           >
-            <span className="codicon codicon-edit"></span>
+            <EditIcon size={16} />
           </button>
           {/* Copy button */}
           <button
@@ -100,7 +101,7 @@ export function ServerCard({
             }}
             title={t('chat.copyConfig')}
           >
-            <span className="codicon codicon-copy"></span>
+            <CopyIcon size={16} />
           </button>
           {/* Delete button */}
           <button
@@ -111,7 +112,7 @@ export function ServerCard({
             }}
             title={t('chat.deleteServer')}
           >
-            <span className="codicon codicon-trash"></span>
+            <TrashIcon size={16} />
           </button>
           <label className="toggle-switch">
             <input
@@ -200,7 +201,7 @@ export function ServerCard({
                 onClick={() => onCopyUrl(server.homepage!)}
                 title={t('chat.copyHomepageLink')}
               >
-                <span className="codicon codicon-home"></span>
+                <HomeIcon size={16} />
                 {t('mcp.homepage')}
               </button>
             )}
@@ -210,7 +211,7 @@ export function ServerCard({
                 onClick={() => onCopyUrl(server.docs!)}
                 title={t('chat.copyDocsLink')}
               >
-                <span className="codicon codicon-book"></span>
+                <BookIcon size={16} />
                 {t('mcp.docs')}
               </button>
             )}

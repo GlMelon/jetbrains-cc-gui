@@ -8,6 +8,7 @@ import { DEFAULT_CONTEXT_WINDOW, ONE_MILLION_CONTEXT_WINDOW } from '../../../com
 import { formatCapacity } from '../../../utils/formatNumber';
 import { ProviderModelIcon } from '../../../components/shared/ProviderModelIcon';
 import styles from './style.module.less';
+import { EditIcon, LockIcon, PlusIcon, TrashIcon } from '../../Icons';
 
 interface ModelRegistrySectionProps {
   addToast: (message: string, type: 'info' | 'success' | 'warning' | 'error') => void;
@@ -154,7 +155,7 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
         </div>
         <div className={styles.actions}>
           <button className="btn btn-secondary btn-sm" onClick={() => startAdd(providerFilter === 'codex' ? 'codex' : 'claude')}>
-            <span className="codicon codicon-add" aria-hidden="true" />
+            <PlusIcon size={16} aria-hidden="true" />
             {t('common.add', 'Add')}
           </button>
           <button className="btn btn-secondary btn-sm" onClick={reset}>
@@ -170,7 +171,7 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
             className={`${styles.filterButton} ${providerFilter === provider ? styles.active : ''}`}
             onClick={() => setProviderFilter(provider)}
           >
-            {provider !== 'all' && <ProviderModelIcon providerId={provider} size={12} colored />}
+            {provider !== 'all' && <ProviderModelIcon providerId={provider} size={14} colored />}
             {provider === 'all' ? t('common.all', 'All') : provider}
           </button>
         ))}
@@ -276,7 +277,7 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
             <div className={styles.mainCell}>
               <span className={styles.modelId}>{model.actualModel || model.id}</span>
               <span className={styles.provider}>
-                <ProviderModelIcon providerId={model.provider} size={12} colored />
+                <ProviderModelIcon providerId={model.provider} size={14} colored />
                 {model.provider}
               </span>
               {model.enabled === false && <span className={styles.disabled}>{t('settings.models.disabled', 'Disabled')}</span>}
@@ -290,17 +291,20 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
             </div>
             <div className={styles.rowActions}>
               {model.readOnly ? (
-                <span className={`${styles.iconButton} codicon codicon-lock`}
+                <span
+                      className={styles.iconButton}
                       role="img"
                       aria-label={t('settings.models.readonly', 'Read-only')}
-                      title={t('settings.models.readonly', 'Read-only')} />
+                      title={t('settings.models.readonly', 'Read-only')}>
+                  <LockIcon size={16} />
+                </span>
               ) : (
                 <>
                   <button className={styles.iconButton} onClick={() => startEdit(model)} title={t('common.edit', 'Edit')}>
-                    <span className="codicon codicon-edit" aria-hidden="true" />
+                    <EditIcon size={16} aria-hidden="true" />
                   </button>
                   <button className={styles.iconButtonDanger} onClick={() => removeModel(model)} title={t('common.delete', 'Delete')}>
-                    <span className="codicon codicon-trash" aria-hidden="true" />
+                    <TrashIcon size={16} aria-hidden="true" />
                   </button>
                 </>
               )}

@@ -1,4 +1,5 @@
 import { BaseDialog, DialogHeader, DialogBody, DialogFooter } from '../shared/BaseDialog';
+import { AlertIcon } from '../Icons';
 
 interface McpConfirmDialogProps {
   title: string;
@@ -29,7 +30,7 @@ export function McpConfirmDialog({
       <DialogHeader title={title} onClose={onCancel} />
       <DialogBody>
         <div className="confirm-content">
-          <span className="codicon codicon-warning confirm-icon"></span>
+          <AlertIcon size={16} className="confirm-icon" />
           <p className="confirm-message">{message}</p>
         </div>
       </DialogBody>

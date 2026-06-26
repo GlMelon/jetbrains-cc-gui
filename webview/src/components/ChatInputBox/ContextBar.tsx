@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { getFileIcon } from '../../utils/fileIcons';
 import { TokenIndicator } from './TokenIndicator';
 import type { SelectedAgent } from './types';
-import { UploadPlusIcon, CloseIcon, FileIcon, PanelCollapseIcon, RotateCounterClockwiseIcon, RobotIcon } from '../Icons';
+import { UploadPlusIcon, CloseIcon, FileIcon, RobotIcon, ChatRewindIcon, ChevronDownIcon, ChevronUpIcon } from '../Icons';
 
 const HIDDEN_INPUT_STYLE: React.CSSProperties = { display: 'none' };
 const CURSOR_DEFAULT_STYLE: React.CSSProperties = { cursor: 'default' };
@@ -208,7 +208,7 @@ export const ContextBar: React.FC<ContextBarProps> = memo(({
             onClick={onClearAgent}
             title="Remove agent"
           >
-            <CloseIcon size={12} />
+            <CloseIcon size={14} />
           </span>
         </div>
       )}
@@ -235,7 +235,7 @@ export const ContextBar: React.FC<ContextBarProps> = memo(({
             onClick={onClearFile}
             title="Remove file context"
           >
-            <CloseIcon size={12} />
+            <CloseIcon size={14} />
           </span>
         </div>
       ) : !autoOpenFileEnabled && (
@@ -246,7 +246,7 @@ export const ContextBar: React.FC<ContextBarProps> = memo(({
             title={t('fileContext.placeholder')}
             type="button"
           >
-            <FileIcon size={12} />
+            <FileIcon size={14} />
             <span className="placeholder-text">{t('fileContext.placeholder')}</span>
           </button>
 
@@ -282,7 +282,7 @@ export const ContextBar: React.FC<ContextBarProps> = memo(({
             onClick={onToggleStatusPanel}
             data-tooltip={statusPanelExpanded ? t('statusPanel.collapse') : t('statusPanel.expand')}
           >
-            <PanelCollapseIcon size={16} />
+            {statusPanelExpanded ? <ChevronUpIcon size={16} /> : <ChevronDownIcon size={16} />}
           </button>
         )}
 
@@ -294,7 +294,7 @@ export const ContextBar: React.FC<ContextBarProps> = memo(({
             disabled={!hasMessages}
             data-tooltip={t('rewind.tooltip')}
           >
-            <RotateCounterClockwiseIcon size={16} />
+            <ChatRewindIcon size={16} />
           </button>
         )}
       </div>

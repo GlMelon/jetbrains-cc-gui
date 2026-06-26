@@ -6,6 +6,7 @@ import type { ToolInput, ToolResultBlock } from '../../types';
 import { normalizeToolName } from '../../utils/toolConstants';
 import { useSubagentHistoryGetter, useSessionId, useGetToolResultRaw, type GetToolResultRawFn } from '../../contexts/SubagentContext';
 import SubagentProcessDetails from '../StatusPanel/SubagentProcessDetails';
+import { CommentIcon, WrenchIcon } from '../Icons';
 
 const MONO_FONT_STYLE: React.CSSProperties = {
   fontFamily: "var(--cc-gui-code-font-family, var(--idea-editor-font-family, 'JetBrains Mono', 'Consolas', monospace))",
@@ -241,7 +242,7 @@ const TaskExecutionBlock = memo(function TaskExecutionBlock({ name, input, resul
         onClick={() => setExpanded((prev) => !prev)}
       >
         <div className="task-title-section">
-          <span className="codicon codicon-tools tool-title-icon" />
+          <WrenchIcon size={16} className="tool-title-icon" />
 
           <span className="tool-title-text">
             {name ?? t('tools.task')}
@@ -318,7 +319,7 @@ const TaskExecutionBlock = memo(function TaskExecutionBlock({ name, input, resul
             {typeof prompt === 'string' && (
               <div className="task-field">
                 <div className="task-field-label">
-                  <span className="codicon codicon-comment" />
+                  <CommentIcon size={16} />
                   {t('tools.promptLabel')}
                 </div>
                 <div className="task-field-content">{prompt}</div>

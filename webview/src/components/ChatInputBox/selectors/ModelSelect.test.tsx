@@ -121,7 +121,7 @@ describe('ModelSelect', () => {
     expect(selectedOptions).toHaveLength(1);
     expect(selectedOptions[0].textContent).toContain('mimo-v2.5');
     expect(selectedOptions[0].textContent).not.toContain('glm-5.2');
-    expect(container.querySelectorAll('.codicon-check')).toHaveLength(1);
+    expect(selectedOptions[0].querySelectorAll('.check-mark')).toHaveLength(1);
   });
 
   it('自定义 Claude 模型即使 role 命中内置角色,也不被全局 role 映射覆盖 label', () => {

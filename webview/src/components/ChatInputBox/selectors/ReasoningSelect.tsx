@@ -7,6 +7,7 @@ import {
 import { PROVIDER_IDS } from '../../../types/provider';
 import { getModelSupportedReasoningLevels } from '../../../utils/modelRegistry';
 import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
+import { CheckIcon, ChevronDownIcon, ChevronUpIcon, LightbulbIcon } from '../../Icons';
 
 const RELATIVE_INLINE_BLOCK_STYLE: React.CSSProperties = { position: 'relative', display: 'inline-block' };
 const CHEVRON_ICON_STYLE: React.CSSProperties = { fontSize: '10px', marginLeft: '2px' };
@@ -163,9 +164,9 @@ export const ReasoningSelect = ({ value, onChange, disabled, selectedModel, curr
         disabled={disabled}
         title={t('reasoning.title', { defaultValue: 'Select reasoning depth' })}
       >
-        <span className="codicon codicon-lightbulb" />
+        <LightbulbIcon size={16} />
         <span className="selector-button-text">{getReasoningText(currentLevel.id, 'label')}</span>
-        <span className={`codicon codicon-chevron-${isOpen ? 'up' : 'down'}`} style={CHEVRON_ICON_STYLE} />
+        {isOpen ? <ChevronUpIcon size={16} style={CHEVRON_ICON_STYLE} /> : <ChevronDownIcon size={16} style={CHEVRON_ICON_STYLE} />}
       </button>
 
       {isOpen && (
@@ -187,7 +188,7 @@ export const ReasoningSelect = ({ value, onChange, disabled, selectedModel, curr
                 <span className="mode-description">{getReasoningText(level.id, 'description')}</span>
               </div>
               {level.id === value && (
-                <span className="codicon codicon-check check-mark" />
+                <CheckIcon size={16} className="check-mark" />
               )}
             </div>
           ))}

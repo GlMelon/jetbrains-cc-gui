@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
 import type { ReactNode } from 'react';
 import i18n from '../i18n/config';
+import { CheckIcon, CopyIcon, RefreshIcon, XCircleIcon } from './Icons';
 
 interface Props {
   children: ReactNode;
@@ -321,8 +322,8 @@ class ErrorBoundary extends Component<Props, State> {
           <div style={CARD_STYLE}>
             {/* Header */}
             <div style={HEADER_STYLE}>
-              <span
-                className="codicon codicon-error"
+              <XCircleIcon
+                size={16}
                 style={HEADER_ICON_STYLE}
                 aria-hidden="true"
               />
@@ -381,10 +382,9 @@ class ErrorBoundary extends Component<Props, State> {
                   }
                 }}
               >
-                <span
-                  className={this.state.copied ? 'codicon codicon-check' : 'codicon codicon-copy'}
-                  style={BUTTON_ICON_STYLE}
-                />
+                {this.state.copied
+                  ? <CheckIcon size={16} style={BUTTON_ICON_STYLE} />
+                  : <CopyIcon size={16} style={BUTTON_ICON_STYLE} />}
                 {this.state.copied
                   ? t('errorBoundary.copied', 'Copied!')
                   : t('errorBoundary.copyError', 'Copy Error Info')}
@@ -404,7 +404,7 @@ class ErrorBoundary extends Component<Props, State> {
                     'var(--vscode-button-secondaryBackground, #3a3d41)';
                 }}
               >
-                <span className="codicon codicon-refresh" style={BUTTON_ICON_STYLE} />
+                <RefreshIcon size={16} style={BUTTON_ICON_STYLE} />
                 {t('errorBoundary.reload', 'Reload Application')}
               </button>
             </div>

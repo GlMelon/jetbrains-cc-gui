@@ -103,6 +103,20 @@ export function formatCommandForDisplay(text: string): string | null {
   return args ? `/${commandMessage} ${args}` : `/${commandMessage}`;
 }
 
+export function parseSkillCommandBlock(text: string): { name: string; command?: string; args?: string } | null {
+  if (!text) return null;
+
+  const match = COMMAND_TAGS_REGEX.exec(text);
+  if (!match?.[1]) return null;
+
+  const name = match[1].trim();
+  if (!name || match[4]?.trim() !== 'true') return null;
+
+  const command = match[2]?.trim() || undefined;
+  const args = match[3]?.trim() || undefined;
+  return { name, command, args };
+}
+
 /**
  * Format command message for copy/resubmit, matching CLI's textForResubmit behavior.
  * Uses <command-name> tag which already contains the / prefix.
@@ -297,6 +311,15 @@ export function normalizeBlocks(
         // Only format <command-message> for user messages
         // Assistant messages may contain these tags in code examples
         if (isUserMessage && hasCommandMessageTag(rawText)) {
+          const skillBlock = parseSkillCommandBlock(rawText);
+          if (skillBlock) {
+            blocks.push({
+              type: 'skill_use',
+              ...skillBlock,
+              source: 'command-message',
+            });
+            return;
+          }
           const displayContent = formatCommandForDisplay(rawText);
           if (displayContent) {
             blocks.push({
@@ -420,6 +443,10 @@ export function normalizeBlocks(
       // Only format <command-message> for user messages
       // Assistant messages may contain these tags in code examples
       if (isUserMessage && hasCommandMessageTag(content)) {
+        const skillBlock = parseSkillCommandBlock(content);
+        if (skillBlock) {
+          return [{ type: 'skill_use' as const, ...skillBlock, source: 'command-message' }];
+        }
         const displayContent = formatCommandForDisplay(content);
         if (displayContent) {
           return [{ type: 'text' as const, text: localizeMessage(displayContent) }];

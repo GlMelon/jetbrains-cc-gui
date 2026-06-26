@@ -1,10 +1,10 @@
 import { useTranslation } from 'react-i18next';
 import type { TokenIndicatorProps } from './types';
-import { ArrowDownIcon, ArrowUpIcon, DatabaseIcon, LayersIcon } from '../Icons';
+import { ArrowDownIcon, ArrowUpIcon, DatabaseIcon, LayersIcon, CacheWriteIcon, type IconSize } from '../Icons';
 import { formatCapacity } from '../../utils/formatNumber';
 
 // SVG Icon component for token detail metrics
-const TokenIcon = ({ name, size = 14 }: { name: string; size?: number }) => {
+const TokenIcon = ({ name, size = 14 }: { name: string; size?: IconSize }) => {
   switch (name) {
     case 'arrow-down':
       return <ArrowDownIcon size={size} className="token-detail-icon" />;
@@ -13,7 +13,7 @@ const TokenIcon = ({ name, size = 14 }: { name: string; size?: number }) => {
     case 'database':
       return <DatabaseIcon size={size} className="token-detail-icon" />;
     case 'archive':
-      return <LayersIcon size={size} className="token-detail-icon" />;
+      return <CacheWriteIcon size={size} className="token-detail-icon" />;
     case 'dashboard':
       return <LayersIcon size={size} className="token-detail-icon" />;
     default:

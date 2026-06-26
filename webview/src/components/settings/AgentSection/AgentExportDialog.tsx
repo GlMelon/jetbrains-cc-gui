@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import type { AgentConfig } from '../../../types/agent';
 import styles from '../ProviderList/style.module.less';
+import { CloseIcon } from '../../Icons';
 
 interface AgentExportDialogProps {
   agents: AgentConfig[];
@@ -63,7 +64,7 @@ export default function AgentExportDialog({
         <div className={styles.dialogHeader}>
           <h3>{t('settings.agent.exportDialog.title')}</h3>
           <button className={styles.closeBtn} onClick={onCancel}>
-            <span className="codicon codicon-close" />
+            <CloseIcon size={16} />
           </button>
         </div>
 

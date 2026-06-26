@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import type { TFunction } from 'i18next';
-import { ChecklistIcon, CheckAllIcon, ClearAllIcon, TrashIcon, CloseIcon, RefreshIcon, SyncIcon } from '../Icons';
+import { TaskIcon, CheckAllIcon, ClearAllIcon, TrashIcon, CloseIcon, SyncIcon, SearchDeepIcon } from '../Icons';
 
 export interface HistoryActionsProps {
   isSelectionMode: boolean;
@@ -72,7 +72,7 @@ export const HistoryActions = memo(({
         title={t('history.selectMode')}
         aria-label={t('history.selectMode')}
       >
-        <ChecklistIcon size={14} />
+        <TaskIcon size={14} />
         <span>{t('history.selectMode')}</span>
       </button>
       {/* Deep search button */}
@@ -83,7 +83,7 @@ export const HistoryActions = memo(({
         title={t('history.deepSearchTooltip')}
         aria-label={t('history.deepSearchTooltip')}
       >
-        {isDeepSearching ? <SyncIcon size={14} spinning /> : <RefreshIcon size={14} />}
+        {isDeepSearching ? <SyncIcon size={14} spinning /> : <SearchDeepIcon size={14} />}
       </button>
     </div>
   );

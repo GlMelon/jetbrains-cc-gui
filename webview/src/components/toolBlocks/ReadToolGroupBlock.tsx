@@ -5,6 +5,7 @@ import { openFile } from '../../utils/bridge';
 import { useResolvedFileLinkTooltip } from '../../hooks/useResolvedFileLinkTooltip';
 import { getFileIcon, getFolderIcon } from '../../utils/fileIcons';
 import { getToolLineInfo, resolveToolTarget } from '../../utils/toolPresentation';
+import { FileCodeIcon } from '../Icons';
 
 interface FileItem {
   filePath: string;
@@ -232,7 +233,7 @@ const ReadToolGroupBlock = ({ items }: ReadToolGroupBlockProps) => {
         style={headerStyle}
       >
         <div className="task-title-section" style={TITLE_SECTION_STYLE}>
-          <span className="codicon codicon-file-code tool-title-icon" />
+          <FileCodeIcon size={16} className="tool-title-icon" />
           <span className="tool-title-text" style={TITLE_TEXT_STYLE}>
             {t('permission.tools.ReadBatch')}
           </span>

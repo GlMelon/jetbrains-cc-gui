@@ -34,7 +34,7 @@ export function MessageQueue({ queue, onRemove }: MessageQueueProps) {
               onClick={() => onRemove(item.id)}
               title="Remove from queue"
             >
-              <CloseIcon size={12} />
+              <CloseIcon size={14} />
             </button>
           </div>
         );

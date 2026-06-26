@@ -44,9 +44,9 @@ public class PluginActionRegistrationTest {
         ActionRegistration copyReferenceAction = getActionRegistration("ClaudeCodeGUI.CopySelectionReferenceAction");
         ActionRegistration quickFixAction = getActionRegistration("ClaudeCodeGUI.QuickFixWithClaudeAction");
 
-        Assert.assertEquals("/icons/cc-gui-icon.svg", sendSelectionAction.icon);
-        Assert.assertEquals("/icons/cc-gui-icon.svg", copyReferenceAction.icon);
-        Assert.assertEquals("/icons/cc-gui-icon.svg", quickFixAction.icon);
+        Assert.assertEquals("/icons/send-to-terminal.svg", sendSelectionAction.icon);
+        Assert.assertEquals("/icons/copy-reference.svg", copyReferenceAction.icon);
+        Assert.assertEquals("/icons/quick-fix.svg", quickFixAction.icon);
     }
 
     @Test

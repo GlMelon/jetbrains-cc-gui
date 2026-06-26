@@ -1,4 +1,5 @@
 import { sendAction } from '../../../bridge/typed';
+import { BanIcon, CheckIcon, EditIcon, GripIcon, InfoIcon, KeyIcon, PlusIcon, PowerIcon, TrashIcon } from '../../Icons';;
 import { UPSTREAM } from '../../../generated/protocol';
 import { useState, useCallback, useMemo } from 'react';
 
@@ -87,7 +88,7 @@ const CodexProviderSection = ({
         <div className={sharedStyles.warningOverlay}>
           <div className={sharedStyles.warningDialog}>
             <div className={sharedStyles.warningTitle}>
-              <span className="codicon codicon-key" />
+              <KeyIcon size={16} />
               {t('settings.codexProvider.dialog.cliLoginAuthorizeTitle')}
             </div>
             <div className={sharedStyles.warningContent}>
@@ -122,7 +123,7 @@ const CodexProviderSection = ({
         <div className={sharedStyles.warningOverlay}>
           <div className={sharedStyles.warningDialog}>
             <div className={sharedStyles.warningTitle}>
-              <span className="codicon codicon-circle-slash" />
+              <BanIcon size={16} />
               {t('settings.codexProvider.dialog.cliLoginDisableTitle')}
             </div>
             <div className={sharedStyles.warningContent}>
@@ -166,7 +167,7 @@ const CodexProviderSection = ({
                 className={sharedStyles.btnPrimary}
                 onClick={onAddCodexProvider}
               >
-                <span className="codicon codicon-add" />
+                <PlusIcon size={16} />
                 {t('common.add')}
               </button>
             </div>
@@ -180,7 +181,7 @@ const CodexProviderSection = ({
               >
                 <div className={sharedStyles.cardInfo}>
                   <div className={sharedStyles.name}>
-                    <span className="codicon codicon-key" style={ICON_MR_8_STYLE} />
+                    <KeyIcon size={16} style={ICON_MR_8_STYLE} />
                     {t('settings.codexProvider.dialog.cliLoginProviderName')}
                   </div>
                   <div className={sharedStyles.website} title={t('settings.codexProvider.dialog.cliLoginProviderDescription')}>
@@ -194,7 +195,7 @@ const CodexProviderSection = ({
                       className={sharedStyles.revokeButton}
                       onClick={() => setShowCliLoginDisableConfirm(true)}
                     >
-                      <span className="codicon codicon-circle-slash" />
+                      <BanIcon size={16} />
                       {t('settings.provider.revokeAuthorization')}
                     </button>
                   ) : (
@@ -202,7 +203,7 @@ const CodexProviderSection = ({
                       className={sharedStyles.useButton}
                       onClick={() => setShowCliLoginConfirm(true)}
                     >
-                      <span className="codicon codicon-play" />
+                      <PowerIcon size={16} />
                       {t('settings.provider.authorizeAndEnable')}
                     </button>
                   )}
@@ -234,7 +235,7 @@ const CodexProviderSection = ({
                     title={t('settings.provider.dragToSort')}
                     onPointerDown={(e) => handlePointerDown(e, provider.id, e.currentTarget.closest<HTMLElement>('[data-drag-sort-id]'))}
                   >
-                    <span className="codicon codicon-gripper" />
+                    <GripIcon size={16} />
                   </div>
                   <div className={sharedStyles.cardInfo}>
                     <div className={sharedStyles.name}>{provider.name}</div>
@@ -246,7 +247,7 @@ const CodexProviderSection = ({
                   <div className={sharedStyles.cardActions}>
                     {provider.isActive ? (
                       <div className={sharedStyles.activeBadge}>
-                        <span className="codicon codicon-check" />
+                        <CheckIcon size={16} />
                         {t('settings.provider.inUse')}
                       </div>
                     ) : (
@@ -254,7 +255,7 @@ const CodexProviderSection = ({
                         className={sharedStyles.useButton}
                         onClick={() => onSwitchCodexProvider(provider.id)}
                       >
-                        <span className="codicon codicon-play" />
+                        <PowerIcon size={16} />
                         {t('settings.provider.enable')}
                       </button>
                     )}
@@ -267,14 +268,14 @@ const CodexProviderSection = ({
                         onClick={() => onEditCodexProvider(provider)}
                         title={t('common.edit')}
                       >
-                        <span className="codicon codicon-edit" />
+                        <EditIcon size={16} />
                       </button>
                       <button
                         className={sharedStyles.iconBtn}
                         onClick={() => onDeleteCodexProvider(provider)}
                         title={t('common.delete')}
                       >
-                        <span className="codicon codicon-trash" />
+                        <TrashIcon size={16} />
                       </button>
                     </div>
                   </div>
@@ -282,7 +283,7 @@ const CodexProviderSection = ({
               ))
             ) : !cliLoginProvider ? (
               <div className={sharedStyles.emptyState}>
-                <span className="codicon codicon-info" />
+                <InfoIcon size={16} />
                 <p>{t('settings.codexProvider.emptyProvider')}</p>
               </div>
             ) : null}

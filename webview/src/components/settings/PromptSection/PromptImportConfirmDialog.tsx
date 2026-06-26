@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { PromptConfig } from '../../../types/prompt';
 import type { ImportPreviewResult, ConflictStrategy } from '../../../types/import';
 import styles from '../ProviderList/style.module.less';
+import { AlertIcon, CloseIcon } from '../../Icons';
 
 interface PromptImportConfirmDialogProps {
   previewData: ImportPreviewResult<PromptConfig>;
@@ -64,7 +65,7 @@ export default function PromptImportConfirmDialog({
         <div className={styles.dialogHeader}>
           <h3>{t('settings.prompt.importDialog.title')}</h3>
           <button className={styles.closeBtn} onClick={onCancel}>
-            <span className="codicon codicon-close" />
+            <CloseIcon size={16} />
           </button>
         </div>
 
@@ -177,7 +178,7 @@ export default function PromptImportConfirmDialog({
                     </span>
                     {item.conflict && (
                       <span className={styles.conflictIcon} title={t('settings.prompt.importDialog.conflictWarning')}>
-                        <span className="codicon codicon-warning" />
+                        <AlertIcon size={16} />
                       </span>
                     )}
                   </div>

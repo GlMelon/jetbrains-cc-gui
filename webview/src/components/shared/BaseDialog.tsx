@@ -1,5 +1,6 @@
 import { type ReactNode } from 'react';
 import { useEscapeClose } from '../../hooks/useEscapeClose';
+import { CloseIcon } from '../Icons';
 
 export type DialogSize = 'sm' | 'md' | 'lg' | 'xl' | 'auto';
 
@@ -88,7 +89,7 @@ export function DialogHeader({
       </h3>
       {onClose && (
         <button className="close-btn" onClick={onClose}>
-          <span className="codicon codicon-close" />
+          <CloseIcon size={16} />
         </button>
       )}
       {children}

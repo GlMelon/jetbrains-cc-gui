@@ -1,4 +1,5 @@
 import { sendAction, subscribeEvent } from '../../../bridge/typed';
+import { BanIcon, CheckIcon, DownloadIcon, EditIcon, FileIcon, GripIcon, KeyIcon, PlusIcon, PowerIcon, ServerIcon, ShieldIcon, TerminalArrowIcon, TrashIcon, AlertIcon } from '../../Icons';;
 import { UPSTREAM, DOWNSTREAM } from '../../../generated/protocol';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -248,7 +249,7 @@ export default function ProviderList({
           <div className={styles.warningOverlay}>
               <div className={styles.warningDialog}>
                   <div className={styles.warningTitle}>
-                      <span className="codicon codicon-warning" />
+                      <AlertIcon size={16} />
                       {t('settings.provider.editCcSwitchTitle')}
                   </div>
                   <div className={styles.warningContent}>
@@ -290,7 +291,7 @@ export default function ProviderList({
           <div className={styles.warningOverlay}>
               <div className={styles.warningDialog}>
                   <div className={styles.warningTitle}>
-                      <span className="codicon codicon-arrow-swap" />
+                      <TerminalArrowIcon size={16} />
                       {t('settings.provider.convertToPlugin')}
                   </div>
                   <div className={styles.warningContent}>
@@ -325,7 +326,7 @@ export default function ProviderList({
         <div className={styles.warningOverlay}>
           <div className={styles.warningDialog}>
             <div className={styles.warningTitle}>
-              <span className="codicon codicon-shield" />
+              <ShieldIcon size={16} />
               {t('settings.provider.localProviderAuthorizeTitle')}
             </div>
             <div className={styles.warningContent}>
@@ -359,7 +360,7 @@ export default function ProviderList({
         <div className={styles.warningOverlay}>
           <div className={styles.warningDialog}>
             <div className={styles.warningTitle}>
-              <span className="codicon codicon-circle-slash" />
+              <BanIcon size={16} />
               {t('settings.provider.localProviderDisableTitle')}
             </div>
             <div className={styles.warningContent}>
@@ -390,7 +391,7 @@ export default function ProviderList({
         <div className={styles.warningOverlay}>
           <div className={styles.warningDialog}>
             <div className={styles.warningTitle}>
-              <span className="codicon codicon-key" />
+              <KeyIcon size={16} />
               {t('settings.provider.cliLoginAuthorizeTitle')}
             </div>
             <div className={styles.warningContent}>
@@ -424,7 +425,7 @@ export default function ProviderList({
         <div className={styles.warningOverlay}>
           <div className={styles.warningDialog}>
             <div className={styles.warningTitle}>
-              <span className="codicon codicon-circle-slash" />
+              <BanIcon size={16} />
               {t('settings.provider.cliLoginDisableTitle')}
             </div>
             <div className={styles.warningContent}>
@@ -465,7 +466,7 @@ export default function ProviderList({
               className={styles.btnSecondary}
               onClick={() => setImportMenuOpen(!importMenuOpen)}
             >
-              <span className="codicon codicon-cloud-download" />
+              <DownloadIcon size={16} />
               {t('settings.provider.import')}
             </button>
             
@@ -479,14 +480,14 @@ export default function ProviderList({
                     sendAction(UPSTREAM.PREVIEW_CC_SWITCH_IMPORT);
                   }}
                 >
-                  <span className="codicon codicon-arrow-swap" />
+                  <TerminalArrowIcon size={16} />
                   {t('settings.provider.importFromCcSwitchUpdate')}
                 </div>
                 <div
                   className={styles.importMenuItem}
                   onClick={handleSelectFileClick}
                 >
-                  <span className="codicon codicon-file" />
+                  <FileIcon size={16} />
                   {t('settings.provider.importFromCcSwitchFile')}
                 </div>
                 {/* <div
@@ -496,7 +497,7 @@ export default function ProviderList({
                     addToast(t('settings.provider.featureComingSoon'), 'info');
                   }}
                 >
-                  <span className="codicon codicon-arrow-swap" />
+                  <TerminalArrowIcon size={16} />
                   {t('settings.provider.importFromCcSwitchCli')}
                 </div>
                 <div
@@ -506,7 +507,7 @@ export default function ProviderList({
                     addToast(t('settings.provider.featureComingSoon'), 'info');
                   }}
                 >
-                  <span className="codicon codicon-arrow-swap" />
+                  <TerminalArrowIcon size={16} />
                   {t('settings.provider.importFromClaudeRouter')}
                 </div> */}
               </div>
@@ -517,7 +518,7 @@ export default function ProviderList({
             className={styles.btnPrimary}
             onClick={onAdd}
           >
-            <span className="codicon codicon-add" />
+            <PlusIcon size={16} />
             {t('common.add')}
           </button>
         </div>
@@ -538,7 +539,7 @@ export default function ProviderList({
             >
               <div className={styles.statusRail} />
               <div className={styles.cardIcon}>
-                <span className="codicon codicon-file" />
+                <FileIcon size={16} />
               </div>
               <div className={styles.cardInfo}>
                 <div className={styles.name}>{t('settings.provider.localProviderName')}</div>
@@ -553,7 +554,7 @@ export default function ProviderList({
                     className={styles.revokeButton}
                     onClick={() => setShowLocalProviderDisableConfirm(true)}
                   >
-                    <span className="codicon codicon-circle-slash" />
+                    <BanIcon size={16} />
                     {t('settings.provider.revokeAuthorization')}
                   </button>
                 ) : (
@@ -561,7 +562,7 @@ export default function ProviderList({
                     className={styles.useButton}
                     onClick={() => setShowLocalProviderConfirm(true)}
                   >
-                    <span className="codicon codicon-play" />
+                    <PowerIcon size={16} />
                     {t('settings.provider.authorizeAndEnable')}
                   </button>
                 )}
@@ -574,7 +575,7 @@ export default function ProviderList({
             >
               <div className={styles.statusRail} />
               <div className={styles.cardIcon}>
-                <span className="codicon codicon-key" />
+                <KeyIcon size={16} />
               </div>
               <div className={styles.cardInfo}>
                 <div className={styles.name}>{t('settings.provider.cliLoginProviderName')}</div>
@@ -594,7 +595,7 @@ export default function ProviderList({
                     className={styles.revokeButton}
                     onClick={() => setShowCliLoginDisableConfirm(true)}
                   >
-                    <span className="codicon codicon-circle-slash" />
+                    <BanIcon size={16} />
                     {t('settings.provider.revokeAuthorization')}
                   </button>
                 ) : (
@@ -602,7 +603,7 @@ export default function ProviderList({
                     className={styles.useButton}
                     onClick={() => setShowCliLoginConfirm(true)}
                   >
-                    <span className="codicon codicon-play" />
+                    <PowerIcon size={16} />
                     {t('settings.provider.authorizeAndEnable')}
                   </button>
                 )}
@@ -643,13 +644,13 @@ export default function ProviderList({
                 title={t('settings.provider.dragToSort')}
                 onPointerDown={(e) => handlePointerDown(e, provider.id, e.currentTarget.closest<HTMLElement>('[data-drag-sort-id]'))}
               >
-                <span className="codicon codicon-gripper" />
+                <GripIcon size={16} />
               </div>
               <div className={styles.cardIcon}>
                 {provider.id === PROVIDER_IDS.CLAUDE || provider.id === PROVIDER_IDS.CODEX ? (
-                  <ProviderModelIcon providerId={provider.id} size={18} colored />
+                  <ProviderModelIcon providerId={provider.id} size={20} colored />
                 ) : (
-                  <span className="codicon codicon-server" />
+                  <ServerIcon size={16} />
                 )}
               </div>
               <div className={styles.cardInfo}>
@@ -671,7 +672,7 @@ export default function ProviderList({
               <div className={styles.cardActions}>
                 {provider.isActive ? (
                   <div className={styles.activeBadge}>
-                    <span className="codicon codicon-check" />
+                    <CheckIcon size={16} />
                     {t('settings.provider.inUse')}
                   </div>
                 ) : (
@@ -679,7 +680,7 @@ export default function ProviderList({
                     className={styles.useButton}
                     onClick={() => onSwitch(provider.id)}
                   >
-                    <span className="codicon codicon-play" />
+                    <PowerIcon size={16} />
                     {t('settings.provider.enable')}
                   </button>
                 )}
@@ -698,7 +699,7 @@ export default function ProviderList({
                           }}
                           title={t('settings.provider.convertToPlugin')}
                         >
-                          <span className="codicon codicon-arrow-swap" />
+                          <TerminalArrowIcon size={16} />
                         </button>
                       )}
                       <button
@@ -706,14 +707,14 @@ export default function ProviderList({
                         onClick={() => handleEditClick(provider)}
                         title={t('common.edit')}
                       >
-                        <span className="codicon codicon-edit" />
+                        <EditIcon size={16} />
                       </button>
                       <button
                         className={styles.iconBtn}
                         onClick={() => onDelete(provider)}
                         title={t('common.delete')}
                       >
-                        <span className="codicon codicon-trash" />
+                        <TrashIcon size={16} />
                       </button>
                     </>
                   )}

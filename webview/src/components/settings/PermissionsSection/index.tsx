@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import styles from './style.module.less';
+import { InfoIcon, ShieldIcon } from '../../Icons';
 
 interface PermissionsSectionProps {
   codexSandboxMode: 'workspace-write' | 'danger-full-access';
@@ -19,7 +20,7 @@ const PermissionsSection = ({
 
       <div className={styles.panel}>
         <div className={styles.panelHeader}>
-          <span className="codicon codicon-shield" />
+          <ShieldIcon size={16} />
           <span>{t('settings.permissionsPanel.codexSandboxTitle')}</span>
         </div>
         <p className={styles.panelDesc}>{t('settings.permissionsPanel.codexSandboxDesc')}</p>
@@ -55,7 +56,7 @@ const PermissionsSection = ({
         </div>
 
         <small className={styles.hint}>
-          <span className="codicon codicon-info" />
+          <InfoIcon size={16} />
           <span>{t('settings.permissionsPanel.hint')}</span>
         </small>
       </div>

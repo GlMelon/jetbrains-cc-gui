@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ToolInput, ToolResultBlock } from '../../types';
+import { CheckIcon, AlertIcon, XCircleIcon } from '../Icons';
 
 interface BashItem {
   command: string;
@@ -143,7 +144,7 @@ const BashToolGroupBlock = ({ items, deniedToolIds }: BashToolGroupBlockProps) =
     if (errorCount > 0) {
       return (
         <span className="bash-group-progress error">
-          <span className="codicon codicon-warning" style={PROGRESS_ICON_STYLE} />
+          <AlertIcon size={16} style={PROGRESS_ICON_STYLE} />
           {errorCount} {t('tools.bashGroupFailed')}
         </span>
       );
@@ -151,7 +152,7 @@ const BashToolGroupBlock = ({ items, deniedToolIds }: BashToolGroupBlockProps) =
     if (completedCount === totalCount) {
       return (
         <span className="bash-group-progress completed">
-          <span className="codicon codicon-check" style={PROGRESS_ICON_STYLE} />
+          <CheckIcon size={16} style={PROGRESS_ICON_STYLE} />
           {t('tools.bashGroupAllCompleted')}
         </span>
       );
@@ -225,8 +226,8 @@ const BashToolGroupBlock = ({ items, deniedToolIds }: BashToolGroupBlockProps) =
                       {item.output && (
                         <div className={`bash-output-block ${item.isError ? 'error' : 'normal'}`}>
                           {item.isError && (
-                            <span
-                              className="codicon codicon-error"
+                            <XCircleIcon
+                              size={16}
                               style={ERROR_ICON_STYLE}
                             />
                           )}

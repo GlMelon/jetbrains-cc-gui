@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { ToolInput, ToolResultBlock } from '../../types';
 import { useIsToolDenied } from '../../hooks/useIsToolDenied';
 import { ToolBlockShell } from './ToolBlockShell';
+import { TerminalIcon, XCircleIcon } from '../Icons';
 
 const TASK_DETAILS_STYLE: React.CSSProperties = { padding: 0, border: 'none' };
 const TASK_CONTENT_WRAPPER_STYLE: React.CSSProperties = { paddingLeft: '40px', position: 'relative', zIndex: 1 };
@@ -49,7 +50,7 @@ const BashToolBlock = memo(function BashToolBlock({ input, result, toolId }: Bas
 
   const titleContent = (
     <>
-      <span className="codicon codicon-terminal bash-tool-icon" />
+      <TerminalIcon size={16} className="bash-tool-icon" />
       <span className="bash-tool-title">{t('tools.runCommand')}</span>
       <span className="bash-tool-description">{description}</span>
     </>
@@ -73,7 +74,7 @@ const BashToolBlock = memo(function BashToolBlock({ input, result, toolId }: Bas
             {output && (
               <div className={`bash-output-block ${isError ? 'error' : 'normal'}`}>
                 {isError && (
-                  <span className="codicon codicon-error" style={ERROR_ICON_STYLE} />
+                  <XCircleIcon size={16} style={ERROR_ICON_STYLE} />
                 )}
                 <span className="bash-output-text">{output}</span>
               </div>

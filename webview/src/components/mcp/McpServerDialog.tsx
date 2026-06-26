@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { McpServer, McpServerSpec } from '../../types/mcp';
+import { InfoIcon, XCircleIcon, CloseIcon } from '../Icons';
 
 interface McpServerDialogProps {
   server?: McpServer | null;
@@ -239,7 +240,7 @@ export function McpServerDialog({ server, existingIds = [], currentProvider = 'c
               {t('mcp.serverDialog.rawConfig')}
             </button>
             <button className="close-btn" onClick={onClose}>
-              <span className="codicon codicon-close"></span>
+              <CloseIcon size={16} />
             </button>
           </div>
         </div>
@@ -268,7 +269,7 @@ export function McpServerDialog({ server, existingIds = [], currentProvider = 'c
 
           {parseError && (
             <div className="error-message">
-              <span className="codicon codicon-error"></span>
+              <XCircleIcon size={16} />
               {parseError}
             </div>
           )}
@@ -276,7 +277,7 @@ export function McpServerDialog({ server, existingIds = [], currentProvider = 'c
 
         <div className="dialog-footer">
           <div className="footer-hint">
-            <span className="codicon codicon-info"></span>
+            <InfoIcon size={16} />
             {t('mcp.serverDialog.securityWarning')}
           </div>
           <div className="footer-actions">

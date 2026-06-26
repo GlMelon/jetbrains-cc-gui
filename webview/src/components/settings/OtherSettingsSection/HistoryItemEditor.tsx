@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import styles from './style.module.less';
+import { InfoIcon, MinusIcon, PlusIcon, CloseIcon } from '../../Icons';
 
 export interface HistoryItemEditorProps {
   /** Whether the editor is open */
@@ -99,7 +100,7 @@ export function HistoryItemEditor({
             onClick={onClose}
             title={t('common.close')}
           >
-            <span className="codicon codicon-close" />
+            <CloseIcon size={16} />
           </button>
         </div>
 
@@ -129,7 +130,7 @@ export function HistoryItemEditor({
                 onClick={() => handleImportanceChange(-1)}
                 disabled={importance <= 1}
               >
-                <span className="codicon codicon-remove" />
+                <MinusIcon size={16} />
               </button>
               <input
                 type="number"
@@ -143,11 +144,11 @@ export function HistoryItemEditor({
                 className={styles.importanceButton}
                 onClick={() => handleImportanceChange(1)}
               >
-                <span className="codicon codicon-add" />
+                <PlusIcon size={16} />
               </button>
             </div>
             <small className={styles.editorHint}>
-              <span className="codicon codicon-info" />
+              <InfoIcon size={16} />
               <span>{t('settings.other.historyCompletion.editor.importanceHint')}</span>
             </small>
           </div>

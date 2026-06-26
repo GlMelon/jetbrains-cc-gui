@@ -9,6 +9,7 @@ import { getToolLineInfo, getToolEditCount, resolveToolTarget } from '../../util
 import { normalizeToolInput } from '../../utils/toolInputNormalization';
 import GenericToolBlock from './GenericToolBlock';
 import { ToolBlockShell } from './ToolBlockShell';
+import { DiffIcon, EditIcon, RefreshIcon } from '../Icons';
 
 interface EditToolBlockProps {
   name?: string;
@@ -340,7 +341,7 @@ const EditToolBlock = memo(function EditToolBlock({ name, input, result, toolId 
 
   const titleContent = (
     <>
-      <span className="codicon codicon-edit tool-title-icon" />
+      <EditIcon size={16} className="tool-title-icon" />
 
       <span className="tool-title-text">
         {t('tools.editFileTitle')}
@@ -416,7 +417,7 @@ const EditToolBlock = memo(function EditToolBlock({ name, input, result, toolId 
               e.currentTarget.style.color = 'var(--text-tertiary)';
             }}
           >
-            <span className="codicon codicon-diff" style={DIFF_BUTTON_ICON_STYLE} />
+            <DiffIcon size={16} style={DIFF_BUTTON_ICON_STYLE} />
             {t('tools.diffButton')}
           </button>
           <button
@@ -435,7 +436,7 @@ const EditToolBlock = memo(function EditToolBlock({ name, input, result, toolId 
               e.currentTarget.style.color = 'var(--text-tertiary)';
             }}
           >
-            <span className="codicon codicon-refresh" style={REFRESH_BUTTON_ICON_STYLE} />
+            <RefreshIcon size={16} style={REFRESH_BUTTON_ICON_STYLE} />
           </button>
         </div>
       </div>

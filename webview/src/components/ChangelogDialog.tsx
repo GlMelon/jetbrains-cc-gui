@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ChangelogEntry } from '../version/changelog';
 import { BaseDialog } from './shared/BaseDialog';
+import { ChevronLeftIcon, ChevronRightIcon, CloseIcon } from './Icons';
 
 interface ChangelogDialogProps {
   isOpen: boolean;
@@ -154,7 +155,7 @@ const ChangelogDialog = ({ isOpen, onClose, entries, initialPage = 0 }: Changelo
             <span className="changelog-date">{entry.date}</span>
           </div>
           <button className="changelog-close-btn" onClick={onClose}>
-            <span className="codicon codicon-close" />
+            <CloseIcon size={16} />
           </button>
         </div>
 
@@ -179,7 +180,7 @@ const ChangelogDialog = ({ isOpen, onClose, entries, initialPage = 0 }: Changelo
             disabled={!hasPrev}
             aria-label="Previous version"
           >
-            <span className="codicon codicon-chevron-left" />
+            <ChevronLeftIcon size={16} />
           </button>
 
           <div className="changelog-pagination">
@@ -207,7 +208,7 @@ const ChangelogDialog = ({ isOpen, onClose, entries, initialPage = 0 }: Changelo
             disabled={!hasNext}
             aria-label="Next version"
           >
-            <span className="codicon codicon-chevron-right" />
+            <ChevronRightIcon size={16} />
           </button>
         </div>
       </div>

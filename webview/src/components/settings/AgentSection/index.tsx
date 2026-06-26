@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AgentConfig } from '../../../types/agent';
 import styles from './style.module.less';
+import { DownloadIcon, EditIcon, UploadIcon, KebabVerticalIcon, PlusIcon, RobotIcon, TrashIcon } from '../../Icons';
 
 interface AgentSectionProps {
   agents: AgentConfig[];
@@ -62,15 +63,15 @@ export default function AgentSection({
         </div>
         <div className={styles.headerActions}>
           <button className={styles.exportButton} onClick={onExport}>
-            <span className="codicon codicon-export" />
+            <UploadIcon size={16} />
             {t('settings.agent.export')}
           </button>
           <button className={styles.importButton} onClick={onImport}>
-            <span className="codicon codicon-cloud-download" />
+            <DownloadIcon size={16} />
             {t('settings.agent.import')}
           </button>
           <button className={styles.addButton} onClick={onAdd}>
-            <span className="codicon codicon-add" />
+            <PlusIcon size={16} />
             {t('settings.agent.create')}
           </button>
         </div>
@@ -96,7 +97,7 @@ export default function AgentSection({
             {agents.map((agent) => (
               <div key={agent.id} className={styles.agentCard}>
                 <div className={styles.agentIcon}>
-                  <span className="codicon codicon-robot" />
+                  <RobotIcon size={16} />
                 </div>
                 <div className={styles.agentInfo}>
                   <div className={styles.agentName}>{agent.name}</div>
@@ -114,7 +115,7 @@ export default function AgentSection({
                     onClick={() => handleMenuToggle(agent.id)}
                     title={t('settings.agent.menu')}
                   >
-                    <span className="codicon codicon-kebab-vertical" />
+                    <KebabVerticalIcon size={16} />
                   </button>
                   {openMenuId === agent.id && (
                     <div className={styles.dropdownMenu}>
@@ -122,14 +123,14 @@ export default function AgentSection({
                         className={styles.menuItem}
                         onClick={() => handleEditClick(agent)}
                       >
-                        <span className="codicon codicon-edit" />
+                        <EditIcon size={16} />
                         {t('common.edit')}
                       </button>
                       <button
                         className={`${styles.menuItem} ${styles.danger}`}
                         onClick={() => handleDeleteClick(agent)}
                       >
-                        <span className="codicon codicon-trash" />
+                        <TrashIcon size={16} />
                         {t('common.delete')}
                       </button>
                     </div>

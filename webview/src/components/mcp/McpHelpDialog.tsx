@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { BookIcon, ExternalLinkIcon, InfoIcon, RocketIcon, CloseIcon } from '../Icons';
 
 interface McpHelpDialogProps {
   onClose: () => void;
@@ -23,7 +24,7 @@ export function McpHelpDialog({ onClose }: McpHelpDialogProps) {
         <div className="dialog-header">
           <h3>{t('mcp.help.title')}</h3>
           <button className="close-btn" onClick={onClose}>
-            <span className="codicon codicon-close"></span>
+            <CloseIcon size={16} />
           </button>
         </div>
 
@@ -31,7 +32,7 @@ export function McpHelpDialog({ onClose }: McpHelpDialogProps) {
           <div className="help-content">
             <section className="help-section">
               <h4>
-                <span className="codicon codicon-info"></span>
+                <InfoIcon size={16} />
                 {t('mcp.help.protocol.title')}
               </h4>
               <p>
@@ -41,7 +42,7 @@ export function McpHelpDialog({ onClose }: McpHelpDialogProps) {
 
             <section className="help-section">
               <h4>
-                <span className="codicon codicon-rocket"></span>
+                <RocketIcon size={16} />
                 {t('mcp.help.features.title')}
               </h4>
               <ul>
@@ -54,7 +55,7 @@ export function McpHelpDialog({ onClose }: McpHelpDialogProps) {
 
             <section className="help-section">
               <h4>
-                <span className="codicon codicon-book"></span>
+                <BookIcon size={16} />
                 {t('mcp.help.configuration.title')}
               </h4>
               <p>{t('mcp.help.configuration.description')}</p>
@@ -72,7 +73,7 @@ export function McpHelpDialog({ onClose }: McpHelpDialogProps) {
 
             <section className="help-section">
               <h4>
-                <span className="codicon codicon-link-external"></span>
+                <ExternalLinkIcon size={16} />
                 {t('mcp.help.learnMore.title')}
               </h4>
               <p>
@@ -84,7 +85,7 @@ export function McpHelpDialog({ onClose }: McpHelpDialogProps) {
                   className="help-link"
                 >
                   modelcontextprotocol.io
-                  <span className="codicon codicon-link-external"></span>
+                  <ExternalLinkIcon size={16} />
                 </a>
               </p>
             </section>

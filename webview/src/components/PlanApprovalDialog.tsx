@@ -7,6 +7,7 @@ import MarkdownBlock from './MarkdownBlock';
 import { useDialogResize } from '../hooks/useDialogResize';
 import { isEditableEventTarget } from '../utils/isEditableEventTarget';
 import './PlanApprovalDialog.css';
+import { ChevronDownIcon, ChevronUpIcon, CircleFilledIcon, CircleIcon, ClockIcon, AlertIcon } from './Icons';
 
 export interface AllowedPrompt {
   tool: string;
@@ -116,7 +117,7 @@ const PlanApprovalDialog = ({
               {t('planApproval.title', '计划已准备就绪')}
             </span>
             <span className={`countdown-timer ${isTimeWarning ? 'warning' : ''}`}>
-              <span className="codicon codicon-clock" />
+              <ClockIcon size={16} />
               <span className="countdown-time">{formatCountdown(remainingSeconds)}</span>
             </span>
           </div>
@@ -125,7 +126,7 @@ const PlanApprovalDialog = ({
             onClick={() => setIsCollapsed(false)}
             title={t('common.expand', '展开')}
           >
-            <span className="codicon codicon-chevron-up" />
+            <ChevronUpIcon size={16} />
           </button>
         </div>
       </div>
@@ -144,7 +145,7 @@ const PlanApprovalDialog = ({
         {/* Timeout warning notice */}
         {isTimeWarning && (
           <div className="timeout-warning-banner">
-            <span className="codicon codicon-warning" />
+            <AlertIcon size={16} />
             <span>{t('planApproval.timeoutWarning', '请尽快做出选择，对话框将在 {{seconds}} 秒后自动关闭', { seconds: remainingSeconds })}</span>
           </div>
         )}
@@ -162,7 +163,7 @@ const PlanApprovalDialog = ({
           <div className="header-right">
             {/* Countdown display */}
             <span className={`countdown-timer ${isTimeWarning ? 'warning' : ''}`}>
-              <span className="codicon codicon-clock" />
+              <ClockIcon size={16} />
               <span className="countdown-time">{formatCountdown(remainingSeconds)}</span>
             </span>
             {/* Collapse button */}
@@ -171,7 +172,7 @@ const PlanApprovalDialog = ({
               onClick={() => setIsCollapsed(true)}
               title={t('common.collapse', '收起')}
             >
-              <span className="codicon codicon-chevron-down" />
+              <ChevronDownIcon size={16} />
             </button>
           </div>
         </div>
@@ -199,7 +200,7 @@ const PlanApprovalDialog = ({
                 onClick={() => handleModeChange(mode.id)}
               >
                 <div className="mode-radio">
-                  <span className={`codicon codicon-${selectedMode === mode.id ? 'circle-filled' : 'circle-outline'}`} />
+                  {selectedMode === mode.id ? <CircleFilledIcon size={16} /> : <CircleIcon size={16} />}
                 </div>
                 <div className="mode-content">
                   <div className="mode-label">{t(mode.labelKey, mode.id)}</div>

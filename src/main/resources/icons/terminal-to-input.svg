@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#cc7c5e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Terminal / console window (source) on the left -->
+  <rect x="2" y="4" width="11" height="16" rx="1.5"/>
+  <polyline points="5 9 8 12 5 15"/>
+  <line x1="10" y1="15" x2="11" y2="15"/>
+  <!-- Arrow pointing right: send selection to input box -->
+  <path d="M17 12h5"/>
+  <path d="M19 9l3 3-3 3"/>
+</svg>

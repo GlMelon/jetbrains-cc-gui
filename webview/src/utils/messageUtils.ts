@@ -10,6 +10,7 @@ import {
   hasCommandMessageTag,
   hasTaskNotificationTag,
   isSyntheticToolMessageContent,
+  parseSkillCommandBlock,
   HIDDEN_OUTPUT_TAGS,
   INTERNAL_METADATA_TAGS,
   MESSAGE_TYPES,
@@ -40,6 +41,7 @@ export {
   formatTaskNotificationForDisplay,
   extractCommandMessageContent,
   isSyntheticToolMessageContent,
+  parseSkillCommandBlock,
   normalizeBlocks,
 } from './contentBlockNormalize';
 export type { LocalizeMessageFn } from './contentBlockNormalize';
@@ -527,6 +529,10 @@ export function getContentBlocks(
     }
     // Handle command-message in message.content directly
     if (hasCommandMessageTag(message.content)) {
+      const skillBlock = parseSkillCommandBlock(message.content);
+      if (skillBlock) {
+        return [{ type: 'skill_use' as const, ...skillBlock, source: 'command-message' }];
+      }
       const displayContent = formatCommandForDisplay(message.content);
       if (displayContent) {
         return [{ type: 'text' as const, text: localizeMessage(displayContent) }];

@@ -94,13 +94,13 @@ const SubagentRow = memo(({ subagent, isExpanded, history, canLoad, onToggle, t 
           <div className="subagent-stats">
             {durationText && (
               <span className="subagent-stat">
-                <ClockIcon size={12} />
+                <ClockIcon size={14} />
                 {durationText}
               </span>
             )}
             {typeof subagent.totalToolUseCount === 'number' && (
               <span className="subagent-stat">
-                <LayersIcon size={12} />
+                <LayersIcon size={14} />
                 {subagent.totalToolUseCount} {t('statusPanel.toolCalls', '次调用')}
               </span>
             )}

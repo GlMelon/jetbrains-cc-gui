@@ -27,6 +27,7 @@ import { useToolsUpdate } from './hooks/useToolsUpdate';
 
 // Sub-components
 import { ServerCard } from './ServerCard';
+import { BracesIcon, ChevronDownIcon, ExtensionsIcon, LogIcon, PlusIcon, HelpIcon, ServerIcon } from '../Icons';
 
 /**
  * MCP Server Settings Component
@@ -329,7 +330,7 @@ export function McpSettingsSection({ currentProvider = 'claude' }: McpSettingsSe
             onClick={() => setShowHelpDialog(true)}
             title={t('mcp.whatIsMcp')}
           >
-            <span className="codicon codicon-question"></span>
+            <HelpIcon size={16} />
           </button>
         </div>
         <div className="header-right">
@@ -338,7 +339,7 @@ export function McpSettingsSection({ currentProvider = 'claude' }: McpSettingsSe
             onClick={() => setShowLogDialog(true)}
             title={t('mcp.logs.title')}
           >
-            <span className="codicon codicon-output"></span>
+            <LogIcon size={16} />
             {refreshLogs.length > 0 && (
               <span className="log-badge">{refreshLogs.length}</span>
             )}
@@ -353,18 +354,18 @@ export function McpSettingsSection({ currentProvider = 'claude' }: McpSettingsSe
           </button>
           <div className="add-dropdown" ref={dropdownRef}>
             <button className="add-btn" onClick={() => setShowDropdown(!showDropdown)}>
-              <span className="codicon codicon-add"></span>
+              <PlusIcon size={16} />
               {t('mcp.add')}
-              <span className="codicon codicon-chevron-down"></span>
+              <ChevronDownIcon size={16} />
             </button>
             {showDropdown && (
               <div className="dropdown-menu">
                 <div className="dropdown-item" onClick={handleAddManual}>
-                  <span className="codicon codicon-json"></span>
+                  <BracesIcon size={16} />
                   {t('mcp.manualConfig')}
                 </div>
                 <div className="dropdown-item" onClick={handleAddFromMarket}>
-                  <span className="codicon codicon-extensions"></span>
+                  <ExtensionsIcon size={16} />
                   {t('mcp.addFromMarket')}
                 </div>
               </div>
@@ -404,7 +405,7 @@ export function McpSettingsSection({ currentProvider = 'claude' }: McpSettingsSe
               {/* Empty state */}
               {servers.length === 0 && !loading && (
                 <div className="empty-state">
-                  <span className="codicon codicon-server"></span>
+                  <ServerIcon size={16} />
                   <p>{t('mcp.noServers')}</p>
                   <p className="hint">{t('mcp.addServerHint')}</p>
                 </div>
