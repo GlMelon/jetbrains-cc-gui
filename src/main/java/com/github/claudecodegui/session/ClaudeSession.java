@@ -174,6 +174,11 @@ public class ClaudeSession {
     }
 
     public ClaudeSession(Project project, ClaudeSDKBridge claudeSDKBridge, CodexSDKBridge codexSDKBridge) {
+        this(project, claudeSDKBridge, codexSDKBridge, null);
+    }
+
+    public ClaudeSession(Project project, ClaudeSDKBridge claudeSDKBridge, CodexSDKBridge codexSDKBridge,
+                         com.github.claudecodegui.provider.opencode.OpenCodeSDKBridge openCodeSDKBridge) {
         // Initialize managers
         this.state = new com.github.claudecodegui.session.SessionState();
         this.messageParser = new com.github.claudecodegui.session.MessageParser();
@@ -181,7 +186,7 @@ public class ClaudeSession {
         this.contextCollector = new com.github.claudecodegui.session.EditorContextCollector(project);
         this.callbackFacade = new SessionCallbackFacade(project);
         this.contextService = new SessionContextService(project, MAX_FILE_SIZE_BYTES);
-        this.providerRouter = new SessionProviderRouter(claudeSDKBridge, codexSDKBridge);
+        this.providerRouter = new SessionProviderRouter(claudeSDKBridge, codexSDKBridge, openCodeSDKBridge);
         this.sendService = new SessionSendService(
                 project,
                 state,
@@ -191,6 +196,7 @@ public class ClaudeSession {
                 gson,
                 claudeSDKBridge,
                 codexSDKBridge,
+                openCodeSDKBridge,
                 contextService
         );
         this.messageOrchestrator = new SessionMessageOrchestrator(
@@ -656,10 +662,10 @@ public class ClaudeSession {
         // - "bypassPermissions" -> ALLOW_ALL (auto mode, bypass all permission checks)
         // - "plan" -> DENY_ALL (plan mode, not yet supported)
         PermissionManager.PermissionMode pmMode;
-        if ("bypassPermissions".equals(mode)) {
+        if (CommonConstants.PERMISSION_MODE_BYPASS.equals(mode)) {
             pmMode = PermissionManager.PermissionMode.ALLOW_ALL;
             LOG.info("Permission mode set to ALLOW_ALL for mode: " + mode);
-        } else if ("acceptEdits".equals(mode) || "autoEdit".equals(mode)) {
+        } else if (CommonConstants.PERMISSION_MODE_ACCEPT_EDITS.equals(mode) || CommonConstants.PERMISSION_MODE_AUTO_EDIT.equals(mode)) {
             pmMode = PermissionManager.PermissionMode.ACCEPT_EDITS;
             LOG.info("Permission mode set to ACCEPT_EDITS for mode: " + mode);
         } else if (CommonConstants.PERMISSION_MODE_PLAN.equals(mode)) {

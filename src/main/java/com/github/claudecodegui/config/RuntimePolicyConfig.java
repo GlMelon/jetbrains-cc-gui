@@ -20,10 +20,11 @@ public class RuntimePolicyConfig {
     private Map<ProviderType, ProviderRuntimePolicy> providers;
 
     /**
-     * 构建默认配置(Claude 与 Codex 对称:均支持 SDK+CLI,默认 SDK)。
+     * 构建默认配置(Claude/Codex/OpenCode 对称:均支持 SDK+CLI,默认 SDK)。
      * <ul>
      *   <li>Claude: enabled, 支持 SDK+CLI, 默认 SDK</li>
-     *   <li>Codex: enabled, 支持 SDK+CLI, 默认 SDK(原重构前硬编码"永远 CLI",现已对齐 Claude)</li>
+     *   <li>Codex: enabled, 支持 SDK+CLI, 默认 SDK</li>
+     *   <li>OpenCode: enabled, 支持 SDK+CLI, 默认 SDK</li>
      * </ul>
      */
     private static final RuntimePolicyConfig DEFAULT = buildDefault();
@@ -62,6 +63,7 @@ public class RuntimePolicyConfig {
         var m = new LinkedHashMap<ProviderType, ProviderRuntimePolicy>();
         m.put(ProviderType.CLAUDE, new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK));
         m.put(ProviderType.CODEX, new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK));
+        m.put(ProviderType.OPENCODE, new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK));
         return new RuntimePolicyConfig(m);
     }
 }

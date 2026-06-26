@@ -290,7 +290,8 @@
         "providerUnavailable": "Currently unavailable",
         "provider": {
           "claude": "Claude Code",
-          "codex": "Codex"
+          "codex": "Codex",
+          "opencode": "OpenCode"
         },
         "currentProviderAuto": "Currently using automatic selection: {{provider}}",
         "currentProviderManual": "Currently using manually selected provider: {{provider}}",
@@ -363,14 +364,22 @@
       }
     },
     "providers": "Provider Management",
-    "providersDesc": "Manage Claude and Codex API provider configurations and switch between different API service providers",
+    "providersDesc": "Manage Claude, Codex, and OpenCode API provider configurations and switch between different API service providers",
     "promptEnhancer": {
       "title": "Prompt Enhancer",
       "description": "Choose which provider and model should be used when enhancing prompts before sending them."
     },
     "providerTab": {
       "claude": "Claude Code",
-      "codex": "Codex"
+      "codex": "Codex",
+      "opencode": "OpenCode"
+    },
+    "openCodeProvider": {
+      "title": "OpenCode Provider",
+      "description": "Manage OpenCode AI feature provider configuration",
+      "daemonTitle": "OpenCode Daemon",
+      "daemonDescription": "OpenCode provides AI features through a local daemon process. After installing the OpenCode SDK, the daemon will be managed automatically.",
+      "info": "OpenCode uses a local daemon mode and does not require API key configuration. After installing the OpenCode SDK, you can use the Prompt Enhancer and Commit AI features."
     },
     "pluginModels": {
       "title": "Custom Models",
@@ -402,6 +411,8 @@
       "claudeSdkDescription": "Required for Claude AI features. Includes Claude Code SDK and related dependencies.",
       "codexSdkName": "Codex SDK",
       "codexSdkDescription": "Required for Codex AI features. Includes OpenAI Codex SDK.",
+      "opencodeSdkName": "OpenCode SDK",
+      "opencodeSdkDescription": "Required for OpenCode AI features. Includes OpenCode SDK.",
       "loading": "Loading dependency status...",
       "install": "Install",
       "installing": "Installing...",

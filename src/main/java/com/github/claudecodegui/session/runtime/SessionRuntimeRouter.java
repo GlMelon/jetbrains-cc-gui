@@ -3,9 +3,9 @@ package com.github.claudecodegui.session.runtime;
 import com.github.claudecodegui.cli.CliSessionManager;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
 import com.github.claudecodegui.provider.codex.CodexSDKBridge;
+import com.github.claudecodegui.provider.opencode.OpenCodeSDKBridge;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.SDKResult;
-import com.intellij.openapi.diagnostic.Logger;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -26,20 +26,28 @@ import java.util.concurrent.CompletableFuture;
  * 故评估接受手工装配并标注(E7),非待修复。
  */
 public class SessionRuntimeRouter {
-    private static final Logger LOG = Logger.getInstance(SessionRuntimeRouter.class);
 
     private final SessionRuntimeRegistry registry;
     // CLI 子进程聚合器(进程面板可见性 #12):提升为字段,使 router 能对外收集 CLI 子进程。
     private final CliSessionManager cliManager;
 
     public SessionRuntimeRouter(ClaudeSDKBridge claudeSDKBridge, CodexSDKBridge codexSDKBridge) {
+        this(claudeSDKBridge, codexSDKBridge, null);
+    }
+
+    public SessionRuntimeRouter(ClaudeSDKBridge claudeSDKBridge, CodexSDKBridge codexSDKBridge,
+                                OpenCodeSDKBridge openCodeSDKBridge) {
         this.registry = new SessionRuntimeRegistry();
         this.cliManager = new CliSessionManager();
-        // 注册 4 个 runtime 实现
+        // 注册 6 个 runtime 实现（3 provider × 2 runtime）
         registry.register(new ClaudeSdkSessionRuntime(claudeSDKBridge));
         registry.register(new CodexSdkSessionRuntime(codexSDKBridge));
+        if (openCodeSDKBridge != null) {
+            registry.register(new OpenCodeSdkSessionRuntime(openCodeSDKBridge));
+        }
         registry.register(new ClaudeCliSessionRuntime(cliManager));
         registry.register(new CodexCliSessionRuntime(cliManager));
+        registry.register(new OpenCodeCliSessionRuntime(cliManager));
     }
 
     /**

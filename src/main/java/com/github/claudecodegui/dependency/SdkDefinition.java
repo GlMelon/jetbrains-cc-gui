@@ -30,6 +30,16 @@ public enum SdkDefinition {
         Collections.emptyList(),
         Arrays.asList("0.117.0", "0.116.0", "0.115.0"),
         "Codex AI 提供商所需。"
+    ),
+
+    OPENCODE_SDK(
+        "opencode-sdk",
+        "OpenCode SDK",
+        "@opencode-ai/sdk",
+        "latest",
+        Collections.emptyList(),
+        Arrays.asList("0.1.0", "0.0.9", "0.0.8"),
+        "OpenCode AI 提供商所需。"
     );
 
     private final String id;
@@ -120,6 +130,8 @@ public enum SdkDefinition {
             return CLAUDE_SDK;
         } else if (CommonConstants.PROVIDER_CODEX.equalsIgnoreCase(provider)) {
             return CODEX_SDK;
+        } else if (CommonConstants.PROVIDER_OPENCODE.equalsIgnoreCase(provider)) {
+            return OPENCODE_SDK;
         }
         return null;
     }

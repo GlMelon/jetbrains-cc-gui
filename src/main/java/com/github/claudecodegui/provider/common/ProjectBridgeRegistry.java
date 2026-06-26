@@ -2,6 +2,7 @@ package com.github.claudecodegui.provider.common;
 
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
 import com.github.claudecodegui.provider.codex.CodexSDKBridge;
+import com.github.claudecodegui.provider.opencode.OpenCodeSDKBridge;
 import com.intellij.openapi.project.Project;
 
 import java.util.Map;
@@ -25,7 +26,8 @@ public final class ProjectBridgeRegistry {
             if (existing != null) {
                 return existing;
             }
-            SharedBridges created = new SharedBridges(new ClaudeSDKBridge(), new CodexSDKBridge());
+            SharedBridges created = new SharedBridges(
+                    new ClaudeSDKBridge(), new CodexSDKBridge(), new OpenCodeSDKBridge());
             REGISTRY.put(project, created);
             return created;
         }
@@ -40,10 +42,13 @@ public final class ProjectBridgeRegistry {
     public static final class SharedBridges {
         private final ClaudeSDKBridge claudeBridge;
         private final CodexSDKBridge codexBridge;
+        private final OpenCodeSDKBridge openCodeBridge;
 
-        private SharedBridges(ClaudeSDKBridge claudeBridge, CodexSDKBridge codexBridge) {
+        private SharedBridges(ClaudeSDKBridge claudeBridge, CodexSDKBridge codexBridge,
+                              OpenCodeSDKBridge openCodeBridge) {
             this.claudeBridge = claudeBridge;
             this.codexBridge = codexBridge;
+            this.openCodeBridge = openCodeBridge;
         }
 
         public ClaudeSDKBridge getClaudeBridge() {
@@ -52,6 +57,10 @@ public final class ProjectBridgeRegistry {
 
         public CodexSDKBridge getCodexBridge() {
             return codexBridge;
+        }
+
+        public OpenCodeSDKBridge getOpenCodeBridge() {
+            return openCodeBridge;
         }
     }
 }

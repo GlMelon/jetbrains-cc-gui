@@ -1,5 +1,6 @@
 import { claudeChannelDescriptor } from './claude-channel.js';
 import { codexChannelDescriptor } from './codex-channel.js';
+import { opencodeChannelDescriptor } from './opencode-channel.js';
 
 export function createProviderRegistry(descriptors) {
   const providers = new Map();
@@ -40,6 +41,7 @@ export function getDefaultProviderRegistry() {
   return createProviderRegistry([
     claudeChannelDescriptor,
     codexChannelDescriptor,
+    opencodeChannelDescriptor,
   ]);
 }
 

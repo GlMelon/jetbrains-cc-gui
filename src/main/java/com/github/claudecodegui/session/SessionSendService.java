@@ -6,6 +6,7 @@ import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.notifications.ClaudeNotifier;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
 import com.github.claudecodegui.provider.codex.CodexSDKBridge;
+import com.github.claudecodegui.provider.opencode.OpenCodeSDKBridge;
 import com.github.claudecodegui.session.normalize.MessageNormalizers;
 import com.github.claudecodegui.session.runtime.*;
 import com.github.claudecodegui.settings.CodemossSettingsService;
@@ -46,6 +47,22 @@ public class SessionSendService {
             CodexSDKBridge codexSDKBridge,
             SessionContextService contextService
     ) {
+        this(project, state, callbackFacade, messageParser, messageMerger, gson,
+                claudeSDKBridge, codexSDKBridge, null, contextService);
+    }
+
+    public SessionSendService(
+            Project project,
+            SessionState state,
+            SessionCallbackFacade callbackFacade,
+            MessageParser messageParser,
+            MessageMerger messageMerger,
+            Gson gson,
+            ClaudeSDKBridge claudeSDKBridge,
+            CodexSDKBridge codexSDKBridge,
+            OpenCodeSDKBridge openCodeSDKBridge,
+            SessionContextService contextService
+    ) {
         this.project = project;
         this.state = state;
         this.callbackFacade = callbackFacade;
@@ -53,7 +70,7 @@ public class SessionSendService {
         this.messageMerger = messageMerger;
         this.gson = gson;
         this.contextService = contextService;
-        this.runtimeRouter = new SessionRuntimeRouter(claudeSDKBridge, codexSDKBridge);
+        this.runtimeRouter = new SessionRuntimeRouter(claudeSDKBridge, codexSDKBridge, openCodeSDKBridge);
     }
 
     public void prepareContextCollector(EditorContextCollector contextCollector) {

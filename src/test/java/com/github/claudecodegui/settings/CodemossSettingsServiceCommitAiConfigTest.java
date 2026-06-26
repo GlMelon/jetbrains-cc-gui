@@ -136,19 +136,30 @@ public class CodemossSettingsServiceCommitAiConfigTest {
             String claudeModel,
             String codexModel
     ) throws Exception {
+        invokeSetCommitAiConfig(service, provider, claudeModel, codexModel, "");
+    }
+
+    private void invokeSetCommitAiConfig(
+            CodemossSettingsService service,
+            String provider,
+            String claudeModel,
+            String codexModel,
+            String opencodeModel
+    ) throws Exception {
         Method method;
         try {
             method = CodemossSettingsService.class.getMethod(
                     "setCommitAiConfig",
                     String.class,
                     String.class,
+                    String.class,
                     String.class
             );
         } catch (NoSuchMethodException e) {
-            fail("CodemossSettingsService should expose setCommitAiConfig(provider, claudeModel, codexModel)");
+            fail("CodemossSettingsService should expose setCommitAiConfig(provider, claudeModel, codexModel, opencodeModel)");
             throw e;
         }
-        method.invoke(service, provider, claudeModel, codexModel);
+        method.invoke(service, provider, claudeModel, codexModel, opencodeModel);
     }
 
     private JsonObject invokeGetPromptEnhancerConfig(CodemossSettingsService service) throws Exception {
@@ -166,9 +177,10 @@ public class CodemossSettingsServiceCommitAiConfigTest {
                 "setPromptEnhancerConfig",
                 String.class,
                 String.class,
+                String.class,
                 String.class
         );
-        method.invoke(service, provider, claudeModel, codexModel);
+        method.invoke(service, provider, claudeModel, codexModel, "");
     }
 
     private void useTemporaryHomeDirectory(Path tempHome) throws Exception {

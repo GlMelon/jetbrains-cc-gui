@@ -84,6 +84,7 @@ public class CodemossSettingsService {
     private static final String DEFAULT_PROMPT_ENHANCER_CODEX_MODEL = "";
     private static final String DEFAULT_COMMIT_AI_CLAUDE_MODEL = CommonConstants.DEFAULT_MODEL;
     private static final String DEFAULT_COMMIT_AI_CODEX_MODEL = "";
+    private static final String DEFAULT_AI_FEATURE_OPENCODE_MODEL = "";
     private static final String USER_LANGUAGE_CONFIG_KEY = "language";
     // Appearance config (theme preference / font size / diff theme / per-theme colors).
     // Persisted so the webview can restore appearance after IDE cache invalidation
@@ -322,7 +323,7 @@ public class CodemossSettingsService {
 
         claude.addProperty("current", "");
         claude.add("providers", providers);
-        config.add("claude", claude);
+        config.add(CommonConstants.PROVIDER_CLAUDE, claude);
 
         JsonObject codex = new JsonObject();
         codex.addProperty("current", "");
@@ -1305,12 +1306,13 @@ public class CodemossSettingsService {
      * @param claudeModel remembered Claude enhancer model
      * @param codexModel remembered Codex enhancer model
      */
-    public void setPromptEnhancerConfig(String provider, String claudeModel, String codexModel) throws IOException {
+    public void setPromptEnhancerConfig(String provider, String claudeModel, String codexModel, String opencodeModel) throws IOException {
         setAiFeatureConfig(
                 PROMPT_ENHANCER_KEY,
                 provider,
                 claudeModel,
                 codexModel,
+                opencodeModel,
                 DEFAULT_PROMPT_ENHANCER_CLAUDE_MODEL,
                 DEFAULT_PROMPT_ENHANCER_CODEX_MODEL,
                 "prompt enhancer"
@@ -1325,12 +1327,13 @@ public class CodemossSettingsService {
         );
     }
 
-    public void setCommitAiConfig(String provider, String claudeModel, String codexModel) throws IOException {
+    public void setCommitAiConfig(String provider, String claudeModel, String codexModel, String opencodeModel) throws IOException {
         setAiFeatureConfig(
                 COMMIT_AI_KEY,
                 provider,
                 claudeModel,
                 codexModel,
+                opencodeModel,
                 DEFAULT_COMMIT_AI_CLAUDE_MODEL,
                 DEFAULT_COMMIT_AI_CODEX_MODEL,
                 "commit AI"
@@ -1353,10 +1356,12 @@ public class CodemossSettingsService {
         JsonObject availability = buildAiFeatureAvailability();
         boolean claudeAvailable = availability.get(CommonConstants.PROVIDER_CLAUDE).getAsBoolean();
         boolean codexAvailable = availability.get(CommonConstants.PROVIDER_CODEX).getAsBoolean();
+        boolean opencodeAvailable = availability.get(CommonConstants.PROVIDER_OPENCODE).getAsBoolean();
         ResolvedAiFeatureProvider resolvedProvider = resolveAiFeatureProvider(
                 manualProvider,
                 claudeAvailable,
-                codexAvailable
+                codexAvailable,
+                opencodeAvailable
         );
 
         JsonObject response = new JsonObject();
@@ -1381,6 +1386,7 @@ public class CodemossSettingsService {
             String provider,
             String claudeModel,
             String codexModel,
+            String opencodeModel,
             String defaultClaudeModel,
             String defaultCodexModel,
             String featureLabel
@@ -1400,6 +1406,7 @@ public class CodemossSettingsService {
                 createAiFeatureModels(
                         normalizeAiFeatureClaudeModel(claudeModel),
                         codexModel,
+                        opencodeModel,
                         defaultClaudeModel,
                         defaultCodexModel
                 )
@@ -1421,6 +1428,7 @@ public class CodemossSettingsService {
         JsonObject availability = new JsonObject();
         availability.addProperty(CommonConstants.PROVIDER_CLAUDE, isAiFeatureProviderAvailable(CommonConstants.PROVIDER_CLAUDE));
         availability.addProperty(CommonConstants.PROVIDER_CODEX, isAiFeatureProviderAvailable(CommonConstants.PROVIDER_CODEX));
+        availability.addProperty(CommonConstants.PROVIDER_OPENCODE, isAiFeatureProviderAvailable(CommonConstants.PROVIDER_OPENCODE));
         return availability;
     }
 
@@ -1429,6 +1437,9 @@ public class CodemossSettingsService {
             DependencyManager dependencyManager = new DependencyManager();
             if (CommonConstants.PROVIDER_CODEX.equals(provider)) {
                 return getActiveCodexProvider() != null && dependencyManager.isInstalled("codex-sdk");
+            }
+            if (CommonConstants.PROVIDER_OPENCODE.equals(provider)) {
+                return dependencyManager.isInstalled("opencode-sdk");
             }
             return getActiveClaudeProvider() != null && dependencyManager.isInstalled("claude-sdk");
         } catch (Exception e) {
@@ -1452,9 +1463,12 @@ public class CodemossSettingsService {
             String codexModel = rawModels.has(CommonConstants.PROVIDER_CODEX) && !rawModels.get(CommonConstants.PROVIDER_CODEX).isJsonNull()
                     ? rawModels.get(CommonConstants.PROVIDER_CODEX).getAsString()
                     : null;
-            return createAiFeatureModels(normalizeAiFeatureClaudeModel(claudeModel), codexModel, defaultClaudeModel, defaultCodexModel);
+            String opencodeModel = rawModels.has(CommonConstants.PROVIDER_OPENCODE) && !rawModels.get(CommonConstants.PROVIDER_OPENCODE).isJsonNull()
+                    ? rawModels.get(CommonConstants.PROVIDER_OPENCODE).getAsString()
+                    : null;
+            return createAiFeatureModels(normalizeAiFeatureClaudeModel(claudeModel), codexModel, opencodeModel, defaultClaudeModel, defaultCodexModel);
         }
-        return createAiFeatureModels(null, null, defaultClaudeModel, defaultCodexModel);
+        return createAiFeatureModels(null, null, null, defaultClaudeModel, defaultCodexModel);
     }
 
     /**
@@ -1483,6 +1497,7 @@ public class CodemossSettingsService {
     private JsonObject createAiFeatureModels(
             String claudeModel,
             String codexModel,
+            String opencodeModel,
             String defaultClaudeModel,
             String defaultCodexModel
     ) {
@@ -1495,18 +1510,25 @@ public class CodemossSettingsService {
                 CommonConstants.PROVIDER_CODEX,
                 normalizeAiFeatureModel(codexModel, defaultCodexModel)
         );
+        models.addProperty(
+                CommonConstants.PROVIDER_OPENCODE,
+                normalizeAiFeatureModel(opencodeModel, DEFAULT_AI_FEATURE_OPENCODE_MODEL)
+        );
         return models;
     }
 
     private ResolvedAiFeatureProvider resolveAiFeatureProvider(
             String manualProvider,
             boolean claudeAvailable,
-            boolean codexAvailable
+            boolean codexAvailable,
+            boolean opencodeAvailable
     ) {
         if (manualProvider != null) {
-            boolean manualProviderAvailable = CommonConstants.PROVIDER_CODEX.equals(manualProvider)
-                    ? codexAvailable
-                    : claudeAvailable;
+            boolean manualProviderAvailable = CommonConstants.PROVIDER_OPENCODE.equals(manualProvider)
+                    ? opencodeAvailable
+                    : CommonConstants.PROVIDER_CODEX.equals(manualProvider)
+                            ? codexAvailable
+                            : claudeAvailable;
             if (manualProviderAvailable) {
                 return new ResolvedAiFeatureProvider(manualProvider, AI_FEATURE_RESOLUTION_MANUAL);
             }
@@ -1517,6 +1539,9 @@ public class CodemossSettingsService {
         }
         if (claudeAvailable) {
             return new ResolvedAiFeatureProvider(CommonConstants.PROVIDER_CLAUDE, AI_FEATURE_RESOLUTION_AUTO);
+        }
+        if (opencodeAvailable) {
+            return new ResolvedAiFeatureProvider(CommonConstants.PROVIDER_OPENCODE, AI_FEATURE_RESOLUTION_AUTO);
         }
         return new ResolvedAiFeatureProvider(null, AI_FEATURE_RESOLUTION_UNAVAILABLE);
     }
@@ -1529,7 +1554,9 @@ public class CodemossSettingsService {
         if (normalized.isEmpty()) {
             return null;
         }
-        if (CommonConstants.PROVIDER_CLAUDE.equals(normalized) || CommonConstants.PROVIDER_CODEX.equals(normalized)) {
+        if (CommonConstants.PROVIDER_CLAUDE.equals(normalized)
+                || CommonConstants.PROVIDER_CODEX.equals(normalized)
+                || CommonConstants.PROVIDER_OPENCODE.equals(normalized)) {
             return normalized;
         }
         return null;
@@ -1665,16 +1692,16 @@ public class CodemossSettingsService {
         JsonObject config = readConfig();
         if (config.has(CLAUDE_INVOCATION_MODE_KEY) && !config.get(CLAUDE_INVOCATION_MODE_KEY).isJsonNull()) {
             String mode = config.get(CLAUDE_INVOCATION_MODE_KEY).getAsString();
-            if ("cli".equals(mode)) {
-                return "cli";
+            if (CommonConstants.INVOCATION_MODE_CLI.equals(mode)) {
+                return CommonConstants.INVOCATION_MODE_CLI;
             }
         }
-        return "sdk";
+        return CommonConstants.INVOCATION_MODE_SDK;
     }
 
     public void setClaudeInvocationMode(String mode) throws IOException {
         JsonObject config = readConfig();
-        config.addProperty(CLAUDE_INVOCATION_MODE_KEY, "cli".equals(mode) ? "cli" : "sdk");
+        config.addProperty(CLAUDE_INVOCATION_MODE_KEY, CommonConstants.INVOCATION_MODE_CLI.equals(mode) ? CommonConstants.INVOCATION_MODE_CLI : CommonConstants.INVOCATION_MODE_SDK);
         writeConfig(config);
         LOG.info("[CodemossSettings] Set Claude invocation mode: " + getClaudeInvocationMode());
     }

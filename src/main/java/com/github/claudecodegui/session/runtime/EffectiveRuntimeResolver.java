@@ -56,20 +56,19 @@ public final class EffectiveRuntimeResolver {
             throw new IllegalStateException("Provider disabled/unknown: " + pt.toLowerCase());
         }
 
-        if (pt == ProviderType.CODEX) {
-            // codex 由前端「调用模式」UI 统一驱动(方向 A):requestedMode 明确(cli/sdk)且 supported 支持时优先用之;
-            // 为 null(前端调用模式未加载)时回退到「路由策略」面板的 codex default(默认 SDK)。
+        if (pt == ProviderType.CODEX || pt == ProviderType.OPENCODE) {
+            // Codex/OpenCode 由前端「调用模式」UI 统一驱动:requestedMode 明确(cli/sdk)且 supported 支持时优先用之;
+            // 为 null(前端调用模式未加载)时回退到「路由策略」面板的 default(默认 SDK)。
             if (requestedMode != null) {
                 RuntimeType requestedRuntime = RuntimeType.fromInvocationMode(requestedMode);
                 if (providerPolicy.supported().contains(requestedRuntime)) {
-                    return new Runtime(ProviderType.CODEX, requestedRuntime, false);
+                    return new Runtime(pt, requestedRuntime, false);
                 }
-                // 冲突点 B:用户请求的 runtime 不在 supported 内 → 静默降级到 default。
-                // 标记 degraded=true 供调用方(SessionSendService)经 notifyStatusMessage 提示用户,
-                // 打破此前「调用模式 vs 路由策略」冲突时的零反馈。
-                return new Runtime(ProviderType.CODEX, providerPolicy.defaultRuntime(), true);
+                // 冲突点:用户请求的 runtime 不在 supported 内 → 静默降级到 default。
+                // 标记 degraded=true 供调用方(SessionSendService)经 notifyStatusMessage 提示用户。
+                return new Runtime(pt, providerPolicy.defaultRuntime(), true);
             }
-            return new Runtime(ProviderType.CODEX, providerPolicy.defaultRuntime(), false);
+            return new Runtime(pt, providerPolicy.defaultRuntime(), false);
         }
 
         // Claude: 三级优先级，复用 SessionSendService 的解析逻辑

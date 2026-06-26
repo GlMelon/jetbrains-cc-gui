@@ -292,7 +292,8 @@
         "providerUnavailable": "当前不可用",
         "provider": {
           "claude": "Claude Code",
-          "codex": "Codex"
+          "codex": "Codex",
+          "opencode": "OpenCode"
         },
         "currentProviderAuto": "当前使用自动选择：{{provider}}",
         "currentProviderManual": "当前使用手动选择的 provider：{{provider}}",
@@ -365,14 +366,22 @@
       }
     },
     "providers": "供应商管理",
-    "providersDesc": "管理 Claude 和 Codex API 供应商配置，切换不同的 API 服务提供商",
+    "providersDesc": "管理 Claude、Codex 和 OpenCode API 供应商配置，切换不同的 API 服务提供商",
     "promptEnhancer": {
       "title": "增强提示词",
       "description": "配置增强提示词功能使用的 provider 与模型，在消息发送前对输入内容进行重写增强。"
     },
     "providerTab": {
       "claude": "Claude Code",
-      "codex": "Codex"
+      "codex": "Codex",
+      "opencode": "OpenCode"
+    },
+    "openCodeProvider": {
+      "title": "OpenCode 供应商",
+      "description": "管理 OpenCode AI 功能的供应商配置",
+      "daemonTitle": "OpenCode 守护进程",
+      "daemonDescription": "OpenCode 通过本地守护进程提供 AI 功能。安装 OpenCode SDK 后，守护进程将自动管理。",
+      "info": "OpenCode 使用本地守护进程模式，无需配置 API Key。安装 OpenCode SDK 后即可使用增强提示词和 Commit AI 功能。"
     },
     "pluginModels": {
       "title": "自定义模型",
@@ -404,6 +413,8 @@
       "claudeSdkDescription": "Claude AI 功能所需。包含 Claude Code SDK 及相关依赖。",
       "codexSdkName": "Codex SDK",
       "codexSdkDescription": "Codex AI 功能所需。包含 OpenAI Codex SDK。",
+      "opencodeSdkName": "OpenCode SDK",
+      "opencodeSdkDescription": "OpenCode AI 功能所需。包含 OpenCode SDK。",
       "loading": "正在加载依赖状态...",
       "install": "安装",
       "installing": "安装中...",

@@ -206,13 +206,14 @@ public class CodemossSettingsServicePromptEnhancerConfigTest {
                     "setPromptEnhancerConfig",
                     String.class,
                     String.class,
+                    String.class,
                     String.class
             );
         } catch (NoSuchMethodException e) {
-            fail("CodemossSettingsService should expose setPromptEnhancerConfig(provider, claudeModel, codexModel)");
+            fail("CodemossSettingsService should expose setPromptEnhancerConfig(provider, claudeModel, codexModel, opencodeModel)");
             throw e;
         }
-        method.invoke(service, provider, claudeModel, codexModel);
+        method.invoke(service, provider, claudeModel, codexModel, "");
     }
 
     private void useTemporaryHomeDirectory(Path tempHome) throws Exception {

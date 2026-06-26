@@ -469,8 +469,12 @@ export function useSettingsBasicActions({
       provider: null,
       effectiveProvider: commitAiConfig.availability.codex
         ? 'codex'
-        : (commitAiConfig.availability.claude ? 'claude' : null),
-      resolutionSource: commitAiConfig.availability.codex || commitAiConfig.availability.claude
+        : commitAiConfig.availability.claude
+          ? 'claude'
+          : commitAiConfig.availability.opencode
+            ? 'opencode'
+            : null,
+      resolutionSource: commitAiConfig.availability.codex || commitAiConfig.availability.claude || commitAiConfig.availability.opencode
         ? 'auto'
         : 'unavailable',
     };
@@ -518,8 +522,12 @@ export function useSettingsBasicActions({
       provider: null,
       effectiveProvider: promptEnhancerConfig.availability.codex
         ? 'codex'
-        : (promptEnhancerConfig.availability.claude ? 'claude' : null),
-      resolutionSource: promptEnhancerConfig.availability.codex || promptEnhancerConfig.availability.claude
+        : promptEnhancerConfig.availability.claude
+          ? 'claude'
+          : promptEnhancerConfig.availability.opencode
+            ? 'opencode'
+            : null,
+      resolutionSource: promptEnhancerConfig.availability.codex || promptEnhancerConfig.availability.claude || promptEnhancerConfig.availability.opencode
         ? 'auto'
         : 'unavailable',
     };

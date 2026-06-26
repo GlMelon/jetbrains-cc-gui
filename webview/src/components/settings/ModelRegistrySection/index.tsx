@@ -30,7 +30,7 @@ const EMPTY_MODEL: ModelRegistryItem = {
 export default function ModelRegistrySection({ addToast }: ModelRegistrySectionProps) {
   const { t } = useTranslation();
   const [registry, setRegistry] = useState<ModelRegistryPayload>(() => getModelRegistrySnapshot());
-  const [providerFilter, setProviderFilter] = useState<'all' | 'claude' | 'codex'>('all');
+  const [providerFilter, setProviderFilter] = useState<'all' | 'claude' | 'codex' | 'opencode'>('all');
   const [editing, setEditing] = useState<ModelRegistryItem | null>(null);
   const [editingOriginalKey, setEditingOriginalKey] = useState<string | null>(null);
 
@@ -75,7 +75,7 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
     return registry.items.filter((model) => model.provider === providerFilter);
   }, [providerFilter, registry.items]);
 
-  const startAdd = useCallback((provider: 'claude' | 'codex' = 'claude') => {
+  const startAdd = useCallback((provider: 'claude' | 'codex' | 'opencode' = 'claude') => {
     setEditing(provider === 'claude'
       ? { ...EMPTY_MODEL, provider, id: '', role: 'sonnet', actualModel: '' }
       : { ...EMPTY_MODEL, provider, id: '', role: undefined, actualModel: '' });
@@ -103,10 +103,12 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
       return;
     }
     const isClaude = editing.provider === 'claude';
+    const isOpenCode = editing.provider === 'opencode';
+    const useClaudeFormat = isClaude || isOpenCode;
     const role = isClaude ? (editing.role ?? 'sonnet') : undefined;
-    const actualModel = isClaude ? (editing.actualModel ?? '').trim() : '';
-    const id = isClaude ? actualModel : editing.id.trim();
-    if (isClaude && !actualModel) {
+    const actualModel = useClaudeFormat ? (editing.actualModel ?? '').trim() : '';
+    const id = useClaudeFormat ? actualModel : editing.id.trim();
+    if (useClaudeFormat && !actualModel) {
       addToast(t('settings.models.actualModelRequired', 'Actual request model is required'), 'error');
       return;
     }
@@ -114,7 +116,7 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
       ...editing,
       id,
       role,
-      actualModel: isClaude ? actualModel : undefined,
+      actualModel: useClaudeFormat ? actualModel : undefined,
       label: editing.label.trim() || actualModel || id,
       description: editing.description?.trim() || undefined,
       contextWindow: Number(editing.contextWindow),
@@ -154,7 +156,7 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
           </p>
         </div>
         <div className={styles.actions}>
-          <button className="btn btn-secondary btn-sm" onClick={() => startAdd(providerFilter === 'codex' ? 'codex' : 'claude')}>
+          <button className="btn btn-secondary btn-sm" onClick={() => startAdd(providerFilter === 'codex' ? 'codex' : providerFilter === 'opencode' ? 'opencode' : 'claude')}>
             <PlusIcon size={16} aria-hidden="true" />
             {t('common.add', 'Add')}
           </button>
@@ -165,7 +167,7 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
       </div>
 
       <div className={styles.filters}>
-        {(['all', 'claude', 'codex'] as const).map((provider) => (
+        {(['all', 'claude', 'codex', 'opencode'] as const).map((provider) => (
           <button
             key={provider}
             className={`${styles.filterButton} ${providerFilter === provider ? styles.active : ''}`}
@@ -186,10 +188,11 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
             <select
               className={`form-input ${styles.providerSelect}`}
               value={editing.provider}
-              onChange={(event) => setEditing({ ...editing, provider: event.target.value as 'claude' | 'codex' })}
+              onChange={(event) => setEditing({ ...editing, provider: event.target.value as 'claude' | 'codex' | 'opencode' })}
             >
               <option value="claude">claude</option>
               <option value="codex">codex</option>
+              <option value="opencode">opencode</option>
             </select>
           </div>
           {editing.provider === 'claude' && (
@@ -215,13 +218,21 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
               onChange={(event) => setEditing({ ...editing, id: event.target.value })}
             />
           )}
+          {editing.provider === 'opencode' && (
+            <input
+              className="form-input"
+              placeholder="model id"
+              value={editing.id}
+              onChange={(event) => setEditing({ ...editing, id: event.target.value })}
+            />
+          )}
           <input
             className="form-input"
             placeholder="label"
             value={editing.label}
             onChange={(event) => setEditing({ ...editing, label: event.target.value })}
           />
-          {editing.provider === 'claude' && (
+          {(editing.provider === 'claude' || editing.provider === 'opencode') && (
             <input
               className="form-input"
               placeholder="actual request model"
@@ -263,7 +274,7 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
             <button
               className="btn btn-primary btn-sm"
               onClick={saveEditing}
-              disabled={editing.provider === 'claude' ? !editing.actualModel?.trim() : !editing.id.trim()}
+              disabled={(editing.provider === 'claude' || editing.provider === 'opencode') ? !editing.actualModel?.trim() : !editing.id.trim()}
             >
               {t('common.confirm', 'Confirm')}
             </button>

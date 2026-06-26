@@ -179,13 +179,17 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
 
     const modeToSet: PermissionMode = providerId === 'codex'
       ? codexPermissionMode
-      : claudePermissionMode;
+      : providerId === 'opencode'
+        ? 'default'
+        : claudePermissionMode;
     setPermissionMode(modeToSet);
       sendAction(UPSTREAM.SET_SESSION_MODE, modeToSet);
 
     const newModel = providerId === 'codex'
       ? selectedCodexModel
-      : selectedClaudeModel;  // Clean ID, no [1m]
+      : providerId === 'opencode'
+        ? selectedClaudeModel  // OpenCode uses Claude model format for now
+        : selectedClaudeModel;  // Clean ID, no [1m]
 
     const newProviderModels = getModelsForProvider(providerId);
 
@@ -197,7 +201,9 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
         longContextEnabled: longContextEnabled && (newProviderModels.find((model) => model.id === strip1MContextSuffix(selectedClaudeModel))?.supports1MContext ?? false),
       }));
     } else {
-      const registryContextWindow = newProviderModels.find((model) => model.id === strip1MContextSuffix(selectedCodexModel))?.contextWindow;
+      // Codex/OpenCode: send registry contextWindow
+      const refModel = providerId === 'codex' ? selectedCodexModel : selectedClaudeModel;
+      const registryContextWindow = newProviderModels.find((model) => model.id === strip1MContextSuffix(refModel))?.contextWindow;
       const effectiveContextWindow = contextWindow ?? registryContextWindow ?? DEFAULT_CONTEXT_WINDOW;
       sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
         model: newModel,

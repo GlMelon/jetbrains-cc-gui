@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { ProviderConfig, CodexProviderConfig } from '../../../types/provider';
 import ProviderManageSection from '../ProviderManageSection';
 import CodexProviderSection from '../CodexProviderSection';
+import OpenCodeProviderSection from '../OpenCodeProviderSection';
 import styles from './style.module.less';
 
 const BLOCK_STYLE: React.CSSProperties = { display: 'block' };
@@ -14,6 +15,8 @@ const tabIconPaths: Record<string, string> = {
   claude: '<path d="M12 8V4H8"/><rect x="5" y="7" width="14" height="11" rx="3"/><path d="M9 12h.01"/><path d="M15 12h.01"/><path d="M10 15h4"/>',
   // Codex - terminal/code
   codex: '<polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/>',
+  // OpenCode - code brackets
+  opencode: '<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>',
   // Plugin puzzle
   plugin: '<path d="M12 2v6M6 8h12M8 8v8a4 4 0 0 0 8 0V8"/>',
 };
@@ -58,8 +61,8 @@ const ProviderTabSection = ({
 }: ProviderTabSectionProps) => {
   const { t } = useTranslation();
 
-  const [activeTab, setActiveTab] = useState<'claude' | 'codex'>(
-    () => currentProvider === 'codex' ? 'codex' : 'claude'
+  const [activeTab, setActiveTab] = useState<'claude' | 'codex' | 'opencode'>(
+    () => currentProvider === 'codex' ? 'codex' : currentProvider === 'opencode' ? 'opencode' : 'claude'
   );
 
   return (
@@ -92,6 +95,18 @@ const ProviderTabSection = ({
           </span>
           {t('settings.providerTab.codex')}
         </button>
+        <button
+          role="tab"
+          aria-selected={activeTab === 'opencode'}
+          aria-controls="panel-opencode-providers"
+          className={`${styles.tabBtn} ${activeTab === 'opencode' ? styles.active : ''}`}
+          onClick={() => setActiveTab('opencode')}
+        >
+          <span className={styles.tabIcon}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" dangerouslySetInnerHTML={{ __html: tabIconPaths.opencode }} />
+          </span>
+          {t('settings.providerTab.opencode')}
+        </button>
       </div>
 
       {/* Use display to preserve component state across tab switches */}
@@ -117,6 +132,13 @@ const ProviderTabSection = ({
           onDeleteCodexProvider={onDeleteCodexProvider}
           onSwitchCodexProvider={onSwitchCodexProvider}
           onRevokeCodexLocalConfigAuthorization={onRevokeCodexLocalConfigAuthorization}
+          showHeader={false}
+        />
+      </div>
+
+      <div id="panel-opencode-providers" role="tabpanel" style={activeTab === 'opencode' ? BLOCK_STYLE : NONE_STYLE}>
+        <OpenCodeProviderSection
+          addToast={addToast}
           showHeader={false}
         />
       </div>

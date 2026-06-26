@@ -1,12 +1,14 @@
 package com.github.claudecodegui.ui.toolwindow;
 
 import com.github.claudecodegui.action.SendShortcutSync;
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.permission.PermissionActionHandlers;
 import com.github.claudecodegui.handler.core.FrontendActionDispatcher;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.permission.PermissionService;
 import com.github.claudecodegui.protocol.DownstreamEvent;
+import com.github.claudecodegui.protocol.UpstreamAction;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
 import com.github.claudecodegui.provider.codex.CodexSDKBridge;
 import com.github.claudecodegui.provider.common.DaemonBridge;
@@ -71,6 +73,10 @@ public class ClaudeChatWindow {
      * codex sdk bridge.
      */
     private final CodexSDKBridge codexSDKBridge;
+    /**
+     * opencode sdk bridge.
+     */
+    private final com.github.claudecodegui.provider.opencode.OpenCodeSDKBridge openCodeSDKBridge;
     /**
      * project.
      */
@@ -207,6 +213,7 @@ public class ClaudeChatWindow {
         ProjectBridgeRegistry.SharedBridges sharedBridges = ProjectBridgeRegistry.get(project);
         this.claudeSDKBridge = sharedBridges.getClaudeBridge();
         this.codexSDKBridge = sharedBridges.getCodexBridge();
+        this.openCodeSDKBridge = sharedBridges.getOpenCodeBridge();
         SharedBridgeReferenceCounter.retain(project);
         this.settingsService = CodemossSettingsService.getInstance();
         this.htmlLoader = new HtmlLoader(getClass());
@@ -245,7 +252,7 @@ public class ClaudeChatWindow {
                 () -> streamCoalescer.isStreamActive()
         );
 
-        this.session = new ClaudeSession(project, claudeSDKBridge, codexSDKBridge);
+        this.session = new ClaudeSession(project, claudeSDKBridge, codexSDKBridge, openCodeSDKBridge);
 
         this.chatWindowDelegate = new ChatWindowDelegate(createDelegateHost());
         chatWindowDelegate.loadPermissionModeFromSettings();
@@ -270,6 +277,11 @@ public class ClaudeChatWindow {
             @Override
             public CodexSDKBridge getCodexSDKBridge() {
                 return codexSDKBridge;
+            }
+
+            @Override
+            public com.github.claudecodegui.provider.opencode.OpenCodeSDKBridge getOpenCodeSDKBridge() {
+                return openCodeSDKBridge;
             }
 
             @Override
@@ -469,7 +481,7 @@ public class ClaudeChatWindow {
      */
     public String getCurrentProvider() {
         HandlerContext ctx = this.handlerContext;
-        return ctx != null ? ctx.getCurrentProvider() : "claude";
+        return ctx != null ? ctx.getCurrentProvider() : CommonConstants.PROVIDER_CLAUDE;
     }
 
     public ClaudeSession getSession() {
@@ -709,7 +721,7 @@ public class ClaudeChatWindow {
             content = parts.length > 1 ? parts[1] : "";
         }
 
-        if ("send_message".equals(type) || "send_message_with_attachments".equals(type)) {
+        if (UpstreamAction.SEND_MESSAGE.value().equals(type) || UpstreamAction.SEND_MESSAGE_WITH_ATTACHMENTS.value().equals(type)) {
             ClaudeSession currentSession = session;
             LOG.info(String.format(
                     "[CliConcurrencyDiag][Webview->Java] received %s: tab=%s, contentIndex=%d, sessionId=%s, channelId=%s, provider=%s, payloadChars=%d, thread=%s",

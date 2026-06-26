@@ -7,6 +7,8 @@ import com.github.claudecodegui.provider.claude.ClaudeProviderAdapter;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
 import com.github.claudecodegui.provider.codex.CodexProviderAdapter;
 import com.github.claudecodegui.provider.codex.CodexSDKBridge;
+import com.github.claudecodegui.provider.opencode.OpenCodeProviderAdapter;
+import com.github.claudecodegui.provider.opencode.OpenCodeSDKBridge;
 import com.google.gson.JsonObject;
 
 import java.util.List;
@@ -26,10 +28,23 @@ public class SessionProviderRouter {
     private final ProviderRegistry providerRegistry;
 
     public SessionProviderRouter(ClaudeSDKBridge claudeSDKBridge, CodexSDKBridge codexSDKBridge) {
-        this(new ProviderRegistry(List.of(
-                new ClaudeProviderAdapter(claudeSDKBridge),
-                new CodexProviderAdapter(codexSDKBridge)
-        )));
+        this(claudeSDKBridge, codexSDKBridge, null);
+    }
+
+    public SessionProviderRouter(ClaudeSDKBridge claudeSDKBridge, CodexSDKBridge codexSDKBridge,
+                                 OpenCodeSDKBridge openCodeSDKBridge) {
+        this(new ProviderRegistry(buildAdapterList(claudeSDKBridge, codexSDKBridge, openCodeSDKBridge)));
+    }
+
+    private static List<ProviderAdapter> buildAdapterList(
+            ClaudeSDKBridge claude, CodexSDKBridge codex, OpenCodeSDKBridge opencode) {
+        var adapters = new java.util.ArrayList<ProviderAdapter>();
+        adapters.add(new ClaudeProviderAdapter(claude));
+        adapters.add(new CodexProviderAdapter(codex));
+        if (opencode != null) {
+            adapters.add(new OpenCodeProviderAdapter(opencode));
+        }
+        return List.copyOf(adapters);
     }
 
     public SessionProviderRouter(ProviderRegistry providerRegistry) {

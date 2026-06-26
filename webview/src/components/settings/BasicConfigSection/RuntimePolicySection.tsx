@@ -7,7 +7,7 @@ import styles from './style.module.less';
 import { ChevronRightIcon, InfoIcon, RefreshIcon, SaveIcon, SettingsIcon, AlertIcon } from '../../Icons';
 
 type RuntimeType = 'SDK' | 'CLI';
-type ProviderKey = 'claude' | 'codex';
+type ProviderKey = 'claude' | 'codex' | 'opencode';
 
 type ProviderPolicy = {
   enabled: boolean;
@@ -25,6 +25,7 @@ type RuntimePolicyPayload = {
 const DEFAULT_POLICY: Record<ProviderKey, ProviderPolicy> = {
   claude: { enabled: true, supported: ['SDK', 'CLI'], default: 'SDK' },
   codex: { enabled: true, supported: ['SDK', 'CLI'], default: 'SDK' },
+  opencode: { enabled: true, supported: ['SDK', 'CLI'], default: 'SDK' },
 };
 
 // SDK + CLI 两种运行时;用于计算「已限制」徽标计数
@@ -56,6 +57,7 @@ const RuntimePolicySection = ({
           setPolicy({
             claude: normalizeProviderPolicy(payload.providers.claude, DEFAULT_POLICY.claude),
             codex: normalizeProviderPolicy(payload.providers.codex, DEFAULT_POLICY.codex),
+            opencode: normalizeProviderPolicy(payload.providers.opencode, DEFAULT_POLICY.opencode),
           });
         }
         setLoaded(true);
@@ -77,6 +79,7 @@ const RuntimePolicySection = ({
             setPolicy({
               claude: normalizeProviderPolicy(payload.providers.claude, DEFAULT_POLICY.claude),
               codex: normalizeProviderPolicy(payload.providers.codex, DEFAULT_POLICY.codex),
+              opencode: normalizeProviderPolicy(payload.providers.opencode, DEFAULT_POLICY.opencode),
             });
           }
           setErrors([]);
@@ -191,7 +194,7 @@ const RuntimePolicySection = ({
             <span>{t('settings.basic.runtimePolicy.defaultRemovedHint')}</span>
           </p>
           <div className={styles.runtimePolicyGrid}>
-            {(['claude', 'codex'] as ProviderKey[]).map((provider) => {
+            {(['claude', 'codex', 'opencode'] as ProviderKey[]).map((provider) => {
               const item = policy[provider];
               const degraded = !item.supported.includes(requestedRuntime);
               const fallback = item.supported[0] ?? item.default;

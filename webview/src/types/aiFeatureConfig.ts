@@ -7,6 +7,7 @@ export type AiFeatureResolutionSource = 'manual' | 'auto' | 'unavailable';
 export const DEFAULT_AI_FEATURE_MODELS = {
   claude: 'claude-role-sonnet',
   codex: '',
+  opencode: '',
 } as const;
 
 export interface AiFeatureConfig {
@@ -16,10 +17,12 @@ export interface AiFeatureConfig {
   models: {
     claude: string;
     codex: string;
+    opencode: string;
   };
   availability: {
     claude: boolean;
     codex: boolean;
+    opencode: boolean;
   };
 }
 
@@ -33,9 +36,11 @@ export const DEFAULT_COMMIT_AI_CONFIG: CommitAiConfig = {
   models: {
     claude: DEFAULT_AI_FEATURE_MODELS.claude,
     codex: DEFAULT_AI_FEATURE_MODELS.codex,
+    opencode: DEFAULT_AI_FEATURE_MODELS.opencode,
   },
   availability: {
     claude: false,
     codex: false,
+    opencode: false,
   },
 };
