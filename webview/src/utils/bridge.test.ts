@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   openBrowser,
   openClass,
   openFile,
+  resolveFilePathWithCallback,
   showEditableDiff,
   showInteractiveDiff,
   undoFileChanges,
@@ -104,5 +105,33 @@ describe('bridge navigation helpers', () => {
         content: 'Checking SDK status|get_dependency_status\n---main.tsx---(foo',
       }),
     );
+  });
+});
+
+describe('resolveFilePathWithCallback', () => {
+  beforeEach(() => {
+    window.sendToJava = vi.fn();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.clearAllTimers();
+    vi.useRealTimers();
+  });
+
+  it('requests resolution via the upstream resolve_file_path action the backend actually routes', () => {
+    // 后端 ResolveFilePathActionHandler 注册的 action 是 UpstreamAction.RESOLVE_FILE_PATH
+    // (= 'resolve_file_path')。前端 RPC 的请求 type 必须是同名上行 action —— 否则后端
+    // dispatcher miss,回包永不到达,前端 5s 超时回 null,文件链接悬停解析静默失效。
+    resolveFilePathWithCallback('src/App.tsx', () => {});
+
+    expect(window.sendToJava).toHaveBeenCalledTimes(1);
+    const raw = (window.sendToJava as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    const envelope = JSON.parse(raw);
+    const payload = JSON.parse(envelope.content);
+
+    expect(envelope.type).toBe(UPSTREAM.RESOLVE_FILE_PATH);
+    expect(payload.path).toBe('src/App.tsx');
+    expect(payload.__requestId).toBeTruthy();
   });
 });

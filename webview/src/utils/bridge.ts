@@ -18,7 +18,7 @@ const RESOLVE_FILE_PATH_TIMEOUT_MS = 5000;
  * [归一化重构] resolve_file_path RPC 已迁移到 bridgeHub.request/response。
  * 旧实现:前端自建 resolveFilePathCallbacks Map + flushPendingCallbacks + 5s timeout +
  *        installResolveFilePathHandler + window.onFilePathResolved 回调。
- * 新实现:bridgeHub.request('file_path.resolve', {path}, {timeoutMs}) + hub 统一 correlation + timeout。
+ * 新实现:bridgeHub.request('resolve_file_path', {path}, {timeoutMs}, {responseType:'file_path.resolved'}) + hub 统一 correlation + timeout。
  * 后端 FileHandler 以 dispatchEvent("file_path.resolved", {path, resolvedPath, __requestId}) 回包,
  * hub 按 requestId 匹配并 resolve Promise。
  *
@@ -39,9 +39,13 @@ export const resolveFilePathWithCallback = (
     return;
   }
 
-  // 经 hub 的 request/response RPC 通道。后端以 file_path.resolved 回包,hub 按 requestId 匹配。
+  // 经 hub 的 request/response RPC 通道。
+  //   type         = 上行 action 'resolve_file_path'(后端 ResolveFilePathActionHandler 命中此名);
+  //   responseType = 下行事件 'file_path.resolved'(后端回包,hub 按此 + requestId 匹配)。
+  // 两者不可混用 —— 早先误把下行事件名 'file_path.resolve' 当请求 type,后端 dispatcher miss、
+  // 回包永不到达、前端 5s 超时回 null,文件链接悬停解析静默失效。
   bridgeHub.request<{ path?: string; resolvedPath?: string | null }>(
-    DOWNSTREAM.FILE_PATH_RESOLVE,
+    UPSTREAM.RESOLVE_FILE_PATH,
     { path: normalizedPath },
     { timeoutMs: RESOLVE_FILE_PATH_TIMEOUT_MS, responseType: DOWNSTREAM.FILE_PATH_RESOLVED },
   ).then((result) => {
