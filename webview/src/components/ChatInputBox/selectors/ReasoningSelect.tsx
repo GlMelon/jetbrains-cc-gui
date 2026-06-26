@@ -7,7 +7,7 @@ import {
 import { PROVIDER_IDS } from '../../../types/provider';
 import { getModelSupportedReasoningLevels } from '../../../utils/modelRegistry';
 import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
-import { CheckIcon, ChevronDownIcon, ChevronUpIcon, LightbulbIcon } from '../../Icons';
+import { CheckIcon, ChevronDownIcon, ChevronUpIcon, LightbulbIcon, codiconToIcon } from '../../Icons';
 
 const RELATIVE_INLINE_BLOCK_STYLE: React.CSSProperties = { position: 'relative', display: 'inline-block' };
 const CHEVRON_ICON_STYLE: React.CSSProperties = { fontSize: '10px', marginLeft: '2px' };
@@ -182,7 +182,7 @@ export const ReasoningSelect = ({ value, onChange, disabled, selectedModel, curr
               onClick={() => handleSelect(level.id)}
               title={getReasoningText(level.id, 'description')}
             >
-              <span className={`codicon ${level.icon}`} />
+              {codiconToIcon(level.icon, 16)}
               <div style={LEVEL_INFO_STYLE}>
                 <span>{getReasoningText(level.id, 'label')}</span>
                 <span className="mode-description">{getReasoningText(level.id, 'description')}</span>

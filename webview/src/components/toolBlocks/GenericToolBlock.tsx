@@ -8,6 +8,7 @@ import { formatParamValue, truncate } from '../../utils/helpers';
 import { getFileIcon, getFolderIcon } from '../../utils/fileIcons';
 import { isCommandToolName, parseCommandType } from '../../utils/toolCommandPath';
 import { getToolLineInfo, resolveToolTarget, summarizeToolCommand, extractPathsFromPatch } from '../../utils/toolPresentation';
+import { codiconToIcon } from '../Icons';
 
 const SUMMARY_FILE_STYLE: React.CSSProperties = {
   display: 'inline-flex',
@@ -322,7 +323,7 @@ const GenericToolBlock = ({ name, input, result, toolId }: GenericToolBlockProps
         style={headerStyle}
       >
         <div className="task-title-section">
-          <span className={`codicon ${codicon} tool-title-icon`} />
+          {codiconToIcon(codicon, 16, { className: 'tool-title-icon' })}
 
           <span className="tool-title-text">
             {displayName}

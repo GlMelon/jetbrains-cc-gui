@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { BaseDialog, DialogBody, DialogFooter } from './shared/BaseDialog';
+import { codiconToIcon } from './Icons';
 
 export type AlertType = 'error' | 'warning' | 'info' | 'success';
 
@@ -52,15 +53,13 @@ const AlertDialog = ({
   return (
     <BaseDialog isOpen={isOpen} onClose={onClose} ariaLabel={title}>
       <div className="dialog-header" style={{ display: 'flex', alignItems: 'center' }}>
-        <span
-          className={`codicon ${getIconClass()}`}
-          style={{
+        {codiconToIcon(getIconClass(), 16, {
+          style: {
             color: getIconColor(),
             marginRight: '8px',
-            fontSize: '16px',
             lineHeight: 1,
-          }}
-        />
+          },
+        })}
         <h3 className="dialog-title" style={{ margin: 0, lineHeight: 1.2 }}>{title}</h3>
       </div>
       <DialogBody>

@@ -1,5 +1,5 @@
 import { sendAction, subscribeEvent } from '../../bridge/typed';
-import { BanIcon, CheckIcon, DownloadIcon, EditIcon, ExtensionsIcon, FolderIcon, GlobeIcon, PlusIcon, HelpIcon, SearchIcon, TrashIcon } from '../Icons';;
+import { BanIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, DownloadIcon, EditIcon, ExtensionsIcon, FolderIcon, GlobeIcon, PlusIcon, HelpIcon, RefreshIcon, SearchIcon, TrashIcon } from '../Icons';;
 import { UPSTREAM, DOWNSTREAM } from '../../generated/protocol';
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -457,7 +457,7 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
             disabled={loading}
             title={t('chat.refresh')}
           >
-            <span className={`codicon codicon-refresh ${loading ? 'spinning' : ''}`}></span>
+            <RefreshIcon size={16} className={loading ? 'spinning' : ''} />
           </button>
         </div>
       </div>
@@ -495,7 +495,7 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
                 <div className="skill-header-row">
                   <span className={`skill-name ${!skill.enabled ? 'muted' : ''}`}>{skill.name}</span>
                   <span className={`scope-badge ${skill.scope}`}>
-                    <span className={`codicon ${(skill.scope === 'global' || skill.scope === 'user') ? 'codicon-globe' : 'codicon-desktop-download'}`}></span>
+                    {(skill.scope === 'global' || skill.scope === 'user') ? <GlobeIcon size={14} /> : <DownloadIcon size={14} />}
                     {scopeLabelMap[skill.scope] || skill.scope}
                   </span>
                   {!skill.enabled && (
@@ -508,7 +508,7 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
               </div>
 
               <div className="expand-indicator">
-                <span className={`codicon ${expandedSkills.has(skill.id) ? 'codicon-chevron-down' : 'codicon-chevron-right'}`}></span>
+                {expandedSkills.has(skill.id) ? <ChevronDownIcon size={14} /> : <ChevronRightIcon size={14} />}
               </div>
             </div>
 

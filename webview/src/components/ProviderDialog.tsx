@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronRightIcon, CloudIcon, CodeIcon, InfoIcon, SaveIcon, ShieldIcon, XCircleIcon, CloseIcon } from './Icons';;
+import { ChevronRightIcon, CloudIcon, CodeIcon, EyeIcon, EyeOffIcon, InfoIcon, SaveIcon, ShieldIcon, XCircleIcon, CloseIcon } from './Icons';;
 import type { ProviderConfig } from '../types/provider';
 import { CLAUDE_MODEL_MAPPING_ENV_KEYS, PROVIDER_PRESETS } from '../types/provider';
 import { BaseDialog } from './shared/BaseDialog';
@@ -653,7 +653,7 @@ export default function ProviderDialog({
                 onClick={() => setShowApiKey(!showApiKey)}
                 title={showApiKey ? t('settings.provider.dialog.hideApiKey') : t('settings.provider.dialog.showApiKey')}
               >
-                <span className={`codicon ${showApiKey ? 'codicon-eye-closed' : 'codicon-eye'}`} />
+                {showApiKey ? <EyeOffIcon size={16} /> : <EyeIcon size={16} />}
               </button>
             </div>
             <small className="form-hint">{t('settings.provider.dialog.apiKeyHint')}</small>

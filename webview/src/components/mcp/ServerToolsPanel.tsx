@@ -5,7 +5,7 @@
 
 import type { ServerToolsState, McpTool } from './types';
 import { getToolIcon } from './utils';
-import { RefreshIcon, SyncIcon } from '../Icons';
+import { RefreshIcon, SyncIcon, codiconToIcon } from '../Icons';
 
 const WARNING_HEADER_STYLE: React.CSSProperties = { color: 'var(--color-warning)' };
 
@@ -104,7 +104,7 @@ export function ServerToolsPanel({
                       onToolHover(null);
                     }}
                   >
-                    <span className={`codicon tool-icon ${getToolIcon(tool.name)}`}></span>
+                    {codiconToIcon(getToolIcon(tool.name), 16, { className: 'tool-icon' })}
                     <div className="tool-info">
                       <span className="tool-name-text">{tool.name}</span>
                     </div>

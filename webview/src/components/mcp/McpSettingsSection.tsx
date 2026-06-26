@@ -27,7 +27,7 @@ import { useToolsUpdate } from './hooks/useToolsUpdate';
 
 // Sub-components
 import { ServerCard } from './ServerCard';
-import { BracesIcon, ChevronDownIcon, ExtensionsIcon, LogIcon, PlusIcon, HelpIcon, ServerIcon } from '../Icons';
+import { BracesIcon, ChevronDownIcon, ExtensionsIcon, LogIcon, PlusIcon, HelpIcon, RefreshIcon, ServerIcon, codiconToIcon } from '../Icons';
 
 /**
  * MCP Server Settings Component
@@ -350,7 +350,7 @@ export function McpSettingsSection({ currentProvider = 'claude' }: McpSettingsSe
             disabled={loading || statusLoading}
             title={t('mcp.refreshStatus')}
           >
-            <span className={`codicon codicon-sync ${loading || statusLoading ? 'spinning' : ''}`}></span>
+            <RefreshIcon size={16} className={loading || statusLoading ? 'spinning' : ''} />
           </button>
           <div className="add-dropdown" ref={dropdownRef}>
             <button className="add-btn" onClick={() => setShowDropdown(!showDropdown)}>
@@ -490,7 +490,7 @@ export function McpSettingsSection({ currentProvider = 'claude' }: McpSettingsSe
         >
           <div className="tooltip-header">
             <span className="tooltip-icon">
-              <span className={`codicon tool-icon ${getToolIcon(hoveredTool.tool.name)}`}></span>
+              {codiconToIcon(getToolIcon(hoveredTool.tool.name), 16, { className: 'tool-icon' })}
             </span>
             <span className="tooltip-name">{hoveredTool.tool.name}</span>
           </div>

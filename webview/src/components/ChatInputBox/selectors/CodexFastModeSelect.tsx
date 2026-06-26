@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { CodexFastMode } from '../types';
-import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from '../../Icons';
+import { CheckIcon, ChevronDownIcon, ChevronUpIcon, codiconToIcon } from '../../Icons';
 
 const RELATIVE_INLINE_BLOCK_STYLE: React.CSSProperties = { position: 'relative', display: 'inline-block' };
 const CHEVRON_ICON_STYLE: React.CSSProperties = { fontSize: '10px', marginLeft: '2px' };
@@ -93,7 +93,7 @@ export const CodexFastModeSelect = ({ value, onChange }: CodexFastModeSelectProp
         onClick={handleToggle}
         title={t('codexFastMode.title', { defaultValue: 'Select Codex speed mode' })}
       >
-        <span className={`codicon ${currentMode.icon}`} />
+        {codiconToIcon(currentMode.icon, 16)}
         <span className="selector-button-text">{getModeText(currentMode, 'label')}</span>
         {isOpen ? <ChevronUpIcon size={16} style={CHEVRON_ICON_STYLE} /> : <ChevronDownIcon size={16} style={CHEVRON_ICON_STYLE} />}
       </button>
@@ -111,7 +111,7 @@ export const CodexFastModeSelect = ({ value, onChange }: CodexFastModeSelectProp
               onClick={() => handleSelect(mode.id)}
               title={getModeText(mode, 'description')}
             >
-              <span className={`codicon ${mode.icon}`} />
+              {codiconToIcon(mode.icon, 16)}
               <div style={MODE_INFO_STYLE}>
                 <span>{getModeText(mode, 'label')}</span>
                 <span className="mode-description">{getModeText(mode, 'description')}</span>

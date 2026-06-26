@@ -7,7 +7,7 @@ import type { McpServer, McpServerStatusInfo } from '../../types/mcp';
 import type { ServerRefreshState, ServerToolsState, McpTool } from './types';
 import { getServerStatusInfo, getStatusIcon, getStatusColor, getStatusText, getIconColor, getServerInitial, isServerEnabled } from './utils';
 import { ServerToolsPanel } from './ServerToolsPanel';
-import { BookIcon, CopyIcon, EditIcon, HomeIcon, TrashIcon } from '../Icons';
+import { BookIcon, ChevronDownIcon, ChevronRightIcon, CopyIcon, EditIcon, HomeIcon, TrashIcon, codiconToIcon } from '../Icons';
 
 export interface ServerCardProps {
   server: McpServer;
@@ -66,7 +66,7 @@ export function ServerCard({
       {/* Card header */}
       <div className="card-header" onClick={onToggleExpand}>
         <div className="header-left-section">
-          <span className={`expand-icon codicon ${isExpanded ? 'codicon-chevron-down' : 'codicon-chevron-right'}`}></span>
+          {isExpanded ? <ChevronDownIcon size={16} className="expand-icon" /> : <ChevronRightIcon size={16} className="expand-icon" />}
           <div className="server-icon" style={iconStyle}>
             {getServerInitial(server)}
           </div>
@@ -77,7 +77,7 @@ export function ServerCard({
             style={statusColorStyle}
             title={getStatusText(server, effectiveStatus, isCodexMode, t)}
           >
-            <span className={`codicon ${getStatusIcon(server, effectiveStatus, isCodexMode)}`}></span>
+            {codiconToIcon(getStatusIcon(server, effectiveStatus, isCodexMode), 16)}
           </span>
         </div>
         <div className="header-right-section" onClick={(e) => e.stopPropagation()}>
@@ -136,7 +136,7 @@ export function ServerCard({
                 className="info-value status-value"
                 style={statusColorStyle}
               >
-                <span className={`codicon ${getStatusIcon(server, effectiveStatus, isCodexMode)}`}></span>
+                {codiconToIcon(getStatusIcon(server, effectiveStatus, isCodexMode), 16)}
                 {' '}{getStatusText(server, effectiveStatus, isCodexMode, t)}
               </span>
             </div>

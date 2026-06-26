@@ -1286,6 +1286,166 @@ export const WrenchIcon = createIcon(
   </>
 );
 
+// ==================== Additional Codicon Mappings ====================
+
+export const CircleSmallIcon = createIcon(<circle cx="12" cy="12" r="5" />);
+
+export const CircleLargeFilledIcon = createIcon(<circle cx="12" cy="12" r="10" fill="currentColor" />);
+
+export const CircleOutlineIcon = createIcon(<circle cx="12" cy="12" r="10" />);
+
+export const CircleSlashIcon = createIcon(
+  <>
+    <circle cx="12" cy="12" r="10" />
+    <path d="M4.93 4.93l14.14 14.14" />
+  </>
+);
+
+export const CommentDiscussionIcon = createIcon(
+  <>
+    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+    <path d="M12 8v4" />
+    <path d="M10 10h4" />
+  </>
+);
+
+export const DebugAltIcon = createIcon(
+  <>
+    <path d="M12 2a10 10 0 100 20 10 10 0 000-20z" />
+    <path d="M8 15l-2 3" />
+    <path d="M16 15l2 3" />
+    <path d="M8 9l4 3 4-3" />
+  </>
+);
+
+export const DebugDisconnectIcon = createIcon(
+  <>
+    <path d="M12 2a10 10 0 100 20 10 10 0 000-20z" />
+    <path d="M4.93 4.93l14.14 14.14" />
+  </>
+);
+
+export const DebugRestartIcon = createIcon(
+  <>
+    <path d="M12 2a10 10 0 100 20 10 10 0 000-20z" />
+    <path d="M8 9l-3 3 3 3" />
+    <path d="M16 9l3 3-3 3" />
+  </>
+);
+
+export const DebugStopIcon = createIcon(
+  <>
+    <path d="M12 2a10 10 0 100 20 10 10 0 000-20z" />
+    <rect x="9" y="9" width="6" height="6" rx="1" />
+  </>
+);
+
+export const DesktopDownloadIcon = createIcon(
+  <>
+    <rect x="3" y="3" width="18" height="13" rx="2" />
+    <path d="M8 21h8" />
+    <path d="M12 17v4" />
+    <path d="M7 10l5 5 5-5" />
+  </>
+);
+
+export const FilePdfIcon = createIcon(
+  <>
+    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+    <path d="M14 2v6h6" />
+    <text x="12" y="17" textAnchor="middle" fontSize="7" fontWeight="700" fill="currentColor" stroke="none" fontFamily="sans-serif">PDF</text>
+  </>
+);
+
+export const FileSymlinkIcon = createIcon(
+  <>
+    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+    <path d="M14 2v6h6" />
+    <path d="M12 18a3 3 0 100-6 3 3 0 000 6z" />
+    <path d="M9.5 14.5L12 17l2.5-2.5" />
+  </>
+);
+
+export const FlameIcon = createIcon(
+  <>
+    <path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 2.5z" />
+  </>
+);
+
+export const ListTreeIcon = createIcon(
+  <>
+    <path d="M3 4h18" />
+    <path d="M3 12h12" />
+    <path d="M3 20h8" />
+    <path d="M15 12l3 3-3 3" />
+  </>
+);
+
+export const MailIcon = createIcon(
+  <>
+    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+    <polyline points="22,6 12,13 2,6" />
+  </>
+);
+
+export const PassIcon = createIcon(
+  <>
+    <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
+    <polyline points="22 4 12 14.01 9 11.01" />
+  </>
+);
+
+// Alias: codicon-pencil -> PencilIcon (reuses PenIcon SVG)
+export const PencilIcon = PenIcon;
+
+export const PlugIcon = createIcon(
+  <>
+    <path d="M12 22v-5" />
+    <path d="M9 8V2" />
+    <path d="M15 8V2" />
+    <path d="M18 8v5a6 6 0 01-6 6 6 6 0 01-6-6V8z" />
+  </>
+);
+
+// Alias: codicon-tools -> ToolsIcon (reuses WrenchIcon SVG)
+export const ToolsIcon = WrenchIcon;
+
+export const SymbolClassIcon = createIcon(
+  <>
+    <path d="M12 3L3 12l9 9 9-9-9-9z" />
+    <path d="M9 12l3 3 3-3" />
+  </>
+);
+
+export const SymbolMiscIcon = createIcon(
+  <>
+    <circle cx="12" cy="12" r="3" />
+    <path d="M12 2v4" />
+    <path d="M12 18v4" />
+    <path d="M4.93 4.93l2.83 2.83" />
+    <path d="M16.24 16.24l2.83 2.83" />
+    <path d="M2 12h4" />
+    <path d="M18 12h4" />
+    <path d="M4.93 19.07l2.83-2.83" />
+    <path d="M16.24 7.76l2.83-2.83" />
+  </>
+);
+
+export const SymbolNamespaceIcon = createIcon(
+  <>
+    <path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1" />
+    <path d="M16 3h1a2 2 0 0 1 2 2v5c0 1.1.9 2 2 2a2 2 0 0 1-2 2v5a2 2 0 0 1-2 2h-1" />
+  </>
+);
+
+export const SymbolPropertyIcon = createIcon(
+  <>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M9 12h6" />
+    <path d="M12 9v6" />
+  </>
+);
+
 // Export all icons as a map for convenience
 export const Icons = {
   back: BackIcon,
@@ -1433,6 +1593,29 @@ export const Icons = {
   ban: BanIcon,
   grip: GripIcon,
   sync: SyncIcon,
+  circleSmall: CircleSmallIcon,
+  circleLargeFilled: CircleLargeFilledIcon,
+  circleOutline: CircleOutlineIcon,
+  circleSlash: CircleSlashIcon,
+  commentDiscussion: CommentDiscussionIcon,
+  debugAlt: DebugAltIcon,
+  debugDisconnect: DebugDisconnectIcon,
+  debugRestart: DebugRestartIcon,
+  debugStop: DebugStopIcon,
+  desktopDownload: DesktopDownloadIcon,
+  filePdf: FilePdfIcon,
+  fileSymlink: FileSymlinkIcon,
+  flame: FlameIcon,
+  listTree: ListTreeIcon,
+  mail: MailIcon,
+  pass: PassIcon,
+  pencil: PencilIcon,
+  plug: PlugIcon,
+  tools: ToolsIcon,
+  symbolClass: SymbolClassIcon,
+  symbolMisc: SymbolMiscIcon,
+  symbolNamespace: SymbolNamespaceIcon,
+  symbolProperty: SymbolPropertyIcon,
 } as const;
 
 export type IconName = keyof typeof Icons;
@@ -1442,5 +1625,105 @@ export const Icon: React.FC<IconProps & { name: IconName }> = ({ name, ...props 
   const IconComponent = Icons[name];
   return <IconComponent {...props} />;
 };
+
+/**
+ * Maps codicon class names (e.g. 'codicon-error') to Icons.tsx components.
+ * Used to migrate remaining dynamic codicon references.
+ */
+const CODICON_COMPONENT_MAP: Record<string, React.FC<IconProps>> = {
+  'codicon-add': PlusIcon,
+  'codicon-arrow-down': ArrowDownIcon,
+  'codicon-arrow-left': ChevronLeftIcon,
+  'codicon-arrow-right': ArrowRightIcon,
+  'codicon-arrow-up': ArrowUpIcon,
+  'codicon-check': CheckIcon,
+  'codicon-checklist': TaskIcon,
+  'codicon-chevron-down': ChevronDownIcon,
+  'codicon-chevron-right': ChevronRightIcon,
+  'codicon-circle-filled': CircleFilledIcon,
+  'codicon-circle-large-filled': CircleLargeFilledIcon,
+  'codicon-circle-outline': CircleOutlineIcon,
+  'codicon-circle-slash': CircleSlashIcon,
+  'codicon-circle-small': CircleSmallIcon,
+  'codicon-close': CloseIcon,
+  'codicon-cloud': CloudIcon,
+  'codicon-code': CodeIcon,
+  'codicon-comment': CommentIcon,
+  'codicon-comment-discussion': CommentDiscussionIcon,
+  'codicon-database': DatabaseIcon,
+  'codicon-debug-alt': DebugAltIcon,
+  'codicon-debug-disconnect': DebugDisconnectIcon,
+  'codicon-debug-restart': DebugRestartIcon,
+  'codicon-debug-stop': DebugStopIcon,
+  'codicon-desktop-download': DesktopDownloadIcon,
+  'codicon-diff': DiffIcon,
+  'codicon-edit': EditIcon,
+  'codicon-eye': EyeIcon,
+  'codicon-eye-closed': EyeOffIcon,
+  'codicon-file': FileIcon,
+  'codicon-file-code': FileCodeIcon,
+  'codicon-file-pdf': FilePdfIcon,
+  'codicon-file-symlink': FileSymlinkIcon,
+  'codicon-file-text': FileTextIcon,
+  'codicon-filter': FilterIcon,
+  'codicon-flame': FlameIcon,
+  'codicon-folder': FolderIcon,
+  'codicon-folder-opened': FolderOpenedIcon,
+  'codicon-gear': GearIcon,
+  'codicon-graph': GraphIcon,
+  'codicon-home': HomeIcon,
+  'codicon-inbox': InboxIcon,
+  'codicon-key': KeyIcon,
+  'codicon-keyboard': KeyboardIcon,
+  'codicon-list-tree': ListTreeIcon,
+  'codicon-lock': LockIcon,
+  'codicon-mail': MailIcon,
+  'codicon-menu': MenuIcon,
+  'codicon-misc': SymbolMiscIcon,
+  'codicon-more': KebabVerticalIcon,
+  'codicon-pass': PassIcon,
+  'codicon-pencil': PencilIcon,
+  'codicon-play': PlayIcon,
+  'codicon-plug': PlugIcon,
+  'codicon-refresh': RefreshIcon,
+  'codicon-rocket': RocketIcon,
+  'codicon-search': SearchIcon,
+  'codicon-send': SendIcon,
+  'codicon-server': ServerIcon,
+  'codicon-settings': SettingsIcon,
+  'codicon-shield': ShieldIcon,
+  'codicon-symbol-class': SymbolClassIcon,
+  'codicon-symbol-namespace': SymbolNamespaceIcon,
+  'codicon-symbol-property': SymbolPropertyIcon,
+  'codicon-sync': SyncIcon,
+  'codicon-tag': TagIcon,
+  'codicon-terminal': TerminalIcon,
+  'codicon-tools': ToolsIcon,
+  'codicon-trash': TrashIcon,
+  'codicon-undo': UndoIcon,
+  'codicon-unlock': UnlockIcon,
+  'codicon-warning': AlertIcon,
+};
+
+/**
+ * Maps a codicon class name to a React icon component.
+ *
+ * @param codiconClass - e.g. 'codicon-error' or 'error'
+ * @param size - icon size (default 16)
+ * @param props - optional className / style
+ * @returns A rendered React icon node; falls back to HelpIcon when unmapped.
+ */
+export function codiconToIcon(
+  codiconClass: string,
+  size: IconSize = 16,
+  props?: { className?: string; style?: React.CSSProperties },
+): React.ReactNode {
+  const key = codiconClass.startsWith('codicon-') ? codiconClass : `codicon-${codiconClass}`;
+  const IconComponent = CODICON_COMPONENT_MAP[key];
+  if (!IconComponent) {
+    return <HelpIcon size={size} {...props} />;
+  }
+  return <IconComponent size={size} {...props} />;
+}
 
 export default Icons;

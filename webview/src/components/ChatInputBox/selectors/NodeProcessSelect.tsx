@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import ConfirmDialog from '../../ConfirmDialog';
 import { getAppViewport } from '../../../utils/viewport';
-import { InfoIcon, TrashIcon } from '../../Icons';
+import { InfoIcon, TrashIcon, codiconToIcon } from '../../Icons';
 import {
   fetchNodeProcesses,
   killAllOrphanProcesses,
@@ -524,10 +524,9 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
 
     return (
       <div key={proc.id} style={PROCESS_ROW_STYLE} title={rowTooltip}>
-        <span
-          className={`codicon ${providerIcon(proc.provider, proc.kind)}`}
-          style={{ ...PROCESS_LEADING_ICON_STYLE, color: kindColor(proc.kind) }}
-        />
+        {codiconToIcon(providerIcon(proc.provider, proc.kind), 16, {
+          style: { ...PROCESS_LEADING_ICON_STYLE, color: kindColor(proc.kind) },
+        })}
         <div style={PROCESS_BODY_STYLE}>
           <span style={PROCESS_TITLE_STYLE}>{titleText}</span>
           <span style={PROCESS_META_STYLE}>{metaText}</span>
@@ -543,7 +542,7 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
               title={t('config.nodeProcesses.restart')}
               aria-label={t('config.nodeProcesses.restart')}
             >
-              <span className={`codicon ${isPending ? 'codicon-loading codicon-modifier-spin' : 'codicon-debug-restart'}`} />
+              {isPending ? <span className="codicon codicon-loading codicon-modifier-spin" /> : codiconToIcon('codicon-debug-restart', 16)}
             </button>
           )}
           <button
@@ -555,7 +554,7 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
             title={t(killHintKey)}
             aria-label={t(killHintKey)}
           >
-            <span className={`codicon ${isPending ? 'codicon-loading codicon-modifier-spin' : killIconClass}`} />
+            {isPending ? <span className="codicon codicon-loading codicon-modifier-spin" /> : codiconToIcon(killIconClass, 16)}
           </button>
         </div>
       </div>
@@ -572,7 +571,7 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
     return (
       <div>
         <div style={headerStyle}>
-          {icon ? <span className={`codicon ${icon}`} /> : null}
+          {icon ? codiconToIcon(icon, 16) : null}
           <span>{label} ({items.length})</span>
         </div>
         {items.map(renderRow)}

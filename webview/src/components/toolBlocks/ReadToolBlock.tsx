@@ -7,6 +7,7 @@ import { useResolvedFileLinkTooltip } from '../../hooks/useResolvedFileLinkToolt
 import { getFileIcon, getFolderIcon } from '../../utils/fileIcons';
 import { getToolLineInfo, resolveToolTarget } from '../../utils/toolPresentation';
 import { ToolBlockShell } from './ToolBlockShell';
+import { codiconToIcon } from '../Icons';
 
 interface ReadToolBlockProps {
   input?: ToolInput;
@@ -126,7 +127,7 @@ const ReadToolBlock = memo(function ReadToolBlock({ input, result, toolId }: Rea
 
   const titleContent = (
     <>
-      <span className={`codicon ${iconClass} tool-title-icon`} />
+      {codiconToIcon(iconClass, 16, { className: 'tool-title-icon' })}
 
       <span className="tool-title-text">
         {actionText}

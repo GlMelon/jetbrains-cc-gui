@@ -3,7 +3,7 @@ import type { TFunction } from 'i18next';
 import type { HistorySessionSummary } from '../../types';
 import { extractCommandMessageContent } from '../../utils/messageUtils';
 import { ProviderModelIcon } from '../shared/ProviderModelIcon';
-import { EditIcon, DownloadIcon, TrashIcon, StarIcon, StarFilledIcon, CheckIcon, CloseIcon, CopyIcon, XCircleIcon, TerminalArrowIcon } from '../Icons';
+import { EditIcon, DownloadIcon, TrashIcon, StarIcon, StarFilledIcon, CheckIcon, CloseIcon, CopyIcon, XCircleIcon, TerminalArrowIcon, codiconToIcon } from '../Icons';
 
 // Module-level style constants (avoid breaking memoization)
 const PROVIDER_BADGE_STYLE: React.CSSProperties = {
@@ -319,11 +319,11 @@ export const HistoryListItem = memo(({
               className={`history-entrypoint-badge history-entrypoint-${session.entrypoint}`}
               title={t(`history.entrypointTooltip.${session.entrypoint}`, { defaultValue: session.entrypoint })}
             >
-              <span className={`codicon ${
+              {codiconToIcon(
                 session.entrypoint === 'sdk-cli' ? 'codicon-symbol-namespace' :
                 session.entrypoint === 'claude-vscode' ? 'codicon-extensions' :
-                'codicon-debug-alt'
-              }`}></span>
+                'codicon-debug-alt', 16
+              )}
               {t(`history.entrypointLabel.${session.entrypoint}`, { defaultValue: session.entrypoint })}
             </span>
           </>

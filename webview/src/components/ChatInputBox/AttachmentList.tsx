@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Attachment, AttachmentListProps } from './types';
 import { isImageAttachment } from './types';
+import { codiconToIcon } from '../Icons';
 
 /**
  * AttachmentList - Attachment list component
@@ -84,7 +85,7 @@ export const AttachmentList = ({
               />
             ) : (
               <div className="attachment-file">
-                <span className={`attachment-file-icon codicon ${getFileIcon(attachment.mediaType)}`} />
+                {codiconToIcon(getFileIcon(attachment.mediaType), 16, { className: 'attachment-file-icon' })}
                 <span className="attachment-file-name">
                   {getExtension(attachment.fileName) || attachment.fileName.slice(0, 6)}
                 </span>

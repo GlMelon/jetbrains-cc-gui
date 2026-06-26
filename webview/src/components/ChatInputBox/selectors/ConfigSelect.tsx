@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CheckIcon, ChevronRightIcon, CommandLineIcon, LightbulbIcon, RobotIcon, ServerProcessIcon, SettingsIcon, SyncIcon } from '../../Icons';;
+import { CheckIcon, ChevronRightIcon, CommandLineIcon, InfoIcon, LightbulbIcon, PlusIcon, RobotIcon, ServerProcessIcon, SettingsIcon, SyncIcon } from '../../Icons';;
 import { useTranslation } from 'react-i18next';
 import { Switch } from '../../shared/Switch';
 import { agentProvider, CREATE_NEW_AGENT_ID, EMPTY_STATE_ID, type AgentItem } from '../providers/agentProvider';
@@ -355,7 +355,7 @@ export const ConfigSelect = ({
                 setActiveSubmenu('none');
               }}
             >
-              <span className={`codicon ${isCreate ? 'codicon-add' : isInfo ? 'codicon-info' : 'codicon-robot'}`} />
+              {isCreate ? <PlusIcon size={16} /> : isInfo ? <InfoIcon size={16} /> : <RobotIcon size={16} />}
               <div style={AGENT_BODY_STYLE}>
                 <span style={AGENT_NAME_STYLE}>{agent.name}</span>
                 {agent.prompt ? (

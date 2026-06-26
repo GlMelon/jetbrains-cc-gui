@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { DropdownItemProps } from '../types';
+import { codiconToIcon } from '../../Icons';
 
 const SVG_ICON_STYLE: React.CSSProperties = {
   width: 16,
@@ -78,7 +79,7 @@ export const DropdownItem = ({
 
     // Otherwise use codicon class name
     const iconClass = icon || getDefaultIconClass(item.type);
-    return <span className={`dropdown-item-icon codicon ${iconClass}`} />;
+    return codiconToIcon(iconClass, 16, { className: 'dropdown-item-icon' });
   };
 
   /**

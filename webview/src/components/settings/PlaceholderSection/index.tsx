@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { McpSettingsSection } from '../../mcp/McpSettingsSection';
+import { ShieldIcon, ServerIcon, RobotIcon, BookIcon } from '../../Icons';
 import styles from './style.module.less';
 
 interface PlaceholderSectionProps {
@@ -14,25 +15,25 @@ const PlaceholderSection = ({ type, currentProvider }: PlaceholderSectionProps) 
     permissions: {
       title: t('settings.permissions'),
       desc: t('settings.permissionsDesc'),
-      icon: 'codicon-shield',
+      IconComponent: ShieldIcon,
       message: t('settings.permissionsComingSoon'),
     },
     mcp: {
       title: t('settings.mcp'),
       desc: t('settings.mcpDesc'),
-      icon: 'codicon-server',
+      IconComponent: ServerIcon,
       message: null, // MCP has its own dedicated component
     },
     agents: {
       title: t('settings.agents'),
       desc: t('settings.agentsDesc'),
-      icon: 'codicon-robot',
+      IconComponent: RobotIcon,
       message: t('settings.agentsComingSoon'),
     },
     skills: {
       title: t('settings.skills'),
       desc: t('settings.skillsDesc'),
-      icon: 'codicon-book',
+      IconComponent: BookIcon,
       message: t('settings.skillsComingSoon'),
     },
   };
@@ -48,7 +49,7 @@ const PlaceholderSection = ({ type, currentProvider }: PlaceholderSectionProps) 
         <McpSettingsSection currentProvider={currentProvider} />
       ) : (
         <div className={styles.tempNotice}>
-          <span className={`codicon ${config.icon}`} />
+          <config.IconComponent size={16} />
           <p>{config.message}</p>
         </div>
       )}

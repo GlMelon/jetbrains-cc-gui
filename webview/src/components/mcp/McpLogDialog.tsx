@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { McpLogEntry } from '../../types/mcp';
-import { ClearAllIcon, LogIcon, CloseIcon } from '../Icons';;
+import { ClearAllIcon, LogIcon, CloseIcon, codiconToIcon } from '../Icons';;
 
 function getLevelColorStyle(color: string): React.CSSProperties {
   return { color };
@@ -91,10 +91,10 @@ export function McpLogDialog({ logs, onClose, onClear }: McpLogDialogProps) {
               {logs.map((log) => (
                 <div key={log.id} className={`log-entry log-${log.level}`}>
                   <span className="log-time">{formatTimestamp(log.timestamp)}</span>
-                  <span
-                    className={`log-level codicon ${getLevelIcon(log.level)}`}
-                    style={getLevelColorStyle(getLevelColor(log.level))}
-                  ></span>
+                  {codiconToIcon(getLevelIcon(log.level), 16, {
+                    className: 'log-level',
+                    style: getLevelColorStyle(getLevelColor(log.level)),
+                  })}
                   <span className="log-server">[{log.serverName}]</span>
                   <span className="log-message">{log.message}</span>
                 </div>

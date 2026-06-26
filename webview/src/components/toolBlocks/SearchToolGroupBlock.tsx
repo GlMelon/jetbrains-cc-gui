@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ToolInput, ToolResultBlock } from '../../types';
 import { truncate } from '../../utils/helpers';
-import { SearchIcon } from '../Icons';
+import { SearchIcon, codiconToIcon } from '../Icons';
 
 interface SearchItem {
   toolName: string;
@@ -206,10 +206,7 @@ const SearchToolGroupBlock = ({ items }: SearchToolGroupBlockProps) => {
               title={item.pattern ? `${item.pattern}${item.path ? ` → ${item.path}` : ''}` : item.path}
             >
               {/* Tool type icon */}
-              <span
-                className={`codicon ${getSearchToolIcon(item.toolName)}`}
-                style={TOOL_ICON_STYLE}
-              />
+              {codiconToIcon(getSearchToolIcon(item.toolName), 16, { style: TOOL_ICON_STYLE })}
 
               {/* Pattern */}
               {item.pattern && (

@@ -8,10 +8,13 @@ import {
   BashToolBlock,
   EditToolBlock,
   GenericToolBlock,
+  McpToolBlock,
+  SkillBlock,
   TaskExecutionBlock,
 } from '../toolBlocks';
-import { EDIT_TOOL_NAMES, BASH_TOOL_NAMES, TASK_MANAGE_TOOL_NAMES, AGENT_TOOL_NAMES, isToolName, isTransientInternalToolName, normalizeToolName } from '../../utils/toolConstants';
+import { EDIT_TOOL_NAMES, BASH_TOOL_NAMES, TASK_MANAGE_TOOL_NAMES, AGENT_TOOL_NAMES, isToolName, isTransientInternalToolName, normalizeToolName, parseMcpToolName } from '../../utils/toolConstants';
 import { TASK_STATUS_COLORS } from '../../utils/messageUtils';
+import { codiconToIcon } from '../Icons';
 
 const IMAGE_BLOCK_STYLE: React.CSSProperties = { cursor: 'pointer' };
 
@@ -247,7 +250,7 @@ export const ContentBlockRenderer = memo(function ContentBlockRenderer({
     const displayName = block.fileName || t('chat.unknownFile');
     return (
       <div className="message-attachment-chip" title={displayName}>
-        <span className={`message-attachment-chip-icon codicon ${getFileIcon(block.mediaType)}`} />
+        {codiconToIcon(getFileIcon(block.mediaType), 16, { className: 'message-attachment-chip-icon' })}
         {ext && <span className="message-attachment-chip-ext">{ext}</span>}
         <span className="message-attachment-chip-name">{displayName}</span>
       </div>
@@ -321,7 +324,21 @@ export const ContentBlockRenderer = memo(function ContentBlockRenderer({
     );
   }
 
+  if (block.type === 'skill_use') {
+    return <SkillBlock block={block} />;
+  }
+
   if (block.type === 'tool_use') {
+    if (parseMcpToolName(block.name)) {
+      return (
+        <McpToolBlock
+          name={block.name}
+          input={block.input}
+          result={findToolResult(block.id, messageIndex)}
+        />
+      );
+    }
+
     const toolName = normalizeToolName(block.name ?? '');
 
     if (toolName === 'todowrite' || toolName === 'update_plan' || TASK_MANAGE_TOOL_NAMES.has(toolName)) {
