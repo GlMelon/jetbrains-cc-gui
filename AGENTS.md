@@ -168,6 +168,27 @@
 - [ ] 新增的外部能力对接,是否用了 if / else 硬编码分支?能否改为 Adapter + support 路由?
 - [ ] 是否预留了扩展接口?新增同类能力是否需要改既有代码?
 
+### 硬编码禁止规范(强制)
+
+**原则**:代码中**禁止**出现硬编码的字符串值(除开文件系统约定的可执行文件名、文件路径等),所有字符串值必须引用 SSOT 常量或枚举。
+
+**强制要求**:
+1. **Provider 协议值**:必须使用 `ProviderType.X.value()` 或 `CommonConstants.PROVIDER_X`,禁止使用 `"claude"` / `"codex"` / `"opencode"` 字面量。
+2. **CLI 可执行文件名**:必须使用 `ProviderType.X.cliCommandForPlatform()`,禁止使用 `"codex.cmd"` / `"opencode"` 等字面量。
+3. **JSON 配置键名**:必须使用 `ProviderType.X.value()` 或 `CommonConstants.PROVIDER_X`,禁止使用 `"codex"` / `"opencode"` 等字面量。
+4. **消息类型常量**:必须使用 `CliConstants.MSG_*` 或 `CommonConstants.MSG_*`,禁止使用 `"session_id"` / `"stream_start"` 等字面量。
+5. **重复常量定义**:禁止在多个类中重复定义相同含义的常量,必须统一引用 SSOT(`CommonConstants` / `ProviderType` / `CliConstants`)。
+6. **switch case 字符串**:switch case 中的字符串值必须使用常量引用,禁止使用字面量。
+
+**违规判定**:
+- 代码中出现 `"codex"` / `"opencode"` / `"claude"` 等 provider 字面量(除注释外)
+- switch case 中出现硬编码字符串而非常量引用
+- 多个类中定义相同含义的常量(如 `PROVIDER_CODEX = "codex"` 在多处重复定义)
+
+**例外情况**:
+- 测试文件中的硬编码数据(用于构造测试数据)
+- 文件系统约定的可执行文件名后缀(如 `.exe` / `.bat`)可保留字面量
+
 ---
 
 ## 6. 合规检查清单总表(CR / PR 对照)
@@ -190,6 +211,11 @@
 | 12 | 新增同类能力是否需要改既有代码?是否预留了扩展接口 | 五 |
 | 13 | 下行事件是否使用 `DownstreamEvent` 枚举常量?有无散落字面量 | 二 |
 | 14 | 协议 type 是否从 `generated/protocol.ts` 导入?有无手写字面量 | 三 |
+| 15 | 代码中是否出现 provider 字面量(`"codex"` / `"opencode"` / `"claude"`)?是否使用 `ProviderType.X.value()` | 五 |
+| 16 | CLI 可执行文件名是否使用 `ProviderType.X.cliCommandForPlatform()`?有无硬编码字面量 | 五 |
+| 17 | JSON 配置键名是否使用 `ProviderType.X.value()`?有无硬编码字面量 | 五 |
+| 18 | switch case 中的字符串值是否使用常量引用?有无硬编码字面量 | 五 |
+| 19 | 是否存在重复常量定义?是否统一引用 SSOT | 四 |
 
 ---
 
@@ -311,27 +337,6 @@ refactor(format): extract shared capacity formatting into formatCapacity
 - **门面(Facade)**:对外统一入口,内部路由到具体实现。
 - **上行 / 下行**:上行 = 前端 → 后端(`sendToJava` / `UpstreamAction`);下行 = 后端 → 前端(`dispatch` / `DownstreamEvent`)。
 - **payload**:协议消息携带的数据体,区别于消息名(type)。
-
----
-
-## 附录 C · 落地进度概览与迁移路线索引
-
-> 本准则正文只承载长期稳定的架构原则。下表简练标注各总则的当前落地进度;**具体违规点清单、行号佐证与改造 SOP 见迁移路线文档**,正文不重复。
-
-| 总则 | 已落地 | 主要债务(详见迁移文档) |
-|---|---|---|
-| 一·职责分离 | 后端模型权威(`DefaultModelCapabilityResolver` / `ModelConfig` record)、`MODEL_SELECTION` 下行 | 前端模型注册表双真相源(`CLAUDE_MODELS` / `DEFAULT_MODEL_REGISTRY` / `modelSupports1MContext`)、前端协议字面量、前端业务枚举手写 |
-| 二·开闭 | `FrontendActionHandler<T>` + `FrontendActionDispatcher`、V9 三切片(Codex quota / ClaudeCliPath / NodePath)+ ModelRegistry + Appearance | 上行仅 ~10/210 action 完成迁移;18 个 legacy `MessageHandler` + `SettingsHandler.SUPPORTED_TYPES` 仍是主力;下行字面量散落 |
-| 三·SSOT | `UpstreamAction` / `DownstreamEvent` 枚举、mjs 直读 Java 源生成 protocol.ts | payload 字段未生成、业务枚举 SSOT 全未落地、默认值漂移(`CodexSDKBridge` "medium" vs `CommonConstants` "high") |
-| 四·复用 | `bridge/typed.ts` 类型安全签名、部分模块已采用 generated 常量 | `bridge/events/index.ts` 第二真相源、重复实现(`canUseLocalStorage` / `ViewMode` 三处定义) |
-| 五·拓展 | `SessionRuntime` / `ProviderAdapter` / `ProviderRegistry`、ai-bridge `provider-registry`、`RuntimePolicyConfig` 外置 | CLI 工厂 / 消息归一化器 if/else、配置外置不充分、Java 侧缺 `SdkBridgeAdapter` 抽象 |
-
-**迁移路线索引(已存在文档)**:
-
-- `docs/superpowers/plans/2026-06-21-agents-architecture-migration.md` — 总迁移计划(P0–P3,根因 A 前端业务 / B 旧分派 / C SSOT 全覆盖)
-- `docs/superpowers/plans/2026-06-20-architecture-compliance-migration.md` — SSOT 与前端业务下沉五阶段
-- `docs/designs/plugin-architecture-refactor-status.md` — 重构状态快照(前端 / 后端 / Node 三边界现状)
-- V9 派发器迁移三切片:`docs/superpowers/plans/2026-06-21-v9-dispatcher-{codex-quota,claude-cli-path,node-path}-slice.md`
 
 ---
 
