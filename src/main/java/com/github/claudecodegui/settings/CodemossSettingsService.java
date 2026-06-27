@@ -109,7 +109,6 @@ public class CodemossSettingsService {
     private final CodexMcpServerManager codexMcpServerManager;
     private final WorkingDirectoryManager workingDirectoryManager;
     private final AgentManager agentManager;
-    private final SkillManager skillManager;
     private final McpServerManager mcpServerManager;
     private final ProviderManager providerManager;
     private final CodexProviderManager codexProviderManager;
@@ -143,25 +142,6 @@ public class CodemossSettingsService {
 
         // Initialize AgentManager
         this.agentManager = new AgentManager(gson, pathManager);
-
-        // Initialize SkillManager
-        this.skillManager = new SkillManager(
-                (ignored) -> {
-                    try {
-                        return readConfig();
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                },
-                (config) -> {
-                    try {
-                        writeConfig(config);
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                },
-                claudeSettingsManager
-        );
 
         // Initialize McpServerManager
         this.mcpServerManager = new McpServerManager(

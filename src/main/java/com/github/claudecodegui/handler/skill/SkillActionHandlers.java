@@ -3,8 +3,8 @@ package com.github.claudecodegui.handler.skill;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.protocol.DownstreamEvent;
-import com.github.claudecodegui.skill.CodexSkillService;
-import com.github.claudecodegui.skill.SkillService;
+import com.github.claudecodegui.skill.SkillId;
+import com.github.claudecodegui.skill.UnifiedSkillServiceRegistry;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -28,6 +28,11 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Container for skill action handlers (B2 迁移).
  * Holds shared logic for skill CRUD + toggle operations.
+ * <p>
+ * Provider dispatch is centralized through {@link UnifiedSkillServiceRegistry}; this handler
+ * no longer branches on the provider for routing. The only retained provider-specific checks
+ * are non-routing concerns: the Codex FileChooser mode (folders only) and the per-provider
+ * fallback JSON shape (Codex uses {@code user}/{@code repo}, Claude/OpenCode use {@code global}/{@code local}).
  */
 public class SkillActionHandlers {
 
@@ -53,22 +58,18 @@ public class SkillActionHandlers {
     // ── business logic ──
 
     public void handleGetAllSkills() {
-        boolean isCodex = CommonConstants.PROVIDER_CODEX.equalsIgnoreCase(context.getCurrentProvider());
+        String provider = context.getCurrentProvider();
         try {
             String workspaceRoot = context.getProject().getBasePath();
-            JsonObject skills;
-            if (isCodex) {
-                skills = CodexSkillService.getAllSkills(workspaceRoot);
-            } else {
-                skills = SkillService.getAllSkills(workspaceRoot);
-            }
+            JsonObject skills = UnifiedSkillServiceRegistry.forProvider(provider).getAllSkills(workspaceRoot);
             String skillsJson = GSON.toJson(skills);
             ApplicationManager.getApplication().invokeLater(() -> {
                 dispatchEvent(DownstreamEvent.SKILL_LIST.value(), escapeJs(skillsJson));
             });
         } catch (Exception e) {
             LOG.error("[SkillHandler] Failed to get all skills: " + e.getMessage(), e);
-            String fallbackJson = isCodex ? "{\"user\":{},\"repo\":{}}" : "{\"global\":{},\"local\":{}}";
+            String fallbackJson = CommonConstants.PROVIDER_CODEX.equalsIgnoreCase(provider)
+                    ? "{\"user\":{},\"repo\":{}}" : "{\"global\":{},\"local\":{}}";
             ApplicationManager.getApplication().invokeLater(() -> {
                 dispatchEvent(DownstreamEvent.SKILL_LIST.value(), escapeJs(fallbackJson));
             });
@@ -79,6 +80,7 @@ public class SkillActionHandlers {
         try {
             JsonObject json = GSON.fromJson(content, JsonObject.class);
             String scope = json.has("scope") ? json.get("scope").getAsString() : "global";
+            // Codex FileChooser is folders-only; the others allow files or folders. Not a routing concern.
             boolean isCodex = CommonConstants.PROVIDER_CODEX.equalsIgnoreCase(context.getCurrentProvider());
             ApplicationManager.getApplication().invokeLater(() -> {
                 FileChooserDescriptor descriptor;
@@ -100,15 +102,12 @@ public class SkillActionHandlers {
                     for (VirtualFile vf : selectedFiles) {
                         paths.add(vf.getPath());
                     }
+                    String provider = context.getCurrentProvider();
                     CompletableFuture.runAsync(() -> {
                         try {
                             String workspaceRoot = context.getProject().getBasePath();
-                            JsonObject importResult;
-                            if (isCodex) {
-                                importResult = CodexSkillService.importSkill(paths, scope, workspaceRoot);
-                            } else {
-                                importResult = SkillService.importSkills(paths, scope, workspaceRoot);
-                            }
+                            JsonObject importResult = UnifiedSkillServiceRegistry.forProvider(provider)
+                                    .importSkills(paths, scope, workspaceRoot);
                             String resultJson = GSON.toJson(importResult);
                             ApplicationManager.getApplication().invokeLater(() -> {
                                 dispatchEvent(DownstreamEvent.SKILL_IMPORT_RESULT.value(), escapeJs(resultJson));
@@ -136,22 +135,20 @@ public class SkillActionHandlers {
             String skillName = json.get("name").getAsString();
             String scope = json.has("scope") ? json.get("scope").getAsString() : "global";
             boolean enabled = json.has("enabled") ? json.get("enabled").getAsBoolean() : true;
+            String skillPath = json.has("skillPath") ? json.get("skillPath").getAsString() : null;
             String workspaceRoot = context.getProject().getBasePath();
-            boolean isCodex = CommonConstants.PROVIDER_CODEX.equalsIgnoreCase(context.getCurrentProvider());
+            String provider = context.getCurrentProvider();
             CompletableFuture.runAsync(() -> {
                 try {
                     JsonObject result;
-                    if (isCodex) {
-                        String skillPath = json.has("skillPath") ? json.get("skillPath").getAsString() : null;
-                        if (skillPath != null && !isPathClean(skillPath)) {
-                            result = new JsonObject();
-                            result.addProperty("success", false);
-                            result.addProperty("error", "Invalid skill path");
-                        } else {
-                            result = CodexSkillService.deleteSkill(skillName, scope, skillPath, workspaceRoot);
-                        }
+                    if (skillPath != null && !isPathClean(skillPath)) {
+                        result = new JsonObject();
+                        result.addProperty("success", false);
+                        result.addProperty("error", "Invalid skill path");
                     } else {
-                        result = SkillService.deleteSkill(skillName, scope, enabled, workspaceRoot);
+                        SkillId id = new SkillId(scope, skillName, skillPath);
+                        result = UnifiedSkillServiceRegistry.forProvider(provider)
+                                .deleteSkill(id, enabled, workspaceRoot);
                     }
                     String resultJson = GSON.toJson(result);
                     ApplicationManager.getApplication().invokeLater(() -> {
@@ -184,26 +181,20 @@ public class SkillActionHandlers {
             String skillName = json.get("name").getAsString();
             String scope = json.has("scope") ? json.get("scope").getAsString() : "global";
             boolean currentEnabled = json.has("enabled") ? json.get("enabled").getAsBoolean() : true;
+            String skillPath = json.has("skillPath") ? json.get("skillPath").getAsString() : null;
             String workspaceRoot = context.getProject().getBasePath();
-            boolean isCodex = CommonConstants.PROVIDER_CODEX.equalsIgnoreCase(context.getCurrentProvider());
+            String provider = context.getCurrentProvider();
             CompletableFuture.runAsync(() -> {
                 try {
                     JsonObject result;
-                    if (isCodex) {
-                        String skillPath = json.has("skillPath") ? json.get("skillPath").getAsString() : null;
-                        if (skillPath == null || skillPath.isEmpty()) {
-                            result = new JsonObject();
-                            result.addProperty("success", false);
-                            result.addProperty("error", "skillPath is required for Codex skill toggle");
-                        } else if (!isPathClean(skillPath)) {
-                            result = new JsonObject();
-                            result.addProperty("success", false);
-                            result.addProperty("error", "Invalid skill path");
-                        } else {
-                            result = CodexSkillService.toggleSkill(skillPath, currentEnabled, workspaceRoot);
-                        }
+                    if (skillPath != null && !isPathClean(skillPath)) {
+                        result = new JsonObject();
+                        result.addProperty("success", false);
+                        result.addProperty("error", "Invalid skill path");
                     } else {
-                        result = SkillService.toggleSkill(skillName, scope, currentEnabled, workspaceRoot);
+                        SkillId id = new SkillId(scope, skillName, skillPath);
+                        result = UnifiedSkillServiceRegistry.forProvider(provider)
+                                .toggleSkill(id, currentEnabled, workspaceRoot);
                     }
                     String resultJson = GSON.toJson(result);
                     ApplicationManager.getApplication().invokeLater(() -> {

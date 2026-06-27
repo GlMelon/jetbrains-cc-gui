@@ -85,7 +85,7 @@ public final class SkillFrontmatterParser {
     static String extractFrontmatter(Path filePath) {
         String content;
         try {
-            content = Files.readString(filePath, StandardCharsets.UTF_8);
+            content = stripUtf8Bom(Files.readString(filePath, StandardCharsets.UTF_8));
         } catch (IOException e) {
             LOG.warn("Failed to read skill file: " + filePath, e);
             return null;
@@ -253,7 +253,7 @@ public final class SkillFrontmatterParser {
     static String extractFirstParagraph(Path filePath) {
         String content;
         try {
-            content = Files.readString(filePath, StandardCharsets.UTF_8);
+            content = stripUtf8Bom(Files.readString(filePath, StandardCharsets.UTF_8));
         } catch (IOException e) {
             return null;
         }
@@ -289,6 +289,18 @@ public final class SkillFrontmatterParser {
                     : firstParagraph.substring(0, DESCRIPTION_MAX_LENGTH);
         }
         return firstParagraph;
+    }
+
+    /**
+     * Strips a leading UTF-8 BOM ({@code ﻿}) if present.
+     * Some Windows editors (e.g. Notepad) save SKILL.md with a BOM, which would
+     * otherwise defeat the leading {@code "---"} frontmatter check.
+     */
+    private static String stripUtf8Bom(String content) {
+        if (content != null && content.startsWith("﻿")) {
+            return content.substring(1);
+        }
+        return content;
     }
 
     private static String getOptionalString(Map<String, Object> map, String key) {
