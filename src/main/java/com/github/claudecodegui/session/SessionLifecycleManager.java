@@ -69,7 +69,7 @@ public class SessionLifecycleManager {
                 LOG.info("[Lifecycle] createNewSession superseded by a newer reset; abandoning bootstrap");
                 return;
             }
-            if (oldSession != null && !isClaudeCliSession(oldSession)) {
+            if (oldSession != null && shouldResetClaudeDaemonFor(oldSession.getProvider(), oldSession.getClaudeInvocationMode())) {
                 host.getClaudeSDKBridge().resetPersistentRuntime(oldSession.getRuntimeSessionEpoch());
                 LOG.info("[Lifecycle] Requested daemon runtime reset for old epoch=" + oldSession.getRuntimeSessionEpoch());
             }
@@ -116,7 +116,7 @@ public class SessionLifecycleManager {
                 LOG.info("[Lifecycle] createNewSessionFromTemplate superseded by a newer reset; abandoning bootstrap");
                 return;
             }
-            if (oldSession != null && !isClaudeCliSession(oldSession)) {
+            if (oldSession != null && shouldResetClaudeDaemonFor(oldSession.getProvider(), oldSession.getClaudeInvocationMode())) {
                 host.getClaudeSDKBridge().resetPersistentRuntime(oldSession.getRuntimeSessionEpoch());
                 LOG.info("[Lifecycle] Requested daemon runtime reset for old epoch=" + oldSession.getRuntimeSessionEpoch());
             }
@@ -214,7 +214,7 @@ public class SessionLifecycleManager {
                 LOG.info("[Lifecycle] loadHistorySession superseded by a newer reset; abandoning bootstrap");
                 return;
             }
-            if (oldSession != null && !isClaudeCliSession(oldSession)) {
+            if (oldSession != null && shouldResetClaudeDaemonFor(oldSession.getProvider(), oldSession.getClaudeInvocationMode())) {
                 host.getClaudeSDKBridge().resetPersistentRuntime(oldSession.getRuntimeSessionEpoch());
                 LOG.info("[Lifecycle] Requested daemon runtime reset before history load for old epoch="
                         + oldSession.getRuntimeSessionEpoch());
@@ -414,13 +414,21 @@ public class SessionLifecycleManager {
     }
 
     /**
-     * 当前会话是否为 Claude provider 的 CLI 运行模式。CLI 模式不依赖 SDK daemon,
-     * 跳过 resetPersistentRuntime 等 SDK bridge 调用。
+     * B8: 判断是否应对给定会话触发 Claude daemon reset(resetPersistentRuntime)。
+     * <p>
+     * 旧实现用 {@code !isClaudeCliSession(session)} 过宽:它对 codex/opencode 会话也为真,
+     * 导致切换/重置时误调 {@code claudeSDKBridge.resetPersistentRuntime} 污染 Claude daemon。
+     * 收紧为正向判定——仅当 provider == CLAUDE 且非 CLI(即 Claude SDK)时才重置其专属 daemon。
+     * <p>
+     * 提取为静态纯函数以便单测覆盖(god method 平台耦合无法直接测 createNewSession)。
+     *
+     * @param provider              会话 provider 标识
+     * @param claudeInvocationMode  会话级 Claude 调用模式(null 视为非 CLI,即 SDK 语义)
+     * @return true 表示该会话是 Claude SDK 会话,应重置 Claude daemon
      */
-    private boolean isClaudeCliSession(ClaudeSession session) {
-        return session != null
-                && ProviderType.CLAUDE.value().equals(session.getProvider())
-                && CommonConstants.INVOCATION_MODE_CLI.equals(session.getClaudeInvocationMode());
+    static boolean shouldResetClaudeDaemonFor(String provider, String claudeInvocationMode) {
+        return ProviderType.CLAUDE.value().equals(provider)
+                && !CommonConstants.INVOCATION_MODE_CLI.equals(claudeInvocationMode);
     }
 
     private String readClaudeInvocationMode() {

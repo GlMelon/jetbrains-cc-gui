@@ -60,6 +60,7 @@ public class WebviewInitializer {
         Project getProject();
         ClaudeSDKBridge getClaudeSDKBridge();
         CodexSDKBridge getCodexSDKBridge();
+        com.github.claudecodegui.provider.opencode.OpenCodeSDKBridge getOpenCodeSDKBridge();
         JPanel getMainPanel();
         HtmlLoader getHtmlLoader();
         HandlerContext getHandlerContext();

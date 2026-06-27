@@ -28,6 +28,17 @@ public class MessageNormalizersTest {
                 MessageNormalizers.forRuntime("codex", "cli", delegate).getClass());
     }
 
+    // B6: OpenCode 必须注册专用 normalizer,否则回退到 Claude 归一化器(协议事件错配)。
+    @Test
+    public void opencodeNormalizerRegisteredForBothCliAndSdk() {
+        RecordingCallback delegate = new RecordingCallback();
+
+        assertEquals(OpenCodeMessageNormalizer.class,
+                MessageNormalizers.forRuntime("opencode", "cli", delegate).getClass());
+        assertEquals(OpenCodeMessageNormalizer.class,
+                MessageNormalizers.forRuntime("opencode", "sdk", delegate).getClass());
+    }
+
     @Test
     public void codexCliNormalizerSuppressesTextOnlyAssistantSnapshotsButKeepsToolUse() {
         RecordingCallback delegate = new RecordingCallback();

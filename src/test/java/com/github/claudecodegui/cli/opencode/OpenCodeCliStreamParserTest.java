@@ -1,0 +1,149 @@
+package com.github.claudecodegui.cli.opencode;
+
+import com.github.claudecodegui.cli.CliSessionCallback;
+import com.github.claudecodegui.cli.common.CliConstants;
+import com.github.claudecodegui.common.CommonConstants;
+import org.junit.Test;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
+/**
+ * §15.4 / §7.3:OpenCodeCliStreamParser 必须按真实 opencode run --format json 事件 schema 解析
+ * (样本实捕自 opencode v1.17.11,禁止臆造)。覆盖 step_start/text/tool_use/step_finish/error 五类事件。
+ */
+public class OpenCodeCliStreamParserTest {
+
+    private static final class RecordingCallback implements CliSessionCallback {
+        final List<String[]> messages = new ArrayList<>(); // {type, content}
+        String error;
+        String interruptedContent;
+        boolean completed;
+        boolean completeOk;
+
+        @Override
+        public void onMessage(String type, String content) {
+            messages.add(new String[]{type, content});
+        }
+
+        @Override
+        public void onError(String error) {
+            this.error = error;
+        }
+
+        @Override
+        public void onComplete(boolean success, String fullContent, String error) {
+            completed = true;
+            completeOk = success;
+        }
+
+        @Override
+        public void onInterrupted(String content, String reason) {
+            interruptedContent = content;
+        }
+    }
+
+    private static String msg(List<String[]> msgs, int idx) {
+        return msgs.get(idx)[0];
+    }
+
+    @Test
+    public void stepStartEmitsStreamStartAndExtractsSessionId() {
+        RecordingCallback cb = new RecordingCallback();
+        OpenCodeCliStreamParser parser = new OpenCodeCliStreamParser(cb);
+
+        parser.parseLine("{\"type\":\"step_start\",\"timestamp\":1782500111829,"
+                + "\"sessionID\":\"ses_0fab6db33ffeDqvHdwBzN05Rw0\","
+                + "\"part\":{\"id\":\"prt_x\",\"messageID\":\"msg_x\",\"sessionID\":\"ses_0fab6db33ffeDqvHdwBzN05Rw0\",\"type\":\"step-start\"}}");
+
+        // stream_start 仅在首轮 step_start 触发一次
+        assertEquals(CliConstants.MSG_STREAM_START, msg(cb.messages, 0));
+        // session id 从顶层 sessionID 提取
+        assertEquals("ses_0fab6db33ffeDqvHdwBzN05Rw0", parser.capturedSessionId());
+        assertTrue(cb.messages.stream().anyMatch(m -> CliConstants.MSG_SESSION_ID.equals(m[0])
+                && "ses_0fab6db33ffeDqvHdwBzN05Rw0".equals(m[1])));
+    }
+
+    @Test
+    public void textEventEmitsContentDelta() {
+        RecordingCallback cb = new RecordingCallback();
+        OpenCodeCliStreamParser parser = new OpenCodeCliStreamParser(cb);
+
+        parser.parseLine("{\"type\":\"text\",\"timestamp\":1,\"sessionID\":\"ses_1\","
+                + "\"part\":{\"id\":\"prt_t\",\"messageID\":\"msg_t\",\"type\":\"text\","
+                + "\"text\":\"你好！有什么可以帮你的吗？\"}}");
+
+        assertEquals(CliConstants.MSG_CONTENT_DELTA, msg(cb.messages, 0));
+        assertEquals("你好！有什么可以帮你的吗？", cb.messages.get(0)[1]);
+    }
+
+    @Test
+    public void toolUseEventEmitsToolUseAndToolResultBlocks() {
+        RecordingCallback cb = new RecordingCallback();
+        OpenCodeCliStreamParser parser = new OpenCodeCliStreamParser(cb);
+
+        parser.parseLine("{\"type\":\"tool_use\",\"timestamp\":1,\"sessionID\":\"ses_1\","
+                + "\"part\":{\"type\":\"tool\",\"tool\":\"bash\",\"callID\":\"call_abc\","
+                + "\"state\":{\"status\":\"completed\",\"input\":{\"command\":\"echo hello\"},"
+                + "\"output\":\"hello\\n\",\"metadata\":{\"exit\":0}},"
+                + "\"id\":\"prt_tool\",\"sessionID\":\"ses_1\",\"messageID\":\"msg_tool\"}}");
+
+        // 工具调用块(tool_use) + 工具结果块(tool_result)
+        assertTrue(cb.messages.stream().anyMatch(m -> CommonConstants.MSG_TYPE_TOOL_USE.equals(m[0])
+                && m[1].contains("bash") && m[1].contains("call_abc")));
+        assertTrue(cb.messages.stream().anyMatch(m -> CommonConstants.MSG_TYPE_TOOL_RESULT.equals(m[0])
+                && m[1].contains("hello")));
+    }
+
+    @Test
+    public void stepFinishWithStopEmitsUsageResultAndStreamEnd() {
+        RecordingCallback cb = new RecordingCallback();
+        OpenCodeCliStreamParser parser = new OpenCodeCliStreamParser(cb);
+
+        parser.parseLine("{\"type\":\"step_finish\",\"timestamp\":1,\"sessionID\":\"ses_1\","
+                + "\"part\":{\"reason\":\"stop\",\"messageID\":\"msg_f\",\"type\":\"step-finish\","
+                + "\"tokens\":{\"total\":25501,\"input\":24449,\"output\":11,\"reasoning\":17,"
+                + "\"cache\":{\"write\":0,\"read\":1024}},\"cost\":0}}");
+
+        // usage 经 MSG_RESULT 下发(handleResultMessage 解析统一 usage schema)
+        String resultContent = cb.messages.stream()
+                .filter(m -> CliConstants.MSG_RESULT.equals(m[0])).findFirst()
+                .map(m -> m[1]).orElse(null);
+        assertTrue("usage must carry input_tokens", resultContent != null && resultContent.contains("\"input_tokens\":24449"));
+        assertTrue("usage must carry output_tokens", resultContent.contains("\"output_tokens\":11"));
+        assertTrue("usage must carry cache_read_input_tokens", resultContent.contains("\"cache_read_input_tokens\":1024"));
+        assertTrue("usage must carry cache_creation_input_tokens", resultContent.contains("\"cache_creation_input_tokens\":0"));
+        // reason=stop → 流结束
+        assertTrue(cb.messages.stream().anyMatch(m -> CliConstants.MSG_STREAM_END.equals(m[0])));
+    }
+
+    @Test
+    public void stepFinishWithToolCallsDoesNotEmitStreamEnd() {
+        RecordingCallback cb = new RecordingCallback();
+        OpenCodeCliStreamParser parser = new OpenCodeCliStreamParser(cb);
+
+        parser.parseLine("{\"type\":\"step_finish\",\"timestamp\":1,\"sessionID\":\"ses_1\","
+                + "\"part\":{\"reason\":\"tool-calls\",\"messageID\":\"msg_f\",\"type\":\"step-finish\","
+                + "\"tokens\":{\"total\":1,\"input\":1,\"output\":1,\"reasoning\":0,"
+                + "\"cache\":{\"write\":0,\"read\":0}},\"cost\":0}}");
+
+        // reason=tool-calls → 后续还有 step,不应结束流
+        assertFalse(cb.messages.stream().anyMatch(m -> CliConstants.MSG_STREAM_END.equals(m[0])));
+    }
+
+    @Test
+    public void errorEventIsCollectedForReporting() {
+        RecordingCallback cb = new RecordingCallback();
+        OpenCodeCliStreamParser parser = new OpenCodeCliStreamParser(cb);
+
+        parser.parseLine("{\"type\":\"error\",\"timestamp\":1,\"sessionID\":\"ses_1\","
+                + "\"error\":{\"name\":\"UnknownError\",\"data\":{\"message\":\"Unexpected server error.\",\"ref\":\"err_x\"}}}");
+
+        assertTrue("error must be captured", parser.hasError());
+        assertTrue("error text should include the message", parser.errorDiagnostic().contains("Unexpected server error."));
+    }
+}

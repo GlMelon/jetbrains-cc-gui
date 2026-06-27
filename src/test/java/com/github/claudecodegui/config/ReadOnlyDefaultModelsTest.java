@@ -15,7 +15,7 @@ import static org.junit.Assert.assertTrue;
 public class ReadOnlyDefaultModelsTest {
     @Test
     public void computeReturnsFourReadOnlyRolesWithoutCodexWhenNoConfig() {
-        List<ModelConfig> defaults = ReadOnlyDefaultModels.compute(Map.of(), Map.of());
+        List<ModelConfig> defaults = ReadOnlyDefaultModels.compute(Map.of(), Map.of(), List.of());
 
         assertEquals(4, defaults.size());
         for (ModelConfig model : defaults) {
@@ -31,7 +31,7 @@ public class ReadOnlyDefaultModelsTest {
     public void computeResolvesClaudeActualModelFromEnv() {
         Map<String, String> claudeEnv = Map.of(
                 CommonConstants.ENV_ANTHROPIC_DEFAULT_SONNET_MODEL, "mimo-v2.5");
-        List<ModelConfig> defaults = ReadOnlyDefaultModels.compute(claudeEnv, Map.of());
+        List<ModelConfig> defaults = ReadOnlyDefaultModels.compute(claudeEnv, Map.of(), List.of());
 
         ModelConfig sonnet = defaults.stream()
                 .filter(m -> m.id().equals(ClaudeRole.SONNET.roleId())).findFirst().orElseThrow();
@@ -41,7 +41,7 @@ public class ReadOnlyDefaultModelsTest {
     @Test
     public void computeIncludesCodexReadOnlyWhenModelPresent() {
         Map<String, String> codexEnv = Map.of(CliConstants.ENV_CODEX_MODEL, "gpt-5");
-        List<ModelConfig> defaults = ReadOnlyDefaultModels.compute(Map.of(), codexEnv);
+        List<ModelConfig> defaults = ReadOnlyDefaultModels.compute(Map.of(), codexEnv, List.of());
 
         ModelConfig codex = defaults.stream()
                 .filter(m -> CommonConstants.PROVIDER_CODEX.equals(m.provider())).findFirst().orElseThrow();

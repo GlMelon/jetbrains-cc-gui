@@ -91,7 +91,7 @@ export function useModelStatePersistence(options: UseModelStatePersistenceOption
       if (saved) {
         const state = JSON.parse(saved);
 
-        if (['claude', 'codex'].includes(state.provider)) {
+        if (['claude', 'codex', 'opencode'].includes(state.provider)) {
           restoredProvider = state.provider;
           setCurrentProvider(state.provider);
         }

@@ -45,6 +45,7 @@ import YiMono from '@lobehub/icons/es/Yi/components/Mono';
 import XiaomiMiMoMono from '@lobehub/icons/es/XiaomiMiMo/components/Mono';
 import type { ReactElement } from 'react';
 import { resolveIconVendor, type ModelVendor } from '../../utils/modelIconMapping';
+import { OpenCodeIcon } from './OpenCodeIcon';
 
 export interface ProviderModelIconProps {
   /** Provider type: claude, codex, gemini, etc. */
@@ -100,6 +101,8 @@ const VENDOR_ICON_MAP: Record<
     colored ? <ClaudeColor size={size} /> : <ClaudeMono size={size} />,
   openai: (size, _colored) =>
     <OpenAIMono size={size} />,
+  opencode: (size, _colored) =>
+    <OpenCodeIcon size={size} />,
   gemini: (size, colored) =>
     colored ? <GeminiColor size={size} /> : <GeminiMono size={size} />,
   qwen: (size, colored) =>

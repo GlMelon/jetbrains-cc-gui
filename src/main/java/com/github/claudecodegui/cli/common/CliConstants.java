@@ -153,26 +153,46 @@ public final class CliConstants {
     public static final String CODEX_ARG_C_CONFIG = "-c";
     public static final String CODEX_ARG_I_CONFIG = "-i";
 
-    // ── OpenCode CLI 参数 ────────────────────────────────────────────────────────
+    // ── OpenCode CLI 参数（实测 opencode v1.17.11 `opencode run --help`） ──────
+    // 真实命令：opencode run [message..] --format json（输出逐行 NDJSON 事件流）。
+    // opencode 无 `api`/`service` 子命令（早期臆造常量已于 §15.4 重写后删除）。
 
-    public static final String OPENCODE_ARG_API = "api";
-    public static final String OPENCODE_ARG_DATA = "-d";
-    public static final String OPENCODE_ARG_HEADER = "-H";
+    /** opencode 子命令：非交互运行并发送消息。 */
+    public static final String OPENCODE_ARG_RUN = "run";
+    /** --format：输出格式。 */
+    public static final String OPENCODE_ARG_FORMAT = "--format";
+    /** --format json：原始 JSON 事件流（逐行 NDJSON）。 */
+    public static final String OPENCODE_FORMAT_JSON = "json";
+    /** -m/--model：provider/model 格式（聚合器，如 anthropic/claude-3-5-sonnet）。 */
+    public static final String OPENCODE_ARG_MODEL = "-m";
+    /** -s/--session：续接指定 session id。 */
+    public static final String OPENCODE_ARG_SESSION = "-s";
+    /** -c/--continue：续接上一会话。 */
+    public static final String OPENCODE_ARG_CONTINUE = "-c";
+    /** -f/--file：附件（数组，可多次）。 */
+    public static final String OPENCODE_ARG_FILE = "-f";
+    /** --variant：provider 特定推理级别（minimal/high/max）。 */
+    public static final String OPENCODE_ARG_VARIANT = "--variant";
+    /** --thinking：显示思考块。 */
+    public static final String OPENCODE_ARG_THINKING = "--thinking";
+    /** --dir：运行目录。 */
+    public static final String OPENCODE_ARG_DIR = "--dir";
+    /** --agent：使用的 agent。 */
+    public static final String OPENCODE_ARG_AGENT = "--agent";
+    /** --attach：连接运行中的 opencode serve（避免 MCP 冷启动）。 */
+    public static final String OPENCODE_ARG_ATTACH = "--attach";
+    /** --dangerously-skip-permissions：自动批准非显式拒绝的权限（对应 bypass/yolo）。 */
+    public static final String OPENCODE_ARG_DANGER_SKIP = "--dangerously-skip-permissions";
+
+    // opencode serve 守护进程参数（SDK 模式 OpenCodeDaemonCoordinator 使用）
     public static final String OPENCODE_ARG_SERVE = "serve";
-    public static final String OPENCODE_ARG_SERVICE = "service";
-    public static final String OPENCODE_ARG_START = "start";
-    public static final String OPENCODE_ARG_STOP = "stop";
-    public static final String OPENCODE_ARG_STATUS = "status";
     public static final String OPENCODE_ARG_PORT = "--port";
     public static final String OPENCODE_ARG_HOSTNAME = "--hostname";
 
-    // ── OpenCode API 端点 ───────────────────────────────────────────────────────
+    // ── OpenCode 环境变量 ───────────────────────────────────────────────────────
 
-    public static final String OPENCODE_API_SESSION_CREATE = "POST /api/session";
-    public static final String OPENCODE_API_SESSION_PROMPT = "POST /api/session/:id/prompt";
-    public static final String OPENCODE_API_SESSION_ABORT = "POST /api/session/:id/abort";
-    public static final String OPENCODE_API_SESSION_EVENT = "GET /api/session/:id/event";
-    public static final String OPENCODE_API_HEALTH = "GET /api/health";
+    /** opencode 权限配置（内联 JSON），映射本项目 permissionMode。 */
+    public static final String ENV_OPENCODE_PERMISSION = "OPENCODE_PERMISSION";
 
     // ── Sandbox 模式值 ─────────────────────────────────────────────────────────
 
@@ -205,6 +225,7 @@ public final class CliConstants {
     public static final String ENV_CODEX_APPROVAL_POLICY = "CODEX_APPROVAL_POLICY";
     public static final String ENV_CODEX_CI = "CODEX_CI";
     public static final String ENV_CLAUDE_USE_STDIN = "CLAUDE_USE_STDIN";
+    public static final String ENV_OPENCODE_USE_STDIN = "OPENCODE_USE_STDIN";
     public static final String ENV_OPENAI_BASE_URL = "OPENAI_BASE_URL";
     public static final String ENV_OPENAI_API_KEY = "OPENAI_API_KEY";
     public static final String ENV_OPENAI_ORG_ID = "OPENAI_ORG_ID";

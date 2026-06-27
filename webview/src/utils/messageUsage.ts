@@ -35,11 +35,19 @@ export function formatTokenCount(count: number): string {
 /**
  * Extract per-message token usage from the raw message data.
  *
- * The SDK sends usage data inside the raw JSON:
- * - Path 1: raw.message.usage.input_tokens / output_tokens  (standard SDK format)
- * - Path 2: raw.usage.input_tokens / output_tokens           (flat format fallback)
+ * The backend stamps a top-level `turnUsage` field when a turn completes
+ * (ClaudeMessageHandler.handleResult / CodexMessageHandler.handleResultMessage).
+ * This field aggregates every API call in the turn, normalized to the Claude
+ * usage schema (input_tokens excludes cache; cache fields are separate).
  *
- * Returns null if no meaningful usage data is found.
+ * Path: raw.turnUsage.input_tokens / output_tokens
+ *
+ * NOTE: Do NOT read raw.message.usage or raw.usage here: those carry
+ * per-API-call and session-cumulative values that feed the context-usage
+ * status bar, and would understate (Claude) or overstate (Codex) what
+ * this turn consumed.
+ *
+ * Returns null if no meaningful usage data is found (aborted turns, history replay).
  */
 export function extractMessageUsage(message: ClaudeMessage): MessageUsage | null {
   const raw = message.raw;
@@ -47,25 +55,20 @@ export function extractMessageUsage(message: ClaudeMessage): MessageUsage | null
 
   const rawObj = raw as Record<string, unknown>;
 
-  // Try raw.message.usage first (standard SDK format)
-  let usage: Record<string, unknown> | null = null;
-  const messageField = rawObj.message;
-  if (messageField && typeof messageField === 'object') {
-    const msgObj = messageField as Record<string, unknown>;
-    if (msgObj.usage && typeof msgObj.usage === 'object') {
-      usage = msgObj.usage as Record<string, unknown>;
-    }
-  }
+  // Read turnUsage field (whole-turn aggregate stamped by backend)
+  const turnUsage = rawObj.turnUsage;
+  if (!turnUsage || typeof turnUsage !== 'object') return null;
 
-  // Fallback: raw.usage (flat format)
-  if (!usage && rawObj.usage && typeof rawObj.usage === 'object') {
-    usage = rawObj.usage as Record<string, unknown>;
-  }
+  const usage = turnUsage as Record<string, unknown>;
 
-  if (!usage) return null;
-
-  const inputTokens = typeof usage.input_tokens === 'number' ? usage.input_tokens : 0;
+  // Extract cache components for full input calculation
+  const nonCacheInput = typeof usage.input_tokens === 'number' ? usage.input_tokens : 0;
+  const cacheCreation = typeof usage.cache_creation_input_tokens === 'number' ? usage.cache_creation_input_tokens : 0;
+  const cacheRead = typeof usage.cache_read_input_tokens === 'number' ? usage.cache_read_input_tokens : 0;
   const outputTokens = typeof usage.output_tokens === 'number' ? usage.output_tokens : 0;
+
+  // Total input = non-cache input + cache write + cache read
+  const inputTokens = nonCacheInput + cacheCreation + cacheRead;
 
   // Only return if at least one has a positive value
   if (inputTokens <= 0 && outputTokens <= 0) return null;

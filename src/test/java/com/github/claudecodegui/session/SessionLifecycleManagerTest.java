@@ -29,6 +29,26 @@ public class SessionLifecycleManagerTest {
         assertEquals(List.of("clearMessages"), host.javaScriptCalls);
     }
 
+    // B8: resetPersistentRuntime(Claude daemon) 只应对 Claude SDK 会话触发。
+    // 旧实现用 !isClaudeCliSession 过宽,对 codex/opencode 会话误调 Claude daemon reset(污染)。
+    @Test
+    public void claudeDaemonResetOnlyTriggersForClaudeSdkSessions() {
+        // Claude SDK → 重置 daemon
+        assertTrue(SessionLifecycleManager.shouldResetClaudeDaemonFor("claude", "sdk"));
+        // Claude SDK 且 invocationMode 为 null(默认 sdk 语义)→ 仍重置
+        assertTrue(SessionLifecycleManager.shouldResetClaudeDaemonFor("claude", null));
+
+        // Claude CLI → 不重置(CLI 无 daemon)
+        assertFalse(SessionLifecycleManager.shouldResetClaudeDaemonFor("claude", "cli"));
+
+        // Codex / OpenCode → 不重置(各自的 runtime,不应触碰 Claude daemon)
+        assertFalse(SessionLifecycleManager.shouldResetClaudeDaemonFor("codex", "sdk"));
+        assertFalse(SessionLifecycleManager.shouldResetClaudeDaemonFor("codex", "cli"));
+        assertFalse(SessionLifecycleManager.shouldResetClaudeDaemonFor("opencode", "sdk"));
+        assertFalse(SessionLifecycleManager.shouldResetClaudeDaemonFor("opencode", "cli"));
+        assertFalse(SessionLifecycleManager.shouldResetClaudeDaemonFor("opencode", null));
+    }
+
     private static final class FakeSessionHost implements SessionLifecycleManager.SessionHost {
         private final List<String> javaScriptCalls = new ArrayList<>();
         private final StreamMessageCoalescer streamCoalescer = new StreamMessageCoalescer(new StreamMessageCoalescer.JsCallbackTarget() {

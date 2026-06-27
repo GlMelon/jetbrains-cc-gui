@@ -160,10 +160,13 @@ const providerRegistry = getDefaultProviderRegistry();
     // Instead, set process.exitCode and let the process exit naturally so all I/O completes.
     process.exitCode = 0;
 
-    // For the rewindFiles command we need to force-exit, because it restores
-    // an SDK session whose MCP connections may stay open and prevent the
-    // process from exiting naturally. Its output is small, so truncation is not a concern.
-    if (command === 'rewindFiles') {
+    // Force-exit for commands whose network connections prevent natural exit.
+    // - rewindFiles: restores an SDK session whose MCP connections may stay open.
+    // - opencode: communicates over HTTP/SSE via @opencode-ai/sdk (hey-api fetch +
+    //   undici keep-alive pool); the SSE stream and HTTP sockets stay active after the
+    //   handler returns, holding the event loop alive. Output is streaming NDJSON that
+    //   is already flushed by the time the handler returns, so truncation is not a concern.
+    if (command === 'rewindFiles' || provider === 'opencode') {
       // Allow a short delay for the stdout buffer to flush
       setTimeout(() => process.exit(0), 100);
     }

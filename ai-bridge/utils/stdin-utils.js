@@ -5,12 +5,16 @@
 
 /**
  * Read JSON data from stdin.
- * @param {string} provider - 'claude' or 'codex'
+ * @param {string} provider - 'claude', 'codex', or 'opencode'
  * @returns {Promise<Object|null>} The parsed JSON object, or null
  */
 export async function readStdinData(provider = 'claude') {
   // Check whether stdin input is enabled
-  const envKey = provider === 'codex' ? 'CODEX_USE_STDIN' : 'CLAUDE_USE_STDIN';
+  // §15.7 B2:每个 provider 独立 stdin 开关,opencode 用 OPENCODE_USE_STDIN(原先落入 else
+  // 查 CLAUDE_USE_STDIN 致 stdin 永不读取 → baseUrl 等字段丢失)。
+  const envKey = provider === 'codex' ? 'CODEX_USE_STDIN'
+    : provider === 'opencode' ? 'OPENCODE_USE_STDIN'
+    : 'CLAUDE_USE_STDIN';
   if (process.env[envKey] !== 'true') {
     return null;
   }

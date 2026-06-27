@@ -64,6 +64,21 @@ public class SessionStateTest {
         assertEquals("claude", state.getProvider());
     }
 
+    // B5: VALID_PROVIDERS 必须纳入 opencode,否则 setProvider("opencode") 会被校验拒绝(provider 选择无法持久化)。
+    @Test
+    public void validProvidersIncludesOpenCode() {
+        assertTrue(SessionState.VALID_PROVIDERS.contains("opencode"));
+    }
+
+    @Test
+    public void providerAcceptsOpenCode() {
+        SessionState state = new SessionState();
+
+        state.setProvider("opencode");
+
+        assertEquals("opencode", state.getProvider());
+    }
+
     @Test
     public void unknownModelUsesExplicitContextWindowOverride() {
         SessionState state = new SessionState();

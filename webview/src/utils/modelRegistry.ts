@@ -151,7 +151,7 @@ export function resetModelRegistryForTests(): void {
 }
 
 export function getModelsForProvider(provider: string): ModelInfo[] {
-  const normalizedProvider = provider === 'codex' ? 'codex' : 'claude';
+  const normalizedProvider = provider === 'codex' ? 'codex' : provider === 'opencode' ? 'opencode' : 'claude';
   return currentRegistry.items
     .filter((model) => model.provider === normalizedProvider && model.enabled !== false)
     .map((model) => ({
@@ -236,7 +236,7 @@ export function parseModelRegistryPayload(raw: unknown): ModelRegistryPayload | 
       }
       const obj = item as Record<string, unknown>;
       const id = typeof obj.id === 'string' ? obj.id.trim() : '';
-      const provider = obj.provider === 'codex' ? 'codex' : obj.provider === 'claude' ? 'claude' : null;
+      const provider = obj.provider === 'codex' ? 'codex' : obj.provider === 'claude' ? 'claude' : obj.provider === 'opencode' ? 'opencode' : null;
       const rawContextWindow = typeof obj.contextWindow === 'number' ? obj.contextWindow : undefined;
       if (!id || !provider) {
         continue;

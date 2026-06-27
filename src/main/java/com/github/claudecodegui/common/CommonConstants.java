@@ -278,6 +278,10 @@ public final class CommonConstants {
     public static final String DIR_CODEX = ".codex";
     /** Codex CLI 认证文件名 */
     public static final String FILE_AUTH_JSON = "auth.json";
+    /** OpenCode CLI 配置目录名 */
+    public static final String DIR_OPENCODE = ".config/opencode";
+    /** OpenCode CLI 配置文件名 */
+    public static final String FILE_OPENCODE_JSON = "opencode.json";
 
     // ===== TOML 配置键 =====
     // Claude CLI TOML 配置文件中的字段名

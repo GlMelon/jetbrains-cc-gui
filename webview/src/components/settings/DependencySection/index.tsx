@@ -529,7 +529,12 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
                 <div className={styles.sdkHeader}>
                   <div className={styles.sdkInfo}>
                     <div className={styles.sdkName}>
-                      <ProviderModelIcon providerId={sdk.id === 'claude-sdk' ? 'claude' : 'codex'} size={20} colored />
+                      {/* §15.5 B20:三路映射 SDK id → provider 图标(原二分把 opencode-sdk 错渲为 codex) */}
+                      <ProviderModelIcon
+                        providerId={sdk.id === 'claude-sdk' ? 'claude' : sdk.id === 'opencode-sdk' ? 'opencode' : 'codex'}
+                        size={20}
+                        colored
+                      />
                       <span>{t(sdk.nameKey)}</span>
                       {installed && info?.installedVersion && (
                         <span className={styles.versionBadge}>v{info.installedVersion}</span>

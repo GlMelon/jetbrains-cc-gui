@@ -41,6 +41,7 @@ public final class ModelConfigValidator {
         Set<String> seen = new HashSet<>();
         boolean hasEnabledClaude = false;
         boolean hasEnabledCodex = false;
+        boolean hasEnabledOpenCode = false;
         for (ModelConfig rawModel : config.models()) {
             if (rawModel == null) {
                 errors.add("model entry cannot be null");
@@ -54,8 +55,8 @@ public final class ModelConfigValidator {
             if (model.id().length() > MAX_MODEL_ID_LENGTH) {
                 errors.add("model id is too long: " + model.id());
             }
-            if (!CommonConstants.PROVIDER_CLAUDE.equals(model.provider()) && !CommonConstants.PROVIDER_CODEX.equals(model.provider())) {
-                errors.add("model provider must be claude or codex: " + model.id());
+            if (!CommonConstants.PROVIDER_CLAUDE.equals(model.provider()) && !CommonConstants.PROVIDER_CODEX.equals(model.provider()) && !CommonConstants.PROVIDER_OPENCODE.equals(model.provider())) {
+                errors.add("model provider must be claude, codex, or opencode: " + model.id());
             }
             if (CommonConstants.PROVIDER_CLAUDE.equals(model.provider())) {
                 if (!isClaudeRole(model.role())) {
@@ -82,9 +83,12 @@ public final class ModelConfigValidator {
             if (model.enabled() && CommonConstants.PROVIDER_CODEX.equals(model.provider())) {
                 hasEnabledCodex = true;
             }
+            if (model.enabled() && CommonConstants.PROVIDER_OPENCODE.equals(model.provider())) {
+                hasEnabledOpenCode = true;
+            }
         }
 
-        if (!hasEnabledClaude && !hasEnabledCodex) {
+        if (!hasEnabledClaude && !hasEnabledCodex && !hasEnabledOpenCode) {
             errors.add("at least one model must be enabled");
         }
 

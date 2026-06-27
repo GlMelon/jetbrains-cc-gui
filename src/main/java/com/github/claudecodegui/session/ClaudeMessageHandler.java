@@ -788,6 +788,8 @@ public class ClaudeMessageHandler implements MessageCallback {
             if (currentAssistantMessage != null && currentAssistantMessage.raw != null
                     && resultJson.has("usage") && resultJson.get("usage").isJsonObject()) {
                 currentAssistantMessage.raw.add("turnUsage", resultJson.getAsJsonObject("usage"));
+                // Notify frontend so MessageUsageStats can render per-turn token display
+                callbackHandler.notifyMessageUpdate(state.getMessages());
             }
         } catch (Exception e) {
             LOG.warn("Failed to parse result message: " + e.getMessage());

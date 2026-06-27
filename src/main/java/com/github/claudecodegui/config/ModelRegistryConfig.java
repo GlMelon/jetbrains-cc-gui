@@ -179,10 +179,11 @@ public class ModelRegistryConfig {
         String resolveActualModel(ModelConfig model, String selected, String baseSelected);
     }
 
-    /** 策略注册表:provider → 策略。归一后的 provider 必命中(normalizeProvider 保证 claude/codex)。 */
+    /** 策略注册表:provider → 策略。归一后的 provider 必命中(normalizeProvider 保证 claude/codex/opencode)。 */
     private static final Map<String, ModelSelectionStrategy> STRATEGIES = Map.of(
             CommonConstants.PROVIDER_CLAUDE, claudeStrategy(),
-            CommonConstants.PROVIDER_CODEX, codexStrategy()
+            CommonConstants.PROVIDER_CODEX, codexStrategy(),
+            CommonConstants.PROVIDER_OPENCODE, opencodeStrategy()
     );
 
     private static ModelSelectionStrategy claudeStrategy() {
@@ -227,6 +228,32 @@ public class ModelRegistryConfig {
                 return model != null && !model.actualModel().isBlank()
                         ? model.actualModel()
                         : baseSelected;
+            }
+        };
+    }
+
+    private static ModelSelectionStrategy opencodeStrategy() {
+        return new ModelSelectionStrategy() {
+            @Override
+            public String provider() {
+                return CommonConstants.PROVIDER_OPENCODE;
+            }
+
+            @Override
+            public String resolveRole(ModelConfig model, String baseSelected) {
+                // OpenCode 使用 role 概念（与 Claude 类似）
+                return model != null && !model.role().isBlank()
+                        ? model.role()
+                        : roleFromModelId(baseSelected);
+            }
+
+            @Override
+            public String resolveActualModel(ModelConfig model, String selected, String baseSelected) {
+                if (model == null) {
+                    return null;
+                }
+                String actual = applyRequestCapacity(selected, model.actualModel());
+                return actual.isBlank() ? null : actual;
             }
         };
     }

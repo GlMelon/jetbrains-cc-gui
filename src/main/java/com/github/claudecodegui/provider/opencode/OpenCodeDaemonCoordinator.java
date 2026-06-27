@@ -22,7 +22,13 @@ class OpenCodeDaemonCoordinator {
     private static final long DAEMON_RETRY_DELAY_MS = 60_000;
     private static final long HEALTH_CHECK_TIMEOUT_MS = 5_000;
     private static final long HEALTH_CHECK_INTERVAL_MS = 50;
-    private static final int DEFAULT_PORT = 4096;
+    // §15.7 B18:默认 serve 端口。package-private 以便 OpenCodeSDKBridge 在 baseUrl 缺失时兜底。
+    static final int DEFAULT_PORT = 4096;
+
+    /** §15.7 B18:默认 server URL(buildSendStdinJson 兜底/测试用,不启动 serve)。 */
+    static String defaultServerUrl() {
+        return "http://127.0.0.1:" + DEFAULT_PORT;
+    }
 
     private final Logger log;
     private final AtomicReference<OpenCodeServerInstance> serverInstance = new AtomicReference<>();

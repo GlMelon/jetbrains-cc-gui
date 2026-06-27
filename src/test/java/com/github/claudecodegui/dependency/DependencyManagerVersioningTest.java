@@ -115,4 +115,19 @@ public class DependencyManagerVersioningTest {
         assertEquals(VersionAction.ROLLBACK,
                 DependencyManager.resolveVersionAction(true, "V2.0.0", "1.0.0"));
     }
+
+    // ── §15.5 B17:OpenCode SDK fallback 版本对齐 npm 实测 1.17.x ──
+
+    @Test
+    public void openCodeSdkFallbackVersionsAlignedToNpmLatest() {
+        // npm registry 不可达时降级用;值须对齐实测 @opencode-ai/sdk(2026-06 实测 latest=1.17.11),
+        // 不可停留在早期臆造的 0.1.0,否则首次安装会装到不存在的远古版本。
+        List<String> fallback = SdkDefinition.OPENCODE_SDK.getFallbackVersions();
+        assertEquals("fallback 首位须为 npm 最新版 1.17.11", "1.17.11", fallback.get(0));
+        assertEquals("1.17.10", fallback.get(1));
+        assertEquals("1.17.9", fallback.get(2));
+        // npmPackage 与 version 保持
+        assertEquals("@opencode-ai/sdk", SdkDefinition.OPENCODE_SDK.getNpmPackage());
+        assertEquals("latest", SdkDefinition.OPENCODE_SDK.getVersion());
+    }
 }

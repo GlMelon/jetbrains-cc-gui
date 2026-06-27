@@ -36,7 +36,11 @@ public final class MessageNormalizers {
             entry(CommonConstants.PROVIDER_CLAUDE, CommonConstants.INVOCATION_MODE_CLI, ClaudeCliMessageNormalizer::new),
             entry(CommonConstants.PROVIDER_CLAUDE, CommonConstants.INVOCATION_MODE_SDK, ClaudeSdkMessageNormalizer::new),
             entry(CommonConstants.PROVIDER_CODEX, CommonConstants.INVOCATION_MODE_CLI, CodexCliMessageNormalizer::new),
-            entry(CommonConstants.PROVIDER_CODEX, CommonConstants.INVOCATION_MODE_SDK, CodexSdkMessageNormalizer::new)
+            entry(CommonConstants.PROVIDER_CODEX, CommonConstants.INVOCATION_MODE_SDK, CodexSdkMessageNormalizer::new),
+            // B6: OpenCode 事件经 OpenCodeSDKBridge(SDK)/OpenCodeCliSession(CLI)已归一为统一 MSG_*,
+            // 归一化器仅需透传(与 ClaudeSdkMessageNormalizer 同构);CLI/SDK 复用同一透传实现。
+            entry(CommonConstants.PROVIDER_OPENCODE, CommonConstants.INVOCATION_MODE_CLI, OpenCodeMessageNormalizer::new),
+            entry(CommonConstants.PROVIDER_OPENCODE, CommonConstants.INVOCATION_MODE_SDK, OpenCodeMessageNormalizer::new)
     );
 
     private MessageNormalizers() {

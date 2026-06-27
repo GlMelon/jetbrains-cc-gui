@@ -19,7 +19,7 @@ const sdkCache = new Map();
 const loadingPromises = new Map();
 
 // SDK definitions (kept in sync with DependencyManager.SdkDefinition)
-const SDK_DEFINITIONS = {
+export const SDK_DEFINITIONS = {
     CLAUDE: {
         id: 'claude-sdk',
         npmPackage: '@anthropic-ai/claude-agent-sdk'
@@ -27,6 +27,11 @@ const SDK_DEFINITIONS = {
     CODEX: {
         id: 'codex-sdk',
         npmPackage: '@openai/codex-sdk'
+    },
+    // §15.6 B12:OpenCode SDK 定义,与 Java SdkDefinition.OPENCODE_SDK 对齐。
+    OPENCODE: {
+        id: 'opencode-sdk',
+        npmPackage: '@opencode-ai/sdk'
     }
 };
 
@@ -129,6 +134,22 @@ export function isCodexSdkAvailable() {
     const sdkPath = getPackageDirFromRoot(getSdkRootDir(sdkId), npmPackage);
     const exists = existsSync(sdkPath);
     console.log('[sdk-loader] isCodexSdkAvailable:', {
+        path: sdkPath,
+        exists: exists
+    });
+    return exists;
+}
+
+/**
+ * §15.6 B12:Check whether the OpenCode SDK is available
+ * Logic kept consistent with DependencyManager.isInstalled("opencode") / SDK_DEFINITIONS.OPENCODE
+ */
+export function isOpencodeSdkAvailable() {
+    const sdkId = SDK_DEFINITIONS.OPENCODE.id;
+    const npmPackage = SDK_DEFINITIONS.OPENCODE.npmPackage;
+    const sdkPath = getPackageDirFromRoot(getSdkRootDir(sdkId), npmPackage);
+    const exists = existsSync(sdkPath);
+    console.log('[sdk-loader] isOpencodeSdkAvailable:', {
         path: sdkPath,
         exists: exists
     });
@@ -239,6 +260,49 @@ export async function loadCodexSdk() {
 }
 
 /**
+ * §15.6 B12:Dynamically load the OpenCode SDK.
+ * 同构于 loadCodexSdk:缓存键 'opencode',错误码 SDK_NOT_INSTALLED:opencode。
+ * @returns {Promise<object>}
+ * @throws {Error} If the SDK is not installed
+ */
+export async function loadOpencodeSdk() {
+    // Return the cached SDK if available
+    if (sdkCache.has('opencode')) {
+        return sdkCache.get('opencode');
+    }
+
+    // If a load is already in progress, return the same promise to prevent duplicate loading
+    if (loadingPromises.has('opencode')) {
+        return loadingPromises.get('opencode');
+    }
+
+    const sdkRootDir = getSdkRootDir(SDK_DEFINITIONS.OPENCODE.id);
+    const sdkPath = getPackageDirFromRoot(sdkRootDir, SDK_DEFINITIONS.OPENCODE.npmPackage);
+
+    if (!existsSync(sdkPath)) {
+        throw new Error('SDK_NOT_INSTALLED:opencode');
+    }
+
+    // Create and cache the loading promise
+    const loadPromise = (async () => {
+        try {
+            const resolvedUrl = resolveExternalPackageUrl(SDK_DEFINITIONS.OPENCODE.npmPackage, sdkRootDir);
+            const sdk = await import(resolvedUrl);
+
+            sdkCache.set('opencode', sdk);
+            return sdk;
+        } catch (error) {
+            throw new Error(`Failed to load OpenCode SDK: ${error.message}`);
+        } finally {
+            loadingPromises.delete('opencode');
+        }
+    })();
+
+    loadingPromises.set('opencode', loadPromise);
+    return loadPromise;
+}
+
+/**
  * Load the base Anthropic SDK (used as an API fallback)
  * @returns {Promise<{Anthropic: Class}>}
  */
@@ -327,6 +391,7 @@ export function getSdkStatus() {
     // Uses the same path resolution logic as DependencyManager
     const claudeInstalled = isClaudeSdkAvailable();
     const codexInstalled = isCodexSdkAvailable();
+    const opencodeInstalled = isOpencodeSdkAvailable();
 
     return {
         claude: {
@@ -336,6 +401,14 @@ export function getSdkStatus() {
         codex: {
             installed: codexInstalled,
             path: getPackageDirFromRoot(getSdkRootDir('codex-sdk'), '@openai/codex-sdk')
+        },
+        // §15.6 B12:OpenCode SDK 状态字段,与 claude/codex 对称。
+        opencode: {
+            installed: opencodeInstalled,
+            path: getPackageDirFromRoot(
+                getSdkRootDir(SDK_DEFINITIONS.OPENCODE.id),
+                SDK_DEFINITIONS.OPENCODE.npmPackage
+            )
         }
     };
 }
@@ -365,6 +438,14 @@ export function requireSdk(provider) {
         const error = new Error('Codex SDK not installed. Please install via Settings > Dependencies.');
         error.code = 'SDK_NOT_INSTALLED';
         error.provider = 'codex';
+        throw error;
+    }
+
+    // §15.6 B12:OpenCode SDK 安装校验,与 claude/codex 对称。
+    if (provider === 'opencode' && !isOpencodeSdkAvailable()) {
+        const error = new Error('OpenCode SDK not installed. Please install via Settings > Dependencies.');
+        error.code = 'SDK_NOT_INSTALLED';
+        error.provider = 'opencode';
         throw error;
     }
 }

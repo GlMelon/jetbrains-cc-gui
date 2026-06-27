@@ -222,7 +222,8 @@
         "default": "默认",
         "providers": {
           "claude": "Claude",
-          "codex": "Codex"
+          "codex": "Codex",
+          "opencode": "OpenCode"
         },
         "advancedLabel": "高级 · 限制可用运行时",
         "allAllowed": "全部允许",

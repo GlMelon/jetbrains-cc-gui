@@ -93,6 +93,7 @@
 .changelog-body {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 16px 20px;
   min-height: 0;
 }
@@ -106,6 +107,8 @@
   font-size: 13px;
   line-height: 1.6;
   color: var(--text-primary);
+  overflow-wrap: break-word;
+  word-break: break-word;
 
   h4 {
     margin: 16px 0 8px;

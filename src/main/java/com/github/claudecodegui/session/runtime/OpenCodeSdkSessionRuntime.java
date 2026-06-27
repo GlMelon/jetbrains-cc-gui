@@ -33,12 +33,17 @@ public class OpenCodeSdkSessionRuntime implements SessionRuntime {
 
     @Override
     public CompletableFuture<SDKResult> send(SessionRequest req, MessageCallback callback) {
+        // §15.7 B11:透传 permissionMode/reasoningEffort/attachments,与 Claude/Codex 对齐。
+        // baseUrl 由 OpenCodeSDKBridge 内部经 DaemonCoordinator 解析注入。
         return bridge.sendMessage(
                 req.key().channelId(),
                 req.message(),
                 req.sessionId(),
                 req.cwd(),
                 req.model(),
+                req.permissionMode(),
+                req.reasoningEffort(),
+                req.attachments(),
                 callback
         );
     }

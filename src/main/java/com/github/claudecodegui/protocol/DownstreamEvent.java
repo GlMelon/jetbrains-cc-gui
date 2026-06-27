@@ -110,6 +110,8 @@ public enum DownstreamEvent implements ProtocolValue {
     MODEL_REGISTRY("model_registry"),
     MODEL_REGISTRY_UPDATED("model_registry_updated"),
     MODEL_REGISTRY_SCHEMA("model_registry_schema"),
+    // §15.8 §11:OpenCode 动态模型列表回传(刷新动作结果),前端 UI defer。
+    OPENCODE_MODELS_LIST("opencode.models_list"),
 
     // ── Agent ──
     AGENT_LIST("agent.list"),

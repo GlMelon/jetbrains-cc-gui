@@ -1317,6 +1317,11 @@ public class ClaudeChatWindow {
             }
 
             @Override
+            public com.github.claudecodegui.provider.opencode.OpenCodeSDKBridge getOpenCodeSDKBridge() {
+                return openCodeSDKBridge;
+            }
+
+            @Override
             public JPanel getMainPanel() {
                 return mainPanel;
             }
@@ -1378,6 +1383,11 @@ public class ClaudeChatWindow {
             @Override
             public CodexSDKBridge getCodexSDKBridge() {
                 return codexSDKBridge;
+            }
+
+            @Override
+            public com.github.claudecodegui.provider.opencode.OpenCodeSDKBridge getOpenCodeSDKBridge() {
+                return openCodeSDKBridge;
             }
 
             @Override

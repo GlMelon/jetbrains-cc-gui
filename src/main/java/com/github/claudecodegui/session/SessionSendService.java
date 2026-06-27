@@ -231,6 +231,21 @@ public class SessionSendService {
             );
         }
 
+        if (CommonConstants.PROVIDER_OPENCODE.equals(currentProvider)) {
+            // B4:OpenCode 与 Codex 同构(由前端「调用模式」UI 驱动 requestedInvocationMode,无会话级模式),
+            // 对称 sendToCodex 路由到 OpenCodeSDKBridge / OpenCode runtime,确保不落入 Claude 默认路径。
+            return sendToOpenCode(
+                    channelId,
+                    input,
+                    attachments,
+                    openedFilesJson,
+                    agentPrompt,
+                    fileTagPaths,
+                    effectivePermissionMode,
+                    requestedInvocationMode
+            );
+        }
+
         String effectiveInvocationMode = resolveEffectiveClaudeInvocationMode(requestedInvocationMode, state.getClaudeInvocationMode());
         state.setClaudeInvocationMode(effectiveInvocationMode);
 
@@ -307,6 +322,77 @@ public class SessionSendService {
                 request,
                 MessageNormalizers.forRuntime(
                         CommonConstants.PROVIDER_CODEX,
+                        toInvocationMode(runtime.runtimeType()),
+                        handler
+                )
+        ).thenApply(result -> null);
+    }
+
+    private CompletableFuture<Void> sendToOpenCode(
+            String channelId,
+            String input,
+            List<ClaudeSession.Attachment> attachments,
+            JsonObject openedFilesJson,
+            String agentPrompt,
+            List<String> fileTagPaths,
+            String effectivePermissionMode,
+            String requestedInvocationMode
+    ) {
+        // B4:复用 CodexMessageHandler 处理统一 MSG_* 协议。OpenCode 事件经 OpenCodeSDKBridge(SDK)
+        // / OpenCodeCliSession(CLI)已归一为同一 MSG_* schema(session_id/stream_start/content_delta/
+        // thinking_delta/usage/stream_end/error 等),无需新建 OpenCodeMessageHandler(设计 §9 未列新 handler)。
+        // 绑定运行时会话 epoch,旧 OpenCode 进程回调因 epoch 不匹配被丢弃(防串台,与 Claude/Codex 一致)。
+        CodexMessageHandler handler = new CodexMessageHandler(
+                state,
+                callbackFacade.getCallbackHandler(),
+                state.getRuntimeSessionEpoch()
+        );
+
+        // 复用 provider 中性的上下文构造(workspace/module/file);buildCodexContextAppend 实为通用,
+        // 并非 Codex 专有——openedFilesJson/fileTagPaths 派生的项目结构上下文对 OpenCode 同样有效。
+        String contextAppend = contextService.buildCodexContextAppend(openedFilesJson, fileTagPaths);
+        String finalInput = (input != null ? input : "") + contextAppend;
+
+        // OpenCode 无会话级调用模式(sessionMode=null),仅以请求级 requestedInvocationMode 驱动;
+        // 为 null(前端调用模式未加载)时由 resolve 回退到「路由策略」面板的 opencode default(默认 SDK)。
+        EffectiveRuntimeResolver.Runtime runtime = resolveRuntime(
+                CommonConstants.PROVIDER_OPENCODE,
+                null,
+                requestedInvocationMode
+        );
+        warnIfRuntimeDegraded(runtime);
+        RuntimeKey key = new RuntimeKey(
+                CommonConstants.PROVIDER_OPENCODE,
+                channelId,
+                channelId,
+                state.getRuntimeSessionEpoch()
+        );
+        ModelRegistryConfig.ResolvedModelSelection opencodeModelSelection =
+                resolveModelSelection(CommonConstants.PROVIDER_OPENCODE, state.getModel());
+        SessionRequest request = new SessionRequest(
+                key,
+                runtime.provider(),
+                runtime.runtimeType(),
+                finalInput,
+                state.getSessionId(),
+                state.getCwd(),
+                attachments,
+                openedFilesJson,
+                fileTagPaths,
+                agentPrompt,
+                effectivePermissionMode,
+                state.getModel(),
+                opencodeModelSelection.actualModel(),
+                state.getReasoningEffort(),
+                state.getPermissionSessionId(),
+                null,
+                Map.of()
+        );
+
+        return runtimeRouter.send(
+                request,
+                MessageNormalizers.forRuntime(
+                        CommonConstants.PROVIDER_OPENCODE,
                         toInvocationMode(runtime.runtimeType()),
                         handler
                 )

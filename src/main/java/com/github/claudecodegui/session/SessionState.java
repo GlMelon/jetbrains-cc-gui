@@ -37,6 +37,8 @@ public class SessionState {
         Set<String> providers = new HashSet<>();
         providers.add(CommonConstants.PROVIDER_CLAUDE);
         providers.add(CommonConstants.PROVIDER_CODEX);
+        // B5: OpenCode 作为第三 provider 纳入校验白名单,否则 setProvider("opencode") 被拒(provider 选择无法持久化)。
+        providers.add(CommonConstants.PROVIDER_OPENCODE);
         VALID_PROVIDERS = Collections.unmodifiableSet(providers);
     }
 

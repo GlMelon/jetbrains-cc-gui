@@ -3,6 +3,7 @@ package com.github.claudecodegui.handler.core;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
 import com.github.claudecodegui.provider.codex.CodexSDKBridge;
+import com.github.claudecodegui.provider.opencode.OpenCodeSDKBridge;
 import com.github.claudecodegui.session.ClaudeSession;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.intellij.openapi.application.ApplicationManager;
@@ -21,6 +22,7 @@ public class HandlerContext {
     private final Project project;
     private final ClaudeSDKBridge claudeSDKBridge;
     private final CodexSDKBridge codexSDKBridge;
+    private final OpenCodeSDKBridge openCodeSDKBridge;
     private final CodemossSettingsService settingsService;
     private final JsCallback jsCallback;
     private volatile FrontendReadyChecker frontendReadyChecker;
@@ -54,14 +56,30 @@ public class HandlerContext {
             Project project,
             ClaudeSDKBridge claudeSDKBridge,
             CodexSDKBridge codexSDKBridge,
+            OpenCodeSDKBridge openCodeSDKBridge,
             CodemossSettingsService settingsService,
             JsCallback jsCallback
     ) {
         this.project = project;
         this.claudeSDKBridge = claudeSDKBridge;
         this.codexSDKBridge = codexSDKBridge;
+        this.openCodeSDKBridge = openCodeSDKBridge;
         this.settingsService = settingsService;
         this.jsCallback = jsCallback;
+    }
+
+    /**
+     * 向后兼容构造(无 OpenCode bridge)。测试 fixture 与无需 OpenCode 的 handler 用此重载;
+     * {@link #getOpenCodeSDKBridge()} 返回 null,OpenCode 相关 handler 自行 null 守卫。
+     */
+    public HandlerContext(
+            Project project,
+            ClaudeSDKBridge claudeSDKBridge,
+            CodexSDKBridge codexSDKBridge,
+            CodemossSettingsService settingsService,
+            JsCallback jsCallback
+    ) {
+        this(project, claudeSDKBridge, codexSDKBridge, null, settingsService, jsCallback);
     }
 
     // Getters
@@ -75,6 +93,10 @@ public class HandlerContext {
 
     public CodexSDKBridge getCodexSDKBridge() {
         return codexSDKBridge;
+    }
+
+    public OpenCodeSDKBridge getOpenCodeSDKBridge() {
+        return openCodeSDKBridge;
     }
 
     public CodemossSettingsService getSettingsService() {

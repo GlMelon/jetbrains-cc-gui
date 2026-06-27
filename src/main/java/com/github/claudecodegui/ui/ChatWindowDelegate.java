@@ -297,6 +297,7 @@ public class ChatWindowDelegate {
         Project getProject();
         ClaudeSDKBridge getClaudeSDKBridge();
         CodexSDKBridge getCodexSDKBridge();
+        com.github.claudecodegui.provider.opencode.OpenCodeSDKBridge getOpenCodeSDKBridge();
         ClaudeSession getSession();
         CodemossSettingsService getSettingsService();
         JPanel getMainPanel();
@@ -482,7 +483,7 @@ public class ChatWindowDelegate {
             }
         };
 
-        HandlerContext handlerContext = new HandlerContext(project, claudeSDKBridge, codexSDKBridge, settingsService, jsCallback);
+        HandlerContext handlerContext = new HandlerContext(project, claudeSDKBridge, codexSDKBridge, host.getOpenCodeSDKBridge(), settingsService, jsCallback);
         handlerContext.setSession(host.getSession());
         handlerContext.setFrontendReadyChecker(frontendReadyChecker);
         host.setHandlerContext(handlerContext);
@@ -653,6 +654,11 @@ public class ChatWindowDelegate {
         typedHandlers.add(new DeleteCodexMcpServerActionHandler(codexMcpServerHandlers));
         typedHandlers.add(new ToggleCodexMcpServerActionHandler(codexMcpServerHandlers));
         typedHandlers.add(new ValidateCodexMcpServerActionHandler(codexMcpServerHandlers));
+
+        // §15.8 §11:OpenCode 模型刷新动作(前端 UI defer,能力可达:调 listModels → OPENCODE_MODELS_LIST)
+        com.github.claudecodegui.handler.opencode.OpenCodeModelsActionHandlers openCodeModelsHandlers =
+                new com.github.claudecodegui.handler.opencode.OpenCodeModelsActionHandlers(handlerContext);
+        typedHandlers.add(new com.github.claudecodegui.handler.opencode.RefreshOpenCodeModelsActionHandler(openCodeModelsHandlers));
 
         // Agent action handlers (B2 迁移: agent CRUD + selection + import/export)
         AgentActionHandlers agentHandlers = new AgentActionHandlers(handlerContext);

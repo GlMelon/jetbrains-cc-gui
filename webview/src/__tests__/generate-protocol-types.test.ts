@@ -2,9 +2,10 @@ import { describe, it, expect, vi } from 'vitest';
 import { parseEnumSource, parsePayloadFieldSource, generateFromManifest, parseIntConstants } from '../../scripts/generate-protocol-types.mjs';
 
 /**
- * C8 漂移守门测试:parseEnumSource 严格 regex 仅匹配 NAME("value") 单参,
- * 多参格式(如未来 C2 加 desc:NAME("value","desc"))会被漏。宽松启发计数与严格
- * regex 计数不一致时必须 WARN,防止静默漏项。
+ * C8 漂移守门测试:parseEnumSource 的 entryPattern(commit 9ee6ebff 起支持单参/多参),
+ * 匹配 NAME("value" 并取首参作为协议值(如 ProviderType 的 value,cliCommand,cliCommandWindows 多参)。
+ * DRIFT 告警在 loosePattern(全大写名 + 引号)计数 > entryPattern 解析数时触发 ——
+ * 捕获非标准格式(如单引号 NAME('value'))或首参非字符串导致的静默漏项。
  *
  * 注:本文件位于 src/__tests__(入库),不在 src/generated(被 .gitignore)。
  * generate-protocol-types.mjs 是入库生成脚本,守门测试必须随源入库。
@@ -30,9 +31,9 @@ describe('parseEnumSource — C8 drift guard', () => {
     warnSpy.mockRestore();
   });
 
-  it('WARNS when multi-arg entries drift past the strict regex', () => {
+  it('多参 NAME("value","desc") 取首参作为协议值,不漂移不告警(commit 9ee6ebff)', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    // 模拟 C2 未来加 desc 的多参形态:NAME("value","desc") 严格 regex 漏,宽松启发捕获
+    // C2 多参形态:ProviderType 等枚举含 value,cliCommand,cliCommandWindows
     const src = `
       public enum X implements ProtocolValue {
         FOO("foo"),
@@ -40,9 +41,26 @@ describe('parseEnumSource — C8 drift guard', () => {
       }
     `;
     const entries = parseEnumSource(src, 'X.java');
-    // 严格 regex 仅匹配 FOO(单参);BAR 多参被漏
-    expect(entries).toEqual([{ name: 'FOO', value: 'foo' }]);
-    // 漂移告警必须触发(验收:格式变化时有显式告警)
+    // entryPattern 匹配 NAME("value"(取首参),多参 BAR 也解析,无漏项
+    expect(entries).toEqual([
+      { name: 'FOO', value: 'foo' },
+      { name: 'BAR', value: 'bar' },
+    ]);
+    // 多参被正确解析,looseCount == entries.length,无漂移告警
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it("单引号非标准格式 NAME('value') 触发 DRIFT 告警(宽松启发捕获,严格 regex 漏)", () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const src = `
+      public enum X implements ProtocolValue {
+        FOO("foo"),
+        QUX('value'),
+      }
+    `;
+    parseEnumSource(src, 'X.java');
+    // entryPattern 只认双引号,QUX('value') 单引号被漏;loosePattern 认引号(含单引号)计数多 1 → 漂移告警
     expect(warnSpy).toHaveBeenCalled();
     expect(warnSpy.mock.calls[0][0]).toContain('DRIFT');
     warnSpy.mockRestore();

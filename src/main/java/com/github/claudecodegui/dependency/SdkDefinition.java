@@ -38,7 +38,9 @@ public enum SdkDefinition {
         "@opencode-ai/sdk",
         "latest",
         Collections.emptyList(),
-        Arrays.asList("0.1.0", "0.0.9", "0.0.8"),
+        // §15.5 B17:fallback 版本对齐 npm 实测 @opencode-ai/sdk(2026-06 latest=1.17.11)。
+        // registry 不可达时降级用,避免落到早期臆造的 0.1.0 等不存在的远古版本。
+        Arrays.asList("1.17.11", "1.17.10", "1.17.9"),
         "OpenCode AI 提供商所需。"
     );
 

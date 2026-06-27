@@ -230,7 +230,8 @@
         "default": "Default",
         "providers": {
           "claude": "Claude",
-          "codex": "Codex"
+          "codex": "Codex",
+          "opencode": "OpenCode"
         },
         "advancedLabel": "Advanced · Restrict runtimes",
         "allAllowed": "All allowed",

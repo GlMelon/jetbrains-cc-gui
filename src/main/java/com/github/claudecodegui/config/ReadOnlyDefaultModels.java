@@ -19,22 +19,25 @@ import java.util.Set;
  * <p>Claude 4 role 从 {@code ~/.claude/settings.json} 的 env 块解析 actualModel
  * (经 {@link CliSettings#readClaudeCliEnvironment()});Codex 默认从
  * {@code ~/.codex/config.toml} 的 {@code model=} 读取(经
- * {@link CliSettings#readCodexCliEnvironment()} → {@link CliConstants#ENV_CODEX_MODEL})。
+ * {@link CliSettings#readCodexCliEnvironment()} → {@link CliConstants#ENV_CODEX_MODEL});
+ * OpenCode 从 {@code ~/.config/opencode/opencode.json} 读取 provider.models。
  * 只读默认不进持久化:磁盘配置改动后下次 {@code getModelRegistry()} 即生效。
  */
 public final class ReadOnlyDefaultModels {
     private ReadOnlyDefaultModels() {
     }
 
-    /** 现算只读默认:从 CLI 配置文件读取(无配置则 role actualModel 为空、无 Codex)。 */
+    /** 现算只读默认:从 CLI 配置文件读取(无配置则 role actualModel 为空、无 Codex/OpenCode)。 */
     public static List<ModelConfig> compute() {
-        return compute(CliSettings.readClaudeCliEnvironment(), CliSettings.readCodexCliEnvironment());
+        return compute(CliSettings.readClaudeCliEnvironment(), CliSettings.readCodexCliEnvironment(),
+                OpenCodeConfigReader.readModels());
     }
 
     /**
-     * 注入式计算(便于单测):claudeEnv / codexEnv 由调用方提供。
+     * 注入式计算(便于单测):claudeEnv / codexEnv / openCodeModels 由调用方提供。
      */
-    public static List<ModelConfig> compute(Map<String, String> claudeEnv, Map<String, String> codexEnv) {
+    public static List<ModelConfig> compute(Map<String, String> claudeEnv, Map<String, String> codexEnv,
+                                            List<ModelConfig> openCodeModels) {
         List<ModelConfig> defaults = new ArrayList<>();
         for (ClaudeRole role : ClaudeRole.values()) {
             defaults.add(roleDefault(role, resolveFirstNonBlank(role.envKeys(), claudeEnv)));
@@ -43,6 +46,7 @@ public final class ReadOnlyDefaultModels {
         if (codexModel != null && !codexModel.isBlank()) {
             defaults.add(codexDefault(codexModel.trim()));
         }
+        defaults.addAll(openCodeModels);
         return defaults;
     }
 

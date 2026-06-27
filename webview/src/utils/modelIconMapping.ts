@@ -12,6 +12,7 @@
 export type ModelVendor =
   | 'claude'
   | 'openai'
+  | 'opencode'
   | 'gemini'
   | 'qwen'
   | 'deepseek'
@@ -68,6 +69,7 @@ const MODEL_VENDOR_PATTERNS: ReadonlyArray<readonly [RegExp, ModelVendor]> = [
 const PROVIDER_TO_VENDOR: Record<string, ModelVendor> = {
   claude: 'claude',
   codex: 'openai',
+  opencode: 'opencode',
   gemini: 'gemini',
   qwen: 'qwen',
   deepseek: 'deepseek',
