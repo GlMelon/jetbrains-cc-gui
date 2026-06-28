@@ -56,6 +56,23 @@ public final class CliEnvironmentBuilder {
         env.put(CliConstants.ENV_CLAUDE_PERMISSION_SAFETY_NET_MS, String.valueOf(safetyNetMs));
     }
 
+    /**
+     * 合并请求级 extraEnv 到 CLI 进程环境。
+     * <p>
+     * 三 provider(Claude/Codex/OpenCode)对称调用:CLI 模式下把 {@code request.extraEnv()}
+     * (如临时 token / base_url 覆盖 / proxy)注入子进程环境,请求级变量覆盖已有值。
+     * Codex 在调用前额外 {@code sanitizeEnv} 过滤受保护 key(A5/C5 安全层),其余 provider 直接合并。
+     * <p>
+     * 抽取为纯函数是因为注入点位于平台耦合的 runOnce(ProcessBuilder.environment()),
+     * 无法直接单测;此函数让三 provider 注入逻辑对称且可验证。
+     */
+    public static void applyExtraEnv(Map<String, String> env, Map<String, String> extraEnv) {
+        if (env == null || extraEnv == null || extraEnv.isEmpty()) {
+            return;
+        }
+        env.putAll(extraEnv);
+    }
+
     private static void copyPath(Map<String, String> env) {
         // 用 UserPathResolver 解析用户真实 PATH(IDE PATH + npm/scoop/volta/nodejs/bun 等 shim 目录),
         // 修复 Windows 下 CLI 模式找不到经 npm 全局 / scoop / volta 装的二进制(codex/opencode 等)。

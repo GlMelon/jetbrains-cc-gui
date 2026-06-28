@@ -37,8 +37,15 @@ public class OpenCodeSDKBridge extends BaseSDKBridge {
     /** §15.7 B18:OpenCode serve 守护进程协调器(懒启动/健康探测/销毁)。 */
     private final OpenCodeDaemonCoordinator daemonCoordinator;
 
-    /** §15.8 §11:动态刷新 OpenCode 模型列表的超时(ms)。 */
-    private static final long LIST_MODELS_TIMEOUT_MS = 15000L;
+    /**
+     * §abort:channelId → opencode threadId(sessionId)映射。
+     * <p>
+     * send 入口建立:interruptChannel(channelId) 用 state.getChannelId(),而 send 传的是
+     * state.getSessionId()(两者是 state 不同字段),故需显式映射,interrupt 时查表恢复 threadId 触发 abort。
+     * send 完成(whenComplete)或 interrupt 时移除(ConcurrentHashMap.remove 幂等)。
+     */
+    private final java.util.concurrent.ConcurrentHashMap<String, String> channelThreads =
+            new java.util.concurrent.ConcurrentHashMap<>();
 
     public OpenCodeSDKBridge() {
         super(OpenCodeSDKBridge.class);
@@ -143,6 +150,52 @@ public class OpenCodeSDKBridge extends BaseSDKBridge {
     }
 
     /**
+     * §abort:对称 Claude/Codex SDK 的 interruptChannel override。
+     * <p>
+     * Claude/Codex 在 interrupt 时给常驻 DaemonBridge 发 sendAbort(确定性取消当前 request);OpenCode 无
+     * 常驻 daemon(serve 是 HTTP,send 是 per-process node),仅杀 send 进程(super)依赖客户端断开副作用——
+     * opencode serve 可能继续生成,导致 token 泄漏 + 会话状态不一致。此 override 在 super 前 spawn 一次性
+     * channel-manager.js abort 命令,经 opencode-channel.js → message-service.abortSession →
+     * client.session.abort 显式取消 serve 侧生成(确定性,对称 sendAbort)。
+     */
+    @Override
+    public void interruptChannel(String channelId) {
+        String threadId = channelThreads.remove(channelId);
+        if (threadId != null && !threadId.isBlank()) {
+            LOG.info("[OpenCodeSDKBridge] Triggering opencode abort for channel: " + channelId);
+            try {
+                triggerAbort(threadId);
+            } catch (Exception e) {
+                LOG.warn("[OpenCodeSDKBridge] Abort trigger failed: " + e.getMessage());
+            }
+        }
+        // per-process fallback:杀 send 进程(覆盖 abort spawn 失败 / 早期无 threadId 场景)
+        super.interruptChannel(channelId);
+    }
+
+    /**
+     * Spawn channel-manager.js abort 命令(fire-and-forget)。复用 executeStreamingCommand 的进程管理
+     * (env/node/bridgeDir/drain/cleanup),no-op callback 丢弃 abort 进程输出。abort 是短生命周期 HTTP POST
+     * (channel-manager.js 对 opencode 强制 100ms 后 exit),CompletableFuture 异步不阻塞 interrupt 调用方。
+     */
+    private void triggerAbort(String threadId) {
+        String baseUrl;
+        try {
+            baseUrl = resolveBaseUrl();
+        } catch (Exception e) {
+            baseUrl = null;
+        }
+        List<String> command = buildAbortCommand();
+        String stdinJson = buildAbortStdinJson(threadId, baseUrl);
+        MessageCallback noop = new MessageCallback() {
+            @Override public void onMessage(String type, String content) { /* discard */ }
+            @Override public void onError(String error) { /* best-effort,忽略 */ }
+            @Override public void onComplete(SDKResult result) { /* discard */ }
+        };
+        executeStreamingCommand("opencode-abort-" + threadId, command, stdinJson, null, noop);
+    }
+
+    /**
      * Send a message via OpenCode SDK bridge (Node.js channel-manager.js)。
      * <p>
      * 构建 [node, channel-manager.js, opencode, send] 命令，
@@ -183,12 +236,18 @@ public class OpenCodeSDKBridge extends BaseSDKBridge {
             List<ClaudeSession.Attachment> attachments,
             MessageCallback callback
     ) {
+        // §abort:建立 channelId→threadId 映射,interrupt 时据此触发 opencode abort(对称 Claude/Codex sendAbort)。
+        if (sessionId != null && !sessionId.isBlank()) {
+            channelThreads.put(channelId, sessionId);
+        }
         // baseUrl:由 DaemonCoordinator 懒启动 serve 后返回;serve 不可用时为 null(下游兜底默认 URL)
         String baseUrl = resolveBaseUrl();
         List<String> command = buildSendCommand();
         String stdinJson = buildSendStdinJson(message, sessionId, cwd, permissionMode,
                 model, reasoningEffort, attachments, baseUrl);
-        return executeStreamingCommand(channelId, command, stdinJson, cwd, callback);
+        // whenComplete 清理映射:send 正常完成/异常时移除(interrupt 时另移除,remove 幂等),防映射累积。
+        return executeStreamingCommand(channelId, command, stdinJson, cwd, callback)
+                .whenComplete((result, ex) -> channelThreads.remove(channelId));
     }
 
     private String resolveBaseUrl() {
@@ -256,123 +315,28 @@ public class OpenCodeSDKBridge extends BaseSDKBridge {
     }
 
     /**
-     * §15.8 §11:查询 OpenCode serve 已配置 provider 的模型列表(能力层,前端 UI defer)。
-     * <p>
-     * 走 channel {@code opencode listModels}(对称 Codex {@code getMcpServerTools} 非流式模式),
-     * 读 stdout 含 {@code success} 的 JSON 行,返回 {success, models:[{provider,model,...}]}。
-     * channel-manager 对 opencode provider 已 force-exit,HTTP/SSE 连接由其兜底释放。
-     *
-     * @return {success:true, models:[...]} 或 {success:false, error, models:[]}
+     * §abort:构建 channel-manager.js abort 命令(对称 buildSendCommand,仅末位参数 send→abort)。
      */
-    public CompletableFuture<com.google.gson.JsonObject> listModels() {
-        return CompletableFuture.supplyAsync(() -> {
-            String channelId = ProcessManager.newChannelId("__opencode_list_models__");
-            Process process = null;
-            LOG.info("[OpenCodeListModels] starting");
-            try {
-                File bridgeDir = getDirectoryResolver().findSdkDir();
-                if (bridgeDir == null || !bridgeDir.exists()) {
-                    return modelsError("Bridge directory not ready");
-                }
-                String node = nodeDetector.getNodeExecutable();
-                String stdinJson = buildListModelsStdinJson(resolveBaseUrl());
-
-                List<String> command = new ArrayList<>();
-                command.add(node);
-                command.add(CHANNEL_SCRIPT);
-                command.add(getProviderName());
-                command.add("listModels");
-
-                ProcessBuilder pb = new ProcessBuilder(command);
-                pb.directory(bridgeDir);
-                pb.redirectErrorStream(true);
-                envConfigurator.updateProcessEnvironment(pb, node);
-                pb.environment().put(CliConstants.ENV_OPENCODE_USE_STDIN, "true");
-
-                process = pb.start();
-                processManager.registerProcess(channelId, process);
-                final Process finalProcess = process;
-
-                try (OutputStream stdin = finalProcess.getOutputStream()) {
-                    stdin.write(stdinJson.getBytes(StandardCharsets.UTF_8));
-                    stdin.flush();
-                }
-
-                StringBuilder output = new StringBuilder();
-                AtomicReference<String> resultJson = new AtomicReference<>(null);
-                AtomicBoolean readerDone = new AtomicBoolean(false);
-
-                Thread readerThread = new Thread(() -> {
-                    try (BufferedReader reader = new BufferedReader(
-                            new InputStreamReader(finalProcess.getInputStream(), StandardCharsets.UTF_8))) {
-                        String line;
-                        while ((line = reader.readLine()) != null) {
-                            output.append(line).append("\n");
-                            // listModels 输出单对象 NDJSON,捕获最后含 success 的行(成功/失败均带 success)
-                            if (line.contains("\"success\"")) {
-                                resultJson.set(line.trim());
-                            }
-                        }
-                    } catch (Exception e) {
-                        LOG.debug("[OpenCodeListModels] reader exception: " + e.getMessage());
-                    } finally {
-                        readerDone.set(true);
-                    }
-                });
-                readerThread.start();
-
-                long deadline = System.currentTimeMillis() + LIST_MODELS_TIMEOUT_MS;
-                while (!readerDone.get() && System.currentTimeMillis() < deadline) {
-                    Thread.sleep(100);
-                }
-
-                String captured = resultJson.get();
-                if (captured != null) {
-                    try {
-                        com.google.gson.JsonObject result = gson.fromJson(captured, com.google.gson.JsonObject.class);
-                        if (result != null) {
-                            return result;
-                        }
-                    } catch (Exception e) {
-                        LOG.debug("[OpenCodeListModels] parse failed: " + e.getMessage());
-                    }
-                }
-                return modelsError("Failed to list OpenCode models");
-            } catch (Exception e) {
-                LOG.error("[OpenCodeListModels] exception: " + e.getMessage(), e);
-                return modelsError(e.getMessage());
-            } finally {
-                if (process != null) {
-                    try {
-                        if (process.isAlive()) {
-                            PlatformUtils.terminateProcessAndWait(process, 3, TimeUnit.SECONDS);
-                        }
-                    } finally {
-                        processManager.unregisterProcess(channelId, process);
-                    }
-                }
-            }
-        });
-    }
-
-    /** 构造 listModels 失败结果 {success:false, error, models:[]}。 */
-    private static com.google.gson.JsonObject modelsError(String message) {
-        com.google.gson.JsonObject err = new com.google.gson.JsonObject();
-        err.addProperty("success", false);
-        err.addProperty("error", message != null ? message : "Unknown error");
-        err.add("models", new com.google.gson.JsonArray());
-        return err;
+    List<String> buildAbortCommand() {
+        List<String> cmd = new ArrayList<>();
+        cmd.add(nodeDetector.getNodeExecutable());
+        cmd.add("channel-manager.js");
+        cmd.add(getProviderName());
+        cmd.add("abort");
+        return cmd;
     }
 
     /**
-     * §15.8 §11:构建 listModels 的 stdin JSON(纯函数,static 便于无 Platform 上下文单测)。
-     * 仅 baseUrl 字段;空/缺失回退 DaemonCoordinator 默认 URL。
+     * §abort:构建 abort stdin JSON(2 字段:threadId/baseUrl,对齐 opencode-channel.js abort 契约)。
+     * 纯函数 static,便于无 Platform 上下文单测(对称 buildSendStdinJson)。
      */
-    static String buildListModelsStdinJson(String baseUrl) {
+    static String buildAbortStdinJson(String threadId, String baseUrl) {
         com.google.gson.JsonObject stdin = new com.google.gson.JsonObject();
+        stdin.addProperty("threadId", threadId != null ? threadId : "");
         String effectiveBaseUrl = (baseUrl != null && !baseUrl.isBlank())
                 ? baseUrl : OpenCodeDaemonCoordinator.defaultServerUrl();
         stdin.addProperty("baseUrl", effectiveBaseUrl);
         return GsonHolder.GSON.toJson(stdin);
     }
+
 }

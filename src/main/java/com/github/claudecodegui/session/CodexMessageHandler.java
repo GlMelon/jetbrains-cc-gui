@@ -215,10 +215,13 @@ public class CodexMessageHandler implements MessageCallback {
     }
 
     private void appendProviderErrorToAssistantMessage(String error) {
+        // 错误归因跟随 state.getProvider()(对称 pushUsageUpdate:628):CodexMessageHandler 被 Codex 与
+        // OpenCode 复用(B4 设计,见 SessionSendService.sendToOpenCode),硬编码 CODEX 会让 OpenCode 错误块
+        // 标注 provider=codex,误导用户。
         currentAssistantMessage = ProviderErrorMessageSupport.appendToAssistantMessage(
                 state,
                 currentAssistantMessage,
-                CommonConstants.PROVIDER_CODEX,
+                state.getProvider(),
                 error
         );
     }
@@ -228,7 +231,12 @@ public class CodexMessageHandler implements MessageCallback {
         if (sessionId == null || sessionId.isBlank() || error == null || error.isBlank()) {
             return;
         }
-        CodexHistoryWriter.appendProviderError(sessionId, ProviderErrorMessageSupport.summarize(error), error, null);
+        // OpenCode 复用 CodexMessageHandler(B4),但历史体系独立:OpenCode 尚无历史 writer(B7 规划中,
+        // 见 OpenCodeProviderAdapter 注释)。OpenCode 错误不应写入 CodexHistoryWriter(~/.codex/sessions)
+        // 污染 Codex 历史;仅 Codex 错误持久化到 Codex 专属历史。
+        if (CommonConstants.PROVIDER_CODEX.equals(state.getProvider())) {
+            CodexHistoryWriter.appendProviderError(sessionId, ProviderErrorMessageSupport.summarize(error), error, null);
+        }
     }
 
     /**

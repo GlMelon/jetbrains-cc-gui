@@ -352,6 +352,7 @@ public class ClaudeCliSession implements CliSession {
                         getPermissionSafetyNetMs()
                 );
                 CliEnvironmentBuilder.configureProjectPath(cliEnv, request.cwd());
+                CliEnvironmentBuilder.applyExtraEnv(cliEnv, request.extraEnv());
 
                 // CWD 设置放在 pb.start() 紧前面，避免 TOCTOU 竞态：
                 // 如果目录在 check 和 start 之间被删除，Windows CreateProcess 会报

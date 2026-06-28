@@ -120,4 +120,24 @@ public class DefaultModelCapabilityResolverTest {
         assertEquals(200_000, unknown.effectiveContextWindow());
         assertEquals(200_000, unknown.maxTokens());
     }
+
+    @Test
+    public void opencodeProviderIsPreservedThroughNormalization() {
+        // 回归:用户在输入区切到 opencode 后,前端先 setCurrentProvider('opencode'),
+        // 再发 SET_SESSION_MODEL;后端 applyModelChange 用 resolver 生成 MODEL_SELECTION
+        // 下行。此前 normalizeProvider 只识别 codex、其余全归一化为 claude,
+        // 导致下行 provider='claude',前端据 currentProvider 被覆盖回 claude
+        // (用户切到 opencode 立即被退回 claude)。provider 必须原样保留为 opencode。
+        DefaultModelCapabilityResolver resolver =
+                new DefaultModelCapabilityResolver(ModelRegistryConfig.getDefault());
+
+        ModelSelectionResult result = resolver.resolve(new ModelSelectionRequest(
+                CommonConstants.PROVIDER_OPENCODE,
+                "anthropic/claude-sonnet-4.5",
+                200_000,
+                false
+        ));
+
+        assertEquals(CommonConstants.PROVIDER_OPENCODE, result.provider());
+    }
 }

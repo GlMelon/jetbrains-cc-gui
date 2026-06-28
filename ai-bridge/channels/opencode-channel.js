@@ -7,7 +7,6 @@
  * createOpencodeClient → session.create/prompt → event.subscribe(SSE)→ NDJSON。
  */
 import { sendMessage, abortSession } from '../services/opencode/message-service.js';
-import { listModels } from '../services/opencode/models-service.js';
 
 /**
  * Execute an OpenCode command.
@@ -70,22 +69,13 @@ export async function handleOpenCodeCommand(command, args, stdinData) {
       break;
     }
 
-    case 'listModels': {
-      // §15.8 §11:查询 opencode serve 已配置 provider 的模型(能力层,前端 UI defer)。
-      // 调 config.providers() 扁平化 provider/models 树为模型列表,NDJSON 单对象返回。
-      // channel-manager 对 opencode provider 已 force-exit,一次性 HTTP 连接由其兜底释放。
-      const baseUrl = stdinData?.baseUrl || args[0] || '';
-      await listModels({ baseUrl });
-      break;
-    }
-
     default:
       throw new Error(`Unknown OpenCode command: ${command}`);
   }
 }
 
 export function getOpenCodeCommandList() {
-  return ['send', 'abort', 'getMcpServerTools', 'listModels'];
+  return ['send', 'abort', 'getMcpServerTools'];
 }
 
 export const opencodeChannelDescriptor = {

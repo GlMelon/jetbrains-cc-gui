@@ -144,9 +144,7 @@ public class CodexCliSession implements CliSession {
                 // CLI mode must be allowed to reach the real Codex API even if the host
                 // process was launched with sandbox-network restrictions.
                 cliEnv.remove(ENV_CODEX_SANDBOX_NETWORK_DISABLED);
-                if (!request.extraEnv().isEmpty()) {
-                    cliEnv.putAll(CodexCliCommandUtils.sanitizeEnv(request.extraEnv()));
-                }
+                CliEnvironmentBuilder.applyExtraEnv(cliEnv, CodexCliCommandUtils.sanitizeEnv(request.extraEnv()));
 
                 // CWD 设置放在 pb.start() 紧前面，避免 TOCTOU 竞态：
                 // 如果目录在 check 和 start 之间被删除，Windows CreateProcess 会报

@@ -142,6 +142,9 @@ public class CodexMessageHandlerTest {
     @Test
     public void onErrorAddsProviderErrorBlockToAssistantMessage() {
         SessionState state = new SessionState();
+        // 显式 Codex provider:错误归因跟随 state.getProvider()(对称 pushUsageUpdate),
+        // 不再硬编码 CODEX;此测试覆盖 Codex 错误路径。
+        state.setProvider(com.github.claudecodegui.common.CommonConstants.PROVIDER_CODEX);
         state.setBusy(true);
         state.setLoading(true);
 
@@ -749,5 +752,48 @@ public class CodexMessageHandlerTest {
         assertEquals("image", content.get(0).getAsJsonObject().get("type").getAsString());
         assertEquals("text", content.get(1).getAsJsonObject().get("type").getAsString());
         assertEquals("请看这张图", content.get(1).getAsJsonObject().get("text").getAsString());
+    }
+
+    @Test
+    public void providerErrorAttributesToConfiguredProviderForOpenCodeReuse() {
+        // OpenCode 复用 CodexMessageHandler(B4 设计):错误归因必须跟随 state.getProvider(),
+        // 不能硬编码 CODEX —— 否则 OpenCode 错误块的 provider 字段标注为 codex,误导用户。
+        // 对称 pushUsageUpdate(已用 state.getProvider())。
+        SessionState state = new SessionState();
+        state.setProvider(com.github.claudecodegui.common.CommonConstants.PROVIDER_OPENCODE);
+
+        CallbackHandler callbackHandler = new CallbackHandler();
+        RecordingCallback callback = new RecordingCallback();
+        callbackHandler.setCallback(callback);
+
+        CodexMessageHandler handler = new CodexMessageHandler(state, callbackHandler);
+        handler.onError("connection refused");
+
+        assertFalse(state.getMessages().isEmpty());
+        Message last = state.getMessages().get(state.getMessages().size() - 1);
+        assertNotNull(last.raw);
+        com.google.gson.JsonObject errorBlock = findProviderErrorBlock(last.raw);
+        assertNotNull("assistant raw 应含 provider_error 块", errorBlock);
+        assertEquals("OpenCode 错误归因应为 opencode", "opencode", errorBlock.get("provider").getAsString());
+    }
+
+    private static com.google.gson.JsonObject findProviderErrorBlock(com.google.gson.JsonObject raw) {
+        if (raw == null || !raw.has("message")) {
+            return null;
+        }
+        com.google.gson.JsonObject message = raw.getAsJsonObject("message");
+        if (!message.has("content") || !message.get("content").isJsonArray()) {
+            return null;
+        }
+        for (com.google.gson.JsonElement element : message.getAsJsonArray("content")) {
+            if (!element.isJsonObject()) {
+                continue;
+            }
+            com.google.gson.JsonObject block = element.getAsJsonObject();
+            if (block.has("type") && "provider_error".equals(block.get("type").getAsString())) {
+                return block;
+            }
+        }
+        return null;
     }
 }

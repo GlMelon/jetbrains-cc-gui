@@ -49,23 +49,45 @@ public class OpenCodeSDKBridgeTest {
         assertTrue(obj.get("attachments").isJsonArray());
     }
 
+    // ── §abort:OpenCode SDK interrupt 主动 abort(对称 Claude/Codex sendAbort) ──
+
     @Test
-    public void buildListModelsStdinJsonPassesBaseUrl() {
-        // §15.8 §11:listModels stdin 仅 baseUrl 字段,显式值原样透传
-        String json = OpenCodeSDKBridge.buildListModelsStdinJson("http://127.0.0.1:14096");
+    public void buildAbortStdinJsonIncludesThreadIdAndBaseUrl() {
+        // opencode-channel.js abort 命令契约(stdinData.{threadId, baseUrl} → abortSession)
+        String json = OpenCodeSDKBridge.buildAbortStdinJson("ses_123", "http://127.0.0.1:10619");
         JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
-        assertEquals("http://127.0.0.1:14096", obj.get("baseUrl").getAsString());
-        assertEquals("listModels stdin 仅含 baseUrl 一个字段", 1, obj.size());
+        assertEquals("ses_123", obj.get("threadId").getAsString());
+        assertEquals("http://127.0.0.1:10619", obj.get("baseUrl").getAsString());
     }
 
     @Test
-    public void buildListModelsStdinJsonNullSafeDefaultsToDaemonUrl() {
-        // null/空 baseUrl 回退 DaemonCoordinator 默认 URL(测试与 serve 不可用场景)
-        String jsonNull = OpenCodeSDKBridge.buildListModelsStdinJson(null);
-        assertEquals("http://127.0.0.1:4096",
-                JsonParser.parseString(jsonNull).getAsJsonObject().get("baseUrl").getAsString());
-        String jsonBlank = OpenCodeSDKBridge.buildListModelsStdinJson("   ");
-        assertEquals("空/空白 baseUrl 也回退默认 URL", "http://127.0.0.1:4096",
-                JsonParser.parseString(jsonBlank).getAsJsonObject().get("baseUrl").getAsString());
+    public void buildAbortStdinJsonFallsBackToDefaultUrlWhenBaseUrlMissing() {
+        // null/空 baseUrl 必须回退到 DaemonCoordinator 默认 URL(对称 buildSendStdinJson)
+        String json = OpenCodeSDKBridge.buildAbortStdinJson("ses_123", null);
+        JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
+        assertEquals("ses_123", obj.get("threadId").getAsString());
+        assertEquals(OpenCodeDaemonCoordinator.defaultServerUrl(), obj.get("baseUrl").getAsString());
+    }
+
+    @Test
+    public void buildAbortStdinJsonNullSafeThreadId() {
+        String json = OpenCodeSDKBridge.buildAbortStdinJson(null, "");
+        JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
+        assertEquals("", obj.get("threadId").getAsString());
+    }
+
+    @Test
+    public void interruptChannelOverridesAndTriggersAbortBeforeSuper() throws Exception {
+        // 对称 Claude/Codex SDK 的 interruptChannel override:interrupt 时主动通知 provider 取消当前请求。
+        // OpenCode 无常驻 daemon(对比 DaemonBridge.sendAbort),改 spawn channel-manager.js abort 命令。
+        // 进程/spawn 耦合 Platform 无法纯单测,用源码字符串检查(对称 ClaudeSDKBridgeRefactorTest)。
+        String source = java.nio.file.Files.readString(java.nio.file.Paths.get(
+                "src", "main", "java", "com", "github", "claudecodegui", "provider", "opencode", "OpenCodeSDKBridge.java"));
+        assertTrue("必须 override interruptChannel", source.contains("public void interruptChannel(String channelId)"));
+        assertTrue("必须调 super.interruptChannel(per-process fallback 杀 send 进程)",
+                source.contains("super.interruptChannel(channelId)"));
+        assertTrue("必须在 super 前主动触发 opencode abort(对称 Claude/Codex sendAbort)",
+                source.contains("triggerAbort"));
+        assertTrue("必须维护 channelId→threadId 映射(send 入口建立)", source.contains("channelThreads"));
     }
 }

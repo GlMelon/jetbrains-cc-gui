@@ -246,8 +246,11 @@ public class SessionSendService {
             );
         }
 
+        // §snapshot:纯快照语义——snapshot 仅由会话初始化(SessionLifecycleManager:460)/用户显式切换更新,
+        // send 路径不副作用回写(对称 Codex/OpenCode 的 resolveRuntime 不回写 snapshot)。
+        // resolveEffectiveClaudeInvocationMode 在 snapshot 非 null 时直接返回 snapshot(effective==snapshot),
+        // 回写本是 no-op;snapshot null 时每次重新 resolve(反映 settings 变化,比"锁定首次 effective"更正确)。
         String effectiveInvocationMode = resolveEffectiveClaudeInvocationMode(requestedInvocationMode, state.getClaudeInvocationMode());
-        state.setClaudeInvocationMode(effectiveInvocationMode);
 
         return sendToClaude(channelId, input, attachments, openedFilesJson, agentPrompt,
                 effectivePermissionMode, effectiveInvocationMode);

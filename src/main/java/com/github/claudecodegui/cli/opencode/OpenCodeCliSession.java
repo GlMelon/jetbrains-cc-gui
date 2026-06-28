@@ -8,6 +8,7 @@ import com.github.claudecodegui.cli.common.*;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.ui.toolwindow.TabPerformanceLogger;
 import com.github.claudecodegui.util.GsonHolder;
+import com.github.claudecodegui.util.PlatformUtils;
 import com.google.gson.Gson;
 import com.intellij.openapi.diagnostic.Logger;
 
@@ -124,9 +125,7 @@ public class OpenCodeCliSession implements CliSession {
         cliEnv.putAll(CliEnvironmentBuilder.buildBaseEnvironment());
         cliEnv.put(CliConstants.ARG_NO_COLOR, "1");
         CliEnvironmentBuilder.configureProjectPath(cliEnv, request.cwd());
-        if (!request.extraEnv().isEmpty()) {
-            cliEnv.putAll(request.extraEnv());
-        }
+        CliEnvironmentBuilder.applyExtraEnv(cliEnv, request.extraEnv());
         // §7.2:非 bypass 模式的 OPENCODE_PERMISSION 精确 JSON schema 需 §16 实测确认,暂不臆造;
         // 依赖 --dangerously-skip-permissions(bypass)与 opencode 默认询问语义。
 
@@ -134,12 +133,27 @@ public class OpenCodeCliSession implements CliSession {
             File cwd = new File(request.cwd());
             if (cwd.isDirectory()) {
                 pb.directory(cwd);
+            } else {
+                LOG.warn("[OpenCodeCliSession][" + tabId + "] CWD does not exist, falling back to home: " + request.cwd());
+                File homeDir = new File(PlatformUtils.getHomeDirectory());
+                if (homeDir.isDirectory()) {
+                    pb.directory(homeDir);
+                }
             }
         }
 
         Process process = pb.start();
+        // 显式关闭 stdin(等价 < /dev/null):opencode run 即使收到位置参数消息,当 stdin 为
+        // 打开管道(ProcessBuilder 默认)时仍会阻塞读取等待输入 → 进程永不输出 → Java read()
+        // 永久阻塞 = 前端"一直 Generating response"。对照实验:stdin 打开=卡死(exit124),
+        // stdin 关闭=正常(exit0)。Claude/Codex CLI 因写 stdin 并 try-with-resources 关闭而规避,
+        // OpenCode 用位置参数(B9 不写 stdin),故必须显式关闭。(平台耦合,对照实验验证)
+        try {
+            process.getOutputStream().close();
+        } catch (Exception ignored) {
+            // best-effort:关闭失败不阻断主流程(进程仍可被 interrupt 销毁)
+        }
         // B14:CliProcessHandle 统一管理中断(替代裸 destroyForcibly)。
-        // B9:消息作为位置参数,不再写 stdin(消除双重写入)。
         activeHandle = new CliProcessHandle(process, "opencode-tab-" + tabId);
 
         try (InputStream rawIn = process.getInputStream()) {

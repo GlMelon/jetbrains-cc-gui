@@ -124,8 +124,12 @@ public class DefaultModelCapabilityResolver implements ModelCapabilityResolver {
     }
 
     private String normalizeProvider(String provider) {
-        return CommonConstants.PROVIDER_CODEX.equalsIgnoreCase(provider)
-                ? CommonConstants.PROVIDER_CODEX
-                : CommonConstants.PROVIDER_CLAUDE;
+        if (CommonConstants.PROVIDER_CODEX.equalsIgnoreCase(provider)) {
+            return CommonConstants.PROVIDER_CODEX;
+        }
+        if (CommonConstants.PROVIDER_OPENCODE.equalsIgnoreCase(provider)) {
+            return CommonConstants.PROVIDER_OPENCODE;
+        }
+        return CommonConstants.PROVIDER_CLAUDE;
     }
 }
