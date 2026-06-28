@@ -1,6 +1,6 @@
 # AGENTS.md — 架构开发规范
 
-> 本文件是本项目的**最高架构准则**。所有 AI agent(Claude Code / Codex / 其他)在生成或修改代码时,**必须**先阅读并遵循本文档;所有人类开发者在提交代码前,**必须**对照第 6 节「合规检查清单」与第 7 节「Git 提交规范」自检。违反任何总则的改动,需在 PR 描述中明确说明理由并获得 review 通过。
+> 本文件是本项目的**最高架构准则**。所有 AI agent(Claude Code / Codex / 其他)在生成或修改代码时,**必须**先阅读并遵循本文档;所有人类开发者在提交代码前,**必须**对照第 7 节「合规检查清单」与第 8 节「Git 提交规范」自检。违反任何总则的改动,需在 PR 描述中明确说明理由并获得 review 通过。
 
 ---
 
@@ -23,7 +23,7 @@
 
 **定位**:本文是长期稳定的**架构准则**,不含一次性违规清单或迁移路线(那些另行成文)。准则的抽象层级为「核心模式名 + 当前项目落地指引」,借鉴成熟工程范式(策略注册表、模板方法、事件解耦、多态序列化、配置驱动对接等)的**思想**,但**不绑定**任何特定框架(Spring / Atom / Jackson)的具体类名——本插件不依赖它们。
 
-**优先级**:总则一(职责分离)> 总则三(SSOT)> 总则二 / 五(开闭 / 拓展)> 总则四(复用)。冲突时按此顺序裁决。
+**优先级**:总则一(职责分离)> 总则三(SSOT)> 总则二 / 五(开闭 / 拓展)> 总则六(对称 / 完整 / 健壮)> 总则四(复用)。冲突时按此顺序裁决。
 
 ---
 
@@ -191,7 +191,67 @@
 
 ---
 
-## 6. 合规检查清单总表(CR / PR 对照)
+## 6. 总则六 · 多 provider 调用对称性、完整性与健壮性
+
+### 原则
+
+本插件支持 3 个 AI provider(Claude / Codex / OpenCode),每个有 2 种调用模式(SDK daemon / CLI 子进程),共 **6 条调用路径**。每一类横切处理(env 注入、stdin 写入关闭、interrupt / abort 取消、cwd 回退、provider 归一化、调用模式快照、frontend_ready 状态回灌)必须在 **6 条路径上对称、完整、健壮**。新增或修改任何 provider 的某项处理时,**必须**对照另两个 provider 的同项实现,确认三者等价或记录有意差异。
+
+### 三项要求
+
+- **对称性(Symmetry)**:Claude / Codex / OpenCode 在 SDK 与 CLI 两模式下,对每一类处理逻辑等价。改一处**必须**同步核对其余两处;新增 provider **必须**继承已有 provider 的全部处理项,不得「补一个漏一个」。
+- **完整性(Completeness)**:每类处理**必须**覆盖全部 provider × mode 组合,不得遗漏某条路径。变更时列出「处理项 × provider × mode」矩阵逐格确认;新增处理项时,3 provider × 2 mode 同步落地。
+- **健壮性(Robustness)**:
+  - **确定性取消优先**:interrupt / abort 应显式通知 provider 取消(Claude / Codex 的 `sendAbort`、OpenCode 的 `abortSession`),而非仅杀本地进程、依赖客户端断开的非确定副作用。
+  - **边界与防御**:null / 空值**必须**显式处理(cwd 为 null → home 回退、sessionId 为 null 防御、baseUrl 为空 → 默认 URL 回退、stdin 字段 null → 空串)。
+  - **进程生命周期完备**:stdin 写入并关闭(防子进程阻塞读)、stdout 必须 drain(防管道满阻塞)、进程退出必须清理。
+
+### 为什么
+
+历史多次因某条路径遗漏某项处理而引入隐蔽 bug,且大多**只在插件实际调用方式下暴露**(直跑 CLI 正常,编译期与单元测试抓不到):
+
+- **B9**:OpenCode CLI 漏关 stdin → opencode 阻塞读永远打开的管道(Claude / Codex 写 + 关 stdin 规避,OpenCode 漏关)。
+- **interrupt**:OpenCode SDK 仅杀进程(依赖客户端断开)→ serve 可能继续生成,token 泄漏 + 会话状态不一致(Claude / Codex 主动 `sendAbort` 确定性取消)。
+- **cwd**:OpenCode CLI 漏 home 回退 → 启动失败(Claude / Codex 有回退)。
+- **归一化**:前端 `normalizeProvider` 漏 opencode 分支 → 选 OpenCode 后下行 provider 被归一为 claude。
+- **快照**:Claude send 路径副作用回写 snapshot,破坏纯快照语义(Codex / OpenCode 不回写)。
+
+共同特征:**单 provider 单路径的遗漏**。本准则把「6 路径等价」从隐性约定提升为强制检查项。
+
+### 落地指引(本项目)
+
+**已对齐的横切处理对照表**(新增 / 改动 provider 能力时以此为基准逐项核对):
+
+| 处理项 | Claude | Codex | OpenCode | 遗漏教训 |
+|---|---|---|---|---|
+| stdin 写入 + 关闭 | ✓ | ✓ | ✓(`ENV_*_USE_STDIN`) | 漏关 → 阻塞读 |
+| extraEnv 注入(CLI) | ✓ `CliEnvironmentBuilder.applyExtraEnv` | ✓ | ✓ | CLI 漏注入,不对称 SDK |
+| interrupt 主动取消 | ✓ `sendAbort` | ✓ `sendAbort` | ✓ `triggerAbort` | 仅杀进程 → 非确定 |
+| cwd null → home 回退(CLI) | ✓ | ✓ | ✓ | 漏回退 → 启动失败 |
+| provider 归一化(前端) | ✓ | ✓ | ✓ `normalizeProvider` | 漏分支 → 选后退 claude |
+| 调用模式快照语义 | ✓ 纯快照 | ✓ | ✓ | send 副作用回写破坏语义 |
+| frontend_ready 状态回灌 | ✓ | ✓ | ✓ | 漏下发 → 新标签默认值回归 |
+
+**新增 / 修改 provider 能力的检查流程**:
+
+1. 列出本次改动涉及的横切处理项;
+2. 对每项,查 Claude + Codex 的同项实现作为参照;
+3. 确认目标 provider 的实现与参照等价,或记录有意差异及理由;
+4. 补 TDD:纯函数走单元测试;Platform 耦合、无法纯单测的代码用**源码字符串检查**兜底(对称 `ClaudeSDKBridgeRefactorTest` / `OpenCodeSDKBridgeTest` 范式)。
+
+**例外(架构本质差异,非不对称)**:daemon 生命周期——Claude 是长连接 daemon + 自动重启循环(`MAX_RESTART_ATTEMPTS`);OpenCode 是惰性按需 daemon(`opencode serve`,60s 冷却)。架构模式不同,**不要求**镜像 `restartAttempts` 计数器,但两者**都必须**具备「防无限重试」的等价保护。判定某差异是否属此例外:差异源于「连接 / 调度模型本身不同」而非「实现遗漏」,且已有等价保护机制。
+
+### 合规检查清单
+
+- [ ] 改动涉及某 provider 的某项处理时,是否对照了另两个 provider 的同项实现?是否等价或已记录有意差异?
+- [ ] 该处理项是否覆盖了全部 provider × mode 组合?有无遗漏某条路径?
+- [ ] interrupt / abort 是否确定性取消(显式通知 provider),而非仅杀本地进程?
+- [ ] null / 空值边界(stdin / cwd / sessionId / baseUrl)是否显式处理?
+- [ ] Platform 耦合、无法纯单测的处理,是否用源码字符串检查兜底?
+
+---
+
+## 7. 合规检查清单总表(CR / PR 对照)
 
 提交前逐条自检,全部通过(或已注明豁免理由)方可提交:
 
@@ -216,10 +276,14 @@
 | 17 | JSON 配置键名是否使用 `ProviderType.X.value()`?有无硬编码字面量 | 五 |
 | 18 | switch case 中的字符串值是否使用常量引用?有无硬编码字面量 | 五 |
 | 19 | 是否存在重复常量定义?是否统一引用 SSOT | 四 |
+| 20 | 改动某 provider 某项处理时,是否对照另两 provider 同项实现?是否等价或已记录差异 | 六 |
+| 21 | 该处理项是否覆盖全部 provider × mode 组合?有无遗漏某条路径 | 六 |
+| 22 | interrupt / abort 是否确定性取消(显式通知 provider),而非仅杀本地进程 | 六 |
+| 23 | null / 空值边界(stdin / cwd / sessionId / baseUrl)是否显式处理 | 六 |
 
 ---
 
-## 7. Git 提交规范
+## 8. Git 提交规范
 
 ### 原则:按变更性质分批提交
 
@@ -233,7 +297,7 @@
 
 混合 commit 会导致:① 回归发生后无法用 `git bisect` 精确定位是哪一类改动引入;② revert 时连带无关改动,扩大爆炸半径;③ PR review 粒度过粗,问题难被发现;④ cherry-pick 到其他分支时被迫带入无关代码。分批提交是代码考古(blame / bisect / revert)可信的前提。
 
-### 7.1 提交信息格式(Conventional Commits)
+### 8.1 提交信息格式(Conventional Commits)
 
 所有提交信息**必须使用英文**,遵循 Conventional Commits:
 
@@ -248,7 +312,7 @@
 - **subject ≤ 72 字符**(硬上限);超长内容移入 body。
 - **scope 强烈建议带上**,标明改动落地的模块(见 7.4)。
 
-### 7.2 类型(type)定义
+### 8.2 类型(type)定义
 
 | type | 含义 | 何时使用 | 本仓实例 |
 |---|---|---|---|
@@ -264,7 +328,7 @@
 
 > **feat 与 refactor 的边界**:凡对外部协议 / 用户可见行为有新增的,即使实现上是「下沉 / 收口」,也用 `feat`(如下发新字段);纯内部搬运、行为零变化的用 `refactor`。拿不准时问「用户 / 前端能感知到变化吗」——能 → `feat`,不能 → `refactor`。
 
-### 7.3 作用域(scope)约定
+### 8.3 作用域(scope)约定
 
 scope 标明改动落地的模块,**小写、连字符、单词或紧凑词组,不得含空格**。本仓常用 scope(非穷举,沿用历史):
 
@@ -274,7 +338,7 @@ scope 标明改动落地的模块,**小写、连字符、单词或紧凑词组,�
 
 > **历史遗留**:早期提交出现过带空格的 scope 如 `(cli session)`、`(model-registry-section)`,后续**一律改用连字符**统一为 `(cli-session)`。
 
-### 7.4 迁移编号与多步骤切片的标注
+### 8.4 迁移编号与多步骤切片的标注
 
 涉及架构迁移登记簿或 V9 切片的提交,**在 subject 或 body 标注编号**,便于追溯:
 
@@ -283,7 +347,7 @@ scope 标明改动落地的模块,**小写、连字符、单词或紧凑词组,�
 
 > 此类编号是**追溯锚点**,不替代类型判断——仍要按 feat / fix / refactor 正确归类。
 
-### 7.5 分批提交示例
+### 8.5 分批提交示例
 
 假设一次开发同时做了:① 后端新增 `supportedReasoningLevels` 下发(新功能);② 顺手修了模型 id 归一化的一处 bug;③ 把某段重复格式化代码抽成公共函数。**正确做法**是拆成三个 commit:
 
@@ -295,7 +359,7 @@ refactor(format): extract shared capacity formatting into formatCapacity
 
 **错误做法**是合成一个 `feat: model improvements` 把三者塞在一起,导致后续无法独立 revert 或 bisect。
 
-### 7.6 历史中应避免的反模式
+### 8.6 历史中应避免的反模式
 
 下列模式曾在本仓早期出现,**后续提交禁止再犯**:
 
