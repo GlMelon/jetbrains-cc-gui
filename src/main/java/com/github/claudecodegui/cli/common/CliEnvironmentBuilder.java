@@ -57,9 +57,10 @@ public final class CliEnvironmentBuilder {
     }
 
     private static void copyPath(Map<String, String> env) {
-        String path = PlatformUtils.isWindows()
-                ? PlatformUtils.getEnvIgnoreCase("PATH")
-                : System.getenv("PATH");
+        // 用 UserPathResolver 解析用户真实 PATH(IDE PATH + npm/scoop/volta/nodejs/bun 等 shim 目录),
+        // 修复 Windows 下 CLI 模式找不到经 npm 全局 / scoop / volta 装的二进制(codex/opencode 等)。
+        // (IDE 进程 PATH ≠ 登录 shell PATH;登录 shell 才含这些 shim 目录)
+        String path = UserPathResolver.resolveUserPath();
         if (path == null || path.isBlank()) {
             return;
         }

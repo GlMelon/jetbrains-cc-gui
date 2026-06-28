@@ -1,5 +1,6 @@
 package com.github.claudecodegui.cli.opencode;
 
+import com.github.claudecodegui.cli.common.UserPathResolver;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.util.PlatformUtils;
 
@@ -57,9 +58,9 @@ public final class OpenCodeCliResolver {
     }
 
     private static String searchInPath(String candidate) {
-        String pathEnv = PlatformUtils.isWindows()
-                ? PlatformUtils.getEnvIgnoreCase("PATH")
-                : System.getenv("PATH");
+        // 用 UserPathResolver 解析用户真实 PATH(IDE PATH + npm/scoop/volta 等 shim),
+        // 修复 Windows 下经 npm 全局 / scoop / volta 装的 opencode 在 IDE PATH 找不到 → fallback 裸名 → serve 启动失败。
+        String pathEnv = UserPathResolver.resolveUserPath();
         if (pathEnv == null || pathEnv.isBlank()) {
             return null;
         }

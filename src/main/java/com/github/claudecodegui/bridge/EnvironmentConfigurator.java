@@ -1,6 +1,7 @@
 // TODO: consider extracting WSL env propagation into a dedicated helper class
 package com.github.claudecodegui.bridge;
 
+import com.github.claudecodegui.cli.common.UserPathResolver;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.util.PlatformUtils;
@@ -98,14 +99,10 @@ public class EnvironmentConfigurator {
         // 2. Add common paths based on the platform (append to the end)
         String currentPath = newPath.toString();
         if (PlatformUtils.isWindows()) {
-            // Common Windows paths
-            String[] windowsPaths = {
-                    System.getenv("ProgramFiles") + "\\nodejs",
-                    System.getenv("APPDATA") + "\\npm",
-                    System.getenv("LOCALAPPDATA") + "\\Programs\\nodejs"
-            };
-            for (String p : windowsPaths) {
-                if (!p.contains("null") && !pathContains(currentPath, p)) {
+            // Windows 常见二进制 shim 目录(经 UserPathResolver 统一构造,内部已处理 env 缺失,
+            // 覆盖 npm 全局 / scoop / volta / nodejs / bun——修复经这些途径安装的二进制在插件内找不到)。
+            for (String p : UserPathResolver.commonWindowsShimDirs()) {
+                if (!pathContains(currentPath, p)) {
                     newPath.append(separator).append(p);
                 }
             }
