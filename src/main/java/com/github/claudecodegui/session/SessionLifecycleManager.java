@@ -520,7 +520,8 @@ public class SessionLifecycleManager {
         payload.addProperty("provider", session.getProvider());
         payload.addProperty("model", session.getModel());
         payload.addProperty("permissionMode", session.getPermissionMode());
-        if (ProviderType.CLAUDE.value().equals(session.getProvider()) && session.getClaudeInvocationMode() != null) {
+        // 三 provider 对称下行会话快照 claudeInvocationMode(纯快照语义:前端据此显示当前会话的实际调用模式)。
+        if (session.getClaudeInvocationMode() != null) {
             payload.addProperty("claudeInvocationMode", session.getClaudeInvocationMode());
         }
         String json = GsonHolder.GSON.toJson(payload);

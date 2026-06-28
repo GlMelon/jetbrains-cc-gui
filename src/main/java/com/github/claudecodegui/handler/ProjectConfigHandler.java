@@ -12,6 +12,7 @@ import com.github.claudecodegui.session.ClaudeSession;
 import com.github.claudecodegui.provider.claude.ClaudeHistoryReader;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.provider.codex.CodexHistoryReader;
+import com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow;
 import com.github.claudecodegui.util.FontConfigService;
 import com.github.claudecodegui.util.ThemeConfigService;
 import com.github.claudecodegui.util.GsonHolder;
@@ -286,7 +287,8 @@ public class ProjectConfigHandler {
         response.addProperty("provider", provider);
         response.addProperty("model", model);
         response.addProperty("permissionMode", permissionMode);
-        if (CommonConstants.PROVIDER_CLAUDE.equals(provider)) {
+        // 三 provider 对称下行会话快照 claudeInvocationMode(纯快照语义)。
+        if (invocationMode != null) {
             response.addProperty("claudeInvocationMode", invocationMode);
         }
         return response;
@@ -307,11 +309,11 @@ public class ProjectConfigHandler {
             JsonObject json = gson.fromJson(content, JsonObject.class);
             String mode = readString(json, "invocationMode", CommonConstants.INVOCATION_MODE_SDK);
             settingsService.setClaudeInvocationMode(mode);
-            if (context.getSession() != null) {
-                context.getSession().setClaudeInvocationMode(settingsService.getClaudeInvocationMode());
-            }
-            pushJson(DownstreamEvent.CONFIG_INVOCATION_MODE.value(), jsonOf("invocationMode", settingsService.getClaudeInvocationMode()));
-            pushJson(DownstreamEvent.SESSION_RUNTIME_STATE.value(), buildSessionRuntimeStateJson());
+            // 纯快照语义:切换只持久化默认值,不回灌已有会话(已有会话保留各自快照,新会话/新 tab 才用新模式)。
+            // 广播 CONFIG_INVOCATION_MODE(=设置默认值)到项目全部 tab,使各 tab 设置面板同步显示新默认值;
+            // 不广播 SESSION_RUNTIME_STATE——广播会让现有会话误显示新模式,违反快照(各会话快照由 SESSION_RUNTIME_STATE 各自下行)。
+            String savedMode = settingsService.getClaudeInvocationMode();
+            ClaudeSDKToolWindow.broadcastInvocationMode(context.getProject(), savedMode);
         } catch (Exception e) {
             LOG.error("[ProjectConfigHandler] Failed to set Claude invocation mode: " + e.getMessage(), e);
             showError("Failed to save Claude invocation mode: " + e.getMessage());

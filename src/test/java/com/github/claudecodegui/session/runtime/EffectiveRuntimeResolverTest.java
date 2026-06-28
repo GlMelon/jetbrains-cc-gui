@@ -179,10 +179,137 @@ public class EffectiveRuntimeResolverTest {
         EffectiveRuntimeResolver.resolve("codex", null, null, policy);
     }
 
+    // ===== 纯快照语义:Codex/OpenCode 会话快照对称(本次修复核心)=====
+
+    @Test
+    public void codexRespectsSessionSnapshotCli() {
+        // 此前 Codex 跳过 sessionMode 只看 requestedMode 是不对称 bug 根因(de79aaf1 默认 SDK → daemon 串行)。
+        // 修复后 Codex 会话快照 cli → CLI,与 Claude 对称。
+        RuntimePolicyConfig policy = policy(
+                new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK),
+                new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK)
+        );
+
+        EffectiveRuntimeResolver.Runtime runtime = EffectiveRuntimeResolver.resolve(
+                "codex", "cli", null, policy);
+
+        assertEquals(ProviderType.CODEX, runtime.provider());
+        assertEquals(RuntimeType.CLI, runtime.runtimeType());
+        assertFalse(runtime.degraded());
+    }
+
+    @Test
+    public void codexRespectsSessionSnapshotSdk() {
+        RuntimePolicyConfig policy = policy(
+                new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK),
+                new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK)
+        );
+
+        EffectiveRuntimeResolver.Runtime runtime = EffectiveRuntimeResolver.resolve(
+                "codex", "sdk", null, policy);
+
+        assertEquals(RuntimeType.SDK, runtime.runtimeType());
+        assertFalse(runtime.degraded());
+    }
+
+    @Test
+    public void codexSessionSnapshotOverridesRequestedMode() {
+        // 纯快照语义:会话快照 cli 锁死,即使请求级传 sdk 仍用快照 cli(切换只影响新会话,不污染当前会话)。
+        RuntimePolicyConfig policy = policy(
+                new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK),
+                new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK)
+        );
+
+        EffectiveRuntimeResolver.Runtime runtime = EffectiveRuntimeResolver.resolve(
+                "codex", "cli", "sdk", policy);
+
+        assertEquals(RuntimeType.CLI, runtime.runtimeType());
+    }
+
+    @Test
+    public void opencodeRespectsSessionSnapshotCli() {
+        RuntimePolicyConfig policy = policy(
+                new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK),
+                new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK),
+                new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK)
+        );
+
+        EffectiveRuntimeResolver.Runtime runtime = EffectiveRuntimeResolver.resolve(
+                "opencode", "cli", null, policy);
+
+        assertEquals(ProviderType.OPENCODE, runtime.provider());
+        assertEquals(RuntimeType.CLI, runtime.runtimeType());
+        assertFalse(runtime.degraded());
+    }
+
+    @Test
+    public void opencodeRespectsSessionSnapshotSdk() {
+        RuntimePolicyConfig policy = policy(
+                new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK),
+                new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK),
+                new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK)
+        );
+
+        EffectiveRuntimeResolver.Runtime runtime = EffectiveRuntimeResolver.resolve(
+                "opencode", "sdk", null, policy);
+
+        assertEquals(RuntimeType.SDK, runtime.runtimeType());
+    }
+
+    @Test
+    public void opencodeSessionSnapshotOverridesRequestedMode() {
+        RuntimePolicyConfig policy = policy(
+                new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK),
+                new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK),
+                new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK)
+        );
+
+        EffectiveRuntimeResolver.Runtime runtime = EffectiveRuntimeResolver.resolve(
+                "opencode", "cli", "sdk", policy);
+
+        assertEquals(RuntimeType.CLI, runtime.runtimeType());
+    }
+
+    @Test
+    public void codexDegradedWhenSnapshotUnsupported() {
+        // 快照 sdk 但「路由策略」codex 仅支持 CLI → 降级 CLI,标记 degraded(供 toast 提示)。
+        RuntimePolicyConfig policy = policy(
+                new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK),
+                new ProviderRuntimePolicy(true, Set.of(RuntimeType.CLI), RuntimeType.CLI)
+        );
+
+        EffectiveRuntimeResolver.Runtime runtime = EffectiveRuntimeResolver.resolve(
+                "codex", "sdk", null, policy);
+
+        assertEquals(RuntimeType.CLI, runtime.runtimeType());
+        assertTrue(runtime.degraded());
+    }
+
+    @Test
+    public void opencodeDegradedWhenSnapshotUnsupported() {
+        RuntimePolicyConfig policy = policy(
+                new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK),
+                new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK),
+                new ProviderRuntimePolicy(true, Set.of(RuntimeType.CLI), RuntimeType.CLI)
+        );
+
+        EffectiveRuntimeResolver.Runtime runtime = EffectiveRuntimeResolver.resolve(
+                "opencode", "sdk", null, policy);
+
+        assertEquals(RuntimeType.CLI, runtime.runtimeType());
+        assertTrue(runtime.degraded());
+    }
+
     private static RuntimePolicyConfig policy(ProviderRuntimePolicy claude, ProviderRuntimePolicy codex) {
+        // 两参数重载:opencode 默认同 codex(向后兼容现有 codex 用例,opencode 显式用例走三参数重载)。
+        return policy(claude, codex, codex);
+    }
+
+    private static RuntimePolicyConfig policy(ProviderRuntimePolicy claude, ProviderRuntimePolicy codex, ProviderRuntimePolicy opencode) {
         var providers = new LinkedHashMap<ProviderType, ProviderRuntimePolicy>();
         providers.put(ProviderType.CLAUDE, claude);
         providers.put(ProviderType.CODEX, codex);
+        providers.put(ProviderType.OPENCODE, opencode);
         return new RuntimePolicyConfig(providers);
     }
 }

@@ -282,11 +282,11 @@ public class SessionSendService {
         String contextAppend = contextService.buildCodexContextAppend(openedFilesJson, fileTagPaths);
         String finalInput = (input != null ? input : "") + contextAppend;
 
-        // codex 无会话级调用模式(sessionMode=null),仅以请求级 requestedInvocationMode 驱动;
-        // 为 null(前端调用模式未加载)时由 resolve 回退到「路由策略」面板的 codex default。
+        // Codex 与 Claude/OpenCode 统一:传入会话快照 state.getClaudeInvocationMode() 作 sessionMode,
+        // resolver 优先用快照(纯快照语义);快照缺失(null,理论不发生,新会话已快照)才回退 requestedMode/settings。
         EffectiveRuntimeResolver.Runtime runtime = resolveRuntime(
                 CommonConstants.PROVIDER_CODEX,
-                null,
+                state.getClaudeInvocationMode(),
                 requestedInvocationMode
         );
         warnIfRuntimeDegraded(runtime);
@@ -353,11 +353,11 @@ public class SessionSendService {
         String contextAppend = contextService.buildCodexContextAppend(openedFilesJson, fileTagPaths);
         String finalInput = (input != null ? input : "") + contextAppend;
 
-        // OpenCode 无会话级调用模式(sessionMode=null),仅以请求级 requestedInvocationMode 驱动;
-        // 为 null(前端调用模式未加载)时由 resolve 回退到「路由策略」面板的 opencode default(默认 SDK)。
+        // OpenCode 与 Claude/Codex 统一:传入会话快照 state.getClaudeInvocationMode() 作 sessionMode,
+        // resolver 优先用快照(纯快照语义);快照缺失(null)才回退 requestedMode/settings。
         EffectiveRuntimeResolver.Runtime runtime = resolveRuntime(
                 CommonConstants.PROVIDER_OPENCODE,
-                null,
+                state.getClaudeInvocationMode(),
                 requestedInvocationMode
         );
         warnIfRuntimeDegraded(runtime);
