@@ -19,9 +19,11 @@ describe('useModelStatePersistence', () => {
         setLongContextEnabled: vi.fn(),
         setReasoningEffort: vi.fn(),
         setCodexFastMode: vi.fn(),
+        setSelectedOpenCodeModel: vi.fn(),
         currentProvider: 'claude',
         selectedClaudeModel: CLAUDE_ROLE_MODEL_IDS.sonnet,
         selectedCodexModel: 'provider-catalog-model',
+        selectedOpenCodeModel: 'mimo-v2.5',
         claudePermissionMode: 'acceptEdits',
         codexPermissionMode: 'default',
         longContextEnabled: true,
@@ -86,5 +88,19 @@ describe('useModelStatePersistence', () => {
         // mount 阶段:直接保留持久化的自定义模型 id,不回退 role。
         expect(options.setSelectedClaudeModel).toHaveBeenCalledWith('mimo-v2.5');
         expect(options.setSelectedClaudeModel).not.toHaveBeenCalledWith(CLAUDE_ROLE_MODEL_IDS.sonnet);
+    });
+
+    it('hydrates opencode model into independent state', () => {
+        localStorage.setItem('model-selection-state', JSON.stringify({
+            provider: 'opencode',
+            opencodeModel: 'mimo-v2.5-pro',
+        }));
+
+        const options = createOptions();
+        renderHook(() => useModelStatePersistence(options));
+
+        expect(options.setCurrentProvider).toHaveBeenCalledWith('opencode');
+        // 修复C:opencode 拥有独立持久化模型(原仅 codex 持久化,opencode 不存)。
+        expect(options.setSelectedOpenCodeModel).toHaveBeenCalledWith('mimo-v2.5-pro');
     });
 });

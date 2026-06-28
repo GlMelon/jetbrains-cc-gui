@@ -136,4 +136,119 @@ describe('useModelProviderState', () => {
     expect(result.current.selectedModel).toBe('mimo-v2.5-pro');
     expect(result.current.longContextEnabled).toBe(true);
   });
+
+  it('applies backend model selection event with opencode provider as independent state', () => {
+    const { result } = renderHook(() => useModelProviderState({ addToast, t }));
+
+    act(() => {
+      bridgeHub.dispatch(DOWNSTREAM.MODEL_SELECTION, JSON.stringify({
+        provider: 'opencode',
+        selectedModel: 'mimo-v2.5',
+        effectiveContextWindow: 1_000_000,
+        supportsLongContext: false,
+      }));
+    });
+
+    // 修复C:opencode 不再被订阅归为 claude,拥有独立 selectedOpenCodeModel。
+    expect(result.current.currentProvider).toBe('opencode');
+    expect(result.current.selectedOpenCodeModel).toBe('mimo-v2.5');
+    expect(result.current.selectedModel).toBe('mimo-v2.5');
+  });
+
+  it('sends opencode model selection to independent state when selecting in opencode provider', () => {
+    const { result } = renderHook(() => useModelProviderState({ addToast, t }));
+    act(() => {
+      bridgeHub.dispatch(DOWNSTREAM.MODEL_SELECTION, JSON.stringify({
+        provider: 'opencode',
+        selectedModel: 'mimo-v2.5',
+      }));
+    });
+    vi.clearAllMocks();
+
+    act(() => {
+      result.current.handleModelSelect('mimo-v2.5-pro', 1_000_000);
+    });
+
+    expect(result.current.selectedOpenCodeModel).toBe('mimo-v2.5-pro');
+    const setModelCall = vi.mocked(sendAction).mock.calls.find(
+      ([type]) => type === 'set_session_model',
+    );
+    expect(setModelCall).toBeTruthy();
+    expect(JSON.parse(setModelCall![1] as string)).toMatchObject({
+      model: 'mimo-v2.5-pro',
+      contextWindow: 1_000_000,
+    });
+  });
+
+  it('switches to opencode provider sending its independent selected model', () => {
+    const { result } = renderHook(() => useModelProviderState({ addToast, t }));
+    act(() => {
+      bridgeHub.dispatch(DOWNSTREAM.MODEL_SELECTION, JSON.stringify({
+        provider: 'opencode',
+        selectedModel: 'mimo-v2.5',
+      }));
+    });
+    act(() => {
+      bridgeHub.dispatch(DOWNSTREAM.MODEL_SELECTION, JSON.stringify({
+        provider: 'claude',
+        selectedModel: 'claude-role-sonnet',
+        supportsLongContext: true,
+      }));
+    });
+    vi.clearAllMocks();
+
+    act(() => {
+      result.current.handleProviderSelect('opencode', undefined);
+    });
+
+    expect(result.current.currentProvider).toBe('opencode');
+    const providerCall = vi.mocked(sendAction).mock.calls.find(
+      ([type]) => type === 'set_session_provider',
+    );
+    expect(providerCall).toBeTruthy();
+    expect(providerCall![1]).toBe('opencode');
+    const setModelCall = vi.mocked(sendAction).mock.calls.find(
+      ([type]) => type === 'set_session_model',
+    );
+    expect(setModelCall).toBeTruthy();
+    // 修复C:切到 opencode 发送独立 selectedOpenCodeModel,而非 selectedClaudeModel。
+    expect(JSON.parse(setModelCall![1] as string)).toMatchObject({
+      model: 'mimo-v2.5',
+    });
+  });
+
+  it('re-sends opencode model when registry updates for the selected opencode model', () => {
+    __setModelRegistryForTests({
+      items: [{
+        id: 'mimo-v2.5', provider: 'opencode', label: 'MiMo',
+        contextWindow: 1_000_000, supports1MContext: false, readOnly: true, enabled: true,
+      }],
+    });
+    const { result } = renderHook(() => useModelProviderState({ addToast, t }));
+    act(() => {
+      bridgeHub.dispatch(DOWNSTREAM.MODEL_SELECTION, JSON.stringify({
+        provider: 'opencode',
+        selectedModel: 'mimo-v2.5',
+      }));
+    });
+    vi.clearAllMocks();
+
+    act(() => {
+      __setModelRegistryForTests({
+        items: [{
+          id: 'mimo-v2.5', provider: 'opencode', label: 'MiMo',
+          contextWindow: 2_000_000, supports1MContext: false, readOnly: true, enabled: true,
+        }],
+      });
+    });
+
+    const setModelCall = vi.mocked(sendAction).mock.calls.find(
+      ([type]) => type === 'set_session_model',
+    );
+    expect(setModelCall).toBeTruthy();
+    // 修复C:registry 变更时 opencode 重发独立 selectedOpenCodeModel(原 bug 发 selectedCodexModel 空串)。
+    expect(JSON.parse(setModelCall![1] as string)).toMatchObject({
+      model: 'mimo-v2.5',
+    });
+  });
 });

@@ -9,10 +9,11 @@ import { DEFAULT_CONTEXT_WINDOW, strip1MContextSuffix } from '../components/Chat
 import { isSpecialProviderId } from '../types/provider';
 import { useClaudeProvider } from './providers/useClaudeProvider';
 import { useCodexProvider } from './providers/useCodexProvider';
+import { useOpenCodeProvider } from './providers/useOpenCodeProvider';
 import { useUsageTracking } from './providers/useUsageTracking';
 import { useProviderSettings } from './providers/useProviderSettings';
 import { useModelStatePersistence } from './providers/useModelStatePersistence';
-import { getModelsForProvider, subscribeModelRegistry } from '../utils/modelRegistry';
+import { getModelsForProvider, normalizeProvider, subscribeModelRegistry } from '../utils/modelRegistry';
 import type { ViewMode } from '../types';
 
 // D3:ViewMode 真相源在 types/index.ts,此处 re-export 保持 hooks/index 与 useMessageSender 下游 import 兼容
@@ -51,6 +52,7 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
   // ── Provider-specific sub-hooks ──
   const claude = useClaudeProvider();
   const codex = useCodexProvider();
+  const opencode = useOpenCodeProvider();
   const { isSdkInstalled, ...usage } = useUsageTracking();
   const settings = useProviderSettings({ addToast, t });
 
@@ -66,12 +68,14 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     reasoningEffort, setReasoningEffort,
     codexFastMode, setCodexFastMode,
   } = codex;
+  const { selectedOpenCodeModel, setSelectedOpenCodeModel } = opencode;
 
   // ── Persistence: load on mount + save on change ──
   useModelStatePersistence({
     setCurrentProvider,
     setSelectedClaudeModel,
     setSelectedCodexModel,
+    setSelectedOpenCodeModel,
     setClaudePermissionMode,
     setCodexPermissionMode,
     setPermissionMode,
@@ -81,6 +85,7 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     currentProvider,
     selectedClaudeModel,
     selectedCodexModel,
+    selectedOpenCodeModel,
     claudePermissionMode,
     codexPermissionMode,
     longContextEnabled,
@@ -89,7 +94,9 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
   });
 
   // ── Computed values ──
-  const selectedModel = currentProvider === 'codex' ? selectedCodexModel : selectedClaudeModel;
+  const selectedModel = currentProvider === 'codex' ? selectedCodexModel
+    : currentProvider === 'opencode' ? selectedOpenCodeModel
+    : selectedClaudeModel;
   const currentSdkInstalled = useMemo(
     () => isSdkInstalled(currentProvider),
     [isSdkInstalled, currentProvider],
@@ -114,10 +121,14 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
       if (!selected) {
         return;
       }
-      const provider = selection.provider === 'codex' ? 'codex' : 'claude';
+      const provider = normalizeProvider(selection.provider);
       setCurrentProvider(provider);
       if (provider === 'codex') {
         setSelectedCodexModel(selected);
+        return;
+      }
+      if (provider === 'opencode') {
+        setSelectedOpenCodeModel(selected);
         return;
       }
       setSelectedClaudeModel(selected);
@@ -126,7 +137,7 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     } catch {
       // Ignore malformed backend selection events; existing state remains authoritative for display.
     }
-  }), [setLongContextEnabled, setSelectedClaudeModel, setSelectedCodexModel]);
+  }), [setLongContextEnabled, setSelectedClaudeModel, setSelectedCodexModel, setSelectedOpenCodeModel]);
 
   // ── Cross-provider handlers ──
   const handleModeSelect = useCallback((mode: PermissionMode) => {
@@ -170,8 +181,17 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
             ? JSON.stringify({model: modelId, contextWindow: effectiveContextWindow})
             : modelId;
         sendAction(UPSTREAM.SET_SESSION_MODEL, payload);
+    } else if (currentProvider === 'opencode') {
+      setSelectedOpenCodeModel(modelId);
+      const registryModels = getModelsForProvider('opencode');
+      const modelInfo = registryModels.find((model) => model.id === strip1MContextSuffix(modelId));
+      const effectiveContextWindow = contextWindow ?? modelInfo?.contextWindow;
+      const payload = effectiveContextWindow
+        ? JSON.stringify({model: modelId, contextWindow: effectiveContextWindow})
+        : modelId;
+      sendAction(UPSTREAM.SET_SESSION_MODEL, payload);
     }
-  }, [currentProvider, longContextEnabled, setSelectedClaudeModel, setSelectedCodexModel]);
+  }, [currentProvider, longContextEnabled, setSelectedClaudeModel, setSelectedCodexModel, setSelectedOpenCodeModel]);
 
     const handleProviderSelect = useCallback((providerId: string, contextWindow?: number) => {
     setCurrentProvider(providerId);
@@ -188,7 +208,7 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     const newModel = providerId === 'codex'
       ? selectedCodexModel
       : providerId === 'opencode'
-        ? selectedClaudeModel  // OpenCode uses Claude model format for now
+        ? selectedOpenCodeModel
         : selectedClaudeModel;  // Clean ID, no [1m]
 
     const newProviderModels = getModelsForProvider(providerId);
@@ -202,7 +222,7 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
       }));
     } else {
       // Codex/OpenCode: send registry contextWindow
-      const refModel = providerId === 'codex' ? selectedCodexModel : selectedClaudeModel;
+      const refModel = providerId === 'codex' ? selectedCodexModel : providerId === 'opencode' ? selectedOpenCodeModel : selectedClaudeModel;
       const registryContextWindow = newProviderModels.find((model) => model.id === strip1MContextSuffix(refModel))?.contextWindow;
       const effectiveContextWindow = contextWindow ?? registryContextWindow ?? DEFAULT_CONTEXT_WINDOW;
       sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
@@ -215,6 +235,7 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     codexPermissionMode,
     selectedCodexModel,
     selectedClaudeModel,
+    selectedOpenCodeModel,
     longContextEnabled,
   ]);
 
@@ -257,6 +278,14 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
       return;
     }
 
+    if (currentProvider === 'opencode') {
+      sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
+        model: selectedOpenCodeModel,
+        contextWindow: selectedRegistryModel.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
+      }));
+      return;
+    }
+
     sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
       model: selectedCodexModel,
       contextWindow: selectedRegistryModel.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
@@ -267,6 +296,7 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     modelRegistryVersion,
     selectedClaudeModel,
     selectedCodexModel,
+    selectedOpenCodeModel,
     selectedModel,
     setLongContextEnabled,
   ]);
@@ -313,6 +343,7 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
   return {
     ...claude,
     ...codex,
+    ...opencode,
     ...usage,
     ...settings,
     currentProvider, setCurrentProvider,

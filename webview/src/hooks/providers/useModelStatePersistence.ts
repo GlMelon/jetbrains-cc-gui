@@ -24,6 +24,7 @@ export interface UseModelStatePersistenceOptions {
   setCurrentProvider: (value: string) => void;
   setSelectedClaudeModel: (value: string) => void;
   setSelectedCodexModel: (value: string) => void;
+  setSelectedOpenCodeModel: (value: string) => void;
   setClaudePermissionMode: (value: PermissionMode) => void;
   setCodexPermissionMode: (value: PermissionMode) => void;
   setPermissionMode: (value: PermissionMode) => void;
@@ -34,6 +35,7 @@ export interface UseModelStatePersistenceOptions {
   currentProvider: string;
   selectedClaudeModel: string;
   selectedCodexModel: string;
+  selectedOpenCodeModel: string;
   claudePermissionMode: PermissionMode;
   codexPermissionMode: PermissionMode;
   longContextEnabled: boolean;
@@ -55,6 +57,7 @@ export function useModelStatePersistence(options: UseModelStatePersistenceOption
     setCurrentProvider,
     setSelectedClaudeModel,
     setSelectedCodexModel,
+    setSelectedOpenCodeModel,
     setClaudePermissionMode,
     setCodexPermissionMode,
     setPermissionMode,
@@ -64,6 +67,7 @@ export function useModelStatePersistence(options: UseModelStatePersistenceOption
     currentProvider,
     selectedClaudeModel,
     selectedCodexModel,
+    selectedOpenCodeModel,
     claudePermissionMode,
     codexPermissionMode,
     longContextEnabled,
@@ -126,6 +130,10 @@ export function useModelStatePersistence(options: UseModelStatePersistenceOption
         if (typeof state.codexModel === 'string' && state.codexModel.trim()) {
           setSelectedCodexModel(state.codexModel);
         }
+
+        if (typeof state.opencodeModel === 'string' && state.opencodeModel.trim()) {
+          setSelectedOpenCodeModel(state.opencodeModel);
+        }
       }
 
       const initialPermissionMode: PermissionMode = restoredProvider === 'codex'
@@ -148,6 +156,7 @@ export function useModelStatePersistence(options: UseModelStatePersistenceOption
         provider: currentProvider,
         claudeModel: selectedClaudeModel,
         codexModel: selectedCodexModel,
+        opencodeModel: selectedOpenCodeModel,
         claudePermissionMode,
         codexPermissionMode,
         longContextEnabled,
@@ -161,6 +170,7 @@ export function useModelStatePersistence(options: UseModelStatePersistenceOption
     currentProvider,
     selectedClaudeModel,
     selectedCodexModel,
+    selectedOpenCodeModel,
     claudePermissionMode,
     codexPermissionMode,
     longContextEnabled,

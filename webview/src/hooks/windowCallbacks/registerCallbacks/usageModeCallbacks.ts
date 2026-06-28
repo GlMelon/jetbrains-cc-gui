@@ -20,7 +20,7 @@ import type { PermissionMode } from '../../../components/ChatInputBox/types';
 import { isValidPermissionMode } from '../../../components/ChatInputBox/types';
 import { drainPendingSettings, startInitialSettingsRequest } from '../settingsBootstrap';
 import { clampPermissionDialogTimeoutSeconds } from '../../../utils/permissionDialogTimeout';
-import { resolveClaudeModelId } from '../../../utils/modelRegistry';
+import { normalizeProvider, resolveClaudeModelId } from '../../../utils/modelRegistry';
 import { registerLegacyAlias } from '../../../bridge';
 
 export function registerUsageModeCallbacks(options: UseWindowCallbacksOptions): void {
@@ -35,6 +35,7 @@ export function registerUsageModeCallbacks(options: UseWindowCallbacksOptions): 
     setCodexPermissionMode,
     setSelectedClaudeModel,
     setSelectedCodexModel,
+    setSelectedOpenCodeModel,
     setProviderConfigVersion,
     setActiveProviderConfig,
     setClaudeSettingsAlwaysThinkingEnabled,
@@ -133,11 +134,13 @@ export function registerUsageModeCallbacks(options: UseWindowCallbacksOptions): 
     try {
       const data = JSON.parse(json as string);
       const modelId: string = data.modelId;
-      const provider: string = data.provider;
-      if (provider === 'claude') {
-        setSelectedClaudeModel(resolveClaudeModelId(modelId));
-      } else if (provider === 'codex') {
+      const provider = normalizeProvider(data.provider);
+      if (provider === 'codex') {
         setSelectedCodexModel(modelId);
+      } else if (provider === 'opencode') {
+        setSelectedOpenCodeModel(modelId);
+      } else {
+        setSelectedClaudeModel(resolveClaudeModelId(modelId));
       }
     } catch (error) {
       console.error('[Frontend] Failed to parse model confirmed:', error);
@@ -181,7 +184,7 @@ export function registerUsageModeCallbacks(options: UseWindowCallbacksOptions): 
     subscribeEvent(DOWNSTREAM.SESSION_RUNTIME_STATE, (jsonStr) => {
         try {
             const data = JSON.parse(jsonStr as string);
-            const provider = data.provider === 'codex' ? 'codex' : 'claude';
+            const provider = normalizeProvider(data.provider);
             setCurrentProvider(provider);
             currentProviderRef.current = provider;
 
@@ -190,6 +193,8 @@ export function registerUsageModeCallbacks(options: UseWindowCallbacksOptions): 
             if (typeof data.model === 'string' && data.model.trim()) {
                 if (provider === 'codex') {
                     setSelectedCodexModel(data.model);
+                } else if (provider === 'opencode') {
+                    setSelectedOpenCodeModel(data.model);
                 } else {
                     setSelectedClaudeModel(resolveClaudeModelId(data.model));
                 }

@@ -45,6 +45,7 @@ describe('useWindowCallbacks integration', () => {
     setCodexPermissionMode: vi.fn(),
     setSelectedClaudeModel: vi.fn(),
     setSelectedCodexModel: vi.fn(),
+    setSelectedOpenCodeModel: vi.fn(),
     setProviderConfigVersion: vi.fn(),
     setActiveProviderConfig: vi.fn(),
     setClaudeSettingsAlwaysThinkingEnabled: vi.fn(),
@@ -451,6 +452,26 @@ describe('useWindowCallbacks integration', () => {
         expect(opts.setPermissionMode).toHaveBeenCalled();
         expect(opts.setCodexPermissionMode).toHaveBeenCalled();
         expect(opts.setSelectedCodexModel).toHaveBeenCalledWith('gpt-5.3-codex');
+    });
+
+    it('updateSessionRuntimeState hydrates OpenCode provider model from backend session state', () => {
+        const opts = createOptions();
+        renderHook(() => useWindowCallbacks(opts));
+
+        act(() => {
+            window.updateSessionRuntimeState?.(JSON.stringify({
+                provider: 'opencode',
+                model: 'mimo-v2.5-pro',
+                permissionMode: 'default',
+            }));
+        });
+
+        // OpenCode 必须归一为 opencode(历史 bug:inline `=== 'codex' ? 'codex' : 'claude'` 把 opencode 误归一为 claude,
+        // 导致模型 setter 误走 setSelectedClaudeModel 而非 setSelectedOpenCodeModel)
+        expect(opts.setCurrentProvider).toHaveBeenCalledWith('opencode');
+        expect(opts.setSelectedOpenCodeModel).toHaveBeenCalledWith('mimo-v2.5-pro');
+        // 不应误走 claude setter
+        expect(opts.setSelectedClaudeModel).not.toHaveBeenCalled();
     });
 
   it('patchMessageUuid updates the latest unresolved user message using raw text fallback', () => {
