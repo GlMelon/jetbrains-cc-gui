@@ -1905,7 +1905,10 @@ public class CodemossSettingsService {
                 return com.github.claudecodegui.config.RuntimePolicyConfig.getDefault();
             }
             JsonObject runtimeObj = config.getAsJsonObject(RUNTIME_POLICY_KEY);
-            return parseRuntimePolicy(runtimeObj);
+            // mergeWithDefaults: 向后兼容。存量 config.json 在新 provider(如 opencode)加入默认策略前
+            // 持久化,缺该 provider → of(OPENCODE)=null → resolve 抛 "Provider disabled/unknown"。
+            // 以默认补全缺失 provider,保留用户对已知 provider 的自定义。
+            return parseRuntimePolicy(runtimeObj).mergeWithDefaults();
         } catch (Exception e) {
             LOG.warn("[CodemossSettings] Failed to read runtime policy, using default: " + e.getMessage());
             return com.github.claudecodegui.config.RuntimePolicyConfig.getDefault();

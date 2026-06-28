@@ -53,6 +53,23 @@ public class RuntimePolicyConfig {
     }
 
     /**
+     * 以默认策略为基底合并本配置(向后兼容):补全默认存在而本配置缺失的 provider,
+     * 保留用户对已知 provider 的自定义(含显式 enabled=false 的禁用)。
+     * <p>
+     * 修复存量用户旧 config.json 在「OpenCode 加入路由策略」之前持久化、缺失 opencode →
+     * {@code of(OPENCODE)=null} → {@code EffectiveRuntimeResolver.resolve} 抛
+     * "Provider disabled/unknown: opencode" → opencode+CLI 请求被强制回退 SDK 静默失败的
+     * 向后兼容 bug(2026-06-28 复现)。
+     *
+     * @return 合并后的完整策略(默认基底 + 本配置覆盖)
+     */
+    public RuntimePolicyConfig mergeWithDefaults() {
+        var merged = new LinkedHashMap<>(getDefault().providers());
+        merged.putAll(this.providers);
+        return new RuntimePolicyConfig(merged);
+    }
+
+    /**
      * 返回默认配置(Claude 与 Codex 对称)。
      */
     public static RuntimePolicyConfig getDefault() {
