@@ -3,6 +3,7 @@ import {
   __setModelRegistryForTests,
   createCodexCatalogModels,
   getModelsForProvider,
+  normalizeProvider,
   parseModelRegistryPayload,
   resetModelRegistryForTests,
   resolveClaudeModelId,
@@ -438,5 +439,31 @@ describe('resolveClaudeRoleForModel', () => {
     expect(resolveClaudeRoleForModel('')).toBeNull();
     expect(resolveClaudeRoleForModel(undefined)).toBeNull();
     expect(resolveClaudeRoleForModel(null)).toBeNull();
+  });
+});
+
+describe('normalizeProvider', () => {
+  // 三 provider(Claude/Codex/OpenCode)归一化 SSOT:未知/缺失值统一回退 claude。
+  // 历史不对称 bug:多处 inline `provider === 'codex' ? 'codex' : 'claude'` 把 opencode 误归一为 claude,
+  // 导致 session.runtime_state / model.confirmed 下行时 opencode provider 被前端当成 claude 处理。
+  it('正常归一已知三 provider', () => {
+    expect(normalizeProvider('claude')).toBe('claude');
+    expect(normalizeProvider('codex')).toBe('codex');
+    expect(normalizeProvider('opencode')).toBe('opencode');
+  });
+
+  it('未知 provider 回退 claude', () => {
+    expect(normalizeProvider('unknown')).toBe('claude');
+    expect(normalizeProvider('claude-opus')).toBe('claude');
+  });
+
+  it('空字符串回退 claude', () => {
+    expect(normalizeProvider('')).toBe('claude');
+    expect(normalizeProvider('   ')).toBe('claude');
+  });
+
+  it('null/undefined 回退 claude', () => {
+    expect(normalizeProvider(null)).toBe('claude');
+    expect(normalizeProvider(undefined)).toBe('claude');
   });
 });

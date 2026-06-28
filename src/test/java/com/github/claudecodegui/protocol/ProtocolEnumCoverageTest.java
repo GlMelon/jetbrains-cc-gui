@@ -20,7 +20,6 @@ public class ProtocolEnumCoverageTest {
         assertEquals("set_appearance_config", UpstreamAction.SET_APPEARANCE_CONFIG.value());
         assertEquals("get_model_registry", UpstreamAction.GET_MODEL_REGISTRY.value());
         assertEquals("set_model_registry", UpstreamAction.SET_MODEL_REGISTRY.value());
-        assertEquals("reset_model_registry", UpstreamAction.RESET_MODEL_REGISTRY.value());
         assertEquals("get_model_registry_schema", UpstreamAction.GET_MODEL_REGISTRY_SCHEMA.value());
     }
 

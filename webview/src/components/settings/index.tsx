@@ -184,10 +184,8 @@ const SettingsView = ({
     setCommitAiConfig,
     handleCommitAiProviderChange,
     handleCommitAiModelChange,
-    handleCommitAiResetToDefault,
     handlePromptEnhancerProviderChange,
     handlePromptEnhancerModelChange,
-    handlePromptEnhancerResetToDefault,
     invocationMode,
     setInvocationMode,
     handleInvocationModeChange,
@@ -575,7 +573,6 @@ const SettingsView = ({
               promptEnhancerConfig={promptEnhancerConfig}
               onPromptEnhancerProviderChange={handlePromptEnhancerProviderChange}
               onPromptEnhancerModelChange={handlePromptEnhancerModelChange}
-              onPromptEnhancerResetToDefault={handlePromptEnhancerResetToDefault}
             />
           </div>
 
@@ -585,7 +582,6 @@ const SettingsView = ({
               commitAiConfig={commitAiConfig}
               onCommitAiProviderChange={handleCommitAiProviderChange}
               onCommitAiModelChange={handleCommitAiModelChange}
-              onCommitAiResetToDefault={handleCommitAiResetToDefault}
               commitPrompt={commitPrompt}
               projectCommitPrompt={projectCommitPrompt}
               onCommitPromptChange={setCommitPrompt}

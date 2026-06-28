@@ -96,10 +96,8 @@ export interface UseSettingsBasicActionsReturn {
   handlePermissionDialogTimeoutChange: (seconds: number) => void;
   handleCommitAiProviderChange: (provider: CommitAiProvider) => void;
   handleCommitAiModelChange: (model: string) => void;
-  handleCommitAiResetToDefault: () => void;
   handlePromptEnhancerProviderChange: (provider: PromptEnhancerProvider) => void;
   handlePromptEnhancerModelChange: (model: string) => void;
-  handlePromptEnhancerResetToDefault: () => void;
   handleInvocationModeChange: (mode: 'sdk' | 'cli') => void;
   handleCliPathChange: (path: string) => void;
 
@@ -463,28 +461,6 @@ export function useSettingsBasicActions({
     }));
   }, [commitAiConfig]);
 
-  const handleCommitAiResetToDefault = useCallback(() => {
-    const nextConfig: CommitAiConfig = {
-      ...commitAiConfig,
-      provider: null,
-      effectiveProvider: commitAiConfig.availability.codex
-        ? 'codex'
-        : commitAiConfig.availability.claude
-          ? 'claude'
-          : commitAiConfig.availability.opencode
-            ? 'opencode'
-            : null,
-      resolutionSource: commitAiConfig.availability.codex || commitAiConfig.availability.claude || commitAiConfig.availability.opencode
-        ? 'auto'
-        : 'unavailable',
-    };
-    setCommitAiConfig(nextConfig);
-    sendAction(UPSTREAM.SET_COMMIT_AI_CONFIG, JSON.stringify({
-      provider: null,
-      models: nextConfig.models,
-    }));
-  }, [commitAiConfig]);
-
   const handlePromptEnhancerProviderChange = useCallback((provider: PromptEnhancerProvider) => {
     const providerAvailable = promptEnhancerConfig.availability[provider];
     const nextConfig: PromptEnhancerConfig = {
@@ -512,28 +488,6 @@ export function useSettingsBasicActions({
     setPromptEnhancerConfig(nextConfig);
     sendAction(UPSTREAM.SET_PROMPT_ENHANCER_CONFIG, JSON.stringify({
       provider: promptEnhancerConfig.provider,
-      models: nextConfig.models,
-    }));
-  }, [promptEnhancerConfig]);
-
-  const handlePromptEnhancerResetToDefault = useCallback(() => {
-    const nextConfig: PromptEnhancerConfig = {
-      ...promptEnhancerConfig,
-      provider: null,
-      effectiveProvider: promptEnhancerConfig.availability.codex
-        ? 'codex'
-        : promptEnhancerConfig.availability.claude
-          ? 'claude'
-          : promptEnhancerConfig.availability.opencode
-            ? 'opencode'
-            : null,
-      resolutionSource: promptEnhancerConfig.availability.codex || promptEnhancerConfig.availability.claude || promptEnhancerConfig.availability.opencode
-        ? 'auto'
-        : 'unavailable',
-    };
-    setPromptEnhancerConfig(nextConfig);
-    sendAction(UPSTREAM.SET_PROMPT_ENHANCER_CONFIG, JSON.stringify({
-      provider: null,
       models: nextConfig.models,
     }));
   }, [promptEnhancerConfig]);
@@ -645,12 +599,10 @@ export function useSettingsBasicActions({
     setCommitAiConfig,
     handleCommitAiProviderChange,
     handleCommitAiModelChange,
-    handleCommitAiResetToDefault,
     promptEnhancerConfig,
     setPromptEnhancerConfig,
     handlePromptEnhancerProviderChange,
     handlePromptEnhancerModelChange,
-    handlePromptEnhancerResetToDefault,
     invocationMode,
     setInvocationMode,
     cliPath,

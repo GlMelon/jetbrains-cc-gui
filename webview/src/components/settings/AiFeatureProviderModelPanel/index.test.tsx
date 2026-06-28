@@ -42,7 +42,7 @@ describe('AiFeatureProviderModelPanel', () => {
     },
   };
 
-  it('renders provider select, model select, status hint, and reset button', () => {
+  it('renders provider select, model select, and status hint', () => {
     render(
       <AiFeatureProviderModelPanel
         config={config}
@@ -50,7 +50,6 @@ describe('AiFeatureProviderModelPanel', () => {
         providerKeyPrefix="settings.basic.promptEnhancer.provider"
         onProviderChange={vi.fn()}
         onModelChange={vi.fn()}
-        onResetToDefault={vi.fn()}
       />
     );
 
@@ -59,7 +58,6 @@ describe('AiFeatureProviderModelPanel', () => {
     expect(screen.getByTestId('ai-feature-actions-row')).toBeTruthy();
     expect(screen.getByTestId('ai-feature-status-hint')).toBeTruthy();
     expect(screen.getAllByRole('combobox')).toHaveLength(2);
-    expect(screen.getByRole('button', { name: 'settings.commit.providerModel.resetToDefault' })).toBeTruthy();
   });
 
   it('keeps both rows compact with ellipsis instead of wrapping', () => {
@@ -77,9 +75,8 @@ describe('AiFeatureProviderModelPanel', () => {
     );
   });
 
-  it('calls provider and reset callbacks', () => {
+  it('calls provider change callback', () => {
     const onProviderChange = vi.fn();
-    const onResetToDefault = vi.fn();
 
     render(
       <AiFeatureProviderModelPanel
@@ -93,16 +90,13 @@ describe('AiFeatureProviderModelPanel', () => {
         providerKeyPrefix="settings.basic.promptEnhancer.provider"
         onProviderChange={onProviderChange}
         onModelChange={vi.fn()}
-        onResetToDefault={onResetToDefault}
       />
     );
 
     const [providerSelect] = screen.getAllByRole('combobox');
     fireEvent.change(providerSelect, { target: { value: 'codex' } });
-    fireEvent.click(screen.getByRole('button', { name: 'settings.commit.providerModel.resetToDefault' }));
 
     expect(onProviderChange).toHaveBeenCalledWith('codex');
-    expect(onResetToDefault).toHaveBeenCalledTimes(1);
   });
 
   it('calls model change callback from model selector', () => {
@@ -115,7 +109,6 @@ describe('AiFeatureProviderModelPanel', () => {
         providerKeyPrefix="settings.basic.promptEnhancer.provider"
         onProviderChange={vi.fn()}
         onModelChange={onModelChange}
-        onResetToDefault={vi.fn()}
       />
     );
 
@@ -142,7 +135,6 @@ describe('AiFeatureProviderModelPanel', () => {
         providerKeyPrefix="settings.basic.promptEnhancer.provider"
         onProviderChange={vi.fn()}
         onModelChange={vi.fn()}
-        onResetToDefault={vi.fn()}
       />
     );
 

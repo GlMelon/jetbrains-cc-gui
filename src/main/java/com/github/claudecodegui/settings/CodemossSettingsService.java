@@ -1762,20 +1762,6 @@ public class CodemossSettingsService {
     }
 
     /**
-     * Remove persisted model registry so defaults are used again.
-     */
-    public void resetModelRegistry() {
-        try {
-            JsonObject config = readConfig();
-            config.remove(MODEL_REGISTRY_KEY);
-            writeConfig(config);
-            LOG.info("[CodemossSettings] Reset model registry to defaults");
-        } catch (Exception e) {
-            LOG.error("[CodemossSettings] Failed to reset model registry: " + e.getMessage());
-        }
-    }
-
-    /**
      * Read the raw persisted user layer without read-only defaults and without the
      * getDefault() fallback. Missing/invalid config returns an empty user layer.
      */

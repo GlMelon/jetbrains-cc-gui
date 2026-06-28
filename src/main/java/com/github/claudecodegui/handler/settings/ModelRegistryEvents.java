@@ -3,24 +3,26 @@ package com.github.claudecodegui.handler.settings;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.settings.ModelRegistryResult;
+import com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow;
+import com.github.claudecodegui.util.JsUtils;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 /**
- * Shared downstream-event assembly for model registry handlers (DRY).
- * Builds the {@code model_registry_updated} response payload and dispatches it.
+ * 模型注册表下行事件的装配 + 跨 tab 广播(DRY)。
+ *
+ * <p>所有 registry 下发(get/set/reload)统一经 {@link ClaudeSDKToolWindow#broadcastModelRegistry}
+ * 广播到当前项目全部标签——registry 是应用级全局数据,任意 tab 触发的读取/变更都应同步到所有 tab 的
+ * 前端 {@code currentRegistry} 单例,解决多标签 webview 单例隔离下的下拉不同步问题。
  */
 final class ModelRegistryEvents {
     private ModelRegistryEvents() {
     }
 
-    /** Dispatch {@code model_registry_updated} with success/registry or errors shape. */
+    /** 广播 {@code model_registry_updated}(含 success/registry 或 errors)。 */
     static void dispatchUpdated(HandlerContext ctx, ModelRegistryResult result) {
         JsonObject response = new JsonObject();
         response.addProperty("success", result.success());
-        if (result.reset()) {
-            response.addProperty("reset", true);
-        }
         if (result.success() && result.registry() != null) {
             response.add("registry", result.registry());
         }
@@ -29,16 +31,18 @@ final class ModelRegistryEvents {
             result.errors().forEach(errors::add);
             response.add("errors", errors);
         }
-        ctx.dispatchEvent(DownstreamEvent.MODEL_REGISTRY_UPDATED.value(),
-                ctx.escapeJs(response.toString()));
+        String escaped = JsUtils.escapeJs(response.toString());
+        ClaudeSDKToolWindow.broadcastModelRegistry(ctx.getProject(),
+                DownstreamEvent.MODEL_REGISTRY_UPDATED.value(), escaped);
     }
 
-    /** Dispatch the full {@code model_registry} snapshot. */
+    /** 广播完整 {@code model_registry} 快照。 */
     static void dispatchRegistry(HandlerContext ctx, ModelRegistryResult result) {
         if (result.registry() == null) {
             return;
         }
-        ctx.dispatchEvent(DownstreamEvent.MODEL_REGISTRY.value(),
-                ctx.escapeJs(result.registry().toString()));
+        String escaped = JsUtils.escapeJs(result.registry().toString());
+        ClaudeSDKToolWindow.broadcastModelRegistry(ctx.getProject(),
+                DownstreamEvent.MODEL_REGISTRY.value(), escaped);
     }
 }

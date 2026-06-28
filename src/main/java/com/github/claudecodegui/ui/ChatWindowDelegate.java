@@ -63,6 +63,9 @@ import com.github.claudecodegui.handler.PermissionModeHandler;
 import com.github.claudecodegui.handler.InputHistoryHandler;
 import com.github.claudecodegui.handler.UsagePushService;
 import com.github.claudecodegui.handler.provider.ModelProviderHandler;
+import com.github.claudecodegui.model.selection.DefaultModelCapabilityResolver;
+import com.github.claudecodegui.model.selection.ModelSelectionRequest;
+import com.github.claudecodegui.model.selection.ModelSelectionResult;
 import com.github.claudecodegui.handler.nodeprocess.NodeProcessActionHandlers;
 import com.github.claudecodegui.handler.nodeprocess.GetNodeProcessesActionHandler;
 import com.github.claudecodegui.handler.nodeprocess.KillNodeProcessActionHandler;
@@ -111,7 +114,6 @@ import com.github.claudecodegui.handler.settings.GetClaudeCliPathActionHandler;
 import com.github.claudecodegui.handler.settings.GetCodexSubscriptionQuotaActionHandler;
 import com.github.claudecodegui.handler.settings.GetModelRegistryActionHandler;
 import com.github.claudecodegui.handler.settings.SetModelRegistryActionHandler;
-import com.github.claudecodegui.handler.settings.ResetModelRegistryActionHandler;
 import com.github.claudecodegui.handler.settings.GetModelRegistrySchemaActionHandler;
 import com.github.claudecodegui.handler.settings.SetAppearanceConfigActionHandler;
 import com.github.claudecodegui.handler.settings.GetModeActionHandler;
@@ -505,7 +507,6 @@ public class ChatWindowDelegate {
         List<FrontendActionHandler<?>> typedHandlers = new ArrayList<>();
         typedHandlers.add(new GetModelRegistryActionHandler(modelRegistryService));
         typedHandlers.add(new SetModelRegistryActionHandler(modelRegistryService));
-        typedHandlers.add(new ResetModelRegistryActionHandler(modelRegistryService));
         typedHandlers.add(new GetModelRegistrySchemaActionHandler(modelRegistryService));
         typedHandlers.add(new SetAppearanceConfigActionHandler(appearanceConfigService));
         typedHandlers.add(new GetCodexSubscriptionQuotaActionHandler());
@@ -654,11 +655,6 @@ public class ChatWindowDelegate {
         typedHandlers.add(new DeleteCodexMcpServerActionHandler(codexMcpServerHandlers));
         typedHandlers.add(new ToggleCodexMcpServerActionHandler(codexMcpServerHandlers));
         typedHandlers.add(new ValidateCodexMcpServerActionHandler(codexMcpServerHandlers));
-
-        // §15.8 §11:OpenCode 模型刷新动作(前端 UI defer,能力可达:调 listModels → OPENCODE_MODELS_LIST)
-        com.github.claudecodegui.handler.opencode.OpenCodeModelsActionHandlers openCodeModelsHandlers =
-                new com.github.claudecodegui.handler.opencode.OpenCodeModelsActionHandlers(handlerContext);
-        typedHandlers.add(new com.github.claudecodegui.handler.opencode.RefreshOpenCodeModelsActionHandler(openCodeModelsHandlers));
 
         // Agent action handlers (B2 迁移: agent CRUD + selection + import/export)
         AgentActionHandlers agentHandlers = new AgentActionHandlers(handlerContext);
@@ -949,6 +945,8 @@ public class ChatWindowDelegate {
             JsUtils.escapeJs(OpenClassHandler.buildCapabilitiesJson())
         );
         host.getSessionLifecycleManager().sendCurrentPermissionMode();
+        sendCurrentModelRegistryToFrontend();
+        sendCurrentModelSelectionToFrontend();
         replayCurrentSessionStateToFrontend();
         host.persistTabSessionState();
 
@@ -964,6 +962,80 @@ public class ChatWindowDelegate {
         }
 
         host.getStreamCoalescer().flush(null);
+    }
+
+    /**
+     * FIX(regression):前端就绪后主动下发模型注册表快照。
+     *
+     * 根因:新建标签 / 首次加载 / watchdog reload 会创建全新 JCEF webview,其前端
+     * currentRegistry 模块单例初始为空。此前后端不主动下发 MODEL_REGISTRY,前端
+     * 仅靠 ButtonArea 的 useEffect 竞态触发 requestModelRegistry() 填充——
+     * ffa728db 删除 CLAUDE_MODELS 本地表 fallback 前,竞态空态被本地表掩盖;
+     * 删除后该空态直接暴露为"no model configured"(见前端 chat.noModelConfigured)。
+     *
+     * 修复:frontend_ready 是后端确认前端可接收数据的信号,在此主动下发 registry,
+     * 与 sendCurrentPermissionMode 对称(permission mode 在 ready 时下发,registry
+     * 同理),使模型下拉不再依赖脆弱的前端竞态。载荷复用 ProviderOperations 已验证的
+     * getModelRegistryJson()(= ModelRegistryService.serialize)。
+     */
+    private void sendCurrentModelRegistryToFrontend() {
+        try {
+            final String registryJson = host.getSettingsService().getModelRegistryJson();
+            if (registryJson == null || registryJson.trim().isEmpty()) {
+                return;
+            }
+            final HandlerContext ctx = host.getHandlerContext();
+            ApplicationManager.getApplication().invokeLater(() -> {
+                if (!host.isDisposed() && host.getBrowser() != null) {
+                    ctx.dispatchEvent(DownstreamEvent.MODEL_REGISTRY.value(), ctx.escapeJs(registryJson));
+                }
+            });
+        } catch (Exception e) {
+            LOG.warn("Failed to send model registry on frontend ready: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * FIX:前端就绪后主动下发当前会话的 provider/model 选择。
+     *
+     * <p>根因:新建标签 / 首次加载 / watchdog reload 会创建全新 JCEF webview,其前端
+     * currentProvider 默认 'claude',而新 webview 的 localStorage 不可靠(独立 JS
+     * 上下文,与 registry 回灌同一类隔离问题)。此前后端 ready 时已对称下发
+     * permission mode / model registry / session messages,但遗漏了 provider/model
+     * selection —— 新标签页的供应商总是回退到 claude。
+     *
+     * <p>修复:与 {@link SessionLifecycleManager#sendCurrentPermissionMode} /
+     * {@link #sendCurrentModelRegistryToFrontend} 对称,从 session 真相源
+     * (provider/model)重新 resolve 出 ModelSelectionResult,复用
+     * {@link ModelProviderHandler#buildModelSelectionPayload} 构造载荷并 dispatch
+     * MODEL_SELECTION。前端 useModelProviderState 已订阅该事件,收到后自动
+     * setCurrentProvider + setSelected{Provider}Model,完成跨标签供应商状态回灌(前端零改)。
+     */
+    private void sendCurrentModelSelectionToFrontend() {
+        try {
+            final ClaudeSession session = host.getSession();
+            if (session == null) {
+                return;
+            }
+            final String provider = session.getProvider();
+            final String model = session.getModel();
+            if (provider == null || provider.trim().isEmpty()
+                    || model == null || model.trim().isEmpty()) {
+                return;
+            }
+            final HandlerContext ctx = host.getHandlerContext();
+            ModelSelectionResult selection = new DefaultModelCapabilityResolver(
+                    ctx.getSettingsService().getModelRegistry()
+            ).resolve(new ModelSelectionRequest(provider, model, null, false));
+            final String payload = ModelProviderHandler.buildModelSelectionPayload(selection).toString();
+            ApplicationManager.getApplication().invokeLater(() -> {
+                if (!host.isDisposed() && host.getBrowser() != null) {
+                    ctx.dispatchEvent(DownstreamEvent.MODEL_SELECTION.value(), ctx.escapeJs(payload));
+                }
+            });
+        } catch (Exception e) {
+            LOG.warn("Failed to send current model selection on frontend ready: " + e.getMessage(), e);
+        }
     }
 
     private void replayCurrentSessionStateToFrontend() {

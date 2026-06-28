@@ -111,10 +111,7 @@ public enum UpstreamAction implements ProtocolValue {
     // ── Model Registry ──
     GET_MODEL_REGISTRY("get_model_registry"),
     SET_MODEL_REGISTRY("set_model_registry"),
-    RESET_MODEL_REGISTRY("reset_model_registry"),
     GET_MODEL_REGISTRY_SCHEMA("get_model_registry_schema"),
-    // §15.8 §11:动态刷新 OpenCode 模型列表(config.providers()),前端 UI defer。
-    REFRESH_OPENCODE_MODELS("refresh_opencode_models"),
 
     // ── Input History ──
     GET_INPUT_HISTORY("get_input_history"),

@@ -134,6 +134,32 @@ public class ClaudeSDKToolWindow implements ToolWindowFactory, DumbAware {
         LOG.info("[Broadcast] Invocation mode '" + mode + "' broadcast to " + windows.size() + " tab(s)");
     }
 
+    /**
+     * 广播模型注册表快照到当前项目所有标签的前端(主窗口 + 标签页 + 分离窗口)。
+     *
+     * <p>模型注册表是应用级全局数据(所有 tab 共享 {@link com.github.claudecodegui.settings.CodemossSettingsService}
+     * 单例),但 {@code MODEL_REGISTRY} 下发原为 per-webview(绑定单个 browser 的 jsCallback),
+     * 导致在 A 标签配置模型后 B 标签下拉不刷新(多标签 webview 单例隔离)。registry 的任意读取/变更
+     * (get/set/reload)都应经此广播同步到全部 tab 的前端 {@code currentRegistry} 单例。
+     *
+     * <p>{@code escapedJson} 由调用方预先 {@link com.github.claudecodegui.util.JsUtils#escapeJs} 转义
+     * (escapeJs 为纯字符串操作,循环外做一次即可),与 {@link #broadcastInvocationMode} 对称。
+     *
+     * @see com.github.claudecodegui.ui.ChatWindowDelegate#sendCurrentModelRegistryToFrontend 新 tab 就绪回灌
+     */
+    public static void broadcastModelRegistry(@NotNull Project project, @NotNull String type,
+                                              @NotNull String escapedJson) {
+        Set<ClaudeChatWindow> windows = collectProjectChatWindows(project);
+        for (ClaudeChatWindow window : windows) {
+            try {
+                window.dispatchEvent(type, escapedJson);
+            } catch (Exception e) {
+                LOG.warn("[Broadcast] Failed to push model registry to tab: " + e.getMessage());
+            }
+        }
+        LOG.info("[Broadcast] Model registry '" + type + "' broadcast to " + windows.size() + " tab(s)");
+    }
+
     private static Set<ClaudeChatWindow> collectProjectChatWindows(@NotNull Project project) {
         Set<ClaudeChatWindow> windows = Collections.newSetFromMap(new java.util.IdentityHashMap<>());
         ClaudeChatWindow mainWindow = instances.get(project);

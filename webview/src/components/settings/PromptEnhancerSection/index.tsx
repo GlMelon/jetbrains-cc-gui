@@ -9,14 +9,12 @@ interface PromptEnhancerSectionProps {
   promptEnhancerConfig?: PromptEnhancerConfig;
   onPromptEnhancerProviderChange?: (provider: PromptEnhancerProvider) => void;
   onPromptEnhancerModelChange?: (model: string) => void;
-  onPromptEnhancerResetToDefault?: () => void;
 }
 
 const PromptEnhancerSection = ({
   promptEnhancerConfig = DEFAULT_PROMPT_ENHANCER_CONFIG,
   onPromptEnhancerProviderChange = () => {},
   onPromptEnhancerModelChange = () => {},
-  onPromptEnhancerResetToDefault = () => {},
 }: PromptEnhancerSectionProps) => {
   const { t } = useTranslation();
 
@@ -34,7 +32,6 @@ const PromptEnhancerSection = ({
           fallbackProvider="claude"
           onProviderChange={onPromptEnhancerProviderChange}
           onModelChange={onPromptEnhancerModelChange}
-          onResetToDefault={onPromptEnhancerResetToDefault}
         />
       </AiFeatureSettingsCard>
     </div>

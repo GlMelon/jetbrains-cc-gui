@@ -113,18 +113,6 @@ public class ModelRegistryServiceTest {
     }
 
     @Test
-    public void resetRegistryReturnsResetSuccess() throws Exception {
-        useTemporaryHomeDirectory(Files.createTempDirectory("mrs-reset-home"));
-        ModelRegistryService service = new ModelRegistryService(new CodemossSettingsService());
-
-        ModelRegistryResult result = service.resetRegistry();
-
-        assertTrue(result.success());
-        assertTrue(result.reset());
-        assertTrue(result.registry().getAsJsonArray("items").size() > 0);
-    }
-
-    @Test
     public void defaultSchemaHasExpectedFields() {
         JsonObject schema = ModelRegistrySchemaResult.defaultSchema().schema();
         assertEquals("模型配置中心", schema.get("title").getAsString());

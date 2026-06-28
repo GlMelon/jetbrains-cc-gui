@@ -286,7 +286,6 @@
       "promptEnhancer": {
         "label": "Prompt Enhancer",
         "modelLabel": "Enhancer Model",
-        "resetToDefault": "Restore Default",
         "providerAvailable": "Available",
         "providerUnavailable": "Currently unavailable",
         "provider": {
@@ -400,7 +399,9 @@
       "saveSuccess": "Model configuration saved",
       "saveFailed": "Model configuration rejected",
       "duplicateModel": "A model with this ID already exists",
-      "readonly": "Read-only"
+      "readonly": "Read-only",
+      "reloadConfig": "Reload Config",
+      "reloadStarted": "Reloading model configuration..."
     },
     "dependencies": "SDK Dependencies",
     "dependenciesDesc": "Manage AI SDK dependency installations and updates",
@@ -465,7 +466,6 @@
       "providerModel": {
         "label": "Commit Model Provider",
         "modelLabel": "Commit Model",
-        "resetToDefault": "Reset",
         "providerAvailable": "Available",
         "providerUnavailable": "Unavailable",
         "currentProviderAuto": "Currently using auto selection: {{provider}}",
@@ -1898,7 +1898,8 @@
   "changelog": {
     "title": "What's New",
     "close": "Got it",
-    "page": "{{current}} / {{total}}"
+    "page": "{{current}} / {{total}}",
+    "summary": "{{date}} · {{count}} updates"
   },
   "error": {
     "providerNotConfigured": "Provider Not Configured",

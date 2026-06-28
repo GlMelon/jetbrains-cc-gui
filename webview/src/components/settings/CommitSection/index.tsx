@@ -10,7 +10,6 @@ interface CommitSectionProps {
   commitAiConfig?: CommitAiConfig;
   onCommitAiProviderChange?: (provider: CommitAiProvider) => void;
   onCommitAiModelChange?: (model: string) => void;
-  onCommitAiResetToDefault?: () => void;
   commitPrompt: string;
   projectCommitPrompt: string;
   onCommitPromptChange: (prompt: string) => void;
@@ -25,7 +24,6 @@ const CommitSection = ({
   commitAiConfig = DEFAULT_COMMIT_AI_CONFIG,
   onCommitAiProviderChange = () => {},
   onCommitAiModelChange = () => {},
-  onCommitAiResetToDefault = () => {},
   commitPrompt,
   projectCommitPrompt,
   onCommitPromptChange,
@@ -51,7 +49,6 @@ const CommitSection = ({
           fallbackProvider="codex"
           onProviderChange={onCommitAiProviderChange}
           onModelChange={onCommitAiModelChange}
-          onResetToDefault={onCommitAiResetToDefault}
         />
       </AiFeatureSettingsCard>
 

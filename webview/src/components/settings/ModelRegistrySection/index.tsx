@@ -142,10 +142,6 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
     setEditingOriginalKey(null);
   }, [editing, editingOriginalKey, persistRegistry, registry.items, addToast, t]);
 
-  const reset = useCallback(() => {
-    sendAction(UPSTREAM.RESET_MODEL_REGISTRY);
-  }, []);
-
   return (
     <section className={styles.section}>
       <div className={styles.header}>
@@ -160,8 +156,14 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
             <PlusIcon size={16} aria-hidden="true" />
             {t('common.add', 'Add')}
           </button>
-          <button className="btn btn-secondary btn-sm" onClick={reset}>
-            {t('common.reset', 'Reset')}
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => {
+              requestModelRegistry();
+              addToast(t('settings.models.reloadStarted', 'Reloading model configuration...'), 'info');
+            }}
+          >
+            {t('settings.models.reloadConfig', 'Reload Config')}
           </button>
         </div>
       </div>

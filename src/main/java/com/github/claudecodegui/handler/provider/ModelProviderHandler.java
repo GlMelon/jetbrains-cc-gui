@@ -200,7 +200,7 @@ public class ModelProviderHandler {
         return lower.startsWith("claude-") || lower.startsWith("claude_");
     }
 
-    static JsonObject buildModelSelectionPayload(ModelSelectionResult selection) {
+    public static JsonObject buildModelSelectionPayload(ModelSelectionResult selection) {
         JsonObject payload = new JsonObject();
         payload.addProperty("provider", selection.provider());
         payload.addProperty("selectedModel", selection.selectedModel());

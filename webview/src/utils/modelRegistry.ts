@@ -101,6 +101,25 @@ export function resolveClaudeModelId(modelId: string | undefined | null): string
 }
 
 /**
+ * 三 provider(Claude/Codex/OpenCode)归一化 SSOT。
+ *
+ * 收敛前端多处 inline `provider === 'codex' ? 'codex' : 'claude'` 逻辑——该写法把
+ * opencode 误归一为 claude(session.runtime_state / model.confirmed 下行时 opencode 被前端
+ * 当 claude 处理,模型 setter 走 setSelectedClaudeModel 而非 setSelectedOpenCodeModel)。
+ * 统一未知/缺失值回退 claude(与既有 inline 行为对齐;parseModelRegistryPayload 的"未知→null
+ * 过滤"语义不同,不复用本函数)。
+ */
+export function normalizeProvider(raw: string | null | undefined): ProviderType {
+  if (raw === 'codex') {
+    return 'codex';
+  }
+  if (raw === 'opencode') {
+    return 'opencode';
+  }
+  return 'claude';
+}
+
+/**
  * 解析模型对应的 Claude role,用于按 role 统一判断能力(如 reasoning effort)。
  *
  * A3(2026-06-23):纯读 registry 的 role 字段(后端 ModelConfig.role 权威下发,
@@ -151,7 +170,7 @@ export function resetModelRegistryForTests(): void {
 }
 
 export function getModelsForProvider(provider: string): ModelInfo[] {
-  const normalizedProvider = provider === 'codex' ? 'codex' : provider === 'opencode' ? 'opencode' : 'claude';
+  const normalizedProvider = normalizeProvider(provider);
   return currentRegistry.items
     .filter((model) => model.provider === normalizedProvider && model.enabled !== false)
     .map((model) => ({

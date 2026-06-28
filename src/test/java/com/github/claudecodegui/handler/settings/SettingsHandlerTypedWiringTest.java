@@ -33,7 +33,7 @@ public class SettingsHandlerTypedWiringTest {
     public void migratedActionsRemainResolvable() {
         for (String migrated : new String[]{
                 // Pre-B3 typed slices (model registry / appearance / provider utility)
-                "get_model_registry", "set_model_registry", "reset_model_registry",
+                "get_model_registry", "set_model_registry",
                 "get_model_registry_schema", "set_appearance_config",
                 "get_codex_subscription_quota",
                 "get_claude_cli_path", "set_claude_cli_path",
@@ -105,12 +105,11 @@ public class SettingsHandlerTypedWiringTest {
         List<FrontendActionHandler<?>> typed = new ArrayList<>();
         typed.add(new GetModelRegistryActionHandler(modelRegistryService));
         typed.add(new SetModelRegistryActionHandler(modelRegistryService));
-        typed.add(new ResetModelRegistryActionHandler(modelRegistryService));
         typed.add(new GetModelRegistrySchemaActionHandler(modelRegistryService));
         typed.add(new SetAppearanceConfigActionHandler(appearanceConfigService));
         typed.addAll(LegacyMessageHandlerAdapter.from(dummyLegacy));
 
-        // 构造不抛 IllegalArgumentException = 5 个 typed action 互不重复,且 dummy 的 set_model /
+        // 构造不抛 IllegalArgumentException = 4 个 typed action 互不重复,且 dummy 的 set_model /
         // get_runtime_policy 与 typed 不重叠(它们仍是合法 UpstreamAction 值,故 adapter 会包装)
         FrontendActionDispatcher dispatcher = new FrontendActionDispatcher(typed, ctx);
 

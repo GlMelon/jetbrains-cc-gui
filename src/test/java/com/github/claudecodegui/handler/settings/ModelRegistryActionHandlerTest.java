@@ -87,18 +87,6 @@ public class ModelRegistryActionHandlerTest {
     }
 
     @Test
-    public void resetModelRegistryDispatchesUpdatedThenRegistry() {
-        new ResetModelRegistryActionHandler(service).handle("", context);
-
-        assertEquals(2, dispatched.size());
-        assertEquals(DownstreamEvent.MODEL_REGISTRY_UPDATED.value(), dispatched.get(0)[0]);
-        JsonObject updated = JsonParser.parseString(dispatched.get(0)[1]).getAsJsonObject();
-        assertTrue(updated.get("success").getAsBoolean());
-        assertTrue(updated.get("reset").getAsBoolean());
-        assertEquals(DownstreamEvent.MODEL_REGISTRY.value(), dispatched.get(1)[0]);
-    }
-
-    @Test
     public void getModelRegistrySchemaDispatchesSchemaEvent() {
         new GetModelRegistrySchemaActionHandler(service).handle("", context);
 
@@ -112,7 +100,6 @@ public class ModelRegistryActionHandlerTest {
     public void handlersDeclareCorrectActions() {
         assertEquals(UpstreamAction.GET_MODEL_REGISTRY, new GetModelRegistryActionHandler(service).action());
         assertEquals(UpstreamAction.SET_MODEL_REGISTRY, new SetModelRegistryActionHandler(service).action());
-        assertEquals(UpstreamAction.RESET_MODEL_REGISTRY, new ResetModelRegistryActionHandler(service).action());
         assertEquals(UpstreamAction.GET_MODEL_REGISTRY_SCHEMA, new GetModelRegistrySchemaActionHandler(service).action());
     }
 }

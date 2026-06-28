@@ -56,16 +56,6 @@ public final class ModelRegistryService {
         }
     }
 
-    public ModelRegistryResult resetRegistry() {
-        try {
-            settingsService.resetModelRegistry();
-            return ModelRegistryResult.resetSuccess(serialize(settingsService.getModelRegistry()));
-        } catch (Exception e) {
-            LOG.error("[ModelRegistryService] Failed to reset model registry: " + e.getMessage(), e);
-            return ModelRegistryResult.failure("重置模型配置失败: " + e.getMessage());
-        }
-    }
-
     public ModelRegistrySchemaResult getSchema() {
         return ModelRegistrySchemaResult.defaultSchema();
     }

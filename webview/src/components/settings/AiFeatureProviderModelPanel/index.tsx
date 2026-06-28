@@ -15,7 +15,6 @@ interface AiFeatureProviderModelPanelProps {
   fallbackProvider?: AiFeatureProvider;
   onProviderChange?: (provider: AiFeatureProvider) => void;
   onModelChange?: (model: string) => void;
-  onResetToDefault?: () => void;
 }
 
 const AiFeatureProviderModelPanel = ({
@@ -25,7 +24,6 @@ const AiFeatureProviderModelPanel = ({
   fallbackProvider = 'codex',
   onProviderChange = () => {},
   onModelChange = () => {},
-  onResetToDefault = () => {},
 }: AiFeatureProviderModelPanelProps) => {
   const { t } = useTranslation();
 
@@ -69,7 +67,6 @@ const AiFeatureProviderModelPanel = ({
     }
     return options;
   }, [config.models, selectedProvider, modelRegistryVersion]);
-  const isAutoMode = config.provider == null;
   const statusText = config.resolutionSource === 'auto'
     ? t(`${settingsKeyPrefix}.currentProviderAuto`, {
       provider: t(`${providerKeyPrefix}.${statusProvider}`),
@@ -132,15 +129,6 @@ const AiFeatureProviderModelPanel = ({
           <span className={styles.statusText} title={statusText}>{statusText}</span>
         </div>
 
-        <button
-          type="button"
-          className={styles.resetBtn}
-          onClick={onResetToDefault}
-          disabled={isAutoMode}
-          aria-label={t(`${settingsKeyPrefix}.resetToDefault`)}
-        >
-          {t(`${settingsKeyPrefix}.resetToDefault`)}
-        </button>
       </div>
     </div>
   );

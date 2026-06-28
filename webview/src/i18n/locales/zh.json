@@ -288,7 +288,6 @@
       "promptEnhancer": {
         "label": "增强提示词",
         "modelLabel": "增强模型",
-        "resetToDefault": "恢复默认",
         "providerAvailable": "可用",
         "providerUnavailable": "当前不可用",
         "provider": {
@@ -402,7 +401,9 @@
       "saveSuccess": "模型配置已保存",
       "saveFailed": "模型配置被拒绝",
       "duplicateModel": "已存在相同 ID 的模型",
-      "readonly": "只读"
+      "readonly": "只读",
+      "reloadConfig": "重载配置",
+      "reloadStarted": "正在重载模型配置..."
     },
     "dependencies": "SDK 依赖",
     "dependenciesDesc": "管理 AI SDK 依赖包的安装和更新",
@@ -467,7 +468,6 @@
       "providerModel": {
         "label": "Commit 生成 Provider",
         "modelLabel": "Commit 生成模型",
-        "resetToDefault": "恢复默认",
         "providerAvailable": "可用",
         "providerUnavailable": "当前不可用",
         "currentProviderAuto": "当前使用自动选择：{{provider}}",
@@ -1898,7 +1898,8 @@
   "changelog": {
     "title": "版本更新",
     "close": "知道了",
-    "page": "{{current}} / {{total}}"
+    "page": "{{current}} / {{total}}",
+    "summary": "{{date}} · 共 {{count}} 项更新"
   },
   "error": {
     "providerNotConfigured": "供应商未配置",

@@ -30,7 +30,6 @@ describe('CommitSection', () => {
         commitAiConfig={config}
         onCommitAiProviderChange={vi.fn()}
         onCommitAiModelChange={vi.fn()}
-        onCommitAiResetToDefault={vi.fn()}
         commitPrompt="use english"
         projectCommitPrompt=""
         onCommitPromptChange={vi.fn()}
@@ -46,7 +45,6 @@ describe('CommitSection', () => {
     expect(screen.getByText('settings.commit.description')).toBeTruthy();
     expect(screen.getByTestId('commit-ai-provider-card')).toBeTruthy();
     expect(screen.getAllByRole('combobox')).toHaveLength(2);
-    expect(screen.getByRole('button', { name: 'settings.commit.providerModel.resetToDefault' })).toBeTruthy();
     expect(screen.getByDisplayValue('use english')).toBeTruthy();
     expect(screen.queryByText('settings.commit.codeReview.label')).toBeNull();
   });
