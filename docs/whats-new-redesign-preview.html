@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<title>What's New 弹窗重设计 · 效果图</title>
+<style>
+  :root {
+    --font-ui: -apple-system, "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", Consolas, Monaco, monospace;
+  }
+  [data-theme="dark"] {
+    --bg-app: #1a1a1c;
+    --bg-elevated: #232327;
+    --bg-hover: #2c2c32;
+    --bg-inset: #1c1c20;
+    --text-primary: #e6e6ea;
+    --text-secondary: #a8a8b0;
+    --text-tertiary: #6c6c76;
+    --border: #34343c;
+    --border-strong: #42424c;
+    --shadow: 0 24px 64px rgba(0,0,0,.5), 0 4px 12px rgba(0,0,0,.3);
+    --accent: #7c6cff;
+    --c-feature: #3fb950;
+    --c-fix: #e8a23c;
+    --c-improve: #4a9eff;
+    --c-perf: #b87bff;
+    --code-bg: #16161a;
+  }
+  [data-theme="light"] {
+    --bg-app: #ececed;
+    --bg-elevated: #ffffff;
+    --bg-hover: #f1f1f3;
+    --bg-inset: #f6f6f8;
+    --text-primary: #1a1a1f;
+    --text-secondary: #5a5a64;
+    --text-tertiary: #8c8c96;
+    --border: #e2e2e6;
+    --border-strong: #d0d0d6;
+    --shadow: 0 24px 64px rgba(0,0,0,.16), 0 4px 12px rgba(0,0,0,.06);
+    --accent: #6d4eff;
+    --c-feature: #1f9d4d;
+    --c-fix: #c8761a;
+    --c-improve: #1f6fe0;
+    --c-perf: #8b3fe0;
+    --code-bg: #f2f2f5;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; font-family: var(--font-ui);
+    background: var(--bg-app); display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 18px; padding: 32px;
+    transition: background .25s;
+  }
+  .toolbar { position: fixed; top: 16px; right: 16px; display: flex; gap: 8px; z-index: 10; }
+  .toolbar button {
+    background: var(--bg-elevated); color: var(--text-secondary);
+    border: 1px solid var(--border); border-radius: 8px; padding: 7px 13px;
+    font-size: 12px; cursor: pointer; font-family: var(--font-ui);
+    transition: all .15s;
+  }
+  .toolbar button:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+  .dialog {
+    width: 560px; max-width: 100%; background: var(--bg-elevated);
+    border: 1px solid var(--border); border-radius: 16px; overflow: hidden;
+    box-shadow: var(--shadow); display: flex; flex-direction: column;
+    max-height: 82vh; animation: pop .28s cubic-bezier(.2,.8,.2,1);
+  }
+  @keyframes pop { from { opacity: 0; transform: translateY(12px) scale(.98); } }
+
+  /* 顶部品牌色带 */
+  .dialog::before {
+    content: ""; display: block; height: 4px;
+    background: linear-gradient(90deg, var(--c-improve), var(--accent), var(--c-perf));
+  }
+
+  .header {
+    display: flex; align-items: flex-start; gap: 14px;
+    padding: 20px 24px 16px; border-bottom: 1px solid var(--border);
+  }
+  .header-icon {
+    flex-shrink: 0; width: 44px; height: 44px; border-radius: 12px;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 24%, transparent), color-mix(in srgb, var(--accent) 8%, transparent));
+    border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
+    display: grid; place-items: center; font-size: 22px;
+  }
+  .header-text { flex: 1; min-width: 0; }
+  .header-title { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .header-title h2 {
+    margin: 0; font-size: 19px; font-weight: 700; color: var(--text-primary);
+    letter-spacing: -.01em;
+  }
+  .version-badge {
+    font-size: 13px; font-weight: 700; font-family: var(--font-mono);
+    background: linear-gradient(135deg, var(--accent), var(--c-perf));
+    color: #fff; padding: 2px 9px; border-radius: 6px; letter-spacing: .02em;
+  }
+  .header-sub { margin-top: 3px; font-size: 12.5px; color: var(--text-tertiary); }
+  .close-btn {
+    flex-shrink: 0; background: none; border: none; color: var(--text-tertiary);
+    cursor: pointer; width: 30px; height: 30px; border-radius: 8px;
+    display: grid; place-items: center; transition: all .15s; font-size: 16px;
+  }
+  .close-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+  .body { flex: 1; overflow-y: auto; padding: 8px 16px 14px; }
+  .body::-webkit-scrollbar { width: 9px; }
+  .body::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 5px; border: 2px solid var(--bg-elevated); }
+
+  .section { padding: 14px 8px; }
+  .section + .section { border-top: 1px solid var(--border); }
+  .section-head {
+    display: flex; align-items: center; gap: 9px; margin: 0 0 10px;
+    font-size: 13.5px; font-weight: 650; letter-spacing: .01em;
+  }
+  .section-dot {
+    width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
+    box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent);
+  }
+  .section[data-kind="feature"] .section-head { color: var(--c-feature); }
+  .section[data-kind="feature"] .section-dot { background: var(--c-feature); color: var(--c-feature); }
+  .section[data-kind="fix"] .section-head { color: var(--c-fix); }
+  .section[data-kind="fix"] .section-dot { background: var(--c-fix); color: var(--c-fix); }
+  .section[data-kind="improve"] .section-head { color: var(--c-improve); }
+  .section[data-kind="improve"] .section-dot { background: var(--c-improve); color: var(--c-improve); }
+  .section[data-kind="perf"] .section-head { color: var(--c-perf); }
+  .section[data-kind="perf"] .section-dot { background: var(--c-perf); color: var(--c-perf); }
+  .section-title { color: var(--text-primary); }
+
+  ul.changes { list-style: none; margin: 0; padding: 0; }
+  ul.changes li {
+    position: relative; padding: 5px 0 5px 18px; font-size: 13px;
+    line-height: 1.62; color: var(--text-secondary); border-radius: 6px;
+    transition: background .12s;
+  }
+  ul.changes li::before {
+    content: ""; position: absolute; left: 4px; top: 13px;
+    width: 5px; height: 5px; border-radius: 50%; background: var(--text-tertiary);
+  }
+  ul.changes li:hover { background: var(--bg-inset); color: var(--text-primary); }
+  ul.changes strong { color: var(--text-primary); font-weight: 620; }
+  ul.changes code {
+    font-family: var(--font-mono); font-size: 12px; background: var(--code-bg);
+    border: 1px solid var(--border); padding: 1px 5px; border-radius: 4px;
+    color: var(--text-primary);
+  }
+  .by { color: var(--text-tertiary); font-size: 12px; }
+
+  .footer {
+    display: flex; align-items: center; gap: 12px;
+    padding: 13px 20px; border-top: 1px solid var(--border); background: var(--bg-inset);
+  }
+  .nav-btn {
+    background: var(--bg-elevated); border: 1px solid var(--border-strong);
+    color: var(--text-secondary); cursor: pointer; width: 32px; height: 32px;
+    border-radius: 8px; display: grid; place-items: center; font-size: 14px;
+    transition: all .15s; font-family: var(--font-ui);
+  }
+  .nav-btn:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-primary); border-color: var(--accent); }
+  .nav-btn:disabled { opacity: .35; cursor: default; }
+  .dots { flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px; }
+  .dot {
+    width: 7px; height: 7px; border-radius: 50%; border: none; cursor: pointer;
+    background: var(--text-tertiary); opacity: .35; padding: 0; transition: all .18s;
+  }
+  .dot:hover { opacity: .65; }
+  .dot.active { opacity: 1; background: var(--accent); width: 20px; border-radius: 4px; }
+  .got-it {
+    background: linear-gradient(135deg, var(--accent), var(--c-perf)); color: #fff;
+    border: none; cursor: pointer; padding: 8px 18px; border-radius: 8px;
+    font-size: 13px; font-weight: 600; font-family: var(--font-ui); transition: filter .15s;
+  }
+  .got-it:hover { filter: brightness(1.12); }
+
+  .caption {
+    color: var(--text-tertiary); font-size: 12px; text-align: center; max-width: 520px;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+  <div class="toolbar">
+    <button onclick="toggleTheme()">切换 浅色 / 深色</button>
+  </div>
+
+  <div class="dialog" role="dialog" aria-label="更新日志">
+    <div class="header">
+      <div class="header-icon">🎁</div>
+      <div class="header-text">
+        <div class="header-title">
+          <h2>更新日志</h2>
+          <span class="version-badge">v0.4.5</span>
+        </div>
+        <div class="header-sub">2026-06-11 · 共 13 项更新</div>
+      </div>
+      <button class="close-btn" aria-label="关闭">✕</button>
+    </div>
+
+    <div class="body">
+      <div class="section" data-kind="feature">
+        <div class="section-head"><span class="section-dot"></span><span class="section-title">✨ 新功能</span></div>
+        <ul class="changes">
+          <li>新增 <strong>Codex 快速模式</strong>：模型选择器新增「快速」速度模式，映射到 <code>service_tier=fast</code> <span class="by">by @llanc</span></li>
+          <li>新增 <strong>Claude Code CLI 路径覆盖</strong>：设置 → 环境中可指定自定义 <code>claude</code> 可执行文件路径 <span class="by">by @senfix</span></li>
+          <li>设置 → 基础 → 外观新增独立<strong>代码字体</strong>配置：代码块与 Bash 输出使用代码字体，聊天文本跟随 IDEA UI 字体 <span class="by">by @Luna5ama</span></li>
+          <li>新增 <strong>Codex 订阅配额面板</strong>：在模型选择器中显示 ChatGPT Plus/Pro 配额，双来源拉取，快照缓存 <span class="by">by @Luna5ama</span></li>
+          <li>新增 <strong>Shift+Esc</strong> 快捷键隐藏 CCG 工具窗口面板 <span class="by">by @Cyber0xFE</span></li>
+          <li><strong>Ctrl+Alt+K</strong> 无论是否有代码选择均可打开 CCG 面板，激活时自动聚焦输入框 <span class="by">by @Cyber0xFE</span></li>
+          <li>每条消息底部新增<strong>逐轮 Token 消耗指示器</strong> <span class="by">by @suzhelan</span></li>
+          <li>新增 <strong>Claude Fable 5</strong> 模型（Mythos 级，输入 $10/1M，输出 $50/1M） <span class="by">by @zkpaiminmin</span></li>
+        </ul>
+      </div>
+
+      <div class="section" data-kind="fix">
+        <div class="section-head"><span class="section-dot"></span><span class="section-title">🐛 修复</span></div>
+        <ul class="changes">
+          <li>修复 <strong>WSL2 全套兼容性</strong>：SDK 安装到 WSL 文件系统，权限变量经 WSLENV 跨边界传播 <span class="by">by @Gazoon007</span></li>
+          <li>修复<strong>工具 spinner 永久卡住</strong>：流结束时保存待处理快照中的 <code>tool_result</code> <span class="by">by @Cyber0xFE</span></li>
+          <li>修复<strong>使用量高估</strong>：按 <code>message.id</code> 去重（约 2× 膨胀）；Opus 定价修正为 $5/$25 /1M <span class="by">by @t7r5fz7848-lab</span></li>
+          <li>修复<strong>控制字符混淆 href XSS</strong>，在 DOMPurify hook 拒绝含 C0 字符的 href（安全） <span class="by">by @zkpaiminmin</span></li>
+        </ul>
+      </div>
+
+      <div class="section" data-kind="improve">
+        <div class="section-head"><span class="section-dot"></span><span class="section-title">🔧 改进</span></div>
+        <ul class="changes">
+          <li>为 Bash 输出渲染引入专用 CSS 类 <span class="by">by @Luna5ama</span></li>
+          <li>新增 Docker 构建支持（<code>Dockerfile</code> + <code>.dockerignore</code>） <span class="by">by @senfix</span></li>
+          <li>将环境变量拆分为 <code>MODEL_ROUTING_ENV_VARS</code> 和 <code>REASONING_CONTROL_ENV_VARS</code>，防止独立漂移 <span class="by">by @gadfly3173</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer">
+      <button class="nav-btn" disabled aria-label="上一版本">‹</button>
+      <div class="dots">
+        <button class="dot active" aria-label="v0.4.5"></button>
+        <button class="dot" aria-label="v0.4.4"></button>
+        <button class="dot" aria-label="v0.4.3"></button>
+        <button class="dot" aria-label="v0.4.2"></button>
+        <button class="dot" aria-label="v0.4.1"></button>
+      </div>
+      <button class="nav-btn" aria-label="下一版本">›</button>
+      <button class="got-it">知道了</button>
+    </div>
+  </div>
+
+  <p class="caption">
+    ↑ 重设计效果图（真实 v0.4.5 数据）。改进点：① 顶部品牌渐变色带 ② 版本号醒目徽章 ③ 分区彩色圆点（新功能绿 / 修复橙 / 改进蓝）④ 行内 <code>code</code> 带边框 ⑤ 列表 hover 高亮 ⑥ footer 加「知道了」主按钮 + 胶囊式当前页指示。点击右上角可切换主题。
+  </p>
+
+<script>
+  function toggleTheme() {
+    const html = document.documentElement;
+    html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
+  }
+</script>
+</body>
+</html>

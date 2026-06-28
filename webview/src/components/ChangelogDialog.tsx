@@ -11,6 +11,31 @@ interface ChangelogDialogProps {
   initialPage?: number;
 }
 
+// emoji 前缀 → 分区语义,用于彩色着色(✨新功能 / 🐛修复 / 🔧改进 / ⚡性能)。
+const SECTION_KIND: Record<string, string> = {
+  '✨': 'feature',
+  '🐛': 'fix',
+  '🔧': 'improve',
+  '⚡': 'perf',
+  '⚡️': 'perf',
+};
+const SECTION_EMOJI = /^[✨🐛🔧🎉🚀💡⚡️🔥📦🛠️]/;
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/** 行内格式化:先转义,再还原 **bold** 与 `code`。 */
+function formatInline(text: string): string {
+  return escapeHtml(text)
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>');
+}
+
 /**
  * Resolve content to display. Shows both EN and ZH when both exist,
  * otherwise shows whichever is available.
@@ -24,80 +49,78 @@ function resolveContent(entry: ChangelogEntry): string[] {
 }
 
 /**
- * Simple markdown-to-HTML renderer for changelog content.
- * Handles: headings, bullet lists, bold, inline code, and emoji.
+ * 把单语言 changelog 文本渲染为分区结构:emoji 前缀行(✨/🐛/🔧/⚡…)开启一个
+ * .changelog-section,其后的 `- ` 列表项归入该分区并按语义着色。游离内容(无分区
+ * 前缀的段落)收入 .changelog-loose。
  */
 function renderChangelogMarkdown(text: string): string {
   if (!text) return '';
 
-  const lines = text.split('\n');
-  const htmlParts: string[] = [];
-  let inList = false;
+  const sections: { kind: string; head: string; items: string[] }[] = [];
+  const loose: string[] = [];
+  let current: { kind: string; head: string; items: string[] } | null = null;
 
-  for (const line of lines) {
-    const trimmed = line.trim();
+  for (const raw of text.split('\n')) {
+    const line = raw.trim();
+    if (!line) continue;
 
-    if (!trimmed) {
-      if (inList) {
-        htmlParts.push('</ul>');
-        inList = false;
+    if (line.startsWith('- ')) {
+      const item = `<li>${formatInline(line.substring(2))}</li>`;
+      if (current) {
+        current.items.push(item);
+      } else {
+        loose.push(`<p>${formatInline(line.substring(2))}</p>`);
       }
       continue;
     }
 
-    // Bullet list item
-    if (trimmed.startsWith('- ')) {
-      if (!inList) {
-        htmlParts.push('<ul>');
-        inList = true;
-      }
-      const itemText = escapeHtml(trimmed.substring(2)).replace(
-        /`([^`]+)`/g,
-        '<code>$1</code>'
-      );
-      htmlParts.push(`<li>${itemText}</li>`);
+    const emojiMatch = line.match(SECTION_EMOJI);
+    if (emojiMatch) {
+      const emoji = emojiMatch[0] ?? '';
+      current = {
+        kind: SECTION_KIND[emoji] ?? 'other',
+        head: escapeHtml(line),
+        items: [],
+      };
+      sections.push(current);
       continue;
     }
 
-    // Close list if not a bullet item
-    if (inList) {
-      htmlParts.push('</ul>');
-      inList = false;
+    // 段落或 P\d 优先级标签:已有分区则并入列表,否则作为游离段落。
+    if (current) {
+      current.items.push(`<li>${formatInline(line)}</li>`);
+    } else {
+      loose.push(`<p>${formatInline(line)}</p>`);
     }
-
-    // Section heading (emoji prefix like ✨ Features, 🐛 Fixes, 🔧 Improvements)
-    if (/^[✨🐛🔧🎉🚀💡⚡️🔥📦🛠️]/.test(trimmed)) {
-      htmlParts.push(`<h4>${escapeHtml(trimmed)}</h4>`);
-      continue;
-    }
-
-    // Priority label lines (P0/P1/P2 format from older changelogs)
-    if (/^P\d/.test(trimmed)) {
-      if (!inList) {
-        htmlParts.push('<ul>');
-        inList = true;
-      }
-      htmlParts.push(`<li>${escapeHtml(trimmed)}</li>`);
-      continue;
-    }
-
-    // Plain text
-    htmlParts.push(`<p>${escapeHtml(trimmed)}</p>`);
   }
 
-  if (inList) {
-    htmlParts.push('</ul>');
-  }
+  const sectionHtml = sections
+    .map((s) => (
+      `<div class="changelog-section" data-kind="${s.kind}">` +
+      `<div class="changelog-section-head">` +
+      `<span class="changelog-section-dot"></span>` +
+      `<span class="changelog-section-title">${s.head}</span>` +
+      `</div>` +
+      `<ul class="changelog-changes">${s.items.join('')}</ul>` +
+      `</div>`
+    ))
+    .join('');
 
-  return htmlParts.join('\n');
+  return loose.length
+    ? `<div class="changelog-loose">${loose.join('')}</div>${sectionHtml}`
+    : sectionHtml;
 }
 
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+/** 统计单语言文本的更新项数(`- ` 列表项),用于副标题展示。 */
+function countChanges(text: string): number {
+  if (!text) return 0;
+  let count = 0;
+  for (const line of text.split('\n')) {
+    if (line.trim().startsWith('- ')) {
+      count++;
+    }
+  }
+  return count;
 }
 
 const ChangelogDialog = ({ isOpen, onClose, entries, initialPage = 0 }: ChangelogDialogProps) => {
@@ -143,18 +166,26 @@ const ChangelogDialog = ({ isOpen, onClose, entries, initialPage = 0 }: Changelo
   const totalPages = entries.length;
   const hasPrev = currentPage > 0;
   const hasNext = currentPage < totalPages - 1;
+  const changeCount = contentParts.length > 0 ? countChanges(contentParts[0]) : 0;
 
   return (
     <BaseDialog isOpen={isOpen} onClose={onClose} ariaLabel={t('changelog.title')}>
       <div className="changelog-dialog">
         {/* Header */}
         <div className="changelog-header">
-          <div className="changelog-title-area">
-            <h3>{t('changelog.title')}</h3>
-            <span className="changelog-version-badge">v{entry.version}</span>
-            <span className="changelog-date">{entry.date}</span>
+          <div className="changelog-header-icon" aria-hidden="true">🎁</div>
+          <div className="changelog-header-text">
+            <div className="changelog-header-title">
+              <h2>{t('changelog.title')}</h2>
+              <span className="changelog-version-badge">v{entry.version}</span>
+            </div>
+            <div className="changelog-header-sub">
+              {changeCount > 0
+                ? t('changelog.summary', { count: changeCount, date: entry.date })
+                : entry.date}
+            </div>
           </div>
-          <button className="changelog-close-btn" onClick={onClose}>
+          <button className="changelog-close-btn" onClick={onClose} aria-label={t('changelog.close')}>
             <CloseIcon size={16} />
           </button>
         </div>
@@ -162,7 +193,7 @@ const ChangelogDialog = ({ isOpen, onClose, entries, initialPage = 0 }: Changelo
         {/* Body */}
         <div className="changelog-body">
           {contentParts.map((part, idx) => (
-            <div key={idx}>
+            <div key={idx} className="changelog-body-part">
               {idx > 0 && <hr className="changelog-divider" />}
               <div
                 className="changelog-content"
@@ -183,18 +214,16 @@ const ChangelogDialog = ({ isOpen, onClose, entries, initialPage = 0 }: Changelo
             <ChevronLeftIcon size={16} />
           </button>
 
-          <div className="changelog-pagination">
+          <div className="changelog-dots">
             {totalPages <= 10 ? (
-              <div className="changelog-dots">
-                {entries.map((_, idx) => (
-                  <button
-                    key={idx}
-                    className={`changelog-dot ${idx === currentPage ? 'active' : ''}`}
-                    onClick={() => setCurrentPage(idx)}
-                    aria-label={`Page ${idx + 1}`}
-                  />
-                ))}
-              </div>
+              entries.map((_, idx) => (
+                <button
+                  key={idx}
+                  className={`changelog-dot ${idx === currentPage ? 'active' : ''}`}
+                  onClick={() => setCurrentPage(idx)}
+                  aria-label={`Page ${idx + 1}`}
+                />
+              ))
             ) : (
               <span className="changelog-page-text">
                 {t('changelog.page', { current: currentPage + 1, total: totalPages })}
@@ -209,6 +238,10 @@ const ChangelogDialog = ({ isOpen, onClose, entries, initialPage = 0 }: Changelo
             aria-label="Next version"
           >
             <ChevronRightIcon size={16} />
+          </button>
+
+          <button className="changelog-got-it" onClick={onClose}>
+            {t('changelog.close')}
           </button>
         </div>
       </div>
