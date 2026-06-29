@@ -7,6 +7,7 @@ import com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow;
 import com.github.claudecodegui.util.JsUtils;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.intellij.openapi.project.Project;
 
 /**
  * 模型注册表下行事件的装配 + 跨 tab 广播(DRY)。
@@ -31,9 +32,7 @@ final class ModelRegistryEvents {
             result.errors().forEach(errors::add);
             response.add("errors", errors);
         }
-        String escaped = JsUtils.escapeJs(response.toString());
-        ClaudeSDKToolWindow.broadcastModelRegistry(ctx.getProject(),
-                DownstreamEvent.MODEL_REGISTRY_UPDATED.value(), escaped);
+        dispatch(ctx, DownstreamEvent.MODEL_REGISTRY_UPDATED.value(), response.toString());
     }
 
     /** 广播完整 {@code model_registry} 快照。 */
@@ -41,8 +40,15 @@ final class ModelRegistryEvents {
         if (result.registry() == null) {
             return;
         }
-        String escaped = JsUtils.escapeJs(result.registry().toString());
-        ClaudeSDKToolWindow.broadcastModelRegistry(ctx.getProject(),
-                DownstreamEvent.MODEL_REGISTRY.value(), escaped);
+        dispatch(ctx, DownstreamEvent.MODEL_REGISTRY.value(), result.registry().toString());
+    }
+
+    private static void dispatch(HandlerContext ctx, String type, String payloadJson) {
+        Project project = ctx.getProject();
+        if (project == null) {
+            ctx.dispatchEvent(type, payloadJson);
+            return;
+        }
+        ClaudeSDKToolWindow.broadcastModelRegistry(project, type, JsUtils.escapeJs(payloadJson));
     }
 }
