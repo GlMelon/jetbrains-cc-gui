@@ -3,6 +3,7 @@ package com.github.claudecodegui.cli.codex;
 import com.github.claudecodegui.cli.CliSessionCallback;
 import org.junit.Test;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -448,6 +449,122 @@ public class CodexCliSessionTest {
         );
 
         assertTrue(callback.errors.stream().anyMatch(error -> error.contains("网关或上游服务超时 (504)")));
+    }
+
+    @Test
+    public void fatalReconnectingErrorIsReportedImmediatelyInsteadOfBuffered() throws Exception {
+        // 复现:codex 对不支持的 model 返回 502,触发 "Reconnecting... N/5" 死循环,子进程永不退出。
+        // parseEvent 收到 error 事件时 cliError 恒非空(生产 send 第 126 行 new StringBuilder()),
+        // 旧行为静默 appendDiagnosticLine → 永不 onError → 前端无限 "Generating response"。
+        // 注意必须用 5 参数版 invokeParseEvent(cliError 非空)模拟生产;4 参数版 cliError=null 会走 else 分支假绿。
+        CodexCliSession session = new CodexCliSession("tab-fatal");
+        RecordingCallback callback = new RecordingCallback();
+
+        invokeParseEvent(
+                session,
+                "{\"type\":\"error\",\"message\":\"Reconnecting... 1/5 (unexpected status 502 Bad Gateway: error code: 502, url: https://gpt.eacase.de5.net/v1/responses)\"}",
+                callback,
+                new StringBuilder(),
+                new StringBuilder()
+        );
+
+        assertFalse("致命 Reconnecting/502 错误必须立即上报,而非静默缓冲导致前端无限转圈",
+                callback.errors.isEmpty());
+    }
+
+    @Test
+    public void isFatalCodexErrorDetectsReconnectingAndGatewayStatuses() {
+        assertTrue(CodexCliSession.isFatalCodexError(
+                "Reconnecting... 1/5 (unexpected status 502 Bad Gateway)"));
+        assertTrue(CodexCliSession.isFatalCodexError("HTTP 502: "));
+        assertTrue(CodexCliSession.isFatalCodexError("unexpected status 503 Service Unavailable"));
+        assertFalse(CodexCliSession.isFatalCodexError("running command ls"));
+        assertFalse(CodexCliSession.isFatalCodexError(null));
+    }
+
+    @Test
+    public void mcpRmcpDiagnosticLineDowngradedToStatusNotice() throws Exception {
+        // 复现用户截图:本地 MCP 未启动,Codex 成功回答后仍弹 rmcp 错误。
+        // 根因:rmcp 非 JSON 日志行命中 CLI_ERROR_KEYWORD_PATTERN → 缓冲进 cliError → exit0 onError。
+        // 期望:rmcp 行降级为非阻塞 status 提示,不缓冲为回合错误(cliError 保持空)。
+        CodexCliSession session = new CodexCliSession("tab-mcp");
+        RecordingCallback callback = new RecordingCallback();
+        StringBuilder cliError = new StringBuilder();
+
+        invokeParseEvent(
+                session,
+                "ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, "
+                        + "when Client(HttpRequest(HttpRequest(\"http/request failed: error sending "
+                        + "request for url (http://127.0.0.1:64343/stream)\")))",
+                callback,
+                new StringBuilder(),
+                cliError
+        );
+
+        assertTrue("cliError 必须保持空(rmcp 行不缓冲为回合错误,不触发 exit0 onError)",
+                cliError.toString().isEmpty());
+        assertTrue("rmcp 行不得报错(callback.errors 必须为空)", callback.errors.isEmpty());
+        List<String> statusMessages = callback.contentsOfType("status");
+        assertEquals("应发一条非阻塞 status 提示", 1, statusMessages.size());
+    }
+
+    @Test
+    public void mcpStructuredErrorEventDowngradedToStatusNotice() throws Exception {
+        // 防御:codex 结构化 error 事件(message 含 MCP 失败)同样降级,不缓冲为回合错误。
+        CodexCliSession session = new CodexCliSession("tab-mcp-evt");
+        RecordingCallback callback = new RecordingCallback();
+        StringBuilder cliError = new StringBuilder();
+
+        invokeParseEvent(
+                session,
+                "{\"type\":\"error\",\"message\":\"mcp server 'weather' failed to connect\"}",
+                callback,
+                new StringBuilder(),
+                cliError
+        );
+
+        assertTrue("MCP error 事件不缓冲为回合错误", cliError.toString().isEmpty());
+        assertTrue("MCP error 事件不得 onError", callback.errors.isEmpty());
+        assertEquals("应发一条非阻塞 status 提示", 1, callback.contentsOfType("status").size());
+    }
+
+    @Test
+    public void mcpNoticeEmittedAtMostOncePerTurn() throws Exception {
+        // rmcp worker 可能重试多次刷屏:每回合只发一次 toast,但每次匹配都抑制(不缓冲)。
+        CodexCliSession session = new CodexCliSession("tab-mcp-dedupe");
+        RecordingCallback callback = new RecordingCallback();
+        StringBuilder cliError = new StringBuilder();
+        String rmcp = "ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed";
+
+        invokeParseEvent(session, rmcp, callback, new StringBuilder(), cliError);
+        invokeParseEvent(session, rmcp, callback, new StringBuilder(), cliError);
+        invokeParseEvent(session, rmcp, callback, new StringBuilder(), cliError);
+
+        assertEquals("多次 rmcp 行只发一次 status toast", 1, callback.contentsOfType("status").size());
+        assertTrue("所有 rmcp 行都不缓冲", cliError.toString().isEmpty());
+    }
+
+    @Test
+    public void fatalCodexErrorSetsFatalAbortFlagToBreakStdoutLoop() throws Exception {
+        // parseEvent 对致命 error 不仅 onError,还必须置 fatalAbort 标志:它是 stdout 读取循环
+        // 提前 break + destroyForcibly 的前提。仅 onError 而不置标志,stdout 仍阻塞等子进程 EOF,
+        // 而 502 重连死循环下子进程永不退出 → 前端无限 "Generating response"(019f0fbd 复现:
+        // codex rollout duration_ms=580505 ≈ 9.7 分钟才 task_complete)。
+        CodexCliSession session = new CodexCliSession("tab-fatal-flag");
+        RecordingCallback callback = new RecordingCallback();
+
+        invokeParseEvent(
+                session,
+                "{\"type\":\"error\",\"message\":\"unexpected status 502 Bad Gateway\"}",
+                callback,
+                new StringBuilder(),
+                new StringBuilder()
+        );
+
+        Field fatalAbortField = CodexCliSession.class.getDeclaredField("fatalAbort");
+        fatalAbortField.setAccessible(true);
+        assertTrue("致命 502 error 必须置 fatalAbort 标志,驱动 stdout break+destroyForcibly 终止卡死进程",
+                fatalAbortField.getBoolean(session));
     }
 
     @Test

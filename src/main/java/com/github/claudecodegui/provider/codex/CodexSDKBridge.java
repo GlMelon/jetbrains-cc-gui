@@ -13,6 +13,7 @@ import com.github.claudecodegui.bridge.EnvironmentConfigurator;
 import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.bridge.ProcessManager;
 import com.github.claudecodegui.cli.common.CliConstants;
+import com.github.claudecodegui.cli.common.McpErrorMatcher;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.protocol.CodexProtectedEnvKey;
 import com.github.claudecodegui.provider.common.BaseSDKBridge;
@@ -298,6 +299,13 @@ public class CodexSDKBridge extends BaseSDKBridge {
                     errorMessage = obj.get("error").getAsString();
                 }
             } catch (Exception ignored) {
+            }
+            if (McpErrorMatcher.isMcpConnectionFailure(errorMessage)) {
+                // MCP 连接失败(本地 server 未启动等):降级为非阻塞 status 提示,不标记失败/报错。
+                // 回合仍按正常退出码判定(!hadSendError → result.success = exitCode==0),
+                // 用户看到已流式答案 + 瞬态 toast。镜像 Codex CLI 诊断分支的降级处理。
+                callback.onMessage(CliConstants.CODEX_MSG_STATUS, McpErrorMatcher.MCP_SKIPPED_NOTICE);
+                return;
             }
             hadSendError.set(true);
             result.success = false;

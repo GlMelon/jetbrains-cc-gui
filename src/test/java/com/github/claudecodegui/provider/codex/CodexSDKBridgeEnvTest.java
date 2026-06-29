@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public class CodexSDKBridgeEnvTest {
@@ -135,6 +136,52 @@ public class CodexSDKBridgeEnvTest {
         }
     }
 
+    @Test
+    public void sendErrorWithMcpFailureDowngradedToStatusNotice() throws Exception {
+        // 复现:Codex SDK 模式下本地 MCP 未启动,turn.failed/error 经 ai-bridge 抛错 → [SEND_ERROR]。
+        // 期望:[SEND_ERROR] 含 MCP 失败签名时降级为非阻塞 status 提示,不标记 hadSendError/报错。
+        Path sessionsDir = Files.createTempDirectory("codex-sdk-mcp-send-error");
+        try {
+            TestCodexSDKBridge bridge = new TestCodexSDKBridge(sessionsDir);
+            ErrorCapturingCallback callback = new ErrorCapturingCallback();
+            SDKResult result = new SDKResult();
+
+            bridge.processLine(
+                    "[SEND_ERROR] {\"error\":\"rmcp::transport::worker: worker quit with fatal: "
+                            + "Transport channel closed, when Client(HttpRequest(... http://127.0.0.1:64343/stream))\"}",
+                    callback,
+                    result
+            );
+
+            assertTrue("MCP 失败应发一条非阻塞 status 提示",
+                    callback.messages.stream().anyMatch(event -> "status".equals(event.type)));
+            assertTrue("MCP 失败不得 onError", callback.errors.isEmpty());
+            assertNull("MCP 失败不得设置 result.error", result.error);
+        } finally {
+            deleteDirectory(sessionsDir);
+        }
+    }
+
+    @Test
+    public void sendErrorWithGenericFailureStillReportsError() throws Exception {
+        // 对照(降级不误伤):非 MCP 的普通 [SEND_ERROR] 仍正常报错。
+        Path sessionsDir = Files.createTempDirectory("codex-sdk-generic-send-error");
+        try {
+            TestCodexSDKBridge bridge = new TestCodexSDKBridge(sessionsDir);
+            ErrorCapturingCallback callback = new ErrorCapturingCallback();
+            SDKResult result = new SDKResult();
+
+            bridge.processLine("[SEND_ERROR] {\"error\":\"Unexpected token in JSON response\"}",
+                    callback, result);
+
+            assertFalse("普通错误仍必须 onError", callback.errors.isEmpty());
+            assertFalse("非 MCP 错误不应发 status",
+                    callback.messages.stream().anyMatch(event -> "status".equals(event.type)));
+        } finally {
+            deleteDirectory(sessionsDir);
+        }
+    }
+
     private static Map<String, String> populateRuntimeEnv(CodexSDKBridge bridge, String permissionMode) throws Exception {
         Map<String, String> env = new LinkedHashMap<>();
         Method method = CodexSDKBridge.class.getDeclaredMethod(
@@ -195,6 +242,26 @@ public class CodexSDKBridgeEnvTest {
 
         @Override
         public void onError(String error) {
+        }
+
+        @Override
+        public void onComplete(SDKResult result) {
+        }
+    }
+
+    /** 捕获 onMessage 与 onError 的 callback(RecordingCallback 不捕获 error,无法验证降级)。 */
+    private static final class ErrorCapturingCallback implements MessageCallback {
+        private final List<Event> messages = new ArrayList<>();
+        private final List<String> errors = new ArrayList<>();
+
+        @Override
+        public void onMessage(String type, String content) {
+            messages.add(new Event(type, content));
+        }
+
+        @Override
+        public void onError(String error) {
+            errors.add(error);
         }
 
         @Override

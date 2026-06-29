@@ -94,6 +94,12 @@ public class CodexCliSession implements CliSession {
     // 当前活跃进程（用于中断）
     private volatile CliProcessHandle activeHandle;
     private final AtomicBoolean userInterrupted = new AtomicBoolean(false);
+    // 致命 provider/API 错误(如 502 重连死循环)标志:parseEvent 检测到时置位,
+    // stdout 读取循环据此提前 break 并 destroyForcibly,避免子进程永不退出导致前端无限转圈。
+    private volatile boolean fatalAbort;
+    // MCP 连接失败(本地 server 未启动)已发非阻塞提示的标志:rmcp worker 可能重试多次刷屏,
+    // 每回合只发一次 toast;同时所有匹配 MCP 失败的行/事件都不缓冲为回合错误(见 handleMcpFailure)。
+    private volatile boolean mcpNoticeEmitted;
     // 为缺失 id/call_id 的事件项生成唯一 fallback id,避免同轮多个工具块塌缩成同一 id 被去重吞掉。
     private final AtomicLong fallbackIdSeq = new AtomicLong();
     private final Map<String, String> assistantTextByItemId = new HashMap<>();
@@ -186,6 +192,10 @@ public class CodexCliSession implements CliSession {
                                 lineBuf.write(b);
                             }
                         }
+                        if (fatalAbort) {
+                            // parseEvent 已对致命错误 onError;终止卡死的重连进程,避免 read() 永不 EOF。
+                            break;
+                        }
                     }
                     // 处理最后一行（无尾随换行符）
                     if (lineBuf.size() > 0) {
@@ -193,6 +203,14 @@ public class CodexCliSession implements CliSession {
                     }
                 }
 
+                if (fatalAbort) {
+                    // 致命 provider/API 错误(parseEvent 已 onError):强制终止卡死的重连进程,
+                    // 跳过正常退出码诊断(避免二次报错),直接完成回调。
+                    process.destroyForcibly();
+                    process.waitFor();
+                    callback.onComplete(false, assistantContent.toString(), null);
+                    return;
+                }
                 if (!process.waitFor(CliConstants.PROCESS_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
                     process.destroyForcibly();
                     process.waitFor();
@@ -248,6 +266,8 @@ public class CodexCliSession implements CliSession {
 
     void prepareForSend() {
         userInterrupted.set(false);
+        fatalAbort = false;
+        mcpNoticeEmitted = false;
         lastSegmentKind = SegmentKind.NONE;
         pendingAgentMessageText = "";
         turnCompleted = false;
@@ -308,6 +328,45 @@ public class CodexCliSession implements CliSession {
     // We no longer reinterpret agent_message content as tool transcript based on
     // its text shape; tool output should come from structured tool events.
 
+    /**
+     * 判定 codex error 事件是否为致命(不可恢复、会导致重连死循环)错误。
+     * <p>这类错误(provider 不支持的 model 触发 502、网关 5xx、unexpected status)
+     * 会让 codex 进入 Reconnecting 死循环且子进程永不退出,必须立即上报并终止,
+     * 而非静默缓冲等进程退出(进程不会退出)。
+     */
+    static boolean isFatalCodexError(String message) {
+        if (message == null) {
+            return false;
+        }
+        String lower = message.toLowerCase(Locale.ROOT);
+        return lower.contains("reconnecting")
+                || lower.contains("bad gateway")
+                || lower.contains("gateway timeout")
+                || lower.contains("service unavailable")
+                || lower.contains("unexpected status")
+                || lower.matches(".*\\b[45]\\d{2}\\b.*");
+    }
+
+    /**
+     * MCP 连接失败(本地 server 未启动等)处理:识别后降级为非阻塞 status 提示(镜像重连处理),
+     * 而非缓冲为回合错误 / 报错。每回合仅发一次 toast(rmcp worker 可能重试多次),但每次匹配都抑制。
+     * <p>返回 true 表示文本命中 MCP 连接失败,调用方应跳过 cliError 缓冲 / onError。
+     *
+     * @param text     诊断行或事件 message(可能为 null)
+     * @param callback 用于发 {@link CliConstants#CODEX_MSG_STATUS}
+     * @return true 表示命中 MCP 连接失败(应抑制,不计入回合错误)
+     */
+    private boolean handleMcpFailure(String text, CliSessionCallback callback) {
+        if (!McpErrorMatcher.isMcpConnectionFailure(text)) {
+            return false;
+        }
+        if (!mcpNoticeEmitted) {
+            mcpNoticeEmitted = true;
+            callback.onMessage(CliConstants.CODEX_MSG_STATUS, McpErrorMatcher.MCP_SKIPPED_NOTICE);
+        }
+        return true;
+    }
+
     private void parseEvent(
             String line,
             CliSessionCallback callback,
@@ -319,6 +378,10 @@ public class CodexCliSession implements CliSession {
                 return;
             }
             if (isLikelyDiagnosticLine(line)) {
+                if (handleMcpFailure(line, callback)) {
+                    // MCP 连接失败(本地 server 未启动):降级为非阻塞提示,不缓冲为回合错误
+                    return;
+                }
                 if (cliError != null) {
                     CliErrorFormatter.appendDiagnosticLine(cliError, line);
                 }
@@ -369,7 +432,9 @@ public class CodexCliSession implements CliSession {
                 }
                 case CliConstants.CODEX_EVENT_TURN_FAILED -> {
                     String msg = extractErrorMessage(event, "Turn failed");
-                    if (cliError != null) {
+                    if (handleMcpFailure(msg, callback)) {
+                        // MCP 连接失败:降级为非阻塞提示,不缓冲为回合错误
+                    } else if (cliError != null) {
                         CliErrorFormatter.appendDiagnosticLine(cliError, msg);
                     } else {
                         callback.onError(formatCodexError(msg, false));
@@ -380,7 +445,15 @@ public class CodexCliSession implements CliSession {
                     if (msg == null) {
                         msg = event.toString();
                     }
-                    if (cliError != null) {
+                    if (handleMcpFailure(msg, callback)) {
+                        // MCP 连接失败:降级为非阻塞提示,不缓冲为回合错误
+                    } else if (isFatalCodexError(msg)) {
+                        // 致命 provider/API 错误(502 重连死循环等):codex 会反复重连且子进程永不退出,
+                        // 静默缓冲会让前端无限 "Generating response"。立即上报并置 fatalAbort,
+                        // 供 stdout 读取循环提前 break + destroyForcibly 终止卡死的进程。
+                        fatalAbort = true;
+                        callback.onError(formatCodexError(msg, false));
+                    } else if (cliError != null) {
                         CliErrorFormatter.appendDiagnosticLine(cliError, msg);
                     } else {
                         callback.onError(formatCodexError(msg, false));
