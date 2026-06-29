@@ -142,6 +142,9 @@ public class CodexMessageHandler implements MessageCallback {
             case CliConstants.MSG_RESULT:
                 handleResultMessage(content);
                 break;
+            case CliConstants.MSG_USAGE:
+                handleUsageMessage(content);
+                break;
             case CliConstants.MSG_SESSION_ID:
                 handleSessionId(content);
                 break;
@@ -528,6 +531,39 @@ public class CodexMessageHandler implements MessageCallback {
             }
         } catch (Exception e) {
             LOG.debug("Failed to parse Codex result message: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 处理 MSG_USAGE 消息(Claude-schema token 用量)。
+     *
+     * <p>OpenCode 的 usage 事件经此到达(Codex CLI 也会发 MSG_USAGE 作兜底)。
+     * ai-bridge event-mapper 已下发 Claude-schema usage(input_tokens 不含 cache),
+     * 故 turnUsage 直接取用本回合最新值,无需 {@link #buildTurnUsage} 归一化
+     * (归一化会从已不含 cache 的 input 里再减一次 cache,导致 OpenCode input 错误)。
+     * 状态栏通道由 {@link #pushUsageUpdate} 同步(对称 handleResultMessage)。</p>
+     *
+     * @param jsonContent json content
+     */
+    private void handleUsageMessage(String jsonContent) {
+        try {
+            com.google.gson.Gson gson = new com.google.gson.Gson();
+            com.google.gson.JsonObject msgJson = gson.fromJson(jsonContent, com.google.gson.JsonObject.class);
+            if (msgJson == null || !msgJson.has("usage") || !msgJson.get("usage").isJsonObject()) {
+                return;
+            }
+
+            com.google.gson.JsonObject usage = msgJson.getAsJsonObject("usage");
+            boolean updated = attachUsageToLastAssistant(usage, usage);
+            if (updated) {
+                pushUsageUpdate(usage);
+                callbackHandler.notifyMessageUpdate(state.getMessages());
+                LOG.debug("Codex usage applied from usage message");
+            } else {
+                LOG.debug("Codex usage received but no assistant message to attach");
+            }
+        } catch (Exception e) {
+            LOG.debug("Failed to parse usage message: " + e.getMessage());
         }
     }
 

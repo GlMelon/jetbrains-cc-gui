@@ -375,6 +375,32 @@ public class CodexMessageHandlerTest {
     }
 
     @Test
+    public void usageMessageStampsTurnUsageOnLastAssistant() {
+        // OpenCode(及 Codex 兜底)的 usage 事件经 MSG_USAGE 到达;须盖 turnUsage 供卡片显示。
+        // OpenCode event-mapper 已下发 Claude-schema usage(input 不含 cache),直接盖即可。
+        // 现状:CodexMessageHandler switch 无 MSG_USAGE 分支 → default 丢弃 → 卡片无 token。
+        SessionState state = new SessionState();
+
+        CallbackHandler callbackHandler = new CallbackHandler();
+        RecordingCallback callback = new RecordingCallback();
+        callbackHandler.setCallback(callback);
+
+        CodexMessageHandler handler = new CodexMessageHandler(state, callbackHandler);
+        handler.onMessage("assistant", "{\"message\":{\"content\":[{\"type\":\"text\",\"text\":\"done\"}]}}");
+        handler.onMessage("usage", "{\"type\":\"usage\",\"usage\":{"
+                + "\"input_tokens\":100,\"output_tokens\":200,"
+                + "\"cache_creation_input_tokens\":10,\"cache_read_input_tokens\":50}}");
+
+        Message message = state.getMessages().get(0);
+        assertTrue("MSG_USAGE 应在末位 assistant 上盖 turnUsage", message.raw.has("turnUsage"));
+        var turnUsage = message.raw.getAsJsonObject("turnUsage");
+        assertEquals(100, turnUsage.get("input_tokens").getAsInt());
+        assertEquals(200, turnUsage.get("output_tokens").getAsInt());
+        assertEquals(10, turnUsage.get("cache_creation_input_tokens").getAsInt());
+        assertEquals(50, turnUsage.get("cache_read_input_tokens").getAsInt());
+    }
+
+    @Test
     public void tokenCountEventAttachesStatusBarUsageButNeverTurnUsage() {
         SessionState state = new SessionState();
 

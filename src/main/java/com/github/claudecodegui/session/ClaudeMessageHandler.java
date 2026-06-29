@@ -1122,6 +1122,10 @@ public class ClaudeMessageHandler implements MessageCallback {
      */
     private void backfillUsageToAssistantMessage(JsonObject usageJson) {
         if (currentAssistantMessage == null || currentAssistantMessage.raw == null) { return; }
+        // 卡片显示通道:盖 turnUsage(本回合最新 [USAGE] 值),供前端 MessageUsageStats 读取。
+        // 与下方 raw.message.usage(状态栏通道)独立 —— 即使 raw 无 message 子对象也要盖,
+        // 否则流式纯文本轮次的卡片永远拿不到 token(只剩 Duration)。
+        currentAssistantMessage.raw.add("turnUsage", usageJson);
         JsonObject message = currentAssistantMessage.raw.has(CommonConstants.JSON_KEY_MESSAGE) && currentAssistantMessage.raw.get(CommonConstants.JSON_KEY_MESSAGE).isJsonObject()
                 ? currentAssistantMessage.raw.getAsJsonObject(CommonConstants.JSON_KEY_MESSAGE) : null;
         if (message == null) { return; }

@@ -94,6 +94,29 @@ public class ClaudeMessageHandlerResultUsageTest {
                 + "\"input_tokens\":1200,\"output_tokens\":456}}");
     }
 
+    @Test
+    public void backfillUsageStampsTurnUsageOnAssistantMessage() throws Exception {
+        // 流式 [USAGE] 标签经 handleUsage → backfillUsageToAssistantMessage。
+        // 现状:只写 raw.message.usage(状态栏通道),从不写 turnUsage → 卡片无 token。
+        // 修复:同一 usageJson 同时盖 raw.turnUsage(卡片通道,取本回合最新值)。
+        Message msg = newAssistantMessageWithUsage(37, 353);
+        setCurrentAssistantMessage(msg);
+
+        invokeBackfillUsage("{\"input_tokens\":100,\"output_tokens\":200,"
+                + "\"cache_creation_input_tokens\":10,\"cache_read_input_tokens\":50}");
+
+        assertTrue("backfill 应盖 turnUsage", msg.raw.has("turnUsage"));
+        JsonObject turnUsage = msg.raw.getAsJsonObject("turnUsage");
+        assertEquals(100, turnUsage.get("input_tokens").getAsInt());
+        assertEquals(200, turnUsage.get("output_tokens").getAsInt());
+        assertEquals(10, turnUsage.get("cache_creation_input_tokens").getAsInt());
+        assertEquals(50, turnUsage.get("cache_read_input_tokens").getAsInt());
+
+        // 状态栏通道(raw.message.usage)仍同步更新
+        JsonObject messageUsage = msg.raw.getAsJsonObject("message").getAsJsonObject("usage");
+        assertEquals(100, messageUsage.get("input_tokens").getAsInt());
+    }
+
     // --- helpers -----------------------------------------------------------
 
     private Message newAssistantMessageWithUsage(int inputTokens, int outputTokens) {
@@ -122,6 +145,14 @@ public class ClaudeMessageHandlerResultUsageTest {
         Method method = ClaudeMessageHandler.class.getDeclaredMethod("handleResult", String.class);
         method.setAccessible(true);
         method.invoke(handler, json);
+    }
+
+    private void invokeBackfillUsage(String json) throws Exception {
+        JsonObject usage = new Gson().fromJson(json, JsonObject.class);
+        Method method = ClaudeMessageHandler.class.getDeclaredMethod(
+                "backfillUsageToAssistantMessage", JsonObject.class);
+        method.setAccessible(true);
+        method.invoke(handler, usage);
     }
 
     private void setCurrentAssistantMessage(Message message) throws Exception {
