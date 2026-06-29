@@ -17,6 +17,7 @@ import {
 } from '../toolBlocks';
 import { ContentBlockRenderer } from './ContentBlockRenderer';
 import { formatTime } from '../../utils/helpers';
+import { getProviderDisplayName } from '../../utils/providerLabel';
 import { copyToClipboard } from '../../utils/copyUtils';
 import { READ_TOOL_NAMES, EDIT_TOOL_NAMES, BASH_TOOL_NAMES, SEARCH_TOOL_NAMES, isToolName } from '../../utils/toolConstants';
 import { MessageAvatar } from './MessageAvatar';
@@ -49,12 +50,6 @@ export interface MessageItemProps {
   /** Play the messageFadeIn entry animation on this card. Set only on the card's
    *  first logical appearance so React remounts never replay the animation. */
   shouldAnimateIn?: boolean;
-}
-
-/** Map provider id to a human-readable label used in UI text. */
-function getProviderDisplayName(providerId?: string): string {
-  if (providerId === 'codex') return 'Codex';
-  return 'Claude';
 }
 
 type GroupedBlock =
@@ -414,7 +409,7 @@ export const MessageItem = memo(function MessageItem({
       return (
         <div className="streaming-connect-status streaming-connect-enter">
           <span className="streaming-connect-text">
-            {t('chat.streamingConnected', { provider: getProviderDisplayName(currentProvider) })}
+            {t('chat.streamingConnected', { provider: getProviderDisplayName(currentProvider, t) })}
           </span>
         </div>
       );
@@ -597,7 +592,11 @@ export const MessageItem = memo(function MessageItem({
       {/* Avatar row - only for user and assistant messages */}
       {showAvatar ? (
         <div className="message-avatar-row">
-          <MessageAvatar type={message.type} />
+          <MessageAvatar
+            type={message.type}
+            userLabel={t('chat.avatarUser')}
+            assistantLabel={getProviderDisplayName(currentProvider, t)}
+          />
           <div className="message-content-wrapper">
             {/* Timestamp and copy button for user messages */}
             {message.type === 'user' && message.timestamp && (

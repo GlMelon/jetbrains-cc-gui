@@ -5,6 +5,10 @@ type MessageType = 'user' | 'assistant' | 'error' | 'notification' | 'task_notif
 interface MessageAvatarProps {
   type: MessageType;
   className?: string;
+  /** i18n label shown under the user avatar. Defaults to 你. */
+  userLabel?: string;
+  /** Provider display name shown under the assistant avatar. Defaults to Claude. */
+  assistantLabel?: string;
 }
 
 /**
@@ -32,7 +36,12 @@ const AssistantAvatarIcon = () => (
  * 消息头像组件
  * 用户消息显示紫色渐变头像，AI回复显示蓝紫渐变头像
  */
-export const MessageAvatar = memo(function MessageAvatar({ type, className }: MessageAvatarProps) {
+export const MessageAvatar = memo(function MessageAvatar({
+  type,
+  className,
+  userLabel = '你',
+  assistantLabel = 'Claude',
+}: MessageAvatarProps) {
   // 只有 user 和 assistant 类型显示头像
   if (type !== 'user' && type !== 'assistant') {
     return null;
@@ -42,7 +51,7 @@ export const MessageAvatar = memo(function MessageAvatar({ type, className }: Me
     <div className={`message-avatar${className ? ` ${className}` : ''}`}>
       {type === 'user' ? <UserAvatarIcon /> : <AssistantAvatarIcon />}
       <span className="avatar-label">
-        {type === 'user' ? '你' : 'Claude'}
+        {type === 'user' ? userLabel : assistantLabel}
       </span>
     </div>
   );

@@ -11,6 +11,7 @@ import WaitingIndicator from './WaitingIndicator';
 import { ContextMenu } from './ContextMenu';
 import { useContextMenu, copySelection } from '../hooks/useContextMenu.js';
 import { copyToClipboard } from '../utils/copyUtils';
+import { getProviderDisplayName } from '../utils/providerLabel';
 import type { MessageListRevealHandle } from './ConversationSearch/types';
 
 /** Always render at least this many recent messages. Earlier messages are collapsed. */
@@ -339,7 +340,10 @@ export const MessageList = memo(forwardRef<MessageListRevealHandle, MessageListP
               data-response-id={unit.responseId}
             >
               <div className="message-avatar-row">
-                <MessageAvatar type="assistant" />
+                <MessageAvatar
+                  type="assistant"
+                  assistantLabel={getProviderDisplayName(currentProvider, t)}
+                />
                 <div className="message-content-wrapper">
                   {!isStreamingGroup && groupHasCopyable && (
                     <CopyButton

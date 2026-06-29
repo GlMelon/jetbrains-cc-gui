@@ -91,6 +91,7 @@
     "unknownFile": "Unknown file",
     "attachmentsUploaded": "[Pièces jointes téléchargées]",
     "streamingConnected": "{{provider}} connecté, en train de comprendre votre question",
+    "avatarUser": "Vous",
     "showEarlierMessages": "Afficher {{count}} messages précédents",
     "totalDuration": "Cette réponse a pris",
     "waitingTimedOutDuration": "Délai d'attente dépassé",

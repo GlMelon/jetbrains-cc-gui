@@ -38,6 +38,7 @@ describe('useWindowCallbacks integration', () => {
     setUsagePercentage: vi.fn(),
     setUsageUsedTokens: vi.fn(),
     setUsageMaxTokens: vi.fn(),
+    setTokenDetail: vi.fn(),
     setSubagentHistories: vi.fn(),
     setPermissionMode: vi.fn(),
       setCurrentProvider: vi.fn(),
@@ -1058,7 +1059,9 @@ describe('useWindowCallbacks integration', () => {
         window.onStreamEnd!();
       });
 
-      const lastAssistant = buffer.current.findLast((message) => message.type === 'assistant');
+      const lastAssistant = [...buffer.current].reverse().find(
+        (message: ClaudeMessage) => message.type === 'assistant',
+      );
       expect(lastAssistant).toMatchObject({
         streamEndSource: 'watchdog',
         streamEndReason: 'stalled',
@@ -1215,7 +1218,7 @@ describe('useWindowCallbacks integration', () => {
         timestamp: new Date().toISOString(),
       };
 
-      const { opts, buffer } = createOptsWithMessages([assistant]);
+      const { opts } = createOptsWithMessages([assistant]);
       renderHook(() => useWindowCallbacks(opts));
 
       act(() => { window.historyLoadComplete!(); });
@@ -2017,6 +2020,5 @@ describe('useWindowCallbacks integration', () => {
     });
   });
 });
-
 
 

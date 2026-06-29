@@ -96,6 +96,7 @@
     "unknownFile": "Unknown file",
     "attachmentsUploaded": "[Attachments Uploaded]",
     "streamingConnected": "{{provider}} connected, understanding your question",
+    "avatarUser": "You",
     "showEarlierMessages": "Show {{count}} earlier messages",
     "totalDuration": "This reply took",
     "waitingTimedOutDuration": "Wait timed out",

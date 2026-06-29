@@ -32,16 +32,26 @@ vi.mock('./ProviderNotConfiguredCard', () => ({
   isProviderNotConfiguredError: () => false,
 }));
 
-const t = ((key: string) => {
+const t = ((key: string, opts?: Record<string, unknown>) => {
   const translations: Record<string, string> = {
     'markdown.copyMessage': '复制消息',
     'markdown.copySuccess': '已复制',
-    'chat.streamingConnected': '已连接',
+    'chat.streamingConnected': '{{provider}} 已连接',
     'chat.totalDuration': '本次耗时',
     'chat.waitingTimedOutDuration': '等待超时',
     'chat.usageStats.duration': '本次耗时',
+    'chat.avatarUser': 'You',
+    'providers.claude.label': 'Claude Code',
+    'providers.codex.label': 'Codex',
+    'providers.opencode.label': 'OpenCode',
   };
-  return translations[key] ?? key;
+  let value = translations[key] ?? key;
+  if (opts) {
+    Object.entries(opts).forEach(([k, v]) => {
+      value = value.split(`{{${k}}}`).join(String(v));
+    });
+  }
+  return value;
 }) as any;
 
 const getMessageText = (message: ClaudeMessage) => message.content ?? '';
@@ -226,6 +236,29 @@ describe('MessageItem copy button visibility', () => {
     vi.useRealTimers();
   });
 
+  it('renders the streaming connect hint using the OpenCode provider label', () => {
+    vi.useFakeTimers();
+    const message: ClaudeMessage = {
+      type: 'assistant',
+      content: '',
+      isStreaming: true,
+      __turnId: 3,
+    };
+
+    renderMessageItem(message, {
+      isLast: true,
+      streamingActive: true,
+      currentProvider: 'opencode',
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
+    expect(screen.getByText('OpenCode 已连接')).toBeTruthy();
+    vi.useRealTimers();
+  });
+
   it('renders provider errors inside the assistant message card', () => {
     const message: ClaudeMessage = {
       type: 'assistant',
@@ -253,5 +286,31 @@ describe('MessageItem copy button visibility', () => {
     expect(screen.getByTestId('content-block-provider_error').textContent).toContain('provider_error:服务暂时不可用');
     expect(document.querySelector('.message.assistant')).toBeTruthy();
     expect(document.querySelector('.message.error')).toBeNull();
+  });
+});
+
+describe('MessageItem avatar & connect label reflect provider', () => {
+  it('labels the assistant avatar with the Codex provider name', () => {
+    const message: ClaudeMessage = { type: 'assistant', content: 'hi' };
+    renderMessageItem(message, { currentProvider: 'codex' });
+    expect(screen.getByText('Codex')).toBeTruthy();
+  });
+
+  it('labels the assistant avatar with the OpenCode provider name', () => {
+    const message: ClaudeMessage = { type: 'assistant', content: 'hi' };
+    renderMessageItem(message, { currentProvider: 'opencode' });
+    expect(screen.getByText('OpenCode')).toBeTruthy();
+  });
+
+  it('labels the assistant avatar with the Claude provider name by default', () => {
+    const message: ClaudeMessage = { type: 'assistant', content: 'hi' };
+    renderMessageItem(message);
+    expect(screen.getByText('Claude Code')).toBeTruthy();
+  });
+
+  it('labels the user avatar with the localized user label', () => {
+    const message: ClaudeMessage = { type: 'user', content: 'hi', timestamp: new Date(0).toISOString() };
+    renderMessageItem(message);
+    expect(screen.getByText('You')).toBeTruthy();
   });
 });

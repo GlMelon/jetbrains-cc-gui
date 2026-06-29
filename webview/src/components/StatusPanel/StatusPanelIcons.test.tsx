@@ -30,8 +30,11 @@ const sampleFileChange: FileChangeSummary = {
   lineEnd: 10,
   operations: [
     {
+      toolName: 'Edit',
       oldString: 'old',
       newString: 'new',
+      additions: 1,
+      deletions: 1,
       replaceAll: false,
     },
   ],
