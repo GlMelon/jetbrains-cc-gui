@@ -11,6 +11,7 @@ import com.github.claudecodegui.model.selection.ModelSelectionResult;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 
 import com.github.claudecodegui.session.SessionSendService;
+import com.github.claudecodegui.session.SessionRuntimeDefaults;
 import com.github.claudecodegui.skill.SlashCommandRegistry;
 import com.github.claudecodegui.util.EditorFileUtils;
 import com.github.claudecodegui.util.GsonHolder;
@@ -147,6 +148,7 @@ public class ModelProviderHandler {
             }
             LOG.info("[ModelProviderHandler] Updated session model to: " + storedModel);
         }
+        SessionRuntimeDefaults.rememberModel(context.getProject(), confirmedProvider, storedModel);
 
         com.github.claudecodegui.notifications.ClaudeNotifier.setModel(context.getProject(), model);
 
@@ -219,9 +221,11 @@ public class ModelProviderHandler {
 
             LOG.info("[ModelProviderHandler] Setting provider to: " + provider);
             context.setCurrentProvider(provider);
+            SessionRuntimeDefaults.rememberProvider(context.getProject(), provider);
 
             if (context.getSession() != null) {
                 context.getSession().setProvider(provider);
+                SessionRuntimeDefaults.rememberModel(context.getProject(), provider, context.getSession().getModel());
             }
 
             // Bug fix (Node process leak L2): when the tab moves AWAY from Claude
@@ -251,8 +255,10 @@ public class ModelProviderHandler {
             // 会话级 provider 切换也更新全局默认(粘性),与 set_model 的全局默认更新
             // 成对,保证新建会话沿用用户最近选择的 provider(而非回退到默认)。
             context.setCurrentProvider(provider);
+            SessionRuntimeDefaults.rememberProvider(context.getProject(), provider);
             if (context.getSession() != null) {
                 context.getSession().setProvider(provider);
+                SessionRuntimeDefaults.rememberModel(context.getProject(), provider, context.getSession().getModel());
             }
 
             // 与 handleSetProvider 保持一致:离开 Claude 家族时清理残留 daemon,

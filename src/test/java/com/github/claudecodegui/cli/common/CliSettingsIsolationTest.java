@@ -15,6 +15,7 @@ import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public class CliSettingsIsolationTest {
@@ -125,6 +126,34 @@ public class CliSettingsIsolationTest {
         assertFalse(env.containsKey("CODEX_SANDBOX_MODE"));
         assertFalse(env.containsKey("CODEX_SANDBOX"));
         assertTrue(env.containsKey("CODEX_MODEL"));
+    }
+
+    @Test
+    public void readCodexConfigModelReturnsConfiguredModel() throws Exception {
+        Path tempHome = Files.createTempDirectory("cli-codex-model");
+        useTemporaryHomeDirectory(tempHome);
+        Path codexDir = tempHome.resolve(".codex");
+        Files.createDirectories(codexDir);
+        Files.writeString(codexDir.resolve("config.toml"),
+                "model = \"gpt-5.5\"\n",
+                StandardCharsets.UTF_8);
+
+        // 治本:codex 默认 model 必须读取用户 ~/.codex/config.toml 的 model 字段,
+        // 而非硬编码(硬编码 gpt-5.3-codex 在用户自定义 provider 上 502 死循环)。
+        assertEquals("gpt-5.5", CliSettings.readCodexConfigModel());
+    }
+
+    @Test
+    public void readCodexConfigModelReturnsNullWhenModelAbsent() throws Exception {
+        Path tempHome = Files.createTempDirectory("cli-codex-model-absent");
+        useTemporaryHomeDirectory(tempHome);
+        Path codexDir = tempHome.resolve(".codex");
+        Files.createDirectories(codexDir);
+        Files.writeString(codexDir.resolve("config.toml"),
+                "model_provider = \"custom\"\n",
+                StandardCharsets.UTF_8);
+
+        assertNull(CliSettings.readCodexConfigModel());
     }
 
     private void useTemporaryHomeDirectory(Path tempHome) throws Exception {

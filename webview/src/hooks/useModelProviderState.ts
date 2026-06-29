@@ -205,7 +205,7 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     setPermissionMode(modeToSet);
       sendAction(UPSTREAM.SET_SESSION_MODE, modeToSet);
 
-    const newModel = providerId === 'codex'
+    let newModel = providerId === 'codex'
       ? selectedCodexModel
       : providerId === 'opencode'
         ? selectedOpenCodeModel
@@ -213,17 +213,33 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
 
     const newProviderModels = getModelsForProvider(providerId);
 
+    // 切 provider 时默认该 provider 第一个模型:已选模型为空或不属于该 provider registry(跨 provider
+    // 串台污染,典型:persisted selectedOpenCodeModel 被历史 MODEL_SELECTION 设成 claude-role-sonnet,
+    // useModelStatePersistence 持久化后重启 hydrate 形成自强化循环)时,回退到该 provider 第一个可用模型。
+    // 避免污染的 -m claude-role-sonnet 透传给 opencode CLI 触发"进程退出但未返回任何内容"静默失败;
+    // setSelectedXxxModel 同步校正,打破 localStorage 持久化污染循环。对称三 provider(Principle 6)。
+    const belongsToProvider = newModel
+      && newProviderModels.some((model) => model.id === strip1MContextSuffix(newModel));
+    if (!belongsToProvider && newProviderModels.length > 0) {
+      newModel = newProviderModels[0].id;
+      if (providerId === 'codex') {
+        setSelectedCodexModel(newModel);
+      } else if (providerId === 'opencode') {
+        setSelectedOpenCodeModel(newModel);
+      } else {
+        setSelectedClaudeModel(newModel);
+      }
+    }
+
     // 切换 provider 后重发当前模型。claude 仅发送意图(longContextEnabled),
-    // effectiveContextWindow 由后端权威计算;codex 仍发送 registry contextWindow。
+    // effectiveContextWindow 由后端权威计算;codex/opencode 发送 registry contextWindow(用校正后的 newModel 查)。
     if (providerId === 'claude') {
       sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
         model: newModel,
-        longContextEnabled: longContextEnabled && (newProviderModels.find((model) => model.id === strip1MContextSuffix(selectedClaudeModel))?.supports1MContext ?? false),
+        longContextEnabled: longContextEnabled && (newProviderModels.find((model) => model.id === strip1MContextSuffix(newModel))?.supports1MContext ?? false),
       }));
     } else {
-      // Codex/OpenCode: send registry contextWindow
-      const refModel = providerId === 'codex' ? selectedCodexModel : providerId === 'opencode' ? selectedOpenCodeModel : selectedClaudeModel;
-      const registryContextWindow = newProviderModels.find((model) => model.id === strip1MContextSuffix(refModel))?.contextWindow;
+      const registryContextWindow = newProviderModels.find((model) => model.id === strip1MContextSuffix(newModel))?.contextWindow;
       const effectiveContextWindow = contextWindow ?? registryContextWindow ?? DEFAULT_CONTEXT_WINDOW;
       sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
         model: newModel,
@@ -237,6 +253,9 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     selectedClaudeModel,
     selectedOpenCodeModel,
     longContextEnabled,
+    setSelectedClaudeModel,
+    setSelectedCodexModel,
+    setSelectedOpenCodeModel,
   ]);
 
     const handleLongContextChange = useCallback((enabled: boolean) => {

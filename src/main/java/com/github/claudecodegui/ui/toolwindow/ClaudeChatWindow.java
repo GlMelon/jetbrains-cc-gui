@@ -19,6 +19,7 @@ import com.github.claudecodegui.session.ClaudeSession;
 import com.github.claudecodegui.session.SessionCallbackAdapter;
 import com.github.claudecodegui.session.SessionLifecycleManager;
 import com.github.claudecodegui.session.SessionLoadService;
+import com.github.claudecodegui.session.SessionRuntimeDefaults;
 import com.github.claudecodegui.session.StreamMessageCoalescer;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.settings.TabStateService;
@@ -253,6 +254,7 @@ public class ClaudeChatWindow {
         );
 
         this.session = new ClaudeSession(project, claudeSDKBridge, codexSDKBridge, openCodeSDKBridge);
+        SessionRuntimeDefaults.applyToSession(project, this.session, settingsService.getModelRegistry());
 
         this.chatWindowDelegate = new ChatWindowDelegate(createDelegateHost());
         chatWindowDelegate.loadPermissionModeFromSettings();
@@ -1121,6 +1123,8 @@ public class ClaudeChatWindow {
         snapshot.reasoningEffort = session.getReasoningEffort();
 
         TabStateService.getInstance(project).saveTabSessionState(tabIndex, snapshot);
+        SessionRuntimeDefaults.rememberProvider(project, snapshot.provider);
+        SessionRuntimeDefaults.rememberModel(project, snapshot.provider, snapshot.model);
     }
 
     private boolean isNonEmpty(String value) {

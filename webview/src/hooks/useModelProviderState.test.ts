@@ -224,7 +224,7 @@ describe('useModelProviderState', () => {
         contextWindow: 1_000_000, supports1MContext: false, readOnly: true, enabled: true,
       }],
     });
-    const { result } = renderHook(() => useModelProviderState({ addToast, t }));
+    renderHook(() => useModelProviderState({ addToast, t }));
     act(() => {
       bridgeHub.dispatch(DOWNSTREAM.MODEL_SELECTION, JSON.stringify({
         provider: 'opencode',
@@ -250,5 +250,44 @@ describe('useModelProviderState', () => {
     expect(JSON.parse(setModelCall![1] as string)).toMatchObject({
       model: 'mimo-v2.5',
     });
+  });
+
+  it('defaults to first model of switched provider when selected model is cross-provider polluted', () => {
+    // registry 播种:claude role + opencode glm-5.2(对称 ReadOnlyDefaultModels 下发产物)。
+    __setModelRegistryForTests({
+      items: [
+        { id: 'claude-role-sonnet', provider: 'claude', label: 'Sonnet', contextWindow: 200_000, supports1MContext: true, readOnly: true, enabled: true },
+        { id: 'glm-5.2', provider: 'opencode', label: 'GLM-5.2', contextWindow: 128_000, supports1MContext: false, readOnly: true, enabled: true },
+      ],
+    });
+    const { result } = renderHook(() => useModelProviderState({ addToast, t }));
+
+    // 复现持久化污染:selectedOpenCodeModel 被历史 MODEL_SELECTION 设成跨 provider 的 claude-role-sonnet
+    // (生产中 useModelStatePersistence 持久化 opencodeModel 键,重启后 hydrate 回来形成自强化污染循环)。
+    act(() => {
+      bridgeHub.dispatch(DOWNSTREAM.MODEL_SELECTION, JSON.stringify({
+        provider: 'opencode',
+        selectedModel: 'claude-role-sonnet',
+      }));
+    });
+    expect(result.current.selectedOpenCodeModel).toBe('claude-role-sonnet');
+    vi.clearAllMocks();
+
+    act(() => {
+      result.current.handleProviderSelect('opencode', undefined);
+    });
+
+    expect(result.current.currentProvider).toBe('opencode');
+    const setModelCall = vi.mocked(sendAction).mock.calls.find(
+      ([type]) => type === 'set_session_model',
+    );
+    expect(setModelCall).toBeTruthy();
+    // 切 opencode 后默认第一个 opencode 模型(glm-5.2),而非透传污染的 claude-role-sonnet
+    // (后者使 opencode CLI 收到 -m claude-role-sonnet → "进程退出但未返回任何内容" 静默失败)。
+    expect(JSON.parse(setModelCall![1] as string)).toMatchObject({
+      model: 'glm-5.2',
+    });
+    // selectedOpenCodeModel 同步校正,打破 localStorage 持久化污染循环。
+    expect(result.current.selectedOpenCodeModel).toBe('glm-5.2');
   });
 });

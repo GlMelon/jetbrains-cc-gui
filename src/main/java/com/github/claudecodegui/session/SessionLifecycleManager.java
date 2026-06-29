@@ -1,6 +1,8 @@
 package com.github.claudecodegui.session;
 
+import com.github.claudecodegui.cli.common.CliSettings;
 import com.github.claudecodegui.common.CommonConstants;
+import com.github.claudecodegui.config.ModelConfig;
 import com.github.claudecodegui.handler.provider.ModelProviderHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
@@ -465,15 +467,75 @@ public class SessionLifecycleManager {
         if (SessionState.VALID_PROVIDERS.contains(provider)) {
             return provider;
         }
-        return CommonConstants.DEFAULT_PROVIDER;
+        return SessionRuntimeDefaults.readProvider(host.getProject());
     }
 
     private String readDefaultModel(String provider) {
-        String model = host.getHandlerContext().getCurrentModel();
-        if (model != null && !model.trim().isEmpty()) {
+        String model = SessionRuntimeDefaults.readModel(host.getProject(), provider);
+        if (isNonBlank(model)) {
             return model.trim();
         }
-        return CommonConstants.PROVIDER_CODEX.equals(provider) ? "gpt-5.3-codex" : CommonConstants.DEFAULT_MODEL;
+
+        model = host.getHandlerContext().getCurrentModel();
+        if (isNonBlank(model) && modelBelongsToProvider(provider, model)) {
+            return model.trim();
+        }
+
+        model = firstEnabledModelForProvider(provider);
+        if (isNonBlank(model)) {
+            return model.trim();
+        }
+
+        if (CommonConstants.PROVIDER_CODEX.equals(provider)) {
+            // 治本:优先使用用户 ~/.codex/config.toml 配置的 model(如自定义 Galaxy provider 的 gpt-5.5),
+            // 而非硬编码 gpt-5.3-codex(自定义 provider 不支持时会 502 重连死循环)。无配置时回退官方默认。
+            String configModel = CliSettings.readCodexConfigModel();
+            if (configModel != null && !configModel.trim().isEmpty()) {
+                return configModel.trim();
+            }
+            return CommonConstants.DEFAULT_CODEX_MODEL;
+        }
+        if (CommonConstants.PROVIDER_OPENCODE.equals(provider)) {
+            // OpenCode 无 registry/model 时交给 opencode 原生配置决定默认模型;不要把 Claude role
+            // 透传成 `opencode run -m claude-role-sonnet`,否则 CLI 可能 exit0 但无事件流。
+            return "";
+        }
+        return CommonConstants.DEFAULT_MODEL;
+    }
+
+    private boolean modelBelongsToProvider(String provider, String model) {
+        try {
+            return host.getHandlerContext().getSettingsService()
+                    .getModelRegistry()
+                    .find(provider, model)
+                    .isPresent();
+        } catch (Exception e) {
+            LOG.warn("Failed to check model provider ownership: " + e.getMessage());
+            return CommonConstants.PROVIDER_CLAUDE.equals(provider)
+                    && ModelProviderHandler.isKnownModel(null, model);
+        }
+    }
+
+    private String firstEnabledModelForProvider(String provider) {
+        try {
+            return host.getHandlerContext().getSettingsService()
+                    .getModelRegistry()
+                    .models()
+                    .stream()
+                    .filter(ModelConfig::enabled)
+                    .filter(model -> provider.equals(model.provider()))
+                    .map(ModelConfig::id)
+                    .filter(this::isNonBlank)
+                    .findFirst()
+                    .orElse(null);
+        } catch (Exception e) {
+            LOG.warn("Failed to read default model from registry: " + e.getMessage());
+            return null;
+        }
+    }
+
+    private boolean isNonBlank(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 
     private String readDefaultPermissionMode(String provider) {

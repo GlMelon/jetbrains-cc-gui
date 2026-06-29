@@ -487,6 +487,11 @@ public class ChatWindowDelegate {
 
         HandlerContext handlerContext = new HandlerContext(project, claudeSDKBridge, codexSDKBridge, host.getOpenCodeSDKBridge(), settingsService, jsCallback);
         handlerContext.setSession(host.getSession());
+        if (host.getSession() != null) {
+            handlerContext.setCurrentProvider(host.getSession().getProvider());
+            handlerContext.setCurrentModel(host.getSession().getModel());
+            handlerContext.setCurrentModelContextWindow(host.getSession().getState().getContextWindowOverride());
+        }
         handlerContext.setFrontendReadyChecker(frontendReadyChecker);
         host.setHandlerContext(handlerContext);
 

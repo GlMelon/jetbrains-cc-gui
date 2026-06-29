@@ -168,6 +168,25 @@ public final class CliSettings {
         return env;
     }
 
+    /**
+     * 读取 ~/.codex/config.toml 中配置的 model 字段。
+     * <p>治本:codex 默认 model 应来自用户配置而非硬编码,避免自定义 provider 不支持硬编码 model
+     * 而触发上游 502 重连死循环,导致子进程永不退出、前端无限 "Generating response"。
+     *
+     * @return 配置的 model;无 config 或无 model 字段时返回 null(由调用方回退)。
+     */
+    public static String readCodexConfigModel() {
+        try {
+            CodexSettingsManager manager = new CodexSettingsManager(GsonHolder.GSON);
+            Map<String, Object> config = manager.readConfigToml();
+            if (config != null) {
+                return stringValue(config.get(CommonConstants.TOML_KEY_MODEL));
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
+
     private static JsonObject readCliSettings() {
         try {
             Path path = new ConfigPathManager().getCliSettingsFilePath();

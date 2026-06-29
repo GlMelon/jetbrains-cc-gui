@@ -55,6 +55,8 @@ public final class CommonConstants {
 
     /** 默认 AI 模型 */
     public static final String DEFAULT_MODEL = "claude-role-sonnet";
+    /** 默认 Codex 模型(用户 ~/.codex/config.toml 未配置 model 时的回退,即官方 OpenAI 默认) */
+    public static final String DEFAULT_CODEX_MODEL = "gpt-5.3-codex";
     /** 默认权限模式 */
     public static final String DEFAULT_PERMISSION_MODE = "acceptEdits";
     /** 默认推理努力程度（thinking depth） */
