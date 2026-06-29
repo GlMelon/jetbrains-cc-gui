@@ -23,6 +23,8 @@ export const SPECIAL_PROVIDER_IDS = {
   CLI_LOGIN: '__cli_login__',
   /** Codex CLI login authentication mode */
   CODEX_CLI_LOGIN: '__codex_cli_login__',
+  /** OpenCode local config (~/.config/opencode/opencode.json authoritative read-only) mode */
+  OPENCODE_LOCAL_CONFIG: '__opencode_local_config__',
 } as const;
 
 /**
@@ -42,7 +44,8 @@ export function isSpecialProviderId(id: string): boolean {
     id === SPECIAL_PROVIDER_IDS.DISABLED ||
     id === SPECIAL_PROVIDER_IDS.LOCAL_SETTINGS ||
     id === SPECIAL_PROVIDER_IDS.CLI_LOGIN ||
-    id === SPECIAL_PROVIDER_IDS.CODEX_CLI_LOGIN
+    id === SPECIAL_PROVIDER_IDS.CODEX_CLI_LOGIN ||
+    id === SPECIAL_PROVIDER_IDS.OPENCODE_LOCAL_CONFIG
   );
 }
 
@@ -299,6 +302,52 @@ export interface CodexProviderConfig {
   messageEnvVars?: EnvVarEntry[];
   /** Environment variables for getMcpServerTools subprocess */
   mcpEnvVars?: EnvVarEntry[];
+}
+
+/**
+ * OpenCode 单个模型配置(opencode.json 原生 models.<modelKey> 结构,半 schema-less)。
+ */
+export interface OpenCodeModelConfig {
+  /** 模型显示名(缺省用 modelKey) */
+  name?: string;
+  /** 模型限制 */
+  limit?: {
+    /** 上下文窗口(tokens) */
+    context?: number;
+    /** 输出上限(tokens) */
+    output?: number;
+  };
+  [key: string]: any;
+}
+
+/**
+ * OpenCode provider 配置(对称 {@link CodexProviderConfig},但半 schema-less)。
+ *
+ * <p>opencode 原生 provider 段结构为 {@code {name, models:{...}, apiKey?, baseURL?, ...}},
+ * 插件 SSOT 在此基础上加 {@code id}/{@code isActive}/{@code createdAt}(合并入 opencode.json 时剥离)。
+ * 用 index signature 透传任意 opencode 原生字段(对齐项目既有 provider JsonObject 半 schema-less 决策)。
+ */
+export interface OpenCodeProviderConfig {
+  /** Provider 唯一键(= opencode.json provider 段的 key,如 openglm/mimo) */
+  id: string;
+  /** Provider 显示名 */
+  name: string;
+  /** 创建时间戳(毫秒,插件专属) */
+  createdAt?: number;
+  /** 是否当前活跃 */
+  isActive?: boolean;
+  /** 是否为「从配置文件授权」本地配置虚拟 provider */
+  isOpenCodeLocalConfigProvider?: boolean;
+  /** API Key(opencode 原生凭据字段) */
+  apiKey?: string;
+  /** Base URL(opencode 原生字段) */
+  baseURL?: string;
+  /** Base URL 别名(opencode 部分版本用 apiBase) */
+  apiBase?: string;
+  /** 模型目录(opencode 原生嵌套结构) */
+  models?: Record<string, OpenCodeModelConfig>;
+  /** 任意 opencode 原生透传字段(options/npm/etc.) */
+  [key: string]: any;
 }
 
 // ============ Provider Presets ============

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { ProviderConfig, CodexProviderConfig } from '../../../types/provider';
+import type { ProviderConfig, CodexProviderConfig, OpenCodeProviderConfig } from '../../../types/provider';
 import ProviderManageSection from '../ProviderManageSection';
 import CodexProviderSection from '../CodexProviderSection';
 import OpenCodeProviderSection from '../OpenCodeProviderSection';
@@ -38,6 +38,14 @@ interface ProviderTabSectionProps {
   onDeleteCodexProvider: (provider: CodexProviderConfig) => void;
   onSwitchCodexProvider: (id: string) => void;
   onRevokeCodexLocalConfigAuthorization: (fallbackProviderId?: string) => void;
+  // OpenCode provider props
+  openCodeProviders: OpenCodeProviderConfig[];
+  openCodeLoading: boolean;
+  onAddOpenCodeProvider: () => void;
+  onEditOpenCodeProvider: (provider: OpenCodeProviderConfig) => void;
+  onDeleteOpenCodeProvider: (provider: OpenCodeProviderConfig) => void;
+  onSwitchOpenCodeProvider: (id: string) => void;
+  onRevokeOpenCodeLocalConfigAuthorization: (fallbackProviderId?: string) => void;
   // Shared
   addToast: (message: string, type: 'info' | 'success' | 'warning' | 'error') => void;
 }
@@ -57,6 +65,13 @@ const ProviderTabSection = ({
   onDeleteCodexProvider,
   onSwitchCodexProvider,
   onRevokeCodexLocalConfigAuthorization,
+  openCodeProviders,
+  openCodeLoading,
+  onAddOpenCodeProvider,
+  onEditOpenCodeProvider,
+  onDeleteOpenCodeProvider,
+  onSwitchOpenCodeProvider,
+  onRevokeOpenCodeLocalConfigAuthorization,
   addToast,
 }: ProviderTabSectionProps) => {
   const { t } = useTranslation();
@@ -138,7 +153,13 @@ const ProviderTabSection = ({
 
       <div id="panel-opencode-providers" role="tabpanel" style={activeTab === 'opencode' ? BLOCK_STYLE : NONE_STYLE}>
         <OpenCodeProviderSection
-          addToast={addToast}
+          openCodeProviders={openCodeProviders}
+          openCodeLoading={openCodeLoading}
+          onAddOpenCodeProvider={onAddOpenCodeProvider}
+          onEditOpenCodeProvider={onEditOpenCodeProvider}
+          onDeleteOpenCodeProvider={onDeleteOpenCodeProvider}
+          onSwitchOpenCodeProvider={onSwitchOpenCodeProvider}
+          onRevokeOpenCodeLocalConfigAuthorization={onRevokeOpenCodeLocalConfigAuthorization}
           showHeader={false}
         />
       </div>

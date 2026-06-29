@@ -15,6 +15,13 @@ export type {
   DeleteCodexConfirmState,
 } from './useCodexProviderManagement';
 
+export { useOpenCodeProviderManagement } from './useOpenCodeProviderManagement';
+export type {
+  UseOpenCodeProviderManagementReturn,
+  OpenCodeProviderDialogState,
+  DeleteOpenCodeConfirmState,
+} from './useOpenCodeProviderManagement';
+
 export { useAgentManagement } from './useAgentManagement';
 export type {
   UseAgentManagementOptions,

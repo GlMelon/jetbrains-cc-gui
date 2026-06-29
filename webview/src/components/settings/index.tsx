@@ -2,7 +2,7 @@ import { sendAction } from '../../bridge/typed';
 import { UPSTREAM } from '../../generated/protocol';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { CodexProviderConfig } from '../../types/provider';
+import type { CodexProviderConfig, OpenCodeProviderConfig } from '../../types/provider';
 import { ToastContainer } from '../Toast';
 
 // Import split-out components
@@ -26,7 +26,7 @@ import SettingsDialogs from './SettingsDialogs';
 import { setNewSessionConfirmEnabled as persistNewSessionConfirmEnabled } from '../../utils/skipNewSessionConfirm';
 
 // Import custom hooks
-import { useAgentManagement, useCodexProviderManagement, useProviderManagement, useSettingsBasicActions, useSettingsPageState, useSettingsThemeSync, useSettingsWindowCallbacks } from './hooks';
+import { useAgentManagement, useCodexProviderManagement, useOpenCodeProviderManagement, useProviderManagement, useSettingsBasicActions, useSettingsPageState, useSettingsThemeSync, useSettingsWindowCallbacks } from './hooks';
 
 import styles from './style.module.less';
 
@@ -249,6 +249,31 @@ const SettingsView = ({
     onSuccess: (msg) => addToast(msg, 'success'),
   });
 
+  // Use OpenCode provider management hook
+  const {
+    openCodeProviders,
+    openCodeLoading,
+    openCodeProviderDialog,
+    deleteOpenCodeConfirm,
+    loadOpenCodeProviders,
+    updateOpenCodeProviders,
+    updateActiveOpenCodeProvider,
+    updateCurrentOpenCodeConfig,
+    handleAddOpenCodeProvider,
+    handleEditOpenCodeProvider,
+    handleCloseOpenCodeProviderDialog,
+    handleSaveOpenCodeProvider,
+    handleSwitchOpenCodeProvider,
+    handleRevokeOpenCodeLocalConfigAuthorization,
+    handleDeleteOpenCodeProvider,
+    confirmDeleteOpenCodeProvider,
+    cancelDeleteOpenCodeProvider,
+    setOpenCodeLoading,
+    setOpenCodeConfigLoading,
+  } = useOpenCodeProviderManagement({
+    onSuccess: (msg) => addToast(msg, 'success'),
+  });
+
   // Use agent management hook
   const {
     agents,
@@ -309,10 +334,13 @@ const SettingsView = ({
     setLoading,
     setCodexLoading,
     setCodexConfigLoading,
+    setOpenCodeLoading,
+    setOpenCodeConfigLoading,
     updateProviders,
     updateActiveProvider,
     loadProviders,
     loadCodexProviders,
+    loadOpenCodeProviders,
     loadAgents,
     updateAgents,
     handleAgentOperationResult,
@@ -322,6 +350,9 @@ const SettingsView = ({
     updateCodexProviders,
     updateActiveCodexProvider,
     updateCurrentCodexConfig,
+    updateOpenCodeProviders,
+    updateActiveOpenCodeProvider,
+    updateCurrentOpenCodeConfig,
     cleanupAgentsTimeout,
     showAlert,
     addToast,
@@ -410,6 +441,11 @@ const SettingsView = ({
   // Save Codex provider (wrapper function with validation logic)
   const handleSaveCodexProviderFromDialog = (providerData: CodexProviderConfig) => {
     handleSaveCodexProvider(providerData);
+  };
+
+  // Save OpenCode provider (wrapper function with validation logic)
+  const handleSaveOpenCodeProviderFromDialog = (providerData: OpenCodeProviderConfig) => {
+    handleSaveOpenCodeProvider(providerData);
   };
 
   // Save agent (wrapper function with validation logic)
@@ -531,6 +567,13 @@ const SettingsView = ({
                 onDeleteCodexProvider={handleDeleteCodexProvider}
                 onSwitchCodexProvider={handleSwitchCodexProvider}
                 onRevokeCodexLocalConfigAuthorization={handleRevokeCodexLocalConfigAuthorization}
+                openCodeProviders={openCodeProviders}
+                openCodeLoading={openCodeLoading}
+                onAddOpenCodeProvider={handleAddOpenCodeProvider}
+                onEditOpenCodeProvider={handleEditOpenCodeProvider}
+                onDeleteOpenCodeProvider={handleDeleteOpenCodeProvider}
+                onSwitchOpenCodeProvider={handleSwitchOpenCodeProvider}
+                onRevokeOpenCodeLocalConfigAuthorization={handleRevokeOpenCodeLocalConfigAuthorization}
                 addToast={addToast}
               />
           </div>
@@ -655,6 +698,12 @@ const SettingsView = ({
         onSaveCodexProvider={handleSaveCodexProviderFromDialog}
         onConfirmDeleteCodexProvider={confirmDeleteCodexProvider}
         onCancelDeleteCodexProvider={cancelDeleteCodexProvider}
+        openCodeProviderDialog={openCodeProviderDialog}
+        deleteOpenCodeConfirm={deleteOpenCodeConfirm}
+        onCloseOpenCodeProviderDialog={handleCloseOpenCodeProviderDialog}
+        onSaveOpenCodeProvider={handleSaveOpenCodeProviderFromDialog}
+        onConfirmDeleteOpenCodeProvider={confirmDeleteOpenCodeProvider}
+        onCancelDeleteOpenCodeProvider={cancelDeleteOpenCodeProvider}
         agentDialog={agentDialog}
         deleteAgentConfirm={deleteAgentConfirm}
         onCloseAgentDialog={handleCloseAgentDialog}

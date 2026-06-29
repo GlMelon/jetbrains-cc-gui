@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import PromptEnhancerSection from './index';
 import type { PromptEnhancerConfig } from '../../../types/promptEnhancer';
@@ -18,10 +18,12 @@ describe('PromptEnhancerSection', () => {
       models: {
         claude: 'claude-role-sonnet',
         codex: '',
+        opencode: '',
       },
       availability: {
         claude: true,
         codex: true,
+        opencode: true,
       },
     };
 

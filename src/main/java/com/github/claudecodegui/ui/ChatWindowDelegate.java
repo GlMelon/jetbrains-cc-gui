@@ -107,6 +107,15 @@ import com.github.claudecodegui.handler.provider.SwitchCodexProviderActionHandle
 import com.github.claudecodegui.handler.provider.RevokeCodexLocalConfigAuthorizationActionHandler;
 import com.github.claudecodegui.handler.provider.GetActiveCodexProviderActionHandler;
 import com.github.claudecodegui.handler.provider.SortCodexProvidersActionHandler;
+import com.github.claudecodegui.handler.provider.GetOpenCodeProvidersActionHandler;
+import com.github.claudecodegui.handler.provider.GetCurrentOpenCodeConfigActionHandler;
+import com.github.claudecodegui.handler.provider.AddOpenCodeProviderActionHandler;
+import com.github.claudecodegui.handler.provider.UpdateOpenCodeProviderActionHandler;
+import com.github.claudecodegui.handler.provider.DeleteOpenCodeProviderActionHandler;
+import com.github.claudecodegui.handler.provider.SwitchOpenCodeProviderActionHandler;
+import com.github.claudecodegui.handler.provider.RevokeOpenCodeLocalConfigAuthorizationActionHandler;
+import com.github.claudecodegui.handler.provider.GetActiveOpenCodeProviderActionHandler;
+import com.github.claudecodegui.handler.provider.SortOpenCodeProvidersActionHandler;
 import com.github.claudecodegui.handler.ProjectConfigHandler;
 import com.github.claudecodegui.handler.UserLanguageHandler;
 import com.github.claudecodegui.handler.RuntimePolicyHandler;
@@ -752,6 +761,16 @@ public class ChatWindowDelegate {
         typedHandlers.add(new RevokeCodexLocalConfigAuthorizationActionHandler(providerHandlers));
         typedHandlers.add(new GetActiveCodexProviderActionHandler(providerHandlers));
         typedHandlers.add(new SortCodexProvidersActionHandler(providerHandlers));
+        // OpenCode provider handlers (对称 codex, Principle 6)
+        typedHandlers.add(new GetOpenCodeProvidersActionHandler(providerHandlers));
+        typedHandlers.add(new GetCurrentOpenCodeConfigActionHandler(providerHandlers));
+        typedHandlers.add(new AddOpenCodeProviderActionHandler(providerHandlers));
+        typedHandlers.add(new UpdateOpenCodeProviderActionHandler(providerHandlers));
+        typedHandlers.add(new DeleteOpenCodeProviderActionHandler(providerHandlers));
+        typedHandlers.add(new SwitchOpenCodeProviderActionHandler(providerHandlers));
+        typedHandlers.add(new RevokeOpenCodeLocalConfigAuthorizationActionHandler(providerHandlers));
+        typedHandlers.add(new GetActiveOpenCodeProviderActionHandler(providerHandlers));
+        typedHandlers.add(new SortOpenCodeProvidersActionHandler(providerHandlers));
 
         // Permission: shared state container + 3 typed handlers
         PermissionActionHandlers permissionHandlers = new PermissionActionHandlers(handlerContext);

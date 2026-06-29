@@ -29,6 +29,7 @@ describe('useSettingsWindowCallbacks', () => {
     setSavingProjectCommitPrompt: vi.fn(),
     setEditorFontConfig: vi.fn(),
     setUiFontConfig: vi.fn(),
+    setCodeFontConfig: vi.fn(),
     setIdeTheme: vi.fn(),
     setLocalStreamingEnabled: vi.fn(),
     setCodexSandboxMode: vi.fn(),
@@ -36,10 +37,15 @@ describe('useSettingsWindowCallbacks', () => {
     setLoading: vi.fn(),
     setCodexLoading: vi.fn(),
     setCodexConfigLoading: vi.fn(),
+    setOpenCodeLoading: vi.fn(),
+    setOpenCodeConfigLoading: vi.fn(),
+    setInvocationMode: vi.fn(),
+    setCliPath: vi.fn(),
     updateProviders: vi.fn(),
     updateActiveProvider: vi.fn(),
     loadProviders: vi.fn(),
     loadCodexProviders: vi.fn(),
+    loadOpenCodeProviders: vi.fn(),
     loadAgents: vi.fn(),
     updateAgents: vi.fn(),
     handleAgentOperationResult: vi.fn(),
@@ -48,6 +54,9 @@ describe('useSettingsWindowCallbacks', () => {
     updateCodexProviders: vi.fn(),
     updateActiveCodexProvider: vi.fn(),
     updateCurrentCodexConfig: vi.fn(),
+    updateOpenCodeProviders: vi.fn(),
+    updateActiveOpenCodeProvider: vi.fn(),
+    updateCurrentOpenCodeConfig: vi.fn(),
     cleanupAgentsTimeout: vi.fn(),
     showAlert: vi.fn(),
     addToast: vi.fn(),
@@ -67,6 +76,7 @@ describe('useSettingsWindowCallbacks', () => {
 
     expect(deps.loadProviders).toHaveBeenCalledTimes(1);
     expect(deps.loadCodexProviders).toHaveBeenCalledTimes(1);
+    expect(deps.loadOpenCodeProviders).toHaveBeenCalledTimes(1);
     expect(deps.loadAgents).toHaveBeenCalledTimes(1);
     expect(window.sendToJava).not.toHaveBeenCalledWith(bridgeCall('get_current_claude_config'));
     expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('get_node_path'));
@@ -92,10 +102,12 @@ describe('useSettingsWindowCallbacks', () => {
       models: {
         claude: 'claude-sonnet-4-6',
         codex: 'gpt-5.5',
+        opencode: '',
       },
       availability: {
         claude: true,
         codex: true,
+        opencode: true,
       },
     };
 
@@ -116,10 +128,12 @@ describe('useSettingsWindowCallbacks', () => {
       models: {
         claude: 'claude-sonnet-4-6',
         codex: 'gpt-5.5',
+        opencode: '',
       },
       availability: {
         claude: true,
         codex: true,
+        opencode: true,
       },
     };
 

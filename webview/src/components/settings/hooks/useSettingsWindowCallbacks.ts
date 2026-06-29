@@ -3,7 +3,7 @@ import { sendAction, subscribeEvent } from '../../../bridge/typed';
 import { UPSTREAM, DOWNSTREAM } from '../../../generated/protocol';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { ProviderConfig, CodexProviderConfig } from '../../../types/provider';
+import type { ProviderConfig, CodexProviderConfig, OpenCodeProviderConfig } from '../../../types/provider';
 import type { AgentConfig } from '../../../types/agent';
 import type { PromptConfig } from '../../../types/prompt';
 import type { CommitAiConfig } from '../../../types/aiFeatureConfig';
@@ -11,7 +11,7 @@ import type { UiFontConfig, CodeFontConfig } from './useSettingsBasicActions';
 import type { PromptEnhancerConfig } from '../../../types/promptEnhancer';
 import type { AlertType } from '../../AlertDialog';
 import type { ToastMessage } from '../../Toast';
-import { subscribeActiveCodexProvider, subscribeActiveProvider, subscribeCodexProviderList, subscribeProviderList } from '../../../utils/runtimeProviderCapabilities';
+import { subscribeActiveCodexProvider, subscribeActiveOpenCodeProvider, subscribeActiveProvider, subscribeCodexProviderList, subscribeOpenCodeProviderList, subscribeProviderList } from '../../../utils/runtimeProviderCapabilities';
 import { registerLegacyAlias } from '../../../bridge';
 
 export interface SettingsWindowCallbacksDeps {
@@ -38,6 +38,8 @@ export interface SettingsWindowCallbacksDeps {
   setLoading: (loading: boolean) => void;
   setCodexLoading: (loading: boolean) => void;
   setCodexConfigLoading: (loading: boolean) => void;
+  setOpenCodeLoading: (loading: boolean) => void;
+  setOpenCodeConfigLoading: (loading: boolean) => void;
   // AI feature toggle setters
   setCommitGenerationEnabled?: (enabled: boolean) => void;
   setAiTitleGenerationEnabled?: (enabled: boolean) => void;
@@ -55,6 +57,7 @@ export interface SettingsWindowCallbacksDeps {
   updateActiveProvider: (provider: ProviderConfig) => void;
   loadProviders: () => void;
   loadCodexProviders: () => void;
+  loadOpenCodeProviders: () => void;
   loadAgents: () => void;
   updateAgents: (agents: AgentConfig[]) => void;
   handleAgentOperationResult: (result: any) => void;
@@ -63,6 +66,9 @@ export interface SettingsWindowCallbacksDeps {
   updateCodexProviders: (providers: CodexProviderConfig[]) => void;
   updateActiveCodexProvider: (provider: CodexProviderConfig) => void;
   updateCurrentCodexConfig: (config: any) => void;
+  updateOpenCodeProviders: (providers: OpenCodeProviderConfig[]) => void;
+  updateActiveOpenCodeProvider: (provider: OpenCodeProviderConfig) => void;
+  updateCurrentOpenCodeConfig: (config: any) => void;
   cleanupAgentsTimeout: () => void;
 
   // Prompt-related handlers (optional - now handled by PromptSection component)
@@ -151,6 +157,9 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
     registerLegacyAlias('promptImportPreviewResult', DOWNSTREAM.PROMPT_IMPORT_PREVIEW);
     registerLegacyAlias('promptImportResult', DOWNSTREAM.PROMPT_IMPORT_RESULT);
     registerLegacyAlias('updateCurrentCodexConfig', DOWNSTREAM.PROVIDER_CODEX_CONFIG);
+    registerLegacyAlias('updateOpenCodeProviders', DOWNSTREAM.PROVIDER_OPENCODE_LIST);
+    registerLegacyAlias('updateActiveOpenCodeProvider', DOWNSTREAM.PROVIDER_ACTIVE_OPENCODE);
+    registerLegacyAlias('updateCurrentOpenCodeConfig', DOWNSTREAM.PROVIDER_OPENCODE_CONFIG);
 
     const unsubs: Array<() => void> = [];
 
@@ -515,9 +524,42 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
       }
     }));
 
+    // OpenCode provider callbacks - subscribe via the registry.
+    const unsubscribeOpenCodeProviders = subscribeOpenCodeProviderList((jsonStr: string) => {
+      try {
+        const providersList: OpenCodeProviderConfig[] = JSON.parse(jsonStr);
+        d().updateOpenCodeProviders(providersList);
+      } catch (error) {
+        console.error('[SettingsView] Failed to parse OpenCode providers:', error);
+        d().setOpenCodeLoading(false);
+      }
+    });
+
+    const unsubscribeActiveOpenCodeProvider = subscribeActiveOpenCodeProvider((jsonStr: string) => {
+      try {
+        const activeProvider: OpenCodeProviderConfig = JSON.parse(jsonStr);
+        if (activeProvider) {
+          d().updateActiveOpenCodeProvider(activeProvider);
+        }
+      } catch (error) {
+        console.error('[SettingsView] Failed to parse active OpenCode provider:', error);
+      }
+    });
+
+    unsubs.push(subscribeEvent(DOWNSTREAM.PROVIDER_OPENCODE_CONFIG, (jsonStr) => {
+      try {
+        const config = JSON.parse(jsonStr as string);
+        d().updateCurrentOpenCodeConfig(config);
+      } catch (error) {
+        console.error('[SettingsView] Failed to parse OpenCode config:', error);
+        d().setOpenCodeConfigLoading(false);
+      }
+    }));
+
     // Initial data loading
     d().loadProviders();
     d().loadCodexProviders();
+    d().loadOpenCodeProviders();
     d().loadAgents();
     // Note: loadPrompts is now handled by PromptSection component
     d().loadPrompts?.();
@@ -547,6 +589,8 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
       unsubscribeActiveProvider();
       unsubscribeCodexProviders();
       unsubscribeActiveCodexProvider();
+      unsubscribeOpenCodeProviders();
+      unsubscribeActiveOpenCodeProvider();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t]);

@@ -539,10 +539,9 @@ interface Window {
 
   /**
    * Update session title (called when AI generates a title).
-   * @param sessionId - The session ID the title belongs to
-   * @param title - The generated title text
+   * Payload: { sessionId: string, title: string }.
    */
-  updateSessionTitle?: (sessionId: string, title: string) => void;
+  updateSessionTitle?: (json: string) => void;
 
   /**
    * Editor font config received callback - receives IDEA editor font configuration
@@ -648,6 +647,21 @@ interface Window {
    * Update active Codex provider
    */
   updateActiveCodexProvider?: (json: string) => void;
+
+  /**
+   * Update OpenCode providers list
+   */
+  updateOpenCodeProviders?: (json: string) => void;
+
+  /**
+   * Update active OpenCode provider
+   */
+  updateActiveOpenCodeProvider?: (json: string) => void;
+
+  /**
+   * Update current OpenCode config (from ~/.config/opencode/)
+   */
+  updateCurrentOpenCodeConfig?: (json: string) => void;
 
   /**
    * Update Node process management snapshot.

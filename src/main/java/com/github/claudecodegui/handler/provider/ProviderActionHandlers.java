@@ -13,14 +13,16 @@ public class ProviderActionHandlers {
 
     private final ClaudeProviderOperations claudeOps;
     private final CodexProviderOperations codexOps;
+    private final OpenCodeProviderOperations openCodeOps;
     private final ProviderImportExportSupport importExportSupport;
     private final ProviderOrderingService orderingService;
 
     public ProviderActionHandlers(HandlerContext context) {
         this.claudeOps = new ClaudeProviderOperations(context);
         this.codexOps = new CodexProviderOperations(context);
+        this.openCodeOps = new OpenCodeProviderOperations(context);
         this.importExportSupport = new ProviderImportExportSupport(context, claudeOps);
-        this.orderingService = new ProviderOrderingService(context, claudeOps, codexOps);
+        this.orderingService = new ProviderOrderingService(context, claudeOps, codexOps, openCodeOps);
     }
 
     // ============================================================================
@@ -117,5 +119,45 @@ public class ProviderActionHandlers {
 
     public void handleSortCodexProviders(String content) {
         orderingService.handleSortCodexProviders(content);
+    }
+
+    // ============================================================================
+    // OpenCode provider operations (对称 codex 块, Principle 6)
+    // ============================================================================
+
+    public void handleGetOpenCodeProviders() {
+        openCodeOps.handleGetOpenCodeProviders();
+    }
+
+    public void handleGetCurrentOpenCodeConfig() {
+        openCodeOps.handleGetCurrentOpenCodeConfig();
+    }
+
+    public void handleAddOpenCodeProvider(String content) {
+        openCodeOps.handleAddOpenCodeProvider(content);
+    }
+
+    public void handleUpdateOpenCodeProvider(String content) {
+        openCodeOps.handleUpdateOpenCodeProvider(content);
+    }
+
+    public void handleDeleteOpenCodeProvider(String content) {
+        openCodeOps.handleDeleteOpenCodeProvider(content);
+    }
+
+    public void handleSwitchOpenCodeProvider(String content) {
+        openCodeOps.handleSwitchOpenCodeProvider(content);
+    }
+
+    public void handleRevokeOpenCodeLocalConfigAuthorization(String content) {
+        openCodeOps.handleRevokeOpenCodeLocalConfigAuthorization(content);
+    }
+
+    public void handleGetActiveOpenCodeProvider() {
+        openCodeOps.handleGetActiveOpenCodeProvider();
+    }
+
+    public void handleSortOpenCodeProviders(String content) {
+        orderingService.handleSortOpenCodeProviders(content);
     }
 }

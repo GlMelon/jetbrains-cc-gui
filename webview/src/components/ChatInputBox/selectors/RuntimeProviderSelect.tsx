@@ -1,13 +1,20 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon, CommandLineIcon, InfoIcon, KeyIcon } from '../../Icons';;
-import { SPECIAL_PROVIDER_IDS, type CodexProviderConfig, type ProviderConfig } from '../../../types/provider';
+import {
+  SPECIAL_PROVIDER_IDS,
+  type CodexProviderConfig,
+  type OpenCodeProviderConfig,
+  type ProviderConfig,
+} from '../../../types/provider';
 import { sendAction } from '../../../bridge/typed';
 import { UPSTREAM } from '../../../generated/protocol';
 import {
   subscribeActiveCodexProvider,
+  subscribeActiveOpenCodeProvider,
   subscribeActiveProvider,
   subscribeCodexProviderList,
+  subscribeOpenCodeProviderList,
   subscribeProviderList,
 } from '../../../utils/runtimeProviderCapabilities';
 import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
@@ -25,11 +32,12 @@ interface RuntimeProviderSelectProps {
   onProviderSwitched?: (providerName: string) => void;
 }
 
-type RuntimeProvider = ProviderConfig | CodexProviderConfig;
+type RuntimeProvider = ProviderConfig | CodexProviderConfig | OpenCodeProviderConfig;
 
-type ProviderKind = 'claude' | 'codex';
+type ProviderKind = 'claude' | 'codex' | 'opencode';
 
-const isProviderKind = (provider: string): provider is ProviderKind => provider === 'claude' || provider === 'codex';
+const isProviderKind = (provider: string): provider is ProviderKind =>
+  provider === 'claude' || provider === 'codex' || provider === 'opencode';
 
 const parseProviderList = (json: string): RuntimeProvider[] => {
   const parsed = JSON.parse(json);
@@ -38,7 +46,7 @@ const parseProviderList = (json: string): RuntimeProvider[] => {
 
 /**
  * RuntimeProviderSelect - lightweight active-provider switcher for current engine.
- * Claude mode switches Claude Code providers; Codex mode switches Codex providers.
+ * Claude/Codex/OpenCode 三 provider 对称切换(Principle 6)。
  */
 export const RuntimeProviderSelect = ({ currentProvider, embedded = false, triggerRef, onClose, onProviderSwitched }: RuntimeProviderSelectProps) => {
   const { t } = useTranslation();
@@ -47,6 +55,7 @@ export const RuntimeProviderSelect = ({ currentProvider, embedded = false, trigg
   const [providersByKind, setProvidersByKind] = useState<Record<ProviderKind, RuntimeProvider[]>>({
     claude: [],
     codex: [],
+    opencode: [],
   });
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -58,7 +67,11 @@ export const RuntimeProviderSelect = ({ currentProvider, embedded = false, trigg
     minWidth: embedded ? 260 : 200,
   });
 
-  const providerKind: ProviderKind = currentProvider === 'codex' ? 'codex' : 'claude';
+  const providerKind: ProviderKind = currentProvider === 'codex'
+    ? 'codex'
+    : currentProvider === 'opencode'
+      ? 'opencode'
+      : 'claude';
   const visibleProviders = providersByKind[providerKind];
   const activeProvider = useMemo(
     () => visibleProviders.find((provider) => provider.isActive),
@@ -82,12 +95,22 @@ export const RuntimeProviderSelect = ({ currentProvider, embedded = false, trigg
       return t('settings.codexProvider.dialog.cliLoginProviderName');
     }
 
+    if (kind === 'opencode' && provider.id === SPECIAL_PROVIDER_IDS.OPENCODE_LOCAL_CONFIG) {
+      return t('settings.openCodeProvider.dialog.localConfigProviderName');
+    }
+
     return provider.name || provider.id;
   }, [t]);
 
   const requestProviders = useCallback((kind: ProviderKind) => {
     setLoading(true);
-    sendAction(kind === 'codex' ? UPSTREAM.GET_CODEX_PROVIDERS : UPSTREAM.GET_PROVIDERS);
+    if (kind === 'codex') {
+      sendAction(UPSTREAM.GET_CODEX_PROVIDERS);
+    } else if (kind === 'opencode') {
+      sendAction(UPSTREAM.GET_OPENCODE_PROVIDERS);
+    } else {
+      sendAction(UPSTREAM.GET_PROVIDERS);
+    }
   }, []);
 
   const handleToggle = useCallback((event: React.MouseEvent) => {
@@ -104,7 +127,13 @@ export const RuntimeProviderSelect = ({ currentProvider, embedded = false, trigg
   }, [currentProvider, isOpen, providerKind, recalculate, requestProviders]);
 
   const handleSelect = useCallback((provider: RuntimeProvider) => {
-    sendAction(providerKind === 'codex' ? UPSTREAM.SWITCH_CODEX_PROVIDER : UPSTREAM.SWITCH_PROVIDER, JSON.stringify({ id: provider.id }));
+    if (providerKind === 'codex') {
+      sendAction(UPSTREAM.SWITCH_CODEX_PROVIDER, JSON.stringify({ id: provider.id }));
+    } else if (providerKind === 'opencode') {
+      sendAction(UPSTREAM.SWITCH_OPENCODE_PROVIDER, JSON.stringify({ id: provider.id }));
+    } else {
+      sendAction(UPSTREAM.SWITCH_PROVIDER, JSON.stringify({ id: provider.id }));
+    }
     onProviderSwitched?.(getProviderDisplayName(provider, providerKind));
     setProvidersByKind((previous) => ({
       ...previous,
@@ -172,11 +201,40 @@ export const RuntimeProviderSelect = ({ currentProvider, embedded = false, trigg
       }
     });
 
+    const unsubscribeOpenCodeProviders = subscribeOpenCodeProviderList((json) => {
+      try {
+        const providers = parseProviderList(json);
+        setProvidersByKind((previous) => ({ ...previous, opencode: providers }));
+        setLoading(false);
+      } catch (error) {
+        console.error('[RuntimeProviderSelect] Failed to parse OpenCode providers:', error);
+        setLoading(false);
+      }
+    });
+
+    const unsubscribeActiveOpenCodeProvider = subscribeActiveOpenCodeProvider((json) => {
+      try {
+        const activeProvider = JSON.parse(json) as RuntimeProvider;
+        if (!activeProvider?.id) return;
+        setProvidersByKind((previous) => ({
+          ...previous,
+          opencode: previous.opencode.map((provider) => ({
+            ...provider,
+            isActive: provider.id === activeProvider.id,
+          })),
+        }));
+      } catch (error) {
+        console.error('[RuntimeProviderSelect] Failed to parse active OpenCode provider:', error);
+      }
+    });
+
     return () => {
       unsubscribeProviders();
       unsubscribeActiveProvider();
       unsubscribeCodexProviders();
       unsubscribeActiveCodexProvider();
+      unsubscribeOpenCodeProviders();
+      unsubscribeActiveOpenCodeProvider();
     };
   }, []);
 
@@ -255,7 +313,11 @@ export const RuntimeProviderSelect = ({ currentProvider, embedded = false, trigg
       ) : (
         visibleProviders.map((provider) => {
           const selected = !!provider.isActive;
-          const description = provider.remark || ('websiteUrl' in provider ? provider.websiteUrl : undefined);
+          // OpenCode provider 携带 baseURL/apiBase 作描述(对称 claude 的 remark/websiteUrl)
+          const description = provider.remark
+            || ('websiteUrl' in provider ? provider.websiteUrl : undefined)
+            || ('baseURL' in provider ? provider.baseURL : undefined)
+            || ('apiBase' in provider ? provider.apiBase : undefined);
           return (
             <div
               key={provider.id}
@@ -299,4 +361,3 @@ export const RuntimeProviderSelect = ({ currentProvider, embedded = false, trigg
     </div>
   );
 };
-

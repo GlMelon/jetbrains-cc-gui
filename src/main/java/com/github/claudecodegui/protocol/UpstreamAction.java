@@ -195,6 +195,17 @@ public enum UpstreamAction implements ProtocolValue {
     SORT_CODEX_PROVIDERS("sort_codex_providers"),
     GET_ACTIVE_CODEX_PROVIDER("get_active_codex_provider"),
 
+    // ── Provider (OpenCode) ── 对称 codex 块(Principle 6 多 provider 对称)
+    GET_OPENCODE_PROVIDERS("get_opencode_providers"),
+    GET_CURRENT_OPENCODE_CONFIG("get_current_opencode_config"),
+    ADD_OPENCODE_PROVIDER("add_opencode_provider"),
+    UPDATE_OPENCODE_PROVIDER("update_opencode_provider"),
+    DELETE_OPENCODE_PROVIDER("delete_opencode_provider"),
+    SWITCH_OPENCODE_PROVIDER("switch_opencode_provider"),
+    REVOKE_OPENCODE_LOCAL_CONFIG_AUTHORIZATION("revoke_opencode_local_config_authorization"),
+    SORT_OPENCODE_PROVIDERS("sort_opencode_providers"),
+    GET_ACTIVE_OPENCODE_PROVIDER("get_active_opencode_provider"),
+
     // ── Dependency ──
     GET_DEPENDENCY_STATUS("get_dependency_status"),
     INSTALL_DEPENDENCY("install_dependency"),

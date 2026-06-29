@@ -25,11 +25,14 @@ public class ProviderOrderingService {
     private final HandlerContext context;
     private final ClaudeProviderOperations claudeOps;
     private final CodexProviderOperations codexOps;
+    private final OpenCodeProviderOperations openCodeOps;
 
-    public ProviderOrderingService(HandlerContext context, ClaudeProviderOperations claudeOps, CodexProviderOperations codexOps) {
+    public ProviderOrderingService(HandlerContext context, ClaudeProviderOperations claudeOps,
+                                   CodexProviderOperations codexOps, OpenCodeProviderOperations openCodeOps) {
         this.context = context;
         this.claudeOps = claudeOps;
         this.codexOps = codexOps;
+        this.openCodeOps = openCodeOps;
     }
 
     /**
@@ -61,6 +64,23 @@ public class ProviderOrderingService {
             ApplicationManager.getApplication().invokeLater(codexOps::handleGetCodexProviders);
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to save Codex provider order: " + e.getMessage(), e);
+            ApplicationManager.getApplication().invokeLater(() ->
+                context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs("Failed to save provider order: " + e.getMessage())));
+        }
+    }
+
+    /**
+     * Save OpenCode provider order after drag-and-drop sorting.
+     */
+    public void handleSortOpenCodeProviders(String content) {
+        List<String> orderedIds = parseOrderedIds(content, "OpenCode sorting");
+        if (orderedIds == null) { return; }
+        try {
+            context.getSettingsService().saveOpenCodeProviderOrder(orderedIds);
+            LOG.info("[ProviderHandler] Saved OpenCode provider order: " + orderedIds);
+            ApplicationManager.getApplication().invokeLater(openCodeOps::handleGetOpenCodeProviders);
+        } catch (Exception e) {
+            LOG.error("[ProviderHandler] Failed to save OpenCode provider order: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() ->
                 context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs("Failed to save provider order: " + e.getMessage())));
         }

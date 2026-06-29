@@ -29,6 +29,7 @@ vi.mock('react-i18next', () => ({
       'settings.provider.localProviderName': 'Use local settings.json',
       'settings.provider.cliLoginProviderName': 'Use CLI login',
       'settings.codexProvider.dialog.cliLoginProviderName': 'Use local Codex config',
+      'settings.openCodeProvider.dialog.localConfigProviderName': 'Use local OpenCode config',
     } as Record<string, string>)[key] ?? (typeof options === 'string' ? options : key),
   }),
 }));
@@ -41,8 +42,10 @@ describe('ConfigSelect runtime provider submenu', () => {
     window.sendToJava = vi.fn();
     window.updateProviders = undefined;
     window.updateCodexProviders = undefined;
+    window.updateOpenCodeProviders = undefined;
     window.updateActiveProvider = undefined;
     window.updateActiveCodexProvider = undefined;
+    window.updateActiveOpenCodeProvider = undefined;
   });
 
   it('switches Claude runtime providers from the configure menu', async () => {
@@ -97,6 +100,30 @@ describe('ConfigSelect runtime provider submenu', () => {
     fireEvent.click(within(submenu).getByText('Codex Proxy'));
 
     expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('switch_codex_provider', '{"id":"codex-proxy"}'));
+  });
+
+  it('switches OpenCode runtime providers from the configure menu', async () => {
+    render(<ConfigSelect currentProvider="opencode" />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Configure/i }));
+    fireEvent.mouseEnter(screen.getByText('Switch provider').closest('.selector-option')!);
+
+    expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('get_opencode_providers'));
+
+    act(() => {
+      window.updateOpenCodeProviders?.(JSON.stringify([
+        { id: SPECIAL_PROVIDER_IDS.OPENCODE_LOCAL_CONFIG, name: 'hidden opencode local', isActive: true },
+        { id: 'openglm', name: 'OpenGLM', baseURL: 'https://open.bigmodel.cn', isActive: false },
+      ]));
+    });
+
+    const submenu = await screen.findByRole('listbox');
+    expect(within(submenu).getByText('Use local OpenCode config')).toBeTruthy();
+    expect(within(submenu).getByText('OpenGLM')).toBeTruthy();
+
+    fireEvent.click(within(submenu).getByText('OpenGLM'));
+
+    expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('switch_opencode_provider', '{"id":"openglm"}'));
   });
 
   it('refreshes selected provider when backend confirms active provider change', async () => {

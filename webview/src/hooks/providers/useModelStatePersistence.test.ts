@@ -28,6 +28,7 @@ describe('useModelStatePersistence', () => {
         codexPermissionMode: 'default',
         longContextEnabled: true,
         reasoningEffort: 'high',
+        codexFastMode: 'normal',
         ...overrides,
     });
 

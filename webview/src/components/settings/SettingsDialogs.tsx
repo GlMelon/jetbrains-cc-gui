@@ -1,12 +1,13 @@
 // SettingsDialogs.tsx
 import { useTranslation } from 'react-i18next';
-import type { ProviderConfig, CodexProviderConfig } from '../../types/provider';
+import type { ProviderConfig, CodexProviderConfig, OpenCodeProviderConfig } from '../../types/provider';
 import type { AgentConfig } from '../../types/agent';
 import AlertDialog from '../AlertDialog';
 import type { AlertType } from '../AlertDialog';
 import ConfirmDialog from '../ConfirmDialog';
 import ProviderDialog from '../ProviderDialog';
 import CodexProviderDialog from '../CodexProviderDialog';
+import OpenCodeProviderDialog from '../OpenCodeProviderDialog';
 import AgentDialog from '../AgentDialog';
 import AgentExportDialog from './AgentSection/AgentExportDialog';
 import AgentImportConfirmDialog from './AgentSection/AgentImportConfirmDialog';
@@ -14,6 +15,7 @@ import type { ToastMessage } from '../Toast';
 import type { ProviderDialogState, DeleteConfirmState } from './hooks/useProviderManagement';
 import type { AgentDialogState, DeleteAgentConfirmState, ExportDialogState as AgentExportDialogState, ImportPreviewDialogState as AgentImportPreviewDialogState } from './hooks/useAgentManagement';
 import type { CodexProviderDialogState, DeleteCodexConfirmState } from './hooks/useCodexProviderManagement';
+import type { OpenCodeProviderDialogState, DeleteOpenCodeConfirmState } from './hooks/useOpenCodeProviderManagement';
 import type { ConflictStrategy } from '../../types/import';
 
 interface SettingsDialogsProps {
@@ -37,6 +39,14 @@ interface SettingsDialogsProps {
   onSaveCodexProvider: (data: CodexProviderConfig) => void;
   onConfirmDeleteCodexProvider: () => void;
   onCancelDeleteCodexProvider: () => void;
+
+  // OpenCode provider dialog
+  openCodeProviderDialog: OpenCodeProviderDialogState;
+  deleteOpenCodeConfirm: DeleteOpenCodeConfirmState;
+  onCloseOpenCodeProviderDialog: () => void;
+  onSaveOpenCodeProvider: (data: OpenCodeProviderConfig) => void;
+  onConfirmDeleteOpenCodeProvider: () => void;
+  onCancelDeleteOpenCodeProvider: () => void;
 
   // Agent dialog
   agentDialog: AgentDialogState;
@@ -76,6 +86,12 @@ const SettingsDialogs = ({
   onSaveCodexProvider,
   onConfirmDeleteCodexProvider,
   onCancelDeleteCodexProvider,
+  openCodeProviderDialog,
+  deleteOpenCodeConfirm,
+  onCloseOpenCodeProviderDialog,
+  onSaveOpenCodeProvider,
+  onConfirmDeleteOpenCodeProvider,
+  onCancelDeleteOpenCodeProvider,
   agentDialog,
   deleteAgentConfirm,
   onCloseAgentDialog,
@@ -165,6 +181,26 @@ const SettingsDialogs = ({
         cancelText={t('common.cancel')}
         onConfirm={onConfirmDeleteCodexProvider}
         onCancel={onCancelDeleteCodexProvider}
+      />
+
+      {/* OpenCode provider add/edit dialog */}
+      <OpenCodeProviderDialog
+        isOpen={openCodeProviderDialog.isOpen}
+        provider={openCodeProviderDialog.provider}
+        onClose={onCloseOpenCodeProviderDialog}
+        onSave={onSaveOpenCodeProvider}
+        addToast={addToast}
+      />
+
+      {/* OpenCode provider delete confirmation dialog */}
+      <ConfirmDialog
+        isOpen={deleteOpenCodeConfirm.isOpen}
+        title={t('settings.openCodeProvider.deleteConfirmTitle')}
+        message={t('settings.openCodeProvider.deleteConfirmMessage', { name: deleteOpenCodeConfirm.provider?.name || '' })}
+        confirmText={t('common.delete')}
+        cancelText={t('common.cancel')}
+        onConfirm={onConfirmDeleteOpenCodeProvider}
+        onCancel={onCancelDeleteOpenCodeProvider}
       />
 
       {/* Agent export dialog */}

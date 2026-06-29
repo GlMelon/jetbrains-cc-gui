@@ -29,8 +29,11 @@ public enum DownstreamEvent implements ProtocolValue {
     PROVIDER_ACTIVE("provider.active"),
     PROVIDER_CODEX_LIST("provider.codex_list"),
     PROVIDER_ACTIVE_CODEX("provider.active_codex"),
+    PROVIDER_OPENCODE_LIST("provider.opencode_list"),
+    PROVIDER_ACTIVE_OPENCODE("provider.active_opencode"),
     PROVIDER_CLAUDE_CONFIG("provider.claude_config"),
     PROVIDER_CODEX_CONFIG("provider.codex_config"),
+    PROVIDER_OPENCODE_CONFIG("provider.opencode_config"),
     PROVIDER_CLI_LOGIN_ACCOUNT("provider.cli_login_account"),
     PROVIDER_IMPORT_PREVIEW("provider.import_preview"),
 

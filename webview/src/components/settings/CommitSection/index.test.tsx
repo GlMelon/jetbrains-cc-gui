@@ -18,10 +18,12 @@ describe('CommitSection', () => {
       models: {
         claude: 'claude-role-sonnet',
         codex: '',
+        opencode: '',
       },
       availability: {
         claude: true,
         codex: true,
+        opencode: true,
       },
     };
 

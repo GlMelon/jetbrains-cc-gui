@@ -112,6 +112,8 @@ public class CodemossSettingsService {
     private final McpServerManager mcpServerManager;
     private final ProviderManager providerManager;
     private final CodexProviderManager codexProviderManager;
+    private final OpenCodeSettingsManager openCodeSettingsManager;
+    private final OpenCodeProviderManager openCodeProviderManager;
 
     public CodemossSettingsService() {
         this.gson = new GsonBuilder().setPrettyPrinting().serializeNulls().create();
@@ -209,6 +211,28 @@ public class CodemossSettingsService {
                 },
                 pathManager,
                 codexSettingsManager
+        );
+
+        // Initialize OpenCodeSettingsManager + OpenCodeProviderManager(对称 codex,SSOT 段 + 外科手术式合并)
+        this.openCodeSettingsManager = new OpenCodeSettingsManager(gson);
+        this.openCodeProviderManager = new OpenCodeProviderManager(
+                gson,
+                (ignored) -> {
+                    try {
+                        return readConfig();
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                },
+                (config) -> {
+                    try {
+                        writeConfig(config);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                },
+                pathManager,
+                openCodeSettingsManager
         );
     }
 
@@ -1709,6 +1733,101 @@ public class CodemossSettingsService {
 
     public void saveCodexProviderOrder(List<String> orderedIds) throws IOException {
         codexProviderManager.saveProviderOrder(orderedIds);
+    }
+
+    // ==================== OpenCode Provider Management ==================== (对称 codex 段)
+
+    public List<JsonObject> getOpenCodeProviders() throws IOException {
+        return openCodeProviderManager.getOpenCodeProviders();
+    }
+
+    public JsonObject getActiveOpenCodeProvider() throws IOException {
+        return openCodeProviderManager.getActiveOpenCodeProvider();
+    }
+
+    public void addOpenCodeProvider(JsonObject provider) throws IOException {
+        openCodeProviderManager.addOpenCodeProvider(provider);
+    }
+
+    public void updateOpenCodeProvider(String id, JsonObject updates) throws IOException {
+        openCodeProviderManager.updateOpenCodeProvider(id, updates);
+    }
+
+    public DeleteResult deleteOpenCodeProvider(String id) {
+        return openCodeProviderManager.deleteOpenCodeProvider(id);
+    }
+
+    public void switchOpenCodeProvider(String id) throws IOException {
+        openCodeProviderManager.switchOpenCodeProvider(id);
+    }
+
+    public void applyActiveProviderToOpenCodeSettings() throws IOException {
+        openCodeProviderManager.applyActiveProviderToOpenCodeSettings();
+    }
+
+    public JsonObject getCurrentOpenCodeConfig() throws IOException {
+        if (!isOpencodeLocalConfigAuthorized()) {
+            return new JsonObject();
+        }
+        return openCodeProviderManager.getCurrentOpenCodeConfig();
+    }
+
+    public boolean isOpencodeLocalConfigAuthorized() throws IOException {
+        JsonObject config = readConfig();
+        if (!config.has(ProviderType.OPENCODE.value()) || !config.get(ProviderType.OPENCODE.value()).isJsonObject()) {
+            return false;
+        }
+        JsonObject opencode = config.getAsJsonObject(ProviderType.OPENCODE.value());
+        return opencode.has("localConfigAuthorized")
+                && !opencode.get("localConfigAuthorized").isJsonNull()
+                && opencode.get("localConfigAuthorized").getAsBoolean();
+    }
+
+    public void setOpencodeLocalConfigAuthorized(boolean authorized) throws IOException {
+        JsonObject config = readConfig();
+        JsonObject opencode;
+        if (config.has(ProviderType.OPENCODE.value()) && config.get(ProviderType.OPENCODE.value()).isJsonObject()) {
+            opencode = config.getAsJsonObject(ProviderType.OPENCODE.value());
+        } else {
+            opencode = new JsonObject();
+            opencode.add("providers", new JsonObject());
+            opencode.addProperty("current", "");
+            config.add(ProviderType.OPENCODE.value(), opencode);
+        }
+
+        opencode.addProperty("localConfigAuthorized", authorized);
+        writeConfig(config);
+    }
+
+    public String getOpenCodeRuntimeAccessMode() throws IOException {
+        JsonObject config = readConfig();
+        if (!config.has(ProviderType.OPENCODE.value()) || !config.get(ProviderType.OPENCODE.value()).isJsonObject()) {
+            return CODEX_RUNTIME_ACCESS_INACTIVE;
+        }
+
+        JsonObject opencode = config.getAsJsonObject(ProviderType.OPENCODE.value());
+        String currentId = opencode.has("current") && !opencode.get("current").isJsonNull()
+                ? opencode.get("current").getAsString().trim()
+                : "";
+
+        if (OpenCodeProviderManager.OPENCODE_LOCAL_CONFIG_PROVIDER_ID.equals(currentId)) {
+            return isOpencodeLocalConfigAuthorized()
+                    ? CODEX_RUNTIME_ACCESS_CLI_LOGIN
+                    : CODEX_RUNTIME_ACCESS_INACTIVE;
+        }
+
+        if (!currentId.isEmpty()
+                && opencode.has("providers")
+                && opencode.get("providers").isJsonObject()
+                && opencode.getAsJsonObject("providers").has(currentId)) {
+            return CODEX_RUNTIME_ACCESS_MANAGED;
+        }
+
+        return CODEX_RUNTIME_ACCESS_INACTIVE;
+    }
+
+    public void saveOpenCodeProviderOrder(List<String> orderedIds) throws IOException {
+        openCodeProviderManager.saveProviderOrder(orderedIds);
     }
 
     // ==================== Model Registry Config Management ====================

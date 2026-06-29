@@ -36,6 +36,8 @@ export function installRuntimeProviderDispatchers(): void {
   registerAliasIfAbsent('updateActiveProvider', 'provider.active');
   registerAliasIfAbsent('updateCodexProviders', 'provider.codex_list');
   registerAliasIfAbsent('updateActiveCodexProvider', 'provider.active_codex');
+  registerAliasIfAbsent('updateOpenCodeProviders', 'provider.opencode_list');
+  registerAliasIfAbsent('updateActiveOpenCodeProvider', 'provider.active_opencode');
 }
 
 function registerAliasIfAbsent(legacyName: string, type: string): void {
@@ -56,7 +58,8 @@ function ensureInstalled(): void {
   if (typeof window === 'undefined') return;
   const win = window as unknown as Record<string, unknown>;
   if (!win.updateProviders || !win.updateActiveProvider
-      || !win.updateCodexProviders || !win.updateActiveCodexProvider) {
+      || !win.updateCodexProviders || !win.updateActiveCodexProvider
+      || !win.updateOpenCodeProviders || !win.updateActiveOpenCodeProvider) {
     installRuntimeProviderDispatchers();
   }
 }
@@ -83,4 +86,14 @@ export function subscribeCodexProviderList(listener: ProviderListListener): () =
 export function subscribeActiveCodexProvider(listener: ActiveProviderListener): () => void {
   ensureInstalled();
   return subscribeEvent(DOWNSTREAM.PROVIDER_ACTIVE_CODEX, listener);
+}
+
+export function subscribeOpenCodeProviderList(listener: ProviderListListener): () => void {
+  ensureInstalled();
+  return subscribeEvent(DOWNSTREAM.PROVIDER_OPENCODE_LIST, listener);
+}
+
+export function subscribeActiveOpenCodeProvider(listener: ActiveProviderListener): () => void {
+  ensureInstalled();
+  return subscribeEvent(DOWNSTREAM.PROVIDER_ACTIVE_OPENCODE, listener);
 }

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import AiFeatureProviderModelPanel from './index';
 import type { CommitAiConfig } from '../../../types/aiFeatureConfig';
 
@@ -35,10 +35,12 @@ describe('AiFeatureProviderModelPanel', () => {
     models: {
       claude: 'claude-sonnet-4-6',
       codex: 'gpt-5.5',
+      opencode: '',
     },
     availability: {
       claude: true,
       codex: true,
+      opencode: true,
     },
   };
 
