@@ -146,4 +146,33 @@ public class OpenCodeCliStreamParserTest {
         assertTrue("error must be captured", parser.hasError());
         assertTrue("error text should include the message", parser.errorDiagnostic().contains("Unexpected server error."));
     }
+
+    @Test
+    public void mcpErrorEventDowngradedToStatusNotice() {
+        // MCP 连接失败(本地 server 未启动):降级为非阻塞 status 提示,不标记 hasError/缓冲为回合错误。
+        RecordingCallback cb = new RecordingCallback();
+        OpenCodeCliStreamParser parser = new OpenCodeCliStreamParser(cb);
+
+        parser.parseLine("{\"type\":\"error\",\"timestamp\":1,\"sessionID\":\"ses_1\","
+                + "\"error\":{\"data\":{\"message\":\"mcp server 'weather' failed to connect\"}}}");
+
+        assertFalse("MCP 失败不标记 hasError", parser.hasError());
+        assertTrue("MCP 失败不缓冲错误诊断", parser.errorDiagnostic().isEmpty());
+        assertEquals("应发一条非阻塞 status 提示", 1,
+                cb.messages.stream().filter(m -> CliConstants.CODEX_MSG_STATUS.equals(m[0])).count());
+    }
+
+    @Test
+    public void mcpNoticeEmittedAtMostOncePerRun() {
+        // MCP 错误可能多次出现:每轮只发一次 toast,但每次都抑制(不标记 hasError)。
+        RecordingCallback cb = new RecordingCallback();
+        OpenCodeCliStreamParser parser = new OpenCodeCliStreamParser(cb);
+
+        parser.parseLine("{\"type\":\"error\",\"error\":{\"data\":{\"message\":\"rmcp transport channel closed\"}}}");
+        parser.parseLine("{\"type\":\"error\",\"error\":{\"data\":{\"message\":\"rmcp transport channel closed\"}}}");
+
+        assertEquals("多次 MCP 错误只发一次 status toast", 1,
+                cb.messages.stream().filter(m -> CliConstants.CODEX_MSG_STATUS.equals(m[0])).count());
+        assertFalse("所有 MCP 错误都不标记 hasError", parser.hasError());
+    }
 }

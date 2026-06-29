@@ -72,4 +72,30 @@ public class OpenCodeConfigReaderTest {
         List<JsonObject> servers = OpenCodeConfigReader.readMcpServers((Path) null);
         assertTrue(servers.isEmpty());
     }
+
+    /**
+     * opencode {@code --model} 要求 {@code provider/model} 格式(如 {@code openglm/glm-5.2});
+     * 传裸名 {@code -m glm-5.2} 会触发 "Unexpected server error"——这正是 OpenCode CLI
+     * 「Generating response 后无回复无错误」的根因之一(2026-06-29)。
+     * <p>因此 registry 的 actualModel(CLI -m 透传值)必须带 provider 前缀;
+     * 而 canonical id(选择键/去重)保持裸名,role 仍存 provider 名。
+     */
+    @Test
+    public void readModelsProducesProviderSlashModelActualModel() throws Exception {
+        Path cfg = writeConfig("{\"provider\":{\"openglm\":{\"name\":\"OpenGLM\","
+                + "\"models\":{\"glm-5.2\":{\"name\":\"GLM 5.2\",\"limit\":{\"context\":131072}}}}}}");
+        List<ModelConfig> models = OpenCodeConfigReader.readModels(cfg);
+        assertEquals(1, models.size());
+        ModelConfig m = models.get(0);
+        assertEquals("glm-5.2", m.id());                  // canonical id 仍为裸名(选择键不变)
+        assertEquals("openglm", m.role());                // role 存 provider 名
+        assertEquals("openglm/glm-5.2", m.actualModel()); // actualModel 带 provider 前缀(CLI -m 透传)
+        assertEquals(131072, m.contextWindow());
+    }
+
+    @Test
+    public void readModelsNullPathReturnsEmpty() {
+        List<ModelConfig> models = OpenCodeConfigReader.readModels((Path) null);
+        assertTrue(models.isEmpty());
+    }
 }

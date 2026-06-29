@@ -142,17 +142,17 @@ public class OpenCodeCliSession implements CliSession {
             }
         }
 
+        // 可靠 stdin EOF:redirectInput 重定向到空设备(NUL / /dev/null),在 OS 句柄层给子进程
+        // 空 stdin,opencode run 立即读到 EOF。此前用 getOutputStream().close() 关闭管道写端,
+        // 但经 opencode.cmd → cmd.exe → opencode.exe 这层 Windows 批处理包装时 EOF 不可靠传播
+        // → opencode 阻塞读 stdin → 进程不输出 → Java read() 阻塞 → 前端"Generating response 后
+        // 无输出无错误"(对照实验:stdin 打开=30s 挂起 exit0 空;redirectInput/< /dev/null=快速返回
+        // 事件流)。redirectInput 在创建进程时由 OS 直接重定向句柄,不依赖 cmd.exe 包装传播,
+        // 是关闭 stdin 的可靠方式。(平台耦合,对照实验验证;B9 不写 stdin,故无需管道)
+        pb.redirectInput(stdinNullSink());
+
         Process process = pb.start();
-        // 显式关闭 stdin(等价 < /dev/null):opencode run 即使收到位置参数消息,当 stdin 为
-        // 打开管道(ProcessBuilder 默认)时仍会阻塞读取等待输入 → 进程永不输出 → Java read()
-        // 永久阻塞 = 前端"一直 Generating response"。对照实验:stdin 打开=卡死(exit124),
-        // stdin 关闭=正常(exit0)。Claude/Codex CLI 因写 stdin 并 try-with-resources 关闭而规避,
-        // OpenCode 用位置参数(B9 不写 stdin),故必须显式关闭。(平台耦合,对照实验验证)
-        try {
-            process.getOutputStream().close();
-        } catch (Exception ignored) {
-            // best-effort:关闭失败不阻断主流程(进程仍可被 interrupt 销毁)
-        }
+        // stdin 已重定向到空设备,opencode 立即读到 EOF;无需(也无法)再经 OutputStream 关闭。
         // B14:CliProcessHandle 统一管理中断(替代裸 destroyForcibly)。
         activeHandle = new CliProcessHandle(process, "opencode-tab-" + tabId);
 
@@ -193,7 +193,20 @@ public class OpenCodeCliSession implements CliSession {
 
         if (exitCode == 0 && !parser.hasError()) {
             if (!parser.streamEnded()) {
-                // 异常路径未收到 step_finish(reason=stop),补发流结束以解除前端阻塞
+                if (isSilentEmptyFailure(parser)) {
+                    // opencode exit0 但整轮未解析到任何事件(无 sessionID、无文本、无 step_finish):
+                    // 典型为子进程阻塞读 stdin 或 opencode/provider 内部静默错误。上报错误而非
+                    // 静默空完成,避免前端"Generating response 后无输出无错误"。
+                    // 对照验证:命令行 `opencode run "<msg>" --format json -m <model> --dir <项目> < NUL`。
+                    String err = CliErrorFormatter.formatError("OpenCode",
+                            "进程退出但未返回任何内容(exit=0,无事件流)。"
+                                    + "常见原因:子进程阻塞读 stdin,或 opencode/provider 内部错误。"
+                                    + "请在命令行执行 opencode run 并重定向空 stdin 对照验证,检查 opencode 配置与 provider。");
+                    callback.onError(err);
+                    callback.onComplete(false, parser.accumulatedText(), err);
+                    return false;
+                }
+                // 异常路径未收到 step_finish(reason=stop)但有事件/内容,补发流结束以解除前端阻塞
                 callback.onMessage(CliConstants.MSG_STREAM_END, "");
                 callback.onMessage(CliConstants.MSG_MESSAGE_END, "");
             }
@@ -364,6 +377,8 @@ public class OpenCodeCliSession implements CliSession {
         }
         // 非 JSON 行(启动 banner / 错误噪声)收集到 diagnostic,供错误上报;JSON 事件交解析器
         if (!line.trim().startsWith("{")) {
+            // MCP 连接失败的非 JSON 噪声:发非阻塞提示(每轮去重)。该路径 exit0+success 本就不报错,仅补 toast。
+            parser.emitMcpNoticeIfMatched(line);
             CliErrorFormatter.appendDiagnosticLine(diagnostic, line);
             return;
         }
@@ -415,5 +430,23 @@ public class OpenCodeCliSession implements CliSession {
             }
         }
         return null;
+    }
+
+    /**
+     * 子进程 stdin 空设备:Windows {@code NUL} / Unix {@code /dev/null},
+     * 供 {@link ProcessBuilder#redirectInput} 在 OS 句柄层给 opencode 空 stdin(立即 EOF)。
+     */
+    private static File stdinNullSink() {
+        return new File(PlatformUtils.isWindows() ? "NUL" : "/dev/null");
+    }
+
+    /**
+     * 判定是否"静默空失败":opencode 进程 exit0,但整轮未解析到任何有效事件
+     * ({@code !receivedAnyEvent},即无 sessionID / 文本 / step_finish)。
+     * 此组合表明 opencode 未产出事件流(典型:阻塞读 stdin / 内部静默错误),
+     * 应上报错误而非静默空完成。
+     */
+    static boolean isSilentEmptyFailure(OpenCodeCliStreamParser parser) {
+        return !parser.receivedAnyEvent();
     }
 }

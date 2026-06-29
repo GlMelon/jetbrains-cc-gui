@@ -2,6 +2,7 @@ package com.github.claudecodegui.cli.opencode;
 
 import com.github.claudecodegui.cli.CliSessionCallback;
 import com.github.claudecodegui.cli.common.CliConstants;
+import com.github.claudecodegui.cli.common.McpErrorMatcher;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
@@ -48,6 +49,11 @@ public class OpenCodeCliStreamParser {
     private boolean streamEnded;
     private boolean sessionIdEmitted;
     private boolean hasError;
+    // MCP 连接失败(本地 server 未启动)已发非阻塞提示的标志:每轮仅发一次 toast(MCP 错误可能多次出现)。
+    private boolean mcpNoticeEmitted;
+    // 是否解析到至少一个有效 JSON 事件(opencode 产出了事件流)。会话层据此区分
+    // "有内容缺收尾"(补发 stream_end)与"零事件静默失败"(上报错误,避免无输出无错误)。
+    private boolean receivedAnyEvent;
     private final StringBuilder errorDiagnostic = new StringBuilder();
     private final StringBuilder assistantContent = new StringBuilder();
 
@@ -69,6 +75,11 @@ public class OpenCodeCliStreamParser {
         return hasError;
     }
 
+    /** 本次运行是否解析到至少一个有效 JSON 事件(opencode 产出了事件流)。 */
+    public boolean receivedAnyEvent() {
+        return receivedAnyEvent;
+    }
+
     /** 本次运行是否已收到 step_finish(reason=stop)(会话层据此判断是否需补发 stream_end)。 */
     public boolean streamEnded() {
         return streamEnded;
@@ -84,8 +95,27 @@ public class OpenCodeCliStreamParser {
         streamEnded = false;
         sessionIdEmitted = false;
         hasError = false;
+        mcpNoticeEmitted = false;
+        receivedAnyEvent = false;
         errorDiagnostic.setLength(0);
         assistantContent.setLength(0);
+    }
+
+    /**
+     * 检测文本是否为 MCP 连接失败(本地 server 未启动等),命中则发非阻塞 status 提示(每轮去重一次),
+     * 供会话层非 JSON 噪声分支与本类 {@link #handleError} 复用。镜像 Codex 的降级处理。
+     *
+     * @return true 表示命中 MCP 连接失败(调用方应跳过 hasError/错误缓冲)
+     */
+    public boolean emitMcpNoticeIfMatched(String text) {
+        if (!McpErrorMatcher.isMcpConnectionFailure(text)) {
+            return false;
+        }
+        if (!mcpNoticeEmitted) {
+            mcpNoticeEmitted = true;
+            callback.onMessage(CliConstants.CODEX_MSG_STATUS, McpErrorMatcher.MCP_SKIPPED_NOTICE);
+        }
+        return true;
     }
 
     public void parseLine(String line) {
@@ -110,6 +140,8 @@ public class OpenCodeCliStreamParser {
         if (type == null) {
             return;
         }
+        // 已确认是一个带 type 的有效事件:标记 opencode 产出了事件流(会话层据此区分静默空失败)。
+        receivedAnyEvent = true;
         // sessionID 顶层存在则尽早捕获(每个事件都带),供首轮 step_start 下发
         captureSessionId(event);
 
@@ -211,7 +243,6 @@ public class OpenCodeCliStreamParser {
     }
 
     private void handleError(JsonObject event) {
-        hasError = true;
         String message = null;
         JsonObject err = asObject(event, "error");
         if (err != null) {
@@ -229,6 +260,12 @@ public class OpenCodeCliStreamParser {
         if (message == null) {
             message = event.toString();
         }
+        // MCP 连接失败(本地 server 未启动):降级为非阻塞提示,不标记 hasError/缓冲为回合错误。
+        // 镜像 Codex CLI 诊断分支与 Codex SDK [SEND_ERROR] 的降级处理(Principle 6 对称)。
+        if (emitMcpNoticeIfMatched(message)) {
+            return;
+        }
+        hasError = true;
         if (errorDiagnostic.length() > 0) {
             errorDiagnostic.append('\n');
         }

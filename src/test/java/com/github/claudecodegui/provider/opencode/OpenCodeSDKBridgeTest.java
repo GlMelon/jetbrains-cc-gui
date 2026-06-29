@@ -90,4 +90,18 @@ public class OpenCodeSDKBridgeTest {
                 source.contains("triggerAbort"));
         assertTrue("必须维护 channelId→threadId 映射(send 入口建立)", source.contains("channelThreads"));
     }
+
+    @Test
+    public void mcpErrorMessageDowngradedToStatusNotice() throws Exception {
+        // MCP 连接失败(本地 server 未启动)降级为非阻塞 status 提示,而非回合失败。
+        // processOutputLine 是 protected 且构造 bridge 触发 Platform(AppExecutorUtil)依赖,
+        // 无法纯单测(对称 interruptChannelOverrides 测试)。用源码字符串验证降级分支存在且正确,
+        // 功能行为由插件端到端验证(未启动 MCP 实跑)。
+        String source = java.nio.file.Files.readString(java.nio.file.Paths.get(
+                "src", "main", "java", "com", "github", "claudecodegui", "provider", "opencode", "OpenCodeSDKBridge.java"));
+        assertTrue("MSG_TYPE_ERROR 分支须先判 McpErrorMatcher.isMcpConnectionFailure(message)",
+                source.contains("McpErrorMatcher.isMcpConnectionFailure(message)"));
+        assertTrue("命中 MCP 须发 CODEX_MSG_STATUS 非阻塞提示,而非 onError/hadSendError",
+                source.contains("callback.onMessage(CliConstants.CODEX_MSG_STATUS, McpErrorMatcher.MCP_SKIPPED_NOTICE)"));
+    }
 }

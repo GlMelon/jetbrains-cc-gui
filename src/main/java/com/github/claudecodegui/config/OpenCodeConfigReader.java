@@ -50,9 +50,15 @@ public final class OpenCodeConfigReader {
      * @return 模型配置列表，读取失败时返回空列表
      */
     public static List<ModelConfig> readModels() {
+        return readModels(resolveConfigPath());
+    }
+
+    /**
+     * 从指定配置文件读取模型配置(包级,供测试注入路径,对称 {@link #readMcpServers(Path)})。
+     */
+    static List<ModelConfig> readModels(Path configPath) {
         List<ModelConfig> models = new ArrayList<>();
         try {
-            Path configPath = resolveConfigPath();
             if (configPath == null || !Files.exists(configPath)) {
                 return models;
             }
@@ -184,19 +190,35 @@ public final class OpenCodeConfigReader {
         // 构建描述
         String description = "只读 · 来自 ~/.config/opencode/opencode.json (" + providerDisplayName + ")";
 
-        // OpenCode 模型使用 role 字段存储 provider 名称，actualModel 存储模型 ID
+        // OpenCode 模型使用 role 字段存储 provider 名称。actualModel 是 CLI --model 透传值,
+        // opencode --model 要求 provider/model 格式(如 openglm/glm-5.2);传裸名(如 glm-5.2)
+        // 会触发 "Unexpected server error",表现为 OpenCode CLI「Generating response 后无回复无错误」。
+        // 故 actualModel 拼成 provider/model;canonical id(modelId)保持裸名作选择键/去重(前端零改)。
         return new ModelConfig(
                 modelId,
                 CommonConstants.PROVIDER_OPENCODE,
-                providerName,  // role 存储 provider 名称
+                providerName,             // role 存储 provider 名称
                 modelName,
-                modelId,       // actualModel 存储模型 ID
+                withProviderPrefix(providerName, modelId),  // actualModel = provider/model(CLI -m 透传)
                 description,
                 contextWindow,
-                false,         // supports1MContext
-                true,          // enabled
-                true           // readOnly
+                false,                    // supports1MContext
+                true,                     // enabled
+                true                      // readOnly
         );
+    }
+
+    /**
+     * 将裸模型 id 规整为 opencode {@code --model} 所需的 {@code provider/model} 格式。
+     * <p>opencode 配置中模型恒嵌套于 provider 下(modelId 为裸名,如 {@code glm-5.2}),
+     * 故拼 {@code providerName + "/" + modelId};若 modelId 已含 "/"(已限定的边界场景),
+     * 原样返回避免重复前缀。
+     */
+    private static String withProviderPrefix(String providerName, String modelId) {
+        if (modelId != null && modelId.contains("/")) {
+            return modelId;
+        }
+        return providerName + "/" + modelId;
     }
 
     /**

@@ -35,12 +35,16 @@ public class OpenCodeSdkSessionRuntime implements SessionRuntime {
     public CompletableFuture<SDKResult> send(SessionRequest req, MessageCallback callback) {
         // §15.7 B11:透传 permissionMode/reasoningEffort/attachments,与 Claude/Codex 对齐。
         // baseUrl 由 OpenCodeSDKBridge 内部经 DaemonCoordinator 解析注入。
+        // model 取 actualModel(provider/model 形式,如 openglm/glm-5.2):OpenCodeSDKBridge.sendMessage
+        // 契约要求 provider/model,裸名(如 glm-5.2)会触发 "Unexpected server error"。与 CLI 模式
+        // (OpenCodeCliSession.buildRunCommand 同用 actualModel)对称;actualModel 为 null 时 bridge 传空串,
+        // opencode 回退默认模型(优于裸名报错)。
         return bridge.sendMessage(
                 req.key().channelId(),
                 req.message(),
                 req.sessionId(),
                 req.cwd(),
-                req.model(),
+                req.actualModel(),
                 req.permissionMode(),
                 req.reasoningEffort(),
                 req.attachments(),
