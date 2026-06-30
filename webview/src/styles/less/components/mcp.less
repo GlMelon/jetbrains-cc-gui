@@ -899,7 +899,11 @@
 
 /* 供应商弹窗样式 */
 .provider-dialog {
-    max-width: 560px;
+    /* 宽度相对视口:原由内层 .dialog(width:90% + max-width:560px)提供,去双层后改此。
+       用 min(90vw,560px) 等价还原(90vw≈width:90% 相对全屏 overlay,560px≈原 max-width),
+       且不依赖 .dialog-base 的百分比链(.dialog-base 是 shrink-wrap 的 flex item,
+       百分比 width 相对其会解析为 auto)。 */
+    width: min(90vw, 560px);
     max-height: 85vh;
 }
 

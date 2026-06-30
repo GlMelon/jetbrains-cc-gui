@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BracesIcon, ChevronRightIcon, SaveIcon, CloseIcon } from './Icons';;
+import { BracesIcon, ChevronRightIcon, RefreshIcon } from './Icons';
 import type { CodexProviderConfig, EnvVarEntry } from '../types/provider';
 import { validateEnvVarEntries, ENV_VAR_VALUE_MAX_LENGTH } from '../types/provider';
 import EnvVarEditor from './EnvVarEditor';
-import { BaseDialog } from './shared/BaseDialog';
+import { GuidedProviderDialog, type GuidedStep } from './shared/GuidedProviderDialog';
+import { fetchProviderModels } from '../utils/bridge';
 
 const FORM_HEADER_STYLE: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'center' };
 const FORMAT_BUTTON_STYLE: React.CSSProperties = { padding: '4px 8px', fontSize: '12px' };
@@ -13,7 +14,26 @@ const CODE_TEXTAREA_STYLE: React.CSSProperties = {
   fontSize: '12px',
   lineHeight: '1.5',
 };
-const FOOTER_ACTIONS_STYLE: React.CSSProperties = { marginLeft: 'auto' };
+const FETCHED_CHIP_STYLE: React.CSSProperties = { fontSize: '12px', padding: '2px 8px' };
+const FETCHED_LIST_STYLE: React.CSSProperties = { display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' };
+
+// 从 config.toml 文本粗提取 base_url(粗解析:TOML 行 base_url = "...");提取失败返回空串
+const extractBaseUrlFromToml = (toml: string): string => {
+  const m = toml.match(/base_url\s*=\s*"([^"]+)"/);
+  return m ? m[1] : '';
+};
+// 从 auth.json 文本提取 API Key(优先 OPENAI_API_KEY);解析失败返回空串
+const extractApiKeyFromAuth = (auth: string): string => {
+  try {
+    const parsed = JSON.parse(auth);
+    if (parsed && typeof parsed === 'object') {
+      return parsed.OPENAI_API_KEY || parsed.openai_api_key || '';
+    }
+  } catch {
+    // 非法 JSON —— 返回空
+  }
+  return '';
+};
 
 interface CodexProviderDialogProps {
   isOpen: boolean;
@@ -23,6 +43,20 @@ interface CodexProviderDialogProps {
   addToast: (message: string, type: 'success' | 'error' | 'info') => void;
 }
 
+/**
+ * Codex provider 新增/编辑弹窗 —— 对称 {@link OpenCodeProviderDialog}(Principle 6)。
+ *
+ * <p>三步引导流(复用 {@link GuidedProviderDialog} 骨架,对称 Claude {@link ProviderDialog}):
+ * <ol>
+ *   <li>基本信息:Provider Name</li>
+ *   <li>接入与凭证:config.toml(含 base_url + model_provider)+ auth.json(凭据)</li>
+ *   <li>模型与环境:Model Catalog(可从 base_url+key 动态拉取)+ Message/MCP 环境变量</li>
+ * </ol>
+ *
+ * <p>模型拉取:从 config.toml 粗提取 base_url、从 auth.json 提取 OPENAI_API_KEY,
+ * 调后端 {@code ModelFetchService} 拉取真实模型列表(业务逻辑下沉,前端只做入口),
+ * 点击模型 id 追加到 Model Catalog(JSON 数组)。
+ */
 export default function CodexProviderDialog({
   isOpen,
   provider,
@@ -39,6 +73,12 @@ export default function CodexProviderDialog({
   const [modelCatalogJson, setModelCatalogJson] = useState('');
   const [messageEnvVars, setMessageEnvVars] = useState<EnvVarEntry[]>([]);
   const [mcpEnvVars, setMcpEnvVars] = useState<EnvVarEntry[]>([]);
+  // 引导步骤:0=基本信息 1=接入与凭证 2=模型与环境
+  const [currentStep, setCurrentStep] = useState(0);
+  // 从 base_url+key 动态拉取的真实模型列表(Phase 2 后端能力的前端入口)
+  const [fetchedModels, setFetchedModels] = useState<string[]>([]);
+  const [fetchingModels, setFetchingModels] = useState(false);
+  const [fetchError, setFetchError] = useState('');
 
   // Initialize form
   useEffect(() => {
@@ -71,6 +111,10 @@ wire_api = "responses"`);
         setMessageEnvVars([]);
         setMcpEnvVars([]);
       }
+      setCurrentStep(0);
+      setFetchedModels([]);
+      setFetchingModels(false);
+      setFetchError('');
     }
   }, [isOpen, provider]);
 
@@ -95,7 +139,7 @@ wire_api = "responses"`);
     }
   };
 
-  // ESC is handled by BaseDialog
+  // ESC is handled by GuidedProviderDialog (BaseDialog)
 
   const reportEnvVarIssue = (
     issue: { reason: string; key?: string },
@@ -121,6 +165,46 @@ wire_api = "responses"`);
       'error',
     );
     return true;
+  };
+
+  // 从 config.toml 的 base_url + auth.json 的 key 动态拉取真实模型列表(业务逻辑下沉后端)
+  const handleFetchModels = async () => {
+    const baseUrl = extractBaseUrlFromToml(configTomlJson);
+    if (!baseUrl || fetchingModels) return;
+    const key = extractApiKeyFromAuth(authJson);
+    setFetchingModels(true);
+    setFetchError('');
+    try {
+      const result = await fetchProviderModels({
+        baseUrl,
+        apiKey: key || undefined,
+      });
+      if (result.error) {
+        setFetchError(result.error);
+        setFetchedModels([]);
+      } else if (result.models && result.models.length > 0) {
+        setFetchedModels(result.models);
+      } else {
+        setFetchError(t('settings.codexProvider.dialog.fetchModelsEmpty', '未返回任何模型'));
+      }
+    } catch {
+      setFetchError(t('settings.codexProvider.dialog.fetchModelsFailed', '拉取失败,请确认 config.toml 的 base_url 与 auth.json 的 key'));
+    } finally {
+      setFetchingModels(false);
+    }
+  };
+
+  // 点击拉取到的 model id,追加到 Model Catalog JSON 数组(已存在则跳过,非法 JSON 则忽略)
+  const handleAppendModel = (modelId: string) => {
+    try {
+      const arr = modelCatalogJson.trim() ? JSON.parse(modelCatalogJson) : [];
+      if (Array.isArray(arr) && !arr.includes(modelId)) {
+        arr.push(modelId);
+        setModelCatalogJson(JSON.stringify(arr, null, 2));
+      }
+    } catch {
+      // modelCatalogJson 当前非法,不追加以免破坏用户正在编辑的内容
+    }
   };
 
   const handleSave = () => {
@@ -183,25 +267,39 @@ wire_api = "responses"`);
     onClose();
   };
 
+  // 引导步骤定义(标题走 i18n)
+  const steps: GuidedStep[] = [
+    { id: 'basic', title: t('settings.codexProvider.dialog.stepBasic', '基本信息') },
+    { id: 'connection', title: t('settings.codexProvider.dialog.stepConnection', '接入与凭证') },
+    { id: 'models', title: t('settings.codexProvider.dialog.stepModels', '模型与环境') },
+  ];
+
+  // 前进门禁:基本信息步要求 Provider Name 非空(对齐 handleSave 校验)
+  const canProceed = currentStep === 0 ? providerName.trim().length > 0 : true;
+
+  // 模型拉取按钮是否可用:需能从 config.toml 提取到 base_url
+  const baseUrlForFetch = extractBaseUrlFromToml(configTomlJson);
+
   if (!isOpen) {
     return null;
   }
 
   return (
-    <BaseDialog isOpen={isOpen} onClose={onClose} size="lg" ariaLabel={isAdding ? t('settings.codexProvider.dialog.addTitle') : t('settings.codexProvider.dialog.editTitle')}>
-      <div className="dialog provider-dialog codex-provider-dialog">
-        <div className="dialog-header">
-          <h3>
-            {isAdding
-              ? t('settings.codexProvider.dialog.addTitle')
-              : t('settings.codexProvider.dialog.editTitle', { name: provider?.name })}
-          </h3>
-          <button className="close-btn" onClick={onClose}>
-            <CloseIcon size={16} />
-          </button>
-        </div>
-
-        <div className="dialog-body">
+    <GuidedProviderDialog
+      isOpen={isOpen}
+      onClose={onClose}
+      ariaLabel={isAdding ? t('settings.codexProvider.dialog.addTitle') : t('settings.codexProvider.dialog.editTitle', { name: provider?.name })}
+      steps={steps}
+      currentStep={currentStep}
+      onStepChange={setCurrentStep}
+      canProceed={canProceed}
+      onFinish={handleSave}
+      finishLabel={isAdding ? t('settings.provider.dialog.confirmAdd') : t('settings.provider.dialog.saveChanges')}
+      size="lg"
+    >
+      {/* ===== Step 0:基本信息 ===== */}
+      {currentStep === 0 && (
+        <>
           <p className="dialog-desc">
             {isAdding
               ? t('settings.codexProvider.dialog.addDescription')
@@ -223,7 +321,12 @@ wire_api = "responses"`);
               onChange={(e) => setProviderName(e.target.value)}
             />
           </div>
+        </>
+      )}
 
+      {/* ===== Step 1:接入与凭证 ===== */}
+      {currentStep === 1 && (
+        <>
           {/* config.toml JSON */}
           <div className="form-group">
             <div style={FORM_HEADER_STYLE}>
@@ -278,6 +381,58 @@ wire_api = "responses"`);
             />
             <small className="form-hint">{t('settings.codexProvider.dialog.authJsonHint')}</small>
           </div>
+        </>
+      )}
+
+      {/* ===== Step 2:模型与环境 ===== */}
+      {currentStep === 2 && (
+        <>
+          {/* 拉取真实模型列表(从 config.toml 的 base_url + auth.json 的 key) */}
+          <div className="form-group">
+            <label>{t('settings.codexProvider.dialog.fetchModelsTitle', '拉取可用模型')}</label>
+            <small className="form-hint" style={{ marginBottom: '8px', display: 'block' }}>
+              {t('settings.codexProvider.dialog.fetchModelsHint', '从上一步 config.toml 的 base_url 与 auth.json 的 key 拉取该服务支持的真实模型,点击即追加到下方 Model Catalog。')}
+            </small>
+            <div className="json-toolbar">
+              <button
+                type="button"
+                className="format-btn"
+                onClick={handleFetchModels}
+                disabled={fetchingModels || !baseUrlForFetch}
+              >
+                <RefreshIcon size={14} />
+                {fetchingModels
+                  ? t('settings.codexProvider.dialog.fetchModelsLoading', '拉取中…')
+                  : t('settings.codexProvider.dialog.fetchModelsButton', '拉取可用模型')}
+              </button>
+            </div>
+            {fetchError && (
+              <p className="json-error" style={{ marginTop: '8px' }}>
+                {fetchError}
+              </p>
+            )}
+            {fetchedModels.length > 0 && (
+              <div style={{ marginTop: '8px' }}>
+                <small className="form-hint" style={{ display: 'block', marginBottom: '4px' }}>
+                  {t('settings.codexProvider.dialog.fetchModelsSuccess', { count: fetchedModels.length, defaultValue: '已拉取 {{count}} 个模型,点击追加到 Model Catalog' })}
+                </small>
+                <div style={FETCHED_LIST_STYLE}>
+                  {fetchedModels.map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      className="preset-btn"
+                      style={FETCHED_CHIP_STYLE}
+                      onClick={() => handleAppendModel(m)}
+                      title={m}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className="form-group">
             <label htmlFor="modelCatalogJson">
@@ -323,22 +478,8 @@ wire_api = "responses"`);
               />
             </div>
           </details>
-
-        </div>
-
-        <div className="dialog-footer">
-          <div className="footer-actions" style={FOOTER_ACTIONS_STYLE}>
-            <button className="btn btn-secondary" onClick={onClose}>
-              <CloseIcon size={16} />
-              {t('common.cancel')}
-            </button>
-            <button className="btn btn-primary" onClick={handleSave} disabled={!providerName.trim()}>
-              <SaveIcon size={16} />
-              {isAdding ? t('settings.provider.dialog.confirmAdd') : t('settings.provider.dialog.saveChanges')}
-            </button>
-          </div>
-        </div>
-      </div>
-    </BaseDialog>
+        </>
+      )}
+    </GuidedProviderDialog>
   );
 }

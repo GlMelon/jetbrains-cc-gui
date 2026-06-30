@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BracesIcon, SaveIcon, CloseIcon } from './Icons';
+import { BracesIcon, RefreshIcon } from './Icons';
 import type { OpenCodeProviderConfig } from '../types/provider';
-import { BaseDialog } from './shared/BaseDialog';
+import { GuidedProviderDialog, type GuidedStep } from './shared/GuidedProviderDialog';
+import { fetchProviderModels } from '../utils/bridge';
 
 const FORM_HEADER_STYLE: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'center' };
 const FORMAT_BUTTON_STYLE: React.CSSProperties = { padding: '4px 8px', fontSize: '12px' };
@@ -11,7 +12,8 @@ const CODE_TEXTAREA_STYLE: React.CSSProperties = {
   fontSize: '12px',
   lineHeight: '1.5',
 };
-const FOOTER_ACTIONS_STYLE: React.CSSProperties = { marginLeft: 'auto' };
+const FETCHED_CHIP_STYLE: React.CSSProperties = { fontSize: '12px', padding: '2px 8px' };
+const FETCHED_LIST_STYLE: React.CSSProperties = { display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' };
 
 interface OpenCodeProviderDialogProps {
   isOpen: boolean;
@@ -23,6 +25,13 @@ interface OpenCodeProviderDialogProps {
 
 /**
  * OpenCode provider 新增/编辑弹窗 —— 对称 {@link CodexProviderDialog}(Principle 6)。
+ *
+ * <p>三步引导流(复用 {@link GuidedProviderDialog} 骨架,对称 Claude {@link ProviderDialog}):
+ * <ol>
+ *   <li>基本信息:Provider Key(= id)+ Provider Name</li>
+ *   <li>凭证:Base URL + API Key</li>
+ *   <li>模型:models JSON 对象 + 从 baseURL/key 动态拉取真实模型列表(业务逻辑下沉后端)</li>
+ * </ol>
  *
  * <p>字段语义:opencode 原生 provider 段 {@code {name, models:{...}, apiKey?, baseURL?}}。
  * Provider Key(= id)是 opencode.json 的 provider 段键,也是 actualModel 的 {@code providerKey/} 前缀,
@@ -43,6 +52,12 @@ export default function OpenCodeProviderDialog({
   const [baseURL, setBaseURL] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [modelsJson, setModelsJson] = useState('');
+  // 引导步骤:0=基本信息 1=凭证 2=模型
+  const [currentStep, setCurrentStep] = useState(0);
+  // 从 baseURL+key 动态拉取的真实模型列表(Phase 2 后端能力的前端入口)
+  const [fetchedModels, setFetchedModels] = useState<string[]>([]);
+  const [fetchingModels, setFetchingModels] = useState(false);
+  const [fetchError, setFetchError] = useState('');
 
   // Initialize form
   useEffect(() => {
@@ -70,6 +85,10 @@ export default function OpenCodeProviderDialog({
   }
 }`);
       }
+      setCurrentStep(0);
+      setFetchedModels([]);
+      setFetchingModels(false);
+      setFetchError('');
     }
   }, [isOpen, provider]);
 
@@ -81,6 +100,44 @@ export default function OpenCodeProviderDialog({
       addToast(t('settings.openCodeProvider.dialog.formatSuccess'), 'success');
     } catch (e) {
       addToast(t('settings.openCodeProvider.dialog.formatError'), 'error');
+    }
+  };
+
+  // 从 baseURL+key 动态拉取真实模型列表。业务逻辑下沉后端 ModelFetchService,前端只做入口。
+  const handleFetchModels = async () => {
+    if (!baseURL.trim() || fetchingModels) return;
+    setFetchingModels(true);
+    setFetchError('');
+    try {
+      const result = await fetchProviderModels({
+        baseUrl: baseURL.trim(),
+        apiKey: apiKey.trim() || undefined,
+      });
+      if (result.error) {
+        setFetchError(result.error);
+        setFetchedModels([]);
+      } else if (result.models && result.models.length > 0) {
+        setFetchedModels(result.models);
+      } else {
+        setFetchError(t('settings.openCodeProvider.dialog.fetchModelsEmpty', '未返回任何模型'));
+      }
+    } catch {
+      setFetchError(t('settings.openCodeProvider.dialog.fetchModelsFailed', '拉取失败,请手动填写'));
+    } finally {
+      setFetchingModels(false);
+    }
+  };
+
+  // 点击拉取到的 model id,追加骨架条目到 modelsJson(已存在则跳过,非法 JSON 则忽略)
+  const handleAppendModel = (modelId: string) => {
+    try {
+      const parsed = modelsJson.trim() ? JSON.parse(modelsJson) : {};
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && !parsed[modelId]) {
+        parsed[modelId] = { name: modelId };
+        setModelsJson(JSON.stringify(parsed, null, 2));
+      }
+    } catch {
+      // modelsJson 当前非法,不追加以免破坏用户正在编辑的内容
     }
   };
 
@@ -124,25 +181,38 @@ export default function OpenCodeProviderDialog({
     onClose();
   };
 
+  // 引导步骤定义(标题走 i18n)
+  const steps: GuidedStep[] = [
+    { id: 'basic', title: t('settings.openCodeProvider.dialog.stepBasic', '基本信息') },
+    { id: 'credentials', title: t('settings.openCodeProvider.dialog.stepCredentials', '凭证') },
+    { id: 'models', title: t('settings.openCodeProvider.dialog.stepModels', '模型') },
+  ];
+
+  // 前进门禁:基本信息步要求 Provider Key + Name 均非空(对齐 handleSave 校验)
+  const canProceed = currentStep === 0
+    ? providerKey.trim().length > 0 && providerName.trim().length > 0
+    : true;
+
   if (!isOpen) {
     return null;
   }
 
   return (
-    <BaseDialog isOpen={isOpen} onClose={onClose} size="lg" ariaLabel={isAdding ? t('settings.openCodeProvider.dialog.addTitle') : t('settings.openCodeProvider.dialog.editTitle')}>
-      <div className="dialog provider-dialog opencode-provider-dialog">
-        <div className="dialog-header">
-          <h3>
-            {isAdding
-              ? t('settings.openCodeProvider.dialog.addTitle')
-              : t('settings.openCodeProvider.dialog.editTitle', { name: provider?.name })}
-          </h3>
-          <button className="close-btn" onClick={onClose}>
-            <CloseIcon size={16} />
-          </button>
-        </div>
-
-        <div className="dialog-body">
+    <GuidedProviderDialog
+      isOpen={isOpen}
+      onClose={onClose}
+      ariaLabel={isAdding ? t('settings.openCodeProvider.dialog.addTitle') : t('settings.openCodeProvider.dialog.editTitle', { name: provider?.name })}
+      steps={steps}
+      currentStep={currentStep}
+      onStepChange={setCurrentStep}
+      canProceed={canProceed}
+      onFinish={handleSave}
+      finishLabel={isAdding ? t('settings.provider.dialog.confirmAdd') : t('settings.provider.dialog.saveChanges')}
+      size="lg"
+    >
+      {/* ===== Step 0:基本信息 ===== */}
+      {currentStep === 0 && (
+        <>
           <p className="dialog-desc">
             {isAdding
               ? t('settings.openCodeProvider.dialog.addDescription')
@@ -182,7 +252,12 @@ export default function OpenCodeProviderDialog({
               onChange={(e) => setProviderName(e.target.value)}
             />
           </div>
+        </>
+      )}
 
+      {/* ===== Step 1:凭证 ===== */}
+      {currentStep === 1 && (
+        <>
           {/* Base URL */}
           <div className="form-group">
             <label htmlFor="baseURL">{t('settings.openCodeProvider.dialog.baseURL')}</label>
@@ -208,6 +283,58 @@ export default function OpenCodeProviderDialog({
               onChange={(e) => setApiKey(e.target.value)}
             />
             <small className="form-hint">{t('settings.openCodeProvider.dialog.apiKeyHint')}</small>
+          </div>
+        </>
+      )}
+
+      {/* ===== Step 2:模型 ===== */}
+      {currentStep === 2 && (
+        <>
+          {/* 拉取真实模型列表 */}
+          <div className="form-group">
+            <label>{t('settings.openCodeProvider.dialog.fetchModelsTitle', '拉取可用模型')}</label>
+            <small className="form-hint" style={{ marginBottom: '8px', display: 'block' }}>
+              {t('settings.openCodeProvider.dialog.fetchModelsHint', '填入上方 Base URL 与 API Key 后,可自动拉取该服务支持的真实模型,点击即追加到下方 JSON。')}
+            </small>
+            <div className="json-toolbar">
+              <button
+                type="button"
+                className="format-btn"
+                onClick={handleFetchModels}
+                disabled={fetchingModels || !baseURL.trim()}
+              >
+                <RefreshIcon size={14} />
+                {fetchingModels
+                  ? t('settings.openCodeProvider.dialog.fetchModelsLoading', '拉取中…')
+                  : t('settings.openCodeProvider.dialog.fetchModelsButton', '拉取可用模型')}
+              </button>
+            </div>
+            {fetchError && (
+              <p className="json-error" style={{ marginTop: '8px' }}>
+                {fetchError}
+              </p>
+            )}
+            {fetchedModels.length > 0 && (
+              <div style={{ marginTop: '8px' }}>
+                <small className="form-hint" style={{ display: 'block', marginBottom: '4px' }}>
+                  {t('settings.openCodeProvider.dialog.fetchModelsSuccess', { count: fetchedModels.length, defaultValue: '已拉取 {{count}} 个模型,点击追加到 JSON' })}
+                </small>
+                <div style={FETCHED_LIST_STYLE}>
+                  {fetchedModels.map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      className="preset-btn"
+                      style={FETCHED_CHIP_STYLE}
+                      onClick={() => handleAppendModel(m)}
+                      title={m}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Models (JSON object) */}
@@ -236,22 +363,8 @@ export default function OpenCodeProviderDialog({
             />
             <small className="form-hint">{t('settings.openCodeProvider.dialog.modelsHint')}</small>
           </div>
-
-        </div>
-
-        <div className="dialog-footer">
-          <div className="footer-actions" style={FOOTER_ACTIONS_STYLE}>
-            <button className="btn btn-secondary" onClick={onClose}>
-              <CloseIcon size={16} />
-              {t('common.cancel')}
-            </button>
-            <button className="btn btn-primary" onClick={handleSave} disabled={!providerKey.trim() || !providerName.trim()}>
-              <SaveIcon size={16} />
-              {isAdding ? t('settings.provider.dialog.confirmAdd') : t('settings.provider.dialog.saveChanges')}
-            </button>
-          </div>
-        </div>
-      </div>
-    </BaseDialog>
+        </>
+      )}
+    </GuidedProviderDialog>
   );
 }

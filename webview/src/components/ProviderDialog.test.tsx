@@ -58,8 +58,24 @@ const createLegacyHaikuProvider = (): ProviderConfig => ({
   },
 });
 
+// 引导流已改为 3 步:0=接入方式 1=凭证 2=模型映射。
+// 模型映射 / 保存 相关断言需先从 step 0 导航到 step 2。
+// 编辑模式 providerName 已有值可直接前进;add 模式需填充 providerName 才能通过 step 1 门禁。
+const NEXT_BTN_NAME = 'common.next';
+const navigateToModelsStep = (fillProviderName?: string) => {
+  // step 0 → 1:点 Next(接入方式步的 Next 总可点)
+  fireEvent.click(screen.getByRole('button', { name: NEXT_BTN_NAME }));
+  // step 1:凭证步。若需要,填充 providerName 以满足前进门禁。
+  const nameInput = screen.getByPlaceholderText('settings.provider.dialog.providerNamePlaceholder') as HTMLInputElement;
+  if (fillProviderName !== undefined) {
+    fireEvent.change(nameInput, { target: { value: fillProviderName } });
+  }
+  // step 1 → 2:点 Next 进入模型映射步
+  fireEvent.click(screen.getByRole('button', { name: NEXT_BTN_NAME }));
+};
+
 describe('ProviderDialog', () => {
-  it('add mode shows official preset selected by default with model mapping visible', () => {
+  it('add mode shows official preset selected by default, model mapping reachable', () => {
     render(
       <ProviderDialog
         isOpen
@@ -70,9 +86,10 @@ describe('ProviderDialog', () => {
       />,
     );
 
-    // Official preset should be present and selected
+    // Step 0:Official preset should be present
     expect(screen.getByRole('radio', { name: 'settings.provider.dialog.officialPreset' })).toBeTruthy();
-    // Model mapping should be visible
+    // 导航到 step 2 后模型映射可见
+    navigateToModelsStep('Test');
     expect(screen.getByText('settings.provider.dialog.modelMapping')).toBeTruthy();
   });
 
@@ -87,11 +104,12 @@ describe('ProviderDialog', () => {
       />,
     );
 
-    // Click a third-party preset (zhipu)
+    // Step 0:Click a third-party preset (zhipu)
     const zhipuBtn = screen.getByRole('radio', { name: 'settings.provider.presets.zhipu' });
     fireEvent.click(zhipuBtn);
 
-    // Model mapping should remain visible
+    // 导航到 step 2:Model mapping should remain visible
+    navigateToModelsStep('Test');
     expect(screen.getByText('settings.provider.dialog.modelMapping')).toBeTruthy();
   });
 
@@ -105,6 +123,9 @@ describe('ProviderDialog', () => {
         addToast={vi.fn()}
       />,
     );
+
+    // 编辑模式 providerName 已有值,可直接导航
+    navigateToModelsStep();
 
     // Model mapping should be visible even for unrecognized proxy URLs
     expect(screen.getByText('settings.provider.dialog.modelMapping')).toBeTruthy();
@@ -128,6 +149,8 @@ describe('ProviderDialog', () => {
         addToast={vi.fn()}
       />,
     );
+
+    navigateToModelsStep();
 
     fireEvent.change(screen.getAllByLabelText('settings.provider.dialog.displayName')[0], {
       target: { value: 'mimo-v2.5' },
@@ -159,6 +182,8 @@ describe('ProviderDialog', () => {
       />,
     );
 
+    navigateToModelsStep();
+
     expect((screen.getAllByLabelText('settings.provider.dialog.requestModel')[3] as HTMLInputElement).value).toBe('');
   });
 
@@ -174,6 +199,8 @@ describe('ProviderDialog', () => {
         addToast={vi.fn()}
       />,
     );
+
+    navigateToModelsStep();
 
     const requestModels = screen.getAllByLabelText('settings.provider.dialog.requestModel');
     fireEvent.change(requestModels[0], {
@@ -218,6 +245,8 @@ describe('ProviderDialog', () => {
       />,
     );
 
+    navigateToModelsStep();
+
     fireEvent.click(screen.getByRole('button', { name: 'settings.provider.dialog.saveChanges' }));
 
     const payload = onSave.mock.calls[0]?.[0] as { jsonConfig: string };
@@ -225,5 +254,28 @@ describe('ProviderDialog', () => {
 
     expect(env.ANTHROPIC_DEFAULT_HAIKU_MODEL).toBeUndefined();
     expect(env.ANTHROPIC_SMALL_FAST_MODEL).toBe('legacy-haiku-model');
+  });
+
+  it('renders a single card layer without a nested .dialog wrapper inside .dialog-base', () => {
+    // 回归守护:历史遗留的内层 <div className="dialog provider-dialog"> 与
+    // BaseDialog 的 .dialog-base 叠成双层卡片(双重背景/边框/阴影/圆角)。
+    // 修复后 .dialog-base 的直接子元素不应再携带 .dialog token。
+    const { container } = render(
+      <ProviderDialog
+        isOpen
+        provider={null}
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+        addToast={vi.fn()}
+      />,
+    );
+
+    const base = container.querySelector('.dialog-base');
+    expect(base).toBeTruthy();
+
+    const nestedDialogCard = Array.from(base!.children).find((el) =>
+      el.classList.contains('dialog'),
+    );
+    expect(nestedDialogCard).toBeUndefined();
   });
 });

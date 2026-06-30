@@ -1,19 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronRightIcon, CloudIcon, CodeIcon, EyeIcon, EyeOffIcon, InfoIcon, SaveIcon, ShieldIcon, XCircleIcon, CloseIcon } from './Icons';;
+import { ChevronRightIcon, CloudIcon, CodeIcon, EyeIcon, EyeOffIcon, InfoIcon, RefreshIcon, ShieldIcon, XCircleIcon } from './Icons';
 import type { ProviderConfig } from '../types/provider';
 import { CLAUDE_MODEL_MAPPING_ENV_KEYS, PROVIDER_PRESETS } from '../types/provider';
-import { BaseDialog } from './shared/BaseDialog';
+import { GuidedProviderDialog, type GuidedStep } from './shared/GuidedProviderDialog';
+import { fetchProviderModels } from '../utils/bridge';
 
 const INFO_ICON_STYLE: React.CSSProperties = { fontSize: '12px', marginRight: '4px' };
 const NOTICE_MT_STYLE: React.CSSProperties = { marginTop: '8px' };
 const SECTION_DESC_STYLE: React.CSSProperties = { marginBottom: '12px', fontSize: '12px', color: '#999' };
-const FOOTER_ACTIONS_STYLE: React.CSSProperties = { marginLeft: 'auto' };
 
 const OFFICIAL_DIRECT_PRESET_ID = 'official_direct';
 const OFFICIAL_ANTHROPIC_URL = 'https://api.anthropic.com';
 const CUSTOM_PRESET_ID = 'custom';
 const CUSTOM_PROXY_PRESET_ID = 'custom_proxy';
+const FETCHED_MODELS_DATALIST_ID = 'provider-fetched-models';
 
 const isOfficialAnthropicEndpoint = (baseUrl?: string) => {
   const normalized = (baseUrl || '').trim().toLowerCase();
@@ -127,7 +128,7 @@ export default function ProviderDialog({
 }: ProviderDialogProps) {
   const { t } = useTranslation();
   const isAdding = !provider;
-  
+
   const [providerName, setProviderName] = useState('');
   const [remark, setRemark] = useState('');
   const [apiKey, setApiKey] = useState('');
@@ -145,6 +146,12 @@ export default function ProviderDialog({
   const [showApiKey, setShowApiKey] = useState(false);
   const [jsonConfig, setJsonConfig] = useState('');
   const [jsonError, setJsonError] = useState('');
+  // 引导步骤:0=接入方式 1=凭证 2=模型映射
+  const [currentStep, setCurrentStep] = useState(0);
+  // 第三方/代理预设:从 baseUrl+key 动态拉取的真实模型列表(Phase 2 后端能力的前端入口)
+  const [fetchedModels, setFetchedModels] = useState<string[]>([]);
+  const [fetchingModels, setFetchingModels] = useState(false);
+  const [fetchError, setFetchError] = useState('');
   const thirdPartyPresets = PROVIDER_PRESETS;
   const isOfficialDirectMode = activePreset === OFFICIAL_DIRECT_PRESET_ID;
   // Model mapping should always be shown – the 'custom' preset button was removed
@@ -350,10 +357,14 @@ export default function ProviderDialog({
       }
       setShowApiKey(false);
       setJsonError('');
+      setCurrentStep(0);
+      setFetchedModels([]);
+      setFetchingModels(false);
+      setFetchError('');
     }
   }, [isOpen, provider]);
 
-  // ESC is handled by BaseDialog
+  // ESC is handled by GuidedProviderDialog (BaseDialog)
 
   const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newApiKey = e.target.value;
@@ -419,7 +430,7 @@ export default function ProviderDialog({
   const handleJsonChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newJson = e.target.value;
     setJsonConfig(newJson);
-    
+
     try {
       const config = JSON.parse(newJson);
       const env = config.env || {};
@@ -547,21 +558,62 @@ export default function ProviderDialog({
     });
   };
 
+  // 第三方/代理:用 baseUrl+key 动态拉取真实模型列表。
+  // 业务逻辑下沉后端 ModelFetchService(候选 URL 构造 + HTTP GET + 解析),前端只做入口。
+  const handleFetchModels = async () => {
+    if (!apiUrl.trim() || fetchingModels) return;
+    setFetchingModels(true);
+    setFetchError('');
+    try {
+      const result = await fetchProviderModels({
+        baseUrl: apiUrl.trim(),
+        apiKey: apiKey.trim() || undefined,
+      });
+      if (result.error) {
+        setFetchError(result.error);
+        setFetchedModels([]);
+      } else if (result.models && result.models.length > 0) {
+        setFetchedModels(result.models);
+      } else {
+        setFetchError(t('settings.provider.dialog.fetchModelsEmpty', '未返回任何模型,请手动填写'));
+      }
+    } catch {
+      setFetchError(t('settings.provider.dialog.fetchModelsFailed', '拉取失败,请手动填写'));
+    } finally {
+      setFetchingModels(false);
+    }
+  };
+
+  // 引导步骤定义(标题走 i18n)
+  const steps: GuidedStep[] = [
+    { id: 'access', title: t('settings.provider.dialog.stepAccess', '接入方式') },
+    { id: 'credentials', title: t('settings.provider.dialog.stepCredentials', '凭证') },
+    { id: 'models', title: t('settings.provider.dialog.stepModels', '模型映射') },
+  ];
+
+  // 前进门禁:凭证步要求 providerName 非空;其余步总允许(接入方式默认选中官方,模型映射可空保存)
+  const canProceed = currentStep === 1 ? providerName.trim().length > 0 : true;
+
   if (!isOpen) {
     return null;
   }
 
   return (
-    <BaseDialog isOpen={isOpen} onClose={onClose} size="lg" ariaLabel={isAdding ? t('settings.provider.dialog.addTitle') : t('settings.provider.dialog.editTitle')}>
-      <div className="dialog provider-dialog">
-        <div className="dialog-header">
-          <h3>{isAdding ? t('settings.provider.dialog.addTitle') : t('settings.provider.dialog.editTitle', { name: provider?.name })}</h3>
-          <button className="close-btn" onClick={onClose}>
-            <CloseIcon size={16} />
-          </button>
-        </div>
-
-        <div className="dialog-body">
+    <GuidedProviderDialog
+      isOpen={isOpen}
+      onClose={onClose}
+      ariaLabel={isAdding ? t('settings.provider.dialog.addTitle') : t('settings.provider.dialog.editTitle', { name: provider?.name })}
+      steps={steps}
+      currentStep={currentStep}
+      onStepChange={setCurrentStep}
+      canProceed={canProceed}
+      onFinish={handleSave}
+      finishLabel={isAdding ? t('settings.provider.dialog.confirmAdd') : t('settings.provider.dialog.saveChanges')}
+      size="lg"
+    >
+      {/* ===== Step 0:接入方式 ===== */}
+      {currentStep === 0 && (
+        <>
           <p className="dialog-desc">
             {isAdding ? t('settings.provider.dialog.addDescription') : t('settings.provider.dialog.editDescription')}
           </p>
@@ -605,7 +657,12 @@ export default function ProviderDialog({
             </div>
             <small className="form-hint">{t('settings.provider.dialog.proxySectionHint')}</small>
           </div>
+        </>
+      )}
 
+      {/* ===== Step 1:凭证 ===== */}
+      {currentStep === 1 && (
+        <>
           <div className="form-group">
             <label htmlFor="providerName">
               {t('settings.provider.dialog.providerName')}
@@ -687,116 +744,7 @@ export default function ProviderDialog({
             )}
           </div>
 
-          {showModelMappingSection && (
-            <div className="form-group">
-              <label>{t('settings.provider.dialog.modelMapping')}</label>
-              <div className="model-mapping-grid">
-                <div className="model-mapping-row">
-                  <div className="model-mapping-role">{t('settings.provider.dialog.sonnetRole', 'Sonnet')}</div>
-                  <div className="model-mapping-field">
-                    <label htmlFor="sonnetDisplayName">{t('settings.provider.dialog.displayName', 'Display Name')}</label>
-                    <input
-                      id="sonnetDisplayName"
-                      type="text"
-                      className="form-input"
-                      placeholder={t('settings.provider.dialog.displayNamePlaceholder', 'mimo-v2.5')}
-                      value={sonnetDisplayName}
-                      onChange={handleSonnetDisplayNameChange}
-                    />
-                  </div>
-                  <div className="model-mapping-field">
-                    <label htmlFor="sonnetModel">{t('settings.provider.dialog.requestModel', 'Actual Request Model')}</label>
-                    <input
-                      id="sonnetModel"
-                      type="text"
-                      className="form-input"
-                      placeholder={t('settings.provider.dialog.sonnetModelPlaceholder')}
-                      value={sonnetModel}
-                      onChange={handleSonnetModelChange}
-                    />
-                  </div>
-                </div>
-                <div className="model-mapping-row">
-                  <div className="model-mapping-role">{t('settings.provider.dialog.opusRole', 'Opus')}</div>
-                  <div className="model-mapping-field">
-                    <label htmlFor="opusDisplayName">{t('settings.provider.dialog.displayName', 'Display Name')}</label>
-                    <input
-                      id="opusDisplayName"
-                      type="text"
-                      className="form-input"
-                      placeholder={t('settings.provider.dialog.displayNamePlaceholder', 'mimo-v2.5-pro')}
-                      value={opusDisplayName}
-                      onChange={handleOpusDisplayNameChange}
-                    />
-                  </div>
-                  <div className="model-mapping-field">
-                    <label htmlFor="opusModel">{t('settings.provider.dialog.requestModel', 'Actual Request Model')}</label>
-                    <input
-                      id="opusModel"
-                      type="text"
-                      className="form-input"
-                      placeholder={t('settings.provider.dialog.opusModelPlaceholder')}
-                      value={opusModel}
-                      onChange={handleOpusModelChange}
-                    />
-                  </div>
-                </div>
-                <div className="model-mapping-row">
-                  <div className="model-mapping-role">{t('settings.provider.dialog.fableRole', 'Fable')}</div>
-                  <div className="model-mapping-field">
-                    <label htmlFor="fableDisplayName">{t('settings.provider.dialog.displayName', 'Display Name')}</label>
-                    <input
-                      id="fableDisplayName"
-                      type="text"
-                      className="form-input"
-                      placeholder={t('settings.provider.dialog.displayNamePlaceholder', 'fable')}
-                      value={fableDisplayName}
-                      onChange={handleFableDisplayNameChange}
-                    />
-                  </div>
-                  <div className="model-mapping-field">
-                    <label htmlFor="fableModel">{t('settings.provider.dialog.requestModel', 'Actual Request Model')}</label>
-                    <input
-                      id="fableModel"
-                      type="text"
-                      className="form-input"
-                      placeholder={t('settings.provider.dialog.fableModelPlaceholder', 'your-fable-model')}
-                      value={fableModel}
-                      onChange={handleFableModelChange}
-                    />
-                  </div>
-                </div>
-                <div className="model-mapping-row">
-                  <div className="model-mapping-role">{t('settings.provider.dialog.haikuRole', 'Haiku')}</div>
-                  <div className="model-mapping-field">
-                    <label htmlFor="haikuDisplayName">{t('settings.provider.dialog.displayName', 'Display Name')}</label>
-                    <input
-                      id="haikuDisplayName"
-                      type="text"
-                      className="form-input"
-                      placeholder={t('settings.provider.dialog.displayNamePlaceholder', 'mimo-v2.5')}
-                      value={haikuDisplayName}
-                      onChange={handleHaikuDisplayNameChange}
-                    />
-                  </div>
-                  <div className="model-mapping-field">
-                    <label htmlFor="haikuModel">{t('settings.provider.dialog.requestModel', 'Actual Request Model')}</label>
-                    <input
-                      id="haikuModel"
-                      type="text"
-                      className="form-input"
-                      placeholder={t('settings.provider.dialog.haikuModelPlaceholder')}
-                      value={haikuModel}
-                      onChange={handleHaikuModelChange}
-                    />
-                  </div>
-                </div>
-              </div>
-              <small className="form-hint">{t('settings.provider.dialog.modelMappingHint')}</small>
-            </div>
-          )}
-
-          <details className="advanced-section" open>
+          <details className="advanced-section">
             <summary className="advanced-toggle">
               <ChevronRightIcon size={16} />
               {t('settings.provider.dialog.jsonConfig')}
@@ -849,21 +797,158 @@ export default function ProviderDialog({
               </div>
             </div>
           </details>
-        </div>
+        </>
+      )}
 
-        <div className="dialog-footer">
-          <div className="footer-actions" style={FOOTER_ACTIONS_STYLE}>
-            <button className="btn btn-secondary" onClick={onClose}>
-              <CloseIcon size={16} />
-              {t('common.cancel')}
-            </button>
-            <button className="btn btn-primary" onClick={handleSave}>
-              <SaveIcon size={16} />
-              {isAdding ? t('settings.provider.dialog.confirmAdd') : t('settings.provider.dialog.saveChanges')}
-            </button>
+      {/* ===== Step 2:模型映射 ===== */}
+      {currentStep === 2 && showModelMappingSection && (
+        <>
+          <div className="form-group">
+            <label>{t('settings.provider.dialog.fetchModelsTitle', '拉取可用模型')}</label>
+            <small className="form-hint" style={{ marginBottom: '8px', display: 'block' }}>
+              {t('settings.provider.dialog.fetchModelsHint', '填入上方 baseUrl 与 key 后,可自动拉取该代理支持的真实模型列表,在下方输入框下拉选择。')}
+            </small>
+            <div className="json-toolbar">
+              <button
+                type="button"
+                className="format-btn"
+                onClick={handleFetchModels}
+                disabled={fetchingModels || !apiUrl.trim()}
+              >
+                <RefreshIcon size={14} />
+                {fetchingModels
+                  ? t('settings.provider.dialog.fetchModelsLoading', '拉取中…')
+                  : t('settings.provider.dialog.fetchModelsButton', '拉取可用模型')}
+              </button>
+            </div>
+            {fetchError && (
+              <p className="json-error" style={{ marginTop: '8px' }}>
+                <XCircleIcon size={16} />
+                {fetchError}
+              </p>
+            )}
+            {fetchedModels.length > 0 && (
+              <small className="form-hint" style={{ marginTop: '8px', display: 'block' }}>
+                {t('settings.provider.dialog.fetchModelsSuccess', { count: fetchedModels.length, defaultValue: '已拉取 {{count}} 个模型,下方输入框可下拉选择' })}
+              </small>
+            )}
+            <datalist id={FETCHED_MODELS_DATALIST_ID}>
+              {fetchedModels.map((m) => <option key={m} value={m} />)}
+            </datalist>
           </div>
-        </div>
-      </div>
-    </BaseDialog>
+
+          <div className="form-group">
+            <label>{t('settings.provider.dialog.modelMapping')}</label>
+            <div className="model-mapping-grid">
+              <div className="model-mapping-row">
+                <div className="model-mapping-role">{t('settings.provider.dialog.sonnetRole', 'Sonnet')}</div>
+                <div className="model-mapping-field">
+                  <label htmlFor="sonnetDisplayName">{t('settings.provider.dialog.displayName', 'Display Name')}</label>
+                  <input
+                    id="sonnetDisplayName"
+                    type="text"
+                    className="form-input"
+                    placeholder={t('settings.provider.dialog.displayNamePlaceholder', 'mimo-v2.5')}
+                    value={sonnetDisplayName}
+                    onChange={handleSonnetDisplayNameChange}
+                  />
+                </div>
+                <div className="model-mapping-field">
+                  <label htmlFor="sonnetModel">{t('settings.provider.dialog.requestModel', 'Actual Request Model')}</label>
+                  <input
+                    id="sonnetModel"
+                    type="text"
+                    className="form-input"
+                    list={FETCHED_MODELS_DATALIST_ID}
+                    placeholder={t('settings.provider.dialog.sonnetModelPlaceholder')}
+                    value={sonnetModel}
+                    onChange={handleSonnetModelChange}
+                  />
+                </div>
+              </div>
+              <div className="model-mapping-row">
+                <div className="model-mapping-role">{t('settings.provider.dialog.opusRole', 'Opus')}</div>
+                <div className="model-mapping-field">
+                  <label htmlFor="opusDisplayName">{t('settings.provider.dialog.displayName', 'Display Name')}</label>
+                  <input
+                    id="opusDisplayName"
+                    type="text"
+                    className="form-input"
+                    placeholder={t('settings.provider.dialog.displayNamePlaceholder', 'mimo-v2.5-pro')}
+                    value={opusDisplayName}
+                    onChange={handleOpusDisplayNameChange}
+                  />
+                </div>
+                <div className="model-mapping-field">
+                  <label htmlFor="opusModel">{t('settings.provider.dialog.requestModel', 'Actual Request Model')}</label>
+                  <input
+                    id="opusModel"
+                    type="text"
+                    className="form-input"
+                    list={FETCHED_MODELS_DATALIST_ID}
+                    placeholder={t('settings.provider.dialog.opusModelPlaceholder')}
+                    value={opusModel}
+                    onChange={handleOpusModelChange}
+                  />
+                </div>
+              </div>
+              <div className="model-mapping-row">
+                <div className="model-mapping-role">{t('settings.provider.dialog.fableRole', 'Fable')}</div>
+                <div className="model-mapping-field">
+                  <label htmlFor="fableDisplayName">{t('settings.provider.dialog.displayName', 'Display Name')}</label>
+                  <input
+                    id="fableDisplayName"
+                    type="text"
+                    className="form-input"
+                    placeholder={t('settings.provider.dialog.displayNamePlaceholder', 'fable')}
+                    value={fableDisplayName}
+                    onChange={handleFableDisplayNameChange}
+                  />
+                </div>
+                <div className="model-mapping-field">
+                  <label htmlFor="fableModel">{t('settings.provider.dialog.requestModel', 'Actual Request Model')}</label>
+                  <input
+                    id="fableModel"
+                    type="text"
+                    className="form-input"
+                    list={FETCHED_MODELS_DATALIST_ID}
+                    placeholder={t('settings.provider.dialog.fableModelPlaceholder', 'your-fable-model')}
+                    value={fableModel}
+                    onChange={handleFableModelChange}
+                  />
+                </div>
+              </div>
+              <div className="model-mapping-row">
+                <div className="model-mapping-role">{t('settings.provider.dialog.haikuRole', 'Haiku')}</div>
+                <div className="model-mapping-field">
+                  <label htmlFor="haikuDisplayName">{t('settings.provider.dialog.displayName', 'Display Name')}</label>
+                  <input
+                    id="haikuDisplayName"
+                    type="text"
+                    className="form-input"
+                    placeholder={t('settings.provider.dialog.displayNamePlaceholder', 'mimo-v2.5')}
+                    value={haikuDisplayName}
+                    onChange={handleHaikuDisplayNameChange}
+                  />
+                </div>
+                <div className="model-mapping-field">
+                  <label htmlFor="haikuModel">{t('settings.provider.dialog.requestModel', 'Actual Request Model')}</label>
+                  <input
+                    id="haikuModel"
+                    type="text"
+                    className="form-input"
+                    list={FETCHED_MODELS_DATALIST_ID}
+                    placeholder={t('settings.provider.dialog.haikuModelPlaceholder')}
+                    value={haikuModel}
+                    onChange={handleHaikuModelChange}
+                  />
+                </div>
+              </div>
+            </div>
+            <small className="form-hint">{t('settings.provider.dialog.modelMappingHint')}</small>
+          </div>
+        </>
+      )}
+    </GuidedProviderDialog>
   );
 }
