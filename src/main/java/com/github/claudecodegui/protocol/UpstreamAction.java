@@ -183,6 +183,8 @@ public enum UpstreamAction implements ProtocolValue {
     PREVIEW_CC_SWITCH_IMPORT("preview_cc_switch_import"),
     OPEN_FILE_CHOOSER_FOR_CC_SWITCH("open_file_chooser_for_cc_switch"),
     SAVE_IMPORTED_PROVIDERS("save_imported_providers"),
+    // 拉取第三方/代理 OpenAI 兼容 models 列表(RPC:业务逻辑下沉后端,前端只做入口)
+    FETCH_PROVIDER_MODELS("fetch_provider_models"),
 
     // ── Provider (Codex) ──
     GET_CODEX_PROVIDERS("get_codex_providers"),

@@ -47,6 +47,8 @@ public enum DownstreamEvent implements ProtocolValue {
     // 响应用下行事件 file_path.resolved。早先的 'file_path.resolve' 下行伪事件已删除(它是
     // 误放进下行枚举的上行请求名,曾诱导前端把它当作请求 type 导致后端 dispatcher miss)。
     FILE_PATH_RESOLVED("file_path.resolved"),
+    // 模型拉取 RPC 响应(对称 fetch_provider_models 上行;携带 __requestId 供 hub 路由 Promise)
+    PROVIDER_MODELS_FETCHED("provider.models_fetched"),
 
     // ── Streaming ──
     STREAM_START("stream.start"),

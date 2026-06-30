@@ -121,6 +121,7 @@ import com.github.claudecodegui.handler.UserLanguageHandler;
 import com.github.claudecodegui.handler.RuntimePolicyHandler;
 import com.github.claudecodegui.handler.settings.GetClaudeCliPathActionHandler;
 import com.github.claudecodegui.handler.settings.GetCodexSubscriptionQuotaActionHandler;
+import com.github.claudecodegui.handler.settings.FetchProviderModelsActionHandler;
 import com.github.claudecodegui.handler.settings.GetModelRegistryActionHandler;
 import com.github.claudecodegui.handler.settings.SetModelRegistryActionHandler;
 import com.github.claudecodegui.handler.settings.GetModelRegistrySchemaActionHandler;
@@ -524,6 +525,8 @@ public class ChatWindowDelegate {
         typedHandlers.add(new GetModelRegistrySchemaActionHandler(modelRegistryService));
         typedHandlers.add(new SetAppearanceConfigActionHandler(appearanceConfigService));
         typedHandlers.add(new GetCodexSubscriptionQuotaActionHandler());
+        // 模型拉取 RPC(第三方/代理预设:baseUrl+key → 动态拉取真实模型列表)
+        typedHandlers.add(new FetchProviderModelsActionHandler());
         typedHandlers.add(new GetClaudeCliPathActionHandler());
         typedHandlers.add(new SetClaudeCliPathActionHandler());
         typedHandlers.add(new GetNodePathActionHandler());

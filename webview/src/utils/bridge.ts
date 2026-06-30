@@ -244,3 +244,46 @@ export const undoFileChanges = (
   }
   sendAction(UPSTREAM.UNDO_FILE_CHANGES, { filePath, status, operations });
 };
+
+// RPC 超时:HTTP 拉取 + 多候选回退(最多 3 候选 × 各自网络往返),比本地 file resolve 宽。
+const FETCH_PROVIDER_MODELS_TIMEOUT_MS = 30000;
+
+export interface FetchProviderModelsParams {
+  baseUrl: string;
+  apiKey?: string;
+  /** baseUrl 是否为完整 chat 端点 URL(如 .../v1/chat/completions),后端据此推导 models 端点 */
+  isFullUrl?: boolean;
+  /** 显式 models URL 覆盖(非空时后端直接用,跳过候选构造) */
+  modelsUrlOverride?: string;
+}
+
+export interface FetchedProviderModels {
+  models?: string[];
+  error?: string;
+}
+
+/**
+ * 拉取第三方/代理 OpenAI 兼容 models 列表(RPC,业务逻辑下沉后端)。
+ *
+ * <p>前端只做入口:传 baseUrl/apiKey,后端 {@code ModelFetchService} 构造候选 URL +
+ * HTTP GET + {data:[{id}]} 解析。成功返回 {@code {models:[...]}},失败返回
+ * {@code {error:'...'}}(引导对话框展示后允许用户改用手动输入模型名)。
+ *
+ * <p>对称 {@link resolveFilePathWithCallback} 的 request/response RPC 通道:
+ * 上行 {@code fetch_provider_models}(后端 FetchProviderModelsActionHandler 命中),
+ * 下行 {@code provider.models_fetched}(携带 {@code __requestId} 供 hub 路由 Promise)。
+ */
+export const fetchProviderModels = (params: FetchProviderModelsParams): Promise<FetchedProviderModels> => {
+  return bridgeHub.request<FetchedProviderModels>(
+    UPSTREAM.FETCH_PROVIDER_MODELS,
+    {
+      baseUrl: params.baseUrl,
+      apiKey: params.apiKey,
+      isFullUrl: params.isFullUrl ?? false,
+      modelsUrlOverride: params.modelsUrlOverride,
+    },
+    { timeoutMs: FETCH_PROVIDER_MODELS_TIMEOUT_MS, responseType: DOWNSTREAM.PROVIDER_MODELS_FETCHED },
+  )
+    .then((result) => result ?? {})
+    .catch(() => ({ error: 'timeout' }));
+};
