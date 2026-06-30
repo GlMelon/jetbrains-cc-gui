@@ -111,6 +111,21 @@ public class CodexCliSession implements CliSession {
     private final Set<String> emittedToolUseIds = new HashSet<>();
     private final Set<String> emittedToolResultIds = new HashSet<>();
     private final Set<String> emittedThinkingStartIds = new HashSet<>();
+    /**
+     * 缓冲的 agent_message 文本。
+     *
+     * WARNING—切勿让 handleAgentMessageItem 写入此字段:
+     * ==============================================================
+     * 2026-06-30 commit 2951c5f2 的缓冲设计将 agent_message 文本暂存于此,等到
+     * turn.completed 才 flush 成 content_delta——导致纯文本回答无流式,用户报
+     * "答完才一次性推送"。修复(本文件 handleAgentMessageItem)后恒为空。
+     *
+     * 保留该字段和 flushPending* 方法仅作为<安全网>,handleAgentMessageItem
+     * 每次只传 delta 不写 pending。若未来某位 AI 看到"pending 从未被写入"就
+     * 删除此字段+flush 方法+调用点——可安全删除,但千万不要反过来让
+     * handleAgentMessageItem 重新写入 pending(断流式回归)。
+     * ==============================================================
+     */
     private String pendingAgentMessageText = "";
     private SegmentKind lastSegmentKind = SegmentKind.NONE;
     // turn.completed 后置位,其后非 JSON 行视为进程收尾噪声,不再作为正文 delta 输出。
@@ -238,6 +253,7 @@ public class CodexCliSession implements CliSession {
                         callback.onError(err);
                         callback.onComplete(false, assistantContent.toString(), err);
                     } else {
+                        // [安全网] handleAgentMessageItem 已立即流式,pending 恒空,此调用是 no-op
                         flushPendingAgentMessageAsContent(callback, assistantContent);
                         callback.onMessage(CliConstants.MSG_STREAM_END, "");
                         callback.onMessage(CliConstants.MSG_MESSAGE_END, "");
@@ -437,6 +453,7 @@ public class CodexCliSession implements CliSession {
                 }
                 case CliConstants.CODEX_EVENT_TURN_COMPLETED -> {
                     turnCompleted = true;
+                    // [安全网] handleAgentMessageItem 已立即流式,pending 恒空,此调用是 no-op
                     flushPendingAgentMessageAsContent(callback, assistantContent);
                     if (event.has("usage") && event.get("usage").isJsonObject()) {
                         callback.onMessage(CliConstants.MSG_USAGE, event.getAsJsonObject("usage").toString());
@@ -500,9 +517,7 @@ public class CodexCliSession implements CliSession {
                 // (不进 cliError 以免 exitCode==0 时误报错,也不作为正文 delta)。
                 LOG.debug("[CodexCliSession] ignoring post-turn non-JSON line: " + line);
             } else {
-                assistantContent.append(text);
-                markSegment(callback, SegmentKind.TEXT);
-                callback.onMessage(CliConstants.MSG_CONTENT_DELTA, text);
+                emitContentDelta(callback, assistantContent, text);
             }
         }
     }
@@ -563,9 +578,22 @@ public class CodexCliSession implements CliSession {
     }
 
     /**
-     * Official agent_message items are rendered as assistant body text.
-     * Even if the text contains command/test-looking content, routing still follows
-     * the event contract rather than text heuristics.
+     * 处理官方 agent_message items,组装到 assistant 正文。
+     *
+     * ═══════════════════════════════════════════════════════════════════════════
+     * ⚠ WARNING:此方法必须保持<立即流式>推送,不可回退到缓冲设计。
+     * ═══════════════════════════════════════════════════════════════════════════
+     * codex exec --json 契约定义 agent_message 为 assistant 正文,通过
+     * item.updated 多次发送累积文本。appendedDelta 计算尾部增量,每次立即流式
+     * push content_delta——这是前端实现打字机效果的前提。
+     *
+     * 2026-06-10 commit 2951c5f2 改为缓冲到 turn.completed 再 flush,
+     * 导致纯文本回答完全无流式,用户报"答完才一次性显示"(issue #…)。
+     * 2026-06-30 修复:始终立即推送,删除 shouldStreamAgentMessage 条件判定。
+     *
+     * 回滚此方法 = 直接复现该 bug。见 handleAgentMessageItem 方法体内
+     * ═══════════════════════════════════════════════════════════════════════════
+     * 的设计日志和 WARNING。
      */
     private void handleAgentMessageItem(
             JsonObject item,
@@ -586,8 +614,21 @@ public class CodexCliSession implements CliSession {
         }
         String delta = appendedDelta(previous, text);
         assistantTextByItemId.put(id, text);
-        if (!delta.isEmpty() || pendingAgentMessageText.isEmpty()) {
-            pendingAgentMessageText = text;
+        // ═══════════════════════════════════════════════════════════════════════
+        //  ⚠ WARNING—不可回滚此流式逻辑(见 2951c5f2→2026-06-30 修复):
+        //  codex exec --json 契约定义 agent_message 为 assistant 正文。
+        //  它通过 item.updated 多次发送累积文本,appendedDelta 可算出尾部增量。
+        //  这里必须<每次立即流式推送 content_delta>,而非缓冲到 turn.completed
+        //  一次性输出——后者正是用户报"codex 无流式答完才显示"的根因。
+        //  历史上曾因"工具前协调文本可能含工具转录"而走缓冲→thinking 降级,
+        //  这违反契约:agent_message 语义即正文,不因后续可能出现 tool 而降级。
+        //  行为对齐 Claude CLI 与 ai-bridge SDK(codex-event-handler.js)路径。
+        //  回滚此段 = 纯文本回答断流式回归。勿让 handleAgentMessageItem 写入
+        //  pendingAgentMessageText(其已降级为恒空的安全网)。
+        // ═══════════════════════════════════════════════════════════════════════
+        pendingAgentMessageText = "";
+        if (!delta.isEmpty()) {
+            emitContentDelta(callback, assistantContent, delta);
         }
     }
 
@@ -599,6 +640,7 @@ public class CodexCliSession implements CliSession {
     private void handleCommandExecutionItem(String eventType, JsonObject item, CliSessionCallback callback) {
         String id = stableItemId(item, "command_execution");
         String command = extractCommand(item);
+        // [安全网] handleAgentMessageItem 已立即流式,不再需 tool 前 flush 降级 thinking
         flushPendingAgentMessageAsThinking(callback);
         markSegment(callback, SegmentKind.TOOL);
         if ("item.started".equals(eventType) || "item.updated".equals(eventType)) {
@@ -619,6 +661,7 @@ public class CodexCliSession implements CliSession {
         JsonObject input = item.has("arguments") && item.get("arguments").isJsonObject()
                 ? item.getAsJsonObject("arguments")
                 : new JsonObject();
+        // [安全网] handleAgentMessageItem 已立即流式,此调用是 no-op
         flushPendingAgentMessageAsThinking(callback);
         markSegment(callback, SegmentKind.TOOL);
         if ("item.started".equals(eventType) || "item.updated".equals(eventType)) {
@@ -654,6 +697,7 @@ public class CodexCliSession implements CliSession {
         String name = firstNonBlank(getString(payload, "name"), "unknown");
         String id = stableItemId(payload, "unknown");
         JsonObject input = parseFunctionCallArguments(payload);
+        // [安全网] handleAgentMessageItem 已立即流式,此调用是 no-op
         flushPendingAgentMessageAsThinking(callback);
         markSegment(callback, SegmentKind.TOOL);
         emitToolUseOnce(callback, id, name, input);
@@ -663,6 +707,7 @@ public class CodexCliSession implements CliSession {
         String id = stableItemId(payload, "unknown");
         boolean isError = isItemError(payload);
         String output = firstNonBlank(getString(payload, "output"), getString(payload, "result"));
+        // [安全网] handleAgentMessageItem 已立即流式,此调用是 no-op
         flushPendingAgentMessageAsThinking(callback);
         markSegment(callback, SegmentKind.TOOL);
         emitToolResultOnce(callback, id, isError, output != null ? output : "(no output)");
@@ -681,14 +726,26 @@ public class CodexCliSession implements CliSession {
                 input.addProperty("file_path", filePath);
             }
         }
+        // [安全网] handleAgentMessageItem 已立即流式,此调用是 no-op
         flushPendingAgentMessageAsThinking(callback);
         markSegment(callback, SegmentKind.TOOL);
         emitToolUseOnce(callback, id, name, input);
     }
 
     /**
-     * Flush the buffered agent_message text into the assistant body stream.
-     * This is the normal completion path for official agent_message items.
+     * 安全网:将缓冲的 agent_message 文本冲刷到 assistant 正文流。
+     *
+     * WARNING—此方法目前恒为 no-op(仅安全网):
+     * ==============================================================
+     * handleAgentMessageItem 已改为立即流式(不写 pendingAgentMessageText),
+     * 故此方法直到末尾 `buildAssistantMessage` 之前都不会命中。
+     * 保留它以保护边界:万一某条 agent_message 因前端尚未就绪等竞态未能流式,
+     * turn.completed(或进程退出)时仍能兜底推送。
+     *
+     * 可安全删除此方法及其两处调用点(line 241 exit0 / line 440 turn.completed),
+     * 但<千万不要>反过来从 handleAgentMessageItem 重新写 pendingAgentMessageText!
+     * 那将直接回归"一次 push"而非流式,复现 2951c5f2 的回退=断流式 bug。
+     * ==============================================================
      */
     private void flushPendingAgentMessageAsContent(CliSessionCallback callback, StringBuilder assistantContent) {
         if (pendingAgentMessageText == null || pendingAgentMessageText.isBlank()) {
@@ -708,17 +765,40 @@ public class CodexCliSession implements CliSession {
                 assistantContent.setLength(0);
                 delta = text;
             }
-            assistantContent.append(delta);
-            markSegment(callback, SegmentKind.TEXT);
-            callback.onMessage(CliConstants.MSG_CONTENT_DELTA, delta);
+            emitContentDelta(callback, assistantContent, delta);
         }
         callback.onMessage(CommonConstants.MSG_TYPE_ASSISTANT, buildAssistantMessage(text).toString());
     }
 
+    private void emitContentDelta(
+            CliSessionCallback callback,
+            StringBuilder assistantContent,
+            String text
+    ) {
+        if (text == null || text.isEmpty()) {
+            return;
+        }
+        markSegment(callback, SegmentKind.TEXT);
+        assistantContent.append(text);
+        callback.onMessage(CliConstants.MSG_CONTENT_DELTA, text);
+    }
+
     /**
-     * Flush buffered text into thinking only when a real structured tool event is about
-     * to start. This keeps pre-tool coordination text visually attached to the tool
-     * boundary without reclassifying standalone agent_message items.
+     * 安全网:将缓冲文本冲刷到 thinking 通道。
+     *
+     * WARNING—此方法目前恒为 no-op(仅安全网):
+     * ==============================================================
+     * handleAgentMessageItem 已改为立即流式(不写 pendingAgentMessageText),
+     * 且 agent_message 契约定义其仅作为正文,不因后续紧跟 tool 而降级为 thinking。
+     * 保留此方法只因它在 5 个工具 handler 中有调用点,
+     * 删除它需要同时删除 5 处调用且不影响任何逻辑(一律 no-op)。
+     *
+     * 可安全删除此方法及其 5 处调用点(handleCommandExecutionItem /
+     * handleMcpToolCallItem / handleFunctionCallPayload /
+     * handleFunctionCallOutputPayload / handleCustomToolCallPayload),
+     * 但<千万不要>把它从"工具前清空"改回"工具前 flush",那会复现
+     * 2951c5f2 的"agent_message 降级 thinking"过度设计。
+     * ==============================================================
      */
     private void flushPendingAgentMessageAsThinking(CliSessionCallback callback) {
         if (pendingAgentMessageText == null || pendingAgentMessageText.isBlank()) {
@@ -1328,5 +1408,3 @@ public class CodexCliSession implements CliSession {
         }
     }
 }
-
-

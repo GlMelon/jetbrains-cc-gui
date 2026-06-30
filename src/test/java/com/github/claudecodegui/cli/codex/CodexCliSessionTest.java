@@ -96,7 +96,10 @@ public class CodexCliSessionTest {
     }
 
     @Test
-    public void agentMessageUpdatesAreBufferedUntilTurnCompletion() throws Exception {
+    public void agentMessageUpdatesStreamAsContentDeltaImmediately() throws Exception {
+        // 官方 codex exec --json 契约:agent_message 通过 item.updated 多次累积发送,
+        // 必须立即流式推送增量(content_delta),而非缓冲到 turn.completed 一次性输出。
+        // 复现用户报告:codex 无流式,回答完后由后端一次性推送。
         CodexCliSession session = new CodexCliSession("tab-agent");
         RecordingCallback callback = new RecordingCallback();
         StringBuilder assistantContent = new StringBuilder();
@@ -107,15 +110,21 @@ public class CodexCliSessionTest {
                 callback,
                 assistantContent
         );
+        // 第一个增量必须立即流式,不等 turn.completed
+        // WARNING:若改为 assertEquals("", assistantContent) + assertEquals(List.of(), content_delta)
+        //   即在验证"缓冲到 turn 结束",那是 2951c5f2 的旧行为=断流式 bug。
+        assertEquals("hello", assistantContent.toString());
+        assertEquals(List.of("hello"), callback.contentsOfType("content_delta"));
+
         invokeParseEvent(
                 session,
                 "{\"type\":\"item.completed\",\"item\":{\"id\":\"item_msg\",\"type\":\"agent_message\",\"text\":\"hello world\"}}",
                 callback,
                 assistantContent
         );
-
-        assertEquals("", assistantContent.toString());
-        assertEquals(List.of(), callback.contentsOfType("content_delta"));
+        // 第二次只推尾部增量,不重复推送整段
+        assertEquals("hello world", assistantContent.toString());
+        assertEquals(List.of("hello", " world"), callback.contentsOfType("content_delta"));
 
         invokeParseEvent(
                 session,
@@ -124,12 +133,21 @@ public class CodexCliSessionTest {
                 assistantContent
         );
 
+        // turn.completed 不再额外 flush(已流式),assistantContent 保持不变
+        // WARNING:若改回 assertEquals(List.of("hello world"), content_delta)即在验证
+        //   turn.completed 才一次性推送,那是缓冲设计的特征,将间接允许回滚流式。
         assertEquals("hello world", assistantContent.toString());
-        assertEquals(List.of("hello world"), callback.contentsOfType("content_delta"));
+        assertEquals(List.of("hello", " world"), callback.contentsOfType("content_delta"));
     }
 
     @Test
-    public void agentMessageBeforeToolIsRoutedToThinking() throws Exception {
+    public void agentMessageBeforeToolStreamsAsAssistantContentNotThinking() throws Exception {
+        // agent_message 语义即 assistant 正文,即使后续紧跟工具调用,也作为正文流式输出,
+        // 不因"工具前协调文本"降级为 thinking(2951c5f2 的过度设计已废弃,行为对齐 Claude CLI)。
+        //
+        // WARNING:若改回 assertEquals("", assistantContent) + assertEquals(List.of(), content_delta)
+        //   + assertEquals(List.of(text), thinking_delta) 即在验证"agent_message 降级 thinking"
+        //   旧行为,将间接允许回滚流式(2951c5f2 的设计,断流式回归)。
         CodexCliSession session = new CodexCliSession("tab-agent-different-id");
         RecordingCallback callback = new RecordingCallback();
         StringBuilder assistantContent = new StringBuilder();
@@ -147,12 +165,42 @@ public class CodexCliSessionTest {
                 assistantContent
         );
 
-        assertEquals("", assistantContent.toString());
-        assertEquals(List.of(), callback.contentsOfType("content_delta"));
-        assertEquals(List.of("Wall time: 3.6 seconds\nvitest failed"), callback.contentsOfType("thinking_delta"));
+        assertEquals("Wall time: 3.6 seconds\nvitest failed", assistantContent.toString());
+        assertEquals(List.of("Wall time: 3.6 seconds\nvitest failed"), callback.contentsOfType("content_delta"));
+        assertEquals(List.of(), callback.contentsOfType("thinking_delta"));
         assertTrue(callback.events.stream().anyMatch(event -> "assistant".equals(event.type)
                 && event.content.contains("\"type\":\"tool_use\"")
                 && event.content.contains("git status")));
+    }
+
+    @Test
+    public void agentMessageAfterReasoningStreamsContentImmediately() throws Exception {
+        CodexCliSession session = new CodexCliSession("tab-agent-after-reasoning");
+        RecordingCallback callback = new RecordingCallback();
+        StringBuilder assistantContent = new StringBuilder();
+
+        invokeParseEvent(
+                session,
+                "{\"type\":\"item.updated\",\"item\":{\"id\":\"reason_1\",\"type\":\"reasoning\",\"text\":\"分析问题\"}}",
+                callback,
+                assistantContent
+        );
+        invokeParseEvent(
+                session,
+                "{\"type\":\"item.updated\",\"item\":{\"id\":\"msg_1\",\"type\":\"agent_message\",\"text\":\"正文第一段\"}}",
+                callback,
+                assistantContent
+        );
+        invokeParseEvent(
+                session,
+                "{\"type\":\"item.updated\",\"item\":{\"id\":\"msg_1\",\"type\":\"agent_message\",\"text\":\"正文第一段继续\"}}",
+                callback,
+                assistantContent
+        );
+
+        assertEquals("正文第一段继续", assistantContent.toString());
+        assertEquals(List.of("分析问题"), callback.contentsOfType("thinking_delta"));
+        assertEquals(List.of("正文第一段", "继续"), callback.contentsOfType("content_delta"));
     }
 
     @Test
@@ -185,6 +233,10 @@ public class CodexCliSessionTest {
                 callback,
                 assistantContent
         );
+
+        assertEquals(transcript, assistantContent.toString());
+        assertEquals(List.of(transcript), callback.contentsOfType("content_delta"));
+
         invokeParseEvent(
                 session,
                 "{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":1,\"output_tokens\":1}}",
@@ -306,8 +358,12 @@ public class CodexCliSessionTest {
                 assistantContent
         );
 
-        assertEquals(List.of("after tool text"), callback.contentsOfType("content_delta"));
-        assertEquals(List.of("before tool", "after tool thinking"), callback.contentsOfType("thinking_delta"));
+        // agent_message 始终作为正文流式输出,不进 thinking
+        // WARNING:若改回 assertEquals(List.of("after tool text"), content_delta)
+        //   + assertEquals(List.of("before tool", ...), thinking_delta) 即在验证"工具前
+        //   agent_message 降级 thinking"旧行为,将间接允许回滚流式(2951c5f2 的设计)。
+        assertEquals(List.of("before tool", "after tool text"), callback.contentsOfType("content_delta"));
+        assertEquals(List.of("after tool thinking"), callback.contentsOfType("thinking_delta"));
         assertTrue(callback.events.stream().anyMatch(event -> "assistant".equals(event.type)
                 && event.content.contains("\"type\":\"tool_use\"")
                 && event.content.contains("git status")));
@@ -931,6 +987,3 @@ public class CodexCliSessionTest {
     private record Event(String type, String content) {
     }
 }
-
-
-
