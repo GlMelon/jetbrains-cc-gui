@@ -6,6 +6,9 @@ import com.github.claudecodegui.cli.CliSessionCallback;
 import com.github.claudecodegui.cli.CliSessionExecutor;
 import com.github.claudecodegui.cli.common.*;
 import com.github.claudecodegui.common.CommonConstants;
+import com.github.claudecodegui.mcp.McpGatewayCliConfig;
+import com.github.claudecodegui.mcp.McpGatewayService;
+import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.ui.toolwindow.TabPerformanceLogger;
 import com.github.claudecodegui.util.GsonHolder;
 import com.github.claudecodegui.util.PlatformUtils;
@@ -47,6 +50,7 @@ public class OpenCodeCliSession implements CliSession {
     private final String tabId;
     private final Gson gson = GsonHolder.GSON;
     private final CliAttachmentHandler attachmentHandler = new CliAttachmentHandler();
+    private final McpGatewayService gatewayService;
 
     // 当前 session ID(从事件流顶层 sessionID 提取,续接时以 -s 传入)
     private volatile String sessionId;
@@ -55,7 +59,12 @@ public class OpenCodeCliSession implements CliSession {
     private final AtomicBoolean userInterrupted = new AtomicBoolean(false);
 
     public OpenCodeCliSession(String tabId) {
+        this(tabId, null);
+    }
+
+    public OpenCodeCliSession(String tabId, McpGatewayService gatewayService) {
         this.tabId = tabId;
+        this.gatewayService = gatewayService;
     }
 
     @Override
@@ -115,6 +124,7 @@ public class OpenCodeCliSession implements CliSession {
             StringBuilder diagnostic
     ) throws Exception {
         OpenCodeCliStreamParser parser = new OpenCodeCliStreamParser(callback);
+        McpGatewayCliConfig gatewayConfig = buildGatewayConfig(request);
         List<String> cmd = buildRunCommand(request, effectiveSessionId, attachFiles);
         LOG.info("[OpenCodeCliSession][" + tabId + "] Command: " + String.join(" ", cmd));
 
@@ -126,6 +136,9 @@ public class OpenCodeCliSession implements CliSession {
         cliEnv.put(CliConstants.ARG_NO_COLOR, "1");
         CliEnvironmentBuilder.configureProjectPath(cliEnv, request.cwd());
         CliEnvironmentBuilder.applyExtraEnv(cliEnv, request.extraEnv());
+        if (gatewayConfig != null && gatewayConfig.usable()) {
+            cliEnv.putAll(gatewayConfig.environment());
+        }
         // §7.2:非 bypass 模式的 OPENCODE_PERMISSION 精确 JSON schema 需 §16 实测确认,暂不臆造;
         // 依赖 --dangerously-skip-permissions(bypass)与 opencode 默认询问语义。
 
@@ -253,6 +266,13 @@ public class OpenCodeCliSession implements CliSession {
     private boolean wasInterrupted() {
         CliProcessHandle handle = activeHandle;
         return userInterrupted.get() || (handle != null && handle.wasInterrupted());
+    }
+
+    private McpGatewayCliConfig buildGatewayConfig(CliSendRequest request) {
+        if (gatewayService == null) {
+            return McpGatewayCliConfig.disabled("No MCP Gateway service");
+        }
+        return gatewayService.buildCliConfig(ProviderType.OPENCODE, tabId, request.cwd());
     }
 
     // ── command builder ──────────────────────────────────────────────────────

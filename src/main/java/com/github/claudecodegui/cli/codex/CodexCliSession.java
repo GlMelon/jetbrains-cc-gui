@@ -6,7 +6,10 @@ import com.github.claudecodegui.cli.CliSessionCallback;
 import com.github.claudecodegui.cli.CliSessionExecutor;
 import com.github.claudecodegui.cli.common.*;
 import com.github.claudecodegui.common.CommonConstants;
+import com.github.claudecodegui.mcp.McpGatewayCliConfig;
+import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.session.runtime.CodexCliResolver;
+import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.ui.toolwindow.TabPerformanceLogger;
 import com.github.claudecodegui.util.GsonHolder;
 import com.github.claudecodegui.util.PlatformUtils;
@@ -88,6 +91,7 @@ public class CodexCliSession implements CliSession {
     private final Gson gson = GsonHolder.GSON;
     private final CliAttachmentHandler attachmentHandler = new CliAttachmentHandler();
     private final CliMcpConfig mcpConfig;
+    private final McpGatewayService gatewayService;
 
     // 当前 thread_id（从 thread.started 事件获取）
     private volatile String threadId;
@@ -120,8 +124,13 @@ public class CodexCliSession implements CliSession {
     }
 
     public CodexCliSession(String tabId) {
+        this(tabId, null);
+    }
+
+    public CodexCliSession(String tabId, McpGatewayService gatewayService) {
         this.tabId = tabId;
         this.mcpConfig = new CliMcpConfig(tabId);
+        this.gatewayService = gatewayService;
     }
 
     public CompletableFuture<Void> send(CliSendRequest request, CliSessionCallback callback) {
@@ -134,6 +143,7 @@ public class CodexCliSession implements CliSession {
             try {
                 List<File> images = attachmentHandler.processForCodex(request.attachments(), tempFiles);
                 boolean requestHasImages = !images.isEmpty();
+                McpGatewayCliConfig gatewayConfig = buildGatewayConfig(request);
                 List<String> cmd = buildCommand(request, images);
                 byte[] promptInput = buildPromptInput(request);
                 LOG.info("[CodexCliSession][" + tabId + "] Command: " + String.join(" ", cmd)
@@ -151,6 +161,9 @@ public class CodexCliSession implements CliSession {
                 // process was launched with sandbox-network restrictions.
                 cliEnv.remove(ENV_CODEX_SANDBOX_NETWORK_DISABLED);
                 CliEnvironmentBuilder.applyExtraEnv(cliEnv, CodexCliCommandUtils.sanitizeEnv(request.extraEnv()));
+                if (gatewayConfig != null && gatewayConfig.usable()) {
+                    cliEnv.putAll(gatewayConfig.environment());
+                }
 
                 // CWD 设置放在 pb.start() 紧前面，避免 TOCTOU 竞态：
                 // 如果目录在 check 和 start 之间被删除，Windows CreateProcess 会报
@@ -879,6 +892,13 @@ public class CodexCliSession implements CliSession {
         return cmd;
     }
 
+    private McpGatewayCliConfig buildGatewayConfig(CliSendRequest request) {
+        if (gatewayService == null) {
+            return McpGatewayCliConfig.disabled("No MCP Gateway service");
+        }
+        return gatewayService.buildCliConfig(ProviderType.CODEX, tabId, request.cwd());
+    }
+
     /**
      * 首次会话:codex exec ... [-- PROMPT]
      */
@@ -1308,6 +1328,5 @@ public class CodexCliSession implements CliSession {
         }
     }
 }
-
 
 

@@ -1,9 +1,12 @@
 package com.github.claudecodegui.provider.claude;
 
+import com.github.claudecodegui.mcp.McpGatewaySdkBinding;
+import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.session.ClaudeSession;
 import com.github.claudecodegui.provider.common.DaemonBridge;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.SDKResult;
+import com.github.claudecodegui.session.runtime.ProviderType;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
 
@@ -25,17 +28,20 @@ class ClaudeDaemonRequestExecutor {
     private final ClaudeRequestParamsBuilder requestParamsBuilder;
     private final ClaudeStreamAdapter streamAdapter;
     private final ClaudeJsonOutputExtractor outputExtractor;
+    private final McpGatewayService mcpGatewayService;
 
     ClaudeDaemonRequestExecutor(
             Logger log,
             ClaudeRequestParamsBuilder requestParamsBuilder,
             ClaudeStreamAdapter streamAdapter,
-            ClaudeJsonOutputExtractor outputExtractor
+            ClaudeJsonOutputExtractor outputExtractor,
+            McpGatewayService mcpGatewayService
     ) {
         this.log = log;
         this.requestParamsBuilder = requestParamsBuilder;
         this.streamAdapter = streamAdapter;
         this.outputExtractor = outputExtractor;
+        this.mcpGatewayService = mcpGatewayService;
     }
 
     CompletableFuture<SDKResult> sendMessageViaDaemon(
@@ -66,6 +72,9 @@ class ClaudeDaemonRequestExecutor {
             final List<File> tempImageFiles = new ArrayList<>();
 
             try {
+                McpGatewaySdkBinding mcpGatewayBinding = mcpGatewayService != null
+                        ? mcpGatewayService.buildSdkMcpServers(ProviderType.CLAUDE, cwd)
+                        : null;
                 JsonObject params = requestParamsBuilder.buildSendParams(
                         message,
                         sessionId,
@@ -80,7 +89,8 @@ class ClaudeDaemonRequestExecutor {
                         streaming,
                         disableThinking,
                         reasoningEffort,
-                        tempImageFiles
+                        tempImageFiles,
+                        mcpGatewayBinding
                 );
 
                 boolean hasAttachments = attachments != null && !attachments.isEmpty() && params.has("attachments");

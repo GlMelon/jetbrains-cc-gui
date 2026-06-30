@@ -449,7 +449,7 @@ Footer 包含：
      * actualModel=null,绕过了 registry 解析。
      */
     protected void sendClaudeCommitMessage(String prompt, String model, String actualModel, CommitMessageCallback callback) {
-        ClaudeSDKBridge bridge = new ClaudeSDKBridge();
+        ClaudeSDKBridge bridge = new ClaudeSDKBridge(null);
         try {
             // Simple callback handler
             StringBuilder result = new StringBuilder();
@@ -518,7 +518,7 @@ Footer 包含：
      * Call the Codex API.
      */
     protected void callCodexAPI(String prompt, String model, CommitMessageCallback callback) {
-        CodexSDKBridge bridge = new CodexSDKBridge();
+        CodexSDKBridge bridge = new CodexSDKBridge(null);
         try {
             // Simple callback handler
             StringBuilder result = new StringBuilder();

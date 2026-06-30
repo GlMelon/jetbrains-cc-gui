@@ -6,6 +6,7 @@ import com.github.claudecodegui.provider.codex.CodexSDKBridge;
 import com.github.claudecodegui.provider.opencode.OpenCodeSDKBridge;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.SDKResult;
+import com.intellij.openapi.project.Project;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -37,8 +38,13 @@ public class SessionRuntimeRouter {
 
     public SessionRuntimeRouter(ClaudeSDKBridge claudeSDKBridge, CodexSDKBridge codexSDKBridge,
                                 OpenCodeSDKBridge openCodeSDKBridge) {
+        this(null, claudeSDKBridge, codexSDKBridge, openCodeSDKBridge);
+    }
+
+    public SessionRuntimeRouter(Project project, ClaudeSDKBridge claudeSDKBridge, CodexSDKBridge codexSDKBridge,
+                                OpenCodeSDKBridge openCodeSDKBridge) {
         this.registry = new SessionRuntimeRegistry();
-        this.cliManager = new CliSessionManager();
+        this.cliManager = project != null ? new CliSessionManager(project) : new CliSessionManager();
         // 注册 6 个 runtime 实现（3 provider × 2 runtime）
         registry.register(new ClaudeSdkSessionRuntime(claudeSDKBridge));
         registry.register(new CodexSdkSessionRuntime(codexSDKBridge));

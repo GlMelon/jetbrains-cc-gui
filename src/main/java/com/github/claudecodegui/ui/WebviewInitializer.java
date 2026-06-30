@@ -4,6 +4,7 @@ import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
+import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.model.NodeDetectionResult;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
 import com.github.claudecodegui.provider.codex.CodexSDKBridge;
@@ -174,6 +175,20 @@ public class WebviewInitializer {
                     ? host.getHandlerContext().getSession().getRuntimeSessionEpoch()
                     : null);
         }
+
+        // 后台预热 MCP Gateway(若 CLI gateway flag 启用):让 ensureStarted(拉起 Node gateway 进程)
+        // + applySnapshot(refresh 各 MCP server)在用户发消息前完成 → 首次 buildCliConfig 因
+        // configHash 相同 skip(秒回),消除"gateway 形式加载后首次请求等几十秒"。
+        // refreshConfig 内部 isCliEnabled() 守卫:flag 关时 no-op 无副作用;flag 开时后台等待用户无感。
+        // 与 daemon 预热不同,gateway 预热对 CLI 模式同样需要(CLI 正是 gateway 主场景)。
+        ApplicationManager.getApplication().executeOnPooledThread(() -> {
+            try {
+                Project project = host.getProject();
+                McpGatewayService.getInstance(project).refreshConfig(project.getBasePath());
+            } catch (Exception e) {
+                LOG.warn("[WebviewInitializer] MCP Gateway prewarm failed: " + e.getMessage(), e);
+            }
+        });
 
         // Check JCEF support before creating browser
         if (!JBCefBrowserFactory.isJcefSupported()) {

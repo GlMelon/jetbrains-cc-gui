@@ -5,9 +5,11 @@ import com.github.claudecodegui.cli.codex.CodexCliSessionFactory;
 import com.github.claudecodegui.cli.opencode.OpenCodeCliSessionFactory;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.SDKResult;
+import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.ui.toolwindow.TabPerformanceLogger;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.project.Project;
 
 import java.util.HashMap;
 import java.util.List;
@@ -62,6 +64,17 @@ public class CliSessionManager {
     public CliSessionManager() {
         this(List.of(new ClaudeCliSessionFactory(), new CodexCliSessionFactory(),
                 new OpenCodeCliSessionFactory()));
+    }
+
+    /**
+     * Project-aware装配:CLI sessions 可获取 Project-scoped MCP Gateway。
+     */
+    public CliSessionManager(Project project) {
+        this(List.of(
+                new ClaudeCliSessionFactory(McpGatewayService.getInstance(project)),
+                new CodexCliSessionFactory(McpGatewayService.getInstance(project)),
+                new OpenCodeCliSessionFactory(McpGatewayService.getInstance(project))
+        ));
     }
 
     /**

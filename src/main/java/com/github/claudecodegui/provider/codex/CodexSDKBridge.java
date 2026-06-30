@@ -16,6 +16,9 @@ import com.github.claudecodegui.cli.common.CliConstants;
 import com.github.claudecodegui.cli.common.McpErrorMatcher;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.protocol.CodexProtectedEnvKey;
+import com.github.claudecodegui.mcp.McpGatewayService;
+import com.github.claudecodegui.mcp.McpGatewaySdkBinding;
+import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.provider.common.BaseSDKBridge;
 import com.github.claudecodegui.provider.common.DaemonBridge;
 import com.github.claudecodegui.provider.common.DaemonConstants;
@@ -76,6 +79,8 @@ public class CodexSDKBridge extends BaseSDKBridge {
     private final CodemossSettingsService settingsService;
     private final CodexDaemonCoordinator daemonCoordinator;
     private final CodexDaemonRequestExecutor daemonRequestExecutor;
+    /** MCP Gateway 服务(SDK 调用模式注入 melon_gateway);commit 生成等非交互路径传 null。 */
+    private final McpGatewayService mcpGatewayService;
 
     private static final Set<String> PROTECTED_ENV_KEYS = new HashSet<>();
     static {
@@ -102,8 +107,9 @@ public class CodexSDKBridge extends BaseSDKBridge {
         PROTECTED_ENV_KEYS.add("GIT_EXTERNAL_DIFF");
     }
 
-    public CodexSDKBridge() {
+    public CodexSDKBridge(McpGatewayService mcpGatewayService) {
         super(CodexSDKBridge.class);
+        this.mcpGatewayService = mcpGatewayService;
         this.settingsService = CodemossSettingsService.getInstance();
         this.historyReader = new CodexHistoryReader();
         this.daemonCoordinator = new CodexDaemonCoordinator(
@@ -114,6 +120,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
 
     CodexSDKBridge(Path sessionsDir) {
         super(CodexSDKBridge.class);
+        this.mcpGatewayService = null;
         this.settingsService = CodemossSettingsService.getInstance();
         this.historyReader = new CodexHistoryReader(sessionsDir, gson);
         this.daemonCoordinator = new CodexDaemonCoordinator(
@@ -129,6 +136,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
     protected CodexSDKBridge(Path sessionsDir, EnvironmentConfigurator envConfigurator,
                              CodemossSettingsService settingsService) {
         super(CodexSDKBridge.class, envConfigurator);
+        this.mcpGatewayService = null;
         this.settingsService = settingsService;
         this.historyReader = new CodexHistoryReader(sessionsDir, gson);
         this.daemonCoordinator = new CodexDaemonCoordinator(
@@ -506,6 +514,17 @@ public class CodexSDKBridge extends BaseSDKBridge {
                     LOG.info("[Codex] ✓ Prepared " + attachmentsArray.size() + " image attachment(s)");
                 }
 
+                // MCP Gateway (SDK 调用模式):注入 melon_gateway 绑定。Node 翻译成
+                // codexOptions.config 的 mcp_servers.melon_gateway overlay(无 per-call mcpServers)。
+                // 绑定不可用(服务未注入/功能关闭/未就绪)时不写入,回退用户真实 MCP。
+                if (mcpGatewayService != null) {
+                    McpGatewaySdkBinding mcpGatewayBinding =
+                            mcpGatewayService.buildSdkMcpServers(ProviderType.CODEX, cwd);
+                    if (mcpGatewayBinding != null && mcpGatewayBinding.usable()) {
+                        stdinInput.add("mcpGatewayBinding", gson.toJsonTree(mcpGatewayBinding));
+                    }
+                }
+
                 String stdinJson = gson.toJson(stdinInput);
 
                 String scriptPath = new File(bridgeDir, CHANNEL_SCRIPT).getAbsolutePath();
@@ -708,6 +727,17 @@ public class CodexSDKBridge extends BaseSDKBridge {
             LOG.info("[Codex] Prepared " + attachmentsArray.size() + " daemon image attachment(s)");
         }
         stdinInput.add("env", buildCodexRuntimeEnv(cwd, permissionMode, model, CliConstants.CODEX_CATEGORY_MESSAGE));
+
+        // MCP Gateway (SDK 调用模式):注入 melon_gateway 绑定(与 per-process sendMessage 路径对称)。
+        // daemon 路径与 per-process 路径最终都经 codex-channel→message-service,Codex SDK 把
+        // 绑定翻译成 codexOptions.config 的 mcp_servers.melon_gateway overlay。
+        if (mcpGatewayService != null) {
+            McpGatewaySdkBinding mcpGatewayBinding =
+                    mcpGatewayService.buildSdkMcpServers(ProviderType.CODEX, cwd);
+            if (mcpGatewayBinding != null && mcpGatewayBinding.usable()) {
+                stdinInput.add("mcpGatewayBinding", gson.toJsonTree(mcpGatewayBinding));
+            }
+        }
 
         return daemonRequestExecutor.sendMessageViaDaemon(daemon, stdinInput, callback, tempImageFiles);
     }

@@ -286,6 +286,14 @@ tasks.named('runIde') {
     // Configure log output to console
     systemProperty 'idea.log.debug.categories', '#com.github.claudecodegui'
 
+    // 启用 MCP Gateway(CLI + SDK 路径全开)。gateway 形式的 MCP 加载:catalog 预热消除首次延迟 +
+    // codex/opencode gateway 配置复制稳定段。SDK gateway 已三 provider(Claude/Codex/OpenCode)对称落地。
+    // 前提:stdio-client 必须容忍坏 MCP(ENOENT 等)不崩整个 gateway,否则单个坏 MCP 会让 gateway
+    // 崩溃-重启循环、每次 send 都"第一次很慢"(已修,见 stdio-client.js process.on('error'))。
+    systemProperty 'mcpGateway.enabled', 'true'
+    systemProperty 'mcpGateway.cli.enabled', 'true'
+    systemProperty 'mcpGateway.sdk.enabled', 'true'
+
     // Point bridge resolver to pre-extracted ai-bridge with node_modules (dev only)
     def stableBridge = layout.buildDirectory.dir("stable-ai-bridge").get().asFile
     if (stableBridge.exists()) {

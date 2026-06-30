@@ -2,6 +2,7 @@ package com.github.claudecodegui.handler.codex;
 
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
+import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.provider.common.DaemonConstants;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.settings.CodexMcpServerManager;
@@ -161,6 +162,7 @@ public class CodexMcpServerActionHandlers {
             JsonObject server = gson.fromJson(content, JsonObject.class);
 
             codexMcpServerManager.upsertMcpServer(server);
+            refreshGateway();
 
             String serverId = server.has("id") ? server.get("id").getAsString() : DaemonConstants.UNKNOWN;
             LOG.info("[CodexMcpServerActionHandlers] Added Codex MCP server: " + serverId);
@@ -184,6 +186,7 @@ public class CodexMcpServerActionHandlers {
             JsonObject server = gson.fromJson(content, JsonObject.class);
 
             codexMcpServerManager.upsertMcpServer(server);
+            refreshGateway();
 
             String serverId = server.has("id") ? server.get("id").getAsString() : DaemonConstants.UNKNOWN;
             LOG.info("[CodexMcpServerActionHandlers] Updated Codex MCP server: " + serverId);
@@ -210,6 +213,7 @@ public class CodexMcpServerActionHandlers {
             boolean success = codexMcpServerManager.deleteMcpServer(serverId);
 
             if (success) {
+                refreshGateway();
                 LOG.info("[CodexMcpServerActionHandlers] Deleted Codex MCP server: " + serverId);
                 ApplicationManager.getApplication().invokeLater(() -> {
                     context.dispatchEvent(DownstreamEvent.CODEX_MCP_SERVER_DELETED.value(), context.escapeJs(serverId));
@@ -237,6 +241,7 @@ public class CodexMcpServerActionHandlers {
             JsonObject server = gson.fromJson(content, JsonObject.class);
 
             codexMcpServerManager.upsertMcpServer(server);
+            refreshGateway();
 
             boolean isEnabled = !server.has("enabled") || server.get("enabled").getAsBoolean();
             String serverId = server.get("id").getAsString();
@@ -292,6 +297,16 @@ public class CodexMcpServerActionHandlers {
         } catch (Exception e) {
             LOG.warn("[CodexMcpServerActionHandlers] Failed to read Codex local authorization state: " + e.getMessage());
             return false;
+        }
+    }
+
+    private void refreshGateway() {
+        try {
+            if (context.getProject() != null) {
+                McpGatewayService.getInstance(context.getProject()).refreshConfig(context.getProject().getBasePath());
+            }
+        } catch (Exception e) {
+            LOG.warn("[CodexMcpServerActionHandlers] Failed to refresh MCP Gateway: " + e.getMessage());
         }
     }
 }

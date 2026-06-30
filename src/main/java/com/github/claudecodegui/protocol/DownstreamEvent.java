@@ -131,6 +131,7 @@ public enum DownstreamEvent implements ProtocolValue {
     MCP_SERVER_DELETED("mcp.server_deleted"),
     MCP_SERVER_TOGGLED("mcp.server_toggled"),
     MCP_SERVER_VALIDATED("mcp.server_validated"),
+    MCP_GATEWAY_STATUS("mcp.gateway.status"),
 
     // ── MCP Server (Codex) ──
     CODEX_MCP_SERVER_LIST("codex.mcp.server_list"),

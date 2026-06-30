@@ -3,7 +3,6 @@ package com.github.claudecodegui.service;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
 import com.github.claudecodegui.provider.codex.CodexSDKBridge;
 import com.github.claudecodegui.provider.common.DaemonBridge;
-import com.github.claudecodegui.session.ClaudeSession;
 import com.github.claudecodegui.ui.toolwindow.ClaudeChatWindow;
 import com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow;
 import com.github.claudecodegui.util.PlatformUtils;
@@ -54,7 +53,9 @@ public final class NodeProcessRegistry implements Disposable {
      */
     private static final String[] OWNED_PROCESS_HINTS = {
             "daemon.js",
-            "channel-manager.js"
+            "channel-manager.js",
+            "mcp-gateway-server.js",
+            "gateway-stdio-client.js"
     };
 
     /**
@@ -416,6 +417,9 @@ public final class NodeProcessRegistry implements Disposable {
         String lower = cmd.toLowerCase();
         if (lower.contains("daemon.js")) {
             return CommonConstants.PROVIDER_CLAUDE;
+        }
+        if (lower.contains("mcp-gateway-server.js") || lower.contains("gateway-stdio-client.js")) {
+            return "mcp-gateway";
         }
         if (lower.contains("codex")) {
             return CommonConstants.PROVIDER_CODEX;

@@ -272,3 +272,29 @@ export function buildErrorPayload(error) {
     }
   };
 }
+
+/**
+ * 为 Codex 线程缓存生成复用签名。codexOptions/threadOptions 的关键字段 + 可选的
+ * mcpGatewayRevision(MCP Gateway 启用时)序列化为稳定字符串。revision 维度确保 gateway
+ * 工具目录变化(revision 递增)时线程缓存失效、重建 codex 实例,避免复用过期 gateway 工具集
+ * (与 Claude 的 mcpGatewaySchemaRevision 进 runtime 签名对称)。
+ *
+ * @param {object} codexOptions - Codex SDK 顶层选项(baseUrl/apiKey/env/config...)
+ * @param {object} threadOptions - 线程选项(model/sandboxMode/workingDirectory...)
+ * @param {number|null} [mcpGatewayRevision] - MCP Gateway revision;null/省略时不参与签名(向后兼容)
+ * @returns {string} 稳定的 JSON 签名字符串
+ */
+export function buildCodexThreadCacheSignature(codexOptions, threadOptions, mcpGatewayRevision) {
+  return JSON.stringify({
+    baseUrl: codexOptions?.baseUrl || '',
+    apiKey: codexOptions?.apiKey || '',
+    env: codexOptions?.env || {},
+    model: threadOptions?.model || '',
+    sandboxMode: threadOptions?.sandboxMode || '',
+    workingDirectory: threadOptions?.workingDirectory || '',
+    skipGitRepoCheck: !!threadOptions?.skipGitRepoCheck,
+    modelReasoningEffort: threadOptions?.modelReasoningEffort || '',
+    approvalPolicy: threadOptions?.approvalPolicy || '',
+    mcpGatewayRevision: mcpGatewayRevision || '',
+  });
+}

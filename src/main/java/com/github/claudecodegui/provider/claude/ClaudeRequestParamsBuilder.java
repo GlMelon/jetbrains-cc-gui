@@ -1,5 +1,6 @@
 package com.github.claudecodegui.provider.claude;
 
+import com.github.claudecodegui.mcp.McpGatewaySdkBinding;
 import com.github.claudecodegui.session.ClaudeSession;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -41,7 +42,8 @@ class ClaudeRequestParamsBuilder {
             Boolean streaming,
             Boolean disableThinking,
             String reasoningEffort,
-            List<File> tempFiles
+            List<File> tempFiles,
+            McpGatewaySdkBinding mcpGatewayBinding
     ) {
         JsonObject params = new JsonObject();
         params.addProperty("message", message);
@@ -73,6 +75,12 @@ class ClaudeRequestParamsBuilder {
         }
         if (reasoningEffort != null && !reasoningEffort.trim().isEmpty()) {
             params.addProperty("reasoningEffort", reasoningEffort);
+        }
+
+        // SDK MCP Gateway 绑定:可用时内联到 params.mcpGatewayBinding,由 Node 端
+        // buildRequestContext 读取并替换真实 MCP 配置;不可用时完全省略,回退真实 MCP。
+        if (mcpGatewayBinding != null && mcpGatewayBinding.usable()) {
+            params.add("mcpGatewayBinding", gson.toJsonTree(mcpGatewayBinding));
         }
 
         return params;

@@ -5,6 +5,7 @@ import com.github.claudecodegui.cli.common.CliAttachmentHandler;
 import com.github.claudecodegui.cli.common.CliConstants;
 import com.github.claudecodegui.cli.common.McpErrorMatcher;
 import com.github.claudecodegui.common.CommonConstants;
+import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.provider.common.BaseSDKBridge;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.SDKResult;
@@ -39,6 +40,14 @@ public class OpenCodeSDKBridge extends BaseSDKBridge {
     private final OpenCodeDaemonCoordinator daemonCoordinator;
 
     /**
+     * §gateway:SDK MCP Gateway 服务(对称 Claude/Codex SDK bridge)。透传给 DaemonCoordinator,
+     * serve 启动期固化 melon_gateway(env 注入)+ revision 漂移重启。null(历史/no-arg 构造)→ serve 不带 gateway。
+     */
+    private final McpGatewayService mcpGatewayService;
+    /** §gateway:project 根路径,透传给 coordinator 用于 buildSdkServeConfig 定位 gateway 进程 + MCP 收集。 */
+    private final String projectPath;
+
+    /**
      * §abort:channelId → opencode threadId(sessionId)映射。
      * <p>
      * send 入口建立:interruptChannel(channelId) 用 state.getChannelId(),而 send 传的是
@@ -48,14 +57,23 @@ public class OpenCodeSDKBridge extends BaseSDKBridge {
     private final java.util.concurrent.ConcurrentHashMap<String, String> channelThreads =
             new java.util.concurrent.ConcurrentHashMap<>();
 
-    public OpenCodeSDKBridge() {
+    /**
+     * §gateway:主构造——经 ProjectBridgeRegistry 注入 project-scoped McpGatewayService + project 根路径,
+     * 透传给 DaemonCoordinator 用于 SDK 调用模式下 serve 启动期注入 gateway env(对称 Claude/Codex SDK bridge)。
+     */
+    public OpenCodeSDKBridge(McpGatewayService mcpGatewayService, String projectPath) {
         super(OpenCodeSDKBridge.class);
-        this.daemonCoordinator = new OpenCodeDaemonCoordinator(LOG);
+        this.mcpGatewayService = mcpGatewayService;
+        this.projectPath = projectPath;
+        this.daemonCoordinator = new OpenCodeDaemonCoordinator(LOG, mcpGatewayService, projectPath);
+    }
+
+    public OpenCodeSDKBridge() {
+        this(null, null);
     }
 
     OpenCodeSDKBridge(Path sessionsDir) {
-        super(OpenCodeSDKBridge.class);
-        this.daemonCoordinator = new OpenCodeDaemonCoordinator(LOG);
+        this(null, null);
     }
 
     @Override

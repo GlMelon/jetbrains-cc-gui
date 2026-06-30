@@ -83,7 +83,7 @@ export function createTurnSink() {
   };
 }
 
-export function buildRuntimeSignature(options, systemPromptAppend, streamingEnabled, runtimeSessionEpoch, resolvedModelId = null) {
+export function buildRuntimeSignature(options, systemPromptAppend, streamingEnabled, runtimeSessionEpoch, resolvedModelId = null, mcpGatewaySchemaRevision = null) {
   const material = {
     cwd: options.cwd || '',
     additionalDirectories: options.additionalDirectories || [],
@@ -91,7 +91,8 @@ export function buildRuntimeSignature(options, systemPromptAppend, streamingEnab
     streamingEnabled: !!streamingEnabled,
     runtimeSessionEpoch: runtimeSessionEpoch || '',
     model: resolvedModelId || options.model || '',
-    effort: options.effort || ''
+    effort: options.effort || '',
+    mcpGatewaySchemaRevision: mcpGatewaySchemaRevision || ''
   };
   return JSON.stringify(material);
 }

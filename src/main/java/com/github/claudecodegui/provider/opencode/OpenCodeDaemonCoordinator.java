@@ -2,6 +2,9 @@ package com.github.claudecodegui.provider.opencode;
 
 import com.github.claudecodegui.cli.common.UserPathResolver;
 import com.github.claudecodegui.cli.opencode.OpenCodeCliResolver;
+import com.github.claudecodegui.mcp.McpGatewayCliConfig;
+import com.github.claudecodegui.mcp.McpGatewayService;
+import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.intellij.openapi.diagnostic.Logger;
 
@@ -65,21 +68,62 @@ class OpenCodeDaemonCoordinator {
         }
     }
 
+    /** serve 是每 project 一个 daemon 进程(McpGatewayService project-scoped),用稳定 tabId 定位 temp config 目录。 */
+    private static final String SERVE_TAB_ID = "serve";
+
     private final Logger log;
+    /** §gateway:SDK gateway 服务(可为 null,如非 project 上下文的测试/历史构造)。null→serve 不带 gateway env。 */
+    private final McpGatewayService mcpGatewayService;
+    /** §gateway:project 根路径,buildSdkServeConfig 经此定位 gateway 进程 + MCP 收集。 */
+    private final String projectPath;
     private final AtomicReference<OpenCodeServerInstance> serverInstance = new AtomicReference<>();
     private volatile long daemonRetryAfter = 0;
     private final Object daemonLock = new Object();
 
-    OpenCodeDaemonCoordinator(Logger log) {
+    OpenCodeDaemonCoordinator(Logger log, McpGatewayService mcpGatewayService, String projectPath) {
         this.log = log;
+        this.mcpGatewayService = mcpGatewayService;
+        this.projectPath = projectPath;
+    }
+
+    /**
+     * serve 应固化的 gateway revision 维度(纯函数,static 便于无 Platform 上下文单测)。
+     * <p>
+     * 与 Claude/Codex 的 per-query revision 防漂移对称:OpenCode serve 是长驻进程,在启动期固化
+     * MCP(gateway env),revision 变化(MCP 设置增删/改动)时需重启 serve 加载新工具集。
+     * 不可用(功能关闭/未就绪/无 configPath/入参 null)→ -1:serve 不带 gateway,回退自身
+     * opencode.json 的真实 MCP(与 CLI 关闭时的行为一致)。
+     *
+     * @param cfg buildSdkServeConfig 产出的 OpenCode serve gateway 配置;null 视为不可用
+     * @return 可用时返回其 revision;否则 -1
+     */
+    static long serveRevisionOf(McpGatewayCliConfig cfg) {
+        if (cfg == null || !cfg.usable()) {
+            return -1L;
+        }
+        return cfg.revision();
+    }
+
+    /** §gateway:为 serve 构建 SDK env 配置(OPENCODE);service 为 null 或功能关闭→disabled(revision -1)。 */
+    private McpGatewayCliConfig buildServeGatewayConfig() {
+        if (mcpGatewayService == null) {
+            return McpGatewayCliConfig.disabled("No MCP Gateway service");
+        }
+        return mcpGatewayService.buildSdkServeConfig(ProviderType.OPENCODE, SERVE_TAB_ID, projectPath);
     }
 
     /**
      * Get or start the OpenCode server. Returns the server URL if available.
      */
     String getServerUrl() {
+        // §gateway:每次解析都重建 serve gateway 配置(含 applySnapshot→revision 可能 bump),
+        // 用于检测 MCP 设置漂移:健康且 servedRevision 匹配则复用 serve,否则重启以固化新 gateway env。
+        McpGatewayCliConfig gatewayConfig = buildServeGatewayConfig();
+        long gatewayRevision = serveRevisionOf(gatewayConfig);
+
         OpenCodeServerInstance current = serverInstance.get();
-        if (current != null && current.isHealthy()) {
+        if (current != null && current.isHealthy()
+                && current.servedRevision() == gatewayRevision) {
             return current.url();
         }
         if (System.currentTimeMillis() < daemonRetryAfter) {
@@ -88,7 +132,8 @@ class OpenCodeDaemonCoordinator {
 
         synchronized (daemonLock) {
             current = serverInstance.get();
-            if (current != null && current.isHealthy()) {
+            if (current != null && current.isHealthy()
+                    && current.servedRevision() == gatewayRevision) {
                 return current.url();
             }
 
@@ -98,11 +143,12 @@ class OpenCodeDaemonCoordinator {
                     current.stop();
                 }
 
-                OpenCodeServerInstance newInstance = startServer();
+                OpenCodeServerInstance newInstance = startServer(gatewayConfig, gatewayRevision);
                 if (newInstance != null) {
                     serverInstance.set(newInstance);
                     daemonRetryAfter = 0;
-                    log.info("[OpenCodeDaemonCoordinator] Server started at " + newInstance.url());
+                    log.info("[OpenCodeDaemonCoordinator] Server started at " + newInstance.url()
+                            + " | gatewayRevision=" + gatewayRevision);
                     return newInstance.url();
                 }
                 log.warn("[OpenCodeDaemonCoordinator] Failed to start server, using per-process mode");
@@ -129,7 +175,7 @@ class OpenCodeDaemonCoordinator {
         return (p == null || p.isBlank()) ? -1 : p.length();
     }
 
-    private OpenCodeServerInstance startServer() {
+    private OpenCodeServerInstance startServer(McpGatewayCliConfig gatewayConfig, long gatewayRevision) {
         Process process = null;
         String executable = null;
         try {
@@ -151,6 +197,14 @@ class OpenCodeDaemonCoordinator {
                     pb.environment().put("Path", userPath);
                 }
             }
+            // §gateway:SDK gateway 开启时,把 buildSdkServeConfig 产出的 env(HOME/USERPROFILE/XDG_CONFIG_HOME
+            // 指向含 melon_gateway + 稳定段的临时 opencode.json)注入 serve ProcessBuilder。serve 启动期固化
+            // MCP,经此 env 读取 opencode.json → 聚合后的 melon_gateway 成为唯一 MCP 工具集。
+            // gateway 关闭(gatewayRevision=-1,gatewayConfig 不可用)时不注入,serve 回退真实
+            // ~/.opencode/opencode.json 的 MCP(与 CLI 关闭路径行为一致)。
+            if (gatewayConfig != null && gatewayConfig.usable()) {
+                gatewayConfig.environment().forEach((k, v) -> pb.environment().put(k, v));
+            }
 
             process = pb.start();
 
@@ -169,7 +223,7 @@ class OpenCodeDaemonCoordinator {
 
             String url = "http://127.0.0.1:" + port;
             if (waitForHealthCheck(url)) {
-                return new OpenCodeServerInstance(process, url);
+                return new OpenCodeServerInstance(process, url, gatewayRevision);
             }
             process.destroyForcibly();
             return null;
@@ -278,7 +332,12 @@ class OpenCodeDaemonCoordinator {
         return false;
     }
 
-    record OpenCodeServerInstance(Process process, String url) {
+    /**
+     * §gateway:加 {@code servedRevision} 第 3 参——serve 启动期固化的 gateway revision 快照。
+     * getServerUrl 用它与最新 gatewayRevision 比对检测漂移(与 Claude/Codex 的 per-query
+     * revision 防漂移对称,只是 OpenCode 的"重建"对象是 serve 进程而非 per-query 实例)。
+     */
+    record OpenCodeServerInstance(Process process, String url, long servedRevision) {
         boolean isHealthy() {
             if (process == null || !process.isAlive()) {
                 return false;

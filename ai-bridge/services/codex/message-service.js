@@ -27,8 +27,10 @@ import {
   resolveApprovalPolicyOverride,
   buildCodexCliEnvironment,
   buildErrorPayload,
-  isIgnorableWindowsTerminationNoiseLine
+  isIgnorableWindowsTerminationNoiseLine,
+  buildCodexThreadCacheSignature
 } from './codex-utils.js';
+import { applyCodexGateway, codexGatewayRevision } from './mcp-gateway-binding.js';
 import { collectAgentsInstructions } from './codex-agents-loader.js';
 import { createInitialEventState, processCodexEventStream } from './codex-event-handler.js';
 
@@ -42,20 +44,6 @@ let activeCodexAbortController = null;
 let activeCodexTurnInProgress = false;
 let activeCodexAbortRequested = false;
 let activeCodexTurnCompletionPromise = null;
-
-function buildCodexThreadCacheSignature(codexOptions, threadOptions) {
-  return JSON.stringify({
-    baseUrl: codexOptions?.baseUrl || '',
-    apiKey: codexOptions?.apiKey || '',
-    env: codexOptions?.env || {},
-    model: threadOptions?.model || '',
-    sandboxMode: threadOptions?.sandboxMode || '',
-    workingDirectory: threadOptions?.workingDirectory || '',
-    skipGitRepoCheck: !!threadOptions?.skipGitRepoCheck,
-    modelReasoningEffort: threadOptions?.modelReasoningEffort || '',
-    approvalPolicy: threadOptions?.approvalPolicy || '',
-  });
-}
 
 function cleanupStaleCodexThreads() {
   const now = Date.now();
@@ -242,6 +230,9 @@ function isCodexUserAbortError(error) {
  * @param {string} reasoningEffort - Reasoning effort level (optional)
  * @param {string} serviceTier - Codex service tier; "fast" matches Codex CLI /fast (optional)
  * @param {Array} attachments - Image attachments in local_image format (optional)
+ * @param {object} mcpGatewayBinding - MCP Gateway SDK 绑定(来自 Java McpGatewaySdkBinding 序列化,
+ *   {enabled,ready,revision,command});启用时注入 mcp_servers.melon_gateway config overlay 并把
+ *   revision 纳入 thread cache 签名(防漂移)。不可用时回退用户真实 MCP(optional)
  */
 export async function sendMessage(
   message,
@@ -253,7 +244,8 @@ export async function sendMessage(
   apiKey = null,
   reasoningEffort = 'medium',
   serviceTier = null,
-  attachments = []
+  attachments = [],
+  mcpGatewayBinding = null
 ) {
   let streamStarted = false;
   let streamEnded = false;
@@ -296,7 +288,7 @@ export async function sendMessage(
     throwIfCodexAbortRequested();
     const Codex = sdk.Codex || sdk.default || sdk;
 
-    const codexOptions = {};
+    let codexOptions = {};
 
     if (baseUrl) {
       codexOptions.baseUrl = baseUrl;
@@ -322,6 +314,16 @@ export async function sendMessage(
       removedKeys,
       removedCount: removedKeys.length
     }));
+
+    // MCP Gateway (SDK 调用模式):经 codexOptions.config 叠加 mcp_servers.melon_gateway。
+    // Codex SDK 不支持 per-call mcpServers(已查类型确认),只能走 config override;由 SDK
+    // flattenConfigOverrides 展平成 --config 注入底层 CLI。binding 不可用时 applyCodexGateway
+    // 原样返回 codexOptions(引用不变),回退到用户 ~/.codex/config.toml 的真实 MCP。
+    codexOptions = applyCodexGateway(codexOptions, mcpGatewayBinding);
+    const codexRevision = codexGatewayRevision(mcpGatewayBinding);
+    if (codexRevision !== null) {
+      logInfo('CODEX_MCP_GATEWAY', `Gateway bound, revision=${codexRevision}; mcp_servers.melon_gateway overlay applied`);
+    }
 
     // ============================================================
     // 2. Map Unified Permission Mode to Codex Format
@@ -400,7 +402,7 @@ export async function sendMessage(
     // ============================================================
 
     let activeThreadOptions = threadOptions;
-    let activeThreadSignature = buildCodexThreadCacheSignature(codexOptions, activeThreadOptions);
+    let activeThreadSignature = buildCodexThreadCacheSignature(codexOptions, activeThreadOptions, codexRevision);
     let startedNewThread = !isResumingThread;
     let thread;
     if (isResumingThread) {
@@ -478,7 +480,7 @@ export async function sendMessage(
       logWarn('CODEX_THREAD_RESUME', `Resume failed with no rollout for ${threadId}; starting a new thread`);
       resetCodexThreadCache(threadId);
       activeThreadOptions = buildNewThreadOptionsFromResume(threadOptions, cwd);
-      activeThreadSignature = buildCodexThreadCacheSignature(codexOptions, activeThreadOptions);
+      activeThreadSignature = buildCodexThreadCacheSignature(codexOptions, activeThreadOptions, codexRevision);
       startedNewThread = true;
       const codex = createCodexInstance(Codex, codexOptions);
       thread = codex.startThread(activeThreadOptions);
@@ -524,7 +526,7 @@ export async function sendMessage(
       logWarn('CODEX_THREAD_RESUME', `Resume stream failed with no rollout for ${threadId}; starting a new thread`);
       resetCodexThreadCache(threadId);
       activeThreadOptions = buildNewThreadOptionsFromResume(threadOptions, cwd);
-      activeThreadSignature = buildCodexThreadCacheSignature(codexOptions, activeThreadOptions);
+      activeThreadSignature = buildCodexThreadCacheSignature(codexOptions, activeThreadOptions, codexRevision);
       startedNewThread = true;
       const codex = createCodexInstance(Codex, codexOptions);
       thread = codex.startThread(activeThreadOptions);

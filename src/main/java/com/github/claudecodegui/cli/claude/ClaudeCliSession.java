@@ -7,10 +7,13 @@ import com.github.claudecodegui.cli.CliSessionExecutor;
 import com.github.claudecodegui.cli.common.*;
 import com.github.claudecodegui.common.ClaudeRole;
 import com.github.claudecodegui.common.CommonConstants;
+import com.github.claudecodegui.mcp.McpGatewayCliConfig;
+import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.provider.claude.ClaudeCliDetector;
 import com.github.claudecodegui.provider.claude.ClaudeCliStreamParser;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.SDKResult;
+import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.ui.toolwindow.TabPerformanceLogger;
 import com.github.claudecodegui.util.GsonHolder;
 import com.github.claudecodegui.util.PlatformUtils;
@@ -43,6 +46,7 @@ public class ClaudeCliSession implements CliSession {
     private final Gson gson = GsonHolder.GSON;
     private final CliAttachmentHandler attachmentHandler = new CliAttachmentHandler();
     private final CliMcpConfig mcpConfig;
+    private final McpGatewayService gatewayService;
     private volatile String permissionDir;
     private volatile String cliPermissionSessionId;
 
@@ -55,8 +59,13 @@ public class ClaudeCliSession implements CliSession {
     private final AtomicBoolean userInterrupted = new AtomicBoolean(false);
 
     public ClaudeCliSession(String tabId) {
+        this(tabId, null);
+    }
+
+    public ClaudeCliSession(String tabId, McpGatewayService gatewayService) {
         this.tabId = tabId;
         this.mcpConfig = new CliMcpConfig(tabId);
+        this.gatewayService = gatewayService;
     }
 
     private static long elapsedMillis(long startNanos) {
@@ -125,17 +134,19 @@ public class ClaudeCliSession implements CliSession {
 
     // ── command builder ──────────────────────────────────────────────────────
 
-    private List<String> buildCommand(String cliPath, CliSendRequest request, String prompt, List<String> addDirs) {
+    private List<String> buildCommand(String cliPath, CliSendRequest request, String prompt, List<String> addDirs,
+                                      McpGatewayCliConfig gatewayConfig) {
         ClaudeCliModelResolver.ResolvedModel profile = ClaudeCliModelResolver.resolveProfile(
                 request.model()
         );
+        boolean useGateway = gatewayConfig != null && gatewayConfig.usable();
         return buildCommand(
                 cliPath,
                 request,
                 addDirs,
                 profile,
-                mcpConfig.hasServers(),
-                mcpConfig.getConfigFilePath(),
+                useGateway || mcpConfig.hasServers(),
+                useGateway ? gatewayConfig.configPath().toAbsolutePath().toString() : mcpConfig.getConfigFilePath(),
                 sessionId
         );
     }
@@ -332,7 +343,8 @@ public class ClaudeCliSession implements CliSession {
                         prompt.contains(CliConstants.PROMPT_READ_IMAGE),
                         previewPrompt(prompt)));
 
-                List<String> cmd = buildCommand(cliPath, request, prompt, addDirs);
+                McpGatewayCliConfig gatewayConfig = buildGatewayConfig(request);
+                List<String> cmd = buildCommand(cliPath, request, prompt, addDirs, gatewayConfig);
                 LOG.info("[ClaudeCliSession][" + tabId + "] Command (prompt via stdin): " + String.join(" ", cmd));
 
                 ProcessBuilder pb = new ProcessBuilder(cmd);
@@ -353,6 +365,9 @@ public class ClaudeCliSession implements CliSession {
                 );
                 CliEnvironmentBuilder.configureProjectPath(cliEnv, request.cwd());
                 CliEnvironmentBuilder.applyExtraEnv(cliEnv, request.extraEnv());
+                if (gatewayConfig != null && gatewayConfig.usable()) {
+                    cliEnv.putAll(gatewayConfig.environment());
+                }
 
                 // CWD 设置放在 pb.start() 紧前面，避免 TOCTOU 竞态：
                 // 如果目录在 check 和 start 之间被删除，Windows CreateProcess 会报
@@ -449,6 +464,13 @@ public class ClaudeCliSession implements CliSession {
     void prepareForSend() {
         userInterrupted.set(false);
         resultEmitted = false;
+    }
+
+    private McpGatewayCliConfig buildGatewayConfig(CliSendRequest request) {
+        if (gatewayService == null) {
+            return McpGatewayCliConfig.disabled("No MCP Gateway service");
+        }
+        return gatewayService.buildCliConfig(ProviderType.CLAUDE, tabId, request.cwd());
     }
 
     private void readOutput(CliSessionCallback callback, StringBuilder diagnostic, long sendStartNanos,

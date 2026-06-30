@@ -2,6 +2,7 @@ package com.github.claudecodegui.provider.claude;
 
 import com.google.gson.JsonObject;
 
+import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.session.ClaudeSession;
 import com.github.claudecodegui.model.NodeDetectionResult;
 import com.github.claudecodegui.provider.common.BaseSDKBridge;
@@ -37,9 +38,20 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
     private final ClaudeMcpQueryService mcpQueryService;
     private final ClaudeRewindService rewindService;
     private final ClaudeDaemonRequestExecutor daemonRequestExecutor;
+    private final McpGatewayService mcpGatewayService;
 
     public ClaudeSDKBridge() {
+        this(null);
+    }
+
+    /**
+     * Project-scoped 构造:注入 MCP Gateway 服务。SDK 调用模式开启时由 daemon/invoker
+     * 路径在每轮构建 stdio 聚合 server 的 binding。无项目上下文的调用方(如 commit
+     * message 生成)传 null,等价于不启用 Gateway,回退真实 MCP。
+     */
+    public ClaudeSDKBridge(McpGatewayService mcpGatewayService) {
         super(ClaudeSDKBridge.class);
+        this.mcpGatewayService = mcpGatewayService;
 
         // Shared dependencies extracted once to avoid repeated lambda allocation
         java.util.function.Supplier<File> sdkDirSupplier = () -> getDirectoryResolver().findSdkDir();
@@ -54,7 +66,7 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
         );
         this.processInvoker = new ClaudeProcessInvoker(
                 LOG, gson, nodeDetector, sdkDirSupplier, processManager,
-                envConfigurator, requestParamsBuilder, logSanitizer, streamAdapter
+                envConfigurator, requestParamsBuilder, logSanitizer, streamAdapter, mcpGatewayService
         );
         this.queryExecutor = new ClaudeQueryExecutor(
                 gson, nodeDetector, sdkDirSupplier, processManager,
@@ -73,7 +85,7 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
                 envConfigurator, jsonOutputExtractor
         );
         this.daemonRequestExecutor = new ClaudeDaemonRequestExecutor(
-                LOG, requestParamsBuilder, streamAdapter, jsonOutputExtractor
+                LOG, requestParamsBuilder, streamAdapter, jsonOutputExtractor, mcpGatewayService
         );
     }
 
@@ -84,6 +96,7 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
     public ClaudeSDKBridge(EnvironmentConfigurator envConfigurator,
                              CodemossSettingsService settingsService) {
         super(ClaudeSDKBridge.class, envConfigurator);
+        this.mcpGatewayService = null;
 
         java.util.function.Supplier<File> sdkDirSupplier = () -> getDirectoryResolver().findSdkDir();
 
@@ -97,7 +110,7 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
         );
         this.processInvoker = new ClaudeProcessInvoker(
                 LOG, gson, nodeDetector, sdkDirSupplier, processManager,
-                envConfigurator, requestParamsBuilder, logSanitizer, streamAdapter
+                envConfigurator, requestParamsBuilder, logSanitizer, streamAdapter, null
         );
         this.queryExecutor = new ClaudeQueryExecutor(
                 gson, nodeDetector, sdkDirSupplier, processManager,
@@ -116,7 +129,7 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
                 envConfigurator, jsonOutputExtractor
         );
         this.daemonRequestExecutor = new ClaudeDaemonRequestExecutor(
-                LOG, requestParamsBuilder, streamAdapter, jsonOutputExtractor
+                LOG, requestParamsBuilder, streamAdapter, jsonOutputExtractor, null
         );
     }
 

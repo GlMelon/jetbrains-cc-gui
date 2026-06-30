@@ -70,7 +70,7 @@ public class SessionSendService {
         this.messageMerger = messageMerger;
         this.gson = gson;
         this.contextService = contextService;
-        this.runtimeRouter = new SessionRuntimeRouter(claudeSDKBridge, codexSDKBridge, openCodeSDKBridge);
+        this.runtimeRouter = new SessionRuntimeRouter(project, claudeSDKBridge, codexSDKBridge, openCodeSDKBridge);
     }
 
     public void prepareContextCollector(EditorContextCollector contextCollector) {
@@ -493,9 +493,9 @@ public class SessionSendService {
     }
 
     /**
-     * 冲突点 B:当用户请求的调用模式(「设置-环境-调用模式」)被「路由策略」的 supported 列表拒绝、
-     * 静默降级到 default 时,经 notifyStatusMessage → SessionCallbackAdapter.onStatusMessage →
-     * 前端 updateStatus → toast 提示用户,打破此前调用模式与路由策略冲突时的零反馈。
+     * 降级提示:仅在「无显式调用模式选择」(默认推断,Claude settings 回退)与「路由策略」supported 冲突、
+     * 被降级到 default 时触发 —— 经 notifyStatusMessage → SessionCallbackAdapter.onStatusMessage →
+     * 前端 updateStatus → toast。用户显式选择 CLI/SDK 时尊重意愿、不降级、不提示(CLI/SDK 相互独立)。
      * 降级判定 + 文案由 {@link EffectiveRuntimeResolver#degradedNotice} 生成(已单测覆盖);
      * 此处仅"有文案则推送"薄胶水(项目无 Mockito,SessionSendService 重依赖未独立单测)。
      */

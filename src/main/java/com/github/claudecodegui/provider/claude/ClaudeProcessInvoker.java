@@ -1,7 +1,10 @@
 package com.github.claudecodegui.provider.claude;
 
 import com.github.claudecodegui.common.CommonConstants;
+import com.github.claudecodegui.mcp.McpGatewaySdkBinding;
+import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.session.ClaudeSession;
+import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.bridge.EnvironmentConfigurator;
 import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.bridge.ProcessManager;
@@ -40,6 +43,7 @@ class ClaudeProcessInvoker {
     private final ClaudeRequestParamsBuilder requestParamsBuilder;
     private final ClaudeLogSanitizer logSanitizer;
     private final ClaudeStreamAdapter streamAdapter;
+    private final McpGatewayService mcpGatewayService;
 
     ClaudeProcessInvoker(
             Logger log,
@@ -50,7 +54,8 @@ class ClaudeProcessInvoker {
             EnvironmentConfigurator envConfigurator,
             ClaudeRequestParamsBuilder requestParamsBuilder,
             ClaudeLogSanitizer logSanitizer,
-            ClaudeStreamAdapter streamAdapter
+            ClaudeStreamAdapter streamAdapter,
+            McpGatewayService mcpGatewayService
     ) {
         this.log = log;
         this.gson = gson;
@@ -61,6 +66,7 @@ class ClaudeProcessInvoker {
         this.requestParamsBuilder = requestParamsBuilder;
         this.logSanitizer = logSanitizer;
         this.streamAdapter = streamAdapter;
+        this.mcpGatewayService = mcpGatewayService;
     }
 
     CompletableFuture<SDKResult> sendMessage(
@@ -105,6 +111,9 @@ class ClaudeProcessInvoker {
                 log.info("[ProcessInvoker]   Node.js version: " + (nodeVersion != null ? nodeVersion : "unknown"));
                 log.info("[ProcessInvoker]   SDK directory: " + workDir.getAbsolutePath());
 
+                McpGatewaySdkBinding mcpGatewayBinding = mcpGatewayService != null
+                        ? mcpGatewayService.buildSdkMcpServers(ProviderType.CLAUDE, cwd)
+                        : null;
                 JsonObject stdinInput = requestParamsBuilder.buildSendParams(
                         message,
                         sessionId,
@@ -119,7 +128,8 @@ class ClaudeProcessInvoker {
                         streaming,
                         disableThinking,
                         reasoningEffort,
-                        tempImageFiles
+                        tempImageFiles,
+                        mcpGatewayBinding
                 );
                 String stdinJson = gson.toJson(stdinInput);
                 String preview = logSanitizer.buildPreview(stdinJson, 500);

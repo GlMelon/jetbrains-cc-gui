@@ -2,6 +2,7 @@ package com.github.claudecodegui.handler.mcp;
 
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
+import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.provider.common.DaemonConstants;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.startup.BridgePreloader;
@@ -86,6 +87,7 @@ public class McpServerActionHandlers {
             JsonObject server = gson.fromJson(content, JsonObject.class);
 
             context.getSettingsService().upsertMcpServer(server);
+            refreshGateway();
 
             ApplicationManager.getApplication().invokeLater(() -> {
                 context.dispatchEvent(DownstreamEvent.MCP_SERVER_ADDED.value(), context.escapeJs(content));
@@ -106,6 +108,7 @@ public class McpServerActionHandlers {
             JsonObject server = gson.fromJson(content, JsonObject.class);
 
             context.getSettingsService().upsertMcpServer(server);
+            refreshGateway();
 
             ApplicationManager.getApplication().invokeLater(() -> {
                 context.dispatchEvent(DownstreamEvent.MCP_SERVER_UPDATED.value(), context.escapeJs(content));
@@ -129,6 +132,7 @@ public class McpServerActionHandlers {
             boolean success = context.getSettingsService().deleteMcpServer(serverId);
 
             if (success) {
+                refreshGateway();
                 ApplicationManager.getApplication().invokeLater(() -> {
                     context.dispatchEvent(DownstreamEvent.MCP_SERVER_DELETED.value(), context.escapeJs(serverId));
                     handleGetMcpServers();
@@ -159,6 +163,7 @@ public class McpServerActionHandlers {
                 ? context.getProject().getBasePath()
                 : null;
             context.getSettingsService().upsertMcpServer(server, projectPath);
+            refreshGateway();
 
             boolean isEnabled = !server.has("enabled") || server.get("enabled").getAsBoolean();
             String serverId = server.get("id").getAsString();
@@ -237,6 +242,7 @@ public class McpServerActionHandlers {
                         });
                         return null;
                     });
+                publishGatewayStatus();
             } catch (Exception e) {
                 LOG.error("[McpServerActionHandlers] Error while waiting for bridge or fetching status: "
                     + e.getMessage(), e);
@@ -245,6 +251,31 @@ public class McpServerActionHandlers {
                 });
             }
         });
+    }
+
+    private void refreshGateway() {
+        try {
+            if (context.getProject() != null) {
+                String projectPath = context.getProject().getBasePath();
+                McpGatewayService.getInstance(context.getProject()).refreshConfig(projectPath);
+            }
+        } catch (Exception e) {
+            LOG.warn("[McpServerActionHandlers] Failed to refresh MCP Gateway: " + e.getMessage());
+        }
+    }
+
+    private void publishGatewayStatus() {
+        try {
+            if (context.getProject() == null) {
+                return;
+            }
+            String status = McpGatewayService.getInstance(context.getProject()).statusJson();
+            ApplicationManager.getApplication().invokeLater(() -> {
+                context.dispatchEvent(DownstreamEvent.MCP_GATEWAY_STATUS.value(), context.escapeJs(status));
+            });
+        } catch (Exception e) {
+            LOG.warn("[McpServerActionHandlers] Failed to publish MCP Gateway status: " + e.getMessage());
+        }
     }
 
     private void waitForBridgeAndFetchTools(String serverId, Gson gson) {

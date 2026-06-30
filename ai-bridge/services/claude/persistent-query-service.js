@@ -50,6 +50,7 @@ import {
   setActiveTurnRuntime,
 } from './runtime-registry.js';
 import { loadMcpServersConfigAsRecord } from './mcp-status/config-loader.js';
+import { buildGatewayMcpServers, gatewaySignatureMaterial } from './mcp-gateway-binding.js';
 import {
   createTurnState,
   emitUsageTag,
@@ -211,7 +212,10 @@ async function buildRequestContext(params, withAttachments, overrides = {}) {
   const maxThinkingTokens = resolveThinkingTokens(params, settings);
   const systemPromptAppend = buildSystemPromptAppend(params);
 
-  const mcpServers = await loadMcpServersConfigAsRecord(workingDirectory);
+  // SDK MCP Gateway:binding 可用时(spawn melon_gateway stdio 聚合 server)优先于
+  // 本地真实 MCP 配置;不可用时(buildGatewayMcpServers 返回 null)回退真实 MCP。
+  const gatewayServers = buildGatewayMcpServers(params.mcpGatewayBinding);
+  const mcpServers = gatewayServers ?? await loadMcpServersConfigAsRecord(workingDirectory);
 
   const options = buildQueryOptions(
     workingDirectory, sdkModelName, permissionMode,
@@ -221,7 +225,7 @@ async function buildRequestContext(params, withAttachments, overrides = {}) {
 
   const userMessage = await buildUserMessage(params, withAttachments, requestedSessionId, resolvedModelId);
 
-  const runtimeSignature = buildRuntimeSignature(options, systemPromptAppend, streamingEnabled, runtimeSessionEpoch, resolvedModelId);
+  const runtimeSignature = buildRuntimeSignature(options, systemPromptAppend, streamingEnabled, runtimeSessionEpoch, resolvedModelId, gatewaySignatureMaterial(params.mcpGatewayBinding));
   console.log('[LIFECYCLE] buildRequestContext sessionId=' + (requestedSessionId || '(new)')
     + ' epoch=' + (runtimeSessionEpoch || '(none)')
     + ' signature=' + runtimeSignature);

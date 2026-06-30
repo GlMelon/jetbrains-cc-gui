@@ -1,5 +1,6 @@
 package com.github.claudecodegui.provider.common;
 
+import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
 import com.github.claudecodegui.provider.codex.CodexSDKBridge;
 import com.github.claudecodegui.provider.opencode.OpenCodeSDKBridge;
@@ -27,7 +28,9 @@ public final class ProjectBridgeRegistry {
                 return existing;
             }
             SharedBridges created = new SharedBridges(
-                    new ClaudeSDKBridge(), new CodexSDKBridge(), new OpenCodeSDKBridge());
+                    new ClaudeSDKBridge(McpGatewayService.getInstance(project)),
+                    new CodexSDKBridge(McpGatewayService.getInstance(project)),
+                    new OpenCodeSDKBridge(McpGatewayService.getInstance(project), project.getBasePath()));
             REGISTRY.put(project, created);
             return created;
         }
