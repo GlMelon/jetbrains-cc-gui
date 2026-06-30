@@ -1,14 +1,9 @@
 package com.github.claudecodegui.handler.history;
 
-import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.NodeJsServiceCaller;
 import com.github.claudecodegui.handler.core.HandlerContext;
 
-import com.github.claudecodegui.cache.SessionIndexCache;
-import com.github.claudecodegui.cache.SessionIndexManager;
 import com.github.claudecodegui.util.AttachmentStorageService;
-import com.github.claudecodegui.util.PathUtils;
-import com.github.claudecodegui.util.PlatformUtils;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -17,18 +12,12 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.intellij.openapi.diagnostic.Logger;
 
-import java.io.BufferedReader;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * Service for deleting session history files and related data.
@@ -49,11 +38,14 @@ class HistoryDeleteService {
     private final HandlerContext context;
     private final NodeJsServiceCaller nodeJsServiceCaller;
     private final HistoryLoadService historyLoadService;
+    private final HistoryProviderRegistry historyProviderRegistry;
 
-    HistoryDeleteService(HandlerContext context, NodeJsServiceCaller nodeJsServiceCaller, HistoryLoadService historyLoadService) {
+    HistoryDeleteService(HandlerContext context, NodeJsServiceCaller nodeJsServiceCaller,
+                         HistoryLoadService historyLoadService, HistoryProviderRegistry historyProviderRegistry) {
         this.context = context;
         this.nodeJsServiceCaller = nodeJsServiceCaller;
         this.historyLoadService = historyLoadService;
+        this.historyProviderRegistry = historyProviderRegistry;
     }
 
     /**
@@ -70,15 +62,16 @@ class HistoryDeleteService {
                 LOG.info("[HistoryHandler] ========== Delete session start ==========");
                 LOG.info("[HistoryHandler] SessionId: " + sessionId + ", Provider: " + currentProvider);
 
-                DeleteResult result = deleteSessionFiles(sessionId, currentProvider);
+                String projectPath = currentProjectPath();
+                HistoryDeleteResult result = deleteSessionFiles(sessionId, currentProvider, projectPath);
 
-                LOG.info("[HistoryHandler] Delete completed - Main file: " + (result.mainDeleted ? "deleted" : "not found") + ", Agent files: " + result.agentFilesDeleted);
+                LOG.info("[HistoryHandler] Delete completed - Main file: " + (result.mainDeleted() ? "deleted" : "not found") + ", Agent files: " + result.agentFilesDeleted());
 
                 cleanupSessionAttachments(currentProvider, sessionId);
-                if (result.mainDeleted) {
+                if (result.mainDeleted()) {
                     cleanupSessionMetadata(sessionId);
                 }
-                cleanupCache(currentProvider);
+                cleanupCache(currentProvider, projectPath);
 
                 LOG.info("[HistoryHandler] Reloading history data...");
                 historyLoadService.handleLoadHistoryData(currentProvider);
@@ -109,19 +102,20 @@ class HistoryDeleteService {
 
                 for (String sessionId : sessionIds) {
                     try {
-                        DeleteResult result = deleteSessionFiles(sessionId, currentProvider);
+                        String projectPath = currentProjectPath();
+                        HistoryDeleteResult result = deleteSessionFiles(sessionId, currentProvider, projectPath);
                         cleanupSessionAttachments(currentProvider, sessionId);
-                        if (result.mainDeleted) {
+                        if (result.mainDeleted()) {
                             mainDeletedCount++;
                             cleanupSessionMetadata(sessionId);
                         }
-                        agentFilesDeletedCount += result.agentFilesDeleted;
+                        agentFilesDeletedCount += result.agentFilesDeleted();
                     } catch (Exception e) {
                         LOG.error("[HistoryHandler] Batch delete single session failed: " + sessionId + " - " + e.getMessage(), e);
                     }
                 }
 
-                cleanupCache(currentProvider);
+                cleanupCache(currentProvider, currentProjectPath());
 
                 LOG.info("[HistoryHandler] Batch delete completed - Main files: " + mainDeletedCount + "/" + sessionIds.size()
                         + ", Agent files: " + agentFilesDeletedCount);
@@ -175,121 +169,16 @@ class HistoryDeleteService {
         }
     }
 
-    private DeleteResult deleteSessionFiles(String sessionId, String currentProvider) throws java.io.IOException {
+    private HistoryDeleteResult deleteSessionFiles(String sessionId, String currentProvider, String projectPath) throws java.io.IOException {
         if (!isValidSessionId(sessionId)) {
             LOG.warn("[HistoryHandler] Delete session rejected: invalid sessionId");
-            return new DeleteResult(false, 0);
+            return HistoryDeleteResult.none();
         }
-        if (CommonConstants.PROVIDER_CODEX.equals(currentProvider)) {
-            return new DeleteResult(deleteCodexSession(sessionId), 0);
-        }
-
-        String projectPath = context.getProject().getBasePath();
-        if (projectPath == null) {
-            LOG.warn("[HistoryHandler] Project base path is null, cannot delete Claude session");
-            return new DeleteResult(false, 0);
-        }
-
-        int[] result = deleteClaudeSession(sessionId, projectPath);
-        return new DeleteResult(result[0] == 1, result[1]);
+        return historyProviderRegistry.adapter(currentProvider).deleteSession(sessionId, projectPath);
     }
 
-    private boolean deleteCodexSession(String sessionId) throws java.io.IOException {
-        String homeDir = PlatformUtils.getHomeDirectory();
-        Path sessionDir = Paths.get(homeDir, ".codex", "sessions");
-
-        if (!Files.exists(sessionDir)) {
-            LOG.error("[HistoryHandler] Codex session directory not found: " + sessionDir);
-            return false;
-        }
-
-        boolean deleted = false;
-        try (Stream<Path> paths = Files.walk(sessionDir)) {
-            List<Path> sessionFiles = paths
-                    .filter(Files::isRegularFile)
-                    .filter(path -> isCodexSessionFileMatch(path, sessionId))
-                    .collect(Collectors.toList());
-
-            for (Path sessionFile : sessionFiles) {
-                try {
-                    Files.delete(sessionFile);
-                    LOG.info("[HistoryHandler] Deleted Codex session file: " + sessionFile);
-                    deleted = true;
-                } catch (Exception e) {
-                    LOG.error("[HistoryHandler] Failed to delete Codex session file: " + sessionFile + " - " + e.getMessage(), e);
-                }
-            }
-        }
-        return deleted;
-    }
-
-    /**
-     * Match Codex rollout filenames whose UUID suffix equals the session ID.
-     * Real format: rollout-{ISO timestamp}-{sessionId}.jsonl, so we anchor to "-{sessionId}.jsonl"
-     * to avoid removing neighbouring sessions whose UUIDs share a substring.
-     */
     static boolean isCodexSessionFileMatch(Path path, String sessionId) {
-        if (path == null || sessionId == null || sessionId.isEmpty()) {
-            return false;
-        }
-        String fileName = path.getFileName().toString();
-        return fileName.endsWith("-" + sessionId + ".jsonl");
-    }
-
-    /**
-     * @return int[2]: [mainDeleted(0/1), agentFilesDeleted]
-     */
-    private int[] deleteClaudeSession(String sessionId, String projectPath) throws java.io.IOException {
-        String homeDir = PlatformUtils.getHomeDirectory();
-        Path claudeDir = Paths.get(homeDir, ".claude");
-        Path projectsDir = claudeDir.resolve("projects");
-        String sanitizedPath = PathUtils.sanitizePath(projectPath);
-        Path sessionDir = projectsDir.resolve(sanitizedPath);
-
-        if (!Files.exists(sessionDir)) {
-            LOG.error("[HistoryHandler] Claude project directory not found: " + sessionDir);
-            return new int[]{0, 0};
-        }
-
-        boolean mainDeleted = false;
-        int agentFilesDeleted = 0;
-
-        // Delete main session file
-        Path mainSessionFile = sessionDir.resolve(sessionId + ".jsonl").normalize();
-        if (!mainSessionFile.startsWith(sessionDir.normalize())) {
-            LOG.warn("[HistoryHandler] Refused out-of-bounds path: " + mainSessionFile);
-            return new int[]{0, 0};
-        }
-        if (Files.exists(mainSessionFile)) {
-            Files.delete(mainSessionFile);
-            LOG.info("[HistoryHandler] Deleted main session file: " + mainSessionFile.getFileName());
-            mainDeleted = true;
-        } else {
-            LOG.warn("[HistoryHandler] Main session file not found: " + mainSessionFile.getFileName());
-        }
-
-        // Delete related agent files
-        try (Stream<Path> stream = Files.list(sessionDir)) {
-            List<Path> agentFiles = stream
-                    .filter(path -> {
-                        String filename = path.getFileName().toString();
-                        return filename.startsWith("agent-") && filename.endsWith(".jsonl")
-                                && isAgentFileRelatedToSession(path, sessionId);
-                    })
-                    .collect(Collectors.toList());
-
-            for (Path agentFile : agentFiles) {
-                try {
-                    Files.delete(agentFile);
-                    LOG.info("[HistoryHandler] Deleted related agent file: " + agentFile.getFileName());
-                    agentFilesDeleted++;
-                } catch (Exception e) {
-                    LOG.error("[HistoryHandler] Failed to delete agent file: " + agentFile.getFileName() + " - " + e.getMessage(), e);
-                }
-            }
-        }
-
-        return new int[]{mainDeleted ? 1 : 0, agentFilesDeleted};
+        return CodexHistoryProviderAdapter.isCodexSessionFileMatch(path, sessionId);
     }
 
     private void cleanupSessionMetadata(String sessionId) {
@@ -302,16 +191,9 @@ class HistoryDeleteService {
         }
     }
 
-    private void cleanupCache(String currentProvider) {
+    private void cleanupCache(String currentProvider, String projectPath) {
         try {
-            String projectPath = context.getProject().getBasePath();
-            if (CommonConstants.PROVIDER_CODEX.equals(currentProvider)) {
-                SessionIndexCache.getInstance().clearAllCodexCache();
-                SessionIndexManager.getInstance().clearAllCodexIndex();
-            } else if (projectPath != null) {
-                SessionIndexCache.getInstance().clearProject(projectPath);
-                SessionIndexManager.getInstance().clearProjectIndex(CommonConstants.PROVIDER_CLAUDE, projectPath);
-            }
+            historyProviderRegistry.adapter(currentProvider).clearCache(projectPath);
         } catch (Exception e) {
             LOG.warn("[HistoryHandler] Failed to clean up cache (does not affect deletion): " + e.getMessage());
         }
@@ -327,37 +209,7 @@ class HistoryDeleteService {
         }
     }
 
-    /**
-     * Check if an agent file belongs to the specified session.
-     */
-    private boolean isAgentFileRelatedToSession(Path agentFilePath, String sessionId) {
-        try (BufferedReader reader = Files.newBufferedReader(agentFilePath, StandardCharsets.UTF_8)) {
-            String line;
-            int lineCount = 0;
-            // Only read the first 20 lines for performance
-            while ((line = reader.readLine()) != null && lineCount < 20) {
-                if (line.contains("\"sessionId\":\"" + sessionId + "\"") ||
-                            line.contains("\"parentSessionId\":\"" + sessionId + "\"")) {
-                    LOG.debug("[HistoryHandler] Agent file " + agentFilePath.getFileName() + " belongs to session " + sessionId);
-                    return true;
-                }
-                lineCount++;
-            }
-            LOG.debug("[HistoryHandler] Agent file " + agentFilePath.getFileName() + " does not belong to session " + sessionId);
-            return false;
-        } catch (Exception e) {
-            LOG.warn("[HistoryHandler] Failed to read agent file " + agentFilePath.getFileName() + ": " + e.getMessage());
-            return false;
-        }
-    }
-
-    private static class DeleteResult {
-        private final boolean mainDeleted;
-        private final int agentFilesDeleted;
-
-        private DeleteResult(boolean mainDeleted, int agentFilesDeleted) {
-            this.mainDeleted = mainDeleted;
-            this.agentFilesDeleted = agentFilesDeleted;
-        }
+    private String currentProjectPath() {
+        return context.getProject() != null ? context.getProject().getBasePath() : null;
     }
 }

@@ -1,19 +1,17 @@
 package com.github.claudecodegui.handler.history;
 
 import com.github.claudecodegui.bridge.NodeDetector;
-import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.core.HandlerContext;
 
-import com.github.claudecodegui.provider.claude.ClaudeHistoryReader;
-import com.github.claudecodegui.provider.codex.CodexHistoryReader;
 import com.github.claudecodegui.util.GsonHolder;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -24,9 +22,11 @@ class HistoryExportService {
     private static final Logger LOG = Logger.getInstance(HistoryExportService.class);
 
     private final HandlerContext context;
+    private final HistoryProviderRegistry historyProviderRegistry;
 
-    HistoryExportService(HandlerContext context) {
+    HistoryExportService(HandlerContext context, HistoryProviderRegistry historyProviderRegistry) {
         this.context = context;
+        this.historyProviderRegistry = historyProviderRegistry;
     }
 
     /**
@@ -55,23 +55,17 @@ class HistoryExportService {
                 LOG.info("[HistoryHandler] ProjectPath: " + projectPath);
                 LOG.info("[HistoryHandler] CurrentProvider: " + currentProvider);
 
-                // Choose a different reader based on the provider
-                String messagesJson;
-                if (CommonConstants.PROVIDER_CODEX.equals(currentProvider)) {
-                    LOG.info("[HistoryHandler] 使用 CodexHistoryReader 读取 Codex 会话消息");
-                    CodexHistoryReader codexReader = new CodexHistoryReader();
-                    messagesJson = codexReader.getSessionMessagesAsJson(sessionId);
-                } else {
-                    LOG.info("[HistoryHandler] 使用 ClaudeHistoryReader 读取 Claude 会话消息");
-                    ClaudeHistoryReader historyReader = new ClaudeHistoryReader();
-                    messagesJson = historyReader.getSessionMessagesAsJson(projectPath, sessionId);
+                List<JsonObject> messages = historyProviderRegistry.loadMessages(currentProvider, sessionId, projectPath);
+                JsonArray messagesJson = new JsonArray();
+                for (JsonObject message : messages) {
+                    messagesJson.add(message);
                 }
 
                 // Wrap messages into an object containing sessionId and title
                 JsonObject exportData = new JsonObject();
                 exportData.addProperty("sessionId", sessionId);
                 exportData.addProperty("title", title);
-                exportData.add("messages", JsonParser.parseString(messagesJson));
+                exportData.add("messages", messagesJson);
 
                 String wrappedJson = GsonHolder.GSON.toJson(exportData);
 

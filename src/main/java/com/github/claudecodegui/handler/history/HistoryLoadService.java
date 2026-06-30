@@ -1,14 +1,9 @@
 package com.github.claudecodegui.handler.history;
 
 import com.github.claudecodegui.bridge.NodeDetector;
-import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.NodeJsServiceCaller;
 import com.github.claudecodegui.handler.core.HandlerContext;
 
-import com.github.claudecodegui.cache.SessionIndexCache;
-import com.github.claudecodegui.cache.SessionIndexManager;
-import com.github.claudecodegui.provider.claude.ClaudeHistoryReader;
-import com.github.claudecodegui.provider.codex.CodexHistoryReader;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -30,10 +25,13 @@ class HistoryLoadService {
 
     private final HandlerContext context;
     private final NodeJsServiceCaller nodeJsServiceCaller;
+    private final HistoryProviderRegistry historyProviderRegistry;
 
-    HistoryLoadService(HandlerContext context, NodeJsServiceCaller nodeJsServiceCaller) {
+    HistoryLoadService(HandlerContext context, NodeJsServiceCaller nodeJsServiceCaller,
+                       HistoryProviderRegistry historyProviderRegistry) {
         this.context = context;
         this.nodeJsServiceCaller = nodeJsServiceCaller;
+        this.historyProviderRegistry = historyProviderRegistry;
     }
 
     /**
@@ -57,19 +55,9 @@ class HistoryLoadService {
                     return;
                 }
 
-                // Choose a different reader based on the provider
-                if (CommonConstants.PROVIDER_CODEX.equals(provider)) {
-                    // Use CodexHistoryReader to read Codex sessions (filtered by project)
-                    LOG.info("[HistoryHandler] 使用 CodexHistoryReader 读取 Codex 会话 (项目: " + projectPath + ")");
-                    CodexHistoryReader codexReader = new CodexHistoryReader();
-                    historyJson = codexReader.getSessionsForProjectAsJson(projectPath);
-                    LOG.info("[HistoryHandler] CodexHistoryReader 返回的 JSON 长度: " + historyJson.length());
-                } else {
-                    // Default: use ClaudeHistoryReader to read Claude sessions
-                    LOG.info("[HistoryHandler] 使用 ClaudeHistoryReader 读取 Claude 会话");
-                    ClaudeHistoryReader historyReader = new ClaudeHistoryReader();
-                    historyJson = historyReader.getProjectDataAsJson(projectPath);
-                }
+                HistoryProviderAdapter adapter = historyProviderRegistry.adapter(provider);
+                LOG.info("[HistoryHandler] 使用 history provider 读取会话: " + adapter.provider().value());
+                historyJson = adapter.loadSessionsJson(projectPath);
 
                 // Load favorite data and merge into history data
                 String enhancedJson = enhanceHistoryWithFavorites(historyJson, provider);
@@ -138,13 +126,7 @@ class HistoryLoadService {
         LOG.info("[HistoryHandler] ========== 开始深度搜索 ========== provider=" + provider);
 
         try {
-            if (CommonConstants.PROVIDER_CODEX.equals(provider)) {
-                SessionIndexCache.getInstance().clearAllCodexCache();
-                SessionIndexManager.getInstance().clearAllCodexIndex();
-            } else if (projectPath != null) {
-                SessionIndexCache.getInstance().clearProject(projectPath);
-                SessionIndexManager.getInstance().clearProjectIndex(CommonConstants.PROVIDER_CLAUDE, projectPath);
-            }
+            historyProviderRegistry.adapter(provider).clearCache(projectPath);
 
             LOG.info("[HistoryHandler] 缓存清理完成，开始重新加载历史数据...");
 

@@ -37,9 +37,10 @@ public class HistoryActionHandlers {
     public HistoryActionHandlers(HandlerContext context) {
         this.context = context;
         NodeJsServiceCaller nodeJsServiceCaller = new NodeJsServiceCaller(context);
-        this.historyLoadService = new HistoryLoadService(context, nodeJsServiceCaller);
-        this.historyDeleteService = new HistoryDeleteService(context, nodeJsServiceCaller, historyLoadService);
-        this.historyExportService = new HistoryExportService(context);
+        HistoryProviderRegistry historyProviderRegistry = HistoryProviderRegistry.createDefault(context);
+        this.historyLoadService = new HistoryLoadService(context, nodeJsServiceCaller, historyProviderRegistry);
+        this.historyDeleteService = new HistoryDeleteService(context, nodeJsServiceCaller, historyLoadService, historyProviderRegistry);
+        this.historyExportService = new HistoryExportService(context, historyProviderRegistry);
         this.historyMessageInjector = new HistoryMessageInjector(context);
         this.historyMetadataService = new HistoryMetadataService(context, nodeJsServiceCaller);
         this.subagentHistoryService = new SubagentHistoryService(context);

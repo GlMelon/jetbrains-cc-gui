@@ -14,29 +14,33 @@ import java.lang.reflect.Proxy;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public class HistoryMessageInjectorTest {
 
     @Test
     public void handleLoadSessionUsesPayloadProviderAndResolvedCodexSessionId() {
-        RecordingHistoryMessageInjector injector = new RecordingHistoryMessageInjector(createContext("D:/project/demo"));
-        boolean[] callbackInvoked = {false};
+        HistoryMessageInjector injector = new HistoryMessageInjector(createContext("D:/project/demo"));
+        String[] callbackArgs = new String[3];
 
         injector.handleLoadSession(
                 "{\"sessionId\":\"hist-codex\",\"provider\":\"codex\"}",
                 "claude",
-                (sessionId, projectPath, provider) -> callbackInvoked[0] = true
+                (sessionId, projectPath, provider) -> {
+                    callbackArgs[0] = sessionId;
+                    callbackArgs[1] = projectPath;
+                    callbackArgs[2] = provider;
+                }
         );
 
-        assertEquals("hist-codex", injector.loadedCodexSessionId);
-        assertFalse(callbackInvoked[0]);
+        assertEquals("hist-codex", callbackArgs[0]);
+        assertEquals("D:/project/demo", callbackArgs[1]);
+        assertEquals("codex", callbackArgs[2]);
     }
 
     @Test
     public void handleLoadSessionUsesPayloadProviderForClaudeEvenWhenCurrentProviderIsCodex() {
-        RecordingHistoryMessageInjector injector = new RecordingHistoryMessageInjector(createContext("D:/project/demo"));
+        HistoryMessageInjector injector = new HistoryMessageInjector(createContext("D:/project/demo"));
         String[] callbackArgs = new String[3];
 
         injector.handleLoadSession(
@@ -49,10 +53,29 @@ public class HistoryMessageInjectorTest {
                 }
         );
 
-        assertNull(injector.loadedCodexSessionId);
         assertEquals("hist-claude", callbackArgs[0]);
         assertEquals("D:/project/demo", callbackArgs[1]);
         assertEquals("claude", callbackArgs[2]);
+    }
+
+    @Test
+    public void handleLoadSessionUsesPayloadProviderForOpenCode() {
+        HistoryMessageInjector injector = new HistoryMessageInjector(createContext("D:/project/demo"));
+        String[] callbackArgs = new String[3];
+
+        injector.handleLoadSession(
+                "{\"sessionId\":\"hist-opencode\",\"provider\":\"opencode\"}",
+                "claude",
+                (sessionId, projectPath, provider) -> {
+                    callbackArgs[0] = sessionId;
+                    callbackArgs[1] = projectPath;
+                    callbackArgs[2] = provider;
+                }
+        );
+
+        assertEquals("hist-opencode", callbackArgs[0]);
+        assertEquals("D:/project/demo", callbackArgs[1]);
+        assertEquals("opencode", callbackArgs[2]);
     }
 
     @Test
@@ -558,16 +581,4 @@ public class HistoryMessageInjectorTest {
         });
     }
 
-    private static final class RecordingHistoryMessageInjector extends HistoryMessageInjector {
-        private String loadedCodexSessionId;
-
-        private RecordingHistoryMessageInjector(HandlerContext context) {
-            super(context);
-        }
-
-        @Override
-        void loadCodexSession(String sessionId) {
-            this.loadedCodexSessionId = sessionId;
-        }
-    }
 }
