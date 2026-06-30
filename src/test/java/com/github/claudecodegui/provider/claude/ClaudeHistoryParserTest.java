@@ -51,4 +51,16 @@ public class ClaudeHistoryParserTest {
             Files.deleteIfExists(sessionFile);
         }
     }
+
+    @Test
+    public void generateSummary_stripsAppendedIdeContext() {
+        ClaudeHistoryReader.ConversationMessage msg = new ClaudeHistoryReader.ConversationMessage();
+        msg.type = "user";
+        msg.message = new ClaudeHistoryReader.ConversationMessage.Message();
+        msg.message.content = "你好\n\n## Opened Files Context\n\n{\"isWorkspace\":false,\"modules\":[]}";
+
+        ClaudeHistoryParser parser = new ClaudeHistoryParser();
+
+        assertEquals("你好", parser.generateSummary(List.of(msg)));
+    }
 }

@@ -1,6 +1,7 @@
 package com.github.claudecodegui.provider.claude;
 
 import com.github.claudecodegui.provider.common.SessionLiteReader;
+import com.github.claudecodegui.util.UserMessageSanitizer;
 import com.intellij.openapi.diagnostic.Logger;
 
 import java.nio.file.Path;
@@ -132,6 +133,10 @@ public class ClaudeSessionLiteReader {
         }
         if (summary == null) {
             summary = firstPrompt;
+        }
+
+        if (summary != null) {
+            summary = UserMessageSanitizer.sanitizeUserFacingText(summary);
         }
 
         // Skip metadata-only sessions (no title, no summary, no prompt)

@@ -3,6 +3,7 @@ package com.github.claudecodegui.provider.claude;
 import com.github.claudecodegui.util.TagExtractor;
 import com.github.claudecodegui.util.TextSanitizer;
 import com.github.claudecodegui.util.GsonHolder;
+import com.github.claudecodegui.util.UserMessageSanitizer;
 import com.google.gson.Gson;
 import com.intellij.openapi.diagnostic.Logger;
 
@@ -124,6 +125,10 @@ class ClaudeHistoryParser {
 
                 String text = extractTextFromContent(msg.message.content);
                 if (text != null && !text.isEmpty()) {
+                    text = UserMessageSanitizer.sanitizeUserFacingText(text);
+                    if (text.isEmpty()) {
+                        continue;
+                    }
                     text = TagExtractor.extractCommandMessageContent(text);
                     text = TextSanitizer.sanitizeAndTruncateSingleLine(text, 45);
                     return text;

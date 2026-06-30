@@ -73,6 +73,21 @@ public class ClaudeSessionLiteReaderTest {
     }
 
     @Test
+    public void parseSessionInfoFromLite_stripsAppendedIdeContextFromSummary() {
+        String sessionId = "abc12345-1234-1234-1234-1234567890ab";
+        SessionLiteReader.LiteSessionFile lite = new SessionLiteReader.LiteSessionFile(
+                System.currentTimeMillis(), 1000,
+                "{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":\"你好\\n\\n## Opened Files Context\\n\\n{\\\"isWorkspace\\\":false,\\\"modules\\\":[]}\"},\"timestamp\":\"2026-01-15T10:00:00Z\"}\n",
+                ""
+        );
+
+        ClaudeSessionLiteReader.ClaudeLiteSessionInfo info = reader.parseSessionInfoFromLite(sessionId, lite);
+
+        assertNotNull(info);
+        assertEquals("你好", info.summary);
+    }
+
+    @Test
     public void parseSessionInfoFromLite_noTitleReturnsNull() {
         String sessionId = "abc12345-1234-1234-1234-1234567890ab";
         SessionLiteReader.LiteSessionFile lite = new SessionLiteReader.LiteSessionFile(

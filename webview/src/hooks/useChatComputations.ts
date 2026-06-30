@@ -43,6 +43,7 @@ interface UseChatComputationsParams {
 export function isSessionTitleUserCandidate(message: ClaudeMessage): boolean {
   if (message.type !== 'user') return false;
   if ((message.content ?? '').trim() === '[tool_result]') return false;
+  if (isInternalContextOnlyText(message.content)) return false;
 
   const raw = message.raw;
   if (!raw || typeof raw === 'string') return true;
@@ -51,7 +52,20 @@ export function isSessionTitleUserCandidate(message: ClaudeMessage): boolean {
   const content = raw.content ?? raw.message?.content;
   if (!Array.isArray(content) || content.length === 0) return true;
 
+  if (content.every((block) => block?.type === 'text' && isInternalContextOnlyText(block.text))) return false;
   return !content.every((block) => block && block.type === 'tool_result');
+}
+
+function isInternalContextOnlyText(text: string | undefined): boolean {
+  const trimmed = text?.trim();
+  if (!trimmed) return false;
+  return trimmed.startsWith('## Opened Files Context')
+    || trimmed.startsWith("## User's Current IDE Context")
+    || trimmed.startsWith('## IDE Context')
+    || trimmed.startsWith('## Workspace Context')
+    || trimmed.startsWith('## Project Modules')
+    || trimmed.startsWith('### Multi-Project Workspace Structure')
+    || trimmed.startsWith('### Project Module Structure');
 }
 
 /**

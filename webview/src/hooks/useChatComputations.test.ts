@@ -42,4 +42,23 @@ describe('isSessionTitleUserCandidate', () => {
 
     expect(isSessionTitleUserCandidate(synthetic)).toBe(false);
   });
+
+  it('skips IDE context-only user messages for title extraction', () => {
+    const contextMessage = makeMessage(
+      'user',
+      '## Opened Files Context {"isWorkspace":false,"modules":[{"name":"jetbrains-melon-cc-gui"}]}',
+      {
+        raw: {
+          message: {
+            content: [{
+              type: 'text',
+              text: '## Opened Files Context {"isWorkspace":false,"modules":[]}',
+            }],
+          },
+        } as any,
+      },
+    );
+
+    expect(isSessionTitleUserCandidate(contextMessage)).toBe(false);
+  });
 });

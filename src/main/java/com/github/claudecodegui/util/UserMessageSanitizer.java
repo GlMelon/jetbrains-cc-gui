@@ -38,6 +38,11 @@ public final class UserMessageSanitizer {
         "\n\n### Project Module Structure\n\nThis project contains multiple modules:\n"
     };
 
+    private static final java.util.regex.Pattern COLLAPSED_APPENDED_CONTEXT_PATTERN =
+            java.util.regex.Pattern.compile("\\s+(?:## Opened Files Context|## IDE Context|## Workspace Context|"
+                    + "## Project Modules|## User's Current IDE Context|### Multi-Project Workspace Structure|"
+                    + "### Project Module Structure)\\b");
+
     private UserMessageSanitizer() {
     }
 
@@ -97,6 +102,20 @@ public final class UserMessageSanitizer {
         int cutIndex = -1;
         for (String marker : APPENDED_CONTEXT_MARKERS) {
             int idx = text.indexOf(marker);
+            if (idx <= 0) {
+                continue;
+            }
+            String prefix = text.substring(0, idx).trim();
+            if (prefix.isEmpty()) {
+                continue;
+            }
+            if (cutIndex == -1 || idx < cutIndex) {
+                cutIndex = idx;
+            }
+        }
+        java.util.regex.Matcher collapsedMatcher = COLLAPSED_APPENDED_CONTEXT_PATTERN.matcher(text);
+        while (collapsedMatcher.find()) {
+            int idx = collapsedMatcher.start();
             if (idx <= 0) {
                 continue;
             }
