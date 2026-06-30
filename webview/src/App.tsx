@@ -312,11 +312,11 @@ const App = () => {
   } = useMessageSender({
     t, addToast,
     currentProvider, selectedModel, permissionMode, selectedAgent,
-    sdkStatusLoaded, currentSdkInstalled,
+    sdkStatusLoaded,
     sentAttachmentsRef, chatInputRef, messagesContainerRef,
     isUserAtBottomRef, userPausedRef, isStreamingRef,
     setMessages, setLoading, setLoadingStartTime, setStreamingActive,
-    setSettingsInitialTab, setCurrentView,
+    setCurrentView,
     forceCreateNewSession,
     handleModeSelect,
     longContextEnabled,

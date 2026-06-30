@@ -109,7 +109,6 @@ describe('useWindowCallbacks integration', () => {
     window.__sessionTransitionToken = null;
     window.__pendingSessionTransitionToast = undefined;
     window.__deniedToolIds = new Set();
-    window.__CLAUDE_INVOCATION_MODE__ = 'sdk';
     window.sendToJava = vi.fn();
     // The drain test inspects this slot; if a prior test (or earlier suite run)
     // leaked a value onto window we'd see a false-positive drain. Wipe it here
@@ -411,7 +410,7 @@ describe('useWindowCallbacks integration', () => {
     expect(opts.setMessages).toHaveBeenCalled();
   });
 
-    it('requests session runtime state on mount and updates cached chat-side invocation mode', () => {
+    it('requests session runtime state on mount and hydrates backend session state', () => {
     vi.useFakeTimers();
     const opts = createOptions();
     renderHook(() => useWindowCallbacks(opts));
@@ -433,7 +432,9 @@ describe('useWindowCallbacks integration', () => {
         }));
     });
 
-    expect(window.__CLAUDE_INVOCATION_MODE__).toBe('cli');
+    expect(opts.setCurrentProvider).toHaveBeenCalledWith('claude');
+    expect(opts.setSelectedClaudeModel).toHaveBeenCalledWith('claude-sonnet-4-6');
+    expect(opts.setPermissionMode).toHaveBeenCalled();
     vi.useRealTimers();
   });
 
@@ -2020,5 +2021,4 @@ describe('useWindowCallbacks integration', () => {
     });
   });
 });
-
 

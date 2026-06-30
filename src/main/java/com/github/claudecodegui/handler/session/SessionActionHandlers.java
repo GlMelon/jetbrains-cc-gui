@@ -47,8 +47,7 @@ public class SessionActionHandlers {
     // --- Response-handling methods (called by typed handlers) ---
 
     void handleSendMessage(String content) {
-        String requestedInvocationMode = extractInvocationMode(content);
-        boolean requiresNodeRuntime = !isCliModeActive(requestedInvocationMode);
+        boolean requiresNodeRuntime = !isCliModeActive();
         String nodeVersion = requiresNodeRuntime ? this.resolveNodeVersion() : null;
         if (requiresNodeRuntime && nodeVersion == null) {
             ApplicationManager.getApplication().invokeLater(() -> {
@@ -65,7 +64,7 @@ public class SessionActionHandlers {
             return;
         }
 
-        String sdkValidationMessage = validateRequiredSdk(requestedInvocationMode);
+        String sdkValidationMessage = validateRequiredSdk();
         if (sdkValidationMessage != null) {
             ApplicationManager.getApplication().invokeLater(() -> {
                 context.callJavaScript("addErrorMessage", context.escapeJs(sdkValidationMessage));
@@ -78,7 +77,6 @@ public class SessionActionHandlers {
         String agentPrompt = null;
         List<String> fileTagPaths = null;
         String requestedPermissionMode = null;
-        String resolvedRequestedInvocationMode = requestedInvocationMode;
         try {
             Gson gson = GsonHolder.GSON;
             JsonObject payload = gson.fromJson(content, JsonObject.class);
@@ -122,14 +120,6 @@ public class SessionActionHandlers {
                 }
             }
 
-            if (payload != null && payload.has("invocationMode") && !payload.get("invocationMode").isJsonNull()) {
-                String mode = payload.get("invocationMode").getAsString();
-                if (SessionState.isValidClaudeInvocationMode(mode)) {
-                    resolvedRequestedInvocationMode = mode;
-                } else {
-                    LOG.warn("[SessionActionHandlers] Ignoring invalid invocationMode from payload: " + mode);
-                }
-            }
         } catch (Exception e) {
             // If parsing fails, treat content as plain text (backward compatibility)
             LOG.debug("[SessionActionHandlers] Message is plain text, not JSON: " + e.getMessage());
@@ -140,12 +130,11 @@ public class SessionActionHandlers {
         final String finalAgentPrompt = agentPrompt;
         final List<String> finalFileTagPaths = fileTagPaths;
         final String finalRequestedPermissionMode = requestedPermissionMode;
-        final String finalRequestedInvocationMode = resolvedRequestedInvocationMode;
         ClaudeSession currentSession = context.getSession();
         LOG.debug(String.format(
-                "[CliConcurrencyDiag][SessionActionHandlers] accepted send_message: provider=%s, requestedInvocationMode=%s, sessionId=%s, channelId=%s, promptChars=%d, thread=%s",
+                "[CliConcurrencyDiag][SessionActionHandlers] accepted send_message: provider=%s, sessionInvocationMode=%s, sessionId=%s, channelId=%s, promptChars=%d, thread=%s",
                 currentSession != null ? currentSession.getProvider() : context.getCurrentProvider(),
-                finalRequestedInvocationMode != null ? finalRequestedInvocationMode : "(none)",
+                currentSession != null ? currentSession.getClaudeInvocationMode() : "(none)",
                 currentSession != null ? currentSession.getSessionId() : "(none)",
                 currentSession != null ? currentSession.getChannelId() : "(none)",
                 finalPrompt.length(),
@@ -171,13 +160,13 @@ public class SessionActionHandlers {
             LOG.info(String.format(
                     "[CliConcurrencyDiag][SessionActionHandlers] invoking session.send: provider=%s, invocationMode=%s, sessionId=%s, channelId=%s, elapsedMs=%d, thread=%s",
                     context.getSession().getProvider(),
-                    finalRequestedInvocationMode != null ? finalRequestedInvocationMode : context.getSession().getClaudeInvocationMode(),
+                    context.getSession().getClaudeInvocationMode(),
                     context.getSession().getSessionId(),
                     context.getSession().getChannelId(),
                     (System.nanoTime() - dispatchStartNanos) / 1_000_000,
                     Thread.currentThread().getName()));
             context.getSession().send(finalPrompt, finalAgentPrompt, finalFileTagPaths,
-                    finalRequestedPermissionMode, finalRequestedInvocationMode)
+                    finalRequestedPermissionMode, null)
                 .thenRun(() -> {
                 })
                 .exceptionally(ex -> {
@@ -255,7 +244,6 @@ public class SessionActionHandlers {
             // [FIX] Extract agent prompt from the payload for per-tab agent selection
             String agentPrompt = null;
             String requestedPermissionMode = null;
-            String requestedInvocationMode = null;
             if (payload != null && payload.has("agent") && !payload.get("agent").isJsonNull()) {
                 JsonObject agent = payload.getAsJsonObject("agent");
                 if (agent.has("prompt") && !agent.get("prompt").isJsonNull()) {
@@ -292,16 +280,7 @@ public class SessionActionHandlers {
                 }
             }
 
-            if (payload != null && payload.has("invocationMode") && !payload.get("invocationMode").isJsonNull()) {
-                String mode = payload.get("invocationMode").getAsString();
-                if (SessionState.isValidClaudeInvocationMode(mode)) {
-                    requestedInvocationMode = mode;
-                } else {
-                    LOG.warn("[SessionActionHandlers] Ignoring invalid invocationMode from attachment payload: " + mode);
-                }
-            }
-
-            sendMessageWithAttachments(text, atts, agentPrompt, fileTagPaths, requestedPermissionMode, requestedInvocationMode);
+            sendMessageWithAttachments(text, atts, agentPrompt, fileTagPaths, requestedPermissionMode);
         } catch (Exception e) {
             LOG.error("[SessionActionHandlers] 解析附件负载失败: " + e.getMessage(), e);
             handleSendMessage(content);
@@ -332,11 +311,10 @@ public class SessionActionHandlers {
         List<ClaudeSession.Attachment> attachments,
         String agentPrompt,
         List<String> fileTagPaths,
-        String requestedPermissionMode,
-        String requestedInvocationMode
+        String requestedPermissionMode
     ) {
         // Version check (consistent with handleSendMessage)
-        boolean requiresNodeRuntime = !isCliModeActive(requestedInvocationMode);
+        boolean requiresNodeRuntime = !isCliModeActive();
         String nodeVersion = requiresNodeRuntime ? this.resolveNodeVersion() : null;
         if (requiresNodeRuntime && nodeVersion == null) {
             ApplicationManager.getApplication().invokeLater(() -> {
@@ -345,7 +323,7 @@ public class SessionActionHandlers {
             return;
         }
 
-        String sdkValidationMessage = validateRequiredSdk(requestedInvocationMode);
+        String sdkValidationMessage = validateRequiredSdk();
         if (sdkValidationMessage != null) {
             ApplicationManager.getApplication().invokeLater(() -> {
                 context.callJavaScript("addErrorMessage", context.escapeJs(sdkValidationMessage));
@@ -364,12 +342,11 @@ public class SessionActionHandlers {
         final String finalAgentPrompt = agentPrompt;
         final List<String> finalFileTagPaths = fileTagPaths;
         final String finalRequestedPermissionMode = requestedPermissionMode;
-        final String finalRequestedInvocationMode = requestedInvocationMode;
         ClaudeSession currentSession = context.getSession();
         LOG.debug(String.format(
                 "[CliConcurrencyDiag][SessionActionHandlers] accepted send_msg_atts: provider=%s, invMode=%s, sid=%s, chId=%s, chars=%d, atts=%d, thread=%s",
                 currentSession != null ? currentSession.getProvider() : context.getCurrentProvider(),
-                finalRequestedInvocationMode != null ? finalRequestedInvocationMode : "(none)",
+                currentSession != null ? currentSession.getClaudeInvocationMode() : "(none)",
                 currentSession != null ? currentSession.getSessionId() : "(none)",
                 currentSession != null ? currentSession.getChannelId() : "(none)",
                 prompt.length(),
@@ -395,13 +372,13 @@ public class SessionActionHandlers {
             LOG.info(String.format(
                     "[CliConcurrencyDiag][SessionActionHandlers] invoking session.send atts: provider=%s, invMode=%s, sid=%s, chId=%s, elapsed=%dms, thread=%s",
                     context.getSession().getProvider(),
-                    finalRequestedInvocationMode != null ? finalRequestedInvocationMode : context.getSession().getClaudeInvocationMode(),
+                    context.getSession().getClaudeInvocationMode(),
                     context.getSession().getSessionId(),
                     context.getSession().getChannelId(),
                     (System.nanoTime() - dispatchStartNanos) / 1_000_000,
                     Thread.currentThread().getName()));
             context.getSession().send(prompt, attachments, finalAgentPrompt, finalFileTagPaths,
-                    finalRequestedPermissionMode, finalRequestedInvocationMode)
+                    finalRequestedPermissionMode, null)
                 .thenRun(() -> {
                 })
                 .exceptionally(ex -> {
@@ -432,21 +409,7 @@ public class SessionActionHandlers {
         return null;
     }
 
-    private String extractInvocationMode(String content) {
-        try {
-            JsonObject payload = GsonHolder.GSON.fromJson(content, JsonObject.class);
-            if (payload != null && payload.has("invocationMode") && !payload.get("invocationMode").isJsonNull()) {
-                String mode = payload.get("invocationMode").getAsString();
-                if (SessionState.isValidClaudeInvocationMode(mode)) {
-                    return mode;
-                }
-            }
-        } catch (Exception ignored) {
-        }
-        return null;
-    }
-
-    private boolean isCliModeActive(String requestedInvocationMode) {
+    private boolean isCliModeActive() {
         try {
             ClaudeSession currentSession = context.getSession();
             String provider = currentSession != null ? currentSession.getProvider() : context.getCurrentProvider();
@@ -454,7 +417,7 @@ public class SessionActionHandlers {
             return EffectiveRuntimeResolver
                     .isCliMode(
                             provider,
-                            requestedInvocationMode,
+                            null,
                             sessionMode,
                             context.getSettingsService().getRuntimePolicy()
                     );
@@ -466,7 +429,7 @@ public class SessionActionHandlers {
         }
     }
 
-    private String validateRequiredSdk(String requestedInvocationMode) {
+    private String validateRequiredSdk() {
         ClaudeSession currentSession = context.getSession();
         String provider = currentSession != null ? currentSession.getProvider() : context.getCurrentProvider();
 
@@ -474,7 +437,7 @@ public class SessionActionHandlers {
             provider = CommonConstants.PROVIDER_CLAUDE;
         }
 
-        if (CommonConstants.PROVIDER_CLAUDE.equals(provider) && isCliModeActive(requestedInvocationMode)) {
+        if (CommonConstants.PROVIDER_CLAUDE.equals(provider) && isCliModeActive()) {
             return null;
         }
 

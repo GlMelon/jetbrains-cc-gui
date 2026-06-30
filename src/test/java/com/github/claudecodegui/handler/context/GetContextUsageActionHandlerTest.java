@@ -149,6 +149,19 @@ public class GetContextUsageActionHandlerTest {
         assertFalse(GetContextUsageActionHandler.parseLongContextEnabled(GSON, "not valid json {{{"));
     }
 
+    @Test
+    public void cliInvocationModeUsesSessionSnapshotBeforeConfiguredMode() {
+        assertTrue(GetContextUsageActionHandler.isCliInvocationMode("cli", "sdk"));
+        assertFalse(GetContextUsageActionHandler.isCliInvocationMode("sdk", "cli"));
+    }
+
+    @Test
+    public void cliInvocationModeFallsBackToConfiguredModeWhenSessionModeMissing() {
+        assertTrue(GetContextUsageActionHandler.isCliInvocationMode(null, "cli"));
+        assertTrue(GetContextUsageActionHandler.isCliInvocationMode("", "cli"));
+        assertFalse(GetContextUsageActionHandler.isCliInvocationMode(null, "sdk"));
+    }
+
     // 旧 ContextHandlerTest.handlerDeclaresGetContextUsageSupport 的等价覆盖:
     // typed handler 以 action() 绑定枚举取代 getSupportedTypes() 字符串声明,
     // 见 bindsGetContextUsageUpstreamActionWithStringPayload。为保留回归对照,显式断言单元素值域。

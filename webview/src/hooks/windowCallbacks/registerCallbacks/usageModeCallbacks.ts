@@ -165,20 +165,6 @@ export function registerUsageModeCallbacks(options: UseWindowCallbacksOptions): 
     }
   });
 
-    // [归一化] updateSessionInvocationMode → session.invocation_mode(JSON)
-    registerLegacyAlias('updateSessionInvocationMode', DOWNSTREAM.SESSION_INVOCATION_MODE);
-    subscribeEvent(DOWNSTREAM.SESSION_INVOCATION_MODE, (jsonStr) => {
-        try {
-            const data = JSON.parse(jsonStr as string);
-            const mode = data.invocationMode;
-            if (mode === 'sdk' || mode === 'cli') {
-                window.__CLAUDE_INVOCATION_MODE__ = mode;
-            }
-        } catch (error) {
-            console.error('[Frontend] Failed to parse invocation mode:', error);
-        }
-    });
-
     // [归一化] updateSessionRuntimeState → session.runtime_state(JSON)
     registerLegacyAlias('updateSessionRuntimeState', DOWNSTREAM.SESSION_RUNTIME_STATE);
     subscribeEvent(DOWNSTREAM.SESSION_RUNTIME_STATE, (jsonStr) => {
@@ -200,10 +186,6 @@ export function registerUsageModeCallbacks(options: UseWindowCallbacksOptions): 
                 }
             }
 
-            const invocationMode = data.claudeInvocationMode;
-            if (invocationMode === 'sdk' || invocationMode === 'cli') {
-                window.__CLAUDE_INVOCATION_MODE__ = invocationMode;
-            }
         } catch (error) {
             console.error('[Frontend] Failed to parse session runtime state:', error);
         }

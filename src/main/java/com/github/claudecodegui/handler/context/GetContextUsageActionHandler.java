@@ -1,9 +1,11 @@
 package com.github.claudecodegui.handler.context;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.config.ModelRegistryConfig;
 import com.github.claudecodegui.handler.core.FrontendActionContext;
 import com.github.claudecodegui.handler.core.FrontendActionHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.session.ClaudeSession;
 import com.github.claudecodegui.protocol.UpstreamAction;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
@@ -50,6 +52,15 @@ public final class GetContextUsageActionHandler implements FrontendActionHandler
         String requestId = parsed[3];
         // D5:longContextEnabled 意图由后端权威解析并据此追加 [1m] 后缀(取代前端 apply1MContextSuffix)。
         boolean longContextEnabled = parseLongContextEnabled(gson, payload);
+
+        if (isContextUsageUnavailableInCliMode(ctx)) {
+            callContextUsageError(
+                    ctx,
+                    "Context usage is unavailable in Claude CLI mode. Switch invocation mode to SDK to use /context.",
+                    requestId
+            );
+            return;
+        }
 
         // Fall back to session state if not provided
         if (sessionId == null || sessionId.isEmpty()) {
@@ -174,5 +185,27 @@ public final class GetContextUsageActionHandler implements FrontendActionHandler
             // Return false on parse failure
         }
         return false;
+    }
+
+    static boolean isCliInvocationMode(String sessionMode, String configuredMode) {
+        String effectiveMode = sessionMode != null && !sessionMode.isBlank() ? sessionMode : configuredMode;
+        return CommonConstants.INVOCATION_MODE_CLI.equals(effectiveMode);
+    }
+
+    private static boolean isContextUsageUnavailableInCliMode(HandlerContext ctx) {
+        String sessionMode = null;
+        ClaudeSession session = ctx.getSession();
+        if (session != null) {
+            sessionMode = session.getClaudeInvocationMode();
+        }
+
+        String configuredMode = null;
+        try {
+            configuredMode = ctx.getSettingsService().getClaudeInvocationMode();
+        } catch (Exception e) {
+            LOG.warn("[GetContextUsageActionHandler] Failed to read Claude invocation mode", e);
+        }
+
+        return isCliInvocationMode(sessionMode, configuredMode);
     }
 }

@@ -118,10 +118,6 @@ export interface UseWindowCallbacksOptions {
 export function useWindowCallbacks(options: UseWindowCallbacksOptions): void {
   const { t } = options;
 
-  if (!window.__CLAUDE_INVOCATION_MODE__) {
-      window.__CLAUDE_INVOCATION_MODE__ = 'unknown';
-  }
-
   // Store t in ref to avoid stale closures
   const tRef = useRef(t);
   useEffect(() => {

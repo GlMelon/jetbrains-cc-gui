@@ -64,11 +64,6 @@ interface Window {
   updateInvocationMode?: (json: string) => void;
 
     /**
-     * Update cached session invocation mode for Claude sends.
-     */
-    updateSessionInvocationMode?: (json: string) => void;
-
-    /**
      * Update session-scoped runtime state from the backend authority.
      */
     updateSessionRuntimeState?: (json: string) => void;
@@ -821,9 +816,6 @@ interface Window {
   __cancelPendingUpdateMessages?: () => void;
   /** Currently active streaming scope key: provider:tabId:turnId. */
   __activeStreamScopeKey?: string | null;
-  /** Cached chat-side Claude invocation mode, populated by backend settings callback. */
-  __CLAUDE_INVOCATION_MODE__?: 'sdk' | 'cli' | 'unknown';
-
   /**
    * Rewind result callback - returns the result of a rewind operation
    */

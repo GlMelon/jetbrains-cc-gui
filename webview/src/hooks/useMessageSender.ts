@@ -26,19 +26,6 @@ function createContextUsageRequestId(): string {
   return `context-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-// 读取全局调用模式(由后端推送的 __CLAUDE_INVOCATION_MODE__ 承载,历史遗留命名)。
-// 方向 A:该模式现已统一控制 claude 与 codex——切换「调用模式」时两者同步走 SDK/CLI。
-// 变量名保留 CLAUDE 前缀仅为避免改动后端推送 key 与全局声明面。
-function getClaudeInvocationMode(): 'sdk' | 'cli' | undefined {
-  if (window.__CLAUDE_INVOCATION_MODE__ === 'cli') return 'cli';
-  if (window.__CLAUDE_INVOCATION_MODE__ === 'sdk') return 'sdk';
-  return undefined;
-}
-
-function isClaudeInvocationModeKnown(): boolean {
-  return window.__CLAUDE_INVOCATION_MODE__ === 'cli' || window.__CLAUDE_INVOCATION_MODE__ === 'sdk';
-}
-
 export interface UseMessageSenderOptions {
   t: TFunction;
   addToast: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
@@ -47,7 +34,6 @@ export interface UseMessageSenderOptions {
   permissionMode: PermissionMode;
   selectedAgent: SelectedAgent | null;
   sdkStatusLoaded: boolean;
-  currentSdkInstalled: boolean;
   sentAttachmentsRef: RefObject<Map<string, Array<{ fileName: string; mediaType: string }>>>;
   chatInputRef: RefObject<ChatInputBoxHandle | null>;
   messagesContainerRef: RefObject<HTMLDivElement | null>;
@@ -58,7 +44,6 @@ export interface UseMessageSenderOptions {
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;
   setLoadingStartTime: React.Dispatch<React.SetStateAction<number | null>>;
   setStreamingActive: React.Dispatch<React.SetStateAction<boolean>>;
-  setSettingsInitialTab: React.Dispatch<React.SetStateAction<any>>;
   setCurrentView: React.Dispatch<React.SetStateAction<ViewMode>>;
   forceCreateNewSession: () => void;
   handleModeSelect?: (mode: PermissionMode) => void;
@@ -77,7 +62,6 @@ export function useMessageSender({
   selectedModel,
   selectedAgent,
   sdkStatusLoaded,
-  currentSdkInstalled,
   sentAttachmentsRef,
   chatInputRef,
   messagesContainerRef,
@@ -88,7 +72,6 @@ export function useMessageSender({
   setLoading,
   setLoadingStartTime,
   setStreamingActive,
-  setSettingsInitialTab,
   setCurrentView,
   forceCreateNewSession,
   handleModeSelect,
@@ -153,13 +136,6 @@ export function useMessageSender({
           command,
           provider: 'Claude',
           defaultValue: `${command} is only available for Claude provider`,
-        }), 'warning');
-        return true;
-      }
-
-      if (getClaudeInvocationMode() === 'cli') {
-        addToast(t('chat.contextUsageUnavailableInCliMode', {
-          defaultValue: 'Context usage is unavailable in Claude CLI mode. Switch invocation mode to SDK to use /context.',
         }), 'warning');
         return true;
       }
@@ -280,7 +256,6 @@ export function useMessageSender({
           })),
           agent: agentInfo,
           fileTags: fileTagsInfo,
-          invocationMode: getClaudeInvocationMode(),
         });
         sendAction(UPSTREAM.SEND_MESSAGE_WITH_ATTACHMENTS, payload);
       } catch (error) {
@@ -289,7 +264,6 @@ export function useMessageSender({
           text,
           agent: agentInfo,
           fileTags: fileTagsInfo,
-          invocationMode: getClaudeInvocationMode(),
         });
         sendAction(UPSTREAM.SEND_MESSAGE, fallbackPayload);
       }
@@ -298,9 +272,6 @@ export function useMessageSender({
         text,
         agent: agentInfo,
         fileTags: fileTagsInfo,
-        // 修复 A:codex 无附件消息此前送 undefined(仅 claude 透传),导致 codex「带附件」走调用模式值、
-        // 「不带附件」走路由策略 default,两者不一致时在 cli/sdk 间跳变。统一透传,与带附件分支对齐。
-        invocationMode: getClaudeInvocationMode(),
       });
       sendAction(UPSTREAM.SEND_MESSAGE, payload);
     }
@@ -315,15 +286,6 @@ export function useMessageSender({
 
     if (!text && !hasAttachments) return;
 
-    if (currentProvider === 'claude' && !isClaudeInvocationModeKnown()) {
-      addToast(t('chat.invocationModeRequired', {
-        defaultValue: 'Invocation mode is not loaded. Please choose SDK or CLI mode in Settings before sending.',
-      }), 'error');
-      setSettingsInitialTab('basic');
-      setCurrentView('settings');
-      return;
-    }
-
     // SDK status preflight is best-effort only. If the async status query is still
     // unresolved, allow the send and let the backend perform the authoritative check.
     if (!sdkStatusLoaded) {
@@ -335,16 +297,6 @@ export function useMessageSender({
         'info',
       );
     }
-    if (!currentSdkInstalled) {
-      addToast(
-        t('chat.sdkNotInstalled', { provider: getProviderDisplayName(currentProvider) }) + ' ' + t('chat.goInstallSdk'),
-        'warning'
-      );
-      setSettingsInitialTab('dependencies');
-      setCurrentView('settings');
-      return;
-    }
-
     // Build user message content blocks
     const userContentBlocks = buildUserContentBlocks(text, attachments);
     if (userContentBlocks.length === 0) return;
@@ -408,7 +360,6 @@ export function useMessageSender({
     sendMessageToBackend(text, attachments, agentInfo, fileTagsInfo);
   }, [
     sdkStatusLoaded,
-    currentSdkInstalled,
     currentProvider,
     selectedAgent,
     buildUserContentBlocks,

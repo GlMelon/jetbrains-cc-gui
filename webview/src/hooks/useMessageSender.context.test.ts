@@ -18,7 +18,6 @@ describe('useMessageSender - /context command', () => {
     permissionMode: 'default',
     selectedAgent: null,
     sdkStatusLoaded: true,
-    currentSdkInstalled: true,
     sentAttachmentsRef: { current: new Map() },
     chatInputRef: { current: null },
     messagesContainerRef: { current: null },
@@ -29,7 +28,6 @@ describe('useMessageSender - /context command', () => {
     setLoading: vi.fn(),
     setLoadingStartTime: vi.fn(),
     setStreamingActive: vi.fn(),
-    setSettingsInitialTab: vi.fn(),
     setCurrentView: vi.fn(),
     forceCreateNewSession: vi.fn(),
     handleModeSelect: vi.fn(),
@@ -41,7 +39,6 @@ describe('useMessageSender - /context command', () => {
 
   beforeEach(() => {
     window.sendToJava = vi.fn();
-    window.__CLAUDE_INVOCATION_MODE__ = 'sdk';
     __setModelRegistryForTests({
       items: [
         {
@@ -175,8 +172,7 @@ describe('useMessageSender - /context command', () => {
     );
   });
 
-  it('shows warning toast and does not send bridge event in Claude CLI mode', () => {
-    window.__CLAUDE_INVOCATION_MODE__ = 'cli';
+  it('sends context usage request without frontend invocation mode gating', () => {
     const addToast = vi.fn();
     const opts = createOptions({ addToast });
 
@@ -186,15 +182,16 @@ describe('useMessageSender - /context command', () => {
       result.current.handleSubmit('/context');
     });
 
-    expect(window.sendToJava).not.toHaveBeenCalled();
-    expect(addToast).toHaveBeenCalledWith(
+    expect(window.sendToJava).toHaveBeenCalledTimes(1);
+    const bridgePayload = parseBridgeCall((window.sendToJava as any).mock.calls[0][0]);
+    expect(bridgePayload.type).toBe('get_context_usage');
+    expect(addToast).not.toHaveBeenCalledWith(
       expect.stringContaining('CLI mode'),
-      'warning',
+      expect.anything(),
     );
   });
 
-    it('blocks normal Claude messages while invocation mode is unknown', () => {
-        window.__CLAUDE_INVOCATION_MODE__ = 'unknown';
+    it('allows normal Claude messages without frontend invocation mode state', () => {
         const addToast = vi.fn();
         const opts = createOptions({addToast});
 
@@ -204,18 +201,16 @@ describe('useMessageSender - /context command', () => {
             result.current.handleSubmit('hello');
         });
 
-        expect(window.sendToJava).not.toHaveBeenCalled();
-        expect(addToast).toHaveBeenCalledWith(
+        const calls = (window.sendToJava as any).mock.calls.map(([payload]: [string]) => parseBridgeCall(payload));
+        const sendMessageCall = calls.find((payload: { type: string }) => payload.type === 'send_message');
+        expect(sendMessageCall).toBeTruthy();
+        expect(addToast).not.toHaveBeenCalledWith(
             expect.stringContaining('Invocation mode'),
             'error',
         );
     });
 
-    it('forwards invocation mode for codex normal messages, matching the attachments branch', () => {
-        // 修复 A:codex 无附件消息此前仅 codex 分支送 invocationMode=undefined(只有 claude 透传),
-        // 导致 codex「带附件」走调用模式值、「不带附件」走路由策略 default,两者不一致时在 cli/sdk 间跳变。
-        // 现统一透传 getClaudeInvocationMode(),与带附件分支(line 283)对齐。
-        window.__CLAUDE_INVOCATION_MODE__ = 'cli';
+    it('does not include invocationMode in normal send payload', () => {
         const opts = createOptions({currentProvider: 'codex'});
 
         const {result} = renderHook(() => useMessageSender(opts));
@@ -227,7 +222,27 @@ describe('useMessageSender - /context command', () => {
         const calls = (window.sendToJava as any).mock.calls.map(([payload]: [string]) => parseBridgeCall(payload));
         const sendMessageCall = calls.find((payload: { type: string }) => payload.type === 'send_message');
         const payload = JSON.parse(sendMessageCall!.content);
-        expect(payload.invocationMode).toBe('cli');
+        expect(payload).not.toHaveProperty('invocationMode');
+    });
+
+    it('does not include invocationMode in attachment send payload', () => {
+        const opts = createOptions({currentProvider: 'codex'});
+
+        const {result} = renderHook(() => useMessageSender(opts));
+
+        act(() => {
+            result.current.handleSubmit('hello', [{
+                id: 'att-1',
+                fileName: 'note.txt',
+                mediaType: 'text/plain',
+                data: 'aGVsbG8=',
+            }]);
+        });
+
+        const calls = (window.sendToJava as any).mock.calls.map(([payload]: [string]) => parseBridgeCall(payload));
+        const sendMessageCall = calls.find((payload: { type: string }) => payload.type === 'send_message_with_attachments');
+        const payload = JSON.parse(sendMessageCall!.content);
+        expect(payload).not.toHaveProperty('invocationMode');
     });
 
     it('does not include permissionMode in normal send payload', () => {
@@ -273,7 +288,6 @@ describe('useMessageSender - /context command', () => {
     const opts = createOptions({
       currentProvider: 'codex',
       sdkStatusLoaded: false,
-      currentSdkInstalled: true,
       addToast,
     });
 
@@ -287,6 +301,26 @@ describe('useMessageSender - /context command', () => {
     expect(addToast).toHaveBeenCalledWith(
       expect.stringContaining('backend will verify'),
       'info',
+    );
+  });
+
+  it('does not block sends when frontend SDK install state is unavailable', () => {
+    const addToast = vi.fn();
+    const opts = createOptions({
+      currentProvider: 'codex',
+      addToast,
+    } as Partial<UseMessageSenderOptions>);
+
+    const { result } = renderHook(() => useMessageSender(opts));
+
+    act(() => {
+      result.current.handleSubmit('hello');
+    });
+
+    expect(window.sendToJava).toHaveBeenCalled();
+    expect(addToast).not.toHaveBeenCalledWith(
+      expect.stringContaining('SDK'),
+      'warning',
     );
   });
 });
