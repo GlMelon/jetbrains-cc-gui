@@ -1,6 +1,7 @@
 package com.github.claudecodegui.provider.claude;
 
 import com.github.claudecodegui.cli.common.CliConstants;
+import com.github.claudecodegui.cli.common.CliSectionEmitter;
 import com.github.claudecodegui.cli.common.CliErrorFormatter;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.provider.common.MessageCallback;
@@ -95,7 +96,7 @@ public class ClaudeCliStreamParser {
                     JsonObject block = event.getAsJsonObject("content_block");
                     String blockType = block.has("type") ? block.get("type").getAsString() : "";
                     if (CommonConstants.BLOCK_TYPE_THINKING.equals(blockType)) {
-                        callback.onMessage(CommonConstants.MSG_TYPE_THINKING, "");
+                        sectionEmitter(callback).thinkingStart();
                         thinkingActive = true;
                         currentTextBlockRoute = TextBlockRoute.NONE;
                     } else if (CommonConstants.BLOCK_TYPE_TEXT.equals(blockType)) {
@@ -130,7 +131,7 @@ public class ClaudeCliStreamParser {
                         case CliConstants.MSG_THINKING_DELTA:
                             String thinking = delta.has("thinking") ? delta.get("thinking").getAsString() : "";
                             if (!thinking.isEmpty()) {
-                                callback.onMessage(CliConstants.MSG_THINKING_DELTA, thinking);
+                                sectionEmitter(callback).thinkingDelta(thinking);
                             }
                             break;
                         case CliConstants.DELTA_INPUT_JSON:
@@ -154,7 +155,7 @@ public class ClaudeCliStreamParser {
             case CliConstants.STREAM_MESSAGE_DELTA:
                 // 包含 stop_reason 和 usage
                 if (event.has("usage")) {
-                    callback.onMessage(CliConstants.MSG_USAGE, event.get("usage").toString());
+                    sectionEmitter(callback).usage(event.get("usage").toString());
                 }
                 break;
 
@@ -164,7 +165,7 @@ public class ClaudeCliStreamParser {
                 // message_stop 只是单个 turn 的结束，不是整个会话的结束。
                 // 发送 message_end 清除 thinking 状态，重置 messageStarted 让下一个 turn
                 // 的 message_start 能重新触发，从而在 handler 中创建新的 assistant 消息。
-                callback.onMessage(CliConstants.MSG_MESSAGE_END, "");
+                sectionEmitter(callback).messageEnd();
                 messageStarted = false;
                 LOG.debug("[CliStreamParser] message_stop received, emitted message_end for turn boundary");
                 break;
@@ -232,7 +233,7 @@ public class ClaudeCliStreamParser {
             // 提取 session_id
             if (obj.has("session_id")) {
                 String sessionId = obj.get("session_id").getAsString();
-                callback.onMessage(CliConstants.MSG_SESSION_ID,sessionId);
+                sectionEmitter(callback).sessionId(sessionId);
             }
             emitStreamStartIfNeeded(callback);
             emitMessageStartIfNeeded(callback);
@@ -260,7 +261,7 @@ public class ClaudeCliStreamParser {
                         imageReadToolUseSeen = true;
                     }
                 }
-                callback.onMessage(CommonConstants.MSG_TYPE_TOOL_USE,block.toString());
+                sectionEmitter(callback).toolUse(block);
             } else if (CommonConstants.BLOCK_TYPE_SERVER_TOOL_USE.equals(blockType)) {
                 nextTextBlockIsAfterToolStructure = true;
                 emitServerToolUse(block, callback);
@@ -275,7 +276,7 @@ public class ClaudeCliStreamParser {
         if (id != null && !id.isBlank() && !emittedServerToolUseIds.add(id)) {
             return;
         }
-        callback.onMessage(CommonConstants.MSG_TYPE_TOOL_USE, normalized.toString());
+        sectionEmitter(callback).toolUse(normalized);
     }
 
     private JsonObject normalizeServerToolUse(JsonObject block) {
@@ -321,7 +322,7 @@ public class ClaudeCliStreamParser {
                         if (imageReadToolUseSeen && containsImageToolResult(block)) {
                             imageToolResultSeen = true;
                         }
-                        callback.onMessage(CommonConstants.MSG_TYPE_TOOL_RESULT,block.toString());
+                        sectionEmitter(callback).toolResult(block);
                     }
                 }
             }
@@ -334,7 +335,7 @@ public class ClaudeCliStreamParser {
 
         // 提取 usage
         if (obj.has("usage")) {
-            callback.onMessage(CliConstants.MSG_USAGE,obj.get("usage").toString());
+            sectionEmitter(callback).usage(obj.get("usage").toString());
         }
 
         boolean isErrorResult = obj.has("is_error") && obj.get("is_error").isJsonPrimitive() && obj.get("is_error").getAsBoolean();
@@ -346,22 +347,23 @@ public class ClaudeCliStreamParser {
                 // 没有通过 delta 收到内容时，使用 result
                 assistantContent.append(resultText);
                 markImageUnderstandingObserved(resultText);
-                callback.onMessage(CliConstants.MSG_CONTENT,resultText);
+                sectionEmitter(callback).content(resultText);
             }
         }
 
         // 提取 session_id（可能和 init 中的一致）
         if (obj.has("session_id")) {
             String sessionId = obj.get("session_id").getAsString();
-            callback.onMessage(CliConstants.MSG_SESSION_ID,sessionId);
+            sectionEmitter(callback).sessionId(sessionId);
         }
 
         // result 是 CLI 会话的最终事件，在这里发送 stream_end 和 message_end。
         // 不能在 message_stop 时发送 stream_end，因为 agentic 模式下
         // 可能有多个 assistant turn（工具调用 → 结果 → 继续输出），
         // message_stop 只是单个 turn 的结束。
-        callback.onMessage(CliConstants.MSG_STREAM_END,"");
-        callback.onMessage(CliConstants.MSG_MESSAGE_END,"");
+        CliSectionEmitter emitter = sectionEmitter(callback);
+        emitter.streamEnd();
+        emitter.messageEnd();
 
         if (isErrorResult) {
             String rawError = obj.has("result") && obj.get("result").isJsonPrimitive() ? obj.get("result").getAsString() : obj.toString();
@@ -386,7 +388,7 @@ public class ClaudeCliStreamParser {
 
     private void handleTextDelta(String text, MessageCallback callback, StringBuilder assistantContent) {
         if (currentTextBlockRoute == TextBlockRoute.TOOL_TRACE) {
-            callback.onMessage(CliConstants.MSG_THINKING_DELTA,text);
+            sectionEmitter(callback).thinkingDelta(text);
             return;
         }
         if (currentTextBlockRoute == TextBlockRoute.CONTENT || currentTextBlockRoute == TextBlockRoute.NONE) {
@@ -400,7 +402,7 @@ public class ClaudeCliStreamParser {
         if (isToolTraceText(candidate)) {
             currentTextBlockRoute = TextBlockRoute.TOOL_TRACE;
             pendingTextBlock.setLength(0);
-            callback.onMessage(CliConstants.MSG_THINKING_DELTA,candidate);
+            sectionEmitter(callback).thinkingDelta(candidate);
             return;
         }
         if (!isPotentialToolTracePrefix(candidate)) {
@@ -417,7 +419,7 @@ public class ClaudeCliStreamParser {
         String text = pendingTextBlock.toString();
         pendingTextBlock.setLength(0);
         if (forceToolTrace || currentTextBlockRoute == TextBlockRoute.TOOL_TRACE || isToolTraceText(text)) {
-            callback.onMessage(CliConstants.MSG_THINKING_DELTA,text);
+            sectionEmitter(callback).thinkingDelta(text);
             return;
         }
         markImageUnderstandingObserved(text);
@@ -425,8 +427,7 @@ public class ClaudeCliStreamParser {
     }
 
     private void emitContentDelta(String text, MessageCallback callback, StringBuilder assistantContent) {
-        assistantContent.append(text);
-        callback.onMessage(CliConstants.MSG_CONTENT_DELTA,text);
+        sectionEmitter(callback).contentDelta(assistantContent, text);
     }
 
     private void markImageUnderstandingObserved(String text) {
@@ -653,14 +654,18 @@ public class ClaudeCliStreamParser {
     private void emitStreamStartIfNeeded(MessageCallback callback) {
         if (!streamStarted) {
             streamStarted = true;
-            callback.onMessage(CliConstants.MSG_STREAM_START,"");
+            sectionEmitter(callback).streamStart();
         }
     }
 
     private void emitMessageStartIfNeeded(MessageCallback callback) {
         if (!messageStarted) {
             messageStarted = true;
-            callback.onMessage(CliConstants.MSG_MESSAGE_START,"");
+            sectionEmitter(callback).messageStart();
         }
+    }
+
+    private CliSectionEmitter sectionEmitter(MessageCallback callback) {
+        return new CliSectionEmitter(callback::onMessage);
     }
 }

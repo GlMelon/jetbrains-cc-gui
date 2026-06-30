@@ -255,8 +255,9 @@ public class CodexCliSession implements CliSession {
                     } else {
                         // [安全网] handleAgentMessageItem 已立即流式,pending 恒空,此调用是 no-op
                         flushPendingAgentMessageAsContent(callback, assistantContent);
-                        callback.onMessage(CliConstants.MSG_STREAM_END, "");
-                        callback.onMessage(CliConstants.MSG_MESSAGE_END, "");
+                        CliSectionEmitter emitter = sectionEmitter(callback);
+                        emitter.streamEnd();
+                        emitter.messageEnd();
                         callback.onComplete(true, assistantContent.toString(), null);
                     }
                 } else if (shouldReportExitError(exitCode)) {
@@ -391,7 +392,7 @@ public class CodexCliSession implements CliSession {
         }
         if (!mcpNoticeEmitted) {
             mcpNoticeEmitted = true;
-            callback.onMessage(CliConstants.CODEX_MSG_STATUS, McpErrorMatcher.MCP_SKIPPED_NOTICE);
+            sectionEmitter(callback).status(McpErrorMatcher.MCP_SKIPPED_NOTICE);
         }
         return true;
     }
@@ -430,15 +431,16 @@ public class CodexCliSession implements CliSession {
                     String id = getString(event, "thread_id");
                     if (id != null) {
                         threadId = id;
-                        callback.onMessage(CliConstants.MSG_SESSION_ID, id);
+                        sectionEmitter(callback).sessionId(id);
                     }
                     lastSegmentKind = SegmentKind.NONE;
-                    callback.onMessage(CliConstants.MSG_STREAM_START, "");
-                    callback.onMessage(CliConstants.MSG_MESSAGE_START, "");
+                    CliSectionEmitter emitter = sectionEmitter(callback);
+                    emitter.streamStart();
+                    emitter.messageStart();
                 }
                 case CliConstants.CODEX_EVENT_TURN_STARTED -> {
                     lastSegmentKind = SegmentKind.NONE;
-                    callback.onMessage(CliConstants.MSG_MESSAGE_START, "");
+                    sectionEmitter(callback).messageStart();
                 }
                 case CliConstants.CODEX_EVENT_ITEM_STARTED, CliConstants.CODEX_EVENT_ITEM_UPDATED, CliConstants.CODEX_EVENT_ITEM_COMPLETED -> {
                     if (event.has("item") && event.get("item").isJsonObject()) {
@@ -456,8 +458,9 @@ public class CodexCliSession implements CliSession {
                     // [安全网] handleAgentMessageItem 已立即流式,pending 恒空,此调用是 no-op
                     flushPendingAgentMessageAsContent(callback, assistantContent);
                     if (event.has("usage") && event.get("usage").isJsonObject()) {
-                        callback.onMessage(CliConstants.MSG_USAGE, event.getAsJsonObject("usage").toString());
-                        callback.onMessage(CliConstants.MSG_RESULT, buildUsageResultMessage(event.getAsJsonObject("usage")).toString());
+                        CliSectionEmitter emitter = sectionEmitter(callback);
+                        emitter.usage(event.getAsJsonObject("usage").toString());
+                        emitter.result(buildUsageResultMessage(event.getAsJsonObject("usage")).toString());
                     }
                 }
                 case CliConstants.CODEX_EVENT_TURN_FAILED -> {
@@ -567,13 +570,13 @@ public class CodexCliSession implements CliSession {
         markSegment(callback, SegmentKind.THINKING);
         // 首次遇到该 reasoning item 时发送 thinking 开始信号
         if (emittedThinkingStartIds.add(id)) {
-            callback.onMessage(CommonConstants.MSG_TYPE_THINKING, "");
+            sectionEmitter(callback).thinkingStart();
         }
         String previous = reasoningTextByItemId.getOrDefault(id, "");
         String delta = appendedDelta(previous, text);
         reasoningTextByItemId.put(id, text);
         if (!delta.isEmpty()) {
-            callback.onMessage(CliConstants.MSG_THINKING_DELTA, delta);
+            sectionEmitter(callback).thinkingDelta(delta);
         }
     }
 
@@ -761,13 +764,13 @@ public class CodexCliSession implements CliSession {
             // 把整段当 delta 追加会与已有正文拼接重复。此时先重置块再作为新内容输出。
             boolean freshBlock = assistantContent.length() > 0 && !text.startsWith(assistantContent.toString());
             if (freshBlock) {
-                callback.onMessage(CliConstants.MSG_BLOCK_RESET, "");
+                sectionEmitter(callback).blockReset();
                 assistantContent.setLength(0);
                 delta = text;
             }
             emitContentDelta(callback, assistantContent, delta);
         }
-        callback.onMessage(CommonConstants.MSG_TYPE_ASSISTANT, buildAssistantMessage(text).toString());
+        sectionEmitter(callback).assistantRaw(buildAssistantMessage(text));
     }
 
     private void emitContentDelta(
@@ -779,8 +782,11 @@ public class CodexCliSession implements CliSession {
             return;
         }
         markSegment(callback, SegmentKind.TEXT);
-        assistantContent.append(text);
-        callback.onMessage(CliConstants.MSG_CONTENT_DELTA, text);
+        sectionEmitter(callback).contentDelta(assistantContent, text);
+    }
+
+    private CliSectionEmitter sectionEmitter(CliSessionCallback callback) {
+        return new CliSectionEmitter(callback::onMessage);
     }
 
     /**
@@ -820,8 +826,9 @@ public class CodexCliSession implements CliSession {
             return;
         }
         markSegment(callback, SegmentKind.THINKING);
-        callback.onMessage(CommonConstants.MSG_TYPE_THINKING, "");
-        callback.onMessage(CliConstants.MSG_THINKING_DELTA, text);
+        CliSectionEmitter emitter = sectionEmitter(callback);
+        emitter.thinkingStart();
+        emitter.thinkingDelta(text);
     }
 
     private void markSegment(CliSessionCallback callback, SegmentKind nextKind) {
@@ -834,7 +841,7 @@ public class CodexCliSession implements CliSession {
                         && lastSegmentKind != SegmentKind.TOOL
                         && nextKind == SegmentKind.TOOL);
         if (crossesToolBoundary) {
-            callback.onMessage(CliConstants.MSG_BLOCK_RESET, "");
+            sectionEmitter(callback).blockReset();
         }
         lastSegmentKind = nextKind;
     }
@@ -904,14 +911,14 @@ public class CodexCliSession implements CliSession {
         if (!emittedToolUseIds.add(id)) {
             return;
         }
-        callback.onMessage(CommonConstants.MSG_TYPE_ASSISTANT, buildToolUseMessage(id, name, input).toString());
+        sectionEmitter(callback).assistantRaw(buildToolUseMessage(id, name, input));
     }
 
     private void emitToolResultOnce(CliSessionCallback callback, String id, boolean isError, String content) {
         if (!emittedToolResultIds.add(id)) {
             return;
         }
-        callback.onMessage(CommonConstants.MSG_TYPE_USER, buildToolResultMessage(id, isError, content).toString());
+        sectionEmitter(callback).userRaw(buildToolResultMessage(id, isError, content));
     }
 
     private JsonObject parseFunctionCallArguments(JsonObject payload) {

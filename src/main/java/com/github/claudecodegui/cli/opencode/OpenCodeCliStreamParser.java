@@ -2,6 +2,7 @@ package com.github.claudecodegui.cli.opencode;
 
 import com.github.claudecodegui.cli.CliSessionCallback;
 import com.github.claudecodegui.cli.common.CliConstants;
+import com.github.claudecodegui.cli.common.CliSectionEmitter;
 import com.github.claudecodegui.cli.common.McpErrorMatcher;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.util.GsonHolder;
@@ -43,6 +44,7 @@ public class OpenCodeCliStreamParser {
 
     private final Gson gson = GsonHolder.GSON;
     private final CliSessionCallback callback;
+    private final CliSectionEmitter emitter;
 
     private String capturedSessionId;
     private boolean streamStarted;
@@ -59,6 +61,7 @@ public class OpenCodeCliStreamParser {
 
     public OpenCodeCliStreamParser(CliSessionCallback callback) {
         this.callback = callback;
+        this.emitter = new CliSectionEmitter(callback::onMessage);
     }
 
     /** 本次运行捕获到的 session id(从事件流顶层 sessionID 提取),供会话层缓存与续接。 */
@@ -113,7 +116,7 @@ public class OpenCodeCliStreamParser {
         }
         if (!mcpNoticeEmitted) {
             mcpNoticeEmitted = true;
-            callback.onMessage(CliConstants.CODEX_MSG_STATUS, McpErrorMatcher.MCP_SKIPPED_NOTICE);
+            emitter.status(McpErrorMatcher.MCP_SKIPPED_NOTICE);
         }
         return true;
     }
@@ -173,11 +176,11 @@ public class OpenCodeCliStreamParser {
     private void handleStepStart() {
         if (!streamStarted) {
             streamStarted = true;
-            callback.onMessage(CliConstants.MSG_STREAM_START, "");
+            emitter.streamStart();
         }
         if (!sessionIdEmitted && capturedSessionId != null) {
             sessionIdEmitted = true;
-            callback.onMessage(CliConstants.MSG_SESSION_ID, capturedSessionId);
+            emitter.sessionId(capturedSessionId);
         }
     }
 
@@ -187,10 +190,7 @@ public class OpenCodeCliStreamParser {
             return;
         }
         String text = getString(part, "text");
-        if (text != null && !text.isEmpty()) {
-            assistantContent.append(text);
-            callback.onMessage(CliConstants.MSG_CONTENT_DELTA, text);
-        }
+        emitter.contentDelta(assistantContent, text);
     }
 
     private void handleToolUse(JsonObject event) {
@@ -211,7 +211,7 @@ public class OpenCodeCliStreamParser {
         toolUseBlock.addProperty("id", callId);
         toolUseBlock.addProperty("name", tool);
         toolUseBlock.add("input", input);
-        callback.onMessage(CommonConstants.MSG_TYPE_TOOL_USE, toolUseBlock.toString());
+        emitter.toolUse(toolUseBlock);
 
         // tool_result 原始块(CodexMessageHandler.handleToolResult 经 wrapAsUserRaw 包装)
         JsonObject toolResultBlock = new JsonObject();
@@ -219,7 +219,7 @@ public class OpenCodeCliStreamParser {
         toolResultBlock.addProperty("tool_use_id", callId);
         toolResultBlock.addProperty("is_error", isError);
         toolResultBlock.addProperty("content", output != null ? output : "(running)");
-        callback.onMessage(CommonConstants.MSG_TYPE_TOOL_RESULT, toolResultBlock.toString());
+        emitter.toolResult(toolResultBlock);
     }
 
     private void handleStepFinish(JsonObject event) {
@@ -233,12 +233,12 @@ public class OpenCodeCliStreamParser {
             JsonObject usage = buildUsage(tokens);
             JsonObject resultWrapper = new JsonObject();
             resultWrapper.add("usage", usage);
-            callback.onMessage(CliConstants.MSG_RESULT, resultWrapper.toString());
+            emitter.result(resultWrapper.toString());
         }
         if (REASON_STOP.equals(getString(part, "reason"))) {
             streamEnded = true;
-            callback.onMessage(CliConstants.MSG_STREAM_END, "");
-            callback.onMessage(CliConstants.MSG_MESSAGE_END, "");
+            emitter.streamEnd();
+            emitter.messageEnd();
         }
     }
 
