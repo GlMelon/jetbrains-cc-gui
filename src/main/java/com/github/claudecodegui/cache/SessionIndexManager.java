@@ -78,6 +78,7 @@ public class SessionIndexManager {
     public static class ProjectIndex {
         public long lastDirScanTime;
         public int fileCount;
+        public long totalFileSize;
         public List<SessionIndexEntry> sessions = new ArrayList<>();
 
         /**
@@ -375,16 +376,25 @@ public class SessionIndexManager {
         }
 
         try {
-            // Count files first (recursive walk for nested year/month/day structure)
-            long currentFileCount;
+            // Fingerprint files recursively for Codex's nested year/month/day structure.
+            long currentFileCount = 0;
+            long currentTotalFileSize = 0;
             try (Stream<Path> paths = Files.walk(sessionsDir)) {
-                currentFileCount = paths
+                List<Path> files = paths
                         .filter(Files::isRegularFile)
                         .filter(p -> p.toString().endsWith(".jsonl"))
-                        .count();
+                        .toList();
+                currentFileCount = files.size();
+                for (Path file : files) {
+                    currentTotalFileSize += Files.size(file);
+                }
             }
 
             if (currentFileCount == projectIndex.fileCount) {
+                if (projectIndex.totalFileSize > 0 && currentTotalFileSize != projectIndex.totalFileSize) {
+                    LOG.info("[SessionIndexManager] Codex file size changed: " + projectIndex.totalFileSize + " -> " + currentTotalFileSize + ", incremental update");
+                    return UpdateType.INCREMENTAL;
+                }
                 return UpdateType.NONE;
             } else if (currentFileCount > projectIndex.fileCount) {
                 LOG.info("[SessionIndexManager] Codex file count increased: " + projectIndex.fileCount + " -> " + currentFileCount + ", incremental update");

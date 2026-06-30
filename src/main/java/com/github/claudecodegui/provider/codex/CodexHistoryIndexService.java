@@ -467,6 +467,7 @@ class CodexHistoryIndexService {
         SessionIndexManager.ProjectIndex projectIndex = new SessionIndexManager.ProjectIndex();
         projectIndex.lastDirScanTime = System.currentTimeMillis();
         projectIndex.fileCount = countSessionFiles();
+        projectIndex.totalFileSize = sumSessionFileSizes();
 
         for (CodexHistoryReader.SessionInfo session : deduplicatedSessions) {
             SessionIndexManager.SessionIndexEntry entry = new SessionIndexManager.SessionIndexEntry();
@@ -558,6 +559,20 @@ class CodexHistoryIndexService {
                     .filter(path -> path.toString().endsWith(".jsonl"))
                     .count();
         }
+    }
+
+    private long sumSessionFileSizes() throws IOException {
+        long total = 0;
+        try (Stream<Path> paths = Files.walk(sessionsDir)) {
+            List<Path> files = paths
+                    .filter(Files::isRegularFile)
+                    .filter(path -> path.toString().endsWith(".jsonl"))
+                    .collect(Collectors.toList());
+            for (Path file : files) {
+                total += Files.size(file);
+            }
+        }
+        return total;
     }
 
     /**

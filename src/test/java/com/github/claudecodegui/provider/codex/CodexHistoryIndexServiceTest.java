@@ -7,6 +7,7 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
 import java.io.IOException;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
@@ -136,6 +137,30 @@ public class CodexHistoryIndexServiceTest {
         assertEquals(2, byId.size());
         assertNotNull(byId.get("thread_old1234567890"));
         assertNotNull(byId.get("thread_new0987654321"));
+    }
+
+    @Test
+    public void recursiveUpdateType_detectsAppendedCodexSessionFile() throws IOException {
+        Path sessionsDir = tmp.newFolder("codex-index-size-drift").toPath();
+        Path nested = sessionsDir.resolve("2026/04/21");
+        Files.createDirectories(nested);
+
+        Path file = writeSessionFile(nested, "rollout-size.jsonl", "thread_size123456789");
+        long initialSize = Files.size(file);
+
+        SessionIndexManager.ProjectIndex existing = new SessionIndexManager.ProjectIndex();
+        existing.fileCount = 1;
+        existing.totalFileSize = initialSize;
+        existing.sessions.add(new SessionIndexManager.SessionIndexEntry());
+
+        Files.writeString(
+                file,
+                "{\"timestamp\":\"2026-04-21T10:00:15Z\",\"type\":\"response_item\",\"payload\":{\"type\":\"message\"}}\n",
+                StandardOpenOption.APPEND
+        );
+
+        SessionIndexManager manager = SessionIndexManager.getInstance();
+        assertEquals(SessionIndexManager.UpdateType.INCREMENTAL, manager.getUpdateTypeRecursive(existing, sessionsDir));
     }
 
     // --- helpers -----------------------------------------------------------

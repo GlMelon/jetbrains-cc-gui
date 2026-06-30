@@ -2,11 +2,13 @@ package com.github.claudecodegui.cache;
 
 import com.intellij.openapi.diagnostic.Logger;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Stream;
 
 /**
  * In-memory cache for session indexes.
@@ -42,11 +44,23 @@ public class SessionIndexCache {
     public static class CacheEntry<T> {
         private final List<T> sessions;
         private final long lastDirModified;
+        private final long fileCount;
+        private final long totalFileSize;
         private final long cacheCreatedAt;
 
         public CacheEntry(List<T> sessions, long lastDirModified) {
+            this(sessions, lastDirModified, -1, -1);
+        }
+
+        public CacheEntry(List<T> sessions, long lastDirModified, long fileCount) {
+            this(sessions, lastDirModified, fileCount, -1);
+        }
+
+        public CacheEntry(List<T> sessions, long lastDirModified, long fileCount, long totalFileSize) {
             this.sessions = sessions;
             this.lastDirModified = lastDirModified;
+            this.fileCount = fileCount;
+            this.totalFileSize = totalFileSize;
             this.cacheCreatedAt = System.currentTimeMillis();
         }
 
@@ -56,6 +70,14 @@ public class SessionIndexCache {
 
         public long getLastDirModified() {
             return lastDirModified;
+        }
+
+        public long getFileCount() {
+            return fileCount;
+        }
+
+        public long getTotalFileSize() {
+            return totalFileSize;
         }
 
         public long getCacheCreatedAt() {
@@ -79,6 +101,22 @@ public class SessionIndexCache {
             }
             // If the directory modification time hasn't changed, the cache is still valid
             return currentDirModified == lastDirModified;
+        }
+
+        /**
+         * Checks whether a recursive file tree fingerprint is still valid.
+         *
+         * @param currentLatestModified latest modification time among session files
+         * @param currentFileCount      current session file count
+         * @param currentTotalFileSize  current total session file size
+         */
+        public boolean isValidFileTree(long currentLatestModified, long currentFileCount, long currentTotalFileSize) {
+            if (isExpired()) {
+                return false;
+            }
+            return currentLatestModified == lastDirModified
+                    && currentFileCount == fileCount
+                    && currentTotalFileSize == totalFileSize;
         }
     }
 
@@ -131,10 +169,9 @@ public class SessionIndexCache {
             return null;
         }
 
-        // Codex sessions use nested year/month/day directories, so root directory
-        // timestamp is unreliable for detecting new files. Use TTL-only validation.
-        if (entry.isExpired()) {
-            LOG.info("[SessionIndexCache] Codex cache expired for " + projectPath);
+        FileTreeFingerprint fingerprint = getJsonlFileTreeFingerprint(sessionsDir);
+        if (!entry.isValidFileTree(fingerprint.latestModified, fingerprint.fileCount, fingerprint.totalFileSize)) {
+            LOG.info("[SessionIndexCache] Codex cache invalid: expired or file tree changed for " + projectPath);
             codexCache.remove(projectPath);
             return null;
         }
@@ -147,8 +184,8 @@ public class SessionIndexCache {
      * Updates the Codex cache.
      */
     public <T> void updateCodexCache(String projectPath, Path sessionsDir, List<T> sessions) {
-        long dirModified = getDirModifiedTime(sessionsDir);
-        CacheEntry<T> entry = new CacheEntry<>(sessions, dirModified);
+        FileTreeFingerprint fingerprint = getJsonlFileTreeFingerprint(sessionsDir);
+        CacheEntry<T> entry = new CacheEntry<>(sessions, fingerprint.latestModified, fingerprint.fileCount, fingerprint.totalFileSize);
         codexCache.put(projectPath, entry);
         LOG.info("[SessionIndexCache] Codex cache updated for " + projectPath + ", sessions: " + sessions.size());
     }
@@ -193,5 +230,35 @@ public class SessionIndexCache {
             LOG.warn("[SessionIndexCache] Failed to get dir modified time: " + e.getMessage());
             return 0;
         }
+    }
+
+    private FileTreeFingerprint getJsonlFileTreeFingerprint(Path dir) {
+        if (dir == null || !Files.exists(dir)) {
+            return new FileTreeFingerprint(0, 0, 0);
+        }
+        long fileCount = 0;
+        long latestModified = 0;
+        long totalFileSize = 0;
+        try (Stream<Path> paths = Files.walk(dir)) {
+            for (Path path : paths
+                    .filter(Files::isRegularFile)
+                    .filter(p -> p.toString().endsWith(".jsonl"))
+                    .toList()) {
+                fileCount++;
+                try {
+                    totalFileSize += Files.size(path);
+                    latestModified = Math.max(latestModified, Files.getLastModifiedTime(path).toMillis());
+                } catch (IOException e) {
+                    LOG.debug("[SessionIndexCache] Failed to stat Codex session file: " + e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            LOG.warn("[SessionIndexCache] Failed to fingerprint Codex session tree: " + e.getMessage());
+            return new FileTreeFingerprint(0, 0, 0);
+        }
+        return new FileTreeFingerprint(latestModified, fileCount, totalFileSize);
+    }
+
+    private record FileTreeFingerprint(long latestModified, long fileCount, long totalFileSize) {
     }
 }
