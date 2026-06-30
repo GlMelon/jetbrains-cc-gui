@@ -45,7 +45,9 @@ public class EffectiveRuntimeResolverTest {
     }
 
     @Test
-    public void unsupportedRequestedRuntimeFallsBackToProviderDefault() {
+    public void explicitCodexSdkRequestHonoredEvenWhenUnsupported() {
+        // CLI/SDK 相互独立:用户经「调用模式」显式请求 sdk,即使「路由策略」codex 仅支持 CLI,
+        // 也尊重用户选择用 SDK,不再降级到 default=CLI(2026-06-29:消除显式选择被降级)。
         RuntimePolicyConfig policy = policy(
                 new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK),
                 new ProviderRuntimePolicy(true, Set.of(RuntimeType.CLI), RuntimeType.CLI)
@@ -54,7 +56,8 @@ public class EffectiveRuntimeResolverTest {
         EffectiveRuntimeResolver.Runtime runtime = EffectiveRuntimeResolver.resolve(
                 "codex", null, "sdk", policy);
 
-        assertEquals(RuntimeType.CLI, runtime.runtimeType());
+        assertEquals(RuntimeType.SDK, runtime.runtimeType());
+        assertFalse(runtime.degraded());
     }
 
     @Test
@@ -74,19 +77,19 @@ public class EffectiveRuntimeResolverTest {
     }
 
     @Test
-    public void degradedFlagTrueWhenRequestedRuntimeUnsupportedForCodex() {
-        // 冲突点 B:用户经「调用模式」请求 sdk,但「路由策略」codex 仅支持 CLI → 被降级到 default=CLI。
-        // 此前静默降级零反馈;现 resolve 标记 degraded=true 供调用方提示用户。
+    public void explicitCodexCliRequestHonoredEvenWhenUnsupported() {
+        // 对称覆盖 CLI 方向:用户经「调用模式」显式请求 cli,即使「路由策略」codex 仅支持 SDK,
+        // 也尊重用户选择用 CLI,不降级(CLI/SDK 相互独立)。
         RuntimePolicyConfig policy = policy(
                 new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK),
-                new ProviderRuntimePolicy(true, Set.of(RuntimeType.CLI), RuntimeType.CLI)
+                new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK), RuntimeType.SDK)
         );
 
         EffectiveRuntimeResolver.Runtime runtime = EffectiveRuntimeResolver.resolve(
-                "codex", null, "sdk", policy);
+                "codex", null, "cli", policy);
 
         assertEquals(RuntimeType.CLI, runtime.runtimeType());
-        assertTrue(runtime.degraded());
+        assertFalse(runtime.degraded());
     }
 
     @Test
@@ -119,8 +122,9 @@ public class EffectiveRuntimeResolverTest {
     }
 
     @Test
-    public void degradedFlagTrueWhenClaudeRequestedRuntimeUnsupported() {
-        // claude 仅支持 SDK,会话级模式 cli → 降级到 default=SDK。
+    public void explicitClaudeCliSnapshotHonoredEvenWhenUnsupported() {
+        // 用户在「调用模式」选 CLI(会话快照 cli),即使「路由策略」claude 仅支持 SDK,
+        // 也尊重用户选择用 CLI,不再降级到 SDK(CLI/SDK 相互独立,2026-06-29)。
         RuntimePolicyConfig policy = policy(
                 new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK), RuntimeType.SDK),
                 new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK)
@@ -129,8 +133,8 @@ public class EffectiveRuntimeResolverTest {
         EffectiveRuntimeResolver.Runtime runtime = EffectiveRuntimeResolver.resolve(
                 "claude", "cli", null, policy);
 
-        assertEquals(RuntimeType.SDK, runtime.runtimeType());
-        assertTrue(runtime.degraded());
+        assertEquals(RuntimeType.CLI, runtime.runtimeType());
+        assertFalse(runtime.degraded());
     }
 
     @Test
@@ -154,17 +158,14 @@ public class EffectiveRuntimeResolverTest {
 
     @Test
     public void degradedNoticeDescribesFallbackRuntimeWhenDegraded() {
-        // 冲突点 B:codex 请求 sdk 但策略仅支持 CLI → 降级到 CLI。
-        // 提示文案应明确回退到的运行时(CLI),让用户理解降级方向。
-        RuntimePolicyConfig policy = policy(
-                new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK),
-                new ProviderRuntimePolicy(true, Set.of(RuntimeType.CLI), RuntimeType.CLI)
-        );
-
-        EffectiveRuntimeResolver.Runtime runtime = EffectiveRuntimeResolver.resolve(
-                "codex", null, "sdk", policy);
+        // 显式选择不再降级后,resolve 产出的 degraded=true 仅剩 Claude 无显式选择走 settings、
+        // 且 settings 模式不在 supported 内的防御性路径(Platform 依赖难单测)。degradedNotice 是纯函数,
+        // 直接构造 degraded Runtime 验证文案功能(回退运行时描述)。
+        EffectiveRuntimeResolver.Runtime runtime = new EffectiveRuntimeResolver.Runtime(
+                ProviderType.CODEX, RuntimeType.CLI, true);
 
         String notice = EffectiveRuntimeResolver.degradedNotice(runtime);
+
         assertNotNull(notice);
         assertTrue(notice.contains("CLI"));
     }
@@ -271,8 +272,8 @@ public class EffectiveRuntimeResolverTest {
     }
 
     @Test
-    public void codexDegradedWhenSnapshotUnsupported() {
-        // 快照 sdk 但「路由策略」codex 仅支持 CLI → 降级 CLI,标记 degraded(供 toast 提示)。
+    public void explicitCodexSdkSnapshotHonoredEvenWhenUnsupported() {
+        // 会话快照 sdk 为显式选择,即使「路由策略」codex 仅支持 CLI,也尊重用 SDK,不降级。
         RuntimePolicyConfig policy = policy(
                 new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK),
                 new ProviderRuntimePolicy(true, Set.of(RuntimeType.CLI), RuntimeType.CLI)
@@ -281,12 +282,13 @@ public class EffectiveRuntimeResolverTest {
         EffectiveRuntimeResolver.Runtime runtime = EffectiveRuntimeResolver.resolve(
                 "codex", "sdk", null, policy);
 
-        assertEquals(RuntimeType.CLI, runtime.runtimeType());
-        assertTrue(runtime.degraded());
+        assertEquals(RuntimeType.SDK, runtime.runtimeType());
+        assertFalse(runtime.degraded());
     }
 
     @Test
-    public void opencodeDegradedWhenSnapshotUnsupported() {
+    public void explicitOpencodeSdkSnapshotHonoredEvenWhenUnsupported() {
+        // 会话快照 sdk 为显式选择,即使「路由策略」opencode 仅支持 CLI,也尊重用 SDK,不降级。
         RuntimePolicyConfig policy = policy(
                 new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK),
                 new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK),
@@ -296,8 +298,8 @@ public class EffectiveRuntimeResolverTest {
         EffectiveRuntimeResolver.Runtime runtime = EffectiveRuntimeResolver.resolve(
                 "opencode", "sdk", null, policy);
 
-        assertEquals(RuntimeType.CLI, runtime.runtimeType());
-        assertTrue(runtime.degraded());
+        assertEquals(RuntimeType.SDK, runtime.runtimeType());
+        assertFalse(runtime.degraded());
     }
 
     private static RuntimePolicyConfig policy(ProviderRuntimePolicy claude, ProviderRuntimePolicy codex) {

@@ -83,6 +83,9 @@ public class SessionLifecycleManager {
             });
 
             ClaudeSession newSession = createDefaultSession();
+            // 修复①:标签页内新建会话继承本标签页旧会话的运行时状态(provider/model/permission/调用模式),
+            // 而非回退全局粘性默认(粘性默认仅供"新标签页"读取上次选择)。
+            applyInheritedRuntimeState(newSession, oldSession);
 
             completeNewSessionBootstrap(newSession, determineWorkingDirectory(),
                     "New session created successfully, working directory: ");
@@ -460,6 +463,30 @@ public class SessionLifecycleManager {
         session.setPermissionMode(readDefaultPermissionMode(provider));
         session.setModel(readDefaultModel(provider));
         session.setClaudeInvocationMode(readClaudeInvocationMode());
+    }
+
+    /**
+     * 标签页内新建会话时,将旧会话的运行时状态(provider/model/permissionMode/claudeInvocationMode)
+     * 继承到新会话,避免回退到全局粘性默认。镜像 {@link #loadHistorySession} 的保留模式
+     * (previousProvider/previousModel 直接 setModel 不校验跨 provider 兼容性,保持一致)。
+     * <p>"记录上次 provider"仅供<b>新标签页</b>读取上次选择(见 SessionRuntimeDefaults);
+     * 已有标签页内新建会话应保留本标签页当前 provider,而非被全局粘性值覆盖。
+     *
+     * @param target 新建会话(createDefaultSession 返回,已填充默认值)
+     * @param source 切换前的旧会话;为 null 或 provider 无效时 no-op(保留 target 默认)
+     */
+    static void applyInheritedRuntimeState(ClaudeSession target, ClaudeSession source) {
+        if (target == null || source == null) {
+            return;
+        }
+        String provider = source.getProvider();
+        if (!SessionState.VALID_PROVIDERS.contains(provider)) {
+            return;
+        }
+        target.setProvider(provider);
+        target.setModel(source.getModel());
+        target.setPermissionMode(source.getPermissionMode());
+        target.setClaudeInvocationMode(source.getClaudeInvocationMode());
     }
 
     private String readDefaultProvider() {

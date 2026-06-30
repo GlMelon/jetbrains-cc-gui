@@ -49,6 +49,45 @@ public class SessionLifecycleManagerTest {
         assertFalse(SessionLifecycleManager.shouldResetClaudeDaemonFor("opencode", null));
     }
 
+    // 修复①:标签页内新建会话应保留本标签页旧会话的 provider/model/permission/调用模式,
+    // 而非回退全局粘性默认(粘性默认仅供"新标签页"读取上次选择)。
+    @Test
+    public void applyInheritedRuntimeStatePreservesOldSessionRuntime() {
+        ClaudeSession oldSession = new ClaudeSession(null, null, null, null);
+        oldSession.setProvider("codex");
+        oldSession.setModel("gpt-5.5");
+        oldSession.setPermissionMode("acceptEdits");
+        oldSession.setClaudeInvocationMode("cli");
+
+        ClaudeSession newSession = new ClaudeSession(null, null, null, null);
+
+        SessionLifecycleManager.applyInheritedRuntimeState(newSession, oldSession);
+
+        assertEquals("codex", newSession.getProvider());
+        assertEquals("gpt-5.5", newSession.getModel());
+        assertEquals("acceptEdits", newSession.getPermissionMode());
+        assertEquals("cli", newSession.getClaudeInvocationMode());
+    }
+
+    @Test
+    public void applyInheritedRuntimeStateHandlesNullTarget() {
+        // null target → 防御性 no-op(不 NPE)
+        ClaudeSession source = new ClaudeSession(null, null, null, null);
+        source.setProvider("codex");
+        SessionLifecycleManager.applyInheritedRuntimeState(null, source);
+    }
+
+    @Test
+    public void applyInheritedRuntimeStateHandlesNullSource() {
+        // 无旧会话(首次/新标签页)→ 安全 no-op,保持新会话默认
+        ClaudeSession newSession = new ClaudeSession(null, null, null, null);
+        newSession.setProvider("claude");
+
+        SessionLifecycleManager.applyInheritedRuntimeState(newSession, null);
+
+        assertEquals("claude", newSession.getProvider());
+    }
+
     private static final class FakeSessionHost implements SessionLifecycleManager.SessionHost {
         private final List<String> javaScriptCalls = new ArrayList<>();
         private final StreamMessageCoalescer streamCoalescer = new StreamMessageCoalescer(new StreamMessageCoalescer.JsCallbackTarget() {

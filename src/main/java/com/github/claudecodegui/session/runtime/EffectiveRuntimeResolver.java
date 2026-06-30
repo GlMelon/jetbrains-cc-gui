@@ -13,7 +13,8 @@ import com.github.claudecodegui.session.SessionState;
  * <p>
  * 解析逻辑(三 provider claude/codex/opencode 统一):
  * - sessionMode(会话快照)优先 > requestedMode(请求级);两者都无效时 Claude 回退 settings,Codex/OpenCode 回退「路由策略」default
- * - 解析出的 runtime 不在路由策略 supported 内 → 降级到 policy.default 并标记 degraded(供 toast 提示)
+ * - <b>显式选择(sessionMode/requestedMode 有效)尊重用户意愿,CLI/SDK 相互独立,不降级</b>;
+ *   仅无显式选择(默认推断,Claude settings 回退)时检查路由策略 supported,不在内则降级到 policy.default 并标记 degraded(供 toast 提示)
  * - 纯快照语义:已有会话锁死快照模式,设置切换只影响新会话(快照创建见 SessionLifecycleManager.initializeSessionRuntimeDefaults)
  */
 public final class EffectiveRuntimeResolver {
@@ -65,6 +66,9 @@ public final class EffectiveRuntimeResolver {
         String snapshotMode = normalizeInvocationMode(sessionMode);
         String requestMode = normalizeInvocationMode(requestedMode);
         String effectiveMode = snapshotMode != null ? snapshotMode : requestMode;
+        // 显式选择 = 会话快照或请求级传入了有效调用模式(cli/sdk)。
+        // 显式选择时尊重用户意愿(CLI/SDK 相互独立),不因路由策略 supported 不含而降级(见下方分支)。
+        boolean explicitChoice = effectiveMode != null;
         if (effectiveMode == null) {
             if (pt == ProviderType.CLAUDE) {
                 // Claude 保留三级回退(含 settings 读取,helper 自带 catch 兜底 SDK)。
@@ -75,6 +79,13 @@ public final class EffectiveRuntimeResolver {
             }
         }
         RuntimeType requestedRuntime = RuntimeType.fromInvocationMode(effectiveMode);
+        if (explicitChoice) {
+            // 用户显式选择了调用模式(会话快照 / 请求级):CLI 与 SDK 相互独立,尊重用户选择,
+            // 不因「路由策略」supported 不含而降级到 default(2026-06-29:消除显式 CLI 选择被降级到 SDK)。
+            return new Runtime(pt, requestedRuntime, false);
+        }
+        // 无显式选择(默认推断,Claude settings 回退路径):保留路由策略 supported 约束,
+        // 冲突时降级到 default 并标记 degraded(供 toast 提示)。
         boolean degraded = !providerPolicy.supported().contains(requestedRuntime);
         RuntimeType rt = degraded ? providerPolicy.defaultRuntime() : requestedRuntime;
         return new Runtime(pt, rt, degraded);
