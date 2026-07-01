@@ -104,4 +104,34 @@ public class OpenCodeSDKBridgeTest {
         assertTrue("命中 MCP 须发 CODEX_MSG_STATUS 非阻塞提示,而非 onError/hadSendError",
                 source.contains("callback.onMessage(CliConstants.CODEX_MSG_STATUS, McpErrorMatcher.MCP_SKIPPED_NOTICE)"));
     }
+
+    @Test
+    public void getSessionMessagesUsesOpenCodeBridgeCommandAndTimeoutDrain() throws Exception {
+        String source = java.nio.file.Files.readString(java.nio.file.Paths.get(
+                "src", "main", "java", "com", "github", "claudecodegui", "provider", "opencode", "OpenCodeSDKBridge.java"));
+        assertTrue("OpenCode 历史回放必须调用 channel-manager.js opencode getSession",
+                source.contains("cmd.add(getProviderName());") && source.contains("cmd.add(\"getSession\");"));
+        assertTrue("历史查询必须注册进程,确保 cleanupAllProcesses 能清理",
+                source.contains("processManager.registerProcess(channelId, process)"));
+        assertTrue("历史查询必须先 waitFor 超时,避免 readLine 卡死导致超时失效",
+                source.contains("process.waitFor(HISTORY_QUERY_TIMEOUT_SECONDS, TimeUnit.SECONDS)"));
+        assertTrue("历史查询超时必须终止并等待子进程退出",
+                source.contains("PlatformUtils.terminateProcessAndWait(process, 3, TimeUnit.SECONDS)"));
+    }
+
+    @Test
+    public void getSessionListUsesOpenCodeBridgeCommandAndTimeoutDrain() throws Exception {
+        // OpenCode 会话枚举(对称 Codex getSessionsForProjectAsJson)走 channel-manager.js opencode listSessions,
+        // spawn/进程 耦合 Platform 无法纯单测,用源码字符串守卫(对称 getSessionMessages 守卫)防回退。
+        String source = java.nio.file.Files.readString(java.nio.file.Paths.get(
+                "src", "main", "java", "com", "github", "claudecodegui", "provider", "opencode", "OpenCodeSDKBridge.java"));
+        assertTrue("OpenCode 会话枚举必须调用 channel-manager.js opencode listSessions",
+                source.contains("cmd.add(getProviderName());") && source.contains("cmd.add(\"listSessions\");"));
+        assertTrue("会话枚举必须注册进程,确保 cleanupAllProcesses 能清理",
+                source.contains("processManager.registerProcess(channelId, process)"));
+        assertTrue("会话枚举必须先 waitFor 超时,避免 readLine 卡死导致超时失效",
+                source.contains("process.waitFor(HISTORY_QUERY_TIMEOUT_SECONDS, TimeUnit.SECONDS)"));
+        assertTrue("会话枚举超时必须终止并等待子进程退出",
+                source.contains("PlatformUtils.terminateProcessAndWait(process, 3, TimeUnit.SECONDS)"));
+    }
 }

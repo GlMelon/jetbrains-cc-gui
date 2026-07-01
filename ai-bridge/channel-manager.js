@@ -14,7 +14,7 @@
  * Commands:
  *   send                - Send a message (parameters passed via stdin as JSON)
  *   sendWithAttachments - Send a message with attachments (claude only)
- *   getSession          - Retrieve session message history (claude only)
+ *   getSession          - Retrieve session message history (claude/opencode)
  *
  * Design notes:
  * - Single entry point that dispatches to different services based on the provider parameter
@@ -27,6 +27,7 @@ import { readStdinData } from './utils/stdin-utils.js';
 import { getDefaultProviderRegistry } from './channels/provider-registry.js';
 import { getSdkStatus, isClaudeSdkAvailable, isCodexSdkAvailable } from './utils/sdk-loader.js';
 import { injectStartupEnvVars, configureCliIdentity } from './config/api-config.js';
+import { resolveExitStrategy, exitDelayFor, EXIT_STRATEGY } from './utils/exit-strategy.js';
 
 // Sync proxy/TLS settings and AWS credentials from ~/.claude/settings.json
 // BEFORE any network activity, but only for explicitly authorized Local
@@ -154,21 +155,17 @@ const providerRegistry = getDefaultProviderRegistry();
     }
     console.log('[DIAG-EXEC] Handler completed successfully');
 
-    // IMPORTANT: Do not use process.exit(0) here -- it terminates the process
-    // before the stdout buffer is fully flushed, which can truncate large JSON
-    // output (e.g., the history returned by getSession).
-    // Instead, set process.exitCode and let the process exit naturally so all I/O completes.
+    // IMPORTANT: Do not use process.exit(0) for natural-exit commands -- it terminates the
+    // process before the stdout buffer is fully flushed, which can truncate large JSON output
+    // (e.g., the history returned by getSession). Set process.exitCode and let the process exit
+    // naturally so all I/O completes. 退出策略判定集中在 resolveExitStrategy(单测覆盖)。
     process.exitCode = 0;
-
-    // Force-exit for commands whose network connections prevent natural exit.
-    // - rewindFiles: restores an SDK session whose MCP connections may stay open.
-    // - opencode: communicates over HTTP/SSE via @opencode-ai/sdk (hey-api fetch +
-    //   undici keep-alive pool); the SSE stream and HTTP sockets stay active after the
-    //   handler returns, holding the event loop alive. Output is streaming NDJSON that
-    //   is already flushed by the time the handler returns, so truncation is not a concern.
-    if (command === 'rewindFiles' || provider === 'opencode') {
-      // Allow a short delay for the stdout buffer to flush
-      setTimeout(() => process.exit(0), 100);
+    const exitStrategy = resolveExitStrategy(provider, command);
+    if (exitStrategy !== EXIT_STRATEGY.NATURAL) {
+      // network / rewind / history-readonly:各自的句柄(@opencode-ai/sdk undici socket /
+      // MCP 连接 / sql.js db)可能阻止自然退出,按策略延迟强退(history-readonly 200ms 绕过
+      // Node 25 + Windows 的 sql.js UV_HANDLE_CLOSING assert,其余 100ms),留足 stdout flush 时间。
+      setTimeout(() => process.exit(0), exitDelayFor(exitStrategy));
     }
 
   } catch (error) {

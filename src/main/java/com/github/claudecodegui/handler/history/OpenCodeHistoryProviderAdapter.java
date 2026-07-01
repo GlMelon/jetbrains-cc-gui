@@ -21,7 +21,17 @@ final class OpenCodeHistoryProviderAdapter implements HistoryProviderAdapter {
 
     @Override
     public String loadSessionsJson(String projectPath) {
-        return "{\"success\":true,\"sessions\":[]}";
+        OpenCodeSDKBridge bridge = context.getOpenCodeSDKBridge();
+        return normalizeSessionsJson(bridge != null ? bridge.getSessionList(projectPath) : "");
+    }
+
+    /**
+     * 把 getSessionList 的失败空串归一化为合法空会话 JSON(对称 Codex/Claude reader 始终返回合法 JSON)。
+     * 避免 HistoryLoadService.enhanceHistoryWithFavorites → fromJson("")=null → 前端 JSON.parse("")
+     * 抛"解析历史数据失败"。纯函数,便于无 HandlerContext(具体类,Platform 依赖)单测。
+     */
+    static String normalizeSessionsJson(String json) {
+        return (json != null && !json.isBlank()) ? json : "{\"success\":true,\"sessions\":[]}";
     }
 
     @Override

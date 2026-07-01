@@ -5,8 +5,10 @@
  * services/codex/message-service.js 结构)。channel-manager.js 路由 [opencode, send]
  * 到此处,经 stdin 接收 7+ 字段(见 §15.7 B11),调 message-service 走 SDK:
  * createOpencodeClient → session.create/prompt → event.subscribe(SSE)→ NDJSON。
+ * getSession 通过 services/opencode/history-service.js 只读本地 SQLite 历史。
  */
 import { sendMessage, abortSession } from '../services/opencode/message-service.js';
+import { getSessionMessages, getSessionList } from '../services/opencode/history-service.js';
 
 /**
  * Execute an OpenCode command.
@@ -69,13 +71,28 @@ export async function handleOpenCodeCommand(command, args, stdinData) {
       break;
     }
 
+    case 'getSession': {
+      const sessionId = stdinData?.sessionId || stdinData?.threadId || args[0] || '';
+      const result = await getSessionMessages({ sessionId, dbPath: stdinData?.dbPath });
+      console.log(JSON.stringify(result));
+      break;
+    }
+
+    case 'listSessions': {
+      // 枚举 OpenCode 会话(对称 Codex getSessionsForProjectAsJson);projectPath 为空返回全部。
+      const projectPath = stdinData?.projectPath || stdinData?.cwd || '';
+      const result = await getSessionList({ projectPath, dbPath: stdinData?.dbPath });
+      console.log(JSON.stringify(result));
+      break;
+    }
+
     default:
       throw new Error(`Unknown OpenCode command: ${command}`);
   }
 }
 
 export function getOpenCodeCommandList() {
-  return ['send', 'abort', 'getMcpServerTools'];
+  return ['send', 'abort', 'getSession', 'listSessions', 'getMcpServerTools'];
 }
 
 export const opencodeChannelDescriptor = {

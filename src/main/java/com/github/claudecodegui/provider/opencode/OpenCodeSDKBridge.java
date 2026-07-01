@@ -12,6 +12,8 @@ import com.github.claudecodegui.provider.common.SDKResult;
 import com.github.claudecodegui.session.ClaudeSession;
 import com.github.claudecodegui.util.GsonHolder;
 import com.github.claudecodegui.util.PlatformUtils;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -23,7 +25,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -35,6 +39,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * 统一管理(B18),bridge 把 baseUrl 经 stdin 注入每次 channel 调用。
  */
 public class OpenCodeSDKBridge extends BaseSDKBridge {
+    private static final int HISTORY_QUERY_TIMEOUT_SECONDS = 30;
 
     /** §15.7 B18:OpenCode serve 守护进程协调器(懒启动/健康探测/销毁)。 */
     private final OpenCodeDaemonCoordinator daemonCoordinator;
@@ -293,12 +298,242 @@ public class OpenCodeSDKBridge extends BaseSDKBridge {
         }
     }
 
+    /**
+     * Read persisted OpenCode session history from the local OpenCode database.
+     */
+    public List<JsonObject> getSessionMessages(String sessionId, String cwd) {
+        if (sessionId == null || sessionId.isBlank()) {
+            return List.of();
+        }
+        try {
+            File bridgeDir = getDirectoryResolver().findSdkDir();
+            if (bridgeDir == null) {
+                LOG.warn("[OpenCode] Bridge directory not ready, cannot load history");
+                return List.of();
+            }
+
+            List<String> command = buildGetSessionCommand();
+            JsonObject stdin = new JsonObject();
+            stdin.addProperty("sessionId", sessionId);
+
+            ProcessBuilder pb = new ProcessBuilder(command);
+            pb.directory(bridgeDir);
+            pb.redirectErrorStream(true);
+            Map<String, String> env = pb.environment();
+            configureProviderEnv(env, stdin.toString());
+            String node = nodeDetector.findNodeExecutable();
+            envConfigurator.updateProcessEnvironment(pb, node);
+
+            StringBuilder output = new StringBuilder();
+            String channelId = ProcessManager.newChannelId("opencode-history-query");
+            Process process = null;
+            CompletableFuture<Void> outputFuture = null;
+            try {
+                process = pb.start();
+                processManager.registerProcess(channelId, process);
+                Process runningProcess = process;
+                outputFuture = CompletableFuture.runAsync(() -> {
+                    try (BufferedReader reader = new BufferedReader(
+                            new InputStreamReader(runningProcess.getInputStream(), StandardCharsets.UTF_8))) {
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            output.append(line).append('\n');
+                        }
+                    } catch (Exception e) {
+                        LOG.debug("[OpenCode] getSession output drain failed: " + e.getMessage());
+                    }
+                });
+
+                try (OutputStream stdinStream = process.getOutputStream()) {
+                    stdinStream.write(GsonHolder.GSON.toJson(stdin).getBytes(StandardCharsets.UTF_8));
+                    stdinStream.flush();
+                }
+
+                if (!process.waitFor(HISTORY_QUERY_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                    PlatformUtils.terminateProcessAndWait(process, 3, TimeUnit.SECONDS);
+                    LOG.warn("[OpenCode] getSession timed out for session: " + sessionId);
+                    return List.of();
+                }
+                waitForOutputDrain(outputFuture);
+            } finally {
+                if (outputFuture != null && !outputFuture.isDone()) {
+                    outputFuture.cancel(true);
+                }
+                if (process != null) {
+                    processManager.unregisterProcess(channelId, process);
+                }
+            }
+
+            JsonObject result = extractLastJsonObject(output.toString());
+            if (result == null || !result.has("success") || !result.get("success").getAsBoolean()) {
+                String error = result != null && result.has("error") && !result.get("error").isJsonNull()
+                        ? result.get("error").getAsString()
+                        : "unknown error";
+                LOG.warn("[OpenCode] Failed to load session history: " + error);
+                return List.of();
+            }
+            if (!result.has("messages") || !result.get("messages").isJsonArray()) {
+                return List.of();
+            }
+
+            List<JsonObject> messages = new ArrayList<>();
+            JsonArray array = result.getAsJsonArray("messages");
+            for (int i = 0; i < array.size(); i++) {
+                if (array.get(i).isJsonObject()) {
+                    messages.add(array.get(i).getAsJsonObject());
+                }
+            }
+            return messages;
+        } catch (Exception e) {
+            LOG.warn("[OpenCode] Failed to load session history: " + e.getMessage(), e);
+            return List.of();
+        }
+    }
+
+    /**
+     * 枚举 OpenCode 会话(对称 Codex CodexHistoryReader.getSessionsForProjectAsJson)。
+     * <p>
+     * spawn channel-manager.js opencode listSessions,stdin 注入 projectPath(空串返回全部),
+     * 字段映射由 ai-bridge/services/opencode/history-service.js 完成(对齐 Codex SessionInfo)。
+     * 返回原始 JSON 字符串({success, sessions, sessionCount}),交由 OpenCodeHistoryProviderAdapter
+     * 透传给前端(与 Claude/Codex 历史路径一致,均返回 String);失败返回空串(adapter 归一化兜底)。
+     *
+     * @param projectPath 项目根路径,null/空返回全部会话
+     * @return 原始 JSON 字符串;失败返回空串(不抛)
+     */
+    public String getSessionList(String projectPath) {
+        try {
+            File bridgeDir = getDirectoryResolver().findSdkDir();
+            if (bridgeDir == null) {
+                LOG.warn("[OpenCode] Bridge directory not ready, cannot list sessions");
+                return "";
+            }
+
+            List<String> command = buildListSessionsCommand();
+            JsonObject stdin = new JsonObject();
+            stdin.addProperty("projectPath", projectPath != null ? projectPath : "");
+
+            ProcessBuilder pb = new ProcessBuilder(command);
+            pb.directory(bridgeDir);
+            pb.redirectErrorStream(true);
+            Map<String, String> env = pb.environment();
+            configureProviderEnv(env, stdin.toString());
+            String node = nodeDetector.findNodeExecutable();
+            envConfigurator.updateProcessEnvironment(pb, node);
+
+            StringBuilder output = new StringBuilder();
+            String channelId = ProcessManager.newChannelId("opencode-session-list");
+            Process process = null;
+            CompletableFuture<Void> outputFuture = null;
+            try {
+                process = pb.start();
+                processManager.registerProcess(channelId, process);
+                Process runningProcess = process;
+                outputFuture = CompletableFuture.runAsync(() -> {
+                    try (BufferedReader reader = new BufferedReader(
+                            new InputStreamReader(runningProcess.getInputStream(), StandardCharsets.UTF_8))) {
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            output.append(line).append('\n');
+                        }
+                    } catch (Exception e) {
+                        LOG.debug("[OpenCode] listSessions output drain failed: " + e.getMessage());
+                    }
+                });
+
+                try (OutputStream stdinStream = process.getOutputStream()) {
+                    stdinStream.write(GsonHolder.GSON.toJson(stdin).getBytes(StandardCharsets.UTF_8));
+                    stdinStream.flush();
+                }
+
+                if (!process.waitFor(HISTORY_QUERY_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                    PlatformUtils.terminateProcessAndWait(process, 3, TimeUnit.SECONDS);
+                    LOG.warn("[OpenCode] listSessions timed out");
+                    return "";
+                }
+                waitForOutputDrain(outputFuture);
+            } finally {
+                if (outputFuture != null && !outputFuture.isDone()) {
+                    outputFuture.cancel(true);
+                }
+                if (process != null) {
+                    processManager.unregisterProcess(channelId, process);
+                }
+            }
+
+            JsonObject result = extractLastJsonObject(output.toString());
+            if (result == null || !result.has("success") || !result.get("success").getAsBoolean()) {
+                String error = result != null && result.has("error") && !result.get("error").isJsonNull()
+                        ? result.get("error").getAsString()
+                        : "unknown error";
+                LOG.warn("[OpenCode] Failed to list sessions: " + error);
+                return "";
+            }
+            return result.toString();
+        } catch (Exception e) {
+            LOG.warn("[OpenCode] Failed to list sessions: " + e.getMessage(), e);
+            return "";
+        }
+    }
+
+    private void waitForOutputDrain(CompletableFuture<Void> outputFuture) {
+        if (outputFuture == null) {
+            return;
+        }
+        try {
+            outputFuture.get(3, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (ExecutionException | TimeoutException e) {
+            LOG.debug("[OpenCode] getSession output drain did not finish cleanly: " + e.getMessage());
+        }
+    }
+
+    private JsonObject extractLastJsonObject(String output) {
+        if (output == null || output.isBlank()) {
+            return null;
+        }
+        String[] lines = output.split("\\r?\\n");
+        for (int i = lines.length - 1; i >= 0; i--) {
+            String line = lines[i].trim();
+            if (line.startsWith("{") && line.endsWith("}")) {
+                try {
+                    return gson.fromJson(line, JsonObject.class);
+                } catch (Exception ignored) {
+                    // Try earlier lines.
+                }
+            }
+        }
+        return null;
+    }
+
     List<String> buildSendCommand() {
         List<String> cmd = new ArrayList<>();
         cmd.add(nodeDetector.getNodeExecutable());
         cmd.add("channel-manager.js");
         cmd.add(getProviderName());
         cmd.add("send");
+        return cmd;
+    }
+
+    List<String> buildGetSessionCommand() {
+        List<String> cmd = new ArrayList<>();
+        cmd.add(nodeDetector.getNodeExecutable());
+        cmd.add("channel-manager.js");
+        cmd.add(getProviderName());
+        cmd.add("getSession");
+        return cmd;
+    }
+
+    /**
+     * 会话枚举命令(对称 buildGetSessionCommand,仅末位参 getSession→listSessions)。
+     */
+    List<String> buildListSessionsCommand() {
+        List<String> cmd = new ArrayList<>();
+        cmd.add(nodeDetector.getNodeExecutable());
+        cmd.add("channel-manager.js");
+        cmd.add(getProviderName());
+        cmd.add("listSessions");
         return cmd;
     }
 
