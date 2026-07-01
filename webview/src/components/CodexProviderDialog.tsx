@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BracesIcon, ChevronRightIcon, RefreshIcon } from './Icons';
+import { BracesIcon, RefreshIcon } from './Icons';
+import DualViewSwitcher, { type DualViewMode } from './shared/DualViewSwitcher';
+import { codexEnvAdapter } from './shared/dualView/adapters';
 import type { CodexProviderConfig, EnvVarEntry } from '../types/provider';
 import { validateEnvVarEntries, ENV_VAR_VALUE_MAX_LENGTH } from '../types/provider';
 import EnvVarEditor from './EnvVarEditor';
@@ -73,6 +75,8 @@ export default function CodexProviderDialog({
   const [modelCatalogJson, setModelCatalogJson] = useState('');
   const [messageEnvVars, setMessageEnvVars] = useState<EnvVarEntry[]>([]);
   const [mcpEnvVars, setMcpEnvVars] = useState<EnvVarEntry[]>([]);
+  // 环境变量区块的 JSON↔表单视图模式(form 默认;JSON 视图可整体编辑两段 env)
+  const [envViewMode, setEnvViewMode] = useState<DualViewMode>('form');
   // 引导步骤:0=基本信息 1=接入与凭证 2=模型与环境
   const [currentStep, setCurrentStep] = useState(0);
   // 从 base_url+key 动态拉取的真实模型列表(Phase 2 后端能力的前端入口)
@@ -451,33 +455,38 @@ wire_api = "responses"`);
             </small>
           </div>
 
-          {/* Environment Variables */}
-          <details className="advanced-section">
-            <summary className="advanced-toggle">
-              <ChevronRightIcon size={16} />
-              {t('settings.codexProvider.dialog.envVarsTitle')}
-            </summary>
-
-            {/* Message Environment Variables */}
-            <div className="form-group" style={{ marginTop: '16px' }}>
-              <label>{t('settings.codexProvider.dialog.messageEnvLabel')}</label>
-              <small className="form-hint">{t('settings.codexProvider.dialog.messageEnvHint')}</small>
-              <EnvVarEditor
-                entries={messageEnvVars}
-                onChange={setMessageEnvVars}
-              />
-            </div>
-
-            {/* MCP Environment Variables */}
-            <div className="form-group">
-              <label>{t('settings.codexProvider.dialog.mcpEnvLabel')}</label>
-              <small className="form-hint">{t('settings.codexProvider.dialog.mcpEnvHint')}</small>
-              <EnvVarEditor
-                entries={mcpEnvVars}
-                onChange={setMcpEnvVars}
-              />
-            </div>
-          </details>
+          {/* Environment Variables — JSON/表单双视图(分块切换,双向同步) */}
+          <DualViewSwitcher
+            label={t('settings.codexProvider.dialog.envVarsTitle')}
+            formState={{ messageEnvVars, mcpEnvVars }}
+            onFormStateChange={(next) => {
+              setMessageEnvVars(next.messageEnvVars);
+              setMcpEnvVars(next.mcpEnvVars);
+            }}
+            adapter={codexEnvAdapter}
+            mode={envViewMode}
+            onModeChange={setEnvViewMode}
+            renderForm={(state, onChange) => (
+              <>
+                <div className="form-group" style={{ marginTop: '16px' }}>
+                  <label>{t('settings.codexProvider.dialog.messageEnvLabel')}</label>
+                  <small className="form-hint">{t('settings.codexProvider.dialog.messageEnvHint')}</small>
+                  <EnvVarEditor
+                    entries={state.messageEnvVars}
+                    onChange={(next) => onChange({ messageEnvVars: next, mcpEnvVars: state.mcpEnvVars })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>{t('settings.codexProvider.dialog.mcpEnvLabel')}</label>
+                  <small className="form-hint">{t('settings.codexProvider.dialog.mcpEnvHint')}</small>
+                  <EnvVarEditor
+                    entries={state.mcpEnvVars}
+                    onChange={(next) => onChange({ messageEnvVars: state.messageEnvVars, mcpEnvVars: next })}
+                  />
+                </div>
+              </>
+            )}
+          />
         </>
       )}
     </GuidedProviderDialog>

@@ -1,0 +1,230 @@
+/* Dual-View Switcher + Json Editor + Env Record Editor 样式。
+   用于三家 provider 弹窗的「环境变量 / 参数」区块 JSON↔表单分块双视图切换。 */
+
+/* ── DualViewSwitcher:segmented control(表单/JSON 切换) ── */
+.dvs {
+  margin-top: 12px;
+}
+
+.dvs-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.dvs-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.dvs-tabs {
+  display: inline-flex;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-secondary);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.dvs-tab {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px 14px;
+  font-size: 12px;
+  border-radius: 6px;
+  transition: background-color 0.15s, color 0.15s;
+
+  &:hover:not(:disabled) {
+    color: var(--text-primary);
+  }
+
+  &.active {
+    background: var(--accent-primary);
+    color: #fff;
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.9;
+  }
+}
+
+.dvs-hint {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  flex-basis: 100%;
+  margin-top: 2px;
+}
+
+.dvs-body {
+  /* 表单视图 / JSON 视图容器,无额外样式(由子内容撑开) */
+}
+
+/* ── JsonEditor:textarea + 行号 gutter + highlight.js 只读高亮叠加 ── */
+.je {
+  position: relative;
+}
+
+.je-editor {
+  position: relative;
+  display: flex;
+  background: var(--color-code-bg, var(--bg-secondary));
+  border: 1px solid var(--border-secondary);
+  border-radius: 8px;
+  overflow: hidden;
+  font-family: 'JetBrains Mono', 'Consolas', 'Monaco', monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+  letter-spacing: 0;
+}
+
+.je-gutter {
+  flex-shrink: 0;
+  padding: 10px 8px;
+  text-align: right;
+  color: var(--text-tertiary);
+  background: var(--bg-tertiary);
+  border-right: 1px solid var(--border-secondary);
+  user-select: none;
+  min-width: 42px;
+}
+
+.je-lineno {
+  line-height: 1.6;
+}
+
+/* highlight 叠加层:与 textarea 同位同字体,文字透明,仅显示高亮 */
+.je-highlight {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 10px 12px;
+  pointer-events: none;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text-primary);
+
+  code.hljs {
+    background: transparent;
+    padding: 0;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+}
+
+/* textarea 在上层,文字透明(caret 可见),与叠加层对齐 */
+.je-textarea {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--text-primary);
+  border: none;
+  outline: none;
+  resize: vertical;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-height: 200px;
+  width: 100%;
+
+  &::selection {
+    background: color-mix(in srgb, var(--accent-primary) 30%, transparent);
+  }
+}
+
+/* parse 失败(error 态):关闭叠加层防错位,textarea 文字恢复可见 */
+.je--error {
+  .je-highlight {
+    display: none;
+  }
+
+  .je-textarea {
+    color: var(--text-primary);
+  }
+}
+
+.je-errormsg {
+  margin-top: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: #ff6b6b;
+  background: color-mix(in srgb, #ff6b6b 12%, transparent);
+  border-radius: 6px;
+}
+
+/* ── EnvRecordEditor:Claude 自定义环境变量 key-value 表 ── */
+.env-record-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.env-record-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.env-record-key {
+  flex: 0 0 38%;
+}
+
+.env-record-value {
+  flex: 1;
+}
+
+.env-record-delete {
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--border-secondary);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  line-height: 1;
+  transition: color 0.15s, border-color 0.15s;
+
+  &:hover {
+    color: #ff6b6b;
+    border-color: #ff6b6b;
+  }
+}
+
+.env-record-add {
+  align-self: flex-start;
+  background: transparent;
+  border: 1px dashed var(--border-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  transition: color 0.15s, border-color 0.15s;
+
+  &:hover {
+    color: var(--accent-primary);
+    border-color: var(--accent-primary);
+  }
+}

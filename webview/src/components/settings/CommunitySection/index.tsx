@@ -1,7 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import ChangelogDialog from '../../ChangelogDialog';
-import { CHANGELOG_DATA } from '../../../version/changelog';
+import { useUIState } from '../../../contexts/UIStateContext';
 import wxqImage from '../../../assets/images/wxq.png';
 import styles from './style.module.less';
 import { GitHubIcon, HistoryIcon } from '../../Icons';
@@ -14,7 +13,9 @@ interface CommunitySectionProps {
 
 const CommunitySection = ({ addToast }: CommunitySectionProps) => {
   const { t } = useTranslation();
-  const [showChangelog, setShowChangelog] = useState(false);
+  // 复用全局 ChangelogDialog 实例(AppDialogs 挂载),而非本地再起一个第二实例:
+  // 两实例同时 isOpen 会叠加成双层 overlay(z-index 1100),且本地实例 onClose 不写 localStorage。
+  const { openChangelogDialog } = useUIState();
 
   const handleCopyGitHub = useCallback(async () => {
     try {
@@ -55,24 +56,18 @@ const CommunitySection = ({ addToast }: CommunitySectionProps) => {
         </button>
       </div>
 
-      {/* Version history */}
+      {/* Version history — 点击交给全局 openChangelogDialog,不在本地渲染 ChangelogDialog */}
       <div className={styles.versionHistorySection}>
         <h3 className={styles.sectionTitle}>{t('settings.versionHistory')}</h3>
         <p className={styles.sectionDesc}>{t('settings.versionHistoryDesc')}</p>
         <button
           className={styles.versionHistoryBtn}
-          onClick={() => setShowChangelog(true)}
+          onClick={openChangelogDialog}
         >
           <HistoryIcon size={16} />
           {t('settings.versionHistory')}
         </button>
       </div>
-
-      <ChangelogDialog
-        isOpen={showChangelog}
-        onClose={() => setShowChangelog(false)}
-        entries={CHANGELOG_DATA}
-      />
     </div>
   );
 };

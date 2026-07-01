@@ -1,14 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronRightIcon, CloudIcon, CodeIcon, EyeIcon, EyeOffIcon, InfoIcon, RefreshIcon, ShieldIcon, XCircleIcon } from './Icons';
+import { CloudIcon, EyeIcon, EyeOffIcon, InfoIcon, RefreshIcon, ShieldIcon, XCircleIcon } from './Icons';
 import type { ProviderConfig } from '../types/provider';
 import { CLAUDE_MODEL_MAPPING_ENV_KEYS, PROVIDER_PRESETS } from '../types/provider';
 import { GuidedProviderDialog, type GuidedStep } from './shared/GuidedProviderDialog';
+import DualViewSwitcher, { type DualViewMode } from './shared/DualViewSwitcher';
+import { claudeConfigAdapter } from './shared/dualView/adapters';
+import EnvRecordEditor from './shared/dualView/EnvRecordEditor';
 import { fetchProviderModels } from '../utils/bridge';
 
 const INFO_ICON_STYLE: React.CSSProperties = { fontSize: '12px', marginRight: '4px' };
 const NOTICE_MT_STYLE: React.CSSProperties = { marginTop: '8px' };
-const SECTION_DESC_STYLE: React.CSSProperties = { marginBottom: '12px', fontSize: '12px', color: '#999' };
 
 const OFFICIAL_DIRECT_PRESET_ID = 'official_direct';
 const OFFICIAL_ANTHROPIC_URL = 'https://api.anthropic.com';
@@ -146,6 +148,8 @@ export default function ProviderDialog({
   const [showApiKey, setShowApiKey] = useState(false);
   const [jsonConfig, setJsonConfig] = useState('');
   const [jsonError, setJsonError] = useState('');
+  // 凭证步环境变量/配置区块的 JSON↔表单视图模式(form=自定义 env 表单;json=完整 settingsConfig)
+  const [envViewMode, setEnvViewMode] = useState<DualViewMode>('form');
   // 引导步骤:0=接入方式 1=凭证 2=模型映射
   const [currentStep, setCurrentStep] = useState(0);
   // 第三方/代理预设:从 baseUrl+key 动态拉取的真实模型列表(Phase 2 后端能力的前端入口)
@@ -298,17 +302,6 @@ export default function ProviderDialog({
     return CUSTOM_PROXY_PRESET_ID;
   };
 
-  // Format JSON
-  const handleFormatJson = () => {
-    try {
-      setJsonConfig(sanitizeProviderJsonConfig(jsonConfig, {
-        stripAllModelMappings: activePreset === CUSTOM_PRESET_ID,
-      }));
-      setJsonError('');
-    } catch (err) {
-      setJsonError(t('settings.provider.dialog.jsonError'));
-    }
-  };
 
   // Initialize form
   useEffect(() => {
@@ -427,77 +420,87 @@ export default function ProviderDialog({
     updateEnvField('ANTHROPIC_DEFAULT_FABLE_MODEL_NAME', value);
   };
 
-  const handleJsonChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newJson = e.target.value;
-    setJsonConfig(newJson);
+  // 从 settingsConfig 对象同步派生表单 state(apiKey/apiUrl/preset/model 映射)。
+  // DualViewSwitcher 的 onFormStateChange 调用:JSON 编辑后把 env 保留 key 同步回凭证/模型步,
+  // 避免双写冲突。旧 handleJsonChange 的 reconcile 逻辑抽此复用(parse 由调用方保证成功)。
+  const reconcileFromConfig = (config: unknown) => {
+    const env = (config && typeof config === 'object' && !Array.isArray(config)
+      ? (config as { env?: Record<string, any> }).env
+      : undefined) || {};
+    const has = Object.prototype.hasOwnProperty;
 
-    try {
-      const config = JSON.parse(newJson);
-      const env = config.env || {};
+    if (has.call(env, 'ANTHROPIC_AUTH_TOKEN')) {
+      setApiKey(env.ANTHROPIC_AUTH_TOKEN || '');
+    } else if (has.call(env, 'ANTHROPIC_API_KEY')) {
+      setApiKey(env.ANTHROPIC_API_KEY || '');
+    } else {
+      setApiKey('');
+    }
 
-      if (Object.prototype.hasOwnProperty.call(env, 'ANTHROPIC_AUTH_TOKEN')) {
-        setApiKey(env.ANTHROPIC_AUTH_TOKEN || '');
-      } else if (Object.prototype.hasOwnProperty.call(env, 'ANTHROPIC_API_KEY')) {
-        setApiKey(env.ANTHROPIC_API_KEY || '');
-      } else {
-        setApiKey('');
-      }
+    if (has.call(env, 'ANTHROPIC_BASE_URL')) {
+      setApiUrl(env.ANTHROPIC_BASE_URL || '');
+    } else {
+      setApiUrl('');
+    }
 
-      if (Object.prototype.hasOwnProperty.call(env, 'ANTHROPIC_BASE_URL')) {
-        setApiUrl(env.ANTHROPIC_BASE_URL || '');
-      } else {
-        setApiUrl('');
-      }
+    setActivePreset(detectMatchingPreset(env));
 
-      setActivePreset(detectMatchingPreset(env));
+    if (has.call(env, 'ANTHROPIC_DEFAULT_HAIKU_MODEL')) {
+      setHaikuModel(readHaikuModel(env));
+    } else {
+      setHaikuModel('');
+    }
+    if (has.call(env, 'ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME')) {
+      setHaikuDisplayName(readStringEnv(env, 'ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME'));
+    } else {
+      setHaikuDisplayName('');
+    }
 
-      if (Object.prototype.hasOwnProperty.call(env, 'ANTHROPIC_DEFAULT_HAIKU_MODEL')) {
-        setHaikuModel(readHaikuModel(env));
-      } else {
-        setHaikuModel('');
-      }
-      if (Object.prototype.hasOwnProperty.call(env, 'ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME')) {
-        setHaikuDisplayName(readStringEnv(env, 'ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME'));
-      } else {
-        setHaikuDisplayName('');
-      }
+    if (has.call(env, 'ANTHROPIC_DEFAULT_SONNET_MODEL')) {
+      setSonnetModel(env.ANTHROPIC_DEFAULT_SONNET_MODEL || '');
+    } else {
+      setSonnetModel('');
+    }
+    if (has.call(env, 'ANTHROPIC_DEFAULT_SONNET_MODEL_NAME')) {
+      setSonnetDisplayName(readStringEnv(env, 'ANTHROPIC_DEFAULT_SONNET_MODEL_NAME'));
+    } else {
+      setSonnetDisplayName('');
+    }
 
-      if (Object.prototype.hasOwnProperty.call(env, 'ANTHROPIC_DEFAULT_SONNET_MODEL')) {
-        setSonnetModel(env.ANTHROPIC_DEFAULT_SONNET_MODEL || '');
-      } else {
-        setSonnetModel('');
-      }
-      if (Object.prototype.hasOwnProperty.call(env, 'ANTHROPIC_DEFAULT_SONNET_MODEL_NAME')) {
-        setSonnetDisplayName(readStringEnv(env, 'ANTHROPIC_DEFAULT_SONNET_MODEL_NAME'));
-      } else {
-        setSonnetDisplayName('');
-      }
-
-      if (Object.prototype.hasOwnProperty.call(env, 'ANTHROPIC_DEFAULT_OPUS_MODEL')) {
-        setOpusModel(env.ANTHROPIC_DEFAULT_OPUS_MODEL || '');
-      } else {
-        setOpusModel('');
-      }
-      if (Object.prototype.hasOwnProperty.call(env, 'ANTHROPIC_DEFAULT_OPUS_MODEL_NAME')) {
-        setOpusDisplayName(readStringEnv(env, 'ANTHROPIC_DEFAULT_OPUS_MODEL_NAME'));
-      } else {
-        setOpusDisplayName('');
-      }
-      if (Object.prototype.hasOwnProperty.call(env, 'ANTHROPIC_DEFAULT_FABLE_MODEL')) {
-        setFableModel(env.ANTHROPIC_DEFAULT_FABLE_MODEL || '');
-      } else {
-        setFableModel('');
-      }
-      if (Object.prototype.hasOwnProperty.call(env, 'ANTHROPIC_DEFAULT_FABLE_MODEL_NAME')) {
-        setFableDisplayName(readStringEnv(env, 'ANTHROPIC_DEFAULT_FABLE_MODEL_NAME'));
-      } else {
-        setFableDisplayName('');
-      }
-      setJsonError('');
-    } catch (err) {
-      setJsonError(t('settings.provider.dialog.jsonError'));
+    if (has.call(env, 'ANTHROPIC_DEFAULT_OPUS_MODEL')) {
+      setOpusModel(env.ANTHROPIC_DEFAULT_OPUS_MODEL || '');
+    } else {
+      setOpusModel('');
+    }
+    if (has.call(env, 'ANTHROPIC_DEFAULT_OPUS_MODEL_NAME')) {
+      setOpusDisplayName(readStringEnv(env, 'ANTHROPIC_DEFAULT_OPUS_MODEL_NAME'));
+    } else {
+      setOpusDisplayName('');
+    }
+    if (has.call(env, 'ANTHROPIC_DEFAULT_FABLE_MODEL')) {
+      setFableModel(env.ANTHROPIC_DEFAULT_FABLE_MODEL || '');
+    } else {
+      setFableModel('');
+    }
+    if (has.call(env, 'ANTHROPIC_DEFAULT_FABLE_MODEL_NAME')) {
+      setFableDisplayName(readStringEnv(env, 'ANTHROPIC_DEFAULT_FABLE_MODEL_NAME'));
+    } else {
+      setFableDisplayName('');
     }
   };
+
+  // DualViewSwitcher 的 formState:从 jsonConfig 解析出的 settingsConfig 对象。
+  // 非法 JSON 兜底 {}(切到 JSON 模式时 jsonDraft 由 adapter.serialize 重置,用户可修正)。
+  const claudeFormState = useMemo<Record<string, any>>(() => {
+    try {
+      const parsed = jsonConfig ? JSON.parse(jsonConfig) : {};
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? parsed as Record<string, any>
+        : {};
+    } catch {
+      return {};
+    }
+  }, [jsonConfig]);
 
   const handleSave = () => {
     let finalJsonConfig = jsonConfig;
@@ -744,59 +747,29 @@ export default function ProviderDialog({
             )}
           </div>
 
-          <details className="advanced-section">
-            <summary className="advanced-toggle">
-              <ChevronRightIcon size={16} />
-              {t('settings.provider.dialog.jsonConfig')}
-            </summary>
-            <div className="json-config-section">
-              <p className="section-desc" style={SECTION_DESC_STYLE}>
-                {t('settings.provider.dialog.jsonConfigDescription')}
-              </p>
-
-              {/* Toolbar */}
-              <div className="json-toolbar">
-                <button
-                  type="button"
-                  className="format-btn"
-                  onClick={handleFormatJson}
-                  title={t('settings.provider.dialog.formatJson') || '格式化 JSON'}
-                >
-                  <CodeIcon size={14} />
-                  {t('settings.provider.dialog.formatJson') || '格式化'}
-                </button>
-              </div>
-
-              <div className="json-editor-wrapper">
-                <textarea
-                  className="json-editor"
-                  value={jsonConfig}
-                  onChange={handleJsonChange}
-                  placeholder={`{
-  "env": {
-    "ANTHROPIC_API_KEY": "",
-    "ANTHROPIC_AUTH_TOKEN": "",
-    "ANTHROPIC_BASE_URL": "",
-    "ANTHROPIC_MODEL": "",
-    "ANTHROPIC_DEFAULT_SONNET_MODEL": "",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL": "",
-    "ANTHROPIC_DEFAULT_HAIKU_MODEL": ""
-  },
-  "model": "sonnet",
-  "alwaysThinkingEnabled": true,
-  "ccSwitchProviderId": "default",
-  "codemossProviderId": ""
-}`}
-                />
-                {jsonError && (
-                  <p className="json-error">
-                    <XCircleIcon size={16} />
-                    {jsonError}
-                  </p>
-                )}
-              </div>
-            </div>
-          </details>
+          {/* 环境变量/配置 — JSON/表单双视图(分块切换,双向同步) */}
+          <DualViewSwitcher
+            label={t('settings.provider.dialog.jsonConfig')}
+            formState={claudeFormState}
+            onFormStateChange={(config) => {
+              setJsonConfig(JSON.stringify(config, null, 2));
+              reconcileFromConfig(config);
+              setJsonError('');
+            }}
+            adapter={claudeConfigAdapter}
+            mode={envViewMode}
+            onModeChange={setEnvViewMode}
+            jsonHint={t('settings.provider.dialog.jsonConfigDescription', '完整 settingsConfig:env + model + alwaysThinkingEnabled + …(切换到 JSON 视图可编辑全部字段)')}
+            renderForm={(config, onChange) => (
+              <EnvRecordEditor config={config} onChange={onChange} />
+            )}
+          />
+          {jsonError && (
+            <p className="json-error">
+              <XCircleIcon size={16} />
+              {jsonError}
+            </p>
+          )}
         </>
       )}
 

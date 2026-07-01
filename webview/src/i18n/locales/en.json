@@ -412,7 +412,11 @@
         "fetchModelsLoading": "Fetching…",
         "fetchModelsEmpty": "No models returned.",
         "fetchModelsFailed": "Fetch failed. Please fill in manually.",
-        "fetchModelsSuccess": "Fetched {{count}} models. Click to append to JSON."
+        "fetchModelsSuccess": "Fetched {{count}} models. Click to append to JSON.",
+        "npmPackage": "npm package (optional)",
+        "advancedFormHint": "Switch to JSON view to edit other advanced fields (e.g., options / command)",
+        "advancedTitle": "Advanced / passthrough fields",
+        "advancedJsonHint": "Includes opencode native passthrough fields"
       }
     },
     "pluginModels": {
@@ -803,7 +807,8 @@
         "visualView": "Visual",
         "formatJson": "Format",
         "invalidJson": "Invalid JSON format, please switch to code view to fix",
-        "presetGroup": "Quick Presets"
+        "presetGroup": "Quick Presets",
+        "addCustomEnv": "Add custom env var"
       },
       "presets": {
         "custom": "Custom",
@@ -1953,7 +1958,14 @@
     "title": "What's New",
     "close": "Got it",
     "page": "{{current}} / {{total}}",
-    "summary": "{{date}} · {{count}} updates"
+    "summary": "{{date}} · {{count}} updates",
+    "statLabel": {
+      "feature": "Features",
+      "fix": "Fixes",
+      "improve": "Improvements",
+      "perf": "Performance",
+      "other": "Other"
+    }
   },
   "error": {
     "providerNotConfigured": "Provider Not Configured",

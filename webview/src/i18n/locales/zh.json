@@ -414,7 +414,11 @@
         "fetchModelsLoading": "拉取中…",
         "fetchModelsEmpty": "未返回任何模型。",
         "fetchModelsFailed": "拉取失败，请手动填写。",
-        "fetchModelsSuccess": "已拉取 {{count}} 个模型，点击追加到 JSON。"
+        "fetchModelsSuccess": "已拉取 {{count}} 个模型，点击追加到 JSON。",
+        "npmPackage": "npm 包名（可选）",
+        "advancedFormHint": "其余高级字段（如 options / command）请切换 JSON 视图编辑",
+        "advancedTitle": "高级 / 透传字段",
+        "advancedJsonHint": "含 opencode 原生透传字段"
       }
     },
     "pluginModels": {
@@ -803,7 +807,8 @@
         "visualView": "可视化",
         "formatJson": "格式化",
         "invalidJson": "JSON 格式错误，请切换到代码视图修正",
-        "presetGroup": "快捷配置"
+        "presetGroup": "快捷配置",
+        "addCustomEnv": "新增自定义环境变量"
       },
       "presets": {
         "custom": "自定义配置",
@@ -1953,7 +1958,14 @@
     "title": "版本更新",
     "close": "知道了",
     "page": "{{current}} / {{total}}",
-    "summary": "{{date}} · 共 {{count}} 项更新"
+    "summary": "{{date}} · 共 {{count}} 项更新",
+    "statLabel": {
+      "feature": "新功能",
+      "fix": "修复",
+      "improve": "改进",
+      "perf": "性能",
+      "other": "其他"
+    }
   },
   "error": {
     "providerNotConfigured": "供应商未配置",

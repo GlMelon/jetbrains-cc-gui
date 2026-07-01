@@ -1,5 +1,6 @@
-/* Changelog Dialog Styles — 重设计(顶部品牌色带 + 分区彩色着色 + 胶囊页码)。
-   外层背景/边框/圆角/阴影由 BaseDialog 的 .dialog-base 统一提供,此处仅布局与分区样式。 */
+/* Changelog Dialog Styles — Hero 沉浸聚焦重设计(方案 B)。
+   外层背景/边框/圆角/阴影由 BaseDialog 的 .dialog-base 统一提供,此处仅 Hero + 分区样式。
+   分区语义色变量深浅主题共用(--c-feature/fix/improve/perf)。 */
 
 .changelog-dialog {
   width: 90%;
@@ -8,7 +9,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  /* 对齐 .dialog-base 内圆角(12px - 1px border),使顶部色带与 footer 背景被正确裁剪 */
+  /* 对齐 .dialog-base 内圆角(12px - 1px border),使 Hero 渐变与 footer 背景被正确裁剪 */
   border-radius: 11px;
   animation: slideIn 0.2s ease-out;
 
@@ -20,78 +21,122 @@
   --c-other: var(--accent-primary);
 }
 
-/* 顶部品牌渐变色带(::before 作为 flex item) */
-.changelog-dialog::before {
-  content: "";
-  display: block;
-  flex-shrink: 0;
-  height: 4px;
-  background: linear-gradient(90deg, var(--c-improve), var(--accent-primary), var(--c-perf));
-}
-
-/* Header */
-.changelog-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  padding: 20px 24px 16px;
+/* ── Hero 区:渐变背景 + 光晕 + 大版本号 + 统计胶囊 ── */
+.wn-b-hero {
+  position: relative;
+  overflow: hidden;
+  padding: 24px 26px 20px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent-primary) 13%, var(--bg-primary)),
+    var(--bg-primary) 72%
+  );
   border-bottom: 1px solid var(--border-secondary);
   flex-shrink: 0;
 }
 
-.changelog-header-icon {
-  flex-shrink: 0;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-  font-size: 22px;
-  background: color-mix(in srgb, var(--accent-primary) 16%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent-primary) 30%, transparent);
+.wn-b-aura {
+  position: absolute;
+  top: -70px;
+  right: -50px;
+  width: 190px;
+  height: 190px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--accent-primary) 36%, transparent),
+    transparent 70%
+  );
+  filter: blur(6px);
+  pointer-events: none;
 }
 
-.changelog-header-text {
-  flex: 1;
-  min-width: 0;
+.wn-b-hero-main {
+  position: relative;
 }
 
-.changelog-header-title {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  flex-wrap: wrap;
-
-  h2 {
-    margin: 0;
-    font-size: 19px;
-    font-weight: 700;
-    color: var(--text-primary);
-    letter-spacing: -0.01em;
-  }
+.wn-b-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--accent-primary);
+  text-transform: uppercase;
 }
 
-.changelog-version-badge {
-  display: inline-block;
-  font-size: 13px;
-  font-weight: 700;
-  font-family: 'JetBrains Mono', 'Consolas', 'Monaco', monospace;
+.wn-b-gift {
+  font-size: 14px;
+}
+
+.wn-b-ver {
+  margin-top: 7px;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
   background: linear-gradient(135deg, var(--accent-primary), var(--c-perf));
-  color: #fff;
-  padding: 2px 9px;
-  border-radius: 6px;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-family: 'JetBrains Mono', 'Consolas', 'Monaco', monospace;
 }
 
-.changelog-header-sub {
-  margin-top: 3px;
+.wn-b-date {
+  margin-top: 2px;
   font-size: 12.5px;
   color: var(--text-tertiary);
+  font-family: 'JetBrains Mono', 'Consolas', 'Monaco', monospace;
 }
 
-.changelog-close-btn {
+.wn-b-stats {
+  margin-top: 13px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.wn-b-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 11px 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: color-mix(in srgb, var(--stat-color, var(--accent-primary)) 13%, transparent);
+  border: 1px solid color-mix(in srgb, var(--stat-color, var(--accent-primary)) 30%, transparent);
+}
+
+.wn-b-stat-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--stat-color, var(--accent-primary));
   flex-shrink: 0;
+}
+
+.wn-b-stat-num {
+  font-weight: 700;
+  color: var(--stat-color, var(--accent-primary));
+}
+
+.wn-b-stat-label {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.wn-b-stat[data-kind="feature"] { --stat-color: var(--c-feature); }
+.wn-b-stat[data-kind="fix"] { --stat-color: var(--c-fix); }
+.wn-b-stat[data-kind="improve"] { --stat-color: var(--c-improve); }
+.wn-b-stat[data-kind="perf"] { --stat-color: var(--c-perf); }
+.wn-b-stat[data-kind="other"] { --stat-color: var(--c-other); }
+
+.wn-b-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1;
   background: transparent;
   border: none;
   color: var(--text-tertiary);
@@ -113,23 +158,23 @@
   }
 }
 
-/* Body (scrollable) */
-.changelog-body {
+/* ── Body:分语言块,每块渲染分区列表 ── */
+.wn-b-body {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
   min-height: 0;
-  padding: 6px 12px 14px;
+  padding: 6px 14px 14px;
 }
 
-.changelog-divider {
+.wn-b-divider {
   border: none;
   border-top: 1px solid var(--border-secondary);
-  margin: 8px 8px 4px;
+  margin: 8px 6px 4px;
 }
 
-.changelog-loose {
-  padding: 10px 12px;
+.wn-b-loose {
+  padding: 10px 10px;
   font-size: 13px;
   color: var(--text-secondary);
 
@@ -138,59 +183,42 @@
   }
 }
 
-/* Section:按 emoji 前缀分类着色 */
-.changelog-section {
-  padding: 14px 8px;
+/* 分区组:彩色 chip + 标题 + 列表 */
+.wn-b-grp {
+  padding: 13px 6px;
 
   & + & {
     border-top: 1px solid var(--border-secondary);
   }
 }
 
-.changelog-section-head {
+.wn-b-grp-head {
   display: flex;
   align-items: center;
   gap: 9px;
-  margin: 0 0 10px;
+  margin: 0 0 9px;
   font-size: 13.5px;
   font-weight: 650;
-}
-
-.changelog-section-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent);
-}
-
-.changelog-section[data-kind="feature"] {
-  .changelog-section-head { color: var(--c-feature); }
-  .changelog-section-dot { background: var(--c-feature); color: var(--c-feature); }
-}
-.changelog-section[data-kind="fix"] {
-  .changelog-section-head { color: var(--c-fix); }
-  .changelog-section-dot { background: var(--c-fix); color: var(--c-fix); }
-}
-.changelog-section[data-kind="improve"] {
-  .changelog-section-head { color: var(--c-improve); }
-  .changelog-section-dot { background: var(--c-improve); color: var(--c-improve); }
-}
-.changelog-section[data-kind="perf"] {
-  .changelog-section-head { color: var(--c-perf); }
-  .changelog-section-dot { background: var(--c-perf); color: var(--c-perf); }
-}
-.changelog-section[data-kind="other"] {
-  .changelog-section-head { color: var(--c-other); }
-  .changelog-section-dot { background: var(--c-other); color: var(--c-other); }
-}
-
-.changelog-section-title {
   color: var(--text-primary);
 }
 
+.wn-b-chip {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  background: var(--grp-color, var(--accent-primary));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--grp-color, var(--accent-primary)) 16%, transparent);
+}
+
+.wn-b-grp[data-kind="feature"] { --grp-color: var(--c-feature); }
+.wn-b-grp[data-kind="fix"] { --grp-color: var(--c-fix); }
+.wn-b-grp[data-kind="improve"] { --grp-color: var(--c-improve); }
+.wn-b-grp[data-kind="perf"] { --grp-color: var(--c-perf); }
+.wn-b-grp[data-kind="other"] { --grp-color: var(--c-other); }
+
 /* 列表项 */
-.changelog-changes {
+.wn-b-list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -212,7 +240,8 @@
       width: 5px;
       height: 5px;
       border-radius: 50%;
-      background: var(--text-tertiary);
+      background: var(--grp-color, var(--text-tertiary));
+      opacity: 0.7;
     }
 
     &:hover {
@@ -237,7 +266,7 @@
   }
 }
 
-/* Footer with pagination */
+/* ── Footer with pagination(保留) ── */
 .changelog-footer {
   display: flex;
   align-items: center;

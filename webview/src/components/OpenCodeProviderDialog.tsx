@@ -3,6 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { BracesIcon, RefreshIcon } from './Icons';
 import type { OpenCodeProviderConfig } from '../types/provider';
 import { GuidedProviderDialog, type GuidedStep } from './shared/GuidedProviderDialog';
+import DualViewSwitcher, { type DualViewMode } from './shared/DualViewSwitcher';
+import { openCodeAdvancedAdapter } from './shared/dualView/adapters';
+import OpenCodeAdvancedForm, { extractAdvancedRaw } from './shared/OpenCodeAdvancedForm';
 import { fetchProviderModels } from '../utils/bridge';
 
 const FORM_HEADER_STYLE: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'center' };
@@ -52,6 +55,9 @@ export default function OpenCodeProviderDialog({
   const [baseURL, setBaseURL] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [modelsJson, setModelsJson] = useState('');
+  // 高级/透传字段(opencode 原生 options/npm/command 等):JSON↔表单双视图,save 时原样透传
+  const [advancedRaw, setAdvancedRaw] = useState<Record<string, any>>({});
+  const [advancedViewMode, setAdvancedViewMode] = useState<DualViewMode>('form');
   // 引导步骤:0=基本信息 1=凭证 2=模型
   const [currentStep, setCurrentStep] = useState(0);
   // 从 baseURL+key 动态拉取的真实模型列表(Phase 2 后端能力的前端入口)
@@ -69,12 +75,15 @@ export default function OpenCodeProviderDialog({
         setBaseURL(provider.baseURL || provider.apiBase || '');
         setApiKey(provider.apiKey || '');
         setModelsJson(provider.models ? JSON.stringify(provider.models, null, 2) : '{}');
+        // 回灌 opencode 原生透传字段(剥离已知业务字段),避免编辑丢失
+        setAdvancedRaw(extractAdvancedRaw(provider));
       } else {
         // Add mode - reset with default template
         setProviderKey('');
         setProviderName('');
         setBaseURL('');
         setApiKey('');
+        setAdvancedRaw({});
         setModelsJson(`{
   "glm-5.2": {
     "name": "GLM 5.2",
@@ -173,6 +182,8 @@ export default function OpenCodeProviderDialog({
       apiKey: apiKey || undefined,
       baseURL: baseURL.trim() || undefined,
       models: parsedModels,
+      // 透传 opencode 原生高级字段(options/npm/command 等),不截断
+      ...advancedRaw,
       // 编辑模式保留原 createdAt/isActive(后端按 id 合并,这里只传递业务字段)
       ...(provider?.createdAt !== undefined ? { createdAt: provider.createdAt } : {}),
     };
@@ -363,6 +374,20 @@ export default function OpenCodeProviderDialog({
             />
             <small className="form-hint">{t('settings.openCodeProvider.dialog.modelsHint')}</small>
           </div>
+
+          {/* 高级/透传字段 — JSON/表单双视图(opencode 原生 options/npm/command 等) */}
+          <DualViewSwitcher
+            label={t('settings.openCodeProvider.dialog.advancedTitle', '高级 / 透传字段')}
+            formState={{ raw: advancedRaw }}
+            onFormStateChange={(next) => setAdvancedRaw(next.raw)}
+            adapter={openCodeAdvancedAdapter}
+            mode={advancedViewMode}
+            onModeChange={setAdvancedViewMode}
+            jsonHint={t('settings.openCodeProvider.dialog.advancedJsonHint', '含 opencode 原生透传字段')}
+            renderForm={(state, onChange) => (
+              <OpenCodeAdvancedForm state={state} onChange={onChange} />
+            )}
+          />
         </>
       )}
     </GuidedProviderDialog>
