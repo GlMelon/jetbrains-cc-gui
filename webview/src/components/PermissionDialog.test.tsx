@@ -80,6 +80,26 @@ describe('PermissionDialog', () => {
     expect(screen.getByRole('link', { name: 'https://example.com/docs' })).toBeTruthy();
   });
 
+  it('renders with empty command details when inputs are missing', () => {
+    const request = {
+      channelId: 'perm-1',
+      toolName: 'bash',
+      inputs: null,
+    } as unknown as PermissionRequest;
+
+    expect(() => render(
+      <PermissionDialog
+        isOpen
+        request={request}
+        onApprove={() => {}}
+        onSkip={() => {}}
+        onApproveAlways={() => {}}
+      />,
+    )).not.toThrow();
+
+    expect(screen.getByText('permission.tools.execute')).toBeTruthy();
+  });
+
   it('auto-denies with the original channelId after timeoutSeconds elapses', () => {
     vi.useFakeTimers();
     const onApprove = vi.fn();

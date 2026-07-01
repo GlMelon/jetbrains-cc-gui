@@ -115,6 +115,8 @@ const PermissionDialog = ({
     return null;
   }
 
+  const inputs = (request.inputs && typeof request.inputs === 'object') ? request.inputs : {};
+
   // Format input parameters for display
   const formatInputValue = (value: any): string => {
     if (value === null || value === undefined) {
@@ -132,31 +134,31 @@ const PermissionDialog = ({
   // Get the command or primary action content
   const getCommandContent = (): string => {
     // Get primary content based on tool type
-    if (request.inputs.command) {
-      return request.inputs.command;
+    if (inputs.command) {
+      return inputs.command;
     }
-    if (request.inputs.content) {
-      return request.inputs.content;
+    if (inputs.content) {
+      return inputs.content;
     }
-    if (request.inputs.text) {
-      return request.inputs.text;
+    if (inputs.text) {
+      return inputs.text;
     }
     // For other tools, format all inputs
-    return Object.entries(request.inputs)
+    return Object.entries(inputs)
       .map(([key, value]) => `${key}: ${formatInputValue(value)}`)
       .join('\n');
   };
 
   // Get working directory
   const getWorkingDirectory = (): string => {
-    if (request.inputs.cwd) {
-      return request.inputs.cwd;
+    if (inputs.cwd) {
+      return inputs.cwd;
     }
-    if (request.inputs.file_path) {
-      return request.inputs.file_path;
+    if (inputs.file_path) {
+      return inputs.file_path;
     }
-    if (request.inputs.path) {
-      return request.inputs.path;
+    if (inputs.path) {
+      return inputs.path;
     }
     return '~';
   };
