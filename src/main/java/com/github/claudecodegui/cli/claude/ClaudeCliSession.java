@@ -54,6 +54,8 @@ public class ClaudeCliSession implements CliSession {
     private volatile String sessionId;
     // readOutput 收到 result 事件后置位,避免 exitCode!=0 时重复发 onError/onComplete。
     private volatile boolean resultEmitted;
+    // MCP 连接失败降级提示去重(每回合一次,prepareForSend 重置)。
+    private volatile boolean mcpNoticeEmitted;
     // 当前活跃进程（用于中断）
     private volatile CliProcessHandle activeHandle;
     private final AtomicBoolean userInterrupted = new AtomicBoolean(false);
@@ -464,6 +466,32 @@ public class ClaudeCliSession implements CliSession {
     void prepareForSend() {
         userInterrupted.set(false);
         resultEmitted = false;
+        mcpNoticeEmitted = false;
+    }
+
+    /**
+     * MCP 连接失败(本地 server 未启动 / 连接被拒 / 传输关闭)处理:识别后降级为非阻塞
+     * status 提示,而非缓冲为回合错误 / 报错。每回合仅发一次 toast(rmcp worker 可能
+     * 重试多次刷屏),但每次匹配都抑制。对称 Codex {@code handleMcpFailure}。
+     * <p>返回 true 表示文本命中 MCP 连接失败,调用方应跳过 diagnostic 缓冲 / onError。
+     *
+     * @param text     诊断行或事件 message(可能为 null)
+     * @param callback 用于发 {@link CliConstants#CODEX_MSG_STATUS}
+     * @return true 表示命中 MCP 连接失败(应抑制,不计入回合错误)
+     */
+    boolean handleMcpFailure(String text, CliSessionCallback callback) {
+        if (!McpErrorMatcher.isMcpConnectionFailure(text)) {
+            return false;
+        }
+        if (!mcpNoticeEmitted) {
+            mcpNoticeEmitted = true;
+            sectionEmitter(callback).status(McpErrorMatcher.MCP_SKIPPED_NOTICE);
+        }
+        return true;
+    }
+
+    private CliSectionEmitter sectionEmitter(CliSessionCallback callback) {
+        return new CliSectionEmitter(callback::onMessage);
     }
 
     private McpGatewayCliConfig buildGatewayConfig(CliSendRequest request) {
@@ -493,6 +521,10 @@ public class ClaudeCliSession implements CliSession {
 
             @Override
             public void onError(String error) {
+                if (handleMcpFailure(error, callback)) {
+                    // MCP 连接失败(本地 server 未启动):降级为非阻塞提示,不计入回合错误
+                    return;
+                }
                 hadError.set(true);
                 callback.onError(error);
             }
@@ -514,6 +546,10 @@ public class ClaudeCliSession implements CliSession {
                                     .getName());
                 }
                 if (line.isBlank()) {
+                    continue;
+                }
+                if (handleMcpFailure(line, callback)) {
+                    // MCP 连接失败的非 JSON 噪声 / 签名行:降级为非阻塞提示,不污染 diagnostic
                     continue;
                 }
                 CliErrorFormatter.appendDiagnosticLine(diagnostic, line);

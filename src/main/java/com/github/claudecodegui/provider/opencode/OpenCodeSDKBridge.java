@@ -299,6 +299,17 @@ public class OpenCodeSDKBridge extends BaseSDKBridge {
     }
 
     /**
+     * IDE dispose 时先停常驻 serve 进程,再由 super 清理 send 进程映射。
+     * 对称 Claude/Codex SDK 的 cleanupAllProcesses override:OpenCode serve 是常驻进程
+     * (DaemonCoordinator),不 override 则 dispose 时仅清 send 进程、serve 泄漏(端口/资源,§15.7 B18)。
+     */
+    @Override
+    public void cleanupAllProcesses() {
+        shutdownDaemon();
+        super.cleanupAllProcesses();
+    }
+
+    /**
      * Read persisted OpenCode session history from the local OpenCode database.
      */
     public List<JsonObject> getSessionMessages(String sessionId, String cwd) {

@@ -1,11 +1,14 @@
 package com.github.claudecodegui.cli.claude;
 
 import com.github.claudecodegui.cli.CliSendRequest;
+import com.github.claudecodegui.cli.CliSessionCallback;
 import com.github.claudecodegui.cli.common.CliConstants;
+import com.github.claudecodegui.cli.common.McpErrorMatcher;
 import com.github.claudecodegui.common.CommonConstants;
 import com.google.gson.JsonObject;
 import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.lang.reflect.Method;
 import java.util.List;
@@ -195,5 +198,106 @@ public class ClaudeCliSessionTest {
                 null,
                 Map.of()
         );
+    }
+
+    @Test
+    public void mcpFailureDowngradesToNonBlockingStatusNotice() {
+        // 本地 MCP server 未启动时,Claude CLI 输出 mcp_servers_failed_to_connect 等名。
+        // 该错误不应让回合失败:降级为非阻塞 status toast(对称 Codex handleMcpFailure)。
+        ClaudeCliSession session = new ClaudeCliSession("tab-claude-mcp");
+        RecordingCallback callback = new RecordingCallback();
+
+        boolean suppressed = session.handleMcpFailure(
+                "Error: mcp_servers_failed_to_connect: weather", callback);
+
+        assertTrue("MCP 连接失败应被 handleMcpFailure 抑制(不计入回合错误)", suppressed);
+        assertEquals("应发一条非阻塞 status 提示", 1,
+                callback.contentsOfType(CliConstants.CODEX_MSG_STATUS).size());
+        assertEquals("status 提示文案为 MCP_SKIPPED_NOTICE", McpErrorMatcher.MCP_SKIPPED_NOTICE,
+                callback.contentsOfType(CliConstants.CODEX_MSG_STATUS).get(0));
+        assertTrue("MCP 失败不得 onError", callback.errors.isEmpty());
+    }
+
+    @Test
+    public void mcpFailureNoticeEmittedAtMostOncePerTurn() {
+        // rmcp / mcp worker 可能重试多次刷屏:每回合只发一次 toast,但每次匹配都抑制。
+        ClaudeCliSession session = new ClaudeCliSession("tab-claude-mcp-dedupe");
+        RecordingCallback callback = new RecordingCallback();
+        String mcpError = "Error: mcp server 'weather' failed to connect";
+
+        session.handleMcpFailure(mcpError, callback);
+        session.handleMcpFailure(mcpError, callback);
+        session.handleMcpFailure(mcpError, callback);
+
+        assertEquals("多次 MCP 错误只发一次 status toast", 1,
+                callback.contentsOfType(CliConstants.CODEX_MSG_STATUS).size());
+    }
+
+    @Test
+    public void nonMcpErrorNotSuppressedByHandleMcpFailure() {
+        // 致命错误(502 重连死循环)与普通错误不得被 MCP 抑制:留给既有致命/exit 错误处理。
+        ClaudeCliSession session = new ClaudeCliSession("tab-claude-non-mcp");
+        RecordingCallback callback = new RecordingCallback();
+
+        boolean suppressed = session.handleMcpFailure(
+                "unexpected status 502 Bad Gateway", callback);
+
+        assertFalse("非 MCP 错误不得被抑制", suppressed);
+        assertTrue("非 MCP 错误不发 status toast",
+                callback.contentsOfType(CliConstants.CODEX_MSG_STATUS).isEmpty());
+    }
+
+    @Test
+    public void prepareForSendResetsMcpNoticeDedup() {
+        // 每回合重置去重:新回合的 MCP 失败应再次提示(而非永久静默)。
+        ClaudeCliSession session = new ClaudeCliSession("tab-claude-mcp-reset");
+        RecordingCallback callback = new RecordingCallback();
+        String mcpError = "Error: mcp_servers_failed_to_connect: weather";
+
+        session.handleMcpFailure(mcpError, callback);
+        session.prepareForSend();
+        session.handleMcpFailure(mcpError, callback);
+
+        assertEquals("prepareForSend 后 MCP 去重应重置,新回合再发一次提示", 2,
+                callback.contentsOfType(CliConstants.CODEX_MSG_STATUS).size());
+    }
+
+    private static final class RecordingCallback implements CliSessionCallback {
+        private final List<Event> messages = new ArrayList<>();
+        private final List<String> errors = new ArrayList<>();
+
+        @Override
+        public void onMessage(String type, String content) {
+            messages.add(new Event(type, content));
+        }
+
+        @Override
+        public void onError(String error) {
+            errors.add(error);
+        }
+
+        @Override
+        public void onComplete(boolean success, String finalResult, String error) {
+        }
+
+        private List<String> contentsOfType(String type) {
+            List<String> values = new ArrayList<>();
+            for (Event event : messages) {
+                if (type.equals(event.type)) {
+                    values.add(event.content);
+                }
+            }
+            return values;
+        }
+    }
+
+    private static final class Event {
+        private final String type;
+        private final String content;
+
+        private Event(String type, String content) {
+            this.type = type;
+            this.content = content;
+        }
     }
 }

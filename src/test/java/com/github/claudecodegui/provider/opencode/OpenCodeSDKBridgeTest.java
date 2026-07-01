@@ -92,6 +92,22 @@ public class OpenCodeSDKBridgeTest {
     }
 
     @Test
+    public void cleanupAllProcessesOverridesToShutDownDaemon() throws Exception {
+        // 对称 Claude/Codex SDK:IDE dispose(cleanupAllProcesses)须先停常驻 serve 进程,
+        // 再由 super 清理 send 进程映射。OpenCode serve 是常驻进程(DaemonCoordinator),
+        // 若不 override,dispose 时只清 send 进程、serve 泄漏(占用端口/资源,§15.7 B18)。
+        // 构造 bridge 触发 Platform 依赖,用源码字符串守卫(对称 interruptChannelOverrides 测试)。
+        String source = java.nio.file.Files.readString(java.nio.file.Paths.get(
+                "src", "main", "java", "com", "github", "claudecodegui", "provider", "opencode", "OpenCodeSDKBridge.java"));
+        assertTrue("必须 override cleanupAllProcesses(对称 Claude/Codex SDK)",
+                source.contains("public void cleanupAllProcesses()"));
+        assertTrue("override 体内须先 shutdownDaemon(停常驻 serve)再 super.cleanupAllProcesses",
+                source.contains("shutdownDaemon();\n        super.cleanupAllProcesses()"));
+        assertTrue("必须调 super.cleanupAllProcesses(清理 send 进程映射)",
+                source.contains("super.cleanupAllProcesses()"));
+    }
+
+    @Test
     public void mcpErrorMessageDowngradedToStatusNotice() throws Exception {
         // MCP 连接失败(本地 server 未启动)降级为非阻塞 status 提示,而非回合失败。
         // processOutputLine 是 protected 且构造 bridge 触发 Platform(AppExecutorUtil)依赖,
