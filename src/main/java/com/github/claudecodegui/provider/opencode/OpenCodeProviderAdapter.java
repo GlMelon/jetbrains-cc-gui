@@ -53,13 +53,12 @@ public class OpenCodeProviderAdapter implements ProviderAdapter {
     }
 
     /**
-     * B7: OpenCode 历史持久化与回放尚在规划(设计 §11/§8,当前无与 ClaudeSessionQueryService/CodexHistoryReader
-     * 对等的 reader)。返回空列表优雅降级,避免 {@code loadHistorySession} 经默认接口抛
-     * UnsupportedOperationException 阻断历史加载流程。OpenCode 历史 reader 就绪后改为委托读取。
+     * OpenCode history is stored in its local SQLite database; the bridge reads
+     * it through the ai-bridge history service and returns normalized messages.
      */
     @Override
     public List<JsonObject> getSessionMessages(String sessionId, String cwd) {
-        return List.of();
+        return requireBridge().getSessionMessages(sessionId, cwd);
     }
 
     private OpenCodeSDKBridge requireBridge() {
