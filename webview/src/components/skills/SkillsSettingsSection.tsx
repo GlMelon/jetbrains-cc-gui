@@ -13,6 +13,28 @@ interface SkillsSettingsSectionProps {
   currentProvider?: string;
 }
 
+function createEmptySkillsConfig(): SkillsConfig {
+  return { global: {}, local: {}, user: {}, repo: {} };
+}
+
+function isSkillRecord(value: unknown): value is Record<string, Skill> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+export function normalizeSkillsConfig(value: unknown): SkillsConfig {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return createEmptySkillsConfig();
+  }
+
+  const candidate = value as Partial<SkillsConfig>;
+  return {
+    global: isSkillRecord(candidate.global) ? candidate.global : {},
+    local: isSkillRecord(candidate.local) ? candidate.local : {},
+    user: isSkillRecord(candidate.user) ? candidate.user : {},
+    repo: isSkillRecord(candidate.repo) ? candidate.repo : {},
+  };
+}
+
 /**
  * Skills settings component
  * Manages Claude/Codex Skills
@@ -22,7 +44,7 @@ interface SkillsSettingsSectionProps {
 export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSettingsSectionProps) {
   const { t } = useTranslation();
   // Skills data
-  const [skills, setSkills] = useState<SkillsConfig>({ global: {}, local: {}, user: {}, repo: {} });
+  const [skills, setSkills] = useState<SkillsConfig>(createEmptySkillsConfig);
   const [loading, setLoading] = useState(true);
   const [expandedSkills, setExpandedSkills] = useState<Set<string>>(new Set());
 
@@ -146,7 +168,7 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
     // Java side returns Skills list
     unsubs.push(subscribeEvent(DOWNSTREAM.SKILL_LIST, (jsonStr) => {
       try {
-        const data: SkillsConfig = JSON.parse(jsonStr as string);
+        const data = normalizeSkillsConfig(JSON.parse(jsonStr as string));
         setSkills(data);
         setLoading(false);
 
