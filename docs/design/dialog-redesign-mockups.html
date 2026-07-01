@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>弹窗重设计方案 · 效果图 · jetbrains-melon-cc-gui</title>
+<style>
+/* ============ 插件真实配色（来自 variables.less） ============ */
+:root,
+[data-theme="dark"] {
+  --bg-primary: #1e1e1e;
+  --bg-chat: #1e1e1e;
+  --bg-secondary: #252526;
+  --bg-tertiary: #2b2d31;
+  --bg-elevated: #2d2d2d;
+  --bg-hover: #35373c;
+  --bg-active: #37373d;
+  --bg-titlebar: #323233;
+  --text-primary: #cccccc;
+  --text-secondary: #e0e0e0;
+  --text-tertiary: #858585;
+  --text-muted: #666;
+  --border-primary: #333;
+  --border-secondary: #3e3e42;
+  --border-hover: #4a4a4f;
+  --accent-primary: #007fd4;
+  --accent-primary-hover: #026ec1;
+  --violet: #a989ff;
+  --amber: #e7b85a;
+  --green: #4cc38a;
+  --red: #f07178;
+  --orange: #f5a623;
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --overlay-bg: rgba(0, 0, 0, 0.55);
+  --c-feature: #3fb950;
+  --c-fix: #e8a23c;
+  --c-improve: #4a9eff;
+  --c-perf: #b87bff;
+}
+[data-theme="light"] {
+  --bg-primary: #ffffff;
+  --bg-chat: #ffffff;
+  --bg-secondary: #f3f3f3;
+  --bg-tertiary: #e8e8e8;
+  --bg-elevated: #fafafa;
+  --bg-hover: #e0e0e0;
+  --bg-active: #dcdcdc;
+  --bg-titlebar: #e8e8e8;
+  --text-primary: #333333;
+  --text-secondary: #555555;
+  --text-tertiary: #888888;
+  --text-muted: #aaa;
+  --border-primary: #dddddd;
+  --border-secondary: #cccccc;
+  --border-hover: #bbb;
+  --accent-primary: #0078d4;
+  --overlay-bg: rgba(0, 0, 0, 0.28);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg-chat);
+  color: var(--text-primary);
+  font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 32px 20px 80px;
+  transition: background 0.2s, color 0.2s;
+}
+
+/* ============ 页头 ============ */
+.page-head {
+  max-width: 1180px;
+  margin: 0 auto 36px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.page-head h1 {
+  margin: 0 0 6px;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.page-head h1 .accent { color: var(--accent-primary); }
+.page-head .sub {
+  color: var(--text-tertiary);
+  font-size: 13.5px;
+  max-width: 720px;
+}
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-secondary);
+  color: var(--text-secondary);
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: border-color 0.15s, color 0.15s;
+}
+.theme-toggle:hover { border-color: var(--accent-primary); color: var(--text-primary); }
+
+/* ============ 章节标题 ============ */
+.section { max-width: 1180px; margin: 0 auto 48px; }
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 4px;
+  font-size: 19px;
+  font-weight: 700;
+}
+.section-title .num {
+  display: inline-grid;
+  place-items: center;
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent-primary) 18%, transparent);
+  color: var(--accent-primary);
+  font-size: 14px;
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 35%, transparent);
+}
+.section-desc { color: var(--text-tertiary); margin: 0 0 24px; font-size: 13px; }
+
+/* ============ 方案网格 ============ */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(520px, 1fr));
+  gap: 28px;
+  align-items: start;
+}
+.opt { display: flex; flex-direction: column; gap: 12px; }
+.opt-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.opt-head h3 { margin: 0; font-size: 15px; font-weight: 650; }
+.tag {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 5px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.tag-rec { background: color-mix(in srgb, var(--green) 22%, transparent); color: var(--green); }
+.tag-min { background: color-mix(in srgb, var(--accent-primary) 18%, transparent); color: var(--accent-primary); }
+.tag-max { background: color-mix(in srgb, var(--violet) 20%, transparent); color: var(--violet); }
+.tag-now { background: color-mix(in srgb, var(--amber) 20%, transparent); color: var(--amber); }
+.opt-desc { color: var(--text-tertiary); font-size: 12.5px; margin: 0; min-height: 34px; }
+
+/* ============ 舞台：模拟插件窗口（弹窗浮其上） ============ */
+.stage {
+  position: relative;
+  width: 100%;
+  height: 560px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-secondary);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+}
+/* 模拟 IDE 顶部标题栏 */
+.stage-titlebar {
+  height: 38px;
+  background: var(--bg-titlebar);
+  border-bottom: 1px solid var(--border-secondary);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+}
+.stage-dot { width: 11px; height: 11px; border-radius: 50%; background: var(--border-hover); }
+.stage-titlebar .pill {
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--bg-hover);
+  padding: 3px 10px;
+  border-radius: 5px;
+}
+.stage-titlebar .provider-chip {
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--accent-primary);
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 40%, transparent);
+  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+  padding: 2px 9px;
+  border-radius: 5px;
+}
+/* 模拟聊天区背景内容 */
+.stage-chat {
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bubble {
+  max-width: 78%;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+.bubble.user { align-self: flex-end; background: var(--accent-primary); color: #fff; }
+.bubble.ai { align-self: flex-start; background: var(--bg-secondary); border: 1px solid var(--border-secondary); }
+.bubble.ai .typing { color: var(--text-tertiary); font-style: italic; }
+
+/* ============ BaseDialog 复刻（舞台内 absolute 浮层） ============ */
+.dialog-overlay {
+  position: absolute;
+  inset: 0;
+  background: var(--overlay-bg);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  backdrop-filter: blur(1px);
+}
+.dialog-base {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-secondary);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100% - 24px);
+  overflow: hidden;
+  animation: pop 0.2s ease-out;
+}
+@keyframes pop {
+  from { transform: translateY(8px) scale(0.98); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+.dialog-size-sm { width: 380px; }
+.dialog-size-md { width: 460px; }
+.dialog-size-lg { width: 540px; }
+
+.dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border-secondary);
+  flex-shrink: 0;
+}
+.dialog-header h3 { margin: 0; font-size: 15px; font-weight: 650; flex: 1; }
+.dialog-header .icon { color: var(--accent-primary); display: inline-grid; place-items: center; }
+.close-btn {
+  background: transparent; border: none; color: var(--text-tertiary);
+  cursor: pointer; width: 28px; height: 28px; border-radius: 6px;
+  font-size: 16px; line-height: 1; display: grid; place-items: center;
+}
+.close-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.dialog-body { padding: 16px 18px; overflow-y: auto; min-height: 0; flex: 1; }
+.dialog-footer {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border-secondary);
+  background: var(--bg-tertiary);
+  flex-shrink: 0;
+}
+.footer-actions { margin-left: auto; display: flex; gap: 8px; }
+
+/* 通用按钮 */
+.btn {
+  font-size: 12.5px; padding: 7px 16px; border-radius: 7px;
+  cursor: pointer; border: 1px solid var(--border-secondary);
+  background: var(--bg-secondary); color: var(--text-secondary);
+  transition: all 0.15s;
+}
+.btn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-hover); }
+.btn-primary {
+  background: var(--accent-primary); color: #fff; border-color: var(--accent-primary);
+  font-weight: 600;
+}
+.btn-primary:hover { background: var(--accent-primary-hover); }
+.btn-ghost { background: transparent; border-color: transparent; color: var(--text-tertiary); }
+.btn-ghost:hover { color: var(--accent-primary); background: color-mix(in srgb, var(--accent-primary) 10%, transparent); }
+.btn-danger { color: var(--red); border-color: color-mix(in srgb, var(--red) 40%, transparent); }
+.btn-danger:hover { background: color-mix(in srgb, var(--red) 14%, transparent); color: var(--red); }
+
+/* 通用表单 */
+.form-group { margin-bottom: 14px; }
+.form-group:last-child { margin-bottom: 0; }
+.form-label {
+  display: block; font-size: 12px; color: var(--text-secondary);
+  margin-bottom: 5px; font-weight: 500;
+}
+.form-label .req { color: var(--red); margin-left: 2px; }
+.form-input, .form-select, .form-textarea {
+  width: 100%; background: var(--bg-primary); border: 1px solid var(--border-secondary);
+  color: var(--text-primary); padding: 8px 10px; border-radius: 7px;
+  font-size: 13px; font-family: inherit;
+  transition: border-color 0.15s;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  outline: none; border-color: var(--accent-primary);
+}
+.form-textarea { resize: vertical; min-height: 64px; font-family: 'JetBrains Mono','Consolas',monospace; font-size: 12px; }
+.form-hint { font-size: 11.5px; color: var(--text-tertiary); margin-top: 4px; }
+.form-row { display: flex; gap: 10px; }
+.form-row > * { flex: 1; }
+
+/* segmented control */
+.seg {
+  display: flex; background: var(--bg-primary); border: 1px solid var(--border-secondary);
+  border-radius: 7px; padding: 3px; gap: 2px;
+}
+.seg-item {
+  flex: 1; text-align: center; padding: 6px 8px; font-size: 12px;
+  border-radius: 5px; cursor: pointer; color: var(--text-tertiary);
+  border: none; background: transparent; transition: all 0.15s;
+}
+.seg-item.active { background: var(--accent-primary); color: #fff; font-weight: 600; }
+
+/* key-value 行 */
+.kv-row { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+.kv-row .kv-k { flex: 1; }
+.kv-row .kv-v { flex: 1.4; }
+.kv-add {
+  font-size: 12px; color: var(--accent-primary); cursor: pointer;
+  background: transparent; border: none; padding: 4px 0;
+}
+.kv-add:hover { text-decoration: underline; }
+
+/* 代码 / JSON 区 */
+.code-block {
+  background: var(--bg-primary); border: 1px solid var(--border-secondary);
+  border-radius: 7px; font-family: 'JetBrains Mono','Consolas',monospace;
+  font-size: 12px; line-height: 1.7; overflow: hidden;
+}
+.code-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px 12px; background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-secondary);
+  font-size: 11.5px; color: var(--text-tertiary);
+}
+.code-body { display: flex; }
+.code-linenos {
+  padding: 10px 8px; text-align: right; color: var(--text-muted);
+  background: var(--bg-tertiary); border-right: 1px solid var(--border-secondary);
+  user-select: none; font-size: 11.5px;
+}
+.code-content { padding: 10px 12px; flex: 1; white-space: pre; overflow-x: auto; color: var(--text-secondary); }
+.tok-key { color: var(--c-improve); }
+.tok-str { color: var(--green); }
+.tok-num { color: var(--amber); }
+.tok-punc { color: var(--text-tertiary); }
+
+/* ============================================================
+   What's New — 现状（顶部色带 + 分区彩色 + 胶囊分页）
+   ============================================================ */
+.wn-now { width: 420px; border-radius: 11px; overflow: hidden; }
+.wn-now::before {
+  content: ""; display: block; height: 4px;
+  background: linear-gradient(90deg, var(--c-improve), var(--accent-primary), var(--c-perf));
+}
+.wn-now .wn-header {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 16px 18px 13px; border-bottom: 1px solid var(--border-secondary);
+}
+.wn-icon-box {
+  width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center;
+  font-size: 20px; background: color-mix(in srgb, var(--accent-primary) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 30%, transparent);
+}
+.wn-htext { flex: 1; }
+.wn-htitle { display: flex; align-items: baseline; gap: 8px; }
+.wn-htitle h2 { margin: 0; font-size: 17px; font-weight: 700; }
+.wn-badge {
+  font-size: 12px; font-weight: 700; font-family: 'JetBrains Mono',monospace;
+  background: linear-gradient(135deg, var(--accent-primary), var(--c-perf));
+  color: #fff; padding: 2px 8px; border-radius: 5px;
+}
+.wn-hsub { margin-top: 2px; font-size: 12px; color: var(--text-tertiary); }
+.wn-body { padding: 6px 12px 12px; max-height: 280px; overflow-y: auto; }
+.wn-sec { padding: 11px 6px; }
+.wn-sec + .wn-sec { border-top: 1px solid var(--border-secondary); }
+.wn-sec-head { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 650; margin-bottom: 7px; }
+.wn-dot { width: 8px; height: 8px; border-radius: 50%; box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent); }
+.wn-sec[data-k="feature"] .wn-sec-head, .wn-sec[data-k="feature"] .wn-dot { color: var(--c-feature); }
+.wn-sec[data-k="feature"] .wn-dot { background: var(--c-feature); }
+.wn-sec[data-k="fix"] .wn-sec-head, .wn-sec[data-k="fix"] .wn-dot { color: var(--c-fix); }
+.wn-sec[data-k="fix"] .wn-dot { background: var(--c-fix); }
+.wn-sec[data-k="improve"] .wn-sec-head, .wn-sec[data-k="improve"] .wn-dot { color: var(--c-improve); }
+.wn-sec[data-k="improve"] .wn-dot { background: var(--c-improve); }
+.wn-sec[data-k="perf"] .wn-sec-head, .wn-sec[data-k="perf"] .wn-dot { color: var(--c-perf); }
+.wn-sec[data-k="perf"] .wn-dot { background: var(--c-perf); }
+.wn-list { list-style: none; margin: 0; padding: 0; }
+.wn-list li {
+  position: relative; padding: 4px 0 4px 16px; font-size: 12.5px;
+  color: var(--text-secondary); line-height: 1.55;
+}
+.wn-list li::before {
+  content: ""; position: absolute; left: 3px; top: 11px;
+  width: 4px; height: 4px; border-radius: 50%; background: var(--text-tertiary);
+}
+.wn-footer {
+  display: flex; align-items: center; gap: 10px; padding: 11px 16px;
+  border-top: 1px solid var(--border-secondary); background: var(--bg-tertiary);
+}
+.wn-nav {
+  background: var(--bg-secondary); border: 1px solid var(--border-secondary); color: var(--text-tertiary);
+  width: 28px; height: 28px; border-radius: 7px; display: grid; place-items: center; cursor: pointer;
+}
+.wn-dots { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.wn-dotpage { width: 6px; height: 6px; border-radius: 50%; background: var(--text-tertiary); opacity: 0.4; }
+.wn-dotpage.active { width: 18px; border-radius: 4px; opacity: 1; background: var(--accent-primary); }
+.wn-gotit {
+  background: linear-gradient(135deg, var(--accent-primary), var(--c-perf));
+  color: #fff; border: none; padding: 7px 16px; border-radius: 7px;
+  font-size: 12.5px; font-weight: 600; cursor: pointer;
+}
+
+/* ============================================================
+   What's New · 方案 A — 时间线卡片流（去分页，纵向时间轴）
+   ============================================================ */
+.wn-a { width: 420px; }
+.wn-a-head { padding: 14px 18px; border-bottom: 1px solid var(--border-secondary); display: flex; align-items: center; gap: 10px; }
+.wn-a-head h2 { margin: 0; font-size: 16px; flex: 1; }
+.wn-a-body { padding: 14px 18px; max-height: 340px; overflow-y: auto; }
+.wn-tl { position: relative; padding-left: 22px; }
+.wn-tl::before {
+  content: ""; position: absolute; left: 6px; top: 6px; bottom: 6px;
+  width: 2px; background: var(--border-secondary);
+}
+.wn-tl-item { position: relative; margin-bottom: 16px; }
+.wn-tl-item:last-child { margin-bottom: 0; }
+.wn-tl-node {
+  position: absolute; left: -22px; top: 4px;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--bg-secondary); border: 3px solid var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--bg-secondary);
+}
+.wn-tl-item:not(.latest) .wn-tl-node { border-color: var(--text-tertiary); }
+.wn-tl-card {
+  background: var(--bg-primary); border: 1px solid var(--border-secondary);
+  border-radius: 9px; padding: 11px 13px;
+}
+.wn-tl-item.latest .wn-tl-card { border-color: color-mix(in srgb, var(--accent-primary) 50%, transparent); }
+.wn-tl-top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.wn-tl-ver {
+  font-family: 'JetBrains Mono',monospace; font-size: 12.5px; font-weight: 700;
+  color: var(--accent-primary);
+}
+.wn-tl-date { font-size: 11.5px; color: var(--text-tertiary); }
+.wn-tl-new {
+  margin-left: auto; font-size: 10px; font-weight: 700; color: #fff;
+  background: var(--green); padding: 1px 6px; border-radius: 4px; letter-spacing: 0.04em;
+}
+.wn-tl-list { list-style: none; margin: 0; padding: 0; }
+.wn-tl-list li { font-size: 12px; color: var(--text-secondary); padding: 2px 0 2px 14px; position: relative; line-height: 1.5; }
+.wn-tl-list li::before { content: "·"; position: absolute; left: 4px; color: var(--text-tertiary); font-weight: 700; }
+.wn-tl-list li .k { font-size: 10.5px; font-weight: 650; margin-right: 4px; }
+.wn-tl-list li .k-f { color: var(--c-feature); }
+.wn-tl-list li .k-x { color: var(--c-fix); }
+.wn-tl-list li .k-i { color: var(--c-improve); }
+.wn-a-foot-hint { font-size: 11.5px; color: var(--text-tertiary); padding: 0 18px 14px; }
+
+/* ============================================================
+   What's New · 方案 B — Hero 沉浸聚焦（大色块 + 图标徽章）
+   ============================================================ */
+.wn-b { width: 420px; }
+.wn-b-hero {
+  position: relative; padding: 22px 20px 18px; overflow: hidden;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent-primary) 30%, var(--bg-secondary)) 0%, var(--bg-secondary) 70%);
+  border-bottom: 1px solid var(--border-secondary);
+}
+.wn-b-hero::after {
+  content: ""; position: absolute; right: -30px; top: -30px;
+  width: 140px; height: 140px; border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--c-perf) 35%, transparent), transparent 70%);
+  pointer-events: none;
+}
+.wn-b-emoji { font-size: 30px; margin-bottom: 8px; }
+.wn-b-ver {
+  font-family: 'JetBrains Mono',monospace; font-size: 26px; font-weight: 800;
+  color: var(--text-primary); letter-spacing: -0.02em; line-height: 1;
+}
+.wn-b-date { font-size: 12px; color: var(--text-tertiary); margin-top: 5px; }
+.wn-b-stats { display: flex; gap: 8px; margin-top: 14px; }
+.wn-b-stat {
+  display: flex; align-items: center; gap: 5px; font-size: 11.5px;
+  background: color-mix(in srgb, var(--bg-primary) 60%, transparent);
+  border: 1px solid var(--border-secondary); padding: 3px 9px; border-radius: 20px;
+  color: var(--text-secondary);
+}
+.wn-b-stat .pip { width: 7px; height: 7px; border-radius: 50%; }
+.wn-b-body { padding: 14px 18px; max-height: 250px; overflow-y: auto; }
+.wn-b-grp { margin-bottom: 12px; }
+.wn-b-grp:last-child { margin-bottom: 0; }
+.wn-b-grp-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.wn-b-chip {
+  width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center;
+  font-size: 13px; font-weight: 700;
+}
+.wn-b-chip.f { background: color-mix(in srgb, var(--c-feature) 22%, transparent); color: var(--c-feature); }
+.wn-b-chip.x { background: color-mix(in srgb, var(--c-fix) 22%, transparent); color: var(--c-fix); }
+.wn-b-chip.i { background: color-mix(in srgb, var(--c-improve) 22%, transparent); color: var(--c-improve); }
+.wn-b-grp-title { font-size: 13px; font-weight: 650; }
+.wn-b-list { list-style: none; margin: 0; padding: 0 0 0 32px; }
+.wn-b-list li { font-size: 12.5px; color: var(--text-secondary); padding: 3px 0; line-height: 1.5; }
+.wn-b-foot { display: flex; align-items: center; justify-content: space-between; }
+
+/* ============================================================
+   What's New · 方案 C — IDE 原生克制（左色条 + 紧凑列表）
+   ============================================================ */
+.wn-c { width: 400px; }
+.wn-c-bar { height: 3px; background: var(--accent-primary); }
+.wn-c-head { padding: 16px 20px 12px; }
+.wn-c-head h2 { margin: 0 0 3px; font-size: 15.5px; font-weight: 650; }
+.wn-c-head .meta { font-size: 12px; color: var(--text-tertiary); font-family: 'JetBrains Mono',monospace; }
+.wn-c-body { padding: 0 20px; max-height: 320px; overflow-y: auto; }
+.wn-c-item {
+  display: flex; gap: 10px; padding: 9px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-secondary) 60%, transparent);
+}
+.wn-c-item:last-child { border-bottom: none; }
+.wn-c-tag {
+  flex-shrink: 0; font-size: 10.5px; font-weight: 650; padding: 2px 7px;
+  border-radius: 4px; height: fit-content; margin-top: 1px;
+  letter-spacing: 0.02em; min-width: 44px; text-align: center;
+}
+.wn-c-tag.f { color: var(--c-feature); background: color-mix(in srgb, var(--c-feature) 14%, transparent); }
+.wn-c-tag.x { color: var(--c-fix); background: color-mix(in srgb, var(--c-fix) 14%, transparent); }
+.wn-c-tag.i { color: var(--c-improve); background: color-mix(in srgb, var(--c-improve) 14%, transparent); }
+.wn-c-tag.p { color: var(--c-perf); background: color-mix(in srgb, var(--c-perf) 14%, transparent); }
+.wn-c-text { font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; }
+.wn-c-foot {
+  padding: 12px 20px; border-top: 1px solid var(--border-secondary);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.wn-c-link { font-size: 12px; color: var(--accent-primary); cursor: pointer; background: none; border: none; padding: 0; }
+.wn-c-link:hover { text-decoration: underline; }
+
+/* ============================================================
+   CRUD — 现状对比（左：MCP 原生 JSON · 右：History 自研）
+   ============================================================ */
+.cr-now-wrap { display: flex; gap: 14px; }
+.cr-now-wrap .dialog-base { flex: 1; }
+.cr-now-label {
+  font-size: 11px; color: var(--text-tertiary); text-align: center;
+  margin-top: 6px; font-family: 'JetBrains Mono',monospace;
+}
+/* 现状：MCP 原生 dialog-overlay（非 BaseDialog）—— 用更方、更素的样式体现"另一套体系" */
+.cr-now-mcp {
+  background: var(--bg-secondary); border: 1px solid var(--border-primary);
+  border-radius: 6px; /* 比 BaseDialog 的 12px 更方 */
+  width: 100%; max-width: 250px;
+}
+.cr-now-mcp .h { padding: 10px 12px; border-bottom: 1px solid var(--border-primary); font-size: 13px; font-weight: 600; display: flex; }
+.cr-now-mcp .h .x { margin-left: auto; color: var(--text-tertiary); cursor: pointer; }
+.cr-now-mcp .b { padding: 10px 12px; }
+.cr-now-mcp textarea.sim {
+  width: 100%; height: 110px; background: var(--bg-primary);
+  border: 1px solid var(--border-primary); border-radius: 4px;
+  color: var(--text-secondary); font-family: 'JetBrains Mono',monospace;
+  font-size: 11px; padding: 8px; resize: none; line-height: 1.55;
+}
+.cr-now-mcp .f { padding: 8px 12px; border-top: 1px solid var(--border-primary); display: flex; justify-content: flex-end; gap: 6px; }
+.cr-now-mcp .f button { font-size: 11.5px; padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border-primary); background: var(--bg-secondary); color: var(--text-secondary); cursor: pointer; }
+/* 现状：HistoryItemEditor 自研 CSS Modules —— 又一套圆角/配色 */
+.cr-now-hist {
+  background: var(--bg-elevated); border: 1px solid var(--violet);
+  border-radius: 16px; width: 100%; max-width: 250px;
+}
+.cr-now-hist .h { padding: 12px 14px; font-size: 13px; font-weight: 600; color: var(--violet); }
+.cr-now-hist .b { padding: 0 14px 12px; }
+.cr-now-hist textarea.sim {
+  width: 100%; height: 64px; background: var(--bg-primary);
+  border: 1px solid var(--violet); border-radius: 10px;
+  color: var(--text-primary); padding: 8px; font-size: 12px; resize: none;
+}
+.cr-now-hist .imp { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; color: var(--text-tertiary); }
+.cr-now-hist .imp button { width: 22px; height: 22px; border-radius: 6px; border: 1px solid var(--violet); background: transparent; color: var(--violet); cursor: pointer; }
+
+/* ============================================================
+   CRUD · 方案 A — 表单化 + BaseDialog（推荐）
+   ============================================================ */
+.cr-a { width: 460px; }
+.cr-a .mode-row { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+.cr-a .mode-row .lab { font-size: 12px; color: var(--text-tertiary); }
+.cr-a .switch-link { font-size: 12px; color: var(--accent-primary); cursor: pointer; margin-left: auto; background: none; border: none; padding: 0; }
+.cr-a .switch-link:hover { text-decoration: underline; }
+
+/* ============================================================
+   CRUD · 方案 B — JSON 编辑器统一壳（轻量）
+   ============================================================ */
+.cr-b { width: 460px; }
+.cr-b .code-block .code-body { align-items: flex-start; }
+.cr-b .code-content { padding: 12px 14px; }
+
+/* ============================================================
+   CRUD · 方案 C — 向导式（对齐 ProviderDialog）
+   ============================================================ */
+.cr-c { width: 460px; }
+.cr-steps { display: flex; align-items: center; gap: 0; padding: 14px 18px; border-bottom: 1px solid var(--border-secondary); }
+.cr-step { display: flex; align-items: center; gap: 7px; flex: 1; }
+.cr-step-num {
+  width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 11.5px; font-weight: 700; border: 1px solid var(--border-secondary);
+  color: var(--text-tertiary); background: var(--bg-secondary);
+}
+.cr-step.active .cr-step-num { background: var(--accent-primary); color: #fff; border-color: var(--accent-primary); }
+.cr-step.done .cr-step-num { background: var(--green); color: #fff; border-color: var(--green); }
+.cr-step-label { font-size: 12px; color: var(--text-tertiary); }
+.cr-step.active .cr-step-label { color: var(--text-primary); font-weight: 600; }
+.cr-step-line { flex: 0 0 20px; height: 1px; background: var(--border-secondary); margin: 0 6px; }
+.type-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.type-card {
+  border: 1px solid var(--border-secondary); border-radius: 8px; padding: 12px 8px;
+  text-align: center; cursor: pointer; background: var(--bg-primary);
+  transition: all 0.15s;
+}
+.type-card:hover { border-color: var(--border-hover); }
+.type-card.sel { border-color: var(--accent-primary); background: color-mix(in srgb, var(--accent-primary) 10%, transparent); }
+.type-card .ic { font-size: 20px; margin-bottom: 4px; }
+.type-card .nm { font-size: 12px; font-weight: 600; }
+.type-card .dc { font-size: 10.5px; color: var(--text-tertiary); margin-top: 2px; }
+
+/* ============ 对比总结表 ============ */
+.compare {
+  max-width: 1180px; margin: 0 auto;
+  background: var(--bg-secondary); border: 1px solid var(--border-secondary);
+  border-radius: 10px; overflow: hidden;
+}
+.compare table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.compare th, .compare td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border-secondary); }
+.compare th { background: var(--bg-tertiary); font-weight: 650; color: var(--text-secondary); }
+.compare tr:last-child td { border-bottom: none; }
+.compare td:first-child { font-weight: 600; color: var(--text-primary); white-space: nowrap; }
+.yes { color: var(--green); } .no { color: var(--red); } .mid { color: var(--amber); }
+
+.note {
+  max-width: 1180px; margin: 32px auto 0; padding: 14px 18px;
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 25%, transparent);
+  border-radius: 8px; font-size: 12.5px; color: var(--text-secondary); line-height: 1.6;
+}
+.note b { color: var(--text-primary); }
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <div>
+    <h1>弹窗重设计方案 · <span class="accent">效果图</span></h1>
+    <div class="sub">
+      jetbrains-melon-cc-gui · What's New 视觉重做（3 套）＋ CRUD 弹窗统一收口到 BaseDialog（3 套）。
+      所有配色取自插件 <code>variables.less</code> 真实变量，弹窗浮于模拟插件窗口之上，深/浅双主题可切换。
+    </div>
+  </div>
+  <button class="theme-toggle" onclick="toggleTheme()">🌓 切换 浅色 / 深色</button>
+</div>
+
+<!-- ====================== Part 1: What's New ====================== -->
+<div class="section">
+  <div class="section-title"><span class="num">1</span> What's New 更新弹窗 · 视觉重做</div>
+  <p class="section-desc">
+    现状：<code>ChangelogDialog</code> 3 天前刚重设计（顶部品牌色带 + 分区彩色着色 + 胶囊分页），已用 BaseDialog。
+    <b>真实双层隐患</b>是 AppDialogs 实例（初始化自动弹，写 localStorage）＋ CommunitySection 实例（手动点开，独立 state，不写 localStorage）并存。
+    下面 3 套为<b>保留单实例后的视觉重做</b>方向（双层根因修复另行收口，见文末）。
+  </p>
+
+  <div class="grid">
+
+    <!-- 现状 -->
+    <div class="opt">
+      <div class="opt-head"><h3>现状（重设计前参考）</h3><span class="tag tag-now">对照</span></div>
+      <p class="opt-desc">顶部 4px 渐变色带 + 🎁 + 版本徽章 + 分区彩色着色 + 胶囊分页 + 渐变"Got it"。</p>
+      <div class="stage">
+        <div class="stage-titlebar"><span class="stage-dot"></span><span class="pill">main.tsx</span><span class="provider-chip">● Claude</span></div>
+        <div class="stage-chat">
+          <div class="bubble user">帮我看下这次更新了啥</div>
+          <div class="bubble ai"><span class="typing">● ● ●</span></div>
+        </div>
+        <div class="dialog-overlay">
+          <div class="dialog-base wn-now">
+            <div class="wn-header">
+              <div class="wn-icon-box">🎁</div>
+              <div class="wn-htext">
+                <div class="wn-htitle"><h2>更新公告</h2><span class="wn-badge">v0.4.6</span></div>
+                <div class="wn-hsub">9 项更新 · 2026-06-30</div>
+              </div>
+            </div>
+            <div class="wn-body">
+              <div class="wn-sec" data-k="feature"><div class="wn-sec-head"><span class="wn-dot"></span>✨ 新功能</div>
+                <ul class="wn-list"><li>OpenCode 双模式集成(CLI+SDK)</li><li>Skill SSOT 统一架构</li></ul></div>
+              <div class="wn-sec" data-k="fix"><div class="wn-sec-head"><span class="wn-dot"></span>🐛 修复</div>
+                <ul class="wn-list"><li>Codex CLI 无限卡死</li></ul></div>
+              <div class="wn-sec" data-k="perf"><div class="wn-sec-head"><span class="wn-dot"></span>⚡ 性能</div>
+                <ul class="wn-list"><li>MCP Gateway 首包加速</li></ul></div>
+            </div>
+            <div class="wn-footer">
+              <button class="wn-nav">‹</button>
+              <div class="wn-dots"><span class="wn-dotpage"></span><span class="wn-dotpage active"></span><span class="wn-dotpage"></span><span class="wn-dotpage"></span></div>
+              <button class="wn-nav">›</button>
+              <button class="wn-gotit">知道了</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 方案 A -->
+    <div class="opt">
+      <div class="opt-head"><h3>方案 A · 时间线卡片流</h3><span class="tag tag-min">最易浏览</span></div>
+      <p class="opt-desc">去掉分页，多版本按时间轴纵向排列，最新置顶并标 NEW。一眼看完演进史，不用翻页。</p>
+      <div class="stage">
+        <div class="stage-titlebar"><span class="stage-dot"></span><span class="pill">main.tsx</span><span class="provider-chip">● Claude</span></div>
+        <div class="stage-chat"><div class="bubble user">最近几个版本都更新了啥</div></div>
+        <div class="dialog-overlay">
+          <div class="dialog-base wn-a">
+            <div class="dialog-header"><span class="icon">📜</span><h3>更新历史</h3><button class="close-btn">✕</button></div>
+            <div class="wn-a-body">
+              <div class="wn-tl">
+                <div class="wn-tl-item latest">
+                  <span class="wn-tl-node"></span>
+                  <div class="wn-tl-card">
+                    <div class="wn-tl-top"><span class="wn-tl-ver">v0.4.6</span><span class="wn-tl-date">06-30</span><span class="wn-tl-new">NEW</span></div>
+                    <ul class="wn-tl-list"><li><span class="k k-f">新</span>OpenCode 双模式集成</li><li><span class="k k-f">新</span>Skill SSOT 统一架构</li><li><span class="k k-x">修</span>Codex CLI 卡死</li></ul>
+                  </div>
+                </div>
+                <div class="wn-tl-item">
+                  <span class="wn-tl-node"></span>
+                  <div class="wn-tl-card">
+                    <div class="wn-tl-top"><span class="wn-tl-ver">v0.4.5</span><span class="wn-tl-date">06-22</span></div>
+                    <ul class="wn-tl-list"><li><span class="k k-i">改</span>模型配置跨 tab 同步</li><li><span class="k k-x">修</span>切换 OpenCode 退回 Claude</li></ul>
+                  </div>
+                </div>
+                <div class="wn-tl-item">
+                  <span class="wn-tl-node"></span>
+                  <div class="wn-tl-card">
+                    <div class="wn-tl-top"><span class="wn-tl-ver">v0.4.4</span><span class="wn-tl-date">06-15</span></div>
+                    <ul class="wn-tl-list"><li><span class="k k-f">新</span>三 provider 路由策略</li></ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="dialog-footer"><span style="font-size:11.5px;color:var(--text-tertiary)">滚动查看更多版本</span><div class="footer-actions"><button class="btn btn-primary">知道了</button></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 方案 B -->
+    <div class="opt">
+      <div class="opt-head"><h3>方案 B · Hero 沉浸聚焦</h3><span class="tag tag-max">最有仪式感</span></div>
+      <p class="opt-desc">保留单版本聚焦，顶部 Hero 渐变大版本号 + 统计胶囊；分区用彩色图标徽章。最现代、app 风。</p>
+      <div class="stage">
+        <div class="stage-titlebar"><span class="stage-dot"></span><span class="pill">main.tsx</span><span class="provider-chip">● Claude</span></div>
+        <div class="stage-chat"><div class="bubble user">这次大版本更新了啥</div></div>
+        <div class="dialog-overlay">
+          <div class="dialog-base wn-b">
+            <div class="wn-b-hero">
+              <div class="wn-b-emoji">🚀</div>
+              <div class="wn-b-ver">v0.4.6</div>
+              <div class="wn-b-date">2026 年 6 月 30 日 · 重大更新</div>
+              <div class="wn-b-stats">
+                <span class="wn-b-stat"><span class="pip" style="background:var(--c-feature)"></span>3 新功能</span>
+                <span class="wn-b-stat"><span class="pip" style="background:var(--c-fix)"></span>2 修复</span>
+                <span class="wn-b-stat"><span class="pip" style="background:var(--c-perf)"></span>1 性能</span>
+              </div>
+            </div>
+            <div class="wn-b-body">
+              <div class="wn-b-grp">
+                <div class="wn-b-grp-head"><span class="wn-b-chip f">✨</span><span class="wn-b-grp-title">新功能</span></div>
+                <ul class="wn-b-list"><li>OpenCode 双模式集成（CLI + SDK）</li><li>Skill SSOT 统一架构，三 provider 对称</li></ul>
+              </div>
+              <div class="wn-b-grp">
+                <div class="wn-b-grp-head"><span class="wn-b-chip x">🐛</span><span class="wn-b-grp-title">修复</span></div>
+                <ul class="wn-b-list"><li>Codex CLI 无限"Generating response"卡死</li></ul>
+              </div>
+              <div class="wn-b-grp">
+                <div class="wn-b-grp-head"><span class="wn-b-chip i">⚡</span><span class="wn-b-grp-title">性能</span></div>
+                <ul class="wn-b-list"><li>MCP Gateway 首包响应加速</li></ul>
+              </div>
+            </div>
+            <div class="dialog-footer wn-b-foot">
+              <button class="btn btn-ghost">‹ 上一版本</button>
+              <div class="footer-actions"><button class="btn btn-primary">开始体验 →</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 方案 C -->
+    <div class="opt">
+      <div class="opt-head"><h3>方案 C · IDE 原生克制</h3><span class="tag tag-rec">最适配插件</span></div>
+      <p class="opt-desc">贴近 JetBrains 原生 What's New：去掉花哨彩色分区，左色条 + 紧凑标签列表 + 单操作按钮，最不突兀。</p>
+      <div class="stage">
+        <div class="stage-titlebar"><span class="stage-dot"></span><span class="pill">main.tsx</span><span class="provider-chip">● Claude</span></div>
+        <div class="stage-chat"><div class="bubble user">看下更新</div></div>
+        <div class="dialog-overlay">
+          <div class="dialog-base wn-c">
+            <div class="wn-c-bar"></div>
+            <div class="wn-c-head">
+              <h2>What's New in Melon CC GUI</h2>
+              <div class="meta">v0.4.6 · 2026-06-30</div>
+            </div>
+            <div class="wn-c-body">
+              <div class="wn-c-item"><span class="wn-c-tag f">新功能</span><span class="wn-c-text">OpenCode 双模式集成(CLI+SDK)，Skill SSOT 统一架构</span></div>
+              <div class="wn-c-item"><span class="wn-c-tag x">修复</span><span class="wn-c-text">Codex CLI 无限卡死；切换 OpenCode 后退回 Claude</span></div>
+              <div class="wn-c-item"><span class="wn-c-tag i">改进</span><span class="wn-c-text">三 provider 路由策略对称化，弹窗统一 BaseDialog 基座</span></div>
+              <div class="wn-c-item"><span class="wn-c-tag p">性能</span><span class="wn-c-text">MCP Gateway 首包响应加速</span></div>
+            </div>
+            <div class="wn-c-foot">
+              <button class="wn-c-link">查看完整更新日志 →</button>
+              <button class="btn btn-primary">关闭</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ====================== Part 2: CRUD ====================== -->
+<div class="section">
+  <div class="section-title"><span class="num">2</span> CRUD 弹窗 · 统一收口到 BaseDialog</div>
+  <p class="section-desc">
+    以 <code>McpServerDialog</code>（唯一游离 BaseDialog 的 CRUD 表单）为主示例。现状有 <b>三套并存的弹窗体系</b>：BaseDialog（已迁）/ MCP 原生 <code>dialog-overlay</code>（方角、纯 JSON）/ HistoryItemEditor 自研 CSS Modules（紫边大圆角）。下面 3 套是收口方向。
+  </p>
+
+  <!-- 现状对比 -->
+  <div class="opt" style="margin-bottom:28px">
+    <div class="opt-head"><h3>现状 · 三套体系并存</h3><span class="tag tag-now">需收敛</span></div>
+    <p class="opt-desc">左：MCP 原生（方角 6px、纯 JSON textarea、灰色按钮）｜右：HistoryItemEditor（紫边 16px 大圆角，又一套）。两者都游离于 BaseDialog（12px 圆角）之外。</p>
+    <div class="stage">
+      <div class="stage-titlebar"><span class="stage-dot"></span><span class="pill">settings.tsx</span><span class="provider-chip">⚙ 设置</span></div>
+      <div class="stage-chat"><div class="bubble user">新增一个 MCP server</div></div>
+      <div class="dialog-overlay">
+        <div class="cr-now-wrap">
+          <div>
+            <div class="cr-now-mcp">
+              <div class="h">新增 MCP Server<span class="x">✕</span></div>
+              <div class="b"><textarea class="sim">{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem"]
+    }
+  }
+}</textarea></div>
+              <div class="f"><button>取消</button><button>确定</button></div>
+            </div>
+            <div class="cr-now-label">MCP · 原生 dialog-overlay</div>
+          </div>
+          <div>
+            <div class="cr-now-hist">
+              <div class="h">编辑历史补全</div>
+              <div class="b"><textarea class="sim" placeholder="输入补全文本..."></textarea>
+                <div class="imp">重要度 <button>－</button> 1 <button>＋</button></div>
+              </div>
+            </div>
+            <div class="cr-now-label">History · 自研 Modules</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+
+    <!-- 方案 A -->
+    <div class="opt">
+      <div class="opt-head"><h3>方案 A · 表单化 + BaseDialog</h3><span class="tag tag-rec">推荐</span></div>
+      <p class="opt-desc">MCP 从纯 JSON 改为结构化表单（Name / Type / Command / Args / Env），降低手写 JSON 门槛；右上"切换 JSON 模式"留给高级用户。全套 Header/Body/Footer。</p>
+      <div class="stage">
+        <div class="stage-titlebar"><span class="stage-dot"></span><span class="pill">settings.tsx</span><span class="provider-chip">⚙ 设置</span></div>
+        <div class="stage-chat"><div class="bubble user">新增 filesystem MCP</div></div>
+        <div class="dialog-overlay">
+          <div class="dialog-base cr-a">
+            <div class="dialog-header"><span class="icon">🔌</span><h3>新增 MCP Server</h3><button class="close-btn">✕</button></div>
+            <div class="dialog-body">
+              <div class="mode-row"><span class="lab">表单模式</span><button class="switch-link">⇄ 切换到 JSON</button></div>
+              <div class="form-group"><label class="form-label">名称<span class="req">*</span></label><input class="form-input" value="filesystem" /></div>
+              <div class="form-group"><label class="form-label">类型</label>
+                <div class="seg"><button class="seg-item active">stdio</button><button class="seg-item">SSE</button><button class="seg-item">HTTP</button></div>
+              </div>
+              <div class="form-row">
+                <div class="form-group"><label class="form-label">命令<span class="req">*</span></label><input class="form-input" value="npx" /></div>
+                <div class="form-group"><label class="form-label">参数</label><input class="form-input" value="-y @modelcontextprotocol/server-filesystem" /></div>
+              </div>
+              <div class="form-group"><label class="form-label">环境变量</label>
+                <div class="kv-row"><input class="form-input kv-k" value="MAX_FILES" /><input class="form-input kv-v" value="1000" /><button class="btn btn-ghost" style="padding:4px 8px">✕</button></div>
+                <button class="kv-add">＋ 添加变量</button>
+              </div>
+            </div>
+            <div class="dialog-footer"><button class="btn btn-danger">删除</button><div class="footer-actions"><button class="btn">取消</button><button class="btn btn-primary">保存</button></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 方案 B -->
+    <div class="opt">
+      <div class="opt-head"><h3>方案 B · JSON 编辑器统一壳</h3><span class="tag tag-min">最轻量</span></div>
+      <p class="opt-desc">内容仍 JSON，但壳统一 BaseDialog，JSON 区做成代码编辑器感（行号 + 语法着色 + 校验提示）。改动最小，保留灵活性。</p>
+      <div class="stage">
+        <div class="stage-titlebar"><span class="stage-dot"></span><span class="pill">settings.tsx</span><span class="provider-chip">⚙ 设置</span></div>
+        <div class="stage-chat"><div class="bubble user">新增 MCP server</div></div>
+        <div class="dialog-overlay">
+          <div class="dialog-base cr-b">
+            <div class="dialog-header"><span class="icon">🔌</span><h3>新增 MCP Server</h3><button class="close-btn">✕</button></div>
+            <div class="dialog-body">
+              <div class="form-group"><label class="form-label">配置 (JSON)</label>
+                <div class="code-block">
+                  <div class="code-head"><span>mcpServers.json</span><span style="color:var(--green)">✓ 格式正确</span></div>
+                  <div class="code-body">
+                    <div class="code-linenos">1<br/>2<br/>3<br/>4<br/>5<br/>6<br/>7</div>
+                    <div class="code-content"><span class="tok-punc">{</span>
+  <span class="tok-key">"mcpServers"</span><span class="tok-punc">: {</span>
+    <span class="tok-key">"filesystem"</span><span class="tok-punc">: {</span>
+      <span class="tok-key">"command"</span><span class="tok-punc">:</span> <span class="tok-str">"npx"</span><span class="tok-punc">,</span>
+      <span class="tok-key">"args"</span><span class="tok-punc">:</span> <span class="tok-punc">[</span><span class="tok-str">"-y"</span><span class="tok-punc">,</span> <span class="tok-str">"…filesystem"</span><span class="tok-punc">]</span>
+    <span class="tok-punc">}</span>
+  <span class="tok-punc">}</span>
+<span class="tok-punc">}</span></div>
+                  </div>
+                </div>
+                <div class="form-hint">支持 <code>mcpServers</code> 包裹或直接单个 server 对象。</div>
+              </div>
+            </div>
+            <div class="dialog-footer"><div class="footer-actions"><button class="btn">取消</button><button class="btn btn-primary">保存</button></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 方案 C -->
+    <div class="opt">
+      <div class="opt-head"><h3>方案 C · 向导式（对齐 Provider）</h3><span class="tag tag-max">最一致</span></div>
+      <p class="opt-desc">MCP 也做 3 步向导，完全对齐 ProviderDialog 体验。步骤指示器 + 每步一屏。最重，但三供应商/MCP 配置体验完全统一。</p>
+      <div class="stage">
+        <div class="stage-titlebar"><span class="stage-dot"></span><span class="pill">settings.tsx</span><span class="provider-chip">⚙ 设置</span></div>
+        <div class="stage-chat"><div class="bubble user">新增 MCP server</div></div>
+        <div class="dialog-overlay">
+          <div class="dialog-base cr-c">
+            <div class="dialog-header"><span class="icon">🔌</span><h3>新增 MCP Server · 向导</h3><button class="close-btn">✕</button></div>
+            <div class="cr-steps">
+              <div class="cr-step done"><span class="cr-step-num">✓</span><span class="cr-step-label">类型</span></div>
+              <div class="cr-step-line"></div>
+              <div class="cr-step active"><span class="cr-step-num">2</span><span class="cr-step-label">配置</span></div>
+              <div class="cr-step-line"></div>
+              <div class="cr-step"><span class="cr-step-num">3</span><span class="cr-step-label">确认</span></div>
+            </div>
+            <div class="dialog-body">
+              <div class="form-group"><label class="form-label">名称<span class="req">*</span></label><input class="form-input" value="filesystem" /></div>
+              <div class="form-row">
+                <div class="form-group"><label class="form-label">命令</label><input class="form-input" value="npx" /></div>
+                <div class="form-group"><label class="form-label">参数</label><input class="form-input" value="-y …filesystem" /></div>
+              </div>
+              <div class="form-group"><label class="form-label">环境变量（可选）</label>
+                <div class="kv-row"><input class="form-input kv-k" placeholder="KEY" /><input class="form-input kv-v" placeholder="VALUE" /></div>
+              </div>
+            </div>
+            <div class="dialog-footer"><div class="footer-actions"><button class="btn">‹ 上一步</button><button class="btn btn-primary">下一步 ›</button></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 方案 C 附：第1步选类型 -->
+    <div class="opt">
+      <div class="opt-head"><h3>方案 C · 向导第 1 步（选类型）</h3><span class="tag tag-max">卡片选择</span></div>
+      <p class="opt-desc">向导首步用卡片选择传输类型，与 ProviderDialog 选 preset 的交互完全一致。</p>
+      <div class="stage">
+        <div class="stage-titlebar"><span class="stage-dot"></span><span class="pill">settings.tsx</span><span class="provider-chip">⚙ 设置</span></div>
+        <div class="stage-chat"><div class="bubble user">新增 MCP server</div></div>
+        <div class="dialog-overlay">
+          <div class="dialog-base cr-c">
+            <div class="dialog-header"><span class="icon">🔌</span><h3>新增 MCP Server · 向导</h3><button class="close-btn">✕</button></div>
+            <div class="cr-steps">
+              <div class="cr-step active"><span class="cr-step-num">1</span><span class="cr-step-label">类型</span></div>
+              <div class="cr-step-line"></div>
+              <div class="cr-step"><span class="cr-step-num">2</span><span class="cr-step-label">配置</span></div>
+              <div class="cr-step-line"></div>
+              <div class="cr-step"><span class="cr-step-num">3</span><span class="cr-step-label">确认</span></div>
+            </div>
+            <div class="dialog-body">
+              <div class="form-group"><label class="form-label">选择传输类型</label>
+                <div class="type-grid">
+                  <div class="type-card sel"><div class="ic">⚡</div><div class="nm">stdio</div><div class="dc">本地子进程</div></div>
+                  <div class="type-card"><div class="ic">📡</div><div class="nm">SSE</div><div class="dc">流式 HTTP</div></div>
+                  <div class="type-card"><div class="ic">🌐</div><div class="nm">HTTP</div><div class="dc">可流式传输</div></div>
+                </div>
+              </div>
+              <div class="form-hint" style="margin-top:10px">stdio 最常用：本地工具通过标准输入输出通信。</div>
+            </div>
+            <div class="dialog-footer"><button class="btn btn-ghost">取消</button><div class="footer-actions"><button class="btn btn-primary">下一步 ›</button></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ====================== 对比总结 ====================== -->
+<div class="compare">
+  <table>
+    <thead><tr><th>维度</th><th>What's New · A 时间线</th><th>What's New · B Hero</th><th>What's New · C IDE原生</th></tr></thead>
+    <tbody>
+      <tr><td>浏览多版本</td><td class="yes">✅ 一屏全看</td><td class="mid">⚠️ 需翻页</td><td class="mid">⚠️ 需点链接</td></tr>
+      <tr><td>仪式感/视觉冲击</td><td class="mid">中</td><td class="yes">✅ 强</td><td class="no">弱（刻意克制）</td></tr>
+      <tr><td>与 IDE 调性融合</td><td class="mid">中</td><td class="mid">偏 app 风</td><td class="yes">✅ 最贴合</td></tr>
+      <tr><td>实现成本</td><td class="mid">中（去分页重构）</td><td class="mid">中</td><td class="yes">✅ 低（简化现状）</td></tr>
+    </tbody>
+  </table>
+</div>
+<br/>
+<div class="compare">
+  <table>
+    <thead><tr><th>维度</th><th>CRUD · A 表单化</th><th>CRUD · B JSON壳</th><th>CRUD · C 向导式</th></tr></thead>
+    <tbody>
+      <tr><td>降低使用门槛</td><td class="yes">✅ 表单直观</td><td class="no">仍需写 JSON</td><td class="yes">✅ 分步引导</td></tr>
+      <tr><td>改动量/风险</td><td class="mid">中（表单解析）</td><td class="yes">✅ 最小</td><td class="no">大（拆步骤）</td></tr>
+      <tr><td>与 Provider 弹窗一致</td><td class="mid">部分</td><td class="no">不一致</td><td class="yes">✅ 完全对齐</td></tr>
+      <tr><td>保留 JSON 灵活性</td><td class="yes">✅ 可切换</td><td class="yes">✅ 本就是</td><td class="mid">最后步预览</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="note">
+  <b>关于"双层"根因（独立于视觉重做）：</b>调研确认 What's New 的双层隐患来自<b>两个独立 ChangelogDialog 实例</b>——
+  <code>AppDialogs.tsx:156</code>（初始化自动弹，写 localStorage）与 <code>settings/CommunitySection/index.tsx:71</code>（手动点开，独立 state，<b>不写</b> localStorage）。
+  git 历史里<b>没有专门修复此双层的提交</b>；最相关的是 <code>5ccbe05c</code>（统一 BaseDialog，消除旧"双 overlay"）与 <code>4be5937e</code>（JCEF 残影）。
+  <b>修复建议（与视觉重做解耦）：</b>删除 CommunitySection 的第二实例，设置页改为调用全局 <code>openChangelogDialog()</code>（复用 UIStateContext 单一 state），统一 onClose 行为（都写 localStorage）。这样无论选上面哪套视觉方案，双层都不再出现。
+</div>
+
+<script>
+function toggleTheme() {
+  const html = document.documentElement;
+  html.setAttribute('data-theme', html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+}
+</script>
+</body>
+</html>
