@@ -1,5 +1,6 @@
 package com.github.claudecodegui.cli.opencode;
 
+import org.junit.After;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -7,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNull;
 
 /**
@@ -43,5 +45,35 @@ public class OpenCodeCliResolverTest {
         assertNull(OpenCodeCliResolver.inferNativeExecutablePath(null));
         assertNull(OpenCodeCliResolver.inferNativeExecutablePath(""));
         assertNull(OpenCodeCliResolver.inferNativeExecutablePath("   "));
+    }
+
+    // ============ 路径缓存(消除每次 send 重复 spawn 'opencode --version' 的 ~3s pre-spawn) ============
+
+    @After
+    public void resetResolverCache() {
+        OpenCodeCliResolver.__clearCacheForTests();
+    }
+
+    @Test
+    public void cachedExecutableIsReturnedWithoutReverification() {
+        // 假路径 verify 必失败(不存在);若仍返回假路径,证明走了缓存而非 verify。
+        String fakeCachedPath = "/definitely/not/real/opencode-" + "unique123.exe";
+
+        OpenCodeCliResolver.__setCachedExecutableForTests(fakeCachedPath);
+
+        assertEquals(fakeCachedPath, OpenCodeCliResolver.findExecutable());
+    }
+
+    @Test
+    public void clearingCacheForcesRedetection() {
+        String fakeCachedPath = "/definitely/not/real/opencode-" + "unique456.exe";
+        OpenCodeCliResolver.__setCachedExecutableForTests(fakeCachedPath);
+        assertEquals(fakeCachedPath, OpenCodeCliResolver.findExecutable());
+
+        // 清缓存后重检测:走 verify → 不再返回旧缓存假路径
+        OpenCodeCliResolver.__clearCacheForTests();
+        String redetected = OpenCodeCliResolver.findExecutable();
+        // 环境无关断言:无论返回真实路径(装了)还是裸名 "opencode"(没装),都绝不等于旧假路径
+        assertNotEquals("清缓存后应重新检测,不返回旧缓存假路径", fakeCachedPath, redetected);
     }
 }

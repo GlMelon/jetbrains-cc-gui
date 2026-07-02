@@ -20,7 +20,49 @@ public final class OpenCodeCliResolver {
     private OpenCodeCliResolver() {
     }
 
+    /**
+     * 成功路径缓存。CLI 是 one-shot 架构(每轮 send 新建 session),{@code findExecutable()} 每轮都被调用,
+     * 而内部 {@link #verify(String)} 会 spawn 'opencode --version' 子进程(Node .cmd 包装冷启动 ~3s),
+     * 且 {@link #resolveNativeExecutable()} 最多调 2 次 verify(shim + 原生 .exe)。命中缓存后跳过全部
+     * verify 流程,消除每轮 ~3-6s 的 pre-spawn 开销(对称 ClaudeCliDetector.cachedCliPath)。
+     * 只缓存成功路径(不缓存失败):本 resolver 无用户配置入口来打破"首次时序致永久失败"僵局,
+     * 故保守地让未安装场景每轮重试(失败本就会快速报错,无需优化)。
+     */
+    private static volatile String cachedExecutable;
+    private static final Object CACHE_LOCK = new Object();
+
     public static String findExecutable() {
+        String cached = cachedExecutable;
+        if (cached != null) {
+            return cached;
+        }
+        synchronized (CACHE_LOCK) {
+            if (cachedExecutable != null) {
+                return cachedExecutable;
+            }
+            String result = doFindExecutable();
+            if (result != null) {
+                cachedExecutable = result;
+            }
+            return result;
+        }
+    }
+
+    /** 测试钩子:直接注入缓存路径,跳过 verify(验证缓存命中语义)。 */
+    static void __setCachedExecutableForTests(String path) {
+        synchronized (CACHE_LOCK) {
+            cachedExecutable = path;
+        }
+    }
+
+    /** 测试钩子:清空缓存,强制下次 findExecutable 重新检测。 */
+    static void __clearCacheForTests() {
+        synchronized (CACHE_LOCK) {
+            cachedExecutable = null;
+        }
+    }
+
+    private static String doFindExecutable() {
         // 优先:原生二进制(绕过 .cmd 批处理包装,修复多行 prompt 位置参数被 cmd.exe 截断
         // + stdin EOF 经 .cmd 包装传播不可靠 → opencode exit0 无事件流)
         String nativeExe = resolveNativeExecutable();
