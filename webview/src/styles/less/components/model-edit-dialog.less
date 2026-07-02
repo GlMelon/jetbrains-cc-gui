@@ -1,0 +1,167 @@
+/* ModelEditDialog 专属样式 —— 方案 C:provider 分段控件 + 实时预览。
+   复用 BaseDialog 体系(.dialog-overlay/.dialog-base/.dialog-header/.dialog-body/
+   .dialog-footer/.form-group/.form-input/.btn 见 agent-dialog.less),此处仅补充
+   本弹窗独有的分段控件、预览卡、Switch 行布局与固定宽度。
+   注:.dialog-size-* 在仓库内为空壳,故通过 wrapper class 显式给 .dialog-base 定宽。 */
+
+.model-edit-dialog-wrapper .dialog-base {
+    width: 600px;
+    max-width: calc(100vw - 32px);
+}
+
+/* ---------- provider 分段控件 ---------- */
+.model-segmented {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    padding: 4px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-secondary);
+    border-radius: var(--radius-md, 6px);
+
+    .seg {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        padding: 7px 10px;
+        border: none;
+        border-radius: var(--radius-md, 6px);
+        background: transparent;
+        color: var(--text-tertiary);
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.15s ease, color 0.15s ease;
+
+        &:hover {
+            color: var(--text-secondary);
+        }
+
+        &.active {
+            background: var(--bg-hover);
+            color: var(--text-secondary);
+        }
+    }
+}
+
+/* ---------- 字段两列网格 ---------- */
+.model-edit-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+
+    .full {
+        grid-column: 1 / -1;
+    }
+
+    @media (max-width: 520px) {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ---------- 实时预览卡 ---------- */
+.model-preview-card {
+    margin-top: 4px;
+    padding: 12px;
+    border: 1px dashed var(--border-secondary);
+    border-radius: var(--radius-md, 6px);
+    background: var(--bg-primary);
+
+    .preview-label {
+        font-size: 11px;
+        color: var(--text-tertiary);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 8px;
+    }
+
+    .preview-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border: 1px solid var(--border-secondary);
+        border-radius: var(--radius-md, 6px);
+        background: var(--bg-secondary);
+        font-size: 12.5px;
+        max-width: 100%;
+
+        .preview-id {
+            font-weight: 500;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+
+            &.empty {
+                color: var(--text-placeholder);
+                font-style: italic;
+                font-weight: 400;
+            }
+        }
+
+        .preview-provider {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            color: var(--text-tertiary);
+        }
+    }
+
+    .preview-badge {
+        padding: 0 6px;
+        border-radius: var(--radius-lg, 8px);
+        font-size: 10px;
+        font-weight: 600;
+        white-space: nowrap;
+
+        &.badge-1m {
+            background: rgba(76, 175, 80, 0.18);
+            color: var(--color-success);
+        }
+        &.badge-enabled {
+            background: rgba(0, 127, 212, 0.18);
+            color: var(--accent-primary);
+        }
+        &.badge-disabled {
+            background: rgba(133, 133, 133, 0.2);
+            color: var(--text-tertiary);
+        }
+    }
+}
+
+/* ---------- Switch 行 ---------- */
+.model-switches {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.model-switch-line {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+
+    .custom-switch {
+        margin-top: 2px;
+    }
+
+    .switch-text {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .switch-title {
+        font-size: 13px;
+        color: var(--text-secondary);
+        line-height: 20px;
+    }
+
+    .switch-hint {
+        font-size: 12px;
+        color: var(--text-tertiary);
+        line-height: 1.4;
+    }
+}

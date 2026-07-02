@@ -56,69 +56,6 @@
   }
 }
 
-.editor {
-  display: grid;
-  grid-template-columns: minmax(128px, auto) minmax(180px, 1fr) minmax(160px, 1fr) minmax(180px, 1fr);
-  gap: 8px;
-  padding: 12px;
-  margin-bottom: 14px;
-  border: 1px solid var(--border-primary);
-  border-radius: 6px;
-  background: var(--bg-secondary);
-}
-
-.providerSelect {
-  min-width: 128px;
-}
-
-.providerSelectWrap {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-}
-
-.providerSelectIcon {
-  position: absolute;
-  left: 8px;
-  top: 50%;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transform: translateY(-50%);
-  pointer-events: none;
-}
-
-.providerSelectWrap .providerSelect {
-  padding-left: 28px;
-}
-
-.contextControls {
-  grid-column: 1 / -1;
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  align-items: center;
-
-  input {
-    max-width: 160px;
-  }
-}
-
-.checkboxLabel {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--text-secondary);
-  font-size: 12px;
-}
-
-.editorActions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
 .table {
   display: flex;
   flex-direction: column;
@@ -220,9 +157,5 @@
     display: flex;
     flex-direction: column;
     align-items: stretch;
-  }
-
-  .editor {
-    grid-template-columns: 1fr;
   }
 }
