@@ -12,7 +12,6 @@ export function useClaudeProvider() {
   const [selectedClaudeModel, setSelectedClaudeModel] = useState<string>(CLAUDE_ROLE_MODEL_IDS.sonnet);
   const [claudePermissionMode, setClaudePermissionMode] = useState<PermissionMode>('default');
   const [longContextEnabled, setLongContextEnabled] = useState(true);
-  const [claudeSettingsAlwaysThinkingEnabled, setClaudeSettingsAlwaysThinkingEnabled] = useState(true);
 
   return {
     selectedClaudeModel,
@@ -21,8 +20,6 @@ export function useClaudeProvider() {
     setClaudePermissionMode,
     longContextEnabled,
     setLongContextEnabled,
-    claudeSettingsAlwaysThinkingEnabled,
-    setClaudeSettingsAlwaysThinkingEnabled,
   };
 }
 

@@ -462,8 +462,8 @@ export interface ChatInputBoxProps {
   tokenDetail?: TokenDetail;
   /** Whether to show usage */
   showUsage?: boolean;
-  /** Whether always thinking is enabled */
-  alwaysThinkingEnabled?: boolean;
+  /** Whether to show the thinking panel (display toggle, all providers/modes) */
+  showThinkingEnabled?: boolean;
   /** Attachment list */
   attachments?: Attachment[];
   /** Placeholder text */
@@ -504,8 +504,8 @@ export interface ChatInputBoxProps {
   reasoningEffort?: ReasoningEffort;
   /** Switch reasoning effort callback */
   onReasoningChange?: (effort: ReasoningEffort) => void;
-  /** Toggle thinking mode */
-  onToggleThinking?: (enabled: boolean) => void;
+  /** Toggle show-thinking (display toggle, all providers/modes) */
+  onShowThinkingEnabledChange?: (enabled: boolean) => void;
   /** Codex fast mode */
   codexFastMode?: CodexFastMode;
   /** Switch Codex fast mode callback */
@@ -592,10 +592,10 @@ export interface ButtonAreaProps {
   onReasoningChange?: (effort: ReasoningEffort) => void;
   /** Enhance prompt callback */
   onEnhancePrompt?: () => void;
-  /** Whether always thinking enabled */
-  alwaysThinkingEnabled?: boolean;
-  /** Toggle thinking mode */
-  onToggleThinking?: (enabled: boolean) => void;
+  /** Whether to show the thinking panel (display toggle, all providers/modes) */
+  showThinkingEnabled?: boolean;
+  /** Toggle show-thinking (display toggle, all providers/modes) */
+  onShowThinkingEnabledChange?: (enabled: boolean) => void;
   /** Whether streaming enabled */
   streamingEnabled?: boolean;
   /** Toggle streaming */

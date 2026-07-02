@@ -15,8 +15,8 @@ import {
 import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
 
 interface ConfigSelectProps {
-  alwaysThinkingEnabled?: boolean;
-  onToggleThinking?: (enabled: boolean) => void;
+  showThinkingEnabled?: boolean;
+  onShowThinkingEnabledChange?: (enabled: boolean) => void;
   streamingEnabled?: boolean;
   onStreamingEnabledChange?: (enabled: boolean) => void;
   selectedAgent?: SelectedAgent | null;
@@ -134,8 +134,8 @@ function getAgentOptionStyle(isInfo: boolean): React.CSSProperties {
  * Provider selection has been moved to a standalone ProviderSelect icon button.
  */
 export const ConfigSelect = ({
-  alwaysThinkingEnabled,
-  onToggleThinking,
+  showThinkingEnabled,
+  onShowThinkingEnabledChange,
   streamingEnabled,
   onStreamingEnabledChange,
   selectedAgent,
@@ -144,6 +144,9 @@ export const ConfigSelect = ({
   currentProvider = 'claude',
 }: ConfigSelectProps) => {
   const { t } = useTranslation();
+  // 流式/思考区开关为 provider/调用模式无关的纯显示开关,对所有 provider 生效:
+  // 流式 off → 后端缓冲到 turn 边界一次性推送(非增量);
+  // 思考区 off → 不推送 thinking 类型数据(模型照常思考,纯显示控制)。
   const [isOpen, setIsOpen] = useState(false);
   const [activeSubmenu, setActiveSubmenu] = useState<'none' | 'agent' | 'runtimeProvider' | 'nodeProcesses'>('none');
   const [agentItems, setAgentItems] = useState<AgentItem[]>([]);
@@ -501,7 +504,7 @@ export const ConfigSelect = ({
           {/* Divider */}
           <div className="selector-divider" />
 
-          {/* Streaming Switch Item */}
+          {/* Streaming Switch Item - 流式输出开关(跨所有 provider/调用模式) */}
           <div
             className="selector-option"
             onClick={(e) => {
@@ -519,8 +522,8 @@ export const ConfigSelect = ({
               size="small"
               checked={streamingEnabled ?? true}
               onClick={(checked, e) => {
-                 e.stopPropagation();
-                 onStreamingEnabledChange?.(checked);
+                e.stopPropagation();
+                onStreamingEnabledChange?.(checked);
               }}
             />
           </div>
@@ -528,12 +531,12 @@ export const ConfigSelect = ({
           {/* Divider */}
           <div style={FAINT_DIVIDER_STYLE} />
 
-          {/* Thinking Switch Item */}
+          {/* Show-thinking Switch Item - 显示思考区开关(跨所有 provider/调用模式) */}
           <div
             className="selector-option"
             onClick={(e) => {
               e.stopPropagation();
-              onToggleThinking?.(!alwaysThinkingEnabled);
+              onShowThinkingEnabledChange?.(!showThinkingEnabled);
             }}
             onMouseEnter={() => setActiveSubmenu('none')}
             style={SWITCH_OPTION_STYLE}
@@ -544,10 +547,10 @@ export const ConfigSelect = ({
             </div>
             <Switch
               size="small"
-              checked={alwaysThinkingEnabled ?? false}
+              checked={showThinkingEnabled ?? true}
               onClick={(checked, e) => {
-                 e.stopPropagation();
-                 onToggleThinking?.(checked);
+                e.stopPropagation();
+                onShowThinkingEnabledChange?.(checked);
               }}
             />
           </div>

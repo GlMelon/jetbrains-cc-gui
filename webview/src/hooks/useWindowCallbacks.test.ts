@@ -49,7 +49,7 @@ describe('useWindowCallbacks integration', () => {
     setSelectedOpenCodeModel: vi.fn(),
     setProviderConfigVersion: vi.fn(),
     setActiveProviderConfig: vi.fn(),
-    setClaudeSettingsAlwaysThinkingEnabled: vi.fn(),
+    setShowThinkingEnabledSetting: vi.fn(),
     setStreamingEnabledSetting: vi.fn(),
     setSendShortcut: vi.fn(),
     setAutoOpenFileEnabled: vi.fn(),

@@ -27,8 +27,8 @@ export const ButtonArea = memo(function ButtonArea({
   onProviderSelect,
   onReasoningChange,
   onEnhancePrompt,
-  alwaysThinkingEnabled = false,
-  onToggleThinking,
+  showThinkingEnabled = true,
+  onShowThinkingEnabledChange,
   streamingEnabled = true,
   onStreamingEnabledChange,
   selectedAgent,
@@ -166,8 +166,8 @@ export const ButtonArea = memo(function ButtonArea({
       {/* Left side: selectors */}
       <div className="button-area-left">
         <ConfigSelect
-          alwaysThinkingEnabled={alwaysThinkingEnabled}
-          onToggleThinking={onToggleThinking}
+          showThinkingEnabled={showThinkingEnabled}
+          onShowThinkingEnabledChange={onShowThinkingEnabledChange}
           streamingEnabled={streamingEnabled}
           onStreamingEnabledChange={onStreamingEnabledChange}
           selectedAgent={selectedAgent}

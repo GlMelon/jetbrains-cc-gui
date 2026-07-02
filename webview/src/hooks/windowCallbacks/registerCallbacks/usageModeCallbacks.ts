@@ -38,8 +38,8 @@ export function registerUsageModeCallbacks(options: UseWindowCallbacksOptions): 
     setSelectedOpenCodeModel,
     setProviderConfigVersion,
     setActiveProviderConfig,
-    setClaudeSettingsAlwaysThinkingEnabled,
     setStreamingEnabledSetting,
+    setShowThinkingEnabledSetting,
     setSendShortcut,
     setAutoOpenFileEnabled,
     setPermissionDialogTimeoutSeconds,
@@ -191,27 +191,6 @@ export function registerUsageModeCallbacks(options: UseWindowCallbacksOptions): 
         }
     });
 
-  // [归一化] updateThinkingEnabled → setting.thinking_enabled
-  registerLegacyAlias('updateThinkingEnabled', DOWNSTREAM.SETTING_THINKING_ENABLED);
-  subscribeEvent(DOWNSTREAM.SETTING_THINKING_ENABLED, (jsonStr) => {
-    const trimmed = ((jsonStr as string) || '').trim();
-    try {
-      const data = JSON.parse(trimmed);
-      if (typeof data === 'boolean') {
-        setClaudeSettingsAlwaysThinkingEnabled(data);
-        return;
-      }
-      if (data && typeof data.enabled === 'boolean') {
-        setClaudeSettingsAlwaysThinkingEnabled(data.enabled);
-        return;
-      }
-    } catch {
-      if (trimmed === 'true' || trimmed === 'false') {
-        setClaudeSettingsAlwaysThinkingEnabled(trimmed === 'true');
-      }
-    }
-  });
-
   // [归一化] updateStreamingEnabled → setting.streaming_enabled
   registerLegacyAlias('updateStreamingEnabled', DOWNSTREAM.SETTING_STREAMING_ENABLED);
   subscribeEvent(DOWNSTREAM.SETTING_STREAMING_ENABLED, (jsonStr) => {
@@ -220,6 +199,19 @@ export function registerUsageModeCallbacks(options: UseWindowCallbacksOptions): 
       setStreamingEnabledSetting(data.streamingEnabled ?? true);
     } catch (error) {
       console.error('[Frontend] Failed to parse streaming enabled:', error);
+    }
+  });
+
+  // [归一化] updateShowThinkingEnabled → setting.show_thinking_enabled
+  // 显示思考区开关(跨所有 provider/调用模式统一):off 时后端 SessionCallbackAdapter
+  // 的 TurnPushGate 丢弃 thinking delta/thinking-status(模型照常思考,纯显示控制)。
+  registerLegacyAlias('updateShowThinkingEnabled', DOWNSTREAM.SETTING_SHOW_THINKING_ENABLED);
+  subscribeEvent(DOWNSTREAM.SETTING_SHOW_THINKING_ENABLED, (jsonStr) => {
+    try {
+      const data = JSON.parse(jsonStr as string);
+      setShowThinkingEnabledSetting(data.showThinkingEnabled ?? true);
+    } catch (error) {
+      console.error('[Frontend] Failed to parse show thinking enabled:', error);
     }
   });
 

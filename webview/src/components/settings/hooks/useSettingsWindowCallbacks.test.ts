@@ -32,6 +32,7 @@ describe('useSettingsWindowCallbacks', () => {
     setCodeFontConfig: vi.fn(),
     setIdeTheme: vi.fn(),
     setLocalStreamingEnabled: vi.fn(),
+    setLocalShowThinkingEnabled: vi.fn(),
     setCodexSandboxMode: vi.fn(),
     setLocalSendShortcut: vi.fn(),
     setLoading: vi.fn(),
@@ -83,6 +84,7 @@ describe('useSettingsWindowCallbacks', () => {
     expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('get_working_directory'));
     expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('get_editor_font_config'));
     expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('get_streaming_enabled'));
+    expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('get_show_thinking_enabled'));
     expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('get_codex_sandbox_mode'));
     expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('get_commit_prompt'));
     expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('get_commit_ai_config'));

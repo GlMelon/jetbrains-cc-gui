@@ -36,6 +36,7 @@ public class ClaudeCliSessionRuntimeTest {
                 null,
                 null,
                 null,
+                null,
                 null
         );
 

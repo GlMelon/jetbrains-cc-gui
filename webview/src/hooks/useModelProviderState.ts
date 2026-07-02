@@ -6,7 +6,6 @@ import { DOWNSTREAM } from '../generated/protocol';
 import { subscribeEvent } from '../bridge/typed';
 import type { PermissionMode } from '../components/ChatInputBox/types';
 import { DEFAULT_CONTEXT_WINDOW, strip1MContextSuffix } from '../components/ChatInputBox/types';
-import { isSpecialProviderId } from '../types/provider';
 import { useClaudeProvider } from './providers/useClaudeProvider';
 import { useCodexProvider } from './providers/useCodexProvider';
 import { useOpenCodeProvider } from './providers/useOpenCodeProvider';
@@ -60,7 +59,6 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     selectedClaudeModel, setSelectedClaudeModel,
     claudePermissionMode, setClaudePermissionMode,
     longContextEnabled, setLongContextEnabled,
-    setClaudeSettingsAlwaysThinkingEnabled,
   } = claude;
   const {
     selectedCodexModel, setSelectedCodexModel,
@@ -320,45 +318,6 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     setLongContextEnabled,
   ]);
 
-  const handleToggleThinking = useCallback((enabled: boolean) => {
-    const config = settings.activeProviderConfig;
-    const isSpecialProvider = isSpecialProviderId(config?.id || '');
-
-    setClaudeSettingsAlwaysThinkingEnabled(enabled);
-
-    if (!config || isSpecialProvider) {
-      settings.setActiveProviderConfig(prev => prev ? {
-        ...prev,
-        settingsConfig: {
-          ...prev.settingsConfig,
-          alwaysThinkingEnabled: enabled,
-        },
-      } : prev);
-      sendAction(UPSTREAM.SET_THINKING_ENABLED, JSON.stringify({ enabled }));
-      addToast(enabled ? t('toast.thinkingEnabled') : t('toast.thinkingDisabled'), 'success');
-      return;
-    }
-
-    settings.setActiveProviderConfig(prev => prev ? {
-      ...prev,
-      settingsConfig: {
-        ...prev.settingsConfig,
-        alwaysThinkingEnabled: enabled,
-      },
-    } : null);
-
-    sendAction(UPSTREAM.UPDATE_PROVIDER, JSON.stringify({
-      id: config.id,
-      updates: {
-        settingsConfig: {
-          ...(config.settingsConfig || {}),
-          alwaysThinkingEnabled: enabled,
-        },
-      },
-    }));
-    addToast(enabled ? t('toast.thinkingEnabled') : t('toast.thinkingDisabled'), 'success');
-  }, [settings, setClaudeSettingsAlwaysThinkingEnabled, addToast, t]);
-
   return {
     ...claude,
     ...codex,
@@ -374,6 +333,5 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     handleModelSelect,
     handleProviderSelect,
     handleLongContextChange,
-    handleToggleThinking,
   };
 }

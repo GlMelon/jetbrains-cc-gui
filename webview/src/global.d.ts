@@ -280,6 +280,11 @@ interface Window {
   updateStreamingEnabled?: (json: string) => void;
 
   /**
+   * Update show-thinking (display toggle) setting
+   */
+  updateShowThinkingEnabled?: (json: string) => void;
+
+  /**
    * Update Codex sandbox mode setting
    */
   updateCodexSandboxMode?: (json: string) => void;
@@ -910,6 +915,11 @@ interface Window {
    * Pending streaming enabled status before React initialization
    */
   __pendingStreamingEnabled?: string;
+
+  /**
+   * Pending show-thinking enabled status before React initialization
+   */
+  __pendingShowThinkingEnabled?: string;
 
   /**
    * Pending send shortcut status before React initialization

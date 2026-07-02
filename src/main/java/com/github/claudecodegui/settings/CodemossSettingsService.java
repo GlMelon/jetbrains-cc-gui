@@ -259,7 +259,10 @@ public class CodemossSettingsService {
 
         try (FileReader reader = new FileReader(configFile, StandardCharsets.UTF_8)) {
             JsonObject config = JsonParser.parseReader(reader).getAsJsonObject();
-            LOG.info("[CodemossSettings] Successfully read config from: " + configPath);
+            // readConfig 是高频热路径(30+ getter 各自调用 + 5 个 Manager 在构造函数注入为 supplier),
+            // 单次 send 链路触发 10+ 次 → 降级 DEBUG 避免 INFO 噪音淹没 [CliConcurrencyDiag] 计时埋点。
+            // (idea.log 实测 14:16:32,294→306 内 10 条 "Successfully read config" INFO)
+            LOG.debug("[CodemossSettings] Successfully read config from: " + configPath);
             return config;
         } catch (Exception e) {
             LOG.warn("[CodemossSettings] Failed to read config: " + e.getMessage());
@@ -855,6 +858,63 @@ public class CodemossSettingsService {
 
         writeConfig(config);
         LOG.info("[CodemossSettings] Set streaming enabled to " + enabled + " for project: " + projectPath);
+    }
+
+    // ==================== Show Thinking Config Management ====================
+
+    /**
+     * Get show-thinking configuration (思考区显示开关)。
+     * <p>
+     * 语义:控制是否推送/显示模型的 thinking 数据——不影响模型是否思考(后者由 reasoning effort 决定)。
+     * 默认 true(显示思考区)。按项目存储于 config.showThinking,三层回退 projectPath → default → true。
+     *
+     * @param projectPath project path
+     * @return whether thinking output should be shown
+     */
+    public boolean getShowThinkingEnabled(String projectPath) throws IOException {
+        JsonObject config = readConfig();
+
+        if (!config.has("showThinking")) {
+            return true;
+        }
+
+        JsonObject showThinking = config.getAsJsonObject("showThinking");
+
+        if (projectPath != null && showThinking.has(projectPath)) {
+            return showThinking.get(projectPath).getAsBoolean();
+        }
+
+        if (showThinking.has("default")) {
+            return showThinking.get("default").getAsBoolean();
+        }
+
+        return true;
+    }
+
+    /**
+     * Set show-thinking configuration (思考区显示开关)。
+     *
+     * @param projectPath project path
+     * @param enabled     whether to show thinking output
+     */
+    public void setShowThinkingEnabled(String projectPath, boolean enabled) throws IOException {
+        JsonObject config = readConfig();
+
+        JsonObject showThinking;
+        if (config.has("showThinking")) {
+            showThinking = config.getAsJsonObject("showThinking");
+        } else {
+            showThinking = new JsonObject();
+            config.add("showThinking", showThinking);
+        }
+
+        if (projectPath != null) {
+            showThinking.addProperty(projectPath, enabled);
+        }
+        showThinking.addProperty("default", enabled);
+
+        writeConfig(config);
+        LOG.info("[CodemossSettings] Set showThinking enabled to " + enabled + " for project: " + projectPath);
     }
 
     // ==================== Auto Open File Config Management ====================

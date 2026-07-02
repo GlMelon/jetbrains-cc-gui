@@ -40,6 +40,9 @@ interface SettingsViewProps {
   // Streaming configuration (passed from App.tsx for state sync)
   streamingEnabled?: boolean;
   onStreamingEnabledChange?: (enabled: boolean) => void;
+  // Show thinking configuration - 显示思考区开关(跨所有 provider/调用模式)
+  showThinkingEnabled?: boolean;
+  onShowThinkingEnabledChange?: (enabled: boolean) => void;
   // Send shortcut configuration (passed from App.tsx for state sync)
   sendShortcut?: 'enter' | 'cmdEnter';
   onSendShortcutChange?: (shortcut: 'enter' | 'cmdEnter') => void;
@@ -57,6 +60,8 @@ const SettingsView = ({
   currentProvider,
   streamingEnabled: streamingEnabledProp,
   onStreamingEnabledChange: onStreamingEnabledChangeProp,
+  showThinkingEnabled: showThinkingEnabledProp,
+  onShowThinkingEnabledChange: onShowThinkingEnabledChangeProp,
   sendShortcut: sendShortcutProp,
   onSendShortcutChange: onSendShortcutChangeProp,
   autoOpenFileEnabled: autoOpenFileEnabledProp,
@@ -129,7 +134,9 @@ const SettingsView = ({
     codeFontConfig,
     setCodeFontConfig,
     setLocalStreamingEnabled,
+    setLocalShowThinkingEnabled,
     streamingEnabled,
+    showThinkingEnabled,
     codexSandboxMode,
     setCodexSandboxMode,
     setLocalSendShortcut,
@@ -157,6 +164,7 @@ const SettingsView = ({
     handleSaveCodeFontCustomPath,
     handleBrowseCodeFontFile,
     handleStreamingEnabledChange,
+    handleShowThinkingEnabledChange,
     handleCodexSandboxModeChange,
     handleSendShortcutChange,
     handleAutoOpenFileEnabledChange,
@@ -193,6 +201,8 @@ const SettingsView = ({
   } = useSettingsBasicActions({
     streamingEnabledProp,
     onStreamingEnabledChangeProp,
+    showThinkingEnabledProp,
+    onShowThinkingEnabledChangeProp,
     sendShortcutProp,
     onSendShortcutChangeProp,
     autoOpenFileEnabledProp,
@@ -329,6 +339,7 @@ const SettingsView = ({
     setCodeFontConfig,
     setIdeTheme,
     setLocalStreamingEnabled,
+    setLocalShowThinkingEnabled,
     setCodexSandboxMode,
     setLocalSendShortcut,
     setLoading,
@@ -357,6 +368,7 @@ const SettingsView = ({
     showAlert,
     addToast,
     onStreamingEnabledChangeProp,
+    onShowThinkingEnabledChangeProp,
     onSendShortcutChangeProp,
     setCommitGenerationEnabled,
     setAiTitleGenerationEnabled,
@@ -509,6 +521,8 @@ const SettingsView = ({
               onBrowseCodeFontFile={handleBrowseCodeFontFile}
               streamingEnabled={streamingEnabled}
               onStreamingEnabledChange={handleStreamingEnabledChange}
+              showThinkingEnabled={showThinkingEnabled}
+              onShowThinkingEnabledChange={handleShowThinkingEnabledChange}
               sendShortcut={sendShortcut}
               onSendShortcutChange={handleSendShortcutChange}
               autoOpenFileEnabled={autoOpenFileEnabled}

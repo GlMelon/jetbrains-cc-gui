@@ -242,6 +242,12 @@
         "disabled": "Disabled",
         "hint": "When enabled, AI responses will appear character by character in real-time, instead of waiting for the complete response. May consume more resources."
       },
+      "showThinking": {
+        "label": "顯示思考區",
+        "enabled": "已顯示",
+        "disabled": "已隱藏",
+        "hint": "開啟後顯示模型的思考過程。關閉後不推送思考內容(模型仍會思考,僅控制是否顯示)。"
+      },
       "autoOpenFile": {
         "label": "發送已開啟的檔案路徑",
         "enabled": "已啟用",

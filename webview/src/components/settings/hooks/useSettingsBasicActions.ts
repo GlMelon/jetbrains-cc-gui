@@ -14,6 +14,8 @@ import { getSkipNewSessionConfirm, SKIP_NEW_SESSION_CONFIRM_EVENT, type SkipNewS
 export interface UseSettingsBasicActionsProps {
   streamingEnabledProp?: boolean;
   onStreamingEnabledChangeProp?: (enabled: boolean) => void;
+  showThinkingEnabledProp?: boolean;
+  onShowThinkingEnabledChangeProp?: (enabled: boolean) => void;
   sendShortcutProp?: 'enter' | 'cmdEnter';
   onSendShortcutChangeProp?: (shortcut: 'enter' | 'cmdEnter') => void;
   autoOpenFileEnabledProp?: boolean;
@@ -44,6 +46,9 @@ export interface UseSettingsBasicActionsReturn {
   /** Streaming enabled state (prefers prop over local state) */
   streamingEnabled: boolean;
   localStreamingEnabled: boolean;
+  /** Show thinking enabled state (prefers prop over local state) */
+  showThinkingEnabled: boolean;
+  localShowThinkingEnabled: boolean;
   codexSandboxMode: 'workspace-write' | 'danger-full-access';
   /** Send shortcut state (prefers prop over local state) */
   sendShortcut: 'enter' | 'cmdEnter';
@@ -83,6 +88,7 @@ export interface UseSettingsBasicActionsReturn {
   handleSaveCodeFontCustomPath: (path: string) => void;
   handleBrowseCodeFontFile: () => void;
   handleStreamingEnabledChange: (enabled: boolean) => void;
+  handleShowThinkingEnabledChange: (enabled: boolean) => void;
   handleCodexSandboxModeChange: (mode: 'workspace-write' | 'danger-full-access') => void;
   handleSendShortcutChange: (shortcut: 'enter' | 'cmdEnter') => void;
   handleAutoOpenFileEnabledChange: (enabled: boolean) => void;
@@ -123,6 +129,7 @@ export interface UseSettingsBasicActionsReturn {
   /** @internal */ setUiFontConfig: (config: UiFontConfig | undefined) => void;
   /** @internal */ setCodeFontConfig: (config: CodeFontConfig | undefined) => void;
   /** @internal */ setLocalStreamingEnabled: (enabled: boolean) => void;
+  /** @internal */ setLocalShowThinkingEnabled: (enabled: boolean) => void;
   /** @internal */ setCodexSandboxMode: (mode: 'workspace-write' | 'danger-full-access') => void;
   /** @internal */ setLocalSendShortcut: (shortcut: 'enter' | 'cmdEnter') => void;
   /** @internal */ setLocalAutoOpenFileEnabled: (enabled: boolean) => void;
@@ -148,6 +155,8 @@ export interface UseSettingsBasicActionsReturn {
 export function useSettingsBasicActions({
   streamingEnabledProp,
   onStreamingEnabledChangeProp,
+  showThinkingEnabledProp,
+  onShowThinkingEnabledChangeProp,
   sendShortcutProp,
   onSendShortcutChangeProp,
   autoOpenFileEnabledProp,
@@ -184,6 +193,11 @@ export function useSettingsBasicActions({
   // Streaming configuration - prefer props, fallback to local state
   const [localStreamingEnabled, setLocalStreamingEnabled] = useState<boolean>(false);
   const streamingEnabled = streamingEnabledProp ?? localStreamingEnabled;
+
+  // Show thinking configuration - prefer props, fallback to local state.
+  // 显示思考区开关(跨所有 provider/调用模式):off 时后端 TurnPushGate 丢弃 thinking delta。
+  const [localShowThinkingEnabled, setLocalShowThinkingEnabled] = useState<boolean>(false);
+  const showThinkingEnabled = showThinkingEnabledProp ?? localShowThinkingEnabled;
 
   const [codexSandboxMode, setCodexSandboxMode] = useState<'workspace-write' | 'danger-full-access'>(
     'danger-full-access'
@@ -360,6 +374,17 @@ export function useSettingsBasicActions({
       sendAction(UPSTREAM.SET_STREAMING_ENABLED, JSON.stringify(payload));
     }
   }, [onStreamingEnabledChangeProp]);
+
+  // Show thinking toggle change handler - 显示思考区开关(跨所有 provider/调用模式)
+  const handleShowThinkingEnabledChange = useCallback((enabled: boolean) => {
+    if (onShowThinkingEnabledChangeProp) {
+      onShowThinkingEnabledChangeProp(enabled);
+    } else {
+      setLocalShowThinkingEnabled(enabled);
+      const payload = { showThinkingEnabled: enabled };
+      sendAction(UPSTREAM.SET_SHOW_THINKING_ENABLED, JSON.stringify(payload));
+    }
+  }, [onShowThinkingEnabledChangeProp]);
 
   const handleCodexSandboxModeChange = useCallback((mode: 'workspace-write' | 'danger-full-access') => {
     setCodexSandboxMode(mode);
@@ -544,6 +569,9 @@ export function useSettingsBasicActions({
     localStreamingEnabled,
     setLocalStreamingEnabled,
     streamingEnabled,
+    localShowThinkingEnabled,
+    setLocalShowThinkingEnabled,
+    showThinkingEnabled,
     codexSandboxMode,
     setCodexSandboxMode,
     localSendShortcut,
@@ -572,6 +600,7 @@ export function useSettingsBasicActions({
     handleSaveCodeFontCustomPath,
     handleBrowseCodeFontFile,
     handleStreamingEnabledChange,
+    handleShowThinkingEnabledChange,
     handleCodexSandboxModeChange,
     handleSendShortcutChange,
     handleAutoOpenFileEnabledChange,

@@ -43,6 +43,7 @@ public class SettingsHandlerTypedWiringTest {
                 "get_editor_font_config", "get_ui_font_config", "set_ui_font_config",
                 "browse_ui_font_file", "get_code_font_config", "set_code_font_config",
                 "browse_code_font_file", "get_streaming_enabled", "set_streaming_enabled",
+                "get_show_thinking_enabled", "set_show_thinking_enabled",
                 "get_invocation_mode", "get_session_invocation_mode",
                 "get_session_runtime_state", "set_invocation_mode", "set_cli_path",
                 "get_codex_sandbox_mode", "set_codex_sandbox_mode",

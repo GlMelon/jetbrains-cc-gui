@@ -88,8 +88,8 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
       activeFile,
       selectedLines,
       onClearContext,
-      alwaysThinkingEnabled,
-      onToggleThinking,
+      showThinkingEnabled,
+      onShowThinkingEnabledChange,
       streamingEnabled,
       onStreamingEnabledChange,
       sendShortcut = 'enter',
@@ -712,8 +712,8 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
           onReasoningChange={onReasoningChange}
           onCodexFastModeChange={onCodexFastModeChange}
           onEnhancePrompt={handleEnhancePrompt}
-          alwaysThinkingEnabled={alwaysThinkingEnabled}
-          onToggleThinking={onToggleThinking}
+          showThinkingEnabled={showThinkingEnabled}
+          onShowThinkingEnabledChange={onShowThinkingEnabledChange}
           streamingEnabled={streamingEnabled}
           onStreamingEnabledChange={onStreamingEnabledChange}
           selectedAgent={selectedAgent}

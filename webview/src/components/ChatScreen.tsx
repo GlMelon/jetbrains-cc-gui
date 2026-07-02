@@ -111,11 +111,10 @@ export const ChatScreen = ({
   const {
     currentProvider, selectedModel, permissionMode, selectedAgent,
     sdkStatusLoaded, currentSdkInstalled,
-    activeProviderConfig, claudeSettingsAlwaysThinkingEnabled,
-    reasoningEffort, streamingEnabledSetting, sendShortcut, autoOpenFileEnabled,
+    reasoningEffort, streamingEnabledSetting, showThinkingEnabledSetting, sendShortcut, autoOpenFileEnabled,
     usagePercentage, usageUsedTokens, usageMaxTokens, tokenDetail,
     handleModeSelect, handleModelSelect, handleAgentSelect,
-    handleReasoningChange, handleToggleThinking,
+    handleReasoningChange, handleShowThinkingEnabledChange,
     handleStreamingEnabledChange, handleAutoOpenFileEnabledChange,
   } = useModelProvider();
 
@@ -272,7 +271,7 @@ export const ChatScreen = ({
           usageMaxTokens={usageMaxTokens}
           tokenDetail={tokenDetail}
           showUsage={true}
-          alwaysThinkingEnabled={activeProviderConfig?.settingsConfig?.alwaysThinkingEnabled ?? claudeSettingsAlwaysThinkingEnabled}
+          showThinkingEnabled={showThinkingEnabledSetting}
           placeholder={sendShortcut === 'cmdEnter' ? t('chat.inputPlaceholderCmdEnter') : t('chat.inputPlaceholderEnter')}
           sdkInstalled={currentSdkInstalled}
           sdkStatusLoading={!sdkStatusLoaded}
@@ -289,7 +288,7 @@ export const ChatScreen = ({
           onProviderSelect={onProviderSelect}
           reasoningEffort={reasoningEffort}
           onReasoningChange={handleReasoningChange}
-          onToggleThinking={handleToggleThinking}
+          onShowThinkingEnabledChange={handleShowThinkingEnabledChange}
           streamingEnabled={streamingEnabledSetting}
           onStreamingEnabledChange={handleStreamingEnabledChange}
           sendShortcut={sendShortcut}

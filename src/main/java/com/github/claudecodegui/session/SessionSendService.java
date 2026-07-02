@@ -318,6 +318,7 @@ public class SessionSendService {
                 state.getReasoningEffort(),
                 state.getPermissionSessionId(),
                 null,
+                null,
                 Map.of()
         );
 
@@ -388,6 +389,7 @@ public class SessionSendService {
                 opencodeModelSelection.actualModel(),
                 state.getReasoningEffort(),
                 state.getPermissionSessionId(),
+                null,
                 null,
                 Map.of()
         );
@@ -474,6 +476,7 @@ public class SessionSendService {
                 state.getReasoningEffort(),
                 state.getPermissionSessionId(),
                 streaming,
+                null, // disableThinking 废弃:思考预算改由 reasoning effort 控制,三 provider 统一 null(思考区开关下沉为显示控制,见 SessionCallbackAdapter/TurnPushGate)
                 Map.of()
         );
 

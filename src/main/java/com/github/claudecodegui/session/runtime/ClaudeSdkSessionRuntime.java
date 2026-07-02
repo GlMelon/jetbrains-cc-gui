@@ -45,7 +45,7 @@ public class ClaudeSdkSessionRuntime implements SessionRuntime {
                 req.openedFiles(),
                 req.agentPrompt(),
                 req.streaming(),
-                false,
+                req.disableThinking(),
                 req.reasoningEffort(),
                 CommonConstants.INVOCATION_MODE_SDK,
                 callback

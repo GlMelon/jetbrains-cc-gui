@@ -231,6 +231,12 @@
         "disabled": "Desativado",
         "hint": "Quando ativado, as respostas da IA aparecem caractere por caractere em tempo real, em vez de aguardar a resposta completa. Pode consumir mais recursos."
       },
+      "showThinking": {
+        "label": "Mostrar raciocínio",
+        "enabled": "Exibido",
+        "disabled": "Oculto",
+        "hint": "Quando ativado, o processo de raciocínio do modelo é exibido. Quando desativado, o conteúdo do raciocínio não é enviado (o modelo continua raciocinando; controla apenas a exibição)."
+      },
       "autoOpenFile": {
         "label": "Enviar Caminho do Arquivo Aberto",
         "enabled": "Ativado",

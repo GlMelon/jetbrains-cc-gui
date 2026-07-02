@@ -19,7 +19,7 @@ export interface ModelProviderContextValue {
   sdkStatusLoaded: ProviderState['sdkStatusLoaded'];
   currentSdkInstalled: ProviderState['currentSdkInstalled'];
   activeProviderConfig: ProviderState['activeProviderConfig'];
-  claudeSettingsAlwaysThinkingEnabled: ProviderState['claudeSettingsAlwaysThinkingEnabled'];
+  showThinkingEnabledSetting: ProviderState['showThinkingEnabledSetting'];
   reasoningEffort: ProviderState['reasoningEffort'];
   streamingEnabledSetting: ProviderState['streamingEnabledSetting'];
   sendShortcut: ProviderState['sendShortcut'];
@@ -37,7 +37,7 @@ export interface ModelProviderContextValue {
   handleModelSelect: ProviderState['handleModelSelect'];
   handleAgentSelect: ProviderState['handleAgentSelect'];
   handleReasoningChange: ProviderState['handleReasoningChange'];
-  handleToggleThinking: ProviderState['handleToggleThinking'];
+  handleShowThinkingEnabledChange: ProviderState['handleShowThinkingEnabledChange'];
   handleStreamingEnabledChange: ProviderState['handleStreamingEnabledChange'];
   handleAutoOpenFileEnabledChange: ProviderState['handleAutoOpenFileEnabledChange'];
   handleLongContextChange: ProviderState['handleLongContextChange'];
@@ -66,7 +66,7 @@ export function ModelProviderProvider({
     value.sdkStatusLoaded,
     value.currentSdkInstalled,
     value.activeProviderConfig,
-    value.claudeSettingsAlwaysThinkingEnabled,
+    value.showThinkingEnabledSetting,
     value.reasoningEffort,
     value.streamingEnabledSetting,
     value.sendShortcut,
@@ -80,7 +80,7 @@ export function ModelProviderProvider({
     value.handleModelSelect,
     value.handleAgentSelect,
     value.handleReasoningChange,
-    value.handleToggleThinking,
+    value.handleShowThinkingEnabledChange,
     value.handleStreamingEnabledChange,
     value.handleAutoOpenFileEnabledChange,
     value.handleLongContextChange,

@@ -44,6 +44,8 @@ public enum UpstreamAction implements ProtocolValue {
     // ── Settings: Config get/set ──
     GET_STREAMING_ENABLED("get_streaming_enabled"),
     SET_STREAMING_ENABLED("set_streaming_enabled"),
+    GET_SHOW_THINKING_ENABLED("get_show_thinking_enabled"),
+    SET_SHOW_THINKING_ENABLED("set_show_thinking_enabled"),
     GET_SEND_SHORTCUT("get_send_shortcut"),
     SET_SEND_SHORTCUT("set_send_shortcut"),
     GET_AUTO_OPEN_FILE_ENABLED("get_auto_open_file_enabled"),

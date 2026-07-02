@@ -65,6 +65,9 @@ interface BasicConfigSectionProps {
   // Streaming configuration
   streamingEnabled?: boolean;
   onStreamingEnabledChange?: (enabled: boolean) => void;
+  // Show thinking configuration - 显示思考区开关(跨所有 provider/调用模式)
+  showThinkingEnabled?: boolean;
+  onShowThinkingEnabledChange?: (enabled: boolean) => void;
   // Auto open file configuration
   autoOpenFileEnabled?: boolean;
   onAutoOpenFileEnabledChange?: (enabled: boolean) => void;
@@ -169,6 +172,8 @@ const BasicConfigSection = (props: BasicConfigSectionProps) => {
           onSendShortcutChange={props.onSendShortcutChange}
           streamingEnabled={props.streamingEnabled}
           onStreamingEnabledChange={props.onStreamingEnabledChange}
+          showThinkingEnabled={props.showThinkingEnabled}
+          onShowThinkingEnabledChange={props.onShowThinkingEnabledChange}
           autoOpenFileEnabled={props.autoOpenFileEnabled}
           onAutoOpenFileEnabledChange={props.onAutoOpenFileEnabledChange}
           diffExpandedByDefault={props.diffExpandedByDefault}

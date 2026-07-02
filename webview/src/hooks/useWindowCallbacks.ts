@@ -50,8 +50,8 @@ export interface UseWindowCallbacksOptions {
   setSelectedOpenCodeModel: React.Dispatch<React.SetStateAction<string>>;
   setProviderConfigVersion: React.Dispatch<React.SetStateAction<number>>;
   setActiveProviderConfig: React.Dispatch<React.SetStateAction<ProviderConfig | null>>;
-  setClaudeSettingsAlwaysThinkingEnabled: React.Dispatch<React.SetStateAction<boolean>>;
   setStreamingEnabledSetting: React.Dispatch<React.SetStateAction<boolean>>;
+  setShowThinkingEnabledSetting: React.Dispatch<React.SetStateAction<boolean>>;
   setSendShortcut: React.Dispatch<React.SetStateAction<'enter' | 'cmdEnter'>>;
   setAutoOpenFileEnabled: React.Dispatch<React.SetStateAction<boolean>>;
   setPermissionDialogTimeoutSeconds: React.Dispatch<React.SetStateAction<number>>;

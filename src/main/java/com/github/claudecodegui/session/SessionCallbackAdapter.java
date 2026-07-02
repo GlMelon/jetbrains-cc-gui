@@ -36,6 +36,13 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
     private final Runnable streamEndCallback;
     private final StreamDeltaThrottler contentDeltaThrottler;
     private final StreamDeltaThrottler thinkingDeltaThrottler;
+    /**
+     * 统一推送层开关:让"流式输出"与"思考区"两 toggle 对所有 provider/调用模式(SDK/CLI)生效。
+     * 流式 off → content delta 进 per-turn buffer,turn/段边界一次性 flush 全量;
+     * 思考区 off → 丢弃 thinking delta 与 thinking-status(模型照常思考,只控显示)。
+     * 纯逻辑组件,单测见 {@link TurnPushGateTest}。
+     */
+    private final TurnPushGate turnPushGate;
     private final Alarm streamEndFallbackAlarm;
     private volatile boolean active = true;
     /** Guards against duplicate onStreamEnd delivery from dual-path dispatch. */
@@ -53,7 +60,9 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
             JsTarget jsTarget,
             PermissionActionHandlers permissionHandler,
             BooleanSupplier slashCommandsFetchedSupplier,
-            Runnable streamEndCallback
+            Runnable streamEndCallback,
+            BooleanSupplier streamingEnabledSupplier,
+            BooleanSupplier showThinkingEnabledSupplier
     ) {
         this.streamCoalescer = streamCoalescer;
         this.jsTarget = jsTarget;
@@ -75,6 +84,19 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
                         jsTarget.callJavaScript("onThinkingDelta", JsUtils.escapeJs(delta));
                     }
                 }
+        );
+        // 统一推送层开关:流式 off 时 content delta 由 gate 缓冲到 turn 边界一次性推送
+        // (contentSink 直接 callJavaScript,不经 throttler——全量无需再节流);
+        // 思考区 off 时 gate 在 notifyThinkingDelta/notifyThinkingStatusChanged 处丢弃。
+        // 开关值在每个 turn 开始(onStreamStart)由 gate.onTurnStart 快照读取一次。
+        this.turnPushGate = new TurnPushGate(
+                delta -> {
+                    if (!isInactive()) {
+                        jsTarget.callJavaScript("onContentDelta", JsUtils.escapeJs(delta));
+                    }
+                },
+                streamingEnabledSupplier,
+                showThinkingEnabledSupplier
         );
         this.streamEndFallbackAlarm = new Alarm(Alarm.ThreadToUse.SWING_THREAD);
     }
@@ -171,6 +193,10 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
         if (isInactive()) {
             return;
         }
+        // 思考区 off → 抑制思考指示灯(避免模型思考时 UI 误亮"思考中")。
+        if (!turnPushGate.shouldEmitThinking()) {
+            return;
+        }
         ApplicationManager.getApplication().invokeLater(() -> {
             if (isInactive()) {
                 return;
@@ -227,6 +253,9 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
         // Cancel any stale fallback alarm from the previous turn to prevent
         // it from firing during the new turn's streaming phase.
         streamEndFallbackAlarm.cancelAllRequests();
+        // 快照读取本 turn 的流式/思考区开关值,并清上一 turn 残留 buffer。
+        // 中途切开关从下一个 turn 生效(整 turn 用同一快照值)。
+        turnPushGate.onTurnStart();
         contentDeltaThrottler.reset();
         thinkingDeltaThrottler.reset();
         streamCoalescer.onStreamStart();
@@ -255,6 +284,9 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
         // (e.g., flushNow throwing due to a disposed throttler, or JCEF
         // rejecting a large payload) does not prevent the critical
         // onStreamEnd signal from reaching the frontend.
+        // 流式 off 时先把 gate 缓冲的本 turn 全量 content 推给前端(先于 throttler 残留与 message 快照),
+        // 保证前端在收到 stream-end 信号前已拿到完整内容。流式 on 时为 no-op(gate 未缓冲)。
+        safeRun("turnPushGate.flushContent", turnPushGate::flushContent);
         safeRun("contentDeltaThrottler.flushNow", contentDeltaThrottler::flushNow);
         safeRun("thinkingDeltaThrottler.flushNow", thinkingDeltaThrottler::flushNow);
         safeRun("streamCoalescer.onStreamEnd", streamCoalescer::onStreamEnd);
@@ -340,12 +372,21 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
         if (isInactive()) {
             return;
         }
-        contentDeltaThrottler.append(delta);
+        // 流式 on → gate 透传,交现有 throttler 增量节流;
+        // 流式 off → gate 缓冲到 per-turn buffer,不下发 throttler,turn/段边界一次性 flush 全量。
+        if (turnPushGate.onContentDelta(delta)) {
+            contentDeltaThrottler.append(delta);
+        }
     }
 
     @Override
     public void onThinkingDelta(String delta) {
         if (isInactive()) {
+            return;
+        }
+        // 思考区 off → 丢弃 thinking delta(模型照常思考,只控推送/显示);
+        // 思考区 on → 透传现有 throttler。
+        if (!turnPushGate.shouldEmitThinking()) {
             return;
         }
         thinkingDeltaThrottler.append(delta);
@@ -356,6 +397,9 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
         if (isInactive()) {
             return;
         }
+        // 段边界(tool-use 循环):先 flush 本段缓冲的全量(流式 off 时),再 reset throttlers。
+        // 每段分别 flush,避免跨 tool-use 块串成一段。开关快照不变(同一 turn)。
+        safeRun("turnPushGate.flushContent", turnPushGate::flushContent);
         // Reset throttlers for the new turn's deltas
         contentDeltaThrottler.reset();
         thinkingDeltaThrottler.reset();

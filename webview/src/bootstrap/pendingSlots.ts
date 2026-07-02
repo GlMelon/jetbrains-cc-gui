@@ -160,6 +160,16 @@ export function registerPendingSlots() {
     },
   );
 
+  // --- updateShowThinkingEnabled ---
+  preRegisterWindowSlot(
+    'updateShowThinkingEnabled',
+    '__pendingShowThinkingEnabled',
+    (json: string) => {
+      debugLog('[Main] Storing pending show-thinking enabled status, length=' + (json ? json.length : 0));
+      window.__pendingShowThinkingEnabled = json;
+    },
+  );
+
   // --- updateSendShortcut ---
   preRegisterWindowSlot(
     'updateSendShortcut',

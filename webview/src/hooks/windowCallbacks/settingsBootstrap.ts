@@ -27,6 +27,7 @@ export const startInitialSettingsRequest = (): void => {
     }
     if (window.sendToJava) {
       sendAction(UPSTREAM.GET_STREAMING_ENABLED);
+      sendAction(UPSTREAM.GET_SHOW_THINKING_ENABLED);
       sendAction(UPSTREAM.GET_SEND_SHORTCUT);
       sendAction(UPSTREAM.GET_AUTO_OPEN_FILE_ENABLED);
       sendAction(UPSTREAM.GET_PERMISSION_DIALOG_TIMEOUT);
@@ -117,31 +118,6 @@ export const startModeRequest = (): void => {
 };
 
 /**
- * Request the thinking-enabled setting from the backend.
- */
-export const startThinkingEnabledRequest = (): void => {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  let thinkingRetryCount = 0;
-  const requestThinkingEnabled = () => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    if (window.sendToJava) {
-      sendAction(UPSTREAM.GET_THINKING_ENABLED);
-    } else {
-      thinkingRetryCount++;
-      if (thinkingRetryCount < MAX_RETRIES) {
-        setTimeout(requestThinkingEnabled, 100);
-      }
-    }
-  };
-  setTimeout(requestThinkingEnabled, 200);
-};
-
-/**
  * Drain any pending window.__pending* values captured by main.tsx before
  * the React callbacks were registered.  Must be called after the corresponding
  * window.updateXxx / window.onXxx callbacks have been assigned.
@@ -162,6 +138,12 @@ export const drainPendingSettings = (): void => {
     const pending = w.__pendingStreamingEnabled as string;
     delete w.__pendingStreamingEnabled;
     window.updateStreamingEnabled?.(pending);
+  }
+
+  if (w.__pendingShowThinkingEnabled) {
+    const pending = w.__pendingShowThinkingEnabled as string;
+    delete w.__pendingShowThinkingEnabled;
+    window.updateShowThinkingEnabled?.(pending);
   }
 
   if (w.__pendingSendShortcut) {

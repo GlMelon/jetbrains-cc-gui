@@ -230,6 +230,24 @@ public class ProjectConfigHandler {
             "Failed to save streaming config");
     }
 
+    public void handleGetShowThinkingEnabled() {
+        respondWithJson(DownstreamEvent.SETTING_SHOW_THINKING_ENABLED.value(),
+            () -> {
+                String projectPath = context.getProject().getBasePath();
+                boolean enabled = projectPath == null || settingsService.getShowThinkingEnabled(projectPath);
+                return jsonOf("showThinkingEnabled", enabled);
+            },
+            jsonOf("showThinkingEnabled", true),
+            "Failed to get show thinking enabled");
+    }
+
+    public void handleSetShowThinkingEnabled(String content) {
+        handleProjectBooleanToggle(content, "showThinkingEnabled", true, "show thinking enabled",
+            settingsService::setShowThinkingEnabled,
+            DownstreamEvent.SETTING_SHOW_THINKING_ENABLED.value(),
+            "Failed to save show thinking config");
+    }
+
     public void handleGetCodexSandboxMode() {
         respondWithJson(DownstreamEvent.CONFIG_CODEX_SANDBOX_MODE.value(),
             () -> jsonOf("sandboxMode", settingsService.getCodexSandboxMode(context.getProject().getBasePath())),

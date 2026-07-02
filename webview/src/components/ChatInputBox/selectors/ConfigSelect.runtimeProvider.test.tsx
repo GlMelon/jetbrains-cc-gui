@@ -150,3 +150,41 @@ describe('ConfigSelect runtime provider submenu', () => {
     });
   });
 });
+
+describe('ConfigSelect streaming/thinking switches are provider-agnostic', () => {
+  // 流式/思考区开关为 provider/调用模式无关的纯显示开关,对所有 provider(Claude/Codex/OpenCode)统一显示:
+  // 流式 off → 后端缓冲到 turn 边界一次性推送(非增量);
+  // 思考区 off → 不推送 thinking 类型数据(模型照常思考,纯显示控制)。
+  beforeEach(() => {
+    window.sendToJava = vi.fn();
+    window.updateProviders = undefined;
+    window.updateCodexProviders = undefined;
+    window.updateOpenCodeProviders = undefined;
+    window.updateActiveProvider = undefined;
+    window.updateActiveCodexProvider = undefined;
+    window.updateActiveOpenCodeProvider = undefined;
+  });
+
+  const openMenu = (provider: string) => {
+    render(<ConfigSelect currentProvider={provider} />);
+    fireEvent.click(screen.getByRole('button', { name: /Configure/i }));
+  };
+
+  it('shows streaming/thinking switches for Claude provider', () => {
+    openMenu('claude');
+    expect(screen.getByText('Streaming')).toBeTruthy();
+    expect(screen.getByText('Thinking')).toBeTruthy();
+  });
+
+  it('shows streaming/thinking switches for Codex provider', () => {
+    openMenu('codex');
+    expect(screen.getByText('Streaming')).toBeTruthy();
+    expect(screen.getByText('Thinking')).toBeTruthy();
+  });
+
+  it('shows streaming/thinking switches for OpenCode provider', () => {
+    openMenu('opencode');
+    expect(screen.getByText('Streaming')).toBeTruthy();
+    expect(screen.getByText('Thinking')).toBeTruthy();
+  });
+});

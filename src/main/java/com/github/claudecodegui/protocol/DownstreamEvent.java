@@ -14,6 +14,7 @@ public enum DownstreamEvent implements ProtocolValue {
     USAGE_UPDATE("usage.update"),
     USAGE_STATISTICS("usage.statistics"),
     SETTING_STREAMING_ENABLED("setting.streaming_enabled"),
+    SETTING_SHOW_THINKING_ENABLED("setting.show_thinking_enabled"),
     SETTING_SEND_SHORTCUT("setting.send_shortcut"),
     SETTING_AUTO_OPEN_FILE("setting.auto_open_file"),
     SETTING_THINKING_ENABLED("setting.thinking_enabled"),

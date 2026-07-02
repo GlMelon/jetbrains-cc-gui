@@ -33,6 +33,7 @@ export interface SettingsWindowCallbacksDeps {
   setCodeFontConfig: (config: CodeFontConfig | undefined) => void;
   setIdeTheme: (theme: 'light' | 'dark' | null) => void;
   setLocalStreamingEnabled: (enabled: boolean) => void;
+  setLocalShowThinkingEnabled: (enabled: boolean) => void;
   setCodexSandboxMode?: (mode: 'workspace-write' | 'danger-full-access') => void;
   setLocalSendShortcut: (shortcut: 'enter' | 'cmdEnter') => void;
   setLoading: (loading: boolean) => void;
@@ -85,6 +86,7 @@ export interface SettingsWindowCallbacksDeps {
 
   // Props
   onStreamingEnabledChangeProp?: (enabled: boolean) => void;
+  onShowThinkingEnabledChangeProp?: (enabled: boolean) => void;
   onSendShortcutChangeProp?: (shortcut: 'enter' | 'cmdEnter') => void;
 }
 
@@ -272,6 +274,18 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
           d().setLocalStreamingEnabled(data.streamingEnabled ?? true);
         } catch (error) {
           console.error('[SettingsView] Failed to parse streaming config:', error);
+        }
+      }));
+    }
+
+    // Show thinking configuration callback - 显示思考区开关(跨所有 provider/调用模式)
+    if (!d().onShowThinkingEnabledChangeProp) {
+      unsubs.push(subscribeEvent(DOWNSTREAM.SETTING_SHOW_THINKING_ENABLED, (jsonStr) => {
+        try {
+          const data = JSON.parse(jsonStr as string);
+          d().setLocalShowThinkingEnabled(data.showThinkingEnabled ?? true);
+        } catch (error) {
+          console.error('[SettingsView] Failed to parse show thinking config:', error);
         }
       }));
     }
@@ -568,6 +582,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
     sendAction(UPSTREAM.GET_EDITOR_FONT_CONFIG);
     sendAction(UPSTREAM.GET_UI_FONT_CONFIG);
     sendAction(UPSTREAM.GET_STREAMING_ENABLED);
+    sendAction(UPSTREAM.GET_SHOW_THINKING_ENABLED);
     sendAction(UPSTREAM.GET_CODEX_SANDBOX_MODE);
     sendAction(UPSTREAM.GET_COMMIT_PROMPT);
     sendAction(UPSTREAM.GET_COMMIT_AI_CONFIG);

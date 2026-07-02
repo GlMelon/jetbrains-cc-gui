@@ -151,6 +151,8 @@ import com.github.claudecodegui.handler.settings.SetCodeFontConfigActionHandler;
 import com.github.claudecodegui.handler.settings.BrowseCodeFontFileActionHandler;
 import com.github.claudecodegui.handler.settings.GetStreamingEnabledActionHandler;
 import com.github.claudecodegui.handler.settings.SetStreamingEnabledActionHandler;
+import com.github.claudecodegui.handler.settings.GetShowThinkingEnabledActionHandler;
+import com.github.claudecodegui.handler.settings.SetShowThinkingEnabledActionHandler;
 import com.github.claudecodegui.handler.settings.GetInvocationModeActionHandler;
 import com.github.claudecodegui.handler.settings.GetSessionInvocationModeActionHandler;
 import com.github.claudecodegui.handler.settings.GetSessionRuntimeStateActionHandler;
@@ -574,6 +576,8 @@ public class ChatWindowDelegate {
         typedHandlers.add(new BrowseCodeFontFileActionHandler(projectConfigHandler));
         typedHandlers.add(new GetStreamingEnabledActionHandler(projectConfigHandler));
         typedHandlers.add(new SetStreamingEnabledActionHandler(projectConfigHandler));
+        typedHandlers.add(new GetShowThinkingEnabledActionHandler(projectConfigHandler));
+        typedHandlers.add(new SetShowThinkingEnabledActionHandler(projectConfigHandler));
         typedHandlers.add(new GetInvocationModeActionHandler(projectConfigHandler));
         typedHandlers.add(new GetSessionInvocationModeActionHandler(projectConfigHandler));
         typedHandlers.add(new GetSessionRuntimeStateActionHandler(projectConfigHandler));

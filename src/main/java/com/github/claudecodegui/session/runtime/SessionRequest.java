@@ -29,6 +29,7 @@ public record SessionRequest(
         String reasoningEffort,
         String permissionSessionId,
         Boolean streaming,
+        Boolean disableThinking,
         Map<String, String> env
 ) {
     public SessionRequest {

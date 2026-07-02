@@ -12,14 +12,21 @@ export interface UseProviderSettingsOptions {
 }
 
 /**
- * Cross-cutting provider settings: streaming, send shortcut, auto-open file,
- * selected agent, and the active provider config. Each setting handler pushes
- * the change to the backend via bridge event and (where applicable) toasts the
- * user-visible state change. Loads the previously-selected agent on mount,
- * retrying until the JCEF bridge is ready.
+ * Cross-cutting provider settings: streaming, show-thinking (display toggle),
+ * send shortcut, auto-open file, selected agent, and the active provider config.
+ * Each setting handler pushes the change to the backend via bridge event and
+ * (where applicable) toasts the user-visible state change. Loads the
+ * previously-selected agent on mount, retrying until the JCEF bridge is ready.
+ *
+ * streamingEnabled 与 showThinkingEnabled 均跨所有 provider/调用模式(SDK/CLI)统一生效,
+ * 由后端 SessionCallbackAdapter 的统一推送层(TurnPushGate)实现,不依赖各 provider 原生能力:
+ * 流式 off → content delta 缓冲到 turn 边界一次性 flush;
+ * 思考区 off → 不推送 thinking delta/thinking-status(模型照常思考,纯显示控制)。
+ * 思考预算仍由 reasoning effort 控制,与思考区显示开关解耦。
  */
 export function useProviderSettings({ addToast, t }: UseProviderSettingsOptions) {
   const [streamingEnabledSetting, setStreamingEnabledSetting] = useState(true);
+  const [showThinkingEnabledSetting, setShowThinkingEnabledSetting] = useState(true);
   const [sendShortcut, setSendShortcut] = useState<'enter' | 'cmdEnter'>('enter');
   const [autoOpenFileEnabled, setAutoOpenFileEnabled] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<SelectedAgent | null>(null);
@@ -87,6 +94,15 @@ export function useProviderSettings({ addToast, t }: UseProviderSettingsOptions)
     );
   }, [t, addToast]);
 
+  const handleShowThinkingEnabledChange = useCallback((enabled: boolean) => {
+    setShowThinkingEnabledSetting(enabled);
+    sendAction(UPSTREAM.SET_SHOW_THINKING_ENABLED, JSON.stringify({ showThinkingEnabled: enabled }));
+    addToast(
+      enabled ? t('settings.basic.showThinking.enabled') : t('settings.basic.showThinking.disabled'),
+      'success',
+    );
+  }, [t, addToast]);
+
   const handleSendShortcutChange = useCallback((shortcut: 'enter' | 'cmdEnter') => {
     setSendShortcut(shortcut);
     sendAction(UPSTREAM.SET_SEND_SHORTCUT, JSON.stringify({ sendShortcut: shortcut }));
@@ -104,6 +120,8 @@ export function useProviderSettings({ addToast, t }: UseProviderSettingsOptions)
   return {
     streamingEnabledSetting,
     setStreamingEnabledSetting,
+    showThinkingEnabledSetting,
+    setShowThinkingEnabledSetting,
     sendShortcut,
     setSendShortcut,
     autoOpenFileEnabled,
@@ -116,6 +134,7 @@ export function useProviderSettings({ addToast, t }: UseProviderSettingsOptions)
     syncActiveProviderModelMapping,
     handleAgentSelect,
     handleStreamingEnabledChange,
+    handleShowThinkingEnabledChange,
     handleSendShortcutChange,
     handleAutoOpenFileEnabledChange,
   };

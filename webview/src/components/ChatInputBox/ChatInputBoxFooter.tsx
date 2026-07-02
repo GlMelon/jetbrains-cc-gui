@@ -33,8 +33,8 @@ export const ChatInputBoxFooter = memo(function ChatInputBoxFooter({
   onProviderSelect,
   onReasoningChange,
   onEnhancePrompt,
-  alwaysThinkingEnabled,
-  onToggleThinking,
+  showThinkingEnabled,
+  onShowThinkingEnabledChange,
   codexFastMode: _codexFastMode,
   onCodexFastModeChange: _onCodexFastModeChange,
   streamingEnabled,
@@ -67,8 +67,8 @@ export const ChatInputBoxFooter = memo(function ChatInputBoxFooter({
   onProviderSelect?: (providerId: string) => void;
   onReasoningChange?: (effort: ReasoningEffort) => void;
   onEnhancePrompt: () => void;
-  alwaysThinkingEnabled?: boolean;
-  onToggleThinking?: (enabled: boolean) => void;
+  showThinkingEnabled?: boolean;
+  onShowThinkingEnabledChange?: (enabled: boolean) => void;
   codexFastMode?: CodexFastMode;
   onCodexFastModeChange?: (mode: CodexFastMode) => void;
   streamingEnabled?: boolean;
@@ -113,8 +113,8 @@ export const ChatInputBoxFooter = memo(function ChatInputBoxFooter({
         onProviderSelect={onProviderSelect}
         onReasoningChange={onReasoningChange}
         onEnhancePrompt={onEnhancePrompt}
-        alwaysThinkingEnabled={alwaysThinkingEnabled}
-        onToggleThinking={onToggleThinking}
+        showThinkingEnabled={showThinkingEnabled}
+        onShowThinkingEnabledChange={onShowThinkingEnabledChange}
         streamingEnabled={streamingEnabled}
         onStreamingEnabledChange={onStreamingEnabledChange}
         selectedAgent={selectedAgent}

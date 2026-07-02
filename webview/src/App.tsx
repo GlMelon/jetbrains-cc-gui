@@ -126,8 +126,8 @@ const App = () => {
     currentProvider, selectedModel, permissionMode,
     selectedAgent, sdkStatusLoaded, currentSdkInstalled,
     currentProviderRef,
-    activeProviderConfig, claudeSettingsAlwaysThinkingEnabled,
-    reasoningEffort, streamingEnabledSetting, sendShortcut, autoOpenFileEnabled,
+    activeProviderConfig,
+    reasoningEffort, streamingEnabledSetting, showThinkingEnabledSetting, sendShortcut, autoOpenFileEnabled,
     longContextEnabled,
     usagePercentage, usageUsedTokens, usageMaxTokens, tokenDetail,
       setCurrentProvider,
@@ -136,15 +136,15 @@ const App = () => {
     setSelectedClaudeModel, setSelectedCodexModel,
     setSelectedOpenCodeModel,
     setProviderConfigVersion, setActiveProviderConfig,
-    setClaudeSettingsAlwaysThinkingEnabled, setStreamingEnabledSetting,
+    setStreamingEnabledSetting, setShowThinkingEnabledSetting,
     setSendShortcut, setAutoOpenFileEnabled,
     setSdkStatus, setSdkStatusLoaded, setSelectedAgent,
     setUsagePercentage, setUsageUsedTokens, setUsageMaxTokens,
     setTokenDetail,
     syncActiveProviderModelMapping,
     handleModeSelect, handleModelSelect, handleProviderSelect,
-    handleReasoningChange, handleAgentSelect, handleToggleThinking,
-    handleStreamingEnabledChange, handleSendShortcutChange,
+    handleReasoningChange, handleAgentSelect,
+    handleStreamingEnabledChange, handleShowThinkingEnabledChange, handleSendShortcutChange,
     handleAutoOpenFileEnabledChange, handleLongContextChange,
   } = useModelProviderState({ addToast, t });
 
@@ -266,7 +266,7 @@ const App = () => {
     setSelectedClaudeModel, setSelectedCodexModel,
     setSelectedOpenCodeModel,
     setProviderConfigVersion, setActiveProviderConfig,
-    setClaudeSettingsAlwaysThinkingEnabled, setStreamingEnabledSetting,
+    setStreamingEnabledSetting, setShowThinkingEnabledSetting,
     setSendShortcut, setAutoOpenFileEnabled,
     setSdkStatus, setSdkStatusLoaded, // These come from useUsageTracking
     setIsRewinding, setRewindDialogOpen, setCurrentRewindRequest,
@@ -438,6 +438,8 @@ const App = () => {
           currentProvider={currentProvider}
           streamingEnabled={streamingEnabledSetting}
           onStreamingEnabledChange={handleStreamingEnabledChange}
+          showThinkingEnabled={showThinkingEnabledSetting}
+          onShowThinkingEnabledChange={handleShowThinkingEnabledChange}
           sendShortcut={sendShortcut}
           onSendShortcutChange={handleSendShortcutChange}
           autoOpenFileEnabled={autoOpenFileEnabled}
@@ -449,12 +451,12 @@ const App = () => {
         <ModelProviderProvider value={{
           currentProvider, selectedModel, permissionMode, selectedAgent,
           sdkStatusLoaded, currentSdkInstalled,
-          activeProviderConfig, claudeSettingsAlwaysThinkingEnabled,
-          reasoningEffort, streamingEnabledSetting, sendShortcut, autoOpenFileEnabled,
+          activeProviderConfig,
+          reasoningEffort, streamingEnabledSetting, showThinkingEnabledSetting, sendShortcut, autoOpenFileEnabled,
           longContextEnabled, usagePercentage, usageUsedTokens, usageMaxTokens, tokenDetail,
           handleModeSelect, handleModelSelect, handleAgentSelect,
-          handleReasoningChange, handleToggleThinking,
-          handleStreamingEnabledChange, handleAutoOpenFileEnabledChange,
+          handleReasoningChange,
+          handleStreamingEnabledChange, handleShowThinkingEnabledChange, handleAutoOpenFileEnabledChange,
           handleLongContextChange,
         }}>
           <ChatScreen

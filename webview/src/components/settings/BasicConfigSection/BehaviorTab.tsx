@@ -2,13 +2,15 @@ import styles from './style.module.less';
 import {useTranslation} from 'react-i18next';
 import {DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS} from '../../../utils/permissionDialogTimeout';
 import {PermissionDialogTimeoutSetting} from './PermissionDialogTimeoutSetting';
-import { BellIcon, CheckIcon, CommentIcon, DiffIcon, FileIcon, GitCommitIcon, InfoIcon, KeyboardIcon, LayoutIcon, SparklesIcon, SyncIcon } from '../../Icons';
+import { BellIcon, CheckIcon, CommentIcon, DiffIcon, FileIcon, GitCommitIcon, InfoIcon, KeyboardIcon, LayoutIcon, LightbulbIcon, SparklesIcon, SyncIcon } from '../../Icons';
 
 export interface BehaviorTabProps {
   sendShortcut?: 'enter' | 'cmdEnter';
   onSendShortcutChange?: (shortcut: 'enter' | 'cmdEnter') => void;
   streamingEnabled?: boolean;
   onStreamingEnabledChange?: (enabled: boolean) => void;
+  showThinkingEnabled?: boolean;
+  onShowThinkingEnabledChange?: (enabled: boolean) => void;
   autoOpenFileEnabled?: boolean;
   onAutoOpenFileEnabledChange?: (enabled: boolean) => void;
   diffExpandedByDefault?: boolean;
@@ -38,6 +40,8 @@ const BehaviorTab = ({
   onSendShortcutChange = () => {},
   streamingEnabled = true,
   onStreamingEnabledChange = () => {},
+  showThinkingEnabled = true,
+  onShowThinkingEnabledChange = () => {},
   autoOpenFileEnabled = true,
   onAutoOpenFileEnabledChange = () => {},
   diffExpandedByDefault = false,
@@ -122,6 +126,34 @@ const BehaviorTab = ({
         <small className={styles.formHint}>
           <InfoIcon size={16} />
           <span>{t('settings.basic.streaming.hint')}</span>
+        </small>
+      </div>
+
+      {/* Show thinking configuration — 显示思考区开关(跨所有 provider/调用模式)。
+          off 时后端不推送 thinking delta/thinking-status(模型照常思考,纯显示控制);
+          思考预算仍由上方的 reasoning effort 控制,与此开关解耦。 */}
+      <div className={styles.streamingSection}>
+        <div className={styles.fieldHeader}>
+          <LightbulbIcon size={16} />
+          <span className={styles.fieldLabel}>{t('settings.basic.showThinking.label')}</span>
+        </div>
+        <label className={styles.toggleWrapper}>
+          <input
+            type="checkbox"
+            className={styles.toggleInput}
+            checked={showThinkingEnabled}
+            onChange={(e) => onShowThinkingEnabledChange(e.target.checked)}
+          />
+          <span className={styles.toggleSlider} />
+          <span className={styles.toggleLabel}>
+            {showThinkingEnabled
+              ? t('settings.basic.showThinking.enabled')
+              : t('settings.basic.showThinking.disabled')}
+          </span>
+        </label>
+        <small className={styles.formHint}>
+          <InfoIcon size={16} />
+          <span>{t('settings.basic.showThinking.hint')}</span>
         </small>
       </div>
 

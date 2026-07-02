@@ -787,7 +787,25 @@ public class ClaudeChatWindow {
                 },
                 permissionHandler,
                 () -> slashCommandsFetched,
-                this::onStreamCompleted
+                this::onStreamCompleted,
+                // 流式/思考区开关:按 projectPath 读 setting,默认 true(无 project 或读取出错走默认)。
+                // 供应商人化:整 turn 快照值由 SessionCallbackAdapter.onStreamStart → TurnPushGate.onTurnStart 读取。
+                () -> {
+                    try {
+                        String path = project.getBasePath();
+                        return path == null || settingsService.getStreamingEnabled(path);
+                    } catch (Exception e) {
+                        return true;
+                    }
+                },
+                () -> {
+                    try {
+                        String path = project.getBasePath();
+                        return path == null || settingsService.getShowThinkingEnabled(path);
+                    } catch (Exception e) {
+                        return true;
+                    }
+                }
         ) {
             @Override
             public void onStreamStart() {

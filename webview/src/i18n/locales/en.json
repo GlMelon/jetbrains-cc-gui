@@ -277,6 +277,12 @@
         "disabled": "Disabled",
         "hint": "When enabled, AI responses will appear character by character in real-time, instead of waiting for the complete response. May consume more resources."
       },
+      "showThinking": {
+        "label": "Show Thinking",
+        "enabled": "Shown",
+        "disabled": "Hidden",
+        "hint": "When enabled, the model's thinking process is displayed. When disabled, thinking content is not pushed (the model still thinks; this only controls display)."
+      },
       "autoOpenFile": {
         "label": "Send Opened File Path",
         "enabled": "Enabled",

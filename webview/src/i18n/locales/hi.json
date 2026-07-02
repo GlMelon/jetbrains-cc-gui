@@ -231,6 +231,12 @@
         "disabled": "Disabled",
         "hint": "When enabled, AI responses will appear character by character in real-time, instead of waiting for the complete response. May consume more resources."
       },
+      "showThinking": {
+        "label": "थिंकिंग दिखाएं",
+        "enabled": "दिखाया गया",
+        "disabled": "छिपा हुआ",
+        "hint": "सक्षम होने पर, मॉडल की थिंकिंग प्रक्रिया प्रदर्शित होती है। अक्षम होने पर, थिंकिंग सामग्री नहीं भेजी जाती (मॉडल अभी भी सोचता है; केवल प्रदर्शन नियंत्रित करता है)।"
+      },
       "autoOpenFile": {
         "label": "खुली फ़ाइल पथ भेजें",
         "enabled": "सक्षम",
