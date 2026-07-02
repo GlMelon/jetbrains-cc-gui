@@ -67,7 +67,16 @@ export const AppDialogs = ({
     showChangelogDialog, closeChangelogDialog,
   } = useUIState();
 
-  // "Don't ask again" checkbox state for the new-session confirm dialog.
+  // ── Dialog stacking guard ──────────────────────────────────────────
+  // When ChangelogDialog is open atop an actionable dialog (permission,
+  // ask-user, plan-approval), the underlying dialog's content shows
+  // through the semi-transparent backdrop.  Prevent that by hiding the
+  // changelog when an actionable dialog is active so the user resolves
+  // the action dialog first; changelog state persists and reappears.
+  const hasActionDialog = permissionDialogOpen
+    || askUserQuestionDialogOpen
+    || planApprovalDialogOpen;
+  const showChangelogNow = showChangelogDialog && !hasActionDialog;
   // Resets to unchecked every time the dialog re-opens so the user re-affirms
   // intent each time they want to silence it.
   const [skipNewSessionAgain, setSkipNewSessionAgain] = useState(false);
@@ -154,7 +163,7 @@ export const AppDialogs = ({
         onCancel={onRewindCancel}
       />
       <ChangelogDialog
-        isOpen={showChangelogDialog}
+        isOpen={showChangelogNow}
         onClose={closeChangelogDialog}
         entries={CHANGELOG_DATA}
       />
