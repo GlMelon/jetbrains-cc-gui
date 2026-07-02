@@ -21,7 +21,16 @@
 
 /* 弹窗容器 —— 所有 BaseDialog 共用的外层壳。
    ⚠️ 此前 .dialog-base 无任何定义,导致 ConfirmDialog 等弹窗背景透明、
-   透出遮罩后的模糊内容;这里补齐不透明背景/边框/圆角/阴影。 */
+   透出遮罩后的模糊内容;这里补齐不透明背景/边框/圆角/阴影。
+   ────────────────────────────────────────────────────────────────────
+   ⚠️ 子容器宽度约束(lint 级,新增 BaseDialog 弹窗必读):
+   .dialog-base 刻意不设 width —— 它是 .dialog-overlay 的 shrink-to-fit flex item,
+   宽度由内层子容器决定。因此 BaseDialog 的内层容器【禁止】用 `width: <百分比>`:
+   百分比相对一个无确定宽度的 flex item 会形成循环,解析为 auto,导致 .dialog-base 被
+   撑到 max-content 上限(max-width)而内层只占该百分比的宽度,中间差出的区域露出本容器
+   的 bg-secondary 灰背景,视觉上像两个卡片重叠(changelog-dialog、provider-dialog 均踩此坑)。
+   ✅ 正确范式:`width: min(<N>vw, <M>px)`(相对视口 definite 斩断循环),参考实现见
+      mcp.less 的 .provider-dialog 与 changelog-dialog.less 的 .changelog-dialog。 */
 .dialog-base {
     background: var(--bg-secondary);
     border: 1px solid var(--border-secondary);

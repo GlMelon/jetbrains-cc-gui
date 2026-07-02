@@ -3,8 +3,11 @@
    分区语义色变量深浅主题共用(--c-feature/fix/improve/perf)。 */
 
 .changelog-dialog {
-  width: 90%;
-  max-width: 560px;
+  /* 宽度相对视口(对齐 .provider-dialog 已验证范式,见 mcp.less):不能用 width:90%,
+     因 .dialog-base 是 shrink-to-fit 的 flex item(无显式宽度),百分比 width 相对其会
+     解析为 auto→.dialog-base 被撑到 max-content 上限(560px)而本容器只占其 90%(~504px),
+     中间露出的 .dialog-base 灰色背景(bg-secondary)视觉上像第二个卡片重叠。 */
+  width: min(90vw, 560px);
   max-height: 82vh;
   display: flex;
   flex-direction: column;
