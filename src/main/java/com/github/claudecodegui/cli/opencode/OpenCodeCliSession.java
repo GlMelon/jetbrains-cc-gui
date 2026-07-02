@@ -67,30 +67,38 @@ public class OpenCodeCliSession implements CliSession {
         this.gatewayService = gatewayService;
     }
 
+    private static long elapsedMillis(long startNanos) {
+        return (System.nanoTime() - startNanos) / 1_000_000;
+    }
+
     @Override
     public CompletableFuture<Void> send(CliSendRequest request, CliSessionCallback callback) {
         userInterrupted.set(false);
         return CliSessionExecutor.runAsync(() -> {
+            long sendStartNanos = System.nanoTime();
             List<File> tempFiles = new ArrayList<>();
             StringBuilder diagnostic = new StringBuilder();
             try {
+                LOG.info("[CliConcurrencyDiag][OpenCodeCliSession] send task started" + ": tabId=" + tabId + ", sessionId=" + (sessionId != null ? sessionId : "(none)") + ", cwd=" + (request.cwd() != null ? request.cwd() : "(none)") + ", thread=" + Thread.currentThread().getName());
                 // 图片附件物化为磁盘文件(与 Codex 同范式:processForCodex 返回 image File 列表),
                 // 跨重试复用同一批临时文件,finally 统一清理。
                 List<File> attachFiles;
                 try {
+                    long attachmentsStartNanos = System.nanoTime();
                     attachFiles = attachmentHandler.processForCodex(request.attachments(), tempFiles);
+                    LOG.info("[CliConcurrencyDiag][OpenCodeCliSession] attachments prepared" + ": tabId=" + tabId + ", files=" + attachFiles.size() + ", elapsedMs=" + elapsedMillis(sendStartNanos) + ", attachmentsMs=" + elapsedMillis(attachmentsStartNanos) + ", thread=" + Thread.currentThread().getName());
                 } catch (Exception e) {
                     LOG.warn("[OpenCodeCliSession][" + tabId + "] process attachments failed", e);
                     attachFiles = List.of();
                 }
 
                 // B13:续接失败时清空 sessionId 重试一次首轮流程(设计 §7.4)。
-                boolean retry = runOnce(request, callback, sessionId, attachFiles, diagnostic);
+                boolean retry = runOnce(request, callback, sessionId, attachFiles, diagnostic, sendStartNanos);
                 if (retry) {
-                    LOG.info("[OpenCodeCliSession][" + tabId + "] continuation session invalidated; retrying as fresh turn");
+                    LOG.info("[CliConcurrencyDiag][OpenCodeCliSession] continuation session invalidated; retrying as fresh turn" + ": tabId=" + tabId + ", elapsedMs=" + elapsedMillis(sendStartNanos) + ", thread=" + Thread.currentThread().getName());
                     sessionId = null;
                     diagnostic.setLength(0);
-                    runOnce(request, callback, null, attachFiles, diagnostic);
+                    runOnce(request, callback, null, attachFiles, diagnostic, sendStartNanos);
                 }
             } catch (Exception e) {
                 LOG.warn("[OpenCodeCliSession][" + tabId + "] send failed", e);
@@ -121,11 +129,14 @@ public class OpenCodeCliSession implements CliSession {
             CliSessionCallback callback,
             String effectiveSessionId,
             List<File> attachFiles,
-            StringBuilder diagnostic
+            StringBuilder diagnostic,
+            long sendStartNanos
     ) throws Exception {
         OpenCodeCliStreamParser parser = new OpenCodeCliStreamParser(callback);
         McpGatewayCliConfig gatewayConfig = buildGatewayConfig(request);
+        LOG.info("[CliConcurrencyDiag][OpenCodeCliSession] building command" + ": tabId=" + tabId + ", effectiveSessionId=" + (effectiveSessionId != null ? effectiveSessionId : "(new)") + ", elapsedMs=" + elapsedMillis(sendStartNanos) + ", thread=" + Thread.currentThread().getName());
         List<String> cmd = buildRunCommand(request, effectiveSessionId, attachFiles);
+        LOG.info("[CliConcurrencyDiag][OpenCodeCliSession] command prepared" + ": tabId=" + tabId + ", effectiveSessionId=" + (effectiveSessionId != null ? effectiveSessionId : "(new)") + ", elapsedMs=" + elapsedMillis(sendStartNanos) + ", thread=" + Thread.currentThread().getName());
         LOG.info("[OpenCodeCliSession][" + tabId + "] Command: " + String.join(" ", cmd));
 
         ProcessBuilder pb = new ProcessBuilder(cmd);
@@ -164,7 +175,9 @@ public class OpenCodeCliSession implements CliSession {
         // 是关闭 stdin 的可靠方式。(平台耦合,对照实验验证;B9 不写 stdin,故无需管道)
         pb.redirectInput(stdinNullSink());
 
+        LOG.info("[CliConcurrencyDiag][OpenCodeCliSession] starting process" + ": tabId=" + tabId + ", effectiveSessionId=" + (effectiveSessionId != null ? effectiveSessionId : "(new)") + ", elapsedMs=" + elapsedMillis(sendStartNanos) + ", thread=" + Thread.currentThread().getName());
         Process process = pb.start();
+        LOG.info("[CliConcurrencyDiag][OpenCodeCliSession] process started" + ": tabId=" + tabId + ", effectiveSessionId=" + (effectiveSessionId != null ? effectiveSessionId : "(new)") + ", elapsedMs=" + elapsedMillis(sendStartNanos) + ", thread=" + Thread.currentThread().getName());
         // stdin 已重定向到空设备,opencode 立即读到 EOF;无需(也无法)再经 OutputStream 关闭。
         // B14:CliProcessHandle 统一管理中断(替代裸 destroyForcibly)。
         activeHandle = new CliProcessHandle(process, "opencode-tab-" + tabId);
@@ -173,10 +186,15 @@ public class OpenCodeCliSession implements CliSession {
             ByteArrayOutputStream lineBuf = new ByteArrayOutputStream();
             byte[] readBuf = new byte[8192];
             int n;
+            boolean firstOutputLogged = false;
             while ((n = rawIn.read(readBuf)) != -1) {
                 for (int i = 0; i < n; i++) {
                     byte b = readBuf[i];
                     if (b == '\n') {
+                        if (!firstOutputLogged) {
+                            firstOutputLogged = true;
+                            LOG.info("[CliConcurrencyDiag][OpenCodeCliSession] first stdout line buffer reached" + ": tabId=" + tabId + ", effectiveSessionId=" + (effectiveSessionId != null ? effectiveSessionId : "(new)") + ", elapsedMs=" + elapsedMillis(sendStartNanos) + ", thread=" + Thread.currentThread().getName());
+                        }
                         processLine(lineBuf, parser, diagnostic);
                     } else {
                         lineBuf.write(b);
@@ -193,6 +211,7 @@ public class OpenCodeCliSession implements CliSession {
             process.waitFor();
         }
         int exitCode = process.exitValue();
+        LOG.info("[CliConcurrencyDiag][OpenCodeCliSession] process exited" + ": tabId=" + tabId + ", effectiveSessionId=" + (effectiveSessionId != null ? effectiveSessionId : "(new)") + ", exitCode=" + exitCode + ", elapsedMs=" + elapsedMillis(sendStartNanos) + ", thread=" + Thread.currentThread().getName());
 
         if (wasInterrupted()) {
             callback.onInterrupted(parser.accumulatedText(), CliConstants.I18N_REQUEST_INTERRUPTED);

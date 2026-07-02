@@ -62,9 +62,10 @@ test('message.part.updated with reasoning part emits thinking_delta', () => {
         sessionID: SID,
         part: { type: 'reasoning', text: 'thinking about it' }
     }));
-    assert.equal(out.length, 1);
-    assert.equal(out[0].type, 'thinking_delta');
-    assert.equal(out[0].text, 'thinking about it');
+    // 首个 reasoning 合成 thinking 激活态 + thinking_delta(断点C);此处聚焦 delta 存在性
+    const delta = out.find((e) => e.type === 'thinking_delta');
+    assert.ok(delta, 'reasoning must emit thinking_delta');
+    assert.equal(delta.text, 'thinking about it');
 });
 
 test('message.updated assistant tokens emit usage with mapped fields', () => {
@@ -151,7 +152,9 @@ test('events for other sessions are filtered out', () => {
     assert.deepEqual(out, []);
 });
 
-test('message.part.updated tool part emits assistant tool_use block', () => {
+test('message.part.updated tool part emits tool_use + tool_result (Anthropic schema)', () => {
+    // 断点B 修复:tool part 不再降级为 assistant 乱码,归一为标准 tool_use+tool_result 双发,
+    // 对称 CLI OpenCodeCliStreamParser.handleToolUse,使 CodexMessageHandler 渲染工具卡。
     const m = createOpenCodeEventMapper(SID);
     m.map(ev('server.connected'));
     const out = m.map(ev('message.part.updated', {
@@ -160,14 +163,86 @@ test('message.part.updated tool part emits assistant tool_use block', () => {
             type: 'tool',
             tool: 'read',
             callID: 'call_1',
-            state: { status: 'completed', input: '{"path":"a.txt"}', output: 'content' }
+            state: { status: 'completed', input: '{"path":"a.txt"}', output: 'file content' }
         }
     }));
-    // tool 事件至少产出一个 assistant 事件携带原始块(交由 Java 侧 handleToolUse 解析)
-    assert.ok(out.length >= 1, 'tool event must emit at least one event');
-    const assistant = out.find((e) => e.type === 'assistant');
-    assert.ok(assistant, 'tool event must emit assistant event');
-    assert.ok(assistant.content, 'assistant event must carry content payload');
+    // tool_use 块:input 字符串须 parse 为对象(对称 CLI 的对象 input)
+    const toolUse = out.find((e) => e.type === 'tool_use');
+    assert.ok(toolUse, 'tool event must emit tool_use');
+    const useBlock = JSON.parse(toolUse.content);
+    assert.equal(useBlock.type, 'tool_use');
+    assert.equal(useBlock.id, 'call_1');
+    assert.equal(useBlock.name, 'read');
+    assert.deepEqual(useBlock.input, { path: 'a.txt' });
+    // tool_result 块:携带 output
+    const toolResult = out.find((e) => e.type === 'tool_result');
+    assert.ok(toolResult, 'tool event must emit tool_result');
+    const resultBlock = JSON.parse(toolResult.content);
+    assert.equal(resultBlock.type, 'tool_result');
+    assert.equal(resultBlock.tool_use_id, 'call_1');
+    assert.equal(resultBlock.content, 'file content');
+    // 不再发 assistant 乱码
+    assert.equal(out.filter((e) => e.type === 'assistant').length, 0, 'no assistant downgrade');
+});
+
+test('tool_use/tool_result are deduped by callID across repeated part.updated', () => {
+    // serve 对同一 tool part 幂等重发,callID 去重避免重复工具卡(对称 Codex emitToolUseOnce)。
+    const m = createOpenCodeEventMapper(SID);
+    m.map(ev('server.connected'));
+    const part = {
+        type: 'tool', tool: 'bash', callID: 'call_2',
+        state: { status: 'completed', input: '{"command":"ls"}', output: 'a\nb' }
+    };
+    const o1 = m.map(ev('message.part.updated', { sessionID: SID, part }));
+    const o2 = m.map(ev('message.part.updated', { sessionID: SID, part }));
+    assert.equal(o1.filter((e) => e.type === 'tool_use').length, 1, 'first emits tool_use');
+    assert.equal(o1.filter((e) => e.type === 'tool_result').length, 1, 'first emits tool_result');
+    assert.equal(o2.filter((e) => e.type === 'tool_use').length, 0, 'repeat tool_use deduped');
+    assert.equal(o2.filter((e) => e.type === 'tool_result').length, 0, 'repeat tool_result deduped');
+});
+
+test('tool part staged: running(input) emits tool_use only; completed(output) emits tool_result', () => {
+    // 工具调用生命周期:先 running(input)→tool_use,后 completed(output)→tool_result。
+    const m = createOpenCodeEventMapper(SID);
+    m.map(ev('server.connected'));
+    const o1 = m.map(ev('message.part.updated', {
+        sessionID: SID,
+        part: { type: 'tool', tool: 'read', callID: 'call_3', state: { status: 'running', input: '{"path":"x"}' } }
+    }));
+    assert.equal(o1.filter((e) => e.type === 'tool_use').length, 1, 'running emits tool_use');
+    assert.equal(o1.filter((e) => e.type === 'tool_result').length, 0, 'no result until completed');
+    const o2 = m.map(ev('message.part.updated', {
+        sessionID: SID,
+        part: { type: 'tool', tool: 'read', callID: 'call_3', state: { status: 'completed', input: '{"path":"x"}', output: 'done' } }
+    }));
+    assert.equal(o2.filter((e) => e.type === 'tool_use').length, 0, 'tool_use already emitted');
+    assert.equal(o2.filter((e) => e.type === 'tool_result').length, 1, 'completed emits tool_result');
+});
+
+test('first reasoning part emits thinking activation (thinking_start) + thinking_delta', () => {
+    // 断点C 修复:首个 reasoning 合成 thinking 激活态(对称 CLI thinkingStart),
+    // 使前端"思考中"指示灯亮;后续 reasoning 只发增量。
+    const m = createOpenCodeEventMapper(SID);
+    prime(m);
+    const out = m.map(ev('message.part.updated', {
+        sessionID: SID, part: { type: 'reasoning', text: 'first thought' }
+    }));
+    const activation = out.find((e) => e.type === 'thinking');
+    assert.ok(activation, 'first reasoning must emit thinking activation');
+    const delta = out.find((e) => e.type === 'thinking_delta');
+    assert.ok(delta, 'still emits thinking_delta');
+    assert.equal(delta.text, 'first thought');
+});
+
+test('subsequent reasoning parts do NOT re-emit thinking activation', () => {
+    const m = createOpenCodeEventMapper(SID);
+    prime(m);
+    m.map(ev('message.part.updated', { sessionID: SID, part: { type: 'reasoning', text: 'a' } }));
+    const out = m.map(ev('message.part.updated', { sessionID: SID, part: { type: 'reasoning', text: 'ab' } }));
+    assert.equal(out.filter((e) => e.type === 'thinking').length, 0, 'activation only once');
+    const delta = out.find((e) => e.type === 'thinking_delta');
+    assert.ok(delta);
+    assert.equal(delta.text, 'b');
 });
 
 test('error event emits error with message', () => {

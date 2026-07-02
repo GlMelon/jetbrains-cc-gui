@@ -150,4 +150,20 @@ public class OpenCodeSDKBridgeTest {
         assertTrue("会话枚举超时必须终止并等待子进程退出",
                 source.contains("PlatformUtils.terminateProcessAndWait(process, 3, TimeUnit.SECONDS)"));
     }
+
+    @Test
+    public void processOutputLineHandlesToolUseToolResultAndThinking() throws Exception {
+        // 断点B/C 修复:SDK 模式 event-mapper 归一出的 tool_use/tool_result/thinking wire 事件
+        // 须在 processOutputLine 有对应 case 透传给 CodexMessageHandler(对称 CLI 路径,
+        // 复用 handleToolUse/handleToolResult/handleThinkingMessage 渲染工具卡 + 思考激活态)。
+        // processOutputLine protected + Platform 耦合,用源码字符串守卫(对称 mcpErrorMessageDowngraded 测试)。
+        String source = java.nio.file.Files.readString(java.nio.file.Paths.get(
+                "src", "main", "java", "com", "github", "claudecodegui", "provider", "opencode", "OpenCodeSDKBridge.java"));
+        assertTrue("须有 MSG_TYPE_TOOL_USE case 透传工具调用块(前端渲染工具卡)",
+                source.contains("case CommonConstants.MSG_TYPE_TOOL_USE ->"));
+        assertTrue("须有 MSG_TYPE_TOOL_RESULT case 透传工具结果块",
+                source.contains("case CommonConstants.MSG_TYPE_TOOL_RESULT ->"));
+        assertTrue("须有 MSG_TYPE_THINKING case 透传思考激活态(前端点亮思考指示灯)",
+                source.contains("case CommonConstants.MSG_TYPE_THINKING ->"));
+    }
 }

@@ -37,6 +37,10 @@ export function createOpenCodeEventMapper(sessionId) {
     let reasoningText = ''; // 累积 reasoning 文本
     let lastUsageKey = ''; // 上次下发 usage 的指纹,幂等 message.updated 去重(避免 token 用量翻倍)
     const roleByMessageId = new Map(); // messageID → role("user"|"assistant")
+    let thinkingActivated = false; // 首个 reasoning 合成 thinking 激活态(一次性,对称 CLI thinkingStart)
+    const toolUseEmitted = new Set(); // callID 去重:tool_use 每个 callID 只发一次(对称 Codex emitToolUseOnce)
+    const toolResultEmitted = new Set(); // callID 去重:tool_result 每个 callID 只发一次
+    let toolCallSeq = 0; // 无 callID 时的稳定回退 id(可测,非随机)
 
     function ensureStarted() {
         if (streamStarted) return [];
@@ -132,15 +136,24 @@ export function createOpenCodeEventMapper(sessionId) {
                     return out;
                 }
                 if (part.type === 'reasoning') {
+                    const out2 = [];
+                    // 断点C 修复:首个 reasoning 合成 thinking 激活态(对称 CLI thinkingStart),
+                    // 使前端 CodexMessageHandler.notifyThinkingStatusChanged(true) 点亮"思考中"指示灯。
+                    if (!thinkingActivated) {
+                        thinkingActivated = true;
+                        out2.push({ type: 'thinking' });
+                    }
                     const d = delta(reasoningText, part.text);
                     if (d) {
                         reasoningText += d;
-                        return out.concat([{ type: 'thinking_delta', text: d }]);
+                        out2.push({ type: 'thinking_delta', text: d });
                     }
-                    return out;
+                    return out.concat(out2);
                 }
                 if (part.type === 'tool') {
-                    return out.concat([{ type: 'assistant', content: JSON.stringify(part) }]);
+                    // 断点B 修复:tool part 不再降级为 assistant 乱码 JSON,归一为标准
+                    // tool_use + tool_result 双发(对称 CLI handleToolUse),使前端渲染工具卡。
+                    return out.concat(emitToolBlocks(part));
                 }
                 // step-start / step-finish / 其它 part:仅确保流已开始
                 return out;
@@ -194,6 +207,63 @@ export function createOpenCodeEventMapper(sessionId) {
         if (streamEnded) return [];
         streamEnded = true;
         return out.concat([{ type: 'stream_end' }, { type: 'message_end' }]);
+    }
+
+    /**
+     * 解析 tool input:OpenCode SSE 的 state.input 是 JSON 字符串(如 '{"path":"a.txt"}'),
+     * Anthropic tool_use 块要求 input 为对象(对称 CLI 的对象 input)。非 JSON 字符串保留为 {value:原值}。
+     */
+    function parseToolInput(input) {
+        if (input == null) return {};
+        if (typeof input === 'object') return input;
+        try {
+            const parsed = JSON.parse(input);
+            return parsed && typeof parsed === 'object' ? parsed : { value: input };
+        } catch {
+            return { value: input };
+        }
+    }
+
+    /**
+     * 断点B 修复:把 OpenCode tool part 归一为 Anthropic schema 的 tool_use + tool_result 双发。
+     * 对称 CLI OpenCodeCliStreamParser.handleToolUse:CodexMessageHandler.handleToolUse/handleToolResult
+     * 经 wrapAsAssistantRaw/wrapAsUserRaw 渲染为可折叠工具卡。
+     * <p>
+     * 生命周期:serve 分阶段发 tool part —— running 期带 input(发 tool_use),completed 带 output(发 tool_result)。
+     * 同一 callID 的 tool_use/tool_result 各只发一次(幂等重发去重,对称 Codex emitToolUseOnce/emitToolResultOnce)。
+     */
+    function emitToolBlocks(part) {
+        const out2 = [];
+        const callId = part.callID || part.id || ('call_' + (++toolCallSeq));
+        const toolName = part.tool || part.name || 'unknown';
+        const state = part.state || {};
+        const input = state.input;
+        const output = state.output;
+        const status = state.status;
+        const isError = status === 'error' || status === 'failed';
+
+        if (input != null && input !== '' && !toolUseEmitted.has(callId)) {
+            toolUseEmitted.add(callId);
+            out2.push({
+                type: 'tool_use',
+                content: JSON.stringify({
+                    type: 'tool_use', id: callId, name: toolName, input: parseToolInput(input)
+                })
+            });
+        }
+        if ((status === 'completed' || (output != null && output !== '')) && !toolResultEmitted.has(callId)) {
+            toolResultEmitted.add(callId);
+            out2.push({
+                type: 'tool_result',
+                content: JSON.stringify({
+                    type: 'tool_result',
+                    tool_use_id: callId,
+                    is_error: isError,
+                    content: output != null ? output : '(running)'
+                })
+            });
+        }
+        return out2;
     }
 
     return { map };

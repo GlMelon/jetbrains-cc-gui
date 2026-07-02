@@ -155,7 +155,14 @@ public class OpenCodeCliStreamParser {
             case EVENT_STEP_FINISH -> handleStepFinish(event);
             case EVENT_ERROR -> handleError(event);
             default -> {
-                // 忽略未知事件类型(message_start/step_reasoning 等占位事件)
+                // 忽略未知事件类型(message_start/step_reasoning 等)。
+                // 根因调查(2026-07,opencode v1.17.11 --format json cheatsheet):NDJSON schema 仅 5 类
+                // 事件(step_start/tool_use/text/step_finish/error),无推理文本事件——推理仅以
+                // step_finish.part.tokens.reasoning 的"计数"形式出现(非文本)。--thinking flag 是
+                // TUI 显示控制("show thinking blocks"),不改变 json 事件 schema。故 CLI 模式无法实现
+                // 思考区(opencode provider 限制,非插件 bug);思考区仅在 SDK 模式可用(SSE
+                // message.part.updated + part.type=reasoning 含文本,由 ai-bridge event-mapper 处理)。
+                // 详见设计 §7.3 + https://littlebearapps.com/help/untether/opencode-stream-json-cheatsheet/
             }
         }
     }

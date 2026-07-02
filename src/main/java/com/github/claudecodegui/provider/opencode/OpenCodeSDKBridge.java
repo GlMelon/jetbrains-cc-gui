@@ -142,6 +142,20 @@ public class OpenCodeSDKBridge extends BaseSDKBridge {
                     String text = event.has("text") ? event.get("text").getAsString() : "";
                     callback.onMessage(CliConstants.MSG_THINKING_DELTA, text);
                 }
+                // 断点C 修复:首个 reasoning 合成的思考激活态(对称 CLI thinkingStart),
+                // 点亮前端"思考中"指示灯(CodexMessageHandler.handleThinkingMessage)。
+                case CommonConstants.MSG_TYPE_THINKING -> callback.onMessage(CommonConstants.MSG_TYPE_THINKING, "");
+                // 断点B 修复:tool part 归一出的 tool_use/tool_result(对称 CLI handleToolUse),
+                // 使 CodexMessageHandler 渲染可折叠工具卡(而非 assistant 乱码 JSON)。
+                // content 是 Anthropic schema 的 block JSON 字符串(event-mapper emitToolBlocks 产出)。
+                case CommonConstants.MSG_TYPE_TOOL_USE -> {
+                    String content = event.has("content") ? event.get("content").getAsString() : event.toString();
+                    callback.onMessage(CommonConstants.MSG_TYPE_TOOL_USE, content);
+                }
+                case CommonConstants.MSG_TYPE_TOOL_RESULT -> {
+                    String content = event.has("content") ? event.get("content").getAsString() : event.toString();
+                    callback.onMessage(CommonConstants.MSG_TYPE_TOOL_RESULT, content);
+                }
                 case CommonConstants.MSG_TYPE_ASSISTANT -> {
                     String content = event.toString();
                     callback.onMessage(CommonConstants.MSG_TYPE_ASSISTANT, content);
