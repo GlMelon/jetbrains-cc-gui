@@ -16,7 +16,9 @@
 export const READ_TOOL_NAMES = new Set(['read', 'read_file', 'read_multiple_files']);
 
 // Edit/file modification tools
-export const EDIT_TOOL_NAMES = new Set(['edit', 'edit_file', 'replace_string', 'write_to_file', 'apply_patch']);
+// 含 OpenCode 的 `write`(创建新文件)/`create_file`,对齐 FILE_MODIFY_TOOL_NAMES,
+// 否则 OpenCode 写文件操作会落 GenericToolBlock 而非 EditToolBlock(展示样式不一致)。
+export const EDIT_TOOL_NAMES = new Set(['edit', 'edit_file', 'replace_string', 'write_to_file', 'apply_patch', 'write', 'create_file']);
 
 // Bash/command execution tools
 export const BASH_TOOL_NAMES = new Set(['bash', 'run_terminal_cmd', 'exec_command', 'execute_command', 'shell_command']);

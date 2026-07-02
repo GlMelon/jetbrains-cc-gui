@@ -90,7 +90,6 @@ public class CodexCliSession implements CliSession {
     private final String tabId;
     private final Gson gson = GsonHolder.GSON;
     private final CliAttachmentHandler attachmentHandler = new CliAttachmentHandler();
-    private final CliMcpConfig mcpConfig;
     private final McpGatewayService gatewayService;
 
     // 当前 thread_id（从 thread.started 事件获取）
@@ -144,7 +143,6 @@ public class CodexCliSession implements CliSession {
 
     public CodexCliSession(String tabId, McpGatewayService gatewayService) {
         this.tabId = tabId;
-        this.mcpConfig = new CliMcpConfig(tabId);
         this.gatewayService = gatewayService;
     }
 
@@ -357,10 +355,6 @@ public class CodexCliSession implements CliSession {
     public void dispose() {
         long startNanos = System.nanoTime();
         interrupt();
-        long cleanupStartNanos = System.nanoTime();
-        mcpConfig.cleanup();
-        LOG.info("[TabPerf] CodexCliSession MCP cleanup returned in "
-                + TabPerformanceLogger.elapsedMillis(cleanupStartNanos) + "ms: tab=" + tabId);
         LOG.info("[TabPerf] CodexCliSession.dispose returned in "
                 + TabPerformanceLogger.elapsedMillis(startNanos) + "ms: tab=" + tabId);
     }
