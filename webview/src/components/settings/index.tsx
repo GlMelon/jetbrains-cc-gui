@@ -177,6 +177,9 @@ const SettingsView = ({
     commitGenerationEnabled,
     setCommitGenerationEnabled,
     handleCommitGenerationEnabledChange,
+    mcpGatewayEnabled,
+    setMcpGatewayEnabled,
+    handleMcpGatewayEnabledChange,
     aiTitleGenerationEnabled,
     setAiTitleGenerationEnabled,
     handleAiTitleGenerationEnabledChange,
@@ -371,6 +374,7 @@ const SettingsView = ({
     onShowThinkingEnabledChangeProp,
     onSendShortcutChangeProp,
     setCommitGenerationEnabled,
+    setMcpGatewayEnabled,
     setAiTitleGenerationEnabled,
     setStatusBarWidgetEnabled,
     setTaskCompletionNotificationEnabled,
@@ -540,6 +544,8 @@ const SettingsView = ({
                 handleCommitGenerationEnabledChange(enabled);
                 addToast(t('toast.restartRequired'), 'warning');
               }}
+              mcpGatewayEnabled={mcpGatewayEnabled}
+              onMcpGatewayEnabledChange={handleMcpGatewayEnabledChange}
               statusBarWidgetEnabled={statusBarWidgetEnabled}
               onStatusBarWidgetEnabledChange={(enabled) => {
                 handleStatusBarWidgetEnabledChange(enabled);

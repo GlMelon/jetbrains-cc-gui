@@ -65,6 +65,8 @@ export interface UseSettingsBasicActionsReturn {
   /** Whether to skip the "create new session with existing messages" confirm dialog. */
   skipNewSessionConfirm: boolean;
   commitGenerationEnabled: boolean;
+  /** MCP Gateway 加速开关(行为菜单,默认 true;关闭回退直连 MCP) */
+  mcpGatewayEnabled: boolean;
   aiTitleGenerationEnabled: boolean;
   statusBarWidgetEnabled: boolean;
   taskCompletionNotificationEnabled: boolean;
@@ -95,6 +97,7 @@ export interface UseSettingsBasicActionsReturn {
   handleSaveCommitPrompt: () => void;
   handleSaveProjectCommitPrompt: () => void;
   handleCommitGenerationEnabledChange: (enabled: boolean) => void;
+  handleMcpGatewayEnabledChange: (enabled: boolean) => void;
   handleAiTitleGenerationEnabledChange: (enabled: boolean) => void;
   handleStatusBarWidgetEnabledChange: (enabled: boolean) => void;
   handleTaskCompletionNotificationEnabledChange: (enabled: boolean) => void;
@@ -141,6 +144,7 @@ export interface UseSettingsBasicActionsReturn {
   /** @internal */ setHistoryCompletionEnabled: (enabled: boolean) => void;
   /** @internal */ setSkipNewSessionConfirm: (enabled: boolean) => void;
   /** @internal */ setCommitGenerationEnabled: (enabled: boolean) => void;
+  /** @internal */ setMcpGatewayEnabled: (enabled: boolean) => void;
   /** @internal */ setAiTitleGenerationEnabled: (enabled: boolean) => void;
   /** @internal */ setStatusBarWidgetEnabled: (enabled: boolean) => void;
   /** @internal */ setTaskCompletionNotificationEnabled: (enabled: boolean) => void;
@@ -253,6 +257,9 @@ export function useSettingsBasicActions({
 
   // AI commit generation toggle (default: true)
   const [commitGenerationEnabled, setCommitGenerationEnabled] = useState<boolean>(true);
+
+  // MCP Gateway acceleration toggle (default: true; off falls back to direct MCP)
+  const [mcpGatewayEnabled, setMcpGatewayEnabled] = useState<boolean>(true);
 
   // AI session title generation toggle (default: true)
   const [aiTitleGenerationEnabled, setAiTitleGenerationEnabled] = useState<boolean>(true);
@@ -423,6 +430,13 @@ export function useSettingsBasicActions({
     setCommitGenerationEnabled(enabled);
     const payload = { commitGenerationEnabled: enabled };
     sendAction(UPSTREAM.SET_COMMIT_GENERATION_ENABLED, JSON.stringify(payload));
+  }, []);
+
+  // MCP Gateway toggle change handler — 关闭停常驻进程回直连,开启后台预热(后端即时处理,无需 restart)
+  const handleMcpGatewayEnabledChange = useCallback((enabled: boolean) => {
+    setMcpGatewayEnabled(enabled);
+    const payload = { mcpGatewayEnabled: enabled };
+    sendAction(UPSTREAM.SET_MCP_GATEWAY_ENABLED, JSON.stringify(payload));
   }, []);
 
   // AI session title generation toggle change handler
@@ -613,6 +627,9 @@ export function useSettingsBasicActions({
     commitGenerationEnabled,
     setCommitGenerationEnabled,
     handleCommitGenerationEnabledChange,
+    mcpGatewayEnabled,
+    setMcpGatewayEnabled,
+    handleMcpGatewayEnabledChange,
     aiTitleGenerationEnabled,
     setAiTitleGenerationEnabled,
     handleAiTitleGenerationEnabledChange,

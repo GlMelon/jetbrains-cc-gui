@@ -6,6 +6,7 @@ import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.handler.core.HandlerContext;
 
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
+import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.action.SendShortcutSync;
 import com.github.claudecodegui.session.ClaudeSession;
@@ -825,6 +826,45 @@ public class ProjectConfigHandler {
             settingsService::setTaskCompletionNotificationEnabled,
             DownstreamEvent.CONFIG_TASK_COMPLETION_NOTIFICATION.value(),
             "Failed to save task completion notification setting");
+    }
+
+    public void handleGetMcpGatewayEnabled() {
+        respondWithJson(DownstreamEvent.CONFIG_MCP_GATEWAY.value(),
+            () -> jsonOf("mcpGatewayEnabled", settingsService.getMcpGatewayEnabled()),
+            jsonOf("mcpGatewayEnabled", true),
+            "Failed to get MCP gateway enabled");
+    }
+
+    /**
+     * 行为菜单 MCP Gateway 开关写入。存盘 + 下行回灌 + 副作用(后台线程,避免阻塞 UI):
+     * 关闭 → {@link McpGatewayService#stopGateway()} 停常驻 Node 进程,下一条消息起走直连 MCP;
+     * 开启 → {@link McpGatewayService#refreshConfig} 后台预热(refreshConfig 经 isCliEnabled 守卫 +
+     * ensureStarted 启动进程并加载 MCP 目录)。不能用通用 {@code handleBooleanToggle},因有副作用。
+     */
+    public void handleSetMcpGatewayEnabled(String content) {
+        try {
+            JsonObject json = gson.fromJson(content, JsonObject.class);
+            boolean enabled = readBoolean(json, "mcpGatewayEnabled", true);
+            settingsService.setMcpGatewayEnabled(enabled);
+            LOG.info("[ProjectConfigHandler] Set MCP gateway enabled: " + enabled);
+            pushJson(DownstreamEvent.CONFIG_MCP_GATEWAY.value(), jsonOf("mcpGatewayEnabled", enabled));
+            String projectPath = context.getProject().getBasePath();
+            ApplicationManager.getApplication().executeOnPooledThread(() -> {
+                try {
+                    McpGatewayService gateway = McpGatewayService.getInstance(context.getProject());
+                    if (enabled) {
+                        gateway.refreshConfig(projectPath);
+                    } else {
+                        gateway.stopGateway();
+                    }
+                } catch (Exception e) {
+                    LOG.warn("[ProjectConfigHandler] MCP gateway toggle side-effect failed: " + e.getMessage(), e);
+                }
+            });
+        } catch (Exception e) {
+            LOG.error("[ProjectConfigHandler] Failed to set MCP gateway enabled: " + e.getMessage(), e);
+            showError("Failed to save MCP gateway config");
+        }
     }
 
     private void dispatchUiFontConfigUpdate() {

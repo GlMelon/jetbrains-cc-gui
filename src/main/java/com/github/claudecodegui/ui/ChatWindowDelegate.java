@@ -168,6 +168,8 @@ import com.github.claudecodegui.handler.settings.GetPermissionDialogTimeoutActio
 import com.github.claudecodegui.handler.settings.SetPermissionDialogTimeoutActionHandler;
 import com.github.claudecodegui.handler.settings.GetCommitGenerationEnabledActionHandler;
 import com.github.claudecodegui.handler.settings.SetCommitGenerationEnabledActionHandler;
+import com.github.claudecodegui.handler.settings.GetMcpGatewayEnabledActionHandler;
+import com.github.claudecodegui.handler.settings.SetMcpGatewayEnabledActionHandler;
 import com.github.claudecodegui.handler.settings.GetStatusBarWidgetEnabledActionHandler;
 import com.github.claudecodegui.handler.settings.SetStatusBarWidgetEnabledActionHandler;
 import com.github.claudecodegui.handler.settings.GetTaskCompletionNotificationEnabledActionHandler;
@@ -593,6 +595,8 @@ public class ChatWindowDelegate {
         typedHandlers.add(new SetPermissionDialogTimeoutActionHandler(projectConfigHandler));
         typedHandlers.add(new GetCommitGenerationEnabledActionHandler(projectConfigHandler));
         typedHandlers.add(new SetCommitGenerationEnabledActionHandler(projectConfigHandler));
+        typedHandlers.add(new GetMcpGatewayEnabledActionHandler(projectConfigHandler));
+        typedHandlers.add(new SetMcpGatewayEnabledActionHandler(projectConfigHandler));
         typedHandlers.add(new GetStatusBarWidgetEnabledActionHandler(projectConfigHandler));
         typedHandlers.add(new SetStatusBarWidgetEnabledActionHandler(projectConfigHandler));
         typedHandlers.add(new GetTaskCompletionNotificationEnabledActionHandler(projectConfigHandler));

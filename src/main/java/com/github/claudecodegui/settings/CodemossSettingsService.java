@@ -1288,6 +1288,32 @@ public class CodemossSettingsService {
     }
 
     /**
+     * Get whether MCP Gateway acceleration (resident MCP prewarm) is user-enabled.
+     *
+     * @return whether gateway is user-enabled, default is true
+     */
+    public boolean getMcpGatewayEnabled() throws IOException {
+        JsonObject config = readConfig();
+        if (config.has("mcpGatewayEnabled") && !config.get("mcpGatewayEnabled").isJsonNull()) {
+            return config.get("mcpGatewayEnabled").getAsBoolean();
+        }
+        return true;
+    }
+
+    /**
+     * Set whether MCP Gateway acceleration is user-enabled. Closing this falls back to
+     * direct MCP connections (slower first request); the gateway Node process is stopped.
+     *
+     * @param enabled whether to enable
+     */
+    public void setMcpGatewayEnabled(boolean enabled) throws IOException {
+        JsonObject config = readConfig();
+        config.addProperty("mcpGatewayEnabled", enabled);
+        writeConfig(config);
+        LOG.info("[CodemossSettings] Set MCP gateway enabled: " + enabled);
+    }
+
+    /**
      * Get whether status bar widget is enabled.
      *
      * @return whether status bar widget is enabled, default is true

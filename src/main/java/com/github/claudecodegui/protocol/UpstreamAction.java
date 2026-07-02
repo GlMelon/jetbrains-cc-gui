@@ -67,6 +67,8 @@ public enum UpstreamAction implements ProtocolValue {
     SET_STATUS_BAR_WIDGET_ENABLED("set_status_bar_widget_enabled"),
     GET_TASK_COMPLETION_NOTIFICATION_ENABLED("get_task_completion_notification_enabled"),
     SET_TASK_COMPLETION_NOTIFICATION_ENABLED("set_task_completion_notification_enabled"),
+    GET_MCP_GATEWAY_ENABLED("get_mcp_gateway_enabled"),
+    SET_MCP_GATEWAY_ENABLED("set_mcp_gateway_enabled"),
 
     // ── Settings: Path/Directory ──
     GET_NODE_PATH("get_node_path"),

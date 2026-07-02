@@ -89,6 +89,8 @@ interface BasicConfigSectionProps {
   // AI commit generation configuration
   commitGenerationEnabled?: boolean;
   onCommitGenerationEnabledChange?: (enabled: boolean) => void;
+  mcpGatewayEnabled?: boolean;
+  onMcpGatewayEnabledChange?: (enabled: boolean) => void;
   // Status bar widget configuration
   statusBarWidgetEnabled?: boolean;
   onStatusBarWidgetEnabledChange?: (enabled: boolean) => void;
@@ -180,6 +182,8 @@ const BasicConfigSection = (props: BasicConfigSectionProps) => {
           onDiffExpandedByDefaultChange={props.onDiffExpandedByDefaultChange}
           commitGenerationEnabled={props.commitGenerationEnabled}
           onCommitGenerationEnabledChange={props.onCommitGenerationEnabledChange}
+          mcpGatewayEnabled={props.mcpGatewayEnabled}
+          onMcpGatewayEnabledChange={props.onMcpGatewayEnabledChange}
           statusBarWidgetEnabled={props.statusBarWidgetEnabled}
           onStatusBarWidgetEnabledChange={props.onStatusBarWidgetEnabledChange}
           aiTitleGenerationEnabled={props.aiTitleGenerationEnabled}

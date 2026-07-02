@@ -315,6 +315,12 @@
         "disabled": "Disabled",
         "hint": "When enabled, shows the 'AI Generate Commit Message' button in the commit dialog. When disabled, the button is hidden."
       },
+      "mcpGateway": {
+        "label": "MCP Gateway Acceleration",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "hint": "Keeps a resident MCP prewarm process to speed up the first request of each session. Turning it off falls back to direct MCP connections (the first request may be slightly slower)."
+      },
       "statusBarWidget": {
         "label": "Status Bar Info Display",
         "enabled": "Enabled",

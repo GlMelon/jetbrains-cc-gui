@@ -43,6 +43,7 @@ export interface SettingsWindowCallbacksDeps {
   setOpenCodeConfigLoading: (loading: boolean) => void;
   // AI feature toggle setters
   setCommitGenerationEnabled?: (enabled: boolean) => void;
+  setMcpGatewayEnabled?: (enabled: boolean) => void;
   setAiTitleGenerationEnabled?: (enabled: boolean) => void;
   setStatusBarWidgetEnabled?: (enabled: boolean) => void;
   setTaskCompletionNotificationEnabled?: (enabled: boolean) => void;
@@ -378,6 +379,16 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
       }
     }));
 
+    // MCP Gateway acceleration config callback
+    unsubs.push(subscribeEvent(DOWNSTREAM.CONFIG_MCP_GATEWAY, (jsonStr) => {
+      try {
+        const data = JSON.parse(jsonStr as string);
+        d().setMcpGatewayEnabled?.(data.mcpGatewayEnabled ?? true);
+      } catch (error) {
+        console.error('[SettingsView] Failed to parse MCP gateway config:', error);
+      }
+    }));
+
     // AI session title generation config callback
     unsubs.push(subscribeEvent(DOWNSTREAM.CONFIG_AI_TITLE_GENERATION, (jsonStr) => {
       try {
@@ -588,6 +599,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
     sendAction(UPSTREAM.GET_COMMIT_AI_CONFIG);
     sendAction(UPSTREAM.GET_PROMPT_ENHANCER_CONFIG);
     sendAction(UPSTREAM.GET_COMMIT_GENERATION_ENABLED);
+    sendAction(UPSTREAM.GET_MCP_GATEWAY_ENABLED);
     sendAction(UPSTREAM.GET_AI_TITLE_GENERATION_ENABLED);
     sendAction(UPSTREAM.GET_STATUS_BAR_WIDGET_ENABLED);
     sendAction(UPSTREAM.GET_TASK_COMPLETION_NOTIFICATION_ENABLED);

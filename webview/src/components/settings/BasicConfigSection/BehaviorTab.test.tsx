@@ -83,3 +83,21 @@ describe('BehaviorTab permission dialog timeout', () => {
     expect(onPermissionDialogTimeoutChange).toHaveBeenCalledWith(3600);
   });
 });
+
+describe('BehaviorTab MCP gateway toggle', () => {
+  it('renders checked by default and fires onMcpGatewayEnabledChange with the next value on click', () => {
+    const onMcpGatewayEnabledChange = vi.fn();
+    renderBehaviorTab({ onMcpGatewayEnabledChange });
+
+    // fieldLabel span(fieldHeader 内)→ 上溯到 streamingSection(含 toggle 的 checkbox)。
+    // toggle 的 label 包裹 input 但无显式 for/id 关联,getByLabelText 不可用,故走 DOM 遍历。
+    const labelEl = screen.getByText('settings.basic.mcpGateway.label');
+    const section = labelEl.parentElement?.parentElement;
+    const checkbox = section?.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    expect(checkbox).toBeTruthy();
+    expect(checkbox.checked).toBe(true);
+
+    fireEvent.click(checkbox);
+    expect(onMcpGatewayEnabledChange).toHaveBeenCalledWith(false);
+  });
+});

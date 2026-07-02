@@ -317,6 +317,12 @@
         "disabled": "已关闭",
         "hint": "开启后，在提交对话框中显示「AI 生成提交信息」按钮。关闭后隐藏该按钮。"
       },
+      "mcpGateway": {
+        "label": "MCP Gateway 加速",
+        "enabled": "已开启",
+        "disabled": "已关闭",
+        "hint": "启用常驻 MCP 预热进程以加速每个会话的首次请求；关闭后改用直连 MCP（首次请求会略慢）。"
+      },
       "statusBarWidget": {
         "label": "状态栏信息展示",
         "enabled": "已开启",

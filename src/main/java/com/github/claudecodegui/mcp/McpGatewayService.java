@@ -250,6 +250,35 @@ public final class McpGatewayService implements Disposable {
         }
     }
 
+    /**
+     * 用户在行为菜单关闭 gateway 开关时调用:停止常驻 Node 进程并清空内部状态,
+     * 以便下次 {@link #ensureStarted} 从零重建。区别于 {@link #dispose}(项目销毁时一次性清理、
+     * 不置空字段),这里把句柄置 null 才允许重启;{@code currentRevision} 重置为 0,
+     * 使 {@link #applySnapshot} 下次启动产出全新快照。关后下一条消息起走直连 MCP。
+     */
+    public void stopGateway() {
+        synchronized (lock) {
+            try {
+                if (bridgeClient != null) {
+                    bridgeClient.stop();
+                }
+            } catch (Exception e) {
+                LOG.debug("[McpGateway] Stop API failed on user toggle: " + e.getMessage());
+            }
+            if (processHandle != null) {
+                processHandle.stop();
+            }
+            try {
+                Files.deleteIfExists(stateFile);
+            } catch (Exception ignored) {
+            }
+            processHandle = null;
+            bridgeClient = null;
+            currentSnapshot = null;
+            currentRevision = 0L;
+        }
+    }
+
     private static String generateToken() {
         byte[] bytes = new byte[32];
         RANDOM.nextBytes(bytes);

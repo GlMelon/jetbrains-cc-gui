@@ -17,6 +17,8 @@ export interface BehaviorTabProps {
   onDiffExpandedByDefaultChange?: (enabled: boolean) => void;
   commitGenerationEnabled?: boolean;
   onCommitGenerationEnabledChange?: (enabled: boolean) => void;
+  mcpGatewayEnabled?: boolean;
+  onMcpGatewayEnabledChange?: (enabled: boolean) => void;
   statusBarWidgetEnabled?: boolean;
   onStatusBarWidgetEnabledChange?: (enabled: boolean) => void;
   aiTitleGenerationEnabled?: boolean;
@@ -48,6 +50,8 @@ const BehaviorTab = ({
   onDiffExpandedByDefaultChange = () => {},
   commitGenerationEnabled = true,
   onCommitGenerationEnabledChange = () => {},
+  mcpGatewayEnabled = true,
+  onMcpGatewayEnabledChange = () => {},
   statusBarWidgetEnabled = true,
   onStatusBarWidgetEnabledChange = () => {},
   aiTitleGenerationEnabled = true,
@@ -232,6 +236,32 @@ const BehaviorTab = ({
         <small className={styles.formHint}>
           <InfoIcon size={16} />
           <span>{t('settings.basic.commitGeneration.hint')}</span>
+        </small>
+      </div>
+
+      {/* MCP Gateway acceleration toggle */}
+      <div className={styles.streamingSection}>
+        <div className={styles.fieldHeader}>
+          <SyncIcon size={16} />
+          <span className={styles.fieldLabel}>{t('settings.basic.mcpGateway.label')}</span>
+        </div>
+        <label className={styles.toggleWrapper}>
+          <input
+            type="checkbox"
+            className={styles.toggleInput}
+            checked={mcpGatewayEnabled}
+            onChange={(e) => onMcpGatewayEnabledChange(e.target.checked)}
+          />
+          <span className={styles.toggleSlider} />
+          <span className={styles.toggleLabel}>
+            {mcpGatewayEnabled
+              ? t('settings.basic.mcpGateway.enabled')
+              : t('settings.basic.mcpGateway.disabled')}
+          </span>
+        </label>
+        <small className={styles.formHint}>
+          <InfoIcon size={16} />
+          <span>{t('settings.basic.mcpGateway.hint')}</span>
         </small>
       </div>
 
