@@ -318,16 +318,24 @@ public class ClaudeCliSession implements CliSession {
                         sessionId != null ? sessionId : "(none)",
                         request.cwd() != null ? request.cwd() : "(none)",
                         Thread.currentThread().getName()));
+                LOG.info("[CliConcurrencyDiag][ClaudeCliSession] resolving executable" + ": tabId=" + tabId + ", elapsedMs=" + elapsedMillis(
+                        sendStartNanos) + ", thread=" + Thread.currentThread().getName());
+                long cliResolveStartNanos = System.nanoTime();
                 String cliPath = ClaudeCliDetector.getInstance()
                         .findCliExecutable();
+                LOG.info("[CliConcurrencyDiag][ClaudeCliSession] executable resolved" + ": tabId=" + tabId + ", path=" + cliPath + ", elapsedMs=" + elapsedMillis(
+                        sendStartNanos) + ", resolveMs=" + elapsedMillis(cliResolveStartNanos) + ", thread=" + Thread.currentThread().getName());
                 if (cliPath == null) {
                     throw new IllegalStateException("Claude CLI not found");
                 }
 
                 // 解析附件:图片落盘以供 prompt 引用,文档读为文本
                 String sessionKey = sessionId != null ? sessionId : "epoch-" + tabId;
+                long attachmentsStartNanos = System.nanoTime();
                 List<CliAttachmentHandler.ContentBlock> blocks = attachmentHandler.processForClaude(request.provider(), sessionKey,
                                                                                                     request.attachments(), tempFiles);
+                LOG.info("[CliConcurrencyDiag][ClaudeCliSession] attachments prepared" + ": tabId=" + tabId + ", blocks=" + blocks.size() + ", elapsedMs=" + elapsedMillis(
+                        sendStartNanos) + ", attachmentsMs=" + elapsedMillis(attachmentsStartNanos) + ", thread=" + Thread.currentThread().getName());
 
                 String prompt = buildPrompt(request, blocks);
                 List<String> addDirs = collectAddDirs(blocks);
@@ -346,7 +354,11 @@ public class ClaudeCliSession implements CliSession {
                         previewPrompt(prompt)));
 
                 McpGatewayCliConfig gatewayConfig = buildGatewayConfig(request);
+                LOG.info("[CliConcurrencyDiag][ClaudeCliSession] building command" + ": tabId=" + tabId + ", elapsedMs=" + elapsedMillis(
+                        sendStartNanos) + ", thread=" + Thread.currentThread().getName());
                 List<String> cmd = buildCommand(cliPath, request, prompt, addDirs, gatewayConfig);
+                LOG.info("[CliConcurrencyDiag][ClaudeCliSession] command prepared" + ": tabId=" + tabId + ", elapsedMs=" + elapsedMillis(
+                        sendStartNanos) + ", thread=" + Thread.currentThread().getName());
                 LOG.info("[ClaudeCliSession][" + tabId + "] Command (prompt via stdin): " + String.join(" ", cmd));
 
                 ProcessBuilder pb = new ProcessBuilder(cmd);
