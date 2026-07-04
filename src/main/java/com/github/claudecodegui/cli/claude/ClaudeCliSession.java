@@ -611,18 +611,46 @@ public class ClaudeCliSession implements CliSession {
 
     /**
      * --resume 失败时(会话已损坏/不存在),重置 sessionId 使下一轮重新开始,避免死循环。
+     * <p>防御纵深:除显式 resume 失败关键词外,额外校验 sessionId 是否为合法 UUID。
+     * 跨 provider 污染(如 OpenCode 的 ses_ 前缀)若绕过 setProvider 隔离再次混入,
+     * Claude CLI 会报 "ses_xxx is not a UUID" 并崩溃,此处关键词+格式双保险使其自愈。
      */
     private void maybeResetSessionAfterResumeFailure(CharSequence diagnostic) {
-        if (sessionId == null || diagnostic == null) {
+        if (sessionId == null) {
+            return;
+        }
+        // 格式校验:Claude sessionId 必为 UUID,非 UUID 直接重置(如 ses_ 污染)
+        if (!isValidClaudeSessionId(sessionId)) {
+            LOG.warn("[ClaudeCliSession] sessionId is not a valid UUID, resetting to start fresh: tab=" + tabId
+                    + ", sessionId=" + sessionId);
+            sessionId = null;
+            return;
+        }
+        if (diagnostic == null) {
             return;
         }
         String text = diagnostic.toString().toLowerCase(Locale.ROOT);
         boolean resumeFailure = text.contains("no conversation") || text.contains("conversation not found")
                 || text.contains("session not found")
+                || text.contains("not a uuid")
                 || text.contains("resume") && (text.contains("not found") || text.contains("fail"));
         if (resumeFailure) {
             LOG.info("[ClaudeCliSession] --resume failed, resetting sessionId to start fresh: tab=" + tabId);
             sessionId = null;
+        }
+    }
+
+    private static boolean isValidClaudeSessionId(String id) {
+        if (id == null || id.isBlank()) {
+            return false;
+        }
+        try {
+            // UUID.fromString 宽松(允许非标准分隔),用严格格式串兜底
+            UUID.fromString(id);
+            return id.length() == 36 && id.charAt(8) == '-' && id.charAt(13) == '-'
+                    && id.charAt(18) == '-' && id.charAt(23) == '-';
+        } catch (IllegalArgumentException e) {
+            return false;
         }
     }
 

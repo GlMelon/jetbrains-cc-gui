@@ -79,6 +79,33 @@ public class SessionStateTest {
         assertEquals("opencode", state.getProvider());
     }
 
+    // 跨 provider 切换时 sessionId 必须清空:三 provider 的 session 协议/格式互不兼容
+    // (Claude/Codex=UUID, OpenCode=ses_xxx)。若不清,OpenCode 的 ses_xxx 会污染 state,
+    // 切回 Claude CLI 时被原样塞进 `claude -p --resume`,触发 "not a UUID" 崩溃且无法自愈。
+    @Test
+    public void switchingProviderClearsIncompatibleSessionId() {
+        SessionState state = new SessionState();
+        state.setProvider("opencode");
+        state.setSessionId("ses_0e3ae3fd3ffe51s6nGv4Ow33HP");
+
+        state.setProvider("claude");
+
+        assertNull(state.getSessionId());
+    }
+
+    // 同 provider 内重复 setProvider(如 SDK↔CLI 调用模式切换)不得清空 sessionId,
+    // 否则正常的会话续接(--resume 合法 UUID)会被误断。
+    @Test
+    public void sameProviderSetKeepsSessionId() {
+        SessionState state = new SessionState();
+        state.setProvider("claude");
+        state.setSessionId("3d1ccc5a-5816-4ccd-b144-df5b774ec7c8");
+
+        state.setProvider("claude");
+
+        assertEquals("3d1ccc5a-5816-4ccd-b144-df5b774ec7c8", state.getSessionId());
+    }
+
     @Test
     public void unknownModelUsesExplicitContextWindowOverride() {
         SessionState state = new SessionState();

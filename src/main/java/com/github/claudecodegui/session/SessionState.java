@@ -269,6 +269,12 @@ public class SessionState {
         }
         String trimmed = provider.trim();
         if (VALID_PROVIDERS.contains(trimmed)) {
+            // 跨 provider 切换时清空 sessionId:三 provider 的 session 协议/格式互不兼容
+            // (Claude/Codex=UUID, OpenCode=ses_xxx),复用会让 claude --resume 收到非 UUID 崩溃。
+            // 同 provider 内(SDK↔CLI 调用模式切换)格式一致,保留以支持会话续接。
+            if (!trimmed.equals(this.provider)) {
+                this.sessionId = null;
+            }
             this.provider = trimmed;
         }
     }

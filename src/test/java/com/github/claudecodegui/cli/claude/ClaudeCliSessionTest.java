@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public class ClaudeCliSessionTest {
@@ -245,6 +246,55 @@ public class ClaudeCliSessionTest {
         assertFalse("非 MCP 错误不得被抑制", suppressed);
         assertTrue("非 MCP 错误不发 status toast",
                 callback.contentsOfType(CliConstants.CODEX_MSG_STATUS).isEmpty());
+    }
+
+    @Test
+    public void maybeResetResetsPollutedNonUuidSessionId() throws Exception {
+        // 防御纵深:跨 provider 污染(OpenCode ses_ 前缀)若绕过 setProvider 隔离再次混入,
+        // Claude CLI 报 "ses_xxx is not a UUID" 并崩。格式校验应使其自愈。
+        ClaudeCliSession session = new ClaudeCliSession("tab-claude-uuid-guard");
+        java.lang.reflect.Field sessionIdField = ClaudeCliSession.class.getDeclaredField("sessionId");
+        sessionIdField.setAccessible(true);
+        sessionIdField.set(session, "ses_01JabcDEFghijklmnopQRSTuvwx");
+
+        invokeMaybeReset(session, "Error: ses_01JabcDEFghijklmnopQRSTuvwx is not a UUID");
+
+        assertNull("非 UUID 的污染 sessionId 应被重置为 null", sessionIdField.get(session));
+    }
+
+    @Test
+    public void maybeResetResetsOnNotAUuidKeywordEvenForValidLookingId() throws Exception {
+        // 关键词覆盖:即便格式恰好是 UUID(假设未来 CLI 文案变化),诊断含 "not a uuid" 也应重置。
+        ClaudeCliSession session = new ClaudeCliSession("tab-claude-keyword");
+        java.lang.reflect.Field sessionIdField = ClaudeCliSession.class.getDeclaredField("sessionId");
+        sessionIdField.setAccessible(true);
+        String validUuid = "12345678-1234-1234-1234-123456789012";
+        sessionIdField.set(session, validUuid);
+
+        invokeMaybeReset(session, "resume: " + validUuid + " is not a UUID");
+
+        assertNull("诊断含 'not a uuid' 关键词应重置 sessionId", sessionIdField.get(session));
+    }
+
+    @Test
+    public void maybeResetPreservesValidUuidOnUnrelatedDiagnostic() throws Exception {
+        // 合法 UUID 且诊断无关 resume 失败时,sessionId 不得误清。
+        ClaudeCliSession session = new ClaudeCliSession("tab-claude-preserve");
+        java.lang.reflect.Field sessionIdField = ClaudeCliSession.class.getDeclaredField("sessionId");
+        sessionIdField.setAccessible(true);
+        String validUuid = "12345678-1234-1234-1234-123456789012";
+        sessionIdField.set(session, validUuid);
+
+        invokeMaybeReset(session, "unexpected status 502 Bad Gateway");
+
+        assertEquals("合法 UUID + 无关诊断不应重置", validUuid, sessionIdField.get(session));
+    }
+
+    private static void invokeMaybeReset(ClaudeCliSession session, String diagnostic) throws Exception {
+        Method method = ClaudeCliSession.class.getDeclaredMethod(
+                "maybeResetSessionAfterResumeFailure", CharSequence.class);
+        method.setAccessible(true);
+        method.invoke(session, (CharSequence) new StringBuilder(diagnostic));
     }
 
     @Test
