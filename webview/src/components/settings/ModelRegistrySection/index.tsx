@@ -126,6 +126,21 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
             {t('settings.models.description', 'Manage Claude and Codex model IDs, context windows, and 1M support.')}
           </p>
         </div>
+      </div>
+
+      <div className={styles.toolbar}>
+        <div className={styles.filters}>
+          {(['all', 'claude', 'codex', 'opencode'] as const).map((provider) => (
+            <button
+              key={provider}
+              className={`${styles.filterButton} ${providerFilter === provider ? styles.active : ''}`}
+              onClick={() => setProviderFilter(provider)}
+            >
+              {provider !== 'all' && <ProviderModelIcon providerId={provider} size={14} colored />}
+              {provider === 'all' ? t('common.all', 'All') : provider}
+            </button>
+          ))}
+        </div>
         <div className={styles.actions}>
           <button className="btn btn-secondary btn-sm" onClick={() => startAdd(providerFilter === 'codex' ? 'codex' : providerFilter === 'opencode' ? 'opencode' : 'claude')}>
             <PlusIcon size={16} aria-hidden="true" />
@@ -141,19 +156,6 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
             {t('settings.models.reloadConfig', 'Reload Config')}
           </button>
         </div>
-      </div>
-
-      <div className={styles.filters}>
-        {(['all', 'claude', 'codex', 'opencode'] as const).map((provider) => (
-          <button
-            key={provider}
-            className={`${styles.filterButton} ${providerFilter === provider ? styles.active : ''}`}
-            onClick={() => setProviderFilter(provider)}
-          >
-            {provider !== 'all' && <ProviderModelIcon providerId={provider} size={14} colored />}
-            {provider === 'all' ? t('common.all', 'All') : provider}
-          </button>
-        ))}
       </div>
 
       <ModelEditDialog
