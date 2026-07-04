@@ -40,6 +40,12 @@ interface UseSessionManagementReturn {
   createNewSession: () => void;
   forceCreateNewSession: () => void;
   forceCreateNewSessionWithProvider: (providerId: string) => void;
+  /**
+   * 切换供应商 + 新建会话(带确认,对称 createNewSession 三分支门控)。
+   * onConfirmedExec 由调用方提供(负责切前端 provider state),仅在确认后执行 →
+   * 取消时 provider state 完全不变,避免"显示新 provider 却还是旧会话"的不一致。
+   */
+  createNewSessionWithProvider: (providerId: string, onConfirmedExec: () => void) => void;
   handleConfirmNewSession: () => void;
   handleCancelNewSession: () => void;
   handleConfirmInterrupt: () => void;
@@ -81,6 +87,10 @@ export function useSessionManagement({
   const [showNewSessionConfirm, setShowNewSessionConfirm] = useState(false);
   const [showInterruptConfirm, setShowInterruptConfirm] = useState(false);
   const pendingActionRef = useRef<'newSession' | null>(null);
+  // 切换供应商走"先确认再新建"路径,与 createNewSession 共用 showNewSessionConfirm/
+  // showInterruptConfirm 门控。pendingProviderExecRef 暂存确认后才执行的回调(含切前端
+  // provider state);取消时丢弃 → provider state 完全不变,避免误操作不可撤回。
+  const pendingProviderExecRef = useRef<(() => void) | null>(null);
   const suppressNextStatusToastRef = useRef(false);
   const transitionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const historyDataRef = useRef(historyData);
@@ -186,9 +196,50 @@ export function useSessionManagement({
     sendAction(UPSTREAM.CREATE_NEW_SESSION);
   }, [beginSessionTransition, loading]);
 
+  // 切换供应商 + 新建会话(带确认)。与 forceCreateNewSessionWithProvider 的区别:
+  // force 版本无确认直接清会话(误操作不可撤回);此方法在已有对话/loading 时弹确认,
+  // 复用 createNewSession 的三分支门控(含"不再提示")。onConfirmedExec 由调用方提供,
+  // 负责切前端 provider state(如 handleProviderSelect)——仅在确认后(或直接执行分支)调用,
+  // 取消则永不调用,provider state 保持不变。
+  const createNewSessionWithProvider = useCallback((providerId: string, onConfirmedExec: () => void) => {
+    const exec = () => {
+      beginSessionTransition(null, null);
+      onConfirmedExec();
+      sendAction(UPSTREAM.SET_PROVIDER, providerId);
+      sendAction(UPSTREAM.CREATE_NEW_SESSION);
+    };
+    if (loading) {
+      pendingProviderExecRef.current = exec;
+      pendingActionRef.current = 'newSession';
+      setShowInterruptConfirm(true);
+    } else if (messages.length > 0) {
+      // 已"不再提示"则直接执行(对称 createNewSession)
+      if (getSkipNewSessionConfirm()) {
+        exec();
+        return;
+      }
+      pendingProviderExecRef.current = exec;
+      pendingActionRef.current = 'newSession';
+      setShowNewSessionConfirm(true);
+    } else {
+      exec();
+    }
+  }, [beginSessionTransition, messages.length, loading]);
+
   // Confirm new session
   const handleConfirmNewSession = useCallback(() => {
     setShowNewSessionConfirm(false);
+    // 切换供应商路径:执行暂存的 provider 切换+新建回调,然后清空 ref。
+    const pendingProviderExec = pendingProviderExecRef.current;
+    if (pendingProviderExec) {
+      pendingProviderExecRef.current = null;
+      pendingActionRef.current = null;
+      if (loading) {
+        sendAction(UPSTREAM.INTERRUPT_SESSION);
+      }
+      pendingProviderExec();
+      return;
+    }
     // [FIX] Safety check: if loading started while dialog was open, send interrupt first
     if (loading) {
       sendAction(UPSTREAM.INTERRUPT_SESSION);
@@ -201,12 +252,23 @@ export function useSessionManagement({
   // Cancel new session
   const handleCancelNewSession = useCallback(() => {
     setShowNewSessionConfirm(false);
+    // 丢弃暂存的 provider 切换回调 → 取消零副作用,provider state 不变。
+    pendingProviderExecRef.current = null;
     pendingActionRef.current = null;
   }, []);
 
   // Confirm interrupt
   const handleConfirmInterrupt = useCallback(() => {
     setShowInterruptConfirm(false);
+    // 切换供应商路径:中断后执行暂存的 provider 切换+新建回调。
+    const pendingProviderExec = pendingProviderExecRef.current;
+    if (pendingProviderExec) {
+      pendingProviderExecRef.current = null;
+      pendingActionRef.current = null;
+      sendAction(UPSTREAM.INTERRUPT_SESSION);
+      pendingProviderExec();
+      return;
+    }
     // Send interrupt signal and create new session
     sendAction(UPSTREAM.INTERRUPT_SESSION);
     beginSessionTransition(null, null);
@@ -217,6 +279,7 @@ export function useSessionManagement({
   // Cancel interrupt
   const handleCancelInterrupt = useCallback(() => {
     setShowInterruptConfirm(false);
+    pendingProviderExecRef.current = null;
     pendingActionRef.current = null;
   }, []);
 
@@ -428,6 +491,7 @@ export function useSessionManagement({
     createNewSession,
     forceCreateNewSession,
     forceCreateNewSessionWithProvider,
+    createNewSessionWithProvider,
     handleConfirmNewSession,
     handleCancelNewSession,
     handleConfirmInterrupt,

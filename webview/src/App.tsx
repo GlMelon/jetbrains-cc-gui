@@ -237,7 +237,7 @@ const App = () => {
     showNewSessionConfirm, showInterruptConfirm,
     suppressNextStatusToastRef,
     createNewSession, forceCreateNewSession,
-    forceCreateNewSessionWithProvider,
+    createNewSessionWithProvider,
     handleConfirmNewSession, handleCancelNewSession,
     handleConfirmInterrupt, handleCancelInterrupt,
     loadHistorySession, deleteHistorySession, deleteHistorySessions, exportHistorySession,
@@ -301,9 +301,11 @@ const App = () => {
   // Wrap handleProviderSelect to also clear messages and input (like creating a new session)
   const wrappedHandleProviderSelect = useCallback((providerId: string) => {
     chatInputRef.current?.clear();
-    handleProviderSelect(providerId);
-    forceCreateNewSessionWithProvider(providerId);
-  }, [forceCreateNewSessionWithProvider, handleProviderSelect]);
+    // 走带确认的路径:已有对话/loading 时弹确认,避免误切供应商直接清空会话不可撤回。
+    // handleProviderSelect(切前端 provider state + 下行 SET_SESSION_*)放进 onConfirmedExec,
+    // 仅确认后(或无需确认的直接执行分支)才调用 → 取消时 provider state 完全不变。
+    createNewSessionWithProvider(providerId, () => handleProviderSelect(providerId));
+  }, [createNewSessionWithProvider, handleProviderSelect]);
 
   const {
     handleSubmit: hookHandleSubmit,

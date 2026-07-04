@@ -749,4 +749,172 @@ describe('useSessionManagement', () => {
     expect(window.__sessionTransitioning).toBe(false);
     expect(window.__sessionTransitionToken).toBeNull();
   });
+
+  // ── createNewSessionWithProvider:切换供应商走"先确认再新建"路径(问题1) ──
+  const messagesWith = (content: string, type: 'user' | 'assistant' = 'user') => [
+    { type, content, timestamp: new Date().toISOString() },
+  ];
+  const sentTypes = () =>
+    (window.sendToJava as ReturnType<typeof vi.fn>).mock.calls.map((c: unknown[]) => c[0]);
+
+  it('createNewSessionWithProvider shows confirm without switching when messages exist', () => {
+    const mocks = createMocks();
+    const onExec = vi.fn();
+    const { result } = renderHook(() =>
+      useSessionManagement({
+        messages: messagesWith('hello'),
+        loading: false,
+        historyData: null,
+        currentSessionId: 'session-1',
+        ...mocks,
+        t,
+      })
+    );
+
+    act(() => {
+      result.current.createNewSessionWithProvider('codex', onExec);
+    });
+
+    expect(result.current.showNewSessionConfirm).toBe(true);
+    expect(window.__sessionTransitioning).toBe(false);
+    expect(onExec).not.toHaveBeenCalled();
+    const calls = sentTypes();
+    expect(calls).not.toContain(bridgeCall('set_provider', 'codex'));
+    expect(calls).not.toContain(bridgeCall('create_new_session'));
+  });
+
+  it('createNewSessionWithProvider switches provider after confirm', () => {
+    const mocks = createMocks();
+    const onExec = vi.fn();
+    const { result } = renderHook(() =>
+      useSessionManagement({
+        messages: messagesWith('hello'),
+        loading: false,
+        historyData: null,
+        currentSessionId: 'session-1',
+        ...mocks,
+        t,
+      })
+    );
+
+    act(() => {
+      result.current.createNewSessionWithProvider('codex', onExec);
+    });
+    act(() => {
+      result.current.handleConfirmNewSession();
+    });
+
+    expect(onExec).toHaveBeenCalledTimes(1);
+    expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('set_provider', 'codex'));
+    expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('create_new_session'));
+    expect(window.__sessionTransitioning).toBe(true);
+    expect(result.current.showNewSessionConfirm).toBe(false);
+  });
+
+  it('createNewSessionWithProvider cancel leaves provider state untouched', () => {
+    const mocks = createMocks();
+    const onExec = vi.fn();
+    const { result } = renderHook(() =>
+      useSessionManagement({
+        messages: messagesWith('hello'),
+        loading: false,
+        historyData: null,
+        currentSessionId: 'session-1',
+        ...mocks,
+        t,
+      })
+    );
+
+    act(() => {
+      result.current.createNewSessionWithProvider('codex', onExec);
+    });
+    act(() => {
+      result.current.handleCancelNewSession();
+    });
+
+    expect(onExec).not.toHaveBeenCalled();
+    expect(result.current.showNewSessionConfirm).toBe(false);
+    const calls = sentTypes();
+    expect(calls).not.toContain(bridgeCall('set_provider', 'codex'));
+    expect(calls).not.toContain(bridgeCall('create_new_session'));
+  });
+
+  it('createNewSessionWithProvider shows interrupt dialog while loading and switches after confirm', () => {
+    const mocks = createMocks();
+    const onExec = vi.fn();
+    const { result } = renderHook(() =>
+      useSessionManagement({
+        messages: messagesWith('responding', 'assistant'),
+        loading: true,
+        historyData: null,
+        currentSessionId: 'session-1',
+        ...mocks,
+        t,
+      })
+    );
+
+    act(() => {
+      result.current.createNewSessionWithProvider('codex', onExec);
+    });
+    expect(result.current.showInterruptConfirm).toBe(true);
+    expect(onExec).not.toHaveBeenCalled();
+
+    act(() => {
+      result.current.handleConfirmInterrupt();
+    });
+
+    expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('interrupt_session'));
+    expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('set_provider', 'codex'));
+    expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('create_new_session'));
+    expect(onExec).toHaveBeenCalledTimes(1);
+  });
+
+  it('createNewSessionWithProvider switches immediately when no messages and not loading', () => {
+    const mocks = createMocks();
+    const onExec = vi.fn();
+    const { result } = renderHook(() =>
+      useSessionManagement({
+        messages: [],
+        loading: false,
+        historyData: null,
+        currentSessionId: 'session-1',
+        ...mocks,
+        t,
+      })
+    );
+
+    act(() => {
+      result.current.createNewSessionWithProvider('codex', onExec);
+    });
+
+    expect(onExec).toHaveBeenCalledTimes(1);
+    expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('set_provider', 'codex'));
+    expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('create_new_session'));
+    expect(result.current.showNewSessionConfirm).toBe(false);
+  });
+
+  it('createNewSessionWithProvider skips confirm when skipNewSessionConfirm is enabled', () => {
+    localStorage.setItem('skipNewSessionConfirm', 'true');
+    const mocks = createMocks();
+    const onExec = vi.fn();
+    const { result } = renderHook(() =>
+      useSessionManagement({
+        messages: messagesWith('hello'),
+        loading: false,
+        historyData: null,
+        currentSessionId: 'session-1',
+        ...mocks,
+        t,
+      })
+    );
+
+    act(() => {
+      result.current.createNewSessionWithProvider('codex', onExec);
+    });
+
+    expect(result.current.showNewSessionConfirm).toBe(false);
+    expect(onExec).toHaveBeenCalledTimes(1);
+    expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('set_provider', 'codex'));
+    expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('create_new_session'));
+  });
 });
