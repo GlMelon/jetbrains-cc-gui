@@ -53,6 +53,40 @@ public class CodexCliResolverCacheTest {
     }
 
     @Test
+    public void inferCodexNativeExecutablePathResolvesNestedNpmLayout() throws IOException {
+        // npm scoped + 平台子包 nested 结构(codex 0.142.5 实测,见调研文档 §5):
+        // <shim-dir>/node_modules/@openai/codex/node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc/bin/codex.exe
+        // 仅 nested 存在、扁平 bin/codex.exe 不存在时,须回退到 nested 布局(否则 gateway -c args-array
+        // 经 codex.cmd 不可靠,见 docs/codex-gateway-config-injection-refactor.md §5)。
+        Path tmp = Files.createTempDirectory("codex-resolver-test");
+        Path nestedExe = tmp.resolve(
+                "node_modules/@openai/codex/node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc/bin/codex.exe");
+        Files.createDirectories(nestedExe.getParent());
+        Files.createFile(nestedExe);
+        String shim = tmp.resolve("codex.cmd").toString();
+
+        String result = CodexCliResolver.inferCodexNativeExecutablePath(shim);
+        assertEquals(nestedExe.toFile().getAbsolutePath(), result);
+    }
+
+    @Test
+    public void inferCodexNativeExecutablePathPrefersFlatLayoutWhenBothExist() throws IOException {
+        // 扁平 + nested 都存在时,优先扁平(bin/codex.exe 更稳定)
+        Path tmp = Files.createTempDirectory("codex-resolver-test");
+        Path flatExe = tmp.resolve("node_modules/@openai/codex/bin/codex.exe");
+        Files.createDirectories(flatExe.getParent());
+        Files.createFile(flatExe);
+        Path nestedExe = tmp.resolve(
+                "node_modules/@openai/codex/node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc/bin/codex.exe");
+        Files.createDirectories(nestedExe.getParent());
+        Files.createFile(nestedExe);
+        String shim = tmp.resolve("codex.cmd").toString();
+
+        String result = CodexCliResolver.inferCodexNativeExecutablePath(shim);
+        assertEquals(flatExe.toFile().getAbsolutePath(), result);
+    }
+
+    @Test
     public void inferCodexNativeExecutablePathReturnsNullWhenExeMissing() throws IOException {
         Path tmp = Files.createTempDirectory("codex-resolver-test");
         String shim = tmp.resolve("codex.cmd").toString();

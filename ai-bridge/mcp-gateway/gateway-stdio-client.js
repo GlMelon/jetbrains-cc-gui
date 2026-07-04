@@ -42,7 +42,14 @@ server.handle = async function handle(message, output) {
 };
 
 const reader = new FramedReader(process.stdin);
-reader.on('message', (message) => server.handle(message, process.stdout));
+// reader 探测客户端(provider)帧格式后同步到 stdout:opencode=ndjson(MCP spec 标准)、
+// codex=lsp(Content-Length)。writeMessage 据此自适应响应帧格式,两端各得其所不回归。
+// 修 opencode gateway 首请求 30s 握手超时(原 framing 只认 LSP,opencode 的 NDJSON
+// initialize 永远进不了解析路径)。详见 framing.js 文档。
+reader.on('message', (message) => {
+  process.stdout.__mcpFrameFormat = reader.lastFormat || 'ndjson';
+  server.handle(message, process.stdout);
+});
 
 function request(method, path, body) {
   return new Promise((resolve, reject) => {

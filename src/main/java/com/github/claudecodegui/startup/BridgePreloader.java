@@ -1,6 +1,8 @@
 package com.github.claudecodegui.startup;
 
 import com.github.claudecodegui.bridge.BridgeDirectoryResolver;
+import com.github.claudecodegui.mcp.McpGatewayFeatureFlags;
+import com.github.claudecodegui.mcp.McpGatewayService;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
@@ -74,6 +76,12 @@ public class BridgePreloader implements ProjectActivity {
                 // Trigger extraction (non-blocking on this pooled thread)
                 resolver.findSdkDir();
 
+                // ai-bridge 解压完成后,后台预热 MCP Gateway(若 isGatewayActive)。这是"插件启动预热":
+                // 比打开工具窗口更早,让用户打开 CCG 窗口/发首条消息时 gateway 进程已起、各 MCP server
+                // 已加载 → 首次 buildCliConfig/buildSdkMcpServers 因 configHash 相同而 skip(秒回)。
+                // WebviewInitializer 的预热保留作双保险;applySnapshot 的 configHash 幂等保证不重复推送。
+                prewarmMcpGateway(project);
+
                 LOG.info("[BridgePreloader] Bridge preload completed for project: " + project.getName());
             } catch (Exception e) {
                 LOG.warn("[BridgePreloader] Bridge preload failed: " + e.getMessage(), e);
@@ -81,5 +89,23 @@ public class BridgePreloader implements ProjectActivity {
         });
 
         return Unit.INSTANCE;
+    }
+
+    /**
+     * 项目打开时后台预热 MCP Gateway。在 ai-bridge 解压完成后的同一个 pooled 线程内执行,
+     * 不阻塞 EDT;{@link McpGatewayService#refreshConfig} 内部会 ensureStarted(最多等一个
+     * cold-start)+ applySnapshot(同步等各 MCP server initialize/listTools,首次较慢但用户无感)。
+     * {@code isGatewayActive} 守卫:gateway 整体禁用(CLI/SDK 都关)时 no-op,避免空跑。
+     */
+    private static void prewarmMcpGateway(@NotNull Project project) {
+        if (project.isDisposed() || !McpGatewayFeatureFlags.isGatewayActive()) {
+            return;
+        }
+        try {
+            McpGatewayService.getInstance(project).refreshConfig(project.getBasePath());
+            LOG.info("[BridgePreloader] MCP Gateway prewarmed for project: " + project.getName());
+        } catch (Exception e) {
+            LOG.warn("[BridgePreloader] MCP Gateway prewarm failed: " + e.getMessage(), e);
+        }
     }
 }

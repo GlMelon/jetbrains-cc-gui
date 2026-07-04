@@ -113,4 +113,46 @@ public class McpGatewayFeatureFlagsTest {
         assertFalse(McpGatewayFeatureFlags.isCliEnabled());
         assertFalse(McpGatewayFeatureFlags.isSdkEnabled());
     }
+
+    // ── gateway 活跃判定(isGatewayActive = cli||sdk,供预热/重载 gate,不分 CLI/SDK 路径)──
+
+    @Test
+    public void gatewayActiveWhenBothCliAndSdkEnabled() {
+        assertTrue(McpGatewayFeatureFlags.isGatewayActive());
+    }
+
+    @Test
+    public void gatewayActiveWhenCliDisabledButSdkEnabled() {
+        System.setProperty(McpGatewayConstants.FEATURE_CLI_ENABLED, "false");
+        assertFalse(McpGatewayFeatureFlags.isCliEnabled());
+        assertTrue(McpGatewayFeatureFlags.isSdkEnabled());
+        assertTrue(McpGatewayFeatureFlags.isGatewayActive());
+    }
+
+    @Test
+    public void gatewayActiveWhenSdkDisabledButCliEnabled() {
+        System.setProperty(McpGatewayConstants.FEATURE_SDK_ENABLED, "false");
+        assertTrue(McpGatewayFeatureFlags.isCliEnabled());
+        assertFalse(McpGatewayFeatureFlags.isSdkEnabled());
+        assertTrue(McpGatewayFeatureFlags.isGatewayActive());
+    }
+
+    @Test
+    public void gatewayInactiveWhenBothCliAndSdkDisabled() {
+        System.setProperty(McpGatewayConstants.FEATURE_CLI_ENABLED, "false");
+        System.setProperty(McpGatewayConstants.FEATURE_SDK_ENABLED, "false");
+        assertFalse(McpGatewayFeatureFlags.isGatewayActive());
+    }
+
+    @Test
+    public void gatewayInactiveWhenMasterFlagOff() {
+        System.setProperty(McpGatewayConstants.FEATURE_GATEWAY_ENABLED, "false");
+        assertFalse(McpGatewayFeatureFlags.isGatewayActive());
+    }
+
+    @Test
+    public void gatewayInactiveWhenUserToggleOff() {
+        McpGatewayFeatureFlags.testUserEnabledOverride = false;
+        assertFalse(McpGatewayFeatureFlags.isGatewayActive());
+    }
 }

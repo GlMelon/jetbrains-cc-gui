@@ -539,6 +539,20 @@ public class CodexCliSessionTest {
     }
 
     @Test
+    public void shouldReportCliErrorOnExit0GatesOnTurnCompleted() {
+        // 深层隐患修复:exit0 时 codex 已发 turn.completed = turn 成功,任何缓冲诊断都是
+        // 非致命噪声(工具调用失败/警告/turn 后收尾行),不得翻转成功 turn 为失败。
+        // 仅"未 turn.completed 却 exit0 且有诊断"才是真正的静默失败(中途 bail 出错)。
+        // 该判定是严格放松(失败集 ⊆ 旧失败集),只能把旧误报转成功,零回归。
+        assertFalse("无诊断必不报", CodexCliSession.shouldReportCliErrorOnExit0("", false));
+        assertFalse("无诊断必不报(即使 turnCompleted)", CodexCliSession.shouldReportCliErrorOnExit0("", true));
+        assertFalse("turn 已完成 + 非致命诊断噪声 → 不报(核心修复点,根治思考区消失/误报失败)",
+                CodexCliSession.shouldReportCliErrorOnExit0("some non-fatal diagnostic noise", true));
+        assertTrue("未 turn.completed 却有诊断 → 真静默失败,保留检测",
+                CodexCliSession.shouldReportCliErrorOnExit0("some error that bailed mid-turn", false));
+    }
+
+    @Test
     public void mcpRmcpDiagnosticLineDowngradedToStatusNotice() throws Exception {
         // 复现用户截图:本地 MCP 未启动,Codex 成功回答后仍弹 rmcp 错误。
         // 根因:rmcp 非 JSON 日志行命中 CLI_ERROR_KEYWORD_PATTERN → 缓冲进 cliError → exit0 onError。
@@ -598,6 +612,31 @@ public class CodexCliSessionTest {
 
         assertEquals("多次 rmcp 行只发一次 status toast", 1, callback.contentsOfType("status").size());
         assertTrue("所有 rmcp 行都不缓冲", cliError.toString().isEmpty());
+    }
+
+    @Test
+    public void codexToolRouterErrorNotBufferedAsTurnFailure() throws Exception {
+        // 复现用户报错:codex 用 shell 工具(PowerShell)列目录失败,turn 本身正常完成(exit0),
+        // 但 "ERROR codex_core::tools::router: error=`'...pwsh.exe' -Command '...'" tracing 日志
+        // 命中 CLI_ERROR_KEYWORD_PATTERN → 缓冲进 cliError → exit0 时(line 267-271)误报
+        // "Codex CLI 请求失败 / This response stopped",且 turn-fail 快照丢失 thinking 块(思考区消失)。
+        // 根因:codex_core::tools::router 是单次工具调用失败的内部 tracing,codex 会把错误回灌
+        // 给模型继续 turn,非回合致命。期望:不缓冲为回合错误(cliError 空),不 onError。
+        CodexCliSession session = new CodexCliSession("tab-tool-router");
+        RecordingCallback callback = new RecordingCallback();
+        StringBuilder cliError = new StringBuilder();
+
+        invokeParseEvent(
+                session,
+                "2026-07-02T22:58:57.266176Z ERROR codex_core::tools::router: error=`\"C:\\\\Program Files\\\\PowerShell\\\\7\\\\pwsh.exe\" -Command \"Get-ChildItem -Force | Select-Object Mode,Length,Name\"`",
+                callback,
+                new StringBuilder(),
+                cliError
+        );
+
+        assertTrue("codex_core::tools::router 工具执行日志不得缓冲为回合错误(否则 exit0 误报失败)",
+                cliError.toString().isEmpty());
+        assertTrue("工具执行日志不得 onError", callback.errors.isEmpty());
     }
 
     @Test
@@ -747,11 +786,12 @@ public class CodexCliSessionTest {
         Method buildCommand = CodexCliSession.class.getDeclaredMethod(
                 "buildCommand",
                 com.github.claudecodegui.cli.CliSendRequest.class,
+                List.class,
                 List.class
         );
         buildCommand.setAccessible(true);
         @SuppressWarnings("unchecked")
-        List<String> command = (List<String>) buildCommand.invoke(session, request, List.of());
+        List<String> command = (List<String>) buildCommand.invoke(session, request, List.of(), List.of());
 
         assertFalse("Prompt must be sent via stdin instead of as a command-line argument", command.contains(longPrompt));
 

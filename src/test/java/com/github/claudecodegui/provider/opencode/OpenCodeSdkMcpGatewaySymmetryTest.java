@@ -32,24 +32,33 @@ public class OpenCodeSdkMcpGatewaySymmetryTest {
             "src/main/java/com/github/claudecodegui/provider/common/ProjectBridgeRegistry.java";
 
     // serveRevisionOf:从 gateway config 推导 serve 应固化的 revision 维度。
-    // 不可用(功能关闭/未就绪/无 configPath)→ -1(serve 不带 gateway);可用 → revision。
+    // 不可用(功能关闭/未就绪)→ -1(serve 不带 gateway);可用(enabled && ready,2026-07-02 重构后
+    // 不再要求 configPath:OpenCode 走 env OPENCODE_CONFIG_CONTENT、Codex 走 -c overrideArgs,均无文件)→ revision。
 
     @Test
     public void serveRevisionOfReturnsRevisionWhenUsable() {
         McpGatewayCliConfig cfg = new McpGatewayCliConfig(
                 true, true, 7L, Path.of("/tmp/opencode.json"), Path.of("/tmp/state"),
-                List.of("node", "client.js"), Map.of("HOME", "/tmp/home"), null);
+                List.of("node", "client.js"), Map.of(), List.of(), null);
         assertEquals(7L, OpenCodeDaemonCoordinator.serveRevisionOf(cfg));
+    }
+
+    @Test
+    public void serveRevisionOfReturnsRevisionWithoutConfigPathWhenUsable() {
+        // 重构后 OpenCode gateway 走 env(无 configPath),usable() 仅看 enabled && ready → 仍固化 revision。
+        McpGatewayCliConfig envBased = new McpGatewayCliConfig(
+                true, true, 9L, null, null, List.of(), Map.of(), List.of(), null);
+        assertEquals(9L, OpenCodeDaemonCoordinator.serveRevisionOf(envBased));
     }
 
     @Test
     public void serveRevisionOfReturnsNegativeWhenNotUsable() {
         assertEquals(-1L, OpenCodeDaemonCoordinator.serveRevisionOf(null));
         assertEquals(-1L, OpenCodeDaemonCoordinator.serveRevisionOf(McpGatewayCliConfig.disabled("off")));
-        // enabled/ready 但无 configPath → usable()==false
-        McpGatewayCliConfig noPath = new McpGatewayCliConfig(
-                true, true, 3L, null, null, List.of(), Map.of(), null);
-        assertEquals(-1L, OpenCodeDaemonCoordinator.serveRevisionOf(noPath));
+        // enabled 但 not ready → usable()==false → -1
+        McpGatewayCliConfig notReady = new McpGatewayCliConfig(
+                true, false, 3L, null, null, List.of(), Map.of(), List.of(), null);
+        assertEquals(-1L, OpenCodeDaemonCoordinator.serveRevisionOf(notReady));
     }
 
     @Test

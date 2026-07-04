@@ -44,12 +44,6 @@ public final class McpGatewayConstants {
     public static final String KEY_TYPE = "type";
     public static final String KEY_ENV = "env";
     public static final String KEY_URL = "url";
-    public static final String KEY_HOME = "HOME";
-    public static final String KEY_USERPROFILE = "USERPROFILE";
-    public static final String KEY_XDG_CONFIG_HOME = "XDG_CONFIG_HOME";
-    public static final String KEY_XDG_DATA_HOME = "XDG_DATA_HOME";
-    public static final String KEY_XDG_CACHE_HOME = "XDG_CACHE_HOME";
-    public static final String KEY_XDG_STATE_HOME = "XDG_STATE_HOME";
 
     public static final String ARG_STATE_FILE = "--state-file";
     public static final String ARG_REVISION = "--revision";

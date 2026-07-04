@@ -165,8 +165,10 @@ public class CodexCliSession implements CliSession {
                 LOG.info("[CliConcurrencyDiag][CodexCliSession] attachments prepared" + ": tabId=" + tabId + ", images=" + images.size() + ", elapsedMs=" + elapsedMillis(sendStartNanos) + ", attachmentsMs=" + elapsedMillis(attachmentsStartNanos) + ", thread=" + Thread.currentThread().getName());
                 boolean requestHasImages = !images.isEmpty();
                 McpGatewayCliConfig gatewayConfig = buildGatewayConfig(request);
+                List<String> gatewayOverrideArgs = (gatewayConfig != null && gatewayConfig.usable())
+                        ? gatewayConfig.overrideArgs() : List.of();
                 LOG.info("[CliConcurrencyDiag][CodexCliSession] building command" + ": tabId=" + tabId + ", elapsedMs=" + elapsedMillis(sendStartNanos) + ", thread=" + Thread.currentThread().getName());
-                List<String> cmd = buildCommand(request, images);
+                List<String> cmd = buildCommand(request, images, gatewayOverrideArgs);
                 byte[] promptInput = buildPromptInput(request);
                 LOG.info("[CodexCliSession][" + tabId + "] Command: " + String.join(" ", cmd)
                         + ", stdinBytes=" + promptInput.length);
@@ -183,9 +185,8 @@ public class CodexCliSession implements CliSession {
                 // process was launched with sandbox-network restrictions.
                 cliEnv.remove(ENV_CODEX_SANDBOX_NETWORK_DISABLED);
                 CliEnvironmentBuilder.applyExtraEnv(cliEnv, CodexCliCommandUtils.sanitizeEnv(request.extraEnv()));
-                if (gatewayConfig != null && gatewayConfig.usable()) {
-                    cliEnv.putAll(gatewayConfig.environment());
-                }
+                // gateway 经 -c 命令行覆盖注入(overrideArgs,见 buildCommand),不再改 CODEX_HOME env:
+                // CODEX_HOME 保持真实 ~/.codex,零临时 home(2026-07-02 重构)。
 
                 // CWD 设置放在 pb.start() 紧前面，避免 TOCTOU 竞态：
                 // 如果目录在 check 和 start 之间被删除，Windows CreateProcess 会报
@@ -264,11 +265,20 @@ public class CodexCliSession implements CliSession {
                 if (wasInterrupted()) {
                     callback.onInterrupted(assistantContent.toString(), CliConstants.I18N_REQUEST_INTERRUPTED);
                 } else if (exitCode == 0) {
-                    if (!cliError.isEmpty()) {
+                    if (shouldReportCliErrorOnExit0(cliError.toString(), turnCompleted)) {
                         String err = formatCodexError(cliError.toString(), requestHasImages);
                         callback.onError(err);
                         callback.onComplete(false, assistantContent.toString(), err);
                     } else {
+                        // turn 成功完成(turnCompleted)或无诊断。任何缓冲诊断都是非致命噪声
+                        // (工具调用失败/警告/turn 后收尾行)——不翻转成功 turn 为失败
+                        // (shouldReportCliErrorOnExit0 总闸;handleMcpFailure/handleToolDiagnostic 已在 parse 阶段
+                        // 把已知类别路由到 status/thinking 给用户可见性)。残留诊断仅记日志不丢,便于排查。
+                        if (!cliError.isEmpty()) {
+                            LOG.info("[CodexCliSession][" + tabId
+                                    + "] non-fatal diagnostics during successful turn (not reported as failure): "
+                                    + cliError);
+                        }
                         // [安全网] handleAgentMessageItem 已立即流式,pending 恒空,此调用是 no-op
                         flushPendingAgentMessageAsContent(callback, assistantContent);
                         CliSectionEmitter emitter = sectionEmitter(callback);
@@ -390,6 +400,35 @@ public class CodexCliSession implements CliSession {
     }
 
     /**
+     * 判定 exit0 时是否应把缓冲的 cliError 报为回合失败。<b>深层隐患修复(2026-07-03)。</b>
+     *
+     * <p><b>原则:</b>codex 以 exit0 退出 = codex 自身宣告成功。若已发 {@code turn.completed}
+     * (正式完成 turn),任何 stderr 缓冲诊断都是<b>非致命噪声</b>(工具调用失败/警告/turn 后收尾行),
+     * 不得翻转成功 turn 为失败——否则用户看到 "Codex CLI 请求失败/This response stopped" 且
+     * turn-fail 快照丢失 thinking 块(思考区消失)。
+     *
+     * <p><b>仅当 codex 未发 turn.completed 却以 exit0 结束且有诊断时</b>,才视为真正的静默失败
+     * (中途 bail 出错,未走 turn.failed/error 事件流)。
+     *
+     * <p><b>零回归保证:</b>判定 {@code cliError 非空 && !turnCompleted} 是旧条件 {@code cliError 非空}
+     * 的<b>严格收紧</b>(失败集 ⊆ 旧失败集),只能把旧误报转成功,不会把旧成功转失败。
+     *
+     * <p>这是 false-positive 陷阱的<b>总闸安全网</b>。{@link #handleMcpFailure}/{@link #handleToolDiagnostic}
+     * 仍保留为<b>UX 层</b>(把已知非致命诊断路由到 status 提示/thinking 区给用户可见性,并保持 cliError 干净),
+     * 三者 defense-in-depth:总闸兜底未知类别的非致命诊断不再误报。
+     *
+     * @param cliError      缓冲的诊断文本(可能为 null/空)
+     * @param turnCompleted 是否已收到 codex turn.completed 事件
+     * @return true 表示应作为回合失败上报(仅未完成 turn 且有诊断)
+     */
+    static boolean shouldReportCliErrorOnExit0(String cliError, boolean turnCompleted) {
+        if (cliError == null || cliError.isEmpty()) {
+            return false;
+        }
+        return !turnCompleted;
+    }
+
+    /**
      * MCP 连接失败(本地 server 未启动等)处理:识别后降级为非阻塞 status 提示(镜像重连处理),
      * 而非缓冲为回合错误 / 报错。每回合仅发一次 toast(rmcp worker 可能重试多次),但每次匹配都抑制。
      * <p>返回 true 表示文本命中 MCP 连接失败,调用方应跳过 cliError 缓冲 / onError。
@@ -409,6 +448,43 @@ public class CodexCliSession implements CliSession {
         return true;
     }
 
+    /**
+     * codex 工具执行层(codex_core::tools::router 等)单次调用失败的 tracing 日志判定。
+     * <p>这类日志(如 shell 工具跑 PowerShell 列目录失败:"ERROR codex_core::tools::router:
+     * error=`'pwsh.exe' -Command '...'")是<b>单次工具调用</b>的失败,codex 会把错误回灌给模型
+     * 继续当前 turn,非回合致命。结构化 JSON 事件流(item.completed 的 command_execution/mcp_tool_call)
+     * 已把工具结果(含错误)渲染为工具块,此 raw tracing 日志是冗余噪声。
+     * <p><b>不得缓冲进 cliError:</b>否则 codex 正常完成 turn(exit 0)时,line 267-271 的
+     * "exitCode==0 && cliError 非空" 分支会误报 "Codex CLI 请求失败 / This response stopped",
+     * 且 turn-fail 快照丢失 thinking 块(思考区消失)。
+     * <p>对称 {@link #handleMcpFailure} 的 MCP 连接失败降级模式,但工具执行错误经 JSON 事件流
+     * 已有用户可见呈现,此处仅抑制 cliError 缓冲(可选路由到 thinking 保空白工具块可见性)。
+     *
+     * @param text 诊断行(可能为 null)
+     * @return true 表示命中工具执行层日志(应抑制,不计入回合错误)
+     */
+    static boolean isNonFatalToolDiagnostic(String text) {
+        if (text == null) {
+            return false;
+        }
+        return text.toLowerCase(Locale.ROOT).contains("codex_core::tools::");
+    }
+
+    /**
+     * 处理 codex 工具执行层 tracing 日志:抑制 cliError 缓冲(避免 exit0 误报回合失败),
+     * 在 tool 段内路由到 thinking(对齐既有诊断→thinking 模式,保空白工具块时的可见性)。
+     * 返回 true 表示已处理,调用方应跳过 cliError 缓冲。
+     */
+    private boolean handleToolDiagnostic(String line, CliSessionCallback callback) {
+        if (!isNonFatalToolDiagnostic(line)) {
+            return false;
+        }
+        if (lastSegmentKind == SegmentKind.TOOL) {
+            emitThinkingText(callback, line + "\n");
+        }
+        return true;
+    }
+
     private void parseEvent(
             String line,
             CliSessionCallback callback,
@@ -422,6 +498,11 @@ public class CodexCliSession implements CliSession {
             if (isLikelyDiagnosticLine(line)) {
                 if (handleMcpFailure(line, callback)) {
                     // MCP 连接失败(本地 server 未启动):降级为非阻塞提示,不缓冲为回合错误
+                    return;
+                }
+                if (handleToolDiagnostic(line, callback)) {
+                    // 工具执行层(codex_core::tools::router 等)单次调用失败:codex 回灌模型继续 turn,
+                    // 非回合致命。抑制 cliError 缓冲(否则 exit0 误报"请求失败"+思考区消失)。
                     return;
                 }
                 if (cliError != null) {
@@ -514,6 +595,10 @@ public class CodexCliSession implements CliSession {
                 return;
             }
             if (isLikelyDiagnosticLine(line)) {
+                if (handleToolDiagnostic(line, callback)) {
+                    // 工具执行层 tracing 日志:抑制 cliError 缓冲(避免 exit0 误报回合失败)。
+                    return;
+                }
                 if (cliError != null) {
                     CliErrorFormatter.appendDiagnosticLine(cliError, line);
                 }
@@ -975,7 +1060,8 @@ public class CodexCliSession implements CliSession {
      * `-a, --ask-for-approval` 是 top-level 全局 flag,在 exec 与 exec resume 下都可用。
      * prompt 统一通过 stdin 传递，命令行末尾使用 `-` 显式要求 Codex 从 stdin 读取。
      */
-    private List<String> buildCommand(CliSendRequest request, List<File> images) {
+    private List<String> buildCommand(CliSendRequest request, List<File> images,
+                                      List<String> gatewayOverrideArgs) {
         CodexCliCommandUtils.PermissionSelection perm = CodexCliCommandUtils.selectPermission(
                 request.permissionMode(), readSandboxMode(request.cwd()));
 
@@ -984,9 +1070,9 @@ public class CodexCliSession implements CliSession {
         CodexCliCommandUtils.addCodexGlobalOptions(cmd, perm);
 
         if (threadId != null) {
-            appendResumeArgs(cmd, request, images);
+            appendResumeArgs(cmd, request, images, gatewayOverrideArgs);
         } else {
-            appendExecArgs(cmd, request, images, perm);
+            appendExecArgs(cmd, request, images, perm, gatewayOverrideArgs);
         }
         return cmd;
     }
@@ -1002,7 +1088,8 @@ public class CodexCliSession implements CliSession {
      * 首次会话:codex exec ... [-- PROMPT]
      */
     private void appendExecArgs(List<String> cmd, CliSendRequest request, List<File> images,
-                                CodexCliCommandUtils.PermissionSelection perm) {
+                                CodexCliCommandUtils.PermissionSelection perm,
+                                List<String> gatewayOverrideArgs) {
         cmd.add(CliConstants.CODEX_ARG_EXEC);
         cmd.add(CliConstants.CODEX_ARG_JSON);
         cmd.add(CliConstants.CODEX_ARG_COLOR);
@@ -1022,6 +1109,11 @@ public class CodexCliSession implements CliSession {
             cmd.add(CliConstants.CODEX_ARG_C_CONFIG);
             cmd.add("model_reasoning_effort=\"" + request.reasoningEffort() + "\"");
         }
+        // gateway 注入:-c 命令行覆盖(melon_gateway 定义 + 逐个禁真实 server)。
+        // 与 reasoning effort 的 -c 同位放置。args-array 经原生 codex.exe argv 直传可靠。
+        if (gatewayOverrideArgs != null && !gatewayOverrideArgs.isEmpty()) {
+            cmd.addAll(gatewayOverrideArgs);
+        }
         for (File img : images) {
             cmd.add(CliConstants.CODEX_ARG_IMAGE);
             cmd.add(img.getAbsolutePath());
@@ -1037,7 +1129,8 @@ public class CodexCliSession implements CliSession {
     /**
      * 续接会话:codex exec resume --last ... PROMPT
      */
-    private void appendResumeArgs(List<String> cmd, CliSendRequest request, List<File> images) {
+    private void appendResumeArgs(List<String> cmd, CliSendRequest request, List<File> images,
+                                 List<String> gatewayOverrideArgs) {
         cmd.add(CliConstants.CODEX_ARG_EXEC);
         cmd.add(CliConstants.CODEX_ARG_RESUME);
         cmd.add(CliConstants.CODEX_ARG_LAST);
@@ -1050,6 +1143,10 @@ public class CodexCliSession implements CliSession {
         if (request.reasoningEffort() != null && !request.reasoningEffort().isBlank()) {
             cmd.add(CliConstants.CODEX_ARG_C_CONFIG);
             cmd.add("model_reasoning_effort=\"" + request.reasoningEffort() + "\"");
+        }
+        // gateway 注入(同 exec 路径,-c exec resume 同样支持 -c,见调研文档 §5)。
+        if (gatewayOverrideArgs != null && !gatewayOverrideArgs.isEmpty()) {
+            cmd.addAll(gatewayOverrideArgs);
         }
         // resume 的 --image 是单值非贪婪,无需 `--` 分隔符。
         for (File img : images) {

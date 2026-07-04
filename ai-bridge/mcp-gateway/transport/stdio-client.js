@@ -33,7 +33,13 @@ export class StdioMcpClient {
       windowsHide: true,
     });
     this.reader = new FramedReader(this.process.stdout);
-    this.reader.on('message', (message) => this.onMessage(message));
+    // 真实 MCP server 探测到的帧格式同步到其 stdin,后续写给它的请求帧自适应跟随
+    // (多数 server=ndjson/MCP spec 标准;首个 initialize 在探测前发出,默认 ndjson)。
+    // 与 gateway-stdio-client.js 对称,见 framing.js 文档。
+    this.reader.on('message', (message) => {
+      this.process.stdin.__mcpFrameFormat = this.reader.lastFormat || 'ndjson';
+      this.onMessage(message);
+    });
     this.reader.on('error', (error) => this.rejectAll(error));
     // spawn ENOENT 等异步失败会触发 ChildProcess 的 'error'(不是 'exit')。必须监听,
     // 否则 EventEmitter 无 'error' 监听器时默认 throw → uncaught exception → 整个 gateway 进程崩溃。

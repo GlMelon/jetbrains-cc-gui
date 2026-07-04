@@ -53,4 +53,15 @@ public final class McpGatewayFeatureFlags {
                 && isUserEnabled()
                 && Boolean.parseBoolean(System.getProperty(McpGatewayConstants.FEATURE_SDK_ENABLED, "true"));
     }
+
+    /**
+     * gateway 是否处于活跃工作状态(CLI 或 SDK 任一路径启用即 true)。供预热/重载等
+     * "不分运行时路径"的入口({@code refreshConfig} 预热与 MCP 变更重载、{@code BridgePreloader}
+     * 项目打开预热)做 gate:只要 gateway 会被任一 provider 运行时用到,就应预热、就应在 MCP
+     * 增删停时重载。区别于 {@link #isCliEnabled()}/{@link #isSdkEnabled()} 的"单路径"语义——
+     * 避免纯 SDK 模式(cli.enabled=false)用户改 MCP 时 gateway 不重载、SDK 调用用到过期 snapshot。
+     */
+    public static boolean isGatewayActive() {
+        return isCliEnabled() || isSdkEnabled();
+    }
 }

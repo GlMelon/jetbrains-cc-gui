@@ -86,13 +86,20 @@ public final class CodexCliResolver {
     }
 
     /**
-     * 从 codex shim 路径推断 npm 全局结构下的原生二进制入口
-     * ({@code <shim-dir>/node_modules/@openai/codex/bin/codex.exe})。
-     * Codex npm 包是 scoped package(@openai/codex),目录层级含 @openai/ 子目录。
-     * 纯路径逻辑,不验证可执行性。
+     * 从 codex shim 路径推断 npm 全局结构下的原生二进制入口。Codex npm 包是 scoped package
+     * (@openai/codex),目录层级含 @openai/ 子目录。覆盖两种 npm 布局:
+     * <ol>
+     *   <li><b>扁平</b>(优先):{@code <shim-dir>/node_modules/@openai/codex/bin/codex.exe}</li>
+     *   <li><b>nested</b>(回退,codex 0.142.5+):平台子包经其自身 node_modules 安装——
+     *       {@code <shim-dir>/node_modules/@openai/codex/node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc/bin/codex.exe}</li>
+     * </ol>
+     * 纯路径逻辑,不验证可执行性(由 {@link #resolveNativeExecutable} 统一 verify)。
+     *
+     * <p>nested 布局关键:gateway 重构后 {@code -c mcp_servers.*.args=[...]} 经原生 codex.exe argv 直传
+     * 才可靠(见 docs/codex-gateway-config-injection-refactor.md §5),必须能定位到 .exe。
      *
      * @param shimPath codex shim(codex.cmd/codex)的绝对或相对路径
-     * @return 原生 .exe 绝对路径;结构不存在或入参无效时返回 null
+     * @return 原生 .exe 绝对路径;两种结构都不存在或入参无效时返回 null
      */
     static String inferCodexNativeExecutablePath(String shimPath) {
         if (shimPath == null || shimPath.isBlank()) {
@@ -102,9 +109,20 @@ public final class CodexCliResolver {
         if (shimDir == null) {
             return null;
         }
-        File nativeExe = new File(shimDir,
+        // 布局一(扁平,优先)
+        File flat = new File(shimDir,
                 "node_modules" + File.separator + "@openai" + File.separator + "codex" + File.separator + "bin" + File.separator + "codex.exe");
-        return nativeExe.exists() ? nativeExe.getAbsolutePath() : null;
+        if (flat.exists()) {
+            return flat.getAbsolutePath();
+        }
+        // 布局二(nested npm scoped + 平台子包,codex 0.142.5+)
+        File nested = new File(shimDir,
+                "node_modules" + File.separator + "@openai" + File.separator + "codex"
+                        + File.separator + "node_modules" + File.separator + "@openai"
+                        + File.separator + "codex-win32-x64" + File.separator + "vendor"
+                        + File.separator + "x86_64-pc-windows-msvc" + File.separator + "bin"
+                        + File.separator + "codex.exe");
+        return nested.exists() ? nested.getAbsolutePath() : null;
     }
 
     /**

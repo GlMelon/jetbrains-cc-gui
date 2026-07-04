@@ -197,11 +197,11 @@ class OpenCodeDaemonCoordinator {
                     pb.environment().put("Path", userPath);
                 }
             }
-            // §gateway:SDK gateway 开启时,把 buildSdkServeConfig 产出的 env(HOME/USERPROFILE/XDG_CONFIG_HOME
-            // 指向含 melon_gateway + 稳定段的临时 opencode.json)注入 serve ProcessBuilder。serve 启动期固化
-            // MCP,经此 env 读取 opencode.json → 聚合后的 melon_gateway 成为唯一 MCP 工具集。
-            // gateway 关闭(gatewayRevision=-1,gatewayConfig 不可用)时不注入,serve 回退真实
-            // ~/.opencode/opencode.json 的 MCP(与 CLI 关闭路径行为一致)。
+            // §gateway:SDK gateway 开启时,注入 buildSdkServeConfig 产出的 env(2026-07-02 重构后为
+            // OPENCODE_CONFIG_CONTENT inline JSON,运行时与真实 opencode.json 合并:注入 melon_gateway 聚合
+            // 入口 + 逐个禁真实 server)。HOME/XDG 保持真实(零临时 home),serve 启动期经合并后的配置固化 MCP,
+            // 聚合后的 melon_gateway 成为唯一 MCP 工具集。gateway 关闭(gatewayRevision=-1,gatewayConfig 不可用)
+            // 时不注入,serve 用真实 ~/.config/opencode/opencode.json 的 MCP(与 CLI 关闭路径行为一致)。
             if (gatewayConfig != null && gatewayConfig.usable()) {
                 gatewayConfig.environment().forEach((k, v) -> pb.environment().put(k, v));
             }

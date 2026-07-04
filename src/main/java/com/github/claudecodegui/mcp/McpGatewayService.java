@@ -26,6 +26,14 @@ import java.util.List;
 public final class McpGatewayService implements Disposable {
     private static final Logger LOG = Logger.getInstance(McpGatewayService.class);
     private static final SecureRandom RANDOM = new SecureRandom();
+    /**
+     * 复用判定窗口:gateway 进程活着但 /status 可能尚未 ready(预热线程正在 cold-start 的竞态)
+     * 时,给后续调用方足够时间等它 ready 再复用,而不是 10ms 内探不到就重建。与 cold-start 同量级,
+     * 因为最坏情况就是等一个完整 cold-start;{@code processHandle.isAlive()} 短路保证进程已死时
+     * 立即重建、不会死等。旧实现 10ms 过短,导致预热成果被误判丢弃 + 重建 + 孤儿进程。
+     */
+    private static final Duration REUSE_PROBE_TIMEOUT = Duration.ofSeconds(10);
+    private static final Duration COLD_START_TIMEOUT = Duration.ofSeconds(10);
 
     private final Project project;
     private final Object lock = new Object();
@@ -51,6 +59,21 @@ public final class McpGatewayService implements Disposable {
         this.token = generateToken();
     }
 
+    /**
+     * 测试专用构造器:注入 collector 与 bridgeClient,绕过 Project/平台依赖,使 {@link #applySnapshot}
+     * 的"提交顺序"逻辑可单测(生产路径用 {@link #McpGatewayService(Project)})。其余字段置空——
+     * applySnapshot 只用到 collector/bridgeClient/currentSnapshot/currentRevision/lock。
+     */
+    McpGatewayService(McpGatewayConfigCollector collector, McpGatewayBridgeClient bridgeClient) {
+        this.project = null;
+        this.collector = collector;
+        this.configWriter = null;
+        this.gatewayDir = null;
+        this.stateFile = null;
+        this.token = "";
+        this.bridgeClient = bridgeClient;
+    }
+
     public static McpGatewayService getInstance(@NotNull Project project) {
         return project.getService(McpGatewayService.class);
     }
@@ -70,7 +93,8 @@ public final class McpGatewayService implements Disposable {
                 String node = NodeDetector.getInstance().findNodeExecutable();
                 Path stdioClient = bridgeDir.toPath().resolve(McpGatewayConstants.STDIO_CLIENT_SCRIPT_PATH);
                 List<String> command = NodeDetector.buildNodeScriptCommand(node, stdioClient.toString());
-                return configWriter.write(provider, tabId, currentRevision, stateFile, command);
+                return configWriter.write(provider, tabId, currentRevision, stateFile, command,
+                        realServerIds(currentSnapshot, provider));
             } catch (Exception e) {
                 LOG.warn("[McpGateway] Falling back to direct MCP config: " + e.getMessage(), e);
                 return McpGatewayCliConfig.disabled(e.getMessage());
@@ -148,7 +172,8 @@ public final class McpGatewayService implements Disposable {
                 String node = NodeDetector.getInstance().findNodeExecutable();
                 Path stdioClient = bridgeDir.toPath().resolve(McpGatewayConstants.STDIO_CLIENT_SCRIPT_PATH);
                 List<String> command = NodeDetector.buildNodeScriptCommand(node, stdioClient.toString());
-                return configWriter.write(provider, tabId, currentRevision, stateFile, command);
+                return configWriter.write(provider, tabId, currentRevision, stateFile, command,
+                        realServerIds(currentSnapshot, provider));
             } catch (Exception e) {
                 LOG.warn("[McpGateway] Falling back to direct MCP for OpenCode serve: " + e.getMessage(), e);
                 return McpGatewayCliConfig.disabled(e.getMessage());
@@ -157,7 +182,10 @@ public final class McpGatewayService implements Disposable {
     }
 
     public void refreshConfig(String projectPath) {
-        if (!McpGatewayFeatureFlags.isCliEnabled()) {
+        // gate 用 isGatewayActive(cli||sdk)而非 isCliEnabled:预热(CLI/SDK 运行时都受益)与 MCP
+        // 增删停重载(Claude/Codex handler)都不分运行时路径,纯 SDK 模式(cli.enabled=false)用户
+        // 改 MCP 也需同步到 gateway,否则 SDK 调用会用到过期 snapshot。
+        if (!McpGatewayFeatureFlags.isGatewayActive()) {
             return;
         }
         synchronized (lock) {
@@ -176,15 +204,21 @@ public final class McpGatewayService implements Disposable {
      * path (CLI-gated) and the SDK binding path (SDK-gated) so both runtimes see the
      * same fixed revision for a given turn.
      */
-    private void applySnapshot(String projectPath) throws Exception {
+    void applySnapshot(String projectPath) throws Exception {
         long candidateRevision = currentRevision == 0L ? 1L : currentRevision + 1L;
         McpGatewayConfigSnapshot candidate = collector.collect(candidateRevision, projectPath);
         if (currentSnapshot != null && currentSnapshot.configHash().equals(candidate.configHash())) {
             return;
         }
+        // 必须先 post 成功再提交本地 currentSnapshot/currentRevision:首次 /snapshot 会触发 Node 侧
+        // applySnapshot 同步等所有 MCP server 的 initialize+listTools(首屏冷加载往往远超秒级)。若
+        // 先提交再 post,post 超时/失败时本地已"假成功",后续 applySnapshot 因 configHash 相同而 skip、
+        // 永不重推,gateway 实际空载、CLI 拿不到 MCP 工具。先 post 失败则抛异常、字段不变,下次
+        // applySnapshot 自动重推(复现见 idea.log 2026-07-02 BridgePreloader.prewarmMcpGateway
+        // → postSnapshot HttpTimeoutException)。
+        bridgeClient.postSnapshot(candidate);
         currentRevision = candidateRevision;
         currentSnapshot = candidate;
-        bridgeClient.postSnapshot(candidate);
     }
 
     public String statusJson() {
@@ -203,9 +237,15 @@ public final class McpGatewayService implements Disposable {
 
     private void ensureStarted(String projectPath) throws Exception {
         if (processHandle != null && processHandle.isAlive() && bridgeClient != null
-                && bridgeClient.waitUntilReady(Duration.ofMillis(10))) {
+                && bridgeClient.waitUntilReady(REUSE_PROBE_TIMEOUT)) {
             return;
         }
+        // 进入重建分支:先停掉可能残留的旧进程句柄,避免孤儿 Node 进程 + 端口泄漏。
+        // 触发场景:预热线程正在 cold-start(进程已 spawn 但 /status 尚未 ready)时另一线程
+        // 进入此方法——旧 handle 活着但探测窗口内探不到,若直接覆盖字段,旧进程成孤儿、
+        // 端口仍占用。REUSE_PROBE_TIMEOUT 放宽到与 cold-start 同量级已大幅缓解此竞态,
+        // 此处作兜底:真走到重建时确保旧进程被显式停止。
+        stopExistingProcess();
         Files.createDirectories(gatewayDir);
         Files.deleteIfExists(stateFile);
 
@@ -225,8 +265,18 @@ public final class McpGatewayService implements Disposable {
 
         processHandle = McpGatewayProcessHandle.start(command);
         bridgeClient = new McpGatewayBridgeClient(stateFile, token);
-        if (!bridgeClient.waitUntilReady(Duration.ofSeconds(10))) {
+        if (!bridgeClient.waitUntilReady(COLD_START_TIMEOUT)) {
             throw new IllegalStateException("MCP Gateway did not become ready");
+        }
+    }
+
+    private void stopExistingProcess() {
+        if (processHandle != null) {
+            try {
+                processHandle.stop();
+            } catch (Exception e) {
+                LOG.debug("[McpGateway] Failed to stop stale process handle on rebuild: " + e.getMessage());
+            }
         }
     }
 
@@ -283,6 +333,26 @@ public final class McpGatewayService implements Disposable {
         byte[] bytes = new byte[32];
         RANDOM.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    /**
+     * 从当前快照提取指定 provider 的真实 mcp server id 列表(过滤 melon_gateway 自身)。
+     * 供 Codex {@code -c}/OpenCode {@code OPENCODE_CONFIG_CONTENT} 注入逐个禁用真实 server
+     * (合并语义:不禁则真实 server 仍直连=慢)。sourceProvider 与 {@link ProviderType#value()} 对齐。
+     */
+    private static List<String> realServerIds(McpGatewayConfigSnapshot snapshot, ProviderType provider) {
+        if (snapshot == null) {
+            return List.of();
+        }
+        String target = provider.value();
+        List<String> ids = new java.util.ArrayList<>();
+        for (McpGatewayServerSpec spec : snapshot.servers()) {
+            if (target.equals(spec.sourceProvider())
+                    && !McpGatewayConstants.GATEWAY_SERVER_ID.equals(spec.serverId())) {
+                ids.add(spec.serverId());
+            }
+        }
+        return ids;
     }
 
     private static String safeProjectPart(String projectPath) {

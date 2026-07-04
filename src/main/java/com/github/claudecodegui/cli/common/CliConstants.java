@@ -226,6 +226,13 @@ public final class CliConstants {
     public static final String ENV_CODEX_CI = "CODEX_CI";
     public static final String ENV_CLAUDE_USE_STDIN = "CLAUDE_USE_STDIN";
     public static final String ENV_OPENCODE_USE_STDIN = "OPENCODE_USE_STDIN";
+    /**
+     * OpenCode 运行时 inline 配置覆盖(smoke-test 2026-07-02 实测):
+     * opencode 把此 env 的 JSON 内容与真实 ~/.config/opencode/opencode.json **合并**(非替换),
+     * 故可注入 {@code melon_gateway} 聚合 server 并逐个 {@code "<realId>":{"enabled":false}} 禁真实 server,
+     * HOME/XDG 保持真实 → 零临时 home、零配置文件复制(对齐 Codex {@code -c} 方案)。
+     */
+    public static final String ENV_OPENCODE_CONFIG_CONTENT = "OPENCODE_CONFIG_CONTENT";
     public static final String ENV_OPENAI_BASE_URL = "OPENAI_BASE_URL";
     public static final String ENV_OPENAI_API_KEY = "OPENAI_API_KEY";
     public static final String ENV_OPENAI_ORG_ID = "OPENAI_ORG_ID";

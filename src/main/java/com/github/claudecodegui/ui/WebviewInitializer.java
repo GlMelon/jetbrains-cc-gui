@@ -176,11 +176,11 @@ public class WebviewInitializer {
                     : null);
         }
 
-        // 后台预热 MCP Gateway(若 CLI gateway flag 启用):让 ensureStarted(拉起 Node gateway 进程)
-        // + applySnapshot(refresh 各 MCP server)在用户发消息前完成 → 首次 buildCliConfig 因
-        // configHash 相同 skip(秒回),消除"gateway 形式加载后首次请求等几十秒"。
-        // refreshConfig 内部 isCliEnabled() 守卫:flag 关时 no-op 无副作用;flag 开时后台等待用户无感。
-        // 与 daemon 预热不同,gateway 预热对 CLI 模式同样需要(CLI 正是 gateway 主场景)。
+        // 兜底预热 MCP Gateway:BridgePreloader 在项目打开时已做主预热(isGatewayActive 守卫,
+        // 见 BridgePreloader.prewarmMcpGateway),此处是打开工具窗口时的二次保险——若 BridgePreloader
+        // 因故未跑到(如 ai-bridge 解压失败重试路径),这里再触发。applySnapshot 的 configHash 幂等
+        // 保证两次预热不会重复 postSnapshot,已 ready 时 ensureStarted 复用秒回。
+        // refreshConfig 内部 isGatewayActive(cli||sdk)守卫:gateway 整体禁用时 no-op 无副作用。
         ApplicationManager.getApplication().executeOnPooledThread(() -> {
             try {
                 Project project = host.getProject();
