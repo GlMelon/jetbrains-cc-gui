@@ -408,6 +408,10 @@ public class OpenCodeSDKBridge extends BaseSDKBridge {
                     messages.add(array.get(i).getAsJsonObject());
                 }
             }
+            // 问题3:回放路径(经 SessionProviderRouter→OpenCodeProviderAdapter→此处)此前未清理 IDE
+            // 拼接上下文,回放会把 "This project contains multiple modules:" 当正文渲染。bridge 是回放+
+            // 历史面板两路径的共同 choke point,在此 sanitize 即同时覆盖(历史面板侧再 sanitize 幂等无害)。
+            OpenCodeHistorySanitizer.sanitize(messages);
             return messages;
         } catch (Exception e) {
             LOG.warn("[OpenCode] Failed to load session history: " + e.getMessage(), e);
@@ -501,6 +505,97 @@ public class OpenCodeSDKBridge extends BaseSDKBridge {
         }
     }
 
+    /**
+     * 归档(软删除)OpenCode 会话(对称 getSessionList 的 spawn 模式)。
+     * <p>
+     * spawn channel-manager.js opencode deleteSession,stdin 注入 {sessionId},
+     * ai-bridge history-service.archiveSession 执行 update session set time_archived +
+     * 显式 export 回写文件(sql.js 内存 db 写后必须回写)。getSessionList 已用
+     * where time_archived is null 过滤,归档后 reload 自动不再出现。
+     *
+     * @param sessionId 会话 id
+     * @return 实际新归档的行数;失败/异常/bridge 未就绪/会话不存在返回 0(不抛)
+     */
+    public int deleteSession(String sessionId) {
+        if (sessionId == null || sessionId.isBlank()) {
+            return 0;
+        }
+        try {
+            File bridgeDir = getDirectoryResolver().findSdkDir();
+            if (bridgeDir == null) {
+                LOG.warn("[OpenCode] Bridge directory not ready, cannot delete session");
+                return 0;
+            }
+
+            List<String> command = buildDeleteSessionCommand();
+            JsonObject stdin = new JsonObject();
+            stdin.addProperty("sessionId", sessionId);
+
+            ProcessBuilder pb = new ProcessBuilder(command);
+            pb.directory(bridgeDir);
+            pb.redirectErrorStream(true);
+            Map<String, String> env = pb.environment();
+            configureProviderEnv(env, stdin.toString());
+            String node = nodeDetector.findNodeExecutable();
+            envConfigurator.updateProcessEnvironment(pb, node);
+
+            StringBuilder output = new StringBuilder();
+            String channelId = ProcessManager.newChannelId("opencode-session-delete");
+            Process process = null;
+            CompletableFuture<Void> outputFuture = null;
+            try {
+                process = pb.start();
+                processManager.registerProcess(channelId, process);
+                Process runningProcess = process;
+                outputFuture = CompletableFuture.runAsync(() -> {
+                    try (BufferedReader reader = new BufferedReader(
+                            new InputStreamReader(runningProcess.getInputStream(), StandardCharsets.UTF_8))) {
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            output.append(line).append('\n');
+                        }
+                    } catch (Exception e) {
+                        LOG.debug("[OpenCode] deleteSession output drain failed: " + e.getMessage());
+                    }
+                });
+
+                try (OutputStream stdinStream = process.getOutputStream()) {
+                    stdinStream.write(GsonHolder.GSON.toJson(stdin).getBytes(StandardCharsets.UTF_8));
+                    stdinStream.flush();
+                }
+
+                if (!process.waitFor(HISTORY_QUERY_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                    PlatformUtils.terminateProcessAndWait(process, 3, TimeUnit.SECONDS);
+                    LOG.warn("[OpenCode] deleteSession timed out for session: " + sessionId);
+                    return 0;
+                }
+                waitForOutputDrain(outputFuture);
+            } finally {
+                if (outputFuture != null && !outputFuture.isDone()) {
+                    outputFuture.cancel(true);
+                }
+                if (process != null) {
+                    processManager.unregisterProcess(channelId, process);
+                }
+            }
+
+            JsonObject result = extractLastJsonObject(output.toString());
+            if (result == null || !result.has("success") || !result.get("success").getAsBoolean()) {
+                String error = result != null && result.has("error") && !result.get("error").isJsonNull()
+                        ? result.get("error").getAsString()
+                        : "unknown error";
+                LOG.warn("[OpenCode] Failed to delete session: " + error);
+                return 0;
+            }
+            return result.has("archived") && result.get("archived").isJsonPrimitive()
+                    ? result.get("archived").getAsInt()
+                    : 0;
+        } catch (Exception e) {
+            LOG.warn("[OpenCode] Failed to delete session: " + e.getMessage(), e);
+            return 0;
+        }
+    }
+
     private void waitForOutputDrain(CompletableFuture<Void> outputFuture) {
         if (outputFuture == null) {
             return;
@@ -559,6 +654,18 @@ public class OpenCodeSDKBridge extends BaseSDKBridge {
         cmd.add("channel-manager.js");
         cmd.add(getProviderName());
         cmd.add("listSessions");
+        return cmd;
+    }
+
+    /**
+     * 会话归档命令(对称 buildListSessionsCommand,仅末位参 listSessions→deleteSession)。
+     */
+    List<String> buildDeleteSessionCommand() {
+        List<String> cmd = new ArrayList<>();
+        cmd.add(nodeDetector.getNodeExecutable());
+        cmd.add("channel-manager.js");
+        cmd.add(getProviderName());
+        cmd.add("deleteSession");
         return cmd;
     }
 

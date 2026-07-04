@@ -44,6 +44,8 @@ test('creates a new session when threadId is empty and surfaces session_id', asy
 
     assert.equal(calls.create.length, 1, 'session.create called once');
     assert.equal(calls.create[0].body.title, '/tmp', 'session title = cwd');
+    // directory 让 getSessionList 的项目路径过滤命中(否则新会话不在历史列表)
+    assert.equal(calls.create[0].body.directory, '/tmp', 'session directory = cwd');
     const sidEvents = written.filter((o) => o.type === 'session_id');
     assert.equal(sidEvents.length, 1);
     assert.equal(sidEvents[0].session_id, 'ses_mock_1');

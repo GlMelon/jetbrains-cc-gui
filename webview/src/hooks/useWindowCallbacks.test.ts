@@ -1040,6 +1040,28 @@ describe('useWindowCallbacks integration', () => {
       expect((opts.setStreamingActive as any).mock.calls.length).toBe(callsAfterFirstEnd);
     });
 
+    it('onStreamEnd refreshes history list so newly-created sessions appear without manual reload', () => {
+      // 跨 provider 缺陷:turn 结束后历史列表不刷新,新会话只在切 tab/重启后才出现
+      // (OpenCode 用户倾向留在 chat 视图更易暴露)。修复:onStreamEnd 触发
+      // LOAD_HISTORY_DATA pull,一次修三 provider。幂等守卫保证只 pull 一次/turn。
+      const opts = createOptions({ currentProviderRef: { current: 'opencode' } });
+      opts.streamingTurnIdRef.current = 5;
+      opts.isStreamingRef.current = true;
+      opts.streamingMessageIndexRef.current = 0;
+      opts.turnIdCounterRef.current = 5;
+      renderHook(() => useWindowCallbacks(opts));
+
+      act(() => { window.onStreamStart!(); });
+
+      (window.sendToJava as any).mockClear();
+
+      act(() => { window.onStreamEnd!('10'); });
+
+      expect(window.sendToJava).toHaveBeenCalledWith(
+        JSON.stringify({ type: 'load_history_data', content: 'opencode' })
+      );
+    });
+
     it('watchdog-triggered onStreamEnd marks the assistant message source for UI diagnostics', () => {
       const buffer = { current: [] as ClaudeMessage[] };
       const setMessages = vi.fn((value: ClaudeMessage[] | ((prev: ClaudeMessage[]) => ClaudeMessage[])) => {

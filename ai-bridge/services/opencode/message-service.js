@@ -72,7 +72,9 @@ export async function sendMessage(params, deps = {}) {
         // 1. session:threadId 非空则续接,否则新建
         let sessionId = threadId;
         if (!sessionId) {
-            const session = await client.session.create({ body: { title: cwd || 'opencode' } });
+            // directory 显式绑定项目目录,getSessionList 据此按 projectPath 过滤命中;
+            // 否则新会话 directory 缺失,被项目过滤剔除 → 不出现在历史列表。
+            const session = await client.session.create({ body: { title: cwd || 'opencode', directory: cwd } });
             sessionId = session?.data?.id;
             // session_id 由 createOpenCodeEventMapper 在首个携带本会话 sessionID 的 SSE 事件时
             // 单一下发(单一来源,避免双发)。

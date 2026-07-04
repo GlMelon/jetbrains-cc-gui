@@ -16,6 +16,33 @@ import { getStreamEndHandlingMode } from '../messageSync';
 import { clearStreamScopeState, consumeScopedPendingUpdate, getActiveStreamScopeKey, getOrCreateStreamScopeState, getStreamScopeKey, getScopeLastActivityAt, markScopeActivity, setActiveStreamScopeKey } from '../streamScopeState';
 import { registerLegacyAlias } from '../../../bridge';
 
+// §问题2c:OpenCode stream_end 后延迟二次刷新历史列表(兜底)。主修=ai-bridge getSessionList
+// 换 node:sqlite(WAL 感知)根治 sql.js WAL 盲;此处为额外保险:serve 写 SQLite(session row /
+// time_updated)与 stream_end SSE 事件存在竞态,WAL checkpoint 时机不定,延迟再拉一次历史覆盖刚
+// 结束回合的会话。Claude/Codex 走缓存即时刷新,无需此兜底。
+// module-level timer:重入(连续多 turn / 重复 stream_end)时清旧建新,避免累积多个 pending 刷新。
+export const OPENCODE_HISTORY_REFRESH_DELAY_MS = 1500;
+let opencodeHistoryRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+export function isOpencodeProvider(provider: unknown): boolean {
+  return provider === 'opencode';
+}
+
+/**
+ * 调度 OpenCode 延迟二次历史刷新。仅 opencode provider 生效;refresh 动作注入以便单测。
+ * 重入时清旧 pending timer 再建新,确保同时只有一个延迟刷新 pending。
+ */
+export function scheduleOpencodeHistoryRefresh(provider: unknown, refresh: () => void): void {
+  if (!isOpencodeProvider(provider)) return;
+  if (opencodeHistoryRefreshTimer !== null) {
+    clearTimeout(opencodeHistoryRefreshTimer);
+  }
+  opencodeHistoryRefreshTimer = setTimeout(() => {
+    opencodeHistoryRefreshTimer = null;
+    refresh();
+  }, OPENCODE_HISTORY_REFRESH_DELAY_MS);
+}
+
 /**
  * Scans assistant messages containing tool_use blocks and returns IDs that have
  * no matching tool_result anywhere in the conversation.
@@ -470,6 +497,19 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
     }
     // Notify backend about stream completion for tab status indicator
     sendAction(UPSTREAM.TAB_STATUS_CHANGED, JSON.stringify({ status: 'completed' }));
+
+    // §问题2b 修复:turn 结束后刷新历史列表,新会话立即可见(跨 provider 统一缺陷)。
+    // 历史列表纯 pull 驱动,此前只在切 tab/手动按钮/conversion 时拉取,用户新建会话后不刷新
+    // (OpenCode 用户倾向留在 chat 视图更易暴露,需重启插件才出现)。LOAD_HISTORY_DATA 走缓存
+    // (Claude/Codex)/直读 SQLite(OpenCode),开销小;幂等守卫保证只 pull 一次/turn。
+    sendAction(UPSTREAM.LOAD_HISTORY_DATA, options.currentProviderRef.current);
+
+    // §问题2c:OpenCode 延迟二次刷新兜底(见 scheduleOpencodeHistoryRefresh)。快照本 turn 的 provider,
+    // 延迟回调里刷新该 provider 的历史——即使 1.5s 内用户切走,opencode 历史也已被刷新,切回时可见。
+    const providerAtTurnEnd = options.currentProviderRef.current;
+    scheduleOpencodeHistoryRefresh(providerAtTurnEnd, () => {
+      sendAction(UPSTREAM.LOAD_HISTORY_DATA, providerAtTurnEnd);
+    });
 
     if (handlingMode === 'minimal') {
       if (typeof window.__cancelPendingUpdateMessages === 'function') {

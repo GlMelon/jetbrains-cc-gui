@@ -5,6 +5,9 @@ import com.github.claudecodegui.handler.NodeJsServiceCaller;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.intellij.openapi.diagnostic.Logger;
 
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+
 /**
  * Container for history action handlers (B2/B4 迁移).
  *
@@ -26,8 +29,7 @@ public class HistoryActionHandlers {
     private String currentProvider = CommonConstants.PROVIDER_CLAUDE; // Default to claude
 
     private final HandlerContext context;
-    private final HistoryLoadService historyLoadService;
-    private final HistoryDeleteService historyDeleteService;
+    private final HistoryWorkflowService historyWorkflowService;
     private final HistoryExportService historyExportService;
     private final HistoryMessageInjector historyMessageInjector;
     private final HistoryMetadataService historyMetadataService;
@@ -38,8 +40,11 @@ public class HistoryActionHandlers {
         this.context = context;
         NodeJsServiceCaller nodeJsServiceCaller = new NodeJsServiceCaller(context);
         HistoryProviderRegistry historyProviderRegistry = HistoryProviderRegistry.createDefault(context);
-        this.historyLoadService = new HistoryLoadService(context, nodeJsServiceCaller, historyProviderRegistry);
-        this.historyDeleteService = new HistoryDeleteService(context, nodeJsServiceCaller, historyLoadService, historyProviderRegistry);
+        HistoryLoadService historyLoadService = new HistoryLoadService(context);
+        HistoryProjectPathResolver projectPathResolver = new HistoryProjectPathResolver();
+        HistorySessionsJsonEnhancer sessionsJsonEnhancer = new HistorySessionsJsonEnhancer(nodeJsServiceCaller);
+        this.historyWorkflowService = new HistoryWorkflowService(context, historyProviderRegistry, projectPathResolver,
+                sessionsJsonEnhancer, historyLoadService, nodeJsServiceCaller);
         this.historyExportService = new HistoryExportService(context, historyProviderRegistry);
         this.historyMessageInjector = new HistoryMessageInjector(context);
         this.historyMetadataService = new HistoryMetadataService(context, nodeJsServiceCaller);
@@ -58,7 +63,8 @@ public class HistoryActionHandlers {
     public void handleLoadHistoryData(String content) {
         LOG.debug("[HistoryHandler] 处理: load_history_data, provider=" + content);
         this.currentProvider = content != null && !content.isEmpty() ? content : CommonConstants.PROVIDER_CLAUDE;
-        historyLoadService.handleLoadHistoryData(currentProvider);
+        String providerSnapshot = this.currentProvider;
+        CompletableFuture.runAsync(() -> historyWorkflowService.refresh(providerSnapshot));
     }
 
     public void handleLoadSession(String content) {
@@ -68,12 +74,20 @@ public class HistoryActionHandlers {
 
     public void handleDeleteSession(String content) {
         LOG.info("[HistoryHandler] 处理: delete_session, sessionId=" + content);
-        historyDeleteService.handleDeleteSession(content, currentProvider);
+        String providerSnapshot = this.currentProvider;
+        CompletableFuture.runAsync(() -> historyWorkflowService.deleteOne(providerSnapshot, content));
     }
 
     public void handleDeleteSessions(String content) {
         LOG.info("[HistoryHandler] 处理: delete_sessions");
-        historyDeleteService.handleDeleteSessions(content, currentProvider);
+        List<String> sessionIds = HistoryDeleteService.parseSessionIds(content);
+        if (sessionIds.isEmpty()) {
+            LOG.warn("[HistoryHandler] Batch delete failed: empty sessionIds");
+            return;
+        }
+        String providerSnapshot = this.currentProvider;
+        LOG.info("[HistoryHandler] Batch delete sessionIds: " + HistoryDeleteService.sessionIdsToJson(sessionIds));
+        CompletableFuture.runAsync(() -> historyWorkflowService.deleteMany(providerSnapshot, sessionIds));
     }
 
     public void handleExportSession(String content) {
@@ -99,7 +113,11 @@ public class HistoryActionHandlers {
     public void handleDeepSearchHistory(String content) {
         LOG.info("[HistoryHandler] 处理: deep_search_history, provider=" + content);
         this.currentProvider = content != null && !content.isEmpty() ? content : CommonConstants.PROVIDER_CLAUDE;
-        historyLoadService.handleDeepSearchHistory(currentProvider);
+        String providerSnapshot = this.currentProvider;
+        CompletableFuture.runAsync(() -> {
+            historyWorkflowService.clearCache(providerSnapshot);
+            historyWorkflowService.refresh(providerSnapshot);
+        });
     }
 
     public void handleLoadSubagentSession(String content) {
@@ -114,3 +132,4 @@ public class HistoryActionHandlers {
         this.sessionConversionService.convertSdkSession(content, conversionProjectPath);
     }
 }
+

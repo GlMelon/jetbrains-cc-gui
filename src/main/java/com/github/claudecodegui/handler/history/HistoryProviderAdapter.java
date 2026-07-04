@@ -6,6 +6,12 @@ import com.google.gson.JsonObject;
 import java.io.IOException;
 import java.util.List;
 
+/**
+ * Adapter for provider-native history storage.
+ * <p>
+ * Implementations own the storage details for their provider (for example JSONL files or
+ * SQLite rows). Callers must use this contract instead of assuming a shared storage format.
+ */
 interface HistoryProviderAdapter {
     ProviderType provider();
 

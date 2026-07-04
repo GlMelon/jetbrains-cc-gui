@@ -8,7 +8,7 @@
  * getSession 通过 services/opencode/history-service.js 只读本地 SQLite 历史。
  */
 import { sendMessage, abortSession } from '../services/opencode/message-service.js';
-import { getSessionMessages, getSessionList } from '../services/opencode/history-service.js';
+import { getSessionMessages, getSessionList, archiveSession } from '../services/opencode/history-service.js';
 
 /**
  * Execute an OpenCode command.
@@ -86,13 +86,22 @@ export async function handleOpenCodeCommand(command, args, stdinData) {
       break;
     }
 
+    case 'deleteSession': {
+      // 软删除(归档)OpenCode 会话(对称 Codex 删 session 文件);history-service.archiveSession
+      // 置 time_archived,getSessionList 已过滤归档项,故前端 reload 后不复活。
+      const sessionId = stdinData?.sessionId || stdinData?.threadId || args[0] || '';
+      const result = await archiveSession({ sessionId, dbPath: stdinData?.dbPath });
+      console.log(JSON.stringify(result));
+      break;
+    }
+
     default:
       throw new Error(`Unknown OpenCode command: ${command}`);
   }
 }
 
 export function getOpenCodeCommandList() {
-  return ['send', 'abort', 'getSession', 'listSessions', 'getMcpServerTools'];
+  return ['send', 'abort', 'getSession', 'listSessions', 'deleteSession', 'getMcpServerTools'];
 }
 
 export const opencodeChannelDescriptor = {

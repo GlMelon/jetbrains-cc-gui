@@ -2,7 +2,12 @@ import type { MutableRefObject } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ClaudeMessage } from '../../../types';
 import type { UseWindowCallbacksOptions } from '../../useWindowCallbacks';
-import { registerStreamingCallbacks } from '../registerCallbacks/streamingCallbacks';
+import {
+  registerStreamingCallbacks,
+  isOpencodeProvider,
+  scheduleOpencodeHistoryRefresh,
+  OPENCODE_HISTORY_REFRESH_DELAY_MS,
+} from '../registerCallbacks/streamingCallbacks';
 
 const ref = <T>(value: T): MutableRefObject<T> => ({ current: value });
 
@@ -326,5 +331,52 @@ describe('streamingCallbacks block reset', () => {
     expect(assistantMessages.map((message) => message.content)).toEqual(['第一段', '第二段']);
     expect(assistantMessages.map((message) => message.isStreaming)).toEqual([false, false]);
     expect(assistantMessages[1].__responseId).toBe(assistantMessages[0].__responseId);
+  });
+});
+
+// 问题2c:OpenCode stream_end 后延迟二次刷新历史列表(兜底)。主修=ai-bridge getSessionList 换
+// node:sqlite(WAL 感知);此处防 serve 写 SQLite(session row/time_updated)与 stream_end SSE
+// 事件的竞态 + WAL checkpoint 时机不定。Claude/Codex 走缓存即时刷新,无需延迟兜底。
+describe('opencode 延迟二次历史刷新 (问题2c)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  it('isOpencodeProvider 仅匹配 opencode provider', () => {
+    expect(isOpencodeProvider('opencode')).toBe(true);
+    expect(isOpencodeProvider('claude')).toBe(false);
+    expect(isOpencodeProvider('codex')).toBe(false);
+    expect(isOpencodeProvider(undefined)).toBe(false);
+    expect(isOpencodeProvider(null)).toBe(false);
+  });
+
+  it('scheduleOpencodeHistoryRefresh 对 opencode 延迟调用刷新动作', () => {
+    const refresh = vi.fn();
+    scheduleOpencodeHistoryRefresh('opencode', refresh);
+    expect(refresh).not.toHaveBeenCalled();
+    // 未到延迟时间不触发
+    vi.advanceTimersByTime(OPENCODE_HISTORY_REFRESH_DELAY_MS - 1);
+    expect(refresh).not.toHaveBeenCalled();
+    // 到达延迟时间触发一次
+    vi.advanceTimersByTime(1);
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('scheduleOpencodeHistoryRefresh 对非 opencode provider 不调度刷新', () => {
+    const refresh = vi.fn();
+    scheduleOpencodeHistoryRefresh('claude', refresh);
+    vi.advanceTimersByTime(OPENCODE_HISTORY_REFRESH_DELAY_MS + 5000);
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it('scheduleOpencodeHistoryRefresh 重入时清旧建新,避免累积多个 pending 刷新', () => {
+    const refreshA = vi.fn();
+    const refreshB = vi.fn();
+    scheduleOpencodeHistoryRefresh('opencode', refreshA);
+    // 第二次调度应取消第一次的 pending(模拟连续多 turn / 重复 stream_end)
+    scheduleOpencodeHistoryRefresh('opencode', refreshB);
+    vi.advanceTimersByTime(OPENCODE_HISTORY_REFRESH_DELAY_MS + 5000);
+    expect(refreshA).not.toHaveBeenCalled();
+    expect(refreshB).toHaveBeenCalledTimes(1);
   });
 });
