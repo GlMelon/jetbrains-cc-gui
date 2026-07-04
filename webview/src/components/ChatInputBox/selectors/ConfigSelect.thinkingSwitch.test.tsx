@@ -1,3 +1,5 @@
+// @vitest-environment happy-dom
+
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { ConfigSelect } from './ConfigSelect';
@@ -13,20 +15,11 @@ vi.mock('react-i18next', () => ({
     t: (key: string) =>
       ({
         'common.thinking': 'Thinking',
-        'common.thinkingDisabledHint': 'thinking-disabled-hint',
         'settings.basic.streaming.label': 'Streaming',
         'settings.configure': 'Configure',
       } as Record<string, string>)[key] ?? key,
   }),
 }));
-
-vi.mock('../../../hooks/useCurrentInvocationMode', () => ({
-  useCurrentInvocationMode: vi.fn(() => undefined),
-}));
-
-import { useCurrentInvocationMode } from '../../../hooks/useCurrentInvocationMode';
-
-const mockedUseInvocationMode = vi.mocked(useCurrentInvocationMode);
 
 /** 打开 Configure 菜单,定位「思考」开关(shared/Switch 渲染为 button[role=switch])。 */
 const openThinkingSwitch = async (): Promise<HTMLElement> => {
@@ -36,47 +29,27 @@ const openThinkingSwitch = async (): Promise<HTMLElement> => {
   return within(thinkingOption).getByRole('switch');
 };
 
-describe('ConfigSelect thinking switch — OpenCode CLI grey-out', () => {
+describe('ConfigSelect thinking switch — available across all providers', () => {
   beforeEach(() => {
-    mockedUseInvocationMode.mockReset();
-    mockedUseInvocationMode.mockReturnValue(undefined);
     window.sendToJava = vi.fn();
   });
 
-  it('disables thinking switch when provider=opencode and invocationMode=cli', async () => {
-    mockedUseInvocationMode.mockReturnValue('cli');
-    render(<ConfigSelect currentProvider="opencode" />);
-    const thinkingSwitch = await openThinkingSwitch();
-    expect(thinkingSwitch.hasAttribute('disabled')).toBe(true);
-    // 灰显时 option 容器带 title 提示
-    const option = thinkingSwitch.closest('.selector-option');
-    expect(option?.getAttribute('title')).toBe('thinking-disabled-hint');
-  });
-
-  it('keeps thinking switch enabled when provider=opencode and invocationMode=sdk', async () => {
-    mockedUseInvocationMode.mockReturnValue('sdk');
+  // OpenCode CLI 现带 --thinking flag(opencode run --format json 输出 type:"reasoning" 文本事件,
+  // parser EVENT_REASONING 分支消费),思考区开关对所有 provider 均可用。早期 opencode+cli 灰显已移除。
+  it('keeps thinking switch enabled for provider=opencode (CLI now emits thinking via --thinking)', async () => {
     render(<ConfigSelect currentProvider="opencode" />);
     const thinkingSwitch = await openThinkingSwitch();
     expect(thinkingSwitch.hasAttribute('disabled')).toBe(false);
   });
 
-  it('keeps thinking switch enabled when provider=codex and invocationMode=cli (Codex CLI emits thinking)', async () => {
-    mockedUseInvocationMode.mockReturnValue('cli');
+  it('keeps thinking switch enabled for provider=codex', async () => {
     render(<ConfigSelect currentProvider="codex" />);
     const thinkingSwitch = await openThinkingSwitch();
     expect(thinkingSwitch.hasAttribute('disabled')).toBe(false);
   });
 
-  it('keeps thinking switch enabled when provider=claude and invocationMode=cli (Claude CLI emits thinking)', async () => {
-    mockedUseInvocationMode.mockReturnValue('cli');
+  it('keeps thinking switch enabled for provider=claude', async () => {
     render(<ConfigSelect currentProvider="claude" />);
-    const thinkingSwitch = await openThinkingSwitch();
-    expect(thinkingSwitch.hasAttribute('disabled')).toBe(false);
-  });
-
-  it('keeps thinking switch enabled when invocation mode is still unknown', async () => {
-    mockedUseInvocationMode.mockReturnValue(undefined);
-    render(<ConfigSelect currentProvider="opencode" />);
     const thinkingSwitch = await openThinkingSwitch();
     expect(thinkingSwitch.hasAttribute('disabled')).toBe(false);
   });

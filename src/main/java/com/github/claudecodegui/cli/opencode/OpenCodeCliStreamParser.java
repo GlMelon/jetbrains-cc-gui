@@ -40,6 +40,7 @@ public class OpenCodeCliStreamParser {
     private static final String EVENT_TOOL_USE = "tool_use";
     private static final String EVENT_STEP_FINISH = "step_finish";
     private static final String EVENT_ERROR = "error";
+    private static final String EVENT_REASONING = "reasoning";
     private static final String REASON_STOP = "stop";
 
     private final Gson gson = GsonHolder.GSON;
@@ -58,6 +59,10 @@ public class OpenCodeCliStreamParser {
     private boolean receivedAnyEvent;
     private final StringBuilder errorDiagnostic = new StringBuilder();
     private final StringBuilder assistantContent = new StringBuilder();
+    // 累积 reasoning 文本,增量去重(对称 ai-bridge/services/opencode/event-mapper.js delta)。
+    // reasoning 事件由 --thinking flag 触发(opencode run 默认不输出推理文本,见 buildRunCommand)。
+    private String reasoningText = "";
+    private boolean thinkingActivated; // 首个 reasoning 合成思考激活态(一次性,对称 CLI thinkingStart)
 
     public OpenCodeCliStreamParser(CliSessionCallback callback) {
         this.callback = callback;
@@ -102,6 +107,8 @@ public class OpenCodeCliStreamParser {
         receivedAnyEvent = false;
         errorDiagnostic.setLength(0);
         assistantContent.setLength(0);
+        reasoningText = "";
+        thinkingActivated = false;
     }
 
     /**
@@ -151,18 +158,18 @@ public class OpenCodeCliStreamParser {
         switch (type) {
             case EVENT_STEP_START -> handleStepStart();
             case EVENT_TEXT -> handleText(event);
+            case EVENT_REASONING -> handleReasoning(event);
             case EVENT_TOOL_USE -> handleToolUse(event);
             case EVENT_STEP_FINISH -> handleStepFinish(event);
             case EVENT_ERROR -> handleError(event);
             default -> {
-                // 忽略未知事件类型(message_start/step_reasoning 等)。
-                // 根因调查(2026-07,opencode v1.17.11 --format json cheatsheet):NDJSON schema 仅 5 类
-                // 事件(step_start/tool_use/text/step_finish/error),无推理文本事件——推理仅以
-                // step_finish.part.tokens.reasoning 的"计数"形式出现(非文本)。--thinking flag 是
-                // TUI 显示控制("show thinking blocks"),不改变 json 事件 schema。故 CLI 模式无法实现
-                // 思考区(opencode provider 限制,非插件 bug);思考区仅在 SDK 模式可用(SSE
-                // message.part.updated + part.type=reasoning 含文本,由 ai-bridge event-mapper 处理)。
-                // 详见设计 §7.3 + https://littlebearapps.com/help/untether/opencode-stream-json-cheatsheet/
+                // 忽略未知事件类型(message_start 等内部事件)。
+                // 注:reasoning 文本事件由 EVENT_REASONING 分支处理(需命令行带 --thinking 才输出,
+                // 见 OpenCodeCliSession.buildRunCommand)。
+                // 早期根因调查(2026-07,基于 v1.17.11 --format json cheatsheet 的二手资料)曾误判
+                // "CLI 无推理文本事件、--thinking 不改 json schema";2026-07 v1.17.13 实测推翻:
+                // `opencode run --format json --thinking` 会产出 type:"reasoning" 文本事件
+                // (对称 SDK 的 message.part.updated + part.type=reasoning)。详见 buildRunCommand 注释。
             }
         }
     }
@@ -198,6 +205,47 @@ public class OpenCodeCliStreamParser {
         }
         String text = getString(part, "text");
         emitter.contentDelta(assistantContent, text);
+    }
+
+    /**
+     * 处理 reasoning 事件(需 {@code opencode run} 带 {@code --thinking} flag)。opencode 把推理文本
+     * 以累积式输出(同 part.id,text 逐次增长),此处增量去重后下发,对称 SDK 路径
+     * {@code ai-bridge/services/opencode/event-mapper.js} 的 reasoning→thinking_delta 映射。
+     * <p>
+     * 首个 reasoning 事件(即使 text 空)发 {@link CommonConstants#MSG_TYPE_THINKING} 激活思考态
+     * (对称 CLI thinkingStart → CodexMessageHandler 点亮"思考中"指示灯);后续仅发增量 delta。
+     */
+    private void handleReasoning(JsonObject event) {
+        JsonObject part = asObject(event, "part");
+        String text = part != null ? getString(part, "text") : null;
+        String delta = deltaOf(reasoningText, text);
+        if (!thinkingActivated) {
+            thinkingActivated = true;
+            emitter.thinkingStart();
+        }
+        if (delta != null) {
+            reasoningText += delta;
+            emitter.thinkingDelta(delta);
+        }
+    }
+
+    /**
+     * reasoning 增量去重:累积式 text 取前缀差为增量;新文本不以旧为前缀(非累积/重置)则整体下发。
+     * 返回 null 表示无新增(空或与旧值相同,不发 delta)。对称 event-mapper.js delta()。
+     */
+    private static String deltaOf(String previous, String next) {
+        String oldText = previous == null ? "" : previous;
+        String newText = next == null ? "" : next;
+        if (newText.isEmpty() || newText.equals(oldText)) {
+            return null;
+        }
+        if (oldText.isEmpty()) {
+            return newText;
+        }
+        if (newText.startsWith(oldText)) {
+            return newText.substring(oldText.length());
+        }
+        return newText;
     }
 
     private void handleToolUse(JsonObject event) {

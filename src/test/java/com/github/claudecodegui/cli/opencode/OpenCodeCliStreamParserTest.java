@@ -175,4 +175,60 @@ public class OpenCodeCliStreamParserTest {
                 cb.messages.stream().filter(m -> CliConstants.CODEX_MSG_STATUS.equals(m[0])).count());
         assertFalse("所有 MCP 错误都不标记 hasError", parser.hasError());
     }
+
+    @Test
+    public void reasoningEventEmitsThinkingActivationAndDelta() {
+        // opencode run --format json --thinking 产出 reasoning 文本事件(实捕自 v1.17.13,
+        // 推翻旧注释"--thinking 不改 json schema")。首个 reasoning → MSG_TYPE_THINKING 激活
+        // (对称 SDK event-mapper thinkingStart + CodexMessageHandler 点亮"思考中"指示灯)
+        // + MSG_THINKING_DELTA(text)。
+        RecordingCallback cb = new RecordingCallback();
+        OpenCodeCliStreamParser parser = new OpenCodeCliStreamParser(cb);
+
+        parser.parseLine("{\"type\":\"reasoning\",\"timestamp\":1783132415530,\"sessionID\":\"ses_r\","
+                + "\"part\":{\"id\":\"prt_r1\",\"messageID\":\"msg_r\",\"sessionID\":\"ses_r\","
+                + "\"type\":\"reasoning\",\"text\":\"The user said hi. I should greet back.\","
+                + "\"time\":{\"start\":1,\"end\":2}}}");
+
+        assertTrue("首个 reasoning 必须发思考激活 MSG_TYPE_THINKING",
+                cb.messages.stream().anyMatch(m -> CommonConstants.MSG_TYPE_THINKING.equals(m[0])));
+        assertTrue("reasoning 文本必须作为 thinking_delta 下发",
+                cb.messages.stream().anyMatch(m -> CliConstants.MSG_THINKING_DELTA.equals(m[0])
+                        && m[1].contains("I should greet back")));
+    }
+
+    @Test
+    public void subsequentReasoningEmitsOnlyDeltaIncrement() {
+        // reasoning text 为累积式(同 part.id,text 增长)→ 后续只发增量 delta,激活态不重复。
+        // 对称 ai-bridge event-mapper.js delta() 去重。
+        RecordingCallback cb = new RecordingCallback();
+        OpenCodeCliStreamParser parser = new OpenCodeCliStreamParser(cb);
+
+        parser.parseLine("{\"type\":\"reasoning\",\"sessionID\":\"ses_r\","
+                + "\"part\":{\"id\":\"prt_r1\",\"messageID\":\"msg_r\",\"type\":\"reasoning\",\"text\":\"abc\"}}");
+        parser.parseLine("{\"type\":\"reasoning\",\"sessionID\":\"ses_r\","
+                + "\"part\":{\"id\":\"prt_r1\",\"messageID\":\"msg_r\",\"type\":\"reasoning\",\"text\":\"abcdef\"}}");
+
+        long activations = cb.messages.stream()
+                .filter(m -> CommonConstants.MSG_TYPE_THINKING.equals(m[0])).count();
+        assertEquals("激活态只发一次", 1L, activations);
+        assertTrue("第二条只发增量 delta \"def\"", cb.messages.stream()
+                .anyMatch(m -> CliConstants.MSG_THINKING_DELTA.equals(m[0]) && "def".equals(m[1])));
+    }
+
+    @Test
+    public void emptyFirstReasoningTextStillActivates() {
+        // 首个 reasoning text 可能为空(占位事件)→ 仍发激活态点亮指示灯,但不发空 delta。
+        // 对称 SDK event-mapper:首条 reasoning(即使 text 空)合成 thinking 激活。
+        RecordingCallback cb = new RecordingCallback();
+        OpenCodeCliStreamParser parser = new OpenCodeCliStreamParser(cb);
+
+        parser.parseLine("{\"type\":\"reasoning\",\"sessionID\":\"ses_r\","
+                + "\"part\":{\"id\":\"prt_r1\",\"messageID\":\"msg_r\",\"type\":\"reasoning\",\"text\":\"\"}}");
+
+        assertTrue("空 text 仍激活思考态", cb.messages.stream()
+                .anyMatch(m -> CommonConstants.MSG_TYPE_THINKING.equals(m[0])));
+        assertFalse("空 text 不发 thinking_delta", cb.messages.stream()
+                .anyMatch(m -> CliConstants.MSG_THINKING_DELTA.equals(m[0])));
+    }
 }

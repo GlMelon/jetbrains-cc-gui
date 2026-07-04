@@ -13,7 +13,6 @@ import {
   type NodeProcessSnapshot,
 } from '../../../utils/nodeProcessCapabilities';
 import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
-import { useCurrentInvocationMode } from '../../../hooks/useCurrentInvocationMode';
 
 interface ConfigSelectProps {
   showThinkingEnabled?: boolean;
@@ -121,11 +120,6 @@ const FAINT_DIVIDER_STYLE: React.CSSProperties = {
   opacity: 0.5,
 };
 
-const DISABLED_OPTION_STYLE: React.CSSProperties = {
-  opacity: 0.5,
-  cursor: 'not-allowed',
-};
-
 const TOAST_STYLE: React.CSSProperties = { zIndex: 20000 };
 
 function getAgentOptionStyle(isInfo: boolean): React.CSSProperties {
@@ -152,10 +146,9 @@ export const ConfigSelect = ({
   const { t } = useTranslation();
   // 流式/思考区开关本质是 provider/调用模式无关的纯显示开关:流式 off → 后端缓冲到
   // turn 边界一次性推送;思考区 off → 不推送 thinking 类型数据(模型照常思考)。
-  // 但 OpenCode CLI 模式下 opencode run --format json 无推理文本事件(provider 限制),
-  // 思考开关恒为 no-op,故灰显避免误导;SDK 模式有 reasoning 事件,开关正常生效。
-  const invocationMode = useCurrentInvocationMode();
-  const thinkingSwitchDisabled = currentProvider === 'opencode' && invocationMode === 'cli';
+  // OpenCode CLI 现带 --thinking flag(见 OpenCodeCliSession.buildRunCommand),opencode run
+  // --format json 会输出 type:"reasoning" 文本事件,parser EVENT_REASONING 分支据此推送思考区,
+  // 故思考开关对所有 provider/调用模式均可用(对称 SDK 路径),无需灰显。
   const [isOpen, setIsOpen] = useState(false);
   const [activeSubmenu, setActiveSubmenu] = useState<'none' | 'agent' | 'runtimeProvider' | 'nodeProcesses'>('none');
   const [agentItems, setAgentItems] = useState<AgentItem[]>([]);
@@ -541,18 +534,16 @@ export const ConfigSelect = ({
           <div style={FAINT_DIVIDER_STYLE} />
 
           {/* Show-thinking Switch Item - 显示思考区开关。
-              OpenCode CLI 模式无推理文本事件(provider 限制),开关恒 no-op 故灰显;
-              SDK 模式有 reasoning 事件,开关正常生效。 */}
+              所有 provider/调用模式均可生效:Claude/Codex/OpenCode CLI 均推送 reasoning,
+              OpenCode CLI 由 --thinking flag 驱动(见 OpenCodeCliSession.buildRunCommand)。 */}
           <div
             className="selector-option"
             onClick={(e) => {
-              if (thinkingSwitchDisabled) return;
               e.stopPropagation();
               onShowThinkingEnabledChange?.(!showThinkingEnabled);
             }}
             onMouseEnter={() => setActiveSubmenu('none')}
-            style={{ ...SWITCH_OPTION_STYLE, ...(thinkingSwitchDisabled ? DISABLED_OPTION_STYLE : {}) }}
-            title={thinkingSwitchDisabled ? t('common.thinkingDisabledHint') : undefined}
+            style={SWITCH_OPTION_STYLE}
           >
             <div style={SWITCH_LABEL_STYLE}>
               <LightbulbIcon size={16} />
@@ -561,9 +552,7 @@ export const ConfigSelect = ({
             <Switch
               size="small"
               checked={showThinkingEnabled ?? true}
-              disabled={thinkingSwitchDisabled}
               onClick={(checked, e) => {
-                if (thinkingSwitchDisabled) return;
                 e.stopPropagation();
                 onShowThinkingEnabledChange?.(checked);
               }}

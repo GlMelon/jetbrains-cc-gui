@@ -325,6 +325,11 @@ public class OpenCodeCliSession implements CliSession {
             cmd.add(CliConstants.OPENCODE_ARG_VARIANT);
             cmd.add(variant);
         }
+        // 总是带 --thinking:让 opencode run --format json 输出 type:"reasoning" 文本事件
+        // (parser EVENT_REASONING 分支据此推送思考区)。--thinking(是否输出推理文本)与 --variant
+        // (推理强度)正交,故 medium(省略 variant)也带;glm 等模型即使 medium 仍产出推理 token。
+        // 对齐 SDK 路径(message.part.updated reasoning 文本透传)。详见 OpenCodeCliStreamParser.handleReasoning。
+        cmd.add(CliConstants.OPENCODE_ARG_THINKING);
         if (attachFiles != null) {
             for (File f : attachFiles) {
                 if (f != null) {

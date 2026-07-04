@@ -76,6 +76,11 @@ public class OpenCodeCliSessionCommandTest {
         int dirIdx = indexOf(cmd, "--dir");
         assertTrue("dir flag present", dirIdx >= 0);
         assertEquals("/work", cmd.get(dirIdx + 1));
+
+        // 总是带 --thinking:让 opencode run --format json 输出 type:"reasoning" 文本事件
+        // (parser EVENT_REASONING 分支据此推送思考区)。--thinking(输出推理文本)与 --variant
+        // (推理强度)正交。对齐 SDK 路径(message.part.updated reasoning 文本透传)。
+        assertTrue("--thinking flag always present", cmd.contains("--thinking"));
     }
 
     @Test
@@ -126,5 +131,7 @@ public class OpenCodeCliSessionCommandTest {
         OpenCodeCliSession session = new OpenCodeCliSession("t");
         List<String> cmd = session.buildRunCommand(medium, null, List.of());
         assertFalse("medium → omit --variant", cmd.contains("--variant"));
+        // --thinking 与 --variant 正交:medium 省略 variant,但仍带 --thinking(让推理文本可见)
+        assertTrue("medium 仍带 --thinking(与 variant 正交)", cmd.contains("--thinking"));
     }
 }

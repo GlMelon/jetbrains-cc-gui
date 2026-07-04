@@ -16,7 +16,6 @@
     "history": "History",
     "settings": "Settings",
     "thinking": "Thinking",
-    "thinkingDisabledHint": "Thinking output is unavailable for OpenCode in CLI mode",
     "thinkingProcess": "Thinking Process",
     "success": "Success",
     "error": "Error",
