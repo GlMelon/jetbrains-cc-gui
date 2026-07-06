@@ -436,6 +436,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
+  padding: 16px;
 }
 
 .warningDialog {
@@ -443,6 +444,8 @@
   border-radius: 8px;
   padding: 24px;
   width: 400px;
+  max-width: calc(100vw - 32px);
+  box-sizing: border-box;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
   border: 1px solid var(--warning-color, #ff9800);
 }
@@ -455,6 +458,7 @@
   font-weight: 600;
   color: var(--warning-color, #ff9800);
   margin-bottom: 16px;
+  overflow-wrap: anywhere;
 }
 
 .warningContent {
@@ -462,11 +466,14 @@
   line-height: 1.5;
   color: var(--text-primary);
   margin-bottom: 24px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .warningActions {
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 8px;
 }
 

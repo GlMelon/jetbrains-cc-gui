@@ -430,7 +430,14 @@
         "npmPackage": "npm 包名（可选）",
         "advancedFormHint": "其余高级字段（如 options / command）请切换 JSON 视图编辑",
         "advancedTitle": "高级 / 透传字段",
-        "advancedJsonHint": "含 opencode 原生透传字段"
+        "advancedJsonHint": "含 opencode 原生透传字段",
+        "localConfigProviderName": "使用本地 opencode.json",
+        "localConfigProviderDescription": "显式授权读取：~/.config/opencode/opencode.json",
+        "localConfigAuthorizeTitle": "授权读取本地 OpenCode 配置",
+        "localConfigAuthorizeMessage": "插件将读取 ~/.config/opencode/opencode.json 中已有的本地配置。",
+        "localConfigAuthorizeDetail": "此操作不会修改或覆盖您的 opencode.json，您可以随时取消授权。",
+        "localConfigDisableTitle": "取消本地 OpenCode 配置授权",
+        "localConfigDisableMessage": "插件将停止读取 ~/.config/opencode/opencode.json。"
       }
     },
     "pluginModels": {

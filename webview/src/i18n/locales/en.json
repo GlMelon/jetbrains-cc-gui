@@ -428,7 +428,14 @@
         "npmPackage": "npm package (optional)",
         "advancedFormHint": "Switch to JSON view to edit other advanced fields (e.g., options / command)",
         "advancedTitle": "Advanced / passthrough fields",
-        "advancedJsonHint": "Includes opencode native passthrough fields"
+        "advancedJsonHint": "Includes opencode native passthrough fields",
+        "localConfigProviderName": "Use local opencode.json",
+        "localConfigProviderDescription": "Explicitly authorize reading ~/.config/opencode/opencode.json",
+        "localConfigAuthorizeTitle": "Authorize Local OpenCode Config Access",
+        "localConfigAuthorizeMessage": "The plugin will read the existing local configuration from ~/.config/opencode/opencode.json.",
+        "localConfigAuthorizeDetail": "This will not modify or overwrite your opencode.json, and you can revoke the authorization at any time.",
+        "localConfigDisableTitle": "Revoke Local OpenCode Config Authorization",
+        "localConfigDisableMessage": "The plugin will stop reading ~/.config/opencode/opencode.json."
       }
     },
     "pluginModels": {
