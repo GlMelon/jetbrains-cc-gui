@@ -55,6 +55,7 @@ public enum DownstreamEvent implements ProtocolValue {
     STREAM_START("stream.start"),
     STREAM_CONTENT_DELTA("stream.content_delta"),
     STREAM_THINKING_DELTA("stream.thinking_delta"),
+    STREAM_RESPONSE_PHASE("stream.response_phase"),
     STREAM_END("stream.end"),
     STREAM_HEARTBEAT("stream.heartbeat"),
     STREAM_PERMISSION_DENIED("stream.permission_denied"),

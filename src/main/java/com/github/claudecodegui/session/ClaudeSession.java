@@ -139,6 +139,9 @@ public class ClaudeSession {
         default void onStreamStart() {
         }
 
+        default void onResponsePhase(AssistantResponseStatusPayload payload) {
+        }
+
         default void onStreamEnd() {
         }
 

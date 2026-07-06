@@ -104,6 +104,15 @@ public class CallbackHandler {
     }
 
     /**
+     * Notify that the assistant response status phase changed.
+     */
+    public void notifyResponsePhase(AssistantResponseStatusPayload payload) {
+        if (callback != null) {
+            callback.onResponsePhase(payload);
+        }
+    }
+
+    /**
      * Notify that streaming has ended.
      */
     public void notifyStreamEnd() {

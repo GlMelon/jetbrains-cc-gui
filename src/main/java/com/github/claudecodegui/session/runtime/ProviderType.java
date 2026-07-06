@@ -41,17 +41,19 @@ import java.util.Optional;
  */
 public enum ProviderType implements ProtocolValue {
 
-    CLAUDE("claude", "claude", "claude.cmd"),
-    CODEX("codex", "codex", "codex.cmd"),
-    OPENCODE("opencode", "opencode", "opencode.cmd"),
+    CLAUDE("claude", "Claude", "claude", "claude.cmd"),
+    CODEX("codex", "Codex", "codex", "codex.cmd"),
+    OPENCODE("opencode", "OpenCode", "opencode", "opencode.cmd"),
     ;
 
     private final String value;
+    private final String displayLabel;
     private final String cliCommand;
     private final String cliCommandWindows;
 
-    ProviderType(String value, String cliCommand, String cliCommandWindows) {
+    ProviderType(String value, String displayLabel, String cliCommand, String cliCommandWindows) {
         this.value = value;
+        this.displayLabel = displayLabel;
         this.cliCommand = cliCommand;
         this.cliCommandWindows = cliCommandWindows;
     }
@@ -60,6 +62,11 @@ public enum ProviderType implements ProtocolValue {
     @Override
     public String value() {
         return value;
+    }
+
+    /** User-facing provider label for backend-computed UI payloads. */
+    public String displayLabel() {
+        return displayLabel;
     }
 
     /**

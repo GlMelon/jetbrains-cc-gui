@@ -24,6 +24,7 @@ import { MessageAvatar } from './MessageAvatar';
 import { MessageUsageStats } from './MessageUsageStats';
 import { extractMessageUsage } from '../../utils/messageUsage';
 import { CopyIcon } from '../Icons';
+import { AssistantResponseStatus } from './AssistantResponseStatus';
 
 export interface MessageItemProps {
   message: ClaudeMessage;
@@ -41,7 +42,7 @@ export interface MessageItemProps {
   onNavigateToProviderSettings?: () => void;
   onNavigateToDependencySettings?: () => void;
   toolResultSignature?: string;
-  /** Current active provider id (e.g. 'claude', 'codex'); drives the streaming-connect label. */
+  /** Current active provider id. */
   currentProvider?: string;
   /** Rendered inside a grouped assistant response container. */
   withinResponseGroup?: boolean;
@@ -228,7 +229,6 @@ export const MessageItem = memo(function MessageItem({
   shouldAnimateIn = false,
 }: MessageItemProps): React.ReactElement {
   const [copiedMessageIndex, setCopiedMessageIndex] = useState<number | null>(null);
-  const [showStreamingConnectHint, setShowStreamingConnectHint] = useState(false);
 
   // Track timeout to properly cleanup on unmount
   const copyTimeoutRef = useRef<number | null>(null);
@@ -319,15 +319,6 @@ export const MessageItem = memo(function MessageItem({
     blocks.length === 0 &&
     !(message.content && message.content.trim().length > 0);
 
-  useEffect(() => {
-    if (!isEmptyStreamingPlaceholder) {
-      setShowStreamingConnectHint(false);
-      return;
-    }
-    const timer = window.setTimeout(() => setShowStreamingConnectHint(true), 350);
-    return () => window.clearTimeout(timer);
-  }, [isEmptyStreamingPlaceholder]);
-
   // Ref to track the last auto-expanded thinking block index to avoid overriding user interaction
   const lastAutoExpandedIndexRef = useRef<number>(-1);
 
@@ -406,13 +397,7 @@ export const MessageItem = memo(function MessageItem({
     }
 
     if (isEmptyStreamingPlaceholder) {
-      return (
-        <div className="streaming-connect-status streaming-connect-enter">
-          <span className="streaming-connect-text">
-            {t('chat.streamingConnected', { provider: getProviderDisplayName(currentProvider, t) })}
-          </span>
-        </div>
-      );
+      return <AssistantResponseStatus payload={message.__assistantResponseStatus} />;
     }
 
     return groupedBlocks.map((grouped) => {
@@ -567,10 +552,6 @@ export const MessageItem = memo(function MessageItem({
       );
     });
   };
-
-  if (isEmptyStreamingPlaceholder && !showStreamingConnectHint) {
-    return <></>;
-  }
 
   if (renderMode === 'response-segment') {
     return (

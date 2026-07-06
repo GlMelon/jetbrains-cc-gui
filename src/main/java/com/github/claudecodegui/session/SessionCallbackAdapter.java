@@ -2,6 +2,8 @@ package com.github.claudecodegui.session;
 
 import com.github.claudecodegui.handler.permission.PermissionActionHandlers;
 import com.github.claudecodegui.permission.PermissionRequest;
+import com.github.claudecodegui.protocol.DownstreamEvent;
+import com.github.claudecodegui.util.GsonHolder;
 import com.github.claudecodegui.util.JsUtils;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
@@ -47,6 +49,11 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
     private volatile boolean active = true;
     /** Guards against duplicate onStreamEnd delivery from dual-path dispatch. */
     private volatile boolean streamEndSignalSent = false;
+    private volatile String responseStatusProviderLabel = null;
+    private volatile long responseStatusTurnStartedAtMillis = 0L;
+    private volatile boolean thinkingPhaseSent = false;
+    private volatile boolean respondingPhaseSent = false;
+    private volatile boolean toolingPhaseSent = false;
     /**
      * 单调递增的"流轮次"令牌。onStreamStart 递增,onStreamEnd 的双路径(primary flush 回调 +
      * 300ms Alarm 回退)都捕获并校验当前令牌。当上一轮的 flush 回调因慢速 JCEF IPC 延迟到
@@ -243,10 +250,30 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
     // ===== Streaming callback methods =====
 
     @Override
+    public void onResponsePhase(AssistantResponseStatusPayload payload) {
+        if (isInactive() || payload == null) {
+            return;
+        }
+        if (AssistantResponsePhase.QUEUED.value().equals(payload.phase()) || responseStatusTurnStartedAtMillis <= 0L) {
+            responseStatusTurnStartedAtMillis = System.currentTimeMillis();
+        }
+        if (payload.providerLabel() != null && !payload.providerLabel().trim().isEmpty()) {
+            responseStatusProviderLabel = payload.providerLabel().trim();
+        }
+        sendResponsePhase(payload);
+    }
+
+    @Override
     public void onStreamStart() {
         if (isInactive()) {
             return;
         }
+        if (responseStatusTurnStartedAtMillis <= 0L) {
+            responseStatusTurnStartedAtMillis = System.currentTimeMillis();
+        }
+        thinkingPhaseSent = false;
+        respondingPhaseSent = false;
+        toolingPhaseSent = false;
         // 开启新一轮流:递增 turn 令牌,令上一轮残留的 stale streamEnd 双路径回调全部失效,
         // 避免它们用上一轮的 sequence 误发 streamEnd(会提前结束本轮流)。
         streamEndTurn++;
@@ -259,6 +286,7 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
         contentDeltaThrottler.reset();
         thinkingDeltaThrottler.reset();
         streamCoalescer.onStreamStart();
+        sendResponsePhaseForCurrentTurn(AssistantResponsePhase.UNDERSTANDING);
         ApplicationManager.getApplication().invokeLater(() -> {
             if (isInactive()) {
                 return;
@@ -348,6 +376,7 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
             LOG.debug("Skipping sendStreamEndToFrontend — adapter deactivated (sequence=" + sequence + ")");
             return;
         }
+        sendResponsePhaseForCurrentTurn(AssistantResponsePhase.DONE);
         // Tag this as a backend-triggered stream-end so the frontend can
         // distinguish it from a stall-watchdog recovery in diagnostic logs.
         safeRun("callJavaScript(__lastStreamEndSource)", () ->
@@ -357,6 +386,31 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
         safeRun("callJavaScript(showLoading, false)", () ->
                 jsTarget.callJavaScript("showLoading", "false"));
         LOG.debug("Stream ended - notified frontend (sequence=" + sequence + ")");
+        responseStatusTurnStartedAtMillis = 0L;
+    }
+
+    private void sendResponsePhaseForCurrentTurn(AssistantResponsePhase phase) {
+        String providerLabel = responseStatusProviderLabel;
+        AssistantResponseStatusPayload payload = AssistantResponseStatusPayload.forProviderLabel(
+                phase,
+                providerLabel,
+                responseStatusTurnStartedAtMillis
+        );
+        sendResponsePhase(payload);
+    }
+
+    private void sendResponsePhase(AssistantResponseStatusPayload payload) {
+        String json = GsonHolder.GSON.toJson(payload);
+        ApplicationManager.getApplication().invokeLater(() -> {
+            if (isInactive()) {
+                return;
+            }
+            jsTarget.callJavaScript(
+                    "window.__bridge.dispatch",
+                    DownstreamEvent.STREAM_RESPONSE_PHASE.value(),
+                    JsUtils.escapeJs(json)
+            );
+        });
     }
 
     private static void safeRun(String label, Runnable action) {
@@ -372,6 +426,10 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
         if (isInactive()) {
             return;
         }
+        if (!respondingPhaseSent) {
+            respondingPhaseSent = true;
+            sendResponsePhaseForCurrentTurn(AssistantResponsePhase.RESPONDING);
+        }
         // 流式 on → gate 透传,交现有 throttler 增量节流;
         // 流式 off → gate 缓冲到 per-turn buffer,不下发 throttler,turn/段边界一次性 flush 全量。
         if (turnPushGate.onContentDelta(delta)) {
@@ -383,6 +441,10 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
     public void onThinkingDelta(String delta) {
         if (isInactive()) {
             return;
+        }
+        if (!thinkingPhaseSent) {
+            thinkingPhaseSent = true;
+            sendResponsePhaseForCurrentTurn(AssistantResponsePhase.THINKING);
         }
         // 思考区 off → 丢弃 thinking delta(模型照常思考,只控推送/显示);
         // 思考区 on → 透传现有 throttler。
@@ -396,6 +458,10 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
     public void onBlockReset() {
         if (isInactive()) {
             return;
+        }
+        if (!toolingPhaseSent) {
+            toolingPhaseSent = true;
+            sendResponsePhaseForCurrentTurn(AssistantResponsePhase.TOOLING);
         }
         // 段边界(tool-use 循环):先 flush 本段缓冲的全量(流式 off 时),再 reset throttlers。
         // 每段分别 flush,避免跨 tool-use 块串成一段。开关快照不变(同一 turn)。

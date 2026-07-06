@@ -90,6 +90,15 @@ export interface ClaudeRawMessage {
   [key: string]: unknown;
 }
 
+export interface AssistantResponseStatusPayload {
+  phase: string;
+  providerLabel: string;
+  title: string;
+  description?: string;
+  elapsedMs?: number;
+  active: boolean;
+}
+
 /** Represents a single message in the chat conversation. */
 export interface ClaudeMessage {
   type: 'user' | 'assistant' | 'error' | 'task_notification' | 'notification' | 'compact_notification';
@@ -119,6 +128,8 @@ export interface ClaudeMessage {
    * placeholders created for later stream segments.
    */
   __suppressStreamingConnectHint?: boolean;
+  /** Runtime-only: backend-computed assistant response phase status. */
+  __assistantResponseStatus?: AssistantResponseStatusPayload;
   [key: string]: unknown;
 }
 

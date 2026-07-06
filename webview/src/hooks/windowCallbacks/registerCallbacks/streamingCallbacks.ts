@@ -9,7 +9,7 @@ import { sendAction, subscribePassthroughEvent } from '../../../bridge/typed';
 import { UPSTREAM, DOWNSTREAM } from '../../../generated/protocol';
 import { startTransition } from 'react';
 import type { UseWindowCallbacksOptions } from '../../useWindowCallbacks';
-import type { ClaudeMessage, ClaudeRawMessage } from '../../../types';
+import type { AssistantResponseStatusPayload, ClaudeMessage, ClaudeRawMessage } from '../../../types';
 import { THROTTLE_INTERVAL } from '../../useStreamingMessages';
 import { parseSequence } from '../parseSequence';
 import { getStreamEndHandlingMode } from '../messageSync';
@@ -186,6 +186,38 @@ const getTextLenFromRaw = (raw: unknown): number => {
     .reduce((sum, b) => sum + b.text.length, 0);
 };
 
+const parseAssistantResponseStatusPayload = (raw: unknown): AssistantResponseStatusPayload | null => {
+  let parsed: unknown = raw;
+  if (typeof raw === 'string') {
+    try {
+      parsed = JSON.parse(raw);
+    } catch (error) {
+      console.warn('[Frontend] Failed to parse assistant response phase payload:', error);
+      return null;
+    }
+  }
+  if (!parsed || typeof parsed !== 'object') return null;
+
+  const value = parsed as Record<string, unknown>;
+  if (
+    typeof value.phase !== 'string' ||
+    typeof value.providerLabel !== 'string' ||
+    typeof value.title !== 'string' ||
+    typeof value.active !== 'boolean'
+  ) {
+    return null;
+  }
+
+  return {
+    phase: value.phase,
+    providerLabel: value.providerLabel,
+    title: value.title,
+    description: typeof value.description === 'string' ? value.description : undefined,
+    elapsedMs: typeof value.elapsedMs === 'number' ? value.elapsedMs : undefined,
+    active: value.active,
+  };
+};
+
 export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): void {
   const {
     setMessages,
@@ -317,7 +349,12 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
     scopeState.minAcceptedSequence = 0;
     setMessages((prev) => {
       const last = prev[prev.length - 1];
-      if (isReplayStart && last?.type === 'assistant') {
+      const shouldReuseExistingPlaceholder =
+        last?.type === 'assistant' &&
+        last.isStreaming === true &&
+        !last.content &&
+        !last.raw;
+      if ((isReplayStart && last?.type === 'assistant') || shouldReuseExistingPlaceholder) {
         streamingMessageIndexRef.current = prev.length - 1;
         scopeState.messageIndex = streamingMessageIndexRef.current;
         const updated = [...prev];
@@ -342,6 +379,53 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
           __responseId: window.__activeStreamingResponseId ?? undefined,
         },
       ];
+    });
+  });
+
+  subscribePassthroughEvent(DOWNSTREAM.STREAM_RESPONSE_PHASE, (raw) => {
+    if (window.__sessionTransitioning) return;
+    const payload = parseAssistantResponseStatusPayload(raw);
+    if (!payload) return;
+
+    if (payload.active) {
+      setLoading(true);
+      setStreamingActive(true);
+    }
+
+    setMessages((prev) => {
+      const newMessages = [...prev];
+      let idx = streamingMessageIndexRef.current;
+
+      if (!(idx >= 0 && newMessages[idx]?.type === 'assistant' && newMessages[idx].isStreaming === true)) {
+        for (let i = newMessages.length - 1; i >= 0; i -= 1) {
+          const msg = newMessages[i];
+          if (msg?.type === 'assistant' && msg.isStreaming === true) {
+            idx = i;
+            break;
+          }
+        }
+      }
+
+      if (!(idx >= 0 && newMessages[idx]?.type === 'assistant' && newMessages[idx].isStreaming === true)) {
+        if (!payload.active) return prev;
+        idx = newMessages.length;
+        streamingMessageIndexRef.current = idx;
+        newMessages.push({
+          type: 'assistant',
+          content: '',
+          isStreaming: true,
+          timestamp: new Date().toISOString(),
+          __assistantResponseStatus: payload,
+        });
+        return newMessages;
+      }
+
+      newMessages[idx] = {
+        ...newMessages[idx],
+        isStreaming: payload.active ? true : newMessages[idx].isStreaming,
+        __assistantResponseStatus: payload,
+      };
+      return newMessages;
     });
   });
 
@@ -720,6 +804,7 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
           content: finalContent,
           raw: finalRaw,
           isStreaming: false,
+          __assistantResponseStatus: undefined,
           __turnId: endedStreamingTurnId, // Keep __turnId for merge guard
           __responseId: newMessages[idx].__responseId ?? endedStreamingResponseId,
           ...(durationMs != null ? { durationMs } : {}),

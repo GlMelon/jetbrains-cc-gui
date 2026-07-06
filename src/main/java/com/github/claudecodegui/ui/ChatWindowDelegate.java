@@ -243,6 +243,7 @@ import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.SDKResult;
 import com.github.claudecodegui.session.SessionLifecycleManager;
 import com.github.claudecodegui.session.StreamMessageCoalescer;
+import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.util.JsUtils;
 import com.github.claudecodegui.util.MessageJsonConverter;
@@ -256,7 +257,6 @@ import com.intellij.ui.content.Content;
 import com.intellij.ui.jcef.JBCefBrowser;
 import javax.swing.*;
 import java.awt.*;
-import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -343,6 +343,7 @@ public class ChatWindowDelegate {
     private final DelegateHost host;
     private PromptActionHandlers promptHandlers; // B2 迁移: 需要 dispose 停止 FileWatcher
     private TabAnswerStatus currentTabStatus = TabAnswerStatus.IDLE;
+    private ProviderType currentTabProviderType = null;
 
     private volatile String pendingQuickFixPrompt = null;
     private volatile MessageCallback pendingQuickFixCallback = null;
@@ -851,68 +852,42 @@ public class ChatWindowDelegate {
     public void updateTabStatus(TabAnswerStatus status) {
         Content parentContent = host.getParentContent();
         String originalTabName = host.getOriginalTabName();
+        ProviderType providerType = resolveCurrentProviderType();
         if (parentContent == null || originalTabName == null) {
             LOG.warn("[TabStatus] Cannot update - parentContent or originalTabName is null");
             return;
         }
 
-        if (status == currentTabStatus) {
+        if (status == currentTabStatus && providerType == currentTabProviderType) {
             LOG.debug("[TabStatus] Skipping redundant update for tab: " + originalTabName);
             return;
         }
 
         currentTabStatus = status;
+        currentTabProviderType = providerType;
 
         ApplicationManager.getApplication().invokeLater(() -> {
-            String tabName = originalTabName;
+            String tabName = TabStatusPresentation.stripStatusText(originalTabName);
             String currentDisplayName = parentContent.getDisplayName();
             if (currentDisplayName != null && !currentDisplayName.startsWith(tabName)) {
                 tabName = currentDisplayName.endsWith("...")
                     ? currentDisplayName.substring(0, currentDisplayName.length() - 3)
                     : currentDisplayName;
+                tabName = TabStatusPresentation.stripStatusText(tabName);
                 host.setOriginalTabName(tabName);
                 LOG.debug("[TabStatus] Detected external rename, updated originalTabName to: " + tabName);
             }
 
-            String displayName;
-            switch (status) {
-                case QUEUED:
-                    displayName = tabName;
-                    parentContent.setIcon(createStatusDotIcon(new Color(0xD98E04)));
-                    LOG.debug("[TabStatus] Set queued state for tab: " + displayName);
-                    break;
-                case PROCESSING:
-                    displayName = tabName;
-                    parentContent.setIcon(createStatusDotIcon(new Color(0x2F7DFF)));
-                    LOG.debug("[TabStatus] Set processing state for tab: " + displayName);
-                    break;
-                case COMPLETED:
-                    displayName = tabName;
-                    parentContent.setIcon(createStatusDotIcon(new Color(0x2FA35B)));
-                    LOG.debug("[TabStatus] Set completed state for tab: " + displayName);
-                    break;
-                case IDLE:
-                default:
-                    displayName = tabName;
-                    parentContent.setIcon(null);
-                    LOG.debug("[TabStatus] Restored idle state for tab: " + displayName);
-                    break;
-            }
+            String displayName = TabStatusPresentation.displayName(tabName, status);
+            parentContent.setIcon(TabStatusPresentation.createProviderIcon(providerType.value(), status));
             parentContent.setDisplayName(displayName);
+            LOG.debug("[TabStatus] Set " + status.value() + " state for tab: " + displayName);
         });
     }
 
-    private static Icon createStatusDotIcon(Color color) {
-        BufferedImage image = new BufferedImage(10, 10, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D g2 = image.createGraphics();
-        try {
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setColor(color);
-            g2.fillOval(1, 1, 8, 8);
-        } finally {
-            g2.dispose();
-        }
-        return new ImageIcon(image);
+    private ProviderType resolveCurrentProviderType() {
+        ClaudeSession session = host.getSession();
+        return session == null ? ProviderType.CLAUDE : ProviderType.fromString(session.getProvider());
     }
 
     public void sendQuickFixMessage(String prompt, boolean isQuickFix, MessageCallback callback) {

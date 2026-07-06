@@ -35,6 +35,7 @@ public class SessionSendService {
     private final Gson gson;
     private final SessionContextService contextService;
     private final SessionRuntimeRouter runtimeRouter;
+    private volatile long responseStatusTurnStartedAtMillis = 0L;
 
     public SessionSendService(
             Project project,
@@ -120,6 +121,12 @@ public class SessionSendService {
         ClaudeNotifier.setWaiting(project);
         callbackFacade.notifyStateChange(state.isBusy(), state.isLoading(), state.getError());
         callbackFacade.notifyQueueDisplayStateChanged(state.getQueueDisplayState(), state.getQueueAheadCount());
+        responseStatusTurnStartedAtMillis = System.currentTimeMillis();
+        callbackFacade.notifyResponsePhase(AssistantResponseStatusPayload.forProvider(
+                AssistantResponsePhase.QUEUED,
+                state.getProvider(),
+                responseStatusTurnStartedAtMillis
+        ));
     }
 
     public static String resolveEffectivePermissionMode(String provider, String requestedMode, String sessionMode) {
@@ -202,6 +209,14 @@ public class SessionSendService {
         }
 
         String currentProvider = state.getProvider();
+        if (responseStatusTurnStartedAtMillis <= 0L) {
+            responseStatusTurnStartedAtMillis = System.currentTimeMillis();
+        }
+        callbackFacade.notifyResponsePhase(AssistantResponseStatusPayload.forProvider(
+                AssistantResponsePhase.CONNECTING,
+                currentProvider,
+                responseStatusTurnStartedAtMillis
+        ));
         String sessionModeBeforeSend = state.getPermissionMode();
         String normalizedRequestedMode = normalizeRequestedPermissionMode(requestedPermissionMode);
         String effectivePermissionMode = resolveEffectivePermissionMode(

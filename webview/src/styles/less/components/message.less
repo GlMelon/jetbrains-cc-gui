@@ -952,20 +952,82 @@
     color: var(--text-tertiary);
 }
 
-.streaming-connect-status {
-    display: inline-flex;
+.assistant-response-status {
+    display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 4px 0;
-    color: var(--text-tertiary);
-    font-size: 12.5px;
-    line-height: 1.4;
+    gap: 12px;
+    max-width: 520px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(124, 92, 255, 0.10), rgba(45, 212, 191, 0.08));
+    border: 1px solid rgba(125, 125, 125, 0.14);
+    color: var(--text-secondary);
+    animation: assistant-response-status-enter 180ms ease-out;
 }
 
-@keyframes streaming-connect-enter {
+.assistant-response-status-orb {
+    width: 12px;
+    height: 12px;
+    border-radius: 999px;
+    background: var(--accent-color, #7c5cff);
+    box-shadow: 0 0 0 0 rgba(124, 92, 255, 0.35);
+    animation: assistant-response-status-pulse 1.45s ease-in-out infinite;
+    flex: 0 0 auto;
+}
+
+.assistant-response-status.inactive .assistant-response-status-orb {
+    animation: none;
+    opacity: 0.55;
+}
+
+.assistant-response-status-body {
+    min-width: 0;
+}
+
+.assistant-response-status-meta {
+    margin-bottom: 3px;
+    font-size: 11px;
+    line-height: 1.2;
+    opacity: 0.62;
+}
+
+.assistant-response-status-title {
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.35;
+}
+
+.assistant-response-status-description {
+    margin-top: 2px;
+    font-size: 12px;
+    line-height: 1.35;
+    opacity: 0.72;
+}
+
+.assistant-response-status.phase-responding {
+    opacity: 0.76;
+}
+
+@keyframes assistant-response-status-pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(124, 92, 255, 0.34);
+        transform: scale(0.96);
+    }
+    55% {
+        box-shadow: 0 0 0 8px rgba(124, 92, 255, 0);
+        transform: scale(1);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(124, 92, 255, 0);
+        transform: scale(0.96);
+    }
+}
+
+@keyframes assistant-response-status-enter {
     from {
         opacity: 0;
-        transform: translateY(8px);
+        transform: translateY(4px);
     }
     to {
         opacity: 1;
@@ -973,12 +1035,9 @@
     }
 }
 
-.streaming-connect-enter {
-    animation: streaming-connect-enter 350ms ease-out both;
-}
-
 @media (prefers-reduced-motion: reduce) {
-    .streaming-connect-enter {
+    .assistant-response-status,
+    .assistant-response-status-orb {
         animation-duration: 0.01ms;
     }
 }

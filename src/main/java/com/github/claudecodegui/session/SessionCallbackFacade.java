@@ -65,6 +65,10 @@ public class SessionCallbackFacade {
         callbackHandler.notifyStreamStart();
     }
 
+    public void notifyResponsePhase(AssistantResponseStatusPayload payload) {
+        callbackHandler.notifyResponsePhase(payload);
+    }
+
     public void notifyStreamEnd() {
         callbackHandler.notifyStreamEnd();
     }
