@@ -111,6 +111,14 @@ public class CodexCliSession implements CliSession {
     private final Set<String> emittedToolResultIds = new HashSet<>();
     private final Set<String> emittedThinkingStartIds = new HashSet<>();
     /**
+     * 本轮(turn)是否已推送过任何 thinking 内容。turn.started 重置;
+     * {@link #markSegment} 在切到 THINKING 段时置位(覆盖 reasoning item 与工具诊断两路径)。
+     * 用于 turn.completed 时判断是否需补发占位思考——当 API 未返回可读 reasoning
+     * (如 gpt-5.5 经第三方代理),但 usage.reasoning_output_tokens>0 证实模型确实思考过,
+     * 补一条占位让思考区不致空白。零前端改动。
+     */
+    private boolean thinkingEmittedThisTurn = false;
+    /**
      * 缓冲的 agent_message 文本。
      *
      * WARNING—切勿让 handleAgentMessageItem 写入此字段:
@@ -543,6 +551,7 @@ public class CodexCliSession implements CliSession {
                 }
                 case CliConstants.CODEX_EVENT_TURN_STARTED -> {
                     lastSegmentKind = SegmentKind.NONE;
+                    thinkingEmittedThisTurn = false;
                     sectionEmitter(callback).messageStart();
                 }
                 case CliConstants.CODEX_EVENT_ITEM_STARTED, CliConstants.CODEX_EVENT_ITEM_UPDATED, CliConstants.CODEX_EVENT_ITEM_COMPLETED -> {
@@ -561,9 +570,19 @@ public class CodexCliSession implements CliSession {
                     // [安全网] handleAgentMessageItem 已立即流式,pending 恒空,此调用是 no-op
                     flushPendingAgentMessageAsContent(callback, assistantContent);
                     if (event.has("usage") && event.get("usage").isJsonObject()) {
+                        JsonObject usage = event.getAsJsonObject("usage");
+                        // 占位思考:API 未返回可读 reasoning(无 reasoning item → thinkingEmittedThisTurn=false),
+                        // 但 usage.reasoning_output_tokens>0 证实模型确实思考过。补一条占位让思考区不空白,
+                        // 让用户知道 codex 思考了。仅在本轮无任何 thinking 内容时发,避免与真实 reasoning 重复。
+                        if (!thinkingEmittedThisTurn
+                                && usage.has("reasoning_output_tokens")
+                                && usage.get("reasoning_output_tokens").isJsonPrimitive()
+                                && usage.getAsJsonPrimitive("reasoning_output_tokens").getAsInt() > 0) {
+                            emitThinkingPlaceholder(callback, usage.getAsJsonPrimitive("reasoning_output_tokens").getAsInt());
+                        }
                         CliSectionEmitter emitter = sectionEmitter(callback);
-                        emitter.usage(event.getAsJsonObject("usage").toString());
-                        emitter.result(buildUsageResultMessage(event.getAsJsonObject("usage")).toString());
+                        emitter.usage(usage.toString());
+                        emitter.result(buildUsageResultMessage(usage).toString());
                     }
                 }
                 case CliConstants.CODEX_EVENT_TURN_FAILED -> {
@@ -938,9 +957,28 @@ public class CodexCliSession implements CliSession {
         emitter.thinkingDelta(text);
     }
 
+    /**
+     * 占位思考:当 API 未返回可读 reasoning(如 gpt-5.5 经第三方代理,codex CLI --json 不发 reasoning item),
+     * 但 turn.completed.usage.reasoning_output_tokens>0 证实模型确实思考过时,在 turn 结束补一条占位,
+     * 让思考区显示"模型已思考"的反馈而非空白。仅在整轮无任何 thinking 内容时由 turn.completed 分支触发。
+     * <p>文案为中文硬编码(用户母语 zh_CN);思考区内容前端原样显示不翻译,故不走 __I18N__ 通道。
+     */
+    private void emitThinkingPlaceholder(CliSessionCallback callback, int reasoningTokens) {
+        String placeholder = "_(模型已思考 " + reasoningTokens + " tokens，当前 API 未返回可读推理内容)_";
+        markSegment(callback, SegmentKind.THINKING);
+        CliSectionEmitter emitter = sectionEmitter(callback);
+        emitter.thinkingStart();
+        emitter.thinkingDelta(placeholder);
+    }
+
     private void markSegment(CliSessionCallback callback, SegmentKind nextKind) {
         if (nextKind == null || nextKind == SegmentKind.NONE) {
             return;
+        }
+        // 切到 THINKING 段=本轮已产生思考内容(reasoning item 或工具诊断),置位以在 turn 结束时
+        // 判断是否需补占位思考。覆盖 handleReasoningItem 与 emitThinkingText 两路径的单点。
+        if (nextKind == SegmentKind.THINKING) {
+            thinkingEmittedThisTurn = true;
         }
         boolean crossesToolBoundary =
                 (lastSegmentKind == SegmentKind.TOOL && nextKind != SegmentKind.TOOL)

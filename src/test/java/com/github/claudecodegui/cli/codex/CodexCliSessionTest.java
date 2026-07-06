@@ -96,6 +96,86 @@ public class CodexCliSessionTest {
     }
 
     @Test
+    public void turnCompletedWithReasoningTokensButNoReasoningItemEmitsThinkingPlaceholder() throws Exception {
+        // 复现:gpt-5.5 经第三方代理 API 不返回可读 reasoning(codex CLI --json 不发 reasoning item),
+        // 但 turn.completed.usage.reasoning_output_tokens > 0 证实模型确实思考过。
+        // 期望:发一条占位思考(thinkingStart + thinkingDelta 含 token 数),让思考区不致空白。
+        CodexCliSession session = new CodexCliSession("tab-placeholder");
+        RecordingCallback callback = new RecordingCallback();
+
+        invokeParseEvent(session, "{\"type\":\"turn.started\"}", callback, new StringBuilder());
+        invokeParseEvent(
+                session,
+                "{\"type\":\"item.completed\",\"item\":{\"id\":\"item_0\",\"type\":\"agent_message\",\"text\":\"391\"}}",
+                callback,
+                new StringBuilder()
+        );
+        invokeParseEvent(
+                session,
+                "{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":10,\"output_tokens\":5,\"reasoning_output_tokens\":115}}",
+                callback,
+                new StringBuilder()
+        );
+
+        assertTrue("reasoning_output_tokens>0 且无 reasoning item 时应发 thinking_start",
+                callback.events.stream().anyMatch(event -> "thinking".equals(event.type)));
+        assertTrue("应发占位 thinking_delta 并含 token 数",
+                callback.events.stream().anyMatch(event -> "thinking_delta".equals(event.type) && event.content.contains("115")));
+    }
+
+    @Test
+    public void turnCompletedWithRealReasoningItemSuppressesPlaceholder() throws Exception {
+        // 有真实 reasoning item 时,turn 结束不重复发占位(避免双份思考块)。
+        CodexCliSession session = new CodexCliSession("tab-no-placeholder");
+        RecordingCallback callback = new RecordingCallback();
+
+        invokeParseEvent(session, "{\"type\":\"turn.started\"}", callback, new StringBuilder());
+        invokeParseEvent(
+                session,
+                "{\"type\":\"item.completed\",\"item\":{\"id\":\"r1\",\"type\":\"reasoning\",\"text\":\"真实推理内容\"}}",
+                callback,
+                new StringBuilder()
+        );
+        invokeParseEvent(
+                session,
+                "{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":10,\"output_tokens\":5,\"reasoning_output_tokens\":50}}",
+                callback,
+                new StringBuilder()
+        );
+
+        assertEquals("有真实 reasoning 时只发 1 条 thinking_delta(真实内容),不叠加占位",
+                1, callback.events.stream().filter(event -> "thinking_delta".equals(event.type)).count());
+        assertTrue("真实推理内容应被推送",
+                callback.contentsOfType("thinking_delta").contains("真实推理内容"));
+    }
+
+    @Test
+    public void turnCompletedWithoutReasoningTokensDoesNotEmitPlaceholder() throws Exception {
+        // reasoning_output_tokens=0(模型未思考)不发占位,思考区保持空。
+        CodexCliSession session = new CodexCliSession("tab-no-reasoning-tokens");
+        RecordingCallback callback = new RecordingCallback();
+
+        invokeParseEvent(session, "{\"type\":\"turn.started\"}", callback, new StringBuilder());
+        invokeParseEvent(
+                session,
+                "{\"type\":\"item.completed\",\"item\":{\"id\":\"item_0\",\"type\":\"agent_message\",\"text\":\"嗨\"}}",
+                callback,
+                new StringBuilder()
+        );
+        invokeParseEvent(
+                session,
+                "{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":10,\"output_tokens\":5,\"reasoning_output_tokens\":0}}",
+                callback,
+                new StringBuilder()
+        );
+
+        assertFalse("reasoning_output_tokens=0 不发 thinking",
+                callback.events.stream().anyMatch(event -> "thinking".equals(event.type)));
+        assertFalse("reasoning_output_tokens=0 不发 thinking_delta",
+                callback.events.stream().anyMatch(event -> "thinking_delta".equals(event.type)));
+    }
+
+    @Test
     public void agentMessageUpdatesStreamAsContentDeltaImmediately() throws Exception {
         // 官方 codex exec --json 契约:agent_message 通过 item.updated 多次累积发送,
         // 必须立即流式推送增量(content_delta),而非缓冲到 turn.completed 一次性输出。
