@@ -391,6 +391,7 @@ public class ClaudeChatWindow {
         ToolWindowManager.getInstance(this.project).invokeLater(() -> {
             if (!this.disposed) {
                 this.webviewInitializer.createUIComponents();
+                registerSessionLoadListener();
                 this.initialized = true;
                 LOG.info("Window instance fully initialized, project: " + this.project.getName());
             }
@@ -503,17 +504,6 @@ public class ClaudeChatWindow {
         }
         if (savedState.provider != null && !savedState.provider.trim().isEmpty()) {
             session.setProvider(savedState.provider);
-            // HandlerContext keeps its own currentProvider (read by
-            // getCurrentProvider() and by handlers that don't go through the
-            // session). Sync it here so the backend stays consistent until the
-            // webview echoes its own provider selection — without this, the
-            // very first message in a restored Codex tab still routes to the
-            // Claude bridge until the frontend's localStorage hydration sends
-            // set_provider, which itself can be wrong on multi-tab restarts
-            // (issue #1353).
-            if (handlerContext != null) {
-                handlerContext.setCurrentProvider(savedState.provider);
-            }
         }
         if (savedState.model != null && !savedState.model.trim().isEmpty()) {
             session.setModel(savedState.model);
@@ -1097,6 +1087,13 @@ public class ClaudeChatWindow {
         session.setSessionInfo(null, workingDirectory);
         persistTabSessionState();
         LOG.info("Initialized with working directory: " + workingDirectory);
+    }
+
+    private void registerSessionLoadListener() {
+        SessionLoadService.getInstance().setListener((sessionId, projectPath) -> {
+            ApplicationManager.getApplication().invokeLater(() ->
+                    sessionLifecycleManager.loadHistorySession(sessionId, projectPath));
+        });
     }
 
     private void registerInstance() {

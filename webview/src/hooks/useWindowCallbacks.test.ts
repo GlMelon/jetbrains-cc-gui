@@ -91,9 +91,6 @@ describe('useWindowCallbacks integration', () => {
     openPermissionDialog: vi.fn(),
     openAskUserQuestionDialog: vi.fn(),
     openPlanApprovalDialog: vi.fn(),
-    forceClosePermissionDialog: vi.fn(),
-    forceCloseAskUserQuestionDialog: vi.fn(),
-    forceClosePlanApprovalDialog: vi.fn(),
     openContextUsageDialog: vi.fn(),
     updateContextUsageData: vi.fn(),
     closeContextUsageDialog: vi.fn(),
@@ -1179,41 +1176,6 @@ describe('useWindowCallbacks integration', () => {
       expect(window.__deniedToolIds?.has('tool-x')).toBe(false);
     });
 
-    it('REGRESSION: parallel tool_use with SEPARATE tool_result user messages are not falsely denied', () => {
-      // Backend (ClaudeMessageHandler.handleToolResult) creates ONE user message
-      // per tool_result — so 3 parallel tool_use produce 3 consecutive user
-      // messages, each carrying a single tool_result. collectUnresolvedToolUseIds
-      // 'lastTurn' only inspects messages[i+1]; if it does not look beyond the
-      // first result message it will falsely flag tool-2 / tool-3 as interrupted.
-      const assistant: ClaudeMessage = {
-        type: 'assistant',
-        content: 'running parallel batch',
-        raw: {
-          content: [
-            { type: 'tool_use', id: 'tool-1', name: 'bash', input: { command: 'echo a' } },
-            { type: 'tool_use', id: 'tool-2', name: 'bash', input: { command: 'echo b' } },
-            { type: 'tool_use', id: 'tool-3', name: 'bash', input: { command: 'echo c' } },
-          ],
-        } as never,
-        timestamp: new Date().toISOString(),
-      };
-      const resultFor = (id: string): ClaudeMessage => ({
-        type: 'user',
-        content: '',
-        raw: { content: [{ type: 'tool_result', tool_use_id: id, content: 'ok' }] } as never,
-        timestamp: new Date().toISOString(),
-      });
-      const { opts } = createOptsWithMessages([assistant, resultFor('tool-1'), resultFor('tool-2'), resultFor('tool-3')]);
-      renderHook(() => useWindowCallbacks(opts));
-
-      act(() => { window.onStreamStart!(); });
-      act(() => { window.onStreamEnd!('5'); });
-
-      expect(window.__deniedToolIds?.has('tool-1')).toBe(false);
-      expect(window.__deniedToolIds?.has('tool-2')).toBe(false);
-      expect(window.__deniedToolIds?.has('tool-3')).toBe(false);
-    });
-
     it('historyLoadComplete scans ALL turns and marks orphan tool_use as denied', () => {
       // Simulates loading a Codex history with two aborted batches across
       // separate turns. The "lastTurn" heuristic used by onStreamEnd would
@@ -1484,7 +1446,7 @@ describe('useWindowCallbacks integration', () => {
       });
     });
 
-    it('onBlockReset keeps streaming refs cumulative across turns (single assistant message)', () => {
+    it('onBlockReset clears streaming refs to prevent cross-turn content merging', () => {
       stubSynchronousTimers();
 
       const opts = createOptions();
@@ -1494,33 +1456,33 @@ describe('useWindowCallbacks integration', () => {
       act(() => { window.onStreamStart!(); });
       expect(opts.isStreamingRef.current).toBe(true);
 
-      // Simulate first turn's thinking + content deltas
+      // Simulate first turn's thinking delta
       act(() => { window.onThinkingDelta!('Turn1Thinking'); });
-      act(() => { window.onContentDelta!('Turn1Content'); });
+      expect(opts.streamingThinkingRef.current).toBe('Turn1Thinking');
 
-      // Block reset signal arrives (a new assistant turn within the same
-      // stream). The Java layer keeps ONE assistant message for the whole
-      // turn and appends each turn's text/thinking as additional raw blocks,
-      // so the frontend must keep accumulating to preserve the prefix earlier
-      // turns contributed. Clearing here would break prefix reconciliation.
+      // Simulate first turn's content delta
+      act(() => { window.onContentDelta!('Turn1Content'); });
+      expect(opts.streamingContentRef.current).toBe('Turn1Content');
+
+      // Block reset signal arrives (new assistant message in stream)
       act(() => { window.onBlockReset!(); });
 
-      // Refs are intentionally retained, NOT cleared.
-      expect(opts.streamingThinkingRef.current).toBe('Turn1Thinking');
-      expect(opts.streamingContentRef.current).toBe('Turn1Content');
+      // Streaming refs should be cleared
+      expect(opts.streamingThinkingRef.current).toBe('');
+      expect(opts.streamingContentRef.current).toBe('');
+
+      // But streaming should still be active
       expect(opts.isStreamingRef.current).toBe(true);
 
-      // Second turn's deltas append to the cumulative buffer.
+      // Second turn's deltas arrive - should NOT merge with first turn
       act(() => { window.onThinkingDelta!('Turn2Thinking'); });
-      expect(opts.streamingThinkingRef.current).toBe('Turn1ThinkingTurn2Thinking');
+      expect(opts.streamingThinkingRef.current).toBe('Turn2Thinking');
 
       act(() => { window.onContentDelta!('Turn2Content'); });
-      expect(opts.streamingContentRef.current).toBe('Turn1ContentTurn2Content');
+      expect(opts.streamingContentRef.current).toBe('Turn2Content');
 
-      // Cross-turn separation is enforced downstream by the sync functions'
-      // trailing-block guard (see useStreamingMessages.test.ts: "does not
-      // overwrite a finalized thinking block when the new turn's own block has
-      // not arrived yet"), NOT by clearing the buffers here.
+      // If onBlockReset was NOT called, we would have "Turn1ThinkingTurn2Thinking"
+      // and "Turn1ContentTurn2Content" (merged content)
     });
 
     it('onBlockReset is ignored when stream is not active', () => {

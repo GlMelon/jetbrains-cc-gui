@@ -145,12 +145,6 @@ public class PermissionActionHandlers {
                 if (future.complete(PermissionService.PermissionResponse.DENY.getValue())) {
                     LOG.warn("[PERM_SHOW] Safety-net timeout fired (webview unreachable) for channelId=" + channelId);
                     pendingPermissionRequests.remove(channelId);
-                    // The webview may still have the dialog open (with its own
-                    // longer countdown finishing later, or stuck in an invisible
-                    // state from a JCEF render issue). Tell it to drop the
-                    // current dialog so the queue can drain for the next
-                    // request — see issue #1360.
-                    forceCloseFrontendDialog("forceClosePermissionDialog", channelId);
                 }
             });
 

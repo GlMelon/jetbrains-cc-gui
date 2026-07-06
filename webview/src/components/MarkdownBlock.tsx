@@ -217,38 +217,8 @@ marked.setOptions({
 });
 
 interface MarkdownBlockProps {
-  content?: unknown;
+  content?: string;
   isStreaming?: boolean;
-}
-
-function safeStringifyContent(value: unknown): string {
-  if (value === null || value === undefined) {
-    return '';
-  }
-  if (typeof value === 'string') {
-    return value;
-  }
-  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
-    return String(value);
-  }
-  if (Array.isArray(value)) {
-    return value.map((item) => safeStringifyContent(item)).filter(Boolean).join('\n');
-  }
-  if (typeof value === 'object') {
-    const record = value as Record<string, unknown>;
-    if (typeof record.text === 'string') {
-      return record.text;
-    }
-    if (typeof record.content === 'string') {
-      return record.content;
-    }
-    try {
-      return JSON.stringify(value, null, 2) ?? String(value);
-    } catch {
-      return String(value);
-    }
-  }
-  return String(value);
 }
 
 /**
@@ -539,7 +509,6 @@ const MarkdownBlock = ({ content = '', isStreaming = false }: MarkdownBlockProps
   );
   const containerRef = useRef<HTMLDivElement>(null);
   const { t, i18n } = useTranslation();
-  const normalizedContent = useMemo(() => safeStringifyContent(content), [content]);
 
   // Track previous isStreaming state to detect when streaming ends
   const prevIsStreamingRef = useRef(isStreaming);
@@ -640,7 +609,7 @@ const MarkdownBlock = ({ content = '', isStreaming = false }: MarkdownBlockProps
   // Render mermaid diagrams after HTML updates (skip during streaming to prevent flicker)
   useEffect(() => {
     if (isStreaming) return;
-    if (!hasPossibleMermaidContent(normalizedContent)) {
+    if (!hasPossibleMermaidContent(content)) {
       mermaidRetryRef.current = 0;
       return;
     }
@@ -670,7 +639,7 @@ const MarkdownBlock = ({ content = '', isStreaming = false }: MarkdownBlockProps
       if (retryTimeoutId) clearTimeout(retryTimeoutId);
       if (retryRafId) cancelAnimationFrame(retryRafId);
     };
-  }, [normalizedContent, isStreaming, renderMermaidDiagrams]);
+  }, [content, isStreaming, renderMermaidDiagrams]);
 
   // Copy to clipboard implementation
   const copyToClipboard = async (text: string) => {
@@ -700,7 +669,7 @@ const MarkdownBlock = ({ content = '', isStreaming = false }: MarkdownBlockProps
 
   const html = useMemo(() => {
     try {
-      const trimmedContent = normalizedContent.replace(/[\r\n]+$/, '');
+      const trimmedContent = content.replace(/[\r\n]+$/, '');
 
       // During streaming, use lightweight renderer to avoid heavy parsing on every delta
       if (isStreaming) {
@@ -773,7 +742,7 @@ const MarkdownBlock = ({ content = '', isStreaming = false }: MarkdownBlockProps
       if (typeof console !== 'undefined' && console.error) {
         console.error('[MarkdownBlock] Render failed, falling back to escaped text:', e);
       }
-      return normalizedContent.replace(/[&<>"']/g, (ch) => {
+      return content.replace(/[&<>"']/g, (ch) => {
         switch (ch) {
           case '&': return '&amp;';
           case '<': return '&lt;';
@@ -784,7 +753,7 @@ const MarkdownBlock = ({ content = '', isStreaming = false }: MarkdownBlockProps
         }
       });
     }
-  }, [normalizedContent, isStreaming, i18n.language, linkifyCapabilities, t]);
+  }, [content, isStreaming, i18n.language, linkifyCapabilities, t]);
 
   // When streaming ends, the non-streaming pipeline produces the full HTML
   // (mermaid, highlighted code, linkify) via the `html` memo above, and React

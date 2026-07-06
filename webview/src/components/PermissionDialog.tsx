@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatCountdown } from '../utils/helpers';
 import { useDialogCountdownTimeout } from '../hooks/useDialogCountdownTimeout';
@@ -12,8 +12,8 @@ import { ChevronDownIcon, ChevronUpIcon, ClockIcon, AlertIcon } from './Icons';
 export interface PermissionRequest {
   channelId: string;
   toolName: string;
-  inputs: Record<string, unknown>;
-  suggestions?: unknown;
+  inputs: Record<string, any>;
+  suggestions?: any;
 }
 
 interface PermissionDialogProps {
@@ -24,67 +24,6 @@ interface PermissionDialogProps {
   onApproveAlways: (channelId: string) => void;
   timeoutSeconds?: number;
 }
-
-// Format a single tool-input value for display. Pure helper hoisted to module
-// scope so it is not recreated on every render (the dialog re-renders once per
-// second while the timeout countdown ticks).
-const formatInputValue = (value: unknown): string => {
-  if (value === null || value === undefined) {
-    return '';
-  }
-  if (typeof value === 'string') {
-    return value;
-  }
-  if (Array.isArray(value)) {
-    return value
-      .map((item) => formatInputValue(item))
-      .filter(Boolean)
-      .join('\n');
-  }
-  if (typeof value === 'object') {
-    const record = value as Record<string, unknown>;
-    if (typeof record.text === 'string') {
-      return record.text;
-    }
-    if (typeof record.content === 'string') {
-      return record.content;
-    }
-    return JSON.stringify(value, null, 2);
-  }
-  return String(value);
-};
-
-// Derive the primary command / action content from the tool inputs.
-const getCommandContent = (inputs: Record<string, unknown>): string => {
-  // Get primary content based on tool type
-  if ('command' in inputs && inputs.command !== undefined) {
-    return formatInputValue(inputs.command);
-  }
-  if ('content' in inputs && inputs.content !== undefined) {
-    return formatInputValue(inputs.content);
-  }
-  if ('text' in inputs && inputs.text !== undefined) {
-    return formatInputValue(inputs.text);
-  }
-  // For other tools, format all inputs
-  return Object.entries(inputs)
-    .map(([key, value]) => `${key}: ${formatInputValue(value)}`)
-    .join('\n');
-};
-
-// Derive the working-directory / path label from the tool inputs.
-const getWorkingDirectory = (inputs: Record<string, unknown>): string => {
-  if (typeof inputs.cwd === 'string' && inputs.cwd) {
-    return inputs.cwd;
-  }
-  if (typeof inputs.file_path === 'string' && inputs.file_path) {
-    return inputs.file_path;
-  }
-  if (typeof inputs.path === 'string' && inputs.path) {
-    return inputs.path;
-  }
-  return '~';
-};
 
 const PermissionDialog = ({
   isOpen,
@@ -172,18 +111,6 @@ const PermissionDialog = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, request, handleApprove, handleApproveAlways, handleSkip]);
 
-  // Derived display values are memoized so the per-second countdown re-render
-  // does not re-run command formatting (which may JSON.stringify inputs).
-  // Hooks must run before the early return below, hence the null guard.
-  const commandContent = useMemo(
-    () => (request ? getCommandContent(request.inputs) : ''),
-    [request],
-  );
-  const workingDirectory = useMemo(
-    () => (request ? getWorkingDirectory(request.inputs) : '~'),
-    [request],
-  );
-
   if (!isOpen || !request) {
     return null;
   }
@@ -246,6 +173,9 @@ const PermissionDialog = ({
     }
     return translated;
   };
+
+  const commandContent = getCommandContent();
+  const workingDirectory = getWorkingDirectory();
 
   // Security (E): for command-execution tools the "always allow" memory is scoped to this
   // exact command (parameter-level), not the whole tool, so make the button say so —

@@ -433,42 +433,12 @@ public class PermissionService {
         String content = acquireRequestContent(requestFile, "ASK");
         if (content == null) { return; }
 
-        // Track whether ownership has been transferred to an async dialog future.
-        // If the future is created successfully, its .thenAccept / .exceptionally
-        // callbacks own the processingRequests cleanup. Otherwise, the finally
-        // block below removes the entry so the Set cannot leak across a hundred
-        // turns (which would silently block any future request that happens to
-        // reuse the same generated filename — see issue #1360).
-        boolean dialogFutureOwnsCleanup = false;
+        // Delete immediately to prevent duplicate polling (polling interval is 500ms)
+        safeDeleteFile(requestFile, "ASK");
 
+        JsonObject request;
         try {
-            // Delete immediately to prevent duplicate polling (polling interval is 500ms)
-            safeDeleteFile(requestFile, "ASK");
-
-            JsonObject request;
-            try {
-                request = gson.fromJson(content, JsonObject.class);
-            } catch (Exception e) {
-                debugLog("ASK_PARSE_ERROR", "Failed to parse JSON: " + fileName);
-                return;
-            }
-
-            if (!request.has("requestId") || request.get("requestId").isJsonNull()
-                    || !request.has("toolName") || request.get("toolName").isJsonNull()) {
-                debugLog("ASK_INVALID", "Missing required fields: " + fileName);
-                return;
-            }
-
-            String requestId = request.get("requestId").getAsString();
-            AskUserQuestionDialogShower shower = dialogRouter.findAskUserQuestionDialogShower(request);
-
-            if (shower != null) {
-                dispatchAskQuestionDialog(shower, requestId, request, fileName);
-                dialogFutureOwnsCleanup = true;
-            } else {
-                debugLog("ASK_NO_DIALOG", "No dialog shower, denying");
-                fileProtocol.writeAskUserQuestionResponse(requestId, new JsonObject());
-            }
+            request = gson.fromJson(content, JsonObject.class);
         } catch (Exception e) {
             debugLog("ASK_PARSE_ERROR", "Failed to parse JSON: " + fileName);
             processingRequests.remove(fileName);
@@ -525,11 +495,6 @@ public class PermissionService {
         String content = acquireRequestContent(requestFile, "PLAN");
         if (content == null) { return; }
 
-        // See handleAskUserQuestionRequest above for the rationale. The async
-        // dispatch path moves cleanup responsibility to the future callbacks; all
-        // other code paths must release the dedup entry in finally.
-        boolean dialogFutureOwnsCleanup = false;
-
         try {
             JsonObject request = gson.fromJson(content, JsonObject.class);
             String requestId = request.get("requestId").getAsString();
@@ -541,7 +506,6 @@ public class PermissionService {
             PlanApprovalDialogShower shower = dialogRouter.findPlanApprovalDialogShower(request);
             if (shower != null) {
                 dispatchPlanApprovalDialog(shower, requestId, request, fileName);
-                dialogFutureOwnsCleanup = true;
             } else {
                 debugLog("PLAN_NO_DIALOG", "No dialog shower, denying");
                 fileProtocol.writePlanApprovalResponse(requestId, false, CommonConstants.PERMISSION_MODE_DEFAULT);
@@ -550,10 +514,7 @@ public class PermissionService {
         } catch (Exception e) {
             debugLog("PLAN_ERROR", "Error: " + e.getMessage());
             LOG.error("Error occurred", e);
-        } finally {
-            if (!dialogFutureOwnsCleanup) {
-                processingRequests.remove(fileName);
-            }
+            processingRequests.remove(fileName);
         }
     }
 
