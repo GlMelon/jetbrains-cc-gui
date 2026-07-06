@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>5F-A 颜色与状态文案微调方案</title>
+  <style>
+    :root {
+      --bg: #1f2229;
+      --panel: #252a33;
+      --tool: #242934;
+      --tabs: #272c36;
+      --tab: #2d333e;
+      --active: #3a404d;
+      --hover: #343a46;
+      --border: rgba(255,255,255,.085);
+      --border2: rgba(255,255,255,.14);
+      --text: #d8dce4;
+      --strong: #f0f3f8;
+      --muted: #9098a6;
+      --muted2: #6e7684;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 26px;
+      color: var(--text);
+      font-family: var(--font);
+      background:
+        radial-gradient(circle at 18% 0%, rgba(76,154,255,.09), transparent 30%),
+        radial-gradient(circle at 82% 4%, rgba(155,135,245,.09), transparent 30%),
+        var(--bg);
+    }
+    .page { max-width: 1320px; margin: 0 auto; }
+    header { margin-bottom: 22px; }
+    h1 { margin: 0 0 8px; font-size: 24px; font-weight: 680; }
+    .sub { max-width: 880px; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.75; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+    .card { background: rgba(37,42,51,.92); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; box-shadow: 0 18px 55px rgba(0,0,0,.22); }
+    .head { padding: 15px 16px 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .title { color: var(--strong); font-size: 15px; font-weight: 680; }
+    .tag { flex: 0 0 auto; color: #b9d8ff; background: rgba(76,154,255,.10); border: 1px solid rgba(76,154,255,.25); border-radius: 999px; padding: 3px 8px; font-size: 11px; }
+    .desc { margin: 0; padding: 0 16px 13px; color: var(--muted); font-size: 12px; line-height: 1.65; }
+    .ide { margin: 0 14px 14px; border: 1px solid var(--border2); border-radius: 12px; overflow: hidden; background: #20242c; }
+    .tool { height: 31px; display: flex; align-items: center; gap: 9px; padding: 0 10px; background: var(--tool); border-bottom: 1px solid var(--border); color: #aeb6c2; font-size: 12px; }
+    .tool-icon { width: 14px; height: 14px; border-radius: 4px; background: linear-gradient(135deg, #4c9aff, #9b87f5); opacity: .95; }
+    .tabs { height: 39px; display: flex; align-items: flex-end; gap: 1px; padding: 0 8px; background: var(--tabs); border-bottom: 1px solid var(--border); overflow: hidden; }
+    .tab { position: relative; height: 33px; min-width: 92px; max-width: 230px; display: flex; align-items: center; gap: 7px; padding: 0 10px; color: var(--text); background: var(--tab); border: 1px solid transparent; border-bottom: 0; border-radius: 8px 8px 0 0; white-space: nowrap; overflow: hidden; font-size: 13px; }
+    .tab.active { background: var(--active); border-color: var(--border2); color: var(--strong); }
+    .tab:hover { background: var(--hover); }
+    .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    .x { margin-left: auto; color: var(--muted2); font-size: 14px; }
+    .content { height: 78px; padding: 14px 15px; color: #8992a0; font-size: 12px; background: linear-gradient(180deg, #20242c, #1e222a); }
+    .provider { width: 18px; height: 18px; border-radius: 5px; flex: 0 0 auto; display: inline-grid; place-items: center; color: #fff; font-size: 10px; font-weight: 760; letter-spacing: -.15px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.16); opacity: .95; }
+    .claude { background: linear-gradient(135deg, #7c5cff, #9b87f5); }
+    .codex { background: linear-gradient(135deg, #2563eb, #06b6d4); }
+    .opencode { background: linear-gradient(135deg, #059669, #84cc16); }
+    .state { font-size: 11px; color: var(--muted); }
+
+    /* palette A recommended */
+    .pA .processing .state { color: #8fbfff; }
+    .pA .completed .state { color: #94d9a8; }
+    .pA .queued .state { color: #e1b56f; }
+    .pA .processing.active { box-shadow: inset 0 0 0 1px rgba(76,154,255,.18), inset 0 14px 24px rgba(76,154,255,.07); }
+
+    /* palette B lower contrast */
+    .pB .processing .state { color: #9aa9be; }
+    .pB .completed .state { color: #92b79c; }
+    .pB .queued .state { color: #b7a47e; }
+    .pB .state { font-weight: 500; }
+
+    /* palette C IDE status names */
+    .pC .processing .state { color: #83b9ff; }
+    .pC .completed .state { color: #8fd3a1; }
+    .pC .queued .state { color: #d7ad6b; }
+    .pC .state { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 10px; letter-spacing: .15px; }
+
+    /* palette D only active has color */
+    .pD .state { color: #929aa8; }
+    .pD .processing.active .state { color: #8fbfff; }
+    .pD .completed.active .state { color: #94d9a8; }
+    .pD .queued.active .state { color: #e1b56f; }
+    .pD .processing.active { box-shadow: inset 0 -2px 0 rgba(76,154,255,.75); }
+
+    /* palette E icon border color */
+    .pE .state { color: #9aa2af; }
+    .pE .processing .provider { box-shadow: inset 0 0 0 1px rgba(143,191,255,.55), 0 0 0 1px rgba(143,191,255,.13); }
+    .pE .completed .provider { box-shadow: inset 0 0 0 1px rgba(148,217,168,.52), 0 0 0 1px rgba(148,217,168,.11); }
+    .pE .queued .provider { box-shadow: inset 0 0 0 1px rgba(225,181,111,.52), 0 0 0 1px rgba(225,181,111,.11); }
+
+    /* palette F compact neutral */
+    .pF .provider { width: 17px; height: 17px; border-radius: 4px; font-size: 9px; }
+    .pF .state { color: #a0a7b3; font-size: 10px; }
+    .pF .processing .state::before { content: "● "; color: #8fbfff; }
+    .pF .completed .state::before { content: "✓ "; color: #94d9a8; }
+    .pF .queued .state::before { content: "… "; color: #e1b56f; }
+
+    .notes { margin-top: 20px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .note { border: 1px solid var(--border); border-radius: 13px; padding: 12px; background: rgba(255,255,255,.035); color: var(--muted); font-size: 12px; line-height: 1.65; }
+    .note strong { display: block; color: var(--strong); margin-bottom: 5px; }
+    @media (max-width: 980px) { .grid, .notes { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <h1>5F-A：颜色与状态文案微调</h1>
+      <p class="sub">目标是让 Provider 图标保留识别度，状态文字保持“原生、克制、低干扰”。下面重点对比状态文案、颜色饱和度和是否只在选中标签强调。</p>
+    </header>
+
+    <section class="grid">
+      <article class="card pA">
+        <div class="head"><div class="title">A：中文短词 + 柔和语义色</div><span class="tag">推荐</span></div>
+        <p class="desc">文案最直观：运行中 / 已完成 / 排队中。颜色比之前更柔和，避免太亮。</p>
+        <div class="ide"><div class="tool"><span class="tool-icon"></span>Codemoss Chat</div><div class="tabs">
+          <div class="tab processing active"><span class="provider codex">Cx</span><span class="name">AI1</span><span class="state">运行中</span><span class="x">×</span></div>
+          <div class="tab completed"><span class="provider claude">Cl</span><span class="name">修复 MCP 网关</span><span class="state">已完成</span><span class="x">×</span></div>
+          <div class="tab queued"><span class="provider opencode">Oc</span><span class="name">响应优化</span><span class="state">排队中</span><span class="x">×</span></div>
+          <div class="tab idle"><span class="provider claude">Cl</span><span class="name">AI4</span><span class="x">×</span></div>
+        </div><div class="content">建议色：运行中 #8FBFFF，已完成 #94D9A8，排队中 #E1B56F。</div></div>
+      </article>
+
+      <article class="card pB">
+        <div class="head"><div class="title">B：中文动作态 + 更低对比</div></div>
+        <p class="desc">状态像 IDE 辅助信息，不强行吸引注意力。适合不希望 tab 太花。</p>
+        <div class="ide"><div class="tool"><span class="tool-icon"></span>Codemoss Chat</div><div class="tabs">
+          <div class="tab processing active"><span class="provider codex">Cx</span><span class="name">AI1</span><span class="state">生成中</span><span class="x">×</span></div>
+          <div class="tab completed"><span class="provider claude">Cl</span><span class="name">修复 MCP 网关</span><span class="state">完成</span><span class="x">×</span></div>
+          <div class="tab queued"><span class="provider opencode">Oc</span><span class="name">响应优化</span><span class="state">等待</span><span class="x">×</span></div>
+          <div class="tab idle"><span class="provider claude">Cl</span><span class="name">AI4</span><span class="x">×</span></div>
+        </div><div class="content">文案更短，但“等待”不如“排队中”明确。</div></div>
+      </article>
+
+      <article class="card pC">
+        <div class="head"><div class="title">C：英文短码 + 技术感</div></div>
+        <p class="desc">更像开发工具状态栏：RUN / DONE / WAIT。紧凑、国际化友好。</p>
+        <div class="ide"><div class="tool"><span class="tool-icon"></span>Codemoss Chat</div><div class="tabs">
+          <div class="tab processing active"><span class="provider codex">Cx</span><span class="name">AI1</span><span class="state">RUN</span><span class="x">×</span></div>
+          <div class="tab completed"><span class="provider claude">Cl</span><span class="name">修复 MCP 网关</span><span class="state">DONE</span><span class="x">×</span></div>
+          <div class="tab queued"><span class="provider opencode">Oc</span><span class="name">响应优化</span><span class="state">WAIT</span><span class="x">×</span></div>
+          <div class="tab idle"><span class="provider claude">Cl</span><span class="name">AI4</span><span class="x">×</span></div>
+        </div><div class="content">更“IDE”，但中文环境下不如中文自然。</div></div>
+      </article>
+
+      <article class="card pD">
+        <div class="head"><div class="title">D：只强调当前选中标签</div></div>
+        <p class="desc">未选中的状态文字全部中性灰；只有当前选中的进行中标签使用蓝色。</p>
+        <div class="ide"><div class="tool"><span class="tool-icon"></span>Codemoss Chat</div><div class="tabs">
+          <div class="tab processing active"><span class="provider codex">Cx</span><span class="name">AI1</span><span class="state">运行中</span><span class="x">×</span></div>
+          <div class="tab completed"><span class="provider claude">Cl</span><span class="name">修复 MCP 网关</span><span class="state">已完成</span><span class="x">×</span></div>
+          <div class="tab queued"><span class="provider opencode">Oc</span><span class="name">响应优化</span><span class="state">排队中</span><span class="x">×</span></div>
+          <div class="tab idle"><span class="provider claude">Cl</span><span class="name">AI4</span><span class="x">×</span></div>
+        </div><div class="content">最不打扰，但多个后台任务状态不够醒目。</div></div>
+      </article>
+
+      <article class="card pE">
+        <div class="head"><div class="title">E：文字中性 + Provider 边框表达状态</div></div>
+        <p class="desc">状态颜色不放在文字上，而是轻轻描边 provider 图标，更接近原生图标体系。</p>
+        <div class="ide"><div class="tool"><span class="tool-icon"></span>Codemoss Chat</div><div class="tabs">
+          <div class="tab processing active"><span class="provider codex">Cx</span><span class="name">AI1</span><span class="state">运行中</span><span class="x">×</span></div>
+          <div class="tab completed"><span class="provider claude">Cl</span><span class="name">修复 MCP 网关</span><span class="state">已完成</span><span class="x">×</span></div>
+          <div class="tab queued"><span class="provider opencode">Oc</span><span class="name">响应优化</span><span class="state">排队中</span><span class="x">×</span></div>
+          <div class="tab idle"><span class="provider claude">Cl</span><span class="name">AI4</span><span class="x">×</span></div>
+        </div><div class="content">视觉很稳，但状态依赖图标边框，识别速度略慢。</div></div>
+      </article>
+
+      <article class="card pF">
+        <div class="head"><div class="title">F：中性文字 + 极小状态符号</div></div>
+        <p class="desc">状态文字基本中性，只在前面加很小的 ● / ✓ / …，兼顾色弱可读性。</p>
+        <div class="ide"><div class="tool"><span class="tool-icon"></span>Codemoss Chat</div><div class="tabs">
+          <div class="tab processing active"><span class="provider codex">Cx</span><span class="name">AI1</span><span class="state">运行中</span><span class="x">×</span></div>
+          <div class="tab completed"><span class="provider claude">Cl</span><span class="name">修复 MCP 网关</span><span class="state">已完成</span><span class="x">×</span></div>
+          <div class="tab queued"><span class="provider opencode">Oc</span><span class="name">响应优化</span><span class="state">排队中</span><span class="x">×</span></div>
+          <div class="tab idle"><span class="provider claude">Cl</span><span class="name">AI4</span><span class="x">×</span></div>
+        </div><div class="content">最稳健，但符号会让 tab 信息稍多。</div></div>
+      </article>
+    </section>
+
+    <section class="notes">
+      <div class="note"><strong>文案推荐</strong>PROCESSING 用“运行中”，COMPLETED 用“已完成”，QUEUED 用“排队中”，IDLE 不显示。</div>
+      <div class="note"><strong>颜色推荐</strong>用柔和语义色：蓝 #8FBFFF、绿 #94D9A8、橙 #E1B56F，避免高饱和抢眼。</div>
+      <div class="note"><strong>不建议</strong>“进行中”略长且偏流程；“生成中”只适合模型回复，不适合工具调用/执行命令。</div>
+      <div class="note"><strong>最终建议</strong>选 A：中文短词 + 柔和语义色。最清晰，也最贴近现有插件的深色 IDE 风格。</div>
+    </section>
+  </main>
+</body>
+</html>

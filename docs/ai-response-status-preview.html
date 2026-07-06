@@ -1,0 +1,610 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Response Status Preview</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --panel: rgba(26, 29, 39, 0.86);
+      --panel-strong: rgba(34, 38, 51, 0.92);
+      --border: rgba(255, 255, 255, 0.09);
+      --border-strong: rgba(142, 172, 255, 0.28);
+      --text: #edf1ff;
+      --muted: #9da7be;
+      --subtle: #6f7890;
+      --blue: #7aa7ff;
+      --cyan: #55d9ff;
+      --violet: #a98bff;
+      --green: #64e3a1;
+      --amber: #ffd166;
+      --shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
+      --radius: 18px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 18% 12%, rgba(122, 167, 255, 0.22), transparent 28%),
+        radial-gradient(circle at 82% 4%, rgba(169, 139, 255, 0.22), transparent 26%),
+        radial-gradient(circle at 50% 86%, rgba(85, 217, 255, 0.12), transparent 34%),
+        linear-gradient(135deg, #0d1016 0%, #121521 44%, #0b0d13 100%);
+      padding: 36px;
+    }
+
+    .page {
+      max-width: 1240px;
+      margin: 0 auto;
+    }
+
+    .hero {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 24px;
+      margin-bottom: 28px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #b9c5e6;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.045);
+      border-radius: 999px;
+      padding: 7px 12px;
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .hero h1 {
+      margin: 16px 0 8px;
+      font-size: clamp(32px, 5vw, 56px);
+      line-height: 1.04;
+      letter-spacing: -0.045em;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 720px;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    .legend {
+      min-width: 260px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.045);
+      border-radius: 16px;
+      padding: 14px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.7;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .mock-card {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.035));
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      min-height: 610px;
+    }
+
+    .mock-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.08) 40%, transparent 70%);
+      opacity: 0.55;
+      transform: translateX(-60%);
+      animation: cardShine 8s ease-in-out infinite;
+    }
+
+    .card-head {
+      position: relative;
+      padding: 20px 20px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .card-head h2 {
+      margin: 0 0 8px;
+      font-size: 20px;
+      letter-spacing: -0.02em;
+    }
+
+    .card-head p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .chat {
+      position: relative;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .bubble {
+      max-width: 92%;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.045);
+      border-radius: 18px;
+      padding: 13px 14px;
+      color: #dce4f8;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .bubble.user {
+      align-self: flex-end;
+      background: linear-gradient(135deg, rgba(92, 126, 255, 0.30), rgba(85, 217, 255, 0.12));
+      border-color: rgba(122, 167, 255, 0.26);
+    }
+
+    .bubble.assistant {
+      align-self: flex-start;
+      background: rgba(19, 23, 34, 0.72);
+    }
+
+    .section-label {
+      color: var(--subtle);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin: 2px 0 -6px;
+    }
+
+    /* Option A */
+    .inline-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .status-pill {
+      width: fit-content;
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 12px;
+      border: 1px solid rgba(122, 167, 255, 0.22);
+      background: linear-gradient(135deg, rgba(122, 167, 255, 0.12), rgba(255, 255, 255, 0.035));
+      border-radius: 999px;
+      color: #dfe7ff;
+      font-size: 12.5px;
+      box-shadow: 0 10px 28px rgba(0,0,0,0.22);
+    }
+
+    .status-pill .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--green);
+      box-shadow: 0 0 0 0 rgba(100, 227, 161, 0.62);
+      animation: pulse 1.8s infinite;
+    }
+
+    .status-pill.thinking .dot { background: var(--violet); box-shadow: 0 0 0 0 rgba(169,139,255,.62); }
+    .status-pill.responding .dot { background: var(--cyan); box-shadow: 0 0 0 0 rgba(85,217,255,.62); }
+
+    .status-pill strong {
+      font-weight: 650;
+      color: #ffffff;
+    }
+
+    .typing-dots {
+      display: inline-flex;
+      gap: 3px;
+      margin-left: 2px;
+    }
+
+    .typing-dots i {
+      width: 3px;
+      height: 3px;
+      border-radius: 50%;
+      background: currentColor;
+      opacity: .45;
+      animation: dotUp 1.2s infinite ease-in-out;
+    }
+
+    .typing-dots i:nth-child(2) { animation-delay: .15s; }
+    .typing-dots i:nth-child(3) { animation-delay: .30s; }
+
+    /* Option B */
+    .glass-status {
+      position: relative;
+      padding: 15px;
+      border: 1px solid var(--border-strong);
+      background:
+        linear-gradient(180deg, rgba(122, 167, 255, 0.16), rgba(255, 255, 255, 0.055)),
+        rgba(22, 26, 38, 0.78);
+      border-radius: 18px;
+      box-shadow: 0 18px 48px rgba(33, 56, 120, 0.24);
+      overflow: hidden;
+      backdrop-filter: blur(18px);
+    }
+
+    .glass-status::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: -45%;
+      width: 45%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
+      animation: sweep 3.4s infinite;
+    }
+
+    .glass-top {
+      position: relative;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 1;
+    }
+
+    .provider-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #dce6ff;
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .orb {
+      width: 22px;
+      height: 22px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, var(--blue), var(--violet));
+      color: white;
+      font-size: 12px;
+      box-shadow: 0 8px 24px rgba(122, 167, 255, 0.32);
+    }
+
+    .elapsed {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .glass-title {
+      position: relative;
+      z-index: 1;
+      margin-top: 14px;
+      font-size: 15px;
+      font-weight: 720;
+      letter-spacing: -0.01em;
+    }
+
+    .glass-desc {
+      position: relative;
+      z-index: 1;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .progress-rail {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-top: 15px;
+    }
+
+    .step {
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.11);
+      overflow: hidden;
+    }
+
+    .step.active,
+    .step.done {
+      background: rgba(122,167,255,0.20);
+    }
+
+    .step.done::before,
+    .step.active::before {
+      content: "";
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--blue), var(--cyan));
+    }
+
+    .step.done::before { width: 100%; }
+    .step.active::before { width: 62%; animation: loadStep 1.6s ease-in-out infinite alternate; }
+
+    .glass-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* Option C */
+    .assistant-loading {
+      position: relative;
+      min-width: 300px;
+      border: 1px solid rgba(169, 139, 255, 0.22);
+      background:
+        radial-gradient(circle at 14% 20%, rgba(169,139,255,.18), transparent 34%),
+        linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.035));
+      border-radius: 20px;
+      padding: 16px;
+      overflow: hidden;
+    }
+
+    .assistant-loading::before {
+      content: "";
+      position: absolute;
+      inset: -1px;
+      border-radius: inherit;
+      padding: 1px;
+      background: linear-gradient(120deg, rgba(122,167,255,.5), transparent, rgba(85,217,255,.42));
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      opacity: .55;
+    }
+
+    .loading-head {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .spark {
+      width: 34px;
+      height: 34px;
+      border-radius: 13px;
+      display: grid;
+      place-items: center;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.10);
+      color: #fff;
+      box-shadow: inset 0 0 28px rgba(122,167,255,.14);
+      animation: breathe 2.4s infinite ease-in-out;
+    }
+
+    .loading-title {
+      font-weight: 760;
+      font-size: 14px;
+      letter-spacing: -0.01em;
+    }
+
+    .loading-subtitle {
+      color: var(--muted);
+      margin-top: 3px;
+      font-size: 12px;
+    }
+
+    .thought-lines {
+      position: relative;
+      margin-top: 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .thought-lines span {
+      height: 8px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(255,255,255,0.10), rgba(122,167,255,0.24), rgba(255,255,255,0.08));
+      background-size: 220% 100%;
+      animation: shimmer 2.2s infinite;
+    }
+
+    .thought-lines span:nth-child(1) { width: 88%; }
+    .thought-lines span:nth-child(2) { width: 64%; animation-delay: .18s; }
+    .thought-lines span:nth-child(3) { width: 76%; animation-delay: .36s; }
+
+    .morph-preview {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      color: #dce4f8;
+      font-size: 12.5px;
+      line-height: 1.65;
+    }
+
+    .ghost {
+      color: var(--subtle);
+    }
+
+    .recommend {
+      margin-top: 22px;
+      border: 1px solid rgba(100, 227, 161, 0.22);
+      background: rgba(100, 227, 161, 0.06);
+      border-radius: 18px;
+      padding: 16px 18px;
+      color: #cdeedd;
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 currentColor; }
+      70% { box-shadow: 0 0 0 8px transparent; }
+      100% { box-shadow: 0 0 0 0 transparent; }
+    }
+
+    @keyframes dotUp {
+      0%, 80%, 100% { transform: translateY(0); opacity: .35; }
+      40% { transform: translateY(-3px); opacity: 1; }
+    }
+
+    @keyframes sweep {
+      0% { left: -50%; }
+      54%, 100% { left: 115%; }
+    }
+
+    @keyframes loadStep {
+      from { width: 32%; }
+      to { width: 94%; }
+    }
+
+    @keyframes breathe {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 0 rgba(122,167,255,0); }
+      50% { transform: scale(1.045); box-shadow: 0 0 34px rgba(122,167,255,.22); }
+    }
+
+    @keyframes shimmer {
+      from { background-position: 220% 0; }
+      to { background-position: -120% 0; }
+    }
+
+    @keyframes cardShine {
+      0%, 55% { transform: translateX(-75%); }
+      100% { transform: translateX(120%); }
+    }
+
+    @media (max-width: 1080px) {
+      body { padding: 22px; }
+      .hero { align-items: flex-start; flex-direction: column; }
+      .legend { width: 100%; }
+      .grid { grid-template-columns: 1fr; }
+      .mock-card { min-height: auto; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div>
+        <div class="eyebrow">AI Conversation Status · Static Preview</div>
+        <h1>AI 对话响应状态提示视觉方案</h1>
+        <p>用于预览“已连接、正在理解问题、正在思考、正在响应”等等待阶段的展示方式。该页面是纯静态效果图，不依赖外网，不代表最终协议实现。</p>
+      </div>
+      <aside class="legend">
+        <strong>推荐：</strong>方案 C 作为默认体验，方案 A 作为紧凑模式，方案 B 作为高存在感可选样式。<br />
+        <strong>架构：</strong>最终产品中 phase 与文案应由后端下发，前端仅渲染。
+      </aside>
+    </section>
+
+    <section class="grid">
+      <article class="mock-card">
+        <div class="card-head">
+          <h2>方案 A · 极简内联胶囊</h2>
+          <p>替换当前灰色文字提示，轻量、克制，不打断聊天节奏。</p>
+        </div>
+        <div class="chat">
+          <div class="bubble user">帮我看下这个插件为什么首个响应感觉有点慢，可以优化吗？</div>
+          <div class="section-label">状态阶段</div>
+          <div class="inline-stack">
+            <div class="status-pill"><span class="dot"></span><span><strong>Codex</strong> 正在连接</span><span class="typing-dots"><i></i><i></i><i></i></span></div>
+            <div class="status-pill"><span class="dot"></span><span><strong>Codex</strong> 已连接 · 正在理解问题</span></div>
+            <div class="status-pill thinking"><span class="dot"></span><span><strong>Codex</strong> 正在思考上下文</span><span class="typing-dots"><i></i><i></i><i></i></span></div>
+            <div class="status-pill responding"><span class="dot"></span><span><strong>Codex</strong> 正在响应</span></div>
+          </div>
+          <div class="bubble assistant ghost">随后这里开始出现 AI 的流式正文，胶囊状态逐渐淡出。</div>
+        </div>
+      </article>
+
+      <article class="mock-card">
+        <div class="card-head">
+          <h2>方案 B · 玻璃质感状态卡片</h2>
+          <p>更明确地表达 AI 当前阶段，适合需要强反馈和更高视觉精致度的模式。</p>
+        </div>
+        <div class="chat">
+          <div class="bubble user">请分析当前 AI 对话链路，重点看首响速度。</div>
+          <div class="glass-list">
+            <div class="glass-status">
+              <div class="glass-top">
+                <div class="provider-chip"><span class="orb">C</span> Codex</div>
+                <div class="elapsed">0.4s</div>
+              </div>
+              <div class="glass-title">正在连接运行时</div>
+              <div class="glass-desc">准备会话、权限模式与上下文快照</div>
+              <div class="progress-rail"><span class="step active"></span><span class="step"></span><span class="step"></span><span class="step"></span></div>
+            </div>
+            <div class="glass-status">
+              <div class="glass-top">
+                <div class="provider-chip"><span class="orb">C</span> Codex</div>
+                <div class="elapsed">1.2s</div>
+              </div>
+              <div class="glass-title">正在理解你的问题</div>
+              <div class="glass-desc">已连接，正在分析 IDE 上下文和消息意图</div>
+              <div class="progress-rail"><span class="step done"></span><span class="step active"></span><span class="step"></span><span class="step"></span></div>
+            </div>
+            <div class="glass-status">
+              <div class="glass-top">
+                <div class="provider-chip"><span class="orb">C</span> Codex</div>
+                <div class="elapsed">2.1s</div>
+              </div>
+              <div class="glass-title">正在响应</div>
+              <div class="glass-desc">首个内容片段已返回，正在流式输出</div>
+              <div class="progress-rail"><span class="step done"></span><span class="step done"></span><span class="step done"></span><span class="step active"></span></div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="mock-card">
+        <div class="card-head">
+          <h2>方案 C · 气泡内呼吸式 Loading</h2>
+          <p>推荐方案。等待状态直接融入 assistant 气泡，内容出现后自然过渡到正文。</p>
+        </div>
+        <div class="chat">
+          <div class="bubble user">优化一下 AI 对话等待提示，不要只是普通文字。</div>
+          <div class="assistant-loading">
+            <div class="loading-head">
+              <div class="spark">✦</div>
+              <div>
+                <div class="loading-title">正在理解问题</div>
+                <div class="loading-subtitle">Codex 已连接，正在分析上下文</div>
+              </div>
+            </div>
+            <div class="thought-lines" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          </div>
+          <div class="assistant-loading">
+            <div class="loading-head">
+              <div class="spark">✧</div>
+              <div>
+                <div class="loading-title">正在思考</div>
+                <div class="loading-subtitle">正在整理可优化点与实现路径</div>
+              </div>
+            </div>
+            <div class="morph-preview"><span class="ghost">即将开始输出：</span>我先从首响链路、流式渲染和状态反馈三个方向排查...</div>
+          </div>
+          <div class="bubble assistant">我建议优先做“响应阶段状态下发 + 气泡内状态提示”，这样可以先提升感知速度，再逐步处理真实首响耗时。</div>
+        </div>
+      </article>
+    </section>
+
+    <section class="recommend">
+      <strong>落地建议：</strong>第一轮产品实现建议采用方案 C；保留方案 A 作为紧凑模式。状态 phase 和文案由后端下发，前端组件仅负责渲染，避免在 webview 中解释 AI 协议或 provider 业务语义。
+    </section>
+  </main>
+</body>
+</html>
