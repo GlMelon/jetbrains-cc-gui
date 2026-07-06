@@ -3,6 +3,7 @@ package com.github.claudecodegui.provider.opencode;
 import com.github.claudecodegui.bridge.ProcessManager;
 import com.github.claudecodegui.cli.common.CliAttachmentHandler;
 import com.github.claudecodegui.cli.common.CliConstants;
+import com.github.claudecodegui.cli.common.GatewayDownMatcher;
 import com.github.claudecodegui.cli.common.McpErrorMatcher;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.mcp.McpGatewayService;
@@ -174,7 +175,11 @@ public class OpenCodeSDKBridge extends BaseSDKBridge {
                 }
                 case CommonConstants.MSG_TYPE_ERROR -> {
                     String message = event.has("message") ? event.get("message").getAsString() : "Unknown error";
-                    if (McpErrorMatcher.isMcpConnectionFailure(message)) {
+                    if (GatewayDownMatcher.isGatewayDown(message)) {
+                        // gateway 不可达(state file 缺失/HTTP 超时):降级为无工具直连 status 提示。
+                        // best-effort:仅当 opencode 透传 melon_gateway stderr 时命中,不命中不影响功能。
+                        callback.onMessage(CliConstants.CODEX_MSG_STATUS, GatewayDownMatcher.GATEWAY_DOWN_NOTICE);
+                    } else if (McpErrorMatcher.isMcpConnectionFailure(message)) {
                         // MCP 连接失败(本地 server 未启动):降级为非阻塞 status 提示,不标记 hadSendError/报错。
                         // 镜像 Codex SDK [SEND_ERROR]、OpenCode CLI handleError 的降级处理(Principle 6 对称)。
                         callback.onMessage(CliConstants.CODEX_MSG_STATUS, McpErrorMatcher.MCP_SKIPPED_NOTICE);

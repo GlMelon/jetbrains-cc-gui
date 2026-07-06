@@ -2,6 +2,7 @@ package com.github.claudecodegui.cli.claude;
 
 import com.github.claudecodegui.cli.CliSendRequest;
 import com.github.claudecodegui.cli.common.CliAttachmentHandler;
+import com.github.claudecodegui.mcp.McpGatewayCliConfig;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -43,10 +44,10 @@ public class ClaudeCliSessionPromptTest {
         ClaudeCliSession session = new ClaudeCliSession("tab-claude-command");
         CliSendRequest request = new CliSendRequest("tab-claude-command", "claude", "first line\nsecond line", null, null, List.of(), null, List.of(), null, "default", "sonnet", null, "high", null, Map.of());
 
-        Method method = ClaudeCliSession.class.getDeclaredMethod("buildCommand", String.class, CliSendRequest.class, String.class, List.class);
+        Method method = ClaudeCliSession.class.getDeclaredMethod("buildCommand", String.class, CliSendRequest.class, String.class, List.class, McpGatewayCliConfig.class);
         method.setAccessible(true);
         File storeDir = folder.newFolder("attachments", "store");
-        @SuppressWarnings("unchecked") List<String> command = (List<String>) method.invoke(session, "claude", request, "first line\nsecond line", List.of(storeDir.getAbsolutePath()));
+        @SuppressWarnings("unchecked") List<String> command = (List<String>) method.invoke(session, "claude", request, "first line\nsecond line", List.of(storeDir.getAbsolutePath()), null);
 
         assertFalse(command.contains("--"));
         assertFalse(command.contains("first line\nsecond line"));

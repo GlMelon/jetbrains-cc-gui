@@ -13,6 +13,7 @@ import com.github.claudecodegui.bridge.EnvironmentConfigurator;
 import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.bridge.ProcessManager;
 import com.github.claudecodegui.cli.common.CliConstants;
+import com.github.claudecodegui.cli.common.GatewayDownMatcher;
 import com.github.claudecodegui.cli.common.McpErrorMatcher;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.protocol.CodexProtectedEnvKey;
@@ -307,6 +308,12 @@ public class CodexSDKBridge extends BaseSDKBridge {
                     errorMessage = obj.get("error").getAsString();
                 }
             } catch (Exception ignored) {
+            }
+            if (GatewayDownMatcher.isGatewayDown(errorMessage)) {
+                // gateway 不可达(state file 缺失/HTTP 超时):降级为无工具直连 status 提示。
+                // best-effort:仅当 codex 透传 melon_gateway stderr 时命中,不命中不影响功能(5s 超时兜底)。
+                callback.onMessage(CliConstants.CODEX_MSG_STATUS, GatewayDownMatcher.GATEWAY_DOWN_NOTICE);
+                return;
             }
             if (McpErrorMatcher.isMcpConnectionFailure(errorMessage)) {
                 // MCP 连接失败(本地 server 未启动等):降级为非阻塞 status 提示,不标记失败/报错。

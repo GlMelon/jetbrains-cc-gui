@@ -16,8 +16,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.SecureRandom;
 import java.time.Duration;
+import java.util.ArrayDeque;
 import java.util.Base64;
+import java.util.Deque;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Project-scoped facade for the CLI MCP Gateway.
@@ -28,11 +31,13 @@ public final class McpGatewayService implements Disposable {
     private static final SecureRandom RANDOM = new SecureRandom();
     /**
      * 复用判定窗口:gateway 进程活着但 /status 可能尚未 ready(预热线程正在 cold-start 的竞态)
-     * 时,给后续调用方足够时间等它 ready 再复用,而不是 10ms 内探不到就重建。与 cold-start 同量级,
-     * 因为最坏情况就是等一个完整 cold-start;{@code processHandle.isAlive()} 短路保证进程已死时
-     * 立即重建、不会死等。旧实现 10ms 过短,导致预热成果被误判丢弃 + 重建 + 孤儿进程。
+     * 时,给后续调用方足够时间等它 ready 再复用。Opt3 由 10s 放宽到 60s(与 SNAPSHOT_TIMEOUT 同量级):
+     * 防预热线程 cold-start 期被 {@code stopExistingProcess} 误杀活进程——gateway 启动握手 +
+     * MCP server 探测 + config 写入 cold path 总耗时可达 10s+,旧 10s 窗口在慢机/多 MCP server
+     * 场景把活进程误判为 stale 重建,与 onExit 自愈叠加放大重启。{@code processHandle.isAlive()}
+     * 短路保证进程已死时立即重建、不会死等 60s(死进程 waitUntilReady 立即返 false)。
      */
-    private static final Duration REUSE_PROBE_TIMEOUT = Duration.ofSeconds(10);
+    private static final Duration REUSE_PROBE_TIMEOUT = Duration.ofSeconds(60);
     private static final Duration COLD_START_TIMEOUT = Duration.ofSeconds(10);
 
     private final Project project;
@@ -47,6 +52,13 @@ public final class McpGatewayService implements Disposable {
     private McpGatewayBridgeClient bridgeClient;
     private McpGatewayConfigSnapshot currentSnapshot;
     private long currentRevision;
+    /**
+     * 最近一次 ensureStarted 的 projectPath,供 onExit 自愈回调 {@link #onGatewayProcessExit}
+     * 重建时复用——gateway 崩溃后无调用上下文,需记住上次用的 path 才能 ensureStarted 自愈。
+     */
+    private volatile String lastKnownProjectPath;
+    /** 最近 N 次 gateway 进程意外退出时间戳(epoch ms),供 {@link McpGatewayProcessHandle#isRestartStorm} 判风暴。 */
+    private final Deque<Long> exitTimestamps = new ArrayDeque<>();
 
     public McpGatewayService(@NotNull Project project) {
         this.project = project;
@@ -236,6 +248,9 @@ public final class McpGatewayService implements Disposable {
     }
 
     private void ensureStarted(String projectPath) throws Exception {
+        if (projectPath != null) {
+            lastKnownProjectPath = projectPath;
+        }
         if (processHandle != null && processHandle.isAlive() && bridgeClient != null
                 && bridgeClient.waitUntilReady(REUSE_PROBE_TIMEOUT)) {
             return;
@@ -264,15 +279,60 @@ public final class McpGatewayService implements Disposable {
         command.add(projectPath != null ? projectPath : "");
 
         processHandle = McpGatewayProcessHandle.start(command);
+        // Opt3:注入 onExit 自愈回调——gateway 进程意外退出(崩溃/OOM/被外部 kill)时 Java 侧
+        // process.onExit() 感知并异步重建,根治"gateway 崩溃 → Java 零感知 → 下一轮 send 等满
+        // Opt2 的 5s 超时窗口"。回调内 synchronized(lock) 与现有调用方互斥,入口 processHandle==null
+        // 早退防 stopGateway 后误触发,isRestartStorm 防配置错时反复崩溃拖垮 commonPool。
+        processHandle.setOnExitCallback(this::onGatewayProcessExit);
         bridgeClient = new McpGatewayBridgeClient(stateFile, token);
         if (!bridgeClient.waitUntilReady(COLD_START_TIMEOUT)) {
             throw new IllegalStateException("MCP Gateway did not become ready");
         }
     }
 
+    /**
+     * gateway 进程意外退出时的自愈回调(由 {@code McpGatewayProcessHandle.onProcessExit} 在 commonPool 触发)。
+     * <p>异步化(CompletableFuture.runAsync)避免阻塞 onExit 的 commonPool 线程;内部 synchronized(lock)
+     * 与现有调用方互斥。{@code setOnExitCallback(null)} 是首选屏障,此处 {@code processHandle==null}
+     * 早退是竞态兜底——onExit 已在飞时读到的 callback 仍可能非 null,而 stopGateway 已置 processHandle=null。
+     */
+    private void onGatewayProcessExit() {
+        CompletableFuture.runAsync(() -> {
+            synchronized (lock) {
+                if (processHandle == null) {
+                    return;
+                }
+                long now = System.currentTimeMillis();
+                exitTimestamps.addLast(now);
+                while (!exitTimestamps.isEmpty() && exitTimestamps.peekFirst() < now - 30_000L) {
+                    exitTimestamps.pollFirst();
+                }
+                if (McpGatewayProcessHandle.isRestartStorm(
+                        new java.util.ArrayList<>(exitTimestamps), now, 3, 30_000L)) {
+                    LOG.error("[McpGateway] restart storm detected (>3 unexpected exits in 30s); giving up self-heal. "
+                            + "Likely config error (port conflict/script path); next buildCliConfig/refreshConfig resets counter.");
+                    return;
+                }
+                try {
+                    LOG.info("[McpGateway] gateway process exited unexpectedly; attempting self-heal...");
+                    ensureStarted(lastKnownProjectPath);
+                    if (currentSnapshot != null) {
+                        applySnapshot(lastKnownProjectPath);
+                    }
+                    LOG.info("[McpGateway] self-healed after unexpected exit");
+                } catch (Exception e) {
+                    LOG.warn("[McpGateway] self-heal failed: " + e.getMessage()
+                            + " (next send will cold-start a fresh gateway)");
+                }
+            }
+        });
+    }
+
     private void stopExistingProcess() {
         if (processHandle != null) {
             try {
+                // stop 前清回调:防 stop() 触发 onExit 误自愈(handle.stop 内也双重清,这里协同)。
+                processHandle.setOnExitCallback(null);
                 processHandle.stop();
             } catch (Exception e) {
                 LOG.debug("[McpGateway] Failed to stop stale process handle on rebuild: " + e.getMessage());
@@ -291,6 +351,7 @@ public final class McpGatewayService implements Disposable {
                 LOG.debug("[McpGateway] Stop API failed: " + e.getMessage());
             }
             if (processHandle != null) {
+                processHandle.setOnExitCallback(null);
                 processHandle.stop();
             }
             try {
@@ -316,6 +377,7 @@ public final class McpGatewayService implements Disposable {
                 LOG.debug("[McpGateway] Stop API failed on user toggle: " + e.getMessage());
             }
             if (processHandle != null) {
+                processHandle.setOnExitCallback(null);
                 processHandle.stop();
             }
             try {
@@ -326,6 +388,7 @@ public final class McpGatewayService implements Disposable {
             bridgeClient = null;
             currentSnapshot = null;
             currentRevision = 0L;
+            exitTimestamps.clear();
         }
     }
 

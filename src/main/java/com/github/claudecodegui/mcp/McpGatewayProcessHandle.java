@@ -13,17 +13,27 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Owns the long-lived Node Gateway process and drains its output streams.
+ *
+ * <p>Opt3:进程意外退出时经 {@code process.onExit()} 感知(JDK 9+ CompletableFuture),触发
+ * {@link #exitCallback} 自愈(service 注入 ensureStarted 重建,根治"gateway 崩溃 → Java 零感知 →
+ * 下一轮 send 等满 Opt2 的 5s 超时"的窗口)。主动 {@link #stop()} 前须 {@link #setOnExitCallback(null)}
+ * 防误触发(与 {@code stop()} 内的双重清空协同)。{@link #isRestartStorm} 纯函数供 service
+ * 判定风暴(30s 窗口内 >3 次)放弃自愈,避免配置错时反复崩溃拖垮 commonPool。
  */
 public final class McpGatewayProcessHandle {
     private static final Logger LOG = Logger.getInstance(McpGatewayProcessHandle.class);
 
     private final Process process;
     private final AtomicBoolean stopped = new AtomicBoolean(false);
+    private volatile Runnable exitCallback;
 
     private McpGatewayProcessHandle(Process process) {
         this.process = process;
         drain(process.getInputStream(), false);
         drain(process.getErrorStream(), true);
+        // Opt3:进程退出(正常/异常)时 onExit 触发(commonPool 线程)。onProcessExit 读 exitCallback,
+        // 主动 stop 已置 null 则跳过。原实现零 onExit 监听 → gateway 崩溃 Java 不感知。
+        process.onExit().whenComplete((p, t) -> onProcessExit());
     }
 
     public static McpGatewayProcessHandle start(List<String> command) throws java.io.IOException {
@@ -40,10 +50,65 @@ public final class McpGatewayProcessHandle {
         return process.pid();
     }
 
+    /**
+     * 设置进程意外退出时的自愈回调({@code null} 清除)。
+     * <p>service 在 ensureStarted 后注入自愈逻辑;{@code stop()}/{@code stopGateway()}/{@code dispose()}
+     * 前须置 {@code null},防止主动停止时 onExit 误触发自愈(与 {@code stop()} 内的双重清空协同,
+     * 双重防竞态:onExit 已在飞时读到的 callback 仍可能非 null,由回调内 {@code processHandle==null} 早退兜底)。
+     */
+    void setOnExitCallback(Runnable callback) {
+        this.exitCallback = callback;
+    }
+
+    /** 进程退出时触发(commonPool 线程)。读 exitCallback 到局部,null 则跳过;否则调自愈回调。 */
+    private void onProcessExit() {
+        Runnable cb = exitCallback;
+        if (cb == null) {
+            return;
+        }
+        LOG.info("[McpGateway] process exited unexpectedly (pid=" + process.pid() + ")");
+        try {
+            cb.run();
+        } catch (Exception e) {
+            LOG.warn("[McpGateway] onExit self-heal callback failed: " + e.getMessage());
+        }
+    }
+
+    /** 测试钩子:直接触发 onExit 路径,验证 callback 触发/屏蔽(不需真实进程退出)。 */
+    void simulateExitForTests() {
+        onProcessExit();
+    }
+
+    /**
+     * 判定最近 exit 时间戳是否构成重启风暴(窗口内次数 &gt; threshold)。
+     * <p>纯函数,状态由 service 维护(exitTimestamps 列表)。注入 now 便于单测。
+     *
+     * @param recentExitEpochMs 最近 exit 时间戳列表(epoch ms)
+     * @param nowEpochMs        当前时间(epoch ms)
+     * @param threshold         阈值(窗口内次数 &gt; threshold 判为风暴)
+     * @param windowMs          统计窗口(ms)
+     * @return true 表示风暴,应放弃自愈
+     */
+    static boolean isRestartStorm(List<Long> recentExitEpochMs, long nowEpochMs, int threshold, long windowMs) {
+        if (recentExitEpochMs == null || recentExitEpochMs.isEmpty()) {
+            return false;
+        }
+        long cutoff = nowEpochMs - windowMs;
+        int count = 0;
+        for (long ts : recentExitEpochMs) {
+            if (ts >= cutoff) {
+                count++;
+            }
+        }
+        return count > threshold;
+    }
+
     public void stop() {
         if (!stopped.compareAndSet(false, true)) {
             return;
         }
+        // 主动 stop:清回调防 onExit 误触发自愈(与调用方 setOnExitCallback(null) 双重协同)。
+        exitCallback = null;
         try {
             if (process.isAlive()) {
                 PlatformUtils.terminateProcessAndWait(process, 3, TimeUnit.SECONDS);
