@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#cc7c5e"
+     stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Git commit node: vertical branch line with a commit circle -->
+    <line x1="8" y1="3" x2="8" y2="21"/>
+    <circle cx="8" cy="12" r="3.2"/>
+    <!-- AI sparkle (top-right): indicates AI-generated commit message -->
+    <path d="M16 3l1.1 3L20 7l-2.9 1L16 11l-1.1-3L12 7l2.9-1z" fill="#cc7c5e" stroke="none"/>
+</svg>
