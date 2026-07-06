@@ -198,7 +198,9 @@ public class ClaudeNotifier {
     }
 
     public static void clearStatus(@Nullable Project project) {
-        if (project == null) return;
+        if (project == null) {
+            return;
+        }
         update(project, CommonConstants.SESSION_STATUS_READY,null);
     }
     

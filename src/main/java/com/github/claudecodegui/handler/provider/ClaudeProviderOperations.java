@@ -1,13 +1,12 @@
 package com.github.claudecodegui.handler.provider;
 
-import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.common.CommonConstants;
+import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.model.DeleteResult;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.settings.ProviderManager;
-
-import com.github.claudecodegui.model.DeleteResult;
-import com.github.claudecodegui.util.PlatformUtils;
 import com.github.claudecodegui.util.GsonHolder;
+import com.github.claudecodegui.util.PlatformUtils;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
@@ -375,7 +374,9 @@ public class ClaudeProviderOperations {
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to switch provider: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("toast.providerSwitchFailed") + ": " + e.getMessage()));
+                String toastMsg = com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("toast.providerSwitchFailed")
+                        + ": " + e.getMessage();
+                context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs(toastMsg));
             });
         }
     }

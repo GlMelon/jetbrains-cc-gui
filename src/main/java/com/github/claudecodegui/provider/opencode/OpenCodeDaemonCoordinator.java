@@ -9,7 +9,6 @@ import com.github.claudecodegui.util.PlatformUtils;
 import com.intellij.openapi.diagnostic.Logger;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;

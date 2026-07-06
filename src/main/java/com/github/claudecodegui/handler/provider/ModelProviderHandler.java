@@ -11,9 +11,8 @@ import com.github.claudecodegui.model.selection.ModelSelectionResult;
 import com.github.claudecodegui.notifications.ClaudeNotifier;
 import com.github.claudecodegui.notifications.StatusBarModelResolver;
 import com.github.claudecodegui.protocol.DownstreamEvent;
-
-import com.github.claudecodegui.session.SessionSendService;
 import com.github.claudecodegui.session.SessionRuntimeDefaults;
+import com.github.claudecodegui.session.SessionSendService;
 import com.github.claudecodegui.skill.SlashCommandRegistry;
 import com.github.claudecodegui.util.EditorFileUtils;
 import com.github.claudecodegui.util.GsonHolder;
@@ -23,8 +22,6 @@ import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.util.concurrency.AppExecutorUtil;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**

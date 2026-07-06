@@ -159,15 +159,26 @@ public class CodexCliSession implements CliSession {
             StringBuilder cliError = new StringBuilder();
             Process process = null;
             try {
-                LOG.info("[CliConcurrencyDiag][CodexCliSession] send task started" + ": tabId=" + tabId + ", cwd=" + (request.cwd() != null ? request.cwd() : "(none)") + ", thread=" + Thread.currentThread().getName());
+                LOG.info("[CliConcurrencyDiag][CodexCliSession] send task started"
+                        + ": tabId=" + tabId
+                        + ", cwd=" + (request.cwd() != null ? request.cwd() : "(none)")
+                        + ", thread=" + Thread.currentThread().getName());
                 long attachmentsStartNanos = System.nanoTime();
                 List<File> images = attachmentHandler.processForCodex(request.attachments(), tempFiles);
-                LOG.info("[CliConcurrencyDiag][CodexCliSession] attachments prepared" + ": tabId=" + tabId + ", images=" + images.size() + ", elapsedMs=" + elapsedMillis(sendStartNanos) + ", attachmentsMs=" + elapsedMillis(attachmentsStartNanos) + ", thread=" + Thread.currentThread().getName());
+                LOG.info("[CliConcurrencyDiag][CodexCliSession] attachments prepared"
+                        + ": tabId=" + tabId
+                        + ", images=" + images.size()
+                        + ", elapsedMs=" + elapsedMillis(sendStartNanos)
+                        + ", attachmentsMs=" + elapsedMillis(attachmentsStartNanos)
+                        + ", thread=" + Thread.currentThread().getName());
                 boolean requestHasImages = !images.isEmpty();
                 McpGatewayCliConfig gatewayConfig = buildGatewayConfig(request);
                 List<String> gatewayOverrideArgs = (gatewayConfig != null && gatewayConfig.usable())
                         ? gatewayConfig.overrideArgs() : List.of();
-                LOG.info("[CliConcurrencyDiag][CodexCliSession] building command" + ": tabId=" + tabId + ", elapsedMs=" + elapsedMillis(sendStartNanos) + ", thread=" + Thread.currentThread().getName());
+                LOG.info("[CliConcurrencyDiag][CodexCliSession] building command"
+                        + ": tabId=" + tabId
+                        + ", elapsedMs=" + elapsedMillis(sendStartNanos)
+                        + ", thread=" + Thread.currentThread().getName());
                 List<String> cmd = buildCommand(request, images, gatewayOverrideArgs);
                 byte[] promptInput = buildPromptInput(request);
                 LOG.info("[CodexCliSession][" + tabId + "] Command: " + String.join(" ", cmd)
@@ -204,15 +215,25 @@ public class CodexCliSession implements CliSession {
                     }
                 }
 
-                LOG.info("[CliConcurrencyDiag][CodexCliSession] starting process" + ": tabId=" + tabId + ", elapsedMs=" + elapsedMillis(sendStartNanos) + ", thread=" + Thread.currentThread().getName());
+                LOG.info("[CliConcurrencyDiag][CodexCliSession] starting process"
+                        + ": tabId=" + tabId
+                        + ", elapsedMs=" + elapsedMillis(sendStartNanos)
+                        + ", thread=" + Thread.currentThread().getName());
                 process = pb.start();
-                LOG.info("[CliConcurrencyDiag][CodexCliSession] process started" + ": tabId=" + tabId + ", elapsedMs=" + elapsedMillis(sendStartNanos) + ", thread=" + Thread.currentThread().getName());
+                LOG.info("[CliConcurrencyDiag][CodexCliSession] process started"
+                        + ": tabId=" + tabId
+                        + ", elapsedMs=" + elapsedMillis(sendStartNanos)
+                        + ", thread=" + Thread.currentThread().getName());
                 // 将 prompt 通过 stdin 传给 Codex，避免 Windows 命令行长度限制。
                 try (OutputStream stdin = process.getOutputStream()) {
                     stdin.write(promptInput);
                     stdin.flush();
                 }
-                LOG.info("[CliConcurrencyDiag][CodexCliSession] prompt written to stdin" + ": tabId=" + tabId + ", stdinBytes=" + promptInput.length + ", elapsedMs=" + elapsedMillis(sendStartNanos) + ", thread=" + Thread.currentThread().getName());
+                LOG.info("[CliConcurrencyDiag][CodexCliSession] prompt written to stdin"
+                        + ": tabId=" + tabId
+                        + ", stdinBytes=" + promptInput.length
+                        + ", elapsedMs=" + elapsedMillis(sendStartNanos)
+                        + ", thread=" + Thread.currentThread().getName());
                 activeHandle = new CliProcessHandle(process, "codex-tab-" + tabId);
 
                 StringBuilder assistantContent = new StringBuilder();
@@ -229,7 +250,10 @@ public class CodexCliSession implements CliSession {
                             if (b == '\n') {
                                 if (!firstOutputLogged) {
                                     firstOutputLogged = true;
-                                    LOG.info("[CliConcurrencyDiag][CodexCliSession] first stdout line buffer reached" + ": tabId=" + tabId + ", elapsedMs=" + elapsedMillis(sendStartNanos) + ", thread=" + Thread.currentThread().getName());
+                                    LOG.info("[CliConcurrencyDiag][CodexCliSession] first stdout line buffer reached"
+                                            + ": tabId=" + tabId
+                                            + ", elapsedMs=" + elapsedMillis(sendStartNanos)
+                                            + ", thread=" + Thread.currentThread().getName());
                                 }
                                 processLine(lineBuf, diagnostic, callback, assistantContent, cliError);
                             } else {
@@ -260,7 +284,11 @@ public class CodexCliSession implements CliSession {
                     process.waitFor();
                 }
                 int exitCode = process.exitValue();
-                LOG.info("[CliConcurrencyDiag][CodexCliSession] process exited" + ": tabId=" + tabId + ", exitCode=" + exitCode + ", elapsedMs=" + elapsedMillis(sendStartNanos) + ", thread=" + Thread.currentThread().getName());
+                LOG.info("[CliConcurrencyDiag][CodexCliSession] process exited"
+                        + ": tabId=" + tabId
+                        + ", exitCode=" + exitCode
+                        + ", elapsedMs=" + elapsedMillis(sendStartNanos)
+                        + ", thread=" + Thread.currentThread().getName());
 
                 if (wasInterrupted()) {
                     callback.onInterrupted(assistantContent.toString(), CliConstants.I18N_REQUEST_INTERRUPTED);

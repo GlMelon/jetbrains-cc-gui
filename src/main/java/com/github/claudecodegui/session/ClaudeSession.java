@@ -5,8 +5,8 @@ import com.github.claudecodegui.permission.PermissionManager;
 import com.github.claudecodegui.permission.PermissionRequest;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
 import com.github.claudecodegui.provider.codex.CodexSDKBridge;
-import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.session.runtime.EffectiveRuntimeResolver;
+import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -14,7 +14,6 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 

@@ -1,9 +1,8 @@
 package com.github.claudecodegui.handler.provider;
 
 import com.github.claudecodegui.handler.core.HandlerContext;
-import com.github.claudecodegui.protocol.DownstreamEvent;
-
 import com.github.claudecodegui.model.DeleteResult;
+import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -206,7 +205,9 @@ public class CodexProviderOperations {
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to switch Codex provider: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("toast.providerSwitchFailed") + ": " + e.getMessage()));
+                String toastMsg = com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("toast.providerSwitchFailed")
+                        + ": " + e.getMessage();
+                context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs(toastMsg));
             });
         }
     }

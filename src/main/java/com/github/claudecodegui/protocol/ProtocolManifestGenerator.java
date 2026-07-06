@@ -121,6 +121,9 @@ public final class ProtocolManifestGenerator {
         }
 
         System.out.println("[ProtocolManifestGenerator] Generated: " + output.getAbsolutePath()
-                + " (" + upstream.size() + " upstream, " + downstream.size() + " downstream, " + permissionMode.size() + " permissionMode, " + reasoningEffort.size() + " reasoningEffort, " + providerType.size() + " providerType, " + codexProtectedEnvKey.size() + " codexProtectedEnvKey, " + versionAction.size() + " versionAction)");
+                + " (" + upstream.size() + " upstream, " + downstream.size() + " downstream, "
+                + permissionMode.size() + " permissionMode, " + reasoningEffort.size() + " reasoningEffort, "
+                + providerType.size() + " providerType, " + codexProtectedEnvKey.size() + " codexProtectedEnvKey, "
+                + versionAction.size() + " versionAction)");
     }
 }
