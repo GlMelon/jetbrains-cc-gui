@@ -26,12 +26,12 @@ public class HistoryMessageInjector {
     private static final Logger LOG = Logger.getInstance(HistoryMessageInjector.class);
 
     /**
-     * Maximum gap between two adjacent Codex user records that are still treated
-     * as the same SDK double-write. 500 ms comfortably covers the small jitter
+     * Maximum gap between two adjacent Codex records that are still treated as
+     * the same SDK double-write. 500 ms comfortably covers the small jitter
      * between the rollout's response_item and event_msg entries while leaving
-     * real back-to-back user messages alone.
+     * real back-to-back messages alone.
      */
-    private static final long DUPLICATE_USER_MESSAGE_WINDOW_MILLIS = 500L;
+    private static final long DUPLICATE_CODEX_RECORD_WINDOW_MILLIS = 500L;
 
     private final HandlerContext context;
 
@@ -107,7 +107,47 @@ public class HistoryMessageInjector {
             return;
         }
 
+        if (isDuplicateAdjacentCodexThinkingMessage(previous, incoming)) {
+            return;
+        }
+
         frontendMessages.add(incoming);
+    }
+
+    private static boolean isDuplicateAdjacentCodexThinkingMessage(JsonObject previous, JsonObject incoming) {
+        String previousThinking = extractThinkingText(previous);
+        String incomingThinking = extractThinkingText(incoming);
+        if (previousThinking == null || incomingThinking == null) {
+            return false;
+        }
+        if (!previousThinking.trim().equals(incomingThinking.trim())) {
+            return false;
+        }
+        return timestampsWithinWindow(previous, incoming, DUPLICATE_CODEX_RECORD_WINDOW_MILLIS);
+    }
+
+    private static String extractThinkingText(JsonObject message) {
+        if (!CommonConstants.MSG_TYPE_ASSISTANT.equals(getStringProperty(message, CommonConstants.JSON_KEY_TYPE))) {
+            return null;
+        }
+        JsonArray contentBlocks = extractRawContentBlocks(message);
+        if (contentBlocks == null) {
+            return null;
+        }
+        for (JsonElement element : contentBlocks) {
+            if (!element.isJsonObject()) {
+                continue;
+            }
+            JsonObject block = element.getAsJsonObject();
+            if (!CommonConstants.BLOCK_TYPE_THINKING.equals(getStringProperty(block, CommonConstants.JSON_KEY_TYPE))) {
+                continue;
+            }
+            return firstNonBlank(
+                    getString(block, CommonConstants.JSON_KEY_THINKING),
+                    getString(block, CommonConstants.JSON_KEY_TEXT)
+            );
+        }
+        return null;
     }
 
     private static boolean isDuplicateAdjacentCodexUserMessage(JsonObject previous, JsonObject incoming) {
@@ -146,7 +186,7 @@ public class HistoryMessageInjector {
         // Otherwise fall back to a tight timestamp window so we still catch SDK
         // double-writes for text-only turns without accidentally merging two
         // identical user messages typed seconds apart.
-        return timestampsWithinWindow(previous, incoming, DUPLICATE_USER_MESSAGE_WINDOW_MILLIS);
+        return timestampsWithinWindow(previous, incoming, DUPLICATE_CODEX_RECORD_WINDOW_MILLIS);
     }
 
     private static JsonObject preferRicherUserMessage(JsonObject previous, JsonObject incoming) {
@@ -303,8 +343,15 @@ public class HistoryMessageInjector {
             return converted == null ? List.of() : List.of(converted);
         }
 
-        // Handle event_msg containing user_message
+        // Handle event_msg containing user_message or agent_reasoning
         if (CliConstants.CODEX_MSG_EVENT_MSG.equals(type)) {
+            String payloadType = getString(payload, "type");
+            if (CliConstants.CODEX_PAYLOAD_AGENT_REASONING.equals(payloadType)) {
+                String text = getString(payload, "text");
+                return text == null || text.isBlank()
+                        ? List.of()
+                        : List.of(createThinkingAssistantMessage(text, timestamp));
+            }
             JsonObject converted = convertEventMsgToFrontend(payload, timestamp);
             return converted == null ? List.of() : List.of(converted);
         }
@@ -319,6 +366,9 @@ public class HistoryMessageInjector {
             JsonObject converted = null;
             if (CliConstants.CODEX_PAYLOAD_MESSAGE.equals(payloadType)) {
                 converted = CodexMessageConverter.convertCodexMessageToFrontend(payload, timestamp);
+            } else if (CliConstants.CODEX_PAYLOAD_REASONING.equals(payloadType)) {
+                String text = extractReasoningText(payload);
+                converted = text == null || text.isBlank() ? null : createThinkingAssistantMessage(text, timestamp);
             } else if (CliConstants.CODEX_PAYLOAD_FUNCTION_CALL.equals(payloadType)) {
                 converted = CodexMessageConverter.convertFunctionCallToToolUse(payload, timestamp);
             } else if (CliConstants.CODEX_PAYLOAD_FUNCTION_CALL_OUTPUT.equals(payloadType)) {
@@ -330,6 +380,46 @@ public class HistoryMessageInjector {
         }
 
         return List.of();
+    }
+
+    private static String extractReasoningText(JsonObject payload) {
+        String directText = firstNonBlank(
+                getString(payload, "text"),
+                getString(payload, "content")
+        );
+        if (directText != null && !directText.isBlank()) {
+            return directText;
+        }
+
+        if (payload == null || !payload.has("summary") || payload.get("summary").isJsonNull()) {
+            return null;
+        }
+        return extractReasoningSummaryText(payload.get("summary"));
+    }
+
+    private static String extractReasoningSummaryText(JsonElement summary) {
+        if (summary == null || summary.isJsonNull()) {
+            return null;
+        }
+        if (summary.isJsonPrimitive()) {
+            return summary.getAsString();
+        }
+        if (summary.isJsonObject()) {
+            JsonObject summaryObject = summary.getAsJsonObject();
+            return firstNonBlank(getString(summaryObject, "text"), getString(summaryObject, "content"));
+        }
+        if (!summary.isJsonArray()) {
+            return null;
+        }
+
+        List<String> parts = new ArrayList<>();
+        for (JsonElement element : summary.getAsJsonArray()) {
+            String text = extractReasoningSummaryText(element);
+            if (text != null && !text.isBlank()) {
+                parts.add(text);
+            }
+        }
+        return parts.isEmpty() ? null : String.join("\n\n", parts);
     }
 
     private static JsonObject convertProviderErrorToFrontend(JsonObject payload, String timestamp) {

@@ -451,6 +451,58 @@ public class HistoryMessageInjectorTest {
         assertEquals("Let me analyze the request.", thinkingBlock.get("text").getAsString());
     }
 
+    @Test
+    public void convertCodexMessagesConvertsEventAgentReasoningToThinkingBlock() {
+        JsonArray messages = new JsonArray();
+        messages.add(eventAgentReasoningMessage(
+                "2026-07-06T06:43:34.000Z",
+                "**Addressing language and skills**\n\nI need to respond in Chinese..."));
+
+        List<JsonObject> result = HistoryMessageInjector.convertCodexMessagesToFrontendBatch(messages);
+
+        assertEquals("event_msg agent_reasoning 不应被丢弃", 1, result.size());
+        assertEquals("assistant", result.get(0).get("type").getAsString());
+        assertThinkingBlock(result.get(0), "**Addressing language and skills**\n\nI need to respond in Chinese...");
+    }
+
+    @Test
+    public void convertCodexMessagesConvertsResponseItemReasoningSummaryToThinkingBlock() {
+        JsonArray messages = new JsonArray();
+        messages.add(responseItemReasoningMessage(
+                "2026-07-06T06:43:34.000Z",
+                "**Addressing language and skills**\n\nI need to respond in Chinese..."));
+
+        List<JsonObject> result = HistoryMessageInjector.convertCodexMessagesToFrontendBatch(messages);
+
+        assertEquals("response_item reasoning summary 不应被丢弃", 1, result.size());
+        assertEquals("assistant", result.get(0).get("type").getAsString());
+        assertThinkingBlock(result.get(0), "**Addressing language and skills**\n\nI need to respond in Chinese...");
+    }
+
+    @Test
+    public void convertCodexMessagesDeduplicatesDualRecordedReasoning() {
+        JsonArray messages = new JsonArray();
+        messages.add(eventAgentReasoningMessage(
+                "2026-07-06T06:43:34.038Z",
+                "**Addressing language and skills**\n\nI need to respond in Chinese..."));
+        messages.add(responseItemReasoningMessage(
+                "2026-07-06T06:43:34.050Z",
+                "**Addressing language and skills**\n\nI need to respond in Chinese..."));
+
+        List<JsonObject> result = HistoryMessageInjector.convertCodexMessagesToFrontendBatch(messages);
+
+        assertEquals("Codex exec 双写 reasoning 不应重复显示", 1, result.size());
+        assertThinkingBlock(result.get(0), "**Addressing language and skills**\n\nI need to respond in Chinese...");
+    }
+
+    private static void assertThinkingBlock(JsonObject frontendMessage, String expectedText) {
+        JsonObject thinkingBlock = frontendMessage.getAsJsonObject("raw").getAsJsonArray("content")
+                .get(0).getAsJsonObject();
+        assertEquals("thinking", thinkingBlock.get("type").getAsString());
+        assertEquals(expectedText, thinkingBlock.get("thinking").getAsString());
+        assertEquals(expectedText, thinkingBlock.get("text").getAsString());
+    }
+
     private static JsonObject responseItemUserMessage(String timestamp, String text) {
         return responseItemMessage(timestamp, "user", "input_text", text);
     }
@@ -506,6 +558,35 @@ public class HistoryMessageInjectorTest {
             localImages.add(path);
         }
         line.getAsJsonObject("payload").add("local_images", localImages);
+        return line;
+    }
+
+    private static JsonObject eventAgentReasoningMessage(String timestamp, String text) {
+        JsonObject line = new JsonObject();
+        line.addProperty("timestamp", timestamp);
+        line.addProperty("type", "event_msg");
+
+        JsonObject payload = new JsonObject();
+        payload.addProperty("type", "agent_reasoning");
+        payload.addProperty("text", text);
+        line.add("payload", payload);
+        return line;
+    }
+
+    private static JsonObject responseItemReasoningMessage(String timestamp, String text) {
+        JsonObject line = new JsonObject();
+        line.addProperty("timestamp", timestamp);
+        line.addProperty("type", "response_item");
+
+        JsonObject payload = new JsonObject();
+        payload.addProperty("type", "reasoning");
+        JsonArray summary = new JsonArray();
+        JsonObject summaryItem = new JsonObject();
+        summaryItem.addProperty("type", "summary_text");
+        summaryItem.addProperty("text", text);
+        summary.add(summaryItem);
+        payload.add("summary", summary);
+        line.add("payload", payload);
         return line;
     }
 

@@ -85,6 +85,8 @@ public final class CliConstants {
     public static final String CODEX_PAYLOAD_FUNCTION_CALL = "function_call";
     public static final String CODEX_PAYLOAD_FUNCTION_CALL_OUTPUT = "function_call_output";
     public static final String CODEX_PAYLOAD_CUSTOM_TOOL_CALL = "custom_tool_call";
+    public static final String CODEX_PAYLOAD_REASONING = CODEX_ITEM_REASONING;
+    public static final String CODEX_PAYLOAD_AGENT_REASONING = "agent_reasoning";
 
     // ── Codex CLI item.status 值（失败状态） ──────────────────────────────────
 

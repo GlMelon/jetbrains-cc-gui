@@ -96,10 +96,9 @@ public class CodexCliSessionTest {
     }
 
     @Test
-    public void turnCompletedWithReasoningTokensButNoReasoningItemEmitsThinkingPlaceholder() throws Exception {
-        // 复现:gpt-5.5 经第三方代理 API 不返回可读 reasoning(codex CLI --json 不发 reasoning item),
-        // 但 turn.completed.usage.reasoning_output_tokens > 0 证实模型确实思考过。
-        // 期望:发一条占位思考(thinkingStart + thinkingDelta 含 token 数),让思考区不致空白。
+    public void turnCompletedWithReasoningTokensButNoReasoningItemDoesNotEmitThinkingPlaceholder() throws Exception {
+        // Codex 可能只返回 reasoning_output_tokens,但不返回可读 reasoning item/summary。
+        // 期望:不补占位 thinking;思考区只在存在真实可读 reasoning 内容时显示。
         CodexCliSession session = new CodexCliSession("tab-placeholder");
         RecordingCallback callback = new RecordingCallback();
 
@@ -117,15 +116,15 @@ public class CodexCliSessionTest {
                 new StringBuilder()
         );
 
-        assertTrue("reasoning_output_tokens>0 且无 reasoning item 时应发 thinking_start",
+        assertFalse("reasoning_output_tokens>0 但无可读 reasoning item 时不发 thinking",
                 callback.events.stream().anyMatch(event -> "thinking".equals(event.type)));
-        assertTrue("应发占位 thinking_delta 并含 token 数",
-                callback.events.stream().anyMatch(event -> "thinking_delta".equals(event.type) && event.content.contains("115")));
+        assertFalse("reasoning_output_tokens>0 但无可读 reasoning item 时不发 thinking_delta",
+                callback.events.stream().anyMatch(event -> "thinking_delta".equals(event.type)));
     }
 
     @Test
-    public void turnCompletedWithRealReasoningItemSuppressesPlaceholder() throws Exception {
-        // 有真实 reasoning item 时,turn 结束不重复发占位(避免双份思考块)。
+    public void turnCompletedWithRealReasoningItemDoesNotEmitAdditionalThinking() throws Exception {
+        // 有真实 reasoning item 时,turn 结束不重复发 thinking(避免双份思考块)。
         CodexCliSession session = new CodexCliSession("tab-no-placeholder");
         RecordingCallback callback = new RecordingCallback();
 
@@ -143,15 +142,15 @@ public class CodexCliSessionTest {
                 new StringBuilder()
         );
 
-        assertEquals("有真实 reasoning 时只发 1 条 thinking_delta(真实内容),不叠加占位",
+        assertEquals("有真实 reasoning 时只发 1 条 thinking_delta(真实内容),不叠加额外 thinking",
                 1, callback.events.stream().filter(event -> "thinking_delta".equals(event.type)).count());
         assertTrue("真实推理内容应被推送",
                 callback.contentsOfType("thinking_delta").contains("真实推理内容"));
     }
 
     @Test
-    public void turnCompletedWithoutReasoningTokensDoesNotEmitPlaceholder() throws Exception {
-        // reasoning_output_tokens=0(模型未思考)不发占位,思考区保持空。
+    public void turnCompletedWithoutReasoningTokensDoesNotEmitThinking() throws Exception {
+        // reasoning_output_tokens=0 不发 thinking,思考区保持空。
         CodexCliSession session = new CodexCliSession("tab-no-reasoning-tokens");
         RecordingCallback callback = new RecordingCallback();
 
