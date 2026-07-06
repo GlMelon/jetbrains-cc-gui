@@ -24,6 +24,16 @@ import java.util.regex.Pattern;
  */
 public final class UserPathResolver {
 
+    /**
+     * 成功路径永久缓存。PATH 在进程内不变(由 env 变量决定),{@code resolveUserPath()} 经
+     * {@code CliEnvironmentBuilder.copyPath} / {@code OpenCodeCliResolver.searchInPath} /
+     * {@code OpenCodeDaemonCoordinator} 每轮 send 多次调用,缓存后跳过重复 split/merge/dedup。
+     * 范式:{@code OpenCodeCliResolver.cachedExecutable}(double-check + synchronized,只缓存成功)。
+     * 只缓存非 null:Unix 下 idePath 可能 null,让失败每轮重试(罕见,无优化必要)。
+     */
+    private static volatile String cachedUserPath;
+    private static final Object CACHE_LOCK = new Object();
+
     private UserPathResolver() {
     }
 
@@ -32,12 +42,43 @@ public final class UserPathResolver {
      * 用于 CLI 子进程环境({@code CliEnvironmentBuilder})与 serve 守护进程({@code OpenCodeDaemonCoordinator})。
      */
     public static String resolveUserPath() {
+        String cached = cachedUserPath;
+        if (cached != null) {
+            return cached;
+        }
+        synchronized (CACHE_LOCK) {
+            if (cachedUserPath != null) {
+                return cachedUserPath;
+            }
+            String result = doResolveUserPath();
+            if (result != null) {
+                cachedUserPath = result;
+            }
+            return result;
+        }
+    }
+
+    private static String doResolveUserPath() {
         boolean windows = PlatformUtils.isWindows();
         String idePath = windows ? PlatformUtils.getEnvIgnoreCase("PATH") : System.getenv("PATH");
         if (!windows) {
             return idePath;
         }
         return mergePath(idePath, commonWindowsShimDirs(), ";");
+    }
+
+    /** 测试钩子:直接注入缓存路径(验证缓存命中语义,跳过重算)。 */
+    static void __setCachedUserPathForTests(String path) {
+        synchronized (CACHE_LOCK) {
+            cachedUserPath = path;
+        }
+    }
+
+    /** 测试钩子:清空缓存,强制下次 resolveUserPath 重新计算。 */
+    static void __clearCacheForTests() {
+        synchronized (CACHE_LOCK) {
+            cachedUserPath = null;
+        }
     }
 
     /**
