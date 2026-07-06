@@ -53,6 +53,10 @@ public class ClaudeNotifier {
         update(project, CommonConstants.SESSION_STATUS_WAITING,ClaudeCodeGuiBundle.message("notifier.waiting"));
     }
 
+    public static void setStatus(@NotNull Project project, String status, @Nullable String details) {
+        update(project, status, details);
+    }
+
     public static void showSuccess(@NotNull Project project, String message) {
         show(project, "Claude ✓", message, 5000);
     }

@@ -8,6 +8,8 @@ import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.model.selection.DefaultModelCapabilityResolver;
 import com.github.claudecodegui.model.selection.ModelSelectionRequest;
 import com.github.claudecodegui.model.selection.ModelSelectionResult;
+import com.github.claudecodegui.notifications.ClaudeNotifier;
+import com.github.claudecodegui.notifications.StatusBarModelResolver;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 
 import com.github.claudecodegui.session.SessionSendService;
@@ -150,7 +152,7 @@ public class ModelProviderHandler {
         }
         SessionRuntimeDefaults.rememberModel(context.getProject(), confirmedProvider, storedModel);
 
-        com.github.claudecodegui.notifications.ClaudeNotifier.setModel(context.getProject(), model);
+        ClaudeNotifier.setModel(context.getProject(), StatusBarModelResolver.displayModel(selection));
 
         // Store contextWindow override for later use by message handlers
         context.setCurrentModelContextWindow(contextWindowOverride);

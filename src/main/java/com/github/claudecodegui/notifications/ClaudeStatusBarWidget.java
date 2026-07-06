@@ -127,117 +127,17 @@ public class ClaudeStatusBarWidget implements CustomStatusBarWidget, StatusBarWi
     }
 
     private void refreshDisplay(String details) {
-        String status = currentStatus.get();
-        String model = currentModel.get();
-        String mode = currentMode.get();
-        String agent = currentAgent.get();
-        String tokenInfo = currentTokenInfo.get();
-
-        String icon = switch (status) {
-            case CommonConstants.SESSION_STATUS_THINKING -> "💭";
-            case CommonConstants.SESSION_STATUS_GENERATING -> "✏️";
-            case CommonConstants.SESSION_STATUS_WAITING -> "⏳";
-            case CommonConstants.SESSION_STATUS_SUCCESS -> "✓";
-            case CommonConstants.SESSION_STATUS_ERROR -> "✗";
-            default -> "🤖";
-        };
-
-        String statusText = "";
-        if (CommonConstants.SESSION_STATUS_THINKING.equals(status)) {
-            statusText = ClaudeCodeGuiBundle.message("status.thinking");
-        } else if (CommonConstants.SESSION_STATUS_GENERATING.equals(status)) {
-            statusText = ClaudeCodeGuiBundle.message("status.generating");
-        } else if (CommonConstants.SESSION_STATUS_WAITING.equals(status)) {
-            statusText = ClaudeCodeGuiBundle.message("status.waiting");
-        } else if (CommonConstants.SESSION_STATUS_ERROR.equals(status)) {
-            statusText = ClaudeCodeGuiBundle.message("status.error");
-        }
-
-        StringBuilder text = new StringBuilder("GUI " + icon);
-
-        // Add Model Info — match webview ModelSelect display names
-        if (model != null && !model.isEmpty()) {
-            String shortModel = shortenModelName(model);
-            text.append(" [").append(shortModel).append("]");
-        }
-
-        // Add Mode Info — always show mode, matching webview ModeSelect labels
-        if (mode != null && !mode.isEmpty()) {
-            String modeLabel = switch (mode) {
-                case CommonConstants.PERMISSION_MODE_DEFAULT -> ClaudeCodeGuiBundle.message("status.mode.default");
-                case CommonConstants.PERMISSION_MODE_PLAN -> ClaudeCodeGuiBundle.message("status.mode.plan");
-                case CommonConstants.PERMISSION_MODE_ACCEPT_EDITS -> ClaudeCodeGuiBundle.message("status.mode.acceptEdits");
-                case CommonConstants.PERMISSION_MODE_BYPASS -> ClaudeCodeGuiBundle.message("status.mode.bypassPermissions");
-                default -> mode;
-            };
-            text.append(" {").append(modeLabel).append("}");
-        }
-
-        if (!statusText.isEmpty()) {
-            text.append(" ").append(statusText);
-        }
-
-        // Add Token Info
-        if (tokenInfo != null && !tokenInfo.isEmpty()) {
-            text.append(" ").append(tokenInfo);
-        }
-
-        StringBuilder tooltip = new StringBuilder(ClaudeCodeGuiBundle.message("status.tooltip.status", status));
-        if (model != null && !model.isEmpty()) {
-            tooltip.append(ClaudeCodeGuiBundle.message("status.tooltip.model", model));
-        }
-        if (mode != null) {
-            tooltip.append(ClaudeCodeGuiBundle.message("status.tooltip.mode", mode));
-        }
-        if (agent != null && !agent.isEmpty()) {
-            tooltip.append(ClaudeCodeGuiBundle.message("status.tooltip.agent", agent));
-        }
-        if (details != null) {
-            tooltip.append(ClaudeCodeGuiBundle.message("status.tooltip.details", details));
-        }
-
-        updateLabel(text.toString(), tooltip.toString());
-    }
-
-    /**
-     * Shorten model ID to a display name matching the webview ModelSelect component.
-     * e.g. "claude-sonnet-4-6" → "Sonnet 4.6", "gpt-5.4" → "GPT-5.4"
-     */
-    private static String shortenModelName(String model) {
-        // Claude models with version numbers
-        if (model.contains("sonnet")) {
-            if (model.contains("4-6")) {
-                return "Sonnet 4.6";
-            }
-            return "Sonnet";
-        }
-        if (model.contains("opus")) {
-            if (model.contains("4-8")) {
-                return "Opus 4.8";
-            }
-            if (model.contains("4-7")) {
-                return "Opus 4.7";
-            }
-            if (model.contains("4-6")) {
-                return "Opus 4.6";
-            }
-            return "Opus";
-        }
-        if (model.contains("haiku")) {
-            if (model.contains("4-5")) {
-                return "Haiku 4.5";
-            }
-            return "Haiku";
-        }
-        // GPT / Codex models — capitalize like webview
-        if (model.startsWith("gpt-")) {
-            return "GPT-" + model.substring(4);
-        }
-        if (model.startsWith("o") && model.length() <= 3) {
-            return model.toUpperCase(); // o1, o3 etc
-        }
-        // Fallback: return raw ID
-        return model;
+        StatusBarPresentation.Presentation presentation = StatusBarPresentation.present(
+                new StatusBarPresentation.State(
+                        currentStatus.get(),
+                        currentModel.get(),
+                        currentMode.get(),
+                        currentAgent.get(),
+                        currentTokenInfo.get(),
+                        details
+                )
+        );
+        updateLabel(presentation.text(), presentation.tooltip());
     }
 
     public void show(String text, String tooltip, long durationMs) {

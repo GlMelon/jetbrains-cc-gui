@@ -66,6 +66,8 @@ import com.github.claudecodegui.handler.provider.ModelProviderHandler;
 import com.github.claudecodegui.model.selection.DefaultModelCapabilityResolver;
 import com.github.claudecodegui.model.selection.ModelSelectionRequest;
 import com.github.claudecodegui.model.selection.ModelSelectionResult;
+import com.github.claudecodegui.notifications.ClaudeNotifier;
+import com.github.claudecodegui.notifications.StatusBarModelResolver;
 import com.github.claudecodegui.handler.nodeprocess.NodeProcessActionHandlers;
 import com.github.claudecodegui.handler.nodeprocess.GetNodeProcessesActionHandler;
 import com.github.claudecodegui.handler.nodeprocess.KillNodeProcessActionHandler;
@@ -401,7 +403,7 @@ public class ChatWindowDelegate {
                     session.setPermissionMode(mode);
                     host.persistTabSessionState();
                     LOG.info("Loaded permission mode from settings: " + mode);
-                    com.github.claudecodegui.notifications.ClaudeNotifier.setMode(host.getProject(), mode);
+                    ClaudeNotifier.setMode(host.getProject(), mode);
                 }
             }
         } catch (Exception e) {
@@ -827,11 +829,10 @@ public class ChatWindowDelegate {
             if (project == null || host.isDisposed()) { return; }
 
             ClaudeSession session = host.getSession();
-            String mode = session != null ? session.getPermissionMode() : CommonConstants.PERMISSION_MODE_DEFAULT;
-            com.github.claudecodegui.notifications.ClaudeNotifier.setMode(project, mode);
+            ClaudeNotifier.setMode(project, resolveStatusBarMode(session));
 
-            String model = session != null ? session.getModel() : HandlerContext.DEFAULT_MODEL;
-            com.github.claudecodegui.notifications.ClaudeNotifier.setModel(project, model);
+            ClaudeNotifier.setModel(project, resolveStatusBarModel(session));
+            syncStatusBarSessionStatus(project, session);
 
             try {
                 CodemossSettingsService settingsService = host.getSettingsService();
@@ -840,13 +841,63 @@ public class ChatWindowDelegate {
                     JsonObject agent = settingsService.getAgent(selectedId);
                     if (agent != null) {
                         String agentName = agent.has("name") ? agent.get("name").getAsString() : "Agent";
-                        com.github.claudecodegui.notifications.ClaudeNotifier.setAgent(project, agentName);
+                        ClaudeNotifier.setAgent(project, agentName);
                     }
                 }
             } catch (Exception e) {
                 LOG.warn("Failed to set initial agent in status bar: " + e.getMessage());
             }
         });
+    }
+
+    private String resolveStatusBarMode(ClaudeSession session) {
+        if (session != null) {
+            String sessionMode = session.getPermissionMode();
+            if (sessionMode != null && !sessionMode.trim().isEmpty()) {
+                return sessionMode.trim();
+            }
+        }
+        String savedMode = PropertiesComponent.getInstance().getValue(PermissionModeHandler.PERMISSION_MODE_PROPERTY_KEY);
+        if (savedMode != null && !savedMode.trim().isEmpty()) {
+            return savedMode.trim();
+        }
+        return CommonConstants.PERMISSION_MODE_DEFAULT;
+    }
+
+    private String resolveStatusBarModel(ClaudeSession session) {
+        HandlerContext ctx = host.getHandlerContext();
+        String provider = session != null ? session.getProvider() : ctx.getCurrentProvider();
+        String model = session != null ? session.getModel() : ctx.getCurrentModel();
+        if (provider == null || provider.trim().isEmpty()
+                || model == null || model.trim().isEmpty()) {
+            return "";
+        }
+        try {
+            ModelSelectionResult selection = new DefaultModelCapabilityResolver(
+                    ctx.getSettingsService().getModelRegistry()
+            ).resolve(new ModelSelectionRequest(provider, model, null, false));
+            return StatusBarModelResolver.displayModel(selection);
+        } catch (Exception e) {
+            LOG.warn("Failed to resolve status bar model: " + e.getMessage());
+            return StatusBarModelResolver.strip(model);
+        }
+    }
+
+    private void syncStatusBarSessionStatus(Project project, ClaudeSession session) {
+        if (session == null) {
+            ClaudeNotifier.clearStatus(project);
+            return;
+        }
+        String error = session.getError();
+        if (error != null && !error.trim().isEmpty()) {
+            ClaudeNotifier.setStatus(project, CommonConstants.SESSION_STATUS_ERROR, error);
+        } else if (session.isLoading()) {
+            ClaudeNotifier.setWaiting(project);
+        } else if (session.getState() != null && session.getState().isBusy()) {
+            ClaudeNotifier.setGenerating(project);
+        } else {
+            ClaudeNotifier.clearStatus(project);
+        }
     }
 
     public void updateTabStatus(TabAnswerStatus status) {
