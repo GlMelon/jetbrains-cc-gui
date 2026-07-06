@@ -35,8 +35,8 @@ public class PermissionModeHandler {
             String currentMode = CommonConstants.PERMISSION_MODE_DEFAULT;  // Default value (prompt on each tool call)
 
             // Prefer getting from session first
-            if (context.getSession() != null) {
-                String sessionMode = context.getSession().getPermissionMode();
+            if (this.context.getSession() != null) {
+                String sessionMode = this.context.getSession().getPermissionMode();
                 if (sessionMode != null && !sessionMode.trim().isEmpty()) {
                     currentMode = sessionMode;
                 }
@@ -67,14 +67,19 @@ public class PermissionModeHandler {
             String mode = parseMode(content);
 
             // Check if session exists
-            if (context.getSession() != null) {
-                context.getSession().setPermissionMode(mode);
+            if (this.context.getSession() != null) {
+                this.context.getSession().setPermissionMode(mode);
 
                 // Save permission mode to persistent storage
                 PropertiesComponent props = PropertiesComponent.getInstance();
                 props.setValue(PERMISSION_MODE_PROPERTY_KEY, mode);
                 LOG.info("Saved permission mode to settings: " + mode);
-                com.github.claudecodegui.notifications.ClaudeNotifier.setMode(context.getProject(), mode);
+                com.github.claudecodegui.notifications.ClaudeNotifier.setMode(this.context.getProject(), mode);
+
+                // Push the new mode to the live runtime so it takes effect on the
+                // next tool call in the current turn, mirroring the TUI's instant
+                // mode switch instead of waiting for the next user message.
+                pushPermissionModeLive(mode);
             } else {
                 LOG.warn("[PermissionModeHandler] WARNING: Session is null! Cannot set permission mode");
             }

@@ -98,6 +98,9 @@ export interface UseWindowCallbacksOptions {
   openPermissionDialog: (request: PermissionRequest) => void;
   openAskUserQuestionDialog: (request: AskUserQuestionRequest) => void;
   openPlanApprovalDialog: (request: PlanApprovalRequest) => void;
+  forceClosePermissionDialog: (channelId?: string | null) => void;
+  forceCloseAskUserQuestionDialog: (requestId?: string | null) => void;
+  forceClosePlanApprovalDialog: (requestId?: string | null) => void;
   openContextUsageDialog: (requestId?: string | null, loading?: boolean) => void;
   updateContextUsageData: (
     requestId: string | null | undefined,

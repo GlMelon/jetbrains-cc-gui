@@ -267,6 +267,17 @@ public class WebviewInitializer {
             HtmlLoader htmlLoader = host.getHtmlLoader();
             String htmlContent = htmlLoader.loadChatHtml();
 
+            // Per-tab provider/model injection: each tab's WebView reads the
+            // same global localStorage snapshot, so without this every tab on
+            // IDE startup overrides the per-tab provider that
+            // ClaudeChatWindow.restorePersistedTabSessionState already wrote to
+            // the session — see issue #1353.
+            ClaudeSession session =
+                    host.getHandlerContext() != null ? host.getHandlerContext().getSession() : null;
+            String tabProvider = session != null ? session.getProvider() : null;
+            String tabModel = session != null ? session.getModel() : null;
+            htmlContent = htmlLoader.injectInitialTabState(htmlContent, tabProvider, tabModel);
+
             browser.getJBCefClient().addLoadHandler(new CefLoadHandlerAdapter() {
                 @Override
                 public void onLoadEnd(CefBrowser cefBrowser, CefFrame frame, int httpStatusCode) {

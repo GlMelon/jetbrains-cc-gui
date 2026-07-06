@@ -20,6 +20,9 @@ export function registerPermissionCallbacks(options: UseWindowCallbacksOptions):
     openPermissionDialog,
     openAskUserQuestionDialog,
     openPlanApprovalDialog,
+    forceClosePermissionDialog,
+    forceCloseAskUserQuestionDialog,
+    forceClosePlanApprovalDialog,
   } = options;
 
   // [归一化] showPermissionDialog → dialog.permission

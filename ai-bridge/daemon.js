@@ -29,7 +29,8 @@ import {
   shutdownPersistentRuntimes,
   abortCurrentTurn,
   resetRuntimePersistent,
-  getContextUsagePersistent
+  getContextUsagePersistent,
+  setPermissionModePersistent
 } from './services/claude/persistent-query-service.js';
 import { abortCurrentCodexTurn, resetCodexThreadCache, waitForCodexTurnCompletion } from './services/codex/message-service.js';
 import { injectStartupEnvVars, isWebviewControlledEnvVar, isDangerousEnvVar } from './config/api-config.js';
@@ -271,6 +272,11 @@ process.stdout.write = function (chunk, encoding, callback) {
 // inter-turn 'session_updated' events; without it those events would be
 // misrouted to whatever request happens to be active. See startPerpetualReader().
 process.stdout._originalStdoutWrite = _originalStdoutWrite;
+// Expose the pre-interception stderr writer so out-of-band code (notably the
+// queue-bypassing setPermissionMode path, which runs while another turn's
+// processRequest is active) can log without being tagged with that turn's
+// activeRequestId and corrupting its stdout stream.
+process.stderr._originalStderrWrite = _originalStderrWrite;
 
 /**
  * Override console.log to go through our tagged stdout.

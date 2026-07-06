@@ -88,9 +88,43 @@ export function useModelStatePersistence(options: UseModelStatePersistenceOption
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
+      // Per-tab restore (issue #1353): when the Java backend has loaded a saved
+      // session for this specific tab, it injects __INITIAL_TAB_PROVIDER__ /
+      // __INITIAL_TAB_MODEL__ into the HTML before React boots. Those values
+      // win over the global localStorage snapshot, which is shared across every
+      // tab in the JCEF process and would otherwise cause every CC tab on
+      // restart to be set to whichever provider was last saved by ANY tab.
+      const initialTabProvider = typeof window.__INITIAL_TAB_PROVIDER__ === 'string'
+        ? window.__INITIAL_TAB_PROVIDER__.trim()
+        : '';
+      const initialTabModel = typeof window.__INITIAL_TAB_MODEL__ === 'string'
+        ? window.__INITIAL_TAB_MODEL__.trim()
+        : '';
+      const hasBackendProvider = initialTabProvider === 'claude' || initialTabProvider === 'codex';
+      const hasBackendModel = initialTabModel.length > 0;
+
       let restoredProvider = 'claude';
       let restoredClaudePermissionMode: PermissionMode = 'default';
       let restoredCodexPermissionMode: PermissionMode = 'default';
+
+      // Model validation helpers — close over the restored* lets so both
+      // branches (saved localStorage / fresh backend-only) share the same logic
+      // and each getCustomModels localStorage read happens at most once.
+      const applyClaudeModel = (modelId: string) => {
+        const normalized = normalizeClaudeModelId(strip1MContextSuffix(modelId));
+        const customs = getCustomModels('claude-custom-models');
+        if (CLAUDE_MODELS.find(m => m.id === normalized) || customs.find(m => m.id === normalized)) {
+          restoredClaudeModel = normalized;
+          setSelectedClaudeModel(normalized);
+        }
+      };
+      const applyCodexModel = (modelId: string) => {
+        const customs = getCustomModels('codex-custom-models');
+        if (CODEX_MODELS.find(m => m.id === modelId) || customs.find(m => m.id === modelId)) {
+          restoredCodexModel = modelId;
+          setSelectedCodexModel(modelId);
+        }
+      };
 
       if (saved) {
         const state = JSON.parse(saved);
