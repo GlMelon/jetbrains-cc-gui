@@ -614,7 +614,7 @@ public class CodexCliSession implements CliSession {
                         // MCP 连接失败:降级为非阻塞提示,不缓冲为回合错误
                     } else if (isFatalCodexError(msg)) {
                         // 致命 provider/API 错误(502 重连死循环等):codex 会反复重连且子进程永不退出,
-                        // 静默缓冲会让前端无限 "Generating response"。立即上报并置 fatalAbort,
+                        // 静默缓冲会让前端无限停留在加载状态。立即上报并置 fatalAbort,
                         // 供 stdout 读取循环提前 break + destroyForcibly 终止卡死的进程。
                         fatalAbort = true;
                         callback.onError(formatCodexError(msg, false));
@@ -1146,7 +1146,17 @@ public class CodexCliSession implements CliSession {
         }
         if (request.reasoningEffort() != null && !request.reasoningEffort().isBlank()) {
             cmd.add(CliConstants.CODEX_ARG_C_CONFIG);
-            cmd.add("model_reasoning_effort=\"" + request.reasoningEffort() + "\"");
+            cmd.add(codexConfigOverride(
+                    CliConstants.CODEX_CONFIG_MODEL_REASONING_EFFORT,
+                    request.reasoningEffort()
+            ));
+        }
+        if (request.thinkingOutputEnabled()) {
+            cmd.add(CliConstants.CODEX_ARG_C_CONFIG);
+            cmd.add(codexConfigOverride(
+                    CliConstants.CODEX_CONFIG_MODEL_REASONING_SUMMARY,
+                    CliConstants.CODEX_REASONING_SUMMARY_AUTO
+            ));
         }
         // gateway 注入:-c 命令行覆盖(melon_gateway 定义 + 逐个禁真实 server)。
         // 与 reasoning effort 的 -c 同位放置。args-array 经原生 codex.exe argv 直传可靠。
@@ -1165,6 +1175,10 @@ public class CodexCliSession implements CliSession {
         cmd.add(CliConstants.CODEX_ARG_STDIN);
     }
 
+    private static String codexConfigOverride(String key, String value) {
+        return key + "=\"" + value + "\"";
+    }
+
     /**
      * 续接会话:codex exec resume --last ... PROMPT
      */
@@ -1181,7 +1195,17 @@ public class CodexCliSession implements CliSession {
         }
         if (request.reasoningEffort() != null && !request.reasoningEffort().isBlank()) {
             cmd.add(CliConstants.CODEX_ARG_C_CONFIG);
-            cmd.add("model_reasoning_effort=\"" + request.reasoningEffort() + "\"");
+            cmd.add(codexConfigOverride(
+                    CliConstants.CODEX_CONFIG_MODEL_REASONING_EFFORT,
+                    request.reasoningEffort()
+            ));
+        }
+        if (request.thinkingOutputEnabled()) {
+            cmd.add(CliConstants.CODEX_ARG_C_CONFIG);
+            cmd.add(codexConfigOverride(
+                    CliConstants.CODEX_CONFIG_MODEL_REASONING_SUMMARY,
+                    CliConstants.CODEX_REASONING_SUMMARY_AUTO
+            ));
         }
         // gateway 注入(同 exec 路径,-c exec resume 同样支持 -c,见调研文档 §5)。
         if (gatewayOverrideArgs != null && !gatewayOverrideArgs.isEmpty()) {

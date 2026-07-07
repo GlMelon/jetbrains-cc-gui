@@ -25,8 +25,46 @@ public record CliSendRequest(
         String actualModel,
         String reasoningEffort,
         String permissionSessionId,
+        Boolean thinkingOutputEnabled,
         Map<String, String> extraEnv
 ) {
+    public CliSendRequest(
+            String tabId,
+            String provider,
+            String message,
+            String sessionId,
+            String cwd,
+            List<ClaudeSession.Attachment> attachments,
+            JsonObject openedFiles,
+            List<String> fileTagPaths,
+            String agentPrompt,
+            String permissionMode,
+            String model,
+            String actualModel,
+            String reasoningEffort,
+            String permissionSessionId,
+            Map<String, String> extraEnv
+    ) {
+        this(
+                tabId,
+                provider,
+                message,
+                sessionId,
+                cwd,
+                attachments,
+                openedFiles,
+                fileTagPaths,
+                agentPrompt,
+                permissionMode,
+                model,
+                actualModel,
+                reasoningEffort,
+                permissionSessionId,
+                Boolean.TRUE,
+                extraEnv
+        );
+    }
+
     public CliSendRequest {
         if (tabId == null || tabId.isBlank()) {
             throw new IllegalArgumentException("tabId required");
@@ -37,6 +75,7 @@ public record CliSendRequest(
         message = Objects.requireNonNullElse(message, "");
         attachments = attachments != null ? List.copyOf(attachments) : List.of();
         fileTagPaths = fileTagPaths != null ? List.copyOf(fileTagPaths) : List.of();
+        thinkingOutputEnabled = thinkingOutputEnabled != null ? thinkingOutputEnabled : Boolean.TRUE;
         extraEnv = extraEnv != null ? Map.copyOf(extraEnv) : Map.of();
     }
 }

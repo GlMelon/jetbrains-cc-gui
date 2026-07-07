@@ -316,6 +316,7 @@ public class SessionSendService {
         );
         ModelRegistryConfig.ResolvedModelSelection codexModelSelection =
                 resolveModelSelection(CommonConstants.PROVIDER_CODEX, state.getModel());
+        Boolean thinkingOutputEnabled = readThinkingOutputEnabled();
         SessionRequest request = new SessionRequest(
                 key,
                 runtime.provider(),
@@ -334,6 +335,7 @@ public class SessionSendService {
                 state.getPermissionSessionId(),
                 null,
                 null,
+                thinkingOutputEnabled,
                 Map.of()
         );
 
@@ -388,6 +390,7 @@ public class SessionSendService {
         );
         ModelRegistryConfig.ResolvedModelSelection opencodeModelSelection =
                 resolveModelSelection(CommonConstants.PROVIDER_OPENCODE, state.getModel());
+        Boolean thinkingOutputEnabled = readThinkingOutputEnabled();
         SessionRequest request = new SessionRequest(
                 key,
                 runtime.provider(),
@@ -406,6 +409,7 @@ public class SessionSendService {
                 state.getPermissionSessionId(),
                 null,
                 null,
+                thinkingOutputEnabled,
                 Map.of()
         );
 
@@ -462,6 +466,7 @@ public class SessionSendService {
         final String currentModel = state.getModel();
         final ModelRegistryConfig.ResolvedModelSelection modelSelection =
                 resolveModelSelection(CommonConstants.PROVIDER_CLAUDE, currentModel);
+        final Boolean thinkingOutputEnabled = readThinkingOutputEnabled();
         LOG.info("[Lifecycle] sendToClaude sessionId=" + (state.getSessionId() != null ? state.getSessionId() : "(new)")
                 + ", epoch=" + runtimeSessionEpoch
                 + ", cwd=" + state.getCwd()
@@ -492,6 +497,7 @@ public class SessionSendService {
                 state.getPermissionSessionId(),
                 streaming,
                 null, // disableThinking 废弃:思考预算改由 reasoning effort 控制,三 provider 统一 null(思考区开关下沉为显示控制,见 SessionCallbackAdapter/TurnPushGate)
+                thinkingOutputEnabled,
                 Map.of()
         );
 
@@ -570,6 +576,21 @@ public class SessionSendService {
             LOG.warn("[Streaming] Failed to read streaming config: " + e.getMessage());
         }
         return streaming;
+    }
+
+    private Boolean readThinkingOutputEnabled() {
+        try {
+            String projectPath = project.getBasePath();
+            if (projectPath != null) {
+                CodemossSettingsService settingsService = CodemossSettingsService.getInstance();
+                boolean enabled = settingsService.getShowThinkingEnabled(projectPath);
+                LOG.info("[Thinking] Read show thinking config: " + enabled);
+                return enabled;
+            }
+        } catch (Exception e) {
+            LOG.warn("[Thinking] Failed to read show thinking config, defaulting to enabled: " + e.getMessage());
+        }
+        return Boolean.TRUE;
     }
 
     private String getAgentPrompt() {

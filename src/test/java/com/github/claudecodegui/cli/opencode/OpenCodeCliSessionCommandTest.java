@@ -77,10 +77,8 @@ public class OpenCodeCliSessionCommandTest {
         assertTrue("dir flag present", dirIdx >= 0);
         assertEquals("/work", cmd.get(dirIdx + 1));
 
-        // 总是带 --thinking:让 opencode run --format json 输出 type:"reasoning" 文本事件
-        // (parser EVENT_REASONING 分支据此推送思考区)。--thinking(输出推理文本)与 --variant
-        // (推理强度)正交。对齐 SDK 路径(message.part.updated reasoning 文本透传)。
-        assertTrue("--thinking flag always present", cmd.contains("--thinking"));
+        // showThinking 开启时带 --thinking:让 opencode run --format json 输出 type:"reasoning" 文本事件。
+        assertTrue("--thinking flag present when show thinking is enabled", cmd.contains("--thinking"));
     }
 
     @Test
@@ -131,7 +129,24 @@ public class OpenCodeCliSessionCommandTest {
         OpenCodeCliSession session = new OpenCodeCliSession("t");
         List<String> cmd = session.buildRunCommand(medium, null, List.of());
         assertFalse("medium → omit --variant", cmd.contains("--variant"));
-        // --thinking 与 --variant 正交:medium 省略 variant,但仍带 --thinking(让推理文本可见)
+        // --thinking 与 --variant 正交:medium 省略 variant,但开启思考显示时仍带 --thinking。
         assertTrue("medium 仍带 --thinking(与 variant 正交)", cmd.contains("--thinking"));
+    }
+
+    @Test
+    public void b15_showThinkingDisabledOmitsThinkingFlagButKeepsVariant() {
+        CliSendRequest hiddenThinking = new CliSendRequest(
+                "tab-1", CommonConstants.PROVIDER_OPENCODE, "hi",
+                null, "/work", List.of(), new JsonObject(), List.of(),
+                null, CommonConstants.PERMISSION_MODE_DEFAULT, "anthropic/claude-3-5-sonnet",
+                "anthropic/claude-3-5-sonnet", "high", null, Boolean.FALSE, java.util.Map.of()
+        );
+        OpenCodeCliSession session = new OpenCodeCliSession("t");
+        List<String> cmd = session.buildRunCommand(hiddenThinking, null, List.of());
+
+        int variantIdx = indexOf(cmd, "--variant");
+        assertTrue("variant flag remains present", variantIdx >= 0);
+        assertEquals("high", cmd.get(variantIdx + 1));
+        assertFalse("showThinking=false omits --thinking", cmd.contains("--thinking"));
     }
 }

@@ -1,6 +1,7 @@
 package com.github.claudecodegui.cli.codex;
 
 import com.github.claudecodegui.cli.CliSessionCallback;
+import com.github.claudecodegui.cli.common.CliConstants;
 import org.junit.Test;
 
 import java.lang.reflect.Field;
@@ -884,6 +885,75 @@ public class CodexCliSessionTest {
     }
 
     @Test
+    public void showThinkingEnabledRequestsCodexReasoningSummaryForExecAndResume() throws Exception {
+        CodexCliSession session = new CodexCliSession("tab-reasoning-summary");
+        var request = new com.github.claudecodegui.cli.CliSendRequest(
+                "tab-reasoning-summary",
+                "codex",
+                "hello",
+                null,
+                "D:\\project\\jetbrains-melon-cc-gui",
+                List.of(),
+                null,
+                List.of(),
+                null,
+                "acceptEdits",
+                "gpt-5.3-codex",
+                null,
+                "high",
+                null,
+                Boolean.TRUE,
+                java.util.Map.of()
+        );
+
+        List<String> execCommand = buildCommand(session, request);
+        assertTrue(execCommand.contains(CliConstants.CODEX_ARG_C_CONFIG));
+        assertTrue(execCommand.contains(
+                CliConstants.CODEX_CONFIG_MODEL_REASONING_SUMMARY
+                        + "=\"" + CliConstants.CODEX_REASONING_SUMMARY_AUTO + "\""
+        ));
+
+        setThreadId(session, "thread-1");
+        List<String> resumeCommand = buildCommand(session, request);
+        assertTrue(resumeCommand.contains(
+                CliConstants.CODEX_CONFIG_MODEL_REASONING_SUMMARY
+                        + "=\"" + CliConstants.CODEX_REASONING_SUMMARY_AUTO + "\""
+        ));
+    }
+
+    @Test
+    public void showThinkingDisabledOmitsCodexReasoningSummaryButKeepsEffort() throws Exception {
+        CodexCliSession session = new CodexCliSession("tab-reasoning-summary-disabled");
+        var request = new com.github.claudecodegui.cli.CliSendRequest(
+                "tab-reasoning-summary-disabled",
+                "codex",
+                "hello",
+                null,
+                "D:\\project\\jetbrains-melon-cc-gui",
+                List.of(),
+                null,
+                List.of(),
+                null,
+                "acceptEdits",
+                "gpt-5.3-codex",
+                null,
+                "high",
+                null,
+                Boolean.FALSE,
+                java.util.Map.of()
+        );
+
+        List<String> command = buildCommand(session, request);
+        assertTrue(command.contains(
+                CliConstants.CODEX_CONFIG_MODEL_REASONING_EFFORT + "=\"high\""
+        ));
+        assertFalse(command.contains(
+                CliConstants.CODEX_CONFIG_MODEL_REASONING_SUMMARY
+                        + "=\"" + CliConstants.CODEX_REASONING_SUMMARY_AUTO + "\""
+        ));
+    }
+
+    @Test
     public void gbkEncodedWindowsDiagnosticFallsBackToChineseText() throws Exception {
         Method decodeLine = CodexCliSession.class.getDeclaredMethod(
                 "decodeLine",
@@ -896,6 +966,27 @@ public class CodexCliSessionTest {
         String decoded = (String) decodeLine.invoke(null, bytes, bytes.length);
 
         assertEquals("命令行太长。", decoded);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> buildCommand(
+            CodexCliSession session,
+            com.github.claudecodegui.cli.CliSendRequest request
+    ) throws Exception {
+        Method buildCommand = CodexCliSession.class.getDeclaredMethod(
+                "buildCommand",
+                com.github.claudecodegui.cli.CliSendRequest.class,
+                List.class,
+                List.class
+        );
+        buildCommand.setAccessible(true);
+        return (List<String>) buildCommand.invoke(session, request, List.of(), List.of());
+    }
+
+    private static void setThreadId(CodexCliSession session, String threadId) throws Exception {
+        Field field = CodexCliSession.class.getDeclaredField("threadId");
+        field.setAccessible(true);
+        field.set(session, threadId);
     }
 
     @Test

@@ -30,8 +30,52 @@ public record SessionRequest(
         String permissionSessionId,
         Boolean streaming,
         Boolean disableThinking,
+        Boolean thinkingOutputEnabled,
         Map<String, String> env
 ) {
+    public SessionRequest(
+            RuntimeKey key,
+            ProviderType provider,
+            RuntimeType runtimeType,
+            String message,
+            String sessionId,
+            String cwd,
+            List<ClaudeSession.Attachment> attachments,
+            JsonObject openedFiles,
+            List<String> fileTagPaths,
+            String agentPrompt,
+            String permissionMode,
+            String model,
+            String actualModel,
+            String reasoningEffort,
+            String permissionSessionId,
+            Boolean streaming,
+            Boolean disableThinking,
+            Map<String, String> env
+    ) {
+        this(
+                key,
+                provider,
+                runtimeType,
+                message,
+                sessionId,
+                cwd,
+                attachments,
+                openedFiles,
+                fileTagPaths,
+                agentPrompt,
+                permissionMode,
+                model,
+                actualModel,
+                reasoningEffort,
+                permissionSessionId,
+                streaming,
+                disableThinking,
+                Boolean.TRUE,
+                env
+        );
+    }
+
     public SessionRequest {
         if (key == null) {
             throw new IllegalArgumentException("key is required");
@@ -47,5 +91,6 @@ public record SessionRequest(
         fileTagPaths = fileTagPaths != null ? List.copyOf(fileTagPaths) : List.of();
         env = env != null ? Map.copyOf(env) : Map.of();
         actualModel = actualModel != null && !actualModel.isBlank() ? actualModel : null;
+        thinkingOutputEnabled = thinkingOutputEnabled != null ? thinkingOutputEnabled : Boolean.TRUE;
     }
 }

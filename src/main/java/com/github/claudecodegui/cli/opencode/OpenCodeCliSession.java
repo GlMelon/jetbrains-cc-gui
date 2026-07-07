@@ -193,8 +193,8 @@ public class OpenCodeCliSession implements CliSession {
         // 可靠 stdin EOF:redirectInput 重定向到空设备(NUL / /dev/null),在 OS 句柄层给子进程
         // 空 stdin,opencode run 立即读到 EOF。此前用 getOutputStream().close() 关闭管道写端,
         // 但经 opencode.cmd → cmd.exe → opencode.exe 这层 Windows 批处理包装时 EOF 不可靠传播
-        // → opencode 阻塞读 stdin → 进程不输出 → Java read() 阻塞 → 前端"Generating response 后
-        // 无输出无错误"(对照实验:stdin 打开=30s 挂起 exit0 空;redirectInput/< /dev/null=快速返回
+        // → opencode 阻塞读 stdin → 进程不输出 → Java read() 阻塞 → 前端加载提示后
+        // 无输出无错误(对照实验:stdin 打开=30s 挂起 exit0 空;redirectInput/< /dev/null=快速返回
         // 事件流)。redirectInput 在创建进程时由 OS 直接重定向句柄,不依赖 cmd.exe 包装传播,
         // 是关闭 stdin 的可靠方式。(平台耦合,对照实验验证;B9 不写 stdin,故无需管道)
         pb.redirectInput(stdinNullSink());
@@ -269,7 +269,7 @@ public class OpenCodeCliSession implements CliSession {
                 if (isSilentEmptyFailure(parser)) {
                     // opencode exit0 但整轮未解析到任何事件(无 sessionID、无文本、无 step_finish):
                     // 典型为子进程阻塞读 stdin 或 opencode/provider 内部静默错误。上报错误而非
-                    // 静默空完成,避免前端"Generating response 后无输出无错误"。
+                    // 静默空完成,避免前端加载提示后无输出无错误。
                     // 对照验证:命令行 `opencode run "<msg>" --format json -m <model> --dir <项目> < NUL`。
                     String err = CliErrorFormatter.formatError("OpenCode",
                             "进程退出但未返回任何内容(exit=0,无事件流)。"
@@ -366,11 +366,13 @@ public class OpenCodeCliSession implements CliSession {
             cmd.add(CliConstants.OPENCODE_ARG_VARIANT);
             cmd.add(variant);
         }
-        // 总是带 --thinking:让 opencode run --format json 输出 type:"reasoning" 文本事件
+        // showThinking 开启时带 --thinking:让 opencode run --format json 输出 type:"reasoning" 文本事件
         // (parser EVENT_REASONING 分支据此推送思考区)。--thinking(是否输出推理文本)与 --variant
-        // (推理强度)正交,故 medium(省略 variant)也带;glm 等模型即使 medium 仍产出推理 token。
+        // (推理强度)正交,故开关关闭时仍保留 variant,只不请求明文 thinking。
         // 对齐 SDK 路径(message.part.updated reasoning 文本透传)。详见 OpenCodeCliStreamParser.handleReasoning。
-        cmd.add(CliConstants.OPENCODE_ARG_THINKING);
+        if (request.thinkingOutputEnabled()) {
+            cmd.add(CliConstants.OPENCODE_ARG_THINKING);
+        }
         if (attachFiles != null) {
             for (File f : attachFiles) {
                 if (f != null) {

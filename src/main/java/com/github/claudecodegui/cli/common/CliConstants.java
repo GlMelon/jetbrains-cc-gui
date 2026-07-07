@@ -154,6 +154,9 @@ public final class CliConstants {
     public static final String CODEX_ARG_LAST = "--last";
     public static final String CODEX_ARG_C_CONFIG = "-c";
     public static final String CODEX_ARG_I_CONFIG = "-i";
+    public static final String CODEX_CONFIG_MODEL_REASONING_EFFORT = "model_reasoning_effort";
+    public static final String CODEX_CONFIG_MODEL_REASONING_SUMMARY = "model_reasoning_summary";
+    public static final String CODEX_REASONING_SUMMARY_AUTO = "auto";
 
     // ── OpenCode CLI 参数（实测 opencode v1.17.11 `opencode run --help`） ──────
     // 真实命令：opencode run [message..] --format json（输出逐行 NDJSON 事件流）。

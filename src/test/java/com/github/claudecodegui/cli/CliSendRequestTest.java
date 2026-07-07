@@ -6,7 +6,9 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 public class CliSendRequestTest {
 
@@ -54,5 +56,52 @@ public class CliSendRequestTest {
         );
 
         assertNull(request.permissionSessionId());
+    }
+
+    @Test
+    public void defaultsThinkingOutputEnabledForBackwardCompatibleRequests() {
+        CliSendRequest request = new CliSendRequest(
+                "tab-1",
+                "codex",
+                "hello",
+                null,
+                null,
+                List.of(),
+                null,
+                List.of(),
+                null,
+                "default",
+                "gpt-5.3-codex",
+                null,
+                "high",
+                null,
+                Map.of()
+        );
+
+        assertTrue(request.thinkingOutputEnabled());
+    }
+
+    @Test
+    public void preservesExplicitThinkingOutputDisabled() {
+        CliSendRequest request = new CliSendRequest(
+                "tab-1",
+                "codex",
+                "hello",
+                null,
+                null,
+                List.of(),
+                null,
+                List.of(),
+                null,
+                "default",
+                "gpt-5.3-codex",
+                null,
+                "high",
+                null,
+                Boolean.FALSE,
+                Map.of()
+        );
+
+        assertFalse(request.thinkingOutputEnabled());
     }
 }
