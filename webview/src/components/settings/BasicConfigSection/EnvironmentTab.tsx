@@ -98,6 +98,10 @@ const EnvironmentTab = ({
           <InfoIcon size={16} />
           <span>{t('settings.basic.invocationMode.policyHint')}</span>
         </small>
+        <small className={styles.formHint}>
+          <AlertIcon size={16} />
+          <span>{t('settings.basic.invocationMode.scopeNotice')}</span>
+        </small>
         {invocationMode === 'cli' && (
           <div className={styles.nodePathInputWrapper} style={{ marginTop: 8 }}>
             <input

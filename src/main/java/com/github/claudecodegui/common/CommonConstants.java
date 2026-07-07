@@ -121,6 +121,32 @@ public final class CommonConstants {
     public static final String BLOCK_TYPE_OUTPUT_TEXT = "output_text";
     /** 图片内容块 */
     public static final String BLOCK_TYPE_IMAGE = "image";
+    /** 文件变更内容块 */
+    public static final String BLOCK_TYPE_FILE_CHANGE = "file_change";
+    /** MCP 工具调用内容块 */
+    public static final String BLOCK_TYPE_MCP_TOOL_CALL = "mcp_tool_call";
+    /** Web 搜索内容块 */
+    public static final String BLOCK_TYPE_WEB_SEARCH = "web_search";
+    /** 待办事项列表内容块 */
+    public static final String BLOCK_TYPE_TODO_LIST = "todo_list";
+    /** Provider 原始事件诊断内容块 */
+    public static final String BLOCK_TYPE_PROVIDER_EVENT = "provider_event";
+    /** Provider 错误内容块 */
+    public static final String BLOCK_TYPE_PROVIDER_ERROR = "provider_error";
+    /** 文件变更内容块默认标题 */
+    public static final String BLOCK_TITLE_FILE_CHANGE = "File change";
+    /** MCP 工具调用内容块默认标题 */
+    public static final String BLOCK_TITLE_MCP_TOOL_CALL = "MCP tool call";
+    /** Web 搜索内容块默认标题 */
+    public static final String BLOCK_TITLE_WEB_SEARCH = "Web search";
+    /** 待办事项列表内容块默认标题 */
+    public static final String BLOCK_TITLE_TODO_LIST = "Todo list";
+    /** Provider 错误内容块默认标题 */
+    public static final String BLOCK_TITLE_PROVIDER_ERROR = "Provider error";
+    /** Provider 原始事件诊断摘要前缀 */
+    public static final String BLOCK_SUMMARY_PROVIDER_EVENT = "Provider event";
+    /** 诊断摘要分隔符 */
+    public static final String BLOCK_SUMMARY_SEPARATOR = ": ";
     /** 图片源编码类型：base64 */
     public static final String IMAGE_SOURCE_BASE64 = "base64";
 
@@ -159,6 +185,38 @@ public final class CommonConstants {
     public static final String JSON_KEY_TOOL_USE_ID = "tool_use_id";
     /** JSON 字段：是否为元消息 */
     public static final String JSON_KEY_IS_META = "isMeta";
+    /** JSON 字段：provider 标识 */
+    public static final String JSON_KEY_PROVIDER = "provider";
+    /** JSON 字段：事件类型 */
+    public static final String JSON_KEY_EVENT_TYPE = "eventType";
+    /** JSON 字段：item 类型 */
+    public static final String JSON_KEY_ITEM_TYPE = "itemType";
+    /** JSON 字段：标题 */
+    public static final String JSON_KEY_TITLE = "title";
+    /** JSON 字段：摘要 */
+    public static final String JSON_KEY_SUMMARY = "summary";
+    /** JSON 字段：详情 */
+    public static final String JSON_KEY_DETAILS = "details";
+    /** JSON 字段：文件路径 */
+    public static final String JSON_KEY_PATH = "path";
+    /** JSON 字段：操作 */
+    public static final String JSON_KEY_OPERATION = "operation";
+    /** JSON 字段：查询 */
+    public static final String JSON_KEY_QUERY = "query";
+    /** JSON 字段：URL */
+    public static final String JSON_KEY_URL = "url";
+    /** JSON 字段：条目列表 */
+    public static final String JSON_KEY_ITEMS = "items";
+    /** JSON 字段：原始事件 */
+    public static final String JSON_KEY_RAW = "raw";
+    /** JSON 字段：服务名 */
+    public static final String JSON_KEY_SERVER = "server";
+    /** JSON 字段：工具名 */
+    public static final String JSON_KEY_TOOL = "tool";
+    /** JSON 字段：结果 */
+    public static final String JSON_KEY_RESULT = "result";
+
+    public static final String JSON_KEY_VALUE = "value";
 
     // ===== 特殊内容标记 =====
 

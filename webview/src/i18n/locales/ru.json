@@ -50,9 +50,6 @@
     "loadingDropdown": "Загрузка...",
     "addAttachment": "Добавить вложение",
     "stopGeneration": "Остановить генерацию",
-    "generatingResponse": "Генерирую ответ",
-    "elapsedTime": "Прошло {{time}}",
-    "minutesAndSeconds": "{{minutes}}м {{seconds}}с",
     "imagePreview": "Предпросмотр",
     "context": "Контекст",
     "usage": "Использование",
@@ -92,6 +89,11 @@
     "attachmentsUploaded": "[Вложения загружены]",
     "streamingConnected": "{{provider}} обрабатывает запрос",
     "streamingResponse": "Потоковая передача ответа",
+    "messageSections": {
+      "thinking": "Размышления",
+      "tools": "Инструменты",
+      "output": "Вывод"
+    },
     "avatarUser": "Вы",
     "showEarlierMessages": "Показать предыдущие сообщения ({{count}})",
     "totalDuration": "Этот ответ занял",

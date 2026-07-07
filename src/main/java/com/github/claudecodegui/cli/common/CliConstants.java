@@ -76,9 +76,18 @@ public final class CliConstants {
     // ── Codex CLI item.type 值 ────────────────────────────────────────────────
 
     public static final String CODEX_ITEM_REASONING = "reasoning";
+    public static final String CODEX_ITEM_AGENT_REASONING = "agent_reasoning";
     public static final String CODEX_ITEM_AGENT_MESSAGE = "agent_message";
     public static final String CODEX_ITEM_COMMAND_EXECUTION = "command_execution";
     public static final String CODEX_ITEM_MCP_TOOL_CALL = "mcp_tool_call";
+    public static final String CODEX_ITEM_FILE_CHANGE = "file_change";
+    public static final String CODEX_ITEM_WEB_SEARCH = "web_search";
+    public static final String CODEX_ITEM_TODO_LIST = "todo_list";
+    public static final String CODEX_ITEM_FUNCTION_CALL = "function_call";
+    public static final String CODEX_ITEM_TOOL_CALL = "tool_call";
+    public static final String CODEX_ITEM_CUSTOM_TOOL_CALL = "custom_tool_call";
+    public static final String CODEX_ITEM_FUNCTION_CALL_OUTPUT = "function_call_output";
+    public static final String CODEX_ITEM_ERROR = "error";
 
     // ── Codex CLI response payload.type 值 ────────────────────────────────────
 
@@ -86,7 +95,20 @@ public final class CliConstants {
     public static final String CODEX_PAYLOAD_FUNCTION_CALL_OUTPUT = "function_call_output";
     public static final String CODEX_PAYLOAD_CUSTOM_TOOL_CALL = "custom_tool_call";
     public static final String CODEX_PAYLOAD_REASONING = CODEX_ITEM_REASONING;
-    public static final String CODEX_PAYLOAD_AGENT_REASONING = "agent_reasoning";
+    public static final String CODEX_PAYLOAD_AGENT_REASONING = CODEX_ITEM_AGENT_REASONING;
+
+    // ── Codex CLI 字段名 ────────────────────────────────────────────────────
+
+    public static final String CODEX_FIELD_ENCRYPTED_CONTENT = "encrypted_content";
+    public static final String CODEX_FIELD_FILE_PATH = "file_path";
+    public static final String CODEX_FIELD_FILE = "file";
+    public static final String CODEX_FIELD_FILENAME = "filename";
+    public static final String CODEX_FIELD_ACTION = "action";
+    public static final String CODEX_FIELD_CHANGE_TYPE = "change_type";
+    public static final String CODEX_FIELD_ARGUMENTS = "arguments";
+    public static final String CODEX_FIELD_TODOS = "todos";
+    public static final String CODEX_FIELD_TASKS = "tasks";
+    public static final String CODEX_FIELD_CALL_ID = "call_id";
 
     // ── Codex CLI item.status 值（失败状态） ──────────────────────────────────
 

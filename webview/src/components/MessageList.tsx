@@ -198,7 +198,8 @@ export const MessageList = memo(forwardRef<MessageListRevealHandle, MessageListP
     return Boolean(streamingActive && tail?.type === 'assistant' && tail.__suppressStreamingConnectHint !== true);
   }, [messages, streamingActive]);
 
-  const shouldShowWaitingIndicator = waitingVisible && !hasInlineAssistantActivity;
+  const shouldShowWaitingIndicator =
+    waitingVisible && queueDisplayState === 'QUEUED' && !hasInlineAssistantActivity;
 
   // Context menu for message list (copy only, when text selected)
   const ctxMenu = useContextMenu();
@@ -335,6 +336,18 @@ export const MessageList = memo(forwardRef<MessageListRevealHandle, MessageListP
           // streaming tail — copy is hidden then to avoid copying partial text.
           const isStreamingGroup = streamingActive
             && unit.items[unit.items.length - 1].messageIndex === messages.length - 1;
+          const streamingTailMessage = isStreamingGroup
+            ? unit.items[unit.items.length - 1]?.message
+            : undefined;
+          const streamingTailHasRenderableContent = Boolean(
+            streamingTailMessage
+            && (
+              extractMarkdownContent(streamingTailMessage).trim().length > 0
+              || getMessageText(streamingTailMessage).trim().length > 0
+              || getContentBlocks(streamingTailMessage).length > 0
+            )
+          );
+          const shouldShowStreamingFooter = isStreamingGroup && streamingTailHasRenderableContent;
           const groupCopyableText = unit.items
             .map(({ message }) => extractMarkdownContent(message))
             .map((text) => text.trim())
@@ -388,21 +401,22 @@ export const MessageList = memo(forwardRef<MessageListRevealHandle, MessageListP
                             onNavigateToDependencySettings={onNavigateToDependencySettings}
                             toolResultSignature={toolResultSignature}
                             currentProvider={currentProvider}
+                            loadingStartTime={loadingStartTime}
                             withinResponseGroup={true}
                             renderMode="response-segment"
-                            streamingStartedAt={loadingStartTime}
                           />
                         </div>
                       );
                     })}
+                    {shouldShowStreamingFooter ? (
+                      <AssistantStreamingFooter
+                        elapsedMs={streamingTailMessage?.__assistantResponseStatus?.elapsedMs}
+                        startedAt={loadingStartTime}
+                        t={t}
+                      />
+                    ) : null}
                   </div>
-                  {isStreamingGroup ? (
-                    <AssistantStreamingFooter
-                      elapsedMs={unit.items[unit.items.length - 1].message.__assistantResponseStatus?.elapsedMs}
-                      startedAt={loadingStartTime}
-                      t={t}
-                    />
-                  ) : (
+                  {!isStreamingGroup && (
                     <MessageUsageStats
                       inputTokens={usage.inputTokens}
                       outputTokens={usage.outputTokens}
@@ -445,7 +459,7 @@ export const MessageList = memo(forwardRef<MessageListRevealHandle, MessageListP
             onNavigateToDependencySettings={onNavigateToDependencySettings}
             toolResultSignature={toolResultSignature}
             currentProvider={currentProvider}
-            streamingStartedAt={loadingStartTime}
+            loadingStartTime={loadingStartTime}
           />
         );
       })}
@@ -453,8 +467,6 @@ export const MessageList = memo(forwardRef<MessageListRevealHandle, MessageListP
       {/* Loading / queue indicator */}
       {shouldShowWaitingIndicator && (
         <WaitingIndicator
-          startTime={loadingStartTime ?? undefined}
-          queueDisplayState={queueDisplayState}
           queueAheadCount={queueAheadCount}
           loading={loading}
           onExitComplete={handleWaitingExitComplete}

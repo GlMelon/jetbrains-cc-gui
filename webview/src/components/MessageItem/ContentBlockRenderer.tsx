@@ -31,6 +31,130 @@ function shouldShowProviderErrorSummary(summary: string, details: string | undef
   );
 }
 
+function stringifyBlockValue(value: unknown): string {
+  if (value === undefined || value === null) return '';
+  if (typeof value === 'string') return value;
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function BlockDetails({ details, t }: { details?: string; t: TFunction }) {
+  if (!details) return null;
+  return (
+    <details className="provider-event-details">
+      <summary>{t('chat.providerError.details')}</summary>
+      <pre>{details}</pre>
+    </details>
+  );
+}
+
+function FileChangeBlock({ block, t }: { block: Extract<ClaudeContentBlock, { type: 'file_change' }>; t: TFunction }) {
+  const title = block.title || block.summary || block.path || block.type;
+  return (
+    <div className="provider-event-block file-change-block">
+      <div className="provider-event-header">
+        <span className="provider-event-icon" aria-hidden="true">●</span>
+        <span className="provider-event-title">{title}</span>
+      </div>
+      <div className="provider-event-meta">
+        {block.operation && <span>{block.operation}</span>}
+        {block.path && <span>{block.path}</span>}
+        {block.status && <span>{block.status}</span>}
+      </div>
+      {block.summary && block.summary !== title && <div className="provider-event-summary">{block.summary}</div>}
+      <BlockDetails details={block.details} t={t} />
+    </div>
+  );
+}
+
+function McpToolCallBlock({ block, t }: { block: Extract<ClaudeContentBlock, { type: 'mcp_tool_call' }>; t: TFunction }) {
+  const title = block.title || [block.server, block.tool].filter(Boolean).join('.') || block.summary || block.type;
+  const input = stringifyBlockValue(block.input);
+  const result = stringifyBlockValue(block.result);
+  return (
+    <div className="provider-event-block mcp-tool-call-block">
+      <div className="provider-event-header">
+        <span className="provider-event-icon" aria-hidden="true">◆</span>
+        <span className="provider-event-title">{title}</span>
+      </div>
+      <div className="provider-event-meta">
+        {block.server && <span>{block.server}</span>}
+        {block.tool && <span>{block.tool}</span>}
+        {block.status && <span>{block.status}</span>}
+      </div>
+      {block.summary && block.summary !== title && <div className="provider-event-summary">{block.summary}</div>}
+      {input && <pre className="provider-event-json">{input}</pre>}
+      {result && <pre className="provider-event-json">{result}</pre>}
+      <BlockDetails details={block.details} t={t} />
+    </div>
+  );
+}
+
+function WebSearchBlock({ block, t }: { block: Extract<ClaudeContentBlock, { type: 'web_search' }>; t: TFunction }) {
+  const title = block.title || block.query || block.url || block.summary || block.type;
+  return (
+    <div className="provider-event-block web-search-block">
+      <div className="provider-event-header">
+        <span className="provider-event-icon" aria-hidden="true">⌕</span>
+        <span className="provider-event-title">{title}</span>
+      </div>
+      <div className="provider-event-meta">
+        {block.query && <span>{block.query}</span>}
+        {block.status && <span>{block.status}</span>}
+        {block.url && <span>{block.url}</span>}
+      </div>
+      {block.summary && block.summary !== title && <div className="provider-event-summary">{block.summary}</div>}
+      <BlockDetails details={block.details} t={t} />
+    </div>
+  );
+}
+
+function TodoListBlock({ block, t }: { block: Extract<ClaudeContentBlock, { type: 'todo_list' }>; t: TFunction }) {
+  const title = block.title || block.summary || block.type;
+  return (
+    <div className="provider-event-block todo-list-block">
+      <div className="provider-event-header">
+        <span className="provider-event-icon" aria-hidden="true">☑</span>
+        <span className="provider-event-title">{title}</span>
+      </div>
+      {block.status && <div className="provider-event-meta"><span>{block.status}</span></div>}
+      {Array.isArray(block.items) && block.items.length > 0 && (
+        <ul className="provider-event-list">
+          {block.items.map((item, index) => (
+            <li key={index}>
+              {item.status && <span className="provider-event-list-status">{item.status}</span>}
+              <span>{item.text || item.content || item.title || stringifyBlockValue(item)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {block.summary && block.summary !== title && <div className="provider-event-summary">{block.summary}</div>}
+      <BlockDetails details={block.details} t={t} />
+    </div>
+  );
+}
+
+function ProviderEventBlock({ block, t }: { block: Extract<ClaudeContentBlock, { type: 'provider_event' }>; t: TFunction }) {
+  const title = block.title || block.summary || block.itemType || block.eventType || block.type;
+  return (
+    <div className="provider-event-block provider-diagnostic-block">
+      <div className="provider-event-header">
+        <span className="provider-event-icon" aria-hidden="true">?</span>
+        <span className="provider-event-title">{title}</span>
+      </div>
+      <div className="provider-event-meta">
+        {block.provider && <span>{block.provider}</span>}
+        {block.eventType && <span>{block.eventType}</span>}
+        {block.itemType && <span>{block.itemType}</span>}
+      </div>
+      <BlockDetails details={block.details || stringifyBlockValue(block.raw)} t={t} />
+    </div>
+  );
+}
+
 function getImageStyle(isUser: boolean): React.CSSProperties {
   return {
     maxWidth: isUser ? '200px' : '100%',
@@ -261,7 +385,7 @@ export const ContentBlockRenderer = memo(function ContentBlockRenderer({
     const summary = block.summary || block.details || t('chat.providerError.fallbackSummary');
     const details = block.details || summary;
     const showSummary = shouldShowProviderErrorSummary(summary, block.details);
-    const provider = block.provider || 'codex';
+    const provider = block.provider || '';
     const metadata: string[] = [t('chat.providerError.provider', { provider })];
     if (block.exitCode !== undefined && block.exitCode !== null) {
       metadata.push(t('chat.providerError.exitCode', { exitCode: block.exitCode }));
@@ -289,6 +413,26 @@ export const ContentBlockRenderer = memo(function ContentBlockRenderer({
         )}
       </div>
     );
+  }
+
+  if (block.type === 'file_change') {
+    return <FileChangeBlock block={block} t={t} />;
+  }
+
+  if (block.type === 'mcp_tool_call') {
+    return <McpToolCallBlock block={block} t={t} />;
+  }
+
+  if (block.type === 'web_search') {
+    return <WebSearchBlock block={block} t={t} />;
+  }
+
+  if (block.type === 'todo_list') {
+    return <TodoListBlock block={block} t={t} />;
+  }
+
+  if (block.type === 'provider_event') {
+    return <ProviderEventBlock block={block} t={t} />;
   }
 
   if (block.type === 'thinking') {

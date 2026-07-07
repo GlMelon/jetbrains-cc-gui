@@ -1,6 +1,11 @@
 /* ==================== Chat Message Avatar Style ==================== */
 /* 严格按照 chat-message-preview.html 的对话样式 */
 
+:root {
+    --assistant-message-card-width: clamp(560px, 72vw, 820px);
+    --assistant-message-row-width: calc(var(--assistant-message-card-width) + 88px);
+}
+
 /* ==================== Message Base ==================== */
 /* 覆盖原有样式，实现预览效果 */
 .message {
@@ -41,6 +46,9 @@
     align-self: flex-start;
     flex-direction: row;
     align-items: flex-start;
+    box-sizing: border-box;
+    width: min(85%, var(--assistant-message-row-width));
+    max-width: 85%;
 }
 
 /* ==================== Avatar Row Layout ==================== */
@@ -61,6 +69,11 @@
     flex: 1;
     min-width: 0; /* Prevent flex child overflow */
     position: relative;
+}
+
+.message.assistant .message-content-wrapper {
+    flex: 1 1 0;
+    max-width: calc(100% - 48px);
 }
 
 /* User message: shrink-wrap bubble to content width, right-aligned */
@@ -152,6 +165,147 @@
     background: var(--color-message-card-bg);
     border-color: var(--color-message-card-border);
     border-top-left-radius: 4px;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.message.assistant .assistant-sectioned-message-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 14px;
+}
+
+.assistant-message-section {
+    min-width: 0;
+    overflow: hidden;
+    border-radius: 9px;
+    border: 1px solid color-mix(in srgb, var(--color-message-card-border) 72%, transparent);
+    background: color-mix(in srgb, var(--color-message-card-bg) 94%, var(--bg-tertiary, #2b2d31) 6%);
+}
+
+.assistant-message-section-caption {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 24px;
+    padding: 5px 10px;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-message-card-border) 55%, transparent);
+    color: var(--text-tertiary, #a8adb7);
+    font-size: 10.5px;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+    line-height: 1.2;
+    text-transform: uppercase;
+    background: rgba(255, 255, 255, 0.012);
+}
+
+.assistant-message-section-caption-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--accent-color, #7c5cff);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-color, #7c5cff) 14%, transparent);
+    flex: 0 0 auto;
+}
+
+.assistant-message-section-caption-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.assistant-message-section-body {
+    padding: 10px 11px 11px;
+    min-width: 0;
+}
+
+.assistant-message-section-body > .content-block + .content-block {
+    margin-top: 10px;
+}
+
+.assistant-message-section-body > .content-block > :first-child {
+    margin-top: 0;
+}
+
+.assistant-message-section-body > .content-block > :last-child {
+    margin-bottom: 0;
+}
+
+.assistant-message-section-thinking {
+    border-color: rgba(169, 137, 255, 0.18);
+    background: linear-gradient(180deg, rgba(169, 137, 255, 0.05), rgba(169, 137, 255, 0.02));
+}
+
+.assistant-message-section-thinking .assistant-message-section-caption {
+    color: var(--violet, #a989ff);
+    border-bottom-color: rgba(169, 137, 255, 0.12);
+    background: rgba(169, 137, 255, 0.035);
+}
+
+.assistant-message-section-thinking .assistant-message-section-caption-dot {
+    background: var(--violet, #a989ff);
+    box-shadow: 0 0 0 3px rgba(169, 137, 255, 0.13);
+}
+
+.assistant-message-section-tools {
+    border-color: rgba(245, 158, 11, 0.18);
+    background: linear-gradient(180deg, rgba(245, 158, 11, 0.045), rgba(245, 158, 11, 0.018));
+}
+
+.assistant-message-section-tools .assistant-message-section-caption {
+    color: var(--amber, #f59e0b);
+    border-bottom-color: rgba(245, 158, 11, 0.12);
+    background: rgba(245, 158, 11, 0.03);
+}
+
+.assistant-message-section-tools .assistant-message-section-caption-dot {
+    background: var(--amber, #f59e0b);
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.12);
+}
+
+.assistant-message-section-output {
+    border-color: color-mix(in srgb, var(--accent-color, #7c5cff) 10%, var(--color-message-card-border));
+    background: color-mix(in srgb, var(--color-message-card-bg) 96%, var(--accent-color, #7c5cff) 4%);
+}
+
+.message.assistant .content-block,
+.message.assistant .assistant-message-section-body,
+.message.assistant .task-container,
+.message.assistant .tool-block {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.message.assistant .task-header,
+.message.assistant .task-title-section,
+.message.assistant .bash-tool-header,
+.message.assistant .bash-group-header,
+.message.assistant .bash-timeline-row {
+    min-width: 0;
+}
+
+.message.assistant .tool-title-text,
+.message.assistant .tool-title-summary,
+.message.assistant .tool-meta-badge,
+.message.assistant .bash-tool-title,
+.message.assistant .bash-tool-description,
+.message.assistant .bash-timeline-description,
+.message.assistant .task-summary-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.message.assistant .bash-command-block,
+.message.assistant .bash-output-block,
+.message.assistant .tool-params,
+.message.assistant .provider-event-json,
+.message.assistant .provider-error-details pre,
+.message.assistant .task-field-content {
+    max-width: 100%;
+    overflow-x: auto;
 }
 
 .assistant-response-group {
@@ -188,6 +342,15 @@
 
 .message-response-segment-content {
     min-width: 0;
+}
+
+.assistant-response-segment .message-response-segment-content.assistant-sectioned-message-content {
+    padding: 0;
+}
+
+.assistant-response-content > .assistant-streaming-footer {
+    width: auto;
+    margin: 0 18px 14px;
 }
 
 /* Message Tail - pointing to avatar */
@@ -543,6 +706,11 @@
 /* ==================== Responsive ==================== */
 @media (max-width: 768px) {
     .message {
+        max-width: 95%;
+    }
+
+    .message.assistant {
+        width: 95%;
         max-width: 95%;
     }
 

@@ -15,12 +15,14 @@ export function AssistantStreamingFooter({ elapsedMs, startedAt, t }: AssistantS
 
   return (
     <div className="assistant-streaming-footer" role="status" aria-live="polite">
-      <span className="assistant-streaming-footer-dots" aria-hidden="true">
-        <span />
-        <span />
-        <span />
+      <span className="assistant-streaming-footer-main">
+        <span className="assistant-streaming-footer-dots" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </span>
+        <span className="assistant-streaming-footer-label">{t('chat.streamingResponse')}</span>
       </span>
-      <span className="assistant-streaming-footer-label">{t('chat.streamingResponse')}</span>
       {elapsedLabel ? (
         <span className="assistant-streaming-footer-elapsed">{elapsedLabel}</span>
       ) : null}

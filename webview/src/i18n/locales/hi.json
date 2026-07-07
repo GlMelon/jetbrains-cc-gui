@@ -50,9 +50,6 @@
     "loadingDropdown": "लोड हो रहा है...",
     "addAttachment": "अटैचमेंट जोड़ें",
     "stopGeneration": "जनरेशन रोकें",
-    "generatingResponse": "प्रतिक्रिया उत्पन्न हो रही है",
-    "elapsedTime": "बीता {{time}}",
-    "minutesAndSeconds": "{{minutes}} मि {{seconds}} से",
     "imagePreview": "पूर्वावलोकन",
     "context": "संदर्भ",
     "usage": "उपयोग",
@@ -92,6 +89,11 @@
     "attachmentsUploaded": "[अटैचमेंट अपलोड हो गए]",
     "streamingConnected": "{{provider}} कनेक्ट हो गया, आपके प्रश्न को समझ रहा है",
     "streamingResponse": "उत्तर स्ट्रीम किया जा रहा है",
+    "messageSections": {
+      "thinking": "सोच",
+      "tools": "टूल",
+      "output": "आउटपुट"
+    },
     "avatarUser": "आप",
     "showEarlierMessages": "{{count}} पुराने संदेश दिखाएं",
     "totalDuration": "इस जवाब में लगा समय",

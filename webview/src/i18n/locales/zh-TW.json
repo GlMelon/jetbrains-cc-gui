@@ -50,10 +50,7 @@
     "loadingDropdown": "載入中...",
     "addAttachment": "新增附件",
     "stopGeneration": "停止生成",
-    "generatingResponse": "正在生成響應",
     "queueWaiting": "佇列中，前面還有 {{count}} 條等待",
-    "elapsedTime": "已用 {{time}}",
-    "minutesAndSeconds": "{{minutes}} 分 {{seconds}} 秒",
     "imagePreview": "預覽",
     "context": "上下文",
     "usage": "上下文",
@@ -94,6 +91,11 @@
     "attachmentsUploaded": "[已上傳附件]",
     "streamingConnected": "{{provider}} 已成功連接，正在理解問題",
     "streamingResponse": "正在串流輸出",
+    "messageSections": {
+      "thinking": "思考",
+      "tools": "工具",
+      "output": "輸出"
+    },
     "avatarUser": "你",
     "showEarlierMessages": "顯示之前的 {{count}} 則訊息",
     "totalDuration": "本次耗時",

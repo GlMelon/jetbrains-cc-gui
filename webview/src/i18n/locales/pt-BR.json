@@ -50,9 +50,6 @@
     "loadingDropdown": "Carregando...",
     "addAttachment": "Adicionar anexo",
     "stopGeneration": "Parar geração",
-    "generatingResponse": "Gerando resposta",
-    "elapsedTime": "Decorrido {{time}}",
-    "minutesAndSeconds": "{{minutes}}m {{seconds}}s",
     "imagePreview": "Visualização",
     "context": "Contexto",
     "usage": "Uso",
@@ -92,6 +89,11 @@
     "attachmentsUploaded": "[Anexos Enviados]",
     "streamingConnected": "{{provider}} conectado, entendendo sua pergunta",
     "streamingResponse": "Transmitindo resposta",
+    "messageSections": {
+      "thinking": "Pensamento",
+      "tools": "Ferramentas",
+      "output": "Saída"
+    },
     "avatarUser": "Você",
     "showEarlierMessages": "Mostrar {{count}} mensagens anteriores",
     "totalDuration": "Esta resposta levou",

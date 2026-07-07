@@ -34,7 +34,15 @@ vi.mock('./MessageItem/MessageUsageStats', () => ({
 }));
 
 vi.mock('./MessageItem/AssistantStreamingFooter', () => ({
-  AssistantStreamingFooter: () => <div data-testid="streaming-footer">streaming</div>,
+  AssistantStreamingFooter: ({ elapsedMs, startedAt }: { elapsedMs?: number; startedAt?: number | null }) => (
+    <div
+      data-testid="streaming-footer"
+      data-elapsed-ms={elapsedMs ?? ''}
+      data-started-at={startedAt ?? ''}
+    >
+      streaming
+    </div>
+  ),
 }));
 
 vi.mock('./WaitingIndicator', () => ({
@@ -219,7 +227,7 @@ describe('MessageList container behaviour', () => {
     expect(last.textContent).toBe('message 39');
   });
 
-  it('renders waiting indicator when loading', () => {
+  it('hides waiting indicator for non-queued loading', () => {
     const endRef = createRef<HTMLDivElement>();
     render(
       <MessageList
@@ -230,6 +238,28 @@ describe('MessageList container behaviour', () => {
         loadingStartTime={Date.now()}
         queueDisplayState="NONE"
         queueAheadCount={0}
+        t={t}
+        getMessageText={noopGetText}
+        getContentBlocks={noopGetBlocks}
+        findToolResult={noopFindToolResult}
+        extractMarkdownContent={noopExtractMd}
+        messagesEndRef={endRef}
+      />
+    );
+    expect(screen.queryByTestId('waiting-indicator')).toBeNull();
+  });
+
+  it('renders waiting indicator while queued', () => {
+    const endRef = createRef<HTMLDivElement>();
+    render(
+      <MessageList
+        messages={makeMessages(3)}
+        streamingActive={false}
+        isThinking={false}
+        loading={true}
+        loadingStartTime={Date.now()}
+        queueDisplayState="QUEUED"
+        queueAheadCount={1}
         t={t}
         getMessageText={noopGetText}
         getContentBlocks={noopGetBlocks}
@@ -425,7 +455,88 @@ describe('MessageList response grouping', () => {
     );
 
     const responseGroup = container.querySelector('.assistant-response-group');
+    const responseContent = responseGroup?.querySelector('.assistant-response-content');
+    const streamingFooter = responseGroup?.querySelector('[data-testid="streaming-footer"]');
     expect(responseGroup?.querySelectorAll('[data-testid="streaming-footer"]')).toHaveLength(1);
+    expect(responseContent?.contains(streamingFooter ?? null)).toBe(true);
+    expect(responseContent?.lastElementChild).toBe(streamingFooter);
     expect(responseGroup?.querySelectorAll('[data-testid="usage-stats"]')).toHaveLength(0);
+  });
+
+  it('does not show streaming footer for a status-only response group placeholder', () => {
+    const messages: ClaudeMessage[] = [
+      { type: 'user', content: 'please explain', id: 'u-1' },
+      {
+        type: 'assistant',
+        content: '',
+        id: 'a-1',
+        isStreaming: true,
+        __responseId: 'response-1',
+        __assistantResponseStatus: {
+          phase: 'thinking',
+          providerLabel: 'Codex',
+          title: 'Understanding your request',
+          description: 'Analyzing context',
+          elapsedMs: 1400,
+          active: true,
+        },
+      },
+    ];
+    const endRef = createRef<HTMLDivElement>();
+
+    render(
+      <MessageList
+        messages={messages}
+        streamingActive={true}
+        isThinking={false}
+        loading={true}
+        loadingStartTime={Date.now()}
+        queueDisplayState="NONE"
+        queueAheadCount={0}
+        t={t}
+        getMessageText={noopGetText}
+        getContentBlocks={noopGetBlocks}
+        findToolResult={noopFindToolResult}
+        extractMarkdownContent={noopExtractMd}
+        messagesEndRef={endRef}
+      />
+    );
+
+    expect(screen.queryByTestId('streaming-footer')).toBeNull();
+  });
+
+  it('passes loading start time to streaming footer as elapsed fallback', () => {
+    const loadingStartTime = 12345;
+    const messages: ClaudeMessage[] = [
+      { type: 'user', content: 'please explain', id: 'u-1' },
+      {
+        type: 'assistant',
+        content: 'partial final segment',
+        id: 'a-1',
+        isStreaming: true,
+        __responseId: 'response-1',
+      },
+    ];
+    const endRef = createRef<HTMLDivElement>();
+
+    render(
+      <MessageList
+        messages={messages}
+        streamingActive={true}
+        isThinking={false}
+        loading={true}
+        loadingStartTime={loadingStartTime}
+        queueDisplayState="NONE"
+        queueAheadCount={0}
+        t={t}
+        getMessageText={noopGetText}
+        getContentBlocks={noopGetBlocks}
+        findToolResult={noopFindToolResult}
+        extractMarkdownContent={noopExtractMd}
+        messagesEndRef={endRef}
+      />
+    );
+
+    expect(screen.getByTestId('streaming-footer').getAttribute('data-started-at')).toBe(String(loadingStartTime));
   });
 });

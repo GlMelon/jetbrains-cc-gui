@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ClaudeContentBlock, ClaudeMessage, ToolResultBlock } from '../../types';
 import { extractMarkdownContent } from '../../utils/copyUtils';
@@ -19,8 +19,22 @@ vi.mock('../toolBlocks', () => ({
 }));
 
 vi.mock('./ContentBlockRenderer', () => ({
-  ContentBlockRenderer: ({ block }: { block: ClaudeContentBlock }) => (
-    <div data-testid={`content-block-${block.type}`}>
+  ContentBlockRenderer: ({
+    block,
+    blockIndex,
+    isThinkingExpanded,
+    onToggleThinking,
+  }: {
+    block: ClaudeContentBlock;
+    blockIndex: number;
+    isThinkingExpanded: boolean;
+    onToggleThinking: (blockIndex: number) => void;
+  }) => (
+    <div
+      data-testid={block.type === 'thinking' ? `thinking-${blockIndex}` : `content-block-${block.type}`}
+      data-expanded={block.type === 'thinking' ? String(isThinkingExpanded) : undefined}
+      onClick={block.type === 'thinking' ? () => onToggleThinking(blockIndex) : undefined}
+    >
       {block.type}
       {block.type === 'provider_error' ? `:${(block as any).summary}` : ''}
     </div>
@@ -38,6 +52,9 @@ const t = ((key: string, opts?: Record<string, unknown>) => {
     'markdown.copySuccess': '已复制',
     'chat.streamingConnected': '{{provider}} 已连接',
     'chat.streamingResponse': '正在流式输出',
+    'chat.messageSections.thinking': '思考',
+    'chat.messageSections.tools': '工具',
+    'chat.messageSections.output': '输出',
     'chat.totalDuration': '本次耗时',
     'chat.waitingTimedOutDuration': '等待超时',
     'chat.usageStats.input': '输入：',
@@ -269,10 +286,11 @@ describe('MessageItem copy button visibility', () => {
     expect(screen.getByText('正在思考')).toBeTruthy();
     expect(screen.getByText('正在分析上下文')).toBeTruthy();
     expect(screen.getAllByText('Codex').length).toBeGreaterThan(0);
-    expect(screen.getByText('2s')).toBeTruthy();
+    expect(screen.queryByText('2s')).toBeNull();
+    expect(document.querySelector('.assistant-response-status-elapsed')).toBeNull();
   });
 
-  it('updates assistant response status elapsed time while active', () => {
+  it('does not render assistant response status elapsed time while active', () => {
     vi.useFakeTimers();
     const message: ClaudeMessage = {
       type: 'assistant',
@@ -294,13 +312,15 @@ describe('MessageItem copy button visibility', () => {
       currentProvider: 'codex',
     });
 
-    expect(screen.getByText('2s')).toBeTruthy();
+    expect(screen.queryByText('2s')).toBeNull();
 
     act(() => {
       vi.advanceTimersByTime(1000);
     });
 
-    expect(screen.getByText('3s')).toBeTruthy();
+    expect(screen.queryByText('3s')).toBeNull();
+    expect(document.querySelector('.assistant-response-status-elapsed')).toBeNull();
+    vi.useRealTimers();
   });
 
   it('renders streaming footer while assistant content is still streaming', () => {
@@ -327,7 +347,110 @@ describe('MessageItem copy button visibility', () => {
     });
 
     expect(screen.getByText('正在流式输出')).toBeTruthy();
+    expect(screen.getByText('2s')).toBeTruthy();
+    const streamingFooter = screen.getByText('正在流式输出').closest('.assistant-streaming-footer');
+    const messageContent = document.querySelector('.message-content');
+    expect(streamingFooter).toBeTruthy();
+    expect(messageContent?.contains(streamingFooter)).toBe(true);
+    expect(messageContent?.lastElementChild).toBe(streamingFooter);
     expect(screen.queryByText('本次耗时')).toBeNull();
+  });
+
+  it('uses loading start time when streaming status elapsed is unavailable', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(10_000);
+    const message: ClaudeMessage = {
+      type: 'assistant',
+      content: 'partial answer',
+      isStreaming: true,
+      raw: { content: [{ type: 'text', text: 'partial answer' }] } as any,
+    };
+
+    renderMessageItem(message, {
+      isLast: true,
+      streamingActive: true,
+      loadingStartTime: 6_000,
+    });
+
+    expect(screen.getByText('正在流式输出')).toBeTruthy();
+    expect(screen.getByText('4s')).toBeTruthy();
+    vi.useRealTimers();
+  });
+
+  it('renders assistant content as thinking tools and output sections', () => {
+    const message: ClaudeMessage = {
+      type: 'assistant',
+      content: 'done',
+      raw: {
+        content: [
+          { type: 'thinking', thinking: 'analyzing request' },
+          { type: 'tool_use', id: 'tool-1', name: 'shell_command', input: { command: 'git status' } },
+          { type: 'text', text: 'final answer' },
+        ],
+      } as any,
+    };
+
+    renderMessageItem(message);
+
+    expect(document.querySelector('.assistant-sectioned-message-content')).toBeTruthy();
+    expect(document.querySelector('.assistant-message-section-thinking')).toBeTruthy();
+    expect(document.querySelector('.assistant-message-section-tools')).toBeTruthy();
+    expect(document.querySelector('.assistant-message-section-output')).toBeTruthy();
+    expect(screen.getByText('思考')).toBeTruthy();
+    expect(screen.getByText('工具')).toBeTruthy();
+    expect(screen.getByText('输出')).toBeTruthy();
+  });
+
+  it('defaults only the last historical thinking block to expanded', () => {
+    const message: ClaudeMessage = {
+      type: 'assistant',
+      content: 'done',
+      raw: {
+        content: [
+          { type: 'thinking', thinking: 'first thought' },
+          { type: 'text', text: 'intermediate answer' },
+          { type: 'thinking', thinking: 'latest thought' },
+        ],
+      } as any,
+    };
+
+    renderMessageItem(message);
+
+    expect(screen.getByTestId('thinking-0').getAttribute('data-expanded')).toBe('false');
+    expect(screen.getByTestId('thinking-2').getAttribute('data-expanded')).toBe('true');
+  });
+
+  it('keeps a manually collapsed latest thinking block collapsed across rerenders', () => {
+    const message: ClaudeMessage = {
+      type: 'assistant',
+      content: 'done',
+      raw: {
+        content: [{ type: 'thinking', thinking: 'latest thought' }],
+      } as any,
+    };
+    const props: React.ComponentProps<typeof MessageItem> = {
+      message,
+      messageIndex: 0,
+      messageKey: 'message-0',
+      isLast: false,
+      streamingActive: false,
+      isThinking: false,
+      t,
+      getMessageText,
+      getContentBlocks,
+      findToolResult,
+      extractMarkdownContent,
+    };
+
+    const { rerender } = render(<MessageItem {...props} />);
+
+    expect(screen.getByTestId('thinking-0').getAttribute('data-expanded')).toBe('true');
+    fireEvent.click(screen.getByTestId('thinking-0'));
+    expect(screen.getByTestId('thinking-0').getAttribute('data-expanded')).toBe('false');
+
+    rerender(<MessageItem {...props} streamingActive isLast />);
+
+    expect(screen.getByTestId('thinking-0').getAttribute('data-expanded')).toBe('false');
   });
 
   it('renders final usage stats with total tokens and duration', () => {

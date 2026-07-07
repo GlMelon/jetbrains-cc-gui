@@ -50,9 +50,6 @@
     "loadingDropdown": "Chargement...",
     "addAttachment": "Ajouter une pièce jointe",
     "stopGeneration": "Arrêter la génération",
-    "generatingResponse": "Génération de la réponse",
-    "elapsedTime": "Écoulé {{time}}",
-    "minutesAndSeconds": "{{minutes}}m {{seconds}}s",
     "imagePreview": "Aperçu",
     "context": "Contexte",
     "usage": "Utilisation",
@@ -92,6 +89,11 @@
     "attachmentsUploaded": "[Pièces jointes téléchargées]",
     "streamingConnected": "{{provider}} connecté, en train de comprendre votre question",
     "streamingResponse": "Réponse en streaming",
+    "messageSections": {
+      "thinking": "Réflexion",
+      "tools": "Outils",
+      "output": "Sortie"
+    },
     "avatarUser": "Vous",
     "showEarlierMessages": "Afficher {{count}} messages précédents",
     "totalDuration": "Cette réponse a pris",

@@ -192,7 +192,7 @@ public final class OpenCodeConfigReader {
 
         // OpenCode 模型使用 role 字段存储 provider 名称。actualModel 是 CLI --model 透传值,
         // opencode --model 要求 provider/model 格式(如 openglm/glm-5.2);传裸名(如 glm-5.2)
-        // 会触发 "Unexpected server error",表现为 OpenCode CLI「Generating response 后无回复无错误」。
+        // 会触发 "Unexpected server error",表现为 OpenCode CLI 加载后无回复无错误。
         // 故 actualModel 拼成 provider/model;canonical id(modelId)保持裸名作选择键/去重(前端零改)。
         return new ModelConfig(
                 modelId,

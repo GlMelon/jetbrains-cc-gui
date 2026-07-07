@@ -1,17 +1,13 @@
 import type { ReactElement } from 'react';
 import type { AssistantResponseStatusPayload } from '../../types';
-import { formatLiveElapsedMs, useLiveElapsedMs } from './useLiveElapsedMs';
 
 interface AssistantResponseStatusProps {
   payload?: AssistantResponseStatusPayload;
 }
 
 export function AssistantResponseStatus({ payload }: AssistantResponseStatusProps): ReactElement | null {
-  const liveElapsedMs = useLiveElapsedMs({ elapsedMs: payload?.elapsedMs, active: payload?.active ?? false });
-
   if (!payload) return null;
 
-  const elapsedLabel = formatLiveElapsedMs(liveElapsedMs);
   const phaseClass = payload.phase ? ` phase-${payload.phase}` : '';
 
   return (
@@ -24,9 +20,6 @@ export function AssistantResponseStatus({ payload }: AssistantResponseStatusProp
       <div className="assistant-response-status-body">
         <div className="assistant-response-status-head">
           <span className="assistant-response-status-title">{payload.title}</span>
-          {elapsedLabel ? (
-            <span className="assistant-response-status-elapsed">{elapsedLabel}</span>
-          ) : null}
         </div>
         {payload.description ? (
           <div className="assistant-response-status-description">{payload.description}</div>

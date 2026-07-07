@@ -90,6 +90,7 @@ public class CodexCliSession implements CliSession {
     private final String tabId;
     private final Gson gson = GsonHolder.GSON;
     private final CliAttachmentHandler attachmentHandler = new CliAttachmentHandler();
+    private final CodexCliEventNormalizer eventNormalizer = new CodexCliEventNormalizer();
     private final McpGatewayService gatewayService;
 
     // 当前 thread_id（从 thread.started 事件获取）
@@ -552,8 +553,9 @@ public class CodexCliSession implements CliSession {
             if (event == null) {
                 return;
             }
-            String type = getString(event, "type");
+            String type = getString(event, CommonConstants.JSON_KEY_TYPE);
             if (type == null) {
+                emitNormalizedAssistantBlock(eventNormalizer.unknown(null, null, event), callback);
                 return;
             }
 
@@ -581,7 +583,7 @@ public class CodexCliSession implements CliSession {
                 }
                 case CliConstants.CODEX_EVENT_RESPONSE_ITEM -> {
                     if (event.has("payload") && event.get("payload").isJsonObject()) {
-                        handleResponseItem(event.getAsJsonObject("payload"), callback);
+                        handleResponseItem(event.getAsJsonObject("payload"), callback, assistantContent);
                     }
                 }
                 case CliConstants.CODEX_EVENT_TURN_COMPLETED -> {
@@ -625,7 +627,7 @@ public class CodexCliSession implements CliSession {
                     }
                 }
                 default -> {
-                    // item.started, thread.* 等忽略
+                    emitNormalizedAssistantBlock(eventNormalizer.unknown(type, null, event), callback);
                 }
             }
         } catch (Exception e) {
@@ -675,18 +677,32 @@ public class CodexCliSession implements CliSession {
             CliSessionCallback callback,
             StringBuilder assistantContent
     ) {
-        String itemType = getString(item, "type");
+        String itemType = getString(item, CommonConstants.JSON_KEY_TYPE);
         if (itemType == null) {
+            emitNormalizedAssistantBlock(eventNormalizer.unknown(eventType, null, item), callback);
             return;
         }
         switch (itemType) {
-            case CliConstants.CODEX_ITEM_REASONING -> handleReasoningItem(item, callback);
+            case CliConstants.CODEX_ITEM_REASONING, CliConstants.CODEX_ITEM_AGENT_REASONING -> handleReasoningItem(item, callback);
             case CliConstants.CODEX_ITEM_AGENT_MESSAGE -> handleAgentMessageItem(item, callback, assistantContent);
             case CliConstants.CODEX_ITEM_COMMAND_EXECUTION -> handleCommandExecutionItem(eventType, item, callback);
-            case CliConstants.CODEX_ITEM_MCP_TOOL_CALL -> handleMcpToolCallItem(eventType, item, callback);
-            default -> {
+            case CliConstants.CODEX_ITEM_FUNCTION_CALL, CliConstants.CODEX_ITEM_TOOL_CALL -> handleFunctionCallPayload(item, callback);
+            case CliConstants.CODEX_ITEM_CUSTOM_TOOL_CALL -> handleCustomToolCallPayload(item, callback);
+            case CliConstants.CODEX_ITEM_FUNCTION_CALL_OUTPUT -> handleFunctionCallOutputPayload(item, callback);
+            case CliConstants.CODEX_ITEM_MCP_TOOL_CALL -> {
+                handleMcpToolCallItem(eventType, item, callback);
+                emitNormalizedAssistantBlock(eventNormalizer.normalizeItem(eventType, item), callback);
             }
+            default -> emitNormalizedAssistantBlock(eventNormalizer.normalizeItem(eventType, item), callback);
         }
+    }
+
+    private void emitNormalizedAssistantBlock(Optional<JsonObject> normalizedMessage, CliSessionCallback callback) {
+        if (normalizedMessage.isEmpty()) {
+            return;
+        }
+        markSegment(callback, SegmentKind.TOOL);
+        sectionEmitter(callback).assistantRaw(normalizedMessage.get());
     }
 
     /**
@@ -818,22 +834,24 @@ public class CodexCliSession implements CliSession {
      * These are not part of the primary exec.md event list, but the project keeps
      * them to recover tool calls from older/alternate Codex event shapes.
      */
-    private void handleResponseItem(JsonObject payload, CliSessionCallback callback) {
-        String payloadType = getString(payload, "type");
+    private void handleResponseItem(JsonObject payload, CliSessionCallback callback, StringBuilder assistantContent) {
+        String payloadType = getString(payload, CommonConstants.JSON_KEY_TYPE);
         if (payloadType == null) {
+            emitNormalizedAssistantBlock(eventNormalizer.normalizePayload(payload), callback);
             return;
         }
         switch (payloadType) {
+            case CliConstants.CODEX_ITEM_REASONING, CliConstants.CODEX_ITEM_AGENT_REASONING -> handleReasoningItem(payload, callback);
+            case CliConstants.CODEX_ITEM_AGENT_MESSAGE -> handleAgentMessageItem(payload, callback, assistantContent);
             case CliConstants.CODEX_PAYLOAD_FUNCTION_CALL -> handleFunctionCallPayload(payload, callback);
             case CliConstants.CODEX_PAYLOAD_FUNCTION_CALL_OUTPUT -> handleFunctionCallOutputPayload(payload, callback);
             case CliConstants.CODEX_PAYLOAD_CUSTOM_TOOL_CALL -> handleCustomToolCallPayload(payload, callback);
-            default -> {
-            }
+            default -> emitNormalizedAssistantBlock(eventNormalizer.normalizePayload(payload), callback);
         }
     }
 
     private void handleFunctionCallPayload(JsonObject payload, CliSessionCallback callback) {
-        String name = firstNonBlank(getString(payload, "name"), "unknown");
+        String name = firstNonBlank(getString(payload, "name"), getString(payload, CommonConstants.JSON_KEY_TOOL), "unknown");
         String id = stableItemId(payload, "unknown");
         JsonObject input = parseFunctionCallArguments(payload);
         // [安全网] handleAgentMessageItem 已立即流式,此调用是 no-op

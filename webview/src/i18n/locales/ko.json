@@ -50,9 +50,6 @@
     "loadingDropdown": "로딩 중...",
     "addAttachment": "첨부파일 추가",
     "stopGeneration": "생성 중지",
-    "generatingResponse": "응답 생성 중",
-    "elapsedTime": "경과 시간 {{time}}",
-    "minutesAndSeconds": "{{minutes}}분 {{seconds}}초",
     "imagePreview": "미리보기",
     "context": "컨텍스트",
     "usage": "사용량",
@@ -92,6 +89,11 @@
     "attachmentsUploaded": "[첨부파일 업로드됨]",
     "streamingConnected": "{{provider}} 연결됨, 질문을 이해하는 중",
     "streamingResponse": "응답 스트리밍 중",
+    "messageSections": {
+      "thinking": "생각",
+      "tools": "도구",
+      "output": "출력"
+    },
     "avatarUser": "나",
     "showEarlierMessages": "이전 메시지 {{count}}개 보기",
     "totalDuration": "이번 응답 소요 시간",

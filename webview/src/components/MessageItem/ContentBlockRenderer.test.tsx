@@ -102,6 +102,79 @@ describe('ContentBlockRenderer provider_error', () => {
   });
 });
 
+describe('ContentBlockRenderer normalized provider blocks', () => {
+  it('renders file_change blocks', () => {
+    renderBlock({
+      type: 'file_change',
+      title: 'File change',
+      path: 'src/App.tsx',
+      operation: 'modified',
+      status: 'completed',
+    });
+
+    expect(screen.getByText('File change')).toBeTruthy();
+    expect(screen.getByText('src/App.tsx')).toBeTruthy();
+    expect(screen.getByText('modified')).toBeTruthy();
+  });
+
+  it('renders mcp_tool_call blocks', () => {
+    renderBlock({
+      type: 'mcp_tool_call',
+      title: 'idea_mcp.search_symbols',
+      server: 'idea_mcp',
+      tool: 'search_symbols',
+      input: { q: 'Foo' },
+      result: 'ok',
+    });
+
+    expect(screen.getByText('idea_mcp.search_symbols')).toBeTruthy();
+    expect(screen.getByText('search_symbols')).toBeTruthy();
+    expect(screen.getByText(/"q": "Foo"/)).toBeTruthy();
+    expect(screen.getByText('ok')).toBeTruthy();
+  });
+
+  it('renders web_search blocks', () => {
+    renderBlock({
+      type: 'web_search',
+      title: 'Web search',
+      query: 'Codex docs',
+      url: 'https://example.com',
+    });
+
+    expect(screen.getByText('Web search')).toBeTruthy();
+    expect(screen.getByText('Codex docs')).toBeTruthy();
+    expect(screen.getByText('https://example.com')).toBeTruthy();
+  });
+
+  it('renders todo_list blocks', () => {
+    renderBlock({
+      type: 'todo_list',
+      title: 'Todo list',
+      items: [{ text: 'Implement normalizer', status: 'done' }],
+    });
+
+    expect(screen.getByText('Todo list')).toBeTruthy();
+    expect(screen.getByText('Implement normalizer')).toBeTruthy();
+    expect(screen.getByText('done')).toBeTruthy();
+  });
+
+  it('renders provider_event blocks without parsing provider raw semantics', () => {
+    renderBlock({
+      type: 'provider_event',
+      provider: 'codex',
+      eventType: 'item.completed',
+      itemType: 'new_item',
+      summary: 'Provider event: new_item',
+      details: '{"type":"new_item","summary":"visible"}',
+    });
+
+    expect(screen.getByText('Provider event: new_item')).toBeTruthy();
+    expect(screen.getByText('item.completed')).toBeTruthy();
+    expect(screen.getByText('new_item')).toBeTruthy();
+    expect(document.body.textContent).not.toContain('encrypted_content');
+  });
+});
+
 describe('ContentBlockRenderer tool cards', () => {
   it('renders skill_use blocks as skill cards with truncated title args', () => {
     const longArgs = 'render skill and mcp card previews inside the assistant message card with enough detail to confirm visual grouping and prevent title overflow in compact layouts';

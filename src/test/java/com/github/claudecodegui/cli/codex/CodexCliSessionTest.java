@@ -33,6 +33,208 @@ public class CodexCliSessionTest {
     }
 
     @Test
+    public void agentReasoningItemCompletedEmitsThinkingDelta() throws Exception {
+        CodexCliSession session = new CodexCliSession("tab-agent-reasoning");
+        RecordingCallback callback = new RecordingCallback();
+
+        invokeParseEvent(
+                session,
+                "{\"type\":\"item.completed\",\"item\":{\"id\":\"item_0\",\"type\":\"agent_reasoning\",\"summary\":\"Planning\"}}",
+                callback,
+                new StringBuilder()
+        );
+
+        assertTrue(callback.events.stream().anyMatch(event -> "thinking_delta".equals(event.type) && "Planning".equals(event.content)));
+    }
+
+    @Test
+    public void fileChangeItemEmitsNormalizedAssistantBlock() throws Exception {
+        CodexCliSession session = new CodexCliSession("tab-file-change");
+        RecordingCallback callback = new RecordingCallback();
+
+        invokeParseEvent(
+                session,
+                "{\"type\":\"item.completed\",\"item\":{\"id\":\"fc_1\",\"type\":\"file_change\",\"path\":\"src/App.tsx\",\"operation\":\"modified\",\"status\":\"completed\"}}",
+                callback,
+                new StringBuilder()
+        );
+
+        assertTrue(callback.events.stream().anyMatch(event -> "assistant".equals(event.type)
+                && event.content.contains("\"type\":\"file_change\"")
+                && event.content.contains("src/App.tsx")));
+    }
+
+    @Test
+    public void mcpToolCallItemAlsoEmitsNormalizedAssistantBlock() throws Exception {
+        CodexCliSession session = new CodexCliSession("tab-mcp-normalized");
+        RecordingCallback callback = new RecordingCallback();
+
+        invokeParseEvent(
+                session,
+                "{\"type\":\"item.completed\",\"item\":{\"id\":\"mcp_1\",\"type\":\"mcp_tool_call\",\"server\":\"idea_mcp\",\"tool\":\"search_symbols\",\"arguments\":{\"q\":\"Foo\"},\"result\":\"ok\"}}",
+                callback,
+                new StringBuilder()
+        );
+
+        assertTrue(callback.events.stream().anyMatch(event -> "assistant".equals(event.type)
+                && event.content.contains("\"type\":\"mcp_tool_call\"")
+                && event.content.contains("idea_mcp")));
+    }
+
+    @Test
+    public void functionCallItemEmitsToolUseBlock() throws Exception {
+        CodexCliSession session = new CodexCliSession("tab-function-call-item");
+        RecordingCallback callback = new RecordingCallback();
+
+        invokeParseEvent(
+                session,
+                "{\"type\":\"item.completed\",\"item\":{\"id\":\"fn_1\",\"type\":\"function_call\",\"name\":\"Read\",\"arguments\":{\"file_path\":\"README.md\"}}}",
+                callback,
+                new StringBuilder()
+        );
+
+        assertTrue(callback.events.stream().anyMatch(event -> "assistant".equals(event.type)
+                && event.content.contains("\"type\":\"tool_use\"")
+                && event.content.contains("Read")
+                && event.content.contains("README.md")));
+    }
+
+    @Test
+    public void webSearchItemEmitsNormalizedAssistantBlock() throws Exception {
+        CodexCliSession session = new CodexCliSession("tab-web-search");
+        RecordingCallback callback = new RecordingCallback();
+
+        invokeParseEvent(
+                session,
+                "{\"type\":\"item.completed\",\"item\":{\"id\":\"web_1\",\"type\":\"web_search\",\"query\":\"Codex docs\",\"url\":\"https://example.com\"}}",
+                callback,
+                new StringBuilder()
+        );
+
+        assertTrue(callback.events.stream().anyMatch(event -> "assistant".equals(event.type)
+                && event.content.contains("\"type\":\"web_search\"")
+                && event.content.contains("Codex docs")));
+    }
+
+    @Test
+    public void todoListItemEmitsNormalizedAssistantBlock() throws Exception {
+        CodexCliSession session = new CodexCliSession("tab-todo-list");
+        RecordingCallback callback = new RecordingCallback();
+
+        invokeParseEvent(
+                session,
+                "{\"type\":\"item.completed\",\"item\":{\"id\":\"todo_1\",\"type\":\"todo_list\",\"items\":[{\"text\":\"Implement normalizer\",\"status\":\"done\"}]}}",
+                callback,
+                new StringBuilder()
+        );
+
+        assertTrue(callback.events.stream().anyMatch(event -> "assistant".equals(event.type)
+                && event.content.contains("\"type\":\"todo_list\"")
+                && event.content.contains("Implement normalizer")));
+    }
+
+    @Test
+    public void unknownItemEmitsProviderEventWithoutEncryptedContent() throws Exception {
+        CodexCliSession session = new CodexCliSession("tab-unknown-item");
+        RecordingCallback callback = new RecordingCallback();
+
+        invokeParseEvent(
+                session,
+                "{\"type\":\"item.completed\",\"item\":{\"id\":\"u_1\",\"type\":\"new_item\",\"summary\":\"visible\",\"encrypted_content\":\"secret\"}}",
+                callback,
+                new StringBuilder()
+        );
+
+        assertTrue(callback.events.stream().anyMatch(event -> "assistant".equals(event.type)
+                && event.content.contains("\"type\":\"provider_event\"")
+                && event.content.contains("new_item")));
+        assertFalse(callback.events.stream().anyMatch(event -> event.content.contains("encrypted_content") || event.content.contains("secret")));
+    }
+
+    @Test
+    public void encryptedOnlyNestedItemDoesNotEmitVisibleBlock() throws Exception {
+        CodexCliSession session = new CodexCliSession("tab-encrypted-only-nested");
+        RecordingCallback callback = new RecordingCallback();
+
+        invokeParseEvent(
+                session,
+                "{\"type\":\"item.completed\",\"item\":{\"id\":\"u_secret\",\"type\":\"new_item\",\"content\":[{\"encrypted_content\":\"secret\"}]}}",
+                callback,
+                new StringBuilder()
+        );
+
+        assertFalse(callback.events.stream().anyMatch(event -> "assistant".equals(event.type)));
+        assertFalse(callback.events.stream().anyMatch(event -> event.content.contains("encrypted_content") || event.content.contains("secret")));
+    }
+
+    @Test
+    public void unknownResponsePayloadEmitsProviderEvent() throws Exception {
+        CodexCliSession session = new CodexCliSession("tab-unknown-payload");
+        RecordingCallback callback = new RecordingCallback();
+
+        invokeParseEvent(
+                session,
+                "{\"type\":\"response_item\",\"payload\":{\"id\":\"p_1\",\"type\":\"new_payload\",\"summary\":\"visible\"}}",
+                callback,
+                new StringBuilder()
+        );
+
+        assertTrue(callback.events.stream().anyMatch(event -> "assistant".equals(event.type)
+                && event.content.contains("\"type\":\"provider_event\"")
+                && event.content.contains("new_payload")));
+    }
+
+    @Test
+    public void itemWithoutTypeEmitsProviderEvent() throws Exception {
+        CodexCliSession session = new CodexCliSession("tab-missing-item-type");
+        RecordingCallback callback = new RecordingCallback();
+
+        invokeParseEvent(
+                session,
+                "{\"type\":\"item.completed\",\"item\":{\"id\":\"u_2\",\"summary\":\"visible\"}}",
+                callback,
+                new StringBuilder()
+        );
+
+        assertTrue(callback.events.stream().anyMatch(event -> "assistant".equals(event.type)
+                && event.content.contains("\"type\":\"provider_event\"")
+                && event.content.contains("visible")));
+    }
+
+    @Test
+    public void responsePayloadWithoutTypeEmitsProviderEvent() throws Exception {
+        CodexCliSession session = new CodexCliSession("tab-missing-payload-type");
+        RecordingCallback callback = new RecordingCallback();
+
+        invokeParseEvent(
+                session,
+                "{\"type\":\"response_item\",\"payload\":{\"id\":\"p_2\",\"summary\":\"visible payload\"}}",
+                callback,
+                new StringBuilder()
+        );
+
+        assertTrue(callback.events.stream().anyMatch(event -> "assistant".equals(event.type)
+                && event.content.contains("\"type\":\"provider_event\"")
+                && event.content.contains("visible payload")));
+    }
+
+    @Test
+    public void topLevelEventWithoutTypeEmitsProviderEvent() throws Exception {
+        CodexCliSession session = new CodexCliSession("tab-missing-event-type");
+        RecordingCallback callback = new RecordingCallback();
+
+        invokeParseEvent(
+                session,
+                "{\"id\":\"event_1\",\"summary\":\"visible event\"}",
+                callback,
+                new StringBuilder()
+        );
+
+        assertTrue(callback.events.stream().anyMatch(event -> "assistant".equals(event.type)
+                && event.content.contains("\"type\":\"provider_event\"")
+                && event.content.contains("visible event")));
+    }
+    @Test
     public void reasoningItemSummaryEmitsThinkingDelta() throws Exception {
         CodexCliSession session = new CodexCliSession("tab-summary");
         RecordingCallback callback = new RecordingCallback();

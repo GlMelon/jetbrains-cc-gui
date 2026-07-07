@@ -64,6 +64,53 @@ export type ClaudeContentBlock =
       requestId?: string;
       url?: string;
     }
+  | {
+      type: 'file_change';
+      path?: string;
+      operation?: string;
+      status?: string;
+      title?: string;
+      summary?: string;
+      details?: string;
+    }
+  | {
+      type: 'mcp_tool_call';
+      server?: string;
+      tool?: string;
+      title?: string;
+      summary?: string;
+      status?: string;
+      input?: unknown;
+      result?: unknown;
+      details?: string;
+    }
+  | {
+      type: 'web_search';
+      query?: string;
+      url?: string;
+      title?: string;
+      summary?: string;
+      status?: string;
+      details?: string;
+    }
+  | {
+      type: 'todo_list';
+      items?: Array<{ text?: string; content?: string; status?: string; title?: string; [key: string]: unknown }>;
+      title?: string;
+      summary?: string;
+      status?: string;
+      details?: string;
+    }
+  | {
+      type: 'provider_event';
+      provider?: string;
+      eventType?: string;
+      itemType?: string;
+      title?: string;
+      summary?: string;
+      details?: string;
+      raw?: unknown;
+    }
   | { type: 'task_notification'; icon: string; summary: string; status: string }
   | { type: 'compact_notification'; headerText: string; items: CompactNotificationItem[] }
   | { type: 'compact_summary'; title: string; content: string; metadata?: CompactSummaryMetadata };

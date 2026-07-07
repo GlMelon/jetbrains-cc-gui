@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>方案A：固定宽度消息卡片 + 可折叠工具区</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #1d1e23;
+      --canvas: #1f2127;
+      --card: #292c34;
+      --card2: #252832;
+      --line: #3e4450;
+      --line2: #343944;
+      --text: #eef1f6;
+      --muted: #aab2c0;
+      --subtle: #7f8898;
+      --blue: #66a9ff;
+      --green: #72d79b;
+      --cyan: #63cfdd;
+      --purple: #b59cff;
+      --amber: #e8bb63;
+      --pink: #ff92bd;
+      --red: #ef7d7d;
+      --mono: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
+      --sans: Inter, "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      --message-width: min(820px, calc(100vw - 150px));
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      font-family: var(--sans);
+      line-height: 1.45;
+      background:
+        radial-gradient(circle at 14% -10%, rgba(102,169,255,.13), transparent 34rem),
+        radial-gradient(circle at 88% 0%, rgba(181,156,255,.10), transparent 34rem),
+        linear-gradient(180deg, #22242a 0%, #18191d 100%);
+    }
+    .page { max-width: 1440px; margin: 0 auto; padding: 30px; }
+    .hero { display:flex; justify-content:space-between; align-items:flex-end; gap:22px; margin-bottom:24px; }
+    .eyebrow { color:var(--blue); font-size:12px; letter-spacing:.14em; text-transform:uppercase; font-weight:900; }
+    h1 { margin:8px 0; font-size:30px; line-height:1.12; }
+    .hero p { margin:0; max-width:960px; color:var(--muted); font-size:14px; }
+    .legend { display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end; max-width:560px; }
+    .tag { display:inline-flex; align-items:center; gap:7px; height:25px; padding:0 10px; border-radius:999px; border:1px solid var(--line); background:rgba(255,255,255,.035); color:var(--muted); font-size:11px; white-space:nowrap; }
+    .tag i { width:8px; height:8px; border-radius:3px; display:inline-block; background:var(--blue); }
+    .tag.think i { background:var(--purple); } .tag.edit i { background:var(--pink); } .tag.cmd i { background:var(--amber); } .tag.fixed i { background:var(--green); }
+
+    .mock { border:1px solid var(--line); border-radius:20px; overflow:hidden; background:rgba(37,40,48,.92); box-shadow:0 24px 72px rgba(0,0,0,.34); margin-bottom:34px; }
+    .mock-head { display:flex; justify-content:space-between; align-items:flex-start; gap:18px; padding:18px 20px; border-bottom:1px solid var(--line2); background:linear-gradient(180deg,rgba(255,255,255,.045),transparent); }
+    .mock-head h2 { margin:0 0 5px; font-size:18px; }
+    .mock-head p { margin:0; color:var(--muted); font-size:13px; }
+    .badge { display:inline-flex; align-items:center; height:26px; padding:0 10px; border-radius:999px; border:1px solid rgba(114,215,155,.36); color:var(--green); background:rgba(114,215,155,.08); font-size:12px; font-weight:900; white-space:nowrap; }
+    .mock-body { display:grid; grid-template-columns:minmax(0,1fr) 330px; min-height:720px; }
+    .canvas { padding:22px; background:linear-gradient(180deg,#202229,#1c1d22); overflow:hidden; }
+    .notes { padding:18px; border-left:1px solid var(--line2); background:#22242a; }
+    .notes h3 { margin:0 0 12px; font-size:13px; }
+    .notes ul { margin:0; padding-left:18px; color:var(--muted); font-size:12px; }
+    .notes li + li { margin-top:9px; }
+    .rule { margin-top:14px; padding:10px 12px; border:1px solid rgba(102,169,255,.24); border-radius:12px; background:rgba(102,169,255,.07); color:#cfe2ff; font-family:var(--mono); font-size:11px; }
+
+    .chat { max-width: 980px; margin:0 auto; }
+    .turn { display:grid; grid-template-columns:34px minmax(0,1fr); gap:12px; margin:14px 0 20px; align-items:start; }
+    .turn.user { grid-template-columns:minmax(0,1fr) 34px; }
+    .avatar { width:34px; height:34px; display:grid; place-items:center; border:1px solid var(--line); border-radius:10px; background:#30343c; color:var(--blue); font-weight:900; font-size:13px; }
+    .user .avatar { color:white; background:#315e9f; }
+    .user-bubble { justify-self:end; max-width:690px; padding:11px 14px; border-radius:16px 16px 4px 16px; background:#315e9f; color:white; font-size:13px; box-shadow:0 8px 22px rgba(0,0,0,.18); }
+    .assistant-column { width: var(--message-width); max-width: 100%; }
+    .meta-row { width:100%; display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:0 0 8px; color:var(--subtle); font-size:11px; }
+    .provider-pill { display:inline-flex; align-items:center; gap:7px; height:22px; padding:0 8px; border-radius:999px; border:1px solid var(--line); background:rgba(255,255,255,.03); color:var(--muted); }
+    .pulse { width:7px; height:7px; border-radius:50%; background:var(--green); box-shadow:0 0 0 4px rgba(114,215,155,.1); }
+
+    .assistant-card {
+      width: 100%;
+      min-width: 0;
+      border:1px solid var(--line);
+      border-radius:18px;
+      overflow:hidden;
+      background:rgba(41,44,52,.98);
+      box-shadow:0 14px 44px rgba(0,0,0,.24);
+    }
+    .assistant-card.compact-content, .assistant-card.long-content { width:100%; }
+    .card-top { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:13px 15px; border-bottom:1px solid var(--line2); background:rgba(255,255,255,.025); }
+    .card-title { display:flex; align-items:center; gap:9px; min-width:0; font-size:13px; font-weight:900; }
+    .status-dot { flex:0 0 auto; width:8px; height:8px; border-radius:50%; background:var(--green); box-shadow:0 0 0 4px rgba(114,215,155,.1); }
+    .card-actions { display:flex; flex-wrap:wrap; gap:7px; justify-content:flex-end; }
+    .pill { display:inline-flex; align-items:center; gap:6px; height:23px; padding:0 8px; border-radius:999px; border:1px solid var(--line); background:rgba(255,255,255,.035); color:var(--muted); font-size:11px; white-space:nowrap; }
+    .pill.live { color:var(--green); border-color:rgba(114,215,155,.34); background:rgba(114,215,155,.08); }
+    .pill.warn { color:var(--amber); border-color:rgba(232,187,99,.34); background:rgba(232,187,99,.08); }
+    .pill.fixed { color:var(--green); border-color:rgba(114,215,155,.34); background:rgba(114,215,155,.08); }
+    .card-body { padding:13px 15px 15px; }
+
+    .width-guide { display:flex; align-items:center; gap:10px; width:var(--message-width); max-width:100%; margin:0 0 10px 46px; color:var(--subtle); font-size:11px; }
+    .width-guide::before, .width-guide::after { content:""; flex:1; height:1px; background:linear-gradient(90deg, transparent, rgba(114,215,155,.65), transparent); }
+    .width-guide span { white-space:nowrap; color:var(--green); font-family:var(--mono); }
+
+    .tools-stack { display:grid; gap:8px; margin-bottom:13px; }
+    details.tool-section { border:1px solid var(--line2); border-radius:12px; background:rgba(255,255,255,.025); overflow:hidden; }
+    details.tool-section[open] { background:rgba(255,255,255,.035); border-color:rgba(102,169,255,.20); }
+    details.tool-section summary { list-style:none; cursor:pointer; display:grid; grid-template-columns:22px 84px minmax(0,1fr) auto; gap:9px; align-items:center; min-height:38px; padding:8px 10px; user-select:none; }
+    details.tool-section summary::-webkit-details-marker { display:none; }
+    .chevron { width:20px; height:20px; border-radius:6px; display:grid; place-items:center; color:var(--subtle); background:rgba(0,0,0,.12); transition:transform .15s ease; }
+    details[open] .chevron { transform:rotate(90deg); color:var(--text); }
+    .tool-type { display:inline-flex; align-items:center; gap:6px; color:var(--muted); font-size:11px; font-weight:900; text-transform:uppercase; }
+    .tool-type i { width:19px; height:19px; display:grid; place-items:center; border-radius:6px; color:#15171b; font-style:normal; font-family:var(--mono); font-size:9px; }
+    .tool-type.think i { background:var(--purple); } .tool-type.read i { background:var(--blue); } .tool-type.search i { background:var(--cyan); } .tool-type.mcp i { background:var(--cyan); } .tool-type.edit i { background:var(--pink); } .tool-type.cmd i { background:var(--amber); }
+    .tool-title { min-width:0; }
+    .tool-title strong { display:block; color:var(--text); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .tool-title span { display:block; margin-top:2px; color:var(--subtle); font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .tool-state { display:flex; align-items:center; gap:6px; color:var(--green); font-size:11px; font-family:var(--mono); white-space:nowrap; }
+    .tool-state.warn { color:var(--amber); }
+    .tool-state.running { color:var(--green); }
+    .tool-state::before { content:""; width:6px; height:6px; border-radius:50%; background:currentColor; }
+    .section-content { border-top:1px solid var(--line2); padding:10px 12px 12px 125px; color:var(--muted); font-size:12px; background:rgba(0,0,0,.08); }
+    .section-content p { margin:0 0 8px; }
+    .section-content p:last-child { margin-bottom:0; }
+    .code-block { margin-top:8px; padding:9px 10px; border:1px solid rgba(255,255,255,.08); border-radius:10px; background:#1c1e24; color:#c9d2e1; font-family:var(--mono); font-size:11px; overflow:auto; }
+    .diff .plus { color:var(--green); } .diff .minus { color:var(--red); }
+    .file-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; margin-top:8px; }
+    .file-chip { min-width:0; padding:7px 8px; border:1px solid var(--line2); border-radius:9px; background:rgba(255,255,255,.03); color:var(--muted); font-family:var(--mono); font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+    .answer { margin-top:13px; padding-top:13px; border-top:1px solid var(--line2); color:var(--text); font-size:13px; }
+    .answer p { margin:0 0 9px; }
+    .answer ul { margin:0 0 10px; padding-left:19px; color:var(--muted); }
+    .answer li + li { margin-top:4px; }
+    .answer code { font-family:var(--mono); font-size:12px; color:#d7e7ff; background:rgba(102,169,255,.1); border:1px solid rgba(102,169,255,.18); border-radius:5px; padding:1px 4px; }
+    .cursor { display:inline-block; width:7px; height:15px; margin-left:2px; vertical-align:-2px; border-radius:1px; background:var(--green); animation:blink 1s steps(2,end) infinite; }
+    @keyframes blink { 50% { opacity:.25; } }
+
+    .compare-label { margin: 2px 0 8px 46px; color: var(--subtle); font-size: 12px; }
+
+    @media (max-width:1100px) {
+      :root { --message-width: min(820px, calc(100vw - 92px)); }
+      .hero, .mock-body { display:block; }
+      .legend { justify-content:flex-start; margin-top:14px; }
+      .notes { border-left:0; border-top:1px solid var(--line2); }
+      .section-content { padding-left:12px; }
+      details.tool-section summary { grid-template-columns:22px 78px minmax(0,1fr); }
+      .tool-state { grid-column:3; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div>
+        <div class="eyebrow">fixed-width assistant card + accordion tool sections</div>
+        <h1>方案 A：固定宽度消息卡片 + 可折叠工具区</h1>
+        <p>这版解决截图里“内容短时卡片变窄、内容长时卡片变宽”的问题：assistant 消息卡片统一固定到同一展示宽度，内部内容再做换行、截断、省略和展开，不让整张卡片随内容一会大一会小。</p>
+      </div>
+      <div class="legend">
+        <span class="tag fixed"><i></i>固定卡片宽度</span>
+        <span class="tag think"><i></i>最后 Thinking 展开</span>
+        <span class="tag edit"><i></i>批量编辑文件</span>
+        <span class="tag cmd"><i></i>运行命令</span>
+      </div>
+    </header>
+
+    <section class="mock">
+      <div class="mock-head">
+        <div>
+          <h2>主效果：不管内容长短，assistant 卡片宽度保持一致</h2>
+          <p>工具区仍是原来的 accordion 形态，每块可自由折叠/展开；最后一个 Thinking 默认展开。差异在于卡片容器宽度稳定，不再由内容撑开或收缩。</p>
+        </div>
+        <span class="badge">推荐落地</span>
+      </div>
+      <div class="mock-body">
+        <div class="canvas">
+          <div class="chat">
+            <div class="width-guide"><span>统一 assistant card width</span></div>
+
+            <div class="turn user">
+              <div class="user-bubble">参考截图，消息卡片现在会根据内容长短变化宽度，看起来一会大一会小。按方案 A 重做。</div>
+              <div class="avatar">U</div>
+            </div>
+
+            <div class="compare-label">短内容回复：卡片不会变窄，仍然占用统一宽度</div>
+            <div class="turn">
+              <div class="avatar">C</div>
+              <div class="assistant-column">
+                <div class="meta-row"><span class="provider-pill"><span class="pulse"></span>Codex connected</span><span>turn 1 · completed · 00:08</span></div>
+                <article class="assistant-card compact-content">
+                  <div class="card-top">
+                    <div class="card-title"><span class="status-dot"></span>已确认</div>
+                    <div class="card-actions"><span class="pill fixed">fixed width</span><span class="pill">1 tool block</span></div>
+                  </div>
+                  <div class="card-body">
+                    <div class="tools-stack">
+                      <details class="tool-section" open>
+                        <summary>
+                          <span class="chevron">›</span>
+                          <span class="tool-type think"><i>TH</i>Thinking</span>
+                          <span class="tool-title"><strong>确认宽度策略</strong><span>最后一个 Thinking 默认展开</span></span>
+                          <span class="tool-state">done · 2s</span>
+                        </summary>
+                        <div class="section-content"><p>即使回复只有一句话，assistant 卡片也保持统一宽度，避免视觉跳动。</p></div>
+                      </details>
+                    </div>
+                    <div class="answer">
+                      <p>可以，卡片宽度固定，短内容只减少内部文字，不收缩外层卡片。</p>
+                    </div>
+                  </div>
+                </article>
+              </div>
+            </div>
+
+            <div class="compare-label">长工具回复：同样宽度，长内容在内部换行/省略/展开</div>
+            <div class="turn">
+              <div class="avatar">C</div>
+              <div class="assistant-column">
+                <div class="meta-row"><span class="provider-pill"><span class="pulse"></span>Codex connected</span><span>turn 2 · streaming · 00:51</span></div>
+                <article class="assistant-card long-content">
+                  <div class="card-top">
+                    <div class="card-title"><span class="status-dot"></span>正在回复</div>
+                    <div class="card-actions"><span class="pill live">Streaming response · 00:51</span><span class="pill fixed">fixed width</span><span class="pill">6 tool blocks</span></div>
+                  </div>
+                  <div class="card-body">
+                    <div class="tools-stack">
+                      <details class="tool-section">
+                        <summary>
+                          <span class="chevron">›</span>
+                          <span class="tool-type think"><i>TH</i>Thinking</span>
+                          <span class="tool-title"><strong>分析动态宽度带来的观感问题</strong><span>已折叠 · 点击展开查看完整思考</span></span>
+                          <span class="tool-state">done · 5s</span>
+                        </summary>
+                        <div class="section-content"><p>问题来自卡片宽度跟随内容 intrinsic width 变化，短内容窄、长命令或路径宽，连续多轮阅读时造成跳动。</p></div>
+                      </details>
+
+                      <details class="tool-section">
+                        <summary>
+                          <span class="chevron">›</span>
+                          <span class="tool-type read"><i>RD</i>Read</span>
+                          <span class="tool-title"><strong>读取消息卡片截图目录和现有效果图</strong><span>长路径通过省略号处理，不撑宽整张卡片</span></span>
+                          <span class="tool-state">done · 6s</span>
+                        </summary>
+                        <div class="section-content">
+                          <div class="file-grid">
+                            <div class="file-chip">C:\Users\32979\Desktop\新建文件夹\消息卡片\46063f2d-de40-47b3-b0df-384ec35ace1b.png</div>
+                            <div class="file-chip">C:\Users\32979\Desktop\新建文件夹\消息卡片\9127f178-fa71-445c-8db2-7545b90418af.png</div>
+                          </div>
+                        </div>
+                      </details>
+
+                      <details class="tool-section">
+                        <summary>
+                          <span class="chevron">›</span>
+                          <span class="tool-type edit"><i>ED</i>Edit</span>
+                          <span class="tool-title"><strong>批量编辑文件</strong><span>2 个文件已修改 · 标题超长时只在工具区内部省略</span></span>
+                          <span class="tool-state">done · 18s</span>
+                        </summary>
+                        <div class="section-content">
+                          <p>批量编辑展开后显示摘要 diff；如果文件路径很长，只滚动/省略内部内容，不改变外层卡片宽度。</p>
+                          <div class="code-block diff">
+                            <div class="minus">- assistant card width follows content length</div>
+                            <div class="plus">+ assistant column uses a stable width</div>
+                            <div class="plus">+ tool title uses min-width: 0 + text-overflow: ellipsis</div>
+                          </div>
+                        </div>
+                      </details>
+
+                      <details class="tool-section">
+                        <summary>
+                          <span class="chevron">›</span>
+                          <span class="tool-type cmd"><i>$</i>CMD</span>
+                          <span class="tool-title"><strong>运行命令</strong><span>很长的命令输出不会撑宽卡片，展开区内部横向滚动</span></span>
+                          <span class="tool-state">done · 14s</span>
+                        </summary>
+                        <div class="section-content">
+                          <div class="code-block">
+                            <div>&gt; cmd /c node_modules\.bin\vitest.cmd run src\components\MessageList.test.tsx src\components\MessageItem\MessageItem.test.tsx --reporter verbose</div>
+                            <div>✓ tests passed · command block scrolls inside fixed card</div>
+                          </div>
+                        </div>
+                      </details>
+
+                      <details class="tool-section" open>
+                        <summary>
+                          <span class="chevron">›</span>
+                          <span class="tool-type think"><i>TH</i>Thinking</span>
+                          <span class="tool-title"><strong>继续优化固定宽度方案</strong><span>最后一个思考区默认展开，当前状态直接可见</span></span>
+                          <span class="tool-state running">running · now</span>
+                        </summary>
+                        <div class="section-content">
+                          <p>落地规则：assistant 消息列固定宽度；卡片 width: 100%；工具标题和路径 min-width: 0 并使用 ellipsis；命令输出、diff、长 JSON 在展开内容内部滚动。</p>
+                          <p>这样多轮会话中每张 assistant 卡片左边缘和右边缘稳定，视觉上不会一会窄一会宽。</p>
+                        </div>
+                      </details>
+                    </div>
+
+                    <div class="answer">
+                      <p>这版按方案 A 保留原工具区交互，同时解决宽度跳动：</p>
+                      <ul>
+                        <li>assistant 外层列使用统一宽度，例如 <code>min(820px, calc(100vw - 150px))</code>。</li>
+                        <li>每张 assistant 卡片都 <code>width: 100%</code>，不由内容决定宽度。</li>
+                        <li>短回复不会收缩；长路径、长命令、diff、JSON 只在内部省略、换行或滚动。</li>
+                        <li>最后一个 <code>Thinking</code> 默认展开，其余工具块仍可自由展开/折叠。</li>
+                      </ul>
+                      <p>真实落地时重点改消息列宽度约束和工具 header 的 overflow 规则，不需要改变原工具块结构。<span class="cursor"></span></p>
+                    </div>
+                  </div>
+                </article>
+              </div>
+            </div>
+          </div>
+        </div>
+        <aside class="notes">
+          <h3>宽度策略</h3>
+          <ul>
+            <li>assistant 消息卡片不再使用内容自适应宽度。</li>
+            <li>同一聊天区域内，assistant 卡片左右边界稳定。</li>
+            <li>短内容保持固定宽度，避免卡片忽小。</li>
+            <li>长内容在内部处理，避免卡片忽大。</li>
+            <li>用户气泡仍可保持按内容宽度，只有 assistant 卡片固定。</li>
+          </ul>
+          <div class="rule">
+            .assistant-column { width: var(--message-width); }<br />
+            .assistant-card { width: 100%; }<br />
+            .tool-title { min-width: 0; overflow: hidden; }
+          </div>
+        </aside>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

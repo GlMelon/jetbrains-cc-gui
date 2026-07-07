@@ -24,7 +24,7 @@ vi.mock('react-i18next', () => ({
 /** 打开 Configure 菜单,定位「思考」开关(shared/Switch 渲染为 button[role=switch])。 */
 const openThinkingSwitch = async (): Promise<HTMLElement> => {
   fireEvent.click(screen.getByRole('button', { name: /Configure/i }));
-  const thinkingOption = screen.getByText('Thinking').closest('.selector-option');
+  const thinkingOption = screen.getByText('Thinking').closest('.selector-option') as HTMLElement | null;
   if (!thinkingOption) throw new Error('thinking option not found');
   return within(thinkingOption).getByRole('switch');
 };

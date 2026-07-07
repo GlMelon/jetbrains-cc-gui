@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, memo, useEffect, useRef } from 'react';
+import type { ReactNode } from 'react';
 import type { TFunction } from 'i18next';
 import type { ClaudeMessage, ClaudeContentBlock, ToolResultBlock } from '../../types';
 
@@ -45,6 +46,8 @@ export interface MessageItemProps {
   toolResultSignature?: string;
   /** Current active provider id. */
   currentProvider?: string;
+  /** Timestamp when the current assistant generation/loading cycle started. */
+  loadingStartTime?: number | null;
   /** Rendered inside a grouped assistant response container. */
   withinResponseGroup?: boolean;
   /** Render only message blocks, without avatar, bubble, copy button, or usage stats. */
@@ -52,8 +55,6 @@ export interface MessageItemProps {
   /** Play the messageFadeIn entry animation on this card. Set only on the card's
    *  first logical appearance so React remounts never replay the animation. */
   shouldAnimateIn?: boolean;
-  /** Timestamp when the current generation/loading cycle started. */
-  streamingStartedAt?: number | null;
 }
 
 type GroupedBlock =
@@ -62,6 +63,53 @@ type GroupedBlock =
   | { type: 'edit_group'; blocks: ClaudeContentBlock[]; startIndex: number }
   | { type: 'bash_group'; blocks: ClaudeContentBlock[]; startIndex: number }
   | { type: 'search_group'; blocks: ClaudeContentBlock[]; startIndex: number };
+
+type AssistantMessageSectionKind = 'thinking' | 'tools' | 'output';
+
+interface AssistantMessageSection {
+  kind: AssistantMessageSectionKind;
+  startIndex: number;
+  items: GroupedBlock[];
+}
+
+function getGroupedBlockStartIndex(grouped: GroupedBlock): number {
+  return grouped.type === 'single' ? grouped.originalIndex : grouped.startIndex;
+}
+
+function getAssistantMessageSectionKind(grouped: GroupedBlock): AssistantMessageSectionKind {
+  if (grouped.type !== 'single') {
+    return 'tools';
+  }
+
+  if (grouped.block.type === 'thinking') {
+    return 'thinking';
+  }
+
+  if (grouped.block.type === 'tool_use' || grouped.block.type === 'skill_use') {
+    return 'tools';
+  }
+
+  return 'output';
+}
+
+function groupAssistantMessageSections(groupedBlocks: GroupedBlock[]): AssistantMessageSection[] {
+  return groupedBlocks.reduce<AssistantMessageSection[]>((sections, grouped) => {
+    const kind = getAssistantMessageSectionKind(grouped);
+    const lastSection = sections[sections.length - 1];
+
+    if (lastSection?.kind === kind) {
+      lastSection.items.push(grouped);
+      return sections;
+    }
+
+    sections.push({
+      kind,
+      startIndex: getGroupedBlockStartIndex(grouped),
+      items: [grouped],
+    });
+    return sections;
+  }, []);
+}
 
 interface CopyButtonProps {
   className?: string;
@@ -227,10 +275,10 @@ export const MessageItem = memo(function MessageItem({
   onNavigateToDependencySettings,
   toolResultSignature: _toolResultSignature,
   currentProvider,
+  loadingStartTime,
   withinResponseGroup = false,
   renderMode = 'full',
   shouldAnimateIn = false,
-  streamingStartedAt,
 }: MessageItemProps): React.ReactElement {
   const [copiedMessageIndex, setCopiedMessageIndex] = useState<number | null>(null);
 
@@ -245,10 +293,11 @@ export const MessageItem = memo(function MessageItem({
   const toggleThinking = useCallback((blockIndex: number) => {
     setExpandedThinking((prev) => {
       const newExpanded = !prev[blockIndex];
-      // Mark this block as manually toggled by the user
+      // Mark this block as manually controlled so automatic default expansion
+      // never reopens/collapses it on later renders.
       setManuallyExpandedThinking((manualPrev) => ({
         ...manualPrev,
-        [blockIndex]: newExpanded,
+        [blockIndex]: true,
       }));
       return {
         ...prev,
@@ -330,9 +379,11 @@ export const MessageItem = memo(function MessageItem({
   // Ref to track the last auto-expanded thinking block index to avoid overriding user interaction
   const lastAutoExpandedIndexRef = useRef<number>(-1);
 
-  // Auto-expand the latest thinking block during streaming
+  // Default to the latest thinking block being open for both historical and
+  // streaming assistant messages. User-toggled blocks are left untouched so a
+  // manual collapse does not pop open again on the next render.
   useEffect(() => {
-    if (!isMessageStreaming) return;
+    if (message.type !== 'assistant') return;
 
     const thinkingIndices = blocks
       .map((block, index) => (block.type === 'thinking' ? index : -1))
@@ -342,27 +393,29 @@ export const MessageItem = memo(function MessageItem({
 
     const lastThinkingIndex = thinkingIndices[thinkingIndices.length - 1];
 
-    if (lastThinkingIndex !== lastAutoExpandedIndexRef.current) {
-      setExpandedThinking((prev) => {
-        const newState = { ...prev };
-        // Only collapse thinking blocks that were NOT manually expanded by the user
-        thinkingIndices.forEach((idx) => {
-          // Preserve manually expanded state
-          if (!manuallyExpandedThinking[idx]) {
-            newState[idx] = false;
-          }
-        });
-        // Auto-expand the latest one (unless user manually collapsed it)
-        if (!manuallyExpandedThinking[lastThinkingIndex] || prev[lastThinkingIndex] === undefined) {
-          newState[lastThinkingIndex] = true;
+    if (lastThinkingIndex === lastAutoExpandedIndexRef.current) return;
+
+    setExpandedThinking((prev) => {
+      let changed = false;
+      const newState = { ...prev };
+
+      thinkingIndices.forEach((idx) => {
+        if (manuallyExpandedThinking[idx]) return;
+
+        const shouldExpand = idx === lastThinkingIndex;
+        if (newState[idx] !== shouldExpand) {
+          newState[idx] = shouldExpand;
+          changed = true;
         }
-        return newState;
       });
-      lastAutoExpandedIndexRef.current = lastThinkingIndex;
-    }
-  }, [blocks, isMessageStreaming, manuallyExpandedThinking]);
+
+      return changed ? newState : prev;
+    });
+    lastAutoExpandedIndexRef.current = lastThinkingIndex;
+  }, [blocks, manuallyExpandedThinking, message.type]);
 
   const groupedBlocks = useMemo(() => groupBlocks(blocks), [blocks]);
+  const assistantMessageSections = useMemo(() => groupAssistantMessageSections(groupedBlocks), [groupedBlocks]);
 
   // Register user message DOM node for anchor navigation
   // Must be called before any early returns to satisfy React hooks rules
@@ -418,7 +471,10 @@ export const MessageItem = memo(function MessageItem({
       );
     }
 
-    return groupedBlocks.map((grouped) => {
+    return groupedBlocks.map(renderGroupedBlock);
+  };
+
+  const renderGroupedBlock = (grouped: GroupedBlock): ReactNode => {
       if (grouped.type === 'read_group') {
         const readItems = grouped.blocks.map((b) => {
           const block = b as { type: 'tool_use'; id?: string; name?: string; input?: Record<string, unknown> };
@@ -568,13 +624,61 @@ export const MessageItem = memo(function MessageItem({
           />
         </div>
       );
-    });
   };
 
+  const shouldUseAssistantSectionedLayout =
+    message.type === 'assistant' &&
+    !isEmptyStreamingPlaceholder &&
+    groupedBlocks.length > 0;
+
+  const getAssistantSectionLabel = (kind: AssistantMessageSectionKind): string => {
+    if (kind === 'thinking') return t('chat.messageSections.thinking');
+    if (kind === 'tools') return t('chat.messageSections.tools');
+    return t('chat.messageSections.output');
+  };
+
+  const renderAssistantSectionedBlocks = (): ReactNode => (
+    assistantMessageSections.map((section) => (
+      <section
+        key={`${messageIndex}-${section.kind}-${section.startIndex}`}
+        className={`assistant-message-section assistant-message-section-${section.kind}`}
+        aria-label={getAssistantSectionLabel(section.kind)}
+      >
+        <div className="assistant-message-section-caption">
+          <span className="assistant-message-section-caption-dot" aria-hidden="true" />
+          <span className="assistant-message-section-caption-label">
+            {getAssistantSectionLabel(section.kind)}
+          </span>
+        </div>
+        <div className="assistant-message-section-body">
+          {section.items.map(renderGroupedBlock)}
+        </div>
+      </section>
+    ))
+  );
+
+  const renderMessageContent = (): ReactNode => (
+    <>
+      {shouldUseAssistantSectionedLayout ? renderAssistantSectionedBlocks() : renderGroupedBlocks()}
+      {shouldShowStreamingFooter && (
+        <AssistantStreamingFooter
+          elapsedMs={message.__assistantResponseStatus?.elapsedMs}
+          startedAt={loadingStartTime}
+          t={t}
+        />
+      )}
+    </>
+  );
+
+  const messageContentClassName = `message-content${shouldUseAssistantSectionedLayout ? ' assistant-sectioned-message-content' : ''}`;
+
   if (renderMode === 'response-segment') {
+    const responseSegmentContentClassName = `message-response-segment-content ${message.type}${
+      shouldUseAssistantSectionedLayout ? ' assistant-sectioned-message-content' : ''
+    }`;
     return (
-      <div className={`message-response-segment-content ${message.type}`}>
-        {renderGroupedBlocks()}
+      <div className={responseSegmentContentClassName}>
+        {shouldUseAssistantSectionedLayout ? renderAssistantSectionedBlocks() : renderGroupedBlocks()}
       </div>
     );
   }
@@ -625,17 +729,9 @@ export const MessageItem = memo(function MessageItem({
               />
             )}
 
-            <div className="message-content">
-              {renderGroupedBlocks()}
+            <div className={messageContentClassName}>
+              {renderMessageContent()}
             </div>
-
-            {shouldShowStreamingFooter && (
-              <AssistantStreamingFooter
-                elapsedMs={message.__assistantResponseStatus?.elapsedMs}
-                startedAt={streamingStartedAt}
-                t={t}
-              />
-            )}
 
             {/* Usage stats bar after completed assistant message */}
             {message.type === 'assistant' && !isMessageStreaming && (
@@ -658,17 +754,9 @@ export const MessageItem = memo(function MessageItem({
             </div>
           )}
 
-          <div className="message-content">
-            {renderGroupedBlocks()}
+          <div className={messageContentClassName}>
+            {renderMessageContent()}
           </div>
-
-          {shouldShowStreamingFooter && (
-            <AssistantStreamingFooter
-              elapsedMs={message.__assistantResponseStatus?.elapsedMs}
-              startedAt={streamingStartedAt}
-              t={t}
-            />
-          )}
 
           {/* Usage stats bar for non-avatar assistant message */}
           {message.type === 'assistant' && !isMessageStreaming && (
@@ -685,3 +773,4 @@ export const MessageItem = memo(function MessageItem({
     </div>
   );
 });
+

@@ -50,9 +50,6 @@
     "loadingDropdown": "読み込み中...",
     "addAttachment": "添付ファイルを追加",
     "stopGeneration": "生成を停止",
-    "generatingResponse": "応答を生成中",
-    "elapsedTime": "経過時間 {{time}}",
-    "minutesAndSeconds": "{{minutes}}分 {{seconds}}秒",
     "imagePreview": "プレビュー",
     "context": "コンテキスト",
     "usage": "使用状況",
@@ -92,6 +89,11 @@
     "attachmentsUploaded": "[添付ファイルがアップロードされました]",
     "streamingConnected": "{{provider}}に接続しました、質問を理解しています",
     "streamingResponse": "レスポンスをストリーミング中",
+    "messageSections": {
+      "thinking": "思考",
+      "tools": "ツール",
+      "output": "出力"
+    },
     "avatarUser": "あなた",
     "showEarlierMessages": "以前の{{count}}件のメッセージを表示",
     "totalDuration": "今回の応答時間",

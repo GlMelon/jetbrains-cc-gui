@@ -46,7 +46,7 @@ public class ClaudeNotifier {
     }
 
     public static void setGenerating(@NotNull Project project) {
-        update(project, CommonConstants.SESSION_STATUS_GENERATING,ClaudeCodeGuiBundle.message("notifier.generating"));
+        update(project, CommonConstants.SESSION_STATUS_GENERATING, null);
     }
 
     public static void setWaiting(@NotNull Project project) {
