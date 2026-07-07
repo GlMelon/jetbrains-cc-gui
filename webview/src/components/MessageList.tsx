@@ -7,6 +7,7 @@ import { extractMessageUsage } from '../utils/messageUsage';
 import { MessageItem, CopyButton } from './MessageItem';
 import { MessageAvatar } from './MessageItem/MessageAvatar';
 import { MessageUsageStats } from './MessageItem/MessageUsageStats';
+import { AssistantStreamingFooter } from './MessageItem/AssistantStreamingFooter';
 import WaitingIndicator from './WaitingIndicator';
 import { ContextMenu } from './ContextMenu';
 import { useContextMenu, copySelection } from '../hooks/useContextMenu.js';
@@ -191,6 +192,13 @@ export const MessageList = memo(forwardRef<MessageListRevealHandle, MessageListP
   const handleWaitingExitComplete = useCallback(() => {
     setWaitingVisible(false);
   }, []);
+
+  const hasInlineAssistantActivity = useMemo(() => {
+    const tail = messages[messages.length - 1];
+    return Boolean(streamingActive && tail?.type === 'assistant' && tail.__suppressStreamingConnectHint !== true);
+  }, [messages, streamingActive]);
+
+  const shouldShowWaitingIndicator = waitingVisible && !hasInlineAssistantActivity;
 
   // Context menu for message list (copy only, when text selected)
   const ctxMenu = useContextMenu();
@@ -382,18 +390,27 @@ export const MessageList = memo(forwardRef<MessageListRevealHandle, MessageListP
                             currentProvider={currentProvider}
                             withinResponseGroup={true}
                             renderMode="response-segment"
+                            streamingStartedAt={loadingStartTime}
                           />
                         </div>
                       );
                     })}
                   </div>
-                  <MessageUsageStats
-                    inputTokens={usage.inputTokens}
-                    outputTokens={usage.outputTokens}
-                    durationMs={usage.durationMs}
-                    durationLabelKey={usage.durationLabelKey}
-                    t={t}
-                  />
+                  {isStreamingGroup ? (
+                    <AssistantStreamingFooter
+                      elapsedMs={unit.items[unit.items.length - 1].message.__assistantResponseStatus?.elapsedMs}
+                      startedAt={loadingStartTime}
+                      t={t}
+                    />
+                  ) : (
+                    <MessageUsageStats
+                      inputTokens={usage.inputTokens}
+                      outputTokens={usage.outputTokens}
+                      durationMs={usage.durationMs}
+                      durationLabelKey={usage.durationLabelKey}
+                      t={t}
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -428,12 +445,13 @@ export const MessageList = memo(forwardRef<MessageListRevealHandle, MessageListP
             onNavigateToDependencySettings={onNavigateToDependencySettings}
             toolResultSignature={toolResultSignature}
             currentProvider={currentProvider}
+            streamingStartedAt={loadingStartTime}
           />
         );
       })}
 
       {/* Loading / queue indicator */}
-      {waitingVisible && (
+      {shouldShowWaitingIndicator && (
         <WaitingIndicator
           startTime={loadingStartTime ?? undefined}
           queueDisplayState={queueDisplayState}

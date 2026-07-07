@@ -25,6 +25,7 @@ import { MessageUsageStats } from './MessageUsageStats';
 import { extractMessageUsage } from '../../utils/messageUsage';
 import { CopyIcon } from '../Icons';
 import { AssistantResponseStatus } from './AssistantResponseStatus';
+import { AssistantStreamingFooter } from './AssistantStreamingFooter';
 
 export interface MessageItemProps {
   message: ClaudeMessage;
@@ -51,6 +52,8 @@ export interface MessageItemProps {
   /** Play the messageFadeIn entry animation on this card. Set only on the card's
    *  first logical appearance so React remounts never replay the animation. */
   shouldAnimateIn?: boolean;
+  /** Timestamp when the current generation/loading cycle started. */
+  streamingStartedAt?: number | null;
 }
 
 type GroupedBlock =
@@ -227,6 +230,7 @@ export const MessageItem = memo(function MessageItem({
   withinResponseGroup = false,
   renderMode = 'full',
   shouldAnimateIn = false,
+  streamingStartedAt,
 }: MessageItemProps): React.ReactElement {
   const [copiedMessageIndex, setCopiedMessageIndex] = useState<number | null>(null);
 
@@ -318,6 +322,10 @@ export const MessageItem = memo(function MessageItem({
     !shouldSuppressStreamingConnectHint &&
     blocks.length === 0 &&
     !(message.content && message.content.trim().length > 0);
+  const shouldShowStreamingFooter =
+    message.type === 'assistant' &&
+    isMessageStreaming &&
+    !isEmptyStreamingPlaceholder;
 
   // Ref to track the last auto-expanded thinking block index to avoid overriding user interaction
   const lastAutoExpandedIndexRef = useRef<number>(-1);
@@ -397,7 +405,17 @@ export const MessageItem = memo(function MessageItem({
     }
 
     if (isEmptyStreamingPlaceholder) {
-      return <AssistantResponseStatus payload={message.__assistantResponseStatus} />;
+      const providerLabel = getProviderDisplayName(currentProvider, t);
+      return (
+        <AssistantResponseStatus
+          payload={message.__assistantResponseStatus ?? {
+            phase: '',
+            providerLabel,
+            title: t('chat.streamingConnected', { provider: providerLabel }),
+            active: true,
+          }}
+        />
+      );
     }
 
     return groupedBlocks.map((grouped) => {
@@ -611,6 +629,14 @@ export const MessageItem = memo(function MessageItem({
               {renderGroupedBlocks()}
             </div>
 
+            {shouldShowStreamingFooter && (
+              <AssistantStreamingFooter
+                elapsedMs={message.__assistantResponseStatus?.elapsedMs}
+                startedAt={streamingStartedAt}
+                t={t}
+              />
+            )}
+
             {/* Usage stats bar after completed assistant message */}
             {message.type === 'assistant' && !isMessageStreaming && (
               <MessageUsageStats
@@ -635,6 +661,14 @@ export const MessageItem = memo(function MessageItem({
           <div className="message-content">
             {renderGroupedBlocks()}
           </div>
+
+          {shouldShowStreamingFooter && (
+            <AssistantStreamingFooter
+              elapsedMs={message.__assistantResponseStatus?.elapsedMs}
+              startedAt={streamingStartedAt}
+              t={t}
+            />
+          )}
 
           {/* Usage stats bar for non-avatar assistant message */}
           {message.type === 'assistant' && !isMessageStreaming && (

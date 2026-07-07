@@ -91,6 +91,7 @@
     "unknownFile": "Unknown file",
     "attachmentsUploaded": "[अटैचमेंट अपलोड हो गए]",
     "streamingConnected": "{{provider}} कनेक्ट हो गया, आपके प्रश्न को समझ रहा है",
+    "streamingResponse": "उत्तर स्ट्रीम किया जा रहा है",
     "avatarUser": "आप",
     "showEarlierMessages": "{{count}} पुराने संदेश दिखाएं",
     "totalDuration": "इस जवाब में लगा समय",
@@ -99,7 +100,9 @@
     "usageStats": {
       "input": "इनपुट：",
       "output": "आउटपुट：",
-      "duration": "अवधि："
+      "total": "कुल：",
+      "duration": "अवधि：",
+      "tokensUnit": "tokens"
     },
     "search": {
       "ariaLabel": "बातचीत में खोजें",

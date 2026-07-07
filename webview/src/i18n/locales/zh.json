@@ -97,6 +97,7 @@
     "unknownFile": "未知文件",
     "attachmentsUploaded": "[已上传附件]",
     "streamingConnected": "{{provider}} 已成功连接，正在理解问题",
+    "streamingResponse": "正在流式输出",
     "avatarUser": "你",
     "showEarlierMessages": "显示之前的 {{count}} 条消息",
     "totalDuration": "本次耗时",
@@ -112,7 +113,9 @@
     "usageStats": {
       "input": "输入：",
       "output": "输出：",
-      "duration": "耗时："
+      "total": "总计：",
+      "duration": "耗时：",
+      "tokensUnit": "tokens"
     },
     "search": {
       "ariaLabel": "在对话中搜索",
@@ -239,7 +242,8 @@
         "cliDesc": "直接调用本地 CLI，可复用本机环境与登录态，但能力和输出受 CLI 本身限制。",
         "cliPathPlaceholder": "可选：指定 Claude CLI 可执行文件路径，留空则自动检测",
         "hint": "切换后新请求将按所选模式发起。CLI 模式下部分能力可能与 SDK 模式存在差异。",
-        "policyHint": "会话级运行时偏好;若所选不在下方「运行时路由策略」的允许范围内,将自动降级到该 provider 默认运行时并提示。"
+        "policyHint": "会话级运行时偏好;若所选不在下方「运行时路由策略」的允许范围内,将自动降级到该 provider 默认运行时并提示。",
+        "scopeNotice": "仅对新会话和新标签页生效;已有标签页保留当前模式,新建标签页才会应用新模式。"
       },
       "fontSize": {
         "label": "字体大小",

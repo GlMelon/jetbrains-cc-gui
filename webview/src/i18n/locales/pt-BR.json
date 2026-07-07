@@ -91,6 +91,7 @@
     "unknownFile": "Arquivo desconhecido",
     "attachmentsUploaded": "[Anexos Enviados]",
     "streamingConnected": "{{provider}} conectado, entendendo sua pergunta",
+    "streamingResponse": "Transmitindo resposta",
     "avatarUser": "Você",
     "showEarlierMessages": "Mostrar {{count}} mensagens anteriores",
     "totalDuration": "Esta resposta levou",
@@ -99,7 +100,9 @@
     "usageStats": {
       "input": "Entrada：",
       "output": "Saída：",
-      "duration": "Duração："
+      "total": "Total：",
+      "duration": "Duração：",
+      "tokensUnit": "tokens"
     },
     "search": {
       "ariaLabel": "Pesquisar na conversa",

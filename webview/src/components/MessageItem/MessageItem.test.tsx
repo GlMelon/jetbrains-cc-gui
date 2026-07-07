@@ -1,5 +1,5 @@
 import { act, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ClaudeContentBlock, ClaudeMessage, ToolResultBlock } from '../../types';
 import { extractMarkdownContent } from '../../utils/copyUtils';
 import { MessageItem } from './MessageItem';
@@ -37,9 +37,14 @@ const t = ((key: string, opts?: Record<string, unknown>) => {
     'markdown.copyMessage': '复制消息',
     'markdown.copySuccess': '已复制',
     'chat.streamingConnected': '{{provider}} 已连接',
+    'chat.streamingResponse': '正在流式输出',
     'chat.totalDuration': '本次耗时',
     'chat.waitingTimedOutDuration': '等待超时',
+    'chat.usageStats.input': '输入：',
+    'chat.usageStats.output': '输出：',
+    'chat.usageStats.total': '总计：',
     'chat.usageStats.duration': '本次耗时',
+    'chat.usageStats.tokensUnit': 'tokens',
     'chat.avatarUser': 'You',
     'providers.claude.label': 'Claude Code',
     'providers.codex.label': 'Codex',
@@ -53,6 +58,10 @@ const t = ((key: string, opts?: Record<string, unknown>) => {
   }
   return value;
 }) as any;
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 const getMessageText = (message: ClaudeMessage) => message.content ?? '';
 
@@ -234,6 +243,116 @@ describe('MessageItem copy button visibility', () => {
 
     expect(screen.queryByText('已连接')).toBeNull();
     vi.useRealTimers();
+  });
+
+  it('renders assistant response status inside empty streaming placeholder', () => {
+    const message: ClaudeMessage = {
+      type: 'assistant',
+      content: '',
+      isStreaming: true,
+      __assistantResponseStatus: {
+        phase: 'thinking',
+        providerLabel: 'Codex',
+        title: '正在思考',
+        description: '正在分析上下文',
+        elapsedMs: 2800,
+        active: true,
+      },
+    };
+
+    renderMessageItem(message, {
+      isLast: true,
+      streamingActive: true,
+      currentProvider: 'codex',
+    });
+
+    expect(screen.getByText('正在思考')).toBeTruthy();
+    expect(screen.getByText('正在分析上下文')).toBeTruthy();
+    expect(screen.getAllByText('Codex').length).toBeGreaterThan(0);
+    expect(screen.getByText('2s')).toBeTruthy();
+  });
+
+  it('updates assistant response status elapsed time while active', () => {
+    vi.useFakeTimers();
+    const message: ClaudeMessage = {
+      type: 'assistant',
+      content: '',
+      isStreaming: true,
+      __assistantResponseStatus: {
+        phase: 'thinking',
+        providerLabel: 'Codex',
+        title: '正在思考',
+        description: '正在分析上下文',
+        elapsedMs: 2800,
+        active: true,
+      },
+    };
+
+    renderMessageItem(message, {
+      isLast: true,
+      streamingActive: true,
+      currentProvider: 'codex',
+    });
+
+    expect(screen.getByText('2s')).toBeTruthy();
+
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+
+    expect(screen.getByText('3s')).toBeTruthy();
+  });
+
+  it('renders streaming footer while assistant content is still streaming', () => {
+    const message: ClaudeMessage = {
+      type: 'assistant',
+      content: 'partial answer',
+      isStreaming: true,
+      __assistantResponseStatus: {
+        phase: 'responding',
+        providerLabel: 'Codex',
+        title: '正在输出',
+        elapsedMs: 2200,
+        active: true,
+      },
+      raw: {
+        content: [{ type: 'text', text: 'partial answer' }],
+      } as any,
+    };
+
+    renderMessageItem(message, {
+      isLast: true,
+      streamingActive: true,
+      currentProvider: 'codex',
+    });
+
+    expect(screen.getByText('正在流式输出')).toBeTruthy();
+    expect(screen.queryByText('本次耗时')).toBeNull();
+  });
+
+  it('renders final usage stats with total tokens and duration', () => {
+    const message: ClaudeMessage = {
+      type: 'assistant',
+      content: 'done',
+      durationMs: 123_000,
+      raw: {
+        turnUsage: {
+          input_tokens: 100,
+          output_tokens: 40,
+        },
+        content: [{ type: 'text', text: 'done' }],
+      } as any,
+    };
+
+    renderMessageItem(message);
+
+    expect(screen.getByText('输入：')).toBeTruthy();
+    expect(screen.getByText('100 tokens')).toBeTruthy();
+    expect(screen.getByText('输出：')).toBeTruthy();
+    expect(screen.getByText('40 tokens')).toBeTruthy();
+    expect(screen.getByText('总计：')).toBeTruthy();
+    expect(screen.getByText('140 tokens')).toBeTruthy();
+    expect(screen.getByText('2:03')).toBeTruthy();
   });
 
   it('renders the streaming connect hint using the OpenCode provider label', () => {

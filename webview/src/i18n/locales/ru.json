@@ -91,6 +91,7 @@
     "unknownFile": "Неизвестный файл",
     "attachmentsUploaded": "[Вложения загружены]",
     "streamingConnected": "{{provider}} обрабатывает запрос",
+    "streamingResponse": "Потоковая передача ответа",
     "avatarUser": "Вы",
     "showEarlierMessages": "Показать предыдущие сообщения ({{count}})",
     "totalDuration": "Этот ответ занял",
@@ -99,7 +100,9 @@
     "usageStats": {
       "input": "Вход：",
       "output": "Выход：",
-      "duration": "Время："
+      "total": "Всего：",
+      "duration": "Время：",
+      "tokensUnit": "tokens"
     },
     "search": {
       "ariaLabel": "Поиск в беседе",

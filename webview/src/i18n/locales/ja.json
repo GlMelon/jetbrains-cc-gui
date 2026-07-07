@@ -91,6 +91,7 @@
     "unknownFile": "Unknown file",
     "attachmentsUploaded": "[添付ファイルがアップロードされました]",
     "streamingConnected": "{{provider}}に接続しました、質問を理解しています",
+    "streamingResponse": "レスポンスをストリーミング中",
     "avatarUser": "あなた",
     "showEarlierMessages": "以前の{{count}}件のメッセージを表示",
     "totalDuration": "今回の応答時間",
@@ -99,7 +100,9 @@
     "usageStats": {
       "input": "入力：",
       "output": "出力：",
-      "duration": "所要時間："
+      "total": "合計：",
+      "duration": "所要時間：",
+      "tokensUnit": "tokens"
     },
     "search": {
       "ariaLabel": "会話内を検索",

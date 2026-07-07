@@ -95,6 +95,7 @@
     "unknownFile": "Unknown file",
     "attachmentsUploaded": "[Attachments Uploaded]",
     "streamingConnected": "{{provider}} connected, understanding your question",
+    "streamingResponse": "Streaming response",
     "avatarUser": "You",
     "showEarlierMessages": "Show {{count}} earlier messages",
     "totalDuration": "This reply took",
@@ -110,7 +111,9 @@
     "usageStats": {
       "input": "Input:",
       "output": "Output:",
-      "duration": "Duration:"
+      "total": "Total:",
+      "duration": "Duration:",
+      "tokensUnit": "tokens"
     },
     "search": {
       "ariaLabel": "Search in conversation",
@@ -191,7 +194,8 @@
         "cliDesc": "Invoke the local Claude CLI directly",
         "cliPathPlaceholder": "Path to the Claude CLI executable (leave blank to auto-detect)",
         "hint": "CLI mode does not support thinking, /context and a few other features. Permission mode follows the setting above.",
-        "policyHint": "Per-session runtime preference. If the chosen mode isn't allowed by 'Runtime Routing Policy' below, it falls back to that provider's default runtime with a notice."
+        "policyHint": "Per-session runtime preference. If the chosen mode isn't allowed by 'Runtime Routing Policy' below, it falls back to that provider's default runtime with a notice.",
+        "scopeNotice": "Only applies to new sessions and new tabs. Existing tabs keep their current mode — create a new tab to use the new mode."
       },
       "nodePath": {
         "label": "Node.js Path",

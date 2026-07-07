@@ -33,6 +33,10 @@ vi.mock('./MessageItem/MessageUsageStats', () => ({
   MessageUsageStats: () => <div data-testid="usage-stats">usage</div>,
 }));
 
+vi.mock('./MessageItem/AssistantStreamingFooter', () => ({
+  AssistantStreamingFooter: () => <div data-testid="streaming-footer">streaming</div>,
+}));
+
 vi.mock('./WaitingIndicator', () => ({
   default: () => <div data-testid="waiting-indicator">waiting</div>,
 }));
@@ -236,6 +240,104 @@ describe('MessageList container behaviour', () => {
     );
     expect(screen.getByTestId('waiting-indicator')).toBeTruthy();
   });
+
+  it('hides waiting indicator when assistant response status is active', () => {
+    const endRef = createRef<HTMLDivElement>();
+    render(
+      <MessageList
+        messages={[
+          ...makeMessages(2),
+          {
+            type: 'assistant',
+            content: '',
+            isStreaming: true,
+            __assistantResponseStatus: {
+              phase: 'thinking',
+              providerLabel: 'Codex',
+              title: '正在思考',
+              description: '正在分析上下文',
+              elapsedMs: 2400,
+              active: true,
+            },
+          },
+        ]}
+        streamingActive={true}
+        isThinking={false}
+        loading={true}
+        loadingStartTime={Date.now()}
+        queueDisplayState="NONE"
+        queueAheadCount={0}
+        t={t}
+        getMessageText={noopGetText}
+        getContentBlocks={noopGetBlocks}
+        findToolResult={noopFindToolResult}
+        extractMarkdownContent={noopExtractMd}
+        messagesEndRef={endRef}
+      />
+    );
+
+    expect(screen.queryByTestId('waiting-indicator')).toBeNull();
+  });
+
+  it('hides waiting indicator for the inline streaming placeholder fallback', () => {
+    const endRef = createRef<HTMLDivElement>();
+    render(
+      <MessageList
+        messages={[
+          ...makeMessages(2),
+          {
+            type: 'assistant',
+            content: '',
+            isStreaming: true,
+          },
+        ]}
+        streamingActive={true}
+        isThinking={false}
+        loading={true}
+        loadingStartTime={Date.now()}
+        queueDisplayState="NONE"
+        queueAheadCount={0}
+        t={t}
+        getMessageText={noopGetText}
+        getContentBlocks={noopGetBlocks}
+        findToolResult={noopFindToolResult}
+        extractMarkdownContent={noopExtractMd}
+        messagesEndRef={endRef}
+      />
+    );
+
+    expect(screen.queryByTestId('waiting-indicator')).toBeNull();
+  });
+
+  it('hides waiting indicator while assistant content is streaming inline', () => {
+    const endRef = createRef<HTMLDivElement>();
+    render(
+      <MessageList
+        messages={[
+          ...makeMessages(2),
+          {
+            type: 'assistant',
+            content: 'partial response',
+            isStreaming: true,
+          },
+        ]}
+        streamingActive={true}
+        isThinking={false}
+        loading={true}
+        loadingStartTime={Date.now()}
+        queueDisplayState="NONE"
+        queueAheadCount={0}
+        t={t}
+        getMessageText={noopGetText}
+        getContentBlocks={noopGetBlocks}
+        findToolResult={noopFindToolResult}
+        extractMarkdownContent={noopExtractMd}
+        messagesEndRef={endRef}
+      />
+    );
+
+    expect(screen.queryByTestId('waiting-indicator')).toBeNull();
+  });
 });
 
 describe('MessageList response grouping', () => {
@@ -276,5 +378,54 @@ describe('MessageList response grouping', () => {
     expect(responseGroup?.querySelectorAll('.assistant-response-segment')).toHaveLength(3);
     expect(responseGroup?.querySelectorAll('[data-render-mode="response-segment"]')).toHaveLength(3);
     expect(responseGroup?.querySelectorAll('[data-testid="usage-stats"]')).toHaveLength(1);
+  });
+
+  it('shows streaming footer instead of final usage stats for the active response group', () => {
+    const messages: ClaudeMessage[] = [
+      { type: 'user', content: 'please explain', id: 'u-1' },
+      {
+        type: 'assistant',
+        content: 'first segment',
+        id: 'a-1',
+        __responseId: 'response-1',
+      },
+      {
+        type: 'assistant',
+        content: 'partial final segment',
+        id: 'a-2',
+        isStreaming: true,
+        __responseId: 'response-1',
+        __assistantResponseStatus: {
+          phase: 'responding',
+          providerLabel: 'Codex',
+          title: '正在输出',
+          elapsedMs: 2200,
+          active: true,
+        },
+      },
+    ];
+    const endRef = createRef<HTMLDivElement>();
+
+    const { container } = render(
+      <MessageList
+        messages={messages}
+        streamingActive={true}
+        isThinking={false}
+        loading={true}
+        loadingStartTime={Date.now()}
+        queueDisplayState="NONE"
+        queueAheadCount={0}
+        t={t}
+        getMessageText={noopGetText}
+        getContentBlocks={noopGetBlocks}
+        findToolResult={noopFindToolResult}
+        extractMarkdownContent={noopExtractMd}
+        messagesEndRef={endRef}
+      />
+    );
+
+    const responseGroup = container.querySelector('.assistant-response-group');
+    expect(responseGroup?.querySelectorAll('[data-testid="streaming-footer"]')).toHaveLength(1);
+    expect(responseGroup?.querySelectorAll('[data-testid="usage-stats"]')).toHaveLength(0);
   });
 });

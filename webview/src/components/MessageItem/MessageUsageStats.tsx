@@ -28,6 +28,8 @@ export const MessageUsageStats = memo(function MessageUsageStats({
 }: MessageUsageStatsProps) {
   const hasTokens = (inputTokens !== null && inputTokens > 0) || (outputTokens !== null && outputTokens > 0);
   const hasDuration = durationMs !== null && durationMs > 0;
+  const tokenUnit = t('chat.usageStats.tokensUnit');
+  const totalTokens = (inputTokens ?? 0) + (outputTokens ?? 0);
 
   // Don't render if there's nothing to show
   if (!hasTokens && !hasDuration) return null;
@@ -43,7 +45,7 @@ export const MessageUsageStats = memo(function MessageUsageStats({
               <line x1="12" y1="3" x2="12" y2="15" />
             </svg>
             <span>{t('chat.usageStats.input')}</span>
-            <span className="usage-value">{formatTokenCount(inputTokens)} tokens</span>
+            <span className="usage-value">{formatTokenCount(inputTokens)} {tokenUnit}</span>
           </div>
           <div className="usage-divider" />
         </>
@@ -58,9 +60,24 @@ export const MessageUsageStats = memo(function MessageUsageStats({
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
             <span>{t('chat.usageStats.output')}</span>
-            <span className="usage-value">{formatTokenCount(outputTokens)} tokens</span>
+            <span className="usage-value">{formatTokenCount(outputTokens)} {tokenUnit}</span>
           </div>
           <div className="usage-divider" />
+        </>
+      )}
+
+      {hasTokens && totalTokens > 0 && (
+        <>
+          <div className="usage-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 6h16" />
+              <path d="M4 12h16" />
+              <path d="M4 18h16" />
+            </svg>
+            <span>{t('chat.usageStats.total')}</span>
+            <span className="usage-value">{formatTokenCount(totalTokens)} {tokenUnit}</span>
+          </div>
+          {hasDuration && <div className="usage-divider" />}
         </>
       )}
 
