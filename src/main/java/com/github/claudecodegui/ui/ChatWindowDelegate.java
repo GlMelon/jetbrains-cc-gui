@@ -128,6 +128,9 @@ import com.github.claudecodegui.handler.settings.GetModelRegistryActionHandler;
 import com.github.claudecodegui.handler.settings.SetModelRegistryActionHandler;
 import com.github.claudecodegui.handler.settings.GetModelRegistrySchemaActionHandler;
 import com.github.claudecodegui.handler.settings.SetAppearanceConfigActionHandler;
+import com.github.claudecodegui.handler.settings.GetAvatarConfigActionHandler;
+import com.github.claudecodegui.handler.settings.SetAvatarConfigActionHandler;
+import com.github.claudecodegui.handler.settings.UploadCustomAvatarActionHandler;
 import com.github.claudecodegui.handler.settings.GetModeActionHandler;
 import com.github.claudecodegui.handler.settings.SetModeActionHandler;
 import com.github.claudecodegui.handler.settings.SetSessionModeActionHandler;
@@ -238,6 +241,7 @@ import com.github.claudecodegui.handler.file.ResolveFilePathActionHandler;
 import com.github.claudecodegui.handler.file.OpenClassHandler;
 import com.github.claudecodegui.permission.PermissionService;
 import com.github.claudecodegui.settings.AppearanceConfigService;
+import com.github.claudecodegui.settings.avatar.AvatarConfigService;
 import com.github.claudecodegui.settings.ModelRegistryService;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
 import com.github.claudecodegui.provider.codex.CodexSDKBridge;
@@ -526,11 +530,15 @@ public class ChatWindowDelegate {
         CodemossSettingsService settings = handlerContext.getSettingsService();
         ModelRegistryService modelRegistryService = new ModelRegistryService(settings);
         AppearanceConfigService appearanceConfigService = new AppearanceConfigService(settings);
+        AvatarConfigService avatarConfigService = new AvatarConfigService();
         List<FrontendActionHandler<?>> typedHandlers = new ArrayList<>();
         typedHandlers.add(new GetModelRegistryActionHandler(modelRegistryService));
         typedHandlers.add(new SetModelRegistryActionHandler(modelRegistryService));
         typedHandlers.add(new GetModelRegistrySchemaActionHandler(modelRegistryService));
         typedHandlers.add(new SetAppearanceConfigActionHandler(appearanceConfigService));
+        typedHandlers.add(new GetAvatarConfigActionHandler(avatarConfigService));
+        typedHandlers.add(new SetAvatarConfigActionHandler(avatarConfigService));
+        typedHandlers.add(new UploadCustomAvatarActionHandler(avatarConfigService));
         typedHandlers.add(new GetCodexSubscriptionQuotaActionHandler());
         // 模型拉取 RPC(第三方/代理预设:baseUrl+key → 动态拉取真实模型列表)
         typedHandlers.add(new FetchProviderModelsActionHandler());
@@ -1007,6 +1015,7 @@ public class ChatWindowDelegate {
         );
         host.getSessionLifecycleManager().sendCurrentPermissionMode();
         sendCurrentModelRegistryToFrontend();
+        sendCurrentAvatarConfigToFrontend();
         sendCurrentModelSelectionToFrontend();
         replayCurrentSessionStateToFrontend();
         host.persistTabSessionState();
@@ -1072,6 +1081,19 @@ public class ChatWindowDelegate {
      * MODEL_SELECTION。前端 useModelProviderState 已订阅该事件,收到后自动
      * setCurrentProvider + setSelected{Provider}Model,完成跨标签供应商状态回灌(前端零改)。
      */
+    private void sendCurrentAvatarConfigToFrontend() {
+        try {
+            final HandlerContext ctx = host.getHandlerContext();
+            final String avatarConfigJson = new AvatarConfigService().serializeAuthoritativeConfig();
+            ApplicationManager.getApplication().invokeLater(() -> {
+                if (!host.isDisposed() && host.getBrowser() != null) {
+                    ctx.dispatchEvent(DownstreamEvent.AVATAR_CONFIG_APPLY.value(), ctx.escapeJs(avatarConfigJson));
+                }
+            });
+        } catch (Exception e) {
+            LOG.warn("Failed to send avatar config on frontend ready: " + e.getMessage(), e);
+        }
+    }
     private void sendCurrentModelSelectionToFrontend() {
         try {
             final ClaudeSession session = host.getSession();

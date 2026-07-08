@@ -25,6 +25,9 @@ public class ConfigPathManager {
     private static final String CLAUDE_DIR_NAME = ".claude";
     private static final String CLAUDE_SETTINGS_FILE_NAME = "settings.json";
     private static final String MANAGED_SETTINGS_FILE_NAME = "managed-settings.json";
+    private static final String AVATAR_DIR_NAME = "avatars";
+    private static final String AVATAR_SETTINGS_FILE_NAME = "avatar-settings.json";
+    private static final String AVATAR_CUSTOM_DIR_NAME = "custom";
 
     /**
      * Get the configuration file path (~/.codemoss/config.json).
@@ -78,6 +81,43 @@ public class ConfigPathManager {
         return getConfigDir().resolve(PROMPT_FILE_NAME);
     }
 
+    /**
+     * Get the avatar configuration directory (~/.codemoss/avatars).
+     */
+    public Path getAvatarDir() {
+        return getConfigDir().resolve(AVATAR_DIR_NAME);
+    }
+
+    /**
+     * Get the avatar settings file path.
+     */
+    public Path getAvatarSettingsFilePath() {
+        return getAvatarDir().resolve(AVATAR_SETTINGS_FILE_NAME);
+    }
+
+    /**
+     * Get the directory that stores custom avatar JSON files.
+     */
+    public Path getAvatarCustomDir() {
+        return getAvatarDir().resolve(AVATAR_CUSTOM_DIR_NAME);
+    }
+
+    /**
+     * Ensure avatar settings and custom-avatar directories exist.
+     */
+    public void ensureAvatarDirectories() throws IOException {
+        ensureConfigDirectory();
+        Path avatarDir = getAvatarDir();
+        if (!Files.exists(avatarDir)) {
+            Files.createDirectories(avatarDir);
+            LOG.info("[ConfigPathManager] Created avatar directory: " + avatarDir);
+        }
+        Path customDir = getAvatarCustomDir();
+        if (!Files.exists(customDir)) {
+            Files.createDirectories(customDir);
+            LOG.info("[ConfigPathManager] Created custom avatar directory: " + customDir);
+        }
+    }
     /**
      * Get the Claude settings.json path.
      */

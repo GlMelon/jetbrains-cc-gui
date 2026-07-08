@@ -75,6 +75,7 @@ public enum DownstreamEvent implements ProtocolValue {
     LANGUAGE_APPLY("language.apply"),
     LANGUAGE_USER_LANGUAGE("language.user_language"),
     APPEARANCE_APPLY("appearance.apply"),
+    AVATAR_CONFIG_APPLY("avatar.config_apply"),
 
     // ── Linkify ──
     LINKIFY_UPDATE("linkify.update"),

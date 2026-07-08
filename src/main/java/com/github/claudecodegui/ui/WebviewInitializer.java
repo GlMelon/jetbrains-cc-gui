@@ -9,6 +9,7 @@ import com.github.claudecodegui.model.NodeDetectionResult;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
 import com.github.claudecodegui.provider.codex.CodexSDKBridge;
 import com.github.claudecodegui.settings.CodemossSettingsService;
+import com.github.claudecodegui.settings.avatar.AvatarConfigService;
 import com.github.claudecodegui.startup.BridgePreloader;
 import com.github.claudecodegui.util.FontConfigService;
 import com.github.claudecodegui.util.HtmlLoader;
@@ -388,6 +389,18 @@ public class WebviewInitializer {
                     );
                     cefBrowser.executeJavaScript(appearanceConfigInjection, cefBrowser.getURL(), 0);
                     LOG.info("[AppearanceSync] Appearance config injected into frontend");
+
+                    String avatarConfig = new AvatarConfigService().serializeAuthoritativeConfig();
+                    LOG.info("[AvatarSync] Retrieved avatar config");
+                    String escapedAvatarConfig = JsUtils.escapeJs(avatarConfig);
+                    String avatarConfigInjection = String.format(
+                        "(function(){ var c = JSON.parse('%s'); " +
+                        "if (window.applyAvatarConfig) { window.applyAvatarConfig(c); } " +
+                        "else { window.__pendingAvatarConfig = c; } })()",
+                        escapedAvatarConfig
+                    );
+                    cefBrowser.executeJavaScript(avatarConfigInjection, cefBrowser.getURL(), 0);
+                    LOG.info("[AvatarSync] Avatar config injected into frontend");
 
                     LOG.debug("onLoadEnd completed, waiting for frontend_ready signal");
                 }

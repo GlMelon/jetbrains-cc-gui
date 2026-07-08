@@ -105,6 +105,9 @@ public enum UpstreamAction implements ProtocolValue {
     GET_USER_LANGUAGE("get_user_language"),
     CLEAR_USER_LANGUAGE("clear_user_language"),
     SET_APPEARANCE_CONFIG("set_appearance_config"),
+    AVATAR_GET_CONFIG("avatar.get_config"),
+    AVATAR_SET_CONFIG("avatar.set_config"),
+    AVATAR_UPLOAD_CUSTOM("avatar.upload_custom"),
 
     // ── Runtime Policy ──
     GET_RUNTIME_POLICY("get_runtime_policy"),
