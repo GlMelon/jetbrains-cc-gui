@@ -1,6 +1,5 @@
 {
   "common": {
-    "ready": "Готово",
     "loading": "Загрузка",
     "save": "Сохранить",
     "cancel": "Отмена",
@@ -17,13 +16,8 @@
     "settings": "Настройки",
     "thinking": "Размышляю",
     "thinkingProcess": "Процесс размышления",
-    "success": "Успешно",
     "error": "Ошибка",
-    "warning": "Предупреждение",
-    "info": "Информация",
-    "seconds": "с",
-    "minutes": "м",
-    "optional": "Необязательно"
+    "warning": "Предупреждение"
   },
   "chat": {
     "sendMessage": "Отправить сообщение в {{provider}}",
@@ -48,15 +42,12 @@
     "removeAttachment": "Удалить вложение",
     "closePreview": "Закрыть предпросмотр",
     "loadingDropdown": "Загрузка...",
-    "addAttachment": "Добавить вложение",
     "stopGeneration": "Остановить генерацию",
     "imagePreview": "Предпросмотр",
     "context": "Контекст",
-    "usage": "Использование",
     "usagePercentage": "Использование: {{percentage}}",
     "noMatchingFiles": "Файлы не найдены",
     "noMatchingCommands": "Команды не найдены",
-    "noMatchingHistory": "Ничего не найдено",
     "noAvailableAgents": "Нет доступных агентов",
     "collapse": "Свернуть",
     "expand": "Развернуть",
@@ -84,9 +75,7 @@
     "goInstallSdk": "Перейти к установке",
     "commandNotImplemented": "Функция `{{command}}` ещё не реализована.",
     "clearCommandDescription": "Очистить историю и начать новый чат",
-    "attachmentFile": "[Вложение: {{fileName}}]",
     "unknownFile": "Неизвестный файл",
-    "attachmentsUploaded": "[Вложения загружены]",
     "streamingConnected": "{{provider}} обрабатывает запрос",
     "streamingResponse": "Потоковая передача ответа",
     "messageSections": {
@@ -160,11 +149,8 @@
       "theme": {
         "label": "Тема",
         "system": "Как в IDE",
-        "systemDesc": "Следует за темой IDE",
         "light": "Светлая",
-        "lightDesc": "Свежая и яркая, для работы днём",
-        "dark": "Тёмная",
-        "darkDesc": "Бережёт глаза, для работы ночью"
+        "dark": "Тёмная"
       },
       "language": {
         "label": "Язык",
@@ -209,7 +195,6 @@
       },
       "editorFont": {
         "label": "Шрифт",
-        "hint": "Здесь меняется шрифт интерфейса плагина; размер и межстрочный интервал по-прежнему берутся из редактора.",
         "followOption": "Следовать шрифту редактора ({{font}})",
         "customOption": "Пользовательский файл шрифта",
         "customPathLabel": "Путь к файлу шрифта",
@@ -323,14 +308,7 @@
       "claude": "Claude Code",
       "codex": "Codex"
     },
-    "pluginModels": {
-      "title": "Пользовательские модели",
-      "description": "Добавленные здесь пользовательские модели будут видны у всех провайдеров и отображаться в начале списка выбора моделей",
-      "dialogTitle": "Управление пользовательскими моделями",
-      "manage": "Управление моделями"
-    },
     "dependencies": "Зависимости SDK",
-    "dependenciesDesc": "Управление установкой и обновлением зависимостей AI SDK",
     "dependency": {
       "title": "Управление зависимостями SDK",
       "description": "Управление зависимостями AI SDK. Установите необходимый SDK перед первым использованием.",
@@ -344,7 +322,6 @@
       "installing": "Установка...",
       "uninstall": "Удалить",
       "uninstalling": "Удаление...",
-      "update": "Обновить",
       "updateAvailable": "Доступно обновление",
       "installLogs": "Журнал установки",
       "waitingForLogs": "Ожидание вывода журнала...",
@@ -370,14 +347,7 @@
       "title": "Commit AI",
       "description": "Настройка AI-генерации сообщений Git-коммитов",
       "providerModel": {
-        "label": "Провайдер модели коммитов",
-        "modelLabel": "Модель коммитов",
-        "resetToDefault": "Сбросить",
-        "providerAvailable": "Доступно",
-        "providerUnavailable": "Недоступно",
-        "currentProviderAuto": "Сейчас используется автоматический выбор: {{provider}}",
-        "currentProviderManual": "Сейчас используется выбранный вручную провайдер: {{provider}}",
-        "currentProviderUnavailable": "Выбранный провайдер сейчас недоступен: {{provider}}"
+        "resetToDefault": "Сбросить"
       },
       "prompt": {
         "label": "Дополнительный промпт",
@@ -390,10 +360,7 @@
         "hint": "Этот промпт применяется только к текущему проекту и объединяется с глобальным дополнительным промптом. При противоречии приоритет отдаётся промпту проекта. Разные проекты можно настраивать независимо."
       },
       "codeReview": {
-        "comingSoon": "Скоро",
-        "label": "Дополнительный промпт Code Review AI",
-        "placeholder": "Эта функция в разработке, следите за обновлениями...",
-        "hint": "Code Review AI поможет автоматически проверять код, находить потенциальные проблемы и предлагать улучшения. Здесь можно настроить предпочтения и приоритеты проверки."
+        "label": "Дополнительный промпт Code Review AI"
       }
     },
     "agents": "Агенты",
@@ -426,16 +393,6 @@
           "importanceHint": "Чем выше важность, тем выше приоритет в автодополнении"
         },
         "timeAgo": {
-          "yearsAgo_one": "{{count}} год назад",
-          "yearsAgo_other": "{{count}} лет назад",
-          "monthsAgo_one": "{{count}} месяц назад",
-          "monthsAgo_other": "{{count}} месяцев назад",
-          "daysAgo_one": "{{count}} день назад",
-          "daysAgo_other": "{{count}} дней назад",
-          "hoursAgo_one": "{{count}} час назад",
-          "hoursAgo_other": "{{count}} часов назад",
-          "minutesAgo_one": "{{count}} минуту назад",
-          "minutesAgo_other": "{{count}} минут назад",
           "justNow": "только что",
           "yearsAgo_few": "{{count}} года назад",
           "yearsAgo_many": "{{count}} лет назад",
@@ -472,37 +429,11 @@
     "githubCopyBtn": "Скопировать URL репозитория",
     "githubCopied": "URL репозитория скопирован в буфер обмена. Откройте его в браузере.",
     "githubCopyFailed": "Не удалось скопировать. Пожалуйста, скопируйте вручную.",
-    "sponsor": "Поддержать проект",
-    "sponsorDesc": "Если этот проект вам полезен, поддержите его развитие!",
-    "alipay": "Alipay",
-    "wechatPay": "WeChat Pay",
-    "paypal": "PayPal",
     "provider": {
-      "currentConfig": "Текущая конфигурация ClaudeCode",
       "loading": "Загрузка...",
-      "noConfig": "Нет конфигурации",
       "emptyProvider": "Провайдер не настроен",
-      "notConfigured": "Не настроено",
-      "apiKey": "API-ключ",
-      "apiKeyHelper": "Помощник API-ключа",
-      "baseUrl": "Base URL",
-      "provider": "Провайдер",
-      "source": "Источник",
-      "show": "Показать",
-      "hide": "Скрыть",
-      "switchTo": "Переключить на",
-      "addProvider": "Добавить провайдер",
-      "importProvider": "Импорт провайдера",
-      "importFrom": "Импорт из",
-      "importFromCcSwitch": "Импорт из cc-switch",
-      "edit": "Редактировать",
-      "delete": "Удалить",
       "deleteConfirm": "Подтвердить удаление провайдера",
-      "deleteMessage": "Вы уверены, что хотите удалить провайдер «{{name}}»? Это действие необратимо.",
-      "convertLocal": "Конвертировать в локальный",
-      "convertMessage": "После конвертации связь с источником импорта будет разорвана. Это действие необратимо.",
       "convertSuccess": "Конвертация успешна, новый ID сгенерирован и связь разорвана",
-      "importing": "Импорт...",
       "allProviders": "Все провайдеры",
       "import": "Импорт",
       "importFromCcSwitchUpdate": "Импорт/Обновление из cc-switch",
@@ -523,7 +454,6 @@
       "enable": "Включить",
       "localProviderName": "Локальный settings.json",
       "localProviderDescription": "Использовать конфигурацию напрямую из ~/.claude/settings.json",
-      "localProviderHelp": "В режиме локального провайдера:\n• Плагин не будет изменять ваш файл ~/.claude/settings.json\n• Вам нужно управлять конфигурацией вручную\n• Убедитесь, что файл существует и содержит валидный JSON\n• Подходит для опытных пользователей, предпочитающих ручное управление",
       "authorizeAndEnable": "Авторизовать и включить",
       "revokeAuthorization": "Отозвать авторизацию",
       "cliLoginProviderName": "Состояние входа CLI",
@@ -535,45 +465,10 @@
       "cliLoginDisableMessage": "Это прекратит использование состояния входа CLI и оставит Claude без активного провайдера, пока вы явно не включите другой.",
       "cliLoginAccountInfo": "Вошел как: {{email}}",
       "subscriptionTutorial": {
-        "entry": "Руководство по подписке",
-        "dialogTitle": "Как использовать аккаунт подписки",
-        "tabAriaLabel": "Вкладки руководства по подписке",
-        "tabs": {
-          "claude": "Подписка Claude",
-          "codex": "Подписка Codex"
-        },
-        "code": {
-          "copy": "Скопировать код",
-          "copied": "Скопировано"
-        },
         "providers": {
           "claude": {
-            "title": "Как использовать аккаунт подписки Claude Code",
-            "item1": "Войдите в аккаунт подписки Claude Code через CLI в терминале, затем вы сможете нормально общаться в терминале",
-            "item2": "Убедитесь, что файл ~/.claude/settings.json и файл .env пусты",
-            "item3": "Перезапустите IDEA, и вы сможете нормально общаться",
-            "emptyConfigCodeLabel": "~/.claude/settings.json",
             "emptyConfigCode": "{\n  \"env\": {\n  }\n}",
-            "noteTitle": "Примечания к особым случаям:",
-            "note1": "Если вы выполнили вышеуказанные шаги, но плагин всё ещё не отвечает, попробуйте установить ~/.claude/settings.json .env в:",
-            "proxyConfigCodeLabel": "~/.claude/settings.json",
-            "proxyConfigCode": "{\n  \"env\": {\n    \"HTTP_PROXY\": \"http://127.0.0.1:7897\",\n    \"HTTPS_PROXY\": \"http://127.0.0.1:7897\"\n  }\n}",
-            "issuePrefix": "Если это всё ещё не работает, сообщите о проблеме на GitHub: ",
-            "issueUrl": "https://github.com/zhukunpenglinyutong/idea-claude-code-gui/issues"
-          },
-          "codex": {
-            "title": "Настройка аккаунта подписки Codex",
-            "item1": "Запустите codex login в терминале Codex CLI и войдите в систему, затем вы сможете общаться в терминале",
-            "item2": "Перезапустите IDEA",
-            "item3": "Теперь вы можете нормально общаться",
-            "emptyConfigCodeLabel": "",
-            "emptyConfigCode": "",
-            "noteTitle": "",
-            "note1": "",
-            "proxyConfigCodeLabel": "",
-            "proxyConfigCode": "",
-            "issuePrefix": "Если это всё ещё не работает, сообщите о проблеме на GitHub: ",
-            "issueUrl": "https://github.com/zhukunpenglinyutong/idea-claude-code-gui/issues"
+            "proxyConfigCode": "{\n  \"env\": {\n    \"HTTP_PROXY\": \"http://127.0.0.1:7897\",\n    \"HTTPS_PROXY\": \"http://127.0.0.1:7897\"\n  }\n}"
           }
         }
       },
@@ -608,30 +503,17 @@
         "apiUrlPlaceholder": "https://api.anthropic.com",
         "apiUrlHint": "Введите адрес сервиса, совместимого с Claude API",
         "modelMapping": "Маппинг моделей (будет добавлен в JSON env)",
-        "mainModel": "Основная модель",
-        "mainModelPlaceholder": "например, claude-sonnet-4-6",
-        "haikuModel": "Модель Haiku по умолчанию",
         "haikuModelPlaceholder": "например, claude-haiku-4-5",
-        "sonnetModel": "Модель Sonnet по умолчанию",
         "sonnetModelPlaceholder": "например, claude-sonnet-4-6",
-        "opusModel": "Модель Opus по умолчанию",
         "opusModelPlaceholder": "например, claude-opus-4-6",
         "modelMappingHint": "Необязательно: укажите модели Claude по умолчанию. Оставьте пустым для системных значений.",
-        "customModels": "Пользовательские модели",
-        "customModelsHint": "Добавьте дополнительные модели, поддерживаемые этим провайдером. Пользовательские модели будут отображаться вверху списка выбора моделей",
         "jsonConfig": "JSON-конфигурация",
         "jsonConfigDescription": "Настройте полное содержимое settings.json, поддерживаются все поля (model, alwaysThinkingEnabled, ccSwitchProviderId, codemossProviderId и т.д.)",
-        "jsonError": "Некорректный формат JSON",
         "required": "*",
         "showApiKey": "Показать",
         "hideApiKey": "Скрыть",
         "confirmAdd": "Подтвердить добавление",
-        "saveChanges": "Сохранить изменения",
-        "codeView": "Код",
-        "visualView": "Визуально",
-        "formatJson": "Форматировать",
-        "invalidJson": "Некорректный формат JSON, переключитесь в режим кода для исправления",
-        "presetGroup": "Быстрые пресеты"
+        "saveChanges": "Сохранить изменения"
       },
       "presets": {
         "custom": "Своё",
@@ -645,7 +527,6 @@
         "openrouter": "OpenRouter"
       }
     },
-    "comingSoon": "Скоро...",
     "permissionsComingSoon": "Настройка разрешений скоро...",
     "agentsComingSoon": "Настройка агентов скоро...",
     "skillsComingSoon": "Настройка навыков скоро...",
@@ -668,17 +549,9 @@
         "formatSuccess": "Форматирование выполнено",
         "formatError": "Ошибка форматирования, некорректный JSON",
         "nameRequired": "Введите имя провайдера",
-        "configJsonError": "Ошибка формата JSON в config.toml",
         "authJsonError": "Ошибка формата JSON в auth.json",
         "configJsonHint": "JSON-объект с model_provider, model, model_providers и т.д.",
         "authJsonHint": "JSON-объект с OPENAI_API_KEY и другими данными авторизации",
-        "customModels": "Пользовательские модели",
-        "customModelsHint": "Добавьте дополнительные модели для этого провайдера. Пользовательские модели будут отображаться вверху списка выбора",
-        "noCustomModels": "Нет пользовательских моделей",
-        "addModel": "Добавить модель",
-        "modelIdPlaceholder": "ID модели (обязательно, например, gpt-4o)",
-        "modelLabelPlaceholder": "Отображаемое имя (необязательно)",
-        "modelDescPlaceholder": "Описание модели (необязательно)",
         "cliLoginProviderName": "Вход Codex CLI",
         "cliLoginProviderDescription": "Использовать данные подписки ChatGPT из Codex CLI",
         "cliLoginAuthorizeTitle": "Включить вход Codex CLI",
@@ -686,9 +559,6 @@
         "cliLoginAuthorizeDetail": "Убедитесь, что вы вошли через 'codex login' в терминале. Ваш текущий config.toml будет сохранен.",
         "cliLoginDisableTitle": "Отключить вход Codex CLI",
         "cliLoginDisableMessage": "Это восстановит ваш предыдущий config.toml и переключит на API ключ.",
-        "modelIdRequired": "ID модели обязателен",
-        "modelIdInvalid": "Некорректный формат ID модели (допускаются буквы, цифры, точки, дефисы, подчёркивания, слэши и двоеточия)",
-        "modelIdDuplicate": "ID модели уже существует",
         "envVarsTitle": "Environment Variables",
         "messageEnvLabel": "Message Environment Variables",
         "messageEnvHint": "Custom environment variables injected into the Codex message subprocess",
@@ -718,10 +588,8 @@
       "updateSuccess": "Промпт успешно обновлён",
       "deleteSuccess": "Промпт успешно удалён",
       "operationSuccess": "Операция выполнена успешно",
-      "operationFailed": "Ошибка операции",
       "deleteConfirmTitle": "Подтвердить удаление",
       "deleteConfirmMessage": "Вы уверены, что хотите удалить промпта «{{name}}»? Это действие необратимо.",
-      "clearAgent": "Сбросить выбранного промпта",
       "dialog": {
         "addTitle": "Создать промпта",
         "editTitle": "Редактировать промпта",
@@ -736,16 +604,13 @@
       }
     },
     "prompts": "Библиотека промптов",
-    "promptsDesc": "Шаблоны промптов для быстрой вставки в чат",
     "prompt": {
       "title": "Библиотека промптов",
       "create": "Создать",
       "createPrompt": "Создать промпт",
       "createPromptHint": "Перейти в настройки промптов",
-      "customPrompts": "Пользовательские промпты",
       "noPrompts": "Нет промптов",
       "noPromptsDropdown": "Нет промптов",
-      "loadFailed": "Ошибка загрузки",
       "loading": "Загрузка...",
       "menu": "Меню",
       "addSuccess": "Промпт создан",
@@ -771,7 +636,6 @@
     }
   },
   "history": {
-    "title": "История",
     "sessionDeleted": "Чат удалён",
     "confirmDelete": "Подтвердить удаление",
     "deleteMessage": "Удалить этот чат? Это действие необратимо.",
@@ -787,7 +651,6 @@
     "selectSession": "Select session",
     "selectSessionWithTitle": "Select {{title}}",
     "exportSession": "Экспортировать чат",
-    "exportSuccess": "Чат экспортирован",
     "exportFailed": "Ошибка экспорта",
     "favoriteSession": "Добавить в избранное",
     "unfavoriteSession": "Удалить из избранного",
@@ -806,7 +669,6 @@
     "editTitle": "Редактировать название",
     "saveTitleButton": "Сохранить",
     "cancelEditButton": "Отмена",
-    "titleTooLong": "Название слишком длинное (максимум 50 символов)",
     "titleUpdated": "Название обновлено",
     "copySessionId": "Копировать ID сессии для CLI resume",
     "sessionIdCopied": "ID сессии скопирован",
@@ -836,7 +698,6 @@
     }
   },
   "permission": {
-    "dialogTitle": "Запрос разрешения",
     "allow": "Разрешить однократно",
     "allowAlways": "Разрешить всегда",
     "allowAlwaysCommand": "Всегда разрешать эту команду",
@@ -844,18 +705,10 @@
     "userDenied": "Пользователь отклонил запрос разрешения",
     "fromExternalProcess": "Запрос от внешнего процесса",
     "tools": {
-      "Write": "Записываю файл",
-      "Edit": "Редактирую файл",
       "Read": "Читаю файл",
       "ReadBatch": "Читаю файлы",
-      "Bash": "Выполняю команду",
-      "TodoWrite": "Записываю задачу",
-      "TodoRead": "Читаю задачи",
-      "WebSearch": "Ищу в интернете",
-      "WebFetch": "Загружаю из сети",
       "execute": "Выполняю {{toolName}}",
-      "readDirectory": "Читаю директорию",
-      "timeoutWarning": "Ответьте в течение {{seconds}} сек, иначе диалог закроется"
+      "readDirectory": "Читаю директорию"
     }
   },
   "askUserQuestion": {
@@ -877,7 +730,6 @@
   "planApproval": {
     "title": "План готов к утверждению",
     "subtitle": "Claude составил план и ждёт одобрения.",
-    "requestedPermissions": "Запрашиваемые разрешения",
     "executionMode": "Режим выполнения",
     "executionModeDescription": "Как Claude будет выполнять план:",
     "approve": "Утвердить и выполнить",
@@ -888,18 +740,9 @@
   },
   "toast": {
     "switchSuccess": "Переключено",
-    "thinkingEnabled": "Размышление включено",
-    "thinkingDisabled": "Размышление отключено",
-    "configLoading": "Настройки загружаются, попробуйте позже",
     "saveSuccess": "Сохранено",
     "saveFailed": "Ошибка сохранения",
-    "deleteSuccess": "Удалено",
     "operationFailed": "Ошибка операции",
-    "copySuccess": "{{label}} скопировано в буфер обмена",
-    "copyFailed": "Ошибка копирования",
-    "newSessionCreatedReady": "Новый чат — спрашивайте!",
-    "providerSwitchSuccess": "Провайдер переключён",
-    "providerSwitchFailed": "Не удалось переключить провайдер",
     "operationSuccess": "Операция выполнена",
     "pleaseEnterProviderName": "Введите имя провайдера",
     "invalidJsonConfig": "Неверный формат JSON",
@@ -908,8 +751,6 @@
     "providerDeleted": "Провайдер удалён"
   },
   "config": {
-    "clickToCopy": "Нажмите для копирования",
-    "switch": "Переключить",
     "switchProvider": "Переключить провайдер",
     "runtimeProvider": {
       "title": "Переключить текущий провайдер",
@@ -938,11 +779,8 @@
       "kill": "Завершить",
       "interrupt": "Прервать",
       "restart": "Перезапустить",
-      "pending": "Обработка...",
       "killAll": "Очистить сирот ({{count}})",
-      "killHint": "Принудительно завершить этот процесс Node",
       "killAllHint": "Завершить все обнаруженные осиротевшие процессы",
-      "restartHint": "Остановить демон; при следующем сообщении автоматически запустится новый",
       "killConfirmTitle": "Завершить этот процесс?",
       "killConfirm": "Завершить процесс PID {{pid}}? Активные беседы могут быть потеряны.",
       "restartConfirmTitle": "Перезапустить демон?",
@@ -954,8 +792,7 @@
       "restartSuccess": "Демон остановлен; новый экземпляр запустится автоматически при следующем сообщении",
       "killFailed": "Ошибка завершения: {{error}}",
       "activeRequests": "В работе: {{count}}"
-    },
-    "link": "Ссылка"
+    }
   },
   "markdown": {
     "copyCode": "Копировать код",
@@ -1002,9 +839,7 @@
     "daysAgo": "дней назад",
     "justNow": "Только что",
     "minutesAgo": "минут назад",
-    "hoursAgo": "часов назад",
-    "description": "Описание",
-    "command": "Команда"
+    "hoursAgo": "часов назад"
   },
   "mcp": {
     "title": "MCP-серверы",
@@ -1019,8 +854,6 @@
     "url": "URL",
     "homepage": "Домашняя страница",
     "docs": "Документация",
-    "edit": "Редактировать",
-    "delete": "Удалить",
     "noServers": "Нет MCP-серверов",
     "addServerHint": "Нажмите кнопку «Добавить» для добавления сервера",
     "loading": "Загрузка...",
@@ -1044,17 +877,12 @@
     "statusNeedsAuth": "Требуется аутентификация",
     "statusPending": "Подключение...",
     "statusUnknown": "Неизвестно",
-    "errorDetails": "Детали ошибки",
     "logs": {
       "title": "Журнал подключений",
       "empty": "Пока нет записей",
       "clear": "Очистить журнал",
       "close": "Закрыть",
       "count": "{{count}} записей",
-      "connected": "Подключён",
-      "failed": "Ошибка подключения",
-      "needsAuth": "Требуется аутентификация",
-      "unknownError": "Неизвестная ошибка",
       "loadingServers": "Загрузка списка MCP-серверов...",
       "refreshingStatus": "Обновление статуса подключений MCP-серверов...",
       "loadedToolsFromCache": "Инструменты загружены из кэша для «{{name}}»: {{count}} инструментов",
@@ -1147,15 +975,9 @@
     "loadFailed": "Ошибка загрузки",
     "noTools": "Нет инструментов",
     "clickToLoad": "Нажмите для загрузки",
-    "refreshLogs": "Журнал обновлений",
-    "clearLogs": "Очистить журнал",
-    "clear": "Очистить",
-    "noRefreshLogs": "Нет журнала обновлений",
-    "refreshLogsHint": "После нажатия кнопки обновления здесь отобразится подробная информация о процессе",
     "noParams": "Без параметров",
     "required": "Обязательно",
-    "optional": "Необязательно",
-    "refreshServer": "Обновить {{name}}"
+    "optional": "Необязательно"
   },
   "tools": {
     "toolCall": "Вызываю инструмент",
@@ -1180,7 +1002,6 @@
     "findFile": "Ищу файл",
     "todoList": "Список задач",
     "editFileTitle": "Редактирую файл",
-    "clickToOpen": "Нажмите для открытия {{filePath}}",
     "refreshFileInIdea": "Обновить файл в IDEA",
     "refreshFileInIdeaSuccess": "Файл обновлён в IDEA вручную",
     "showDiffInIdea": "Показать изменения в IDEA",
@@ -1190,25 +1011,16 @@
     "editPrefix": "Редактирую: {{fileName}}",
     "lineRange": "Строки {{start}}-{{end}}",
     "lineSingle": "Строка {{line}}",
-    "filePath": "Путь к файлу:",
     "unknownTool": "Неизвестный инструмент",
     "bashGroupBatchRun": "Выполняю команды",
-    "bashGroupBatchExecution": "Выполняю",
     "bashGroupCompleted": "завершено",
     "bashGroupAllCompleted": "Все завершены",
     "bashGroupFailed": "ошибка",
     "promptLabel": "Промпт"
   },
-  "todo": {
-    "inProgress": "В процессе {{completed}}/{{total}} задач",
-    "allCompleted": "Все завершены {{completed}}/{{total}} задач",
-    "stopped": "Остановлено"
-  },
   "statusPanel": {
-    "todoTab": "План",
     "tasksTab": "Задачи",
     "subagentTab": "Субагент",
-    "filesTab": "Изменения файлов",
     "editsTab": "Правки",
     "noTodos": "Нет активных задач",
     "noSubagents": "Нет активных субагентов",
@@ -1228,14 +1040,11 @@
     "keepAll": "Сохранить всё",
     "discardAllConfirmTitle": "Отменить все изменения",
     "discardAllConfirmMessage": "Все изменения файлов будут отменены. Это действие необратимо.",
-    "keepAllConfirmTitle": "Сохранить всё",
-    "keepAllConfirmMessage": "Принять изменения как базу. Дальнейшие правки будут отслеживаться заново.",
     "discardAllSuccess": "Все изменения отменены",
     "discardAllFailed": "Ошибка отмены: {{error}}",
     "keepAllSuccess": "Все изменения сохранены, отслеживание сброшено"
   },
   "skills": {
-    "title": "Навыки",
     "all": "Все",
     "global": "Глобальные",
     "local": "Локальные",
@@ -1254,7 +1063,6 @@
     "repo": "Репозиторий",
     "description": "Описание",
     "noDescription": "Без описания",
-    "noSkills": "Нет навыков",
     "noMatchingSkills": "Совпадающие навыки не найдены",
     "importHint": "Нажмите кнопку + для импорта файла или папки навыка",
     "deleteTitle": "Удалить навык",
@@ -1268,8 +1076,6 @@
     "importPartialSuccess": "Успешно импортировано {{count}}/{{total}} навыков, часть не удалась",
     "importFailed": "Ошибка импорта навыка",
     "deleteSuccess": "Навык успешно удалён",
-    "toggleSuccess": "Статус навыка обновлён",
-    "toggleFailed": "Не удалось обновить статус навыка",
     "deleteFailed": "Не удалось удалить навык",
     "enableSuccess": "Навык успешно включён: {{name}}",
     "disableSuccess": "Навык успешно отключён: {{name}}",
@@ -1374,75 +1180,13 @@
     }
   },
   "models": {
-    "addModel": "Добавить модель",
     "searchPlaceholder": "Поиск моделей",
     "noModelsFound": "Модели не найдены",
     "hiddenModelCount": "+ {{count}} дополнительных моделей. Введите текст для поиска.",
-    "claude": {
-      "sonnet46": {
-        "label": "Sonnet 4.6",
-        "description": "Sonnet 4.6 · Модель по умолчанию"
-      },
-      "opus46": {
-        "label": "Opus 4.7",
-        "description": "Opus 4.7 · Предыдущая флагманская модель"
-      },
-      "opus46_1m": {
-        "label": "Opus 4.6",
-        "description": "Opus 4.6 · Высокопроизводительная модель рассуждений"
-      },
-      "haiku45": {
-        "label": "Haiku 4.5",
-        "description": "Haiku 4.5 · Самая быстрая для быстрых ответов"
-      },
-      "opus48": {
-        "label": "Opus 4.8",
-        "description": "Opus 4.8 · Новейшая и самая мощная"
-      }
-    },
     "longContext": {
       "label": "1M",
-      "shortLabel": "1M контекст",
       "tooltipEnabled": "Включить/выключить 1M контекст",
       "tooltipDisabled": "1M контекст недоступен для Haiku"
-    },
-    "codex": {
-      "gpt53codex": {
-        "label": "GPT-5.3-Codex",
-        "description": "Новейшая агентная модель для кодинга с улучшенными возможностями."
-      },
-      "gpt55": {
-        "label": "GPT-5.5",
-        "description": "Новейшая передовая модель с усиленными возможностями."
-      },
-      "gpt54": {
-        "label": "GPT-5.4",
-        "description": "Новейшая модель с расширенными возможностями."
-      },
-      "gpt52codex": {
-        "label": "GPT-5.2-Codex",
-        "description": "Агентная модель для кодинга класса frontier."
-      },
-      "gpt51codexMax": {
-        "label": "GPT-5.1-Codex-Max",
-        "description": "Флагманская модель Codex для глубоких и быстрых рассуждений."
-      },
-      "gpt54mini": {
-        "label": "GPT-5.4-Mini",
-        "description": "Более лёгкая агентная модель для кодинга класса frontier."
-      },
-      "gpt53codexSpark": {
-        "label": "GPT-5.3-Codex-Spark",
-        "description": "Сверхбыстрая модель для кодинга."
-      },
-      "gpt52": {
-        "label": "GPT-5.2",
-        "description": "Оптимизирована для профессиональной работы и длительных агентных задач."
-      },
-      "gpt51codexMini": {
-        "label": "GPT-5.1-Codex-Mini",
-        "description": "Оптимизирована для Codex. Дешевле, быстрее, но менее мощная."
-      }
     }
   },
   "modes": {
@@ -1506,16 +1250,12 @@
   "promptEnhancer": {
     "title": "Улучшение промпта",
     "tooltip": "Улучшить промпт",
-    "tooltipFull": "Переписать промпт, чтобы дать больше контекста и получить лучший ответ",
     "shortcut": "⌘/",
     "enhancing": "Улучшаю промпт...",
     "originalPrompt": "Исходный промпт",
     "enhancedPrompt": "Улучшенный промпт",
     "useEnhanced": "Использовать улучшенный",
-    "keepOriginal": "Оставить исходный",
-    "enhanceFailed": "Не удалось улучшить",
-    "emptyPrompt": "Сначала введите промпт",
-    "copyEnhanced": "Копировать улучшенный"
+    "keepOriginal": "Оставить исходный"
   },
   "fileContext": {
     "placeholder": "Файловый контекст",
@@ -1527,7 +1267,6 @@
   "rewind": {
     "title": "Откат файлов к предыдущему состоянию",
     "tooltip": "Откат",
-    "tooltipFull": "Вернуть файлы к состоянию на момент этого сообщения",
     "selectTitle": "Выберите точку отката",
     "noRewindableMessages": "Нет сообщений для отката",
     "rewindTo": "Откатить к",
@@ -1540,29 +1279,12 @@
     "restoreFiles": "Восстановить файлы",
     "restoring": "Восстанавливаю файлы...",
     "success": "Откат выполнен",
-    "successSimple": "Откат выполнен",
     "failed": "Не удалось восстановить файлы",
     "notAvailable": "Откат недоступен",
     "parseError": "Не удалось разобрать результат"
   },
   "reasoning": {
-    "title": "Выберите глубину рассуждений",
-    "low": {
-      "label": "Низкая",
-      "description": "Быстрые ответы с базовыми рассуждениями"
-    },
-    "medium": {
-      "label": "Средняя",
-      "description": "Сбалансированное мышление (по умолчанию)"
-    },
-    "high": {
-      "label": "Высокая",
-      "description": "Глубокие рассуждения для сложных задач"
-    },
-    "xhigh": {
-      "label": "Максимальная",
-      "description": "Максимальная глубина рассуждений"
-    }
+    "title": "Выберите глубину рассуждений"
   },
   "errorBoundary": {
     "title": "Что-то пошло не так",
@@ -1599,7 +1321,6 @@
     "codexNetworkErrorChecks": "Проверьте:\n1. Сетевое подключение\n2. Настройки прокси\n3. Не блокирует ли файрвол",
     "codexError": "Ошибка Codex:",
     "codexErrorCheck": "Проверьте сеть и настройки Codex",
-    "codexThinkingHint": "Codex не вернул рассуждения. См. docs/codex/docs/config.md — настройте hide_agent_reasoning/show_raw_agent_reasoning. Убедитесь, что аккаунт OpenAI верифицирован.",
     "userDeniedPermission": "Пользователь отклонил разрешение для {{toolName}}",
     "userDidNotProvideAnswers": "Пользователь не ответил",
     "dbMissingPath": "Не указан путь к БД",
@@ -1628,44 +1349,6 @@
     "copyCommand": "Копировать",
     "copied": "Скопировано",
     "openDependencySettings": "Открыть управление зависимостями",
-    "recommended": "Рекомендуется",
-    "codexThreadResume": {
-      "title": "Поток сеанса больше не действителен",
-      "intro": "Создание нового сеанса решит эту проблему. Идентификатор потока текущего сеанса больше не существует на сервере Codex.",
-      "reason": "Codex удаляет старые потоки по истечении времени, что может вызвать эту ошибку при возобновлении предыдущего сеанса."
-    },
-    "sdkNativeBinaryMissing": {
-      "title": "Установка SDK не завершена — отсутствует нативный бинарник",
-      "intro": "Это известная проблема зеркала npm Taobao (не баг плагина). Зеркало не полностью синхронизировало платформо-зависимые файлы. Вы можете решить это вручную одним из способов ниже:",
-      "reason": "Эта проблема исчезнет автоматически, когда зеркало Taobao завершит синхронизацию — никаких дополнительных действий не требуется.",
-      "solutions": {
-        "switchRegistry": {
-          "title": "Вариант 1: временно переключиться на официальный реестр и переустановить",
-          "step0": "1. Выполните в терминале (переключение на официальный реестр npm):",
-          "step1": "2. Откройте настройки управления зависимостями плагина и нажмите «Переустановить»:",
-          "step2": "3. После завершения переустановки переключитесь обратно на зеркало Taobao:"
-        },
-        "downgrade": {
-          "title": "Вариант 2: откатить на более раннюю версию",
-          "step0": "В управлении зависимостями переключите версию SDK на v0.2.112 или более раннюю. После переключения перезапустите IDEA."
-        }
-      }
-    },
-    "spawnEbusy": {
-      "title": "spawn EBUSY — не удалось запустить дочерний процесс",
-      "intro": "Эта ошибка обычно вызвана несовместимой версией Node.js или неполной установкой SDK. Попробуйте два варианта ниже по порядку:",
-      "reason": "EBUSY — это системная ошибка, возникающая в Node.js, когда дочерний процесс не может быть запущен из-за занятого ресурса. Распространённые причины: проблемы совместимости с Node.js 24, устаревший SDK или неполная установка с зеркала Taobao.",
-      "solutions": {
-        "checkNodeVersion": {
-          "title": "Вариант 1: Проверьте версию Node.js",
-          "step0": "Выполните команду ниже в терминале, чтобы увидеть свою версию. Рекомендуется Node 22 или текущая LTS — пользователи сообщили о многих проблемах с Node 24, поэтому отдавайте предпочтение Node 20 или 22:"
-        },
-        "reinstallLatestSdk": {
-          "title": "Вариант 2: Переустановите последний SDK из официального реестра npm",
-          "step0": "1. Переключитесь на официальный реестр npm (избегайте зеркала Taobao — у него может не быть последней версии):",
-          "step1": "2. Откройте управление зависимостями и переустановите последний SDK:"
-        }
-      }
-    }
+    "recommended": "Рекомендуется"
   }
 }

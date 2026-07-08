@@ -1,6 +1,5 @@
 {
   "common": {
-    "ready": "就绪",
     "loading": "加载中",
     "save": "保存",
     "cancel": "取消",
@@ -19,13 +18,8 @@
     "settings": "设置",
     "thinking": "思考",
     "thinkingProcess": "思考过程",
-    "success": "成功",
     "error": "错误",
-    "warning": "警告",
-    "info": "信息",
-    "seconds": "秒",
-    "minutes": "分",
-    "optional": "可选"
+    "warning": "警告"
   },
   "chat": {
     "sendMessage": "给 {{provider}} 发送消息",
@@ -33,7 +27,6 @@
     "confirmNewSession": "当前会话已有消息，确定要创建新会话吗？",
     "confirmInterrupt": "当前正在对话中，创建新会话将中断当前对话，是否继续？",
     "requestInterrupted": "用户已中断",
-    "userInterrupted": "用户已中断",
     "uploadedFiles": "已上传附件: {{files}}",
     "emptyMessage": "空消息",
     "clickToPreview": "点击预览大图",
@@ -51,16 +44,13 @@
     "removeAttachment": "移除附件",
     "closePreview": "关闭预览",
     "loadingDropdown": "加载中...",
-    "addAttachment": "添加附件",
     "stopGeneration": "停止生成",
     "queueWaiting": "队列中，前面还有 {{count}} 条等待",
     "imagePreview": "预览",
     "context": "上下文",
-    "usage": "上下文",
     "usagePercentage": "上下文: {{percentage}}",
     "noMatchingFiles": "无匹配文件",
     "noMatchingCommands": "无匹配命令",
-    "noMatchingHistory": "无匹配历史",
     "noAvailableAgents": "无可用智能体",
     "collapse": "收起",
     "expand": "展开",
@@ -90,9 +80,7 @@
     "goInstallSdk": "前往安装",
     "commandNotImplemented": "`{{command}}` 功能暂未实现。",
     "clearCommandDescription": "清除对话历史并新建会话",
-    "attachmentFile": "[附件: {{fileName}}]",
     "unknownFile": "未知文件",
-    "attachmentsUploaded": "[已上传附件]",
     "streamingConnected": "{{provider}} 已成功连接，正在理解问题",
     "streamingResponse": "正在流式输出",
     "messageSections": {
@@ -170,11 +158,8 @@
       "theme": {
         "label": "界面主题",
         "system": "跟随 IDE",
-        "systemDesc": "自动跟随 IDE 主题",
         "light": "亮色",
-        "lightDesc": "清爽明亮，适合白天使用",
-        "dark": "暗色",
-        "darkDesc": "护眼舒适，适合夜间使用"
+        "dark": "暗色"
       },
       "language": {
         "label": "界面语言",
@@ -196,11 +181,7 @@
         "hint": "在终端中运行",
         "hintCommand": "node -p \"process.execPath\"",
         "hintText": "获取实际的 Node.js 可执行文件路径。为空时插件会自动尝试检测 Node.js。⚠️ Windows 用户注意：路径必须指向完整的可执行文件（node.exe），不能只填写目录。",
-        "versionTooLow": "Node.js 版本过低，插件需要 v{{minVersion}} 或更高版本才能正常运行",
-        "invalidPath": "路径无效：{{reason}}",
-        "pathNotFound": "文件不存在，请检查路径是否正确",
-        "invalidFileName": "Windows 下路径必须以 node.exe 结尾，macOS/Linux 下必须以 node 结尾",
-        "cannotExecute": "文件存在但无法执行，请检查文件权限"
+        "versionTooLow": "Node.js 版本过低，插件需要 v{{minVersion}} 或更高版本才能正常运行"
       },
       "claudeCliPath": {
         "label": "Claude CLI 路径",
@@ -213,8 +194,6 @@
         "hint": "指定 Claude 工作的目录。可以使用相对路径（相对于项目根目录）或绝对路径。留空则使用项目根目录。"
       },
       "runtimePolicy": {
-        "label": "运行时路由策略",
-        "hint": "限制各 provider 允许使用的运行时(全局)。默认运行时会自动跟随上方「调用模式」,无需手动选择;仅当需要禁止某 provider 使用某种运行时时,在此收窄。保存后立即生效。",
         "loaded": "路由策略已加载",
         "saveSuccess": "路由策略已保存",
         "resetSuccess": "已恢复默认路由策略",
@@ -224,7 +203,6 @@
         "reset": "恢复默认",
         "enabled": "已启用",
         "disabled": "已停用",
-        "default": "默认",
         "providers": {
           "claude": "Claude",
           "codex": "Codex",
@@ -258,7 +236,6 @@
       },
       "editorFont": {
         "label": "字体",
-        "hint": "这里修改的是插件界面字体；字号和行高仍跟随编辑器。",
         "followOption": "跟随编辑器（{{font}}）",
         "customOption": "自定义字体文件",
         "customPathLabel": "字体文件路径",
@@ -409,8 +386,6 @@
     "openCodeProvider": {
       "title": "OpenCode 供应商",
       "description": "管理 OpenCode AI 功能的供应商配置",
-      "daemonTitle": "OpenCode 守护进程",
-      "daemonDescription": "OpenCode 通过本地守护进程提供 AI 功能。安装 OpenCode SDK 后，守护进程将自动管理。",
       "info": "OpenCode 使用本地守护进程模式，无需配置 API Key。安装 OpenCode SDK 后即可使用增强提示词和 Commit AI 功能。",
       "dialog": {
         "addTitle": "添加 OpenCode Provider",
@@ -458,19 +433,9 @@
         "localConfigDisableMessage": "插件将停止读取 ~/.config/opencode/opencode.json。"
       }
     },
-    "pluginModels": {
-      "title": "自定义模型",
-      "description": "添加的自定义模型将在所有供应商下可见，显示在模型选择列表的最前面",
-      "dialogTitle": "管理自定义模型",
-      "manage": "管理模型",
-      "contextWindow": "上下文窗口",
-      "contextWindowPlaceholder": "自定义 tokens"
-    },
     "models": {
       "title": "模型配置",
       "description": "管理 Claude 和 Codex 的模型 ID、上下文窗口与 1M 能力。错误配置会由后端拒绝。",
-      "supports1M": "支持 1M",
-      "enabled": "启用",
       "enabledStatus": "已启用",
       "disabled": "已禁用",
       "saveSuccess": "模型配置已保存",
@@ -479,7 +444,6 @@
       "readonly": "只读",
       "reloadConfig": "重载配置",
       "reloadStarted": "正在重载模型配置...",
-      "actualModelRequired": "实际请求模型不能为空",
       "dialog": {
         "addTitle": "新增模型",
         "editTitle": "编辑模型",
@@ -506,7 +470,6 @@
       }
     },
     "dependencies": "SDK 依赖",
-    "dependenciesDesc": "管理 AI SDK 依赖包的安装和更新",
     "dependency": {
       "title": "SDK 依赖管理",
       "description": "管理 AI SDK 依赖包。首次使用时需要安装对应的 SDK。",
@@ -522,7 +485,6 @@
       "installing": "安装中...",
       "uninstall": "卸载",
       "uninstalling": "卸载中...",
-      "update": "更新",
       "installVersion": "安装 {{version}}",
       "updateToVersion": "更新到 {{version}}",
       "rollbackToVersion": "回退到 {{version}}",
@@ -559,21 +521,11 @@
       "workspaceWriteDesc": "只允许在工作区内读写，系统级操作会被限制，更安全。",
       "fullAccessTitle": "danger-full-access",
       "fullAccessDesc": "允许更高系统权限，可执行如 adb、docker 等需要额外权限的命令。",
-      "hint": "该设置仅影响 Codex 进程沙箱，不会改变 Claude Code 的权限策略。",
-      "claudeTip": "Claude Code 的交互审批模式请在聊天输入框的模式选择器中设置。"
+      "hint": "该设置仅影响 Codex 进程沙箱，不会改变 Claude Code 的权限策略。"
     },
     "commit": {
       "title": "Commit AI",
       "description": "配置 AI 生成 Git Commit 消息的行为",
-      "providerModel": {
-        "label": "Commit 生成 Provider",
-        "modelLabel": "Commit 生成模型",
-        "providerAvailable": "可用",
-        "providerUnavailable": "当前不可用",
-        "currentProviderAuto": "当前使用自动选择：{{provider}}",
-        "currentProviderManual": "当前使用手动选择的 provider：{{provider}}",
-        "currentProviderUnavailable": "当前所选 provider 不可用：{{provider}}"
-      },
       "prompt": {
         "label": "附加提示词",
         "placeholder": "在此添加您的额外要求，例如：使用中文生成 commit、包含 issue 编号，使用表情符号等等...",
@@ -585,10 +537,7 @@
         "hint": "此提示词仅对当前项目生效，与全局附加提示词同时拼接。当两者内容矛盾时，以项目提示词为准。不同项目可独立配置。"
       },
       "codeReview": {
-        "comingSoon": "即将推出",
-        "label": "Code Review AI 附加提示词",
-        "placeholder": "此功能正在开发中，敬请期待...",
-        "hint": "Code Review AI 将帮助您自动审查代码，识别潜在问题并提供改进建议。您可以在此配置审查偏好和关注重点。"
+        "label": "Code Review AI 附加提示词"
       }
     },
     "agents": "Agents",
@@ -621,16 +570,6 @@
           "importanceHint": "重要度越高，自动补全时越靠前"
         },
         "timeAgo": {
-          "yearsAgo_one": "{{count}} year ago",
-          "yearsAgo_other": "{{count}} years ago",
-          "monthsAgo_one": "{{count}} month ago",
-          "monthsAgo_other": "{{count}} months ago",
-          "daysAgo_one": "{{count}} day ago",
-          "daysAgo_other": "{{count}} days ago",
-          "hoursAgo_one": "{{count}} hour ago",
-          "hoursAgo_other": "{{count}} hours ago",
-          "minutesAgo_one": "{{count}} minute ago",
-          "minutesAgo_other": "{{count}} minutes ago",
           "justNow": "刚刚",
           "yearsAgo": "{{count}}年前",
           "monthsAgo": "{{count}}个月前",
@@ -669,38 +608,11 @@
     "githubCopyBtn": "复制开源地址",
     "githubCopied": "开源地址已复制到剪切板，请在浏览器中访问",
     "githubCopyFailed": "复制失败，请手动复制",
-    "sponsor": "赞助支持",
-    "sponsorDesc": "如果这个项目对你有帮助，欢迎赞助支持，你的支持是我持续维护的动力！",
-    "alipay": "支付宝",
-    "wechatPay": "微信",
-    "paypal": "PayPal",
     "provider": {
-      "currentConfig": "当前ClaudeCode配置",
       "loading": "加载中...",
-      "noConfig": "未发现可用的本地配置",
-      "noConfigDescription": "已授权读取的本地 Claude 配置中，没有检测到可用的 API Key 或请求地址。",
       "emptyProvider": "暂无供应商配置",
-      "notConfigured": "未配置",
-      "apiKey": "API Key",
-      "apiKeyHelper": "API Key 助手",
-      "baseUrl": "Base URL",
-      "provider": "供应商",
-      "source": "来源",
-      "show": "显示",
-      "hide": "隐藏",
-      "switchTo": "切换到",
-      "addProvider": "添加供应商",
-      "importProvider": "导入供应商",
-      "importFrom": "从以下来源导入",
-      "importFromCcSwitch": "从 cc-switch 导入",
-      "edit": "编辑",
-      "delete": "删除",
       "deleteConfirm": "确认删除供应商配置",
-      "deleteMessage": "确定要删除供应商 \"{{name}}\" 吗？此操作无法撤销。",
-      "convertLocal": "转为本地配置",
-      "convertMessage": "转换后将断开与导入源的关联，此操作不可逆。",
       "convertSuccess": "转换成功，已生成新 ID 并断开关联",
-      "importing": "导入中...",
       "allProviders": "所有供应商",
       "managedCount": "{{count}} 个托管",
       "localAccess": "本地访问",
@@ -726,12 +638,6 @@
       "inUse": "使用中",
       "enable": "启用",
       "authorizeAndEnable": "授权并启用",
-      "authorizeLoadConfig": "授权并加载当前配置",
-      "refreshConfig": "刷新当前配置",
-      "configHiddenTitle": "本地 Claude 配置默认隐藏",
-      "configHiddenDescription": "为保护本地凭证与配置，插件不会主动读取 ~/.claude/settings.json。只有在您明确授权后，才会进行一次读取。",
-      "officialRouteNotice": "当前请求将直接发送到 Anthropic 官方 API。",
-      "proxyRouteNotice": "当前请求会通过第三方或代理端点转发，而不是直接发送到 Anthropic 官方 API。",
       "localProviderName": "使用本地 settings.json",
       "localProviderDescription": "显式授权读取 ~/.claude/settings.json",
       "localProviderAuthorizeTitle": "授权访问本地 settings.json",
@@ -740,7 +646,6 @@
       "localProviderDisableTitle": "取消本地 settings.json 授权",
       "localProviderDisableMessage": "此操作会停止使用 ~/.claude/settings.json，并让 Claude 处于未启用任何供应商的状态，直到您再次显式启用其它供应商。",
       "revokeAuthorization": "取消授权",
-      "localProviderHelp": "使用本地供应商模式时：\n• 插件不会修改您的 ~/.claude/settings.json 文件\n• 您需要手动管理配置\n• 确保文件存在且包含有效的 JSON\n• 适合喜欢手动控制的高级用户",
       "cliLoginProviderName": "使用 CLI 登录信息",
       "cliLoginProviderDescription": "将复用你已在终端完成的 Claude CLI 登录状态",
       "cliLoginAuthorizeTitle": "授权使用 CLI 登录状态",
@@ -750,45 +655,10 @@
       "cliLoginDisableMessage": "此操作会停止使用 CLI 登录状态，并让 Claude 处于未启用任何供应商的状态，直到您再次显式启用其它供应商。",
       "cliLoginAccountInfo": "已登录：{{email}}",
       "subscriptionTutorial": {
-        "entry": "订阅制账号教程",
-        "dialogTitle": "如何使用订阅制账号",
-        "tabAriaLabel": "订阅制账号教程标签",
-        "tabs": {
-          "claude": "Claude订阅制",
-          "codex": "Codex订阅制"
-        },
-        "code": {
-          "copy": "复制代码",
-          "copied": "已复制"
-        },
         "providers": {
           "claude": {
-            "title": "Claude Code 订阅制账号使用方式",
-            "item1": "首先在终端claude code cli 上登录成功 claude code 订阅制账号，然后可以正常在终端提问",
-            "item2": "确保 ~/.claude/settings.json 文件  .env 文件内容为空",
-            "item3": "重启IDEA，就可以正常提问了",
-            "emptyConfigCodeLabel": "~/.claude/settings.json",
             "emptyConfigCode": "{\n  \"env\": {\n  }\n}",
-            "noteTitle": "特殊情况备注：",
-            "note1": "如果已经进行上述操作，但是本插件还是无法回复，可以将 ~/.claude/settings.json .env 内容改为：",
-            "proxyConfigCodeLabel": "~/.claude/settings.json",
-            "proxyConfigCode": "{\n  \"env\": {\n    \"HTTP_PROXY\": \"http://127.0.0.1:7897\",\n    \"HTTPS_PROXY\": \"http://127.0.0.1:7897\"\n  }\n}",
-            "issuePrefix": "如果还是不行，可以去GitHub留言排查：",
-            "issueUrl": "https://github.com/zhukunpenglinyutong/idea-claude-code-gui/issues"
-          },
-          "codex": {
-            "title": "Codex 订阅制账号使用方式",
-            "item1": "在终端 Codex CLI 运行 codex login 登录成功之后，可以正常在终端提问",
-            "item2": "重启 IDEA",
-            "item3": "即可正常对话",
-            "emptyConfigCodeLabel": "",
-            "emptyConfigCode": "",
-            "noteTitle": "",
-            "note1": "",
-            "proxyConfigCodeLabel": "",
-            "proxyConfigCode": "",
-            "issuePrefix": "如果还是不行，可以去GitHub留言排查：",
-            "issueUrl": "https://github.com/zhukunpenglinyutong/idea-claude-code-gui/issues"
+            "proxyConfigCode": "{\n  \"env\": {\n    \"HTTP_PROXY\": \"http://127.0.0.1:7897\",\n    \"HTTPS_PROXY\": \"http://127.0.0.1:7897\"\n  }\n}"
           }
         }
       },
@@ -836,20 +706,12 @@
         "sonnetRole": "Sonnet",
         "opusRole": "Opus",
         "haikuRole": "Haiku",
-        "mainModel": "主模型",
-        "mainModelPlaceholder": "例如：your-provider-model",
-        "haikuModel": "Haiku 默认模型",
         "haikuModelPlaceholder": "例如：your-fast-model",
-        "sonnetModel": "Sonnet 默认模型",
         "sonnetModelPlaceholder": "例如：your-balanced-model",
-        "opusModel": "Opus 默认模型",
         "opusModelPlaceholder": "例如：your-capable-model",
         "modelMappingHint": "显示名称只影响 /model 菜单展示；实际请求模型会写入 ANTHROPIC_DEFAULT_*_MODEL 并用于发送请求。",
-        "customModels": "自定义模型",
-        "customModelsHint": "添加此供应商支持的额外模型，自定义模型将显示在模型选择列表的最前面",
         "jsonConfig": "配置 JSON",
         "jsonConfigDescription": "此处可配置完整的 settings.json 内容，支持所有字段（如 model、alwaysThinkingEnabled、ccSwitchProviderId、codemossProviderId 等）",
-        "jsonError": "JSON 格式无效",
         "required": "*",
         "showApiKey": "显示",
         "hideApiKey": "隐藏",
@@ -865,11 +727,6 @@
         "fetchModelsEmpty": "未返回任何模型,请手动填写。",
         "fetchModelsFailed": "拉取失败,请手动填写。",
         "fetchModelsSuccess": "已拉取 {{count}} 个模型,可在下方输入框下拉选择。",
-        "codeView": "代码",
-        "visualView": "可视化",
-        "formatJson": "格式化",
-        "invalidJson": "JSON 格式错误，请切换到代码视图修正",
-        "presetGroup": "快捷配置",
         "addCustomEnv": "新增自定义环境变量"
       },
       "presets": {
@@ -884,7 +741,6 @@
         "openrouter": "OpenRouter"
       }
     },
-    "comingSoon": "功能即将推出...",
     "permissionsComingSoon": "权限配置功能即将推出...",
     "agentsComingSoon": "Agents配置功能即将推出...",
     "skillsComingSoon": "Skills配置功能即将推出...",
@@ -907,17 +763,9 @@
         "formatSuccess": "格式化成功",
         "formatError": "格式化失败，JSON 格式错误",
         "nameRequired": "请输入供应商名称",
-        "configJsonError": "config.toml JSON 格式错误",
         "authJsonError": "auth.json JSON 格式错误",
         "configJsonHint": "包含 model_provider、model、model_providers 等配置项的 JSON 对象",
         "authJsonHint": "包含 OPENAI_API_KEY 等认证信息的 JSON 对象",
-        "customModels": "自定义模型",
-        "customModelsHint": "添加此供应商支持的额外模型，自定义模型将显示在模型选择列表的最前面",
-        "noCustomModels": "暂无自定义模型",
-        "addModel": "添加模型",
-        "modelIdPlaceholder": "模型 ID（必填，如 gpt-4o）",
-        "modelLabelPlaceholder": "显示名称（可选）",
-        "modelDescPlaceholder": "模型描述（可选）",
         "cliLoginProviderName": "使用本地配置信息",
         "cliLoginProviderDescription": "显式授权读取：~/.codex/config.toml 和 auth.json",
         "cliLoginAuthorizeTitle": "授权读取本地 Codex 配置",
@@ -925,9 +773,6 @@
         "cliLoginAuthorizeDetail": "此操作不会修改或覆盖您的 config.toml 和 auth.json，您可以随时取消授权。",
         "cliLoginDisableTitle": "取消本地 Codex 配置授权",
         "cliLoginDisableMessage": "插件将停止读取 ~/.codex/config.toml 和 auth.json。",
-        "modelIdRequired": "请输入模型 ID",
-        "modelIdInvalid": "模型 ID 格式无效（仅允许字母、数字、点、连字符、下划线、斜杠和冒号）",
-        "modelIdDuplicate": "模型 ID 已存在",
         "stepBasic": "基本信息",
         "stepConnection": "接入与凭证",
         "stepModels": "模型与环境",
@@ -969,10 +814,8 @@
       "updateSuccess": "提示词更新成功",
       "deleteSuccess": "提示词删除成功",
       "operationSuccess": "操作成功",
-      "operationFailed": "操作失败",
       "deleteConfirmTitle": "确认删除",
       "deleteConfirmMessage": "确定要删除提示词 \"{{name}}\" 吗？此操作无法撤销。",
-      "clearAgent": "取消选择提示词",
       "dialog": {
         "addTitle": "创建提示词",
         "editTitle": "编辑提示词",
@@ -987,7 +830,6 @@
       },
       "importDialog": {
         "title": "导入提示词",
-        "selectItems": "选择要导入的提示词",
         "summary": "共 {{total}} 个提示词：",
         "newCount": "{{count}} 个新建",
         "updateCount": "{{count}} 个更新",
@@ -1005,15 +847,8 @@
         "columnStatus": "状态",
         "statusNew": "新建",
         "statusUpdate": "更新",
-        "importSuccess": "成功导入 {{count}} 个提示词",
-        "importFailed": "导入失败",
         "importPartialSuccess": "成功导入 {{imported}} 个，跳过 {{skipped}} 个，更新 {{updated}} 个",
-        "noItemsSelected": "请至少选择一个提示词",
-        "confirmImport": "确认导入",
-        "exportSuccess": "提示词导出成功",
-        "exportFailed": "导出失败",
-        "importFileError": "文件读取失败",
-        "invalidFileFormat": "无效的文件格式"
+        "confirmImport": "确认导入"
       },
       "exportDialog": {
         "title": "导出提示词",
@@ -1022,7 +857,6 @@
       }
     },
     "prompts": "提示词库",
-    "promptsDesc": "管理常用提示词模板，可在聊天时快速插入",
     "prompt": {
       "title": "提示词库",
       "create": "创建",
@@ -1030,10 +864,8 @@
       "import": "导入",
       "createPrompt": "创建提示词",
       "createPromptHint": "点击跳转到提示词设置页面进行创建",
-      "customPrompts": "自定义提示词",
       "noPrompts": "暂无自定义提示词",
       "noPromptsDropdown": "暂无提示词",
-      "loadFailed": "加载失败",
       "loading": "加载中...",
       "menu": "菜单",
       "addSuccess": "提示词创建成功",
@@ -1045,16 +877,8 @@
       "deleteConfirmMessage": "确定要删除提示词 \"{{name}}\" 吗？此操作无法撤销。",
       "description": "创建常用提示词模板，在聊天输入框中输入 ! 即可快速选择并插入",
       "global": "全局提示词",
-      "project": "项目提示词",
       "projectScope": "项目提示词 - {{projectName}}",
       "noProject": "无活动项目",
-      "copyToGlobal": "复制到全局",
-      "scopeLabel": {
-        "global": "全局",
-        "project": "项目"
-      },
-      "copyToGlobalSuccess": "已复制到全局提示词",
-      "projectPromptsUnavailable": "项目提示词在当前项目中不可用",
       "dialog": {
         "addTitle": "创建提示词",
         "editTitle": "编辑提示词",
@@ -1069,7 +893,6 @@
       },
       "importDialog": {
         "title": "导入提示词",
-        "selectItems": "选择要导入的提示词",
         "summary": "共 {{total}} 个提示词：",
         "newCount": "{{count}} 个新建",
         "updateCount": "{{count}} 个更新",
@@ -1087,15 +910,8 @@
         "columnStatus": "状态",
         "statusNew": "新建",
         "statusUpdate": "更新",
-        "importSuccess": "成功导入 {{count}} 个提示词",
-        "importFailed": "导入失败",
         "importPartialSuccess": "成功导入 {{imported}} 个，跳过 {{skipped}} 个，更新 {{updated}} 个",
-        "noItemsSelected": "请至少选择一个提示词",
-        "confirmImport": "确认导入",
-        "exportSuccess": "提示词导出成功",
-        "exportFailed": "导出失败",
-        "importFileError": "文件读取失败",
-        "invalidFileFormat": "无效的文件格式"
+        "confirmImport": "确认导入"
       },
       "exportDialog": {
         "title": "导出提示词",
@@ -1105,7 +921,6 @@
     }
   },
   "history": {
-    "title": "历史会话",
     "sessionDeleted": "会话已删除",
     "confirmDelete": "确认删除",
     "deleteMessage": "确定要删除这个会话吗?此操作无法撤销。",
@@ -1121,7 +936,6 @@
     "selectSession": "选择会话",
     "selectSessionWithTitle": "选择 {{title}}",
     "exportSession": "导出会话",
-    "exportSuccess": "会话已导出",
     "exportFailed": "导出失败",
     "favoriteSession": "收藏会话",
     "unfavoriteSession": "取消收藏",
@@ -1140,7 +954,6 @@
     "editTitle": "编辑标题",
     "saveTitleButton": "保存",
     "cancelEditButton": "取消",
-    "titleTooLong": "标题过长（最多50个字符）",
     "titleUpdated": "标题已更新",
     "copySessionId": "复制会话ID用于CLI恢复",
     "sessionIdCopied": "会话ID已复制",
@@ -1155,7 +968,6 @@
     }
   },
   "permission": {
-    "dialogTitle": "权限请求",
     "allow": "允许一次",
     "allowAlways": "总是允许",
     "allowAlwaysCommand": "总是允许此命令",
@@ -1163,18 +975,10 @@
     "userDenied": "用户拒绝了权限请求",
     "fromExternalProcess": "来自外部进程的请求",
     "tools": {
-      "Write": "写入文件",
-      "Edit": "编辑文件",
       "Read": "读取文件",
       "ReadBatch": "批量读取文件",
-      "Bash": "执行命令",
-      "TodoWrite": "写入待办",
-      "TodoRead": "读取待办",
-      "WebSearch": "网页搜索",
-      "WebFetch": "获取网页",
       "execute": "执行 {{toolName}}",
-      "readDirectory": "读取目录",
-      "timeoutWarning": "请尽快回答，对话框将在 {{seconds}} 秒后自动关闭"
+      "readDirectory": "读取目录"
     }
   },
   "askUserQuestion": {
@@ -1196,7 +1000,6 @@
   "planApproval": {
     "title": "计划已准备就绪",
     "subtitle": "Claude 已完成规划，准备执行。",
-    "requestedPermissions": "请求的权限",
     "executionMode": "执行模式",
     "executionModeDescription": "选择 Claude 执行计划的方式：",
     "approve": "批准并执行",
@@ -1207,19 +1010,10 @@
   },
   "toast": {
     "switchSuccess": "切换成功",
-    "thinkingEnabled": "思考已开启",
-    "thinkingDisabled": "思考已关闭",
-    "configLoading": "配置加载中，请稍后再试",
     "saveSuccess": "保存成功",
     "restartRequired": "请重启 IDEA 以生效本配置",
     "saveFailed": "保存失败",
-    "deleteSuccess": "删除成功",
     "operationFailed": "操作失败",
-    "copySuccess": "{{label}}已复制到剪切板",
-    "copyFailed": "复制失败",
-    "newSessionCreatedReady": "新会话已创建，可以开始提问",
-    "providerSwitchSuccess": "供应商切换成功！",
-    "providerSwitchFailed": "切换供应商失败",
     "operationSuccess": "操作成功",
     "pleaseEnterProviderName": "请输入供应商名称",
     "invalidJsonConfig": "配置 JSON 格式错误，请修正后再保存",
@@ -1228,8 +1022,6 @@
     "providerDeleted": "供应商删除成功"
   },
   "config": {
-    "clickToCopy": "点击复制",
-    "switch": "切换",
     "switchProvider": "切换供应商",
     "runtimeProvider": {
       "title": "切换当前供应商",
@@ -1258,11 +1050,8 @@
       "kill": "终止",
       "interrupt": "中断",
       "restart": "重启",
-      "pending": "处理中...",
       "killAll": "清理所有孤立进程 ({{count}})",
-      "killHint": "强制结束该 Node 进程",
       "killAllHint": "一键清理所有失控的孤立进程",
-      "restartHint": "关闭守护进程，下一条消息时会自动重新启动",
       "killConfirmTitle": "终止该进程？",
       "killConfirm": "确认终止 PID {{pid}}？当前对话可能丢失。",
       "restartConfirmTitle": "重启守护进程？",
@@ -1274,8 +1063,7 @@
       "restartSuccess": "守护进程已关闭，下一条消息会自动启动新实例",
       "killFailed": "终止失败：{{error}}",
       "activeRequests": "{{count}} 个进行中"
-    },
-    "link": "链接"
+    }
   },
   "markdown": {
     "copyCode": "复制代码",
@@ -1322,9 +1110,7 @@
     "daysAgo": "天前",
     "justNow": "刚刚",
     "minutesAgo": "分钟前",
-    "hoursAgo": "小时前",
-    "description": "描述",
-    "command": "命令"
+    "hoursAgo": "小时前"
   },
   "mcp": {
     "title": "MCP 服务器",
@@ -1339,8 +1125,6 @@
     "url": "URL",
     "homepage": "主页",
     "docs": "文档",
-    "edit": "编辑",
-    "delete": "删除",
     "noServers": "暂无 MCP 服务器",
     "addServerHint": "点击「添加」按钮添加服务器",
     "loading": "加载中...",
@@ -1364,17 +1148,12 @@
     "statusNeedsAuth": "需要认证",
     "statusPending": "连接中...",
     "statusUnknown": "未知",
-    "errorDetails": "错误详情",
     "logs": {
       "title": "连接日志",
       "empty": "暂无日志",
       "clear": "清空日志",
       "close": "关闭",
       "count": "共 {{count}} 条日志",
-      "connected": "连接成功",
-      "failed": "连接失败",
-      "needsAuth": "需要认证",
-      "unknownError": "未知错误",
       "loadingServers": "正在加载 MCP 服务器列表...",
       "refreshingStatus": "正在刷新 MCP 服务器连接状态...",
       "loadedToolsFromCache": "从缓存加载服务器 \"{{name}}\" 的工具列表：{{count}} 个工具",
@@ -1467,15 +1246,9 @@
     "loadFailed": "加载失败",
     "noTools": "无工具",
     "clickToLoad": "点击刷新加载",
-    "refreshLogs": "刷新日志",
-    "clearLogs": "清空日志",
-    "clear": "清空",
-    "noRefreshLogs": "暂无刷新日志",
-    "refreshLogsHint": "点击刷新按钮后，这里会显示详细的刷新过程信息",
     "noParams": "无参数",
     "required": "必填",
-    "optional": "可选",
-    "refreshServer": "刷新 {{name}}"
+    "optional": "可选"
   },
   "tools": {
     "toolCall": "工具调用",
@@ -1501,7 +1274,6 @@
     "findFile": "查找文件",
     "todoList": "任务列表",
     "editFileTitle": "编辑文件",
-    "clickToOpen": "点击打开 {{filePath}}",
     "refreshFileInIdea": "在 IDEA 中刷新文件",
     "refreshFileInIdeaSuccess": "已手动刷新本文件在IDEA中的内容",
     "showDiffInIdea": "在 IDEA 中显示变更",
@@ -1512,27 +1284,18 @@
     "lineRange": "第 {{start}}-{{end}} 行",
     "lineSingle": "第 {{line}} 行",
     "editLocationsSuffix": "处",
-    "filePath": "文件路径：",
     "unknownTool": "未知工具",
     "bashGroupBatchRun": "批量运行命令",
-    "bashGroupBatchExecution": "批量执行",
     "bashGroupCompleted": "完成",
     "bashGroupAllCompleted": "全部完成",
     "bashGroupFailed": "失败",
     "updatePlan": "更新计划",
     "applyPatch": "应用补丁"
   },
-  "todo": {
-    "inProgress": "进行中 {{completed}}/{{total}} 个任务",
-    "allCompleted": "已完成 {{completed}}/{{total}} 个任务",
-    "stopped": "已停止"
-  },
   "subagent": {
     "process": {
       "title": "Agent 进程",
       "thought": "思考",
-      "filesRead_one": "读取 {{count}} 个文件",
-      "filesRead_other": "读取 {{count}} 个文件",
       "otherTools": "其他工具",
       "result": "结果",
       "showFullOutput": "查看完整输出",
@@ -1546,10 +1309,8 @@
     }
   },
   "statusPanel": {
-    "todoTab": "计划",
     "tasksTab": "任务",
     "subagentTab": "子代理",
-    "filesTab": "文件改动",
     "editsTab": "编辑",
     "noTodos": "暂无任务运行",
     "noSubagents": "暂无子代理运行",
@@ -1569,14 +1330,11 @@
     "keepAll": "保存全部",
     "discardAllConfirmTitle": "回撤全部更改",
     "discardAllConfirmMessage": "将撤销所有文件的更改，此操作无法恢复。",
-    "keepAllConfirmTitle": "保存全部",
-    "keepAllConfirmMessage": "将当前改动作为新基准，后续改动从零开始记录。",
     "discardAllSuccess": "已撤销所有文件更改",
     "discardAllFailed": "撤销失败: {{error}}",
     "keepAllSuccess": "已保存全部，改动记录已重置"
   },
   "skills": {
-    "title": "Skills",
     "all": "全部",
     "global": "全局",
     "local": "本项目",
@@ -1595,7 +1353,6 @@
     "repo": "仓库",
     "description": "描述",
     "noDescription": "暂无描述",
-    "noSkills": "暂无 Skills",
     "noMatchingSkills": "未找到匹配的 Skills",
     "importHint": "点击 + 按钮导入 Skill 文件或文件夹",
     "deleteTitle": "删除 Skill",
@@ -1609,8 +1366,6 @@
     "importPartialSuccess": "成功导入 {{count}}/{{total}} 个 Skills，部分失败",
     "importFailed": "导入 Skill 失败",
     "deleteSuccess": "已成功删除 Skill",
-    "toggleSuccess": "已更新 Skill 状态",
-    "toggleFailed": "更新 Skill 状态失败",
     "deleteFailed": "删除 Skill 失败",
     "enableSuccess": "已成功启用 Skill: {{name}}",
     "disableSuccess": "已成功停用 Skill: {{name}}",
@@ -1714,99 +1469,14 @@
       }
     }
   },
-  "claudeEffort": {
-    "title": "选择推理强度",
-    "low": {
-      "label": "low",
-      "description": "短小、范围明确、对延迟敏感的任务"
-    },
-    "medium": {
-      "label": "medium",
-      "description": "成本敏感型工作，可牺牲部分智能"
-    },
-    "high": {
-      "label": "high",
-      "description": "平衡 Token 用量与智能水平"
-    },
-    "xhigh": {
-      "label": "xhigh",
-      "description": "大多数编程任务的最佳效果（推荐）"
-    },
-    "max": {
-      "label": "max",
-      "description": "高难度任务的最大推理深度（仅当前会话）"
-    }
-  },
   "models": {
-    "addModel": "添加模型",
     "searchPlaceholder": "搜索模型",
     "noModelsFound": "未找到模型",
     "hiddenModelCount": "+ 还有 {{count}} 个模型。输入以搜索。",
     "longContext": {
       "label": "1M",
-      "shortLabel": "1M上下文",
       "tooltipEnabled": "开启/关闭1M上下文窗口",
       "tooltipDisabled": "当前模型不支持1M上下文"
-    },
-    "claude": {
-      "sonnet46": {
-        "label": "Sonnet 4.6",
-        "description": "Sonnet 4.6 · 默认推荐模型"
-      },
-      "opus46": {
-        "label": "Opus 4.7",
-        "description": "Opus 4.7 · 上一代旗舰模型"
-      },
-      "opus46_1m": {
-        "label": "Opus 4.6",
-        "description": "Opus 4.6 · 高性能推理模型"
-      },
-      "haiku45": {
-        "label": "Haiku 4.5",
-        "description": "Haiku 速度最快，适合快速答复"
-      },
-      "opus48": {
-        "label": "Opus 4.8",
-        "description": "Opus 4.8 · 最新最强大的模型"
-      }
-    },
-    "codex": {
-      "gpt53codex": {
-        "label": "GPT-5.3-Codex",
-        "description": "最新前沿智能编程模型，能力全面增强"
-      },
-      "gpt55": {
-        "label": "GPT-5.5",
-        "description": "最新前沿模型，能力进一步增强"
-      },
-      "gpt54": {
-        "label": "GPT-5.4",
-        "description": "最新前沿模型，能力进一步增强"
-      },
-      "gpt52codex": {
-        "label": "GPT-5.2-Codex",
-        "description": "前沿智能编程模型"
-      },
-      "gpt51codexMax": {
-        "label": "GPT-5.1-Codex-Max",
-        "description": "针对Codex优化的旗舰模型，深度与快速推理兼备"
-      },
-      "gpt54mini": {
-        "label": "GPT-5.4-Mini",
-        "description": "更轻量的前沿智能编程模型"
-      },
-      "gpt53codexSpark": {
-        "label": "GPT-5.3-Codex-Spark",
-        "description": "超高速编程模型"
-      },
-      "gpt52": {
-        "label": "GPT-5.2",
-        "description": "针对专业工作与长程代理任务优化"
-      },
-      "gpt51codexMini": {
-        "label": "GPT-5.1-Codex-Mini",
-        "description": "针对Codex优化。更便宜、更快，但性能较差"
-      }
     }
   },
   "modes": {
@@ -1870,16 +1540,12 @@
   "promptEnhancer": {
     "title": "增强提示词",
     "tooltip": "增强提示词",
-    "tooltipFull": "重写提示词以提供更多上下文并改善 AI 响应",
     "shortcut": "⌘/",
     "enhancing": "正在增强提示词...",
     "originalPrompt": "原始提示词",
     "enhancedPrompt": "增强后的提示词",
     "useEnhanced": "使用增强版本",
-    "keepOriginal": "保留原始版本",
-    "enhanceFailed": "增强提示词失败",
-    "emptyPrompt": "请先输入提示词",
-    "copyEnhanced": "复制增强版本"
+    "keepOriginal": "保留原始版本"
   },
   "fileContext": {
     "placeholder": "文件上下文",
@@ -1925,7 +1591,6 @@
   "rewind": {
     "title": "回溯文件到之前的状态",
     "tooltip": "回溯",
-    "tooltipFull": "将文件恢复到此消息时的状态",
     "selectTitle": "选择回溯点",
     "noRewindableMessages": "当前会话中没有可回溯的消息",
     "rewindTo": "回溯到",
@@ -1938,33 +1603,12 @@
     "restoreFiles": "恢复文件",
     "restoring": "正在恢复文件...",
     "success": "回滚成功",
-    "successSimple": "回滚成功",
     "failed": "文件恢复失败",
     "notAvailable": "当前会话不支持回溯",
     "parseError": "解析结果失败"
   },
   "reasoning": {
-    "title": "选择思考深度",
-    "low": {
-      "label": "low",
-      "description": "快速响应，基础推理"
-    },
-    "medium": {
-      "label": "medium",
-      "description": "平衡思考（默认）"
-    },
-    "high": {
-      "label": "high",
-      "description": "深度推理，适合复杂任务"
-    },
-    "xhigh": {
-      "label": "xhigh",
-      "description": "额外深度推理，适合高难度任务"
-    },
-    "max": {
-      "label": "max",
-      "description": "最大推理深度"
-    }
+    "title": "选择思考深度"
   },
   "errorBoundary": {
     "title": "出错了",
@@ -2001,7 +1645,6 @@
     "codexNetworkErrorChecks": "请检查：\n1. 网络连接是否正常\n2. 如果使用代理，请确认代理配置\n3. 防火墙是否阻止了连接",
     "codexError": "Codex 出现错误：",
     "codexErrorCheck": "请检查网络连接和 Codex 配置",
-    "codexThinkingHint": "Codex 未返回 reasoning 项。若依然看不到思考过程，请参考 docs/codex/docs/config.md 中 hide_agent_reasoning/show_raw_agent_reasoning 的说明，并确认 OpenAI 账号已完成验证。",
     "userDeniedPermission": "用户拒绝了 {{toolName}} 工具的使用权限",
     "userDidNotProvideAnswers": "用户未提供问题答案",
     "dbMissingPath": "缺少数据库文件路径参数",
@@ -2020,7 +1663,6 @@
     "title": "版本更新",
     "close": "知道了",
     "page": "{{current}} / {{total}}",
-    "summary": "{{date}} · 共 {{count}} 项更新",
     "statLabel": {
       "feature": "新功能",
       "fix": "修复",
@@ -2038,44 +1680,6 @@
     "copyCommand": "复制",
     "copied": "已复制",
     "openDependencySettings": "打开依赖管理",
-    "recommended": "推荐",
-    "codexThreadResume": {
-      "title": "会话线程已失效",
-      "intro": "新建会话即可解决此问题。当前会话的线程 ID 在 Codex 服务端已不存在。",
-      "reason": "Codex 服务端会在一段时间后清除旧线程，继续上一次会话时可能触发此错误。"
-    },
-    "sdkNativeBinaryMissing": {
-      "title": "SDK 安装不完整 — 缺少 native 二进制文件",
-      "intro": "这是淘宝 npm 镜像源的已知问题（非插件 bug）。镜像源未完整同步 platform 文件。可手动按以下方案处理：",
-      "reason": "淘宝源同步完成后此问题会自动消失，无需担心。",
-      "solutions": {
-        "switchRegistry": {
-          "title": "方案一：临时切换官方源重装",
-          "step0": "1. 在终端运行（切换到 npm 官方源）：",
-          "step1": "2. 打开插件设置中的「依赖管理」，点击重装：",
-          "step2": "3. 重装完成后，切回淘宝源："
-        },
-        "downgrade": {
-          "title": "方案二：版本回退",
-          "step0": "在「依赖管理」中将 SDK 版本切换到 v0.2.112 或更早版本，切换后需要重启 IDEA。"
-        }
-      }
-    },
-    "spawnEbusy": {
-      "title": "spawn EBUSY — 子进程启动失败",
-      "intro": "该错误通常由 Node.js 版本不兼容或 SDK 安装不完整引起，按以下两个方向排查通常可解决：",
-      "reason": "EBUSY 是 Node.js 启动子进程时遇到资源繁忙的系统错误。常见原因：Node.js 24 兼容性问题、SDK 版本过旧、或使用淘宝源安装时同步不完整。",
-      "solutions": {
-        "checkNodeVersion": {
-          "title": "方案一：检查 Node.js 版本",
-          "step0": "在终端运行下面的命令查看版本号。建议使用 Node 22 或当前最新 LTS 版本 — 用户反馈 Node 24 报错较多，请优先使用 20 或 22："
-        },
-        "reinstallLatestSdk": {
-          "title": "方案二：用 npm 官方源重装最新版 SDK",
-          "step0": "1. 切换到 npm 官方源（淘宝源可能未同步最新版本，请勿使用淘宝源安装）：",
-          "step1": "2. 打开「依赖管理」重装最新版 SDK："
-        }
-      }
-    }
+    "recommended": "推荐"
   }
 }
