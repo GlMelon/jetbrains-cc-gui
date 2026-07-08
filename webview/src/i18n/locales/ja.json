@@ -303,6 +303,18 @@
         "enabled": "有効",
         "disabled": "無効",
         "hint": "無効にすると、メッセージが存在するセッションで新規作成を選択した際、確認ダイアログを表示せず直接新規セッションを作成します。"
+      },
+      "avatar": {
+        "title": "Message Avatars",
+        "description": "Choose how assistant and user avatars appear in chat messages.",
+        "disabledHint": "Avatar settings are loading from the backend.",
+        "assistant": "Assistant avatar",
+        "followProvider": "Follow provider",
+        "assistantDefault": "Assistant default",
+        "uploaded": "Uploaded image",
+        "upload": "Upload image",
+        "user": "User avatar",
+        "userDefault": "User default"
       }
     },
     "providers": "プロバイダー管理",

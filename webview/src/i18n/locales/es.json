@@ -303,6 +303,18 @@
         "enabled": "Habilitado",
         "disabled": "Deshabilitado",
         "hint": "Cuando está deshabilitado, crear una nueva sesión en una conversación con mensajes existentes omitirá el cuadro de confirmación."
+      },
+      "avatar": {
+        "title": "Message Avatars",
+        "description": "Choose how assistant and user avatars appear in chat messages.",
+        "disabledHint": "Avatar settings are loading from the backend.",
+        "assistant": "Assistant avatar",
+        "followProvider": "Follow provider",
+        "assistantDefault": "Assistant default",
+        "uploaded": "Uploaded image",
+        "upload": "Upload image",
+        "user": "User avatar",
+        "userDefault": "User default"
       }
     },
     "providers": "Gestión de proveedores",

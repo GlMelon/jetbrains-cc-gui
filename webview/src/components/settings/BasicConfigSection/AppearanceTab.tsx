@@ -1,12 +1,17 @@
 import { sendAction } from '../../../bridge/typed';
 import { UPSTREAM } from '../../../generated/protocol';
-import { CodeIcon, CommentIcon, DiffIcon, TrashIcon, ImageIcon, FolderOpenedIcon, GlobeIcon, InfoIcon, PaletteIcon, TypeIcon } from '../../Icons';;
+import { CodeIcon, CommentIcon, DiffIcon, TrashIcon, ImageIcon, FolderOpenedIcon, GlobeIcon, InfoIcon, PaletteIcon, TypeIcon, UploadIcon } from '../../Icons';
 import { useState, useRef, useEffect } from 'react';
 import styles from './style.module.less';
 import { useTranslation } from 'react-i18next';
 import type { DiffThemeMode } from '../../../utils/diffTheme';
 import type { Theme } from '../../../utils/appearanceColors';
 import type { UiFontConfig, CodeFontConfig } from '../hooks/useSettingsBasicActions';
+import type { AvatarConfig } from '../../../types/avatar';
+import { AVATAR_MODE, AVATAR_PRESET } from '../../../types/avatar';
+import { PROVIDER_IDS } from '../../../types/provider';
+import { ProviderModelIcon } from '../../shared/ProviderModelIcon';
+import { AssistantAvatarIcon, UserAvatarIcon } from '../../MessageItem/MessageAvatar';
 
 // Preset colors (module-level constants to avoid recreating on each render)
 const DARK_PRESETS = [
@@ -124,6 +129,12 @@ export interface AppearanceTabProps {
   onUserMsgColorChange?: (color: string) => void;
   diffTheme?: DiffThemeMode;
   onDiffThemeChange?: (theme: DiffThemeMode) => void;
+  currentProvider?: string;
+  avatarConfig?: AvatarConfig | null;
+  onAssistantAvatarChange?: (selection: AvatarConfig['assistant']) => void;
+  onUserAvatarChange?: (selection: AvatarConfig['user']) => void;
+  onUploadAssistantAvatar?: () => void;
+  onUploadUserAvatar?: () => void;
 }
 
 const AppearanceTab = ({
@@ -147,6 +158,12 @@ const AppearanceTab = ({
   onUserMsgColorChange = () => {},
   diffTheme = 'follow',
   onDiffThemeChange = () => {},
+  currentProvider,
+  avatarConfig,
+  onAssistantAvatarChange = () => {},
+  onUserAvatarChange = () => {},
+  onUploadAssistantAvatar = () => {},
+  onUploadUserAvatar = () => {},
 }: AppearanceTabProps) => {
   const { t, i18n } = useTranslation();
   const colorInputRef = useRef<HTMLInputElement>(null);
@@ -379,6 +396,39 @@ const AppearanceTab = ({
     onSaveUiFontCustomPath(customFontPathDraft.trim());
   };
 
+  const assistantAvatar = avatarConfig?.assistant;
+  const userAvatar = avatarConfig?.user;
+  const isAvatarConfigLoading = !avatarConfig;
+  const assistantActiveProvider = assistantAvatar?.mode === AVATAR_MODE.PROVIDER;
+  const assistantActivePreset = (preset: NonNullable<AvatarConfig['assistant']['preset']>) => (
+    assistantAvatar?.mode === AVATAR_MODE.PRESET && assistantAvatar.preset === preset
+  );
+  const assistantActiveCustom = assistantAvatar?.mode === AVATAR_MODE.CUSTOM;
+  const userActiveDefault = userAvatar?.mode === AVATAR_MODE.PRESET
+    && userAvatar.preset === AVATAR_PRESET.USER_DEFAULT;
+  const userActiveCustom = userAvatar?.mode === AVATAR_MODE.CUSTOM;
+
+  const selectAssistantProviderAvatar = () => {
+    if (!avatarConfig) return;
+    onAssistantAvatarChange({ mode: AVATAR_MODE.PROVIDER });
+  };
+
+  const selectAssistantPresetAvatar = (preset: NonNullable<AvatarConfig['assistant']['preset']>) => {
+    if (!avatarConfig) return;
+    onAssistantAvatarChange({ mode: AVATAR_MODE.PRESET, preset });
+  };
+
+  const selectUserDefaultAvatar = () => {
+    if (!avatarConfig) return;
+    onUserAvatarChange({ mode: AVATAR_MODE.PRESET, preset: AVATAR_PRESET.USER_DEFAULT });
+  };
+
+  const renderAssistantProviderIcon = (providerId?: string) => (
+    providerId
+      ? <ProviderModelIcon providerId={providerId} size={18} colored />
+      : <AssistantAvatarIcon />
+  );
+
   return (
     <div className={styles.tabContent}>
       {/* Theme switcher */}
@@ -417,6 +467,126 @@ const AppearanceTab = ({
               <MoonIcon />
             </div>
             <span className={styles.themeOptionLabel}>{t('settings.basic.theme.dark')}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Avatar selector */}
+      <div className={styles.avatarSection}>
+        <div className={styles.fieldHeader}>
+          <ImageIcon size={16} />
+          <span className={styles.fieldLabel}>{t('settings.basic.avatar.title')}</span>
+        </div>
+        <small className={styles.formHint}>
+          <InfoIcon size={16} />
+          <span>{isAvatarConfigLoading ? t('settings.basic.avatar.disabledHint') : t('settings.basic.avatar.description')}</span>
+        </small>
+
+        <div className={styles.avatarGroups}>
+          <div className={styles.avatarGroup}>
+            <span className={styles.avatarGroupLabel}>{t('settings.basic.avatar.assistant')}</span>
+            <div className={styles.avatarOptions}>
+              <button
+                type="button"
+                className={`${styles.avatarOption} ${assistantActiveProvider ? styles.active : ''}`}
+                onClick={selectAssistantProviderAvatar}
+                disabled={isAvatarConfigLoading}
+              >
+                <span className={styles.avatarOptionIcon}>{renderAssistantProviderIcon(currentProvider)}</span>
+                <span>{t('settings.basic.avatar.followProvider')}</span>
+              </button>
+              <button
+                type="button"
+                className={`${styles.avatarOption} ${assistantActivePreset(AVATAR_PRESET.ASSISTANT_DEFAULT) ? styles.active : ''}`}
+                onClick={() => selectAssistantPresetAvatar(AVATAR_PRESET.ASSISTANT_DEFAULT)}
+                disabled={isAvatarConfigLoading}
+              >
+                <span className={styles.avatarOptionIcon}><AssistantAvatarIcon /></span>
+                <span>{t('settings.basic.avatar.assistantDefault')}</span>
+              </button>
+              <button
+                type="button"
+                className={`${styles.avatarOption} ${assistantActivePreset(PROVIDER_IDS.CLAUDE) ? styles.active : ''}`}
+                onClick={() => selectAssistantPresetAvatar(PROVIDER_IDS.CLAUDE)}
+                disabled={isAvatarConfigLoading}
+              >
+                <span className={styles.avatarOptionIcon}><ProviderModelIcon providerId={PROVIDER_IDS.CLAUDE} size={18} colored /></span>
+                <span>Claude</span>
+              </button>
+              <button
+                type="button"
+                className={`${styles.avatarOption} ${assistantActivePreset(PROVIDER_IDS.CODEX) ? styles.active : ''}`}
+                onClick={() => selectAssistantPresetAvatar(PROVIDER_IDS.CODEX)}
+                disabled={isAvatarConfigLoading}
+              >
+                <span className={styles.avatarOptionIcon}><ProviderModelIcon providerId={PROVIDER_IDS.CODEX} size={18} colored /></span>
+                <span>Codex</span>
+              </button>
+              <button
+                type="button"
+                className={`${styles.avatarOption} ${assistantActivePreset(PROVIDER_IDS.OPENCODE) ? styles.active : ''}`}
+                onClick={() => selectAssistantPresetAvatar(PROVIDER_IDS.OPENCODE)}
+                disabled={isAvatarConfigLoading}
+              >
+                <span className={styles.avatarOptionIcon}><ProviderModelIcon providerId={PROVIDER_IDS.OPENCODE} size={18} colored /></span>
+                <span>OpenCode</span>
+              </button>
+              {assistantAvatar?.custom?.dataUrl && (
+                <button
+                  type="button"
+                  className={`${styles.avatarOption} ${assistantActiveCustom ? styles.active : ''}`}
+                  onClick={() => onAssistantAvatarChange({ mode: AVATAR_MODE.CUSTOM, custom: assistantAvatar.custom })}
+                  disabled={isAvatarConfigLoading}
+                >
+                  <img className={styles.avatarPreviewImage} src={assistantAvatar.custom.dataUrl} alt="" />
+                  <span>{t('settings.basic.avatar.uploaded')}</span>
+                </button>
+              )}
+              <button
+                type="button"
+                className={styles.avatarOption}
+                onClick={onUploadAssistantAvatar}
+                disabled={isAvatarConfigLoading}
+              >
+                <span className={styles.avatarOptionIcon}><UploadIcon size={16} /></span>
+                <span>{t('settings.basic.avatar.upload')}</span>
+              </button>
+            </div>
+          </div>
+
+          <div className={styles.avatarGroup}>
+            <span className={styles.avatarGroupLabel}>{t('settings.basic.avatar.user')}</span>
+            <div className={styles.avatarOptions}>
+              <button
+                type="button"
+                className={`${styles.avatarOption} ${userActiveDefault ? styles.active : ''}`}
+                onClick={selectUserDefaultAvatar}
+                disabled={isAvatarConfigLoading}
+              >
+                <span className={styles.avatarOptionIcon}><UserAvatarIcon /></span>
+                <span>{t('settings.basic.avatar.userDefault')}</span>
+              </button>
+              {userAvatar?.custom?.dataUrl && (
+                <button
+                  type="button"
+                  className={`${styles.avatarOption} ${userActiveCustom ? styles.active : ''}`}
+                  onClick={() => onUserAvatarChange({ mode: AVATAR_MODE.CUSTOM, custom: userAvatar.custom })}
+                  disabled={isAvatarConfigLoading}
+                >
+                  <img className={styles.avatarPreviewImage} src={userAvatar.custom.dataUrl} alt="" />
+                  <span>{t('settings.basic.avatar.uploaded')}</span>
+                </button>
+              )}
+              <button
+                type="button"
+                className={styles.avatarOption}
+                onClick={onUploadUserAvatar}
+                disabled={isAvatarConfigLoading}
+              >
+                <span className={styles.avatarOptionIcon}><UploadIcon size={16} /></span>
+                <span>{t('settings.basic.avatar.upload')}</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>

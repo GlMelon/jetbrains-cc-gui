@@ -51,7 +51,7 @@ const AlertDialog = ({
   };
 
   return (
-    <BaseDialog isOpen={isOpen} onClose={onClose} ariaLabel={title}>
+    <BaseDialog isOpen={isOpen} onClose={onClose} ariaLabel={title} className="alert-dialog-overlay">
       <div className="dialog-header" style={{ display: 'flex', alignItems: 'center' }}>
         {codiconToIcon(getIconClass(), 16, {
           style: {
@@ -63,7 +63,7 @@ const AlertDialog = ({
         <h3 className="dialog-title" style={{ margin: 0, lineHeight: 1.2 }}>{title}</h3>
       </div>
       <DialogBody>
-        <p style={{ whiteSpace: 'pre-wrap' }}>{message}</p>
+        <p className="alert-dialog-message">{message}</p>
       </DialogBody>
       <DialogFooter align="center">
         <button className="btn btn-primary" onClick={onClose} autoFocus>
@@ -75,3 +75,4 @@ const AlertDialog = ({
 };
 
 export default AlertDialog;
+

@@ -315,6 +315,18 @@
         "enabled": "已開啟",
         "disabled": "已關閉",
         "hint": "關閉後，在已有訊息的會話中點選新建將直接建立，不再彈出確認視窗"
+      },
+      "avatar": {
+        "title": "訊息頭像",
+        "description": "選擇聊天訊息中助理與使用者頭像的顯示方式。",
+        "disabledHint": "正在從後端載入頭像設定。",
+        "assistant": "助理頭像",
+        "followProvider": "跟隨供應商",
+        "assistantDefault": "助理預設",
+        "uploaded": "已上傳圖片",
+        "upload": "上傳圖片",
+        "user": "使用者頭像",
+        "userDefault": "使用者預設"
       }
     },
     "providers": "供應商管理",

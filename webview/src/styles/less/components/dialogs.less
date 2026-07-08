@@ -77,3 +77,23 @@
         color: var(--text-primary);
     }
 }
+
+/* AlertDialog: constrain short feedback dialogs so long messages do not stretch
+   to the full plugin width. */
+.alert-dialog-overlay {
+    .dialog-base {
+        width: min(420px, calc(100vw - 32px));
+        max-width: calc(100vw - 32px);
+    }
+
+    .dialog-body {
+        min-width: 0;
+    }
+}
+
+.alert-dialog-message {
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}

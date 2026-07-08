@@ -348,6 +348,18 @@
         "enabled": "Ativado",
         "disabled": "Desativado",
         "hint": "Quando desativado, criar uma nova sessão em uma conversa com mensagens existentes irá pular a caixa de confirmação."
+      },
+      "avatar": {
+        "title": "Message Avatars",
+        "description": "Choose how assistant and user avatars appear in chat messages.",
+        "disabledHint": "Avatar settings are loading from the backend.",
+        "assistant": "Assistant avatar",
+        "followProvider": "Follow provider",
+        "assistantDefault": "Assistant default",
+        "uploaded": "Uploaded image",
+        "upload": "Upload image",
+        "user": "User avatar",
+        "userDefault": "User default"
       }
     },
     "providers": "Gerenciamento de Provedores",

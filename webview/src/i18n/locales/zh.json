@@ -381,6 +381,18 @@
         "enabled": "已开启",
         "disabled": "已关闭",
         "hint": "关闭后，在已有消息的会话中点击新建将直接创建，不再弹出确认窗口"
+      },
+      "avatar": {
+        "title": "消息头像",
+        "description": "选择聊天消息中助手和用户头像的显示方式。",
+        "disabledHint": "正在从后端加载头像设置。",
+        "assistant": "助手头像",
+        "followProvider": "跟随供应商",
+        "assistantDefault": "助手默认",
+        "uploaded": "已上传图片",
+        "upload": "上传图片",
+        "user": "用户头像",
+        "userDefault": "用户默认"
       }
     },
     "providers": "供应商管理",

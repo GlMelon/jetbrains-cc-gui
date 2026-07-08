@@ -4,6 +4,7 @@ import {useTranslation} from 'react-i18next';
 import type {DiffThemeMode} from '../../../utils/diffTheme';
 import type {Theme} from '../../../utils/appearanceColors';
 import type {UiFontConfig, CodeFontConfig} from '../hooks/useSettingsBasicActions';
+import type {AvatarConfig} from '../../../types/avatar';
 import AppearanceTab from './AppearanceTab';
 import BehaviorTab from './BehaviorTab';
 import EnvironmentTab from './EnvironmentTab';
@@ -111,6 +112,12 @@ interface BasicConfigSectionProps {
   // Permission dialog timeout configuration
   permissionDialogTimeoutSeconds?: number;
   onPermissionDialogTimeoutChange?: (seconds: number) => void;
+  currentProvider?: string;
+  avatarConfig?: AvatarConfig | null;
+  onAssistantAvatarChange?: (selection: AvatarConfig['assistant']) => void;
+  onUserAvatarChange?: (selection: AvatarConfig['user']) => void;
+  onUploadAssistantAvatar?: () => void;
+  onUploadUserAvatar?: () => void;
 }
 
 const BasicConfigSection = (props: BasicConfigSectionProps) => {
@@ -165,6 +172,12 @@ const BasicConfigSection = (props: BasicConfigSectionProps) => {
           onUserMsgColorChange={props.onUserMsgColorChange}
           diffTheme={props.diffTheme}
           onDiffThemeChange={props.onDiffThemeChange}
+          currentProvider={props.currentProvider}
+          avatarConfig={props.avatarConfig}
+          onAssistantAvatarChange={props.onAssistantAvatarChange}
+          onUserAvatarChange={props.onUserAvatarChange}
+          onUploadAssistantAvatar={props.onUploadAssistantAvatar}
+          onUploadUserAvatar={props.onUploadUserAvatar}
         />
       )}
 

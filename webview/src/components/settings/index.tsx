@@ -3,6 +3,7 @@ import { UPSTREAM } from '../../generated/protocol';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { CodexProviderConfig, OpenCodeProviderConfig } from '../../types/provider';
+import type { AvatarConfig } from '../../types/avatar';
 import { ToastContainer } from '../Toast';
 
 // Import split-out components
@@ -52,6 +53,11 @@ interface SettingsViewProps {
   // Permission dialog timeout configuration (passed from App.tsx for state sync)
   permissionDialogTimeoutSeconds?: number;
   onPermissionDialogTimeoutChange?: (seconds: number) => void;
+  avatarConfig?: AvatarConfig | null;
+  onAssistantAvatarChange?: (selection: AvatarConfig['assistant']) => void;
+  onUserAvatarChange?: (selection: AvatarConfig['user']) => void;
+  onUploadAssistantAvatar?: () => void;
+  onUploadUserAvatar?: () => void;
 }
 
 const SettingsView = ({
@@ -68,6 +74,11 @@ const SettingsView = ({
   onAutoOpenFileEnabledChange: onAutoOpenFileEnabledChangeProp,
   permissionDialogTimeoutSeconds: permissionDialogTimeoutSecondsProp,
   onPermissionDialogTimeoutChange: onPermissionDialogTimeoutChangeProp,
+  avatarConfig,
+  onAssistantAvatarChange,
+  onUserAvatarChange,
+  onUploadAssistantAvatar,
+  onUploadUserAvatar,
 }: SettingsViewProps) => {
   const { t } = useTranslation();
   const isCodexMode = currentProvider === 'codex';
@@ -567,6 +578,12 @@ const SettingsView = ({
               onInvocationModeChange={handleInvocationModeChange}
               permissionDialogTimeoutSeconds={permissionDialogTimeoutSeconds}
               onPermissionDialogTimeoutChange={handlePermissionDialogTimeoutChange}
+              currentProvider={currentProvider}
+              avatarConfig={avatarConfig}
+              onAssistantAvatarChange={onAssistantAvatarChange}
+              onUserAvatarChange={onUserAvatarChange}
+              onUploadAssistantAvatar={onUploadAssistantAvatar}
+              onUploadUserAvatar={onUploadUserAvatar}
             />
           </div>
 

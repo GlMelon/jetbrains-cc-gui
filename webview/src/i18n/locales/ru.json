@@ -303,6 +303,18 @@
         "enabled": "Включено",
         "disabled": "Отключено",
         "hint": "При отключении создание нового чата в существующем диалоге будет происходить напрямую, без подтверждения."
+      },
+      "avatar": {
+        "title": "Message Avatars",
+        "description": "Choose how assistant and user avatars appear in chat messages.",
+        "disabledHint": "Avatar settings are loading from the backend.",
+        "assistant": "Assistant avatar",
+        "followProvider": "Follow provider",
+        "assistantDefault": "Assistant default",
+        "uploaded": "Uploaded image",
+        "upload": "Upload image",
+        "user": "User avatar",
+        "userDefault": "User default"
       }
     },
     "providers": "Управление провайдерами",
