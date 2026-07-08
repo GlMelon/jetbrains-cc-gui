@@ -3,20 +3,22 @@ import { describe, expect, it } from 'vitest';
 import { ProviderModelIcon } from './ProviderModelIcon';
 
 describe('ProviderModelIcon', () => {
-  it('renders the official Codex icon for Codex providers', () => {
-    const { container } = render(
-      <ProviderModelIcon providerId="codex" modelId="gpt-5.3" colored />,
+  it('renders the prompt-enhancer provider icon set for core providers', () => {
+    const { container: claudeContainer } = render(
+      <ProviderModelIcon providerId="claude" colored />,
     );
+    expect(claudeContainer.querySelector('title')?.textContent).toBe('Claude');
 
-    expect(container.querySelector('title')?.textContent).toBe('Codex');
-  });
+    const { container: codexContainer } = render(
+      <ProviderModelIcon providerId="codex" colored />,
+    );
+    expect(codexContainer.querySelector('title')?.textContent).toBe('OpenAI');
 
-  it('renders the official OpenCode icon for OpenCode providers', () => {
-    const { container } = render(
+    const { container: opencodeContainer } = render(
       <ProviderModelIcon providerId="opencode" colored />,
     );
-
-    expect(container.querySelector('title')?.textContent).toBe('opencode');
+    expect(opencodeContainer.querySelector('[aria-label="OpenCode"]')).toBeTruthy();
+    expect(opencodeContainer.querySelector('title')).toBeNull();
   });
 
   it('renders the Xiaomi MiMo icon for MiMo model IDs on Claude-compatible providers', () => {

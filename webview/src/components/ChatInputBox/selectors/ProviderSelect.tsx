@@ -295,7 +295,9 @@ export const ProviderSelect = ({ value, onChange, compact = false }: ProviderSel
           onClick={handleToggle}
           title={`${t('config.switchProvider')}: ${getProviderLabel(currentProvider.id)}`}
         >
-          <ProviderModelIcon providerId={currentProvider.id} size={compact ? 16 : 12} colored={compact} />
+          <span className="provider-model-icon">
+            <ProviderModelIcon providerId={currentProvider.id} size={compact ? 16 : 12} colored={compact} />
+          </span>
           {!compact && (
             <>
               <span>{getProviderLabel(currentProvider.id)}</span>
@@ -341,7 +343,9 @@ export const ProviderSelect = ({ value, onChange, compact = false }: ProviderSel
                   }
                 }}
               >
-                <ProviderModelIcon providerId={provider.id} size={16} colored />
+                <span className="provider-model-icon">
+                  <ProviderModelIcon providerId={provider.id} size={16} colored />
+                </span>
                 <span>{getProviderLabel(provider.id)}</span>
                 {provider.id === value && (
                   <CheckIcon size={16} className="check-mark" />

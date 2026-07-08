@@ -2,16 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { resolveIconVendor, resolveModelVendor } from './modelIconMapping';
 
 describe('modelIconMapping', () => {
-  it('resolves Codex provider and Codex model IDs to the Codex icon', () => {
-    expect(resolveModelVendor('gpt-5.3-codex-spark')).toBe('codex');
-    expect(resolveIconVendor('codex', 'gpt-5.3-codex-spark')).toBe('codex');
-    expect(resolveIconVendor('codex', 'gpt-5.3')).toBe('codex');
+  it('keeps Codex Spark variants on the OpenAI icon', () => {
+    expect(resolveModelVendor('gpt-5.3-codex-spark')).toBe('openai');
+    expect(resolveIconVendor('codex', 'gpt-5.3-codex-spark')).toBe('openai');
+    expect(resolveIconVendor('codex')).toBe('openai');
   });
 
-  it('keeps generic OpenAI model IDs on the OpenAI icon outside Codex providers', () => {
-    expect(resolveModelVendor('gpt-5.3')).toBe('openai');
-    expect(resolveIconVendor(undefined, 'gpt-5.3')).toBe('openai');
-    expect(resolveIconVendor('openrouter', 'gpt-5.3')).toBe('openai');
+  it('keeps OpenCode provider IDs on the custom OpenCode icon', () => {
+    expect(resolveIconVendor('opencode')).toBe('opencode');
   });
 
   it('still matches dedicated Spark vendor model ids', () => {

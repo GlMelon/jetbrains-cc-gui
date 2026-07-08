@@ -40,8 +40,12 @@ describe('ProviderSelect Codex quota submenu', () => {
   it('shows a submenu for Codex with quota details', async () => {
     render(<ProviderSelect value="claude" />);
 
-    fireEvent.click(screen.getByRole('button'));
+    const button = screen.getByRole('button');
+    expect(button.querySelector('.provider-model-icon [data-testid="provider-icon"]')).toBeTruthy();
+
+    fireEvent.click(button);
     const codexRow = screen.getByText('Codex').closest('.selector-option')!;
+    expect(codexRow.querySelector('.provider-model-icon [data-testid="provider-icon"]')).toBeTruthy();
     expect(codexRow.querySelector('svg')).toBeTruthy();
 
     fireEvent.mouseEnter(codexRow);

@@ -52,7 +52,7 @@
 }
 
 /* SVG icon styling within selector buttons */
-.selector-button svg {
+.selector-button > svg {
   width: 14px;
   height: 14px;
   stroke: currentColor;
@@ -60,6 +60,18 @@
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
+  flex-shrink: 0;
+}
+
+.provider-model-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.provider-model-icon svg {
   flex-shrink: 0;
 }
 
@@ -207,7 +219,7 @@
 }
 
 /* SVG icon styling within selector options */
-.selector-option svg {
+.selector-option > svg {
   width: 14px;
   height: 14px;
   stroke: currentColor;
