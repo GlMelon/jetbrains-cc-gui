@@ -22,6 +22,7 @@ import { initScaleRecovery } from './bootstrap/scaleRecovery';
 import { initFonts } from './bootstrap/fonts';
 import { initLanguage } from './bootstrap/language';
 import { initAppearance } from './bootstrap/appearance';
+import { initAvatar } from './bootstrap/avatar';
 import { registerPendingSlots } from './bootstrap/pendingSlots';
 
 // 下行总线(Java → 前端)归一化入口。Phase 0:安装空壳(双轨,零行为变化)。
@@ -62,6 +63,9 @@ initLanguage();
 
 // Appearance config handler (cold-cache hydration from config.json).
 initAppearance();
+
+// Avatar config handler (backend-owned hydration outside config.json).
+initAvatar();
 
 // Pre-register window callback placeholders so that bridge calls arriving
 // before React mounts are not lost.
