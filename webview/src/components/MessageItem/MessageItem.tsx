@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, memo, useEffect, useRef } from 'react';
+import { Fragment, useState, useCallback, useMemo, memo, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import type { TFunction } from 'i18next';
 import type { ClaudeMessage, ClaudeContentBlock, ToolResultBlock } from '../../types';
@@ -638,23 +638,27 @@ export const MessageItem = memo(function MessageItem({
   };
 
   const renderAssistantSectionedBlocks = (): ReactNode => (
-    assistantMessageSections.map((section) => (
-      <section
-        key={`${messageIndex}-${section.kind}-${section.startIndex}`}
-        className={`assistant-message-section assistant-message-section-${section.kind}`}
-        aria-label={getAssistantSectionLabel(section.kind)}
-      >
-        <div className="assistant-message-section-caption">
-          <span className="assistant-message-section-caption-dot" aria-hidden="true" />
-          <span className="assistant-message-section-caption-label">
-            {getAssistantSectionLabel(section.kind)}
-          </span>
-        </div>
-        <div className="assistant-message-section-body">
+    assistantMessageSections.map((section, sectionIndex) => {
+      const sectionKey = `${messageIndex}-${section.kind}-${section.startIndex}`;
+
+      if (section.kind !== 'output') {
+        return (
+          <Fragment key={sectionKey}>
+            {section.items.map(renderGroupedBlock)}
+          </Fragment>
+        );
+      }
+
+      return (
+        <section
+          key={sectionKey}
+          className={`assistant-message-answer-section${sectionIndex > 0 ? ' has-leading-divider' : ''}`}
+          aria-label={getAssistantSectionLabel(section.kind)}
+        >
           {section.items.map(renderGroupedBlock)}
-        </div>
-      </section>
-    ))
+        </section>
+      );
+    })
   );
 
   const renderMessageContent = (): ReactNode => (
@@ -773,4 +777,3 @@ export const MessageItem = memo(function MessageItem({
     </div>
   );
 });
-

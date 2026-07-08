@@ -1,0 +1,709 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Connecting 加载动效预览</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg-primary: #1e1e1e;
+      --bg-chat: #1e1e1e;
+      --card-bg: rgba(255, 255, 255, 0.03);
+      --card-border: rgba(255, 255, 255, 0.10);
+      --card-border-soft: rgba(255, 255, 255, 0.04);
+      --surface: rgba(0, 0, 0, 0.12);
+      --surface-strong: rgba(0, 0, 0, 0.18);
+      --bar-bg: rgba(255, 255, 255, 0.025);
+      --text: #d6d6d8;
+      --text-secondary: #b8b8bd;
+      --muted: #888890;
+      --green: #72d79b;
+      --blue: #66a9ff;
+      --purple: #b59cff;
+      --amber: #e8bb63;
+      --shadow: rgba(0, 0, 0, 0.24);
+      --message-width: min(820px, calc(100vw - 170px));
+      --sans: Inter, "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Microsoft YaHei", sans-serif;
+      --mono: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--sans);
+      color: var(--text);
+      background:
+        radial-gradient(circle at 12% -8%, rgba(114, 215, 155, 0.08), transparent 30rem),
+        radial-gradient(circle at 90% 0%, rgba(181, 156, 255, 0.08), transparent 32rem),
+        linear-gradient(180deg, #222326 0%, #1e1e1e 46%, #18191b 100%);
+    }
+
+    .page {
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 30px;
+    }
+
+    .hero {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 24px;
+      margin-bottom: 22px;
+    }
+
+    .eyebrow {
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 8px 0 8px;
+      font-size: 28px;
+      line-height: 1.14;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 880px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.65;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+      min-width: 300px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      height: 26px;
+      padding: 0 10px;
+      border: 1px solid var(--card-border);
+      border-radius: 999px;
+      color: var(--text-secondary);
+      background: var(--bar-bg);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .tag i {
+      width: 7px;
+      height: 7px;
+      border-radius: 99px;
+      background: var(--green);
+      box-shadow: 0 0 0 4px rgba(114, 215, 155, .10);
+    }
+
+    .mock {
+      overflow: hidden;
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      background: rgba(255, 255, 255, .025);
+      box-shadow: 0 24px 72px rgba(0, 0, 0, .34);
+    }
+
+    .mock-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--card-border-soft);
+      background: linear-gradient(180deg, rgba(255,255,255,.045), transparent);
+    }
+
+    .mock-head h2 {
+      margin: 0 0 5px;
+      font-size: 18px;
+    }
+
+    .mock-head p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      height: 26px;
+      padding: 0 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(114,215,155,.36);
+      color: var(--green);
+      background: rgba(114,215,155,.08);
+      font-size: 12px;
+      font-weight: 850;
+      white-space: nowrap;
+    }
+
+    .mock-body {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      min-height: 760px;
+    }
+
+    .canvas {
+      padding: 26px 24px 34px;
+      background: linear-gradient(180deg, #202124, #1c1d20);
+    }
+
+    .notes {
+      padding: 18px;
+      border-left: 1px solid var(--card-border-soft);
+      background: rgba(0, 0, 0, .12);
+    }
+
+    .notes h3 {
+      margin: 0 0 10px;
+      font-size: 13px;
+    }
+
+    .notes ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.65;
+    }
+
+    .notes li + li { margin-top: 8px; }
+
+    .chat {
+      max-width: 980px;
+      margin: 0 auto;
+    }
+
+    .turn {
+      display: grid;
+      grid-template-columns: 32px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+      margin: 16px 0 22px;
+    }
+
+    .turn.user {
+      grid-template-columns: minmax(0, 1fr) 32px;
+    }
+
+    .avatar {
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--card-border);
+      border-radius: 9px;
+      color: white;
+      background: linear-gradient(135deg, rgba(78, 161, 255, .88), rgba(169, 137, 255, .88));
+      font-weight: 900;
+      font-size: 12px;
+      box-shadow: 0 5px 14px rgba(0, 0, 0, .16);
+    }
+
+    .user .avatar {
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    }
+
+    .user-bubble {
+      justify-self: end;
+      max-width: 680px;
+      padding: 12px 16px;
+      border-radius: 16px 16px 4px 16px;
+      background: linear-gradient(135deg, rgba(99, 102, 241, .15), rgba(139, 92, 246, .10));
+      border: 1px solid rgba(99, 102, 241, .30);
+      color: #fff;
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    .assistant-column {
+      width: var(--message-width);
+      max-width: 100%;
+    }
+
+    .assistant-card {
+      width: 100%;
+      padding: 13px 15px 15px;
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      border-top-left-radius: 6px;
+      background: var(--card-bg);
+      box-shadow: 0 14px 44px var(--shadow);
+    }
+
+    .answer {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--card-border-soft);
+      color: var(--text-secondary);
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    .answer p { margin: 0; }
+
+    .section-label {
+      margin: 20px 0 8px 42px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 850;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .connect-status {
+      position: relative;
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+      min-height: 42px;
+      padding: 8px 10px;
+      border: 1px solid var(--card-border-soft);
+      border-radius: 999px;
+      background: var(--bar-bg);
+    }
+
+    .connect-status::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,.055), transparent);
+      transform: translateX(-110%);
+      animation: shine 1.8s ease-in-out infinite;
+    }
+
+    .connect-copy {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .connect-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 850;
+      line-height: 1.2;
+    }
+
+    .connect-desc {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.25;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .runtime-name {
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .elapsed {
+      display: inline-flex;
+      align-items: center;
+      height: 22px;
+      padding: 0 8px;
+      border: 1px solid var(--card-border-soft);
+      border-radius: 999px;
+      color: var(--muted);
+      background: var(--surface);
+      font-family: var(--mono);
+      font-size: 10px;
+    }
+
+    .orb {
+      position: relative;
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      color: var(--green);
+      background: rgba(114, 215, 155, .08);
+      border: 1px solid rgba(114, 215, 155, .24);
+    }
+
+    .orb::before,
+    .orb::after {
+      content: "";
+      position: absolute;
+      border-radius: inherit;
+    }
+
+    .orb::before {
+      inset: -3px;
+      border: 1px solid rgba(114, 215, 155, .26);
+      animation: ripple 1.55s ease-out infinite;
+    }
+
+    .orb::after {
+      width: 7px;
+      height: 7px;
+      background: currentColor;
+      box-shadow: 0 0 16px rgba(114, 215, 155, .55);
+      animation: breathe 1.2s ease-in-out infinite;
+    }
+
+    .spinner-ring {
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      border: 2px solid rgba(255,255,255,.08);
+      border-top-color: var(--green);
+      border-right-color: rgba(114, 215, 155, .45);
+      animation: spin .9s linear infinite;
+    }
+
+    .dots {
+      display: inline-flex;
+      gap: 4px;
+      align-items: center;
+      height: 14px;
+    }
+
+    .dots span {
+      width: 4px;
+      height: 4px;
+      border-radius: 99px;
+      background: currentColor;
+      animation: dot 1.25s ease-in-out infinite;
+    }
+
+    .dots span:nth-child(2) { animation-delay: .16s; }
+    .dots span:nth-child(3) { animation-delay: .32s; }
+
+    .stepper {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .step {
+      position: relative;
+      overflow: hidden;
+      min-height: 34px;
+      padding: 7px 9px 7px 28px;
+      border: 1px solid var(--card-border-soft);
+      border-radius: 10px;
+      background: rgba(255,255,255,.018);
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.3;
+    }
+
+    .step::before {
+      content: "";
+      position: absolute;
+      left: 9px;
+      top: 12px;
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: currentColor;
+    }
+
+    .step.done {
+      color: var(--green);
+      background: rgba(114, 215, 155, .055);
+      border-color: rgba(114, 215, 155, .18);
+    }
+
+    .step.active {
+      color: var(--amber);
+      background: rgba(232, 187, 99, .055);
+      border-color: rgba(232, 187, 99, .18);
+    }
+
+    .step.active::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(232,187,99,.08), transparent);
+      transform: translateX(-120%);
+      animation: shine 1.35s ease-in-out infinite;
+    }
+
+    .progress-track {
+      position: relative;
+      overflow: hidden;
+      height: 3px;
+      margin-top: 10px;
+      border-radius: 99px;
+      background: rgba(255, 255, 255, .055);
+    }
+
+    .progress-track::before {
+      content: "";
+      position: absolute;
+      width: 42%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, rgba(114,215,155,.15), rgba(114,215,155,.85), rgba(181,156,255,.65));
+      animation: indeterminate 1.45s ease-in-out infinite;
+    }
+
+    .option-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .mini-card {
+      padding: 12px;
+      border: 1px solid var(--card-border-soft);
+      border-radius: 14px;
+      background: rgba(255,255,255,.018);
+    }
+
+    .mini-card h4 {
+      margin: 0 0 9px;
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .mini-card .connect-status {
+      min-height: 38px;
+      padding: 7px 9px;
+    }
+
+    .mini-card .connect-desc { max-width: 260px; }
+
+    .skeleton-line {
+      height: 8px;
+      border-radius: 99px;
+      background: linear-gradient(90deg, rgba(255,255,255,.04), rgba(255,255,255,.10), rgba(255,255,255,.04));
+      background-size: 220% 100%;
+      animation: skeleton 1.25s ease-in-out infinite;
+    }
+
+    .skeleton-line.short { width: 62%; margin-top: 7px; }
+
+    .boot-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .boot-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .boot-row i {
+      width: 16px;
+      height: 16px;
+      border-radius: 5px;
+      display: grid;
+      place-items: center;
+      color: var(--green);
+      background: rgba(114,215,155,.08);
+      border: 1px solid rgba(114,215,155,.18);
+      font-style: normal;
+      font-size: 10px;
+    }
+
+    @keyframes shine {
+      0% { transform: translateX(-120%); opacity: 0; }
+      22% { opacity: 1; }
+      70%, 100% { transform: translateX(120%); opacity: 0; }
+    }
+
+    @keyframes ripple {
+      0% { transform: scale(.82); opacity: .85; }
+      100% { transform: scale(1.35); opacity: 0; }
+    }
+
+    @keyframes breathe {
+      0%, 100% { transform: scale(.78); opacity: .75; }
+      50% { transform: scale(1.15); opacity: 1; }
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @keyframes dot {
+      0%, 80%, 100% { transform: translateY(0); opacity: .35; }
+      40% { transform: translateY(-3px); opacity: 1; }
+    }
+
+    @keyframes indeterminate {
+      0% { left: -45%; }
+      100% { left: 105%; }
+    }
+
+    @keyframes skeleton {
+      0% { background-position: 180% 0; }
+      100% { background-position: -80% 0; }
+    }
+
+    @media (max-width: 980px) {
+      .mock-body { grid-template-columns: 1fr; }
+      .notes { border-left: 0; border-top: 1px solid var(--card-border-soft); }
+      .hero { display: block; }
+      .legend { justify-content: flex-start; margin-top: 14px; }
+      .option-grid { grid-template-columns: 1fr; }
+      :root { --message-width: calc(100vw - 110px); }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <div>
+        <div class="eyebrow">runtime connection loading</div>
+        <h1>Connecting 状态动效效果图</h1>
+        <p>用于 “Connecting / Starting the selected AI runtime Claude” 等等待阶段，让用户明确看到插件正在启动运行时，不像卡住。颜色沿用 v0.4.5 的消息卡片背景体系，不额外引入大面积蓝色。</p>
+      </div>
+      <div class="legend">
+        <span class="tag"><i></i>推荐：呼吸点 + 光扫 + 进度条</span>
+        <span class="tag"><i style="background:var(--amber);box-shadow:0 0 0 4px rgba(232,187,99,.10)"></i>可展示启动步骤</span>
+      </div>
+    </header>
+
+    <section class="mock">
+      <div class="mock-head">
+        <div>
+          <h2>推荐方案：轻量状态条 + 三阶段启动进度</h2>
+          <p>不占大空间，适合放在 assistant 消息卡片顶部或等待消息中；连接时间较长时也有持续反馈。</p>
+        </div>
+        <span class="badge">推荐落地</span>
+      </div>
+      <div class="mock-body">
+        <div class="canvas">
+          <div class="chat">
+            <div class="turn user">
+              <div class="user-bubble">帮我分析当前项目结构，先启动 Claude runtime。</div>
+              <div class="avatar">U</div>
+            </div>
+
+            <div class="section-label">主效果 / assistant card 内部</div>
+            <div class="turn">
+              <div class="avatar">C</div>
+              <div class="assistant-column">
+                <article class="assistant-card">
+                  <div class="connect-status">
+                    <span class="orb" aria-hidden="true"></span>
+                    <div class="connect-copy">
+                      <div class="connect-title">Connecting <span class="dots"><span></span><span></span><span></span></span></div>
+                      <div class="connect-desc">Starting the selected AI runtime <span class="runtime-name">Claude</span></div>
+                    </div>
+                    <span class="elapsed">00:06</span>
+                  </div>
+                  <div class="progress-track" aria-hidden="true"></div>
+                  <div class="stepper">
+                    <div class="step done">prepare runtime</div>
+                    <div class="step active">launch Claude</div>
+                    <div class="step">wait for ready</div>
+                  </div>
+                  <div class="answer">
+                    <p>连接成功后，这个状态条会自然过渡为正常回复内容；失败时可复用同一位置显示错误说明和重试按钮。</p>
+                  </div>
+                </article>
+              </div>
+            </div>
+
+            <div class="section-label">备选效果 / 选择更克制或更明确的版本</div>
+            <div class="turn">
+              <div class="avatar">C</div>
+              <div class="assistant-column">
+                <article class="assistant-card">
+                  <div class="option-grid">
+                    <div class="mini-card">
+                      <h4>A. 极简 pill：适合短等待</h4>
+                      <div class="connect-status">
+                        <span class="spinner-ring" aria-hidden="true"></span>
+                        <div class="connect-copy">
+                          <div class="connect-title">Connecting</div>
+                          <div class="connect-desc">Starting Claude runtime</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="mini-card">
+                      <h4>B. 呼吸点：推荐默认</h4>
+                      <div class="connect-status">
+                        <span class="orb" aria-hidden="true"></span>
+                        <div class="connect-copy">
+                          <div class="connect-title">Connecting <span class="dots"><span></span><span></span><span></span></span></div>
+                          <div class="connect-desc">Starting the selected AI runtime Claude</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="mini-card">
+                      <h4>C. 骨架屏：适合超过 3 秒</h4>
+                      <div class="connect-status">
+                        <span class="orb" aria-hidden="true"></span>
+                        <div class="connect-copy">
+                          <div class="connect-title">Preparing response</div>
+                          <div class="skeleton-line"></div>
+                          <div class="skeleton-line short"></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="mini-card">
+                      <h4>D. 详细启动日志：适合调试感</h4>
+                      <div class="connect-status">
+                        <span class="spinner-ring" aria-hidden="true"></span>
+                        <div class="connect-copy">
+                          <div class="connect-title">Starting Claude runtime</div>
+                          <div class="connect-desc">Checking environment and spawning process</div>
+                        </div>
+                      </div>
+                      <div class="boot-list">
+                        <div class="boot-row"><i>✓</i> Load provider config</div>
+                        <div class="boot-row"><i>•</i> Spawn Claude runtime</div>
+                        <div class="boot-row"><i>…</i> Wait for bridge ready</div>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside class="notes">
+          <h3>落地建议</h3>
+          <ul>
+            <li>默认使用推荐方案 B：呼吸点 + dots + 光扫，信息量够但不吵。</li>
+            <li>超过约 3 秒时展示 indeterminate progress 和三阶段 stepper，降低“卡住”的感觉。</li>
+            <li>文案保持两层：主标题 Connecting，副标题 Starting the selected AI runtime Claude。</li>
+            <li>背景继续使用 v0.4.5 的 `--color-message-card-bg` 色系，避免现在偏蓝。</li>
+            <li>动画只使用 transform / opacity / background-position，避免频繁布局重排。</li>
+          </ul>
+        </aside>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
