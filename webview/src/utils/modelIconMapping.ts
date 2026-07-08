@@ -11,6 +11,7 @@
  */
 export type ModelVendor =
   | 'claude'
+  | 'codex'
   | 'openai'
   | 'opencode'
   | 'gemini'
@@ -54,6 +55,7 @@ const MODEL_VENDOR_PATTERNS: ReadonlyArray<readonly [RegExp, ModelVendor]> = [
 
   // International model vendors
   [/claude|anthropic/i, 'claude'],
+  [/codex/i, 'codex'],
   [/gpt[-\s]|^gpt\d|^o[134]-|^o[134]\b|openai/i, 'openai'],
   [/gemini/i, 'gemini'],
   [/mistral|mixtral|codestral|pixtral/i, 'mistral'],
@@ -68,7 +70,7 @@ const MODEL_VENDOR_PATTERNS: ReadonlyArray<readonly [RegExp, ModelVendor]> = [
  */
 const PROVIDER_TO_VENDOR: Record<string, ModelVendor> = {
   claude: 'claude',
-  codex: 'openai',
+  codex: 'codex',
   opencode: 'opencode',
   gemini: 'gemini',
   qwen: 'qwen',
@@ -113,15 +115,24 @@ export function resolveProviderVendor(providerId: string): ModelVendor | null {
  * @returns The best-matched vendor key, or 'claude' as default
  */
 export function resolveIconVendor(providerId?: string, modelId?: string): ModelVendor {
+  const providerVendor = providerId ? resolveProviderVendor(providerId) : null;
+
   // Try model ID first (most specific)
   if (modelId) {
     const modelVendor = resolveModelVendor(modelId);
-    if (modelVendor) return modelVendor;
+    if (modelVendor) {
+      if (
+        modelVendor === 'openai'
+        && (providerVendor === 'codex' || providerVendor === 'opencode')
+      ) {
+        return providerVendor;
+      }
+      return modelVendor;
+    }
   }
   // Fall back to provider ID
-  if (providerId) {
-    const providerVendor = resolveProviderVendor(providerId);
-    if (providerVendor) return providerVendor;
+  if (providerVendor) {
+    return providerVendor;
   }
   // Default
   return 'claude';

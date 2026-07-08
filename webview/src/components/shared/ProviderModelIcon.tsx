@@ -10,7 +10,10 @@
  */
 import ClaudeColor from '@lobehub/icons/es/Claude/components/Color';
 import ClaudeMono from '@lobehub/icons/es/Claude/components/Mono';
+import CodexColor from '@lobehub/icons/es/Codex/components/Color';
+import CodexMono from '@lobehub/icons/es/Codex/components/Mono';
 import OpenAIMono from '@lobehub/icons/es/OpenAI/components/Mono';
+import OpenCodeMono from '@lobehub/icons/es/OpenCode/components/Mono';
 import GeminiColor from '@lobehub/icons/es/Gemini/components/Color';
 import GeminiMono from '@lobehub/icons/es/Gemini/components/Mono';
 import QwenColor from '@lobehub/icons/es/Qwen/components/Color';
@@ -45,7 +48,6 @@ import YiMono from '@lobehub/icons/es/Yi/components/Mono';
 import XiaomiMiMoMono from '@lobehub/icons/es/XiaomiMiMo/components/Mono';
 import type { ReactElement } from 'react';
 import { resolveIconVendor, type ModelVendor } from '../../utils/modelIconMapping';
-import { OpenCodeIcon } from './OpenCodeIcon';
 
 export interface ProviderModelIconProps {
   /** Provider type: claude, codex, gemini, etc. */
@@ -99,10 +101,12 @@ const VENDOR_ICON_MAP: Record<
 > = {
   claude: (size, colored) =>
     colored ? <ClaudeColor size={size} /> : <ClaudeMono size={size} />,
+  codex: (size, colored) =>
+    colored ? <CodexColor size={size} /> : <CodexMono size={size} />,
   openai: (size, _colored) =>
     <OpenAIMono size={size} />,
   opencode: (size, _colored) =>
-    <OpenCodeIcon size={size} />,
+    <OpenCodeMono size={size} />,
   gemini: (size, colored) =>
     colored ? <GeminiColor size={size} /> : <GeminiMono size={size} />,
   qwen: (size, colored) =>
