@@ -25,6 +25,7 @@ import { extractMarkdownContent } from '../utils/copyUtils';
 import type { ClaudeMessage, TodoItem, ToolResultBlock } from '../types';
 import type { useMessageProcessing, useFileChanges, useSubagents, useFileChangesManagement, useMessageQueue } from '../hooks';
 import type { GetToolResultRawFn } from '../contexts/SubagentContext';
+import type { AvatarConfig } from '../types/avatar';
 
 type SubagentHistoryGetter = (key: string) => ReturnType<typeof useMessages>['subagentHistories'][string] | undefined;
 type MessageQueueValue = ReturnType<typeof useMessageQueue>['queue'];
@@ -77,6 +78,7 @@ export interface ChatScreenProps {
   onRewind: () => void;
   onNavigateToProviderSettings: () => void;
   onProviderSelect: (providerId: string) => void;
+  avatarConfig?: AvatarConfig | null;
 
   // Message queue
   messageQueue: MessageQueueValue;
@@ -103,6 +105,7 @@ export const ChatScreen = ({
   onUndoFile, onDiscardAll, onKeepAll,
   onSubmit, onInterrupt, onRewind,
   onNavigateToProviderSettings, onProviderSelect,
+  avatarConfig,
   messageQueue, onRemoveFromQueue,
 }: ChatScreenProps) => {
   const { t } = useTranslation();
@@ -235,6 +238,7 @@ export const ChatScreen = ({
                   onNavigateToProviderSettings={onNavigateToProviderSettings}
                   onNavigateToDependencySettings={handleNavigateToDependencySettings}
                   currentProvider={currentProvider}
+                  avatarConfig={avatarConfig}
                 />
               </ToolResultRawContext.Provider>
             </SubagentHistoryContext.Provider>

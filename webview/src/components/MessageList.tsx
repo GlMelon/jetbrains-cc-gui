@@ -14,6 +14,7 @@ import { useContextMenu, copySelection } from '../hooks/useContextMenu.js';
 import { copyToClipboard } from '../utils/copyUtils';
 import { getProviderDisplayName } from '../utils/providerLabel';
 import type { MessageListRevealHandle } from './ConversationSearch/types';
+import type { AvatarConfig } from '../types/avatar';
 
 /** Always render at least this many recent messages. Earlier messages are collapsed. */
 const VISIBLE_MESSAGE_WINDOW = 15;
@@ -124,6 +125,7 @@ interface MessageListProps {
   onNavigateToDependencySettings?: () => void;
   /** Current active provider id; forwarded to MessageItem for streaming-connect label. */
   currentProvider?: string;
+  avatarConfig?: AvatarConfig | null;
 }
 
 export const MessageList = memo(forwardRef<MessageListRevealHandle, MessageListProps>(function MessageList({
@@ -145,6 +147,7 @@ export const MessageList = memo(forwardRef<MessageListRevealHandle, MessageListP
   onNavigateToProviderSettings,
   onNavigateToDependencySettings,
   currentProvider,
+  avatarConfig,
 }, ref) {
   // Number of earlier messages revealed beyond VISIBLE_MESSAGE_WINDOW. Grows in
   // page-size chunks as the user clicks "show earlier", avoiding a single huge
@@ -363,6 +366,8 @@ export const MessageList = memo(forwardRef<MessageListRevealHandle, MessageListP
               <div className="message-avatar-row">
                 <MessageAvatar
                   type="assistant"
+                  currentProvider={currentProvider}
+                  avatarConfig={avatarConfig}
                   assistantLabel={getProviderDisplayName(currentProvider, t)}
                 />
                 <div className="message-content-wrapper">
@@ -401,6 +406,7 @@ export const MessageList = memo(forwardRef<MessageListRevealHandle, MessageListP
                             onNavigateToDependencySettings={onNavigateToDependencySettings}
                             toolResultSignature={toolResultSignature}
                             currentProvider={currentProvider}
+                            avatarConfig={avatarConfig}
                             loadingStartTime={loadingStartTime}
                             withinResponseGroup={true}
                             renderMode="response-segment"
@@ -459,6 +465,7 @@ export const MessageList = memo(forwardRef<MessageListRevealHandle, MessageListP
             onNavigateToDependencySettings={onNavigateToDependencySettings}
             toolResultSignature={toolResultSignature}
             currentProvider={currentProvider}
+            avatarConfig={avatarConfig}
             loadingStartTime={loadingStartTime}
           />
         );

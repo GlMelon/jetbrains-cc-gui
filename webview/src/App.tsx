@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import HistoryView from './components/history/HistoryView';
 import SettingsView from './components/settings';
 import { preloadSlashCommands, forceRefreshPrompts } from './components/ChatInputBox/providers';
-import { useScrollBehavior, useSessionManagement, useStreamingMessages, useWindowCallbacks, useRewindHandlers, useHistoryLoader, useMessageQueue, useThemeInit, useContextActions, useMessageProcessing, useMessageSender, useModelProviderState, useChatComputations } from './hooks';
+import { useScrollBehavior, useSessionManagement, useStreamingMessages, useWindowCallbacks, useRewindHandlers, useHistoryLoader, useMessageQueue, useThemeInit, useContextActions, useMessageProcessing, useMessageSender, useModelProviderState, useChatComputations, useAvatarConfig } from './hooks';
 import { NEW_SESSION_COMMANDS, RESUME_COMMANDS, PLAN_COMMANDS, CONTEXT_COMMANDS } from './hooks/useMessageSender';
 import { applyDiffTheme, getStoredDiffTheme } from './utils/diffTheme';
 import type { Attachment, ChatInputBoxHandle } from './components/ChatInputBox/types';
@@ -96,6 +96,14 @@ const App = () => {
   // ── Theme & context actions ──
   useThemeInit();
   useContextActions();
+
+  const {
+    avatarConfig,
+    setAssistantAvatarSelection,
+    setUserAvatarSelection,
+    uploadAssistantAvatar,
+    uploadUserAvatar,
+  } = useAvatarConfig();
 
   // Apply diff theme on app startup so diff styles work before opening Settings.
   useEffect(() => {
@@ -448,6 +456,11 @@ const App = () => {
           onAutoOpenFileEnabledChange={handleAutoOpenFileEnabledChange}
           permissionDialogTimeoutSeconds={permissionDialogTimeoutSeconds}
           onPermissionDialogTimeoutChange={setPermissionDialogTimeoutSeconds}
+          avatarConfig={avatarConfig}
+          onAssistantAvatarChange={setAssistantAvatarSelection}
+          onUserAvatarChange={setUserAvatarSelection}
+          onUploadAssistantAvatar={uploadAssistantAvatar}
+          onUploadUserAvatar={uploadUserAvatar}
         />
       ) : currentView === 'chat' ? (
         <ModelProviderProvider value={{
@@ -493,6 +506,7 @@ const App = () => {
             onRewind={handleOpenRewindSelectDialog}
             onNavigateToProviderSettings={handleNavigateToProviderSettings}
             onProviderSelect={wrappedHandleProviderSelect}
+            avatarConfig={avatarConfig}
             messageQueue={messageQueue}
             onRemoveFromQueue={dequeueMessage}
           />

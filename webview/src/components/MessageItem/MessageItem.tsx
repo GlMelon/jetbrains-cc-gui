@@ -27,6 +27,7 @@ import { extractMessageUsage } from '../../utils/messageUsage';
 import { CopyIcon } from '../Icons';
 import { AssistantResponseStatus } from './AssistantResponseStatus';
 import { AssistantStreamingFooter } from './AssistantStreamingFooter';
+import type { AvatarConfig } from '../../types/avatar';
 
 export interface MessageItemProps {
   message: ClaudeMessage;
@@ -46,6 +47,7 @@ export interface MessageItemProps {
   toolResultSignature?: string;
   /** Current active provider id. */
   currentProvider?: string;
+  avatarConfig?: AvatarConfig | null;
   /** Timestamp when the current assistant generation/loading cycle started. */
   loadingStartTime?: number | null;
   /** Rendered inside a grouped assistant response container. */
@@ -275,6 +277,7 @@ export const MessageItem = memo(function MessageItem({
   onNavigateToDependencySettings,
   toolResultSignature: _toolResultSignature,
   currentProvider,
+  avatarConfig,
   loadingStartTime,
   withinResponseGroup = false,
   renderMode = 'full',
@@ -701,6 +704,8 @@ export const MessageItem = memo(function MessageItem({
         <div className="message-avatar-row">
           <MessageAvatar
             type={message.type}
+            currentProvider={currentProvider}
+            avatarConfig={avatarConfig}
             userLabel={t('chat.avatarUser')}
             assistantLabel={getProviderDisplayName(currentProvider, t)}
           />

@@ -523,6 +523,16 @@ interface Window {
   };
 
   /**
+   * Apply avatar config from Java backend.
+   */
+  applyAvatarConfig?: (config: unknown) => void;
+
+  /**
+   * Pending avatar config before applyAvatarConfig is registered.
+   */
+  __pendingAvatarConfig?: unknown;
+
+  /**
    * Update enhanced prompt result (for prompt enhancer feature)
    */
   updateEnhancedPrompt?: (result: string) => void;
