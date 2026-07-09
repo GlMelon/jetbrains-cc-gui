@@ -101,8 +101,8 @@ const VENDOR_ICON_MAP: Record<
     colored ? <ClaudeColor size={size} /> : <ClaudeMono size={size} />,
   openai: (size, _colored) =>
     <OpenAIMono size={size} />,
-  opencode: (size, _colored) =>
-    <OpenCodeIcon size={size} />,
+  opencode: (size, colored) =>
+    <OpenCodeIcon size={size} colored={colored} />,
   gemini: (size, colored) =>
     colored ? <GeminiColor size={size} /> : <GeminiMono size={size} />,
   qwen: (size, colored) =>

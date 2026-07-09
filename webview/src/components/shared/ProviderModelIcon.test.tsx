@@ -1,5 +1,6 @@
 import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+import { PROVIDER_TYPE } from '../../generated/protocol';
 import { ProviderModelIcon } from './ProviderModelIcon';
 
 describe('ProviderModelIcon', () => {
@@ -28,5 +29,15 @@ describe('ProviderModelIcon', () => {
 
     expect(container.querySelector('[aria-label="XiaomiMiMo"]')).toBeTruthy();
     expect(container.querySelector('title')?.textContent).toBe('XiaomiMiMo');
+  });
+
+  it('renders OpenCode as currentColor in mono mode', () => {
+    const { container } = render(
+      <ProviderModelIcon providerId={PROVIDER_TYPE.OPENCODE} />,
+    );
+
+    const paths = Array.from(container.querySelectorAll('path'));
+    expect(paths.some((path) => path.getAttribute('fill') === 'currentColor')).toBe(true);
+    expect(paths.some((path) => path.getAttribute('fill') === '#211E1E')).toBe(false);
   });
 });
