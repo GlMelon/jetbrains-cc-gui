@@ -256,15 +256,6 @@ export const MessageAnchorRail = memo(function MessageAnchorRail({
             <h2 id={panelTitleId}>{t('chat.userPanel.title')}</h2>
             <p>{t('chat.userPanel.subtitle', { count: userMessages.length })}</p>
           </div>
-          <button
-            type="button"
-            className="messages-user-panel-close"
-            onClick={closePanel}
-            aria-label={t('chat.userPanel.close')}
-            title={t('chat.userPanel.close')}
-          >
-            ×
-          </button>
         </div>
 
         <div className="messages-user-panel-tools">
