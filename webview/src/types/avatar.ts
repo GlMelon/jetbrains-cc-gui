@@ -53,9 +53,15 @@ export interface UserAvatarSelection {
   custom?: CustomAvatarPayload;
 }
 
+export interface AvatarPresetOption {
+  value: AssistantAvatarPreset;
+  label: string;
+}
+
 export interface AvatarConfig {
   assistant: AssistantAvatarSelection;
   user: UserAvatarSelection;
+  assistantPresetOptions?: AvatarPresetOption[];
 }
 
 export function isProviderAvatarPreset(value: unknown): value is ProviderType {

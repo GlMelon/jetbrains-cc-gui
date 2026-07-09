@@ -36,6 +36,9 @@ public final class AvatarConfigService {
     private static final String KEY_CREATED_AT = "createdAt";
     private static final String KEY_UPDATED_AT = "updatedAt";
     private static final String KEY_ORIGINAL_NAME = "originalName";
+    private static final String KEY_ASSISTANT_PRESET_OPTIONS = "assistantPresetOptions";
+    private static final String KEY_VALUE = "value";
+    private static final String KEY_LABEL = "label";
 
     private static final String ROLE_ASSISTANT = "assistant";
     private static final String ROLE_USER = "user";
@@ -168,6 +171,7 @@ public final class AvatarConfigService {
         user.addProperty(KEY_MODE, MODE_PRESET);
         user.addProperty(KEY_PRESET, PRESET_USER_DEFAULT);
         root.add(KEY_USER, user);
+        root.add(KEY_ASSISTANT_PRESET_OPTIONS, assistantPresetOptions());
         return root;
     }
 
@@ -225,7 +229,19 @@ public final class AvatarConfigService {
         JsonObject root = new JsonObject();
         root.add(KEY_ASSISTANT, hydrateSelection(readObject(stored, KEY_ASSISTANT), ROLE_ASSISTANT));
         root.add(KEY_USER, hydrateSelection(readObject(stored, KEY_USER), ROLE_USER));
+        root.add(KEY_ASSISTANT_PRESET_OPTIONS, assistantPresetOptions());
         return root;
+    }
+
+    private com.google.gson.JsonArray assistantPresetOptions() {
+        com.google.gson.JsonArray options = new com.google.gson.JsonArray();
+        for (ProviderType provider : ProviderType.values()) {
+            JsonObject option = new JsonObject();
+            option.addProperty(KEY_VALUE, provider.value());
+            option.addProperty(KEY_LABEL, provider.displayLabel());
+            options.add(option);
+        }
+        return options;
     }
 
     private JsonObject hydrateSelection(JsonObject stored, String role) {
@@ -244,6 +260,12 @@ public final class AvatarConfigService {
             } else {
                 return ROLE_ASSISTANT.equals(role) ? sanitizeAssistantSelection(new JsonObject()) : sanitizeUserSelection(new JsonObject());
             }
+        }
+        // Always include previously uploaded custom avatar data so the frontend
+        // can show the "uploaded" option even when not in CUSTOM mode.
+        JsonObject latestCustom = findLatestCustomForRole(role);
+        if (latestCustom != null) {
+            hydrated.add(KEY_CUSTOM, latestCustom);
         }
         return hydrated;
     }
@@ -291,13 +313,46 @@ public final class AvatarConfigService {
 
     private boolean isAssistantPreset(String preset) {
         return PRESET_ASSISTANT_DEFAULT.equals(preset)
-                || ProviderType.CLAUDE.value().equals(preset)
-                || ProviderType.CODEX.value().equals(preset)
-                || ProviderType.OPENCODE.value().equals(preset);
+                || ProviderType.fromValue(preset).isPresent();
     }
 
     private boolean customAvatarExists(String id) {
         return id != null && Files.isRegularFile(customAvatarFile(id));
+    }
+
+    /**
+     * Find the latest uploaded custom avatar for the given role by scanning
+     * the custom avatar directory. Returns null if none exists.
+     */
+    private JsonObject findLatestCustomForRole(String role) {
+        try {
+            Path customDir = pathManager.getAvatarCustomDir();
+            if (!Files.isDirectory(customDir)) {
+                return null;
+            }
+            String prefix = role + "-";
+            Path latest = null;
+            long latestTime = -1;
+            try (var stream = Files.list(customDir)) {
+                for (Path p : (Iterable<Path>) stream::iterator) {
+                    String name = p.getFileName().toString();
+                    if (name.startsWith(prefix) && name.endsWith(CUSTOM_FILE_EXTENSION)) {
+                        long mod = p.toFile().lastModified();
+                        if (mod > latestTime) {
+                            latestTime = mod;
+                            latest = p;
+                        }
+                    }
+                }
+            }
+            if (latest != null) {
+                String customId = latest.getFileName().toString().replace(CUSTOM_FILE_EXTENSION, "");
+                return readCustomAvatar(customId, role);
+            }
+        } catch (IOException e) {
+            LOG.warn("[AvatarConfigService] Failed to scan custom avatars for " + role + ": " + e.getMessage(), e);
+        }
+        return null;
     }
 
     private Path customAvatarFile(String id) {
