@@ -140,17 +140,45 @@
     color: white;
 }
 
-/* Assistant Avatar - Blue-Purple gradient */
+/* Assistant Avatar - blue-teal gradient, colorful default */
 .message.assistant .message-avatar {
-    background: linear-gradient(135deg, rgba(78, 161, 255, 0.88), rgba(169, 137, 255, 0.88));
-    border: 1px solid rgba(169, 137, 255, 0.30);
-    box-shadow: 0 5px 14px rgba(0, 0, 0, 0.16);
+    background: linear-gradient(135deg, #3b82f6, #06b6d4);
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+/* Provider-themed avatar — clean background, no dark box, matches input-area icons */
+.message.assistant .message-avatar.message-avatar-provider {
+    background: transparent;
+    border: none;
+    box-shadow: none;
 }
 
 .message.assistant .message-avatar svg {
     width: 16px;
     height: 16px;
-    color: white;
+    color: #dbe5f0;
+}
+
+.message-avatar-provider-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #dbe5f0;
+    line-height: 1;
+}
+
+.message-avatar-image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    object-fit: cover;
+}
+
+.message .message-avatar.message-avatar-custom {
+    border: 0;
+    background: transparent;
+    box-shadow: none;
 }
 
 /* Avatar Label */

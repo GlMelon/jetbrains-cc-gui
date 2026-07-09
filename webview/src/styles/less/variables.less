@@ -16,6 +16,10 @@
        仅亮一点, 调性仍属暗灰系(同工具块), 贴标签栏时不发黑 — mockup 认可值。 */
     --bg-titlebar: #323233;
 
+    /* 毛玻璃背景 — 从聊天背景色自动派生，一改俱改 */
+    --glass-bg: color-mix(in srgb, var(--bg-chat) 72%, transparent);
+    --glass-bg-strong: color-mix(in srgb, var(--bg-chat) 85%, transparent);
+
     /* 新增：聊天消息头像主题色 */
     --violet: #a989ff;
     --amber: #e7b85a;
@@ -312,6 +316,10 @@
        贴 IDE 标签栏时提供轻微分隔又不突兀 — mockup 认可值。
        ⚠️ 同暗色注释: 切勿直接用 var(--bg-primary)。 */
     --bg-titlebar: #e8e8e8;
+
+    /* 毛玻璃背景 — 用于附着面板等浮层元素 */
+    --glass-bg: rgba(255, 255, 255, 0.72);
+    --glass-bg-strong: rgba(255, 255, 255, 0.85);
 
     /* 新增：聊天消息头像主题色 */
     --violet: #8b5cf6;
