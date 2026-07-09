@@ -371,6 +371,9 @@ public class ClaudeCliSession implements CliSession {
                         request.model()
                 ));
                 cliEnv.put(CliConstants.ARG_NO_COLOR, "1");
+                // 设置 CLI 进程身份标识，确保 session 文件 entrypoint 为 "cli"
+                // 而非 binary 默认的 "sdk-cli"（env 被 clear() 后不会继承父进程）。
+                cliEnv.put(CliConstants.ENV_CLAUDE_CODE_ENTRYPOINT, CliConstants.ENV_CLAUDE_ENTRYPOINT_CLI);
                 CliEnvironmentBuilder.configureClaudePermissionEnv(
                         cliEnv,
                         getPermissionDirectory(),

@@ -277,6 +277,11 @@ public final class CliConstants {
     public static final String ENV_CLAUDE_SESSION_ID = "CLAUDE_SESSION_ID";
     public static final String ENV_CLAUDE_PERMISSION_DIR = "CLAUDE_PERMISSION_DIR";
     public static final String ENV_CLAUDE_PERMISSION_SAFETY_NET_MS = "CLAUDE_PERMISSION_SAFETY_NET_MS";
+
+    /** Claude CLI 进程身份标识，影响 session 文件 entrypoint 字段。 */
+    public static final String ENV_CLAUDE_CODE_ENTRYPOINT = "CLAUDE_CODE_ENTRYPOINT";
+    /** entrypoint 值：CLI 模式（由插件启动的 claude -p 子进程）。 */
+    public static final String ENV_CLAUDE_ENTRYPOINT_CLI = "cli";
     public static final String ENV_IDEA_PROJECT_PATH = "IDEA_PROJECT_PATH";
     public static final String ENV_PROJECT_PATH = "PROJECT_PATH";
 
