@@ -8,8 +8,7 @@ import type { DiffThemeMode } from '../../../utils/diffTheme';
 import type { Theme } from '../../../utils/appearanceColors';
 import type { UiFontConfig, CodeFontConfig } from '../hooks/useSettingsBasicActions';
 import type { AvatarConfig } from '../../../types/avatar';
-import { AVATAR_MODE, AVATAR_PRESET } from '../../../types/avatar';
-import { PROVIDER_IDS } from '../../../types/provider';
+import { AVATAR_MODE, AVATAR_PRESET, isProviderAvatarPreset } from '../../../types/avatar';
 import { ProviderModelIcon } from '../../shared/ProviderModelIcon';
 import { AssistantAvatarIcon, UserAvatarIcon } from '../../MessageItem/MessageAvatar';
 
@@ -69,6 +68,10 @@ const UI_FONT_CUSTOM_PATH_ID = 'settings-ui-font-custom-path';
 const CODE_FONT_SELECT_ID = 'settings-code-font-select';
 const CODE_FONT_CUSTOM_PATH_ID = 'settings-code-font-custom-path';
 const FOLLOW_IDEA_LANGUAGE = '__follow_idea__';
+const AVATAR_ASSISTANT_TAB_ID = 'settings-avatar-assistant-tab';
+const AVATAR_USER_TAB_ID = 'settings-avatar-user-tab';
+const AVATAR_ASSISTANT_PANEL_ID = 'settings-avatar-assistant-panel';
+const AVATAR_USER_PANEL_ID = 'settings-avatar-user-panel';
 
 const NODE_PATH_SECTION_STYLE: React.CSSProperties = { marginTop: 12 };
 
@@ -396,6 +399,9 @@ const AppearanceTab = ({
     onSaveUiFontCustomPath(customFontPathDraft.trim());
   };
 
+  const [isAvatarDrawerOpen, setAvatarDrawerOpen] = useState(false);
+  const [avatarDrawerTab, setAvatarDrawerTab] = useState<'assistant' | 'user'>('assistant');
+
   const assistantAvatar = avatarConfig?.assistant;
   const userAvatar = avatarConfig?.user;
   const isAvatarConfigLoading = !avatarConfig;
@@ -407,6 +413,8 @@ const AppearanceTab = ({
   const userActiveDefault = userAvatar?.mode === AVATAR_MODE.PRESET
     && userAvatar.preset === AVATAR_PRESET.USER_DEFAULT;
   const userActiveCustom = userAvatar?.mode === AVATAR_MODE.CUSTOM;
+  const assistantProviderAvatarOptions = avatarConfig?.assistantPresetOptions
+    ?.filter((option) => isProviderAvatarPreset(option.value)) ?? [];
 
   const selectAssistantProviderAvatar = () => {
     if (!avatarConfig) return;
@@ -423,11 +431,89 @@ const AppearanceTab = ({
     onUserAvatarChange({ mode: AVATAR_MODE.PRESET, preset: AVATAR_PRESET.USER_DEFAULT });
   };
 
-  const renderAssistantProviderIcon = (providerId?: string) => (
+  const openAvatarDrawer = (tab: 'assistant' | 'user' = 'assistant') => {
+    setAvatarDrawerTab(tab);
+    setAvatarDrawerOpen(true);
+  };
+
+  const renderAssistantProviderIcon = (providerId?: string, size = 18) => (
     providerId
-      ? <ProviderModelIcon providerId={providerId} size={18} colored />
+      ? <ProviderModelIcon providerId={providerId} size={size} colored />
       : <AssistantAvatarIcon />
   );
+
+  const getProviderAvatarLabel = (providerId: string) => (
+    assistantProviderAvatarOptions.find((option) => option.value === providerId)?.label ?? providerId
+  );
+
+  const getAssistantAvatarSummary = () => {
+    if (isAvatarConfigLoading) return t('settings.basic.avatar.disabledHint');
+    if (assistantActiveCustom) return t('settings.basic.avatar.uploaded');
+    if (assistantActiveProvider) return t('settings.basic.avatar.followProvider');
+    if (assistantActivePreset(AVATAR_PRESET.ASSISTANT_DEFAULT)) return t('settings.basic.avatar.assistantDefault');
+    if (assistantAvatar?.mode === AVATAR_MODE.PRESET && isProviderAvatarPreset(assistantAvatar.preset)) {
+      return getProviderAvatarLabel(assistantAvatar.preset);
+    }
+    return t('settings.basic.avatar.assistantDefault');
+  };
+
+  const getUserAvatarSummary = () => {
+    if (isAvatarConfigLoading) return t('settings.basic.avatar.disabledHint');
+    if (userActiveCustom) return t('settings.basic.avatar.uploaded');
+    return t('settings.basic.avatar.userDefault');
+  };
+
+  const renderAssistantAvatarFrame = (size: 'compact' | 'large' = 'large') => {
+    const frameClassName = `${styles.drawerAvatarFrame} ${styles.assistantAvatarFrame} ${size === 'compact' ? styles.compact : ''}`;
+
+    if (assistantAvatar?.mode === AVATAR_MODE.CUSTOM && assistantAvatar.custom?.dataUrl) {
+      return (
+        <span className={`${styles.drawerAvatarFrame} ${styles.customAvatarFrame} ${size === 'compact' ? styles.compact : ''}`}>
+          <img className={styles.drawerAvatarImage} src={assistantAvatar.custom.dataUrl} alt="" />
+        </span>
+      );
+    }
+
+    if (assistantAvatar?.mode === AVATAR_MODE.PROVIDER && currentProvider) {
+      return (
+        <span className={`${frameClassName} ${styles.providerAvatarFrame}`}>
+          {renderAssistantProviderIcon(currentProvider, size === 'compact' ? 14 : 18)}
+          <span className={styles.providerAccent} />
+        </span>
+      );
+    }
+
+    if (assistantAvatar?.mode === AVATAR_MODE.PRESET && isProviderAvatarPreset(assistantAvatar.preset)) {
+      return (
+        <span className={`${frameClassName} ${styles.providerAvatarFrame}`}>
+          <ProviderModelIcon providerId={assistantAvatar.preset} size={size === 'compact' ? 14 : 18} colored />
+          <span className={styles.providerAccent} />
+        </span>
+      );
+    }
+
+    return (
+      <span className={frameClassName}>
+        <AssistantAvatarIcon />
+      </span>
+    );
+  };
+
+  const renderUserAvatarFrame = (size: 'compact' | 'large' = 'large') => {
+    if (userAvatar?.mode === AVATAR_MODE.CUSTOM && userAvatar.custom?.dataUrl) {
+      return (
+        <span className={`${styles.drawerAvatarFrame} ${styles.customAvatarFrame} ${size === 'compact' ? styles.compact : ''}`}>
+          <img className={styles.drawerAvatarImage} src={userAvatar.custom.dataUrl} alt="" />
+        </span>
+      );
+    }
+
+    return (
+      <span className={`${styles.drawerAvatarFrame} ${styles.userAvatarFrame} ${size === 'compact' ? styles.compact : ''}`}>
+        <UserAvatarIcon />
+      </span>
+    );
+  };
 
   return (
     <div className={styles.tabContent}>
@@ -482,113 +568,218 @@ const AppearanceTab = ({
           <span>{isAvatarConfigLoading ? t('settings.basic.avatar.disabledHint') : t('settings.basic.avatar.description')}</span>
         </small>
 
-        <div className={styles.avatarGroups}>
-          <div className={styles.avatarGroup}>
-            <span className={styles.avatarGroupLabel}>{t('settings.basic.avatar.assistant')}</span>
-            <div className={styles.avatarOptions}>
-              <button
-                type="button"
-                className={`${styles.avatarOption} ${assistantActiveProvider ? styles.active : ''}`}
-                onClick={selectAssistantProviderAvatar}
-                disabled={isAvatarConfigLoading}
-              >
-                <span className={styles.avatarOptionIcon}>{renderAssistantProviderIcon(currentProvider)}</span>
-                <span>{t('settings.basic.avatar.followProvider')}</span>
-              </button>
-              <button
-                type="button"
-                className={`${styles.avatarOption} ${assistantActivePreset(AVATAR_PRESET.ASSISTANT_DEFAULT) ? styles.active : ''}`}
-                onClick={() => selectAssistantPresetAvatar(AVATAR_PRESET.ASSISTANT_DEFAULT)}
-                disabled={isAvatarConfigLoading}
-              >
-                <span className={styles.avatarOptionIcon}><AssistantAvatarIcon /></span>
-                <span>{t('settings.basic.avatar.assistantDefault')}</span>
-              </button>
-              <button
-                type="button"
-                className={`${styles.avatarOption} ${assistantActivePreset(PROVIDER_IDS.CLAUDE) ? styles.active : ''}`}
-                onClick={() => selectAssistantPresetAvatar(PROVIDER_IDS.CLAUDE)}
-                disabled={isAvatarConfigLoading}
-              >
-                <span className={styles.avatarOptionIcon}><ProviderModelIcon providerId={PROVIDER_IDS.CLAUDE} size={18} colored /></span>
-                <span>Claude</span>
-              </button>
-              <button
-                type="button"
-                className={`${styles.avatarOption} ${assistantActivePreset(PROVIDER_IDS.CODEX) ? styles.active : ''}`}
-                onClick={() => selectAssistantPresetAvatar(PROVIDER_IDS.CODEX)}
-                disabled={isAvatarConfigLoading}
-              >
-                <span className={styles.avatarOptionIcon}><ProviderModelIcon providerId={PROVIDER_IDS.CODEX} size={18} colored /></span>
-                <span>Codex</span>
-              </button>
-              <button
-                type="button"
-                className={`${styles.avatarOption} ${assistantActivePreset(PROVIDER_IDS.OPENCODE) ? styles.active : ''}`}
-                onClick={() => selectAssistantPresetAvatar(PROVIDER_IDS.OPENCODE)}
-                disabled={isAvatarConfigLoading}
-              >
-                <span className={styles.avatarOptionIcon}><ProviderModelIcon providerId={PROVIDER_IDS.OPENCODE} size={18} colored /></span>
-                <span>OpenCode</span>
-              </button>
-              {assistantAvatar?.custom?.dataUrl && (
-                <button
-                  type="button"
-                  className={`${styles.avatarOption} ${assistantActiveCustom ? styles.active : ''}`}
-                  onClick={() => onAssistantAvatarChange({ mode: AVATAR_MODE.CUSTOM, custom: assistantAvatar.custom })}
-                  disabled={isAvatarConfigLoading}
-                >
-                  <img className={styles.avatarPreviewImage} src={assistantAvatar.custom.dataUrl} alt="" />
-                  <span>{t('settings.basic.avatar.uploaded')}</span>
-                </button>
-              )}
-              <button
-                type="button"
-                className={styles.avatarOption}
-                onClick={onUploadAssistantAvatar}
-                disabled={isAvatarConfigLoading}
-              >
-                <span className={styles.avatarOptionIcon}><UploadIcon size={16} /></span>
-                <span>{t('settings.basic.avatar.upload')}</span>
-              </button>
-            </div>
-          </div>
+        <button
+          type="button"
+          className={`${styles.avatarMenuEntry}${isAvatarDrawerOpen ? ` ${styles.avatarMenuEntryOpen}` : ''}`}
+          onClick={() => {
+            if (isAvatarDrawerOpen) {
+              setAvatarDrawerOpen(false);
+            } else {
+              openAvatarDrawer('assistant');
+            }
+          }}
+          disabled={isAvatarConfigLoading}
+          aria-expanded={isAvatarDrawerOpen}
+        >
+          <span className={styles.avatarMenuPreview}>
+            {renderAssistantAvatarFrame('compact')}
+            {renderUserAvatarFrame('compact')}
+          </span>
+          <span className={styles.avatarMenuCopy}>
+            <span className={styles.avatarMenuTitle}>{t('settings.basic.avatar.title')}</span>
+            <span className={styles.avatarMenuSummary}>
+              {t('settings.basic.avatar.aiTab')}: {getAssistantAvatarSummary()} · {t('settings.basic.avatar.userTab')}: {getUserAvatarSummary()}
+            </span>
+          </span>
+          <span className={styles.avatarConfigureLabel}>{t('settings.basic.avatar.configure')}</span>
+        </button>
 
-          <div className={styles.avatarGroup}>
-            <span className={styles.avatarGroupLabel}>{t('settings.basic.avatar.user')}</span>
-            <div className={styles.avatarOptions}>
+        {isAvatarDrawerOpen && (
+          <div className={styles.avatarDrawer}>
+            <div className={styles.avatarDrawerHeader}>
+              <div>
+                <div className={styles.avatarDrawerTitle}>{t('settings.basic.avatar.title')}</div>
+                <div className={styles.avatarDrawerDescription}>{t('settings.basic.avatar.description')}</div>
+              </div>
               <button
                 type="button"
-                className={`${styles.avatarOption} ${userActiveDefault ? styles.active : ''}`}
-                onClick={selectUserDefaultAvatar}
-                disabled={isAvatarConfigLoading}
+                className={styles.avatarDrawerClose}
+                onClick={() => setAvatarDrawerOpen(false)}
+                aria-label={t('settings.basic.avatar.close')}
               >
-                <span className={styles.avatarOptionIcon}><UserAvatarIcon /></span>
-                <span>{t('settings.basic.avatar.userDefault')}</span>
-              </button>
-              {userAvatar?.custom?.dataUrl && (
-                <button
-                  type="button"
-                  className={`${styles.avatarOption} ${userActiveCustom ? styles.active : ''}`}
-                  onClick={() => onUserAvatarChange({ mode: AVATAR_MODE.CUSTOM, custom: userAvatar.custom })}
-                  disabled={isAvatarConfigLoading}
-                >
-                  <img className={styles.avatarPreviewImage} src={userAvatar.custom.dataUrl} alt="" />
-                  <span>{t('settings.basic.avatar.uploaded')}</span>
-                </button>
-              )}
-              <button
-                type="button"
-                className={styles.avatarOption}
-                onClick={onUploadUserAvatar}
-                disabled={isAvatarConfigLoading}
-              >
-                <span className={styles.avatarOptionIcon}><UploadIcon size={16} /></span>
-                <span>{t('settings.basic.avatar.upload')}</span>
+                ×
               </button>
             </div>
+
+            <div className={styles.avatarDrawerTabs} role="tablist">
+              <button
+                id={AVATAR_ASSISTANT_TAB_ID}
+                type="button"
+                className={`${styles.avatarDrawerTab} ${avatarDrawerTab === 'assistant' ? styles.active : ''}`}
+                onClick={() => setAvatarDrawerTab('assistant')}
+                role="tab"
+                aria-selected={avatarDrawerTab === 'assistant'}
+                aria-controls={AVATAR_ASSISTANT_PANEL_ID}
+              >
+                {renderAssistantAvatarFrame('compact')}
+                <span>{t('settings.basic.avatar.aiTab')}</span>
+              </button>
+              <button
+                id={AVATAR_USER_TAB_ID}
+                type="button"
+                className={`${styles.avatarDrawerTab} ${avatarDrawerTab === 'user' ? styles.active : ''}`}
+                onClick={() => setAvatarDrawerTab('user')}
+                role="tab"
+                aria-selected={avatarDrawerTab === 'user'}
+                aria-controls={AVATAR_USER_PANEL_ID}
+              >
+                {renderUserAvatarFrame('compact')}
+                <span>{t('settings.basic.avatar.userTab')}</span>
+              </button>
+            </div>
+
+            {avatarDrawerTab === 'assistant' && (
+              <div
+                id={AVATAR_ASSISTANT_PANEL_ID}
+                className={styles.avatarDrawerPanel}
+                role="tabpanel"
+                aria-labelledby={AVATAR_ASSISTANT_TAB_ID}
+              >
+                <div className={styles.avatarCurrentCard}>
+                  {renderAssistantAvatarFrame()}
+                  <span>
+                    <strong>{getAssistantAvatarSummary()}</strong>
+                    <small>{t('settings.basic.avatar.customCoversFrame')}</small>
+                  </span>
+                </div>
+
+                <div className={styles.avatarChoiceGrid}>
+                  <button
+                    type="button"
+                    className={`${styles.avatarChoiceCard} ${assistantActiveProvider ? styles.active : ''}`}
+                    onClick={selectAssistantProviderAvatar}
+                  >
+                    <span className={styles.avatarChoiceCheck}>✓</span>
+                    <span className={`${styles.drawerAvatarFrame} ${styles.assistantAvatarFrame} ${styles.providerAvatarFrame}`}>
+                      {renderAssistantProviderIcon(currentProvider)}
+                      <span className={styles.providerAccent} />
+                    </span>
+                    <span><strong>{t('settings.basic.avatar.followProvider')}</strong></span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.avatarChoiceCard} ${assistantActivePreset(AVATAR_PRESET.ASSISTANT_DEFAULT) ? styles.active : ''}`}
+                    onClick={() => selectAssistantPresetAvatar(AVATAR_PRESET.ASSISTANT_DEFAULT)}
+                  >
+                    <span className={styles.avatarChoiceCheck}>✓</span>
+                    <span className={`${styles.drawerAvatarFrame} ${styles.assistantAvatarFrame}`}><AssistantAvatarIcon /></span>
+                    <span><strong>{t('settings.basic.avatar.assistantDefault')}</strong></span>
+                  </button>
+                  {assistantProviderAvatarOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={`${styles.avatarChoiceCard} ${assistantActivePreset(option.value) ? styles.active : ''}`}
+                      onClick={() => selectAssistantPresetAvatar(option.value)}
+                    >
+                      <span className={styles.avatarChoiceCheck}>✓</span>
+                      <span className={`${styles.drawerAvatarFrame} ${styles.assistantAvatarFrame} ${styles.providerAvatarFrame}`}>
+                        <ProviderModelIcon providerId={option.value} size={18} colored />
+                        <span className={styles.providerAccent} />
+                      </span>
+                      <span><strong>{option.label}</strong></span>
+                    </button>
+                  ))}
+                  {assistantAvatar?.custom?.dataUrl && (
+                    <button
+                      type="button"
+                      className={`${styles.avatarChoiceCard} ${assistantActiveCustom ? styles.active : ''}`}
+                      onClick={() => onAssistantAvatarChange({ mode: AVATAR_MODE.CUSTOM, custom: assistantAvatar.custom })}
+                    >
+                      <span className={styles.avatarChoiceCheck}>✓</span>
+                      <span className={`${styles.drawerAvatarFrame} ${styles.customAvatarFrame}`}>
+                        <img className={styles.drawerAvatarImage} src={assistantAvatar.custom.dataUrl} alt="" />
+                      </span>
+                      <span><strong>{t('settings.basic.avatar.uploaded')}</strong></span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className={`${styles.avatarChoiceCard} ${styles.uploadAvatarChoice}`}
+                    onClick={onUploadAssistantAvatar}
+                  >
+                    <span className={`${styles.drawerAvatarFrame} ${styles.uploadAvatarFrame}`}><UploadIcon size={16} /></span>
+                    <span><strong>{t('settings.basic.avatar.upload')}</strong></span>
+                  </button>
+                </div>
+
+                <div className={styles.avatarChatPreview}>
+                  <div className={styles.assistantPreviewRow}>
+                    {renderAssistantAvatarFrame()}
+                    <div className={styles.previewBubble}>{t('settings.basic.avatar.assistantPreviewMessage')}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {avatarDrawerTab === 'user' && (
+              <div
+                id={AVATAR_USER_PANEL_ID}
+                className={styles.avatarDrawerPanel}
+                role="tabpanel"
+                aria-labelledby={AVATAR_USER_TAB_ID}
+              >
+                <div className={styles.avatarCurrentCard}>
+                  {renderUserAvatarFrame()}
+                  <span>
+                    <strong>{getUserAvatarSummary()}</strong>
+                    <small>{t('settings.basic.avatar.customCoversFrame')}</small>
+                  </span>
+                </div>
+
+                <div className={styles.avatarChoiceGrid}>
+                  <button
+                    type="button"
+                    className={`${styles.avatarChoiceCard} ${userActiveDefault ? styles.active : ''}`}
+                    onClick={selectUserDefaultAvatar}
+                  >
+                    <span className={styles.avatarChoiceCheck}>✓</span>
+                    <span className={`${styles.drawerAvatarFrame} ${styles.userAvatarFrame}`}><UserAvatarIcon /></span>
+                    <span><strong>{t('settings.basic.avatar.userDefault')}</strong></span>
+                  </button>
+                  {userAvatar?.custom?.dataUrl && (
+                    <button
+                      type="button"
+                      className={`${styles.avatarChoiceCard} ${userActiveCustom ? styles.active : ''}`}
+                      onClick={() => onUserAvatarChange({ mode: AVATAR_MODE.CUSTOM, custom: userAvatar.custom })}
+                    >
+                      <span className={styles.avatarChoiceCheck}>✓</span>
+                      <span className={`${styles.drawerAvatarFrame} ${styles.customAvatarFrame}`}>
+                        <img className={styles.drawerAvatarImage} src={userAvatar.custom.dataUrl} alt="" />
+                      </span>
+                      <span><strong>{t('settings.basic.avatar.uploaded')}</strong></span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className={`${styles.avatarChoiceCard} ${styles.uploadAvatarChoice}`}
+                    onClick={onUploadUserAvatar}
+                  >
+                    <span className={`${styles.drawerAvatarFrame} ${styles.uploadAvatarFrame}`}><UploadIcon size={16} /></span>
+                    <span><strong>{t('settings.basic.avatar.upload')}</strong></span>
+                  </button>
+                </div>
+
+                <div className={styles.avatarChatPreview}>
+                  <div className={styles.userPreviewRow}>
+                    {renderUserAvatarFrame()}
+                    <div className={styles.previewBubble}>{t('settings.basic.avatar.userPreviewMessage')}</div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
+        )}
       </div>
 
       {/* Language switcher */}

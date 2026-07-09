@@ -105,54 +105,41 @@
   color: var(--text-secondary);
 }
 
-.avatarGroups {
+.avatarSection {
+  margin-bottom: 24px;
+}
+
+.avatarMenuEntry {
+  width: 100%;
+  max-width: 400px;
   display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.avatarGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.avatarGroupLabel {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-tertiary);
-}
-
-.avatarOptions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.avatarOption {
-  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 34px;
-  padding: 7px 10px;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px;
   border: 1px solid var(--border-secondary);
-  border-radius: 8px;
+  border-radius: 12px;
   background: var(--bg-secondary);
-  color: var(--text-secondary);
-  font-size: 12px;
+  color: var(--text-primary);
   cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  text-align: left;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+
+  &::after {
+    content: '';
+    width: 8px;
+    height: 8px;
+    margin-left: auto;
+    flex-shrink: 0;
+    border-right: 2px solid var(--text-tertiary);
+    border-bottom: 2px solid var(--text-tertiary);
+    transform: rotate(-45deg);
+    transition: transform 0.2s ease;
+  }
 
   &:hover:not(:disabled) {
     border-color: var(--border-hover);
     background: var(--bg-tertiary);
-    color: var(--text-primary);
-  }
-
-  &.active {
-    border-color: var(--accent-primary);
-    background: rgba(0, 120, 212, 0.08);
-    color: var(--accent-primary);
   }
 
   &:disabled {
@@ -161,26 +148,338 @@
   }
 }
 
-.avatarOptionIcon,
-.avatarPreviewImage {
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
-  flex-shrink: 0;
+.avatarMenuEntryOpen::after {
+  transform: rotate(45deg);
 }
 
-.avatarOptionIcon {
+.avatarMenuPreview {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  flex-shrink: 0;
 
-  svg {
-    width: 16px;
-    height: 16px;
+  > :not(:first-child) {
+    margin-left: -6px;
   }
 }
 
-.avatarPreviewImage {
+.avatarMenuCopy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.avatarMenuTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.avatarMenuSummary {
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.avatarConfigureLabel {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border: 1px solid rgba(0, 120, 212, 0.32);
+  border-radius: 8px;
+  background: rgba(0, 120, 212, 0.1);
+  color: var(--accent-primary);
+  font-size: 12px;
+}
+
+.avatarDrawer {
+  margin-top: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border-secondary);
+  border-radius: 14px;
+  background: var(--bg-secondary);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.18);
+}
+
+.avatarDrawerHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+  border-bottom: 1px solid var(--border-secondary);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent);
+}
+
+.avatarDrawerTitle {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.avatarDrawerDescription {
+  margin-top: 3px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.avatarDrawerClose {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border-secondary);
+  border-radius: 8px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+
+  &:hover {
+    border-color: var(--border-hover);
+    color: var(--text-primary);
+  }
+}
+
+.avatarDrawerTabs {
+  display: flex;
+  gap: 4px;
+  margin: 12px 14px 0;
+  padding: 3px;
+  border: 1px solid var(--border-secondary);
+  border-radius: 10px;
+  background: var(--bg-tertiary);
+}
+
+.avatarDrawerTab {
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+
+  &.active {
+    background: rgba(0, 120, 212, 0.12);
+    color: var(--text-primary);
+    box-shadow: inset 0 0 0 1px rgba(0, 120, 212, 0.18);
+  }
+}
+
+.avatarDrawerPanel {
+  padding: 14px;
+}
+
+.avatarCurrentCard {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 10px;
+  border: 1px solid rgba(0, 120, 212, 0.18);
+  border-radius: 12px;
+  background: rgba(0, 120, 212, 0.07);
+
+  strong {
+    display: block;
+    color: var(--text-primary);
+    font-size: 12px;
+  }
+
+  small {
+    display: block;
+    margin-top: 2px;
+    color: var(--text-tertiary);
+    font-size: 11px;
+  }
+}
+
+.avatarChoiceGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.avatarChoiceCard {
+  position: relative;
+  display: flex;
+  min-height: 72px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border-secondary);
+  border-radius: 12px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+
+  strong {
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  &:hover {
+    border-color: var(--border-hover);
+    background: var(--bg-hover);
+  }
+
+  &.active {
+    border-color: var(--accent-primary);
+    background: rgba(0, 120, 212, 0.09);
+  }
+}
+
+.avatarChoiceCheck {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  display: none;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  color: #fff;
+  font-size: 11px;
+}
+
+.avatarChoiceCard.active .avatarChoiceCheck {
+  display: inline-flex;
+}
+
+.uploadAvatarChoice {
+  border-style: dashed;
+  color: var(--accent-primary);
+}
+
+.avatarChatPreview {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid var(--border-secondary);
+  border-radius: 12px;
+  background: var(--bg-tertiary);
+}
+
+.assistantPreviewRow,
+.userPreviewRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.userPreviewRow {
+  flex-direction: row-reverse;
+}
+
+.previewBubble {
+  max-width: 78%;
+  padding: 9px 10px;
+  border: 1px solid var(--border-secondary);
+  border-radius: 11px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.userPreviewRow .previewBubble {
+  border-color: rgba(0, 120, 212, 0.22);
+  background: rgba(0, 120, 212, 0.08);
+}
+
+.drawerAvatarFrame {
+  position: relative;
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 10px;
+
+  svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  &.compact {
+    width: 24px;
+    height: 24px;
+    border-radius: 8px;
+
+    svg {
+      width: 13px;
+      height: 13px;
+    }
+  }
+}
+
+.assistantAvatarFrame {
+  border: 1px solid rgba(59, 130, 246, 0.22);
+  background: linear-gradient(180deg, #3b82f6, #06b6d4);
+  color: #eaf2ff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 1px 2px rgba(0, 0, 0, 0.22);
+}
+
+.providerAvatarFrame {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: inherit;
+}
+
+.providerAccent {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #8ea0b7;
+  box-shadow: 0 0 0 2px #1d2430;
+}
+
+.userAvatarFrame {
+  border: 1px solid rgba(136, 191, 255, 0.22);
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #eaf2ff;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+}
+
+.customAvatarFrame {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.uploadAvatarFrame {
+  border: 1px dashed rgba(0, 120, 212, 0.45);
+  background: transparent;
+  color: var(--accent-primary);
+}
+
+.drawerAvatarImage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
   object-fit: cover;
 }
 
