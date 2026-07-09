@@ -27,7 +27,7 @@ export const UserAvatarIcon = () => (
 );
 
 /**
- * AI 头像 SVG (Claude logo style)
+ * AI 头像 SVG
  */
 export const AssistantAvatarIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -39,7 +39,7 @@ export const AssistantAvatarIcon = () => (
 
 /**
  * 消息头像组件
- * 用户消息显示紫色渐变头像，AI回复显示蓝紫渐变头像
+ * 自定义图片会直接铺满头像框，避免底色与图片边缘不协调。
  */
 export const MessageAvatar = memo(function MessageAvatar({
   type,
@@ -53,6 +53,20 @@ export const MessageAvatar = memo(function MessageAvatar({
   if (type !== 'user' && type !== 'assistant') {
     return null;
   }
+
+  const isCustomAvatar = type === 'user'
+    ? avatarConfig?.user?.mode === AVATAR_MODE.CUSTOM && Boolean(avatarConfig.user.custom?.dataUrl)
+    : avatarConfig?.assistant?.mode === AVATAR_MODE.CUSTOM && Boolean(avatarConfig.assistant.custom?.dataUrl);
+  const isProviderAvatar = type === 'assistant' && (
+    avatarConfig?.assistant?.mode === AVATAR_MODE.PROVIDER
+    || (avatarConfig?.assistant?.mode === AVATAR_MODE.PRESET && isProviderAvatarPreset(avatarConfig.assistant.preset))
+  );
+  const avatarClassName = [
+    'message-avatar',
+    isCustomAvatar ? 'message-avatar-custom' : '',
+    isProviderAvatar ? 'message-avatar-provider' : '',
+    className ?? '',
+  ].filter(Boolean).join(' ');
 
   const renderAssistantAvatar = () => {
     const selection = avatarConfig?.assistant;
@@ -95,7 +109,7 @@ export const MessageAvatar = memo(function MessageAvatar({
   };
 
   return (
-    <div className={`message-avatar${className ? ` ${className}` : ''}`}>
+    <div className={avatarClassName}>
       {type === 'user' ? renderUserAvatar() : renderAssistantAvatar()}
       <span className="avatar-label">
         {type === 'user' ? userLabel : assistantLabel}

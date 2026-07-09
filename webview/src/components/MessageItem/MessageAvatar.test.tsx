@@ -45,7 +45,9 @@ describe('MessageAvatar', () => {
     };
 
     const { container } = render(<MessageAvatar type="assistant" avatarConfig={avatarConfig} />);
+    const avatar = container.querySelector('.message-avatar');
     const image = container.querySelector<HTMLImageElement>('img.message-avatar-image');
+    expect(avatar?.classList.contains('message-avatar-custom')).toBe(true);
     expect(image).toBeTruthy();
     expect(image?.src).toBe(CUSTOM_PNG_DATA_URL);
   });
@@ -66,7 +68,9 @@ describe('MessageAvatar', () => {
     };
 
     const { container } = render(<MessageAvatar type="user" avatarConfig={avatarConfig} />);
+    const avatar = container.querySelector('.message-avatar');
     const image = container.querySelector<HTMLImageElement>('img.message-avatar-image');
+    expect(avatar?.classList.contains('message-avatar-custom')).toBe(true);
     expect(image).toBeTruthy();
     expect(image?.src).toBe(CUSTOM_PNG_DATA_URL);
   });
