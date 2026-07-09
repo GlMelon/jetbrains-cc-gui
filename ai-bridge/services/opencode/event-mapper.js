@@ -164,8 +164,12 @@ export function createOpenCodeEventMapper(sessionId) {
                 const out = ensureStarted().concat(emitSessionIdOnce(props));
                 const part = props.part || props;
                 if (part && part.text) {
-                    assistantText += part.text;
-                    return out.concat([{ type: 'content_delta', text: part.text }]);
+                    const d = delta(assistantText, part.text);
+                    if (d) {
+                        assistantText += d;
+                        return out.concat([{ type: 'content_delta', text: d }]);
+                    }
+                    return out;
                 }
                 return out;
             }
