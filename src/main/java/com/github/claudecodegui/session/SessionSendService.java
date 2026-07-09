@@ -185,8 +185,9 @@ public class SessionSendService {
                 return configured.trim();
             }
         } catch (Exception e) {
-            LOG.warn("[ModeSync][Backend] Failed to read Claude invocation mode, defaulting to sdk: " + e.getMessage());
+            LOG.warn("[ModeSync][Backend] Failed to read Claude invocation mode from settings: " + e.getMessage());
         }
+        LOG.warn("[ModeSync][Backend] No valid invocation mode from session/request/settings, falling back to SDK");
         return CommonConstants.INVOCATION_MODE_SDK;
     }
 

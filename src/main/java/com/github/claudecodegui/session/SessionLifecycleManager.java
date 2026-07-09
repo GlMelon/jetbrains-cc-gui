@@ -439,10 +439,14 @@ public class SessionLifecycleManager {
     private String readClaudeInvocationMode() {
         try {
             String mode = CodemossSettingsService.getInstance().getClaudeInvocationMode();
-            return SessionState.isValidClaudeInvocationMode(mode) ? mode : CommonConstants.INVOCATION_MODE_SDK;
+            if (SessionState.isValidClaudeInvocationMode(mode)) {
+                return mode;
+            }
+            LOG.warn("Invalid Claude invocation mode from settings: " + mode);
+            return null;
         } catch (Exception e) {
-            LOG.warn("Failed to read Claude invocation mode, defaulting to sdk: " + e.getMessage());
-            return CommonConstants.INVOCATION_MODE_SDK;
+            LOG.error("Failed to read Claude invocation mode from settings: " + e.getMessage());
+            return null;
         }
     }
 
@@ -462,7 +466,13 @@ public class SessionLifecycleManager {
         session.setProvider(provider);
         session.setPermissionMode(readDefaultPermissionMode(provider));
         session.setModel(readDefaultModel(provider));
-        session.setClaudeInvocationMode(readClaudeInvocationMode());
+        String mode = readClaudeInvocationMode();
+        if (mode != null) {
+            session.setClaudeInvocationMode(mode);
+            LOG.info("Initialized session invocation mode: " + mode);
+        } else {
+            LOG.info("No invocation mode set from settings, session keeps default");
+        }
     }
 
     /**
@@ -486,7 +496,11 @@ public class SessionLifecycleManager {
         target.setProvider(provider);
         target.setModel(source.getModel());
         target.setPermissionMode(source.getPermissionMode());
-        target.setClaudeInvocationMode(source.getClaudeInvocationMode());
+        // 仅当旧会话有有效的调用模式时才继承，避免将 null/SDK 默认值传染到新会话
+        String sourceMode = source.getClaudeInvocationMode();
+        if (SessionState.isValidClaudeInvocationMode(sourceMode)) {
+            target.setClaudeInvocationMode(sourceMode);
+        }
     }
 
     private String readDefaultProvider() {
