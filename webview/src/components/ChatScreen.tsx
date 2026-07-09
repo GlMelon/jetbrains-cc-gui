@@ -195,6 +195,8 @@ export const ChatScreen = ({
           collapsedCount={anchorCollapsedCount}
           containerRef={messagesContainerRef}
           messageNodeMap={messageNodeMapRef}
+          messageListRef={messageListRef}
+          addToast={addToast}
         />
         <ConversationSearch
           open={searchOpen}

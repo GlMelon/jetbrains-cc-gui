@@ -1,220 +1,319 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
+import type { TFunction } from 'i18next';
+import { useTranslation } from 'react-i18next';
 import type { ClaudeMessage } from '../types';
-import { getMessageKey } from '../utils/messageUtils';
+import type { LocalizeMessageFn } from '../utils/messageUtils';
+import { getMessageKey, getMessageText } from '../utils/messageUtils';
+import { formatTime } from '../utils/helpers';
+import { copyToClipboard, extractMarkdownContent } from '../utils/copyUtils';
+import { createLocalizeMessage } from '../utils/localizationUtils';
+import type { MessageListRevealHandle } from './ConversationSearch/types';
 
-interface AnchorItem {
+interface UserMessageItem {
   id: string;
-  position: number;
-  preview: string;
+  turn: number;
+  timeLabel: string;
+  text: string;
+  copyText: string;
+  searchText: string;
 }
 
 interface MessageAnchorRailProps {
   messages: ClaudeMessage[];
-  /** Number of messages hidden by the collapse feature. Anchors start after this offset. */
+  /** Number of messages hidden by the collapse feature. Kept for call-site compatibility. */
   collapsedCount?: number;
   containerRef: React.RefObject<HTMLDivElement | null>;
   messageNodeMap: React.RefObject<Map<string, HTMLDivElement>>;
+  messageListRef?: React.RefObject<MessageListRevealHandle | null>;
+  addToast?: (message: string, type?: 'success' | 'error' | 'info' | 'warning') => void;
 }
 
-const MAX_PREVIEW_LENGTH = 300;
-const TOOLTIP_DELAY_MS = 500;
+const CONTROL_CHARS_RE = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F\u200B-\u200D\uFEFF]/g;
+const HIGHLIGHT_CLASS_NAME = 'is-user-panel-highlight';
+const MAX_SCROLL_ATTEMPTS = 60;
 
-function getAnchorStyle(position: number): React.CSSProperties {
-  return { top: `${position * 100}%` };
+function normalizeText(text: string): string {
+  return text.replace(CONTROL_CHARS_RE, '').replace(/\s+/g, ' ').trim();
 }
 
-/**
- * Extracts a short preview text from a user message for the tooltip.
- * Strips control characters and collapses excessive whitespace for clean display.
- */
-function getMessagePreview(message: ClaudeMessage): string {
-  const raw = message.content?.trim() ?? '';
-  if (!raw) return '';
-  // Strip control characters (except common whitespace) and collapse runs of whitespace
-  const text = raw
-    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F\u200B-\u200D\uFEFF]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  if (!text) return '';
-  if (text.length <= MAX_PREVIEW_LENGTH) return text;
-  return text.slice(0, MAX_PREVIEW_LENGTH) + '...';
+function getSearchText(item: UserMessageItem): string {
+  return `${item.timeLabel} ${item.text}`.toLocaleLowerCase();
+}
+
+function buildUserMessageItems(
+  messages: ClaudeMessage[],
+  localizeMessage: LocalizeMessageFn,
+  t: TFunction,
+): UserMessageItem[] {
+  const items: UserMessageItem[] = [];
+  for (let index = 0; index < messages.length; index++) {
+    const message = messages[index];
+    if (message.type !== 'user') continue;
+    const text = normalizeText(getMessageText(message, localizeMessage, t));
+    if (!text) continue;
+    const copyText = extractMarkdownContent(message).trim() || text;
+    const timeLabel = formatTime(message.timestamp);
+    const item: UserMessageItem = {
+      id: getMessageKey(message, index),
+      turn: items.length + 1,
+      timeLabel,
+      text,
+      copyText,
+      searchText: '',
+    };
+    item.searchText = getSearchText(item);
+    items.push(item);
+  }
+  return items;
+}
+
+function renderHighlightedText(text: string, query: string): ReactNode {
+  const trimmed = query.trim();
+  if (!trimmed) return text;
+
+  const source = text.toLocaleLowerCase();
+  const needle = trimmed.toLocaleLowerCase();
+  const parts: ReactNode[] = [];
+  let cursor = 0;
+  let matchIndex = source.indexOf(needle, cursor);
+
+  while (matchIndex >= 0) {
+    if (matchIndex > cursor) {
+      parts.push(text.slice(cursor, matchIndex));
+    }
+    const end = matchIndex + needle.length;
+    parts.push(<mark key={`${matchIndex}-${end}`}>{text.slice(matchIndex, end)}</mark>);
+    cursor = end;
+    matchIndex = source.indexOf(needle, cursor);
+  }
+
+  if (cursor < text.length) {
+    parts.push(text.slice(cursor));
+  }
+  return parts.length > 0 ? parts : text;
 }
 
 export const MessageAnchorRail = memo(function MessageAnchorRail({
   messages,
-  collapsedCount = 0,
   containerRef,
   messageNodeMap,
+  messageListRef,
+  addToast,
 }: MessageAnchorRailProps) {
-  const [activeAnchorId, setActiveAnchorId] = useState<string | null>(null);
-  const [tooltipAnchorId, setTooltipAnchorId] = useState<string | null>(null);
-  const tooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const highlightTimerRef = useRef<number | null>(null);
+  const scrollAttemptTokenRef = useRef(0);
+  const localizeMessage = useMemo(() => createLocalizeMessage(t), [t]);
 
-  const clearTooltipTimer = useCallback(() => {
-    if (tooltipTimerRef.current !== null) {
-      clearTimeout(tooltipTimerRef.current);
-      tooltipTimerRef.current = null;
+  const userMessages = useMemo(
+    () => buildUserMessageItems(messages, localizeMessage, t),
+    [localizeMessage, messages, t],
+  );
+  const filteredMessages = useMemo(() => {
+    const keyword = query.trim().toLocaleLowerCase();
+    if (!keyword) return userMessages;
+    return userMessages.filter((item) => item.searchText.includes(keyword));
+  }, [query, userMessages]);
+
+  const clearHighlightTimer = useCallback(() => {
+    if (highlightTimerRef.current !== null) {
+      window.clearTimeout(highlightTimerRef.current);
+      highlightTimerRef.current = null;
     }
   }, []);
 
-  const handleDotMouseEnter = useCallback((anchorId: string) => {
-    clearTooltipTimer();
-    tooltipTimerRef.current = setTimeout(() => {
-      setTooltipAnchorId(anchorId);
-    }, TOOLTIP_DELAY_MS);
-  }, [clearTooltipTimer]);
+  const notify = useCallback((message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
+    addToast?.(message, type);
+  }, [addToast]);
 
-  const handleDotMouseLeave = useCallback(() => {
-    clearTooltipTimer();
-    setTooltipAnchorId(null);
-  }, [clearTooltipTimer]);
+  const closePanel = useCallback(() => {
+    setOpen(false);
+  }, []);
 
-  // Cleanup timer on unmount
-  useEffect(() => clearTooltipTimer, [clearTooltipTimer]);
+  const openPanel = useCallback(() => {
+    setOpen(true);
+    window.setTimeout(() => searchInputRef.current?.focus(), 120);
+  }, []);
 
-  // Stable signature of the visible user-message set. During streaming the
-  // `messages` array reference changes every tick even though the set of user
-  // messages is unchanged; keying off this string keeps anchors (and the
-  // IntersectionObserver below) from being rebuilt on every streaming frame.
-  const userMessageSignature = useMemo(() => {
-    const startIndex = collapsedCount;
-    const parts: string[] = [];
-    for (let i = startIndex; i < messages.length; i++) {
-      if (messages[i].type === 'user') {
-        parts.push(getMessageKey(messages[i], i));
-      }
-    }
-    return parts.join('|');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages, collapsedCount]);
-
-  // Compute anchor items from visible user messages only (skip collapsed ones)
-  const anchors = useMemo<AnchorItem[]>(() => {
-    const userMessages: AnchorItem[] = [];
-    const startIndex = collapsedCount;
-    for (let i = startIndex; i < messages.length; i++) {
-      if (messages[i].type === 'user') {
-        userMessages.push({
-          id: getMessageKey(messages[i], i),
-          position: 0,
-          preview: getMessagePreview(messages[i]),
-        });
-      }
-    }
-    // Guard: also prevents division by zero in the position calculation below
-    if (userMessages.length <= 1) return [];
-    // Distribute positions evenly between 4% and 96%
-    return userMessages.map((item, idx) => ({
-      ...item,
-      position: 0.04 + (idx / (userMessages.length - 1)) * 0.92,
-    }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- depends on the
-    // stable signature so streaming ticks don't recompute anchors.
-  }, [userMessageSignature]);
-
-  // Scroll to a specific anchor message
-  const scrollToAnchor = useCallback((messageId: string) => {
-    const node = messageNodeMap.current?.get(messageId);
-    const container = containerRef.current;
-    if (!node || !container) return;
-
-    const containerRect = container.getBoundingClientRect();
-    const nodeRect = node.getBoundingClientRect();
-    const targetTop =
-      container.scrollTop + (nodeRect.top - containerRect.top) - container.clientHeight * 0.28;
-
-    container.scrollTo({
-      top: Math.max(0, targetTop),
-      behavior: 'smooth',
-    });
-    setActiveAnchorId(messageId);
-  }, [containerRef, messageNodeMap]);
-
-  // Use IntersectionObserver to track which anchor message is visible.
-  // This replaces the old scroll-handler + getBoundingClientRect() loop
-  // which caused layout thrashing (N forced layout reads per scroll frame).
   useEffect(() => {
-    const container = containerRef.current;
-    const nodeMap = messageNodeMap.current;
-    if (!container || !nodeMap || anchors.length === 0) return;
-
-    // Track which anchor IDs are currently intersecting the viewport
-    const visibleSet = new Set<string>();
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          const id = (entry.target as HTMLElement).dataset.messageAnchorId;
-          if (!id) continue;
-          if (entry.isIntersecting) {
-            visibleSet.add(id);
-          } else {
-            visibleSet.delete(id);
-          }
-        }
-
-        // Pick the first visible anchor (topmost in DOM order)
-        // by iterating anchors in order and checking membership
-        for (const anchor of anchors) {
-          if (visibleSet.has(anchor.id)) {
-            setActiveAnchorId((prev) => (prev === anchor.id ? prev : anchor.id));
-            return;
-          }
-        }
-      },
-      {
-        root: container,
-        // Trigger when a message enters the top ~32% of the viewport
-        rootMargin: '0px 0px -68% 0px',
-        threshold: 0,
-      }
-    );
-
-    // Observe all user-message nodes that have anchors
-    const anchorIds = new Set(anchors.map((a) => a.id));
-    for (const [id, node] of nodeMap) {
-      if (anchorIds.has(id)) {
-        observer.observe(node);
-      }
-    }
-
-    return () => {
-      observer.disconnect();
+    if (!open) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closePanel();
     };
-  }, [containerRef, messageNodeMap, anchors]);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [open, closePanel]);
 
-  if (anchors.length === 0) return null;
+  useEffect(() => {
+    return () => {
+      scrollAttemptTokenRef.current += 1;
+      clearHighlightTimer();
+    };
+  }, [clearHighlightTimer]);
+
+  const copyMessage = useCallback(async (item: UserMessageItem) => {
+    const success = await copyToClipboard(item.copyText);
+    notify(
+      success
+        ? t('chat.userPanel.copyOneSuccess')
+        : t('chat.userPanel.copyFailed'),
+      success ? 'success' : 'error',
+    );
+  }, [notify, t]);
+
+  const highlightNode = useCallback((node: HTMLDivElement, messageId: string) => {
+    clearHighlightTimer();
+    document.querySelectorAll(`.${HIGHLIGHT_CLASS_NAME}`).forEach((el) => {
+      el.classList.remove(HIGHLIGHT_CLASS_NAME);
+    });
+    node.classList.add(HIGHLIGHT_CLASS_NAME);
+    setActiveMessageId(messageId);
+    highlightTimerRef.current = window.setTimeout(() => {
+      node.classList.remove(HIGHLIGHT_CLASS_NAME);
+      setActiveMessageId((current) => (current === messageId ? null : current));
+      highlightTimerRef.current = null;
+    }, 1800);
+  }, [clearHighlightTimer]);
+
+  const scrollToMessage = useCallback((item: UserMessageItem) => {
+    messageListRef?.current?.revealAll();
+    const scrollAttemptToken = scrollAttemptTokenRef.current + 1;
+    scrollAttemptTokenRef.current = scrollAttemptToken;
+
+    let attempts = 0;
+    const tryScroll = () => {
+      if (scrollAttemptTokenRef.current !== scrollAttemptToken) return;
+      const node = messageNodeMap.current?.get(item.id);
+      const container = containerRef.current;
+      if (!node || !container) {
+        attempts += 1;
+        if (attempts < MAX_SCROLL_ATTEMPTS) {
+          window.requestAnimationFrame(tryScroll);
+        } else if (scrollAttemptTokenRef.current === scrollAttemptToken) {
+          notify(t('chat.userPanel.jumpFailed'), 'warning');
+        }
+        return;
+      }
+
+      const containerRect = container.getBoundingClientRect();
+      const nodeRect = node.getBoundingClientRect();
+      const targetTop = container.scrollTop + (nodeRect.top - containerRect.top) - container.clientHeight * 0.28;
+      container.scrollTo({
+        top: Math.max(0, targetTop),
+        behavior: 'smooth',
+      });
+      highlightNode(node, item.id);
+      notify(t('chat.userPanel.jumpSuccess'), 'info');
+    };
+
+    window.requestAnimationFrame(tryScroll);
+  }, [containerRef, highlightNode, messageListRef, messageNodeMap, notify, t]);
+
+  if (userMessages.length === 0) return null;
+
+  const panelTitleId = 'messages-user-panel-title';
 
   return (
-    <div className="messages-anchor-rail" role="navigation" aria-label="Message anchors">
-      <div className="messages-anchor-track" aria-hidden="true" />
-      {anchors.map((anchor, index) => {
-        const isActive = activeAnchorId === anchor.id;
-        const showTooltip = tooltipAnchorId === anchor.id && anchor.preview;
-        return (
-          <div
-            key={anchor.id}
-            role="button"
-            tabIndex={0}
-            className={`messages-anchor-dot${isActive ? ' is-active' : ''}`}
-            style={getAnchorStyle(anchor.position)}
-            onClick={() => scrollToAnchor(anchor.id)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                scrollToAnchor(anchor.id);
-              }
-            }}
-            onMouseEnter={() => handleDotMouseEnter(anchor.id)}
-            onMouseLeave={handleDotMouseLeave}
-            aria-label={`Go to user message ${index + 1}`}
-          >
-            {showTooltip && (
-              <div className="anchor-tooltip">{anchor.preview}</div>
-            )}
+    <>
+      <button
+        type="button"
+        className={`messages-user-panel-handle${open ? ' is-open' : ''}`}
+        onClick={open ? closePanel : openPanel}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-controls="messages-user-panel"
+        aria-label={open ? t('chat.userPanel.close') : t('chat.userPanel.openLabel')}
+      >
+        <span className="messages-user-panel-handle-inner" aria-hidden="true">
+          <span className="messages-user-panel-handle-line" />
+          <span className="messages-user-panel-handle-text">{t('chat.userPanel.handle')}</span>
+        </span>
+        <span className="messages-user-panel-handle-badge">{userMessages.length}</span>
+      </button>
+
+      <div
+        className={`messages-user-panel-scrim${open ? ' is-open' : ''}`}
+        onClick={closePanel}
+        aria-hidden="true"
+      />
+
+      <aside
+        id="messages-user-panel"
+        className={`messages-user-panel${open ? ' is-open' : ''}`}
+        role="dialog"
+        aria-modal="false"
+        aria-labelledby={panelTitleId}
+        aria-hidden={open ? undefined : true}
+        inert={open ? undefined : true}
+      >
+        <div className="messages-user-panel-head">
+          <div>
+            <h2 id={panelTitleId}>{t('chat.userPanel.title')}</h2>
+            <p>{t('chat.userPanel.subtitle', { count: userMessages.length })}</p>
           </div>
-        );
-      })}
-    </div>
+          <button
+            type="button"
+            className="messages-user-panel-close"
+            onClick={closePanel}
+            aria-label={t('chat.userPanel.close')}
+            title={t('chat.userPanel.close')}
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="messages-user-panel-tools">
+          <label className="messages-user-panel-search">
+            <span className="codicon codicon-search" aria-hidden="true" />
+            <input
+              ref={searchInputRef}
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={t('chat.userPanel.searchPlaceholder')}
+              aria-label={t('chat.userPanel.searchPlaceholder')}
+            />
+          </label>
+        </div>
+
+        {filteredMessages.length === 0 ? (
+          <div className="messages-user-panel-empty" role="status">{t('chat.userPanel.noResults')}</div>
+        ) : (
+          <div className="messages-user-panel-list" role="list">
+            {filteredMessages.map((item) => (
+              <article
+                key={item.id}
+                className={`messages-user-panel-card${activeMessageId === item.id ? ' is-active' : ''}`}
+                role="listitem"
+              >
+                <div className="messages-user-panel-card-top">
+                  <span>{item.timeLabel || t('chat.userPanel.noTime')}</span>
+                  <span>{t('chat.userPanel.turn', { count: item.turn })}</span>
+                </div>
+                <p>{renderHighlightedText(item.text, query)}</p>
+                <div className="messages-user-panel-actions">
+                  <button type="button" onClick={() => copyMessage(item)}>
+                    {t('chat.userPanel.copy')}
+                  </button>
+                  <button type="button" className="primary" onClick={() => scrollToMessage(item)}>
+                    {t('chat.userPanel.jump')}
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+
+        <div className="messages-user-panel-foot">
+          <span>{t('chat.userPanel.count', { filtered: filteredMessages.length, total: userMessages.length })}</span>
+          <span>{t('chat.userPanel.escHint')}</span>
+        </div>
+      </aside>
+    </>
   );
 });
