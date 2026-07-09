@@ -131,6 +131,25 @@
       "sessionInfo": "Текущая сессия · {{model}} · {{maxTokens}} окно контекста",
       "includes": "Включает: системный промпт, сообщения, контекст файлов, результаты инструментов, чтение кэша",
       "source": "Источник: Системный промпт · История сообщений · Текущий файл · Ввод/вывод инструментов"
+    },
+    "userPanel": {
+      "openLabel": "Открыть сообщения пользователя",
+      "handle": "Сообщения",
+      "title": "Сообщения пользователя",
+      "subtitle": "{{count}} сообщений пользователя в этой беседе",
+      "close": "Закрыть",
+      "searchPlaceholder": "Поиск сообщений пользователя…",
+      "noResults": "Нет совпадающих сообщений пользователя",
+      "noTime": "Нет времени",
+      "turn": "Сообщение {{count}}",
+      "copy": "Копировать",
+      "jump": "Перейти",
+      "count": "{{filtered}} / {{total}} сообщений пользователя",
+      "escHint": "Esc — закрыть",
+      "copyOneSuccess": "Сообщение скопировано",
+      "copyFailed": "Не удалось скопировать",
+      "jumpSuccess": "Переход к исходному сообщению выполнен",
+      "jumpFailed": "Не удалось найти исходное сообщение"
     }
   },
   "settings": {
@@ -299,7 +318,14 @@
         "uploaded": "Uploaded image",
         "upload": "Upload image",
         "user": "User avatar",
-        "userDefault": "User default"
+        "userDefault": "User default",
+        "configure": "Configure",
+        "close": "Close",
+        "aiTab": "AI",
+        "userTab": "User",
+        "customCoversFrame": "Custom images fill the entire avatar frame.",
+        "assistantPreviewMessage": "AI messages preview with the selected avatar.",
+        "userPreviewMessage": "User messages preview with the selected avatar."
       }
     },
     "providers": "Управление провайдерами",

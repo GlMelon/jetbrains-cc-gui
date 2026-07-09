@@ -141,6 +141,25 @@
       "sessionInfo": "Current session · {{model}} · {{maxTokens}} context window",
       "includes": "Includes: system prompt, messages, file context, tool results, cache reads",
       "source": "Source: System prompt · History messages · Current file · Tool I/O"
+    },
+    "userPanel": {
+      "openLabel": "Open user messages",
+      "handle": "User messages",
+      "title": "User messages",
+      "subtitle": "{{count}} user messages in this conversation",
+      "close": "Close",
+      "searchPlaceholder": "Search user messages…",
+      "noResults": "No matching user messages",
+      "noTime": "No time",
+      "turn": "Message {{count}}",
+      "copy": "Copy",
+      "jump": "Jump",
+      "count": "{{filtered}} / {{total}} user messages",
+      "escHint": "Esc to close",
+      "copyOneSuccess": "Copied this message",
+      "copyFailed": "Copy failed",
+      "jumpSuccess": "Jumped to original message",
+      "jumpFailed": "Could not locate original message"
     }
   },
   "settings": {
@@ -367,7 +386,14 @@
         "uploaded": "Uploaded image",
         "upload": "Upload image",
         "user": "User avatar",
-        "userDefault": "User default"
+        "userDefault": "User default",
+        "configure": "Configure",
+        "close": "Close",
+        "aiTab": "AI",
+        "userTab": "User",
+        "customCoversFrame": "Custom images fill the entire avatar frame.",
+        "assistantPreviewMessage": "AI messages preview with the selected avatar.",
+        "userPreviewMessage": "User messages preview with the selected avatar."
       }
     },
     "providers": "Provider Management",

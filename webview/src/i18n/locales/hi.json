@@ -131,6 +131,25 @@
       "sessionInfo": "वर्तमान सत्र · {{model}} · {{maxTokens}} संदर्भ विंडो",
       "includes": "शामिल: सिस्टम प्रॉम्प्ट, संदेश, फ़ाइल संदर्भ, टूल परिणाम, कैश पठन",
       "source": "स्रोत: सिस्टम प्रॉम्प्ट · ऐतिहासिक संदेश · वर्तमान फ़ाइल · टूल I/O"
+    },
+    "userPanel": {
+      "openLabel": "उपयोगकर्ता संदेश खोलें",
+      "handle": "उपयोगकर्ता संदेश",
+      "title": "उपयोगकर्ता संदेश",
+      "subtitle": "इस बातचीत में {{count}} उपयोगकर्ता संदेश हैं",
+      "close": "बंद करें",
+      "searchPlaceholder": "उपयोगकर्ता संदेश खोजें…",
+      "noResults": "कोई मिलता-जुलता उपयोगकर्ता संदेश नहीं",
+      "noTime": "समय नहीं",
+      "turn": "संदेश {{count}}",
+      "copy": "कॉपी",
+      "jump": "जाएँ",
+      "count": "{{filtered}} / {{total}} उपयोगकर्ता संदेश",
+      "escHint": "Esc से बंद करें",
+      "copyOneSuccess": "यह संदेश कॉपी हो गया",
+      "copyFailed": "कॉपी विफल",
+      "jumpSuccess": "मूल संदेश पर पहुँचे",
+      "jumpFailed": "मूल संदेश नहीं मिला"
     }
   },
   "settings": {
@@ -299,7 +318,14 @@
         "uploaded": "Uploaded image",
         "upload": "Upload image",
         "user": "User avatar",
-        "userDefault": "User default"
+        "userDefault": "User default",
+        "configure": "Configure",
+        "close": "Close",
+        "aiTab": "AI",
+        "userTab": "User",
+        "customCoversFrame": "Custom images fill the entire avatar frame.",
+        "assistantPreviewMessage": "AI messages preview with the selected avatar.",
+        "userPreviewMessage": "User messages preview with the selected avatar."
       }
     },
     "providers": "प्रदाता प्रबंधन",

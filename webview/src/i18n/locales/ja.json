@@ -131,6 +131,25 @@
       "sessionInfo": "現在のセッション · {{model}} · {{maxTokens}} コンテキストウィンドウ",
       "includes": "含む：システムプロンプト、メッセージ、ファイルコンテキスト、ツール結果、キャッシュ読み取り",
       "source": "出典：システムプロンプト · 履歴メッセージ · 現在のファイル · ツールI/O"
+    },
+    "userPanel": {
+      "openLabel": "ユーザーメッセージを開く",
+      "handle": "ユーザーメッセージ",
+      "title": "ユーザーメッセージ",
+      "subtitle": "この会話には {{count}} 件のユーザーメッセージがあります",
+      "close": "閉じる",
+      "searchPlaceholder": "ユーザーメッセージを検索…",
+      "noResults": "一致するユーザーメッセージはありません",
+      "noTime": "時刻なし",
+      "turn": "{{count}} 件目",
+      "copy": "コピー",
+      "jump": "移動",
+      "count": "{{filtered}} / {{total}} 件のユーザーメッセージ",
+      "escHint": "Esc で閉じる",
+      "copyOneSuccess": "このメッセージをコピーしました",
+      "copyFailed": "コピーに失敗しました",
+      "jumpSuccess": "元のメッセージへ移動しました",
+      "jumpFailed": "元のメッセージを特定できません"
     }
   },
   "settings": {
@@ -299,7 +318,14 @@
         "uploaded": "Uploaded image",
         "upload": "Upload image",
         "user": "User avatar",
-        "userDefault": "User default"
+        "userDefault": "User default",
+        "configure": "Configure",
+        "close": "Close",
+        "aiTab": "AI",
+        "userTab": "User",
+        "customCoversFrame": "Custom images fill the entire avatar frame.",
+        "assistantPreviewMessage": "AI messages preview with the selected avatar.",
+        "userPreviewMessage": "User messages preview with the selected avatar."
       }
     },
     "providers": "プロバイダー管理",

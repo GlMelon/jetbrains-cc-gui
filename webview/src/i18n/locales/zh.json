@@ -143,6 +143,25 @@
       "sessionInfo": "当前会话 · {{model}} · {{maxTokens}} 上下文窗口",
       "includes": "包含：系统提示词、消息、文件上下文、工具结果、缓存读取",
       "source": "来源：系统提示词 · 历史消息 · 当前文件 · 工具输入/输出"
+    },
+    "userPanel": {
+      "openLabel": "打开用户消息",
+      "handle": "用户消息",
+      "title": "用户消息",
+      "subtitle": "本次会话共 {{count}} 条用户消息",
+      "close": "关闭",
+      "searchPlaceholder": "搜索用户消息…",
+      "noResults": "没有匹配的用户消息",
+      "noTime": "无时间",
+      "turn": "第 {{count}} 条",
+      "copy": "复制",
+      "jump": "跳转",
+      "count": "{{filtered}} / {{total}} 条用户消息",
+      "escHint": "Esc 关闭",
+      "copyOneSuccess": "已复制该条消息",
+      "copyFailed": "复制失败",
+      "jumpSuccess": "已跳转到原消息",
+      "jumpFailed": "无法定位原消息"
     }
   },
   "settings": {
@@ -369,7 +388,14 @@
         "uploaded": "已上传图片",
         "upload": "上传图片",
         "user": "用户头像",
-        "userDefault": "用户默认"
+        "userDefault": "用户默认",
+        "configure": "配置",
+        "close": "关闭",
+        "aiTab": "AI",
+        "userTab": "用户",
+        "customCoversFrame": "自定义图片会直接铺满整个头像框。",
+        "assistantPreviewMessage": "AI 消息会使用当前选择的头像。",
+        "userPreviewMessage": "用户消息会使用当前选择的头像。"
       }
     },
     "providers": "供应商管理",

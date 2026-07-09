@@ -131,6 +131,25 @@
       "sessionInfo": "Sessão atual · {{model}} · {{maxTokens}} janela de contexto",
       "includes": "Inclui: prompt do sistema, mensagens, contexto de arquivo, resultados de ferramentas, leituras de cache",
       "source": "Fonte: Prompt do sistema · Mensagens do histórico · Arquivo atual · E/S de ferramentas"
+    },
+    "userPanel": {
+      "openLabel": "Abrir mensagens do usuário",
+      "handle": "Mensagens",
+      "title": "Mensagens do usuário",
+      "subtitle": "{{count}} mensagens do usuário nesta conversa",
+      "close": "Fechar",
+      "searchPlaceholder": "Pesquisar mensagens do usuário…",
+      "noResults": "Nenhuma mensagem correspondente",
+      "noTime": "Sem hora",
+      "turn": "Mensagem {{count}}",
+      "copy": "Copiar",
+      "jump": "Ir",
+      "count": "{{filtered}} / {{total}} mensagens do usuário",
+      "escHint": "Esc para fechar",
+      "copyOneSuccess": "Mensagem copiada",
+      "copyFailed": "Falha ao copiar",
+      "jumpSuccess": "Pulou para a mensagem original",
+      "jumpFailed": "Não foi possível localizar a mensagem original"
     }
   },
   "settings": {
@@ -344,7 +363,14 @@
         "uploaded": "Uploaded image",
         "upload": "Upload image",
         "user": "User avatar",
-        "userDefault": "User default"
+        "userDefault": "User default",
+        "configure": "Configure",
+        "close": "Close",
+        "aiTab": "AI",
+        "userTab": "User",
+        "customCoversFrame": "Custom images fill the entire avatar frame.",
+        "assistantPreviewMessage": "AI messages preview with the selected avatar.",
+        "userPreviewMessage": "User messages preview with the selected avatar."
       }
     },
     "providers": "Gerenciamento de Provedores",
