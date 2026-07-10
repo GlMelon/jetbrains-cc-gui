@@ -126,6 +126,8 @@ import com.github.claudecodegui.handler.settings.GetCodexSubscriptionQuotaAction
 import com.github.claudecodegui.handler.settings.FetchProviderModelsActionHandler;
 import com.github.claudecodegui.handler.settings.GetModelRegistryActionHandler;
 import com.github.claudecodegui.handler.settings.SetModelRegistryActionHandler;
+import com.github.claudecodegui.handler.settings.GetSmitheryApiKeyActionHandler;
+import com.github.claudecodegui.handler.settings.SetSmitheryApiKeyActionHandler;
 import com.github.claudecodegui.handler.settings.GetModelRegistrySchemaActionHandler;
 import com.github.claudecodegui.handler.settings.SetAppearanceConfigActionHandler;
 import com.github.claudecodegui.handler.settings.GetAvatarConfigActionHandler;
@@ -225,12 +227,19 @@ import com.github.claudecodegui.handler.mcp.UpdateMcpServerActionHandler;
 import com.github.claudecodegui.handler.mcp.DeleteMcpServerActionHandler;
 import com.github.claudecodegui.handler.mcp.ToggleMcpServerActionHandler;
 import com.github.claudecodegui.handler.mcp.ValidateMcpServerActionHandler;
+import com.github.claudecodegui.handler.mcp.McpMarketActionHandlers;
+import com.github.claudecodegui.handler.mcp.SearchMcpMarketActionHandler;
+import com.github.claudecodegui.handler.mcp.GetMcpMarketDetailActionHandler;
 import com.github.claudecodegui.handler.skill.SkillActionHandlers;
 import com.github.claudecodegui.handler.skill.GetAllSkillsActionHandler;
 import com.github.claudecodegui.handler.skill.ImportSkillActionHandler;
 import com.github.claudecodegui.handler.skill.DeleteSkillActionHandler;
 import com.github.claudecodegui.handler.skill.OpenSkillActionHandler;
 import com.github.claudecodegui.handler.skill.ToggleSkillActionHandler;
+import com.github.claudecodegui.handler.skill.SkillMarketActionHandlers;
+import com.github.claudecodegui.handler.skill.ListSkillMarketActionHandler;
+import com.github.claudecodegui.handler.skill.InstallSkillFromMarketActionHandler;
+import com.github.claudecodegui.handler.skill.GetSkillMarketDetailActionHandler;
 import com.github.claudecodegui.handler.file.FileActionHandlers;
 import com.github.claudecodegui.handler.file.ListFilesActionHandler;
 import com.github.claudecodegui.handler.file.OpenFileActionHandler;
@@ -608,6 +617,8 @@ public class ChatWindowDelegate {
         typedHandlers.add(new SetCommitGenerationEnabledActionHandler(projectConfigHandler));
         typedHandlers.add(new GetMcpGatewayEnabledActionHandler(projectConfigHandler));
         typedHandlers.add(new SetMcpGatewayEnabledActionHandler(projectConfigHandler));
+        typedHandlers.add(new GetSmitheryApiKeyActionHandler(projectConfigHandler));
+        typedHandlers.add(new SetSmitheryApiKeyActionHandler(projectConfigHandler));
         typedHandlers.add(new GetStatusBarWidgetEnabledActionHandler(projectConfigHandler));
         typedHandlers.add(new SetStatusBarWidgetEnabledActionHandler(projectConfigHandler));
         typedHandlers.add(new GetTaskCompletionNotificationEnabledActionHandler(projectConfigHandler));
@@ -681,6 +692,11 @@ public class ChatWindowDelegate {
         typedHandlers.add(new ToggleMcpServerActionHandler(mcpServerHandlers));
         typedHandlers.add(new ValidateMcpServerActionHandler(mcpServerHandlers));
 
+        // MCP 市场 (Smithery Registry): 搜索 + 详情 (Bearer key 后端持有,前端只存掩码)
+        McpMarketActionHandlers mcpMarketHandlers = new McpMarketActionHandlers(handlerContext);
+        typedHandlers.add(new SearchMcpMarketActionHandler(mcpMarketHandlers));
+        typedHandlers.add(new GetMcpMarketDetailActionHandler(mcpMarketHandlers));
+
         // Codex MCP server action handlers (B2 迁移: Codex server CRUD + status + tools)
         CodexMcpServerActionHandlers codexMcpServerHandlers = new CodexMcpServerActionHandlers(handlerContext, settingsService.getCodexMcpServerManager());
         typedHandlers.add(new GetCodexMcpServersActionHandler(codexMcpServerHandlers));
@@ -711,6 +727,12 @@ public class ChatWindowDelegate {
         typedHandlers.add(new DeleteSkillActionHandler(skillHandlers));
         typedHandlers.add(new OpenSkillActionHandler(skillHandlers));
         typedHandlers.add(new ToggleSkillActionHandler(skillHandlers));
+
+        // Skill market handlers (Skills 市场: 列表 + 安装,GitHub 仓库 tarball 下载)
+        SkillMarketActionHandlers skillMarketHandlers = new SkillMarketActionHandlers(handlerContext);
+        typedHandlers.add(new ListSkillMarketActionHandler(skillMarketHandlers));
+        typedHandlers.add(new InstallSkillFromMarketActionHandler(skillMarketHandlers));
+        typedHandlers.add(new GetSkillMarketDetailActionHandler(skillMarketHandlers));
 
         // Prompt action handlers (B2 迁移: prompt CRUD + import/export + file watcher)
         this.promptHandlers = new PromptActionHandlers(handlerContext);
