@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>设置面板布局优化预览 · MCP 服务器 / Skills</title>
+<style>
+  /* ============ 设计 token(沿用 market-dialog-redesign) ============ */
+  :root {
+    --bg-base: #1e1e1e;
+    --bg-secondary: #252526;
+    --bg-elevated: #2d2d2d;
+    --bg-hover: rgba(255,255,255,.06);
+    --border-primary: #3c3c3c;
+    --border-subtle: #333;
+    --text-primary: #cccccc;
+    --text-secondary: #9a9a9a;
+    --text-tertiary: #6a6a6a;
+    --accent: #007fd4;
+    --accent-hover: #1f8ad2;
+    --accent-soft: rgba(0,127,212,.14);
+    --success: #4ec9b0;
+    --success-soft: rgba(78,201,176,.13);
+    --warning: #e2c08d;
+    --warning-soft: rgba(226,192,141,.13);
+    --danger: #f48771;
+    --danger-soft: rgba(244,135,113,.13);
+    --shadow: 0 8px 32px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.3);
+    --radius: 8px;
+    --radius-sm: 6px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background:
+      radial-gradient(1200px 600px at 70% -10%, rgba(0,127,212,.08), transparent 60%),
+      var(--bg-base);
+    color: var(--text-primary);
+    font-size: 13px;
+    line-height: 1.5;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 32px 20px 60px;
+  }
+
+  /* ============ 顶部切换器 ============ */
+  .stage-switcher {
+    display: inline-flex; gap: 4px; padding: 4px;
+    background: var(--bg-secondary); border: 1px solid var(--border-subtle);
+    border-radius: 999px; margin-bottom: 28px;
+  }
+  .stage-switcher button {
+    appearance: none; border: 0; background: transparent;
+    color: var(--text-secondary); font-size: 13px; font-weight: 500;
+    padding: 8px 20px; border-radius: 999px; cursor: pointer;
+    transition: all .18s ease;
+  }
+  .stage-switcher button.active {
+    background: var(--accent); color: #fff;
+    box-shadow: 0 2px 8px rgba(0,127,212,.4);
+  }
+  .stage-switcher button:not(.active):hover { color: var(--text-primary); background: var(--bg-hover); }
+
+  .stage { display: none; width: 840px; max-width: 100%; }
+  .stage.active { display: block; animation: fade .25s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  .hint-bar { text-align: center; color: var(--text-tertiary); font-size: 12px; margin-bottom: 4px; }
+
+  /* ============ 设置面板(嵌入式,非弹窗) ============ */
+  .panel {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-primary);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; padding: 16px 20px;
+    border-bottom: 1px solid var(--border-subtle);
+    background: linear-gradient(180deg, var(--bg-elevated), var(--bg-secondary));
+  }
+  .panel-title { display: flex; align-items: center; gap: 10px; }
+  .panel-title .ico-badge {
+    width: 28px; height: 28px; border-radius: 8px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--accent-soft); color: var(--accent); font-size: 15px;
+  }
+  .panel-title h3 { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+  .panel-title .subtitle { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+  .header-tools { display: flex; align-items: center; gap: 8px; }
+  .icon-btn {
+    appearance: none; border: 1px solid var(--border-primary);
+    background: var(--bg-secondary); color: var(--text-secondary);
+    width: 32px; height: 32px; border-radius: var(--radius-sm);
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 15px; position: relative;
+    transition: all .15s ease;
+  }
+  .icon-btn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: #555; }
+  .icon-btn .badge {
+    position: absolute; top: -5px; right: -5px;
+    min-width: 16px; height: 16px; padding: 0 4px;
+    background: var(--accent); color: #fff; font-size: 10px; font-weight: 700;
+    border-radius: 999px; display: inline-flex; align-items: center; justify-content: center;
+    border: 2px solid var(--bg-elevated);
+  }
+  .add-btn {
+    appearance: none; border: 1px solid var(--accent);
+    background: var(--accent); color: #fff;
+    font-size: 12.5px; font-weight: 600; padding: 7px 13px;
+    border-radius: var(--radius-sm); cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px; transition: all .15s ease;
+  }
+  .add-btn:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  .btn-ghost {
+    appearance: none; border: 1px solid var(--border-primary);
+    background: transparent; color: var(--text-secondary);
+    font-size: 12.5px; font-weight: 500; padding: 7px 13px;
+    border-radius: var(--radius-sm); cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px; transition: all .15s ease;
+  }
+  .btn-ghost:hover { background: var(--bg-hover); color: var(--text-primary); border-color: #555; }
+  /* 市场入口(主推):主色填充 + NEW 角标 */
+  .market-btn {
+    appearance: none; border: 1px solid var(--accent);
+    background: var(--accent); color: #fff;
+    font-size: 12.5px; font-weight: 600; padding: 7px 14px;
+    border-radius: var(--radius-sm); cursor: pointer; position: relative;
+    display: inline-flex; align-items: center; gap: 6px; transition: all .15s ease;
+    box-shadow: 0 2px 8px rgba(0,127,212,.28);
+  }
+  .market-btn:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  .market-btn .new-tag {
+    position: absolute; top: -7px; right: -8px;
+    font-size: 9px; font-weight: 700; line-height: 1;
+    background: var(--danger); color: #fff;
+    padding: 2px 5px; border-radius: 999px;
+    border: 2px solid var(--bg-elevated); letter-spacing: .03em;
+  }
+
+  /* ============ 统计条 ============ */
+  .stats-bar {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 12px 20px; border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg-secondary);
+  }
+  .stats-bar .stat-pill {
+    font-size: 12px; color: var(--text-secondary);
+    background: var(--bg-base); border: 1px solid var(--border-subtle);
+    padding: 5px 11px; border-radius: 999px;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .stats-bar .stat-pill b { color: var(--text-primary); font-weight: 600; }
+  .stats-bar .stat-pill .dot { width: 7px; height: 7px; border-radius: 50%; }
+  .stats-bar .stat-pill .dot.ok { background: var(--success); }
+  .stats-bar .stat-pill .dot.err { background: var(--danger); }
+  .stats-bar .stat-pill .dot.off { background: var(--text-tertiary); }
+
+  /* ============ Skills 工具栏 ============ */
+  .skill-toolbar {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 12px 20px; border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg-secondary);
+  }
+  .seg-group {
+    display: inline-flex; background: var(--bg-base);
+    border: 1px solid var(--border-primary); border-radius: var(--radius-sm);
+    padding: 2px; gap: 2px;
+  }
+  .seg-group button {
+    appearance: none; border: 0; background: transparent;
+    color: var(--text-secondary); font-size: 12.5px; font-weight: 500;
+    padding: 6px 12px; border-radius: 4px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: all .15s ease;
+  }
+  .seg-group button.active { background: var(--accent); color: #fff; }
+  .seg-group button:not(.active):hover { color: var(--text-primary); }
+  .seg-group .count {
+    font-size: 10.5px; padding: 1px 6px; border-radius: 999px;
+    background: rgba(255,255,255,.16);
+  }
+  .seg-group button:not(.active) .count { background: rgba(255,255,255,.08); color: var(--text-tertiary); }
+  .toolbar-divider { width: 1px; height: 22px; background: var(--border-primary); }
+  .filter-pill {
+    appearance: none; border: 1px solid var(--border-subtle); background: var(--bg-base);
+    color: var(--text-secondary); font-size: 12px; padding: 6px 11px;
+    border-radius: 999px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px; transition: all .15s ease;
+  }
+  .filter-pill:hover { color: var(--text-primary); border-color: #555; }
+  .filter-pill.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+  .toolbar-spacer { flex: 1; }
+  .search-box {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--bg-base); border: 1px solid var(--border-primary);
+    border-radius: var(--radius-sm); padding: 6px 10px; transition: border-color .15s;
+  }
+  .search-box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+  .search-box .s-ico { color: var(--text-tertiary); font-size: 14px; }
+  .search-box input {
+    border: 0; background: transparent; outline: none; color: var(--text-primary);
+    font-size: 12.5px; width: 150px;
+  }
+  .search-box input::placeholder { color: var(--text-tertiary); }
+
+  /* ============ 卡片列表区 ============ */
+  .panel-body { padding: 14px 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+
+  /* ============ 卡片(核心:借鉴 market preset-item 并增强) ============ */
+  .item-card {
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius);
+    background: var(--bg-secondary);
+    transition: all .15s ease;
+    overflow: hidden;
+  }
+  .item-card:hover {
+    background: var(--bg-hover);
+    border-color: var(--accent);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(0,0,0,.28);
+  }
+  .item-card.disabled { opacity: .62; }
+  .item-card.expanded { border-color: var(--accent); background: var(--bg-elevated); }
+
+  .card-row {
+    display: flex; align-items: center; gap: 12px; padding: 12px 14px; cursor: pointer;
+  }
+  .card-icon {
+    width: 38px; height: 38px; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; color: #fff; font-size: 15px; font-weight: 600;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.15);
+  }
+  .card-icon.emoji { font-size: 17px; }
+  .card-main { flex: 1; min-width: 0; }
+  .card-title {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 3px;
+    font-size: 13.5px; font-weight: 600; color: var(--text-primary);
+  }
+  .card-desc {
+    font-size: 11.5px; color: var(--text-secondary); line-height: 1.45;
+    margin-bottom: 6px;
+    display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .card-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+  /* pill 体系(与市场弹窗一致) */
+  .pill {
+    font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 999px;
+    letter-spacing: .03em; display: inline-flex; align-items: center; gap: 4px;
+  }
+  .pill .dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+  .pill.ok { background: var(--success-soft); color: var(--success); }
+  .pill.err { background: var(--danger-soft); color: var(--danger); }
+  .pill.warn { background: var(--warning-soft); color: var(--warning); }
+  .pill.muted { background: rgba(255,255,255,.06); color: var(--text-secondary); }
+  .pill.local { background: rgba(59,130,246,.16); color: #6ba4ff; }
+  .pill.remote { background: rgba(34,197,94,.16); color: #5bd98a; }
+  .pill.accent { background: var(--accent-soft); color: var(--accent); }
+  .pill.mono { font-family: "SF Mono", Consolas, monospace; font-size: 10.5px; }
+
+  /* MCP 操作区 */
+  .card-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  .act-btn {
+    appearance: none; border: 1px solid transparent; background: transparent;
+    color: var(--text-tertiary); width: 30px; height: 30px; border-radius: var(--radius-sm);
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 14px; opacity: .55; transition: all .15s ease;
+  }
+  .item-card:hover .act-btn { opacity: 1; }
+  .act-btn:hover { background: var(--bg-hover); border-color: var(--border-primary); color: var(--text-primary); }
+  .act-btn.danger:hover { color: var(--danger); border-color: rgba(244,135,113,.4); background: var(--danger-soft); }
+  .act-divider { width: 1px; height: 20px; background: var(--border-subtle); margin: 0 2px; }
+
+  /* iOS toggle */
+  .toggle {
+    position: relative; width: 36px; height: 20px; flex-shrink: 0; cursor: pointer;
+    background: var(--border-primary); border-radius: 999px; transition: background .2s;
+    border: 1px solid var(--border-primary);
+  }
+  .toggle::after {
+    content: ""; position: absolute; top: 2px; left: 2px;
+    width: 14px; height: 14px; border-radius: 50%; background: #fff;
+    transition: transform .2s;
+  }
+  .toggle.on { background: var(--success); border-color: var(--success); }
+  .toggle.on::after { transform: translateX(16px); }
+
+  /* Skills 启用按钮式 toggle */
+  .enable-btn {
+    appearance: none; border: 2px solid transparent; border-radius: 9px;
+    width: 34px; height: 34px; flex-shrink: 0; cursor: pointer; font-size: 15px;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: all .15s ease;
+  }
+  .enable-btn.on { background: var(--success-soft); color: var(--success); border-color: rgba(78,201,176,.4); }
+  .enable-btn.on:hover { background: rgba(78,201,176,.22); border-color: var(--success); }
+  .enable-btn.off { background: rgba(255,255,255,.06); color: var(--text-tertiary); border-color: rgba(255,255,255,.1); }
+
+  .chev { color: var(--text-tertiary); font-size: 13px; flex-shrink: 0; transition: transform .15s; }
+  .item-card.expanded .chev { transform: rotate(90deg); }
+
+  /* ============ 展开内容 ============ */
+  .card-expand {
+    border-top: 1px solid var(--border-subtle);
+    padding: 14px 16px 16px 64px; /* 左侧缩进对齐图标 */
+    animation: slideDown .15s ease;
+  }
+  @keyframes slideDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+  .expand-grid {
+    display: grid; grid-template-columns: auto 1fr; gap: 8px 12px;
+    font-size: 12px; margin-bottom: 12px;
+  }
+  .expand-grid .k { color: var(--text-tertiary); }
+  .expand-grid .v { color: var(--text-primary); }
+  .expand-grid .v.code {
+    font-family: "SF Mono", Consolas, monospace; font-size: 11.5px;
+    background: var(--bg-base); padding: 3px 8px; border-radius: 4px; word-break: break-all;
+  }
+  .expand-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .expand-section-label {
+    font-size: 10.5px; font-weight: 700; color: var(--accent);
+    text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px;
+  }
+  .tool-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .tool-chip {
+    font-family: "SF Mono", Consolas, monospace; font-size: 11px;
+    padding: 4px 9px; border-radius: 5px;
+    background: var(--bg-base); border: 1px solid var(--border-subtle); color: var(--text-secondary);
+  }
+  .expand-actions { display: flex; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border-subtle); }
+  .btn {
+    appearance: none; border: 1px solid var(--border-primary); background: var(--bg-secondary);
+    color: var(--text-primary); font-size: 12px; font-weight: 500; padding: 6px 12px;
+    border-radius: var(--radius-sm); cursor: pointer;
+    display: inline-flex; align-items: center; gap: 5px; transition: all .15s ease;
+  }
+  .btn:hover { background: var(--bg-hover); border-color: #555; }
+  .btn.danger:hover { color: var(--danger); border-color: rgba(244,135,113,.4); background: var(--danger-soft); }
+
+  /* ============ 状态块(空/错误/toast) ============ */
+  .mini-row { display: flex; gap: 16px; margin-top: 18px; }
+  .mini-card {
+    flex: 1; background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+    border-radius: 8px; overflow: hidden;
+  }
+  .mini-card .mc-head { padding: 9px 14px; font-size: 11.5px; color: var(--text-tertiary); border-bottom: 1px solid var(--border-subtle); }
+  .mini-card .mc-body { padding: 18px; }
+  .state-block { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; color: var(--text-tertiary); }
+  .state-block .s-big { font-size: 26px; opacity: .5; }
+  .state-block .s-title { font-size: 12.5px; color: var(--text-secondary); }
+  .market-error {
+    display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: var(--radius-sm);
+    background: var(--danger-soft); border: 1px solid rgba(244,135,113,.3); color: var(--danger); font-size: 12px;
+  }
+  .market-toast { padding: 8px 12px; border-radius: var(--radius-sm); font-size: 12px; display: flex; align-items: center; gap: 8px; }
+  .market-toast.success { background: var(--success-soft); color: var(--success); border: 1px solid rgba(78,201,176,.3); }
+
+  /* ============ 优化说明 ============ */
+  .notes {
+    width: 840px; max-width: 100%; margin-top: 28px;
+    background: var(--bg-secondary); border: 1px solid var(--border-subtle);
+    border-radius: var(--radius); padding: 18px 22px;
+  }
+  .notes h4 { font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .notes h4 .tag-root { font-size: 10px; font-weight: 700; background: var(--danger-soft); color: var(--danger); padding: 2px 7px; border-radius: 4px; }
+  .notes ul { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .notes li { font-size: 12.5px; color: var(--text-secondary); padding-left: 18px; position: relative; line-height: 1.55; }
+  .notes li::before { content: ""; position: absolute; left: 2px; top: 8px; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+  .notes li b { color: var(--text-primary); font-weight: 600; }
+  .notes .grp { margin-bottom: 16px; }
+  .notes .grp:last-child { margin-bottom: 0; }
+  .notes .grp-title { font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px; }
+  .notes .pain { color: var(--danger); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+  <div class="stage-switcher">
+    <button class="active" data-stage="mcp">🔌 MCP 服务器</button>
+    <button data-stage="skill">⚡ Skills</button>
+  </div>
+  <div class="hint-bar">顶部切换查看两个设置面板 · 下附优化说明与现状对比</div>
+
+  <!-- ===================== MCP 服务器设置面板 ===================== -->
+  <div class="stage active" id="stage-mcp">
+    <div class="panel">
+      <!-- Header -->
+      <div class="panel-header">
+        <div class="panel-title">
+          <span class="ico-badge">🔌</span>
+          <div>
+            <h3>MCP 服务器</h3>
+            <div class="subtitle">管理 Model Context Protocol 服务器连接</div>
+          </div>
+        </div>
+        <div class="header-tools">
+          <button class="icon-btn" title="什么是 MCP?">?</button>
+          <button class="icon-btn" title="日志">📋<span class="badge">3</span></button>
+          <button class="icon-btn" title="刷新状态">↻</button>
+          <button class="btn-ghost">＋ 手动配置</button>
+          <button class="market-btn">🛒 从市场获取<span class="new-tag">NEW</span></button>
+        </div>
+      </div>
+
+      <!-- 统计条(新增) -->
+      <div class="stats-bar">
+        <span class="stat-pill"><span class="dot ok"></span>已连接 <b>3</b></span>
+        <span class="stat-pill"><span class="dot err"></span>错误 <b>1</b></span>
+        <span class="stat-pill"><span class="dot off"></span>已停用 <b>1</b></span>
+        <span class="stat-pill">共 <b>5</b> 个服务器</span>
+      </div>
+
+      <!-- 卡片列表 -->
+      <div class="panel-body">
+
+        <!-- 卡片 1:已连接 + 展开 -->
+        <div class="item-card expanded">
+          <div class="card-row">
+            <span class="chev">▸</span>
+            <div class="card-icon" style="background:#3B82F6">F</div>
+            <div class="card-main">
+              <div class="card-title">filesystem</div>
+              <div class="card-desc">直接访问本地文件系统,支持读写、目录浏览、搜索文件内容。</div>
+              <div class="card-meta">
+                <span class="pill ok"><span class="dot"></span>已连接</span>
+                <span class="pill accent">🛠 12 tools</span>
+                <span class="pill local"><span class="dot"></span>LOCAL</span>
+                <span class="pill muted mono">npx @modelcontextprotocol/server-filesystem</span>
+              </div>
+            </div>
+            <div class="card-actions">
+              <button class="act-btn" title="编辑">✎</button>
+              <button class="act-btn" title="复制配置">⧉</button>
+              <button class="act-btn danger" title="删除">🗑</button>
+              <span class="act-divider"></span>
+              <span class="toggle on" title="启用/停用"></span>
+            </div>
+          </div>
+
+          <!-- 展开内容 -->
+          <div class="card-expand">
+            <div class="expand-grid">
+              <span class="k">版本</span><span class="v">@modelcontextprotocol/server-filesystem <span style="color:var(--text-tertiary)">v1.0.2</span></span>
+              <span class="k">命令</span><span class="v code">npx -y @modelcontextprotocol/server-filesystem /Users/demo/project</span>
+              <span class="k">主页</span><span class="v" style="color:var(--accent)">github.com/modelcontextprotocol/...</span>
+            </div>
+            <div class="expand-section-label">工具 (12)</div>
+            <div class="tool-chips">
+              <span class="tool-chip">read_file</span>
+              <span class="tool-chip">write_file</span>
+              <span class="tool-chip">list_directory</span>
+              <span class="tool-chip">search_files</span>
+              <span class="tool-chip">move_file</span>
+              <span class="tool-chip">+7 more</span>
+            </div>
+            <div class="expand-tags">
+              <span class="pill muted">files</span>
+              <span class="pill muted">search</span>
+              <span class="pill muted">io</span>
+            </div>
+            <div class="expand-actions">
+              <button class="btn">🏠 主页</button>
+              <button class="btn">📖 文档</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 卡片 2:已连接(收起) -->
+        <div class="item-card">
+          <div class="card-row">
+            <span class="chev">▸</span>
+            <div class="card-icon" style="background:#8B5CF6">P</div>
+            <div class="card-main">
+              <div class="card-title">playwright</div>
+              <div class="card-desc">通过 Playwright 驱动浏览器进行自动化操作、截图与网页交互。</div>
+              <div class="card-meta">
+                <span class="pill ok"><span class="dot"></span>已连接</span>
+                <span class="pill accent">🛠 18 tools</span>
+                <span class="pill local"><span class="dot"></span>LOCAL</span>
+              </div>
+            </div>
+            <div class="card-actions">
+              <button class="act-btn" title="编辑">✎</button>
+              <button class="act-btn" title="复制配置">⧉</button>
+              <button class="act-btn danger" title="删除">🗑</button>
+              <span class="act-divider"></span>
+              <span class="toggle on"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 卡片 3:远程已连接 -->
+        <div class="item-card">
+          <div class="card-row">
+            <span class="chev">▸</span>
+            <div class="card-icon" style="background:#10B981">E</div>
+            <div class="card-main">
+              <div class="card-title">exa</div>
+              <div class="card-desc">Exa AI 搜索引擎,为 AI 提供实时网络搜索与内容抓取能力。</div>
+              <div class="card-meta">
+                <span class="pill ok"><span class="dot"></span>已连接</span>
+                <span class="pill accent">🛠 4 tools</span>
+                <span class="pill remote"><span class="dot"></span>REMOTE</span>
+              </div>
+            </div>
+            <div class="card-actions">
+              <button class="act-btn" title="编辑">✎</button>
+              <button class="act-btn" title="复制配置">⧉</button>
+              <button class="act-btn danger" title="删除">🗑</button>
+              <span class="act-divider"></span>
+              <span class="toggle on"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 卡片 4:错误态 -->
+        <div class="item-card">
+          <div class="card-row">
+            <span class="chev">▸</span>
+            <div class="card-icon" style="background:#EF4444">D</div>
+            <div class="card-main">
+              <div class="card-title">dbx-mcp-server</div>
+              <div class="card-desc">数据库查询 MCP 服务器。当前无法启动,请检查可执行文件路径。</div>
+              <div class="card-meta">
+                <span class="pill err"><span class="dot"></span>连接错误</span>
+                <span class="pill local"><span class="dot"></span>LOCAL</span>
+                <span class="pill muted mono">spawn dbx-mcp ENOENT</span>
+              </div>
+            </div>
+            <div class="card-actions">
+              <button class="act-btn" title="编辑">✎</button>
+              <button class="act-btn" title="复制配置">⧉</button>
+              <button class="act-btn danger" title="删除">🗑</button>
+              <span class="act-divider"></span>
+              <span class="toggle on"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 卡片 5:已停用 -->
+        <div class="item-card disabled">
+          <div class="card-row">
+            <span class="chev">▸</span>
+            <div class="card-icon" style="background:#F59E0B">S</div>
+            <div class="card-main">
+              <div class="card-title">sequential-thinking</div>
+              <div class="card-desc">结构化思维链工具,引导模型分步推理以解决复杂问题。</div>
+              <div class="card-meta">
+                <span class="pill muted"><span class="dot"></span>已停用</span>
+                <span class="pill local"><span class="dot"></span>LOCAL</span>
+              </div>
+            </div>
+            <div class="card-actions">
+              <button class="act-btn" title="编辑">✎</button>
+              <button class="act-btn" title="复制配置">⧉</button>
+              <button class="act-btn danger" title="删除">🗑</button>
+              <span class="act-divider"></span>
+              <span class="toggle"></span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 状态小样例 -->
+    <div class="mini-row">
+      <div class="mini-card">
+        <div class="mc-head">空态</div>
+        <div class="mc-body"><div class="state-block"><span class="s-big">🖥</span><span class="s-title">还没有 MCP 服务器</span><span style="font-size:11.5px">点击右上角"添加"开始配置</span></div></div>
+      </div>
+      <div class="mini-card">
+        <div class="mc-head">加载中</div>
+        <div class="mc-body"><div class="state-block"><span class="s-big" style="animation:spin 1.2s linear infinite">↻</span><span class="s-title">正在获取服务器状态…</span></div></div>
+      </div>
+      <div class="mini-card">
+        <div class="mc-head">操作 toast</div>
+        <div class="mc-body"><div class="market-toast success"><span>✓</span><span>filesystem 配置已更新</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== Skills 设置面板 ===================== -->
+  <div class="stage" id="stage-skill">
+    <div class="panel">
+      <!-- Header -->
+      <div class="panel-header">
+        <div class="panel-title">
+          <span class="ico-badge">⚡</span>
+          <div>
+            <h3>Skills</h3>
+            <div class="subtitle">管理可复用的技能模块(Claude: global/local)</div>
+          </div>
+        </div>
+        <div class="header-tools">
+          <button class="icon-btn" title="什么是 Skills?">?</button>
+          <button class="icon-btn" title="刷新">↻</button>
+          <button class="btn-ghost">＋ 导入本地 ▾</button>
+          <button class="market-btn">🛒 从市场获取<span class="new-tag">NEW</span></button>
+        </div>
+      </div>
+
+      <!-- 工具栏(筛选重构) -->
+      <div class="skill-toolbar">
+        <div class="seg-group">
+          <button class="active">全部 <span class="count">5</span></button>
+          <button>🌐 全局 <span class="count">3</span></button>
+          <button>⬇ 本项目 <span class="count">2</span></button>
+        </div>
+        <span class="toolbar-divider"></span>
+        <button class="filter-pill active">✓ 已启用 <b style="margin-left:3px">4</b></button>
+        <button class="filter-pill">⊘ 已停用 <b style="margin-left:3px">1</b></button>
+        <span class="toolbar-spacer"></span>
+        <div class="search-box">
+          <span class="s-ico">🔍</span>
+          <input placeholder="搜索 Skill…">
+        </div>
+      </div>
+
+      <!-- 卡片列表 -->
+      <div class="panel-body">
+
+        <!-- 卡片 1:全局启用 + 展开 -->
+        <div class="item-card expanded">
+          <div class="card-row">
+            <button class="enable-btn on" title="点击停用">✓</button>
+            <div class="card-icon emoji" style="background:#3B82F6">📄</div>
+            <div class="card-main">
+              <div class="card-title">pdf <span class="pill muted" style="font-weight:500">v1.2.0</span></div>
+              <div class="card-desc">PDF 文档解析与处理,支持提取文本、表格、表单和图片内容。</div>
+              <div class="card-meta">
+                <span class="pill local"><span class="dot"></span>全局</span>
+                <span class="pill muted mono">~/.claude/skills/pdf</span>
+              </div>
+            </div>
+            <span class="chev">▸</span>
+          </div>
+          <div class="card-expand">
+            <div class="expand-section-label">描述</div>
+            <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.55;margin-bottom:14px">
+              PDF 文档解析与处理技能,支持提取文本、表格、表单和图片内容。可识别并保留文档结构,
+              适用于文档问答、数据抽取与内容归档等场景。
+            </div>
+            <div class="expand-actions">
+              <button class="btn">✎ 编辑</button>
+              <button class="btn danger">🗑 删除</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 卡片 2 -->
+        <div class="item-card">
+          <div class="card-row">
+            <button class="enable-btn on">✓</button>
+            <div class="card-icon emoji" style="background:#10B981">📝</div>
+            <div class="card-main">
+              <div class="card-title">docx</div>
+              <div class="card-desc">Word 文档(.docx)读写与格式化,支持样式、表格与图片。</div>
+              <div class="card-meta">
+                <span class="pill local"><span class="dot"></span>全局</span>
+                <span class="pill muted mono">~/.claude/skills/docx</span>
+              </div>
+            </div>
+            <span class="chev">▸</span>
+          </div>
+        </div>
+
+        <!-- 卡片 3:本项目 -->
+        <div class="item-card">
+          <div class="card-row">
+            <button class="enable-btn on">✓</button>
+            <div class="card-icon emoji" style="background:#8B5CF6">🔬</div>
+            <div class="card-main">
+              <div class="card-title">deep-research</div>
+              <div class="card-desc">深度研究编排,扇出多路搜索、抓取来源、交叉验证并输出带引用的报告。</div>
+              <div class="card-meta">
+                <span class="pill remote"><span class="dot"></span>本项目</span>
+                <span class="pill muted mono">.claude/skills/deep-research</span>
+              </div>
+            </div>
+            <span class="chev">▸</span>
+          </div>
+        </div>
+
+        <!-- 卡片 4 -->
+        <div class="item-card">
+          <div class="card-row">
+            <button class="enable-btn on">✓</button>
+            <div class="card-icon emoji" style="background:#F59E0B">📊</div>
+            <div class="card-main">
+              <div class="card-title">xlsx</div>
+              <div class="card-desc">Excel 表格处理,支持公式、多 sheet 与数据筛选。</div>
+              <div class="card-meta">
+                <span class="pill local"><span class="dot"></span>全局</span>
+                <span class="pill muted mono">~/.claude/skills/xlsx</span>
+              </div>
+            </div>
+            <span class="chev">▸</span>
+          </div>
+        </div>
+
+        <!-- 卡片 5:已停用 -->
+        <div class="item-card disabled">
+          <div class="card-row">
+            <button class="enable-btn off" title="点击启用">⊘</button>
+            <div class="card-icon emoji" style="background:#06B6D4;opacity:.7">🎨</div>
+            <div class="card-main">
+              <div class="card-title">artifactbuilder <span class="pill muted" style="font-weight:500">已停用</span></div>
+              <div class="card-desc">构建交互式应用与可视化组件的技能。</div>
+              <div class="card-meta">
+                <span class="pill remote"><span class="dot"></span>本项目</span>
+                <span class="pill muted mono">.claude/skills/artifactbuilder</span>
+              </div>
+            </div>
+            <span class="chev">▸</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 状态小样例 -->
+    <div class="mini-row">
+      <div class="mini-card">
+        <div class="mc-head">空筛选</div>
+        <div class="mc-body"><div class="state-block"><span class="s-big">🗂</span><span class="s-title">没有匹配的 Skill</span><span style="font-size:11.5px">尝试调整筛选或搜索条件</span></div></div>
+      </div>
+      <div class="mini-card">
+        <div class="mc-head">导入结果</div>
+        <div class="mc-body"><div class="market-toast success"><span>✓</span><span>成功导入 3 个 Skill</span></div></div>
+      </div>
+      <div class="mini-card">
+        <div class="mc-head">切换 toast</div>
+        <div class="mc-body"><div class="market-toast success"><span>✓</span><span>pdf 已启用</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== 优化说明 ===================== -->
+  <div class="notes">
+    <h4>优化说明 <span class="tag-root">vs 现状</span></h4>
+
+    <div class="grp">
+      <div class="grp-title">现状痛点</div>
+      <ul>
+        <li><span class="pain">MCP 卡片信息扁</span>:只有"图标+名称+状态点",描述 / 命令 / 工具数都要<b>展开才看到</b>,卡片大面积留白;状态仅一个小图标不醒目;hover 只变边框。</li>
+        <li><span class="pain">Skills 卡片辨识低</span>:描述同样藏在展开里;所有 Skill 都是同一个 folder 图标,一眼分不清;路径作为纯文本,层级弱。</li>
+        <li><span class="pain">Skills 工具栏拥挤</span>:全部 / 全局 / 本项目 / 分隔符 / 已启用 / 已停用 <b>6 个 tab 挤一行</b>,主分类与启用筛选用同一种控件,语义混在一起。</li>
+        <li>两处都缺少<b>全局统计</b>(共多少、几个在线/错误/停用),用户无法一眼掌握整体状态。</li>
+      </ul>
+    </div>
+
+    <div class="grp">
+      <div class="grp-title">MCP 服务器面板</div>
+      <ul>
+        <li><b>统计条</b>:header 下方新增"已连接 / 错误 / 已停用 / 共 N"彩色圆点条,整体状态一目了然。</li>
+        <li><b>卡片信息前置</b>:描述摘要(1 行省略)、工具数 pill、LOCAL/REMOTE、命令 mono pill 全部<b>常驻卡片</b>,无需展开即可判断。</li>
+        <li><b>状态 pill 体系</b>:已连接=绿、错误=红、停用=灰,带圆点,比单纯图标醒目且配色统一。</li>
+        <li><b>操作收纳</b>:编辑/复制/删除默认半透明,<b>hover 整卡上浮时才完全显现</b>,降低视觉噪声;右侧 iOS toggle 保留总开关。</li>
+        <li><b>展开区结构化</b>:版本/命令/主页用键值网格 + 代码底纹;工具改为 chip 流式布局(含"+N more");tags、操作分区清晰。</li>
+      </ul>
+    </div>
+
+    <div class="grp">
+      <div class="grp-title">Skills 面板</div>
+      <ul>
+        <li><b>筛选分层</b>:主分类(全部/全局/本项目)用<b>分段控件</b>;启用状态(已启用/已停用)改为独立的<b>胶囊筛选 pill</b>,语义分离、不再 6 tab 挤一行。</li>
+        <li><b>彩色辨识图标</b>:每个 Skill 用语义 emoji + 哈希色块(替代统一 folder),一眼可辨。</li>
+        <li><b>摘要常驻</b>:描述 1 行省略 + 路径 mono pill 常驻;版本号弱化 pill;展开后才显示完整描述与编辑/删除。</li>
+        <li><b>启用态视觉</b>:左侧按钮式 toggle,启用=绿色填充对勾、停用=灰色禁止,与卡片整体禁用降透明联动。</li>
+      </ul>
+    </div>
+
+    <div class="grp">
+      <div class="grp-title">通用</div>
+      <ul>
+        <li>沿用市场弹窗设计 token(<b>#007fd4 / #4ec9b0</b>、8 色哈希图标、pill、分段控件、hover 上浮),两个设置面板与市场弹窗<b>视觉语言统一</b>。</li>
+        <li>圆角(8/6)、间距系统(8/10/12/14)、阴影、滚动条统一;卡片组件类与既有 <code>.preset-item</code> 风格一致,<b>可平滑落地到 LESS</b>。</li>
+        <li><b>市场入口独立按钮</b>:「🛒 从市场获取」从原添加/导入下拉中拎出,做成独立主色按钮(带 NEW 角标),与「＋ 手动配置 / 导入本地」次要幽灵按钮并列、置于最右。市场是发现型新功能需推广,主入口不该藏在二级菜单;手动/导入属低频兜底,弱化为配角。MCP 与 Skills 两边对称。</li>
+      </ul>
+    </div>
+  </div>
+
+<script>
+  // stage 切换
+  document.querySelectorAll('.stage-switcher button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.stage-switcher button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.stage').forEach(s => s.classList.remove('active'));
+      document.getElementById('stage-' + btn.dataset.stage).classList.add('active');
+    });
+  });
+  // 卡片展开/收起(点击 card-row 切换,操作区与 toggle 不触发)
+  document.querySelectorAll('.item-card .card-row').forEach(row => {
+    row.addEventListener('click', (e) => {
+      if (e.target.closest('.card-actions') || e.target.closest('.enable-btn')) return;
+      row.parentElement.classList.toggle('expanded');
+    });
+  });
+</script>
+</body>
+</html>
