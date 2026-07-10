@@ -594,6 +594,7 @@
     background: var(--bg-secondary);
     color: var(--text-primary);
     cursor: pointer;
+    position: relative; /* 与 mcp.less .icon-btn 对称,承载可能的 badge 绝对定位 */
     transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
@@ -617,6 +618,9 @@
     background: var(--accent-primary-hover);
     border-color: var(--accent-primary-hover);
 }
+
+/* .btn-ghost / .market-btn 已收敛至 mcp.less 全局定义（app.less 合并加载），
+   此处删除重复定义；.market-btn 含 position:relative 以承载 NEW 角标。 */
 
 .icon-btn .codicon {
     font-size: 14px;
@@ -1017,4 +1021,129 @@
 .status-badge.disabled {
     background: rgba(156, 163, 175, 0.15);
     color: var(--text-tertiary);
+}
+
+/* ==================== Skills 市场弹窗专有样式 ==================== */
+/* 基础市场样式(.pill/.detail-* /.market-* /.detail-btn 等)在 mcp.less 全局定义,
+   app.less 合并加载后此处可直接复用;下面仅补 Skills 详情弹窗专有类。 */
+
+/* .pill.mono 已收敛至 mcp.less（等宽字体 + 路径截断 ellipsis） */
+
+/* 无描述时的灰色提示(复用 .detail-text 基础样式 + muted 灰) */
+.detail-text.muted {
+    color: var(--text-tertiary);
+    font-style: italic;
+}
+
+/* 详情弹窗:skill 文件路径列表(SKILL.md frontmatter paths 字段) */
+.detail-paths {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.detail-path-tag {
+    font-family: var(--idea-editor-font-family, monospace);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--color-code-bg, rgba(128, 128, 128, 0.1));
+    color: var(--text-secondary);
+    word-break: break-all;
+}
+
+/* ==================== Skills 市场弹窗:面板 / 源 Tab / scope / toast ==================== */
+
+/* 面板尺寸(className 落在 overlay,内部壳是 .dialog-base,故用后代选择器) */
+.skill-market-dialog .dialog-base {
+    max-width: 600px;
+    max-height: 80vh;
+}
+
+/* 源仓库 Tab 容器(flex + 底部分隔线) */
+.market-source-tabs {
+    display: flex;
+    gap: 2px;
+    border-bottom: 1px solid var(--vscode-panel-border, var(--border-primary));
+}
+
+/* Tab 项:.filter-tabs 下的 .tab-item 规则在此不命中,故市场作用域内单独定义 */
+.market-source-tabs .tab-item {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    color: var(--text-secondary);
+    font-size: 12.5px;
+    font-weight: 500;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease;
+    margin-bottom: -1px;
+}
+
+.market-source-tabs .tab-item:hover {
+    color: var(--text-primary);
+}
+
+.market-source-tabs .tab-item.active {
+    color: var(--accent-primary);
+    border-bottom-color: var(--accent-primary);
+}
+
+/* scope 分段控件容器 + 标签 */
+.market-scope-select {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+}
+
+.market-scope-select .scope-label {
+    color: var(--text-tertiary);
+}
+
+/* 分段控件按钮(限定 market-scope-select 作用域,不污染 usage.less 全局 .scope-btn):
+   按钮组套在统一容器里,选中态蓝色填充 */
+.market-scope-select .scope-btn {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 5px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.market-scope-select .scope-btn.active {
+    background: var(--accent-primary);
+    color: var(--text-white);
+}
+
+/* 安装反馈 toast:成功(success 绿)/失败(error 红)软底 + 边框 */
+.market-toast {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12.5px;
+}
+
+.market-toast.success {
+    background: var(--color-button-success-bg);
+    color: var(--color-success);
+    border: 1px solid var(--color-button-success-border);
+}
+
+.market-toast.error {
+    background: var(--vscode-inputValidation-errorBackground, rgba(229, 62, 62, 0.12));
+    color: var(--vscode-inputValidation-errorForeground, #f56565);
+    border: 1px solid rgba(229, 62, 62, 0.3);
 }

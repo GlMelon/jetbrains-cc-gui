@@ -139,6 +139,61 @@
     background: var(--accent-primary-hover);
 }
 
+/* 次要入口按钮(手动配置):幽灵风格,与市场主按钮配对 */
+.btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 13px;
+    border: 1px solid var(--border-primary);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.btn-ghost:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    border-color: var(--border-hover);
+}
+
+.btn-ghost .codicon {
+    font-size: 14px;
+}
+
+/* 市场入口按钮(主推):主色填充 */
+.market-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border: 1px solid var(--accent-primary);
+    border-radius: 6px;
+    background: var(--accent-primary);
+    color: var(--text-white);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    position: relative;
+    box-shadow: 0 2px 8px rgba(0, 127, 212, 0.28);
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.market-btn:hover {
+    background: var(--accent-primary-hover);
+    border-color: var(--accent-primary-hover);
+}
+
+.market-btn .codicon {
+    font-size: 14px;
+}
+
 .dropdown-menu {
     position: absolute;
     top: 100%;
@@ -280,7 +335,7 @@
     .flex-gap-horizontal(8px);
 }
 
-/* 图标按钮 - 用于编辑、复制、删除、刷新等操作 */
+/* 图标按钮 - 用于帮助、日志、刷新、编辑、复制、删除等操作(统一收敛自旧 .help-btn/.log-btn/.refresh-btn) */
 .icon-btn {
     display: flex;
     align-items: center;
@@ -293,7 +348,28 @@
     background: var(--bg-secondary);
     color: var(--text-primary);
     cursor: pointer;
+    position: relative; /* 承载 .badge 绝对定位 */
+    font-size: 15px; /* 纯文字按钮(如帮助"?")字号,SVG 图标用固定 size 不受影响 */
     transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+/* icon-btn 数字徽章(如日志未读条数,对齐设计稿 header-tools .badge) */
+.icon-btn .badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    background: var(--accent-primary);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--bg-elevated);
 }
 
 .icon-btn:hover:not(:disabled) {
@@ -948,7 +1024,9 @@
 
 .preset-item:hover {
     background: var(--vscode-list-hoverBackground, rgba(255, 255, 255, 0.1));
-    border-color: var(--vscode-focusBorder, #007acc);
+    border-color: var(--vscode-focusBorder, var(--accent-primary));
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
 }
 
 .preset-item:hover .add-icon {
@@ -1036,6 +1114,363 @@
     opacity: 0;
     transition: opacity 0.15s ease;
     flex-shrink: 0;
+}
+
+/* ==================== 市场弹窗通用样式(MCP/Skills 共享) ==================== */
+
+/* 描述 2 行截断(列表不展开,完整内容走详情弹窗) */
+.preset-desc.clamp {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* 标签 pill(圆点 + 配色,替代松散 type-badge/tag) */
+.pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-weight: 500;
+    line-height: 1.4;
+}
+
+.pill-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.pill.local {
+    background: rgba(59, 130, 246, 0.15);
+    color: #3B82F6;
+}
+
+.pill.remote {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22C55E;
+}
+
+.pill.verified {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10B981;
+}
+
+.pill.muted {
+    background: var(--vscode-badge-background, rgba(128, 128, 128, 0.2));
+    color: var(--text-tertiary);
+}
+
+/* 详情按钮 + 添加按钮(常驻,替代 hover-only add-icon) */
+.detail-btn,
+.add-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 1px solid var(--vscode-panel-border, var(--border-primary));
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    flex-shrink: 0;
+}
+
+.detail-btn:hover {
+    background: var(--vscode-list-hoverBackground, var(--bg-hover));
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+}
+
+.add-btn {
+    background: var(--vscode-button-background, var(--accent-primary));
+    border-color: var(--vscode-button-background, var(--accent-primary));
+    color: var(--vscode-button-foreground, var(--text-white));
+}
+
+.add-btn:hover:not(:disabled) {
+    background: var(--vscode-button-hoverBackground, var(--accent-primary-hover));
+    border-color: var(--vscode-button-hoverBackground, var(--accent-primary-hover));
+}
+
+.add-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* 市场状态块(加载/空/错误) */
+.market-loading,
+.market-empty,
+.market-error {
+    padding: 12px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+.market-loading {
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.market-empty {
+    color: var(--text-tertiary);
+    padding: 40px 16px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+/* 错误态:内联 flex,容纳文案 + 重试按钮(替代组件内 inline style) */
+.market-error {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    background: var(--vscode-inputValidation-errorBackground, rgba(229, 62, 62, 0.12));
+    color: var(--vscode-inputValidation-errorForeground, #f56565);
+    border: 1px solid rgba(229, 62, 62, 0.3);
+}
+
+/* 结果统计行(MCP/Skills 共享):左"共 N 个结果",右"来源" */
+.result-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11.5px;
+    color: var(--text-tertiary);
+    padding: 0 2px;
+}
+
+.result-meta .count {
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+/* ==================== MCP 市场弹窗专有样式 ==================== */
+
+/* 面板尺寸(当前裸靠通用 .dialog 的 700px,显式收紧对齐设计稿) */
+.mcp-market-dialog {
+    max-width: 600px;
+    max-height: 80vh;
+}
+
+/* API Key 横幅:左边框按状态着色,内联 flex(icon + 文字 + 操作按钮) */
+.market-key-section {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--vscode-panel-border, var(--border-primary));
+    background: var(--bg-secondary);
+    border-left: 3px solid var(--color-warning);
+}
+
+.market-key-section.ok {
+    border-left-color: var(--color-success);
+    background: var(--color-button-success-bg);
+}
+
+.market-key-section.warn {
+    border-left-color: var(--color-warning);
+}
+
+.market-key-status {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--text-primary);
+}
+
+.market-key-status code {
+    font-family: var(--idea-editor-font-family, "SF Mono", Consolas, monospace);
+    background: var(--color-code-bg, rgba(0, 0, 0, 0.25));
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 11.5px;
+    color: var(--text-secondary);
+    margin-left: 4px;
+}
+
+.market-key-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    font-size: 12px;
+    border-radius: 4px;
+    border: 1px solid var(--vscode-panel-border, var(--border-primary));
+    background: transparent;
+    color: var(--text-primary);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.market-key-btn:hover {
+    background: var(--vscode-list-hoverBackground, var(--bg-hover));
+    border-color: var(--border-hover);
+}
+
+/* Key 输入行(展开时) */
+.market-key-input {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+}
+
+.market-key-input input {
+    flex: 1;
+    background: var(--bg-primary);
+    border: 1px solid var(--vscode-input-border, var(--border-primary));
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: 12.5px;
+    padding: 7px 10px;
+    outline: none;
+    transition: border-color 0.15s ease;
+}
+
+.market-key-input input:focus {
+    border-color: var(--accent-primary);
+}
+
+/* 搜索行:input + 主色搜索按钮并排 */
+.market-search {
+    display: flex;
+    gap: 8px;
+}
+
+.market-search input {
+    flex: 1;
+    background: var(--bg-primary);
+    border: 1px solid var(--vscode-input-border, var(--border-primary));
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: 13px;
+    padding: 9px 12px;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.market-search input::placeholder {
+    color: var(--text-placeholder);
+}
+
+.market-search input:focus {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px var(--color-button-accent-hover-bg);
+}
+
+/* ==================== 市场详情弹窗 ==================== */
+.market-detail-dialog .dialog-base {
+    max-width: 640px;
+    max-height: 85vh;
+}
+
+.market-detail-content {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.detail-section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.detail-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.detail-text {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.detail-readme {
+    margin: 0;
+    padding: 12px;
+    max-height: 280px;
+    overflow: auto;
+    font-family: var(--idea-editor-font-family, monospace);
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    background: var(--color-code-bg, rgba(128, 128, 128, 0.1));
+    border-radius: 6px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.detail-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--vscode-panel-border, var(--border-primary));
+}
+
+.detail-meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.detail-meta-label {
+    font-size: 11px;
+    color: var(--text-tertiary);
+}
+
+.detail-meta-value {
+    font-size: 13px;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    word-break: break-all;
+}
+
+.detail-link {
+    color: var(--accent-primary);
+    text-decoration: none;
+    font-size: 12px;
+}
+
+.detail-link:hover {
+    text-decoration: underline;
 }
 
 /* 确认对话框样式 */
@@ -2069,6 +2504,533 @@
         display: none;
     }
 }
+
+/* ============================================================================
+   设置面板布局优化（设计稿 mcp-skill-settings-redesign.html）
+   MCP 服务器面板 / Skills 面板共用。token 映射：
+   设计稿 --bg-base → --bg-primary；--border-subtle → --border-primary；
+   --border-primary → --border-secondary；--accent → --accent-primary；
+   --accent-soft 硬编码 rgba(0,127,212,.14)；设计稿 --text-secondary(次级,偏暗) → --text-tertiary。
+   状态色 pill.ok/.err/.warn 沿用设计稿硬编码色(success #4ec9b0 / danger #f48771 / warning #e2c08d)。
+   ============================================================================ */
+
+/* ---------- 面板容器 ---------- */
+.panel {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-secondary);
+    border-radius: 12px;
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+}
+
+.panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-primary);
+    background: linear-gradient(180deg, var(--bg-elevated), var(--bg-secondary));
+}
+
+.panel-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.panel-title .ico-badge {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 127, 212, 0.14);
+    color: var(--accent-primary);
+    flex-shrink: 0;
+}
+
+.panel-title .title-text {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.2;
+    display: flex;
+    flex-direction: column;
+}
+
+.panel-title .subtitle {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin-top: 2px;
+}
+
+.header-tools {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.panel-body {
+    padding: 14px 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* ---------- 统计条 ---------- */
+.stats-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border-primary);
+    background: var(--bg-secondary);
+}
+
+.stats-bar .stat-pill {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-primary);
+    padding: 5px 11px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.stats-bar .stat-pill b {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.stats-bar .stat-pill .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+}
+
+.stats-bar .stat-pill .dot.ok { background: #4ec9b0; }
+.stats-bar .stat-pill .dot.err { background: #f48771; }
+.stats-bar .stat-pill .dot.off { background: var(--text-tertiary); }
+
+/* ---------- pill 修饰符补充（.pill 主类见上方市场弹窗通用样式） ---------- */
+.pill.ok { background: rgba(78, 201, 176, 0.13); color: #4ec9b0; }
+.pill.err { background: rgba(244, 135, 113, 0.13); color: #f48771; }
+.pill.warn { background: rgba(226, 192, 141, 0.13); color: #e2c08d; }
+.pill.accent { background: rgba(0, 127, 212, 0.14); color: var(--accent-primary); }
+.pill.local { background: rgba(255, 255, 255, 0.06); color: var(--text-tertiary); }
+.pill.remote { background: rgba(0, 127, 212, 0.14); color: var(--accent-primary); }
+/* mono pill（命令/路径,等宽字体） */
+.pill.mono {
+    font-family: var(--idea-editor-font-family, "SF Mono", Consolas, "Cascadia Code", monospace);
+    font-size: 10.5px;
+    font-weight: 500;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ---------- 卡片核心 ---------- */
+.item-card {
+    border: 1px solid var(--border-primary);
+    border-radius: 8px;
+    background: var(--bg-secondary);
+    transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+    overflow: hidden;
+}
+
+.item-card:hover {
+    background: var(--bg-hover);
+    border-color: var(--accent-primary);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+}
+
+.item-card.disabled { opacity: 0.62; }
+.item-card.expanded {
+    border-color: var(--accent-primary);
+    background: var(--bg-elevated);
+}
+
+.card-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    cursor: pointer;
+}
+
+.card-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+/* skill 卡片图标(codicon + 哈希色底) */
+.card-icon.codicon-icon {
+    font-size: 17px;
+}
+
+.card-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.card-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 3px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.card-title .muted-name { color: var(--text-tertiary); }
+
+.card-desc {
+    font-size: 11.5px;
+    color: var(--text-tertiary);
+    line-height: 1.45;
+    margin-bottom: 6px;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.card-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+/* ---------- 卡片操作区（半透明收纳,hover 显现） ---------- */
+.card-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.act-btn {
+    appearance: none;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-tertiary);
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+    opacity: 0.55;
+    transition: opacity 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.item-card:hover .act-btn { opacity: 1; }
+
+.act-btn:hover {
+    background: var(--bg-hover);
+    border-color: var(--border-secondary);
+    color: var(--text-primary);
+}
+
+.act-btn.danger:hover {
+    color: #f48771;
+    border-color: rgba(244, 135, 113, 0.4);
+    background: rgba(244, 135, 113, 0.13);
+}
+
+.act-divider {
+    width: 1px;
+    height: 20px;
+    background: var(--border-primary);
+    margin: 0 2px;
+}
+
+/* Skills 启用/禁用按钮(常显:绿=启用 check / 灰=禁用 ban) */
+.enable-btn {
+    appearance: none;
+    border: 1px solid var(--border-secondary);
+    background: var(--bg-primary);
+    color: var(--text-tertiary);
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.enable-btn.enabled {
+    color: #4ec9b0;
+    border-color: rgba(78, 201, 176, 0.4);
+    background: rgba(78, 201, 176, 0.1);
+}
+
+.enable-btn.enabled:hover { background: rgba(78, 201, 176, 0.18); }
+
+.enable-btn:not(.enabled):hover {
+    color: var(--text-primary);
+    border-color: var(--border-secondary);
+    background: var(--bg-hover);
+}
+
+.enable-btn:disabled { cursor: wait; opacity: 0.6; }
+
+/* ---------- 箭头 ---------- */
+.chev {
+    color: var(--text-tertiary);
+    font-size: 13px;
+    flex-shrink: 0;
+    transition: transform 0.15s ease;
+}
+
+.item-card.expanded .chev { transform: rotate(90deg); }
+
+/* ---------- 展开区 ---------- */
+.card-expand {
+    border-top: 1px solid var(--border-primary);
+    padding: 14px 16px 16px 64px;
+    animation: ccg-slide-down 0.15s ease;
+}
+
+@keyframes ccg-slide-down {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: none; }
+}
+
+.expand-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 8px 12px;
+    font-size: 12px;
+    margin-bottom: 12px;
+}
+
+.expand-grid .k { color: var(--text-tertiary); }
+.expand-grid .v { color: var(--text-primary); word-break: break-all; }
+.expand-grid .v.code {
+    font-family: "SF Mono", Consolas, "Cascadia Code", monospace;
+    font-size: 11.5px;
+    background: var(--bg-primary);
+    padding: 3px 8px;
+    border-radius: 4px;
+    word-break: break-all;
+}
+
+.expand-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.expand-section-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--accent-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+}
+
+/* 工具 chip 流式布局（替换原侧边栏工具列表） */
+.tool-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 14px;
+}
+
+.tool-chip {
+    font-family: "SF Mono", Consolas, "Cascadia Code", monospace;
+    font-size: 11px;
+    padding: 4px 9px;
+    border-radius: 5px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-primary);
+    color: var(--text-tertiary);
+    cursor: default;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+
+.tool-chip:hover {
+    border-color: var(--accent-primary);
+    color: var(--text-primary);
+    background: var(--bg-hover);
+}
+
+.tool-chip .tool-chip-icon {
+    display: inline-flex;
+    align-items: center;
+    color: var(--accent-secondary);
+}
+
+/* 工具区标题行(标题 + 刷新/加载操作) */
+.tools-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.tools-head .expand-section-label { margin-bottom: 0; }
+
+.tools-head .tools-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* 工具区空态/提示文本 */
+.tool-empty {
+    font-size: 11.5px;
+    color: var(--text-tertiary);
+    font-style: italic;
+}
+
+.tool-empty.err {
+    color: #f48771;
+    font-style: normal;
+}
+
+/* 可点击加载 chip */
+.tool-chip.clickable {
+    cursor: pointer;
+    color: var(--accent-primary);
+    border-color: rgba(0, 127, 212, 0.4);
+}
+
+.tool-chip.clickable:hover {
+    background: rgba(0, 127, 212, 0.14);
+}
+
+.expand-actions {
+    display: flex;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-primary);
+}
+
+/* ---------- Skills 工具栏：分段控件 + 胶囊筛选 ---------- */
+.seg-group {
+    display: inline-flex;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-secondary);
+    border-radius: 6px;
+    padding: 2px;
+    gap: 2px;
+}
+
+.seg-group button {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--text-tertiary);
+    font-size: 12.5px;
+    font-weight: 500;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.seg-group button.active {
+    background: var(--accent-primary);
+    color: #fff;
+}
+
+.seg-group button:not(.active):hover { color: var(--text-primary); }
+
+.seg-group .count {
+    font-size: 10.5px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.16);
+    font-weight: 600;
+}
+
+.seg-group button:not(.active) .count {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-tertiary);
+}
+
+.toolbar-divider {
+    width: 1px;
+    height: 22px;
+    background: var(--border-secondary);
+    flex-shrink: 0;
+}
+
+.filter-pill {
+    appearance: none;
+    border: 1px solid var(--border-primary);
+    background: var(--bg-primary);
+    color: var(--text-tertiary);
+    font-size: 12px;
+    padding: 6px 11px;
+    border-radius: 999px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.filter-pill:hover {
+    color: var(--text-primary);
+    border-color: var(--border-hover);
+}
+
+.filter-pill.active {
+    background: rgba(0, 127, 212, 0.14);
+    color: var(--accent-primary);
+    border-color: var(--accent-primary);
+}
+
+.filter-pill .count {
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.filter-pill.active .count {
+    background: rgba(0, 127, 212, 0.2);
+}
+
+.toolbar-spacer { flex: 1; }
 
 /* ===== 工具提示浮框样式 ===== */
 .mcp-tool-tooltip {
