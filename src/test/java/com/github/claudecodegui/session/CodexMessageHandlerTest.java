@@ -26,10 +26,14 @@ public class CodexMessageHandlerTest {
         final List<String> thinkingDeltas = new ArrayList<>();
         final List<Boolean> thinkingStatusChanges = new ArrayList<>();
         final List<Message> lastMessages = new ArrayList<>();
+        // Records the relative order of stream-end vs message-update callbacks so a
+        // test can assert stream-end fires BEFORE the error snapshot is pushed.
+        final List<String> callOrder = new ArrayList<>();
 
         @Override
         public void onMessageUpdate(List<Message> messages) {
             messageUpdateCount++;
+            callOrder.add("messageUpdate");
             lastMessages.clear();
             lastMessages.addAll(messages);
         }
@@ -74,6 +78,7 @@ public class CodexMessageHandlerTest {
         @Override
         public void onStreamEnd() {
             streamEndCount++;
+            callOrder.add("streamEnd");
         }
 
         @Override

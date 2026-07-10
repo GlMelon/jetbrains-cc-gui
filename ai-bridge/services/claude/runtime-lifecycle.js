@@ -167,6 +167,7 @@ async function createRuntime(requestContext, callbacks) {
     runtimeSignature: requestContext.runtimeSignature,
     currentModel: requestContext.resolvedModelId || requestContext.sdkModelName || null,
     modelId: requestContext.modelId || null, // Original model ID, may contain [1m] suffix
+    currentResolvedModel: requestContext.resolvedModelId || null,
     currentPermissionMode: initialPermissionMode,
     permissionModeState: { value: initialPermissionMode },
     currentMaxThinkingTokens: requestContext.maxThinkingTokens ?? null,
@@ -392,7 +393,7 @@ async function applyDynamicControls(runtime, requestContext) {
   const targetModel = requestContext.resolvedModelId || requestContext.sdkModelName || null;
   if (runtime.currentModel !== targetModel && typeof runtime.query?.setModel === 'function') {
     try {
-      await runtime.query.setModel(targetModel || undefined);
+      await runtime.query.setModel(targetResolvedModel || targetModel || undefined);
       runtime.currentModel = targetModel;
       runtime.modelId = requestContext.modelId || null;
     } catch (error) {

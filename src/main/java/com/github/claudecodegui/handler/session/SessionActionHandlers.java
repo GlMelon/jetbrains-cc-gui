@@ -460,8 +460,9 @@ public class SessionActionHandlers {
     private String determineWorkingDirectory() {
         String projectPath = context.getProject().getBasePath();
 
-        // Prefer the user-configured working directory first
-        // (relative paths are resolved only when projectPath is valid).
+        // Prefer the user-configured working directory first, normalized so that
+        // relative segments (e.g. "..") are collapsed. This must match the directory
+        // history is stored under (see WorkingDirectoryManager#resolveEffectiveWorkingDirectory).
         if (projectPath != null && new File(projectPath).exists()) {
             try {
                 com.github.claudecodegui.settings.CodemossSettingsService settingsService =

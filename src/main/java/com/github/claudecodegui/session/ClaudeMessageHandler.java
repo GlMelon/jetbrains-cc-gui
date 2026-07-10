@@ -186,7 +186,6 @@ public class ClaudeMessageHandler implements MessageCallback {
             return;
         }
 
-        boolean wasStreaming = isStreaming;
         isStreaming = false;
         streamEndedThisTurn = false;
         errorReportedThisTurn = true;

@@ -11,6 +11,8 @@ import { UPSTREAM } from '../../generated/protocol';
 import { McpServerDialog } from './McpServerDialog';
 import { McpMarketDialog } from './McpMarketDialog';
 import { McpPresetDialog } from './McpPresetDialog';
+import { McpMarketplaceDialog } from './McpMarketplaceDialog';
+import { McpImportDialog } from './McpImportDialog';
 import { McpHelpDialog } from './McpHelpDialog';
 import { McpConfirmDialog } from './McpConfirmDialog';
 import { McpLogDialog } from './McpLogDialog';
@@ -52,6 +54,8 @@ export function McpSettingsSection({ currentProvider = 'claude' }: McpSettingsSe
   const [showMarketDialog, setShowMarketDialog] = useState(false);
   const [pendingPresetServer, setPendingPresetServer] = useState<McpServer | null>(null);
   const [showPresetDialog, setShowPresetDialog] = useState(false);
+  const [showMarketplaceDialog, setShowMarketplaceDialog] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showLogDialog, setShowLogDialog] = useState(false);
@@ -494,6 +498,24 @@ export function McpSettingsSection({ currentProvider = 'claude' }: McpSettingsSe
         <McpPresetDialog
           onClose={() => setShowPresetDialog(false)}
           onSelect={handleSelectPreset}
+        />
+      )}
+
+      {showMarketplaceDialog && (
+        <McpMarketplaceDialog
+          currentProvider={currentProvider}
+          existingIds={servers.map(s => s.id)}
+          onClose={() => setShowMarketplaceDialog(false)}
+          onSelect={handleSaveServer}
+        />
+      )}
+
+      {showImportDialog && (
+        <McpImportDialog
+          currentProvider={currentProvider}
+          existingIds={servers.map(s => s.id)}
+          onClose={() => setShowImportDialog(false)}
+          onImport={handleImportServers}
         />
       )}
 

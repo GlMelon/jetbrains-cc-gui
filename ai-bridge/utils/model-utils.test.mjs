@@ -228,7 +228,7 @@ test('setModelEnvironmentVariables routes haiku base to haiku env', () => {
 
 test('modelSupportsVision only matches the canonical claude- prefix', () => {
   assert.equal(modelSupportsVision('claude-sonnet-4-6'), true);
-  assert.equal(modelSupportsVision('claude-opus-4-7'), true);
+  assert.equal(modelSupportsVision('claude-opus-4-8'), true);
   // Third-party proxies that merely contain "claude" must NOT be treated as
   // native vision-capable models.
   assert.equal(modelSupportsVision('claude-compatible-proxy'), true); // starts with 'claude-'

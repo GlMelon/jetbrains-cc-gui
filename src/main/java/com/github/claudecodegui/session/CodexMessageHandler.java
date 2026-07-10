@@ -212,6 +212,7 @@ public class CodexMessageHandler implements MessageCallback {
         if (wasStreaming) {
             callbackHandler.notifyStreamEnd();
         }
+        callbackHandler.notifyMessageUpdate(state.getMessages());
         resetStreamingAccumulator();
         callbackHandler.notifyQueueDisplayStateChanged(state.getQueueDisplayState(), state.getQueueAheadCount());
         callbackHandler.notifyStateChange(state.isBusy(), state.isLoading(), state.getError());

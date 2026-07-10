@@ -111,6 +111,32 @@ function isValidCodexCustomModel(model: unknown): model is CodexCustomModel {
   // description is optional, but must be a string if present
   if (obj.description !== undefined && typeof obj.description !== 'string') return false;
 
+  // pricing is optional; when present every provided field must be a non-negative number
+  if (obj.pricing !== undefined) {
+    if (!isValidModelPricing(obj.pricing)) return false;
+  }
+
+  return true;
+}
+
+/**
+ * Validate whether a ModelPricing object is valid.
+ * Every field is optional, but if present must be a finite number >= 0.
+ */
+export function isValidModelPricing(pricing: unknown): boolean {
+  if (!pricing || typeof pricing !== 'object') return false;
+  const p = pricing as Record<string, unknown>;
+  const fields: (keyof ModelPricing)[] = [
+    'inputCostPer1M',
+    'outputCostPer1M',
+    'cacheWriteCostPer1M',
+    'cacheReadCostPer1M',
+  ];
+  for (const f of fields) {
+    const v = p[f];
+    if (v === undefined) continue;
+    if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) return false;
+  }
   return true;
 }
 

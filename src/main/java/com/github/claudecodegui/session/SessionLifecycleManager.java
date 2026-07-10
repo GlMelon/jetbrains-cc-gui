@@ -302,7 +302,7 @@ public class SessionLifecycleManager {
                 }
             }
         } catch (Exception e) {
-            LOG.warn("Failed to read custom working directory: " + e.getMessage());
+            LOG.warn("Failed to resolve working directory: " + e.getMessage());
         }
 
         return projectPath;

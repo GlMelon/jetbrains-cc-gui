@@ -86,12 +86,35 @@ public class SystemNotificationService {
      * @param message message
      */
     public void showVisualNotificationToast(@NotNull Project project, @Nullable String title, String message) {
+        showVisualNotificationToast(project, title, message, isTaskCompletionEnabled());
+    }
+
+    /**
+     * Show the AskUserQuestion reminder toast. Gated by the
+     * {@code askUserQuestionNotificationEnabled} setting (opt-in, default false).
+     * Reuses the same slide-in toast window as the task-completion notification so
+     * the visual effect matches it exactly.
+     */
+    public void showAskUserQuestionReminderToast(@NotNull Project project) {
+        showVisualNotificationToast(project,
+            ClaudeCodeGuiBundle.message("notifier.askUserQuestion.title"),
+            ClaudeCodeGuiBundle.message("notifier.askUserQuestion.message"),
+            isAskUserQuestionEnabled());
+    }
+
+    /**
+     * Core toast renderer. The {@code enabled} flag is resolved by the caller against
+     * the appropriate setting so a single notification feature's opt-in gate cannot
+     * accidentally drive another feature's toast.
+     */
+    private void showVisualNotificationToast(@NotNull Project project, @Nullable String title,
+                                             String message, boolean enabled) {
         ApplicationManager.getApplication().invokeLater(() -> {
             if (project.isDisposed()) {
                 return;
             }
             try {
-                if (!isEnabled()) {
+                if (!enabled) {
                     return;
                 }
                 String resolvedTitle = sanitizeTitle(title);
@@ -113,7 +136,16 @@ public class SystemNotificationService {
         try {
             return CodemossSettingsService.getInstance().getTaskCompletionNotificationEnabled();
         } catch (Exception e) {
-            LOG.debug("[SystemNotification] Failed to read enabled flag, defaulting to false: " + e.getMessage());
+            LOG.debug("[SystemNotification] Failed to read task completion flag, defaulting to false: " + e.getMessage());
+            return false;
+        }
+    }
+
+    private boolean isAskUserQuestionEnabled() {
+        try {
+            return new CodemossSettingsService().getAskUserQuestionNotificationEnabled();
+        } catch (Exception e) {
+            LOG.debug("[SystemNotification] Failed to read ask user question flag, defaulting to false: " + e.getMessage());
             return false;
         }
     }

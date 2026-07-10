@@ -335,6 +335,12 @@
         "disabled": "Disabled",
         "hint": "When enabled, shows a system notification when AI task completes. When disabled, no notification appears."
       },
+      "askUserQuestionNotification": {
+        "label": "Ask User Question Notification",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "hint": "When enabled, shows a system notification when Claude asks you a question, so you won't miss it. When disabled, no notification appears."
+      },
       "sendShortcut": {
         "label": "Send Shortcut",
         "enter": "Enter to Send",
@@ -981,7 +987,6 @@
   "permission": {
     "allow": "Allow Once",
     "allowAlways": "Always Allow",
-    "allowAlwaysCommand": "Always Allow This Command",
     "deny": "Deny",
     "userDenied": "User denied the permission request",
     "fromExternalProcess": "Request from external process",

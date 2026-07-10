@@ -70,6 +70,7 @@ export interface UseSettingsBasicActionsReturn {
   aiTitleGenerationEnabled: boolean;
   statusBarWidgetEnabled: boolean;
   taskCompletionNotificationEnabled: boolean;
+  askUserQuestionNotificationEnabled: boolean;
   commitAiConfig: CommitAiConfig;
   promptEnhancerConfig: PromptEnhancerConfig;
   invocationMode: 'sdk' | 'cli';
@@ -101,6 +102,7 @@ export interface UseSettingsBasicActionsReturn {
   handleAiTitleGenerationEnabledChange: (enabled: boolean) => void;
   handleStatusBarWidgetEnabledChange: (enabled: boolean) => void;
   handleTaskCompletionNotificationEnabledChange: (enabled: boolean) => void;
+  handleAskUserQuestionNotificationEnabledChange: (enabled: boolean) => void;
   permissionDialogTimeoutSeconds: number;
   handlePermissionDialogTimeoutChange: (seconds: number) => void;
   handleCommitAiProviderChange: (provider: CommitAiProvider) => void;
@@ -148,6 +150,7 @@ export interface UseSettingsBasicActionsReturn {
   /** @internal */ setAiTitleGenerationEnabled: (enabled: boolean) => void;
   /** @internal */ setStatusBarWidgetEnabled: (enabled: boolean) => void;
   /** @internal */ setTaskCompletionNotificationEnabled: (enabled: boolean) => void;
+  /** @internal */ setAskUserQuestionNotificationEnabled: (enabled: boolean) => void;
   /** @internal */ setCommitAiConfig: (config: CommitAiConfig) => void;
   /** @internal */ setPromptEnhancerConfig: (config: PromptEnhancerConfig) => void;
   /** @internal */ setInvocationMode: (mode: 'sdk' | 'cli') => void;
@@ -269,6 +272,9 @@ export function useSettingsBasicActions({
 
   // Task completion notification toggle (default: false, opt-in feature)
   const [taskCompletionNotificationEnabled, setTaskCompletionNotificationEnabled] = useState<boolean>(false);
+
+  // AskUserQuestion reminder notification toggle (default: false, opt-in feature)
+  const [askUserQuestionNotificationEnabled, setAskUserQuestionNotificationEnabled] = useState<boolean>(false);
 
   // Permission dialog timeout — owned by App.tsx; we treat the prop as authoritative.
   // We intentionally do NOT keep a local copy: it would be dead state because the
@@ -460,6 +466,13 @@ export function useSettingsBasicActions({
     sendAction(UPSTREAM.SET_TASK_COMPLETION_NOTIFICATION_ENABLED, JSON.stringify(payload));
   }, []);
 
+  // AskUserQuestion reminder notification toggle change handler
+  const handleAskUserQuestionNotificationEnabledChange = useCallback((enabled: boolean) => {
+    setAskUserQuestionNotificationEnabled(enabled);
+    const payload = { askUserQuestionNotificationEnabled: enabled };
+    sendToJava(`set_ask_user_question_notification_enabled:${JSON.stringify(payload)}`);
+  }, []);
+
   // Permission dialog timeout change handler
   const handlePermissionDialogTimeoutChange = useCallback((seconds: number) => {
     const clamped = clampPermissionDialogTimeoutSeconds(seconds);
@@ -639,6 +652,9 @@ export function useSettingsBasicActions({
     taskCompletionNotificationEnabled,
     setTaskCompletionNotificationEnabled,
     handleTaskCompletionNotificationEnabledChange,
+    askUserQuestionNotificationEnabled,
+    setAskUserQuestionNotificationEnabled,
+    handleAskUserQuestionNotificationEnabledChange,
     permissionDialogTimeoutSeconds,
     handlePermissionDialogTimeoutChange,
     commitAiConfig,

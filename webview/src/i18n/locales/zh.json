@@ -337,6 +337,12 @@
         "disabled": "已关闭",
         "hint": "开启后，当 AI 任务完成时显示系统通知。关闭后不显示系统通知。"
       },
+      "askUserQuestionNotification": {
+        "label": "询问用户提醒通知",
+        "enabled": "已开启",
+        "disabled": "已关闭",
+        "hint": "开启后，当 Claude 向你提问时显示系统通知提醒，避免错过。关闭后不显示通知。"
+      },
       "sendShortcut": {
         "label": "发送快捷键",
         "enter": "Enter 发送",
@@ -996,7 +1002,6 @@
   "permission": {
     "allow": "允许一次",
     "allowAlways": "总是允许",
-    "allowAlwaysCommand": "总是允许此命令",
     "deny": "拒绝",
     "userDenied": "用户拒绝了权限请求",
     "fromExternalProcess": "来自外部进程的请求",

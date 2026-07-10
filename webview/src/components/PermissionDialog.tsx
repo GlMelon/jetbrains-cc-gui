@@ -248,7 +248,11 @@ const PermissionDialog = ({
             onClick={handleApproveAlways}
             onMouseEnter={() => setSelectedIndex(1)}
           >
-            <span className="option-text">{allowAlwaysLabel}</span>
+            {/* "Always allow" is remembered at the TOOL level for the current conversation
+                (PermissionService.dispatchPermissionDialog -> rememberToolDecision), so for
+                Bash/Agent this approves every future command this session — the label must
+                say "Always allow", not "Always allow this command". */}
+            <span className="option-text">{t('permission.allowAlways')}</span>
             <span className="option-key">2</span>
           </button>
           <button

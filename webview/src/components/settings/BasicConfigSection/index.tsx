@@ -205,6 +205,8 @@ const BasicConfigSection = (props: BasicConfigSectionProps) => {
           onNewSessionConfirmEnabledChange={props.onNewSessionConfirmEnabledChange}
           taskCompletionNotificationEnabled={props.taskCompletionNotificationEnabled}
           onTaskCompletionNotificationEnabledChange={props.onTaskCompletionNotificationEnabledChange}
+          askUserQuestionNotificationEnabled={props.askUserQuestionNotificationEnabled}
+          onAskUserQuestionNotificationEnabledChange={props.onAskUserQuestionNotificationEnabledChange}
           permissionDialogTimeoutSeconds={props.permissionDialogTimeoutSeconds}
           onPermissionDialogTimeoutChange={props.onPermissionDialogTimeoutChange}
         />

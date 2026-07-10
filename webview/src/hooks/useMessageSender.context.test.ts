@@ -14,7 +14,7 @@ describe('useMessageSender - /context command', () => {
     t,
     addToast: vi.fn(),
     currentProvider: 'claude',
-    selectedModel: 'claude-opus-4-7',
+    selectedModel: 'claude-opus-4-8',
     permissionMode: 'default',
     selectedAgent: null,
     sdkStatusLoaded: true,
@@ -66,7 +66,7 @@ describe('useMessageSender - /context command', () => {
 
   it('sends get_context_usage with base model when longContext is disabled', () => {
     const opts = createOptions({
-      selectedModel: 'claude-opus-4-7',
+      selectedModel: 'claude-opus-4-8',
       longContextEnabled: false,
     });
 
@@ -90,7 +90,7 @@ describe('useMessageSender - /context command', () => {
     // D5:前端不再构造 [1m];上送 stripped model + longContextEnabled 意图,
     // 后端 GetContextUsageActionHandler 据此权威追加 [1m](与 set_session_model 范式一致)。
     const opts = createOptions({
-      selectedModel: 'claude-opus-4-7',
+      selectedModel: 'claude-opus-4-8',
       longContextEnabled: true,
     });
 
