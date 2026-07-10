@@ -1,13 +1,12 @@
 /**
- * Server Tools List Panel Component
- * Displays the server's tools list with hover-to-view tool details
+ * Server Tools Panel Component
+ * 按设计稿改为 chip 流式布局(替换原侧边栏),hover 触发 onToolHover 弹参数 tooltip。
+ * 保留加载/错误/空态分支。
  */
 
 import type { ServerToolsState, McpTool } from './types';
 import { getToolIcon } from './utils';
-import { RefreshIcon, SyncIcon, codiconToIcon } from '../Icons';
-
-const WARNING_HEADER_STYLE: React.CSSProperties = { color: 'var(--color-warning)' };
+import { SyncIcon, codiconToIcon } from '../Icons';
 
 export interface ServerToolsPanelProps {
   toolsInfo?: ServerToolsState[string];
@@ -19,7 +18,7 @@ export interface ServerToolsPanelProps {
 }
 
 /**
- * Server Tools List Panel
+ * Server Tools Panel — chip 流式工具列表
  */
 export function ServerToolsPanel({
   toolsInfo,
@@ -28,97 +27,64 @@ export function ServerToolsPanel({
   onLoadTools,
   onToolHover,
 }: ServerToolsPanelProps) {
+  const toolCount = toolsInfo?.tools?.length ?? 0;
+
   return (
-    <div className="server-detail-panel">
-      {/* Tools list */}
-      <div className="server-sidebar">
-        <div className="sidebar-header">
-          <span className="sidebar-title">{t('mcp.tools')}</span>
-          <div className="sidebar-actions">
-            {isConnected && !toolsInfo && (
-              <button
-                className="sidebar-icon-btn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onLoadTools(false);
-                }}
-                title={t('mcp.loadTools')}
-              >
-                <RefreshIcon size={16} />
-              </button>
-            )}
-            {toolsInfo && !toolsInfo.loading && (
-              <button
-                className="sidebar-icon-btn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onLoadTools(true);
-                }}
-                title={t('mcp.logs.forceRefreshTools')}
-              >
-                <SyncIcon size={16} />
-              </button>
-            )}
-            {toolsInfo?.loading && (
-              <span className="sidebar-icon-btn">
-                <span className="codicon codicon-loading codicon-modifier-spin"></span>
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="sidebar-content">
-          {!isConnected && !toolsInfo && (
-            <div className="sidebar-section-header">{t('mcp.notConnected')}</div>
+    <>
+      <div className="tools-head">
+        <span className="expand-section-label">
+          {t('mcp.tools')}{toolsInfo?.tools ? ` (${toolCount})` : ''}
+        </span>
+        <span className="tools-actions">
+          {toolsInfo && !toolsInfo.loading && (
+            <button
+              className="act-btn"
+              onClick={(e) => { e.stopPropagation(); onLoadTools(true); }}
+              title={t('mcp.logs.forceRefreshTools')}
+            >
+              <SyncIcon size={14} />
+            </button>
           )}
-
-          {toolsInfo?.error && (
-            <div className="sidebar-section-header" style={WARNING_HEADER_STYLE}>
-              {t('mcp.loadFailed')}
-            </div>
+          {toolsInfo?.loading && (
+            <span className="codicon codicon-loading codicon-modifier-spin"></span>
           )}
-
-          {toolsInfo?.tools && toolsInfo.tools.length === 0 && (
-            <div className="sidebar-section-header">{t('mcp.noTools')}</div>
-          )}
-
-          {toolsInfo?.tools && toolsInfo.tools.length > 0 && (
-            <>
-              <div className="sidebar-section-header">
-                {t('mcp.tools')} ({toolsInfo.tools.length})
-              </div>
-              <div className="sidebar-tool-list">
-                {toolsInfo.tools.map((tool, index) => (
-                  <div
-                    key={index}
-                    className="sidebar-tool-item"
-                    title={tool.description || tool.name}
-                    onMouseEnter={(e) => {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      onToolHover(tool, {
-                        x: rect.right + 8,
-                        y: rect.top
-                      });
-                    }}
-                    onMouseLeave={() => {
-                      onToolHover(null);
-                    }}
-                  >
-                    {codiconToIcon(getToolIcon(tool.name), 16, { className: 'tool-icon' })}
-                    <div className="tool-info">
-                      <span className="tool-name-text">{tool.name}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-
-          {isConnected && !toolsInfo && (
-            <div className="sidebar-section-header">{t('mcp.clickToLoad')}</div>
-          )}
-        </div>
+        </span>
       </div>
-    </div>
+
+      <div className="tool-chips">
+        {!isConnected && !toolsInfo && (
+          <span className="tool-empty">{t('mcp.notConnected')}</span>
+        )}
+        {toolsInfo?.error && (
+          <span className="tool-empty err">{t('mcp.loadFailed')}</span>
+        )}
+        {toolsInfo?.tools && toolCount === 0 && (
+          <span className="tool-empty">{t('mcp.noTools')}</span>
+        )}
+        {isConnected && !toolsInfo && (
+          <button
+            className="tool-chip clickable"
+            onClick={(e) => { e.stopPropagation(); onLoadTools(false); }}
+          >
+            {t('mcp.clickToLoad')}
+          </button>
+        )}
+        {toolsInfo?.tools?.map((tool, index) => (
+          <span
+            key={index}
+            className="tool-chip"
+            title={tool.description || tool.name}
+            onMouseEnter={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              onToolHover(tool, { x: rect.right + 8, y: rect.top });
+            }}
+            onMouseLeave={() => { onToolHover(null); }}
+          >
+            {codiconToIcon(getToolIcon(tool.name), 14, { className: 'tool-chip-icon' })}
+            {tool.name}
+          </span>
+        ))}
+      </div>
+    </>
   );
 }

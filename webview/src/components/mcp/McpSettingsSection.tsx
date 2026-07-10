@@ -9,6 +9,7 @@ import type { McpServer, McpPreset } from '../../types/mcp';
 import { sendAction } from '../../bridge/typed';
 import { UPSTREAM } from '../../generated/protocol';
 import { McpServerDialog } from './McpServerDialog';
+import { McpMarketDialog } from './McpMarketDialog';
 import { McpPresetDialog } from './McpPresetDialog';
 import { McpHelpDialog } from './McpHelpDialog';
 import { McpConfirmDialog } from './McpConfirmDialog';
@@ -18,7 +19,7 @@ import { copyToClipboard } from '../../utils/copyUtils';
 
 // Types and utility functions
 import type { McpSettingsSectionProps, RefreshLog, McpTool } from './types';
-import { getCacheKeys, getToolIcon } from './utils';
+import { getCacheKeys, getToolIcon, getServerStatusInfo, isServerEnabled } from './utils';
 
 // Hooks
 import { useServerData } from './hooks/useServerData';
@@ -27,7 +28,7 @@ import { useToolsUpdate } from './hooks/useToolsUpdate';
 
 // Sub-components
 import { ServerCard } from './ServerCard';
-import { BracesIcon, ChevronDownIcon, ExtensionsIcon, LogIcon, PlusIcon, HelpIcon, RefreshIcon, ServerIcon, codiconToIcon } from '../Icons';
+import { BracesIcon, ClipboardIcon, ExtensionsIcon, PlugIcon, RefreshIcon, ServerIcon, codiconToIcon } from '../Icons';
 
 /**
  * MCP Server Settings Component
@@ -42,16 +43,14 @@ export function McpSettingsSection({ currentProvider = 'claude' }: McpSettingsSe
   // Get provider-specific cache keys
   const cacheKeys = useMemo(() => getCacheKeys(isCodexMode ? 'codex' : 'claude'), [isCodexMode]);
 
-  // Dropdown menu state
-  const [showDropdown, setShowDropdown] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
   // Tool tooltip popup state
   const [hoveredTool, setHoveredTool] = useState<{ serverId: string; tool: McpTool; position: { x: number; y: number } } | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
 
   // Dialog state
   const [showServerDialog, setShowServerDialog] = useState(false);
+  const [showMarketDialog, setShowMarketDialog] = useState(false);
+  const [pendingPresetServer, setPendingPresetServer] = useState<McpServer | null>(null);
   const [showPresetDialog, setShowPresetDialog] = useState(false);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -210,16 +209,22 @@ export function McpSettingsSection({ currentProvider = 'claude' }: McpSettingsSe
 
   // Add server manually
   const handleAddManual = useCallback(() => {
-    setShowDropdown(false);
     setEditingServer(null);
     setShowServerDialog(true);
   }, []);
 
-  // Add server from marketplace
+  // Add server from marketplace (Smithery Registry) — OpenCode 无 MCP 后端,入口在下拉菜单隐藏
   const handleAddFromMarket = useCallback(() => {
-    setShowDropdown(false);
-    addToast(t('mcp.marketComingSoon'), 'info');
-  }, [t, addToast]);
+    setShowMarketDialog(true);
+  }, []);
+
+  // 市场选中 server → 预填 McpServerDialog(isPreset 新建模式),用户填 API key/headers 后保存走 ADD
+  const handleSelectFromMarket = useCallback((server: McpServer) => {
+    setEditingServer(null);
+    setPendingPresetServer(server);
+    setShowMarketDialog(false);
+    setShowServerDialog(true);
+  }, []);
 
   // Save server
   const handleSaveServer = useCallback((server: McpServer) => {
@@ -243,6 +248,7 @@ export function McpSettingsSection({ currentProvider = 'claude' }: McpSettingsSe
 
     setShowServerDialog(false);
     setEditingServer(null);
+    setPendingPresetServer(null);
   }, [editingServer, messagePrefix, addToast, t, loadServers]);
 
   // Select preset
@@ -319,60 +325,97 @@ export function McpSettingsSection({ currentProvider = 'claude' }: McpSettingsSe
     }
   }, []);
 
+  // 统计条:connected / error / disabled / total
+  const stats = useMemo(() => {
+    let connected = 0, error = 0, disabled = 0;
+    servers.forEach(s => {
+      if (!isServerEnabled(s, isCodexMode)) { disabled++; return; }
+      const st = getServerStatusInfo(s, serverStatus)?.status;
+      if (st === 'connected') connected++;
+      else if (st === 'failed' || st === 'needs-auth') error++;
+    });
+    return { connected, error, disabled, total: servers.length };
+  }, [servers, serverStatus, isCodexMode]);
+
   return (
     <div className="mcp-settings-section">
-      {/* Header */}
-      <div className="mcp-header">
-        <div className="header-left">
-          <span className="header-title">{t('mcp.title')}</span>
+      {/* Header(设计稿 panel-header) */}
+      <div className="panel-header">
+        <div className="panel-title">
+          <span className="ico-badge"><PlugIcon size={16} /></span>
+          <span className="title-text">
+            {t('mcp.title')}
+            <span className="subtitle">{t('mcp.subtitle')}</span>
+          </span>
+        </div>
+        <div className="header-tools">
+          {/* 帮助:什么是 MCP? */}
           <button
-            className="help-btn"
+            className="icon-btn"
             onClick={() => setShowHelpDialog(true)}
             title={t('mcp.whatIsMcp')}
+            aria-label={t('mcp.whatIsMcp')}
           >
-            <HelpIcon size={16} />
+            ?
           </button>
-        </div>
-        <div className="header-right">
+          {/* 日志(剪贴板图标 + 未读徽章) */}
           <button
-            className="log-btn"
+            className="icon-btn"
             onClick={() => setShowLogDialog(true)}
             title={t('mcp.logs.title')}
+            aria-label={t('mcp.logs.title')}
           >
-            <LogIcon size={16} />
+            <ClipboardIcon size={16} />
             {refreshLogs.length > 0 && (
-              <span className="log-badge">{refreshLogs.length}</span>
+              <span className="badge">{refreshLogs.length}</span>
             )}
           </button>
+          {/* 刷新状态 */}
           <button
-            className="refresh-btn"
+            className="icon-btn"
             onClick={handleRefresh}
             disabled={loading || statusLoading}
             title={t('mcp.refreshStatus')}
+            aria-label={t('mcp.refreshStatus')}
           >
             <RefreshIcon size={16} className={loading || statusLoading ? 'spinning' : ''} />
           </button>
-          <div className="add-dropdown" ref={dropdownRef}>
-            <button className="add-btn" onClick={() => setShowDropdown(!showDropdown)}>
-              <PlusIcon size={16} />
-              {t('mcp.add')}
-              <ChevronDownIcon size={16} />
+          {/* 手动配置(幽灵按钮) */}
+          <button
+            className="btn-ghost"
+            onClick={handleAddManual}
+            title={t('mcp.manualConfig')}
+          >
+            <BracesIcon size={16} />
+            {t('mcp.manualConfig')}
+          </button>
+          {/* 从市场获取(主色按钮,OpenCode 无 MCP 后端时隐藏) */}
+          {currentProvider !== 'opencode' && (
+            <button
+              className="market-btn"
+              onClick={handleAddFromMarket}
+              title={t('mcp.addFromMarket')}
+            >
+              <ExtensionsIcon size={16} />
+              {t('mcp.addFromMarket')}
             </button>
-            {showDropdown && (
-              <div className="dropdown-menu">
-                <div className="dropdown-item" onClick={handleAddManual}>
-                  <BracesIcon size={16} />
-                  {t('mcp.manualConfig')}
-                </div>
-                <div className="dropdown-item" onClick={handleAddFromMarket}>
-                  <ExtensionsIcon size={16} />
-                  {t('mcp.addFromMarket')}
-                </div>
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </div>
+
+      {/* 统计条 */}
+      {servers.length > 0 && (
+        <div className="stats-bar">
+          <span className="stat-pill"><span className="dot ok" />{t('mcp.statusConnected')} <b>{stats.connected}</b></span>
+          {stats.error > 0 && (
+            <span className="stat-pill"><span className="dot err" />{t('mcp.statsError')} <b>{stats.error}</b></span>
+          )}
+          {stats.disabled > 0 && (
+            <span className="stat-pill"><span className="dot off" />{t('mcp.statsDisabled')} <b>{stats.disabled}</b></span>
+          )}
+          <span className="stat-pill">{t('mcp.statsTotal', { count: stats.total })}</span>
+        </div>
+      )}
 
       {/* Vertical layout: server list | refresh logs */}
       <div className="mcp-panels-container">
@@ -426,14 +469,24 @@ export function McpSettingsSection({ currentProvider = 'claude' }: McpSettingsSe
       {/* Dialogs */}
       {showServerDialog && (
         <McpServerDialog
-          server={editingServer}
+          server={editingServer ?? pendingPresetServer}
+          isPreset={!!pendingPresetServer}
           existingIds={servers.map(s => s.id)}
           currentProvider={currentProvider}
           onClose={() => {
             setShowServerDialog(false);
             setEditingServer(null);
+            setPendingPresetServer(null);
           }}
           onSave={handleSaveServer}
+        />
+      )}
+
+      {showMarketDialog && (
+        <McpMarketDialog
+          isCodexMode={isCodexMode}
+          onClose={() => setShowMarketDialog(false)}
+          onSelect={handleSelectFromMarket}
         />
       )}
 

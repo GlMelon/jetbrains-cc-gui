@@ -1,5 +1,5 @@
 import { sendAction, subscribeEvent } from '../../bridge/typed';
-import { BanIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, DownloadIcon, EditIcon, ExtensionsIcon, FolderIcon, GlobeIcon, PlusIcon, HelpIcon, RefreshIcon, SearchIcon, TrashIcon } from '../Icons';;
+import { BanIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, CodeIcon, DownloadIcon, EditIcon, ExtensionsIcon, FileCodeIcon, FileTextIcon, FolderIcon, GlobeIcon, LightbulbIcon, RefreshIcon, RocketIcon, SearchIcon, SparklesIcon, TerminalIcon, TrashIcon, ZapIcon } from '../Icons';
 import { UPSTREAM, DOWNSTREAM } from '../../generated/protocol';
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +7,7 @@ import type { Skill, SkillsConfig, SkillScope, SkillFilter, SkillEnabledFilter }
 import { registerLegacyAlias } from '../../bridge';
 import { SkillHelpDialog } from './SkillHelpDialog';
 import { SkillConfirmDialog } from './SkillConfirmDialog';
+import { SkillMarketDialog } from './SkillMarketDialog';
 import { ToastContainer, type ToastMessage } from '../Toast';
 
 interface SkillsSettingsSectionProps {
@@ -59,6 +60,9 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
   const [showHelpDialog, setShowHelpDialog] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [deletingSkill, setDeletingSkill] = useState<Skill | null>(null);
+
+  // Skills market dialog (从市场安装:GitHub 仓库 tarball 下载)
+  const [showMarketDialog, setShowMarketDialog] = useState(false);
 
   // Skills currently being toggled (used to disable buttons and prevent duplicate clicks)
   const [togglingSkills, setTogglingSkills] = useState<Set<string>>(new Set());
@@ -147,9 +151,18 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
     return iconColors[Math.abs(hash) % iconColors.length];
   };
 
-  const getSkillIconStyle = (skillId: string, enabled: boolean): React.CSSProperties => ({
-    color: enabled ? getIconColor(skillId) : 'var(--text-tertiary)',
-  });
+  /** 按 skill 名关键词匹配辨识图标,未命中回退 FolderIcon */
+  const getSkillIcon = (name: string): React.ReactElement => {
+    const n = name.toLowerCase();
+    if (/(code|refactor|lint|format)/.test(n)) return <CodeIcon size={16} />;
+    if (/(terminal|shell|bash|cmd)/.test(n)) return <TerminalIcon size={16} />;
+    if (/(doc|readme|markdown|note)/.test(n)) return <FileTextIcon size={16} />;
+    if (/(spark|ai|brain|gen)/.test(n)) return <SparklesIcon size={16} />;
+    if (/(idea|light|tip|hint)/.test(n)) return <LightbulbIcon size={16} />;
+    if (/(deploy|ship|release|publish)/.test(n)) return <RocketIcon size={16} />;
+    if (/(file|script)/.test(n)) return <FileCodeIcon size={16} />;
+    return <FolderIcon size={16} />;
+  };
 
   const loadSkills = useCallback(() => {
     setLoading(true);
@@ -364,99 +377,28 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
 
   return (
     <div className="skills-settings-section">
-      {/* Toolbar */}
-      <div className="skills-toolbar">
-        {/* Filter tabs */}
-        <div className="filter-tabs" role="tablist">
-          <div
-            className={`tab-item ${currentFilter === 'all' ? 'active' : ''}`}
-            role="tab"
-            tabIndex={0}
-            aria-selected={currentFilter === 'all'}
-            onClick={() => setCurrentFilter('all')}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCurrentFilter('all'); } }}
-          >
-            {t('skills.all')} <span className="count-badge">{totalCount}</span>
-          </div>
-          <div
-            className={`tab-item ${currentFilter === (isCodex ? 'user' : 'global') ? 'active' : ''}`}
-            role="tab"
-            tabIndex={0}
-            aria-selected={currentFilter === (isCodex ? 'user' : 'global')}
-            onClick={() => setCurrentFilter(isCodex ? 'user' : 'global')}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCurrentFilter(isCodex ? 'user' : 'global'); } }}
-          >
-            {isCodex ? t('skills.user') : t('skills.global')} <span className="count-badge">{primaryCount}</span>
-          </div>
-          <div
-            className={`tab-item ${currentFilter === (isCodex ? 'repo' : 'local') ? 'active' : ''}`}
-            role="tab"
-            tabIndex={0}
-            aria-selected={currentFilter === (isCodex ? 'repo' : 'local')}
-            onClick={() => setCurrentFilter(isCodex ? 'repo' : 'local')}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCurrentFilter(isCodex ? 'repo' : 'local'); } }}
-          >
-            {isCodex ? t('skills.repo') : t('skills.local')} <span className="count-badge">{secondaryCount}</span>
-          </div>
-          {/* Enabled status filter */}
-          <div className="filter-separator"></div>
-          <div
-            className={`tab-item enabled-filter ${enabledFilter === 'enabled' ? 'active' : ''}`}
-            role="tab"
-            tabIndex={0}
-            aria-selected={enabledFilter === 'enabled'}
-            onClick={() => setEnabledFilter(enabledFilter === 'enabled' ? 'all' : 'enabled')}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEnabledFilter(enabledFilter === 'enabled' ? 'all' : 'enabled'); } }}
-            title={t('skills.filterEnabled')}
-          >
-            <CheckIcon size={16} />
-            {t('skills.enabled')} <span className="count-badge">{enabledCount}</span>
-          </div>
-          <div
-            className={`tab-item enabled-filter ${enabledFilter === 'disabled' ? 'active' : ''}`}
-            role="tab"
-            tabIndex={0}
-            aria-selected={enabledFilter === 'disabled'}
-            onClick={() => setEnabledFilter(enabledFilter === 'disabled' ? 'all' : 'disabled')}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEnabledFilter(enabledFilter === 'disabled' ? 'all' : 'disabled'); } }}
-            title={t('skills.filterDisabled')}
-          >
-            <BanIcon size={16} />
-            {t('skills.disabled')} <span className="count-badge">{disabledCount}</span>
-          </div>
+      {/* Header(设计稿 panel-header) */}
+      <div className="panel-header">
+        <div className="panel-title">
+          <span className="ico-badge"><ZapIcon size={16} /></span>
+          <span className="title-text">
+            {t('skills.title')}
+            <span className="subtitle">{t('skills.subtitle')}</span>
+          </span>
         </div>
-
-        {/* Right-side tools */}
-        <div className="toolbar-right">
-          {/* Search box */}
-          <div className="search-box">
-            <SearchIcon size={16} />
-            <input
-              type="text"
-              className="search-input"
-              placeholder={t('skills.searchPlaceholder')}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-
-          {/* Help button */}
-          <button
-            className="icon-btn"
-            onClick={() => setShowHelpDialog(true)}
-            title={t('skills.whatIsSkills')}
-          >
-            <HelpIcon size={16} />
+        <div className="header-tools">
+          {/* 帮助:什么是 Skills? */}
+          <button className="icon-btn" onClick={() => setShowHelpDialog(true)} title={t('skills.whatIsSkills')} aria-label={t('skills.whatIsSkills')}>
+            ?
           </button>
-
-          {/* Import button */}
+          <button className="icon-btn" onClick={handleRefresh} disabled={loading} title={t('chat.refresh')}>
+            <RefreshIcon size={16} className={loading ? 'spinning' : ''} />
+          </button>
           <div className="add-dropdown" ref={dropdownRef}>
-            <button
-              className="icon-btn primary"
-              onClick={() => setShowDropdown(!showDropdown)}
-              title={t('skills.importSkill')}
-            >
-              <PlusIcon size={16} />
+            <button className="btn-ghost" onClick={() => setShowDropdown(!showDropdown)} title={t('skills.importSkill')}>
+              <DownloadIcon size={16} />
+              {t('skills.importSkill')}
+              <ChevronDownIcon size={16} />
             </button>
             {showDropdown && (
               <div className="dropdown-menu">
@@ -471,31 +413,82 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
               </div>
             )}
           </div>
-
-          {/* Refresh button */}
-          <button
-            className="icon-btn"
-            onClick={handleRefresh}
-            disabled={loading}
-            title={t('chat.refresh')}
-          >
-            <RefreshIcon size={16} className={loading ? 'spinning' : ''} />
+          <button className="market-btn" onClick={() => setShowMarketDialog(true)} title={t('skills.fromMarket')}>
+            <ExtensionsIcon size={16} />
+            {t('skills.fromMarket')}
           </button>
+        </div>
+      </div>
+
+      {/* 工具栏(设计稿:分段控件 + 胶囊筛选 + 搜索) */}
+      <div className="skills-toolbar">
+        <div className="seg-group" role="group">
+          <button
+            className={currentFilter === 'all' ? 'active' : ''}
+            onClick={() => setCurrentFilter('all')}
+          >
+            {t('skills.all')} <span className="count">{totalCount}</span>
+          </button>
+          <button
+            className={currentFilter === (isCodex ? 'user' : 'global') ? 'active' : ''}
+            onClick={() => setCurrentFilter(isCodex ? 'user' : 'global')}
+          >
+            {isCodex ? t('skills.user') : t('skills.global')} <span className="count">{primaryCount}</span>
+          </button>
+          <button
+            className={currentFilter === (isCodex ? 'repo' : 'local') ? 'active' : ''}
+            onClick={() => setCurrentFilter(isCodex ? 'repo' : 'local')}
+          >
+            {isCodex ? t('skills.repo') : t('skills.local')} <span className="count">{secondaryCount}</span>
+          </button>
+        </div>
+
+        <span className="toolbar-divider" />
+
+        <button
+          className={`filter-pill ${enabledFilter === 'enabled' ? 'active' : ''}`}
+          onClick={() => setEnabledFilter(enabledFilter === 'enabled' ? 'all' : 'enabled')}
+          title={t('skills.filterEnabled')}
+        >
+          <CheckIcon size={14} />
+          {t('skills.enabled')} <span className="count">{enabledCount}</span>
+        </button>
+        <button
+          className={`filter-pill ${enabledFilter === 'disabled' ? 'active' : ''}`}
+          onClick={() => setEnabledFilter(enabledFilter === 'disabled' ? 'all' : 'disabled')}
+          title={t('skills.filterDisabled')}
+        >
+          <BanIcon size={14} />
+          {t('skills.disabled')} <span className="count">{disabledCount}</span>
+        </button>
+
+        <span className="toolbar-spacer" />
+
+        <div className="search-box">
+          <SearchIcon size={16} />
+          <input
+            type="text"
+            className="search-input"
+            placeholder={t('skills.searchPlaceholder')}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
       </div>
 
       {/* Skills list */}
       <div className="skill-list">
-        {filteredSkills.map((skill) => (
+        {filteredSkills.map((skill) => {
+          const isGlobal = skill.scope === 'global' || skill.scope === 'user';
+          return (
           <div
             key={skill.id}
-            className={`skill-card ${expandedSkills.has(skill.id) ? 'expanded' : ''} ${!skill.enabled ? 'disabled' : ''}`}
+            className={`item-card ${expandedSkills.has(skill.id) ? 'expanded' : ''} ${!skill.enabled ? 'disabled' : ''}`}
           >
-            {/* Card header */}
-            <div className="card-header" onClick={() => toggleExpand(skill.id)}>
-              {/* Enable/disable toggle */}
+            {/* 卡片行 */}
+            <div className="card-row" onClick={() => toggleExpand(skill.id)}>
               <button
-                className={`toggle-switch ${skill.enabled ? 'enabled' : 'disabled'} ${togglingSkills.has(skill.id) ? 'loading' : ''}`}
+                className={`enable-btn ${skill.enabled ? 'enabled' : ''}`}
                 onClick={(e) => handleToggle(skill, e)}
                 disabled={togglingSkills.has(skill.id)}
                 title={skill.enabled ? t('chat.clickToDisable') : t('chat.clickToEnable')}
@@ -509,57 +502,61 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
                 )}
               </button>
 
-              <div className="skill-icon-wrapper" style={getSkillIconStyle(skill.id, skill.enabled)}>
-                <FolderIcon size={16} />
+              <div
+                className="card-icon codicon-icon"
+                style={{ background: skill.enabled ? getIconColor(skill.id) : 'var(--bg-tertiary)' }}
+              >
+                {getSkillIcon(skill.name)}
               </div>
 
-              <div className="skill-info">
-                <div className="skill-header-row">
-                  <span className={`skill-name ${!skill.enabled ? 'muted' : ''}`}>{skill.name}</span>
-                  <span className={`scope-badge ${skill.scope}`}>
-                    {(skill.scope === 'global' || skill.scope === 'user') ? <GlobeIcon size={14} /> : <DownloadIcon size={14} />}
+              <div className="card-main">
+                <div className="card-title">
+                  <span className={!skill.enabled ? 'muted-name' : ''}>{skill.name}</span>
+                </div>
+                {skill.description ? (
+                  <div className="card-desc" title={skill.description}>{skill.description}</div>
+                ) : (
+                  <div className="card-desc" style={{ opacity: 0.6, fontStyle: 'italic' }}>{t('skills.noDescription')}</div>
+                )}
+                <div className="card-meta">
+                  <span className={`pill ${isGlobal ? 'remote' : 'local'}`}>
+                    {isGlobal ? <GlobeIcon size={14} /> : <DownloadIcon size={14} />}
                     {scopeLabelMap[skill.scope] || skill.scope}
                   </span>
-                  {!skill.enabled && (
-                    <span className="status-badge disabled">
-                      {t('chat.disabled')}
-                    </span>
-                  )}
+                  <span className="pill muted mono" title={skill.path}>{skill.path}</span>
+                  {!skill.enabled && <span className="pill muted">{t('chat.disabled')}</span>}
                 </div>
-                <div className="skill-path" title={skill.path}>{skill.path}</div>
               </div>
 
-              <div className="expand-indicator">
-                {expandedSkills.has(skill.id) ? <ChevronDownIcon size={14} /> : <ChevronRightIcon size={14} />}
-              </div>
+              <span className="chev"><ChevronRightIcon size={16} /></span>
             </div>
 
-            {/* Expanded content */}
+            {/* 展开内容 */}
             {expandedSkills.has(skill.id) && (
-              <div className="card-content">
-                <div className="info-section">
-                  {skill.description ? (
-                    <div className="description-container">
-                      <div className="description-label">{t('skills.description')}:</div>
-                      <div className="description-content">{skill.description}</div>
-                    </div>
-                  ) : (
-                    <div className="description-placeholder">{t('skills.noDescription')}</div>
+              <div className="card-expand">
+                <div className="expand-grid">
+                  <span className="k">{t('skills.path')}</span>
+                  <span className="v code">{skill.path}</span>
+                  {skill.description && (
+                    <>
+                      <span className="k">{t('skills.description')}</span>
+                      <span className="v">{skill.description}</span>
+                    </>
                   )}
                 </div>
-
-                <div className="actions-section">
-                  <button className="action-btn edit-btn" onClick={() => handleOpen(skill)}>
+                <div className="expand-actions">
+                  <button className="btn-ghost" onClick={() => handleOpen(skill)}>
                     <EditIcon size={16} /> {t('common.edit')}
                   </button>
-                  <button className="action-btn delete-btn" onClick={() => handleDelete(skill)}>
+                  <button className="btn-ghost" onClick={() => handleDelete(skill)}>
                     <TrashIcon size={16} /> {t('common.delete')}
                   </button>
                 </div>
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
 
         {/* Empty state */}
         {filteredSkills.length === 0 && !loading && (
@@ -597,6 +594,15 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
           cancelText={t('common.cancel')}
           onConfirm={confirmDelete}
           onCancel={cancelDelete}
+        />
+      )}
+
+      {/* Skills market dialog (从市场安装) */}
+      {showMarketDialog && (
+        <SkillMarketDialog
+          currentProvider={currentProvider}
+          onClose={() => setShowMarketDialog(false)}
+          onInstalled={loadSkills}
         />
       )}
 

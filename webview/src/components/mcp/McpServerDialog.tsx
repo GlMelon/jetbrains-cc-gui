@@ -7,6 +7,11 @@ interface McpServerDialogProps {
   server?: McpServer | null;
   existingIds?: string[];
   currentProvider?: 'claude' | 'codex' | string;
+  /**
+   * 预填新建模式:server 来自市场/预设(非用户既有),标题用 addTitle、ID 查重放开、
+   * 保存走 ADD(父组件 editingServer=null)。用户可在 JSON 编辑器里调整后确认安装。
+   */
+  isPreset?: boolean;
   onClose: () => void;
   onSave: (server: McpServer) => void;
 }
@@ -15,7 +20,7 @@ interface McpServerDialogProps {
  * MCP Server Configuration Dialog (Add/Edit)
  * Supports both Claude and Codex providers
  */
-export function McpServerDialog({ server, existingIds = [], currentProvider = 'claude', onClose, onSave }: McpServerDialogProps) {
+export function McpServerDialog({ server, existingIds = [], currentProvider = 'claude', isPreset = false, onClose, onSave }: McpServerDialogProps) {
   const { t } = useTranslation();
   const isCodexMode = currentProvider === 'codex';
   const [saving, setSaving] = useState(false);
@@ -125,8 +130,8 @@ export function McpServerDialog({ server, existingIds = [], currentProvider = 'c
       // mcpServers format
       if (parsed.mcpServers && typeof parsed.mcpServers === 'object') {
         for (const [id, config] of Object.entries(parsed.mcpServers)) {
-          // Check if ID already exists (except in edit mode)
-          if (!server && existingIds.includes(id)) {
+          // Check if ID already exists (except in edit mode; preset mode is a fresh add)
+          if ((!server || isPreset) && existingIds.includes(id)) {
             setParseError(t('mcp.serverDialog.errors.idExists', { id }));
             return null;
           }
@@ -234,7 +239,7 @@ export function McpServerDialog({ server, existingIds = [], currentProvider = 'c
     <div className="dialog-overlay" onClick={handleOverlayClick}>
       <div className="dialog mcp-server-dialog">
         <div className="dialog-header">
-          <h3>{server ? t('mcp.serverDialog.editTitle') : t('mcp.serverDialog.addTitle')}</h3>
+          <h3>{server && !isPreset ? t('mcp.serverDialog.editTitle') : t('mcp.serverDialog.addTitle')}</h3>
           <div className="header-actions">
             <button className="mode-btn active">
               {t('mcp.serverDialog.rawConfig')}
