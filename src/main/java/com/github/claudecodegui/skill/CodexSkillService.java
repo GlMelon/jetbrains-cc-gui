@@ -65,7 +65,7 @@ public class CodexSkillService {
      * Validates that a resolved path is strictly under the given parent directory.
      * Prevents path traversal attacks by normalizing both paths and checking containment.
      */
-    private static boolean isPathSafe(Path child, Path parent) {
+    static boolean isPathSafe(Path child, Path parent) {
         Path normalizedChild = child.toAbsolutePath().normalize();
         Path normalizedParent = parent.toAbsolutePath().normalize();
         return normalizedChild.startsWith(normalizedParent) && !normalizedChild.equals(normalizedParent);
@@ -74,7 +74,7 @@ public class CodexSkillService {
     /**
      * Validates a skill name to prevent path traversal via directory names.
      */
-    private static boolean isSafeSkillName(String name) {
+    static boolean isSafeSkillName(String name) {
         if (name == null || name.isEmpty()) { return false; }
         if (name.contains("..") || name.contains("/") || name.contains("\\")) { return false; }
         return SAFE_NAME_PATTERN.matcher(name).matches();
@@ -84,7 +84,7 @@ public class CodexSkillService {
      * Normalizes a path string for consistent cross-platform comparison.
      * Uses absolute + normalize to handle Windows vs Unix path differences.
      */
-    private static String normalizePath(String path) {
+    static String normalizePath(String path) {
         if (path == null || path.isEmpty()) { return path; }
         return Paths.get(path).toAbsolutePath().normalize().toString();
     }
@@ -689,7 +689,7 @@ public class CodexSkillService {
 
     // ==================== File Helpers ====================
 
-    private static void copyDirectory(Path source, Path target) throws IOException {
+    static void copyDirectory(Path source, Path target) throws IOException {
         Path normalizedTarget = target.toAbsolutePath().normalize();
         Files.walkFileTree(source, EnumSet.noneOf(FileVisitOption.class), Integer.MAX_VALUE, new SimpleFileVisitor<>() {
             @Override
@@ -739,7 +739,7 @@ public class CodexSkillService {
         }
     }
 
-    private static void deleteDirectory(Path dir) throws IOException {
+    static void deleteDirectory(Path dir) throws IOException {
         Path normalizedDir = dir.toAbsolutePath().normalize();
         Files.walkFileTree(dir, EnumSet.noneOf(FileVisitOption.class), Integer.MAX_VALUE, new SimpleFileVisitor<>() {
             @Override

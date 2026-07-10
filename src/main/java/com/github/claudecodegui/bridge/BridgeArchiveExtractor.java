@@ -4,6 +4,9 @@ import com.github.claudecodegui.util.PlatformUtils;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.util.io.FileUtil;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 
 import java.io.BufferedInputStream;
 import java.io.File;
@@ -20,16 +23,16 @@ import java.util.zip.ZipInputStream;
  * directory deletion. ZipSlip defenses are preserved verbatim from the original
  * implementation.
  *
- * <p>Package-private helper extracted from {@link BridgeDirectoryResolver}.
+ * <p>Helper extracted from {@link BridgeDirectoryResolver};public 供 service 包跨包调用(SkillMarketService)。
  */
-final class BridgeArchiveExtractor {
+public final class BridgeArchiveExtractor {
 
     private static final Logger LOG = Logger.getInstance(BridgeArchiveExtractor.class);
 
     private BridgeArchiveExtractor() {
     }
 
-    static void deleteDirectory(File dir) {
+    public static void deleteDirectory(File dir) {
         if (dir == null || !dir.exists()) {
             return;
         }
@@ -229,6 +232,55 @@ final class BridgeArchiveExtractor {
                 double progress = 0.2 + (0.7 * processedEntries / totalEntries);
                 indicator.setFraction(progress);
                 indicator.setText("Extracting: " + entry.getName() + " (" + processedEntries + "/" + totalEntries + ")");
+            }
+        }
+    }
+
+    // ── tar.gz 解压(Skills 市场 GitHub tarball 用) ──
+    // 与上面 unzipArchive 区分:后者是 ai-bridge .zip 专用(Unix 用 unzip,无法解 tar.gz)。
+
+    /**
+     * 解压 tar.gz 归档。优先系统 {@code tar -xzf}(Win10+ bsdtar / macOS / Linux 跨平台自带,
+     * 保留 Unix 权限);不可用时回退 Apache Commons Compress 纯 Java 解压。ZipSlip 防御贯穿
+     * 两条路径(归一化 + startsWith 边界检查)。
+     */
+    public static void extractTarGz(File archiveFile, File targetDir, ProgressIndicator indicator) throws IOException {
+        // 仅用纯 Java 解压(commons-compress):Skills tarball 来自外部 GitHub 仓库,
+        // 必须 ZipSlip 防御 100% 可控——系统 GNU tar 默认会解压 ../ 到目标外,绕过防御。
+        // tarball 通常 KB~MB 级,Java 解压性能无忧,换取跨平台一致 + 安全可控。
+        Files.createDirectories(targetDir.toPath());
+        extractTarGzWithJava(archiveFile, targetDir, indicator);
+    }
+
+    /** commons-compress 纯 Java tar.gz 解压,带 ZipSlip 防御(package-private 以便单测)。 */
+    static void extractTarGzWithJava(File archiveFile, File targetDir, ProgressIndicator indicator) throws IOException {
+        Path targetPath = targetDir.toPath();
+        byte[] buffer = new byte[8192];
+        try (TarArchiveInputStream tis = new TarArchiveInputStream(
+                new GzipCompressorInputStream(new BufferedInputStream(new FileInputStream(archiveFile))))) {
+            TarArchiveEntry entry;
+            int processed = 0;
+            while ((entry = tis.getNextTarEntry()) != null) {
+                Path resolvedPath = targetPath.resolve(entry.getName()).normalize();
+                // ZipSlip 防御:禁止逃逸出 targetDir
+                if (!resolvedPath.startsWith(targetPath)) {
+                    throw new IOException("Unsafe tar entry detected: " + entry.getName());
+                }
+                if (entry.isDirectory()) {
+                    Files.createDirectories(resolvedPath);
+                } else {
+                    Files.createDirectories(resolvedPath.getParent());
+                    try (FileOutputStream fos = new FileOutputStream(resolvedPath.toFile())) {
+                        int len;
+                        while ((len = tis.read(buffer)) > 0) {
+                            fos.write(buffer, 0, len);
+                        }
+                    }
+                }
+                processed++;
+                if (indicator != null) {
+                    indicator.setText("Extracting: " + entry.getName() + " (" + processed + ")");
+                }
             }
         }
     }
