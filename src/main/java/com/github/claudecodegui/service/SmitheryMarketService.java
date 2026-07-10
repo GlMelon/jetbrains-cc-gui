@@ -237,9 +237,15 @@ public class SmitheryMarketService {
                     JsonElement connEl = s.get("connection");
                     if (connEl != null && connEl.isJsonObject()) {
                         JsonObject c = connEl.getAsJsonObject();
-                        if (!connection.has("mcpUrl")) copyString(connection, c, "mcpUrl");
-                        if (!connection.has("url")) copyString(connection, c, "url");
-                        if (!connection.has("command")) copyString(connection, c, "command");
+                        if (!connection.has("mcpUrl")) {
+                            copyString(connection, c, "mcpUrl");
+                        }
+                        if (!connection.has("url")) {
+                            copyString(connection, c, "url");
+                        }
+                        if (!connection.has("command")) {
+                            copyString(connection, c, "command");
+                        }
                         if (!connection.has("args") && hasArrayOrPrimitive(c, "args")) {
                             connection.add("args", c.get("args"));
                         }
