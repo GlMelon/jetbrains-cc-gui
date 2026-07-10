@@ -1,5 +1,6 @@
 package com.github.claudecodegui.provider.claude;
 
+import com.github.claudecodegui.provider.CustomPricingProvider;
 import com.github.claudecodegui.provider.common.DaemonConstants;
 import com.github.claudecodegui.util.PathUtils;
 import com.google.gson.JsonObject;

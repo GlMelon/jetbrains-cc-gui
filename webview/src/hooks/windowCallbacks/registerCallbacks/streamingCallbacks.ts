@@ -142,6 +142,38 @@ export function collectUnresolvedToolUseIds(
 }
 
 /**
+ * Mark any unresolved tool_use blocks as denied by adding their IDs to
+ * window.__deniedToolIds. Called from onStreamEnd's early-return path
+ * (handlingMode === 'skip') when no active stream exists but dangling
+ * tool_use blocks may still need denial — e.g., after an errored/aborted
+ * turn where tool_result never arrives.
+ *
+ * Idempotent: adding the same ID twice is a no-op on the Set.
+ */
+function finalizeUnresolvedToolUses(): void {
+  try {
+    // Access messages from the window-level message store if available.
+    // This is a best-effort scan; if messages aren't accessible, skip.
+    const messages = (window as any).__latestMessages;
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return;
+    }
+    const ids = collectUnresolvedToolUseIds(messages, 'lastTurn');
+    if (ids.length === 0) {
+      return;
+    }
+    if (!window.__deniedToolIds) {
+      window.__deniedToolIds = new Set<string>();
+    }
+    for (const id of ids) {
+      window.__deniedToolIds.add(id);
+    }
+  } catch (e) {
+    console.error('[Frontend] Error in finalizeUnresolvedToolUses:', e);
+  }
+}
+
+/**
  * Timeout (ms) for detecting a stalled stream.  If no content/thinking delta
  * arrives for this duration while isStreamingRef is still true, the frontend
  * auto-recovers by forcing the stream-end cleanup.  This guards against the

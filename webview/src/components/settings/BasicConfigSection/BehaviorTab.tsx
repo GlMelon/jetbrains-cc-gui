@@ -33,8 +33,6 @@ export interface BehaviorTabProps {
   onNewSessionConfirmEnabledChange?: (enabled: boolean) => void;
   taskCompletionNotificationEnabled?: boolean;
   onTaskCompletionNotificationEnabledChange?: (enabled: boolean) => void;
-  askUserQuestionNotificationEnabled?: boolean;
-  onAskUserQuestionNotificationEnabledChange?: (enabled: boolean) => void;
   permissionDialogTimeoutSeconds?: number;
   onPermissionDialogTimeoutChange?: (seconds: number) => void;
 }
@@ -62,8 +60,6 @@ const BehaviorTab = ({
   onNewSessionConfirmEnabledChange = () => {},
   taskCompletionNotificationEnabled = false,
   onTaskCompletionNotificationEnabledChange = () => {},
-  askUserQuestionNotificationEnabled = false,
-  onAskUserQuestionNotificationEnabledChange = () => {},
   permissionDialogTimeoutSeconds = DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS,
   onPermissionDialogTimeoutChange = () => {},
 }: BehaviorTabProps) => {

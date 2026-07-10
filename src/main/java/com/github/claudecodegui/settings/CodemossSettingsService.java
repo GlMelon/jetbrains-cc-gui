@@ -571,6 +571,10 @@ public class CodemossSettingsService {
         workingDirectoryManager.setCustomWorkingDirectory(projectPath, customWorkingDir);
     }
 
+    public String getEffectiveWorkingDirectory(String projectPath) {
+        return workingDirectoryManager.resolveEffectiveWorkingDirectory(projectPath);
+    }
+
     // ==================== Commit Prompt Config Management ====================
 
     /**
@@ -2308,5 +2312,42 @@ public class CodemossSettingsService {
 
         runtimeObj.add("providers", providersObj);
         return runtimeObj;
+    }
+
+    // ==================== Custom Model Pricing Management ====================
+
+    public void setCustomModelPricing(String provider, Map<String, ModelPricing> pricing) throws IOException {
+        JsonObject config = readConfig();
+
+        JsonObject root;
+        if (config.has("customModelPricing") && config.get("customModelPricing").isJsonObject()) {
+            root = config.getAsJsonObject("customModelPricing");
+        } else {
+            root = new JsonObject();
+            config.add("customModelPricing", root);
+        }
+
+        if (pricing == null || pricing.isEmpty()) {
+            root.remove(provider);
+        } else {
+            JsonObject providerNode = new JsonObject();
+            for (Map.Entry<String, ModelPricing> entry : pricing.entrySet()) {
+                providerNode.add(entry.getKey(), serializeModelPricing(entry.getValue()));
+            }
+            root.add(provider, providerNode);
+        }
+
+        writeConfig(config);
+        LOG.info("[CodemossSettings] Set user model pricing for " + provider
+                + ": " + (pricing == null ? 0 : pricing.size()) + " models");
+    }
+
+    private JsonObject serializeModelPricing(ModelPricing pricing) {
+        JsonObject node = new JsonObject();
+        if (pricing.inputCostPer1M() != null) { node.addProperty("inputCostPer1M", pricing.inputCostPer1M()); }
+        if (pricing.outputCostPer1M() != null) { node.addProperty("outputCostPer1M", pricing.outputCostPer1M()); }
+        if (pricing.cacheWriteCostPer1M() != null) { node.addProperty("cacheWriteCostPer1M", pricing.cacheWriteCostPer1M()); }
+        if (pricing.cacheReadCostPer1M() != null) { node.addProperty("cacheReadCostPer1M", pricing.cacheReadCostPer1M()); }
+        return node;
     }
 }

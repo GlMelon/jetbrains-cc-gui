@@ -15,6 +15,27 @@ type ResolveFilePathCallback = (resolvedPath: string | null) => void;
 const RESOLVE_FILE_PATH_TIMEOUT_MS = 5000;
 
 /**
+ * Legacy bridge RPC wrapper. Sends an event to Java with an optional payload.
+ * Kept for backward compatibility where the action is not yet migrated to the
+ * UPSTREAM protocol enum. Prefer sendAction(UPSTREAM.xxx, payload) for new code.
+ */
+export const sendBridgeEvent = (event: string, content = '') => {
+  if (typeof window === 'undefined' || !window.sendToJava) {
+    return;
+  }
+  window.sendToJava(JSON.stringify({ type: event, content }));
+};
+
+/**
+ * Legacy two-arg send-to-Java wrapper.
+ * Kept for backward compatibility. Prefer sendAction(UPSTREAM.xxx, payload) for new code.
+ */
+export const sendToJava = (message: string, payload: unknown = {}) => {
+  const payloadStr = typeof payload === 'string' ? payload : JSON.stringify(payload);
+  sendBridgeEvent(message, payloadStr);
+};
+
+/**
  * [归一化重构] resolve_file_path RPC 已迁移到 bridgeHub.request/response。
  * 旧实现:前端自建 resolveFilePathCallbacks Map + flushPendingCallbacks + 5s timeout +
  *        installResolveFilePathHandler + window.onFilePathResolved 回调。

@@ -282,6 +282,18 @@ export function McpSettingsSection({ currentProvider = 'claude' }: McpSettingsSe
     setShowPresetDialog(false);
   }, [isCodexMode, messagePrefix, addToast, t, loadServers]);
 
+  // Handle import servers from external config (e.g. Copilot MCP config)
+  const handleImportServers = useCallback((servers: McpServer[]) => {
+    for (const server of servers) {
+      sendAction(isCodexMode ? UPSTREAM.ADD_CODEX_MCP_SERVER : UPSTREAM.ADD_MCP_SERVER, server);
+    }
+    addToast(`${t('mcp.imported')} ${servers.length} ${t('mcp.servers')}`, 'success');
+    setTimeout(() => {
+      loadServers();
+    }, 100);
+    setShowImportDialog(false);
+  }, [isCodexMode, addToast, t, loadServers]);
+
   // Copy URL
   const handleCopyUrl = useCallback(async (url: string) => {
     const success = await copyToClipboard(url);

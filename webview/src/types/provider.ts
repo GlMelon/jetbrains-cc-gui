@@ -55,6 +55,12 @@ export function isSpecialProviderId(id: string): boolean {
 export const STORAGE_KEYS = {
   /** Claude model mapping configuration */
   CLAUDE_MODEL_MAPPING: 'claude-model-mapping',
+  /** Pricing metadata for Claude configured models */
+  CLAUDE_CONFIGURED_MODEL_PRICING: 'claude-configured-model-pricing',
+  /** Claude custom models storage key */
+  CLAUDE_CUSTOM_MODELS: 'claude-custom-models',
+  /** Codex custom models storage key */
+  CODEX_CUSTOM_MODELS: 'codex-custom-models',
 } as const;
 
 /**
@@ -209,6 +215,21 @@ export interface CodexCustomModel {
   description?: string;
     /** Base context window size in tokens; undefined = use backend default (200K) */
     contextWindow?: number;
+}
+
+/**
+ * Model pricing for usage statistics aggregation.
+ * All cost fields are per-million-tokens; each field is optional.
+ */
+export interface ModelPricing {
+  /** Cost per 1M input tokens */
+  inputCostPer1M?: number;
+  /** Cost per 1M output tokens */
+  outputCostPer1M?: number;
+  /** Cost per 1M cache-write tokens */
+  cacheWriteCostPer1M?: number;
+  /** Cost per 1M cache-read tokens */
+  cacheReadCostPer1M?: number;
 }
 
 /**

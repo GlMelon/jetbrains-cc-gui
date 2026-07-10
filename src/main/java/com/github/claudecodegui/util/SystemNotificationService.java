@@ -141,6 +141,15 @@ public class SystemNotificationService {
         }
     }
 
+    private boolean isTaskCompletionEnabled() {
+        try {
+            return new CodemossSettingsService().getTaskCompletionNotificationEnabled();
+        } catch (Exception e) {
+            LOG.debug("[SystemNotification] Failed to read task completion flag, defaulting to false: " + e.getMessage());
+            return false;
+        }
+    }
+
     private boolean isAskUserQuestionEnabled() {
         try {
             return new CodemossSettingsService().getAskUserQuestionNotificationEnabled();

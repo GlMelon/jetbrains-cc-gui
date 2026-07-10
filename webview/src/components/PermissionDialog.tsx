@@ -177,15 +177,6 @@ const PermissionDialog = ({
   const commandContent = getCommandContent();
   const workingDirectory = getWorkingDirectory();
 
-  // Security (E): for command-execution tools the "always allow" memory is scoped to this
-  // exact command (parameter-level), not the whole tool, so make the button say so —
-  // otherwise users expect every future Bash command to be allowed. Mirrors the backend
-  // PermissionDecisionStore.isCommandExecutionTool set (Bash + Agent).
-  const isCommandExecutionTool = request.toolName === 'Bash' || request.toolName === 'Agent';
-  const allowAlwaysLabel = isCommandExecutionTool
-    ? t('permission.allowAlwaysCommand')
-    : t('permission.allowAlways');
-
   return (
     <BaseDialog isOpen={isOpen} onClose={handleSkip} className="permission-dialog-overlay">
       <div
