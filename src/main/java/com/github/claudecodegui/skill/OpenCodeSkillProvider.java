@@ -3,10 +3,13 @@ package com.github.claudecodegui.skill;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.intellij.openapi.diagnostic.Logger;
 
+import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -55,20 +58,211 @@ public final class OpenCodeSkillProvider implements UnifiedSkillService {
 
     @Override
     public JsonObject importSkills(List<String> sourcePaths, String scope, String cwd) {
-        // TODO: copy sources into {cwd}/.opencode/skills or ~/.config/opencode/skills by scope.
+        return importSkillsInto(sourcePaths, scope, cwd, PlatformUtils.getHomeDirectory());
+    }
+
+    /**
+     * 导入 skill 源目录到指定 scope 的 OpenCode skills 目录。
+     * <p>目标目录:global→{@code {homeDir}/.config/opencode/skills},local→{@code {cwd}/.opencode/skills}
+     * (与 {@link #resolveOpenCodeScanDirs} 扫描顺序首个命中一致,保持所有权清晰)。
+     * 复用 {@link CodexSkillService} 安全栈:名称校验、路径包含检查、符号链接跳过的目录复制。
+     *
+     * @param homeDir home 目录(注入以便测试;生产取 {@link PlatformUtils#getHomeDirectory()})
+     */
+    static JsonObject importSkillsInto(List<String> sourcePaths, String scope, String cwd, String homeDir) {
         JsonObject result = new JsonObject();
-        result.addProperty("success", false);
-        result.addProperty("error", "OpenCode skill import is not yet implemented");
+        JsonArray imported = new JsonArray();
+        JsonArray errors = new JsonArray();
+
+        boolean isGlobal = "global".equalsIgnoreCase(scope);
+        String targetDir;
+        if (isGlobal) {
+            targetDir = Paths.get(homeDir, ".config", "opencode", "skills").toString();
+        } else {
+            if (cwd == null || cwd.isEmpty()) {
+                result.addProperty("success", false);
+                result.addProperty("error", "No working directory for local scope");
+                return result;
+            }
+            targetDir = Paths.get(cwd, ".opencode", "skills").toString();
+        }
+
+        File targetDirFile = new File(targetDir);
+        if (!targetDirFile.exists() && !targetDirFile.mkdirs()) {
+            result.addProperty("success", false);
+            result.addProperty("error", "Cannot create directory: " + targetDir);
+            return result;
+        }
+
+        for (String sourcePath : sourcePaths) {
+            File source = new File(sourcePath);
+            if (!source.exists()) {
+                addImportError(errors, sourcePath, "Source path does not exist");
+                continue;
+            }
+            String name = source.getName();
+            // OpenCode skills 必须是目录(对称 Codex);plain file 拒绝
+            if (!source.isDirectory()) {
+                addImportError(errors, sourcePath, "OpenCode skill must be a directory containing SKILL.md");
+                continue;
+            }
+            if (!CodexSkillService.isSafeSkillName(name)) {
+                addImportError(errors, sourcePath, "Invalid skill name: " + name);
+                continue;
+            }
+            File targetPath = new File(targetDir, name);
+            if (!CodexSkillService.isPathSafe(targetPath.toPath(), Path.of(targetDir))) {
+                addImportError(errors, sourcePath, "Target path escapes skills directory");
+                continue;
+            }
+            if (targetPath.exists()) {
+                addImportError(errors, sourcePath, "Skill already exists: " + name);
+                continue;
+            }
+            try {
+                CodexSkillService.copyDirectory(source.toPath(), targetPath.toPath());
+                JsonObject skill = new JsonObject();
+                skill.addProperty("id", scope + ":" + CodexSkillService.normalizePath(targetPath.getAbsolutePath()));
+                skill.addProperty("name", name);
+                skill.addProperty("scope", scope);
+                skill.addProperty("path", targetPath.getAbsolutePath());
+                imported.add(skill);
+                LOG.info("[OpenCodeSkills] Imported skill: " + name + " to " + scope);
+            } catch (IOException e) {
+                addImportError(errors, sourcePath, "Copy failed: " + e.getMessage());
+            }
+        }
+
+        result.addProperty("success", imported.size() > 0);
+        result.addProperty("count", imported.size());
+        result.add("imported", imported);
+        if (errors.size() > 0) {
+            result.add("errors", errors);
+        }
         return result;
+    }
+
+    private static void addImportError(JsonArray errors, String path, String message) {
+        JsonObject err = new JsonObject();
+        err.addProperty("path", path);
+        err.addProperty("error", message);
+        errors.add(err);
     }
 
     @Override
     public JsonObject deleteSkill(SkillId id, boolean enabled, String cwd) {
-        // TODO: delete skill directory + clear any permission.skill deny entry for its name.
+        return deleteSkillFrom(id, enabled, cwd, PlatformUtils.getHomeDirectory());
+    }
+
+    /**
+     * 删除 OpenCode skill 目录,并清除 opencode.json 中该 skill 名的 permission.skill deny 条目。
+     * <p>合法基目录取 {@link #resolveValidBaseDirs}(全局3+本地3,对齐 {@link #resolveOpenCodeScanDirs});
+     * 符号链接安全删除(只删链接不删目标);删除后调 {@link #setSkillEnabled}(enable=true) 清 deny。
+     *
+     * @param homeDir home 目录(注入以便测试;生产取 {@link PlatformUtils#getHomeDirectory()})
+     */
+    static JsonObject deleteSkillFrom(SkillId id, boolean enabled, String cwd, String homeDir) {
         JsonObject result = new JsonObject();
-        result.addProperty("success", false);
-        result.addProperty("error", "OpenCode skill delete is not yet implemented");
+        String name = id.name();
+        String scope = id.scope();
+        String skillPath = id.skillPath();
+
+        // 1. 解析 skillDir:优先从 skillPath(SKILL.md 父目录),否则 fallback 到 scope+name
+        File skillDir;
+        if (skillPath != null && !skillPath.isEmpty()) {
+            Path normalizedSkillPath = Paths.get(skillPath).toAbsolutePath().normalize();
+            String fileName = normalizedSkillPath.getFileName().toString();
+            if (!"SKILL.md".equals(fileName) && !"skill.md".equals(fileName)) {
+                result.addProperty("success", false);
+                result.addProperty("error", "Skill path must point to a SKILL.md file");
+                return result;
+            }
+            File parentDir = normalizedSkillPath.getParent().toFile();
+            if (name != null && !name.isEmpty() && !parentDir.getName().equals(name)) {
+                result.addProperty("success", false);
+                result.addProperty("error", "Skill path does not match skill name");
+                return result;
+            }
+            skillDir = parentDir;
+        } else {
+            if (!CodexSkillService.isSafeSkillName(name)) {
+                result.addProperty("success", false);
+                result.addProperty("error", "Invalid skill name: " + name);
+                return result;
+            }
+            String baseDir;
+            if ("global".equalsIgnoreCase(scope)) {
+                baseDir = Paths.get(homeDir, ".config", "opencode", "skills").toString();
+            } else {
+                if (cwd == null || cwd.isEmpty()) {
+                    result.addProperty("success", false);
+                    result.addProperty("error", "Working directory is required for local scope deletion");
+                    return result;
+                }
+                baseDir = Paths.get(cwd, ".opencode", "skills").toString();
+            }
+            skillDir = new File(baseDir, name);
+        }
+
+        if (!skillDir.exists()) {
+            result.addProperty("success", false);
+            result.addProperty("error", "Skill directory does not exist");
+            return result;
+        }
+
+        // 2. 合法基目录包含检查(防路径遍历/逃逸)
+        List<Path> validBaseDirs = resolveValidBaseDirs(cwd, homeDir);
+        Path normalizedSkillDir = skillDir.toPath().toAbsolutePath().normalize();
+        boolean isInsideValidDir = validBaseDirs.stream()
+                .anyMatch(base -> CodexSkillService.isPathSafe(normalizedSkillDir, base));
+        if (!isInsideValidDir) {
+            result.addProperty("success", false);
+            result.addProperty("error", "Skill directory is not inside a valid skills directory");
+            LOG.warn("[OpenCodeSkills] Blocked deletion of path outside skills directories: " + normalizedSkillDir);
+            return result;
+        }
+
+        // 3. 删除(符号链接安全:只删链接)
+        try {
+            if (Files.isSymbolicLink(skillDir.toPath())) {
+                Files.delete(skillDir.toPath());
+                LOG.info("[OpenCodeSkills] Deleted symbolic link skill: " + skillDir);
+            } else {
+                CodexSkillService.deleteDirectory(skillDir.toPath());
+                LOG.info("[OpenCodeSkills] Deleted skill directory: " + skillDir);
+            }
+        } catch (IOException e) {
+            result.addProperty("success", false);
+            result.addProperty("error", "Delete failed: " + e.getMessage());
+            return result;
+        }
+
+        // 4. 清除 permission.skill deny 条目(若该 skill 名曾被 deny)
+        if (name != null && !name.isEmpty()) {
+            setSkillEnabled(resolveOpenCodeConfigJson(homeDir), name, true);
+        }
+
+        result.addProperty("success", true);
         return result;
+    }
+
+    /**
+     * OpenCode 删除操作的合法 skills 基目录(全局3 + 本地3,对齐 {@link #resolveOpenCodeScanDirs})。
+     * 不要求目录存在——仅用于 isPathSafe 的 startsWith 包含判断。
+     */
+    static List<Path> resolveValidBaseDirs(String cwd, String homeDir) {
+        List<Path> dirs = new ArrayList<>();
+        if (homeDir != null && !homeDir.isEmpty()) {
+            dirs.add(Paths.get(homeDir, ".config", "opencode", "skills"));
+            dirs.add(Paths.get(homeDir, ".claude", "skills"));
+            dirs.add(Paths.get(homeDir, ".agents", "skills"));
+        }
+        if (cwd != null && !cwd.isEmpty()) {
+            dirs.add(Paths.get(cwd, ".opencode", "skills"));
+            dirs.add(Paths.get(cwd, ".claude", "skills"));
+            dirs.add(Paths.get(cwd, ".agents", "skills"));
+        }
+        return dirs;
     }
 
     @Override
@@ -80,7 +274,12 @@ public final class OpenCodeSkillProvider implements UnifiedSkillService {
 
     /** Resolves the {@code ~/.config/opencode/opencode.json} config path from the real home dir. */
     static Path resolveOpenCodeConfigJson() {
-        return Paths.get(PlatformUtils.getHomeDirectory(), ".config", "opencode", "opencode.json");
+        return resolveOpenCodeConfigJson(PlatformUtils.getHomeDirectory());
+    }
+
+    /** Resolves the opencode.json path from an injected home dir (testable). */
+    static Path resolveOpenCodeConfigJson(String homeDir) {
+        return Paths.get(homeDir, ".config", "opencode", "opencode.json");
     }
 
     /**

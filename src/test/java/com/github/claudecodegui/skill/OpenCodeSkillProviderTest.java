@@ -147,4 +147,163 @@ public class OpenCodeSkillProviderTest {
         assertFalse("foo deny removed", skill.has("foo"));
         assertTrue("other preserved", skill.has("other"));
     }
+
+    // ── importSkills ──
+
+    @Test
+    public void importLocalScopeCopiesSkillToProjectDir() throws Exception {
+        Path tmp = Files.createTempDirectory("oc-import-local");
+        Path cwd = tmp.resolve("proj");
+        Path src = writeSkillMd(tmp.resolve("src"), "foo", "a skill");
+
+        JsonObject result = OpenCodeSkillProvider.importSkillsInto(
+                List.of(src.toString()), "local", cwd.toString(), tmp.resolve("home").toString());
+
+        assertTrue("import succeeds", result.get("success").getAsBoolean());
+        Path target = cwd.resolve(".opencode").resolve("skills").resolve("foo");
+        assertTrue("skill copied to project local dir", Files.exists(target.resolve("SKILL.md")));
+        assertEquals("one imported", 1, result.getAsJsonArray("imported").size());
+    }
+
+    @Test
+    public void importGlobalScopeCopiesToConfigDir() throws Exception {
+        Path tmp = Files.createTempDirectory("oc-import-global");
+        Path home = tmp.resolve("home");
+        Path src = writeSkillMd(tmp.resolve("src"), "bar", "global skill");
+
+        JsonObject result = OpenCodeSkillProvider.importSkillsInto(
+                List.of(src.toString()), "global", null, home.toString());
+
+        assertTrue(result.get("success").getAsBoolean());
+        Path target = home.resolve(".config").resolve("opencode").resolve("skills").resolve("bar");
+        assertTrue("skill copied to user global dir", Files.exists(target.resolve("SKILL.md")));
+    }
+
+    @Test
+    public void importRejectsPlainFileSource() throws Exception {
+        Path tmp = Files.createTempDirectory("oc-import-file");
+        Path file = tmp.resolve("notadir.txt");
+        Files.write(file, "hello".getBytes(StandardCharsets.UTF_8));
+
+        JsonObject result = OpenCodeSkillProvider.importSkillsInto(
+                List.of(file.toString()), "global", null, tmp.resolve("home").toString());
+
+        assertFalse("plain file rejected", result.get("success").getAsBoolean());
+        assertTrue("error recorded", result.has("errors"));
+    }
+
+    @Test
+    public void importRejectsUnsafeName() throws Exception {
+        Path tmp = Files.createTempDirectory("oc-import-unsafe");
+        Path evil = tmp.resolve("ev..il");
+        Files.createDirectories(evil);
+
+        JsonObject result = OpenCodeSkillProvider.importSkillsInto(
+                List.of(evil.toString()), "global", null, tmp.resolve("home").toString());
+
+        assertFalse("unsafe name rejected", result.get("success").getAsBoolean());
+        assertTrue(result.has("errors"));
+    }
+
+    @Test
+    public void importReportsExistingSkill() throws Exception {
+        Path tmp = Files.createTempDirectory("oc-import-exists");
+        Path home = tmp.resolve("home");
+        Path src = writeSkillMd(tmp.resolve("src"), "dup", "skill");
+        Path target = home.resolve(".config").resolve("opencode").resolve("skills").resolve("dup");
+        Files.createDirectories(target);
+
+        JsonObject result = OpenCodeSkillProvider.importSkillsInto(
+                List.of(src.toString()), "global", null, home.toString());
+
+        assertFalse("existing skill not overwritten", result.get("success").getAsBoolean());
+        assertTrue(result.has("errors"));
+    }
+
+    @Test
+    public void importLocalScopeRequiresCwd() throws Exception {
+        Path tmp = Files.createTempDirectory("oc-import-nocwd");
+        Path src = writeSkillMd(tmp.resolve("src"), "foo", "skill");
+
+        JsonObject result = OpenCodeSkillProvider.importSkillsInto(
+                List.of(src.toString()), "local", null, tmp.resolve("home").toString());
+
+        assertFalse("local scope without cwd fails", result.get("success").getAsBoolean());
+    }
+
+    // ── deleteSkill ──
+
+    @Test
+    public void deleteLocalSkillRemovesDirectory() throws Exception {
+        Path tmp = Files.createTempDirectory("oc-del-local");
+        Path cwd = tmp.resolve("proj");
+        Path skillDir = writeSkillMd(cwd.resolve(".opencode").resolve("skills"), "foo", "skill");
+        SkillId id = new SkillId("local", "foo", skillDir.resolve("SKILL.md").toString());
+
+        JsonObject result = OpenCodeSkillProvider.deleteSkillFrom(
+                id, true, cwd.toString(), tmp.resolve("home").toString());
+
+        assertTrue("delete succeeds", result.get("success").getAsBoolean());
+        assertFalse("skill dir removed", Files.exists(skillDir));
+    }
+
+    @Test
+    public void deleteClearsPermissionDenyEntry() throws Exception {
+        Path tmp = Files.createTempDirectory("oc-del-deny");
+        Path home = tmp.resolve("home");
+        Path opencodeJson = home.resolve(".config").resolve("opencode").resolve("opencode.json");
+        Files.createDirectories(opencodeJson.getParent());
+        Files.writeString(opencodeJson, "{\"permission\":{\"skill\":{\"foo\":\"deny\"}}}");
+        Path cwd = tmp.resolve("proj");
+        Path skillDir = writeSkillMd(cwd.resolve(".opencode").resolve("skills"), "foo", "skill");
+        SkillId id = new SkillId("local", "foo", skillDir.resolve("SKILL.md").toString());
+
+        JsonObject result = OpenCodeSkillProvider.deleteSkillFrom(id, false, cwd.toString(), home.toString());
+
+        assertTrue(result.get("success").getAsBoolean());
+        JsonObject parsed = JsonParser.parseString(Files.readString(opencodeJson)).getAsJsonObject();
+        JsonObject skill = parsed.getAsJsonObject("permission").getAsJsonObject("skill");
+        assertFalse("deny entry cleared after delete", skill.has("foo"));
+    }
+
+    @Test
+    public void deleteRejectsPathOutsideSkillsDirs() throws Exception {
+        Path tmp = Files.createTempDirectory("oc-del-outside");
+        Path skillMd = writeSkillMd(tmp.resolve("evil"), "evil", "skill").resolve("SKILL.md");
+        SkillId id = new SkillId("local", "evil", skillMd.toString());
+
+        JsonObject result = OpenCodeSkillProvider.deleteSkillFrom(
+                id, true, tmp.resolve("proj").toString(), tmp.resolve("home").toString());
+
+        assertFalse("delete outside skills dirs blocked", result.get("success").getAsBoolean());
+        assertTrue("error mentions invalid dir",
+                result.get("error").getAsString().toLowerCase().contains("valid skills"));
+    }
+
+    @Test
+    public void deleteRejectsSkillPathNotSkillMd() throws Exception {
+        Path tmp = Files.createTempDirectory("oc-del-notmd");
+        Path cwd = tmp.resolve("proj");
+        Path skillDir = writeSkillMd(cwd.resolve(".opencode").resolve("skills"), "foo", "skill");
+        SkillId id = new SkillId("local", "foo", skillDir.resolve("README.md").toString());
+
+        JsonObject result = OpenCodeSkillProvider.deleteSkillFrom(
+                id, true, cwd.toString(), tmp.resolve("home").toString());
+
+        assertFalse("non-SKILL.md path rejected", result.get("success").getAsBoolean());
+    }
+
+    @Test
+    public void deleteFallbackFromScopeAndName() throws Exception {
+        Path tmp = Files.createTempDirectory("oc-del-fallback");
+        Path cwd = tmp.resolve("proj");
+        Path skillDir = writeSkillMd(cwd.resolve(".opencode").resolve("skills"), "foo", "skill");
+        SkillId id = new SkillId("local", "foo", null);
+
+        JsonObject result = OpenCodeSkillProvider.deleteSkillFrom(
+                id, true, cwd.toString(), tmp.resolve("home").toString());
+
+        assertTrue("fallback delete succeeds", result.get("success").getAsBoolean());
+        assertFalse(Files.exists(skillDir));
+    }
 }
