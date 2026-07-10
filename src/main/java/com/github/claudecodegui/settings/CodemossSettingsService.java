@@ -1307,6 +1307,36 @@ public class CodemossSettingsService {
     }
 
     /**
+     * Get the Smithery Registry API key (used by MCP market to search/fetch server configs).
+     *
+     * @return the API key, or empty string if not configured
+     */
+    public String getSmitheryApiKey() throws IOException {
+        JsonObject config = readConfig();
+        if (config.has("smitheryApiKey") && !config.get("smitheryApiKey").isJsonNull()) {
+            return config.get("smitheryApiKey").getAsString();
+        }
+        return "";
+    }
+
+    /**
+     * Set the Smithery Registry API key. Empty/null clears it.
+     * <p>Security: the key value itself is never logged — only the set/cleared state
+     * is logged. {@code writeConfig} hardens the file to {@code 0600}.
+     */
+    public void setSmitheryApiKey(String apiKey) throws IOException {
+        JsonObject config = readConfig();
+        if (apiKey == null || apiKey.isEmpty()) {
+            config.remove("smitheryApiKey");
+        } else {
+            config.addProperty("smitheryApiKey", apiKey);
+        }
+        writeConfig(config);
+        boolean cleared = apiKey == null || apiKey.isEmpty();
+        LOG.info("[CodemossSettings] Smithery API key " + (cleared ? "cleared" : "updated"));
+    }
+
+    /**
      * Get whether status bar widget is enabled.
      *
      * @return whether status bar widget is enabled, default is true

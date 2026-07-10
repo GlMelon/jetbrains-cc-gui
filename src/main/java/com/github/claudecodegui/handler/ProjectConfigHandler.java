@@ -17,6 +17,7 @@ import com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow;
 import com.github.claudecodegui.util.FontConfigService;
 import com.github.claudecodegui.util.ThemeConfigService;
 import com.github.claudecodegui.util.GsonHolder;
+import com.github.claudecodegui.util.CredentialMasker;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -864,6 +865,46 @@ public class ProjectConfigHandler {
         } catch (Exception e) {
             LOG.error("[ProjectConfigHandler] Failed to set MCP gateway enabled: " + e.getMessage(), e);
             showError("Failed to save MCP gateway config");
+        }
+    }
+
+    /**
+     * 读取 Smithery Registry API Key 配置状态。
+     * <p>安全:下行只返回 {@code hasKey}(是否已配置)+{@code masked}(前2••••后4 掩码),
+     * 绝不回传明文 key。前端据此显示"已配置(••••1234)"占位,重新输入才覆盖。
+     */
+    public void handleGetSmitheryApiKey() {
+        respondWithJson(DownstreamEvent.CONFIG_SMITHERY_API_KEY.value(),
+            () -> {
+                String key = settingsService.getSmitheryApiKey();
+                JsonObject obj = new JsonObject();
+                obj.addProperty("hasKey", !key.isEmpty());
+                obj.addProperty("masked", CredentialMasker.maskApiKey(key));
+                return obj;
+            },
+            jsonOf("hasKey", false),
+            "Failed to get Smithery API key");
+    }
+
+    /**
+     * 写入 Smithery Registry API Key。空串=清除。
+     * <p>安全:不日志记录 key 值,仅记 set/cleared;下行回灌掩码状态(非明文)。
+     */
+    public void handleSetSmitheryApiKey(String content) {
+        try {
+            JsonObject json = gson.fromJson(content, JsonObject.class);
+            String apiKey = json.has("smitheryApiKey") && !json.get("smitheryApiKey").isJsonNull()
+                    ? json.get("smitheryApiKey").getAsString() : "";
+            settingsService.setSmitheryApiKey(apiKey);
+            LOG.info("[ProjectConfigHandler] Smithery API key " + (apiKey.isEmpty() ? "cleared" : "updated"));
+            JsonObject payload = new JsonObject();
+            payload.addProperty("hasKey", !apiKey.isEmpty());
+            payload.addProperty("masked", CredentialMasker.maskApiKey(apiKey));
+            pushJson(DownstreamEvent.CONFIG_SMITHERY_API_KEY.value(), payload);
+            showSuccess(apiKey.isEmpty() ? "Smithery API key cleared" : "Smithery API key saved");
+        } catch (Exception e) {
+            LOG.error("[ProjectConfigHandler] Failed to set Smithery API key: " + e.getMessage(), e);
+            showError("Failed to save Smithery API key");
         }
     }
 

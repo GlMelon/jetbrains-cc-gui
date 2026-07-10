@@ -108,6 +108,7 @@ public enum DownstreamEvent implements ProtocolValue {
     CONFIG_STATUS_BAR_WIDGET("config.status_bar_widget"),
     CONFIG_TASK_COMPLETION_NOTIFICATION("config.task_completion_notification"),
     CONFIG_MCP_GATEWAY("config.mcp_gateway"),
+    CONFIG_SMITHERY_API_KEY("config.smithery_api_key"),
 
     // ── Runtime Policy ──
     RUNTIME_POLICY("runtime_policy"),
@@ -149,6 +150,11 @@ public enum DownstreamEvent implements ProtocolValue {
     CODEX_MCP_SERVER_TOGGLED("codex.mcp.server_toggled"),
     CODEX_MCP_SERVER_VALIDATED("codex.mcp.server_validated"),
 
+    // ── MCP Market (Smithery Registry) ──
+    MCP_MARKET_LIST("mcp.market_list"),
+    MCP_MARKET_DETAIL("mcp.market_detail"),
+    MCP_MARKET_ERROR("mcp.market_error"),
+
     // ── Dependency ──
     DEPENDENCY_STATUS("dependency.status"),
     DEPENDENCY_INSTALL_RESULT("dependency.install_result"),
@@ -188,6 +194,12 @@ public enum DownstreamEvent implements ProtocolValue {
     SKILL_IMPORT_RESULT("skill.import_result"),
     SKILL_DELETE_RESULT("skill.delete_result"),
     SKILL_TOGGLE_RESULT("skill.toggle_result"),
+
+    // ── Skill Market (GitHub tarball) ──
+    SKILL_MARKET_LIST("skill.market_list"),
+    SKILL_MARKET_INSTALL_RESULT("skill.market_install_result"),
+    SKILL_MARKET_DETAIL("skill.market_detail"),
+    SKILL_MARKET_ERROR("skill.market_error"),
 
     // ── File ──
     FILE_LIST_RESULT("file.list_result"),

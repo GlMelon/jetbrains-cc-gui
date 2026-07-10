@@ -69,6 +69,9 @@ public enum UpstreamAction implements ProtocolValue {
     SET_TASK_COMPLETION_NOTIFICATION_ENABLED("set_task_completion_notification_enabled"),
     GET_MCP_GATEWAY_ENABLED("get_mcp_gateway_enabled"),
     SET_MCP_GATEWAY_ENABLED("set_mcp_gateway_enabled"),
+    // ── MCP Market (Smithery Registry): API Key 配置读取/写入 ──
+    GET_SMITHERY_API_KEY("get_smithery_api_key"),
+    SET_SMITHERY_API_KEY("set_smithery_api_key"),
 
     // ── Settings: Path/Directory ──
     GET_NODE_PATH("get_node_path"),
@@ -151,6 +154,10 @@ public enum UpstreamAction implements ProtocolValue {
     TOGGLE_CODEX_MCP_SERVER("toggle_codex_mcp_server"),
     VALIDATE_CODEX_MCP_SERVER("validate_codex_mcp_server"),
 
+    // ── MCP Market (Smithery Registry) ── 从市场搜索/获取 MCP 服务器连接配置
+    SEARCH_MCP_MARKET("search_mcp_market"),
+    GET_MCP_MARKET_DETAIL("get_mcp_market_detail"),
+
     // ── Agent ──
     GET_AGENTS("get_agents"),
     ADD_AGENT("add_agent"),
@@ -168,6 +175,11 @@ public enum UpstreamAction implements ProtocolValue {
     DELETE_SKILL("delete_skill"),
     OPEN_SKILL("open_skill"),
     TOGGLE_SKILL("toggle_skill"),
+
+    // ── Skill Market (GitHub tarball) ── 从市场浏览/安装 skill(下载 tarball + 哈希校验)
+    LIST_SKILL_MARKET("list_skill_market"),
+    INSTALL_SKILL_FROM_MARKET("install_skill_from_market"),
+    GET_SKILL_MARKET_DETAIL("get_skill_market_detail"),
 
     // ── Prompt ──
     GET_PROMPTS("get_prompts"),

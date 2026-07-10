@@ -287,3 +287,197 @@ export const fetchProviderModels = (params: FetchProviderModelsParams): Promise<
     .then((result) => result ?? {})
     .catch(() => ({ error: 'timeout' }));
 };
+
+// ── MCP 市场 (Smithery Registry) RPC ──
+// search/detail 走 RPC Promise(__requestId 路由);Smithery Key 配置走广播
+// (GET/SET_SMITHERY_API_KEY → CONFIG_SMITHERY_API_KEY,无 __requestId,组件内 subscribeEvent)。
+const MCP_MARKET_TIMEOUT_MS = 30000;
+
+export interface SmitheryServerSummary {
+  id?: string;
+  qualifiedName?: string;
+  namespace?: string;
+  slug?: string;
+  displayName?: string;
+  description?: string;
+  iconUrl?: string;
+  homepage?: string;
+  verified?: boolean;
+  remote?: boolean;
+  isDeployed?: boolean;
+  useCount?: number;
+}
+
+export interface SmitheryPagination {
+  page?: number;
+  pageSize?: number;
+  total?: number;
+  totalPages?: number;
+  nextCursor?: string;
+}
+
+export interface SearchMcpMarketResult {
+  servers?: SmitheryServerSummary[];
+  pagination?: SmitheryPagination;
+  error?: string;
+  errorCode?: string;
+}
+
+export interface SmitheryConnection {
+  mcpUrl?: string;
+  url?: string;
+  command?: string;
+  args?: string[] | string;
+  env?: Record<string, string>;
+}
+
+export interface McpMarketDetailResult {
+  namespace?: string;
+  slug?: string;
+  qualifiedName?: string;
+  displayName?: string;
+  description?: string;
+  iconUrl?: string;
+  homepage?: string;
+  readme?: string;
+  verified?: boolean;
+  remote?: boolean;
+  useCount?: number;
+  connection?: SmitheryConnection;
+  error?: string;
+  errorCode?: string;
+}
+
+/**
+ * 搜索 Smithery Registry MCP 服务器(RPC)。
+ * 后端 SmitheryMarketService.searchServers → MCP_MARKET_LIST(带 __requestId)。
+ * 失败返回 {error, errorCode}(MISSING_API_KEY/INVALID_API_KEY/NETWORK_ERROR/HTTP_xxx)。
+ */
+export const searchMcpMarket = (query: string, page = 1, pageSize = 20): Promise<SearchMcpMarketResult> => {
+  return bridgeHub.request<SearchMcpMarketResult>(
+    UPSTREAM.SEARCH_MCP_MARKET,
+    { query, page, pageSize },
+    { timeoutMs: MCP_MARKET_TIMEOUT_MS, responseType: DOWNSTREAM.MCP_MARKET_LIST },
+  )
+    .then((result) => result ?? {})
+    .catch(() => ({ error: 'timeout', errorCode: 'TIMEOUT' }));
+};
+
+/**
+ * 获取单个 Smithery server 详情 + 防御性连接配置(RPC)。
+ * 后端 SmitheryMarketService.getServerDetail → MCP_MARKET_DETAIL(带 __requestId)。
+ * connection 可能为空(详情端点未含连接字段)→ 前端引导手动配置。
+ */
+export const getMcpMarketDetail = (namespace: string, slug: string): Promise<McpMarketDetailResult> => {
+  return bridgeHub.request<McpMarketDetailResult>(
+    UPSTREAM.GET_MCP_MARKET_DETAIL,
+    { namespace, slug },
+    { timeoutMs: MCP_MARKET_TIMEOUT_MS, responseType: DOWNSTREAM.MCP_MARKET_DETAIL },
+  )
+    .then((result) => result ?? {})
+    .catch(() => ({ error: 'timeout', errorCode: 'TIMEOUT' }));
+};
+
+// ── Skills 市场 (GitHub 仓库 tarball) RPC ──
+// list/install 走 RPC Promise(__requestId 路由)。
+// provider 由后端从 HandlerContext 读(不前端传,防伪造);scope 按后端归一(Codex=user/repo,其余 global/local)。
+// 安装含 tarball 下载+解压,超时给 60s(MCP 市场纯 API 搜索 30s 不够)。
+const SKILL_MARKET_TIMEOUT_MS = 60000;
+
+export interface SkillMarketSourceInfo {
+  id: string;
+  label: string;
+  owner: string;
+  repo: string;
+}
+
+export interface SkillMarketItem {
+  name: string;
+  path: string;
+}
+
+export interface ListSkillMarketResult {
+  sources?: SkillMarketSourceInfo[];
+  source?: string;
+  sourceLabel?: string;
+  skills?: SkillMarketItem[];
+  error?: string;
+  errorCode?: string;
+}
+
+export interface SkillMarketInstallResult {
+  success?: boolean;
+  skillName?: string;
+  source?: string;
+  hash?: string;
+  importResult?: Record<string, unknown>;
+  error?: string;
+  errorCode?: string;
+}
+
+/**
+ * 列出某 Skills 市场源的 skills(RPC)。
+ * 后端 SkillMarketService.listMarketSkills → SKILL_MARKET_LIST(带 __requestId)。
+ * source 默认 anthropics;失败返回 {error, errorCode}。
+ */
+export const listSkillMarket = (source = 'anthropics'): Promise<ListSkillMarketResult> => {
+  return bridgeHub.request<ListSkillMarketResult>(
+    UPSTREAM.LIST_SKILL_MARKET,
+    { source },
+    { timeoutMs: SKILL_MARKET_TIMEOUT_MS, responseType: DOWNSTREAM.SKILL_MARKET_LIST },
+  )
+    .then((result) => result ?? {})
+    .catch(() => ({ error: 'timeout', errorCode: 'TIMEOUT' }));
+};
+
+/**
+ * 从 Skills 市场安装 skill(RPC)。
+ * 后端 SkillMarketService.installSkill → SKILL_MARKET_INSTALL_RESULT(带 __requestId)。
+ * 失败返回 {success:false, error, errorCode}
+ * (UNKNOWN_SOURCE/INVALID_SKILL_NAME/HASH_MISMATCH/HTTP_404/HTTP_403/NETWORK_ERROR/PARSE_ERROR/INSTALL_FAILED)。
+ */
+export const installSkillFromMarket = (
+  source: string,
+  skillPath: string,
+  scope: string,
+): Promise<SkillMarketInstallResult> => {
+  return bridgeHub.request<SkillMarketInstallResult>(
+    UPSTREAM.INSTALL_SKILL_FROM_MARKET,
+    { source, skillPath, scope },
+    { timeoutMs: SKILL_MARKET_TIMEOUT_MS, responseType: DOWNSTREAM.SKILL_MARKET_INSTALL_RESULT },
+  )
+    .then((result) => result ?? {})
+    .catch(() => ({ error: 'timeout', errorCode: 'TIMEOUT' }));
+};
+
+export interface SkillMarketDetailResult {
+  name?: string;
+  description?: string;
+  license?: string;
+  compatibility?: string;
+  allowedTools?: string;
+  userInvocable?: boolean;
+  paths?: string[];
+  path?: string;
+  source?: string;
+  sourceLabel?: string;
+  error?: string;
+  errorCode?: string;
+}
+
+/**
+ * 获取单个 skill 详情(RPC)。
+ * 后端 SkillMarketService.getSkillMarketDetail → raw 下载单个 SKILL.md → frontmatter 解析 →
+ * SKILL_MARKET_DETAIL(带 __requestId)。列表不展示简介(走 Contents API 快速路径只返 name/path),
+ * 详情按需拉取(用户点击,单文件请求不撞 GitHub 60 req/h 限流)。
+ * 失败返回 {error, errorCode}(UNKNOWN_SOURCE/INVALID_SKILL_NAME/HTTP_404/HTTP_403/NETWORK_ERROR/TIMEOUT/PARSE_ERROR)。
+ */
+export const getSkillMarketDetail = (source: string, skillPath: string): Promise<SkillMarketDetailResult> => {
+  return bridgeHub.request<SkillMarketDetailResult>(
+    UPSTREAM.GET_SKILL_MARKET_DETAIL,
+    { source, skillPath },
+    { timeoutMs: SKILL_MARKET_TIMEOUT_MS, responseType: DOWNSTREAM.SKILL_MARKET_DETAIL },
+  )
+    .then((result) => result ?? {})
+    .catch(() => ({ error: 'timeout', errorCode: 'TIMEOUT' }));
+};
