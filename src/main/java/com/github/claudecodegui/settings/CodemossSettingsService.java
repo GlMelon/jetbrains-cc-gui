@@ -5,7 +5,9 @@ import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.config.ModelConfig;
 import com.github.claudecodegui.config.ModelConfigValidator;
 import com.github.claudecodegui.config.ModelRegistryConfig;
+import com.github.claudecodegui.config.ProviderRuntimePolicy;
 import com.github.claudecodegui.config.ReadOnlyDefaultModels;
+import com.github.claudecodegui.config.RuntimePolicyConfig;
 import com.github.claudecodegui.dependency.DependencyManager;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.model.DeleteResult;
@@ -1835,19 +1837,26 @@ public class CodemossSettingsService {
     }
 
     public String getClaudeInvocationMode() throws IOException {
-        JsonObject config = readConfig();
-        if (config.has(CLAUDE_INVOCATION_MODE_KEY) && !config.get(CLAUDE_INVOCATION_MODE_KEY).isJsonNull()) {
-            String mode = config.get(CLAUDE_INVOCATION_MODE_KEY).getAsString();
-            if (CommonConstants.INVOCATION_MODE_CLI.equals(mode)) {
-                return CommonConstants.INVOCATION_MODE_CLI;
-            }
-        }
-        return CommonConstants.INVOCATION_MODE_SDK;
+        ProviderRuntimePolicy policy = getRuntimePolicy().of(ProviderType.CLAUDE);
+        return policy != null && policy.defaultRuntime() == RuntimeType.CLI
+                ? CommonConstants.INVOCATION_MODE_CLI
+                : CommonConstants.INVOCATION_MODE_SDK;
     }
 
     public void setClaudeInvocationMode(String mode) throws IOException {
+        RuntimeType runtime = CommonConstants.INVOCATION_MODE_CLI.equals(mode) ? RuntimeType.CLI : RuntimeType.SDK;
+        RuntimePolicyConfig policy = getRuntimePolicy().mergeWithDefaults();
+        ProviderRuntimePolicy current = policy.of(ProviderType.CLAUDE);
+        policy.providers().put(
+                ProviderType.CLAUDE,
+                new ProviderRuntimePolicy(current.enabled(), current.supported(), runtime)
+        );
+        var result = setRuntimePolicy(policy);
+        if (!result.isValid()) {
+            throw new IOException("Failed to save Claude runtime policy: " + result.errors());
+        }
         JsonObject config = readConfig();
-        config.addProperty(CLAUDE_INVOCATION_MODE_KEY, CommonConstants.INVOCATION_MODE_CLI.equals(mode) ? CommonConstants.INVOCATION_MODE_CLI : CommonConstants.INVOCATION_MODE_SDK);
+        config.remove(CLAUDE_INVOCATION_MODE_KEY);
         writeConfig(config);
         LOG.info("[CodemossSettings] Set Claude invocation mode: " + getClaudeInvocationMode());
     }
@@ -2163,7 +2172,17 @@ public class CodemossSettingsService {
             JsonObject config = readConfig();
             if (!config.has(RUNTIME_POLICY_KEY) || !config.get(RUNTIME_POLICY_KEY).isJsonObject()) {
                 LOG.info("[CodemossSettings] No runtime policy config found, using default");
-                return com.github.claudecodegui.config.RuntimePolicyConfig.getDefault();
+                RuntimePolicyConfig defaults = RuntimePolicyConfig.getDefault();
+                if (config.has(CLAUDE_INVOCATION_MODE_KEY)
+                        && !config.get(CLAUDE_INVOCATION_MODE_KEY).isJsonNull()
+                        && CommonConstants.INVOCATION_MODE_CLI.equals(config.get(CLAUDE_INVOCATION_MODE_KEY).getAsString())) {
+                    ProviderRuntimePolicy claude = defaults.of(ProviderType.CLAUDE);
+                    defaults.providers().put(
+                            ProviderType.CLAUDE,
+                            new ProviderRuntimePolicy(claude.enabled(), claude.supported(), RuntimeType.CLI)
+                    );
+                }
+                return defaults;
             }
             JsonObject runtimeObj = config.getAsJsonObject(RUNTIME_POLICY_KEY);
             // mergeWithDefaults: 向后兼容。存量 config.json 在新 provider(如 opencode)加入默认策略前
@@ -2229,14 +2248,12 @@ public class CodemossSettingsService {
                 // 严格解析:ProviderType.fromString 会把未知键静默降级为 CLAUDE,
                 // 若配置里 codex 之后还有笔误的键(如 "cluade"),会把 claude 的策略覆盖掉。
                 // 此处显式校验,无法识别的键告警并跳过。
-                ProviderType pt;
-                if (CommonConstants.PROVIDER_CLAUDE.equalsIgnoreCase(key)) {
-                    pt = ProviderType.CLAUDE;
-                } else if (CommonConstants.PROVIDER_CODEX.equalsIgnoreCase(key)) {
-                    pt = ProviderType.CODEX;
-                } else {
+                ProviderType pt = ProviderType.fromValue(
+                        key.trim().toLowerCase(java.util.Locale.ROOT)
+                ).orElse(null);
+                if (pt == null) {
                     LOG.warn("[CodemossSettings] Unrecognized runtime policy provider key '"
-                            + key + "', skipping (valid keys: claude, codex)");
+                            + key + "', skipping");
                     continue;
                 }
                 if (providersObj.get(key).isJsonObject()) {

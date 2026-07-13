@@ -49,29 +49,4 @@ public class SessionSendServiceTest {
         assertNull(SessionSendService.getCodexRuntimeAccessError("cli_login"));
     }
 
-    @Test
-    public void resolveEffectiveClaudeInvocationModeKeepsRequestedCliMode() {
-        assertEquals(
-                "cli",
-                SessionSendService.resolveEffectiveClaudeInvocationMode("cli")
-        );
-    }
-
-    @Test
-    public void resolveEffectiveClaudeInvocationModeKeepsRequestedSdkMode() {
-        assertEquals(
-                "sdk", SessionSendService.resolveEffectiveClaudeInvocationMode("sdk", "sdk"));
-    }
-
-    @Test
-    public void resolveEffectiveClaudeInvocationModeKeepsConfiguredCliWhenFrontendSendsDefaultSdk() {
-        assertEquals("cli", SessionSendService.resolveEffectiveClaudeInvocationMode("sdk", "cli"));
-    }
-
-    @Test
-    public void resolveEffectiveClaudeInvocationModeIgnoresRequestedModeWhenSessionModeExists() {
-        assertEquals("cli", SessionSendService.resolveEffectiveClaudeInvocationMode("sdk", "cli"));
-        assertEquals("sdk", SessionSendService.resolveEffectiveClaudeInvocationMode("cli", "sdk")
-        );
-    }
 }

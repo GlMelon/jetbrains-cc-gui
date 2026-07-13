@@ -132,9 +132,9 @@ public class SessionActionHandlers {
         final String finalRequestedPermissionMode = requestedPermissionMode;
         ClaudeSession currentSession = context.getSession();
         LOG.debug(String.format(
-                "[CliConcurrencyDiag][SessionActionHandlers] accepted send_message: provider=%s, sessionInvocationMode=%s, sessionId=%s, channelId=%s, promptChars=%d, thread=%s",
+                "[CliConcurrencyDiag][SessionActionHandlers] accepted send_message: provider=%s, cliMode=%s, sessionId=%s, channelId=%s, promptChars=%d, thread=%s",
                 currentSession != null ? currentSession.getProvider() : context.getCurrentProvider(),
-                currentSession != null ? currentSession.getClaudeInvocationMode() : "(none)",
+                isCliModeActive(),
                 currentSession != null ? currentSession.getSessionId() : "(none)",
                 currentSession != null ? currentSession.getChannelId() : "(none)",
                 finalPrompt.length(),
@@ -158,15 +158,15 @@ public class SessionActionHandlers {
 
             // [FIX] Pass agent prompt and file tags directly to session
             LOG.info(String.format(
-                    "[CliConcurrencyDiag][SessionActionHandlers] invoking session.send: provider=%s, invocationMode=%s, sessionId=%s, channelId=%s, elapsedMs=%d, thread=%s",
+                    "[CliConcurrencyDiag][SessionActionHandlers] invoking session.send: provider=%s, cliMode=%s, sessionId=%s, channelId=%s, elapsedMs=%d, thread=%s",
                     context.getSession().getProvider(),
-                    context.getSession().getClaudeInvocationMode(),
+                    isCliModeActive(),
                     context.getSession().getSessionId(),
                     context.getSession().getChannelId(),
                     (System.nanoTime() - dispatchStartNanos) / 1_000_000,
                     Thread.currentThread().getName()));
             context.getSession().send(finalPrompt, finalAgentPrompt, finalFileTagPaths,
-                    finalRequestedPermissionMode, null)
+                    finalRequestedPermissionMode)
                 .thenRun(() -> {
                 })
                 .exceptionally(ex -> {
@@ -344,9 +344,9 @@ public class SessionActionHandlers {
         final String finalRequestedPermissionMode = requestedPermissionMode;
         ClaudeSession currentSession = context.getSession();
         LOG.debug(String.format(
-                "[CliConcurrencyDiag][SessionActionHandlers] accepted send_msg_atts: provider=%s, invMode=%s, sid=%s, chId=%s, chars=%d, atts=%d, thread=%s",
+                "[CliConcurrencyDiag][SessionActionHandlers] accepted send_msg_atts: provider=%s, cliMode=%s, sid=%s, chId=%s, chars=%d, atts=%d, thread=%s",
                 currentSession != null ? currentSession.getProvider() : context.getCurrentProvider(),
-                currentSession != null ? currentSession.getClaudeInvocationMode() : "(none)",
+                isCliModeActive(),
                 currentSession != null ? currentSession.getSessionId() : "(none)",
                 currentSession != null ? currentSession.getChannelId() : "(none)",
                 prompt.length(),
@@ -370,15 +370,15 @@ public class SessionActionHandlers {
 
             // [FIX] Pass agent prompt and file tags directly to session
             LOG.info(String.format(
-                    "[CliConcurrencyDiag][SessionActionHandlers] invoking session.send atts: provider=%s, invMode=%s, sid=%s, chId=%s, elapsed=%dms, thread=%s",
+                    "[CliConcurrencyDiag][SessionActionHandlers] invoking session.send atts: provider=%s, cliMode=%s, sid=%s, chId=%s, elapsed=%dms, thread=%s",
                     context.getSession().getProvider(),
-                    context.getSession().getClaudeInvocationMode(),
+                    isCliModeActive(),
                     context.getSession().getSessionId(),
                     context.getSession().getChannelId(),
                     (System.nanoTime() - dispatchStartNanos) / 1_000_000,
                     Thread.currentThread().getName()));
             context.getSession().send(prompt, attachments, finalAgentPrompt, finalFileTagPaths,
-                    finalRequestedPermissionMode, null)
+                    finalRequestedPermissionMode)
                 .thenRun(() -> {
                 })
                 .exceptionally(ex -> {
@@ -413,12 +413,9 @@ public class SessionActionHandlers {
         try {
             ClaudeSession currentSession = context.getSession();
             String provider = currentSession != null ? currentSession.getProvider() : context.getCurrentProvider();
-            String sessionMode = currentSession != null ? currentSession.getClaudeInvocationMode() : null;
             return EffectiveRuntimeResolver
                     .isCliMode(
                             provider,
-                            null,
-                            sessionMode,
                             context.getSettingsService().getRuntimePolicy()
                     );
         } catch (Exception e) {

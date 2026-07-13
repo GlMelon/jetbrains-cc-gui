@@ -3,6 +3,7 @@ package com.github.claudecodegui.session;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
 import com.github.claudecodegui.provider.codex.CodexSDKBridge;
+import com.github.claudecodegui.session.runtime.RuntimeType;
 import com.intellij.openapi.project.Project;
 import com.intellij.ui.jcef.JBCefBrowser;
 import org.junit.Test;
@@ -34,22 +35,20 @@ public class SessionLifecycleManagerTest {
     @Test
     public void claudeDaemonResetOnlyTriggersForClaudeSdkSessions() {
         // Claude SDK → 重置 daemon
-        assertTrue(SessionLifecycleManager.shouldResetClaudeDaemonFor("claude", "sdk"));
-        // Claude SDK 且 invocationMode 为 null(默认 sdk 语义)→ 仍重置
-        assertTrue(SessionLifecycleManager.shouldResetClaudeDaemonFor("claude", null));
+        assertTrue(SessionLifecycleManager.shouldResetClaudeDaemonFor("claude", RuntimeType.SDK));
 
         // Claude CLI → 不重置(CLI 无 daemon)
-        assertFalse(SessionLifecycleManager.shouldResetClaudeDaemonFor("claude", "cli"));
+        assertFalse(SessionLifecycleManager.shouldResetClaudeDaemonFor("claude", RuntimeType.CLI));
 
         // Codex / OpenCode → 不重置(各自的 runtime,不应触碰 Claude daemon)
-        assertFalse(SessionLifecycleManager.shouldResetClaudeDaemonFor("codex", "sdk"));
-        assertFalse(SessionLifecycleManager.shouldResetClaudeDaemonFor("codex", "cli"));
-        assertFalse(SessionLifecycleManager.shouldResetClaudeDaemonFor("opencode", "sdk"));
-        assertFalse(SessionLifecycleManager.shouldResetClaudeDaemonFor("opencode", "cli"));
+        assertFalse(SessionLifecycleManager.shouldResetClaudeDaemonFor("codex", RuntimeType.SDK));
+        assertFalse(SessionLifecycleManager.shouldResetClaudeDaemonFor("codex", RuntimeType.CLI));
+        assertFalse(SessionLifecycleManager.shouldResetClaudeDaemonFor("opencode", RuntimeType.SDK));
+        assertFalse(SessionLifecycleManager.shouldResetClaudeDaemonFor("opencode", RuntimeType.CLI));
         assertFalse(SessionLifecycleManager.shouldResetClaudeDaemonFor("opencode", null));
     }
 
-    // 修复①:标签页内新建会话应保留本标签页旧会话的 provider/model/permission/调用模式,
+    // 修复①:标签页内新建会话应保留本标签页旧会话的 provider/model/permission 等运行时状态,
     // 而非回退全局粘性默认(粘性默认仅供"新标签页"读取上次选择)。
     @Test
     public void applyInheritedRuntimeStatePreservesOldSessionRuntime() {
@@ -57,7 +56,6 @@ public class SessionLifecycleManagerTest {
         oldSession.setProvider("codex");
         oldSession.setModel("gpt-5.5");
         oldSession.setPermissionMode("acceptEdits");
-        oldSession.setClaudeInvocationMode("cli");
 
         ClaudeSession newSession = new ClaudeSession(null, null, null, null);
 
@@ -66,7 +64,6 @@ public class SessionLifecycleManagerTest {
         assertEquals("codex", newSession.getProvider());
         assertEquals("gpt-5.5", newSession.getModel());
         assertEquals("acceptEdits", newSession.getPermissionMode());
-        assertEquals("cli", newSession.getClaudeInvocationMode());
     }
 
     @Test

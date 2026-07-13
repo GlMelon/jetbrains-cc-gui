@@ -428,7 +428,6 @@ describe('useWindowCallbacks integration', () => {
             provider: 'claude',
             model: 'claude-sonnet-4-6',
             permissionMode: 'default',
-            claudeInvocationMode: 'cli',
         }));
     });
 
@@ -2043,4 +2042,3 @@ describe('useWindowCallbacks integration', () => {
     });
   });
 });
-

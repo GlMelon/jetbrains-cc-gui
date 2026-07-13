@@ -261,7 +261,6 @@ public class ClaudeChatWindow {
 
         this.chatWindowDelegate = new ChatWindowDelegate(createDelegateHost());
         chatWindowDelegate.loadPermissionModeFromSettings();
-        chatWindowDelegate.loadInvocationModeFromSettings();
         chatWindowDelegate.loadNodePathFromSettings();
         chatWindowDelegate.syncActiveProvider();
         chatWindowDelegate.initializeHandlers();
@@ -510,9 +509,6 @@ public class ClaudeChatWindow {
         }
         if (savedState.model != null && !savedState.model.trim().isEmpty()) {
             session.setModel(savedState.model);
-        }
-        if (savedState.claudeInvocationMode != null && !savedState.claudeInvocationMode.trim().isEmpty()) {
-            session.setClaudeInvocationMode(savedState.claudeInvocationMode);
         }
         if (savedState.reasoningEffort != null && !savedState.reasoningEffort.trim().isEmpty()) {
             session.setReasoningEffort(savedState.reasoningEffort);
@@ -1211,7 +1207,6 @@ public class ClaudeChatWindow {
         snapshot.cwd = session.getCwd();
         snapshot.model = session.getModel();
         snapshot.permissionMode = session.getPermissionMode();
-        snapshot.claudeInvocationMode = session.getClaudeInvocationMode();
         snapshot.reasoningEffort = session.getReasoningEffort();
 
         TabStateService.getInstance(project).saveTabSessionState(tabIndex, snapshot);

@@ -394,17 +394,7 @@ public class ClaudeSession {
      * requestedPermissionMode priority: payload > sessionMode > default.
      */
     public CompletableFuture<Void> send(String input, String agentPrompt, List<String> fileTagPaths, String requestedPermissionMode) {
-        return send(input, null, agentPrompt, fileTagPaths, requestedPermissionMode, null);
-    }
-
-    public CompletableFuture<Void> send(
-            String input,
-            String agentPrompt,
-            List<String> fileTagPaths,
-            String requestedPermissionMode,
-            String requestedInvocationMode
-    ) {
-        return send(input, null, agentPrompt, fileTagPaths, requestedPermissionMode, requestedInvocationMode);
+        return send(input, null, agentPrompt, fileTagPaths, requestedPermissionMode);
     }
 
     /**
@@ -432,28 +422,12 @@ public class ClaudeSession {
         return send(input, attachments, agentPrompt, fileTagPaths, null);
     }
 
-    /**
-     * Send a message with attachments, agent prompt, file tags, and a requested permission mode.
-     * The effective mode is resolved with priority:
-     * Priority: requestedPermissionMode > sessionMode > default.
-     */
     public CompletableFuture<Void> send(
             String input,
             List<Attachment> attachments,
             String agentPrompt,
             List<String> fileTagPaths,
             String requestedPermissionMode
-    ) {
-        return send(input, attachments, agentPrompt, fileTagPaths, requestedPermissionMode, null);
-    }
-
-    public CompletableFuture<Void> send(
-            String input,
-            List<Attachment> attachments,
-            String agentPrompt,
-            List<String> fileTagPaths,
-            String requestedPermissionMode,
-            String requestedInvocationMode
     ) {
         LOG.debug("[ClaudeSession][DIAG] send() called, attachments="
                 + (attachments == null ? "NULL" : attachments.size()));
@@ -474,7 +448,6 @@ public class ClaudeSession {
         final String finalAgentPrompt = agentPrompt;
         final List<String> finalFileTagPaths = fileTagPaths;
         final String finalRequestedPermissionMode = requestedPermissionMode;
-        final String finalRequestedInvocationMode = requestedInvocationMode;
 
         return launchClaude().thenCompose(chId -> {
             if (!state.isPendingSendOperationCurrent(sendInvalidationEpoch)) {
@@ -493,8 +466,7 @@ public class ClaudeSession {
                         openedFilesJson,
                         finalAgentPrompt,
                         finalFileTagPaths,
-                        finalRequestedPermissionMode,
-                        finalRequestedInvocationMode
+                        finalRequestedPermissionMode
                 );
             }).thenCompose(v -> {
                 if (!state.isPendingSendOperationCurrent(sendInvalidationEpoch)) {
@@ -719,10 +691,6 @@ public class ClaudeSession {
         return state.getProvider();
     }
 
-    public String getClaudeInvocationMode() {
-        return state.getClaudeInvocationMode();
-    }
-
     /**
      * 当前是否为 CLI 运行模式(不依赖 SDK/ai-bridge daemon)。
      * CLI 模式下跳过 providerRouter 的 SDK bridge 调用(launchChannel/interruptChannel/cleanupProviderSession),
@@ -733,19 +701,12 @@ public class ClaudeSession {
             return EffectiveRuntimeResolver
                     .isCliMode(
                             state.getProvider(),
-                            null,
-                            state.getClaudeInvocationMode(),
                             CodemossSettingsService.getInstance().getRuntimePolicy()
                     );
         } catch (Exception e) {
             LOG.warn("[Runtime] Failed to resolve CLI runtime state: " + e.getMessage());
             return false;
         }
-    }
-
-    public void setClaudeInvocationMode(String invocationMode) {
-        state.setClaudeInvocationMode(invocationMode);
-        LOG.info("Claude invocation mode updated to: " + state.getClaudeInvocationMode());
     }
 
     public void setPermissionSessionId(String permissionSessionId) {

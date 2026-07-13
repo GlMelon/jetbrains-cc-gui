@@ -23,27 +23,6 @@ public class SessionStateTest {
     }
 
     @Test
-    public void claudeInvocationModeDefaultsToSdkUntilExplicitlyChanged() {
-        SessionState state = new SessionState();
-
-        assertEquals("sdk", state.getClaudeInvocationMode());
-
-        state.setClaudeInvocationMode("cli");
-
-        assertEquals("cli", state.getClaudeInvocationMode());
-    }
-
-    @Test
-    public void invalidClaudeInvocationModeDoesNotOverwriteExistingSessionMode() {
-        SessionState state = new SessionState();
-        state.setClaudeInvocationMode("cli");
-
-        state.setClaudeInvocationMode("bad-mode");
-
-        assertEquals("cli", state.getClaudeInvocationMode());
-    }
-
-    @Test
     public void providerRejectsUnknownValues() {
         SessionState state = new SessionState();
         state.setProvider("codex");

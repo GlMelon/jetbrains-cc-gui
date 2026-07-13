@@ -1,11 +1,11 @@
 package com.github.claudecodegui.handler.context;
 
-import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.config.ModelRegistryConfig;
 import com.github.claudecodegui.handler.core.FrontendActionContext;
 import com.github.claudecodegui.handler.core.FrontendActionHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
-import com.github.claudecodegui.session.ClaudeSession;
+import com.github.claudecodegui.session.runtime.EffectiveRuntimeResolver;
+import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.protocol.UpstreamAction;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
@@ -187,25 +187,15 @@ public final class GetContextUsageActionHandler implements FrontendActionHandler
         return false;
     }
 
-    static boolean isCliInvocationMode(String sessionMode, String configuredMode) {
-        String effectiveMode = sessionMode != null && !sessionMode.isBlank() ? sessionMode : configuredMode;
-        return CommonConstants.INVOCATION_MODE_CLI.equals(effectiveMode);
-    }
-
     private static boolean isContextUsageUnavailableInCliMode(HandlerContext ctx) {
-        String sessionMode = null;
-        ClaudeSession session = ctx.getSession();
-        if (session != null) {
-            sessionMode = session.getClaudeInvocationMode();
-        }
-
-        String configuredMode = null;
         try {
-            configuredMode = ctx.getSettingsService().getClaudeInvocationMode();
+            return EffectiveRuntimeResolver.isCliMode(
+                    ProviderType.CLAUDE.value(),
+                    ctx.getSettingsService().getRuntimePolicy()
+            );
         } catch (Exception e) {
-            LOG.warn("[GetContextUsageActionHandler] Failed to read Claude invocation mode", e);
+            LOG.warn("[GetContextUsageActionHandler] Failed to resolve Claude runtime", e);
+            return false;
         }
-
-        return isCliInvocationMode(sessionMode, configuredMode);
     }
 }

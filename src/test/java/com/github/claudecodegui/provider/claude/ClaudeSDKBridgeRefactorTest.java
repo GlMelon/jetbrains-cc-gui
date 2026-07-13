@@ -3,10 +3,8 @@ package com.github.claudecodegui.provider.claude;
 import com.github.claudecodegui.provider.common.DaemonBridge;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.SDKResult;
-import com.github.claudecodegui.session.SessionState;
 import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -31,12 +29,5 @@ public class ClaudeSDKBridgeRefactorTest {
         assertFalse(source.contains("ClaudeCliBridge"));
         assertFalse(source.contains("sendViaCliBridge"));
         assertFalse(source.contains("getCliBridge"));
-    }
-
-    @Test
-    public void defaultClaudeInvocationModeIsSdk() {
-        SessionState state = new SessionState();
-
-        assertEquals("sdk", state.getClaudeInvocationMode());
     }
 }

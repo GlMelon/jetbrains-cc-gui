@@ -11,6 +11,8 @@ import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
 import com.github.claudecodegui.provider.codex.CodexSDKBridge;
 import com.github.claudecodegui.session.runtime.ProviderType;
+import com.github.claudecodegui.session.runtime.EffectiveRuntimeResolver;
+import com.github.claudecodegui.session.runtime.RuntimeType;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.skill.SlashCommandRegistry;
 import com.github.claudecodegui.util.GsonHolder;
@@ -71,7 +73,7 @@ public class SessionLifecycleManager {
                 LOG.info("[Lifecycle] createNewSession superseded by a newer reset; abandoning bootstrap");
                 return;
             }
-            if (oldSession != null && shouldResetClaudeDaemonFor(oldSession.getProvider(), oldSession.getClaudeInvocationMode())) {
+            if (oldSession != null && shouldResetClaudeDaemonFor(oldSession.getProvider(), resolveCurrentRuntime(oldSession.getProvider()))) {
                 host.getClaudeSDKBridge().resetPersistentRuntime(oldSession.getRuntimeSessionEpoch());
                 LOG.info("[Lifecycle] Requested daemon runtime reset for old epoch=" + oldSession.getRuntimeSessionEpoch());
             }
@@ -83,7 +85,7 @@ public class SessionLifecycleManager {
             });
 
             ClaudeSession newSession = createDefaultSession();
-            // 修复①:标签页内新建会话继承本标签页旧会话的运行时状态(provider/model/permission/调用模式),
+            // 标签页内新建会话继承本标签页旧会话的 provider/model/permission 状态，
             // 而非回退全局粘性默认(粘性默认仅供"新标签页"读取上次选择)。
             applyInheritedRuntimeState(newSession, oldSession);
 
@@ -121,7 +123,7 @@ public class SessionLifecycleManager {
                 LOG.info("[Lifecycle] createNewSessionFromTemplate superseded by a newer reset; abandoning bootstrap");
                 return;
             }
-            if (oldSession != null && shouldResetClaudeDaemonFor(oldSession.getProvider(), oldSession.getClaudeInvocationMode())) {
+            if (oldSession != null && shouldResetClaudeDaemonFor(oldSession.getProvider(), resolveCurrentRuntime(oldSession.getProvider()))) {
                 host.getClaudeSDKBridge().resetPersistentRuntime(oldSession.getRuntimeSessionEpoch());
                 LOG.info("[Lifecycle] Requested daemon runtime reset for old epoch=" + oldSession.getRuntimeSessionEpoch());
             }
@@ -184,13 +186,10 @@ public class SessionLifecycleManager {
         String previousPermissionMode;
         String previousProvider;
         String previousModel;
-        String previousInvocationMode;
-
         if (oldSession != null) {
             previousPermissionMode = oldSession.getPermissionMode();
             previousProvider = oldSession.getProvider();
             previousModel = oldSession.getModel();
-            previousInvocationMode = oldSession.getClaudeInvocationMode();
         } else {
             PropertiesComponent props = PropertiesComponent.getInstance();
             String savedMode = props.getValue(PERMISSION_MODE_PROPERTY_KEY);
@@ -199,7 +198,6 @@ public class SessionLifecycleManager {
                                              ? savedMode.trim() : defaultSession.getPermissionMode();
             previousProvider = defaultSession.getProvider();
             previousModel = defaultSession.getModel();
-            previousInvocationMode = readClaudeInvocationMode();
         }
         LOG.info("Preserving session state when loading history: mode=" + previousPermissionMode
                          + ", provider=" + previousProvider + ", model=" + previousModel);
@@ -219,7 +217,7 @@ public class SessionLifecycleManager {
                 LOG.info("[Lifecycle] loadHistorySession superseded by a newer reset; abandoning bootstrap");
                 return;
             }
-            if (oldSession != null && shouldResetClaudeDaemonFor(oldSession.getProvider(), oldSession.getClaudeInvocationMode())) {
+            if (oldSession != null && shouldResetClaudeDaemonFor(oldSession.getProvider(), resolveCurrentRuntime(oldSession.getProvider()))) {
                 host.getClaudeSDKBridge().resetPersistentRuntime(oldSession.getRuntimeSessionEpoch());
                 LOG.info("[Lifecycle] Requested daemon runtime reset before history load for old epoch="
                         + oldSession.getRuntimeSessionEpoch());
@@ -231,7 +229,6 @@ public class SessionLifecycleManager {
             newSession.setPermissionMode(previousPermissionMode);
             newSession.setProvider(provider != null && !provider.trim().isEmpty() ? provider : previousProvider);
             newSession.setModel(previousModel);
-            newSession.setClaudeInvocationMode(previousInvocationMode);
             LOG.info("Restored session state to loaded session: mode=" + previousPermissionMode
                              + ", provider=" + newSession.getProvider() + ", model=" + previousModel);
 
@@ -415,7 +412,7 @@ public class SessionLifecycleManager {
     private boolean shouldPrewarmClaudeDaemon(ClaudeSession session) {
         return session != null
                 && ProviderType.CLAUDE.value().equals(session.getProvider())
-                && !CommonConstants.INVOCATION_MODE_CLI.equals(session.getClaudeInvocationMode());
+                && resolveCurrentRuntime(session.getProvider()) == RuntimeType.SDK;
     }
 
     /**
@@ -428,24 +425,22 @@ public class SessionLifecycleManager {
      * 提取为静态纯函数以便单测覆盖(god method 平台耦合无法直接测 createNewSession)。
      *
      * @param provider              会话 provider 标识
-     * @param claudeInvocationMode  会话级 Claude 调用模式(null 视为非 CLI,即 SDK 语义)
+     * @param runtime 当前后端策略解析出的运行模式
      * @return true 表示该会话是 Claude SDK 会话,应重置 Claude daemon
      */
-    static boolean shouldResetClaudeDaemonFor(String provider, String claudeInvocationMode) {
+    static boolean shouldResetClaudeDaemonFor(String provider, RuntimeType runtime) {
         return ProviderType.CLAUDE.value().equals(provider)
-                && !CommonConstants.INVOCATION_MODE_CLI.equals(claudeInvocationMode);
+                && runtime == RuntimeType.SDK;
     }
 
-    private String readClaudeInvocationMode() {
+    private RuntimeType resolveCurrentRuntime(String provider) {
         try {
-            String mode = CodemossSettingsService.getInstance().getClaudeInvocationMode();
-            if (SessionState.isValidClaudeInvocationMode(mode)) {
-                return mode;
-            }
-            LOG.warn("Invalid Claude invocation mode from settings: " + mode);
-            return null;
+            return EffectiveRuntimeResolver.resolve(
+                    provider,
+                    CodemossSettingsService.getInstance().getRuntimePolicy()
+            ).runtimeType();
         } catch (Exception e) {
-            LOG.error("Failed to read Claude invocation mode from settings: " + e.getMessage());
+            LOG.warn("[Lifecycle] Failed to resolve current runtime for provider=" + provider + ": " + e.getMessage());
             return null;
         }
     }
@@ -466,17 +461,10 @@ public class SessionLifecycleManager {
         session.setProvider(provider);
         session.setPermissionMode(readDefaultPermissionMode(provider));
         session.setModel(readDefaultModel(provider));
-        String mode = readClaudeInvocationMode();
-        if (mode != null) {
-            session.setClaudeInvocationMode(mode);
-            LOG.info("Initialized session invocation mode: " + mode);
-        } else {
-            LOG.info("No invocation mode set from settings, session keeps default");
-        }
     }
 
     /**
-     * 标签页内新建会话时,将旧会话的运行时状态(provider/model/permissionMode/claudeInvocationMode)
+     * 标签页内新建会话时,将旧会话的运行时状态(provider/model/permissionMode)
      * 继承到新会话,避免回退到全局粘性默认。镜像 {@link #loadHistorySession} 的保留模式
      * (previousProvider/previousModel 直接 setModel 不校验跨 provider 兼容性,保持一致)。
      * <p>"记录上次 provider"仅供<b>新标签页</b>读取上次选择(见 SessionRuntimeDefaults);
@@ -496,11 +484,6 @@ public class SessionLifecycleManager {
         target.setProvider(provider);
         target.setModel(source.getModel());
         target.setPermissionMode(source.getPermissionMode());
-        // 仅当旧会话有有效的调用模式时才继承，避免将 null/SDK 默认值传染到新会话
-        String sourceMode = source.getClaudeInvocationMode();
-        if (SessionState.isValidClaudeInvocationMode(sourceMode)) {
-            target.setClaudeInvocationMode(sourceMode);
-        }
     }
 
     private String readDefaultProvider() {
@@ -623,10 +606,6 @@ public class SessionLifecycleManager {
         payload.addProperty("provider", session.getProvider());
         payload.addProperty("model", session.getModel());
         payload.addProperty("permissionMode", session.getPermissionMode());
-        // 三 provider 对称下行会话快照 claudeInvocationMode(纯快照语义:前端据此显示当前会话的实际调用模式)。
-        if (session.getClaudeInvocationMode() != null) {
-            payload.addProperty("claudeInvocationMode", session.getClaudeInvocationMode());
-        }
         String json = GsonHolder.GSON.toJson(payload);
         ApplicationManager.getApplication().invokeLater(() -> host.getHandlerContext().dispatchEvent(DownstreamEvent.SESSION_RUNTIME_STATE.value(), JsUtils.escapeJs(json)));
     }

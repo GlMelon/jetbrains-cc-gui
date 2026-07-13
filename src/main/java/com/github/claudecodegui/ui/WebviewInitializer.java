@@ -1,13 +1,14 @@
 package com.github.claudecodegui.ui;
 
 import com.github.claudecodegui.bridge.NodeDetector;
-import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.model.NodeDetectionResult;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
 import com.github.claudecodegui.provider.codex.CodexSDKBridge;
+import com.github.claudecodegui.session.runtime.EffectiveRuntimeResolver;
+import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.settings.avatar.AvatarConfigService;
 import com.github.claudecodegui.startup.BridgePreloader;
@@ -171,7 +172,7 @@ public class WebviewInitializer {
         // transitions cannot accidentally reuse stale anonymous runtime ownership.
         // Skip daemon prewarm when CLI invocation mode is active — CLI mode uses a separate
         // process per request and does not need the Node.js daemon.
-        if (!CommonConstants.INVOCATION_MODE_CLI.equals(getClaudeInvocationMode())) {
+        if (!isClaudeCliRuntime()) {
             claudeSDKBridge.prewarmDaemonAsync(host.getProject().getBasePath(), host.getHandlerContext().getSession() != null
                     ? host.getHandlerContext().getSession().getRuntimeSessionEpoch()
                     : null);
@@ -752,12 +753,15 @@ public class WebviewInitializer {
         });
     }
 
-    private String getClaudeInvocationMode() {
+    private boolean isClaudeCliRuntime() {
         try {
-            return CodemossSettingsService.getInstance().getClaudeInvocationMode();
+            return EffectiveRuntimeResolver.isCliMode(
+                    ProviderType.CLAUDE.value(),
+                    CodemossSettingsService.getInstance().getRuntimePolicy()
+            );
         } catch (Exception e) {
-            LOG.warn("Failed to read Claude invocation mode, defaulting to sdk: " + e.getMessage());
-            return CommonConstants.INVOCATION_MODE_SDK;
+            LOG.warn("Failed to resolve Claude runtime, defaulting to SDK behavior: " + e.getMessage());
+            return false;
         }
     }
 }

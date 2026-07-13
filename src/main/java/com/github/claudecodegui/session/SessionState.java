@@ -18,7 +18,6 @@ public class SessionState {
      * Shared across SessionHandler (payload validation) and ClaudeSession (mode resolution).
      */
     public static final Set<String> VALID_PERMISSION_MODES;
-    public static final Set<String> VALID_CLAUDE_INVOCATION_MODES;
     public static final Set<String> VALID_PROVIDERS;
     static {
         Set<String> modes = new HashSet<>();
@@ -28,11 +27,6 @@ public class SessionState {
         modes.add(CommonConstants.PERMISSION_MODE_AUTO_EDIT);
         modes.add(CommonConstants.PERMISSION_MODE_BYPASS);
         VALID_PERMISSION_MODES = Collections.unmodifiableSet(modes);
-
-        Set<String> invocationModes = new HashSet<>();
-        invocationModes.add(CommonConstants.INVOCATION_MODE_SDK);
-        invocationModes.add(CommonConstants.INVOCATION_MODE_CLI);
-        VALID_CLAUDE_INVOCATION_MODES = Collections.unmodifiableSet(invocationModes);
 
         Set<String> providers = new HashSet<>();
         providers.add(CommonConstants.PROVIDER_CLAUDE);
@@ -49,9 +43,6 @@ public class SessionState {
         return mode != null && VALID_PERMISSION_MODES.contains(mode.trim());
     }
 
-    public static boolean isValidClaudeInvocationMode(String mode) {
-        return mode != null && VALID_CLAUDE_INVOCATION_MODES.contains(mode.trim());
-    }
 
     // Session identifiers
     private String sessionId;
@@ -89,7 +80,6 @@ public class SessionState {
     private volatile String permissionMode = CommonConstants.PERMISSION_MODE_DEFAULT;
     private volatile String model = CommonConstants.DEFAULT_MODEL;
     private volatile String provider = CommonConstants.DEFAULT_PROVIDER;
-    private volatile String claudeInvocationMode = CommonConstants.INVOCATION_MODE_SDK;
     private volatile String permissionSessionId = null;
     // Reasoning effort (thinking depth). Null means "do not override SDK/settings".
     private volatile String reasoningEffort = null;
@@ -166,9 +156,6 @@ public class SessionState {
         return provider;
     }
 
-    public String getClaudeInvocationMode() {
-        return claudeInvocationMode;
-    }
 
     public String getPermissionSessionId() {
         return permissionSessionId;
@@ -276,16 +263,6 @@ public class SessionState {
                 this.sessionId = null;
             }
             this.provider = trimmed;
-        }
-    }
-
-    public void setClaudeInvocationMode(String claudeInvocationMode) {
-        if (claudeInvocationMode == null) {
-            return;
-        }
-        String trimmed = claudeInvocationMode.trim();
-        if (VALID_CLAUDE_INVOCATION_MODES.contains(trimmed)) {
-            this.claudeInvocationMode = trimmed;
         }
     }
 

@@ -84,8 +84,6 @@ public class SessionSendService {
         try {
             EffectiveRuntimeResolver.Runtime runtime = EffectiveRuntimeResolver.resolve(
                     provider,
-                    state.getClaudeInvocationMode(),
-                    null,
                     CodemossSettingsService.getInstance().getRuntimePolicy()
             );
             runtimeType = runtime.runtimeType();
@@ -156,39 +154,12 @@ public class SessionSendService {
         return null;
     }
 
-    public static String resolveEffectiveClaudeInvocationMode(String requestedMode) {
-        return resolveEffectiveClaudeInvocationMode(requestedMode, null);
-    }
-
     public static String getCodexRuntimeAccessError(String accessMode) {
         if (CodemossSettingsService.CODEX_RUNTIME_ACCESS_MANAGED.equals(accessMode)
                 || CodemossSettingsService.CODEX_RUNTIME_ACCESS_CLI_LOGIN.equals(accessMode)) {
             return null;
         }
         return ClaudeCodeGuiBundle.message("error.codexLocalAccessNotAuthorized");
-    }
-
-    public static String resolveEffectiveClaudeInvocationMode(String requestedMode, String sessionMode) {
-        String normalizedSessionMode = SessionState.isValidClaudeInvocationMode(sessionMode) ? sessionMode.trim() : null;
-
-        if (normalizedSessionMode != null) {
-            return normalizedSessionMode;
-        }
-
-        if (SessionState.isValidClaudeInvocationMode(requestedMode)) {
-            return requestedMode.trim();
-        }
-
-        try {
-            String configured = CodemossSettingsService.getInstance().getClaudeInvocationMode();
-            if (SessionState.isValidClaudeInvocationMode(configured)) {
-                return configured.trim();
-            }
-        } catch (Exception e) {
-            LOG.warn("[ModeSync][Backend] Failed to read Claude invocation mode from settings: " + e.getMessage());
-        }
-        LOG.warn("[ModeSync][Backend] No valid invocation mode from session/request/settings, falling back to SDK");
-        return CommonConstants.INVOCATION_MODE_SDK;
     }
 
     public CompletableFuture<Void> sendMessageToProvider(
@@ -198,8 +169,7 @@ public class SessionSendService {
             JsonObject openedFilesJson,
             String externalAgentPrompt,
             List<String> fileTagPaths,
-            String requestedPermissionMode,
-            String requestedInvocationMode
+            String requestedPermissionMode
     ) {
         String agentPrompt = externalAgentPrompt;
         if (agentPrompt == null) {
@@ -234,7 +204,6 @@ public class SessionSendService {
         );
 
         if (CommonConstants.PROVIDER_CODEX.equals(currentProvider)) {
-            // 方向 A:codex 同样透传请求级调用模式(由前端「调用模式」UI 统一驱动 claude+codex)。
             return sendToCodex(
                     channelId,
                     input,
@@ -242,14 +211,11 @@ public class SessionSendService {
                     openedFilesJson,
                     agentPrompt,
                     fileTagPaths,
-                    effectivePermissionMode,
-                    requestedInvocationMode
+                    effectivePermissionMode
             );
         }
 
         if (CommonConstants.PROVIDER_OPENCODE.equals(currentProvider)) {
-            // B4:OpenCode 与 Codex 同构(由前端「调用模式」UI 驱动 requestedInvocationMode,无会话级模式),
-            // 对称 sendToCodex 路由到 OpenCodeSDKBridge / OpenCode runtime,确保不落入 Claude 默认路径。
             return sendToOpenCode(
                     channelId,
                     input,
@@ -257,19 +223,12 @@ public class SessionSendService {
                     openedFilesJson,
                     agentPrompt,
                     fileTagPaths,
-                    effectivePermissionMode,
-                    requestedInvocationMode
+                    effectivePermissionMode
             );
         }
 
-        // §snapshot:纯快照语义——snapshot 仅由会话初始化(SessionLifecycleManager:460)/用户显式切换更新,
-        // send 路径不副作用回写(对称 Codex/OpenCode 的 resolveRuntime 不回写 snapshot)。
-        // resolveEffectiveClaudeInvocationMode 在 snapshot 非 null 时直接返回 snapshot(effective==snapshot),
-        // 回写本是 no-op;snapshot null 时每次重新 resolve(反映 settings 变化,比"锁定首次 effective"更正确)。
-        String effectiveInvocationMode = resolveEffectiveClaudeInvocationMode(requestedInvocationMode, state.getClaudeInvocationMode());
-
         return sendToClaude(channelId, input, attachments, openedFilesJson, agentPrompt,
-                effectivePermissionMode, effectiveInvocationMode);
+                effectivePermissionMode);
     }
 
     private CompletableFuture<Void> sendToCodex(
@@ -279,8 +238,7 @@ public class SessionSendService {
             JsonObject openedFilesJson,
             String agentPrompt,
             List<String> fileTagPaths,
-            String effectivePermissionMode,
-            String requestedInvocationMode
+            String effectivePermissionMode
     ) {
         // 绑定当前运行时会话 epoch:运行时切换后(见 ModelProviderHandler 旋转 epoch),
         // 旧 Codex 进程的回调会因 epoch 不匹配被 CodexMessageHandler 丢弃(防串台,与 Claude 侧一致)。
@@ -301,14 +259,7 @@ public class SessionSendService {
         String contextAppend = contextService.buildCodexContextAppend(openedFilesJson, fileTagPaths);
         String finalInput = (input != null ? input : "") + contextAppend;
 
-        // Codex 与 Claude/OpenCode 统一:传入会话快照 state.getClaudeInvocationMode() 作 sessionMode,
-        // resolver 优先用快照(纯快照语义);快照缺失(null,理论不发生,新会话已快照)才回退 requestedMode/settings。
-        EffectiveRuntimeResolver.Runtime runtime = resolveRuntime(
-                CommonConstants.PROVIDER_CODEX,
-                state.getClaudeInvocationMode(),
-                requestedInvocationMode
-        );
-        warnIfRuntimeDegraded(runtime);
+        EffectiveRuntimeResolver.Runtime runtime = resolveRuntime(CommonConstants.PROVIDER_CODEX);
         RuntimeKey key = new RuntimeKey(
                 CommonConstants.PROVIDER_CODEX,
                 channelId,
@@ -357,8 +308,7 @@ public class SessionSendService {
             JsonObject openedFilesJson,
             String agentPrompt,
             List<String> fileTagPaths,
-            String effectivePermissionMode,
-            String requestedInvocationMode
+            String effectivePermissionMode
     ) {
         // B4:复用 CodexMessageHandler 处理统一 MSG_* 协议。OpenCode 事件经 OpenCodeSDKBridge(SDK)
         // / OpenCodeCliSession(CLI)已归一为同一 MSG_* schema(session_id/stream_start/content_delta/
@@ -375,14 +325,7 @@ public class SessionSendService {
         String contextAppend = contextService.buildCodexContextAppend(openedFilesJson, fileTagPaths);
         String finalInput = (input != null ? input : "") + contextAppend;
 
-        // OpenCode 与 Claude/Codex 统一:传入会话快照 state.getClaudeInvocationMode() 作 sessionMode,
-        // resolver 优先用快照(纯快照语义);快照缺失(null)才回退 requestedMode/settings。
-        EffectiveRuntimeResolver.Runtime runtime = resolveRuntime(
-                CommonConstants.PROVIDER_OPENCODE,
-                state.getClaudeInvocationMode(),
-                requestedInvocationMode
-        );
-        warnIfRuntimeDegraded(runtime);
+        EffectiveRuntimeResolver.Runtime runtime = resolveRuntime(CommonConstants.PROVIDER_OPENCODE);
         RuntimeKey key = new RuntimeKey(
                 CommonConstants.PROVIDER_OPENCODE,
                 channelId,
@@ -430,15 +373,13 @@ public class SessionSendService {
             List<ClaudeSession.Attachment> attachments,
             JsonObject openedFilesJson,
             String agentPrompt,
-            String effectivePermissionMode,
-            String effectiveInvocationMode
+            String effectivePermissionMode
     ) {
         LOG.debug("[SessionSendService][DIAG] sendToClaude called, attachments="
                 + (attachments == null ? "NULL" : attachments.size()));
         LOG.debug(String.format(
-                "[ClaudeImageDiag][SessionSendService] sendToClaude route: invocationMode=%s, provider=%s, sessionId=%s, attachments=%s",
-                effectiveInvocationMode, state.getProvider(),
-                state.getSessionId() != null ? state.getSessionId() : "(new)",
+                "[ClaudeImageDiag][SessionSendService] sendToClaude route: provider=%s, sessionId=%s, attachments=%s",
+                state.getProvider(), state.getSessionId() != null ? state.getSessionId() : "(new)",
                 attachments == null ? "NULL" : attachments.size()));
         if (attachments != null) {
             for (int i = 0; i < attachments.size(); i++) {
@@ -474,12 +415,7 @@ public class SessionSendService {
                 + ", model=" + currentModel
                 + ", actualModel=" + (modelSelection.actualModel() != null ? modelSelection.actualModel() : "(registry-fallback)"));
 
-        EffectiveRuntimeResolver.Runtime runtime = resolveRuntime(
-                CommonConstants.PROVIDER_CLAUDE,
-                state.getClaudeInvocationMode(),
-                effectiveInvocationMode
-        );
-        warnIfRuntimeDegraded(runtime);
+        EffectiveRuntimeResolver.Runtime runtime = resolveRuntime(CommonConstants.PROVIDER_CLAUDE);
         SessionRequest request = new SessionRequest(
                 new RuntimeKey(CommonConstants.PROVIDER_CLAUDE, channelId, channelId, runtimeSessionEpoch),
                 runtime.provider(),
@@ -508,27 +444,11 @@ public class SessionSendService {
         ).thenApply(result -> null);
     }
 
-    private EffectiveRuntimeResolver.Runtime resolveRuntime(String provider, String sessionMode, String requestedMode) {
+    private EffectiveRuntimeResolver.Runtime resolveRuntime(String provider) {
         return EffectiveRuntimeResolver.resolve(
                 provider,
-                sessionMode,
-                requestedMode,
                 CodemossSettingsService.getInstance().getRuntimePolicy()
         );
-    }
-
-    /**
-     * 降级提示:仅在「无显式调用模式选择」(默认推断,Claude settings 回退)与「路由策略」supported 冲突、
-     * 被降级到 default 时触发 —— 经 notifyStatusMessage → SessionCallbackAdapter.onStatusMessage →
-     * 前端 updateStatus → toast。用户显式选择 CLI/SDK 时尊重意愿、不降级、不提示(CLI/SDK 相互独立)。
-     * 降级判定 + 文案由 {@link EffectiveRuntimeResolver#degradedNotice} 生成(已单测覆盖);
-     * 此处仅"有文案则推送"薄胶水(项目无 Mockito,SessionSendService 重依赖未独立单测)。
-     */
-    private void warnIfRuntimeDegraded(EffectiveRuntimeResolver.Runtime runtime) {
-        String notice = EffectiveRuntimeResolver.degradedNotice(runtime);
-        if (notice != null) {
-            callbackFacade.notifyStatusMessage(notice);
-        }
     }
 
     private ModelRegistryConfig.ResolvedModelSelection resolveModelSelection(String provider, String selectedModel) {

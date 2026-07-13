@@ -283,13 +283,10 @@ public class ProjectConfigHandler {
     }
 
     public void handleGetSessionInvocationMode() {
-        respondWithJson(DownstreamEvent.SESSION_INVOCATION_MODE.value(), () -> {
-            String mode = context.getSession() != null ? context.getSession().getClaudeInvocationMode() : null;
-            if (mode == null || mode.isBlank()) {
-                mode = settingsService.getClaudeInvocationMode();
-            }
-            return jsonOf("invocationMode", mode);
-        }, jsonOf("invocationMode", DaemonConstants.UNKNOWN), "Failed to get Claude session invocation mode");
+        respondWithJson(DownstreamEvent.SESSION_INVOCATION_MODE.value(),
+                () -> jsonOf("invocationMode", settingsService.getClaudeInvocationMode()),
+                jsonOf("invocationMode", DaemonConstants.UNKNOWN),
+                "Failed to get Claude invocation mode");
     }
 
     public void handleGetSessionRuntimeState() {
@@ -301,16 +298,11 @@ public class ProjectConfigHandler {
         String provider = session != null ? session.getProvider() : context.getCurrentProvider();
         String model = session != null ? session.getModel() : context.getCurrentModel();
         String permissionMode = session != null ? session.getPermissionMode() : readDefaultPermissionMode(provider);
-        String invocationMode = session != null ? session.getClaudeInvocationMode() : settingsService.getClaudeInvocationMode();
 
         JsonObject response = new JsonObject();
         response.addProperty("provider", provider);
         response.addProperty("model", model);
         response.addProperty("permissionMode", permissionMode);
-        // 三 provider 对称下行会话快照 claudeInvocationMode(纯快照语义)。
-        if (invocationMode != null) {
-            response.addProperty("claudeInvocationMode", invocationMode);
-        }
         return response;
     }
 
@@ -329,9 +321,6 @@ public class ProjectConfigHandler {
             JsonObject json = gson.fromJson(content, JsonObject.class);
             String mode = readString(json, "invocationMode", CommonConstants.INVOCATION_MODE_SDK);
             settingsService.setClaudeInvocationMode(mode);
-            // 纯快照语义:切换只持久化默认值,不回灌已有会话(已有会话保留各自快照,新会话/新 tab 才用新模式)。
-            // 广播 CONFIG_INVOCATION_MODE(=设置默认值)到项目全部 tab,使各 tab 设置面板同步显示新默认值;
-            // 不广播 SESSION_RUNTIME_STATE——广播会让现有会话误显示新模式,违反快照(各会话快照由 SESSION_RUNTIME_STATE 各自下行)。
             String savedMode = settingsService.getClaudeInvocationMode();
             ClaudeSDKToolWindow.broadcastInvocationMode(context.getProject(), savedMode);
         } catch (Exception e) {
