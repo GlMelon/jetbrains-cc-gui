@@ -128,6 +128,15 @@ public class TerminalMonitorService implements ProjectActivity {
             ToolWindow terminalWindow = ToolWindowManager.getInstance(project).getToolWindow("Terminal");
             if (terminalWindow == null) { return; }
 
+            // Avoid forcing Terminal content initialization before the window has been shown.
+            // getContentManager() lazily creates the tool window content (createContentIfNeeded),
+            // which triggers a premature TerminalToolWindowFactory init and an IDE
+            // 'ToolwindowTitle toolbar manual update is ignored' warning when the window is not
+            // yet visible. Defer attachment until the user actually opens the Terminal; the
+            // stateChanged subscription above fires once it becomes visible. If the Terminal was
+            // already visible (e.g. restored with the project), isVisible() is true and we attach now.
+            if (!terminalWindow.isVisible()) { return; }
+
             ContentManager contentManager = terminalWindow.getContentManager();
             if (contentManager.isDisposed()) { return; }
 
