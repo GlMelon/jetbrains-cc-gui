@@ -11,6 +11,8 @@ import org.junit.Test;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -21,6 +23,21 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public class ClaudeCliSessionTest {
+
+    @Test
+    public void cliEntrypointNormalizationRunsAfterProcessExitWithoutEnvironmentWorkaround() throws Exception {
+        String source = Files.readString(Paths.get(
+                "src", "main", "java", "com", "github", "claudecodegui", "cli", "claude", "ClaudeCliSession.java"
+        ));
+
+        int processExitIndex = source.indexOf("int exitCode = process.exitValue()");
+        int rewriteIndex = source.indexOf("this.normalizeCliSessionEntrypoint(request)");
+
+        assertTrue(processExitIndex >= 0);
+        assertTrue(rewriteIndex > processExitIndex);
+        assertFalse(source.contains("ENV_CLAUDE_CODE_ENTRYPOINT"));
+        assertTrue(source.contains("Set.of(SessionEntrypoint.SDK_CLI)"));
+    }
 
     @Test
     public void buildCommandDoesNotSendEffortForUnknownCustomModels() throws Exception {

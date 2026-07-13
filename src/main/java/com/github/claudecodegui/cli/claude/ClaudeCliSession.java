@@ -7,6 +7,8 @@ import com.github.claudecodegui.cli.CliSessionExecutor;
 import com.github.claudecodegui.cli.common.*;
 import com.github.claudecodegui.common.ClaudeRole;
 import com.github.claudecodegui.common.CommonConstants;
+import com.github.claudecodegui.handler.history.ClaudeSessionEntrypointRewriter;
+import com.github.claudecodegui.handler.history.SessionEntrypoint;
 import com.github.claudecodegui.mcp.McpGatewayCliConfig;
 import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.provider.claude.ClaudeCliDetector;
@@ -47,6 +49,7 @@ public class ClaudeCliSession implements CliSession {
     private final CliAttachmentHandler attachmentHandler = new CliAttachmentHandler();
     private final CliMcpConfig mcpConfig;
     private final McpGatewayService gatewayService;
+    private final ClaudeSessionEntrypointRewriter entrypointRewriter;
     private volatile String permissionDir;
     private volatile String cliPermissionSessionId;
 
@@ -65,9 +68,18 @@ public class ClaudeCliSession implements CliSession {
     }
 
     public ClaudeCliSession(String tabId, McpGatewayService gatewayService) {
+        this(tabId, gatewayService, new ClaudeSessionEntrypointRewriter());
+    }
+
+    ClaudeCliSession(
+            String tabId,
+            McpGatewayService gatewayService,
+            ClaudeSessionEntrypointRewriter entrypointRewriter
+    ) {
         this.tabId = tabId;
         this.mcpConfig = new CliMcpConfig(tabId);
         this.gatewayService = gatewayService;
+        this.entrypointRewriter = entrypointRewriter;
     }
 
     private static long elapsedMillis(long startNanos) {
@@ -371,9 +383,6 @@ public class ClaudeCliSession implements CliSession {
                         request.model()
                 ));
                 cliEnv.put(CliConstants.ARG_NO_COLOR, "1");
-                // 设置 CLI 进程身份标识，确保 session 文件 entrypoint 为 "cli"
-                // 而非 binary 默认的 "sdk-cli"（env 被 clear() 后不会继承父进程）。
-                cliEnv.put(CliConstants.ENV_CLAUDE_CODE_ENTRYPOINT, CliConstants.ENV_CLAUDE_ENTRYPOINT_CLI);
                 CliEnvironmentBuilder.configureClaudePermissionEnv(
                         cliEnv,
                         getPermissionDirectory(),
@@ -428,8 +437,9 @@ public class ClaudeCliSession implements CliSession {
                 LOG.info(
                         "[CliConcurrencyDiag][ClaudeCliSession] process exited" + ": tabId=" + tabId + ", exitCode=" + exitCode + ", " +
                                 "interrupted=" + interrupted + ", elapsedMs=" + elapsedMillis(
-                                sendStartNanos) + ", thread=" + Thread.currentThread()
-                                .getName());
+                                 sendStartNanos) + ", thread=" + Thread.currentThread()
+                                 .getName());
+                this.normalizeCliSessionEntrypoint(request);
 
                 if (shouldEmitInterruptedCompletion(interruptHandled)) {
                     callback.onInterrupted(null, CliConstants.I18N_REQUEST_INTERRUPTED);
@@ -453,6 +463,37 @@ public class ClaudeCliSession implements CliSession {
                 userInterrupted.set(false);
             }
         });
+    }
+
+    private void normalizeCliSessionEntrypoint(CliSendRequest request) {
+        String completedSessionId = this.sessionId;
+        if ((completedSessionId == null || completedSessionId.isBlank()) && request != null) {
+            completedSessionId = request.sessionId();
+        }
+
+        ClaudeSessionEntrypointRewriter.RewriteResult result;
+        try {
+            result = this.entrypointRewriter.rewrite(
+                    completedSessionId,
+                    request != null ? request.cwd() : null,
+                    Set.of(SessionEntrypoint.SDK_CLI),
+                    SessionEntrypoint.CLI
+            );
+        } catch (Exception e) {
+            LOG.warn("[ClaudeCliSession] Failed to normalize Claude session entrypoint: tab=" + tabId, e);
+            return;
+        }
+
+        switch (result.status()) {
+            case REWRITTEN -> LOG.info("[ClaudeCliSession] Normalized Claude CLI session entrypoint: tab="
+                    + tabId + ", sessionId=" + completedSessionId + ", modifiedLines=" + result.modifiedCount());
+            case ALREADY_TARGET -> LOG.debug("[ClaudeCliSession] Claude session entrypoint is already CLI: tab="
+                    + tabId + ", sessionId=" + completedSessionId);
+            case SOURCE_NOT_ACCEPTED -> LOG.debug("[ClaudeCliSession] Claude session entrypoint was not sdk-cli: tab="
+                    + tabId + ", sessionId=" + completedSessionId);
+            default -> LOG.warn("[ClaudeCliSession] Claude session entrypoint normalization skipped: tab="
+                    + tabId + ", sessionId=" + completedSessionId + ", status=" + result.status());
+        }
     }
 
     static void configureRequestModelEnvironment(
