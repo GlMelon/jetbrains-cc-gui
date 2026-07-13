@@ -470,11 +470,11 @@ describe('MessageItem copy button visibility', () => {
     renderMessageItem(message);
 
     expect(screen.getByText('输入：')).toBeTruthy();
-    expect(screen.getByText('100 tokens')).toBeTruthy();
+    expect(screen.getByText('100')).toBeTruthy();
     expect(screen.getByText('输出：')).toBeTruthy();
-    expect(screen.getByText('40 tokens')).toBeTruthy();
+    expect(screen.getByText('40')).toBeTruthy();
     expect(screen.getByText('总计：')).toBeTruthy();
-    expect(screen.getByText('140 tokens')).toBeTruthy();
+    expect(screen.getByText('140')).toBeTruthy();
     expect(screen.getByText('2:03')).toBeTruthy();
   });
 
