@@ -18,6 +18,10 @@ public final class CliConstants {
 
     /** 进程等待超时(毫秒),防止中断未真正结束子进程时 waitFor 永久阻塞导致 Future 无法完成。 */
     public static final long PROCESS_WAIT_TIMEOUT_MS = 30_000L;
+    /** 单轮 CLI 请求绝对超时。 */
+    public static final long CLI_REQUEST_TIMEOUT_MS = 15 * 60 * 1000L;
+    /** 进程退出后等待 stdout drain 完成的最大时长。 */
+    public static final long OUTPUT_DRAIN_TIMEOUT_MS = 5_000L;
 
     // ── I18N 消息键 ────────────────────────────────────────────────────────────
 

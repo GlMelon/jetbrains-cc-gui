@@ -28,7 +28,6 @@ import java.nio.CharBuffer;
 import java.nio.charset.*;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
@@ -159,6 +158,7 @@ public class CodexCliSession implements CliSession {
             StringBuilder diagnostic = new StringBuilder();
             StringBuilder cliError = new StringBuilder();
             Process process = null;
+            CliProcessHandle currentHandle = null;
             try {
                 LOG.info("[CliConcurrencyDiag][CodexCliSession] send task started"
                         + ": tabId=" + tabId
@@ -221,77 +221,84 @@ public class CodexCliSession implements CliSession {
                         + ", elapsedMs=" + elapsedMillis(sendStartNanos)
                         + ", thread=" + Thread.currentThread().getName());
                 process = pb.start();
+                currentHandle = new CliProcessHandle(process, "codex-tab-" + tabId);
+                activeHandle = currentHandle;
                 LOG.info("[CliConcurrencyDiag][CodexCliSession] process started"
                         + ": tabId=" + tabId
                         + ", elapsedMs=" + elapsedMillis(sendStartNanos)
                         + ", thread=" + Thread.currentThread().getName());
                 // 将 prompt 通过 stdin 传给 Codex，避免 Windows 命令行长度限制。
-                try (OutputStream stdin = process.getOutputStream()) {
-                    stdin.write(promptInput);
-                    stdin.flush();
+                if (userInterrupted.get()) {
+                    currentHandle.interrupt();
+                } else {
+                    try (OutputStream stdin = process.getOutputStream()) {
+                        stdin.write(promptInput);
+                        stdin.flush();
+                    }
                 }
                 LOG.info("[CliConcurrencyDiag][CodexCliSession] prompt written to stdin"
                         + ": tabId=" + tabId
                         + ", stdinBytes=" + promptInput.length
                         + ", elapsedMs=" + elapsedMillis(sendStartNanos)
                         + ", thread=" + Thread.currentThread().getName());
-                activeHandle = new CliProcessHandle(process, "codex-tab-" + tabId);
-
                 StringBuilder assistantContent = new StringBuilder();
                 // 逐行读取原始字节，先尝试 UTF-8 解码，失败则回退到 Windows 中文编码。
                 // 这解决了 Node.js (UTF-8) 和 cmd.exe (GBK) 混合输出的编码问题。
-                try (InputStream rawIn = process.getInputStream()) {
-                    ByteArrayOutputStream lineBuf = new ByteArrayOutputStream();
-                    byte[] readBuf = new byte[8192];
-                    int n;
-                    boolean firstOutputLogged = false;
-                    while ((n = rawIn.read(readBuf)) != -1) {
-                        for (int i = 0; i < n; i++) {
-                            byte b = readBuf[i];
-                            if (b == '\n') {
-                                if (!firstOutputLogged) {
-                                    firstOutputLogged = true;
-                                    LOG.info("[CliConcurrencyDiag][CodexCliSession] first stdout line buffer reached"
-                                            + ": tabId=" + tabId
-                                            + ", elapsedMs=" + elapsedMillis(sendStartNanos)
-                                            + ", thread=" + Thread.currentThread().getName());
+                Process runningProcess = process;
+                CompletableFuture<Void> outputDrain = CliProcessLifecycle.drainAsync(runningProcess, () -> {
+                    try (InputStream rawIn = runningProcess.getInputStream()) {
+                        ByteArrayOutputStream lineBuf = new ByteArrayOutputStream();
+                        byte[] readBuf = new byte[8192];
+                        int n;
+                        boolean firstOutputLogged = false;
+                        while ((n = rawIn.read(readBuf)) != -1) {
+                            for (int i = 0; i < n; i++) {
+                                byte b = readBuf[i];
+                                if (b == '\n') {
+                                    if (!firstOutputLogged) {
+                                        firstOutputLogged = true;
+                                        LOG.info("[CliConcurrencyDiag][CodexCliSession] first stdout line buffer reached"
+                                                + ": tabId=" + tabId
+                                                + ", elapsedMs=" + elapsedMillis(sendStartNanos)
+                                                + ", thread=" + Thread.currentThread().getName());
+                                    }
+                                    processLine(lineBuf, diagnostic, callback, assistantContent, cliError);
+                                } else {
+                                    lineBuf.write(b);
                                 }
-                                processLine(lineBuf, diagnostic, callback, assistantContent, cliError);
-                            } else {
-                                lineBuf.write(b);
+                            }
+                            if (fatalAbort) {
+                                CliProcessLifecycle.terminate(runningProcess);
+                                break;
                             }
                         }
-                        if (fatalAbort) {
-                            // parseEvent 已对致命错误 onError;终止卡死的重连进程,避免 read() 永不 EOF。
-                            break;
+                        // 处理最后一行（无尾随换行符）
+                        if (lineBuf.size() > 0) {
+                            processLine(lineBuf, diagnostic, callback, assistantContent, cliError);
                         }
                     }
-                    // 处理最后一行（无尾随换行符）
-                    if (lineBuf.size() > 0) {
-                        processLine(lineBuf, diagnostic, callback, assistantContent, cliError);
-                    }
-                }
+                });
+
+                CliProcessLifecycle.Outcome outcome = CliProcessLifecycle.await(process, outputDrain);
 
                 if (fatalAbort) {
                     // 致命 provider/API 错误(parseEvent 已 onError):强制终止卡死的重连进程,
                     // 跳过正常退出码诊断(避免二次报错),直接完成回调。
-                    process.destroyForcibly();
-                    process.waitFor();
                     callback.onComplete(false, assistantContent.toString(), null);
                     return;
                 }
-                if (!process.waitFor(CliConstants.PROCESS_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
-                    process.destroyForcibly();
-                    process.waitFor();
-                }
-                int exitCode = process.exitValue();
+                int exitCode = outcome.exitCode();
                 LOG.info("[CliConcurrencyDiag][CodexCliSession] process exited"
                         + ": tabId=" + tabId
                         + ", exitCode=" + exitCode
                         + ", elapsedMs=" + elapsedMillis(sendStartNanos)
                         + ", thread=" + Thread.currentThread().getName());
 
-                if (wasInterrupted()) {
+                if (outcome.timedOut() && !wasInterrupted()) {
+                    String err = CliErrorFormatter.formatError("Codex", "CLI request timed out");
+                    callback.onError(err);
+                    callback.onComplete(false, assistantContent.toString(), err);
+                } else if (wasInterrupted()) {
                     callback.onInterrupted(assistantContent.toString(), CliConstants.I18N_REQUEST_INTERRUPTED);
                 } else if (exitCode == 0) {
                     if (shouldReportCliErrorOnExit0(cliError.toString(), turnCompleted)) {
@@ -331,7 +338,10 @@ public class CodexCliSession implements CliSession {
                     callback.onComplete(false, null, err);
                 }
             } finally {
-                activeHandle = null;
+                CliProcessLifecycle.terminate(process);
+                if (activeHandle == currentHandle) {
+                    activeHandle = null;
+                }
                 cleanupTempFiles(tempFiles);
                 userInterrupted.set(false);
             }

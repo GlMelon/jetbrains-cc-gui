@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -113,7 +112,9 @@ public class OpenCodeCliSession implements CliSession {
                             + ", thread=" + Thread.currentThread().getName());
                     sessionId = null;
                     diagnostic.setLength(0);
-                    runOnce(request, callback, null, attachFiles, diagnostic, sendStartNanos);
+                    if (!userInterrupted.get()) {
+                        runOnce(request, callback, null, attachFiles, diagnostic, sendStartNanos);
+                    }
                 }
             } catch (Exception e) {
                 LOG.warn("[OpenCodeCliSession][" + tabId + "] send failed", e);
@@ -212,47 +213,58 @@ public class OpenCodeCliSession implements CliSession {
                 + ", thread=" + Thread.currentThread().getName());
         // stdin 已重定向到空设备,opencode 立即读到 EOF;无需(也无法)再经 OutputStream 关闭。
         // B14:CliProcessHandle 统一管理中断(替代裸 destroyForcibly)。
-        activeHandle = new CliProcessHandle(process, "opencode-tab-" + tabId);
+        CliProcessHandle currentHandle = new CliProcessHandle(process, "opencode-tab-" + tabId);
+        activeHandle = currentHandle;
 
-        try (InputStream rawIn = process.getInputStream()) {
-            ByteArrayOutputStream lineBuf = new ByteArrayOutputStream();
-            byte[] readBuf = new byte[8192];
-            int n;
-            boolean firstOutputLogged = false;
-            while ((n = rawIn.read(readBuf)) != -1) {
-                for (int i = 0; i < n; i++) {
-                    byte b = readBuf[i];
-                    if (b == '\n') {
-                        if (!firstOutputLogged) {
-                            firstOutputLogged = true;
-                            LOG.info("[CliConcurrencyDiag][OpenCodeCliSession] first stdout line buffer reached"
-                                    + ": tabId=" + tabId
-                                    + ", effectiveSessionId=" + effectiveSessionDisplay
-                                    + ", elapsedMs=" + elapsedMillis(sendStartNanos)
-                                    + ", thread=" + Thread.currentThread().getName());
+        try {
+            if (userInterrupted.get()) {
+                currentHandle.interrupt();
+            }
+            CompletableFuture<Void> outputDrain = CliProcessLifecycle.drainAsync(process, () -> {
+                try (InputStream rawIn = process.getInputStream()) {
+                    ByteArrayOutputStream lineBuf = new ByteArrayOutputStream();
+                    byte[] readBuf = new byte[8192];
+                    int n;
+                    boolean firstOutputLogged = false;
+                    while ((n = rawIn.read(readBuf)) != -1) {
+                        for (int i = 0; i < n; i++) {
+                            byte b = readBuf[i];
+                            if (b == '\n') {
+                                if (!firstOutputLogged) {
+                                    firstOutputLogged = true;
+                                    LOG.info("[CliConcurrencyDiag][OpenCodeCliSession] first stdout line buffer reached"
+                                            + ": tabId=" + tabId
+                                            + ", effectiveSessionId=" + effectiveSessionDisplay
+                                            + ", elapsedMs=" + elapsedMillis(sendStartNanos)
+                                            + ", thread=" + Thread.currentThread().getName());
+                                }
+                                processLine(lineBuf, parser, diagnostic);
+                            } else {
+                                lineBuf.write(b);
+                            }
                         }
+                    }
+                    if (lineBuf.size() > 0) {
                         processLine(lineBuf, parser, diagnostic);
-                    } else {
-                        lineBuf.write(b);
                     }
                 }
-            }
-            if (lineBuf.size() > 0) {
-                processLine(lineBuf, parser, diagnostic);
-            }
-        }
+            });
 
-        if (!process.waitFor(CliConstants.PROCESS_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
-            process.destroyForcibly();
-            process.waitFor();
-        }
-        int exitCode = process.exitValue();
+            CliProcessLifecycle.Outcome outcome = CliProcessLifecycle.await(process, outputDrain);
+            int exitCode = outcome.exitCode();
         LOG.info("[CliConcurrencyDiag][OpenCodeCliSession] process exited"
                 + ": tabId=" + tabId
                 + ", effectiveSessionId=" + effectiveSessionDisplay
                 + ", exitCode=" + exitCode
                 + ", elapsedMs=" + elapsedMillis(sendStartNanos)
                 + ", thread=" + Thread.currentThread().getName());
+
+        if (outcome.timedOut() && !wasInterrupted()) {
+            String err = CliErrorFormatter.formatError("OpenCode", "CLI request timed out");
+            callback.onError(err);
+            callback.onComplete(false, parser.accumulatedText(), err);
+            return false;
+        }
 
         if (wasInterrupted()) {
             callback.onInterrupted(parser.accumulatedText(), CliConstants.I18N_REQUEST_INTERRUPTED);
@@ -304,6 +316,12 @@ public class OpenCodeCliSession implements CliSession {
         callback.onError(err);
         callback.onComplete(false, parser.accumulatedText(), err);
         return false;
+        } finally {
+            CliProcessLifecycle.terminate(process);
+            if (activeHandle == currentHandle) {
+                activeHandle = null;
+            }
+        }
     }
 
     @Override

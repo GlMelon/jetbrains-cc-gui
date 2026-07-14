@@ -26,6 +26,7 @@ public class ProcessManager {
 
     private final Map<String, Process> activeChannelProcesses = new ConcurrentHashMap<>();
     private final Set<String> interruptedChannels = ConcurrentHashMap.newKeySet();
+    private final Set<String> startingChannels = ConcurrentHashMap.newKeySet();
     private final Map<RuntimeKey, Process> activeRuntimeProcesses = new ConcurrentHashMap<>();
     private final Set<RuntimeKey> interruptedRuntimes = ConcurrentHashMap.newKeySet();
 
@@ -43,12 +44,38 @@ public class ProcessManager {
     }
 
     /**
+     * Marks a logical channel request as starting before the child process exists.
+     * This closes the cancellation window between asynchronous dispatch and
+     * {@link #registerProcess(String, Process)}.
+     */
+    public void beginChannel(String channelId) {
+        if (channelId != null) {
+            interruptedChannels.remove(channelId);
+            startingChannels.add(channelId);
+        }
+    }
+
+    /**
+     * Clears the pre-registration state when a request fails before a child
+     * process can be registered. Active process registrations are untouched.
+     */
+    public void finishChannelStart(String channelId) {
+        if (channelId != null) {
+            startingChannels.remove(channelId);
+        }
+    }
+
+    /**
      * Registers an active process.
      */
     public void registerProcess(String channelId, Process process) {
         if (channelId != null && process != null) {
             activeChannelProcesses.put(channelId, process);
-            interruptedChannels.remove(channelId);
+            startingChannels.remove(channelId);
+            if (interruptedChannels.contains(channelId)) {
+                LOG.info("[Interrupt] Channel was cancelled before process registration: " + channelId);
+                terminateProcess(channelId, process);
+            }
         }
     }
 
@@ -68,6 +95,7 @@ public class ProcessManager {
     public void unregisterProcess(String channelId, Process process) {
         if (channelId != null) {
             activeChannelProcesses.remove(channelId, process);
+            startingChannels.remove(channelId);
         }
     }
 
@@ -120,13 +148,18 @@ public class ProcessManager {
         }
 
         Process process = activeChannelProcesses.get(channelId);
-        if (process == null) {
+        if (process == null && !startingChannels.contains(channelId)) {
             LOG.info("[Interrupt] No active process found for channel: " + channelId);
             return;
         }
 
         LOG.info("[Interrupt] Attempting to interrupt channel: " + channelId);
         interruptedChannels.add(channelId);
+
+        if (process == null) {
+            LOG.info("[Interrupt] Cancellation recorded while channel is starting: " + channelId);
+            return;
+        }
 
         // Use platform-aware process termination
         // Windows: uses taskkill /F /T to kill the process tree and cleans up conhost.exe
@@ -259,6 +292,7 @@ public class ProcessManager {
 
         activeChannelProcesses.clear();
         interruptedChannels.clear();
+        startingChannels.clear();
         activeRuntimeProcesses.clear();
         interruptedRuntimes.clear();
 

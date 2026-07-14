@@ -33,7 +33,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -322,6 +321,8 @@ public class ClaudeCliSession implements CliSession {
             List<File> tempFiles = new ArrayList<>();
             StringBuilder diagnostic = new StringBuilder();
             AtomicBoolean completedWithStructuredError = new AtomicBoolean(false);
+            Process process = null;
+            CliProcessHandle currentHandle = null;
             try {
                 LOG.info(String.format(
                         "[CliConcurrencyDiag][ClaudeCliSession] send task started: tabId=%s, requestSessionId=%s, currentSessionId=%s, cwd=%s, thread=%s",
@@ -414,25 +415,30 @@ public class ClaudeCliSession implements CliSession {
                 LOG.info("[CliConcurrencyDiag][ClaudeCliSession] starting process" + ": tabId=" + tabId + ", elapsedMs=" + elapsedMillis(
                         sendStartNanos) + ", thread=" + Thread.currentThread()
                         .getName());
-                Process process = pb.start();
+                process = pb.start();
+                currentHandle = new CliProcessHandle(process, "claude-tab-" + tabId);
+                activeHandle = currentHandle;
                 LOG.info("[CliConcurrencyDiag][ClaudeCliSession] process started" + ": tabId=" + tabId + ", elapsedMs=" + elapsedMillis(
                         sendStartNanos) + ", thread=" + Thread.currentThread()
                         .getName());
-                writePromptToStdin(process, prompt);
+                if (userInterrupted.get()) {
+                    currentHandle.interrupt();
+                } else {
+                    writePromptToStdin(process, prompt);
+                }
                 LOG.debug(
                         "[CliConcurrencyDiag][ClaudeCliSession] prompt written to stdin" + ": tabId=" + tabId + ", promptChars=" + prompt.length() + ", elapsedMs=" + elapsedMillis(
                                 sendStartNanos) + ", thread=" + Thread.currentThread()
                                 .getName());
-                activeHandle = new CliProcessHandle(process, "claude-tab-" + tabId);
-
                 AtomicBoolean interruptHandled = new AtomicBoolean(false);
-                readOutput(callback, diagnostic, sendStartNanos, completedWithStructuredError, interruptHandled);
-
-                if (!process.waitFor(CliConstants.PROCESS_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
-                    process.destroyForcibly();
-                    process.waitFor();
-                }
-                int exitCode = process.exitValue();
+                Process runningProcess = process;
+                CompletableFuture<Void> outputDrain = CliProcessLifecycle.drainAsync(
+                        runningProcess,
+                        () -> readOutput(runningProcess, callback, diagnostic, sendStartNanos,
+                                completedWithStructuredError, interruptHandled)
+                );
+                CliProcessLifecycle.Outcome outcome = CliProcessLifecycle.await(process, outputDrain);
+                int exitCode = outcome.exitCode();
                 boolean interrupted = wasInterrupted();
                 LOG.info(
                         "[CliConcurrencyDiag][ClaudeCliSession] process exited" + ": tabId=" + tabId + ", exitCode=" + exitCode + ", " +
@@ -441,7 +447,11 @@ public class ClaudeCliSession implements CliSession {
                                  .getName());
                 this.normalizeCliSessionEntrypoint(request);
 
-                if (shouldEmitInterruptedCompletion(interruptHandled)) {
+                if (outcome.timedOut() && !interrupted && !resultEmitted) {
+                    String err = "Claude CLI request timed out";
+                    callback.onError(err);
+                    callback.onComplete(false, null, err);
+                } else if (shouldEmitInterruptedCompletion(interruptHandled)) {
                     callback.onInterrupted(null, CliConstants.I18N_REQUEST_INTERRUPTED);
                 } else if (shouldReportExitError(exitCode, completedWithStructuredError.get())) {
                     String err = buildExitError(exitCode, diagnostic);
@@ -458,7 +468,10 @@ public class ClaudeCliSession implements CliSession {
                     callback.onComplete(false, null, e.getMessage());
                 }
             } finally {
-                activeHandle = null;
+                CliProcessLifecycle.terminate(process);
+                if (activeHandle == currentHandle) {
+                    activeHandle = null;
+                }
                 cleanupTempFiles(tempFiles);
                 userInterrupted.set(false);
             }
@@ -567,8 +580,8 @@ public class ClaudeCliSession implements CliSession {
         return gatewayService.buildCliConfig(ProviderType.CLAUDE, tabId, request.cwd());
     }
 
-    private void readOutput(CliSessionCallback callback, StringBuilder diagnostic, long sendStartNanos,
-                            AtomicBoolean completedWithStructuredError, AtomicBoolean interruptHandled) throws Exception {
+    private void readOutput(Process process, CliSessionCallback callback, StringBuilder diagnostic, long sendStartNanos,
+                             AtomicBoolean completedWithStructuredError, AtomicBoolean interruptHandled) throws Exception {
         ClaudeCliStreamParser parser = new ClaudeCliStreamParser(gson);
         parser.resetState();
         StringBuilder assistantContent = new StringBuilder();
@@ -601,8 +614,7 @@ public class ClaudeCliSession implements CliSession {
             }
         };
 
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(activeHandle.process()
-                                                                                      .getInputStream(), StandardCharsets.UTF_8))) {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 if (firstOutputLogged.compareAndSet(false, true)) {
@@ -622,7 +634,7 @@ public class ClaudeCliSession implements CliSession {
                 parser.parseLine(line, mcb, result, assistantContent, hadError, false);
 
                 // result 事件 = 本轮结束
-                if (isResultLine(line)) {
+                if (isResultLine(line) && !resultEmitted) {
                     if (sessionId != null) {
                         callback.onMessage(CliConstants.MSG_SESSION_ID, sessionId);
                     }
@@ -630,9 +642,12 @@ public class ClaudeCliSession implements CliSession {
                     resultEmitted = true;
                     completedWithStructuredError.set(!success && result.error != null && !result.error.isBlank());
                     callback.onComplete(success, success ? assistantContent.toString() : null, success ? null : result.error);
-                    return;
                 }
             }
+        }
+
+        if (resultEmitted) {
+            return;
         }
 
         // 进程 stdout 结束但没有 result 事件
