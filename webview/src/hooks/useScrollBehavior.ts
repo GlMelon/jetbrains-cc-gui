@@ -242,6 +242,25 @@ export function useScrollBehavior({
     scheduleScrollToBottom();
   }, [currentView, messages, expandedThinking, loading, streamingActive, scheduleScrollToBottom, syncScrollAnchoring]);
 
+  // 流式结束后平滑滚动收尾。
+  // streaming 期间 scrollToBottom 用 behavior:'auto'(每帧跟随;改 smooth 会逐帧累积成慢动作卡顿);
+  // 当流式刚结束(true→false)且用户仍在底部跟随时,追加一次原生 smooth 滚动精确停在底部,
+  // 给视觉一个平滑收束。用户已上滑暂停(userPausedRef)或不在底部则不打扰。
+  const prevStreamingActiveRef = useRef(streamingActive);
+  useEffect(() => {
+    const wasStreaming = prevStreamingActiveRef.current;
+    prevStreamingActiveRef.current = streamingActive;
+    if (!wasStreaming || streamingActive) return;
+    if (userPausedRef.current || !isUserAtBottomRef.current) return;
+    const endElement = messagesEndRef.current;
+    if (!endElement) return;
+    try {
+      endElement.scrollIntoView({ block: 'end', behavior: 'smooth' });
+    } catch {
+      // jsdom 或不支持 smooth 时静默降级(streaming 期间 auto 跟随已定位底部)
+    }
+  }, [streamingActive]);
+
   useEffect(() => {
     return () => {
       if (scheduledScrollRafRef.current !== null) {

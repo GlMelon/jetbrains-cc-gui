@@ -52,7 +52,7 @@ describe('useMessageSender - /context command', () => {
         },
         // A2:claude opus 支持 1M 由后端 registry 下发 supports1MContext=true(取代前端"claude- 非 haiku"字符串推断)。
         {
-          id: 'claude-opus-4-7',
+          id: 'claude-opus-4-8',
           provider: 'claude',
           label: 'Opus',
           contextWindow: 200_000,
@@ -81,7 +81,7 @@ describe('useMessageSender - /context command', () => {
     const bridgePayload = parseBridgeCall(call);
     expect(bridgePayload.type).toBe('get_context_usage');
     const payload = JSON.parse(bridgePayload.content);
-    expect(payload.model).toBe('claude-opus-4-7');
+    expect(payload.model).toBe('claude-opus-4-8');
     expect(payload.longContextEnabled).toBe(false);
     expect(payload.requestId).toBeTruthy();
   });
@@ -105,7 +105,7 @@ describe('useMessageSender - /context command', () => {
     const bridgePayload = parseBridgeCall(call);
     expect(bridgePayload.type).toBe('get_context_usage');
     const payload = JSON.parse(bridgePayload.content);
-    expect(payload.model).toBe('claude-opus-4-7');
+    expect(payload.model).toBe('claude-opus-4-8');
     expect(payload.longContextEnabled).toBe(true);
   });
 

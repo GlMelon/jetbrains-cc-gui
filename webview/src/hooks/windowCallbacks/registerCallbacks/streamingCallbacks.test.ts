@@ -34,12 +34,14 @@ function createHarness(initialMessages: ClaudeMessage[], turnIdCounter: number) 
     lastThinkingUpdateRef: ref(0),
     thinkingUpdateTimeoutRef: ref<number | null>(null),
     currentProviderRef: ref('claude'),
+    currentSessionIdRef: ref('session-a'),
   };
 
   const options = {
     ...refs,
     setMessages: (updater: ClaudeMessage[] | ((prev: ClaudeMessage[]) => ClaudeMessage[])) => {
       messages = typeof updater === 'function' ? updater(messages) : updater;
+      (window as any).__latestMessages = messages;
     },
     setStreamingActive: () => {},
     setLoading: () => {},
@@ -50,6 +52,7 @@ function createHarness(initialMessages: ClaudeMessage[], turnIdCounter: number) 
     patchAssistantForStreaming: (message: ClaudeMessage) => message,
   } as unknown as UseWindowCallbacksOptions;
 
+  (window as any).__latestMessages = messages;
   registerStreamingCallbacks(options);
   return { refs, getMessages: () => messages };
 }
