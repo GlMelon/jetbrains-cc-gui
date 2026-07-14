@@ -1,6 +1,12 @@
-import { type ReactNode } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { useEscapeClose } from '../../hooks/useEscapeClose';
 import { CloseIcon } from '../Icons';
+
+/**
+ * 退出动画时长（毫秒），须与 variables.less 的 --dlg-out (0.16s) 保持一致。
+ * 关闭时先进入 leaving 态播放退出动画，结束后再真正卸载，避免瞬切。
+ */
+const DIALOG_LEAVE_MS = 160;
 
 export type DialogSize = 'sm' | 'md' | 'lg' | 'xl' | 'auto';
 
@@ -43,7 +49,26 @@ export function BaseDialog({
   // ESC 键关闭
   useEscapeClose(isOpen, onClose);
 
-  if (!isOpen) {
+  // 延迟卸载：isOpen 关闭时不立即 return null，先进入 leaving 态播放
+  // 退出动画（.dialog-leaving），动画结束（DIALOG_LEAVE_MS）后再卸载。
+  const [shouldRender, setShouldRender] = useState(isOpen);
+  const [leaving, setLeaving] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setShouldRender(true);
+      setLeaving(false);
+    } else if (shouldRender) {
+      setLeaving(true);
+      const timer = setTimeout(() => {
+        setShouldRender(false);
+        setLeaving(false);
+      }, DIALOG_LEAVE_MS);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, shouldRender]);
+
+  if (!shouldRender) {
     return null;
   }
 
@@ -51,7 +76,7 @@ export function BaseDialog({
 
   return (
     <div
-      className={`dialog-overlay ${className}`}
+      className={`dialog-overlay ${className}${leaving ? ' dialog-leaving' : ''}`}
       onClick={overlayClosable ? onClose : undefined}
       role="dialog"
       aria-modal="true"
