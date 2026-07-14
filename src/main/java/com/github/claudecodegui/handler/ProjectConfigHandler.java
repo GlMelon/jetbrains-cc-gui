@@ -818,6 +818,21 @@ public class ProjectConfigHandler {
             "Failed to save task completion notification setting");
     }
 
+    public void handleGetAskUserQuestionNotificationEnabled() {
+        respondWithJson(DownstreamEvent.CONFIG_ASK_USER_QUESTION_NOTIFICATION.value(),
+            () -> jsonOf("askUserQuestionNotificationEnabled", settingsService.getAskUserQuestionNotificationEnabled()),
+            jsonOf("askUserQuestionNotificationEnabled", false),
+            "Failed to get ask user question notification enabled");
+    }
+
+    public void handleSetAskUserQuestionNotificationEnabled(String content) {
+        handleBooleanToggle(content, "askUserQuestionNotificationEnabled", false,
+            "ask user question notification enabled",
+            settingsService::setAskUserQuestionNotificationEnabled,
+            DownstreamEvent.CONFIG_ASK_USER_QUESTION_NOTIFICATION.value(),
+            "Failed to save ask user question notification setting");
+    }
+
     public void handleGetMcpGatewayEnabled() {
         respondWithJson(DownstreamEvent.CONFIG_MCP_GATEWAY.value(),
             () -> jsonOf("mcpGatewayEnabled", settingsService.getMcpGatewayEnabled()),

@@ -48,6 +48,7 @@ import com.github.claudecodegui.handler.core.FrontendActionDispatcher;
 import com.github.claudecodegui.handler.core.FrontendActionHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.handler.history.HistoryActionHandlers;
+import com.github.claudecodegui.handler.history.HistoryRefreshService;
 import com.github.claudecodegui.handler.history.LoadHistoryDataActionHandler;
 import com.github.claudecodegui.handler.history.LoadSessionActionHandler;
 import com.github.claudecodegui.handler.history.DeleteSessionActionHandler;
@@ -181,6 +182,8 @@ import com.github.claudecodegui.handler.settings.GetStatusBarWidgetEnabledAction
 import com.github.claudecodegui.handler.settings.SetStatusBarWidgetEnabledActionHandler;
 import com.github.claudecodegui.handler.settings.GetTaskCompletionNotificationEnabledActionHandler;
 import com.github.claudecodegui.handler.settings.SetTaskCompletionNotificationEnabledActionHandler;
+import com.github.claudecodegui.handler.settings.GetAskUserQuestionNotificationEnabledActionHandler;
+import com.github.claudecodegui.handler.settings.SetAskUserQuestionNotificationEnabledActionHandler;
 import com.github.claudecodegui.handler.settings.GetAiTitleGenerationEnabledActionHandler;
 import com.github.claudecodegui.handler.settings.SetAiTitleGenerationEnabledActionHandler;
 import com.github.claudecodegui.handler.settings.GetIdeThemeActionHandler;
@@ -343,6 +346,7 @@ public class ChatWindowDelegate {
         void setHandlerContext(HandlerContext ctx);
         void setFrontendActionDispatcher(FrontendActionDispatcher d);
         void setPermissionHandler(PermissionActionHandlers h);
+        void setHistoryRefreshService(HistoryRefreshService service);
         SessionLifecycleManager getSessionLifecycleManager();
         StreamMessageCoalescer getStreamCoalescer();
         WebviewWatchdog getWebviewWatchdog();
@@ -357,6 +361,7 @@ public class ChatWindowDelegate {
 
     private final DelegateHost host;
     private PromptActionHandlers promptHandlers; // B2 迁移: 需要 dispose 停止 FileWatcher
+    private HistoryRefreshService historyRefreshService;
     private TabAnswerStatus currentTabStatus = TabAnswerStatus.IDLE;
     private ProviderType currentTabProviderType = null;
 
@@ -610,6 +615,8 @@ public class ChatWindowDelegate {
         typedHandlers.add(new SetStatusBarWidgetEnabledActionHandler(projectConfigHandler));
         typedHandlers.add(new GetTaskCompletionNotificationEnabledActionHandler(projectConfigHandler));
         typedHandlers.add(new SetTaskCompletionNotificationEnabledActionHandler(projectConfigHandler));
+        typedHandlers.add(new GetAskUserQuestionNotificationEnabledActionHandler(projectConfigHandler));
+        typedHandlers.add(new SetAskUserQuestionNotificationEnabledActionHandler(projectConfigHandler));
         typedHandlers.add(new GetAiTitleGenerationEnabledActionHandler(projectConfigHandler));
         typedHandlers.add(new SetAiTitleGenerationEnabledActionHandler(projectConfigHandler));
         typedHandlers.add(new GetIdeThemeActionHandler(projectConfigHandler));
@@ -813,6 +820,8 @@ public class ChatWindowDelegate {
 
         // History action handlers (B4 迁移: HistoryHandler 非孤儿,按 B2 范式迁移;SessionLoadCallback 接入容器)
         HistoryActionHandlers historyHandlers = new HistoryActionHandlers(handlerContext);
+        historyRefreshService = historyHandlers;
+        host.setHistoryRefreshService(historyHandlers);
         historyHandlers.setSessionLoadCallback((sessionId, projectPath, provider) ->
             host.getSessionLifecycleManager().loadHistorySession(sessionId, projectPath, provider));
         typedHandlers.add(new LoadHistoryDataActionHandler(historyHandlers));
@@ -1180,6 +1189,10 @@ public class ChatWindowDelegate {
     public void dispose() {
         if (promptHandlers != null) {
             promptHandlers.dispose();
+        }
+        if (historyRefreshService != null) {
+            historyRefreshService.dispose();
+            historyRefreshService = null;
         }
     }
 }

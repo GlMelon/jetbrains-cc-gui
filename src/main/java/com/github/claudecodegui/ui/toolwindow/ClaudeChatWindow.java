@@ -3,6 +3,7 @@ package com.github.claudecodegui.ui.toolwindow;
 import com.github.claudecodegui.action.SendShortcutSync;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.permission.PermissionActionHandlers;
+import com.github.claudecodegui.handler.history.HistoryRefreshService;
 import com.github.claudecodegui.handler.core.FrontendActionDispatcher;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
@@ -186,6 +187,7 @@ public class ClaudeChatWindow {
      * permission action handlers (shared state for permission dialogs and responses).
      */
     private PermissionActionHandlers permissionHandler;
+    private HistoryRefreshService historyRefreshService;
     /**
      * session lifecycle manager.
      */
@@ -1105,6 +1107,10 @@ public class ClaudeChatWindow {
     }
 
     private void onStreamCompleted() {
+        ClaudeSession completedSession = session;
+        if (!disposed && completedSession != null && historyRefreshService != null) {
+            historyRefreshService.onStreamCompleted(completedSession.getProvider());
+        }
         // 从流读取线程调用,而 notificationAlarm 是 SWING_THREAD Alarm,
         // cancelAllRequests/addRequest 必须在 EDT 执行,否则违反 Alarm 线程约束
         // (非 EDT 操作 SWING_THREAD Alarm 行为未定义,可能丢失请求或抛异常)。
@@ -1544,6 +1550,11 @@ public class ClaudeChatWindow {
             @Override
             public void setPermissionHandler(PermissionActionHandlers h) {
                 permissionHandler = h;
+            }
+
+            @Override
+            public void setHistoryRefreshService(HistoryRefreshService service) {
+                historyRefreshService = service;
             }
 
             @Override

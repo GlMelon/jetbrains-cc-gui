@@ -463,10 +463,13 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
             toolingPhaseSent = true;
             sendResponsePhaseForCurrentTurn(AssistantResponsePhase.TOOLING);
         }
-        // 段边界(tool-use 循环):先 flush 本段缓冲的全量(流式 off 时),再 reset throttlers。
-        // 每段分别 flush,避免跨 tool-use 块串成一段。开关快照不变(同一 turn)。
+        // 段边界(tool-use 循环):先 flush 本段所有缓冲,再 reset throttlers。
+        // 流式 on 时最后一批 delta 可能仍在 33ms throttler 中;直接 reset 会丢失段尾文本。
+        // 流式 off 时 content delta 由 turnPushGate 缓冲。每段分别 flush,避免跨 tool-use 块串成一段。
         safeRun("turnPushGate.flushContent", turnPushGate::flushContent);
-        // Reset throttlers for the new turn's deltas
+        safeRun("contentDeltaThrottler.flushNow", contentDeltaThrottler::flushNow);
+        safeRun("thinkingDeltaThrottler.flushNow", thinkingDeltaThrottler::flushNow);
+        // Reset throttler timestamps for the next block after pending deltas have been delivered.
         contentDeltaThrottler.reset();
         thinkingDeltaThrottler.reset();
         ApplicationManager.getApplication().invokeLater(() -> {
