@@ -89,7 +89,7 @@ public class McpServerActionHandlerTest {
         McpServerActionHandlers dummy = null;
         Assert.assertEquals(String.class, new GetMcpServersActionHandler(dummy).payloadType());
         Assert.assertEquals(String.class, new GetMcpServerStatusActionHandler(dummy).payloadType());
-        Assert.assertEquals(String.class, new GetMcpServerToolsActionHandler(dummy).payloadType());
+        Assert.assertEquals(McpServerToolsRequest.class, new GetMcpServerToolsActionHandler(dummy).payloadType());
         Assert.assertEquals(String.class, new AddMcpServerActionHandler(dummy).payloadType());
         Assert.assertEquals(String.class, new UpdateMcpServerActionHandler(dummy).payloadType());
         Assert.assertEquals(String.class, new DeleteMcpServerActionHandler(dummy).payloadType());

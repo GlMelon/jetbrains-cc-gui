@@ -222,6 +222,7 @@ public class CodexSDKBridgeEnvTest {
 
         void processLine(String line, MessageCallback callback, SDKResult result) {
             super.processOutputLine(
+                    "test-channel",
                     line,
                     callback,
                     result,

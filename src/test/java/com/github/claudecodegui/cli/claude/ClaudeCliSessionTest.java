@@ -30,7 +30,7 @@ public class ClaudeCliSessionTest {
                 "src", "main", "java", "com", "github", "claudecodegui", "cli", "claude", "ClaudeCliSession.java"
         ));
 
-        int processExitIndex = source.indexOf("int exitCode = process.exitValue()");
+        int processExitIndex = source.indexOf("CliProcessLifecycle.Outcome outcome = CliProcessLifecycle.await");
         int rewriteIndex = source.indexOf("this.normalizeCliSessionEntrypoint(request)");
 
         assertTrue(processExitIndex >= 0);

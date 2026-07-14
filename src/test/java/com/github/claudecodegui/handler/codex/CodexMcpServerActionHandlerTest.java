@@ -1,6 +1,7 @@
 package com.github.claudecodegui.handler.codex;
 
 import com.github.claudecodegui.protocol.UpstreamAction;
+import com.github.claudecodegui.handler.mcp.McpServerToolsRequest;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -31,7 +32,7 @@ public class CodexMcpServerActionHandlerTest {
         GetCodexMcpServerToolsActionHandler h = new GetCodexMcpServerToolsActionHandler(null);
         Assert.assertEquals(UpstreamAction.GET_CODEX_MCP_SERVER_TOOLS, h.action());
         Assert.assertEquals("get_codex_mcp_server_tools", h.action().value());
-        Assert.assertEquals(String.class, h.payloadType());
+        Assert.assertEquals(McpServerToolsRequest.class, h.payloadType());
     }
 
     @Test
