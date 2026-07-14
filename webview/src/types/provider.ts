@@ -104,7 +104,7 @@ export function isValidModelId(id: string): boolean {
  * @param model - Object to validate
  * @returns Whether it is a valid CodexCustomModel
  */
-function isValidCodexCustomModel(model: unknown): model is CodexCustomModel {
+export function isValidCodexCustomModel(model: unknown): model is CodexCustomModel {
   if (!model || typeof model !== 'object') return false;
   const obj = model as Record<string, unknown>;
 
@@ -213,8 +213,10 @@ export interface CodexCustomModel {
   label: string;
   /** Model description */
   description?: string;
-    /** Base context window size in tokens; undefined = use backend default (200K) */
-    contextWindow?: number;
+  /** Base context window size in tokens; undefined = use backend default (200K) */
+  contextWindow?: number;
+  /** Optional usage pricing supplied by the backend/provider configuration */
+  pricing?: ModelPricing;
 }
 
 /**

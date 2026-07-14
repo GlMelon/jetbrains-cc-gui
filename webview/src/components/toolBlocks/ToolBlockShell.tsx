@@ -67,10 +67,10 @@ export interface StatusIndicatorProps {
 /**
  * StatusIndicator - 工具状态指示器。
  *
- * 统一状态点的 className 逻辑：
- * - error: 红色
- * - completed: 绿色
- * - pending: 黄色呼吸动画
+ * 统一状态点的 className 逻辑(样式唯一定义见 tools.less):
+ * - error: 红色实心点
+ * - completed: 绿色实心点
+ * - pending: 旋转环(warning 色, tool-status-spin),表示"执行中"
  */
 export function StatusIndicator({ isError, isCompleted }: StatusIndicatorProps) {
   const statusClass = isError ? 'error' : isCompleted ? 'completed' : 'pending';
