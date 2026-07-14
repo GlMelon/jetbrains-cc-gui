@@ -37,6 +37,8 @@ export interface UseServerDataReturn {
   loadServers: () => void;
   loadServerStatus: () => void;
   loadServerTools: (server: McpServer, forceRefresh?: boolean) => void;
+  acceptToolsResponse: (serverId: string, requestId: string) => boolean;
+  failPendingToolsRequests: (error: string) => void;
 }
 
 /**
@@ -59,6 +61,44 @@ export function useServerData({
 
   // Refs
   const refreshTimersRef = useRef<number[]>([]);
+  const toolsRequestCounterRef = useRef(0);
+  const latestToolsRequestIdsRef = useRef<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    latestToolsRequestIdsRef.current.clear();
+    setServerTools({});
+  }, [isCodexMode, cacheKeys]);
+
+  const acceptToolsResponse = useCallback((serverId: string, requestId: string): boolean => {
+    if (!serverId || !requestId) {
+      return false;
+    }
+    const latestRequestId = latestToolsRequestIdsRef.current.get(serverId);
+    if (latestRequestId !== requestId) {
+      return false;
+    }
+    latestToolsRequestIdsRef.current.delete(serverId);
+    return true;
+  }, []);
+
+  const failPendingToolsRequests = useCallback((error: string): void => {
+    const pendingServerIds = Array.from(latestToolsRequestIdsRef.current.keys());
+    latestToolsRequestIdsRef.current.clear();
+    if (pendingServerIds.length === 0) {
+      return;
+    }
+    setServerTools(prev => {
+      const next = { ...prev };
+      pendingServerIds.forEach(serverId => {
+        next[serverId] = {
+          tools: prev[serverId]?.tools || [],
+          loading: false,
+          error,
+        };
+      });
+      return next;
+    });
+  }, []);
 
   // Load server list
   const loadServers = useCallback(() => {
@@ -71,7 +111,7 @@ export function useServerData({
       `get_${messagePrefix}mcp_servers request to backend`
     );
     sendAction(isCodexMode ? UPSTREAM.GET_CODEX_MCP_SERVERS : UPSTREAM.GET_MCP_SERVERS, {});
-  }, [messagePrefix, t, onLog]);
+  }, [messagePrefix, isCodexMode, t, onLog]);
 
   // Load server status
   const loadServerStatus = useCallback(() => {
@@ -131,8 +171,14 @@ export function useServerData({
       `get_${messagePrefix}mcp_server_tools request to backend`
     );
 
-    sendAction(isCodexMode ? UPSTREAM.GET_CODEX_MCP_SERVER_TOOLS : UPSTREAM.GET_MCP_SERVER_TOOLS, { serverId: server.id, forceRefresh });
-  }, [cacheKeys, messagePrefix, t, onLog]);
+    toolsRequestCounterRef.current += 1;
+    const requestId = `${Date.now().toString(36)}-${toolsRequestCounterRef.current.toString(36)}`;
+    latestToolsRequestIdsRef.current.set(server.id, requestId);
+    sendAction(
+      isCodexMode ? UPSTREAM.GET_CODEX_MCP_SERVER_TOOLS : UPSTREAM.GET_MCP_SERVER_TOOLS,
+      { requestId, serverId: server.id, forceRefresh }
+    );
+  }, [cacheKeys, messagePrefix, isCodexMode, t, onLog]);
 
   // Initialization and data loading
   useEffect(() => {
@@ -307,5 +353,7 @@ export function useServerData({
     loadServers,
     loadServerStatus,
     loadServerTools,
+    acceptToolsResponse,
+    failPendingToolsRequests,
   };
 }

@@ -119,6 +119,8 @@ export function McpSettingsSection({ currentProvider = 'claude' }: McpSettingsSe
     loadServers,
     loadServerStatus,
     loadServerTools,
+    acceptToolsResponse,
+    failPendingToolsRequests,
   } = useServerData({
     isCodexMode,
     messagePrefix,
@@ -151,6 +153,8 @@ export function McpSettingsSection({ currentProvider = 'claude' }: McpSettingsSe
     isCodexMode,
     cacheKeys,
     setServerTools,
+    acceptToolsResponse,
+    failPendingToolsRequests,
     onLog: addLog,
   });
 

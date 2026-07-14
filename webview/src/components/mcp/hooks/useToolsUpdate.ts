@@ -17,6 +17,8 @@ export interface UseToolsUpdateOptions {
   isCodexMode: boolean;
   cacheKeys: CacheKeys;
   setServerTools: React.Dispatch<React.SetStateAction<ServerToolsState>>;
+  acceptToolsResponse: (serverId: string, requestId: string) => boolean;
+  failPendingToolsRequests: (error: string) => void;
   onLog: (message: string, type: RefreshLog['type'], details?: string, serverName?: string, requestInfo?: string, errorReason?: string) => void;
 }
 
@@ -28,6 +30,8 @@ export function useToolsUpdate({
   isCodexMode,
   cacheKeys,
   setServerTools,
+  acceptToolsResponse,
+  failPendingToolsRequests,
   onLog,
 }: UseToolsUpdateOptions): void {
   useEffect(() => {
@@ -38,10 +42,14 @@ export function useToolsUpdate({
     const handleToolsUpdate = (jsonStr: string) => {
       try {
         const result = JSON.parse(jsonStr);
-        const { serverId, serverName, tools, error } = result;
+        const { requestId, serverId, serverName, tools, error } = result;
 
-        if (!serverId) {
-          console.warn('[MCP] Tools update missing serverId');
+        if (!serverId || !requestId) {
+          console.warn('[MCP] Tools update missing requestId or serverId');
+          return;
+        }
+        if (!acceptToolsResponse(serverId, requestId)) {
+          console.debug('[MCP] Ignored stale tools response:', { requestId, serverId });
           return;
         }
 
@@ -106,6 +114,7 @@ export function useToolsUpdate({
         );
       } catch (e) {
         console.error('[MCP] Failed to parse tools update:', e);
+        failPendingToolsRequests(String(e));
         onLog(
           `解析工具列表失败: ${e}`,
           'error'
@@ -123,5 +132,5 @@ export function useToolsUpdate({
     return () => {
       unsubscribe();
     };
-  }, [isCodexMode, cacheKeys, setServerTools, onLog]);
+  }, [isCodexMode, cacheKeys, setServerTools, acceptToolsResponse, failPendingToolsRequests, onLog]);
 }
