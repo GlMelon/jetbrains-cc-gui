@@ -50,4 +50,11 @@ public final class DaemonConstants {
 
     /** 未知事件/错误的占位值 */
     public static final String UNKNOWN = "unknown";
+
+    // ── Request lifecycle ────────────────────────────────────────────────────
+
+    /** Absolute deadline for one daemon-backed chat turn. */
+    public static final long REQUEST_TIMEOUT_MS = 15 * 60 * 1000L;
+    /** Poll interval used to retain daemon liveness diagnostics while waiting. */
+    public static final long REQUEST_POLL_INTERVAL_MS = 30_000L;
 }

@@ -4,6 +4,7 @@ import com.github.claudecodegui.mcp.McpGatewaySdkBinding;
 import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.session.ClaudeSession;
 import com.github.claudecodegui.provider.common.DaemonBridge;
+import com.github.claudecodegui.provider.common.DaemonConstants;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.SDKResult;
 import com.github.claudecodegui.session.runtime.ProviderType;
@@ -68,6 +69,7 @@ class ClaudeDaemonRequestExecutor {
             AtomicBoolean hadSendError = new AtomicBoolean(false);
             AtomicReference<String> lastNodeError = new AtomicReference<>(null);
             AtomicBoolean wasAborted = new AtomicBoolean(false);
+            AtomicBoolean timedOut = new AtomicBoolean(false);
             long startTime = System.currentTimeMillis();
             final List<File> tempImageFiles = new ArrayList<>();
 
@@ -188,11 +190,30 @@ class ClaudeDaemonRequestExecutor {
                 Boolean success;
                 long waitStart = System.currentTimeMillis();
                 long lastProgressLogAt = waitStart;
+                long deadlineNanos = System.nanoTime()
+                        + TimeUnit.MILLISECONDS.toNanos(DaemonConstants.REQUEST_TIMEOUT_MS);
                 while (true) {
                     try {
-                        success = cmdFuture.get(30, TimeUnit.SECONDS);
+                        long remainingNanos = deadlineNanos - System.nanoTime();
+                        if (remainingNanos <= 0) {
+                            timedOut.set(true);
+                            daemon.sendAbort(channelId);
+                            throw new TimeoutException("Claude daemon request timed out after "
+                                    + DaemonConstants.REQUEST_TIMEOUT_MS + "ms");
+                        }
+                        long waitMillis = Math.min(
+                                DaemonConstants.REQUEST_POLL_INTERVAL_MS,
+                                Math.max(1L, TimeUnit.NANOSECONDS.toMillis(remainingNanos))
+                        );
+                        success = cmdFuture.get(waitMillis, TimeUnit.MILLISECONDS);
                         break;
                     } catch (TimeoutException timeout) {
+                        if (System.nanoTime() >= deadlineNanos) {
+                            timedOut.set(true);
+                            daemon.sendAbort(channelId);
+                            throw new TimeoutException("Claude daemon request timed out after "
+                                    + DaemonConstants.REQUEST_TIMEOUT_MS + "ms");
+                        }
                         if (!daemon.isAlive()) {
                             throw new RuntimeException("Daemon process is not alive while waiting for response", timeout);
                         }
@@ -238,7 +259,12 @@ class ClaudeDaemonRequestExecutor {
                 return result;
             } catch (Exception e) {
                 long elapsed = System.currentTimeMillis() - startTime;
-                if (wasAborted.get()) {
+                if (timedOut.get()) {
+                    result.success = false;
+                    result.error = "Claude daemon request timed out after "
+                            + DaemonConstants.REQUEST_TIMEOUT_MS + "ms";
+                    callback.onError(result.error);
+                } else if (wasAborted.get()) {
                     // Abort arrived but future was already completed exceptionally by the
                     // daemon's error output before sendAbort() could complete it normally.
                     // Treat as graceful interruption, same as the wasAborted branch above.

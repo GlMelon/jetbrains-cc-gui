@@ -97,6 +97,7 @@ public class OpenCodeSDKBridge extends BaseSDKBridge {
 
     @Override
     protected void processOutputLine(
+            String channelId,
             String line,
             MessageCallback callback,
             SDKResult result,
@@ -124,7 +125,8 @@ public class OpenCodeSDKBridge extends BaseSDKBridge {
             switch (type) {
                 case CliConstants.MSG_SESSION_ID -> {
                     String sessionId = event.has("session_id") ? event.get("session_id").getAsString() : null;
-                    if (sessionId != null) {
+                    if (sessionId != null && !sessionId.isBlank()) {
+                        channelThreads.put(channelId, sessionId);
                         callback.onMessage(CliConstants.MSG_SESSION_ID, sessionId);
                     }
                 }

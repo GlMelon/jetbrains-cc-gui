@@ -234,6 +234,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
 
     @Override
     protected void processOutputLine(
+            String channelId,
             String line,
             MessageCallback callback,
             SDKResult result,
@@ -614,7 +615,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
                                 LOG.warn("[Node.js ERROR] " + line);
                                 lastNodeError.set(line);
                             }
-                            processOutputLine(line, callback, result, assistantContent, hadSendError, lastNodeError);
+                            processOutputLine(channelId, line, callback, result, assistantContent, hadSendError, lastNodeError);
                         }
                     }
 
@@ -746,7 +747,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
             }
         }
 
-        return daemonRequestExecutor.sendMessageViaDaemon(daemon, stdinInput, callback, tempImageFiles);
+        return daemonRequestExecutor.sendMessageViaDaemon(channelId, daemon, stdinInput, callback, tempImageFiles);
     }
 
     public void clearCachedThread(String threadId, String cwd) {

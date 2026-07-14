@@ -545,24 +545,24 @@ public class DaemonBridge {
             // Command completion
             if (obj.has("done")) {
                 boolean success = obj.has("success") && obj.get("success").getAsBoolean();
+                pendingRequests.remove(id, handler);
+                clearActiveRequestId(id);
                 if (!success && obj.has("error")) {
                     handler.onError(obj.get("error").getAsString());
                 }
-                clearActiveRequestId(id);
                 handler.onComplete(success);
-                pendingRequests.remove(id);
                 return;
             }
 
             // Output line from the command
             if (obj.has("line")) {
-                handler.callback.onLine(obj.get("line").getAsString());
+                handler.onLine(obj.get("line").getAsString());
                 return;
             }
 
             // Stderr output
             if (obj.has("stderr")) {
-                handler.callback.onStderr(obj.get("stderr").getAsString());
+                handler.onStderr(obj.get("stderr").getAsString());
             }
 
         } catch (Exception e) {
@@ -864,8 +864,13 @@ public class DaemonBridge {
         }
 
         void onError(String error) {
-            callback.onError(error);
-            future.completeExceptionally(new RuntimeException(error));
+            try {
+                callback.onError(error);
+            } catch (RuntimeException callbackFailure) {
+                LOG.warn("[DaemonBridge] Request error callback failed: " + requestId, callbackFailure);
+            } finally {
+                future.completeExceptionally(new RuntimeException(error));
+            }
         }
 
         /**
@@ -875,17 +880,47 @@ public class DaemonBridge {
          * the downstream handler distinguish aborts from real errors.
          */
         void onAbort() {
-            callback.onAbort();
-            future.complete(false);
+            try {
+                callback.onAbort();
+            } catch (RuntimeException callbackFailure) {
+                LOG.warn("[DaemonBridge] Request abort callback failed: " + requestId, callbackFailure);
+            } finally {
+                future.complete(false);
+            }
         }
 
         void onComplete(boolean success) {
-            callback.onComplete(success);
-            future.complete(success);
+            try {
+                callback.onComplete(success);
+            } catch (RuntimeException callbackFailure) {
+                LOG.warn("[DaemonBridge] Request completion callback failed: " + requestId, callbackFailure);
+            } finally {
+                future.complete(success);
+            }
         }
 
         void onDaemonEvent(String event, JsonObject data) {
-            callback.onDaemonEvent(event, data);
+            try {
+                callback.onDaemonEvent(event, data);
+            } catch (RuntimeException callbackFailure) {
+                LOG.warn("[DaemonBridge] Request event callback failed: " + requestId, callbackFailure);
+            }
+        }
+
+        void onLine(String line) {
+            try {
+                callback.onLine(line);
+            } catch (RuntimeException callbackFailure) {
+                LOG.warn("[DaemonBridge] Request line callback failed: " + requestId, callbackFailure);
+            }
+        }
+
+        void onStderr(String text) {
+            try {
+                callback.onStderr(text);
+            } catch (RuntimeException callbackFailure) {
+                LOG.warn("[DaemonBridge] Request stderr callback failed: " + requestId, callbackFailure);
+            }
         }
     }
 }

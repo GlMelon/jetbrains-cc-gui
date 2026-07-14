@@ -21,6 +21,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -31,6 +34,8 @@ import java.util.concurrent.atomic.AtomicReference;
 public abstract class BaseSDKBridge {
 
     protected static final String CHANNEL_SCRIPT = "channel-manager.js";
+    private static final long DEFAULT_REQUEST_TIMEOUT_MS = TimeUnit.MINUTES.toMillis(15);
+    private static final long OUTPUT_DRAIN_TIMEOUT_MS = TimeUnit.SECONDS.toMillis(5);
 
     protected final Logger LOG;
     protected final Gson gson = GsonHolder.GSON;
@@ -96,6 +101,7 @@ public abstract class BaseSDKBridge {
      * @param lastNodeError    Holder for the last Node.js error
      */
     protected abstract void processOutputLine(
+            String channelId,
             String line,
             MessageCallback callback,
             SDKResult result,
@@ -103,6 +109,11 @@ public abstract class BaseSDKBridge {
             AtomicBoolean hadSendError,
             AtomicReference<String> lastNodeError
     );
+
+    /** Absolute deadline for one SDK bridge request. Overridable by tests. */
+    protected long requestTimeoutMs() {
+        return DEFAULT_REQUEST_TIMEOUT_MS;
+    }
 
     // ============================================================================
     // Process management methods (common)
@@ -259,6 +270,7 @@ public abstract class BaseSDKBridge {
             String cwd,
             MessageCallback callback
     ) {
+        processManager.beginChannel(channelId);
         return CompletableFuture.supplyAsync(() -> {
             SDKResult result = new SDKResult();
             StringBuilder assistantContent = new StringBuilder();
@@ -271,7 +283,7 @@ public abstract class BaseSDKBridge {
                     // Bridge extraction is in progress
                     result.success = false;
                     result.error = "Bridge directory not ready yet (extraction in progress)";
-                    callback.onError(result.error);
+                    safeOnError(callback, result.error);
                     return result;
                 }
 
@@ -303,6 +315,7 @@ public abstract class BaseSDKBridge {
                 LOG.info("[" + getProviderName() + "] Command: " + String.join(" ", command));
 
                 Process process = null;
+                CompletableFuture<Void> outputFuture = null;
                 try {
                     process = pb.start();
                     processManager.registerProcess(channelId, process);
@@ -315,31 +328,30 @@ public abstract class BaseSDKBridge {
                         LOG.warn("Failed to write stdin: " + e.getMessage());
                     }
 
-                    // Read output
-                    try (BufferedReader reader = new BufferedReader(
-                            new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                    Process runningProcess = process;
+                    outputFuture = CompletableFuture.runAsync(
+                            () -> drainOutput(channelId, runningProcess, callback, result, assistantContent,
+                                    hadSendError, lastNodeError),
+                            AppExecutorUtil.getAppExecutorService());
 
-                        String line;
-                        while ((line = reader.readLine()) != null) {
-
-                            // Capture Node.js error logs
-                            if (line.startsWith("[UNCAUGHT_ERROR]")
-                                    || line.startsWith("[UNHANDLED_REJECTION]")
-                                    || line.startsWith("[COMMAND_ERROR]")
-                                    || line.startsWith("[STARTUP_ERROR]")
-                                    || line.startsWith("[ERROR]")) {
-                                LOG.warn("[Node.js ERROR] " + line);
-                                lastNodeError.set(line);
-                            }
-
-                            // Delegate to subclass for provider-specific processing
-                            processOutputLine(line, callback, result, assistantContent, hadSendError, lastNodeError);
-                        }
+                    boolean completed = process.waitFor(requestTimeoutMs(), TimeUnit.MILLISECONDS);
+                    if (!completed) {
+                        String timeoutMessage = getProviderName() + " request timed out after "
+                                + requestTimeoutMs() + "ms";
+                        result.success = false;
+                        result.error = timeoutMessage;
+                        lastNodeError.compareAndSet(null, timeoutMessage);
+                        PlatformUtils.terminateProcess(process);
+                        safeOnError(callback, timeoutMessage);
                     }
 
-                    process.waitFor();
+                    awaitOutputDrain(outputFuture, !completed);
 
-                    int exitCode = process.exitValue();
+                    if (process.isAlive()) {
+                        PlatformUtils.terminateProcess(process);
+                    }
+
+                    int exitCode = process.isAlive() ? -1 : process.exitValue();
                     boolean wasInterrupted = processManager.wasInterrupted(channelId);
 
                     result.finalResult = assistantContent.toString();
@@ -347,12 +359,15 @@ public abstract class BaseSDKBridge {
 
                     if (wasInterrupted) {
                         result.success = false;
+                        result.interrupted = true;
                         result.error = "User interrupted";
-                        callback.onComplete(result);
+                        safeOnComplete(callback, result);
+                    } else if (result.error != null && !result.error.isEmpty()) {
+                        // Timeout/startup/drain failures already notified above.
                     } else if (!hadSendError.get()) {
                         result.success = exitCode == 0;
                         if (result.success) {
-                            callback.onComplete(result);
+                            safeOnComplete(callback, result);
                         } else {
                             String errorMsg = getProviderName() + " process exited with code: " + exitCode;
                             String nodeErr = lastNodeError.get();
@@ -360,24 +375,26 @@ public abstract class BaseSDKBridge {
                                 errorMsg = errorMsg + "\n\nDetails: " + nodeErr;
                             }
                             result.error = errorMsg;
-                            callback.onError(errorMsg);
+                            safeOnError(callback, errorMsg);
                         }
                     } else {
                         // Send phase already handled the error, no need to append recent output
                         if (exitCode != 0 && result.error != null) {
-                            callback.onError(result.error);
+                            safeOnError(callback, result.error);
                         }
                     }
 
                     return result;
                 } finally {
                     processManager.unregisterProcess(channelId, process);
-                    processManager.waitForProcessTermination(process);
+                    if (process != null) {
+                        processManager.waitForProcessTermination(process);
+                    }
                     // L9 fix: waitForProcessTermination only waits 5s and then gives
                     // up. If the SDK is stuck on a network read it can outlive that
                     // window — force-kill so the child does not become a long-lived
                     // orphan. Matches the cleanup guarantee in interruptChannel.
-                    if (process.isAlive()) {
+                    if (process != null && process.isAlive()) {
                         LOG.warn("[" + getProviderName() + "] process " + process.pid()
                                 + " did not terminate within waitForProcessTermination window, force-killing");
                         PlatformUtils.terminateProcess(process);
@@ -386,17 +403,92 @@ public abstract class BaseSDKBridge {
 
             } catch (Exception e) {
                 result.success = false;
-                result.error = e.getMessage();
-                callback.onError(e.getMessage());
+                result.error = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+                safeOnError(callback, result.error);
                 return result;
+            } finally {
+                processManager.finishChannelStart(channelId);
             }
         }).exceptionally(ex -> {
             SDKResult errorResult = new SDKResult();
             errorResult.success = false;
             errorResult.error = ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage();
-            callback.onError(errorResult.error);
+            safeOnError(callback, errorResult.error);
             return errorResult;
         });
+    }
+
+    private void drainOutput(
+            String channelId,
+            Process process,
+            MessageCallback callback,
+            SDKResult result,
+            StringBuilder assistantContent,
+            AtomicBoolean hadSendError,
+            AtomicReference<String> lastNodeError
+    ) {
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.startsWith("[UNCAUGHT_ERROR]")
+                        || line.startsWith("[UNHANDLED_REJECTION]")
+                        || line.startsWith("[COMMAND_ERROR]")
+                        || line.startsWith("[STARTUP_ERROR]")
+                        || line.startsWith("[ERROR]")) {
+                    LOG.warn("[Node.js ERROR] " + line);
+                    lastNodeError.set(line);
+                }
+                try {
+                    processOutputLine(channelId, line, callback, result, assistantContent, hadSendError, lastNodeError);
+                } catch (RuntimeException callbackFailure) {
+                    // Consumer callback failures must not stop stdout draining and deadlock the child process.
+                    LOG.warn("[" + getProviderName() + "] output callback failed: "
+                            + callbackFailure.getMessage(), callbackFailure);
+                }
+            }
+        } catch (Exception e) {
+            if (process.isAlive()) {
+                throw new IllegalStateException("Failed to drain SDK process output", e);
+            }
+            LOG.debug("[" + getProviderName() + "] output drain closed: " + e.getMessage());
+        }
+    }
+
+    private void awaitOutputDrain(CompletableFuture<Void> outputFuture, boolean bestEffort) {
+        if (outputFuture == null) {
+            return;
+        }
+        try {
+            outputFuture.get(OUTPUT_DRAIN_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while waiting for SDK process output", e);
+        } catch (ExecutionException | TimeoutException e) {
+            LOG.warn("[" + getProviderName() + "] output drain did not finish cleanly: " + e.getMessage());
+            outputFuture.cancel(true);
+            if (!bestEffort) {
+                throw new IllegalStateException("Failed to drain SDK process output", e);
+            }
+        }
+    }
+
+    private void safeOnError(MessageCallback callback, String error) {
+        try {
+            callback.onError(error);
+        } catch (RuntimeException callbackFailure) {
+            LOG.warn("[" + getProviderName() + "] error callback failed: "
+                    + callbackFailure.getMessage(), callbackFailure);
+        }
+    }
+
+    private void safeOnComplete(MessageCallback callback, SDKResult result) {
+        try {
+            callback.onComplete(result);
+        } catch (RuntimeException callbackFailure) {
+            LOG.warn("[" + getProviderName() + "] completion callback failed: "
+                    + callbackFailure.getMessage(), callbackFailure);
+        }
     }
 
     /**

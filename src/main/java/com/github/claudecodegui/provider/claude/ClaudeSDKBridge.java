@@ -238,6 +238,7 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
 
     @Override
     protected void processOutputLine(
+            String channelId,
             String line,
             MessageCallback callback,
             SDKResult result,

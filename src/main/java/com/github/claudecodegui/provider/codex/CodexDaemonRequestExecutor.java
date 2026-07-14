@@ -1,6 +1,7 @@
 package com.github.claudecodegui.provider.codex;
 
 import com.github.claudecodegui.provider.common.DaemonBridge;
+import com.github.claudecodegui.provider.common.DaemonConstants;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.SDKResult;
 import com.github.claudecodegui.session.ClaudeSession;
@@ -29,6 +30,7 @@ class CodexDaemonRequestExecutor {
     }
 
     CompletableFuture<SDKResult> sendMessageViaDaemon(
+            String channelId,
             DaemonBridge daemon,
             JsonObject params,
             MessageCallback callback,
@@ -40,6 +42,7 @@ class CodexDaemonRequestExecutor {
             AtomicBoolean hadSendError = new AtomicBoolean(false);
             AtomicReference<String> lastNodeError = new AtomicReference<>(null);
             AtomicBoolean wasAborted = new AtomicBoolean(false);
+            AtomicBoolean timedOut = new AtomicBoolean(false);
 
             try {
                 CompletableFuture<Boolean> cmdFuture = daemon.sendCommand(
@@ -55,6 +58,7 @@ class CodexDaemonRequestExecutor {
                                     lastNodeError.set(line);
                                 }
                                 bridge.processOutputLine(
+                                        channelId,
                                         line,
                                         callback,
                                         result,
@@ -68,6 +72,7 @@ class CodexDaemonRequestExecutor {
                             public void onStderr(String text) {
                                 if (text != null && text.startsWith("[SEND_ERROR]")) {
                                     bridge.processOutputLine(
+                                            channelId,
                                             text,
                                             callback,
                                             result,
@@ -131,11 +136,30 @@ class CodexDaemonRequestExecutor {
                 );
 
                 Boolean success;
+                long deadlineNanos = System.nanoTime()
+                        + TimeUnit.MILLISECONDS.toNanos(DaemonConstants.REQUEST_TIMEOUT_MS);
                 while (true) {
                     try {
-                        success = cmdFuture.get(30, TimeUnit.SECONDS);
+                        long remainingNanos = deadlineNanos - System.nanoTime();
+                        if (remainingNanos <= 0) {
+                            timedOut.set(true);
+                            daemon.sendAbort(channelId);
+                            throw new TimeoutException("Codex daemon request timed out after "
+                                    + DaemonConstants.REQUEST_TIMEOUT_MS + "ms");
+                        }
+                        long waitMillis = Math.min(
+                                DaemonConstants.REQUEST_POLL_INTERVAL_MS,
+                                Math.max(1L, TimeUnit.NANOSECONDS.toMillis(remainingNanos))
+                        );
+                        success = cmdFuture.get(waitMillis, TimeUnit.MILLISECONDS);
                         break;
                     } catch (TimeoutException timeout) {
+                        if (System.nanoTime() >= deadlineNanos) {
+                            timedOut.set(true);
+                            daemon.sendAbort(channelId);
+                            throw new TimeoutException("Codex daemon request timed out after "
+                                    + DaemonConstants.REQUEST_TIMEOUT_MS + "ms");
+                        }
                         if (!daemon.isAlive()) {
                             throw new RuntimeException("Codex daemon is not alive while waiting for response", timeout);
                         }
@@ -150,6 +174,7 @@ class CodexDaemonRequestExecutor {
                     if (result.success) {
                         callback.onComplete(result);
                     } else if (wasAborted.get()) {
+                        result.interrupted = true;
                         result.error = "User interrupted";
                         callback.onComplete(result);
                     } else {
@@ -167,8 +192,16 @@ class CodexDaemonRequestExecutor {
 
                 return result;
             } catch (Exception e) {
+                if (timedOut.get()) {
+                    result.success = false;
+                    result.error = "Codex daemon request timed out after "
+                            + DaemonConstants.REQUEST_TIMEOUT_MS + "ms";
+                    callback.onError(result.error);
+                    return result;
+                }
                 if (wasAborted.get()) {
                     result.success = false;
+                    result.interrupted = true;
                     result.error = "User interrupted";
                     callback.onComplete(result);
                     return result;
