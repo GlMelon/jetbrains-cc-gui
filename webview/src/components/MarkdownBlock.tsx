@@ -376,10 +376,10 @@ function renderStreamingInlineText(
     .join('');
 }
 
-function renderStreamingProseSegment(
+function renderStreamingProseBlocks(
   segment: string,
   capabilities: LinkifyCapabilities,
-): string {
+): string[] {
   // First strip system-internal XML tags from the prose segment
   const cleaned = stripSystemTags(segment);
 
@@ -397,7 +397,9 @@ function renderStreamingProseSegment(
     return renderStreamingInlineText(escapeXmlTags(part), capabilities, false);
   });
 
-  // Now wrap in paragraph/heading structure based on paragraph breaks
+  // Now wrap in paragraph/heading structure based on paragraph breaks.
+  // 返回【顶层块数组】(每个元素是一个 <p> 或 <hN>),供流式段落级 React diff:
+  // 旧块 key 复用 DOM 不重播动画,新块挂载时弹入(见 buildStreamingSegments)。
   const combined = processedParts.join('');
   return combined
     .split(/\n{2,}/)
@@ -411,31 +413,56 @@ function renderStreamingProseSegment(
 
       const lines = block.split('\n').join('<br/>');
       return `<p>${lines}</p>`;
-    })
-    .join('');
+    });
 }
 
-function renderStreamingContent(
+export interface StreamingBlock {
+  /** 段落稳定标识:流式为纯追加,用块索引作 key 单调递增、永不错位 */
+  key: number;
+  /** 单个顶层块的 HTML(已 DOMPurify sanitize) */
+  html: string;
+}
+
+/**
+ * 将流式内容拆为【顶层块数组】(每个 <p>/<hN>/<pre> 一个元素)。
+ *
+ * 为什么拆:原先流式把整段内容拼成一个 HTML 字符串再经 dangerouslySetInnerHTML
+ * 全量替换——每次 delta 整棵 DOM 重建,CSS 无法区分"新增段落",视觉上"硬跳"。
+ * 拆成块数组后由 React 按 key 做 diff:
+ *   - 旧块 key 不变 → 复用 DOM,不重渲染、不闪;
+ *   - 新块(新 key)→ 新挂载,播放 CSS 弹入动画(.md-stream-block)。
+ * 流式内容纯追加(只增长不回退/不中间插入),块索引作 key 安全且零额外计算。
+ *
+ * 块内字符随 delta 增长仍是 innerHTML 文本节点更新(不可 CSS 动画,业界常态),
+ * 本方案改善"段落边界"的平滑;配合 LLM delta 自然打字频率,整体观感平滑。
+ */
+function buildStreamingSegments(
   content: string,
   capabilities: LinkifyCapabilities,
-): string {
-  if (!content) return '';
+): StreamingBlock[] {
+  if (!content) return [];
 
   const safeContent = makeStreamSafe(content);
+  const rawBlocks: string[] = []; // 未 sanitize 的顶层块 HTML
 
-  // Split by code fence blocks, keeping delimiters
-  const segments: string[] = [];
   let current = '';
   let inCode = false;
   let codeLang = '';
+
+  // 把已累积的散文段拆成若干顶层块(<p>/<hN>)并入栈
+  const flushProse = () => {
+    if (current) {
+      rawBlocks.push(...renderStreamingProseBlocks(current, capabilities));
+      current = '';
+    }
+  };
 
   for (const line of safeContent.split('\n')) {
     const trimmed = line.trim();
     if (trimmed.startsWith('```')) {
       if (!inCode) {
-        // Flush prose before code block
-        if (current) segments.push(current);
-        current = '';
+        // 进入代码块前,先冲刷已累积的散文段
+        flushProse();
         inCode = true;
         codeLang = safeLang(trimmed.slice(3).trim());
       } else {
@@ -444,7 +471,7 @@ function renderStreamingContent(
           .replace(/&/g, '&amp;')
           .replace(/</g, '&lt;')
           .replace(/>/g, '&gt;');
-        segments.push(
+        rawBlocks.push(
           `<pre><code${codeLang ? ` class="language-${codeLang}"` : ''}>${escaped}</code></pre>`
         );
         current = '';
@@ -463,32 +490,23 @@ function renderStreamingContent(
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
-      segments.push(
+      rawBlocks.push(
         `<pre><code${codeLang ? ` class="language-${codeLang}"` : ''}>${escaped}</code></pre>`
       );
     } else {
-      segments.push(current);
+      rawBlocks.push(...renderStreamingProseBlocks(current, capabilities));
     }
   }
 
-  // Process prose segments (non-code)
-  const raw = segments
-    .map((seg) => {
-      // Already wrapped in <pre> — pass through
-      if (seg.startsWith('<pre>')) return seg;
-
-      // renderStreamingProseSegment handles stripSystemTags + escapeXmlTags internally,
-      // and preserves inline code content for natural HTML escaping
-      return renderStreamingProseSegment(seg, capabilities);
-    })
-    .join('');
-
-  // Sanitize the assembled HTML to prevent XSS even during streaming
-  return DOMPurify.sanitize(raw, {
-    ...MARKDOWN_LINK_SANITIZE_OPTIONS,
-    ALLOWED_TAGS: ['a', 'p', 'br', 'pre', 'code', 'strong', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
-    ALLOWED_ATTR: ['class', 'href', 'data-linkify'],
-  });
+  // 每块单独 sanitize(配置与原整体 sanitize 一致,防流式期 XSS)
+  return rawBlocks.map((html, idx) => ({
+    key: idx,
+    html: DOMPurify.sanitize(html, {
+      ...MARKDOWN_LINK_SANITIZE_OPTIONS,
+      ALLOWED_TAGS: ['a', 'p', 'br', 'pre', 'code', 'strong', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
+      ALLOWED_ATTR: ['class', 'href', 'data-linkify'],
+    }),
+  }));
 }
 
 // Mermaid render counter for generating unique IDs
@@ -669,12 +687,11 @@ const MarkdownBlock = ({ content = '', isStreaming = false }: MarkdownBlockProps
 
   const html = useMemo(() => {
     try {
-      const trimmedContent = content.replace(/[\r\n]+$/, '');
-
-      // During streaming, use lightweight renderer to avoid heavy parsing on every delta
+      // 流式态改由 streamingSegments(顶层块数组)渲染,这里不再产出 string HTML
       if (isStreaming) {
-        return renderStreamingContent(trimmedContent, linkifyCapabilities);
+        return '';
       }
+      const trimmedContent = content.replace(/[\r\n]+$/, '');
 
       // Non-streaming: full markdown pipeline
       // Strip system-internal XML tags and escape remaining XML tags outside code blocks
@@ -754,6 +771,14 @@ const MarkdownBlock = ({ content = '', isStreaming = false }: MarkdownBlockProps
       });
     }
   }, [content, isStreaming, i18n.language, linkifyCapabilities, t]);
+
+  // 流式态:拆成顶层块数组,交由 React 按 key diff(旧块复用 DOM,新块弹入)。
+  // 非流式态为 null,走上方 html 单串路径。
+  const streamingSegments = useMemo(() => {
+    if (!isStreaming) return null;
+    const trimmedContent = content.replace(/[\r\n]+$/, '');
+    return buildStreamingSegments(trimmedContent, linkifyCapabilities);
+  }, [content, isStreaming, linkifyCapabilities]);
 
   // When streaming ends, the non-streaming pipeline produces the full HTML
   // (mermaid, highlighted code, linkify) via the `html` memo above, and React
@@ -879,15 +904,34 @@ const MarkdownBlock = ({ content = '', isStreaming = false }: MarkdownBlockProps
 
   return (
     <>
-      <div
-        ref={containerRef}
-        className="markdown-content"
-        dangerouslySetInnerHTML={{ __html: html }}
-        onClick={handleClick}
-        onMouseOver={fileLinkTooltip.handleMouseOver}
-        onMouseMove={fileLinkTooltip.handleMouseMove}
-        onMouseOut={fileLinkTooltip.handleMouseOut}
-      />
+      {isStreaming && streamingSegments ? (
+        <div
+          ref={containerRef}
+          className="markdown-content markdown-streaming"
+          onClick={handleClick}
+          onMouseOver={fileLinkTooltip.handleMouseOver}
+          onMouseMove={fileLinkTooltip.handleMouseMove}
+          onMouseOut={fileLinkTooltip.handleMouseOut}
+        >
+          {streamingSegments.map((seg) => (
+            <div
+              key={seg.key}
+              className="md-stream-block"
+              dangerouslySetInnerHTML={{ __html: seg.html }}
+            />
+          ))}
+        </div>
+      ) : (
+        <div
+          ref={containerRef}
+          className="markdown-content"
+          dangerouslySetInnerHTML={{ __html: html }}
+          onClick={handleClick}
+          onMouseOver={fileLinkTooltip.handleMouseOver}
+          onMouseMove={fileLinkTooltip.handleMouseMove}
+          onMouseOut={fileLinkTooltip.handleMouseOut}
+        />
+      )}
       {/* Tooltip is managed via native DOM API in handleMouseOver/handleMouseOut
           to avoid React re-render issues that break click events in JCEF. */}
       {previewSrc && (

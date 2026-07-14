@@ -377,7 +377,7 @@ describe('MessageItem copy button visibility', () => {
     vi.useRealTimers();
   });
 
-  it('renders assistant content as thinking tools and output sections', () => {
+  it('renders thinking and tools directly while wrapping the final output section', () => {
     const message: ClaudeMessage = {
       type: 'assistant',
       content: 'done',
@@ -393,12 +393,12 @@ describe('MessageItem copy button visibility', () => {
     renderMessageItem(message);
 
     expect(document.querySelector('.assistant-sectioned-message-content')).toBeTruthy();
-    expect(document.querySelector('.assistant-message-section-thinking')).toBeTruthy();
-    expect(document.querySelector('.assistant-message-section-tools')).toBeTruthy();
-    expect(document.querySelector('.assistant-message-section-output')).toBeTruthy();
-    expect(screen.getByText('思考')).toBeTruthy();
-    expect(screen.getByText('工具')).toBeTruthy();
-    expect(screen.getByText('输出')).toBeTruthy();
+    expect(screen.getByTestId('thinking-0')).toBeTruthy();
+    expect(screen.getByTestId('bash-tool-block')).toBeTruthy();
+    expect(screen.getByTestId('content-block-text')).toBeTruthy();
+    expect(document.querySelector('.assistant-message-section-thinking')).toBeNull();
+    expect(document.querySelector('.assistant-message-section-tools')).toBeNull();
+    expect(document.querySelector('.assistant-message-answer-section')?.getAttribute('aria-label')).toBe('输出');
   });
 
   it('defaults only the last historical thinking block to expanded', () => {
