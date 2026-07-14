@@ -15,6 +15,8 @@ import { loadOpencodeSdk } from '../../utils/sdk-loader.js';
 import { splitModel } from './model-utils.js';
 import { createOpenCodeEventMapper } from './event-mapper.js';
 
+const DEFAULT_REQUEST_TIMEOUT_MS = 10 * 60 * 1000;
+
 export { splitModel as splitModelForSdk } from './model-utils.js';
 
 /** 默认 NDJSON 写出:逐行写 stdout。 */
@@ -60,11 +62,39 @@ export async function sendMessage(params, deps = {}) {
 
     const clientFactory = deps.clientFactory || defaultClientFactory;
     const write = deps.write || defaultWrite;
+    const requestTimeoutMs = Number.isFinite(deps.requestTimeoutMs) && deps.requestTimeoutMs > 0
+        ? deps.requestTimeoutMs
+        : DEFAULT_REQUEST_TIMEOUT_MS;
+
+    let streamStarted = false;
+    let streamEnded = false;
+    let messageEnded = false;
+    const emit = (event) => {
+        if (!event || typeof event !== 'object') return;
+        if (event.type === 'stream_start') {
+            if (streamStarted) return;
+            streamStarted = true;
+        } else if (event.type === 'stream_end') {
+            if (streamEnded) return;
+            streamEnded = true;
+        } else if (event.type === 'message_end') {
+            if (messageEnded) return;
+            messageEnded = true;
+        }
+        write(event);
+    };
+
+    const emitTerminal = () => {
+        if (!streamStarted) emit({ type: 'stream_start' });
+        emit({ type: 'stream_end' });
+        emit({ type: 'message_end' });
+    };
 
     // §15.7:AbortController 控制 SSE 连接生命周期。for-await break 不会关闭 hey-api
     // stream 的底层 fetch 连接(实测:break 后进程仍挂起),须在 finally 主动 abort 释放,
     // 否则 channel 进程无法自然退出(连接泄漏致 Node 事件循环保持活跃)。
     const controller = new AbortController();
+    let timeoutId;
 
     try {
         const client = await clientFactory(baseUrl);
@@ -76,9 +106,10 @@ export async function sendMessage(params, deps = {}) {
             // 否则新会话 directory 缺失,被项目过滤剔除 → 不出现在历史列表。
             const session = await client.session.create({ body: { title: cwd || 'opencode', directory: cwd } });
             sessionId = session?.data?.id;
-            // session_id 由 createOpenCodeEventMapper 在首个携带本会话 sessionID 的 SSE 事件时
-            // 单一下发(单一来源,避免双发)。
         }
+        if (!sessionId) throw new Error('OpenCode session creation returned no session id');
+        // 在 prompt/SSE 启动前下发,Java 可立即建立 channelId→sessionId 映射并确定性 abort 首轮请求。
+        emit({ type: 'session_id', session_id: sessionId });
 
         // 2. model 拆分 provider/model → {providerID, modelID}
         const { providerID, modelID } = splitModel(model);
@@ -95,53 +126,53 @@ export async function sendMessage(params, deps = {}) {
             ? { providerID, modelID }
             : { modelID };
 
-        const mapper = createOpenCodeEventMapper(sessionId);
+        const mapper = createOpenCodeEventMapper(sessionId, { sessionIdAlreadyEmitted: true });
 
         // 5. 并发:订阅 SSE 流 + 发 prompt(signal 绑定 controller,finally abort 释放连接)
         const events = await client.event.subscribe({ signal: controller.signal });
         const promptPromise = client.session.prompt({
             path: { id: sessionId },
-            body: { model: modelBody, parts }
-        }).catch((e) => e); // 捕获错误,延后处理(先消费已到达的 SSE)
-
-        let promptError = null;
-        let streamEnded = false;
-
-        // 6. 消费 SSE 事件 → NDJSON
-        for await (const event of events.stream) {
-            const mapped = mapper.map(event);
-            for (const nd of mapped) {
-                if (nd.type === 'stream_end') streamEnded = true;
-                write(nd);
+            body: { model: modelBody, parts },
+            signal: controller.signal
+        });
+        // prompt 成功不能结束 SSE;仅 rejection 抢先终止,避免 prompt 失败而全局 SSE 永不关闭。
+        const promptFailurePromise = promptPromise.then(
+            () => new Promise(() => {}),
+            (error) => Promise.reject(error)
+        );
+        const consumeStreamPromise = (async () => {
+            for await (const event of events.stream) {
+                const mapped = mapper.map(event);
+                for (const nd of mapped) emit(nd);
+                if (streamEnded) break;
             }
-            if (streamEnded) break;
-        }
+        })();
+        const deadlinePromise = new Promise((_, reject) => {
+            timeoutId = setTimeout(() => {
+                controller.abort();
+                const error = new Error(`OpenCode request timed out after ${requestTimeoutMs}ms`);
+                error.name = 'TimeoutError';
+                reject(error);
+            }, requestTimeoutMs);
+        });
 
-        // 7. 等待 prompt 完成(可能返错误)
-        const promptResult = await promptPromise;
-        if (promptResult instanceof Error) {
-            promptError = promptResult;
-        }
-
-        // 8. 兜底:若 SSE 未显式下发终止(异常断流),补发 stream_end/message_end
+        await Promise.race([consumeStreamPromise, promptFailurePromise, deadlinePromise]);
         if (!streamEnded) {
-            write({ type: 'stream_end' });
-            write({ type: 'message_end' });
+            // SSE 提前断开时仍等待 prompt 终态,但受同一 absolute deadline 约束。
+            await Promise.race([promptPromise, deadlinePromise]);
         }
 
-        if (promptError) {
-            write({ type: 'error', message: promptError.message || 'OpenCode prompt failed' });
-        }
+        // SSE 未显式下发终止(异常断流)时补齐终态。
+        emitTerminal();
     } catch (e) {
-        // 顶层异常(auth/网络/SDK 未装)→ error NDJSON(AbortError 由 finally 触发,忽略)
-        if (e?.name === 'AbortError') return;
-        write({ type: 'stream_start' });
-        write({ type: 'error', message: e?.message || 'OpenCode SDK error' });
-        write({ type: 'stream_end' });
-        write({ type: 'message_end' });
+        // 顶层异常(auth/网络/prompt/deadline)必须形成完整终态,不能让 Java 永久等待。
+        if (!streamStarted) emit({ type: 'stream_start' });
+        emit({ type: 'error', message: e?.message || 'OpenCode SDK error' });
+        emitTerminal();
     } finally {
         // §15.7:主动断开 SSE 连接。hey-api 的 stream 在 for-await break 后不释放底层 fetch,
         // 不 abort 会泄漏连接、令 channel 进程挂起无法退出。
+        if (timeoutId) clearTimeout(timeoutId);
         try { controller.abort(); } catch (_) { /* ignore */ }
     }
 }

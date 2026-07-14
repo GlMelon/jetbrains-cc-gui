@@ -107,8 +107,10 @@ export function normalizePermissionMode(permissionMode) {
   return 'default';
 }
 
-export function createPreToolUseHook(permissionModeState, cwd = null, onModeChange = null) {
+export function createPreToolUseHook(permissionModeState, cwd = null, onModeChange = null, dependencies = {}) {
   const workingDirectory = cwd || process.cwd();
+  const requestToolPermission = dependencies.canUseTool || canUseTool;
+  const requestPlanModeApproval = dependencies.requestPlanApproval || requestPlanApproval;
   const readPermissionMode = () => {
     if (permissionModeState && typeof permissionModeState === 'object') {
       const normalized = normalizePermissionMode(permissionModeState.value);
@@ -161,7 +163,7 @@ export function createPreToolUseHook(permissionModeState, cwd = null, onModeChan
     if (toolName === 'AskUserQuestion') {
       debugLog('PERMISSION_HOOK', 'AskUserQuestion intercepted — routing through canUseTool');
       try {
-        const result = await canUseTool(toolName, input?.tool_input);
+        const result = await requestToolPermission(toolName, input?.tool_input);
         if (result?.behavior === 'allow') {
           return {
             hookSpecificOutput: {
@@ -196,7 +198,7 @@ export function createPreToolUseHook(permissionModeState, cwd = null, onModeChan
     if (toolName === 'ExitPlanMode') {
       debugLog('PERMISSION_HOOK', 'ExitPlanMode intercepted — routing through requestPlanApproval');
       try {
-        const result = await requestPlanApproval(input?.tool_input);
+        const result = await requestPlanModeApproval(input?.tool_input);
         if (result?.approved) {
           const nextMode = result.targetMode || 'default';
           currentPermissionMode = await updatePermissionMode(nextMode);

@@ -84,13 +84,16 @@ export function createTurnSink() {
 }
 
 export function buildRuntimeSignature(options, systemPromptAppend, streamingEnabled, runtimeSessionEpoch, resolvedModelId = null, mcpGatewaySchemaRevision = null) {
+  const requestedModel = resolvedModelId || options.model || '';
   const material = {
     cwd: options.cwd || '',
     additionalDirectories: options.additionalDirectories || [],
     systemPromptAppend: systemPromptAppend || '',
     streamingEnabled: !!streamingEnabled,
     runtimeSessionEpoch: runtimeSessionEpoch || '',
-    model: resolvedModelId || options.model || '',
+    model: requestedModel,
+    contextWindow1M: /\[1m\]\s*$/i.test(requestedModel),
+    bypassPermissions: options.permissionMode === 'bypassPermissions',
     effort: options.effort || '',
     mcpGatewaySchemaRevision: mcpGatewaySchemaRevision || ''
   };
@@ -165,7 +168,7 @@ async function createRuntime(requestContext, callbacks) {
     sessionId: requestContext.requestedSessionId || null,
     runtimeSessionEpoch: requestContext.runtimeSessionEpoch || null,
     runtimeSignature: requestContext.runtimeSignature,
-    currentModel: requestContext.resolvedModelId || requestContext.sdkModelName || null,
+    currentModel: requestContext.sdkModelName || null,
     modelId: requestContext.modelId || null, // Original model ID, may contain [1m] suffix
     currentResolvedModel: requestContext.resolvedModelId || null,
     currentPermissionMode: initialPermissionMode,
@@ -390,11 +393,14 @@ async function applyDynamicControls(runtime, requestContext) {
     }
   }
 
-  const targetModel = requestContext.resolvedModelId || requestContext.sdkModelName || null;
-  if (runtime.currentModel !== targetModel && typeof runtime.query?.setModel === 'function') {
+  const targetModel = requestContext.sdkModelName || null;
+  const targetResolvedModel = requestContext.resolvedModelId || targetModel;
+  if ((runtime.currentModel !== targetModel || runtime.currentResolvedModel !== targetResolvedModel)
+      && typeof runtime.query?.setModel === 'function') {
     try {
-      await runtime.query.setModel(targetResolvedModel || targetModel || undefined);
+      await runtime.query.setModel(targetResolvedModel || undefined);
       runtime.currentModel = targetModel;
+      runtime.currentResolvedModel = targetResolvedModel;
       runtime.modelId = requestContext.modelId || null;
     } catch (error) {
       console.error('[DAEMON] setModel failed:', error.message);

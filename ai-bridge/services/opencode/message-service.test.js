@@ -131,6 +131,45 @@ test('emits error NDJSON and exits when prompt throws', async () => {
     assert.ok(errs[0].message.includes('auth failed') || errs[0].message.includes('OpenCode'), 'error message carried: ' + errs[0].message);
 });
 
+test('prompt rejection terminates even when SSE never ends and aborts both requests', async () => {
+    let subscribeSignal;
+    let promptSignal;
+    async function* endlessStream() {
+        yield { type: 'server.connected', properties: {} };
+        await new Promise(() => {});
+    }
+    const client = {
+        session: {
+            create: async () => ({ data: { id: 'ses_hanging' } }),
+            prompt: async (opts) => {
+                promptSignal = opts.signal;
+                throw new Error('prompt rejected');
+            }
+        },
+        event: {
+            subscribe: async (opts) => {
+                subscribeSignal = opts.signal;
+                return { stream: endlessStream() };
+            }
+        }
+    };
+    const written = [];
+
+    await sendMessage({ message: 'q', cwd: '/tmp', model: 'opencode/test' }, {
+        clientFactory: async () => client,
+        write: (event) => written.push(event),
+        requestTimeoutMs: 1000
+    });
+
+    assert.equal(subscribeSignal, promptSignal, 'SSE and prompt share one cancellation signal');
+    assert.equal(subscribeSignal.aborted, true, 'request signal is aborted during cleanup');
+    assert.equal(written.filter((event) => event.type === 'session_id').length, 1);
+    assert.equal(written.filter((event) => event.type === 'error').length, 1);
+    assert.equal(written.filter((event) => event.type === 'stream_end').length, 1);
+    assert.equal(written.filter((event) => event.type === 'message_end').length, 1);
+    assert.match(written.find((event) => event.type === 'error').message, /prompt rejected/);
+});
+
 test('clientFactory receives baseUrl', async () => {
     let receivedBaseUrl = null;
     const { client } = makeMockClient({ events: [

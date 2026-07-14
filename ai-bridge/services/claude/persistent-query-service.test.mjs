@@ -314,7 +314,8 @@ test('session runtime switches when actual model changes within same SDK role bu
 
   assert.equal(reusedRuntime, runtime);
   assert.deepEqual(factory.runtimes[0].setModelCalls, ['mimo-v2.5']);
-  assert.equal(reusedRuntime.currentModel, 'mimo-v2.5');
+  assert.equal(reusedRuntime.currentModel, 'sonnet');
+  assert.equal(reusedRuntime.currentResolvedModel, 'mimo-v2.5');
 });
 
 test('active session runtime is not disposed by idle cleanup while a turn is executing', async () => {

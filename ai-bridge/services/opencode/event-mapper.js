@@ -27,12 +27,13 @@
 /**
  * 创建一个有状态的 SSE→NDJSON 映射器。
  * @param {string} sessionId 当前会话 id(用于全局 SSE 流过滤)
+ * @param {{sessionIdAlreadyEmitted?: boolean}} [options]
  * @returns {{map:(event:object)=>object[]}}
  */
-export function createOpenCodeEventMapper(sessionId) {
+export function createOpenCodeEventMapper(sessionId, options = {}) {
     let streamStarted = false;
     let streamEnded = false;
-    let sessionIdEmitted = false;
+    let sessionIdEmitted = options.sessionIdAlreadyEmitted === true;
     let assistantText = ''; // 累积 assistant 文本,用于 part.updated 增量去重
     let reasoningText = ''; // 累积 reasoning 文本
     let lastUsageKey = ''; // 上次下发 usage 的指纹,幂等 message.updated 去重(避免 token 用量翻倍)
@@ -188,6 +189,7 @@ export function createOpenCodeEventMapper(sessionId) {
             }
 
             case 'error': {
+                if (!isCurrentSession(props)) return [];
                 const out = ensureStarted();
                 const message = (props && typeof props.message === 'string' && props.message) ||
                     (props && props.data && props.data.message) ||

@@ -261,6 +261,18 @@ test('error event without message uses generic text', () => {
     assert.ok(out[0].message.length > 0);
 });
 
+test('error event from another session is ignored', () => {
+    const m = createOpenCodeEventMapper(SID);
+    const out = m.map(ev('error', { sessionID: 'ses_other', message: 'foreign failure' }));
+    assert.deepEqual(out, []);
+});
+
+test('pre-emitted session id is not emitted again by SSE mapper', () => {
+    const m = createOpenCodeEventMapper(SID, { sessionIdAlreadyEmitted: true });
+    const out = m.map(ev('session.next.model.switched', { sessionID: SID }));
+    assert.equal(out.filter((event) => event.type === 'session_id').length, 0);
+});
+
 test('session.next.model.switched emits session_id once (early sessionId surfacing)', () => {
     // session_id 越早下发越好(前端可建立会话上下文);模型切换事件携带 sessionID
     const m = createOpenCodeEventMapper(SID);

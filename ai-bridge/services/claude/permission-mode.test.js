@@ -197,66 +197,42 @@ test('plan mode: non-allowed tool falls through to plan-specific deny', async ()
 // and routed through canUseTool / requestPlanApproval, regardless of permission mode.
 // This ensures dialogs appear even in subagent contexts and bypassPermissions mode.
 
-test('default mode: AskUserQuestion is intercepted (not YIELD_TO_SDK)', async () => {
-  const hook = createPreToolUseHook({ value: 'default' }, '/tmp/test-cwd');
-  const result = await Promise.race([
-    hook({
+for (const mode of ['default', 'plan', 'bypassPermissions', 'acceptEdits']) {
+  test(`${mode} mode: AskUserQuestion is intercepted (not YIELD_TO_SDK)`, async () => {
+    let intercepted = false;
+    const hook = createPreToolUseHook({ value: mode }, '/tmp/test-cwd', null, {
+      canUseTool: async (toolName, toolInput) => {
+        intercepted = true;
+        assert.equal(toolName, 'AskUserQuestion');
+        return { behavior: 'allow', updatedInput: toolInput };
+      }
+    });
+    const result = await hook({
       tool_name: 'AskUserQuestion',
       tool_input: { questions: [{ question: 'test', header: 'h', options: [], multiSelect: false }] },
-    }),
-    new Promise(r => setTimeout(() => r({ TIMEOUT: true }), 3000)),
-  ]);
-  // Hook should intercept (not yield to SDK), even though no Java process is running.
-  // The TIMEOUT means it entered canUseTool → requestAskUserQuestionAnswers → wrote file → waited.
-  assert.notEqual(result?.continue, true, 'AskUserQuestion must NOT yield to SDK in default mode');
-});
+    });
 
-test('plan mode: AskUserQuestion is intercepted (not YIELD_TO_SDK)', async () => {
-  const hook = createPreToolUseHook({ value: 'plan' }, '/tmp/test-cwd');
-  const result = await Promise.race([
-    hook({
-      tool_name: 'AskUserQuestion',
-      tool_input: { questions: [] },
-    }),
-    new Promise(r => setTimeout(() => r({ TIMEOUT: true }), 3000)),
-  ]);
-  assert.notEqual(result?.continue, true, 'AskUserQuestion must NOT yield to SDK in plan mode');
-});
-
-test('bypassPermissions mode: AskUserQuestion is intercepted (not YIELD_TO_SDK)', async () => {
-  const hook = createPreToolUseHook({ value: 'bypassPermissions' }, '/tmp/test-cwd');
-  const result = await Promise.race([
-    hook({
-      tool_name: 'AskUserQuestion',
-      tool_input: { questions: [] },
-    }),
-    new Promise(r => setTimeout(() => r({ TIMEOUT: true }), 3000)),
-  ]);
-  assert.notEqual(result?.continue, true, 'AskUserQuestion must NOT yield to SDK in bypassPermissions mode');
-});
+    assert.equal(intercepted, true);
+    assert.equal(result?.hookSpecificOutput?.permissionDecision, 'allow');
+  });
+}
 
 test('default mode: ExitPlanMode is intercepted (not YIELD_TO_SDK)', async () => {
-  const hook = createPreToolUseHook({ value: 'default' }, '/tmp/test-cwd');
-  const result = await Promise.race([
-    hook({
-      tool_name: 'ExitPlanMode',
-      tool_input: { plan: 'test plan' },
-    }),
-    new Promise(r => setTimeout(() => r({ TIMEOUT: true }), 3000)),
-  ]);
-  assert.notEqual(result?.continue, true, 'ExitPlanMode must NOT yield to SDK in default mode');
-});
+  let intercepted = false;
+  const hook = createPreToolUseHook({ value: 'default' }, '/tmp/test-cwd', null, {
+    requestPlanApproval: async (toolInput) => {
+      intercepted = true;
+      assert.equal(toolInput.plan, 'test plan');
+      return { approved: false, message: 'rejected in test' };
+    }
+  });
+  const result = await hook({
+    tool_name: 'ExitPlanMode',
+    tool_input: { plan: 'test plan' },
+  });
 
-test('acceptEdits mode: AskUserQuestion is intercepted (not YIELD_TO_SDK)', async () => {
-  const hook = createPreToolUseHook({ value: 'acceptEdits' }, '/tmp/test-cwd');
-  const result = await Promise.race([
-    hook({
-      tool_name: 'AskUserQuestion',
-      tool_input: { questions: [] },
-    }),
-    new Promise(r => setTimeout(() => r({ TIMEOUT: true }), 3000)),
-  ]);
-  assert.notEqual(result?.continue, true, 'AskUserQuestion must NOT yield to SDK in acceptEdits mode');
+  assert.equal(intercepted, true);
+  assert.equal(result?.hookSpecificOutput?.permissionDecision, 'deny');
 });
 
 // ======== SDK-shape validator self-tests ========
