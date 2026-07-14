@@ -4,7 +4,11 @@
     width: 100%;
 
     .collapsible-content {
-        transition: max-height 0.3s ease-out;
+        /* 部分高度折叠:收起露出前 ~160px 配合 collapse-overlay 渐变遮罩,展开为全部。
+           用 max-height(非 grid-template-rows:0fr/1fr)是刻意的——0fr 是完全折叠(0 高度),
+           而本组件收起时需露出部分内容;px→1fr 单位过渡不连续会跳变。task.less 的 grid 方案
+           适用于完全折叠/展开的任务详情,与这里是不同用例,各自技术正确。 */
+        transition: max-height var(--dur-fold) var(--ease-smooth);
         position: relative;
     }
 

@@ -80,7 +80,7 @@
     opacity: 1;
   }
   50% {
-    opacity: 0.5;
+    opacity: 0.7;
   }
 }
 
@@ -115,12 +115,53 @@
   }
 }
 
-/* 呼吸动画 */
-@keyframes breathing {
-  0%, 100% {
-    opacity: 0.4;
-  }
-  50% {
-    opacity: 1;
-  }
+/* breathing 的规范定义在 tools.less（scale 版,被 .waiting-indicator 引用）。
+   此处历史上的 opacity-only breathing 无任何调用点,删除以消除同名冲突。 */
+
+/* ============================================================
+   B 方案统一动效 keyframes（进入 / 退出 / 逐字）
+   全仓进入/退出类动画统一引用本节，时长/缓动由调用点用
+   variables.less 的 --dur-* / --ease-* token 指定。
+   ============================================================ */
+
+/* 弹窗卡片进入：scale + 轻微位移（配合 --ease-pop 过冲） */
+@keyframes dialog-pop-in {
+  from { opacity: 0; transform: scale(0.9) translateY(6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* 弹窗卡片退出 */
+@keyframes dialog-pop-out {
+  from { opacity: 1; transform: scale(1) translateY(0); }
+  to { opacity: 0; transform: scale(0.95); }
+}
+
+/* 消息卡片进入：overshoot 弹性 */
+@keyframes message-pop-enter {
+  from { opacity: 0; transform: translateY(16px) scale(0.92); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* 流式逐字弹出（单字）：scale + 淡入。无光标设计 */
+@keyframes char-pop {
+  from { opacity: 0; transform: translateY(3px) scale(0.86); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* 流式段落块弹入:块级(整段)比字符级(char-pop)更克制——不缩放过冲,
+   仅轻微上移淡入,避免长段落频繁出现时的视觉晃动。 */
+@keyframes stream-block-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Toast 进入/退出（与弹窗同款过冲缓动） */
+@keyframes toast-pop-in {
+  from { opacity: 0; transform: translateX(30px) scale(0.95); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+@keyframes toast-pop-out {
+  from { opacity: 1; transform: translateX(0) scale(1); }
+  to { opacity: 0; transform: translateX(20px) scale(0.98); }
 }

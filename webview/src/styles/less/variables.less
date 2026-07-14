@@ -290,16 +290,29 @@
 }
 
 /* ==================== 动效变量 ==================== */
+/* 统一动效 token（B 方案）：全仓 transition/animation 应优先使用以下变量，
+   替代散落在各组件里的硬编码时长/缓动。详见 docs 与 motion-preview.html。 */
 :root {
-    /* 持续时间 */
+    /* 持续时间（基础档） */
     --duration-instant: 0.1s;
     --duration-fast: 0.15s;
     --duration-normal: 0.2s;
     --duration-slow: 0.3s;
 
+    /* 持续时间（语义档，B 方案统一基线） */
+    --dur-hover: 0.15s;       /* 微交互：hover / 颜色 / 状态切换 */
+    --dur-enter: 0.28s;       /* 元素进入：消息卡 / 列表项 / 卡片 */
+    --dur-fold: 0.26s;        /* 折叠展开：grid-rows / accordion */
+    --dlg-in: 0.32s;          /* 弹窗进入 */
+    --dlg-out: 0.16s;         /* 弹窗退出 */
+    --dur-char: 0.14s;        /* 流式逐字弹出单字时长 */
+    --dur-fast: 0.1s;         /* 最快速:遮罩淡入 / 瞬态过渡 */
+
     /* 缓动函数 */
     --ease-out: cubic-bezier(0, 0, 0.2, 1);
     --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);   /* 同 ease-standard，语义别名：状态/颜色平滑 */
+    --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);   /* 弹性过冲：进入 / 出现 / 逐字弹出 */
 }
 
 /* 亮色主题 */

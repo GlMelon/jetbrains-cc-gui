@@ -16,7 +16,13 @@
     align-items: center;
     justify-content: center;
     z-index: var(--z-modal-backdrop, 1100);
-    animation: fadeIn 0.2s ease-out;
+    /* 进入：遮罩淡入；退出见下方 .dialog-leaving */
+    animation: fadeIn var(--dur-fast) var(--ease-smooth);
+}
+
+/* 退出：遮罩淡出（BaseDialog 卸载前会加上 .dialog-leaving 类） */
+.dialog-overlay.dialog-leaving {
+    animation: fadeIn var(--dlg-out) var(--ease-smooth) reverse forwards;
 }
 
 /* 弹窗容器 —— 所有 BaseDialog 共用的外层壳。
@@ -38,6 +44,13 @@
     box-shadow: var(--shadow-lg);
     display: flex;
     flex-direction: column;
+    /* 进入：卡片 scale 过冲弹出（B 方案 --ease-pop） */
+    animation: dialog-pop-in var(--dlg-in) var(--ease-pop);
+}
+
+/* 退出：卡片收缩淡出 */
+.dialog-overlay.dialog-leaving .dialog-base {
+    animation: dialog-pop-out var(--dlg-out) var(--ease-smooth) forwards;
 }
 
 .dialog-header {

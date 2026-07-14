@@ -104,7 +104,9 @@
     background-color: var(--color-error);
 }
 
-/* 工具调用状态指示器 */
+/* 工具调用状态指示器 —— .tool-status-indicator 的【唯一定义】。
+   历史上 chat-message-avatar.less / mcp.less 各有一份局部定义(蓝点 pulse / ready-error),
+   均无组件引用且与此处层叠冲突,已删除收敛为此单一来源。 */
 .tool-status-indicator {
     width: 8px;
     height: 8px;
@@ -112,6 +114,9 @@
     flex-shrink: 0;
     margin-left: auto;
     margin-right: 8px;
+    /* pending(旋转环)→completed/error(实心点)的底色平滑过渡。
+       形状(12px 环→8px 点)刻意瞬切:spinner 渐变到实心点会产生怪异中间态,业界常态瞬切。 */
+    transition: background-color var(--dur-hover) var(--ease-smooth);
 }
 
 /* Pending: render a rotating ring spinner instead of a solid pulsing dot,

@@ -11,8 +11,18 @@
     flex-direction: column;
     align-items: stretch;
     z-index: 10000;
-    /* 底部滑入动画 */
-    animation: slideFromBottom 0.2s ease-out;
+    /* 底部滑入进入（覆盖 .dialog-overlay 默认的居中 fadeIn） */
+    animation: slideFromBottom var(--dur-enter) var(--ease-smooth);
+}
+
+/* 底部栏退出：向下滑出（BaseDialog 卸载前会加上 .dialog-leaving） */
+.permission-dialog-overlay.dialog-leaving {
+    animation: slideFromBottom var(--dlg-out) var(--ease-smooth) reverse forwards;
+}
+
+/* 底部栏模式：禁用 .dialog-base 默认的 scale pop-in（底部栏不适合缩放弹出） */
+.permission-dialog-overlay .dialog-base {
+    animation: none;
 }
 
 @keyframes slideFromBottom {
@@ -35,7 +45,6 @@
     max-width: 600px;
     max-height: 80vh;
     overflow: hidden;
-    animation: slideUp 0.3s ease-out;
 }
 
 .permission-dialog-header {
@@ -659,11 +668,6 @@
     animation: pulse-warning 1s ease-in-out infinite;
 }
 
-@keyframes pulse-warning {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.7; }
-}
-
 /* Timeout warning banner */
 .timeout-warning-banner {
     display: flex;
@@ -682,9 +686,4 @@
 .timeout-warning-banner .codicon {
     font-size: 16px;
     flex-shrink: 0;
-}
-
-@keyframes slideIn {
-    from { transform: translateY(-10px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
 }

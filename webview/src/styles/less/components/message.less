@@ -570,6 +570,20 @@
     cursor: text;
 }
 
+/* ── 流式渲染:顶层块级 React diff 弹入 ──
+   流式内容被拆成顶层块数组(MarkdownBlock.tsx buildStreamingSegments),React 按 key
+   复用旧块 DOM(不重播动画、不闪),仅新挂载的块播放 stream-block-in 弹入,告别"硬跳"。
+   块内字符随 delta 增长仍是文本节点更新(不可动画,业界常态)。 */
+.markdown-streaming .md-stream-block {
+    animation: stream-block-in var(--dur-hover) var(--ease-smooth);
+}
+
+/* 块间段落间距补偿:流式时每个块 div 内的 <p> 都是其 :last-child(margin-bottom:0),
+   段落间距会丢失,需在块容器间补回,对齐 .markdown-content p 的 margin-bottom。 */
+.markdown-streaming .md-stream-block + .md-stream-block {
+    margin-top: 10px;
+}
+
 .message.user .markdown-content {
     color: var(--color-message-user-text);
     word-wrap: break-word;

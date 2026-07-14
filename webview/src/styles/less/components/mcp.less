@@ -637,15 +637,7 @@
     opacity: 0.8;
 }
 
-/* 动画 */
-@keyframes spin {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
-}
+/* 动画(spin 等关键帧统一定义见 animations.less,此处仅保留用法) */
 
 .codicon-modifier-spin {
     animation: spin 1s linear infinite;
@@ -741,15 +733,6 @@
 /* 弹窗遮罩层 .dialog-overlay 已统一收敛至 agent-dialog.less(方案一毛玻璃)。
    此处旧定义(blur8/z1000)已删除,消除与 agent-dialog.less 的冲突。 */
 
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
-}
-
 /* 弹窗主体 */
 .dialog {
     background: var(--vscode-editor-background, var(--bg-primary));
@@ -762,17 +745,6 @@
     flex-direction: column;
     box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
     animation: slideUp 0.3s ease-out;
-}
-
-@keyframes slideUp {
-    from {
-        transform: translateY(20px);
-        opacity: 0;
-    }
-    to {
-        transform: translateY(0);
-        opacity: 1;
-    }
 }
 
 /* 弹窗头部 */
@@ -2448,21 +2420,8 @@
     color: var(--text-tertiary);
 }
 
-/* 侧边栏工具状态指示器 */
-.tool-status-indicator {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-
-.tool-status-indicator.ready {
-    background: var(--color-success);
-}
-
-.tool-status-indicator.error {
-    background: var(--color-error);
-}
+/* .tool-status-indicator 的唯一定义在 tools.less。此处侧边栏局部定义
+   （ready/error）无组件引用，已删除以收敛为单一来源。 */
 
 /* 侧边栏滚动条样式 */
 .sidebar-content::-webkit-scrollbar,

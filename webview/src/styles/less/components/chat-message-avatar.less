@@ -777,32 +777,9 @@
     color: var(--assistant-reference-tool-icon);
 }
 
-/* Tool status indicator */
-.tool-status-indicator {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    margin-left: auto;
-}
-
-.tool-status-indicator.completed {
-    background: var(--green, #4cc38a);
-}
-
-.tool-status-indicator.pending {
-    background: var(--accent, #4ea1ff);
-    animation: pulse 2s infinite;
-    will-change: transform, opacity;
-}
-
-.tool-status-indicator.error {
-    background: var(--red, #f07178);
-}
-
-@keyframes pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.6; transform: scale(1.1); }
-}
+/* .tool-status-indicator 的唯一定义在 tools.less（旋转环 pending / success / error）。
+   此处历史上的局部定义（蓝点 pulse）无任何组件引用，且与 tools.less 层叠冲突，
+   已删除以收敛为单一来源。@keyframes pulse 的规范定义见 animations.less。 */
 
 /* ==================== Copy Button ==================== */
 .message-copy-btn {

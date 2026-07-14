@@ -13,16 +13,9 @@
  *   2) .confirm-dialog-message / .confirm-dialog-dont-ask-again —— ConfirmDialog 内部使用
  */
 
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
-}
-
-/* 弹窗容器 —— SkillConfirmDialog 复用此类(class="skill-dialog confirm-dialog") */
+/* 弹窗容器 —— SkillConfirmDialog 复用此类(class="skill-dialog confirm-dialog")。
+   进入/退出动画统一由 BaseDialog 的 .dialog-base（dialog-pop-in/out）提供，此处不再自加。
+   （历史本地 @keyframes fadeIn/slideIn 已删除，统一引用 animations.less） */
 .confirm-dialog {
     background: var(--bg-secondary);
     border: 1px solid var(--border-secondary);
@@ -30,18 +23,6 @@
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
     min-width: 400px;
     max-width: 500px;
-    animation: slideIn 0.2s ease-out;
-}
-
-@keyframes slideIn {
-    from {
-        transform: translateY(-20px);
-        opacity: 0;
-    }
-    to {
-        transform: translateY(0);
-        opacity: 1;
-    }
 }
 
 /* ConfirmDialog 的消息正文(<p class="confirm-dialog-message">) */

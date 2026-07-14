@@ -19,36 +19,16 @@
     min-width: 280px;
     max-width: 400px;
     box-shadow: var(--shadow-md);
-    animation: toast-slide-in 0.3s ease-out;
-    transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+    /* 进入:右侧弹入带过冲(B 方案 toast-pop-in,统一定义见 animations.less) */
+    animation: toast-pop-in var(--dur-enter) var(--ease-pop);
+    transition: opacity var(--dur-enter) var(--ease-smooth), transform var(--dur-enter) var(--ease-smooth);
 }
 
+/* 退出:右侧淡出弹离(toast-pop-out forwards 保持终态;opacity:0 兜底无动画场景)。
+   Toast.tsx 的 onDismiss 延迟 300ms > 退出时长 var(--dlg-out)=160ms,动画先结束再移除,无闪烁。 */
 .toast-exit {
-    animation: toast-slide-out 0.3s ease-out;
+    animation: toast-pop-out var(--dlg-out) var(--ease-smooth) forwards;
     opacity: 0;
-    transform: translateX(100%);
-}
-
-@keyframes toast-slide-in {
-    from {
-        opacity: 0;
-        transform: translateX(100%);
-    }
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
-}
-
-@keyframes toast-slide-out {
-    from {
-        opacity: 1;
-        transform: translateX(0);
-    }
-    to {
-        opacity: 0;
-        transform: translateX(100%);
-    }
 }
 
 .toast-content {
