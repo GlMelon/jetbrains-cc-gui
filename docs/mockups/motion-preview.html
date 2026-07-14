@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>动效统一效果图 · B 方案（逐字弹出 · 无光标）</title>
+<style>
+/* ============================================================
+   1. 设计 token —— 抄自 variables.less（深/浅双主题）
+   ============================================================ */
+:root, [data-theme="dark"]{
+  --bg-primary:#1e1e1e;--bg-chat:#1e1e1e;--bg-secondary:#252526;--bg-tertiary:#2b2d31;
+  --bg-elevated:#2d2d2d;--bg-hover:#35373c;
+  --text-primary:#cccccc;--text-secondary:#e0e0e0;--text-tertiary:#858585;--text-muted:#666;
+  --border-primary:#333;--border-secondary:#3e3e42;--border-hover:#4a4a4f;
+  --accent:#007fd4;--accent-soft:rgba(0,127,212,.15);
+  --violet:#a989ff;--green:#4cc38a;--red:#f07178;--amber:#e7b85a;--blue:#3b82f6;
+  --shadow-md:0 4px 12px rgba(0,0,0,.3);--shadow-lg:0 8px 24px rgba(0,0,0,.5);
+  --overlay-mask-bg:rgba(0,0,0,.40);
+  --assistant-card-bg:rgba(255,255,255,.03);--assistant-card-border:rgba(255,255,255,.10);
+  --assistant-card-text:#d6d6d8;--assistant-shadow:0 14px 44px rgba(0,0,0,.24);
+  --tool-card-bg:#262629;--tool-card-border:#36363a;
+  --radius-md:6px;--radius-lg:8px;--radius-xl:12px;
+}
+[data-theme="light"]{
+  --bg-primary:#fff;--bg-chat:#fff;--bg-secondary:#f3f3f3;--bg-tertiary:#e8e8e8;
+  --bg-elevated:#f5f5f5;--bg-hover:#e0e0e0;
+  --text-primary:#333;--text-secondary:#1a1a1a;--text-tertiary:#666;--text-muted:#999;
+  --border-primary:#d0d0d0;--border-secondary:#c0c0c0;--border-hover:#a0a0a0;
+  --accent:#0078d4;--accent-soft:rgba(0,120,212,.12);
+  --violet:#8b5cf6;--green:#10b981;--red:#ef4444;--amber:#d97706;--blue:#3b82f6;
+  --shadow-md:0 4px 12px rgba(0,0,0,.15);--shadow-lg:0 8px 24px rgba(0,0,0,.2);
+  --overlay-mask-bg:rgba(40,44,52,.18);
+  --assistant-card-bg:rgba(0,0,0,.03);--assistant-card-border:rgba(0,0,0,.10);
+  --assistant-card-text:#1f2328;--assistant-shadow:0 14px 44px rgba(0,0,0,.10);
+  --tool-card-bg:#fafafa;--tool-card-border:#e5e5e5;
+}
+
+/* —— B 方案统一动效 token —— */
+:root{
+  --ease-pop:cubic-bezier(.34,1.56,.64,1);   /* 弹性过冲：进入/出现 */
+  --ease-smooth:cubic-bezier(.4,0,.2,1);     /* 标准平滑：状态/颜色 */
+  --dur-hover:.15s;
+  --dur-enter:.28s;
+  --dur-fold:.26s;
+  --dlg-in:.32s;
+  --dlg-out:.16s;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg-chat);color:var(--text-primary);
+  font-family:-apple-system,"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+  font-size:13.5px;line-height:1.6;-webkit-font-smoothing:antialiased;
+  transition:background-color .3s var(--ease-smooth),color .3s var(--ease-smooth);
+}
+
+/* ============================================================
+   2. 顶栏
+   ============================================================ */
+.toolbar{
+  position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  padding:12px 24px;background:color-mix(in srgb,var(--bg-chat) 84%,transparent);
+  backdrop-filter:blur(16px) saturate(120%);-webkit-backdrop-filter:blur(16px) saturate(120%);
+  border-bottom:1px solid var(--border-primary);
+}
+.toolbar h1{font-size:14px;margin:0;font-weight:700;letter-spacing:.2px}
+.toolbar h1 .sub{color:var(--text-tertiary);font-weight:400;margin-left:6px}
+.toolbar .spacer{flex:1}
+.seg{display:inline-flex;background:var(--bg-secondary);border:1px solid var(--border-primary);border-radius:999px;padding:3px;gap:2px}
+.seg button{border:0;background:transparent;color:var(--text-tertiary);padding:6px 14px;border-radius:999px;cursor:pointer;font:inherit;font-size:12.5px;font-weight:600;transition:color .15s,background-color .2s}
+.seg button:hover{color:var(--text-primary)}
+.seg button[aria-pressed="true"]{background:var(--bg-hover);color:var(--text-primary);box-shadow:inset 0 0 0 1px var(--border-hover)}
+.btn{border:1px solid var(--border-secondary);background:var(--bg-secondary);color:var(--text-primary);padding:7px 14px;border-radius:var(--radius-md);cursor:pointer;font:inherit;font-size:12.5px;font-weight:600;transition:background-color var(--dur-hover),border-color var(--dur-hover),transform .1s}
+.btn:hover{background:var(--bg-hover);border-color:var(--border-hover)}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{filter:brightness(1.08);background:var(--accent)}
+
+/* ============================================================
+   3. 页面骨架
+   ============================================================ */
+.wrap{max-width:1180px;margin:0 auto;padding:22px 24px 110px}
+section.block{margin-top:38px}
+.block-head{display:flex;align-items:baseline;gap:12px;margin-bottom:5px}
+.block-head h2{font-size:17px;margin:0;letter-spacing:-.01em}
+.block-head .idx{display:inline-grid;place-items:center;width:24px;height:24px;background:var(--accent);color:#fff;border-radius:var(--radius-md);font-size:12px;font-weight:800}
+.block-desc{color:var(--text-tertiary);font-size:12.5px;margin:0 0 16px;max-width:820px}
+.block-desc b{color:var(--text-secondary)}
+
+/* —— 统一 token 卡 —— */
+.tokens{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:6px}
+.tokens .tk{border:1px solid var(--border-primary);border-radius:var(--radius-lg);padding:11px 13px;background:var(--bg-secondary)}
+.tokens .tk .k{font-size:10.5px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.5px}
+.tokens .tk .v{font-size:13px;font-weight:700;margin-top:3px;font-variant-numeric:tabular-nums}
+.tokens .tk .v small{color:var(--text-tertiary);font-weight:400;font-size:10.5px;display:block;margin-top:1px}
+
+/* ============================================================
+   4. 对比舞台
+   ============================================================ */
+.stage{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.col{position:relative;border:1px solid var(--border-primary);border-radius:var(--radius-xl);overflow:hidden;background:var(--bg-primary);display:flex;flex-direction:column;min-height:300px}
+.col-head{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border-primary);background:var(--bg-secondary);font-size:12px;font-weight:700}
+.col-head .pill{font-size:10.5px;padding:2px 8px;border-radius:999px;font-weight:700}
+.pill.bad{background:rgba(240,113,120,.14);color:var(--red)}
+.pill.now{background:var(--accent-soft);color:var(--accent)}
+.col-body{flex:1;padding:16px;display:flex;flex-direction:column;gap:14px;overflow:auto}
+.col-foot{padding:10px 14px;border-top:1px solid var(--border-primary);background:var(--bg-secondary);display:flex;gap:8px;align-items:center}
+.col-foot .note{font-size:11px;color:var(--text-tertiary);margin-left:auto}
+
+/* ============================================================
+   5. 聊天消息
+   ============================================================ */
+.msg{display:flex;gap:11px;max-width:90%;padding:4px 2px}
+.msg.assistant{align-self:flex-start}
+.avatar{width:32px;height:32px;border-radius:9px;flex-shrink:0;display:grid;place-items:center;color:#fff;font-size:13px;font-weight:800}
+.msg.assistant .avatar{background:linear-gradient(135deg,#3b82f6,#06b6d4);box-shadow:0 2px 8px rgba(59,130,246,.3)}
+.bubble{padding:13px 15px 15px;border-radius:18px;max-width:100%;font-size:14px;line-height:1.75;word-wrap:break-word;width:100%}
+.msg.assistant .bubble{background:var(--assistant-card-bg);border:1px solid var(--assistant-card-border);border-top-left-radius:6px;color:var(--assistant-card-text);box-shadow:var(--assistant-shadow)}
+.bubble p{margin:0 0 9px}.bubble p:last-child{margin-bottom:0}
+.bubble code{font-family:"JetBrains Mono",Consolas,monospace;background:rgba(127,127,127,.18);padding:1px 5px;border-radius:4px;font-size:.9em}
+.streaming-footer{align-self:flex-start;display:inline-flex;align-items:center;gap:8px;padding:4px 10px;border-radius:999px;font-size:12px;color:var(--green);background:rgba(76,195,138,.10);border:1px solid rgba(76,195,138,.34);margin-left:42px}
+.dots{display:inline-flex;gap:4px}
+.dots i{width:4px;height:4px;border-radius:999px;background:currentColor;animation:dot 1.2s var(--ease-smooth) infinite}
+.dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
+@keyframes dot{0%,100%{opacity:.4;transform:scale(.9)}50%{opacity:1;transform:scale(1.08)}}
+
+/* ============================================================
+   6. ★ 核心：逐字弹出（B 方案 · 无光标）
+   ============================================================ */
+/* 现状：整段瞬现（模拟 innerHTML 全量刷新）—— 无 .char 动画 */
+/* B 方案：每个字独立弹入 */
+.opt .char{display:inline-block;animation:char-pop .14s var(--ease-pop) both}
+@keyframes char-pop{
+  from{opacity:0;transform:translateY(3px) scale(.86)}
+  to{opacity:1;transform:none}
+}
+/* 注意：B 方案刻意不放光标（用户要求） */
+
+/* ============================================================
+   7. 消息卡片进入
+   ============================================================ */
+.cur .msg.enter{animation:cur-enter .3s ease both}
+@keyframes cur-enter{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.opt .msg.enter{animation:b-enter .42s var(--ease-pop) both}
+@keyframes b-enter{from{opacity:0;transform:translateY(16px) scale(.92)}to{opacity:1;transform:none}}
+
+/* ============================================================
+   8. 弹窗进/出
+   ============================================================ */
+.demo-overlay{position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:var(--overlay-mask-bg);backdrop-filter:blur(6px) saturate(115%);-webkit-backdrop-filter:blur(6px) saturate(115%);opacity:0;pointer-events:none}
+.demo-overlay.open{opacity:1;pointer-events:auto}
+.demo-overlay.leaving{opacity:0}
+/* 现状：遮罩 0.2s 淡入，卡片瞬现，无退出 */
+.cur .demo-overlay{transition:opacity .2s ease-out}
+.cur .demo-overlay .demo-card{opacity:1}
+/* B 方案：遮罩 + 卡片协同，进/出都有 */
+.opt .demo-overlay{transition:opacity .26s var(--ease-smooth)}
+.opt .demo-overlay.open .demo-card{animation:b-dlg-in var(--dlg-in) var(--ease-pop) both}
+.opt .demo-overlay.leaving .demo-card{animation:b-dlg-out var(--dlg-out) var(--ease-smooth) both}
+@keyframes b-dlg-in{from{opacity:0;transform:scale(.9) translateY(6px)}to{opacity:1;transform:none}}
+@keyframes b-dlg-out{from{opacity:1;transform:none}to{opacity:0;transform:scale(.95)}}
+.demo-card{width:min(380px,86%);background:var(--bg-secondary);border:1px solid var(--border-secondary);border-radius:var(--radius-xl);box-shadow:var(--shadow-lg);padding:20px;opacity:0}
+.demo-card h3{margin:0 0 8px;font-size:15px}
+.demo-card p{margin:0 0 16px;color:var(--text-tertiary);font-size:13px}
+.demo-card .actions{display:flex;justify-content:flex-end;gap:8px}
+.demo-host{position:relative}
+
+/* ============================================================
+   9. 工具调用 / MCP 卡
+   ============================================================ */
+.tool{background:var(--tool-card-bg);border:1px solid var(--tool-card-border);border-radius:10px;overflow:hidden}
+.tool-head{display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;user-select:none}
+.tool-head .ic{min-width:22px;height:22px;border-radius:6px;display:grid;place-items:center;background:var(--bg-tertiary);color:var(--text-secondary);font-size:12px;padding:0 4px}
+.tool-head .nm{font-size:12.5px;font-weight:600;color:var(--text-secondary)}
+.tool-head .nm small{color:var(--text-tertiary);font-weight:400;margin-left:6px}
+.tool-head .sp{flex:1}
+.tool-head .chev{color:var(--text-tertiary);transition:transform var(--dur-hover) var(--ease-smooth);font-size:11px}
+.tool.expanded .chev{transform:rotate(90deg)}
+.status{width:11px;height:11px;border-radius:999px;flex-shrink:0;position:relative}
+/* 现状 pending = 旋转环瞬变 */
+.cur .status.pending{border:2px solid var(--accent);border-top-color:transparent;animation:spin .85s linear infinite}
+.cur .status.done{background:var(--green);border:0}
+/* B 方案 pending = 旋转环（统一 1s）+ 切换有颜色过渡 */
+.opt .status.pending{border:2px solid var(--accent);border-top-color:transparent;animation:spin 1s linear infinite}
+.opt .status.done{background:var(--green);border:0}
+.opt .status{transition:background-color .3s var(--ease-smooth),border-color .3s var(--ease-smooth)}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* 折叠内容 */
+.tool-body{overflow:hidden}
+.cur .tool-body{max-height:0;transition:max-height .3s ease-out}
+.cur .tool.expanded .tool-body{max-height:200px}
+.opt .tool-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows var(--dur-fold) var(--ease-smooth)}
+.opt .tool.expanded .tool-body{grid-template-rows:1fr}
+.tool-body .inner{overflow:hidden;min-height:0}
+.tool-content{font-size:12px;color:var(--text-tertiary);font-family:"JetBrains Mono",Consolas,monospace;line-height:1.65;background:var(--bg-tertiary);border-top:1px solid var(--tool-card-border);padding:10px 12px}
+.tool-content .k{color:var(--violet)}.tool-content .s{color:var(--green)}
+.mcp-tag{font-size:10px;padding:1px 6px;border-radius:4px;background:var(--accent-soft);color:var(--accent);font-weight:700}
+
+/* ============================================================
+   10. 通知 Toast
+   ============================================================ */
+.toast-host{position:absolute;top:12px;right:12px;z-index:25;display:flex;flex-direction:column;gap:8px;pointer-events:none;width:260px}
+.toast{display:flex;align-items:flex-start;gap:9px;padding:10px 12px;border-radius:var(--radius-lg);background:var(--bg-elevated);border:1px solid var(--border-secondary);box-shadow:var(--shadow-md);font-size:12.5px}
+.toast .ti{width:18px;height:18px;border-radius:999px;display:grid;place-items:center;flex-shrink:0;background:rgba(76,195,138,.18);color:var(--green);font-size:11px;font-weight:800}
+.toast .tt{color:var(--text-secondary)}
+.cur .toast.in{animation:cur-toast-in .3s ease-out both}
+.cur .toast.out{animation:cur-toast-out .3s ease-out both}
+.opt .toast.in{animation:b-toast-in var(--dlg-in) var(--ease-pop) both}
+.opt .toast.out{animation:b-toast-out var(--dlg-out) var(--ease-smooth) both}
+@keyframes cur-toast-in{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:none}}
+@keyframes cur-toast-out{from{opacity:1}to{opacity:0;transform:translateX(40px)}}
+@keyframes b-toast-in{from{opacity:0;transform:translateX(30px) scale(.95)}to{opacity:1;transform:none}}
+@keyframes b-toast-out{from{opacity:1;transform:none}to{opacity:0;transform:translateX(20px) scale(.98)}}
+
+/* ============================================================
+   11. spinner 统一展示
+   ============================================================ */
+.spin-row{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.spin-cell{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;color:var(--text-tertiary)}
+.spin-ring{width:22px;height:22px;border-radius:999px;border:2.5px solid var(--border-secondary)}
+.cur .s1{border-top-color:var(--accent);animation:spin .7s linear infinite}
+.cur .s2{border-top-color:var(--accent);animation:spin .85s linear infinite}
+.cur .s3{border-top-color:var(--accent);animation:spin 1s linear infinite}
+.cur .s4{border-top-color:var(--accent);animation:spin 1.2s linear infinite}
+.opt .spin-ring{border-top-color:var(--accent);animation:spin 1s var(--ease-smooth) infinite}
+
+/* ============================================================
+   12. 改动清单表
+   ============================================================ */
+.tbl{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px;min-width:720px}
+.tbl th,.tbl td{padding:9px 11px;text-align:left;border-bottom:1px solid var(--border-primary);vertical-align:top}
+.tbl th{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-tertiary);background:var(--bg-secondary)}
+.tbl tr:hover td{background:var(--bg-secondary)}
+.tbl .sev{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:999px;white-space:nowrap}
+.sev.S1{background:rgba(240,113,120,.16);color:var(--red)}
+.sev.S2{background:rgba(231,184,90,.16);color:var(--amber)}
+.sev.S3{background:var(--accent-soft);color:var(--accent)}
+
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+@media (max-width:880px){.stage{grid-template-columns:1fr}.tokens{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <h1>动效统一效果图<span class="sub">B 方案 · 逐字弹出 · 无光标 · 八类场景</span></h1>
+  <div class="spacer"></div>
+  <span style="font-size:11px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.6px">主题</span>
+  <div class="seg" id="theme">
+    <button data-theme="dark" aria-pressed="true">深色</button>
+    <button data-theme="light" aria-pressed="false">浅色</button>
+  </div>
+  <button class="btn primary" id="replay-all">↻ 全部重播</button>
+</div>
+
+<div class="wrap">
+
+  <!-- 统一 token -->
+  <section class="block">
+    <div class="block-head"><span class="idx">0</span><h2>统一动效 token（B 方案 · 全场景共用一组参数）</h2></div>
+    <p class="block-desc">"统一平滑"= 让流式、消息、弹窗、工具卡、Toast、折叠、spinner <b>共享同一套时长 + 缓动</b>。下面这组 token 会写进 <code>variables.less</code>，替换散落在 30+ 文件里的硬编码值。</p>
+    <div class="tokens">
+      <div class="tk"><div class="k">弹出缓动</div><div class="v">--ease-pop<small>cubic-bezier(.34,1.56,.64,1)</small></div></div>
+      <div class="tk"><div class="k">平滑缓动</div><div class="v">--ease-smooth<small>cubic-bezier(.4,0,.2,1)</small></div></div>
+      <div class="tk"><div class="k">逐字弹出</div><div class="v">.14s<small>每字 scale+淡入，间隔 28ms</small></div></div>
+      <div class="tk"><div class="k">进入 / 折叠</div><div class="v">.28s / .26s<small>消息卡 · 展开收起</small></div></div>
+      <div class="tk"><div class="k">弹窗 进/出</div><div class="v">.32s / .16s<small>卡片 scale 过冲</small></div></div>
+      <div class="tk"><div class="k">微交互</div><div class="v">.15s<small>hover · 颜色 · 状态</small></div></div>
+    </div>
+  </section>
+
+  <!-- 1. 流式输出 -->
+  <section class="block">
+    <div class="block-head"><span class="idx">1</span><h2>流式输出 · 逐字弹出（核心诉求 · 无光标）</h2></div>
+    <p class="block-desc">左侧现状：每个 delta 整段刷新 innerHTML，文字"啪"地成块出现。<b>右侧 B 方案：逐字弹出</b>——每个字以 <code>scale(.86)→1 + 淡入</code> 轻微弹入，间隔 28ms，连贯如真人打字。<b>刻意不放光标</b>（按你的要求）。</p>
+    <div class="stage">
+      <div class="col cur">
+        <div class="col-head">现状 <span class="pill bad">整段硬跳 · 无逐字</span></div>
+        <div class="col-body" id="stream-cur"></div>
+        <div class="col-foot"><button class="btn" data-stream="cur">↻ 重播</button><span class="note">模拟 innerHTML 全量覆写</span></div>
+      </div>
+      <div class="col opt">
+        <div class="col-head">B 方案 <span class="pill now">逐字弹出 · 无光标</span></div>
+        <div class="col-body" id="stream-opt"></div>
+        <div class="col-foot"><button class="btn primary" data-stream="opt">↻ 重播</button><span class="note">每字 .14s 弹入 · 28ms/字</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. 消息卡片进入 -->
+  <section class="block">
+    <div class="block-head"><span class="idx">2</span><h2>消息卡片进入动效</h2></div>
+    <p class="block-desc">现状：0.3s 纯位移淡入。<b>B 方案：overshoot 弹性</b>（translateY 16px + scale .92→1），配合流式逐字更有"生命感"。</p>
+    <div class="stage">
+      <div class="col cur"><div class="col-head">现状 <span class="pill bad">0.3s 位移</span></div><div class="col-body" id="enter-cur"></div><div class="col-foot"><button class="btn" data-enter="cur">+ 新增助手回复</button></div></div>
+      <div class="col opt"><div class="col-head">B 方案 <span class="pill now">overshoot 弹性</span></div><div class="col-body" id="enter-opt"></div><div class="col-foot"><button class="btn primary" data-enter="opt">+ 新增助手回复</button></div></div>
+    </div>
+  </section>
+
+  <!-- 3. 弹窗 -->
+  <section class="block">
+    <div class="block-head"><span class="idx">3</span><h2>弹窗 · 进入 + 退出</h2></div>
+    <p class="block-desc">现状：遮罩淡入、卡片瞬现、关闭瞬切。<b>B 方案：遮罩 + 卡片协同</b>，进入 scale 过冲 .32s、退出 .16s。点遮罩或按钮可观察退出。</p>
+    <div class="stage">
+      <div class="col cur demo-host"><div class="col-head">现状 <span class="pill bad">仅遮罩淡入 · 退出瞬切</span></div><div class="col-body"><p style="color:var(--text-tertiary);font-size:12.5px">BaseDialog 用 <code>if(!isOpen) return null</code> 瞬卸载，无退出动画。</p></div><div class="col-foot"><button class="btn" data-dlg="cur">打开弹窗</button></div>
+        <div class="demo-overlay" data-overlay="cur"><div class="demo-card"><h3>确认删除</h3><p>该操作不可撤销，确定要继续吗？</p><div class="actions"><button class="btn" data-close="cur">取消</button><button class="btn primary" data-close="cur">确认</button></div></div></div>
+      </div>
+      <div class="col opt demo-host"><div class="col-head">B 方案 <span class="pill now">进/出协同 · 过冲弹入</span></div><div class="col-body"><p style="color:var(--text-tertiary);font-size:12.5px">统一在 BaseDialog 注入，所有 16+ 弹窗受益。</p></div><div class="col-foot"><button class="btn primary" data-dlg="opt">打开弹窗</button></div>
+        <div class="demo-overlay" data-overlay="opt"><div class="demo-card"><h3>确认删除</h3><p>该操作不可撤销，确定要继续吗？</p><div class="actions"><button class="btn" data-close="opt">取消</button><button class="btn primary" data-close="opt">确认</button></div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. 工具调用卡 -->
+  <section class="block">
+    <div class="block-head"><span class="idx">4</span><h2>工具调用卡 · 状态切换 + 展开</h2></div>
+    <p class="block-desc">现状痛点：① pending 指示器有<b>两套冲突定义</b>（蓝点 pulse vs 旋转环），靠 CSS 层叠定胜负；② pending→success <b>颜色瞬变无过渡</b>；③ 展开用 max-height 旧技法。B 方案统一为旋转环 1s + 颜色 .3s 过渡 + grid-rows 展开。点卡片头部可展开/收起，点"切换为成功"看颜色过渡。</p>
+    <div class="stage">
+      <div class="col cur">
+        <div class="col-head">现状 <span class="pill bad">瞬变 · max-height</span></div>
+        <div class="col-body" id="tool-cur"></div>
+        <div class="col-foot"><button class="btn" data-tool="cur">切换为成功</button><span class="note">观察颜色 & 展开</span></div>
+      </div>
+      <div class="col opt">
+        <div class="col-head">B 方案 <span class="pill now">颜色过渡 · grid-rows</span></div>
+        <div class="col-body" id="tool-opt"></div>
+        <div class="col-foot"><button class="btn primary" data-tool="opt">切换为成功</button><span class="note">观察颜色 & 展开</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. MCP 调用卡 -->
+  <section class="block">
+    <div class="block-head"><span class="idx">5</span><h2>MCP 调用卡 · 展开</h2></div>
+    <p class="block-desc">MCP 卡现状内部 0.15s/0.3s 混用、命名分裂（slideDown / ccg-slide-down）。B 方案收敛到与工具卡同一套 grid-rows 折叠 + 统一缓动。</p>
+    <div class="stage">
+      <div class="col cur"><div class="col-head">现状 <span class="pill bad">混用 0.15/0.3s</span></div><div class="col-body" id="mcp-cur"></div><div class="col-foot"><button class="btn" data-mcp="cur">展开 / 收起</button></div></div>
+      <div class="col opt"><div class="col-head">B 方案 <span class="pill now">统一 grid-rows</span></div><div class="col-body" id="mcp-opt"></div><div class="col-foot"><button class="btn primary" data-mcp="opt">展开 / 收起</button></div></div>
+    </div>
+  </section>
+
+  <!-- 6. 通知 Toast -->
+  <section class="block">
+    <div class="block-head"><span class="idx">6</span><h2>通知 Toast · 进/出</h2></div>
+    <p class="block-desc">Toast 本身已是项目里的良好范例（0.3s 进出对称），但与弹窗缓动不一致。B 方案把 Toast 收敛到与弹窗同款 <code>--ease-pop</code>，全站通知观感统一。</p>
+    <div class="stage">
+      <div class="col cur demo-host"><div class="col-head">现状 <span class="pill bad">0.3s ease-out（独立）</span></div><div class="col-body"><p style="color:var(--text-tertiary);font-size:12.5px">缓动与弹窗不同步。</p></div><div class="col-foot"><button class="btn" data-toast="cur">弹出通知</button></div><div class="toast-host" id="toast-cur"></div></div>
+      <div class="col opt demo-host"><div class="col-head">B 方案 <span class="pill now">与弹窗同款缓动</span></div><div class="col-body"><p style="color:var(--text-tertiary);font-size:12.5px">统一 --ease-pop。</p></div><div class="col-foot"><button class="btn primary" data-toast="opt">弹出通知</button></div><div class="toast-host" id="toast-opt"></div></div>
+    </div>
+  </section>
+
+  <!-- 7. spinner 统一 -->
+  <section class="block">
+    <div class="block-head"><span class="idx">7</span><h2>Spinner · 时长统一</h2></div>
+    <p class="block-desc">现状旋转动画有 <b>6 档时长</b>（.7s / .85s / 1s / 1.2s / 1.5s steps / 1s cubic-bezier）。B 方案：除语义特殊的 codicon steps 外，统一 1s <code>--ease-smooth</code>。</p>
+    <div class="stage">
+      <div class="col cur"><div class="col-head">现状 <span class="pill bad">6 档时长</span></div><div class="col-body spin-row"><div class="spin-cell"><div class="spin-ring s1"></div>.7s</div><div class="spin-cell"><div class="spin-ring s2"></div>.85s</div><div class="spin-cell"><div class="spin-ring s3"></div>1s</div><div class="spin-cell"><div class="spin-ring s4"></div>1.2s</div></div></div>
+      <div class="col opt"><div class="col-head">B 方案 <span class="pill now">统一 1s</span></div><div class="col-body spin-row"><div class="spin-cell"><div class="spin-ring"></div>1s</div><div class="spin-cell"><div class="spin-ring"></div>1s</div><div class="spin-cell"><div class="spin-ring"></div>1s</div><div class="spin-cell"><div class="spin-ring"></div>1s</div></div></div>
+    </div>
+  </section>
+
+  <!-- 8. 改动清单 -->
+  <section class="block">
+    <div class="block-head"><span class="idx">★</span><h2>需要改动的东西（总结清单）</h2></div>
+    <p class="block-desc">基于全仓动效排查，按下表分优先级整改。S1=体感最强/必做，S2=统一性，S3=收尾。改动集中在样式 + 少量 JS（BaseDialog 退出卸载、流式逐字），不碰协议/后端。</p>
+    <div style="overflow-x:auto">
+      <table class="tbl">
+        <thead><tr><th style="width:46px">级</th><th style="width:150px">整改项</th><th>现状问题</th><th>B 方案做法</th><th style="width:230px">涉及文件</th></tr></thead>
+        <tbody>
+          <tr><td><span class="sev S1">S1</span></td><td>流式逐字弹出</td><td>每个 delta 全量刷新 innerHTML，整段硬跳、无逐字</td><td>接入逐字渲染（复用闲置 AnimatedText 或在 MarkdownBlock 增量吐字），每字 .14s 弹入，无光标</td><td>MarkdownBlock.tsx · AnimatedText/index.tsx · message.less</td></tr>
+          <tr><td><span class="sev S1">S1</span></td><td>弹窗进/出场</td><td>BaseDialog 无进入动画、<code>return null</code> 瞬卸载无退出；16+ 子弹窗时长 0.15/0.2/0.3 三档</td><td>BaseDialog 统一注入进入(.32s pop)+leaving 态延迟卸载(.16s)；删子类各自动画</td><td>BaseDialog.tsx · agent-dialog/dialogs/permission 等 .less</td></tr>
+          <tr><td><span class="sev S1">S1</span></td><td>工具状态指示器</td><td>.tool-status-indicator.pending 两套冲突定义（蓝点 pulse vs 旋转环）；pending→done 颜色瞬变</td><td>保留一套旋转环 + 颜色 .3s 过渡；删 chat-message-avatar.less 重复定义</td><td>tools.less · chat-message-avatar.less · ToolBlockShell.tsx</td></tr>
+          <tr><td><span class="sev S2">S2</span></td><td>keyframes 去重重构</td><td>animations.less 形同虚设；spin/fadeIn/slideIn(位移冲突)/pulse(实现冲突)/pulse-warning/breathing/tooltip-fade-in(方向相反)/slideUp 跨 6+ 文件重复定义</td><td>animations.less 作为唯一源，全仓引用；删各文件重定义，修 slideIn 位移与 tooltip 方向冲突</td><td>animations.less + 30 个 .less/.css</td></tr>
+          <tr><td><span class="sev S2">S2</span></td><td>动效 token 下沉</td><td>进入时长 0.15/0.2/0.3 三档 + s/ms 单位混用（conversation-search 用 120ms）</td><td>variables.less 增 --dur-enter/fast/slow + --ease-pop/smooth，全仓替换硬编码</td><td>variables.less + 全仓 transition/animation</td></tr>
+          <tr><td><span class="sev S2">S2</span></td><td>折叠技法统一</td><td>三种并存：grid-rows(task) / max-height(collapsible-markdown) / 无过渡(CollapsibleTextBlock)</td><td>统一 grid-template-rows 0fr→1fr 技法</td><td>task.less · collapsible-markdown.less · CollapsibleTextBlock.tsx</td></tr>
+          <tr><td><span class="sev S3">S3</span></td><td>Toast 缓动对齐</td><td>已是范例(0.3s 对称)但缓动与弹窗不同</td><td>收敛到 --ease-pop，与弹窗同款</td><td>toast.less · Toast.tsx</td></tr>
+          <tr><td><span class="sev S3">S3</span></td><td>spinner 时长统一</td><td>6 档：.7/.85/1/1.2s linear、1.5s steps、1s cubic-bezier</td><td>除 codicon steps 外统一 1s --ease-smooth</td><td>loading/mcp/skills/tools/StatusPanel.less · Icons.tsx</td></tr>
+          <tr><td><span class="sev S3">S3</span></td><td>下拉/popover 命名收敛</td><td>slideDown / ccg-slide-down / popover-fade-in / popover-slide-up 四套同义命名</td><td>统一命名 + 同一缓动</td><td>mcp/skills.less · context-bar/dropdown.css</td></tr>
+          <tr><td><span class="sev S3">S3</span></td><td>滚动收尾平滑</td><td>自动跟随=instant(性能) vs 主动=smooth，体感割裂</td><td>流式结束补一次 smooth 收尾滚动（跟随期保持 instant）</td><td>useScrollBehavior.ts</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <p style="color:var(--text-muted);font-size:11.5px;margin-top:30px;text-align:center">全局 <code>prefers-reduced-motion</code> 已由 base.less 兜底（覆盖率 100%），本次所有改动自动继承无障碍降级，无需额外处理。</p>
+</div>
+
+<script>
+/* ============ 主题切换 ============ */
+document.getElementById('theme').addEventListener('click', e=>{
+  const b=e.target.closest('button[data-theme]'); if(!b)return;
+  document.documentElement.dataset.theme=b.dataset.theme;
+  document.querySelectorAll('#theme button').forEach(x=>x.setAttribute('aria-pressed',x===b));
+});
+
+/* ============ 1. 流式逐字 ============ */
+const REPLY='我来定位一下这个问题。先确认入口文件和依赖关系，然后把改动拆成可独立验证的小步，避免一次性大改带来回归。核心是让流式文字像真人打字一样逐字弹出，平滑自然。';
+function playStream(side){
+  const host=document.getElementById('stream-'+side);
+  host.innerHTML='';
+  const wrap=document.createElement('div');wrap.className='msg assistant';
+  const av=document.createElement('div');av.className='avatar';av.textContent='AI';
+  const bub=document.createElement('div');bub.className='bubble';
+  const p=document.createElement('p');p.style.display='inline';bub.appendChild(p);
+  wrap.appendChild(av);wrap.appendChild(bub);host.appendChild(wrap);
+  const chars=[...REPLY]; let i=0;
+  if(side==='cur'){
+    // 现状：分 3 块整段硬跳，模拟 innerHTML 全量刷新
+    const a=Math.floor(REPLY.length/3), b=Math.floor(REPLY.length*2/3);
+    const chunks=[REPLY.slice(0,a),REPLY.slice(0,b),REPLY];
+    let ci=0;
+    const t=setInterval(()=>{
+      if(ci<chunks.length){ p.textContent=chunks[ci++]; }
+      else { clearInterval(t); finishStream(host); }
+    },260);
+  } else {
+    // B 方案：逐字弹出，无光标
+    const t=setInterval(()=>{
+      if(i<chars.length){
+        const s=document.createElement('span');s.className='char';s.textContent=chars[i++];
+        p.appendChild(s);
+      } else { clearInterval(t); finishStream(host); }
+    },28);
+  }
+}
+function finishStream(host){
+  const foot=document.createElement('div');foot.className='streaming-footer';
+  foot.innerHTML='<span class="dots"><i></i><i></i><i></i></span> 已完成 · 2.3s';
+  host.appendChild(foot);
+}
+
+/* ============ 2. 消息进入 ============ */
+const ENTER_REPLIES=['已经确认入口，下一步把 IO 读取单独抽出来。','这步可以加单测兜底，避免回归。','改动很集中，回滚成本低，可以放心提交。'];
+let enterIdx={cur:0,opt:0};
+function addEnter(side){
+  const host=document.getElementById('enter-'+side);
+  const wrap=document.createElement('div');wrap.className='msg assistant enter';
+  const av=document.createElement('div');av.className='avatar';av.textContent='AI';
+  const bub=document.createElement('div');bub.className='bubble';
+  bub.innerHTML='<p>'+ENTER_REPLIES[enterIdx[side]++%ENTER_REPLIES.length]+'</p>';
+  wrap.appendChild(av);wrap.appendChild(bub);host.appendChild(wrap);
+  wrap.scrollIntoView({behavior:'smooth',block:'end'});
+}
+
+/* ============ 3. 弹窗 ============ */
+function openDlg(side){const ov=document.querySelector('[data-overlay="'+side+'"]');ov.classList.remove('leaving');ov.classList.add('open');}
+function closeDlg(side){
+  const ov=document.querySelector('[data-overlay="'+side+'"]');ov.classList.add('leaving');
+  setTimeout(()=>ov.classList.remove('open','leaving'),side==='cur'?10:160);
+}
+
+/* ============ 4. 工具卡 ============ */
+function buildTool(side){
+  const host=document.getElementById('tool-'+side);host.innerHTML='';
+  const tool=document.createElement('div');tool.className='tool expanded';
+  tool.innerHTML='<div class="tool-head"><div class="ic">📖</div><div class="nm">Read<small>src/index.ts</small></div><div class="sp"></div><div class="status pending"></div><div class="chev">▶</div></div><div class="tool-body"><div class="inner"><div class="tool-content"><span class="k">path:</span> <span class="s">"src/index.ts"</span><br><span class="k">lines:</span> 1–48<br>读取成功，返回 48 行内容…</div></div></div>';
+  host.appendChild(tool);
+  tool.querySelector('.tool-head').addEventListener('click',()=>tool.classList.toggle('expanded'));
+}
+function toggleToolDone(side){
+  const st=document.querySelector('#tool-'+side+' .status');
+  st.classList.toggle('pending');st.classList.toggle('done');
+}
+
+/* ============ 5. MCP 卡 ============ */
+function buildMcp(side){
+  const host=document.getElementById('mcp-'+side);host.innerHTML='';
+  const tool=document.createElement('div');tool.className='tool expanded';
+  tool.innerHTML='<div class="tool-head"><div class="ic"><span class="mcp-tag">MCP</span></div><div class="nm">filesystem · read_file<small>/project/config.json</small></div><div class="sp"></div><div class="status done"></div><div class="chev">▶</div></div><div class="tool-body"><div class="inner"><div class="tool-content"><span class="k">server:</span> filesystem<br><span class="k">tool:</span> read_file<br><span class="s">{ "encoding": "utf-8" }</span><br>→ 返回 1.2KB JSON</div></div></div>';
+  host.appendChild(tool);
+  tool.querySelector('.tool-head').addEventListener('click',()=>tool.classList.toggle('expanded'));
+}
+
+/* ============ 6. Toast ============ */
+function showToast(side){
+  const host=document.getElementById('toast-'+side);
+  const t=document.createElement('div');t.className='toast in';
+  t.innerHTML='<div class="ti">✓</div><div class="tt">操作已完成 · 缓动已统一</div>';
+  host.appendChild(t);
+  setTimeout(()=>{ t.classList.remove('in');t.classList.add('out'); setTimeout(()=>t.remove(),side==='cur'?300:160); },1800);
+}
+
+/* ============ 事件绑定 ============ */
+document.addEventListener('click',e=>{
+  const s=e.target.closest('[data-stream]'); if(s){playStream(s.dataset.stream);return;}
+  const en=e.target.closest('[data-enter]'); if(en){addEnter(en.dataset.enter);return;}
+  const d=e.target.closest('[data-dlg]'); if(d){openDlg(d.dataset.dlg);return;}
+  const c=e.target.closest('[data-close]'); if(c){closeDlg(c.dataset.close);e.stopPropagation();return;}
+  const ov=e.target.closest('.demo-overlay.open'); if(ov&&e.target===ov){closeDlg(ov.dataset.overlay);return;}
+  const tw=e.target.closest('[data-tool]'); if(tw){toggleToolDone(tw.dataset.tool);return;}
+  const mc=e.target.closest('[data-mcp]'); if(mc){document.querySelector('#mcp-'+mc.dataset.mcp+' .tool').classList.toggle('expanded');return;}
+  const ts=e.target.closest('[data-toast]'); if(ts){showToast(ts.dataset.toast);return;}
+});
+document.getElementById('replay-all').addEventListener('click',()=>{ playStream('cur');playStream('opt'); });
+
+/* ============ 初始化 ============ */
+playStream('cur');playStream('opt');
+buildTool('cur');buildTool('opt');
+buildMcp('cur');buildMcp('opt');
+</script>
+</body>
+</html>
