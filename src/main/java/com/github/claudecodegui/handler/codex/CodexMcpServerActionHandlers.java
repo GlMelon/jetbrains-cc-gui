@@ -1,6 +1,8 @@
 package com.github.claudecodegui.handler.codex;
 
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.handler.mcp.McpServerToolsRequest;
+import com.github.claudecodegui.handler.mcp.McpServerToolsResponse;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.provider.common.DaemonConstants;
@@ -104,55 +106,47 @@ public class CodexMcpServerActionHandlers {
         });
     }
 
-    void handleGetMcpServerTools(String content) {
+    void handleGetMcpServerTools(McpServerToolsRequest request) {
+        Gson gson = GsonHolder.GSON;
         try {
+            if (request == null || !request.isValid()) {
+                sendToolsError(request, "Missing required requestId or serverId", gson);
+                return;
+            }
             if (!isCodexLocalConfigAuthorized()) {
-                Gson gson = GsonHolder.GSON;
-                sendToolsError("", ClaudeCodeGuiBundle.message("error.codexLocalAccessNotAuthorized"), gson);
+                sendToolsError(request, ClaudeCodeGuiBundle.message("error.codexLocalAccessNotAuthorized"), gson);
                 return;
             }
-
-            Gson gson = GsonHolder.GSON;
-            JsonObject json = gson.fromJson(content, JsonObject.class);
-            if (json == null || !json.has("serverId")) {
-                sendToolsError("", "Missing required field: serverId", gson);
-                return;
-            }
-            String serverId = json.get("serverId").getAsString();
 
             JsonObject targetServer = null;
             List<JsonObject> servers = codexMcpServerManager.getMcpServers();
             for (JsonObject server : servers) {
-                if (server.has("id") && serverId.equals(server.get("id").getAsString())) {
+                if (server.has("id") && request.serverId().equals(server.get("id").getAsString())) {
                     targetServer = server;
                     break;
                 }
             }
 
             if (targetServer == null || !targetServer.has("server") || !targetServer.get("server").isJsonObject()) {
-                sendToolsError(serverId, "Server not found or invalid config: " + serverId, gson);
+                sendToolsError(request, "Server not found or invalid config: " + request.serverId(), gson);
                 return;
             }
 
             JsonObject serverConfig = targetServer.getAsJsonObject("server");
-            LOG.info("[CodexMcpServerActionHandlers] Getting tools for Codex MCP server: " + serverId);
+            LOG.info("[CodexMcpServerActionHandlers] Getting tools for Codex MCP server: " + request.serverId());
 
-            context.getCodexSDKBridge().getMcpServerTools(serverId, serverConfig)
+            context.getCodexSDKBridge().getMcpServerTools(request.serverId(), serverConfig)
                 .thenAccept(result -> {
-                    String resultJson = gson.toJson(result);
-                    ApplicationManager.getApplication().invokeLater(() ->
-                        context.dispatchEvent(DownstreamEvent.CODEX_MCP_SERVER_TOOLS.value(), context.escapeJs(resultJson))
-                    );
+                    sendToolsResponse(McpServerToolsResponse.fromBridge(request, result), gson);
                 })
                 .exceptionally(e -> {
                     LOG.error("[CodexMcpServerActionHandlers] Failed to get MCP server tools: " + e.getMessage(), e);
-                    sendToolsError(serverId, e.getMessage(), gson);
+                    sendToolsError(request, e.getMessage(), gson);
                     return null;
                 });
         } catch (Exception e) {
             LOG.error("[CodexMcpServerActionHandlers] Failed to get MCP server tools: " + e.getMessage(), e);
-            Gson gson = GsonHolder.GSON;
-            sendToolsError("", e.getMessage(), gson);
+            sendToolsError(request, e.getMessage(), gson);
         }
     }
 
@@ -280,12 +274,12 @@ public class CodexMcpServerActionHandlers {
 
     // --- Private helpers ---
 
-    private void sendToolsError(String serverId, String errorMessage, Gson gson) {
-        JsonObject errorResult = new JsonObject();
-        errorResult.addProperty("serverId", serverId != null ? serverId : "");
-        errorResult.addProperty("error", errorMessage != null ? errorMessage : "Unknown error");
-        errorResult.add("tools", new com.google.gson.JsonArray());
-        String json = gson.toJson(errorResult);
+    private void sendToolsError(McpServerToolsRequest request, String errorMessage, Gson gson) {
+        sendToolsResponse(McpServerToolsResponse.error(request, errorMessage), gson);
+    }
+
+    private void sendToolsResponse(McpServerToolsResponse response, Gson gson) {
+        String json = gson.toJson(response);
         ApplicationManager.getApplication().invokeLater(() ->
             context.dispatchEvent(DownstreamEvent.CODEX_MCP_SERVER_TOOLS.value(), context.escapeJs(json))
         );

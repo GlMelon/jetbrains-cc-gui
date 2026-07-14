@@ -8,7 +8,7 @@ import com.github.claudecodegui.protocol.UpstreamAction;
  * Handler for GET_MCP_SERVER_TOOLS action.
  * Delegates to {@link McpServerActionHandlers}.
  */
-public class GetMcpServerToolsActionHandler implements FrontendActionHandler<String> {
+public class GetMcpServerToolsActionHandler implements FrontendActionHandler<McpServerToolsRequest> {
 
     private final McpServerActionHandlers handlers;
 
@@ -22,12 +22,12 @@ public class GetMcpServerToolsActionHandler implements FrontendActionHandler<Str
     }
 
     @Override
-    public Class<String> payloadType() {
-        return String.class;
+    public Class<McpServerToolsRequest> payloadType() {
+        return McpServerToolsRequest.class;
     }
 
     @Override
-    public void handle(String payload, FrontendActionContext context) {
+    public void handle(McpServerToolsRequest payload, FrontendActionContext context) {
         handlers.handleGetMcpServerTools(payload);
     }
 }

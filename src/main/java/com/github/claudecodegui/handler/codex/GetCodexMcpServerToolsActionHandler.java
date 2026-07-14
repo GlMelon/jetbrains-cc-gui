@@ -2,13 +2,14 @@ package com.github.claudecodegui.handler.codex;
 
 import com.github.claudecodegui.handler.core.FrontendActionContext;
 import com.github.claudecodegui.handler.core.FrontendActionHandler;
+import com.github.claudecodegui.handler.mcp.McpServerToolsRequest;
 import com.github.claudecodegui.protocol.UpstreamAction;
 
 /**
  * Handler for GET_CODEX_MCP_SERVER_TOOLS action.
  * Delegates to {@link CodexMcpServerActionHandlers}.
  */
-public class GetCodexMcpServerToolsActionHandler implements FrontendActionHandler<String> {
+public class GetCodexMcpServerToolsActionHandler implements FrontendActionHandler<McpServerToolsRequest> {
 
     private final CodexMcpServerActionHandlers handlers;
 
@@ -22,12 +23,12 @@ public class GetCodexMcpServerToolsActionHandler implements FrontendActionHandle
     }
 
     @Override
-    public Class<String> payloadType() {
-        return String.class;
+    public Class<McpServerToolsRequest> payloadType() {
+        return McpServerToolsRequest.class;
     }
 
     @Override
-    public void handle(String payload, FrontendActionContext context) {
+    public void handle(McpServerToolsRequest payload, FrontendActionContext context) {
         handlers.handleGetMcpServerTools(payload);
     }
 }

@@ -107,6 +107,7 @@ public enum DownstreamEvent implements ProtocolValue {
     CONFIG_AI_TITLE_GENERATION("config.ai_title_generation"),
     CONFIG_STATUS_BAR_WIDGET("config.status_bar_widget"),
     CONFIG_TASK_COMPLETION_NOTIFICATION("config.task_completion_notification"),
+    CONFIG_ASK_USER_QUESTION_NOTIFICATION("config.ask_user_question_notification"),
     CONFIG_MCP_GATEWAY("config.mcp_gateway"),
     CONFIG_SMITHERY_API_KEY("config.smithery_api_key"),
 

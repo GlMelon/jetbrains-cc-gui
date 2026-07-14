@@ -68,17 +68,16 @@ public class McpServerActionHandlers {
         }
     }
 
-    void handleGetMcpServerTools(String content) {
-        try {
-            Gson gson = GsonHolder.GSON;
-            JsonObject json = gson.fromJson(content, JsonObject.class);
-            String serverId = json.get("serverId").getAsString();
-
-            LOG.info("[McpServerActionHandlers] Getting tools for server: " + serverId);
-            waitForBridgeAndFetchTools(serverId, gson);
-        } catch (Exception e) {
-            LOG.error("[McpServerActionHandlers] Failed to get MCP server tools: " + e.getMessage(), e);
+    void handleGetMcpServerTools(McpServerToolsRequest request) {
+        Gson gson = GsonHolder.GSON;
+        if (request == null || !request.isValid()) {
+            LOG.warn("[McpServerActionHandlers] Rejected invalid MCP tools request");
+            sendToolsResponse(McpServerToolsResponse.error(request, "Missing required requestId or serverId"), gson);
+            return;
         }
+
+        LOG.info("[McpServerActionHandlers] Getting tools for server: " + request.serverId());
+        waitForBridgeAndFetchTools(request, gson);
     }
 
     void handleAddMcpServer(String content) {
@@ -278,7 +277,7 @@ public class McpServerActionHandlers {
         }
     }
 
-    private void waitForBridgeAndFetchTools(String serverId, Gson gson) {
+    private void waitForBridgeAndFetchTools(McpServerToolsRequest request, Gson gson) {
         CompletableFuture.runAsync(() -> {
             try {
                 if (!BridgePreloader.isBridgeReady()) {
@@ -288,43 +287,38 @@ public class McpServerActionHandlers {
                     if (ready) {
                         LOG.info("[McpServerActionHandlers] Bridge is now ready, fetching tools");
                     } else {
-                        LOG.warn("[McpServerActionHandlers] Bridge still not ready after timeout, proceeding anyway");
+                        LOG.warn("[McpServerActionHandlers] Bridge still not ready after timeout");
+                        sendToolsResponse(McpServerToolsResponse.error(request, "AI bridge is not ready"), gson);
+                        return;
                     }
                 }
 
                 String toolsCwd = context.getProject() != null
                         ? context.getProject().getBasePath() : null;
-                context.getClaudeSDKBridge().getMcpServerTools(serverId, toolsCwd)
+                context.getClaudeSDKBridge().getMcpServerTools(request.serverId(), toolsCwd)
                     .thenAccept(result -> {
-                        String resultJson = gson.toJson(result);
-                        LOG.info("[McpServerActionHandlers] Got tools result: " + resultJson);
-                        ApplicationManager.getApplication().invokeLater(() -> {
-                            context.dispatchEvent(DownstreamEvent.MCP_SERVER_TOOLS.value(), context.escapeJs(resultJson));
-                        });
+                        McpServerToolsResponse response = McpServerToolsResponse.fromBridge(request, result);
+                        LOG.info("[McpServerActionHandlers] Got tools result for request: " + request.requestId());
+                        sendToolsResponse(response, gson);
                     })
                     .exceptionally(e -> {
                         LOG.error("[McpServerActionHandlers] Failed to get MCP server tools: "
                             + e.getMessage(), e);
-                        ApplicationManager.getApplication().invokeLater(() -> {
-                            JsonObject errorResult = new JsonObject();
-                            errorResult.addProperty("serverId", serverId);
-                            errorResult.addProperty("error", e.getMessage());
-                            errorResult.add("tools", new com.google.gson.JsonArray());
-                            context.dispatchEvent(DownstreamEvent.MCP_SERVER_TOOLS.value(), context.escapeJs(gson.toJson(errorResult)));
-                        });
+                        sendToolsResponse(McpServerToolsResponse.error(request, e.getMessage()), gson);
                         return null;
                     });
             } catch (Exception e) {
                 LOG.error("[McpServerActionHandlers] Error while waiting for bridge or fetching tools: "
                     + e.getMessage(), e);
-                ApplicationManager.getApplication().invokeLater(() -> {
-                    JsonObject errorResult = new JsonObject();
-                    errorResult.addProperty("serverId", serverId);
-                    errorResult.addProperty("error", e.getMessage());
-                    errorResult.add("tools", new com.google.gson.JsonArray());
-                    context.dispatchEvent(DownstreamEvent.MCP_SERVER_TOOLS.value(), context.escapeJs(gson.toJson(errorResult)));
-                });
+                sendToolsResponse(McpServerToolsResponse.error(request, e.getMessage()), gson);
             }
         });
+    }
+
+    private void sendToolsResponse(McpServerToolsResponse response, Gson gson) {
+        String json = gson.toJson(response);
+        ApplicationManager.getApplication().invokeLater(() ->
+                context.dispatchEvent(DownstreamEvent.MCP_SERVER_TOOLS.value(), context.escapeJs(json))
+        );
     }
 }
