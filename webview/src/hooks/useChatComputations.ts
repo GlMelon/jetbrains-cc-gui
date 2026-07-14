@@ -91,6 +91,11 @@ export function useChatComputations({
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
   const toolResultRawMapRef = useRef<Map<string, ClaudeRawMessage>>(new Map());
+  // 流式期冻结缓存:rewindableMessages / sessionTitle 不依赖流式增量内容(只依赖历史
+  // 用户消息结构 / 首条用户消息),流式期间返回上次 settled 快照的相同引用,跳过重算 +
+  // 避免触发下游消费组件(标题栏 / Rewind 列表)每帧重渲染。
+  const prevRewindableRef = useRef<RewindableMessage[]>([]);
+  const prevSessionTitleRef = useRef<string>('');
 
   const findToolResult = useCallback((toolUseId?: string, messageIndex?: number): ToolResultBlock | null => {
     if (!toolUseId || typeof messageIndex !== 'number') return null;
@@ -215,8 +220,14 @@ export function useChatComputations({
   );
 
   const rewindableMessages = useMemo((): RewindableMessage[] => {
-    if (currentProvider !== 'claude') return [];
+    // 流式期冻结:mergedMessages 每帧追加流式增量,但 rewindable 集合只依赖已 settled 的历史
+    // 用户消息结构。返回上次 settled 快照(相同引用),避免每帧重算 + 触发消费组件重渲染。
+    if (streamingActive) return prevRewindableRef.current;
     const result: RewindableMessage[] = [];
+    if (currentProvider !== 'claude') {
+      prevRewindableRef.current = result;
+      return result;
+    }
     for (let i = 0; i < mergedMessages.length - 1; i++) {
       if (!canRewindFromMessageIndex(i)) continue;
       const message = mergedMessages[i];
@@ -225,17 +236,30 @@ export function useChatComputations({
       const messagesAfterCount = mergedMessages.length - i - 1;
       result.push({ messageIndex: i, message, displayContent: content, timestamp, messagesAfterCount });
     }
+    prevRewindableRef.current = result;
     return result;
-  }, [mergedMessages, currentProvider, canRewindFromMessageIndex, getMessageText]);
+  }, [mergedMessages, currentProvider, canRewindFromMessageIndex, getMessageText, streamingActive]);
 
   const sessionTitle = useMemo(() => {
-    if (customSessionTitle) return customSessionTitle;
-    if (messages.length === 0) return t('common.newSession');
-    const firstUserMessage = messages.find(isSessionTitleUserCandidate);
-    if (!firstUserMessage) return t('common.newSession');
-    const text = getMessageText(firstUserMessage);
-    return text.length > 15 ? `${text.substring(0, 15)}...` : text;
-  }, [customSessionTitle, messages, t, getMessageText]);
+    // 流式期冻结:标题取决于 customSessionTitle / 首条用户消息,与流式增量无关。
+    if (streamingActive) return prevSessionTitleRef.current;
+    let title: string;
+    if (customSessionTitle) {
+      title = customSessionTitle;
+    } else if (messages.length === 0) {
+      title = t('common.newSession');
+    } else {
+      const firstUserMessage = messages.find(isSessionTitleUserCandidate);
+      if (!firstUserMessage) {
+        title = t('common.newSession');
+      } else {
+        const text = getMessageText(firstUserMessage);
+        title = text.length > 15 ? `${text.substring(0, 15)}...` : text;
+      }
+    }
+    prevSessionTitleRef.current = title;
+    return title;
+  }, [customSessionTitle, messages, t, getMessageText, streamingActive]);
 
   return {
     findToolResult,
