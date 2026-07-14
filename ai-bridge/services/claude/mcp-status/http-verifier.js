@@ -5,7 +5,13 @@
 
 import { MCP_HTTP_VERIFY_TIMEOUT } from './config.js';
 import { log } from './logger.js';
-import { parseSSE, MCP_PROTOCOL_VERSION, MCP_CLIENT_INFO, buildSseRequestContext } from './mcp-protocol.js';
+import {
+  MCP_PROTOCOL_VERSION,
+  MCP_CLIENT_INFO,
+  buildSseRequestContext,
+  cancelResponseBody,
+  readJsonRpcResponse
+} from './mcp-protocol.js';
 
 /**
  * Verify the connection status of an HTTP/SSE-based MCP server
@@ -58,27 +64,17 @@ export async function verifyHttpServerStatus(serverName, serverConfig) {
       signal: controller.signal
     });
 
-    clearTimeout(timeoutId);
-
     if (!response.ok) {
+      await cancelResponseBody(response);
       throw new Error('HTTP ' + response.status + ': ' + response.statusText);
     }
 
-    const responseText = await response.text();
-
-    // Try parsing as SSE format first
-    const events = parseSSE(responseText);
-    let data;
-    if (events.length > 0 && events[0].data) {
-      data = events[0].data;
-    } else {
-      // Fall back to JSON parsing
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        throw new Error('Failed to parse response: ' + parseError.message);
-      }
-    }
+    const data = await readJsonRpcResponse(
+      response,
+      initRequest.id,
+      controller.signal,
+      'initialize response'
+    );
 
     if (data.error) {
       throw new Error('Server error: ' + (data.error.message || JSON.stringify(data.error)));
@@ -98,8 +94,7 @@ export async function verifyHttpServerStatus(serverName, serverConfig) {
     }
 
   } catch (error) {
-    clearTimeout(timeoutId);
-    if (error.name === 'AbortError') {
+    if (controller.signal.aborted || error.name === 'AbortError') {
       result.status = 'pending';
       result.error = 'Connection timeout';
       log('debug', `[MCP Verify] HTTP/SSE server timeout: ${serverName}`);
@@ -108,6 +103,9 @@ export async function verifyHttpServerStatus(serverName, serverConfig) {
       result.error = error.message;
       log('debug', `[MCP Verify] HTTP/SSE server failed: ${serverName}`, error.message);
     }
+  } finally {
+    clearTimeout(timeoutId);
+    controller.abort();
   }
 
   return result;

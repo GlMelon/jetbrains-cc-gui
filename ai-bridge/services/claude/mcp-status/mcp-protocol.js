@@ -175,6 +175,19 @@ export function buildSseRequestContext(url, serverConfig) {
 }
 
 /**
+ * Best-effort cancellation for response bodies that will not be consumed.
+ * This releases the underlying fetch stream/connection on non-success paths.
+ * @param {Response | null | undefined} response
+ */
+export async function cancelResponseBody(response) {
+  try {
+    await response?.body?.cancel();
+  } catch (_) {
+    // The body may already be locked, consumed or aborted.
+  }
+}
+
+/**
  * Parse a single SSE line and return a new event object with the parsed field merged.
  * Immutable: does not modify the input currentEvent.
  * @param {string} line - A single line from the SSE stream
@@ -207,8 +220,8 @@ export function parseSseLine(line, currentEvent) {
   return currentEvent;
 }
 
-/** Maximum buffer size (1 MB) to prevent memory exhaustion from malicious streams */
-const MAX_SSE_BUFFER_SIZE = 1024 * 1024;
+/** Maximum response buffer size (1 MB) to prevent memory exhaustion */
+const MAX_RESPONSE_BUFFER_SIZE = 1024 * 1024;
 
 /** Maximum number of non-matching events before giving up */
 const MAX_SSE_EVENT_COUNT = 1000;
@@ -257,8 +270,22 @@ export async function waitForSseEvent(reader, decoder, bufferRef, predicate, sig
     if (done) break;
 
     bufferRef.value += decoder.decode(value, { stream: true });
-    if (bufferRef.value.length > MAX_SSE_BUFFER_SIZE) {
+    if (bufferRef.value.length > MAX_RESPONSE_BUFFER_SIZE) {
       throw new Error('SSE buffer exceeded maximum size');
+    }
+  }
+
+  if (!signal.aborted) {
+    bufferRef.value += decoder.decode();
+    if (bufferRef.value.length > MAX_RESPONSE_BUFFER_SIZE) {
+      throw new Error('SSE buffer exceeded maximum size');
+    }
+    if (bufferRef.value.length > 0) {
+      currentEvent = parseSseLine(bufferRef.value.replace(/\r$/, ''), currentEvent);
+      bufferRef.value = '';
+    }
+    if (Object.keys(currentEvent).length > 0 && predicate(currentEvent)) {
+      return currentEvent;
     }
   }
 
@@ -286,11 +313,85 @@ export function extractJsonRpcData(event, context = 'SSE response') {
 
 /** Predicate that matches JSON-RPC responses (have "id"), skipping notifications */
 export function isJsonRpcResponse(evt) {
-  if (evt.event !== 'message' || evt.data == null) return false;
+  if ((evt.event != null && evt.event !== 'message') || evt.data == null) return false;
   let d = evt.data;
   if (typeof d === 'string') {
     try { d = JSON.parse(d); } catch { return false; }
   }
   if (typeof d !== 'object' || d === null) return false;
   return d.id != null;
+}
+
+/**
+ * Read one JSON-RPC response from either a JSON body or a streaming SSE body.
+ * The body is bounded and SSE notifications or responses for another request
+ * are ignored.
+ * @param {Response} response - Fetch response
+ * @param {string|number} requestId - Expected JSON-RPC request id
+ * @param {AbortSignal} signal - Absolute request deadline signal
+ * @param {string} context - Description for diagnostics
+ * @returns {Promise<Object>} Matching JSON-RPC response
+ */
+export async function readJsonRpcResponse(response, requestId, signal, context = 'MCP response') {
+  if (!response.body) {
+    throw new Error(context + ' has no readable body');
+  }
+
+  const contentType = (response.headers.get('content-type') || '').toLowerCase();
+  if (contentType.includes('text/event-stream')) {
+    const reader = response.body.getReader();
+    try {
+      const event = await waitForSseEvent(
+        reader,
+        new TextDecoder(),
+        { value: '' },
+        (evt) => {
+          if (!isJsonRpcResponse(evt)) return false;
+          const data = typeof evt.data === 'object'
+            ? evt.data
+            : (() => { try { return JSON.parse(evt.data); } catch { return null; } })();
+          return data?.id === requestId;
+        },
+        signal
+      );
+      return extractJsonRpcData(event, context);
+    } finally {
+      try { await reader.cancel(); } catch { /* best effort */ }
+      try { reader.releaseLock(); } catch { /* ignore */ }
+    }
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let body = '';
+  try {
+    while (!signal.aborted) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      body += decoder.decode(value, { stream: true });
+      if (body.length > MAX_RESPONSE_BUFFER_SIZE) {
+        throw new Error(context + ' exceeded maximum size');
+      }
+    }
+    if (signal.aborted) {
+      throw signal.reason instanceof Error ? signal.reason : new DOMException('Aborted', 'AbortError');
+    }
+    body += decoder.decode();
+    if (body.length > MAX_RESPONSE_BUFFER_SIZE) {
+      throw new Error(context + ' exceeded maximum size');
+    }
+    const data = JSON.parse(body);
+    if (data?.id !== requestId) {
+      throw new Error(context + ' returned unexpected JSON-RPC id');
+    }
+    return data;
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new Error('Failed to parse ' + context + ': ' + error.message);
+    }
+    throw error;
+  } finally {
+    try { await reader.cancel(); } catch { /* best effort */ }
+    try { reader.releaseLock(); } catch { /* ignore */ }
+  }
 }

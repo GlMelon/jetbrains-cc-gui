@@ -19,7 +19,8 @@ import {
   sanitizeUrlForLogging,
   waitForSseEvent,
   extractJsonRpcData,
-  isJsonRpcResponse
+  isJsonRpcResponse,
+  readJsonRpcResponse
 } from './mcp-protocol.js';
 
 /**
@@ -182,13 +183,24 @@ async function sendAndReceive(endpoint, baseHeaders, body, reader, decoder, buff
   // Check if server returned JSON directly (some implementations do)
   const contentType = response.headers.get('content-type') || '';
   if (contentType.includes('application/json')) {
-    return await response.json();
+    return await readJsonRpcResponse(
+      response,
+      body.id,
+      signal,
+      body.method + ' response'
+    );
   }
 
   // Otherwise wait for response on the SSE stream
   const event = await waitForSseEvent(
     reader, decoder, bufferRef,
-    isJsonRpcResponse,
+    (event) => {
+      if (!isJsonRpcResponse(event)) return false;
+      const data = typeof event.data === 'object'
+        ? event.data
+        : (() => { try { return JSON.parse(event.data); } catch { return null; } })();
+      return data?.id === body.id;
+    },
     signal
   );
 

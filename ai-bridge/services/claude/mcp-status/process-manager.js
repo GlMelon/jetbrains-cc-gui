@@ -7,6 +7,19 @@ import { log } from './logger.js';
 import { parseServerInfo } from './server-info-parser.js';
 import { hasValidMcpResponse, createInitializeRequest } from './mcp-protocol.js';
 
+const MAX_PROCESS_OUTPUT_BUFFER_SIZE = 1024 * 1024;
+
+function isProcessRunning(child) {
+  return child.exitCode == null && child.signalCode == null;
+}
+
+function appendBounded(current, chunk) {
+  const combined = current + chunk;
+  return combined.length <= MAX_PROCESS_OUTPUT_BUFFER_SIZE
+    ? combined
+    : combined.slice(-MAX_PROCESS_OUTPUT_BUFFER_SIZE);
+}
+
 /**
  * Safely terminate a child process
  * @param {import('child_process').ChildProcess | null} child - Child process
@@ -29,13 +42,13 @@ export function safeKillProcess(child, serverName) {
   }
 
   try {
-    if (!child.killed) {
+    if (isProcessRunning(child)) {
       child.kill('SIGTERM');
       // If SIGTERM doesn't kill it, send SIGKILL after 500ms
       // Use unref() so this timer won't prevent the parent process from exiting
       const killTimer = setTimeout(() => {
         try {
-          if (!child.killed) {
+          if (isProcessRunning(child)) {
             child.kill('SIGKILL');
             log('debug', `Force killed process for ${serverName}`);
           }
@@ -44,6 +57,9 @@ export function safeKillProcess(child, serverName) {
         }
       }, 500);
       killTimer.unref();
+      const clearKillTimer = () => clearTimeout(killTimer);
+      child.once?.('exit', clearKillTimer);
+      child.once?.('close', clearKillTimer);
     }
   } catch (e) {
     log('debug', `Failed to kill process for ${serverName}:`, e.message);
@@ -66,7 +82,7 @@ export function createProcessHandlers(context) {
   return {
     stdout: {
       onData: (data) => {
-        stdout += data.toString();
+        stdout = appendBounded(stdout, data.toString());
         if (hasValidMcpResponse(stdout)) {
           const serverInfo = parseServerInfo(stdout);
           finalize('connected', serverInfo);
@@ -75,7 +91,7 @@ export function createProcessHandlers(context) {
     },
     stderr: {
       onData: (data) => {
-        stderr += data.toString();
+        stderr = appendBounded(stderr, data.toString());
         // Log stderr output for diagnostics
         const stderrLine = data.toString().trim();
         if (stderrLine) {
@@ -116,9 +132,25 @@ export function createProcessHandlers(context) {
  * @param {string} serverName - Server name
  */
 export function sendInitializeRequest(child, serverName) {
+  if (!child?.stdin || child.stdin.destroyed || !child.stdin.writable) {
+    log('debug', `Cannot write initialize request for ${serverName}: stdin is unavailable`);
+    return;
+  }
+
+  let errorReported = false;
+  const onStdinError = (error) => {
+    if (errorReported) return;
+    errorReported = true;
+    log('debug', `Failed to write to stdin for ${serverName}:`, error.message);
+  };
+  child.stdin.once('error', onStdinError);
   try {
-    child.stdin.write(createInitializeRequest());
+    child.stdin.write(createInitializeRequest(), (error) => {
+      child.stdin.removeListener('error', onStdinError);
+      if (error) onStdinError(error);
+    });
   } catch (e) {
-    log('debug', `Failed to write to stdin for ${serverName}:`, e.message);
+    child.stdin.removeListener('error', onStdinError);
+    onStdinError(e);
   }
 }

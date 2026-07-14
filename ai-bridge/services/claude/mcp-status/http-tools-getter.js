@@ -1,14 +1,60 @@
 /**
- * HTTP/SSE tools retrieval module
- * Provides tool listing from HTTP/SSE-based MCP servers
+ * HTTP/Streamable HTTP tools retrieval with bounded response parsing,
+ * absolute timeout and MCP session recovery.
  */
 
+import { MCP_TOOLS_TIMEOUT } from './config.js';
 import { log } from './logger.js';
-import { parseSSE } from './mcp-protocol.js';
+import {
+  MCP_CLIENT_INFO,
+  MCP_PROTOCOL_VERSION,
+  buildSseRequestContext,
+  cancelResponseBody,
+  readJsonRpcResponse
+} from './mcp-protocol.js';
+
+const MAX_NETWORK_RETRIES = 2;
+const MAX_SESSION_RESTARTS = 1;
+
+class McpSessionInvalidError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'McpSessionInvalidError';
+  }
+}
+
+function isSessionError(error) {
+  const message = String(error?.message || '').toLowerCase();
+  return error?.code === -32600 || message.includes('session');
+}
+
+function isRetryableNetworkError(error) {
+  const message = String(error?.message || '').toLowerCase();
+  return message.includes('econnrefused') ||
+    message.includes('fetch failed') ||
+    message.includes('socket') ||
+    message.includes('network');
+}
+
+async function abortableDelay(delayMs, signal) {
+  if (signal.aborted) throw signal.reason;
+  await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    }, delayMs);
+    const onAbort = () => {
+      clearTimeout(timer);
+      signal.removeEventListener('abort', onAbort);
+      reject(signal.reason);
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+    timer.unref?.();
+  });
+}
 
 /**
- * Retrieve the tool list from an HTTP/SSE-based server
- * Supports MCP Streamable HTTP session management (Mcp-Session-Id)
+ * Retrieve the tool list from an HTTP/Streamable HTTP MCP server.
  * @param {string} serverName - Server name
  * @param {Object} serverConfig - Server configuration
  * @returns {Promise<Object>} Tools list response
@@ -21,185 +67,136 @@ export async function getHttpServerTools(serverName, serverConfig) {
     serverType: serverConfig.type || 'sse'
   };
 
-  const url = serverConfig.url;
-  if (!url) {
+  if (!serverConfig.url) {
     result.error = 'No URL specified for HTTP/SSE server';
     return result;
   }
 
-  log('info', '[MCP Tools] Starting tools fetch for HTTP/SSE server:', serverName);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(
+    () => controller.abort(new DOMException('MCP tools request timed out', 'AbortError')),
+    MCP_TOOLS_TIMEOUT
+  );
+  timeoutId.unref?.();
 
-  // Build headers with authorization if provided
+  const { fetchUrl, headers: configuredHeaders } = buildSseRequestContext(
+    serverConfig.url,
+    serverConfig
+  );
   const baseHeaders = {
+    ...configuredHeaders,
     'Content-Type': 'application/json',
-    'Accept': 'application/json, text/event-stream',
-    ...(serverConfig.headers || {})
+    'Accept': 'application/json, text/event-stream'
   };
-
-  // If URL has Authorization in query string, extract it and add to headers
-  let fetchUrl = url;
-  try {
-    const urlObj = new URL(url);
-    const authParam = urlObj.searchParams.get('Authorization');
-    if (authParam) {
-      baseHeaders['Authorization'] = authParam;
-      // Remove from URL to avoid duplicate
-      urlObj.searchParams.delete('Authorization');
-      fetchUrl = urlObj.toString();
-    }
-  } catch (e) {
-    // Invalid URL, continue with original
-  }
 
   let requestId = 0;
   let sessionId = null;
 
-  /**
-   * Send an MCP request with session management and retry support
-   * @param {string} method - MCP method name
-   * @param {Object} params - Request parameters
-   * @param {number} retryCount - Current retry attempt
-   * @returns {Promise<Object>} Response data
-   */
   const sendRequest = async (method, params = {}, retryCount = 0) => {
     const id = ++requestId;
-    const request = {
-      jsonrpc: '2.0',
-      id: id,
-      method: method,
-      params: params
-    };
-
-    // Build request headers, including session ID if available
+    const request = { jsonrpc: '2.0', id, method, params };
     const headers = { ...baseHeaders };
-    if (sessionId) {
-      headers['Mcp-Session-Id'] = sessionId;
-      log('debug', '[MCP Tools] Including session ID:', sessionId);
-    }
-
-    log('info', '[MCP Tools] ' + serverName + ' sending ' + method + ' request (id: ' + id + ')');
-
-    // Exponential backoff timeout: 10s first try, 15s second, 20s third
-    const timeoutMs = 10000 + (retryCount * 5000);
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    if (sessionId) headers['Mcp-Session-Id'] = sessionId;
 
     try {
       const response = await fetch(fetchUrl, {
         method: 'POST',
-        headers: headers,
+        headers,
         body: JSON.stringify(request),
         signal: controller.signal
       });
 
-      clearTimeout(timeoutId);
-
       if (!response.ok) {
-        // 404 or 405 may indicate a legacy SSE transport that needs special handling
-        if (response.status === 404 || response.status === 405) {
-          log('warn', '[MCP Tools] Server returned ' + response.status + ', may be using legacy SSE transport');
-        }
+        await cancelResponseBody(response);
         throw new Error('HTTP ' + response.status + ': ' + response.statusText);
       }
 
-      // Extract session ID from response headers
       const responseSessionId = response.headers.get('Mcp-Session-Id');
-      if (responseSessionId && !sessionId) {
-        sessionId = responseSessionId;
-        log('info', '[MCP Tools] Received session ID:', sessionId);
+      if (responseSessionId) sessionId = responseSessionId;
+
+      const data = await readJsonRpcResponse(
+        response,
+        id,
+        controller.signal,
+        method + ' response'
+      );
+      if (data?.error) {
+        const message = data.error.message || JSON.stringify(data.error);
+        if (isSessionError(data.error)) throw new McpSessionInvalidError(message);
+        throw new Error('Server error: ' + message);
       }
-
-      const responseText = await response.text();
-
-      // Try to parse as SSE first
-      const events = parseSSE(responseText);
-      if (events.length > 0 && events[0].data) {
-        const data = events[0].data;
-
-        if (data.error) {
-          // Retry on session-related errors
-          if (data.error.code === -32600 || data.error.message?.includes('session')) {
-            if (retryCount < 2) {
-              log('warn', '[MCP Tools] Session error, retrying...');
-              await new Promise(resolve => setTimeout(resolve, 500 * (retryCount + 1)));
-              return sendRequest(method, params, retryCount + 1);
-            }
-          }
-          throw new Error('Server error: ' + (data.error.message || JSON.stringify(data.error)));
-        }
-
-        return data;
-      }
-
-      // Fall back to JSON parsing
-      try {
-        const data = JSON.parse(responseText);
-
-        if (data.error) {
-          // Retry on session-related errors
-          if (data.error.code === -32600 || data.error.message?.includes('session')) {
-            if (retryCount < 2) {
-              log('warn', '[MCP Tools] Session error, retrying...');
-              await new Promise(resolve => setTimeout(resolve, 500 * (retryCount + 1)));
-              return sendRequest(method, params, retryCount + 1);
-            }
-          }
-          throw new Error('Server error: ' + (data.error.message || JSON.stringify(data.error)));
-        }
-
-        return data;
-      } catch (parseError) {
-        throw new Error('Failed to parse response: ' + parseError.message);
-      }
+      return data;
     } catch (error) {
-      clearTimeout(timeoutId);
-      if (error.name === 'AbortError') {
-        throw new Error('Request timeout after ' + timeoutMs + 'ms');
-      }
-      // Retry on network errors
-      if ((error.message.includes('ECONNREFUSED') || error.message.includes('fetch failed')) && retryCount < 2) {
-        log('warn', '[MCP Tools] Network error, retrying...', error.message);
-        await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+      if (!controller.signal.aborted &&
+          !(error instanceof McpSessionInvalidError) &&
+          isRetryableNetworkError(error) &&
+          retryCount < MAX_NETWORK_RETRIES) {
+        log('warn', '[MCP Tools] Network error, retrying:', error.message);
+        await abortableDelay(500 * (retryCount + 1), controller.signal);
         return sendRequest(method, params, retryCount + 1);
       }
-      log('error', '[MCP Tools] ' + serverName + ' request failed:', error.message);
       throw error;
     }
   };
 
-  try {
-    // Send the initialize request
-    const initResponse = await sendRequest('initialize', {
-      protocolVersion: '2024-11-05',
-      capabilities: {},
-      clientInfo: { name: 'codemoss-ide', version: '1.0.0' }
+  const sendInitializedNotification = async () => {
+    const headers = { ...baseHeaders };
+    if (sessionId) headers['Mcp-Session-Id'] = sessionId;
+    const response = await fetch(fetchUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }),
+      signal: controller.signal
     });
-
-    if (!initResponse.result) {
-      throw new Error('Invalid initialize response: missing result');
+    if (!response.ok) {
+      throw new Error('HTTP ' + response.status + ': ' + response.statusText);
     }
+    try { await response.body?.cancel(); } catch { /* best effort */ }
+  };
 
-    log('info', '[MCP Tools] ' + serverName + ' initialized successfully');
+  try {
+    log('info', '[MCP Tools] Starting tools fetch for HTTP server:', serverName);
 
-    // If we have a session ID, the session is now established and subsequent requests will reuse it
-    if (sessionId) {
-      log('info', '[MCP Tools] Using session:', sessionId);
+    for (let sessionAttempt = 0; sessionAttempt <= MAX_SESSION_RESTARTS; sessionAttempt++) {
+      sessionId = null;
+      const initResponse = await sendRequest('initialize', {
+        protocolVersion: MCP_PROTOCOL_VERSION,
+        capabilities: {},
+        clientInfo: MCP_CLIENT_INFO
+      });
+      if (!initResponse?.result) {
+        throw new Error('Invalid initialize response: missing result');
+      }
+
+      try {
+        await sendInitializedNotification();
+      } catch (error) {
+        if (controller.signal.aborted) throw error;
+        log('debug', '[MCP Tools] initialized notification failed for', serverName, error.message);
+      }
+
+      try {
+        const toolsResponse = await sendRequest('tools/list', {});
+        result.tools = Array.isArray(toolsResponse?.result?.tools)
+          ? toolsResponse.result.tools
+          : [];
+        log('info', '[MCP Tools] HTTP server', serverName, 'returned', result.tools.length, 'tools');
+        break;
+      } catch (error) {
+        if (!(error instanceof McpSessionInvalidError) || sessionAttempt >= MAX_SESSION_RESTARTS) {
+          throw error;
+        }
+        log('warn', '[MCP Tools] Session invalid, repeating initialize handshake:', serverName);
+      }
     }
-
-    // Send the tools/list request (now includes the session ID)
-    const toolsResponse = await sendRequest('tools/list', {});
-
-    if (toolsResponse.result && toolsResponse.result.tools) {
-      const tools = toolsResponse.result.tools;
-      log('info', '[MCP Tools] ' + serverName + ' received tools/list response: ' + tools.length + ' tools');
-      result.tools = tools;
-    } else {
-      result.tools = [];
-    }
-
   } catch (error) {
-    log('error', '[MCP Tools] ' + serverName + ' failed:', error.message);
-    result.error = error.message;
+    result.error = controller.signal.aborted
+      ? 'Connection timeout'
+      : (error?.message || String(error));
+    log('error', '[MCP Tools] HTTP server', serverName, 'failed:', result.error);
+  } finally {
+    clearTimeout(timeoutId);
+    controller.abort();
   }
 
   return result;
