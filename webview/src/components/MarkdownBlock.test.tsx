@@ -279,7 +279,7 @@ describe('MarkdownBlock linkify integration', () => {
     expect(container.querySelector('item')).toBeNull();
   });
 
-  it('shows links during streaming and keeps final rendering consistent', () => {
+  it('keeps final link rendering consistent after streaming (streaming phase is plain-text typewriter)', () => {
     setLinkifyCapabilities({ classNavigationEnabled: true });
 
     const content = [
@@ -290,15 +290,11 @@ describe('MarkdownBlock linkify integration', () => {
       'Docs https://example.com/docs',
     ].join('\n');
 
-    const { rerender } = render(<MarkdownBlock content={content} isStreaming />);
-
-    expect(screen.getByRole('link', { name: 'src/App.tsx' })).toBeTruthy();
-    expect(
-      screen.getByRole('link', {
-        name: 'com.github.claudecodegui.handler.file.OpenFileHandler',
-      }),
-    ).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'https://example.com/docs' })).toBeTruthy();
+    // 流式态:useTypewriterStream 纯文本逐字弹入,不经过 markdown/linkify 管线,
+    // 故流式期间无 <a>;格式在流式结束后由完整管线补齐(对齐 motion-preview.html)。
+    const { container, rerender } = render(<MarkdownBlock content={content} isStreaming />);
+    expect(container.querySelector('.markdown-streaming')).toBeTruthy();
+    expect(container.querySelector('a')).toBeNull();
 
     rerender(<MarkdownBlock content={content} isStreaming={false} />);
 
@@ -345,32 +341,22 @@ describe('MarkdownBlock linkify integration', () => {
     expect(document.querySelector('.file-link-tooltip')?.textContent).toBe('src/main.ts');
   });
 
-  it('renders inline code with XML tags consistently across streaming and non-streaming', () => {
+  it('renders inline code with XML tags consistently after streaming ends', () => {
     const content = 'Use `<div>` and `<custom-tag>` here';
 
-    // Test streaming path
-    const { rerender } = render(<MarkdownBlock content={content} isStreaming />);
+    // 流式态:纯文本逐字,尖括号作为字面字符(textContent)追加,绝不解析为 DOM 元素
+    const { container, rerender } = render(<MarkdownBlock content={content} isStreaming />);
+    expect(container.querySelector('.markdown-streaming')).toBeTruthy();
+    expect(container.querySelector('div.custom-tag')).toBeNull();
+    expect(container.querySelector('custom-tag')).toBeNull();
 
-    const streamingCodeElements = document.querySelectorAll('code');
-    expect(streamingCodeElements.length).toBe(2);
-
-    // Both should display the tag as literal text <div> and <custom-tag>
-    expect(streamingCodeElements[0].textContent).toBe('<div>');
-    expect(streamingCodeElements[1].textContent).toBe('<custom-tag>');
-
-    // No actual DOM elements should exist for these tags
-    expect(document.querySelector('div.custom-tag')).toBeNull();
-    expect(document.querySelector('custom-tag')).toBeNull();
-
-    // Test non-streaming path
+    // 流式结束:完整 markdown 管线渲染内联 code
     rerender(<MarkdownBlock content={content} isStreaming={false} />);
 
-    const nonStreamingCodeElements = document.querySelectorAll('code');
-    expect(nonStreamingCodeElements.length).toBe(2);
-
-    // Should match streaming output exactly
-    expect(nonStreamingCodeElements[0].textContent).toBe('<div>');
-    expect(nonStreamingCodeElements[1].textContent).toBe('<custom-tag>');
+    const codeElements = container.querySelectorAll('code');
+    expect(codeElements.length).toBe(2);
+    expect(codeElements[0].textContent).toBe('<div>');
+    expect(codeElements[1].textContent).toBe('<custom-tag>');
   });
 
   // Based on real conversation from session JSONL
@@ -416,17 +402,14 @@ describe('MarkdownBlock linkify integration', () => {
       'Also see `src/services/compact/compact.ts` for the service.',
     ].join('\n');
 
-    const { rerender } = render(<MarkdownBlock content={content} isStreaming />);
+    // 流式态:纯文本逐字(反引号字面显示),内联 code 格式在结束后补齐
+    const { container, rerender } = render(<MarkdownBlock content={content} isStreaming />);
+    expect(container.querySelector('.markdown-streaming')).toBeTruthy();
 
-    // Streaming: inline code should contain the full path
-    const streamingCodes = document.querySelectorAll('code');
-    expect(streamingCodes[0].textContent).toBe('E:/project/ClaudeCodeRev/src/commands/compact/compact.ts');
-    expect(streamingCodes[1].textContent).toBe('src/services/compact/compact.ts');
-
-    // Transition to non-streaming
+    // Transition to non-streaming:完整管线渲染内联 code
     rerender(<MarkdownBlock content={content} isStreaming={false} />);
 
-    const finalCodes = document.querySelectorAll('code');
+    const finalCodes = container.querySelectorAll('code');
     expect(finalCodes[0].textContent).toBe('E:/project/ClaudeCodeRev/src/commands/compact/compact.ts');
     expect(finalCodes[1].textContent).toBe('src/services/compact/compact.ts');
   });
@@ -503,18 +486,14 @@ describe('MarkdownBlock linkify integration', () => {
     // Real pattern: error messages with type parameters like <T>
     const content = 'Use `Array<T>` or `Map<string, number>` for generic types.';
 
-    const { rerender } = render(<MarkdownBlock content={content} isStreaming />);
-
-    const streamingCodes = document.querySelectorAll('code');
-    expect(streamingCodes[0].textContent).toBe('Array<T>');
-    expect(streamingCodes[1].textContent).toBe('Map<string, number>');
-
-    // No actual DOM elements for T or string
-    expect(document.querySelector('T')).toBeNull();
+    // 流式态:纯文本逐字,<T> 作为字面字符追加,不解析为 DOM 元素
+    const { container, rerender } = render(<MarkdownBlock content={content} isStreaming />);
+    expect(container.querySelector('.markdown-streaming')).toBeTruthy();
+    expect(container.querySelector('T')).toBeNull();
 
     rerender(<MarkdownBlock content={content} isStreaming={false} />);
 
-    const finalCodes = document.querySelectorAll('code');
+    const finalCodes = container.querySelectorAll('code');
     expect(finalCodes[0].textContent).toBe('Array<T>');
     expect(finalCodes[1].textContent).toBe('Map<string, number>');
   });

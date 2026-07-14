@@ -570,18 +570,20 @@
     cursor: text;
 }
 
-/* ── 流式渲染:顶层块级 React diff 弹入 ──
-   流式内容被拆成顶层块数组(MarkdownBlock.tsx buildStreamingSegments),React 按 key
-   复用旧块 DOM(不重播动画、不闪),仅新挂载的块播放 stream-block-in 弹入,告别"硬跳"。
-   块内字符随 delta 增长仍是文本节点更新(不可动画,业界常态)。 */
-.markdown-streaming .md-stream-block {
-    animation: stream-block-in var(--dur-hover) var(--ease-smooth);
+/* ── 流式渲染:逐字弹入(B 方案,对齐 motion-preview.html)──
+   useTypewriterStream 把每个新增字符包成 <span class="md-char"> 直接 append 到
+   流式容器(绕过 React diff),挂载即播 char-pop(scale .86→1 + 淡入,弹性过冲)。
+   换行用 <br>。节奏由 hook 自适应控制(优雅逐字 / 追赶 / 失控保护),队列不积压。
+   流式期纯文本逐字,加粗/链接/代码高亮在流式结束、切回完整 markdown 管线时补齐。 */
+.markdown-streaming {
+    line-height: 1.75;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
-/* 块间段落间距补偿:流式时每个块 div 内的 <p> 都是其 :last-child(margin-bottom:0),
-   段落间距会丢失,需在块容器间补回,对齐 .markdown-content p 的 margin-bottom。 */
-.markdown-streaming .md-stream-block + .md-stream-block {
-    margin-top: 10px;
+.markdown-streaming .md-char {
+    display: inline-block;
+    animation: char-pop var(--dur-char) var(--ease-pop) both;
 }
 
 .message.user .markdown-content {
@@ -1165,14 +1167,8 @@
     }
 }
 
-@media (prefers-reduced-motion: reduce) {
-    .assistant-response-status,
-    .assistant-response-status-ring,
-    .assistant-response-status-dots span,
-    .assistant-streaming-footer-dots span {
-        animation-duration: 0.01ms;
-    }
-}
+/* prefers-reduced-motion 由 base.less 全局兜底(* { animation-duration: 0.01ms !important }),
+   此处历史上的局部块无 !important 被全局覆盖成 no-op,删除以消除冗余。 */
 
 @keyframes thinking-pulse {
     0%, 100% {
@@ -1294,7 +1290,10 @@
     left: 0;
     top: 96px;
     z-index: 26;
-    width: 20px;
+    /* 固定为展开宽度,用 clip-path 控制可见区域(paint/composite 级,不触发 layout reflow),
+       替代原 width 动画——后者每帧重新计算布局 + 触发 backdrop-filter 重新采样背景。
+       clip-path 裁剪区外不接收指针事件,故收起态仅 20px 命中、展开态 108px 命中,交互等价。 */
+    width: 108px;
     height: 156px;
     border: 1px solid var(--border-primary);
     border-left: 0;
@@ -1308,11 +1307,12 @@
     display: block;
     padding: 0;
     overflow: hidden;
-    transition: width 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    clip-path: inset(0 calc(100% - 20px) 0 0);
+    transition: clip-path 0.18s var(--ease-smooth, ease), box-shadow 0.18s ease, background 0.18s ease;
 
     &:hover,
     &.is-open {
-        width: 108px;
+        clip-path: inset(0 0 0 0);
         background: var(--glass-bg-strong);
         box-shadow: 4px 0 28px rgba(0, 0, 0, 0.24);
     }
@@ -1617,6 +1617,7 @@
         top: 58px;
         width: 40px;
         min-height: 128px;
+        clip-path: inset(0);
     }
 
     .messages-user-panel-tools {

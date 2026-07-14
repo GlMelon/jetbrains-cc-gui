@@ -4,10 +4,10 @@ import { memo, useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { openBrowser, openClass, openFile } from '../utils/bridge';
 import { useMarkdownFileLinkTooltip } from '../hooks/useMarkdownFileLinkTooltip';
+import { useTypewriterStream } from '../hooks/useTypewriterStream';
 import {
   decorateExistingAnchors,
   linkifyHtml,
-  linkifyPlainTextSegment,
 } from '../utils/linkify';
 import {
   getLinkifyCapabilities,
@@ -222,48 +222,6 @@ interface MarkdownBlockProps {
 }
 
 /**
- * Stream-safe processing: handle unclosed code blocks and other markdown structures.
- * During streaming, code blocks may be truncated, causing markdown parsing errors.
- * This function detects and temporarily closes incomplete code blocks.
- */
-function makeStreamSafe(content: string): string {
-  if (!content) return content;
-
-  let result = content;
-
-  // Handle code blocks: detect unclosed fenced code blocks (```)
-  // Track code block state using a state machine approach
-  const lines = result.split('\n');
-  let inCodeBlock = false;
-
-  for (const line of lines) {
-    const trimmedLine = line.trim();
-    // Detect code block opening or closing
-    if (trimmedLine.startsWith('```')) {
-      inCodeBlock = !inCodeBlock;
-    }
-  }
-
-  // If still inside a code block, append a closing fence
-  if (inCodeBlock) {
-    result = result + '\n```';
-  }
-
-  // Handle inline code: detect unclosed inline code (`)
-  // Only process the last line to avoid affecting multiline structures
-  const lastNewlineIndex = result.lastIndexOf('\n');
-  const lastLine = lastNewlineIndex >= 0 ? result.slice(lastNewlineIndex + 1) : result;
-
-  // Count single backticks in the last line (excluding double and triple backticks)
-  const singleBacktickMatches = lastLine.match(/(?<!`)`(?!`)/g);
-  if (singleBacktickMatches && singleBacktickMatches.length % 2 !== 0) {
-    result = result + '`';
-  }
-
-  return result;
-}
-
-/**
  * Strip system-internal XML tags injected by Claude Code's prompt protocol.
  * Mirrors `stripPromptXMLTags` from the CLI source (src/utils/messages.ts).
  */
@@ -296,7 +254,6 @@ function escapeXmlTags(text: string): string {
  */
 const CODE_FENCE_RE = /(```[\s\S]*?```)/g;
 const INLINE_CODE_RE = /(`[^`\n]+`)/g;
-const BOLD_SYNTAX_RE = /(\*\*[^*]+\*\*)/g;
 
 function stripAndEscapeOutsideCodeBlocks(content: string): string {
   // First split by fenced code blocks
@@ -320,195 +277,6 @@ function stripAndEscapeOutsideCodeBlocks(content: string): string {
     .join('');
 }
 
-/**
- * Lightweight renderer for streaming content.
- * Provides basic formatting (code fences, line breaks, inline code, bold)
- * without the heavy marked.parse() + DOMPurify + DOMParser pipeline.
- * Full markdown parsing is deferred to when streaming ends.
- */
-/** Sanitize code language identifier — only allow safe characters for HTML class attribute. */
-function safeLang(lang: string): string {
-  return lang.replace(/[^a-zA-Z0-9_.-]/g, '');
-}
-
-function renderStreamingInlineText(
-  text: string,
-  capabilities: LinkifyCapabilities,
-  handleInlineCode: boolean = true,
-): string {
-  if (handleInlineCode) {
-    return text
-      .split(INLINE_CODE_RE)
-      .map((inlinePart) => {
-        const inlineCodeMatch = /^`([^`\n]+)`$/.exec(inlinePart);
-        if (inlineCodeMatch) {
-          // Inline code content should also be linkified
-          const linkifiedCode = linkifyPlainTextSegment(inlineCodeMatch[1], capabilities);
-          return `<code>${linkifiedCode}</code>`;
-        }
-
-        return inlinePart
-          .split(BOLD_SYNTAX_RE)
-          .map((part) => {
-            const boldMatch = /^\*\*([^*]+)\*\*$/.exec(part);
-            if (boldMatch) {
-              return `<strong>${linkifyPlainTextSegment(boldMatch[1], capabilities)}</strong>`;
-            }
-
-            return linkifyPlainTextSegment(part, capabilities);
-          })
-          .join('');
-      })
-      .join('');
-  }
-
-  // When inline code is already handled upstream, just process bold and linkify
-  return text
-    .split(BOLD_SYNTAX_RE)
-    .map((part) => {
-      const boldMatch = /^\*\*([^*]+)\*\*$/.exec(part);
-      if (boldMatch) {
-        return `<strong>${linkifyPlainTextSegment(boldMatch[1], capabilities)}</strong>`;
-      }
-
-      return linkifyPlainTextSegment(part, capabilities);
-    })
-    .join('');
-}
-
-function renderStreamingProseBlocks(
-  segment: string,
-  capabilities: LinkifyCapabilities,
-): string[] {
-  // First strip system-internal XML tags from the prose segment
-  const cleaned = stripSystemTags(segment);
-
-  // Split by inline code to avoid double-escaping
-  // linkifyPlainTextSegment already handles HTML escaping for inline code content
-  const inlineParts = cleaned.split(INLINE_CODE_RE);
-
-  const processedParts = inlineParts.map((part, idx) => {
-    // Odd indices are inline code — pass to linkifyPlainTextSegment which escapes HTML
-    if (idx % 2 === 1) {
-      const inlineContent = part.slice(1, -1); // Remove surrounding backticks
-      return `<code>${linkifyPlainTextSegment(inlineContent, capabilities)}</code>`;
-    }
-    // Even indices are prose — escape XML tags then render inline formatting
-    return renderStreamingInlineText(escapeXmlTags(part), capabilities, false);
-  });
-
-  // Now wrap in paragraph/heading structure based on paragraph breaks.
-  // 返回【顶层块数组】(每个元素是一个 <p> 或 <hN>),供流式段落级 React diff:
-  // 旧块 key 复用 DOM 不重播动画,新块挂载时弹入(见 buildStreamingSegments)。
-  const combined = processedParts.join('');
-  return combined
-    .split(/\n{2,}/)
-    .filter((block) => block.length > 0)
-    .map((block) => {
-      const headingMatch = /^(#{1,6})\s+(.+)$/.exec(block);
-      if (headingMatch && !block.includes('\n')) {
-        const level = headingMatch[1].length;
-        return `<h${level}>${headingMatch[2]}</h${level}>`;
-      }
-
-      const lines = block.split('\n').join('<br/>');
-      return `<p>${lines}</p>`;
-    });
-}
-
-export interface StreamingBlock {
-  /** 段落稳定标识:流式为纯追加,用块索引作 key 单调递增、永不错位 */
-  key: number;
-  /** 单个顶层块的 HTML(已 DOMPurify sanitize) */
-  html: string;
-}
-
-/**
- * 将流式内容拆为【顶层块数组】(每个 <p>/<hN>/<pre> 一个元素)。
- *
- * 为什么拆:原先流式把整段内容拼成一个 HTML 字符串再经 dangerouslySetInnerHTML
- * 全量替换——每次 delta 整棵 DOM 重建,CSS 无法区分"新增段落",视觉上"硬跳"。
- * 拆成块数组后由 React 按 key 做 diff:
- *   - 旧块 key 不变 → 复用 DOM,不重渲染、不闪;
- *   - 新块(新 key)→ 新挂载,播放 CSS 弹入动画(.md-stream-block)。
- * 流式内容纯追加(只增长不回退/不中间插入),块索引作 key 安全且零额外计算。
- *
- * 块内字符随 delta 增长仍是 innerHTML 文本节点更新(不可 CSS 动画,业界常态),
- * 本方案改善"段落边界"的平滑;配合 LLM delta 自然打字频率,整体观感平滑。
- */
-function buildStreamingSegments(
-  content: string,
-  capabilities: LinkifyCapabilities,
-): StreamingBlock[] {
-  if (!content) return [];
-
-  const safeContent = makeStreamSafe(content);
-  const rawBlocks: string[] = []; // 未 sanitize 的顶层块 HTML
-
-  let current = '';
-  let inCode = false;
-  let codeLang = '';
-
-  // 把已累积的散文段拆成若干顶层块(<p>/<hN>)并入栈
-  const flushProse = () => {
-    if (current) {
-      rawBlocks.push(...renderStreamingProseBlocks(current, capabilities));
-      current = '';
-    }
-  };
-
-  for (const line of safeContent.split('\n')) {
-    const trimmed = line.trim();
-    if (trimmed.startsWith('```')) {
-      if (!inCode) {
-        // 进入代码块前,先冲刷已累积的散文段
-        flushProse();
-        inCode = true;
-        codeLang = safeLang(trimmed.slice(3).trim());
-      } else {
-        // End code block — emit as <pre><code>
-        const escaped = current
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;');
-        rawBlocks.push(
-          `<pre><code${codeLang ? ` class="language-${codeLang}"` : ''}>${escaped}</code></pre>`
-        );
-        current = '';
-        inCode = false;
-        codeLang = '';
-      }
-      continue;
-    }
-    current += (current ? '\n' : '') + line;
-  }
-
-  // Handle remaining content
-  if (current) {
-    if (inCode) {
-      const escaped = current
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-      rawBlocks.push(
-        `<pre><code${codeLang ? ` class="language-${codeLang}"` : ''}>${escaped}</code></pre>`
-      );
-    } else {
-      rawBlocks.push(...renderStreamingProseBlocks(current, capabilities));
-    }
-  }
-
-  // 每块单独 sanitize(配置与原整体 sanitize 一致,防流式期 XSS)
-  return rawBlocks.map((html, idx) => ({
-    key: idx,
-    html: DOMPurify.sanitize(html, {
-      ...MARKDOWN_LINK_SANITIZE_OPTIONS,
-      ALLOWED_TAGS: ['a', 'p', 'br', 'pre', 'code', 'strong', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
-      ALLOWED_ATTR: ['class', 'href', 'data-linkify'],
-    }),
-  }));
-}
-
 // Mermaid render counter for generating unique IDs
 let mermaidIdCounter = 0;
 
@@ -526,6 +294,8 @@ const MarkdownBlock = ({ content = '', isStreaming = false }: MarkdownBlockProps
     getLinkifyCapabilities(),
   );
   const containerRef = useRef<HTMLDivElement>(null);
+  // 流式态专用容器:子节点由 useTypewriterStream 直接逐字追加(绕过 React diff)
+  const streamContainerRef = useRef<HTMLDivElement>(null);
   const { t, i18n } = useTranslation();
 
   // Track previous isStreaming state to detect when streaming ends
@@ -536,6 +306,9 @@ const MarkdownBlock = ({ content = '', isStreaming = false }: MarkdownBlockProps
   const MERMAID_MAX_RETRIES = 3;
 
   const fileLinkTooltip = useMarkdownFileLinkTooltip();
+
+  // 流式逐字打字机:把 content 按自适应节奏逐字追加到 streamContainerRef
+  useTypewriterStream(streamContainerRef, content, isStreaming);
 
   useEffect(() => {
     return subscribeLinkifyCapabilities(setLinkifyCapabilities);
@@ -687,7 +460,7 @@ const MarkdownBlock = ({ content = '', isStreaming = false }: MarkdownBlockProps
 
   const html = useMemo(() => {
     try {
-      // 流式态改由 streamingSegments(顶层块数组)渲染,这里不再产出 string HTML
+      // 流式态由 useTypewriterStream 直接管理 DOM(逐字弹入),此处不产出 HTML
       if (isStreaming) {
         return '';
       }
@@ -771,14 +544,6 @@ const MarkdownBlock = ({ content = '', isStreaming = false }: MarkdownBlockProps
       });
     }
   }, [content, isStreaming, i18n.language, linkifyCapabilities, t]);
-
-  // 流式态:拆成顶层块数组,交由 React 按 key diff(旧块复用 DOM,新块弹入)。
-  // 非流式态为 null,走上方 html 单串路径。
-  const streamingSegments = useMemo(() => {
-    if (!isStreaming) return null;
-    const trimmedContent = content.replace(/[\r\n]+$/, '');
-    return buildStreamingSegments(trimmedContent, linkifyCapabilities);
-  }, [content, isStreaming, linkifyCapabilities]);
 
   // When streaming ends, the non-streaming pipeline produces the full HTML
   // (mermaid, highlighted code, linkify) via the `html` memo above, and React
@@ -904,23 +669,15 @@ const MarkdownBlock = ({ content = '', isStreaming = false }: MarkdownBlockProps
 
   return (
     <>
-      {isStreaming && streamingSegments ? (
+      {isStreaming ? (
         <div
-          ref={containerRef}
+          ref={streamContainerRef}
           className="markdown-content markdown-streaming"
           onClick={handleClick}
           onMouseOver={fileLinkTooltip.handleMouseOver}
           onMouseMove={fileLinkTooltip.handleMouseMove}
           onMouseOut={fileLinkTooltip.handleMouseOut}
-        >
-          {streamingSegments.map((seg) => (
-            <div
-              key={seg.key}
-              className="md-stream-block"
-              dangerouslySetInnerHTML={{ __html: seg.html }}
-            />
-          ))}
-        </div>
+        />
       ) : (
         <div
           ref={containerRef}

@@ -3,7 +3,11 @@ import type { ProjectStatistics } from '../../types/usage';
 import { CommentIcon, CreditCardIcon, FolderIcon, GraphIcon, NumberIcon } from '../Icons';
 
 function getBarFillStyle(percentage: number): React.CSSProperties {
-  return { width: `${percentage}%` };
+  // 用 transform: scaleX 替代 width:百分比 —— transform 走 compositor 线程不触发
+  // layout reflow,而 width 每次数据更新都会重排条内布局。圆角由 .token-bar-track
+  // 的 border-radius + overflow:hidden 裁剪提供,fill 自身无需 border-radius。
+  const ratio = Math.min(100, Math.max(0, percentage)) / 100;
+  return { transform: `scaleX(${ratio})` };
 }
 
 interface OverviewTabProps {
