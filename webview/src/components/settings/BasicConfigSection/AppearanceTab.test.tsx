@@ -324,8 +324,12 @@ describe('AppearanceTab ui font selector', () => {
   });
 
   it('shows only user preview on the user tab', () => {
-    const { container } = render(
+    render(
       <AppearanceTab
+        theme="dark"
+        onThemeChange={vi.fn()}
+        fontSizeLevel={3}
+        onFontSizeLevelChange={vi.fn()}
         avatarConfig={{
           assistant: { mode: AVATAR_MODE.PRESET, preset: AVATAR_PRESET.ASSISTANT_DEFAULT },
           user: { mode: AVATAR_MODE.PRESET, preset: AVATAR_PRESET.USER_DEFAULT },

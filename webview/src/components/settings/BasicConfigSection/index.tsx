@@ -104,6 +104,9 @@ interface BasicConfigSectionProps {
   // Task completion notification configuration
   taskCompletionNotificationEnabled?: boolean;
   onTaskCompletionNotificationEnabledChange?: (enabled: boolean) => void;
+  // AskUserQuestion reminder notification configuration
+  askUserQuestionNotificationEnabled?: boolean;
+  onAskUserQuestionNotificationEnabledChange?: (enabled: boolean) => void;
   // Invocation mode configuration
   invocationMode?: 'sdk' | 'cli';
   onInvocationModeChange?: (mode: 'sdk' | 'cli') => void;
@@ -205,6 +208,8 @@ const BasicConfigSection = (props: BasicConfigSectionProps) => {
           onNewSessionConfirmEnabledChange={props.onNewSessionConfirmEnabledChange}
           taskCompletionNotificationEnabled={props.taskCompletionNotificationEnabled}
           onTaskCompletionNotificationEnabledChange={props.onTaskCompletionNotificationEnabledChange}
+          askUserQuestionNotificationEnabled={props.askUserQuestionNotificationEnabled}
+          onAskUserQuestionNotificationEnabledChange={props.onAskUserQuestionNotificationEnabledChange}
           permissionDialogTimeoutSeconds={props.permissionDialogTimeoutSeconds}
           onPermissionDialogTimeoutChange={props.onPermissionDialogTimeoutChange}
         />

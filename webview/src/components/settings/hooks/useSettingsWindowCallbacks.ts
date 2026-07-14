@@ -47,6 +47,7 @@ export interface SettingsWindowCallbacksDeps {
   setAiTitleGenerationEnabled?: (enabled: boolean) => void;
   setStatusBarWidgetEnabled?: (enabled: boolean) => void;
   setTaskCompletionNotificationEnabled?: (enabled: boolean) => void;
+  setAskUserQuestionNotificationEnabled?: (enabled: boolean) => void;
   // Invocation mode setters
   setInvocationMode: (mode: 'sdk' | 'cli') => void;
   setCliPath: (path: string) => void;
@@ -149,6 +150,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
     registerLegacyAlias('updateAiTitleGenerationEnabled', DOWNSTREAM.CONFIG_AI_TITLE_GENERATION);
     registerLegacyAlias('updateStatusBarWidgetEnabled', DOWNSTREAM.CONFIG_STATUS_BAR_WIDGET);
     registerLegacyAlias('updateTaskCompletionNotificationEnabled', DOWNSTREAM.CONFIG_TASK_COMPLETION_NOTIFICATION);
+    registerLegacyAlias('updateAskUserQuestionNotificationEnabled', DOWNSTREAM.CONFIG_ASK_USER_QUESTION_NOTIFICATION);
     registerLegacyAlias('updateInvocationMode', DOWNSTREAM.CONFIG_INVOCATION_MODE);
     registerLegacyAlias('updateClaudeCliPath', DOWNSTREAM.CONFIG_CLAUDE_CLI_PATH);
     registerLegacyAlias('updateAgents', DOWNSTREAM.AGENT_LIST);
@@ -419,6 +421,16 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
       }
     }));
 
+    // AskUserQuestion reminder notification config callback (opt-in feature, default false)
+    unsubs.push(subscribeEvent(DOWNSTREAM.CONFIG_ASK_USER_QUESTION_NOTIFICATION, (jsonStr) => {
+      try {
+        const data = JSON.parse(jsonStr as string);
+        d().setAskUserQuestionNotificationEnabled?.(data.askUserQuestionNotificationEnabled ?? false);
+      } catch (error) {
+        console.error('[SettingsView] Failed to parse ask user question notification config:', error);
+      }
+    }));
+
     // Invocation mode callback
     unsubs.push(subscribeEvent(DOWNSTREAM.CONFIG_INVOCATION_MODE, (jsonStr) => {
       try {
@@ -603,6 +615,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
     sendAction(UPSTREAM.GET_AI_TITLE_GENERATION_ENABLED);
     sendAction(UPSTREAM.GET_STATUS_BAR_WIDGET_ENABLED);
     sendAction(UPSTREAM.GET_TASK_COMPLETION_NOTIFICATION_ENABLED);
+    sendAction(UPSTREAM.GET_ASK_USER_QUESTION_NOTIFICATION_ENABLED);
     sendAction(UPSTREAM.GET_INVOCATION_MODE);
     sendAction(UPSTREAM.GET_PERMISSION_DIALOG_TIMEOUT);
     sendAction(UPSTREAM.GET_CLAUDE_CLI_PATH);

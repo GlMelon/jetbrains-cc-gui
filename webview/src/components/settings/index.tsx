@@ -200,6 +200,9 @@ const SettingsView = ({
     taskCompletionNotificationEnabled,
     setTaskCompletionNotificationEnabled,
     handleTaskCompletionNotificationEnabledChange,
+    askUserQuestionNotificationEnabled,
+    setAskUserQuestionNotificationEnabled,
+    handleAskUserQuestionNotificationEnabledChange,
     permissionDialogTimeoutSeconds,
     handlePermissionDialogTimeoutChange,
     commitAiConfig,
@@ -389,6 +392,7 @@ const SettingsView = ({
     setAiTitleGenerationEnabled,
     setStatusBarWidgetEnabled,
     setTaskCompletionNotificationEnabled,
+    setAskUserQuestionNotificationEnabled,
     setInvocationMode,
   });
 
@@ -574,6 +578,8 @@ const SettingsView = ({
               }}
               taskCompletionNotificationEnabled={taskCompletionNotificationEnabled}
               onTaskCompletionNotificationEnabledChange={handleTaskCompletionNotificationEnabledChange}
+              askUserQuestionNotificationEnabled={askUserQuestionNotificationEnabled}
+              onAskUserQuestionNotificationEnabledChange={handleAskUserQuestionNotificationEnabledChange}
               invocationMode={invocationMode}
               onInvocationModeChange={handleInvocationModeChange}
               permissionDialogTimeoutSeconds={permissionDialogTimeoutSeconds}

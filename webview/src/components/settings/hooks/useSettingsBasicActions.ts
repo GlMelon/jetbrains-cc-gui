@@ -1,6 +1,5 @@
 // hooks/useSettingsBasicActions.ts
 import { sendAction } from '../../../bridge/typed';
-import { sendBridgeEvent } from '../../../utils/bridge';
 import { UPSTREAM } from '../../../generated/protocol';
 import { useCallback, useEffect, useState } from 'react';
 import type { UiFontConfig, CodeFontConfig } from '../../../types/uiFontConfig';
@@ -471,7 +470,7 @@ export function useSettingsBasicActions({
   const handleAskUserQuestionNotificationEnabledChange = useCallback((enabled: boolean) => {
     setAskUserQuestionNotificationEnabled(enabled);
     const payload = { askUserQuestionNotificationEnabled: enabled };
-    sendBridgeEvent('set_ask_user_question_notification_enabled', JSON.stringify(payload));
+    sendAction(UPSTREAM.SET_ASK_USER_QUESTION_NOTIFICATION_ENABLED, JSON.stringify(payload));
   }, []);
 
   // Permission dialog timeout change handler
