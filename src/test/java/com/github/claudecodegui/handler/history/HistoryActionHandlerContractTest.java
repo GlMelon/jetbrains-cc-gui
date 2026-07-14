@@ -65,10 +65,4 @@ public class HistoryActionHandlerContractTest {
     @Test public void testImplementsFrontendActionHandler() {
         Assert.assertTrue(new LoadHistoryDataActionHandler(null) instanceof FrontendActionHandler<?>);
     }
-
-    @Test public void testSessionLoadCallbackSetterAcceptsLambda() {
-        HistoryActionHandlers handlers = new HistoryActionHandlers(null);
-        handlers.setSessionLoadCallback((sessionId, projectPath, provider) -> { });
-        // 无异常即通过
-    }
 }

@@ -3,7 +3,9 @@ package com.github.claudecodegui.handler.history;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.NodeJsServiceCaller;
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.session.runtime.ProviderType;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.util.Alarm;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -16,9 +18,10 @@ import java.util.concurrent.CompletableFuture;
  * state and the {@link SessionLoadCallback} previously wired via the legacy
  * {@code HistoryHandler}.
  */
-public class HistoryActionHandlers {
+public class HistoryActionHandlers implements HistoryRefreshService {
 
     private static final Logger LOG = Logger.getInstance(HistoryActionHandlers.class);
+    private static final int OPENCODE_HISTORY_REFRESH_DELAY_MS = 1_500;
 
     // Session load callback interface
     public interface SessionLoadCallback {
@@ -35,6 +38,8 @@ public class HistoryActionHandlers {
     private final HistoryMetadataService historyMetadataService;
     private final SubagentHistoryService subagentHistoryService;
     private final SessionConversionService sessionConversionService;
+    private final Alarm postStreamRefreshAlarm = new Alarm(Alarm.ThreadToUse.POOLED_THREAD);
+    private volatile boolean disposed;
 
     public HistoryActionHandlers(HandlerContext context) {
         this.context = context;
@@ -131,5 +136,26 @@ public class HistoryActionHandlers {
                 ? this.context.getProject().getBasePath() : null;
         this.sessionConversionService.convertSdkSession(content, conversionProjectPath);
     }
-}
 
+    @Override
+    public synchronized void onStreamCompleted(String provider) {
+        if (disposed || !shouldSchedulePostStreamRefresh(provider)) {
+            return;
+        }
+        postStreamRefreshAlarm.cancelAllRequests();
+        postStreamRefreshAlarm.addRequest(
+                () -> historyWorkflowService.refresh(ProviderType.OPENCODE.value()),
+                OPENCODE_HISTORY_REFRESH_DELAY_MS);
+    }
+
+    static boolean shouldSchedulePostStreamRefresh(String provider) {
+        return ProviderType.fromString(provider) == ProviderType.OPENCODE;
+    }
+
+    @Override
+    public synchronized void dispose() {
+        disposed = true;
+        postStreamRefreshAlarm.cancelAllRequests();
+        postStreamRefreshAlarm.dispose();
+    }
+}
