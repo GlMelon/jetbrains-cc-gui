@@ -242,6 +242,10 @@ public class CodemossSettingsService {
 
     /**
      * Read the config file.
+     *
+     * <p>不加缓存:config.json 会被外部工具(cc-switch)修改,任何 TTL 缓存都会导致外部切换
+     * provider/模型后插件读到写前快照(用旧配置 send)。配置即时性优先于 ~20ms 的重复 IO 收益。
+     * 日志降级 DEBUG 以避免 INFO 噪音淹没 [CliConcurrencyDiag] 计时埋点。</p>
      */
     public JsonObject readConfig() throws IOException {
         String configPath = getConfigPath();
@@ -254,8 +258,7 @@ public class CodemossSettingsService {
 
         try (FileReader reader = new FileReader(configFile, StandardCharsets.UTF_8)) {
             JsonObject config = JsonParser.parseReader(reader).getAsJsonObject();
-            // readConfig 是高频热路径(30+ getter 各自调用 + 5 个 Manager 在构造函数注入为 supplier),
-            // 单次 send 链路触发 10+ 次 → 降级 DEBUG 避免 INFO 噪音淹没 [CliConcurrencyDiag] 计时埋点。
+            // 降级 DEBUG 避免 INFO 噪音淹没 [CliConcurrencyDiag] 计时埋点。
             // (idea.log 实测 14:16:32,294→306 内 10 条 "Successfully read config" INFO)
             LOG.debug("[CodemossSettings] Successfully read config from: " + configPath);
             return config;

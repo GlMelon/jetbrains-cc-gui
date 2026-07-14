@@ -58,6 +58,17 @@ public class BridgeDirectoryResolver {
      * Priority: manually set path > configured path > embedded path > cached path > fallback
      */
     public File findSdkDir() {
+        // 快路径:cachedSdkDir 已有效则直接返回,跳过 Priority 1(resolveConfiguredBridgeDir 配置查找)
+        // 与 Priority 2(ensureEmbeddedBridgeExtracted 插件定位 + 签名校验)的重复 IO。
+        // setSdkDir 已同步写 cachedSdkDir=manuallySdkDir,故 cached 有效已覆盖 manually 最高优先级;
+        // configured 路径来自 env var(进程级快照,运行时不可变)或 config(改动罕见 + 通常重启),
+        // cached 陈旧窗口可忽略。findSdkDir 在 SDK bridge 重连 / gateway 重启路径被多次调用,
+        // 快路径省去每次重复的 isValidBridgeDir + 签名校验。
+        File cachedFast = this.cachedSdkDir;
+        if (cachedFast != null && isValidBridgeDir(cachedFast)) {
+            return cachedFast;
+        }
+
         // Priority 0: Manually set path (via setSdkDir(), highest priority)
         if (this.manuallySdkDir != null && isValidBridgeDir(this.manuallySdkDir)) {
             LOG.debug("[BridgeResolver] Using manually set path: " + this.manuallySdkDir.getAbsolutePath());

@@ -3,6 +3,8 @@ package com.github.claudecodegui.session;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.util.JsUtils;
 import com.github.claudecodegui.util.MessageJsonConverter;
+import com.github.claudecodegui.util.TokenUsageUtils;
+import com.google.gson.JsonObject;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
@@ -69,6 +71,8 @@ public class StreamMessageCoalescer {
     private volatile int lastPayloadChars = 0;
     private volatile List<ClaudeSession.Message> pendingMessages = null;
     private volatile List<ClaudeSession.Message> lastSnapshot = null;
+    // usage 增量去重:流式期间重复推送相同 usage 的引用缓存(详见 sendToWebView 去重逻辑)。
+    private volatile JsonObject lastPushedUsageRef = null;
 
     private final JsCallbackTarget callbackTarget;
 
@@ -175,6 +179,7 @@ public class StreamMessageCoalescer {
             lastUpdateAtMs = 0L;
             lastPayloadChars = 0;
             ++updateSequence;
+            lastPushedUsageRef = null;  // 新会话:旧 usage 引用缓存失效
         }
     }
 
@@ -374,12 +379,20 @@ public class StreamMessageCoalescer {
                 // the onStreamEnd signal, failing to run it permanently freezes the UI.
                 try {
                     callbackTarget.callJavaScript("updateMessages", escapedMessagesJson, String.valueOf(sequence));
-                    MessageJsonConverter.pushUsageUpdateFromMessages(
-                            messages,
-                            callbackTarget.getHandlerContext(),
-                            callbackTarget.getBrowser(),
-                            callbackTarget.isDisposed()
-                    );
+                    // usage 增量去重:流式 delta 不含 usage(仅回合末 result 才有),若每次 updateMessages
+                    // 都全量推送 usage,是稳态 ~30/s 的冗余 IPC + CPU。usage 变化总伴随新 JSON 对象引用
+                    // (回合制,result 新建 usage 对象),故引用相等即可安全跳过整个推送。新会话由
+                    // resetStreamState 清缓存,跨回合靠新 usage 引用自然触发重推。
+                    JsonObject currentUsage = TokenUsageUtils.findLastUsageFromSessionMessages(messages);
+                    if (currentUsage != lastPushedUsageRef) {
+                        lastPushedUsageRef = currentUsage;
+                        MessageJsonConverter.pushUsageUpdateFromMessages(
+                                messages,
+                                callbackTarget.getHandlerContext(),
+                                callbackTarget.getBrowser(),
+                                callbackTarget.isDisposed()
+                        );
+                    }
                 } catch (Exception e) {
                     LOG.warn("Failed to push updateMessages to webview (payload chars="
                             + escapedMessagesJson.length() + "): " + e.getMessage(), e);

@@ -21,6 +21,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -176,8 +178,22 @@ public class SessionContextService {
             sb.append("\n\n## Referenced Files\n\n");
             sb.append("The following files were referenced by the user:\n\n");
 
+            // 并行读取引用文件:readFileContent 是纯磁盘 IO(Files.readString / FileInputStream,
+            // 无 PSI / read action / VFS 锁),串行读 N 个文件 = N × 单文件读延迟。
+            // 并行后 wall-clock ≈ 最慢的一个文件;结果按原引用顺序拼接(future 列表保序)。
+            List<CompletableFuture<String>> readFutures = new ArrayList<>(regularFilePaths.size());
             for (String filePath : regularFilePaths) {
-                String fileContent = readFileContent(filePath);
+                readFutures.add(CompletableFuture.supplyAsync(() -> readFileContent(filePath)));
+            }
+            for (int i = 0; i < regularFilePaths.size(); i++) {
+                String filePath = regularFilePaths.get(i);
+                String fileContent;
+                try {
+                    fileContent = readFutures.get(i).join();
+                } catch (CompletionException e) {
+                    // readFileContent 内部已 catch 并返回 null,此处仅作防御性兜底
+                    fileContent = null;
+                }
                 if (fileContent != null) {
                     String extension = getFileExtension(filePath);
                     sb.append("### `").append(filePath).append("`\n\n");
