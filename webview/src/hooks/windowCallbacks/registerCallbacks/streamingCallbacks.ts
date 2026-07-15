@@ -464,11 +464,20 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
       let idx = streamingMessageIndexRef.current;
 
       if (!(idx >= 0 && newMessages[idx]?.type === 'assistant' && newMessages[idx].isStreaming === true)) {
-        for (let i = newMessages.length - 1; i >= 0; i -= 1) {
-          const msg = newMessages[i];
-          if (msg?.type === 'assistant' && msg.isStreaming === true) {
-            idx = i;
-            break;
+        // isStreamingRef.current is the authoritative source — the React state
+        // (msg.isStreaming) may be stale because the previous turn's onStreamEnd
+        // setMessages(updater) that sets isStreaming:false hasn't been processed
+        // yet by React batching.  When the ref says streaming is inactive, don't
+        // search — the fallback would find the wrong message and attach the
+        // CONNECTING status to a message that already has content, causing the
+        // "Connecting / Starting the selected AI runtime" indicator to never show.
+        if (isStreamingRef.current) {
+          for (let i = newMessages.length - 1; i >= 0; i -= 1) {
+            const msg = newMessages[i];
+            if (msg?.type === 'assistant' && msg.isStreaming === true) {
+              idx = i;
+              break;
+            }
           }
         }
       }
