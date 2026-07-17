@@ -20,16 +20,7 @@ import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -99,6 +90,8 @@ public class CodemossSettingsService {
 
     // Managers
     private final ConfigPathManager pathManager;
+    /** A3:config.json 原子读写仓库;readConfig/writeConfig 内部委托(调用面零改)。 */
+    private final ConfigRepository configRepository;
     private final ClaudeSettingsManager claudeSettingsManager;
     private final CodexSettingsManager codexSettingsManager;
     private final CodexMcpServerManager codexMcpServerManager;
@@ -115,6 +108,9 @@ public class CodemossSettingsService {
 
         // Initialize ConfigPathManager
         this.pathManager = new ConfigPathManager();
+
+        // A3:ConfigRepository 收口 config.json 原子读写(原子写+fsync+mtime CAS+quarantine+多版本 backup)。
+        this.configRepository = new ConfigRepository(pathManager.getConfigDir(), gson);
 
         // Initialize ClaudeSettingsManager
         this.claudeSettingsManager = new ClaudeSettingsManager(gson, pathManager);
@@ -245,74 +241,27 @@ public class CodemossSettingsService {
      *
      * <p>不加缓存:config.json 会被外部工具(cc-switch)修改,任何 TTL 缓存都会导致外部切换
      * provider/模型后插件读到写前快照(用旧配置 send)。配置即时性优先于 ~20ms 的重复 IO 收益。
-     * 日志降级 DEBUG 以避免 INFO 噪音淹没 [CliConcurrencyDiag] 计时埋点。</p>
+     * A3:委托 {@link ConfigRepository#load()} —— 原子读 + malformed quarantine + backup 自动回退,
+     * 不再静默用 default 覆盖损坏文件。</p>
      */
     public JsonObject readConfig() throws IOException {
-        String configPath = getConfigPath();
-        File configFile = new File(configPath);
-
-        if (!configFile.exists()) {
-            LOG.info("[CodemossSettings] Config file not found, creating default: " + configPath);
-            return createDefaultConfig();
+        ConfigRepository.LoadedConfig loaded = configRepository.load();
+        if (loaded != null) {
+            return loaded.getConfig();
         }
-
-        try (FileReader reader = new FileReader(configFile, StandardCharsets.UTF_8)) {
-            JsonObject config = JsonParser.parseReader(reader).getAsJsonObject();
-            // 降级 DEBUG 避免 INFO 噪音淹没 [CliConcurrencyDiag] 计时埋点。
-            // (idea.log 实测 14:16:32,294→306 内 10 条 "Successfully read config" INFO)
-            LOG.debug("[CodemossSettings] Successfully read config from: " + configPath);
-            return config;
-        } catch (Exception e) {
-            LOG.warn("[CodemossSettings] Failed to read config: " + e.getMessage());
-            return createDefaultConfig();
-        }
+        LOG.info("[CodemossSettings] Config absent or unrecoverable, creating default: " + getConfigPath());
+        return createDefaultConfig();
     }
 
     /**
      * Write the config file.
+     *
+     * <p>A3:委托 {@link ConfigRepository#save(JsonObject)} —— 原子写(temp+ATOMIC_MOVE+fsync)+
+     * write-time mtime CAS(防 cc-switch / 外部编辑 lost update)+ 多版本 backup。CAS 冲突抛
+     * {@link ConfigRepository.ConfigConflictException}。</p>
      */
     public void writeConfig(JsonObject config) throws IOException {
-        pathManager.ensureConfigDirectory();
-
-        // Back up existing config
-        backupConfig();
-
-        String configPath = getConfigPath();
-        try (FileWriter writer = new FileWriter(configPath, StandardCharsets.UTF_8)) {
-            gson.toJson(config, writer);
-            LOG.info("[CodemossSettings] Successfully wrote config to: " + configPath);
-        } catch (Exception e) {
-            LOG.warn("[CodemossSettings] Failed to write config: " + e.getMessage());
-            throw e;
-        }
-        // Security (J): config.json holds provider API keys/tokens; restrict to 0600.
-        hardenFilePermissions(Paths.get(configPath));
-    }
-
-    private void backupConfig() {
-        try {
-            Path configPath = pathManager.getConfigFilePath();
-            if (Files.exists(configPath)) {
-                Path backupPath = Paths.get(pathManager.getBackupPath());
-                Files.copy(configPath, backupPath, StandardCopyOption.REPLACE_EXISTING);
-                // Security (J): the .bak copy also contains secrets; restrict to 0600.
-                hardenFilePermissions(backupPath);
-            }
-        } catch (Exception e) {
-            LOG.warn("[CodemossSettings] Failed to backup config: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Best-effort restrict a file to owner read/write (0600). No-op on non-POSIX
-     * filesystems (e.g. Windows), where the per-user home directory ACL applies. (Security J)
-     */
-    private static void hardenFilePermissions(Path path) {
-        try {
-            Files.setPosixFilePermissions(path, PosixFilePermissions.fromString("rw-------"));
-        } catch (UnsupportedOperationException | IOException e) {
-            LOG.debug("[CodemossSettings] Could not set 0600 on " + path + ": " + e.getMessage());
-        }
+        configRepository.save(config);
     }
 
     /**

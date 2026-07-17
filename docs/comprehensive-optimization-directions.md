@@ -233,7 +233,7 @@ handlerRegistry.register("history.get", ctx -> historyHandlers.get(ctx));
 
 ### A3：CodemossSettingsService 拆分
 
-**状态：修订后可行，配置仓库先行。**
+**状态：已落地(2026-07-17,聚焦核心范围);ConfigRepository 地基+Facade 委托落地,F9 migration registry 与 in-process 写锁列为后续独立立项。**
 
 不能先把 2373 行类机械拆成多个都能直接读写同一 JSON 的 Service，否则会产生 lost update。
 
@@ -257,6 +257,18 @@ handlerRegistry.register("history.get", ctx -> historyHandlers.get(ctx));
 **实施前提（现状核实）**：当前 `CodemossSettingsService.writeConfig` 是裸 `FileWriter` 直写，既不原子也无冲突检测（同模块 `CodexSettingsManager`/`OpenCodeSettingsManager` 已有 temp+`ATOMIC_MOVE` 范式可借鉴）；`readConfig` 每次 fresh 读、无缓存（为 cc-switch 外部修改即时性）。因此 ConfigRepository 改造须**同时**引入原子写入与 mtime 比对，二者共用同一属性快照抽象——不要误以为只是「加一个冲突检查」。冲突检测不能依赖 watcher（见 B4 暂缓 WatchService），必须走 write-time CAS。
 
 `CodexMcpServerManager` 和 `ProviderManager` 应分别立项，不要求与 A3 同一提交一次拆完。
+
+**落地记录(2026-07-17,聚焦核心范围):**
+
+- 新建 `ConfigRepository`(单一配置读写入口,作为 `CodemossSettingsService` Facade 的内部实现):
+  - **原子写入**:temp 文件(同目录,保证 ATOMIC_MOVE 可用)+ `FileChannel.force(true)` fsync + `ATOMIC_MOVE`(跨卷 FS 回退非原子仅告警),根治裸 `FileWriter` 直写崩溃半写截断 JSON。
+  - **write-time CAS**:read 时记录 mtime+size snapshot(ThreadLocal),write 时比对,检测 cc-switch / 外部编辑 lost update(冲突抛 `ConfigConflictException`,不再静默覆盖);snapshot 线程局部——同线程 read-modify-write 准确(主线程 vs 外部编辑),跨线程 RMW 宽松跳过 CAS(彻底解决 in-process 并发 RMW 需 in-process 锁,列为后续独立立项,非本范围)。
+  - **malformed quarantine**:损坏主文件隔离到 `config.json.quarantine-<ts>.json`(供 forensic,不删除),并从最新 backup `.bak.1` 原子恢复主文件(temp+move,保证恢复也是原子的),不再静默用 default 覆盖、彻底抹掉原配置;无可用 backup 返回 null。
+  - **多版本 backup**:滚动保留 `MAX_BACKUPS=5` 份 `config.json.bak.<n>`,主文件 + backup + temp 均 0600(含 provider API key/token 等 secret 故收紧权限;Windows 无 POSIX → no-op,靠 home 目录 ACL 隔离)。
+  - **unknown field 透传**:load/save 均操作整体 `JsonObject`,未映射字段天然保留(Gson 透传),兼容外部工具写入插件未识别字段。
+- **Facade 不变**:`CodemossSettingsService.readConfig/writeConfig` 签名不变,内部委托 `ConfigRepository`(readConfig 在 loaded==null 时回 `createDefaultConfig()`),43 个调用点与 5 个子 Manager 的 lambda 闭包零改动;删除原 `backupConfig()`/`hardenFilePermissions()`(职责已收口到 ConfigRepository),清理 9 个随之失效的 import。
+- **测试**:`ConfigRepositoryTest` 11 用例(真实文件系统 + 临时目录注入故障,非 mock):正常往返 / 文件缺失返 null / malformed quarantine+backup 回退 / external-edit CAS 冲突 / 无 backup 时 quarantine 返 null / backup 滚动版本数 / unknown field 透传 / temp 残留清理 / 冲突不破坏现有 config / 无 read 直写跳过 CAS。全量回归 236 类/1556 用例零 failure 零 error(8 skipped 历史既有)。
+- **本范围未含(独立立项)**:F9 migration registry(schemaVersion 读写闭环 + 逐级幂等迁移 + secret 脱敏);in-process 写锁(跨线程并发 RMW);ProviderSettingsService/AppearanceService/ModelRegistryService/McpSettingsService 领域拆分(Facade 已就位,领域拆分可增量进行,非 A3 地基前置)。
 
 ### A4：BaseSDKBridge 收尾
 
