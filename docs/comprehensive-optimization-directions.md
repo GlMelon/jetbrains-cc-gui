@@ -850,7 +850,7 @@ Dropdown 按实际 combobox/listbox pattern 实现；不得为所有组件机械
 
 ### I18N1：前端 locale
 
-**状态：方向正确，统计修正。**
+**状态：已落地(2026-07-17,baseline CI 守门);key coverage 守门落地,翻译质量仍人工评估。**
 
 以 `en` 1446 个键为当前基准：
 
@@ -874,6 +874,17 @@ CI 策略：
 - 新增 key 不得降低历史 coverage baseline；
 - 历史缺口分批清偿；
 - 区分 key coverage 和翻译质量，不以机器填充冒充完成。
+
+**落地记录(2026-07-17):**
+
+- 新建 `webview/scripts/check-locale-coverage.mjs`(locale coverage baseline 守门脚本,与 `check-event-literals.mjs` 同目录同风格):
+  - `en.json` 为基准 SSOT,递归 flatten 嵌套 JSON 为点号路径键集合;对其余 locale 计算 missing(en 有 locale 无)与 extra(locale 有 en 无)。
+  - baseline(`locale-coverage-baseline.json`,首次 `--init` 快照当前实际缺失数):记录每 locale 允许的最大缺失键数。当前快照 en=1446 keys,各 locale 缺失数与本节统计表完全吻合(es/fr/hi/ja=371, ko=308, pt-BR=266, ru=375, zh=0, zh-TW=361)——互相印证 docs 统计与代码现状一致。
+  - **CI fail 条件**:① 任何 locale 实际缺失 > baseline(coverage 下降 = 新增 en 键未翻译);② baseline 缺某 locale 条目。多余键(extra)仅报告不 fail(疑似拼写错/废弃键,人工判断)。
+  - **历史缺口分批清偿**:开发者补齐某 locale 翻译后缺失数下降,手动收紧 baseline.json 对应值(baseline 单调下降体现清偿进度)。
+  - 用法:`--init` 重建 baseline / `--verbose` 打印缺失键列表 / 默认守门退出码 0/1 便于 CI gate。
+- **CI 接入**:`.github/workflows/tests.yml` 新增 `i18n` job(纯 Node 读 JSON,无需 npm ci),push/PR 触发,与其他测试 job 并行独立。
+- **范围边界**:本脚本只守 key coverage(键有无),不评翻译质量(机器填充能过 key 检查但质量低,仍需人工/后续工具评估,符合本节"不以机器填充冒充完成")。
 
 ### I18N2：后端 locale
 

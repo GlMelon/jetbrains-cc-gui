@@ -146,3 +146,23 @@ jobs:
 
       - name: Run WSL integration tests
         run: ./gradlew test --tests "com.github.claudecodegui.bridge.NodeDetectorWslTest"
+
+  # i18n locale coverage baseline gate (docs §9 I18N1). Pure Node script reading
+  # locale JSON; no build or npm install needed. Fails when a locale's missing-key
+  # count grows beyond the committed baseline (new en keys shipped without
+  # translations). Historical gaps are tracked in
+  # webview/scripts/locale-coverage-baseline.json and tightened as they're paid down.
+  i18n:
+    name: i18n locale coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.12.0'
+
+      - name: Check locale coverage baseline
+        run: node webview/scripts/check-locale-coverage.mjs
