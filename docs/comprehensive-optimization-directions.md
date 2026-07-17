@@ -613,7 +613,7 @@ Mockito 不是目标；优先抽接口、纯函数和平台边界。
 
 ### S2：凭证安全
 
-**状态：方向正确，技术方案重写。**
+**状态：已落地(2026-07-17,聚焦核心范围);PasswordStore 地基落地,明文迁移与六路径 env 注入改造列为后续独立立项。**
 
 插件自有 `~/.codemoss/config.json` 当前会保存 Provider key/token，并仅做 POSIX `0600` best-effort。Java 插件优先使用 IntelliJ `PasswordSafe`，不引入 Node `keyring/libsecret` 作为主路径。
 
@@ -629,6 +629,16 @@ Mockito 不是目标；优先抽接口、纯函数和平台边界。
 - credential 容量边界：`PasswordSafe` 单值有大小上限（Windows KeePass、headless 无 keychain 环境尤其敏感），OAuth refresh token 或大块 JSON 凭证需设计分割存储或回退到文件 + 0600 的降级路径；
 - headless CI / 无系统 keychain 环境下 `PasswordSafe` 可能降级为不安全存储，须显式检测并提示；
 - Provider 原生 OAuth/token 文件不由插件擅自迁移。
+
+**落地记录(2026-07-17,聚焦核心范围):**
+
+- **现状核实**:全仓零 PasswordSafe 使用(S2 从零引入);provider apiKey 多在 Claude/OpenCode 原生配置(Claude `settings.json` env 块、OpenCode provider 段)由插件读+注入 env 但不拥有(§F9/§S2 明确禁止插件擅自迁移原生配置);插件自有 `config.json` 仅存少量 secret(如 `smitheryApiKey` @ `CodemossSettingsService:1319`);env 注入分散在 3 SDK bridge 的 `configureProviderEnv`(Claude:235/Codex:159/OpenCode:91)+ 3 CLI session 的 `pb.environment()`+ `EnvironmentConfigurator`/`CliEnvironmentBuilder`/`injectCustomEnvars`(六路径,爆炸半径大)。
+- 新建 `com.github.claudecodegui.settings.credentials` 包(S2 地基,零调用面):
+  - **`CredentialBackend` 接口**:抽象 PasswordSafe 存取(store/load/remove/probeAvailability)+ 嵌套 `Availability` 枚举(AVAILABLE/DISABLED/HEADLESS_NO_BACKEND)。解耦门面逻辑与平台后端,使 PasswordStore 可纯单测(项目零平台测试基类,PasswordSafe 需 Application 上下文 + 原生 keychain,纯 JUnit 跑不了真实后端)。
+  - **`IntelliJPasswordSafeBackend`**(生产,薄委托):委托 `PasswordSafe.getInstance()`,serviceName="codemoss" + accountName=credentialKey;可用性探测用 `ApplicationManager.getApplication()` 判定(纯单测/headless CI 无 Application → HEADLESS_NO_BACKEND;IDE 内 → AVAILABLE)。DISABLED 精细检测列为后续接线。真实 keychain 交互留集成测试(runIde),纯单测不覆盖(注入 InMemoryCredentialBackend 测 PasswordStore 逻辑);`attributes(credentialKey)` 纯函数可单测。
+  - **`PasswordStore` 门面**(可单测核心逻辑):① **容量边界** `MAX_CREDENTIAL_BYTES=8KiB`,超限抛 `CredentialTooLargeException`(§S2 PasswordSafe 单值上限,Windows KeePass/headless 尤甚;OAuth refresh token/大 JSON fail-fast,分割存储或 file+0600 回退列为后续);② **显式降级** 后端非 AVAILABLE 时 store 抛 `CredentialStoreUnavailableException`(§S2 headless CI/无 keychain 不静默走不安全存储);读路径 load 不抛(缺失 key 等价"未配置",不阻塞调用方,迁移/注入项目可在调用侧先 `getAvailability()` 显式处理);③ **日志安全** 绝不记 secret 值,仅记 credentialKey + 字节数 + 操作状态;④ **credential key 规范** 强制 `codemoss.` 前缀(防第三方插件 PasswordSafe 条目冲突 + 便于脱敏扫描)。两个异常为 unchecked(RuntimeException),调用方按需 catch,API 签名干净。
+- **测试**:`PasswordStoreTest` 17 用例(注入 `InMemoryCredentialBackend` fake,故障注入矩阵,纯 JUnit 无需 Application/keychain):正常往返 / 缺失返 null / 覆盖写 / null-空清除 / 删除幂等 / 容量超限 fail-fast / 恰好等于上限 / 多字节 UTF-8 按字节计量 / headless 降级抛 / disabled 降级抛 / 读路径不抛降级 / availability 透传 / key 前缀校验 / null key 拒绝 / 降级不脏写后端 / 超限不脏写后端。全量回归 237 类/1573 用例零 failure 零 error(8 skipped 历史既有)。
+- **本范围未含(独立立项)**:① 明文配置迁移(`config.json` → PasswordStore 一次性迁移 smitheryApiKey 等插件自有 secret);② 六路径 env 注入改造(provider 子进程启动从 PasswordStore 读 secret 注入,爆炸半径大,三 Provider × SDK/CLI);③ clear/logout UI;④ backup/诊断包 secret 清理;⑤ DISABLED 精细检测;⑥ project/global scope 区分(暂只 GLOBAL);⑦ OAuth refresh token/大 JSON 分割存储或 file+0600 回退。Provider 原生 OAuth/token 文件不由插件擅自迁移(§F9 配置所有权)。
 
 ### S3：NodeJsServiceCaller
 
