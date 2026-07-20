@@ -1108,6 +1108,18 @@ CI 策略：
 
 **后续（独立增量）**：#2 Codex Sandbox Mode（76 行，2 public+2 helper+2 常量，结构最像 Appearance+Font，作结构异质性补强）、ModelRegistry/Provider/MCP；ConfigRepository 升级 + in-process 写锁 + F9 migration registry。
 
+### 2026-07-20：A3 领域拆分第三步·CodexSandboxModeSettingsService（1 commit，feature/v0.4.8）
+
+| 方向 | commit | 范围 |
+| --- | --- | --- |
+| A3 Codex 沙箱模式领域拆分 | `c58b3b46` | 提取 `CodexSandboxModeSettingsService`（2 KEY 常量 + 2 mode 常量 + 2 public + 2 private helper），CSS 2 个 public 改单行委托，2 个字面量（`codexSandboxMode`/`default`）提升为 KEY 常量；段内 ~76 行逻辑下沉 |
+
+**延续①②模式 A 半拆**：Service 构造注入 CSS，持久化走 `css.readConfig()/writeConfig()`，Facade 2 个 public 签名不变。**结构异质性验证**：与①②不同，本领域是 per-project/default 双层 key 的 string mode（非 boolean toggle、非单段 JsonObject），读取优先级 projectPath > default > 平台默认；任何非法 mode 回退平台默认（Security F 决策，非 default 段 —— 逐字迁移保持等价）。**零核心路径耦合**：`PlatformUtils.isWindows()` 仅作平台默认值决策的值读取；调用点（CliSettings/CodexCliSession/CodexSDKBridge/ProjectConfigHandler）全经 CSS public 委托，零改动。爆炸半径 = 0。
+
+验证：新建 `CodexSandboxModeSettingsServiceTest` 8 用例（平台默认动态期望/两种 mode 往返/无效 set 抛 IllegalArgumentException/优先级 projectPath>default/非法存储回退平台默认/null projectPath 只写 default/经 CSS 转发委托链）；全量回归零 failure 零 error（1m21s）。
+
+**后续（独立增量）**：ModelRegistry（核心路径爆炸半径大，谨慎）/ Provider / MCP；ConfigRepository 升级 + in-process 写锁 + F9 migration registry。
+
 ---
 
 ## 15. 已完成方向总览
@@ -1123,6 +1135,7 @@ CI 策略：
 | A3 / F9 | ConfigRepository（原子写 + ThreadLocal CAS + malformed quarantine + 多版本 backup） | 2026-07-17 `7ec33f81` |
 | A3（领域拆分①） | AppearanceSettingsService（外观+字体，模式 A 半拆：Service 注入 CSS，Facade 6 public 委托不变，CSS 净减 ~200 行） | 2026-07-20 `e0fd8eef` |
 | A3（领域拆分②） | AiFeatureToggleSettingsService（AI 功能开关 4 toggle + Smithery key，模式 A 半拆，Facade 10 public 委托不变，零核心路径） | 2026-07-20 `4b37249b` |
+| A3（领域拆分③） | CodexSandboxModeSettingsService（Codex 沙箱模式 per-project/default + 平台默认值决策，模式 A 半拆，Facade 2 public 委托不变，CSS 净减 53 行） | 2026-07-20 `c58b3b46` |
 
 ### 协议与架构
 
@@ -1171,5 +1184,5 @@ CI 策略：
 
 - **B5** Mermaid 打包：已并入 B2（multi-chunk / singlefile 决策），不独立落地。
 
-> **剩余 backlog**：P1 剩 T1 覆盖率工具接入（JaCoCo / Vitest coverage / c8）、A11Y2 键盘导航（roving tabindex）、A11Y3 流式 aria-live 节流；P2 A3 领域 Service 拆分（①外观+字体 `e0fd8eef`、②AI 功能开关 `4b37249b` 已落地，剩 Codex Sandbox Mode / ModelRegistry / Provider / MCP）/ A5 IntelliJ EP / F8 CLI 兼容矩阵 / F2 Skills 可视化 / F4 历史增强 / B3 typed bootstrap payload / F3 标签持久化（详见 §10）。
+> **剩余 backlog**：P1 剩 T1 覆盖率工具接入（JaCoCo / Vitest coverage / c8）、A11Y2 键盘导航（roving tabindex）、A11Y3 流式 aria-live 节流；P2 A3 领域 Service 拆分（①外观+字体 `e0fd8eef`、②AI 功能开关 `4b37249b`、③Codex 沙箱模式 `c58b3b46` 已落地，剩 ModelRegistry / Provider / MCP）/ A5 IntelliJ EP / F8 CLI 兼容矩阵 / F2 Skills 可视化 / F4 历史增强 / B3 typed bootstrap payload / F3 标签持久化（详见 §10）。
 
