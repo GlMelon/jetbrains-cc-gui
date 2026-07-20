@@ -32,12 +32,15 @@ export function installRuntimeProviderDispatchers(): void {
   // provider.active 的 usageMode 合并逻辑由 usageModeCallbacks 注册为 provider.active 的
   // 另一订阅者;ConfigSelect/Settings 的订阅者也订阅 provider.active —— dispatch 自动广播给全部,
   // 消除原「挂载后 usageMode 覆盖导致 channel 订阅者收不到」的双写竞争。
-  registerAliasIfAbsent('updateProviders', 'provider.list');
-  registerAliasIfAbsent('updateActiveProvider', 'provider.active');
-  registerAliasIfAbsent('updateCodexProviders', 'provider.codex_list');
-  registerAliasIfAbsent('updateActiveCodexProvider', 'provider.active_codex');
-  registerAliasIfAbsent('updateOpenCodeProviders', 'provider.opencode_list');
-  registerAliasIfAbsent('updateActiveOpenCodeProvider', 'provider.active_opencode');
+  // type 参数引用 DOWNSTREAM.* SSOT,避免与 protocol.ts 漂移(见 A8 字面量漂移守门)。
+  // 注意:第一个参数(legacyName)是后端 callJavaScript("window.updateXxx") 的旧 window 回调名,
+  // 不属于 DOWNSTREAM 协议名范畴,保留字面量。
+  registerAliasIfAbsent('updateProviders', DOWNSTREAM.PROVIDER_LIST);
+  registerAliasIfAbsent('updateActiveProvider', DOWNSTREAM.PROVIDER_ACTIVE);
+  registerAliasIfAbsent('updateCodexProviders', DOWNSTREAM.PROVIDER_CODEX_LIST);
+  registerAliasIfAbsent('updateActiveCodexProvider', DOWNSTREAM.PROVIDER_ACTIVE_CODEX);
+  registerAliasIfAbsent('updateOpenCodeProviders', DOWNSTREAM.PROVIDER_OPENCODE_LIST);
+  registerAliasIfAbsent('updateActiveOpenCodeProvider', DOWNSTREAM.PROVIDER_ACTIVE_OPENCODE);
 }
 
 function registerAliasIfAbsent(legacyName: string, type: string): void {

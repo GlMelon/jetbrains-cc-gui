@@ -354,11 +354,11 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
     }
 
     if (window.__pendingDependencyUpdates) {
-      bridgeHub.dispatch('dependency.update_available', window.__pendingDependencyUpdates);
+      bridgeHub.dispatch(DOWNSTREAM.DEPENDENCY_UPDATE_AVAILABLE, window.__pendingDependencyUpdates);
       window.__pendingDependencyUpdates = undefined;
     }
     if (window.__pendingDependencyVersions) {
-      bridgeHub.dispatch('dependency.versions_loaded', window.__pendingDependencyVersions);
+      bridgeHub.dispatch(DOWNSTREAM.DEPENDENCY_VERSIONS_LOADED, window.__pendingDependencyVersions);
       window.__pendingDependencyVersions = undefined;
     }
 
