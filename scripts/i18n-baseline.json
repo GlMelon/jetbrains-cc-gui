@@ -1,0 +1,35 @@
+{
+  "_meta": {
+    "generatedAt": "2026-07-17T03:53:29.370Z",
+    "frontendSsotKeyCount": 1446,
+    "backendSsotKeyCount": 272,
+    "note": "baseline 冻结各 locale 相对 SSOT 的缺失键数;后续运行缺失数高于 baseline 即失败"
+  },
+  "frontend": {
+    "ssot": "en",
+    "missingCounts": {
+      "zh": 0,
+      "zh-TW": 361,
+      "ko": 308,
+      "ja": 371,
+      "es": 371,
+      "fr": 371,
+      "hi": 371,
+      "ru": 375,
+      "pt-BR": 266
+    }
+  },
+  "backend": {
+    "ssot": "base",
+    "missingCounts": {
+      "en": 27,
+      "zh": 0,
+      "zh_TW": 50,
+      "ja": 50,
+      "es": 50,
+      "fr": 50,
+      "hi": 50,
+      "ru": 50
+    }
+  }
+}
