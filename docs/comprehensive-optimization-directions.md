@@ -1080,3 +1080,66 @@ CI 策略：
 
 **本批未含（独立立项）**：T1 覆盖率工具接入（JaCoCo/Vitest coverage/c8）、A1 Zustand 迁移、B2 bundle 体积治理、B6 HMR、F2 Skills 可视化、F8 CLI 兼容矩阵等 P2/P3 项；A11Y2 键盘导航（roving tabindex）、A11Y3 流式 aria-live 节流亦未启动。
 
+---
+
+## 15. 已完成方向总览
+
+> 汇总本文档状态为「已落地 / 核心已落地」的全部方向，按领域分组并附 commit。各方向原始判定与落地细节见 §3–§9 对应章节；日期以代码实际提交日为准（与 §3–§9 的标记日可能不同）。
+
+### P0 安全与数据完整性
+
+| 方向 | 内容 | 日期 / commit |
+| --- | --- | --- |
+| S2 | PasswordStore 凭证地基（CredentialBackend 抽象 + 容量/降级/日志安全） | 2026-07-17 `60acb930` |
+| S3 | NodeJsServiceCaller.executeNodeScript 硬化（分流 / 有界读 / 真 timeout） | 2026-07-17 `7037ae7e` |
+| A3 / F9 | ConfigRepository（原子写 + ThreadLocal CAS + malformed quarantine + 多版本 backup） | 2026-07-17 `7ec33f81` |
+
+### 协议与架构
+
+| 方向 | 内容 | 日期 / commit |
+| --- | --- | --- |
+| A4 | BaseSDKBridge 核心已落地（三 Provider 继承，仅小范围债务） | 核心已落地 |
+| A7 | Provider 历史 Adapter/Registry 已落地（债务清理阶段） | 核心已落地 |
+| A8 | 下行事件字面量 → `DOWNSTREAM.*` SSOT + `check-event-literals.mjs` 漂移守门 | 2026-07-20 `9eb0d496` |
+| (AGENTS) | 精简为纯架构准则，一次性债务条目外移到独立文档 | 2026-07-20 `1fab7035` |
+
+### P1 动效与无障碍
+
+| 方向 | 内容 | 日期 / commit |
+| --- | --- | --- |
+| H2 | 思考区 `grid-template-rows 0fr↔1fr` 折叠动画 | 2026-07-20 `8edc3aad` |
+| H5 | SkeletonList 骨架屏（真实请求状态驱动） | 2026-07-20 `f53a9f2c` |
+| H6 | 复制成功/失败微交互 + focus-visible | 2026-07-20 `8edc3aad` |
+| H7 | reduced-motion 全局策略（base.less 唯一入口） | 2026-07-20 `8edc3aad` |
+| A11Y1 | Dialog 焦点管理（portal + trap/restore/inert/嵌套栈） | 2026-07-20 `c09a5388` |
+
+### P1 构建 / 工具链 / 文档
+
+| 方向 | 内容 | 日期 / commit |
+| --- | --- | --- |
+| B1 | buildWebview inputs/outputs（支持 up-to-date 跳过） | 2026-07-20 `dff5092f` |
+| B3 早期 | JCEF bootstrap 单次注入 + hide_panel 并入主 sendToJava 路由 | 2026-07-20 `1bd4708d` |
+| T2 | ESLint flat config + Prettier + lint-staged | 2026-07-20 `8934698f` |
+| T3 | exportMarkdown → exportSessionJson 命名修正 | 2026-07-20 `03c7d798` |
+| D1 | 开发指南（环境 / 构建 / 协议 / 三套测试 / verifier / 六路径 / 发布） | 2026-07-20 `0d93b525` |
+| D2 | `.githooks/pre-commit`（lint-staged，容忍 node_modules 缺失） | 2026-07-20 `0d93b525` |
+
+### 国际化
+
+| 方向 | 内容 | 日期 / commit |
+| --- | --- | --- |
+| I18N1 | locale coverage baseline CI 守门（`check-locale-coverage.mjs` + tests.yml job） | 2026-07-17 `408bfb33` |
+| I18N1 + I18N2 | 前后端统一 key baseline gate（`check-i18n-keys.mjs`，含后端 base bundle） | 2026-07-20 `f980e7ae` |
+
+### 修复
+
+| 方向 | 内容 | 日期 / commit |
+| --- | --- | --- |
+| — | useTypewriterStream POP_LIMIT 测试同步到实现权威值 1500（HEAD 既有红测试） | 2026-07-20 `360bdef4` |
+
+### 合并 / 接受边界
+
+- **B5** Mermaid 打包：已并入 B2（multi-chunk / singlefile 决策），不独立落地。
+
+> **剩余 backlog**：P1 剩 T1 覆盖率工具接入（JaCoCo / Vitest coverage / c8）、A11Y2 键盘导航（roving tabindex）、A11Y3 流式 aria-live 节流；P2 起 A3 领域 Service 拆分 / A5 IntelliJ EP / F8 CLI 兼容矩阵 / F2 Skills 可视化 / F4 历史增强 / B3 typed bootstrap payload / F3 标签持久化（详见 §10）。
+
