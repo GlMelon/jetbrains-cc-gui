@@ -30,6 +30,7 @@ import { useToolsUpdate } from './hooks/useToolsUpdate';
 
 // Sub-components
 import { ServerCard } from './ServerCard';
+import { SkeletonList } from '../shared/SkeletonList';
 import { BracesIcon, ClipboardIcon, ExtensionsIcon, PlugIcon, RefreshIcon, ServerIcon, codiconToIcon } from '../Icons';
 
 /**
@@ -476,12 +477,11 @@ export function McpSettingsSection({ currentProvider = 'claude' }: McpSettingsSe
             </div>
           ) : null}
 
-          {/* Loading state */}
+          {/* Loading state (H5 骨架屏)：首次加载 server 列表时的占位卡片。
+              loading 由 useServerData 的后端 MCP_SERVER_LIST 事件驱动(非前端自行推导)，
+              满足 H5「真实请求状态驱动」约束；脉冲动画的 reduced-motion 降级由 base.less 全局收口。 */}
           {loading && servers.length === 0 && (
-            <div className="loading-state">
-              <span className="codicon codicon-loading codicon-modifier-spin"></span>
-              <p>{t('mcp.loading')}</p>
-            </div>
+            <SkeletonList label={t('mcp.loading')} />
           )}
         </div>
       </div>

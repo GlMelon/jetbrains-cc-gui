@@ -637,6 +637,65 @@
     opacity: 0.8;
 }
 
+/* H5: 首次加载列表骨架屏(用于 server 列表等首次请求占位)。
+   类名为通用(skeleton-list/item/bar),便于未来其他列表复用 SkeletonList 组件;
+   脉冲动画的 reduced-motion 降级由 base.less 全局 transition/animation-duration 收口,
+   此处仅声明 keyframe 与布局,不重复声明降级。 */
+.skeleton-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.skeleton-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border: 1px solid var(--border-primary);
+    border-radius: 8px;
+    background: var(--bg-secondary);
+}
+
+.skeleton-bar {
+    border-radius: 4px;
+    background: var(--border-primary);
+    animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+.skeleton-bar-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+.skeleton-bar-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+}
+
+.skeleton-bar-title {
+    width: 40%;
+    height: 12px;
+}
+
+.skeleton-bar-sub {
+    width: 25%;
+    height: 10px;
+}
+
+@keyframes skeleton-pulse {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.4;
+    }
+}
+
 /* 动画(spin 等关键帧统一定义见 animations.less,此处仅保留用法) */
 
 .codicon-modifier-spin {
