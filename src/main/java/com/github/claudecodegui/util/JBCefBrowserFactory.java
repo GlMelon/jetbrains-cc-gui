@@ -3,7 +3,6 @@ package com.github.claudecodegui.util;
 import com.intellij.openapi.application.ApplicationInfo;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.SystemInfo;
-import com.intellij.ui.jcef.JBCefApp;
 import com.intellij.ui.jcef.JBCefBrowser;
 import com.intellij.ui.jcef.JBCefBrowserBase;
 import com.intellij.ui.jcef.JBCefBrowserBuilder;
@@ -60,9 +59,11 @@ public final class JBCefBrowserFactory {
                     .setOffScreenRendering(isOffScreenRendering)
                     .setEnableOpenDevToolsMenuItem(isDevMode);
                     // .setCreateImmediately(true) // Causes new tabs to permanently stall on "Checking SDK status..." - commented out; using default lazy-load mode instead
-            configureKeyboardWorkaround(builder);
+            // keyboard workaround 改为 build 后用 browser 默认 client 注册(随 browser 自动 dispose),
+            // 不再创建独立 JBCefClient — 官方文档要求 custom client 必须显式 dispose,旧实现从不 dispose 会泄漏。
             JBCefBrowser browser = builder.build();
             configureContextMenu(browser, isDevMode);
+            configureKeyboardWorkaround(browser);
             LOG.info("JBCefBrowser created successfully using builder");
             return browser;
         } catch (Exception | LinkageError e) {
@@ -95,9 +96,9 @@ public final class JBCefBrowserFactory {
                     .setEnableOpenDevToolsMenuItem(isDevMode)
                     .setCreateImmediately(true)
                     .setUrl(url);
-            configureKeyboardWorkaround(builder);
             JBCefBrowser browser = builder.build();
             configureContextMenu(browser, isDevMode);
+            configureKeyboardWorkaround(browser);
             LOG.info("JBCefBrowser created successfully with URL");
             return browser;
         } catch (Exception | LinkageError e) {
@@ -273,17 +274,9 @@ public final class JBCefBrowserFactory {
     /**
      * Workaround for Windows JCEF issue where IME composition and certain key combinations
      * generate control character events on non-editable fields, causing unwanted input in the chat area.
+     * 用 browser 默认 client 注册(随 browser 自动 dispose),不创建独立 JBCefClient 以避免泄漏
+     * (官方文档要求 custom client 必须显式 dispose)。
      */
-    private static void configureKeyboardWorkaround(JBCefBrowserBuilder builder) {
-        if (!SystemInfo.isWindows) {
-            return;
-        }
-        JBCefClient client = JBCefApp.getInstance().createClient();
-        client.getCefClient().addKeyboardHandler(createKeyboardWorkaroundHandler());
-        builder.setClient(client);
-        LOG.info("[JCEF] Installed pre-build keyboard workaround client");
-    }
-
     private static void configureKeyboardWorkaround(JBCefBrowser browser) {
         if (!SystemInfo.isWindows) {
             return;
