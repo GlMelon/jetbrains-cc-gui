@@ -268,7 +268,7 @@ handlerRegistry.register("history.get", ctx -> historyHandlers.get(ctx));
   - **unknown field 透传**:load/save 均操作整体 `JsonObject`,未映射字段天然保留(Gson 透传),兼容外部工具写入插件未识别字段。
 - **Facade 不变**:`CodemossSettingsService.readConfig/writeConfig` 签名不变,内部委托 `ConfigRepository`(readConfig 在 loaded==null 时回 `createDefaultConfig()`),43 个调用点与 5 个子 Manager 的 lambda 闭包零改动;删除原 `backupConfig()`/`hardenFilePermissions()`(职责已收口到 ConfigRepository),清理 9 个随之失效的 import。
 - **测试**:`ConfigRepositoryTest` 11 用例(真实文件系统 + 临时目录注入故障,非 mock):正常往返 / 文件缺失返 null / malformed quarantine+backup 回退 / external-edit CAS 冲突 / 无 backup 时 quarantine 返 null / backup 滚动版本数 / unknown field 透传 / temp 残留清理 / 冲突不破坏现有 config / 无 read 直写跳过 CAS。全量回归 236 类/1556 用例零 failure 零 error(8 skipped 历史既有)。
-- **本范围未含(独立立项)**:F9 migration registry(schemaVersion 读写闭环 + 逐级幂等迁移 + secret 脱敏);in-process 写锁(跨线程并发 RMW);ProviderSettingsService/AppearanceService/ModelRegistryService/McpSettingsService 领域拆分(Facade 已就位,领域拆分可增量进行,非 A3 地基前置)。
+- **本范围未含(独立立项)**:F9 migration registry(schemaVersion 读写闭环 + 逐级幂等迁移 + secret 脱敏);in-process 写锁(跨线程并发 RMW);领域拆分增量进行(Facade 已就位,非 A3 地基前置)——已落地 `AppearanceSettingsService`①`e0fd8eef`/`AiFeatureToggleSettingsService`②`4b37249b`/`CodexSandboxModeSettingsService`③`c58b3b46`/`ModelRegistrySettingsService`④`46c4f55f`,剩 `ProviderSettingsService`/`McpSettingsService`。
 
 ### A4：BaseSDKBridge 收尾
 
@@ -1120,6 +1120,18 @@ CI 策略：
 
 **后续（独立增量）**：ModelRegistry（核心路径爆炸半径大，谨慎）/ Provider / MCP；ConfigRepository 升级 + in-process 写锁 + F9 migration registry。
 
+### 2026-07-20：A3 领域拆分第四步·ModelRegistrySettingsService（1 commit，feature/v0.4.8）
+
+| 方向 | commit | 范围 |
+| --- | --- | --- |
+| A3 模型注册表领域拆分 | `46c4f55f` | 提取 `ModelRegistrySettingsService`（1 KEY 常量 + 3 public + 6 private helper），CSS 3 public 改单行委托，字面量 `models` 提升为 KEY 常量；段内 ~151 行逻辑下沉 |
+
+**延续①②③模式 A 半拆**：Service 构造注入 CSS，持久化走 `css.readConfig()/writeConfig()`，Facade 3 public 签名不变。**爆炸半径「看似大、实测极小」**：Explore 彻底调研确认 22 外部调用点（SessionSendService / SessionLifecycleManager / GitCommitMessageService / 三 Provider Operations / ChatWindowDelegate 等）+ 8 处测试调用全走 CSS public API，3 委托后外部 0 改动；`RecordingSettingsService` override（`ModelRegistryServiceTest`）经 Java 动态分发仍生效。**静态 `ModelRegistryService` 不合并**：它是「payload codec + handler orchestration」（serialize/parse 给前端下发 + 3 ActionHandler 实例 API），与本类「persistence + validation + merge orchestration」职责正交；`getModelRegistryJson` 继续调静态 `serialize` 以下发 `supportedReasoningLevels` 派生字段（契约 H3，否则前端 ReasoningSelect 整体隐藏）。**AI Feature 交叉依赖方案 A**：`CSS.normalizeAiFeatureClaudeModel` 调 `getModelRegistry().find()` 单点，留在 CSS 经动态分发走委托，零改动。**parseModelRegistry NPE 语义逐字保留**：写盘路径 `supports1MContext` 缺 null 守卫，与静态 `parse`（payload 路径有守卫）有细微差异；迁移期间不顺手统一（NPE 是独立 bug，§13 单一职责）。
+
+验证：新建 `ModelRegistrySettingsServiceTest` 7 用例（只读默认/合法往返/无效拒绝/冲突拒绝/空用户层合法/H3 派生字段守门/委托链）；现有 6 类 ModelRegistry 测试（`CodemossSettingsServiceModelRegistryTest`/`ModelRegistryServiceTest`/`ModelRegistryServiceSerializeTest`/`ModelRegistryPayloadFieldTest`/`ModelRegistryActionHandlerTest`/`CodemossSettingsServicePromptEnhancerConfigTest`）零改动全绿；全量回归零 failure 零 error（1m26s）。
+
+**后续（独立增量）**：Provider / MCP；ConfigRepository 升级 + in-process 写锁 + F9 migration registry。
+
 ---
 
 ## 15. 已完成方向总览
@@ -1136,6 +1148,7 @@ CI 策略：
 | A3（领域拆分①） | AppearanceSettingsService（外观+字体，模式 A 半拆：Service 注入 CSS，Facade 6 public 委托不变，CSS 净减 ~200 行） | 2026-07-20 `e0fd8eef` |
 | A3（领域拆分②） | AiFeatureToggleSettingsService（AI 功能开关 4 toggle + Smithery key，模式 A 半拆，Facade 10 public 委托不变，零核心路径） | 2026-07-20 `4b37249b` |
 | A3（领域拆分③） | CodexSandboxModeSettingsService（Codex 沙箱模式 per-project/default + 平台默认值决策，模式 A 半拆，Facade 2 public 委托不变，CSS 净减 53 行） | 2026-07-20 `c58b3b46` |
+| A3（领域拆分④） | ModelRegistrySettingsService（模型注册表 effective=merge(user,只读默认)，模式 A 半拆，Facade 3 public 委托不变，静态 ModelRegistryService 不合并，CSS 净减 151 行） | 2026-07-20 `46c4f55f` |
 
 ### 协议与架构
 
@@ -1184,5 +1197,5 @@ CI 策略：
 
 - **B5** Mermaid 打包：已并入 B2（multi-chunk / singlefile 决策），不独立落地。
 
-> **剩余 backlog**：P1 剩 T1 覆盖率工具接入（JaCoCo / Vitest coverage / c8）、A11Y2 键盘导航（roving tabindex）、A11Y3 流式 aria-live 节流；P2 A3 领域 Service 拆分（①外观+字体 `e0fd8eef`、②AI 功能开关 `4b37249b`、③Codex 沙箱模式 `c58b3b46` 已落地，剩 ModelRegistry / Provider / MCP）/ A5 IntelliJ EP / F8 CLI 兼容矩阵 / F2 Skills 可视化 / F4 历史增强 / B3 typed bootstrap payload / F3 标签持久化（详见 §10）。
+> **剩余 backlog**：P1 剩 T1 覆盖率工具接入（JaCoCo / Vitest coverage / c8）、A11Y2 键盘导航（roving tabindex）、A11Y3 流式 aria-live 节流；P2 A3 领域 Service 拆分（①外观+字体 `e0fd8eef`、②AI 功能开关 `4b37249b`、③Codex 沙箱模式 `c58b3b46`、④模型注册表 `46c4f55f` 已落地，剩 Provider / MCP）/ A5 IntelliJ EP / F8 CLI 兼容矩阵 / F2 Skills 可视化 / F4 历史增强 / B3 typed bootstrap payload / F3 标签持久化（详见 §10）。
 
