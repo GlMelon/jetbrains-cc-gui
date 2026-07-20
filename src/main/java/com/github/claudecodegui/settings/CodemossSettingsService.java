@@ -68,6 +68,8 @@ public class CodemossSettingsService {
     private final ConfigRepository configRepository;
     /** A3 领域拆分第一步:外观+字体领域 Service(逻辑下沉,持久化仍经本 Facade,对称 ModelRegistryService)。 */
     private final AppearanceSettingsService appearanceSettingsService;
+    /** A3 领域拆分第二步:AI 功能开关领域 Service(4 boolean toggle + Smithery API key,模式 A 半拆)。 */
+    private final AiFeatureToggleSettingsService aiFeatureToggleSettingsService;
     private final ClaudeSettingsManager claudeSettingsManager;
     private final CodexSettingsManager codexSettingsManager;
     private final CodexMcpServerManager codexMcpServerManager;
@@ -91,6 +93,8 @@ public class CodemossSettingsService {
         // A3 领域拆分第一步:Appearance+Font 领域 Service(对称 ModelRegistryService 注入 this;
         // 构造体内只存引用,不调用 CSS 方法,与既有 lambda 闭包捕获 this 同模式,延迟调用安全)。
         this.appearanceSettingsService = new AppearanceSettingsService(this);
+        // A3 第二步:AI Feature Toggle 领域 Service(同模式 A 半拆,构造期只存引用)。
+        this.aiFeatureToggleSettingsService = new AiFeatureToggleSettingsService(this);
 
         // Initialize ClaudeSettingsManager
         this.claudeSettingsManager = new ClaudeSettingsManager(gson, pathManager);
@@ -1048,13 +1052,7 @@ public class CodemossSettingsService {
      * @return whether commit generation is enabled, default is true
      */
     public boolean getCommitGenerationEnabled() throws IOException {
-        JsonObject config = readConfig();
-
-        if (config.has("commitGenerationEnabled") && !config.get("commitGenerationEnabled").isJsonNull()) {
-            return config.get("commitGenerationEnabled").getAsBoolean();
-        }
-
-        return true;
+        return aiFeatureToggleSettingsService.getCommitGenerationEnabled();
     }
 
     /**
@@ -1063,10 +1061,7 @@ public class CodemossSettingsService {
      * @param enabled whether to enable
      */
     public void setCommitGenerationEnabled(boolean enabled) throws IOException {
-        JsonObject config = readConfig();
-        config.addProperty("commitGenerationEnabled", enabled);
-        writeConfig(config);
-        LOG.info("[CodemossSettings] Set commit generation enabled: " + enabled);
+        aiFeatureToggleSettingsService.setCommitGenerationEnabled(enabled);
     }
 
     /**
@@ -1075,11 +1070,7 @@ public class CodemossSettingsService {
      * @return whether gateway is user-enabled, default is true
      */
     public boolean getMcpGatewayEnabled() throws IOException {
-        JsonObject config = readConfig();
-        if (config.has("mcpGatewayEnabled") && !config.get("mcpGatewayEnabled").isJsonNull()) {
-            return config.get("mcpGatewayEnabled").getAsBoolean();
-        }
-        return true;
+        return aiFeatureToggleSettingsService.getMcpGatewayEnabled();
     }
 
     /**
@@ -1089,10 +1080,7 @@ public class CodemossSettingsService {
      * @param enabled whether to enable
      */
     public void setMcpGatewayEnabled(boolean enabled) throws IOException {
-        JsonObject config = readConfig();
-        config.addProperty("mcpGatewayEnabled", enabled);
-        writeConfig(config);
-        LOG.info("[CodemossSettings] Set MCP gateway enabled: " + enabled);
+        aiFeatureToggleSettingsService.setMcpGatewayEnabled(enabled);
     }
 
     /**
@@ -1101,11 +1089,7 @@ public class CodemossSettingsService {
      * @return the API key, or empty string if not configured
      */
     public String getSmitheryApiKey() throws IOException {
-        JsonObject config = readConfig();
-        if (config.has("smitheryApiKey") && !config.get("smitheryApiKey").isJsonNull()) {
-            return config.get("smitheryApiKey").getAsString();
-        }
-        return "";
+        return aiFeatureToggleSettingsService.getSmitheryApiKey();
     }
 
     /**
@@ -1114,15 +1098,7 @@ public class CodemossSettingsService {
      * is logged. {@code writeConfig} hardens the file to {@code 0600}.
      */
     public void setSmitheryApiKey(String apiKey) throws IOException {
-        JsonObject config = readConfig();
-        if (apiKey == null || apiKey.isEmpty()) {
-            config.remove("smitheryApiKey");
-        } else {
-            config.addProperty("smitheryApiKey", apiKey);
-        }
-        writeConfig(config);
-        boolean cleared = apiKey == null || apiKey.isEmpty();
-        LOG.info("[CodemossSettings] Smithery API key " + (cleared ? "cleared" : "updated"));
+        aiFeatureToggleSettingsService.setSmitheryApiKey(apiKey);
     }
 
     /**
@@ -1131,13 +1107,7 @@ public class CodemossSettingsService {
      * @return whether status bar widget is enabled, default is true
      */
     public boolean getStatusBarWidgetEnabled() throws IOException {
-        JsonObject config = readConfig();
-
-        if (config.has("statusBarWidgetEnabled") && !config.get("statusBarWidgetEnabled").isJsonNull()) {
-            return config.get("statusBarWidgetEnabled").getAsBoolean();
-        }
-
-        return true;
+        return aiFeatureToggleSettingsService.getStatusBarWidgetEnabled();
     }
 
     /**
@@ -1146,10 +1116,7 @@ public class CodemossSettingsService {
      * @param enabled whether to enable
      */
     public void setStatusBarWidgetEnabled(boolean enabled) throws IOException {
-        JsonObject config = readConfig();
-        config.addProperty("statusBarWidgetEnabled", enabled);
-        writeConfig(config);
-        LOG.info("[CodemossSettings] Set status bar widget enabled: " + enabled);
+        aiFeatureToggleSettingsService.setStatusBarWidgetEnabled(enabled);
     }
 
     /**
@@ -1158,13 +1125,7 @@ public class CodemossSettingsService {
      * @return whether AI title generation is enabled, default is true
      */
     public boolean getAiTitleGenerationEnabled() throws IOException {
-        JsonObject config = readConfig();
-
-        if (config.has("aiTitleGenerationEnabled") && !config.get("aiTitleGenerationEnabled").isJsonNull()) {
-            return config.get("aiTitleGenerationEnabled").getAsBoolean();
-        }
-
-        return true;
+        return aiFeatureToggleSettingsService.getAiTitleGenerationEnabled();
     }
 
     /**
@@ -1173,10 +1134,7 @@ public class CodemossSettingsService {
      * @param enabled whether to enable
      */
     public void setAiTitleGenerationEnabled(boolean enabled) throws IOException {
-        JsonObject config = readConfig();
-        config.addProperty("aiTitleGenerationEnabled", enabled);
-        writeConfig(config);
-        LOG.info("[CodemossSettings] Set AI title generation enabled: " + enabled);
+        aiFeatureToggleSettingsService.setAiTitleGenerationEnabled(enabled);
     }
 
     // ==================== Prompt Enhancer Config Management ====================
