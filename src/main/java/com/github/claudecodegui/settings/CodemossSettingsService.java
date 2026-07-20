@@ -35,8 +35,6 @@ public class CodemossSettingsService {
 
     private static final Logger LOG = Logger.getInstance(CodemossSettingsService.class);
     private static final int CONFIG_VERSION = 2;
-    private static final String CODEX_SANDBOX_MODE_WORKSPACE_WRITE = "workspace-write";
-    private static final String CODEX_SANDBOX_MODE_DANGER_FULL_ACCESS = "danger-full-access";
     private static final String CLAUDE_INVOCATION_MODE_KEY = "claudeInvocationMode";
     private static final String CLAUDE_CLI_PATH_KEY = "claudeCliPath";
     public static final String CODEX_RUNTIME_ACCESS_INACTIVE = "inactive";
@@ -70,6 +68,8 @@ public class CodemossSettingsService {
     private final AppearanceSettingsService appearanceSettingsService;
     /** A3 领域拆分第二步:AI 功能开关领域 Service(4 boolean toggle + Smithery API key,模式 A 半拆)。 */
     private final AiFeatureToggleSettingsService aiFeatureToggleSettingsService;
+    /** A3 领域拆分第三步:Codex 沙箱模式领域 Service(per-project/default,平台默认值决策,模式 A 半拆)。 */
+    private final CodexSandboxModeSettingsService codexSandboxModeSettingsService;
     private final ClaudeSettingsManager claudeSettingsManager;
     private final CodexSettingsManager codexSettingsManager;
     private final CodexMcpServerManager codexMcpServerManager;
@@ -95,6 +95,8 @@ public class CodemossSettingsService {
         this.appearanceSettingsService = new AppearanceSettingsService(this);
         // A3 第二步:AI Feature Toggle 领域 Service(同模式 A 半拆,构造期只存引用)。
         this.aiFeatureToggleSettingsService = new AiFeatureToggleSettingsService(this);
+        // A3 第三步:Codex Sandbox Mode 领域 Service(同模式 A 半拆,构造期只存引用)。
+        this.codexSandboxModeSettingsService = new CodexSandboxModeSettingsService(this);
 
         // Initialize ClaudeSettingsManager
         this.claudeSettingsManager = new ClaudeSettingsManager(gson, pathManager);
@@ -733,7 +735,7 @@ public class CodemossSettingsService {
         LOG.info("[CodemossSettings] Set auto open file enabled to " + enabled + " for project: " + projectPath);
     }
 
-    // ==================== Codex Sandbox Mode Config Management ====================
+    // ==================== Codex Sandbox Mode Config Management (delegates to CodexSandboxModeSettingsService) ====================
 
     /**
      * Get Codex sandbox mode configuration.
@@ -742,26 +744,7 @@ public class CodemossSettingsService {
      * @return sandbox mode (workspace-write or danger-full-access)
      */
     public String getCodexSandboxMode(String projectPath) throws IOException {
-        JsonObject config = readConfig();
-        String defaultMode = getDefaultCodexSandboxMode();
-
-        if (!config.has("codexSandboxMode")) {
-            return defaultMode;
-        }
-
-        JsonObject sandboxConfig = config.getAsJsonObject("codexSandboxMode");
-
-        if (projectPath != null && sandboxConfig.has(projectPath)) {
-            String mode = sandboxConfig.get(projectPath).getAsString();
-            return isValidCodexSandboxMode(mode) ? mode : defaultMode;
-        }
-
-        if (sandboxConfig.has("default")) {
-            String mode = sandboxConfig.get("default").getAsString();
-            return isValidCodexSandboxMode(mode) ? mode : defaultMode;
-        }
-
-        return defaultMode;
+        return codexSandboxModeSettingsService.getCodexSandboxMode(projectPath);
     }
 
     /**
@@ -771,43 +754,7 @@ public class CodemossSettingsService {
      * @param sandboxMode sandbox mode (workspace-write or danger-full-access)
      */
     public void setCodexSandboxMode(String projectPath, String sandboxMode) throws IOException {
-        if (!isValidCodexSandboxMode(sandboxMode)) {
-            throw new IllegalArgumentException("Invalid Codex sandbox mode: " + sandboxMode);
-        }
-
-        JsonObject config = readConfig();
-
-        JsonObject sandboxConfig;
-        if (config.has("codexSandboxMode")) {
-            sandboxConfig = config.getAsJsonObject("codexSandboxMode");
-        } else {
-            sandboxConfig = new JsonObject();
-            config.add("codexSandboxMode", sandboxConfig);
-        }
-
-        if (projectPath != null) {
-            sandboxConfig.addProperty(projectPath, sandboxMode);
-        }
-        sandboxConfig.addProperty("default", sandboxMode);
-
-        writeConfig(config);
-        LOG.info("[CodemossSettings] Set Codex sandbox mode to " + sandboxMode + " for project: " + projectPath);
-    }
-
-    private boolean isValidCodexSandboxMode(String mode) {
-        return CODEX_SANDBOX_MODE_WORKSPACE_WRITE.equals(mode)
-                || CODEX_SANDBOX_MODE_DANGER_FULL_ACCESS.equals(mode);
-    }
-
-    private String getDefaultCodexSandboxMode() {
-        // Security (F): default to workspace-write (sandboxed to the project) instead of
-        // danger-full-access (no sandbox), so a prompt-injected Codex command is contained
-        // to the project by default; full access must be an explicit opt-in. Windows keeps
-        // danger-full-access as a platform fallback because the Codex sandbox is experimental
-        // there (mirrors CodexSDKBridge.resolveCodexSandboxMode).
-        return com.github.claudecodegui.util.PlatformUtils.isWindows()
-                ? CODEX_SANDBOX_MODE_DANGER_FULL_ACCESS
-                : CODEX_SANDBOX_MODE_WORKSPACE_WRITE;
+        codexSandboxModeSettingsService.setCodexSandboxMode(projectPath, sandboxMode);
     }
 
     // ==================== Provider Management ====================
