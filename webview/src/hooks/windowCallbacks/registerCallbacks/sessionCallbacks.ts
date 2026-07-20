@@ -10,7 +10,7 @@ import { sendAction, subscribeEvent } from '../../../bridge/typed';
 import { UPSTREAM, DOWNSTREAM } from '../../../generated/protocol';
 import type { MutableRefObject } from 'react';
 import type { UseWindowCallbacksOptions } from '../../useWindowCallbacks';
-import { downloadJSON } from '../../../utils/exportMarkdown';
+import { downloadJSON } from '../../../utils/exportSessionJson';
 import { releaseSessionTransition } from '../sessionTransition';
 import { drainAndRequestDependencyStatus } from '../settingsBootstrap';
 import { registerLegacyAlias } from '../../../bridge';
