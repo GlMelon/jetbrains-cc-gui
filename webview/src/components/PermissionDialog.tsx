@@ -178,7 +178,12 @@ const PermissionDialog = ({
   const workingDirectory = getWorkingDirectory();
 
   return (
-    <BaseDialog isOpen={isOpen} onClose={handleSkip} className="permission-dialog-overlay">
+    <BaseDialog
+      isOpen={isOpen}
+      onClose={handleSkip}
+      className="permission-dialog-overlay"
+      ariaLabel={getToolTitle(request.toolName)}
+    >
       <div
         ref={dialogRef}
         className="permission-dialog-v3"

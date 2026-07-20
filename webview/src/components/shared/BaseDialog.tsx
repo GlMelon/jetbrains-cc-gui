@@ -1,5 +1,8 @@
 import { type ReactNode, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { useEscapeClose } from '../../hooks/useEscapeClose';
+import { useDialogFocus } from '../../hooks/useDialogFocus';
 import { CloseIcon } from '../Icons';
 
 /**
@@ -19,7 +22,7 @@ export interface BaseDialogProps {
   overlayClosable?: boolean;
   /** 弹窗尺寸 */
   size?: DialogSize;
-  /** 无障碍标签 */
+  /** 无障碍标签：弹窗的 accessible name，强烈建议每个调用都提供 */
   ariaLabel?: string;
   /** 弹窗内容 */
   children: ReactNode;
@@ -30,11 +33,12 @@ export interface BaseDialogProps {
 /**
  * BaseDialog - 所有 Dialog 的基础壳组件。
  *
- * 统一处理：
- * - 遮罩层渲染
- * - ESC 键关闭
- * - 点击遮罩关闭
- * - 无障碍属性 (role=dialog, aria-modal, aria-label)
+ * 统一处理（A11Y1 已补齐焦点管理）：
+ * - portal 到 document.body（保证弹窗在 DOM 末尾，背景 inert 干净）
+ * - 遮罩层渲染（role=presentation，纯视觉遮罩 + 点击空白关闭）
+ * - 弹窗本体 role=dialog / aria-modal / aria-label（A11Y1：role 从 overlay 下沉到本体）
+ * - ESC 键关闭、Tab 焦点循环、初始焦点、关闭后归还焦点（useDialogFocus）
+ * - 嵌套弹窗：栈顶接管焦点，其余 inert
  * - 统一的 overlay className
  */
 export function BaseDialog({
@@ -68,27 +72,38 @@ export function BaseDialog({
     }
   }, [isOpen, shouldRender]);
 
+  // 焦点管理：open=isOpen（逻辑开关，render 阶段捕获触发者 + 关闭瞬间归还焦点），
+  // ready=shouldRender（DOM 已挂载）。两者共同作为 effect 依赖，确保 dialogRef.current
+  // 就绪后才初始化焦点陷阱，避免延迟卸载导致的 dialogRef 时序空窗。
+  const { dialogRef } = useDialogFocus({ open: isOpen, ready: shouldRender });
+
   if (!shouldRender) {
     return null;
   }
 
   const sizeClass = size !== 'auto' ? `dialog-size-${size}` : '';
 
-  return (
+  return createPortal(
+    // 遮罩层：纯视觉，role=presentation，承担点击空白关闭。
+    // A11Y1：role=dialog 不再放在遮罩上，下沉到内层弹窗本体。
     <div
       className={`dialog-overlay ${className}${leaving ? ' dialog-leaving' : ''}`}
       onClick={overlayClosable ? onClose : undefined}
-      role="dialog"
-      aria-modal="true"
-      aria-label={ariaLabel}
     >
+      {/* 弹窗本体：role=dialog 在此层，承接焦点管理（tabIndex=-1 允许无子焦点时自身接收焦点） */}
       <div
+        ref={dialogRef}
         className={`dialog-base ${sizeClass}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={ariaLabel}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
       >
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -106,6 +121,7 @@ export function DialogHeader({
   onClose?: () => void;
   children?: ReactNode;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="dialog-header">
       <h3>
@@ -113,7 +129,12 @@ export function DialogHeader({
         {title}
       </h3>
       {onClose && (
-        <button className="close-btn" onClick={onClose}>
+        <button
+          className="close-btn"
+          onClick={onClose}
+          type="button"
+          aria-label={t('common.close', '关闭')}
+        >
           <CloseIcon size={16} />
         </button>
       )}

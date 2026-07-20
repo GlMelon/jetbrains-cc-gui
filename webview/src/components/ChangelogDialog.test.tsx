@@ -41,34 +41,32 @@ describe('ChangelogDialog (Hero 重做)', () => {
   });
 
   it('Hero stats 胶囊按 kind 渲染(en:feature=2, fix=1)', () => {
-    const { container } = render(
-      <ChangelogDialog isOpen onClose={vi.fn()} entries={[makeEntry()]} />,
-    );
-    const stats = container.querySelectorAll('.wn-b-stat');
+    render(<ChangelogDialog isOpen onClose={vi.fn()} entries={[makeEntry()]} />);
+    // BaseDialog 经 portal 渲染到 document.body，不在 render container 内，须从 dialog 角色节点查询
+    const dialog = screen.getByRole('dialog');
+    const stats = dialog.querySelectorAll('.wn-b-stat');
     const kinds = Array.from(stats).map((s) => s.getAttribute('data-kind'));
     expect(kinds).toContain('feature');
     expect(kinds).toContain('fix');
-    const featureStat = container.querySelector('.wn-b-stat[data-kind="feature"]');
+    const featureStat = dialog.querySelector('.wn-b-stat[data-kind="feature"]');
     expect(featureStat?.textContent).toMatch(/2/);
   });
 
   it('分区列表渲染(.wn-b-grp 含 section items)', () => {
-    const { container } = render(
-      <ChangelogDialog isOpen onClose={vi.fn()} entries={[makeEntry()]} />,
-    );
-    const groups = container.querySelectorAll('.wn-b-grp');
+    render(<ChangelogDialog isOpen onClose={vi.fn()} entries={[makeEntry()]} />);
+    const dialog = screen.getByRole('dialog');
+    const groups = dialog.querySelectorAll('.wn-b-grp');
     expect(groups.length).toBeGreaterThanOrEqual(1);
     // item 经 formatInline 渲染(纯文本可见)
-    expect(container.textContent).toContain('Feature A');
-    expect(container.textContent).toContain('Fix C');
+    expect(dialog.textContent).toContain('Feature A');
+    expect(dialog.textContent).toContain('Fix C');
   });
 
   it('多语言:en + zh 都渲染(en 的 Feature A 与 zh 的 新功能 A 同时可见)', () => {
-    const { container } = render(
-      <ChangelogDialog isOpen onClose={vi.fn()} entries={[makeEntry()]} />,
-    );
-    expect(container.textContent).toContain('Feature A');
-    expect(container.textContent).toContain('新功能 A');
+    render(<ChangelogDialog isOpen onClose={vi.fn()} entries={[makeEntry()]} />);
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.textContent).toContain('Feature A');
+    expect(dialog.textContent).toContain('新功能 A');
   });
 
   it('Got it 按钮(t(changelog.close))→ 调用 onClose', () => {

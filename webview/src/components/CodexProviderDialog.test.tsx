@@ -12,7 +12,7 @@ describe('CodexProviderDialog', () => {
   it('renders a single card layer without a nested .dialog wrapper inside .dialog-base', () => {
     // 回归守护:与 ProviderDialog 对称,内层曾套 <div className="dialog provider-dialog ...">
     // 与 BaseDialog 的 .dialog-base 叠成双层卡片(双重背景/边框/阴影/圆角)。
-    const { container } = render(
+    render(
       <CodexProviderDialog
         isOpen
         provider={null}
@@ -21,8 +21,8 @@ describe('CodexProviderDialog', () => {
         addToast={vi.fn()}
       />,
     );
-
-    const base = container.querySelector('.dialog-base');
+    // BaseDialog 经 portal 渲染到 document.body，须从 body 查询 .dialog-base
+    const base = document.body.querySelector('.dialog-base');
     expect(base).toBeTruthy();
 
     const nestedDialogCard = Array.from(base!.children).find((el) =>

@@ -260,7 +260,7 @@ describe('ProviderDialog', () => {
     // 回归守护:历史遗留的内层 <div className="dialog provider-dialog"> 与
     // BaseDialog 的 .dialog-base 叠成双层卡片(双重背景/边框/阴影/圆角)。
     // 修复后 .dialog-base 的直接子元素不应再携带 .dialog token。
-    const { container } = render(
+    render(
       <ProviderDialog
         isOpen
         provider={null}
@@ -269,8 +269,8 @@ describe('ProviderDialog', () => {
         addToast={vi.fn()}
       />,
     );
-
-    const base = container.querySelector('.dialog-base');
+    // BaseDialog 经 portal 渲染到 document.body，须从 body 查询 .dialog-base
+    const base = document.body.querySelector('.dialog-base');
     expect(base).toBeTruthy();
 
     const nestedDialogCard = Array.from(base!.children).find((el) =>
