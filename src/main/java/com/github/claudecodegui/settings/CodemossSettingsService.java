@@ -14,7 +14,6 @@ import com.github.claudecodegui.model.DeleteResult;
 import com.github.claudecodegui.model.PromptScope;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.session.runtime.RuntimeType;
-import com.github.claudecodegui.util.FontConfigService;
 import com.google.gson.*;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
@@ -23,7 +22,6 @@ import com.intellij.openapi.project.Project;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * Codemoss configuration service (Facade pattern).
@@ -39,19 +37,8 @@ public class CodemossSettingsService {
     private static final int CONFIG_VERSION = 2;
     private static final String CODEX_SANDBOX_MODE_WORKSPACE_WRITE = "workspace-write";
     private static final String CODEX_SANDBOX_MODE_DANGER_FULL_ACCESS = "danger-full-access";
-    private static final String UI_FONT_CONFIG_KEY = "uiFont";
-    private static final String CODE_FONT_CONFIG_KEY = "codeFont";
-    // Shared by both UI font and code font: the persisted JSON keys ("mode" /
-    // "customFontPath") and the set of valid modes are identical for the two font kinds,
-    // so they reuse these UI_FONT_*-named constants. They are NOT UI-only despite the name.
-    private static final String UI_FONT_MODE_KEY = "mode";
-    private static final String UI_FONT_CUSTOM_PATH_KEY = "customFontPath";
     private static final String CLAUDE_INVOCATION_MODE_KEY = "claudeInvocationMode";
     private static final String CLAUDE_CLI_PATH_KEY = "claudeCliPath";
-    private static final Set<String> VALID_UI_FONT_MODES = Set.of(
-            FontConfigService.UI_FONT_MODE_FOLLOW_EDITOR,
-            FontConfigService.UI_FONT_MODE_CUSTOM_FILE
-    );
     public static final String CODEX_RUNTIME_ACCESS_INACTIVE = "inactive";
     public static final String CODEX_RUNTIME_ACCESS_MANAGED = "managed";
     public static final String CODEX_RUNTIME_ACCESS_CLI_LOGIN = "cli_login";
@@ -72,19 +59,6 @@ public class CodemossSettingsService {
     private static final String DEFAULT_COMMIT_AI_CODEX_MODEL = "";
     private static final String DEFAULT_AI_FEATURE_OPENCODE_MODEL = "";
     private static final String USER_LANGUAGE_CONFIG_KEY = "language";
-    // Appearance config (theme preference / font size / diff theme / per-theme colors).
-    // Persisted so the webview can restore appearance after IDE cache invalidation
-    // (localStorage otherwise lives inside the wiped JCEF cache directory).
-    private static final String APPEARANCE_CONFIG_KEY = "appearance";
-    private static final String APPEARANCE_THEME_PREFERENCE_KEY = "themePreference";
-    private static final String APPEARANCE_FONT_SIZE_KEY = "fontSizeLevel";
-    private static final String APPEARANCE_DIFF_THEME_KEY = "diffTheme";
-    private static final String APPEARANCE_CHAT_BG_KEY = "chatBgColor";
-    private static final String APPEARANCE_USER_MSG_KEY = "userMsgColor";
-    private static final Set<String> VALID_THEME_PREFERENCES = Set.of("system", "light", "dark");
-    private static final Set<String> VALID_DIFF_THEMES = Set.of("follow", "editor", "light", "soft-dark");
-    private static final java.util.regex.Pattern HEX_COLOR_PATTERN =
-            java.util.regex.Pattern.compile("^#[0-9a-fA-F]{6}$");
 
     private final Gson gson;
 
@@ -92,6 +66,8 @@ public class CodemossSettingsService {
     private final ConfigPathManager pathManager;
     /** A3:config.json 原子读写仓库;readConfig/writeConfig 内部委托(调用面零改)。 */
     private final ConfigRepository configRepository;
+    /** A3 领域拆分第一步:外观+字体领域 Service(逻辑下沉,持久化仍经本 Facade,对称 ModelRegistryService)。 */
+    private final AppearanceSettingsService appearanceSettingsService;
     private final ClaudeSettingsManager claudeSettingsManager;
     private final CodexSettingsManager codexSettingsManager;
     private final CodexMcpServerManager codexMcpServerManager;
@@ -111,6 +87,10 @@ public class CodemossSettingsService {
 
         // A3:ConfigRepository 收口 config.json 原子读写(原子写+fsync+mtime CAS+quarantine+多版本 backup)。
         this.configRepository = new ConfigRepository(pathManager.getConfigDir(), gson);
+
+        // A3 领域拆分第一步:Appearance+Font 领域 Service(对称 ModelRegistryService 注入 this;
+        // 构造体内只存引用,不调用 CSS 方法,与既有 lambda 闭包捕获 this 同模式,延迟调用安全)。
+        this.appearanceSettingsService = new AppearanceSettingsService(this);
 
         // Initialize ClaudeSettingsManager
         this.claudeSettingsManager = new ClaudeSettingsManager(gson, pathManager);
@@ -336,11 +316,7 @@ public class CodemossSettingsService {
      * @return normalized appearance config
      */
     public JsonObject getAppearanceConfig() throws IOException {
-        JsonObject config = readConfig();
-        if (!config.has(APPEARANCE_CONFIG_KEY) || !config.get(APPEARANCE_CONFIG_KEY).isJsonObject()) {
-            return createDefaultAppearanceConfig();
-        }
-        return normalizeAppearanceConfig(config.getAsJsonObject(APPEARANCE_CONFIG_KEY));
+        return appearanceSettingsService.getAppearanceConfig();
     }
 
     /**
@@ -349,10 +325,7 @@ public class CodemossSettingsService {
      * @param rawConfig raw appearance config payload from the webview
      */
     public void setAppearanceConfig(JsonObject rawConfig) throws IOException {
-        JsonObject config = readConfig();
-        config.add(APPEARANCE_CONFIG_KEY, normalizeAppearanceConfig(rawConfig));
-        writeConfig(config);
-        LOG.debug("[CodemossSettings] Updated appearance config");
+        appearanceSettingsService.setAppearanceConfig(rawConfig);
     }
 
     /** Appearance config as a JSON string (for webview injection); never throws. */
@@ -362,90 +335,6 @@ public class CodemossSettingsService {
         } catch (Exception e) {
             LOG.warn("[CodemossSettings] Failed to read appearance config: " + e.getMessage());
             return new JsonObject().toString();
-        }
-    }
-
-    private JsonObject createDefaultAppearanceConfig() {
-        JsonObject appearance = new JsonObject();
-        appearance.addProperty(APPEARANCE_THEME_PREFERENCE_KEY, "system");
-        appearance.addProperty(APPEARANCE_FONT_SIZE_KEY, 2);
-        appearance.addProperty(APPEARANCE_DIFF_THEME_KEY, "follow");
-        // Colors are omitted by default (unset → webview falls back to theme defaults).
-        return appearance;
-    }
-
-    /**
-     * Normalize and validate an appearance config payload. Unknown/invalid fields
-     * fall back to defaults; per-theme colors only persist valid hex values.
-     */
-    private JsonObject normalizeAppearanceConfig(JsonObject rawConfig) {
-        if (rawConfig == null) {
-            return createDefaultAppearanceConfig();
-        }
-        JsonObject appearance = new JsonObject();
-
-        // Theme preference (system | light | dark)
-        String themePref = rawConfig.has(APPEARANCE_THEME_PREFERENCE_KEY)
-                && !rawConfig.get(APPEARANCE_THEME_PREFERENCE_KEY).isJsonNull()
-                ? rawConfig.get(APPEARANCE_THEME_PREFERENCE_KEY).getAsString()
-                : "system";
-        appearance.addProperty(APPEARANCE_THEME_PREFERENCE_KEY,
-                VALID_THEME_PREFERENCES.contains(themePref) ? themePref : "system");
-
-        // Font size level (1-6, default 2)
-        int fontSizeLevel = 2;
-        if (rawConfig.has(APPEARANCE_FONT_SIZE_KEY) && rawConfig.get(APPEARANCE_FONT_SIZE_KEY).isJsonPrimitive()) {
-            try {
-                int v = rawConfig.get(APPEARANCE_FONT_SIZE_KEY).getAsInt();
-                if (v >= 1 && v <= 6) {
-                    fontSizeLevel = v;
-                }
-            } catch (Exception ignored) {
-                // Non-numeric value → fall back to default
-            }
-        }
-        appearance.addProperty(APPEARANCE_FONT_SIZE_KEY, fontSizeLevel);
-
-        // Diff theme
-        String diffTheme = rawConfig.has(APPEARANCE_DIFF_THEME_KEY)
-                && !rawConfig.get(APPEARANCE_DIFF_THEME_KEY).isJsonNull()
-                ? rawConfig.get(APPEARANCE_DIFF_THEME_KEY).getAsString()
-                : "follow";
-        appearance.addProperty(APPEARANCE_DIFF_THEME_KEY,
-                VALID_DIFF_THEMES.contains(diffTheme) ? diffTheme : "follow");
-
-        // Per-theme colors (only valid hex values are persisted)
-        JsonObject chatBg = normalizeScopedColors(rawConfig, APPEARANCE_CHAT_BG_KEY);
-        if (chatBg != null) {
-            appearance.add(APPEARANCE_CHAT_BG_KEY, chatBg);
-        }
-        JsonObject userMsg = normalizeScopedColors(rawConfig, APPEARANCE_USER_MSG_KEY);
-        if (userMsg != null) {
-            appearance.add(APPEARANCE_USER_MSG_KEY, userMsg);
-        }
-
-        return appearance;
-    }
-
-    /** Normalize a per-theme color map ({light, dark}); null if no valid entries. */
-    private JsonObject normalizeScopedColors(JsonObject rawConfig, String key) {
-        if (!rawConfig.has(key) || !rawConfig.get(key).isJsonObject()) {
-            return null;
-        }
-        JsonObject src = rawConfig.getAsJsonObject(key);
-        JsonObject out = new JsonObject();
-        addHexIfValid(out, src, "light");
-        addHexIfValid(out, src, "dark");
-        return out.size() > 0 ? out : null;
-    }
-
-    private void addHexIfValid(JsonObject out, JsonObject src, String theme) {
-        if (!src.has(theme) || !src.get(theme).isJsonPrimitive()) {
-            return;
-        }
-        String v = src.get(theme).getAsString();
-        if (v != null && HEX_COLOR_PATTERN.matcher(v).matches()) {
-            out.addProperty(theme, v);
         }
     }
 
@@ -614,11 +503,7 @@ public class CodemossSettingsService {
      * @return normalized UI font configuration
      */
     public JsonObject getUiFontConfig() throws IOException {
-        JsonObject config = readConfig();
-        if (!config.has(UI_FONT_CONFIG_KEY) || !config.get(UI_FONT_CONFIG_KEY).isJsonObject()) {
-            return createDefaultUiFontConfig();
-        }
-        return normalizeUiFontConfig(config.getAsJsonObject(UI_FONT_CONFIG_KEY));
+        return appearanceSettingsService.getUiFontConfig();
     }
 
     /**
@@ -628,11 +513,7 @@ public class CodemossSettingsService {
      * @param customFontPath custom font path for custom file mode
      */
     public void setUiFontConfig(String mode, String customFontPath) throws IOException {
-        JsonObject config = readConfig();
-        config.add(UI_FONT_CONFIG_KEY, createUiFontConfig(mode, customFontPath));
-        writeConfig(config);
-        LOG.debug("[CodemossSettings] Set UI font config: mode=" + mode
-                + ", customFontPath=" + customFontPath);
+        appearanceSettingsService.setUiFontConfig(mode, customFontPath);
     }
 
     /**
@@ -641,11 +522,7 @@ public class CodemossSettingsService {
      * @return normalized code font configuration
      */
     public JsonObject getCodeFontConfig() throws IOException {
-        JsonObject config = readConfig();
-        if (!config.has(CODE_FONT_CONFIG_KEY) || !config.get(CODE_FONT_CONFIG_KEY).isJsonObject()) {
-            return createDefaultCodeFontConfig();
-        }
-        return normalizeCodeFontConfig(config.getAsJsonObject(CODE_FONT_CONFIG_KEY));
+        return appearanceSettingsService.getCodeFontConfig();
     }
 
     /**
@@ -655,11 +532,7 @@ public class CodemossSettingsService {
      * @param customFontPath custom font path for custom file mode
      */
     public void setCodeFontConfig(String mode, String customFontPath) throws IOException {
-        JsonObject config = readConfig();
-        config.add(CODE_FONT_CONFIG_KEY, createCodeFontConfig(mode, customFontPath));
-        writeConfig(config);
-        LOG.debug("[CodemossSettings] Set code font config: mode=" + mode
-                + ", customFontPath=" + customFontPath);
+        appearanceSettingsService.setCodeFontConfig(mode, customFontPath);
     }
 
     // ==================== Permission Dialog Timeout Config Management ====================
@@ -710,77 +583,6 @@ public class CodemossSettingsService {
         }
 
         return true;
-    }
-
-    private JsonObject createDefaultUiFontConfig() {
-        JsonObject uiFont = new JsonObject();
-        uiFont.addProperty(UI_FONT_MODE_KEY, FontConfigService.UI_FONT_MODE_FOLLOW_EDITOR);
-        return uiFont;
-    }
-
-    private JsonObject createDefaultCodeFontConfig() {
-        JsonObject codeFont = new JsonObject();
-        codeFont.addProperty(UI_FONT_MODE_KEY, FontConfigService.UI_FONT_MODE_FOLLOW_EDITOR);
-        return codeFont;
-    }
-
-    private JsonObject normalizeUiFontConfig(JsonObject rawConfig) {
-        if (rawConfig == null) {
-            return createDefaultUiFontConfig();
-        }
-        String requestedMode = rawConfig.has(UI_FONT_MODE_KEY) && !rawConfig.get(UI_FONT_MODE_KEY).isJsonNull()
-                ? rawConfig.get(UI_FONT_MODE_KEY).getAsString()
-                : FontConfigService.UI_FONT_MODE_FOLLOW_EDITOR;
-        String customFontPath = rawConfig.has(UI_FONT_CUSTOM_PATH_KEY) && !rawConfig.get(UI_FONT_CUSTOM_PATH_KEY).isJsonNull()
-                ? rawConfig.get(UI_FONT_CUSTOM_PATH_KEY).getAsString()
-                : null;
-        return createUiFontConfig(requestedMode, customFontPath);
-    }
-
-    private JsonObject createUiFontConfig(String mode, String customFontPath) {
-        String normalizedMode = VALID_UI_FONT_MODES.contains(mode)
-                ? mode
-                : FontConfigService.UI_FONT_MODE_FOLLOW_EDITOR;
-        JsonObject uiFont = new JsonObject();
-        uiFont.addProperty(UI_FONT_MODE_KEY, normalizedMode);
-
-        if (FontConfigService.UI_FONT_MODE_CUSTOM_FILE.equals(normalizedMode)
-                && customFontPath != null
-                && !customFontPath.trim().isEmpty()) {
-            uiFont.addProperty(UI_FONT_CUSTOM_PATH_KEY, customFontPath.trim());
-        }
-
-        return uiFont;
-    }
-
-    private JsonObject normalizeCodeFontConfig(JsonObject rawConfig) {
-        if (rawConfig == null) {
-            return createDefaultCodeFontConfig();
-        }
-        String requestedMode = rawConfig.has(UI_FONT_MODE_KEY) && !rawConfig.get(UI_FONT_MODE_KEY).isJsonNull()
-                ? rawConfig.get(UI_FONT_MODE_KEY).getAsString()
-                : FontConfigService.UI_FONT_MODE_FOLLOW_EDITOR;
-        String customFontPath = rawConfig.has(UI_FONT_CUSTOM_PATH_KEY) && !rawConfig.get(UI_FONT_CUSTOM_PATH_KEY).isJsonNull()
-                ? rawConfig.get(UI_FONT_CUSTOM_PATH_KEY).getAsString()
-                : null;
-        return createCodeFontConfig(requestedMode, customFontPath);
-    }
-
-    private JsonObject createCodeFontConfig(String mode, String customFontPath) {
-        // UI font and code font share the same valid-mode set (see VALID_UI_FONT_MODES).
-        String normalizedMode = VALID_UI_FONT_MODES.contains(mode)
-                ? mode
-                : FontConfigService.UI_FONT_MODE_FOLLOW_EDITOR;
-        JsonObject codeFont = new JsonObject();
-        codeFont.addProperty(UI_FONT_MODE_KEY, normalizedMode);
-
-        if (FontConfigService.UI_FONT_MODE_CUSTOM_FILE.equals(normalizedMode)
-                && customFontPath != null
-                && !customFontPath.trim().isEmpty()) {
-            codeFont.addProperty(UI_FONT_CUSTOM_PATH_KEY, customFontPath.trim());
-        }
-
-        return codeFont;
     }
 
     /**
