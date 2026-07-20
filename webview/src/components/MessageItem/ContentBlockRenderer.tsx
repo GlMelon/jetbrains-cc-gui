@@ -459,10 +459,15 @@ export const ContentBlockRenderer = memo(function ContentBlockRenderer({
           </svg>
         </div>
         <div className="thinking-section-content">
-          <MarkdownBlock
-            content={block.thinking ?? block.text ?? t('chat.noThinkingContent')}
-            isStreaming={isStreaming}
-          />
+          {/* H2: content 为 grid 容器(0fr↔1fr 折叠动画)，inner 作为 grid item
+              承载 padding/border 并 overflow:hidden，保证折叠时高度归零，
+              天然支持未知高度 / 长 Markdown。reduced-motion 由 base.less 全局收口。 */}
+          <div className="thinking-section-content-inner">
+            <MarkdownBlock
+              content={block.thinking ?? block.text ?? t('chat.noThinkingContent')}
+              isStreaming={isStreaming}
+            />
+          </div>
         </div>
       </div>
     );

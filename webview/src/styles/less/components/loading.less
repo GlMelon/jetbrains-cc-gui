@@ -228,23 +228,6 @@
     pointer-events: none;
 }
 
-/* ══════════════════════════════════════════════ */
-/*  无障碍：减少动画                                 */
-/* ══════════════════════════════════════════════ */
-
-@media (prefers-reduced-motion: reduce) {
-    .queue-pill-enter,
-    .waiting-indicator-exit {
-        animation-duration: 0.01ms;
-    }
-
-    .gen-orb,
-    .gen-orb::before,
-    .generating-strip::before {
-        animation: none;
-    }
-
-    .gen-orb {
-        opacity: 0.7;
-    }
-}
+/* prefers-reduced-motion 由 base.less 全局收口（H7）：
+   .queue-pill-enter / .waiting-indicator-exit 过渡时长归 0.01ms，
+   .gen-orb / .generating-strip::before 持续动画退化为静态（含 opacity 静态替代）。 */

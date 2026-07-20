@@ -710,3 +710,29 @@
         background-color: var(--color-convert-unknown-active-bg);
     }
 }
+
+/* ============================================================
+   H6 微交互：复制失败反馈 + 复制按钮焦点态
+   - 复制失败：一次性红色光晕向外扩散（box-shadow 脉冲，无位移，
+     对前庭敏感用户友好；animation 结束后 .failed 仍由既有 color/opacity 规则维持红态）。
+   - 焦点态：键盘导航（:focus-visible）下补强 outline，区别于 hover。
+   - 所有动画在 prefers-reduced-motion 下由 base.less 全局收口为瞬时。
+   ============================================================ */
+
+@keyframes copy-fail-pulse {
+    0% {
+        box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-error) 55%, transparent);
+    }
+    100% {
+        box-shadow: 0 0 0 6px color-mix(in srgb, var(--color-error) 0%, transparent);
+    }
+}
+
+.history-copy-id-btn.failed {
+    animation: copy-fail-pulse 0.42s ease-out;
+}
+
+.history-copy-id-btn:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent-primary) 60%, transparent);
+    outline-offset: 1px;
+}

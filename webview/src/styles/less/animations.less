@@ -1,5 +1,10 @@
 /* ==================== 公共动画 ==================== */
-/* 所有 @keyframes 定义集中在此文件，避免重复 */
+/* 所有 @keyframes 定义集中在此文件，避免重复。
+   注意：本文件未被 app.less @import，目前作为 keyframes 规范参考来源；
+   实际参与编译的 @keyframes 由各组件 .less 自行引用或复制。
+   prefers-reduced-motion 全局收口策略（H7）不在本文件维护——
+   唯一生效入口为 base.less 的 @media (prefers-reduced-motion: reduce) 块，
+   以便 *, *::before, *::after 全站继承，避免每个组件各写一份。 */
 
 /* 旋转动画 */
 @keyframes spin {

@@ -578,16 +578,26 @@
     transform: rotate(180deg);
 }
 
+/* H2: grid-template-rows 0fr↔1fr 实现未知高度平滑折叠动画。
+   content 为 grid 容器(无 padding/border)，padding/border 下沉到 inner(grid item)，
+   确保折叠时高度严格归零。reduced-motion 由 base.less 全局 transition-duration:0.01ms 收口。 */
 .thinking-section-content {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.24s ease;
+}
+
+.thinking-section.expanded .thinking-section-content {
+    grid-template-rows: 1fr;
+}
+
+.thinking-section-content-inner {
+    overflow: hidden;
+    min-height: 0;
     padding: 0 14px 12px;
     font-size: 13px;
     color: var(--text-secondary, #d8dde6);
     line-height: 1.6;
-    display: none;
-}
-
-.thinking-section.expanded .thinking-section-content {
-    display: block;
 }
 
 .thinking-section-content p {
@@ -1050,18 +1060,15 @@
     color: var(--assistant-reference-card-text);
 }
 
-.message.assistant .thinking-section-content {
-    display: none;
+/* H2: assistant 主题下 content 仍是 grid 容器(基础已设 display:grid + 0fr/1fr)，
+   仅覆盖 inner 的视觉。display:none/block 已由 grid-template-rows 取代，不再需要。 */
+.message.assistant .thinking-section-content-inner {
     padding: 10px 12px 12px 42px;
     border-top: 1px solid var(--assistant-reference-card-border-soft);
     background: rgba(0, 0, 0, 0.08);
     color: var(--assistant-reference-card-text-secondary);
     font-size: 12.5px;
     line-height: 1.58;
-}
-
-.message.assistant .thinking-section.expanded .thinking-section-content {
-    display: block;
 }
 
 .message.assistant .task-container,
@@ -1226,12 +1233,8 @@
 .assistant-response-status.state-done      { color: var(--green, #a6da95); }
 .assistant-response-status.state-error     { color: var(--red, #ed8796); }
 
-@media (prefers-reduced-motion: reduce) {
-    .assistant-response-status .ars-spinner {
-        animation: none;
-        border-top-color: currentColor;
-    }
-}
+/* prefers-reduced-motion 由 base.less 全局收口（H7）：
+   .ars-spinner 持续旋转退化为静态，并补全 border-top-color 避免视觉缺口。 */
 
 .assistant-streaming-footer {
     width: fit-content;
@@ -1285,7 +1288,7 @@
         grid-row: 2;
     }
 
-    .message.assistant .thinking-section-content {
+    .message.assistant .thinking-section-content-inner {
         padding-left: 12px;
     }
 }

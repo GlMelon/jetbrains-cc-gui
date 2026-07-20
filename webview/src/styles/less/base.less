@@ -124,7 +124,16 @@ html {
     margin-bottom: 10px;
 }
 
-/* ==================== 无障碍：全局减少动画 ==================== */
+/* ==================== 无障碍：全局减少动画（H7 横切策略） ====================
+   本块是全站 reduced-motion 的唯一收口入口（animations.less 未被 app.less
+   @import、不参与编译；为避免每个组件各写一份 @media，集中收敛于此）。
+   策略：
+   - 持续类动画（spinner / pulse / 呼吸光晕）→ animation: none，并补充静态视觉替代；
+   - 入场 / 折叠 / 淡入 / 过渡 → 时长归零（0.01ms），避免位移与重绘；
+   - 局部 .less 内等价 @media 块已删除（loading.less / chat-message-avatar.less）。
+   新增持续动画若无需静态替代，靠上面 * 选择器自动兜底即可；若需要静态视觉占位，
+   请把 selector 与替代样式追加到下方“静态替代”段，不要再回组件各写一份。
+   ==================================================================== */
 @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -133,6 +142,27 @@ html {
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
         scroll-behavior: auto !important;
+    }
+
+    /* 持续运行类动画：退化为静态，避免无限重绘与视觉扰动
+       （* 选择器只把时长压到 0.01ms，这里进一步完全取消动画） */
+    .ars-spinner,
+    .gen-orb,
+    .gen-orb::before,
+    .generating-strip::before,
+    .waiting-spinner::before,
+    .waiting-spinner::after {
+        animation: none !important;
+    }
+
+    /* 静态替代：补全 spinner 圆环顶部颜色，避免出现视觉缺口 */
+    .ars-spinner {
+        border-top-color: currentColor !important;
+    }
+
+    /* 静态替代：维持光球半透明，保留视觉占位（与未动画状态视觉一致） */
+    .gen-orb {
+        opacity: 0.7 !important;
     }
 }
 

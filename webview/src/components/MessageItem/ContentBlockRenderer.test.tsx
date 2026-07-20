@@ -213,3 +213,60 @@ describe('ContentBlockRenderer tool cards', () => {
     expect(document.querySelector('.mcp-tool-card')).toBeTruthy();
   });
 });
+
+describe('ContentBlockRenderer thinking section (H2)', () => {
+  const thinkingBlock = { type: 'thinking', thinking: '分析用户请求' } as ClaudeContentBlock;
+
+  const renderThinking = (isThinkingExpanded: boolean) =>
+    render(
+      <ContentBlockRenderer
+        block={thinkingBlock}
+        blockIndex={0}
+        messageIndex={0}
+        messageType="assistant"
+        isStreaming={false}
+        isThinkingExpanded={isThinkingExpanded}
+        isThinking={true}
+        isLastMessage={true}
+        isLastBlock={true}
+        t={t}
+        onToggleThinking={() => undefined}
+        findToolResult={() => null}
+      />,
+    );
+
+  it('renders content grid container with inner wrapper (collapse contract)', () => {
+    // H2: content 为 grid 容器(0fr↔1fr)，inner 为承载 padding/overflow 的 grid item。
+    // 二者缺一会让 grid-template-rows 折叠动画失效，作为结构契约守护。
+    // happy-dom 不计算 CSS grid 布局，故只验结构，视觉动画靠真实浏览器手动验证。
+    renderThinking(false);
+    const content = document.querySelector('.thinking-section-content');
+    const inner = content?.querySelector('.thinking-section-content-inner');
+    expect(content).toBeTruthy();
+    expect(inner).toBeTruthy();
+    expect(inner?.querySelector('[data-testid="markdown-block"]')).toBeTruthy();
+  });
+
+  it('reflects isThinkingExpanded on the .expanded class', () => {
+    const { rerender } = renderThinking(false);
+    expect(document.querySelector('.thinking-section')?.classList.contains('expanded')).toBe(false);
+
+    rerender(
+      <ContentBlockRenderer
+        block={thinkingBlock}
+        blockIndex={0}
+        messageIndex={0}
+        messageType="assistant"
+        isStreaming={false}
+        isThinkingExpanded={true}
+        isThinking={true}
+        isLastMessage={true}
+        isLastBlock={true}
+        t={t}
+        onToggleThinking={() => undefined}
+        findToolResult={() => null}
+      />,
+    );
+    expect(document.querySelector('.thinking-section')?.classList.contains('expanded')).toBe(true);
+  });
+});

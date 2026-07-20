@@ -451,7 +451,7 @@
     font-size: 11.5px;
     font-weight: 500;
     cursor: pointer;
-    transition: background-color 0.15s ease;
+    transition: background-color var(--dur-fast) var(--ease-smooth), color var(--dur-fast) var(--ease-smooth);
     flex-shrink: 0;
 
     &:hover {
@@ -462,8 +462,10 @@
         background: var(--color-provider-card-action-active-bg);
     }
 
+    /* H6 微交互：复制成功反馈——小按钮克制处理，仅色变不加 scale */
     &.copied {
-        color: var(--color-provider-card-accent);
+        color: var(--color-success);
+        background: color-mix(in srgb, var(--color-success) 12%, transparent);
     }
 }
 
@@ -1924,4 +1926,62 @@
 .compact-summary-content .markdown-block {
     font-size: 12.5px;
     color: var(--text-secondary);
+}
+
+/* ============================================================
+   H6 微交互：复制成功反馈 + 复制按钮焦点态
+   - 复制成功：按钮本体瞬时 success 色反馈 + 轻量 scale 弹性回弹，
+     动画结束后由静态 CSS 保持成功色直到 .copied 类被移除（~1.5s）。
+   - 焦点态：键盘导航（:focus-visible）下补强 outline，区别于 hover，
+     鼠标点击不触发，避免对鼠标用户的视觉噪音。
+   - 所有动画在 prefers-reduced-motion 下由 base.less 全局收口为瞬时。
+   ============================================================ */
+
+@keyframes copy-success-pop {
+    0% {
+        transform: scale(1);
+        color: var(--text-secondary);
+        border-color: var(--border-primary);
+        background: var(--bg-secondary);
+    }
+    45% {
+        transform: scale(0.86);
+        color: var(--color-success);
+        border-color: color-mix(in srgb, var(--color-success) 55%, transparent);
+        background: color-mix(in srgb, var(--color-success) 14%, transparent);
+    }
+    100% {
+        transform: scale(1);
+        color: var(--color-success);
+        border-color: color-mix(in srgb, var(--color-success) 45%, transparent);
+        background: color-mix(in srgb, var(--color-success) 8%, transparent);
+    }
+}
+
+/* 反馈层次：message-copy-btn / copy-code-btn 为 28px 大按钮，做 scale 弹性回弹；
+   小图标按钮（inline / error-diagnostic）只做颜色过渡，避免 scale 突兀。 */
+.message-copy-btn.copied,
+.copy-code-btn.copied {
+    animation: copy-success-pop 0.34s var(--ease-pop);
+    /* 动画结束后保持终态：成功色边/字/底，直到 .copied 被移除 */
+    color: var(--color-success);
+    border-color: color-mix(in srgb, var(--color-success) 45%, transparent);
+    background: color-mix(in srgb, var(--color-success) 8%, transparent);
+}
+
+/* .copied 期间覆盖默认 hover/visibility 规则，确保成功反馈 1.5s 内完整可见
+   （特异性对齐 .message.assistant:hover .message-copy-btn，源序在后胜出；
+   inline 变体默认可见，无需此覆盖） */
+.message.assistant .message-copy-btn.copied {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* 键盘焦点态：补强 outline，仅 :focus-visible 触发（鼠标点击不显示） */
+.message-copy-btn:focus-visible,
+.message-copy-btn-inline:focus-visible,
+.copy-code-btn:focus-visible,
+.error-diagnostic-copy-btn:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent-primary) 60%, transparent);
+    outline-offset: 1px;
 }
