@@ -1052,3 +1052,31 @@ CI 策略：
 - 先复用现有 Adapter/Registry，再考虑新建同义抽象；
 - 对 Platform 耦合且难以纯单测的逻辑，补源码结构检查、Plugin Verifier 或 IDE 集成测试；
 - 文档中的规模数据应标注统计日期，不作为永久事实。
+
+---
+
+## 14. 落地日志
+
+> Append-only 批次记录，反映 backlog 推进现状；各方向的「状态」行保留原始判定，不回溯改写，落地以本节为准。
+
+### 2026-07-20：P1 动效/无障碍/工具链批次（12 commits，feature/v0.4.8）
+
+| 方向 | commit | 范围 |
+| --- | --- | --- |
+| useTypewriterStream fix | `360bdef4` | 同步 POP_LIMIT 测试到实现权威值 1500（HEAD 既有红测试，3ff72337 引入遗留） |
+| A8 协议收敛 | `9eb0d496` | runtimeProviderCapabilities 6 条 + DependencySection 2 条 dispatch 字面量 → `DOWNSTREAM.*`；新增 `check-event-literals.mjs` 漂移守门 |
+| B1 gradle | `dff5092f` | `buildWebview` 声明 inputs/outputs（src/scripts/configs → dist），支持 up-to-date 跳过 |
+| T3 rename | `03c7d798` | `exportMarkdown.ts` → `exportSessionJson.ts`（名实不符修正） |
+| A11Y1 焦点 | `c09a5388` | `useDialogFocus`（trap/restore/inert/嵌套栈）+ BaseDialog portal 化 + 4 dialog 测试 adapt |
+| H5 骨架屏 | `f53a9f2c` | `SkeletonList` 组件 + mcp.less 样式 + McpSettingsSection 接入（真实状态驱动） |
+| H2+H6+H7 动效 | `8edc3aad` | H2 grid 折叠 + H6 复制微交互 + H7 reduced-motion 全局收口（base.less 唯一入口） |
+| B3 JCEF | `1bd4708d` | bootstrap 单次注入 + hide_panel 并入主 sendToJava 路由（减每标签一 JBCefJSQuery） |
+| T2 工具链 | `8934698f` | ESLint flat config + Prettier + lint-staged（匹配现有格式，未全仓 reformat） |
+| I18N1+I18N2 gate | `f980e7ae` | `scripts/check-i18n-keys.mjs` 前端 en + 后端 base bundle 统一 baseline 守门 |
+| AGENTS 精简 | `1fab7035` | 去一次性债务条目/迁移编号，收敛为纯架构准则 |
+| D1+D2 文档 | `0d93b525` | 开发指南 + `.githooks/pre-commit`（lint-staged，容忍 node_modules 缺失） |
+
+验证：webview 1112 测试全绿、Java 编译 + buildWebview 通过。后续守门：新代码下行事件须引用 `DOWNSTREAM.*`（`check-event-literals`）；新前端 lint 经 pre-commit / CI webview-lint job 兜底。
+
+**本批未含（独立立项）**：T1 覆盖率工具接入（JaCoCo/Vitest coverage/c8）、A1 Zustand 迁移、B2 bundle 体积治理、B6 HMR、F2 Skills 可视化、F8 CLI 兼容矩阵等 P2/P3 项；A11Y2 键盘导航（roving tabindex）、A11Y3 流式 aria-live 节流亦未启动。
+
