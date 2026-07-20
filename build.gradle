@@ -392,6 +392,34 @@ tasks.register('buildWebview', Exec) {
         commandLine npmCommand, 'run', 'build'
     }
 
+    // Declare inputs/outputs so Gradle can skip the task when nothing changed.
+    // `npm run build` = prebuild (scripts/extract-version.mjs +
+    // scripts/generate-protocol-types.mjs) + `tsc && vite build` + postbuild
+    // (scripts/copy-dist.mjs).  Vite's viteSingleFile output lands in
+    // dist/index.html; copy-dist.mjs then mirrors it into
+    // src/main/resources/html/claude-chat.html.  That mirror is an intentional
+    // side effect outside this task's declared outputs; processResources picks
+    // it up naturally as part of src/main/resources.  Inputs are limited to
+    // files the build script actually reads (test-only configs such as
+    // tsconfig.test.json / vitest.config.ts / playwright.config.ts are
+    // excluded so editing tests does not invalidate webview build).
+    inputs.dir(file("${webviewDir}/src"))
+        .withPropertyName('webview-src')
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.files(
+            file("${webviewDir}/package.json"),
+            file("${webviewDir}/package-lock.json"),
+            file("${webviewDir}/vite.config.ts"),
+            file("${webviewDir}/tsconfig.json"),
+            file("${webviewDir}/index.html"),
+        ).withPropertyName('webview-config')
+         .withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir(file("${webviewDir}/scripts"))
+        .withPropertyName('webview-scripts')
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+    outputs.dir(file("${webviewDir}/dist"))
+        .withPropertyName('webview-dist')
+
     onlyIf { webviewDir.exists() && !skipWebviewBuild }
     if (skipWebviewBuild) {
         println "Skipping webview build because -PskipWebview=true"
