@@ -1082,6 +1082,20 @@ CI 策略：
 
 ---
 
+### 2026-07-20：A3 领域拆分第一步·AppearanceSettingsService（1 commit，feature/v0.4.8）
+
+| 方向 | commit | 范围 |
+| --- | --- | --- |
+| A3 外观+字体领域拆分 | `e0fd8eef` | 提取 `AppearanceSettingsService`（14 常量+6 public+10 private helper），CSS 6 个 public 方法改单行委托 + static `getAppearanceConfigJson` 不动，删除迁移走的常量/private/失效 import（`FontConfigService`/`java.util.Set`）；CSS 净减 ~200 行（2322→~2120） |
+
+**模式 A（Service 注入 CSS 半拆，非直连 ConfigRepository）**：文件缺失时 `CSS.readConfig()` 返回 `createDefaultConfig()` 全局骨架（version/claude/codex），Service 在其上注入 appearance 段，行为与历史逐字等价；直连 repo 会丢全局默认段（行为漂移）。模式 B（Service→ConfigRepository 单向）留待 ConfigRepository 升级为独立 application service 时所有领域 Service 统一迁移。对称既有 `ModelRegistryService`（构造注入 CSS）范式。
+
+验证：新建 `AppearanceSettingsServiceTest` 14 用例（appearance default/normalize/越界 fontSize/非数字 fontSize/hex 过滤/未知字段丢弃/`setAppearanceConfig(null)`、uiFont+codeFont 对称默认与往返、经 CSS `readConfig` override 注入外部写验证委托链下 CAS 仍触发 `ConfigConflictException`）；既有 4 测试（反射签名/`RecordingSettingsService` override 计数/坏 payload `[1,2]` apply 内 catch）经 Java 动态分发保持绿；全量回归零 failure 零 error。
+
+**后续（独立增量）**：ModelRegistry（被 `SessionSendService`/`SessionLifecycleManager`/`GitCommitMessageService`/三 Provider Operations 核心路径调用，爆炸半径大）、Provider/MCP 领域拆分；ConfigRepository 升级独立 application service + in-process 写锁 + F9 migration registry。
+
+---
+
 ## 15. 已完成方向总览
 
 > 汇总本文档状态为「已落地 / 核心已落地」的全部方向，按领域分组并附 commit。各方向原始判定与落地细节见 §3–§9 对应章节；日期以代码实际提交日为准（与 §3–§9 的标记日可能不同）。
@@ -1093,6 +1107,7 @@ CI 策略：
 | S2 | PasswordStore 凭证地基（CredentialBackend 抽象 + 容量/降级/日志安全） | 2026-07-17 `60acb930` |
 | S3 | NodeJsServiceCaller.executeNodeScript 硬化（分流 / 有界读 / 真 timeout） | 2026-07-17 `7037ae7e` |
 | A3 / F9 | ConfigRepository（原子写 + ThreadLocal CAS + malformed quarantine + 多版本 backup） | 2026-07-17 `7ec33f81` |
+| A3（领域拆分①） | AppearanceSettingsService（外观+字体，模式 A 半拆：Service 注入 CSS，Facade 6 public 委托不变，CSS 净减 ~200 行） | 2026-07-20 `e0fd8eef` |
 
 ### 协议与架构
 
@@ -1141,5 +1156,5 @@ CI 策略：
 
 - **B5** Mermaid 打包：已并入 B2（multi-chunk / singlefile 决策），不独立落地。
 
-> **剩余 backlog**：P1 剩 T1 覆盖率工具接入（JaCoCo / Vitest coverage / c8）、A11Y2 键盘导航（roving tabindex）、A11Y3 流式 aria-live 节流；P2 起 A3 领域 Service 拆分 / A5 IntelliJ EP / F8 CLI 兼容矩阵 / F2 Skills 可视化 / F4 历史增强 / B3 typed bootstrap payload / F3 标签持久化（详见 §10）。
+> **剩余 backlog**：P1 剩 T1 覆盖率工具接入（JaCoCo / Vitest coverage / c8）、A11Y2 键盘导航（roving tabindex）、A11Y3 流式 aria-live 节流；P2 A3 领域 Service 拆分（①外观+字体已落地 `e0fd8eef`，剩 ModelRegistry / Provider / MCP）/ A5 IntelliJ EP / F8 CLI 兼容矩阵 / F2 Skills 可视化 / F4 历史增强 / B3 typed bootstrap payload / F3 标签持久化（详见 §10）。
 
