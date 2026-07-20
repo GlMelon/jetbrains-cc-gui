@@ -17,11 +17,11 @@
 - **上行**(前端 → 后端):`window.sendToJava({type, content})`,type 取值见 `protocol/UpstreamAction` 枚举。
 - **下行**(后端 → 前端):`window.__bridge.dispatch(type, payload)`,type 取值见 `protocol/DownstreamEvent` 枚举。
 
-**进程边界(Java ↔ ai-bridge)**:NDJSON 字符串契约,**无 Node 类型泄漏**。后端 `BaseSDKBridge.executeStreamingCommand` 以 `node channel-manager.js <provider> <action>` 启动子进程,经 stdin 投递 JSON、读 stdout NDJSON 行通信。ai-bridge 内部 provider 路由已遵循 Adapter 范式(`ai-bridge/channels/provider-registry.js` 用 `Map<provider, descriptor>` + `dispatch()`),是 Node 侧 Docking 正面范例。**期望(当前债务)**:Java 侧 `BaseSDKBridge` 之上应补 `SdkBridgeAdapter` 接口 + `supports(provider)`,与 ai-bridge provider registry 概念对齐;现状 provider 路由靠子类硬编码 `getProviderName()` 返回字面量,新增第 3 个 SDK 需新建子类并改多处装配(见附录 C)。
+**进程边界(Java ↔ ai-bridge)**:NDJSON 字符串契约,**无 Node 类型泄漏**。后端 `BaseSDKBridge.executeStreamingCommand` 以 `node channel-manager.js <provider> <action>` 启动子进程,经 stdin 投递 JSON、读 stdout NDJSON 行通信。ai-bridge 内部 provider 路由已遵循 Adapter 范式(`ai-bridge/channels/provider-registry.js` 用 `Map<provider, descriptor>` + `dispatch()`),是 Node 侧 Docking 正面范例。Java 侧 SDK 桥接层(`BaseSDKBridge` 系列)宜向同一方向对齐:抽象出 Adapter 接口 + `supports(provider)` 路由,使新增 SDK 只需新增实现而无需改多处装配。
 
 **受众**:AI agent(生成代码时强制遵循)+ 人类开发者(CR/PR 对照)。
 
-**定位**:本文是长期稳定的**架构准则**,不含一次性违规清单或迁移路线(那些另行成文)。准则的抽象层级为「核心模式名 + 当前项目落地指引」,借鉴成熟工程范式(策略注册表、模板方法、事件解耦、多态序列化、配置驱动对接等)的**思想**,但**不绑定**任何特定框架(Spring / Atom / Jackson)的具体类名——本插件不依赖它们。
+**定位**:本文是长期稳定的**架构准则**,只定义架构规则与拓展指导,不含一次性违规清单、具体债务条目或 bug 修复指引(那些另行成文)。准则的抽象层级为「核心模式名 + 当前项目落地指引」,借鉴成熟工程范式(策略注册表、模板方法、事件解耦、多态序列化、配置驱动对接等)的**思想**,但**不绑定**任何特定框架(Spring / Atom / Jackson)的具体类名——本插件不依赖它们。
 
 **优先级**:总则一(职责分离)> 总则三(SSOT)> 总则二 / 五(开闭 / 拓展)> 总则六(对称 / 完整 / 健壮)> 总则四(复用)。冲突时按此顺序裁决。
 
@@ -78,8 +78,8 @@
 
 - 新增**上行 action** 处理:**必须**实现 `handler/core/FrontendActionHandler<T>` 泛型接口(声明 `UpstreamAction`、`payloadType()`、`handle(T, ctx)`),由 `FrontendActionDispatcher` 注册派发。**禁止**向 `MessageDispatcher` 的线性遍历链或 `SettingsHandler.SUPPORTED_TYPES` 这类**字符串数组**里追加条目——那是违反开闭原则的旧路径。
   - **装配机制(本插件无 Spring)**:`FrontendActionDispatcher` 构造器接收 `List<FrontendActionHandler<?>>`,由 `ChatWindowDelegate.initializeHandlers()` 手工 `new` 并注入;Dispatcher 内部按 `handler.action().value()` 建 `LinkedHashMap<String, FrontendActionHandler<?>>` 路由,**重复注册即抛 `IllegalArgumentException`**。新增 typed handler 只需在装配列表加一行,不改分派主体。接口靠 `action()` 返回值声明支持范围,**无独立 `support()` 方法**。
-  - **过渡适配器**:`LegacyMessageHandlerAdapter` 把旧 `MessageHandler.getSupportedTypes()` 的字符串原地适配进 typed 注册表(`SettingsHandler` 经此桥接),是双轨期关键桥接,**禁止误删**。双轨期上行派发:typed 通道优先命中即短路,否则回退 `MessageDispatcher` 线性链(`ClaudeChatWindow.handleMessage`)。
-- 新增**下行事件**派发:type **必须**使用 `DownstreamEvent` 枚举常量(`.value()`),**禁止**散落字符串字面量(如 `"theme.changed"`、`"language.apply"`);派发**统一**经 `HandlerContext.dispatchEvent(type, payloadJson)`,**禁止**直接 `callJavaScript("window.xxx")`。现状:`SettingsHandler` 等 legacy handler 仍混用字面量,属迁移中债务(见附录 C)。
+  - **过渡适配器**:`LegacyMessageHandlerAdapter` 把旧 `MessageHandler.getSupportedTypes()` 的字符串原地适配进 typed 注册表(`SettingsHandler` 经此桥接),**禁止误删**。上行派发规则:typed 通道优先命中即短路,否则回退 `MessageDispatcher` 线性链(`ClaudeChatWindow.handleMessage`)。
+- 新增**下行事件**派发:type **必须**使用 `DownstreamEvent` 枚举常量(`.value()`),**禁止**散落字符串字面量(如 `"theme.changed"`、`"language.apply"`);派发**统一**经 `HandlerContext.dispatchEvent(type, payloadJson)`,**禁止**直接 `callJavaScript("window.xxx")`。
 - 新增**领域 handler**:按 `handler/{domain}/` 分目录组织,单一职责,一个 handler 只处理一个领域。
 - 新增**第三方 / 外部能力对接**:用 Adapter 接口 + `support()` 路由 + 配置外置(见总则五)。
 - 跨模块协作优先走事件或注入对方 Service 接口,**不得**直接深入对方的内部实现类。
@@ -104,11 +104,11 @@
 
 ### 落地指引(本项目)
 
-- **协议消息名(SSOT,已具备)**:上行 / 下行消息名以 Java 枚举(`UpstreamAction` / `DownstreamEvent`)为唯一来源。生成主路径:前端 `prebuild` 钩子触发 `webview/scripts/generate-protocol-types.mjs`,**直读 Java 枚举源**(regex 解析 `NAME("value")`)同步写出 `webview/src/generated/protocol.ts` 与 `protocol-manifest.json`。`ProtocolManifestGenerator`(Gradle `generateProtocol` task)的 manifest 为**可选兼容产物,非主路径**,评估 deprecate。**禁止**在前端手写协议字符串字面量。
-  - **消费侧规范**:前端**必须**统一从 `webview/src/generated/protocol.ts` 导入 `UPSTREAM` / `DOWNSTREAM` 常量。现状债务:`webview/src/bridge/events/index.ts` 的 Central Event Registry 仍手写 ~130 条字面量,是与 `protocol.ts` 并存的**第二真相源**,须改造为引用 `DOWNSTREAM.*`(见迁移计划 P1-B)。
-- **payload 字段结构(SSOT,必须补齐)**:payload 的字段结构必须从后端**单一来源**生成或校验到前端(扩展上述 manifest,或后端产出 JSON Schema → 生成 TS 类型)。**禁止**前后端各写一套解析器 / 默认值。默认值规则两端必须一致,**以后端为准**。当前 manifest schema 仅 `{name, value}`、payload 字段未生成,属待补债务(见迁移计划 Phase 2)。
-- **枚举值**:业务枚举(权限模式、推理等级、provider 类型等)必须有单一来源并生成到前端,**禁止**前端手写联合类型字面量。当前 `PermissionMode`/`ReasoningEffort`/`CodexFastMode`/`ProviderType` 均前端手写、后端散落字符串常量,属待补债务(见迁移计划 P2-A)。
-- **序列化出口统一**:协议名已统一 `value` 出口(`ProtocolValue` 接口 + manifest 生成前端);**`desc` 描述与多态字段统一约定为规划项**(当前 `ProtocolValue` 仅声明 `value()`,见迁移计划 P2-A)。前后端不各自重新解释协议语义。
+- **协议消息名(SSOT)**:上行 / 下行消息名以 Java 枚举(`UpstreamAction` / `DownstreamEvent`)为唯一来源。生成主路径:前端 `prebuild` 钩子触发 `webview/scripts/generate-protocol-types.mjs`,**直读 Java 枚举源**(regex 解析 `NAME("value")`)同步写出 `webview/src/generated/protocol.ts` 与 `protocol-manifest.json`。`ProtocolManifestGenerator`(Gradle `generateProtocol` task)产出的 manifest 为可选兼容产物,**非主路径**。**禁止**在前端手写协议字符串字面量。
+  - **消费侧规范**:前端**必须**统一从 `webview/src/generated/protocol.ts` 导入 `UPSTREAM` / `DOWNSTREAM` 常量,不得另起手写字面量真相源。
+- **payload 字段结构(SSOT)**:payload 的字段结构必须从后端**单一来源**生成或校验到前端(扩展上述 manifest,或后端产出 JSON Schema → 生成 TS 类型)。**禁止**前后端各写一套解析器 / 默认值。默认值规则两端必须一致,**以后端为准**。
+- **枚举值**:业务枚举(权限模式、推理等级、provider 类型等)必须有单一来源并生成到前端,**禁止**前端手写联合类型字面量。
+- **序列化出口统一**:协议名统一以 `value` 为出口(`ProtocolValue` 接口 + manifest 生成前端);`desc` 描述与多态字段亦应在 `ProtocolValue` 上统一约定。前后端不各自重新解释协议语义。
 
 ### 合规检查清单
 
@@ -161,7 +161,7 @@
 - 任何对接外部系统 / CLI / 第三方能力的代码,**禁止**用 `if (type == X) ... else if (type == Y)` 硬编码分支。必须定义 Adapter 接口 + `support()` 路由 + 注入集合。
 - 易变的协议参数(URL、token 获取、字段映射)外置为配置文件,而非写死在代码里。
 - 设计新模块时,先识别「哪些点将来会变」,为它们留接口。
-- **已落地范例(可参照)**:`SessionRuntime` 接口 + `default supports(ProviderType, RuntimeType)` + `SessionRuntimeRegistry`(`Map<Key, SessionRuntime>` 查表,路由代码零 if/else);`ProviderAdapter` 接口 + `ProviderRegistry`(`Map<ProviderId, ProviderAdapter>`,fail-fast 重复检测);`ModelConfig` record(配置驱动模型清单);`RuntimePolicyConfig`(外置到 `~/.codemoss/config.json` 的配置外置范例)。**注意**:装配阶段(`SessionRuntimeRouter` / `SessionProviderRouter` 构造函数)仍是手工 `new` + `register`,**路由开闭但装配未完全开闭**——新增 provider 仍需改装配构造函数,后续可考虑注册化(见附录 C 债务)。
+- **已落地范例(可参照)**:`SessionRuntime` 接口 + `default supports(ProviderType, RuntimeType)` + `SessionRuntimeRegistry`(`Map<Key, SessionRuntime>` 查表,路由代码零 if/else);`ProviderAdapter` 接口 + `ProviderRegistry`(`Map<ProviderId, ProviderAdapter>`,fail-fast 重复检测);`ModelConfig` record(配置驱动模型清单);`RuntimePolicyConfig`(外置到 `~/.codemoss/config.json` 的配置外置范例)。
 
 ### 合规检查清单
 
@@ -208,29 +208,21 @@
 
 ### 为什么
 
-历史多次因某条路径遗漏某项处理而引入隐蔽 bug,且大多**只在插件实际调用方式下暴露**(直跑 CLI 正常,编译期与单元测试抓不到):
-
-- **B9**:OpenCode CLI 漏关 stdin → opencode 阻塞读永远打开的管道(Claude / Codex 写 + 关 stdin 规避,OpenCode 漏关)。
-- **interrupt**:OpenCode SDK 仅杀进程(依赖客户端断开)→ serve 可能继续生成,token 泄漏 + 会话状态不一致(Claude / Codex 主动 `sendAbort` 确定性取消)。
-- **cwd**:OpenCode CLI 漏 home 回退 → 启动失败(Claude / Codex 有回退)。
-- **归一化**:前端 `normalizeProvider` 漏 opencode 分支 → 选 OpenCode 后下行 provider 被归一为 claude。
-- **快照**:Claude send 路径副作用回写 snapshot,破坏纯快照语义(Codex / OpenCode 不回写)。
-
-共同特征:**单 provider 单路径的遗漏**。本准则把「6 路径等价」从隐性约定提升为强制检查项。
+对称性缺失导致的缺陷往往**只在插件实际调用方式下暴露**(直跑某 provider 的某条路径正常,其余路径异常,编译期与单元测试难以覆盖),且典型表现为隐蔽的**单 provider 单路径遗漏**——某项横切处理在部分 provider 已就位、在另一个 provider 却缺位。本准则把「6 路径等价」从隐性约定提升为强制检查项。
 
 ### 落地指引(本项目)
 
 **已对齐的横切处理对照表**(新增 / 改动 provider 能力时以此为基准逐项核对):
 
-| 处理项 | Claude | Codex | OpenCode | 遗漏教训 |
-|---|---|---|---|---|
-| stdin 写入 + 关闭 | ✓ | ✓ | ✓(`ENV_*_USE_STDIN`) | 漏关 → 阻塞读 |
-| extraEnv 注入(CLI) | ✓ `CliEnvironmentBuilder.applyExtraEnv` | ✓ | ✓ | CLI 漏注入,不对称 SDK |
-| interrupt 主动取消 | ✓ `sendAbort` | ✓ `sendAbort` | ✓ `triggerAbort` | 仅杀进程 → 非确定 |
-| cwd null → home 回退(CLI) | ✓ | ✓ | ✓ | 漏回退 → 启动失败 |
-| provider 归一化(前端) | ✓ | ✓ | ✓ `normalizeProvider` | 漏分支 → 选后退 claude |
-| 调用模式快照语义 | ✓ 纯快照 | ✓ | ✓ | send 副作用回写破坏语义 |
-| frontend_ready 状态回灌 | ✓ | ✓ | ✓ | 漏下发 → 新标签默认值回归 |
+| 处理项 | Claude | Codex | OpenCode |
+|---|---|---|---|
+| stdin 写入 + 关闭 | ✓ | ✓ | ✓(`ENV_*_USE_STDIN`) |
+| extraEnv 注入(CLI) | ✓ `CliEnvironmentBuilder.applyExtraEnv` | ✓ | ✓ |
+| interrupt 主动取消 | ✓ `sendAbort` | ✓ `sendAbort` | ✓ `triggerAbort` |
+| cwd null → home 回退(CLI) | ✓ | ✓ | ✓ |
+| provider 归一化(前端) | ✓ | ✓ | ✓ `normalizeProvider` |
+| 调用模式快照语义 | ✓ 纯快照 | ✓ | ✓ |
+| frontend_ready 状态回灌 | ✓ | ✓ | ✓ |
 
 **新增 / 修改 provider 能力的检查流程**:
 
@@ -307,10 +299,10 @@
 <body 可选>
 ```
 
-- **一律英文**:subject 与 body 全英文。中文仅允许出现在迁移登记簿编号 / V9 切片等**追溯锚点**的括注(如 `(C7)`、`(V9 OCP slice 1/3)`),正文叙述一律英文。
+- **一律英文**:subject 与 body 全英文,不得出现中文。
 - **subject 小写起首、祈使句、末尾不加句号**:`show provider icons`,**而非** `Shows provider icons.`。
 - **subject ≤ 72 字符**(硬上限);超长内容移入 body。
-- **scope 强烈建议带上**,标明改动落地的模块(见 7.4)。
+- **scope 强烈建议带上**,标明改动落地的模块(见 8.3)。
 
 ### 8.2 类型(type)定义
 
@@ -319,7 +311,7 @@
 | `feat` | 新功能 | 用户 / 前端可感知的新行为、新增协议字段下发 | `feat(model-registry): backend merge + strip + new-conflict check` |
 | `fix` | bug 修复 | 修复错误行为 / 崩溃 / 数据不一致 | `fix(session): prevent cross-turn stale streamEnd via turn token` |
 | `refactor` | 重构 | 既非新功能也非修 bug 的内部调整,外部行为不变 | `refactor(dialog): migrate McpConfirmDialog to BaseDialog` |
-| `docs` | 文档 | 仅改 `.md` / 设计文档 / 注释性说明 | `docs(arch-debt): sync registry to 43/43 closed` |
+| `docs` | 文档 | 仅改 `.md` / 设计文档 / 注释性说明 | `docs(protocol): clarify upstream/downstream SSOT contract` |
 | `test` | 测试 | 新增 / 修复 / 调整测试,不改产品代码 | `test: guard frontend ModelRegistryItem covers backend ModelConfig fields` |
 | `style` | 格式 | 空白 / 颜色 / 样式微调,不影响逻辑 | `style(webview): tune title bar background between tab bar and chat` |
 | `build` | 构建 / 版本 | `build.gradle` / 版本号 / checkstyle 配置 | `build: bump version to 0.4.6-Alpha1` |
@@ -334,20 +326,11 @@ scope 标明改动落地的模块,**小写、连字符、单词或紧凑词组,�
 
 - **分层**:`webview`(前端)、`ai-bridge`(Node 进程);后端可不带 scope 或用领域名。
 - **领域**:`session` / `settings` / `model` / `model-registry` / `protocol` / `dialog` / `runtime` / `provider` / `bridge` / `handler`。
-- **横切**:`test` / `format` / `dependency` / `config` / `arch-debt`。
+- **横切**:`test` / `format` / `dependency` / `config` / `perf`。
 
 > **历史遗留**:早期提交出现过带空格的 scope 如 `(cli session)`、`(model-registry-section)`,后续**一律改用连字符**统一为 `(cli-session)`。
 
-### 8.4 迁移编号与多步骤切片的标注
-
-涉及架构迁移登记簿或 V9 切片的提交,**在 subject 或 body 标注编号**,便于追溯:
-
-- **登记簿项**:`(C7)` / `(D4)` / `(A6)` 等放 subject 末尾括注,对应附录 C 索引的迁移文档。
-- **V9 多切片**:`V9 OCP slice 1/3`、`2/3`、`3/3`,标明本 commit 是该序列第几步,便于按步 review 与回退。
-
-> 此类编号是**追溯锚点**,不替代类型判断——仍要按 feat / fix / refactor 正确归类。
-
-### 8.5 分批提交示例
+### 8.4 分批提交示例
 
 假设一次开发同时做了:① 后端新增 `supportedReasoningLevels` 下发(新功能);② 顺手修了模型 id 归一化的一处 bug;③ 把某段重复格式化代码抽成公共函数。**正确做法**是拆成三个 commit:
 
@@ -359,7 +342,7 @@ refactor(format): extract shared capacity formatting into formatCapacity
 
 **错误做法**是合成一个 `feat: model improvements` 把三者塞在一起,导致后续无法独立 revert 或 bisect。
 
-### 8.6 历史中应避免的反模式
+### 8.5 历史中应避免的反模式
 
 下列模式曾在本仓早期出现,**后续提交禁止再犯**:
 
@@ -373,7 +356,6 @@ refactor(format): extract shared capacity formatting into formatCapacity
 - [ ] 提交信息是否**全英文**?subject 是否小写起首、无句号、≤ 72 字符?
 - [ ] type 是否选对(`feat` / `fix` / `refactor` 边界是否清晰)?
 - [ ] scope 是否标注、是否小写连字符、无空格?
-- [ ] 涉及迁移的,是否标注了登记簿编号 / V9 切片序号?
 - [ ] 是否存在「一个超大 commit 裹挟多种性质改动」的情况?能否再拆?
 
 ---
@@ -388,8 +370,8 @@ refactor(format): extract shared capacity formatting into formatCapacity
 | 模板方法 + 钩子 | 基类固化流程,子类填钩子 | 抽象基类 + protected 钩子方法 |
 | 事件驱动解耦 | 发布 / 订阅,发布方不感知监听方 | 后端事件总线 / 回调注册 |
 | Docking 三层通用化 | 门面 → Adapter → 执行器 + 配置外置 | 任何外部对接走此三层 |
-| 序列化约定(统一枚举 + 多态字段) | 枚举 value / desc 统一、多态字段走统一约定,业务侧不写自定义序列化器 | 协议名已统一 `value` 出口(`ProtocolValue` + manifest 生成);**`desc` 与多态字段统一为规划项**;payload 走 SSOT 生成(见总则三) |
-| 四对象分层(PO / DTO / Form / Query + Converter) | 持久化 / 响应 / 写入 / 查询对象分离,层间用 Converter 转换 | **当前仅少量 `*Request` record,DTO / PO / Response / Converter 尚未落地**;Settings 层仍以 `JsonObject` 半 schema-less 手拼(流式消息场景刻意保留,稳定结构可 DTO 化) |
+| 序列化约定(统一枚举 + 多态字段) | 枚举 value / desc 统一、多态字段走统一约定,业务侧不写自定义序列化器 | 协议名以 `value` 为统一出口(`ProtocolValue` + manifest 生成);`desc` 与多态字段在 `ProtocolValue` 上统一约定;payload 走 SSOT 生成(见总则三) |
+| 四对象分层(PO / DTO / Form / Query + Converter) | 持久化 / 响应 / 写入 / 查询对象分离,层间用 Converter 转换 | 按此分层组织对象;流式消息等动态结构可保留半 schema-less 透传,稳定结构宜 DTO 化 |
 
 ---
 
@@ -404,4 +386,4 @@ refactor(format): extract shared capacity formatting into formatCapacity
 
 ---
 
-*本准则源自一次完整的前后端架构排查。如需查阅排查中发现的具体违规点与重构建议,见附录 C 索引的迁移路线文档。准则本身的修订,需经架构 review。*
+*本准则是长期稳定的架构准则。准则本身的修订,需经架构 review。*
