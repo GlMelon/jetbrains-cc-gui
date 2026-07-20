@@ -24,7 +24,6 @@ import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.ui.jcef.JBCefBrowser;
 import com.intellij.ui.jcef.JBCefBrowserBase;
@@ -247,24 +246,8 @@ public class WebviewInitializer {
                 }
             });
 
-            // Create a dedicated JSQuery for hiding the CCG panel via Shift+Esc
-            JBCefJSQuery hidePanelQuery = JBCefJSQuery.create(browserBase);
-            hidePanelQuery.addHandler((msg) -> {
-                try {
-                    Project project = host.getProject();
-                    if (project != null && !project.isDisposed()) {
-                        ApplicationManager.getApplication().invokeLater(() -> {
-                            ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow("CCG");
-                            if (toolWindow != null && toolWindow.isVisible()) {
-                                toolWindow.hide();
-                            }
-                        });
-                    }
-                } catch (Exception ex) {
-                    LOG.warn("Failed to hide CCG panel via shortcut: " + ex.getMessage());
-                }
-                return new JBCefJSQuery.Response("ok");
-            });
+            // Shift+Esc 隐藏面板已合并到主 sendToJava 路由(hide_panel 类型),不再使用独立的 hidePanelQuery,
+            // 减少每个标签一个 JBCefJSQuery 实例。路由处理在 ClaudeChatWindow.handleJavaScriptMessage。
 
             HtmlLoader htmlLoader = host.getHtmlLoader();
             String htmlContent = htmlLoader.loadChatHtml();
@@ -278,132 +261,90 @@ public class WebviewInitializer {
                         return;
                     }
 
-                    String injection = "window.sendToJava = function(msg) { " + jsQuery.inject("msg") + " };";
-                    cefBrowser.executeJavaScript(injection, cefBrowser.getURL(), 0);
+                    // 注入所有启动期 JS:单次 executeJavaScript 替代原先 10+ 次独立调用,减少 JCEF IPC 往返。
+                    // 每段用独立 IIFE 包裹隔离错误(一段抛异常不影响其他段,等价于原先各自 executeJavaScript 的语义)。
+                    // Shift+Esc 隐藏面板已合并到主 sendToJava 路由(hide_panel),不再使用独立的 hidePanelQuery。
+                    StringBuilder bootstrap = new StringBuilder();
 
-                    // Register Shift+Esc shortcut handler.
-                    // Intercepted at the JavaScript level — JCEF forwards keydown events
-                    // to the renderer before Chromium processes them for Task Manager.
-                    String shiftEscInjection =
-                        "document.addEventListener('keydown', function(e) {" +
-                        "  if (e.key === 'Escape' && e.shiftKey) {" +
-                        "    e.preventDefault();" +
-                        "    e.stopPropagation();" +
-                        "    " + hidePanelQuery.inject("''",
-                            "function() {}",
-                            "function() {}") +
-                        "  }" +
-                        "}, true);";
-                    cefBrowser.executeJavaScript(shiftEscInjection, cefBrowser.getURL(), 0);
+                    // 1. 主上行桥 window.sendToJava — 必须最先注入,后续 keydown 监听器与 console 转发依赖它。
+                    bootstrap.append("(function(){ window.sendToJava = function(msg) { ")
+                             .append(jsQuery.inject("msg"))
+                             .append(" }; })();");
 
-                    // Inject clipboard path retrieval function
-                    String clipboardPathInjection =
-                        "window.getClipboardFilePath = function() {" +
-                        "  return new Promise((resolve) => {" +
-                        "    " + getClipboardPathQuery.inject("''",
-                            "function(response) { resolve(response); }",
-                            "function(error_code, error_message) { console.error('Failed to get clipboard path:', error_message); resolve(''); }") +
-                        "  });" +
-                        "};";
-                    cefBrowser.executeJavaScript(clipboardPathInjection, cefBrowser.getURL(), 0);
+                    // 2. Shift+Esc 隐藏 CCG 面板。JS 层拦截 keydown(JCEF 在 Chromium 处理前转发给渲染进程),
+                    // 走主 sendToJava 通道,ClaudeChatWindow.handleJavaScriptMessage 路由 hide_panel 类型。
+                    bootstrap.append("(function(){ document.addEventListener('keydown', function(e) {")
+                             .append(" if (e.key === 'Escape' && e.shiftKey) {")
+                             .append(" e.preventDefault(); e.stopPropagation();")
+                             .append(" window.sendToJava(JSON.stringify({type:'hide_panel', content:''}));")
+                             .append(" }")
+                             .append(" }, true); })();");
 
-                    // Forward console logs to IDEA console (dev mode only — IPC overhead hurts scroll FPS in production)
+                    // 3. 剪贴板文件路径读取(Promise RPC;保留独立 query 因其 request/response 契约)。
+                    bootstrap.append("(function(){ window.getClipboardFilePath = function() {")
+                             .append(" return new Promise((resolve) => { ")
+                             .append(getClipboardPathQuery.inject("''",
+                                 "function(response) { resolve(response); }",
+                                 "function(error_code, error_message) { console.error('Failed to get clipboard path:', error_message); resolve(''); }"))
+                             .append(" }); }; })();");
+
+                    // 4. 控制台转发(仅 dev 模式 — 生产环境 IPC 开销影响滚动 FPS)。
                     if (PlatformUtils.isPluginDevMode()) {
-                        String consoleForward =
-                            "const originalLog = console.log;" +
-                            "const originalError = console.error;" +
-                            "const originalWarn = console.warn;" +
-                            "console.log = function(...args) {" +
-                            "  originalLog.apply(console, args);" +
-                            "  window.sendToJava(JSON.stringify({type: 'console.log', args: args}));" +
-                            "};" +
-                            "console.error = function(...args) {" +
-                            "  originalError.apply(console, args);" +
-                            "  window.sendToJava(JSON.stringify({type: 'console.error', args: args}));" +
-                            "};" +
-                            "console.warn = function(...args) {" +
-                            "  originalWarn.apply(console, args);" +
-                            "  window.sendToJava(JSON.stringify({type: 'console.warn', args: args}));" +
-                            "};";
-                        cefBrowser.executeJavaScript(consoleForward, cefBrowser.getURL(), 0);
+                        bootstrap.append("(function(){")
+                                 .append(" var originalLog = console.log, originalError = console.error, originalWarn = console.warn;")
+                                 .append(" console.log = function(...args) { originalLog.apply(console, args);")
+                                 .append("   window.sendToJava(JSON.stringify({type: 'console.log', args: args})); };")
+                                 .append(" console.error = function(...args) { originalError.apply(console, args);")
+                                 .append("   window.sendToJava(JSON.stringify({type: 'console.error', args: args})); };")
+                                 .append(" console.warn = function(...args) { originalWarn.apply(console, args);")
+                                 .append("   window.sendToJava(JSON.stringify({type: 'console.warn', args: args})); };")
+                                 .append("})();");
                     }
 
-                    // Pass IDEA editor font configuration to the frontend
+                    // 5. IDEA 编辑器字体配置。
                     String fontConfig = FontConfigService.getEditorFontConfigJson();
                     LOG.info("[FontSync] Retrieved font config: " + fontConfig);
-                    String fontConfigInjection = String.format(
-                        "if (window.applyIdeaFontConfig) { window.applyIdeaFontConfig(%s); } " +
-                        "else { window.__pendingFontConfig = %s; }",
-                        fontConfig, fontConfig
-                    );
-                    cefBrowser.executeJavaScript(fontConfigInjection, cefBrowser.getURL(), 0);
-                    LOG.info("[FontSync] Font config injected into frontend");
+                    bootstrap.append("(function(){ if (window.applyIdeaFontConfig) { window.applyIdeaFontConfig(")
+                             .append(fontConfig).append("); } else { window.__pendingFontConfig = ").append(fontConfig)
+                             .append("; } })();");
 
-                    // Pass effective plugin UI font configuration to the frontend
+                    // 6. 插件 UI 字体配置(escape + JSON.parse 与原实现一致)。
                     String uiFontConfig = FontConfigService.getResolvedUiFontConfigJson(host.getHandlerContext().getSettingsService());
-                    LOG.info("[UiFontSync] Retrieved UI font config");
                     String escapedUiFontConfig = JsUtils.escapeJs(uiFontConfig);
-                    String uiFontConfigInjection = String.format(
-                        "(function(){ var c = JSON.parse('%s'); " +
-                        "if (window.applyUiFontConfig) { window.applyUiFontConfig(c); } " +
-                        "else { window.__pendingUiFontConfig = c; } })()",
-                        escapedUiFontConfig
-                    );
-                    cefBrowser.executeJavaScript(uiFontConfigInjection, cefBrowser.getURL(), 0);
-                    LOG.info("[UiFontSync] UI font config injected into frontend");
+                    bootstrap.append("(function(){ var c = JSON.parse('").append(escapedUiFontConfig)
+                             .append("'); if (window.applyUiFontConfig) { window.applyUiFontConfig(c); }")
+                             .append(" else { window.__pendingUiFontConfig = c; } })();");
 
-                    // Pass effective code font configuration to the frontend
+                    // 7. 代码字体配置。
                     String codeFontConfig = FontConfigService.getResolvedCodeFontConfigJson(host.getHandlerContext().getSettingsService());
-                    LOG.info("[CodeFontSync] Retrieved code font config");
                     String escapedCodeFontConfig = JsUtils.escapeJs(codeFontConfig);
-                    String codeFontConfigInjection = String.format(
-                        "(function(){ var c = JSON.parse('%s'); " +
-                        "if (window.applyCodeFontConfig) { window.applyCodeFontConfig(c); } " +
-                        "else { window.__pendingCodeFontConfig = c; } })()",
-                        escapedCodeFontConfig
-                    );
-                    cefBrowser.executeJavaScript(codeFontConfigInjection, cefBrowser.getURL(), 0);
-                    LOG.info("[CodeFontSync] Code font config injected into frontend");
+                    bootstrap.append("(function(){ var c = JSON.parse('").append(escapedCodeFontConfig)
+                             .append("'); if (window.applyCodeFontConfig) { window.applyCodeFontConfig(c); }")
+                             .append(" else { window.__pendingCodeFontConfig = c; } })();");
 
-                    // Pass IDEA language configuration to the frontend
+                    // 8. IDEA 语言配置。
                     String languageConfig = LanguageConfigService.getLanguageConfigJson(host.getHandlerContext().getSettingsService());
                     LOG.info("[LanguageSync] Retrieved language config: " + languageConfig);
-                    String languageConfigInjection = String.format(
-                        "if (window.applyIdeaLanguageConfig) { window.applyIdeaLanguageConfig(%s); } " +
-                        "else { window.__pendingLanguageConfig = %s; }",
-                        languageConfig, languageConfig
-                    );
-                    cefBrowser.executeJavaScript(languageConfigInjection, cefBrowser.getURL(), 0);
-                    LOG.info("[LanguageSync] Language config injected into frontend");
+                    bootstrap.append("(function(){ if (window.applyIdeaLanguageConfig) { window.applyIdeaLanguageConfig(")
+                             .append(languageConfig).append("); } else { window.__pendingLanguageConfig = ").append(languageConfig)
+                             .append("; } })();");
 
-                    // Pass persisted appearance configuration (theme preference / font size / diff theme /
-                    // per-theme colors) to the frontend so it can hydrate from config.json when localStorage
-                    // was wiped by IDE cache invalidation. Mirrors the UI font injection (escape + JSON.parse).
+                    // 9. 外观配置(主题/字号/diff 主题/分主题色)。localStorage 被 IDE 缓存失效清除时从 config.json 回灌。
                     String appearanceConfig = CodemossSettingsService.getAppearanceConfigJson(host.getHandlerContext().getSettingsService());
-                    LOG.info("[AppearanceSync] Retrieved appearance config");
                     String escapedAppearanceConfig = JsUtils.escapeJs(appearanceConfig);
-                    String appearanceConfigInjection = String.format(
-                        "(function(){ var c = JSON.parse('%s'); " +
-                        "if (window.applyAppearanceConfig) { window.applyAppearanceConfig(c); } " +
-                        "else { window.__pendingAppearanceConfig = c; } })()",
-                        escapedAppearanceConfig
-                    );
-                    cefBrowser.executeJavaScript(appearanceConfigInjection, cefBrowser.getURL(), 0);
-                    LOG.info("[AppearanceSync] Appearance config injected into frontend");
+                    bootstrap.append("(function(){ var c = JSON.parse('").append(escapedAppearanceConfig)
+                             .append("'); if (window.applyAppearanceConfig) { window.applyAppearanceConfig(c); }")
+                             .append(" else { window.__pendingAppearanceConfig = c; } })();");
 
+                    // 10. 头像配置。
                     String avatarConfig = new AvatarConfigService().serializeAuthoritativeConfig();
-                    LOG.info("[AvatarSync] Retrieved avatar config");
                     String escapedAvatarConfig = JsUtils.escapeJs(avatarConfig);
-                    String avatarConfigInjection = String.format(
-                        "(function(){ var c = JSON.parse('%s'); " +
-                        "if (window.applyAvatarConfig) { window.applyAvatarConfig(c); } " +
-                        "else { window.__pendingAvatarConfig = c; } })()",
-                        escapedAvatarConfig
-                    );
-                    cefBrowser.executeJavaScript(avatarConfigInjection, cefBrowser.getURL(), 0);
-                    LOG.info("[AvatarSync] Avatar config injected into frontend");
+                    bootstrap.append("(function(){ var c = JSON.parse('").append(escapedAvatarConfig)
+                             .append("'); if (window.applyAvatarConfig) { window.applyAvatarConfig(c); }")
+                             .append(" else { window.__pendingAvatarConfig = c; } })();");
 
-                    LOG.debug("onLoadEnd completed, waiting for frontend_ready signal");
+                    cefBrowser.executeJavaScript(bootstrap.toString(), cefBrowser.getURL(), 0);
+                    LOG.debug("onLoadEnd bootstrap injected (" + bootstrap.length() + " chars), waiting for frontend_ready signal");
                 }
             }, browser.getCefBrowser());
 
