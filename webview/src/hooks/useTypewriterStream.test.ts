@@ -78,11 +78,12 @@ describe('useTypewriterStream', () => {
   });
 
   it('POP_LIMIT 封顶:超长回复 span 总数硬性封顶,超出部分降级纯文本节点', () => {
-    // 失控保护一次性 from=0 吐 5000 字:前 POP_LIMIT(4000) 个用 span,
-    // 后 1000 个降级 text node,span 总数封顶 4000,防止撑爆 DOM。
+    // 失控保护一次性 from=0 吐 5000 字:前 POP_LIMIT(1500) 个用 span,
+    // 后 3500 个降级 text node,span 总数封顶 1500,防止撑爆 DOM。
+    // POP_LIMIT 权威值在 useTypewriterStream.ts(=1500,性能封顶),本测试同步之。
     mount('a'.repeat(5000), true);
     frame();
-    expect(container.querySelectorAll('.md-char')).toHaveLength(4000);
+    expect(container.querySelectorAll('.md-char')).toHaveLength(1500);
     expect(container.textContent).toHaveLength(5000);
   });
 
