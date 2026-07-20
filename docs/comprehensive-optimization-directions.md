@@ -1096,6 +1096,20 @@ CI 策略：
 
 ---
 
+### 2026-07-20：A3 领域拆分第二步·AiFeatureToggleSettingsService（1 commit，feature/v0.4.8）
+
+| 方向 | commit | 范围 |
+| --- | --- | --- |
+| A3 AI 功能开关领域拆分 | `4b37249b` | 提取 `AiFeatureToggleSettingsService`（5 KEY 常量 + 10 public），CSS 10 个 public 改单行委托，5 个字面量提升为 KEY 常量；段内 ~138 行逻辑下沉 |
+
+**延续第一步模式 A 半拆**：Service 构造注入 CSS，持久化走 `css.readConfig()/writeConfig()`，Facade 10 个 public 签名不变。**零核心路径耦合**：5 对方法（commit 生成 / MCP gateway / 状态栏 widget / AI 标题生成 4 个 boolean toggle + Smithery API key）都是 readConfig+校验+writeConfig 三件套，不触 Provider/Registry/MCP；`getSmitheryApiKey`/`getMcpGatewayEnabled` 被 MCP market / FeatureFlags 当值消费，不反向调用核心路径。爆炸半径 = 0。
+
+验证：新建 `AiFeatureToggleSettingsServiceTest` 7 用例（4 toggle 默认 true/往返、smitheryApiKey 默认空/往返/null 清除/empty 清除、经 CSS 转发委托链验证）；全量回归零 failure 零 error。候选调研（12 个低耦合领域逐一评估）排除 Prompt Enhancer（helper 链调 Provider Management + Model Registry + DependencyManager，爆炸半径远大于第一步）、Custom Pricing（读侧绕 readConfig 散落 `CustomPricingProvider`，领域不闭合）。
+
+**后续（独立增量）**：#2 Codex Sandbox Mode（76 行，2 public+2 helper+2 常量，结构最像 Appearance+Font，作结构异质性补强）、ModelRegistry/Provider/MCP；ConfigRepository 升级 + in-process 写锁 + F9 migration registry。
+
+---
+
 ## 15. 已完成方向总览
 
 > 汇总本文档状态为「已落地 / 核心已落地」的全部方向，按领域分组并附 commit。各方向原始判定与落地细节见 §3–§9 对应章节；日期以代码实际提交日为准（与 §3–§9 的标记日可能不同）。
@@ -1108,6 +1122,7 @@ CI 策略：
 | S3 | NodeJsServiceCaller.executeNodeScript 硬化（分流 / 有界读 / 真 timeout） | 2026-07-17 `7037ae7e` |
 | A3 / F9 | ConfigRepository（原子写 + ThreadLocal CAS + malformed quarantine + 多版本 backup） | 2026-07-17 `7ec33f81` |
 | A3（领域拆分①） | AppearanceSettingsService（外观+字体，模式 A 半拆：Service 注入 CSS，Facade 6 public 委托不变，CSS 净减 ~200 行） | 2026-07-20 `e0fd8eef` |
+| A3（领域拆分②） | AiFeatureToggleSettingsService（AI 功能开关 4 toggle + Smithery key，模式 A 半拆，Facade 10 public 委托不变，零核心路径） | 2026-07-20 `4b37249b` |
 
 ### 协议与架构
 
@@ -1156,5 +1171,5 @@ CI 策略：
 
 - **B5** Mermaid 打包：已并入 B2（multi-chunk / singlefile 决策），不独立落地。
 
-> **剩余 backlog**：P1 剩 T1 覆盖率工具接入（JaCoCo / Vitest coverage / c8）、A11Y2 键盘导航（roving tabindex）、A11Y3 流式 aria-live 节流；P2 A3 领域 Service 拆分（①外观+字体已落地 `e0fd8eef`，剩 ModelRegistry / Provider / MCP）/ A5 IntelliJ EP / F8 CLI 兼容矩阵 / F2 Skills 可视化 / F4 历史增强 / B3 typed bootstrap payload / F3 标签持久化（详见 §10）。
+> **剩余 backlog**：P1 剩 T1 覆盖率工具接入（JaCoCo / Vitest coverage / c8）、A11Y2 键盘导航（roving tabindex）、A11Y3 流式 aria-live 节流；P2 A3 领域 Service 拆分（①外观+字体 `e0fd8eef`、②AI 功能开关 `4b37249b` 已落地，剩 Codex Sandbox Mode / ModelRegistry / Provider / MCP）/ A5 IntelliJ EP / F8 CLI 兼容矩阵 / F2 Skills 可视化 / F4 历史增强 / B3 typed bootstrap payload / F3 标签持久化（详见 §10）。
 
