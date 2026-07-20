@@ -1,0 +1,18 @@
+# 生成产物与依赖——禁止格式化
+node_modules/
+dist/
+build/
+
+# 协议类型由后端枚举生成脚本产出(业务枚举 SSOT 工作流),非手写
+src/generated/
+
+# 版本号由 build.gradle 经 prebuild 脚本生成,gitignored
+src/version/version.ts
+
+# 第三方打包产物
+**/*.min.js
+**/*.min.css
+
+# 锁文件
+package-lock.json
+pnpm-lock.yaml
