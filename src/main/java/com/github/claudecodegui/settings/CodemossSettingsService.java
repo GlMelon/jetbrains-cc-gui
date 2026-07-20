@@ -42,7 +42,6 @@ public class CodemossSettingsService {
     public static final String CODEX_RUNTIME_ACCESS_CLI_LOGIN = "cli_login";
     private static final String COMMIT_AI_KEY = "commitAi";
     private static final String PROMPT_ENHANCER_KEY = "promptEnhancer";
-    private static final String MODEL_REGISTRY_KEY = "models";
     private static final String AI_FEATURE_PROVIDER_KEY = "provider";
     private static final String AI_FEATURE_MODELS_KEY = "models";
     private static final String AI_FEATURE_EFFECTIVE_PROVIDER_KEY = "effectiveProvider";
@@ -70,6 +69,8 @@ public class CodemossSettingsService {
     private final AiFeatureToggleSettingsService aiFeatureToggleSettingsService;
     /** A3 领域拆分第三步:Codex 沙箱模式领域 Service(per-project/default,平台默认值决策,模式 A 半拆)。 */
     private final CodexSandboxModeSettingsService codexSandboxModeSettingsService;
+    /** A3 领域拆分第四步:模型注册表领域 Service(persistence+validation+merge,静态 ModelRegistryService 不合并,模式 A 半拆)。 */
+    private final ModelRegistrySettingsService modelRegistrySettingsService;
     private final ClaudeSettingsManager claudeSettingsManager;
     private final CodexSettingsManager codexSettingsManager;
     private final CodexMcpServerManager codexMcpServerManager;
@@ -97,6 +98,8 @@ public class CodemossSettingsService {
         this.aiFeatureToggleSettingsService = new AiFeatureToggleSettingsService(this);
         // A3 第三步:Codex Sandbox Mode 领域 Service(同模式 A 半拆,构造期只存引用)。
         this.codexSandboxModeSettingsService = new CodexSandboxModeSettingsService(this);
+        // A3 第四步:ModelRegistry 领域 Service(同模式 A 半拆,构造期只存引用)。
+        this.modelRegistrySettingsService = new ModelRegistrySettingsService(this);
 
         // Initialize ClaudeSettingsManager
         this.claudeSettingsManager = new ClaudeSettingsManager(gson, pathManager);
@@ -1640,7 +1643,7 @@ public class CodemossSettingsService {
         openCodeProviderManager.saveProviderOrder(orderedIds);
     }
 
-    // ==================== Model Registry Config Management ====================
+    // ==================== Model Registry Config Management (delegates to ModelRegistrySettingsService) ====================
 
     /**
      * Read the effective model registry = merge(persisted user layer, read-only defaults).
@@ -1648,12 +1651,7 @@ public class CodemossSettingsService {
      * computed at runtime and never persisted.
      */
     public ModelRegistryConfig getModelRegistry() {
-        try {
-            return ReadOnlyDefaultModels.mergeWithReadOnlyDefaults(readPersistedUserLayer());
-        } catch (Exception e) {
-            LOG.warn("[CodemossSettings] Failed to read model registry, using read-only defaults: " + e.getMessage());
-            return ReadOnlyDefaultModels.mergeWithReadOnlyDefaults(new ModelRegistryConfig(java.util.List.of()));
-        }
+        return modelRegistrySettingsService.getModelRegistry();
     }
 
     /**
@@ -1663,84 +1661,7 @@ public class CodemossSettingsService {
      * guarantee "at least one enabled" — an empty user layer is therefore valid.
      */
     public ModelConfigValidator.ValidationResult setModelRegistry(ModelRegistryConfig registry) {
-        ModelRegistryConfig userOnly = stripReadOnly(registry);
-        ModelConfigValidator.ValidationResult conflict = checkNoNewConflictsWithReadOnly(userOnly);
-        if (!conflict.isValid()) {
-            LOG.warn("[CodemossSettings] Model registry conflicts with read-only defaults, not saving: "
-                    + conflict.errors());
-            return conflict;
-        }
-        ModelConfigValidator.ValidationResult validation =
-                ModelConfigValidator.validate(ReadOnlyDefaultModels.mergeWithReadOnlyDefaults(userOnly));
-        if (!validation.isValid()) {
-            LOG.warn("[CodemossSettings] Model registry validation failed, not saving: " + validation.errors());
-            return validation;
-        }
-        try {
-            JsonObject config = readConfig();
-            config.add(MODEL_REGISTRY_KEY, serializeModelRegistry(userOnly));
-            writeConfig(config);
-            LOG.info("[CodemossSettings] Saved model registry");
-            return validation;
-        } catch (Exception e) {
-            LOG.error("[CodemossSettings] Failed to save model registry: " + e.getMessage());
-            var errors = new java.util.ArrayList<String>();
-            errors.add("保存失败: " + e.getMessage());
-            return new ModelConfigValidator.ValidationResult(errors, java.util.List.of());
-        }
-    }
-
-    /**
-     * Read the raw persisted user layer without read-only defaults and without the
-     * getDefault() fallback. Missing/invalid config returns an empty user layer.
-     */
-    private ModelRegistryConfig readPersistedUserLayer() {
-        try {
-            JsonObject config = readConfig();
-            if (!config.has(MODEL_REGISTRY_KEY) || !config.get(MODEL_REGISTRY_KEY).isJsonObject()) {
-                return new ModelRegistryConfig(java.util.List.of());
-            }
-            ModelRegistryConfig parsed = parseModelRegistry(config.getAsJsonObject(MODEL_REGISTRY_KEY));
-            return stripReadOnly(parsed); // 防御:磁盘上不应残留只读项
-        } catch (Exception e) {
-            return new ModelRegistryConfig(java.util.List.of());
-        }
-    }
-
-    /** 剥离 readOnly=true 项(后端权威:只读默认永不进持久化)。 */
-    private static ModelRegistryConfig stripReadOnly(ModelRegistryConfig registry) {
-        java.util.List<ModelConfig> userOnly = new java.util.ArrayList<>();
-        for (ModelConfig model : registry.models()) {
-            if (!model.readOnly()) {
-                userOnly.add(model);
-            }
-        }
-        return new ModelRegistryConfig(userOnly);
-    }
-
-    /**
-     * 仅拦截"新增"冲突:用户层中、与只读默认键相同、且当前磁盘用户层不存在的项。
-     * legacy 同键项放行(合并时 role 被跳过 / codex 被用户覆盖),避免阻塞无关保存。
-     */
-    private ModelConfigValidator.ValidationResult checkNoNewConflictsWithReadOnly(ModelRegistryConfig incoming) {
-        java.util.Set<String> currentKeys = new java.util.HashSet<>();
-        for (ModelConfig model : readPersistedUserLayer().models()) {
-            currentKeys.add(ReadOnlyDefaultModels.dedupKey(model.provider(), model.id()));
-        }
-        java.util.Set<String> readOnlyKeys = new java.util.HashSet<>();
-        for (ModelConfig model : ReadOnlyDefaultModels.compute()) {
-            readOnlyKeys.add(ReadOnlyDefaultModels.dedupKey(model.provider(), model.id()));
-        }
-        java.util.List<String> errors = new java.util.ArrayList<>();
-        for (ModelConfig model : incoming.models()) {
-            String key = ReadOnlyDefaultModels.dedupKey(model.provider(), model.id());
-            if (readOnlyKeys.contains(key) && !currentKeys.contains(key)) {
-                errors.add("模型 " + model.id() + " 与配置文件默认模型冲突,无法新增");
-            }
-        }
-        return errors.isEmpty()
-                ? new ModelConfigValidator.ValidationResult(java.util.List.of(), java.util.List.of())
-                : new ModelConfigValidator.ValidationResult(errors, java.util.List.of());
+        return modelRegistrySettingsService.setModelRegistry(registry);
     }
 
     /**
@@ -1752,71 +1673,7 @@ public class CodemossSettingsService {
      * 刻意区分:下发需派生字段,写盘不需要(避免双写)。
      */
     public String getModelRegistryJson() {
-        return ModelRegistryService.serialize(getModelRegistry()).toString();
-    }
-
-    private ModelRegistryConfig parseModelRegistry(JsonObject modelRegistryObj) {
-        List<ModelConfig> models = new java.util.ArrayList<>();
-        if (modelRegistryObj.has("items") && modelRegistryObj.get("items").isJsonArray()) {
-            JsonArray items = modelRegistryObj.getAsJsonArray("items");
-            for (JsonElement item : items) {
-                if (!item.isJsonObject()) {
-                    continue;
-                }
-                JsonObject obj = item.getAsJsonObject();
-                String id = readString(obj, "id");
-                String provider = readString(obj, "provider");
-                String role = readString(obj, "role");
-                String label = readString(obj, "label");
-                String actualModel = readString(obj, "actualModel");
-                String description = readString(obj, "description");
-                int contextWindow = obj.has("contextWindow") && obj.get("contextWindow").isJsonPrimitive()
-                        ? obj.get("contextWindow").getAsInt()
-                        : CommonConstants.DEFAULT_CONTEXT_WINDOW;
-                boolean supports1MContext = obj.has("supports1MContext")
-                        && obj.get("supports1MContext").getAsBoolean();
-                boolean enabled = !obj.has("enabled") || obj.get("enabled").getAsBoolean();
-                models.add(new ModelConfig(id, provider, role, label, actualModel,
-                        description, contextWindow, supports1MContext, enabled));
-            }
-        }
-        return new ModelRegistryConfig(models);
-    }
-
-    private JsonObject serializeModelRegistry(ModelRegistryConfig registry) {
-        JsonObject root = new JsonObject();
-        JsonArray items = new JsonArray();
-        for (ModelConfig model : registry.models()) {
-            JsonObject obj = new JsonObject();
-            obj.addProperty("id", model.id());
-            obj.addProperty("provider", model.provider());
-            obj.addProperty("role", model.role());
-            obj.addProperty("label", model.label());
-            if (model.actualModel() == null || model.actualModel().isEmpty()) {
-                obj.add("actualModel", JsonNull.INSTANCE);
-            } else {
-                obj.addProperty("actualModel", model.actualModel());
-            }
-            if (model.description() == null || model.description().isEmpty()) {
-                obj.add("description", JsonNull.INSTANCE);
-            } else {
-                obj.addProperty("description", model.description());
-            }
-            obj.addProperty("contextWindow", model.contextWindow());
-            obj.addProperty("supports1MContext", model.supports1MContext());
-            obj.addProperty("enabled", model.enabled());
-            obj.addProperty("readOnly", model.readOnly());
-            items.add(obj);
-        }
-        root.add("items", items);
-        return root;
-    }
-
-    private static String readString(JsonObject obj, String key) {
-        if (!obj.has(key) || obj.get(key).isJsonNull()) {
-            return "";
-        }
-        return obj.get(key).getAsString();
+        return modelRegistrySettingsService.getModelRegistryJson();
     }
 
     // ==================== Runtime Policy Config Management ====================
