@@ -125,6 +125,12 @@ dependencies {
     }
 }
 
+def verifierIde = project.findProperty('verifierIde')?.toString()?.toUpperCase()
+def supportedVerifierIdes = ['IC', 'PC', 'WS', 'IU']
+if (verifierIde != null && !supportedVerifierIdes.contains(verifierIde)) {
+    throw new GradleException("Unsupported verifierIde '${verifierIde}'; expected one of ${supportedVerifierIdes}")
+}
+
 intellijPlatform {
     pluginVerification {
         // Keep local verification focused on binary/internal API compatibility
@@ -143,10 +149,24 @@ intellijPlatform {
         externalPrefixes = ['com.jetbrains.python']
 
         ides {
+            // A5 optional-language isolation matrix: Java present, Python present,
+            // and neither language plugin present (platform-only fallback).
+            if (verifierIde == null || verifierIde == 'IC') {
+                ide('IC', '2024.3.1')
+            }
+            if (verifierIde == null || verifierIde == 'PC') {
+                ide('PC', '2024.3')
+            }
+            if (verifierIde == null || verifierIde == 'WS') {
+                ide('WS', '2024.3')
+            }
+
             // 2026.2 EAP build 262.6228.19 – the exact build that surfaced
             // the CefResourceHandler / PluginManagerCore issues during
             // marketplace verification.
-            ide('IU', '262.6228.19')
+            if (verifierIde == null || verifierIde == 'IU') {
+                ide('IU', '262.6228.19')
+            }
         }
     }
 }
