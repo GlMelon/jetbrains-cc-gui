@@ -80,3 +80,6 @@ logs/*.log
 
 .codex
 .opencode
+
+# Binary archives (framer-motion, etc.)
+*.tgz
