@@ -60,7 +60,7 @@
 - [x] **S2-1 B3 typed bootstrap payload**：已定义后端权威 bootstrap DTO/schema，通过 `webview.bootstrap` 单一 typed 下行事件发送字体、语言、外观与头像快照；`WebviewInitializer` 已移除业务初始化 JavaScript 拼接。
 - [x] **S2-2 F8 CLI 兼容矩阵**：已建立三 Provider compatibility manifest SSOT、provider-specific parser registry、未知/更高版本策略、Ed25519 签名远程更新、缓存防回滚与离线 fallback，并对称接入三条 CLI 探测路径。
 - [x] **S2-3 A3 Settings 拆分收尾**：六个领域 Service 已改为直接依赖 `ConfigStore`，`CodemossSettingsService` 仅保留兼容 Facade；已完成逐级 migration registry、同路径进程内共享锁、原子 `update()` 与领域所有权契约验收（`19457260`）。
-- [ ] **S2-4 A5 IntelliJ EP 验收**：补 EP 加载/隔离测试和目标 IDE Plugin Verifier 结果，确认 Java/Python 可选依赖行为。
+- [x] **S2-4 A5 IntelliJ EP 验收**：`SemanticContextProvider` 与 `ClassNavigationProvider` 均使用动态 EP，Java/Python 实现仅由可选 descriptor 加载；EP 契约、失败隔离、无插件 fallback 与 IDEA/PyCharm/WebStorm/Ultimate Plugin Verifier 矩阵均已通过。
 - [ ] **S2-5 F2 Skills 查看/编辑闭环**：实现未知 YAML 字段保留、原子写/备份/回滚、外部冲突、symlink/path traversal 防护及解析失败不覆盖。
 - [ ] **S2-6 F4 历史增强闭环**：在搜索基础上实现归档 capability、HTML/PDF sanitizer 和大会话内存上限。
 - [ ] **S2-7 F3 标签页持久化闭环**：实现颜色、固定状态、完整 session/provider/runtime/mode snapshot、IDE 重启恢复和不可用降级。
@@ -372,7 +372,15 @@ handlerRegistry.register("history.get", ctx -> historyHandlers.get(ctx));
 
 ### A5：ContextCollector 改为 IntelliJ EP
 
-**状态：修订后可行。**
+**状态：✅ S2-4 已完成（2026-07-22）。**
+
+落地：
+
+- `SemanticContextProvider.EP_NAME` 是语义上下文 EP 的 SSOT，`ContextCollector` 每次读取动态 extension snapshot，不静态持有可选插件实例；
+- 单个语义 provider 异常被隔离，无 provider 时继续平台 fallback；
+- Java/Python 收集器分别只在 `java-features.xml` / `python-features.xml` 注册；
+- Java PSI 类导航从 core 反射加载迁移为 core-safe `ClassNavigationProvider` 动态 EP，Java 实现仅在 `java-features.xml` 注册；
+- Plugin Verifier 已覆盖 IC `243.22562.145`、PC `243.21565.199`、WS `243.21565.180`、IU `262.6228.19`，四个目标均为 `Compatible`。
 
 推荐：
 
@@ -1015,7 +1023,7 @@ Dropdown 按实际 combobox/listbox pattern 实现；不得为所有组件机械
 | # | 方向 | 状态 | 2026-07-22 当前工作区结论 | 下一步 |
 | ---: | --- | --- | --- | --- |
 | 1 | A3 Settings 领域拆分 | ✅ | 六个领域 Service 直接依赖 `ConfigStore`，Facade 仅保留兼容调用面；migration registry、同路径进程内锁和所有权契约已完成 | 已完成（`19457260`） |
-| 2 | A5 IntelliJ EP | ✅ | EP 定义、Java/Python 注册和运行时加载已实现 | S2-4 补验收证据 |
+| 2 | A5 IntelliJ EP | ✅ | 语义上下文与类导航均使用 core-safe 动态 EP；Java/Python 可选 descriptor 隔离、失败隔离、fallback 与四 IDE Verifier 矩阵均已验收 | 已完成（`dd9bc4b4`、`d0d1fd78`、`7e2eef35`） |
 | 3 | F8 CLI 兼容矩阵 | ✅ | 三 Provider parser registry、compatibility manifest SSOT、未知/更高版本策略、Ed25519 签名更新、revision 防回滚、缓存与离线 fallback 已对称接入 CLI 探测 | 已完成（`e3de1b8a`） |
 | 4 | F2 Skills 可视化 | 🟡 | typed metadata 只读展示已实现，编辑和安全写入链路未完成 | S2-5 |
 | 5 | F4 历史增强 | 🟡 | 搜索弹窗已实现，归档及 HTML/PDF 导出未完成 | S2-6 |
@@ -1445,6 +1453,16 @@ Dropdown 按实际 combobox/listbox pattern 实现；不得为所有组件机械
 
 ---
 
+### 2026-07-22：S2-4 A5 IntelliJ EP 验收（feature/v0.4.8）
+
+| 方向 | commit | 范围 |
+| --- | --- | --- |
+| A5（S2-4） | `dd9bc4b4`、`d0d1fd78`、`7e2eef35` | 动态读取 `SemanticContextProvider` EP 并隔离 provider 失败；新增 core-safe `ClassNavigationProvider` EP，移除 core 对 Java PSI 实现的反射加载；补 optional descriptor、动态加载、无插件 fallback、类加载边界及 verifier 矩阵契约测试 |
+
+验证：`SemanticContextExtensionContractTest` 与 `OpenClassHandlerTest` 通过；`verifyPluginStructure` 和全量 `./gradlew test` 通过。Plugin Verifier 对 IC `243.22562.145`、PC `243.21565.199`、WS `243.21565.180`、IU `262.6228.19` 均报告 `Compatible`，仅保留 4 条既有 deprecated API usage。首次 PC 验证发现 core 中 `JavaClassNavigationSupport` 的 Java PSI 类加载边界问题，迁移到可选 `ClassNavigationProvider` EP 后复验通过。`checkstyleMain` 仍被工作区既有 13 条非 A5 违规阻断，A5 文件无新增违规。
+
+---
+
 ## 15. 已落地与阶段性成果总览
 
 > 本节同时记录已落地成果和明确标注的 Phase A/基线/先导成果。表中出现不代表对应 P1-P4 方向已完整完成；当前完成度统一以 §0 和 §10 的 2026-07-22 核查为准。日期以代码实际提交日为准，`TBD` 表示当前工作区已有实现但尚未形成提交。
@@ -1470,6 +1488,7 @@ Dropdown 按实际 combobox/listbox pattern 实现；不得为所有组件机械
 | --- | --- | --- |
 | A4 | BaseSDKBridge 核心已落地（三 Provider 继承，仅小范围债务） | 核心已落地 |
 | A7 | Provider 历史 Adapter/Registry 已落地（债务清理阶段） | 核心已落地 |
+| A5（S2-4） | 语义上下文与 Java 类导航动态 EP、可选 descriptor 隔离、失败隔离/fallback、四 IDE Plugin Verifier 验收 | 2026-07-22 `dd9bc4b4`、`d0d1fd78`、`7e2eef35` |
 | F8（S2-2） | 三 Provider CLI compatibility manifest SSOT、parser registry、签名更新、防回滚缓存与离线 fallback | 2026-07-22 `e3de1b8a` |
 | A8 | 下行事件字面量 → `DOWNSTREAM.*` SSOT + `check-event-literals.mjs` 漂移守门 | 2026-07-20 `9eb0d496` |
 | A8（S0-4） | 独立 `protocol-ssot` CI job：Java 枚举生成协议类型后执行漂移检查 | 2026-07-22 `22b17f2d` |
