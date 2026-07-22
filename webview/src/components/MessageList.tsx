@@ -31,6 +31,13 @@ const REVEAL_PAGE_SIZE = 30;
  */
 const animatedEntryKeys = new Set<string>();
 
+/**
+ * H3: 消息出场动画专用退出延迟(ms),对齐 --dlg-out: 0.16s。
+ * 消息从 visibleMessages 移除后,先保留在 DOM 中播放 animate-out 动画,
+ * 结束后再真正卸载。避免消息瞬切消失。
+ */
+const MESSAGE_EXIT_MS = 160;
+
 type VisibleMessageUnit =
   | { kind: 'message'; message: ClaudeMessage; messageIndex: number }
   | { kind: 'assistant_response_group'; responseId: string; items: Array<{ message: ClaudeMessage; messageIndex: number }> };
@@ -215,6 +222,7 @@ export const MessageList = memo(forwardRef<MessageListRevealHandle, MessageListP
 
   // Reset revealed count when a new session starts (first message ID changes)
   const firstMsgIdRef = useRef(messages[0]?.id);
+
   useEffect(() => {
     const currentFirstId = messages[0]?.id;
     const isSessionStart = messages.length === 0;
@@ -303,6 +311,60 @@ export const MessageList = memo(forwardRef<MessageListRevealHandle, MessageListP
 
     return units;
   }, [visibleMessages, shouldCollapse, collapsedCount]);
+
+  /**
+   * H3: 消息出场动画。
+   * 缓存最近一次 visibleMessageUnits 对应的消息数据,当某条消息从列表中消失时,
+   * 保留其数据在 exitingMessages 中,继续渲染 160ms 以播放 animate-out 动画。
+   */
+  const prevUnitMapRef = useRef<Map<string, { message: ClaudeMessage; messageIndex: number }>>(new Map());
+  const [exitingMessages, setExitingMessages] = useState<Map<string, { message: ClaudeMessage; messageIndex: number }>>(new Map());
+  const exitingTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  useEffect(() => {
+    // 构建当前可见消息的 key→data 映射
+    const currentMap = new Map<string, { message: ClaudeMessage; messageIndex: number }>();
+    for (const unit of visibleMessageUnits) {
+      if (unit.kind === 'message') {
+        const key = getMessageKey(unit.message, unit.messageIndex);
+        currentMap.set(key, { message: unit.message, messageIndex: unit.messageIndex });
+      } else {
+        for (const { message, messageIndex } of unit.items) {
+          const key = getMessageKey(message, messageIndex);
+          currentMap.set(key, { message, messageIndex });
+        }
+      }
+    }
+
+    // 检测消失的消息
+    const prevMap = prevUnitMapRef.current;
+    const newExiting = new Map(exitingMessages);
+    for (const [key, data] of prevMap) {
+      if (!currentMap.has(key) && !newExiting.has(key) && !exitingTimeoutsRef.current.has(key)) {
+        // 消息消失：加入 exiting 集合,播放退出动画
+        newExiting.set(key, data);
+        const timeout = setTimeout(() => {
+          setExitingMessages((prev) => {
+            const next = new Map(prev);
+            next.delete(key);
+            return next;
+          });
+          exitingTimeoutsRef.current.delete(key);
+        }, MESSAGE_EXIT_MS);
+        exitingTimeoutsRef.current.set(key, timeout);
+      }
+    }
+    // 取消已重新出现的消息的退出动画
+    for (const [key, timeout] of exitingTimeoutsRef.current) {
+      if (currentMap.has(key)) {
+        clearTimeout(timeout);
+        exitingTimeoutsRef.current.delete(key);
+        newExiting.delete(key);
+      }
+    }
+    setExitingMessages(newExiting);
+    prevUnitMapRef.current = currentMap;
+  }, [visibleMessageUnits]);
 
   return (
     <div className="message-list" onContextMenu={handleMessageContextMenu}>
@@ -470,6 +532,28 @@ export const MessageList = memo(forwardRef<MessageListRevealHandle, MessageListP
           />
         );
       })}
+
+      {/* H3: 消息出场动画 —— 消失的消息保留在 DOM 中 160ms 播放淡出动画 */}
+      {Array.from(exitingMessages.entries()).map(([key, { message, messageIndex }]) => (
+        <MessageItem
+          key={`exiting-${key}`}
+          message={message}
+          messageIndex={messageIndex}
+          messageKey={key}
+          shouldAnimateOut
+          isLast={false}
+          streamingActive={false}
+          isThinking={false}
+          t={t}
+          getMessageText={getMessageText}
+          getContentBlocks={getContentBlocks}
+          findToolResult={findToolResult}
+          extractMarkdownContent={extractMarkdownContent}
+          currentProvider={currentProvider}
+          avatarConfig={avatarConfig}
+          loadingStartTime={loadingStartTime}
+        />
+      ))}
 
       {/* Loading / queue indicator */}
       {shouldShowWaitingIndicator && (

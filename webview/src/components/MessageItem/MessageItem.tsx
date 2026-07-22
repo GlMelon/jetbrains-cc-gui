@@ -57,6 +57,9 @@ export interface MessageItemProps {
   /** Play the messageFadeIn entry animation on this card. Set only on the card's
    *  first logical appearance so React remounts never replay the animation. */
   shouldAnimateIn?: boolean;
+  /** Play the messageFadeOut exit animation on this card (H3). Applied when a
+   *  message is being removed from the list and kept in DOM briefly to animate out. */
+  shouldAnimateOut?: boolean;
 }
 
 type GroupedBlock =
@@ -282,6 +285,7 @@ export const MessageItem = memo(function MessageItem({
   withinResponseGroup = false,
   renderMode = 'full',
   shouldAnimateIn = false,
+  shouldAnimateOut = false,
 }: MessageItemProps): React.ReactElement {
   const [copiedMessageIndex, setCopiedMessageIndex] = useState<number | null>(null);
 
@@ -695,7 +699,7 @@ export const MessageItem = memo(function MessageItem({
 
   return (
     <div
-      className={`message ${message.type}${isLast ? ' is-last-message' : ''}${isProviderNotConfigured ? ' provider-not-configured' : ''}${withinResponseGroup ? ' in-response-group' : ''}${shouldAnimateIn ? ' animate-in' : ''}`}
+      className={`message ${message.type}${isLast ? ' is-last-message' : ''}${isProviderNotConfigured ? ' provider-not-configured' : ''}${withinResponseGroup ? ' in-response-group' : ''}${shouldAnimateIn ? ' animate-in' : ''}${shouldAnimateOut ? ' animate-out' : ''}`}
       ref={anchorRefCallback}
       data-message-anchor-id={message.type === 'user' ? messageKey : undefined}
     >

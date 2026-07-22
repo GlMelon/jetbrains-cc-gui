@@ -68,6 +68,18 @@
     to { opacity: 1; transform: translateY(0); }
 }
 
+/* H3: 消息出场动画。仅 opacity 淡出(transform 不变,避免破坏高度与 scroll anchoring)。
+   动画期间保持消息在 DOM 中,结束(160ms)后由 MessageList 卸载。
+   reduced-motion 下由 base.less 全局策略退化为瞬时。 */
+.message.animate-out {
+    animation: messageFadeOut var(--dlg-out) var(--ease-smooth) forwards;
+}
+
+@keyframes messageFadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
 /* User Message - Right aligned */
 .message.user {
     align-self: flex-end;
