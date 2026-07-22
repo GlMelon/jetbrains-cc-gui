@@ -1,4 +1,7 @@
 <idea-plugin>
-    <!-- This file is loaded only when com.intellij.java plugin is available -->
-    <!-- Java-specific extensions can be added here if needed in the future -->
+    <!-- Java-specific features (A5): loaded when com.intellij.java plugin is available -->
+    <extensions>
+        <semanticContextProvider implementation="com.github.claudecodegui.handler.context.JavaContextCollector"/>
+        <classNavigationProvider implementation="com.github.claudecodegui.handler.file.JavaClassNavigationSupport"/>
+    </extensions>
 </idea-plugin>

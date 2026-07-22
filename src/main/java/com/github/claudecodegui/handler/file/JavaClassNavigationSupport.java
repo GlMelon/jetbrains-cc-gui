@@ -22,15 +22,16 @@ import java.util.function.Consumer;
  * Java PSI-backed class navigation support.
  * This class must only be loaded when com.intellij.java is available.
  */
-public class JavaClassNavigationSupport {
+public class JavaClassNavigationSupport implements ClassNavigationProvider {
 
     private static final Logger LOG = Logger.getInstance(JavaClassNavigationSupport.class);
 
     /**
      * Navigate to a class in project and library scope.
-     * Called reflectively from {@link OpenClassHandler}.
+     * Loaded through the optional Java descriptor and routed via {@link ClassNavigationProvider}.
      */
-    public static boolean navigate(Project project, String fqcn, Consumer<String> onFailure) {
+    @Override
+    public boolean navigate(Project project, String fqcn, Consumer<String> onFailure) {
         if (project == null || project.isDisposed() || fqcn == null || fqcn.isBlank()) {
             return false;
         }

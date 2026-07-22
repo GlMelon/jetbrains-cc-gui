@@ -64,6 +64,14 @@
     <!-- Optional: Python support for enhanced context collection in PyCharm/IDEA with Python plugin -->
     <depends optional="true" config-file="python-features.xml">com.intellij.modules.python</depends>
 
+    <!-- Custom extension points (A5) -->
+    <extensionPoint name="semanticContextProvider"
+                    interface="com.github.claudecodegui.handler.context.SemanticContextProvider"
+                    dynamic="true"/>
+    <extensionPoint name="classNavigationProvider"
+                    interface="com.github.claudecodegui.handler.file.ClassNavigationProvider"
+                    dynamic="true"/>
+
     <extensions defaultExtensionNs="com.intellij">
         <!-- Application-scoped singleton for settings -->
         <applicationService serviceImplementation="com.github.claudecodegui.settings.CodemossSettingsService"/>
@@ -80,6 +88,9 @@
 
         <!-- Cleanup old ai-bridge cache when plugin version changes -->
         <postStartupActivity implementation="com.github.claudecodegui.startup.PluginUpdateListener"/>
+
+        <!-- Refresh signed provider CLI compatibility policies with bundled/offline fallback -->
+        <postStartupActivity implementation="com.github.claudecodegui.startup.CliCompatibilityManifestUpdater"/>
 
         <!-- Monitor Run/Debug Service Output -->
         <postStartupActivity implementation="com.github.claudecodegui.service.RunConfigMonitorService"/>
