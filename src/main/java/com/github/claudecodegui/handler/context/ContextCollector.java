@@ -13,83 +13,30 @@ import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.ex.MarkupModelEx;
 import com.intellij.openapi.editor.impl.DocumentMarkupModel;
 import com.intellij.openapi.editor.markup.RangeHighlighter;
+import com.intellij.openapi.extensions.ExtensionPointName;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.*;
 import com.intellij.psi.util.PsiTreeUtil;
 import org.jetbrains.annotations.NotNull;
 
-import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 /**
- * Context collector with optional Java plugin support.
- * Works in all JetBrains IDEs (IDEA, PyCharm, WebStorm, etc.)
+ * Context collector using IntelliJ Extension Point for language-specific providers (A5).
+ *
+ * <p>Loads {@link SemanticContextProvider} EPs registered in plugin.xml.
+ * Falls back to platform-level context collection when no provider EP is available.</p>
  */
 public class ContextCollector {
 
     private static final Logger LOG = Logger.getInstance(ContextCollector.class);
 
-    // Check if Java plugin is available (for PyCharm, WebStorm compatibility)
-    private static final boolean JAVA_PLUGIN_AVAILABLE = isJavaPluginAvailable();
-    private static Method collectJavaContextMethod;
-    private static Method collectFocusedContextMethod;
-
-    private static final boolean PYTHON_PLUGIN_AVAILABLE = isPythonPluginAvailable();
-    private static Method collectPythonContextMethod;
-
-    static {
-        if (JAVA_PLUGIN_AVAILABLE) {
-            try {
-                Class<?> javaCollectorClass = Class.forName(
-                    "com.github.claudecodegui.handler.context.JavaContextCollector");
-                collectJavaContextMethod = javaCollectorClass.getMethod(
-                    "collectJavaContext",
-                    JsonObject.class, Editor.class, Project.class, PsiFile.class, Document.class);
-                collectFocusedContextMethod = javaCollectorClass.getMethod(
-                    "collectFocusedContext",
-                    JsonObject.class, Editor.class, Project.class, PsiFile.class);
-            } catch (Exception e) {
-                LOG.warn("Failed to load JavaContextCollector: " + e.getMessage());
-            }
-        }
-
-        if (PYTHON_PLUGIN_AVAILABLE) {
-            try {
-                Class<?> pythonCollectorClass = Class.forName(
-                    "com.github.claudecodegui.handler.context.PythonContextCollector");
-                collectPythonContextMethod = pythonCollectorClass.getMethod(
-                    "collectPythonContext",
-                    JsonObject.class, Editor.class, Project.class, PsiFile.class, Document.class);
-            } catch (Exception e) {
-                LOG.warn("Failed to load PythonContextCollector: " + e.getMessage());
-            }
-        }
-    }
-
-    private static boolean isJavaPluginAvailable() {
-        try {
-            Class.forName("com.intellij.psi.PsiJavaFile");
-            LOG.info("Java plugin detected - full context collection enabled");
-            return true;
-        } catch (ClassNotFoundException e) {
-            LOG.info("Java plugin not available - running in platform-compatible mode (PyCharm/WebStorm)");
-            return false;
-        }
-    }
-
-    private static boolean isPythonPluginAvailable() {
-        try {
-            Class.forName("com.jetbrains.python.psi.PyFile");
-            LOG.info("Python plugin detected - Python context collection enabled");
-            return true;
-        } catch (ClassNotFoundException e) {
-            return false;
-        }
-    }
+    private static final ExtensionPointName<SemanticContextProvider> EP_NAME =
+            SemanticContextProvider.EP_NAME;
 
     // Constants for context collection limits
     private static final int CODE_WINDOW_LINES_RANGE = 40;
@@ -118,29 +65,12 @@ public class ContextCollector {
     }
 
     private void collectDataRobustly(JsonObject semanticData, Editor editor, Project project, PsiFile psiFile, Document document) {
+        // 1. 通过 EP 收集语言特定的语义上下文(Java/Python 等)
+        collectProviderContext(EP_NAME.getExtensionList(), semanticData, editor, project, psiFile, document);
+
         int offset = editor.getCaretModel().getOffset();
 
-        // 1-6. Java-specific context (scope, references, class info, method calls, imports, package)
-        if (JAVA_PLUGIN_AVAILABLE && collectJavaContextMethod != null) {
-            try {
-                collectJavaContextMethod.invoke(null, semanticData, editor, project, psiFile, document);
-            } catch (Throwable t) {
-                LOG.debug("Failed to collect Java context: " + t.getMessage());
-            }
-        }
-
-        // Python-specific context
-        if (PYTHON_PLUGIN_AVAILABLE && collectPythonContextMethod != null) {
-            try {
-                if (isPythonFile(psiFile)) {
-                    collectPythonContextMethod.invoke(null, semanticData, editor, project, psiFile, document);
-                }
-            } catch (Throwable t) {
-                LOG.debug("Failed to collect Python context: " + t.getMessage());
-            }
-        }
-
-        // 7. Comments (platform-independent)
+        // 2. Comments (platform-independent)
         try {
             JsonObject comments = getNearbyComments(psiFile, offset);
             if (comments.size() > 0) { semanticData.add("comments", comments); }
@@ -148,7 +78,7 @@ public class ContextCollector {
             LOG.debug("Failed to collect comments: " + t.getMessage());
         }
 
-        // 8. Highlight Information (platform-independent)
+        // 3. Highlight Information (platform-independent)
         try {
             JsonArray highlights = getHighlightInfo(editor, document);
             if (highlights.size() > 0) { semanticData.add("highlights", highlights); }
@@ -156,7 +86,7 @@ public class ContextCollector {
             LOG.debug("Failed to collect highlights: " + t.getMessage());
         }
 
-        // 9. Injected Languages (platform-independent)
+        // 4. Injected Languages (platform-independent)
         try {
             JsonArray injected = getInjectedLanguages(psiFile, offset, project);
             if (injected.size() > 0) { semanticData.add("injectedLanguages", injected); }
@@ -164,7 +94,7 @@ public class ContextCollector {
             LOG.debug("Failed to collect injected languages: " + t.getMessage());
         }
 
-        // 10. Syntax Errors (platform-independent)
+        // 5. Syntax Errors (platform-independent)
         try {
             JsonArray errors = getSyntaxErrors(psiFile);
             if (errors.size() > 0) { semanticData.add("errors", errors); }
@@ -172,7 +102,7 @@ public class ContextCollector {
             LOG.debug("Failed to collect syntax errors: " + t.getMessage());
         }
 
-        // 11. Quick Fixes (platform-independent)
+        // 6. Quick Fixes (platform-independent)
         try {
             JsonArray quickFixes = getQuickFixes(editor, psiFile, project);
             if (quickFixes.size() > 0) { semanticData.add("quickFixes", quickFixes); }
@@ -180,21 +110,17 @@ public class ContextCollector {
             LOG.debug("Failed to collect quick fixes: " + t.getMessage());
         }
 
-        // 12. Focused Context
+        // 7. Focused Context (code window)
         try {
             boolean focusedCollected = false;
 
-            if (JAVA_PLUGIN_AVAILABLE && collectFocusedContextMethod != null) {
-                try {
-                    Object result = collectFocusedContextMethod.invoke(null, semanticData, editor, project, psiFile);
-                    focusedCollected = Boolean.TRUE.equals(result);
-                } catch (Throwable t) {
-                    LOG.debug("Failed to collect Java focused context: " + t.getMessage());
-                }
+            // 检查是否有 EP 收集了 focused context
+            if (semanticData.has("selectedFunctions")) {
+                focusedCollected = true;
             }
 
-            // Always provide code window as fallback or primary context for non-Java IDEs
-            if (!focusedCollected || !semanticData.has("selectedFunctions")) {
+            // Always provide code window as fallback or primary context
+            if (!focusedCollected) {
                 semanticData.add("currentWindow", getCodeWindow(editor, document));
             }
         } catch (Throwable t) {
@@ -226,11 +152,25 @@ public class ContextCollector {
         return window;
     }
 
-    private boolean isPythonFile(PsiFile psiFile) {
-        try {
-            return Class.forName("com.jetbrains.python.psi.PyFile").isInstance(psiFile);
-        } catch (ClassNotFoundException e) {
-            return false;
+    void collectProviderContext(
+            @NotNull List<SemanticContextProvider> providers,
+            @NotNull JsonObject semanticData,
+            Editor editor,
+            Project project,
+            PsiFile psiFile,
+            Document document) {
+        if (providers.isEmpty()) {
+            LOG.debug("No SemanticContextProvider EPs available, using platform-only context");
+            return;
+        }
+
+        for (SemanticContextProvider provider : providers) {
+            try {
+                provider.collectSemanticContext(semanticData, editor, project, psiFile, document);
+            } catch (Throwable t) {
+                LOG.debug("SemanticContextProvider EP failed: " + provider.getClass().getSimpleName()
+                        + ": " + t.getMessage());
+            }
         }
     }
 
@@ -277,7 +217,6 @@ public class ContextCollector {
             Project project = editor.getProject();
             if (project == null) { return highlights; }
 
-            // Use public API: DocumentMarkupModel instead of internal DaemonCodeAnalyzerImpl
             MarkupModelEx markupModel = (MarkupModelEx) DocumentMarkupModel.forDocument(document, project, false);
             if (markupModel == null) { return highlights; }
 
@@ -288,25 +227,21 @@ public class ContextCollector {
             int searchStart = document.getLineStartOffset(startLine);
             int searchEnd = document.getLineEndOffset(endLine);
 
-            // Iterate through all highlighters and extract HighlightInfo
             for (RangeHighlighter highlighter : markupModel.getAllHighlighters()) {
                 if (highlighter.getStartOffset() >= searchEnd || highlighter.getEndOffset() <= searchStart) {
                     continue;
                 }
 
-                // Extract HighlightInfo from the highlighter's error stripe tooltip
                 HighlightInfo info = HighlightInfo.fromRangeHighlighter(highlighter);
                 if (info == null) { continue; }
 
                 String description = info.getDescription();
                 String severityName = info.getSeverity().getName();
 
-                // Filter out generic INFO highlights
                 if ("INFO".equals(severityName) && (description == null || description.isEmpty() || "Editor highlight".equals(description))) {
                     continue;
                 }
 
-                // Skip highlights below INFORMATION severity threshold
                 if (info.getSeverity().compareTo(HighlightSeverity.INFORMATION) < 0) {
                     continue;
                 }
@@ -395,13 +330,11 @@ public class ContextCollector {
             Document document = editor.getDocument();
             int cursorOffset = editor.getCaretModel().getOffset();
 
-            // Use public API: DocumentMarkupModel instead of internal DaemonCodeAnalyzerImpl
             MarkupModelEx markupModel = (MarkupModelEx) DocumentMarkupModel.forDocument(document, project, false);
             if (markupModel == null) { return quickFixes; }
 
             Set<String> addedFixes = new HashSet<>();
 
-            // Collect quick fixes from HighlightInfo
             for (RangeHighlighter highlighter : markupModel.getAllHighlighters()) {
                 if (highlighter.getStartOffset() > cursorOffset || highlighter.getEndOffset() < cursorOffset) {
                     continue;
@@ -410,7 +343,6 @@ public class ContextCollector {
                 HighlightInfo info = HighlightInfo.fromRangeHighlighter(highlighter);
                 if (info == null) { continue; }
 
-                // Use public API: findRegisteredQuickFix instead of deprecated quickFixActionRanges
                 info.findRegisteredQuickFix((descriptor, range) -> {
                     if (descriptor != null && descriptor.getAction() != null) {
                         IntentionAction action = descriptor.getAction();
@@ -427,11 +359,10 @@ public class ContextCollector {
                             quickFixes.add(fix);
                         }
                     }
-                    return null; // Continue iteration
+                    return null;
                 });
             }
 
-            // Also include available intention actions at cursor position
             PsiElement elementAtCursor = psiFile.findElementAt(cursorOffset);
             if (elementAtCursor != null) {
                 List<IntentionAction> availableIntentions = IntentionManager.getInstance().getAvailableIntentions();
@@ -449,7 +380,6 @@ public class ContextCollector {
                             }
                         }
                     } catch (Exception ignored) {
-                        // Some intentions may throw exceptions during availability check
                     }
                 }
             }
