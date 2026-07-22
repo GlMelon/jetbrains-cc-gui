@@ -6,6 +6,83 @@
 
 ---
 
+## 0. 当前工作区实施进度（2026-07-22）
+
+> 核查基线：`feature/v0.4.8` 当前工作区，**包含未提交改动**。本节记录当前真实实现状态；带 `TBD` 的落地日志、Phase A、基线、先导和 PoC 均不等同于完整完成。
+>
+> 状态口径：✅ 已按当前目标基本落地；🟡 已有阶段性实现但验收或主体能力未闭环；❌ 主体未实现。
+
+### 0.1 P1-P4 总览
+
+| 优先级 | 当前结论 | 完成情况 |
+| --- | --- | --- |
+| P1 | 🟡 大部分落地，质量门禁尚未全部闭环 | 5 项完成，3 项部分完成 |
+| P2 | 🟡 基础能力已分批推进，完整功能仍有明显缺口 | 1 项基本完成，6 项部分完成 |
+| P3 | 🔴 仅完成少量基线或局部实现 | 0 项完整完成，3 项部分完成，3 项未实现 |
+| P4 | 🔴 仅有近期基础设施先导 | 0 项完整完成，2 项部分完成，2 项未实现 |
+
+完整逐项状态、证据和下一步见 [§10 修订后的优先级](#10-修订后的优先级)。
+
+### 0.2 当前验证快照
+
+| 验证项 | 当前结果 | 结论 |
+| --- | --- | --- |
+| `webview npm run check:event-literals` | 375 个文件、147 条下行事件、0 漂移 | `protocol-ssot` CI job 已按 Java 枚举生成协议类型后执行漂移检查 |
+| `webview npm run check:style` | 0 errors、90 warnings、退出码 0 | `webview-lint` CI job 已统一执行全量 ESLint 与增量 Prettier；pre-commit 复用同一文件范围 |
+| `webview npm run test` | 全量通过 | 新增 `useStreamAnnouncer` 5 个定时器/生命周期用例后，Vitest 与 `tsconfig.test.json` 类型检查均通过 |
+| Java Settings/Version/Resolver/Health/Provider targeted tests | 通过 | 已覆盖诊断包多 entry ZIP 可读性与结构化脱敏 |
+| B1 三轮 Gradle/Webview profiling | 强制 Gradle 中位数 22.577s；增量 8.002s；直接 Webview 14.593s | `docs/build-performance-baseline.md` 已固化环境、命令、原始样本、热点和复测口径 |
+| `ai-bridge npm run lint` | 通过，有 warnings | 工具链先导可用 |
+| `ai-bridge npm run typecheck` | 通过 | 有效 `tsconfig.json` 对全部 TS 执行 `strict` 检查，JS 通过 `// @ts-check` 渐进纳入 |
+| `ai-bridge npm run test` | 421 项：420 pass、1 skipped、0 fail | JS 主体回归通过，不代表 T4 全量迁移完成 |
+
+### 0.3 未完成项后续实施顺序
+
+以下顺序是后续实现的唯一执行队列；完成一项后应同时更新本节、§10 状态和 §14 落地日志。
+
+#### S0：立即处理的正确性与质量阻断
+
+- [x] **S0-1 修复 F6 诊断包导出**：`DiagnosticBundleService.addJsonEntry()` 已改为直接写入 UTF-8 字节，不再提前关闭 `ZipOutputStream`；结构化递归脱敏保持 JSON 合法，并补充多 entry ZIP 可读性和脱敏测试。
+- [x] **S0-2 修复 T4 TypeScript 工具链**：已增加有效 `tsconfig.json`，`typecheck` 对 TS 全量执行 `strict` 检查，并通过 `// @ts-check` 渐进检查已迁移 JS；lint/format glob 已覆盖 `.ts`。
+- [x] **S0-3 清零 Webview lint errors**：当前 17 个 error 已清零（保留 90 个非阻断 warning），并建立 `.github/workflows/tests.yml` 中真实执行 `npm run lint` 的 `webview-lint` job。
+- [x] **S0-4 接入协议 SSOT CI gate**：已建立独立 `protocol-ssot` job，先从 Java 枚举生成 `generated/protocol.ts`，再执行 `check:event-literals`，禁止下行事件字面量回归。
+- [x] **S0-5 修复 A11Y3 流式通知**：`isUserAtBottomRef` 已从 `useScrollBehavior` 贯穿到 `MessageList`；流式内容通过 ref 供稳定 interval 读取，结束时保留最终摘要，并补 5 个定时器/生命周期测试。
+
+#### S1：完成 P1 闭环
+
+- [x] **S1-1 B1 build profiling**：已保存三轮 Gradle 强制/增量与直接 Webview 构建基线，固化环境、source/diff 指纹、原始样本、中位数、热点和后续复测口径。
+- [x] **S1-2 T2 format/lint 全链路守门**：新增 `check:style` 统一全量 ESLint 与变更文件 Prettier；pre-commit 复用同一范围自动修复，`webview-lint` CI 从守门引入提交起增量检查并已同步开发文档。
+- [x] **S1-3 A8 协议漂移守门闭环**：失败诊断已输出文件、行列、原始字面量和应替换的 `DOWNSTREAM.*` 常量，并补多文件、多命中、映射提示及退出码测试。
+- [x] **S1-4 I18N 统一 gate 对齐**：CI 已切换到 `scripts/check-i18n-keys.mjs` 统一检查前端 locale 与后端 bundle；旧前端专用脚本和第二份 baseline 已移除，当前存量缺口冻结到统一 baseline。
+
+#### S2：完成 P2 基础架构与用户能力
+
+- [x] **S2-1 B3 typed bootstrap payload**：已定义后端权威 bootstrap DTO/schema，通过 `webview.bootstrap` 单一 typed 下行事件发送字体、语言、外观与头像快照；`WebviewInitializer` 已移除业务初始化 JavaScript 拼接。
+- [x] **S2-2 F8 CLI 兼容矩阵**：已建立三 Provider compatibility manifest SSOT、provider-specific parser registry、未知/更高版本策略、Ed25519 签名远程更新、缓存防回滚与离线 fallback，并对称接入三条 CLI 探测路径。
+- [x] **S2-3 A3 Settings 拆分收尾**：六个领域 Service 已改为直接依赖 `ConfigStore`，`CodemossSettingsService` 仅保留兼容 Facade；已完成逐级 migration registry、同路径进程内共享锁、原子 `update()` 与领域所有权契约验收（`19457260`）。
+- [ ] **S2-4 A5 IntelliJ EP 验收**：补 EP 加载/隔离测试和目标 IDE Plugin Verifier 结果，确认 Java/Python 可选依赖行为。
+- [ ] **S2-5 F2 Skills 查看/编辑闭环**：实现未知 YAML 字段保留、原子写/备份/回滚、外部冲突、symlink/path traversal 防护及解析失败不覆盖。
+- [ ] **S2-6 F4 历史增强闭环**：在搜索基础上实现归档 capability、HTML/PDF sanitizer 和大会话内存上限。
+- [ ] **S2-7 F3 标签页持久化闭环**：实现颜色、固定状态、完整 session/provider/runtime/mode snapshot、IDE 重启恢复和不可用降级。
+
+#### S3：推进 P3 数据驱动优化
+
+- [ ] **S3-1 F6 完整 telemetry**：在修复诊断包后补齐采样、保留期限、隐私开关、SDK/CLI 差异及三 Provider 六路径指标覆盖。
+- [ ] **S3-2 B2 multi-chunk/singlefile 决策**：基于 analyzer、JCEF 加载约束和缓存收益形成量化决策，再实施拆包或记录保留 singlefile 的验收依据。
+- [ ] **S3-3 B4 WatchService**：在 `ConfigRepository` 现有 mtime + size/CAS 基础上增加 watcher、debounce、生命周期清理和外部修改测试。
+- [ ] **S3-4 B6 Webview HMR**：实现开发 URL 切换、Vite dev server 加载、失败回退打包资源和 CSP 开发策略。
+- [ ] **S3-5 A1 Zustand**：先量化 Context 重渲染和状态依赖，再按领域渐进迁移；不得把后端业务权威迁入前端 store。
+- [ ] **S3-6 H1/H3 高级动画**：仅在存在 CSS 无法满足且有性能基线的数据后推进第三方动画库和批量 stagger。
+
+#### S4：推进 P4 长期生态
+
+- [ ] **S4-1 F1 第三方 Provider 契约设计**：完成 Provider EP、ABI/version、capability schema、签名/信任/沙箱及 classloader 升级卸载策略。
+- [ ] **S4-2 T4 ai-bridge 全量 TypeScript**：按模块迁移现有 108 个 `.js` 文件，保持 NDJSON 契约和 421 项测试基线，禁止只改扩展名。
+- [ ] **S4-3 动态 Node/Webview Provider 扩展**：实现 adapter package 发现、Node 生命周期、动态前端资源和 CSP/ABI 兼容，不再依赖约 32 个静态接触点手工修改。
+- [ ] **S4-4 F5 社区评分/评论**：仅在账号、服务端、内容治理、隐私和滥用防护具备后启动。
+
+---
+
 ## 1. 文档定位
 
 ### 1.1 目标
@@ -92,7 +169,7 @@
 
 ### H1：第三方动画库
 
-**状态：暂缓，仅允许局部 PoC。**
+**状态：暂缓，仅允许局部 PoC。（2026-07-21 评估：维持暂缓——所有当前动画需求已由 CSS 满足，framer-motion 将增加 ~189.5 kB bundle 且与 B2 体积治理方向冲突。）**
 
 #### 现状
 
@@ -125,7 +202,7 @@
 
 ### H3：消息列表入场/出场动画
 
-**状态：暂缓批量 stagger，保留轻量单条入场。**
+**状态：批量 stagger 暂缓；入场动画已落地（CSS）；出场动画已落地（2026-07-21，纯 CSS，零 bundle 增量）。**
 
 `MessageList` 已通过 `animatedEntryKeys` 控制新消息动画。历史恢复、搜索跳转和流式更新不应逐条 stagger。
 
@@ -135,6 +212,14 @@
 - 大批量恢复达到阈值后直接渲染；
 - 不允许动画改变最终高度计算和 scroll anchoring；
 - 删除/回退动画必须验证焦点、搜索锚点和消息虚拟化兼容性。
+
+**出场动画落地（2026-07-21）**：
+
+- `MessageList` 新增 `exitingMessages` 缓存 + `prevUnitMapRef`：当消息从 `visibleMessageUnits` 消失时，保留其数据 160ms（对齐 `--dlg-out: 0.16s`）继续渲染，播放 `messageFadeOut` 淡出后卸载。
+- CSS `.message.animate-out` 仅 `opacity` 变化（transform 不变），严格不改变高度，保护 scroll anchoring。
+- 复用 BaseDialog 的 `leaving` 状态模式（`setTimeout` 延迟卸载），无 JS 动画库依赖。
+- reduced-motion 下由 `base.less` 全局策略退化为瞬时。
+- 验证：bundle 仅 +1.27 kB（6,133.45→6,134.72），1112 webview 测试全绿，TypeScript 零 error。
 
 ### H4：重复 keyframes 治理
 
@@ -233,7 +318,7 @@ handlerRegistry.register("history.get", ctx -> historyHandlers.get(ctx));
 
 ### A3：CodemossSettingsService 拆分
 
-**状态：已落地(2026-07-17,聚焦核心范围);ConfigRepository 地基+Facade 委托落地,F9 migration registry 与 in-process 写锁列为后续独立立项。**
+**状态：已完成（2026-07-22，S2-3，`19457260`）。`ConfigRepository` migration registry、进程内共享路径锁与六领域 `ConfigStore` 所有权均已验收；`CodemossSettingsService` 保留兼容 Facade。**
 
 不能先把 2373 行类机械拆成多个都能直接读写同一 JSON 的 Service，否则会产生 lost update。
 
@@ -268,7 +353,7 @@ handlerRegistry.register("history.get", ctx -> historyHandlers.get(ctx));
   - **unknown field 透传**:load/save 均操作整体 `JsonObject`,未映射字段天然保留(Gson 透传),兼容外部工具写入插件未识别字段。
 - **Facade 不变**:`CodemossSettingsService.readConfig/writeConfig` 签名不变,内部委托 `ConfigRepository`(readConfig 在 loaded==null 时回 `createDefaultConfig()`),43 个调用点与 5 个子 Manager 的 lambda 闭包零改动;删除原 `backupConfig()`/`hardenFilePermissions()`(职责已收口到 ConfigRepository),清理 9 个随之失效的 import。
 - **测试**:`ConfigRepositoryTest` 11 用例(真实文件系统 + 临时目录注入故障,非 mock):正常往返 / 文件缺失返 null / malformed quarantine+backup 回退 / external-edit CAS 冲突 / 无 backup 时 quarantine 返 null / backup 滚动版本数 / unknown field 透传 / temp 残留清理 / 冲突不破坏现有 config / 无 read 直写跳过 CAS。全量回归 236 类/1556 用例零 failure 零 error(8 skipped 历史既有)。
-- **本范围未含(独立立项)**:F9 migration registry(schemaVersion 读写闭环 + 逐级幂等迁移 + secret 脱敏);in-process 写锁(跨线程并发 RMW);领域拆分增量进行(Facade 已就位,非 A3 地基前置)——已落地 `AppearanceSettingsService`①`e0fd8eef`/`AiFeatureToggleSettingsService`②`4b37249b`/`CodexSandboxModeSettingsService`③`c58b3b46`/`ModelRegistrySettingsService`④`46c4f55f`,剩 `ProviderSettingsService`/`McpSettingsService`。
+- **S2-3 收尾（2026-07-22，`19457260`）**：新增 `ConfigStore` 应用层抽象，六个领域 Service 不再反向依赖 Facade，写入统一收口到锁内 `update()`；`ConfigRepository` 以规范化路径共享 `ReentrantLock`，完整串行化 read-modify-write，并保持外部修改 CAS、backup、quarantine 与 unknown field 透传。`DomainSettingsOwnershipContractTest` 验收唯一存储实现、构造依赖和 Facade 公共调用面。
 
 ### A4：BaseSDKBridge 收尾
 
@@ -344,11 +429,11 @@ handlerRegistry.register("history.get", ctx -> historyHandlers.get(ctx));
 
 - 新增漂移检测脚本 `webview/scripts/check-event-literals.mjs`：扫描 `webview/src` 生产代码，凡字面量等于某 `DOWNSTREAM` value 即报告并以非零码退出，CI 可直接 gate；零外部依赖，剥离注释避免误报，带 ALLOWLIST 审计机制。
 - `runtimeProviderCapabilities.ts`（注册中心职能）6 条、`DependencySection/index.tsx`（消费侧 dispatch）2 条 dispatch 字面量 → `DOWNSTREAM.*` 引用，导出形状与 value 逐字不变。
-- npm script `check:event-literals` 接入 `webview/package.json`；当前 ALLOWLIST 为空，全仓 0 漂移（139 条 DOWNSTREAM）。
+- npm script `check:event-literals` 接入 `webview/package.json`；当前 ALLOWLIST 为空，全仓 0 漂移（147 条 DOWNSTREAM）。
 
 后续守门要求：
 
-- 任何新代码禁止以字符串字面量写出 `DOWNSTREAM` value，必须从 `generated/protocol.ts` 引用；`check:event-literals` 应进入 CI（建议与 `prebuild` 同阶段：先生成 `protocol.ts` 再检测）。
+- 任何新代码禁止以字符串字面量写出 `DOWNSTREAM` value，必须从 `generated/protocol.ts` 引用；2026-07-22 已建立 `protocol-ssot` CI job，先运行 `generate-protocol-types.mjs` 生成 `protocol.ts`，再执行 `check:event-literals`。`937927da` 进一步补齐 file:line:column 诊断、精确 `DOWNSTREAM.*` 替换建议、脚本错误退出码和多文件回归测试。
 - 本项是 SSOT 收敛，不是死代码清理，与 T3 的 ts-prune allowlist 配置分离。
 - 不与 A2 混淆：本项针对下行事件名（`DownstreamEvent`），A2 针对上行 action（`UpstreamAction` + `payloadType()`）。
 
@@ -478,22 +563,23 @@ Mermaid 只读预览不是首期必需能力。
 
 ### F8：CLI 版本与兼容管理
 
-**状态：修订后可行。**
+**状态：已完成 S2-2，2026-07-22，commit `e3de1b8a`。**
 
-复用现有 Resolver 和版本比较，但不得在核心逻辑按版本堆叠字符串分支。
+已落地：
 
-推荐：
+- `CliVersionParser` strategy + fail-fast `CliVersionParserRegistry`，三 Provider 分别解析 labelled、前缀、prerelease/build metadata 与数字 fallback 输出；
+- `cli-compatibility-manifest.json` 作为 compatibility SSOT，完整覆盖三 Provider 的 minimum/maximum/blocked/unknown/higher policy；
+- `CliCompatibilityService` 在后端统一解释 compatible、blocked、unsupported、unknown 与 ahead 结论，前端不参与版本业务判断；
+- 内置 manifest + Ed25519 detached signature，远程更新仅接受有效签名和不低于当前 trusted revision 的 manifest；
+- 有效签名缓存、原子单文件替换、网络/签名/schema/旧 revision 失败时回退 cached remote 或 bundled manifest；
+- `CliCompatibilityManifestUpdater` 在 pooled thread 中每个 IDE 进程只刷新一次，不阻塞项目启动；
+- Claude/Codex/OpenCode 三条 CLI `--version` 探测路径对称接入兼容判定，契约测试守住三 Provider 与 updater 注册。
 
-- Provider-specific version detector/parser strategy；
-- 兼容矩阵 SSOT；
-- 随插件内置 manifest，远程更新需签名且有离线 fallback；
-- 支持非 semver、未知版本和高于已知版本的策略；
-- 三 Provider 对称探测；
-- Resolver 生命周期和缓存明确后再讨论去重 spawn。
+Resolver 去重 spawn 仍按原边界处理：需先形成独立生命周期与缓存收益证据，不属于本次 S2-2。
 
 ### F9：配置 schema 迁移
 
-**状态：方向必要，原方案重写。**
+**状态：已完成（2026-07-22，随 S2-3 落地，`19457260`）。**
 
 #### 配置所有权
 
@@ -512,6 +598,13 @@ Mermaid 只读预览不是首期必需能力。
 - backup/rollback；
 - external edit conflict detection；
 - 迁移日志不得包含 secret。
+
+**落地记录（2026-07-22，`19457260`）：**
+
+- `ConfigSchema` 以 `schemaVersion` 为插件自有配置版本 SSOT，当前版本为 2；registry 严格执行 `0 → 1 → 2` 逐级幂等迁移，并在构造期拒绝重复、缺失和非逐级 migration。
+- `0 → 1` 清理旧 `version` 字段；`1 → 2` 将旧 `smitheryApiKey` 明文迁移到 `PasswordStore`，安全后端不可用时保留明文并停在版本 1，恢复后自动续迁；已有安全凭证优先，旧明文不得覆盖新值。
+- 非负 JSON integer 之外的版本值和未来版本均 fail-fast，不进入 malformed quarantine；迁移过程保留 unknown fields，错误与日志不输出 secret。
+- `ConfigRepository` 自动持久化已完成的部分迁移，CAS 检查早于 backup rotation；同路径 repository 共享进程内锁，领域写操作使用 `ConfigStore.update()` 避免 lost update。
 
 Provider 原生配置的迁移状态记录在插件 sidecar metadata，不污染第三方配置。
 
@@ -550,12 +643,13 @@ Mockito 不是目标；优先抽接口、纯函数和平台边界。
 
 ### T2：前端代码风格
 
-**状态：可直接推进。**
+**状态：已完成 S1-2 增量守门。**
 
-- 引入 ESLint/Prettier 时先匹配现有格式；
-- 不做一次全仓格式化；
-- lint、format、行为修改分 commit；
-- staged 快速检查进入 pre-commit，完整检查进入 pre-push/CI。
+- ESLint/Prettier/lint-staged 已接入，并保持现有格式、未做全仓 reformat；
+- 2026-07-22 已清零 17 个 Webview lint error，`npm run lint` 以 0 error、90 warning、退出码 0 通过；
+- `npm run check:style` 统一执行全量 ESLint，并仅对当前工作区、staged 或 CI revision range 内的变更文件执行 Prettier 检查；
+- `.githooks/pre-commit` 继续用相同 glob 对 staged 文件执行 Prettier/ESLint 自动修复；`.github/workflows/tests.yml` 的 `webview-lint` job 改为执行 `npm ci` + `npm run check:style`；
+- CI 使用完整 Git 历史，并以 `check-style.mjs` 的引入提交作为 adoption baseline，避免追溯阻断 501 个历史格式偏离，同时确保守门启用后的新增变更不能绕过格式检查。
 
 ### T3：死代码/死 CSS
 
@@ -713,7 +807,7 @@ Mockito 不是目标；优先抽接口、纯函数和平台边界。
 
 ### B3：Webview bootstrap 注入
 
-**状态：修订后可行。**
+**状态：✅ S2-1 已完成。**
 
 不把多段 `executeJavaScript()` 机械拼成一个大脚本。推荐：
 
@@ -722,6 +816,8 @@ Mockito 不是目标；优先抽接口、纯函数和平台边界。
 3. 统一使用 `DownstreamEvent` 和 `HandlerContext.dispatchEvent(...)`；
 4. payload schema 纳入 SSOT；bootstrap payload 只是起点，最终目标是后端单一来源生成全部上行/下行 payload 的字段结构与默认值，消除前后端各写解析器的漂移（承接 AGENTS.md 总则三 payload SSOT 债务）；
 5. 明确幂等、顺序和单项失败隔离。
+
+S2-1 实际落地：后端新增 `WebviewBootstrapPayload` 及字段 schema，以 `DownstreamEvent.WEBVIEW_BOOTSTRAP` 经 `HandlerContext.dispatchEvent(...)` 下发单一权威快照；Java schema 生成前端 `WebviewBootstrapPayloadWire`，前端在 `frontend_ready` 前注册订阅并一次解析 payload。`WebviewInitializer` 现只保留 JCEF bridge/query 基础设施，字体、语言、外观、头像六类 pending 字段已删除。实现提交：`fb6202b1`。
 
 收益必须通过 JCEF tracing/profile 验证。
 
@@ -838,65 +934,56 @@ Dropdown 按实际 combobox/listbox pattern 实现；不得为所有组件机械
 
 ### A11Y3：屏幕阅读器实时区域
 
-**状态：修订后可行。**
+**状态：已落地并完成 S0-5 正确性修复（2026-07-22）。**
 
-禁止对每个流式 token 发 aria-live 通知。采用：
+禁止对每个流式 token 发 aria-live 通知。当前实现采用：
 
 - 节流；
 - turn 完成摘要；
 - 工具状态去重；
-- 仅在用户不在底部或焦点不在当前内容时通知新消息；
+- 从 `useScrollBehavior.isUserAtBottomRef` 读取实时底部状态，不在 `MessageList` 硬编码业务结论；
+- 高频 `latestContent` 仅更新 ref，不重建 2 秒 interval；
+- 流式结束从 ref 读取最终内容并立即播报摘要；
 - assertive 仅用于真正错误。
 
 ### I18N1：前端 locale
 
-**状态：已落地(2026-07-17,baseline CI 守门);key coverage 守门落地,翻译质量仍人工评估。**
+**状态：已落地（2026-07-22，前后端统一 key baseline 已进入 CI）；key coverage 自动守门，翻译质量仍人工评估。**
 
-以 `en` 1446 个键为当前基准：
+以 `en` 1484 个键为当前基准：
 
 | locale | 缺失键数 |
 | --- | ---: |
-| zh | 0，另有 9 个额外键 |
-| pt-BR | 266 |
-| ko | 308 |
-| es | 371 |
-| fr | 371 |
-| hi | 371 |
-| ja | 371 |
-| ru | 375 |
-| zh-TW | 361 |
+| zh | 38 |
+| pt-BR | 304 |
+| ko | 346 |
+| zh-TW | 399 |
+| es | 409 |
+| fr | 409 |
+| hi | 409 |
+| ja | 409 |
+| ru | 413 |
 
-不完整 locale 是 8 个，不是 7 个。
+统一 gate 规则：
 
-CI 策略：
-
-- 主语言要求完整；
-- 新增 key 不得降低历史 coverage baseline；
-- 历史缺口分批清偿；
-- 区分 key coverage 和翻译质量，不以机器填充冒充完成。
-
-**落地记录(2026-07-17):**
-
-- 新建 `webview/scripts/check-locale-coverage.mjs`(locale coverage baseline 守门脚本,与 `check-event-literals.mjs` 同目录同风格):
-  - `en.json` 为基准 SSOT,递归 flatten 嵌套 JSON 为点号路径键集合;对其余 locale 计算 missing(en 有 locale 无)与 extra(locale 有 en 无)。
-  - baseline(`locale-coverage-baseline.json`,首次 `--init` 快照当前实际缺失数):记录每 locale 允许的最大缺失键数。当前快照 en=1446 keys,各 locale 缺失数与本节统计表完全吻合(es/fr/hi/ja=371, ko=308, pt-BR=266, ru=375, zh=0, zh-TW=361)——互相印证 docs 统计与代码现状一致。
-  - **CI fail 条件**:① 任何 locale 实际缺失 > baseline(coverage 下降 = 新增 en 键未翻译);② baseline 缺某 locale 条目。多余键(extra)仅报告不 fail(疑似拼写错/废弃键,人工判断)。
-  - **历史缺口分批清偿**:开发者补齐某 locale 翻译后缺失数下降,手动收紧 baseline.json 对应值(baseline 单调下降体现清偿进度)。
-  - 用法:`--init` 重建 baseline / `--verbose` 打印缺失键列表 / 默认守门退出码 0/1 便于 CI gate。
-- **CI 接入**:`.github/workflows/tests.yml` 新增 `i18n` job(纯 Node 读 JSON,无需 npm ci),push/PR 触发,与其他测试 job 并行独立。
-- **范围边界**:本脚本只守 key coverage(键有无),不评翻译质量(机器填充能过 key 检查但质量低,仍需人工/后续工具评估,符合本节"不以机器填充冒充完成")。
+- `scripts/check-i18n-keys.mjs` 是唯一权威入口，前端以 `webview/src/i18n/locales/en.json` 为 SSOT；
+- 各 locale 缺失键数不得高于 `scripts/i18n-baseline.json`，历史缺口只能持平或下降；
+- 2026-07-22 首次接入统一 CI 时，将现有 38 个新增前端键造成的存量缺口冻结为 adoption baseline，未以机器翻译伪造完成；
+- 旧 `webview/scripts/check-locale-coverage.mjs` 与 `locale-coverage-baseline.json` 已删除，避免两份 baseline 漂移；
+- 本 gate 只检查 key coverage，不判断翻译质量。
 
 ### I18N2：后端 locale
 
-**状态：方向正确，统计修正。**
+**状态：已落地（2026-07-22，与前端共用统一 CI gate）。**
 
-当前 base bundle 约 272 keys：
+当前 base bundle 272 keys：
 
-- zh：272，缺 0；
+- zh：272，缺 0，作为主语言完整性硬约束，不能由 baseline 豁免；
 - en：245，缺 27；
-- es/fr/hi/ja/ru/zh_TW：约 222，各缺约 50。
+- es/fr/hi/ja/ru/zh_TW：各缺 50。
 
-以后端 base bundle 为 SSOT，增加严格键差分和新增键回归检查。
+后端以 `src/main/resources/messages/ClaudeCodeGuiBundle.properties` 为 SSOT，由同一
+`scripts/check-i18n-keys.mjs` 执行严格键差分与新增键回归检查；CI 的 `i18n` job 无需安装依赖即可运行。
 
 ---
 
@@ -912,40 +999,48 @@ CI 策略：
 
 ### P1：低风险、高确定性
 
-1. D1 开发文档；
-2. T2 lint/format 分阶段接入；
-3. A11Y 基础焦点和键盘修复；
-4. I18N baseline CI；
-5. `exportMarkdown.ts` 命名修正；
-6. B1 build profiling + `buildWebview` inputs/outputs；
-7. H2/H5/H6/H7 局部 CSS 与 reduced-motion 全局策略；
-8. A8 前端协议第二真相源收敛（events/index.ts → `DOWNSTREAM.*` + codegen 漂移检测）。
+| # | 方向 | 状态 | 2026-07-22 当前工作区结论 | 下一步 |
+| ---: | --- | --- | --- | --- |
+| 1 | D1 开发文档 | ✅ | 开发环境、协议、测试、Plugin Verifier、六路径和发布说明已存在 | 按代码变化持续维护 |
+| 2 | T2 lint/format | ✅ | `check:style`、pre-commit 与 `webview-lint` CI 已统一全量 ESLint + 增量 Prettier 范围；历史 501 个格式偏离不追溯阻断 | 新增/修改文件持续通过增量格式门禁 |
+| 3 | A11Y 基础焦点和键盘 | ✅ | focus trap、焦点恢复、roving tabindex 与稳定流式播报均已实现 | 维护定时器、动态底部状态和卸载清理回归测试 |
+| 4 | I18N baseline CI | ✅ | 前端 locale + 后端 bundle 已统一由 `check-i18n-keys.mjs` 守门，旧重复 gate 已移除 | 持续清偿 baseline 缺口并人工审查翻译质量 |
+| 5 | `exportMarkdown.ts` 命名修正 | ✅ | 已更名为 `exportSessionJson.ts` | 无 |
+| 6 | B1 build profiling + inputs/outputs | ✅ | `buildWebview` inputs/outputs 有效；三轮强制/增量/Webview 基线与热点已保存 | 后续优化按基线分别验证 daemon、cache 与 configuration cache |
+| 7 | H2/H5/H6/H7 | ✅ | 局部 CSS 动效、Skeleton、反馈和 reduced-motion 已落地 | 仅维护回归测试 |
+| 8 | A8 下行协议 SSOT | ✅ | `protocol-ssot` CI 先按 Java 枚举生成类型，再以文件、行列和 `DOWNSTREAM.*` 替换建议报告漂移；生产代码当前 0 漂移 | 持续维护协议生成与诊断回归测试 |
 
 ### P2：基础架构完善后
 
-1. A3 Settings 领域拆分；
-2. A5 IntelliJ EP；
-3. F8 CLI 兼容矩阵；
-4. F2 Skills 可视化；
-5. F4 历史增强；
-6. B3 typed bootstrap payload；
-7. F3 标签页持久化。
+| # | 方向 | 状态 | 2026-07-22 当前工作区结论 | 下一步 |
+| ---: | --- | --- | --- | --- |
+| 1 | A3 Settings 领域拆分 | ✅ | 六个领域 Service 直接依赖 `ConfigStore`，Facade 仅保留兼容调用面；migration registry、同路径进程内锁和所有权契约已完成 | 已完成（`19457260`） |
+| 2 | A5 IntelliJ EP | ✅ | EP 定义、Java/Python 注册和运行时加载已实现 | S2-4 补验收证据 |
+| 3 | F8 CLI 兼容矩阵 | ✅ | 三 Provider parser registry、compatibility manifest SSOT、未知/更高版本策略、Ed25519 签名更新、revision 防回滚、缓存与离线 fallback 已对称接入 CLI 探测 | 已完成（`e3de1b8a`） |
+| 4 | F2 Skills 可视化 | 🟡 | typed metadata 只读展示已实现，编辑和安全写入链路未完成 | S2-5 |
+| 5 | F4 历史增强 | 🟡 | 搜索弹窗已实现，归档及 HTML/PDF 导出未完成 | S2-6 |
+| 6 | B3 typed bootstrap payload | ✅ | 后端 DTO/schema 生成前端 wire 类型，`webview.bootstrap` 单一 typed 事件下发完整快照；`WebviewInitializer` 已移除业务初始化脚本拼接 | 已完成（`fb6202b1`） |
+| 7 | F3 标签页持久化 | 🟡 | 仅有顺序持久化和 Provider 降级日志，完整标签 snapshot 未完成 | S2-7 |
 
 ### P3：有基线数据后
 
-1. A1 Zustand；
-2. H1/H3 高级动画；
-3. B2 multi-chunk/singlefile 调整；
-4. B4 WatchService；
-5. F6 完整 telemetry 仪表盘；
-6. B6 Webview HMR。
+| # | 方向 | 状态 | 2026-07-22 当前工作区结论 | 下一步 |
+| ---: | --- | --- | --- | --- |
+| 1 | A1 Zustand | ❌ | 未引入 Zustand，仍使用多层 React Context Provider | S3-5 |
+| 2 | H1/H3 高级动画 | 🟡 | H3 入场/出场动画已有局部实现；H1 第三方动画库和批量 stagger 仍暂缓 | S3-6 |
+| 3 | B2 multi-chunk/singlefile | 🟡 | 已有 visualizer 基线，但仍启用 `viteSingleFile()`，`manualChunks` 未配置 | S3-2 |
+| 4 | B4 WatchService | ❌ | 当前只有 mtime + size/CAS snapshot，没有 WatchService | S3-3 |
+| 5 | F6 完整 telemetry 仪表盘 | 🟡 | 指标、Dashboard、熔断器和可读诊断包已存在；采样、保留期限、隐私开关和六路径策略未完整 | S3-1 |
+| 6 | B6 Webview HMR | ❌ | 没有 JCEF dev URL、Vite dev server 加载和生产资源 fallback | S3-4 |
 
 ### P4：长期生态
 
-1. F1 第三方 Provider 生态；
-2. F5 社区评分/评论；
-3. T4 ai-bridge 全量 TypeScript；
-4. 动态前端/Node Provider 扩展体系。
+| # | 方向 | 状态 | 2026-07-22 当前工作区结论 | 下一步 |
+| ---: | --- | --- | --- | --- |
+| 1 | F1 第三方 Provider 生态 | 🟡 | capability descriptor、接入清单和六路径契约测试已形成先导；第三方 ABI/EP/安全生命周期未实现 | S4-1 |
+| 2 | F5 社区评分/评论 | ❌ | 缺少账号、服务端和内容治理，当前路线明确暂缓 | S4-4 |
+| 3 | T4 ai-bridge 全量 TypeScript | 🟡 | 当前约 108 个 `.js`、1 个 `.ts`；有效 `tsconfig.json` 已建立，TS 全量 `strict`、JS 以 `// @ts-check` 渐进纳入，但主体迁移仍未完成 | S4-2 |
+| 4 | 动态前端/Node Provider 扩展体系 | ❌ | Node descriptor、Java 装配和 Webview 资源仍为静态构建/手工注册 | S4-3 |
 
 ---
 
@@ -1073,10 +1168,11 @@ CI 策略：
 | B3 JCEF | `1bd4708d` | bootstrap 单次注入 + hide_panel 并入主 sendToJava 路由（减每标签一 JBCefJSQuery） |
 | T2 工具链 | `8934698f` | ESLint flat config + Prettier + lint-staged（匹配现有格式，未全仓 reformat） |
 | I18N1+I18N2 gate | `f980e7ae` | `scripts/check-i18n-keys.mjs` 前端 en + 后端 base bundle 统一 baseline 守门 |
+| I18N gate CI 对齐 | `ab9383bf` | CI 切换到统一前后端 gate，刷新 adoption baseline，并删除旧前端专用脚本与重复 baseline |
 | AGENTS 精简 | `1fab7035` | 去一次性债务条目/迁移编号，收敛为纯架构准则 |
 | D1+D2 文档 | `0d93b525` | 开发指南 + `.githooks/pre-commit`（lint-staged，容忍 node_modules 缺失） |
 
-验证：webview 1112 测试全绿、Java 编译 + buildWebview 通过。后续守门：新代码下行事件须引用 `DOWNSTREAM.*`（`check-event-literals`）；新前端 lint 经 pre-commit / CI webview-lint job 兜底。
+验证：webview 1112 测试全绿、Java 编译 + buildWebview 通过。后续守门：`webview-lint` CI job 已按 S0-3 建立；`protocol-ssot` CI job 已按 S0-4 建立，新代码下行事件须引用 `DOWNSTREAM.*` 并通过 `check:event-literals`。
 
 **本批未含（独立立项）**：T1 覆盖率工具接入（JaCoCo/Vitest coverage/c8）、A1 Zustand 迁移、B2 bundle 体积治理、B6 HMR、F2 Skills 可视化、F8 CLI 兼容矩阵等 P2/P3 项；A11Y2 键盘导航（roving tabindex）、A11Y3 流式 aria-live 节流亦未启动。
 
@@ -1132,11 +1228,226 @@ CI 策略：
 
 **后续（独立增量）**：Provider / MCP；ConfigRepository 升级 + in-process 写锁 + F9 migration registry。
 
+### 2026-07-20：A3 领域拆分第五步·McpSettingsService（1 commit，feature/v0.4.8）
+
+| 方向 | commit | 范围 |
+| --- | --- | --- |
+| A3 MCP 服务器配置领域拆分 | `97f0396c` | 提取 `McpSettingsService`（持有并构造 McpServerManager，6 public 委托；构造注入 CSS+Gson+ClaudeSettingsManager），CSS 6 public 改单行委托 + 删 mcpServerManager 字段/构造块（净减 ~20 行），边界外 getCodexMcpServerManager 不动 |
+
+**延续①~④模式 A 半拆，形态差异**：前四步从 CSS 内联提取逻辑；MCP 逻辑早已在独立 `McpServerManager`（498 行）中，CSS 此前仅持字段 + 6 单行委托 + 构造块。本类是「持有并构造 McpServerManager 的领域入口」，构造 + 所有权从 CSS 迁入，Manager 类体不动（对称第四步不合并静态 ModelRegistryService）。**双路径存储（与①~④ config.json 单段不同）**：McpServerManager 以 `~/.claude.json` 为主存储（global + project-level `projects[path].mcpServers` 合并 + `disabledMcpServers` 过滤，存在才写不创建），仅当其不存在时 fallback `~/.codemoss/config.json#mcpServers`（经注入 configReader/configWriter = CSS readConfig/writeConfig → ConfigRepository 原子写 + CAS）；本类经 Manager 间接走两条路径，自身不碰文件 IO。**爆炸半径极小**：Explore 调研确认 CSS 是全仓唯一 `new McpServerManager` 处，12 调用点（McpServerActionHandlers 6 / RuntimeSharedConfigService 2 / McpGatewayConfigCollector 2 / CliMcpConfig 间接 2）全在 cold path（UI 配置面板 / Gateway refresh / CLI 启动期懒加载），SessionSendService / CodexSDKBridge / EnvironmentConfigurator 零反向调用（对照 Provider 域密集触 send 路径）；6 委托改 `mcpSettingsService.` 后外部 0 改动。**边界外（§F9）**：`getCodexMcpServerManager()` 返回 codex 原生 `~/.codex/config.toml` 的 CodexMcpServerManager，禁止插件擅自迁移，保持原样不经本类。
+
+验证：新建 `McpSettingsServiceTest` 9 用例（反射注入 `PlatformUtils.cachedRealHomeDir` 隔离临时 home —— 该字段是 home SSOT，NodeDetector→WslPathUtil→getHomeDirectory 全链指向临时 home，MCP 的 ~/.claude.json 与 fallback config.json 双路径均隔离，绝不碰真实环境；`getMcpServersReturnsEmptyWhenNoConfig` 兼隔离 canary）：空列表 / upsert+get 往返（fallback config.json）/ 无 id 抛 IllegalArgumentException / delete 往返 / delete 未知返 false / validate 合法 stdio / validate 缺 name 拒绝 / getMcpServersWithProjectPath 透传 / CSS Facade 转发。全量回归 242 类 / 1618 用例零 failure 零 error（8 skipped 历史既有，1m35s）。
+
+**后续（独立增量）**：Provider（爆炸半径大：46 方法 / 触 CodexSDKBridge+SessionSendService send 路径每条消息 / 3 native-file manager 强耦合，需先解决 ClaudeSettingsManager/CodexSettingsManager/OpenCodeSettingsManager 归属 + send 路径集成测试，谨慎）；ConfigRepository 升级独立 application service + in-process 写锁 + F9 migration registry。
+
+### 2026-07-20：A3 领域拆分第六步·ProviderSettingsService（1 commit，feature/v0.4.8）
+
+| 方向 | commit | 范围 |
+| --- | --- | --- |
+| A3 三 Provider 配置领域拆分 | `ffac99fb` | 提取 `ProviderSettingsService`（持有并构造三 ProviderManager：claude/codex/opencode，~39 public 委托 + 收口 6 个 localConfigAuthorized/runtimeAccessMode 内联方法；构造注入 CSS+Gson+ConfigPathManager+三 settings Manager），CSS 删三 ProviderManager 字段/构造块 + ~39 public 改单行委托 + 6 内联改委托（净减 ~180 行），CODEX_RUNTIME_ACCESS_* 常量留 CSS（30+ 外部引用 0 改动） |
+
+**延续①~⑤模式 A 半拆，形态 = ⑤增强版（持有并构造 Manager 的领域入口 + 内联逻辑收口）**：三 Provider 的 CRUD/激活逻辑早已在独立的 `ProviderManager`/`CodexProviderManager`/`OpenCodeProviderManager` 中，CSS 此前仅持字段 + 单行委托 + 构造块（对称⑤ MCP）；本类持有并构造这三 Manager，类体不动（对称④⑤不合并独立实现类）。**额外收口 6 个 CSS 内联方法**（对称①~④的内联下沉）：codex/opencode 各 `localConfigAuthorized` get/set + `runtimeAccessMode` get，直接读写 `config.json` 的 `<provider>.localConfigAuthorized` 与 `current`/`providers` 段（经注入 CSS readConfig/writeConfig → ConfigRepository 原子写 + CAS）；`isCodexCliLoginAvailable`/`readCodexCliLoginAccountInfo` 的 try-catch + codexSettingsManager 委托一并迁入。**爆炸半径「看似极大、实测极小」**：send 路径密集调用点（SessionSendService:248 / CodexSDKBridge:192/462/684/1120 / EnvironmentConfigurator:498 / CodexSubscriptionQuotaService 方法引用）+ 9 处 ProviderOperations handler 全经 CSS public API，~39 委托改 `providerSettingsService.` 后外部 0 改动（对照④的 22 调用点、⑤的 12 调用点）。**3 settings Manager 共享引用非所有权转移**：ClaudeSettingsManager（另被 McpSettingsService + 多个 Claude settings 委托用）、CodexSettingsManager（另被 getCodexMcpServerManager 的 CodexMcpServerManager 用，§F9 边界）、OpenCodeSettingsManager 全留 CSS 构造，注入本类；**CODEX_RUNTIME_ACCESS_* 常量留 CSS**（30+ 引用含 CodexSubscriptionQuotaServiceTest/CodexSDKBridge/SessionSendService，0 改动，runtimeAccessMode 返回值 SSOT）。**AI Feature provider 部分留 CSS**（promptEnhancer/commitAi 的 provider override + availability 判断）：经动态分发调 getActiveCodexProvider/getActiveClaudeProvider（对称④ normalizeAiFeatureClaudeModel 方案 A），零改动。
+
+验证：新建 `ProviderSettingsServiceTest` 11 用例（反射注入 `PlatformUtils.cachedRealHomeDir` 隔离临时 home）：隔离 canary + 三 Provider 委托 notNull / codex localConfigAuthorized 往返 / setCodexLocalConfigAuthorized 段不存在时创建骨架 / codex runtimeAccessMode 四分支（inactive 无段 / managed active provider / cli_login authorized / cli_login unauthorized）/ opencode 对称（localConfigAuthorized 往返 + runtimeAccessMode managed/inactive）/ CSS Facade 转发。全量回归 243 类 / 1629 用例零 failure 零 error（8 skipped 历史既有，1m30s）。
+
+**后续（独立增量）**：A3 既定六个领域 Service 提取步骤已完成（①~⑥），CSS 从 ~2300 行收敛到领域 Service 矩阵；这不代表 A3 整体完成。仍需 ConfigRepository 升级独立 application service + in-process 写锁（跨线程并发 RMW）+ F9 migration registry（schemaVersion 读写闭环 + 逐级幂等迁移 + secret 脱敏），届时所有领域 Service 可统一切换模式 B（Service→repo 单向）。
+
 ---
 
-## 15. 已完成方向总览
+### 2026-07-20：P2 批次（F8+F2+F4+B3+F3，5 commits，feature/v0.4.8）
 
-> 汇总本文档状态为「已落地 / 核心已落地」的全部方向，按领域分组并附 commit。各方向原始判定与落地细节见 §3–§9 对应章节；日期以代码实际提交日为准（与 §3–§9 的标记日可能不同）。
+| 方向 | commit | 范围 |
+| --- | --- | --- |
+| F8 Phase A | `02187e9c` | 三 Provider 对称化版本捕获 + 抽取 VersionComparator（CodexCliResolver/OpenCodeCliResolver verify() 返回版本串替代 boolean；ClaudeCliDetector 补 getCachedCliVersion；DependencyManager 委托 VersionComparator；新增测试 16+2+2 全绿） |
+| F2 Phase A | `168ac29e` | Skills 只读查看 + typed metadata 下发（SkillService/CodexSkillService scan 补全 7 字段；前端 Skill 类型补 5 字段；SkillsSettingsSection 展开卡片渲染全部字段；i18n 补 5 键；零协议改动） |
+| F4 | `ef438ba4` | 历史搜索前端 UI（新增 HistorySearchDialog：搜索输入 + Provider 选择 + 结果列表 + 点击加载；设置页按钮入口；history.less 样式；i18n 补 historySearch 段） |
+| B3 Phase A | `1e382d65` | bootstrap 下发通道收敛（DownstreamEvent 新增 6 SESSION_* 事件；ChatWindowDelegate.replaySession 6 路改 dispatchEvent + legacy fallback；前端 subscriber 转发） |
+| F3 Phase A | `04777209` | 标签顺序持久化 + Provider 降级日志（TabStateService.TabSessionState 加 tabOrder 字段；ClaudeChatWindow restore 加 provider 空值降级日志） |
+
+验证：webview 108 测试 + 18 设置页测试 + 4 VersionComparator/Codex/OpenCode 测试全绿；Java 编译通过。
+
+---
+
+### 2026-07-20：F6 Phase 1 后端健康检测基础设施（1 commit，feature/v0.4.8）
+
+| 方向 | commit | 范围 |
+| --- | --- | --- |
+| F6 Phase 1 | `4546ef64` | 后端健康检测基础设施: HealthMetric 枚举(20 指标)、HealthMetricsCollector 线程安全单例、CircuitBreaker 状态机(CLOSED→OPEN→HALF_OPEN)、DiagnosticBundleService 诊断包入口、GetHealthStatusActionHandler + ExportDiagnosticBundleActionHandler、UpstreamAction 2 个 + DownstreamEvent 2 个；ZIP 生命周期与脱敏修复见 S0-1 |
+| F6 Phase 2 | `cfd27e33` | 前端仪表盘 UI: HealthDashboardSection 组件(Provider 选择 + 6 指标卡片 + 状态指示器)、设置页「Other」接入、导出诊断包按钮、i18n 20 键 |
+| F6 Phase 3 | `62d09a14` | 熔断器对接发送路径: CircuitBreakerManager(per-provider×per-mode)、CliSessionManager/SessionSendService 熔断器检查 + 完成通知、测试 7 用例全绿 |
+| A5 | `85937543` | ContextCollector 改 IntelliJ EP: 新增 SemanticContextProvider 接口、Java/Python 收集器实现 EP、plugin.xml 声明 extensionPoint、java-features.xml/python-features.xml 注册、反射→EP 查找 |
+
+### 2026-07-21：P1 收尾批次（A11Y2+A11Y3+T1，3 commits，feature/v0.4.8）
+
+| 方向 | commit | 范围 |
+| --- | --- | --- |
+| A11Y2 | `7b6fd922` | 键盘导航 roving tabindex: 新增 useRovingTabIndex hook(ArrowLeft/Right/Home/End+orientation)，应用到 4 个 Tab 组件(ProviderTabSection/DualViewSwitcher/AppearanceTab 抽屉/SkillMarketDialog 源 Tab) |
+| A11Y3 | `09f7cde2` | 流式 aria-live 节流: 新增 useStreamAnnouncer hook(2s 节流 + turn 完成摘要)，MessageList 接入 + role="log" |
+| T1 | `085c4e6f` | 覆盖率工具接入: Java JaCoCo(build.gradle 插件+jacocoTestReport)、Webview Vitest coverage v8(@vitest/coverage-v8+vitest.config.ts 配置)、ai-bridge c8(依赖+脚本)、.gitignore 排除 coverage/ |
+
+验证：`./gradlew jacocoTestReport` 生成 HTML 报告；`npx vitest run --coverage` 生成覆盖率报告；`npx c8 node --test` 生成覆盖率报告。
+
+---
+
+### 2026-07-21：P4 批次（T4 Phase 1 + F1 近端，2 commits，feature/v0.4.8）
+
+| 方向 | commit | 范围 |
+| --- | --- | --- |
+| T4 Phase 1 | `36e37fbc` | ai-bridge 工具链配置：ESLint flat config（@eslint/js + globals.node + eslint-config-prettier）+ Prettier + 有效 `tsconfig.json`（TS strict、JS `@ts-check` 渐进检查）+ npm scripts（lint/format/test/typecheck）；修复 api-config.test.js 路径 bug；JSDoc 与声明类型补充（provider-registry.js、mcp-gateway/transport 三文件） |
+| F1 近端 | `TBD` | Java 端 ProviderCapability 枚举（9 值）+ ProviderAdapter 默认 capabilities() 方法 + 三 Provider 覆盖（Claude 全能力集、Codex/OpenCode 子集）+ ProviderRegistry 能力查询（hasCapability/capabilities/providersWithCapability）+ ProviderCapabilityContractTest（7 用例全绿） |
+
+验证：`npm run lint` 零 error；`npm test` 420/421 通过（1 历史 skip）；`./gradlew test --tests ProviderCapabilityContractTest` 7/7 通过；`npx tsc --noEmit --project jsconfig.json` 2224 个预存 type errors（Phase 1 仅 informational，不守门）。
+
+---
+
+### 2026-07-21：P3/P4 剩余项批次（F1 接入清单 + 六路径契约测试 + B2 基线 + T4 Phase 2 先导，feature/v0.4.8）
+
+| 方向 | commit | 范围 |
+| --- | --- | --- |
+| F1 统一接入清单 | `TBD` | 新建 `docs/provider-onboarding-checklist.md`，完整记录 Java 后端（15 处修改 + 11 新文件）、ai-bridge（1 新文件 + 1 修改）、前端（3 处修改）共 ~32 个接触点 |
+| F1 六路径契约测试 | `TBD` | 新建 `ProviderSixPathContractTest.java` 11 用例：验证三 Provider 注册、六路径 SessionRuntime 注册、SkillService 注册、RuntimePolicy 配置、重复注册 fail-fast、未知 provider fail-fast |
+| B2 bundle analyzer 基线 | `TBD` | 集成 `rollup-plugin-visualizer`（`ANALYZE=true` 环境变量启用），产出首次基线：`index.html` 6,133.45 kB / gzip 1,729.97 kB |
+| T4 Phase 2 先导 | `36e37fbc` | 迁移 `utils/exit-strategy.js` → `.ts`（添加类型注解 + `as const` 策略类型），安装 `tsx` 作为 TypeScript 加载器，更新 `npm test` 使用 `--import tsx`；当前回归 421 项（420 pass、1 skipped） |
+
+验证：`npm test` 当前 421 项（420 pass、1 skipped、0 fail）；`./gradlew test --tests ProviderSixPathContractTest` 11/11 通过；`ANALYZE=true npx vite build` 产出 `dist/stats.html` 1.17 MB 分析报告；`docs/provider-onboarding-checklist.md` 覆盖 32 个接触点。
+
+---
+
+### 2026-07-21：H1/H3 评估与 H3 出场动画落地（feature/v0.4.8）
+
+| 方向 | commit | 范围 |
+| --- | --- | --- |
+| H1 评估 | — | 维持暂缓：所有当前动画需求（presence/入场/折叠/脉冲）已由 CSS 满足，framer-motion ~189.5 kB 增量与 B2 体积治理冲突，无 CSS 无法处理的需求 |
+| H3 出场动画 | `TBD` | `MessageList` 新增 `exitingMessages` 缓存（消息消失时保留 160ms 播放淡出）+ `MessageItem.shouldAnimateOut` prop + CSS `.message.animate-out`（仅 opacity，保护 scroll anchoring）；复用 BaseDialog leaving 模式，无 JS 动画库 |
+
+验证：`npx vitest run` 1112 全绿；`npx tsc -p tsconfig.json --noEmit` 零 error；`npx vite build` bundle 仅 +1.27 kB（6,133.45→6,134.72）；reduced-motion 由 base.less 全局策略退化为瞬时。
+
+---
+
+### 2026-07-22：S0-1 F6 诊断包正确性修复（feature/v0.4.8）
+
+| 方向 | commit | 范围 |
+| --- | --- | --- |
+| S0-1 / F6 | `91c88705` | `DiagnosticBundleService` 不再关闭 entry 级 `OutputStreamWriter`，改为直接写入 UTF-8 字节并由 ZIP 流统一管理生命周期；脱敏改为递归遍历 JSON 对象/数组，敏感字段值替换为 `[REDACTED]` 且不修改源对象；新增多 entry ZIP 可读性、JSON 合法性、嵌套脱敏和非敏感字段保留测试 |
+
+验证：`./gradlew test --tests com.github.claudecodegui.health.DiagnosticBundleServiceTest --tests com.github.claudecodegui.health.HealthMetricsCollectorTest --tests com.github.claudecodegui.health.CircuitBreakerTest --tests com.github.claudecodegui.health.CircuitBreakerManagerTest` 通过。
+
+---
+
+### 2026-07-22：S0-2 T4 TypeScript 工具链修复（feature/v0.4.8）
+
+| 方向 | commit | 范围 |
+| --- | --- | --- |
+| S0-2 / T4 | `36e37fbc` | 新增有效 `tsconfig.json`，对 TS 全量启用 `strict`，保留 `allowJs` 并以 `// @ts-check` 渐进纳入已迁移 JS；`typecheck` 改为真实执行 `tsc --noEmit`；ESLint/Prettier/test glob 覆盖 `.ts`；补 Node/MCP 声明类型并迁移 `utils/exit-strategy.ts` |
+
+验证：`npm run typecheck` 通过；`npm run lint` 0 error（61 个既有 warning）；`npm test` 421 项（420 pass、1 skipped、0 fail）；增量工具链文件 `prettier --check` 通过。S4-2 全量 TypeScript 迁移仍未完成。
+
+---
+
+### 2026-07-22：S0-3 Webview lint 阻断清零与 CI 守门（feature/v0.4.8）
+
+| 方向 | commit | 范围 |
+| --- | --- | --- |
+| S0-3 / T2 | `fc9b2867` | 以最小 diff 修复 14 个文件中的 17 个 ESLint error，不执行全仓格式化；修复无效初值、`no-this-alias`、重复分支、空接口和正则规则等阻断 |
+| S0-3 / T2 | `44f14abf` | 在 `.github/workflows/tests.yml` 新增独立 `webview-lint` job，固定 Node.js 22.12.0，在 `webview` 目录执行 `npm ci` 与 `npm run lint` |
+
+验证：`npm run lint` 0 error、90 warning、退出码 0；`npx tsc -p tsconfig.json --noEmit` 通过；6 个直接相关测试文件共 125 项通过。全量 `npm run test` 的 Vitest 用例本身通过，但工作区既有 `MessageList.tsx` 定时器改动在测试环境销毁后触发 `window is not defined`，不属于本次 S0-3 提交。后续 S1-2 已在 `5a693e65` 完成 format/pre-commit/CI 全链路一致性。
+
+---
+
+### 2026-07-22：S0-4 协议 SSOT CI gate（feature/v0.4.8）
+
+| 方向 | commit | 范围 |
+| --- | --- | --- |
+| S0-4 / A8 | `22b17f2d` | 在 `.github/workflows/tests.yml` 新增独立 `protocol-ssot` job；从 Java `UpstreamAction` / `DownstreamEvent` 等枚举源运行 `generate-protocol-types.mjs`，生成 `webview/src/generated/protocol.ts` 后执行 `npm run check:event-literals` |
+
+验证：本地按 CI 顺序执行 `node scripts/generate-protocol-types.mjs` 与 `npm run check:event-literals` 通过；生成统计为 217 条上行 action、147 条下行事件，漂移扫描覆盖 375 个生产文件且为 0。S1-3 后续已由 `937927da` 完成文件、行列、原始字面量和 `DOWNSTREAM.*` 替换提示，并补齐退出码回归测试。
+
+---
+
+### 2026-07-22：S0-5 A11Y3 流式播报正确性修复（feature/v0.4.8）
+
+| 方向 | commit | 范围 |
+| --- | --- | --- |
+| S0-5 / A11Y3 | `d22bc3a7` | 将 `useScrollBehavior.isUserAtBottomRef` 经 `App` / `ChatScreen` 贯穿到 `MessageList`，移除底部状态硬编码；`useStreamAnnouncer` 通过 ref 读取最新内容和实时滚动状态，内容 delta 不再重置 2 秒 interval，流式结束保留最终摘要并清理 interval、RAF 与 aria-live DOM |
+
+验证：新增 5 个 hook 测试覆盖 interval 不重建、2 秒窗口读取最新内容、动态底部状态、最终摘要与卸载清理；`MessageList` 16 项测试、`npm run lint`（0 error / 90 warning）、`tsc --noEmit` 和全量 `npm run test` 均通过。
+
+---
+
+### 2026-07-22：S1-1 B1 构建 profiling 基线（feature/v0.4.8）
+
+| 方向 | commit | 范围 |
+| --- | --- | --- |
+| S1-1 / B1 | `ba9a0022` | 新增 `docs/build-performance-baseline.md` 与机器可读 JSON；记录环境、source/diff 指纹、三轮命令和原始样本，并规定中位数、本地/CI 分离和后续百分比比较口径 |
+
+验证：Gradle 强制 `buildWebview` 墙钟中位数 22.577s（`:buildWebview` 15.006s）；增量 `UP-TO-DATE` 墙钟中位数 8.002s（task 0.162s）；直接 `npm run build` 墙钟中位数 14.593s（Vite 8.950s）。热点结论为全量构建优先分析 Webview 链路，增量场景优先验证 daemon/配置开销。
+
+---
+
+### 2026-07-22：S1-2 T2 format/lint 全链路守门（feature/v0.4.8）
+
+| 方向 | commit | 范围 |
+| --- | --- | --- |
+| S1-2 / T2 | `5a693e65` | 新增 `check-style.mjs` 与 `npm run check:style`，统一全量 ESLint + 变更文件 Prettier；`webview-lint` CI 使用事件 revision range 和 adoption baseline，pre-commit 保持同一文件范围的自动修复 |
+
+验证：`npm run check:style -- --staged` 对新增脚本执行 Prettier 并以 0 error、90 warning 完成全量 ESLint；按 CI 环境变量以 `origin/feature/v0.4.8...HEAD` 复测时，脚本正确将 `5a693e65` 识别为 adoption baseline，不追溯检查既有 30 个已提交格式偏离文件。全仓 `npm run format:check` 仍报告 501 个历史文件，本项不通过一次性 reformat 制造巨量 diff。
+
+---
+
+### 2026-07-22：S1-3 A8 协议漂移诊断闭环（feature/v0.4.8）
+
+| 方向 | commit | 范围 |
+| --- | --- | --- |
+| S1-3 / A8 | `937927da` | 将 `check-event-literals.mjs` 重构为可测试守门器；失败项稳定输出 `file:line:column`、原始字面量和精确 `DOWNSTREAM.*` 替换建议，脚本异常返回 2，协议漂移返回 1 |
+
+验证：新增 5 个 Vitest 用例覆盖注释排除、行列计算、多文件多命中、替换映射、无漂移和无效协议退出码；`npm run check:event-literals` 扫描 375 个生产文件、147 条下行事件且 0 漂移；全量 `npm run test`、`tsconfig.test.json` 类型检查、目标 ESLint 与 Prettier 均通过。
+
+---
+
+### 2026-07-22：S1-4 I18N 统一 gate 对齐（feature/v0.4.8）
+
+| 方向 | commit | 范围 |
+| --- | --- | --- |
+| S1-4 / I18N1 / I18N2 | `ab9383bf` | 将 CI `i18n` job 切换到 `scripts/check-i18n-keys.mjs`，统一检查前端 `en.json` 与后端 base bundle；删除旧前端专用 gate 和第二份 baseline，并以当前 1484 个前端 SSOT 键刷新 adoption baseline |
+
+验证：`node scripts/check-i18n-keys.mjs --quiet` 返回 0；前端 9 个 locale 与后端 8 个 bundle 全部处于统一 baseline 内，后端 `zh` 272/272 完整；仓库除迁移说明外不再引用旧 `check-locale-coverage.mjs` 或 `locale-coverage-baseline.json`。
+
+---
+
+### 2026-07-22：S2-1 B3 typed bootstrap payload（feature/v0.4.8）
+
+| 方向 | commit | 范围 |
+| --- | --- | --- |
+| B3（S2-1） | `fb6202b1` | 后端权威 bootstrap DTO/schema + `webview.bootstrap` 单一 typed 事件；移除 `WebviewInitializer` 业务配置脚本拼接与六类 pending 字段 |
+
+验证：Java payload/schema 与 `WebviewInitializer` 源码守门测试通过；前端 bootstrap 订阅及协议生成器定向测试 22 项通过；全量 `npm test`、TypeScript 测试配置类型检查和 `check:event-literals` 均通过；Gradle `compileJava`、`compileTestJava`、`buildWebview` 与定向测试通过。
+
+---
+
+### 2026-07-22：S2-2 F8 CLI 兼容矩阵（feature/v0.4.8）
+
+| 方向 | commit | 范围 |
+| --- | --- | --- |
+| F8（S2-2） | `e3de1b8a` | 新增三 Provider `CliVersionParser` strategy/registry、严格 manifest codec、后端 compatibility decision facade、Ed25519 detached-signature verifier、remote/cache/bundled repository 与 startup updater；Claude/Codex/OpenCode 三条 CLI 探测路径对称执行兼容策略 |
+
+验证：compatibility 定向测试 17 项通过，相关 Claude/Codex/OpenCode resolver 与 `VersionComparator` 回归通过；全量 `./gradlew test` 通过。`checkstyleMain` 仅被工作区既有 17 条非 F8 违规阻断，F8 新增文件无 checkstyle 报告。
+
+---
+
+### 2026-07-22：S2-3 A3 Settings 拆分收尾（feature/v0.4.8）
+
+| 方向 | commit | 范围 |
+| --- | --- | --- |
+| A3 / F9（S2-3） | `19457260` | 新增 `ConfigStore` 与版本化 migration registry；六个领域 Service 直接持有配置抽象，Facade 保持公共调用面；同路径共享锁串行化 read-modify-write；Smithery 明文凭证支持安全迁移、延迟恢复和防旧值覆盖 |
+
+验证：migration registry 12 项、`ConfigRepositoryTest` 16 项、领域所有权契约 3 项及全部 Settings Service 定向测试通过；全量 `./gradlew test` 通过。`checkstyleMain` 仅被工作区既有 15 条非 A3 违规阻断，A3 文件无新增 checkstyle 报告。
+
+---
+
+## 15. 已落地与阶段性成果总览
+
+> 本节同时记录已落地成果和明确标注的 Phase A/基线/先导成果。表中出现不代表对应 P1-P4 方向已完整完成；当前完成度统一以 §0 和 §10 的 2026-07-22 核查为准。日期以代码实际提交日为准，`TBD` 表示当前工作区已有实现但尚未形成提交。
 
 ### P0 安全与数据完整性
 
@@ -1145,10 +1456,13 @@ CI 策略：
 | S2 | PasswordStore 凭证地基（CredentialBackend 抽象 + 容量/降级/日志安全） | 2026-07-17 `60acb930` |
 | S3 | NodeJsServiceCaller.executeNodeScript 硬化（分流 / 有界读 / 真 timeout） | 2026-07-17 `7037ae7e` |
 | A3 / F9 | ConfigRepository（原子写 + ThreadLocal CAS + malformed quarantine + 多版本 backup） | 2026-07-17 `7ec33f81` |
+| A3 / F9（S2-3） | `ConfigStore` 领域所有权 + `schemaVersion` 逐级 migration registry + Smithery 安全迁移/延迟恢复 + 同路径进程内并发控制 | 2026-07-22 `19457260` |
 | A3（领域拆分①） | AppearanceSettingsService（外观+字体，模式 A 半拆：Service 注入 CSS，Facade 6 public 委托不变，CSS 净减 ~200 行） | 2026-07-20 `e0fd8eef` |
 | A3（领域拆分②） | AiFeatureToggleSettingsService（AI 功能开关 4 toggle + Smithery key，模式 A 半拆，Facade 10 public 委托不变，零核心路径） | 2026-07-20 `4b37249b` |
 | A3（领域拆分③） | CodexSandboxModeSettingsService（Codex 沙箱模式 per-project/default + 平台默认值决策，模式 A 半拆，Facade 2 public 委托不变，CSS 净减 53 行） | 2026-07-20 `c58b3b46` |
 | A3（领域拆分④） | ModelRegistrySettingsService（模型注册表 effective=merge(user,只读默认)，模式 A 半拆，Facade 3 public 委托不变，静态 ModelRegistryService 不合并，CSS 净减 151 行） | 2026-07-20 `46c4f55f` |
+| A3（领域拆分⑤） | McpSettingsService（MCP 服务器配置，持有并构造 McpServerManager，双路径存储 ~/.claude.json 主 + config.json fallback，模式 A 半拆，Facade 6 public 委托不变，边界外 CodexMcpServerManager 不动，CSS 净减 ~20 行） | 2026-07-20 `97f0396c` |
+| A3（领域拆分⑥） | ProviderSettingsService（三 Provider claude/codex/opencode 配置，持有并构造三 ProviderManager + 收口 6 个 localConfigAuthorized/runtimeAccessMode 内联，模式 A 半拆，Facade ~39 public 委托不变，CODEX_RUNTIME_ACCESS_* 常量留 CSS，3 settings Manager 共享引用，CSS 净减 ~180 行） | 2026-07-20 `ffac99fb` |
 
 ### 协议与架构
 
@@ -1156,7 +1470,10 @@ CI 策略：
 | --- | --- | --- |
 | A4 | BaseSDKBridge 核心已落地（三 Provider 继承，仅小范围债务） | 核心已落地 |
 | A7 | Provider 历史 Adapter/Registry 已落地（债务清理阶段） | 核心已落地 |
+| F8（S2-2） | 三 Provider CLI compatibility manifest SSOT、parser registry、签名更新、防回滚缓存与离线 fallback | 2026-07-22 `e3de1b8a` |
 | A8 | 下行事件字面量 → `DOWNSTREAM.*` SSOT + `check-event-literals.mjs` 漂移守门 | 2026-07-20 `9eb0d496` |
+| A8（S0-4） | 独立 `protocol-ssot` CI job：Java 枚举生成协议类型后执行漂移检查 | 2026-07-22 `22b17f2d` |
+| A8（S1-3） | 漂移失败项输出文件、行列、原始字面量和精确 `DOWNSTREAM.*` 替换建议，并覆盖多文件与退出码测试 | 2026-07-22 `937927da` |
 | (AGENTS) | 精简为纯架构准则，一次性债务条目外移到独立文档 | 2026-07-20 `1fab7035` |
 
 ### P1 动效与无障碍
@@ -1164,19 +1481,27 @@ CI 策略：
 | 方向 | 内容 | 日期 / commit |
 | --- | --- | --- |
 | H2 | 思考区 `grid-template-rows 0fr↔1fr` 折叠动画 | 2026-07-20 `8edc3aad` |
+| H3（出场动画） | 消息出场动画（exitingMessages 缓存 + messageFadeOut，仅 opacity 保护 scroll anchoring，零 bundle 增量） | 2026-07-21 `36e37fbc` |
 | H5 | SkeletonList 骨架屏（真实请求状态驱动） | 2026-07-20 `f53a9f2c` |
 | H6 | 复制成功/失败微交互 + focus-visible | 2026-07-20 `8edc3aad` |
 | H7 | reduced-motion 全局策略（base.less 唯一入口） | 2026-07-20 `8edc3aad` |
 | A11Y1 | Dialog 焦点管理（portal + trap/restore/inert/嵌套栈） | 2026-07-20 `c09a5388` |
+| A11Y2 | 键盘导航 roving tabindex（useRovingTabIndex hook + 4 Tab 组件） | 2026-07-21 `7b6fd922` |
+| A11Y3 | 流式 aria-live 节流；S0-5 修复实时底部状态、稳定 interval、最终摘要与卸载清理 | 2026-07-21 `09f7cde2`；2026-07-22 `d22bc3a7` |
 
 ### P1 构建 / 工具链 / 文档
 
 | 方向 | 内容 | 日期 / commit |
 | --- | --- | --- |
 | B1 | buildWebview inputs/outputs（支持 up-to-date 跳过） | 2026-07-20 `dff5092f` |
+| B1（S1-1） | 三轮 Gradle/Webview profiling 基线、热点与复测口径 | 2026-07-22 `ba9a0022` |
 | B3 早期 | JCEF bootstrap 单次注入 + hide_panel 并入主 sendToJava 路由 | 2026-07-20 `1bd4708d` |
+| B3（S2-1） | 后端权威 typed bootstrap DTO/schema、单一 `webview.bootstrap` 下行事件、移除业务初始化 JavaScript 拼接 | 2026-07-22 `fb6202b1` |
 | T2 | ESLint flat config + Prettier + lint-staged | 2026-07-20 `8934698f` |
+| T2（S0-3） | Webview lint errors 清零 + 独立 `webview-lint` CI job | 2026-07-22 `fc9b2867`, `44f14abf` |
+| T2（S1-2） | `check:style` 统一本地/CI 全量 ESLint + 增量 Prettier，pre-commit 复用同一范围 | 2026-07-22 `5a693e65` |
 | T3 | exportMarkdown → exportSessionJson 命名修正 | 2026-07-20 `03c7d798` |
+| T1 | 覆盖率工具接入（JaCoCo + Vitest coverage v8 + c8） | 2026-07-21 `085c4e6f` |
 | D1 | 开发指南（环境 / 构建 / 协议 / 三套测试 / verifier / 六路径 / 发布） | 2026-07-20 `0d93b525` |
 | D2 | `.githooks/pre-commit`（lint-staged，容忍 node_modules 缺失） | 2026-07-20 `0d93b525` |
 
@@ -1186,16 +1511,33 @@ CI 策略：
 | --- | --- | --- |
 | I18N1 | locale coverage baseline CI 守门（`check-locale-coverage.mjs` + tests.yml job） | 2026-07-17 `408bfb33` |
 | I18N1 + I18N2 | 前后端统一 key baseline gate（`check-i18n-keys.mjs`，含后端 base bundle） | 2026-07-20 `f980e7ae` |
+| I18N1 + I18N2（S1-4） | 统一 gate 接入 CI，删除重复前端脚本/baseline，刷新 1484-key adoption baseline | 2026-07-22 `ab9383bf` |
 
 ### 修复
 
 | 方向 | 内容 | 日期 / commit |
 | --- | --- | --- |
 | — | useTypewriterStream POP_LIMIT 测试同步到实现权威值 1500（HEAD 既有红测试） | 2026-07-20 `360bdef4` |
+| F6 / S0-1 | 诊断包多 entry ZIP 生命周期修复 + 结构化递归脱敏 + 可读性/脱敏测试 | 2026-07-22 `91c88705` |
+
+### 构建与性能
+
+| 方向 | 内容 | 日期 / commit |
+| --- | --- | --- |
+| B2（基线） | rollup-plugin-visualizer 接入 + 首次基线：index.html 6,133.45 kB / gzip 1,729.97 kB | 2026-07-21 `TBD` |
+
+### P4 长期生态
+
+| 方向 | 内容 | 日期 / commit |
+| --- | --- | --- |
+| T4（Phase 1） | ai-bridge 工具链先导（ESLint + Prettier + 有效 `tsconfig.json` + TS strict / JS `@ts-check` 渐进检查 + 统一测试 + 路径 bug 修复 + JSDoc） | 2026-07-21 / 2026-07-22 `36e37fbc` |
+| T4（Phase 2 先导） | utils/exit-strategy.ts 迁移（类型注解 + tsx 加载器；当前 421 项：420 pass、1 skipped） | 2026-07-21 `TBD` |
+| F1（近端） | ProviderCapability 枚举 + ProviderAdapter 能力声明 + ProviderRegistry 能力查询 + 契约测试（7 用例） | 2026-07-21 `TBD` |
+| F1（接入清单） | docs/provider-onboarding-checklist.md（32 接触点） | 2026-07-21 `TBD` |
+| F1（六路径契约测试） | ProviderSixPathContractTest（11 用例） | 2026-07-21 `TBD` |
 
 ### 合并 / 接受边界
 
 - **B5** Mermaid 打包：已并入 B2（multi-chunk / singlefile 决策），不独立落地。
 
-> **剩余 backlog**：P1 剩 T1 覆盖率工具接入（JaCoCo / Vitest coverage / c8）、A11Y2 键盘导航（roving tabindex）、A11Y3 流式 aria-live 节流；P2 A3 领域 Service 拆分（①外观+字体 `e0fd8eef`、②AI 功能开关 `4b37249b`、③Codex 沙箱模式 `c58b3b46`、④模型注册表 `46c4f55f` 已落地，剩 Provider / MCP）/ A5 IntelliJ EP / F8 CLI 兼容矩阵 / F2 Skills 可视化 / F4 历史增强 / B3 typed bootstrap payload / F3 标签持久化（详见 §10）。
-
+> **2026-07-22 核查修正**：F6 仍不能标记为“全部落地”——诊断包 ZIP 生命周期与结构化脱敏已由 S0-1 修复，但采样、保留期限、隐私开关与六路径指标尚未完整。P1-P4 的全部剩余工作、实施顺序和验收入口统一见 §0.3 与 §10；本节只作为成果索引，不再承担 backlog 完成状态判断。
