@@ -4,10 +4,12 @@ import { UPSTREAM, DOWNSTREAM } from '../../generated/protocol';
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Skill, SkillsConfig, SkillScope, SkillFilter, SkillEnabledFilter } from '../../types/skill';
+import type { SkillDocumentResult, SkillDocumentSavePayload } from '../../types/skill';
 import { registerLegacyAlias } from '../../bridge';
 import { SkillHelpDialog } from './SkillHelpDialog';
 import { SkillConfirmDialog } from './SkillConfirmDialog';
 import { SkillMarketDialog } from './SkillMarketDialog';
+import { SkillEditorDialog } from './SkillEditorDialog';
 import { ToastContainer, type ToastMessage } from '../Toast';
 
 interface SkillsSettingsSectionProps {
@@ -60,6 +62,12 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
   const [showHelpDialog, setShowHelpDialog] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [deletingSkill, setDeletingSkill] = useState<Skill | null>(null);
+  const [editingSkill, setEditingSkill] = useState<Skill | null>(null);
+  const [skillDocument, setSkillDocument] = useState<SkillDocumentResult | null>(null);
+  const [editorLoading, setEditorLoading] = useState(false);
+  const [editorSaving, setEditorSaving] = useState(false);
+  const editorRequestSequence = useRef(0);
+  const activeEditorRequestId = useRef<string | null>(null);
 
   // Skills market dialog (从市场安装:GitHub 仓库 tarball 下载)
   const [showMarketDialog, setShowMarketDialog] = useState(false);
@@ -95,14 +103,11 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
 
   // Filtered Skills list
   const filteredSkills = useMemo(() => {
-    let list: Skill[] = [];
-    if (currentFilter === 'all') {
-      list = allSkillList;
-    } else if (currentFilter === 'global' || currentFilter === 'user') {
-      list = primarySkillList;
-    } else {
-      list = secondarySkillList;
-    }
+    let list: Skill[] = currentFilter === 'all'
+      ? allSkillList
+      : currentFilter === 'global' || currentFilter === 'user'
+        ? primarySkillList
+        : secondarySkillList;
 
     // Filter by enabled status
     if (enabledFilter === 'enabled') {
@@ -174,6 +179,8 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
     registerLegacyAlias('updateSkills', DOWNSTREAM.SKILL_LIST);
     registerLegacyAlias('skillImportResult', DOWNSTREAM.SKILL_IMPORT_RESULT);
     registerLegacyAlias('skillDeleteResult', DOWNSTREAM.SKILL_DELETE_RESULT);
+    registerLegacyAlias('skillDocument', DOWNSTREAM.SKILL_DOCUMENT);
+    registerLegacyAlias('skillSaveResult', DOWNSTREAM.SKILL_SAVE_RESULT);
     registerLegacyAlias('skillToggleResult', DOWNSTREAM.SKILL_TOGGLE_RESULT);
 
     const unsubs: Array<() => void> = [];
@@ -230,6 +237,56 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
       }
     }));
 
+    unsubs.push(subscribeEvent(DOWNSTREAM.SKILL_DOCUMENT, (payload) => {
+      try {
+        const result = (typeof payload === 'string' ? JSON.parse(payload) : payload) as SkillDocumentResult;
+        if (!result || result.requestId !== activeEditorRequestId.current) {
+          return;
+        }
+        setSkillDocument(result);
+        setEditorLoading(false);
+        if (!result.success) {
+          addToast(result.error || t('skills.editor.loadFailed'), 'error');
+        }
+      } catch (error) {
+        console.error('[SkillsSettings] Failed to parse skill document:', error);
+        setEditorLoading(false);
+        addToast(t('skills.editor.loadFailed'), 'error');
+      }
+    }));
+
+    unsubs.push(subscribeEvent(DOWNSTREAM.SKILL_SAVE_RESULT, (payload) => {
+      try {
+        const result = (typeof payload === 'string' ? JSON.parse(payload) : payload) as SkillDocumentResult;
+        if (!result || result.requestId !== activeEditorRequestId.current) {
+          return;
+        }
+        setEditorSaving(false);
+        if (result.success) {
+          addToast(result.changed === false ? t('skills.editor.noChanges') : t('skills.editor.saveSuccess'), 'success');
+          activeEditorRequestId.current = null;
+          setEditingSkill(null);
+          setSkillDocument(null);
+          loadSkills();
+          return;
+        }
+        setSkillDocument(current => current ? {
+          ...current,
+          conflict: result.conflict,
+          parseError: result.parseError,
+          error: result.error,
+        } : result);
+        addToast(
+          result.conflict ? t('skills.editor.conflictToast') : result.error || t('skills.editor.saveFailed'),
+          result.conflict ? 'warning' : 'error'
+        );
+      } catch (error) {
+        console.error('[SkillsSettings] Failed to parse skill save result:', error);
+        setEditorSaving(false);
+        addToast(t('skills.editor.saveFailed'), 'error');
+      }
+    }));
+
     // enable/disable result
     unsubs.push(subscribeEvent(DOWNSTREAM.SKILL_TOGGLE_RESULT, (jsonStr) => {
       try {
@@ -279,7 +336,7 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
       unsubs.forEach((u) => u());
       document.removeEventListener('click', handleClickOutside);
     };
-  }, [loadSkills, addToast]);
+  }, [loadSkills, addToast, t]);
 
   // Auto-refresh when provider changes (skip initial mount — handled by init useEffect above)
   const isInitialMount = useRef(true);
@@ -289,6 +346,11 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
       return;
     }
     setCurrentFilter('all');
+    activeEditorRequestId.current = null;
+    setEditingSkill(null);
+    setSkillDocument(null);
+    setEditorLoading(false);
+    setEditorSaving(false);
     loadSkills();
   }, [currentProvider, loadSkills]);
 
@@ -318,8 +380,69 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
   const secondaryScope: SkillScope = isCodex ? 'repo' : 'local';
 
   // Open in editor
+
+  const skillDocumentIdentity = (skill: Skill) => ({
+    scope: skill.scope,
+    name: skill.name,
+    directoryPath: skill.path,
+    skillPath: skill.skillPath ?? skill.path,
+    enabled: skill.enabled,
+  });
+
+  const nextEditorRequestId = (skill: Skill) => {
+    editorRequestSequence.current += 1;
+    return `${skill.id}:${editorRequestSequence.current}`;
+  };
+
+  const loadSkillDocument = (skill: Skill) => {
+    const requestId = nextEditorRequestId(skill);
+    activeEditorRequestId.current = requestId;
+    setEditingSkill(skill);
+    setSkillDocument(null);
+    setEditorLoading(true);
+    setEditorSaving(false);
+    if (!sendAction(UPSTREAM.GET_SKILL_DOCUMENT, {
+      requestId,
+      ...skillDocumentIdentity(skill),
+    })) {
+      setEditorLoading(false);
+      addToast(t('skills.editor.loadFailed'), 'error');
+    }
+  };
+
+  const handleEdit = (skill: Skill) => {
+    loadSkillDocument(skill);
+  };
+
   const handleOpen = (skill: Skill) => {
     sendAction(UPSTREAM.OPEN_SKILL, { path: skill.path });
+  };
+
+  const handleCloseEditor = () => {
+    activeEditorRequestId.current = null;
+    setEditingSkill(null);
+    setSkillDocument(null);
+    setEditorLoading(false);
+    setEditorSaving(false);
+  };
+
+  const handleSaveDocument = (payload: SkillDocumentSavePayload) => {
+    if (!editingSkill || !skillDocument?.revision) {
+      return;
+    }
+    const requestId = nextEditorRequestId(editingSkill);
+    activeEditorRequestId.current = requestId;
+    setEditorSaving(true);
+    if (!sendAction(UPSTREAM.SAVE_SKILL_DOCUMENT, {
+      requestId,
+      ...skillDocumentIdentity(editingSkill),
+      revision: skillDocument.revision,
+      changes: payload.changes,
+      body: payload.body,
+    })) {
+      setEditorSaving(false);
+      addToast(t('skills.editor.saveFailed'), 'error');
+    }
   };
 
   // Delete Skill
@@ -545,8 +668,11 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
                   )}
                 </div>
                 <div className="expand-actions">
-                  <button className="btn-ghost" onClick={() => handleOpen(skill)}>
+                  <button className="btn-ghost" onClick={() => handleEdit(skill)}>
                     <EditIcon size={16} /> {t('common.edit')}
+                  </button>
+                  <button className="btn-ghost" onClick={() => handleOpen(skill)}>
+                    <FileCodeIcon size={16} /> {t('skills.editor.openInIde')}
                   </button>
                   <button className="btn-ghost" onClick={() => handleDelete(skill)}>
                     <TrashIcon size={16} /> {t('common.delete')}
@@ -577,6 +703,20 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
       </div>
 
       {/* Dialogs */}
+      {editingSkill && (
+        <SkillEditorDialog
+          isOpen={true}
+          skillName={editingSkill.name}
+          loading={editorLoading}
+          saving={editorSaving}
+          document={skillDocument}
+          onClose={handleCloseEditor}
+          onReload={() => loadSkillDocument(editingSkill)}
+          onOpenInIde={() => handleOpen(editingSkill)}
+          onSave={handleSaveDocument}
+        />
+      )}
+
       {showHelpDialog && (
         <SkillHelpDialog onClose={() => setShowHelpDialog(false)} currentProvider={currentProvider} />
       )}

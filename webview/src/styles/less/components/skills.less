@@ -1147,3 +1147,68 @@
     color: var(--vscode-inputValidation-errorForeground, #f56565);
     border: 1px solid rgba(229, 62, 62, 0.3);
 }
+
+/* ==================== SKILL.md schema-driven editor ==================== */
+.skill-editor-dialog .dialog-base {
+    max-height: 88vh;
+}
+
+.skill-editor-body {
+    display: grid;
+    gap: 16px;
+}
+
+.skill-editor-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.skill-editor-fields .form-group {
+    min-width: 0;
+    margin: 0;
+}
+
+.skill-editor-wide-field {
+    grid-column: 1 / -1;
+}
+
+.skill-editor-checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 32px;
+    color: var(--text-primary);
+}
+
+.skill-editor-list,
+.skill-editor-markdown .form-textarea {
+    font-family: var(--idea-editor-font-family, monospace);
+}
+
+.skill-editor-markdown {
+    margin: 0;
+}
+
+.skill-editor-alert {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 12px;
+    border: 1px solid var(--vscode-inputValidation-errorBorder, rgba(229, 62, 62, 0.45));
+    border-radius: 6px;
+    background: var(--vscode-inputValidation-errorBackground, rgba(229, 62, 62, 0.12));
+    color: var(--vscode-inputValidation-errorForeground, var(--color-error));
+}
+
+.skill-editor-alert.warning {
+    border-color: var(--vscode-inputValidation-warningBorder, rgba(245, 158, 11, 0.45));
+    background: var(--vscode-inputValidation-warningBackground, rgba(245, 158, 11, 0.12));
+    color: var(--vscode-inputValidation-warningForeground, var(--color-warning));
+}
+
+@media (max-width: 640px) {
+    .skill-editor-fields {
+        grid-template-columns: 1fr;
+    }
+}

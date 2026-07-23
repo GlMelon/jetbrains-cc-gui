@@ -70,3 +70,41 @@ export type SkillFilter = 'all' | 'global' | 'local' | 'user' | 'repo';
  * Skills enabled status filter
  */
 export type SkillEnabledFilter = 'all' | 'enabled' | 'disabled';
+
+/** Backend-declared generic editor control. */
+export type SkillFieldControl = 'text' | 'textarea' | 'boolean' | 'string-list';
+
+export type SkillFieldValue = string | boolean | string[] | null;
+
+/** One backend-declared editable frontmatter field. */
+export interface SkillDocumentField {
+  key: string;
+  labelKey: string;
+  control: SkillFieldControl;
+  required: boolean;
+  maxLength?: number;
+  present: boolean;
+  value: SkillFieldValue;
+}
+
+/** Result returned by the backend SKILL.md document authority. */
+export interface SkillDocumentResult {
+  requestId?: string;
+  success: boolean;
+  editable: boolean;
+  parseError?: boolean;
+  conflict?: boolean;
+  rolledBack?: boolean;
+  changed?: boolean;
+  error?: string;
+  provider?: string;
+  revision?: string;
+  fileName?: string;
+  body?: string;
+  fields?: SkillDocumentField[];
+}
+
+export interface SkillDocumentSavePayload {
+  changes: Record<string, SkillFieldValue>;
+  body: string;
+}
