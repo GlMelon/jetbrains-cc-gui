@@ -1569,6 +1569,28 @@
           "link1": "Codex Skills 文档"
         }
       }
+    },
+    "name": "名称",
+    "license": "许可证",
+    "compatibility": "兼容性",
+    "allowedTools": "允许的工具",
+    "userInvocable": "用户可调用",
+    "paths": "路径",
+    "editor": {
+      "title": "编辑 Skill：{{name}}",
+      "loading": "正在读取 SKILL.md...",
+      "loadFailed": "读取 SKILL.md 失败",
+      "readErrorTitle": "无法安全编辑此文件",
+      "conflictTitle": "检测到外部修改",
+      "conflictToast": "SKILL.md 已在外部修改，请重新加载后再保存",
+      "onePerLine": "每行填写一项",
+      "markdownBody": "Markdown 正文",
+      "openInIde": "在 IDE 中打开",
+      "reload": "重新加载",
+      "saving": "正在保存...",
+      "saveSuccess": "Skill 保存成功",
+      "noChanges": "Skill 没有变化",
+      "saveFailed": "Skill 保存失败"
     }
   },
   "models": {

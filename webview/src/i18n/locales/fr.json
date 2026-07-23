@@ -1220,6 +1220,28 @@
           "link1": "Documentation des Skills Codex"
         }
       }
+    },
+    "name": "Name",
+    "license": "License",
+    "compatibility": "Compatibility",
+    "allowedTools": "Allowed tools",
+    "userInvocable": "User invocable",
+    "paths": "Paths",
+    "editor": {
+      "title": "Edit Skill: {{name}}",
+      "loading": "Loading SKILL.md...",
+      "loadFailed": "Failed to load SKILL.md",
+      "readErrorTitle": "This file cannot be edited safely",
+      "conflictTitle": "External changes detected",
+      "conflictToast": "SKILL.md changed outside Codemoss. Reload before saving.",
+      "onePerLine": "Enter one item per line",
+      "markdownBody": "Markdown body",
+      "openInIde": "Open in IDE",
+      "reload": "Reload",
+      "saving": "Saving...",
+      "saveSuccess": "Skill saved successfully",
+      "noChanges": "No Skill changes to save",
+      "saveFailed": "Failed to save Skill"
     }
   },
   "models": {

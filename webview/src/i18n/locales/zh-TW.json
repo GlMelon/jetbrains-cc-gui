@@ -1237,6 +1237,28 @@
           "link1": "Codex Skills 文件"
         }
       }
+    },
+    "name": "名稱",
+    "license": "授權條款",
+    "compatibility": "相容性",
+    "allowedTools": "允許的工具",
+    "userInvocable": "使用者可呼叫",
+    "paths": "路徑",
+    "editor": {
+      "title": "編輯 Skill：{{name}}",
+      "loading": "正在讀取 SKILL.md...",
+      "loadFailed": "讀取 SKILL.md 失敗",
+      "readErrorTitle": "無法安全編輯此檔案",
+      "conflictTitle": "偵測到外部修改",
+      "conflictToast": "SKILL.md 已在外部修改，請重新載入後再儲存",
+      "onePerLine": "每行填寫一項",
+      "markdownBody": "Markdown 正文",
+      "openInIde": "在 IDE 中開啟",
+      "reload": "重新載入",
+      "saving": "正在儲存...",
+      "saveSuccess": "Skill 儲存成功",
+      "noChanges": "Skill 沒有變更",
+      "saveFailed": "Skill 儲存失敗"
     }
   },
   "models": {
