@@ -17,7 +17,7 @@
 | 优先级 | 当前结论 | 完成情况 |
 | --- | --- | --- |
 | P1 | 🟡 大部分落地，质量门禁尚未全部闭环 | 5 项完成，3 项部分完成 |
-| P2 | 🟡 基础能力已分批推进，完整功能仍有明显缺口 | 1 项基本完成，6 项部分完成 |
+| P2 | 🟡 基础能力已分批推进，完整功能仍有明显缺口 | 2 项完成，5 项部分完成 |
 | P3 | 🔴 仅完成少量基线或局部实现 | 0 项完整完成，3 项部分完成，3 项未实现 |
 | P4 | 🔴 仅有近期基础设施先导 | 0 项完整完成，2 项部分完成，2 项未实现 |
 
@@ -27,14 +27,16 @@
 
 | 验证项 | 当前结果 | 结论 |
 | --- | --- | --- |
-| `webview npm run check:event-literals` | 375 个文件、147 条下行事件、0 漂移 | `protocol-ssot` CI job 已按 Java 枚举生成协议类型后执行漂移检查 |
-| `webview npm run check:style` | 0 errors、90 warnings、退出码 0 | `webview-lint` CI job 已统一执行全量 ESLint 与增量 Prettier；pre-commit 复用同一文件范围 |
-| `webview npm run test` | 全量通过 | 新增 `useStreamAnnouncer` 5 个定时器/生命周期用例后，Vitest 与 `tsconfig.test.json` 类型检查均通过 |
+| `webview npm run check:event-literals` | 372 个文件、141 条下行事件、0 漂移 | F2 新增事件已从 Java 枚举生成并通过协议字面量漂移检查 |
+| `webview npm run check:style` / `npm run lint` | 当前分支无 `check:style` script；全量 lint 为 16 errors、88 warnings | 均为非 F2 文件的既有阻断；F2 目标文件 ESLint 通过，未在本批次扩散修复范围 |
+| `webview npm run test` | 全量通过 | 包含 `SkillEditorDialog.test.tsx` 6 个用例，Vitest 与 `tsconfig.test.json` 类型检查均通过 |
 | Java Settings/Version/Resolver/Health/Provider targeted tests | 通过 | 已覆盖诊断包多 entry ZIP 可读性与结构化脱敏 |
 | B1 三轮 Gradle/Webview profiling | 强制 Gradle 中位数 22.577s；增量 8.002s；直接 Webview 14.593s | `docs/build-performance-baseline.md` 已固化环境、命令、原始样本、热点和复测口径 |
 | `ai-bridge npm run lint` | 通过，有 warnings | 工具链先导可用 |
 | `ai-bridge npm run typecheck` | 通过 | 有效 `tsconfig.json` 对全部 TS 执行 `strict` 检查，JS 通过 `// @ts-check` 渐进纳入 |
 | `ai-bridge npm run test` | 421 项：420 pass、1 skipped、0 fail | JS 主体回归通过，不代表 T4 全量迁移完成 |
+| F2 Skills 定向验证 | Java 23 项：21 pass、2 个 Windows symlink 条件跳过；前端 6/6；目标 TypeScript/ESLint、i18n 与协议检查通过 | handler 契约、Provider 字段、必填、容量、no-op、CRLF、缺失 body 和非法 JSON 类型等边界均已覆盖，S2-5 完成 |
+| `./gradlew test` | 1640 项：1628 pass、10 skipped、2 fail | F2 测试全部通过；仅 `SemanticContextExtensionContractTest` 两个非 F2 基线用例失败（Python collector descriptor / provider language-plugin dependency），未在本批次越界修复 |
 
 ### 0.3 未完成项后续实施顺序
 
@@ -61,7 +63,7 @@
 - [x] **S2-2 F8 CLI 兼容矩阵**：已建立三 Provider compatibility manifest SSOT、provider-specific parser registry、未知/更高版本策略、Ed25519 签名远程更新、缓存防回滚与离线 fallback，并对称接入三条 CLI 探测路径。
 - [x] **S2-3 A3 Settings 拆分收尾**：六个领域 Service 已改为直接依赖 `ConfigStore`，`CodemossSettingsService` 仅保留兼容 Facade；已完成逐级 migration registry、同路径进程内共享锁、原子 `update()` 与领域所有权契约验收（`19457260`）。
 - [x] **S2-4 A5 IntelliJ EP 验收**：`SemanticContextProvider` 与 `ClassNavigationProvider` 均使用动态 EP，Java/Python 实现仅由可选 descriptor 加载；EP 契约、失败隔离、无插件 fallback 与 IDEA/PyCharm/WebStorm/Ultimate Plugin Verifier 矩阵均已通过。
-- [ ] **S2-5 F2 Skills 查看/编辑闭环**：实现未知 YAML 字段保留、原子写/备份/回滚、外部冲突、symlink/path traversal 防护及解析失败不覆盖。
+- [x] **S2-5 F2 Skills 查看/编辑闭环**：已完成 Provider-specific 5/7 字段 schema、安全路径解析、未知 YAML/注释/顺序/Markdown body 尽量保留、SHA-256 revision 冲突、原子写/备份/写后验证/失败回滚及解析失败不覆盖；typed handler/协议枚举与 schema-driven Webview 编辑器已闭环。handler 契约及 Provider 字段、必填、容量、no-op、CRLF、缺失 body、非法 JSON 类型等边界均已覆盖。
 - [ ] **S2-6 F4 历史增强闭环**：在搜索基础上实现归档 capability、HTML/PDF sanitizer 和大会话内存上限。
 - [ ] **S2-7 F3 标签页持久化闭环**：实现颜色、固定状态、完整 session/provider/runtime/mode snapshot、IDE 重启恢复和不可用降级。
 
@@ -476,7 +478,7 @@ handlerRegistry.register("history.get", ctx -> historyHandlers.get(ctx));
 
 ### F2：Skills 可视化查看/编辑
 
-**状态：修订后可行。**
+**状态：已完成（2026-07-22 当前工作区，未提交）。**
 
 后端负责解析 `SKILL.md` frontmatter，并以 typed metadata 下发；前端不得自行解释业务字段。
 
@@ -490,6 +492,17 @@ handlerRegistry.register("history.get", ctx -> historyHandlers.get(ctx));
 - path traversal 和 symlink 防护；
 - 外部编辑冲突；
 - YAML 解析失败时绝不覆盖原文件。
+
+当前落地进度：
+
+- 后端以 `SkillFrontmatterField` + `SkillDocumentSchema` 作为字段与 Provider schema 权威，Claude/OpenCode 使用 7 字段，Codex 使用 Agent Skills 5 字段；
+- `SkillDocumentCodec` 解析并最小化重写 frontmatter，未知字段、注释、原有顺序和 Markdown body 尽量保留；
+- `SkillDocumentPathPolicy` 限制 Provider 所有目录，拒绝 traversal、symlink、非 `SKILL.md` 文件与真实路径逃逸；
+- 保存使用完整内容 SHA-256 revision 检测外部修改，执行原子替换、`.codemoss.bak` 备份、写后重新解析验证与失败回滚；YAML 解析失败时不进入覆盖路径；
+- 上行 `get_skill_document` / `save_skill_document` 使用 `FrontendActionHandler<T>`，下行 `skill.document` / `skill.save_result` 使用 `DownstreamEvent`，前端协议常量由 Java 枚举生成；
+- 前端 `SkillEditorDialog` 完全按后端字段描述渲染 text/textarea/boolean/string-list 控件，仅回传变更字段与 Markdown body，并通过 `requestId` 忽略过期响应；冲突时保留草稿并要求 Reload；
+- `SkillDocumentActionHandlerContractTest` 覆盖 action、payload type 与委托契约；Service 测试补齐 Provider 不支持字段、必填、容量、no-op、CRLF、缺失 body、非法 JSON primitive/list item 等边界；
+- 验收结果：Java F2 定向 23 项中 21 pass、2 个 Windows symlink 条件跳过；Webview 全量测试与类型检查通过，编辑器组件 6/6，目标 ESLint、i18n 和协议漂移检查通过；全量 `./gradlew test` 的 F2 用例全部通过，仅保留 2 个与本项无关的 `SemanticContextExtensionContractTest` 基线失败。
 
 Mermaid 只读预览不是首期必需能力。
 
@@ -1025,7 +1038,7 @@ Dropdown 按实际 combobox/listbox pattern 实现；不得为所有组件机械
 | 1 | A3 Settings 领域拆分 | ✅ | 六个领域 Service 直接依赖 `ConfigStore`，Facade 仅保留兼容调用面；migration registry、同路径进程内锁和所有权契约已完成 | 已完成（`19457260`） |
 | 2 | A5 IntelliJ EP | ✅ | 语义上下文与类导航均使用 core-safe 动态 EP；Java/Python 可选 descriptor 隔离、失败隔离、fallback 与四 IDE Verifier 矩阵均已验收 | 已完成（`dd9bc4b4`、`d0d1fd78`、`7e2eef35`） |
 | 3 | F8 CLI 兼容矩阵 | ✅ | 三 Provider parser registry、compatibility manifest SSOT、未知/更高版本策略、Ed25519 签名更新、revision 防回滚、缓存与离线 fallback 已对称接入 CLI 探测 | 已完成（`e3de1b8a`） |
-| 4 | F2 Skills 可视化 | 🟡 | typed metadata 只读展示已实现，编辑和安全写入链路未完成 | S2-5 |
+| 4 | F2 Skills 可视化 | ✅ | Provider-specific 5/7 字段 schema、安全读写服务、typed 协议/handler、schema-driven 编辑器、revision 冲突与回滚已闭环；handler 与输入边界测试、Webview 全量回归均已完成 | 已完成（工作区 `TBD`） |
 | 5 | F4 历史增强 | 🟡 | 搜索弹窗已实现，归档及 HTML/PDF 导出未完成 | S2-6 |
 | 6 | B3 typed bootstrap payload | ✅ | 后端 DTO/schema 生成前端 wire 类型，`webview.bootstrap` 单一 typed 事件下发完整快照；`WebviewInitializer` 已移除业务初始化脚本拼接 | 已完成（`fb6202b1`） |
 | 7 | F3 标签页持久化 | 🟡 | 仅有顺序持久化和 Provider 降级日志，完整标签 snapshot 未完成 | S2-7 |
@@ -1461,6 +1474,17 @@ Dropdown 按实际 combobox/listbox pattern 实现；不得为所有组件机械
 
 验证：`SemanticContextExtensionContractTest` 与 `OpenClassHandlerTest` 通过；`verifyPluginStructure` 和全量 `./gradlew test` 通过。Plugin Verifier 对 IC `243.22562.145`、PC `243.21565.199`、WS `243.21565.180`、IU `262.6228.19` 均报告 `Compatible`，仅保留 4 条既有 deprecated API usage。首次 PC 验证发现 core 中 `JavaClassNavigationSupport` 的 Java PSI 类加载边界问题，迁移到可选 `ClassNavigationProvider` EP 后复验通过。`checkstyleMain` 仍被工作区既有 13 条非 A5 违规阻断，A5 文件无新增违规。
 
+### 2026-07-22：S2-5 F2 Skills 查看/编辑闭环（feature/v0.4.8）
+
+| 子项 | commit | 内容 |
+| --- | --- | --- |
+| 后端安全读写 | `TBD` | 新增 Provider-specific `SkillDocumentSchema`、`SkillDocumentCodec`、`SkillDocumentPathPolicy` 与 `SkillDocumentService`；保留未知 YAML/注释/顺序/body，实施 SHA-256 revision、原子写、备份、写后验证和失败回滚 |
+| typed 协议链路 | `TBD` | 新增 `get_skill_document` / `save_skill_document` typed handlers 与 `skill.document` / `skill.save_result` 下行事件，统一通过 Java 协议枚举和 `HandlerContext.dispatchEvent()` |
+| Webview 编辑器 | `TBD` | 新增 schema-driven `SkillEditorDialog`，动态渲染四类后端控件，只提交变更字段；接入 requestId 关联、冲突 Reload、IDE 打开、保存后刷新和 10 locale 键 |
+| 安全与测试 | `TBD` | 覆盖 codec、路径策略、handler action/payload、Provider 字段、必填、容量、no-op、CRLF、缺失 body、非法 JSON 类型、冲突、解析失败不覆盖、备份及写后验证回滚；前端覆盖 5/7 schema、差量保存、列表转换、冲突与解析失败 |
+
+当前验证：Java F2 定向共 23 项，21 pass、2 个 Windows symlink 条件跳过；`webview npm run test` 全量通过，`SkillEditorDialog.test.tsx` 6/6，目标 ESLint、i18n 与 `check:event-literals`（372 文件、141 条下行事件、0 漂移）通过。全量 `./gradlew test` 执行 1640 项，F2 相关测试全部通过；仅 2 个非 F2 的 `SemanticContextExtensionContractTest` 基线用例失败。当前分支缺少 `check:style` script，且全量 ESLint 仍有 16 errors / 88 warnings，均位于非 F2 文件，本批次未越界修复。
+
 ---
 
 ## 15. 已落地与阶段性成果总览
@@ -1490,6 +1514,7 @@ Dropdown 按实际 combobox/listbox pattern 实现；不得为所有组件机械
 | A7 | Provider 历史 Adapter/Registry 已落地（债务清理阶段） | 核心已落地 |
 | A5（S2-4） | 语义上下文与 Java 类导航动态 EP、可选 descriptor 隔离、失败隔离/fallback、四 IDE Plugin Verifier 验收 | 2026-07-22 `dd9bc4b4`、`d0d1fd78`、`7e2eef35` |
 | F8（S2-2） | 三 Provider CLI compatibility manifest SSOT、parser registry、签名更新、防回滚缓存与离线 fallback | 2026-07-22 `e3de1b8a` |
+| F2（S2-5） | Provider-specific schema、安全 `SKILL.md` 读写、typed 协议/handler、schema-driven Webview 编辑器与完整边界测试 | 2026-07-22 `TBD` |
 | A8 | 下行事件字面量 → `DOWNSTREAM.*` SSOT + `check-event-literals.mjs` 漂移守门 | 2026-07-20 `9eb0d496` |
 | A8（S0-4） | 独立 `protocol-ssot` CI job：Java 枚举生成协议类型后执行漂移检查 | 2026-07-22 `22b17f2d` |
 | A8（S1-3） | 漂移失败项输出文件、行列、原始字面量和精确 `DOWNSTREAM.*` 替换建议，并覆盖多文件与退出码测试 | 2026-07-22 `937927da` |

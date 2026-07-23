@@ -52,8 +52,10 @@ bin/
 node_modules/
 **/node_modules/
 webview/dist/
+webview/coverage/
 webview/test-results/
 webview/playwright-report/
+ai-bridge/coverage/
 
 src/main/resources/html/*
 
