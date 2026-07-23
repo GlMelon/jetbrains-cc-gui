@@ -26,6 +26,13 @@ public interface UnifiedSkillService {
     /** All skills (enabled + disabled) for the given working directory. */
     JsonObject getAllSkills(String cwd);
 
+    /** Provider-owned editable frontmatter schema. */
+    SkillDocumentSchema skillDocumentSchema();
+
+    /** Resolves and validates the requested SKILL.md under provider-owned roots. */
+    SkillDocumentTarget resolveSkillDocument(SkillDocumentIdentity identity, String cwd)
+            throws SkillDocumentAccessException;
+
     /** Imports skill sources into the given scope (provider-specific scope vocabulary). */
     JsonObject importSkills(List<String> sourcePaths, String scope, String cwd);
 

@@ -3,6 +3,7 @@ package com.github.claudecodegui.skill;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.google.gson.JsonObject;
 
+import java.nio.file.Path;
 import java.util.List;
 
 /**
@@ -21,6 +22,24 @@ public final class CodexSkillProvider implements UnifiedSkillService {
     @Override
     public JsonObject getAllSkills(String cwd) {
         return CodexSkillService.getAllSkills(cwd);
+    }
+
+    @Override
+    public SkillDocumentSchema skillDocumentSchema() {
+        return SkillDocumentSchema.agentSkills();
+    }
+
+    @Override
+    public SkillDocumentTarget resolveSkillDocument(SkillDocumentIdentity identity, String cwd)
+            throws SkillDocumentAccessException {
+        if (identity.skillPath() == null || identity.skillPath().isBlank()) {
+            throw new SkillDocumentAccessException("Codex skillPath is required");
+        }
+        List<Path> roots = CodexSkillService.getSkillScanDirs(cwd).stream()
+                .map(CodexSkillService.SkillScanDir::path)
+                .map(Path::of)
+                .toList();
+        return SkillDocumentPathPolicy.resolve(Path.of(identity.skillPath()), roots);
     }
 
     @Override

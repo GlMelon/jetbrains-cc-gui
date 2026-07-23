@@ -3,6 +3,7 @@ package com.github.claudecodegui.handler.skill;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.protocol.DownstreamEvent;
+import com.github.claudecodegui.skill.SkillDocumentService;
 import com.github.claudecodegui.skill.SkillId;
 import com.github.claudecodegui.skill.UnifiedSkillServiceRegistry;
 import com.github.claudecodegui.util.GsonHolder;
@@ -219,6 +220,65 @@ public class SkillActionHandlers {
                 dispatchEvent(DownstreamEvent.SKILL_TOGGLE_RESULT.value(), escapeJs(GSON.toJson(errorResult)));
             });
         }
+    }
+
+    public void handleGetSkillDocument(GetSkillDocumentRequest request) {
+        CompletableFuture.runAsync(() -> {
+            JsonObject result;
+            try {
+                if (request == null) {
+                    throw new IllegalArgumentException("Skill document request is required");
+                }
+                String workspaceRoot = context.getProject().getBasePath();
+                result = SkillDocumentService.getInstance().read(
+                        context.getCurrentProvider(), request.toIdentity(), workspaceRoot);
+            } catch (Exception e) {
+                LOG.error("[SkillHandler] Failed to load skill document: " + e.getMessage(), e);
+                result = skillDocumentFailure(e);
+            }
+            dispatchSkillDocumentResult(
+                    DownstreamEvent.SKILL_DOCUMENT, request == null ? null : request.requestId(), result);
+        }, AppExecutorUtil.getAppExecutorService());
+    }
+
+    public void handleSaveSkillDocument(SaveSkillDocumentRequest request) {
+        CompletableFuture.runAsync(() -> {
+            JsonObject result;
+            try {
+                if (request == null) {
+                    throw new IllegalArgumentException("Skill document save request is required");
+                }
+                String workspaceRoot = context.getProject().getBasePath();
+                result = SkillDocumentService.getInstance().save(
+                        context.getCurrentProvider(), request.toIdentity(), workspaceRoot,
+                        request.revision(), request.changes(), request.body());
+            } catch (Exception e) {
+                LOG.error("[SkillHandler] Failed to save skill document: " + e.getMessage(), e);
+                result = skillDocumentFailure(e);
+            }
+            dispatchSkillDocumentResult(DownstreamEvent.SKILL_SAVE_RESULT,
+                    request == null ? null : request.requestId(), result);
+        }, AppExecutorUtil.getAppExecutorService());
+    }
+
+    private void dispatchSkillDocumentResult(DownstreamEvent event, String requestId,
+                                             JsonObject result) {
+        if (requestId != null && !requestId.isBlank()) {
+            result.addProperty("requestId", requestId);
+        }
+        String payload = escapeJs(GSON.toJson(result));
+        ApplicationManager.getApplication().invokeLater(
+                () -> dispatchEvent(event.value(), payload));
+    }
+
+    private JsonObject skillDocumentFailure(Exception exception) {
+        JsonObject result = new JsonObject();
+        result.addProperty("success", false);
+        result.addProperty("editable", false);
+        result.addProperty("parseError", false);
+        result.addProperty("conflict", false);
+        result.addProperty("error", exception.getMessage());
+        return result;
     }
 
     public void handleOpenSkill(String content) {

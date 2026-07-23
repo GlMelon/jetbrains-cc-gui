@@ -238,6 +238,8 @@ import com.github.claudecodegui.handler.skill.GetAllSkillsActionHandler;
 import com.github.claudecodegui.handler.skill.ImportSkillActionHandler;
 import com.github.claudecodegui.handler.skill.DeleteSkillActionHandler;
 import com.github.claudecodegui.handler.skill.OpenSkillActionHandler;
+import com.github.claudecodegui.handler.skill.GetSkillDocumentActionHandler;
+import com.github.claudecodegui.handler.skill.SaveSkillDocumentActionHandler;
 import com.github.claudecodegui.handler.skill.ToggleSkillActionHandler;
 import com.github.claudecodegui.handler.skill.SkillMarketActionHandlers;
 import com.github.claudecodegui.handler.skill.ListSkillMarketActionHandler;
@@ -720,6 +722,8 @@ public class ChatWindowDelegate {
         typedHandlers.add(new ImportSkillActionHandler(skillHandlers));
         typedHandlers.add(new DeleteSkillActionHandler(skillHandlers));
         typedHandlers.add(new OpenSkillActionHandler(skillHandlers));
+        typedHandlers.add(new GetSkillDocumentActionHandler(skillHandlers));
+        typedHandlers.add(new SaveSkillDocumentActionHandler(skillHandlers));
         typedHandlers.add(new ToggleSkillActionHandler(skillHandlers));
 
         // Skill market handlers (Skills 市场: 列表 + 安装,GitHub 仓库 tarball 下载)

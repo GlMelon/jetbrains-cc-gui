@@ -57,6 +57,21 @@ public final class OpenCodeSkillProvider implements UnifiedSkillService {
     }
 
     @Override
+    public SkillDocumentSchema skillDocumentSchema() {
+        return SkillDocumentSchema.full();
+    }
+
+    @Override
+    public SkillDocumentTarget resolveSkillDocument(SkillDocumentIdentity identity, String cwd)
+            throws SkillDocumentAccessException {
+        if (identity.skillPath() == null || identity.skillPath().isBlank()) {
+            throw new SkillDocumentAccessException("OpenCode skillPath is required");
+        }
+        List<Path> roots = resolveValidBaseDirs(cwd, PlatformUtils.getHomeDirectory());
+        return SkillDocumentPathPolicy.resolve(Path.of(identity.skillPath()), roots);
+    }
+
+    @Override
     public JsonObject importSkills(List<String> sourcePaths, String scope, String cwd) {
         return importSkillsInto(sourcePaths, scope, cwd, PlatformUtils.getHomeDirectory());
     }

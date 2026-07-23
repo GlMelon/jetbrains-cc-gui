@@ -176,6 +176,8 @@ public enum UpstreamAction implements ProtocolValue {
     IMPORT_SKILL("import_skill"),
     DELETE_SKILL("delete_skill"),
     OPEN_SKILL("open_skill"),
+    GET_SKILL_DOCUMENT("get_skill_document"),
+    SAVE_SKILL_DOCUMENT("save_skill_document"),
     TOGGLE_SKILL("toggle_skill"),
 
     // ── Skill Market (GitHub tarball) ── 从市场浏览/安装 skill(下载 tarball + 哈希校验)

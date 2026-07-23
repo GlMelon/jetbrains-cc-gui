@@ -194,6 +194,8 @@ public enum DownstreamEvent implements ProtocolValue {
     SKILL_LIST("skill.list"),
     SKILL_IMPORT_RESULT("skill.import_result"),
     SKILL_DELETE_RESULT("skill.delete_result"),
+    SKILL_DOCUMENT("skill.document"),
+    SKILL_SAVE_RESULT("skill.save_result"),
     SKILL_TOGGLE_RESULT("skill.toggle_result"),
 
     // ── Skill Market (GitHub tarball) ──
