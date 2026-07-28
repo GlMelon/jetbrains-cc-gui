@@ -248,8 +248,9 @@ const App = () => {
     createNewSessionWithProvider,
     handleConfirmNewSession, handleCancelNewSession,
     handleConfirmInterrupt, handleCancelInterrupt,
-    loadHistorySession, deleteHistorySession, deleteHistorySessions, exportHistorySession,
+    loadHistorySession, deleteHistorySession, deleteHistorySessions, archiveHistorySessions, exportHistorySession, printSessionPdf,
     toggleFavoriteSession, updateHistoryTitle, applyHistoryTitleLocal,
+    handleHistoryArchiveResult,
     convertToCliSession,
   } = useSessionManagement({
     messages, loading, historyData, currentSessionId,
@@ -295,6 +296,7 @@ const App = () => {
     openContextUsageDialog, updateContextUsageData,
     closeContextUsageDialog,
     customSessionTitleRef, currentSessionIdRef, updateHistoryTitle, applyHistoryTitleLocal,
+    handleHistoryArchiveResult,
     setCustomSessionTitle,
     setPermissionDialogTimeoutSeconds,
   });
@@ -518,7 +520,9 @@ const App = () => {
           onLoadSession={loadHistorySession}
           onDeleteSession={deleteHistorySession}
           onDeleteSessions={deleteHistorySessions}
+          onArchiveSessions={archiveHistorySessions}
           onExportSession={exportHistorySession}
+          onPrintSessionPdf={printSessionPdf}
           onToggleFavorite={toggleFavoriteSession}
           onUpdateTitle={updateHistoryTitle}
           onConvertToCliSession={convertToCliSession}

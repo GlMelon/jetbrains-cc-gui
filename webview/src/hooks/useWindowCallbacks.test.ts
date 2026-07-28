@@ -100,6 +100,7 @@ describe('useWindowCallbacks integration', () => {
     currentSessionIdRef: { current: null },
     updateHistoryTitle: vi.fn(),
     applyHistoryTitleLocal: vi.fn(),
+    handleHistoryArchiveResult: vi.fn(),
 
     ...overrides,
   });

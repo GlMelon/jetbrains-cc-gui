@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { TFunction } from 'i18next';
 import type { MutableRefObject, RefObject } from 'react';
 import type { ClaudeMessage, ClaudeRawMessage, HistoryData, SubagentHistoryResponse } from '../types';
+import type { HistoryArchiveResultPayloadWire } from '../generated/protocol';
 import type { PermissionMode, SelectedAgent } from '../components/ChatInputBox/types';
 import type { ProviderConfig } from '../types/provider';
 import type { QueueDisplayState } from '../contexts/MessagesContext';
@@ -110,6 +111,7 @@ export interface UseWindowCallbacksOptions {
   currentSessionIdRef: MutableRefObject<string | null>;
   updateHistoryTitle: (sessionId: string, newTitle: string) => void;
   applyHistoryTitleLocal: (sessionId: string, newTitle: string) => void;
+  handleHistoryArchiveResult: (payload: HistoryArchiveResultPayloadWire) => void;
 
   // AI title generation: update the displayed session title when backend generates one
   setCustomSessionTitle: React.Dispatch<React.SetStateAction<string | null>>;

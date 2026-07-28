@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { runWithViewTransition } from '../../../utils/viewTransition';
 
 const PROVIDER_SORT_MIME_TYPE = 'application/x-cc-gui-provider-sort';
 
@@ -153,10 +154,23 @@ export function useDragSort<T extends DragSortItem>({
     const pinnedItems = currentLocalItems.filter(item => pinnedIds.includes(item.id));
     const nextLocalItems = [...pinnedItems, ...newOrder];
     localItemsRef.current = nextLocalItems;
-    setLocalItems(nextLocalItems);
+
+    // 命令式拖拽运行时状态（浮动 preview 节点 + draggedIdRef）在 VT 外先行清理，
+    // 避免被 View Transition 快照捕获（preview 是 overlay，进快照会闪烁）。
+    dragPreviewRef.current?.remove();
+    dragPreviewRef.current = null;
+    draggedIdRef.current = null;
+
+    // 视觉状态变更（列表重排 + 清 .dragging/.dragOver）放进一次 View Transition，
+    // 让设了 --drag-vt-name 的卡片各自做旧→新位置的 FLIP；不支持 VT 或
+    // prefers-reduced-motion 时 runWithViewTransition 自动退化为同步刷新（原行为）。
+    runWithViewTransition(() => {
+      setLocalItems(nextLocalItems);
+      setDraggedId(null);
+      setDragOverId(null);
+    });
 
     onSort(newOrder.map(item => item.id));
-    clearDragState();
   }, [clearDragState, pinnedIds, onSort]);
 
   const handlePointerDown = useCallback((e: React.PointerEvent, id: string, previewElement?: HTMLElement | null) => {

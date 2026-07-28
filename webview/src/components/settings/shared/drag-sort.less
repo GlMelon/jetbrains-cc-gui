@@ -2,6 +2,11 @@
 // Usage: .drag-sort-card() on card elements, .drag-handle() on handle elements
 
 .drag-sort-card() {
+  // S3-6: 拖拽重排逐项 FLIP 钩子。卡片设 --drag-vt-name（如 prov-<id>）即参与
+  // View Transition；默认 none 不参与。runWithViewTransition 启动 VT 时自动捕获
+  // 旧/新位置做 FLIP 过渡。
+  view-transition-name: var(--drag-vt-name, none);
+
   &.dragging {
     opacity: 0.5;
     transform: scale(0.98);
@@ -39,5 +44,22 @@
 
   .codicon {
     font-size: 16px;
+  }
+}
+
+/* ==================== View Transitions（S3-6 拖拽重排 FLIP）====================
+   runWithViewTransition 启动 VT 时，设了 --drag-vt-name 的卡片各自做旧位置→新位置的
+   FLIP 过渡。时长对齐项目动效 token；reduced-motion 下即便 JS 守卫漏过也由这里兜底归零，
+   与 base.less 全局收口一致。 */
+::view-transition-group(*) {
+  animation-duration: var(--dur-enter, 0.28s);
+  animation-timing-function: var(--ease-standard, cubic-bezier(0.4, 0, 0.2, 1));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
   }
 }

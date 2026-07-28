@@ -1,3 +1,5 @@
+import type { HistoryCapabilitiesPayloadWire } from '../generated/protocol';
+
 export type ToolInput = Record<string, unknown>;
 
 /**
@@ -206,6 +208,7 @@ export interface HistoryData {
   sessions?: HistorySessionSummary[];
   total?: number;
   favorites?: Record<string, { favoritedAt: number }>;
+  capabilities?: HistoryCapabilitiesPayloadWire;
 }
 
 // File changes types

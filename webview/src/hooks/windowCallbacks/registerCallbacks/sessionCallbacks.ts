@@ -2,15 +2,17 @@
  * sessionCallbacks.ts
  *
  * Registers window bridge callbacks for session management, SDK dependency status,
- * and rewind result: setSessionId, addToast, onExportSessionData,
+ * and rewind result: setSessionId, addToast, typed history export data,
  * updateDependencyStatus, onRewindResult.
  */
 
 import { sendAction, subscribeEvent } from '../../../bridge/typed';
 import { UPSTREAM, DOWNSTREAM } from '../../../generated/protocol';
+import type { HistoryArchiveResultPayloadWire } from '../../../generated/protocol';
 import type { MutableRefObject } from 'react';
 import type { UseWindowCallbacksOptions } from '../../useWindowCallbacks';
-import { downloadJSON } from '../../../utils/exportSessionJson';
+import { downloadExportedFile } from '../../../utils/exportedFile';
+import { parseHistoryExportPayload } from '../../../utils/historyExport';
 import { releaseSessionTransition } from '../sessionTransition';
 import { drainAndRequestDependencyStatus } from '../settingsBootstrap';
 import { registerLegacyAlias } from '../../../bridge';
@@ -35,6 +37,7 @@ export function registerSessionAndSdkCallbacks(
     updateHistoryTitle,
     applyHistoryTitleLocal,
     setCustomSessionTitle,
+    handleHistoryArchiveResult,
   } = options;
 
   // [归一化] updateSessionTitle → session.title
@@ -78,27 +81,35 @@ export function registerSessionAndSdkCallbacks(
     addToast(message, type as 'info' | 'success' | 'warning' | 'error' | undefined);
   };
 
-  window.onExportSessionData = (json) => {
-    try {
-      const data = JSON.parse(json);
-      if (data.sessionId && data.messages) {
-        const exportContent = JSON.stringify(data, null, 2);
-        const sanitizedTitle = (data.title || 'session')
-          .replace(/[<>:"/\\|?*]/g, '_')
-          .replace(/\s+/g, '_')
-          .substring(0, 50);
-        const filename = `${sanitizedTitle}_${data.sessionId.substring(0, 8)}.json`;
-        downloadJSON(exportContent, filename);
-      } else if (data.error) {
-        addToast(data.error, 'error');
-      } else {
-        addToast(tRef.current('history.exportFailed'), 'error');
-      }
-    } catch (error) {
-      console.error('[Frontend] Failed to process export data:', error);
+  subscribeEvent(DOWNSTREAM.HISTORY_EXPORT_DATA, (json) => {
+    const payload = parseHistoryExportPayload(json);
+    if (!payload) {
+      console.error('[Frontend] Failed to parse history export payload');
       addToast(tRef.current('history.exportFailed'), 'error');
+      return;
     }
-  };
+    if (!payload.success) {
+      addToast(payload.error || tRef.current('history.exportFailed'), 'error');
+      return;
+    }
+    downloadExportedFile(payload);
+  });
+
+  subscribeEvent(DOWNSTREAM.HISTORY_ARCHIVE_RESULT, (json) => {
+    try {
+      const payload = JSON.parse(json as string) as HistoryArchiveResultPayloadWire;
+      if (!Array.isArray(payload.requestedSessionIds)
+          || !Array.isArray(payload.archivedSessionIds)
+          || !Array.isArray(payload.failedSessionIds)
+          || typeof payload.success !== 'boolean') {
+        throw new Error('Invalid history archive result payload');
+      }
+      handleHistoryArchiveResult(payload);
+    } catch (error) {
+      console.error('[Frontend] Failed to parse history archive result:', error);
+      addToast(tRef.current('history.archiveFailed'), 'error');
+    }
+  });
 
   // =========================================================================
   // SDK Status Callbacks

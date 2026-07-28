@@ -1,5 +1,6 @@
 import { sendAction } from '../bridge/typed';
 import { UPSTREAM } from '../generated/protocol';
+import type { HistoryArchiveResultPayloadWire, HistoryExportFormat } from '../generated/protocol';
 import { useCallback, useRef, useState } from 'react';
 import type { TFunction } from 'i18next';
 import type { ClaudeMessage, HistoryData, ViewMode } from '../types';
@@ -53,7 +54,10 @@ interface UseSessionManagementReturn {
   loadHistorySession: (sessionId: string, provider?: string) => void;
   deleteHistorySession: (sessionId: string) => void;
   deleteHistorySessions: (sessionIds: string[]) => void;
-  exportHistorySession: (sessionId: string, title: string) => void;
+  archiveHistorySessions: (sessionIds: string[]) => void;
+  handleHistoryArchiveResult: (payload: HistoryArchiveResultPayloadWire) => void;
+  exportHistorySession: (sessionId: string, title: string, format: HistoryExportFormat) => void;
+  printSessionPdf: (sessionId: string, title: string) => void;
   toggleFavoriteSession: (sessionId: string) => void;
   updateHistoryTitle: (sessionId: string, newTitle: string) => void;
   applyHistoryTitleLocal: (sessionId: string, newTitle: string) => void;
@@ -95,6 +99,10 @@ export function useSessionManagement({
   const transitionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const historyDataRef = useRef(historyData);
   historyDataRef.current = historyData;
+  const currentSessionIdRef = useRef(currentSessionId);
+  currentSessionIdRef.current = currentSessionId;
+  const loadingRef = useRef(loading);
+  loadingRef.current = loading;
   const showSessionDeletedToast = useCallback((afterSessionTransition = false) => {
     const toast = { message: t('history.sessionDeleted'), type: 'success' as const };
     if (afterSessionTransition) {
@@ -379,10 +387,54 @@ export function useSessionManagement({
     showSessionDeletedToast(startedSessionTransition);
   }, [historyData, currentSessionId, loading, setHistoryData, beginSessionTransition, showSessionDeletedToast]);
 
+  const archiveHistorySessions = useCallback((sessionIds: string[]) => {
+    const uniqueSessionIds = Array.from(new Set(sessionIds.filter(Boolean)));
+    if (uniqueSessionIds.length === 0) {
+      return;
+    }
+    sendAction(UPSTREAM.ARCHIVE_SESSIONS, JSON.stringify(uniqueSessionIds));
+  }, []);
+
+  const handleHistoryArchiveResult = useCallback((payload: HistoryArchiveResultPayloadWire) => {
+    const archivedSessionIds = Array.isArray(payload.archivedSessionIds)
+      ? payload.archivedSessionIds
+      : [];
+    const activeSessionId = currentSessionIdRef.current;
+    const archivedCurrentSession = activeSessionId !== null && archivedSessionIds.includes(activeSessionId);
+
+    if (archivedCurrentSession) {
+      if (loadingRef.current) {
+        sendAction(UPSTREAM.INTERRUPT_SESSION);
+      }
+      beginSessionTransition(null, null);
+      suppressNextStatusToastRef.current = true;
+      sendAction(UPSTREAM.CREATE_NEW_SESSION);
+    }
+
+    if (payload.success) {
+      const toast = { message: t('history.sessionsArchived'), type: 'success' as const };
+      if (archivedCurrentSession) {
+        window.__pendingSessionTransitionToast = toast;
+      } else {
+        addToast(toast.message, toast.type);
+      }
+      return;
+    }
+
+    addToast(t('history.archiveFailed'), 'error');
+  }, [addToast, beginSessionTransition, t]);
+
   // Export history session
-  const exportHistorySession = useCallback((sessionId: string, title: string) => {
-    const exportData = JSON.stringify({ sessionId, title });
+  const exportHistorySession = useCallback((sessionId: string, title: string, format: HistoryExportFormat) => {
+    const exportData = JSON.stringify({ sessionId, title, format });
     sendAction(UPSTREAM.EXPORT_SESSION, exportData);
+  }, []);
+
+  // Print session to PDF: backend reuses the sanitized HTML renderer and opens it in the
+  // system browser so the user can "Save as PDF" via the browser's native print engine.
+  const printSessionPdf = useCallback((sessionId: string, title: string) => {
+    const printData = JSON.stringify({ sessionId, title });
+    sendAction(UPSTREAM.PRINT_SESSION_PDF, printData);
   }, []);
 
   // Toggle favorite status
@@ -499,7 +551,10 @@ export function useSessionManagement({
     loadHistorySession,
     deleteHistorySession,
     deleteHistorySessions,
+    archiveHistorySessions,
+    handleHistoryArchiveResult,
     exportHistorySession,
+    printSessionPdf,
     toggleFavoriteSession,
     updateHistoryTitle,
     applyHistoryTitleLocal,

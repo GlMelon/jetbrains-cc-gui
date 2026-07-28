@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { useSessionManagement } from './useSessionManagement.js';
 import type { HistoryData } from '../types/index.js';
+import { HISTORY_EXPORT_FORMAT, UPSTREAM } from '../generated/protocol.js';
 
 describe('useSessionManagement', () => {
   const t = ((key: string) => key) as any;
@@ -215,6 +216,115 @@ describe('useSessionManagement', () => {
     expect(window.sendToJava).toHaveBeenCalledTimes(1);
     expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('delete_sessions', '["history-1","history-2"]'));
     expect(mocks.addToast).toHaveBeenCalledWith('history.sessionDeleted', 'success');
+  });
+
+  it('sends one archive request without optimistically mutating history state', () => {
+    const historyData = {
+      success: true,
+      sessions: [
+        {
+          sessionId: 'history-1',
+          title: 'History One',
+          provider: 'opencode',
+          messageCount: 3,
+          lastTimestamp: Date.now(),
+        },
+        {
+          sessionId: 'history-2',
+          title: 'History Two',
+          provider: 'opencode',
+          messageCount: 5,
+          lastTimestamp: Date.now(),
+        },
+      ],
+      total: 2,
+    } as unknown as HistoryData;
+    const mocks = createMocks();
+
+    const { result } = renderHook(() =>
+      useSessionManagement({
+        messages: [],
+        loading: false,
+        historyData,
+        currentSessionId: null,
+        ...mocks,
+        t,
+      })
+    );
+
+    act(() => {
+      result.current.archiveHistorySessions(['history-1', 'history-2', 'history-1', '']);
+    });
+
+    expect(window.sendToJava).toHaveBeenCalledTimes(1);
+    expect(window.sendToJava).toHaveBeenCalledWith(
+      bridgeCall('archive_sessions', '["history-1","history-2"]')
+    );
+    expect(mocks.setHistoryData).not.toHaveBeenCalled();
+  });
+
+  it('shows a success toast when a non-current history session is archived', () => {
+    const mocks = createMocks();
+
+    const { result } = renderHook(() =>
+      useSessionManagement({
+        messages: [],
+        loading: false,
+        historyData: null,
+        currentSessionId: 'history-1',
+        ...mocks,
+        t,
+      })
+    );
+
+    act(() => {
+      result.current.handleHistoryArchiveResult({
+        success: true,
+        requestedSessionIds: ['history-2'],
+        archivedSessionIds: ['history-2'],
+        failedSessionIds: [],
+      });
+    });
+
+    expect(mocks.addToast).toHaveBeenCalledWith('history.sessionsArchived', 'success');
+    expect(window.sendToJava).not.toHaveBeenCalled();
+    expect(window.__sessionTransitioning).toBe(false);
+  });
+
+  it('interrupts and starts a new session after archiving the current loading session', () => {
+    const mocks = createMocks();
+
+    const { result } = renderHook(() =>
+      useSessionManagement({
+        messages: [{ type: 'assistant', content: 'working', timestamp: new Date().toISOString() }],
+        loading: true,
+        historyData: null,
+        currentSessionId: 'history-1',
+        ...mocks,
+        t,
+      })
+    );
+
+    act(() => {
+      result.current.handleHistoryArchiveResult({
+        success: true,
+        requestedSessionIds: ['history-1'],
+        archivedSessionIds: ['history-1'],
+        failedSessionIds: [],
+      });
+    });
+
+    expect(window.sendToJava).toHaveBeenNthCalledWith(1, bridgeCall('interrupt_session'));
+    expect(window.sendToJava).toHaveBeenNthCalledWith(2, bridgeCall('create_new_session'));
+    expect(window.__sessionTransitioning).toBe(true);
+    expect(window.__sessionTransitionToken).toBeTruthy();
+    expect(mocks.setMessages).toHaveBeenCalledWith([]);
+    expect(mocks.setCurrentSessionId).toHaveBeenCalledWith(null);
+    expect(mocks.addToast).not.toHaveBeenCalled();
+    expect(window.__pendingSessionTransitionToast).toEqual({
+      message: 'history.sessionsArchived',
+      type: 'success',
+    });
   });
 
   it('still shows a success toast for batch delete when history data is temporarily unavailable', () => {
@@ -917,4 +1027,64 @@ describe('useSessionManagement', () => {
     expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('set_provider', 'codex'));
     expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('create_new_session'));
   });
+
+  it('requests backend-owned JSON and HTML export formats', () => {
+    const mocks = createMocks();
+    const { result } = renderHook(() =>
+      useSessionManagement({
+        messages: [],
+        loading: false,
+        historyData: null,
+        currentSessionId: null,
+        ...mocks,
+        t,
+      })
+    );
+
+    act(() => {
+      result.current.exportHistorySession('session-1', 'Demo', HISTORY_EXPORT_FORMAT.JSON);
+      result.current.exportHistorySession('session-1', 'Demo', HISTORY_EXPORT_FORMAT.HTML);
+    });
+
+    expect(window.sendToJava).toHaveBeenNthCalledWith(
+      1,
+      bridgeCall(
+        UPSTREAM.EXPORT_SESSION,
+        JSON.stringify({ sessionId: 'session-1', title: 'Demo', format: HISTORY_EXPORT_FORMAT.JSON }),
+      ),
+    );
+    expect(window.sendToJava).toHaveBeenNthCalledWith(
+      2,
+      bridgeCall(
+        UPSTREAM.EXPORT_SESSION,
+        JSON.stringify({ sessionId: 'session-1', title: 'Demo', format: HISTORY_EXPORT_FORMAT.HTML }),
+      ),
+    );
+  });
+
+  it('prints a session to PDF by delegating to the backend browser handoff', () => {
+    const mocks = createMocks();
+    const { result } = renderHook(() =>
+      useSessionManagement({
+        messages: [],
+        loading: false,
+        historyData: null,
+        currentSessionId: null,
+        ...mocks,
+        t,
+      })
+    );
+
+    act(() => {
+      result.current.printSessionPdf('session-1', 'Demo');
+    });
+
+    expect(window.sendToJava).toHaveBeenCalledWith(
+      bridgeCall(
+        UPSTREAM.PRINT_SESSION_PDF,
+        JSON.stringify({ sessionId: 'session-1', title: 'Demo' }),
+      ),
+    );
+  });
+
 });

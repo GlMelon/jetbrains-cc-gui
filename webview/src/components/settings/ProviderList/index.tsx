@@ -631,6 +631,7 @@ export default function ProviderList({
                 dragOverProviderId === provider.id && styles.dragOver,
               ].filter(Boolean).join(' ')}
               data-drag-sort-id={provider.id}
+              style={{ '--drag-vt-name': `prov-${provider.id}` } as React.CSSProperties}
               draggable={true}
               onDragStart={(e) => handleDragStart(e, provider.id)}
               onDragOver={(e) => handleDragOver(e, provider.id)}
