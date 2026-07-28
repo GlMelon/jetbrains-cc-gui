@@ -2,11 +2,9 @@ package com.github.claudecodegui.handler.history;
 
 import com.github.claudecodegui.cache.SessionIndexCache;
 import com.github.claudecodegui.cache.SessionIndexManager;
-import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.provider.codex.CodexHistoryReader;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.util.PlatformUtils;
-import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
 
 import java.io.IOException;
@@ -14,16 +12,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 final class CodexHistoryProviderAdapter implements HistoryProviderAdapter {
     private static final Logger LOG = Logger.getInstance(CodexHistoryProviderAdapter.class);
 
-    private final HandlerContext context;
-
-    CodexHistoryProviderAdapter(HandlerContext context) {
-        this.context = context;
+    CodexHistoryProviderAdapter() {
     }
 
     @Override
@@ -32,15 +28,29 @@ final class CodexHistoryProviderAdapter implements HistoryProviderAdapter {
     }
 
     @Override
+    public Set<HistoryCapability> capabilities() {
+        return Set.of(HistoryCapability.DELETE);
+    }
+
+    @Override
     public String loadSessionsJson(String projectPath) {
         return new CodexHistoryReader().getSessionsForProjectAsJson(projectPath);
     }
 
     @Override
-    public List<JsonObject> loadMessages(String sessionId, String projectPath) {
-        return context.getCodexSDKBridge() != null
-                ? context.getCodexSDKBridge().getSessionMessages(sessionId, projectPath)
-                : List.of();
+    public HistoryMessageBatch loadMessages(
+            String sessionId,
+            String projectPath,
+            HistoryMessageReadPolicy policy
+    ) {
+        BoundedHistoryMessageCollector collector = new BoundedHistoryMessageCollector(policy);
+        HistoryMessageInjector.CodexMessageStreamConverter converter =
+                new HistoryMessageInjector.CodexMessageStreamConverter();
+        new CodexHistoryReader().visitSessionMessages(
+                sessionId,
+                message -> converter.accept(message, collector)
+        );
+        return collector.toBatch();
     }
 
     @Override

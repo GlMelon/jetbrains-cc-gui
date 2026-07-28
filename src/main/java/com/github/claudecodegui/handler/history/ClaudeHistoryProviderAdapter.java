@@ -5,10 +5,10 @@ import com.github.claudecodegui.cache.SessionIndexManager;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.provider.claude.ClaudeHistoryReader;
 import com.github.claudecodegui.session.runtime.ProviderType;
+import com.github.claudecodegui.util.GsonHolder;
 import com.github.claudecodegui.util.PathUtils;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.intellij.openapi.diagnostic.Logger;
 
 import java.io.BufferedReader;
@@ -17,8 +17,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -34,24 +34,63 @@ final class ClaudeHistoryProviderAdapter implements HistoryProviderAdapter {
     }
 
     @Override
+    public Set<HistoryCapability> capabilities() {
+        return Set.of(HistoryCapability.DELETE);
+    }
+
+    @Override
     public String loadSessionsJson(String projectPath) {
         return new ClaudeHistoryReader().getProjectDataAsJson(projectPath);
     }
 
     @Override
-    public List<JsonObject> loadMessages(String sessionId, String projectPath) {
-        String messagesJson = new ClaudeHistoryReader().getSessionMessagesAsJson(projectPath, sessionId);
-        var parsed = JsonParser.parseString(messagesJson);
-        if (!parsed.isJsonArray()) {
-            return List.of();
-        }
-        List<JsonObject> messages = new ArrayList<>();
-        for (var element : parsed.getAsJsonArray()) {
-            if (element.isJsonObject()) {
-                messages.add(element.getAsJsonObject());
+    public HistoryMessageBatch loadMessages(
+            String sessionId,
+            String projectPath,
+            HistoryMessageReadPolicy policy
+    ) {
+        Path sessionFile = resolveSessionFile(projectPath, sessionId);
+        return sessionFile == null ? HistoryMessageBatch.empty() : loadMessagesFromFile(sessionFile, policy);
+    }
+
+    static HistoryMessageBatch loadMessagesFromFile(Path sessionFile, HistoryMessageReadPolicy policy) {
+        BoundedHistoryMessageCollector collector = new BoundedHistoryMessageCollector(policy);
+        try (BufferedReader reader = Files.newBufferedReader(sessionFile, StandardCharsets.UTF_8)) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.isBlank()) {
+                    continue;
+                }
+                try {
+                    ClaudeHistoryReader.ConversationMessage message = GsonHolder.GSON.fromJson(
+                            line,
+                            ClaudeHistoryReader.ConversationMessage.class
+                    );
+                    if (message != null) {
+                        collector.append(GsonHolder.GSON.toJsonTree(message).getAsJsonObject());
+                    }
+                } catch (Exception e) {
+                    LOG.debug("[HistoryHandler] Failed to parse Claude history message: " + e.getMessage());
+                }
             }
+        } catch (Exception e) {
+            LOG.warn("[HistoryHandler] Failed to read Claude history messages: " + e.getMessage(), e);
+            return HistoryMessageBatch.empty();
         }
-        return messages;
+        return collector.toBatch();
+    }
+
+    private static Path resolveSessionFile(String projectPath, String sessionId) {
+        if (projectPath == null || projectPath.isBlank() || sessionId == null || sessionId.isBlank()) {
+            return null;
+        }
+        Path projectsDir = Paths.get(PlatformUtils.getHomeDirectory(), ".claude", "projects");
+        Path projectDir = projectsDir.resolve(PathUtils.sanitizePath(projectPath)).normalize();
+        Path sessionFile = projectDir.resolve(sessionId + ".jsonl").normalize();
+        if (!sessionFile.startsWith(projectDir) || !Files.isRegularFile(sessionFile)) {
+            return null;
+        }
+        return sessionFile;
     }
 
     @Override

@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import type { TFunction } from 'i18next';
-import { TaskIcon, CheckAllIcon, ClearAllIcon, TrashIcon, CloseIcon, SyncIcon, SearchDeepIcon } from '../Icons';
+import { TaskIcon, CheckAllIcon, ClearAllIcon, TrashIcon, CloseIcon, SyncIcon, SearchDeepIcon, InboxIcon } from '../Icons';
 
 export interface HistoryActionsProps {
   isSelectionMode: boolean;
@@ -8,11 +8,14 @@ export interface HistoryActionsProps {
   visibleCount: number;
   allVisibleSelected: boolean;
   isDeepSearching: boolean;
+  canDelete: boolean;
+  canArchive: boolean;
   t: TFunction;
   onEnterSelectionMode: () => void;
   onExitSelectionMode: () => void;
   onToggleSelectAllVisible: () => void;
   onStartDeleteSelected: () => void;
+  onStartArchiveSelected: () => void;
   onDeepSearch: () => void;
 }
 
@@ -22,11 +25,14 @@ export const HistoryActions = memo(({
   visibleCount,
   allVisibleSelected,
   isDeepSearching,
+  canDelete,
+  canArchive,
   t,
   onEnterSelectionMode,
   onExitSelectionMode,
   onToggleSelectAllVisible,
   onStartDeleteSelected,
+  onStartArchiveSelected,
   onDeepSearch,
 }: HistoryActionsProps) => {
   if (isSelectionMode) {
@@ -42,16 +48,30 @@ export const HistoryActions = memo(({
           {allVisibleSelected ? <ClearAllIcon size={14} /> : <CheckAllIcon size={14} />}
           <span>{allVisibleSelected ? t('history.clearSelection') : t('history.selectAll')}</span>
         </button>
-        <button
-          className="history-toolbar-btn history-toolbar-danger"
-          onClick={onStartDeleteSelected}
-          disabled={selectedCount === 0}
-          title={t('history.deleteSelected')}
-          aria-label={t('history.deleteSelected')}
-        >
-          <TrashIcon size={14} />
-          <span>{t('history.deleteSelected')}</span>
-        </button>
+        {canArchive && (
+          <button
+            className="history-toolbar-btn"
+            onClick={onStartArchiveSelected}
+            disabled={selectedCount === 0}
+            title={t('history.archiveSelected')}
+            aria-label={t('history.archiveSelected')}
+          >
+            <InboxIcon size={14} />
+            <span>{t('history.archiveSelected')}</span>
+          </button>
+        )}
+        {canDelete && (
+          <button
+            className="history-toolbar-btn history-toolbar-danger"
+            onClick={onStartDeleteSelected}
+            disabled={selectedCount === 0}
+            title={t('history.deleteSelected')}
+            aria-label={t('history.deleteSelected')}
+          >
+            <TrashIcon size={14} />
+            <span>{t('history.deleteSelected')}</span>
+          </button>
+        )}
         <button
           className="history-toolbar-btn"
           onClick={onExitSelectionMode}
@@ -66,16 +86,17 @@ export const HistoryActions = memo(({
 
   return (
     <div className="history-header-actions">
-      <button
-        className="history-toolbar-btn"
-        onClick={onEnterSelectionMode}
-        title={t('history.selectMode')}
-        aria-label={t('history.selectMode')}
-      >
-        <TaskIcon size={14} />
-        <span>{t('history.selectMode')}</span>
-      </button>
-      {/* Deep search button */}
+      {(canDelete || canArchive) && (
+        <button
+          className="history-toolbar-btn"
+          onClick={onEnterSelectionMode}
+          title={t('history.selectMode')}
+          aria-label={t('history.selectMode')}
+        >
+          <TaskIcon size={14} />
+          <span>{t('history.selectMode')}</span>
+        </button>
+      )}
       <button
         className={`history-deep-search-btn ${isDeepSearching ? 'searching' : ''}`}
         onClick={onDeepSearch}

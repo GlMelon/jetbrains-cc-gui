@@ -1,10 +1,8 @@
 package com.github.claudecodegui.handler.history;
 
 import com.github.claudecodegui.session.runtime.ProviderType;
-import com.google.gson.JsonObject;
-
 import java.io.IOException;
-import java.util.List;
+import java.util.Set;
 
 /**
  * Adapter for provider-native history storage.
@@ -15,11 +13,29 @@ import java.util.List;
 interface HistoryProviderAdapter {
     ProviderType provider();
 
+    default Set<HistoryCapability> capabilities() {
+        return Set.of();
+    }
+
+    default boolean supports(HistoryCapability capability) {
+        return capabilities().contains(capability);
+    }
+
     String loadSessionsJson(String projectPath);
 
-    List<JsonObject> loadMessages(String sessionId, String projectPath);
+    HistoryMessageBatch loadMessages(
+            String sessionId,
+            String projectPath,
+            HistoryMessageReadPolicy policy
+    );
 
-    HistoryDeleteResult deleteSession(String sessionId, String projectPath) throws IOException;
+    default HistoryDeleteResult deleteSession(String sessionId, String projectPath) throws IOException {
+        return HistoryDeleteResult.none();
+    }
+
+    default HistoryArchiveResult archiveSession(String sessionId, String projectPath) throws IOException {
+        return HistoryArchiveResult.none();
+    }
 
     void clearCache(String projectPath);
 }

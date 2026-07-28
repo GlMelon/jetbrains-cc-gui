@@ -1,5 +1,6 @@
 import { sendAction } from '../../bridge/typed';
 import { UPSTREAM } from '../../generated/protocol';
+import type { HistoryExportFormat } from '../../generated/protocol';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { HistoryData, HistorySessionSummary } from '../../types';
@@ -67,7 +68,9 @@ interface HistoryViewProps {
   onLoadSession: (sessionId: string, provider?: string) => void;
   onDeleteSession: (sessionId: string) => void; // Delete session callback
   onDeleteSessions: (sessionIds: string[]) => void; // Batch delete sessions callback
-  onExportSession: (sessionId: string, title: string) => void; // Export session callback
+  onArchiveSessions: (sessionIds: string[]) => void; // Batch archive sessions callback
+  onExportSession: (sessionId: string, title: string, format: HistoryExportFormat) => void; // Export session callback
+  onPrintSessionPdf: (sessionId: string, title: string) => void; // Print session to PDF via browser
   onToggleFavorite: (sessionId: string) => void; // Toggle favorite callback
   onUpdateTitle: (sessionId: string, newTitle: string) => void; // Update title callback
   onConvertToCliSession: (sessionId: string) => void; // Convert sidechain session to CLI session callback
@@ -114,10 +117,11 @@ const deduplicateHistorySessions = (sessions: HistorySessionSummary[]) => {
   return Array.from(deduplicated.values());
 };
 
-const HistoryView = ({ historyData, currentProvider, currentSessionId, onLoadSession, onDeleteSession, onDeleteSessions, onExportSession, onToggleFavorite, onUpdateTitle, onConvertToCliSession }: HistoryViewProps) => {
+const HistoryView = ({ historyData, currentProvider, currentSessionId, onLoadSession, onDeleteSession, onDeleteSessions, onArchiveSessions, onExportSession, onPrintSessionPdf, onToggleFavorite, onUpdateTitle, onConvertToCliSession }: HistoryViewProps) => {
   const { t } = useTranslation();
   const [viewportHeight, setViewportHeight] = useState(() => window.innerHeight || 600);
   const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null); // Session ID pending deletion
+  const [archivingSessionId, setArchivingSessionId] = useState<string | null>(null); // Session ID pending archive
   const [convertingSessionId, setConvertingSessionId] = useState<string | null>(null); // Session ID pending conversion
   const [inputValue, setInputValue] = useState(''); // Immediate value of search input
   const [searchQuery, setSearchQuery] = useState(''); // Actual search keyword (debounced)
@@ -131,6 +135,7 @@ const HistoryView = ({ historyData, currentProvider, currentSessionId, onLoadSes
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(() => new Set());
   const [isDeletingSelected, setIsDeletingSelected] = useState(false);
+  const [isArchivingSelected, setIsArchivingSelected] = useState(false);
 
   // Clean up all timeout timers on unmount
   useEffect(() => {
@@ -204,6 +209,8 @@ const HistoryView = ({ historyData, currentProvider, currentSessionId, onLoadSes
         total: historyData.total ?? 0,
       });
 
+  const canDelete = historyData?.capabilities?.canDelete === true;
+  const canArchive = historyData?.capabilities?.canArchive === true;
   const selectedCount = selectedSessionIds.size;
   const allVisibleSelected = sessions.length > 0 && sessions.every(session => selectedSessionIds.has(session.sessionId));
 
@@ -227,6 +234,7 @@ const HistoryView = ({ historyData, currentProvider, currentSessionId, onLoadSes
     setIsSelectionMode(false);
     setSelectedSessionIds(new Set());
     setIsDeletingSelected(false);
+    setIsArchivingSelected(false);
   }, []);
 
   const toggleSessionSelection = useCallback((sessionId: string) => {
@@ -254,9 +262,17 @@ const HistoryView = ({ historyData, currentProvider, currentSessionId, onLoadSes
     setDeletingSessionId(sessionId);
   }, []);
 
-  const handleExportRequest = useCallback((sessionId: string, title: string) => {
-    onExportSession(sessionId, title);
+  const handleArchiveRequest = useCallback((sessionId: string) => {
+    setArchivingSessionId(sessionId);
+  }, []);
+
+  const handleExportRequest = useCallback((sessionId: string, title: string, format: HistoryExportFormat) => {
+    onExportSession(sessionId, title, format);
   }, [onExportSession]);
+
+  const handlePrintPdfRequest = useCallback((sessionId: string, title: string) => {
+    onPrintSessionPdf(sessionId, title);
+  }, [onPrintSessionPdf]);
 
   const handleFavoriteRequest = useCallback((sessionId: string) => {
     onToggleFavorite(sessionId);
@@ -269,6 +285,17 @@ const HistoryView = ({ historyData, currentProvider, currentSessionId, onLoadSes
     }
   }, [deletingSessionId, onDeleteSession]);
 
+  const confirmArchive = useCallback(() => {
+    if (archivingSessionId) {
+      onArchiveSessions([archivingSessionId]);
+      setArchivingSessionId(null);
+    }
+  }, [archivingSessionId, onArchiveSessions]);
+
+  const cancelArchive = useCallback(() => {
+    setArchivingSessionId(null);
+  }, []);
+
   const confirmDeleteSelected = useCallback(() => {
     if (selectedSessionIds.size === 0) {
       setIsDeletingSelected(false);
@@ -278,6 +305,16 @@ const HistoryView = ({ historyData, currentProvider, currentSessionId, onLoadSes
     onDeleteSessions(Array.from(selectedSessionIds));
     exitSelectionMode();
   }, [selectedSessionIds, onDeleteSessions, exitSelectionMode]);
+
+  const confirmArchiveSelected = useCallback(() => {
+    if (selectedSessionIds.size === 0) {
+      setIsArchivingSelected(false);
+      return;
+    }
+
+    onArchiveSessions(Array.from(selectedSessionIds));
+    exitSelectionMode();
+  }, [selectedSessionIds, onArchiveSessions, exitSelectionMode]);
 
   const cancelDelete = useCallback(() => {
     setDeletingSessionId(null);
@@ -383,6 +420,14 @@ const HistoryView = ({ historyData, currentProvider, currentSessionId, onLoadSes
     setIsDeletingSelected(false);
   }, []);
 
+  const handleStartArchiveSelected = useCallback(() => {
+    setIsArchivingSelected(true);
+  }, []);
+
+  const handleCancelArchiveSelected = useCallback(() => {
+    setIsArchivingSelected(false);
+  }, []);
+
   if (!historyData) {
     return (
       <div className="messages-container" style={CENTER_BLOCK_STYLE}>
@@ -455,8 +500,12 @@ const HistoryView = ({ historyData, currentProvider, currentSessionId, onLoadSes
       onEditSave={handleEditSave}
       onEditCancel={handleEditCancel}
       onEditTitleChange={setEditingTitle}
+      canDelete={canDelete}
+      canArchive={canArchive}
       onExport={handleExportRequest}
+      onPrintPdf={handlePrintPdfRequest}
       onDelete={handleDeleteRequest}
+      onArchive={handleArchiveRequest}
       onFavorite={handleFavoriteRequest}
       onCopySessionId={handleCopySessionId}
       onConvertToCliSession={handleConvertRequest}
@@ -482,11 +531,14 @@ const HistoryView = ({ historyData, currentProvider, currentSessionId, onLoadSes
             visibleCount={sessions.length}
             allVisibleSelected={allVisibleSelected}
             isDeepSearching={isDeepSearching}
+            canDelete={canDelete}
+            canArchive={canArchive}
             t={t}
             onEnterSelectionMode={enterSelectionMode}
             onExitSelectionMode={exitSelectionMode}
             onToggleSelectAllVisible={toggleSelectAllVisible}
             onStartDeleteSelected={handleStartDeleteSelected}
+            onStartArchiveSelected={handleStartArchiveSelected}
             onDeepSearch={handleDeepSearch}
           />
         </div>
@@ -524,6 +576,16 @@ const HistoryView = ({ historyData, currentProvider, currentSessionId, onLoadSes
         onCancel={cancelDelete}
       />
 
+      <ConfirmDialog
+        isOpen={!!archivingSessionId}
+        title={t('history.confirmArchive')}
+        message={t('history.archiveMessage')}
+        confirmText={t('history.archiveSession')}
+        cancelText={t('common.cancel')}
+        onConfirm={confirmArchive}
+        onCancel={cancelArchive}
+      />
+
       {/* Convert to CLI confirmation dialog */}
       <ConfirmDialog
         isOpen={!!convertingSessionId}
@@ -544,6 +606,16 @@ const HistoryView = ({ historyData, currentProvider, currentSessionId, onLoadSes
         cancelText={t('common.cancel')}
         onConfirm={confirmDeleteSelected}
         onCancel={handleCancelDeleteSelected}
+      />
+
+      <ConfirmDialog
+        isOpen={isArchivingSelected}
+        title={t('history.confirmArchiveSelected')}
+        message={t('history.archiveSelectedMessage', { count: selectedCount })}
+        confirmText={t('history.archiveSelected')}
+        cancelText={t('common.cancel')}
+        onConfirm={confirmArchiveSelected}
+        onCancel={handleCancelArchiveSelected}
       />
     </div>
   );

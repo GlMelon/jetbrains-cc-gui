@@ -79,6 +79,23 @@ public class HistoryMessageInjectorTest {
     }
 
     @Test
+    public void streamingCodexConversionBoundsMaterializedMessagesAndPreservesTotalCount() {
+        BoundedHistoryMessageCollector collector = new BoundedHistoryMessageCollector(
+                new HistoryMessageReadPolicy(1, 4096)
+        );
+        HistoryMessageInjector.CodexMessageStreamConverter converter =
+                new HistoryMessageInjector.CodexMessageStreamConverter();
+
+        converter.accept(eventUserMessage("2026-04-30T09:40:26.701Z", "one"), collector);
+        converter.accept(eventUserMessage("2026-04-30T09:40:27.701Z", "two"), collector);
+
+        HistoryMessageBatch batch = collector.toBatch();
+        assertEquals(1, batch.messages().size());
+        assertEquals(2, batch.totalMessageCount());
+        assertEquals("one", batch.messages().get(0).get("content").getAsString());
+    }
+
+    @Test
     public void convertCodexMessagesDeduplicatesDualRecordedUserMessage() {
         JsonArray messages = new JsonArray();
         messages.add(responseItemUserMessage("2026-04-30T09:40:26.701Z", "hello"));

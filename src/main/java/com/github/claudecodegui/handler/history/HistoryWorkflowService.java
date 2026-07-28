@@ -71,7 +71,8 @@ class HistoryWorkflowService {
             HistoryProviderAdapter adapter = providerRegistry.adapter(provider);
             LOG.info("[HistoryHandler] 使用 history provider 读取会话: " + adapter.provider().value());
             String historyJson = adapter.loadSessionsJson(projectPath);
-            String finalJson = sessionsJsonEnhancer.enhance(adapter.provider().value(), historyJson);
+            HistoryCapabilities capabilities = HistoryCapabilities.from(adapter);
+            String finalJson = sessionsJsonEnhancer.enhance(adapter.provider().value(), historyJson, capabilities);
             LOG.info("[HistoryHandler] 历史数据增强完成，JSON 长度: " + finalJson.length());
             historyLoadService.dispatchHistoryData(finalJson);
         } catch (Exception e) {
@@ -127,6 +128,11 @@ class HistoryWorkflowService {
         try {
             String projectPath = resolveProjectPath();
             HistoryProviderAdapter adapter = providerRegistry.adapter(provider);
+            if (!adapter.supports(HistoryCapability.DELETE)) {
+                LOG.warn("[HistoryHandler] Delete session rejected: provider does not support deletion: "
+                        + adapter.provider().value());
+                return HistoryDeleteResult.none();
+            }
             HistoryDeleteResult result = adapter.deleteSession(sessionId, projectPath);
             if (result.mainDeleted()) {
                 cleanupSessionMetadata(sessionId);
@@ -142,6 +148,51 @@ class HistoryWorkflowService {
         } catch (Exception e) {
             LOG.error("[HistoryHandler] Delete session failed: " + e.getMessage(), e);
             return HistoryDeleteResult.none();
+        }
+    }
+
+
+    HistoryBatchArchiveResult archiveMany(String provider, List<String> sessionIds) {
+        List<String> requestedSessionIds = sessionIds == null
+                ? List.of()
+                : sessionIds.stream().distinct().toList();
+        if (requestedSessionIds.isEmpty()) {
+            LOG.warn("[HistoryHandler] Batch archive failed: empty sessionIds");
+            return HistoryBatchArchiveResult.none(requestedSessionIds);
+        }
+
+        try {
+            String projectPath = resolveProjectPath();
+            HistoryProviderAdapter adapter = providerRegistry.adapter(provider);
+            if (!adapter.supports(HistoryCapability.ARCHIVE)) {
+                LOG.warn("[HistoryHandler] Archive sessions rejected: provider does not support archive: "
+                        + adapter.provider().value());
+                return HistoryBatchArchiveResult.none(requestedSessionIds);
+            }
+
+            List<String> archivedSessionIds = new java.util.ArrayList<>();
+            for (String sessionId : requestedSessionIds) {
+                if (!HistoryDeleteService.isValidSessionId(sessionId)) {
+                    LOG.warn("[HistoryHandler] Archive session rejected: invalid sessionId");
+                    continue;
+                }
+                try {
+                    HistoryArchiveResult result = adapter.archiveSession(sessionId, projectPath);
+                    if (result.archived()) {
+                        archivedSessionIds.add(sessionId);
+                    }
+                } catch (Exception e) {
+                    LOG.error("[HistoryHandler] Archive single session failed: " + sessionId
+                            + " - " + e.getMessage(), e);
+                }
+            }
+
+            clearCache(provider);
+            refresh(provider);
+            return new HistoryBatchArchiveResult(requestedSessionIds, archivedSessionIds);
+        } catch (Exception e) {
+            LOG.error("[HistoryHandler] Archive sessions failed: " + e.getMessage(), e);
+            return HistoryBatchArchiveResult.none(requestedSessionIds);
         }
     }
 

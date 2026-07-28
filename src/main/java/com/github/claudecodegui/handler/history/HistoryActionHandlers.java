@@ -3,6 +3,7 @@ package com.github.claudecodegui.handler.history;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.NodeJsServiceCaller;
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.util.Alarm;
@@ -95,9 +96,27 @@ public class HistoryActionHandlers implements HistoryRefreshService {
         CompletableFuture.runAsync(() -> historyWorkflowService.deleteMany(providerSnapshot, sessionIds));
     }
 
+    public void handleArchiveSessions(String content) {
+        LOG.info("[HistoryHandler] 处理: archive_sessions");
+        List<String> sessionIds = HistoryDeleteService.parseSessionIds(content);
+        String providerSnapshot = this.currentProvider;
+        CompletableFuture.runAsync(() -> {
+            HistoryBatchArchiveResult result = historyWorkflowService.archiveMany(providerSnapshot, sessionIds);
+            context.dispatchEvent(
+                    DownstreamEvent.HISTORY_ARCHIVE_RESULT.value(),
+                    result.toPayload().toString()
+            );
+        });
+    }
+
     public void handleExportSession(String content) {
         LOG.info("[HistoryHandler] 处理: export_session, sessionId=" + content);
         historyExportService.handleExportSession(content, currentProvider);
+    }
+
+    public void handlePrintSessionPdf(String content) {
+        LOG.info("[HistoryHandler] 处理: print_session_pdf, sessionId=" + content);
+        historyExportService.handlePrintSessionPdf(content, currentProvider);
     }
 
     public void handleToggleFavorite(String content) {

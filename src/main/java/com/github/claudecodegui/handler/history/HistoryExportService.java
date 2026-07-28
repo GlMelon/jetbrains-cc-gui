@@ -2,112 +2,210 @@ package com.github.claudecodegui.handler.history;
 
 import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.handler.core.HandlerContext;
-
+import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
+import com.github.claudecodegui.protocol.DownstreamEvent;
+import com.github.claudecodegui.protocol.HistoryExportFormat;
+import com.github.claudecodegui.protocol.payload.HistoryExportPayloadField;
 import com.github.claudecodegui.util.GsonHolder;
-import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.ide.BrowserUtil;
 import com.intellij.openapi.diagnostic.Logger;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-import java.util.List;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 
-/**
- * Service for exporting session data.
- */
+/** Service for exporting bounded session data through the typed downstream bus. */
 class HistoryExportService {
 
     private static final Logger LOG = Logger.getInstance(HistoryExportService.class);
 
     private final HandlerContext context;
     private final HistoryProviderRegistry historyProviderRegistry;
+    private final HistoryExportPayloadBuilder payloadBuilder;
 
     HistoryExportService(HandlerContext context, HistoryProviderRegistry historyProviderRegistry) {
+        this(context, historyProviderRegistry, new HistoryExportPayloadBuilder());
+    }
+
+    HistoryExportService(
+            HandlerContext context,
+            HistoryProviderRegistry historyProviderRegistry,
+            HistoryExportPayloadBuilder payloadBuilder
+    ) {
         this.context = context;
         this.historyProviderRegistry = historyProviderRegistry;
+        this.payloadBuilder = payloadBuilder;
+    }
+
+    void handleExportSession(String content, String currentProvider) {
+        CompletableFuture.runAsync(() -> exportSession(content, currentProvider));
     }
 
     /**
-     * Export session data.
-     * Reads all messages of the session and returns them to the frontend.
+     * Opens a printable, sanitized HTML transcript in the system browser so the user can
+     * "Save as PDF" via the browser's native print engine. Reuses the bounded HTML renderer
+     * (same budget + sanitizer as the HTML download) — no PDF library, no binary transport.
      */
-    void handleExportSession(String content, String currentProvider) {
-        CompletableFuture.runAsync(() -> {
-            LOG.info("[HistoryHandler] ========== 开始导出会话 ==========");
+    void handlePrintSessionPdf(String content, String currentProvider) {
+        CompletableFuture.runAsync(() -> printSessionPdf(content, currentProvider));
+    }
 
-            try {
-                // Parse JSON from frontend to extract sessionId and title
-                JsonObject exportRequest = GsonHolder.GSON.fromJson(content, JsonObject.class);
-                String sessionId = exportRequest.get("sessionId").getAsString();
-                String title = exportRequest.get("title").getAsString();
+    private void exportSession(String content, String currentProvider) {
+        LOG.info("[HistoryHandler] ========== 开始导出会话 ==========");
+        try {
+            JsonObject exportRequest = parseRequest(content);
+            String sessionId = requiredString(exportRequest, HistoryExportPayloadField.SESSION_ID);
+            String title = optionalString(exportRequest, HistoryExportPayloadField.TITLE);
+            String formatValue = optionalString(exportRequest, HistoryExportPayloadField.FORMAT);
+            HistoryExportFormat format = formatValue.isBlank()
+                    ? HistoryExportFormat.JSON
+                    : HistoryExportFormat.fromValue(formatValue).orElseThrow(
+                            () -> new IllegalArgumentException("Unsupported history export format: " + formatValue)
+                    );
 
-                String rawPath = context.resolveEffectiveWorkingDirectory();
-                String nodePath = NodeDetector.getInstance().getCachedNodePath();
-                String projectPath = NodeDetector.isWslPath(nodePath) ? NodeDetector.convertToWslPath(rawPath) : rawPath;
-                if (projectPath == null) {
-                    LOG.warn("[HistoryHandler] Project base path is null");
-                    return;
-                }
-                LOG.info("[HistoryHandler] SessionId: " + sessionId);
-                LOG.info("[HistoryHandler] Title: " + title);
-                LOG.info("[HistoryHandler] ProjectPath: " + projectPath);
-                LOG.info("[HistoryHandler] CurrentProvider: " + currentProvider);
+            String projectPath = resolveProjectPath();
 
-                List<JsonObject> messages = historyProviderRegistry.loadMessages(currentProvider, sessionId, projectPath);
-                JsonArray messagesJson = new JsonArray();
-                for (JsonObject message : messages) {
-                    messagesJson.add(message);
-                }
+            LOG.info("[HistoryHandler] SessionId: " + sessionId);
+            LOG.info("[HistoryHandler] ProjectPath: " + projectPath);
+            LOG.info("[HistoryHandler] CurrentProvider: " + currentProvider);
 
-                // Wrap messages into an object containing sessionId and title
-                JsonObject exportData = new JsonObject();
-                exportData.addProperty("sessionId", sessionId);
-                exportData.addProperty("title", title);
-                exportData.add("messages", messagesJson);
+            HistoryMessageBatch messages = historyProviderRegistry.loadMessages(
+                    currentProvider,
+                    sessionId,
+                    projectPath,
+                    payloadBuilder.messageReadPolicy()
+            );
+            HistoryExportPayload payload = payloadBuilder.build(sessionId, title, messages, format);
+            context.dispatchEvent(DownstreamEvent.HISTORY_EXPORT_DATA.value(), payload.json());
 
-                String wrappedJson = GsonHolder.GSON.toJson(exportData);
+            LOG.info("[HistoryHandler] 导出会话完成: exported=" + payload.exportedMessageCount()
+                    + ", omitted=" + payload.omittedMessageCount()
+                    + ", utf8Bytes=" + payload.utf8Bytes());
+        } catch (Exception e) {
+            LOG.error("[HistoryHandler] 导出会话失败: " + e.getMessage(), e);
+            context.dispatchEvent(
+                    DownstreamEvent.HISTORY_EXPORT_DATA.value(),
+                    payloadBuilder.buildError(e.getMessage())
+            );
+        }
+    }
 
-                LOG.info("[HistoryHandler] 读取到会话消息，准备注入到前端");
+    private void printSessionPdf(String content, String currentProvider) {
+        LOG.info("[HistoryHandler] ========== 开始打印会话 PDF ==========");
+        try {
+            JsonObject request = parseRequest(content);
+            String sessionId = requiredString(request, HistoryExportPayloadField.SESSION_ID);
+            String title = optionalString(request, HistoryExportPayloadField.TITLE);
+            String projectPath = resolveProjectPath();
 
-                // Use Base64 encoding to avoid JavaScript string escaping issues
-                String base64Json = Base64.getEncoder().encodeToString(
-                        wrappedJson.getBytes(StandardCharsets.UTF_8));
+            HistoryMessageBatch messages = historyProviderRegistry.loadMessages(
+                    currentProvider,
+                    sessionId,
+                    projectPath,
+                    payloadBuilder.messageReadPolicy()
+            );
+            // Reuse the bounded HTML renderer: same UTF-8/message budget and the script-free,
+            // CSP-locked, fully-escaped transcript as the HTML download.
+            HistoryExportPayload payload = payloadBuilder.build(
+                    sessionId, title, messages, HistoryExportFormat.HTML);
+            String html = extractHtmlContent(payload);
 
-                ApplicationManager.getApplication().invokeLater(() -> {
-                    String jsCode = "console.log('[Backend->Frontend] Starting to inject export data');" +
-                                            "if (window.onExportSessionData) { " +
-                                            "  try { " +
-                                            "    var base64Str = '" + base64Json + "'; " +
-                                            "    var binaryStr = atob(base64Str); " +
-                                            "    var bytes = new Uint8Array(binaryStr.length); " +
-                                            "    for (var i = 0; i < binaryStr.length; i++) { bytes[i] = binaryStr.charCodeAt(i); } " +
-                                            "    var jsonStr = new TextDecoder('utf-8').decode(bytes); " +
-                                            "    window.onExportSessionData(jsonStr); " +
-                                            "    console.log('[Backend->Frontend] Export data injected successfully'); " +
-                                            "  } catch(e) { " +
-                                            "    console.error('[Backend->Frontend] Failed to inject export data:', e); " +
-                                            "  } " +
-                                            "} else { " +
-                                            "  console.error('[Backend->Frontend] onExportSessionData not available!'); " +
-                                            "}";
+            Path tempFile = writePrintHtmlFile(html, sessionId);
+            BrowserUtil.browse(tempFile.toUri());
 
-                    context.executeJavaScriptOnEDT(jsCode);
-                });
+            LOG.info("[HistoryHandler] 打印 PDF 已在浏览器打开: exported=" + payload.exportedMessageCount()
+                    + ", omitted=" + payload.omittedMessageCount()
+                    + ", tempFile=" + tempFile);
+            dispatchPrintToast(true, null);
+        } catch (Exception e) {
+            LOG.error("[HistoryHandler] 打印会话 PDF 失败: " + e.getMessage(), e);
+            dispatchPrintToast(false, e.getMessage());
+        }
+    }
 
-                LOG.info("[HistoryHandler] ========== 导出会话完成 ==========");
+    private String resolveProjectPath() {
+        String rawPath = context.resolveEffectiveWorkingDirectory();
+        String nodePath = NodeDetector.getInstance().getCachedNodePath();
+        String projectPath = NodeDetector.isWslPath(nodePath)
+                ? NodeDetector.convertToWslPath(rawPath)
+                : rawPath;
+        if (projectPath == null || projectPath.isBlank()) {
+            throw new IllegalStateException("Project path is unavailable");
+        }
+        return projectPath;
+    }
 
-            } catch (Exception e) {
-                LOG.error("[HistoryHandler] 导出会话失败: " + e.getMessage(), e);
+    private void dispatchPrintToast(boolean success, String errorDetail) {
+        String message = success
+                ? ClaudeCodeGuiBundle.message("file.printPdfOpened")
+                : ClaudeCodeGuiBundle.message("file.printPdfFailed");
+        DownstreamEvent event = success ? DownstreamEvent.TOAST_SUCCESS : DownstreamEvent.TOAST_ERROR;
+        context.dispatchEvent(event.value(), context.escapeJs(message));
+    }
 
-                ApplicationManager.getApplication().invokeLater(() -> {
-                    String jsCode = "if (window.addToast) { " +
-                                            "  window.addToast('导出失败: " + context.escapeJs(e.getMessage() != null ? e.getMessage() : "未知错误") + "', 'error'); " +
-                                            "}";
-                    context.executeJavaScriptOnEDT(jsCode);
-                });
+    /** Extracts the rendered HTML content carried inside the export envelope. */
+    static String extractHtmlContent(HistoryExportPayload payload) {
+        JsonObject envelope = GsonHolder.GSON.fromJson(payload.json(), JsonObject.class);
+        JsonElement content = envelope.get(HistoryExportPayloadField.CONTENT.wireKey());
+        return content == null || content.isJsonNull() ? "" : content.getAsString();
+    }
+
+    /**
+     * Writes the sanitized HTML transcript to a temp file the system browser can open directly.
+     * The file is marked {@code deleteOnExit} so it is cleaned up on IDE restart.
+     */
+    static Path writePrintHtmlFile(String html, String sessionId) throws IOException {
+        String safeId = sanitizeTempId(sessionId);
+        Path tempFile = Files.createTempFile("codemoss-history-" + safeId + "-", ".html");
+        Files.writeString(tempFile, html == null ? "" : html, StandardCharsets.UTF_8);
+        tempFile.toFile().deleteOnExit();
+        return tempFile;
+    }
+
+    private static String sanitizeTempId(String sessionId) {
+        if (sessionId == null || sessionId.isBlank()) {
+            return "session";
+        }
+        StringBuilder sanitized = new StringBuilder();
+        for (int index = 0; index < sessionId.length() && sanitized.length() < 16; index++) {
+            char current = sessionId.charAt(index);
+            if (Character.isLetterOrDigit(current) || current == '-' || current == '_') {
+                sanitized.append(current);
             }
-        });
+        }
+        return sanitized.length() == 0 ? "session" : sanitized.toString().toLowerCase(Locale.ROOT);
+    }
+
+    private static JsonObject parseRequest(String content) {
+        if (content == null || content.isBlank()) {
+            throw new IllegalArgumentException("History export request is empty");
+        }
+        JsonElement parsed = GsonHolder.GSON.fromJson(content, JsonElement.class);
+        if (parsed == null || !parsed.isJsonObject()) {
+            throw new IllegalArgumentException("History export request must be a JSON object");
+        }
+        return parsed.getAsJsonObject();
+    }
+
+    private static String requiredString(JsonObject request, HistoryExportPayloadField field) {
+        String value = optionalString(request, field);
+        if (value.isBlank()) {
+            throw new IllegalArgumentException(field.wireKey() + " is required");
+        }
+        return value;
+    }
+
+    private static String optionalString(JsonObject request, HistoryExportPayloadField field) {
+        JsonElement value = request.get(field.wireKey());
+        if (value == null || value.isJsonNull() || !value.isJsonPrimitive()
+                || !value.getAsJsonPrimitive().isString()) {
+            return "";
+        }
+        return value.getAsString().trim();
     }
 }

@@ -237,7 +237,8 @@
 }
 
 /* 删除按钮样式 */
-.history-delete-btn {
+.history-delete-btn,
+.history-archive-btn {
     background: transparent;
     border: none;
     color: var(--text-tertiary);
@@ -343,6 +344,7 @@
 
 .history-item:not(:hover) .history-action-buttons.has-favorite .history-edit-btn,
 .history-item:not(:hover) .history-action-buttons.has-favorite .history-export-btn,
+.history-item:not(:hover) .history-action-buttons.has-favorite .history-archive-btn,
 .history-item:not(:hover) .history-action-buttons.has-favorite .history-delete-btn {
     visibility: hidden;
     opacity: 0;
@@ -354,6 +356,7 @@
 }
 
 .history-item:hover .history-delete-btn,
+.history-item:hover .history-archive-btn,
 .history-item:hover .history-export-btn,
 .history-item:hover .history-favorite-btn,
 .history-item:hover .history-edit-btn,
@@ -377,6 +380,16 @@
 }
 
 .history-export-btn:active {
+    transform: scale(0.92);
+    background-color: rgba(10, 132, 255, 0.25);
+}
+
+.history-archive-btn:hover {
+    background-color: rgba(10, 132, 255, 0.15);
+    color: #0a84ff;
+}
+
+.history-archive-btn:active {
     transform: scale(0.92);
     background-color: rgba(10, 132, 255, 0.25);
 }

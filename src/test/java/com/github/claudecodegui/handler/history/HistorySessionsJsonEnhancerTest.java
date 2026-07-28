@@ -66,4 +66,29 @@ public class HistorySessionsJsonEnhancerTest {
         assertEquals("new", session.get("title").getAsString());
         assertTrue(session.get("hasCustomTitle").getAsBoolean());
     }
+
+    @Test
+    public void enhanceHistoryWithCapabilitiesAddsBackendCapabilityPayload() {
+        JsonObject result = GsonHolder.GSON.fromJson(
+                HistorySessionsJsonEnhancer.enhanceHistoryWithCapabilities(
+                        "{\"success\":true,\"sessions\":[]}",
+                        new HistoryCapabilities(false, true)),
+                JsonObject.class);
+
+        JsonObject capabilities = result.getAsJsonObject("capabilities");
+        assertFalse(capabilities.get("canDelete").getAsBoolean());
+        assertTrue(capabilities.get("canArchive").getAsBoolean());
+    }
+
+    @Test
+    public void enhanceHistoryWithCapabilitiesDefaultsToNoCapabilities() {
+        JsonObject result = GsonHolder.GSON.fromJson(
+                HistorySessionsJsonEnhancer.enhanceHistoryWithCapabilities(
+                        "{\"success\":true,\"sessions\":[]}", null),
+                JsonObject.class);
+
+        JsonObject capabilities = result.getAsJsonObject("capabilities");
+        assertFalse(capabilities.get("canDelete").getAsBoolean());
+        assertFalse(capabilities.get("canArchive").getAsBoolean());
+    }
 }

@@ -1,6 +1,7 @@
 package com.github.claudecodegui.handler.history;
 
 import com.github.claudecodegui.handler.NodeJsServiceCaller;
+import com.github.claudecodegui.protocol.payload.HistoryCapabilitiesPayloadField;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -20,12 +21,28 @@ class HistorySessionsJsonEnhancer {
         this.nodeJsServiceCaller = nodeJsServiceCaller;
     }
 
-    String enhance(String provider, String rawJson) {
+    String enhance(String provider, String rawJson, HistoryCapabilities capabilities) {
         String normalizedJson = normalizeSessionsJson(rawJson);
         String favoritesJson = loadFavoritesJson();
         String withFavorites = enhanceHistoryWithFavorites(normalizedJson, provider, favoritesJson);
         String titlesJson = loadTitlesJson();
-        return enhanceHistoryWithTitles(withFavorites, titlesJson);
+        String withTitles = enhanceHistoryWithTitles(withFavorites, titlesJson);
+        return enhanceHistoryWithCapabilities(withTitles, capabilities);
+    }
+
+    static String enhanceHistoryWithCapabilities(String historyJson, HistoryCapabilities capabilities) {
+        String normalizedJson = normalizeSessionsJson(historyJson);
+        try {
+            JsonObject history = GsonHolder.GSON.fromJson(normalizedJson, JsonObject.class);
+            HistoryCapabilities effectiveCapabilities = capabilities != null
+                    ? capabilities
+                    : new HistoryCapabilities(false, false);
+            history.add(HistoryCapabilitiesPayloadField.ROOT_WIRE_KEY, effectiveCapabilities.toJson());
+            return GsonHolder.GSON.toJson(history);
+        } catch (Exception e) {
+            LOG.warn("[HistoryHandler] Enhance history capabilities failed, return normalized data: " + e.getMessage());
+            return normalizedJson;
+        }
     }
 
     static String normalizeSessionsJson(String rawJson) {

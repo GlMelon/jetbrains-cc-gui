@@ -38,20 +38,18 @@ public class OpenCodeHistoryProviderAdapterTest {
                 OpenCodeHistoryProviderAdapter.normalizeSessionsJson(null));
     }
 
-    // deleteSession 把 ai-bridge archiveSession 返回的受影响行数映射为 HistoryDeleteResult。
-    // OpenCode 走软删除(归档),无独立 agent 文件,故 agentFilesDeleted 恒 0;
-    // mainDeleted 仅取决于是否至少归档了 1 行(对称 Codex 把"文件是否删掉"映射为 mainDeleted)。
+    // archiveSession maps the ai-bridge affected-row count to the archive result contract.
 
     @Test
-    public void buildDeleteResultMapsArchivedRowsToMainDeleted() {
-        assertEquals(new HistoryDeleteResult(true, 0), OpenCodeHistoryProviderAdapter.buildDeleteResult(1));
-        assertEquals(new HistoryDeleteResult(true, 0), OpenCodeHistoryProviderAdapter.buildDeleteResult(3));
+    public void buildArchiveResultMapsPositiveRowsToArchived() {
+        assertEquals(new HistoryArchiveResult(true), OpenCodeHistoryProviderAdapter.buildArchiveResult(1));
+        assertEquals(new HistoryArchiveResult(true), OpenCodeHistoryProviderAdapter.buildArchiveResult(3));
     }
 
     @Test
-    public void buildDeleteResultZeroOrNegativeArchivedIsNotDeleted() {
-        assertEquals(new HistoryDeleteResult(false, 0), OpenCodeHistoryProviderAdapter.buildDeleteResult(0));
-        assertEquals(new HistoryDeleteResult(false, 0), OpenCodeHistoryProviderAdapter.buildDeleteResult(-1));
+    public void buildArchiveResultZeroOrNegativeRowsIsNotArchived() {
+        assertEquals(new HistoryArchiveResult(false), OpenCodeHistoryProviderAdapter.buildArchiveResult(0));
+        assertEquals(new HistoryArchiveResult(false), OpenCodeHistoryProviderAdapter.buildArchiveResult(-1));
     }
 
     // loadMessages 后处理:OpenCode 把 IDE 拼接了 ## Project Modules 等上下文的用户文本原样存 SQLite,

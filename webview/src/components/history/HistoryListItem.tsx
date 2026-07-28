@@ -1,9 +1,11 @@
 import { memo, useCallback } from 'react';
 import type { TFunction } from 'i18next';
 import type { HistorySessionSummary } from '../../types';
+import { HISTORY_EXPORT_FORMAT } from '../../generated/protocol';
+import type { HistoryExportFormat } from '../../generated/protocol';
 import { extractCommandMessageContent } from '../../utils/messageUtils';
 import { ProviderModelIcon } from '../shared/ProviderModelIcon';
-import { EditIcon, DownloadIcon, TrashIcon, StarIcon, StarFilledIcon, CheckIcon, CloseIcon, CopyIcon, XCircleIcon, TerminalArrowIcon, codiconToIcon } from '../Icons';
+import { EditIcon, DownloadIcon, FileCodeIcon, FileTextIcon, TrashIcon, StarIcon, StarFilledIcon, CheckIcon, CloseIcon, CopyIcon, XCircleIcon, TerminalArrowIcon, InboxIcon, codiconToIcon } from '../Icons';
 
 // Module-level style constants (avoid breaking memoization)
 const PROVIDER_BADGE_STYLE: React.CSSProperties = {
@@ -105,8 +107,12 @@ export interface HistoryListItemProps {
   onEditSave: (sessionId: string, title: string) => void;
   onEditCancel: () => void;
   onEditTitleChange: (value: string) => void;
-  onExport: (sessionId: string, title: string) => void;
+  canDelete: boolean;
+  canArchive: boolean;
+  onExport: (sessionId: string, title: string, format: HistoryExportFormat) => void;
+  onPrintPdf: (sessionId: string, title: string) => void;
   onDelete: (sessionId: string) => void;
+  onArchive: (sessionId: string) => void;
   onFavorite: (sessionId: string) => void;
   onCopySessionId: (sessionId: string) => void;
   onConvertToCliSession: (sessionId: string) => void;
@@ -129,8 +135,12 @@ export const HistoryListItem = memo(({
   onEditSave,
   onEditCancel,
   onEditTitleChange,
+  canDelete,
+  canArchive,
   onExport,
+  onPrintPdf,
   onDelete,
+  onArchive,
   onFavorite,
   onCopySessionId,
   onConvertToCliSession,
@@ -170,15 +180,30 @@ export const HistoryListItem = memo(({
     }
   }, [handleEditSave, handleEditCancel]);
 
-  const handleExport = useCallback((e: React.MouseEvent) => {
+  const handleExportJson = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    onExport(session.sessionId, session.title);
+    onExport(session.sessionId, session.title, HISTORY_EXPORT_FORMAT.JSON);
   }, [onExport, session.sessionId, session.title]);
+
+  const handleExportHtml = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onExport(session.sessionId, session.title, HISTORY_EXPORT_FORMAT.HTML);
+  }, [onExport, session.sessionId, session.title]);
+
+  const handleExportPdf = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onPrintPdf(session.sessionId, session.title);
+  }, [onPrintPdf, session.sessionId, session.title]);
 
   const handleDelete = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     onDelete(session.sessionId);
   }, [onDelete, session.sessionId]);
+
+  const handleArchive = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onArchive(session.sessionId);
+  }, [onArchive, session.sessionId]);
 
   const handleFavorite = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -279,20 +304,48 @@ export const HistoryListItem = memo(({
             </button>
             <button
               className="history-export-btn"
-              onClick={handleExport}
-              title={t('history.exportSession')}
-              aria-label={t('history.exportSession')}
+              onClick={handleExportJson}
+              title={`${t('history.exportSession')} (JSON)`}
+              aria-label={`${t('history.exportSession')} (JSON)`}
             >
               <DownloadIcon size={14} />
             </button>
             <button
-              className="history-delete-btn"
-              onClick={handleDelete}
-              title={t('history.deleteSession')}
-              aria-label={t('history.deleteSession')}
+              className="history-export-btn"
+              onClick={handleExportHtml}
+              title={`${t('history.exportSession')} (HTML)`}
+              aria-label={`${t('history.exportSession')} (HTML)`}
             >
-              <TrashIcon size={14} />
+              <FileCodeIcon size={14} />
             </button>
+            <button
+              className="history-export-btn"
+              onClick={handleExportPdf}
+              title={t('history.exportPdf')}
+              aria-label={t('history.exportPdf')}
+            >
+              <FileTextIcon size={14} />
+            </button>
+            {canArchive && (
+              <button
+                className="history-archive-btn"
+                onClick={handleArchive}
+                title={t('history.archiveSession')}
+                aria-label={t('history.archiveSession')}
+              >
+                <InboxIcon size={14} />
+              </button>
+            )}
+            {canDelete && (
+              <button
+                className="history-delete-btn"
+                onClick={handleDelete}
+                title={t('history.deleteSession')}
+                aria-label={t('history.deleteSession')}
+              >
+                <TrashIcon size={14} />
+              </button>
+            )}
             <button
               className={`history-favorite-btn ${session.isFavorited ? 'favorited' : ''}`}
               onClick={handleFavorite}

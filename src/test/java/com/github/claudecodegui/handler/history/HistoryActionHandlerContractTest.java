@@ -34,6 +34,10 @@ public class HistoryActionHandlerContractTest {
         assertContract(new DeleteSessionsActionHandler(null), UpstreamAction.DELETE_SESSIONS, "delete_sessions");
     }
 
+    @Test public void testArchiveSessions() {
+        assertContract(new ArchiveSessionsActionHandler(null), UpstreamAction.ARCHIVE_SESSIONS, "archive_sessions");
+    }
+
     @Test public void testExportSession() {
         assertContract(new ExportSessionActionHandler(null), UpstreamAction.EXPORT_SESSION, "export_session");
     }

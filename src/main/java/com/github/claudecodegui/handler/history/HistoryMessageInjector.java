@@ -83,35 +83,59 @@ public class HistoryMessageInjector {
      */
     public static List<JsonObject> convertCodexMessagesToFrontendBatch(JsonArray messages) {
         List<JsonObject> frontendMessages = new ArrayList<>();
-        Set<String> emittedCliToolUseIds = new HashSet<>();
+        CodexMessageStreamConverter converter = new CodexMessageStreamConverter();
+        CodexMessageSink sink = new CodexMessageSink() {
+            @Override
+            public void append(JsonObject message) {
+                frontendMessages.add(message);
+            }
+
+            @Override
+            public void replaceLast(JsonObject message) {
+                frontendMessages.set(frontendMessages.size() - 1, message);
+            }
+        };
         for (int i = 0; i < messages.size(); i++) {
-            JsonObject msg = messages.get(i).getAsJsonObject();
-            List<JsonObject> convertedMessages = convertCodexMessageToFrontendMessages(msg, emittedCliToolUseIds);
-            for (JsonObject frontendMsg : convertedMessages) {
-                addCodexFrontendMessage(frontendMessages, frontendMsg);
+            if (messages.get(i).isJsonObject()) {
+                converter.accept(messages.get(i).getAsJsonObject(), sink);
             }
         }
         return frontendMessages;
     }
 
-    private static void addCodexFrontendMessage(List<JsonObject> frontendMessages, JsonObject incoming) {
-        if (frontendMessages.isEmpty()) {
-            frontendMessages.add(incoming);
-            return;
-        }
+    interface CodexMessageSink {
+        void append(JsonObject message);
 
-        int lastIndex = frontendMessages.size() - 1;
-        JsonObject previous = frontendMessages.get(lastIndex);
-        if (isDuplicateAdjacentCodexUserMessage(previous, incoming)) {
-            frontendMessages.set(lastIndex, preferRicherUserMessage(previous, incoming));
-            return;
-        }
+        void replaceLast(JsonObject message);
+    }
 
-        if (isDuplicateAdjacentCodexThinkingMessage(previous, incoming)) {
-            return;
-        }
+    static final class CodexMessageStreamConverter {
+        private final Set<String> emittedCliToolUseIds = new HashSet<>();
+        private JsonObject previous;
 
-        frontendMessages.add(incoming);
+        void accept(JsonObject rawMessage, CodexMessageSink sink) {
+            List<JsonObject> convertedMessages = convertCodexMessageToFrontendMessages(
+                    rawMessage,
+                    emittedCliToolUseIds
+            );
+            for (JsonObject incoming : convertedMessages) {
+                if (previous == null) {
+                    sink.append(incoming);
+                    previous = incoming;
+                    continue;
+                }
+                if (isDuplicateAdjacentCodexUserMessage(previous, incoming)) {
+                    previous = preferRicherUserMessage(previous, incoming);
+                    sink.replaceLast(previous);
+                    continue;
+                }
+                if (isDuplicateAdjacentCodexThinkingMessage(previous, incoming)) {
+                    continue;
+                }
+                sink.append(incoming);
+                previous = incoming;
+            }
+        }
     }
 
     private static boolean isDuplicateAdjacentCodexThinkingMessage(JsonObject previous, JsonObject incoming) {

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { HistoryData } from '../../types';
 import { sendAction } from '../../bridge/typed';
-import { UPSTREAM } from '../../generated/protocol';
+import { HISTORY_EXPORT_FORMAT, UPSTREAM } from '../../generated/protocol';
 import HistoryView from './HistoryView';
 
 vi.mock('react-i18next', () => ({
@@ -18,6 +18,12 @@ vi.mock('react-i18next', () => ({
         'history.selectAll': 'Select all',
         'history.clearSelection': 'Clear',
         'history.deleteSelected': 'Delete selected',
+        'history.archiveSession': 'Archive session',
+        'history.archiveSelected': 'Archive selected',
+        'history.confirmArchive': 'Confirm Archive',
+        'history.archiveMessage': 'Archive this session?',
+        'history.confirmArchiveSelected': 'Confirm Archive Selected',
+        'history.archiveSelectedMessage': `Archive ${options?.count} selected sessions?`,
         'history.confirmDeleteSelected': 'Confirm Delete',
         'history.deleteSelectedMessage': `Delete ${options?.count} selected sessions?`,
         'history.selectSession': 'Select session',
@@ -53,6 +59,7 @@ vi.mock('../../utils/copyUtils', () => ({
 const historyData: HistoryData = {
   success: true,
   total: 10,
+  capabilities: { canDelete: true, canArchive: false },
   sessions: [
     {
       sessionId: 'session-one',
@@ -88,7 +95,9 @@ describe('HistoryView multi-select', () => {
         onLoadSession={onLoadSession}
         onDeleteSession={onDeleteSession}
         onDeleteSessions={onDeleteSessions}
+        onArchiveSessions={vi.fn()}
         onExportSession={vi.fn()}
+        onPrintSessionPdf={vi.fn()}
         onToggleFavorite={vi.fn()}
         onUpdateTitle={vi.fn()}
         onConvertToCliSession={vi.fn()}
@@ -137,7 +146,9 @@ describe('HistoryView conversion', () => {
         onLoadSession={onLoadSession}
         onDeleteSession={vi.fn()}
         onDeleteSessions={vi.fn()}
+        onArchiveSessions={vi.fn()}
         onExportSession={vi.fn()}
+        onPrintSessionPdf={vi.fn()}
         onToggleFavorite={vi.fn()}
         onUpdateTitle={vi.fn()}
         onConvertToCliSession={onConvertToCliSession}
@@ -174,7 +185,9 @@ describe('HistoryView conversion', () => {
         onLoadSession={vi.fn()}
         onDeleteSession={vi.fn()}
         onDeleteSessions={vi.fn()}
+        onArchiveSessions={vi.fn()}
         onExportSession={vi.fn()}
+        onPrintSessionPdf={vi.fn()}
         onToggleFavorite={vi.fn()}
         onUpdateTitle={vi.fn()}
         onConvertToCliSession={vi.fn()}
@@ -200,7 +213,9 @@ describe('HistoryView conversion', () => {
         onLoadSession={vi.fn()}
         onDeleteSession={vi.fn()}
         onDeleteSessions={vi.fn()}
+        onArchiveSessions={vi.fn()}
         onExportSession={vi.fn()}
+        onPrintSessionPdf={vi.fn()}
         onToggleFavorite={vi.fn()}
         onUpdateTitle={vi.fn()}
         onConvertToCliSession={vi.fn()}
@@ -218,7 +233,9 @@ describe('HistoryView conversion', () => {
         onLoadSession={vi.fn()}
         onDeleteSession={vi.fn()}
         onDeleteSessions={vi.fn()}
+        onArchiveSessions={vi.fn()}
         onExportSession={vi.fn()}
+        onPrintSessionPdf={vi.fn()}
         onToggleFavorite={vi.fn()}
         onUpdateTitle={vi.fn()}
         onConvertToCliSession={vi.fn()}
@@ -241,7 +258,9 @@ describe('HistoryView conversion', () => {
         onLoadSession={vi.fn()}
         onDeleteSession={vi.fn()}
         onDeleteSessions={vi.fn()}
+        onArchiveSessions={vi.fn()}
         onExportSession={vi.fn()}
+        onPrintSessionPdf={vi.fn()}
         onToggleFavorite={vi.fn()}
         onUpdateTitle={vi.fn()}
         onConvertToCliSession={vi.fn()}
@@ -249,6 +268,114 @@ describe('HistoryView conversion', () => {
     );
 
     expect(screen.getByRole('button', { name: 'Deep Search' })).toHaveProperty('disabled', false);
+  });
+});
+
+
+describe('HistoryView archive capabilities', () => {
+  const archiveHistoryData: HistoryData = {
+    ...historyData,
+    capabilities: { canDelete: false, canArchive: true },
+  };
+
+  it('shows archive actions and hides delete actions from backend capabilities', () => {
+    render(
+      <HistoryView
+        historyData={archiveHistoryData}
+        currentProvider="opencode"
+        onLoadSession={vi.fn()}
+        onDeleteSession={vi.fn()}
+        onDeleteSessions={vi.fn()}
+        onArchiveSessions={vi.fn()}
+        onExportSession={vi.fn()}
+        onPrintSessionPdf={vi.fn()}
+        onToggleFavorite={vi.fn()}
+        onUpdateTitle={vi.fn()}
+        onConvertToCliSession={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByRole('button', { name: 'Archive session' })).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: 'history.deleteSession' })).toBeNull();
+  });
+
+  it('archives one session only after confirmation', () => {
+    const onArchiveSessions = vi.fn();
+    render(
+      <HistoryView
+        historyData={archiveHistoryData}
+        currentProvider="opencode"
+        onLoadSession={vi.fn()}
+        onDeleteSession={vi.fn()}
+        onDeleteSessions={vi.fn()}
+        onArchiveSessions={onArchiveSessions}
+        onExportSession={vi.fn()}
+        onPrintSessionPdf={vi.fn()}
+        onToggleFavorite={vi.fn()}
+        onUpdateTitle={vi.fn()}
+        onConvertToCliSession={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Archive session' })[0]);
+    const dialog = screen.getByRole('dialog', { name: 'Confirm Archive' });
+    expect(within(dialog).getByText('Archive this session?')).toBeTruthy();
+    expect(onArchiveSessions).not.toHaveBeenCalled();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Archive session' }));
+    expect(onArchiveSessions).toHaveBeenCalledWith(['session-one']);
+  });
+
+  it('archives selected sessions only after confirmation', () => {
+    const onArchiveSessions = vi.fn();
+    render(
+      <HistoryView
+        historyData={archiveHistoryData}
+        currentProvider="opencode"
+        onLoadSession={vi.fn()}
+        onDeleteSession={vi.fn()}
+        onDeleteSessions={vi.fn()}
+        onArchiveSessions={onArchiveSessions}
+        onExportSession={vi.fn()}
+        onPrintSessionPdf={vi.fn()}
+        onToggleFavorite={vi.fn()}
+        onUpdateTitle={vi.fn()}
+        onConvertToCliSession={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select First session' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Second session' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Archive selected' }));
+
+    const dialog = screen.getByRole('dialog', { name: 'Confirm Archive Selected' });
+    expect(within(dialog).getByText('Archive 2 selected sessions?')).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Archive selected' }));
+
+    expect(onArchiveSessions).toHaveBeenCalledWith(['session-one', 'session-two']);
+  });
+
+  it('hides destructive selection actions when backend reports no capability', () => {
+    render(
+      <HistoryView
+        historyData={{ ...historyData, capabilities: { canDelete: false, canArchive: false } }}
+        currentProvider="opencode"
+        onLoadSession={vi.fn()}
+        onDeleteSession={vi.fn()}
+        onDeleteSessions={vi.fn()}
+        onArchiveSessions={vi.fn()}
+        onExportSession={vi.fn()}
+        onPrintSessionPdf={vi.fn()}
+        onToggleFavorite={vi.fn()}
+        onUpdateTitle={vi.fn()}
+        onConvertToCliSession={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: 'Select' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Archive session' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'history.deleteSession' })).toBeNull();
   });
 });
 
@@ -271,7 +398,9 @@ describe('HistoryView favorite visibility', () => {
         onLoadSession={vi.fn()}
         onDeleteSession={vi.fn()}
         onDeleteSessions={vi.fn()}
+        onArchiveSessions={vi.fn()}
         onExportSession={vi.fn()}
+        onPrintSessionPdf={vi.fn()}
         onToggleFavorite={vi.fn()}
         onUpdateTitle={vi.fn()}
         onConvertToCliSession={vi.fn()}
@@ -283,5 +412,48 @@ describe('HistoryView favorite visibility', () => {
 
     expect(favoritedButton.closest('.history-action-buttons')?.classList.contains('has-favorite')).toBe(true);
     expect(unfavoritedButton.closest('.history-action-buttons')?.classList.contains('has-favorite')).toBe(false);
+  });
+});
+
+
+describe('HistoryView export formats', () => {
+  it('forwards JSON and HTML format constants without loading the session', () => {
+    const onLoadSession = vi.fn();
+    const onExportSession = vi.fn();
+    const onPrintSessionPdf = vi.fn();
+    render(
+      <HistoryView
+        historyData={historyData}
+        currentProvider="claude"
+        onLoadSession={onLoadSession}
+        onDeleteSession={vi.fn()}
+        onDeleteSessions={vi.fn()}
+        onArchiveSessions={vi.fn()}
+        onExportSession={onExportSession}
+        onPrintSessionPdf={onPrintSessionPdf}
+        onToggleFavorite={vi.fn()}
+        onUpdateTitle={vi.fn()}
+        onConvertToCliSession={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'history.exportSession (JSON)' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'history.exportSession (HTML)' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'history.exportPdf' })[0]);
+
+    expect(onExportSession).toHaveBeenNthCalledWith(
+      1,
+      'session-one',
+      'First session',
+      HISTORY_EXPORT_FORMAT.JSON,
+    );
+    expect(onExportSession).toHaveBeenNthCalledWith(
+      2,
+      'session-one',
+      'First session',
+      HISTORY_EXPORT_FORMAT.HTML,
+    );
+    expect(onPrintSessionPdf).toHaveBeenCalledWith('session-one', 'First session');
+    expect(onLoadSession).not.toHaveBeenCalled();
   });
 });

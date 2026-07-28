@@ -2,8 +2,6 @@ package com.github.claudecodegui.handler.history;
 
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.session.runtime.ProviderType;
-import com.google.gson.JsonObject;
-
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -24,7 +22,7 @@ final class HistoryProviderRegistry {
     static HistoryProviderRegistry createDefault(HandlerContext context) {
         return new HistoryProviderRegistry(List.of(
                 new ClaudeHistoryProviderAdapter(),
-                new CodexHistoryProviderAdapter(context),
+                new CodexHistoryProviderAdapter(),
                 new OpenCodeHistoryProviderAdapter(context)
         ));
     }
@@ -40,7 +38,20 @@ final class HistoryProviderRegistry {
         return adapter;
     }
 
-    List<JsonObject> loadMessages(String provider, String sessionId, String projectPath) {
-        return adapter(provider).loadMessages(sessionId, projectPath);
+    HistoryCapabilities capabilities(String provider) {
+        return HistoryCapabilities.from(adapter(provider));
+    }
+
+    boolean supports(String provider, HistoryCapability capability) {
+        return adapter(provider).supports(capability);
+    }
+
+    HistoryMessageBatch loadMessages(
+            String provider,
+            String sessionId,
+            String projectPath,
+            HistoryMessageReadPolicy policy
+    ) {
+        return adapter(provider).loadMessages(sessionId, projectPath, policy);
     }
 }

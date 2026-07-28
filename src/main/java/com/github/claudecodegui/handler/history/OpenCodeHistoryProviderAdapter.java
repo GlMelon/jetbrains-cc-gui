@@ -7,6 +7,7 @@ import com.github.claudecodegui.session.runtime.ProviderType;
 import com.google.gson.JsonObject;
 
 import java.util.List;
+import java.util.Set;
 
 final class OpenCodeHistoryProviderAdapter implements HistoryProviderAdapter {
     private final HandlerContext context;
@@ -18,6 +19,11 @@ final class OpenCodeHistoryProviderAdapter implements HistoryProviderAdapter {
     @Override
     public ProviderType provider() {
         return ProviderType.OPENCODE;
+    }
+
+    @Override
+    public Set<HistoryCapability> capabilities() {
+        return Set.of(HistoryCapability.ARCHIVE);
     }
 
     @Override
@@ -36,14 +42,24 @@ final class OpenCodeHistoryProviderAdapter implements HistoryProviderAdapter {
     }
 
     @Override
-    public List<JsonObject> loadMessages(String sessionId, String projectPath) {
+    public HistoryMessageBatch loadMessages(
+            String sessionId,
+            String projectPath,
+            HistoryMessageReadPolicy policy
+    ) {
         OpenCodeSDKBridge bridge = context.getOpenCodeSDKBridge();
         if (bridge == null) {
-            return List.of();
+            return HistoryMessageBatch.empty();
         }
-        List<JsonObject> messages = bridge.getSessionMessages(sessionId, projectPath);
+        OpenCodeSDKBridge.SessionHistoryQueryResult result = bridge.getSessionMessages(
+                sessionId,
+                projectPath,
+                policy.maxMessageCount(),
+                policy.maxUtf8Bytes()
+        );
+        List<JsonObject> messages = result.messages();
         sanitizeHistoryMessages(messages);
-        return messages;
+        return new HistoryMessageBatch(messages, result.totalMessageCount());
     }
 
     /**
@@ -58,21 +74,16 @@ final class OpenCodeHistoryProviderAdapter implements HistoryProviderAdapter {
     }
 
     @Override
-    public HistoryDeleteResult deleteSession(String sessionId, String projectPath) {
+    public HistoryArchiveResult archiveSession(String sessionId, String projectPath) {
         OpenCodeSDKBridge bridge = context.getOpenCodeSDKBridge();
         if (bridge == null) {
-            return HistoryDeleteResult.none();
+            return HistoryArchiveResult.none();
         }
-        return buildDeleteResult(bridge.deleteSession(sessionId));
+        return buildArchiveResult(bridge.archiveSession(sessionId));
     }
 
-    /**
-     * 把 ai-bridge archiveSession 返回的受影响行数映射为 HistoryDeleteResult(对称 Codex
-     * 把"文件是否删掉"映射为 mainDeleted)。OpenCode 走软删除(归档),无独立 agent 文件,
-     * 故 agentFilesDeleted 恒 0。纯函数,便于无 HandlerContext(具体类,Platform 依赖)单测。
-     */
-    static HistoryDeleteResult buildDeleteResult(int archived) {
-        return new HistoryDeleteResult(archived > 0, 0);
+    static HistoryArchiveResult buildArchiveResult(int archived) {
+        return new HistoryArchiveResult(archived > 0);
     }
 
     @Override
