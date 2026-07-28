@@ -1,0 +1,16 @@
+{
+  "cwd": ".",
+  "include": ["ai-bridge/**/*.js"],
+  "exclude": [
+    "ai-bridge/**/*.test.js",
+    "ai-bridge/node_modules/**",
+    "ai-bridge/scripts/**",
+    "ai-bridge/coverage/**"
+  ],
+  "all": false,
+  "reporter": ["text", "text-summary", "json", "json-summary"],
+  "reports-dir": "ai-bridge/coverage",
+  "check-coverage": false,
+  "branches": 0,
+  "lines": 0
+}

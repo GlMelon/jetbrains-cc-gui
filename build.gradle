@@ -1,6 +1,7 @@
 plugins {
     id 'java'
     id 'checkstyle'
+    id 'jacoco'
     id 'org.jetbrains.intellij.platform' version '2.10.5'
 }
 
@@ -39,6 +40,13 @@ checkstyle {
 // of a failure.
 tasks.named('checkstyleTest') {
     enabled = false
+}
+
+// JaCoCo 覆盖率(§T1 第三阶段 Java 防倒退 gate)。toolVersion 0.8.12 支持 JDK17 class(major 61)。
+// 字节码插桩确定性 → baseline 精确冻结(不取整)。与 instrumentCode/instrumentTestCode(已禁用)正交:
+// JaCoCo agent 在 test JVM 织入 build/classes/java/test 原始字节码,不与 IntelliJ instrumentationTools 冲突。
+jacoco {
+    toolVersion = '0.8.12'
 }
 
 group = 'com.github.idea-claude-code-gui'
@@ -280,6 +288,41 @@ tasks.named('instrumentTestCode') {
 
 tasks.named('jarSearchableOptions') {
     enabled = false
+}
+
+// test task 的 jacoco 运行时配置。IntelliJ Platform 2022.1+ 用 PathClassLoader 作 system class loader,
+// JaCoCo agent 默认只发现 bootstrap classloader 的类 → 插件类不进 test.exec、XML 全 covered=0(实测 INSTRUCTION covered=0/885 class 全 missed)。
+// includeNoLocationClasses=true(=jacocoagent inclnolocationclasses=true)让 agent 捕获 PathClassLoader 加载的
+// "无位置信息"插件类(官方 FAQ「JaCoCo Reports 0% Coverage」workaround)。excludes jdk.internal.* 去 JDK 内部噪声。
+// instrumentCode 已禁用 → 不需 classDirectories.setFrom(instrumentCode)(该条仅 instrumentCode enabled 时需要)。
+test {
+    jacoco {
+        includeNoLocationClasses = true
+        excludes = ['jdk.internal.*']
+    }
+}
+
+// JaCoCo 报告配置。gate(scripts/check-java-coverage.mjs)消费 XML report 级 counter。
+// classDirectories 必须显式收紧:
+// (1) intellij.platform 2.10.5 把大量 IDE jar 塞进 classpath,不收紧会把 IDE 类算进分母(数字失真);
+// (2) ui/(336K ~40% main 源码)是 JCEF/toolwindow 平台胶水,近乎无法单测,留着拖到噪声区
+//     (对标 ai-bridge c8 all:false「排除噪声让数字健康」)。
+// 不加 dependsOn test(gate 三步分离,失败归因清晰);apply jacoco 后 test task 自动追加 agent 写 test.exec。
+jacocoTestReport {
+    reports {
+        xml.required = true   // gate 消费,默认 build/reports/jacoco/test/jacocoTestReport.xml
+        html.required = true  // dev 排查未覆盖代码;CI 不消费但成本低
+        csv.required = false
+    }
+    classDirectories.setFrom(fileTree("${layout.buildDirectory.get()}/classes/java/main") {
+        // exclude 在 ConfigurableFileTree 闭包里是方法调用(exclude 'pattern'),非属性赋值。
+        exclude 'com/github/claudecodegui/i18n/**'                              // 平台生成的 bundle holder
+        exclude 'com/github/claudecodegui/ui/**'                                // JCEF/toolwindow/delegate 胶水(336K)
+        exclude 'com/github/claudecodegui/startup/**'                           // 生命周期 listener 样板
+        exclude 'com/github/claudecodegui/protocol/ProtocolManifestGenerator*'  // 构建工具,默认禁用 task
+        exclude 'com/github/claudecodegui/util/JsUtils*'                        // JCEF JS 桥胶水
+    })
+    sourceDirectories.setFrom(sourceSets.main.java.srcDirs)
 }
 
 tasks.named('runIde') {

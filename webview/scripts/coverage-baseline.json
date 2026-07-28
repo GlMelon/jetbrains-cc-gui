@@ -1,0 +1,11 @@
+{
+  "branches": 73.3,
+  "lines": 68.7,
+  "statements": 68.7,
+  "functions": 63.4,
+  "snapshotAt": "2026-07-27 (3-run V8 observation, frozen at 0.1% granularity)",
+  "note": "webview Vitest v8 total pct (all:false, imported files only). V8 coverage 实测有 ±0.01-0.02% 微抖动(branches 分母 6206-6210 浮动,React/async/箭头函数致 V8 分支计数非确定,与 ai-bridge 零抖动不同);baseline 取 3 次观测最小值(branches 73.38 / lines 68.78)再向下取整 0.1% 粒度留缓冲,防 CI 环境差异 flaky。gate: actual<branches|lines> < baseline = FAIL。重 snap 时建议连跑 ≥3 次取 min 再取整。",
+  "tool": "vitest@3 + @vitest/coverage-v8",
+  "config": "webview/vitest.config.ts",
+  "observation": "3 runs, 1141 tests pass each: branches 73.38/73.39/73.38, lines 68.78/68.79/68.78, functions 63.46 fixed"
+}

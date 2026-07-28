@@ -28,9 +28,35 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: '22.12.0'
+          # Cache npm downloads keyed on ai-bridge's lockfile.
+          cache: 'npm'
+          cache-dependency-path: 'ai-bridge/package-lock.json'
+
+      - name: Install dependencies
+        # c8 + istanbul-lib-coverage (coverage gate, docs §11.5 / §T1) live in
+        # devDependencies; node_modules is absent on a fresh checkout, so install
+        # before any step that imports them.
+        working-directory: ai-bridge
+        run: npm ci
 
       - name: Run ai-bridge tests
+        # Pure test run kept separate from coverage so a failure points cleanly at
+        # the failing test, not the coverage toolchain.
         run: node --test "ai-bridge/**/*.test.js"
+
+      - name: Generate c8 coverage
+        # Collects branch + line coverage into ai-bridge/coverage/coverage-final.json.
+        # run-coverage.mjs anchors cwd to the repo root (tests resolve modules via
+        # path.resolve('ai-bridge/...')) and drives c8 as the node parent process,
+        # bypassing the .bin/c8 shim for cross-platform reliability.
+        run: node ai-bridge/scripts/run-coverage.mjs
+
+      - name: Check coverage baseline
+        # Anti-regression gate (docs §11.5 / §T1 stage 1): fails if total branches
+        # or lines drop below the committed baseline in coverage-baseline.json.
+        # Direction is inverted vs the i18n locale gate below: coverage baseline is
+        # a MINIMUM (higher is better), so actual < baseline = FAIL.
+        run: node ai-bridge/scripts/check-coverage.mjs --verbose
 
   # webview unit tests: vitest run plus a typecheck of the test sources.
   # No build step is needed — the vitest suite operates against source, not dist.
@@ -45,6 +71,9 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: '22.12.0'
+          # Cache npm downloads keyed on webview's lockfile.
+          cache: 'npm'
+          cache-dependency-path: 'webview/package-lock.json'
 
       - name: Install dependencies
         working-directory: webview
@@ -59,8 +88,26 @@ jobs:
         run: npm run prebuild
 
       - name: Run webview tests
+        # Pure test run (vitest run + tsc typecheck) kept separate from coverage
+        # so a failure points cleanly at the failing test, not the toolchain.
         working-directory: webview
         run: npm run test
+
+      - name: Generate v8 coverage
+        # Collects branch + line coverage into webview/coverage/coverage-final.json
+        # (v8 provider, all:false = only files imported by tests). Reuses the
+        # version file generated above; no separate prebuild needed.
+        working-directory: webview
+        run: npm run test:coverage
+
+      - name: Check coverage baseline
+        # Anti-regression gate (docs §11.5 / §T1 stage 2): fails if total branches
+        # or lines drop below the committed baseline in coverage-baseline.json.
+        # Direction inverted vs the i18n locale gate: coverage baseline is a
+        # MINIMUM, so actual < baseline = FAIL. Baseline frozen at 0.1%
+        # granularity because V8 branch counting has ~0.01-0.02% non-determinism.
+        working-directory: webview
+        run: node scripts/check-coverage.mjs --verbose
 
   # Full Java unit-test suite on Linux. The NodeDetectorWslTest integration
   # tests are Windows+WSL-gated (they Assume Windows+WSL) and are SKIPPED here;
@@ -97,6 +144,19 @@ jobs:
 
       - name: Run tests
         run: ./gradlew test
+
+      - name: Generate JaCoCo coverage
+        # 从 test 步骤产出的 build/jacoco/test.exec 生成 XML(gate 消费 report 级 counter)。
+        # jacocoTestReport 不依赖 test,读已有 exec 不重跑。-x buildWebview:class 已编译,
+        # 无需重建 webview(省时 + 防边界:规避 fresh 环境 tsc 不在 PATH)。
+        run: ./gradlew jacocoTestReport -x buildWebview
+
+      - name: Check Java coverage baseline
+        # 防倒退 gate(docs §11.5 / §T1 第三阶段):total branches 或 lines 跌破
+        # java-coverage-baseline.json 即 FAIL。方向与 i18n locale gate 相反:coverage baseline
+        # 是最小值,actual < baseline = FAIL。JaCoCo 字节码插桩确定性 → 精确冻结(不取整)。
+        # 零依赖 .mjs,java-linux 已 setup Node 22,无需新 npm install。
+        run: node scripts/check-java-coverage.mjs --verbose
 
   # Runs the Windows+WSL integration tests that the Linux job cannot exercise.
   # Vampire/setup-wsl installs a real WSL distro so isWslPath /

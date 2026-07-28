@@ -1,0 +1,10 @@
+{
+  "branches": 30.74492850016628,
+  "lines": 36.56774867287442,
+  "statements": 38.14721995869272,
+  "functions": 44.37895342150661,
+  "snapshotAt": "2026-07-27T06:58:06.742Z",
+  "note": "Java JaCoCo total pct(classDirectories 收紧到 build/classes/java/main,排除 i18n/ui/startup/ProtocolManifestGenerator/JsUtils 胶水)。JaCoCo 字节码插桩确定性 → 精确冻结(不取整)。gate: actual<branches|lines> < baseline = FAIL。",
+  "tool": "jacoco@0.8.12",
+  "config": "build.gradle (jacocoTestReport.classDirectories excludes)"
+}

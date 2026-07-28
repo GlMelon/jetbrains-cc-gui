@@ -1,0 +1,10 @@
+{
+  "branches": 67.29,
+  "lines": 55.13,
+  "statements": 55.13,
+  "functions": 51.63,
+  "snapshotAt": "2026-07-27T04:11:04.201Z",
+  "note": "ai-bridge c8 total pct (all:false, imported files only). gate: actual<branches|lines> < baseline = FAIL.",
+  "tool": "c8@10.1.3",
+  "config": "ai-bridge/.c8rc.json"
+}
