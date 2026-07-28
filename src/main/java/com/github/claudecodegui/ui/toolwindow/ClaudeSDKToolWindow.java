@@ -57,6 +57,15 @@ public class ClaudeSDKToolWindow implements ToolWindowFactory, DumbAware {
     private static final Set<Content> detachingContents =
             Collections.newSetFromMap(new ConcurrentHashMap<>());
 
+    /** Per-Content runtime flag mirroring the persisted pinned state for closeable decisions. */
+    public static final com.intellij.openapi.util.Key<Boolean> PINNED_KEY =
+            com.intellij.openapi.util.Key.create("CCG.tab.pinned");
+
+    public static boolean isPinned(Content content) {
+        Boolean pinned = content == null ? null : content.getUserData(PINNED_KEY);
+        return pinned != null && pinned;
+    }
+
     public static ClaudeChatWindow getChatWindow(Project project) {
         return instances.get(project);
     }
@@ -322,6 +331,9 @@ public class ClaudeSDKToolWindow implements ToolWindowFactory, DumbAware {
         com.intellij.openapi.actionSystem.AnAction renameTabAction =
                 com.intellij.openapi.actionSystem.ActionManager.getInstance()
                         .getAction("ClaudeCodeGUI.RenameTabAction");
+        com.intellij.openapi.actionSystem.AnAction pinTabAction =
+                com.intellij.openapi.actionSystem.ActionManager.getInstance()
+                        .getAction("ClaudeCodeGUI.PinTabAction");
         com.intellij.openapi.actionSystem.AnAction detachTabAction =
                 com.intellij.openapi.actionSystem.ActionManager.getInstance()
                         .getAction("ClaudeCodeGUI.DetachTabAction");
@@ -335,6 +347,9 @@ public class ClaudeSDKToolWindow implements ToolWindowFactory, DumbAware {
         // Set colored icons on custom actions
         if (renameTabAction != null) {
             renameTabAction.getTemplatePresentation().setIcon(TabMenuIcons.rename());
+        }
+        if (pinTabAction != null) {
+            pinTabAction.getTemplatePresentation().setIcon(TabMenuIcons.pin());
         }
         if (detachTabAction != null) {
             detachTabAction.getTemplatePresentation().setIcon(TabMenuIcons.detach());
@@ -351,9 +366,12 @@ public class ClaudeSDKToolWindow implements ToolWindowFactory, DumbAware {
                 new com.intellij.openapi.actionSystem.DefaultActionGroup();
 
         // Group: 编辑 (Edit)
-        boolean hasEditActions = (renameTabAction != null) || (detachTabAction != null);
+        boolean hasEditActions = (renameTabAction != null) || (detachTabAction != null) || (pinTabAction != null);
         if (hasEditActions) {
             gearActions.addSeparator("编辑");
+        }
+        if (pinTabAction != null) {
+            gearActions.add(pinTabAction);
         }
         if (renameTabAction != null) {
             gearActions.add(renameTabAction);
@@ -459,13 +477,13 @@ public class ClaudeSDKToolWindow implements ToolWindowFactory, DumbAware {
 
     private void updateTabCloseableState(ContentManager contentManager) {
         int tabCount = contentManager.getContentCount();
-        boolean closeable = tabCount > 1;
 
         for (Content tab : contentManager.getContents()) {
-            tab.setCloseable(closeable);
+            // A tab is closeable only when there is more than one tab AND it is not pinned.
+            tab.setCloseable(tabCount > 1 && !isPinned(tab));
         }
 
-        LOG.debug("[TabManager] Updated tab closeable state: count=" + tabCount + ", closeable=" + closeable);
+        LOG.debug("[TabManager] Updated tab closeable state: count=" + tabCount);
     }
 
     private JPanel createLoadingPanel() {
@@ -587,8 +605,15 @@ public class ClaudeSDKToolWindow implements ToolWindowFactory, DumbAware {
         if (savedState == null) {
             return;
         }
+        if (savedState.pinned) {
+            Content content = chatWindow.getParentContent();
+            if (content != null) {
+                content.putUserData(PINNED_KEY, true);
+            }
+        }
         chatWindow.restorePersistedTabSessionState(savedState, loadImmediately);
-        LOG.info("[TabManager] Restored tab " + tabIndex + " session binding from storage");
+        LOG.info("[TabManager] Restored tab " + tabIndex + " session binding from storage"
+                + (savedState.pinned ? " (pinned)" : ""));
     }
 
     private static synchronized void registerShutdownHook() {
