@@ -79,11 +79,6 @@ interface Window {
   setHistoryData?: (data: any) => void;
 
   /**
-   * Export session data callback
-   */
-  onExportSessionData?: (json: string) => void;
-
-  /**
    * Clear all messages
    */
   clearMessages?: () => void;
@@ -224,6 +219,12 @@ interface Window {
    * Update MCP marketplace entries.
    */
   updateMcpMarketplaceEntries?: (json: string) => void;
+
+  /**
+   * Result of a one-click MCP install from the marketplace
+   * ({success, serverId, name} | {success:false, error, errorCode}).
+   */
+  mcpMarketInstallResult?: (json: string) => void;
 
   /**
    * Preview of MCP servers parsed from an external (e.g. GitHub Copilot) configuration.

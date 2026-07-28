@@ -522,7 +522,7 @@ export function McpSettingsSection({ currentProvider = 'claude' }: McpSettingsSe
           currentProvider={currentProvider}
           existingIds={servers.map(s => s.id)}
           onClose={() => setShowMarketplaceDialog(false)}
-          onSelect={handleSaveServer}
+          onInstalled={loadServers}
         />
       )}
 

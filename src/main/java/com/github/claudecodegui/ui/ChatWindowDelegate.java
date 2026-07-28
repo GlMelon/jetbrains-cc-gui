@@ -32,6 +32,7 @@ import com.github.claudecodegui.handler.dependency.CheckDependencyUpdatesActionH
 import com.github.claudecodegui.handler.dependency.GetDependencyVersionsActionHandler;
 import com.github.claudecodegui.handler.dependency.CheckNodeEnvironmentActionHandler;
 import com.github.claudecodegui.handler.enhance.EnhancePromptActionHandler;
+import com.github.claudecodegui.handler.file.SaveExportedFileActionHandler;
 import com.github.claudecodegui.handler.file.SaveMarkdownActionHandler;
 import com.github.claudecodegui.handler.file.SaveJsonActionHandler;
 import com.github.claudecodegui.handler.file.UndoFileChangesActionHandler;
@@ -53,7 +54,9 @@ import com.github.claudecodegui.handler.history.LoadHistoryDataActionHandler;
 import com.github.claudecodegui.handler.history.LoadSessionActionHandler;
 import com.github.claudecodegui.handler.history.DeleteSessionActionHandler;
 import com.github.claudecodegui.handler.history.DeleteSessionsActionHandler;
+import com.github.claudecodegui.handler.history.ArchiveSessionsActionHandler;
 import com.github.claudecodegui.handler.history.ExportSessionActionHandler;
+import com.github.claudecodegui.handler.history.PrintSessionPdfActionHandler;
 import com.github.claudecodegui.handler.history.ToggleFavoriteActionHandler;
 import com.github.claudecodegui.handler.history.UpdateTitleActionHandler;
 import com.github.claudecodegui.handler.history.DeleteTitleActionHandler;
@@ -233,6 +236,7 @@ import com.github.claudecodegui.handler.mcp.ValidateMcpServerActionHandler;
 import com.github.claudecodegui.handler.mcp.McpMarketActionHandlers;
 import com.github.claudecodegui.handler.mcp.SearchMcpMarketActionHandler;
 import com.github.claudecodegui.handler.mcp.GetMcpMarketDetailActionHandler;
+import com.github.claudecodegui.handler.mcp.InstallMcpFromMarketActionHandler;
 import com.github.claudecodegui.handler.skill.SkillActionHandlers;
 import com.github.claudecodegui.handler.skill.GetAllSkillsActionHandler;
 import com.github.claudecodegui.handler.skill.ImportSkillActionHandler;
@@ -557,6 +561,7 @@ public class ChatWindowDelegate {
         typedHandlers.add(new EnhancePromptActionHandler());
         typedHandlers.add(new SaveMarkdownActionHandler());
         typedHandlers.add(new SaveJsonActionHandler());
+        typedHandlers.add(new SaveExportedFileActionHandler());
         typedHandlers.add(new UndoFileChangesActionHandler());
         typedHandlers.add(new UndoAllFileChangesActionHandler());
         // Permission mode (B3 slice: permission mode)
@@ -688,10 +693,11 @@ public class ChatWindowDelegate {
         typedHandlers.add(new ToggleMcpServerActionHandler(mcpServerHandlers));
         typedHandlers.add(new ValidateMcpServerActionHandler(mcpServerHandlers));
 
-        // MCP 市场 (Smithery Registry): 搜索 + 详情 (Bearer key 后端持有,前端只存掩码)
+        // MCP 市场 (Smithery Registry): 搜索 + 详情 + 一键安装 (Bearer key 后端持有,前端只存掩码)
         McpMarketActionHandlers mcpMarketHandlers = new McpMarketActionHandlers(handlerContext);
         typedHandlers.add(new SearchMcpMarketActionHandler(mcpMarketHandlers));
         typedHandlers.add(new GetMcpMarketDetailActionHandler(mcpMarketHandlers));
+        typedHandlers.add(new InstallMcpFromMarketActionHandler(mcpMarketHandlers));
 
         // Codex MCP server action handlers (B2 迁移: Codex server CRUD + status + tools)
         CodexMcpServerActionHandlers codexMcpServerHandlers = new CodexMcpServerActionHandlers(handlerContext, settingsService.getCodexMcpServerManager());
@@ -832,7 +838,9 @@ public class ChatWindowDelegate {
         typedHandlers.add(new LoadSessionActionHandler(historyHandlers));
         typedHandlers.add(new DeleteSessionActionHandler(historyHandlers));
         typedHandlers.add(new DeleteSessionsActionHandler(historyHandlers));
+        typedHandlers.add(new ArchiveSessionsActionHandler(historyHandlers));
         typedHandlers.add(new ExportSessionActionHandler(historyHandlers));
+        typedHandlers.add(new PrintSessionPdfActionHandler(historyHandlers));
         typedHandlers.add(new ToggleFavoriteActionHandler(historyHandlers));
         typedHandlers.add(new UpdateTitleActionHandler(historyHandlers));
         typedHandlers.add(new DeleteTitleActionHandler(historyHandlers));

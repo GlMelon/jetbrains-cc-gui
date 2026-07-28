@@ -7,7 +7,10 @@ interface McpMarketplaceDialogProps {
   currentProvider?: 'claude' | 'codex' | string;
   existingIds?: string[];
   onClose: () => void;
-  onSelect: (server: McpServer) => void;
+  /** 预留:其他入口(如复用本组件做通用保存)可用;一键安装默认走 install_mcp_from_market handler */
+  onSelect?: (server: McpServer) => void;
+  /** install 成功后刷新父列表(复用 loadServers),与 SkillMarketDialog.onInstalled 一致 */
+  onInstalled: () => void;
 }
 
 const ALL_SOURCES_ID = 'all';
@@ -56,7 +59,7 @@ function isRiskyInstallOption(option: McpInstallOption): boolean {
 /**
  * MCP Marketplace Browser adapted from the former Swing registry browser.
  */
-export function McpMarketplaceDialog({ currentProvider = 'claude', existingIds = [], onClose, onSelect }: McpMarketplaceDialogProps) {
+export function McpMarketplaceDialog({ currentProvider = 'claude', existingIds = [], onClose, onInstalled }: McpMarketplaceDialogProps) {
   const { t } = useTranslation();
   const isCodexMode = currentProvider === 'codex';
   const [sources, setSources] = useState<McpMarketplaceSource[]>([]);
@@ -66,6 +69,7 @@ export function McpMarketplaceDialog({ currentProvider = 'claude', existingIds =
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [selectedOptionIndex, setSelectedOptionIndex] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [installing, setInstalling] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const selectedEntry = useMemo(
@@ -140,6 +144,29 @@ export function McpMarketplaceDialog({ currentProvider = 'claude', existingIds =
     rememberPreferredSourceId(selectedSourceId);
   }, [selectedSourceId]);
 
+  // 监听一键安装结果:成功→刷新父列表+关闭;失败→显示错误(如 unverified-command 被后端拒绝)。
+  useEffect(() => {
+    const handleInstallResult = (json: string) => {
+      setInstalling(false);
+      try {
+        const result = JSON.parse(json) as { success?: boolean; error?: string; errorCode?: string };
+        if (result.success) {
+          onInstalled();
+          onClose();
+        } else {
+          setError(result.error || result.errorCode || 'Install failed');
+        }
+      } catch (parseError) {
+        setError(String(parseError));
+      }
+    };
+    const previous = window.mcpMarketInstallResult;
+    window.mcpMarketInstallResult = handleInstallResult;
+    return () => {
+      window.mcpMarketInstallResult = previous;
+    };
+  }, [onInstalled, onClose]);
+
   useEffect(() => {
     const timer = window.setTimeout(() => loadEntries(false), 350);
     return () => window.clearTimeout(timer);
@@ -167,11 +194,15 @@ export function McpMarketplaceDialog({ currentProvider = 'claude', existingIds =
   };
 
   const handleInstall = () => {
-    if (!selectedEntry || !selectedInstallOption) {
+    if (!selectedEntry || !selectedInstallOption || installing) {
       return;
     }
-    onSelect(createServerFromMarketplaceEntry(selectedEntry, selectedInstallOption, existingIds, isCodexMode));
-    onClose();
+    const server = createServerFromMarketplaceEntry(selectedEntry, selectedInstallOption, existingIds, isCodexMode);
+    setError(null);
+    setInstalling(true);
+    // 经后端 install_mcp_from_market handler:riskLevel 安全校验(unverified-command 拒绝)+ upsertMcpServer 落盘;
+    // 结果由 window.mcpMarketInstallResult 回调接收(见下方 useEffect)。onSelect 仅保留给其他消费方。
+    sendToJava('install_mcp_from_market', { server });
   };
 
   return (
@@ -263,8 +294,9 @@ export function McpMarketplaceDialog({ currentProvider = 'claude', existingIds =
             {t('mcp.market.footerHint')}
           </div>
           <div className="footer-actions">
-            <button className="btn btn-secondary" onClick={onClose}>{t('mcp.cancel')}</button>
-            <button className="btn btn-primary" onClick={handleInstall} disabled={!selectedInstallOption}>
+            <button className="btn btn-secondary" onClick={onClose} disabled={installing}>{t('mcp.cancel')}</button>
+            <button className="btn btn-primary" onClick={handleInstall} disabled={!selectedInstallOption || installing}>
+              {installing && <span className="codicon codicon-loading codicon-modifier-spin"></span>}
               {t('mcp.market.addServer')}
             </button>
           </div>
@@ -421,6 +453,10 @@ function createServerSpec(option: McpInstallOption, entry: McpMarketplaceEntry):
   const spec: McpServerSpec = {
     type: normalizeMcpServerType(option.type),
   };
+  // riskLevel 存入 spec,供后端 install handler 安全校验 + 已安装列表风险徽标展示。
+  if (option.riskLevel) {
+    spec.riskLevel = option.riskLevel;
+  }
   if (option.command) {
     spec.command = option.command;
   }
