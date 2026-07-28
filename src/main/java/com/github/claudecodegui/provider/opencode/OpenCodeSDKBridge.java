@@ -33,11 +33,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * OpenCode SDK bridge：通过 Node.js bridge 层与 OpenCode HTTP API 交互。
- * <p>
- * 复用 {@link BaseSDKBridge} 模板方法，通过 channel-manager.js 桥接 OpenCode 的
- * HTTP REST API（opencode serve）。serve 守护进程由 {@link OpenCodeDaemonCoordinator}
- * 统一管理(B18),bridge 把 baseUrl 经 stdin 注入每次 channel 调用。
+ * OpenCode SDK bridge。继承 {@link BaseSDKBridge}，通过 channel-manager.js 桥接 OpenCode HTTP REST API。
+ * serve 守护进程由 {@link OpenCodeDaemonCoordinator} 统一管理(§15.7 B18),
+ * bridge 把 baseUrl 经 stdin 注入每次 channel 调用。
  */
 public class OpenCodeSDKBridge extends BaseSDKBridge {
     private static final int HISTORY_QUERY_TIMEOUT_SECONDS = 30;
@@ -334,19 +332,44 @@ public class OpenCodeSDKBridge extends BaseSDKBridge {
      * Read persisted OpenCode session history from the local OpenCode database.
      */
     public List<JsonObject> getSessionMessages(String sessionId, String cwd) {
+        return getSessionMessagesResult(sessionId, cwd, null, null).messages();
+    }
+
+    /** Reads a bounded history prefix while preserving the exact normalized source count. */
+    public SessionHistoryQueryResult getSessionMessages(
+            String sessionId,
+            String cwd,
+            int maxMessageCount,
+            int maxUtf8Bytes
+    ) {
+        return getSessionMessagesResult(sessionId, cwd, maxMessageCount, maxUtf8Bytes);
+    }
+
+    private SessionHistoryQueryResult getSessionMessagesResult(
+            String sessionId,
+            String cwd,
+            Integer maxMessageCount,
+            Integer maxUtf8Bytes
+    ) {
         if (sessionId == null || sessionId.isBlank()) {
-            return List.of();
+            return SessionHistoryQueryResult.empty();
         }
         try {
             File bridgeDir = getDirectoryResolver().findSdkDir();
             if (bridgeDir == null) {
                 LOG.warn("[OpenCode] Bridge directory not ready, cannot load history");
-                return List.of();
+                return SessionHistoryQueryResult.empty();
             }
 
             List<String> command = buildGetSessionCommand();
             JsonObject stdin = new JsonObject();
             stdin.addProperty("sessionId", sessionId);
+            if (maxMessageCount != null) {
+                stdin.addProperty("maxMessageCount", maxMessageCount);
+            }
+            if (maxUtf8Bytes != null) {
+                stdin.addProperty("maxUtf8Bytes", maxUtf8Bytes);
+            }
 
             ProcessBuilder pb = new ProcessBuilder(command);
             pb.directory(bridgeDir);
@@ -384,7 +407,7 @@ public class OpenCodeSDKBridge extends BaseSDKBridge {
                 if (!process.waitFor(HISTORY_QUERY_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
                     PlatformUtils.terminateProcessAndWait(process, 3, TimeUnit.SECONDS);
                     LOG.warn("[OpenCode] getSession timed out for session: " + sessionId);
-                    return List.of();
+                    return SessionHistoryQueryResult.empty();
                 }
                 waitForOutputDrain(outputFuture);
             } finally {
@@ -402,10 +425,10 @@ public class OpenCodeSDKBridge extends BaseSDKBridge {
                         ? result.get("error").getAsString()
                         : "unknown error";
                 LOG.warn("[OpenCode] Failed to load session history: " + error);
-                return List.of();
+                return SessionHistoryQueryResult.empty();
             }
             if (!result.has("messages") || !result.get("messages").isJsonArray()) {
-                return List.of();
+                return SessionHistoryQueryResult.empty();
             }
 
             List<JsonObject> messages = new ArrayList<>();
@@ -415,14 +438,27 @@ public class OpenCodeSDKBridge extends BaseSDKBridge {
                     messages.add(array.get(i).getAsJsonObject());
                 }
             }
-            // 问题3:回放路径(经 SessionProviderRouter→OpenCodeProviderAdapter→此处)此前未清理 IDE
-            // 拼接上下文,回放会把 "This project contains multiple modules:" 当正文渲染。bridge 是回放+
-            // 历史面板两路径的共同 choke point,在此 sanitize 即同时覆盖(历史面板侧再 sanitize 幂等无害)。
             OpenCodeHistorySanitizer.sanitize(messages);
-            return messages;
+            int totalMessageCount = result.has("totalMessageCount")
+                    ? Math.max(messages.size(), result.get("totalMessageCount").getAsInt())
+                    : messages.size();
+            return new SessionHistoryQueryResult(messages, totalMessageCount);
         } catch (Exception e) {
             LOG.warn("[OpenCode] Failed to load session history: " + e.getMessage(), e);
-            return List.of();
+            return SessionHistoryQueryResult.empty();
+        }
+    }
+
+    public record SessionHistoryQueryResult(List<JsonObject> messages, int totalMessageCount) {
+        public SessionHistoryQueryResult {
+            messages = messages == null ? List.of() : List.copyOf(messages);
+            if (totalMessageCount < messages.size()) {
+                throw new IllegalArgumentException("totalMessageCount cannot be smaller than messages");
+            }
+        }
+
+        static SessionHistoryQueryResult empty() {
+            return new SessionHistoryQueryResult(List.of(), 0);
         }
     }
 
@@ -515,7 +551,7 @@ public class OpenCodeSDKBridge extends BaseSDKBridge {
     /**
      * 归档(软删除)OpenCode 会话(对称 getSessionList 的 spawn 模式)。
      * <p>
-     * spawn channel-manager.js opencode deleteSession,stdin 注入 {sessionId},
+     * spawn channel-manager.js opencode archiveSession,stdin 注入 {sessionId},
      * ai-bridge history-service.archiveSession 执行 update session set time_archived +
      * 显式 export 回写文件(sql.js 内存 db 写后必须回写)。getSessionList 已用
      * where time_archived is null 过滤,归档后 reload 自动不再出现。
@@ -523,18 +559,18 @@ public class OpenCodeSDKBridge extends BaseSDKBridge {
      * @param sessionId 会话 id
      * @return 实际新归档的行数;失败/异常/bridge 未就绪/会话不存在返回 0(不抛)
      */
-    public int deleteSession(String sessionId) {
+    public int archiveSession(String sessionId) {
         if (sessionId == null || sessionId.isBlank()) {
             return 0;
         }
         try {
             File bridgeDir = getDirectoryResolver().findSdkDir();
             if (bridgeDir == null) {
-                LOG.warn("[OpenCode] Bridge directory not ready, cannot delete session");
+                LOG.warn("[OpenCode] Bridge directory not ready, cannot archive session");
                 return 0;
             }
 
-            List<String> command = buildDeleteSessionCommand();
+            List<String> command = buildArchiveSessionCommand();
             JsonObject stdin = new JsonObject();
             stdin.addProperty("sessionId", sessionId);
 
@@ -547,7 +583,7 @@ public class OpenCodeSDKBridge extends BaseSDKBridge {
             envConfigurator.updateProcessEnvironment(pb, node);
 
             StringBuilder output = new StringBuilder();
-            String channelId = ProcessManager.newChannelId("opencode-session-delete");
+            String channelId = ProcessManager.newChannelId("opencode-session-archive");
             Process process = null;
             CompletableFuture<Void> outputFuture = null;
             try {
@@ -562,7 +598,7 @@ public class OpenCodeSDKBridge extends BaseSDKBridge {
                             output.append(line).append('\n');
                         }
                     } catch (Exception e) {
-                        LOG.debug("[OpenCode] deleteSession output drain failed: " + e.getMessage());
+                        LOG.debug("[OpenCode] archiveSession output drain failed: " + e.getMessage());
                     }
                 });
 
@@ -573,7 +609,7 @@ public class OpenCodeSDKBridge extends BaseSDKBridge {
 
                 if (!process.waitFor(HISTORY_QUERY_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
                     PlatformUtils.terminateProcessAndWait(process, 3, TimeUnit.SECONDS);
-                    LOG.warn("[OpenCode] deleteSession timed out for session: " + sessionId);
+                    LOG.warn("[OpenCode] archiveSession timed out for session: " + sessionId);
                     return 0;
                 }
                 waitForOutputDrain(outputFuture);
@@ -591,14 +627,14 @@ public class OpenCodeSDKBridge extends BaseSDKBridge {
                 String error = result != null && result.has("error") && !result.get("error").isJsonNull()
                         ? result.get("error").getAsString()
                         : "unknown error";
-                LOG.warn("[OpenCode] Failed to delete session: " + error);
+                LOG.warn("[OpenCode] Failed to archive session: " + error);
                 return 0;
             }
             return result.has("archived") && result.get("archived").isJsonPrimitive()
                     ? result.get("archived").getAsInt()
                     : 0;
         } catch (Exception e) {
-            LOG.warn("[OpenCode] Failed to delete session: " + e.getMessage(), e);
+            LOG.warn("[OpenCode] Failed to archive session: " + e.getMessage(), e);
             return 0;
         }
     }
@@ -665,14 +701,14 @@ public class OpenCodeSDKBridge extends BaseSDKBridge {
     }
 
     /**
-     * 会话归档命令(对称 buildListSessionsCommand,仅末位参 listSessions→deleteSession)。
+     * 会话归档命令(对称 buildListSessionsCommand,仅末位参 listSessions→archiveSession)。
      */
-    List<String> buildDeleteSessionCommand() {
+    List<String> buildArchiveSessionCommand() {
         List<String> cmd = new ArrayList<>();
         cmd.add(nodeDetector.getNodeExecutable());
         cmd.add("channel-manager.js");
         cmd.add(getProviderName());
-        cmd.add("deleteSession");
+        cmd.add("archiveSession");
         return cmd;
     }
 

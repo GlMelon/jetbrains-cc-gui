@@ -23,8 +23,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import com.github.claudecodegui.common.CommonConstants;
 
 /**
- * Claude Agent SDK bridge.
- * Handles Java to Node.js SDK communication, supports async and streaming responses.
+ * Claude Agent SDK bridge。继承 {@link BaseSDKBridge}，通过 ai-bridge 层(Node.js)与 Claude SDK 通信。
+ * 支持异步(streaming)与同步响应;使用统一 ai-bridge 目录(与 Codex/OpenCode 共享)。
  */
 public class ClaudeSDKBridge extends BaseSDKBridge {
 

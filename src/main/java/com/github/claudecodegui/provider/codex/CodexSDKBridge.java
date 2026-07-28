@@ -44,9 +44,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Codex SDK bridge.
- * Handles Java to Node.js Codex SDK communication, supports streaming responses.
- * Uses unified ai-bridge directory (shared with Claude).
+ * Codex SDK bridge。继承 {@link BaseSDKBridge}，通过 ai-bridge 层(Node.js)与 Codex SDK 通信。
+ * 使用统一 ai-bridge 目录(与 Claude 共享),支持 streaming 响应。
  */
 public class CodexSDKBridge extends BaseSDKBridge {
 
