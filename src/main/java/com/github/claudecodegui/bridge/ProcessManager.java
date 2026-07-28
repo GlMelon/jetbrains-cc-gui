@@ -25,6 +25,7 @@ public class ProcessManager {
     private static final String CLAUDE_TEMP_DIR_NAME = "claude-agent-tmp";
 
     private final Map<String, Process> activeChannelProcesses = new ConcurrentHashMap<>();
+    private final Map<String, Long> channelStartTimes = new ConcurrentHashMap<>();
     private final Set<String> interruptedChannels = ConcurrentHashMap.newKeySet();
     private final Set<String> startingChannels = ConcurrentHashMap.newKeySet();
     private final Map<RuntimeKey, Process> activeRuntimeProcesses = new ConcurrentHashMap<>();
@@ -71,6 +72,7 @@ public class ProcessManager {
     public void registerProcess(String channelId, Process process) {
         if (channelId != null && process != null) {
             activeChannelProcesses.put(channelId, process);
+            channelStartTimes.put(channelId, System.currentTimeMillis());
             startingChannels.remove(channelId);
             if (interruptedChannels.contains(channelId)) {
                 LOG.info("[Interrupt] Channel was cancelled before process registration: " + channelId);
@@ -95,6 +97,7 @@ public class ProcessManager {
     public void unregisterProcess(String channelId, Process process) {
         if (channelId != null) {
             activeChannelProcesses.remove(channelId, process);
+            channelStartTimes.remove(channelId);
             startingChannels.remove(channelId);
         }
     }
@@ -480,5 +483,35 @@ public class ProcessManager {
         if (cleaned > 0) {
             LOG.info("[ProcessManager] Cleaned up " + cleaned + " stale temp cwd files.");
         }
+    }
+
+    /**
+     * Scans and cleans up stale channel processes that have been alive longer than
+     * {@code maxAgeMs}. Returns the number of processes cleaned.
+     * <p>
+     * A channel process is considered stale if it is still alive and its registered
+     * start time exceeds {@code maxAgeMs}. This is a safety net for abnormal scenarios
+     * (e.g. the thread is killed before {@code waitFor} or {@code unregisterProcess}).
+     * <p>
+     * Thread-safe: uses ConcurrentHashMap iterators and does not throw on concurrent
+     * modification. Missed entries in one pass are acceptable for a safety-net scan.
+     */
+    public int cleanupStaleChannelProcesses(long maxAgeMs, long now) {
+        int cleaned = 0;
+        for (Map.Entry<String, Process> entry : activeChannelProcesses.entrySet()) {
+            String channelId = entry.getKey();
+            Process process = entry.getValue();
+            if (process != null && process.isAlive()) {
+                Long startTime = channelStartTimes.get(channelId);
+                if (startTime != null && (now - startTime) > maxAgeMs) {
+                    LOG.warn("[ProcessManager] Watchdog: stale channel process detected: " + channelId
+                        + " (age=" + (now - startTime) + "ms)");
+                    terminateProcess(channelId, process);
+                    unregisterProcess(channelId, process);
+                    cleaned++;
+                }
+            }
+        }
+        return cleaned;
     }
 }
