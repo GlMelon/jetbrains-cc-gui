@@ -1,6 +1,7 @@
 package com.github.claudecodegui.provider.codex;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
 
@@ -9,8 +10,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 /**
@@ -29,36 +29,41 @@ class CodexHistorySessionService {
     }
 
     String getSessionMessagesAsJson(String sessionId) {
+        JsonArray messages = new JsonArray();
+        visitSessionMessages(sessionId, messages::add);
+        return gson.toJson(messages);
+    }
+
+    void visitSessionMessages(String sessionId, Consumer<JsonObject> consumer) {
         try {
             Path sessionFile = findSessionFile(sessionId);
             if (sessionFile == null) {
                 LOG.warn("[CodexHistoryReader] Session file not found for: " + sessionId);
-                return gson.toJson(new ArrayList<>());
+                return;
             }
 
-            List<CodexHistoryReader.CodexMessage> messages = new ArrayList<>();
             try (BufferedReader reader = Files.newBufferedReader(sessionFile, StandardCharsets.UTF_8)) {
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    if (line.trim().isEmpty()) {
+                    if (line.isBlank()) {
                         continue;
                     }
 
                     try {
-                        CodexHistoryReader.CodexMessage msg = gson.fromJson(line, CodexHistoryReader.CodexMessage.class);
-                        if (msg != null) {
-                            messages.add(transformFunctionCall(msg));
+                        CodexHistoryReader.CodexMessage message = gson.fromJson(
+                                line,
+                                CodexHistoryReader.CodexMessage.class
+                        );
+                        if (message != null) {
+                            consumer.accept(gson.toJsonTree(transformFunctionCall(message)).getAsJsonObject());
                         }
                     } catch (Exception e) {
                         LOG.debug("[CodexHistoryReader] Failed to parse message: " + e.getMessage());
                     }
                 }
             }
-
-            return gson.toJson(messages);
         } catch (Exception e) {
             LOG.error("[CodexHistoryReader] Failed to read session messages: " + e.getMessage(), e);
-            return gson.toJson(new ArrayList<>());
         }
     }
 

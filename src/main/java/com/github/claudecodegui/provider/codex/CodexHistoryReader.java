@@ -13,6 +13,7 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
@@ -263,6 +264,12 @@ public class CodexHistoryReader {
     public String getSessionMessagesAsJson(String sessionId) {
         logSessionAccessWithoutLocalConfigAuthorization();
         return sessionService.getSessionMessagesAsJson(sessionId);
+    }
+
+    /** Streams normalized raw Codex records without materializing the complete session. */
+    public void visitSessionMessages(String sessionId, Consumer<JsonObject> consumer) {
+        logSessionAccessWithoutLocalConfigAuthorization();
+        sessionService.visitSessionMessages(sessionId, consumer);
     }
 
     /**

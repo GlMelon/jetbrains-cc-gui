@@ -101,8 +101,9 @@ public class OpenCodeSDKBridgeTest {
                 "src", "main", "java", "com", "github", "claudecodegui", "provider", "opencode", "OpenCodeSDKBridge.java"));
         assertTrue("必须 override cleanupAllProcesses(对称 Claude/Codex SDK)",
                 source.contains("public void cleanupAllProcesses()"));
+        String normalizedSource = source.replace("\r\n", "\n");
         assertTrue("override 体内须先 shutdownDaemon(停常驻 serve)再 super.cleanupAllProcesses",
-                source.contains("shutdownDaemon();\n        super.cleanupAllProcesses()"));
+                normalizedSource.contains("shutdownDaemon();\n        super.cleanupAllProcesses()"));
         assertTrue("必须调 super.cleanupAllProcesses(清理 send 进程映射)",
                 source.contains("super.cleanupAllProcesses()"));
     }
@@ -149,6 +150,31 @@ public class OpenCodeSDKBridgeTest {
                 source.contains("process.waitFor(HISTORY_QUERY_TIMEOUT_SECONDS, TimeUnit.SECONDS)"));
         assertTrue("会话枚举超时必须终止并等待子进程退出",
                 source.contains("PlatformUtils.terminateProcessAndWait(process, 3, TimeUnit.SECONDS)"));
+    }
+
+    @Test
+    public void archiveSessionUsesOpenCodeBridgeCommandAndClosesProcessPipes() throws Exception {
+        String source = java.nio.file.Files.readString(java.nio.file.Paths.get(
+                "src", "main", "java", "com", "github", "claudecodegui", "provider", "opencode", "OpenCodeSDKBridge.java"));
+        int start = source.indexOf("public int archiveSession(String sessionId)");
+        int end = source.indexOf("private void waitForOutputDrain", start);
+        assertTrue("OpenCode 归档实现必须存在", start >= 0 && end > start);
+        String archiveSource = source.substring(start, end);
+
+        assertTrue("OpenCode 归档必须调用 channel-manager.js opencode archiveSession",
+                archiveSource.contains("buildArchiveSessionCommand()")
+                        && source.contains("cmd.add(\"archiveSession\");"));
+        assertTrue("归档必须通过 stdin 注入 sessionId",
+                archiveSource.contains("stdin.addProperty(\"sessionId\", sessionId)"));
+        assertTrue("归档必须关闭 stdin,避免 Node 子进程阻塞等待 EOF",
+                archiveSource.contains("try (OutputStream stdinStream = process.getOutputStream())"));
+        assertTrue("归档必须持续 drain stdout,避免管道写满阻塞",
+                archiveSource.contains("while ((line = reader.readLine()) != null)"));
+        assertTrue("归档必须有超时终止保护",
+                archiveSource.contains("process.waitFor(HISTORY_QUERY_TIMEOUT_SECONDS, TimeUnit.SECONDS)")
+                        && archiveSource.contains("PlatformUtils.terminateProcessAndWait(process, 3, TimeUnit.SECONDS)"));
+        assertTrue("归档退出后必须注销进程",
+                archiveSource.contains("processManager.unregisterProcess(channelId, process)"));
     }
 
     @Test
