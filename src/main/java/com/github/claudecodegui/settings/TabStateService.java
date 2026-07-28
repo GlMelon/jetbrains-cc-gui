@@ -94,6 +94,29 @@ public final class TabStateService implements PersistentStateComponent<TabStateS
     }
 
     /**
+     * Set the pinned flag for a tab. Works even when no session snapshot exists yet:
+     * creates a minimal {@link TabSessionState} so pinning survives until the next
+     * full snapshot is persisted (which preserves {@code pinned}).
+     */
+    public void setPinned(int tabIndex, boolean pinned) {
+        TabSessionState state = myState.tabSessions.get(tabIndex);
+        if (state == null) {
+            state = new TabSessionState();
+        }
+        state.pinned = pinned;
+        myState.tabSessions.put(tabIndex, state.copy());
+        LOG.info("[TabStateService] Set tab pinned: index=" + tabIndex + ", pinned=" + pinned);
+    }
+
+    /**
+     * Whether the tab is persisted as pinned.
+     */
+    public boolean isPinned(int tabIndex) {
+        TabSessionState state = myState.tabSessions.get(tabIndex);
+        return state != null && state.pinned;
+    }
+
+    /**
      * Remove a tab name and session state.
      * @param tabIndex the tab index
      */
@@ -185,6 +208,13 @@ public final class TabStateService implements PersistentStateComponent<TabStateS
         public String model;
         public String permissionMode;
         public String reasoningEffort;
+        /**
+         * Whether the tab is pinned (protected from accidental close).
+         * Independent of session binding — a tab can be pinned with no session.
+         * Runtime (SDK/CLI) is intentionally NOT here: it is a global per-provider
+         * policy resolved by {@code EffectiveRuntimeResolver}, not a per-tab attribute.
+         */
+        public boolean pinned;
 
         public TabSessionState copy() {
             TabSessionState copy = new TabSessionState();
@@ -194,6 +224,7 @@ public final class TabStateService implements PersistentStateComponent<TabStateS
             copy.model = this.model;
             copy.permissionMode = this.permissionMode;
             copy.reasoningEffort = this.reasoningEffort;
+            copy.pinned = this.pinned;
             return copy;
         }
     }

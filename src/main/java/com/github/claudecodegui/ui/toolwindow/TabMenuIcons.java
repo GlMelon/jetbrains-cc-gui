@@ -106,6 +106,26 @@ final class TabMenuIcons {
         };
     }
 
+    static Icon pin() {
+        return new SvgIcon(16, 16, VIOLET) {
+            @Override
+            protected void draw(Graphics2D g) {
+                // Pin head (rounded top)
+                g.draw(new RoundRectangle2D.Double(5, 1.5, 6, 4, 2, 2));
+                // Pin body tapering to a point
+                Path2D body = new Path2D.Double();
+                body.moveTo(6, 5.5);
+                body.lineTo(10, 5.5);
+                body.lineTo(8.6, 9.5);
+                body.lineTo(7.4, 9.5);
+                body.closePath();
+                g.draw(body);
+                // Needle
+                g.draw(new Line2D.Double(8, 9.5, 8, 13.5));
+            }
+        };
+    }
+
     static Icon saveTemplate() {
         return new SvgIcon(16, 16, AMBER) {
             @Override

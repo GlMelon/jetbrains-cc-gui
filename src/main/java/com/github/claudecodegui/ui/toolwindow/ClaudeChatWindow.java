@@ -503,6 +503,15 @@ public class ClaudeChatWindow {
             return;
         }
 
+        // Degradation logging (F3): surface bindings that cannot be restored rather than
+        // silently skipping, so a missing provider/session is diagnosable on restart.
+        if (!isNonEmpty(savedState.provider)) {
+            LOG.warn("[TabRestore] Tab restored without a provider binding; falling back to default provider.");
+        }
+        if (!isNonEmpty(savedState.sessionId)) {
+            LOG.info("[TabRestore] Tab restored without a sessionId; history will not load until a new session starts.");
+        }
+
         if (savedState.permissionMode != null && !savedState.permissionMode.trim().isEmpty()) {
             session.setPermissionMode(savedState.permissionMode);
         }
@@ -1240,6 +1249,7 @@ public class ClaudeChatWindow {
         snapshot.model = session.getModel();
         snapshot.permissionMode = session.getPermissionMode();
         snapshot.reasoningEffort = session.getReasoningEffort();
+        snapshot.pinned = parentContent != null && ClaudeSDKToolWindow.isPinned(parentContent);
 
         TabStateService.getInstance(project).saveTabSessionState(tabIndex, snapshot);
         SessionRuntimeDefaults.rememberProvider(project, snapshot.provider);
