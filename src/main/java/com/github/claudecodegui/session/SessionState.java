@@ -45,8 +45,8 @@ public class SessionState {
 
 
     // Session identifiers
-    private String sessionId;
-    private String channelId;
+    private volatile String sessionId;
+    private volatile String channelId;
     private volatile String runtimeSessionEpoch = UUID.randomUUID().toString();
 
     // Session state — 在 handler/EDT/reader 多线程间读写,加 volatile 保证可见性

@@ -17,7 +17,13 @@
     "thinking": "思考中",
     "thinkingProcess": "思考プロセス",
     "error": "エラー",
-    "warning": "警告"
+    "warning": "警告",
+    "ready": "準備完了",
+    "success": "成功",
+    "info": "情報",
+    "seconds": "秒",
+    "minutes": "分",
+    "optional": "Optional"
   },
   "chat": {
     "sendMessage": "{{provider}}にメッセージを送信",
@@ -71,7 +77,7 @@
     "disabled": "無効",
     "sdkNotInstalled": "{{provider}} SDKがインストールされていません。チャットを開始するにはSDKをインストールしてください。",
     "sdkStatusLoading": "Checking SDK status...",
-    "openSourceBanner": "このプロジェクトは100%オープンソースを保証します（海賊版プロジェクトにご注意ください）",
+    "openSourceBanner": "このプロジェクトは100%オープンソースかつ無料を保証します（海賊版プロジェクトにご注意ください）",
     "goInstallSdk": "インストールへ",
     "commandNotImplemented": "`{{command}}` 機能はまだ実装されていません。",
     "clearCommandDescription": "会話履歴をクリアして新しいセッションを開始",
@@ -150,7 +156,24 @@
       "copyFailed": "コピーに失敗しました",
       "jumpSuccess": "元のメッセージへ移動しました",
       "jumpFailed": "元のメッセージを特定できません"
-    }
+    },
+    "addAttachment": "添付ファイルを追加",
+    "generatingResponse": "応答を生成中",
+    "elapsedTime": "経過時間 {{time}}",
+    "minutesAndSeconds": "{{minutes}}分 {{seconds}}秒",
+    "usage": "使用状況",
+    "noMatchingHistory": "一致する履歴がありません",
+    "openSourceBannerStar": "Star",
+    "openSourceBannerStarToast": "リポジトリのURLをクリップボードにコピーしました。ブラウザに貼り付けてアクセスできます ⭐",
+    "openSourceBannerStarAria": "リポジトリのURLをコピーして GitHub でスター",
+    "attachmentFile": "[添付ファイル: {{fileName}}]",
+    "attachmentsUploaded": "[添付ファイルがアップロードされました]",
+    "showEarlierTurns": "前の{{count}}ターンを表示（読み込み済み残り{{remaining}}ターン）",
+    "loadEarlierTurns": "ディスクから前の{{count}}ターンを読み込む（全{{total}}ターン中、残り{{remaining}}ターン）",
+    "loadingEarlierTurns": "以前の会話を読み込み中...",
+    "tokenUsage": "入力 {{input}} / 出力 {{output}}",
+    "tokenUsageDetail": "ターン合計 — 入力 {{input}} · キャッシュ書き込み {{cacheWrite}} · キャッシュ読み取り {{cacheRead}} · 出力 {{output}}",
+    "cacheHitsWithRatio": "（キャッシュヒット {{tokens}}、{{ratio}}）"
   },
   "settings": {
     "title": "設定",
@@ -169,7 +192,10 @@
         "label": "テーマ",
         "system": "IDE のテーマに従う",
         "light": "ライト",
-        "dark": "ダーク"
+        "dark": "ダーク",
+        "systemDesc": "IDE のテーマに自動的に従う",
+        "lightDesc": "爽やかで明るい、昼間の使用に適しています",
+        "darkDesc": "目に優しい、夜間の使用に適しています"
       },
       "language": {
         "label": "言語",
@@ -194,9 +220,9 @@
         "versionTooLow": "Node.jsのバージョンが低すぎます。プラグインを正常に動作させるにはv{{minVersion}}以上が必要です"
       },
       "claudeCliPath": {
-        "label": "Claude CLI パス",
-        "placeholder": "空欄で自動検出、または claude 実行可能ファイルのパスを指定",
-        "hint": "Claude CLI 実行可能ファイルのパスを指定します。空欄の場合は PATH から自動検出します。"
+        "label": "Claude CLI パス（オーバーライド）",
+        "placeholder": "例: /usr/local/bin/claude — 空欄の場合は内蔵 SDK を使用",
+        "hint": "任意。設定すると、内蔵の @anthropic-ai/claude-agent-sdk の代わりにこのバイナリを起動します。保存時にデーモンが再起動されます。"
       },
       "workingDirectory": {
         "label": "作業ディレクトリ",
@@ -213,26 +239,28 @@
         "level6": "最大 (140%)"
       },
       "editorFont": {
-        "label": "フォント",
-        "followOption": "エディタに従う ({{font}})",
-        "customOption": "カスタムフォントファイル",
-        "customPathLabel": "フォントファイルのパス",
-        "customPathPlaceholder": ".ttf / .otf フォントファイルのパスを選択または入力",
+        "label": "UI フォント",
+        "followOption": "IDEA UI フォントに従う ({{font}})",
+        "customOption": "カスタム UI フォントファイル",
+        "customPathLabel": "UI フォントファイルのパス",
+        "customPathPlaceholder": ".ttf / .otf UI フォントファイルのパスを選択または入力",
         "browse": "参照",
-        "warningUnavailable": "フォントを利用できないため、現在はエディタフォントを使用しています",
-        "statusFollowEditor": "現在はエディタフォントを使用中: {{font}}",
-        "statusCustom": "現在はカスタムフォントを使用中: {{font}}"
+        "warningUnavailable": "UI フォントを利用できないため、現在は IDEA UI フォントを使用しています",
+        "statusFollowEditor": "現在は IDEA UI フォントを使用中: {{font}}",
+        "statusCustom": "現在はカスタム UI フォントを使用中: {{font}}",
+        "hint": "ここではプラグイン UI のフォントを変更します。コード用のフォントは別に設定できます。"
       },
       "codeFont": {
         "label": "コードフォント",
-        "followOption": "エディタに従う ({{font}})",
-        "customOption": "カスタムフォントファイル",
-        "customPathLabel": "フォントファイルのパス",
-        "customPathPlaceholder": ".ttf / .otf フォントファイルのパスを選択または入力",
+        "followOption": "エディタフォントに従う ({{font}})",
+        "customOption": "カスタムコードフォントファイル",
+        "customPathLabel": "コードフォントファイルのパス",
+        "customPathPlaceholder": ".ttf / .otf コードフォントファイルのパスを選択または入力",
         "browse": "参照",
-        "warningUnavailable": "フォントが利用できません。現在エディタフォントを使用中",
-        "statusFollowEditor": "現在エディタフォントに従う: {{font}}",
-        "statusCustom": "現在はカスタムフォントを使用中: {{font}}"
+        "warningUnavailable": "コードフォントを利用できないため、現在はエディタフォントを使用しています",
+        "statusFollowEditor": "現在はエディタフォントを使用中: {{font}}",
+        "statusCustom": "現在はカスタムコードフォントを使用中: {{font}}",
+        "hint": "Markdown のコードやコマンドブロックで使用されます。"
       },
       "streaming": {
         "label": "Streaming",
@@ -332,6 +360,12 @@
         "customCoversFrame": "Custom images fill the entire avatar frame.",
         "assistantPreviewMessage": "AI messages preview with the selected avatar.",
         "userPreviewMessage": "User messages preview with the selected avatar."
+      },
+      "detailedOutput": {
+        "label": "詳細な出力情報",
+        "enabled": "有効",
+        "disabled": "無効",
+        "hint": "有効にすると、利用可能な場合にメッセージ下部へターンの推定コストを表示し、入力 Token の概要内にキャッシュヒットを含めます。Token 消費量は常に表示されます。"
       }
     },
     "providers": "プロバイダー管理",
@@ -363,7 +397,8 @@
       "uninstallSuccess": "{{name}}がアンインストールされました",
       "uninstallFailed": "アンインストール失敗: {{error}}",
       "updating": "更新中...",
-      "updateSuccess": "{{name}}が正常に更新されました"
+      "updateSuccess": "{{name}}が正常に更新されました",
+      "update": "更新"
     },
     "usage": "使用統計",
     "usageDesc": "トークン消費量、コスト統計、使用傾向分析を表示",
@@ -379,7 +414,14 @@
       "title": "Commit AI",
       "description": "Configure AI-generated Git commit message behavior",
       "providerModel": {
-        "resetToDefault": "リセット"
+        "resetToDefault": "リセット",
+        "label": "コミットモデルプロバイダー",
+        "modelLabel": "コミットモデル",
+        "providerAvailable": "利用可能",
+        "providerUnavailable": "利用不可",
+        "currentProviderAuto": "現在自動選択を使用中：{{provider}}",
+        "currentProviderManual": "現在手動選択したプロバイダーを使用中：{{provider}}",
+        "currentProviderUnavailable": "選択したプロバイダーは現在利用できません：{{provider}}"
       },
       "prompt": {
         "label": "Additional Prompt",
@@ -392,7 +434,10 @@
         "hint": "このプロンプトは現在のプロジェクトにのみ適用され、グローバル追加プロンプトと同時に結合されます。両者の内容が矛盾する場合、プロジェクトプロンプトが優先されます。異なるプロジェクトを独立して設定できます。"
       },
       "codeReview": {
-        "label": "Code Review AI Additional Prompt"
+        "label": "Code Review AI Additional Prompt",
+        "comingSoon": "Coming Soon",
+        "placeholder": "This feature is under development, stay tuned...",
+        "hint": "Code Review AI will help you automatically review code, identify potential issues, and provide improvement suggestions. You can configure review preferences and focus areas here."
       }
     },
     "agents": "エージェント",
@@ -430,7 +475,17 @@
           "monthsAgo": "{{count}}ヶ月前",
           "daysAgo": "{{count}}日前",
           "hoursAgo": "{{count}}時間前",
-          "minutesAgo": "{{count}}分前"
+          "minutesAgo": "{{count}}分前",
+          "yearsAgo_one": "{{count}} year ago",
+          "yearsAgo_other": "{{count}} years ago",
+          "monthsAgo_one": "{{count}} month ago",
+          "monthsAgo_other": "{{count}} months ago",
+          "daysAgo_one": "{{count}} day ago",
+          "daysAgo_other": "{{count}} days ago",
+          "hoursAgo_one": "{{count}} hour ago",
+          "hoursAgo_other": "{{count}} hours ago",
+          "minutesAgo_one": "{{count}} minute ago",
+          "minutesAgo_other": "{{count}} minutes ago"
         }
       },
       "aiTitleGeneration": {
@@ -493,8 +548,43 @@
         "providers": {
           "claude": {
             "emptyConfigCode": "{\n  \"env\": {\n  }\n}",
-            "proxyConfigCode": "{\n  \"env\": {\n    \"HTTP_PROXY\": \"http://127.0.0.1:7897\",\n    \"HTTPS_PROXY\": \"http://127.0.0.1:7897\"\n  }\n}"
+            "proxyConfigCode": "{\n  \"env\": {\n    \"HTTP_PROXY\": \"http://127.0.0.1:7897\",\n    \"HTTPS_PROXY\": \"http://127.0.0.1:7897\"\n  }\n}",
+            "title": "Claude Code サブスクリプションアカウントの使い方",
+            "item1": "ターミナルの Claude Code CLI でサブスクリプションアカウントにログインし、ターミナルで正常にチャットできることを確認してください",
+            "item2": "~/.claude/settings.json ファイルと .env ファイルが空であることを確認してください",
+            "item3": "IDEA を再起動すると、正常にチャットできます",
+            "emptyConfigCodeLabel": "~/.claude/settings.json",
+            "noteTitle": "特殊ケースの注意：",
+            "note1": "上記の手順を実行したにもかかわらずプラグインが応答しない場合は、~/.claude/settings.json .env を以下に変更してみてください：",
+            "proxyConfigCodeLabel": "~/.claude/settings.json",
+            "issuePrefix": "それでも解決しない場合は、GitHub に問題を報告してください：",
+            "issueUrl": "https://github.com/zhukunpenglinyutong/idea-claude-code-gui/issues"
+          },
+          "codex": {
+            "title": "Codex サブスクリプションアカウントのセットアップ",
+            "item1": "ターミナルの Codex CLI で codex login を実行してログインし、ターミナルでチャットできることを確認してください",
+            "item2": "IDEA を再起動",
+            "item3": "正常にチャットできます",
+            "emptyConfigCodeLabel": "",
+            "emptyConfigCode": "",
+            "noteTitle": "",
+            "note1": "",
+            "proxyConfigCodeLabel": "",
+            "proxyConfigCode": "",
+            "issuePrefix": "それでも解決しない場合は、GitHub に問題を報告してください：",
+            "issueUrl": "https://github.com/zhukunpenglinyutong/idea-claude-code-gui/issues"
           }
+        },
+        "entry": "サブスクリプションアカウントガイド",
+        "dialogTitle": "サブスクリプションアカウントの使い方",
+        "tabAriaLabel": "サブスクリプションアカウントガイドタブ",
+        "tabs": {
+          "claude": "Claude サブスクリプション",
+          "codex": "Codex サブスクリプション"
+        },
+        "code": {
+          "copy": "コードをコピー",
+          "copied": "コピー済み"
         }
       },
       "importDialog": {
@@ -538,7 +628,22 @@
         "showApiKey": "表示",
         "hideApiKey": "非表示",
         "confirmAdd": "追加を確認",
-        "saveChanges": "変更を保存"
+        "saveChanges": "変更を保存",
+        "mainModel": "メインモデル",
+        "mainModelPlaceholder": "例: claude-sonnet-4-6",
+        "fableModel": "Fableデフォルトモデル",
+        "fableModelPlaceholder": "例: claude-fable-5",
+        "haikuModel": "Haikuデフォルトモデル",
+        "sonnetModel": "Sonnetデフォルトモデル",
+        "opusModel": "Opusデフォルトモデル",
+        "customModels": "カスタムモデル",
+        "customModelsHint": "このプロバイダーがサポートする追加モデルを追加します。カスタムモデルはモデル選択リストの最上部に表示されます",
+        "jsonError": "無効なJSON形式",
+        "codeView": "コード",
+        "visualView": "ビジュアル",
+        "formatJson": "フォーマット",
+        "invalidJson": "無効なJSON形式です。コードビューに切り替えて修正してください",
+        "presetGroup": "クイックプリセット"
       },
       "presets": {
         "custom": "カスタム",
@@ -550,7 +655,29 @@
         "xiaomiPlan": "Xiaomi MiMo Plan",
         "qwen": "Alibaba Qwen",
         "openrouter": "OpenRouter"
-      }
+      },
+      "currentConfig": "現在のClaudeCode設定",
+      "noConfig": "設定なし",
+      "notConfigured": "未設定",
+      "apiKey": "APIキー",
+      "apiKeyHelper": "APIキーヘルパー",
+      "baseUrl": "ベースURL",
+      "provider": "プロバイダー",
+      "source": "ソース",
+      "show": "表示",
+      "hide": "非表示",
+      "switchTo": "切り替え",
+      "addProvider": "プロバイダーを追加",
+      "importProvider": "プロバイダーをインポート",
+      "importFrom": "からインポート",
+      "importFromCcSwitch": "cc-switchからインポート",
+      "edit": "編集",
+      "delete": "削除",
+      "deleteMessage": "プロバイダー\"{{name}}\"を削除してもよろしいですか? この操作は元に戻せません。",
+      "convertLocal": "ローカルに変換",
+      "convertMessage": "変換後、インポート元との接続が切断されます。この操作は元に戻せません。",
+      "importing": "インポート中...",
+      "localProviderHelp": "When using local provider mode:\n• The plugin will not modify your ~/.claude/settings.json file\n• You need to manually manage your configurations\n• Make sure the file exists and contains valid JSON\n• Suitable for advanced users who prefer manual control"
     },
     "permissionsComingSoon": "権限設定は近日公開予定...",
     "agentsComingSoon": "エージェント設定は近日公開予定...",
@@ -595,7 +722,18 @@
         "envKeyInvalid": "Invalid key name (must start with letter/underscore, alphanumeric only)",
         "envKeyProtected": "Cannot set built-in variable: {{key}}",
         "envKeyDuplicate": "Duplicate key: {{key}}",
-        "envValueTooLong": "値が長すぎます（最大 {{max}} 文字）"
+        "envValueTooLong": "値が長すぎます（最大 {{max}} 文字）",
+        "configJsonError": "config.toml JSON format error",
+        "customModels": "Custom Models",
+        "customModelsHint": "Add extra models supported by this provider. Custom models will appear at the top of the model selection list",
+        "noCustomModels": "No custom models",
+        "addModel": "Add Model",
+        "modelIdPlaceholder": "Model ID (required, e.g., gpt-4o)",
+        "modelLabelPlaceholder": "Display name (optional)",
+        "modelDescPlaceholder": "Model description (optional)",
+        "modelIdRequired": "Model ID is required",
+        "modelIdInvalid": "Invalid model ID format (only letters, numbers, dots, hyphens, underscores, slashes and colons allowed)",
+        "modelIdDuplicate": "Model ID already exists"
       }
     },
     "agent": {
@@ -626,7 +764,9 @@
         "promptHint": "プロンプトは会話の開始時にシステム指示としてAIに送信されます",
         "confirmAdd": "作成",
         "saveChanges": "保存"
-      }
+      },
+      "operationFailed": "操作失敗",
+      "clearAgent": "選択したプロンプトをクリア"
     },
     "prompts": "Prompt Library",
     "prompt": {
@@ -657,8 +797,43 @@
         "contentHint": "Prompt content will be inserted directly into the input box when selected",
         "confirmAdd": "Create",
         "saveChanges": "Save"
-      }
-    }
+      },
+      "customPrompts": "Custom Prompts",
+      "loadFailed": "Load failed"
+    },
+    "pluginModels": {
+      "title": "カスタムモデル",
+      "description": "ここで追加されたカスタムモデルは、すべてのプロバイダーで表示され、モデル選択リストの先頭に表示されます",
+      "dialogTitle": "カスタムモデル管理",
+      "manage": "モデル管理",
+      "pricing": {
+        "title": "料金（USD/100万トークン）",
+        "hint": "任意です。空欄の項目はそのトークン種別の既定レートを使用します。",
+        "inputLabel": "入力",
+        "outputLabel": "出力",
+        "cacheWriteLabel": "キャッシュ書き込み",
+        "cacheReadLabel": "キャッシュ読み取り",
+        "inputShort": "入力",
+        "outputShort": "出力",
+        "cacheWriteShort": "キャッシュ書き込み",
+        "cacheReadShort": "キャッシュ読み取り",
+        "invalidValue": "料金は0以上の数値で入力してください",
+        "defaultPricing": "既定料金を使用中"
+      },
+      "configuredSectionTitle": "設定済みの Claude モデル",
+      "configuredSectionDesc": "現在の Claude プロバイダーまたは settings.json のモデルは既にモデル選択リストに表示されています。ここでは料金のみ変更できます。",
+      "configuredEditHint": "このモデルは現在の Claude プロバイダーまたは settings.json で管理されています。ここでは料金のみ変更できます。",
+      "customSectionTitle": "カスタムモデル",
+      "editPricing": "料金を編集"
+    },
+    "dependenciesDesc": "AI SDK依存関係のインストールと更新を管理",
+    "sponsor": "Sponsor",
+    "sponsorDesc": "If this project helps you, consider sponsoring to support ongoing maintenance!",
+    "alipay": "Alipay",
+    "wechatPay": "WeChat Pay",
+    "paypal": "PayPal",
+    "comingSoon": "近日公開予定...",
+    "promptsDesc": "Manage common prompt templates for quick insertion during chat"
   },
   "history": {
     "sessionDeleted": "セッションが削除されました",
@@ -714,6 +889,35 @@
       "hoursAgo": "時間前",
       "minutesAgo": "分前",
       "secondsAgo": "秒前"
+    },
+    "title": "履歴",
+    "exportSuccess": "セッションがエクスポートされました",
+    "titleTooLong": "タイトルが長すぎます(最大50文字)",
+    "convertToCliSession": "CLI認識セッションに変換",
+    "convertButton": "CLIに変換",
+    "convertSuccess": "セッションをCLI認識可能に変換しました",
+    "convertFailed": "変換に失敗しました",
+    "confirmConvert": "CLIセッションに変換しますか？",
+    "convertConfirmMessage": "セッションのentrypointを変更し、Claude Code CLIの/resumeリストに表示されるようにします。",
+    "conversionErrors": {
+      "INVALID_SESSION_ID": "無効なセッションID",
+      "SESSION_ACTIVE": "現在アクティブなセッションは変換できません。先に新しいセッションを開始してから変換してください",
+      "SESSION_NOT_FOUND": "セッションファイルが見つかりません",
+      "FILE_NOT_EXIST": "セッションファイルが存在しません",
+      "FILE_LOCKED": "セッションファイルは別のプロセスによってアクセスされています",
+      "NOT_SDK_SESSION": "このセッションはSDKで作成されていません（entrypointがsdk-cliではありません）",
+      "ALREADY_CLI_SESSION": "このセッションはすでにCLIセッションです",
+      "CONVERSION_FAILED": "変換に失敗しました。後でもう一度お試しください"
+    },
+    "entrypointLabel": {
+      "sdk-cli": "SDKセッション",
+      "claude-vscode": "VS Code",
+      "remote": "リモート"
+    },
+    "entrypointTooltip": {
+      "sdk-cli": "このセッションはSDK経由でプラグインによって作成されており、CLIではデフォルトで表示されません。ターミナルCLIの/resumeリストに表示するには「CLIに変換」をクリックしてください",
+      "claude-vscode": "このセッションはVS Code拡張機能によって作成されており、CLIではデフォルトで表示されません。ターミナルCLIの/resumeリストに表示するには「CLIに変換」をクリックしてください",
+      "remote": "このセッションはリモートのClaude Codeインスタンスによって作成されました"
     }
   },
   "permission": {
@@ -726,8 +930,17 @@
       "Read": "ファイルを読み取る",
       "ReadBatch": "ファイルを一括読み取り",
       "execute": "{{toolName}}を実行",
-      "readDirectory": "ディレクトリを読み取る"
-    }
+      "readDirectory": "ディレクトリを読み取る",
+      "Write": "ファイルを書き込む",
+      "Edit": "ファイルを編集",
+      "Bash": "コマンドを実行",
+      "TodoWrite": "TODOを書き込む",
+      "TodoRead": "TODOを読み取る",
+      "WebSearch": "ウェブ検索",
+      "WebFetch": "ウェブ取得",
+      "timeoutWarning": "お早めにご回答ください。ダイアログは {{seconds}} 秒後に自動的に閉じます"
+    },
+    "dialogTitle": "権限リクエスト"
   },
   "askUserQuestion": {
     "title": "Claudeからの質問があります",
@@ -754,7 +967,8 @@
     "reject": "Reject",
     "toApprove": "to approve",
     "toReject": "to reject",
-    "timeoutWarning": "Please make a choice soon, dialog will close in {{seconds}} seconds"
+    "timeoutWarning": "Please make a choice soon, dialog will close in {{seconds}} seconds",
+    "requestedPermissions": "Requested Permissions"
   },
   "toast": {
     "switchSuccess": "切り替えが成功しました",
@@ -766,7 +980,16 @@
     "invalidJsonConfig": "無効なJSON設定形式",
     "providerAdded": "プロバイダーを追加しました",
     "providerUpdated": "プロバイダーを更新しました",
-    "providerDeleted": "プロバイダーを削除しました"
+    "providerDeleted": "プロバイダーを削除しました",
+    "thinkingEnabled": "思考が有効になりました",
+    "thinkingDisabled": "思考が無効になりました",
+    "configLoading": "設定を読み込み中です。もう一度お試しください",
+    "deleteSuccess": "削除が成功しました",
+    "copySuccess": "{{label}}がクリップボードにコピーされました",
+    "copyFailed": "コピー失敗",
+    "newSessionCreatedReady": "新しいセッションが作成されました。質問を開始できます",
+    "providerSwitchSuccess": "プロバイダーの切り替えに成功しました！",
+    "providerSwitchFailed": "プロバイダーの切り替えに失敗しました"
   },
   "config": {
     "switchProvider": "プロバイダーを切り替え",
@@ -809,8 +1032,14 @@
       "killAllSuccess": "{{count}} 件の孤児プロセスをクリーンアップしました",
       "restartSuccess": "デーモンを停止しました。次のメッセージで新しいインスタンスが自動起動します",
       "killFailed": "終了失敗: {{error}}",
-      "activeRequests": "進行中 {{count}} 件"
-    }
+      "activeRequests": "進行中 {{count}} 件",
+      "pending": "処理中...",
+      "killHint": "この Node プロセスを強制終了",
+      "restartHint": "デーモンを停止。次のメッセージで自動的に新しいデーモンが起動します"
+    },
+    "clickToCopy": "クリックしてコピー",
+    "switch": "切り替え",
+    "link": "リンク"
   },
   "markdown": {
     "copyCode": "コードをコピー",
@@ -857,7 +1086,9 @@
     "daysAgo": "日前",
     "justNow": "たった今",
     "minutesAgo": "分前",
-    "hoursAgo": "時間前"
+    "hoursAgo": "時間前",
+    "description": "説明",
+    "command": "コマンド"
   },
   "mcp": {
     "title": "MCPサーバー",
@@ -958,7 +1189,11 @@
       "checkingConnection": "Checking connection status",
       "checkingConnectionServer": "Server \"{{name}}\" - Checking connection status...",
       "refreshComplete": "Server \"{{name}}\" refresh complete",
-      "forceRefreshTools": "Force refresh tools"
+      "forceRefreshTools": "Force refresh tools",
+      "connected": "Connected",
+      "failed": "Connection failed",
+      "needsAuth": "Authentication required",
+      "unknownError": "Unknown error"
     },
     "presets": {
       "fetch": "Webコンテンツ取得ツール、Webページをスクレイピング",
@@ -1031,7 +1266,16 @@
     "clickToLoad": "Click to Load",
     "noParams": "No Parameters",
     "required": "Required",
-    "optional": "Optional"
+    "optional": "Optional",
+    "edit": "編集",
+    "delete": "削除",
+    "errorDetails": "Error Details",
+    "refreshLogs": "Refresh Logs",
+    "clearLogs": "Clear Logs",
+    "clear": "Clear",
+    "noRefreshLogs": "No Refresh Logs",
+    "refreshLogsHint": "After clicking the refresh button, detailed refresh process information will be displayed here",
+    "refreshServer": "Refresh {{name}}"
   },
   "tools": {
     "toolCall": "ツール呼び出し",
@@ -1070,10 +1314,16 @@
     "bashGroupBatchRun": "Batch Run Commands",
     "bashGroupCompleted": "completed",
     "bashGroupAllCompleted": "All Completed",
-    "bashGroupFailed": "failed"
+    "bashGroupFailed": "failed",
+    "clickToOpen": "クリックして{{filePath}}を開く",
+    "filePath": "ファイルパス：",
+    "bashGroupBatchExecution": "Batch Execution"
   },
   "todo": {
-    "progress": "{{total}} 件中 {{completed}} 件完了"
+    "progress": "{{total}} 件中 {{completed}} 件完了",
+    "inProgress": "進行中 {{completed}}/{{total}} タスク",
+    "allCompleted": "完了 {{completed}}/{{total}} タスク",
+    "stopped": "停止"
   },
   "statusPanel": {
     "tasksTab": "タスク",
@@ -1099,7 +1349,11 @@
     "discardAllConfirmMessage": "すべてのファイルの変更を元に戻します。この操作は取り消せません。",
     "discardAllSuccess": "すべての変更を元に戻しました",
     "discardAllFailed": "元に戻す失敗: {{error}}",
-    "keepAllSuccess": "すべて保持しました。変更記録をリセットしました"
+    "keepAllSuccess": "すべて保持しました。変更記録をリセットしました",
+    "todoTab": "計画",
+    "filesTab": "ファイル変更",
+    "keepAllConfirmTitle": "すべて保持",
+    "keepAllConfirmMessage": "現在の変更を新しい基準として保持します。今後の変更はゼロからカウントされます。"
   },
   "skills": {
     "all": "すべて",
@@ -1256,7 +1510,11 @@
       "saveSuccess": "Skill saved successfully",
       "noChanges": "No Skill changes to save",
       "saveFailed": "Failed to save Skill"
-    }
+    },
+    "title": "スキル",
+    "noSkills": "スキルなし",
+    "toggleSuccess": "スキルステータスが更新されました",
+    "toggleFailed": "スキルステータスの更新に失敗しました"
   },
   "models": {
     "searchPlaceholder": "モデルを検索",
@@ -1265,7 +1523,65 @@
     "longContext": {
       "label": "1M",
       "tooltipEnabled": "1Mコンテキストウィンドウをオン/オフ",
-      "tooltipDisabled": "Haikuでは1Mコンテキストは利用できません"
+      "tooltipDisabled": "Haikuでは1Mコンテキストは利用できません",
+      "shortLabel": "1Mコンテキスト"
+    },
+    "addModel": "モデル追加",
+    "claude": {
+      "sonnet46": {
+        "label": "Sonnet 4.6",
+        "description": "Sonnet 4.6 · デフォルトモデルを使用"
+      },
+      "sonnet5": {
+        "label": "Sonnet 5",
+        "description": "Sonnet 5 · Sonnet 4.6 のアップグレードモデル"
+      },
+      "sonnet47": {
+        "label": "Sonnet 4.7",
+        "description": "Sonnet 4.7 · デフォルトモデルを使用"
+      },
+      "opus5": {
+        "label": "Opus 5",
+        "description": "Opus 5 · 最新の Opus アップグレード"
+      },
+      "opus46_1m": {
+        "label": "Opus 4.6",
+        "description": "Opus 4.6 · 高性能推論モデル"
+      },
+      "haiku45": {
+        "label": "Haiku 4.5",
+        "description": "Haiku 4.5 · 迅速な回答に最速"
+      },
+      "opus48": {
+        "label": "Opus 4.8",
+        "description": "Opus 4.8 · 前世代の Opus モデル"
+      },
+      "fable5": {
+        "label": "Fable 5",
+        "description": "Fable 5 · 最も強力 · Mythosクラス"
+      }
+    },
+    "codex": {
+      "gpt56sol": {
+        "label": "GPT-5.6 Sol",
+        "description": "複雑なプロフェッショナル業務向けのフロンティアモデル"
+      },
+      "gpt56terra": {
+        "label": "GPT-5.6 Terra",
+        "description": "知能とコストのバランスに優れた GPT-5.6 モデル"
+      },
+      "gpt56luna": {
+        "label": "GPT-5.6 Luna",
+        "description": "コスト重視のワークロードに最適化された GPT-5.6 モデル"
+      },
+      "gpt55": {
+        "label": "GPT-5.5",
+        "description": "最新のフロンティアモデル。能力がさらに向上"
+      },
+      "gpt54": {
+        "label": "GPT-5.4",
+        "description": "拡張された能力を備えた最新の最先端モデル"
+      }
     }
   },
   "modes": {
@@ -1334,7 +1650,11 @@
     "originalPrompt": "元のプロンプト",
     "enhancedPrompt": "強化されたプロンプト",
     "useEnhanced": "強化版を使用",
-    "keepOriginal": "元のままにする"
+    "keepOriginal": "元のままにする",
+    "tooltipFull": "Rewrite prompt to provide more context and improve agent responses",
+    "enhanceFailed": "プロンプトの強化に失敗しました",
+    "emptyPrompt": "最初にプロンプトを入力してください",
+    "copyEnhanced": "強化版をコピー"
   },
   "fileContext": {
     "placeholder": "ファイルコンテキスト",
@@ -1360,10 +1680,28 @@
     "success": "巻き戻しに成功しました",
     "failed": "ファイルの復元に失敗しました",
     "notAvailable": "このセッションでは巻き戻しを利用できません",
-    "parseError": "結果の解析に失敗しました"
+    "parseError": "結果の解析に失敗しました",
+    "tooltipFull": "Restore files to their state at this message",
+    "successSimple": "巻き戻しに成功しました"
   },
   "reasoning": {
-    "title": "思考深度を選択"
+    "title": "思考深度を選択",
+    "low": {
+      "label": "低",
+      "description": "基本的な推論による迅速な応答"
+    },
+    "medium": {
+      "label": "中",
+      "description": "バランスの取れた思考（デフォルト）"
+    },
+    "high": {
+      "label": "高",
+      "description": "複雑なタスク向けの深い推論"
+    },
+    "xhigh": {
+      "label": "最大",
+      "description": "最大の推論深度"
+    }
   },
   "errorBoundary": {
     "title": "Something went wrong",
@@ -1412,7 +1750,8 @@
     "uploadedImages": "{{count}} 枚の画像をアップロードしました",
     "uploadedAttachments": "添付ファイルをアップロードしました",
     "emptyMessage": "空のメッセージ",
-    "attachment": "添付ファイル"
+    "attachment": "添付ファイル",
+    "codexThinkingHint": "Codex が reasoning 項目を返しませんでした。思考プロセスが表示されない場合は、docs/codex/docs/config.md の hide_agent_reasoning/show_raw_agent_reasoning 設定を参照し、OpenAI アカウントが認証済みであることを確認してください。"
   },
   "changelog": {
     "title": "更新情報",
@@ -1428,6 +1767,44 @@
     "copyCommand": "コピー",
     "copied": "コピー済み",
     "openDependencySettings": "依存関係管理を開く",
-    "recommended": "推奨"
+    "recommended": "推奨",
+    "codexThreadResume": {
+      "title": "セッションスレッドが無効です",
+      "intro": "新しいセッションを作成することでこの問題を解決できます。現在のセッションのスレッド ID は Codex サーバーに存在しなくなりました。",
+      "reason": "Codex は一定時間後に古いスレッドを削除するため、前のセッションを再開しようとするとこのエラーが発生することがあります。"
+    },
+    "sdkNativeBinaryMissing": {
+      "title": "SDK のインストールが不完全 — ネイティブバイナリが見つかりません",
+      "intro": "これは Taobao npm ミラーの既知の問題です（プラグインのバグではありません）。ミラーが platform 固有のファイルを完全に同期していません。以下のいずれかの方法で手動で対応できます：",
+      "reason": "Taobao ミラーが同期を完了すると、この問題は自動的に解消されます。心配する必要はありません。",
+      "solutions": {
+        "switchRegistry": {
+          "title": "方法 1：一時的に公式レジストリに切り替えて再インストール",
+          "step0": "1. ターミナルで実行（npm 公式レジストリへ切り替え）：",
+          "step1": "2. プラグインの「依存関係管理」設定を開き、再インストールをクリック：",
+          "step2": "3. 再インストール完了後、Taobao ミラーに戻す："
+        },
+        "downgrade": {
+          "title": "方法 2：バージョンをロールバック",
+          "step0": "「依存関係管理」で SDK バージョンを v0.2.112 以前に切り替えてください。切り替え後は IDEA の再起動が必要です。"
+        }
+      }
+    },
+    "spawnEbusy": {
+      "title": "spawn EBUSY — 子プロセスの起動に失敗",
+      "intro": "このエラーは通常、Node.js のバージョン不一致または SDK のインストール不完全が原因です。以下の 2 つの方法を順に試してください：",
+      "reason": "EBUSY は Node.js が子プロセスを起動する際にリソースが使用中である場合に発生するシステムエラーです。一般的な原因：Node.js 24 の互換性問題、SDK が古い、または Taobao ミラーからの不完全なインストール。",
+      "solutions": {
+        "checkNodeVersion": {
+          "title": "方法 1：Node.js のバージョンを確認する",
+          "step0": "ターミナルで以下のコマンドを実行してバージョンを確認してください。Node 22 または現在の最新 LTS を推奨します — Node 24 では多数のエラー報告があるため、Node 20 または 22 をご利用ください："
+        },
+        "reinstallLatestSdk": {
+          "title": "方法 2：npm 公式レジストリから最新の SDK を再インストール",
+          "step0": "1. npm 公式レジストリに切り替える（Taobao ミラーは最新版に同期されていない可能性があります、使用しないでください）：",
+          "step1": "2. 「依存関係管理」を開いて最新の SDK を再インストール："
+        }
+      }
+    }
   }
 }

@@ -6,8 +6,7 @@
 
 import { isClaudeSdkAvailable, loadAnthropicSdk, loadBedrockSdk, loadClaudeSdk } from '../../utils/sdk-loader.js';
 import { existsSync } from 'fs';
-import { join } from 'path';
-import { getClaudeDir } from '../../utils/path-utils.js';
+import { getClaudeProjectSessionFilePath as resolveClaudeProjectSessionFilePath } from '../../utils/path-utils.js';
 import { loadClaudeSettings } from '../../config/api-config.js';
 
 // SDK cache (module-internal, accessed via ensure* functions)
@@ -126,9 +125,7 @@ export function getRetryDelayMs(error) {
  * @returns {string}
  */
 export function getClaudeProjectSessionFilePath(sessionId, cwd) {
-  const projectsDir = join(getClaudeDir(), 'projects');
-  const sanitizedCwd = String(cwd || process.cwd()).replace(/[^a-zA-Z0-9]/g, '-');
-  return join(projectsDir, sanitizedCwd, `${sessionId}.jsonl`);
+  return resolveClaudeProjectSessionFilePath(sessionId, cwd);
 }
 
 /**

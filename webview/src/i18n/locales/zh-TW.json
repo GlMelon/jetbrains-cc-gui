@@ -17,7 +17,13 @@
     "thinking": "思考",
     "thinkingProcess": "思考過程",
     "error": "錯誤",
-    "warning": "警告"
+    "warning": "警告",
+    "ready": "就緒",
+    "success": "成功",
+    "info": "資訊",
+    "seconds": "秒",
+    "minutes": "分",
+    "optional": "Optional"
   },
   "chat": {
     "sendMessage": "給 {{provider}} 發送訊息",
@@ -73,7 +79,7 @@
     "sdkNotInstalled": "{{provider}} SDK 尚未安裝，請先安裝 SDK 才能開始對話",
     "sdkStatusLoading": "Checking SDK status...",
     "planModeEnabled": "已啟用規劃模式",
-    "openSourceBanner": "本專案保證100%開源（謹防盜版項目）",
+    "openSourceBanner": "本專案保證100%開源和免費（謹防盜版項目）",
     "goInstallSdk": "前往安裝",
     "commandNotImplemented": "`{{command}}` 功能尚未實現。",
     "clearCommandDescription": "清除對話歷史並新建會話",
@@ -152,7 +158,24 @@
       "copyFailed": "複製失敗",
       "jumpSuccess": "已跳轉到原訊息",
       "jumpFailed": "無法定位原訊息"
-    }
+    },
+    "addAttachment": "新增附件",
+    "generatingResponse": "正在生成響應",
+    "elapsedTime": "已用 {{time}}",
+    "minutesAndSeconds": "{{minutes}} 分 {{seconds}} 秒",
+    "usage": "上下文",
+    "noMatchingHistory": "無匹配歷史",
+    "openSourceBannerStar": "點個 Star",
+    "openSourceBannerStarToast": "已複製倉庫地址到剪貼簿，複製到瀏覽器即可訪問 ⭐",
+    "openSourceBannerStarAria": "複製倉庫地址並前往 GitHub 點 Star",
+    "attachmentFile": "[附件: {{fileName}}]",
+    "attachmentsUploaded": "[已上傳附件]",
+    "showEarlierTurns": "顯示更早的 {{count}} 輪對話（目前已載入尚餘 {{remaining}} 輪）",
+    "loadEarlierTurns": "從磁碟載入更早的 {{count}} 輪（共 {{total}} 輪，尚餘 {{remaining}} 輪）",
+    "loadingEarlierTurns": "正在載入更早的對話...",
+    "tokenUsage": "輸入 {{input}} / 輸出 {{output}}",
+    "tokenUsageDetail": "本輪合計 — 輸入 {{input}} · 快取寫入 {{cacheWrite}} · 快取讀取 {{cacheRead}} · 輸出 {{output}}",
+    "cacheHitsWithRatio": "（快取命中 {{tokens}}，{{ratio}}）"
   },
   "settings": {
     "title": "設定",
@@ -171,7 +194,10 @@
         "label": "介面主題",
         "system": "跟隨 IDE",
         "light": "亮色",
-        "dark": "暗色"
+        "dark": "暗色",
+        "systemDesc": "自動跟隨 IDE 主題",
+        "lightDesc": "清爽明亮，適合白天使用",
+        "darkDesc": "護眼舒適，適合夜間使用"
       },
       "language": {
         "label": "介面語言",
@@ -206,9 +232,9 @@
         "versionTooLow": "Node.js 版本過低，外掛需要 v{{minVersion}} 或更高版本才能正常運行"
       },
       "claudeCliPath": {
-        "label": "Claude CLI 路徑",
-        "placeholder": "留空自動偵測，或指定 claude 可執行檔案路徑",
-        "hint": "指定 Claude CLI 可執行檔案路徑。留空則自動在 PATH 中偵測。"
+        "label": "Claude CLI 路徑（覆寫）",
+        "placeholder": "例如 /usr/local/bin/claude — 留空則使用內建 SDK",
+        "hint": "可選。設定後，外掛程式將啟動此二進位檔案，而非內建的 @anthropic-ai/claude-agent-sdk。儲存時會重新啟動守護程序。"
       },
       "workingDirectory": {
         "label": "Working Directory",
@@ -225,26 +251,28 @@
         "level6": "最大（140%）"
       },
       "editorFont": {
-        "label": "字體",
-        "followOption": "跟隨編輯器（{{font}}）",
-        "customOption": "自訂字體檔案",
-        "customPathLabel": "字體檔案路徑",
-        "customPathPlaceholder": "選擇或輸入 .ttf / .otf 字體檔案路徑",
+        "label": "UI 字體",
+        "followOption": "跟隨 IDEA UI 字體（{{font}}）",
+        "customOption": "自訂 UI 字體檔案",
+        "customPathLabel": "UI 字體檔案路徑",
+        "customPathPlaceholder": "選擇或輸入 .ttf / .otf UI 字體檔案路徑",
         "browse": "瀏覽",
-        "warningUnavailable": "字體不可用，目前已回退到編輯器字體",
-        "statusFollowEditor": "目前跟隨編輯器字體：{{font}}",
-        "statusCustom": "目前使用自訂字體：{{font}}"
+        "warningUnavailable": "UI 字體不可用，目前已回退到 IDEA UI 字體",
+        "statusFollowEditor": "目前跟隨 IDEA UI 字體：{{font}}",
+        "statusCustom": "目前使用自訂 UI 字體：{{font}}",
+        "hint": "這裡修改的是外掛介面字體。程式碼可以使用獨立的程式碼字體。"
       },
       "codeFont": {
         "label": "程式碼字體",
-        "followOption": "跟隨編輯器（{{font}}）",
-        "customOption": "自訂字體檔案",
-        "customPathLabel": "字體檔案路徑",
-        "customPathPlaceholder": "選擇或輸入 .ttf / .otf 字體檔案路徑",
+        "followOption": "跟隨編輯器字體（{{font}}）",
+        "customOption": "自訂程式碼字體檔案",
+        "customPathLabel": "程式碼字體檔案路徑",
+        "customPathPlaceholder": "選擇或輸入 .ttf / .otf 程式碼字體檔案路徑",
         "browse": "瀏覽",
-        "warningUnavailable": "字體不可用，目前已回退到編輯器字體",
+        "warningUnavailable": "程式碼字體不可用，目前已回退到編輯器字體",
         "statusFollowEditor": "目前跟隨編輯器字體：{{font}}",
-        "statusCustom": "目前使用自訂字體：{{font}}"
+        "statusCustom": "目前使用自訂程式碼字體：{{font}}",
+        "hint": "Markdown 程式碼和命令區塊會使用這個字體。"
       },
       "streaming": {
         "label": "Streaming",
@@ -344,6 +372,12 @@
         "customCoversFrame": "自定义图片会直接铺满整个头像框。",
         "assistantPreviewMessage": "AI 消息会使用当前选择的头像。",
         "userPreviewMessage": "用户消息会使用当前选择的头像。"
+      },
+      "detailedOutput": {
+        "label": "詳細輸出資訊",
+        "enabled": "已開啟",
+        "disabled": "已關閉",
+        "hint": "開啟後，訊息底部會在可用時顯示本輪預估費用，並在輸入 Token 中標明快取命中。Token 消耗資訊始終保持顯示。"
       }
     },
     "providers": "供應商管理",
@@ -375,7 +409,8 @@
       "uninstallSuccess": "{{name}} 已解除安裝",
       "uninstallFailed": "解除安裝失敗: {{error}}",
       "updating": "更新中...",
-      "updateSuccess": "{{name}} 更新成功"
+      "updateSuccess": "{{name}} 更新成功",
+      "update": "更新"
     },
     "usage": "使用統計",
     "usageDesc": "檢視您的 Token 消耗、費用統計和使用趨勢分析",
@@ -391,7 +426,14 @@
       "title": "Commit AI",
       "description": "Configure AI-generated Git commit message behavior",
       "providerModel": {
-        "resetToDefault": "恢復預設"
+        "resetToDefault": "恢復預設",
+        "label": "Commit 生成 Provider",
+        "modelLabel": "Commit 生成模型",
+        "providerAvailable": "可用",
+        "providerUnavailable": "當前不可用",
+        "currentProviderAuto": "當前使用自動選擇：{{provider}}",
+        "currentProviderManual": "當前使用手動選擇的 provider：{{provider}}",
+        "currentProviderUnavailable": "當前所選 provider 不可用：{{provider}}"
       },
       "prompt": {
         "label": "Additional Prompt",
@@ -404,7 +446,10 @@
         "hint": "此提示詞僅對當前專案生效，與全域附加提示詞同時拼接。當兩者內容矛盾時，以專案提示詞為準。不同專案可獨立配置。"
       },
       "codeReview": {
-        "label": "Code Review AI Additional Prompt"
+        "label": "Code Review AI Additional Prompt",
+        "comingSoon": "Coming Soon",
+        "placeholder": "This feature is under development, stay tuned...",
+        "hint": "Code Review AI will help you automatically review code, identify potential issues, and provide improvement suggestions. You can configure review preferences and focus areas here."
       }
     },
     "agents": "Agents",
@@ -442,7 +487,17 @@
           "monthsAgo": "{{count}}個月前",
           "daysAgo": "{{count}}天前",
           "hoursAgo": "{{count}}小時前",
-          "minutesAgo": "{{count}}分鐘前"
+          "minutesAgo": "{{count}}分鐘前",
+          "yearsAgo_one": "{{count}} year ago",
+          "yearsAgo_other": "{{count}} years ago",
+          "monthsAgo_one": "{{count}} month ago",
+          "monthsAgo_other": "{{count}} months ago",
+          "daysAgo_one": "{{count}} day ago",
+          "daysAgo_other": "{{count}} days ago",
+          "hoursAgo_one": "{{count}} hour ago",
+          "hoursAgo_other": "{{count}} hours ago",
+          "minutesAgo_one": "{{count}} minute ago",
+          "minutesAgo_other": "{{count}} minutes ago"
         }
       },
       "aiTitleGeneration": {
@@ -505,8 +560,43 @@
         "providers": {
           "claude": {
             "emptyConfigCode": "{\n  \"env\": {\n  }\n}",
-            "proxyConfigCode": "{\n  \"env\": {\n    \"HTTP_PROXY\": \"http://127.0.0.1:7897\",\n    \"HTTPS_PROXY\": \"http://127.0.0.1:7897\"\n  }\n}"
+            "proxyConfigCode": "{\n  \"env\": {\n    \"HTTP_PROXY\": \"http://127.0.0.1:7897\",\n    \"HTTPS_PROXY\": \"http://127.0.0.1:7897\"\n  }\n}",
+            "title": "Claude Code 訂閱制帳號使用方式",
+            "item1": "首先在終端 Claude Code CLI 登入成功 Claude Code 訂閱制帳號，然後可以正常在終端提問",
+            "item2": "確保 ~/.claude/settings.json 檔案和 .env 檔案內容為空",
+            "item3": "重啟 IDEA，就可以正常提問了",
+            "emptyConfigCodeLabel": "~/.claude/settings.json",
+            "noteTitle": "特殊情況備註：",
+            "note1": "如果已經進行上述操作，但是本外掛還是無法回覆，可以將 ~/.claude/settings.json .env 內容改為：",
+            "proxyConfigCodeLabel": "~/.claude/settings.json",
+            "issuePrefix": "如果還是不行，可以去GitHub留言排查：",
+            "issueUrl": "https://github.com/zhukunpenglinyutong/idea-claude-code-gui/issues"
+          },
+          "codex": {
+            "title": "Codex 訂閱制帳號使用方式",
+            "item1": "在終端 Codex CLI 執行 codex login 登入成功之後，可以正常在終端提問",
+            "item2": "重啟 IDEA",
+            "item3": "即可正常對話",
+            "emptyConfigCodeLabel": "",
+            "emptyConfigCode": "",
+            "noteTitle": "",
+            "note1": "",
+            "proxyConfigCodeLabel": "",
+            "proxyConfigCode": "",
+            "issuePrefix": "如果還是不行，可以去GitHub留言排查：",
+            "issueUrl": "https://github.com/zhukunpenglinyutong/idea-claude-code-gui/issues"
           }
+        },
+        "entry": "訂閱制帳號教學",
+        "dialogTitle": "如何使用訂閱制帳號",
+        "tabAriaLabel": "訂閱制帳號教學標籤",
+        "tabs": {
+          "claude": "Claude訂閱制",
+          "codex": "Codex訂閱制"
+        },
+        "code": {
+          "copy": "複製程式碼",
+          "copied": "已複製"
         }
       },
       "importDialog": {
@@ -550,7 +640,22 @@
         "showApiKey": "顯示",
         "hideApiKey": "隱藏",
         "confirmAdd": "確認新增",
-        "saveChanges": "儲存變更"
+        "saveChanges": "儲存變更",
+        "mainModel": "主模型",
+        "mainModelPlaceholder": "例如：claude-sonnet-4-6",
+        "fableModel": "Fable 預設模型",
+        "fableModelPlaceholder": "例如：claude-fable-5",
+        "haikuModel": "Haiku 預設模型",
+        "sonnetModel": "Sonnet 預設模型",
+        "opusModel": "Opus 預設模型",
+        "customModels": "自訂模型",
+        "customModelsHint": "新增此供應商支援的額外模型，自訂模型將顯示在模型選擇列表的最前面",
+        "jsonError": "JSON 格式無效",
+        "codeView": "Code",
+        "visualView": "Visual",
+        "formatJson": "Format",
+        "invalidJson": "Invalid JSON format, please switch to code view to fix",
+        "presetGroup": "Quick Presets"
       },
       "presets": {
         "custom": "Custom",
@@ -562,7 +667,29 @@
         "xiaomiPlan": "Xiaomi MiMo Plan",
         "qwen": "阿里千問",
         "openrouter": "OpenRouter"
-      }
+      },
+      "currentConfig": "目前ClaudeCode配置",
+      "noConfig": "暫無配置資訊",
+      "notConfigured": "未配置",
+      "apiKey": "API Key",
+      "apiKeyHelper": "API Key 助手",
+      "baseUrl": "Base URL",
+      "provider": "供應商",
+      "source": "來源",
+      "show": "顯示",
+      "hide": "隱藏",
+      "switchTo": "切換到",
+      "addProvider": "新增供應商",
+      "importProvider": "匯入供應商",
+      "importFrom": "從以下來源匯入",
+      "importFromCcSwitch": "從 cc-switch 匯入",
+      "edit": "編輯",
+      "delete": "刪除",
+      "deleteMessage": "確定要刪除供應商 \"{{name}}\" 嗎？此操作無法撤銷。",
+      "convertLocal": "轉為本地配置",
+      "convertMessage": "轉換後將斷開與匯入源的關聯，此操作不可逆。",
+      "importing": "匯入中...",
+      "localProviderHelp": "When using local provider mode:\n• The plugin will not modify your ~/.claude/settings.json file\n• You need to manually manage your configurations\n• Make sure the file exists and contains valid JSON\n• Suitable for advanced users who prefer manual control"
     },
     "permissionsComingSoon": "權限配置功能即將推出...",
     "agentsComingSoon": "Agents配置功能即將推出...",
@@ -607,7 +734,18 @@
         "envKeyInvalid": "Invalid key name (must start with letter/underscore, alphanumeric only)",
         "envKeyProtected": "Cannot set built-in variable: {{key}}",
         "envKeyDuplicate": "Duplicate key: {{key}}",
-        "envValueTooLong": "變數值過長（最大 {{max}} 字元）"
+        "envValueTooLong": "變數值過長（最大 {{max}} 字元）",
+        "configJsonError": "config.toml JSON format error",
+        "customModels": "Custom Models",
+        "customModelsHint": "Add extra models supported by this provider. Custom models will appear at the top of the model selection list",
+        "noCustomModels": "No custom models",
+        "addModel": "Add Model",
+        "modelIdPlaceholder": "Model ID (required, e.g., gpt-4o)",
+        "modelLabelPlaceholder": "Display name (optional)",
+        "modelDescPlaceholder": "Model description (optional)",
+        "modelIdRequired": "Model ID is required",
+        "modelIdInvalid": "Invalid model ID format (only letters, numbers, dots, hyphens, underscores, slashes and colons allowed)",
+        "modelIdDuplicate": "Model ID already exists"
       }
     },
     "agent": {
@@ -638,7 +776,9 @@
         "promptHint": "提示詞會在對話開始時作為系統指令傳送給AI",
         "confirmAdd": "建立",
         "saveChanges": "儲存"
-      }
+      },
+      "operationFailed": "操作失敗",
+      "clearAgent": "取消選擇提示詞"
     },
     "prompts": "Prompt Library",
     "prompt": {
@@ -669,8 +809,43 @@
         "contentHint": "Prompt content will be inserted directly into the input box when selected",
         "confirmAdd": "Create",
         "saveChanges": "Save"
-      }
-    }
+      },
+      "customPrompts": "Custom Prompts",
+      "loadFailed": "Load failed"
+    },
+    "pluginModels": {
+      "title": "自訂模型",
+      "description": "在此新增的自訂模型將在所有供應商下可見，顯示在模型選擇清單的最前面",
+      "dialogTitle": "管理自訂模型",
+      "manage": "管理模型",
+      "pricing": {
+        "title": "價格（美元/百萬 tokens）",
+        "hint": "選填。留空某項會使用該 token 類型的預設費率。",
+        "inputLabel": "輸入",
+        "outputLabel": "輸出",
+        "cacheWriteLabel": "快取寫入",
+        "cacheReadLabel": "快取讀取",
+        "inputShort": "輸入",
+        "outputShort": "輸出",
+        "cacheWriteShort": "快取寫入",
+        "cacheReadShort": "快取讀取",
+        "invalidValue": "價格必須是非負數字",
+        "defaultPricing": "使用預設價格"
+      },
+      "configuredSectionTitle": "已設定的 Claude 模型",
+      "configuredSectionDesc": "這些模型來自目前 Claude 供應商或 settings.json，已經會顯示在模型選擇器中。這裡只能修改價格。",
+      "configuredEditHint": "此模型由目前 Claude 供應商或 settings.json 管理，只能在這裡修改價格。",
+      "customSectionTitle": "自訂模型",
+      "editPricing": "編輯價格"
+    },
+    "dependenciesDesc": "管理 AI SDK 依賴套件的安裝和更新",
+    "sponsor": "贊助支持",
+    "sponsorDesc": "如果這個項目對你有幫助，歡迎贊助支持，你的支持是我持續維護的動力！",
+    "alipay": "支付寶",
+    "wechatPay": "微信",
+    "paypal": "PayPal",
+    "comingSoon": "功能即將推出...",
+    "promptsDesc": "Manage common prompt templates for quick insertion during chat"
   },
   "history": {
     "sessionDeleted": "會話已刪除",
@@ -726,6 +901,35 @@
       "hoursAgo": "小時前",
       "minutesAgo": "分鐘前",
       "secondsAgo": "秒前"
+    },
+    "title": "歷史會話",
+    "exportSuccess": "會話已匯出",
+    "titleTooLong": "標題過長（最多50個字元）",
+    "convertToCliSession": "轉換為 CLI 可辨識會話",
+    "convertButton": "轉為CLI",
+    "convertSuccess": "會話已轉換為 CLI 可辨識",
+    "convertFailed": "轉換失敗",
+    "confirmConvert": "轉換為 CLI 會話？",
+    "convertConfirmMessage": "此操作將修改會話的 entrypoint，使其在 Claude Code CLI 的 /resume 列表中顯示。",
+    "conversionErrors": {
+      "INVALID_SESSION_ID": "無效的會話 ID",
+      "SESSION_ACTIVE": "無法轉換當前活躍的會話，請先開啟新會話後再轉換",
+      "SESSION_NOT_FOUND": "未找到會話檔案",
+      "FILE_NOT_EXIST": "會話檔案不存在",
+      "FILE_LOCKED": "會話檔案正在被其他程序訪問",
+      "NOT_SDK_SESSION": "此會話不是 SDK 創建的會話（entrypoint 不是 sdk-cli）",
+      "ALREADY_CLI_SESSION": "此會話已經是 CLI 會話",
+      "CONVERSION_FAILED": "轉換失敗，請稍後重試"
+    },
+    "entrypointLabel": {
+      "sdk-cli": "SDK會話",
+      "claude-vscode": "VS Code",
+      "remote": "遠程"
+    },
+    "entrypointTooltip": {
+      "sdk-cli": "此會話由插件通過 SDK 創建，CLI 默認不顯示。點擊「轉為CLI」可使其出現在終端 CLI 的 /resume 列表中",
+      "claude-vscode": "此會話由 VS Code 插件創建，CLI 默認不顯示。點擊「轉為CLI」可使其出現在終端 CLI 的 /resume 列表中",
+      "remote": "此會話由遠程 Claude Code 實例創建"
     }
   },
   "permission": {
@@ -738,8 +942,17 @@
       "Read": "讀取檔案",
       "ReadBatch": "批量讀取檔案",
       "execute": "執行 {{toolName}}",
-      "readDirectory": "讀取目錄"
-    }
+      "readDirectory": "讀取目錄",
+      "Write": "寫入檔案",
+      "Edit": "編輯檔案",
+      "Bash": "執行命令",
+      "TodoWrite": "寫入待辦",
+      "TodoRead": "讀取待辦",
+      "WebSearch": "網頁搜尋",
+      "WebFetch": "獲取網頁",
+      "timeoutWarning": "請儘快回答，對話框將在 {{seconds}} 秒後自動關閉"
+    },
+    "dialogTitle": "權限請求"
   },
   "askUserQuestion": {
     "title": "Claude 有一些問題想問你",
@@ -766,7 +979,8 @@
     "reject": "Reject",
     "toApprove": "to approve",
     "toReject": "to reject",
-    "timeoutWarning": "Please make a choice soon, dialog will close in {{seconds}} seconds"
+    "timeoutWarning": "Please make a choice soon, dialog will close in {{seconds}} seconds",
+    "requestedPermissions": "Requested Permissions"
   },
   "toast": {
     "switchSuccess": "切換成功",
@@ -778,7 +992,16 @@
     "invalidJsonConfig": "配置 JSON 格式錯誤，請修正後再儲存",
     "providerAdded": "供應商新增成功",
     "providerUpdated": "供應商更新成功",
-    "providerDeleted": "供應商刪除成功"
+    "providerDeleted": "供應商刪除成功",
+    "thinkingEnabled": "思考已開啟",
+    "thinkingDisabled": "思考已關閉",
+    "configLoading": "Configuration loading, please try again",
+    "deleteSuccess": "刪除成功",
+    "copySuccess": "{{label}}已複製到剪貼簿",
+    "copyFailed": "複製失敗",
+    "newSessionCreatedReady": "新會話已建立，可以開始提問",
+    "providerSwitchSuccess": "供應商切換成功！",
+    "providerSwitchFailed": "切換供應商失敗"
   },
   "config": {
     "switchProvider": "切換供應商",
@@ -821,8 +1044,14 @@
       "killAllSuccess": "已清理 {{count}} 個孤立進程",
       "restartSuccess": "常駐進程已關閉，下一則訊息會自動啟動新實例",
       "killFailed": "終止失敗：{{error}}",
-      "activeRequests": "{{count}} 個進行中"
-    }
+      "activeRequests": "{{count}} 個進行中",
+      "pending": "處理中...",
+      "killHint": "強制結束此 Node 進程",
+      "restartHint": "關閉常駐進程，下一則訊息時會自動重新啟動"
+    },
+    "clickToCopy": "點選複製",
+    "switch": "切換",
+    "link": "連結"
   },
   "markdown": {
     "copyCode": "複製程式碼",
@@ -869,7 +1098,9 @@
     "daysAgo": "天前",
     "justNow": "剛剛",
     "minutesAgo": "分鐘前",
-    "hoursAgo": "小時前"
+    "hoursAgo": "小時前",
+    "description": "描述",
+    "command": "命令"
   },
   "mcp": {
     "title": "MCP 伺服器",
@@ -970,7 +1201,11 @@
       "checkingConnection": "Checking connection status",
       "checkingConnectionServer": "Server \"{{name}}\" - Checking connection status...",
       "refreshComplete": "Server \"{{name}}\" refresh complete",
-      "forceRefreshTools": "Force refresh tools"
+      "forceRefreshTools": "Force refresh tools",
+      "connected": "Connected",
+      "failed": "Connection failed",
+      "needsAuth": "Authentication required",
+      "unknownError": "Unknown error"
     },
     "presets": {
       "fetch": "Web content fetching tool for scraping web pages",
@@ -1043,7 +1278,16 @@
     "clickToLoad": "Click to Load",
     "noParams": "No Parameters",
     "required": "Required",
-    "optional": "Optional"
+    "optional": "Optional",
+    "edit": "編輯",
+    "delete": "刪除",
+    "errorDetails": "Error Details",
+    "refreshLogs": "Refresh Logs",
+    "clearLogs": "Clear Logs",
+    "clear": "Clear",
+    "noRefreshLogs": "No Refresh Logs",
+    "refreshLogsHint": "After clicking the refresh button, detailed refresh process information will be displayed here",
+    "refreshServer": "Refresh {{name}}"
   },
   "tools": {
     "toolCall": "工具調用",
@@ -1082,10 +1326,16 @@
     "bashGroupBatchRun": "Batch Run Commands",
     "bashGroupCompleted": "completed",
     "bashGroupAllCompleted": "All Completed",
-    "bashGroupFailed": "failed"
+    "bashGroupFailed": "failed",
+    "clickToOpen": "點擊打開 {{filePath}}",
+    "filePath": "檔案路徑：",
+    "bashGroupBatchExecution": "Batch Execution"
   },
   "todo": {
-    "progress": "已完成 {{completed}}/{{total}} 個任務"
+    "progress": "已完成 {{completed}}/{{total}} 個任務",
+    "inProgress": "進行中 {{completed}}/{{total}} 個任務",
+    "allCompleted": "已完成 {{completed}}/{{total}} 個任務",
+    "stopped": "已停止"
   },
   "statusPanel": {
     "tasksTab": "任務",
@@ -1111,7 +1361,11 @@
     "discardAllConfirmMessage": "將撤銷所有檔案的更改，此操作無法恢復。",
     "discardAllSuccess": "已撤銷所有檔案更改",
     "discardAllFailed": "撤銷失敗: {{error}}",
-    "keepAllSuccess": "已保存全部，改動記錄已重置"
+    "keepAllSuccess": "已保存全部，改動記錄已重置",
+    "todoTab": "計畫",
+    "filesTab": "檔案改動",
+    "keepAllConfirmTitle": "保存全部",
+    "keepAllConfirmMessage": "將當前改動作為新基準，後續改動從零開始記錄。"
   },
   "skills": {
     "all": "全部",
@@ -1268,7 +1522,11 @@
       "saveSuccess": "Skill 儲存成功",
       "noChanges": "Skill 沒有變更",
       "saveFailed": "Skill 儲存失敗"
-    }
+    },
+    "title": "Skills",
+    "noSkills": "No Skills",
+    "toggleSuccess": "Updated Skill status",
+    "toggleFailed": "Failed to update Skill status"
   },
   "models": {
     "searchPlaceholder": "搜尋模型",
@@ -1277,51 +1535,109 @@
     "longContext": {
       "label": "1M",
       "tooltipEnabled": "開啟/關閉1M上下文",
-      "tooltipDisabled": "Haiku不支援1M上下文"
+      "tooltipDisabled": "Haiku不支援1M上下文",
+      "shortLabel": "1M上下文"
+    },
+    "addModel": "新增模型",
+    "claude": {
+      "sonnet46": {
+        "label": "Sonnet 4.6",
+        "description": "Sonnet 4.6 · 預設推薦模型"
+      },
+      "sonnet5": {
+        "label": "Sonnet 5",
+        "description": "Sonnet 5 · Sonnet 4.6 升級模型"
+      },
+      "sonnet47": {
+        "label": "Sonnet 4.7",
+        "description": "Sonnet 4.7 · 預設推薦模型"
+      },
+      "opus5": {
+        "label": "Opus 5",
+        "description": "Opus 5 · Opus 最新升級模型"
+      },
+      "opus46_1m": {
+        "label": "Opus 4.6",
+        "description": "Opus 4.6 · 高效能推理模型"
+      },
+      "haiku45": {
+        "label": "Haiku 4.5",
+        "description": "Haiku 4.5 · 速度最快，適合快速回覆"
+      },
+      "opus48": {
+        "label": "Opus 4.8",
+        "description": "Opus 4.8 · 保留的前代 Opus 模型"
+      },
+      "fable5": {
+        "label": "Fable 5",
+        "description": "Fable 5 · 最強大 · Mythos 級"
+      }
+    },
+    "codex": {
+      "gpt56sol": {
+        "label": "GPT-5.6 Sol",
+        "description": "面向複雜專業工作的前沿模型"
+      },
+      "gpt56terra": {
+        "label": "GPT-5.6 Terra",
+        "description": "智慧與成本兼顧的 GPT-5.6 模型"
+      },
+      "gpt56luna": {
+        "label": "GPT-5.6 Luna",
+        "description": "針對成本敏感場景優化的 GPT-5.6 模型"
+      },
+      "gpt55": {
+        "label": "GPT-5.5",
+        "description": "最新前沿模型，能力進一步增強"
+      },
+      "gpt54": {
+        "label": "GPT-5.4",
+        "description": "最新前沿模型，能力進一步增強"
+      }
     }
   },
   "modes": {
     "default": {
-      "label": "預設模式",
-      "tooltip": "標準權限行為",
-      "description": "每個操作都需要手動確認，適合謹慎使用"
+      "label": "Default Mode",
+      "tooltip": "Standard permission behavior",
+      "description": "Requires manual confirmation for each operation, suitable for cautious use"
     },
     "plan": {
-      "label": "規劃模式",
-      "tooltip": "規劃模式 - 唯讀分析",
-      "description": "僅使用唯讀工具，產生計畫供使用者核准後執行"
+      "label": "Plan Mode",
+      "tooltip": "Plan mode - read-only analysis",
+      "description": "Uses only read-only tools, generates plan for user approval"
     },
     "acceptEdits": {
-      "label": "代理模式",
-      "tooltip": "自動接受檔案編輯",
-      "description": "自動接受檔案建立與編輯，減少確認步驟"
+      "label": "Agent Mode",
+      "tooltip": "Automatically accept file edits",
+      "description": "Automatically accept file creation/editing, reducing confirmation steps"
     },
     "bypassPermissions": {
-      "label": "自動模式",
-      "tooltip": "略過所有權限檢查",
-      "description": "完全自動化，略過所有權限檢查【請謹慎使用】"
+      "label": "Auto Mode",
+      "tooltip": "Bypass all permission checks",
+      "description": "Fully automated, bypassing all permission checks [Use with caution]"
     }
   },
   "codexModes": {
     "default": {
-      "label": "建議模式",
-      "tooltip": "Codex approval_policy=untrusted：編輯檔案或執行 Shell 指令前都會提示確認。",
-      "description": "最安全的選項。每次寫入或執行指令都需要你的核准。"
+      "label": "Suggest (approval)",
+      "tooltip": "Codex approval_policy=untrusted – prompts before editing files or running shell commands.",
+      "description": "Safest option. Every write or command requires your approval."
     },
     "plan": {
-      "label": "規劃模式",
-      "tooltip": "規劃模式 - 唯讀分析",
-      "description": "僅使用唯讀工具，產生計畫供使用者核准後執行"
+      "label": "Plan Mode",
+      "tooltip": "Plan mode - read-only analysis",
+      "description": "Uses only read-only tools, generates plan for user approval"
     },
     "acceptEdits": {
-      "label": "自動編輯",
-      "tooltip": "Codex approval_policy=on-request：需要時才要求核准。",
-      "description": "平衡選項。保留正常編輯流程，同時在需要時要求核准。"
+      "label": "Auto Edit",
+      "tooltip": "Codex approval_policy=on-request – asks for approval when needed",
+      "description": "Balanced option. Allows normal editing flow while still requiring approvals when needed."
     },
     "bypassPermissions": {
-      "label": "全自動",
-      "tooltip": "Codex approval_policy=never：不提示即執行指令與寫入檔案（仍受工作區沙箱限制）。",
-      "description": "免確認模式。Codex 會立即執行編輯與 Shell 指令。"
+      "label": "Full Auto",
+      "tooltip": "Codex approval_policy=never – runs commands and writes files without prompting (workspace sandbox still enforced).",
+      "description": "Hands-off mode. Codex executes edits and shell commands immediately."
     }
   },
   "providers": {
@@ -1346,7 +1662,11 @@
     "originalPrompt": "Original Prompt",
     "enhancedPrompt": "Enhanced Prompt",
     "useEnhanced": "Use Enhanced",
-    "keepOriginal": "Keep Original"
+    "keepOriginal": "Keep Original",
+    "tooltipFull": "Rewrite prompt to provide more context and improve agent responses",
+    "enhanceFailed": "Failed to enhance prompt",
+    "emptyPrompt": "Please enter a prompt first",
+    "copyEnhanced": "Copy Enhanced"
   },
   "fileContext": {
     "placeholder": "檔案上下文",
@@ -1372,10 +1692,28 @@
     "success": "回滾成功",
     "failed": "檔案恢復失敗",
     "notAvailable": "目前會話不支援回溯",
-    "parseError": "解析結果失敗"
+    "parseError": "解析結果失敗",
+    "tooltipFull": "Restore files to their state at this message",
+    "successSimple": "回滾成功"
   },
   "reasoning": {
-    "title": "選擇思考深度"
+    "title": "選擇思考深度",
+    "low": {
+      "label": "較少",
+      "description": "快速響應，基礎推理"
+    },
+    "medium": {
+      "label": "中等",
+      "description": "平衡思考（預設）"
+    },
+    "high": {
+      "label": "較多",
+      "description": "深度推理，適合複雜任務"
+    },
+    "xhigh": {
+      "label": "最多",
+      "description": "最深推理，最高精度"
+    }
   },
   "errorBoundary": {
     "title": "Something went wrong",
@@ -1424,7 +1762,8 @@
     "uploadedImages": "已上傳 {{count}} 張圖片",
     "uploadedAttachments": "已上傳附件",
     "emptyMessage": "空訊息",
-    "attachment": "附件"
+    "attachment": "附件",
+    "codexThinkingHint": "Codex 未返回 reasoning 項。若依然看不到思考過程，請參考 docs/codex/docs/config.md 中 hide_agent_reasoning/show_raw_agent_reasoning 的說明，並確認 OpenAI 帳號已完成驗證。"
   },
   "changelog": {
     "title": "版本更新",
@@ -1440,6 +1779,55 @@
     "copyCommand": "複製",
     "copied": "已複製",
     "openDependencySettings": "開啟相依性管理",
-    "recommended": "推薦"
+    "recommended": "推薦",
+    "codexThreadResume": {
+      "title": "工作階段執行緒已失效",
+      "intro": "新建工作階段即可解決此問題。目前工作階段的執行緒 ID 在 Codex 伺服器端已不存在。",
+      "reason": "Codex 服務端會在一段時間後清除舊執行緒，繼續上一次工作階段時可能觸發此錯誤。"
+    },
+    "sdkNativeBinaryMissing": {
+      "title": "SDK 安裝不完整 — 缺少 native 二進位檔",
+      "intro": "這是淘寶 npm 鏡像源的已知問題（非外掛 bug）。鏡像源未完整同步 platform 檔案。可手動按以下方案處理：",
+      "reason": "淘寶源同步完成後此問題會自動消失，無需擔心。",
+      "solutions": {
+        "switchRegistry": {
+          "title": "方案一：暫時切換官方源重新安裝",
+          "step0": "1. 在終端機執行（切換到 npm 官方源）：",
+          "step1": "2. 開啟外掛設定中的「相依性管理」，點選重新安裝：",
+          "step2": "3. 重新安裝完成後，切回淘寶源："
+        },
+        "downgrade": {
+          "title": "方案二：版本回退",
+          "step0": "在「相依性管理」中將 SDK 版本切換到 v0.2.112 或更早版本，切換後需要重新啟動 IDEA。"
+        }
+      }
+    },
+    "spawnEbusy": {
+      "title": "spawn EBUSY — 子處理程序啟動失敗",
+      "intro": "此錯誤通常由 Node.js 版本不相容或 SDK 安裝不完整引起，按以下兩個方向排查通常可解決：",
+      "reason": "EBUSY 是 Node.js 啟動子處理程序時遇到資源忙碌的系統錯誤。常見原因：Node.js 24 相容性問題、SDK 版本過舊，或使用淘寶源安裝時同步不完整。",
+      "solutions": {
+        "checkNodeVersion": {
+          "title": "方案一：檢查 Node.js 版本",
+          "step0": "在終端機執行以下指令查看版本號。建議使用 Node 22 或目前最新 LTS 版本 — 使用者反饋 Node 24 報錯較多，請優先使用 20 或 22："
+        },
+        "reinstallLatestSdk": {
+          "title": "方案二：用 npm 官方源重新安裝最新版 SDK",
+          "step0": "1. 切換到 npm 官方源（淘寶源可能未同步最新版本，請勿使用淘寶源安裝）：",
+          "step1": "2. 開啟「相依性管理」重新安裝最新版 SDK："
+        }
+      }
+    }
+  },
+  "codexFastMode": {
+    "title": "選擇 Codex 速度模式",
+    "normal": {
+      "label": "標準",
+      "description": "Codex 的預設回應速度"
+    },
+    "fast": {
+      "label": "Fast",
+      "description": "Codex 快速回應模式（會產生額外消耗）"
+    }
   }
 }

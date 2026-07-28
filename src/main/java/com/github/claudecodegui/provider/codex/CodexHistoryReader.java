@@ -273,6 +273,19 @@ public class CodexHistoryReader {
     }
 
     /**
+     * Stream one session without materializing the complete JSONL file in memory.
+     *
+     * @return number of parsed top-level Codex records
+     */
+    public int forEachSessionMessage(String sessionId, Consumer<JsonObject> consumer) throws IOException {
+        logSessionAccessWithoutLocalConfigAuthorization();
+        return sessionService.forEachSessionMessage(sessionId, message -> {
+            JsonObject raw = gson.toJsonTree(message).getAsJsonObject();
+            consumer.accept(raw);
+        });
+    }
+
+    /**
      * Get project statistics for usage tracking.
      * Note: Codex sessions don't store project path, so we return all sessions.
      *

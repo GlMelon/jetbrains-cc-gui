@@ -17,7 +17,13 @@
     "thinking": "Pensando",
     "thinkingProcess": "Proceso de pensamiento",
     "error": "Error",
-    "warning": "Advertencia"
+    "warning": "Advertencia",
+    "ready": "Listo",
+    "success": "Éxito",
+    "info": "Información",
+    "seconds": "s",
+    "minutes": "m",
+    "optional": "Optional"
   },
   "chat": {
     "sendMessage": "Enviar mensaje a {{provider}}",
@@ -71,7 +77,7 @@
     "disabled": "Deshabilitado",
     "sdkNotInstalled": "{{provider}} SDK no está instalado. Instala el SDK para comenzar a chatear.",
     "sdkStatusLoading": "Checking SDK status...",
-    "openSourceBanner": "Este proyecto garantiza ser 100% de código abierto (cuidado con los proyectos pirateados)",
+    "openSourceBanner": "Este proyecto garantiza ser 100% de código abierto y gratuito (cuidado con los proyectos pirateados)",
     "goInstallSdk": "Ir a instalar",
     "commandNotImplemented": "La función `{{command}}` aún no está implementada.",
     "clearCommandDescription": "Borrar historial de conversación e iniciar nueva sesión",
@@ -150,7 +156,24 @@
       "copyFailed": "Error al copiar",
       "jumpSuccess": "Se saltó al mensaje original",
       "jumpFailed": "No se pudo localizar el mensaje original"
-    }
+    },
+    "addAttachment": "Añadir adjunto",
+    "generatingResponse": "Generando respuesta",
+    "elapsedTime": "Transcurrido {{time}}",
+    "minutesAndSeconds": "{{minutes}}m {{seconds}}s",
+    "usage": "Uso",
+    "noMatchingHistory": "Sin historial coincidente",
+    "openSourceBannerStar": "Star",
+    "openSourceBannerStarToast": "Enlace copiado al portapapeles — pégalo en el navegador para acceder ⭐",
+    "openSourceBannerStarAria": "Copiar enlace y dar una estrella en GitHub",
+    "attachmentFile": "[Adjunto: {{fileName}}]",
+    "attachmentsUploaded": "[Archivos adjuntos cargados]",
+    "showEarlierTurns": "Mostrar {{count}} turnos anteriores (quedan {{remaining}} cargados)",
+    "loadEarlierTurns": "Cargar {{count}} turnos anteriores del disco (quedan {{remaining}} de {{total}})",
+    "loadingEarlierTurns": "Cargando turnos anteriores...",
+    "tokenUsage": "{{input}} entrada / {{output}} salida",
+    "tokenUsageDetail": "Total del turno — entrada {{input}} · escritura caché {{cacheWrite}} · lectura caché {{cacheRead}} · salida {{output}}",
+    "cacheHitsWithRatio": " ({{tokens}} aciertos de caché, {{ratio}})"
   },
   "settings": {
     "title": "Configuración",
@@ -169,7 +192,10 @@
         "label": "Tema de interfaz",
         "system": "Seguir IDE",
         "light": "Claro",
-        "dark": "Oscuro"
+        "dark": "Oscuro",
+        "systemDesc": "Seguir automáticamente el tema del IDE",
+        "lightDesc": "Fresco y brillante, adecuado para uso diurno",
+        "darkDesc": "Cómodo para los ojos, adecuado para uso nocturno"
       },
       "language": {
         "label": "Idioma de interfaz",
@@ -194,9 +220,9 @@
         "versionTooLow": "La versión de Node.js es demasiado baja. El plugin requiere v{{minVersion}} o superior para funcionar correctamente"
       },
       "claudeCliPath": {
-        "label": "Ruta de Claude CLI",
-        "placeholder": "Dejar vacío para detección automática, o especificar la ruta del ejecutable claude",
-        "hint": "Especifica la ruta del ejecutable de Claude CLI. Dejar vacío para detectar automáticamente en PATH."
+        "label": "Ruta del CLI de Claude (anulación)",
+        "placeholder": "p. ej. /usr/local/bin/claude — déjalo vacío para usar el SDK integrado",
+        "hint": "Opcional. Cuando se establece, el complemento ejecuta este binario en lugar del @anthropic-ai/claude-agent-sdk integrado. El daemon se reinicia al guardar."
       },
       "workingDirectory": {
         "label": "Working Directory",
@@ -213,26 +239,28 @@
         "level6": "Máximo (140%)"
       },
       "editorFont": {
-        "label": "Fuente",
-        "followOption": "Seguir al editor ({{font}})",
-        "customOption": "Archivo de fuente personalizado",
-        "customPathLabel": "Ruta del archivo de fuente",
-        "customPathPlaceholder": "Elige o escribe la ruta de un archivo .ttf / .otf",
+        "label": "Fuente UI",
+        "followOption": "Seguir la fuente UI de IDEA ({{font}})",
+        "customOption": "Archivo de fuente UI personalizado",
+        "customPathLabel": "Ruta del archivo de fuente UI",
+        "customPathPlaceholder": "Elige o escribe la ruta de un archivo .ttf / .otf para la fuente UI",
         "browse": "Examinar",
-        "warningUnavailable": "La fuente no está disponible; se usa la fuente del editor",
-        "statusFollowEditor": "Actualmente se usa la fuente del editor: {{font}}",
-        "statusCustom": "Actualmente se usa la fuente personalizada: {{font}}"
+        "warningUnavailable": "La fuente UI no está disponible; se usa la fuente UI de IDEA",
+        "statusFollowEditor": "Actualmente se usa la fuente UI de IDEA: {{font}}",
+        "statusCustom": "Actualmente se usa la fuente UI personalizada: {{font}}",
+        "hint": "Aquí cambias la fuente de la interfaz del plugin; el código puede usar una fuente aparte."
       },
       "codeFont": {
         "label": "Fuente de código",
-        "followOption": "Seguir al editor ({{font}})",
-        "customOption": "Archivo de fuente personalizado",
-        "customPathLabel": "Ruta del archivo de fuente",
-        "customPathPlaceholder": "Seleccionar o ingresar ruta de archivo de fuente .ttf / .otf",
+        "followOption": "Seguir la fuente del editor ({{font}})",
+        "customOption": "Archivo de fuente de código personalizado",
+        "customPathLabel": "Ruta del archivo de fuente de código",
+        "customPathPlaceholder": "Elige o escribe la ruta de un archivo .ttf / .otf para la fuente de código",
         "browse": "Examinar",
-        "warningUnavailable": "Fuente no disponible, actualmente usando la fuente del editor",
-        "statusFollowEditor": "Siguiendo la fuente del editor: {{font}}",
-        "statusCustom": "Actualmente se usa la fuente personalizada: {{font}}"
+        "warningUnavailable": "La fuente de código no está disponible; se usa la fuente del editor",
+        "statusFollowEditor": "Actualmente se usa la fuente del editor: {{font}}",
+        "statusCustom": "Actualmente se usa la fuente de código personalizada: {{font}}",
+        "hint": "El código Markdown y los bloques de comando usan esta fuente."
       },
       "streaming": {
         "label": "Streaming",
@@ -332,6 +360,12 @@
         "customCoversFrame": "Custom images fill the entire avatar frame.",
         "assistantPreviewMessage": "AI messages preview with the selected avatar.",
         "userPreviewMessage": "User messages preview with the selected avatar."
+      },
+      "detailedOutput": {
+        "label": "Información de salida detallada",
+        "enabled": "Activado",
+        "disabled": "Desactivado",
+        "hint": "Cuando está activada, el pie de cada mensaje muestra el coste estimado del turno cuando esté disponible e incluye los aciertos de caché dentro del resumen de tokens de entrada. El uso de tokens siempre permanece visible."
       }
     },
     "providers": "Gestión de proveedores",
@@ -363,7 +397,8 @@
       "uninstallSuccess": "{{name}} ha sido desinstalado",
       "uninstallFailed": "Desinstalación fallida: {{error}}",
       "updating": "Actualizando...",
-      "updateSuccess": "{{name}} actualizado correctamente"
+      "updateSuccess": "{{name}} actualizado correctamente",
+      "update": "Actualizar"
     },
     "usage": "Estadísticas de uso",
     "usageDesc": "Ver consumo de Token, estadísticas de costos y análisis de tendencias de uso",
@@ -379,7 +414,14 @@
       "title": "Commit AI",
       "description": "Configure AI-generated Git commit message behavior",
       "providerModel": {
-        "resetToDefault": "Restablecer"
+        "resetToDefault": "Restablecer",
+        "label": "Proveedor del modelo de commit",
+        "modelLabel": "Modelo de commit",
+        "providerAvailable": "Disponible",
+        "providerUnavailable": "No disponible",
+        "currentProviderAuto": "Actualmente usando selección automática: {{provider}}",
+        "currentProviderManual": "Actualmente usando el proveedor seleccionado manualmente: {{provider}}",
+        "currentProviderUnavailable": "El proveedor seleccionado no está disponible actualmente: {{provider}}"
       },
       "prompt": {
         "label": "Additional Prompt",
@@ -392,7 +434,10 @@
         "hint": "Este prompt solo se aplica al proyecto actual y se combina con el prompt adicional global. Cuando hay conflicto, el prompt del proyecto prevalece. Se pueden configurar proyectos diferentes de forma independiente."
       },
       "codeReview": {
-        "label": "Code Review AI Additional Prompt"
+        "label": "Code Review AI Additional Prompt",
+        "comingSoon": "Coming Soon",
+        "placeholder": "This feature is under development, stay tuned...",
+        "hint": "Code Review AI will help you automatically review code, identify potential issues, and provide improvement suggestions. You can configure review preferences and focus areas here."
       }
     },
     "agents": "Agentes",
@@ -425,7 +470,17 @@
           "importanceHint": "Mayor importancia significa mayor prioridad en el autocompletado"
         },
         "timeAgo": {
-          "justNow": "ahora mismo"
+          "justNow": "ahora mismo",
+          "yearsAgo_one": "{{count}} año atrás",
+          "yearsAgo_other": "{{count}} años atrás",
+          "monthsAgo_one": "{{count}} mes atrás",
+          "monthsAgo_other": "{{count}} meses atrás",
+          "daysAgo_one": "{{count}} día atrás",
+          "daysAgo_other": "{{count}} días atrás",
+          "hoursAgo_one": "{{count}} hora atrás",
+          "hoursAgo_other": "{{count}} horas atrás",
+          "minutesAgo_one": "{{count}} minuto atrás",
+          "minutesAgo_other": "{{count}} minutos atrás"
         }
       },
       "aiTitleGeneration": {
@@ -488,8 +543,43 @@
         "providers": {
           "claude": {
             "emptyConfigCode": "{\n  \"env\": {\n  }\n}",
-            "proxyConfigCode": "{\n  \"env\": {\n    \"HTTP_PROXY\": \"http://127.0.0.1:7897\",\n    \"HTTPS_PROXY\": \"http://127.0.0.1:7897\"\n  }\n}"
+            "proxyConfigCode": "{\n  \"env\": {\n    \"HTTP_PROXY\": \"http://127.0.0.1:7897\",\n    \"HTTPS_PROXY\": \"http://127.0.0.1:7897\"\n  }\n}",
+            "title": "Cómo usar la cuenta de suscripción de Claude Code",
+            "item1": "Inicia sesión en tu cuenta de suscripción de Claude Code a través del CLI en la terminal, luego puedes chatear normalmente en la terminal",
+            "item2": "Asegúrate de que el archivo ~/.claude/settings.json y el archivo .env estén vacíos",
+            "item3": "Reinicia IDEA y podrás chatear normalmente",
+            "emptyConfigCodeLabel": "~/.claude/settings.json",
+            "noteTitle": "Notas de casos especiales:",
+            "note1": "Si ya realizaste los pasos anteriores pero el plugin aún no responde, intenta configurar ~/.claude/settings.json .env a:",
+            "proxyConfigCodeLabel": "~/.claude/settings.json",
+            "issuePrefix": "Si todavía no funciona, reporta un problema en GitHub: ",
+            "issueUrl": "https://github.com/zhukunpenglinyutong/idea-claude-code-gui/issues"
+          },
+          "codex": {
+            "title": "Configuración de cuenta de suscripción Codex",
+            "item1": "Ejecuta codex login en la terminal Codex CLI e inicia sesión, luego puedes chatear en la terminal",
+            "item2": "Reinicia IDEA",
+            "item3": "Ahora puedes chatear normalmente",
+            "emptyConfigCodeLabel": "",
+            "emptyConfigCode": "",
+            "noteTitle": "",
+            "note1": "",
+            "proxyConfigCodeLabel": "",
+            "proxyConfigCode": "",
+            "issuePrefix": "Si todavía no funciona, reporta un problema en GitHub: ",
+            "issueUrl": "https://github.com/zhukunpenglinyutong/idea-claude-code-gui/issues"
           }
+        },
+        "entry": "Tutorial de cuenta de suscripción",
+        "dialogTitle": "Cómo usar una cuenta de suscripción",
+        "tabAriaLabel": "Pestañas del tutorial de cuenta de suscripción",
+        "tabs": {
+          "claude": "Suscripción Claude",
+          "codex": "Suscripción Codex"
+        },
+        "code": {
+          "copy": "Copiar código",
+          "copied": "Copiado"
         }
       },
       "importDialog": {
@@ -533,7 +623,22 @@
         "showApiKey": "Mostrar",
         "hideApiKey": "Ocultar",
         "confirmAdd": "Confirmar añadir",
-        "saveChanges": "Guardar cambios"
+        "saveChanges": "Guardar cambios",
+        "mainModel": "Modelo principal",
+        "mainModelPlaceholder": "ej., claude-sonnet-4-6",
+        "fableModel": "Modelo Fable predeterminado",
+        "fableModelPlaceholder": "ej., claude-fable-5",
+        "haikuModel": "Modelo Haiku predeterminado",
+        "sonnetModel": "Modelo Sonnet predeterminado",
+        "opusModel": "Modelo Opus predeterminado",
+        "customModels": "Modelos personalizados",
+        "customModelsHint": "Agregue modelos adicionales soportados por este proveedor. Los modelos personalizados aparecerán en la parte superior de la lista de selección de modelos",
+        "jsonError": "Formato JSON inválido",
+        "codeView": "Code",
+        "visualView": "Visual",
+        "formatJson": "Format",
+        "invalidJson": "Invalid JSON format, please switch to code view to fix",
+        "presetGroup": "Quick Presets"
       },
       "presets": {
         "custom": "Custom",
@@ -545,7 +650,29 @@
         "xiaomiPlan": "Xiaomi MiMo Plan",
         "qwen": "Alibaba Qwen",
         "openrouter": "OpenRouter"
-      }
+      },
+      "currentConfig": "Configuración actual de ClaudeCode",
+      "noConfig": "Sin información de configuración",
+      "notConfigured": "No configurado",
+      "apiKey": "API Key",
+      "apiKeyHelper": "Asistente de clave API",
+      "baseUrl": "Base URL",
+      "provider": "Proveedor",
+      "source": "Fuente",
+      "show": "Mostrar",
+      "hide": "Ocultar",
+      "switchTo": "Cambiar a",
+      "addProvider": "Añadir proveedor",
+      "importProvider": "Importar proveedor",
+      "importFrom": "Importar desde",
+      "importFromCcSwitch": "Importar desde cc-switch",
+      "edit": "Editar",
+      "delete": "Eliminar",
+      "deleteMessage": "¿Estás seguro de que quieres eliminar el proveedor \"{{name}}\"? Esta acción no se puede deshacer.",
+      "convertLocal": "Convertir a local",
+      "convertMessage": "Después de la conversión, se desconectará de la fuente de importación. Esta acción es irreversible.",
+      "importing": "Importando...",
+      "localProviderHelp": "When using local provider mode:\n• The plugin will not modify your ~/.claude/settings.json file\n• You need to manually manage your configurations\n• Make sure the file exists and contains valid JSON\n• Suitable for advanced users who prefer manual control"
     },
     "permissionsComingSoon": "Configuración de permisos próximamente...",
     "agentsComingSoon": "Configuración de agentes próximamente...",
@@ -590,7 +717,18 @@
         "envKeyInvalid": "Invalid key name (must start with letter/underscore, alphanumeric only)",
         "envKeyProtected": "Cannot set built-in variable: {{key}}",
         "envKeyDuplicate": "Duplicate key: {{key}}",
-        "envValueTooLong": "Valor demasiado largo (máx. {{max}} caracteres)"
+        "envValueTooLong": "Valor demasiado largo (máx. {{max}} caracteres)",
+        "configJsonError": "config.toml JSON format error",
+        "customModels": "Custom Models",
+        "customModelsHint": "Add extra models supported by this provider. Custom models will appear at the top of the model selection list",
+        "noCustomModels": "No custom models",
+        "addModel": "Add Model",
+        "modelIdPlaceholder": "Model ID (required, e.g., gpt-4o)",
+        "modelLabelPlaceholder": "Display name (optional)",
+        "modelDescPlaceholder": "Model description (optional)",
+        "modelIdRequired": "Model ID is required",
+        "modelIdInvalid": "Invalid model ID format (only letters, numbers, dots, hyphens, underscores, slashes and colons allowed)",
+        "modelIdDuplicate": "Model ID already exists"
       }
     },
     "agent": {
@@ -621,7 +759,9 @@
         "promptHint": "El prompt se enviará al AI como instrucciones del sistema al inicio de la conversación",
         "confirmAdd": "Crear",
         "saveChanges": "Guardar"
-      }
+      },
+      "operationFailed": "Operación fallida",
+      "clearAgent": "Limpiar prompt seleccionado"
     },
     "prompts": "Prompt Library",
     "prompt": {
@@ -652,8 +792,43 @@
         "contentHint": "Prompt content will be inserted directly into the input box when selected",
         "confirmAdd": "Create",
         "saveChanges": "Save"
-      }
-    }
+      },
+      "customPrompts": "Custom Prompts",
+      "loadFailed": "Load failed"
+    },
+    "pluginModels": {
+      "title": "Modelos personalizados",
+      "description": "Los modelos personalizados agregados aquí serán visibles en todos los proveedores, mostrados en la parte superior de la lista de selección de modelos",
+      "dialogTitle": "Gestionar modelos personalizados",
+      "manage": "Gestionar modelos",
+      "pricing": {
+        "title": "Precio (USD por 1M tokens)",
+        "hint": "Opcional. Deja un campo vacío para usar la tarifa predeterminada de ese tipo de token.",
+        "inputLabel": "Entrada",
+        "outputLabel": "Salida",
+        "cacheWriteLabel": "Escritura de caché",
+        "cacheReadLabel": "Lectura de caché",
+        "inputShort": "Entrada",
+        "outputShort": "Salida",
+        "cacheWriteShort": "Escritura de caché",
+        "cacheReadShort": "Lectura de caché",
+        "invalidValue": "El precio debe ser un número no negativo",
+        "defaultPricing": "Usando el precio predeterminado"
+      },
+      "configuredSectionTitle": "Modelos de Claude configurados",
+      "configuredSectionDesc": "Los modelos del proveedor de Claude activo o settings.json ya aparecen en el selector. Aquí solo se puede modificar el precio.",
+      "configuredEditHint": "Este modelo está gestionado por el proveedor de Claude activo o settings.json. Aquí solo se puede modificar el precio.",
+      "customSectionTitle": "Modelos personalizados",
+      "editPricing": "Editar precio"
+    },
+    "dependenciesDesc": "Gestionar instalaciones y actualizaciones de dependencias AI SDK",
+    "sponsor": "Sponsor",
+    "sponsorDesc": "If this project helps you, consider sponsoring to support ongoing maintenance!",
+    "alipay": "Alipay",
+    "wechatPay": "WeChat Pay",
+    "paypal": "PayPal",
+    "comingSoon": "Próximamente...",
+    "promptsDesc": "Manage common prompt templates for quick insertion during chat"
   },
   "history": {
     "sessionDeleted": "Sesión eliminada",
@@ -709,6 +884,35 @@
       "hoursAgo": "hace horas",
       "minutesAgo": "hace minutos",
       "secondsAgo": "hace segundos"
+    },
+    "title": "Historial de sesiones",
+    "exportSuccess": "Sesión exportada",
+    "titleTooLong": "Título demasiado largo (máximo 50 caracteres)",
+    "convertToCliSession": "Convertir a sesión reconocida por CLI",
+    "convertButton": "Convertir a CLI",
+    "convertSuccess": "Sesión convertida para ser reconocida por CLI",
+    "convertFailed": "Error en la conversión",
+    "confirmConvert": "¿Convertir a sesión CLI?",
+    "convertConfirmMessage": "Esto modificará el entrypoint de la sesión para que sea visible en la lista /resume del CLI de Claude Code.",
+    "conversionErrors": {
+      "INVALID_SESSION_ID": "ID de sesión inválido",
+      "SESSION_ACTIVE": "No se puede convertir la sesión actualmente activa. Inicie una nueva sesión primero y luego convierta esta",
+      "SESSION_NOT_FOUND": "Archivo de sesión no encontrado",
+      "FILE_NOT_EXIST": "El archivo de sesión no existe",
+      "FILE_LOCKED": "El archivo de sesión está siendo accedido por otro proceso",
+      "NOT_SDK_SESSION": "Esta sesión no fue creada por el SDK (entrypoint no es sdk-cli)",
+      "ALREADY_CLI_SESSION": "Esta sesión ya es una sesión CLI",
+      "CONVERSION_FAILED": "Conversión fallida, por favor intente más tarde"
+    },
+    "entrypointLabel": {
+      "sdk-cli": "Sesión SDK",
+      "claude-vscode": "VS Code",
+      "remote": "Remoto"
+    },
+    "entrypointTooltip": {
+      "sdk-cli": "Esta sesión fue creada por el plugin via SDK y no se muestra en CLI por defecto. Haz clic en 'Convertir a CLI' para que aparezca en la lista /resume del CLI del terminal",
+      "claude-vscode": "Esta sesión fue creada por la extensión de VS Code y no se muestra en CLI por defecto. Haz clic en 'Convertir a CLI' para que aparezca en la lista /resume del CLI del terminal",
+      "remote": "Esta sesión fue creada por una instancia remota de Claude Code"
     }
   },
   "permission": {
@@ -721,8 +925,17 @@
       "Read": "Leer archivo",
       "ReadBatch": "Leer archivos en lote",
       "execute": "Ejecutar {{toolName}}",
-      "readDirectory": "Leer directorio"
-    }
+      "readDirectory": "Leer directorio",
+      "Write": "Escribir archivo",
+      "Edit": "Editar archivo",
+      "Bash": "Ejecutar comando",
+      "TodoWrite": "Escribir tarea",
+      "TodoRead": "Leer tarea",
+      "WebSearch": "Búsqueda web",
+      "WebFetch": "Obtener web",
+      "timeoutWarning": "Por favor responde pronto, el diálogo se cerrará en {{seconds}} segundos"
+    },
+    "dialogTitle": "Solicitud de permiso"
   },
   "askUserQuestion": {
     "title": "Claude tiene algunas preguntas para ti",
@@ -749,7 +962,8 @@
     "reject": "Reject",
     "toApprove": "to approve",
     "toReject": "to reject",
-    "timeoutWarning": "Please make a choice soon, dialog will close in {{seconds}} seconds"
+    "timeoutWarning": "Please make a choice soon, dialog will close in {{seconds}} seconds",
+    "requestedPermissions": "Requested Permissions"
   },
   "toast": {
     "switchSuccess": "Cambio exitoso",
@@ -761,7 +975,16 @@
     "invalidJsonConfig": "Formato de configuración JSON inválido",
     "providerAdded": "Proveedor añadido",
     "providerUpdated": "Proveedor actualizado",
-    "providerDeleted": "Proveedor eliminado"
+    "providerDeleted": "Proveedor eliminado",
+    "thinkingEnabled": "Thinking enabled",
+    "thinkingDisabled": "Thinking disabled",
+    "configLoading": "Configuration loading, please try again",
+    "deleteSuccess": "Eliminación exitosa",
+    "copySuccess": "{{label}} copiado al portapapeles",
+    "copyFailed": "Error al copiar",
+    "newSessionCreatedReady": "Nueva sesión creada, puede comenzar a hacer preguntas",
+    "providerSwitchSuccess": "¡Proveedor cambiado con éxito!",
+    "providerSwitchFailed": "Error al cambiar de proveedor"
   },
   "config": {
     "switchProvider": "Cambiar proveedor",
@@ -804,8 +1027,14 @@
       "killAllSuccess": "Se limpiaron {{count}} procesos huérfanos",
       "restartSuccess": "Daemon detenido; se iniciará automáticamente en el siguiente mensaje",
       "killFailed": "Error al terminar: {{error}}",
-      "activeRequests": "{{count}} en curso"
-    }
+      "activeRequests": "{{count}} en curso",
+      "pending": "Procesando...",
+      "killHint": "Forzar la terminación de este proceso Node",
+      "restartHint": "Detiene el daemon; el siguiente mensaje generará uno nuevo automáticamente"
+    },
+    "clickToCopy": "Haz clic para copiar",
+    "switch": "Cambiar",
+    "link": "Enlace"
   },
   "markdown": {
     "copyCode": "Copiar código",
@@ -852,7 +1081,9 @@
     "daysAgo": "días atrás",
     "justNow": "Justo ahora",
     "minutesAgo": "minutos atrás",
-    "hoursAgo": "horas atrás"
+    "hoursAgo": "horas atrás",
+    "description": "Descripción",
+    "command": "Comando"
   },
   "mcp": {
     "title": "Servidores MCP",
@@ -953,7 +1184,11 @@
       "checkingConnection": "Checking connection status",
       "checkingConnectionServer": "Server \"{{name}}\" - Checking connection status...",
       "refreshComplete": "Server \"{{name}}\" refresh complete",
-      "forceRefreshTools": "Force refresh tools"
+      "forceRefreshTools": "Force refresh tools",
+      "connected": "Connected",
+      "failed": "Connection failed",
+      "needsAuth": "Authentication required",
+      "unknownError": "Unknown error"
     },
     "presets": {
       "fetch": "Web content fetching tool for scraping web pages",
@@ -1026,7 +1261,16 @@
     "clickToLoad": "Click to Load",
     "noParams": "No Parameters",
     "required": "Required",
-    "optional": "Optional"
+    "optional": "Optional",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "errorDetails": "Error Details",
+    "refreshLogs": "Refresh Logs",
+    "clearLogs": "Clear Logs",
+    "clear": "Clear",
+    "noRefreshLogs": "No Refresh Logs",
+    "refreshLogsHint": "After clicking the refresh button, detailed refresh process information will be displayed here",
+    "refreshServer": "Refresh {{name}}"
   },
   "tools": {
     "toolCall": "Llamada de herramienta",
@@ -1065,10 +1309,16 @@
     "bashGroupBatchRun": "Batch Run Commands",
     "bashGroupCompleted": "completed",
     "bashGroupAllCompleted": "All Completed",
-    "bashGroupFailed": "failed"
+    "bashGroupFailed": "failed",
+    "clickToOpen": "Haz clic para abrir {{filePath}}",
+    "filePath": "Ruta del archivo:",
+    "bashGroupBatchExecution": "Batch Execution"
   },
   "todo": {
-    "progress": "{{completed}} de {{total}} tareas completadas"
+    "progress": "{{completed}} de {{total}} tareas completadas",
+    "inProgress": "En progreso {{completed}}/{{total}} tareas",
+    "allCompleted": "Completado {{completed}}/{{total}} tareas",
+    "stopped": "Detenido"
   },
   "statusPanel": {
     "tasksTab": "Tareas",
@@ -1094,7 +1344,11 @@
     "discardAllConfirmMessage": "Esto deshará todos los cambios de archivos. Esta acción no se puede deshacer.",
     "discardAllSuccess": "Todos los cambios descartados",
     "discardAllFailed": "Error al descartar: {{error}}",
-    "keepAllSuccess": "Todos los cambios mantenidos, seguimiento reiniciado"
+    "keepAllSuccess": "Todos los cambios mantenidos, seguimiento reiniciado",
+    "todoTab": "Plan",
+    "filesTab": "Cambios",
+    "keepAllConfirmTitle": "Mantener Todo",
+    "keepAllConfirmMessage": "Aceptar los cambios actuales como base. Los cambios futuros se rastrearán desde cero."
   },
   "skills": {
     "all": "Todos",
@@ -1251,7 +1505,11 @@
       "saveSuccess": "Skill saved successfully",
       "noChanges": "No Skill changes to save",
       "saveFailed": "Failed to save Skill"
-    }
+    },
+    "title": "Skills",
+    "noSkills": "No Skills",
+    "toggleSuccess": "Updated Skill status",
+    "toggleFailed": "Failed to update Skill status"
   },
   "models": {
     "searchPlaceholder": "Buscar modelos",
@@ -1260,7 +1518,65 @@
     "longContext": {
       "label": "1M",
       "tooltipEnabled": "Activar/desactivar contexto 1M",
-      "tooltipDisabled": "1M contexto no disponible para Haiku"
+      "tooltipDisabled": "1M contexto no disponible para Haiku",
+      "shortLabel": "1M contexto"
+    },
+    "addModel": "Agregar modelo",
+    "claude": {
+      "sonnet46": {
+        "label": "Sonnet 4.6",
+        "description": "Sonnet 4.6 · Modelo recomendado por defecto"
+      },
+      "sonnet5": {
+        "label": "Sonnet 5",
+        "description": "Sonnet 5 · Modelo mejorado de Sonnet 4.6"
+      },
+      "sonnet47": {
+        "label": "Sonnet 4.7",
+        "description": "Sonnet 4.7 · Modelo recomendado por defecto"
+      },
+      "opus5": {
+        "label": "Opus 5",
+        "description": "Opus 5 · Última mejora de Opus"
+      },
+      "opus46_1m": {
+        "label": "Opus 4.6",
+        "description": "Opus 4.6 · Modelo de razonamiento de alto rendimiento"
+      },
+      "haiku45": {
+        "label": "Haiku 4.5",
+        "description": "Haiku 4.5 · El más rápido para respuestas rápidas"
+      },
+      "opus48": {
+        "label": "Opus 4.8",
+        "description": "Opus 4.8 · Generación anterior de Opus"
+      },
+      "fable5": {
+        "label": "Fable 5",
+        "description": "Fable 5 · El más potente · clase Mythos"
+      }
+    },
+    "codex": {
+      "gpt56sol": {
+        "label": "GPT-5.6 Sol",
+        "description": "Modelo frontera para trabajo profesional complejo."
+      },
+      "gpt56terra": {
+        "label": "GPT-5.6 Terra",
+        "description": "Modelo GPT-5.6 que equilibra inteligencia y costo."
+      },
+      "gpt56luna": {
+        "label": "GPT-5.6 Luna",
+        "description": "Modelo GPT-5.6 optimizado para cargas de trabajo sensibles al costo."
+      },
+      "gpt55": {
+        "label": "GPT-5.5",
+        "description": "Modelo frontera más reciente con capacidades reforzadas."
+      },
+      "gpt54": {
+        "label": "GPT-5.4",
+        "description": "Último modelo de frontera con capacidades mejoradas."
+      }
     }
   },
   "modes": {
@@ -1329,7 +1645,11 @@
     "originalPrompt": "Original Prompt",
     "enhancedPrompt": "Enhanced Prompt",
     "useEnhanced": "Use Enhanced",
-    "keepOriginal": "Keep Original"
+    "keepOriginal": "Keep Original",
+    "tooltipFull": "Rewrite prompt to provide more context and improve agent responses",
+    "enhanceFailed": "Failed to enhance prompt",
+    "emptyPrompt": "Please enter a prompt first",
+    "copyEnhanced": "Copy Enhanced"
   },
   "fileContext": {
     "placeholder": "Contexto de archivo",
@@ -1355,10 +1675,28 @@
     "success": "Reversión exitosa",
     "failed": "Error al restaurar archivos",
     "notAvailable": "Restauración no disponible para esta sesión",
-    "parseError": "Error al analizar el resultado"
+    "parseError": "Error al analizar el resultado",
+    "tooltipFull": "Restore files to their state at this message",
+    "successSimple": "Reversión exitosa"
   },
   "reasoning": {
-    "title": "Seleccionar profundidad de razonamiento"
+    "title": "Seleccionar profundidad de razonamiento",
+    "low": {
+      "label": "Bajo",
+      "description": "Respuestas rápidas con razonamiento básico"
+    },
+    "medium": {
+      "label": "Medio",
+      "description": "Pensamiento equilibrado (predeterminado)"
+    },
+    "high": {
+      "label": "Alto",
+      "description": "Razonamiento profundo para tareas complejas"
+    },
+    "xhigh": {
+      "label": "Máximo",
+      "description": "Profundidad máxima de razonamiento"
+    }
   },
   "errorBoundary": {
     "title": "Something went wrong",
@@ -1407,7 +1745,8 @@
     "uploadedImages": "{{count}} imagen(es) subida(s)",
     "uploadedAttachments": "Archivo(s) adjunto(s) subido(s)",
     "emptyMessage": "Mensaje vacío",
-    "attachment": "Adjunto"
+    "attachment": "Adjunto",
+    "codexThinkingHint": "Codex no devolvió elementos de razonamiento. Si aún no puede ver el proceso de pensamiento, consulte docs/codex/docs/config.md para la configuración de hide_agent_reasoning/show_raw_agent_reasoning, y asegúrese de que su cuenta de OpenAI haya sido verificada."
   },
   "changelog": {
     "title": "Novedades",
@@ -1423,6 +1762,44 @@
     "copyCommand": "Copiar",
     "copied": "Copiado",
     "openDependencySettings": "Abrir Gestión de dependencias",
-    "recommended": "Recomendado"
+    "recommended": "Recomendado",
+    "codexThreadResume": {
+      "title": "El hilo de sesión ya no es válido",
+      "intro": "Crear una nueva sesión resolverá este problema. El ID de hilo de la sesión actual ya no existe en el servidor de Codex.",
+      "reason": "Codex elimina los hilos antiguos después de un tiempo, lo que puede provocar este error al reanudar una sesión anterior."
+    },
+    "sdkNativeBinaryMissing": {
+      "title": "Instalación del SDK incompleta — falta el binario nativo",
+      "intro": "Este es un problema conocido del mirror npm de Taobao (no es un error del plugin). El mirror no ha sincronizado completamente los archivos específicos de la plataforma. Puedes resolverlo manualmente con cualquiera de las siguientes opciones:",
+      "reason": "Este problema desaparecerá automáticamente cuando el mirror de Taobao termine de sincronizarse — no es necesario hacer nada más.",
+      "solutions": {
+        "switchRegistry": {
+          "title": "Opción 1: Cambia temporalmente al registro oficial y reinstala",
+          "step0": "1. Ejecuta en tu terminal (cambiar al registro oficial de npm):",
+          "step1": "2. Abre la configuración de Gestión de dependencias del plugin y haz clic en Reinstalar:",
+          "step2": "3. Una vez completada la reinstalación, vuelve al mirror de Taobao:"
+        },
+        "downgrade": {
+          "title": "Opción 2: Volver a una versión anterior",
+          "step0": "En Gestión de dependencias, cambia la versión del SDK a v0.2.112 o anterior. Reinicia IDEA después del cambio."
+        }
+      }
+    },
+    "spawnEbusy": {
+      "title": "spawn EBUSY — error al iniciar el proceso hijo",
+      "intro": "Este error suele estar causado por una versión incompatible de Node.js o una instalación incompleta del SDK. Prueba las dos opciones siguientes en orden:",
+      "reason": "EBUSY es un error del sistema generado por Node.js cuando no puede iniciarse un proceso hijo debido a un recurso ocupado. Causas comunes: problemas de compatibilidad con Node.js 24, un SDK desactualizado, o una instalación incompleta desde el mirror de Taobao.",
+      "solutions": {
+        "checkNodeVersion": {
+          "title": "Opción 1: Verifica tu versión de Node.js",
+          "step0": "Ejecuta el comando siguiente en una terminal para ver tu versión. Se recomienda Node 22 o la LTS actual — los usuarios han reportado muchos problemas con Node 24, prefiere Node 20 o 22:"
+        },
+        "reinstallLatestSdk": {
+          "title": "Opción 2: Reinstalar el último SDK desde el registro oficial de npm",
+          "step0": "1. Cambia al registro oficial de npm (evita el mirror de Taobao — puede no tener la última versión):",
+          "step1": "2. Abre Gestión de dependencias y reinstala el último SDK:"
+        }
+      }
+    }
   }
 }

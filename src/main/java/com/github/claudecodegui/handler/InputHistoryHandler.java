@@ -14,6 +14,7 @@ import java.io.BufferedWriter;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -110,23 +111,23 @@ public class InputHistoryHandler {
         String bridgePath = context.getClaudeSDKBridge().getSdkTestDir().getAbsolutePath();
         String nodePath = context.getClaudeSDKBridge().getNodeExecutable();
 
-        String scriptBridgePath = NodeDetector.resolveScriptPath(nodePath, bridgePath);
+        String servicePath = NodeJsServiceCaller.resolveServicePath(
+                nodePath, bridgePath, "input-history-service.cjs");
         String nodeScript;
         if (param == null || param.isEmpty()) {
             // Call without parameters
             nodeScript = String.format(
-                "const { %s } = require('%s/services/input-history-service.cjs'); " +
+                "const { %s } = require(process.argv[1]); " +
                 "const result = %s(); " +
                 "console.log(JSON.stringify(result));",
                 functionName,
-                scriptBridgePath,
                 functionName
             );
-            return executeNodeScript(nodePath, nodeScript, null);
+            return executeNodeScript(nodePath, nodeScript, null, servicePath);
         } else {
             // Single parameter call (passed via stdin to avoid escaping issues)
             nodeScript = String.format(
-                "const { %s } = require('%s/services/input-history-service.cjs'); " +
+                "const { %s } = require(process.argv[1]); " +
                 "let input = ''; " +
                 "process.stdin.on('data', chunk => input += chunk); " +
                 "process.stdin.on('end', () => { " +
@@ -140,10 +141,9 @@ public class InputHistoryHandler {
                 "  } " +
                 "});",
                 functionName,
-                scriptBridgePath,
                 functionName
             );
-            return executeNodeScript(nodePath, nodeScript, param);
+            return executeNodeScript(nodePath, nodeScript, param, servicePath);
         }
     }
 
@@ -154,10 +154,11 @@ public class InputHistoryHandler {
         String bridgePath = context.getClaudeSDKBridge().getSdkTestDir().getAbsolutePath();
         String nodePath = context.getClaudeSDKBridge().getNodeExecutable();
 
-        String scriptBridgePath = NodeDetector.resolveScriptPath(nodePath, bridgePath);
+        String servicePath = NodeJsServiceCaller.resolveServicePath(
+                nodePath, bridgePath, "input-history-service.cjs");
         // Use stdin to pass JSON data, avoiding shell escaping issues with special characters
         String nodeScript = String.format(
-            "const { %s } = require('%s/services/input-history-service.cjs'); " +
+            "const { %s } = require(process.argv[1]); " +
             "let input = ''; " +
             "process.stdin.on('data', chunk => input += chunk); " +
             "process.stdin.on('end', () => { " +
@@ -171,11 +172,10 @@ public class InputHistoryHandler {
             "  } " +
             "});",
             functionName,
-            scriptBridgePath,
             functionName
         );
 
-        return executeNodeScript(nodePath, nodeScript, jsonArrayParam);
+        return executeNodeScript(nodePath, nodeScript, jsonArrayParam, servicePath);
     }
 
     /**
@@ -187,8 +187,11 @@ public class InputHistoryHandler {
      * @param stdinData  data to write to stdin, or null to skip stdin write
      * @return the last non-empty line of stdout
      */
-    private String executeNodeScript(String nodePath, String nodeScript, String stdinData) throws Exception {
-        ProcessBuilder pb = new ProcessBuilder(NodeDetector.buildNodeInlineCommand(nodePath, nodeScript));
+    private String executeNodeScript(
+            String nodePath, String nodeScript, String stdinData, String servicePath) throws Exception {
+        List<String> command = NodeDetector.buildNodeInlineCommand(nodePath, nodeScript);
+        command.add(servicePath);
+        ProcessBuilder pb = new ProcessBuilder(command);
         pb.redirectErrorStream(true);
 
         // L7 fix: register with ProcessManager so cleanupAllProcesses sees this child.

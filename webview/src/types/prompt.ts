@@ -4,6 +4,7 @@ import type { ConflictStrategy } from './import';
  * Prompt scope type - determines where prompts are stored
  */
 export type PromptScope = 'global' | 'project';
+export type PromptProvider = 'claude' | 'codex';
 
 /**
  * Prompt library configuration
@@ -21,6 +22,7 @@ export interface PromptConfig {
   updatedAt?: number;
   /** Scope of the prompt (for display purposes) */
   scope?: PromptScope;
+  provider?: PromptProvider;
 }
 
 // ============================================================================
@@ -32,6 +34,7 @@ export interface PromptConfig {
  */
 export interface GetPromptsMessage {
   scope: PromptScope;
+  provider?: PromptProvider;
 }
 
 /**
@@ -39,6 +42,7 @@ export interface GetPromptsMessage {
  */
 export interface AddPromptMessage {
   scope: PromptScope;
+  provider?: PromptProvider;
   prompt: Omit<PromptConfig, 'scope'>;
 }
 
@@ -47,6 +51,7 @@ export interface AddPromptMessage {
  */
 export interface UpdatePromptMessage {
   scope: PromptScope;
+  provider?: PromptProvider;
   id: string;
   updates: Partial<Omit<PromptConfig, 'id' | 'scope'>>;
 }
@@ -56,6 +61,7 @@ export interface UpdatePromptMessage {
  */
 export interface DeletePromptMessage {
   scope: PromptScope;
+  provider?: PromptProvider;
   id: string;
 }
 
@@ -64,6 +70,7 @@ export interface DeletePromptMessage {
  */
 export interface ExportPromptsMessage {
   scope: PromptScope;
+  provider?: PromptProvider;
   promptIds: string[];
 }
 
@@ -72,6 +79,7 @@ export interface ExportPromptsMessage {
  */
 export interface ImportPromptsFileMessage {
   scope: PromptScope;
+  provider?: PromptProvider;
 }
 
 /**
@@ -79,6 +87,7 @@ export interface ImportPromptsFileMessage {
  */
 export interface SaveImportedPromptsMessage {
   scope: PromptScope;
+  provider?: PromptProvider;
   prompts: PromptConfig[];
   strategy: ConflictStrategy;
 }

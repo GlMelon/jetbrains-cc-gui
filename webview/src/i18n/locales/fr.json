@@ -17,7 +17,13 @@
     "thinking": "Réflexion",
     "thinkingProcess": "Processus de réflexion",
     "error": "Erreur",
-    "warning": "Avertissement"
+    "warning": "Avertissement",
+    "ready": "Prêt",
+    "success": "Succès",
+    "info": "Information",
+    "seconds": "s",
+    "minutes": "m",
+    "optional": "Optional"
   },
   "chat": {
     "sendMessage": "Envoyer un message à {{provider}}",
@@ -71,7 +77,7 @@
     "disabled": "Désactivé",
     "sdkNotInstalled": "{{provider}} SDK n'est pas installé. Veuillez installer le SDK pour commencer à discuter.",
     "sdkStatusLoading": "Checking SDK status...",
-    "openSourceBanner": "Ce projet est garanti 100% open source (méfiez-vous des projets piratés)",
+    "openSourceBanner": "Ce projet est garanti 100% open source et gratuit (méfiez-vous des projets piratés)",
     "goInstallSdk": "Aller installer",
     "commandNotImplemented": "La fonctionnalité `{{command}}` n'est pas encore implémentée.",
     "clearCommandDescription": "Effacer l'historique et démarrer une nouvelle session",
@@ -150,7 +156,24 @@
       "copyFailed": "Échec de la copie",
       "jumpSuccess": "Message original atteint",
       "jumpFailed": "Impossible de localiser le message original"
-    }
+    },
+    "addAttachment": "Ajouter une pièce jointe",
+    "generatingResponse": "Génération de la réponse",
+    "elapsedTime": "Écoulé {{time}}",
+    "minutesAndSeconds": "{{minutes}}m {{seconds}}s",
+    "usage": "Utilisation",
+    "noMatchingHistory": "Aucun historique correspondant",
+    "openSourceBannerStar": "Star",
+    "openSourceBannerStarToast": "Lien copié dans le presse-papiers — collez-le dans votre navigateur pour y accéder ⭐",
+    "openSourceBannerStarAria": "Copier le lien et mettre une étoile sur GitHub",
+    "attachmentFile": "[Pièce jointe: {{fileName}}]",
+    "attachmentsUploaded": "[Pièces jointes téléchargées]",
+    "showEarlierTurns": "Afficher les {{count}} tours précédents ({{remaining}} tours chargés restants)",
+    "loadEarlierTurns": "Charger {{count}} tours précédents depuis le disque ({{remaining}} sur {{total}} restants)",
+    "loadingEarlierTurns": "Chargement des tours précédents...",
+    "tokenUsage": "{{input}} entrée / {{output}} sortie",
+    "tokenUsageDetail": "Total du tour — entrée {{input}} · écriture cache {{cacheWrite}} · lecture cache {{cacheRead}} · sortie {{output}}",
+    "cacheHitsWithRatio": " ({{tokens}} cache atteint, {{ratio}})"
   },
   "settings": {
     "title": "Paramètres",
@@ -169,7 +192,10 @@
         "label": "Thème de l'interface",
         "system": "Suivre l'IDE",
         "light": "Clair",
-        "dark": "Sombre"
+        "dark": "Sombre",
+        "systemDesc": "Suivre automatiquement le thème de l'IDE",
+        "lightDesc": "Frais et lumineux, adapté pour une utilisation diurne",
+        "darkDesc": "Confortable pour les yeux, adapté pour une utilisation nocturne"
       },
       "language": {
         "label": "Langue de l'interface",
@@ -194,9 +220,9 @@
         "versionTooLow": "La version de Node.js est trop ancienne. Le plugin nécessite v{{minVersion}} ou supérieur pour fonctionner correctement"
       },
       "claudeCliPath": {
-        "label": "Chemin de Claude CLI",
-        "placeholder": "Laisser vide pour la détection automatique, ou spécifier le chemin de l'exécutable claude",
-        "hint": "Spécifie le chemin de l'exécutable Claude CLI. Laisser vide pour détecter automatiquement dans PATH."
+        "label": "Chemin du CLI Claude (remplacement)",
+        "placeholder": "ex. /usr/local/bin/claude — laissez vide pour utiliser le SDK intégré",
+        "hint": "Facultatif. Lorsqu'il est défini, le plugin lance ce binaire au lieu du @anthropic-ai/claude-agent-sdk intégré. Le démon redémarre lors de l'enregistrement."
       },
       "workingDirectory": {
         "label": "Working Directory",
@@ -213,26 +239,28 @@
         "level6": "Maximale (140%)"
       },
       "editorFont": {
-        "label": "Police",
-        "followOption": "Suivre l'éditeur ({{font}})",
-        "customOption": "Fichier de police personnalisé",
-        "customPathLabel": "Chemin du fichier de police",
-        "customPathPlaceholder": "Choisissez ou saisissez le chemin d'un fichier .ttf / .otf",
+        "label": "Police UI",
+        "followOption": "Suivre la police UI d'IDEA ({{font}})",
+        "customOption": "Fichier de police UI personnalisé",
+        "customPathLabel": "Chemin du fichier de police UI",
+        "customPathPlaceholder": "Choisissez ou saisissez le chemin d'un fichier .ttf / .otf pour la police UI",
         "browse": "Parcourir",
-        "warningUnavailable": "La police est indisponible, la police de l'éditeur est utilisée",
-        "statusFollowEditor": "Police actuelle de l'éditeur : {{font}}",
-        "statusCustom": "Police personnalisée actuellement utilisée : {{font}}"
+        "warningUnavailable": "La police UI est indisponible, la police UI d'IDEA est utilisée",
+        "statusFollowEditor": "Police UI d'IDEA actuellement utilisée : {{font}}",
+        "statusCustom": "Police UI personnalisée actuellement utilisée : {{font}}",
+        "hint": "Ici vous changez la police de l'interface du plugin ; le code peut utiliser une police séparée."
       },
       "codeFont": {
         "label": "Police de code",
-        "followOption": "Suivre l'éditeur ({{font}})",
-        "customOption": "Fichier de police personnalisé",
-        "customPathLabel": "Chemin du fichier de police",
-        "customPathPlaceholder": "Sélectionner ou entrer le chemin d'un fichier de police .ttf / .otf",
+        "followOption": "Suivre la police de l'éditeur ({{font}})",
+        "customOption": "Fichier de police de code personnalisé",
+        "customPathLabel": "Chemin du fichier de police de code",
+        "customPathPlaceholder": "Choisissez ou saisissez le chemin d'un fichier .ttf / .otf pour la police de code",
         "browse": "Parcourir",
-        "warningUnavailable": "Police non disponible, utilisation de la police de l'éditeur",
-        "statusFollowEditor": "Suivant la police de l'éditeur : {{font}}",
-        "statusCustom": "Police personnalisée actuellement utilisée : {{font}}"
+        "warningUnavailable": "La police de code est indisponible, la police de l'éditeur est utilisée",
+        "statusFollowEditor": "Police de l'éditeur actuellement utilisée : {{font}}",
+        "statusCustom": "Police de code personnalisée actuellement utilisée : {{font}}",
+        "hint": "Le code Markdown et les blocs de commande utilisent cette police."
       },
       "streaming": {
         "label": "Streaming",
@@ -332,6 +360,12 @@
         "customCoversFrame": "Custom images fill the entire avatar frame.",
         "assistantPreviewMessage": "AI messages preview with the selected avatar.",
         "userPreviewMessage": "User messages preview with the selected avatar."
+      },
+      "detailedOutput": {
+        "label": "Informations de sortie détaillées",
+        "enabled": "Activé",
+        "disabled": "Désactivé",
+        "hint": "Lorsque cette option est activée, le pied des messages affiche le coût estimé du tour quand il est disponible et inclut les accès au cache dans le résumé des tokens d’entrée. La consommation de tokens reste toujours visible."
       }
     },
     "providers": "Gestion des fournisseurs",
@@ -363,7 +397,8 @@
       "uninstallSuccess": "{{name}} a été désinstallé",
       "uninstallFailed": "Échec de la désinstallation: {{error}}",
       "updating": "Mise à jour...",
-      "updateSuccess": "{{name}} mis à jour avec succès"
+      "updateSuccess": "{{name}} mis à jour avec succès",
+      "update": "Mettre à jour"
     },
     "usage": "Statistiques d'utilisation",
     "usageDesc": "Afficher votre consommation de Token, statistiques de coûts et analyse des tendances d'utilisation",
@@ -379,7 +414,14 @@
       "title": "Commit AI",
       "description": "Configure AI-generated Git commit message behavior",
       "providerModel": {
-        "resetToDefault": "Réinitialiser"
+        "resetToDefault": "Réinitialiser",
+        "label": "Fournisseur du modèle de commit",
+        "modelLabel": "Modèle de commit",
+        "providerAvailable": "Disponible",
+        "providerUnavailable": "Non disponible",
+        "currentProviderAuto": "Utilise actuellement la sélection automatique : {{provider}}",
+        "currentProviderManual": "Utilise actuellement le fournisseur sélectionné manuellement : {{provider}}",
+        "currentProviderUnavailable": "Le fournisseur sélectionné n'est actuellement pas disponible : {{provider}}"
       },
       "prompt": {
         "label": "Additional Prompt",
@@ -392,7 +434,10 @@
         "hint": "Ce prompt s'applique uniquement au projet actuel et est combiné avec le prompt supplémentaire global. En cas de conflit, le prompt du projet prévaut. Les différents projets peuvent être configurés indépendamment."
       },
       "codeReview": {
-        "label": "Code Review AI Additional Prompt"
+        "label": "Code Review AI Additional Prompt",
+        "comingSoon": "Coming Soon",
+        "placeholder": "This feature is under development, stay tuned...",
+        "hint": "Code Review AI will help you automatically review code, identify potential issues, and provide improvement suggestions. You can configure review preferences and focus areas here."
       }
     },
     "agents": "Agents",
@@ -425,7 +470,17 @@
           "importanceHint": "Une importance plus élevée signifie une priorité plus élevée dans l'auto-complétion"
         },
         "timeAgo": {
-          "justNow": "à l'instant"
+          "justNow": "à l'instant",
+          "yearsAgo_one": "il y a {{count}} an",
+          "yearsAgo_other": "il y a {{count}} ans",
+          "monthsAgo_one": "il y a {{count}} mois",
+          "monthsAgo_other": "il y a {{count}} mois",
+          "daysAgo_one": "il y a {{count}} jour",
+          "daysAgo_other": "il y a {{count}} jours",
+          "hoursAgo_one": "il y a {{count}} heure",
+          "hoursAgo_other": "il y a {{count}} heures",
+          "minutesAgo_one": "il y a {{count}} minute",
+          "minutesAgo_other": "il y a {{count}} minutes"
         }
       },
       "aiTitleGeneration": {
@@ -488,8 +543,43 @@
         "providers": {
           "claude": {
             "emptyConfigCode": "{\n  \"env\": {\n  }\n}",
-            "proxyConfigCode": "{\n  \"env\": {\n    \"HTTP_PROXY\": \"http://127.0.0.1:7897\",\n    \"HTTPS_PROXY\": \"http://127.0.0.1:7897\"\n  }\n}"
+            "proxyConfigCode": "{\n  \"env\": {\n    \"HTTP_PROXY\": \"http://127.0.0.1:7897\",\n    \"HTTPS_PROXY\": \"http://127.0.0.1:7897\"\n  }\n}",
+            "title": "Comment utiliser le compte d'abonnement Claude Code",
+            "item1": "Connectez-vous à votre compte d'abonnement Claude Code via le CLI dans le terminal, puis vous pouvez discuter normalement dans le terminal",
+            "item2": "Assurez-vous que le fichier ~/.claude/settings.json et le fichier .env sont vides",
+            "item3": "Redémarrez IDEA et vous pourrez discuter normalement",
+            "emptyConfigCodeLabel": "~/.claude/settings.json",
+            "noteTitle": "Remarques sur les cas spéciaux :",
+            "note1": "Si vous avez effectué les étapes ci-dessus mais que le plugin ne répond toujours pas, essayez de définir ~/.claude/settings.json .env sur :",
+            "proxyConfigCodeLabel": "~/.claude/settings.json",
+            "issuePrefix": "Si cela ne fonctionne toujours pas, signalez un problème sur GitHub : ",
+            "issueUrl": "https://github.com/zhukunpenglinyutong/idea-claude-code-gui/issues"
+          },
+          "codex": {
+            "title": "Configuration du compte d'abonnement Codex",
+            "item1": "Exécutez codex login dans le CLI Codex du terminal et connectez-vous, puis vous pouvez discuter dans le terminal",
+            "item2": "Redémarrez IDEA",
+            "item3": "Vous pouvez maintenant discuter normalement",
+            "emptyConfigCodeLabel": "",
+            "emptyConfigCode": "",
+            "noteTitle": "",
+            "note1": "",
+            "proxyConfigCodeLabel": "",
+            "proxyConfigCode": "",
+            "issuePrefix": "Si cela ne fonctionne toujours pas, signalez un problème sur GitHub : ",
+            "issueUrl": "https://github.com/zhukunpenglinyutong/idea-claude-code-gui/issues"
           }
+        },
+        "entry": "Guide du compte d'abonnement",
+        "dialogTitle": "Comment utiliser un compte d'abonnement",
+        "tabAriaLabel": "Onglets du guide du compte d'abonnement",
+        "tabs": {
+          "claude": "Abonnement Claude",
+          "codex": "Abonnement Codex"
+        },
+        "code": {
+          "copy": "Copier le code",
+          "copied": "Copié"
         }
       },
       "importDialog": {
@@ -533,7 +623,22 @@
         "showApiKey": "Afficher",
         "hideApiKey": "Masquer",
         "confirmAdd": "Confirmer l'ajout",
-        "saveChanges": "Enregistrer les modifications"
+        "saveChanges": "Enregistrer les modifications",
+        "mainModel": "Modèle principal",
+        "mainModelPlaceholder": "par ex., claude-sonnet-4-6",
+        "fableModel": "Modèle Fable par défaut",
+        "fableModelPlaceholder": "par ex., claude-fable-5",
+        "haikuModel": "Modèle Haiku par défaut",
+        "sonnetModel": "Modèle Sonnet par défaut",
+        "opusModel": "Modèle Opus par défaut",
+        "customModels": "Modèles personnalisés",
+        "customModelsHint": "Ajoutez des modèles supplémentaires pris en charge par ce fournisseur. Les modèles personnalisés apparaîtront en haut de la liste de sélection des modèles",
+        "jsonError": "Format JSON invalide",
+        "codeView": "Code",
+        "visualView": "Visual",
+        "formatJson": "Format",
+        "invalidJson": "Invalid JSON format, please switch to code view to fix",
+        "presetGroup": "Quick Presets"
       },
       "presets": {
         "custom": "Custom",
@@ -545,7 +650,29 @@
         "xiaomiPlan": "Xiaomi MiMo Plan",
         "qwen": "Alibaba Qwen",
         "openrouter": "OpenRouter"
-      }
+      },
+      "currentConfig": "Configuration ClaudeCode actuelle",
+      "noConfig": "Aucune information de configuration",
+      "notConfigured": "Non configuré",
+      "apiKey": "API Key",
+      "apiKeyHelper": "Assistant clé API",
+      "baseUrl": "Base URL",
+      "provider": "Fournisseur",
+      "source": "Source",
+      "show": "Afficher",
+      "hide": "Masquer",
+      "switchTo": "Basculer vers",
+      "addProvider": "Ajouter un fournisseur",
+      "importProvider": "Importer un fournisseur",
+      "importFrom": "Importer depuis",
+      "importFromCcSwitch": "Importer depuis cc-switch",
+      "edit": "Modifier",
+      "delete": "Supprimer",
+      "deleteMessage": "Êtes-vous sûr de vouloir supprimer le fournisseur \"{{name}}\" ? Cette action ne peut pas être annulée.",
+      "convertLocal": "Convertir en local",
+      "convertMessage": "Après la conversion, la connexion avec la source d'importation sera déconnectée. Cette action est irréversible.",
+      "importing": "Importation...",
+      "localProviderHelp": "When using local provider mode:\n• The plugin will not modify your ~/.claude/settings.json file\n• You need to manually manage your configurations\n• Make sure the file exists and contains valid JSON\n• Suitable for advanced users who prefer manual control"
     },
     "permissionsComingSoon": "Configuration des permissions bientôt disponible...",
     "agentsComingSoon": "Configuration des agents bientôt disponible...",
@@ -590,7 +717,18 @@
         "envKeyInvalid": "Invalid key name (must start with letter/underscore, alphanumeric only)",
         "envKeyProtected": "Cannot set built-in variable: {{key}}",
         "envKeyDuplicate": "Duplicate key: {{key}}",
-        "envValueTooLong": "Valeur trop longue (max {{max}} caractères)"
+        "envValueTooLong": "Valeur trop longue (max {{max}} caractères)",
+        "configJsonError": "config.toml JSON format error",
+        "customModels": "Custom Models",
+        "customModelsHint": "Add extra models supported by this provider. Custom models will appear at the top of the model selection list",
+        "noCustomModels": "No custom models",
+        "addModel": "Add Model",
+        "modelIdPlaceholder": "Model ID (required, e.g., gpt-4o)",
+        "modelLabelPlaceholder": "Display name (optional)",
+        "modelDescPlaceholder": "Model description (optional)",
+        "modelIdRequired": "Model ID is required",
+        "modelIdInvalid": "Invalid model ID format (only letters, numbers, dots, hyphens, underscores, slashes and colons allowed)",
+        "modelIdDuplicate": "Model ID already exists"
       }
     },
     "agent": {
@@ -621,7 +759,9 @@
         "promptHint": "L'invite sera envoyée à l'IA comme instructions système au début de la conversation",
         "confirmAdd": "Créer",
         "saveChanges": "Enregistrer"
-      }
+      },
+      "operationFailed": "Opération échouée",
+      "clearAgent": "Effacer l'invite sélectionné"
     },
     "prompts": "Prompt Library",
     "prompt": {
@@ -652,8 +792,43 @@
         "contentHint": "Prompt content will be inserted directly into the input box when selected",
         "confirmAdd": "Create",
         "saveChanges": "Save"
-      }
-    }
+      },
+      "customPrompts": "Custom Prompts",
+      "loadFailed": "Load failed"
+    },
+    "pluginModels": {
+      "title": "Modèles personnalisés",
+      "description": "Les modèles personnalisés ajoutés ici seront visibles sous tous les fournisseurs, affichés en haut de la liste de sélection de modèles",
+      "dialogTitle": "Gérer les modèles personnalisés",
+      "manage": "Gérer les modèles",
+      "pricing": {
+        "title": "Tarif (USD par 1M de tokens)",
+        "hint": "Facultatif. Laissez un champ vide pour utiliser le tarif par défaut de ce type de token.",
+        "inputLabel": "Entrée",
+        "outputLabel": "Sortie",
+        "cacheWriteLabel": "Écriture cache",
+        "cacheReadLabel": "Lecture cache",
+        "inputShort": "Entrée",
+        "outputShort": "Sortie",
+        "cacheWriteShort": "Écriture cache",
+        "cacheReadShort": "Lecture cache",
+        "invalidValue": "Le tarif doit être un nombre non négatif",
+        "defaultPricing": "Tarif par défaut utilisé"
+      },
+      "configuredSectionTitle": "Modèles Claude configurés",
+      "configuredSectionDesc": "Les modèles du fournisseur Claude actif ou de settings.json figurent déjà dans le sélecteur. Seul le tarif peut être modifié ici.",
+      "configuredEditHint": "Ce modèle est géré par le fournisseur Claude actif ou settings.json. Seul le tarif peut être modifié ici.",
+      "customSectionTitle": "Modèles personnalisés",
+      "editPricing": "Modifier le tarif"
+    },
+    "dependenciesDesc": "Gérer les installations et mises à jour des dépendances AI SDK",
+    "sponsor": "Sponsor",
+    "sponsorDesc": "If this project helps you, consider sponsoring to support ongoing maintenance!",
+    "alipay": "Alipay",
+    "wechatPay": "WeChat Pay",
+    "paypal": "PayPal",
+    "comingSoon": "Bientôt disponible...",
+    "promptsDesc": "Manage common prompt templates for quick insertion during chat"
   },
   "history": {
     "sessionDeleted": "Session supprimée",
@@ -709,6 +884,35 @@
       "hoursAgo": "il y a des heures",
       "minutesAgo": "il y a des minutes",
       "secondsAgo": "il y a des secondes"
+    },
+    "title": "Historique des sessions",
+    "exportSuccess": "Session exportée",
+    "titleTooLong": "Titre trop long (maximum 50 caractères)",
+    "convertToCliSession": "Convertir en session reconnue par le CLI",
+    "convertButton": "Convertir en CLI",
+    "convertSuccess": "Session convertie pour être reconnue par le CLI",
+    "convertFailed": "Échec de la conversion",
+    "confirmConvert": "Convertir en session CLI ?",
+    "convertConfirmMessage": "Cela modifiera l'entrypoint de la session pour la rendre visible dans la liste /resume du CLI de Claude Code.",
+    "conversionErrors": {
+      "INVALID_SESSION_ID": "ID de session invalide",
+      "SESSION_ACTIVE": "Impossible de convertir la session actuellement active. Démarrez d'abord une nouvelle session, puis convertissez celle-ci",
+      "SESSION_NOT_FOUND": "Fichier de session introuvable",
+      "FILE_NOT_EXIST": "Le fichier de session n'existe pas",
+      "FILE_LOCKED": "Le fichier de session est utilisé par un autre processus",
+      "NOT_SDK_SESSION": "Cette session n'a pas été créée par le SDK (entrypoint n'est pas sdk-cli)",
+      "ALREADY_CLI_SESSION": "Cette session est déjà une session CLI",
+      "CONVERSION_FAILED": "Échec de la conversion, veuillez réessayer plus tard"
+    },
+    "entrypointLabel": {
+      "sdk-cli": "Session SDK",
+      "claude-vscode": "VS Code",
+      "remote": "Distant"
+    },
+    "entrypointTooltip": {
+      "sdk-cli": "Cette session a été créée par le plugin via SDK et n'est pas affichée dans CLI par défaut. Cliquez sur 'Convertir en CLI' pour qu'elle apparaisse dans la liste /resume du CLI du terminal",
+      "claude-vscode": "Cette session a été créée par l'extension VS Code et n'est pas affichée dans CLI par défaut. Cliquez sur 'Convertir en CLI' pour qu'elle apparaisse dans la liste /resume du CLI du terminal",
+      "remote": "Cette session a été créée par une instance distante de Claude Code"
     }
   },
   "permission": {
@@ -721,8 +925,17 @@
       "Read": "Lire le fichier",
       "ReadBatch": "Lire les fichiers en lot",
       "execute": "Exécuter {{toolName}}",
-      "readDirectory": "Lire le répertoire"
-    }
+      "readDirectory": "Lire le répertoire",
+      "Write": "Écrire le fichier",
+      "Edit": "Modifier le fichier",
+      "Bash": "Exécuter la commande",
+      "TodoWrite": "Écrire la tâche",
+      "TodoRead": "Lire la tâche",
+      "WebSearch": "Recherche web",
+      "WebFetch": "Récupérer web",
+      "timeoutWarning": "Veuillez répondre rapidement, la boîte de dialogue se fermera dans {{seconds}} secondes"
+    },
+    "dialogTitle": "Demande de permission"
   },
   "askUserQuestion": {
     "title": "Claude a quelques questions pour vous",
@@ -749,7 +962,8 @@
     "reject": "Reject",
     "toApprove": "to approve",
     "toReject": "to reject",
-    "timeoutWarning": "Please make a choice soon, dialog will close in {{seconds}} seconds"
+    "timeoutWarning": "Please make a choice soon, dialog will close in {{seconds}} seconds",
+    "requestedPermissions": "Requested Permissions"
   },
   "toast": {
     "switchSuccess": "Changement réussi",
@@ -761,7 +975,16 @@
     "invalidJsonConfig": "Format de configuration JSON invalide",
     "providerAdded": "Fournisseur ajouté",
     "providerUpdated": "Fournisseur mis à jour",
-    "providerDeleted": "Fournisseur supprimé"
+    "providerDeleted": "Fournisseur supprimé",
+    "thinkingEnabled": "Thinking enabled",
+    "thinkingDisabled": "Thinking disabled",
+    "configLoading": "Configuration loading, please try again",
+    "deleteSuccess": "Suppression réussie",
+    "copySuccess": "{{label}} copié dans le presse-papiers",
+    "copyFailed": "Échec de la copie",
+    "newSessionCreatedReady": "Nouvelle session créée, vous pouvez commencer à poser des questions",
+    "providerSwitchSuccess": "Fournisseur changé avec succès !",
+    "providerSwitchFailed": "Échec du changement de fournisseur"
   },
   "config": {
     "switchProvider": "Changer de fournisseur",
@@ -804,8 +1027,14 @@
       "killAllSuccess": "{{count}} processus orphelin(s) nettoyé(s)",
       "restartSuccess": "Daemon arrêté ; une nouvelle instance démarrera automatiquement au prochain message",
       "killFailed": "Échec de la fin : {{error}}",
-      "activeRequests": "{{count}} en cours"
-    }
+      "activeRequests": "{{count}} en cours",
+      "pending": "Traitement...",
+      "killHint": "Forcer la fin de ce processus Node",
+      "restartHint": "Arrête le daemon ; le prochain message en démarrera un nouveau automatiquement"
+    },
+    "clickToCopy": "Cliquer pour copier",
+    "switch": "Basculer",
+    "link": "Lien"
   },
   "markdown": {
     "copyCode": "Copier le code",
@@ -852,7 +1081,9 @@
     "daysAgo": "jours auparavant",
     "justNow": "À l'instant",
     "minutesAgo": "minutes auparavant",
-    "hoursAgo": "heures auparavant"
+    "hoursAgo": "heures auparavant",
+    "description": "Description",
+    "command": "Commande"
   },
   "mcp": {
     "title": "Serveurs MCP",
@@ -953,7 +1184,11 @@
       "checkingConnection": "Checking connection status",
       "checkingConnectionServer": "Server \"{{name}}\" - Checking connection status...",
       "refreshComplete": "Server \"{{name}}\" refresh complete",
-      "forceRefreshTools": "Force refresh tools"
+      "forceRefreshTools": "Force refresh tools",
+      "connected": "Connected",
+      "failed": "Connection failed",
+      "needsAuth": "Authentication required",
+      "unknownError": "Unknown error"
     },
     "presets": {
       "fetch": "Web content fetching tool for scraping web pages",
@@ -1026,7 +1261,16 @@
     "clickToLoad": "Click to Load",
     "noParams": "No Parameters",
     "required": "Required",
-    "optional": "Optional"
+    "optional": "Optional",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "errorDetails": "Error Details",
+    "refreshLogs": "Refresh Logs",
+    "clearLogs": "Clear Logs",
+    "clear": "Clear",
+    "noRefreshLogs": "No Refresh Logs",
+    "refreshLogsHint": "After clicking the refresh button, detailed refresh process information will be displayed here",
+    "refreshServer": "Refresh {{name}}"
   },
   "tools": {
     "toolCall": "Appel d'outil",
@@ -1065,10 +1309,16 @@
     "bashGroupBatchRun": "Batch Run Commands",
     "bashGroupCompleted": "completed",
     "bashGroupAllCompleted": "All Completed",
-    "bashGroupFailed": "failed"
+    "bashGroupFailed": "failed",
+    "clickToOpen": "Cliquez pour ouvrir {{filePath}}",
+    "filePath": "Chemin du fichier :",
+    "bashGroupBatchExecution": "Batch Execution"
   },
   "todo": {
-    "progress": "{{completed}} sur {{total}} tâches terminées"
+    "progress": "{{completed}} sur {{total}} tâches terminées",
+    "inProgress": "En cours {{completed}}/{{total}} tâches",
+    "allCompleted": "Terminé {{completed}}/{{total}} tâches",
+    "stopped": "Arrêté"
   },
   "statusPanel": {
     "tasksTab": "Tâches",
@@ -1094,7 +1344,11 @@
     "discardAllConfirmMessage": "Cela annulera toutes les modifications de fichiers. Cette action ne peut pas être annulée.",
     "discardAllSuccess": "Tous les changements annulés",
     "discardAllFailed": "Échec de l'annulation: {{error}}",
-    "keepAllSuccess": "Tous les changements conservés, suivi réinitialisé"
+    "keepAllSuccess": "Tous les changements conservés, suivi réinitialisé",
+    "todoTab": "Plan",
+    "filesTab": "Modifications",
+    "keepAllConfirmTitle": "Tout Conserver",
+    "keepAllConfirmMessage": "Accepter les modifications actuelles comme référence. Les modifications futures seront suivies à partir de zéro."
   },
   "skills": {
     "all": "Tous",
@@ -1251,7 +1505,11 @@
       "saveSuccess": "Skill saved successfully",
       "noChanges": "No Skill changes to save",
       "saveFailed": "Failed to save Skill"
-    }
+    },
+    "title": "Skills",
+    "noSkills": "No Skills",
+    "toggleSuccess": "Updated Skill status",
+    "toggleFailed": "Failed to update Skill status"
   },
   "models": {
     "searchPlaceholder": "Rechercher des modèles",
@@ -1260,7 +1518,65 @@
     "longContext": {
       "label": "1M",
       "tooltipEnabled": "Activer/désactiver le contexte 1M",
-      "tooltipDisabled": "1M contexte non disponible pour Haiku"
+      "tooltipDisabled": "1M contexte non disponible pour Haiku",
+      "shortLabel": "1M contexte"
+    },
+    "addModel": "Ajouter un modèle",
+    "claude": {
+      "sonnet46": {
+        "label": "Sonnet 4.6",
+        "description": "Sonnet 4.6 · Modèle recommandé par défaut"
+      },
+      "sonnet5": {
+        "label": "Sonnet 5",
+        "description": "Sonnet 5 · Modèle amélioré de Sonnet 4.6"
+      },
+      "sonnet47": {
+        "label": "Sonnet 4.7",
+        "description": "Sonnet 4.7 · Modèle recommandé par défaut"
+      },
+      "opus5": {
+        "label": "Opus 5",
+        "description": "Opus 5 · Dernière évolution d’Opus"
+      },
+      "opus46_1m": {
+        "label": "Opus 4.6",
+        "description": "Opus 4.6 · Modèle de raisonnement haute performance"
+      },
+      "haiku45": {
+        "label": "Haiku 4.5",
+        "description": "Haiku 4.5 · Le plus rapide pour des réponses rapides"
+      },
+      "opus48": {
+        "label": "Opus 4.8",
+        "description": "Opus 4.8 · Génération Opus précédente"
+      },
+      "fable5": {
+        "label": "Fable 5",
+        "description": "Fable 5 · Le plus puissant · classe Mythos"
+      }
+    },
+    "codex": {
+      "gpt56sol": {
+        "label": "GPT-5.6 Sol",
+        "description": "Modèle frontier pour les travaux professionnels complexes."
+      },
+      "gpt56terra": {
+        "label": "GPT-5.6 Terra",
+        "description": "Modèle GPT-5.6 qui équilibre intelligence et coût."
+      },
+      "gpt56luna": {
+        "label": "GPT-5.6 Luna",
+        "description": "Modèle GPT-5.6 optimisé pour les charges de travail sensibles aux coûts."
+      },
+      "gpt55": {
+        "label": "GPT-5.5",
+        "description": "Modèle frontier le plus récent aux capacités renforcées."
+      },
+      "gpt54": {
+        "label": "GPT-5.4",
+        "description": "Dernier modèle de pointe avec des capacités améliorées."
+      }
     }
   },
   "modes": {
@@ -1329,7 +1645,11 @@
     "originalPrompt": "Original Prompt",
     "enhancedPrompt": "Enhanced Prompt",
     "useEnhanced": "Use Enhanced",
-    "keepOriginal": "Keep Original"
+    "keepOriginal": "Keep Original",
+    "tooltipFull": "Rewrite prompt to provide more context and improve agent responses",
+    "enhanceFailed": "Failed to enhance prompt",
+    "emptyPrompt": "Please enter a prompt first",
+    "copyEnhanced": "Copy Enhanced"
   },
   "fileContext": {
     "placeholder": "Contexte de fichier",
@@ -1355,10 +1675,28 @@
     "success": "Retour en arrière réussi",
     "failed": "Échec de la restauration des fichiers",
     "notAvailable": "Restauration non disponible pour cette session",
-    "parseError": "Échec de l'analyse du résultat"
+    "parseError": "Échec de l'analyse du résultat",
+    "tooltipFull": "Restore files to their state at this message",
+    "successSimple": "Retour en arrière réussi"
   },
   "reasoning": {
-    "title": "Sélectionner la profondeur de raisonnement"
+    "title": "Sélectionner la profondeur de raisonnement",
+    "low": {
+      "label": "Faible",
+      "description": "Réponses rapides avec raisonnement de base"
+    },
+    "medium": {
+      "label": "Moyen",
+      "description": "Réflexion équilibrée (par défaut)"
+    },
+    "high": {
+      "label": "Élevé",
+      "description": "Raisonnement approfondi pour tâches complexes"
+    },
+    "xhigh": {
+      "label": "Maximum",
+      "description": "Profondeur de raisonnement maximale"
+    }
   },
   "errorBoundary": {
     "title": "Something went wrong",
@@ -1407,7 +1745,8 @@
     "uploadedImages": "{{count}} image(s) téléchargée(s)",
     "uploadedAttachments": "Pièce(s) jointe(s) téléchargée(s)",
     "emptyMessage": "Message vide",
-    "attachment": "Pièce jointe"
+    "attachment": "Pièce jointe",
+    "codexThinkingHint": "Codex n'a pas retourné d'éléments de raisonnement. Si vous ne pouvez toujours pas voir le processus de réflexion, veuillez consulter docs/codex/docs/config.md pour les paramètres hide_agent_reasoning/show_raw_agent_reasoning, et assurez-vous que votre compte OpenAI a été vérifié."
   },
   "changelog": {
     "title": "Nouveautés",
@@ -1423,6 +1762,44 @@
     "copyCommand": "Copier",
     "copied": "Copié",
     "openDependencySettings": "Ouvrir la gestion des dépendances",
-    "recommended": "Recommandé"
+    "recommended": "Recommandé",
+    "codexThreadResume": {
+      "title": "Le thread de session n'est plus valide",
+      "intro": "La création d'une nouvelle session résoudra ce problème. L'identifiant de thread de la session actuelle n'existe plus sur le serveur Codex.",
+      "reason": "Codex supprime les anciens threads après un certain temps, ce qui peut déclencher cette erreur lors de la reprise d'une session précédente."
+    },
+    "sdkNativeBinaryMissing": {
+      "title": "Installation du SDK incomplète — binaire natif manquant",
+      "intro": "Il s'agit d'un problème connu du miroir npm de Taobao (ce n'est pas un bug du plugin). Le miroir n'a pas entièrement synchronisé les fichiers spécifiques à la plateforme. Vous pouvez le résoudre manuellement avec l'une des options ci-dessous :",
+      "reason": "Ce problème disparaîtra automatiquement une fois la synchronisation du miroir Taobao terminée — aucune action supplémentaire n'est nécessaire.",
+      "solutions": {
+        "switchRegistry": {
+          "title": "Option 1 : Basculer temporairement vers le registre officiel et réinstaller",
+          "step0": "1. Exécutez dans votre terminal (passage au registre npm officiel) :",
+          "step1": "2. Ouvrez les paramètres de gestion des dépendances du plugin et cliquez sur Réinstaller :",
+          "step2": "3. Une fois la réinstallation terminée, revenez au miroir Taobao :"
+        },
+        "downgrade": {
+          "title": "Option 2 : Revenir à une version antérieure",
+          "step0": "Dans Gestion des dépendances, passez la version du SDK à v0.2.112 ou antérieure. Redémarrez IDEA après le changement."
+        }
+      }
+    },
+    "spawnEbusy": {
+      "title": "spawn EBUSY — échec du lancement du processus enfant",
+      "intro": "Cette erreur est généralement causée par une version de Node.js incompatible ou une installation incomplète du SDK. Essayez les deux options ci-dessous dans l'ordre :",
+      "reason": "EBUSY est une erreur système levée par Node.js lorsqu'un processus enfant ne peut pas être lancé en raison d'une ressource occupée. Causes courantes : problèmes de compatibilité avec Node.js 24, un SDK obsolète, ou une installation incomplète depuis le miroir Taobao.",
+      "solutions": {
+        "checkNodeVersion": {
+          "title": "Option 1 : Vérifiez votre version de Node.js",
+          "step0": "Exécutez la commande ci-dessous dans un terminal pour voir votre version. Node 22 ou la LTS actuelle est recommandée — les utilisateurs ont signalé de nombreux problèmes sur Node 24, préférez donc Node 20 ou 22 :"
+        },
+        "reinstallLatestSdk": {
+          "title": "Option 2 : Réinstaller le dernier SDK depuis le registre npm officiel",
+          "step0": "1. Basculez vers le registre npm officiel (évitez le miroir Taobao — il peut ne pas avoir la dernière version) :",
+          "step1": "2. Ouvrez Gestion des dépendances et réinstallez le dernier SDK :"
+        }
+      }
+    }
   }
 }
