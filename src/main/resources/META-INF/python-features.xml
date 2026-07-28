@@ -1,4 +1,6 @@
 <idea-plugin>
-    <!-- This file is loaded only when com.intellij.modules.python plugin is available -->
-    <!-- Python-specific extensions can be added here if needed in the future -->
+    <!-- Python-specific features (A5): loaded only when com.intellij.modules.python plugin is available -->
+    <extensions>
+        <semanticContextProvider implementation="com.github.claudecodegui.handler.context.PythonContextCollector"/>
+    </extensions>
 </idea-plugin>

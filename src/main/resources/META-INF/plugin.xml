@@ -76,6 +76,10 @@
         <!-- Application-scoped singleton for settings -->
         <applicationService serviceImplementation="com.github.claudecodegui.settings.CodemossSettingsService"/>
 
+        <!-- S3-3 B4: watches ~/.codemoss/config.json for external edits (cc-switch) and pushes
+             MODEL_REGISTRY to all open projects' frontends. Application-scoped Disposable. -->
+        <applicationService serviceImplementation="com.github.claudecodegui.watcher.ConfigFileWatcherService"/>
+
         <!-- CC GUI tool window (includes history feature) -->
         <toolWindow id="CCG"
                     anchor="right"
@@ -145,6 +149,11 @@
         <action id="ClaudeCodeGUI.RenameTabAction"
                 class="com.github.claudecodegui.action.tab.RenameTabAction"
                 icon="AllIcons.Actions.Edit"/>
+
+        <!-- Pin Tab Action (toggle close-protection) -->
+        <action id="ClaudeCodeGUI.PinTabAction"
+                class="com.github.claudecodegui.action.tab.PinTabAction"
+                icon="AllIcons.Actions.Pin"/>
 
         <!-- Detach Tab Action -->
         <action id="ClaudeCodeGUI.DetachTabAction"
