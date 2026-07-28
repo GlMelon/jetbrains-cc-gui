@@ -27,15 +27,35 @@ import java.util.Set;
  * This class is only loaded when com.intellij.java plugin is available.
  * DO NOT import this class directly - use reflection via ContextCollector.
  */
-public class JavaContextCollector {
+public class JavaContextCollector implements SemanticContextProvider {
 
     private static final Logger LOG = Logger.getInstance(JavaContextCollector.class);
     private static final int MAX_RELATED_DEFINITIONS = 8;
     private static final int MAX_USAGES_LIMIT = 20;
 
     /**
+     * EP 实例方法入口(SemanticContextProvider)。委托给静态收集逻辑,
+     * 由 ContextCollector 通过 {@code SemanticContextProvider.EP_NAME.getExtensionList()} 动态调用。
+     * 仅当 com.intellij.java 插件可用时本类才被加载(java-features.xml 隔离,classloader 边界)。
+     */
+    @Override
+    public void collectSemanticContext(
+            @NotNull JsonObject target,
+            @NotNull Editor editor,
+            @NotNull Project project,
+            @NotNull PsiFile psiFile,
+            @NotNull Document document) {
+        // 委托静态收集逻辑(恢复 9eb321fd 重构前等价行为):
+        // ① collectJavaContext:scope/references/classHierarchy/fields/annotations/methodCalls/imports/package
+        // ② collectFocusedContext:选区函数+外部依赖+引用(有选区方法时 add selectedFunctions,
+        //    ContextCollector 据此跳过 currentWindow fallback;无选区 add relatedDefinitions)。
+        //    重构前 ContextCollector 调此方法(反射),重构后改 EP 入口但漏迁移 → 此处补回。
+        collectJavaContext(target, editor, project, psiFile, document);
+        collectFocusedContext(target, editor, project, psiFile);
+    }
+
+    /**
      * Collect all Java-specific semantic context.
-     * Called via reflection from ContextCollector.
      */
     public static void collectJavaContext(
             @NotNull JsonObject semanticData,

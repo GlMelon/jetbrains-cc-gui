@@ -99,6 +99,12 @@ public final class CommonConstants {
     public static final String MSG_TYPE_IMAGE = "image";
     /** 系统消息类型(前端会话消息:系统提示/通知,与 ClaudeSession.Message.Type.SYSTEM 对齐) */
     public static final String MSG_TYPE_SYSTEM = "system";
+    /** 通用工具消息类型 */
+    public static final String MSG_TYPE_TOOL = "tool";
+    /** 用户角色兼容别名 */
+    public static final String MSG_TYPE_HUMAN = "human";
+    /** 助手角色兼容别名 */
+    public static final String MSG_TYPE_AI = "ai";
     /** 错误消息类型(前端会话消息:错误反馈,与 ClaudeSession.Message.Type.ERROR 对齐) */
     public static final String MSG_TYPE_ERROR = "error";
 
@@ -121,6 +127,10 @@ public final class CommonConstants {
     public static final String BLOCK_TYPE_OUTPUT_TEXT = "output_text";
     /** 图片内容块 */
     public static final String BLOCK_TYPE_IMAGE = "image";
+    /** 推理内容块（兼容 provider reasoning 命名） */
+    public static final String BLOCK_TYPE_REASONING = "reasoning";
+    /** 任务通知内容块 */
+    public static final String BLOCK_TYPE_TASK_NOTIFICATION = "task_notification";
     /** 文件变更内容块 */
     public static final String BLOCK_TYPE_FILE_CHANGE = "file_change";
     /** MCP 工具调用内容块 */
@@ -209,6 +219,12 @@ public final class CommonConstants {
     public static final String JSON_KEY_ITEMS = "items";
     /** JSON 字段：原始事件 */
     public static final String JSON_KEY_RAW = "raw";
+    /** JSON 字段：时间戳 */
+    public static final String JSON_KEY_TIMESTAMP = "timestamp";
+    /** JSON 字段：创建时间 */
+    public static final String JSON_KEY_CREATED_AT = "createdAt";
+    /** JSON 字段：通用时间 */
+    public static final String JSON_KEY_TIME = "time";
     /** JSON 字段：服务名 */
     public static final String JSON_KEY_SERVER = "server";
     /** JSON 字段：工具名 */

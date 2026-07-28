@@ -17,8 +17,23 @@ import com.jetbrains.python.psi.*;
  * This class is only loaded when com.intellij.modules.python is available.
  * DO NOT import this class directly - use reflection via ContextCollector.
  */
-public class PythonContextCollector {
-    
+public class PythonContextCollector implements SemanticContextProvider {
+
+    /**
+     * EP 实例方法入口(SemanticContextProvider)。委托给静态收集逻辑,
+     * 由 ContextCollector 通过 {@code SemanticContextProvider.EP_NAME.getExtensionList()} 动态调用。
+     * 仅当 com.intellij.modules.python 插件可用时本类才被加载(python-features.xml 隔离,classloader 边界)。
+     */
+    @Override
+    public void collectSemanticContext(
+            JsonObject target,
+            Editor editor,
+            Project project,
+            PsiFile psiFile,
+            Document document) {
+        collectPythonContext(target, editor, project, psiFile, document);
+    }
+
     public static void collectPythonContext(
             JsonObject semanticData,
             Editor editor,
