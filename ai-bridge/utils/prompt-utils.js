@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Shared prompt utility functions.
  */

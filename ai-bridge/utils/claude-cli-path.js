@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Resolves the user-configured Claude Code CLI executable, if any.
  *
@@ -6,6 +7,8 @@
  * that binary instead of its bundled CLI via `pathToClaudeCodeExecutable`.
  *
  * Returns null when unset/blank so callers can spread the field conditionally.
+ *
+ * @returns {string | null} Custom CLI path, or null when unset/blank.
  */
 export function getClaudeCliPathOverride() {
   const raw = process.env.CLAUDE_CODE_PATH;

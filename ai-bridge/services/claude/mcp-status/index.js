@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * MCP server status detection service
  * Verifies MCP server connectivity and retrieves tool listings
@@ -33,8 +34,8 @@ export { loadMcpServersConfig, loadAllMcpServersInfo } from './config-loader.js'
 /**
  * Verify the connection status of a single MCP server
  * @param {string} serverName - Server name
- * @param {Object} serverConfig - Server configuration
- * @returns {Promise<Object>} Server status info { name, status, serverInfo, error? }
+ * @param {Record<string, any>} serverConfig - Server configuration
+ * @returns {Promise<Record<string, any>>} Server status info { name, status, serverInfo, error? }
  */
 export async function verifyMcpServerStatus(serverName, serverConfig) {
   const serverType = serverConfig.type || 'stdio';
@@ -56,8 +57,8 @@ export async function verifyMcpServerStatus(serverName, serverConfig) {
 /**
  * Get the connection status of all MCP servers
  * Includes enabled, disabled, and invalid servers so the frontend gets a complete picture
- * @param {string} cwd - Current working directory (used to detect project config)
- * @returns {Promise<Object[]>} List of MCP server statuses
+ * @param {string | null} [cwd] - Current working directory (used to detect project config)
+ * @returns {Promise<Array<Record<string, any>>>} List of MCP server statuses
  */
 export async function getMcpServersStatus(cwd = null) {
   try {
@@ -97,7 +98,7 @@ export async function getMcpServersStatus(cwd = null) {
 
     return results;
   } catch (error) {
-    log('error', 'Failed to get MCP servers status:', error.message);
+    log('error', 'Failed to get MCP servers status:', error instanceof Error ? error.message : String(error));
     return [];
   }
 }
@@ -105,8 +106,8 @@ export async function getMcpServersStatus(cwd = null) {
 /**
  * Send a tools/list request to a connected MCP server
  * @param {string} serverName - Server name
- * @param {Object} serverConfig - Server configuration
- * @returns {Promise<Object>} Tools list response
+ * @param {Record<string, any>} serverConfig - Server configuration
+ * @returns {Promise<Record<string, any>>} Tools list response
  */
 export async function getMcpServerTools(serverName, serverConfig) {
   const serverType = serverConfig.type || 'stdio';

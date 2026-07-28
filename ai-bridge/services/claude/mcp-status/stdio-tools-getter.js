@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * STDIO tools retrieval module
  * Provides tool listing from STDIO-based MCP servers
@@ -11,18 +12,30 @@ import { safeKillProcess } from './process-manager.js';
 import { MCP_PROTOCOL_VERSION, MCP_CLIENT_INFO } from './mcp-protocol.js';
 
 /**
+ * Partial MCP server config used by STDIO clients.
+ * @typedef {{ command?: string; args?: string[]; env?: Record<string, string> | undefined }} StdioServerConfig
+ */
+
+/**
+ * Result of fetching tools from a STDIO MCP server.
+ * @typedef {{ name: string; tools: any[]; error: string | null }} StdioToolsResult
+ */
+
+/**
  * Retrieve the tool list from an STDIO-based server
  * Follows the proper MCP STDIO handshake: initialize -> initialized -> tools/list
  * @param {string} serverName - Server name
- * @param {Object} serverConfig - Server configuration
- * @returns {Promise<Object>} Tools list response
+ * @param {StdioServerConfig} serverConfig - Server configuration
+ * @returns {Promise<StdioToolsResult>} Tools list response
  */
 export async function getStdioServerTools(serverName, serverConfig) {
   return new Promise((resolve) => {
     let resolved = false;
+    /** @type {import('child_process').ChildProcess | null} */
     let child = null;
     let stderrBuffer = '';
 
+    /** @type {StdioToolsResult} */
     const result = {
       name: serverName,
       tools: [],
@@ -55,6 +68,11 @@ export async function getStdioServerTools(serverName, serverConfig) {
       buffer: ''
     };
 
+    /**
+     * @param {any[] | null} [tools]
+     * @param {string | null} [error]
+     * @returns {void}
+     */
     const finalize = (tools = null, error = null) => {
       if (resolved) return;
       resolved = true;
@@ -84,6 +102,7 @@ export async function getStdioServerTools(serverName, serverConfig) {
                        command === 'npx' || command === 'npm' ||
                        command === 'pnpm' || command === 'yarn');
 
+      /** @type {import('child_process').SpawnOptions} */
       const spawnOptions = {
         env,
         stdio: ['pipe', 'pipe', 'pipe'],
@@ -108,12 +127,12 @@ export async function getStdioServerTools(serverName, serverConfig) {
       child = spawn(command, args, spawnOptions);
       log('info', '[MCP Tools] Spawned process PID:', child.pid);
     } catch (spawnError) {
-      finalize(null, 'Failed to spawn process: ' + spawnError.message);
+      finalize(null, 'Failed to spawn process: ' + (spawnError instanceof Error ? spawnError.message : String(spawnError)));
       return;
     }
 
     // Handle stdout - MCP protocol messages
-    child.stdout.on('data', (data) => {
+    child?.stdout?.on('data', (/** @type {Buffer} */ data) => {
       state.buffer += data.toString();
 
       const lines = state.buffer.split('\n');
@@ -141,7 +160,7 @@ export async function getStdioServerTools(serverName, serverConfig) {
                 jsonrpc: '2.0',
                 method: 'notifications/initialized'
               }) + '\n';
-              child.stdin.write(initializedNotification);
+              child?.stdin?.write(initializedNotification);
               log('debug', '[MCP Tools] ' + serverName + ' sent initialized notification');
 
               state.step = 2;
@@ -154,7 +173,7 @@ export async function getStdioServerTools(serverName, serverConfig) {
                 params: {}
               }) + '\n';
               log('info', '[MCP Tools] ' + serverName + ' sending tools/list request');
-              child.stdin.write(toolsListRequest);
+              child?.stdin?.write(toolsListRequest);
               state.step = 3;
             }
           }
@@ -187,7 +206,7 @@ export async function getStdioServerTools(serverName, serverConfig) {
     });
 
     // Handle stderr - used for debugging
-    child.stderr.on('data', (data) => {
+    child?.stderr?.on('data', (/** @type {Buffer} */ data) => {
       stderrBuffer += data.toString();
       // Keep only the last 500 characters of error output
       if (stderrBuffer.length > 500) {
@@ -195,12 +214,12 @@ export async function getStdioServerTools(serverName, serverConfig) {
       }
     });
 
-    child.on('error', (error) => {
+    child?.on('error', (/** @type {Error} */ error) => {
       log('error', '[MCP Tools] ' + serverName + ' process error:', error.message);
       finalize(null, 'Process error: ' + error.message);
     });
 
-    child.on('close', (code) => {
+    child?.on('close', (/** @type {number | null} */ code) => {
       log('debug', '[MCP Tools] ' + serverName + ' process closed with code:', code);
       if (!resolved) {
         const errorMsg = code !== 0
@@ -212,7 +231,8 @@ export async function getStdioServerTools(serverName, serverConfig) {
 
     // Send the initialize request
     process.nextTick(() => {
-      if (child && child.stdin && !child.stdin.destroyed) {
+      const stdin = child?.stdin;
+      if (child && stdin && !stdin.destroyed) {
         const initRequest = JSON.stringify({
           jsonrpc: '2.0',
           id: 1,
@@ -225,10 +245,10 @@ export async function getStdioServerTools(serverName, serverConfig) {
         }) + '\n';
         log('info', '[MCP Tools] ' + serverName + ' sending initialize request');
         try {
-          child.stdin.write(initRequest);
+          stdin.write(initRequest);
           state.step = 1;
         } catch (writeError) {
-          finalize(null, 'Failed to write initialize request: ' + writeError.message);
+          finalize(null, 'Failed to write initialize request: ' + (writeError instanceof Error ? writeError.message : String(writeError)));
         }
       } else {
         finalize(null, 'Failed to initialize stdin');

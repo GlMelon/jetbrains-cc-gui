@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 /**
  * Read Claude provider configuration from cc-switch SQLite database.
  * Uses sql.js (pure JavaScript implementation, cross-platform compatible)
@@ -7,6 +8,7 @@
  * Output: JSON format provider list
  */
 
+// @ts-ignore - sql.js 未提供类型声明文件
 import initSqlJs from 'sql.js';
 import fs from 'fs';
 
@@ -56,20 +58,23 @@ try {
     }
 
     // Get column names and data
+    /** @type {string[]} */
     const columns = result[0].columns;
+    /** @type {any[][]} */
     const rows = result[0].values;
 
     // Parse each row of data
     const providers = rows.map(rowArray => {
         try {
             // Convert the array to an object keyed by column name
+            /** @type {Record<string, unknown>} */
             const row = {};
             columns.forEach((col, index) => {
                 row[col] = rowArray[index];
             });
 
             // Parse the settings_config JSON
-            const settingsConfig = row.settings_config ? JSON.parse(row.settings_config) : {};
+            const settingsConfig = row.settings_config ? JSON.parse(/** @type {string} */ (row.settings_config)) : {};
 
             // Extract configuration from settings_config
             // Two formats are supported:
@@ -111,7 +116,9 @@ try {
                 },
             };
 
-            // Build the provider config object in the format expected by the plugin
+            // Build the provider config object in the format expected by the plugin.
+            // 以 Record<string, any> 放宽,允许后续动态追加 baseUrl/apiKey/websiteUrl 等可选字段。
+            /** @type {Record<string, any>} */
             const provider = {
                 id: row.id,
                 name: row.name || row.id,
@@ -151,7 +158,7 @@ try {
 
             return provider;
         } catch (e) {
-            console.error(`Failed to parse provider config:`, e.message);
+            console.error(`Failed to parse provider config:`, e instanceof Error ? e.message : String(e));
             return null;
         }
     }).filter(p => p !== null);
@@ -167,10 +174,11 @@ try {
     }));
 
 } catch (error) {
+    const err = error instanceof Error ? error : null;
     console.error(JSON.stringify({
         success: false,
-        error: `Failed to read database: ${error.message}`,
-        stack: error.stack
+        error: `Failed to read database: ${err ? err.message : String(error)}`,
+        stack: err ? err.stack : undefined
     }));
     process.exit(1);
 }

@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Codex Message Service — Slim Coordinator
  *
@@ -40,9 +41,11 @@ const CODEX_THREAD_CACHE_MAX_SIZE = 4;
 const codexThreadCache = new Map();
 
 // Module-level abort controller for the currently active Codex turn.
+/** @type {AbortController | null} */
 let activeCodexAbortController = null;
 let activeCodexTurnInProgress = false;
 let activeCodexAbortRequested = false;
+/** @type {Promise<void> | null} */
 let activeCodexTurnCompletionPromise = null;
 
 function cleanupStaleCodexThreads() {
@@ -63,6 +66,13 @@ const _codexThreadCleanupTimer = setInterval(() => {
 }, 5 * 60 * 1000);
 _codexThreadCleanupTimer.unref();
 
+/**
+ * @param {string} threadId
+ * @param {any} thread
+ * @param {string} signature
+ * @param {any} codex
+ * @returns {void}
+ */
 function rememberCodexThread(threadId, thread, signature, codex) {
   if (!threadId || !thread) {
     return;
@@ -85,6 +95,11 @@ function rememberCodexThread(threadId, thread, signature, codex) {
   });
 }
 
+/**
+ * @param {string} threadId
+ * @param {string} signature
+ * @returns {any}
+ */
 function acquireCachedCodexThread(threadId, signature) {
   const entry = codexThreadCache.get(threadId);
   if (!entry) {
@@ -98,6 +113,7 @@ function acquireCachedCodexThread(threadId, signature) {
   return entry.thread;
 }
 
+/** @param {string | null} [threadId] @returns {void} */
 export function resetCodexThreadCache(threadId = null) {
   if (threadId && typeof threadId === 'string' && threadId.trim() !== '') {
     codexThreadCache.delete(threadId.trim());
@@ -117,10 +133,12 @@ export async function abortCurrentCodexTurn() {
   return true;
 }
 
+/** @returns {Promise<void>} */
 export function waitForCodexTurnCompletion() {
   return activeCodexTurnCompletionPromise || Promise.resolve();
 }
 
+/** @param {string} signature @returns {void} */
 export function invalidateCodexThreadCacheForSignature(signature) {
   if (!signature) {
     return;
@@ -136,11 +154,17 @@ export function getCodexThreadCacheSizeForTest() {
   return codexThreadCache.size;
 }
 
+/** @param {string} line @returns {boolean} */
 export function isIgnorableCodexEventNoiseLine(line) {
   return isIgnorableWindowsTerminationNoiseLine(line);
 }
 
-export async function* filterCodexExperimentalJsonLines(source, onNoise = () => {}) {
+/**
+ * @param {AsyncIterable<string>} source
+ * @param {(line: string) => void} [onNoise]
+ * @returns {AsyncGenerator<string, void, unknown>}
+ */
+export async function* filterCodexExperimentalJsonLines(source, onNoise = (/** @type {string} */ _line) => {}) {
   for await (const item of source) {
     if (isIgnorableCodexEventNoiseLine(item)) {
       onNoise(item);
@@ -150,6 +174,7 @@ export async function* filterCodexExperimentalJsonLines(source, onNoise = () => 
   }
 }
 
+/** @param {any} codex @returns {void} */
 function installCodexRunNoiseFilter(codex) {
   const execInstance = codex?.exec;
   const execProto = execInstance ? Object.getPrototypeOf(execInstance) : null;
@@ -162,9 +187,9 @@ function installCodexRunNoiseFilter(codex) {
   }
 
   const originalRun = execProto.run;
-  execProto.run = function patchedCodexRun(...args) {
+  execProto.run = function patchedCodexRun(/** @type {any[]} */ ...args) {
     const source = originalRun.apply(this, args);
-    return filterCodexExperimentalJsonLines(source, (line) => {
+    return filterCodexExperimentalJsonLines(source, (/** @type {string} */ line) => {
       logWarn('CODEX_JSON_STREAM', `Filtered non-JSON stdout line from Codex CLI: ${line}`);
     });
   };
@@ -176,17 +201,20 @@ function installCodexRunNoiseFilter(codex) {
   });
 }
 
+/** @param {any} error @returns {boolean} */
 function isNoRolloutResumeError(error) {
   const message = `${error?.message || ''}\n${error?.stack || ''}`;
   return message.includes('thread/resume') && message.includes('no rollout found');
 }
 
+/** @param {any} Codex @param {Record<string, any>} codexOptions @returns {any} */
 function createCodexInstance(Codex, codexOptions) {
   const codex = new Codex(codexOptions);
   installCodexRunNoiseFilter(codex);
   return codex;
 }
 
+/** @param {Record<string, any>} threadOptions @param {string | null} cwd @returns {Record<string, any>} */
 function buildNewThreadOptionsFromResume(threadOptions, cwd) {
   const newThreadOptions = { ...threadOptions };
   if (cwd && cwd.trim() !== '') {
@@ -195,8 +223,9 @@ function buildNewThreadOptionsFromResume(threadOptions, cwd) {
   return newThreadOptions;
 }
 
+/** @returns {Error & { code: string }} */
 function createCodexAbortError() {
-  const error = new Error('Codex turn aborted by user');
+  const error = /** @type {Error & { code: string }} */ (new Error('Codex turn aborted by user'));
   error.name = 'AbortError';
   error.code = 'ABORT_ERR';
   return error;
@@ -208,6 +237,7 @@ function throwIfCodexAbortRequested() {
   }
 }
 
+/** @param {any} error @returns {boolean} */
 function isCodexUserAbortError(error) {
   const message = `${error?.name || ''}\n${error?.code || ''}\n${error?.message || ''}`;
   return /AbortError|ABORT_ERR|aborted|abort|cancel|interrupt/i.test(message);
@@ -221,18 +251,19 @@ function isCodexUserAbortError(error) {
  * Send message to Codex (with optional thread resumption)
  *
  * @param {string} message - User message to send
- * @param {string} threadId - Thread ID to resume (optional)
- * @param {string} cwd - Working directory (optional)
- * @param {string} permissionMode - Unified permission mode (optional)
- * @param {string} model - Model name (optional)
- * @param {string} baseUrl - API base URL (optional, for custom endpoints)
- * @param {string} apiKey - API key (optional, for custom auth)
- * @param {string} reasoningEffort - Reasoning effort level (optional)
- * @param {string} serviceTier - Codex service tier; "fast" matches Codex CLI /fast (optional)
- * @param {Array} attachments - Image attachments in local_image format (optional)
- * @param {object} mcpGatewayBinding - MCP Gateway SDK 绑定(来自 Java McpGatewaySdkBinding 序列化,
+ * @param {string | null} [threadId] - Thread ID to resume (optional)
+ * @param {string | null} [cwd] - Working directory (optional)
+ * @param {string | null} [permissionMode] - Unified permission mode (optional)
+ * @param {string | null} [model] - Model name (optional)
+ * @param {string | null} [baseUrl] - API base URL (optional, for custom endpoints)
+ * @param {string | null} [apiKey] - API key (optional, for custom auth)
+ * @param {string} [reasoningEffort] - Reasoning effort level (optional)
+ * @param {string | null} [serviceTier] - Codex service tier; "fast" matches Codex CLI /fast (optional)
+ * @param {Array<any>} [attachments] - Image attachments in local_image format (optional)
+ * @param {object | null} [mcpGatewayBinding] - MCP Gateway SDK 绑定(来自 Java McpGatewaySdkBinding 序列化,
  *   {enabled,ready,revision,command});启用时注入 mcp_servers.melon_gateway config overlay 并把
  *   revision 纳入 thread cache 签名(防漂移)。不可用时回退用户真实 MCP(optional)
+ * @returns {Promise<void>}
  */
 export async function sendMessage(
   message,
@@ -249,8 +280,9 @@ export async function sendMessage(
 ) {
   let streamStarted = false;
   let streamEnded = false;
+  /** @type {AbortController | null} */
   let turnAbortController = null;
-  let turnCompletionResolve = null;
+  let turnCompletionResolve = /** @type {null | (() => void)} */ (null);
   activeCodexTurnCompletionPromise = new Promise(resolve => { turnCompletionResolve = resolve; });
   activeCodexTurnInProgress = true;
   activeCodexAbortRequested = false;
@@ -288,6 +320,7 @@ export async function sendMessage(
     throwIfCodexAbortRequested();
     const Codex = sdk.Codex || sdk.default || sdk;
 
+    /** @type {Record<string, any>} */
     let codexOptions = {};
 
     // Always initialize config with reasoning summaries forced to true
@@ -361,6 +394,7 @@ export async function sendMessage(
     // 3. Build Thread Options
     // ============================================================
 
+    /** @type {Record<string, any>} */
     const threadOptions = {
       skipGitRepoCheck: permissionConfig.skipGitRepoCheck,
       maxTurns: 200
@@ -434,6 +468,7 @@ export async function sendMessage(
     // 5. Collect AGENTS.md Instructions (only for new threads)
     // ============================================================
 
+    /** @param {boolean} isNewThread @returns {string} */
     const buildFinalMessage = (isNewThread) => {
       let nextMessage = message;
       if (!isNewThread || !cwd) {
@@ -451,8 +486,10 @@ export async function sendMessage(
     // 6. Build Input and Start Streaming
     // ============================================================
 
+    /** @param {string} finalMessage @returns {Array<object> | string} */
     const buildRunInput = (finalMessage) => {
       if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+        /** @type {any[]} */
         const input = [{ type: 'text', text: finalMessage }];
         for (const attachment of attachments) {
           if (attachment && attachment.type === 'local_image' && attachment.path) {
@@ -508,6 +545,7 @@ export async function sendMessage(
 
     const workingDirectory = cwd && cwd.trim() !== '' ? cwd : undefined;
 
+    /** @param {object} msg */
     const emitMessage = (msg) => {
       console.log('[MESSAGE]', JSON.stringify(msg));
     };
@@ -610,7 +648,7 @@ export async function sendMessage(
   } catch (error) {
     emitStreamEndOnce();
     if (activeCodexAbortRequested && isCodexUserAbortError(error)) {
-      logInfo('CODEX_ABORT', `Codex turn interrupted: ${error?.message || error}`);
+      logInfo('CODEX_ABORT', `Codex turn interrupted: ${error instanceof Error ? error.message : error}`);
       console.log('[MESSAGE_END]');
       console.log(JSON.stringify({
         success: false,
@@ -618,10 +656,11 @@ export async function sendMessage(
       }));
       return;
     }
-    console.error('[DEBUG] Error:', error.message);
-    console.error('[DEBUG] Error stack:', error.stack);
+    const errorObj = error instanceof Error ? error : new Error(String(error));
+    console.error('[DEBUG] Error:', errorObj.message);
+    console.error('[DEBUG] Error stack:', errorObj.stack);
 
-    const errorPayload = buildErrorPayload(error);
+    const errorPayload = buildErrorPayload(errorObj);
     console.error('[SEND_ERROR]', JSON.stringify(errorPayload));
     console.log(JSON.stringify(errorPayload));
   } finally {
@@ -649,7 +688,8 @@ export async function sendMessage(
  * Reuses mcp-status-service probing logic to avoid duplicate handshake implementation.
  *
  * @param {string} serverId
- * @param {Object} rawServerConfig
+ * @param {object} rawServerConfig
+ * @returns {Promise<void>}
  */
 export async function getMcpServerTools(serverId, rawServerConfig) {
   try {
@@ -678,6 +718,7 @@ export async function getMcpServerTools(serverId, rawServerConfig) {
     }
 
     const serverConfig = normalizeCodexMcpConfig(rawServerConfig);
+    /** @type {any} */
     const toolsResult = await getMcpServerToolsImpl(serverId, serverConfig);
     const tools = Array.isArray(toolsResult?.tools) ? toolsResult.tools : [];
     const hasError = !!toolsResult?.error;
@@ -697,7 +738,7 @@ export async function getMcpServerTools(serverId, rawServerConfig) {
     const errorResult = {
       success: false,
       serverId: serverId || '',
-      error: error?.message || String(error),
+      error: error instanceof Error ? error.message : String(error),
       tools: []
     };
     const resultJson = JSON.stringify(errorResult);
@@ -713,10 +754,11 @@ export async function getMcpServerTools(serverId, rawServerConfig) {
 /**
  * Converts Codex config field names to a format recognized by mcp-status-service.
  *
- * @param {Object} raw
- * @returns {Object}
+ * @param {Record<string, any>} raw
+ * @returns {Record<string, any>}
  */
 function normalizeCodexMcpConfig(raw) {
+  /** @type {Record<string, any>} */
   const normalized = { ...raw };
   const type = normalized.type || (normalized.url ? 'http' : 'stdio');
   normalized.type = type;
@@ -728,8 +770,9 @@ function normalizeCodexMcpConfig(raw) {
 
   // Codex: env_http_headers (values are env var names) -> headers (resolved values)
   if (normalized.env_http_headers && typeof normalized.env_http_headers === 'object') {
+    /** @type {Record<string, string>} */
     const fromEnv = {};
-    for (const [headerName, envName] of Object.entries(normalized.env_http_headers)) {
+    for (const [headerName, envName] of Object.entries(/** @type {Record<string, any>} */ (normalized.env_http_headers))) {
       if (typeof envName === 'string') {
         const envValue = process.env[envName];
         if (envValue) {

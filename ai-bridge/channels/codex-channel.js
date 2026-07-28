@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Codex channel command handler – keeps Codex specific logic separated.
  */
@@ -9,7 +10,8 @@ import { resetCodexThreadCache } from '../services/codex/message-service.js';
  * Execute a Codex command.
  * @param {string} command
  * @param {string[]} args
- * @param {object|null} stdinData
+ * @param {Record<string, any> | null} stdinData
+ * @returns {Promise<void>}
  */
 export async function handleCodexCommand(command, args, stdinData) {
   switch (command) {
@@ -65,6 +67,7 @@ export async function handleCodexCommand(command, args, stdinData) {
   }
 }
 
+/** @returns {string[]} */
 export function getCodexCommandList() {
   return ['send', 'getMcpServerTools', 'clearThreadCache'];
 }

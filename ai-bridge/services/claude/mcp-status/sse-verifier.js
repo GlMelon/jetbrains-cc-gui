@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * SSE transport verifier module
  * Verifies MCP servers that use the legacy SSE transport protocol.
@@ -27,12 +28,23 @@ import {
 } from './mcp-protocol.js';
 
 /**
+ * Partial MCP server config used by SSE clients.
+ * @typedef {{ url?: string; headers?: Record<string, unknown> }} SseServerConfig
+ */
+
+/**
+ * Verification result for an MCP server.
+ * @typedef {{ name: string; status: string; serverInfo: any; error?: string }} SseVerifyResult
+ */
+
+/**
  * Verify an SSE-type MCP server by performing the full SSE handshake
  * @param {string} serverName - Server name
- * @param {Object} serverConfig - Server configuration
- * @returns {Promise<Object>} Server status { name, status, serverInfo, error? }
+ * @param {SseServerConfig} serverConfig - Server configuration
+ * @returns {Promise<SseVerifyResult>} Server status { name, status, serverInfo, error? }
  */
 export async function verifySseServerStatus(serverName, serverConfig) {
+  /** @type {SseVerifyResult} */
   const result = {
     name: serverName,
     status: 'pending',
@@ -107,6 +119,7 @@ export async function verifySseServerStatus(serverName, serverConfig) {
 
     // Step 4: Read initialize response
     const contentType = initResponse.headers.get('content-type') || '';
+    /** @type {any} */
     let data = null;
 
     if (contentType.includes('application/json')) {
@@ -144,14 +157,15 @@ export async function verifySseServerStatus(serverName, serverConfig) {
     }
     result.status = 'connected';
   } catch (error) {
-    if (error.name === 'AbortError') {
+    if (error instanceof Error && error.name === 'AbortError') {
       result.status = 'pending';
       result.error = 'Connection timeout';
       log('debug', '[MCP Verify] SSE server timeout:', serverName);
     } else {
       result.status = 'failed';
-      result.error = error.message;
-      log('debug', '[MCP Verify] SSE server failed:', serverName, error.message);
+      const msg = error instanceof Error ? error.message : String(error);
+      result.error = msg;
+      log('debug', '[MCP Verify] SSE server failed:', serverName, msg);
     }
   } finally {
     clearTimeout(timeoutId);

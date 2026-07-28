@@ -1,7 +1,43 @@
+// @ts-check
+/**
+ * Claude 流式事件处理:usage 累积、content/thinking delta 下发、快照尾部填充。
+ */
+
 import { emitAccumulatedUsage, mergeUsage } from '../../utils/usage-utils.js';
 import { truncateErrorContent, truncateToolResultBlock } from './message-output-filter.js';
 import { normalizeStreamDelta, resolveSnapshotDelta, resetTurnBlockState } from './stream-delta-normalizer.js';
 
+/**
+ * 单个内容块的流式模式(与 stream-delta-normalizer.js 保持结构一致)。
+ * @typedef {'snapshot' | 'incremental'} StreamMode
+ */
+
+/**
+ * 一次 assistant 请求共享的 turn 状态。内容/模式 Map 在 delta 路径上懒初始化。
+ * @typedef {{
+ *   streamingEnabled?: boolean,
+ *   streamStarted?: boolean,
+ *   streamEnded?: boolean,
+ *   hasStreamEvents?: boolean,
+ *   lastAssistantContent?: string,
+ *   lastThinkingContent?: string,
+ *   textBlockContentByIndex?: Map<number, string>,
+ *   thinkingBlockContentByIndex?: Map<number, string>,
+ *   blockStreamModeByKey?: Map<string, StreamMode>,
+ *   finalSessionId?: string,
+ *   accumulatedUsage?: any,
+ * }} TurnState
+ */
+
+/**
+ * Claude SDK 推送的原始消息(结构宽松,关键字段经 typeof/Array.isArray 守卫后使用)。
+ * @typedef {{ type?: string, message?: any, content?: any, event?: any }} StreamMessage
+ */
+
+/**
+ * @param {StreamMessage} msg
+ * @returns {void}
+ */
 export function emitUsageTag(msg) {
   if (msg.type === 'assistant' && msg.message?.usage) {
     const {
@@ -19,6 +55,11 @@ export function emitUsageTag(msg) {
   }
 }
 
+/**
+ * @param {{ streamingEnabled?: boolean, requestedSessionId?: string }} requestContext 请求上下文
+ * @param {{ sessionId?: string } | null | undefined} runtime         运行时句柄
+ * @returns {TurnState}
+ */
 export function createTurnState(requestContext, runtime) {
   return {
     streamingEnabled: requestContext.streamingEnabled,
@@ -34,6 +75,13 @@ export function createTurnState(requestContext, runtime) {
   };
 }
 
+/**
+ * 处理一条流式事件:turn 边界重置块状态、累积 usage、下发 content/thinking delta。
+ *
+ * @param {StreamMessage} msg       携带 event 字段的原始消息
+ * @param {TurnState} turnState     共享 turn 状态
+ * @returns {void}
+ */
 export function processStreamEvent(msg, turnState) {
   const event = msg.event;
   if (!event) return;
@@ -79,6 +127,13 @@ export function processStreamEvent(msg, turnState) {
   }
 }
 
+/**
+ * 处理 assistant 消息的整块快照内容:走与 live delta 相同的 novelty/纠正引擎。
+ *
+ * @param {StreamMessage} msg   原始消息
+ * @param {TurnState} turnState 共享 turn 状态
+ * @returns {void}
+ */
 export function processMessageContent(msg, turnState) {
   if (msg.type !== 'assistant') return;
   const content = msg.message?.content;
@@ -109,6 +164,11 @@ export function processMessageContent(msg, turnState) {
  *   - !hasStreamEvents: pre-stream fallback, emit the whole computed delta
  *   - hasStreamEvents && hadPrevious: genuine tail-fill / snapshot correction
  *   - hasStreamEvents && !hadPrevious: stream will deliver this block, suppress
+ *
+ * @param {string} currentText  整块快照文本
+ * @param {TurnState} turnState 共享 turn 状态
+ * @param {number} blockIndex   块索引
+ * @returns {void}
  */
 function emitSnapshotText(currentText, turnState, blockIndex) {
   if (!turnState.streamingEnabled) {
@@ -122,7 +182,14 @@ function emitSnapshotText(currentText, turnState, blockIndex) {
   turnState.lastAssistantContent = currentText;
 }
 
-/** Thinking-block counterpart to {@link emitSnapshotText}. */
+/**
+ * Thinking-block counterpart to {@link emitSnapshotText}.
+ *
+ * @param {string} thinkingText 整块思考快照文本
+ * @param {TurnState} turnState 共享 turn 状态
+ * @param {number} blockIndex   块索引
+ * @returns {void}
+ */
 function emitSnapshotThinking(thinkingText, turnState, blockIndex) {
   if (!turnState.streamingEnabled) {
     console.log('[THINKING]', thinkingText);
@@ -135,6 +202,12 @@ function emitSnapshotThinking(thinkingText, turnState, blockIndex) {
   turnState.lastThinkingContent = thinkingText;
 }
 
+/**
+ * 输出 user 消息中的 tool_result 块(经截断)。
+ *
+ * @param {StreamMessage} msg 原始消息
+ * @returns {void}
+ */
 export function processToolResultMessages(msg) {
   if (msg.type !== 'user') return;
   const content = msg.message?.content ?? msg.content;
@@ -146,6 +219,14 @@ export function processToolResultMessages(msg) {
   }
 }
 
+/**
+ * 判断是否应输出 [MESSAGE]。流式模式下仅当快照含 tool_use 块时输出,
+ * 纯文本/思考内容由 [CONTENT_DELTA]/[THINKING_DELTA] 投递,避免去重器二次对账。
+ *
+ * @param {StreamMessage} msg   原始消息
+ * @param {TurnState} turnState 共享 turn 状态
+ * @returns {boolean}
+ */
 export function shouldOutputMessage(msg, turnState) {
   // Always output non-assistant messages
   if (msg.type !== 'assistant') {
@@ -166,5 +247,5 @@ export function shouldOutputMessage(msg, turnState) {
   // markdown blocks reported on v0.4.x streaming.
   const content = msg?.message?.content;
   if (!Array.isArray(content)) return false;
-  return content.some((block) => block?.type === 'tool_use');
+  return content.some((/** @type {any} */ block) => block?.type === 'tool_use');
 }

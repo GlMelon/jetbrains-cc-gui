@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * SDK Loader - Dynamically loads optional AI SDKs
  *
@@ -10,15 +11,29 @@ import { join } from 'path';
 import { pathToFileURL } from 'url';
 import { getRealHomeDir, getCodemossDir } from './path-utils.js';
 
+/**
+ * SDK 定义项(与 Java DependencyManager.SdkDefinition 对齐)。
+ * @typedef {{ id: string; npmPackage: string }} SdkDefinition
+ */
+
+/**
+ * 已加载的 SDK 模块(dynamic import 结果)。
+ * 各 SDK 导出形态不同,以键值集合表示;具体导出由调用方按需断言。
+ * @typedef {Record<string, any>} SdkModule
+ */
+
 // Base path for dependencies directory - uses the shared path utility
 const DEPS_BASE = join(getCodemossDir(), 'dependencies');
 
-// SDK cache
+/** SDK 模块缓存(按 provider 键)。 @type {Map<string, SdkModule>} */
 const sdkCache = new Map();
-// Promise cache for in-flight loads to prevent concurrent loading of the same SDK
+/** 进行中的加载 Promise 缓存,避免同一 SDK 并发重复加载。 @type {Map<string, Promise<SdkModule>>} */
 const loadingPromises = new Map();
 
-// SDK definitions (kept in sync with DependencyManager.SdkDefinition)
+/**
+ * SDK 定义(kept in sync with DependencyManager.SdkDefinition)。
+ * @satisfies {Readonly<{ CLAUDE: SdkDefinition; CODEX: SdkDefinition; OPENCODE: SdkDefinition }>}
+ */
 export const SDK_DEFINITIONS = {
     CLAUDE: {
         id: 'claude-sdk',
@@ -35,10 +50,21 @@ export const SDK_DEFINITIONS = {
     }
 };
 
+/**
+ * 按 sdkId 拼接该 SDK 的依赖根目录。
+ * @param {string} sdkId SDK 标识(如 'claude-sdk')
+ * @returns {string}
+ */
 function getSdkRootDir(sdkId) {
     return join(DEPS_BASE, sdkId);
 }
 
+/**
+ * 在 SDK 根目录下定位 npm 包目录(node_modules/<pkg>)。
+ * @param {string} sdkRootDir SDK 根目录
+ * @param {string} pkgName    npm 包名(可含 scope,如 '@openai/codex-sdk')
+ * @returns {string}
+ */
 function getPackageDirFromRoot(sdkRootDir, pkgName) {
     // pkgName like: "@anthropic-ai/claude-agent-sdk" or "@openai/codex-sdk"
     // Logic kept consistent with DependencyManager.getPackageDir()
@@ -46,6 +72,13 @@ function getPackageDirFromRoot(sdkRootDir, pkgName) {
     return join(sdkRootDir, 'node_modules', ...parts);
 }
 
+/**
+ * 从 package.json 的 exports 字段挑选目标入口(优先指定 condition,其次 default)。
+ * exports 形态多样(string / { '.': {...} } / { import, require, default }),统一放宽为 any 处理。
+ * @param {any} exportsField package.json 的 exports 字段
+ * @param {string} condition  优先匹配的条件名(如 'import')
+ * @returns {string | null}
+ */
 function pickExportTarget(exportsField, condition) {
     if (!exportsField) return null;
     if (typeof exportsField === 'string') return exportsField;
@@ -62,6 +95,11 @@ function pickExportTarget(exportsField, condition) {
     return null;
 }
 
+/**
+ * 从包目录解析具体入口文件(Node ESM 不能直接 import 目录)。
+ * @param {string} packageDir 包目录
+ * @returns {string | null}
+ */
 function resolveEntryFileFromPackageDir(packageDir) {
     // Node ESM does not support importing a directory path directly.
     // We must resolve to a concrete file (e.g., sdk.mjs / index.js / export target).
@@ -97,6 +135,13 @@ function resolveEntryFileFromPackageDir(packageDir) {
     return null;
 }
 
+/**
+ * 解析外部 npm 包入口的 file:// URL。
+ * @param {string} pkgName     npm 包名
+ * @param {string} sdkRootDir  SDK 根目录
+ * @returns {string} file:// URL
+ * @throws {Error} 解析不到入口文件时抛错
+ */
 function resolveExternalPackageUrl(pkgName, sdkRootDir) {
     // Resolve from package directory (works for external node_modules without touching Node's default resolver)
     const packageDir = getPackageDirFromRoot(sdkRootDir, pkgName);
@@ -110,6 +155,7 @@ function resolveExternalPackageUrl(pkgName, sdkRootDir) {
 /**
  * Check whether the Claude Code SDK is available
  * Logic kept consistent with DependencyManager.isInstalled("claude")
+ * @returns {boolean}
  */
 export function isClaudeSdkAvailable() {
     const sdkId = 'claude-sdk';
@@ -127,6 +173,7 @@ export function isClaudeSdkAvailable() {
 /**
  * Check whether the Codex SDK is available
  * Logic kept consistent with DependencyManager.isInstalled("codex")
+ * @returns {boolean}
  */
 export function isCodexSdkAvailable() {
     const sdkId = 'codex-sdk';
@@ -143,6 +190,7 @@ export function isCodexSdkAvailable() {
 /**
  * §15.6 B12:Check whether the OpenCode SDK is available
  * Logic kept consistent with DependencyManager.isInstalled("opencode") / SDK_DEFINITIONS.OPENCODE
+ * @returns {boolean}
  */
 export function isOpencodeSdkAvailable() {
     const sdkId = SDK_DEFINITIONS.OPENCODE.id;
@@ -158,7 +206,7 @@ export function isOpencodeSdkAvailable() {
 
 /**
  * Dynamically load the Claude SDK
- * @returns {Promise<{query: Function, ...}>}
+ * @returns {Promise<SdkModule>}
  * @throws {Error} If the SDK is not installed
  */
 export async function loadClaudeSdk() {
@@ -167,13 +215,13 @@ export async function loadClaudeSdk() {
     // Return the cached SDK if available
     if (sdkCache.has('claude')) {
         console.log('[DIAG-SDK] Returning cached SDK');
-        return sdkCache.get('claude');
+        return /** @type {SdkModule} */ (sdkCache.get('claude'));
     }
 
     // If a load is already in progress, return the same promise to prevent duplicate loading
     if (loadingPromises.has('claude')) {
         console.log('[DIAG-SDK] SDK loading in progress, returning existing promise');
-        return loadingPromises.get('claude');
+        return /** @type {Promise<SdkModule>} */ (loadingPromises.get('claude'));
     }
 
     const sdkRootDir = getSdkRootDir('claude-sdk');
@@ -202,11 +250,12 @@ export async function loadClaudeSdk() {
             sdkCache.set('claude', sdk);
             return sdk;
         } catch (error) {
-            console.log('[DIAG-SDK] SDK import failed:', error.message);
+            const msg = error instanceof Error ? error.message : String(error);
+            console.log('[DIAG-SDK] SDK import failed:', msg);
             const pkgDir = getPackageDirFromRoot(sdkRootDir, '@anthropic-ai/claude-agent-sdk');
             const hintFile = join(pkgDir, 'sdk.mjs');
             const hint = existsSync(hintFile) ? ` Did you mean to import ${hintFile}?` : '';
-            throw new Error(`Failed to load Claude SDK: ${error.message}${hint}`);
+            throw new Error(`Failed to load Claude SDK: ${msg}${hint}`);
         } finally {
             // Clear the promise cache once loading is complete
             loadingPromises.delete('claude');
@@ -219,18 +268,18 @@ export async function loadClaudeSdk() {
 
 /**
  * Dynamically load the Codex SDK
- * @returns {Promise<{Codex: Class, ...}>}
+ * @returns {Promise<SdkModule>}
  * @throws {Error} If the SDK is not installed
  */
 export async function loadCodexSdk() {
     // Return the cached SDK if available
     if (sdkCache.has('codex')) {
-        return sdkCache.get('codex');
+        return /** @type {SdkModule} */ (sdkCache.get('codex'));
     }
 
     // If a load is already in progress, return the same promise to prevent duplicate loading
     if (loadingPromises.has('codex')) {
-        return loadingPromises.get('codex');
+        return /** @type {Promise<SdkModule>} */ (loadingPromises.get('codex'));
     }
 
     const sdkRootDir = getSdkRootDir('codex-sdk');
@@ -249,7 +298,8 @@ export async function loadCodexSdk() {
             sdkCache.set('codex', sdk);
             return sdk;
         } catch (error) {
-            throw new Error(`Failed to load Codex SDK: ${error.message}`);
+            const msg = error instanceof Error ? error.message : String(error);
+            throw new Error(`Failed to load Codex SDK: ${msg}`);
         } finally {
             loadingPromises.delete('codex');
         }
@@ -262,18 +312,18 @@ export async function loadCodexSdk() {
 /**
  * §15.6 B12:Dynamically load the OpenCode SDK.
  * 同构于 loadCodexSdk:缓存键 'opencode',错误码 SDK_NOT_INSTALLED:opencode。
- * @returns {Promise<object>}
+ * @returns {Promise<SdkModule>}
  * @throws {Error} If the SDK is not installed
  */
 export async function loadOpencodeSdk() {
     // Return the cached SDK if available
     if (sdkCache.has('opencode')) {
-        return sdkCache.get('opencode');
+        return /** @type {SdkModule} */ (sdkCache.get('opencode'));
     }
 
     // If a load is already in progress, return the same promise to prevent duplicate loading
     if (loadingPromises.has('opencode')) {
-        return loadingPromises.get('opencode');
+        return /** @type {Promise<SdkModule>} */ (loadingPromises.get('opencode'));
     }
 
     const sdkRootDir = getSdkRootDir(SDK_DEFINITIONS.OPENCODE.id);
@@ -292,7 +342,8 @@ export async function loadOpencodeSdk() {
             sdkCache.set('opencode', sdk);
             return sdk;
         } catch (error) {
-            throw new Error(`Failed to load OpenCode SDK: ${error.message}`);
+            const msg = error instanceof Error ? error.message : String(error);
+            throw new Error(`Failed to load OpenCode SDK: ${msg}`);
         } finally {
             loadingPromises.delete('opencode');
         }
@@ -304,17 +355,18 @@ export async function loadOpencodeSdk() {
 
 /**
  * Load the base Anthropic SDK (used as an API fallback)
- * @returns {Promise<{Anthropic: Class}>}
+ * @returns {Promise<SdkModule>}
+ * @throws {Error} If the SDK is not installed
  */
 export async function loadAnthropicSdk() {
     // Return the cached SDK if available
     if (sdkCache.has('anthropic')) {
-        return sdkCache.get('anthropic');
+        return /** @type {SdkModule} */ (sdkCache.get('anthropic'));
     }
 
     // If a load is already in progress, return the same promise to prevent duplicate loading
     if (loadingPromises.has('anthropic')) {
-        return loadingPromises.get('anthropic');
+        return /** @type {Promise<SdkModule>} */ (loadingPromises.get('anthropic'));
     }
 
     const sdkRootDir = getSdkRootDir('claude-sdk');
@@ -333,7 +385,8 @@ export async function loadAnthropicSdk() {
             sdkCache.set('anthropic', sdk);
             return sdk;
         } catch (error) {
-            throw new Error(`Failed to load Anthropic SDK: ${error.message}`);
+            const msg = error instanceof Error ? error.message : String(error);
+            throw new Error(`Failed to load Anthropic SDK: ${msg}`);
         } finally {
             loadingPromises.delete('anthropic');
         }
@@ -345,17 +398,18 @@ export async function loadAnthropicSdk() {
 
 /**
  * Load the Bedrock SDK
- * @returns {Promise<{AnthropicBedrock: Class}>}
+ * @returns {Promise<SdkModule>}
+ * @throws {Error} If the SDK is not installed
  */
 export async function loadBedrockSdk() {
     // Return the cached SDK if available
     if (sdkCache.has('bedrock')) {
-        return sdkCache.get('bedrock');
+        return /** @type {SdkModule} */ (sdkCache.get('bedrock'));
     }
 
     // If a load is already in progress, return the same promise to prevent duplicate loading
     if (loadingPromises.has('bedrock')) {
-        return loadingPromises.get('bedrock');
+        return /** @type {Promise<SdkModule>} */ (loadingPromises.get('bedrock'));
     }
 
     const sdkRootDir = getSdkRootDir('claude-sdk');
@@ -374,7 +428,8 @@ export async function loadBedrockSdk() {
             sdkCache.set('bedrock', sdk);
             return sdk;
         } catch (error) {
-            throw new Error(`Failed to load Bedrock SDK: ${error.message}`);
+            const msg = error instanceof Error ? error.message : String(error);
+            throw new Error(`Failed to load Bedrock SDK: ${msg}`);
         } finally {
             loadingPromises.delete('bedrock');
         }
@@ -386,6 +441,7 @@ export async function loadBedrockSdk() {
 
 /**
  * Get the installation status of all SDKs
+ * @returns {{ claude: { installed: boolean; path: string }; codex: { installed: boolean; path: string }; opencode: { installed: boolean; path: string } }}
  */
 export function getSdkStatus() {
     // Uses the same path resolution logic as DependencyManager
@@ -416,6 +472,7 @@ export function getSdkStatus() {
 /**
  * Clear the SDK cache
  * Should be called after an SDK is reinstalled
+ * @returns {void}
  */
 export function clearSdkCache() {
     sdkCache.clear();
@@ -423,19 +480,20 @@ export function clearSdkCache() {
 
 /**
  * Verify that the SDK is installed, throwing a user-friendly error if not
- * @param {string} provider - 'claude' or 'codex'
+ * @param {string} provider - 'claude', 'codex' or 'opencode'
+ * @returns {void}
  * @throws {Error} If the SDK is not installed
  */
 export function requireSdk(provider) {
     if (provider === 'claude' && !isClaudeSdkAvailable()) {
-        const error = new Error('Claude Code SDK not installed. Please install via Settings > Dependencies.');
+        const error = /** @type {Error & { code?: string; provider?: string }} */ (new Error('Claude Code SDK not installed. Please install via Settings > Dependencies.'));
         error.code = 'SDK_NOT_INSTALLED';
         error.provider = 'claude';
         throw error;
     }
 
     if (provider === 'codex' && !isCodexSdkAvailable()) {
-        const error = new Error('Codex SDK not installed. Please install via Settings > Dependencies.');
+        const error = /** @type {Error & { code?: string; provider?: string }} */ (new Error('Codex SDK not installed. Please install via Settings > Dependencies.'));
         error.code = 'SDK_NOT_INSTALLED';
         error.provider = 'codex';
         throw error;
@@ -443,7 +501,7 @@ export function requireSdk(provider) {
 
     // §15.6 B12:OpenCode SDK 安装校验,与 claude/codex 对称。
     if (provider === 'opencode' && !isOpencodeSdkAvailable()) {
-        const error = new Error('OpenCode SDK not installed. Please install via Settings > Dependencies.');
+        const error = /** @type {Error & { code?: string; provider?: string }} */ (new Error('OpenCode SDK not installed. Please install via Settings > Dependencies.'));
         error.code = 'SDK_NOT_INSTALLED';
         error.provider = 'opencode';
         throw error;

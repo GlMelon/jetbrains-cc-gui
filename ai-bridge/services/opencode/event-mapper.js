@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * §15.7 B16:OpenCode SSE 事件 → 统一 bridge NDJSON 映射。
  *
@@ -25,10 +26,27 @@
  */
 
 /**
+ * Bridge NDJSON 输出事件(统一形状,字段随 type 变化)。
+ * @typedef {{ type: string; [key: string]: any }} OutEvent
+ */
+
+/**
+ * SSE 事件 properties 子结构(仅声明本映射器消费的字段)。
+ * @typedef {{
+ *   sessionID?: string;
+ *   status?: { type?: string } | any;
+ *   message?: string;
+ *   data?: { message?: string } | any;
+ *   info?: { id?: string; role?: string; tokens?: any; time?: any } | any;
+ *   part?: { type?: string; text?: string; messageID?: string; callID?: string; id?: string; tool?: string; name?: string; state?: any } | any;
+ * }} EventProps
+ */
+
+/**
  * 创建一个有状态的 SSE→NDJSON 映射器。
  * @param {string} sessionId 当前会话 id(用于全局 SSE 流过滤)
  * @param {{sessionIdAlreadyEmitted?: boolean}} [options]
- * @returns {{map:(event:object)=>object[]}}
+ * @returns {{map:(event:any)=>OutEvent[]}}
  */
 export function createOpenCodeEventMapper(sessionId, options = {}) {
     let streamStarted = false;
@@ -43,12 +61,14 @@ export function createOpenCodeEventMapper(sessionId, options = {}) {
     const toolResultEmitted = new Set(); // callID 去重:tool_result 每个 callID 只发一次
     let toolCallSeq = 0; // 无 callID 时的稳定回退 id(可测,非随机)
 
+    /** @returns {OutEvent[]} */
     function ensureStarted() {
         if (streamStarted) return [];
         streamStarted = true;
         return [{ type: 'stream_start' }, { type: 'message_start' }];
     }
 
+    /** @param {EventProps | undefined} props @returns {OutEvent[]} */
     function emitSessionIdOnce(props) {
         if (sessionIdEmitted) return [];
         const sid = props?.sessionID;
@@ -57,6 +77,7 @@ export function createOpenCodeEventMapper(sessionId, options = {}) {
         return [{ type: 'session_id', session_id: sid }];
     }
 
+    /** @param {string | null | undefined} previous @param {string | null | undefined} next @returns {string} */
     function delta(previous, next) {
         const oldText = previous || '';
         const newText = next || '';
@@ -66,10 +87,14 @@ export function createOpenCodeEventMapper(sessionId, options = {}) {
         return newText;
     }
 
+    /**
+     * @param {any} event
+     * @returns {OutEvent[]}
+     */
     function map(event) {
         if (!event || typeof event !== 'object') return [];
         const type = event.type;
-        const props = event.properties || {};
+        const props = /** @type {EventProps} */ (event.properties || {});
 
         // 终止后忽略一切(幂等)
         if (streamEnded) return [];
@@ -202,12 +227,14 @@ export function createOpenCodeEventMapper(sessionId, options = {}) {
         }
     }
 
+    /** @param {EventProps | undefined} props @returns {boolean} */
     function isCurrentSession(props) {
         const sid = props?.sessionID;
         if (!sid) return true; // 无 sessionID 的事件(如 server.*)不按会话过滤
         return sid === sessionId;
     }
 
+    /** @returns {OutEvent[]} */
     function endStream() {
         const out = ensureStarted();
         if (streamEnded) return [];
@@ -219,6 +246,7 @@ export function createOpenCodeEventMapper(sessionId, options = {}) {
      * 解析 tool input:OpenCode SSE 的 state.input 是 JSON 字符串(如 '{"path":"a.txt"}'),
      * Anthropic tool_use 块要求 input 为对象(对称 CLI 的对象 input)。非 JSON 字符串保留为 {value:原值}。
      */
+    /** @param {any} input @returns {Record<string, any>} */
     function parseToolInput(input) {
         if (input == null) return {};
         if (typeof input === 'object') return input;
@@ -238,7 +266,12 @@ export function createOpenCodeEventMapper(sessionId, options = {}) {
      * 生命周期:serve 分阶段发 tool part —— running 期带 input(发 tool_use),completed 带 output(发 tool_result)。
      * 同一 callID 的 tool_use/tool_result 各只发一次(幂等重发去重,对称 Codex emitToolUseOnce/emitToolResultOnce)。
      */
+    /**
+     * @param {NonNullable<EventProps['part']>} part
+     * @returns {OutEvent[]}
+     */
     function emitToolBlocks(part) {
+        /** @type {OutEvent[]} */
         const out2 = [];
         const callId = part.callID || part.id || ('call_' + (++toolCallSeq));
         const toolName = part.tool || part.name || 'unknown';

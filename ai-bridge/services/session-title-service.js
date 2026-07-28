@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Session title generation service.
  * Generates AI titles for sessions using Haiku API.
@@ -20,6 +21,10 @@ const SESSION_ID_PATTERN = /^[A-Za-z0-9._-]+$/;
 // Safety net for Haiku calls — avoids hung requests holding daemon resources.
 const HAIKU_API_TIMEOUT_MS = 15000;
 
+/**
+ * @param {string | undefined} sessionId
+ * @returns {boolean}
+ */
 function isValidSessionId(sessionId) {
   return typeof sessionId === 'string' && SESSION_ID_PATTERN.test(sessionId);
 }
@@ -45,6 +50,11 @@ Bad: {"title": "修复登录按钮在移动设备上不响应的问题"} (too lo
 // which the daemon passes through for lines starting with '{'.
 // DaemonBridge.java handles "title_log" events with appropriate log levels.
 
+/**
+ * @param {string} level
+ * @param {string} message
+ * @returns {void}
+ */
 function logTitleEvent(level, message) {
   const line = JSON.stringify({
     type: 'daemon',
@@ -58,6 +68,11 @@ function logTitleEvent(level, message) {
 /**
  * Emit a title_generated daemon event so the Java layer can forward the
  * AI title to the frontend for immediate display in the chat header.
+ */
+/**
+ * @param {string} sessionId
+ * @param {string} title
+ * @returns {void}
  */
 function emitTitleGenerated(sessionId, title) {
   const line = JSON.stringify({
@@ -135,6 +150,10 @@ async function isTitleGenerationEnabled() {
 
 // --- Path utilities (matching CLI's sanitizePath logic) ---
 
+/**
+ * @param {string} str
+ * @returns {number}
+ */
 function djb2Hash(str) {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -143,6 +162,10 @@ function djb2Hash(str) {
   return hash;
 }
 
+/**
+ * @param {string} name
+ * @returns {string}
+ */
 function sanitizePath(name) {
   const sanitized = name.replace(/[^a-zA-Z0-9]/g, '-');
   if (sanitized.length <= MAX_SANITIZED_LENGTH) {
@@ -152,6 +175,11 @@ function sanitizePath(name) {
   return `${sanitized.slice(0, MAX_SANITIZED_LENGTH)}-${hash}`;
 }
 
+/**
+ * @param {string} sessionId
+ * @param {string | null} [cwd]
+ * @returns {string}
+ */
 function getSessionFilePath(sessionId, cwd) {
   const projectsDir = join(getClaudeDir(), 'projects');
   const sanitizedCwd = sanitizePath(cwd || process.cwd());
@@ -175,8 +203,8 @@ function resolveHaikuModel() {
 
 /**
  * Create an Anthropic client based on the auth configuration.
- * @param {object} config - API config from setupApiKey()
- * @returns {Promise<object>} Anthropic client instance
+ * @param {Record<string, any>} config - API config from setupApiKey()
+ * @returns {Promise<any>} Anthropic client instance (SDK loaded dynamically)
  */
 async function createAnthropicClient(config) {
   const cliHeaders = {
@@ -215,7 +243,7 @@ async function createAnthropicClient(config) {
  * @returns {Promise<string|null>} Generated title or null
  */
 async function callHaikuApi(userMessage) {
-  const config = setupApiKey();
+  const config = /** @type {{ authType: string; apiKey?: string; baseUrl?: string }} */ (setupApiKey());
 
   // CLI login uses SDK-native OAuth which the direct Anthropic SDK doesn't support.
   if (config.authType === 'cli_login') {
@@ -257,8 +285,8 @@ async function callHaikuApi(userMessage) {
   }
 
   const text = (response.content || [])
-    .filter(b => b.type === 'text')
-    .map(b => b.text)
+    .filter((/** @type {{ type: string; text?: string }} */ b) => b.type === 'text')
+    .map((/** @type {{ type: string; text?: string }} */ b) => b.text)
     .join('')
     .trim();
 
@@ -317,7 +345,7 @@ async function saveAiTitle(sessionId, title, cwd) {
     emitTitleGenerated(sessionId, title);
     return true;
   } catch (e) {
-    logTitleEvent('error', 'Failed to save AI title: ' + e.message);
+    logTitleEvent('error', 'Failed to save AI title: ' + (e instanceof Error ? e.message : String(e)));
     return false;
   }
 }
@@ -360,7 +388,7 @@ export async function generateSessionTitle(userMessage, sessionId, cwd) {
       return true;
     }
   } catch (e) {
-    logTitleEvent('warn', 'Failed to check existing AI title, proceeding: ' + e.message);
+    logTitleEvent('warn', 'Failed to check existing AI title, proceeding: ' + (e instanceof Error ? e.message : String(e)));
   }
 
   try {
@@ -389,7 +417,7 @@ export async function generateSessionTitle(userMessage, sessionId, cwd) {
   } catch (e) {
     // Thrown errors come from the SDK / network layer and are typically
     // transient — return false so callers may reset their guard and retry.
-    logTitleEvent('error', 'Title generation failed: ' + e.message);
+    logTitleEvent('error', 'Title generation failed: ' + (e instanceof Error ? e.message : String(e)));
     return false;
   }
 }

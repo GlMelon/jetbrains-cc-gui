@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * MCP configuration loader module
  * Provides functionality to read MCP server configuration from ~/.claude.json
@@ -9,6 +10,28 @@ import { join } from 'path';
 import { getRealHomeDir } from '../../../utils/path-utils.js';
 import { log } from './logger.js';
 
+/**
+ * 解析后的 MCP 配置:启用的 server 表 + 禁用集合。
+ * @typedef {{ mcpServers: Record<string, any>, disabledServers: Set<string> }} ParsedConfig
+ */
+
+/**
+ * 解析结果缓存条目。
+ * @typedef {{ parsed: ParsedConfig | null, mtimeMs: number, cachedAt: number }} CacheEntry
+ */
+
+/**
+ * 全量 server 信息聚合结果。
+ * @typedef {{ name: string, config: Record<string, any> }} ServerEntry
+ */
+/**
+ * @typedef {{
+ *   enabled: ServerEntry[],
+ *   disabled: string[],
+ *   invalid: Array<{ name: string, reason: string }>
+ * }} AllServersInfo
+ */
+
 // =============================================================================
 // MCP Configuration Cache
 //
@@ -18,13 +41,17 @@ import { log } from './logger.js';
 // the settings UI) are reflected promptly without manual cache invalidation.
 // =============================================================================
 
+/** @type {number} */
 const CACHE_TTL_MS = 30_000; // 30 seconds
+/** @type {Map<string, CacheEntry>} */
 const configCache = new Map(); // cwd -> { parsed, mtimeMs, cachedAt }
 
+/** @returns {string} */
 function getClaudeJsonPath() {
   return join(getRealHomeDir(), '.claude.json');
 }
 
+/** @returns {number} */
 function getConfigMtimeMs() {
   try {
     return statSync(getClaudeJsonPath()).mtimeMs;
@@ -33,6 +60,10 @@ function getConfigMtimeMs() {
   }
 }
 
+/**
+ * @param {string | null} cwd
+ * @returns {ParsedConfig | null}
+ */
 function getCachedParsed(cwd) {
   const entry = configCache.get(cwd || '');
   if (!entry) return null;
@@ -45,6 +76,11 @@ function getCachedParsed(cwd) {
   return entry.parsed;
 }
 
+/**
+ * @param {string | null} cwd
+ * @param {ParsedConfig | null} parsed
+ * @returns {void}
+ */
 function setCachedParsed(cwd, parsed) {
   configCache.set(cwd || '', {
     parsed,
@@ -55,7 +91,7 @@ function setCachedParsed(cwd, parsed) {
 
 /**
  * Validate the basic structure of an MCP server configuration
- * @param {Object} serverConfig - Server configuration object
+ * @param {Record<string, any>} serverConfig - Server configuration object
  * @returns {boolean} Whether the configuration is valid
  */
 function isValidServerConfig(serverConfig) {
@@ -81,7 +117,7 @@ function isValidServerConfig(serverConfig) {
 
 /**
  * Validate the basic structure of a configuration file
- * @param {Object} config - Configuration object
+ * @param {Record<string, any>} config - Configuration object
  * @returns {{valid: boolean, reason?: string}} Validation result
  */
 function validateConfigStructure(config) {
@@ -114,8 +150,8 @@ function validateConfigStructure(config) {
 /**
  * Parse the server list and disabled list from the MCP configuration file
  * Extracts shared logic used by both loadMcpServersConfig and loadAllMcpServersInfo
- * @param {string} cwd - Current working directory (used for project detection)
- * @returns {Promise<{mcpServers: Object, disabledServers: Set<string>} | null>} Parse result, or null on failure
+ * @param {string | null} [cwd] - Current working directory (used for project detection)
+ * @returns {Promise<ParsedConfig | null>} Parse result, or null on failure
  */
 async function parseMcpConfig(cwd = null) {
   // Return cached result if available and fresh
@@ -149,6 +185,7 @@ async function parseMcpConfig(cwd = null) {
   }
 
   // Find a matching project configuration
+  /** @type {any} */
   let projectConfig = null;
   if (normalizedCwd && config.projects) {
     if (config.projects[normalizedCwd]) {
@@ -171,7 +208,9 @@ async function parseMcpConfig(cwd = null) {
     }
   }
 
+  /** @type {Record<string, any>} */
   let mcpServers = {};
+  /** @type {Set<string>} */
   let disabledServers = new Set();
 
   if (projectConfig) {
@@ -204,8 +243,8 @@ async function parseMcpConfig(cwd = null) {
  * Supports two modes:
  * 1. Global config - uses the global mcpServers
  * 2. Project config - uses project-specific mcpServers
- * @param {string} cwd - Current working directory (used for project detection)
- * @returns {Promise<Array<{name: string, config: Object}>>} List of enabled MCP servers
+ * @param {string | null} [cwd] - Current working directory (used for project detection)
+ * @returns {Promise<Array<{name: string, config: Record<string, any>}>>} List of enabled MCP servers
  */
 export async function loadMcpServersConfig(cwd = null) {
   try {
@@ -229,7 +268,7 @@ export async function loadMcpServersConfig(cwd = null) {
     log('info', '[MCP Config] Loaded', enabledServers.length, 'enabled MCP servers');
     return enabledServers;
   } catch (error) {
-    log('error', 'Failed to load MCP servers config:', error.message);
+    log('error', 'Failed to load MCP servers config:', error instanceof Error ? error.message : String(error));
     return [];
   }
 }
@@ -242,8 +281,8 @@ export async function loadMcpServersConfig(cwd = null) {
  * callers can naturally write `...(mcpServers && { mcpServers })` to omit the
  * field from SDK options entirely.
  *
- * @param {string} cwd - Current working directory (used for project detection)
- * @returns {Promise<Record<string, Object> | null>}
+ * @param {string | null} [cwd] - Current working directory (used for project detection)
+ * @returns {Promise<Record<string, Record<string, any>> | null>}
  */
 export async function loadMcpServersConfigAsRecord(cwd = null) {
   const list = await loadMcpServersConfig(cwd);
@@ -254,10 +293,11 @@ export async function loadMcpServersConfigAsRecord(cwd = null) {
 /**
  * Load all MCP server info (including disabled and invalid ones)
  * Merges global and project-level mcpServers to stay consistent with the server list seen by the Java side
- * @param {string} cwd - Current working directory
- * @returns {Promise<{enabled: Array, disabled: Array<string>, invalid: Array<{name: string, reason: string}>}>}
+ * @param {string | null} [cwd] - Current working directory
+ * @returns {Promise<AllServersInfo>}
  */
 export async function loadAllMcpServersInfo(cwd = null) {
+  /** @type {AllServersInfo} */
   const result = { enabled: [], disabled: [], invalid: [] };
 
   try {
@@ -291,13 +331,19 @@ export async function loadAllMcpServersInfo(cwd = null) {
     log('info', '[MCP Config] All servers:', result.enabled.length, 'enabled,', result.disabled.length, 'disabled,', result.invalid.length, 'invalid');
     return result;
   } catch (error) {
-    log('error', 'Failed to load all MCP servers info:', error.message);
+    log('error', 'Failed to load all MCP servers info:', error instanceof Error ? error.message : String(error));
     return result;
   }
 }
 
 /**
  * Classify a server into the enabled/disabled/invalid buckets
+ *
+ * @param {string} serverName
+ * @param {Record<string, any>} serverConfig
+ * @param {Set<string>} disabledServers
+ * @param {AllServersInfo} result
+ * @returns {void}
  */
 function classifyServer(serverName, serverConfig, disabledServers, result) {
   if (disabledServers.has(serverName)) {

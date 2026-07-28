@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * System prompt management module.
  *
@@ -19,6 +20,9 @@ const PROMPT_VALUE_MAX_LEN = 256;
  *
  * Replaces ASCII control chars (0x00-0x1F, 0x7F) and backticks with spaces,
  * then collapses runs of whitespace.
+ *
+ * @param {unknown} value - Value to sanitize (coerced to string).
+ * @returns {string} Sanitized single-line string, bounded to PROMPT_VALUE_MAX_LEN.
  */
 function sanitizePromptValue(value) {
   if (value === null || value === undefined) return '';
@@ -46,10 +50,10 @@ function sanitizePromptValue(value) {
  * @param {string[]} openedFiles.others - List of other open file paths
  * @param {boolean} openedFiles.isWorkspace - Whether this is a multi-project workspace
  * @param {string} openedFiles.workspaceRoot - Root path of the workspace
- * @param {Array} openedFiles.subprojects - List of subprojects in the workspace
- * @param {Array} openedFiles.modules - List of modules in the project
+ * @param {Array<Record<string, unknown>>} openedFiles.subprojects - List of subprojects in the workspace
+ * @param {Array<Record<string, unknown>>} openedFiles.modules - List of modules in the project
  * @param {string} openedFiles.activeSubproject - Name of the subproject containing the active file
- * @param {string} agentPrompt - Agent prompt (optional)
+ * @param {string | null} [agentPrompt] - Agent prompt (optional)
  * @returns {string} The constructed system prompt, or an empty string if there's no valid information
  */
 function buildIDEContextPrompt(openedFiles, agentPrompt = null) {

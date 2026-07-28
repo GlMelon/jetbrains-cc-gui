@@ -1,3 +1,4 @@
+// @ts-check
 import { AsyncStream } from '../../utils/async-stream.js';
 import { loadClaudeSdk } from '../../utils/sdk-loader.js';
 import { createPreToolUseHook, normalizePermissionMode } from './permission-mode.js';
@@ -14,6 +15,36 @@ import {
   touchRuntime
 } from './runtime-registry.js';
 
+/**
+ * 运行时句柄:由 createRuntime 构造的可变状态袋,字段在生命周期中被持续增删
+ * (如 turnSink / _turnAbortReject / abortRequested 由调用方注入)。
+ * 必填 createdAt/lastUsedAt + 与 runtime-registry 的 RuntimeEntry 结构兼容
+ * (query/sessionId/runtimeSessionEpoch 等),其余字段经索引签名按 any 透传。
+ * @typedef {{
+ *   createdAt: number,
+ *   lastUsedAt: number,
+ *   query?: any,
+ *   sessionId?: string,
+ *   runtimeSessionEpoch?: string | null,
+ *   activeTurnCount?: number,
+ *   closed?: boolean,
+ *   [k: string]: any
+ * }} RuntimeHandle
+ */
+/**
+ * 请求上下文:由 buildRequestContext 构造,字段较多且跨模块流转。
+ * 必填 runtimeSignature 以兼容 runtime-registry 的 RequestContext,其余字段经索引签名透传。
+ * @typedef {{ runtimeSignature: string, requestedSessionId?: string, [k: string]: any }} RequestContextLike
+ */
+/**
+ * 生命周期回调集合(注册/注销 active query)。
+ * @typedef {{ registerActiveQueryResult?: any; removeSession?: any }} LifecycleCallbacks
+ */
+/**
+ * TurnSink 取消息结果。
+ * @typedef {{ value: any, done: boolean }} SinkResult
+ */
+/** @type {any} */
 let cachedQueryFn = null;
 
 /**
@@ -25,17 +56,23 @@ let cachedQueryFn = null;
  * 1. Only one consumer (perpetual reader) calls query.next(), preventing buffering issues
  * 2. executeTurn receives messages via a simple queue without blocking the reader
  * 3. Clean separation between in-turn and inter-turn message routing
+ * @returns {{ push: (msg: any) => void; take: () => Promise<SinkResult>; fail: (error: any) => void }}
  */
 export function createTurnSink() {
+  /** @type {any[]} */
   const queue = [];
+  /** @type {Array<{ resolve: (v: SinkResult) => void; reject: (e: any) => void }>} */
   const waiters = []; // FIFO queue of pending take() resolvers
   let failed = false;
+  /** @type {any} */
   let failureError = null;
 
   return {
     /**
      * Push a message into the sink (called by perpetual reader during active turn).
      * Hands the message to the oldest pending take() if any, otherwise queues it.
+     * @param {any} msg
+     * @returns {void}
      */
     push(msg) {
       if (failed) return; // Ignore pushes after failure
@@ -52,6 +89,7 @@ export function createTurnSink() {
      * Returns a promise that resolves to { value, done }.
      * If no messages are queued, waits for the next push. Concurrent takers are
      * served in FIFO order so none are ever orphaned.
+     * @returns {Promise<SinkResult>}
      */
     async take() {
       if (failed) {
@@ -71,18 +109,29 @@ export function createTurnSink() {
      * Idempotent: the first error wins, and every pending take() is rejected
      * once so none hang. After failure, take() throws synchronously, so no new
      * waiter can be enqueued.
+     * @param {any} error
+     * @returns {void}
      */
     fail(error) {
       if (failed) return; // Keep the first failure reason
       failed = true;
       failureError = error;
       while (waiters.length > 0) {
-        waiters.shift().reject(error);
+        waiters.shift()?.reject(error);
       }
     }
   };
 }
 
+/**
+ * @param {any} options
+ * @param {string|null} systemPromptAppend
+ * @param {boolean} streamingEnabled
+ * @param {string|null} runtimeSessionEpoch
+ * @param {string|null} [resolvedModelId=null]
+ * @param {string|null} [mcpGatewaySchemaRevision=null]
+ * @returns {string}
+ */
 export function buildRuntimeSignature(options, systemPromptAppend, streamingEnabled, runtimeSessionEpoch, resolvedModelId = null, mcpGatewaySchemaRevision = null) {
   const requestedModel = resolvedModelId || options.model || '';
   const material = {
@@ -100,6 +149,9 @@ export function buildRuntimeSignature(options, systemPromptAppend, streamingEnab
   return JSON.stringify(material);
 }
 
+/**
+ * @returns {Promise<any>}
+ */
 async function ensureQueryFn() {
   if (cachedQueryFn) return cachedQueryFn;
   const sdk = await loadClaudeSdk();
@@ -111,18 +163,36 @@ async function ensureQueryFn() {
   return cachedQueryFn;
 }
 
+/**
+ * @param {any} queryFn
+ * @returns {void}
+ */
 export function setCachedQueryFn(queryFn) {
   cachedQueryFn = queryFn;
 }
 
+/**
+ * @returns {void}
+ */
 export function resetCachedQueryFn() {
   cachedQueryFn = null;
 }
 
+/**
+ * @param {RuntimeHandle} runtime
+ * @param {string} sessionId
+ * @param {LifecycleCallbacks} callbacks
+ * @returns {void}
+ */
 export function registerRuntimeSession(runtime, sessionId, callbacks) {
   promoteRuntimeToSession(runtime, sessionId, callbacks);
 }
 
+/**
+ * @param {RuntimeHandle|null} runtime
+ * @param {LifecycleCallbacks} [callbacks]
+ * @returns {Promise<void>}
+ */
 export async function disposeRuntime(runtime, callbacks) {
   if (!runtime || runtime.closed) return;
   console.log('[LIFECYCLE] disposeRuntime sessionId=' + (runtime.sessionId || '(new)')
@@ -146,26 +216,32 @@ export async function disposeRuntime(runtime, callbacks) {
   try {
     runtime.inputStream.done();
   } catch (err) {
-    console.error('[LIFECYCLE] inputStream.done() failed:', err?.message || err);
+    console.error('[LIFECYCLE] inputStream.done() failed:', err instanceof Error ? err.message : String(err));
   }
 
   try {
     runtime.query?.close?.();
   } catch (err) {
-    console.error('[LIFECYCLE] query.close() failed:', err?.message || err);
+    console.error('[LIFECYCLE] query.close() failed:', err instanceof Error ? err.message : String(err));
   }
 
   removeRuntime(runtime, callbacks?.removeSession);
   clearActiveTurnRuntimeIf(runtime);
 }
 
+/**
+ * @param {RequestContextLike} requestContext
+ * @param {LifecycleCallbacks} [callbacks]
+ * @returns {Promise<RuntimeHandle>}
+ */
 async function createRuntime(requestContext, callbacks) {
   const queryFn = await ensureQueryFn();
   const initialPermissionMode = normalizePermissionMode(requestContext.permissionMode);
 
+  /** @type {RuntimeHandle} */
   const runtime = {
     closed: false,
-    sessionId: requestContext.requestedSessionId || null,
+    sessionId: requestContext.requestedSessionId || undefined,
     runtimeSessionEpoch: requestContext.runtimeSessionEpoch || null,
     runtimeSignature: requestContext.runtimeSignature,
     currentModel: requestContext.sdkModelName || null,
@@ -185,7 +261,7 @@ async function createRuntime(requestContext, callbacks) {
 
   const options = {
     ...requestContext.options,
-    stderr: (data) => {
+    stderr: (/** @type {string|Buffer|null} */ data) => {
       try {
         const text = (data ?? '').toString().trim();
         if (!text) return;
@@ -202,7 +278,7 @@ async function createRuntime(requestContext, callbacks) {
   options.hooks = {
     ...(options.hooks || {}),
     PreToolUse: [{
-      hooks: [createPreToolUseHook(runtime.permissionModeState, options.cwd, async (mode) => {
+      hooks: [createPreToolUseHook(runtime.permissionModeState, options.cwd, async (/** @type {string} */ mode) => {
         if (runtime.currentPermissionMode === mode) {
           runtime.permissionModeState.value = mode;
           return;
@@ -211,7 +287,7 @@ async function createRuntime(requestContext, callbacks) {
           try {
             await runtime.query.setPermissionMode(mode);
           } catch (error) {
-            console.warn('[LIFECYCLE] hook setPermissionMode failed, updating local state only:', error.message);
+            console.warn('[LIFECYCLE] hook setPermissionMode failed, updating local state only:', error instanceof Error ? error.message : String(error));
           }
         }
         // Always update local state to keep hook and runtime in sync
@@ -248,6 +324,10 @@ async function createRuntime(requestContext, callbacks) {
  * executeTurn() no longer calls query.next() directly - it receives messages via turnSink.
  *
  * Exported for testing; returns the reader loop promise.
+ *
+ * @param {RuntimeHandle} runtime
+ * @param {LifecycleCallbacks} [callbacks]
+ * @returns {Promise<void>}
  */
 export function startPerpetualReader(runtime, callbacks) {
   /**
@@ -265,13 +345,16 @@ export function startPerpetualReader(runtime, callbacks) {
    *
    * The event format {type: 'daemon', event: 'session_updated', sessionId} is recognized
    * by Java's DaemonBridge.handleDaemonEvent() which routes it to registered listeners.
+   *
+   * @param {string} sessionId
+   * @returns {void}
    */
   const emitInterTurnEvent = (sessionId) => {
     try {
       // Access the global writeRawLine from daemon.js
       // daemon.js stores the original stdout.write as _originalStdoutWrite
       // We must use _originalStdoutWrite to bypass activeRequestId wrapping
-      const originalWrite = process.stdout._originalStdoutWrite;
+      const originalWrite = /** @type {any} */ (process.stdout)._originalStdoutWrite;
       if (!originalWrite) {
         console.error('[PERPETUAL_READER] _originalStdoutWrite not available (daemon.js not initialized?), cannot emit session_updated event');
         return;
@@ -294,12 +377,13 @@ export function startPerpetualReader(runtime, callbacks) {
 
     try {
       while (!runtime.closed) {
+        /** @type {any} */
         let next;
 
         try {
           next = await runtime.query.next();
         } catch (error) {
-          console.error('[PERPETUAL_READER] query.next() error:', error?.message || error);
+          console.error('[PERPETUAL_READER] query.next() error:', error instanceof Error ? error.message : String(error));
           // Forward error to turnSink if active turn exists
           if (runtime.turnSink) {
             runtime.turnSink.fail(error);
@@ -368,13 +452,18 @@ export function startPerpetualReader(runtime, callbacks) {
         try {
           await disposeRuntime(runtime, callbacks);
         } catch (err) {
-          console.error('[PERPETUAL_READER] dispose on exit failed:', err?.message || err);
+          console.error('[PERPETUAL_READER] dispose on exit failed:', err instanceof Error ? err.message : String(err));
         }
       }
     }
   })();
 }
 
+/**
+ * @param {RuntimeHandle|null} runtime
+ * @param {RequestContextLike} requestContext
+ * @returns {Promise<void>}
+ */
 async function applyDynamicControls(runtime, requestContext) {
   if (!runtime || runtime.closed) return;
 
@@ -384,7 +473,7 @@ async function applyDynamicControls(runtime, requestContext) {
       try {
         await runtime.query.setPermissionMode(targetPermissionMode);
       } catch (error) {
-        console.error('[DAEMON] setPermissionMode failed:', error.message);
+        console.error('[DAEMON] setPermissionMode failed:', error instanceof Error ? error.message : String(error));
       }
     }
     runtime.currentPermissionMode = targetPermissionMode;
@@ -403,7 +492,7 @@ async function applyDynamicControls(runtime, requestContext) {
       runtime.currentResolvedModel = targetResolvedModel;
       runtime.modelId = requestContext.modelId || null;
     } catch (error) {
-      console.error('[DAEMON] setModel failed:', error.message);
+      console.error('[DAEMON] setModel failed:', error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -413,38 +502,53 @@ async function applyDynamicControls(runtime, requestContext) {
       await runtime.query.setMaxThinkingTokens(targetThinking);
       runtime.currentMaxThinkingTokens = targetThinking;
     } catch (error) {
-      console.error('[DAEMON] setMaxThinkingTokens failed:', error.message);
+      console.error('[DAEMON] setMaxThinkingTokens failed:', error instanceof Error ? error.message : String(error));
     }
   }
 }
 
+/**
+ * @param {RuntimeHandle|null} runtime
+ * @param {RequestContextLike} requestContext
+ * @returns {void}
+ */
 function assertRuntimeOwnership(runtime, requestContext) {
   if (!runtime || runtime.closed) {
-    const err = new Error('Runtime is closed');
+    const err = /** @type {Error & { runtimeTerminated: boolean }} */ (new Error('Runtime is closed'));
     err.runtimeTerminated = true;
     throw err;
   }
 
   if (requestContext.runtimeSessionEpoch && runtime.runtimeSessionEpoch !== requestContext.runtimeSessionEpoch) {
-    const err = new Error(
-      `Runtime ownership mismatch: expected epoch ${requestContext.runtimeSessionEpoch}, got ${runtime.runtimeSessionEpoch || '(none)'}`
+    const err = /** @type {Error & { runtimeTerminated: boolean }} */ (
+      new Error(
+        `Runtime ownership mismatch: expected epoch ${requestContext.runtimeSessionEpoch}, got ${runtime.runtimeSessionEpoch || '(none)'}`
+      )
     );
     err.runtimeTerminated = true;
     throw err;
   }
 
   if (requestContext.requestedSessionId && runtime.sessionId && runtime.sessionId !== requestContext.requestedSessionId) {
-    const err = new Error(
-      `Runtime ownership mismatch: expected session ${requestContext.requestedSessionId}, got ${runtime.sessionId}`
+    const err = /** @type {Error & { runtimeTerminated: boolean }} */ (
+      new Error(
+        `Runtime ownership mismatch: expected session ${requestContext.requestedSessionId}, got ${runtime.sessionId}`
+      )
     );
     err.runtimeTerminated = true;
     throw err;
   }
 }
 
+/**
+ * @param {RequestContextLike} requestContext
+ * @param {LifecycleCallbacks} [callbacks]
+ * @returns {Promise<RuntimeHandle>}
+ */
 export async function acquireRuntime(requestContext, callbacks) {
   await cleanupAnonymousFromRegistry((runtime) => disposeRuntime(runtime, callbacks));
 
+  /** @type {RuntimeHandle | null} */
   let runtime = findRuntimeForRequest(requestContext);
   const foundBySessionId = !!(runtime && requestContext.requestedSessionId);
 
@@ -479,10 +583,18 @@ export async function acquireRuntime(requestContext, callbacks) {
   return runtime;
 }
 
+/**
+ * @param {LifecycleCallbacks} [callbacks]
+ * @returns {Promise<void>}
+ */
 export async function cleanupStaleAnonymousRuntimes(callbacks) {
   return cleanupAnonymousFromRegistry((runtime) => disposeRuntime(runtime, callbacks));
 }
 
+/**
+ * @param {LifecycleCallbacks} [callbacks]
+ * @returns {Promise<void>}
+ */
 export async function cleanupStaleSessionRuntimes(callbacks) {
   return cleanupSessionsFromRegistry((runtime) => disposeRuntime(runtime, callbacks));
 }

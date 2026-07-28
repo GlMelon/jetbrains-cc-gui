@@ -1,15 +1,27 @@
+// @ts-check
 /**
  * AsyncStream - Manually controlled async iterator.
  * Used to pass user messages (including images) to the Claude Agent SDK.
  */
+
+/**
+ * Resolve callback type stored while a reader is awaiting `next()`.
+ * @typedef {(result: IteratorResult<unknown>) => void} ReadResolver
+ */
+
 export class AsyncStream {
   constructor() {
+    /** @type {unknown[]} */
     this.queue = [];
+    /** @type {ReadResolver | undefined} */
     this.readResolve = undefined;
     this.isDone = false;
     this.started = false;
   }
 
+  /**
+   * @returns {AsyncIterator<unknown>}
+   */
   [Symbol.asyncIterator]() {
     if (this.started) {
       throw new Error("Stream can only be iterated once");
@@ -18,6 +30,9 @@ export class AsyncStream {
     return this;
   }
 
+  /**
+   * @returns {Promise<IteratorResult<unknown>>}
+   */
   async next() {
     if (this.queue.length > 0) {
       return { done: false, value: this.queue.shift() };
@@ -30,6 +45,10 @@ export class AsyncStream {
     });
   }
 
+  /**
+   * @param {unknown} value
+   * @returns {void}
+   */
   enqueue(value) {
     if (this.readResolve) {
       const resolve = this.readResolve;
@@ -40,6 +59,9 @@ export class AsyncStream {
     }
   }
 
+  /**
+   * @returns {void}
+   */
   done() {
     this.isDone = true;
     if (this.readResolve) {
@@ -49,6 +71,9 @@ export class AsyncStream {
     }
   }
 
+  /**
+   * @returns {Promise<IteratorResult<unknown>>}
+   */
   async return() {
     this.isDone = true;
     // Resolve any pending next() reader. Without this, when the SDK calls

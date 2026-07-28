@@ -1,3 +1,4 @@
+// @ts-check
 // SDK 调用模式下的 MCP Gateway 绑定（Codex 专属翻译）。
 //
 // 把来自 Java McpGatewaySdkBinding 的序列化结果翻译成 Codex SDK 的 config override
@@ -17,8 +18,22 @@
 //
 // SSOT: 服务器 id "melon_gateway" = Java McpGatewayConstants.GATEWAY_SERVER_ID。
 
+/**
+ * MCP Gateway SDK 绑定(来自 Java McpGatewaySdkBinding 序列化)。
+ * @typedef {{ enabled?: boolean; ready?: boolean; revision?: number | string | null; command?: string[] }} CodexGatewayBinding
+ */
+
+/**
+ * Codex config override 的 mcp_servers 子树形状。
+ * @typedef {{ command: string; args: string[]; enabled: boolean; startup_timeout_sec: number }} CodexGatewayServerEntry
+ */
+
 const GATEWAY_SERVER_ID = 'melon_gateway';
 
+/**
+ * @param {CodexGatewayBinding | null | undefined} binding
+ * @returns {boolean}
+ */
 function isUsable(binding) {
   return Boolean(binding && binding.enabled && binding.ready);
 }
@@ -28,9 +43,13 @@ function isUsable(binding) {
  * binding.command 形如 [node, <gateway-stdio-client.js>, --state-file, <path>, --revision, <n>]。
  * 不可用(未启用/未就绪/命令不完整)时返回 null,由调用方回退(用户真实 MCP 经 config.toml)。
  */
+/**
+ * @param {CodexGatewayBinding | null | undefined} binding
+ * @returns {{ mcp_servers: Record<string, CodexGatewayServerEntry> } | null}
+ */
 export function buildCodexGatewayConfig(binding) {
   if (!isUsable(binding)) return null;
-  const command = binding.command;
+  const command = binding?.command;
   if (!Array.isArray(command) || command.length < 2) return null;
   return {
     mcp_servers: {
@@ -49,9 +68,13 @@ export function buildCodexGatewayConfig(binding) {
  * (签名不含 Gateway 维度,与未启用 Gateway 时行为一致)。revision 每轮固定一个、配置变更时
  * 递增,因此 revision 变化必须触发新 codex 实例/thread,避免复用持有过期 gateway 工具集的会话。
  */
+/**
+ * @param {CodexGatewayBinding | null | undefined} binding
+ * @returns {number | string | null}
+ */
 export function codexGatewayRevision(binding) {
   if (!isUsable(binding)) return null;
-  return binding.revision;
+  return binding?.revision ?? null;
 }
 
 /**
@@ -59,6 +82,11 @@ export function codexGatewayRevision(binding) {
  * 保留 codexOptions 已有的 config 字段(如 service_tier/features)。binding 不可用时
  * 原样返回 codexOptions(引用不变,调用方无需判空)。由 message-service 在创建 codex
  * 实例前调用;Codex SDK 会把合并后的 config 展平成 --config 注入底层 Codex CLI。
+ */
+/**
+ * @param {Record<string, any>} codexOptions
+ * @param {CodexGatewayBinding | null | undefined} binding
+ * @returns {Record<string, any>}
  */
 export function applyCodexGateway(codexOptions, binding) {
   const gatewayConfig = buildCodexGatewayConfig(binding);

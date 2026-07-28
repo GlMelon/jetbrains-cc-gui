@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Permission Mapping Utility
  *
@@ -124,7 +125,7 @@ export class CodexPermissionMapper {
   /**
    * Convert unified permission mode to Codex configuration
    * @param {string} unifiedMode - One of UnifiedPermissionMode values
-   * @returns {{skipGitRepoCheck: boolean, sandbox?: string}} Codex permission config
+   * @returns {{skipGitRepoCheck: boolean, sandbox: string, approvalPolicy: string}} Codex permission config
    */
   static toProvider(unifiedMode) {
     const { core, alias } = normalizeUnifiedMode(unifiedMode);
@@ -217,7 +218,7 @@ export class PermissionMapperFactory {
   /**
    * Get permission mapper for a specific provider
    * @param {'claude'|'codex'|'gemini'} provider
-   * @returns {ClaudePermissionMapper|CodexPermissionMapper}
+   * @returns {typeof ClaudePermissionMapper | typeof CodexPermissionMapper}
    */
   static getMapper(provider) {
     switch (provider) {
@@ -247,7 +248,7 @@ export class PermissionMapperFactory {
   /**
    * Quick conversion: provider-specific → unified
    * @param {'claude'|'codex'|'gemini'} provider
-   * @param {string|object} providerConfig
+   * @param {any} providerConfig - Provider-specific permission config (shape varies by provider)
    * @returns {string} Unified permission mode
    */
   static fromProvider(provider, providerConfig) {

@@ -1,11 +1,40 @@
+// @ts-check
 /**
  * Quick Fix prompt building module.
  */
 import { getWindowsPathConstraint } from '../utils/prompt-utils.js';
 
 /**
+ * IDE workspace snapshot consumed by the Quick Fix prompt builder.
+ * @typedef {Object} QuickFixOpenedFiles
+ * @property {string} [active]
+ * @property {{ selectedText?: string; startLine?: number; endLine?: number }} [selection]
+ * @property {unknown} [others]
+ * @property {{ method?: string; methodSignature?: string; class?: string }} [scope]
+ * @property {unknown} [references]
+ * @property {unknown} [classHierarchy]
+ * @property {unknown} [fields]
+ * @property {string} [package]
+ * @property {unknown} [methodCalls]
+ * @property {unknown} [imports]
+ * @property {unknown} [errors]
+ * @property {unknown} [comments]
+ * @property {Array<{ name: string; startLine: number; endLine: number; content: string }>} [selectedFunctions]
+ * @property {{ startLine: number; endLine: number; content: string }} [currentWindow]
+ * @property {Array<unknown>} [annotations]
+ * @property {unknown} [quickFixes]
+ * @property {unknown} [injectedLanguages]
+ * @property {Array<{ inspection: string; severity: string; description: string }>} [inspections]
+ * @property {Array<{ line: number; severity: string; description: string }>} [highlights]
+ */
+
+/**
  * Build an enhanced IDE context system prompt (for Quick Fix).
  * Includes PSI, Lombok, error diagnostics and other in-depth analysis.
+ *
+ * @param {QuickFixOpenedFiles | null | undefined} openedFiles
+ * @param {string | null} [agentPrompt]
+ * @returns {string}
  */
 function buildEnhancedIDEContextPrompt(openedFiles, agentPrompt = null) {
     let prompt = '';
@@ -82,9 +111,9 @@ function buildEnhancedIDEContextPrompt(openedFiles, agentPrompt = null) {
         }
 
         if (hasSelection) {
-            prompt += `**User has selected lines ${selection.startLine}-${selection.endLine}**. This is the focus:\n\n`;
+            prompt += `**User has selected lines ${selection?.startLine}-${selection?.endLine}**. This is the focus:\n\n`;
             prompt += '```\n';
-            prompt += selection.selectedText;
+            prompt += selection?.selectedText;
             prompt += '\n```\n\n';
         }
     }
@@ -111,6 +140,9 @@ function buildEnhancedIDEContextPrompt(openedFiles, agentPrompt = null) {
 
 /**
  * Build the Quick Fix system prompt.
+ * @param {QuickFixOpenedFiles | null | undefined} openedFiles
+ * @param {string} userPrompt
+ * @returns {string}
  */
 export function buildQuickFixPrompt(openedFiles, userPrompt) {
     let prompt = buildEnhancedIDEContextPrompt(openedFiles);

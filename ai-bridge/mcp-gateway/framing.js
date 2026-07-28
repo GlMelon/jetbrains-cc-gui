@@ -1,3 +1,4 @@
+// @ts-check
 // framing.js — MCP stdio 帧编解码(双模:NDJSON 默认 + LSP Content-Length 兼容)。
 //
 // 背景(2026-07-03 排查 opencode gateway 首请求慢 30s):
@@ -26,6 +27,17 @@
 
 import { EventEmitter } from 'node:events';
 
+/** 帧格式字面量联合。 */
+/**
+ * @typedef {'ndjson' | 'lsp'} FrameFormat
+ */
+
+/**
+ * 可写入 MCP 帧的流:Node 可写流 + 可选的运行时注入字段 __mcpFrameFormat
+ * (stdio 转发器把 reader 探测到的客户端帧格式同步到此字段以自适应响应帧)。
+ * @typedef {NodeJS.WritableStream & { __mcpFrameFormat?: FrameFormat }} McpWritable
+ */
+
 const LSP_HEADER_SEP = '\r\n\r\n';
 const CONTENT_LENGTH_RE = /content-length:\s*(\d+)/i;
 // buffer 头部前若干字节即足以判断是否为 LSP header(ASCII,"Content-Length:" = 15 字节)。
@@ -36,7 +48,7 @@ const LSP_HEAD_RE = /^\s*content-length:/i;
  * 把一条 JSON-RPC 消息编码为 stdio 帧字节。
  *
  * @param {object} message JSON-RPC 消息
- * @param {'ndjson'|'lsp'} [format='ndjson'] 帧格式:
+ * @param {FrameFormat} [format='ndjson'] 帧格式:
  *   - 'ndjson'(默认,MCP spec):`{json}\n`,无 header
  *   - 'lsp'(兼容历史/部分客户端):`Content-Length: N\r\n\r\n{json}`
  * @returns {Buffer}
@@ -65,17 +77,26 @@ export function encodeMessage(message, format = 'ndjson') {
  * NDJSON 消息体(spec 规定不得含嵌入换行)不会出现裸 `\r\n\r\n`,故 LSP 检测不会误命中 NDJSON 流。
  */
 export class FramedReader extends EventEmitter {
+  /**
+   * @param {import('node:stream').Readable | null | undefined} [stream] 可选输入流(如 process.stdin)
+   */
   constructor(stream) {
     super();
+    /** @type {Buffer} */
     this.buffer = Buffer.alloc(0);
+    /** @type {FrameFormat | null} */
     this.lastFormat = null;
     if (stream) {
-      stream.on('data', (chunk) => this.push(chunk));
+      stream.on('data', (/** @type {Buffer} */ chunk) => this.push(chunk));
       stream.on('end', () => this.emit('end'));
-      stream.on('error', (error) => this.emit('error', error));
+      stream.on('error', (/** @type {Error} */ error) => this.emit('error', error));
     }
   }
 
+  /**
+   * @param {Buffer} chunk
+   * @returns {void}
+   */
   push(chunk) {
     this.buffer = Buffer.concat([this.buffer, chunk]);
     while (this.consumeOne()) {
@@ -144,6 +165,11 @@ export class FramedReader extends EventEmitter {
  * 把消息按帧写到流。format 优先级:显式参数 > stream.__mcpFrameFormat > 'ndjson'。
  * stdio 转发器把 reader 探测到的客户端帧格式写入对端 stream 的 __mcpFrameFormat,
  * 即可实现"响应帧跟随客户端探测格式"的自适应。
+ *
+ * @param {McpWritable} stream 输出流(由调用方保证非空,如 process.stdout)
+ * @param {object} message JSON-RPC 消息
+ * @param {FrameFormat} [format] 显式帧格式(缺省时取 stream.__mcpFrameFormat,再缺省 'ndjson')
+ * @returns {void}
  */
 export function writeMessage(stream, message, format) {
   const fmt = format || (stream && stream.__mcpFrameFormat) || 'ndjson';

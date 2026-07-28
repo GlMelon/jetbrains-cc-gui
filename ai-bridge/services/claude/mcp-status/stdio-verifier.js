@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * STDIO server verification module
  * Provides connection status verification for STDIO-based MCP servers
@@ -10,16 +11,26 @@ import { validateCommand, hasUnsafeShellMetacharacters } from './command-validat
 import { safeKillProcess, createProcessHandlers, sendInitializeRequest } from './process-manager.js';
 
 /**
+ * @typedef {{ command?: string; args?: string[]; env?: Record<string, string> | undefined }} StdioServerConfig
+ */
+
+/**
+ * @typedef {{ name: string; status: string; serverInfo: any; error?: string }} StdioVerifyResult
+ */
+
+/**
  * Verify the connection status of an STDIO-based MCP server
  * @param {string} serverName - Server name
- * @param {Object} serverConfig - Server configuration
- * @returns {Promise<Object>} Server status info { name, status, serverInfo, error? }
+ * @param {StdioServerConfig} serverConfig - Server configuration
+ * @returns {Promise<StdioVerifyResult>} Server status info { name, status, serverInfo, error? }
  */
 export async function verifyStdioServerStatus(serverName, serverConfig) {
   return new Promise((resolve) => {
     let resolved = false;
+    /** @type {import('child_process').ChildProcess | null} */
     let child = null;
 
+    /** @type {StdioVerifyResult} */
     const result = {
       name: serverName,
       status: 'pending',
@@ -49,6 +60,12 @@ export async function verifyStdioServerStatus(serverName, serverConfig) {
     log('debug', 'Full command args:', args.length, 'arguments');
 
     // Finalization handler
+    /**
+     * @param {string} status
+     * @param {any} [serverInfo]
+     * @param {string | null} [error]
+     * @returns {void}
+     */
     const finalize = (status, serverInfo = null, error = null) => {
       if (resolved) return;
       resolved = true;
@@ -76,6 +93,7 @@ export async function verifyStdioServerStatus(serverName, serverConfig) {
                        command === 'npx' || command === 'npm' ||
                        command === 'pnpm' || command === 'yarn');
 
+      /** @type {import('child_process').SpawnOptions} */
       const spawnOptions = {
         env,
         stdio: ['pipe', 'pipe', 'pipe'],
@@ -99,10 +117,11 @@ export async function verifyStdioServerStatus(serverName, serverConfig) {
 
       child = spawn(command, args, spawnOptions);
     } catch (spawnError) {
-      log('debug', `Failed to spawn process for ${serverName}:`, spawnError.message);
+      const spawnMsg = spawnError instanceof Error ? spawnError.message : String(spawnError);
+      log('debug', `Failed to spawn process for ${serverName}:`, spawnMsg);
       clearTimeout(timeoutId);
       result.status = 'failed';
-      result.error = spawnError.message;
+      result.error = spawnMsg;
       resolve(result);
       return;
     }
@@ -115,10 +134,10 @@ export async function verifyStdioServerStatus(serverName, serverConfig) {
     });
 
     // Bind event listeners
-    child.stdout.on('data', handlers.stdout.onData);
-    child.stderr.on('data', handlers.stderr.onData);
-    child.on('error', handlers.onError);
-    child.on('close', (code) => {
+    child?.stdout?.on('data', handlers.stdout.onData);
+    child?.stderr?.on('data', handlers.stderr.onData);
+    child?.on('error', handlers.onError);
+    child?.on('close', (code) => {
       if (!resolved) {
         handlers.onClose(code);
       }

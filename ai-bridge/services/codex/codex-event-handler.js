@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Codex event processing loop and helper functions.
  *
@@ -38,18 +39,74 @@ import {
 
 const COMMAND_DENIED_ABORT_ERROR = '__CODEX_COMMAND_DENIED_ABORT__';
 
+/** @typedef {(message: object) => void} EmitMessage */
+
+/**
+ * 事件处理可变状态袋(由 createInitialEventState 构造,processCodexEventStream 消费)。
+ * @typedef {{
+ *   pendingToolUseIds: Map<string, string[]>;
+ *   emittedToolUseIds: Set<string>;
+ *   emittedToolResultIds: Set<string>;
+ *   toolCallSignatureById: Map<string, string>;
+ *   toolUseIdBySignature: Map<string, string>;
+ *   lastFunctionCallToolUseId: string | null;
+ *   deniedCommandToolUseIds: Set<string>;
+ *   emittedDeniedCommandToolResultIds: Set<string>;
+ *   sessionFilePath: string | null;
+ *   sessionLineCursor: number;
+ *   sessionFunctionCursor: number;
+ *   sessionTurnStartCursor: number;
+ *   processedPatchCallIds: Set<string>;
+ *   processedSessionFunctionCallIds: Set<string>;
+ *   processedSessionFunctionOutputIds: Set<string>;
+ *   reasoningTextCache: Map<string, string>;
+ *   assistantTextCache: Map<string, string>;
+ *   reasoningObserved: boolean;
+ *   turnCompletedObserved: boolean;
+ *   commandApprovalAbortRequested: boolean;
+ *   runtimePolicyLogged: boolean;
+ *   suppressNoResponseFallback: boolean;
+ *   userAbortObserved: boolean;
+ *   turnCompleted: boolean;
+ *   currentThreadId: string | null;
+ *   finalResponse: string;
+ *   assistantText: string;
+ *   emitMessage: EmitMessage;
+ * }} EventProcessingState
+ */
+
+/**
+ * processCodexEventStream 的不可变配置。
+ * @typedef {{
+ *   cwd?: string | null;
+ *   threadId?: string | null;
+ *   threadOptions: any;
+ *   normalizedPermissionMode?: string;
+ *   turnAbortController?: AbortController | null;
+ *   onTurnCompleted?: (event: any, state: EventProcessingState) => void;
+ *   onTurnFailed?: (event: any, state: EventProcessingState) => void;
+ * }} EventStreamConfig
+ */
+
+/** @returns {Error & { code: string }} */
 function createCodexAbortError() {
-  const error = new Error('Codex turn aborted by user');
+  const error = /** @type {Error & { code: string }} */ (new Error('Codex turn aborted by user'));
   error.name = 'AbortError';
   error.code = 'ABORT_ERR';
   return error;
 }
 
+/** @param {any} error @returns {boolean} */
 function isAbortLikeError(error) {
   const message = `${error?.name || ''}\n${error?.code || ''}\n${error?.message || ''}`;
   return /AbortError|ABORT_ERR|aborted|abort|cancel|interrupt/i.test(message);
 }
 
+/**
+ * @param {AsyncIterator<any>} iterator
+ * @param {AbortSignal | undefined} signal
+ * @returns {Promise<IteratorResult<any>>}
+ */
 async function nextEventWithAbort(iterator, signal) {
   if (!signal) {
     return iterator.next();
@@ -78,6 +135,11 @@ async function nextEventWithAbort(iterator, signal) {
   }
 }
 
+/**
+ * @param {string} errorMessage
+ * @param {EventProcessingState | undefined} state
+ * @returns {boolean}
+ */
 export function shouldSuppressCodexStreamParseErrorAfterCompletion(errorMessage, state) {
   if (!state?.turnCompletedObserved) return false;
   if (typeof errorMessage !== 'string' || !errorMessage.includes('Failed to parse item:')) return false;
@@ -85,6 +147,7 @@ export function shouldSuppressCodexStreamParseErrorAfterCompletion(errorMessage,
   return isIgnorableWindowsTerminationNoiseLine(parsedItem);
 }
 
+/** @param {string} message @returns {boolean} */
 export function isWindowsTaskkillParseNoise(message) {
   if (typeof message !== 'string') return false;
   if (!message.startsWith('Failed to parse item:')) return false;
@@ -102,18 +165,36 @@ export function isWindowsTaskkillParseNoise(message) {
     /[\uFFFD]{2,}/.test(item);
 }
 
+/**
+ * @param {string} id
+ * @param {string} name
+ * @param {Record<string, any>} input
+ * @returns {object}
+ */
 function toolUseMsg(id, name, input) {
   return { type: 'assistant', message: { role: 'assistant', content: [{ type: 'tool_use', id, name, input }] } };
 }
 
+/**
+ * @param {string} toolUseId
+ * @param {boolean} isError
+ * @param {string} content
+ * @returns {object}
+ */
 function toolResultMsg(toolUseId, isError, content) {
   return { type: 'user', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: toolUseId, is_error: isError, content }] } };
 }
 
+/** @param {string} text @returns {object} */
 function textMsg(text) {
   return { type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text }] } };
 }
 
+/**
+ * @param {any} payload
+ * @param {EventProcessingState} state
+ * @returns {boolean}
+ */
 function handleFunctionCallPayload(payload, state) {
   if (!payload || payload.type !== 'function_call') return false;
 
@@ -136,6 +217,11 @@ function handleFunctionCallPayload(payload, state) {
   return true;
 }
 
+/**
+ * @param {any} payload
+ * @param {EventProcessingState} state
+ * @returns {boolean}
+ */
 function handleFunctionCallOutputPayload(payload, state) {
   if (!payload || payload.type !== 'function_call_output') return false;
   let toolUseId = typeof payload.call_id === 'string' ? payload.call_id : '';
@@ -154,7 +240,11 @@ function handleFunctionCallOutputPayload(payload, state) {
 }
 
 
-/** Creates the initial mutable state bag consumed by processCodexEventStream. */
+/**
+ * Creates the initial mutable state bag consumed by processCodexEventStream.
+ * @param {EmitMessage} emitMessage
+ * @returns {EventProcessingState}
+ */
 export function createInitialEventState(emitMessage) {
   return {
     pendingToolUseIds: new Map(),
@@ -188,6 +278,12 @@ export function createInitialEventState(emitMessage) {
   };
 }
 
+/**
+ * @param {EventProcessingState} state
+ * @param {string | null | undefined} command
+ * @param {string} toolUseId
+ * @returns {void}
+ */
 function rememberPendingToolUseId(state, command, toolUseId) {
   if (!command) return;
   const list = state.pendingToolUseIds.get(command) ?? [];
@@ -195,6 +291,11 @@ function rememberPendingToolUseId(state, command, toolUseId) {
   state.pendingToolUseIds.set(command, list);
 }
 
+/**
+ * @param {EventProcessingState} state
+ * @param {string | null | undefined} command
+ * @returns {string | null}
+ */
 function consumePendingToolUseId(state, command) {
   if (!command) return null;
   const list = state.pendingToolUseIds.get(command);
@@ -204,6 +305,12 @@ function consumePendingToolUseId(state, command) {
   return id;
 }
 
+/**
+ * @param {EventProcessingState} state
+ * @param {'started' | 'completed'} phase
+ * @param {any} item
+ * @returns {string}
+ */
 function ensureToolUseId(state, phase, item) {
   const stableId = getStableItemId(item);
   if (stableId) return stableId;
@@ -216,6 +323,11 @@ function ensureToolUseId(state, phase, item) {
   return id;
 }
 
+/**
+ * @param {EventProcessingState} state
+ * @param {string | null | undefined} threadId
+ * @returns {string | null}
+ */
 function ensureSessionFilePath(state, threadId) {
   if (state.sessionFilePath && existsSync(state.sessionFilePath)) return state.sessionFilePath;
   if (!threadId) return null;
@@ -223,6 +335,11 @@ function ensureSessionFilePath(state, threadId) {
   return state.sessionFilePath;
 }
 
+/**
+ * @param {EventProcessingState} state
+ * @param {EventStreamConfig} config
+ * @returns {string | null}
+ */
 function resolveSessionThreadId(state, config) {
   const configuredThreadId = typeof config?.threadId === 'string' && config.threadId.trim()
     ? config.threadId.trim()
@@ -233,21 +350,28 @@ function resolveSessionThreadId(state, config) {
     : null;
 }
 
+/** @param {string} content @returns {string[]} */
 function splitSessionJsonlEntries(content) {
   if (typeof content !== 'string' || !content.length) return [];
   return content.split('\n').filter((line) => line.trim());
 }
 
+/** @param {string} content @returns {number} */
 function countSessionJsonlLines(content) {
   return splitSessionJsonlEntries(content).length;
 }
 
+/**
+ * @param {EventProcessingState} state
+ * @param {string | null | undefined} threadId
+ * @returns {Promise<any>}
+ */
 async function readLatestTurnContextFromSession(state, threadId) {
   const sessionPath = ensureSessionFilePath(state, threadId);
   if (!sessionPath) return null;
   let content = '';
   try { content = await readFile(sessionPath, 'utf8'); } catch (error) {
-    logDebug('PERM_DEBUG', 'Failed to read session for turn_context:', error?.message || error);
+    logDebug('PERM_DEBUG', 'Failed to read session for turn_context:', error instanceof Error ? error.message : error);
     return null;
   }
   if (!content.trim()) return null;
@@ -265,12 +389,17 @@ async function readLatestTurnContextFromSession(state, threadId) {
   return null;
 }
 
+/**
+ * @param {EventProcessingState} state
+ * @param {EventStreamConfig} config
+ * @returns {Promise<{ callId: string; operations: any[] }[]>}
+ */
 async function collectPatchOperationsFromSession(state, config) {
   const sessionPath = ensureSessionFilePath(state, resolveSessionThreadId(state, config));
   if (!sessionPath) return [];
   let content = '';
   try { content = await readFile(sessionPath, 'utf8'); } catch (error) {
-    console.warn('[DEBUG] Failed to read session file:', sessionPath, error?.message || error);
+    console.warn('[DEBUG] Failed to read session file:', sessionPath, error instanceof Error ? error.message : error);
     return [];
   }
   if (!content.trim()) return [];
@@ -296,7 +425,7 @@ async function collectPatchOperationsFromSession(state, config) {
     if (!patchText) continue;
 
     const operations = parseApplyPatchToOperations(patchText)
-      .map((op) => ({ ...op, filePath: resolveFilePath(op.filePath, config.cwd) }))
+      .map((op) => ({ ...op, filePath: resolveFilePath(op.filePath, config.cwd ?? undefined) }))
       .filter((op) => op.filePath && (op.oldString !== '' || op.newString !== ''));
     state.processedPatchCallIds.add(callId);
     if (operations.length === 0) continue;
@@ -306,13 +435,18 @@ async function collectPatchOperationsFromSession(state, config) {
   return batches;
 }
 
+/**
+ * @param {EventProcessingState} state
+ * @param {EventStreamConfig} config
+ * @returns {Promise<{ toolUses: number; toolResults: number }>}
+ */
 async function replayMissingFunctionCallsFromSession(state, config) {
   const sessionPath = ensureSessionFilePath(state, resolveSessionThreadId(state, config));
   if (!sessionPath) return { toolUses: 0, toolResults: 0 };
 
   let content = '';
   try { content = await readFile(sessionPath, 'utf8'); } catch (error) {
-    logDebug('SESSION_REPLAY', 'Failed to read session file for function replay:', error?.message || error);
+    logDebug('SESSION_REPLAY', 'Failed to read session file for function replay:', error instanceof Error ? error.message : error);
     return { toolUses: 0, toolResults: 0 };
   }
   if (!content.trim()) return { toolUses: 0, toolResults: 0 };
@@ -322,9 +456,9 @@ async function replayMissingFunctionCallsFromSession(state, config) {
     state.sessionFunctionCursor > 0 ? state.sessionFunctionCursor : null,
     state.sessionTurnStartCursor > 0 ? state.sessionTurnStartCursor : null,
     Math.max(0, lines.length - SESSION_PATCH_SCAN_MAX_LINES),
-  ].filter((value) => Number.isInteger(value) && value >= 0);
+  ].filter((value) => value !== null && Number.isInteger(value) && value >= 0);
   const startIndex = candidateStartIndexes.length > 0
-    ? Math.max(...candidateStartIndexes)
+    ? Math.max(.../** @type {number[]} */ (candidateStartIndexes))
     : Math.max(0, lines.length - SESSION_PATCH_SCAN_MAX_LINES);
 
   let toolUses = 0;
@@ -364,10 +498,19 @@ async function replayMissingFunctionCallsFromSession(state, config) {
   return { toolUses, toolResults };
 }
 
+/**
+ * @param {EventProcessingState} state
+ * @param {EventStreamConfig} config
+ * @returns {Promise<void>}
+ */
 async function replayMissingFunctionCallsDuringStream(state, config) {
   await replayMissingFunctionCallsFromSession(state, config);
 }
 
+/**
+ * @param {any} operation
+ * @returns {{ toolName: string; input: Record<string, any> } | null}
+ */
 function buildPermissionInputForPatchOperation(operation) {
   if (!operation || typeof operation !== 'object') return null;
   const isWrite = operation.toolName === 'write' || operation.kind === 'add';
@@ -380,6 +523,10 @@ function buildPermissionInputForPatchOperation(operation) {
   };
 }
 
+/**
+ * @param {{ callId: string; operations: any[] }[]} patchBatches
+ * @returns {Promise<Set<string>>}
+ */
 async function requestPatchApprovalsViaBridge(patchBatches) {
   const deniedCallIds = new Set();
   if (!Array.isArray(patchBatches) || patchBatches.length === 0) return deniedCallIds;
@@ -394,13 +541,17 @@ async function requestPatchApprovalsViaBridge(patchBatches) {
       logInfo('PERM_DEBUG', `Patch approval decision: callId=${batch.callId}, allowed=${allowed ? 'true' : 'false'}`);
       if (!allowed) deniedCallIds.add(batch.callId);
     } catch (error) {
-      logWarn('PERM_DEBUG', `Patch approval bridge failed (callId=${batch.callId}): ${error?.message || error}`);
+      logWarn('PERM_DEBUG', `Patch approval bridge failed (callId=${batch.callId}): ${error instanceof Error ? error.message : error}`);
       deniedCallIds.add(batch.callId);
     }
   }
   return deniedCallIds;
 }
 
+/**
+ * @param {any} operation
+ * @returns {Promise<{ ok: boolean; reason: string }>}
+ */
 async function rollbackSinglePatchOperation(operation) {
   if (!operation || typeof operation !== 'object' || !operation.filePath) {
     return { ok: false, reason: 'invalid-operation' };
@@ -413,28 +564,35 @@ async function rollbackSinglePatchOperation(operation) {
   if (isAddedFile) {
     if (!existsSync(filePath)) return { ok: true, reason: 'file-already-missing' };
     try { await unlink(filePath); return { ok: true, reason: 'file-deleted' }; }
-    catch (error) { return { ok: false, reason: error?.message || String(error) }; }
+    catch (error) { return { ok: false, reason: error instanceof Error ? error.message : String(error) }; }
   }
   if (!existsSync(filePath)) return { ok: false, reason: 'file-missing' };
   let currentContent = '';
   try { currentContent = await readFile(filePath, 'utf8'); }
-  catch (error) { return { ok: false, reason: error?.message || String(error) }; }
+  catch (error) { return { ok: false, reason: error instanceof Error ? error.message : String(error) }; }
   if (newString === oldString) return { ok: true, reason: 'noop' };
   if (!newString) return { ok: false, reason: 'unsupported-empty-new-string' };
   const index = currentContent.indexOf(newString);
   if (index < 0) return { ok: false, reason: 'new-string-not-found' };
   const revertedContent = currentContent.slice(0, index) + oldString + currentContent.slice(index + newString.length);
   try { await writeFile(filePath, revertedContent, 'utf8'); return { ok: true, reason: 'replaced' }; }
-  catch (error) { return { ok: false, reason: error?.message || String(error) }; }
+  catch (error) { return { ok: false, reason: error instanceof Error ? error.message : String(error) }; }
 }
 
+/**
+ * @param {{ callId: string; operations: any[] }[]} patchBatches
+ * @param {Set<string>} deniedCallIds
+ * @returns {Promise<Map<string, { success: boolean; failures: { filePath: string; reason: string }[] }>>}
+ */
 async function rollbackDeniedPatchBatches(patchBatches, deniedCallIds) {
+  /** @type {Map<string, { success: boolean; failures: { filePath: string; reason: string }[] }>} */
   const resultByCallId = new Map();
   if (!Array.isArray(patchBatches) || patchBatches.length === 0) return resultByCallId;
   if (!(deniedCallIds instanceof Set) || deniedCallIds.size === 0) return resultByCallId;
   for (const batch of patchBatches) {
     if (!batch || !deniedCallIds.has(batch.callId)) continue;
     const operations = Array.isArray(batch.operations) ? [...batch.operations].reverse() : [];
+    /** @type {{ filePath: string; reason: string }[]} */
     const failures = [];
     for (const op of operations) {
       const result = await rollbackSinglePatchOperation(op);
@@ -445,12 +603,20 @@ async function rollbackDeniedPatchBatches(patchBatches, deniedCallIds) {
   return resultByCallId;
 }
 
+/**
+ * @param {EventProcessingState} state
+ * @param {{ callId: string; operations: any[] }[]} patchBatches
+ * @param {boolean} isError
+ * @param {Set<string>} [deniedCallIds]
+ * @param {Map<string, any>} [rollbackByCallId]
+ * @returns {number}
+ */
 function emitSyntheticPatchOperations(state, patchBatches, isError, deniedCallIds = new Set(), rollbackByCallId = new Map()) {
   if (!Array.isArray(patchBatches) || patchBatches.length === 0) return 0;
   let emittedCount = 0;
   for (const batch of patchBatches) {
     if (!batch || !Array.isArray(batch.operations)) continue;
-    batch.operations.forEach((op, index) => {
+    batch.operations.forEach((/** @type {any} */ op, /** @type {number} */ index) => {
       const toolUseId = `codex_patch_${batch.callId}_${index}`;
       const toolName = op.toolName === 'write' ? 'write' : 'edit';
       if (!state.emittedToolUseIds.has(toolUseId)) {
@@ -481,6 +647,12 @@ function emitSyntheticPatchOperations(state, patchBatches, isError, deniedCallId
   return emittedCount;
 }
 
+/**
+ * @param {EventProcessingState} state
+ * @param {string} toolUseId
+ * @param {string} [messageText]
+ * @returns {void}
+ */
 function emitDeniedCommandToolResultOnce(state, toolUseId, messageText = 'Command denied by user') {
   if (!toolUseId || state.emittedDeniedCommandToolResultIds.has(toolUseId)) return;
   state.emitMessage(toolResultMsg(toolUseId, true, messageText));
@@ -488,6 +660,12 @@ function emitDeniedCommandToolResultOnce(state, toolUseId, messageText = 'Comman
   state.emittedDeniedCommandToolResultIds.add(toolUseId);
 }
 
+/**
+ * @param {EventProcessingState} state
+ * @param {EventStreamConfig} config
+ * @param {{ toolUseId: string; command: string; smartTool: string; description: string }} opts
+ * @returns {Promise<boolean>}
+ */
 async function maybeRequestCommandApprovalViaBridge(state, config, { toolUseId, command, smartTool, description }) {
   const shouldBridgeApproval = config.threadOptions.approvalPolicy && config.threadOptions.approvalPolicy !== 'never';
   if (!shouldBridgeApproval) return true;
@@ -499,26 +677,29 @@ async function maybeRequestCommandApprovalViaBridge(state, config, { toolUseId, 
     logInfo('PERM_DEBUG', `Command approval decision: toolUseId=${toolUseId}, allowed=${allowed ? 'true' : 'false'}`);
     if (allowed) return true;
   } catch (error) {
-    logWarn('PERM_DEBUG', `Command approval bridge failed, deny by default: toolUseId=${toolUseId}, error=${error?.message || error}`);
+    logWarn('PERM_DEBUG', `Command approval bridge failed, deny by default: toolUseId=${toolUseId}, error=${error instanceof Error ? error.message : error}`);
   }
   state.deniedCommandToolUseIds.add(toolUseId);
   state.suppressNoResponseFallback = true;
   emitDeniedCommandToolResultOnce(state, toolUseId, 'Command denied by user and turn aborted');
   state.emitMessage({ type: 'status', message: 'Approval denied: abort requested (command may have already started)' });
   state.commandApprovalAbortRequested = true;
-  try { config.turnAbortController.abort(); }
-  catch (error) { logDebug('PERM_DEBUG', `Abort turn failed after command denial: ${error?.message || error}`); }
+  try { config.turnAbortController?.abort(); }
+  catch (error) { logDebug('PERM_DEBUG', `Abort turn failed after command denial: ${error instanceof Error ? error.message : error}`); }
   return false;
 }
 
+/** @param {string} text @returns {void} */
 function emitThinkingDelta(text) {
   process.stdout.write(`[THINKING_DELTA] ${JSON.stringify(text)}\n`);
 }
 
+/** @param {string} text @returns {void} */
 function emitContentDelta(text) {
   process.stdout.write(`[CONTENT_DELTA] ${JSON.stringify(text)}\n`);
 }
 
+/** @param {any} previousText @param {any} nextText @returns {string} */
 function extractAppendedDelta(previousText, nextText) {
   const previous = typeof previousText === 'string' ? previousText : '';
   const next = typeof nextText === 'string' ? nextText : '';
@@ -529,6 +710,7 @@ function extractAppendedDelta(previousText, nextText) {
   return next.slice(previous.length);
 }
 
+/** @param {EventProcessingState} state @param {string} text @returns {void} */
 function emitThinkingBlock(state, text) {
   console.log('[THINKING]', text);
   state.emitMessage({
@@ -537,6 +719,7 @@ function emitThinkingBlock(state, text) {
   });
 }
 
+/** @param {EventProcessingState} state @param {any} item @returns {void} */
 function maybeEmitReasoning(state, item) {
   if (!item || item.type !== 'reasoning') return;
   const raw = typeof item.text === 'string' ? item.text : '';
@@ -554,6 +737,11 @@ function maybeEmitReasoning(state, item) {
   emitThinkingBlock(state, text);
 }
 
+/**
+ * @param {EventProcessingState} state
+ * @param {EventStreamConfig} config
+ * @returns {Promise<void>}
+ */
 async function maybeLogRuntimePolicy(state, config) {
   if (state.runtimePolicyLogged) return;
   const turnContext = await readLatestTurnContextFromSession(state, resolveSessionThreadId(state, config));
@@ -578,6 +766,16 @@ async function maybeLogRuntimePolicy(state, config) {
  * Dispatches to type-specific handlers for agent_message, command_execution,
  * file_change, and mcp_tool_call.
  */
+/**
+ * Handle a completed item from the Codex event stream.
+ * Dispatches to type-specific handlers for agent_message, command_execution,
+ * file_change, and mcp_tool_call.
+ *
+ * @param {any} item
+ * @param {EventProcessingState} state
+ * @param {EventStreamConfig} config
+ * @returns {Promise<void>}
+ */
 async function handleItemCompleted(item, state, config) {
   console.log('[DEBUG] item.completed - type:', item.type);
   console.log('[DEBUG] item.completed - has text:', !!item.text);
@@ -597,6 +795,12 @@ async function handleItemCompleted(item, state, config) {
   }
 }
 
+/**
+ * @param {any} item
+ * @param {EventProcessingState} state
+ * @param {{ emitSnapshot?: boolean }} [opts]
+ * @returns {void}
+ */
 function handleAgentMessage(item, state, { emitSnapshot = true } = {}) {
   const text = item.text || '';
   console.log('[DEBUG] agent_message text length:', text.length);
@@ -619,6 +823,7 @@ function handleAgentMessage(item, state, { emitSnapshot = true } = {}) {
   }
 }
 
+/** @param {any} item @param {EventProcessingState} state @returns {void} */
 function handleCommandExecution(item, state) {
   const toolUseId = ensureToolUseId(state, 'completed', item);
   const command = extractCommand(item);
@@ -641,11 +846,17 @@ function handleCommandExecution(item, state) {
   state.emittedToolResultIds.add(toolUseId);
 }
 
+/**
+ * @param {any} item
+ * @param {EventProcessingState} state
+ * @param {EventStreamConfig} config
+ * @returns {Promise<void>}
+ */
 async function handleFileChange(item, state, config) {
   const status = item.status || 'completed';
   const isError = status !== 'completed';
   try { console.log('[DEBUG] file_change raw item:', JSON.stringify(item)); }
-  catch (error) { console.log('[DEBUG] file_change raw item stringify failed:', error?.message || error); }
+  catch (error) { console.log('[DEBUG] file_change raw item stringify failed:', error instanceof Error ? error.message : error); }
 
   const patchBatches = await collectPatchOperationsFromSession(state, config);
   let deniedCallIds = new Set();
@@ -673,6 +884,7 @@ async function handleFileChange(item, state, config) {
   else console.log('[DEBUG] file_change: no patch operations found in session log');
 }
 
+/** @param {any} item @param {EventProcessingState} state @returns {void} */
 function handleMcpToolCall(item, state) {
   const toolName = normalizeMcpToolName(item.server, item.tool);
   const toolInput = normalizeMcpToolInput(item.server, item.tool, item.arguments || {});
@@ -690,7 +902,7 @@ function handleMcpToolCall(item, state) {
     resultContent = item.error.message || 'MCP tool call failed';
   } else if (item.result) {
     if (item.result.content && Array.isArray(item.result.content)) {
-      const textParts = item.result.content.filter(block => block.type === 'text').map(block => block.text);
+      const textParts = item.result.content.filter((/** @type {{ type: string; text?: string }} */ block) => block.type === 'text').map((/** @type {{ type: string; text?: string }} */ block) => block.text);
       resultContent = textParts.length > 0 ? textParts.join('\n') : JSON.stringify(item.result);
     } else if (item.result.structured_content) {
       resultContent = JSON.stringify(item.result.structured_content);
@@ -705,9 +917,10 @@ function handleMcpToolCall(item, state) {
 
 /**
  * Process Codex SDK event stream.
- * @param {AsyncIterable} events - The SDK event stream
+ * @param {AsyncIterable<any>} events - The SDK event stream
  * @param {EventProcessingState} state - Mutable state (created via createInitialEventState)
- * @param {Object} config - { cwd, threadId, threadOptions, normalizedPermissionMode, turnAbortController }
+ * @param {EventStreamConfig} config - { cwd, threadId, threadOptions, normalizedPermissionMode, turnAbortController }
+ * @returns {Promise<void>}
  */
 export async function processCodexEventStream(events, state, config) {
   let rawEventIndex = 0;
@@ -905,7 +1118,7 @@ export async function processCodexEventStream(events, state, config) {
       }
     }
   } catch (streamError) {
-    const streamErrorMessage = streamError?.message || String(streamError);
+    const streamErrorMessage = streamError instanceof Error ? streamError.message : String(streamError);
     if (signal?.aborted && isAbortLikeError(streamError)) {
       state.userAbortObserved = true;
       state.suppressNoResponseFallback = true;

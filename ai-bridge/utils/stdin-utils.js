@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Stdin reader utility module (unified version).
  * Supports both Claude and Codex SDKs.
@@ -54,7 +55,7 @@ export async function readStdinData(provider = 'claude') {
           const parsed = JSON.parse(data.trim());
           resolve(parsed);
         } catch (e) {
-          console.error('[STDIN_PARSE_ERROR]', e.message);
+          console.error('[STDIN_PARSE_ERROR]', e instanceof Error ? e.message : e);
           resolve(null);
         }
       } else {
@@ -62,7 +63,7 @@ export async function readStdinData(provider = 'claude') {
       }
     };
 
-    const onError = (err) => {
+    const onError = (/** @type {Error} */ err) => {
       clearTimeout(timeout);
       cleanup();
       console.error('[STDIN_ERROR]', err.message);

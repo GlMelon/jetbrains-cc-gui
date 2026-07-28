@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * AGENTS.md discovery and session file management for Codex.
  * Collects agent instructions from project directories and finds session files.
@@ -16,6 +17,8 @@ function getCodexSessionsRoot() {
 
 /**
  * Finds a session file containing the threadId under ~/.codex/sessions.
+ * @param {string} threadId - Thread id to search for
+ * @returns {string | null} Matching session file path, or null
  */
 export function findSessionFileByThreadId(threadId) {
   if (!threadId || typeof threadId !== 'string') {
@@ -118,7 +121,7 @@ export function readAgentsFile(filePath) {
     }
     return content;
   } catch (e) {
-    logWarn('AGENTS.md', `Failed to read file: ${filePath}`, e.message);
+    logWarn('AGENTS.md', `Failed to read file: ${filePath}`, e instanceof Error ? e.message : String(e));
     return '';
   }
 }

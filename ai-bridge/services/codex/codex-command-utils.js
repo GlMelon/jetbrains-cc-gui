@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Command classification and utility functions for Codex.
  * Stateless helpers extracted from sendMessage closures.
@@ -6,6 +7,12 @@
 import { resolve, sep } from 'path';
 import { RAW_EVENT_LOG_MAX_CHARS, logWarn } from './codex-utils.js';
 
+/**
+ * Truncate text for display, keeping head and tail with a truncation marker.
+ * @param {unknown} text - Text to truncate
+ * @param {number} maxChars - Max characters to keep
+ * @returns {string}
+ */
 export function truncateForDisplay(text, maxChars) {
   if (typeof text !== 'string') {
     return String(text ?? '');
@@ -20,17 +27,32 @@ export function truncateForDisplay(text, maxChars) {
   return `${prefix}\n...\n(truncated, original length: ${text.length} chars)\n...\n${suffix}`;
 }
 
+/**
+ * @param {Record<string, unknown> | null | undefined} item
+ * @returns {string | null}
+ */
 export function getStableItemId(item) {
   if (!item || typeof item !== 'object') return null;
   const candidate = item.id ?? item.item_id ?? item.uuid;
   return typeof candidate === 'string' && candidate.trim() ? candidate : null;
 }
 
+/**
+ * @param {Record<string, unknown> | null | undefined} item
+ * @returns {string}
+ */
 export function extractCommand(item) {
   const cmd = item?.command;
   return typeof cmd === 'string' ? cmd : '';
 }
 
+/**
+ * Extract the effective command from a (possibly shell-wrapped) command string.
+ * Callers must guard non-string inputs beforehand; the defensive branch only
+ * ever fires for string inputs in practice.
+ * @param {string} command - Command string to normalize
+ * @returns {string} Normalized command string
+ */
 export function extractActualCommand(command) {
   if (!command || typeof command !== 'string') {
     return command;
@@ -56,6 +78,8 @@ export function extractActualCommand(command) {
 /**
  * Smart tool name conversion - matches HistoryHandler.java logic
  * Converts shell commands to more specific tool types based on command pattern
+ * @param {string | null | undefined} command
+ * @returns {string}
  */
 export function smartToolName(command) {
   if (!command || typeof command !== 'string') {
@@ -93,6 +117,8 @@ export function smartToolName(command) {
 /**
  * Generate smart description based on command pattern
  * Provides more meaningful descriptions than generic "Codex command execution"
+ * @param {string | null | undefined} command
+ * @returns {string}
  */
 export function smartDescription(command) {
   if (!command || typeof command !== 'string') {
@@ -139,12 +165,21 @@ export function smartDescription(command) {
   return actualCmd.length <= 30 ? actualCmd : `Run ${firstWord}`;
 }
 
+/**
+ * @param {string} toolName
+ * @returns {string}
+ */
 export function mapCommandToolNameToPermissionToolName(toolName) {
   if (toolName === 'read') return 'Read';
   if (toolName === 'glob') return 'Glob';
   return 'Bash';
 }
 
+/**
+ * @param {string} filePath
+ * @param {string} [cwd]
+ * @returns {string}
+ */
 export function resolveFilePath(filePath, cwd) {
   if (typeof filePath !== 'string' || !filePath.trim()) {
     return '';
@@ -167,6 +202,10 @@ export function resolveFilePath(filePath, cwd) {
   return resolved;
 }
 
+/**
+ * @param {unknown} event
+ * @returns {string}
+ */
 export function stringifyRawEvent(event) {
   try {
     const json = JSON.stringify(event);
@@ -176,10 +215,14 @@ export function stringifyRawEvent(event) {
     }
     return json;
   } catch (error) {
-    return `<stringify failed: ${error?.message || error}>`;
+    return `<stringify failed: ${error instanceof Error ? error.message : String(error)}>`;
   }
 }
 
+/**
+ * @param {unknown} rawEventJson
+ * @returns {boolean}
+ */
 export function isApprovalRelatedRawEvent(rawEventJson) {
   if (typeof rawEventJson !== 'string' || !rawEventJson) return false;
   return /approval|approve|permission|ask_user|ask-user|confirm|consent|tool_approval|requires_approval|plan_approval/i.test(rawEventJson);

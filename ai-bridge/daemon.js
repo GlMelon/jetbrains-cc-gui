@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-
+// @ts-check
 /**
  * AI Bridge Daemon Process
  *
@@ -49,15 +49,19 @@ injectStartupEnvVars();
 const DAEMON_VERSION = '1.0.0';
 const providerRegistry = getDefaultProviderRegistry();
 
+/** @type {string | null} */
 let activeRequestId = null;
+/** @type {string | null} */
 let activeRequestChannelId = null;
 let isDaemonMode = true;
 let sdkPreloaded = false;
 let commandQueue = Promise.resolve();
+/** @type {Promise<void> | null} */
 let abortFlushPromise = null;
 let queuedRequestCount = 0;
 let lastAcceptedRequestSequence = 0;
 let cancelAllQueuedRequestSequence = 0;
+/** @type {Map<string, number>} */
 const cancelledChannelSequences = new Map();
 
 const _originalStdoutWrite = process.stdout.write.bind(process.stdout);
@@ -80,9 +84,12 @@ const _originalExit = process.exit;
 // which uses /c/...), tools like git can't resolve it and fall back to a phantom
 // ~/.gitconfig, breaking config/credentials. Normalize it to the native Windows home
 // before any subprocess is spawned.
-if (process.platform === 'win32' && /^\/mnt\/[a-z]\//i.test(process.env.HOME || '')) {
-  const m = process.env.HOME.match(/^\/mnt\/([a-z])\/(.*)$/i);
-  if (m) process.env.HOME = `${m[1].toUpperCase()}:/${m[2]}`;
+if (process.platform === 'win32') {
+  const homeEnv = process.env.HOME;
+  if (homeEnv && /^\/mnt\/[a-z]\//i.test(homeEnv)) {
+    const m = homeEnv.match(/^\/mnt\/([a-z])\/(.*)$/i);
+    if (m) process.env.HOME = `${m[1].toUpperCase()}:/${m[2]}`;
+  }
 }
 
 if (process.platform !== 'win32' && !process.env.__AI_BRIDGE_ENV_PROBED) {
@@ -102,6 +109,11 @@ if (process.platform !== 'win32' && !process.env.__AI_BRIDGE_ENV_PROBED) {
   // fish reads config.fish by default; all other POSIX shells need -l for login profile
   const loginFlag = shellBase === 'fish' ? '-c' : '-lc';
 
+  /**
+   * @param {string} shell
+   * @param {string} flag
+   * @returns {string | null}
+   */
   const tryProbeEnv = (shell, flag) => {
     try {
       return execFileSync(shell, [flag, 'env -0'], {
@@ -172,14 +184,28 @@ _originalStderrWrite(
   'utf8',
 );
 
+/**
+ * @param {Record<string, unknown> & { [k: string]: unknown }} obj 一行 NDJSON 负载
+ * @returns {void}
+ */
 function writeRawLine(obj) {
   _originalStdoutWrite(JSON.stringify(obj) + '\n', 'utf8');
 }
 
+/**
+ * @param {string} event 事件名
+ * @param {Record<string, unknown>} [data] 附加字段
+ * @returns {void}
+ */
 function sendDaemonEvent(event, data = {}) {
   writeRawLine({ type: 'daemon', event, ...data });
 }
 
+/**
+ * @param {string} requestId 请求 id
+ * @param {number} aheadCount 排在前面的请求数
+ * @returns {void}
+ */
 function sendQueueWaitingEvent(requestId, aheadCount) {
   sendDaemonEvent('queue_waiting', {
     requestId,
@@ -187,27 +213,47 @@ function sendQueueWaitingEvent(requestId, aheadCount) {
   });
 }
 
+/**
+ * @param {string} requestId 请求 id
+ * @returns {void}
+ */
 function sendQueueStartedEvent(requestId) {
   sendDaemonEvent('queue_started', {
     requestId,
   });
 }
 
+/**
+ * @param {string} requestId 请求 id
+ * @returns {void}
+ */
 function sendQueueClearedEvent(requestId) {
   sendDaemonEvent('queue_cleared', {
     requestId,
   });
 }
 
+/**
+ * @param {unknown} channelId 待归一化的 channel id
+ * @returns {string | null}
+ */
 function normalizeChannelId(channelId) {
   return typeof channelId === 'string' && channelId.trim() ? channelId.trim() : null;
 }
 
+/**
+ * @param {any} request 上行请求(JSON 解析产物)
+ * @returns {number}
+ */
 function getRequestSequence(request) {
   const parsed = Number.parseInt(request?.id, 10);
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+/**
+ * @param {any} request 上行请求
+ * @returns {void}
+ */
 function markQueuedRequestsCancelled(request) {
   const requestSequence = getRequestSequence(request) || lastAcceptedRequestSequence;
   const channelId = normalizeChannelId(request?.channelId || request?.params?.channelId);
@@ -219,6 +265,10 @@ function markQueuedRequestsCancelled(request) {
   }
 }
 
+/**
+ * @param {any} request 上行请求
+ * @returns {boolean}
+ */
 function isQueuedRequestCancelled(request) {
   const requestSequence = getRequestSequence(request);
   if (requestSequence > 0 && requestSequence <= cancelAllQueuedRequestSequence) {
@@ -233,100 +283,118 @@ function isQueuedRequestCancelled(request) {
   return requestSequence > 0 && requestSequence <= cancelledThrough;
 }
 
+/**
+ * @returns {string | null}
+ */
 function getCurrentRequestId() {
   return activeRequestId;
 }
 
+/**
+ * @param {any} request 上行请求
+ * @returns {boolean}
+ */
 function shouldAbortActiveRequest(request) {
   const targetChannelId = normalizeChannelId(request?.channelId || request?.params?.channelId);
   return !targetChannelId || targetChannelId === activeRequestChannelId;
 }
 
-process.stdout.write = function (chunk, encoding, callback) {
-  const text = typeof chunk === 'string' ? chunk : chunk.toString(encoding || 'utf8');
-  const requestId = getCurrentRequestId();
+process.stdout.write = /** @type {any} */ (
+  function (/** @type {any} */ chunk, /** @type {any} */ encoding, /** @type {any} */ callback) {
+    const text = typeof chunk === 'string' ? chunk : chunk.toString(encoding || 'utf8');
+    const requestId = getCurrentRequestId();
 
-  if (requestId) {
-    const lines = text.split('\n');
-    for (const line of lines) {
-      if (line.length > 0) {
-        writeRawLine({ id: requestId, line });
+    if (requestId) {
+      const lines = text.split('\n');
+      for (const line of lines) {
+        if (line.length > 0) {
+          writeRawLine({ id: requestId, line });
+        }
+      }
+      if (typeof callback === 'function') callback();
+      return true;
+    }
+
+    const trimmed = text.trim();
+    if (trimmed.startsWith('{')) {
+      return _originalStdoutWrite(chunk, encoding, callback);
+    }
+
+    if (trimmed.length > 0) {
+      const lines = text.split('\n');
+      for (const line of lines) {
+        if (line.trim().length > 0) {
+          writeRawLine({ type: 'daemon', event: 'log', message: line });
+        }
       }
     }
+
     if (typeof callback === 'function') callback();
     return true;
   }
-
-  const trimmed = text.trim();
-  if (trimmed.startsWith('{')) {
-    return _originalStdoutWrite(chunk, encoding, callback);
-  }
-
-  if (trimmed.length > 0) {
-    const lines = text.split('\n');
-    for (const line of lines) {
-      if (line.trim().length > 0) {
-        writeRawLine({ type: 'daemon', event: 'log', message: line });
-      }
-    }
-  }
-
-  if (typeof callback === 'function') callback();
-  return true;
-};
+);
 
 // Expose the pre-interception writer so out-of-band emitters can write
 // process-level NDJSON that must NOT be wrapped with activeRequestId.
 // The per-runtime perpetual reader (runtime-lifecycle.js) uses this to emit
 // inter-turn 'session_updated' events; without it those events would be
 // misrouted to whatever request happens to be active. See startPerpetualReader().
+/** @ts-ignore - augmenting process.stdout with a back-channel writer */
 process.stdout._originalStdoutWrite = _originalStdoutWrite;
 
 /**
  * Override console.log to go through our tagged stdout.
  */
-console.log = function (...args) {
-  const text = args
-    .map((a) => (typeof a === 'string' ? a : JSON.stringify(a)))
-    .join(' ');
-  process.stdout.write(text + '\n');
-};
-
-console.error = function (...args) {
-  const text = args
-    .map((a) => (typeof a === 'string' ? a : JSON.stringify(a)))
-    .join(' ');
-  const requestId = getCurrentRequestId();
-  if (requestId) {
-    writeRawLine({ id: requestId, stderr: text });
-  } else {
-    _originalStderrWrite(text + '\n', 'utf8');
+console.log = /** @type {any} */ (
+  /** @param {...any} args */
+  function (...args) {
+    const text = args
+      .map((a) => (typeof a === 'string' ? a : JSON.stringify(a)))
+      .join(' ');
+    process.stdout.write(text + '\n');
   }
-};
+);
 
-process.exit = function (code) {
-  if (isDaemonMode) {
-    const capturedId = getCurrentRequestId();
-    activeRequestId = null;
-    activeRequestChannelId = null;
-
-    if (capturedId) {
-      if (code === 0) {
-        writeRawLine({ id: capturedId, done: true, success: true });
-      } else {
-        writeRawLine({
-          id: capturedId,
-          done: true,
-          success: false,
-          error: `process.exit(${code}) intercepted by daemon`,
-        });
-      }
+console.error = /** @type {any} */ (
+  /** @param {...any} args */
+  function (...args) {
+    const text = args
+      .map((a) => (typeof a === 'string' ? a : JSON.stringify(a)))
+      .join(' ');
+    const requestId = getCurrentRequestId();
+    if (requestId) {
+      writeRawLine({ id: requestId, stderr: text });
+    } else {
+      _originalStderrWrite(text + '\n', 'utf8');
     }
-
-    throw new Error(`[daemon] process.exit(${code}) intercepted`);
   }
-  _originalExit(code);
-};
+);
+
+process.exit = /** @type {any} */ (
+  function (/** @type {number | undefined} */ code) {
+    if (isDaemonMode) {
+      const capturedId = getCurrentRequestId();
+      activeRequestId = null;
+      activeRequestChannelId = null;
+
+      if (capturedId) {
+        if (code === 0) {
+          writeRawLine({ id: capturedId, done: true, success: true });
+        } else {
+          writeRawLine({
+            id: capturedId,
+            done: true,
+            success: false,
+            error: `process.exit(${code}) intercepted by daemon`,
+          });
+        }
+      }
+
+      throw new Error(`[daemon] process.exit(${code}) intercepted`);
+    }
+    _originalExit(code);
+  }
+);
 
 try {
   const exitCodeDescriptor = Object.getOwnPropertyDescriptor(process, 'exitCode');
@@ -345,9 +413,13 @@ try {
     });
   }
 } catch (error) {
-  _originalStderrWrite(`[daemon] Unable to patch process.exitCode: ${error.message}\n`, 'utf8');
+  const msg = error instanceof Error ? error.message : String(error);
+  _originalStderrWrite(`[daemon] Unable to patch process.exitCode: ${msg}\n`, 'utf8');
 }
 
+/**
+ * @returns {Promise<void>}
+ */
 async function preloadSdks() {
   try {
     if (isClaudeSdkAvailable()) {
@@ -361,11 +433,16 @@ async function preloadSdks() {
   } catch (e) {
     sendDaemonEvent('sdk_load_error', {
       provider: 'claude',
-      error: e.message,
+      error: e instanceof Error ? e.message : String(e),
     });
   }
 }
 
+/**
+ * @param {string} method 形如 "provider.command"
+ * @param {any} params    请求参数
+ * @returns {Promise<void>}
+ */
 async function dispatchProviderCommand(method, params) {
   const dotIndex = method.indexOf('.');
   if (dotIndex < 0) {
@@ -401,6 +478,10 @@ async function dispatchProviderCommand(method, params) {
   await providerRegistry.dispatch(provider, command, [], stdinData);
 }
 
+/**
+ * @param {any} request 上行请求(JSON 解析产物)
+ * @returns {Promise<void>}
+ */
 async function processRequest(request) {
   const { id, method, params = {} } = request;
 
@@ -444,6 +525,7 @@ async function processRequest(request) {
   sendQueueStartedEvent(id);
   activeRequestId = id;
   activeRequestChannelId = normalizeChannelId(params?.channelId);
+  /** @type {Record<string, string | undefined>} */
   const savedEnv = {};
 
   try {
@@ -474,12 +556,16 @@ async function processRequest(request) {
     writeRawLine({ id, done: true, success: true });
   } catch (error) {
     if (activeRequestId !== null) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      const errCode = (error && typeof error === 'object' && 'code' in error)
+        ? /** @type {{ code?: unknown }} */ (error).code
+        : undefined;
       writeRawLine({
         id,
         done: true,
         success: false,
-        error: error.message || String(error),
-        code: error.code,
+        error: errMsg,
+        code: errCode,
       });
     }
   } finally {
@@ -511,6 +597,10 @@ async function processRequest(request) {
  * that the SDK is still streaming through, leaking the child node process behind it.
  */
 let shuttingDown = false;
+/**
+ * @param {string} reason 关闭原因(用于日志)
+ * @returns {Promise<void>}
+ */
 async function gracefulShutdown(reason) {
   if (shuttingDown) return;
   shuttingDown = true;
@@ -528,7 +618,8 @@ async function gracefulShutdown(reason) {
     // 1. Close the persistent Claude query (terminates the long-lived Claude process).
     await shutdownPersistentRuntimes();
   } catch (e) {
-    _originalStderrWrite(`[daemon] Failed to shutdown persistent runtimes: ${e.message}\n`, 'utf8');
+    const msg = e instanceof Error ? e.message : String(e);
+    _originalStderrWrite(`[daemon] Failed to shutdown persistent runtimes: ${msg}\n`, 'utf8');
   }
 
   try {
@@ -538,14 +629,16 @@ async function gracefulShutdown(reason) {
     abortCurrentCodexTurn();
     await waitForCodexTurnCompletion();
   } catch (e) {
-    _originalStderrWrite(`[daemon] Failed to abort codex turn: ${e.message}\n`, 'utf8');
+    const msg = e instanceof Error ? e.message : String(e);
+    _originalStderrWrite(`[daemon] Failed to abort codex turn: ${msg}\n`, 'utf8');
   }
 
   try {
     // 3. Drop cached Codex thread/transport state.
     resetCodexThreadCache();
   } catch (e) {
-    _originalStderrWrite(`[daemon] Failed to reset codex thread cache: ${e.message}\n`, 'utf8');
+    const msg = e instanceof Error ? e.message : String(e);
+    _originalStderrWrite(`[daemon] Failed to reset codex thread cache: ${msg}\n`, 'utf8');
   }
 
   clearTimeout(forceExitTimer);
@@ -703,8 +796,9 @@ async function gracefulShutdown(reason) {
         return processRequest(request);
       })
       .catch((e) => {
+        const msg = e instanceof Error ? e.message : String(e);
         _originalStderrWrite(
-          `[daemon] Request queue error: ${e.message}\n`,
+          `[daemon] Request queue error: ${msg}\n`,
           'utf8'
         );
       })
@@ -723,7 +817,7 @@ async function gracefulShutdown(reason) {
   // orphaning the Claude/Codex SDK processes. SIGBREAK only exists on Windows;
   // the try/catch guards registration so platforms lacking a given signal are
   // skipped instead of throwing ERR_UNKNOWN_SIGNAL.
-  for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP', 'SIGBREAK']) {
+  for (const sig of /** @type {NodeJS.Signals[]} */ (['SIGINT', 'SIGTERM', 'SIGHUP', 'SIGBREAK'])) {
     try {
       process.on(sig, () => {
         _originalStderrWrite(`[daemon] Received ${sig}, shutting down\n`, 'utf8');
@@ -756,7 +850,7 @@ async function gracefulShutdown(reason) {
       try {
         process.kill(currentPpid, 0);
       } catch (err) {
-        if (err.code === 'ESRCH') {
+        if (err && typeof err === 'object' && 'code' in err && err.code === 'ESRCH') {
           parentGone = true;
         }
       }

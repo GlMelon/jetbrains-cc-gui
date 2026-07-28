@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * §15.7 B2:OpenCode 模型工具。
  *

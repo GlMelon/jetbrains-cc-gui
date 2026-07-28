@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * MCP server status detection configuration module
  * Contains all configuration constants and security whitelists
@@ -10,19 +11,19 @@ import { dirname } from 'path';
 // ============================================================================
 
 /** HTTP/SSE server verification timeout (ms) - network requests are usually fast, but session establishment time must be considered */
-export const MCP_HTTP_VERIFY_TIMEOUT = parseInt(process.env.MCP_HTTP_VERIFY_TIMEOUT, 10) || 6000;
+export const MCP_HTTP_VERIFY_TIMEOUT = parseInt(process.env.MCP_HTTP_VERIFY_TIMEOUT ?? '', 10) || 6000;
 
 /** SSE server verification timeout (ms) - SSE requires event stream setup + endpoint discovery + initialize handshake */
-export const MCP_SSE_VERIFY_TIMEOUT = parseInt(process.env.MCP_SSE_VERIFY_TIMEOUT, 10) || 10000;
+export const MCP_SSE_VERIFY_TIMEOUT = parseInt(process.env.MCP_SSE_VERIFY_TIMEOUT ?? '', 10) || 10000;
 
 /** SSE server tools list fetch timeout (ms) - requires completing handshake + initialize + tools/list */
-export const MCP_SSE_TOOLS_TIMEOUT = parseInt(process.env.MCP_SSE_TOOLS_TIMEOUT, 10) || 30000;
+export const MCP_SSE_TOOLS_TIMEOUT = parseInt(process.env.MCP_SSE_TOOLS_TIMEOUT ?? '', 10) || 30000;
 
 /** STDIO server verification timeout (ms) - process startup is needed, but 15 seconds is sufficient for connectivity check */
-export const MCP_STDIO_VERIFY_TIMEOUT = parseInt(process.env.MCP_STDIO_VERIFY_TIMEOUT, 10) || 15000;
+export const MCP_STDIO_VERIFY_TIMEOUT = parseInt(process.env.MCP_STDIO_VERIFY_TIMEOUT ?? '', 10) || 15000;
 
 /** Tools list fetch timeout (ms) */
-export const MCP_TOOLS_TIMEOUT = parseInt(process.env.MCP_TOOLS_TIMEOUT, 10) || 45000;
+export const MCP_TOOLS_TIMEOUT = parseInt(process.env.MCP_TOOLS_TIMEOUT ?? '', 10) || 45000;
 
 // ============================================================================
 // Debug configuration
@@ -114,10 +115,11 @@ export const ALLOWED_ENV_VARS = new Set([
  * Create a safe environment variable object
  * Only includes whitelisted variables and user-configured variables
  * Also ensures PATH contains common tool installation directories (uvx, cargo, etc.)
- * @param {Object} serverEnv - Environment variables from server configuration
- * @returns {Object} Safe environment variable object
+ * @param {Record<string, string>} [serverEnv] - Environment variables from server configuration
+ * @returns {Record<string, string | undefined>} Safe environment variable object
  */
 export function createSafeEnv(serverEnv = {}) {
+  /** @type {Record<string, string | undefined>} */
   const safeEnv = {};
   // Only copy whitelisted environment variables
   for (const key of ALLOWED_ENV_VARS) {

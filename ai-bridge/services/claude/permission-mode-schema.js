@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Minimal runtime validator mirroring the subset of @anthropic-ai/claude-agent-sdk
  * hook return shapes that createPreToolUseHook actually produces.
@@ -14,6 +15,19 @@
  * invalid value `permissionDecision: 'continue'` because tests only asserted
  * "what the hook returned" instead of "would the SDK accept what the hook
  * returned." This validator gives tests a way to assert the latter.
+ */
+
+/**
+ * 校验结果(成功)。
+ * @typedef {{ ok: true }} ValidationResultOk
+ */
+/**
+ * 校验结果(失败,附带错误路径描述)。
+ * @typedef {{ ok: false; error: string }} ValidationResultErr
+ */
+/**
+ * 校验结果判别联合。
+ * @typedef {ValidationResultOk | ValidationResultErr} ValidationResult
  */
 
 const HOOK_PERMISSION_DECISION = new Set(['allow', 'deny', 'ask', 'defer']);
@@ -39,10 +53,22 @@ const PRE_TOOL_USE_KEYS = new Set([
   'additionalContext',
 ]);
 
+/**
+ * 构造一个失败结果。
+ * @param {string} path    字段路径
+ * @param {string} message 错误描述
+ * @returns {ValidationResultErr}
+ */
 function fail(path, message) {
   return { ok: false, error: `${path}: ${message}` };
 }
 
+/**
+ * 校验 hookSpecificOutput 子对象。输入是外部/未类型化 JSON(镜像 Zod),故按 any 接收。
+ * @param {any} value 待校验的 hookSpecificOutput
+ * @param {string} path 字段路径前缀
+ * @returns {ValidationResult}
+ */
 function validatePreToolUseHookSpecificOutput(value, path) {
   if (value === null || typeof value !== 'object') {
     return fail(path, `expected object, got ${value === null ? 'null' : typeof value}`);
@@ -79,6 +105,9 @@ function validatePreToolUseHookSpecificOutput(value, path) {
  *
  * The createPreToolUseHook contract allows returning undefined (SDK treats it as
  * "continue with defaults"), an empty object, or any of the documented shapes.
+ *
+ * @param {any} output 待校验的 hook 输出(外部/未类型化 JSON,故按 any 接收)
+ * @returns {ValidationResult}
  */
 export function validateHookOutput(output) {
   if (output === undefined || output === null) return { ok: true };
@@ -131,6 +160,9 @@ export function validateHookOutput(output) {
 /**
  * Helper for tests: throws an AssertionError-shaped Error if the hook output
  * would be rejected by the SDK. Use after every hook invocation in tests.
+ *
+ * @param {any} output 待断言的 hook 输出
+ * @returns {void}
  */
 export function assertSdkAcceptsHookOutput(output) {
   const r = validateHookOutput(output);

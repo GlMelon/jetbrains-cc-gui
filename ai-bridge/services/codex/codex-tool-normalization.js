@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Tool name/input normalization and invocation tracking utilities.
  *
@@ -7,8 +8,22 @@
  * consumed by the frontend message protocol.
  */
 
+/**
+ * Tool invocation tracking state(rememberToolInvocation/findMatchingToolUseId 消费的子集)。
+ * 与 codex-event-handler.js 的 EventProcessingState 结构兼容(子集)。
+ * @typedef {{
+ *   toolCallSignatureById: Map<string, string>;
+ *   toolUseIdBySignature: Map<string, string>;
+ * }} ToolInvocationState
+ */
+
 // ── MCP Tool Normalization ──
 
+/**
+ * @param {string | null | undefined} server
+ * @param {string | null | undefined} tool
+ * @returns {string}
+ */
 export function normalizeMcpToolName(server, tool) {
   const serverName = String(server || '').toLowerCase();
   const toolName = String(tool || '').toLowerCase();
@@ -23,6 +38,12 @@ export function normalizeMcpToolName(server, tool) {
   return `mcp__${server}__${tool}`;
 }
 
+/**
+ * @param {string | null | undefined} server
+ * @param {string | null | undefined} tool
+ * @param {Record<string, any> | null | undefined} args
+ * @returns {Record<string, any>}
+ */
 export function normalizeMcpToolInput(server, tool, args) {
   const serverName = String(server || '').toLowerCase();
   const toolName = String(tool || '').toLowerCase();
@@ -57,6 +78,7 @@ export function normalizeMcpToolInput(server, tool, args) {
 
 // ── JSON & Object Helpers ──
 
+/** @param {any} value @returns {any} */
 export function safeJsonParse(value) {
   if (typeof value !== 'string' || !value.trim()) return null;
   try {
@@ -66,12 +88,14 @@ export function safeJsonParse(value) {
   }
 }
 
+/** @param {any} value @returns {boolean} */
 export function isObjectRecord(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 // ── Plan Normalization ──
 
+/** @param {any} status @returns {'completed' | 'in_progress' | 'pending'} */
 export function normalizePlanStatus(status) {
   const value = typeof status === 'string' ? status.trim().toLowerCase() : '';
   if (value === 'completed' || value === 'done') return 'completed';
@@ -79,11 +103,12 @@ export function normalizePlanStatus(status) {
   return 'pending';
 }
 
+/** @param {any} input @returns {{ plan: any[] } & Record<string, any>} */
 export function normalizeUpdatePlanInput(input) {
   const normalized = isObjectRecord(input) ? { ...input } : {};
   const plan = Array.isArray(normalized.plan) ? normalized.plan : [];
   normalized.plan = plan
-    .map((item) => {
+    .map((/** @type {any} */ item) => {
       if (!isObjectRecord(item)) return null;
       const content =
         (typeof item.content === 'string' && item.content.trim()) ? item.content.trim() :
@@ -105,12 +130,18 @@ export function normalizeUpdatePlanInput(input) {
 
 // ── Function Call Normalization ──
 
+/** @param {any} payload @returns {Record<string, any> | null} */
 export function parseFunctionCallArguments(payload) {
   if (!payload || typeof payload !== 'object') return null;
   if (isObjectRecord(payload.arguments)) return payload.arguments;
   return safeJsonParse(payload.arguments);
 }
 
+/**
+ * @param {any} toolName
+ * @param {Record<string, any> | null | undefined} parsedArguments
+ * @returns {{ name: any, input: any }}
+ */
 export function normalizeFunctionCallTool(toolName, parsedArguments) {
   if (typeof toolName !== 'string' || !toolName) {
     return { name: toolName, input: isObjectRecord(parsedArguments) ? parsedArguments : {} };
@@ -136,6 +167,7 @@ export function normalizeFunctionCallTool(toolName, parsedArguments) {
 
 // ── Stable Serialization & Invocation Tracking ──
 
+/** @param {any} value @returns {string} */
 export function stableStringify(value) {
   if (Array.isArray(value)) {
     return `[${value.map((item) => stableStringify(item)).join(',')}]`;
@@ -149,11 +181,19 @@ export function stableStringify(value) {
   return JSON.stringify(value);
 }
 
+/** @param {string} name @param {any} input @returns {string} */
 export function buildToolInvocationSignature(name, input) {
   if (typeof name !== 'string' || !name) return '';
   return `${name}::${stableStringify(input && typeof input === 'object' ? input : {})}`;
 }
 
+/**
+ * @param {ToolInvocationState} state
+ * @param {string} toolUseId
+ * @param {string} toolName
+ * @param {any} toolInput
+ * @returns {string}
+ */
 export function rememberToolInvocation(state, toolUseId, toolName, toolInput) {
   const signature = buildToolInvocationSignature(toolName, toolInput);
   if (!signature) return '';
@@ -164,6 +204,12 @@ export function rememberToolInvocation(state, toolUseId, toolName, toolInput) {
   return signature;
 }
 
+/**
+ * @param {ToolInvocationState} state
+ * @param {string} toolName
+ * @param {any} toolInput
+ * @returns {string | null}
+ */
 export function findMatchingToolUseId(state, toolName, toolInput) {
   const signature = buildToolInvocationSignature(toolName, toolInput);
   if (!signature) return null;

@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * API configuration module.
  * Loads and manages Claude API configuration.
@@ -9,6 +10,10 @@ import { getClaudeDir, getCodemossDir, getManagedSettingsPath } from '../utils/p
 
 // Conditional debug logging: set CLAUDE_DEBUG=1 to enable verbose diagnostics
 const DEBUG = process.env.CLAUDE_DEBUG === '1' || process.env.CLAUDE_DEBUG === 'true';
+/**
+ * @param {...any} args
+ * @returns {void}
+ */
 function debugLog(...args) {
   if (DEBUG) {
     console.log(...args);
@@ -24,6 +29,7 @@ function debugLog(...args) {
 
 const FALLBACK_CLI_VERSION = '2.1.88';
 
+/** @type {string | null} */
 let _cachedCliVersion = null;
 
 /**
@@ -31,6 +37,7 @@ let _cachedCliVersion = null;
  * The SDK bundles a manifest.json with ` "version": "<cli-version>" }`.
  * Falls back to converting the SDK package version (0.x.y -> x.1.y),
  * then to the hardcoded fallback.
+ * @returns {string}
  */
 function resolveCliVersionFromSdk() {
   if (_cachedCliVersion) return _cachedCliVersion;
@@ -44,8 +51,11 @@ function resolveCliVersionFromSdk() {
     if (existsSync(manifestPath)) {
       const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
       if (manifest?.version) {
-        _cachedCliVersion = manifest.version;
-        return _cachedCliVersion;
+        // 取局部 const 承载 any(manifest.version),避免 _cachedCliVersion(string|null)
+        // 在赋值 any 后保持声明类型导致 return 处 string|null 不能赋给 @returns {string}。
+        const version = manifest.version;
+        _cachedCliVersion = version;
+        return version;
       }
     }
 
@@ -160,6 +170,10 @@ const CLI_ENV_OVERRIDE_VAR_SET = new Set(
   REASONING_CONTROL_ENV_VARS.map((varName) => varName.toUpperCase())
 );
 
+/**
+ * @param {*} varName
+ * @returns {boolean}
+ */
 export function isWebviewControlledEnvVar(varName) {
   return WEBVIEW_CONTROLLED_ENV_VAR_SET.has(String(varName ?? '').toUpperCase());
 }
@@ -190,11 +204,20 @@ const DANGEROUS_ENV_VAR_SET = new Set([
   'GIT_EXTERNAL_DIFF',
 ]);
 
+/**
+ * @param {*} varName
+ * @returns {boolean}
+ */
 export function isDangerousEnvVar(varName) {
   return DANGEROUS_ENV_VAR_SET.has(String(varName ?? '').toUpperCase());
 }
 
+/**
+ * @param {string | undefined | null} modelId
+ * @returns {{ env: Record<string, string> }}
+ */
 export function buildWebviewControlledSettingsOverride(modelId) {
+  /** @type {Record<string, string>} */
   const env = {
     // Empty strings intentionally override settings.json env values while
     // evaluating as "not set" in Claude Code's env-precedence checks.
@@ -248,9 +271,10 @@ function shouldHostManageProvider() {
  * (which includes CLAUDE_AGENT_SDK_VERSION set by the SDK itself).
  * By passing our own env, we control exactly what the child process sees.
  *
- * @returns {Object} Environment variables object for options.env
+ * @returns {Record<string, string | undefined>} Environment variables object for options.env
  */
 export function buildCliEnv() {
+  /** @type {Record<string, string | undefined>} */
   const env = {};
   // When a cloud provider owns routing, the host must NOT advertise provider
   // management: otherwise Claude Code strips CLAUDE_CODE_USE_BEDROCK (and
@@ -329,6 +353,7 @@ const STARTUP_ENV_VARS = [
 const LOCAL_SETTINGS_PROVIDER_ID = '__local_settings_json__';
 const CLI_LOGIN_PROVIDER_ID = '__cli_login__';
 const CODEX_CLI_LOGIN_PROVIDER_ID = '__codex_cli_login__';
+/** @type {Map<string, string>} */
 const injectedStartupEnvVars = new Map();
 
 function clearInjectedStartupEnvVars() {
@@ -347,6 +372,10 @@ function clearRuntimeAuthEnv() {
   delete process.env.ANTHROPIC_API_URL;
 }
 
+/**
+ * @param {string} filePath
+ * @returns {any}
+ */
 function readJsonFile(filePath) {
   try {
     if (!existsSync(filePath)) {
@@ -358,7 +387,7 @@ function readJsonFile(filePath) {
     const normalized = raw.charCodeAt(0) === 0xFEFF ? raw.slice(1) : raw;
     return JSON.parse(normalized);
   } catch (error) {
-    debugLog('[DEBUG] Failed to read JSON file:', filePath, error.message);
+    debugLog('[DEBUG] Failed to read JSON file:', filePath, error instanceof Error ? error.message : String(error));
     return null;
   }
 }
@@ -416,10 +445,18 @@ export function getCodexRuntimeState() {
   return { access: 'inactive', currentId };
 }
 
+/**
+ * @param {{ access: string; currentId: string }} runtimeState
+ * @returns {boolean}
+ */
 function canReadClaudeSettings(runtimeState) {
   return runtimeState.access !== 'inactive';
 }
 
+/**
+ * @param {{ access: string; currentId: string }} runtimeState
+ * @returns {boolean}
+ */
 function canUseLocalSettingsEnv(runtimeState) {
   return runtimeState.access === 'local' || runtimeState.access === 'cli_login';
 }
@@ -481,7 +518,7 @@ export function injectStartupEnvVars(settings) {
 /**
  * Load managed settings from the platform-specific managed-settings.json.
  * These are typically configured by enterprise IT administrators.
- * @returns {Object|null} Parsed managed settings or null if not found/invalid
+ * @returns {Record<string, any> | null} Parsed managed settings or null if not found/invalid
  */
 export function loadManagedSettings() {
   try {
@@ -493,7 +530,7 @@ export function loadManagedSettings() {
     debugLog('[DEBUG] Loaded managed settings from:', managedPath);
     return settings;
   } catch (error) {
-    debugLog('[DEBUG] Failed to load managed settings:', error.message);
+    debugLog('[DEBUG] Failed to load managed settings:', error instanceof Error ? error.message : String(error));
     return null;
   }
 }

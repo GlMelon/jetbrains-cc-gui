@@ -1,10 +1,20 @@
+// @ts-check
 /**
  * Patch text parsing for Codex apply_patch operations.
  * Extracts and parses patch content from Codex SDK response payloads.
  */
 
 /**
+ * 单个 patch 操作(由 parseApplyPatchToOperations 输出)。
+ * @typedef {{ filePath: string; kind: string; oldString: string; newString: string; toolName: string; startLine?: number; endLine?: number }} PatchOperation
+ */
+
+/** @typedef {{ oldStart: number; oldCount: number; newStart: number; newCount: number }} PatchHunkHeader */
+
+/**
  * Extracts apply_patch text from exec_command arguments.
+ * @param {string} cmd
+ * @returns {string}
  */
 export function extractPatchFromExecCommand(cmd) {
   if (typeof cmd !== 'string' || !cmd) {
@@ -20,6 +30,11 @@ export function extractPatchFromExecCommand(cmd) {
 
 /**
  * Parses hunk header line numbers from unified diff headers.
+ */
+/**
+ * Parses hunk header line numbers from unified diff headers.
+ * @param {string} line
+ * @returns {PatchHunkHeader | null}
  */
 function parseHunkHeader(line) {
   if (typeof line !== 'string') {
@@ -42,6 +57,12 @@ function parseHunkHeader(line) {
 /**
  * Extracts apply_patch text from a response_item payload.
  * Supports function_call(exec_command/apply_patch) and custom_tool_call(apply_patch).
+ */
+/**
+ * Extracts apply_patch text from a response_item payload.
+ * Supports function_call(exec_command/apply_patch) and custom_tool_call(apply_patch).
+ * @param {any} payload
+ * @returns {string}
  */
 export function extractPatchFromResponseItemPayload(payload) {
   if (!payload || typeof payload !== 'object') {
@@ -94,20 +115,29 @@ export function extractPatchFromResponseItemPayload(payload) {
 /**
  * Parses apply_patch text into reusable edit operations.
  */
+/**
+ * Parses apply_patch text into reusable edit operations.
+ * @param {string} patchText
+ * @returns {PatchOperation[]}
+ */
 export function parseApplyPatchToOperations(patchText) {
   if (typeof patchText !== 'string' || !patchText.trim()) {
     return [];
   }
 
   const lines = patchText.split('\n');
+  /** @type {PatchOperation[]} */
   const operations = [];
 
+  /** @type {string | null} */
   let currentPath = null;
+  /** @type {'add' | 'update' | 'delete' | null} */
   let currentKind = null; // add | update | delete
+  /** @type {PatchHunkHeader | null} */
   let currentHunkHeader = null;
-  let oldLines = [];
-  let newLines = [];
-  let addFileLines = [];
+  /** @type {string[]} */ let oldLines = [];
+  /** @type {string[]} */ let newLines = [];
+  /** @type {string[]} */ let addFileLines = [];
 
   const flushUpdate = () => {
     if (!currentPath || currentKind !== 'update') return;

@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+// @ts-check
 // gateway-stdio-client.js — 注入到 provider CLI 的 MCP server 包装(指向本地 gateway HTTP)。
 //
 // 30s 根因消除(详见 gateway-http-client.js 文档):
@@ -13,6 +13,15 @@ import { ToolRouter } from './tool-router.js';
 import { readStateFile } from './state-file.js';
 import { GatewayHttpClient, runToolsList } from './gateway-http-client.js';
 
+/** @typedef {import('./framing.js').McpWritable} McpWritable */
+/** @typedef {import('./framing.js').FrameFormat} FrameFormat */
+
+/**
+ * JSON-RPC 请求消息最小形状(对齐 mcp-server.js 的 JsonRpcMessage)。
+ * @typedef {{ jsonrpc?: string; id?: unknown; method?: string; params?: Record<string, unknown> } & Record<string, unknown>} JsonRpcMessage
+ */
+
+/** @type {Record<string, string>} */
 const args = parseArgs(process.argv.slice(2));
 const stateFile = args['state-file'];
 const revision = Number(args.revision || 0);
@@ -23,7 +32,11 @@ let state;
 try {
   state = readStateFile(stateFile);
 } catch (error) {
-  process.stderr.write(`[melon-gateway-down] state file unreadable (${stateFile}): ${error.code || error.message}\n`);
+  const code = (error && typeof error === 'object' && 'code' in error)
+    ? String(/** @type {{ code?: unknown }} */ (error).code)
+    : '';
+  const msg = error instanceof Error ? error.message : String(error);
+  process.stderr.write(`[melon-gateway-down] state file unreadable (${stateFile}): ${code || msg}\n`);
   process.exit(1);
 }
 
@@ -31,14 +44,21 @@ try {
 const httpClient = new GatewayHttpClient({ port: state.port, token: state.token });
 
 class RuntimeProxy {
+  /**
+   * @param {string} name
+   * @param {unknown} toolArgs
+   * @returns {Promise<unknown>}
+   */
   async call(name, toolArgs) {
     return httpClient.post('/runtime/tools/call', { revision, name, arguments: toolArgs });
   }
 }
 
 const revisionStore = new RevisionStore(1);
-const toolRouter = new ToolRouter(new Map([['runtime:proxy', new RuntimeProxy()]]));
-toolRouter.call = async (name, toolArgs) => httpClient.post('/runtime/tools/call', { revision, name, arguments: toolArgs });
+// ToolRouter 构造期望 Map<string, SupervisorLike>(仅 callTool);此处 RuntimeProxy 只用于占位,
+// 真正路由由下一行覆盖 toolRouter.call,故 map 结构强转为 any。
+const toolRouter = new ToolRouter(/** @type {any} */ (new Map([['runtime:proxy', new RuntimeProxy()]])));
+toolRouter.call = async (/** @type {string} */ name, /** @type {unknown} */ toolArgs) => httpClient.post('/runtime/tools/call', { revision, name, arguments: toolArgs });
 
 const server = new GatewayMcpServer({
   revisionStore,
@@ -46,6 +66,11 @@ const server = new GatewayMcpServer({
   revision,
 });
 
+/**
+ * @param {JsonRpcMessage | null | undefined} message
+ * @param {McpWritable} output
+ * @returns {Promise<void>}
+ */
 server.handle = async function handle(message, output) {
   // Opt2: tools/list 走 runToolsList——gateway 不可达时降级返空工具(对话继续,不再挂 30s),
   // 不再返 JSON-RPC error 让 provider 标记失败。stderr 标记供 Java toast。
@@ -60,12 +85,17 @@ const reader = new FramedReader(process.stdin);
 // codex=lsp(Content-Length)。writeMessage 据此自适应响应帧格式,两端各得其所不回归。
 // 修 opencode gateway 首请求 30s 握手超时(原 framing 只认 LSP,opencode 的 NDJSON
 // initialize 永远进不了解析路径)。详见 framing.js 文档。
-reader.on('message', (message) => {
-  process.stdout.__mcpFrameFormat = reader.lastFormat || 'ndjson';
+reader.on('message', (/** @type {JsonRpcMessage} */ message) => {
+  (/** @type {NodeJS.WriteStream & { __mcpFrameFormat?: FrameFormat }} */ (process.stdout)).__mcpFrameFormat = reader.lastFormat || 'ndjson';
   server.handle(message, process.stdout);
 });
 
+/**
+ * @param {string[]} argv
+ * @returns {Record<string, string>}
+ */
 function parseArgs(argv) {
+  /** @type {Record<string, string>} */
   const out = {};
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];

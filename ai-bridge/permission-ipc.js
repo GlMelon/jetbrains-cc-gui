@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * File-system IPC primitives for permission communication with Java process.
  * Handles request/response file exchange for permissions, questions, and plan approval.
@@ -8,16 +9,30 @@ import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 
 // ========== Debug logging ==========
+/**
+ * @param {string} tag
+ * @param {string} message
+ * @param {any} [data]
+ * @returns {void}
+ */
 export function debugLog(tag, message, data = null) {
   const timestamp = new Date().toISOString();
   const dataStr = data ? ` | Data: ${JSON.stringify(data)}` : '';
   console.log(`[${timestamp}][PERM_DEBUG][${tag}] ${message}${dataStr}`);
 }
 
+/**
+ * @param {unknown} error
+ * @returns {string}
+ */
 export function errorClass(error) {
   return error?.constructor?.name || 'UnknownError';
 }
 
+/**
+ * @param {any} input
+ * @returns {{ keyCount: number; questionCount: number; allowedPromptCount: number; planLength: number }}
+ */
 export function describeInputForLog(input) {
   const inputObject = input && typeof input === 'object' ? input : {};
   const questions = Array.isArray(inputObject.questions) ? inputObject.questions : [];
@@ -32,11 +47,19 @@ export function describeInputForLog(input) {
   };
 }
 
+/**
+ * @param {any} answers
+ * @returns {{ answerCount: number }}
+ */
 export function describeAnswersForLog(answers) {
   const answerObject = answers && typeof answers === 'object' ? answers : {};
   return { answerCount: Object.keys(answerObject).length };
 }
 
+/**
+ * @param {unknown} content
+ * @returns {{ byteLength: number }}
+ */
 export function describeContentForLog(content) {
   return { byteLength: Buffer.byteLength(String(content ?? ''), 'utf8') };
 }
@@ -45,6 +68,10 @@ export function describeContentForLog(content) {
 // boolean `true` counts as allow; any other shape (string "true", numeric 1,
 // missing field, malformed JSON) denies. Prevents a corrupted or partially
 // written response file from being read as an accidental allow.
+/**
+ * @param {string} content
+ * @returns {boolean}
+ */
 export function parsePermissionAllowResponse(content) {
   try {
     const responseData = JSON.parse(content);
@@ -61,6 +88,11 @@ export function parsePermissionAllowResponse(content) {
 // response file planted by another local process that won the filename race) and
 // is rejected fail-closed. The directory is mode 0o700 (owner-only) and the
 // requestId is an unguessable UUID, so this is a defense-in-depth backstop.
+/**
+ * @param {any} responseData
+ * @param {unknown} requestToken
+ * @returns {boolean}
+ */
 export function responseTokenMatches(responseData, requestToken) {
   return typeof requestToken === 'string'
     && responseData != null
@@ -92,6 +124,10 @@ const MAX_PERMISSION_REQUEST_SAFETY_NET_MS = (
   MAX_PERMISSION_DIALOG_TIMEOUT_SECONDS + SAFETY_NET_BUFFER_SECONDS
 ) * 1000;
 
+/**
+ * @param {unknown} value
+ * @returns {number}
+ */
 export function resolvePermissionRequestSafetyNetMs(value) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) {
@@ -161,8 +197,8 @@ cleanupStaleSessionFiles();
 
 /**
  * Request AskUserQuestion answers via file system communication with Java process.
- * @param {Object} input - AskUserQuestion tool parameters (contains questions array)
- * @returns {Promise<Object|null>} - User answers object, returns null on failure
+ * @param {any} input - AskUserQuestion tool parameters (contains questions array)
+ * @returns {Promise<any|null>} - User answers object, returns null on failure
  */
 export async function requestAskUserQuestionAnswers(input) {
   const requestStartTime = Date.now();
@@ -261,8 +297,8 @@ export async function requestAskUserQuestionAnswers(input) {
 
 /**
  * Request plan approval via file system communication with Java process.
- * @param {Object} input - ExitPlanMode tool parameters (contains allowedPrompts)
- * @returns {Promise<Object>} - { approved: boolean, targetMode: string, message?: string }
+ * @param {any} input - ExitPlanMode tool parameters (contains allowedPrompts)
+ * @returns {Promise<{ approved: boolean; targetMode?: string; message?: string }>} - { approved, targetMode?, message? }
  */
 export async function requestPlanApproval(input) {
   const requestStartTime = Date.now();
@@ -279,8 +315,8 @@ export async function requestPlanApproval(input) {
     const plan = typeof input?.plan === 'string' ? input.plan.substring(0, 100000) : '';
     const rawPrompts = Array.isArray(input?.allowedPrompts) ? input.allowedPrompts : [];
     const allowedPrompts = rawPrompts
-      .filter(p => p && typeof p.tool === 'string' && typeof p.prompt === 'string')
-      .map(p => ({ tool: String(p.tool), prompt: String(p.prompt) }));
+      .filter((/** @type {any} */ p) => p && typeof p.tool === 'string' && typeof p.prompt === 'string')
+      .map((/** @type {any} */ p) => ({ tool: String(p.tool), prompt: String(p.prompt) }));
 
     const requestData = {
       requestId,
@@ -373,7 +409,7 @@ export async function requestPlanApproval(input) {
 /**
  * Request permission via file system communication with Java process.
  * @param {string} toolName - Tool name
- * @param {Object} input - Tool parameters
+ * @param {any} input - Tool parameters
  * @returns {Promise<boolean>} - Whether allowed
  */
 export async function requestPermissionFromJava(toolName, input) {

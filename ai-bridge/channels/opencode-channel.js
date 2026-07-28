@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * §15.7 B2:OpenCode channel command handler。
  *
@@ -14,7 +15,8 @@ import { getSessionMessages, getSessionList, archiveSession } from '../services/
  * Execute an OpenCode command.
  * @param {string} command
  * @param {string[]} args
- * @param {object|null} stdinData
+ * @param {Record<string, any> | null} stdinData
+ * @returns {Promise<void>}
  */
 export async function handleOpenCodeCommand(command, args, stdinData) {
   switch (command) {
@@ -46,6 +48,7 @@ export async function handleOpenCodeCommand(command, args, stdinData) {
           message: args[0] || '',
           threadId: args[1] || '',
           cwd: args[2] || '',
+          permissionMode: '',
           model: args[4] || '',
           baseUrl: ''
         });
@@ -73,7 +76,12 @@ export async function handleOpenCodeCommand(command, args, stdinData) {
 
     case 'getSession': {
       const sessionId = stdinData?.sessionId || stdinData?.threadId || args[0] || '';
-      const result = await getSessionMessages({ sessionId, dbPath: stdinData?.dbPath });
+      const result = await getSessionMessages({
+        sessionId,
+        dbPath: stdinData?.dbPath,
+        maxMessageCount: stdinData?.maxMessageCount,
+        maxUtf8Bytes: stdinData?.maxUtf8Bytes,
+      });
       console.log(JSON.stringify(result));
       break;
     }
@@ -86,9 +94,9 @@ export async function handleOpenCodeCommand(command, args, stdinData) {
       break;
     }
 
-    case 'deleteSession': {
-      // 软删除(归档)OpenCode 会话(对称 Codex 删 session 文件);history-service.archiveSession
-      // 置 time_archived,getSessionList 已过滤归档项,故前端 reload 后不复活。
+    case 'archiveSession': {
+      // 归档 OpenCode 会话;history-service.archiveSession 置 time_archived,
+      // getSessionList 已过滤归档项,故前端 reload 后不再显示。
       const sessionId = stdinData?.sessionId || stdinData?.threadId || args[0] || '';
       const result = await archiveSession({ sessionId, dbPath: stdinData?.dbPath });
       console.log(JSON.stringify(result));
@@ -100,8 +108,9 @@ export async function handleOpenCodeCommand(command, args, stdinData) {
   }
 }
 
+/** @returns {string[]} */
 export function getOpenCodeCommandList() {
-  return ['send', 'abort', 'getSession', 'listSessions', 'deleteSession', 'getMcpServerTools'];
+  return ['send', 'abort', 'getSession', 'listSessions', 'archiveSession', 'getMcpServerTools'];
 }
 
 export const opencodeChannelDescriptor = {

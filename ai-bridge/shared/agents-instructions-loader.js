@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Provider-agnostic AGENTS.md discovery & collection (shared across Claude/Codex/OpenCode).
  *

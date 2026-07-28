@@ -1,26 +1,83 @@
+// @ts-check
+/**
+ * 流式增量归一化:逐内容块区分"累积快照"与"增量 delta",吸收中途纠正重写。
+ */
+
+/**
+ * 单个内容块的流式模式。一旦某块产出过确认的快照 delta 即锁定为 'snapshot';
+ * 否则按增量 delta 累积拼接(Anthropic 标准)。
+ * @typedef {'snapshot' | 'incremental'} StreamMode
+ */
+
+/**
+ * 一次请求内随 delta 携带的逐块流式簿记(挂在共享 turnState 上)。
+ * 内容 Map 以块索引为键;模式 Map 以 `${kind}:${blockIndex}` 为键。
+ * @typedef {{
+ *   textBlockContentByIndex?: Map<number, string>,
+ *   thinkingBlockContentByIndex?: Map<number, string>,
+ *   blockStreamModeByKey?: Map<string, StreamMode>,
+ * }} BlockStateMaps
+ */
+
+/** @typedef {'textBlockContentByIndex' | 'thinkingBlockContentByIndex'} BlockMapKey */
+
+/**
+ * 取出(必要时懒初始化)指定 key 对应的块内容 Map。
+ *
+ * @param {BlockStateMaps} turnState 共享 turn 状态
+ * @param {BlockMapKey} key         块 Map 字段名
+ * @returns {Map<number, string>} 块内容 Map
+ */
 export function getBlockMap(turnState, key) {
-  if (!(turnState[key] instanceof Map)) {
-    turnState[key] = new Map();
+  const existing = turnState[key];
+  if (existing instanceof Map) {
+    return existing;
   }
-  return turnState[key];
+  const fresh = new Map();
+  turnState[key] = fresh;
+  return fresh;
 }
 
+/**
+ * @param {number | string} index 原始块索引
+ * @returns {number} 规范化后的非负整数索引(非法回退 0)
+ */
 function getBlockIndex(index) {
   const numericIndex = typeof index === 'string' ? Number(index) : index;
   return Number.isInteger(numericIndex) && numericIndex >= 0 ? numericIndex : 0;
 }
 
+/**
+ * @param {BlockStateMaps} turnState 共享 turn 状态
+ * @returns {Map<string, StreamMode>} 块流式模式 Map
+ */
 function getModeMap(turnState) {
-  if (!(turnState.blockStreamModeByKey instanceof Map)) {
-    turnState.blockStreamModeByKey = new Map();
+  const existing = turnState.blockStreamModeByKey;
+  if (existing instanceof Map) {
+    return existing;
   }
-  return turnState.blockStreamModeByKey;
+  const fresh = new Map();
+  turnState.blockStreamModeByKey = fresh;
+  return fresh;
 }
 
+/**
+ * @param {string} kind       块类型('text' / 'thinking')
+ * @param {number} blockIndex 块索引
+ * @returns {string} 模式 Map 的复合键
+ */
 function modeKey(kind, blockIndex) {
   return `${kind}:${blockIndex}`;
 }
 
+/**
+ * 计算本次 delta 相对已累积内容的"新内容"。
+ *
+ * @param {string} previous 已累积内容
+ * @param {string} incoming 本次到达内容
+ * @param {StreamMode | undefined} mode 当前块已锁定的流式模式
+ * @returns {{ novel: string, next: string, mode: StreamMode | undefined }}
+ */
 function computeNovelDelta(previous, incoming, mode) {
   if (!incoming) {
     return { novel: '', next: previous, mode };
@@ -71,6 +128,15 @@ function computeNovelDelta(previous, incoming, mode) {
   return { novel: incoming, next: previous + incoming, mode: 'incremental' };
 }
 
+/**
+ * 归一化一条流式 delta,返回应下发给前端的新增内容。
+ *
+ * @param {BlockStateMaps} turnState   共享 turn 状态
+ * @param {'text' | 'thinking'} kind   块类型
+ * @param {number | string} index      块索引
+ * @param {unknown} incoming           原始 delta 内容(非字符串视为空串)
+ * @returns {string} 新增内容(可能为空串)
+ */
 export function normalizeStreamDelta(turnState, kind, index, incoming) {
   const text = typeof incoming === 'string' ? incoming : '';
   const key = kind === 'thinking' ? 'thinkingBlockContentByIndex' : 'textBlockContentByIndex';
@@ -105,6 +171,12 @@ export function normalizeStreamDelta(turnState, kind, index, incoming) {
  * Returns the novel delta to emit plus `hadPrevious` (whether the block already
  * held streamed content before this snapshot) — the gate the tail-fill fix
  * depends on. IO and emit-gating stay with the caller so this stays pure.
+ *
+ * @param {BlockStateMaps} turnState   共享 turn 状态
+ * @param {'text' | 'thinking'} kind   块类型
+ * @param {number | string} index      块索引
+ * @param {string} snapshot            整块快照文本
+ * @returns {{ delta: string, hadPrevious: boolean }}
  */
 export function resolveSnapshotDelta(turnState, kind, index, snapshot) {
   const key = kind === 'thinking' ? 'thinkingBlockContentByIndex' : 'textBlockContentByIndex';
@@ -130,6 +202,9 @@ export function resolveSnapshotDelta(turnState, kind, index, snapshot) {
  *
  * Token usage is intentionally NOT reset here — it accumulates across turns and
  * is owned by the caller's usage bookkeeping.
+ *
+ * @param {BlockStateMaps} turnState 共享 turn 状态
+ * @returns {void}
  */
 export function resetTurnBlockState(turnState) {
   turnState.textBlockContentByIndex = new Map();

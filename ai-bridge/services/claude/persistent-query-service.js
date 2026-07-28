@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Persistent query service for daemon mode.
  * Keeps Claude Query processes alive across turns to reduce per-request latency.
@@ -64,6 +65,35 @@ import { getClaudeCliPathOverride } from '../../utils/claude-cli-path.js';
 
 const SUPPORTED_EFFORT_LEVELS = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 
+/**
+ * 一次发送请求的参数袋(由 Java 侧反序列化传入,字段随上下文增减),按 any 处理。
+ * @typedef {Record<string, any>} RequestParams
+ */
+/**
+ * 运行时句柄:与 runtime-lifecycle/runtime-registry 交互的可变状态袋
+ * (turnSink/abortRequested/_turnAbortReject 等字段由本模块注入)。
+ * 必填 createdAt/lastUsedAt 以兼容 RuntimeEntry/RuntimeHandle,其余字段经索引签名透传。
+ * @typedef {{
+ *   createdAt: number,
+ *   lastUsedAt: number,
+ *   query?: any,
+ *   sessionId?: string,
+ *   runtimeSessionEpoch?: string | null,
+ *   activeTurnCount?: number,
+ *   closed?: boolean,
+ *   [k: string]: any
+ * }} RuntimeLike
+ */
+/**
+ * 请求上下文(buildRequestContext 产物),字段较多且跨模块流转。
+ * 必填 runtimeSignature 以兼容 RequestContext/RequestContextLike,其余字段经索引签名透传。
+ * @typedef {{ runtimeSignature: string, requestedSessionId?: string, [k: string]: any }} RequestContextBag
+ */
+
+/**
+ * @param {RequestParams} params
+ * @returns {string|undefined}
+ */
 function resolveReasoningEffort(params) {
   const effort = typeof params.reasoningEffort === 'string'
     ? params.reasoningEffort.trim()
@@ -71,6 +101,11 @@ function resolveReasoningEffort(params) {
   return SUPPORTED_EFFORT_LEVELS.has(effort) ? effort : undefined;
 }
 
+/**
+ * @param {RequestParams} params
+ * @param {any} settings
+ * @returns {number|undefined}
+ */
 function resolveThinkingTokens(params, settings) {
   if (resolveReasoningEffort(params)) return undefined;
 
@@ -84,6 +119,11 @@ function resolveThinkingTokens(params, settings) {
   return undefined;
 }
 
+/**
+ * @param {RequestParams} params
+ * @param {any} settings
+ * @returns {boolean}
+ */
 function resolveStreamingEnabled(params, settings) {
   return params.streaming != null
     ? !!params.streaming
@@ -92,7 +132,7 @@ function resolveStreamingEnabled(params, settings) {
 
 /**
  * Extract text content from a user message object.
- * @param {object} userMessage - User message object from buildUserMessage()
+ * @param {any} userMessage - User message object from buildUserMessage()
  * @returns {string|null} Extracted text or null
  */
 function extractUserMessageText(userMessage) {
@@ -100,12 +140,16 @@ function extractUserMessageText(userMessage) {
   const content = userMessage.message.content;
   if (typeof content === 'string') return content;
   if (Array.isArray(content)) {
-    const textBlock = content.find(b => b.type === 'text');
+    const textBlock = content.find((/** @type {any} */ b) => b.type === 'text');
     return textBlock?.text || null;
   }
   return null;
 }
 
+/**
+ * @param {RequestParams} params
+ * @returns {string|null}
+ */
 function buildSystemPromptAppend(params) {
   const openedFiles = params.openedFiles || null;
   const agentPrompt = params.agentPrompt || null;
@@ -115,13 +159,32 @@ function buildSystemPromptAppend(params) {
   return buildIDEContextPrompt(openedFiles, agentPrompt);
 }
 
+/**
+ * @param {string|null} modelId
+ * @param {Record<string, unknown> | null | undefined} settingsEnv
+ * @param {string|null} [actualModel=null]
+ * @returns {{ sdkModelName: string; resolvedModelId: string }}
+ */
 function resolveRequestModelState(modelId, settingsEnv, actualModel = null) {
   return {
-    sdkModelName: mapModelIdToSdkName(modelId),
-    resolvedModelId: resolveModelFromSettings(modelId, settingsEnv, actualModel),
+    sdkModelName: mapModelIdToSdkName(/** @type {string} */ (modelId)),
+    resolvedModelId: resolveModelFromSettings(/** @type {string} */ (modelId), settingsEnv, actualModel ?? undefined),
   };
 }
 
+/**
+ * @param {string} workingDirectory
+ * @param {string} sdkModelName
+ * @param {string} permissionMode
+ * @param {number|undefined} maxThinkingTokens
+ * @param {string|undefined} reasoningEffort
+ * @param {boolean} streamingEnabled
+ * @param {string|null} systemPromptAppend
+ * @param {string|null} requestedSessionId
+ * @param {Record<string, unknown>|null} mcpServers
+ * @param {string|null} modelId
+ * @returns {any}
+ */
 function buildQueryOptions(workingDirectory, sdkModelName, permissionMode, maxThinkingTokens, reasoningEffort, streamingEnabled, systemPromptAppend, requestedSessionId, mcpServers, modelId) {
   const claudeCliOverride = getClaudeCliPathOverride();
   return {
@@ -157,6 +220,13 @@ function buildQueryOptions(workingDirectory, sdkModelName, permissionMode, maxTh
   };
 }
 
+/**
+ * @param {RequestParams} params
+ * @param {boolean} withAttachments
+ * @param {string|null} requestedSessionId
+ * @param {string|null} [resolvedModelId=null]
+ * @returns {Promise<any>}
+ */
 async function buildUserMessage(params, withAttachments, requestedSessionId, resolvedModelId = null) {
   if (withAttachments) {
     const attachments = await loadAttachments({ attachments: params.attachments || [] });
@@ -178,6 +248,12 @@ async function buildUserMessage(params, withAttachments, requestedSessionId, res
   };
 }
 
+/**
+ * @param {RequestParams} params
+ * @param {boolean} withAttachments
+ * @param {{ settings?: any }} [overrides={}]
+ * @returns {Promise<RequestContextBag>}
+ */
 async function buildRequestContext(params, withAttachments, overrides = {}) {
   setupApiKey();
 
@@ -193,18 +269,18 @@ async function buildRequestContext(params, withAttachments, overrides = {}) {
     ? params.runtimeSessionEpoch.trim()
     : null;
 
-  const workingDirectory = selectWorkingDirectory(params.cwd || null);
+  const workingDirectory = selectWorkingDirectory(/** @type {string} */ (params.cwd || null));
   try {
     process.chdir(workingDirectory);
   } catch (error) {
-    console.error('[WARNING] Failed to change process.cwd():', error.message);
+    console.error('[WARNING] Failed to change process.cwd():', error instanceof Error ? error.message : String(error));
   }
 
   const settings = overrides.settings ?? loadClaudeSettings();
   const modelId = params.model || null;
   const actualModel = params.actualModel || null;
   const { sdkModelName, resolvedModelId } = resolveRequestModelState(modelId, settings?.env, actualModel);
-  setModelEnvironmentVariables(resolvedModelId, modelId);
+  setModelEnvironmentVariables(resolvedModelId, modelId ?? undefined);
 
   const permissionMode = normalizePermissionMode(params.permissionMode);
   const streamingEnabled = resolveStreamingEnabled(params, settings);
@@ -231,7 +307,7 @@ async function buildRequestContext(params, withAttachments, overrides = {}) {
     + ' signature=' + runtimeSignature);
 
   return {
-    requestedSessionId,
+    requestedSessionId: requestedSessionId ?? undefined,
     runtimeSessionEpoch,
     streamingEnabled,
     options,
@@ -254,9 +330,15 @@ const _sessionCleanupTimer = setInterval(async () => {
 // unref() so the timer does not prevent natural process exit
 _sessionCleanupTimer.unref();
 
+/**
+ * @param {RuntimeLike} runtime
+ * @param {RequestContextBag} requestContext
+ * @param {{ state: any } | null} [turnMeta]
+ * @returns {Promise<void>}
+ */
 async function executeTurn(runtime, requestContext, turnMeta) {
   if (!runtime || runtime.closed) {
-    const err = new Error('Runtime is closed');
+    const err = /** @type {Error & { runtimeTerminated: boolean }} */ (new Error('Runtime is closed'));
     err.runtimeTerminated = true;
     throw err;
   }
@@ -273,8 +355,8 @@ async function executeTurn(runtime, requestContext, turnMeta) {
   // 创建中断信号 Promise，让 disposeRuntime 能立即打断挂起的 query.next()
   // 不用 AbortController 是因为不确定 SDK 是否支持 signal
   const abortPromise = new Promise((_, reject) => {
-    runtime._turnAbortReject = (reason) => {
-      const err = new Error(reason || 'Runtime aborted');
+    runtime._turnAbortReject = (/** @type {string|null} */ reason) => {
+      const err = /** @type {Error & { runtimeTerminated: boolean }} */ (new Error(reason || 'Runtime aborted'));
       err.runtimeTerminated = true;
       reject(err);
     };
@@ -294,7 +376,7 @@ async function executeTurn(runtime, requestContext, turnMeta) {
 
     while (true) {
       if (runtime.closed) {
-        const err = new Error('Runtime was disposed during turn');
+        const err = /** @type {Error & { runtimeTerminated: boolean }} */ (new Error('Runtime was disposed during turn'));
         err.runtimeTerminated = true;
         throw err;
       }
@@ -304,13 +386,13 @@ async function executeTurn(runtime, requestContext, turnMeta) {
         // (perpetual reader owns runtime.query.next())
         next = await runtime.turnSink.take();
       } catch (error) {
-        const wrapped = new Error(error?.message || String(error));
+        const wrapped = /** @type {Error & { runtimeTerminated: boolean }} */ (new Error(error instanceof Error ? error.message : String(error)));
         wrapped.runtimeTerminated = true;
         throw wrapped;
       }
 
       if (next.done) {
-        const err = new Error('Claude session stream ended unexpectedly');
+        const err = /** @type {Error & { runtimeTerminated: boolean }} */ (new Error('Claude session stream ended unexpectedly'));
         err.runtimeTerminated = true;
         throw err;
       }
@@ -408,10 +490,17 @@ async function executeTurn(runtime, requestContext, turnMeta) {
   }
 }
 
+/**
+ * @param {RuntimeLike|null} runtime
+ * @param {any} error
+ * @param {RequestContextBag|null} requestContext
+ * @returns {void}
+ */
 function emitSendError(runtime, error, requestContext) {
+  /** @type {{ success: boolean; error: string; details: Record<string, unknown> }} */
   const payload = {
     success: false,
-    error: redactSecrets(error?.message || String(error)),
+    error: /** @type {string} */ (redactSecrets(error instanceof Error ? error.message : String(error))),
     details: {}
   };
 
@@ -422,12 +511,12 @@ function emitSendError(runtime, error, requestContext) {
   if (error?.stack) payload.details.stack = redactSecrets(truncateString(error.stack, 2000));
 
   if (runtime?.stderrLines?.length) {
-    const sdkErrorText = redactSecrets(runtime.stderrLines.slice(-10).join('\n'));
+    const sdkErrorText = /** @type {string} */ (redactSecrets(runtime.stderrLines.slice(-10).join('\n')));
     payload.error = `SDK-STDERR:\n\`\`\`\n${sdkErrorText}\n\`\`\`\n\n${payload.error}`;
     payload.details.sdkError = sdkErrorText;
   }
 
-  payload.error = truncateString(payload.error, 2500);
+  payload.error = /** @type {string} */ (truncateString(payload.error, 2500));
 
   // The error payload is emitted on three channels intentionally:
   //   1. stderr ([SEND_ERROR] tag) — captured by Java's stderrLines for diagnostics
@@ -442,6 +531,10 @@ function emitSendError(runtime, error, requestContext) {
   console.log(serialized);
 }
 
+/**
+ * @param {RequestContextBag} requestContext
+ * @returns {RequestContextBag}
+ */
 function applyExactModelForContextUsage(requestContext) {
   const exactModelId = typeof requestContext?.resolvedModelId === 'string'
     ? requestContext.resolvedModelId.trim()
@@ -474,7 +567,7 @@ function applyExactModelForContextUsage(requestContext) {
  *     tracked modelId (e.g. a prewarmed runtime created without a model), so
  *     we cannot prove the existing window limit is correct.
  *
- * @param {object|null} runtime - The existing runtime (or null if none).
+ * @param {RuntimeLike|null} runtime - The existing runtime (or null if none).
  * @param {string|null} modelId - The requested model ID, may carry the `[1m]` suffix.
  * @returns {boolean} True if the runtime must be disposed and recreated.
  */
@@ -496,6 +589,10 @@ function shouldRecreateRuntimeForModel(runtime, modelId) {
  * and will fail to restore the true baseline. Callers must serialize on the
  * daemon's request queue (which is already single-threaded per process) and
  * MUST NOT wrap parallel operations.
+ *
+ * @param {string|null} modelId
+ * @param {() => Promise<any>} operation
+ * @returns {Promise<any>}
  */
 async function withScopedContextWindowPreference(modelId, operation) {
   const envKey = 'CLAUDE_CODE_DISABLE_1M_CONTEXT';
@@ -522,10 +619,18 @@ async function withScopedContextWindowPreference(modelId, operation) {
   }
 }
 
+/**
+ * @param {RequestParams} params
+ * @param {boolean} withAttachments
+ * @returns {Promise<void>}
+ */
 async function sendInternal(params, withAttachments) {
   const safeParams = params || {};
+  /** @type {{ state: any }} */
   const turnMeta = { state: null };
+  /** @type {RuntimeLike|null} */
   let runtime = null;
+  /** @type {RequestContextBag|null} */
   let requestContext = null;
   const sendStartTime = Date.now();
   try {
@@ -538,7 +643,7 @@ async function sendInternal(params, withAttachments) {
 
     const elapsedMs = Date.now() - sendStartTime;
 
-    const wasAborted = runtime?.abortRequested === true && error?.runtimeTerminated;
+    const wasAborted = runtime?.abortRequested === true && !!(/** @type {any} */ (error)?.runtimeTerminated);
 
     if (turnMeta.state?.streamingEnabled && turnMeta.state?.streamStarted && !turnMeta.state?.streamEnded) {
       process.stdout.write('[STREAM_END]\n');
@@ -558,20 +663,32 @@ async function sendInternal(params, withAttachments) {
     }
 
     // Only dispose if not already disposed by abort
-    if (runtime && !runtime.closed && error?.runtimeTerminated) {
+    if (runtime && !runtime.closed && (/** @type {any} */ (error)?.runtimeTerminated)) {
       await disposeRuntime(runtime, { removeSession });
     }
   }
 }
 
+/**
+ * @param {RequestParams} [params={}]
+ * @returns {Promise<void>}
+ */
 export async function sendMessagePersistent(params = {}) {
   await sendInternal(params, false);
 }
 
+/**
+ * @param {RequestParams} [params={}]
+ * @returns {Promise<void>}
+ */
 export async function sendMessageWithAttachmentsPersistent(params = {}) {
   await sendInternal(params, true);
 }
 
+/**
+ * @param {RequestParams} [params={}]
+ * @returns {Promise<void>}
+ */
 export async function preconnectPersistent(params = {}) {
   const safeParams = params || {};
   const requestContext = await buildRequestContext(safeParams, false);
@@ -579,6 +696,10 @@ export async function preconnectPersistent(params = {}) {
   await acquireRuntime(requestContext, { registerActiveQueryResult, removeSession });
 }
 
+/**
+ * @param {RequestParams|string} [params={}]
+ * @returns {Promise<void>}
+ */
 export async function resetRuntimePersistent(params = {}) {
   const runtimeSessionEpoch = typeof params === 'string'
     ? params
@@ -595,10 +716,14 @@ export async function resetRuntimePersistent(params = {}) {
   }
 }
 
+/**
+ * @returns {Promise<void>}
+ */
 export async function abortCurrentTurn() {
   // Atomic swap: clear first to prevent double-disposal from rapid abort calls.
   // JS is single-threaded so assignment is atomic — only the first caller gets
   // a non-null runtime, subsequent callers see null and exit early.
+  /** @type {RuntimeLike | null} */
   const runtime = getActiveTurnRuntime();
   if (!runtime) return;
   console.log('[LIFECYCLE] abortCurrentTurn epoch=' + (runtime.runtimeSessionEpoch || '(none)'));
@@ -622,7 +747,7 @@ export async function abortCurrentTurn() {
     }
   } catch (error) {
     // Best-effort — log but don't throw so abort always "succeeds"
-    console.error('[ABORT] Failed to dispose runtime:', error.message);
+    console.error('[ABORT] Failed to dispose runtime:', error instanceof Error ? error.message : String(error));
   }
 }
 
@@ -632,9 +757,12 @@ export async function abortCurrentTurn() {
  * If no runtime exists for the requested session, one is created via preconnect
  * so that /context works on historical sessions without sending a message first.
  * Outputs the result as JSON to stdout for the Java daemon bridge to collect.
- * @param {object} params - { sessionId?: string, cwd?: string, model?: string }
+ * @param {RequestParams} [params={}] - { sessionId?: string, cwd?: string, model?: string }
+ * @param {{ settings?: any }} [overrides={}]
+ * @returns {Promise<void>}
  */
 export async function getContextUsagePersistent(params = {}, overrides = {}) {
+  /** @type {RequestParams} */
   const safeParams = params || {};
   const sessionId = safeParams.sessionId || null;
   const modelId = safeParams.model || null; // Original model ID, may contain [1m] suffix
@@ -642,6 +770,7 @@ export async function getContextUsagePersistent(params = {}, overrides = {}) {
     const settings = overrides?.settings ?? loadClaudeSettings();
     const { resolvedModelId } = resolveRequestModelState(modelId, settings?.env, safeParams.actualModel || null);
     const targetModel = resolvedModelId || modelId || null;
+    /** @type {RuntimeLike | null} */
     let runtime = null;
 
     // Try to find the runtime for the specific session first
@@ -671,7 +800,7 @@ export async function getContextUsagePersistent(params = {}, overrides = {}) {
       // Fast path: reuse existing runtime with minimal model sync.
       // Only map the model ID and call setModel if needed - skip full buildRequestContext
       // which would unnecessarily load MCP config, settings, etc.
-      setModelEnvironmentVariables(targetModel, modelId);
+      setModelEnvironmentVariables(targetModel, modelId ?? undefined);
     }
 
     if (typeof runtime.query?.setModel === 'function') {
@@ -680,7 +809,7 @@ export async function getContextUsagePersistent(params = {}, overrides = {}) {
         runtime.currentModel = targetModel;
         runtime.modelId = modelId || null;
       } catch (error) {
-        console.error('[LIFECYCLE] setModel failed:', error.message);
+        console.error('[LIFECYCLE] setModel failed:', error instanceof Error ? error.message : String(error));
       }
     }
 
@@ -716,21 +845,39 @@ export const __testing = {
     await shutdownPersistentRuntimes();
     clearActiveTurnRuntime();
   },
+  /** @param {any} queryFn */
   setQueryFn(queryFn) {
     setCachedQueryFn(queryFn);
   },
+  /**
+   * @param {RequestParams} [params={}]
+   * @param {boolean} [withAttachments=false]
+   * @param {{ settings?: any }} [overrides={}]
+   */
   async buildRequestContext(params = {}, withAttachments = false, overrides = {}) {
     return buildRequestContext(params, withAttachments, overrides);
   },
+  /**
+   * @param {string|null} modelId
+   * @param {Record<string, unknown> | null | undefined} settingsEnv
+   * @param {string|null} [actualModel=null]
+   */
   resolveRequestModelState(modelId, settingsEnv, actualModel = null) {
     return resolveRequestModelState(modelId, settingsEnv, actualModel);
   },
+  /** @param {RequestContextBag} requestContext */
   applyExactModelForContextUsage(requestContext) {
     return applyExactModelForContextUsage(requestContext);
   },
+  /** @param {RequestContextBag} requestContext */
   async acquireRuntime(requestContext) {
     return acquireRuntime(requestContext, { registerActiveQueryResult, removeSession });
   },
+  /**
+   * @param {RuntimeLike} runtime
+   * @param {RequestContextBag} requestContext
+   * @param {{ state: any } | null} [turnMeta=null]
+   */
   async executeTurn(runtime, requestContext, turnMeta = null) {
     return executeTurn(runtime, requestContext, turnMeta);
   },
@@ -740,18 +887,21 @@ export const __testing = {
   async cleanupSessionRuntimes() {
     return cleanupStaleSessionRuntimes({ registerActiveQueryResult, removeSession });
   },
+  /** @param {RequestParams|string} [params={}] */
   async resetRuntimePersistent(params = {}) {
     return resetRuntimePersistent(params);
   },
   async abortCurrentTurn() {
     return abortCurrentTurn();
   },
+  /** @param {RuntimeLike} runtime */
   setActiveTurnRuntime(runtime) {
     setActiveTurnRuntime(runtime);
   },
   getActiveTurnRuntime() {
     return getActiveTurnRuntime();
   },
+  /** @param {string} sessionId */
   getRuntimeForSession(sessionId) {
     return getRuntimeForSession(sessionId);
   },

@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Process management module
  * Provides process creation, event handling, and safe termination
@@ -9,10 +10,47 @@ import { hasValidMcpResponse, createInitializeRequest } from './mcp-protocol.js'
 
 const MAX_PROCESS_OUTPUT_BUFFER_SIZE = 1024 * 1024;
 
+/**
+ * Finalization callback signature invoked when the process reaches a terminal state.
+ * @typedef {(status: string, serverInfo?: any, error?: string | null) => void} FinalizeCallback
+ */
+
+/**
+ * Context passed to {@link createProcessHandlers}.
+ * @typedef {{
+ *   serverName: string;
+ *   child: import('child_process').ChildProcess | null;
+ *   finalize: FinalizeCallback;
+ * }} ProcessHandlerContext
+ */
+
+/**
+ * Collection of process event handlers returned by {@link createProcessHandlers}.
+ * @typedef {{
+ *   stdout: { onData: (data: Buffer) => void };
+ *   stderr: { onData: (data: Buffer) => void };
+ *   onError: (error: Error) => void;
+ *   onClose: (code: number | null) => void;
+ *   getStdout: () => string;
+ *   getStderr: () => string;
+ * }} ProcessHandlers
+ */
+
+/**
+ * @param {import('child_process').ChildProcess} child
+ * @returns {boolean}
+ */
 function isProcessRunning(child) {
   return child.exitCode == null && child.signalCode == null;
 }
 
+/**
+ * Append a chunk to the buffer, truncating to the most recent content if it
+ * would exceed the maximum buffer size.
+ * @param {string} current - Current buffered content
+ * @param {string} chunk - New chunk to append
+ * @returns {string} Bounded buffer contents
+ */
 function appendBounded(current, chunk) {
   const combined = current + chunk;
   return combined.length <= MAX_PROCESS_OUTPUT_BUFFER_SIZE
@@ -53,7 +91,7 @@ export function safeKillProcess(child, serverName) {
             log('debug', `Force killed process for ${serverName}`);
           }
         } catch (e) {
-          log('debug', `SIGKILL failed for ${serverName}:`, e.message);
+          log('debug', `SIGKILL failed for ${serverName}:`, e instanceof Error ? e.message : String(e));
         }
       }, 500);
       killTimer.unref();
@@ -62,17 +100,14 @@ export function safeKillProcess(child, serverName) {
       child.once?.('close', clearKillTimer);
     }
   } catch (e) {
-    log('debug', `Failed to kill process for ${serverName}:`, e.message);
+    log('debug', `Failed to kill process for ${serverName}:`, e instanceof Error ? e.message : String(e));
   }
 }
 
 /**
  * Create process event handlers
- * @param {Object} context - Context object
- * @param {string} context.serverName - Server name
- * @param {import('child_process').ChildProcess} context.child - Child process
- * @param {Function} context.finalize - Finalization callback
- * @returns {Object} Collection of event handlers
+ * @param {ProcessHandlerContext} context - Context object
+ * @returns {ProcessHandlers} Collection of event handlers
  */
 export function createProcessHandlers(context) {
   const { serverName, finalize } = context;
@@ -81,7 +116,7 @@ export function createProcessHandlers(context) {
 
   return {
     stdout: {
-      onData: (data) => {
+      onData: (/** @type {Buffer} */ data) => {
         stdout = appendBounded(stdout, data.toString());
         if (hasValidMcpResponse(stdout)) {
           const serverInfo = parseServerInfo(stdout);
@@ -90,7 +125,7 @@ export function createProcessHandlers(context) {
       }
     },
     stderr: {
-      onData: (data) => {
+      onData: (/** @type {Buffer} */ data) => {
         stderr = appendBounded(stderr, data.toString());
         // Log stderr output for diagnostics
         const stderrLine = data.toString().trim();
@@ -99,11 +134,11 @@ export function createProcessHandlers(context) {
         }
       }
     },
-    onError: (error) => {
+    onError: (/** @type {Error} */ error) => {
       log('debug', `Process error for ${serverName}:`, error.message);
       finalize('failed', null, error.message);
     },
-    onClose: (code) => {
+    onClose: (/** @type {number | null} */ code) => {
       if (hasValidMcpResponse(stdout) || stdout.includes('MCP')) {
         finalize('connected', parseServerInfo(stdout));
       } else if (code !== 0) {
@@ -132,25 +167,26 @@ export function createProcessHandlers(context) {
  * @param {string} serverName - Server name
  */
 export function sendInitializeRequest(child, serverName) {
-  if (!child?.stdin || child.stdin.destroyed || !child.stdin.writable) {
+  const stdin = child?.stdin;
+  if (!stdin || stdin.destroyed || !stdin.writable) {
     log('debug', `Cannot write initialize request for ${serverName}: stdin is unavailable`);
     return;
   }
 
   let errorReported = false;
-  const onStdinError = (error) => {
+  const onStdinError = (/** @type {Error} */ error) => {
     if (errorReported) return;
     errorReported = true;
     log('debug', `Failed to write to stdin for ${serverName}:`, error.message);
   };
-  child.stdin.once('error', onStdinError);
+  stdin.once('error', onStdinError);
   try {
-    child.stdin.write(createInitializeRequest(), (error) => {
-      child.stdin.removeListener('error', onStdinError);
+    stdin.write(createInitializeRequest(), (error) => {
+      stdin.removeListener('error', onStdinError);
       if (error) onStdinError(error);
     });
   } catch (e) {
-    child.stdin.removeListener('error', onStdinError);
-    onStdinError(e);
+    stdin.removeListener('error', onStdinError);
+    onStdinError(/** @type {Error} */ (e));
   }
 }

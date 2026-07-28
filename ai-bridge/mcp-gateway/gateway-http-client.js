@@ -1,3 +1,4 @@
+// @ts-check
 // gateway-http-client.js — gateway-stdio-client.js 连本地 gateway HTTP 的客户端 + tools/list 降级。
 //
 // 背景(30s 根因):gateway-stdio-client.js 原 request() 用 http.request 无任何 socket/connect 超时,
@@ -15,18 +16,34 @@
 
 import { writeMessage } from './framing.js';
 
+/** @typedef {import('./framing.js').McpWritable} McpWritable */
+
 export class GatewayHttpClient {
   // 单次请求默认超时(ms)。gateway 本地 HTTP,5s 足够;挂死 TCP 不再拖 30s。
   static DEFAULT_TIMEOUT_MS = 5000;
 
+  /**
+   * @param {{ host?: string; port?: number; token?: string; timeoutMs?: number }} [opts]
+   */
   constructor({ host = '127.0.0.1', port, token, timeoutMs } = {}) {
     if (!port) throw new Error('GatewayHttpClient: port required');
+    /** @type {string} */
     this.host = host;
+    /** @type {number} */
     this.port = port;
+    /** @type {string | undefined} */
     this.token = token;
+    /** @type {number} */
     this.timeoutMs = typeof timeoutMs === 'number' ? timeoutMs : GatewayHttpClient.DEFAULT_TIMEOUT_MS;
   }
 
+  /**
+   * @param {string} method    HTTP 方法(GET/POST)
+   * @param {string} path      路径(含 query)
+   * @param {object | null | undefined} body 请求体(POST)
+   * @param {number | undefined} [timeoutMs] 单次超时覆盖
+   * @returns {Promise<any>} 解析后的 JSON 响应
+   */
   async request(method, path, body, timeoutMs) {
     const timeout = timeoutMs ?? this.timeoutMs;
     const url = `http://${this.host}:${this.port}${path}`;
@@ -51,7 +68,7 @@ export class GatewayHttpClient {
       return text ? JSON.parse(text) : {};
     } catch (e) {
       // AbortController 超时:不同运行时抛 AbortError/DOMException/TypeError,统一转超时错误
-      if (controller.signal.aborted || e?.name === 'AbortError') {
+      if (controller.signal.aborted || (e instanceof Error && e.name === 'AbortError')) {
         throw new Error(`Gateway HTTP timeout: ${method} ${path} after ${timeout}ms`);
       }
       throw e;
@@ -60,7 +77,19 @@ export class GatewayHttpClient {
     }
   }
 
+  /**
+   * @param {string} path
+   * @param {number | undefined} [timeoutMs]
+   * @returns {Promise<any>}
+   */
   get(path, timeoutMs) { return this.request('GET', path, null, timeoutMs); }
+
+  /**
+   * @param {string} path
+   * @param {object | null | undefined} body
+   * @param {number | undefined} [timeoutMs]
+   * @returns {Promise<any>}
+   */
   post(path, body, timeoutMs) { return this.request('POST', path, body, timeoutMs); }
 }
 
@@ -71,7 +100,7 @@ export class GatewayHttpClient {
  * 不再等 30s),stderr 写 [melon-gateway-down] 标记供 Java 侧上行前端 toast(见 GatewayDownMatcher)。
  * 成功路径返回真实 tools;失败路径绝不返 JSON-RPC error(原实现返 error 让 provider 标记失败)。
  *
- * @param {{httpClient: GatewayHttpClient, revision: number, message: object, output: object, stderr?: object}} args
+ * @param {{ httpClient: GatewayHttpClient; revision: number; message: { method?: string; id?: unknown; [k: string]: unknown } | null | undefined; output: McpWritable; stderr?: McpWritable }} args
  * @returns {Promise<boolean>} true 表示已处理 tools/list(调用方不再走基类)
  */
 export async function runToolsList({ httpClient, revision, message, output, stderr }) {
@@ -81,7 +110,7 @@ export async function runToolsList({ httpClient, revision, message, output, stde
     const result = await httpClient.get(`/runtime/tools/list?revision=${encodeURIComponent(revision)}`);
     writeMessage(output, { jsonrpc: '2.0', id: message.id, result });
   } catch (error) {
-    errSink.write(`[melon-gateway-down] tools/list degraded to empty (gateway unreachable): ${error.message}\n`);
+    errSink.write(`[melon-gateway-down] tools/list degraded to empty (gateway unreachable): ${error instanceof Error ? error.message : String(error)}\n`);
     writeMessage(output, { jsonrpc: '2.0', id: message.id, result: { tools: [] } });
   }
   return true;

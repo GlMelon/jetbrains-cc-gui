@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * File rewind service for Claude sessions.
  * Restores files to a previous checkpoint via the Claude SDK.
@@ -12,7 +13,15 @@ import { ensureClaudeSdk, hasClaudeProjectSessionFile, waitForClaudeProjectSessi
 import { getActiveQueryResult, getActiveSessionIds } from './message-session-registry.js';
 import { getClaudeCliPathOverride } from '../../utils/claude-cli-path.js';
 
+/**
+ * 通过 Claude SDK 把会话文件回退到指定用户消息对应的检查点。
+ * @param {string} sessionId       会话 ID
+ * @param {string} userMessageId   目标用户消息 ID
+ * @param {string|null} [cwd=null] 工作目录
+ * @returns {Promise<void>}
+ */
 export async function rewindFiles(sessionId, userMessageId, cwd = null) {
+  /** @type {any} */
   let result = null;
   try {
     console.log('[REWIND] ========== REWIND OPERATION START ==========');
@@ -36,11 +45,11 @@ export async function rewindFiles(sessionId, userMessageId, cwd = null) {
           process.env.HOME = getRealHomeDir();
         }
 
-        const workingDirectory = selectWorkingDirectory(cwd);
+        const workingDirectory = selectWorkingDirectory(/** @type {string} */ (cwd));
         try {
           process.chdir(workingDirectory);
         } catch (chdirError) {
-          console.error('[WARNING] Failed to change process.cwd():', chdirError.message);
+          console.error('[WARNING] Failed to change process.cwd():', chdirError instanceof Error ? chdirError.message : String(chdirError));
         }
 
         if (!hasClaudeProjectSessionFile(sessionId, workingDirectory)) {
@@ -58,7 +67,7 @@ export async function rewindFiles(sessionId, userMessageId, cwd = null) {
           env: buildCliEnv(),
           // Rewind is a maxTurns:1 file-checkpointing call — no inference output,
           // so 1M context state is irrelevant; only neutralize effort/thinking.
-          settings: buildWebviewControlledSettingsOverride(),
+          settings: buildWebviewControlledSettingsOverride(undefined),
           tools: { type: 'preset', preset: 'claude_code' },
           settingSources: ['user', 'project', 'local'],
           additionalDirectories: Array.from(
@@ -70,9 +79,9 @@ export async function rewindFiles(sessionId, userMessageId, cwd = null) {
             behavior: 'deny',
             message: 'Rewind operation'
           }),
-          stderr: (data) => {
-            if (data && data.trim()) {
-              console.log(`[SDK-STDERR] ${data.trim()}`);
+          stderr: (/** @type {string|Buffer} */ data) => {
+            if (data && data.toString().trim()) {
+              console.log(`[SDK-STDERR] ${data.toString().trim()}`);
             }
           },
           ...(claudeCliOverride && { pathToClaudeCodeExecutable: claudeCliOverride })
@@ -99,7 +108,8 @@ export async function rewindFiles(sessionId, userMessageId, cwd = null) {
         }
 
       } catch (resumeError) {
-        const errorMsg = `Failed to resume session ${sessionId}: ${resumeError.message}`;
+        const resumeErrMsg = resumeError instanceof Error ? resumeError.message : String(resumeError);
+        const errorMsg = `Failed to resume session ${sessionId}: ${resumeErrMsg}`;
         console.error('[REWIND_ERROR]', errorMsg);
         console.log(JSON.stringify({
           success: false,
@@ -122,6 +132,10 @@ export async function rewindFiles(sessionId, userMessageId, cwd = null) {
 
     const timeoutMs = 45000;
 
+    /**
+     * @param {string} targetUserMessageId
+     * @returns {Promise<string>}
+     */
     const attemptRewind = async (targetUserMessageId) => {
       console.log('[REWIND] Calling result.rewindFiles()...', JSON.stringify({ targetUserMessageId }));
       await Promise.race([
@@ -135,7 +149,7 @@ export async function rewindFiles(sessionId, userMessageId, cwd = null) {
     try {
       usedMessageId = await attemptRewind(userMessageId);
     } catch (primaryError) {
-      const msg = primaryError?.message || String(primaryError);
+      const msg = (primaryError instanceof Error ? primaryError.message : String(primaryError));
       if (!msg.includes('No file checkpoint found for message')) {
         throw primaryError;
       }
@@ -154,7 +168,7 @@ export async function rewindFiles(sessionId, userMessageId, cwd = null) {
           break;
         } catch (candidateError) {
           lastError = candidateError;
-          const candidateMsg = candidateError?.message || String(candidateError);
+          const candidateMsg = (candidateError instanceof Error ? candidateError.message : String(candidateError));
           if (!candidateMsg.includes('No file checkpoint found for message')) {
             throw candidateError;
           }
@@ -176,11 +190,13 @@ export async function rewindFiles(sessionId, userMessageId, cwd = null) {
     }));
 
   } catch (error) {
-    console.error('[REWIND_ERROR]', error.message);
-    console.error('[REWIND_ERROR_STACK]', error.stack);
+    const errMsg = error instanceof Error ? error.message : String(error);
+    const errStack = error instanceof Error ? error.stack : undefined;
+    console.error('[REWIND_ERROR]', errMsg);
+    console.error('[REWIND_ERROR_STACK]', errStack);
     console.log(JSON.stringify({
       success: false,
-      error: error.message
+      error: errMsg
     }));
   } finally {
     try {
@@ -190,6 +206,13 @@ export async function rewindFiles(sessionId, userMessageId, cwd = null) {
   }
 }
 
+/**
+ * 解析可作为回退目标的候选用户消息 ID 列表。
+ * @param {string} sessionId
+ * @param {string|null} cwd
+ * @param {string} providedMessageId
+ * @returns {Promise<string[]>}
+ */
 async function resolveRewindCandidateMessageIds(sessionId, cwd, providedMessageId) {
   const messages = await readClaudeProjectSessionMessages(sessionId, cwd);
   if (!Array.isArray(messages) || messages.length === 0) {
@@ -203,7 +226,7 @@ async function resolveRewindCandidateMessageIds(sessionId, cwd, providedMessageI
     }
   }
 
-  const isUserTextMessage = (m) => {
+  const isUserTextMessage = (/** @type {any} */ m) => {
     if (!m || m.type !== 'user') return false;
     const content = m.message?.content;
     if (!content) return false;
@@ -251,6 +274,12 @@ async function resolveRewindCandidateMessageIds(sessionId, cwd, providedMessageI
   return unique.slice(0, maxCandidates);
 }
 
+/**
+ * 读取 Claude 项目 session 文件(.jsonl)并解析为消息对象数组。
+ * @param {string} sessionId
+ * @param {string|null} cwd
+ * @returns {Promise<any[]>}
+ */
 async function readClaudeProjectSessionMessages(sessionId, cwd) {
   try {
     const projectsDir = join(getClaudeDir(), 'projects');

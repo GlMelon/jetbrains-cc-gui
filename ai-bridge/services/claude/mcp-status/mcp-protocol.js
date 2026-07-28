@@ -1,6 +1,24 @@
+// @ts-check
 /**
  * MCP protocol utilities module
  * Provides utility functions for the MCP protocol
+ */
+
+/**
+ * Parsed JSON-RPC response payload. Fields are optional since different
+ * response kinds (result vs error vs notification) populate different subsets.
+ * @typedef {{ jsonrpc?: string; id?: string | number; result?: any; error?: { message?: string; code?: string | number } & Record<string, unknown> }} JsonRpcResponse
+ */
+
+/**
+ * A single Server-Sent Event parsed from an SSE stream.
+ * @typedef {{ event?: string; data?: any; id?: string }} SseEvent
+ */
+
+/**
+ * Result of building an SSE request context: the (possibly rewritten) URL to
+ * fetch and the sanitized header set.
+ * @typedef {{ fetchUrl: string; headers: Record<string, string> }} SseRequestContext
  */
 
 /** MCP protocol version used for initialize handshake */
@@ -41,12 +59,12 @@ export function hasValidMcpResponse(stdout) {
 /**
  * Parse an SSE (Server-Sent Events) response
  * @param {string} text - SSE response text
- * @returns {Array<Object>} Array of parsed events
+ * @returns {SseEvent[]} Array of parsed events
  */
 export function parseSSE(text) {
   const events = [];
   const lines = text.split('\n');
-  let currentEvent = {};
+  let currentEvent = /** @type {SseEvent} */ ({});
 
   for (const line of lines) {
     const trimmedLine = line.trim();
@@ -135,10 +153,11 @@ const FORBIDDEN_HEADERS = new Set([
 
 /**
  * Filter user-provided headers, removing forbidden ones.
- * @param {Object} rawHeaders - Headers from server config
- * @returns {Object} Sanitized headers
+ * @param {Record<string, unknown>} rawHeaders - Headers from server config
+ * @returns {Record<string, string>} Sanitized headers
  */
 function sanitizeHeaders(rawHeaders) {
+  /** @type {Record<string, string>} */
   const safe = {};
   for (const [key, value] of Object.entries(rawHeaders)) {
     if (FORBIDDEN_HEADERS.has(key.toLowerCase())) continue;
@@ -152,8 +171,8 @@ function sanitizeHeaders(rawHeaders) {
  * Build request headers, extracting Authorization from query string if present.
  * Shared by SSE verifier and SSE tools getter.
  * @param {string} url - Original URL
- * @param {Object} serverConfig - Server configuration
- * @returns {{fetchUrl: string, headers: Object}}
+ * @param {{ headers?: Record<string, unknown> }} serverConfig - Server configuration
+ * @returns {SseRequestContext}
  */
 export function buildSseRequestContext(url, serverConfig) {
   const headers = sanitizeHeaders(serverConfig.headers || {});
@@ -191,8 +210,8 @@ export async function cancelResponseBody(response) {
  * Parse a single SSE line and return a new event object with the parsed field merged.
  * Immutable: does not modify the input currentEvent.
  * @param {string} line - A single line from the SSE stream
- * @param {Object} currentEvent - The event being built
- * @returns {Object} New event object with the parsed field
+ * @param {SseEvent} currentEvent - The event being built
+ * @returns {SseEvent} New event object with the parsed field
  */
 export function parseSseLine(line, currentEvent) {
   if (line.startsWith('event:')) {
@@ -231,16 +250,16 @@ const MAX_SSE_EVENT_COUNT = 1000;
  * Reads from the stream incrementally, buffering partial lines.
  *
  * @param {ReadableStreamDefaultReader} reader - The stream reader
- * @param {TextDecoder} decoder - Shared decoder instance
+ * @param {InstanceType<typeof TextDecoder>} decoder - Shared decoder instance
  * @param {{value: string}} bufferRef - Mutable shared buffer.
  *   Intentionally mutable: the buffer must persist across multiple
  *   waitForSseEvent calls on the same SSE stream.
- * @param {function(Object): boolean} predicate - Return true to accept the event
+ * @param {(event: SseEvent) => boolean} predicate - Return true to accept the event
  * @param {AbortSignal} signal - Abort signal
- * @returns {Promise<Object>} The matching SSE event
+ * @returns {Promise<SseEvent>} The matching SSE event
  */
 export async function waitForSseEvent(reader, decoder, bufferRef, predicate, signal) {
-  let currentEvent = {};
+  let currentEvent = /** @type {SseEvent} */ ({});
   let eventCount = 0;
 
   while (!signal.aborted) {
@@ -294,9 +313,9 @@ export async function waitForSseEvent(reader, decoder, bufferRef, predicate, sig
 
 /**
  * Extract JSON-RPC data from an SSE event's data field.
- * @param {Object} event - The SSE event
+ * @param {SseEvent} event - The SSE event
  * @param {string} context - Description for error messages
- * @returns {Object} Parsed JSON-RPC data
+ * @returns {JsonRpcResponse} Parsed JSON-RPC data
  */
 export function extractJsonRpcData(event, context = 'SSE response') {
   if (typeof event.data === 'object') {
@@ -311,7 +330,10 @@ export function extractJsonRpcData(event, context = 'SSE response') {
   }
 }
 
-/** Predicate that matches JSON-RPC responses (have "id"), skipping notifications */
+/** Predicate that matches JSON-RPC responses (have "id"), skipping notifications
+ * @param {SseEvent} evt - The SSE event to test
+ * @returns {boolean}
+ */
 export function isJsonRpcResponse(evt) {
   if ((evt.event != null && evt.event !== 'message') || evt.data == null) return false;
   let d = evt.data;
@@ -330,16 +352,17 @@ export function isJsonRpcResponse(evt) {
  * @param {string|number} requestId - Expected JSON-RPC request id
  * @param {AbortSignal} signal - Absolute request deadline signal
  * @param {string} context - Description for diagnostics
- * @returns {Promise<Object>} Matching JSON-RPC response
+ * @returns {Promise<JsonRpcResponse>} Matching JSON-RPC response
  */
 export async function readJsonRpcResponse(response, requestId, signal, context = 'MCP response') {
-  if (!response.body) {
+  const body = response.body;
+  if (!body) {
     throw new Error(context + ' has no readable body');
   }
 
   const contentType = (response.headers.get('content-type') || '').toLowerCase();
   if (contentType.includes('text/event-stream')) {
-    const reader = response.body.getReader();
+    const reader = body.getReader();
     try {
       const event = await waitForSseEvent(
         reader,
@@ -361,26 +384,26 @@ export async function readJsonRpcResponse(response, requestId, signal, context =
     }
   }
 
-  const reader = response.body.getReader();
+  const reader = body.getReader();
   const decoder = new TextDecoder();
-  let body = '';
+  let bodyText = '';
   try {
     while (!signal.aborted) {
       const { done, value } = await reader.read();
       if (done) break;
-      body += decoder.decode(value, { stream: true });
-      if (body.length > MAX_RESPONSE_BUFFER_SIZE) {
+      bodyText += decoder.decode(value, { stream: true });
+      if (bodyText.length > MAX_RESPONSE_BUFFER_SIZE) {
         throw new Error(context + ' exceeded maximum size');
       }
     }
     if (signal.aborted) {
       throw signal.reason instanceof Error ? signal.reason : new DOMException('Aborted', 'AbortError');
     }
-    body += decoder.decode();
-    if (body.length > MAX_RESPONSE_BUFFER_SIZE) {
+    bodyText += decoder.decode();
+    if (bodyText.length > MAX_RESPONSE_BUFFER_SIZE) {
       throw new Error(context + ' exceeded maximum size');
     }
-    const data = JSON.parse(body);
+    const data = JSON.parse(bodyText);
     if (data?.id !== requestId) {
       throw new Error(context + ' returned unexpected JSON-RPC id');
     }

@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Codex utility functions.
  * Logging, environment config, SDK initialization, reconnect helpers, and error handling.
@@ -7,6 +8,7 @@ import { loadCodexSdk, isCodexSdkAvailable } from '../../utils/sdk-loader.js';
 import { CodexPermissionMapper } from '../../utils/permission-mapper.js';
 
 // SDK cache
+/** @type {any} */
 let codexSdk = null;
 
 // ========== Debug Logging Configuration ==========
@@ -26,9 +28,9 @@ export function debugLog(level, tag, ...args) {
 }
 
 // Convenience functions for different log levels
-export const logWarn = (tag, ...args) => debugLog(2, tag, ...args);
-export const logInfo = (tag, ...args) => debugLog(3, tag, ...args);
-export const logDebug = (tag, ...args) => debugLog(4, tag, ...args);
+export const logWarn = (/** @type {string} */ tag, /** @type {any[]} */ ...args) => debugLog(2, tag, ...args);
+export const logInfo = (/** @type {string} */ tag, /** @type {any[]} */ ...args) => debugLog(3, tag, ...args);
+export const logDebug = (/** @type {string} */ tag, /** @type {any[]} */ ...args) => debugLog(4, tag, ...args);
 export const VALID_SANDBOX_MODES = new Set(['read-only', 'workspace-write', 'danger-full-access']);
 export const VALID_APPROVAL_POLICIES = new Set(['never', 'on-request', 'on-failure', 'untrusted']);
 export const CODEX_CLI_ENV_BLOCKLIST = new Set([
@@ -76,8 +78,14 @@ export function resolveApprovalPolicyOverride() {
  * Builds a sanitized environment map for Codex CLI to avoid inherited
  * polluted variables that can break approval policy behavior.
  */
+/**
+ * @param {Record<string, unknown> | null | undefined} baseEnv
+ * @returns {{ cliEnv: Record<string, string>, removedKeys: string[] }}
+ */
 export function buildCodexCliEnvironment(baseEnv) {
+  /** @type {Record<string, string>} */
   const cliEnv = {};
+  /** @type {string[]} */
   const removedKeys = [];
 
   if (!baseEnv || typeof baseEnv !== 'object') {
@@ -98,6 +106,7 @@ export function buildCodexCliEnvironment(baseEnv) {
   return { cliEnv, removedKeys };
 }
 
+/** @param {string | null | undefined} mode @returns {string} */
 export function normalizeCodexPermissionMode(mode) {
   if (typeof mode !== 'string') {
     return 'default';
@@ -112,20 +121,28 @@ export function normalizeCodexPermissionMode(mode) {
   return trimmed;
 }
 
+/** @param {string | null | undefined} mode @returns {boolean} */
 export function isAutoEditPermissionMode(mode) {
   const normalized = normalizeCodexPermissionMode(mode);
   return normalized === 'acceptEdits';
 }
 
+/** @param {string | null | undefined} message @returns {boolean} */
 export const isReconnectNotice = (message) =>
   typeof message === 'string' && /Reconnecting\.\.\./i.test(message);
 
+/** @param {string | null | undefined} message @returns {string} */
 export const extractReconnectStatus = (message) => {
   if (typeof message !== 'string') return '';
   const match = message.match(/Reconnecting\.\.\.\s*\d+\/\d+/i);
   return match ? match[0] : message;
 };
 
+/**
+ * @param {(message: object) => void} emitMessage
+ * @param {string} message
+ * @returns {void}
+ */
 export const emitStatusMessage = (emitMessage, message) => {
   const status = extractReconnectStatus(message);
   if (!status) return;
@@ -135,10 +152,13 @@ export const emitStatusMessage = (emitMessage, message) => {
 /**
  * Ensure Codex SDK is loaded.
  */
+/** @returns {Promise<any>} */
 export async function ensureCodexSdk() {
   if (!codexSdk) {
     if (!isCodexSdkAvailable()) {
-      const error = new Error('Codex SDK not installed. Please install via Settings > Dependencies.');
+      const error = /** @type {Error & { code?: string; provider?: string }} */ (
+        new Error('Codex SDK not installed. Please install via Settings > Dependencies.')
+      );
       error.code = 'SDK_NOT_INSTALLED';
       error.provider = 'codex';
       throw error;
@@ -283,6 +303,12 @@ export function buildErrorPayload(error) {
  * @param {object} threadOptions - 线程选项(model/sandboxMode/workingDirectory...)
  * @param {number|null} [mcpGatewayRevision] - MCP Gateway revision;null/省略时不参与签名(向后兼容)
  * @returns {string} 稳定的 JSON 签名字符串
+ */
+/**
+ * @param {any} codexOptions
+ * @param {any} threadOptions
+ * @param {number | string | null | undefined} [mcpGatewayRevision]
+ * @returns {string}
  */
 export function buildCodexThreadCacheSignature(codexOptions, threadOptions, mcpGatewayRevision) {
   return JSON.stringify({

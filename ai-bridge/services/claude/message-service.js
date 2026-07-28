@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Message sending service module — coordinator.
  *
@@ -40,18 +41,19 @@ import {
 /**
  * Get MCP server connection status.
  * Directly validates the actual connection status of each MCP server (via mcp-status-service module).
- * @param {string} [cwd=null] - Working directory (used to detect project-specific MCP configuration)
+ * @param {string|null} [cwd=null] - Working directory (used to detect project-specific MCP configuration)
+ * @returns {Promise<void>}
  */
 export async function getMcpServerStatus(cwd = null) {
   try {
     // Use the mcp-status-service module to get status, passing cwd for project-specific config
-    const mcpStatus = await getMcpServersStatus(cwd);
+    const mcpStatus = await getMcpServersStatus(/** @type {string} */ (cwd));
 
     // Output with [MCP_SERVER_STATUS] tag for fast identification on the Java side.
     // Also keep a compatible JSON format as fallback.
     console.log('[MCP_SERVER_STATUS]' + JSON.stringify(mcpStatus));
   } catch (error) {
-    console.error('[GET_MCP_SERVER_STATUS_ERROR]', error.message);
+    console.error('[GET_MCP_SERVER_STATUS_ERROR]', error instanceof Error ? error.message : String(error));
     // Use the tag on error too, so the Java side can identify it quickly
     console.log('[MCP_SERVER_STATUS]' + JSON.stringify([]));
   }
@@ -61,7 +63,8 @@ export async function getMcpServerStatus(cwd = null) {
  * Get the tools list for a specific MCP server.
  * Directly connects to the MCP server and retrieves its available tools (via mcp-status-service module).
  * @param {string} serverId - MCP server ID
- * @param {string} [cwd=null] - Working directory (used to detect project-specific MCP configuration)
+ * @param {string|null} [cwd=null] - Working directory (used to detect project-specific MCP configuration)
+ * @returns {Promise<void>}
  */
 export async function getMcpServerTools(serverId, cwd = null) {
   try {
@@ -81,6 +84,7 @@ export async function getMcpServerTools(serverId, cwd = null) {
     }
 
     // Call mcp-status-service to get the tools list
+    /** @type {{ tools?: unknown[]; error?: string; name?: string }} */
     const toolsResult = await getMcpServerToolsImpl(serverId, targetServer.config);
 
     // Output results with a prefix tag for quick identification by the Java backend
@@ -99,11 +103,12 @@ export async function getMcpServerTools(serverId, cwd = null) {
     console.log(resultJson);
 
   } catch (error) {
-    console.error('[GET_MCP_SERVER_TOOLS_ERROR]', error.message);
+    const errMsg = error instanceof Error ? error.message : String(error);
+    console.error('[GET_MCP_SERVER_TOOLS_ERROR]', errMsg);
     console.log(JSON.stringify({
       success: false,
       serverId,
-      error: error.message,
+      error: errMsg,
       tools: []
     }));
   }

@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * SSE transport tools getter module
  * Retrieves tool lists from MCP servers using the legacy SSE transport protocol.
@@ -24,12 +25,33 @@ import {
 } from './mcp-protocol.js';
 
 /**
+ * Partial MCP server config used by SSE clients.
+ * @typedef {{ url?: string; headers?: Record<string, unknown> }} SseServerConfig
+ */
+
+/**
+ * Result of fetching tools from an MCP server.
+ * @typedef {{ name: string; tools: any[]; error: string | null; serverType: string }} SseToolsResult
+ */
+
+/**
+ * JSON-RPC request body shape used when talking to an MCP server.
+ * @typedef {{ jsonrpc: string; id: number; method: string; params?: object }} JsonRpcRequestBody
+ */
+
+/**
+ * Parsed JSON-RPC response (subset of fields used by SSE clients).
+ * @typedef {{ jsonrpc?: string; id?: string | number; result?: any; error?: { message?: string; [k: string]: any } }} McpJsonRpcResponse
+ */
+
+/**
  * Get tools list from an SSE-type MCP server
  * @param {string} serverName - Server name
- * @param {Object} serverConfig - Server configuration
- * @returns {Promise<Object>} { name, tools, error, serverType }
+ * @param {SseServerConfig} serverConfig - Server configuration
+ * @returns {Promise<SseToolsResult>} { name, tools, error, serverType }
  */
 export async function getSseServerTools(serverName, serverConfig) {
+  /** @type {SseToolsResult} */
   const result = {
     name: serverName,
     tools: [],
@@ -138,11 +160,11 @@ export async function getSseServerTools(serverName, serverConfig) {
         'returned', result.tools.length, 'tools');
     }
   } catch (error) {
-    if (error?.name === 'AbortError') {
+    if (error instanceof Error && error.name === 'AbortError') {
       log('debug', '[MCP Tools] SSE server timeout:', serverName);
       result.error = 'Connection timeout';
     } else {
-      const errorMsg = error?.message || String(error);
+      const errorMsg = (error instanceof Error ? error.message : '') || String(error);
       log('error', '[MCP Tools] SSE server', serverName, 'failed:', errorMsg);
       result.error = errorMsg;
     }
@@ -160,13 +182,13 @@ export async function getSseServerTools(serverName, serverConfig) {
 /**
  * POST a JSON-RPC request and wait for the response on the SSE stream.
  * @param {string} endpoint - The POST endpoint URL
- * @param {Object} baseHeaders - Base request headers
- * @param {Object} body - JSON-RPC request body
+ * @param {Record<string, string>} baseHeaders - Base request headers
+ * @param {JsonRpcRequestBody} body - JSON-RPC request body
  * @param {ReadableStreamDefaultReader} reader - SSE stream reader
- * @param {TextDecoder} decoder - Shared decoder
+ * @param {InstanceType<typeof TextDecoder>} decoder - Shared decoder
  * @param {{value: string}} bufferRef - Shared buffer
  * @param {AbortSignal} signal - Abort signal
- * @returns {Promise<Object>} Parsed JSON-RPC response data
+ * @returns {Promise<McpJsonRpcResponse>} Parsed JSON-RPC response data
  */
 async function sendAndReceive(endpoint, baseHeaders, body, reader, decoder, bufferRef, signal) {
   const response = await fetch(endpoint, {

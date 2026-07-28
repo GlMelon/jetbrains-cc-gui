@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Prompt Enhancement Service.
  * Routes enhancement requests to Claude or Codex based on prompt enhancer config.
@@ -23,7 +24,36 @@ import { getRealHomeDir } from '../utils/path-utils.js';
 import { getClaudeCliPathOverride } from '../utils/claude-cli-path.js';
 import { buildCodexCliEnvironment } from './codex/codex-utils.js';
 
+/**
+ * Related-file entry supplied by the IDE for prompt enhancement.
+ * @typedef {{ path?: string; content?: string }} PromptEnhancerRelatedFile
+ */
+
+/**
+ * Currently-open file info supplied by the IDE for prompt enhancement.
+ * @typedef {{ path?: string; language?: string; content?: string }} PromptEnhancerCurrentFile
+ */
+
+/**
+ * IDE context supplied to the prompt enhancer. All fields optional.
+ * @typedef {{
+ *   selectedCode?: string;
+ *   cursorContext?: string;
+ *   cursorPosition?: { line?: number };
+ *   currentFile?: PromptEnhancerCurrentFile;
+ *   relatedFiles?: PromptEnhancerRelatedFile[];
+ *   projectType?: string;
+ * }} PromptEnhancerContext
+ */
+
+/**
+ * Resolved runtime config driving provider/model selection for enhancement.
+ * @typedef {{ provider: string; model: string; resolutionSource: string; actualModel: string | undefined }} PromptEnhancerRuntimeConfig
+ */
+
+/** @type {any} */
 let claudeSdk = null;
+/** @type {any} */
 let codexSdk = null;
 
 const DEFAULT_PROMPT_ENHANCER_CONFIG = {
@@ -43,7 +73,7 @@ const DEFAULT_PROMPT_ENHANCER_CONFIG = {
 async function ensureClaudeSdk() {
   if (!claudeSdk) {
     if (!isClaudeSdkAvailable()) {
-      const error = new Error('Claude Code SDK not installed. Please install via Settings > Dependencies.');
+      const error = /** @type {Error & { code: string }} */ (new Error('Claude Code SDK not installed. Please install via Settings > Dependencies.'));
       error.code = 'SDK_NOT_INSTALLED';
       throw error;
     }
@@ -55,7 +85,7 @@ async function ensureClaudeSdk() {
 async function ensureCodexSdk() {
   if (!codexSdk) {
     if (!isCodexSdkAvailable()) {
-      const error = new Error('Codex SDK not installed. Please install via Settings > Dependencies.');
+      const error = /** @type {Error & { code: string }} */ (new Error('Codex SDK not installed. Please install via Settings > Dependencies.'));
       error.code = 'SDK_NOT_INSTALLED';
       throw error;
     }
@@ -71,11 +101,15 @@ const MAX_CURRENT_FILE_LENGTH = 3000;
 const MAX_RELATED_FILES_LENGTH = 2000;
 const MAX_SINGLE_RELATED_FILE_LENGTH = 500;
 
+/**
+ * Read the entire stdin stream as a UTF-8 string.
+ * @returns {Promise<string>}
+ */
 async function readStdin() {
   return new Promise((resolve, reject) => {
     let data = '';
     process.stdin.setEncoding('utf8');
-    process.stdin.on('data', (chunk) => {
+    process.stdin.on('data', (/** @type {string} */ chunk) => {
       data += chunk;
     });
     process.stdin.on('end', () => {
@@ -85,6 +119,13 @@ async function readStdin() {
   });
 }
 
+/**
+ * Truncate text to maxLength, optionally keeping the tail.
+ * @param {string} text
+ * @param {number} maxLength
+ * @param {boolean} [fromEnd]
+ * @returns {string}
+ */
 function truncateText(text, maxLength, fromEnd = false) {
   if (!text || text.length <= maxLength) {
     return text;
@@ -96,10 +137,16 @@ function truncateText(text, maxLength, fromEnd = false) {
   return text.slice(0, maxLength) + '\n...';
 }
 
+/**
+ * Resolve a code language label from a file path's extension.
+ * @param {string | undefined} filePath
+ * @returns {string}
+ */
 function getLanguageFromPath(filePath) {
   if (!filePath) return 'text';
 
   const ext = filePath.split('.').pop()?.toLowerCase();
+  /** @type {Record<string, string>} */
   const langMap = {
     'js': 'javascript',
     'jsx': 'javascript',
@@ -137,9 +184,16 @@ function getLanguageFromPath(filePath) {
     'zsh': 'bash',
   };
 
-  return langMap[ext] || 'text';
+  return (ext && langMap[ext]) || 'text';
 }
 
+/**
+ * Compose the full enhancement prompt by splicing IDE context (selected code,
+ * cursor context, current file, related files, project type) under the original prompt.
+ * @param {string} originalPrompt
+ * @param {PromptEnhancerContext | null | undefined} context
+ * @returns {string}
+ */
 export function buildFullPrompt(originalPrompt, context) {
   let fullPrompt = `Please optimize the following prompt:\n\n${originalPrompt}`;
 
@@ -226,6 +280,12 @@ export function buildFullPrompt(originalPrompt, context) {
   return fullPrompt;
 }
 
+/**
+ * Coerce an externally-supplied prompt-enhancer config into a well-formed shape.
+ * Semi schema-less passthrough (matches Java JsonObject handling).
+ * @param {Record<string, any> | null | undefined} config
+ * @returns {{ provider: string | null; effectiveProvider: string | null; resolutionSource: string; models: { claude: string; codex: string }; availability: { claude: boolean; codex: boolean } }}
+ */
 function normalizePromptEnhancerConfig(config) {
   if (!config || typeof config !== 'object') {
     return structuredClone(DEFAULT_PROMPT_ENHANCER_CONFIG);
@@ -248,6 +308,11 @@ function normalizePromptEnhancerConfig(config) {
   };
 }
 
+/**
+ * Resolve the runtime provider/model/source for the prompt enhancer.
+ * @param {{ promptEnhancerConfig?: Record<string, any> | null; legacyModel?: string; actualModel?: string } | undefined} [input]
+ * @returns {PromptEnhancerRuntimeConfig}
+ */
 export function resolvePromptEnhancerRuntimeConfig({ promptEnhancerConfig, legacyModel, actualModel } = {}) {
   if (!promptEnhancerConfig) {
     return {
@@ -301,11 +366,20 @@ export function resolvePromptEnhancerRuntimeConfig({ promptEnhancerConfig, legac
   throw new Error('No available prompt enhancer provider is configured. Please configure Codex or Claude Code in Settings.');
 }
 
+/**
+ * Enhance the prompt via the Claude Agent SDK.
+ * @param {string} originalPrompt
+ * @param {string} systemPrompt
+ * @param {string} model
+ * @param {string | undefined} actualModel
+ * @param {PromptEnhancerContext | undefined} context
+ * @returns {Promise<string>}
+ */
 async function enhancePromptWithClaude(originalPrompt, systemPrompt, model, actualModel, context) {
   const sdk = await ensureClaudeSdk();
   const { query } = sdk;
 
-  const config = setupApiKey();
+  const config = /** @type {{ authType: string; baseUrl?: string }} */ (setupApiKey());
   console.log(`[PromptEnhancer] Auth type: ${config.authType}`);
   console.log(`[PromptEnhancer] Base URL: ${config.baseUrl || 'https://api.anthropic.com'}`);
 
@@ -370,6 +444,12 @@ async function enhancePromptWithClaude(originalPrompt, systemPrompt, model, actu
   throw new Error('Claude enhancement response is empty');
 }
 
+/**
+ * Compute the appended delta between two agent message snapshots (Codex streaming).
+ * @param {string | undefined} previousText
+ * @param {string | undefined} nextText
+ * @returns {string}
+ */
 export function extractAppendedDelta(previousText, nextText) {
   const previous = typeof previousText === 'string' ? previousText : '';
   const next = typeof nextText === 'string' ? nextText : '';
@@ -380,6 +460,15 @@ export function extractAppendedDelta(previousText, nextText) {
   return next.slice(previous.length);
 }
 
+/**
+ * Enhance the prompt via the Codex SDK.
+ * @param {string} originalPrompt
+ * @param {string} systemPrompt
+ * @param {string} model
+ * @param {string | undefined} actualModel
+ * @param {PromptEnhancerContext | undefined} context
+ * @returns {Promise<string>}
+ */
 async function enhancePromptWithCodex(originalPrompt, systemPrompt, model, actualModel, context) {
   const sdk = await ensureCodexSdk();
   const Codex = sdk.Codex || sdk.default || sdk;
@@ -447,6 +536,14 @@ async function enhancePromptWithCodex(originalPrompt, systemPrompt, model, actua
   throw new Error('Codex enhancement response is empty');
 }
 
+/**
+ * Dispatch enhancement to the configured provider.
+ * @param {string} originalPrompt
+ * @param {string} systemPrompt
+ * @param {PromptEnhancerRuntimeConfig} runtimeConfig
+ * @param {PromptEnhancerContext | undefined} context
+ * @returns {Promise<string>}
+ */
 async function enhancePrompt(originalPrompt, systemPrompt, runtimeConfig, context) {
   if (runtimeConfig.provider === 'codex') {
     return enhancePromptWithCodex(originalPrompt, systemPrompt, runtimeConfig.model, runtimeConfig.actualModel, context);
@@ -454,6 +551,11 @@ async function enhancePrompt(originalPrompt, systemPrompt, runtimeConfig, contex
   return enhancePromptWithClaude(originalPrompt, systemPrompt, runtimeConfig.model, runtimeConfig.actualModel, context);
 }
 
+/**
+ * Entry point for a single prompt-enhancement request.
+ * @param {Record<string, any>} data
+ * @returns {Promise<string>}
+ */
 export async function runPromptEnhancerRequest(data) {
   const { prompt, systemPrompt, legacyModel, context, promptEnhancerConfig, actualModel } = data;
 
@@ -506,8 +608,9 @@ async function main() {
     console.log(`[ENHANCED]${encodedPrompt}`);
     process.exit(0);
   } catch (error) {
-    console.error('[PromptEnhancer] Error:', error.message);
-    console.log(`[ENHANCED]Enhancement failed: ${error.message}`);
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[PromptEnhancer] Error:', msg);
+    console.log(`[ENHANCED]Enhancement failed: ${msg}`);
     process.exit(1);
   }
 }

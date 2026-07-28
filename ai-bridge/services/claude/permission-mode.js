@@ -1,3 +1,4 @@
+// @ts-check
 import { canUseTool, requestPlanApproval, SAFE_ALWAYS_ALLOW_TOOLS, EDIT_TOOLS, EXECUTION_TOOLS } from '../../permission-handler.js';
 import { debugLog } from '../../permission-ipc.js';
 
@@ -45,6 +46,11 @@ const PLAN_MODE_ALLOWED_TOOLS = new Set([
  */
 const READ_ONLY_MCP_ACTION = /^(read|list|get|search|query|fetch|find|view|describe|show|resolve|lookup|status|info|inspect|count|exists|preview|ls|cat|head|tail)([_-]|$)/i;
 
+/**
+ * 判断 MCP 工具名(mcp__<server>__<action>)是否为只读(按动作动词正向白名单)。
+ * @param {string} toolName
+ * @returns {boolean}
+ */
 function isReadOnlyMcpTool(toolName) {
   if (typeof toolName !== 'string' || !toolName.startsWith('mcp__')) {
     return false;
@@ -55,6 +61,11 @@ function isReadOnlyMcpTool(toolName) {
 
 const PLAN_FILE_NAME = 'PLAN.md';
 
+/**
+ * @param {string} filePath
+ * @param {string|null} [cwd]
+ * @returns {boolean}
+ */
 function isPlanFilePath(filePath, cwd) {
   if (!filePath || typeof filePath !== 'string') return false;
   const workingDir = cwd || process.cwd();
@@ -74,11 +85,17 @@ function isPlanFilePath(filePath, cwd) {
  * Extract all file paths from a tool's input.
  * MultiEdit may have multiple edits targeting different files.
  */
+/**
+ * 从工具输入中提取所有文件路径(MultiEdit 可能包含多个 edit 目标)。
+ * @param {string} toolName
+ * @param {any} toolInput
+ * @returns {string[]}
+ */
 function extractFilePaths(toolName, toolInput) {
   if (!toolInput) return [];
   if (toolName === 'MultiEdit' && Array.isArray(toolInput.edits)) {
     return toolInput.edits
-      .map(e => e.file_path || e.path)
+      .map((/** @type {any} */ e) => e.file_path || e.path)
       .filter(Boolean);
   }
   const fp = toolInput.file_path || toolInput.path;
@@ -100,6 +117,11 @@ export {
   YIELD_TO_SDK
 };
 
+/**
+ * 归一化权限模式;空值/未知值回退为 'default'。
+ * @param {string|null|undefined} permissionMode
+ * @returns {string}
+ */
 export function normalizePermissionMode(permissionMode) {
   if (!permissionMode || permissionMode === '') return 'default';
   if (VALID_PERMISSION_MODES.has(permissionMode)) return permissionMode;
@@ -107,10 +129,20 @@ export function normalizePermissionMode(permissionMode) {
   return 'default';
 }
 
+/**
+ * 创建 PreToolUse 钩子,根据权限模式与工具名决定 allow/deny/ask/yield。
+ *
+ * @param {string | { value: string } | null | undefined} permissionModeState
+ *   权限模式:字符串(只读快照)或可变状态对象 { value }(daemon 运行时跨 turn 保持)。
+ * @param {string|null} [cwd=null] 工作目录
+ * @param {null | ((mode: string) => void | Promise<void>)} [onModeChange=null] 模式变更回调
+ * @param {{ canUseTool?: any; requestPlanApproval?: any }} [dependencies={}] 可注入的依赖(测试用)
+ * @returns {(input: any) => Promise<any>}
+ */
 export function createPreToolUseHook(permissionModeState, cwd = null, onModeChange = null, dependencies = {}) {
   const workingDirectory = cwd || process.cwd();
-  const requestToolPermission = dependencies.canUseTool || canUseTool;
-  const requestPlanModeApproval = dependencies.requestPlanApproval || requestPlanApproval;
+  const requestToolPermission = /** @type {any} */ (dependencies.canUseTool || canUseTool);
+  const requestPlanModeApproval = /** @type {any} */ (dependencies.requestPlanApproval || requestPlanApproval);
   const readPermissionMode = () => {
     if (permissionModeState && typeof permissionModeState === 'object') {
       const normalized = normalizePermissionMode(permissionModeState.value);
@@ -121,6 +153,10 @@ export function createPreToolUseHook(permissionModeState, cwd = null, onModeChan
     }
     return normalizePermissionMode(permissionModeState);
   };
+  /**
+   * @param {string} mode
+   * @returns {Promise<string>}
+   */
   const updatePermissionMode = async (mode) => {
     const normalized = normalizePermissionMode(mode);
     if (permissionModeState && typeof permissionModeState === 'object') {
@@ -132,7 +168,7 @@ export function createPreToolUseHook(permissionModeState, cwd = null, onModeChan
     return normalized;
   };
 
-  return async (input) => {
+  return async (/** @type {any} */ input) => {
     let currentPermissionMode = readPermissionMode();
     const toolName = input?.tool_name;
 
@@ -187,7 +223,7 @@ export function createPreToolUseHook(permissionModeState, cwd = null, onModeChan
             hookEventName: 'PreToolUse',
             permissionDecision: 'deny'
           },
-          reason: 'AskUserQuestion failed: ' + (error?.message || String(error))
+          reason: 'AskUserQuestion failed: ' + ((error instanceof Error ? error.message : String(error)))
         };
       }
     }
@@ -227,7 +263,7 @@ export function createPreToolUseHook(permissionModeState, cwd = null, onModeChan
             hookEventName: 'PreToolUse',
             permissionDecision: 'deny'
           },
-          reason: 'Plan approval failed: ' + (error?.message || String(error))
+          reason: 'Plan approval failed: ' + ((error instanceof Error ? error.message : String(error)))
         };
       }
     }
@@ -257,7 +293,7 @@ export function createPreToolUseHook(permissionModeState, cwd = null, onModeChan
         // MultiEdit may contain multiple file paths — check ALL of them
         const filePaths = extractFilePaths(toolName, input?.tool_input);
         const allArePlanFiles = filePaths.length > 0 &&
-          filePaths.every(fp => isPlanFilePath(fp, workingDirectory));
+          filePaths.every((/** @type {string} */ fp) => isPlanFilePath(fp, workingDirectory));
         if (allArePlanFiles) {
           return {
             hookSpecificOutput: {
@@ -290,7 +326,7 @@ export function createPreToolUseHook(permissionModeState, cwd = null, onModeChan
               hookEventName: 'PreToolUse',
               permissionDecision: 'deny'
             },
-            reason: 'Permission check failed: ' + (error?.message || String(error))
+            reason: 'Permission check failed: ' + ((error instanceof Error ? error.message : String(error)))
           };
         }
       }
@@ -320,7 +356,7 @@ export function createPreToolUseHook(permissionModeState, cwd = null, onModeChan
               hookEventName: 'PreToolUse',
               permissionDecision: 'deny'
             },
-            reason: 'Permission check failed: ' + (error?.message || String(error))
+            reason: 'Permission check failed: ' + ((error instanceof Error ? error.message : String(error)))
           };
         }
       }

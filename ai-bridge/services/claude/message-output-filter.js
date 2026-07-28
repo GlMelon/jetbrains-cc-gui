@@ -1,8 +1,18 @@
+// @ts-check
+/** @type {number} */
 const MAX_TOOL_RESULT_CONTENT_CHARS = 20000;
+/** @type {string[]} */
 const ERROR_CONTENT_PREFIXES = ['API Error', 'API error', 'Error:', 'Error '];
 
 export { MAX_TOOL_RESULT_CONTENT_CHARS, ERROR_CONTENT_PREFIXES };
 
+/**
+ * 截断超长字符串,尾部追加截断标记。
+ *
+ * @param {string | null | undefined} str 待截断字符串
+ * @param {number} [maxLen=1000] 最大保留长度
+ * @returns {string | null | undefined}
+ */
 export function truncateString(str, maxLen = 1000) {
   if (!str || str.length <= maxLen) return str;
   return str.substring(0, maxLen) + `... [truncated, total ${str.length} chars]`;
@@ -14,6 +24,12 @@ export function truncateString(str, maxLen = 1000) {
 // use a $1 capture-group reference; bare token patterns substitute the entire
 // match. NOTE: ordering matters — longest-prefix variants (sk-ant-, sk-proj-)
 // come before the generic sk-/pk-/rk- catch-all so the label is preserved.
+
+/**
+ * @typedef {{ re: RegExp; replacement: string }} SecretPattern
+ */
+
+/** @satisfies {SecretPattern[]} */
 const SECRET_PATTERNS = [
   // Anthropic / OpenAI / similar
   { re: /\bsk-ant-[A-Za-z0-9_-]{16,}/g, replacement: 'sk-ant-***REDACTED***' },
@@ -29,6 +45,12 @@ const SECRET_PATTERNS = [
   { re: /(api[_-]?key\s*[:=]\s*["']?)[^"'\s\n,;]{16,}/gi, replacement: '$1***REDACTED***' },
 ];
 
+/**
+ * 对任意值做凭证脱敏(转字符串后按 SECRET_PATTERNS 依次替换)。null/undefined 原样返回。
+ *
+ * @param {unknown} value
+ * @returns {unknown} 与输入同型(string)或原 null/undefined
+ */
 export function redactSecrets(value) {
   if (value == null) return value;
   let text = typeof value === 'string' ? value : String(value);
@@ -38,6 +60,13 @@ export function redactSecrets(value) {
   return text;
 }
 
+/**
+ * 仅对错误类内容(以 ERROR_CONTENT_PREFIXES 开头)做截断;其余原样返回。
+ *
+ * @param {string | null | undefined} content
+ * @param {number} [maxLen=1000]
+ * @returns {string | null | undefined}
+ */
 export function truncateErrorContent(content, maxLen = 1000) {
   if (!content || content.length <= maxLen) return content;
   const isError = ERROR_CONTENT_PREFIXES.some(prefix => content.startsWith(prefix));
@@ -45,6 +74,13 @@ export function truncateErrorContent(content, maxLen = 1000) {
   return content.substring(0, maxLen) + `... [truncated, total ${content.length} chars]`;
 }
 
+/**
+ * 工具结果块(truncate tool result block)。支持 string content 与 array content
+ * (Anthropic SDK 工具结果可以是文本数组,逐项截断 text 子块)。
+ *
+ * @param {any} block 工具结果块
+ * @returns {any} 截断后的块(原块未超长则原样返回)
+ */
 export function truncateToolResultBlock(block) {
   if (!block || !block.content) return block;
   const content = block.content;

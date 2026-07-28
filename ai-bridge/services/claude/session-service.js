@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Session management service module.
  * Responsible for session persistence and history message management.
@@ -11,8 +12,18 @@ import { createInterface } from 'readline';
 import { getClaudeDir } from '../../utils/path-utils.js';
 
 /**
+ * JSONL 历史消息(结构宽松,关键字段经 typeof/Array.isArray 守卫后使用)。
+ * @typedef {{ type?: string, uuid?: string, message?: any }} JsonlMessage
+ */
+
+/**
  * Append a message to the JSONL history file.
  * Adds necessary metadata fields to ensure compatibility with the history reader.
+ *
+ * @param {string} sessionId Session ID
+ * @param {string | null} cwd  Current working directory(用于定位 project 历史目录;可为 null 走 process.cwd())
+ * @param {Record<string, unknown>} obj 待持久化的消息对象
+ * @returns {void}
  */
 export function persistJsonlMessage(sessionId, cwd, obj) {
   try {
@@ -33,13 +44,17 @@ export function persistJsonlMessage(sessionId, cwd, obj) {
     appendFileSync(sessionFile, JSON.stringify(enrichedObj) + '\n', 'utf8');
     console.log('[PERSIST] Message saved to:', sessionFile);
   } catch (e) {
-    console.error('[PERSIST_ERROR]', e.message);
+    console.error('[PERSIST_ERROR]', e instanceof Error ? e.message : String(e));
   }
 }
 
 /**
  * Load session history messages (used to maintain context when resuming a session).
  * Returns an array of messages in the Anthropic Messages API format.
+ *
+ * @param {string} sessionId Session ID
+ * @param {string | null} [cwd]  Current working directory
+ * @returns {Array<{ role: string, content: unknown }>}
  */
 export function loadSessionHistory(sessionId, cwd) {
   try {
@@ -53,6 +68,7 @@ export function loadSessionHistory(sessionId, cwd) {
 
     const content = readFileSync(sessionFile, 'utf8');
     const lines = content.split('\n').filter(line => line.trim());
+    /** @type {Array<{ role: string, content: unknown }>} */
     const messages = [];
 
     for (const line of lines) {
@@ -81,7 +97,7 @@ export function loadSessionHistory(sessionId, cwd) {
 
     return messages;
   } catch (e) {
-    console.error('[LOAD_HISTORY_ERROR]', e.message);
+    console.error('[LOAD_HISTORY_ERROR]', e instanceof Error ? e.message : String(e));
     return [];
   }
 }
@@ -89,6 +105,10 @@ export function loadSessionHistory(sessionId, cwd) {
 /**
  * Get session history messages.
  * Reads from the ~/.claude/projects/ directory.
+ *
+ * @param {string} sessionId Session ID
+ * @param {string | null} [cwd] Current working directory
+ * @returns {Promise<void>}
  */
 export async function getSessionMessages(sessionId, cwd = null) {
   try {
@@ -122,14 +142,20 @@ export async function getSessionMessages(sessionId, cwd = null) {
     }));
 
   } catch (error) {
-    console.error('[GET_SESSION_ERROR]', error.message);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('[GET_SESSION_ERROR]', message);
     console.log(JSON.stringify({
       success: false,
-      error: error.message
+      error: message
     }));
   }
 }
 
+/**
+ * @param {string} sessionId Session ID
+ * @param {string | null} [cwd] Current working directory
+ * @returns {Promise<void>}
+ */
 export async function getLatestUserMessage(sessionId, cwd = null) {
   try {
     const sessionFile = resolveSessionFile(sessionId, cwd);
@@ -173,14 +199,19 @@ export async function getLatestUserMessage(sessionId, cwd = null) {
       message: latestUserMessage
     }));
   } catch (error) {
-    console.error('[GET_LATEST_USER_ERROR]', error.message);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('[GET_LATEST_USER_ERROR]', message);
     console.log(JSON.stringify({
       success: false,
-      error: error.message
+      error: message
     }));
   }
 }
 
+/**
+ * @param {JsonlMessage} message
+ * @returns {boolean}
+ */
 function isUserTextMessage(message) {
   return Boolean(
     message &&
@@ -190,6 +221,10 @@ function isUserTextMessage(message) {
   );
 }
 
+/**
+ * @param {JsonlMessage} message
+ * @returns {string}
+ */
 function extractTextContent(message) {
   const content = message?.message?.content;
   if (!content) {
@@ -210,6 +245,11 @@ function extractTextContent(message) {
     .join('\n');
 }
 
+/**
+ * @param {string} sessionId Session ID
+ * @param {string | null} [cwd] Current working directory
+ * @returns {string}
+ */
 function resolveSessionFile(sessionId, cwd = null) {
   if (!sessionId || /[\/\\]/.test(sessionId)) {
     throw new Error('Invalid session ID');

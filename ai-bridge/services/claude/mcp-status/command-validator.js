@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Command validation module
  * Provides command whitelist validation to prevent arbitrary command execution
@@ -15,8 +16,10 @@ export function validateCommand(command) {
     return { valid: false, reason: 'Command is empty or invalid' };
   }
 
-  // Extract the base command name (strip path prefix)
-  const baseCommand = command.split('/').pop().split('\\').pop();
+  // Extract the base command name (strip path prefix).
+  // `.pop()` 的返回类型是 `string | undefined`,但 command 此处已校验为非空字符串,
+  // split 至少返回单元素数组,pop() 不会真正取到 undefined;`|| ''` 仅为类型守卫,行为等价。
+  const baseCommand = command.split('/').pop()?.split('\\').pop() || '';
 
   // Check for an exact match in the whitelist
   if (ALLOWED_COMMANDS.has(baseCommand)) {

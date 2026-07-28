@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Claude channel command handler – isolates all Claude specific command logic
  * away from the shared channel-manager entry point.
@@ -21,7 +22,8 @@ import {
  * Execute a Claude specific command.
  * @param {string} command
  * @param {string[]} args
- * @param {object|null} stdinData
+ * @param {Record<string, any> | null} stdinData
+ * @returns {Promise<void>}
  */
 export async function handleClaudeCommand(command, args, stdinData) {
   switch (command) {
@@ -61,17 +63,21 @@ export async function handleClaudeCommand(command, args, stdinData) {
           attachments ? { attachments, actualModel, openedFiles, agentPrompt, streaming, reasoningEffort } : { actualModel, openedFiles, agentPrompt, streaming, reasoningEffort }
         );
       } else {
-        await claudeSendMessageWithAttachments(args[0], args[1], args[2], args[3], args[4], stdinData);
+        // stdinData 的声明类型为 Record|null,但 sendMessageWithAttachments 的 stdinData
+        // 形参经 JSDoc 标注为 object(session-service 未细化),此处显式断言对齐。
+        await claudeSendMessageWithAttachments(args[0], args[1], args[2], args[3], args[4], /** @type {any} */ (stdinData));
       }
       break;
     }
 
     case 'getSession':
-      await claudeGetSessionMessages(args[0], args[1]);
+      // session-service 的 cwd 形参默认值 = null 致推断为 null|undefined,运行时实为 string,
+      // 此处显式断言对齐(行为等价,仅类型化)。
+      await claudeGetSessionMessages(args[0], /** @type {any} */ (args[1]));
       break;
 
     case 'getLatestUserMessage':
-      await claudeGetLatestUserMessage(args[0], args[1]);
+      await claudeGetLatestUserMessage(args[0], /** @type {any} */ (args[1]));
       break;
 
     case 'rewindFiles': {
@@ -122,6 +128,7 @@ export async function handleClaudeCommand(command, args, stdinData) {
   }
 }
 
+/** @returns {string[]} */
 export function getClaudeCommandList() {
   return ['send', 'sendWithAttachments', 'getSession', 'getLatestUserMessage', 'rewindFiles', 'getMcpServerStatus', 'getMcpServerTools', 'resetRuntime', 'getContextUsage'];
 }

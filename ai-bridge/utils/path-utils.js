@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Path utilities module
  * Handles path normalization, temporary directory detection, and working directory selection
@@ -8,6 +9,7 @@ import { resolve, join } from 'path';
 import { homedir, tmpdir, platform } from 'os';
 
 // Cache the resolved home directory path to avoid redundant computation
+/** @type {string | null} */
 let cachedRealHomeDir = null;
 
 /**
@@ -74,6 +76,8 @@ export function getManagedSettingsPath() {
 /**
  * Get the list of system temporary directory prefixes
  * Supports Windows, macOS, and Linux
+ *
+ * @returns {string[]} Normalized temp path prefixes (deduplicated).
  */
 export function getTempPathPrefixes() {
   const prefixes = [];
@@ -119,6 +123,9 @@ export function getTempPathPrefixes() {
 /**
  * Normalize a path for comparison purposes.
  * On Windows: converts to lowercase and uses forward slashes.
+ *
+ * @param {string} pathValue - Path to normalize.
+ * @returns {string} Normalized path ('' for falsy input).
  */
 export function normalizePathForComparison(pathValue) {
   if (!pathValue) return '';

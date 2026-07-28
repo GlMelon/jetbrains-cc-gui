@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 
 /**
  * AI Bridge Channel Manager
@@ -77,6 +78,10 @@ process.on('unhandledRejection', (reason) => {
 
 /**
  * Handle system-level commands (e.g., SDK status checks)
+ * @param {string} command
+ * @param {string[]} args
+ * @param {Record<string, any> | null} [stdinData]
+ * @returns {Promise<void>}
  */
 async function handleSystemCommand(command, args, stdinData) {
   switch (command) {
@@ -169,10 +174,11 @@ const providerRegistry = getDefaultProviderRegistry();
     }
 
   } catch (error) {
-    console.error('[COMMAND_ERROR]', error.message);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('[COMMAND_ERROR]', message);
     console.log(JSON.stringify({
       success: false,
-      error: error.message
+      error: message
     }));
     process.exit(1);
   }

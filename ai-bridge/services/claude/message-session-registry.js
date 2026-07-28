@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Session registry for active query results.
  * Shared state extracted to avoid circular dependencies between message-sender,

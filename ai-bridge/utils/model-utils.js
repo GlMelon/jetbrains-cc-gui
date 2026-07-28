@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Model utilities module.
  * Handles model ID mapping and environment variable configuration.
@@ -108,8 +109,8 @@ export function getClaudeRoleFromModelId(modelId) {
  * settings.json env value cannot force the 1M context window back on.
  *
  * @param {string} modelId - Internal model ID from frontend (e.g. 'claude-role-sonnet')
- * @param {object} userEnv - The env object from settings.json (settings.env)
- * @param {string} actualModel - Request-owned actual model from Model Registry
+ * @param {Record<string, unknown> | null | undefined} userEnv - The env object from settings.json (settings.env)
+ * @param {string | null} [actualModel] - Request-owned actual model from Model Registry
  * @returns {string} The resolved model name for API calls, with the `[1m]` suffix preserved
  */
 export function resolveModelFromSettings(modelId, userEnv, actualModel = null) {
@@ -120,7 +121,7 @@ export function resolveModelFromSettings(modelId, userEnv, actualModel = null) {
   const requestHas1M = /\[1m\]$/i.test(modelId);
   // The request owns 1M state. Settings mappings may provide the provider's base
   // model ID, but they must not force the context-window suffix.
-  const applySuffix = (mapped) => {
+  const applySuffix = (/** @type {string} */ mapped) => {
     const base = String(mapped).trim().replace(/\[1m\]$/i, '');
     return requestHas1M ? `${base}[1m]` : base;
   };
@@ -189,7 +190,7 @@ export function resolveModelFromSettings(modelId, userEnv, actualModel = null) {
  */
 export function resolveClaudeEnhanceModelName(model, actualModel) {
   const requestHas1M = /\[1m\]$/i.test(model || '');
-  const applySuffix = (value) => {
+  const applySuffix = (/** @type {string} */ value) => {
     const base = String(value).trim().replace(/\[1m\]$/i, '');
     return requestHas1M ? `${base}[1m]` : base;
   };

@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Permission Handler — thin coordinator.
  * Provides the `canUseTool` callback for Claude SDK.
@@ -15,6 +16,11 @@ import {
   requestPlanApproval,
 } from './permission-ipc.js';
 import { rewriteToolInputPaths, isDangerousPath, collectToolInputPaths } from './permission-safety.js';
+
+/**
+ * Claude SDK canUseTool 返回的权限裁决。
+ * @typedef {{ behavior: 'allow' | 'deny'; updatedInput?: any; message?: string }} PermissionResult
+ */
 
 // ========== Tool categories for permission control ==========
 
@@ -93,6 +99,11 @@ export { requestPlanApproval, requestPermissionFromJava };
  * Used by Claude SDK.
  * Signature: (toolName: string, input: ToolInput, options: { signal: AbortSignal; suggestions?: PermissionUpdate[] }) => Promise<PermissionResult>
  * SDK expected return format: { behavior: 'allow' | 'deny', updatedInput?: object, message?: string }
+ *
+ * @param {string} toolName  工具名
+ * @param {any} input        工具入参(各工具 schema 不同,保持 any)
+ * @param {any} [options]    SDK 选项({ signal, suggestions?, ... })
+ * @returns {Promise<PermissionResult>}
  */
 export async function canUseTool(toolName, input, options = {}) {
   const callStartTime = Date.now();

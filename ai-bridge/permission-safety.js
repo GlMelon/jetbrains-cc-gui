@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Path safety utilities for permission checks.
  * Handles path rewriting (/tmp → project root) and dangerous path detection.
@@ -5,8 +6,12 @@
 import { basename, resolve, sep } from 'path';
 import { getRealHomeDir } from './utils/path-utils.js';
 
+/** @type {readonly string[]} */
 const TEMP_PATH_PREFIXES = ['/tmp', '/var/tmp', '/private/tmp'];
 
+/**
+ * @returns {string}
+ */
 export function getProjectRoot() {
   return process.env.IDEA_PROJECT_PATH || process.env.PROJECT_PATH || process.cwd();
 }
@@ -14,7 +19,7 @@ export function getProjectRoot() {
 /**
  * Rewrite tool input paths from /tmp to the project root directory.
  * @param {string} toolName - Tool name (for logging)
- * @param {Object} input - Tool parameters (mutated in place)
+ * @param {Record<string, unknown> | null | undefined} input - Tool parameters (mutated in place)
  * @returns {{ changed: boolean }} - Whether any paths were rewritten
  */
 export function rewriteToolInputPaths(toolName, input) {
@@ -23,13 +28,19 @@ export function rewriteToolInputPaths(toolName, input) {
     return { changed: false };
   }
 
+  /** @type {string[]} */
   const prefixes = [...TEMP_PATH_PREFIXES];
   if (process.env.TMPDIR) {
     prefixes.push(process.env.TMPDIR);
   }
 
+  /** @type {Array<{ from: string; to: string }>} */
   const rewrites = [];
 
+  /**
+   * @param {unknown} pathValue
+   * @returns {unknown}
+   */
   const rewritePath = (pathValue) => {
     if (typeof pathValue !== 'string') return pathValue;
     const matchedPrefix = prefixes.find(prefix => prefix && pathValue.startsWith(prefix));
@@ -52,6 +63,10 @@ export function rewriteToolInputPaths(toolName, input) {
     return sanitized;
   };
 
+  /**
+   * @param {unknown} value
+   * @returns {void}
+   */
   const traverse = (value) => {
     if (!value) return;
     if (Array.isArray(value)) {
@@ -59,11 +74,12 @@ export function rewriteToolInputPaths(toolName, input) {
       return;
     }
     if (typeof value === 'object') {
-      if (typeof value.file_path === 'string') {
-        value.file_path = rewritePath(value.file_path);
+      const obj = /** @type {Record<string, unknown>} */ (value);
+      if (typeof obj.file_path === 'string') {
+        obj.file_path = rewritePath(obj.file_path);
       }
-      for (const key of Object.keys(value)) {
-        const child = value[key];
+      for (const key of Object.keys(obj)) {
+        const child = obj[key];
         if (child && typeof child === 'object') {
           traverse(child);
         }
@@ -84,11 +100,13 @@ export function rewriteToolInputPaths(toolName, input) {
 // Matches CLI's filesystem.ts: pathInAllowedWorkingPath + checkPathSafetyForAutoEdit
 
 // Files that should NOT be auto-edited even within CWD (matches CLI's DANGEROUS_FILES/DIRECTORIES)
+/** @type {Set<string>} */
 const DANGEROUS_AUTO_EDIT_FILES = new Set([
   '.gitconfig', '.gitmodules', '.bashrc', '.bash_profile', '.zshrc',
   '.zprofile', '.profile', '.ripgreprc', '.mcp.json', '.claude.json',
 ]);
 
+/** @type {Set<string>} */
 const DANGEROUS_AUTO_EDIT_DIRS = new Set([
   '.git', '.vscode', '.idea', '.claude',
 ]);
@@ -168,6 +186,7 @@ export function isDangerousPath(filePath) {
   const userHomeDir = getRealHomeDir();
   const isWindows = process.platform === 'win32';
 
+  /** @type {string[]} */
   const dangerousPatterns = [
     // Unix/macOS system paths
     '/etc/',
@@ -226,19 +245,25 @@ export function isDangerousPath(filePath) {
  * Collect all filesystem path-like strings from a tool input, including Bash command
  * strings, so dangerous-path checks cover more than just file_path/path. (Security K)
  * @param {string} toolName - tool name (reserved for future per-tool extraction)
- * @param {Object} input - tool input object
+ * @param {Record<string, unknown> | null | undefined} input - tool input object
  * @returns {string[]} candidate path/command strings to screen with isDangerousPath
  */
 export function collectToolInputPaths(toolName, input) {
+  /** @type {string[]} */
   const out = [];
   if (!input || typeof input !== 'object') return out;
+  /** @param {unknown} v */
   const push = (v) => { if (typeof v === 'string' && v) out.push(v); };
   push(input.file_path);
   push(input.path);
   push(input.notebook_path);
   if (Array.isArray(input.edits)) {
     for (const edit of input.edits) {
-      if (edit && typeof edit === 'object') { push(edit.file_path); push(edit.path); }
+      if (edit && typeof edit === 'object') {
+        const e = /** @type {Record<string, unknown>} */ (edit);
+        push(e.file_path);
+        push(e.path);
+      }
     }
   }
   // Bash / shell command strings carry their target paths inline.

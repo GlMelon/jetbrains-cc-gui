@@ -130,6 +130,7 @@ test('getSessionMessages reads OpenCode SQLite history as normalized messages', 
 
     assert.equal(result.success, true);
     assert.equal(result.messages.length, 2);
+    assert.equal(result.totalMessageCount, 2);
 
     assert.equal(result.messages[0].type, 'user');
     assert.equal(result.messages[0].content, '请用中文介绍 Python 语言');
@@ -162,6 +163,7 @@ test('getSessionMessages replays OpenCode event log when materialized tables are
 
     assert.equal(result.success, true);
     assert.equal(result.messages.length, 2);
+    assert.equal(result.totalMessageCount, 2);
     assert.equal(result.messages[0].type, 'user');
     assert.equal(result.messages[0].content, '你好');
 
@@ -177,6 +179,66 @@ test('getSessionMessages replays OpenCode event log when materialized tables are
       cache_read_input_tokens: 2,
       cache_creation_input_tokens: 1,
     });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+
+test('getSessionMessages bounds materialized rows while preserving total count', async () => {
+  const sessionId = 'ses_history_bounded';
+  const { dir, dbPath } = await createHistoryDb({ sessionId });
+  try {
+    const result = await getSessionMessages({
+      sessionId,
+      dbPath,
+      maxMessageCount: 1,
+      maxUtf8Bytes: 1024 * 1024,
+    });
+
+    assert.equal(result.success, true);
+    assert.equal(result.messages.length, 1);
+    assert.equal(result.messages[0].type, 'user');
+    assert.equal(result.totalMessageCount, 2);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('getSessionMessages omits an oversized leading message without losing total count', async () => {
+  const sessionId = 'ses_history_oversized';
+  const { dir, dbPath } = await createHistoryDb({ sessionId });
+  try {
+    const result = await getSessionMessages({
+      sessionId,
+      dbPath,
+      maxMessageCount: 10,
+      maxUtf8Bytes: 64,
+    });
+
+    assert.equal(result.success, true);
+    assert.deepEqual(result.messages, []);
+    assert.equal(result.totalMessageCount, 2);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('getSessionMessages bounds event replay while preserving total count', async () => {
+  const sessionId = 'ses_event_history_bounded';
+  const { dir, dbPath } = await createEventHistoryDb({ sessionId });
+  try {
+    const result = await getSessionMessages({
+      sessionId,
+      dbPath,
+      maxMessageCount: 1,
+      maxUtf8Bytes: 1024 * 1024,
+    });
+
+    assert.equal(result.success, true);
+    assert.equal(result.messages.length, 1);
+    assert.equal(result.messages[0].type, 'user');
+    assert.equal(result.totalMessageCount, 2);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

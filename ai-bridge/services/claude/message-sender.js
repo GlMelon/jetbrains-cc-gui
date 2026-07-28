@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Message sending functions for Claude Agent SDK.
  * Handles plain text messages and multimodal messages with attachments.
@@ -44,6 +45,16 @@ import { getClaudeCliPathOverride } from '../../utils/claude-cli-path.js';
 
 const SUPPORTED_EFFORT_LEVELS = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 
+/**
+ * 流式累积/快照状态(在 executeWithRetry 与各 emit/process 函数间流转)。
+ * 字段在 SDK 消息处理过程中被持续读写,作为可变状态袋按 any 处理。
+ * @typedef {Record<string, any>} StreamState
+ */
+
+/**
+ * @param {string|null|undefined} reasoningEffort
+ * @returns {string|null}
+ */
 function normalizeReasoningEffort(reasoningEffort) {
   const effort = typeof reasoningEffort === 'string' ? reasoningEffort.trim() : '';
   return SUPPORTED_EFFORT_LEVELS.has(effort) ? effort : null;
@@ -51,7 +62,7 @@ function normalizeReasoningEffort(reasoningEffort) {
 
 /**
  * Resolve Extended Thinking configuration from settings.
- * @param {object|null} settings - Claude settings object
+ * @param {{ alwaysThinkingEnabled?: boolean; maxThinkingTokens?: number; streamingEnabled?: boolean } | null} settings - Claude settings object
  * @returns {{ alwaysThinkingEnabled: boolean, maxThinkingTokens: number|undefined }}
  */
 function resolveThinkingConfig(settings) {
@@ -66,7 +77,25 @@ function resolveThinkingConfig(settings) {
 }
 
 /**
+ * buildQueryOptions 入参。
+ * @typedef {{
+ *   workingDirectory: string,
+ *   permissionMode: string,
+ *   sdkModelName: string,
+ *   maxThinkingTokens: number|undefined,
+ *   streamingEnabled: boolean,
+ *   systemPromptAppend: string|null,
+ *   preToolUseHook: any,
+ *   sdkStderrLines: string[],
+ *   mcpServers: Record<string, unknown>|null,
+ *   modelId: string|null
+ * }} BuildQueryOptionsInput
+ */
+
+/**
  * Build query options object shared by both send functions.
+ * @param {BuildQueryOptionsInput} opts
+ * @returns {any}
  */
 function buildQueryOptions({ workingDirectory, permissionMode, sdkModelName, maxThinkingTokens, streamingEnabled, systemPromptAppend, preToolUseHook, sdkStderrLines, mcpServers, modelId }) {
   const claudeCliOverride = getClaudeCliPathOverride();
@@ -77,7 +106,7 @@ function buildQueryOptions({ workingDirectory, permissionMode, sdkModelName, max
     maxTurns: 100,
     enableFileCheckpointing: true,
     env: buildCliEnv(),
-    settings: buildWebviewControlledSettingsOverride(modelId),
+    settings: buildWebviewControlledSettingsOverride(modelId ?? undefined),
     ...(maxThinkingTokens !== undefined && { maxThinkingTokens }),
     ...(streamingEnabled && { includePartialMessages: true }),
     additionalDirectories: Array.from(
@@ -97,7 +126,7 @@ function buildQueryOptions({ workingDirectory, permissionMode, sdkModelName, max
       preset: 'claude_code',
       ...(systemPromptAppend && { append: systemPromptAppend })
     },
-    stderr: (data) => {
+    stderr: (/** @type {string|Buffer|null} */ data) => {
       try {
         const text = (data ?? '').toString().trim();
         if (text) {
@@ -112,6 +141,10 @@ function buildQueryOptions({ workingDirectory, permissionMode, sdkModelName, max
 
 /**
  * Prepare session resume on the options object if a resumeSessionId is provided.
+ * @param {any} options          会被原地写入 resume 字段
+ * @param {string|null} resumeSessionId
+ * @param {string} workingDirectory
+ * @returns {Promise<void>}
  */
 async function prepareSessionResume(options, resumeSessionId, workingDirectory) {
   if (resumeSessionId && resumeSessionId !== '') {
@@ -126,6 +159,8 @@ async function prepareSessionResume(options, resumeSessionId, workingDirectory) 
 
 /**
  * Load the Claude SDK and return the query function, throwing if unavailable.
+ * @param {string} logPrefix
+ * @returns {Promise<any>}
  */
 async function loadSdkQueryFunction(logPrefix) {
   const sdk = await ensureClaudeSdk();
@@ -139,17 +174,25 @@ async function loadSdkQueryFunction(logPrefix) {
 
 /**
  * Build the systemPrompt.append content from opened files and agent prompt.
+ * @param {any} openedFiles
+ * @param {string|null} agentPrompt
+ * @param {string} message
+ * @returns {string|null}
  */
 function buildSystemPromptAppend(openedFiles, agentPrompt, message) {
   if (openedFiles && openedFiles.isQuickFix) {
     return buildQuickFixPrompt(openedFiles, message);
   }
-  return buildIDEContextPrompt(openedFiles, agentPrompt);
+  return buildIDEContextPrompt(openedFiles, agentPrompt ?? undefined);
 }
 
 /**
  * Process a single message from the SDK result stream.
  * Handles streaming deltas, assistant content, tool usage, session tracking, and error results.
+ * @param {any} msg      SDK 消息对象(形状随事件类型变化,按 any 处理)
+ * @param {StreamState} state
+ * @param {string} logPrefix
+ * @returns {void}
  */
 function processStreamMessage(msg, state, logPrefix) {
   if (state.streamingEnabled && !state.streamStarted) {
@@ -268,7 +311,13 @@ function processStreamMessage(msg, state, logPrefix) {
   }
 }
 
-/** Emit text content delta with streaming fallback support. */
+/**
+ * Emit text content delta with streaming fallback support.
+ * @param {string} currentText
+ * @param {StreamState} state
+ * @param {number} [blockIndex=0]
+ * @returns {void}
+ */
 function emitTextDelta(currentText, state, blockIndex = 0) {
   if (!state.streamingEnabled) {
     console.log('[CONTENT]', truncateErrorContent(currentText));
@@ -286,7 +335,13 @@ function emitTextDelta(currentText, state, blockIndex = 0) {
   state.lastAssistantContent = currentText;
 }
 
-/** Emit thinking content delta with streaming fallback support. */
+/**
+ * Emit thinking content delta with streaming fallback support.
+ * @param {string} thinkingText
+ * @param {StreamState} state
+ * @param {number} [blockIndex=0]
+ * @returns {void}
+ */
 function emitThinkingDelta(thinkingText, state, blockIndex = 0) {
   if (!state.streamingEnabled) {
     console.log('[THINKING]', thinkingText);
@@ -300,7 +355,22 @@ function emitThinkingDelta(thinkingText, state, blockIndex = 0) {
 }
 
 /**
+ * executeWithRetry 入参。
+ * @typedef {{
+ *   createQueryResult: () => any,
+ *   streamingEnabled: boolean,
+ *   resumeSessionId: string|null,
+ *   workingDirectory: string,
+ *   logPrefix: string,
+ *   outerStreamState: StreamState,
+ *   userMessage: string
+ * }} ExecuteWithRetryInput
+ */
+
+/**
  * Execute a query call with auto-retry logic for transient API errors.
+ * @param {ExecuteWithRetryInput} args
+ * @returns {Promise<void>}
  */
 async function executeWithRetry({ createQueryResult, streamingEnabled, resumeSessionId, workingDirectory, logPrefix, outerStreamState, userMessage }) {
   let retryAttempt = 0;
@@ -375,14 +445,31 @@ async function executeWithRetry({ createQueryResult, streamingEnabled, resumeSes
   }
 }
 
-/** Check whether an error qualifies for automatic retry. */
+/**
+ * Check whether an error qualifies for automatic retry.
+ * @param {any} error
+ * @param {number} retryAttempt
+ * @param {number} messageCount
+ * @returns {boolean}
+ */
 function shouldRetry(error, retryAttempt, messageCount) {
   return isRetryableError(error) &&
     retryAttempt < AUTO_RETRY_CONFIG.maxRetries &&
     messageCount <= AUTO_RETRY_CONFIG.maxMessagesForRetry;
 }
 
-/** Execute the retry delay + state reset and return updated counters. */
+/**
+ * Execute the retry delay + state reset and return updated counters.
+ * @param {any} error
+ * @param {number} retryAttempt
+ * @param {StreamState} state
+ * @param {string|null} resumeSessionId
+ * @param {string} workingDirectory
+ * @param {boolean} streamingEnabled
+ * @param {StreamState} outerStreamState
+ * @param {string} lp
+ * @returns {Promise<{ retryAttempt: number; lastRetryError: any }>}
+ */
 async function performRetry(error, retryAttempt, state, resumeSessionId, workingDirectory, streamingEnabled, outerStreamState, lp) {
   retryAttempt++;
   const retryDelayMs = getRetryDelayMs(error);
@@ -399,7 +486,12 @@ async function performRetry(error, retryAttempt, state, resumeSessionId, working
   return { retryAttempt, lastRetryError: error };
 }
 
-/** Log detailed error information from the message loop. */
+/**
+ * Log detailed error information from the message loop.
+ * @param {any} error
+ * @param {string} lp
+ * @returns {void}
+ */
 function logLoopError(error, lp) {
   console.error(`[DEBUG] Error in message loop${lp}:`, error.message);
   console.error('[DEBUG] Error stack:', error.stack);
@@ -411,6 +503,11 @@ function logLoopError(error, lp) {
 
 /**
  * Handle top-level catch for both send functions: emit stream end on error and format error payload.
+ * @param {any} error
+ * @param {StreamState} streamState
+ * @param {string[]} sdkStderrLines
+ * @param {string|null} resolvedModel
+ * @returns {void}
  */
 function handleSendError(error, streamState, sdkStderrLines, resolvedModel) {
   if (streamState.streamingEnabled && streamState.streamStarted && !streamState.streamEnded) {
@@ -441,39 +538,44 @@ function handleSendError(error, streamState, sdkStderrLines, resolvedModel) {
 /**
  * Send a plain text message to Claude Agent SDK.
  * @param {string} message - The message text
- * @param {string} resumeSessionId - Session ID to resume (optional)
- * @param {string} cwd - Working directory (optional)
- * @param {string} permissionMode - Permission mode (optional)
- * @param {string} model - Model name (optional)
- * @param {object} openedFiles - List of opened files (optional)
- * @param {string} agentPrompt - Agent prompt (optional)
- * @param {boolean} streaming - Whether to enable streaming (optional, defaults to config value)
+ * @param {string|null} [resumeSessionId=null] - Session ID to resume (optional)
+ * @param {string|null} [cwd=null] - Working directory (optional)
+ * @param {string|null} [permissionMode=null] - Permission mode (optional)
+ * @param {string|null} [model=null] - Model name (optional)
+ * @param {string|null} [actualModel=null] - actualModel from Model Registry (optional)
+ * @param {any} [openedFiles=null] - List of opened files (optional)
+ * @param {string|null} [agentPrompt=null] - Agent prompt (optional)
+ * @param {boolean|null} [streaming=null] - Whether to enable streaming (optional, defaults to config value)
+ * @param {boolean} [disableThinking=false] - Disable extended thinking
+ * @param {string|null} [reasoningEffort=null] - Reasoning effort level
+ * @returns {Promise<void>}
  */
 export async function sendMessage(message, resumeSessionId = null, cwd = null, permissionMode = null, model = null, actualModel = null, openedFiles = null, agentPrompt = null, streaming = null, disableThinking = false, reasoningEffort = null) {
   console.log('[DIAG] ========== sendMessage() START ==========');
   console.log('[DIAG] params:', { msgLen: message ? message.length : 0, resumeSessionId: resumeSessionId || '(new)', cwd, permissionMode, model });
 
+  /** @type {string[]} */
   const sdkStderrLines = [];
   let streamingEnabled = false;
   const outerStreamState = { streamStarted: false, streamEnded: false, accumulatedUsage: null };
   let resolvedModel = null;
   try {
-    const { baseUrl, apiKeySource, baseUrlSource } = setupApiKey();
+    const { baseUrl, apiKeySource, baseUrlSource } = /** @type {{ baseUrl: string; apiKeySource: string; baseUrlSource: string }} */ (setupApiKey());
     if (isCustomBaseUrl(baseUrl)) {
       console.log('[DEBUG] Custom Base URL detected:', baseUrl);
     }
     console.log('[DEBUG] API config:', { apiKeySource, baseUrl: baseUrl || 'https://api.anthropic.com', baseUrlSource });
     console.log('[MESSAGE_START]');
 
-    const workingDirectory = selectWorkingDirectory(cwd);
-    try { process.chdir(workingDirectory); } catch (e) { console.error('[WARNING] chdir failed:', e.message); }
+    const workingDirectory = selectWorkingDirectory(/** @type {string} */ (cwd));
+    try { process.chdir(workingDirectory); } catch (/** @type {any} */ e) { console.error('[WARNING] chdir failed:', e.message); }
     console.log('[DEBUG] Working directory:', workingDirectory);
 
-    const sdkModelName = mapModelIdToSdkName(model);
+    const sdkModelName = mapModelIdToSdkName(/** @type {string} */ (model));
     const settings = loadClaudeSettings();
-    resolvedModel = resolveModelFromSettings(model, settings?.env, actualModel);
+    resolvedModel = resolveModelFromSettings(/** @type {string} */ (model), settings?.env, actualModel ?? undefined);
     console.log('[DEBUG] Model:', model, '->', sdkModelName, '(API:', resolvedModel + ')');
-    setModelEnvironmentVariables(resolvedModel, model);
+    setModelEnvironmentVariables(resolvedModel, model ?? undefined);
 
     const systemPromptAppend = buildSystemPromptAppend(openedFiles, agentPrompt, message);
 
@@ -516,13 +618,15 @@ export async function sendMessage(message, resumeSessionId = null, cwd = null, p
 /**
  * Send message with attachments using Claude Agent SDK (multimodal).
  * @param {string} message - The message text
- * @param {string} resumeSessionId - Session ID to resume (optional)
- * @param {string} cwd - Working directory (optional)
- * @param {string} permissionMode - Permission mode (optional)
- * @param {string} model - Model name (optional)
- * @param {object} stdinData - Stdin data containing attachments (optional)
+ * @param {string|null} [resumeSessionId=null] - Session ID to resume (optional)
+ * @param {string|null} [cwd=null] - Working directory (optional)
+ * @param {string|null} [permissionMode=null] - Permission mode (optional)
+ * @param {string|null} [model=null] - Model name (optional)
+ * @param {any} [stdinData=null] - Stdin data containing attachments (optional)
+ * @returns {Promise<void>}
  */
 export async function sendMessageWithAttachments(message, resumeSessionId = null, cwd = null, permissionMode = null, model = null, stdinData = null) {
+  /** @type {string[]} */
   const sdkStderrLines = [];
   let streamingEnabled = false;
   const outerStreamState = { streamStarted: false, streamEnded: false, accumulatedUsage: null };
@@ -531,8 +635,8 @@ export async function sendMessageWithAttachments(message, resumeSessionId = null
     setupApiKey();
     console.log('[MESSAGE_START]');
 
-    const workingDirectory = selectWorkingDirectory(cwd);
-    try { process.chdir(workingDirectory); } catch (e) { console.error('[WARNING] chdir failed:', e.message); }
+    const workingDirectory = selectWorkingDirectory(/** @type {string} */ (cwd));
+    try { process.chdir(workingDirectory); } catch (/** @type {any} */ e) { console.error('[WARNING] chdir failed:', e.message); }
 
     const attachments = await loadAttachments(stdinData);
     const openedFiles = stdinData?.openedFiles || null;
@@ -540,12 +644,12 @@ export async function sendMessageWithAttachments(message, resumeSessionId = null
 
     const systemPromptAppend = buildSystemPromptAppend(openedFiles, agentPrompt, message);
 
-    const sdkModelName = mapModelIdToSdkName(model);
+    const sdkModelName = mapModelIdToSdkName(/** @type {string} */ (model));
     const settings = loadClaudeSettings();
     const actualModel = stdinData?.actualModel || null;
-    resolvedAttachModel = resolveModelFromSettings(model, settings?.env, actualModel);
+    resolvedAttachModel = resolveModelFromSettings(/** @type {string} */ (model), settings?.env, actualModel ?? undefined);
     console.log('[DEBUG] (withAttachments) Model:', model, '->', resolvedAttachModel);
-    setModelEnvironmentVariables(resolvedAttachModel, model);
+    setModelEnvironmentVariables(resolvedAttachModel, model ?? undefined);
 
     const contentBlocks = await buildContentBlocks(attachments, message, resolvedAttachModel);
     const userMessage = {

@@ -1,26 +1,53 @@
+// @ts-check
 import http from 'node:http';
 import { requireToken } from './security.js';
 import { ServerSupervisor } from './server-supervisor.js';
 import { buildCatalog } from './tool-catalog.js';
 import { ToolRouter } from './tool-router.js';
+import { RevisionStore } from './revision-store.js';
+import { HealthStore } from './health-store.js';
+
+/**
+ * supervisors 的值类型:ServerSupervisor + 运行时注入的 configHash(由本模块写入,基类未声明)。
+ * @typedef {ServerSupervisor & { configHash?: string }} SupervisorEntry
+ */
 
 export class IpcServer {
+  /**
+   * @param {{ token: string; revisionStore: RevisionStore; healthStore: HealthStore; supervisors: Map<string, SupervisorEntry>; startedAt: number }} opts
+   */
   constructor({ token, revisionStore, healthStore, supervisors, startedAt }) {
+    /** @type {string} */
     this.token = token;
+    /** @type {RevisionStore} */
     this.revisionStore = revisionStore;
+    /** @type {HealthStore} */
     this.healthStore = healthStore;
+    /** @type {Map<string, SupervisorEntry>} */
     this.supervisors = supervisors;
+    /** @type {number} */
     this.startedAt = startedAt;
+    /** @type {number} */
     this.latestRevision = 0;
+    /** @type {http.Server} */
     this.server = http.createServer((req, res) => this.handle(req, res));
   }
 
+  /**
+   * @returns {Promise<number>} 实际监听端口
+   */
   listen() {
     return new Promise((resolve) => {
-      this.server.listen(0, '127.0.0.1', () => resolve(this.server.address().port));
+      this.server.listen(0, '127.0.0.1', () => {
+        const addr = /** @type {import('node:net').AddressInfo} */ (this.server.address());
+        resolve(addr.port);
+      });
     });
   }
 
+  /**
+   * @returns {void}
+   */
   close() {
     for (const supervisor of this.supervisors.values()) {
       supervisor.stop();
@@ -28,6 +55,11 @@ export class IpcServer {
     this.server.close();
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @returns {Promise<void>}
+   */
   async handle(req, res) {
     if (!requireToken(req, this.token)) {
       this.write(res, 401, { error: 'unauthorized' });
@@ -53,7 +85,9 @@ export class IpcServer {
       }
       if (req.method === 'POST' && req.url === '/runtime/tools/call') {
         const body = await readJson(req);
-        const router = new ToolRouter(this.supervisors);
+        // ToolRouter 构造期望 Map<string, SupervisorLike>(仅 callTool);supervisors 含 stop/refresh/configHash,
+        // 受 Map 不变性限制无法直接赋值,结构上含 callTool,强转安全。
+        const router = new ToolRouter(/** @type {any} */ (this.supervisors));
         const result = await router.call(body.name, body.arguments ?? {}, body.revision);
         this.write(res, 200, result);
         return;
@@ -68,13 +102,18 @@ export class IpcServer {
       }
       this.write(res, 404, { error: 'not found' });
     } catch (error) {
-      this.write(res, 500, { error: error?.message ?? String(error) });
+      this.write(res, 500, { error: error instanceof Error ? error.message : String(error) });
     }
   }
 
+  /**
+   * @param {Record<string, any>} snapshot
+   * @returns {Promise<void>}
+   */
   async applySnapshot(snapshot) {
     const revision = Number(snapshot.revision || 0);
     this.latestRevision = Math.max(this.latestRevision, revision);
+    /** @type {Map<string, ServerSpecLike>} */
     const desired = new Map();
     for (const spec of snapshot.servers ?? []) {
       if (!spec.enabled) continue;
@@ -84,6 +123,7 @@ export class IpcServer {
       const nextHash = JSON.stringify(spec);
       if (!existing || existing.configHash !== nextHash) {
         existing?.stop();
+        /** @type {SupervisorEntry} */
         const supervisor = new ServerSupervisor(spec, this.healthStore);
         supervisor.configHash = nextHash;
         this.supervisors.set(key, supervisor);
@@ -101,20 +141,39 @@ export class IpcServer {
     this.revisionStore.put(revision, buildCatalog(revision, this.supervisors));
   }
 
+  /**
+   * @returns {{ revision: number; uptimeMs: number; servers: unknown[] }}
+   */
   status() {
     return this.healthStore.snapshot(this.latestRevision, Date.now() - this.startedAt);
   }
 
+  /**
+   * @param {http.ServerResponse} res
+   * @param {number} status
+   * @param {unknown} body
+   * @returns {void}
+   */
   write(res, status, body) {
     res.writeHead(status, { 'content-type': 'application/json' });
     res.end(JSON.stringify(body));
   }
 }
 
+/**
+ * snapshot.servers 每项的最小结构。
+ * @typedef {{ enabled?: unknown; sourceProvider: string; serverId: string } & Record<string, unknown>} ServerSpecLike
+ */
+
+/**
+ * @param {http.IncomingMessage} req
+ * @returns {Promise<any>}
+ */
 function readJson(req) {
   return new Promise((resolve, reject) => {
+    /** @type {Buffer[]} */
     const chunks = [];
-    req.on('data', (chunk) => chunks.push(chunk));
+    req.on('data', (/** @type {Buffer} */ chunk) => chunks.push(chunk));
     req.on('end', () => {
       try {
         resolve(JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'));

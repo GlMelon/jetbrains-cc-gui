@@ -1,8 +1,15 @@
+// @ts-check
 /**
  * Shared usage accumulation utilities for streaming token tracking.
  * Used by message-service.js and persistent-query-service.js.
  */
 
+/**
+ * Token usage snapshot;字段在累积过程中可能未填充。
+ * @typedef {{ input_tokens?: number; output_tokens?: number; cache_creation_input_tokens?: number; cache_read_input_tokens?: number }} Usage
+ */
+
+/** @type {Usage} */
 export const DEFAULT_USAGE = {
   input_tokens: 0,
   output_tokens: 0,
@@ -14,15 +21,19 @@ export const DEFAULT_USAGE = {
  * Merge usage data following CLI's nz6() logic.
  * - input_tokens, cache_*: only update if new value > 0 (preserve accumulated)
  * - output_tokens: use new value directly (incremental updates)
+ *
+ * @param {Usage | null | undefined} accumulated 已累积的 usage
+ * @param {Usage | null | undefined} newUsage    新到达的 usage
+ * @returns {Usage} 合并后的 usage
  */
 export function mergeUsage(accumulated, newUsage) {
   if (!newUsage) return accumulated || { ...DEFAULT_USAGE };
   if (!accumulated) return { ...DEFAULT_USAGE, ...newUsage };
   return {
-    input_tokens: newUsage.input_tokens > 0 ? newUsage.input_tokens : accumulated.input_tokens,
-    cache_creation_input_tokens: newUsage.cache_creation_input_tokens > 0
+    input_tokens: (newUsage.input_tokens ?? 0) > 0 ? newUsage.input_tokens : accumulated.input_tokens,
+    cache_creation_input_tokens: (newUsage.cache_creation_input_tokens ?? 0) > 0
       ? newUsage.cache_creation_input_tokens : accumulated.cache_creation_input_tokens,
-    cache_read_input_tokens: newUsage.cache_read_input_tokens > 0
+    cache_read_input_tokens: (newUsage.cache_read_input_tokens ?? 0) > 0
       ? newUsage.cache_read_input_tokens : accumulated.cache_read_input_tokens,
     output_tokens: newUsage.output_tokens ?? accumulated.output_tokens
   };
@@ -31,6 +42,9 @@ export function mergeUsage(accumulated, newUsage) {
 /**
  * Emit [USAGE] tag from accumulated usage data during streaming.
  * NOTE: Uses process.stdout.write for consistent buffering with other IPC messages.
+ *
+ * @param {Usage | null | undefined} accumulated 已累积的 usage
+ * @returns {void}
  */
 export function emitAccumulatedUsage(accumulated) {
   if (!accumulated) return;

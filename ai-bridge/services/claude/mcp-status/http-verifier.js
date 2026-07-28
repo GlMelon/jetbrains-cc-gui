@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * HTTP/SSE server verification module
  * Provides connection status verification for HTTP/SSE-based MCP servers
@@ -17,10 +18,11 @@ import {
  * Verify the connection status of an HTTP/SSE-based MCP server
  * Performs a basic MCP initialization handshake to check server availability
  * @param {string} serverName - Server name
- * @param {Object} serverConfig - Server configuration
- * @returns {Promise<Object>} Server status info
+ * @param {Record<string, any>} serverConfig - Server configuration
+ * @returns {Promise<{ name: string, status: string, serverInfo: any, error?: string }>} Server status info
  */
 export async function verifyHttpServerStatus(serverName, serverConfig) {
+  /** @type {{ name: string, status: string, serverInfo: any, error?: string }} */
   const result = {
     name: serverName,
     status: 'pending',
@@ -94,14 +96,17 @@ export async function verifyHttpServerStatus(serverName, serverConfig) {
     }
 
   } catch (error) {
-    if (controller.signal.aborted || error.name === 'AbortError') {
+    // error 在 JS 中通常是 Error 实例;非 Error 时 name 访问无意义,此处降级为空串,判定等价。
+    const errorName = error instanceof Error ? error.name : '';
+    if (controller.signal.aborted || errorName === 'AbortError') {
       result.status = 'pending';
       result.error = 'Connection timeout';
       log('debug', `[MCP Verify] HTTP/SSE server timeout: ${serverName}`);
     } else {
+      const message = error instanceof Error ? error.message : String(error);
       result.status = 'failed';
-      result.error = error.message;
-      log('debug', `[MCP Verify] HTTP/SSE server failed: ${serverName}`, error.message);
+      result.error = message;
+      log('debug', `[MCP Verify] HTTP/SSE server failed: ${serverName}`, message);
     }
   } finally {
     clearTimeout(timeoutId);

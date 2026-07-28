@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * MCP server status detection logging module
  * Provides a unified logging function

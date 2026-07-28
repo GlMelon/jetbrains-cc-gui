@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * §15.7 B2/B11/B16:OpenCode SDK 消息服务。
  *
@@ -19,13 +20,18 @@ const DEFAULT_REQUEST_TIMEOUT_MS = 10 * 60 * 1000;
 
 export { splitModel as splitModelForSdk } from './model-utils.js';
 
-/** 默认 NDJSON 写出:逐行写 stdout。 */
+/** 默认 NDJSON 写出:逐行写 stdout。 @param {any} obj */
 function defaultWrite(obj) {
     process.stdout.write(JSON.stringify(obj) + '\n');
 }
 
-/** 默认 client 工厂:动态加载已安装的 @opencode-ai/sdk 并 createOpencodeClient。 */
+/**
+ * 默认 client 工厂:动态加载已安装的 @opencode-ai/sdk 并 createOpencodeClient。
+ * @param {string} baseUrl
+ * @returns {Promise<any>}
+ */
 async function defaultClientFactory(baseUrl) {
+    /** @type {any} */
     const sdk = await loadOpencodeSdk();
     return sdk.createOpencodeClient({ baseUrl });
 }
@@ -40,12 +46,14 @@ async function defaultClientFactory(baseUrl) {
  * @param {string} params.permissionMode 权限模式(透传,SDK 侧由 serve 配置消费)
  * @param {string} params.model       `provider/model` 聚合字符串
  * @param {string} [params.reasoningEffort] 推理档位(透传)
- * @param {Array}  [params.attachments] 附件 parts(按 opencode part schema)
+ * @param {Array<any>}  [params.attachments] 附件 parts(按 opencode part schema)
  * @param {string} params.baseUrl     opencode serve 的 http base url
  * @param {object} [params.env]       环境变量(透传)
  * @param {object} [deps]             注入点(测试用)
- * @param {(baseUrl:string)=>Promise<object>} [deps.clientFactory]
- * @param {(obj:object)=>void} [deps.write]
+ * @param {(baseUrl:string)=>Promise<any>} [deps.clientFactory]
+ * @param {(obj:any)=>void} [deps.write]
+ * @param {number} [deps.requestTimeoutMs]
+ * @returns {Promise<void>}
  */
 export async function sendMessage(params, deps = {}) {
     const {
@@ -60,15 +68,20 @@ export async function sendMessage(params, deps = {}) {
         env = {}
     } = params || {};
 
-    const clientFactory = deps.clientFactory || defaultClientFactory;
-    const write = deps.write || defaultWrite;
-    const requestTimeoutMs = Number.isFinite(deps.requestTimeoutMs) && deps.requestTimeoutMs > 0
-        ? deps.requestTimeoutMs
+    const clientFactory = /** @type {(baseUrl:string)=>Promise<any>} */ (
+        /** @type {any} */ (deps).clientFactory || defaultClientFactory
+    );
+    const write = /** @type {(obj:any)=>void} */ (
+        /** @type {any} */ (deps).write || defaultWrite
+    );
+    const requestTimeoutMs = Number.isFinite(/** @type {any} */ (deps).requestTimeoutMs) && /** @type {any} */ (deps).requestTimeoutMs > 0
+        ? /** @type {any} */ (deps).requestTimeoutMs
         : DEFAULT_REQUEST_TIMEOUT_MS;
 
     let streamStarted = false;
     let streamEnded = false;
     let messageEnded = false;
+    /** @param {any} event */
     const emit = (event) => {
         if (!event || typeof event !== 'object') return;
         if (event.type === 'stream_start') {
@@ -138,7 +151,7 @@ export async function sendMessage(params, deps = {}) {
         // prompt 成功不能结束 SSE;仅 rejection 抢先终止,避免 prompt 失败而全局 SSE 永不关闭。
         const promptFailurePromise = promptPromise.then(
             () => new Promise(() => {}),
-            (error) => Promise.reject(error)
+            (/** @type {any} */ error) => Promise.reject(error)
         );
         const consumeStreamPromise = (async () => {
             for await (const event of events.stream) {
@@ -167,7 +180,7 @@ export async function sendMessage(params, deps = {}) {
     } catch (e) {
         // 顶层异常(auth/网络/prompt/deadline)必须形成完整终态,不能让 Java 永久等待。
         if (!streamStarted) emit({ type: 'stream_start' });
-        emit({ type: 'error', message: e?.message || 'OpenCode SDK error' });
+        emit({ type: 'error', message: e instanceof Error ? e.message : 'OpenCode SDK error' });
         emitTerminal();
     } finally {
         // §15.7:主动断开 SSE 连接。hey-api 的 stream 在 for-await break 后不释放底层 fetch,
@@ -184,15 +197,25 @@ export async function sendMessage(params, deps = {}) {
  * @param {string} params.baseUrl
  * @param {object} [deps]
  */
+/**
+ * 中断当前会话(best-effort)。
+ * @param {object} params
+ * @param {string} [params.threadId]
+ * @param {string} [params.baseUrl]
+ * @param {object} [deps]
+ * @returns {Promise<void>}
+ */
 export async function abortSession(params, deps = {}) {
     const { threadId = '', baseUrl = '' } = params || {};
-    const clientFactory = deps.clientFactory || defaultClientFactory;
+    const clientFactory = /** @type {(baseUrl:string)=>Promise<any>} */ (
+        /** @type {any} */ (deps).clientFactory || defaultClientFactory
+    );
     if (!threadId) return;
     try {
         const client = await clientFactory(baseUrl);
         await client.session.abort({ path: { id: threadId } });
     } catch (e) {
         // best-effort:中断失败不影响主流程
-        console.error('[opencode] abort failed:', e?.message);
+        console.error('[opencode] abort failed:', e instanceof Error ? e.message : String(e));
     }
 }

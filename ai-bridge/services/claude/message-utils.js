@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Message utility functions.
  * SDK initialization, retry logic, session file helpers, content truncation, and error payloads.
@@ -10,17 +11,24 @@ import { getClaudeDir } from '../../utils/path-utils.js';
 import { loadClaudeSettings } from '../../config/api-config.js';
 
 // SDK cache (module-internal, accessed via ensure* functions)
+// SDK 模块为动态加载的第三方包,形状由各自的 .d.ts 决定,这里按 any 缓存。
+/** @type {any} */
 let claudeSdk = null;
+/** @type {any} */
 let anthropicSdk = null;
+/** @type {any} */
 let bedrockSdk = null;
 
 /**
  * Ensure Claude SDK is loaded
+ * @returns {Promise<any>}
  */
 export async function ensureClaudeSdk() {
   if (!claudeSdk) {
     if (!isClaudeSdkAvailable()) {
-      const error = new Error('Claude Code SDK not installed. Please install via Settings > Dependencies.');
+      const error = /** @type {Error & { code: string; provider: string }} */ (
+        new Error('Claude Code SDK not installed. Please install via Settings > Dependencies.')
+      );
       error.code = 'SDK_NOT_INSTALLED';
       error.provider = 'claude';
       throw error;
@@ -32,6 +40,7 @@ export async function ensureClaudeSdk() {
 
 /**
  * Ensure Anthropic SDK is loaded
+ * @returns {Promise<any>}
  */
 export async function ensureAnthropicSdk() {
   if (!anthropicSdk) {
@@ -42,6 +51,7 @@ export async function ensureAnthropicSdk() {
 
 /**
  * Ensure Bedrock SDK is loaded
+ * @returns {Promise<any>}
  */
 export async function ensureBedrockSdk() {
   if (!bedrockSdk) {
@@ -63,7 +73,7 @@ export const AUTO_RETRY_CONFIG = {
  * @returns {boolean} - True if the error is likely transient and retryable
  */
 export function isRetryableError(error) {
-  const msg = error?.message || String(error);
+  const msg = (error instanceof Error && error.message) || String(error);
   const retryablePatterns = [
     'API request failed',
     'ECONNRESET',
@@ -81,8 +91,13 @@ export function isRetryableError(error) {
   return retryablePatterns.some(pattern => msg.toLowerCase().includes(pattern.toLowerCase()));
 }
 
+/**
+ * 检测错误是否为 "会话不存在" 类(可恢复,等待 session 文件后重试)。
+ * @param {Error|string|any} error - The error to check
+ * @returns {boolean}
+ */
 export function isNoConversationFoundError(error) {
-  const msg = error?.message || String(error);
+  const msg = (error instanceof Error && error.message) || String(error);
   return msg.includes('No conversation found with session ID');
 }
 
@@ -95,17 +110,32 @@ export function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+/**
+ * 返回该错误对应的重试延迟(ms)。
+ * @param {Error|string|any} error - The error to check
+ * @returns {number}
+ */
 export function getRetryDelayMs(error) {
   if (isNoConversationFoundError(error)) return 250;
   return AUTO_RETRY_CONFIG.retryDelayMs;
 }
 
+/**
+ * @param {string} sessionId
+ * @param {string} [cwd]
+ * @returns {string}
+ */
 export function getClaudeProjectSessionFilePath(sessionId, cwd) {
   const projectsDir = join(getClaudeDir(), 'projects');
   const sanitizedCwd = String(cwd || process.cwd()).replace(/[^a-zA-Z0-9]/g, '-');
   return join(projectsDir, sanitizedCwd, `${sessionId}.jsonl`);
 }
 
+/**
+ * @param {string} sessionId
+ * @param {string} [cwd]
+ * @returns {boolean}
+ */
 export function hasClaudeProjectSessionFile(sessionId, cwd) {
   try {
     if (!sessionId || typeof sessionId !== 'string') return false;
@@ -117,6 +147,13 @@ export function hasClaudeProjectSessionFile(sessionId, cwd) {
   }
 }
 
+/**
+ * @param {string} sessionId
+ * @param {string} [cwd]
+ * @param {number} [timeoutMs=1500]
+ * @param {number} [intervalMs=100]
+ * @returns {Promise<boolean>}
+ */
 export async function waitForClaudeProjectSessionFile(sessionId, cwd, timeoutMs = 1500, intervalMs = 100) {
   if (hasClaudeProjectSessionFile(sessionId, cwd)) return true;
   const start = Date.now();
@@ -168,6 +205,14 @@ export function truncateErrorContent(content, maxLen = 1000) {
  * NOTE: Uses process.stdout.write for consistent buffering with other IPC messages.
  * The Java backend parses stdout lines starting with "[USAGE]" to extract token metrics.
  */
+/**
+ * Emit [USAGE] tag for Java-side token tracking.
+ * NOTE: Uses process.stdout.write for consistent buffering with other IPC messages.
+ * The Java backend parses stdout lines starting with "[USAGE]" to extract token metrics.
+ *
+ * @param {any} msg - SDK 消息对象(仅在 type === 'assistant' 时读取 message.usage)
+ * @returns {void}
+ */
 export function emitUsageTag(msg) {
   if (msg.type === 'assistant' && msg.message?.usage) {
     const {
@@ -186,8 +231,9 @@ export const MAX_TOOL_RESULT_CONTENT_CHARS = 20000;
 /**
  * Truncate tool_result block content for IPC transport.
  * Preserves all fields but limits the content string to avoid large payloads through stdout.
- * @param {object} block - The tool_result block
- * @returns {object} A block with truncated content (or the original if small enough)
+ * 工具结果块来自任意工具输出(字符串或 content block 数组),形状松散,按 any 处理。
+ * @param {any} block - The tool_result block
+ * @returns {any} A block with truncated content (or the original if small enough)
  */
 export function truncateToolResultBlock(block) {
   if (!block || !block.content) return block;
@@ -224,9 +270,14 @@ export function truncateToolResultBlock(block) {
 }
 
 /**
+ * 配置错误载荷。details 为半结构化诊断信息(键随上下文增减),按宽松对象处理。
+ * @typedef {{ success: boolean; error: string; details: Record<string, unknown> }} ConfigErrorPayload
+ */
+
+/**
  * Build error payload for configuration errors
- * @param {Error} error - The error object to build payload from
- * @returns {Object} Error payload with error message and details
+ * @param {Error|any} error - The error object to build payload from
+ * @returns {ConfigErrorPayload} Error payload with error message and details
  */
 export function buildConfigErrorPayload(error) {
   try {

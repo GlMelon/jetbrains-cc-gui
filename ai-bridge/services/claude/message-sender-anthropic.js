@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Anthropic SDK direct message sender.
  * Fallback for third-party API proxies that don't support the Claude Agent SDK.
@@ -11,6 +12,19 @@ import { loadSessionHistory, persistJsonlMessage } from './session-service.js';
 import { ensureAnthropicSdk, ensureBedrockSdk, truncateErrorContent } from './message-utils.js';
 import { buildContentBlocks } from './attachment-service.js';
 
+/**
+ * 通过 Anthropic SDK 直接发送消息(第三方 API 代理不支持 Claude Agent SDK 时的回退路径)。
+ * @param {string} message         消息文本
+ * @param {string} resumeSessionId 续接的会话 ID
+ * @param {string} cwd             工作目录
+ * @param {string} permissionMode  权限模式
+ * @param {string} model           模型名
+ * @param {string} apiKey          API Key / Auth Token
+ * @param {string} baseUrl         自定义 Base URL
+ * @param {string} authType        鉴权类型('auth_token' | 'aws_bedrock' | 其它)
+ * @param {any[]} [attachments=[]] 附件列表(外部 stdin 数据,松散类型)
+ * @returns {Promise<void>}
+ */
 export async function sendMessageWithAnthropicSDK(message, resumeSessionId, cwd, permissionMode, model, apiKey, baseUrl, authType, attachments = []) {
   try {
     // Dynamically load Anthropic SDK
@@ -89,6 +103,7 @@ export async function sendMessageWithAnthropicSDK(message, resumeSessionId, cwd,
       message: { content: userContent }
     });
 
+    /** @type {Array<{ role: string; content: unknown }>} */
     let messagesForApi = [{ role: 'user', content: userContent }];
     if (resumeSessionId && resumeSessionId !== '') {
       const historyMessages = loadSessionHistory(sessionId, cwd);
@@ -217,7 +232,7 @@ Possible causes:
       is_error: false,
       duration_ms: 0,
       num_turns: 1,
-      result: respContent.map(b => b.type === 'text' ? b.text : '').join(''),
+      result: respContent.map((/** @type {any} */ b) => b.type === 'text' ? b.text : '').join(''),
       session_id: sessionId,
       total_cost_usd: 0,
       usage: {
@@ -234,10 +249,12 @@ Possible causes:
     console.log(JSON.stringify({ success: true, sessionId }));
 
   } catch (error) {
-    console.error('[SEND_ERROR]', error.message);
-    if (error.response) {
-      console.error('[ERROR_DETAILS] Status:', error.response.status);
-      console.error('[ERROR_DETAILS] Data:', JSON.stringify(error.response.data));
+    const errMsg = error instanceof Error ? error.message : String(error);
+    console.error('[SEND_ERROR]', errMsg);
+    const resp = /** @type {any} */ (error)?.response;
+    if (resp) {
+      console.error('[ERROR_DETAILS] Status:', resp.status);
+      console.error('[ERROR_DETAILS] Data:', JSON.stringify(resp.data));
     }
   }
 }

@@ -33,6 +33,7 @@ assert.throws(
   assert.equal(registry.has('codex'), true);
   assert.ok(registry.commands('claude').includes('send'));
   assert.ok(registry.commands('codex').includes('send'));
+  assert.ok(registry.commands('opencode').includes('archiveSession'));
 }
 
 await assert.rejects(

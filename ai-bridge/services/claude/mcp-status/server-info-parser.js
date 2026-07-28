@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Server info parser module
  * Provides functionality to parse server information from process output
@@ -9,7 +10,7 @@ import { log } from './logger.js';
 /**
  * Parse server information from stdout
  * @param {string} stdout - Standard output content
- * @returns {Object|null} Server info object, or null if not found
+ * @returns {any} Server info object, or null if not found
  */
 export function parseServerInfo(stdout) {
   try {
@@ -50,7 +51,7 @@ export function parseServerInfo(stdout) {
       }
     }
   } catch (e) {
-    log('debug', 'Failed to parse server info:', e.message);
+    log('debug', 'Failed to parse server info:', e instanceof Error ? e.message : String(e));
   }
   return null;
 }

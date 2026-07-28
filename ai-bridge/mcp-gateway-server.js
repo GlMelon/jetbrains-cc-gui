@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 import { IpcServer } from './mcp-gateway/ipc-server.js';
 import { RevisionStore } from './mcp-gateway/revision-store.js';
 import { HealthStore } from './mcp-gateway/health-store.js';
@@ -33,7 +34,7 @@ writeStateFile(stateFile, {
 });
 console.log(`MCP Gateway listening on 127.0.0.1:${port}`);
 
-for (const signal of ['SIGINT', 'SIGTERM']) {
+for (const signal of /** @type {NodeJS.Signals[]} */ (['SIGINT', 'SIGTERM'])) {
   process.on(signal, () => {
     ipc.close();
     removeStateFile(stateFile);
@@ -43,7 +44,13 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
 
 process.on('exit', () => removeStateFile(stateFile));
 
+/**
+ * 解析 `--key value` 形式的命令行参数。
+ * @param {string[]} argv 进程参数切片(通常 `process.argv.slice(2)`)
+ * @returns {Record<string, string>} key→value 映射;缺省值兜底为空串
+ */
 function parseArgs(argv) {
+  /** @type {Record<string, string>} */
   const out = {};
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
