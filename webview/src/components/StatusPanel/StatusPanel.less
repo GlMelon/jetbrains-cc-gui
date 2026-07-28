@@ -854,11 +854,7 @@
   }
 }
 
-@keyframes todo-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
-
+/* todo-pulse 统一定义见 animations.less（50% 0.6 版，对齐公共 SSOT，本地 0.5 版已删除） */
 /* Empty state */
 .status-panel-empty {
   padding: 16px;
@@ -868,15 +864,7 @@
   background: var(--bg-titlebar);
 }
 
-/* Spin animation */
-@keyframes status-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
+/* status-spin 统一定义见 animations.less（已由 app.less 全局 @import） */
 
 /* Undo Confirmation Dialog */
 .undo-confirm-overlay {

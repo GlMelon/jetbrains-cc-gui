@@ -111,11 +111,7 @@
   animation: pulse-warning 1s ease-in-out infinite;
 }
 
-@keyframes pulse-warning {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
-}
-
+/* pulse-warning 统一定义见 animations.less（已由 app.less 全局 @import） */
 /* Collapse/expand button */
 .collapse-button,
 .expand-button {

@@ -125,8 +125,9 @@ html {
 }
 
 /* ==================== 无障碍：全局减少动画（H7 横切策略） ====================
-   本块是全站 reduced-motion 的唯一收口入口（animations.less 未被 app.less
-   @import、不参与编译；为避免每个组件各写一份 @media，集中收敛于此）。
+   本块是全站 reduced-motion 的唯一收口入口（animations.less 已由 app.less
+   @import 参与编译，是公共 keyframes SSOT；reduced-motion 仍集中收敛于此，
+   避免每个组件各写一份 @media）。
    策略：
    - 持续类动画（spinner / pulse / 呼吸光晕）→ animation: none，并补充静态视觉替代；
    - 入场 / 折叠 / 淡入 / 过渡 → 时长归零（0.01ms），避免位移与重绘；
