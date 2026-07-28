@@ -29,6 +29,10 @@ const permissionModeJavaPath = resolve(__dirname, '../../src/main/java/com/githu
 const reasoningEffortJavaPath = resolve(__dirname, '../../src/main/java/com/github/claudecodegui/protocol/ReasoningEffort.java');
 const providerTypeJavaPath = resolve(__dirname, '../../src/main/java/com/github/claudecodegui/session/runtime/ProviderType.java');
 const modelRegistryPayloadJavaPath = resolve(__dirname, '../../src/main/java/com/github/claudecodegui/protocol/payload/ModelRegistryPayloadField.java');
+const historyExportFormatJavaPath = resolve(__dirname, '../../src/main/java/com/github/claudecodegui/protocol/HistoryExportFormat.java');
+const historyExportPayloadJavaPath = resolve(__dirname, '../../src/main/java/com/github/claudecodegui/protocol/payload/HistoryExportPayloadField.java');
+const historyCapabilitiesPayloadJavaPath = resolve(__dirname, '../../src/main/java/com/github/claudecodegui/protocol/payload/HistoryCapabilitiesPayloadField.java');
+const historyArchiveResultPayloadJavaPath = resolve(__dirname, '../../src/main/java/com/github/claudecodegui/protocol/payload/HistoryArchiveResultPayloadField.java');
 const codexProtectedEnvKeyJavaPath = resolve(__dirname, '../../src/main/java/com/github/claudecodegui/protocol/CodexProtectedEnvKey.java');
 const versionActionJavaPath = resolve(__dirname, '../../src/main/java/com/github/claudecodegui/dependency/VersionAction.java');
 const commonConstantsJavaPath = resolve(__dirname, '../../src/main/java/com/github/claudecodegui/common/CommonConstants.java');
@@ -99,6 +103,14 @@ ${(manifest.providerType ?? []).map(p => `  ${p.name}: '${p.value}' as const,`).
 } as const;
 
 export type ProviderType = typeof PROVIDER_TYPE[keyof typeof PROVIDER_TYPE];
+
+// ── History Export Format (business enum SSOT) ──
+
+export const HISTORY_EXPORT_FORMAT = {
+${(manifest.historyExportFormat ?? []).map(f => `  ${f.name}: '${f.value}' as const,`).join('\n')}
+} as const;
+
+export type HistoryExportFormat = typeof HISTORY_EXPORT_FORMAT[keyof typeof HISTORY_EXPORT_FORMAT];
 
 // ── Codex Protected Env Keys (business enum SSOT, A5) ──
 
@@ -258,6 +270,7 @@ function generateManifestFromJavaSources() {
     permissionMode: parseJavaEnumProtocol(permissionModeJavaPath),
     reasoningEffort: parseJavaEnumProtocol(reasoningEffortJavaPath),
     providerType: parseJavaEnumProtocol(providerTypeJavaPath),
+    historyExportFormat: parseJavaEnumProtocol(historyExportFormatJavaPath),
     codexProtectedEnvKey: parseJavaEnumProtocol(codexProtectedEnvKeyJavaPath),
     versionAction: parseJavaEnumProtocol(versionActionJavaPath),
     intConstants: [
@@ -266,6 +279,9 @@ function generateManifestFromJavaSources() {
     ],
     payloadSchemas: {
       modelRegistry: parsePayloadSchema(modelRegistryPayloadJavaPath),
+      historyExport: parsePayloadSchema(historyExportPayloadJavaPath),
+      historyCapabilities: parsePayloadSchema(historyCapabilitiesPayloadJavaPath),
+      historyArchiveResult: parsePayloadSchema(historyArchiveResultPayloadJavaPath),
     },
   };
 }
@@ -303,6 +319,10 @@ export const PROVIDER_TYPE: Record<string, string> = {};
 export type ProviderType = string;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const HISTORY_EXPORT_FORMAT: Record<string, string> = {};
+export type HistoryExportFormat = string;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const CODEX_PROTECTED_ENV_KEY: Record<string, string> = {};
 export type CodexProtectedEnvKey = string;
 
@@ -316,6 +336,34 @@ export const ONE_MILLION_CONTEXT_WINDOW = 1000000 as const;
 export const DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS = 300 as const;
 export const MIN_PERMISSION_DIALOG_TIMEOUT_SECONDS = 30 as const;
 export const MAX_PERMISSION_DIALOG_TIMEOUT_SECONDS = 3600 as const;
+
+export interface HistoryExportPayloadWire {
+  success: boolean;
+  sessionId?: string;
+  title?: string;
+  format?: HistoryExportFormat;
+  fileName?: string;
+  mimeType?: string;
+  content?: string;
+  truncated?: boolean;
+  exportedMessageCount?: number;
+  omittedMessageCount?: number;
+  maxMessageCount?: number;
+  maxUtf8Bytes?: number;
+  error?: string;
+}
+
+export interface HistoryCapabilitiesPayloadWire {
+  canDelete: boolean;
+  canArchive: boolean;
+}
+
+export interface HistoryArchiveResultPayloadWire {
+  success: boolean;
+  requestedSessionIds: readonly string[];
+  archivedSessionIds: readonly string[];
+  failedSessionIds: readonly string[];
+}
 `;
 }
 
@@ -325,11 +373,11 @@ function main() {
   mkdirSync(dirname(outputPath), { recursive: true });
 
   let content;
-  if (existsSync(upstreamJavaPath) && existsSync(downstreamJavaPath) && existsSync(permissionModeJavaPath) && existsSync(reasoningEffortJavaPath) && existsSync(providerTypeJavaPath) && existsSync(modelRegistryPayloadJavaPath) && existsSync(codexProtectedEnvKeyJavaPath) && existsSync(versionActionJavaPath) && existsSync(commonConstantsJavaPath) && existsSync(permissionDialogTimeoutSettingsJavaPath)) {
+  if (existsSync(upstreamJavaPath) && existsSync(downstreamJavaPath) && existsSync(permissionModeJavaPath) && existsSync(reasoningEffortJavaPath) && existsSync(providerTypeJavaPath) && existsSync(modelRegistryPayloadJavaPath) && existsSync(historyExportFormatJavaPath) && existsSync(historyExportPayloadJavaPath) && existsSync(historyCapabilitiesPayloadJavaPath) && existsSync(historyArchiveResultPayloadJavaPath) && existsSync(codexProtectedEnvKeyJavaPath) && existsSync(versionActionJavaPath) && existsSync(commonConstantsJavaPath) && existsSync(permissionDialogTimeoutSettingsJavaPath)) {
     const manifest = generateManifestFromJavaSources();
     writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8');
     content = generateFromManifest(manifest);
-    console.log(`[generate-protocol-types] Generated from Java sources (${manifest.upstream.length} upstream, ${manifest.downstream.length} downstream, ${manifest.permissionMode?.length ?? 0} permissionMode, ${manifest.reasoningEffort?.length ?? 0} reasoningEffort, ${manifest.providerType?.length ?? 0} providerType, ${manifest.codexProtectedEnvKey?.length ?? 0} codexProtectedEnvKey, ${manifest.versionAction?.length ?? 0} versionAction, ${manifest.intConstants?.length ?? 0} intConstants, ${manifest.payloadSchemas?.modelRegistry?.fields?.length ?? 0} modelRegistry payload fields)`);
+    console.log(`[generate-protocol-types] Generated from Java sources (${manifest.upstream.length} upstream, ${manifest.downstream.length} downstream, ${manifest.permissionMode?.length ?? 0} permissionMode, ${manifest.reasoningEffort?.length ?? 0} reasoningEffort, ${manifest.providerType?.length ?? 0} providerType, ${manifest.historyExportFormat?.length ?? 0} historyExportFormat, ${manifest.codexProtectedEnvKey?.length ?? 0} codexProtectedEnvKey, ${manifest.versionAction?.length ?? 0} versionAction, ${manifest.intConstants?.length ?? 0} intConstants, ${manifest.payloadSchemas?.modelRegistry?.fields?.length ?? 0} modelRegistry payload fields, ${manifest.payloadSchemas?.historyExport?.fields?.length ?? 0} historyExport payload fields, ${manifest.payloadSchemas?.historyCapabilities?.fields?.length ?? 0} historyCapabilities payload fields, ${manifest.payloadSchemas?.historyArchiveResult?.fields?.length ?? 0} historyArchiveResult payload fields)`);
   } else if (existsSync(manifestPath)) {
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'));
     content = generateFromManifest(manifest);

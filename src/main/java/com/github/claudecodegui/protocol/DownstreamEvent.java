@@ -155,6 +155,7 @@ public enum DownstreamEvent implements ProtocolValue {
     MCP_MARKET_LIST("mcp.market_list"),
     MCP_MARKET_DETAIL("mcp.market_detail"),
     MCP_MARKET_ERROR("mcp.market_error"),
+    MCP_MARKET_INSTALL_RESULT("mcp.market_install_result"),
 
     // ── Dependency ──
     DEPENDENCY_STATUS("dependency.status"),
@@ -164,6 +165,10 @@ public enum DownstreamEvent implements ProtocolValue {
     DEPENDENCY_VERSIONS_LOADED("dependency.versions_loaded"),
     DEPENDENCY_INSTALL_PROGRESS("dependency.install_progress"),
     NODE_ENV_STATUS("node.env_status"),
+
+    // ── History ──
+    HISTORY_EXPORT_DATA("history.export_data"),
+    HISTORY_ARCHIVE_RESULT("history.archive_result"),
 
     // ── Input History ──
     INPUT_HISTORY_LOADED("input_history.loaded"),

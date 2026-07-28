@@ -168,9 +168,26 @@ describe('generateFromManifest — C1 payload interface generation', () => {
     permissionMode: [],
     reasoningEffort: [],
     providerType: [],
+    historyExportFormat: [],
     codexProtectedEnvKey: [],
     intConstants: [],
   };
+
+  it('生成 HISTORY_EXPORT_FORMAT 常量与派生类型', () => {
+    const ts = generateFromManifest({
+      ...baseManifest,
+      historyExportFormat: [
+        { name: 'JSON', value: 'json' },
+        { name: 'HTML', value: 'html' },
+      ],
+    });
+    expect(ts).toContain('export const HISTORY_EXPORT_FORMAT = {');
+    expect(ts).toContain("  JSON: 'json' as const,");
+    expect(ts).toContain("  HTML: 'html' as const,");
+    expect(ts).toContain(
+      'export type HistoryExportFormat = typeof HISTORY_EXPORT_FORMAT[keyof typeof HISTORY_EXPORT_FORMAT];'
+    );
+  });
 
   it('生成 ModelRegistryPayloadWire interface:字段名=wireKey,optional 带 ?', () => {
     const ts = generateFromManifest({
@@ -189,6 +206,52 @@ describe('generateFromManifest — C1 payload interface generation', () => {
     expect(ts).toContain('  id: string;');
     expect(ts).toContain('  role?: string;');
     expect(ts).toContain('  tags?: readonly string[];');
+  });
+
+  it('生成 HistoryExportPayloadWire interface', () => {
+    const ts = generateFromManifest({
+      ...baseManifest,
+      payloadSchemas: {
+        historyExport: {
+          fields: [
+            { name: 'SUCCESS', wireKey: 'success', tsType: 'boolean', optional: false },
+            { name: 'FORMAT', wireKey: 'format', tsType: 'HistoryExportFormat', optional: true },
+            { name: 'MIME_TYPE', wireKey: 'mimeType', tsType: 'string', optional: true },
+            { name: 'CONTENT', wireKey: 'content', tsType: 'string', optional: true },
+          ],
+        },
+      },
+    });
+    expect(ts).toContain('export interface HistoryExportPayloadWire {');
+    expect(ts).toContain('  success: boolean;');
+    expect(ts).toContain('  format?: HistoryExportFormat;');
+    expect(ts).toContain('  mimeType?: string;');
+    expect(ts).toContain('  content?: string;');
+  });
+
+  it('生成 HistoryCapabilitiesPayloadWire 与 HistoryArchiveResultPayloadWire interface', () => {
+    const ts = generateFromManifest({
+      ...baseManifest,
+      payloadSchemas: {
+        historyCapabilities: {
+          fields: [
+            { name: 'CAN_DELETE', wireKey: 'canDelete', tsType: 'boolean', optional: false },
+            { name: 'CAN_ARCHIVE', wireKey: 'canArchive', tsType: 'boolean', optional: false },
+          ],
+        },
+        historyArchiveResult: {
+          fields: [
+            { name: 'SUCCESS', wireKey: 'success', tsType: 'boolean', optional: false },
+            { name: 'ARCHIVED_SESSION_IDS', wireKey: 'archivedSessionIds', tsType: 'readonly string[]', optional: false },
+          ],
+        },
+      },
+    });
+    expect(ts).toContain('export interface HistoryCapabilitiesPayloadWire {');
+    expect(ts).toContain('  canDelete: boolean;');
+    expect(ts).toContain('  canArchive: boolean;');
+    expect(ts).toContain('export interface HistoryArchiveResultPayloadWire {');
+    expect(ts).toContain('  archivedSessionIds: readonly string[];');
   });
 
   it('无 payloadSchemas 时不生成 payload interface(向后兼容)', () => {

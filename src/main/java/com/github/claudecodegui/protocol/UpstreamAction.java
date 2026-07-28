@@ -159,6 +159,7 @@ public enum UpstreamAction implements ProtocolValue {
     // ── MCP Market (Smithery Registry) ── 从市场搜索/获取 MCP 服务器连接配置
     SEARCH_MCP_MARKET("search_mcp_market"),
     GET_MCP_MARKET_DETAIL("get_mcp_market_detail"),
+    INSTALL_MCP_FROM_MARKET("install_mcp_from_market"),
 
     // ── Agent ──
     GET_AGENTS("get_agents"),
@@ -251,7 +252,9 @@ public enum UpstreamAction implements ProtocolValue {
     LOAD_SESSION("load_session"),
     DELETE_SESSION("delete_session"),
     DELETE_SESSIONS("delete_sessions"),
+    ARCHIVE_SESSIONS("archive_sessions"),
     EXPORT_SESSION("export_session"),
+    PRINT_SESSION_PDF("print_session_pdf"),
     TOGGLE_FAVORITE("toggle_favorite"),
     UPDATE_TITLE("update_title"),
     DELETE_TITLE("delete_title"),
@@ -279,6 +282,7 @@ public enum UpstreamAction implements ProtocolValue {
     // ── File Export ──
     SAVE_JSON("save_json"),
     SAVE_MARKDOWN("save_markdown"),
+    SAVE_EXPORTED_FILE("save_exported_file"),
 
     // ── Clipboard ──
     READ_CLIPBOARD("read_clipboard"),

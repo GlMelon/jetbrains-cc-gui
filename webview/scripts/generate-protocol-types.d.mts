@@ -32,6 +32,9 @@ export interface ProtocolManifest {
   permissionMode?: ProtocolEnumEntry[];
   reasoningEffort?: ProtocolEnumEntry[];
   providerType?: ProtocolEnumEntry[];
+  // .mjs 运行时用 manifest.historyExportFormat 生成 HISTORY_EXPORT_FORMAT 常量
+  // (scripts/generate-protocol-types.mjs 第 110/273 行);声明须与运行时同步。
+  historyExportFormat?: ProtocolEnumEntry[];
   codexProtectedEnvKey?: ProtocolEnumEntry[];
   versionAction?: ProtocolEnumEntry[];
   intConstants?: IntConstantEntry[];
