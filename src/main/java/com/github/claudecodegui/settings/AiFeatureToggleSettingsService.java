@@ -1,5 +1,7 @@
 package com.github.claudecodegui.settings;
 
+import com.github.claudecodegui.settings.credentials.CredentialBackend.Availability;
+import com.github.claudecodegui.settings.credentials.PasswordStore;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
 
@@ -9,8 +11,9 @@ import java.io.IOException;
  * AI Feature Toggle 领域 Service(A3 领域拆分第二步,docs §A3)。
  *
  * <p>封装 5 对 AI 功能开关的读写:4 个 boolean toggle(commit 生成 / MCP gateway / 状态栏 widget /
- * AI 标题生成,均默认 true)+ Smithery Registry API key(set null/empty → remove 的安全清理,
- * 值本身不入日志,文件落盘 0600)。
+ * AI 标题生成,均默认 true)+ Smithery Registry API key(S2 凭证安全:有系统 keychain 时存
+ * {@link PasswordStore}(IntelliJ PasswordSafe),无 keychain 降级回 config.json 0600;set null/empty 清除,
+ * 值本身不入日志)。
  *
  * <p>与 {@link AppearanceSettingsService} 同为「模式 A 半拆」:构造注入 {@link CodemossSettingsService},
  * 持久化走 {@code css.readConfig()/writeConfig()}。核心理由同第一步 —— 文件缺失时
@@ -28,6 +31,7 @@ public final class AiFeatureToggleSettingsService {
     private static final Logger LOG = Logger.getInstance(AiFeatureToggleSettingsService.class);
 
     private final CodemossSettingsService settingsService;
+    private final PasswordStore passwordStore;
 
     // ==================== Field keys (promoted from CSS inline literals) ====================
 
@@ -37,8 +41,12 @@ public final class AiFeatureToggleSettingsService {
     private static final String STATUS_BAR_WIDGET_KEY = "statusBarWidgetEnabled";
     private static final String AI_TITLE_GENERATION_KEY = "aiTitleGenerationEnabled";
 
-    public AiFeatureToggleSettingsService(CodemossSettingsService settingsService) {
+    /** PasswordStore credential key(S2 明文迁移后 smitheryApiKey 存此;满足 {@code codemoss.} 前缀规范)。 */
+    private static final String SMITHERY_CREDENTIAL_KEY = "codemoss.smithery.apiKey";
+
+    public AiFeatureToggleSettingsService(CodemossSettingsService settingsService, PasswordStore passwordStore) {
         this.settingsService = settingsService;
+        this.passwordStore = passwordStore;
     }
 
     // ==================== Commit generation ====================
@@ -83,31 +91,88 @@ public final class AiFeatureToggleSettingsService {
     }
 
     // ==================== Smithery API key ====================
+    // S2 凭证安全:有系统 keychain(AVAILABLE)时存 PasswordStore,无 keychain 降级回 config.json 0600。
+    // 旧明文做懒迁移——首次 get 命中旧明文则搬到 PasswordStore 并清除明文;set 也会清除残留明文。
 
-    /** Get the Smithery Registry API key (used by MCP market to search/fetch server configs), or empty string. */
+    /**
+     * Get the Smithery Registry API key (used by MCP market to search/fetch server configs), or empty string.
+     *
+     * <p>S2:有 keychain 时优先读 {@link PasswordStore};若 PasswordStore 空而 config.json 有旧明文,
+     * 懒迁移(store 成功后清除明文,失败 defer 不阻断);无 keychain 时降级读 config.json。
+     * 契约:始终返回 {@code ""} 而非 {@code null}(保 Facade 不变)。
+     */
     public String getSmitheryApiKey() throws IOException {
-        JsonObject config = settingsService.readConfig();
-        if (config.has(SMITHERY_API_KEY_KEY) && !config.get(SMITHERY_API_KEY_KEY).isJsonNull()) {
-            return config.get(SMITHERY_API_KEY_KEY).getAsString();
+        if (passwordStore.getAvailability() == Availability.AVAILABLE) {
+            String stored = passwordStore.loadPassword(SMITHERY_CREDENTIAL_KEY);
+            if (stored != null) {
+                return stored;
+            }
+            // 懒迁移:PasswordStore 空,检查 config.json 旧明文。
+            String plaintext = readPlaintextFromConfig();
+            if (plaintext == null) {
+                return "";
+            }
+            try {
+                passwordStore.storePassword(SMITHERY_CREDENTIAL_KEY, plaintext);
+                clearPlaintextFromConfig();
+                LOG.info("[AiFeatureToggle] Smithery API key migrated from config.json to PasswordStore");
+            } catch (RuntimeException e) {
+                // store 失败(如容量超限)不阻断读取:本次仍返回明文,迁移 defer 到下次。
+                LOG.warn("[AiFeatureToggle] Smithery key migration deferred: " + e.getMessage());
+            }
+            return plaintext;
         }
-        return "";
+        // 降级:无 keychain(headless / 服务器),回退 config.json 0600。
+        String plaintext = readPlaintextFromConfig();
+        return plaintext != null ? plaintext : "";
     }
 
     /**
      * Set the Smithery Registry API key. Empty/null clears it.
-     * <p>Security: the key value itself is never logged — only the set/cleared state
-     * is logged. {@code writeConfig} hardens the file to {@code 0600}.
+     *
+     * <p>S2:有 keychain 时写 {@link PasswordStore} 并清除 config.json 残留明文;无 keychain 时降级写
+     * config.json 0600(行为与历史等价)。Security:值本身不入日志——只记 set/cleared 状态。
      */
     public void setSmitheryApiKey(String apiKey) throws IOException {
+        boolean cleared = apiKey == null || apiKey.isEmpty();
+        if (passwordStore.getAvailability() == Availability.AVAILABLE) {
+            if (cleared) {
+                passwordStore.removePassword(SMITHERY_CREDENTIAL_KEY);
+            } else {
+                passwordStore.storePassword(SMITHERY_CREDENTIAL_KEY, apiKey);
+            }
+            // 清除 config.json 残留明文(覆盖"旧明文 + 直接 set 新值不 get"场景)。
+            clearPlaintextFromConfig();
+            LOG.info("[AiFeatureToggle] Smithery API key " + (cleared ? "cleared" : "updated"));
+            return;
+        }
+        // 降级:无 keychain,回退 config.json writeConfig(原实现)。
         JsonObject config = settingsService.readConfig();
-        if (apiKey == null || apiKey.isEmpty()) {
+        if (cleared) {
             config.remove(SMITHERY_API_KEY_KEY);
         } else {
             config.addProperty(SMITHERY_API_KEY_KEY, apiKey);
         }
         settingsService.writeConfig(config);
-        boolean cleared = apiKey == null || apiKey.isEmpty();
-        LOG.info("[AiFeatureToggle] Smithery API key " + (cleared ? "cleared" : "updated"));
+        LOG.info("[AiFeatureToggle] Smithery API key " + (cleared ? "cleared" : "updated") + " (config.json fallback)");
+    }
+
+    /** 读 config.json 旧明文 smitheryApiKey;无则返回 {@code null}(历史读路径,降级/迁移共用)。 */
+    private String readPlaintextFromConfig() throws IOException {
+        JsonObject config = settingsService.readConfig();
+        if (config.has(SMITHERY_API_KEY_KEY) && !config.get(SMITHERY_API_KEY_KEY).isJsonNull()) {
+            return config.get(SMITHERY_API_KEY_KEY).getAsString();
+        }
+        return null;
+    }
+
+    /** 清除 config.json 的 smitheryApiKey 明文字段;不存在则 no-op(避免无谓 writeConfig)。 */
+    private void clearPlaintextFromConfig() throws IOException {
+        JsonObject config = settingsService.readConfig();
+        if (config.has(SMITHERY_API_KEY_KEY)) {
+            config.remove(SMITHERY_API_KEY_KEY);
+            settingsService.writeConfig(config);
+        }
     }
 
     // ==================== Status bar widget ====================

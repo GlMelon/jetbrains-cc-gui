@@ -14,6 +14,9 @@ import com.github.claudecodegui.model.DeleteResult;
 import com.github.claudecodegui.model.PromptScope;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.session.runtime.RuntimeType;
+import com.github.claudecodegui.settings.credentials.IntelliJPasswordSafeBackend;
+import com.github.claudecodegui.settings.credentials.PasswordStore;
+import com.github.claudecodegui.watcher.ConfigFileWatcherService;
 import com.google.gson.*;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
@@ -95,7 +98,9 @@ public class CodemossSettingsService {
         // 构造体内只存引用,不调用 CSS 方法,与既有 lambda 闭包捕获 this 同模式,延迟调用安全)。
         this.appearanceSettingsService = new AppearanceSettingsService(this);
         // A3 第二步:AI Feature Toggle 领域 Service(同模式 A 半拆,构造期只存引用)。
-        this.aiFeatureToggleSettingsService = new AiFeatureToggleSettingsService(this);
+        // S2 凭证安全:注入 PasswordStore(IntelliJ PasswordSafe 封装),smitheryApiKey 有 keychain 时存此。
+        this.aiFeatureToggleSettingsService = new AiFeatureToggleSettingsService(this,
+                new PasswordStore(new IntelliJPasswordSafeBackend()));
         // A3 第三步:Codex Sandbox Mode 领域 Service(同模式 A 半拆,构造期只存引用)。
         this.codexSandboxModeSettingsService = new CodexSandboxModeSettingsService(this);
         // A3 第四步:ModelRegistry 领域 Service(同模式 A 半拆,构造期只存引用)。
@@ -214,6 +219,17 @@ public class CodemossSettingsService {
                 pathManager,
                 openCodeSettingsManager
         );
+
+        // S3-3 B4:启动 config.json 外部修改监听(cc-switch 切 provider/模型 → 主动广播 MODEL_REGISTRY)。
+        // configDir 由 CSS 注入,避免与 watcher 互相 getInstance() 形成构造期循环。
+        // 容错:纯 JUnit 测试(无 Application 上下文)new CSS() 时 getInstance() 会 NPE,跳过即可;
+        // IDE 内 Application 就绪时正常启动。
+        try {
+            ConfigFileWatcherService.getInstance().ensureStarted(pathManager.getConfigDir());
+        } catch (Exception e) {
+            LOG.debug("[CodemossSettings] ConfigFileWatcherService not started (no Application context): "
+                    + e.getMessage());
+        }
     }
 
     // ==================== Basic Config Management ====================
@@ -1044,8 +1060,8 @@ public class CodemossSettingsService {
 
     /**
      * Set the Smithery Registry API key. Empty/null clears it.
-     * <p>Security: the key value itself is never logged — only the set/cleared state
-     * is logged. {@code writeConfig} hardens the file to {@code 0600}.
+     * <p>S2:有 keychain 时经 {@link com.github.claudecodegui.settings.credentials.PasswordStore} 存系统 keychain;
+     * 无 keychain 降级回 config.json({@code writeConfig} 落盘 0600)。值本身不入日志——只记 set/cleared 状态。
      */
     public void setSmitheryApiKey(String apiKey) throws IOException {
         aiFeatureToggleSettingsService.setSmitheryApiKey(apiKey);
