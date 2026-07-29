@@ -34,6 +34,15 @@ interface Window {
   updateMessages?: (json: string, sequence?: string | number) => void;
 
   /**
+   * Apply an indexed tail update for long conversations.
+   */
+  updateMessageTail?: (
+    json: string,
+    baseIndex: string | number,
+    sequence?: string | number,
+  ) => void;
+
+  /**
    * Patch a single message UUID without re-sending the full message list.
    */
   patchMessageUuid?: (content: string, uuid: string) => void;
@@ -63,10 +72,10 @@ interface Window {
    */
   updateInvocationMode?: (json: string) => void;
 
-    /**
-     * Update session-scoped runtime state from the backend authority.
-     */
-    updateSessionRuntimeState?: (json: string) => void;
+  /**
+   * Update session-scoped runtime state from the backend authority.
+   */
+  updateSessionRuntimeState?: (json: string) => void;
 
   /**
    * Show conversation summary/compaction notice
@@ -505,11 +514,15 @@ interface Window {
    * Apply IDEA language configuration (called from Java backend)
    * @param config Language configuration object containing language code and IDEA locale
    */
-  applyIdeaLanguageConfig?: (config: {
-    language: string;
-    source?: string;
-    ideaLocale?: string;
-  } | string) => void;
+  applyIdeaLanguageConfig?: (
+    config:
+      | {
+          language: string;
+          source?: string;
+          ideaLocale?: string;
+        }
+      | string,
+  ) => void;
 
   /**
    * Pending language config before applyIdeaLanguageConfig is registered
@@ -524,13 +537,17 @@ interface Window {
    * Apply appearance config (theme/fontSize/diffTheme/colors) from Java backend.
    * Cold-cache hydration source: only fills missing localStorage keys.
    */
-  applyAppearanceConfig?: (config: {
-    themePreference?: string;
-    fontSizeLevel?: number;
-    diffTheme?: string;
-    chatBgColor?: { light?: string; dark?: string };
-    userMsgColor?: { light?: string; dark?: string };
-  } | string) => void;
+  applyAppearanceConfig?: (
+    config:
+      | {
+          themePreference?: string;
+          fontSizeLevel?: number;
+          diffTheme?: string;
+          chatBgColor?: { light?: string; dark?: string };
+          userMsgColor?: { light?: string; dark?: string };
+        }
+      | string,
+  ) => void;
 
   /**
    * Pending appearance config before applyAppearanceConfig is registered
@@ -711,7 +728,7 @@ interface Window {
    */
   updateCurrentCodexConfig?: (json: string) => void;
 
-// ============================================================================
+  // ============================================================================
   // Streaming Callbacks
   // ============================================================================
 
@@ -810,24 +827,24 @@ interface Window {
    */
   __activeStreamingResponseId?: string | null;
 
-   /**
-    * Turn ID for which onStreamEnd has already been processed.
-    * Used as an idempotency guard: when dual-path delivery sends onStreamEnd
-    * twice (primary via flush callback + fallback via Alarm), only the first
-    * arrival takes effect; the second is a no-op.
-    * Cleared in onStreamStart to allow the next turn.
-    * @default undefined (no processed turn)
-    */
-   __streamEndProcessedTurnId?: number;
+  /**
+   * Turn ID for which onStreamEnd has already been processed.
+   * Used as an idempotency guard: when dual-path delivery sends onStreamEnd
+   * twice (primary via flush callback + fallback via Alarm), only the first
+   * arrival takes effect; the second is a no-op.
+   * Cleared in onStreamStart to allow the next turn.
+   * @default undefined (no processed turn)
+   */
+  __streamEndProcessedTurnId?: number;
 
-   /**
+  /**
    * Source of the last onStreamEnd call ('watchdog' | 'backend').
    * Used for diagnostic logging to identify premature stream-end events.
    * Set by the stall watchdog before calling onStreamEnd, cleared after processing.
    */
   __lastStreamEndSource?: string;
 
-   /**
+  /**
    * Timestamp when the current streaming turn started.
    * Used to calculate durationMs on the assistant message when the stream ends.
    */
@@ -848,6 +865,8 @@ interface Window {
   __pendingUpdateSequence?: number | null;
   __streamingDeltaRenderingFrame?: number;
   __minAcceptedUpdateSequence?: number;
+  /** Absolute index represented by messages[0] when only a tail snapshot is retained. */
+  __messageBaseIndex?: number;
   /** Cancel pending rAF-deferred updateMessages (set by messageCallbacks, called by onStreamEnd). */
   __cancelPendingUpdateMessages?: () => void;
   /** Currently active streaming scope key: provider:tabId:turnId. */
@@ -962,10 +981,10 @@ interface Window {
    */
   __pendingAutoOpenFileEnabled?: string;
 
-    /**
-     * Pending session runtime state before callbacks are registered.
-     */
-    __pendingSessionRuntimeState?: string;
+  /**
+   * Pending session runtime state before callbacks are registered.
+   */
+  __pendingSessionRuntimeState?: string;
 
   /**
    * Pending permission dialog timeout before React initialization
