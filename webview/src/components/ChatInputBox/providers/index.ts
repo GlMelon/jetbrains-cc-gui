@@ -24,6 +24,8 @@ export type { AgentItem } from './agentProvider';
 export {
   promptProvider,
   promptToDropdownItem,
+  normalizePromptProvider,
+  parsePromptCallbackPayload,
   setupPromptsCallback,
   resetPromptsState,
   updateGlobalPromptsCache,
@@ -32,7 +34,7 @@ export {
   forceRefreshPrompts,
 } from './promptProvider';
 
-export type { PromptItem } from './promptProvider';
+export type { PromptCallbackPayload, PromptItem } from './promptProvider';
 
 export {
   dollarCommandProvider,

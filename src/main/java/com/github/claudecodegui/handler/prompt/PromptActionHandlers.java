@@ -1,12 +1,14 @@
 package com.github.claudecodegui.handler.prompt;
 
 import com.github.claudecodegui.bridge.NodeDetector;
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.model.ConflictStrategy;
 import com.github.claudecodegui.model.PromptScope;
 import com.github.claudecodegui.settings.AbstractPromptManager;
 import com.github.claudecodegui.settings.CodemossSettingsService;
+import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.util.GsonHolder;
 import com.github.claudecodegui.watcher.PromptFileWatcher;
 import com.google.gson.Gson;
@@ -56,12 +58,12 @@ public class PromptActionHandlers {
         this.fileWatcher = new PromptFileWatcher(
             context.getProject(),
             settingsService,
-            (scope, promptsJson) -> {
+            (scope, provider, promptsJson) -> {
                 final String eventType = scope == PromptScope.GLOBAL
                     ? DownstreamEvent.PROMPT_GLOBAL_LIST.value()
                     : DownstreamEvent.PROMPT_PROJECT_LIST.value();
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    dispatchEvent(eventType, escapeJs(promptsJson));
+                    dispatchPromptList(eventType, provider, promptsJson);
                 });
                 LOG.info("[PromptHandler] File watcher triggered update for scope=" + scope.getValue());
             }
@@ -89,6 +91,33 @@ public class PromptActionHandlers {
         return context.escapeJs(s);
     }
 
+    private void dispatchPromptList(String eventType, String provider, String promptsJson) {
+        JsonObject payload = new JsonObject();
+        payload.addProperty(CommonConstants.JSON_KEY_PROVIDER, normalizeProvider(provider));
+        payload.add("prompts", JsonParser.parseString(promptsJson).getAsJsonArray());
+        dispatchEvent(eventType, escapeJs(gson.toJson(payload)));
+    }
+
+    private String parseProviderFromData(String data) {
+        if (data == null || data.trim().isEmpty()) {
+            return ProviderType.CLAUDE.value();
+        }
+        try {
+            JsonObject json = gson.fromJson(data, JsonObject.class);
+            if (json == null || !json.has(CommonConstants.JSON_KEY_PROVIDER)) {
+                return ProviderType.CLAUDE.value();
+            }
+            return normalizeProvider(json.get(CommonConstants.JSON_KEY_PROVIDER).getAsString());
+        } catch (Exception e) {
+            LOG.warn("[PromptHandler] Failed to parse provider, defaulting to Claude: " + e.getMessage());
+            return ProviderType.CLAUDE.value();
+        }
+    }
+
+    private String normalizeProvider(String provider) {
+        return ProviderType.fromString(provider).value();
+    }
+
     // ── scope parsing ──
 
     private PromptScope parseScopeFromData(String data) {
@@ -113,30 +142,27 @@ public class PromptActionHandlers {
     public void handleGetPrompts(String content) {
         try {
             PromptScope scope = parseScopeFromData(content);
-            LOG.debug("[PromptHandler] Getting prompts for scope: " + scope.getValue());
-            List<JsonObject> prompts = settingsService.getPrompts(scope, context.getProject());
+            String provider = parseProviderFromData(content);
+            LOG.debug("[PromptHandler] Getting prompts for scope=" + scope.getValue() + ", provider=" + provider);
+            List<JsonObject> prompts = settingsService.getPrompts(scope, context.getProject(), provider);
             String promptsJson = gson.toJson(prompts);
             final String eventType = scope == PromptScope.GLOBAL ? DownstreamEvent.PROMPT_GLOBAL_LIST.value() : DownstreamEvent.PROMPT_PROJECT_LIST.value();
-            ApplicationManager.getApplication().invokeLater(() -> {
-                dispatchEvent(eventType, escapeJs(promptsJson));
-            });
+            ApplicationManager.getApplication().invokeLater(() -> dispatchPromptList(eventType, provider, promptsJson));
         } catch (IllegalStateException e) {
             PromptScope scope = parseScopeFromData(content);
             if (scope == PromptScope.PROJECT && e.getMessage() != null && e.getMessage().contains("Project not available")) {
                 LOG.warn("[PromptHandler] Project not ready yet, skipping project prompts callback");
                 return;
             }
+            String provider = parseProviderFromData(content);
             final String eventType = scope == PromptScope.GLOBAL ? DownstreamEvent.PROMPT_GLOBAL_LIST.value() : DownstreamEvent.PROMPT_PROJECT_LIST.value();
-            ApplicationManager.getApplication().invokeLater(() -> {
-                dispatchEvent(eventType, escapeJs("[]"));
-            });
+            ApplicationManager.getApplication().invokeLater(() -> dispatchPromptList(eventType, provider, "[]"));
         } catch (Exception e) {
             LOG.error("[PromptHandler] Failed to get prompts: " + e.getMessage(), e);
             PromptScope scope = parseScopeFromData(content);
+            String provider = parseProviderFromData(content);
             final String eventType = scope == PromptScope.GLOBAL ? DownstreamEvent.PROMPT_GLOBAL_LIST.value() : DownstreamEvent.PROMPT_PROJECT_LIST.value();
-            ApplicationManager.getApplication().invokeLater(() -> {
-                dispatchEvent(eventType, escapeJs("[]"));
-            });
+            ApplicationManager.getApplication().invokeLater(() -> dispatchPromptList(eventType, provider, "[]"));
         }
     }
 
@@ -176,17 +202,21 @@ public class PromptActionHandlers {
             if (data.has("scope")) {
                 scope = PromptScope.fromString(data.get("scope").getAsString());
             }
+            String provider = parseProviderFromData(content);
             JsonObject prompt;
             if (data.has("prompt")) {
                 prompt = data.getAsJsonObject("prompt");
             } else {
                 prompt = data;
             }
+            prompt.addProperty(CommonConstants.JSON_KEY_PROVIDER, provider);
             settingsService.addPrompt(prompt, scope, context.getProject());
             final PromptScope finalScope = scope;
             ApplicationManager.getApplication().invokeLater(() -> {
-                String scopeJson = "{\"scope\":\"" + finalScope.getValue() + "\"}";
-                handleGetPrompts(scopeJson);
+                JsonObject refresh = new JsonObject();
+                refresh.addProperty("scope", finalScope.getValue());
+                refresh.addProperty(CommonConstants.JSON_KEY_PROVIDER, provider);
+                handleGetPrompts(gson.toJson(refresh));
                 dispatchEvent(DownstreamEvent.PROMPT_OPERATION_RESULT.value(), escapeJs("{\"success\":true,\"operation\":\"add\"}"));
             });
         } catch (Exception e) {
@@ -210,13 +240,17 @@ public class PromptActionHandlers {
             if (data.has("scope")) {
                 scope = PromptScope.fromString(data.get("scope").getAsString());
             }
+            String provider = parseProviderFromData(content);
             String id = data.get("id").getAsString();
             JsonObject updates = data.getAsJsonObject("updates");
+            updates.addProperty(CommonConstants.JSON_KEY_PROVIDER, provider);
             settingsService.updatePrompt(id, updates, scope, context.getProject());
             final PromptScope finalScope = scope;
             ApplicationManager.getApplication().invokeLater(() -> {
-                String scopeJson = "{\"scope\":\"" + finalScope.getValue() + "\"}";
-                handleGetPrompts(scopeJson);
+                JsonObject refresh = new JsonObject();
+                refresh.addProperty("scope", finalScope.getValue());
+                refresh.addProperty(CommonConstants.JSON_KEY_PROVIDER, provider);
+                handleGetPrompts(gson.toJson(refresh));
                 dispatchEvent(DownstreamEvent.PROMPT_OPERATION_RESULT.value(), escapeJs("{\"success\":true,\"operation\":\"update\"}"));
             });
         } catch (Exception e) {
@@ -236,13 +270,16 @@ public class PromptActionHandlers {
             if (data.has("scope")) {
                 scope = PromptScope.fromString(data.get("scope").getAsString());
             }
+            String provider = parseProviderFromData(content);
             String id = data.get("id").getAsString();
-            boolean deleted = settingsService.deletePrompt(id, scope, context.getProject());
+            boolean deleted = settingsService.deletePrompt(id, scope, context.getProject(), provider);
             if (deleted) {
                 final PromptScope finalScope = scope;
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    String scopeJson = "{\"scope\":\"" + finalScope.getValue() + "\"}";
-                    handleGetPrompts(scopeJson);
+                    JsonObject refresh = new JsonObject();
+                    refresh.addProperty("scope", finalScope.getValue());
+                    refresh.addProperty(CommonConstants.JSON_KEY_PROVIDER, provider);
+                    handleGetPrompts(gson.toJson(refresh));
                     dispatchEvent(DownstreamEvent.PROMPT_OPERATION_RESULT.value(), escapeJs("{\"success\":true,\"operation\":\"delete\"}"));
                 });
             } else {

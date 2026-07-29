@@ -1,8 +1,20 @@
 import { sendAction } from '../../../bridge/typed';
-import { UPSTREAM } from '../../../generated/protocol';
-import { useState, useCallback, useRef } from 'react';
+import { PROVIDER_TYPE, UPSTREAM } from '../../../generated/protocol';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { PromptConfig, PromptScope, GetPromptsMessage, AddPromptMessage, UpdatePromptMessage, DeletePromptMessage, ExportPromptsMessage, ImportPromptsFileMessage, SaveImportedPromptsMessage, ProjectInfo } from '../../../types/prompt';
+import type {
+  PromptConfig,
+  PromptProvider,
+  PromptScope,
+  GetPromptsMessage,
+  AddPromptMessage,
+  UpdatePromptMessage,
+  DeletePromptMessage,
+  ExportPromptsMessage,
+  ImportPromptsFileMessage,
+  SaveImportedPromptsMessage,
+  ProjectInfo,
+} from '../../../types/prompt';
 import type { ImportPreviewResult, ConflictStrategy } from '../../../types/import';
 
 export interface PromptDialogState {
@@ -29,12 +41,13 @@ export interface ExportDialogState {
 }
 
 export interface UsePromptManagementOptions {
+  provider?: PromptProvider;
   onError?: (message: string) => void;
   onSuccess?: (message: string) => void;
 }
 
 export function usePromptManagement(options: UsePromptManagementOptions = {}) {
-  const { onSuccess, onError } = options;
+  const { provider = PROVIDER_TYPE.CLAUDE, onSuccess, onError } = options;
   const { t } = useTranslation();
 
   // Timeout timer reference (using useRef to avoid global variable pollution)
@@ -77,23 +90,32 @@ export function usePromptManagement(options: UsePromptManagementOptions = {}) {
   });
 
   // Load prompt list (with timeout protection, no retries)
-  const loadPrompts = useCallback((scope: PromptScope) => {
-    const TIMEOUT = 2000; // 2-second timeout
+  const loadPrompts = useCallback(
+    (scope: PromptScope) => {
+      const TIMEOUT = 2000; // 2-second timeout
 
-    setPromptsLoading(true);
-    const message: GetPromptsMessage = { scope };
-    sendAction(UPSTREAM.GET_PROMPTS, JSON.stringify(message));
+      setPromptsLoading(true);
+      const message: GetPromptsMessage = { scope, provider };
+      sendAction(UPSTREAM.GET_PROMPTS, JSON.stringify(message));
 
-    // Set up timeout timer - show empty list after timeout
-    const timeoutId = setTimeout(() => {
-      // Stop loading after timeout, show empty list
-      setPromptsLoading(false);
-      // Don't clear the list, preserve any existing data
-    }, TIMEOUT);
+      // Set up timeout timer - show empty list after timeout
+      const timeoutId = setTimeout(() => {
+        // Stop loading after timeout, show empty list
+        setPromptsLoading(false);
+        // Don't clear the list, preserve any existing data
+      }, TIMEOUT);
 
-    // Store timeout ID in ref
-    promptsLoadingTimeoutRef.current = timeoutId;
-  }, []);
+      // Store timeout ID in ref
+      promptsLoadingTimeoutRef.current = timeoutId;
+    },
+    [provider],
+  );
+
+  useEffect(() => {
+    setGlobalPrompts([]);
+    setProjectPrompts([]);
+    setPromptsLoading(false);
+  }, [provider]);
 
   // Convenience functions for loading prompts
   const loadGlobalPrompts = useCallback(() => loadPrompts('global'), [loadPrompts]);
@@ -170,6 +192,7 @@ export function usePromptManagement(options: UsePromptManagementOptions = {}) {
         // Add new prompt
         const message: AddPromptMessage = {
           scope,
+          provider,
           prompt: {
             id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
             name: data.name,
@@ -182,6 +205,7 @@ export function usePromptManagement(options: UsePromptManagementOptions = {}) {
         // Update existing prompt
         const message: UpdatePromptMessage = {
           scope,
+          provider,
           id: promptDialog.prompt.id,
           updates: {
             name: data.name,
@@ -196,7 +220,7 @@ export function usePromptManagement(options: UsePromptManagementOptions = {}) {
       // Reload list after prompt operation (with timeout protection)
       loadPrompts(scope);
     },
-    [promptDialog, loadPrompts]
+    [promptDialog, loadPrompts, provider],
   );
 
   // Confirm prompt deletion
@@ -207,13 +231,14 @@ export function usePromptManagement(options: UsePromptManagementOptions = {}) {
 
     const message: DeletePromptMessage = {
       scope,
+      provider,
       id: prompt.id,
     };
     sendAction(UPSTREAM.DELETE_PROMPT, JSON.stringify(message));
     setDeletePromptConfirm({ isOpen: false, prompt: null, scope: 'global' });
     // Reload list after deletion (with timeout protection)
     loadPrompts(scope);
-  }, [deletePromptConfirm, loadPrompts]);
+  }, [deletePromptConfirm, loadPrompts, provider]);
 
   // Cancel prompt deletion
   const cancelDeletePrompt = useCallback(() => {
@@ -229,12 +254,14 @@ export function usePromptManagement(options: UsePromptManagementOptions = {}) {
           update: t('settings.prompt.updateSuccess'),
           delete: t('settings.prompt.deleteSuccess'),
         };
-        onSuccess?.(operationMessages[result.operation || ''] || t('settings.prompt.operationSuccess'));
+        onSuccess?.(
+          operationMessages[result.operation || ''] || t('settings.prompt.operationSuccess'),
+        );
       } else {
         onError?.(result.error || t('settings.prompt.operationFailed'));
       }
     },
-    [onSuccess, onError, t]
+    [onSuccess, onError, t],
   );
 
   // Open export dialog
@@ -248,22 +275,29 @@ export function usePromptManagement(options: UsePromptManagementOptions = {}) {
   }, []);
 
   // Confirm export with selected IDs
-  const handleConfirmExport = useCallback((selectedIds: string[]) => {
-    const scope = exportDialog.scope;
-    const message: ExportPromptsMessage = {
-      scope,
-      promptIds: selectedIds,
-    };
-    sendAction(UPSTREAM.EXPORT_PROMPTS, JSON.stringify(message));
-    setExportDialog({ isOpen: false, scope: 'global' });
-  }, [exportDialog.scope]);
+  const handleConfirmExport = useCallback(
+    (selectedIds: string[]) => {
+      const scope = exportDialog.scope;
+      const message: ExportPromptsMessage = {
+        scope,
+        provider,
+        promptIds: selectedIds,
+      };
+      sendAction(UPSTREAM.EXPORT_PROMPTS, JSON.stringify(message));
+      setExportDialog({ isOpen: false, scope: 'global' });
+    },
+    [exportDialog.scope, provider],
+  );
 
   // Import prompts from file
-  const handleImportPromptsFile = useCallback((scope: PromptScope) => {
-    currentImportScopeRef.current = scope;
-    const message: ImportPromptsFileMessage = { scope };
-    sendAction(UPSTREAM.IMPORT_PROMPTS_FILE, JSON.stringify(message));
-  }, []);
+  const handleImportPromptsFile = useCallback(
+    (scope: PromptScope) => {
+      currentImportScopeRef.current = scope;
+      const message: ImportPromptsFileMessage = { scope, provider };
+      sendAction(UPSTREAM.IMPORT_PROMPTS_FILE, JSON.stringify(message));
+    },
+    [provider],
+  );
 
   // Handle import preview result (used by window callback)
   const handlePromptImportPreviewResult = useCallback(
@@ -274,7 +308,7 @@ export function usePromptManagement(options: UsePromptManagementOptions = {}) {
         scope: currentImportScopeRef.current,
       });
     },
-    []
+    [],
   );
 
   // Close import preview dialog
@@ -292,11 +326,12 @@ export function usePromptManagement(options: UsePromptManagementOptions = {}) {
       if (!importPreviewDialog.previewData) return;
 
       const selectedPrompts = importPreviewDialog.previewData.items
-        .filter(item => selectedIds.includes(item.data.id))
-        .map(item => item.data);
+        .filter((item) => selectedIds.includes(item.data.id))
+        .map((item) => item.data);
 
       const message: SaveImportedPromptsMessage = {
         scope,
+        provider,
         prompts: selectedPrompts,
         strategy,
       };
@@ -304,12 +339,19 @@ export function usePromptManagement(options: UsePromptManagementOptions = {}) {
       sendAction(UPSTREAM.SAVE_IMPORTED_PROMPTS, JSON.stringify(message));
       setImportPreviewDialog({ isOpen: false, previewData: null, scope: 'global' });
     },
-    [importPreviewDialog.previewData]
+    [importPreviewDialog.previewData, provider],
   );
 
   // Handle import result (used by window callback)
   const handlePromptImportResult = useCallback(
-    (result: { success: boolean; imported: number; updated: number; skipped: number; scope: PromptScope; error?: string }) => {
+    (result: {
+      success: boolean;
+      imported: number;
+      updated: number;
+      skipped: number;
+      scope: PromptScope;
+      error?: string;
+    }) => {
       if (result.success) {
         const message = t('settings.prompt.importDialog.importPartialSuccess', {
           imported: result.imported,
@@ -322,7 +364,7 @@ export function usePromptManagement(options: UsePromptManagementOptions = {}) {
       // Reload prompts list for the affected scope
       loadPrompts(result.scope);
     },
-    [onSuccess, t, loadPrompts]
+    [onSuccess, t, loadPrompts],
   );
 
   return {
