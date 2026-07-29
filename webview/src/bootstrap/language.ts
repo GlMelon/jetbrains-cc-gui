@@ -14,7 +14,7 @@ import { registerLegacyAlias } from '../bridge';
  * Apply language configuration to i18n
  * Supports both direct objects (startup injection) and JSON strings (bridge callbacks).
  */
-function applyLanguageConfig(rawConfig: { language: string; source?: string; ideaLocale?: string } | string) {
+export function applyLanguageConfig(rawConfig: { language: string; source?: string; ideaLocale?: string } | string) {
   let config: { language: string; source?: string; ideaLocale?: string };
 
   if (typeof rawConfig === 'string') {

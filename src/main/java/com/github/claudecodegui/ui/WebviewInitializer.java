@@ -3,6 +3,7 @@ package com.github.claudecodegui.ui;
 import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
+import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.model.NodeDetectionResult;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
@@ -10,15 +11,13 @@ import com.github.claudecodegui.provider.codex.CodexSDKBridge;
 import com.github.claudecodegui.session.runtime.EffectiveRuntimeResolver;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.settings.CodemossSettingsService;
-import com.github.claudecodegui.settings.avatar.AvatarConfigService;
 import com.github.claudecodegui.startup.BridgePreloader;
-import com.github.claudecodegui.util.FontConfigService;
 import com.github.claudecodegui.util.HtmlLoader;
-import com.github.claudecodegui.util.JsUtils;
 import com.github.claudecodegui.util.JBCefBrowserFactory;
-import com.github.claudecodegui.util.LanguageConfigService;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.github.claudecodegui.util.ThemeConfigService;
+import com.github.claudecodegui.ui.bootstrap.WebviewBootstrapPayloadFactory;
+import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.openapi.application.ApplicationManager;
@@ -53,6 +52,7 @@ import java.util.concurrent.CompletableFuture;
 public class WebviewInitializer {
 
     private static final Logger LOG = Logger.getInstance(WebviewInitializer.class);
+    private static final Gson GSON = new Gson();
     private static final String NODE_PATH_PROPERTY_KEY = "claude.code.node.path";
 
     /**
@@ -301,49 +301,12 @@ public class WebviewInitializer {
                                  .append("})();");
                     }
 
-                    // 5. IDEA 编辑器字体配置。
-                    String fontConfig = FontConfigService.getEditorFontConfigJson();
-                    LOG.info("[FontSync] Retrieved font config: " + fontConfig);
-                    bootstrap.append("(function(){ if (window.applyIdeaFontConfig) { window.applyIdeaFontConfig(")
-                             .append(fontConfig).append("); } else { window.__pendingFontConfig = ").append(fontConfig)
-                             .append("; } })();");
-
-                    // 6. 插件 UI 字体配置(escape + JSON.parse 与原实现一致)。
-                    String uiFontConfig = FontConfigService.getResolvedUiFontConfigJson(host.getHandlerContext().getSettingsService());
-                    String escapedUiFontConfig = JsUtils.escapeJs(uiFontConfig);
-                    bootstrap.append("(function(){ var c = JSON.parse('").append(escapedUiFontConfig)
-                             .append("'); if (window.applyUiFontConfig) { window.applyUiFontConfig(c); }")
-                             .append(" else { window.__pendingUiFontConfig = c; } })();");
-
-                    // 7. 代码字体配置。
-                    String codeFontConfig = FontConfigService.getResolvedCodeFontConfigJson(host.getHandlerContext().getSettingsService());
-                    String escapedCodeFontConfig = JsUtils.escapeJs(codeFontConfig);
-                    bootstrap.append("(function(){ var c = JSON.parse('").append(escapedCodeFontConfig)
-                             .append("'); if (window.applyCodeFontConfig) { window.applyCodeFontConfig(c); }")
-                             .append(" else { window.__pendingCodeFontConfig = c; } })();");
-
-                    // 8. IDEA 语言配置。
-                    String languageConfig = LanguageConfigService.getLanguageConfigJson(host.getHandlerContext().getSettingsService());
-                    LOG.info("[LanguageSync] Retrieved language config: " + languageConfig);
-                    bootstrap.append("(function(){ if (window.applyIdeaLanguageConfig) { window.applyIdeaLanguageConfig(")
-                             .append(languageConfig).append("); } else { window.__pendingLanguageConfig = ").append(languageConfig)
-                             .append("; } })();");
-
-                    // 9. 外观配置(主题/字号/diff 主题/分主题色)。localStorage 被 IDE 缓存失效清除时从 config.json 回灌。
-                    String appearanceConfig = CodemossSettingsService.getAppearanceConfigJson(host.getHandlerContext().getSettingsService());
-                    String escapedAppearanceConfig = JsUtils.escapeJs(appearanceConfig);
-                    bootstrap.append("(function(){ var c = JSON.parse('").append(escapedAppearanceConfig)
-                             .append("'); if (window.applyAppearanceConfig) { window.applyAppearanceConfig(c); }")
-                             .append(" else { window.__pendingAppearanceConfig = c; } })();");
-
-                    // 10. 头像配置。
-                    String avatarConfig = new AvatarConfigService().serializeAuthoritativeConfig();
-                    String escapedAvatarConfig = JsUtils.escapeJs(avatarConfig);
-                    bootstrap.append("(function(){ var c = JSON.parse('").append(escapedAvatarConfig)
-                             .append("'); if (window.applyAvatarConfig) { window.applyAvatarConfig(c); }")
-                             .append(" else { window.__pendingAvatarConfig = c; } })();");
-
                     cefBrowser.executeJavaScript(bootstrap.toString(), cefBrowser.getURL(), 0);
+
+                    String bootstrapPayload = GSON.toJson(
+                            WebviewBootstrapPayloadFactory.create(host.getHandlerContext().getSettingsService())
+                    );
+                    host.getHandlerContext().dispatchEvent(DownstreamEvent.WEBVIEW_BOOTSTRAP.value(), bootstrapPayload);
                     LOG.debug("onLoadEnd bootstrap injected (" + bootstrap.length() + " chars), waiting for frontend_ready signal");
                 }
             }, browser.getCefBrowser());

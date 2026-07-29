@@ -164,7 +164,7 @@ function syncEffectiveUiFontFamily() {
   root.style.setProperty('--idea-editor-font-family', fontFamilyValue);
 }
 
-function applyEditorTypographyConfig(config: {
+export function applyEditorTypographyConfig(config: {
   fontFamily: string;
   fontSize: number;
   lineSpacing: number;
@@ -178,7 +178,7 @@ function applyEditorTypographyConfig(config: {
   syncEffectiveUiFontFamily();
 }
 
-function applyUiFontConfig(config: UiFontConfig | string) {
+export function applyUiFontConfig(config: UiFontConfig | string) {
   const normalizedConfig: UiFontConfig =
     typeof config === 'string' ? JSON.parse(config) as UiFontConfig : config;
 
@@ -194,7 +194,7 @@ function applyUiFontConfig(config: UiFontConfig | string) {
  * - followEditor 模式: fontFamily=editor 字体名,无 @font-face
  * 与 applyUiFontConfig 完全对称,修复 v0.4.6 迁移遗漏的 font.apply_code 订阅。
  */
-function applyCodeFontConfig(config: CodeFontConfig | string) {
+export function applyCodeFontConfig(config: CodeFontConfig | string) {
   const normalizedConfig: CodeFontConfig =
     typeof config === 'string' ? JSON.parse(config) as CodeFontConfig : config;
 
