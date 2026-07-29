@@ -3,7 +3,9 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "lib": ["ES2022"],
+    "lib": [
+      "ES2022"
+    ],
     "strict": true,
     "allowJs": true,
     "checkJs": false,
@@ -12,8 +14,23 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "noUnusedLocals": false,
-    "noUnusedParameters": false
+    "noUnusedParameters": false,
+    "types": [
+      "node"
+    ],
+    "allowImportingTsExtensions": true,
+    "forceConsistentCasingInFileNames": true
   },
-  "include": ["**/*.ts", "**/*.js"],
-  "exclude": ["node_modules/**", "dist/**", "build/**", "**/*.test.js", "**/*.test.ts"]
+  "include": [
+    "**/*.js",
+    "**/*.mjs",
+    "**/*.cjs",
+    "**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "coverage",
+    "dist",
+    "eslint.config.js"
+  ]
 }

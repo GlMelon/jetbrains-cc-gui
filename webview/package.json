@@ -13,6 +13,7 @@
     "test:e2e": "playwright test",
     "preview": "vite preview",
     "check:event-literals": "node scripts/check-event-literals.mjs",
+    "check:style": "node scripts/check-style.mjs",
     "lint": "eslint src scripts",
     "lint:fix": "eslint --fix src scripts",
     "format": "prettier --write \"src/**/*.{ts,tsx,less,json}\" \"scripts/**/*.{mjs,js}\"",
