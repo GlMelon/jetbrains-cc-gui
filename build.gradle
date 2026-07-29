@@ -50,7 +50,7 @@ jacoco {
 }
 
 group = 'com.github.idea-claude-code-gui'
-version = '0.4.8-Alpha2'
+version = '0.4.9-Alpha1'
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
