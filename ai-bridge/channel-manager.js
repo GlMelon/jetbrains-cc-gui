@@ -41,11 +41,11 @@ injectStartupEnvVars();
 configureCliIdentity();
 
 // Diagnostic logging: startup info
-console.log('[DIAG-ENTRY] ========== CHANNEL-MANAGER STARTUP ==========');
-console.log('[DIAG-ENTRY] Node.js version:', process.version);
-console.log('[DIAG-ENTRY] Platform:', process.platform);
-console.log('[DIAG-ENTRY] CWD:', process.cwd());
-console.log('[DIAG-ENTRY] argv:', process.argv);
+console.error('[DIAG-ENTRY] ========== CHANNEL-MANAGER STARTUP ==========');
+console.error('[DIAG-ENTRY] Node.js version:', process.version);
+console.error('[DIAG-ENTRY] Platform:', process.platform);
+console.error('[DIAG-ENTRY] CWD:', process.cwd());
+console.error('[DIAG-ENTRY] argv:', process.argv);
 
 // Parse command-line arguments
 const provider = process.argv[2];
@@ -53,9 +53,9 @@ const command = process.argv[3];
 const args = process.argv.slice(4);
 
 // Diagnostic logging: argument info
-console.log('[DIAG-ENTRY] Provider:', provider);
-console.log('[DIAG-ENTRY] Command:', command);
-console.log('[DIAG-ENTRY] Args:', args);
+console.error('[DIAG-ENTRY] Provider:', provider);
+console.error('[DIAG-ENTRY] Command:', command);
+console.error('[DIAG-ENTRY] Args:', args);
 
 // Error handling
 process.on('uncaughtException', (error) => {
@@ -85,7 +85,7 @@ process.on('unhandledRejection', (reason) => {
  */
 async function handleSystemCommand(command, args, stdinData) {
   switch (command) {
-    case 'getSdkStatus':
+    case 'getSdkStatus': {
       // Return the installation status of all SDKs
       const status = getSdkStatus();
       console.log(JSON.stringify({
@@ -93,6 +93,7 @@ async function handleSystemCommand(command, args, stdinData) {
         data: status
       }));
       break;
+    }
 
     case 'checkClaudeSdk':
       // Check if Claude SDK is available
@@ -123,10 +124,10 @@ const providerRegistry = getDefaultProviderRegistry();
 
 // Execute command
 (async () => {
-  console.log('[DIAG-EXEC] ========== STARTING EXECUTION ==========');
+  console.error('[DIAG-EXEC] ========== STARTING EXECUTION ==========');
   try {
     // Validate provider
-    console.log('[DIAG-EXEC] Validating provider...');
+    console.error('[DIAG-EXEC] Validating provider...');
     if (!provider || (provider !== 'system' && !providerRegistry.has(provider))) {
       console.error('Invalid provider. Use "claude", "codex", or "system"');
       console.log(JSON.stringify({
@@ -147,18 +148,18 @@ const providerRegistry = getDefaultProviderRegistry();
     }
 
     // Read stdin data
-    console.log('[DIAG-EXEC] Reading stdin data...');
+    console.error('[DIAG-EXEC] Reading stdin data...');
     const stdinData = await readStdinData(provider);
-    console.log('[DIAG-EXEC] Stdin data received, keys:', stdinData ? Object.keys(stdinData) : 'null');
+    console.error('[DIAG-EXEC] Stdin data received, keys:', stdinData ? Object.keys(stdinData) : 'null');
 
     // Dispatch to the appropriate provider handler
-    console.log('[DIAG-EXEC] Dispatching to handler:', provider);
+    console.error('[DIAG-EXEC] Dispatching to handler:', provider);
     if (provider === 'system') {
       await handleSystemCommand(command, args, stdinData);
     } else {
       await providerRegistry.dispatch(provider, command, args, stdinData);
     }
-    console.log('[DIAG-EXEC] Handler completed successfully');
+    console.error('[DIAG-EXEC] Handler completed successfully');
 
     // IMPORTANT: Do not use process.exit(0) for natural-exit commands -- it terminates the
     // process before the stdout buffer is fully flushed, which can truncate large JSON output

@@ -339,8 +339,7 @@ process.stdout.write = /** @type {any} */ (
 // The per-runtime perpetual reader (runtime-lifecycle.js) uses this to emit
 // inter-turn 'session_updated' events; without it those events would be
 // misrouted to whatever request happens to be active. See startPerpetualReader().
-/** @ts-ignore - augmenting process.stdout with a back-channel writer */
-process.stdout._originalStdoutWrite = _originalStdoutWrite;
+/** @type {any} */ (process.stdout)._originalStdoutWrite = _originalStdoutWrite;
 
 /**
  * Override console.log to go through our tagged stdout.

@@ -247,7 +247,7 @@ function extractTextContent(message) {
  * @returns {string}
  */
 function resolveSessionFile(sessionId, cwd = null) {
-  if (!sessionId || /[\/\\]/.test(sessionId)) {
+  if (!sessionId || /[/\\]/.test(sessionId)) {
     throw new Error('Invalid session ID');
   }
   return getClaudeProjectSessionFilePath(sessionId, cwd);

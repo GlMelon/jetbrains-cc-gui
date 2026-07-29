@@ -26,6 +26,7 @@ function createHangingQuery({ prompt, options }) {
   const closedSignal = new Promise((resolve) => { closeResolve = resolve; });
   async function* messages() {
     await closedSignal;
+    yield* [];
   }
   const generator = messages();
   return {

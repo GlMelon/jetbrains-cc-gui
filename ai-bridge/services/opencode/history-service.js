@@ -7,7 +7,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-// @ts-ignore — sql.js ships no bundled type declarations; runtime import is correct.
+// @ts-expect-error — sql.js ships no bundled type declarations; runtime import is correct.
 import initSqlJs from 'sql.js';
 import { DatabaseSync } from 'node:sqlite';
 

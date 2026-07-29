@@ -27,6 +27,7 @@ const PROMPT_VALUE_MAX_LEN = 256;
 function sanitizePromptValue(value) {
   if (value === null || value === undefined) return '';
   let str = String(value);
+  // eslint-disable-next-line no-control-regex -- control characters are rejected from prompt metadata
   str = str.replace(/[\x00-\x1F\x7F`]/g, ' ').replace(/\s+/g, ' ').trim();
   if (str.length > PROMPT_VALUE_MAX_LEN) {
     str = str.slice(0, PROMPT_VALUE_MAX_LEN) + '...';

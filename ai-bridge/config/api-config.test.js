@@ -4,14 +4,13 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { pathToFileURL } from 'node:url';
 import {
   buildCliEnv,
   buildWebviewControlledSettingsOverride,
   isWebviewControlledEnvVar,
 } from './api-config.js';
 
-const API_CONFIG_MODULE = pathToFileURL(path.resolve('ai-bridge/config/api-config.js')).href;
+const API_CONFIG_MODULE = new URL('./api-config.js', import.meta.url).href;
 
 function buildChildEnv(homeDir) {
   const env = {

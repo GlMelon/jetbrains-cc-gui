@@ -13,7 +13,7 @@ import { MCP_PROTOCOL_VERSION, MCP_CLIENT_INFO } from './mcp-protocol.js';
 
 /**
  * Partial MCP server config used by STDIO clients.
- * @typedef {{ command?: string; args?: string[]; env?: Record<string, string> | undefined }} StdioServerConfig
+ * @typedef {{ command?: string; args?: string[]; env?: Record<string, string> | undefined; cwd?: string }} StdioServerConfig
  */
 
 /**
