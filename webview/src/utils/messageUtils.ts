@@ -1,5 +1,10 @@
 import type { TFunction } from 'i18next';
-import type { ClaudeContentBlock, ClaudeMessage, ClaudeRawMessage, CompactSummaryMetadata } from '../types';
+import type {
+  ClaudeContentBlock,
+  ClaudeMessage,
+  ClaudeRawMessage,
+  CompactSummaryMetadata,
+} from '../types';
 import { isCompactSummaryMetadata } from '../types';
 import {
   containsAnyTag,
@@ -52,7 +57,7 @@ export type { LocalizeMessageFn } from './contentBlockNormalize';
  * Prefer raw.uuid > __turnId > type-timestamp > fallback to type-index.
  */
 export function getMessageKey(message: ClaudeMessage, index: number): string {
-  const rawObj = typeof message.raw === 'object' ? message.raw as Record<string, unknown> : null;
+  const rawObj = typeof message.raw === 'object' ? (message.raw as Record<string, unknown>) : null;
   if (rawObj?.uuid) return rawObj.uuid as string;
   if (message.__turnId !== undefined) return `turn-${message.__turnId}`;
   return message.timestamp ? `${message.type}-${message.timestamp}` : `${message.type}-${index}`;
@@ -145,7 +150,7 @@ export function isTaskNotificationOnlyMessage(message: ClaudeMessage): boolean {
 export function isCompactCommandMessage(message: ClaudeMessage): boolean {
   if (message.type !== MESSAGE_TYPES.USER) return false;
   const texts = extractTextsFromRaw(message.raw);
-  return texts.some(t => t.includes('<command-name>/compact</command-name>'));
+  return texts.some((t) => t.includes('<command-name>/compact</command-name>'));
 }
 
 /**
@@ -154,7 +159,7 @@ export function isCompactCommandMessage(message: ClaudeMessage): boolean {
 export function isCompactStdoutMessage(message: ClaudeMessage): boolean {
   if (message.type !== MESSAGE_TYPES.USER) return false;
   const texts = extractTextsFromRaw(message.raw);
-  return texts.some(t => t.includes('<local-command-stdout>'));
+  return texts.some((t) => t.includes('<local-command-stdout>'));
 }
 
 /**
@@ -164,7 +169,12 @@ export function isCompactRelatedMessage(message: ClaudeMessage): boolean {
   if (message.type !== MESSAGE_TYPES.USER) return false;
   if (isCompactCommandMessage(message) || isCompactStdoutMessage(message)) return true;
   // Also check isCompactSummary flag on raw
-  if (message.raw && typeof message.raw === 'object' && 'isCompactSummary' in message.raw && message.raw.isCompactSummary) {
+  if (
+    message.raw &&
+    typeof message.raw === 'object' &&
+    'isCompactSummary' in message.raw &&
+    message.raw.isCompactSummary
+  ) {
     return true;
   }
   return false;
@@ -180,7 +190,7 @@ export function isCompactBoundaryMessage(message: ClaudeMessage): boolean {
   const raw = message.raw;
   if (!raw || typeof raw !== 'object') return false;
   const rawObj = raw as Record<string, unknown>;
-  const type = message.type === 'system' || rawObj.type === 'system';
+  const type = rawObj.type === 'system';
   return type && rawObj.subtype === 'compact_boundary';
 }
 
@@ -207,12 +217,20 @@ export function attachCompactBoundaryMetadata(messages: ClaudeMessage[]): Claude
       continue; // boundary line carries no user-visible content
     }
 
-    if (pendingMetadata && message.raw && typeof message.raw === 'object' && message.raw.isCompactSummary) {
+    if (
+      pendingMetadata &&
+      message.raw &&
+      typeof message.raw === 'object' &&
+      message.raw.isCompactSummary
+    ) {
       const rawObj = message.raw as Record<string, unknown>;
       result.push(
         rawObj.compactMetadata
           ? message
-          : { ...message, raw: { ...(message.raw as ClaudeRawMessage), compactMetadata: pendingMetadata } },
+          : {
+              ...message,
+              raw: { ...(message.raw as ClaudeRawMessage), compactMetadata: pendingMetadata },
+            },
       );
       pendingMetadata = null;
       continue;
@@ -230,9 +248,9 @@ const COMPACT_STDOUT_REGEX = /<local-command-stdout>([\s\S]*?)<\/local-command-s
  * Extract compact notification items from a group of messages.
  */
 export function extractCompactItems(group: ClaudeMessage[]): CompactNotificationItem[] {
-  return group.flatMap(msg => {
+  return group.flatMap((msg) => {
     const texts = extractTextsFromRaw(msg.raw);
-    return texts.flatMap(text => {
+    return texts.flatMap((text) => {
       const match = COMPACT_STDOUT_REGEX.exec(text);
       return match?.[1] ? [{ type: 'stdout' as const, text: match[1].trim() }] : [];
     });
@@ -247,7 +265,7 @@ export function buildCompactNotification(group: ClaudeMessage[]): ClaudeMessage 
   if (group.length === 0) return null;
 
   // Find the command message as primary
-  const commandMsg = group.find(m => isCompactCommandMessage(m));
+  const commandMsg = group.find((m) => isCompactCommandMessage(m));
   if (!commandMsg) return null;
 
   let headerText = '/compact';
@@ -300,7 +318,7 @@ function isProviderErrorContentAlreadyRendered(
         normalizedValue &&
         (normalizedValue === normalizedContent ||
           normalizedValue.includes(normalizedContent) ||
-          normalizedContent.includes(normalizedValue))
+          normalizedContent.includes(normalizedValue)),
       );
     });
   });
@@ -312,9 +330,9 @@ function isProviderErrorContentAlreadyRendered(
 export function getMessageText(
   message: ClaudeMessage,
   localizeMessage: LocalizeMessageFn,
-  t: TFunction
+  t: TFunction,
 ): string {
-  let text = '';
+  let text: string;
 
   if (message.content) {
     text = message.content;
@@ -375,11 +393,16 @@ export function shouldShowMessage(
   message: ClaudeMessage,
   getMessageTextFn: (msg: ClaudeMessage) => string,
   normalizeBlocksFn: (raw?: ClaudeRawMessage | string) => ClaudeContentBlock[] | null,
-  t: TFunction
+  t: TFunction,
 ): boolean {
   // Filter isMeta messages (like "Caveat: The messages below were generated...")
   // CLI: isMeta messages are hidden in normal transcript (except channel messages)
-  if (message.raw && typeof message.raw === 'object' && 'isMeta' in message.raw && message.raw.isMeta === true) {
+  if (
+    message.raw &&
+    typeof message.raw === 'object' &&
+    'isMeta' in message.raw &&
+    message.raw.isMeta === true
+  ) {
     return false;
   }
 
@@ -470,14 +493,19 @@ export function shouldShowMessage(
   }
   if (message.type === 'user' || message.type === 'error') {
     // Check if there's valid text content
-    if (text && text.trim() && text !== `(${t('chat.emptyMessage')})` && text !== `(${t('chat.parseError')})`) {
+    if (
+      text &&
+      text.trim() &&
+      text !== `(${t('chat.emptyMessage')})` &&
+      text !== `(${t('chat.parseError')})`
+    ) {
       return true;
     }
     // Check if there are valid content blocks (like images)
     const rawBlocks = normalizeBlocksFn(message.raw);
     if (Array.isArray(rawBlocks) && rawBlocks.length > 0) {
       // Ensure at least one non-empty content block
-      const hasValidBlock = rawBlocks.some(block => {
+      const hasValidBlock = rawBlocks.some((block) => {
         if (block.type === 'text') {
           return block.text && block.text.trim().length > 0;
         }
@@ -500,11 +528,12 @@ export function shouldShowMessage(
 export function getContentBlocks(
   message: ClaudeMessage,
   normalizeBlocksFn: (raw?: ClaudeRawMessage | string) => ClaudeContentBlock[] | null,
-  localizeMessage: LocalizeMessageFn
+  localizeMessage: LocalizeMessageFn,
 ): ClaudeContentBlock[] {
   // Compact notification messages carry items in raw.compactItems
   if (message.type === MESSAGE_TYPES.COMPACT_NOTIFICATION) {
-    const rawObj = typeof message.raw === 'object' ? (message.raw as Record<string, unknown> | null) : null;
+    const rawObj =
+      typeof message.raw === 'object' ? (message.raw as Record<string, unknown> | null) : null;
     const items = rawObj?.compactItems as CompactNotificationItem[] | undefined;
     const headerText = message.content || '';
     return [{ type: 'compact_notification', headerText, items: items || [] }];
@@ -512,12 +541,15 @@ export function getContentBlocks(
 
   // Compact summary notifications — show title + metadata subtitle + full content (expanded)
   if (message.type === MESSAGE_TYPES.NOTIFICATION) {
-    const rawObj = typeof message.raw === 'object' ? (message.raw as Record<string, unknown> | null) : null;
+    const rawObj =
+      typeof message.raw === 'object' ? (message.raw as Record<string, unknown> | null) : null;
     if (rawObj && 'isCompactSummary' in rawObj && rawObj.isCompactSummary) {
       // Use type guard for safe metadata extraction. Real transcripts carry the
       // metadata as `compactMetadata` (attached from the compact_boundary system
       // line by attachCompactBoundaryMetadata); `summarizeMetadata` is a legacy shape.
-      const meta: CompactSummaryMetadata | undefined = isCompactSummaryMetadata(rawObj.compactMetadata)
+      const meta: CompactSummaryMetadata | undefined = isCompactSummaryMetadata(
+        rawObj.compactMetadata,
+      )
         ? rawObj.compactMetadata
         : isCompactSummaryMetadata(rawObj.summarizeMetadata)
           ? rawObj.summarizeMetadata
@@ -532,7 +564,12 @@ export function getContentBlocks(
           // Use flatMap to filter and map in single iteration (Vercel best practice)
           summaryText = messageObj.content
             .flatMap((b: unknown) => {
-              if (b && typeof b === 'object' && 'type' in (b as Record<string, unknown>) && (b as Record<string, unknown>).type === 'text') {
+              if (
+                b &&
+                typeof b === 'object' &&
+                'type' in (b as Record<string, unknown>) &&
+                (b as Record<string, unknown>).type === 'text'
+              ) {
                 return [((b as Record<string, unknown>).text as string) || ''];
               }
               return [];
@@ -547,9 +584,10 @@ export function getContentBlocks(
 
       // Pass i18n key as `title`; the renderer resolves it via t().
       // Keeps localization concerns out of this pure data helper.
-      const title = meta && typeof meta.messagesSummarized === 'number'
-        ? 'chat.compactSummary.summarizedConversation'
-        : 'chat.compactSummary.compactSummary';
+      const title =
+        meta && typeof meta.messagesSummarized === 'number'
+          ? 'chat.compactSummary.summarizedConversation'
+          : 'chat.compactSummary.compactSummary';
       return [{ type: 'compact_summary', title, content: summaryText, metadata: meta }];
     }
   }
@@ -566,7 +604,10 @@ export function getContentBlocks(
     }
     // Streaming/tool scenario: if raw doesn't have text but message.content has text, still need to show text
     const hasTextBlock = rawBlocks.some(
-      (block) => block.type === 'text' && typeof block.text === 'string' && String(block.text).trim().length > 0,
+      (block) =>
+        block.type === 'text' &&
+        typeof block.text === 'string' &&
+        String(block.text).trim().length > 0,
     );
     if (
       !hasTextBlock &&
@@ -611,7 +652,7 @@ export function getContentBlocks(
 export function mergeConsecutiveAssistantMessages(
   messages: ClaudeMessage[],
   normalizeBlocksFn: (raw?: ClaudeRawMessage | string) => ClaudeContentBlock[] | null,
-  cache?: Map<string, { source: ClaudeMessage[]; merged: ClaudeMessage }>
+  cache?: Map<string, { source: ClaudeMessage[]; merged: ClaudeMessage }>,
 ): ClaudeMessage[] {
   if (messages.length === 0) return [];
 
@@ -619,19 +660,25 @@ export function mergeConsecutiveAssistantMessages(
   clearStaleStreamEndedMarker();
 
   const getStableId = (message: ClaudeMessage, index: number): string => {
-    const rawObj = typeof message.raw === 'object' ? (message.raw as Record<string, unknown> | null) : null;
+    const rawObj =
+      typeof message.raw === 'object' ? (message.raw as Record<string, unknown> | null) : null;
     const uuid = rawObj?.uuid;
     if (typeof uuid === 'string' && uuid) return uuid;
     if (message.timestamp) return `${message.type}-${message.timestamp}`;
     return `${message.type}-${index}`;
   };
 
-  const getAssistantBlockSummary = (message: ClaudeMessage): { hasToolUse: boolean; hasText: boolean } => {
+  const getAssistantBlockSummary = (
+    message: ClaudeMessage,
+  ): { hasToolUse: boolean; hasText: boolean } => {
     const blocks = normalizeBlocksFn(message.raw) || [];
     return {
       hasToolUse: blocks.some((block) => block.type === 'tool_use'),
-      hasText: blocks.some((block) => block.type === 'text' && typeof block.text === 'string' && block.text.trim().length > 0)
-        || Boolean(message.content && message.content.trim()),
+      hasText:
+        blocks.some(
+          (block) =>
+            block.type === 'text' && typeof block.text === 'string' && block.text.trim().length > 0,
+        ) || Boolean(message.content && message.content.trim()),
     };
   };
 
@@ -647,7 +694,11 @@ export function mergeConsecutiveAssistantMessages(
     const prevResponseId = previous.__responseId;
     const nextResponseId = next.__responseId;
 
-    if (prevResponseId !== undefined && nextResponseId !== undefined && prevResponseId === nextResponseId) {
+    if (
+      prevResponseId !== undefined &&
+      nextResponseId !== undefined &&
+      prevResponseId === nextResponseId
+    ) {
       return false;
     }
 
@@ -657,8 +708,7 @@ export function mergeConsecutiveAssistantMessages(
     }
 
     // Block merge when either side has a __turnId and they differ
-    if ((prevTurnId !== undefined || nextTurnId !== undefined) &&
-        prevTurnId !== nextTurnId) {
+    if ((prevTurnId !== undefined || nextTurnId !== undefined) && prevTurnId !== nextTurnId) {
       return false;
     }
 
@@ -727,7 +777,9 @@ export function mergeConsecutiveAssistantMessages(
     }
 
     const rawBase: ClaudeRawMessage =
-      (typeof first.raw === 'object' && first.raw ? { ...(first.raw as ClaudeRawMessage) } : ({} as ClaudeRawMessage));
+      typeof first.raw === 'object' && first.raw
+        ? { ...(first.raw as ClaudeRawMessage) }
+        : ({} as ClaudeRawMessage);
 
     const nextRaw: ClaudeRawMessage = {
       ...rawBase,
@@ -768,7 +820,10 @@ export function mergeConsecutiveAssistantMessages(
         continue;
       }
 
-      if (candidate.type === 'assistant' && shouldMergeAssistantMessage(previousAssistant, candidate)) {
+      if (
+        candidate.type === 'assistant' &&
+        shouldMergeAssistantMessage(previousAssistant, candidate)
+      ) {
         assistantGroup.push(candidate);
         previousAssistant = candidate;
         j += 1;

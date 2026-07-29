@@ -42,8 +42,10 @@ const SKILL_FORMAT_REGEX = /<skill-format>([\s\S]*?)<\/skill-format>/;
 // Actual SDK format: <task-notification><task-id>...<status>...<summary>...<result>...<usage>...</task-notification>
 // We only need status and summary, so match them regardless of position
 // Two regexes: one for full format (with status), one for minimal format (only summary)
-const TASK_NOTIFICATION_REGEX_WITH_STATUS = /<task-notification>[\s\S]*?<status>([\s\S]*?)<\/status>[\s\S]*?<summary>([\s\S]*?)<\/summary>[\s\S]*?<\/task-notification>/;
-const TASK_NOTIFICATION_REGEX_NO_STATUS = /<task-notification>[\s\S]*?<summary>([\s\S]*?)<\/summary>[\s\S]*?<\/task-notification>/;
+const TASK_NOTIFICATION_REGEX_WITH_STATUS =
+  /<task-notification>[\s\S]*?<status>([\s\S]*?)<\/status>[\s\S]*?<summary>([\s\S]*?)<\/summary>[\s\S]*?<\/task-notification>/;
+const TASK_NOTIFICATION_REGEX_NO_STATUS =
+  /<task-notification>[\s\S]*?<summary>([\s\S]*?)<\/summary>[\s\S]*?<\/task-notification>/;
 // Monitor events carry the observed payload (log line, error, …) in <event>
 const TASK_NOTIFICATION_EVENT_REGEX = /<event>([\s\S]*?)<\/event>/;
 
@@ -55,7 +57,12 @@ const TASK_NOTIFICATION_EVENT_REGEX = /<event>([\s\S]*?)<\/event>/;
 export const HIDDEN_OUTPUT_TAGS = ['<local-command-stdout>', '<local-command-stderr>'] as const;
 
 /** Tags that represent internal command metadata (no <command-message>) */
-export const INTERNAL_METADATA_TAGS = ['<command-name>', '<command-args>', '<skill-format>', '<local-command-caveat>'] as const;
+export const INTERNAL_METADATA_TAGS = [
+  '<command-name>',
+  '<command-args>',
+  '<skill-format>',
+  '<local-command-caveat>',
+] as const;
 
 /** All tags that should be filtered out in normalizeBlocks text entries.
  *  Composed from INTERNAL_METADATA_TAGS + HIDDEN_OUTPUT_TAGS to stay in sync. */
@@ -63,7 +70,7 @@ export const FILTERED_NORMALIZE_TAGS = [...INTERNAL_METADATA_TAGS, ...HIDDEN_OUT
 
 /** Check if text contains any tag from the given array */
 export function containsAnyTag(text: string, tags: readonly string[]): boolean {
-  return tags.some(tag => text.includes(tag));
+  return tags.some((tag) => text.includes(tag));
 }
 
 /**
@@ -105,17 +112,18 @@ export function formatCommandForDisplay(text: string): string | null {
   return args ? `/${commandMessage} ${args}` : `/${commandMessage}`;
 }
 
-export function parseSkillCommandBlock(text: string): { name: string; command?: string; args?: string } | null {
-  if (!text) return null;
+export function parseSkillCommandBlock(
+  text: string,
+): { name: string; command?: string; args?: string } | null {
+  if (!text || SKILL_FORMAT_REGEX.exec(text)?.[1]?.trim() !== 'true') return null;
 
-  const match = COMMAND_TAGS_REGEX.exec(text);
-  if (!match?.[1]) return null;
+  const commandMessage = COMMAND_MESSAGE_REGEX.exec(text)?.[1]?.trim() || undefined;
+  const commandName = COMMAND_NAME_REGEX.exec(text)?.[1]?.trim() || undefined;
+  const name = commandMessage ?? commandName?.replace(/^[$/]/, '');
+  if (!name) return null;
 
-  const name = match[1].trim();
-  if (!name || match[4]?.trim() !== 'true') return null;
-
-  const command = match[2]?.trim() || undefined;
-  const args = match[3]?.trim() || undefined;
+  const command = commandName ?? commandMessage;
+  const args = COMMAND_ARGS_REGEX.exec(text)?.[1]?.trim() || undefined;
   return { name, command, args };
 }
 
@@ -170,7 +178,7 @@ export const TASK_STATUS_COLORS: Record<string, string> = {
  * @returns Object with icon, summary, status, and optional detail, or null if no summary
  */
 export function formatTaskNotificationForDisplay(
-  text: string
+  text: string,
 ): { icon: string; summary: string; status: string; detail?: string } | null {
   if (!text) return null;
 
@@ -205,7 +213,13 @@ export function formatTaskNotificationForDisplay(
 export function createTaskNotificationBlock(text: string): ClaudeContentBlock | null {
   const n = formatTaskNotificationForDisplay(text);
   if (!n) return null;
-  return { type: 'task_notification' as const, icon: n.icon, summary: n.summary, status: n.status, detail: n.detail };
+  return {
+    type: 'task_notification' as const,
+    icon: n.icon,
+    summary: n.summary,
+    status: n.status,
+    detail: n.detail,
+  };
 }
 
 /**
@@ -254,21 +268,19 @@ export type LocalizeMessageFn = (text: string) => string;
 
 export function isSyntheticToolMessageContent(
   content: string | undefined,
-  rawBlocks: readonly ClaudeContentBlock[] | null | undefined
+  rawBlocks: readonly ClaudeContentBlock[] | null | undefined,
 ): boolean {
   if (!content || !content.trim() || !rawBlocks?.some((block) => block.type === 'tool_use')) {
     return false;
   }
 
-  return content
-    .split(/\r?\n/)
-    .every((line) => {
-      const trimmed = line.trim();
-      // Match any non-whitespace tool name to cover MCP tools whose canonical
-      // names (e.g. mcp__server__tool, plugin:foo/bar) include characters
-      // outside [\w.-]. Empty lines are also treated as synthetic.
-      return !trimmed || /^Tool:\s+\S+$/.test(trimmed);
-    });
+  return content.split(/\r?\n/).every((line) => {
+    const trimmed = line.trim();
+    // Match any non-whitespace tool name to cover MCP tools whose canonical
+    // names (e.g. mcp__server__tool, plugin:foo/bar) include characters
+    // outside [\w.-]. Empty lines are also treated as synthetic.
+    return !trimmed || /^Tool:\s+\S+$/.test(trimmed);
+  });
 }
 
 /**
@@ -277,7 +289,7 @@ export function isSyntheticToolMessageContent(
 export function normalizeBlocks(
   raw: ClaudeRawMessage | string | undefined,
   localizeMessage: LocalizeMessageFn,
-  t: TFunction
+  t: TFunction,
 ): ClaudeContentBlock[] | null {
   if (!raw) {
     return null;
@@ -290,9 +302,7 @@ export function normalizeBlocks(
   // Use index access since ClaudeRawMessage has [key: string]: unknown
   const rawMessage = raw.message as Record<string, unknown> | undefined;
   const isUserMessage =
-    raw.type === 'user' ||
-    raw['role'] === 'user' ||
-    rawMessage?.['role'] === 'user';
+    raw.type === 'user' || raw['role'] === 'user' || rawMessage?.['role'] === 'user';
 
   const buildBlocksFromArray = (entries: unknown[]): ClaudeContentBlock[] => {
     const blocks: ClaudeContentBlock[] = [];
@@ -366,7 +376,10 @@ export function normalizeBlocks(
         blocks.push({
           type: 'tool_use',
           id: typeof candidate.id === 'string' ? (candidate.id as string) : undefined,
-          name: typeof candidate.name === 'string' ? (candidate.name as string) : t('tools.unknownTool'),
+          name:
+            typeof candidate.name === 'string'
+              ? (candidate.name as string)
+              : t('tools.unknownTool'),
           input: (candidate.input as Record<string, unknown>) ?? {},
         });
       } else if (type === 'image') {
@@ -398,13 +411,19 @@ export function normalizeBlocks(
             type: 'image',
             src,
             mediaType,
-            alt: typeof candidate.alt === 'string' ? candidate.alt as string : undefined,
-            previewSrc: typeof candidate.previewSrc === 'string' ? candidate.previewSrc as string : src,
-            thumbnailSrc: typeof candidate.thumbnailSrc === 'string' ? candidate.thumbnailSrc as string : src,
-            sourceKind: typeof candidate.sourceKind === 'string'
-              ? candidate.sourceKind as 'base64' | 'resource_url'
-              : src.startsWith('data:') ? 'base64' : 'resource_url',
-            localPath: typeof candidate.localPath === 'string' ? candidate.localPath as string : undefined,
+            alt: typeof candidate.alt === 'string' ? (candidate.alt as string) : undefined,
+            previewSrc:
+              typeof candidate.previewSrc === 'string' ? (candidate.previewSrc as string) : src,
+            thumbnailSrc:
+              typeof candidate.thumbnailSrc === 'string' ? (candidate.thumbnailSrc as string) : src,
+            sourceKind:
+              typeof candidate.sourceKind === 'string'
+                ? (candidate.sourceKind as 'base64' | 'resource_url')
+                : src.startsWith('data:')
+                  ? 'base64'
+                  : 'resource_url',
+            localPath:
+              typeof candidate.localPath === 'string' ? (candidate.localPath as string) : undefined,
           });
         }
       } else if (type === 'attachment') {
@@ -431,8 +450,10 @@ export function normalizeBlocks(
 
     // Strip "[Uploaded ...]" placeholder text when image blocks are present,
     // since the image blocks already represent the attachment visually.
-    if (blocks.some(b => b.type === 'image')) {
-      return blocks.filter(b => !(b.type === 'text' && UPLOADED_PLACEHOLDER_RE.test((b.text ?? '').trim())));
+    if (blocks.some((b) => b.type === 'image')) {
+      return blocks.filter(
+        (b) => !(b.type === 'text' && UPLOADED_PLACEHOLDER_RE.test((b.text ?? '').trim())),
+      );
     }
 
     return blocks;
