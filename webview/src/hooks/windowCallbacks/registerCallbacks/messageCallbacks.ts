@@ -150,10 +150,13 @@ export function registerMessageCallbacks(
     }
 
     try {
-      const parsed = JSON.parse(json) as ClaudeMessage[];
+      const raw = JSON.parse(json) as unknown;
+      if (!Array.isArray(raw)) return;
+      const parsed = raw as ClaudeMessage[];
       if (sequence != null) {
         window.__minAcceptedUpdateSequence = Math.max(minAcceptedSequence, sequence);
       }
+      window.__messageBaseIndex = 0;
 
       setMessages((prev) => {
         // If streaming is active, delegate to the streaming logic
@@ -373,6 +376,77 @@ export function registerMessageCallbacks(
     }
   };
 
+  const processMessageTail = (
+    json: string,
+    baseIndexArg: string | number,
+    sequenceArg?: string | number,
+  ) => {
+    if (window.__sessionTransitioning) return;
+    const sequence = parseSequence(sequenceArg);
+    const minAcceptedSequence = window.__minAcceptedUpdateSequence ?? 0;
+    if (sequence != null && sequence < minAcceptedSequence) return;
+
+    if (isStreamingRef.current && window.__lastStreamActivityAt !== undefined) {
+      window.__lastStreamActivityAt = Date.now();
+    }
+
+    const baseIndex = typeof baseIndexArg === 'number'
+      ? baseIndexArg
+      : Number(baseIndexArg);
+    if (!Number.isSafeInteger(baseIndex) || baseIndex < 0) return;
+
+    try {
+      const raw = JSON.parse(json) as unknown;
+      if (!Array.isArray(raw)) return;
+      const tail = raw as ClaudeMessage[];
+      if (sequence != null) {
+        window.__minAcceptedUpdateSequence = Math.max(minAcceptedSequence, sequence);
+      }
+
+      setMessages((prev) => {
+        const storedBaseIndex = window.__messageBaseIndex;
+        const currentBaseIndex = typeof storedBaseIndex === 'number'
+          && Number.isSafeInteger(storedBaseIndex)
+          ? Math.max(0, storedBaseIndex)
+          : 0;
+        const hasFullPrefix = currentBaseIndex === 0 && baseIndex <= prev.length;
+        let merged = hasFullPrefix
+          ? [...prev.slice(0, baseIndex), ...tail]
+          : tail;
+        window.__messageBaseIndex = hasFullPrefix ? 0 : baseIndex;
+
+        merged = appendOptimisticMessageIfMissing(prev, merged);
+        merged = preserveLastAssistantIdentity(prev, merged, findLastAssistantIndex);
+        merged = preserveStreamingAssistantContent(
+          prev,
+          merged,
+          isStreamingRef,
+          streamingContentRef,
+          findLastAssistantIndex,
+          patchAssistantForStreaming,
+        );
+
+        if (isStreamingRef.current) {
+          const assistantIndex = findLastAssistantIndex(merged);
+          if (assistantIndex >= 0 && merged[assistantIndex]?.type === 'assistant') {
+            streamingMessageIndexRef.current = assistantIndex;
+            const currentTurnId = streamingTurnIdRef.current;
+            if (currentTurnId > 0 && merged[assistantIndex].__turnId !== currentTurnId) {
+              merged[assistantIndex] = patchAssistantForStreaming({
+                ...merged[assistantIndex],
+                __turnId: currentTurnId,
+              });
+            }
+          }
+        }
+
+        return finalizeMessageList(prev, merged);
+      });
+    } catch (error) {
+      console.error('[Frontend] Failed to parse message tail:', error);
+    }
+  };
+
   window.updateMessages = (json, sequenceArg) => {
     // During session transition, ignore message updates from stale session
     // callbacks to prevent cleared messages from being restored
@@ -423,6 +497,8 @@ export function registerMessageCallbacks(
 
     processUpdateMessages(json, sequence);
   };
+
+  window.updateMessageTail = processMessageTail;
 
   const pendingMessages = (window as unknown as Record<string, unknown>).__pendingUpdateMessages;
   if (typeof pendingMessages === 'string' && pendingMessages.length > 0) {
@@ -590,6 +666,7 @@ export function registerMessageCallbacks(
       window.__pendingUpdateSequence = null;
     }
     window.__deniedToolIds?.clear();
+    window.__messageBaseIndex = 0;
     resetTransientUiState();
     closeContextUsageDialog();
     setMessages([]);

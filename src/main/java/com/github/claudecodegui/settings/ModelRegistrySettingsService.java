@@ -14,46 +14,22 @@ import com.intellij.openapi.diagnostic.Logger;
 import java.util.List;
 
 /**
- * ModelRegistry(模型注册表)领域 Service(A3 领域拆分第四步,docs §A3)。
+ * 模型注册表领域 Service。
  *
- * <p>封装 effective registry 的读写:effective = merge(persisted user layer, 现算只读默认)。
- * 只读默认(Claude 4 roles from {@code ~/.claude/settings.json} + Codex from {@code ~/.codex/config.toml}
- * + OpenCode)运行时计算,永不持久化;写盘只存 user layer(readOnly 项剥离)。
- *
- * <p>与 {@link AppearanceSettingsService} / {@link AiFeatureToggleSettingsService} /
- * {@link CodexSandboxModeSettingsService} 同为「模式 A 半拆」:构造注入 {@link CodemossSettingsService},
- * 持久化走 {@code css.readConfig()/writeConfig()}。核心理由同第一步 —— 文件缺失时
- * {@code CSS.readConfig()} 返回 {@code createDefaultConfig()} 全局骨架,Service 在其上读写,
- * 行为与历史逐字等价;直连 {@link ConfigRepository} 会丢失全局默认段。
- *
- * <p><b>与静态 {@link ModelRegistryService} 分工(不合并)</b>:静态 {@link ModelRegistryService}
- * 是「payload codec + handler orchestration」(serialize/parse 给前端下发 + 3 Action Handler
- * 实例 API);本类是「persistence + validation + merge orchestration」。{@link #getModelRegistryJson}
- * 继续调静态 {@link ModelRegistryService#serialize} 以下发 {@code supportedReasoningLevels} 派生字段
- * (契约 H3,否则前端 ReasoningSelect 整体隐藏);写盘路径 {@link #serializeModelRegistry} 刻意不含
- * 派生字段(避免双写)。
- *
- * <p><b>AI Feature 交叉依赖</b>:CSS {@code normalizeAiFeatureClaudeModel} 调
- * {@code css.getModelRegistry().find(...)}(单点)—— 留在 CSS 经动态分发走本类委托,零改动。
- *
- * <p><b>parseModelRegistry NPE 语义保留</b>:本类 {@link #parseModelRegistry}(写盘路径,
- * {@code supports1MContext} 缺 null 守卫)与静态 {@link ModelRegistryService#parse}(payload 路径,
- * 有守卫)有细微语义差异 —— 迁移期间逐字保留两份,不顺手统一(NPE 是独立 bug,§13 单一职责)。
- *
- * <p><b>Facade 不变</b>:CSS 3 个 public 签名保留为单行转发委托;调用面(22 外部调用点 + 8 测试)
- * 与既有 6 测试类零改动。
+ * <p>负责用户层与只读默认模型的合并、冲突检查、校验和序列化；持久化仅依赖
+ * {@link ConfigStore}，写操作在单一 update 临界区内完成。Facade 只保留兼容调用面。
  */
 public final class ModelRegistrySettingsService {
     private static final Logger LOG = Logger.getInstance(ModelRegistrySettingsService.class);
 
-    private final CodemossSettingsService settingsService;
+    private final ConfigStore configStore;
 
     // ==================== Field key (promoted from CSS inline literal) ====================
 
     private static final String MODEL_REGISTRY_KEY = "models";
 
-    public ModelRegistrySettingsService(CodemossSettingsService settingsService) {
-        this.settingsService = settingsService;
+    public ModelRegistrySettingsService(ConfigStore configStore) {
+        this.configStore = configStore;
     }
 
     // ==================== Model Registry Config Management ====================
@@ -93,9 +69,8 @@ public final class ModelRegistrySettingsService {
             return validation;
         }
         try {
-            JsonObject config = settingsService.readConfig();
-            config.add(MODEL_REGISTRY_KEY, serializeModelRegistry(userOnly));
-            settingsService.writeConfig(config);
+            JsonObject serialized = serializeModelRegistry(userOnly);
+            configStore.update(config -> config.add(MODEL_REGISTRY_KEY, serialized));
             LOG.info("[ModelRegistrySettings] Saved model registry");
             return validation;
         } catch (Exception e) {
@@ -112,7 +87,7 @@ public final class ModelRegistrySettingsService {
      */
     private ModelRegistryConfig readPersistedUserLayer() {
         try {
-            JsonObject config = settingsService.readConfig();
+            JsonObject config = configStore.read();
             if (!config.has(MODEL_REGISTRY_KEY) || !config.get(MODEL_REGISTRY_KEY).isJsonObject()) {
                 return new ModelRegistryConfig(java.util.List.of());
             }

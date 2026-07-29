@@ -12,7 +12,8 @@ public final class UserMessageSanitizer {
         "system-reminder",
         "system-prompt",
         "INSTRUCTIONS",
-        "environment_context"
+        "environment_context",
+        "skill"
     };
 
     private static final String IMAGE_ATTACHMENT_HINT =
@@ -21,6 +22,9 @@ public final class UserMessageSanitizer {
     private static final java.util.regex.Pattern CLI_IMAGE_READ_INSTRUCTION_PATTERN = java.util.regex.Pattern.compile(
             "(?im)^\\s*Use the Read tool to inspect this image file, then answer using its visible content:\\s*"
                     + "(?:[a-z]:[/\\\\]|/).+?\\.(?:png|jpe?g|gif|webp|bmp|svg)\\s*$");
+
+    private static final java.util.regex.Pattern CODEX_IMAGE_PLACEHOLDER_PATTERN =
+            java.util.regex.Pattern.compile("(?is)<image\\b[^>]*>.*?</image>");
 
     private static final java.util.regex.Pattern AGENTS_INSTRUCTIONS_HEADER_PATTERN =
             java.util.regex.Pattern.compile("(?im)^\\s*#\\s+AGENTS\\.md instructions(?:\\s+for\\s+.+)?\\s*$");
@@ -57,7 +61,8 @@ public final class UserMessageSanitizer {
         String normalized = text.replace("\r\n", "\n").replace("\r", "\n");
         String strippedHeader = AGENTS_INSTRUCTIONS_HEADER_PATTERN.matcher(normalized).replaceAll("");
         String strippedTags = stripSystemTags(strippedHeader);
-        String strippedContext = stripAppendedContext(strippedTags);
+        String strippedImages = CODEX_IMAGE_PLACEHOLDER_PATTERN.matcher(strippedTags).replaceAll("");
+        String strippedContext = stripAppendedContext(strippedImages);
         String strippedHints = stripAttachmentHints(strippedContext);
         return normalizeWhitespace(strippedHints);
     }

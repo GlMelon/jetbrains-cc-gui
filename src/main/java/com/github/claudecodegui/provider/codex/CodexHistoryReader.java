@@ -279,10 +279,7 @@ public class CodexHistoryReader {
      */
     public int forEachSessionMessage(String sessionId, Consumer<JsonObject> consumer) throws IOException {
         logSessionAccessWithoutLocalConfigAuthorization();
-        return sessionService.forEachSessionMessage(sessionId, message -> {
-            JsonObject raw = gson.toJsonTree(message).getAsJsonObject();
-            consumer.accept(raw);
-        });
+        return sessionService.forEachSessionMessage(sessionId, consumer);
     }
 
     /**

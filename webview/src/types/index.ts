@@ -21,6 +21,14 @@ export interface CompactSummaryMetadata {
   messagesSummarized?: number;
   direction?: 'up_to' | 'from';
   userContext?: string;
+  /** Compaction trigger (e.g. 'manual', 'auto') */
+  trigger?: string;
+  /** Token count before compaction */
+  preTokens?: number;
+  /** Token count after compaction */
+  postTokens?: number;
+  /** Compaction duration in milliseconds */
+  durationMs?: number;
 }
 
 /**
@@ -97,7 +105,13 @@ export type ClaudeContentBlock =
     }
   | {
       type: 'todo_list';
-      items?: Array<{ text?: string; content?: string; status?: string; title?: string; [key: string]: unknown }>;
+      items?: Array<{
+        text?: string;
+        content?: string;
+        status?: string;
+        title?: string;
+        [key: string]: unknown;
+      }>;
       title?: string;
       summary?: string;
       status?: string;
@@ -113,7 +127,7 @@ export type ClaudeContentBlock =
       details?: string;
       raw?: unknown;
     }
-  | { type: 'task_notification'; icon: string; summary: string; status: string }
+  | { type: 'task_notification'; icon: string; summary: string; status: string; detail?: string }
   | { type: 'compact_notification'; headerText: string; items: CompactNotificationItem[] }
   | { type: 'compact_summary'; title: string; content: string; metadata?: CompactSummaryMetadata };
 
@@ -150,15 +164,16 @@ export interface AssistantResponseStatusPayload {
 
 /** Represents a single message in the chat conversation. */
 export interface ClaudeMessage {
-  type: 'user' | 'assistant' | 'error' | 'task_notification' | 'notification' | 'compact_notification';
+  type:
+    'user' | 'assistant' | 'error' | 'task_notification' | 'notification' | 'compact_notification';
   content?: string;
   raw?: ClaudeRawMessage | string;
-    timestamp?: string;
-    isStreaming?: boolean;
-    isOptimistic?: boolean;
-    durationMs?: number;
-    streamEndSource?: 'backend' | 'watchdog';
-    streamEndReason?: string;
+  timestamp?: string;
+  isStreaming?: boolean;
+  isOptimistic?: boolean;
+  durationMs?: number;
+  streamEndSource?: 'backend' | 'watchdog';
+  streamEndReason?: string;
   /**
    * Runtime-only: numeric turn identifier for streaming assistant isolation.
    * Set by frontend during streaming to distinguish messages from different
@@ -215,4 +230,10 @@ export interface HistoryData {
 export type { FileChangeStatus, EditOperation, FileChangeSummary } from './fileChanges';
 
 // Subagent types
-export type { SubagentStatus, SubagentInfo, SubagentHistoryResponse } from './subagent';
+export type {
+  SubagentStatus,
+  SubagentInfo,
+  SubagentHistoryResponse,
+  TaskEvent,
+  TaskEventMap,
+} from './subagent';

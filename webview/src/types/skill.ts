@@ -1,3 +1,13 @@
+import type {
+  SkillDocumentFieldPayloadWire,
+  SkillDocumentResultPayloadWire,
+  SkillDocumentSavePayloadWire,
+  SkillFieldControl as GeneratedSkillFieldControl,
+  SkillScope as GeneratedSkillScope,
+} from '../generated/protocol';
+
+export { SKILL_FIELD_CONTROL, SKILL_SCOPE } from '../generated/protocol';
+
 /**
  * Skills type definitions
  *
@@ -18,7 +28,7 @@ type SkillType = 'file' | 'directory';
  * - Claude: global (user-level) or local (project-level)
  * - Codex: user (~/.agents/skills/) or repo ({cwd}/.agents/skills/)
  */
-export type SkillScope = 'global' | 'local' | 'user' | 'repo';
+export type SkillScope = GeneratedSkillScope;
 
 /**
  * Skill configuration
@@ -64,7 +74,7 @@ export interface SkillsConfig {
 /**
  * Skills filter
  */
-export type SkillFilter = 'all' | 'global' | 'local' | 'user' | 'repo';
+export type SkillFilter = 'all' | SkillScope;
 
 /**
  * Skills enabled status filter
@@ -72,39 +82,9 @@ export type SkillFilter = 'all' | 'global' | 'local' | 'user' | 'repo';
 export type SkillEnabledFilter = 'all' | 'enabled' | 'disabled';
 
 /** Backend-declared generic editor control. */
-export type SkillFieldControl = 'text' | 'textarea' | 'boolean' | 'string-list';
+export type SkillFieldControl = GeneratedSkillFieldControl;
 
-export type SkillFieldValue = string | boolean | string[] | null;
-
-/** One backend-declared editable frontmatter field. */
-export interface SkillDocumentField {
-  key: string;
-  labelKey: string;
-  control: SkillFieldControl;
-  required: boolean;
-  maxLength?: number;
-  present: boolean;
-  value: SkillFieldValue;
-}
-
-/** Result returned by the backend SKILL.md document authority. */
-export interface SkillDocumentResult {
-  requestId?: string;
-  success: boolean;
-  editable: boolean;
-  parseError?: boolean;
-  conflict?: boolean;
-  rolledBack?: boolean;
-  changed?: boolean;
-  error?: string;
-  provider?: string;
-  revision?: string;
-  fileName?: string;
-  body?: string;
-  fields?: SkillDocumentField[];
-}
-
-export interface SkillDocumentSavePayload {
-  changes: Record<string, SkillFieldValue>;
-  body: string;
-}
+export type SkillDocumentField = SkillDocumentFieldPayloadWire;
+export type SkillFieldValue = SkillDocumentFieldPayloadWire['value'];
+export type SkillDocumentResult = SkillDocumentResultPayloadWire;
+export type SkillDocumentSavePayload = SkillDocumentSavePayloadWire;

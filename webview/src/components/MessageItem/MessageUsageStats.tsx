@@ -1,11 +1,15 @@
 import { memo } from 'react';
 import type { TFunction } from 'i18next';
 
-import { formatDurationMs, formatTokenCount } from '../../utils/messageUsage';
+import { formatDurationMs, formatTokenCount, formatUsdCost } from '../../utils/messageUsage';
 
 interface MessageUsageStatsProps {
   inputTokens: number | null;
   outputTokens: number | null;
+  cacheCreationTokens?: number | null;
+  cacheReadTokens?: number | null;
+  costUsd?: number | null;
+  detailedOutputEnabled?: boolean;
   durationMs: number | null;
   t: TFunction;
   durationLabelKey?: string;
@@ -13,31 +17,42 @@ interface MessageUsageStatsProps {
 
 /**
  * Usage stats bar displayed after each completed assistant message.
- * Shows input tokens, output tokens, and elapsed duration,
- * separated by vertical dividers — matching the mockup design.
- *
- * When token data is unavailable (e.g. old messages or during streaming),
- * only the duration is shown.
+ * The default view stays compact; cache details and backend-computed cost are opt-in.
  */
 export const MessageUsageStats = memo(function MessageUsageStats({
   inputTokens,
   outputTokens,
+  cacheCreationTokens = null,
+  cacheReadTokens = null,
+  costUsd = null,
+  detailedOutputEnabled = false,
   durationMs,
   t,
   durationLabelKey = 'chat.usageStats.duration',
 }: MessageUsageStatsProps) {
-  const hasTokens = (inputTokens !== null && inputTokens > 0) || (outputTokens !== null && outputTokens > 0);
+  const hasTokens =
+    (inputTokens !== null && inputTokens > 0) || (outputTokens !== null && outputTokens > 0);
   const hasDuration = durationMs !== null && durationMs > 0;
   const totalTokens = (inputTokens ?? 0) + (outputTokens ?? 0);
+  const showCacheCreation =
+    detailedOutputEnabled && cacheCreationTokens !== null && cacheCreationTokens > 0;
+  const showCacheRead = detailedOutputEnabled && cacheReadTokens !== null && cacheReadTokens > 0;
+  const showCost = detailedOutputEnabled && costUsd !== null && costUsd > 0;
 
-  // Don't render if there's nothing to show
-  if (!hasTokens && !hasDuration) return null;
+  if (!hasTokens && !hasDuration && !showCost) return null;
 
   return (
     <div className="usage-stats">
       {hasTokens && inputTokens !== null && inputTokens > 0 && (
         <div className="usage-item type-in">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
             <polyline points="17 8 12 3 7 8" />
             <line x1="12" y1="3" x2="12" y2="15" />
@@ -49,7 +64,14 @@ export const MessageUsageStats = memo(function MessageUsageStats({
 
       {hasTokens && outputTokens !== null && outputTokens > 0 && (
         <div className="usage-item type-out">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
             <polyline points="7 10 12 15 17 10" />
             <line x1="12" y1="15" x2="12" y2="3" />
@@ -61,7 +83,14 @@ export const MessageUsageStats = memo(function MessageUsageStats({
 
       {hasTokens && totalTokens > 0 && (
         <div className="usage-item type-total">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <path d="M4 6h16" />
             <path d="M4 12h16" />
             <path d="M4 18h16" />
@@ -71,9 +100,37 @@ export const MessageUsageStats = memo(function MessageUsageStats({
         </div>
       )}
 
+      {showCacheCreation && (
+        <div className="usage-item type-cache-write">
+          <span>{t('usage.cacheWrite')}</span>
+          <span className="usage-value">{formatTokenCount(cacheCreationTokens)}</span>
+        </div>
+      )}
+
+      {showCacheRead && (
+        <div className="usage-item type-cache-read">
+          <span>{t('usage.cacheRead')}</span>
+          <span className="usage-value">{formatTokenCount(cacheReadTokens)}</span>
+        </div>
+      )}
+
+      {showCost && (
+        <div className="usage-item type-cost">
+          <span>{t('usage.totalCost')}</span>
+          <span className="usage-value">{formatUsdCost(costUsd)}</span>
+        </div>
+      )}
+
       {hasDuration && (
         <div className="usage-item type-duration">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <circle cx="12" cy="12" r="10" />
             <polyline points="12 6 12 12 16 14" />
           </svg>

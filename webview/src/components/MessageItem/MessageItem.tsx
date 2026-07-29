@@ -4,7 +4,10 @@ import type { TFunction } from 'i18next';
 import type { ClaudeMessage, ClaudeContentBlock, ToolResultBlock } from '../../types';
 
 import MarkdownBlock from '../MarkdownBlock';
-import { ProviderNotConfiguredCard, isProviderNotConfiguredError } from './ProviderNotConfiguredCard';
+import {
+  ProviderNotConfiguredCard,
+  isProviderNotConfiguredError,
+} from './ProviderNotConfiguredCard';
 import { ErrorDiagnosticCard } from './ErrorDiagnosticCard';
 import { matchErrorPattern } from '../../utils/errorMatcher';
 import {
@@ -20,7 +23,13 @@ import { ContentBlockRenderer } from './ContentBlockRenderer';
 import { formatTime } from '../../utils/helpers';
 import { getProviderDisplayName } from '../../utils/providerLabel';
 import { copyToClipboard } from '../../utils/copyUtils';
-import { READ_TOOL_NAMES, EDIT_TOOL_NAMES, BASH_TOOL_NAMES, SEARCH_TOOL_NAMES, isToolName } from '../../utils/toolConstants';
+import {
+  READ_TOOL_NAMES,
+  EDIT_TOOL_NAMES,
+  BASH_TOOL_NAMES,
+  SEARCH_TOOL_NAMES,
+  isToolName,
+} from '../../utils/toolConstants';
 import { MessageAvatar } from './MessageAvatar';
 import { MessageUsageStats } from './MessageUsageStats';
 import { extractMessageUsage } from '../../utils/messageUsage';
@@ -39,7 +48,10 @@ export interface MessageItemProps {
   t: TFunction;
   getMessageText: (message: ClaudeMessage) => string;
   getContentBlocks: (message: ClaudeMessage) => ClaudeContentBlock[];
-  findToolResult: (toolId: string | undefined, messageIndex: number) => ToolResultBlock | null | undefined;
+  findToolResult: (
+    toolId: string | undefined,
+    messageIndex: number,
+  ) => ToolResultBlock | null | undefined;
   extractMarkdownContent: (message: ClaudeMessage) => string;
   onNodeRef?: (id: string, node: HTMLDivElement | null) => void;
   onNavigateToProviderSettings?: () => void;
@@ -47,6 +59,7 @@ export interface MessageItemProps {
   toolResultSignature?: string;
   /** Current active provider id. */
   currentProvider?: string;
+  detailedOutputEnabled?: boolean;
   avatarConfig?: AvatarConfig | null;
   /** Timestamp when the current assistant generation/loading cycle started. */
   loadingStartTime?: number | null;
@@ -280,6 +293,7 @@ export const MessageItem = memo(function MessageItem({
   onNavigateToDependencySettings,
   toolResultSignature: _toolResultSignature,
   currentProvider,
+  detailedOutputEnabled = false,
   avatarConfig,
   loadingStartTime,
   withinResponseGroup = false,
@@ -295,7 +309,9 @@ export const MessageItem = memo(function MessageItem({
   // Manage thinking expansion state locally to avoid prop drilling and unnecessary re-renders
   const [expandedThinking, setExpandedThinking] = useState<Record<number, boolean>>({});
   // Track which thinking blocks were manually expanded by the user
-  const [manuallyExpandedThinking, setManuallyExpandedThinking] = useState<Record<number, boolean>>({});
+  const [manuallyExpandedThinking, setManuallyExpandedThinking] = useState<Record<number, boolean>>(
+    {},
+  );
 
   const toggleThinking = useCallback((blockIndex: number) => {
     setExpandedThinking((prev) => {
@@ -315,7 +331,7 @@ export const MessageItem = memo(function MessageItem({
 
   const isThinkingExpanded = useCallback(
     (blockIndex: number) => Boolean(expandedThinking[blockIndex]),
-    [expandedThinking]
+    [expandedThinking],
   );
 
   const isLastAssistantMessage = message.type === 'assistant' && isLast;
@@ -379,9 +395,7 @@ export const MessageItem = memo(function MessageItem({
     blocks.length === 0 &&
     !(message.content && message.content.trim().length > 0);
   const shouldShowStreamingFooter =
-    message.type === 'assistant' &&
-    isMessageStreaming &&
-    !isEmptyStreamingPlaceholder;
+    message.type === 'assistant' && isMessageStreaming && !isEmptyStreamingPlaceholder;
 
   // Ref to track the last auto-expanded thinking block index to avoid overriding user interaction
   const lastAutoExpandedIndexRef = useRef<number>(-1);
@@ -422,32 +436,37 @@ export const MessageItem = memo(function MessageItem({
   }, [blocks, manuallyExpandedThinking, message.type]);
 
   const groupedBlocks = useMemo(() => groupBlocks(blocks), [blocks]);
-  const assistantMessageSections = useMemo(() => groupAssistantMessageSections(groupedBlocks), [groupedBlocks]);
+  const assistantMessageSections = useMemo(
+    () => groupAssistantMessageSections(groupedBlocks),
+    [groupedBlocks],
+  );
 
   // Register user message DOM node for anchor navigation
   // Must be called before any early returns to satisfy React hooks rules
-  const anchorRefCallback = useCallback((node: HTMLDivElement | null) => {
-    if (message.type === 'user' && onNodeRef) {
-      onNodeRef(messageKey, node);
-    }
-  }, [message.type, messageKey, onNodeRef]);
+  const anchorRefCallback = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (message.type === 'user' && onNodeRef) {
+        onNodeRef(messageKey, node);
+      }
+    },
+    [message.type, messageKey, onNodeRef],
+  );
 
-  const isProviderNotConfigured = message.type === 'error' && isProviderNotConfiguredError(getMessageText(message));
+  const isProviderNotConfigured =
+    message.type === 'error' && isProviderNotConfiguredError(getMessageText(message));
   const errorDiagnosticPattern = useMemo(
-    () => (message.type === 'error' && !isProviderNotConfigured
-      ? matchErrorPattern(getMessageText(message))
-      : null),
-    [message, isProviderNotConfigured, getMessageText]
+    () =>
+      message.type === 'error' && !isProviderNotConfigured
+        ? matchErrorPattern(getMessageText(message))
+        : null,
+    [message, isProviderNotConfigured, getMessageText],
   );
 
   const renderGroupedBlocks = () => {
     if (message.type === 'error') {
       if (isProviderNotConfigured) {
         return (
-          <ProviderNotConfiguredCard
-            t={t}
-            onNavigateToSettings={onNavigateToProviderSettings}
-          />
+          <ProviderNotConfiguredCard t={t} onNavigateToSettings={onNavigateToProviderSettings} />
         );
       }
       return (
@@ -468,12 +487,14 @@ export const MessageItem = memo(function MessageItem({
       const providerLabel = getProviderDisplayName(currentProvider, t);
       return (
         <AssistantResponseStatus
-          payload={message.__assistantResponseStatus ?? {
-            phase: '',
-            providerLabel,
-            title: t('chat.streamingConnected', { provider: providerLabel }),
-            active: true,
-          }}
+          payload={
+            message.__assistantResponseStatus ?? {
+              phase: '',
+              providerLabel,
+              title: t('chat.streamingConnected', { provider: providerLabel }),
+              active: true,
+            }
+          }
         />
       );
     }
@@ -482,161 +503,179 @@ export const MessageItem = memo(function MessageItem({
   };
 
   const renderGroupedBlock = (grouped: GroupedBlock): ReactNode => {
-      if (grouped.type === 'read_group') {
-        const readItems = grouped.blocks.map((b) => {
-          const block = b as { type: 'tool_use'; id?: string; name?: string; input?: Record<string, unknown> };
-          return {
-            name: block.name,
-            input: block.input,
-            result: findToolResult(block.id, messageIndex),
-            toolId: block.id,
-          };
-        });
+    if (grouped.type === 'read_group') {
+      const readItems = grouped.blocks.map((b) => {
+        const block = b as {
+          type: 'tool_use';
+          id?: string;
+          name?: string;
+          input?: Record<string, unknown>;
+        };
+        return {
+          name: block.name,
+          input: block.input,
+          result: findToolResult(block.id, messageIndex),
+          toolId: block.id,
+        };
+      });
 
-        if (readItems.length === 1) {
-          return (
-            <div key={`${messageIndex}-readgroup-${grouped.startIndex}`} className="content-block">
-              <ReadToolBlock
-                input={readItems[0].input}
-                result={readItems[0].result}
-                toolId={readItems[0].toolId}
-              />
-            </div>
-          );
-        }
-
+      if (readItems.length === 1) {
         return (
           <div key={`${messageIndex}-readgroup-${grouped.startIndex}`} className="content-block">
-            <ReadToolGroupBlock items={readItems} />
+            <ReadToolBlock
+              input={readItems[0].input}
+              result={readItems[0].result}
+              toolId={readItems[0].toolId}
+            />
           </div>
         );
       }
-
-      if (grouped.type === 'edit_group') {
-        const editItems = grouped.blocks.map((b) => {
-          const block = b as { type: 'tool_use'; id?: string; name?: string; input?: Record<string, unknown> };
-          return {
-            toolId: block.id,
-            name: block.name,
-            input: block.input,
-            result: findToolResult(block.id, messageIndex),
-          };
-        });
-
-        if (editItems.length === 1) {
-          return (
-            <div key={`${messageIndex}-editgroup-${grouped.startIndex}`} className="content-block">
-              <EditToolBlock
-                name={editItems[0].name}
-                input={editItems[0].input}
-                result={editItems[0].result}
-              />
-            </div>
-          );
-        }
-
-        return (
-          <div key={`${messageIndex}-editgroup-${grouped.startIndex}`} className="content-block">
-            <EditToolGroupBlock items={editItems} />
-          </div>
-        );
-      }
-
-      if (grouped.type === 'bash_group') {
-        const bashItems = grouped.blocks.map((b) => {
-          const block = b as { type: 'tool_use'; id?: string; name?: string; input?: Record<string, unknown> };
-          return {
-            name: block.name,
-            input: block.input,
-            result: findToolResult(block.id, messageIndex),
-            toolId: block.id,
-          };
-        });
-
-        if (bashItems.length === 1) {
-          return (
-            <div key={`${messageIndex}-bashgroup-${grouped.startIndex}`} className="content-block">
-              <BashToolBlock
-                name={bashItems[0].name}
-                input={bashItems[0].input}
-                result={bashItems[0].result}
-                toolId={bashItems[0].toolId}
-              />
-            </div>
-          );
-        }
-
-        return (
-          <div key={`${messageIndex}-bashgroup-${grouped.startIndex}`} className="content-block">
-            <BashToolGroupBlock items={bashItems} deniedToolIds={window.__deniedToolIds} />
-          </div>
-        );
-      }
-
-      if (grouped.type === 'search_group') {
-        const searchItems = grouped.blocks.map((b) => {
-          const block = b as { type: 'tool_use'; id?: string; name?: string; input?: Record<string, unknown> };
-          return {
-            name: block.name,
-            input: block.input,
-            result: findToolResult(block.id, messageIndex),
-          };
-        });
-
-        if (searchItems.length === 1) {
-          return (
-            <div key={`${messageIndex}-searchgroup-${grouped.startIndex}`} className="content-block">
-              <ContentBlockRenderer
-                block={grouped.blocks[0]}
-                blockIndex={grouped.startIndex}
-                messageIndex={messageIndex}
-                messageType={message.type}
-                isStreaming={isMessageStreaming}
-                isThinkingExpanded={false}
-                isThinking={isThinking}
-                isLastMessage={isLast}
-                isLastBlock={grouped.startIndex === blocks.length - 1}
-                t={t}
-                onToggleThinking={noopThinkingToggle}
-                findToolResult={findToolResult}
-              />
-            </div>
-          );
-        }
-
-        return (
-          <div key={`${messageIndex}-searchgroup-${grouped.startIndex}`} className="content-block">
-            <SearchToolGroupBlock items={searchItems} />
-          </div>
-        );
-      }
-
-      const { block, originalIndex: blockIndex } = grouped;
 
       return (
-        <div key={`${messageIndex}-${blockIndex}`} className="content-block">
-          <ContentBlockRenderer
-            block={block}
-            blockIndex={blockIndex}
-            messageIndex={messageIndex}
-            messageType={message.type}
-            isStreaming={isMessageStreaming}
-            isThinkingExpanded={isThinkingExpanded(blockIndex)}
-            isThinking={isThinking}
-            isLastMessage={isLast}
-            isLastBlock={blockIndex === blocks.length - 1}
-            t={t}
-            onToggleThinking={toggleThinking}
-            findToolResult={findToolResult}
-          />
+        <div key={`${messageIndex}-readgroup-${grouped.startIndex}`} className="content-block">
+          <ReadToolGroupBlock items={readItems} />
         </div>
       );
+    }
+
+    if (grouped.type === 'edit_group') {
+      const editItems = grouped.blocks.map((b) => {
+        const block = b as {
+          type: 'tool_use';
+          id?: string;
+          name?: string;
+          input?: Record<string, unknown>;
+        };
+        return {
+          toolId: block.id,
+          name: block.name,
+          input: block.input,
+          result: findToolResult(block.id, messageIndex),
+        };
+      });
+
+      if (editItems.length === 1) {
+        return (
+          <div key={`${messageIndex}-editgroup-${grouped.startIndex}`} className="content-block">
+            <EditToolBlock
+              name={editItems[0].name}
+              input={editItems[0].input}
+              result={editItems[0].result}
+            />
+          </div>
+        );
+      }
+
+      return (
+        <div key={`${messageIndex}-editgroup-${grouped.startIndex}`} className="content-block">
+          <EditToolGroupBlock items={editItems} />
+        </div>
+      );
+    }
+
+    if (grouped.type === 'bash_group') {
+      const bashItems = grouped.blocks.map((b) => {
+        const block = b as {
+          type: 'tool_use';
+          id?: string;
+          name?: string;
+          input?: Record<string, unknown>;
+        };
+        return {
+          name: block.name,
+          input: block.input,
+          result: findToolResult(block.id, messageIndex),
+          toolId: block.id,
+        };
+      });
+
+      if (bashItems.length === 1) {
+        return (
+          <div key={`${messageIndex}-bashgroup-${grouped.startIndex}`} className="content-block">
+            <BashToolBlock
+              name={bashItems[0].name}
+              input={bashItems[0].input}
+              result={bashItems[0].result}
+              toolId={bashItems[0].toolId}
+            />
+          </div>
+        );
+      }
+
+      return (
+        <div key={`${messageIndex}-bashgroup-${grouped.startIndex}`} className="content-block">
+          <BashToolGroupBlock items={bashItems} deniedToolIds={window.__deniedToolIds} />
+        </div>
+      );
+    }
+
+    if (grouped.type === 'search_group') {
+      const searchItems = grouped.blocks.map((b) => {
+        const block = b as {
+          type: 'tool_use';
+          id?: string;
+          name?: string;
+          input?: Record<string, unknown>;
+        };
+        return {
+          name: block.name,
+          input: block.input,
+          result: findToolResult(block.id, messageIndex),
+        };
+      });
+
+      if (searchItems.length === 1) {
+        return (
+          <div key={`${messageIndex}-searchgroup-${grouped.startIndex}`} className="content-block">
+            <ContentBlockRenderer
+              block={grouped.blocks[0]}
+              blockIndex={grouped.startIndex}
+              messageIndex={messageIndex}
+              messageType={message.type}
+              isStreaming={isMessageStreaming}
+              isThinkingExpanded={false}
+              isThinking={isThinking}
+              isLastMessage={isLast}
+              isLastBlock={grouped.startIndex === blocks.length - 1}
+              t={t}
+              onToggleThinking={noopThinkingToggle}
+              findToolResult={findToolResult}
+            />
+          </div>
+        );
+      }
+
+      return (
+        <div key={`${messageIndex}-searchgroup-${grouped.startIndex}`} className="content-block">
+          <SearchToolGroupBlock items={searchItems} />
+        </div>
+      );
+    }
+
+    const { block, originalIndex: blockIndex } = grouped;
+
+    return (
+      <div key={`${messageIndex}-${blockIndex}`} className="content-block">
+        <ContentBlockRenderer
+          block={block}
+          blockIndex={blockIndex}
+          messageIndex={messageIndex}
+          messageType={message.type}
+          isStreaming={isMessageStreaming}
+          isThinkingExpanded={isThinkingExpanded(blockIndex)}
+          isThinking={isThinking}
+          isLastMessage={isLast}
+          isLastBlock={blockIndex === blocks.length - 1}
+          t={t}
+          onToggleThinking={toggleThinking}
+          findToolResult={findToolResult}
+        />
+      </div>
+    );
   };
 
   const shouldUseAssistantSectionedLayout =
-    message.type === 'assistant' &&
-    !isEmptyStreamingPlaceholder &&
-    groupedBlocks.length > 0;
+    message.type === 'assistant' && !isEmptyStreamingPlaceholder && groupedBlocks.length > 0;
 
   const getAssistantSectionLabel = (kind: AssistantMessageSectionKind): string => {
     if (kind === 'thinking') return t('chat.messageSections.thinking');
@@ -644,16 +683,12 @@ export const MessageItem = memo(function MessageItem({
     return t('chat.messageSections.output');
   };
 
-  const renderAssistantSectionedBlocks = (): ReactNode => (
+  const renderAssistantSectionedBlocks = (): ReactNode =>
     assistantMessageSections.map((section, sectionIndex) => {
       const sectionKey = `${messageIndex}-${section.kind}-${section.startIndex}`;
 
       if (section.kind !== 'output') {
-        return (
-          <Fragment key={sectionKey}>
-            {section.items.map(renderGroupedBlock)}
-          </Fragment>
-        );
+        return <Fragment key={sectionKey}>{section.items.map(renderGroupedBlock)}</Fragment>;
       }
 
       return (
@@ -665,8 +700,7 @@ export const MessageItem = memo(function MessageItem({
           {section.items.map(renderGroupedBlock)}
         </section>
       );
-    })
-  );
+    });
 
   const renderMessageContent = (): ReactNode => (
     <>
@@ -689,7 +723,9 @@ export const MessageItem = memo(function MessageItem({
     }`;
     return (
       <div className={responseSegmentContentClassName}>
-        {shouldUseAssistantSectionedLayout ? renderAssistantSectionedBlocks() : renderGroupedBlocks()}
+        {shouldUseAssistantSectionedLayout
+          ? renderAssistantSectionedBlocks()
+          : renderGroupedBlocks()}
       </div>
     );
   }
@@ -717,9 +753,7 @@ export const MessageItem = memo(function MessageItem({
             {/* Timestamp and copy button for user messages */}
             {message.type === 'user' && message.timestamp && (
               <div className="message-header-row">
-                <div className="message-timestamp-header">
-                  {formatTime(message.timestamp)}
-                </div>
+                <div className="message-timestamp-header">{formatTime(message.timestamp)}</div>
                 {hasCopyableText && (
                   <CopyButton
                     className="message-copy-btn-inline"
@@ -742,15 +776,17 @@ export const MessageItem = memo(function MessageItem({
               />
             )}
 
-            <div className={messageContentClassName}>
-              {renderMessageContent()}
-            </div>
+            <div className={messageContentClassName}>{renderMessageContent()}</div>
 
             {/* Usage stats bar after completed assistant message */}
             {message.type === 'assistant' && !isMessageStreaming && (
               <MessageUsageStats
                 inputTokens={messageUsage?.inputTokens ?? null}
                 outputTokens={messageUsage?.outputTokens ?? null}
+                cacheCreationTokens={messageUsage?.cacheCreationTokens ?? null}
+                cacheReadTokens={messageUsage?.cacheReadTokens ?? null}
+                costUsd={messageUsage?.costUsd ?? null}
+                detailedOutputEnabled={detailedOutputEnabled}
                 durationMs={typeof message.durationMs === 'number' ? message.durationMs : null}
                 durationLabelKey={durationLabelKey}
                 t={t}
@@ -762,20 +798,20 @@ export const MessageItem = memo(function MessageItem({
         <>
           {/* Role label for non-user/assistant messages — hidden for notification types */}
           {message.type !== 'notification' && message.type !== 'task_notification' && (
-            <div className="message-role-label">
-              {message.type}
-            </div>
+            <div className="message-role-label">{message.type}</div>
           )}
 
-          <div className={messageContentClassName}>
-            {renderMessageContent()}
-          </div>
+          <div className={messageContentClassName}>{renderMessageContent()}</div>
 
           {/* Usage stats bar for non-avatar assistant message */}
           {message.type === 'assistant' && !isMessageStreaming && (
             <MessageUsageStats
               inputTokens={messageUsage?.inputTokens ?? null}
               outputTokens={messageUsage?.outputTokens ?? null}
+              cacheCreationTokens={messageUsage?.cacheCreationTokens ?? null}
+              cacheReadTokens={messageUsage?.cacheReadTokens ?? null}
+              costUsd={messageUsage?.costUsd ?? null}
+              detailedOutputEnabled={detailedOutputEnabled}
               durationMs={typeof message.durationMs === 'number' ? message.durationMs : null}
               durationLabelKey={durationLabelKey}
               t={t}

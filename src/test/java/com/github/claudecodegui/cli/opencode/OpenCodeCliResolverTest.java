@@ -1,6 +1,7 @@
 package com.github.claudecodegui.cli.opencode;
 
 import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -16,6 +17,11 @@ import static org.junit.Assert.assertNull;
  * 绕过 .cmd 批处理包装(避免多行 prompt 位置参数被 cmd.exe 截断 + stdin EOF 不可靠)。
  */
 public class OpenCodeCliResolverTest {
+
+    @Before
+    public void clearResolverCacheBeforeTest() {
+        OpenCodeCliResolver.__clearCacheForTests();
+    }
 
     @Test
     public void inferNativeExecutablePathResolvesExeBesideShim() throws IOException {
@@ -75,5 +81,17 @@ public class OpenCodeCliResolverTest {
         String redetected = OpenCodeCliResolver.findExecutable();
         // 环境无关断言:无论返回真实路径(装了)还是裸名 "opencode"(没装),都绝不等于旧假路径
         assertNotEquals("清缓存后应重新检测,不返回旧缓存假路径", fakeCachedPath, redetected);
+    }
+
+    @Test
+    public void cachedVersionIsNullAfterClear() {
+        assertNull(OpenCodeCliResolver.getCachedVersion());
+    }
+
+    @Test
+    public void setCachedExecutableDoesNotAffectCachedVersion() {
+        assertNull(OpenCodeCliResolver.getCachedVersion());
+        OpenCodeCliResolver.__setCachedExecutableForTests("/fake/path");
+        assertNull(OpenCodeCliResolver.getCachedVersion());
     }
 }

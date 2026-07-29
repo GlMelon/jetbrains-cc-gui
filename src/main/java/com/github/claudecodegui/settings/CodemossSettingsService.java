@@ -2,21 +2,19 @@ package com.github.claudecodegui.settings;
 
 import com.github.claudecodegui.common.ClaudeRole;
 import com.github.claudecodegui.common.CommonConstants;
-import com.github.claudecodegui.config.ModelConfig;
 import com.github.claudecodegui.config.ModelConfigValidator;
 import com.github.claudecodegui.config.ModelRegistryConfig;
 import com.github.claudecodegui.config.ProviderRuntimePolicy;
-import com.github.claudecodegui.config.ReadOnlyDefaultModels;
 import com.github.claudecodegui.config.RuntimePolicyConfig;
 import com.github.claudecodegui.dependency.DependencyManager;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.model.DeleteResult;
 import com.github.claudecodegui.model.PromptScope;
 import com.github.claudecodegui.session.runtime.ProviderType;
-import com.github.claudecodegui.session.runtime.RuntimeType;
 import com.github.claudecodegui.settings.credentials.IntelliJPasswordSafeBackend;
 import com.github.claudecodegui.settings.credentials.PasswordStore;
 import com.github.claudecodegui.watcher.ConfigFileWatcherService;
+import com.github.claudecodegui.session.runtime.RuntimeType;
 import com.google.gson.*;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
@@ -37,12 +35,11 @@ public class CodemossSettingsService {
     }
 
     private static final Logger LOG = Logger.getInstance(CodemossSettingsService.class);
-    private static final int CONFIG_VERSION = 2;
     private static final String CLAUDE_INVOCATION_MODE_KEY = "claudeInvocationMode";
     private static final String CLAUDE_CLI_PATH_KEY = "claudeCliPath";
-    public static final String CODEX_RUNTIME_ACCESS_INACTIVE = "inactive";
-    public static final String CODEX_RUNTIME_ACCESS_MANAGED = "managed";
-    public static final String CODEX_RUNTIME_ACCESS_CLI_LOGIN = "cli_login";
+    public static final String CODEX_RUNTIME_ACCESS_INACTIVE = ProviderRuntimeAccessMode.INACTIVE.value();
+    public static final String CODEX_RUNTIME_ACCESS_MANAGED = ProviderRuntimeAccessMode.MANAGED.value();
+    public static final String CODEX_RUNTIME_ACCESS_CLI_LOGIN = ProviderRuntimeAccessMode.CLI_LOGIN.value();
     private static final String COMMIT_AI_KEY = "commitAi";
     private static final String PROMPT_ENHANCER_KEY = "promptEnhancer";
     private static final String AI_FEATURE_PROVIDER_KEY = "provider";
@@ -61,50 +58,58 @@ public class CodemossSettingsService {
     private static final String USER_LANGUAGE_CONFIG_KEY = "language";
 
     private final Gson gson;
+    private final PasswordStore passwordStore;
 
     // Managers
     private final ConfigPathManager pathManager;
-    /** A3:config.json 原子读写仓库;readConfig/writeConfig 内部委托(调用面零改)。 */
+    /** config.json 的唯一存储实现；Facade 保留兼容读写调用面。 */
     private final ConfigRepository configRepository;
-    /** A3 领域拆分第一步:外观+字体领域 Service(逻辑下沉,持久化仍经本 Facade,对称 ModelRegistryService)。 */
+    /** 外观与字体领域 Service。 */
     private final AppearanceSettingsService appearanceSettingsService;
-    /** A3 领域拆分第二步:AI 功能开关领域 Service(4 boolean toggle + Smithery API key,模式 A 半拆)。 */
+    /** AI 功能开关与 Smithery 凭证领域 Service。 */
     private final AiFeatureToggleSettingsService aiFeatureToggleSettingsService;
-    /** A3 领域拆分第三步:Codex 沙箱模式领域 Service(per-project/default,平台默认值决策,模式 A 半拆)。 */
+    /** Codex Sandbox Mode 领域 Service。 */
     private final CodexSandboxModeSettingsService codexSandboxModeSettingsService;
-    /** A3 领域拆分第四步:模型注册表领域 Service(persistence+validation+merge,静态 ModelRegistryService 不合并,模式 A 半拆)。 */
+    /** 模型注册表领域 Service。 */
     private final ModelRegistrySettingsService modelRegistrySettingsService;
     private final ClaudeSettingsManager claudeSettingsManager;
     private final CodexSettingsManager codexSettingsManager;
     private final CodexMcpServerManager codexMcpServerManager;
     private final WorkingDirectoryManager workingDirectoryManager;
     private final AgentManager agentManager;
-    private final McpServerManager mcpServerManager;
-    private final ProviderManager providerManager;
-    private final CodexProviderManager codexProviderManager;
+    /** MCP 服务器配置领域 Service。 */
+    private final McpSettingsService mcpSettingsService;
     private final OpenCodeSettingsManager openCodeSettingsManager;
-    private final OpenCodeProviderManager openCodeProviderManager;
+    /** Provider 配置领域 Service。 */
+    private final ProviderSettingsService providerSettingsService;
 
     public CodemossSettingsService() {
+        this(new PasswordStore(new IntelliJPasswordSafeBackend()));
+    }
+
+    CodemossSettingsService(PasswordStore passwordStore) {
         this.gson = new GsonBuilder().setPrettyPrinting().serializeNulls().create();
+        this.passwordStore = passwordStore;
 
         // Initialize ConfigPathManager
         this.pathManager = new ConfigPathManager();
 
-        // A3:ConfigRepository 收口 config.json 原子读写(原子写+fsync+mtime CAS+quarantine+多版本 backup)。
-        this.configRepository = new ConfigRepository(pathManager.getConfigDir(), gson);
+        // ConfigRepository owns migration, serialization, CAS, backup, and recovery.
+        this.configRepository = new ConfigRepository(
+                pathManager.getConfigDir(),
+                gson,
+                ConfigSchema::createDefaultConfig,
+                ConfigSchema.createMigrationRegistry(passwordStore)
+        );
 
-        // A3 领域拆分第一步:Appearance+Font 领域 Service(对称 ModelRegistryService 注入 this;
-        // 构造体内只存引用,不调用 CSS 方法,与既有 lambda 闭包捕获 this 同模式,延迟调用安全)。
-        this.appearanceSettingsService = new AppearanceSettingsService(this);
-        // A3 第二步:AI Feature Toggle 领域 Service(同模式 A 半拆,构造期只存引用)。
-        // S2 凭证安全:注入 PasswordStore(IntelliJ PasswordSafe 封装),smitheryApiKey 有 keychain 时存此。
-        this.aiFeatureToggleSettingsService = new AiFeatureToggleSettingsService(this,
-                new PasswordStore(new IntelliJPasswordSafeBackend()));
-        // A3 第三步:Codex Sandbox Mode 领域 Service(同模式 A 半拆,构造期只存引用)。
-        this.codexSandboxModeSettingsService = new CodexSandboxModeSettingsService(this);
-        // A3 第四步:ModelRegistry 领域 Service(同模式 A 半拆,构造期只存引用)。
-        this.modelRegistrySettingsService = new ModelRegistrySettingsService(this);
+        // Domain services depend on ConfigStore directly; this class remains the public Facade.
+        this.appearanceSettingsService = new AppearanceSettingsService(configRepository);
+
+        this.aiFeatureToggleSettingsService = new AiFeatureToggleSettingsService(configRepository, passwordStore);
+
+        this.codexSandboxModeSettingsService = new CodexSandboxModeSettingsService(configRepository);
+
+        this.modelRegistrySettingsService = new ModelRegistrySettingsService(configRepository);
 
         // Initialize ClaudeSettingsManager
         this.claudeSettingsManager = new ClaudeSettingsManager(gson, pathManager);
@@ -113,14 +118,14 @@ public class CodemossSettingsService {
         this.workingDirectoryManager = new WorkingDirectoryManager(
                 (ignored) -> {
                     try {
-                        return readConfig();
+                        return configRepository.read();
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
                 },
                 (config) -> {
                     try {
-                        writeConfig(config);
+                        configRepository.write(config);
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
@@ -130,46 +135,8 @@ public class CodemossSettingsService {
         // Initialize AgentManager
         this.agentManager = new AgentManager(gson, pathManager);
 
-        // Initialize McpServerManager
-        this.mcpServerManager = new McpServerManager(
-                gson,
-                (ignored) -> {
-                    try {
-                        return readConfig();
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                },
-                (config) -> {
-                    try {
-                        writeConfig(config);
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                },
-                claudeSettingsManager
-        );
-
-        // Initialize ProviderManager
-        this.providerManager = new ProviderManager(
-                gson,
-                (ignored) -> {
-                    try {
-                        return readConfig();
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                },
-                (config) -> {
-                    try {
-                        writeConfig(config);
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                },
-                pathManager,
-                claudeSettingsManager
-        );
+        // MCP domain owns its manager and uses ConfigStore for fallback persistence.
+        this.mcpSettingsService = new McpSettingsService(configRepository, gson, claudeSettingsManager);
 
         // Initialize CodexSettingsManager
         this.codexSettingsManager = new CodexSettingsManager(gson);
@@ -177,53 +144,20 @@ public class CodemossSettingsService {
         // Initialize CodexMcpServerManager
         this.codexMcpServerManager = new CodexMcpServerManager(codexSettingsManager);
 
-        // Initialize CodexProviderManager
-        this.codexProviderManager = new CodexProviderManager(
-                gson,
-                (ignored) -> {
-                    try {
-                        return readConfig();
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                },
-                (config) -> {
-                    try {
-                        writeConfig(config);
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                },
-                pathManager,
-                codexSettingsManager
-        );
-
-        // Initialize OpenCodeSettingsManager + OpenCodeProviderManager(对称 codex,SSOT 段 + 外科手术式合并)
+        // Initialize OpenCodeSettingsManager(对称 claude/codex settings manager,native-file 依赖;构造后注入 ProviderSettingsService)
         this.openCodeSettingsManager = new OpenCodeSettingsManager(gson);
-        this.openCodeProviderManager = new OpenCodeProviderManager(
+
+        // Provider domain owns all provider managers and depends on ConfigStore only.
+        this.providerSettingsService = new ProviderSettingsService(
+                configRepository,
                 gson,
-                (ignored) -> {
-                    try {
-                        return readConfig();
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                },
-                (config) -> {
-                    try {
-                        writeConfig(config);
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                },
                 pathManager,
+                claudeSettingsManager,
+                codexSettingsManager,
                 openCodeSettingsManager
         );
 
-        // S3-3 B4:启动 config.json 外部修改监听(cc-switch 切 provider/模型 → 主动广播 MODEL_REGISTRY)。
-        // configDir 由 CSS 注入,避免与 watcher 互相 getInstance() 形成构造期循环。
-        // 容错:纯 JUnit 测试(无 Application 上下文)new CSS() 时 getInstance() 会 NPE,跳过即可;
-        // IDE 内 Application 就绪时正常启动。
+        // Watch external config changes (for example cc-switch) and refresh frontend state.
         try {
             ConfigFileWatcherService.getInstance().ensureStarted(pathManager.getConfigDir());
         } catch (Exception e) {
@@ -246,51 +180,22 @@ public class CodemossSettingsService {
      *
      * <p>不加缓存:config.json 会被外部工具(cc-switch)修改,任何 TTL 缓存都会导致外部切换
      * provider/模型后插件读到写前快照(用旧配置 send)。配置即时性优先于 ~20ms 的重复 IO 收益。
-     * A3:委托 {@link ConfigRepository#load()} —— 原子读 + malformed quarantine + backup 自动回退,
+     * 委托 {@link ConfigRepository#load()} 完成原子读、malformed quarantine 与 backup 自动回退,
      * 不再静默用 default 覆盖损坏文件。</p>
      */
     public JsonObject readConfig() throws IOException {
-        ConfigRepository.LoadedConfig loaded = configRepository.load();
-        if (loaded != null) {
-            return loaded.getConfig();
-        }
-        LOG.info("[CodemossSettings] Config absent or unrecoverable, creating default: " + getConfigPath());
-        return createDefaultConfig();
+        return configRepository.read();
     }
 
     /**
      * Write the config file.
      *
-     * <p>A3:委托 {@link ConfigRepository#save(JsonObject)} —— 原子写(temp+ATOMIC_MOVE+fsync)+
+     * <p>委托 {@link ConfigRepository#save(JsonObject)} 完成原子写(temp+ATOMIC_MOVE+fsync)、
      * write-time mtime CAS(防 cc-switch / 外部编辑 lost update)+ 多版本 backup。CAS 冲突抛
      * {@link ConfigRepository.ConfigConflictException}。</p>
      */
     public void writeConfig(JsonObject config) throws IOException {
-        configRepository.save(config);
-    }
-
-    /**
-     * Create default config.
-     */
-    private JsonObject createDefaultConfig() {
-        JsonObject config = new JsonObject();
-        config.addProperty("version", CONFIG_VERSION);
-
-        // Claude config - empty provider list
-        JsonObject claude = new JsonObject();
-        JsonObject providers = new JsonObject();
-
-        claude.addProperty("current", "");
-        claude.add("providers", providers);
-        config.add(CommonConstants.PROVIDER_CLAUDE, claude);
-
-        JsonObject codex = new JsonObject();
-        codex.addProperty("current", "");
-        codex.add("providers", new JsonObject());
-        codex.addProperty("localConfigAuthorized", false);
-        config.add(ProviderType.CODEX.value(), codex);
-
-        return config;
+        configRepository.write(config);
     }
 
     // ==================== Language Config Management ====================
@@ -406,7 +311,7 @@ public class CodemossSettingsService {
     }
 
     public boolean setAlwaysThinkingEnabledInActiveProvider(boolean enabled) throws IOException {
-        return providerManager.setAlwaysThinkingEnabledInActiveProvider(enabled);
+        return providerSettingsService.setAlwaysThinkingEnabledInActiveProvider(enabled);
     }
 
     public void applyProviderToClaudeSettings(JsonObject provider) throws IOException {
@@ -426,7 +331,7 @@ public class CodemossSettingsService {
     }
 
     public void applyActiveProviderToClaudeSettings() throws IOException {
-        providerManager.applyActiveProviderToClaudeSettings();
+        providerSettingsService.applyActiveProviderToClaudeSettings();
     }
 
     // ==================== Working Directory Management ====================
@@ -779,73 +684,73 @@ public class CodemossSettingsService {
     // ==================== Provider Management ====================
 
     public List<JsonObject> getClaudeProviders() throws IOException {
-        return providerManager.getClaudeProviders();
+        return providerSettingsService.getClaudeProviders();
     }
 
     public JsonObject getActiveClaudeProvider() throws IOException {
-        return providerManager.getActiveClaudeProvider();
+        return providerSettingsService.getActiveClaudeProvider();
     }
 
     public void addClaudeProvider(JsonObject provider) throws IOException {
-        providerManager.addClaudeProvider(provider);
+        providerSettingsService.addClaudeProvider(provider);
     }
 
     public void updateClaudeProvider(String id, JsonObject updates) throws IOException {
-        providerManager.updateClaudeProvider(id, updates);
+        providerSettingsService.updateClaudeProvider(id, updates);
     }
 
     public DeleteResult deleteClaudeProvider(String id) {
-        return providerManager.deleteClaudeProvider(id);
+        return providerSettingsService.deleteClaudeProvider(id);
     }
 
     public void switchClaudeProvider(String id) throws IOException {
-        providerManager.switchClaudeProvider(id);
+        providerSettingsService.switchClaudeProvider(id);
     }
 
     public void deactivateClaudeProvider() throws IOException {
-        providerManager.deactivateClaudeProvider();
+        providerSettingsService.deactivateClaudeProvider();
     }
 
     public List<JsonObject> parseProvidersFromCcSwitchDb(String dbPath) throws IOException {
-        return providerManager.parseProvidersFromCcSwitchDb(dbPath);
+        return providerSettingsService.parseProvidersFromCcSwitchDb(dbPath);
     }
 
     public int saveProviders(List<JsonObject> providers) throws IOException {
-        return providerManager.saveProviders(providers);
+        return providerSettingsService.saveProviders(providers);
     }
 
     public void saveProviderOrder(List<String> orderedIds) throws IOException {
-        providerManager.saveProviderOrder(orderedIds);
+        providerSettingsService.saveProviderOrder(orderedIds);
     }
 
     public boolean isLocalProviderActive() {
-        return providerManager.isLocalProviderActive();
+        return providerSettingsService.isLocalProviderActive();
     }
 
     // ==================== MCP Server Management ====================
 
     public List<JsonObject> getMcpServers() throws IOException {
-        return mcpServerManager.getMcpServers();
+        return mcpSettingsService.getMcpServers();
     }
 
     public List<JsonObject> getMcpServersWithProjectPath(String projectPath) throws IOException {
-        return mcpServerManager.getMcpServersWithProjectPath(projectPath);
+        return mcpSettingsService.getMcpServersWithProjectPath(projectPath);
     }
 
     public void upsertMcpServer(JsonObject server) throws IOException {
-        mcpServerManager.upsertMcpServer(server);
+        mcpSettingsService.upsertMcpServer(server);
     }
 
     public void upsertMcpServer(JsonObject server, String projectPath) throws IOException {
-        mcpServerManager.upsertMcpServer(server, projectPath);
+        mcpSettingsService.upsertMcpServer(server, projectPath);
     }
 
     public boolean deleteMcpServer(String serverId) throws IOException {
-        return mcpServerManager.deleteMcpServer(serverId);
+        return mcpSettingsService.deleteMcpServer(serverId);
     }
 
     public Map<String, Object> validateMcpServer(JsonObject server) {
-        return mcpServerManager.validateMcpServer(server);
+        return mcpSettingsService.validateMcpServer(server);
     }
 
     // ==================== Codex MCP Server Management ====================
@@ -914,6 +819,14 @@ public class CodemossSettingsService {
         return getPromptManager(scope, project).getPrompts();
     }
 
+    /** Get prompts owned by one provider. Legacy prompts without a provider belong to Claude. */
+    public List<JsonObject> getPrompts(PromptScope scope, Project project, String provider) throws IOException {
+        ProviderType requestedProvider = ProviderType.fromString(provider);
+        return getPromptManager(scope, project).getPrompts().stream()
+                .filter(prompt -> requestedProvider == promptProvider(prompt))
+                .toList();
+    }
+
     /**
      * Add a prompt to the specified scope.
      *
@@ -950,6 +863,24 @@ public class CodemossSettingsService {
      */
     public boolean deletePrompt(String id, PromptScope scope, Project project) throws IOException {
         return getPromptManager(scope, project).deletePrompt(id);
+    }
+
+    /** Delete a prompt only when the caller owns the prompt's provider namespace. */
+    public boolean deletePrompt(String id, PromptScope scope, Project project, String provider) throws IOException {
+        AbstractPromptManager manager = getPromptManager(scope, project);
+        JsonObject prompt = manager.getPrompt(id);
+        if (prompt == null || ProviderType.fromString(provider) != promptProvider(prompt)) {
+            return false;
+        }
+        return manager.deletePrompt(id);
+    }
+
+    private ProviderType promptProvider(JsonObject prompt) {
+        if (prompt == null || !prompt.has(CommonConstants.JSON_KEY_PROVIDER)
+                || prompt.get(CommonConstants.JSON_KEY_PROVIDER).isJsonNull()) {
+            return ProviderType.CLAUDE;
+        }
+        return ProviderType.fromString(prompt.get(CommonConstants.JSON_KEY_PROVIDER).getAsString());
     }
 
     // ==================== Task Completion Notification Management ====================
@@ -1060,8 +991,8 @@ public class CodemossSettingsService {
 
     /**
      * Set the Smithery Registry API key. Empty/null clears it.
-     * <p>S2:有 keychain 时经 {@link com.github.claudecodegui.settings.credentials.PasswordStore} 存系统 keychain;
-     * 无 keychain 降级回 config.json({@code writeConfig} 落盘 0600)。值本身不入日志——只记 set/cleared 状态。
+     * <p>Security: the key value itself is never logged — only the set/cleared state
+     * is logged. {@code writeConfig} hardens the file to {@code 0600}.
      */
     public void setSmitheryApiKey(String apiKey) throws IOException {
         aiFeatureToggleSettingsService.setSmitheryApiKey(apiKey);
@@ -1402,116 +1333,55 @@ public class CodemossSettingsService {
     // ==================== Codex Provider Management ====================
 
     public List<JsonObject> getCodexProviders() throws IOException {
-        return codexProviderManager.getCodexProviders();
+        return providerSettingsService.getCodexProviders();
     }
 
     public JsonObject getActiveCodexProvider() throws IOException {
-        return codexProviderManager.getActiveCodexProvider();
+        return providerSettingsService.getActiveCodexProvider();
     }
 
     public void addCodexProvider(JsonObject provider) throws IOException {
-        codexProviderManager.addCodexProvider(provider);
+        providerSettingsService.addCodexProvider(provider);
     }
 
     public void updateCodexProvider(String id, JsonObject updates) throws IOException {
-        codexProviderManager.updateCodexProvider(id, updates);
+        providerSettingsService.updateCodexProvider(id, updates);
     }
 
     public DeleteResult deleteCodexProvider(String id) {
-        return codexProviderManager.deleteCodexProvider(id);
+        return providerSettingsService.deleteCodexProvider(id);
     }
 
     public void switchCodexProvider(String id) throws IOException {
-        codexProviderManager.switchCodexProvider(id);
+        providerSettingsService.switchCodexProvider(id);
     }
 
     public void applyActiveProviderToCodexSettings() throws IOException {
-        codexProviderManager.applyActiveProviderToCodexSettings();
+        providerSettingsService.applyActiveProviderToCodexSettings();
     }
 
     public JsonObject getCurrentCodexConfig() throws IOException {
-        if (!isCodexLocalConfigAuthorized()) {
-            return new JsonObject();
-        }
-        return codexProviderManager.getCurrentCodexConfig();
+        return providerSettingsService.getCurrentCodexConfig();
     }
 
     public boolean isCodexCliLoginAvailable() {
-        try {
-            if (!isCodexLocalConfigAuthorized()) {
-                return false;
-            }
-            return codexSettingsManager.isCodexCliLoginAvailable();
-        } catch (IOException e) {
-            LOG.warn("[CodemossSettings] Failed to check Codex local authorization: " + e.getMessage());
-            return false;
-        }
+        return providerSettingsService.isCodexCliLoginAvailable();
     }
 
     public JsonObject readCodexCliLoginAccountInfo() {
-        try {
-            if (!isCodexLocalConfigAuthorized()) {
-                return null;
-            }
-            return codexSettingsManager.readCodexCliLoginAccountInfo();
-        } catch (IOException e) {
-            LOG.warn("[CodemossSettings] Failed to read Codex local authorization state: " + e.getMessage());
-            return null;
-        }
+        return providerSettingsService.readCodexCliLoginAccountInfo();
     }
 
     public boolean isCodexLocalConfigAuthorized() throws IOException {
-        JsonObject config = readConfig();
-        if (!config.has(ProviderType.CODEX.value()) || !config.get(ProviderType.CODEX.value()).isJsonObject()) {
-            return false;
-        }
-        JsonObject codex = config.getAsJsonObject(ProviderType.CODEX.value());
-        return codex.has("localConfigAuthorized")
-                && !codex.get("localConfigAuthorized").isJsonNull()
-                && codex.get("localConfigAuthorized").getAsBoolean();
+        return providerSettingsService.isCodexLocalConfigAuthorized();
     }
 
     public void setCodexLocalConfigAuthorized(boolean authorized) throws IOException {
-        JsonObject config = readConfig();
-        JsonObject codex;
-        if (config.has(ProviderType.CODEX.value()) && config.get(ProviderType.CODEX.value()).isJsonObject()) {
-            codex = config.getAsJsonObject(ProviderType.CODEX.value());
-        } else {
-            codex = new JsonObject();
-            codex.add("providers", new JsonObject());
-            codex.addProperty("current", "");
-            config.add(ProviderType.CODEX.value(), codex);
-        }
-
-        codex.addProperty("localConfigAuthorized", authorized);
-        writeConfig(config);
+        providerSettingsService.setCodexLocalConfigAuthorized(authorized);
     }
 
     public String getCodexRuntimeAccessMode() throws IOException {
-        JsonObject config = readConfig();
-        if (!config.has(ProviderType.CODEX.value()) || !config.get(ProviderType.CODEX.value()).isJsonObject()) {
-            return CODEX_RUNTIME_ACCESS_INACTIVE;
-        }
-
-        JsonObject codex = config.getAsJsonObject(ProviderType.CODEX.value());
-        String currentId = codex.has("current") && !codex.get("current").isJsonNull()
-                ? codex.get("current").getAsString().trim()
-                : "";
-
-        if (CodexProviderManager.CODEX_CLI_LOGIN_PROVIDER_ID.equals(currentId)) {
-            return isCodexLocalConfigAuthorized()
-                    ? CODEX_RUNTIME_ACCESS_CLI_LOGIN
-                    : CODEX_RUNTIME_ACCESS_INACTIVE;
-        }
-
-        if (!currentId.isEmpty()
-                && codex.has("providers")
-                && codex.get("providers").isJsonObject()
-                && codex.getAsJsonObject("providers").has(currentId)) {
-            return CODEX_RUNTIME_ACCESS_MANAGED;
-        }
-
-        return CODEX_RUNTIME_ACCESS_INACTIVE;
+        return providerSettingsService.getCodexRuntimeAccessMode();
     }
 
     public String getClaudeInvocationMode() throws IOException {
@@ -1561,102 +1431,57 @@ public class CodemossSettingsService {
     }
 
     public void saveCodexProviderOrder(List<String> orderedIds) throws IOException {
-        codexProviderManager.saveProviderOrder(orderedIds);
+        providerSettingsService.saveProviderOrder(orderedIds);
     }
 
     // ==================== OpenCode Provider Management ==================== (对称 codex 段)
 
     public List<JsonObject> getOpenCodeProviders() throws IOException {
-        return openCodeProviderManager.getOpenCodeProviders();
+        return providerSettingsService.getOpenCodeProviders();
     }
 
     public JsonObject getActiveOpenCodeProvider() throws IOException {
-        return openCodeProviderManager.getActiveOpenCodeProvider();
+        return providerSettingsService.getActiveOpenCodeProvider();
     }
 
     public void addOpenCodeProvider(JsonObject provider) throws IOException {
-        openCodeProviderManager.addOpenCodeProvider(provider);
+        providerSettingsService.addOpenCodeProvider(provider);
     }
 
     public void updateOpenCodeProvider(String id, JsonObject updates) throws IOException {
-        openCodeProviderManager.updateOpenCodeProvider(id, updates);
+        providerSettingsService.updateOpenCodeProvider(id, updates);
     }
 
     public DeleteResult deleteOpenCodeProvider(String id) {
-        return openCodeProviderManager.deleteOpenCodeProvider(id);
+        return providerSettingsService.deleteOpenCodeProvider(id);
     }
 
     public void switchOpenCodeProvider(String id) throws IOException {
-        openCodeProviderManager.switchOpenCodeProvider(id);
+        providerSettingsService.switchOpenCodeProvider(id);
     }
 
     public void applyActiveProviderToOpenCodeSettings() throws IOException {
-        openCodeProviderManager.applyActiveProviderToOpenCodeSettings();
+        providerSettingsService.applyActiveProviderToOpenCodeSettings();
     }
 
     public JsonObject getCurrentOpenCodeConfig() throws IOException {
-        if (!isOpencodeLocalConfigAuthorized()) {
-            return new JsonObject();
-        }
-        return openCodeProviderManager.getCurrentOpenCodeConfig();
+        return providerSettingsService.getCurrentOpenCodeConfig();
     }
 
     public boolean isOpencodeLocalConfigAuthorized() throws IOException {
-        JsonObject config = readConfig();
-        if (!config.has(ProviderType.OPENCODE.value()) || !config.get(ProviderType.OPENCODE.value()).isJsonObject()) {
-            return false;
-        }
-        JsonObject opencode = config.getAsJsonObject(ProviderType.OPENCODE.value());
-        return opencode.has("localConfigAuthorized")
-                && !opencode.get("localConfigAuthorized").isJsonNull()
-                && opencode.get("localConfigAuthorized").getAsBoolean();
+        return providerSettingsService.isOpencodeLocalConfigAuthorized();
     }
 
     public void setOpencodeLocalConfigAuthorized(boolean authorized) throws IOException {
-        JsonObject config = readConfig();
-        JsonObject opencode;
-        if (config.has(ProviderType.OPENCODE.value()) && config.get(ProviderType.OPENCODE.value()).isJsonObject()) {
-            opencode = config.getAsJsonObject(ProviderType.OPENCODE.value());
-        } else {
-            opencode = new JsonObject();
-            opencode.add("providers", new JsonObject());
-            opencode.addProperty("current", "");
-            config.add(ProviderType.OPENCODE.value(), opencode);
-        }
-
-        opencode.addProperty("localConfigAuthorized", authorized);
-        writeConfig(config);
+        providerSettingsService.setOpencodeLocalConfigAuthorized(authorized);
     }
 
     public String getOpenCodeRuntimeAccessMode() throws IOException {
-        JsonObject config = readConfig();
-        if (!config.has(ProviderType.OPENCODE.value()) || !config.get(ProviderType.OPENCODE.value()).isJsonObject()) {
-            return CODEX_RUNTIME_ACCESS_INACTIVE;
-        }
-
-        JsonObject opencode = config.getAsJsonObject(ProviderType.OPENCODE.value());
-        String currentId = opencode.has("current") && !opencode.get("current").isJsonNull()
-                ? opencode.get("current").getAsString().trim()
-                : "";
-
-        if (OpenCodeProviderManager.OPENCODE_LOCAL_CONFIG_PROVIDER_ID.equals(currentId)) {
-            return isOpencodeLocalConfigAuthorized()
-                    ? CODEX_RUNTIME_ACCESS_CLI_LOGIN
-                    : CODEX_RUNTIME_ACCESS_INACTIVE;
-        }
-
-        if (!currentId.isEmpty()
-                && opencode.has("providers")
-                && opencode.get("providers").isJsonObject()
-                && opencode.getAsJsonObject("providers").has(currentId)) {
-            return CODEX_RUNTIME_ACCESS_MANAGED;
-        }
-
-        return CODEX_RUNTIME_ACCESS_INACTIVE;
+        return providerSettingsService.getOpenCodeRuntimeAccessMode();
     }
 
     public void saveOpenCodeProviderOrder(List<String> orderedIds) throws IOException {
-        openCodeProviderManager.saveProviderOrder(orderedIds);
+        providerSettingsService.saveProviderOrder(orderedIds);
     }
 
     // ==================== Model Registry Config Management (delegates to ModelRegistrySettingsService) ====================

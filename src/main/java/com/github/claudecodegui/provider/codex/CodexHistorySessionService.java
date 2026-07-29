@@ -2,6 +2,8 @@ package com.github.claudecodegui.provider.codex;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonStreamParser;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
 
@@ -35,11 +37,16 @@ class CodexHistorySessionService {
     }
 
     void visitSessionMessages(String sessionId, Consumer<JsonObject> consumer) {
+        forEachSessionMessage(sessionId, consumer);
+    }
+
+    int forEachSessionMessage(String sessionId, Consumer<JsonObject> consumer) {
+        int count = 0;
         try {
             Path sessionFile = findSessionFile(sessionId);
             if (sessionFile == null) {
                 LOG.warn("[CodexHistoryReader] Session file not found for: " + sessionId);
-                return;
+                return 0;
             }
 
             try (BufferedReader reader = Files.newBufferedReader(sessionFile, StandardCharsets.UTF_8)) {
@@ -50,12 +57,17 @@ class CodexHistorySessionService {
                     }
 
                     try {
-                        CodexHistoryReader.CodexMessage message = gson.fromJson(
-                                line,
-                                CodexHistoryReader.CodexMessage.class
-                        );
-                        if (message != null) {
-                            consumer.accept(gson.toJsonTree(transformFunctionCall(message)).getAsJsonObject());
+                        JsonStreamParser parser = new JsonStreamParser(line);
+                        while (parser.hasNext()) {
+                            JsonElement element = parser.next();
+                            CodexHistoryReader.CodexMessage message = gson.fromJson(
+                                    element,
+                                    CodexHistoryReader.CodexMessage.class
+                            );
+                            if (message != null) {
+                                consumer.accept(gson.toJsonTree(transformFunctionCall(message)).getAsJsonObject());
+                                count++;
+                            }
                         }
                     } catch (Exception e) {
                         LOG.debug("[CodexHistoryReader] Failed to parse message: " + e.getMessage());
@@ -65,6 +77,7 @@ class CodexHistorySessionService {
         } catch (Exception e) {
             LOG.error("[CodexHistoryReader] Failed to read session messages: " + e.getMessage(), e);
         }
+        return count;
     }
 
     private Path findSessionFile(String sessionId) throws IOException {

@@ -39,10 +39,19 @@ jobs:
         working-directory: ai-bridge
         run: npm ci
 
+      - name: Run lint
+        working-directory: ai-bridge
+        run: npm run lint
+
+      - name: Run typecheck
+        working-directory: ai-bridge
+        run: npm run typecheck
+
       - name: Run ai-bridge tests
         # Pure test run kept separate from coverage so a failure points cleanly at
         # the failing test, not the coverage toolchain.
-        run: node --test "ai-bridge/**/*.test.js"
+        working-directory: ai-bridge
+        run: npm test
 
       - name: Generate c8 coverage
         # Collects branch + line coverage into ai-bridge/coverage/coverage-final.json.
@@ -108,6 +117,64 @@ jobs:
         # granularity because V8 branch counting has ~0.01-0.02% non-determinism.
         working-directory: webview
         run: node scripts/check-coverage.mjs --verbose
+
+  # Webview style checks keep full ESLint coverage while limiting Prettier
+  # adoption to files changed after the gate was introduced.
+  webview-lint:
+    name: webview lint and format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.12.0'
+          cache: 'npm'
+          cache-dependency-path: 'webview/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: webview
+        run: npm ci
+
+      - name: Run lint and changed-file format checks
+        working-directory: webview
+        env:
+          STYLE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          STYLE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          STYLE_ADOPTION_BASELINE: '1'
+        run: npm run check:style
+
+  # Generate frontend protocol constants directly from the Java enum SSOT and
+  # reject production code that reintroduces downstream event literals.
+  protocol-ssot:
+    name: protocol SSOT
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.12.0'
+          cache: 'npm'
+          cache-dependency-path: 'webview/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: webview
+        run: npm ci
+
+      - name: Generate protocol types
+        working-directory: webview
+        run: node scripts/generate-protocol-types.mjs
+
+      - name: Check downstream event literals
+        working-directory: webview
+        run: npm run check:event-literals
 
   # Full Java unit-test suite on Linux. The NodeDetectorWslTest integration
   # tests are Windows+WSL-gated (they Assume Windows+WSL) and are SKIPPED here;
@@ -207,13 +274,11 @@ jobs:
       - name: Run WSL integration tests
         run: ./gradlew test --tests "com.github.claudecodegui.bridge.NodeDetectorWslTest"
 
-  # i18n locale coverage baseline gate (docs §9 I18N1). Pure Node script reading
-  # locale JSON; no build or npm install needed. Fails when a locale's missing-key
-  # count grows beyond the committed baseline (new en keys shipped without
-  # translations). Historical gaps are tracked in
-  # webview/scripts/locale-coverage-baseline.json and tightened as they're paid down.
+  # Unified frontend + backend i18n baseline gate. Historical gaps are frozen
+  # in scripts/i18n-baseline.json and may only stay flat or decrease; backend zh
+  # completeness remains a hard requirement.
   i18n:
-    name: i18n locale coverage
+    name: i18n key coverage
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -224,5 +289,5 @@ jobs:
         with:
           node-version: '22.12.0'
 
-      - name: Check locale coverage baseline
-        run: node webview/scripts/check-locale-coverage.mjs
+      - name: Check unified i18n key baseline
+        run: node scripts/check-i18n-keys.mjs

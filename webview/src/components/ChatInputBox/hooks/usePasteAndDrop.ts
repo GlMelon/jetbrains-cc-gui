@@ -78,31 +78,30 @@ export function usePasteAndDrop({
     return false;
   }, []);
 
-  const appendImageAttachment = useCallback((
-    fileName: string,
-    mediaType: string,
-    base64: string,
-  ) => {
-    const signature = [
-      mediaType || 'image/png',
-      base64.length,
-      base64.slice(0, 48),
-      base64.slice(-48),
-    ].join('|');
+  const appendImageAttachment = useCallback(
+    (fileName: string, mediaType: string, base64: string) => {
+      const signature = [
+        mediaType || 'image/png',
+        base64.length,
+        base64.slice(0, 48),
+        base64.slice(-48),
+      ].join('|');
 
-    if (isRecentDuplicateImageAttachment(signature)) {
-      return;
-    }
+      if (isRecentDuplicateImageAttachment(signature)) {
+        return;
+      }
 
-    const attachment: Attachment = {
-      id: generateId(),
-      fileName,
-      mediaType: mediaType || 'image/png',
-      data: base64,
-    };
+      const attachment: Attachment = {
+        id: generateId(),
+        fileName,
+        mediaType: mediaType || 'image/png',
+        data: base64,
+      };
 
-    setInternalAttachments((prev) => [...prev, attachment]);
-  }, [isRecentDuplicateImageAttachment, setInternalAttachments]);
+      setInternalAttachments((prev) => [...prev, attachment]);
+    },
+    [isRecentDuplicateImageAttachment, setInternalAttachments],
+  );
 
   /**
    * Handle paste event - detect images and plain text
@@ -116,13 +115,11 @@ export function usePasteAndDrop({
       }
 
       // Check if there's a real image (type is image/*)
-      let hasImage = false;
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
 
         // Only process real image types (type starts with image/)
         if (item.type.startsWith('image/')) {
-          hasImage = true;
           e.preventDefault();
 
           const blob = item.getAsFile();
@@ -150,12 +147,12 @@ export function usePasteAndDrop({
         }
       }
 
-      // If no image, try to get text or file path
-      if (!hasImage) {
+      // If no image was returned above, try to get text or file path
+      {
         e.preventDefault();
 
         // Try multiple ways to get text
-        let text =
+        const text =
           e.clipboardData.getData('text/plain') ||
           e.clipboardData.getData('text/uri-list') ||
           e.clipboardData.getData('text/html');
@@ -224,7 +221,7 @@ export function usePasteAndDrop({
         }
       }
     },
-    [appendImageAttachment, handleInput, flushInput]
+    [appendImageAttachment, handleInput, flushInput],
   );
 
   /**
@@ -361,7 +358,7 @@ export function usePasteAndDrop({
       appendImageAttachment,
       onInput,
       closeAllCompletions,
-    ]
+    ],
   );
 
   // Listen for image paste events dispatched from Java side (when clipboard has image but no text)
@@ -370,11 +367,7 @@ export function usePasteAndDrop({
       const { base64, mediaType } = (e as CustomEvent).detail;
       if (!base64) return;
       const ext = mediaType?.split('/')[1] || 'png';
-      appendImageAttachment(
-        `pasted-image-${Date.now()}.${ext}`,
-        mediaType || 'image/png',
-        base64,
-      );
+      appendImageAttachment(`pasted-image-${Date.now()}.${ext}`, mediaType || 'image/png', base64);
     };
     window.addEventListener('java-paste-image', onJavaPasteImage);
     return () => window.removeEventListener('java-paste-image', onJavaPasteImage);

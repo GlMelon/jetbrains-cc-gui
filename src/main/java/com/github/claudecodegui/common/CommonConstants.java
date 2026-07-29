@@ -233,6 +233,8 @@ public final class CommonConstants {
     public static final String JSON_KEY_RESULT = "result";
 
     public static final String JSON_KEY_VALUE = "value";
+    /** JSON 字段：单回合预估成本（美元） */
+    public static final String JSON_KEY_TURN_COST_USD = "turnCostUsd";
 
     // ===== 特殊内容标记 =====
 

@@ -20,6 +20,14 @@ class HistoryLoadService {
         this.context = context;
     }
 
+    HistoryLoadService(HandlerContext context, Object ignoredLegacyDependency) {
+        this(context);
+    }
+
+    void handleLoadHistoryData(String provider) {
+        LOG.warn("[HistoryHandler] Legacy history reload requested without workflow owner: " + provider);
+    }
+
     void dispatchHistoryData(String finalJson) {
         String safeJson = HistorySessionsJsonEnhancer.normalizeSessionsJson(finalJson);
         String base64Json = Base64.getEncoder().encodeToString(safeJson.getBytes(StandardCharsets.UTF_8));

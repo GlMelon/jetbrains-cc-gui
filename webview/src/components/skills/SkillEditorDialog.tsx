@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { SKILL_FIELD_CONTROL } from '../../types/skill';
 import type {
   SkillDocumentField,
   SkillDocumentResult,
@@ -72,7 +73,7 @@ export function SkillEditorDialog({
     const label = t(field.labelKey);
 
     switch (field.control) {
-      case 'boolean':
+      case SKILL_FIELD_CONTROL.BOOLEAN:
         return (
           <label className="skill-editor-checkbox">
             <input
@@ -84,7 +85,7 @@ export function SkillEditorDialog({
             <span>{label}</span>
           </label>
         );
-      case 'string-list':
+      case SKILL_FIELD_CONTROL.STRING_LIST:
         return (
           <textarea
             className="form-textarea skill-editor-list"
@@ -95,7 +96,7 @@ export function SkillEditorDialog({
             aria-label={label}
           />
         );
-      case 'textarea':
+      case SKILL_FIELD_CONTROL.TEXTAREA:
         return (
           <textarea
             className="form-textarea"
@@ -107,7 +108,7 @@ export function SkillEditorDialog({
             aria-label={label}
           />
         );
-      case 'text':
+      case SKILL_FIELD_CONTROL.TEXT:
       default:
         return (
           <input
@@ -169,20 +170,21 @@ export function SkillEditorDialog({
                   {fields.map((field) => (
                     <div
                       className={`form-group ${
-                        field.control === 'textarea' || field.control === 'string-list'
+                        field.control === SKILL_FIELD_CONTROL.TEXTAREA ||
+                        field.control === SKILL_FIELD_CONTROL.STRING_LIST
                           ? 'skill-editor-wide-field'
                           : ''
                       }`}
                       key={field.key}
                     >
-                      {field.control !== 'boolean' && (
+                      {field.control !== SKILL_FIELD_CONTROL.BOOLEAN && (
                         <label>
                           {t(field.labelKey)}
                           {field.required && <span className="required">*</span>}
                         </label>
                       )}
                       {renderField(field)}
-                      {field.control === 'string-list' && (
+                      {field.control === SKILL_FIELD_CONTROL.STRING_LIST && (
                         <small className="form-hint">{t('skills.editor.onePerLine')}</small>
                       )}
                     </div>

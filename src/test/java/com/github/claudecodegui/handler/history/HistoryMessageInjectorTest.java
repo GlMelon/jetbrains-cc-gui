@@ -128,9 +128,9 @@ public class HistoryMessageInjectorTest {
         List<JsonObject> result = HistoryMessageInjector.convertCodexMessagesToFrontendBatch(messages);
 
         assertEquals(1, result.size());
-        // When neither variant carries an image content block, fall back to the
-        // existing tiebreaker which keeps the first record.
-        assertEquals("<image name=[Image #1]>\n</image>\nhello", result.get(0).get("content").getAsString());
+        // Placeholder-only image wrappers are transport metadata and must not leak
+        // into the visible history text.
+        assertEquals("hello", result.get(0).get("content").getAsString());
     }
 
     @Test

@@ -1,10 +1,7 @@
 import { type RefObject, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChatInputBox } from './ChatInputBox';
-import type {
-  Attachment,
-  ChatInputBoxHandle,
-} from './ChatInputBox/types';
+import type { Attachment, ChatInputBoxHandle } from './ChatInputBox/types';
 import { MessageAnchorRail } from './MessageAnchorRail';
 import { MessageList } from './MessageList';
 import { ScrollControl } from './ScrollControl';
@@ -22,12 +19,17 @@ import { useModelProvider } from '../contexts/ModelProviderContext';
 import { useSession } from '../contexts/SessionContext';
 import { useUIState } from '../contexts/UIStateContext';
 import { extractMarkdownContent } from '../utils/copyUtils';
-import type { ClaudeMessage, TodoItem, ToolResultBlock } from '../types';
-import type { useMessageProcessing, useFileChanges, useSubagents, useFileChangesManagement, useMessageQueue } from '../hooks';
+import type { ClaudeMessage, SubagentHistoryResponse, TodoItem, ToolResultBlock } from '../types';
+import type {
+  useMessageProcessing,
+  useFileChanges,
+  useSubagents,
+  useFileChangesManagement,
+  useMessageQueue,
+} from '../hooks';
 import type { GetToolResultRawFn } from '../contexts/SubagentContext';
 import type { AvatarConfig } from '../types/avatar';
 
-type SubagentHistoryGetter = (key: string) => ReturnType<typeof useMessages>['subagentHistories'][string] | undefined;
 type MessageQueueValue = ReturnType<typeof useMessageQueue>['queue'];
 type SubagentList = ReturnType<typeof useSubagents>;
 type FileChangeList = ReturnType<typeof useFileChanges>;
@@ -45,7 +47,7 @@ export interface ChatScreenProps {
   subagents: SubagentList;
   globalTodos: TodoItem[];
   filteredFileChanges: FileChangeList;
-  subagentHistoryCtxValue: SubagentHistoryGetter;
+  subagentHistoryCtxValue: Record<string, SubagentHistoryResponse>;
   sessionIdCtxValue: { currentSessionId: string | null };
 
   // Refs
@@ -59,6 +61,8 @@ export interface ChatScreenProps {
   messageListRef: RefObject<MessageListRevealHandle | null>;
   /** Cooperate with useScrollBehavior to avoid pausing auto-follow during search scrolls. */
   isAutoScrollingRef?: React.RefObject<boolean>;
+  /** Current auto-follow position, shared with the streaming screen-reader announcer. */
+  isUserAtBottomRef: React.RefObject<boolean>;
 
   // Anchor rail
   anchorCollapsedCount: number;
@@ -78,6 +82,7 @@ export interface ChatScreenProps {
   onRewind: () => void;
   onNavigateToProviderSettings: () => void;
   onProviderSelect: (providerId: string) => void;
+  detailedOutputEnabled?: boolean;
   avatarConfig?: AvatarConfig | null;
 
   // Message queue
@@ -95,44 +100,93 @@ export interface ChatScreenProps {
  * Stage 5 of TASK-P1-01.
  */
 export const ChatScreen = ({
-  mergedMessages, getMessageText, getContentBlocks, findToolResult, getToolResultRaw,
-  subagents, globalTodos, filteredFileChanges,
-  subagentHistoryCtxValue, sessionIdCtxValue,
-  chatInputRef, messagesContainerRef, messagesEndRef, inputAreaRef,
-  messageNodeMapRef, userCollapsedRef, messageListRef, isAutoScrollingRef,
-  anchorCollapsedCount, setAnchorCollapsedCount, onMessageNodeRef,
-  statusPanelExpanded, forceStatusUpdate,
-  onUndoFile, onDiscardAll, onKeepAll,
-  onSubmit, onInterrupt, onRewind,
-  onNavigateToProviderSettings, onProviderSelect,
+  mergedMessages,
+  getMessageText,
+  getContentBlocks,
+  findToolResult,
+  getToolResultRaw,
+  subagents,
+  globalTodos,
+  filteredFileChanges,
+  subagentHistoryCtxValue,
+  sessionIdCtxValue,
+  chatInputRef,
+  messagesContainerRef,
+  messagesEndRef,
+  inputAreaRef,
+  messageNodeMapRef,
+  userCollapsedRef,
+  messageListRef,
+  isAutoScrollingRef,
+  isUserAtBottomRef,
+  anchorCollapsedCount,
+  setAnchorCollapsedCount,
+  onMessageNodeRef,
+  statusPanelExpanded,
+  forceStatusUpdate,
+  onUndoFile,
+  onDiscardAll,
+  onKeepAll,
+  onSubmit,
+  onInterrupt,
+  onRewind,
+  onNavigateToProviderSettings,
+  onProviderSelect,
+  detailedOutputEnabled = false,
   avatarConfig,
-  messageQueue, onRemoveFromQueue,
+  messageQueue,
+  onRemoveFromQueue,
 }: ChatScreenProps) => {
   const { t } = useTranslation();
 
   // Model / provider state from context (replaces ~26 props)
   const {
-    currentProvider, selectedModel, permissionMode, selectedAgent,
-    sdkStatusLoaded, currentSdkInstalled,
-    reasoningEffort, streamingEnabledSetting, showThinkingEnabledSetting, sendShortcut, autoOpenFileEnabled,
-    usagePercentage, usageUsedTokens, usageMaxTokens, tokenDetail,
-    handleModeSelect, handleModelSelect, handleAgentSelect,
-    handleReasoningChange, handleShowThinkingEnabledChange,
-    handleStreamingEnabledChange, handleAutoOpenFileEnabledChange,
+    currentProvider,
+    selectedModel,
+    permissionMode,
+    selectedAgent,
+    sdkStatusLoaded,
+    currentSdkInstalled,
+    reasoningEffort,
+    streamingEnabledSetting,
+    showThinkingEnabledSetting,
+    sendShortcut,
+    autoOpenFileEnabled,
+    usagePercentage,
+    usageUsedTokens,
+    usageMaxTokens,
+    tokenDetail,
+    handleModeSelect,
+    handleModelSelect,
+    handleAgentSelect,
+    handleReasoningChange,
+    handleShowThinkingEnabledChange,
+    handleStreamingEnabledChange,
+    handleAutoOpenFileEnabledChange,
   } = useModelProvider();
 
   const {
-    messages, loading, isThinking, streamingActive, loadingStartTime,
-    queueDisplayState, queueAheadCount, subagentHistories,
+    messages,
+    loading,
+    isThinking,
+    streamingActive,
+    loadingStartTime,
+    queueDisplayState,
+    queueAheadCount,
+    subagentHistories,
   } = useMessages();
   const { currentSessionId } = useSession();
   const {
-    setSettingsInitialTab, setCurrentView,
-    contextInfo, setContextInfo,
+    setSettingsInitialTab,
+    setCurrentView,
+    contextInfo,
+    setContextInfo,
     addToast,
-    draftInput, setDraftInput,
+    draftInput,
+    setDraftInput,
     openChangelogDialog,
-    searchOpen, setSearchOpen,
+    searchOpen,
+    setSearchOpen,
   } = useUIState();
 
   // Stable callback so MessageList's memo isn't busted by a fresh inline
@@ -166,12 +220,10 @@ export const ChatScreen = ({
     // `raw` is either an object with `content[]` or `message.content[]`, or
     // sometimes a plain string. We use a tolerant shape with `unknown`.
     const rawHolder = last?.raw as
-      | { content?: unknown; message?: { content?: unknown } }
-      | string
-      | undefined;
+      { content?: unknown; message?: { content?: unknown } } | string | undefined;
     const rawBlocks =
       typeof rawHolder === 'object' && rawHolder !== null
-        ? rawHolder.content ?? rawHolder.message?.content
+        ? (rawHolder.content ?? rawHolder.message?.content)
         : undefined;
     if (Array.isArray(rawBlocks)) {
       for (const block of rawBlocks) {
@@ -240,6 +292,9 @@ export const ChatScreen = ({
                   onNavigateToProviderSettings={onNavigateToProviderSettings}
                   onNavigateToDependencySettings={handleNavigateToDependencySettings}
                   currentProvider={currentProvider}
+                  currentSessionId={currentSessionId}
+                  isUserAtBottomRef={isUserAtBottomRef}
+                  detailedOutputEnabled={detailedOutputEnabled}
                   avatarConfig={avatarConfig}
                 />
               </ToolResultRawContext.Provider>
@@ -278,7 +333,11 @@ export const ChatScreen = ({
           tokenDetail={tokenDetail}
           showUsage={true}
           showThinkingEnabled={showThinkingEnabledSetting}
-          placeholder={sendShortcut === 'cmdEnter' ? t('chat.inputPlaceholderCmdEnter') : t('chat.inputPlaceholderEnter')}
+          placeholder={
+            sendShortcut === 'cmdEnter'
+              ? t('chat.inputPlaceholderCmdEnter')
+              : t('chat.inputPlaceholderEnter')
+          }
           sdkInstalled={currentSdkInstalled}
           sdkStatusLoading={!sdkStatusLoaded}
           onInstallSdk={() => {
@@ -301,11 +360,13 @@ export const ChatScreen = ({
           selectedAgent={selectedAgent}
           onAgentSelect={handleAgentSelect}
           activeFile={contextInfo?.file}
-          selectedLines={contextInfo?.startLine !== undefined && contextInfo?.endLine !== undefined
-            ? (contextInfo.startLine === contextInfo.endLine
+          selectedLines={
+            contextInfo?.startLine !== undefined && contextInfo?.endLine !== undefined
+              ? contextInfo.startLine === contextInfo.endLine
                 ? `L${contextInfo.startLine}`
-                : `L${contextInfo.startLine}-${contextInfo.endLine}`)
-            : undefined}
+                : `L${contextInfo.startLine}-${contextInfo.endLine}`
+              : undefined
+          }
           onClearContext={() => setContextInfo(null)}
           onOpenAgentSettings={() => {
             setSettingsInitialTab('agents');

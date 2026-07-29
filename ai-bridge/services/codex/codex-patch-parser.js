@@ -50,6 +50,10 @@ export function extractPatchFromExecCommand(cmd) {
   return patchText;
 }
 
+/**
+ * @param {string | { patch?: unknown; input?: unknown; code?: unknown; command?: unknown; cmd?: unknown } | null | undefined} input
+ * @returns {string}
+ */
 function extractPatchFromCustomToolInput(input) {
   if (typeof input === 'string') {
     return extractPatchFromExecCommand(input);

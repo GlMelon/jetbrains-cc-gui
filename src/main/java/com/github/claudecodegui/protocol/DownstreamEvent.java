@@ -10,6 +10,9 @@ package com.github.claudecodegui.protocol;
  */
 public enum DownstreamEvent implements ProtocolValue {
 
+    // ── Webview Bootstrap ──
+    WEBVIEW_BOOTSTRAP("webview.bootstrap"),
+
     // ── Usage/Settings ──
     USAGE_UPDATE("usage.update"),
     USAGE_STATISTICS("usage.statistics"),

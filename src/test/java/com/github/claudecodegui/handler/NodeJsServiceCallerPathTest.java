@@ -1,9 +1,11 @@
 package com.github.claudecodegui.handler;
 
+import com.github.claudecodegui.bridge.EnvironmentConfigurator;
 import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.bridge.ProcessManager;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
+import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.junit.Assume;
@@ -111,6 +113,11 @@ public class NodeJsServiceCallerPathTest {
         private final ProcessManager processManager = new ProcessManager();
 
         private TestClaudeSDKBridge(File sdkDir) {
+            this(sdkDir, new CodemossSettingsService());
+        }
+
+        private TestClaudeSDKBridge(File sdkDir, CodemossSettingsService settingsService) {
+            super(new EnvironmentConfigurator(settingsService), settingsService);
             this.sdkDir = sdkDir;
         }
 

@@ -9,32 +9,17 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * Appearance + Font 领域 Service(A3 领域拆分第一步,docs §A3)。
+ * Appearance + Font 领域 Service。
  *
- * <p>封装 appearance(主题偏好 / 字号 / diff 主题 / 分主题颜色)+ uiFont + codeFont 三段配置的
- * normalize / default / 读写编排。持久化经 {@link CodemossSettingsService} Facade
- * (readConfig/writeConfig),与 {@link ModelRegistryService} 同为「Service=领域逻辑层 /
- * Facade=持久化层」的半拆模式(模式 A)。
- *
- * <p><b>依赖方向</b>:CSS → AppearanceSettingsService → CSS.readConfig/writeConfig →
- * ConfigRepository。非循环:Facade 的 get/set 委托本 Service,本 Service 调 Facade 的
- * 低层 read/write 原语(方法级无环)。选模式 A 而非 Service 直连 ConfigRepository 的
- * 核心理由:文件缺失时 {@code CSS.readConfig()} 返回 {@code createDefaultConfig()} 全局骨架
- * (version/claude/codex),Service 在其上注入 appearance 段,行为与历史逐字等价;
- * 直连 ConfigRepository 会丢失全局默认段(行为漂移)。模式 B(Service→ConfigRepository
- * 单向)留待 ConfigRepository 升级为独立 application service 时,所有领域 Service 统一迁移。
- *
- * <p><b>构造期 this</b>:构造体只存引用,不在构造体内调用 CSS 方法(参照 ModelRegistryService)。
- *
- * <p><b>Facade 不变</b>:CSS 的 getAppearanceConfig/setAppearanceConfig/getUiFontConfig/
- * setUiFontConfig/getCodeFontConfig/setCodeFontConfig public 签名保留为转发委托;
- * static getAppearanceConfigJson 方法体不改(调 {@code service.getAppearanceConfig()} 经
- * 动态分发走转发再进本 Service)。调用面与既有测试零改动。
+ * <p>封装 appearance、uiFont 与 codeFont 三段配置的默认值、归一化和持久化编排。
+ * 依赖方向为上层 Facade → 本 Service → {@link ConfigStore}；
+ * 写操作统一使用 {@link ConfigStore#update(ConfigStore.ConfigMutation)} 覆盖完整
+ * read-modify-write 临界区，Facade 仅保留兼容调用面。
  */
 public final class AppearanceSettingsService {
     private static final Logger LOG = Logger.getInstance(AppearanceSettingsService.class);
 
-    private final CodemossSettingsService settingsService;
+    private final ConfigStore configStore;
 
     // ==================== Font segment constants (migrated from CSS) ====================
 
@@ -65,15 +50,15 @@ public final class AppearanceSettingsService {
     private static final Set<String> VALID_DIFF_THEMES = Set.of("follow", "editor", "light", "soft-dark");
     private static final Pattern HEX_COLOR_PATTERN = Pattern.compile("^#[0-9a-fA-F]{6}$");
 
-    public AppearanceSettingsService(CodemossSettingsService settingsService) {
-        this.settingsService = settingsService;
+    public AppearanceSettingsService(ConfigStore configStore) {
+        this.configStore = configStore;
     }
 
     // ==================== Appearance public API (called by CSS delegates) ====================
 
     /** Read normalized appearance config; missing segment → defaults. */
     public JsonObject getAppearanceConfig() throws IOException {
-        JsonObject config = settingsService.readConfig();
+        JsonObject config = configStore.read();
         if (!config.has(APPEARANCE_CONFIG_KEY) || !config.get(APPEARANCE_CONFIG_KEY).isJsonObject()) {
             return createDefaultAppearanceConfig();
         }
@@ -82,9 +67,8 @@ public final class AppearanceSettingsService {
 
     /** Persist appearance config (called from webview via {@code set_appearance_config}). */
     public void setAppearanceConfig(JsonObject rawConfig) throws IOException {
-        JsonObject config = settingsService.readConfig();
-        config.add(APPEARANCE_CONFIG_KEY, normalizeAppearanceConfig(rawConfig));
-        settingsService.writeConfig(config);
+        JsonObject normalized = normalizeAppearanceConfig(rawConfig);
+        configStore.update(config -> config.add(APPEARANCE_CONFIG_KEY, normalized));
         LOG.debug("[AppearanceSettings] Updated appearance config");
     }
 
@@ -92,7 +76,7 @@ public final class AppearanceSettingsService {
 
     /** Read normalized UI font configuration; missing segment → defaults. */
     public JsonObject getUiFontConfig() throws IOException {
-        JsonObject config = settingsService.readConfig();
+        JsonObject config = configStore.read();
         if (!config.has(UI_FONT_CONFIG_KEY) || !config.get(UI_FONT_CONFIG_KEY).isJsonObject()) {
             return createDefaultUiFontConfig();
         }
@@ -101,16 +85,15 @@ public final class AppearanceSettingsService {
 
     /** Persist UI font configuration. */
     public void setUiFontConfig(String mode, String customFontPath) throws IOException {
-        JsonObject config = settingsService.readConfig();
-        config.add(UI_FONT_CONFIG_KEY, createUiFontConfig(mode, customFontPath));
-        settingsService.writeConfig(config);
+        JsonObject fontConfig = createUiFontConfig(mode, customFontPath);
+        configStore.update(config -> config.add(UI_FONT_CONFIG_KEY, fontConfig));
         LOG.debug("[AppearanceSettings] Set UI font config: mode=" + mode
                 + ", customFontPath=" + customFontPath);
     }
 
     /** Read normalized code font configuration; missing segment → defaults. */
     public JsonObject getCodeFontConfig() throws IOException {
-        JsonObject config = settingsService.readConfig();
+        JsonObject config = configStore.read();
         if (!config.has(CODE_FONT_CONFIG_KEY) || !config.get(CODE_FONT_CONFIG_KEY).isJsonObject()) {
             return createDefaultCodeFontConfig();
         }
@@ -119,9 +102,8 @@ public final class AppearanceSettingsService {
 
     /** Persist code font configuration. */
     public void setCodeFontConfig(String mode, String customFontPath) throws IOException {
-        JsonObject config = settingsService.readConfig();
-        config.add(CODE_FONT_CONFIG_KEY, createCodeFontConfig(mode, customFontPath));
-        settingsService.writeConfig(config);
+        JsonObject fontConfig = createCodeFontConfig(mode, customFontPath);
+        configStore.update(config -> config.add(CODE_FONT_CONFIG_KEY, fontConfig));
         LOG.debug("[AppearanceSettings] Set code font config: mode=" + mode
                 + ", customFontPath=" + customFontPath);
     }

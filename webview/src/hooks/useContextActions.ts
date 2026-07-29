@@ -19,12 +19,10 @@ export function useContextActions() {
       switch (action) {
         case 'copy': {
           const activeEl = document.activeElement as HTMLInputElement | HTMLTextAreaElement | null;
-          let text = '';
-          if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
-            text = activeEl.value.substring(activeEl.selectionStart ?? 0, activeEl.selectionEnd ?? 0);
-          } else {
-            text = window.getSelection()?.toString() ?? '';
-          }
+          const text =
+            activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')
+              ? activeEl.value.substring(activeEl.selectionStart ?? 0, activeEl.selectionEnd ?? 0)
+              : (window.getSelection()?.toString() ?? '');
           if (text) {
             sendAction(UPSTREAM.WRITE_CLIPBOARD, text);
           }
@@ -32,7 +30,7 @@ export function useContextActions() {
         }
         case 'cut': {
           const activeEl = document.activeElement as HTMLInputElement | HTMLTextAreaElement | null;
-          let text = '';
+          let text: string;
           if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
             const start = activeEl.selectionStart ?? 0;
             const end = activeEl.selectionEnd ?? 0;

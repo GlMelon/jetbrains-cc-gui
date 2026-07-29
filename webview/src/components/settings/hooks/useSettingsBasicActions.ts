@@ -3,13 +3,20 @@ import { sendAction } from '../../../bridge/typed';
 import { UPSTREAM } from '../../../generated/protocol';
 import { useCallback, useEffect, useState } from 'react';
 import type { UiFontConfig, CodeFontConfig } from '../../../types/uiFontConfig';
-export type {UiFontConfig, CodeFontConfig} from '../../../types/uiFontConfig';
+export type { UiFontConfig, CodeFontConfig } from '../../../types/uiFontConfig';
 import type { CommitAiConfig, CommitAiProvider } from '../../../types/aiFeatureConfig';
 import { DEFAULT_COMMIT_AI_CONFIG } from '../../../types/aiFeatureConfig';
 import type { PromptEnhancerConfig, PromptEnhancerProvider } from '../../../types/promptEnhancer';
 import { DEFAULT_PROMPT_ENHANCER_CONFIG } from '../../../types/promptEnhancer';
-import { clampPermissionDialogTimeoutSeconds, DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS } from '../../../utils/permissionDialogTimeout';
-import { getSkipNewSessionConfirm, SKIP_NEW_SESSION_CONFIRM_EVENT, type SkipNewSessionConfirmChangedDetail } from '../../../utils/skipNewSessionConfirm';
+import {
+  clampPermissionDialogTimeoutSeconds,
+  DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS,
+} from '../../../utils/permissionDialogTimeout';
+import {
+  getSkipNewSessionConfirm,
+  SKIP_NEW_SESSION_CONFIRM_EVENT,
+  type SkipNewSessionConfirmChangedDetail,
+} from '../../../utils/skipNewSessionConfirm';
 
 export interface UseSettingsBasicActionsProps {
   streamingEnabledProp?: boolean;
@@ -20,6 +27,8 @@ export interface UseSettingsBasicActionsProps {
   onSendShortcutChangeProp?: (shortcut: 'enter' | 'cmdEnter') => void;
   autoOpenFileEnabledProp?: boolean;
   onAutoOpenFileEnabledChangeProp?: (enabled: boolean) => void;
+  detailedOutputEnabledProp?: boolean;
+  onDetailedOutputEnabledChangeProp?: (enabled: boolean) => void;
   permissionDialogTimeoutSecondsProp?: number;
   onPermissionDialogTimeoutChangeProp?: (seconds: number) => void;
 }
@@ -71,6 +80,7 @@ export interface UseSettingsBasicActionsReturn {
   statusBarWidgetEnabled: boolean;
   taskCompletionNotificationEnabled: boolean;
   askUserQuestionNotificationEnabled: boolean;
+  detailedOutputEnabled: boolean;
   commitAiConfig: CommitAiConfig;
   promptEnhancerConfig: PromptEnhancerConfig;
   invocationMode: 'sdk' | 'cli';
@@ -103,6 +113,7 @@ export interface UseSettingsBasicActionsReturn {
   handleStatusBarWidgetEnabledChange: (enabled: boolean) => void;
   handleTaskCompletionNotificationEnabledChange: (enabled: boolean) => void;
   handleAskUserQuestionNotificationEnabledChange: (enabled: boolean) => void;
+  handleDetailedOutputEnabledChange: (enabled: boolean) => void;
   permissionDialogTimeoutSeconds: number;
   handlePermissionDialogTimeoutChange: (seconds: number) => void;
   handleCommitAiProviderChange: (provider: CommitAiProvider) => void;
@@ -128,8 +139,8 @@ export interface UseSettingsBasicActionsReturn {
           fontFamily: string;
           fontSize: number;
           lineSpacing: number;
-      }
-      | undefined
+        }
+      | undefined,
   ) => void;
   /** @internal */ setUiFontConfig: (config: UiFontConfig | undefined) => void;
   /** @internal */ setCodeFontConfig: (config: CodeFontConfig | undefined) => void;
@@ -168,6 +179,8 @@ export function useSettingsBasicActions({
   onSendShortcutChangeProp,
   autoOpenFileEnabledProp,
   onAutoOpenFileEnabledChangeProp,
+  detailedOutputEnabledProp,
+  onDetailedOutputEnabledChangeProp,
   permissionDialogTimeoutSecondsProp,
   onPermissionDialogTimeoutChangeProp,
 }: UseSettingsBasicActionsProps): UseSettingsBasicActionsReturn {
@@ -206,9 +219,9 @@ export function useSettingsBasicActions({
   const [localShowThinkingEnabled, setLocalShowThinkingEnabled] = useState<boolean>(false);
   const showThinkingEnabled = showThinkingEnabledProp ?? localShowThinkingEnabled;
 
-  const [codexSandboxMode, setCodexSandboxMode] = useState<'workspace-write' | 'danger-full-access'>(
-    'danger-full-access'
-  );
+  const [codexSandboxMode, setCodexSandboxMode] = useState<
+    'workspace-write' | 'danger-full-access'
+  >('danger-full-access');
 
   // Send shortcut configuration - prefer props, fallback to local state
   const [localSendShortcut, setLocalSendShortcut] = useState<'enter' | 'cmdEnter'>('enter');
@@ -217,6 +230,7 @@ export function useSettingsBasicActions({
   // Auto open file configuration - prefer props, fallback to local state
   const [localAutoOpenFileEnabled, setLocalAutoOpenFileEnabled] = useState<boolean>(false);
   const autoOpenFileEnabled = autoOpenFileEnabledProp ?? localAutoOpenFileEnabled;
+  const detailedOutputEnabled = detailedOutputEnabledProp ?? false;
 
   // Commit AI prompt configuration
   const [commitPrompt, setCommitPrompt] = useState('');
@@ -245,7 +259,7 @@ export function useSettingsBasicActions({
   // Synced bidirectionally with the dialog checkbox via CustomEvent so toggling
   // either surface (dialog or settings page) updates the other immediately.
   const [skipNewSessionConfirm, setSkipNewSessionConfirm] = useState<boolean>(() =>
-    getSkipNewSessionConfirm()
+    getSkipNewSessionConfirm(),
   );
   useEffect(() => {
     const handler = (event: Event) => {
@@ -271,10 +285,12 @@ export function useSettingsBasicActions({
   const [statusBarWidgetEnabled, setStatusBarWidgetEnabled] = useState<boolean>(true);
 
   // Task completion notification toggle (default: false, opt-in feature)
-  const [taskCompletionNotificationEnabled, setTaskCompletionNotificationEnabled] = useState<boolean>(false);
+  const [taskCompletionNotificationEnabled, setTaskCompletionNotificationEnabled] =
+    useState<boolean>(false);
 
   // AskUserQuestion reminder notification toggle (default: false, opt-in feature)
-  const [askUserQuestionNotificationEnabled, setAskUserQuestionNotificationEnabled] = useState<boolean>(false);
+  const [askUserQuestionNotificationEnabled, setAskUserQuestionNotificationEnabled] =
+    useState<boolean>(false);
 
   // Permission dialog timeout — owned by App.tsx; we treat the prop as authoritative.
   // We intentionally do NOT keep a local copy: it would be dead state because the
@@ -283,11 +299,9 @@ export function useSettingsBasicActions({
   const permissionDialogTimeoutSeconds =
     permissionDialogTimeoutSecondsProp ?? DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS;
 
-  const [commitAiConfig, setCommitAiConfig] = useState<CommitAiConfig>(
-    DEFAULT_COMMIT_AI_CONFIG
-  );
+  const [commitAiConfig, setCommitAiConfig] = useState<CommitAiConfig>(DEFAULT_COMMIT_AI_CONFIG);
   const [promptEnhancerConfig, setPromptEnhancerConfig] = useState<PromptEnhancerConfig>(
-    DEFAULT_PROMPT_ENHANCER_CONFIG
+    DEFAULT_PROMPT_ENHANCER_CONFIG,
   );
 
   // Invocation mode configuration
@@ -304,7 +318,9 @@ export function useSettingsBasicActions({
       } else {
         localStorage.removeItem('diffExpandedByDefault');
       }
-    } catch { /* ignore storage errors */ }
+    } catch {
+      /* ignore storage errors */
+    }
   }, [diffExpandedByDefault]);
 
   const handleSaveNodePath = useCallback(() => {
@@ -325,50 +341,68 @@ export function useSettingsBasicActions({
     sendAction(UPSTREAM.SET_WORKING_DIRECTORY, JSON.stringify(payload));
   }, [workingDirectory]);
 
-  const handleUiFontSelectionChange = useCallback((selection: string) => {
-    if (selection === 'followEditor') {
-      sendAction(UPSTREAM.SET_UI_FONT_CONFIG, JSON.stringify({ mode: 'followEditor' }));
-      return;
-    }
+  const handleUiFontSelectionChange = useCallback(
+    (selection: string) => {
+      if (selection === 'followEditor') {
+        sendAction(UPSTREAM.SET_UI_FONT_CONFIG, JSON.stringify({ mode: 'followEditor' }));
+        return;
+      }
 
-    if (selection === 'customFile' && uiFontConfig?.customFontPath) {
-      sendAction(UPSTREAM.SET_UI_FONT_CONFIG, JSON.stringify({
-        mode: 'customFile',
-        customFontPath: uiFontConfig.customFontPath,
-      }));
-    }
-  }, [uiFontConfig?.customFontPath]);
+      if (selection === 'customFile' && uiFontConfig?.customFontPath) {
+        sendAction(
+          UPSTREAM.SET_UI_FONT_CONFIG,
+          JSON.stringify({
+            mode: 'customFile',
+            customFontPath: uiFontConfig.customFontPath,
+          }),
+        );
+      }
+    },
+    [uiFontConfig?.customFontPath],
+  );
 
   const handleSaveUiFontCustomPath = useCallback((path: string) => {
-    sendAction(UPSTREAM.SET_UI_FONT_CONFIG, JSON.stringify({
-      mode: 'customFile',
-      customFontPath: path,
-    }));
+    sendAction(
+      UPSTREAM.SET_UI_FONT_CONFIG,
+      JSON.stringify({
+        mode: 'customFile',
+        customFontPath: path,
+      }),
+    );
   }, []);
 
   const handleBrowseUiFontFile = useCallback(() => {
     sendAction(UPSTREAM.BROWSE_UI_FONT_FILE);
   }, []);
 
-  const handleCodeFontSelectionChange = useCallback((selection: string) => {
-    if (selection === 'followEditor') {
-      sendAction(UPSTREAM.SET_CODE_FONT_CONFIG, JSON.stringify({ mode: 'followEditor' }));
-      return;
-    }
+  const handleCodeFontSelectionChange = useCallback(
+    (selection: string) => {
+      if (selection === 'followEditor') {
+        sendAction(UPSTREAM.SET_CODE_FONT_CONFIG, JSON.stringify({ mode: 'followEditor' }));
+        return;
+      }
 
-    if (selection === 'customFile' && codeFontConfig?.customFontPath) {
-      sendAction(UPSTREAM.SET_CODE_FONT_CONFIG, JSON.stringify({
-        mode: 'customFile',
-        customFontPath: codeFontConfig.customFontPath,
-      }));
-    }
-  }, [codeFontConfig?.customFontPath]);
+      if (selection === 'customFile' && codeFontConfig?.customFontPath) {
+        sendAction(
+          UPSTREAM.SET_CODE_FONT_CONFIG,
+          JSON.stringify({
+            mode: 'customFile',
+            customFontPath: codeFontConfig.customFontPath,
+          }),
+        );
+      }
+    },
+    [codeFontConfig?.customFontPath],
+  );
 
   const handleSaveCodeFontCustomPath = useCallback((path: string) => {
-    sendAction(UPSTREAM.SET_CODE_FONT_CONFIG, JSON.stringify({
-      mode: 'customFile',
-      customFontPath: path,
-    }));
+    sendAction(
+      UPSTREAM.SET_CODE_FONT_CONFIG,
+      JSON.stringify({
+        mode: 'customFile',
+        customFontPath: path,
+      }),
+    );
   }, []);
 
   const handleBrowseCodeFontFile = useCallback(() => {
@@ -376,60 +410,75 @@ export function useSettingsBasicActions({
   }, []);
 
   // Streaming toggle change handler
-  const handleStreamingEnabledChange = useCallback((enabled: boolean) => {
-    // If prop callback is provided (from App.tsx), use it for centralized state management
-    if (onStreamingEnabledChangeProp) {
-      onStreamingEnabledChangeProp(enabled);
-    } else {
-      // Fallback to local state if no prop callback provided
-      setLocalStreamingEnabled(enabled);
-      const payload = { streamingEnabled: enabled };
-      sendAction(UPSTREAM.SET_STREAMING_ENABLED, JSON.stringify(payload));
-    }
-  }, [onStreamingEnabledChangeProp]);
+  const handleStreamingEnabledChange = useCallback(
+    (enabled: boolean) => {
+      // If prop callback is provided (from App.tsx), use it for centralized state management
+      if (onStreamingEnabledChangeProp) {
+        onStreamingEnabledChangeProp(enabled);
+      } else {
+        // Fallback to local state if no prop callback provided
+        setLocalStreamingEnabled(enabled);
+        const payload = { streamingEnabled: enabled };
+        sendAction(UPSTREAM.SET_STREAMING_ENABLED, JSON.stringify(payload));
+      }
+    },
+    [onStreamingEnabledChangeProp],
+  );
 
   // Show thinking toggle change handler - 显示思考区开关(跨所有 provider/调用模式)
-  const handleShowThinkingEnabledChange = useCallback((enabled: boolean) => {
-    if (onShowThinkingEnabledChangeProp) {
-      onShowThinkingEnabledChangeProp(enabled);
-    } else {
-      setLocalShowThinkingEnabled(enabled);
-      const payload = { showThinkingEnabled: enabled };
-      sendAction(UPSTREAM.SET_SHOW_THINKING_ENABLED, JSON.stringify(payload));
-    }
-  }, [onShowThinkingEnabledChangeProp]);
+  const handleShowThinkingEnabledChange = useCallback(
+    (enabled: boolean) => {
+      if (onShowThinkingEnabledChangeProp) {
+        onShowThinkingEnabledChangeProp(enabled);
+      } else {
+        setLocalShowThinkingEnabled(enabled);
+        const payload = { showThinkingEnabled: enabled };
+        sendAction(UPSTREAM.SET_SHOW_THINKING_ENABLED, JSON.stringify(payload));
+      }
+    },
+    [onShowThinkingEnabledChangeProp],
+  );
 
-  const handleCodexSandboxModeChange = useCallback((mode: 'workspace-write' | 'danger-full-access') => {
-    setCodexSandboxMode(mode);
-    const payload = { sandboxMode: mode };
-    sendAction(UPSTREAM.SET_CODEX_SANDBOX_MODE, JSON.stringify(payload));
-  }, []);
+  const handleCodexSandboxModeChange = useCallback(
+    (mode: 'workspace-write' | 'danger-full-access') => {
+      setCodexSandboxMode(mode);
+      const payload = { sandboxMode: mode };
+      sendAction(UPSTREAM.SET_CODEX_SANDBOX_MODE, JSON.stringify(payload));
+    },
+    [],
+  );
 
   // Send shortcut change handler
-  const handleSendShortcutChange = useCallback((shortcut: 'enter' | 'cmdEnter') => {
-    // If prop callback is provided (from App.tsx), use it for centralized state management
-    if (onSendShortcutChangeProp) {
-      onSendShortcutChangeProp(shortcut);
-    } else {
-      // Fallback to local state if no prop callback provided
-      setLocalSendShortcut(shortcut);
-      const payload = { sendShortcut: shortcut };
-      sendAction(UPSTREAM.SET_SEND_SHORTCUT, JSON.stringify(payload));
-    }
-  }, [onSendShortcutChangeProp]);
+  const handleSendShortcutChange = useCallback(
+    (shortcut: 'enter' | 'cmdEnter') => {
+      // If prop callback is provided (from App.tsx), use it for centralized state management
+      if (onSendShortcutChangeProp) {
+        onSendShortcutChangeProp(shortcut);
+      } else {
+        // Fallback to local state if no prop callback provided
+        setLocalSendShortcut(shortcut);
+        const payload = { sendShortcut: shortcut };
+        sendAction(UPSTREAM.SET_SEND_SHORTCUT, JSON.stringify(payload));
+      }
+    },
+    [onSendShortcutChangeProp],
+  );
 
   // Auto open file toggle change handler
-  const handleAutoOpenFileEnabledChange = useCallback((enabled: boolean) => {
-    // If prop callback is provided (from App.tsx), use it for centralized state management
-    if (onAutoOpenFileEnabledChangeProp) {
-      onAutoOpenFileEnabledChangeProp(enabled);
-    } else {
-      // Fallback to local state if no prop callback provided
-      setLocalAutoOpenFileEnabled(enabled);
-      const payload = { autoOpenFileEnabled: enabled };
-      sendAction(UPSTREAM.SET_AUTO_OPEN_FILE_ENABLED, JSON.stringify(payload));
-    }
-  }, [onAutoOpenFileEnabledChangeProp]);
+  const handleAutoOpenFileEnabledChange = useCallback(
+    (enabled: boolean) => {
+      // If prop callback is provided (from App.tsx), use it for centralized state management
+      if (onAutoOpenFileEnabledChangeProp) {
+        onAutoOpenFileEnabledChangeProp(enabled);
+      } else {
+        // Fallback to local state if no prop callback provided
+        setLocalAutoOpenFileEnabled(enabled);
+        const payload = { autoOpenFileEnabled: enabled };
+        sendAction(UPSTREAM.SET_AUTO_OPEN_FILE_ENABLED, JSON.stringify(payload));
+      }
+    },
+    [onAutoOpenFileEnabledChangeProp],
+  );
 
   // AI commit generation toggle change handler
   const handleCommitGenerationEnabledChange = useCallback((enabled: boolean) => {
@@ -473,76 +522,111 @@ export function useSettingsBasicActions({
     sendAction(UPSTREAM.SET_ASK_USER_QUESTION_NOTIFICATION_ENABLED, JSON.stringify(payload));
   }, []);
 
+  const handleDetailedOutputEnabledChange = useCallback(
+    (enabled: boolean) => {
+      onDetailedOutputEnabledChangeProp?.(enabled);
+    },
+    [onDetailedOutputEnabledChangeProp],
+  );
+
   // Permission dialog timeout change handler
-  const handlePermissionDialogTimeoutChange = useCallback((seconds: number) => {
-    const clamped = clampPermissionDialogTimeoutSeconds(seconds);
-    // App.tsx owns the canonical state and provides the callback in production.
-    onPermissionDialogTimeoutChangeProp?.(clamped);
-    const payload = { permissionDialogTimeoutSeconds: clamped };
-    sendAction(UPSTREAM.SET_PERMISSION_DIALOG_TIMEOUT, JSON.stringify(payload));
-  }, [onPermissionDialogTimeoutChangeProp]);
+  const handlePermissionDialogTimeoutChange = useCallback(
+    (seconds: number) => {
+      const clamped = clampPermissionDialogTimeoutSeconds(seconds);
+      // App.tsx owns the canonical state and provides the callback in production.
+      onPermissionDialogTimeoutChangeProp?.(clamped);
+      const payload = { permissionDialogTimeoutSeconds: clamped };
+      sendAction(UPSTREAM.SET_PERMISSION_DIALOG_TIMEOUT, JSON.stringify(payload));
+    },
+    [onPermissionDialogTimeoutChangeProp],
+  );
 
-  const handleCommitAiProviderChange = useCallback((provider: CommitAiProvider) => {
-    const providerAvailable = commitAiConfig.availability[provider];
-    const nextConfig: CommitAiConfig = {
-      ...commitAiConfig,
-      provider,
-      effectiveProvider: providerAvailable ? provider : null,
-      resolutionSource: providerAvailable ? 'manual' : 'unavailable',
-    };
-    setCommitAiConfig(nextConfig);
-    sendAction(UPSTREAM.SET_COMMIT_AI_CONFIG, JSON.stringify({
-      provider,
-      models: nextConfig.models,
-    }));
-  }, [commitAiConfig]);
+  const handleCommitAiProviderChange = useCallback(
+    (provider: CommitAiProvider) => {
+      const providerAvailable = commitAiConfig.availability[provider];
+      const nextConfig: CommitAiConfig = {
+        ...commitAiConfig,
+        provider,
+        effectiveProvider: providerAvailable ? provider : null,
+        resolutionSource: providerAvailable ? 'manual' : 'unavailable',
+      };
+      setCommitAiConfig(nextConfig);
+      sendAction(
+        UPSTREAM.SET_COMMIT_AI_CONFIG,
+        JSON.stringify({
+          provider,
+          models: nextConfig.models,
+        }),
+      );
+    },
+    [commitAiConfig],
+  );
 
-  const handleCommitAiModelChange = useCallback((model: string) => {
-    const activeProvider = commitAiConfig.provider ?? commitAiConfig.effectiveProvider ?? 'codex';
-    const nextConfig: CommitAiConfig = {
-      ...commitAiConfig,
-      models: {
-        ...commitAiConfig.models,
-        [activeProvider]: model,
-      },
-    };
-    setCommitAiConfig(nextConfig);
-    sendAction(UPSTREAM.SET_COMMIT_AI_CONFIG, JSON.stringify({
-      provider: commitAiConfig.provider,
-      models: nextConfig.models,
-    }));
-  }, [commitAiConfig]);
+  const handleCommitAiModelChange = useCallback(
+    (model: string) => {
+      const activeProvider = commitAiConfig.provider ?? commitAiConfig.effectiveProvider ?? 'codex';
+      const nextConfig: CommitAiConfig = {
+        ...commitAiConfig,
+        models: {
+          ...commitAiConfig.models,
+          [activeProvider]: model,
+        },
+      };
+      setCommitAiConfig(nextConfig);
+      sendAction(
+        UPSTREAM.SET_COMMIT_AI_CONFIG,
+        JSON.stringify({
+          provider: commitAiConfig.provider,
+          models: nextConfig.models,
+        }),
+      );
+    },
+    [commitAiConfig],
+  );
 
-  const handlePromptEnhancerProviderChange = useCallback((provider: PromptEnhancerProvider) => {
-    const providerAvailable = promptEnhancerConfig.availability[provider];
-    const nextConfig: PromptEnhancerConfig = {
-      ...promptEnhancerConfig,
-      provider,
-      effectiveProvider: providerAvailable ? provider : null,
-      resolutionSource: providerAvailable ? 'manual' : 'unavailable',
-    };
-    setPromptEnhancerConfig(nextConfig);
-    sendAction(UPSTREAM.SET_PROMPT_ENHANCER_CONFIG, JSON.stringify({
-      provider,
-      models: nextConfig.models,
-    }));
-  }, [promptEnhancerConfig]);
+  const handlePromptEnhancerProviderChange = useCallback(
+    (provider: PromptEnhancerProvider) => {
+      const providerAvailable = promptEnhancerConfig.availability[provider];
+      const nextConfig: PromptEnhancerConfig = {
+        ...promptEnhancerConfig,
+        provider,
+        effectiveProvider: providerAvailable ? provider : null,
+        resolutionSource: providerAvailable ? 'manual' : 'unavailable',
+      };
+      setPromptEnhancerConfig(nextConfig);
+      sendAction(
+        UPSTREAM.SET_PROMPT_ENHANCER_CONFIG,
+        JSON.stringify({
+          provider,
+          models: nextConfig.models,
+        }),
+      );
+    },
+    [promptEnhancerConfig],
+  );
 
-  const handlePromptEnhancerModelChange = useCallback((model: string) => {
-    const activeProvider = promptEnhancerConfig.provider ?? promptEnhancerConfig.effectiveProvider ?? 'claude';
-    const nextConfig: PromptEnhancerConfig = {
-      ...promptEnhancerConfig,
-      models: {
-        ...promptEnhancerConfig.models,
-        [activeProvider]: model,
-      },
-    };
-    setPromptEnhancerConfig(nextConfig);
-    sendAction(UPSTREAM.SET_PROMPT_ENHANCER_CONFIG, JSON.stringify({
-      provider: promptEnhancerConfig.provider,
-      models: nextConfig.models,
-    }));
-  }, [promptEnhancerConfig]);
+  const handlePromptEnhancerModelChange = useCallback(
+    (model: string) => {
+      const activeProvider =
+        promptEnhancerConfig.provider ?? promptEnhancerConfig.effectiveProvider ?? 'claude';
+      const nextConfig: PromptEnhancerConfig = {
+        ...promptEnhancerConfig,
+        models: {
+          ...promptEnhancerConfig.models,
+          [activeProvider]: model,
+        },
+      };
+      setPromptEnhancerConfig(nextConfig);
+      sendAction(
+        UPSTREAM.SET_PROMPT_ENHANCER_CONFIG,
+        JSON.stringify({
+          provider: promptEnhancerConfig.provider,
+          models: nextConfig.models,
+        }),
+      );
+    },
+    [promptEnhancerConfig],
+  );
 
   const handleInvocationModeChange = useCallback((mode: 'sdk' | 'cli') => {
     setInvocationMode(mode);
@@ -655,6 +739,8 @@ export function useSettingsBasicActions({
     askUserQuestionNotificationEnabled,
     setAskUserQuestionNotificationEnabled,
     handleAskUserQuestionNotificationEnabledChange,
+    detailedOutputEnabled,
+    handleDetailedOutputEnabledChange,
     permissionDialogTimeoutSeconds,
     handlePermissionDialogTimeoutChange,
     commitAiConfig,

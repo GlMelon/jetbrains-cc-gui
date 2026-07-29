@@ -1,5 +1,7 @@
 package com.github.claudecodegui.provider.claude;
 
+import com.github.claudecodegui.cli.compatibility.CliCompatibilityService;
+import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.intellij.openapi.diagnostic.Logger;
@@ -49,6 +51,14 @@ public class ClaudeCliDetector {
             }
         }
         return instance;
+    }
+
+    /**
+     * 返回缓存的 CLI 版本字符串,或 null(未检测 / 检测失败)。
+     * 对称 CodexCliResolver.getCachedVersion() / OpenCodeCliResolver.getCachedVersion()。
+     */
+    public String getCachedCliVersion() {
+        return cachedCliVersion;
     }
 
     public String findCliExecutable() {
@@ -280,7 +290,11 @@ public class ClaudeCliDetector {
                 return null;
             }
             if (process.exitValue() == 0 && version != null) {
-                return version.trim();
+                String trimmed = version.trim();
+                if (!trimmed.isEmpty() && CliCompatibilityService.getInstance()
+                        .isVersionAccepted(ProviderType.CLAUDE, trimmed)) {
+                    return trimmed;
+                }
             }
         } catch (Exception e) {
             LOG.debug("[ClaudeCliDetector] Verification failed [" + path + "]: " + e.getMessage());

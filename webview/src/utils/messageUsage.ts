@@ -6,6 +6,9 @@ import type { ClaudeMessage } from '../types';
 export interface MessageUsage {
   inputTokens: number;
   outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
+  costUsd?: number;
 }
 
 /**
@@ -30,6 +33,13 @@ export function formatDurationMs(durationMs: number): string {
  */
 export function formatTokenCount(count: number): string {
   return count.toLocaleString();
+}
+
+export function formatUsdCost(cost: number): string {
+  if (cost > 0 && cost < 0.0001) return '<$0.0001';
+  if (cost < 0.01) return `$${cost.toFixed(4)}`;
+  if (cost < 1) return `$${cost.toFixed(3)}`;
+  return `$${cost.toFixed(2)}`;
 }
 
 /**
@@ -63,8 +73,10 @@ export function extractMessageUsage(message: ClaudeMessage): MessageUsage | null
 
   // Extract cache components for full input calculation
   const nonCacheInput = typeof usage.input_tokens === 'number' ? usage.input_tokens : 0;
-  const cacheCreation = typeof usage.cache_creation_input_tokens === 'number' ? usage.cache_creation_input_tokens : 0;
-  const cacheRead = typeof usage.cache_read_input_tokens === 'number' ? usage.cache_read_input_tokens : 0;
+  const cacheCreation =
+    typeof usage.cache_creation_input_tokens === 'number' ? usage.cache_creation_input_tokens : 0;
+  const cacheRead =
+    typeof usage.cache_read_input_tokens === 'number' ? usage.cache_read_input_tokens : 0;
   const outputTokens = typeof usage.output_tokens === 'number' ? usage.output_tokens : 0;
 
   // Total input = non-cache input + cache write + cache read
@@ -73,5 +85,15 @@ export function extractMessageUsage(message: ClaudeMessage): MessageUsage | null
   // Only return if at least one has a positive value
   if (inputTokens <= 0 && outputTokens <= 0) return null;
 
-  return { inputTokens, outputTokens };
+  const rawCost = rawObj.turnCostUsd;
+  const costUsd =
+    typeof rawCost === 'number' && Number.isFinite(rawCost) && rawCost > 0 ? rawCost : undefined;
+
+  return {
+    inputTokens,
+    outputTokens,
+    cacheCreationTokens: cacheCreation,
+    cacheReadTokens: cacheRead,
+    ...(costUsd !== undefined ? { costUsd } : {}),
+  };
 }

@@ -22,7 +22,7 @@ export interface DebouncedFunction<Args extends unknown[]> {
  */
 export function debounce<Args extends unknown[]>(
   func: (...args: Args) => void,
-  wait: number
+  wait: number,
 ): DebouncedFunction<Args> {
   let timeout: ReturnType<typeof setTimeout> | null = null;
   let lastArgs: Args | null = null;
@@ -30,6 +30,7 @@ export function debounce<Args extends unknown[]>(
 
   const debouncedFn = function (this: unknown, ...args: Args) {
     lastArgs = args;
+    // eslint-disable-next-line @typescript-eslint/no-this-alias -- preserve the caller context for deferred invocation
     lastThis = this;
     if (timeout) clearTimeout(timeout);
     timeout = setTimeout(() => {

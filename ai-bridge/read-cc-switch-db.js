@@ -8,7 +8,7 @@
  * Output: JSON format provider list
  */
 
-// @ts-ignore - sql.js 未提供类型声明文件
+// @ts-expect-error - sql.js 未提供类型声明文件
 import initSqlJs from 'sql.js';
 import fs from 'fs';
 

@@ -8,7 +8,7 @@ import { ToastContainer } from '../Toast';
 
 // Import split-out components
 import SettingsHeader from './SettingsHeader';
-import SettingsSidebar, {type SettingsTab} from './SettingsSidebar';
+import SettingsSidebar, { type SettingsTab } from './SettingsSidebar';
 import BasicConfigSection from './BasicConfigSection';
 import ProviderTabSection from './ProviderTabSection';
 import DependencySection from './DependencySection';
@@ -27,7 +27,16 @@ import SettingsDialogs from './SettingsDialogs';
 import { setNewSessionConfirmEnabled as persistNewSessionConfirmEnabled } from '../../utils/skipNewSessionConfirm';
 
 // Import custom hooks
-import { useAgentManagement, useCodexProviderManagement, useOpenCodeProviderManagement, useProviderManagement, useSettingsBasicActions, useSettingsPageState, useSettingsThemeSync, useSettingsWindowCallbacks } from './hooks';
+import {
+  useAgentManagement,
+  useCodexProviderManagement,
+  useOpenCodeProviderManagement,
+  useProviderManagement,
+  useSettingsBasicActions,
+  useSettingsPageState,
+  useSettingsThemeSync,
+  useSettingsWindowCallbacks,
+} from './hooks';
 
 import styles from './style.module.less';
 
@@ -50,6 +59,8 @@ interface SettingsViewProps {
   // Auto open file configuration (passed from App.tsx for state sync)
   autoOpenFileEnabled?: boolean;
   onAutoOpenFileEnabledChange?: (enabled: boolean) => void;
+  detailedOutputEnabled?: boolean;
+  onDetailedOutputEnabledChange?: (enabled: boolean) => void;
   // Permission dialog timeout configuration (passed from App.tsx for state sync)
   permissionDialogTimeoutSeconds?: number;
   onPermissionDialogTimeoutChange?: (seconds: number) => void;
@@ -72,6 +83,8 @@ const SettingsView = ({
   onSendShortcutChange: onSendShortcutChangeProp,
   autoOpenFileEnabled: autoOpenFileEnabledProp,
   onAutoOpenFileEnabledChange: onAutoOpenFileEnabledChangeProp,
+  detailedOutputEnabled: detailedOutputEnabledProp,
+  onDetailedOutputEnabledChange: onDetailedOutputEnabledChangeProp,
   permissionDialogTimeoutSeconds: permissionDialogTimeoutSecondsProp,
   onPermissionDialogTimeoutChange: onPermissionDialogTimeoutChangeProp,
   avatarConfig,
@@ -83,10 +96,7 @@ const SettingsView = ({
   const { t } = useTranslation();
   const isCodexMode = currentProvider === 'codex';
   // Codex mode: align with Claude capabilities for settings tabs
-  const disabledTabs = useMemo<SettingsTab[]>(
-    () => [],
-    [isCodexMode]
-  );
+  const disabledTabs = useMemo<SettingsTab[]>(() => [], [isCodexMode]);
 
   // Page state: tabs, toasts, sidebar collapse, alert dialog
   const {
@@ -203,6 +213,8 @@ const SettingsView = ({
     askUserQuestionNotificationEnabled,
     setAskUserQuestionNotificationEnabled,
     handleAskUserQuestionNotificationEnabledChange,
+    detailedOutputEnabled,
+    handleDetailedOutputEnabledChange,
     permissionDialogTimeoutSeconds,
     handlePermissionDialogTimeoutChange,
     commitAiConfig,
@@ -224,6 +236,8 @@ const SettingsView = ({
     onSendShortcutChangeProp,
     autoOpenFileEnabledProp,
     onAutoOpenFileEnabledChangeProp,
+    detailedOutputEnabledProp,
+    onDetailedOutputEnabledChangeProp,
     permissionDialogTimeoutSecondsProp,
     onPermissionDialogTimeoutChangeProp,
   });
@@ -431,7 +445,7 @@ const SettingsView = ({
       // Add new provider
       const newProvider = {
         id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
-        ...updates
+        ...updates,
       };
       sendAction(UPSTREAM.ADD_PROVIDER, JSON.stringify(newProvider));
       addToast(t('toast.providerAdded'), 'success');
@@ -442,7 +456,8 @@ const SettingsView = ({
       const providerId = providerDialog.provider.id;
       // Check if the currently edited provider is active
       // Prefer the latest state from providers list; fall back to dialog state if not found
-      const currentProviderItem = providers.find(p => p.id === providerId) || providerDialog.provider;
+      const currentProviderItem =
+        providers.find((p) => p.id === providerId) || providerDialog.provider;
       const isActive = currentProviderItem.isActive;
 
       const updateData = {
@@ -504,7 +519,9 @@ const SettingsView = ({
         />
 
         {/* Content area */}
-        <div className={`${styles.settingsContent} ${currentTab === 'providers' ? styles.providerSettingsContent : ''}`}>
+        <div
+          className={`${styles.settingsContent} ${currentTab === 'providers' ? styles.providerSettingsContent : ''}`}
+        >
           {/* Basic configuration */}
           <div style={currentTab === 'basic' ? BLOCK_STYLE : NONE_STYLE}>
             <BasicConfigSection
@@ -577,9 +594,15 @@ const SettingsView = ({
                 persistNewSessionConfirmEnabled(enabled);
               }}
               taskCompletionNotificationEnabled={taskCompletionNotificationEnabled}
-              onTaskCompletionNotificationEnabledChange={handleTaskCompletionNotificationEnabledChange}
+              onTaskCompletionNotificationEnabledChange={
+                handleTaskCompletionNotificationEnabledChange
+              }
               askUserQuestionNotificationEnabled={askUserQuestionNotificationEnabled}
-              onAskUserQuestionNotificationEnabledChange={handleAskUserQuestionNotificationEnabledChange}
+              onAskUserQuestionNotificationEnabledChange={
+                handleAskUserQuestionNotificationEnabledChange
+              }
+              detailedOutputEnabled={detailedOutputEnabled}
+              onDetailedOutputEnabledChange={handleDetailedOutputEnabledChange}
               invocationMode={invocationMode}
               onInvocationModeChange={handleInvocationModeChange}
               permissionDialogTimeoutSeconds={permissionDialogTimeoutSeconds}
@@ -606,19 +629,21 @@ const SettingsView = ({
               codexProviders={codexProviders}
               codexLoading={codexLoading}
               onAddCodexProvider={handleAddCodexProvider}
-                onEditCodexProvider={handleEditCodexProvider}
-                onDeleteCodexProvider={handleDeleteCodexProvider}
-                onSwitchCodexProvider={handleSwitchCodexProvider}
-                onRevokeCodexLocalConfigAuthorization={handleRevokeCodexLocalConfigAuthorization}
-                openCodeProviders={openCodeProviders}
-                openCodeLoading={openCodeLoading}
-                onAddOpenCodeProvider={handleAddOpenCodeProvider}
-                onEditOpenCodeProvider={handleEditOpenCodeProvider}
-                onDeleteOpenCodeProvider={handleDeleteOpenCodeProvider}
-                onSwitchOpenCodeProvider={handleSwitchOpenCodeProvider}
-                onRevokeOpenCodeLocalConfigAuthorization={handleRevokeOpenCodeLocalConfigAuthorization}
-                addToast={addToast}
-              />
+              onEditCodexProvider={handleEditCodexProvider}
+              onDeleteCodexProvider={handleDeleteCodexProvider}
+              onSwitchCodexProvider={handleSwitchCodexProvider}
+              onRevokeCodexLocalConfigAuthorization={handleRevokeCodexLocalConfigAuthorization}
+              openCodeProviders={openCodeProviders}
+              openCodeLoading={openCodeLoading}
+              onAddOpenCodeProvider={handleAddOpenCodeProvider}
+              onEditOpenCodeProvider={handleEditOpenCodeProvider}
+              onDeleteOpenCodeProvider={handleDeleteOpenCodeProvider}
+              onSwitchOpenCodeProvider={handleSwitchOpenCodeProvider}
+              onRevokeOpenCodeLocalConfigAuthorization={
+                handleRevokeOpenCodeLocalConfigAuthorization
+              }
+              addToast={addToast}
+            />
           </div>
 
           {/* Model registry */}
@@ -695,6 +720,7 @@ const SettingsView = ({
           {/* Prompts */}
           <div style={currentTab === 'prompts' ? BLOCK_STYLE : NONE_STYLE}>
             <PromptSection
+              currentProvider={currentProvider}
               onSuccess={(msg) => addToast(msg, 'success')}
             />
           </div>
@@ -712,7 +738,9 @@ const SettingsView = ({
                 setHistoryCompletionEnabled(enabled);
                 localStorage.setItem('historyCompletionEnabled', enabled.toString());
                 // Dispatch custom event for same-tab sync (localStorage 'storage' event only fires for cross-tab)
-                window.dispatchEvent(new CustomEvent('historyCompletionChanged', { detail: { enabled } }));
+                window.dispatchEvent(
+                  new CustomEvent('historyCompletionChanged', { detail: { enabled } }),
+                );
               }}
             />
           </div>

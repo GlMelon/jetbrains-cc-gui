@@ -1,5 +1,20 @@
 import { sendAction, subscribeEvent } from '../../../bridge/typed';
-import { BanIcon, CheckIcon, DownloadIcon, EditIcon, FileIcon, GripIcon, KeyIcon, PlusIcon, PowerIcon, ServerIcon, ShieldIcon, TerminalArrowIcon, TrashIcon, AlertIcon } from '../../Icons';;
+import {
+  BanIcon,
+  CheckIcon,
+  DownloadIcon,
+  EditIcon,
+  FileIcon,
+  GripIcon,
+  KeyIcon,
+  PlusIcon,
+  PowerIcon,
+  ServerIcon,
+  ShieldIcon,
+  TerminalArrowIcon,
+  TrashIcon,
+  AlertIcon,
+} from '../../Icons';
 import { UPSTREAM, DOWNSTREAM } from '../../../generated/protocol';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -34,7 +49,9 @@ export default function ProviderList({
   const [importMenuOpen, setImportMenuOpen] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importPreviewData, setImportPreviewData] = useState<any[]>([]);
-  const [editingCcSwitchProvider, setEditingCcSwitchProvider] = useState<ProviderConfig | null>(null);
+  const [editingCcSwitchProvider, setEditingCcSwitchProvider] = useState<ProviderConfig | null>(
+    null,
+  );
   const [convertingProvider, setConvertingProvider] = useState<ProviderConfig | null>(null);
   const [showLocalProviderConfirm, setShowLocalProviderConfirm] = useState(false);
   const [showLocalProviderDisableConfirm, setShowLocalProviderDisableConfirm] = useState(false);
@@ -72,7 +89,8 @@ export default function ProviderList({
     (provider) => provider.id === SPECIAL_PROVIDER_IDS.CLI_LOGIN && provider.isActive,
   );
   const regularProviders = localProviders.filter(
-    (provider) => provider.id !== SPECIAL_PROVIDER_IDS.LOCAL_SETTINGS &&
+    (provider) =>
+      provider.id !== SPECIAL_PROVIDER_IDS.LOCAL_SETTINGS &&
       provider.id !== SPECIAL_PROVIDER_IDS.CLI_LOGIN,
   );
 
@@ -94,43 +112,43 @@ export default function ProviderList({
     // [归一化] import_preview_result → provider.import_preview(转发为 CustomEvent,保持既有监听者)
     registerLegacyAlias('import_preview_result', DOWNSTREAM.PROVIDER_IMPORT_PREVIEW);
     const unsubImportPreview = subscribeEvent(DOWNSTREAM.PROVIDER_IMPORT_PREVIEW, (dataOrStr) => {
-        let data: unknown = dataOrStr;
-        if (typeof data === 'string') {
-            try {
-                data = JSON.parse(data);
-            } catch (e) {
-                console.error('Failed to parse import_preview_result data:', e);
-            }
+      let data: unknown = dataOrStr;
+      if (typeof data === 'string') {
+        try {
+          data = JSON.parse(data);
+        } catch (e) {
+          console.error('Failed to parse import_preview_result data:', e);
         }
-        const event = new CustomEvent('import_preview_result', { detail: data });
-        window.dispatchEvent(event);
+      }
+      const event = new CustomEvent('import_preview_result', { detail: data });
+      window.dispatchEvent(event);
     });
 
     window.backend_notification = (...args: unknown[]) => {
-        let data: any = {};
-        
-        // Support multi-argument invocation (type, title, message) to avoid JSON parsing issues
-        if (args.length >= 3 && typeof args[0] === 'string' && typeof args[2] === 'string') {
-            data = {
-                type: args[0],
-                title: args[1],
-                message: args[2]
-            };
-        } else if (args.length > 0) {
-            // Backward compatible with legacy single-argument JSON format
-            let dataOrStr = args[0];
-            data = dataOrStr;
-            if (typeof data === 'string') {
-                try {
-                    data = JSON.parse(data);
-                } catch (e) {
-                    console.error('Failed to parse backend_notification data:', e);
-                }
-            }
+      let data: any = {};
+
+      // Support multi-argument invocation (type, title, message) to avoid JSON parsing issues
+      if (args.length >= 3 && typeof args[0] === 'string' && typeof args[2] === 'string') {
+        data = {
+          type: args[0],
+          title: args[1],
+          message: args[2],
+        };
+      } else if (args.length > 0) {
+        // Backward compatible with legacy single-argument JSON format
+        const dataOrStr = args[0];
+        data = dataOrStr;
+        if (typeof data === 'string') {
+          try {
+            data = JSON.parse(data);
+          } catch (e) {
+            console.error('Failed to parse backend_notification data:', e);
+          }
         }
-        
-        const event = new CustomEvent('backend_notification', { detail: data });
-        window.dispatchEvent(event);
+      }
+
+      const event = new CustomEvent('backend_notification', { detail: data });
+      window.dispatchEvent(event);
     };
 
     const handleImportPreview = (event: CustomEvent) => {
@@ -153,12 +171,15 @@ export default function ProviderList({
     document.addEventListener('mousedown', handleClickOutside);
     window.addEventListener('import_preview_result', handleImportPreview as EventListener);
     window.addEventListener('backend_notification', handleBackendNotification as EventListener);
-    
+
     return () => {
       mountedRef.current = false;
       document.removeEventListener('mousedown', handleClickOutside);
       window.removeEventListener('import_preview_result', handleImportPreview as EventListener);
-      window.removeEventListener('backend_notification', handleBackendNotification as EventListener);
+      window.removeEventListener(
+        'backend_notification',
+        handleBackendNotification as EventListener,
+      );
 
       // Clean up subscriptions
       unsubCliLogin();
@@ -189,9 +210,9 @@ export default function ProviderList({
 
       // 2. Build the new configuration
       const newProvider = {
-          ...convertingProvider,
-          id: newId,
-          name: convertingProvider.name + ' (Local)', // Optional: rename to avoid confusion
+        ...convertingProvider,
+        id: newId,
+        name: convertingProvider.name + ' (Local)', // Optional: rename to avoid confusion
       };
       delete newProvider.source;
 
@@ -205,9 +226,9 @@ export default function ProviderList({
       addToast(t('settings.provider.convertSuccess'), 'success');
 
       if (editingCcSwitchProvider && editingCcSwitchProvider.id === convertingProvider.id) {
-          setEditingCcSwitchProvider(null);
-          // Continue editing the new provider
-          onEdit(newProvider);
+        setEditingCcSwitchProvider(null);
+        // Continue editing the new provider
+        onEdit(newProvider);
       }
     }
   };
@@ -246,80 +267,79 @@ export default function ProviderList({
 
       {/* Edit warning dialog */}
       {editingCcSwitchProvider && (
-          <div className={styles.warningOverlay}>
-              <div className={styles.warningDialog}>
-                  <div className={styles.warningTitle}>
-                      <AlertIcon size={16} />
-                      {t('settings.provider.editCcSwitchTitle')}
-                  </div>
-                  <div className={styles.warningContent}>
-                      {t('settings.provider.editCcSwitchWarning')}
-                  </div>
-                  <div className={styles.warningActions}>
-                      <button
-                          className={styles.btnSecondary}
-                          onClick={() => setEditingCcSwitchProvider(null)}
-                      >
-                          {t('common.cancel')}
-                      </button>
-                      <button
-                          className={styles.btnSecondary}
-                          onClick={() => {
-                              const p = editingCcSwitchProvider;
-                              setEditingCcSwitchProvider(null);
-                              onEdit(p);
-                          }}
-                      >
-                          {t('settings.provider.continueEdit')}
-                      </button>
-                      <button
-                          className={styles.btnWarning}
-                          onClick={() => {
-                              setConvertingProvider(editingCcSwitchProvider);
-                              // setEditingCcSwitchProvider(null); // Keep null to handle after conversion
-                          }}
-                      >
-                          {t('settings.provider.convertAndEdit')}
-                      </button>
-                  </div>
-              </div>
+        <div className={styles.warningOverlay}>
+          <div className={styles.warningDialog}>
+            <div className={styles.warningTitle}>
+              <AlertIcon size={16} />
+              {t('settings.provider.editCcSwitchTitle')}
+            </div>
+            <div className={styles.warningContent}>
+              {t('settings.provider.editCcSwitchWarning')}
+            </div>
+            <div className={styles.warningActions}>
+              <button
+                className={styles.btnSecondary}
+                onClick={() => setEditingCcSwitchProvider(null)}
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                className={styles.btnSecondary}
+                onClick={() => {
+                  const p = editingCcSwitchProvider;
+                  setEditingCcSwitchProvider(null);
+                  onEdit(p);
+                }}
+              >
+                {t('settings.provider.continueEdit')}
+              </button>
+              <button
+                className={styles.btnWarning}
+                onClick={() => {
+                  setConvertingProvider(editingCcSwitchProvider);
+                  // setEditingCcSwitchProvider(null); // Keep null to handle after conversion
+                }}
+              >
+                {t('settings.provider.convertAndEdit')}
+              </button>
+            </div>
           </div>
+        </div>
       )}
 
       {/* Conversion confirmation dialog */}
       {convertingProvider && (
-          <div className={styles.warningOverlay}>
-              <div className={styles.warningDialog}>
-                  <div className={styles.warningTitle}>
-                      <TerminalArrowIcon size={16} />
-                      {t('settings.provider.convertToPlugin')}
-                  </div>
-                  <div className={styles.warningContent}>
-                      {t('settings.provider.convertConfirmMessage', { name: convertingProvider.name })}<br/><br/>
-                      {t('settings.provider.convertDetailMessage')}
-                  </div>
-                  <div className={styles.warningActions}>
-                      <button
-                          className={styles.btnSecondary}
-                          onClick={() => {
-                              setConvertingProvider(null);
-                              // If triggered from editing, canceling conversion also cancels editing
-                              if (editingCcSwitchProvider) {
-                                  setEditingCcSwitchProvider(null);
-                              }
-                          }}
-                      >
-                          {t('common.cancel')}
-                      </button>
-                      <button
-                          className={styles.btnPrimary}
-                          onClick={handleConvert}
-                      >
-                          {t('settings.provider.confirmConvert')}
-                      </button>
-                  </div>
-              </div>
+        <div className={styles.warningOverlay}>
+          <div className={styles.warningDialog}>
+            <div className={styles.warningTitle}>
+              <TerminalArrowIcon size={16} />
+              {t('settings.provider.convertToPlugin')}
+            </div>
+            <div className={styles.warningContent}>
+              {t('settings.provider.convertConfirmMessage', { name: convertingProvider.name })}
+              <br />
+              <br />
+              {t('settings.provider.convertDetailMessage')}
+            </div>
+            <div className={styles.warningActions}>
+              <button
+                className={styles.btnSecondary}
+                onClick={() => {
+                  setConvertingProvider(null);
+                  // If triggered from editing, canceling conversion also cancels editing
+                  if (editingCcSwitchProvider) {
+                    setEditingCcSwitchProvider(null);
+                  }
+                }}
+              >
+                {t('common.cancel')}
+              </button>
+              <button className={styles.btnPrimary} onClick={handleConvert}>
+                {t('settings.provider.confirmConvert')}
+              </button>
+            </div>
           </div>
+        </div>
       )}
 
       {showLocalProviderConfirm && (
@@ -401,10 +421,7 @@ export default function ProviderList({
               {t('settings.provider.cliLoginAuthorizeDetail')}
             </div>
             <div className={styles.warningActions}>
-              <button
-                className={styles.btnSecondary}
-                onClick={() => setShowCliLoginConfirm(false)}
-              >
+              <button className={styles.btnSecondary} onClick={() => setShowCliLoginConfirm(false)}>
                 {t('common.cancel')}
               </button>
               <button
@@ -469,7 +486,7 @@ export default function ProviderList({
               <DownloadIcon size={16} />
               {t('settings.provider.import')}
             </button>
-            
+
             {importMenuOpen && (
               <div className={styles.importMenu}>
                 <div
@@ -483,10 +500,7 @@ export default function ProviderList({
                   <TerminalArrowIcon size={16} />
                   {t('settings.provider.importFromCcSwitchUpdate')}
                 </div>
-                <div
-                  className={styles.importMenuItem}
-                  onClick={handleSelectFileClick}
-                >
+                <div className={styles.importMenuItem} onClick={handleSelectFileClick}>
                   <FileIcon size={16} />
                   {t('settings.provider.importFromCcSwitchFile')}
                 </div>
@@ -514,10 +528,7 @@ export default function ProviderList({
             )}
           </div>
 
-          <button
-            className={styles.btnPrimary}
-            onClick={onAdd}
-          >
+          <button className={styles.btnPrimary} onClick={onAdd}>
             <PlusIcon size={16} />
             {t('common.add')}
           </button>
@@ -543,7 +554,10 @@ export default function ProviderList({
               </div>
               <div className={styles.cardInfo}>
                 <div className={styles.name}>{t('settings.provider.localProviderName')}</div>
-                <div className={styles.website} title={t('settings.provider.localProviderDescription')}>
+                <div
+                  className={styles.website}
+                  title={t('settings.provider.localProviderDescription')}
+                >
                   {t('settings.provider.localProviderDescription')}
                 </div>
               </div>
@@ -579,7 +593,10 @@ export default function ProviderList({
               </div>
               <div className={styles.cardInfo}>
                 <div className={styles.name}>{t('settings.provider.cliLoginProviderName')}</div>
-                <div className={styles.website} title={t('settings.provider.cliLoginProviderDescription')}>
+                <div
+                  className={styles.website}
+                  title={t('settings.provider.cliLoginProviderDescription')}
+                >
                   {t('settings.provider.cliLoginProviderDescription')}
                 </div>
                 {cliLoginAccountEmail && cliLoginActive && (
@@ -599,10 +616,7 @@ export default function ProviderList({
                     {t('settings.provider.revokeAuthorization')}
                   </button>
                 ) : (
-                  <button
-                    className={styles.useButton}
-                    onClick={() => setShowCliLoginConfirm(true)}
-                  >
+                  <button className={styles.useButton} onClick={() => setShowCliLoginConfirm(true)}>
                     <PowerIcon size={16} />
                     {t('settings.provider.authorizeAndEnable')}
                   </button>
@@ -622,114 +636,114 @@ export default function ProviderList({
           <div className={styles.groupList}>
             {regularProviders.length > 0 ? (
               regularProviders.map((provider) => (
-            <div
-              key={provider.id}
-              className={[
-                styles.card,
-                provider.isActive && styles.active,
-                draggedProviderId === provider.id && styles.dragging,
-                dragOverProviderId === provider.id && styles.dragOver,
-              ].filter(Boolean).join(' ')}
-              data-drag-sort-id={provider.id}
-              style={{ '--drag-vt-name': `prov-${provider.id}` } as React.CSSProperties}
-              draggable={true}
-              onDragStart={(e) => handleDragStart(e, provider.id)}
-              onDragOver={(e) => handleDragOver(e, provider.id)}
-              onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, provider.id)}
-              onDragEnd={handleDragEnd}
-            >
-              <div className={styles.statusRail} />
-              <div
-                className={styles.dragHandle}
-                title={t('settings.provider.dragToSort')}
-                onPointerDown={(e) => handlePointerDown(e, provider.id, e.currentTarget.closest<HTMLElement>('[data-drag-sort-id]'))}
-              >
-                <GripIcon size={16} />
-              </div>
-              <div className={styles.cardIcon}>
-                {provider.id === PROVIDER_IDS.CLAUDE || provider.id === PROVIDER_IDS.CODEX ? (
-                  <ProviderModelIcon providerId={provider.id} size={20} colored />
-                ) : (
-                  <ServerIcon size={16} />
-                )}
-              </div>
-              <div className={styles.cardInfo}>
-                <div className={styles.name}>
-                  {provider.name}
-                </div>
-                {(provider.remark || provider.websiteUrl) && (
-                  <div className={styles.website} title={provider.remark || provider.websiteUrl}>
-                    {provider.remark || provider.websiteUrl}
-                  </div>
-                )}
-                {provider.source === 'cc-switch' && (
-                    <div className={styles.ccSwitchBadge}>
-                        cc-switch
-                    </div>
-                )}
-              </div>
-              
-              <div className={styles.cardActions}>
-                {provider.isActive ? (
-                  <div className={styles.activeBadge}>
-                    <CheckIcon size={16} />
-                    {t('settings.provider.inUse')}
-                  </div>
-                ) : (
-                  <button
-                    className={styles.useButton}
-                    onClick={() => onSwitch(provider.id)}
+                <div
+                  key={provider.id}
+                  className={[
+                    styles.card,
+                    provider.isActive && styles.active,
+                    draggedProviderId === provider.id && styles.dragging,
+                    dragOverProviderId === provider.id && styles.dragOver,
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  data-drag-sort-id={provider.id}
+                  style={{ '--drag-vt-name': `prov-${provider.id}` } as React.CSSProperties}
+                  draggable={true}
+                  onDragStart={(e) => handleDragStart(e, provider.id)}
+                  onDragOver={(e) => handleDragOver(e, provider.id)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, provider.id)}
+                  onDragEnd={handleDragEnd}
+                >
+                  <div className={styles.statusRail} />
+                  <div
+                    className={styles.dragHandle}
+                    title={t('settings.provider.dragToSort')}
+                    onPointerDown={(e) =>
+                      handlePointerDown(
+                        e,
+                        provider.id,
+                        e.currentTarget.closest<HTMLElement>('[data-drag-sort-id]'),
+                      )
+                    }
                   >
-                    <PowerIcon size={16} />
-                    {t('settings.provider.enable')}
-                  </button>
-                )}
+                    <GripIcon size={16} />
+                  </div>
+                  <div className={styles.cardIcon}>
+                    {provider.id === PROVIDER_IDS.CLAUDE || provider.id === PROVIDER_IDS.CODEX ? (
+                      <ProviderModelIcon providerId={provider.id} size={20} colored />
+                    ) : (
+                      <ServerIcon size={16} />
+                    )}
+                  </div>
+                  <div className={styles.cardInfo}>
+                    <div className={styles.name}>{provider.name}</div>
+                    {(provider.remark || provider.websiteUrl) && (
+                      <div
+                        className={styles.website}
+                        title={provider.remark || provider.websiteUrl}
+                      >
+                        {provider.remark || provider.websiteUrl}
+                      </div>
+                    )}
+                    {provider.source === 'cc-switch' && (
+                      <div className={styles.ccSwitchBadge}>cc-switch</div>
+                    )}
+                  </div>
 
-                <div className={styles.divider}></div>
+                  <div className={styles.cardActions}>
+                    {provider.isActive ? (
+                      <div className={styles.activeBadge}>
+                        <CheckIcon size={16} />
+                        {t('settings.provider.inUse')}
+                      </div>
+                    ) : (
+                      <button className={styles.useButton} onClick={() => onSwitch(provider.id)}>
+                        <PowerIcon size={16} />
+                        {t('settings.provider.enable')}
+                      </button>
+                    )}
 
-                <div className={styles.actionButtons}>
-                  {!provider.isLocalProvider && (
-                    <>
-                      {provider.source === 'cc-switch' && (
-                        <button
-                          className={styles.iconBtn}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setConvertingProvider(provider);
-                          }}
-                          title={t('settings.provider.convertToPlugin')}
-                        >
-                          <TerminalArrowIcon size={16} />
-                        </button>
+                    <div className={styles.divider}></div>
+
+                    <div className={styles.actionButtons}>
+                      {!provider.isLocalProvider && (
+                        <>
+                          {provider.source === 'cc-switch' && (
+                            <button
+                              className={styles.iconBtn}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setConvertingProvider(provider);
+                              }}
+                              title={t('settings.provider.convertToPlugin')}
+                            >
+                              <TerminalArrowIcon size={16} />
+                            </button>
+                          )}
+                          <button
+                            className={styles.iconBtn}
+                            onClick={() => handleEditClick(provider)}
+                            title={t('common.edit')}
+                          >
+                            <EditIcon size={16} />
+                          </button>
+                          <button
+                            className={styles.iconBtn}
+                            onClick={() => onDelete(provider)}
+                            title={t('common.delete')}
+                          >
+                            <TrashIcon size={16} />
+                          </button>
+                        </>
                       )}
-                      <button
-                        className={styles.iconBtn}
-                        onClick={() => handleEditClick(provider)}
-                        title={t('common.edit')}
-                      >
-                        <EditIcon size={16} />
-                      </button>
-                      <button
-                        className={styles.iconBtn}
-                        onClick={() => onDelete(provider)}
-                        title={t('common.delete')}
-                      >
-                        <TrashIcon size={16} />
-                      </button>
-                    </>
-                  )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          ))
-            ) : (
-              emptyState ? (
-              <div className={styles.emptyState}>
-                {emptyState}
-              </div>
-              ) : null
-            )}
+              ))
+            ) : emptyState ? (
+              <div className={styles.emptyState}>{emptyState}</div>
+            ) : null}
           </div>
         </section>
       </div>

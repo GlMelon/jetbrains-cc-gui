@@ -40,7 +40,7 @@ function replaceTextAndSync(
   replacement: string,
   query: TriggerQuery,
   replaceText: (input: string, replacementText: string, currentQuery: TriggerQuery) => string,
-  handleInput: () => void
+  handleInput: () => void,
 ) {
   if (!editableRef.current) return;
   const newText = replaceText(text, replacement, query);
@@ -108,7 +108,7 @@ export function useChatInputCompletionsCoordinator({
         `${command.label} `,
         query,
         commandCompletion.replaceText,
-        () => handleInputRef.current()
+        () => handleInputRef.current(),
       );
     },
   });
@@ -175,7 +175,7 @@ export function useChatInputCompletionsCoordinator({
         prompt.content,
         query,
         promptCompletion.replaceText,
-        () => handleInputRef.current()
+        () => handleInputRef.current(),
       );
     },
   });
@@ -192,7 +192,7 @@ export function useChatInputCompletionsCoordinator({
         `${skill.label} `,
         query,
         dollarCommandCompletion.replaceText,
-        () => handleInputRef.current()
+        () => handleInputRef.current(),
       );
     },
   });
@@ -203,7 +203,13 @@ export function useChatInputCompletionsCoordinator({
     agentCompletion.close();
     promptCompletion.close();
     dollarCommandCompletion.close();
-  }, [fileCompletion, commandCompletion, agentCompletion, promptCompletion, dollarCommandCompletion]);
+  }, [
+    fileCompletion,
+    commandCompletion,
+    agentCompletion,
+    promptCompletion,
+    dollarCommandCompletion,
+  ]);
 
   useEffect(() => {
     closeAllCompletionsRef.current = closeAllCompletions;
@@ -229,27 +235,30 @@ export function useChatInputCompletionsCoordinator({
 
   // Note: completion objects from useCompletionDropdown are stable references.
   // We access .isOpen at call time, so we don't need .isOpen in deps.
-  const syncInlineCompletion = useCallback((text: string) => {
-    const isOtherCompletionOpen =
-      fileCompletion.isOpen ||
-      commandCompletion.isOpen ||
-      agentCompletion.isOpen ||
-      promptCompletion.isOpen ||
-      dollarCommandCompletion.isOpen;
+  const syncInlineCompletion = useCallback(
+    (text: string) => {
+      const isOtherCompletionOpen =
+        fileCompletion.isOpen ||
+        commandCompletion.isOpen ||
+        agentCompletion.isOpen ||
+        promptCompletion.isOpen ||
+        dollarCommandCompletion.isOpen;
 
-    if (!isOtherCompletionOpen) {
-      inlineCompletion.updateQuery(text);
-    } else {
-      inlineCompletion.clear();
-    }
-  }, [
-    fileCompletion,
-    commandCompletion,
-    agentCompletion,
-    promptCompletion,
-    dollarCommandCompletion,
-    inlineCompletion,
-  ]);
+      if (!isOtherCompletionOpen) {
+        inlineCompletion.updateQuery(text);
+      } else {
+        inlineCompletion.clear();
+      }
+    },
+    [
+      fileCompletion,
+      commandCompletion,
+      agentCompletion,
+      promptCompletion,
+      dollarCommandCompletion,
+      inlineCompletion,
+    ],
+  );
 
   const setRenderFileTags = useCallback((renderFileTags: () => void) => {
     renderFileTagsRef.current = renderFileTags;

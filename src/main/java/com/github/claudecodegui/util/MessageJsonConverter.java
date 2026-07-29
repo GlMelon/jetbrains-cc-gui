@@ -202,8 +202,9 @@ public class MessageJsonConverter {
         copyFieldIfPresent(raw, transport, "origin");
         // Copy top-level usage data for per-message stats display
         copyFieldIfPresent(raw, transport, "usage");
-        // Copy turnUsage for per-turn token display
+        // Copy turnUsage and its estimated cost for per-turn display
         copyFieldIfPresent(raw, transport, "turnUsage");
+        copyFieldIfPresent(raw, transport, CommonConstants.JSON_KEY_TURN_COST_USD);
 
         if (raw.has("content")) {
             transport.add("content", raw.get("content").deepCopy());

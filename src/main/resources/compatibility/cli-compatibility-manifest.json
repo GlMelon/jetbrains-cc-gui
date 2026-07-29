@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "revision": 2026072201,
+  "generatedAt": "2026-07-22",
+  "providers": {
+    "claude": {
+      "minimumSupported": "0.0.0",
+      "maximumTested": "2.1.88",
+      "blockedVersions": [],
+      "unknownVersionPolicy": "WARN_ALLOW",
+      "higherVersionPolicy": "WARN_ALLOW"
+    },
+    "codex": {
+      "minimumSupported": "0.0.0",
+      "maximumTested": "0.117.0",
+      "blockedVersions": [],
+      "unknownVersionPolicy": "WARN_ALLOW",
+      "higherVersionPolicy": "WARN_ALLOW"
+    },
+    "opencode": {
+      "minimumSupported": "0.0.0",
+      "maximumTested": "1.17.11",
+      "blockedVersions": [],
+      "unknownVersionPolicy": "WARN_ALLOW",
+      "higherVersionPolicy": "WARN_ALLOW"
+    }
+  }
+}

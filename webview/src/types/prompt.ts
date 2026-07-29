@@ -1,10 +1,11 @@
+import type { ProviderType } from '../generated/protocol';
 import type { ConflictStrategy } from './import';
 
 /**
  * Prompt scope type - determines where prompts are stored
  */
 export type PromptScope = 'global' | 'project';
-export type PromptProvider = 'claude' | 'codex';
+export type PromptProvider = ProviderType;
 
 /**
  * Prompt library configuration

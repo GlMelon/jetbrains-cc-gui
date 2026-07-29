@@ -32,6 +32,9 @@ export interface ProtocolManifest {
   permissionMode?: ProtocolEnumEntry[];
   reasoningEffort?: ProtocolEnumEntry[];
   providerType?: ProtocolEnumEntry[];
+  skillScope?: ProtocolEnumEntry[];
+  skillFieldControl?: ProtocolEnumEntry[];
+  codexHistoryPageMode?: ProtocolEnumEntry[];
   // .mjs 运行时用 manifest.historyExportFormat 生成 HISTORY_EXPORT_FORMAT 常量
   // (scripts/generate-protocol-types.mjs 第 110/273 行);声明须与运行时同步。
   historyExportFormat?: ProtocolEnumEntry[];
@@ -45,7 +48,11 @@ export interface ProtocolManifest {
 export declare function parsePayloadFieldSource(source: string, label?: string): PayloadField[];
 
 /** 解析 Java int 常量 public static final int NAME = literal(C5),allowlist 过滤暴露。 */
-export declare function parseIntConstants(source: string, allowlist?: string[], label?: string): IntConstantEntry[];
+export declare function parseIntConstants(
+  source: string,
+  allowlist?: string[],
+  label?: string,
+): IntConstantEntry[];
 
 /** 从 manifest 生成完整 protocol.ts 文本(含 UPSTREAM/DOWNSTREAM/payload 接口)(C1)。 */
 export declare function generateFromManifest(manifest: ProtocolManifest): string;

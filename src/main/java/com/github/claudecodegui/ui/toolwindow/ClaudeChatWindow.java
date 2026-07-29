@@ -21,6 +21,7 @@ import com.github.claudecodegui.session.SessionCallbackAdapter;
 import com.github.claudecodegui.session.SessionLifecycleManager;
 import com.github.claudecodegui.session.SessionLoadService;
 import com.github.claudecodegui.session.SessionRuntimeDefaults;
+import com.github.claudecodegui.session.SessionState;
 import com.github.claudecodegui.session.StreamMessageCoalescer;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.settings.TabStateService;
@@ -42,12 +43,16 @@ import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.ui.content.Content;
 import com.intellij.ui.content.ContentManager;
 import com.intellij.ui.jcef.JBCefBrowser;
+import org.cef.browser.CefBrowser;
 
 import java.awt.BorderLayout;
+import java.awt.Component;
+import java.awt.Container;
 import com.intellij.util.Alarm;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import javax.swing.JComponent;
 import javax.swing.JPanel;
 
 /**
@@ -474,6 +479,77 @@ public class ClaudeChatWindow {
         return this.project;
     }
 
+    /** Restore the native JCEF surface after this content tab becomes active. */
+    public void onTabActivated() {
+        Runnable repaint = () -> {
+            if (disposed || !isSelectedContent()) {
+                return;
+            }
+            webviewWatchdog.resetTimestamps();
+            JBCefBrowser currentBrowser = browser;
+            if (currentBrowser == null) {
+                return;
+            }
+            try {
+                refreshActivatedWebview(
+                        mainPanel,
+                        currentBrowser.getComponent(),
+                        currentBrowser.getCefBrowser(),
+                        currentBrowser.isOffScreenRendering(),
+                        () -> callJavaScript("window.onTabActivated")
+                );
+            } catch (Exception | LinkageError e) {
+                LOG.warn("Failed to refresh activated JCEF tab: " + e.getMessage(), e);
+            }
+        };
+        ApplicationManager.getApplication().invokeLater(repaint);
+    }
+
+    private boolean isSelectedContent() {
+        Content content = parentContent;
+        ContentManager contentManager = content == null ? null : content.getManager();
+        return contentManager != null && contentManager.getSelectedContent() == content;
+    }
+
+    static void refreshActivatedWebview(
+            JPanel mainPanel,
+            JComponent browserComponent,
+            CefBrowser cefBrowser,
+            boolean offScreenRendering,
+            Runnable frontendRepaint
+    ) {
+        mainPanel.revalidate();
+        mainPanel.repaint();
+        browserComponent.revalidate();
+        browserComponent.repaint();
+
+        try {
+            if (offScreenRendering) {
+                int width = browserComponent.getWidth();
+                int height = browserComponent.getHeight();
+                if (width > 0 && height > 0) {
+                    cefBrowser.wasResized(width, height);
+                }
+            } else {
+                Component nativeComponent = cefBrowser.getUIComponent();
+                if (nativeComponent != null) {
+                    nativeComponent.setVisible(false);
+                    nativeComponent.invalidate();
+                    nativeComponent.setVisible(true);
+                    Container parent = nativeComponent.getParent();
+                    if (parent != null) {
+                        parent.validate();
+                        parent.repaint();
+                    }
+                    nativeComponent.repaint();
+                }
+            }
+            cefBrowser.notifyScreenInfoChanged();
+        } finally {
+            frontendRepaint.run();
+        }
+    }
+
     public String getSessionId() {
         return sessionId;
     }
@@ -492,6 +568,36 @@ public class ClaudeChatWindow {
 
     public ClaudeSession getSession() {
         return session;
+    }
+
+    /**
+     * Copy user-selected per-tab preferences into a fresh tab without copying session identity,
+     * message history, runtime ownership, or persisted pin state.
+     */
+    public void inheritSessionPreferencesFrom(ClaudeChatWindow sourceWindow) {
+        if (sourceWindow == null || sourceWindow.session == null || session == null) {
+            return;
+        }
+        copySessionPreferences(sourceWindow.session.getState(), session.getState());
+        if (handlerContext != null) {
+            handlerContext.setCurrentProvider(session.getProvider());
+            handlerContext.setCurrentModel(session.getModel());
+            handlerContext.setCurrentModelContextWindow(session.getState().getContextWindowOverride());
+        }
+    }
+
+    static void copySessionPreferences(SessionState source, SessionState target) {
+        if (source == null || target == null) {
+            return;
+        }
+        String targetSessionId = target.getSessionId();
+        String targetCwd = target.getCwd();
+        target.setProvider(source.getProvider());
+        target.setModel(source.getModel());
+        target.setPermissionMode(source.getPermissionMode());
+        target.setReasoningEffort(source.getReasoningEffort());
+        target.setSessionId(targetSessionId);
+        target.setCwd(targetCwd);
     }
 
     public SessionLifecycleManager getSessionLifecycleManager() {

@@ -9,7 +9,7 @@ export const AnimatedText = ({ text }: AnimatedTextProps) => {
   const [displayContent, setDisplayContent] = useState(text);
   const [mode, setMode] = useState<'visible' | 'hidden'>('visible');
   const [animDirection, setAnimDirection] = useState<'in' | 'out'>('in');
-  
+
   // Ref to track if it's the first render to avoid initial animation
   const isFirstRender = useRef(true);
 
@@ -45,7 +45,7 @@ export const AnimatedText = ({ text }: AnimatedTextProps) => {
   return (
     <div className={styles.container}>
       {chars.map((char, i) => {
-        let delay = 0;
+        let delay: number;
         const step = 10;
 
         if (animDirection === 'out') {

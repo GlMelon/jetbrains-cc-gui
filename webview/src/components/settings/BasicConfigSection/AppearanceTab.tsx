@@ -1,6 +1,18 @@
 import { sendAction } from '../../../bridge/typed';
 import { UPSTREAM } from '../../../generated/protocol';
-import { CodeIcon, CommentIcon, DiffIcon, TrashIcon, ImageIcon, FolderOpenedIcon, GlobeIcon, InfoIcon, PaletteIcon, TypeIcon, UploadIcon } from '../../Icons';
+import {
+  CodeIcon,
+  CommentIcon,
+  DiffIcon,
+  TrashIcon,
+  ImageIcon,
+  FolderOpenedIcon,
+  GlobeIcon,
+  InfoIcon,
+  PaletteIcon,
+  TypeIcon,
+  UploadIcon,
+} from '../../Icons';
 import { useState, useRef, useEffect } from 'react';
 import styles from './style.module.less';
 import { useTranslation } from 'react-i18next';
@@ -11,6 +23,7 @@ import type { AvatarConfig } from '../../../types/avatar';
 import { AVATAR_MODE, AVATAR_PRESET, isProviderAvatarPreset } from '../../../types/avatar';
 import { ProviderModelIcon } from '../../shared/ProviderModelIcon';
 import { AssistantAvatarIcon, UserAvatarIcon } from '../../MessageItem/MessageAvatar';
+import { useRovingTabs } from '../../shared/useRovingTabs';
 
 // Preset colors (module-level constants to avoid recreating on each render)
 const DARK_PRESETS = [
@@ -72,6 +85,8 @@ const AVATAR_ASSISTANT_TAB_ID = 'settings-avatar-assistant-tab';
 const AVATAR_USER_TAB_ID = 'settings-avatar-user-tab';
 const AVATAR_ASSISTANT_PANEL_ID = 'settings-avatar-assistant-panel';
 const AVATAR_USER_PANEL_ID = 'settings-avatar-user-panel';
+type AvatarDrawerTab = 'assistant' | 'user';
+const AVATAR_DRAWER_TABS: readonly AvatarDrawerTab[] = ['assistant', 'user'];
 
 const NODE_PATH_SECTION_STYLE: React.CSSProperties = { marginTop: 12 };
 
@@ -81,28 +96,88 @@ function getSwatchStyle(color: string): React.CSSProperties {
 
 const SunIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M12 17C14.7614 17 17 14.7614 17 12C17 9.23858 14.7614 7 12 7C9.23858 7 7 9.23858 7 12C7 14.7614 9.23858 17 12 17Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M12 1V3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M12 21V23" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M4.22 4.22L5.64 5.64" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M18.36 18.36L19.78 19.78" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M1 12H3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M21 12H23" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M4.22 19.78L5.64 18.36" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M18.36 5.64L19.78 4.22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path
+      d="M12 17C14.7614 17 17 14.7614 17 12C17 9.23858 14.7614 7 12 7C9.23858 7 7 9.23858 7 12C7 14.7614 9.23858 17 12 17Z"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M12 1V3"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M12 21V23"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M4.22 4.22L5.64 5.64"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M18.36 18.36L19.78 19.78"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M1 12H3"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M21 12H23"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M4.22 19.78L5.64 18.36"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M18.36 5.64L19.78 4.22"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
   </svg>
 );
 
 const MoonIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path
+      d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
   </svg>
 );
 
 const SystemIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="2" y="3" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2"/>
-    <path d="M8 21h8M12 17v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    <rect x="2" y="3" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" />
+    <path d="M8 21h8M12 17v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
   </svg>
 );
 
@@ -177,17 +252,21 @@ const AppearanceTab = ({
     if (!uiFontConfig || uiFontConfig.mode === 'followEditor') return 'followEditor';
     return 'customFile';
   });
-  const [customFontPathDraft, setCustomFontPathDraft] = useState(uiFontConfig?.customFontPath || '');
+  const [customFontPathDraft, setCustomFontPathDraft] = useState(
+    uiFontConfig?.customFontPath || '',
+  );
   const [selectedCodeFontOption, setSelectedCodeFontOption] = useState(() => {
     if (!codeFontConfig || codeFontConfig.mode === 'followEditor') return 'followEditor';
     return 'customFile';
   });
-  const [customCodeFontPathDraft, setCustomCodeFontPathDraft] = useState(codeFontConfig?.customFontPath || '');
-  const [languageSelection, setLanguageSelection] = useState(() => (
+  const [customCodeFontPathDraft, setCustomCodeFontPathDraft] = useState(
+    codeFontConfig?.customFontPath || '',
+  );
+  const [languageSelection, setLanguageSelection] = useState(() =>
     localStorage.getItem('languageSelectionMode') === 'followIdea'
       ? FOLLOW_IDEA_LANGUAGE
-      : (i18n.language || 'zh')
-  ));
+      : i18n.language || 'zh',
+  );
 
   useEffect(() => {
     setHexInput(chatBgColor || '');
@@ -220,7 +299,7 @@ const AppearanceTab = ({
       setLanguageSelection(
         localStorage.getItem('languageSelectionMode') === 'followIdea'
           ? FOLLOW_IDEA_LANGUAGE
-          : (i18n.language || 'zh')
+          : i18n.language || 'zh',
       );
     };
     resync();
@@ -231,7 +310,8 @@ const AppearanceTab = ({
   const defaultBgColor = resolvedTheme === 'light' ? DEFAULT_LIGHT_BG : DEFAULT_DARK_BG;
   const presets = resolvedTheme === 'light' ? LIGHT_PRESETS : DARK_PRESETS;
 
-  const defaultUserMsgColor = resolvedTheme === 'light' ? DEFAULT_LIGHT_USER_MSG : DEFAULT_DARK_USER_MSG;
+  const defaultUserMsgColor =
+    resolvedTheme === 'light' ? DEFAULT_LIGHT_USER_MSG : DEFAULT_DARK_USER_MSG;
   const userMsgPresets = resolvedTheme === 'light' ? USER_MSG_LIGHT_PRESETS : USER_MSG_DARK_PRESETS;
 
   const handlePresetClick = (color: string) => {
@@ -299,32 +379,37 @@ const AppearanceTab = ({
   const customFontFileName = uiFontConfig?.customFontPath
     ? uiFontConfig.customFontPath.split(/[\\/]/).pop()
     : '';
-  const localizedUiFontWarning = uiFontConfig?.warningCode === 'fontUnavailable'
+  const localizedUiFontWarning =
+    uiFontConfig?.warningCode === 'fontUnavailable'
       ? t('settings.basic.editorFont.warningUnavailable')
       : uiFontConfig?.warning;
-  const uiFontHint = localizedUiFontWarning
-    || (uiFontConfig?.effectiveMode === 'customFile'
+  const uiFontHint =
+    localizedUiFontWarning ||
+    (uiFontConfig?.effectiveMode === 'customFile'
       ? t('settings.basic.editorFont.statusCustom', { font: currentUiFontDisplayName })
       : t('settings.basic.editorFont.statusFollowEditor', {
-        font: uiFontConfig?.fontFamily || currentUiFontDisplayName,
-      }));
+          font: uiFontConfig?.fontFamily || currentUiFontDisplayName,
+        }));
 
   const hasSavedCustomCodeFont = Boolean(codeFontConfig?.customFontPath);
   const isCustomCodeFontSelected = selectedCodeFontOption === 'customFile';
   const isCustomCodePathEmpty = customCodeFontPathDraft.trim().length === 0;
-  const currentCodeFontDisplayName = codeFontConfig?.displayName || editorFontConfig?.fontFamily || '-';
+  const currentCodeFontDisplayName =
+    codeFontConfig?.displayName || editorFontConfig?.fontFamily || '-';
   const customCodeFontFileName = codeFontConfig?.customFontPath
     ? codeFontConfig.customFontPath.split(/[\\/]/).pop()
     : '';
-  const localizedCodeFontWarning = codeFontConfig?.warningCode === 'fontUnavailable'
-    ? t('settings.basic.codeFont.warningUnavailable')
-    : codeFontConfig?.warning;
-  const codeFontHint = localizedCodeFontWarning
-    || (codeFontConfig?.effectiveMode === 'customFile'
+  const localizedCodeFontWarning =
+    codeFontConfig?.warningCode === 'fontUnavailable'
+      ? t('settings.basic.codeFont.warningUnavailable')
+      : codeFontConfig?.warning;
+  const codeFontHint =
+    localizedCodeFontWarning ||
+    (codeFontConfig?.effectiveMode === 'customFile'
       ? t('settings.basic.codeFont.statusCustom', { font: currentCodeFontDisplayName })
       : t('settings.basic.codeFont.statusFollowEditor', {
-        font: editorFontConfig?.fontFamily || currentCodeFontDisplayName,
-      }));
+          font: editorFontConfig?.fontFamily || currentCodeFontDisplayName,
+        }));
 
   const diffThemeOptions: Array<{ value: DiffThemeMode; label: string; desc: string }> = [
     {
@@ -400,28 +485,36 @@ const AppearanceTab = ({
   };
 
   const [isAvatarDrawerOpen, setAvatarDrawerOpen] = useState(false);
-  const [avatarDrawerTab, setAvatarDrawerTab] = useState<'assistant' | 'user'>('assistant');
+  const [avatarDrawerTab, setAvatarDrawerTab] = useState<AvatarDrawerTab>('assistant');
+  const { getTabProps: getAvatarTabProps } = useRovingTabs({
+    values: AVATAR_DRAWER_TABS,
+    activeValue: avatarDrawerTab,
+    onActivate: setAvatarDrawerTab,
+  });
 
   const assistantAvatar = avatarConfig?.assistant;
   const userAvatar = avatarConfig?.user;
   const isAvatarConfigLoading = !avatarConfig;
   const assistantActiveProvider = assistantAvatar?.mode === AVATAR_MODE.PROVIDER;
-  const assistantActivePreset = (preset: NonNullable<AvatarConfig['assistant']['preset']>) => (
-    assistantAvatar?.mode === AVATAR_MODE.PRESET && assistantAvatar.preset === preset
-  );
+  const assistantActivePreset = (preset: NonNullable<AvatarConfig['assistant']['preset']>) =>
+    assistantAvatar?.mode === AVATAR_MODE.PRESET && assistantAvatar.preset === preset;
   const assistantActiveCustom = assistantAvatar?.mode === AVATAR_MODE.CUSTOM;
-  const userActiveDefault = userAvatar?.mode === AVATAR_MODE.PRESET
-    && userAvatar.preset === AVATAR_PRESET.USER_DEFAULT;
+  const userActiveDefault =
+    userAvatar?.mode === AVATAR_MODE.PRESET && userAvatar.preset === AVATAR_PRESET.USER_DEFAULT;
   const userActiveCustom = userAvatar?.mode === AVATAR_MODE.CUSTOM;
-  const assistantProviderAvatarOptions = avatarConfig?.assistantPresetOptions
-    ?.filter((option) => isProviderAvatarPreset(option.value)) ?? [];
+  const assistantProviderAvatarOptions =
+    avatarConfig?.assistantPresetOptions?.filter((option) =>
+      isProviderAvatarPreset(option.value),
+    ) ?? [];
 
   const selectAssistantProviderAvatar = () => {
     if (!avatarConfig) return;
     onAssistantAvatarChange({ mode: AVATAR_MODE.PROVIDER });
   };
 
-  const selectAssistantPresetAvatar = (preset: NonNullable<AvatarConfig['assistant']['preset']>) => {
+  const selectAssistantPresetAvatar = (
+    preset: NonNullable<AvatarConfig['assistant']['preset']>,
+  ) => {
     if (!avatarConfig) return;
     onAssistantAvatarChange({ mode: AVATAR_MODE.PRESET, preset });
   };
@@ -431,27 +524,32 @@ const AppearanceTab = ({
     onUserAvatarChange({ mode: AVATAR_MODE.PRESET, preset: AVATAR_PRESET.USER_DEFAULT });
   };
 
-  const openAvatarDrawer = (tab: 'assistant' | 'user' = 'assistant') => {
+  const openAvatarDrawer = (tab: AvatarDrawerTab = 'assistant') => {
     setAvatarDrawerTab(tab);
     setAvatarDrawerOpen(true);
   };
 
-  const renderAssistantProviderIcon = (providerId?: string, size = 18) => (
-    providerId
-      ? <ProviderModelIcon providerId={providerId} size={size} colored />
-      : <AssistantAvatarIcon />
-  );
+  const renderAssistantProviderIcon = (providerId?: string, size = 18) =>
+    providerId ? (
+      <ProviderModelIcon providerId={providerId} size={size} colored />
+    ) : (
+      <AssistantAvatarIcon />
+    );
 
-  const getProviderAvatarLabel = (providerId: string) => (
-    assistantProviderAvatarOptions.find((option) => option.value === providerId)?.label ?? providerId
-  );
+  const getProviderAvatarLabel = (providerId: string) =>
+    assistantProviderAvatarOptions.find((option) => option.value === providerId)?.label ??
+    providerId;
 
   const getAssistantAvatarSummary = () => {
     if (isAvatarConfigLoading) return t('settings.basic.avatar.disabledHint');
     if (assistantActiveCustom) return t('settings.basic.avatar.uploaded');
     if (assistantActiveProvider) return t('settings.basic.avatar.followProvider');
-    if (assistantActivePreset(AVATAR_PRESET.ASSISTANT_DEFAULT)) return t('settings.basic.avatar.assistantDefault');
-    if (assistantAvatar?.mode === AVATAR_MODE.PRESET && isProviderAvatarPreset(assistantAvatar.preset)) {
+    if (assistantActivePreset(AVATAR_PRESET.ASSISTANT_DEFAULT))
+      return t('settings.basic.avatar.assistantDefault');
+    if (
+      assistantAvatar?.mode === AVATAR_MODE.PRESET &&
+      isProviderAvatarPreset(assistantAvatar.preset)
+    ) {
       return getProviderAvatarLabel(assistantAvatar.preset);
     }
     return t('settings.basic.avatar.assistantDefault');
@@ -468,7 +566,9 @@ const AppearanceTab = ({
 
     if (assistantAvatar?.mode === AVATAR_MODE.CUSTOM && assistantAvatar.custom?.dataUrl) {
       return (
-        <span className={`${styles.drawerAvatarFrame} ${styles.customAvatarFrame} ${size === 'compact' ? styles.compact : ''}`}>
+        <span
+          className={`${styles.drawerAvatarFrame} ${styles.customAvatarFrame} ${size === 'compact' ? styles.compact : ''}`}
+        >
           <img className={styles.drawerAvatarImage} src={assistantAvatar.custom.dataUrl} alt="" />
         </span>
       );
@@ -483,10 +583,17 @@ const AppearanceTab = ({
       );
     }
 
-    if (assistantAvatar?.mode === AVATAR_MODE.PRESET && isProviderAvatarPreset(assistantAvatar.preset)) {
+    if (
+      assistantAvatar?.mode === AVATAR_MODE.PRESET &&
+      isProviderAvatarPreset(assistantAvatar.preset)
+    ) {
       return (
         <span className={`${frameClassName} ${styles.providerAvatarFrame}`}>
-          <ProviderModelIcon providerId={assistantAvatar.preset} size={size === 'compact' ? 14 : 18} colored />
+          <ProviderModelIcon
+            providerId={assistantAvatar.preset}
+            size={size === 'compact' ? 14 : 18}
+            colored
+          />
           <span className={styles.providerAccent} />
         </span>
       );
@@ -502,14 +609,18 @@ const AppearanceTab = ({
   const renderUserAvatarFrame = (size: 'compact' | 'large' = 'large') => {
     if (userAvatar?.mode === AVATAR_MODE.CUSTOM && userAvatar.custom?.dataUrl) {
       return (
-        <span className={`${styles.drawerAvatarFrame} ${styles.customAvatarFrame} ${size === 'compact' ? styles.compact : ''}`}>
+        <span
+          className={`${styles.drawerAvatarFrame} ${styles.customAvatarFrame} ${size === 'compact' ? styles.compact : ''}`}
+        >
           <img className={styles.drawerAvatarImage} src={userAvatar.custom.dataUrl} alt="" />
         </span>
       );
     }
 
     return (
-      <span className={`${styles.drawerAvatarFrame} ${styles.userAvatarFrame} ${size === 'compact' ? styles.compact : ''}`}>
+      <span
+        className={`${styles.drawerAvatarFrame} ${styles.userAvatarFrame} ${size === 'compact' ? styles.compact : ''}`}
+      >
         <UserAvatarIcon />
       </span>
     );
@@ -565,7 +676,11 @@ const AppearanceTab = ({
         </div>
         <small className={styles.formHint}>
           <InfoIcon size={16} />
-          <span>{isAvatarConfigLoading ? t('settings.basic.avatar.disabledHint') : t('settings.basic.avatar.description')}</span>
+          <span>
+            {isAvatarConfigLoading
+              ? t('settings.basic.avatar.disabledHint')
+              : t('settings.basic.avatar.description')}
+          </span>
         </small>
 
         <button
@@ -588,10 +703,13 @@ const AppearanceTab = ({
           <span className={styles.avatarMenuCopy}>
             <span className={styles.avatarMenuTitle}>{t('settings.basic.avatar.title')}</span>
             <span className={styles.avatarMenuSummary}>
-              {t('settings.basic.avatar.aiTab')}: {getAssistantAvatarSummary()} · {t('settings.basic.avatar.userTab')}: {getUserAvatarSummary()}
+              {t('settings.basic.avatar.aiTab')}: {getAssistantAvatarSummary()} ·{' '}
+              {t('settings.basic.avatar.userTab')}: {getUserAvatarSummary()}
             </span>
           </span>
-          <span className={styles.avatarConfigureLabel}>{t('settings.basic.avatar.configure')}</span>
+          <span className={styles.avatarConfigureLabel}>
+            {t('settings.basic.avatar.configure')}
+          </span>
         </button>
 
         {isAvatarDrawerOpen && (
@@ -599,7 +717,9 @@ const AppearanceTab = ({
             <div className={styles.avatarDrawerHeader}>
               <div>
                 <div className={styles.avatarDrawerTitle}>{t('settings.basic.avatar.title')}</div>
-                <div className={styles.avatarDrawerDescription}>{t('settings.basic.avatar.description')}</div>
+                <div className={styles.avatarDrawerDescription}>
+                  {t('settings.basic.avatar.description')}
+                </div>
               </div>
               <button
                 type="button"
@@ -613,6 +733,7 @@ const AppearanceTab = ({
 
             <div className={styles.avatarDrawerTabs} role="tablist">
               <button
+                {...getAvatarTabProps('assistant')}
                 id={AVATAR_ASSISTANT_TAB_ID}
                 type="button"
                 className={`${styles.avatarDrawerTab} ${avatarDrawerTab === 'assistant' ? styles.active : ''}`}
@@ -625,6 +746,7 @@ const AppearanceTab = ({
                 <span>{t('settings.basic.avatar.aiTab')}</span>
               </button>
               <button
+                {...getAvatarTabProps('user')}
                 id={AVATAR_USER_TAB_ID}
                 type="button"
                 className={`${styles.avatarDrawerTab} ${avatarDrawerTab === 'user' ? styles.active : ''}`}
@@ -660,11 +782,15 @@ const AppearanceTab = ({
                     onClick={selectAssistantProviderAvatar}
                   >
                     <span className={styles.avatarChoiceCheck}>✓</span>
-                    <span className={`${styles.drawerAvatarFrame} ${styles.assistantAvatarFrame} ${styles.providerAvatarFrame}`}>
+                    <span
+                      className={`${styles.drawerAvatarFrame} ${styles.assistantAvatarFrame} ${styles.providerAvatarFrame}`}
+                    >
                       {renderAssistantProviderIcon(currentProvider)}
                       <span className={styles.providerAccent} />
                     </span>
-                    <span><strong>{t('settings.basic.avatar.followProvider')}</strong></span>
+                    <span>
+                      <strong>{t('settings.basic.avatar.followProvider')}</strong>
+                    </span>
                   </button>
                   <button
                     type="button"
@@ -672,8 +798,12 @@ const AppearanceTab = ({
                     onClick={() => selectAssistantPresetAvatar(AVATAR_PRESET.ASSISTANT_DEFAULT)}
                   >
                     <span className={styles.avatarChoiceCheck}>✓</span>
-                    <span className={`${styles.drawerAvatarFrame} ${styles.assistantAvatarFrame}`}><AssistantAvatarIcon /></span>
-                    <span><strong>{t('settings.basic.avatar.assistantDefault')}</strong></span>
+                    <span className={`${styles.drawerAvatarFrame} ${styles.assistantAvatarFrame}`}>
+                      <AssistantAvatarIcon />
+                    </span>
+                    <span>
+                      <strong>{t('settings.basic.avatar.assistantDefault')}</strong>
+                    </span>
                   </button>
                   {assistantProviderAvatarOptions.map((option) => (
                     <button
@@ -683,24 +813,39 @@ const AppearanceTab = ({
                       onClick={() => selectAssistantPresetAvatar(option.value)}
                     >
                       <span className={styles.avatarChoiceCheck}>✓</span>
-                      <span className={`${styles.drawerAvatarFrame} ${styles.assistantAvatarFrame} ${styles.providerAvatarFrame}`}>
+                      <span
+                        className={`${styles.drawerAvatarFrame} ${styles.assistantAvatarFrame} ${styles.providerAvatarFrame}`}
+                      >
                         <ProviderModelIcon providerId={option.value} size={18} colored />
                         <span className={styles.providerAccent} />
                       </span>
-                      <span><strong>{option.label}</strong></span>
+                      <span>
+                        <strong>{option.label}</strong>
+                      </span>
                     </button>
                   ))}
                   {assistantAvatar?.custom?.dataUrl && (
                     <button
                       type="button"
                       className={`${styles.avatarChoiceCard} ${assistantActiveCustom ? styles.active : ''}`}
-                      onClick={() => onAssistantAvatarChange({ mode: AVATAR_MODE.CUSTOM, custom: assistantAvatar.custom })}
+                      onClick={() =>
+                        onAssistantAvatarChange({
+                          mode: AVATAR_MODE.CUSTOM,
+                          custom: assistantAvatar.custom,
+                        })
+                      }
                     >
                       <span className={styles.avatarChoiceCheck}>✓</span>
                       <span className={`${styles.drawerAvatarFrame} ${styles.customAvatarFrame}`}>
-                        <img className={styles.drawerAvatarImage} src={assistantAvatar.custom.dataUrl} alt="" />
+                        <img
+                          className={styles.drawerAvatarImage}
+                          src={assistantAvatar.custom.dataUrl}
+                          alt=""
+                        />
                       </span>
-                      <span><strong>{t('settings.basic.avatar.uploaded')}</strong></span>
+                      <span>
+                        <strong>{t('settings.basic.avatar.uploaded')}</strong>
+                      </span>
                     </button>
                   )}
                   <button
@@ -708,15 +853,21 @@ const AppearanceTab = ({
                     className={`${styles.avatarChoiceCard} ${styles.uploadAvatarChoice}`}
                     onClick={onUploadAssistantAvatar}
                   >
-                    <span className={`${styles.drawerAvatarFrame} ${styles.uploadAvatarFrame}`}><UploadIcon size={16} /></span>
-                    <span><strong>{t('settings.basic.avatar.upload')}</strong></span>
+                    <span className={`${styles.drawerAvatarFrame} ${styles.uploadAvatarFrame}`}>
+                      <UploadIcon size={16} />
+                    </span>
+                    <span>
+                      <strong>{t('settings.basic.avatar.upload')}</strong>
+                    </span>
                   </button>
                 </div>
 
                 <div className={styles.avatarChatPreview}>
                   <div className={styles.assistantPreviewRow}>
                     {renderAssistantAvatarFrame()}
-                    <div className={styles.previewBubble}>{t('settings.basic.avatar.assistantPreviewMessage')}</div>
+                    <div className={styles.previewBubble}>
+                      {t('settings.basic.avatar.assistantPreviewMessage')}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -744,20 +895,32 @@ const AppearanceTab = ({
                     onClick={selectUserDefaultAvatar}
                   >
                     <span className={styles.avatarChoiceCheck}>✓</span>
-                    <span className={`${styles.drawerAvatarFrame} ${styles.userAvatarFrame}`}><UserAvatarIcon /></span>
-                    <span><strong>{t('settings.basic.avatar.userDefault')}</strong></span>
+                    <span className={`${styles.drawerAvatarFrame} ${styles.userAvatarFrame}`}>
+                      <UserAvatarIcon />
+                    </span>
+                    <span>
+                      <strong>{t('settings.basic.avatar.userDefault')}</strong>
+                    </span>
                   </button>
                   {userAvatar?.custom?.dataUrl && (
                     <button
                       type="button"
                       className={`${styles.avatarChoiceCard} ${userActiveCustom ? styles.active : ''}`}
-                      onClick={() => onUserAvatarChange({ mode: AVATAR_MODE.CUSTOM, custom: userAvatar.custom })}
+                      onClick={() =>
+                        onUserAvatarChange({ mode: AVATAR_MODE.CUSTOM, custom: userAvatar.custom })
+                      }
                     >
                       <span className={styles.avatarChoiceCheck}>✓</span>
                       <span className={`${styles.drawerAvatarFrame} ${styles.customAvatarFrame}`}>
-                        <img className={styles.drawerAvatarImage} src={userAvatar.custom.dataUrl} alt="" />
+                        <img
+                          className={styles.drawerAvatarImage}
+                          src={userAvatar.custom.dataUrl}
+                          alt=""
+                        />
                       </span>
-                      <span><strong>{t('settings.basic.avatar.uploaded')}</strong></span>
+                      <span>
+                        <strong>{t('settings.basic.avatar.uploaded')}</strong>
+                      </span>
                     </button>
                   )}
                   <button
@@ -765,15 +928,21 @@ const AppearanceTab = ({
                     className={`${styles.avatarChoiceCard} ${styles.uploadAvatarChoice}`}
                     onClick={onUploadUserAvatar}
                   >
-                    <span className={`${styles.drawerAvatarFrame} ${styles.uploadAvatarFrame}`}><UploadIcon size={16} /></span>
-                    <span><strong>{t('settings.basic.avatar.upload')}</strong></span>
+                    <span className={`${styles.drawerAvatarFrame} ${styles.uploadAvatarFrame}`}>
+                      <UploadIcon size={16} />
+                    </span>
+                    <span>
+                      <strong>{t('settings.basic.avatar.upload')}</strong>
+                    </span>
                   </button>
                 </div>
 
                 <div className={styles.avatarChatPreview}>
                   <div className={styles.userPreviewRow}>
                     {renderUserAvatarFrame()}
-                    <div className={styles.previewBubble}>{t('settings.basic.avatar.userPreviewMessage')}</div>
+                    <div className={styles.previewBubble}>
+                      {t('settings.basic.avatar.userPreviewMessage')}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -918,7 +1087,9 @@ const AppearanceTab = ({
           }}
         >
           <option value="followEditor">
-            {t('settings.basic.codeFont.followOption', { font: editorFontConfig?.fontFamily || '-' })}
+            {t('settings.basic.codeFont.followOption', {
+              font: editorFontConfig?.fontFamily || '-',
+            })}
           </option>
           <option value="customFile">
             {customCodeFontFileName
@@ -1015,20 +1186,14 @@ const AppearanceTab = ({
               title={preset.label}
               aria-label={preset.label}
             >
-              <div
-                className={styles.colorSwatchInner}
-                style={getSwatchStyle(preset.color)}
-              />
+              <div className={styles.colorSwatchInner} style={getSwatchStyle(preset.color)} />
             </div>
           ))}
         </div>
 
         <div className={styles.customColorRow}>
           <span className={styles.customColorLabel}>{t('settings.basic.chatBgColor.custom')}</span>
-          <div
-            className={styles.colorPickerWrapper}
-            onClick={() => colorInputRef.current?.click()}
-          >
+          <div className={styles.colorPickerWrapper} onClick={() => colorInputRef.current?.click()}>
             <div
               className={styles.colorPickerPreview}
               style={getSwatchStyle(chatBgColor || defaultBgColor)}
@@ -1091,10 +1256,7 @@ const AppearanceTab = ({
               title={preset.label}
               aria-label={preset.label}
             >
-              <div
-                className={styles.colorSwatchInner}
-                style={getSwatchStyle(preset.color)}
-              />
+              <div className={styles.colorSwatchInner} style={getSwatchStyle(preset.color)} />
             </div>
           ))}
         </div>

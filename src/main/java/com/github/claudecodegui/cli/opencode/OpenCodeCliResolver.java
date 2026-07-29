@@ -1,5 +1,6 @@
 package com.github.claudecodegui.cli.opencode;
 
+import com.github.claudecodegui.cli.compatibility.CliCompatibilityService;
 import com.github.claudecodegui.cli.common.UserPathResolver;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.util.PlatformUtils;
@@ -31,6 +32,9 @@ public final class OpenCodeCliResolver {
     private static volatile String cachedExecutable;
     private static final Object CACHE_LOCK = new Object();
 
+    /** 缓存 CLI 版本字符串(对称 ClaudeCliDetector.cachedCliVersion)。 */
+    private static volatile String cachedVersion;
+
     public static String findExecutable() {
         String cached = cachedExecutable;
         if (cached != null) {
@@ -59,7 +63,16 @@ public final class OpenCodeCliResolver {
     static void __clearCacheForTests() {
         synchronized (CACHE_LOCK) {
             cachedExecutable = null;
+            cachedVersion = null;
         }
+    }
+
+    /**
+     * 返回缓存的 CLI 版本字符串,或 null(未检测 / 检测失败)。
+     * 对称 ClaudeCliDetector.getCachedCliVersion()。
+     */
+    public static String getCachedVersion() {
+        return cachedVersion;
     }
 
     private static String doFindExecutable() {
@@ -126,7 +139,7 @@ public final class OpenCodeCliResolver {
         if (inferred == null) {
             return null;
         }
-        return verify(inferred) ? inferred : null;
+        return verify(inferred) != null ? inferred : null;
     }
 
     static String resolve(String candidate) {
@@ -136,7 +149,7 @@ public final class OpenCodeCliResolver {
 
         File file = new File(candidate);
         if (file.isAbsolute() || candidate.contains(File.separator) || candidate.contains("/")) {
-            return verify(file.getPath()) ? file.getPath() : null;
+            return verify(file.getPath()) != null ? file.getPath() : null;
         }
 
         String found = searchInPath(candidate);
@@ -164,7 +177,7 @@ public final class OpenCodeCliResolver {
             }
             for (String suffix : suffixes) {
                 File file = new File(dir, candidate + suffix);
-                if (verify(file.getPath())) {
+                if (verify(file.getPath()) != null) {
                     return file.getAbsolutePath();
                 }
             }
@@ -172,7 +185,12 @@ public final class OpenCodeCliResolver {
         return null;
     }
 
-    private static boolean verify(String path) {
+    /**
+     * 验证 CLI 可执行性并捕获版本字符串。
+     * 对称 ClaudeCliDetector.verifyCliPath: 返回 stdout 首行版本串,或 null(失败)。
+     * 版本缓存经 {@link #getCachedVersion()} 读取。
+     */
+    private static String verify(String path) {
         try {
             ProcessBuilder pb;
             String lower = path.toLowerCase();
@@ -182,18 +200,28 @@ public final class OpenCodeCliResolver {
                 pb = new ProcessBuilder(path, "--version");
             }
             Process process = pb.start();
+            String version;
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-                reader.readLine();
+                version = reader.readLine();
             }
             boolean finished = process.waitFor(5, TimeUnit.SECONDS);
             if (!finished) {
                 process.destroyForcibly();
-                return false;
+                return null;
             }
-            return process.exitValue() == 0;
+            if (process.exitValue() == 0 && version != null) {
+                String trimmed = version.trim();
+                if (!trimmed.isEmpty() && CliCompatibilityService.getInstance()
+                        .isVersionAccepted(ProviderType.OPENCODE, trimmed)) {
+                    cachedVersion = trimmed;
+                    return trimmed;
+                }
+                return null;
+            }
+            return null;
         } catch (Exception ignored) {
-            return false;
+            return null;
         }
     }
 }

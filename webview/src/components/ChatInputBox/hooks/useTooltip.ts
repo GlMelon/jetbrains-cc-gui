@@ -47,7 +47,12 @@ export function useTooltip(): UseTooltipReturn {
         // Use small floating tooltip (same effect as context-item)
         const rect = triggerEl.getBoundingClientRect();
         // Use #app's rect as reference - both rects are in the same coordinate space
-        const { width: viewportWidth, top: viewportTop, left: viewportLeft, fixedPosDivisor } = getAppViewport();
+        const {
+          width: viewportWidth,
+          top: viewportTop,
+          left: viewportLeft,
+          fixedPosDivisor,
+        } = getAppViewport();
         const triggerCenterX = rect.left - viewportLeft + rect.width / 2; // Trigger center X coordinate (relative to #app)
 
         // Estimate tooltip width (based on text length)
@@ -56,7 +61,7 @@ export function useTooltip(): UseTooltipReturn {
 
         let tooltipLeft = triggerCenterX; // Tooltip base point (default centered)
         let tx = '-50%'; // Tooltip horizontal offset (default centered)
-        let arrowLeft = '50%'; // Arrow position (relative to tooltip, default middle)
+        let arrowLeft: string; // Arrow position relative to the tooltip
 
         // Boundary detection: prevent tooltip left overflow
         if (triggerCenterX - tooltipHalfWidth < 10) {

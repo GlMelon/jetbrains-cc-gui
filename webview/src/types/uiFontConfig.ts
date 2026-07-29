@@ -18,6 +18,6 @@ export interface ResolvedFontConfig {
   warning?: string;
 }
 
-export interface UiFontConfig extends ResolvedFontConfig {}
+export type UiFontConfig = ResolvedFontConfig;
 
-export interface CodeFontConfig extends ResolvedFontConfig {}
+export type CodeFontConfig = ResolvedFontConfig;

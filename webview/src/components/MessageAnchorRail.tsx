@@ -29,9 +29,24 @@ interface MessageAnchorRailProps {
   addToast?: (message: string, type?: 'success' | 'error' | 'info' | 'warning') => void;
 }
 
+// eslint-disable-next-line no-control-regex -- strip non-printing characters before search and display
 const CONTROL_CHARS_RE = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F\u200B-\u200D\uFEFF]/g;
 const HIGHLIGHT_CLASS_NAME = 'is-user-panel-highlight';
 const MAX_SCROLL_ATTEMPTS = 60;
+
+export function sampleAnchorItems<T>(items: readonly T[], maxItems: number): T[] {
+  if (maxItems <= 0 || items.length === 0) return [];
+  if (items.length <= maxItems) return [...items];
+  if (maxItems === 1) return [items[0]];
+
+  const sampled: T[] = [];
+  const lastIndex = items.length - 1;
+  for (let index = 0; index < maxItems; index += 1) {
+    const sourceIndex = Math.round((index * lastIndex) / (maxItems - 1));
+    sampled.push(items[sourceIndex]);
+  }
+  return sampled;
+}
 
 function normalizeText(text: string): string {
   return text.replace(CONTROL_CHARS_RE, '').replace(/\s+/g, ' ').trim();
@@ -127,9 +142,12 @@ export const MessageAnchorRail = memo(function MessageAnchorRail({
     }
   }, []);
 
-  const notify = useCallback((message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
-    addToast?.(message, type);
-  }, [addToast]);
+  const notify = useCallback(
+    (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
+      addToast?.(message, type);
+    },
+    [addToast],
+  );
 
   const closePanel = useCallback(() => {
     setOpen(false);
@@ -156,63 +174,71 @@ export const MessageAnchorRail = memo(function MessageAnchorRail({
     };
   }, [clearHighlightTimer]);
 
-  const copyMessage = useCallback(async (item: UserMessageItem) => {
-    const success = await copyToClipboard(item.copyText);
-    notify(
-      success
-        ? t('chat.userPanel.copyOneSuccess')
-        : t('chat.userPanel.copyFailed'),
-      success ? 'success' : 'error',
-    );
-  }, [notify, t]);
+  const copyMessage = useCallback(
+    async (item: UserMessageItem) => {
+      const success = await copyToClipboard(item.copyText);
+      notify(
+        success ? t('chat.userPanel.copyOneSuccess') : t('chat.userPanel.copyFailed'),
+        success ? 'success' : 'error',
+      );
+    },
+    [notify, t],
+  );
 
-  const highlightNode = useCallback((node: HTMLDivElement, messageId: string) => {
-    clearHighlightTimer();
-    document.querySelectorAll(`.${HIGHLIGHT_CLASS_NAME}`).forEach((el) => {
-      el.classList.remove(HIGHLIGHT_CLASS_NAME);
-    });
-    node.classList.add(HIGHLIGHT_CLASS_NAME);
-    setActiveMessageId(messageId);
-    highlightTimerRef.current = window.setTimeout(() => {
-      node.classList.remove(HIGHLIGHT_CLASS_NAME);
-      setActiveMessageId((current) => (current === messageId ? null : current));
-      highlightTimerRef.current = null;
-    }, 1800);
-  }, [clearHighlightTimer]);
-
-  const scrollToMessage = useCallback((item: UserMessageItem) => {
-    messageListRef?.current?.revealAll();
-    const scrollAttemptToken = scrollAttemptTokenRef.current + 1;
-    scrollAttemptTokenRef.current = scrollAttemptToken;
-
-    let attempts = 0;
-    const tryScroll = () => {
-      if (scrollAttemptTokenRef.current !== scrollAttemptToken) return;
-      const node = messageNodeMap.current?.get(item.id);
-      const container = containerRef.current;
-      if (!node || !container) {
-        attempts += 1;
-        if (attempts < MAX_SCROLL_ATTEMPTS) {
-          window.requestAnimationFrame(tryScroll);
-        } else if (scrollAttemptTokenRef.current === scrollAttemptToken) {
-          notify(t('chat.userPanel.jumpFailed'), 'warning');
-        }
-        return;
-      }
-
-      const containerRect = container.getBoundingClientRect();
-      const nodeRect = node.getBoundingClientRect();
-      const targetTop = container.scrollTop + (nodeRect.top - containerRect.top) - container.clientHeight * 0.28;
-      container.scrollTo({
-        top: Math.max(0, targetTop),
-        behavior: 'smooth',
+  const highlightNode = useCallback(
+    (node: HTMLDivElement, messageId: string) => {
+      clearHighlightTimer();
+      document.querySelectorAll(`.${HIGHLIGHT_CLASS_NAME}`).forEach((el) => {
+        el.classList.remove(HIGHLIGHT_CLASS_NAME);
       });
-      highlightNode(node, item.id);
-      notify(t('chat.userPanel.jumpSuccess'), 'info');
-    };
+      node.classList.add(HIGHLIGHT_CLASS_NAME);
+      setActiveMessageId(messageId);
+      highlightTimerRef.current = window.setTimeout(() => {
+        node.classList.remove(HIGHLIGHT_CLASS_NAME);
+        setActiveMessageId((current) => (current === messageId ? null : current));
+        highlightTimerRef.current = null;
+      }, 1800);
+    },
+    [clearHighlightTimer],
+  );
 
-    window.requestAnimationFrame(tryScroll);
-  }, [containerRef, highlightNode, messageListRef, messageNodeMap, notify, t]);
+  const scrollToMessage = useCallback(
+    (item: UserMessageItem) => {
+      messageListRef?.current?.revealAll();
+      const scrollAttemptToken = scrollAttemptTokenRef.current + 1;
+      scrollAttemptTokenRef.current = scrollAttemptToken;
+
+      let attempts = 0;
+      const tryScroll = () => {
+        if (scrollAttemptTokenRef.current !== scrollAttemptToken) return;
+        const node = messageNodeMap.current?.get(item.id);
+        const container = containerRef.current;
+        if (!node || !container) {
+          attempts += 1;
+          if (attempts < MAX_SCROLL_ATTEMPTS) {
+            window.requestAnimationFrame(tryScroll);
+          } else if (scrollAttemptTokenRef.current === scrollAttemptToken) {
+            notify(t('chat.userPanel.jumpFailed'), 'warning');
+          }
+          return;
+        }
+
+        const containerRect = container.getBoundingClientRect();
+        const nodeRect = node.getBoundingClientRect();
+        const targetTop =
+          container.scrollTop + (nodeRect.top - containerRect.top) - container.clientHeight * 0.28;
+        container.scrollTo({
+          top: Math.max(0, targetTop),
+          behavior: 'smooth',
+        });
+        highlightNode(node, item.id);
+        notify(t('chat.userPanel.jumpSuccess'), 'info');
+      };
+
+      window.requestAnimationFrame(tryScroll);
+    },
+    [containerRef, highlightNode, messageListRef, messageNodeMap, notify, t],
+  );
 
   if (userMessages.length === 0) return null;
 
@@ -273,7 +299,9 @@ export const MessageAnchorRail = memo(function MessageAnchorRail({
         </div>
 
         {filteredMessages.length === 0 ? (
-          <div className="messages-user-panel-empty" role="status">{t('chat.userPanel.noResults')}</div>
+          <div className="messages-user-panel-empty" role="status">
+            {t('chat.userPanel.noResults')}
+          </div>
         ) : (
           <div className="messages-user-panel-list" role="list">
             {filteredMessages.map((item) => (
@@ -301,7 +329,12 @@ export const MessageAnchorRail = memo(function MessageAnchorRail({
         )}
 
         <div className="messages-user-panel-foot">
-          <span>{t('chat.userPanel.count', { filtered: filteredMessages.length, total: userMessages.length })}</span>
+          <span>
+            {t('chat.userPanel.count', {
+              filtered: filteredMessages.length,
+              total: userMessages.length,
+            })}
+          </span>
           <span>{t('chat.userPanel.escHint')}</span>
         </div>
       </aside>

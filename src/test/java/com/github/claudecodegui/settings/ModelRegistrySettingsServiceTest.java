@@ -49,7 +49,7 @@ public class ModelRegistrySettingsServiceTest {
     public void getModelRegistryIncludesReadOnlyDefaultsWhenFileAbsent() throws Exception {
         useTemporaryHomeDirectory(Files.createTempDirectory("model-registry-svc-default-home"));
 
-        ModelRegistrySettingsService svc = new ModelRegistrySettingsService(new CodemossSettingsService());
+        ModelRegistrySettingsService svc = new ModelRegistrySettingsService(SettingsTestConfig.create().configStore());
 
         ModelRegistryConfig registry = svc.getModelRegistry();
         // 文件缺失 → 用户层空 → effective 仅含只读默认(Claude 4 roles from ~/.claude/settings.json)。
@@ -62,7 +62,7 @@ public class ModelRegistrySettingsServiceTest {
     @Test
     public void setModelRegistryPersistsValidUserLayerModel() throws Exception {
         useTemporaryHomeDirectory(Files.createTempDirectory("model-registry-svc-persist-home"));
-        ModelRegistrySettingsService svc = new ModelRegistrySettingsService(new CodemossSettingsService());
+        ModelRegistrySettingsService svc = new ModelRegistrySettingsService(SettingsTestConfig.create().configStore());
         // 非 role 自定义 Claude 模型(id=actualModel);id 非 claude-role-xxx 不与只读默认键冲突。
         ModelRegistryConfig config = new ModelRegistryConfig(List.of(
                 new ModelConfig("mimo-v2.5-pro", "claude", "opus",
@@ -83,7 +83,7 @@ public class ModelRegistrySettingsServiceTest {
     @Test
     public void setModelRegistryRejectsInvalidModelWithoutPersisting() throws Exception {
         useTemporaryHomeDirectory(Files.createTempDirectory("model-registry-svc-invalid-home"));
-        ModelRegistrySettingsService svc = new ModelRegistrySettingsService(new CodemossSettingsService());
+        ModelRegistrySettingsService svc = new ModelRegistrySettingsService(SettingsTestConfig.create().configStore());
         ModelRegistryConfig invalid = new ModelRegistryConfig(List.of(
                 new ModelConfig("bad", "codex", "", "Bad", "", "", 200_000, true, true)
         ));
@@ -97,7 +97,7 @@ public class ModelRegistrySettingsServiceTest {
     @Test
     public void setModelRegistryRejectsNewConflictWithReadOnlyRole() throws Exception {
         useTemporaryHomeDirectory(Files.createTempDirectory("model-registry-svc-conflict-home"));
-        ModelRegistrySettingsService svc = new ModelRegistrySettingsService(new CodemossSettingsService());
+        ModelRegistrySettingsService svc = new ModelRegistrySettingsService(SettingsTestConfig.create().configStore());
         // 新增与只读默认 claude-role-sonnet 同键的项应被拒绝(checkNoNewConflictsWithReadOnly)。
         ModelRegistryConfig conflicting = new ModelRegistryConfig(List.of(
                 new ModelConfig("claude-role-sonnet", "claude", "sonnet",
@@ -113,7 +113,7 @@ public class ModelRegistrySettingsServiceTest {
     @Test
     public void setModelRegistryAcceptsEmptyUserLayerBecauseReadOnlyGuaranteesEnabled() throws Exception {
         useTemporaryHomeDirectory(Files.createTempDirectory("model-registry-svc-empty-home"));
-        ModelRegistrySettingsService svc = new ModelRegistrySettingsService(new CodemossSettingsService());
+        ModelRegistrySettingsService svc = new ModelRegistrySettingsService(SettingsTestConfig.create().configStore());
 
         // 空用户层合法:effective = merge(空, 只读默认),只读 roles 保证 ≥1 enabled。
         assertTrue(svc.setModelRegistry(new ModelRegistryConfig(List.of())).isValid());
@@ -126,7 +126,7 @@ public class ModelRegistrySettingsServiceTest {
     @Test
     public void getModelRegistryJsonEmitsSupportedReasoningLevelsForClaudeRoles() throws Exception {
         useTemporaryHomeDirectory(Files.createTempDirectory("model-registry-svc-json-home"));
-        ModelRegistrySettingsService svc = new ModelRegistrySettingsService(new CodemossSettingsService());
+        ModelRegistrySettingsService svc = new ModelRegistrySettingsService(SettingsTestConfig.create().configStore());
 
         // 下发路径必须复用静态 ModelRegistryService.serialize 以下发 supportedReasoningLevels 派生字段,
         // 否则前端 ReasoningSelect 拿不到档位会整体隐藏(H3:双序列化路径字段漂移)。

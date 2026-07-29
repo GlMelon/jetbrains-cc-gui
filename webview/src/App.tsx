@@ -5,21 +5,45 @@ import { useTranslation } from 'react-i18next';
 import HistoryView from './components/history/HistoryView';
 import SettingsView from './components/settings';
 import { preloadSlashCommands, forceRefreshPrompts } from './components/ChatInputBox/providers';
-import { useScrollBehavior, useSessionManagement, useStreamingMessages, useWindowCallbacks, useRewindHandlers, useHistoryLoader, useMessageQueue, useThemeInit, useContextActions, useMessageProcessing, useMessageSender, useModelProviderState, useChatComputations, useAvatarConfig } from './hooks';
-import { NEW_SESSION_COMMANDS, RESUME_COMMANDS, PLAN_COMMANDS, CONTEXT_COMMANDS } from './hooks/useMessageSender';
+import {
+  useScrollBehavior,
+  useSessionManagement,
+  useStreamingMessages,
+  useWindowCallbacks,
+  useRewindHandlers,
+  useHistoryLoader,
+  useMessageQueue,
+  useThemeInit,
+  useContextActions,
+  useMessageProcessing,
+  useMessageSender,
+  useModelProviderState,
+  useChatComputations,
+  useAvatarConfig,
+} from './hooks';
+import {
+  NEW_SESSION_COMMANDS,
+  RESUME_COMMANDS,
+  PLAN_COMMANDS,
+  CONTEXT_COMMANDS,
+} from './hooks/useMessageSender';
 import { applyDiffTheme, getStoredDiffTheme } from './utils/diffTheme';
 import type { Attachment, ChatInputBoxHandle } from './components/ChatInputBox/types';
 import { ChatHeader } from './components/ChatHeader';
 import { ChatScreen } from './components/ChatScreen';
 import type { MessageListRevealHandle } from './components/ConversationSearch/types';
 import { ModelProviderProvider } from './contexts/ModelProviderContext';
-import { useSubagentContextValues } from './contexts/SubagentContext';
+import { useSubagentContextValues, useSetTaskEvents } from './contexts/SubagentContext';
 import { useMessages } from './contexts/MessagesContext';
 import { useSession } from './contexts/SessionContext';
 import { useUIState } from './contexts/UIStateContext';
 import { useDialogs } from './contexts/DialogContext';
 import { AppDialogs } from './components/AppDialogs';
 import { DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS } from './utils/permissionDialogTimeout';
+import {
+  getDetailedOutputEnabled,
+  setDetailedOutputEnabled,
+} from './utils/detailedOutputPreference';
 
 const App = () => {
   const { t } = useTranslation();
@@ -35,43 +59,69 @@ const App = () => {
     openContextUsageDialog,
     updateContextUsageData,
     closeContextUsageDialog,
-    setRewindDialogOpen, setCurrentRewindRequest,
-    isRewinding, setIsRewinding, setRewindSelectDialogOpen,
+    setRewindDialogOpen,
+    setCurrentRewindRequest,
+    isRewinding,
+    setIsRewinding,
+    setRewindSelectDialogOpen,
   } = useDialogs();
 
   // ── Messages flow state (extracted to MessagesContext, stage 1 of TASK-P1-01) ──
   // Display state (loadingStartTime / isThinking) is consumed inside <ChatScreen>.
   const {
-    messages, setMessages,
-    subagentHistories, setSubagentHistories,
+    messages,
+    setMessages,
+    subagentHistories,
+    setSubagentHistories,
     setStatus,
-    loading, setLoading, setLoadingStartTime,
-    setQueueDisplayState, setQueueAheadCount,
+    loading,
+    setLoading,
+    setLoadingStartTime,
+    setQueueDisplayState,
+    setQueueAheadCount,
     setIsThinking,
-    streamingActive, setStreamingActive,
+    streamingActive,
+    setStreamingActive,
   } = useMessages();
 
   // ── Session state (extracted to SessionContext, stage 2 of TASK-P1-01) ──
   const {
-    currentSessionId, setCurrentSessionId,
-    customSessionTitle, setCustomSessionTitle,
-    historyData, setHistoryData,
-    currentSessionIdRef, customSessionTitleRef,
+    currentSessionId,
+    setCurrentSessionId,
+    customSessionTitle,
+    setCustomSessionTitle,
+    historyData,
+    setHistoryData,
+    currentSessionIdRef,
+    customSessionTitleRef,
   } = useSession();
 
   // ── UI state (extracted to UIStateContext, stage 3 of TASK-P1-01) ──
   // Dialog visibility (addModelDialog / changelog) is consumed inside AppDialogs.
   const {
-    currentView, setCurrentView,
-    settingsInitialTab, setSettingsInitialTab,
-    addToast, clearToasts,
+    currentView,
+    setCurrentView,
+    settingsInitialTab,
+    setSettingsInitialTab,
+    addToast,
+    clearToasts,
     setContextInfo,
-    searchOpen, setSearchOpen,
+    searchOpen,
+    setSearchOpen,
   } = useUIState();
 
   // ── Permission dialog timeout (synced with backend config) ──
   // C5:默认值现由 generated 产出(literal 300 as const);state 显式 number,允许后续 setState 任意秒数。
-  const [permissionDialogTimeoutSeconds, setPermissionDialogTimeoutSeconds] = useState<number>(DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS);
+  const [permissionDialogTimeoutSeconds, setPermissionDialogTimeoutSeconds] = useState<number>(
+    DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS,
+  );
+  const [detailedOutputEnabled, setDetailedOutputEnabledState] = useState<boolean>(() =>
+    getDetailedOutputEnabled(),
+  );
+  const handleDetailedOutputEnabledChange = useCallback((enabled: boolean) => {
+    setDetailedOutputEnabledState(enabled);
+    setDetailedOutputEnabled(enabled);
+  }, []);
 
   // ── Local refs (don't trigger re-render, kept in App.tsx) ──
   const isFirstMountRef = useRef(true);
@@ -86,8 +136,11 @@ const App = () => {
   const messageNodeMapRef = useRef<Map<string, HTMLDivElement>>(new Map());
   const [anchorCollapsedCount, setAnchorCollapsedCount] = useState(0);
   const handleMessageNodeRef = useCallback((id: string, node: HTMLDivElement | null) => {
-    if (node) { messageNodeMapRef.current.set(id, node); }
-    else { messageNodeMapRef.current.delete(id); }
+    if (node) {
+      messageNodeMapRef.current.set(id, node);
+    } else {
+      messageNodeMapRef.current.delete(id);
+    }
   }, []);
 
   // Imperative handle for the in-page search panel to expand collapsed earlier messages.
@@ -113,47 +166,87 @@ const App = () => {
 
   // ── Scroll behavior ──
   const {
-    messagesContainerRef, messagesEndRef, inputAreaRef,
-    isUserAtBottomRef, isAutoScrollingRef, userPausedRef,
+    messagesContainerRef,
+    messagesEndRef,
+    inputAreaRef,
+    isUserAtBottomRef,
+    isAutoScrollingRef,
+    userPausedRef,
   } = useScrollBehavior({ currentView, messages, loading, streamingActive });
 
   // ── Streaming messages ──
   const {
-    streamingContentRef, streamingThinkingRef, isStreamingRef, useBackendStreamingRenderRef,
-    streamingMessageIndexRef, contentUpdateTimeoutRef, thinkingUpdateTimeoutRef,
-    lastContentUpdateRef, lastThinkingUpdateRef, autoExpandedThinkingKeysRef,
-    streamingTurnIdRef, turnIdCounterRef,
-    findLastAssistantIndex, extractRawBlocks,
-    getOrCreateStreamingAssistantIndex, patchAssistantForStreaming,
+    streamingContentRef,
+    streamingThinkingRef,
+    isStreamingRef,
+    useBackendStreamingRenderRef,
+    streamingMessageIndexRef,
+    contentUpdateTimeoutRef,
+    thinkingUpdateTimeoutRef,
+    lastContentUpdateRef,
+    lastThinkingUpdateRef,
+    autoExpandedThinkingKeysRef,
+    streamingTurnIdRef,
+    turnIdCounterRef,
+    findLastAssistantIndex,
+    extractRawBlocks,
+    getOrCreateStreamingAssistantIndex,
+    patchAssistantForStreaming,
   } = useStreamingMessages();
 
   // (Toast helpers moved to UIStateContext)
 
   // ── Model/Provider state ──
   const {
-    currentProvider, selectedModel, permissionMode,
-    selectedAgent, sdkStatusLoaded, currentSdkInstalled,
+    currentProvider,
+    selectedModel,
+    permissionMode,
+    selectedAgent,
+    sdkStatusLoaded,
+    currentSdkInstalled,
     currentProviderRef,
     activeProviderConfig,
-    reasoningEffort, streamingEnabledSetting, showThinkingEnabledSetting, sendShortcut, autoOpenFileEnabled,
+    reasoningEffort,
+    streamingEnabledSetting,
+    showThinkingEnabledSetting,
+    sendShortcut,
+    autoOpenFileEnabled,
     longContextEnabled,
-    usagePercentage, usageUsedTokens, usageMaxTokens, tokenDetail,
-      setCurrentProvider,
+    usagePercentage,
+    usageUsedTokens,
+    usageMaxTokens,
+    tokenDetail,
+    setCurrentProvider,
     setPermissionMode,
-    setClaudePermissionMode, setCodexPermissionMode,
-    setSelectedClaudeModel, setSelectedCodexModel,
+    setClaudePermissionMode,
+    setCodexPermissionMode,
+    setSelectedClaudeModel,
+    setSelectedCodexModel,
     setSelectedOpenCodeModel,
-    setProviderConfigVersion, setActiveProviderConfig,
-    setStreamingEnabledSetting, setShowThinkingEnabledSetting,
-    setSendShortcut, setAutoOpenFileEnabled,
-    setSdkStatus, setSdkStatusLoaded, setSelectedAgent,
-    setUsagePercentage, setUsageUsedTokens, setUsageMaxTokens,
+    setProviderConfigVersion,
+    setActiveProviderConfig,
+    setStreamingEnabledSetting,
+    setShowThinkingEnabledSetting,
+    setSendShortcut,
+    setAutoOpenFileEnabled,
+    setSdkStatus,
+    setSdkStatusLoaded,
+    setSelectedAgent,
+    setUsagePercentage,
+    setUsageUsedTokens,
+    setUsageMaxTokens,
     setTokenDetail,
     syncActiveProviderModelMapping,
-    handleModeSelect, handleModelSelect, handleProviderSelect,
-    handleReasoningChange, handleAgentSelect,
-    handleStreamingEnabledChange, handleShowThinkingEnabledChange, handleSendShortcutChange,
-    handleAutoOpenFileEnabledChange, handleLongContextChange,
+    handleModeSelect,
+    handleModelSelect,
+    handleProviderSelect,
+    handleReasoningChange,
+    handleAgentSelect,
+    handleStreamingEnabledChange,
+    handleShowThinkingEnabledChange,
+    handleSendShortcutChange,
+    handleAutoOpenFileEnabledChange,
+    handleLongContextChange,
   } = useModelProviderState({ addToast, t });
 
   // ── Global drag event interception ──
@@ -203,16 +296,18 @@ const App = () => {
     if (currentView !== 'chat') return;
     const isMac = (() => {
       if (typeof navigator === 'undefined') return false;
-      const uaData = (navigator as Navigator & {
-        userAgentData?: { platform?: string };
-      }).userAgentData;
+      const uaData = (
+        navigator as Navigator & {
+          userAgentData?: { platform?: string };
+        }
+      ).userAgentData;
       const platform = uaData?.platform ?? navigator.userAgent ?? '';
       return /mac|iphone|ipad|ipod/i.test(platform);
     })();
     const handler = (e: KeyboardEvent) => {
       const key = e.key;
       if (key !== 'f' && key !== 'F') return;
-      const isFind = isMac ? (e.metaKey && !e.ctrlKey) : (e.ctrlKey && !e.metaKey);
+      const isFind = isMac ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey;
       if (!isFind) return;
       // Don't fight IME composition.
       if (e.isComposing) return;
@@ -231,103 +326,187 @@ const App = () => {
   useEffect(() => {
     preloadSlashCommands();
     forceRefreshPrompts();
-    const retryTimer = setTimeout(() => { forceRefreshPrompts(); }, 1000);
+    const retryTimer = setTimeout(() => {
+      forceRefreshPrompts();
+    }, 1000);
     return () => clearTimeout(retryTimer);
   }, []);
 
   useEffect(() => {
-    if (isFirstMountRef.current) { isFirstMountRef.current = false; return; }
-    if (currentView === 'chat') { forceRefreshPrompts(); }
+    if (isFirstMountRef.current) {
+      isFirstMountRef.current = false;
+      return;
+    }
+    if (currentView === 'chat') {
+      forceRefreshPrompts();
+    }
   }, [currentView]);
 
   // ── Session management ──
   const {
-    showNewSessionConfirm, showInterruptConfirm,
+    showNewSessionConfirm,
+    showInterruptConfirm,
     suppressNextStatusToastRef,
-    createNewSession, forceCreateNewSession,
+    createNewSession,
+    forceCreateNewSession,
     createNewSessionWithProvider,
-    handleConfirmNewSession, handleCancelNewSession,
-    handleConfirmInterrupt, handleCancelInterrupt,
-    loadHistorySession, deleteHistorySession, deleteHistorySessions, archiveHistorySessions, exportHistorySession, printSessionPdf,
-    toggleFavoriteSession, updateHistoryTitle, applyHistoryTitleLocal,
+    handleConfirmNewSession,
+    handleCancelNewSession,
+    handleConfirmInterrupt,
+    handleCancelInterrupt,
+    loadHistorySession,
+    deleteHistorySession,
+    deleteHistorySessions,
+    archiveHistorySessions,
+    exportHistorySession,
+    printSessionPdf,
+    toggleFavoriteSession,
+    updateHistoryTitle,
+    applyHistoryTitleLocal,
     handleHistoryArchiveResult,
     convertToCliSession,
   } = useSessionManagement({
-    messages, loading, historyData, currentSessionId,
-    setHistoryData, setMessages, setCurrentView, setCurrentSessionId,
-    setCustomSessionTitle, setUsagePercentage, setUsageUsedTokens, setUsageMaxTokens,
-    setStatus, setLoading, setIsThinking, setStreamingActive,
-    clearToasts, addToast, t,
+    messages,
+    loading,
+    historyData,
+    currentSessionId,
+    setHistoryData,
+    setMessages,
+    setCurrentView,
+    setCurrentSessionId,
+    setCustomSessionTitle,
+    setUsagePercentage,
+    setUsageUsedTokens,
+    setUsageMaxTokens,
+    setStatus,
+    setLoading,
+    setIsThinking,
+    setStreamingActive,
+    clearToasts,
+    addToast,
+    t,
   });
 
   useHistoryLoader({ currentView, currentProvider });
 
   // ── Window callbacks (bridge communication) ──
+  const setTaskEvents = useSetTaskEvents();
   useWindowCallbacks({
-    t, addToast, clearToasts,
-    setMessages, setStatus, setLoading, setLoadingStartTime,
-    setQueueDisplayState, setQueueAheadCount,
-    setIsThinking, setStreamingActive, setHistoryData,
-    setCurrentSessionId, setUsagePercentage, setUsageUsedTokens, setUsageMaxTokens,
+    t,
+    addToast,
+    clearToasts,
+    setMessages,
+    setStatus,
+    setLoading,
+    setLoadingStartTime,
+    setQueueDisplayState,
+    setQueueAheadCount,
+    setIsThinking,
+    setStreamingActive,
+    setHistoryData,
+    setCurrentSessionId,
+    setUsagePercentage,
+    setUsageUsedTokens,
+    setUsageMaxTokens,
     setTokenDetail,
-      setCurrentProvider,
-    setPermissionMode, setClaudePermissionMode, setCodexPermissionMode,
-    setSelectedClaudeModel, setSelectedCodexModel,
+    setCurrentProvider,
+    setPermissionMode,
+    setClaudePermissionMode,
+    setCodexPermissionMode,
+    setSelectedClaudeModel,
+    setSelectedCodexModel,
     setSelectedOpenCodeModel,
-    setProviderConfigVersion, setActiveProviderConfig,
-    setStreamingEnabledSetting, setShowThinkingEnabledSetting,
-    setSendShortcut, setAutoOpenFileEnabled,
-    setSdkStatus, setSdkStatusLoaded, // These come from useUsageTracking
-    setIsRewinding, setRewindDialogOpen, setCurrentRewindRequest,
-    setContextInfo, setSelectedAgent,
+    setProviderConfigVersion,
+    setActiveProviderConfig,
+    setStreamingEnabledSetting,
+    setShowThinkingEnabledSetting,
+    setSendShortcut,
+    setAutoOpenFileEnabled,
+    setSdkStatus,
+    setSdkStatusLoaded, // These come from useUsageTracking
+    setIsRewinding,
+    setRewindDialogOpen,
+    setCurrentRewindRequest,
+    setContextInfo,
+    setSelectedAgent,
     setSubagentHistories,
-    currentProviderRef, messagesContainerRef, isUserAtBottomRef, userPausedRef,
+    setTaskEvents,
+    currentProviderRef,
+    messagesContainerRef,
+    isUserAtBottomRef,
+    userPausedRef,
     suppressNextStatusToastRef,
-    streamingContentRef, streamingThinkingRef, isStreamingRef, useBackendStreamingRenderRef,
+    streamingContentRef,
+    streamingThinkingRef,
+    isStreamingRef,
+    useBackendStreamingRenderRef,
     autoExpandedThinkingKeysRef,
     streamingMessageIndexRef,
-    streamingTurnIdRef, turnIdCounterRef,
-    lastContentUpdateRef, contentUpdateTimeoutRef,
-    lastThinkingUpdateRef, thinkingUpdateTimeoutRef,
-    findLastAssistantIndex, extractRawBlocks,
-    getOrCreateStreamingAssistantIndex, patchAssistantForStreaming,
+    streamingTurnIdRef,
+    turnIdCounterRef,
+    lastContentUpdateRef,
+    contentUpdateTimeoutRef,
+    lastThinkingUpdateRef,
+    thinkingUpdateTimeoutRef,
+    findLastAssistantIndex,
+    extractRawBlocks,
+    getOrCreateStreamingAssistantIndex,
+    patchAssistantForStreaming,
     syncActiveProviderModelMapping,
-    openPermissionDialog, openAskUserQuestionDialog, openPlanApprovalDialog,
-    openContextUsageDialog, updateContextUsageData,
+    openPermissionDialog,
+    openAskUserQuestionDialog,
+    openPlanApprovalDialog,
+    openContextUsageDialog,
+    updateContextUsageData,
     closeContextUsageDialog,
-    customSessionTitleRef, currentSessionIdRef, updateHistoryTitle, applyHistoryTitleLocal,
+    customSessionTitleRef,
+    currentSessionIdRef,
+    updateHistoryTitle,
+    applyHistoryTitleLocal,
     handleHistoryArchiveResult,
     setCustomSessionTitle,
     setPermissionDialogTimeoutSeconds,
   });
 
   // ── Message processing ──
-  const {
-    getMessageText, getContentBlocks,
-    mergedMessages, sentAttachmentsRef,
-  } = useMessageProcessing({ messages, currentSessionId, t });
+  const { getMessageText, getContentBlocks, mergedMessages, sentAttachmentsRef } =
+    useMessageProcessing({ messages, currentSessionId, t });
 
   // ── Message sender ──
   // Wrap handleProviderSelect to also clear messages and input (like creating a new session)
-  const wrappedHandleProviderSelect = useCallback((providerId: string) => {
-    chatInputRef.current?.clear();
-    // 走带确认的路径:已有对话/loading 时弹确认,避免误切供应商直接清空会话不可撤回。
-    // handleProviderSelect(切前端 provider state + 下行 SET_SESSION_*)放进 onConfirmedExec,
-    // 仅确认后(或无需确认的直接执行分支)才调用 → 取消时 provider state 完全不变。
-    createNewSessionWithProvider(providerId, () => handleProviderSelect(providerId));
-  }, [createNewSessionWithProvider, handleProviderSelect]);
+  const wrappedHandleProviderSelect = useCallback(
+    (providerId: string) => {
+      chatInputRef.current?.clear();
+      // 走带确认的路径:已有对话/loading 时弹确认,避免误切供应商直接清空会话不可撤回。
+      // handleProviderSelect(切前端 provider state + 下行 SET_SESSION_*)放进 onConfirmedExec,
+      // 仅确认后(或无需确认的直接执行分支)才调用 → 取消时 provider state 完全不变。
+      createNewSessionWithProvider(providerId, () => handleProviderSelect(providerId));
+    },
+    [createNewSessionWithProvider, handleProviderSelect],
+  );
 
   const {
     handleSubmit: hookHandleSubmit,
     executeMessage,
     interruptSession,
   } = useMessageSender({
-    t, addToast,
-    currentProvider, selectedModel, permissionMode, selectedAgent,
+    t,
+    addToast,
+    currentProvider,
+    selectedModel,
+    permissionMode,
+    selectedAgent,
     sdkStatusLoaded,
-    sentAttachmentsRef, chatInputRef, messagesContainerRef,
-    isUserAtBottomRef, userPausedRef, isStreamingRef,
-    setMessages, setLoading, setLoadingStartTime, setStreamingActive,
+    sentAttachmentsRef,
+    chatInputRef,
+    messagesContainerRef,
+    isUserAtBottomRef,
+    userPausedRef,
+    isStreamingRef,
+    setMessages,
+    setLoading,
+    setLoadingStartTime,
+    setStreamingActive,
     setCurrentView,
     forceCreateNewSession,
     handleModeSelect,
@@ -344,62 +523,89 @@ const App = () => {
   } = useMessageQueue({ isLoading: loading, onExecute: executeMessage });
 
   // handleSubmit with queue support (new session and local commands bypass loading check)
-  const handleSubmit = useCallback((content: string, attachments?: Attachment[]) => {
-    const text = content.replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
-    const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
-    if (!text && !hasAttachments) return;
-    // Local commands work even while loading
-    if (text.startsWith('/')) {
-      const command = text.split(/\s+/)[0].toLowerCase();
-      // New session commands
-      if (NEW_SESSION_COMMANDS.has(command)) {
-        forceCreateNewSession();
+  const handleSubmit = useCallback(
+    (content: string, attachments?: Attachment[]) => {
+      const text = content.replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
+      const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
+      if (!text && !hasAttachments) return;
+      // Local commands work even while loading
+      if (text.startsWith('/')) {
+        const command = text.split(/\s+/)[0].toLowerCase();
+        // New session commands
+        if (NEW_SESSION_COMMANDS.has(command)) {
+          forceCreateNewSession();
+          return;
+        }
+        // /resume - open history view
+        if (RESUME_COMMANDS.has(command)) {
+          setCurrentView('history');
+          return;
+        }
+        // /plan - switch to plan mode (Claude only; Codex sends as normal text)
+        if (PLAN_COMMANDS.has(command) && currentProvider === 'claude') {
+          handleModeSelect('plan');
+          addToast(t('chat.planModeEnabled', { defaultValue: 'Plan mode enabled' }), 'info');
+          return;
+        }
+        // /context - handled locally even while loading
+        if (CONTEXT_COMMANDS.has(command)) {
+          hookHandleSubmit(content, attachments);
+          return;
+        }
+      }
+      // If loading, add to queue
+      if (loading) {
+        enqueueMessage(content, attachments);
         return;
       }
-      // /resume - open history view
-      if (RESUME_COMMANDS.has(command)) {
-        setCurrentView('history');
-        return;
-      }
-      // /plan - switch to plan mode (Claude only; Codex sends as normal text)
-      if (PLAN_COMMANDS.has(command) && currentProvider === 'claude') {
-        handleModeSelect('plan');
-        addToast(t('chat.planModeEnabled', { defaultValue: 'Plan mode enabled' }), 'info');
-        return;
-      }
-      // /context - handled locally even while loading
-      if (CONTEXT_COMMANDS.has(command)) {
-        hookHandleSubmit(content, attachments);
-        return;
-      }
-    }
-    // If loading, add to queue
-    if (loading) {
-      enqueueMessage(content, attachments);
-      return;
-    }
-    hookHandleSubmit(content, attachments);
-  }, [loading, enqueueMessage, hookHandleSubmit, forceCreateNewSession, currentProvider, handleModeSelect, setCurrentView, addToast, t]);
+      hookHandleSubmit(content, attachments);
+    },
+    [
+      loading,
+      enqueueMessage,
+      hookHandleSubmit,
+      forceCreateNewSession,
+      currentProvider,
+      handleModeSelect,
+      setCurrentView,
+      addToast,
+      t,
+    ],
+  );
 
   // ── Chat-view computations (stage 5 of TASK-P1-01) ──
   const {
-    findToolResult, getToolResultRaw,
+    findToolResult,
+    getToolResultRaw,
     fileChangeMgmt,
-    filteredFileChanges, subagents, globalTodos, rewindableMessages, sessionTitle,
+    filteredFileChanges,
+    subagents,
+    globalTodos,
+    rewindableMessages,
+    sessionTitle,
   } = useChatComputations({
-    t, messages, mergedMessages, customSessionTitle, streamingActive, currentProvider,
-    currentSessionId, currentSessionIdRef,
-    getMessageText, getContentBlocks,
+    t,
+    messages,
+    mergedMessages,
+    customSessionTitle,
+    streamingActive,
+    currentProvider,
+    currentSessionId,
+    currentSessionIdRef,
+    getMessageText,
+    getContentBlocks,
   });
 
   const { handleUndoFile, handleDiscardAll: handleDiscardAllRaw, handleKeepAll } = fileChangeMgmt;
-  const onDiscardAll = useCallback(
-    () => { handleDiscardAllRaw(filteredFileChanges); },
-    [handleDiscardAllRaw, filteredFileChanges],
-  );
+  const onDiscardAll = useCallback(() => {
+    handleDiscardAllRaw(filteredFileChanges);
+  }, [handleDiscardAllRaw, filteredFileChanges]);
 
   // Stabilize context value references for SubagentContext consumers.
-  const { subagentHistoryCtxValue, sessionIdCtxValue } = useSubagentContextValues(subagentHistories, currentSessionId);
+  const { subagentHistoryCtxValue, sessionIdCtxValue } = useSubagentContextValues(
+    subagentHistories,
+    currentSessionId,
+  );
 
   const handleNavigateToProviderSettings = useCallback(() => {
     setSettingsInitialTab('providers');
@@ -408,12 +614,22 @@ const App = () => {
 
   // ── Rewind handlers ──
   const {
-    handleRewindConfirm, handleRewindCancel,
-    handleOpenRewindSelectDialog, handleRewindSelect, handleRewindSelectCancel,
+    handleRewindConfirm,
+    handleRewindCancel,
+    handleOpenRewindSelectDialog,
+    handleRewindSelect,
+    handleRewindSelectCancel,
   } = useRewindHandlers({
-    t, addToast, currentSessionId, mergedMessages, getMessageText,
-    setCurrentRewindRequest, setRewindDialogOpen, setRewindSelectDialogOpen,
-    setIsRewinding, isRewinding,
+    t,
+    addToast,
+    currentSessionId,
+    mergedMessages,
+    getMessageText,
+    setCurrentRewindRequest,
+    setRewindDialogOpen,
+    setRewindSelectDialogOpen,
+    setIsRewinding,
+    isRewinding,
   });
 
   const statusPanelExpanded = !userCollapsedRef.current;
@@ -456,6 +672,8 @@ const App = () => {
           onSendShortcutChange={handleSendShortcutChange}
           autoOpenFileEnabled={autoOpenFileEnabled}
           onAutoOpenFileEnabledChange={handleAutoOpenFileEnabledChange}
+          detailedOutputEnabled={detailedOutputEnabled}
+          onDetailedOutputEnabledChange={handleDetailedOutputEnabledChange}
           permissionDialogTimeoutSeconds={permissionDialogTimeoutSeconds}
           onPermissionDialogTimeoutChange={setPermissionDialogTimeoutSeconds}
           avatarConfig={avatarConfig}
@@ -465,17 +683,35 @@ const App = () => {
           onUploadUserAvatar={uploadUserAvatar}
         />
       ) : currentView === 'chat' ? (
-        <ModelProviderProvider value={{
-          currentProvider, selectedModel, permissionMode, selectedAgent,
-          sdkStatusLoaded, currentSdkInstalled,
-          activeProviderConfig,
-          reasoningEffort, streamingEnabledSetting, showThinkingEnabledSetting, sendShortcut, autoOpenFileEnabled,
-          longContextEnabled, usagePercentage, usageUsedTokens, usageMaxTokens, tokenDetail,
-          handleModeSelect, handleModelSelect, handleAgentSelect,
-          handleReasoningChange,
-          handleStreamingEnabledChange, handleShowThinkingEnabledChange, handleAutoOpenFileEnabledChange,
-          handleLongContextChange,
-        }}>
+        <ModelProviderProvider
+          value={{
+            currentProvider,
+            selectedModel,
+            permissionMode,
+            selectedAgent,
+            sdkStatusLoaded,
+            currentSdkInstalled,
+            activeProviderConfig,
+            reasoningEffort,
+            streamingEnabledSetting,
+            showThinkingEnabledSetting,
+            sendShortcut,
+            autoOpenFileEnabled,
+            longContextEnabled,
+            usagePercentage,
+            usageUsedTokens,
+            usageMaxTokens,
+            tokenDetail,
+            handleModeSelect,
+            handleModelSelect,
+            handleAgentSelect,
+            handleReasoningChange,
+            handleStreamingEnabledChange,
+            handleShowThinkingEnabledChange,
+            handleAutoOpenFileEnabledChange,
+            handleLongContextChange,
+          }}
+        >
           <ChatScreen
             mergedMessages={mergedMessages}
             getMessageText={getMessageText}
@@ -495,6 +731,7 @@ const App = () => {
             userCollapsedRef={userCollapsedRef}
             messageListRef={messageListRef}
             isAutoScrollingRef={isAutoScrollingRef}
+            isUserAtBottomRef={isUserAtBottomRef}
             anchorCollapsedCount={anchorCollapsedCount}
             setAnchorCollapsedCount={setAnchorCollapsedCount}
             onMessageNodeRef={handleMessageNodeRef}
@@ -508,6 +745,7 @@ const App = () => {
             onRewind={handleOpenRewindSelectDialog}
             onNavigateToProviderSettings={handleNavigateToProviderSettings}
             onProviderSelect={wrappedHandleProviderSelect}
+            detailedOutputEnabled={detailedOutputEnabled}
             avatarConfig={avatarConfig}
             messageQueue={messageQueue}
             onRemoveFromQueue={dequeueMessage}

@@ -43,13 +43,14 @@ function parseBashItem(
     result?: ToolResultBlock | null;
     toolId?: string;
   },
-  deniedToolIds?: Set<string>
+  deniedToolIds?: Set<string>,
 ): BashItem | null {
   const { input, result, toolId } = item;
   if (!input) return null;
 
-  const command = typeof input.command === 'string' ? input.command : '';
-  const description = typeof input.description === 'string' ? input.description : '';
+  const command = typeof input.command === 'string' ? input.command.trim() : '';
+  const description = typeof input.description === 'string' ? input.description.trim() : '';
+  if (!command && !description) return null;
 
   let output = '';
   if (result) {
@@ -124,20 +125,16 @@ const BashToolGroupBlock = ({ items, deniedToolIds }: BashToolGroupBlockProps) =
 
   // Calculate list height for 3.5 visible items
   const needsScroll = bashItems.length > MAX_VISIBLE_ITEMS;
-  
+
   // Base height for collapsed state
-  const baseHeight = needsScroll
-    ? MAX_VISIBLE_ITEMS * ITEM_HEIGHT
-    : bashItems.length * ITEM_HEIGHT;
+  const baseHeight = needsScroll ? MAX_VISIBLE_ITEMS * ITEM_HEIGHT : bashItems.length * ITEM_HEIGHT;
 
   // When an item is expanded, increase max-height to allow viewing details
   // otherwise use the compact base height
-  const listHeight = expandedItemIndex !== null
-    ? EXPANDED_MAX_HEIGHT
-    : baseHeight;
+  const listHeight = expandedItemIndex !== null ? EXPANDED_MAX_HEIGHT : baseHeight;
 
   // Enable scrolling if there are many items OR if an item is expanded (content might overflow)
-  const overflowY = (needsScroll || expandedItemIndex !== null) ? 'auto' : 'hidden';
+  const overflowY = needsScroll || expandedItemIndex !== null ? 'auto' : 'hidden';
 
   // Progress summary text
   const getProgressSummary = () => {
@@ -172,10 +169,7 @@ const BashToolGroupBlock = ({ items, deniedToolIds }: BashToolGroupBlockProps) =
   return (
     <div className="task-container bash-group-container">
       {/* Header - always visible */}
-      <div
-        className="task-header bash-group-header"
-        onClick={() => setExpanded((prev) => !prev)}
-      >
+      <div className="task-header bash-group-header" onClick={() => setExpanded((prev) => !prev)}>
         <div className="task-title-section">
           <span className="tool-title-text">
             {t('tools.bashGroupBatchRun')} ({totalCount})
@@ -186,11 +180,7 @@ const BashToolGroupBlock = ({ items, deniedToolIds }: BashToolGroupBlockProps) =
 
       {/* Timeline list - visible when expanded */}
       {expanded && (
-        <div
-          ref={listRef}
-          className="bash-group-timeline"
-          style={timelineStyle}
-        >
+        <div ref={listRef} className="bash-group-timeline" style={timelineStyle}>
           {bashItems.map((item, index) => {
             const isLast = index === bashItems.length - 1;
             const isItemExpanded = expandedItemIndex === index;
@@ -209,7 +199,9 @@ const BashToolGroupBlock = ({ items, deniedToolIds }: BashToolGroupBlockProps) =
                   onClick={(e) => handleItemClick(index, e)}
                 >
                   <div className="bash-timeline-row">
-                    <span className={`bash-timeline-description ${item.description ? '' : 'bash-timeline-description-command'}`}>
+                    <span
+                      className={`bash-timeline-description ${item.description ? '' : 'bash-timeline-description-command'}`}
+                    >
                       {item.description || truncateCommand(item.command)}
                     </span>
                     <div
@@ -225,12 +217,7 @@ const BashToolGroupBlock = ({ items, deniedToolIds }: BashToolGroupBlockProps) =
                       <div className="bash-command-block">{item.command}</div>
                       {item.output && (
                         <div className={`bash-output-block ${item.isError ? 'error' : 'normal'}`}>
-                          {item.isError && (
-                            <XCircleIcon
-                              size={16}
-                              style={ERROR_ICON_STYLE}
-                            />
-                          )}
+                          {item.isError && <XCircleIcon size={16} style={ERROR_ICON_STYLE} />}
                           <span className="bash-output-text">{item.output}</span>
                         </div>
                       )}

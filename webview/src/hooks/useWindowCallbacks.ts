@@ -1,7 +1,12 @@
 import { useEffect, useRef } from 'react';
 import type { TFunction } from 'i18next';
 import type { MutableRefObject, RefObject } from 'react';
-import type { ClaudeMessage, ClaudeRawMessage, HistoryData, SubagentHistoryResponse } from '../types';
+import type {
+  ClaudeMessage,
+  ClaudeRawMessage,
+  HistoryData,
+  SubagentHistoryResponse,
+} from '../types';
 import type { HistoryArchiveResultPayloadWire } from '../generated/protocol';
 import type { PermissionMode, SelectedAgent } from '../components/ChatInputBox/types';
 import type { ProviderConfig } from '../types/provider';
@@ -10,6 +15,7 @@ import type { PermissionRequest } from '../components/PermissionDialog';
 import type { AskUserQuestionRequest } from '../components/AskUserQuestionDialog';
 import type { PlanApprovalRequest } from '../components/PlanApprovalDialog';
 import type { RewindRequest } from '../components/RewindDialog';
+import type { TaskEventMap } from '../types';
 import { registerWindowCallbacks } from './windowCallbacks/registerCallbacks';
 
 // Re-export from messageSync to avoid duplicate definition
@@ -42,7 +48,7 @@ export interface UseWindowCallbacksOptions {
   setUsageUsedTokens: React.Dispatch<React.SetStateAction<number | undefined>>;
   setUsageMaxTokens: React.Dispatch<React.SetStateAction<number | undefined>>;
   setTokenDetail: React.Dispatch<React.SetStateAction<any>>;
-    setCurrentProvider: React.Dispatch<React.SetStateAction<string>>;
+  setCurrentProvider: React.Dispatch<React.SetStateAction<string>>;
   setPermissionMode: React.Dispatch<React.SetStateAction<PermissionMode>>;
   setClaudePermissionMode: React.Dispatch<React.SetStateAction<PermissionMode>>;
   setCodexPermissionMode: React.Dispatch<React.SetStateAction<PermissionMode>>;
@@ -56,14 +62,19 @@ export interface UseWindowCallbacksOptions {
   setSendShortcut: React.Dispatch<React.SetStateAction<'enter' | 'cmdEnter'>>;
   setAutoOpenFileEnabled: React.Dispatch<React.SetStateAction<boolean>>;
   setPermissionDialogTimeoutSeconds: React.Dispatch<React.SetStateAction<number>>;
-  setSdkStatus: React.Dispatch<React.SetStateAction<Record<string, { installed?: boolean; status?: string }>>>;
+  setSdkStatus: React.Dispatch<
+    React.SetStateAction<Record<string, { installed?: boolean; status?: string }>>
+  >;
   setSdkStatusLoaded: React.Dispatch<React.SetStateAction<boolean>>;
   setIsRewinding: (loading: boolean) => void;
   setRewindDialogOpen: (open: boolean) => void;
   setCurrentRewindRequest: (request: RewindRequest | null) => void;
   setContextInfo: React.Dispatch<React.SetStateAction<ContextInfo | null>>;
   setSelectedAgent: React.Dispatch<React.SetStateAction<SelectedAgent | null>>;
-  setSubagentHistories?: React.Dispatch<React.SetStateAction<Record<string, SubagentHistoryResponse>>>;
+  setSubagentHistories?: React.Dispatch<
+    React.SetStateAction<Record<string, SubagentHistoryResponse>>
+  >;
+  setTaskEvents?: React.Dispatch<React.SetStateAction<TaskEventMap>>;
 
   // Refs
   currentProviderRef: MutableRefObject<string>;

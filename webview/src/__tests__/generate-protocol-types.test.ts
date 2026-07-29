@@ -1,5 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
-import { parseEnumSource, parsePayloadFieldSource, generateFromManifest, parseIntConstants } from '../../scripts/generate-protocol-types.mjs';
+import {
+  parseEnumSource,
+  parsePayloadFieldSource,
+  generateFromManifest,
+  parseIntConstants,
+} from '../../scripts/generate-protocol-types.mjs';
 
 /**
  * C8 漂移守门测试:parseEnumSource 的 entryPattern(commit 9ee6ebff 起支持单参/多参),
@@ -185,7 +190,7 @@ describe('generateFromManifest — C1 payload interface generation', () => {
     expect(ts).toContain("  JSON: 'json' as const,");
     expect(ts).toContain("  HTML: 'html' as const,");
     expect(ts).toContain(
-      'export type HistoryExportFormat = typeof HISTORY_EXPORT_FORMAT[keyof typeof HISTORY_EXPORT_FORMAT];'
+      'export type HistoryExportFormat = typeof HISTORY_EXPORT_FORMAT[keyof typeof HISTORY_EXPORT_FORMAT];',
     );
   });
 
@@ -242,7 +247,12 @@ describe('generateFromManifest — C1 payload interface generation', () => {
         historyArchiveResult: {
           fields: [
             { name: 'SUCCESS', wireKey: 'success', tsType: 'boolean', optional: false },
-            { name: 'ARCHIVED_SESSION_IDS', wireKey: 'archivedSessionIds', tsType: 'readonly string[]', optional: false },
+            {
+              name: 'ARCHIVED_SESSION_IDS',
+              wireKey: 'archivedSessionIds',
+              tsType: 'readonly string[]',
+              optional: false,
+            },
           ],
         },
       },
@@ -252,6 +262,52 @@ describe('generateFromManifest — C1 payload interface generation', () => {
     expect(ts).toContain('  canArchive: boolean;');
     expect(ts).toContain('export interface HistoryArchiveResultPayloadWire {');
     expect(ts).toContain('  archivedSessionIds: readonly string[];');
+  });
+
+  it('生成 WebviewBootstrapPayloadWire interface(B3 bootstrap schema SSOT)', () => {
+    const ts = generateFromManifest({
+      ...baseManifest,
+      payloadSchemas: {
+        webviewBootstrap: {
+          fields: [
+            {
+              name: 'EDITOR_FONT_CONFIG',
+              wireKey: 'editorFontConfig',
+              tsType: 'unknown',
+              optional: false,
+            },
+            { name: 'UI_FONT_CONFIG', wireKey: 'uiFontConfig', tsType: 'unknown', optional: false },
+            {
+              name: 'CODE_FONT_CONFIG',
+              wireKey: 'codeFontConfig',
+              tsType: 'unknown',
+              optional: false,
+            },
+            {
+              name: 'LANGUAGE_CONFIG',
+              wireKey: 'languageConfig',
+              tsType: 'unknown',
+              optional: false,
+            },
+            {
+              name: 'APPEARANCE_CONFIG',
+              wireKey: 'appearanceConfig',
+              tsType: 'unknown',
+              optional: false,
+            },
+            { name: 'AVATAR_CONFIG', wireKey: 'avatarConfig', tsType: 'unknown', optional: false },
+          ],
+        },
+      },
+    });
+
+    expect(ts).toContain('export interface WebviewBootstrapPayloadWire {');
+    expect(ts).toContain('  editorFontConfig: unknown;');
+    expect(ts).toContain('  uiFontConfig: unknown;');
+    expect(ts).toContain('  codeFontConfig: unknown;');
+    expect(ts).toContain('  languageConfig: unknown;');
+    expect(ts).toContain('  appearanceConfig: unknown;');
+    expect(ts).toContain('  avatarConfig: unknown;');
   });
 
   it('无 payloadSchemas 时不生成 payload interface(向后兼容)', () => {
@@ -271,8 +327,68 @@ describe('generateFromManifest — C1 payload interface generation', () => {
     expect(ts).toContain("  CODEX_MODEL: 'CODEX_MODEL' as const,");
     expect(ts).toContain("  HOME: 'HOME' as const,");
     expect(ts).toContain(
-      'export type CodexProtectedEnvKey = typeof CODEX_PROTECTED_ENV_KEY[keyof typeof CODEX_PROTECTED_ENV_KEY];'
+      'export type CodexProtectedEnvKey = typeof CODEX_PROTECTED_ENV_KEY[keyof typeof CODEX_PROTECTED_ENV_KEY];',
     );
+  });
+
+  it('生成 Skills 枚举常量与文档 payload wire 类型', () => {
+    const ts = generateFromManifest({
+      ...baseManifest,
+      skillScope: [
+        { name: 'GLOBAL', value: 'global' },
+        { name: 'USER', value: 'user' },
+      ],
+      skillFieldControl: [
+        { name: 'TEXT', value: 'text' },
+        { name: 'STRING_LIST', value: 'string-list' },
+      ],
+      payloadSchemas: {
+        skillDocumentField: {
+          fields: [
+            { name: 'CONTROL', wireKey: 'control', tsType: 'SkillFieldControl', optional: false },
+            {
+              name: 'VALUE',
+              wireKey: 'value',
+              tsType: 'string | boolean | string[] | null',
+              optional: false,
+            },
+          ],
+        },
+        skillDocumentResult: {
+          fields: [
+            { name: 'SUCCESS', wireKey: 'success', tsType: 'boolean', optional: false },
+            {
+              name: 'FIELDS',
+              wireKey: 'fields',
+              tsType: 'SkillDocumentFieldPayloadWire[]',
+              optional: true,
+            },
+          ],
+        },
+        skillDocumentSave: {
+          fields: [
+            {
+              name: 'CHANGES',
+              wireKey: 'changes',
+              tsType: 'Record<string, string | boolean | string[] | null>',
+              optional: false,
+            },
+            { name: 'BODY', wireKey: 'body', tsType: 'string', optional: false },
+          ],
+        },
+      },
+    });
+
+    expect(ts).toContain("  GLOBAL: 'global' as const,");
+    expect(ts).toContain('export type SkillScope = typeof SKILL_SCOPE[keyof typeof SKILL_SCOPE];');
+    expect(ts).toContain("  STRING_LIST: 'string-list' as const,");
+    expect(ts).toContain('export interface SkillDocumentFieldPayloadWire {');
+    expect(ts).toContain('  control: SkillFieldControl;');
+    expect(ts).toContain('  value: string | boolean | string[] | null;');
+    expect(ts).toContain('export interface SkillDocumentResultPayloadWire {');
+    expect(ts).toContain('  fields?: SkillDocumentFieldPayloadWire[];');
+    expect(ts).toContain('export interface SkillDocumentSavePayloadWire {');
+    expect(ts).toContain('  changes: Record<string, string | boolean | string[] | null>;');
   });
 
   it('生成 int 常量为 export const X = N as const(C5)', () => {

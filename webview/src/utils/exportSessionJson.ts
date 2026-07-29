@@ -1,7 +1,20 @@
 import { sendAction } from '../bridge/typed';
 import { UPSTREAM } from '../generated/protocol';
-import type { ClaudeMessage, ClaudeContentBlock, ToolResultBlock, ClaudeRawMessage } from '../types';
-import { hasCommandMessageTag, hasTaskNotificationTag, formatCommandForResubmit, formatTaskNotificationForDisplay, HIDDEN_OUTPUT_TAGS, INTERNAL_METADATA_TAGS, containsAnyTag } from './messageUtils';
+import type {
+  ClaudeMessage,
+  ClaudeContentBlock,
+  ToolResultBlock,
+  ClaudeRawMessage,
+} from '../types';
+import {
+  hasCommandMessageTag,
+  hasTaskNotificationTag,
+  formatCommandForResubmit,
+  formatTaskNotificationForDisplay,
+  HIDDEN_OUTPUT_TAGS,
+  INTERNAL_METADATA_TAGS,
+  containsAnyTag,
+} from './messageUtils';
 
 // ---------------------------------------------------------------------------
 // Type guard for text blocks in raw content arrays
@@ -9,9 +22,12 @@ import { hasCommandMessageTag, hasTaskNotificationTag, formatCommandForResubmit,
 
 /** Type guard: check if an unknown block is a text content block */
 function isTextBlock(block: unknown): block is { type: 'text'; text: string } {
-  return !!block && typeof block === 'object'
-    && (block as Record<string, unknown>).type === 'text'
-    && typeof (block as Record<string, unknown>).text === 'string';
+  return (
+    !!block &&
+    typeof block === 'object' &&
+    (block as Record<string, unknown>).type === 'text' &&
+    typeof (block as Record<string, unknown>).text === 'string'
+  );
 }
 
 /**
@@ -22,15 +38,15 @@ export function convertMessagesToJSON(messages: ClaudeMessage[], sessionTitle: s
 
   // Filter out messages that should not be exported
   const filteredMessages = messages
-    .filter(msg => shouldExportMessage(msg))
-    .map(msg => processMessageForExport(msg));
+    .filter((msg) => shouldExportMessage(msg))
+    .map((msg) => processMessageForExport(msg));
 
   const exportData = {
     format: 'claude-chat-export-v2',
     exportTime,
     sessionTitle,
     messageCount: filteredMessages.length,
-    messages: filteredMessages
+    messages: filteredMessages,
   };
 
   return JSON.stringify(exportData, null, 2);
@@ -46,7 +62,7 @@ function processMessageForExport(message: ClaudeMessage) {
   type ProcessedBlock = { type: string } & Record<string, unknown>;
   let processedBlocks: ProcessedBlock[] = [];
   if (contentBlocks.length > 0) {
-    processedBlocks = contentBlocks.map(block => processContentBlock(block)) as ProcessedBlock[];
+    processedBlocks = contentBlocks.map((block) => processContentBlock(block)) as ProcessedBlock[];
   } else if (message.content && message.content.trim()) {
     // If no content blocks but content field exists, use content
     processedBlocks = [{ type: 'text', text: message.content }];
@@ -63,7 +79,7 @@ function processMessageForExport(message: ClaudeMessage) {
     timestamp: message.timestamp ? formatTimestamp(message.timestamp) : null,
     content: message.content,
     contentBlocks: processedBlocks,
-    raw: message.raw // Preserve raw data for debugging
+    raw: message.raw, // Preserve raw data for debugging
   };
 }
 
@@ -81,7 +97,7 @@ function extractRawContent(raw: ClaudeRawMessage | unknown): string | null {
   if (Array.isArray(rawObj.content)) {
     return rawObj.content
       .filter(isTextBlock)
-      .map(block => block.text || '')
+      .map((block) => block.text || '')
       .join('\n');
   }
 
@@ -91,7 +107,7 @@ function extractRawContent(raw: ClaudeRawMessage | unknown): string | null {
     if (Array.isArray(msg.content)) {
       return msg.content
         .filter(isTextBlock)
-        .map(block => block.text || '')
+        .map((block) => block.text || '')
         .join('\n');
     }
   }
@@ -106,21 +122,21 @@ function processContentBlock(block: ClaudeContentBlock | ToolResultBlock) {
   if (block.type === 'text') {
     return {
       type: 'text',
-      text: block.text
+      text: block.text,
     };
   } else if (block.type === 'thinking') {
     const tb = block as { type: 'thinking'; thinking?: string; text?: string };
     return {
       type: 'thinking',
       thinking: tb.thinking,
-      text: tb.text
+      text: tb.text,
     };
   } else if (block.type === 'tool_use') {
     return {
       type: 'tool_use',
       id: block.id,
       name: block.name,
-      input: block.input
+      input: block.input,
     };
   } else if (block.type === 'tool_result') {
     const toolResult = block as ToolResultBlock;
@@ -130,22 +146,28 @@ function processContentBlock(block: ClaudeContentBlock | ToolResultBlock) {
       type: 'tool_result',
       tool_use_id: toolResult.tool_use_id,
       content: content,
-      is_error: toolResult.is_error
+      is_error: toolResult.is_error,
     };
   } else if (block.type === 'image') {
-    const ib = block as { type: 'image'; src?: string; source?: { data?: string; media_type?: string }; mediaType?: string; alt?: string };
+    const ib = block as {
+      type: 'image';
+      src?: string;
+      source?: { data?: string; media_type?: string };
+      mediaType?: string;
+      alt?: string;
+    };
     return {
       type: 'image',
       src: ib.src || ib.source?.data,
       mediaType: ib.mediaType || ib.source?.media_type,
-      alt: ib.alt
+      alt: ib.alt,
     };
   } else if (block.type === 'task_notification') {
     const tb = block as { type: 'task_notification'; icon?: string; summary?: string };
     // Export task_notification as formatted text: "● summary"
     return {
       type: 'text',
-      text: `${tb.icon || '●'} ${tb.summary || ''}`
+      text: `${tb.icon || '●'} ${tb.summary || ''}`,
     };
   }
 
@@ -162,14 +184,14 @@ function limitContentLength(content: unknown, maxLength: number): unknown {
     }
     return content;
   } else if (Array.isArray(content)) {
-    return content.map(item => {
+    return content.map((item) => {
       if (item && typeof item === 'object') {
         const objItem = item as Record<string, unknown>;
         const text = objItem.text as string | undefined;
         if (text && text.length > maxLength) {
           return {
             ...item,
-            text: text.substring(0, maxLength) + '\n... (content too long, truncated)'
+            text: text.substring(0, maxLength) + '\n... (content too long, truncated)',
           };
         }
       }
@@ -214,7 +236,10 @@ function shouldExportMessage(message: ClaudeMessage): boolean {
   }
 
   // Skip special internal tags (but not command-message or task-notification)
-  if (text && (containsAnyTag(text, HIDDEN_OUTPUT_TAGS) || containsAnyTag(text, INTERNAL_METADATA_TAGS))) {
+  if (
+    text &&
+    (containsAnyTag(text, HIDDEN_OUTPUT_TAGS) || containsAnyTag(text, INTERNAL_METADATA_TAGS))
+  ) {
     return false;
   }
 
@@ -245,14 +270,14 @@ function getMessageText(message: ClaudeMessage): string {
   if (Array.isArray(raw.content)) {
     return raw.content
       .filter(isTextBlock)
-      .map(block => block.text ?? '')
+      .map((block) => block.text ?? '')
       .join('\n');
   }
 
   if (raw.message?.content && Array.isArray(raw.message.content)) {
     return raw.message.content
       .filter(isTextBlock)
-      .map(block => block.text ?? '')
+      .map((block) => block.text ?? '')
       .join('\n');
   }
 
@@ -282,7 +307,9 @@ function getContentBlocks(message: ClaudeMessage): (ClaudeContentBlock | ToolRes
 /**
  * Normalize content blocks
  */
-function normalizeBlocks(raw: ClaudeRawMessage | unknown): (ClaudeContentBlock | ToolResultBlock)[] | null {
+function normalizeBlocks(
+  raw: ClaudeRawMessage | unknown,
+): (ClaudeContentBlock | ToolResultBlock)[] | null {
   if (!raw) {
     return null;
   }
@@ -296,6 +323,8 @@ function normalizeBlocks(raw: ClaudeRawMessage | unknown): (ClaudeContentBlock |
     const msg = rawObj.message as Record<string, unknown>;
     if (Array.isArray(msg.content)) {
       contentArray = msg.content;
+    } else if (typeof msg.content === 'string' && msg.content.trim()) {
+      return [{ type: 'text', text: msg.content }];
     }
   }
   // Handle other formats
@@ -305,11 +334,6 @@ function normalizeBlocks(raw: ClaudeRawMessage | unknown): (ClaudeContentBlock |
     contentArray = rawObj.content;
   } else if (typeof rawObj.content === 'string' && (rawObj.content as string).trim()) {
     return [{ type: 'text', text: rawObj.content as string }];
-  } else if (rawObj.message && typeof rawObj.message === 'object') {
-    const msg = rawObj.message as Record<string, unknown>;
-    if (typeof msg.content === 'string' && (msg.content as string).trim()) {
-      return [{ type: 'text', text: msg.content as string }];
-    }
   }
 
   if (contentArray) {
@@ -345,7 +369,7 @@ function normalizeBlocks(raw: ClaudeRawMessage | unknown): (ClaudeContentBlock |
           type: 'tool_result',
           tool_use_id: b.tool_use_id,
           content: b.content,
-          is_error: b.is_error
+          is_error: b.is_error,
         };
       }
       if (b.type === 'image') {
@@ -369,7 +393,7 @@ export function downloadJSON(content: string, filename: string): void {
   // Save file via backend, showing file chooser dialog
   const payload = JSON.stringify({
     content: content,
-    filename: filename.endsWith('.json') ? filename : `${filename}.json`
+    filename: filename.endsWith('.json') ? filename : `${filename}.json`,
   });
 
   if (sendAction(UPSTREAM.SAVE_JSON, payload)) {

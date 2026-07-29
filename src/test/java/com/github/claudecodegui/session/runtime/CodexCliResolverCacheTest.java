@@ -116,4 +116,18 @@ public class CodexCliResolverCacheTest {
         // 环境无关断言:无论返回真实 codex 路径(装了)还是裸名 "codex"(没装),都绝不等于旧假路径
         assertNotEquals("清缓存后应重新检测,不返回旧缓存假路径", fakeCachedPath, redetected);
     }
+
+    @Test
+    public void cachedVersionIsNullAfterClear() {
+        // 清缓存后,getCachedVersion() 也应返回 null(对称 clear 语义)
+        assertNull(CodexCliResolver.getCachedVersion());
+    }
+
+    @Test
+    public void setCachedExecutableDoesNotAffectCachedVersion() {
+        // 设置路径缓存不应影响版本缓存(版本只有 verify 时更新)
+        assertNull(CodexCliResolver.getCachedVersion());
+        CodexCliResolver.__setCachedExecutableForTests("/fake/path");
+        assertNull(CodexCliResolver.getCachedVersion());
+    }
 }

@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createRef } from 'react';
 import type { ClaudeMessage, ClaudeContentBlock, ToolResultBlock } from '../types';
 import { MessageList } from './MessageList';
+import { bridgeHub } from '../bridge/hub';
+import { DOWNSTREAM } from '../generated/protocol';
 
 // Mock MessageItem to keep this suite focused on list-level paging behaviour.
 vi.mock('./MessageItem', () => ({
@@ -34,7 +36,13 @@ vi.mock('./MessageItem/MessageUsageStats', () => ({
 }));
 
 vi.mock('./MessageItem/AssistantStreamingFooter', () => ({
-  AssistantStreamingFooter: ({ elapsedMs, startedAt }: { elapsedMs?: number; startedAt?: number | null }) => (
+  AssistantStreamingFooter: ({
+    elapsedMs,
+    startedAt,
+  }: {
+    elapsedMs?: number;
+    startedAt?: number | null;
+  }) => (
     <div
       data-testid="streaming-footer"
       data-elapsed-ms={elapsedMs ?? ''}
@@ -82,11 +90,15 @@ const t = ((key: string, opts?: Record<string, unknown>) => {
 }) as never;
 
 function makeMessages(count: number, idPrefix = 'm'): ClaudeMessage[] {
-  return Array.from({ length: count }, (_, i) => ({
-    type: i % 2 === 0 ? 'user' : 'assistant',
-    content: `message ${i}`,
-    id: `${idPrefix}-${i}`,
-  }) as unknown as ClaudeMessage);
+  return Array.from(
+    { length: count },
+    (_, i) =>
+      ({
+        type: i % 2 === 0 ? 'user' : 'assistant',
+        content: `message ${i}`,
+        id: `${idPrefix}-${i}`,
+      }) as unknown as ClaudeMessage,
+  );
 }
 
 function makeToolDenseTurns(turnCount: number): ClaudeMessage[] {
@@ -131,7 +143,7 @@ function renderList(messages: ClaudeMessage[]) {
       findToolResult={noopFindToolResult}
       extractMarkdownContent={noopExtractMd}
       messagesEndRef={endRef}
-    />
+    />,
   );
 }
 
@@ -139,7 +151,6 @@ describe('MessageList paged collapse', () => {
   afterEach(() => {
     cleanup();
     delete window.sendToJava;
-    delete window.__codexHistoryPageInfo;
   });
 
   it('renders all messages when there are at most five user turns', () => {
@@ -185,8 +196,9 @@ describe('MessageList paged collapse', () => {
 
     expect(visible).toHaveLength(25);
     expect(visible[0].textContent).toBe('user 3');
-    expect(container.querySelector('.collapsed-messages-indicator')?.textContent)
-      .toBe('Show 3 earlier turns (3 remaining)');
+    expect(container.querySelector('.collapsed-messages-indicator')?.textContent).toBe(
+      'Show 3 earlier turns (3 remaining)',
+    );
   });
 
   it('tolerates malformed raw content blocks from history transport', () => {
@@ -220,7 +232,7 @@ describe('MessageList paged collapse', () => {
         extractMarkdownContent={noopExtractMd}
         messagesEndRef={endRef}
         onCollapsedCountChange={onCollapsedCountChange}
-      />
+      />,
     );
 
     expect(onCollapsedCountChange).toHaveBeenLastCalledWith(50);
@@ -247,7 +259,7 @@ describe('MessageList paged collapse', () => {
         extractMarkdownContent={noopExtractMd}
         messagesEndRef={endRef}
         onCollapsedCountChange={onCollapsedCountChange}
-      />
+      />,
     );
     expect(onCollapsedCountChange).toHaveBeenLastCalledWith(40);
   });
@@ -269,13 +281,15 @@ describe('MessageList paged collapse', () => {
         isThinking={false}
         loading={false}
         loadingStartTime={null}
+        queueDisplayState="NONE"
+        queueAheadCount={0}
         t={t}
         getMessageText={noopGetText}
         getContentBlocks={noopGetBlocks}
         findToolResult={noopFindToolResult}
         extractMarkdownContent={noopExtractMd}
         messagesEndRef={endRef}
-      />
+      />,
     );
 
     fireEvent.click(container.querySelector('.collapsed-messages-indicator')!);
@@ -288,13 +302,15 @@ describe('MessageList paged collapse', () => {
         isThinking={false}
         loading={false}
         loadingStartTime={null}
+        queueDisplayState="NONE"
+        queueAheadCount={0}
         t={t}
         getMessageText={noopGetText}
         getContentBlocks={noopGetBlocks}
         findToolResult={noopFindToolResult}
         extractMarkdownContent={noopExtractMd}
         messagesEndRef={endRef}
-      />
+      />,
     );
 
     expect(screen.getAllByTestId('message-item')).toHaveLength(10);
@@ -311,6 +327,8 @@ describe('MessageList paged collapse', () => {
         isThinking={false}
         loading={false}
         loadingStartTime={null}
+        queueDisplayState="NONE"
+        queueAheadCount={0}
         t={t}
         getMessageText={noopGetText}
         getContentBlocks={noopGetBlocks}
@@ -319,12 +337,13 @@ describe('MessageList paged collapse', () => {
         messagesEndRef={endRef}
         currentProvider="codex"
         currentSessionId="session-1"
-      />
+      />,
     );
 
     act(() => {
-      window.dispatchEvent(new CustomEvent('codex-history-page-info', {
-        detail: {
+      bridgeHub.dispatch(
+        DOWNSTREAM.HISTORY_CODEX_PAGE_INFO,
+        JSON.stringify({
           pageId: 'page-1',
           sessionId: 'session-1',
           mode: 'replace',
@@ -333,20 +352,26 @@ describe('MessageList paged collapse', () => {
           totalTurns: 100,
           hasMore: true,
           loadedMessageCount: 20,
-        },
-      }));
+          cursorReset: false,
+        }),
+      );
     });
 
     fireEvent.click(container.querySelector('.collapsed-messages-indicator')!);
-    expect(container.querySelector('.collapsed-messages-indicator')?.textContent)
-      .toBe('Load 30 earlier turns (70 remaining)');
+    expect(container.querySelector('.collapsed-messages-indicator')?.textContent).toBe(
+      'Load 30 earlier turns (70 remaining)',
+    );
 
     fireEvent.click(container.querySelector('.collapsed-messages-indicator')!);
     expect(sendToJava).toHaveBeenCalledWith(
-      'load_codex_history_page:{"sessionId":"session-1","beforeTurn":70}',
+      JSON.stringify({
+        type: 'load_codex_history_page',
+        content: JSON.stringify({ sessionId: 'session-1', beforeTurn: 70 }),
+      }),
     );
-    expect(container.querySelector('.collapsed-messages-indicator')?.textContent)
-      .toBe('Loading earlier turns...');
+    expect(container.querySelector('.collapsed-messages-indicator')?.textContent).toBe(
+      'Loading earlier turns...',
+    );
   });
 });
 
@@ -384,7 +409,7 @@ describe('MessageList container behaviour', () => {
         findToolResult={noopFindToolResult}
         extractMarkdownContent={noopExtractMd}
         messagesEndRef={endRef}
-      />
+      />,
     );
     expect(screen.queryByTestId('waiting-indicator')).toBeNull();
   });
@@ -406,7 +431,7 @@ describe('MessageList container behaviour', () => {
         findToolResult={noopFindToolResult}
         extractMarkdownContent={noopExtractMd}
         messagesEndRef={endRef}
-      />
+      />,
     );
     expect(screen.getByTestId('waiting-indicator')).toBeTruthy();
   });
@@ -443,7 +468,7 @@ describe('MessageList container behaviour', () => {
         findToolResult={noopFindToolResult}
         extractMarkdownContent={noopExtractMd}
         messagesEndRef={endRef}
-      />
+      />,
     );
 
     expect(screen.queryByTestId('waiting-indicator')).toBeNull();
@@ -473,7 +498,7 @@ describe('MessageList container behaviour', () => {
         findToolResult={noopFindToolResult}
         extractMarkdownContent={noopExtractMd}
         messagesEndRef={endRef}
-      />
+      />,
     );
 
     expect(screen.queryByTestId('waiting-indicator')).toBeNull();
@@ -503,7 +528,7 @@ describe('MessageList container behaviour', () => {
         findToolResult={noopFindToolResult}
         extractMarkdownContent={noopExtractMd}
         messagesEndRef={endRef}
-      />
+      />,
     );
 
     expect(screen.queryByTestId('waiting-indicator')).toBeNull();
@@ -546,7 +571,9 @@ describe('MessageList response grouping', () => {
     expect(responseGroup?.classList.contains('message')).toBe(true);
     expect(responseGroup?.classList.contains('assistant')).toBe(true);
     expect(responseGroup?.querySelectorAll('.assistant-response-segment')).toHaveLength(3);
-    expect(responseGroup?.querySelectorAll('[data-render-mode="response-segment"]')).toHaveLength(3);
+    expect(responseGroup?.querySelectorAll('[data-render-mode="response-segment"]')).toHaveLength(
+      3,
+    );
     expect(responseGroup?.querySelectorAll('[data-testid="usage-stats"]')).toHaveLength(1);
   });
 
@@ -591,7 +618,7 @@ describe('MessageList response grouping', () => {
         findToolResult={noopFindToolResult}
         extractMarkdownContent={noopExtractMd}
         messagesEndRef={endRef}
-      />
+      />,
     );
 
     const responseGroup = container.querySelector('.assistant-response-group');
@@ -639,7 +666,7 @@ describe('MessageList response grouping', () => {
         findToolResult={noopFindToolResult}
         extractMarkdownContent={noopExtractMd}
         messagesEndRef={endRef}
-      />
+      />,
     );
 
     expect(screen.queryByTestId('streaming-footer')).toBeNull();
@@ -674,9 +701,149 @@ describe('MessageList response grouping', () => {
         findToolResult={noopFindToolResult}
         extractMarkdownContent={noopExtractMd}
         messagesEndRef={endRef}
-      />
+      />,
     );
 
-    expect(screen.getByTestId('streaming-footer').getAttribute('data-started-at')).toBe(String(loadingStartTime));
+    expect(screen.getByTestId('streaming-footer').getAttribute('data-started-at')).toBe(
+      String(loadingStartTime),
+    );
+  });
+});
+
+function createStreamingMessageList(
+  initialMessages: ClaudeMessage[],
+  initialStreamingActive: boolean,
+  isUserAtBottomRef: { current: boolean },
+  initialSessionId = 'session-1',
+) {
+  const endRef = createRef<HTMLDivElement>();
+  const renderElement = (
+    messages: ClaudeMessage[],
+    streamingActive: boolean,
+    currentSessionId: string,
+  ) => (
+    <MessageList
+      messages={messages}
+      streamingActive={streamingActive}
+      isThinking={false}
+      loading={streamingActive}
+      loadingStartTime={streamingActive ? 1 : null}
+      queueDisplayState="NONE"
+      queueAheadCount={0}
+      t={t}
+      getMessageText={noopGetText}
+      getContentBlocks={noopGetBlocks}
+      findToolResult={noopFindToolResult}
+      extractMarkdownContent={noopExtractMd}
+      messagesEndRef={endRef}
+      currentSessionId={currentSessionId}
+      isUserAtBottomRef={isUserAtBottomRef}
+    />
+  );
+  const view = render(renderElement(initialMessages, initialStreamingActive, initialSessionId));
+
+  return {
+    ...view,
+    rerenderList: (
+      messages: ClaudeMessage[],
+      streamingActive: boolean,
+      currentSessionId = initialSessionId,
+    ) => view.rerender(renderElement(messages, streamingActive, currentSessionId)),
+  };
+}
+
+function streamingTurn(content: string): ClaudeMessage[] {
+  return [
+    { type: 'user', content: 'question', id: 'stream-user' },
+    { type: 'assistant', content, id: 'stream-assistant', isStreaming: true },
+  ] as ClaudeMessage[];
+}
+
+describe('MessageList streaming aria-live announcer', () => {
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('exposes a polite atomic live region', () => {
+    const bottomRef = { current: false };
+    createStreamingMessageList(streamingTurn('Hello'), true, bottomRef);
+
+    const announcer = screen.getByTestId('stream-announcer');
+    expect(announcer.getAttribute('role')).toBe('status');
+    expect(announcer.getAttribute('aria-live')).toBe('polite');
+    expect(announcer.getAttribute('aria-atomic')).toBe('true');
+  });
+
+  it('suppresses announcements at the bottom and announces later increments off-bottom', () => {
+    vi.useFakeTimers();
+    const bottomRef = { current: true };
+    const view = createStreamingMessageList(streamingTurn('Hello'), true, bottomRef);
+
+    act(() => vi.advanceTimersByTime(1000));
+    expect(screen.getByTestId('stream-announcer').textContent).toBe('');
+
+    bottomRef.current = false;
+    view.rerenderList(streamingTurn('Hello world'), true);
+    act(() => vi.advanceTimersByTime(1000));
+    expect(screen.getByTestId('stream-announcer').textContent).toBe('world');
+  });
+
+  it('throttles token updates without rebuilding the active interval', () => {
+    vi.useFakeTimers();
+    const setIntervalSpy = vi.spyOn(window, 'setInterval');
+    const bottomRef = { current: false };
+    const view = createStreamingMessageList(streamingTurn('One'), true, bottomRef);
+
+    view.rerenderList(streamingTurn('One two'), true);
+    view.rerenderList(streamingTurn('One two three'), true);
+    expect(setIntervalSpy).toHaveBeenCalledTimes(1);
+
+    act(() => vi.advanceTimersByTime(1000));
+    expect(screen.getByTestId('stream-announcer').textContent).toBe('One two three');
+  });
+
+  it('announces the final pending increment immediately when streaming ends', () => {
+    vi.useFakeTimers();
+    const bottomRef = { current: false };
+    const view = createStreamingMessageList(streamingTurn('Hello'), true, bottomRef);
+
+    act(() => vi.advanceTimersByTime(1000));
+    expect(screen.getByTestId('stream-announcer').textContent).toBe('Hello');
+
+    view.rerenderList(streamingTurn('Hello final words'), false);
+    expect(screen.getByTestId('stream-announcer').textContent).toBe('final words');
+  });
+
+  it('clears stale announcements on turn or session reset', () => {
+    vi.useFakeTimers();
+    const bottomRef = { current: false };
+    const view = createStreamingMessageList(streamingTurn('Old response'), true, bottomRef);
+
+    act(() => vi.advanceTimersByTime(1000));
+    expect(screen.getByTestId('stream-announcer').textContent).toBe('Old response');
+
+    view.rerenderList(
+      [{ type: 'user', content: 'new turn', id: 'new-user' }] as ClaudeMessage[],
+      true,
+    );
+    expect(screen.getByTestId('stream-announcer').textContent).toBe('');
+
+    view.rerenderList([], false, 'session-2');
+    expect(screen.getByTestId('stream-announcer').textContent).toBe('');
+  });
+
+  it('clears the stable interval on unmount', () => {
+    vi.useFakeTimers();
+    const clearIntervalSpy = vi.spyOn(window, 'clearInterval');
+    const bottomRef = { current: false };
+    const view = createStreamingMessageList(streamingTurn('Hello'), true, bottomRef);
+
+    expect(vi.getTimerCount()).toBeGreaterThan(0);
+    view.unmount();
+
+    expect(clearIntervalSpy).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
   });
 });

@@ -45,7 +45,7 @@ function parseFontSize(raw: unknown): number | null {
  * 应用外观配置(支持对象/JSON 字符串两种形式)。
  * 仅填充 localStorage 中缺失的键;有任意键被填充时派发同步事件。
  */
-function applyAppearanceConfig(rawConfig: AppearanceConfigPayload | string): void {
+export function applyAppearanceConfig(rawConfig: AppearanceConfigPayload | string): void {
   let config: AppearanceConfigPayload;
   if (typeof rawConfig === 'string') {
     try {

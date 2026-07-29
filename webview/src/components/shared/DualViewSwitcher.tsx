@@ -1,8 +1,11 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useId, useState, type ReactNode } from 'react';
 import type { DualViewAdapter } from './dualView/adapters';
 import JsonEditor from './JsonEditor';
+import { useRovingTabs } from './useRovingTabs';
 
 export type DualViewMode = 'form' | 'json';
+
+const DUAL_VIEW_MODES = ['form', 'json'] as const;
 
 export interface DualViewSwitcherProps<S> {
   /** 区块标题(可选)。 */
@@ -45,6 +48,11 @@ export default function DualViewSwitcher<S>({
 }: DualViewSwitcherProps<S>) {
   const [jsonDraft, setJsonDraft] = useState(() => adapter.serialize(formState));
   const [parseError, setParseError] = useState<string | null>(null);
+  const instanceId = useId();
+  const formTabId = `${instanceId}-form-tab`;
+  const jsonTabId = `${instanceId}-json-tab`;
+  const formPanelId = `${instanceId}-form-panel`;
+  const jsonPanelId = `${instanceId}-json-panel`;
 
   // 切到 JSON 模式时,用最新 formState 重置草稿(JSON 视图反映最新表单)。
   // 刻意不依赖 formState:JSON 模式下草稿独立,不跟随外部 formState 变化。
@@ -83,18 +91,29 @@ export default function DualViewSwitcher<S>({
     applyPending(); // 不切模式,仅把合法草稿同步回 formState
   };
 
-  const handleSwitchToForm = () => {
-    if (applyPending()) {
-      onModeChange('form');
+  const handleSwitchToForm = (): boolean => {
+    if (!applyPending()) {
+      // 失败则阻止切换:留在 JSON 模式,parseError 已显示,草稿保留(不丢数据)。
+      return false;
     }
-    // 失败则阻止切换:留在 JSON 模式,parseError 已显示,草稿保留(不丢数据)。
+    onModeChange('form');
+    return true;
   };
 
-  const handleSwitchToJson = () => {
+  const handleSwitchToJson = (): boolean => {
     setJsonDraft(adapter.serialize(formState));
     setParseError(null);
     onModeChange('json');
+    return true;
   };
+
+  const handleModeActivate = (nextMode: DualViewMode): boolean =>
+    nextMode === 'form' ? handleSwitchToForm() : handleSwitchToJson();
+  const { getTabProps } = useRovingTabs({
+    values: DUAL_VIEW_MODES,
+    activeValue: mode,
+    onActivate: handleModeActivate,
+  });
 
   return (
     <div className="dvs">
@@ -102,21 +121,25 @@ export default function DualViewSwitcher<S>({
         {label && <span className="dvs-label">{label}</span>}
         <div className="dvs-tabs" role="tablist">
           <button
+            {...getTabProps('form')}
+            id={formTabId}
             type="button"
             role="tab"
             aria-selected={mode === 'form'}
+            aria-controls={formPanelId}
             className={`dvs-tab${mode === 'form' ? ' active' : ''}`}
-            disabled={mode === 'form'}
             onClick={handleSwitchToForm}
           >
             表单
           </button>
           <button
+            {...getTabProps('json')}
+            id={jsonTabId}
             type="button"
             role="tab"
             aria-selected={mode === 'json'}
+            aria-controls={jsonPanelId}
             className={`dvs-tab${mode === 'json' ? ' active' : ''}`}
-            disabled={mode === 'json'}
             onClick={handleSwitchToJson}
           >
             JSON
@@ -124,17 +147,22 @@ export default function DualViewSwitcher<S>({
         </div>
         {mode === 'json' && jsonHint && <span className="dvs-hint">{jsonHint}</span>}
       </div>
-      <div className="dvs-body">
-        {mode === 'form'
-          ? renderForm(formState, onFormStateChange)
-          : (
-            <JsonEditor
-              value={jsonDraft}
-              onChange={handleJsonChange}
-              onBlur={handleJsonBlur}
-              error={parseError}
-            />
-          )}
+      <div
+        id={mode === 'form' ? formPanelId : jsonPanelId}
+        className="dvs-body"
+        role="tabpanel"
+        aria-labelledby={mode === 'form' ? formTabId : jsonTabId}
+      >
+        {mode === 'form' ? (
+          renderForm(formState, onFormStateChange)
+        ) : (
+          <JsonEditor
+            value={jsonDraft}
+            onChange={handleJsonChange}
+            onBlur={handleJsonBlur}
+            error={parseError}
+          />
+        )}
       </div>
     </div>
   );
