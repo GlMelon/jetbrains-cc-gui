@@ -28,8 +28,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * SDK dependency manager.
@@ -837,34 +835,8 @@ public class DependencyManager {
         return failedPaths;
     }
 
-    /**
-     * Compares two version strings.
-     *
-     * @return negative if v1 < v2, 0 if equal, positive if v1 > v2
-     */
     private static int compareVersions(String v1, String v2) {
-        if (v1 == null || v2 == null) {
-            return 0;
-        }
-
-        // Strip the leading 'v' prefix
-        v1 = (v1.startsWith("v") || v1.startsWith("V")) ? v1.substring(1) : v1;
-        v2 = (v2.startsWith("v") || v2.startsWith("V")) ? v2.substring(1) : v2;
-
-        String[] parts1 = v1.split("\\.");
-        String[] parts2 = v2.split("\\.");
-
-        int maxLen = Math.max(parts1.length, parts2.length);
-        for (int i = 0; i < maxLen; i++) {
-            int num1 = i < parts1.length ? parseVersionPart(parts1[i]) : 0;
-            int num2 = i < parts2.length ? parseVersionPart(parts2[i]) : 0;
-
-            if (num1 != num2) {
-                return num1 - num2;
-            }
-        }
-
-        return 0;
+        return VersionComparator.compareVersions(v1, v2);
     }
 
     /**
@@ -876,9 +848,7 @@ public class DependencyManager {
      * installedVersion > requestedVersion → {@link VersionAction#ROLLBACK}(原前端独有语义,
      * 后端 {@code checkForUpdates} 曾把回滚场景误报为「无更新」)。
      *
-     * <p>经 {@code dependency.versions_loaded} 的 {@code versionActions} map 下发,
-     * 前端按用户选择的目标版本查表渲染按钮态,消除前端 {@code getVersionAction} 决策双写
-     * 与 {@code compareVersions} 算法副本。复用 {@link #compareVersions} 单一算法源。
+     * <p>委托 {@link VersionComparator#resolveVersionAction}。</p>
      *
      * @param installed        SDK 是否已安装
      * @param installedVersion 已安装版本(null/blank 时已安装则视为 CURRENT)
@@ -886,48 +856,11 @@ public class DependencyManager {
      * @return 版本动作
      */
     public static VersionAction resolveVersionAction(boolean installed, String installedVersion, String requestedVersion) {
-        if (!installed) {
-            return VersionAction.INSTALL;
-        }
-        if (installedVersion == null || installedVersion.isBlank()
-                || requestedVersion == null || requestedVersion.isBlank()) {
-            return VersionAction.CURRENT;
-        }
-        int comparison = compareVersions(installedVersion, requestedVersion);
-        if (comparison == 0) {
-            return VersionAction.CURRENT;
-        }
-        return comparison < 0 ? VersionAction.UPDATE : VersionAction.ROLLBACK;
+        return VersionComparator.resolveVersionAction(installed, installedVersion, requestedVersion);
     }
 
-    /**
-     * Semver-like pattern: major.minor.patch with optional pre-release suffix.
-     * Only allows digits, dots, hyphens, and alphanumeric pre-release tags.
-     * Rejects anything that could be used for npm install argument injection.
-     */
-    private static final java.util.regex.Pattern SEMVER_PATTERN =
-            java.util.regex.Pattern.compile("^\\d+\\.\\d+\\.\\d+([-.][a-zA-Z0-9.]+)*$");
-
     static String normalizeRequestedVersion(String version) {
-        if (version == null) {
-            return null;
-        }
-
-        String trimmed = version.trim();
-        if (trimmed.isEmpty()) {
-            return null;
-        }
-
-        if (trimmed.startsWith("v") || trimmed.startsWith("V")) {
-            trimmed = trimmed.substring(1);
-        }
-
-        if (!SEMVER_PATTERN.matcher(trimmed).matches()) {
-            LOG.warn("[DependencyManager] Rejected invalid version format: " + version);
-            return null;
-        }
-
-        return trimmed;
+        return VersionComparator.normalizeRequestedVersion(version);
     }
 
     static List<String> buildPackageSpecs(SdkDefinition sdk, String requestedVersion) {
@@ -971,16 +904,4 @@ public class DependencyManager {
         return versions;
     }
 
-    /**
-     * Parses a single segment of a version string.
-     */
-    private static int parseVersionPart(String part) {
-        // Strip non-numeric suffixes (e.g. -beta, -alpha)
-        Pattern pattern = Pattern.compile("^(\\d+)");
-        Matcher matcher = pattern.matcher(part);
-        if (matcher.find()) {
-            return Integer.parseInt(matcher.group(1));
-        }
-        return 0;
     }
-}
