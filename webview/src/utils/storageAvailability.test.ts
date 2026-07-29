@@ -1,13 +1,9 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { canUseLocalStorage } from './storageAvailability.js';
 
 describe('canUseLocalStorage', () => {
-  const originalSetItem = window.localStorage.setItem.bind(window.localStorage);
-  const originalRemoveItem = window.localStorage.removeItem.bind(window.localStorage);
-
   afterEach(() => {
-    window.localStorage.setItem = originalSetItem;
-    window.localStorage.removeItem = originalRemoveItem;
+    vi.restoreAllMocks();
   });
 
   it('returns true when localStorage is writable (jsdom default)', () => {
@@ -15,9 +11,10 @@ describe('canUseLocalStorage', () => {
   });
 
   it('returns false when setItem throws (privacy mode / quota denied)', () => {
-    window.localStorage.setItem = () => {
+    vi.spyOn(window.localStorage, 'setItem').mockImplementation(() => {
       throw new DOMException('quota exceeded', 'QuotaExceededError');
-    };
+    });
+
     expect(canUseLocalStorage()).toBe(false);
   });
 
