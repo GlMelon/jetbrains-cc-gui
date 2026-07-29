@@ -10,6 +10,13 @@
  * sub-modules under registerCallbacks/ for easier navigation and maintenance.
  */
 
+/** Declare the onTaskEvent callback mounted on window by the Java bridge. */
+declare global {
+  interface Window {
+    onTaskEvent?: (eventJson: string) => void;
+  }
+}
+
 import type { MutableRefObject } from 'react';
 import type { UseWindowCallbacksOptions } from '../useWindowCallbacks';
 import { parseTaskNotification } from '../../utils/taskEventParser';
@@ -22,10 +29,7 @@ import {
   resetDollarCommandsState,
 } from '../../components/ChatInputBox/providers';
 import { buildResetTransientUiState } from './sessionTransition';
-import {
-  startActiveProviderRequest,
-    startSessionRuntimeStateRequest,
-} from './settingsBootstrap';
+import { startActiveProviderRequest, startSessionRuntimeStateRequest } from './settingsBootstrap';
 import { registerMessageCallbacks } from './registerCallbacks/messageCallbacks';
 import { registerStreamingCallbacks } from './registerCallbacks/streamingCallbacks';
 import { registerSessionAndSdkCallbacks } from './registerCallbacks/sessionCallbacks';
@@ -33,7 +37,10 @@ import { registerUsageModeCallbacks } from './registerCallbacks/usageModeCallbac
 import { registerPermissionCallbacks } from './registerCallbacks/permissionCallbacks';
 import { registerAgentAndSelectionCallbacks } from './registerCallbacks/agentCallbacks';
 
-function areSubagentMessagesEquivalent(previousMessages: unknown[] | undefined, nextMessages: unknown[] | undefined): boolean {
+function areSubagentMessagesEquivalent(
+  previousMessages: unknown[] | undefined,
+  nextMessages: unknown[] | undefined,
+): boolean {
   if (previousMessages === nextMessages) return true;
   return deepEqual(previousMessages, nextMessages);
 }
@@ -91,12 +98,15 @@ export function registerWindowCallbacks(
         // Skip state update when the payload is structurally identical.
         // This prevents cascading re-renders and scroll jumps caused by
         // periodic subagent polling (every 2 s) returning unchanged data.
-        if (existing && existing.success === result.success
-          && existing.error === result.error
-          && existing.sessionId === result.sessionId
-          && existing.toolUseId === result.toolUseId
-          && existing.agentId === result.agentId
-          && areSubagentMessagesEquivalent(existing.messages, result.messages)) {
+        if (
+          existing &&
+          existing.success === result.success &&
+          existing.error === result.error &&
+          existing.sessionId === result.sessionId &&
+          existing.toolUseId === result.toolUseId &&
+          existing.agentId === result.agentId &&
+          areSubagentMessagesEquivalent(existing.messages, result.messages)
+        ) {
           return prev;
         }
         return { ...prev, [key]: result };
@@ -133,14 +143,16 @@ export function registerWindowCallbacks(
         // agentId/outputFilePath so a follow-up event that adds the sidechain
         // transcript path still lands (task_notification is terminal, but a
         // late output_file attachment would otherwise be swallowed).
-        if (existing
-          && existing.status === taskEvent.status
-          && existing.summary === taskEvent.summary
-          && existing.totalTokens === taskEvent.totalTokens
-          && existing.totalToolUseCount === taskEvent.totalToolUseCount
-          && existing.totalDurationMs === taskEvent.totalDurationMs
-          && existing.agentId === taskEvent.agentId
-          && existing.outputFilePath === taskEvent.outputFilePath) {
+        if (
+          existing &&
+          existing.status === taskEvent.status &&
+          existing.summary === taskEvent.summary &&
+          existing.totalTokens === taskEvent.totalTokens &&
+          existing.totalToolUseCount === taskEvent.totalToolUseCount &&
+          existing.totalDurationMs === taskEvent.totalDurationMs &&
+          existing.agentId === taskEvent.agentId &&
+          existing.outputFilePath === taskEvent.outputFilePath
+        ) {
           return prev;
         }
         return { ...prev, [toolUseId]: taskEvent };
@@ -168,5 +180,5 @@ export function registerWindowCallbacks(
   // =========================================================================
 
   startActiveProviderRequest();
-    startSessionRuntimeStateRequest();
+  startSessionRuntimeStateRequest();
 }

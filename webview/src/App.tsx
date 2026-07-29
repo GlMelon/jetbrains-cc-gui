@@ -13,7 +13,7 @@ import { ChatHeader } from './components/ChatHeader';
 import { ChatScreen } from './components/ChatScreen';
 import type { MessageListRevealHandle } from './components/ConversationSearch/types';
 import { ModelProviderProvider } from './contexts/ModelProviderContext';
-import { useSubagentContextValues } from './contexts/SubagentContext';
+import { useSubagentContextValues, useSetTaskEvents } from './contexts/SubagentContext';
 import { useMessages } from './contexts/MessagesContext';
 import { useSession } from './contexts/SessionContext';
 import { useUIState } from './contexts/UIStateContext';
@@ -263,6 +263,7 @@ const App = () => {
   useHistoryLoader({ currentView, currentProvider });
 
   // ── Window callbacks (bridge communication) ──
+  const setTaskEvents = useSetTaskEvents();
   useWindowCallbacks({
     t, addToast, clearToasts,
     setMessages, setStatus, setLoading, setLoadingStartTime,
@@ -281,6 +282,7 @@ const App = () => {
     setIsRewinding, setRewindDialogOpen, setCurrentRewindRequest,
     setContextInfo, setSelectedAgent,
     setSubagentHistories,
+    setTaskEvents,
     currentProviderRef, messagesContainerRef, isUserAtBottomRef, userPausedRef,
     suppressNextStatusToastRef,
     streamingContentRef, streamingThinkingRef, isStreamingRef, useBackendStreamingRenderRef,

@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import type { ClaudeRawMessage, SubagentHistoryResponse, TaskEvent, TaskEventMap } from '../types';
 
 // SubagentHistoryContext holds the full history map so consumers
@@ -40,7 +40,9 @@ const TaskEventContext = createContext<TaskEventMap>({});
 // SetTaskEventContext is separated from TaskEventContext so that components
 // which only need the setter (App.tsx, useSessionManagement, useWindowCallbacks)
 // do not re-render when the map changes.
-const SetTaskEventContext = createContext<React.Dispatch<React.SetStateAction<TaskEventMap>> | null>(null);
+const SetTaskEventContext = createContext<React.Dispatch<
+  React.SetStateAction<TaskEventMap>
+> | null>(null);
 
 /**
  * Provider that owns the task-events map state. Mount once above the App so
@@ -51,9 +53,7 @@ export function TaskEventProvider({ children }: { children: ReactNode }) {
   const [taskEvents, setTaskEvents] = useState<TaskEventMap>({});
   return (
     <SetTaskEventContext.Provider value={setTaskEvents}>
-      <TaskEventContext.Provider value={taskEvents}>
-        {children}
-      </TaskEventContext.Provider>
+      <TaskEventContext.Provider value={taskEvents}>{children}</TaskEventContext.Provider>
     </SetTaskEventContext.Provider>
   );
 }
@@ -85,6 +85,16 @@ export function useSetTaskEvents(): React.Dispatch<React.SetStateAction<TaskEven
  */
 export function useSubagentHistories(): Record<string, SubagentHistoryResponse> {
   return useContext(SubagentHistoryContext);
+}
+
+/**
+ * Returns a getter function to look up a single subagent's history by key.
+ * The getter is stable (never changes identity) so it won't cause re-renders
+ * when used as a hook dependency. Returns undefined when the key is not found.
+ */
+export function useSubagentHistoryGetter(): (key: string) => SubagentHistoryResponse | undefined {
+  const histories = useContext(SubagentHistoryContext);
+  return useCallback((key: string) => histories[key], [histories]);
 }
 
 /**
@@ -120,7 +130,10 @@ export function useTaskEvent(toolUseId: string | undefined): TaskEvent | undefin
  * `currentSessionId` so SessionIdContext consumers don't re-render on every
  * history update.
  */
-export function useSubagentContextValues(subagentHistories: Record<string, SubagentHistoryResponse>, currentSessionId: string | null) {
+export function useSubagentContextValues(
+  subagentHistories: Record<string, SubagentHistoryResponse>,
+  currentSessionId: string | null,
+) {
   const sessionIdCtxValue = useMemo(() => ({ currentSessionId }), [currentSessionId]);
   return { subagentHistoryCtxValue: subagentHistories, sessionIdCtxValue };
 }

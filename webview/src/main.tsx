@@ -7,6 +7,7 @@ import { MessagesProvider } from './contexts/MessagesContext';
 import { SessionProvider } from './contexts/SessionContext';
 import { UIStateProvider } from './contexts/UIStateContext';
 import { DialogProvider } from './contexts/DialogContext';
+import { TaskEventProvider } from './contexts/SubagentContext';
 import './codicon.css';
 import './styles/app.less';
 import './i18n/config';
@@ -103,11 +104,13 @@ ReactDOM.createRoot(document.getElementById('app') as HTMLElement).render(
   <ErrorBoundary>
     <UIStateProvider>
       <SessionProvider>
-        <MessagesProvider>
-          <DialogProvider>
-            <App />
-          </DialogProvider>
-        </MessagesProvider>
+        <TaskEventProvider>
+          <MessagesProvider>
+            <DialogProvider>
+              <App />
+            </DialogProvider>
+          </MessagesProvider>
+        </TaskEventProvider>
       </SessionProvider>
     </UIStateProvider>
   </ErrorBoundary>,
