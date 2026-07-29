@@ -7,6 +7,7 @@ const SAFE_BROWSER_PROTOCOLS = /^(https?|mailto):/i;
 
 /** Regex to detect path traversal: matches ".." as a path segment, not as part of filenames */
 const PATH_TRAVERSAL_REGEX = /(^|[\\/])\.\.($|[\\/])/;
+// eslint-disable-next-line no-control-regex -- reject control characters in navigation targets
 const CONTROL_CHAR_REGEX = /[\u0000-\u001F]/;
 
 type ResolveFilePathCallback = (resolvedPath: string | null) => void;
@@ -65,16 +66,19 @@ export const resolveFilePathWithCallback = (
   //   responseType = 下行事件 'file_path.resolved'(后端回包,hub 按此 + requestId 匹配)。
   // 两者不可混用 —— 早先误把下行事件名 'file_path.resolve' 当请求 type,后端 dispatcher miss、
   // 回包永不到达、前端 5s 超时回 null,文件链接悬停解析静默失效。
-  bridgeHub.request<{ path?: string; resolvedPath?: string | null }>(
-    UPSTREAM.RESOLVE_FILE_PATH,
-    { path: normalizedPath },
-    { timeoutMs: RESOLVE_FILE_PATH_TIMEOUT_MS, responseType: DOWNSTREAM.FILE_PATH_RESOLVED },
-  ).then((result) => {
-    callback(result?.resolvedPath ?? null);
-  }).catch(() => {
-    // 超时或 bridge reset。回调 null(与旧实现超时行为一致)。
-    callback(null);
-  });
+  bridgeHub
+    .request<{ path?: string; resolvedPath?: string | null }>(
+      UPSTREAM.RESOLVE_FILE_PATH,
+      { path: normalizedPath },
+      { timeoutMs: RESOLVE_FILE_PATH_TIMEOUT_MS, responseType: DOWNSTREAM.FILE_PATH_RESOLVED },
+    )
+    .then((result) => {
+      callback(result?.resolvedPath ?? null);
+    })
+    .catch(() => {
+      // 超时或 bridge reset。回调 null(与旧实现超时行为一致)。
+      callback(null);
+    });
 };
 
 /**
@@ -147,10 +151,15 @@ export const openFile = (filePath?: string, lineStart?: number, lineEnd?: number
   const resolvedLineEnd = lineEnd ?? parsedTarget?.lineEnd;
 
   let path = pathOnly;
-  if (resolvedLineStart !== undefined && Number.isFinite(resolvedLineStart) && resolvedLineStart > 0) {
-    path = (resolvedLineEnd !== undefined && Number.isFinite(resolvedLineEnd) && resolvedLineEnd > 0)
-      ? `${pathOnly}:${resolvedLineStart}-${resolvedLineEnd}`
-      : `${pathOnly}:${resolvedLineStart}`;
+  if (
+    resolvedLineStart !== undefined &&
+    Number.isFinite(resolvedLineStart) &&
+    resolvedLineStart > 0
+  ) {
+    path =
+      resolvedLineEnd !== undefined && Number.isFinite(resolvedLineEnd) && resolvedLineEnd > 0
+        ? `${pathOnly}:${resolvedLineStart}-${resolvedLineEnd}`
+        : `${pathOnly}:${resolvedLineStart}`;
   }
   sendAction(UPSTREAM.OPEN_FILE, path);
 };
@@ -182,7 +191,12 @@ export const refreshFile = (filePath: string) => {
   sendAction(UPSTREAM.REFRESH_FILE, { filePath });
 };
 
-export const showDiff = (filePath: string, oldContent: string, newContent: string, title?: string) => {
+export const showDiff = (
+  filePath: string,
+  oldContent: string,
+  newContent: string,
+  title?: string,
+) => {
   if (!isValidMutatingPath(filePath)) {
     return;
   }
@@ -192,7 +206,7 @@ export const showDiff = (filePath: string, oldContent: string, newContent: strin
 export const showMultiEditDiff = (
   filePath: string,
   edits: Array<{ oldString: string; newString: string; replaceAll?: boolean }>,
-  currentContent?: string
+  currentContent?: string,
 ) => {
   if (!isValidMutatingPath(filePath)) {
     return;
@@ -210,7 +224,7 @@ export const showMultiEditDiff = (
 export const showEditableDiff = (
   filePath: string,
   operations: Array<{ oldString: string; newString: string; replaceAll?: boolean }>,
-  status: 'A' | 'M'
+  status: 'A' | 'M',
 ) => {
   // Security: Validate file path (defense-in-depth, backend also validates)
   if (!isValidMutatingPath(filePath)) {
@@ -231,12 +245,17 @@ export const showInteractiveDiff = (
   filePath: string,
   newFileContents: string,
   tabName?: string,
-  isNewFile?: boolean
+  isNewFile?: boolean,
 ) => {
   if (!isValidMutatingPath(filePath)) {
     return;
   }
-  sendAction(UPSTREAM.SHOW_INTERACTIVE_DIFF, { filePath, newFileContents, tabName, isNewFile: isNewFile ?? false });
+  sendAction(UPSTREAM.SHOW_INTERACTIVE_DIFF, {
+    filePath,
+    newFileContents,
+    tabName,
+    isNewFile: isNewFile ?? false,
+  });
 };
 
 /**
@@ -257,7 +276,7 @@ export const rewindFiles = (sessionId: string, userMessageId: string) => {
 export const undoFileChanges = (
   filePath: string,
   status: 'A' | 'M',
-  operations: Array<{ oldString: string; newString: string; replaceAll?: boolean }>
+  operations: Array<{ oldString: string; newString: string; replaceAll?: boolean }>,
 ) => {
   // Security: Validate file path (defense-in-depth, backend also validates)
   if (!isValidMutatingPath(filePath)) {
@@ -294,17 +313,23 @@ export interface FetchedProviderModels {
  * 上行 {@code fetch_provider_models}(后端 FetchProviderModelsActionHandler 命中),
  * 下行 {@code provider.models_fetched}(携带 {@code __requestId} 供 hub 路由 Promise)。
  */
-export const fetchProviderModels = (params: FetchProviderModelsParams): Promise<FetchedProviderModels> => {
-  return bridgeHub.request<FetchedProviderModels>(
-    UPSTREAM.FETCH_PROVIDER_MODELS,
-    {
-      baseUrl: params.baseUrl,
-      apiKey: params.apiKey,
-      isFullUrl: params.isFullUrl ?? false,
-      modelsUrlOverride: params.modelsUrlOverride,
-    },
-    { timeoutMs: FETCH_PROVIDER_MODELS_TIMEOUT_MS, responseType: DOWNSTREAM.PROVIDER_MODELS_FETCHED },
-  )
+export const fetchProviderModels = (
+  params: FetchProviderModelsParams,
+): Promise<FetchedProviderModels> => {
+  return bridgeHub
+    .request<FetchedProviderModels>(
+      UPSTREAM.FETCH_PROVIDER_MODELS,
+      {
+        baseUrl: params.baseUrl,
+        apiKey: params.apiKey,
+        isFullUrl: params.isFullUrl ?? false,
+        modelsUrlOverride: params.modelsUrlOverride,
+      },
+      {
+        timeoutMs: FETCH_PROVIDER_MODELS_TIMEOUT_MS,
+        responseType: DOWNSTREAM.PROVIDER_MODELS_FETCHED,
+      },
+    )
     .then((result) => result ?? {})
     .catch(() => ({ error: 'timeout' }));
 };
@@ -374,12 +399,17 @@ export interface McpMarketDetailResult {
  * 后端 SmitheryMarketService.searchServers → MCP_MARKET_LIST(带 __requestId)。
  * 失败返回 {error, errorCode}(MISSING_API_KEY/INVALID_API_KEY/NETWORK_ERROR/HTTP_xxx)。
  */
-export const searchMcpMarket = (query: string, page = 1, pageSize = 20): Promise<SearchMcpMarketResult> => {
-  return bridgeHub.request<SearchMcpMarketResult>(
-    UPSTREAM.SEARCH_MCP_MARKET,
-    { query, page, pageSize },
-    { timeoutMs: MCP_MARKET_TIMEOUT_MS, responseType: DOWNSTREAM.MCP_MARKET_LIST },
-  )
+export const searchMcpMarket = (
+  query: string,
+  page = 1,
+  pageSize = 20,
+): Promise<SearchMcpMarketResult> => {
+  return bridgeHub
+    .request<SearchMcpMarketResult>(
+      UPSTREAM.SEARCH_MCP_MARKET,
+      { query, page, pageSize },
+      { timeoutMs: MCP_MARKET_TIMEOUT_MS, responseType: DOWNSTREAM.MCP_MARKET_LIST },
+    )
     .then((result) => result ?? {})
     .catch(() => ({ error: 'timeout', errorCode: 'TIMEOUT' }));
 };
@@ -389,12 +419,16 @@ export const searchMcpMarket = (query: string, page = 1, pageSize = 20): Promise
  * 后端 SmitheryMarketService.getServerDetail → MCP_MARKET_DETAIL(带 __requestId)。
  * connection 可能为空(详情端点未含连接字段)→ 前端引导手动配置。
  */
-export const getMcpMarketDetail = (namespace: string, slug: string): Promise<McpMarketDetailResult> => {
-  return bridgeHub.request<McpMarketDetailResult>(
-    UPSTREAM.GET_MCP_MARKET_DETAIL,
-    { namespace, slug },
-    { timeoutMs: MCP_MARKET_TIMEOUT_MS, responseType: DOWNSTREAM.MCP_MARKET_DETAIL },
-  )
+export const getMcpMarketDetail = (
+  namespace: string,
+  slug: string,
+): Promise<McpMarketDetailResult> => {
+  return bridgeHub
+    .request<McpMarketDetailResult>(
+      UPSTREAM.GET_MCP_MARKET_DETAIL,
+      { namespace, slug },
+      { timeoutMs: MCP_MARKET_TIMEOUT_MS, responseType: DOWNSTREAM.MCP_MARKET_DETAIL },
+    )
     .then((result) => result ?? {})
     .catch(() => ({ error: 'timeout', errorCode: 'TIMEOUT' }));
 };
@@ -442,11 +476,12 @@ export interface SkillMarketInstallResult {
  * source 默认 anthropics;失败返回 {error, errorCode}。
  */
 export const listSkillMarket = (source = 'anthropics'): Promise<ListSkillMarketResult> => {
-  return bridgeHub.request<ListSkillMarketResult>(
-    UPSTREAM.LIST_SKILL_MARKET,
-    { source },
-    { timeoutMs: SKILL_MARKET_TIMEOUT_MS, responseType: DOWNSTREAM.SKILL_MARKET_LIST },
-  )
+  return bridgeHub
+    .request<ListSkillMarketResult>(
+      UPSTREAM.LIST_SKILL_MARKET,
+      { source },
+      { timeoutMs: SKILL_MARKET_TIMEOUT_MS, responseType: DOWNSTREAM.SKILL_MARKET_LIST },
+    )
     .then((result) => result ?? {})
     .catch(() => ({ error: 'timeout', errorCode: 'TIMEOUT' }));
 };
@@ -462,11 +497,12 @@ export const installSkillFromMarket = (
   skillPath: string,
   scope: string,
 ): Promise<SkillMarketInstallResult> => {
-  return bridgeHub.request<SkillMarketInstallResult>(
-    UPSTREAM.INSTALL_SKILL_FROM_MARKET,
-    { source, skillPath, scope },
-    { timeoutMs: SKILL_MARKET_TIMEOUT_MS, responseType: DOWNSTREAM.SKILL_MARKET_INSTALL_RESULT },
-  )
+  return bridgeHub
+    .request<SkillMarketInstallResult>(
+      UPSTREAM.INSTALL_SKILL_FROM_MARKET,
+      { source, skillPath, scope },
+      { timeoutMs: SKILL_MARKET_TIMEOUT_MS, responseType: DOWNSTREAM.SKILL_MARKET_INSTALL_RESULT },
+    )
     .then((result) => result ?? {})
     .catch(() => ({ error: 'timeout', errorCode: 'TIMEOUT' }));
 };
@@ -493,12 +529,16 @@ export interface SkillMarketDetailResult {
  * 详情按需拉取(用户点击,单文件请求不撞 GitHub 60 req/h 限流)。
  * 失败返回 {error, errorCode}(UNKNOWN_SOURCE/INVALID_SKILL_NAME/HTTP_404/HTTP_403/NETWORK_ERROR/TIMEOUT/PARSE_ERROR)。
  */
-export const getSkillMarketDetail = (source: string, skillPath: string): Promise<SkillMarketDetailResult> => {
-  return bridgeHub.request<SkillMarketDetailResult>(
-    UPSTREAM.GET_SKILL_MARKET_DETAIL,
-    { source, skillPath },
-    { timeoutMs: SKILL_MARKET_TIMEOUT_MS, responseType: DOWNSTREAM.SKILL_MARKET_DETAIL },
-  )
+export const getSkillMarketDetail = (
+  source: string,
+  skillPath: string,
+): Promise<SkillMarketDetailResult> => {
+  return bridgeHub
+    .request<SkillMarketDetailResult>(
+      UPSTREAM.GET_SKILL_MARKET_DETAIL,
+      { source, skillPath },
+      { timeoutMs: SKILL_MARKET_TIMEOUT_MS, responseType: DOWNSTREAM.SKILL_MARKET_DETAIL },
+    )
     .then((result) => result ?? {})
     .catch(() => ({ error: 'timeout', errorCode: 'TIMEOUT' }));
 };

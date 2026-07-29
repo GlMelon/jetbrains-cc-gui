@@ -1,14 +1,30 @@
 import type { ToolInput, ToolResultBlock } from '../types';
 import { getFileName, truncate } from './helpers';
-import { extractFilePathFromCommand, isCommandToolName, unwrapShellCommand } from './toolCommandPath';
+import {
+  extractFilePathFromCommand,
+  isCommandToolName,
+  unwrapShellCommand,
+} from './toolCommandPath';
 import { normalizeToolInput } from './toolInputNormalization';
 import { normalizeToolName } from './toolConstants';
 
 const SPECIAL_FILES = new Set([
-  'makefile', 'dockerfile', 'jenkinsfile', 'vagrantfile',
-  'gemfile', 'rakefile', 'procfile', 'guardfile',
-  'license', 'licence', 'readme', 'changelog',
-  'gradlew', 'cname', 'authors', 'contributors',
+  'makefile',
+  'dockerfile',
+  'jenkinsfile',
+  'vagrantfile',
+  'gemfile',
+  'rakefile',
+  'procfile',
+  'guardfile',
+  'license',
+  'licence',
+  'readme',
+  'changelog',
+  'gradlew',
+  'cname',
+  'authors',
+  'contributors',
 ]);
 
 const stripLineSuffix = (filePath: string): string => filePath.replace(/:\d+(-\d+)?$/, '');
@@ -65,7 +81,9 @@ const parseUnifiedDiffFirstHunk = (text?: string): { start?: number; end?: numbe
   }
 
   const lines = text.split(/\r?\n/);
-  const hunkHeaderIndex = lines.findIndex((line) => /^@@\s+-\d+(?:,\d+)?\s+\+\d+(?:,\d+)?\s+@@/.test(line));
+  const hunkHeaderIndex = lines.findIndex((line) =>
+    /^@@\s+-\d+(?:,\d+)?\s+\+\d+(?:,\d+)?\s+@@/.test(line),
+  );
   if (hunkHeaderIndex === -1) {
     return {};
   }
@@ -145,7 +163,7 @@ const parseUnifiedDiffFirstHunk = (text?: string): { start?: number; end?: numbe
   };
 };
 
-const WINDOWS_DRIVE_REGEX = /^[A-Za-z]:[\\\/]/;
+const WINDOWS_DRIVE_REGEX = /^[A-Za-z]:[\\/]/;
 
 const isAbsolutePath = (path: string): boolean => {
   return path.startsWith('/') || path.startsWith('\\') || WINDOWS_DRIVE_REGEX.test(path);
@@ -231,7 +249,8 @@ export const resolveToolTarget = (input: ToolInput, name?: string): ToolTargetIn
 
   // Handle apply_patch tool - extract file path from patch content
   if (lowerName === 'apply_patch') {
-    const patchContent = (typeof normalizedInput.input === 'string' ? normalizedInput.input : undefined) ??
+    const patchContent =
+      (typeof normalizedInput.input === 'string' ? normalizedInput.input : undefined) ??
       (typeof normalizedInput.patch === 'string' ? normalizedInput.patch : undefined) ??
       (typeof normalizedInput.content === 'string' ? normalizedInput.content : undefined);
 
@@ -249,7 +268,8 @@ export const resolveToolTarget = (input: ToolInput, name?: string): ToolTargetIn
         return {
           rawPath,
           openPath,
-          displayPath: paths.length > 1 ? `${cleanFileName} (+${paths.length - 1} more)` : displayPath,
+          displayPath:
+            paths.length > 1 ? `${cleanFileName} (+${paths.length - 1} more)` : displayPath,
           fileName,
           cleanFileName,
           isDirectory,
@@ -262,18 +282,17 @@ export const resolveToolTarget = (input: ToolInput, name?: string): ToolTargetIn
   }
 
   // Command-executing tools that may contain file paths
-  const isCommandTool = lowerName === 'read' ||
-    lowerName === 'write' ||
-    isCommandToolName(lowerName);
+  const isCommandTool =
+    lowerName === 'read' || lowerName === 'write' || isCommandToolName(lowerName);
 
   // Codex uses 'cmd', others use 'command'
-  const commandStr = (typeof normalizedInput.command === 'string' ? normalizedInput.command : undefined) ??
+  const commandStr =
+    (typeof normalizedInput.command === 'string' ? normalizedInput.command : undefined) ??
     (typeof normalizedInput.cmd === 'string' ? normalizedInput.cmd : undefined);
 
-  const rawPath = standardPath ??
-    ((isCommandTool && commandStr)
-      ? extractFilePathFromCommand(commandStr, workdir)
-      : undefined);
+  const rawPath =
+    standardPath ??
+    (isCommandTool && commandStr ? extractFilePathFromCommand(commandStr, workdir) : undefined);
 
   if (!rawPath) {
     return undefined;
