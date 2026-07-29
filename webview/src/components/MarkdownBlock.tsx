@@ -2,13 +2,12 @@ import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { memo, useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import katex from 'katex';
+import markedKatex from 'marked-katex-extension';
 import { openBrowser, openClass, openFile } from '../utils/bridge';
 import { useMarkdownFileLinkTooltip } from '../hooks/useMarkdownFileLinkTooltip';
 import { useTypewriterStream } from '../hooks/useTypewriterStream';
-import {
-  decorateExistingAnchors,
-  linkifyHtml,
-} from '../utils/linkify';
+import { decorateExistingAnchors, linkifyHtml } from '../utils/linkify';
 import {
   getLinkifyCapabilities,
   subscribeLinkifyCapabilities,
@@ -34,6 +33,7 @@ import typescript from 'highlight.js/lib/languages/typescript';
 import xml from 'highlight.js/lib/languages/xml';
 import yaml from 'highlight.js/lib/languages/yaml';
 import 'highlight.js/styles/github-dark.css';
+import 'katex/dist/katex.css';
 import { markedHighlight } from 'marked-highlight';
 
 const SAFE_HREF_PROTOCOL_REGEX = /^(?:https?|mailto):/i;
@@ -41,6 +41,7 @@ const FILE_URI_SCHEME_REGEX = /^file:/i;
 const WINDOWS_DRIVE_PATH_REGEX = /^[A-Za-z]:[\\/]/;
 const URI_SCHEME_REGEX = /^[A-Za-z][A-Za-z0-9+.-]*:/;
 let hrefSanitizerHookInstalled = false;
+const LATEX_CODE_LANGUAGES = new Set(['latex', 'tex', 'math']);
 
 function containsControlCharacter(value: string): boolean {
   for (let index = 0; index < value.length; index += 1) {
@@ -156,6 +157,9 @@ async function getMermaid() {
 
 // Configure marked to use syntax highlighting
 marked.use(
+  markedKatex({
+    throwOnError: false,
+  }),
   markedHighlight({
     highlight(code: string, lang: string) {
       // Skip syntax highlighting for mermaid code blocks
@@ -171,7 +175,7 @@ marked.use(
       }
       return hljs.highlightAuto(code).value;
     },
-  })
+  }),
 );
 
 // Mermaid syntax keywords used to detect diagram content (Set for O(1) lookup)
@@ -242,9 +246,7 @@ function stripSystemTags(content: string): string {
 const XML_TAG_RE = /<!--[\s\S]*?-->|<\/?[a-zA-Z][a-zA-Z0-9-]*(?:\s[^>]*)?\/?>/g;
 
 function escapeXmlTags(text: string): string {
-  return text.replace(XML_TAG_RE, (match) =>
-    match.replace(/</g, '&lt;').replace(/>/g, '&gt;'),
-  );
+  return text.replace(XML_TAG_RE, (match) => match.replace(/</g, '&lt;').replace(/>/g, '&gt;'));
 }
 
 /**
@@ -254,6 +256,72 @@ function escapeXmlTags(text: string): string {
  */
 const CODE_FENCE_RE = /(```[\s\S]*?```)/g;
 const INLINE_CODE_RE = /(`[^`\n]+`)/g;
+const DISPLAY_MATH_DELIMITER_LINE_RE = /^([ \t]*)\$\$\s*$/;
+const BRACKET_MATH_DELIMITER_RE = /(?<!\\)(\\\[|\\\]|\\\(|\\\))/g;
+const BRACKET_MATH_DELIMITER_MAP: Record<string, string> = {
+  '\\[': '$$',
+  '\\]': '$$',
+  '\\(': '$',
+  '\\)': '$',
+};
+
+/**
+ * Normalize bracket-style math delimiters (\[...\] and \(...\)) into
+ * the forms understood by marked-katex-extension, without changing code.
+ */
+function normalizeBracketMathDelimiters(content: string): string {
+  return content
+    .split(CODE_FENCE_RE)
+    .map((fencePart, fenceIdx) => {
+      if (fenceIdx % 2 === 1) return fencePart;
+
+      return fencePart
+        .split(INLINE_CODE_RE)
+        .map((inlinePart, inlineIdx) => {
+          if (inlineIdx % 2 === 1) return inlinePart;
+          return inlinePart.replace(
+            BRACKET_MATH_DELIMITER_RE,
+            (match) => BRACKET_MATH_DELIMITER_MAP[match],
+          );
+        })
+        .join('');
+    })
+    .join('');
+}
+
+function normalizeIndentedDisplayMath(content: string): string {
+  return content
+    .split(CODE_FENCE_RE)
+    .map((part, partIndex) => {
+      if (partIndex % 2 === 1) return part;
+
+      const lines = part.split('\n');
+      let mathIndent = '';
+      let inDisplayMath = false;
+
+      return lines
+        .map((line) => {
+          const delimiterMatch = DISPLAY_MATH_DELIMITER_LINE_RE.exec(line);
+          if (delimiterMatch) {
+            if (!inDisplayMath) {
+              mathIndent = delimiterMatch[1];
+              inDisplayMath = true;
+            } else {
+              inDisplayMath = false;
+            }
+            return '$$';
+          }
+
+          if (inDisplayMath && mathIndent && line.startsWith(mathIndent)) {
+            return line.slice(mathIndent.length);
+          }
+
+          return line;
+        })
+        .join('\n');
+    })
+    .join('');
+}
 
 function stripAndEscapeOutsideCodeBlocks(content: string): string {
   // First split by fenced code blocks
@@ -275,6 +343,53 @@ function stripAndEscapeOutsideCodeBlocks(content: string): string {
         .join('');
     })
     .join('');
+}
+
+function isLatexCodeLanguage(language: string | null): boolean {
+  return language !== null && LATEX_CODE_LANGUAGES.has(language.toLowerCase());
+}
+
+function unwrapLatexCodeBlockSource(source: string): string {
+  const trimmed = source.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  const displayBlockMatch = trimmed.match(/^\$\$\s*([\s\S]*?)\s*\$\$$/);
+  if (displayBlockMatch) {
+    return (displayBlockMatch[1] ?? '').trim();
+  }
+
+  const bracketBlockMatch = trimmed.match(/^\\\[\s*([\s\S]*?)\s*\\\]$/);
+  if (bracketBlockMatch) {
+    return (bracketBlockMatch[1] ?? '').trim();
+  }
+
+  const inlineParenMatch = trimmed.match(/^\\\(\s*([\s\S]*?)\s*\\\)$/);
+  if (inlineParenMatch) {
+    return (inlineParenMatch[1] ?? '').trim();
+  }
+
+  return trimmed;
+}
+
+function renderLatexPreviewHtml(source: string): string | null {
+  const latex = unwrapLatexCodeBlockSource(source);
+  if (!latex) {
+    return null;
+  }
+
+  try {
+    const rendered = katex.renderToString(latex, {
+      displayMode: true,
+      throwOnError: false,
+      strict: 'ignore',
+      trust: false,
+    });
+    return rendered.includes('katex-error') ? null : rendered;
+  } catch {
+    return null;
+  }
 }
 
 // Mermaid render counter for generating unique IDs
@@ -339,7 +454,10 @@ const MarkdownBlock = ({ content = '', isStreaming = false }: MarkdownBlockProps
       let code = codeBlock.textContent || '';
 
       // Clean up any remaining markdown markers (e.g., ```mermaid)
-      code = code.replace(/^```mermaid\s*/i, '').replace(/```\s*$/, '').trim();
+      code = code
+        .replace(/^```mermaid\s*/i, '')
+        .replace(/```\s*$/, '')
+        .trim();
 
       if (!code) continue;
 
@@ -469,15 +587,14 @@ const MarkdownBlock = ({ content = '', isStreaming = false }: MarkdownBlockProps
       // Non-streaming: full markdown pipeline
       // Strip system-internal XML tags and escape remaining XML tags outside code blocks
       // (mirrors CLI's stripPromptXMLTags + html token discard)
-      const cleaned = stripAndEscapeOutsideCodeBlocks(trimmedContent);
-      const parsed = marked.parse(cleaned);
-      const sanitized = DOMPurify.sanitize(
-        typeof parsed === 'string' ? parsed : String(parsed),
-        {
-          ...MARKDOWN_LINK_SANITIZE_OPTIONS,
-          ADD_ATTR: ['class', 'data-lang', 'data-copy-success', 'data-copy-title'],
-        }
+      const cleaned = stripAndEscapeOutsideCodeBlocks(
+        normalizeIndentedDisplayMath(normalizeBracketMathDelimiters(trimmedContent)),
       );
+      const parsed = marked.parse(cleaned);
+      const sanitized = DOMPurify.sanitize(typeof parsed === 'string' ? parsed : String(parsed), {
+        ...MARKDOWN_LINK_SANITIZE_OPTIONS,
+        ADD_ATTR: ['class', 'data-lang', 'data-copy-success', 'data-copy-title'],
+      });
       const rawHtml = sanitized.trim();
 
       if (typeof window === 'undefined' || !rawHtml) {
@@ -485,8 +602,34 @@ const MarkdownBlock = ({ content = '', isStreaming = false }: MarkdownBlockProps
       }
 
       const doc = new DOMParser().parseFromString(rawHtml, 'text/html');
-    decorateExistingAnchors(doc.body);
       const pres = doc.querySelectorAll('pre');
+
+      pres.forEach((pre) => {
+        const code = pre.querySelector('code');
+        const languageTag = code ? (code.className.match(/language-([\w-]+)/i)?.[1] ?? null) : null;
+        if (!isLatexCodeLanguage(languageTag)) {
+          return;
+        }
+
+        const previewHtml = renderLatexPreviewHtml(code?.textContent ?? '');
+        if (!previewHtml) {
+          return;
+        }
+
+        const wrapper = doc.createElement('div');
+        wrapper.className = 'code-block-wrapper latex-code-block-wrapper';
+        pre.parentNode?.insertBefore(wrapper, pre);
+
+        const preview = doc.createElement('div');
+        preview.className = 'latex-code-block-preview';
+        preview.innerHTML = previewHtml;
+
+        wrapper.appendChild(preview);
+        wrapper.appendChild(pre);
+        pre.style.display = 'none';
+      });
+
+      decorateExistingAnchors(doc.body);
       const copySuccessText = t('markdown.copySuccess');
       const copyCodeTitle = t('markdown.copyCode');
 
@@ -534,12 +677,18 @@ const MarkdownBlock = ({ content = '', isStreaming = false }: MarkdownBlockProps
       }
       return content.replace(/[&<>"']/g, (ch) => {
         switch (ch) {
-          case '&': return '&amp;';
-          case '<': return '&lt;';
-          case '>': return '&gt;';
-          case '"': return '&quot;';
-          case "'": return '&#39;';
-          default: return ch;
+          case '&':
+            return '&amp;';
+          case '<':
+            return '&lt;';
+          case '>':
+            return '&gt;';
+          case '"':
+            return '&quot;';
+          case "'":
+            return '&#39;';
+          default:
+            return ch;
         }
       });
     }
@@ -593,9 +742,10 @@ const MarkdownBlock = ({ content = '', isStreaming = false }: MarkdownBlockProps
     // clicks inside an <a> element. Walk up to the parent element so that
     // element.closest() can be used safely.
     const targetNode = event.target as unknown as Node;
-    const target = targetNode.nodeType === Node.TEXT_NODE
-      ? (targetNode as Text).parentElement
-      : (event.target as HTMLElement);
+    const target =
+      targetNode.nodeType === Node.TEXT_NODE
+        ? (targetNode as Text).parentElement
+        : (event.target as HTMLElement);
 
     const copyBtn = target?.closest('button.copy-code-btn') as HTMLButtonElement | null;
     if (copyBtn && containerRef.current?.contains(copyBtn)) {
