@@ -24,6 +24,7 @@ import { initFonts } from './bootstrap/fonts';
 import { initLanguage } from './bootstrap/language';
 import { initAppearance } from './bootstrap/appearance';
 import { initAvatar } from './bootstrap/avatar';
+import { initWebviewBootstrap } from './bootstrap/webviewBootstrap';
 import { registerPendingSlots } from './bootstrap/pendingSlots';
 
 // 下行总线(Java → 前端)归一化入口。Phase 0:安装空壳(双轨,零行为变化)。
@@ -68,13 +69,15 @@ initAppearance();
 // Avatar config handler (backend-owned hydration outside config.json).
 initAvatar();
 
+// Single backend-owned startup payload for business bootstrap config.
+initWebviewBootstrap();
+
 // Pre-register window callback placeholders so that bridge calls arriving
 // before React mounts are not lost.
 registerPendingSlots();
 
 // vConsole debugging tool
-const enableVConsole =
-  import.meta.env.DEV || import.meta.env.VITE_ENABLE_VCONSOLE === 'true';
+const enableVConsole = import.meta.env.DEV || import.meta.env.VITE_ENABLE_VCONSOLE === 'true';
 
 if (enableVConsole) {
   void import('vconsole').then(({ default: VConsole }) => {
@@ -94,7 +97,9 @@ if (enableVConsole) {
 
 // [归一化] updateLinkifyCapabilities → linkify.update(bootstrap 类,不进 React state)
 registerLegacyAlias('updateLinkifyCapabilities', DOWNSTREAM.LINKIFY_UPDATE);
-subscribeEvent(DOWNSTREAM.LINKIFY_UPDATE, (json) => applyLinkifyCapabilitiesPayload(json as string));
+subscribeEvent(DOWNSTREAM.LINKIFY_UPDATE, (json) =>
+  applyLinkifyCapabilitiesPayload(json as string),
+);
 
 // ---------------------------------------------------------------------------
 // React application rendering
