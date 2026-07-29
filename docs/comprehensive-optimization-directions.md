@@ -1804,3 +1804,355 @@ Dropdown 按实际 combobox/listbox pattern 实现；不得为所有组件机械
 - **B5** Mermaid 打包：已并入 B2（multi-chunk / singlefile 决策），不独立落地。
 
 > **2026-07-22 核查修正**：F6 仍不能标记为“全部落地”——诊断包 ZIP 生命周期与结构化脱敏已由 S0-1 修复，但采样、保留期限、隐私开关与六路径指标尚未完整。P1-P4 的全部剩余工作、实施顺序和验收入口统一见 §0.3 与 §10；本节只作为成果索引，不再承担 backlog 完成状态判断。
+
+
+## 附录：2026-07-28 当前分支落地复核与修复状态
+
+> 本附录覆盖旧状态，以当前分支代码为准。
+> 排查范围：核查本文中未标注“暂缓 / 不做”的完成项是否真实落地，并按本轮建议修正顺序处理可立即修复的问题。未在本附录明确确认为完成的旧 `[x]` 项，不再仅凭旧文档状态视为已完成。
+
+### 一、已核实真实落地的完成项
+
+1. **Codex 磁盘历史分页**
+   - 后端已落地 `CodexHistoryPageService`、`CodexHistoryReader.forEachSessionMessage()`、拼接 JSON 对象解析、最近完整 user turn 加载、`ClaudeSession` 历史 replace/prepend、生命周期 Future 化与 stale session 丢弃。
+   - 协议与派发已落地：`CodexHistoryPageMode`、分页 payload 字段、`LoadCodexHistoryPageActionHandler` typed handler、`UpstreamAction` / `DownstreamEvent` 接入。
+   - 前端已在 `MessageList` 链路接入分页加载与历史追加 / 替换。
+   - 针对性验证通过：`CodexHistoryPageServiceTest`、`HistoryMessageInjectorTest`、`CodexHistoryReaderRefactorTest` 相关用例此前已确认通过。
+
+2. **Prompt provider 跨端隔离**
+   - Java 侧已按 provider 维度完成 prompt 查询、增删改、import/export、冲突检测、禁止跨 provider 更新、下行 envelope（`provider` + `prompts`）与 watcher 遍历 `ProviderType.values()`。
+   - Webview 侧 `PromptProvider` 已使用 generated `ProviderType`，支持 Claude / Codex / OpenCode；provider callback envelope 会过滤当前 provider，legacy 裸数组仅按 Claude 兼容处理；provider 切换会清理旧缓存；设置页 CRUD/import/export 请求会携带 provider。
+   - 已通过 Java compile/checkstyle、`CodemossSettingsServicePromptProviderTest`、TypeScript 与 promptProvider 相关测试；`npm run check:style` 为 0 error（仍有历史 warning）。
+
+3. **Detailed output / usage footer**
+   - 已修正为 `App.tsx` 持有唯一 canonical state：`detailedOutputEnabled` 由 App 读取、更新、持久化，并同时下传 `SettingsView` 与 `ChatScreen`，不再让 Settings hook 或消息列表维护第二份业务状态。
+   - 默认关闭时 footer 仅显示 input / output / total / duration；开启后额外显示 cache write、cache read 与后端计算的 turn cost。
+   - 价格计算已下沉后端：`UsageCostCalculator` 通过 `ProviderType.fromValue(provider)` 路由，Claude / Codex 使用各自 pricing，OpenCode / 未知 provider 返回 `null`，避免 OpenCode 误套 Claude 价格。
+   - `ClaudeMessageHandler` 与 `CodexMessageHandler` 已在写入 `turnUsage` 时补 `turnCostUsd`；无匹配价格时删除旧 cost。Codex usage 兼容 `cached_input_tokens` alias。
+   - Webview 仅读取后端 `turnUsage` / `turnCostUsd` 并格式化展示，不做价格业务计算。
+   - 已补测试：`messageUsage.test.ts`、`MessageUsageStats.test.tsx`、`UsageCostCalculatorTest`、`ClaudeMessageHandlerResultUsageTest`、`CodexMessageHandlerTest` 相关用例。
+
+4. **本轮顺手修复的 ai-bridge 验证问题**
+   - 修复 `ai-bridge/config/api-config.test.js` 使用 `path.resolve('ai-bridge/...')` 导致在 `cd ai-bridge && npm test` 时解析成 `ai-bridge/ai-bridge/...` 的路径问题，改为基于 `import.meta.url` 的相对模块 URL。
+   - 修复 `channel-manager.js` 与 `utils/sdk-loader.js` 将诊断日志输出到 stdout 的问题：诊断日志改走 stderr，stdout 保留 JSON 响应，`channel-manager.protocol.test.mjs` 的 stdout 契约恢复通过。
+
+### 二、已执行验证结果
+
+1. **Webview targeted**
+   - 命令：`npx vitest run src/utils/messageUsage.test.ts src/components/MessageItem/MessageUsageStats.test.tsx src/components/settings/BasicConfigSection/BehaviorTab.test.tsx --reporter=dot`
+   - 结果：通过，3 个文件 / 17 个测试通过。
+
+2. **Webview full**
+   - `npm run prebuild`：通过。
+   - `npm run check:event-literals`：通过，协议事件字面量无漂移。
+   - `npm run check:style`：通过，0 error，保留历史 warning。
+   - `npm run test`：通过，151 个文件 / 1241 个测试通过，`tsc -p tsconfig.test.json --noEmit` 通过。
+   - `npm run build`：通过。
+
+3. **Java targeted**
+   - 命令：`./gradlew.bat test -x buildWebview --tests '*UsageCostCalculatorTest' --tests '*ClaudeMessageHandlerResultUsageTest' --tests '*CodexMessageHandlerTest.resultMessageStampsNormalizedTurnUsageOnLastAssistant' --tests '*CodexMessageHandlerTest.resultMessageAcceptsCodexCachedInputTokenAlias' --tests '*CodexMessageHandlerTest.resultMessageDoesNotStampTurnCostWhenModelHasNoPricing' --console=plain`
+   - 结果：通过。
+
+4. **Java compile/checkstyle**
+   - 命令：`./gradlew.bat compileTestJava checkstyleMain checkstyleTest -x buildWebview --console=plain`
+   - 结果：通过。
+
+5. **Java full test**
+   - 命令：`./gradlew.bat test -x buildWebview --console=plain`
+   - 结果：失败，1847 个测试完成，8 failed，10 skipped。
+   - 当前失败项：
+     - `PluginActionRegistrationTest > pluginDeclaresJcefAndUsesStableTemplateActionIcon`：`JCEF must be optional for IDEs without the standalone module`。
+     - `CodexSDKBridgeHistoryTest > getSessionMessagesNormalizesToolNamesLikeHistoryPanelPath`：expected 1 but was 0。
+     - `CodexSDKBridgeHistoryTest > getSessionMessagesMatchesHistoryPanelForCustomToolCalls`：expected 1 but was 0。
+     - `CodexSDKBridgeHistoryTest > getSessionMessagesPreservesToolResultForAutoRestore`：expected 1 but was 0。
+     - `CodexSDKBridgeHistoryTest > autoRestoreTransportPreservesToolUseAndResultBlocks`：`IndexOutOfBoundsException`。
+     - `CodexMessageHandlerTest > userMessageWithOnlySkillMetadataIsFiltered`：expected 0 but was 1。
+     - `CodexMessageHandlerTest > userMessageStripsCodexImagePlaceholderFromContentAndRawBlocks`：expected 1 but was 0。
+     - `MessageJsonConverterTest > convertMessagesToJsonKeepsOnlyFrontendRelevantRawFields`：断言失败。
+
+6. **ai-bridge**
+   - `npm run lint`：通过，0 error，67 warning（历史 unused / no-useless-assignment / preserve-caught-error 等）。
+   - `npm run typecheck`：通过。
+   - `npm test`：本轮修复后通过，430 tests，429 pass，1 skipped。
+   - `node scripts/run-coverage.mjs`：通过并生成覆盖率数据。
+   - `node scripts/check-coverage.mjs --verbose`：失败；branches 66.21% 低于 baseline 67.29%（delta -1.08），lines 57.26% 高于 baseline 55.13%。未下调 baseline。
+
+### 三、需纠正的旧完成标记 / 未真实完整落地项
+
+以下项目在旧文档中存在 `[x]` 或“已完成”表达，但按当前分支代码与验证结果不能继续按完整完成处理：
+
+1. **S2-1 B3 typed bootstrap payload**
+   - 早期 JCEF bootstrap 收敛有落地基础，但“完整 typed bootstrap DTO/schema、单一 `webview.bootstrap` 下行事件、移除业务初始化 JavaScript 拼接”的描述需重新核验；当前不能仅凭旧 `[x]` 判定完成。
+
+2. **S2-2 F8 CLI 兼容矩阵**
+   - 未核实到完整三 Provider compatibility manifest SSOT、provider-specific parser registry、未知/更高版本策略、签名远程更新、缓存防回滚、离线 fallback 与三条 CLI 探测路径的完整闭环。
+   - 结论：F8 CLI compatibility matrix 仍应作为未完成 / 待验收项。
+
+3. **S2-3 A3 Settings 完整领域拆分**
+   - 当前已有 `ConfigRepository`、迁移、部分领域 Service 与 `updateConfig()` 方向的修改，但 `CodemossSettingsService` 兼容 Facade 与旧 setter 调用仍需继续收口。
+   - 结论：不能标记为“六领域所有权完整验收完成”；Settings 旧 setter 全量迁移到 `updateConfig()` 仍未完成。
+
+4. **S2-4 A5 IntelliJ EP 验收 / 四 IDE verifier 矩阵**
+   - 动态 EP 与相关契约测试有落地迹象，但四 IDE Plugin Verifier 矩阵（IDEA / PyCharm / WebStorm / Ultimate）未在本轮验证链路中跑通。
+   - 当前 Java full test 中 `PluginActionRegistrationTest` 仍失败，提示 JCEF optional 声明问题，因此不能视为 verifier 维度完整完成。
+
+5. **诊断包完整能力**
+   - S0-1 修复了 ZIP 生命周期与结构化脱敏，但采样、保留期限、隐私开关、六路径指标与完整 `DiagnosticBundleService` 能力仍未完整落地。
+
+6. **A11Y2 / A11Y3**
+   - A11Y2 roving tabindex 与 A11Y3 stream announcer 旧文档标记过满；当前仅确认部分 hook / 状态修复方向，尚未完成全量键盘路径、屏幕阅读器节流、最终摘要、卸载清理与跨组件验收矩阵复核。
+
+7. **完整动态 Provider 接入**
+   - Capability / descriptor 地基已出现，但完整动态 Provider 全栈接入仍受 `ProviderType`、协议生成、前端 provider 类型和 ai-bridge 路由等接触点约束；仍属未完成。
+
+8. **非主语言 locale**
+   - i18n baseline / gate 有落地，但非主语言 locale 大量历史缺失仍存在，不能按“国际化完整完成”处理。
+
+### 四、当前仍需后续处理的问题清单
+
+1. 修复 Java full test 8 个失败项，优先级建议：
+   - 先处理 `plugin.xml` / JCEF optional 注册失败，解除 verifier / action registration 阻塞；
+   - 再处理 Codex 历史 tool use / tool result 保留与 auto-restore 断言；
+   - 再处理 `CodexMessageHandlerTest` 中 skill metadata 与图片 placeholder 过滤回归；
+   - 最后处理 `MessageJsonConverterTest` raw 字段白名单断言。
+2. 补齐或重新定义 F8 CLI compatibility matrix 的真实验收标准，并补 provider × CLI 路径验证。
+3. 将 B3 bootstrap 从“已有局部收敛”重新拆成可验证的 DTO/schema/下行事件/无业务 JS 拼接四项验收。
+4. 继续 Settings 旧 setter 到 `updateConfig()` 的全量迁移，补领域所有权契约测试。
+5. 补 A11Y2/A11Y3 的键盘和 aria-live 验收矩阵。
+6. 为 ai-bridge 分支覆盖率恢复到 baseline（branches >= 67.29%），不得通过下调 baseline 掩盖。
+7. 保留当前文档附录作为真实状态覆盖说明，后续若修复上述问题，应在本附录后继续追加验证结果，而不是直接把旧 `[x]` 当作完成依据。
+
+## 附录：2026-07-29 后续问题清单逐项修复与最终验收
+
+> 本附录按上一附录“当前仍需后续处理的问题清单”的顺序记录本轮真实实现和验证结果；不删除、不覆盖 2026-07-28 的失败记录。以下结论以 2026-07-29 当前工作区代码和实际执行命令为准。
+
+### 一、问题 1：Java full test 失败项已修复
+
+1. `plugin.xml` / JCEF action 注册
+   - `src/main/resources/META-INF/plugin.xml` 的 action icon 使用可解析的 `"/icons/cc-gui-icon.svg"`。
+   - 保留正确的 JCEF optional dependency 声明，`PluginActionRegistrationTest` 阻塞已解除。
+2. CLI resolver 测试隔离
+   - `OpenCodeCliResolverTest` 在每个测试前清理 resolver 缓存，避免测试间状态污染。
+3. Codex 历史 tool use / tool result / auto-restore
+   - `CodexHistorySessionService` 对每个物理行使用 `JsonStreamParser`，支持同一行连续多个 JSON 对象，不再丢失 custom tool call、tool result 与 auto-restore transport block。
+4. Codex user message 过滤
+   - `UserMessageSanitizer` 将 `skill` 纳入 system tag，并移除 Codex image placeholder。
+   - `CodexMessageHandler` 保留 live user image block，避免正常图片消息被错误过滤。
+5. Usage transport
+   - `CodexMessageHandler` 兼容 `cached_input_tokens` alias，并计算单回合 `turnCostUsd`。
+   - `CommonConstants` 增加 `JSON_KEY_TURN_COST_USD`，`MessageJsonConverter` 在 transport 白名单中透传该字段。
+6. 测试夹具
+   - Windows 图片路径按 JSON/Java 字符串规则正确转义；历史 placeholder 断言改为验证真实可见文本。
+
+首次修复后全量验证：
+
+```powershell
+.\gradlew.bat test -x buildWebview --console=plain
+```
+
+结果：`BUILD SUCCESSFUL`，`1867 tests completed, 10 skipped, 0 failed`。
+
+合入 Settings、B3 与 A11Y 后再次执行相同命令，最终结果：`BUILD SUCCESSFUL`；从 `build/test-results/test/TEST-*.xml` 汇总得到 `1906 tests, 10 skipped, 0 failures, 0 errors`。
+
+> 说明：本轮已消除 Java full test 与 action registration 阻塞；上一附录另列的 IDEA / PyCharm / WebStorm / Ultimate 四 IDE Plugin Verifier 独立矩阵未在本轮执行，因此不据此扩大声明为“四 IDE verifier 已完成”。
+
+### 二、问题 2：F8 CLI compatibility matrix 已完成真实验收
+
+已逐项核验并测试：
+
+1. Claude / Codex / OpenCode 三 Provider compatibility manifest SSOT；
+2. provider-specific `CliVersionParser` registry；
+3. minimum / blocked / unknown / higher version policy；
+4. Ed25519 detached signature 远程更新校验；
+5. revision 防回滚；
+6. cache → bundled offline fallback；
+7. `ClaudeCliDetector`、`CodexCliResolver`、`OpenCodeCliResolver` 三条实际 CLI 探测路径接入 compatibility decision；
+8. provider matrix、路径契约、parser、签名、版本比较及 resolver cache 回归测试。
+
+验证命令：
+
+```powershell
+.\gradlew.bat test -x buildWebview `
+  --tests '*CliCompatibility*' `
+  --tests '*CliVersionParserRegistryTest' `
+  --tests '*Ed25519ManifestSignatureVerifierTest' `
+  --tests '*VersionComparatorTest' `
+  --tests '*CodexCliResolverCacheTest' `
+  --tests '*OpenCodeCliResolverTest' `
+  --tests '*ClaudeCliDetectorTest' `
+  --console=plain
+```
+
+结果：`BUILD SUCCESSFUL`。签名敏感资源 `cli-compatibility-manifest.json` 与 `cli-compatibility-manifest.sig` 未被改写。
+
+### 三、问题 3：B3 bootstrap 四项验收已完成
+
+1. 后端新增 `WebviewBootstrapPayloadField`，bootstrap 字段名由 Java 权威枚举维护；
+2. `generate-protocol-types.mjs` 从后端字段定义生成 `WebviewBootstrapPayloadWire`，前端 `webviewBootstrap.ts` 直接消费生成类型；
+3. 初始化数据统一通过 `DownstreamEvent.WEBVIEW_BOOTSTRAP` / `webview.bootstrap` 单一下行事件发送完整快照；
+4. `WebviewInitializer` 不再拼接字体、语言、外观、头像等业务初始化 JavaScript，仅保留通用 bridge 调度职责。
+
+验证命令与结果：
+
+```powershell
+cd webview
+npx vitest run src/__tests__/generate-protocol-types.test.ts
+npx tsc -p tsconfig.test.json --noEmit
+```
+
+结果：`22 tests passed`，TypeScript 检查通过。
+
+```powershell
+.\gradlew.bat test -x buildWebview `
+  --tests '*WebviewInitializerTest' `
+  --tests '*WebviewBootstrapPayloadFactoryTest' `
+  --tests '*WebviewBootstrapPayloadFieldTest' `
+  --tests '*ProtocolManifest*' `
+  --console=plain
+```
+
+结果：`BUILD SUCCESSFUL`，4 个 Java 测试通过。
+
+### 四、问题 4：Settings 旧 setter 迁移与领域所有权测试已完成
+
+1. `ConfigStore` 成为领域配置写入抽象，`ConfigRepository` 是唯一 production 实现；
+2. Appearance、AI feature toggle、Codex sandbox、Model registry、MCP、Provider 六个领域 Service 直接依赖 `ConfigStore`，写入统一使用 `ConfigStore.update(...)`；
+3. `CodemossSettingsService` 收敛为兼容 Facade，不再作为领域配置所有者；
+4. 新增 `ConfigSchema`、`ConfigMigration`、`ConfigMigrationRegistry`、legacy version 与 Smithery API key migration；
+5. Smithery 安全存储不可用时迁移 defer，保留旧明文字段读取兼容，但不会新增明文 secret；
+6. 保留 `ConfigFileWatcherService` 启动和 prompt provider isolation，不回退当前较新能力；
+7. 新增 `DomainSettingsOwnershipContractTest`，约束六领域依赖方向、production store 唯一性与更新入口。
+
+验证命令：
+
+```powershell
+.\gradlew.bat compileJava compileTestJava -x buildWebview --console=plain
+
+.\gradlew.bat test -x buildWebview `
+  --tests '*DomainSettingsOwnershipContractTest' `
+  --tests '*ConfigRepositoryTest' `
+  --tests '*ConfigMigrationRegistryTest' `
+  --tests '*AppearanceSettingsServiceTest' `
+  --tests '*AiFeatureToggleSettingsServiceTest' `
+  --tests '*CodexSandboxModeSettingsServiceTest' `
+  --tests '*ModelRegistrySettingsServiceTest' `
+  --tests '*McpSettingsServiceTest' `
+  --tests '*ProviderSettingsServiceTest' `
+  --console=plain
+```
+
+结果：编译与定向测试均 `BUILD SUCCESSFUL`。合并辅助目录 `.tmp-settings-merge/`、`.tmp-settings-merge-normalized/` 已在验证完成后删除。
+
+### 五、问题 5：A11Y2 / A11Y3 验收矩阵已补齐
+
+#### A11Y2
+
+共享 `useRovingTabs` 已接入全部四个现有 tablist：
+
+- `DualViewSwitcher`；
+- `SkillMarketDialog`；
+- `ProviderTabSection`；
+- `AppearanceTab`。
+
+已覆盖 active tab `tabIndex=0`、其余 `-1`、ArrowLeft / ArrowRight / ArrowUp / ArrowDown、Home、End、首尾环绕、焦点与自动 activation 同步、click 兼容，以及 tab `aria-controls` 与 panel `id` / `aria-labelledby` 成对关联。`DualViewSwitcher` 的 JSON 校验失败会通过 `onActivate() === false` 拒绝切换和焦点迁移，不再依赖 active tab `disabled`。
+
+#### A11Y3
+
+`MessageList` 增加隐藏的 `role="status"`、`aria-live="polite"`、`aria-atomic="true"` 流式播报区域。`useStreamingAnnouncement` 已覆盖：
+
+- 1 秒节流，interval 不随 token 更新重建；
+- 从 ref 读取最新文本；
+- 用户位于底部时不重复播报，但推进 observed snapshot；
+- 离开底部后只播报新增内容；
+- 流结束立即播报剩余 final increment；
+- 新 turn / session 清除旧摘要；
+- unmount 清理 interval；
+- `isUserAtBottomRef` 按 `App -> ChatScreen -> MessageList` 贯穿。
+
+验证命令：
+
+```powershell
+cd webview
+npx vitest run `
+  src/components/shared/useRovingTabs.test.tsx `
+  src/components/shared/RovingTabsAdoption.test.ts `
+  src/components/shared/DualViewSwitcher.test.tsx `
+  src/components/settings/BasicConfigSection/AppearanceTab.test.tsx `
+  src/components/MessageList.test.tsx
+npx tsc -p tsconfig.test.json --noEmit
+```
+
+结果：5 个文件、51 个测试通过，TypeScript 检查通过；新增 hooks 的 ESLint 为 0 error / 0 warning。
+
+### 六、问题 6：ai-bridge branches coverage 已恢复到 baseline 以上
+
+新增 `services/system-prompts.test.js`，以纯函数和 prompt 结构断言覆盖：
+
+- null / undefined / control character / backtick / whitespace / 超长 metadata 清理；
+- 无 IDE context、空 context、短/长/空 agent prompt；
+- multi-project workspace、subproject 默认字段、未加载标记；
+- multi-module、active file、selection、other files 与无 active file 分支。
+
+未修改 `scripts/coverage-baseline.json`，未运行 `--init`，没有下调 baseline。
+
+最终验证：
+
+```powershell
+cd ai-bridge
+npm test
+npm run lint
+npm run typecheck
+node scripts/run-coverage.mjs
+node scripts/check-coverage.mjs --verbose
+```
+
+结果：
+
+- tests：436 total，435 passed，1 skipped，0 failed；
+- lint：0 error，67 warnings（既有规则告警）；
+- typecheck：通过；
+- branches：`68.00% (1224/1800)`，baseline `67.29%`，高 `0.71` 个百分点；
+- lines：`58.01% (10609/18287)`，baseline `55.13%`；
+- coverage gate：`OK`。
+
+### 七、三端最终全量验收
+
+#### Webview
+
+```powershell
+cd webview
+npm test
+npm run lint
+npm run build
+```
+
+结果：
+
+- Vitest：153 个文件、1256 个测试全部通过；
+- `tsc -p tsconfig.test.json --noEmit`：通过；
+- ESLint：0 error，88 warnings；
+- production build：2589 modules transformed，single-file bundle 构建和资源同步成功。
+
+#### ai-bridge
+
+最终结果见上一节：435 passed、1 skipped、0 failed；lint / typecheck 通过；coverage gate 通过。
+
+#### Java
+
+```powershell
+.\gradlew.bat test -x buildWebview --console=plain
+```
+
+结果：`BUILD SUCCESSFUL`；1906 tests，10 skipped，0 failures，0 errors。
+
+### 八、上一附录问题清单的最终状态
+
+| 顺序 | 问题 | 2026-07-29 状态 |
+|---:|---|---|
+| 1 | Java full test 8 个失败项 | ✅ 已修复，最终 1906 tests / 0 failed |
+| 2 | F8 CLI compatibility matrix 验收 | ✅ 八项闭环与三 Provider CLI 路径已验证 |
+| 3 | B3 DTO/schema/单一下行事件/无业务 JS 拼接 | ✅ 四项验收完成 |
+| 4 | Settings 旧 setter 与领域所有权 | ✅ 六领域迁移、migration、ownership contract 完成 |
+| 5 | A11Y2/A11Y3 验收矩阵 | ✅ 四 tablist 与流式 aria-live 生命周期矩阵完成 |
+| 6 | ai-bridge branches coverage | ✅ 68.00%，高于 67.29% baseline |
+| 7 | 继续追加真实结果而非覆盖旧记录 | ✅ 本附录已按要求追加 |
