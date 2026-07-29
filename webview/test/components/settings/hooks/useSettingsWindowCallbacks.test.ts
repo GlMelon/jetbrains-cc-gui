@@ -1,0 +1,208 @@
+import {renderHook} from '@testing-library/react';
+import {beforeEach, describe, expect, it, vi} from 'vitest';
+import {type SettingsWindowCallbacksDeps, useSettingsWindowCallbacks} from '../../../../src/components/settings/hooks/useSettingsWindowCallbacks';
+import type {CommitAiConfig} from '../../../../src/types/aiFeatureConfig';
+import type {PromptEnhancerConfig} from '../../../../src/types/promptEnhancer';
+
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => key,
+  }),
+}));
+
+describe('useSettingsWindowCallbacks', () => {
+  const bridgeCall = (type: string, content = '') =>
+    JSON.stringify({ type, content });
+
+  const createDeps = (): SettingsWindowCallbacksDeps => ({
+    setNodePath: vi.fn(),
+    setNodeVersion: vi.fn(),
+    setMinNodeVersion: vi.fn(),
+    setSavingNodePath: vi.fn(),
+    setWorkingDirectory: vi.fn(),
+    setSavingWorkingDirectory: vi.fn(),
+    setCommitPrompt: vi.fn(),
+    setSavingCommitPrompt: vi.fn(),
+    setCommitAiConfig: vi.fn(),
+    setPromptEnhancerConfig: vi.fn(),
+    setProjectCommitPrompt: vi.fn(),
+    setSavingProjectCommitPrompt: vi.fn(),
+    setEditorFontConfig: vi.fn(),
+    setUiFontConfig: vi.fn(),
+    setCodeFontConfig: vi.fn(),
+    setIdeTheme: vi.fn(),
+    setLocalStreamingEnabled: vi.fn(),
+    setLocalShowThinkingEnabled: vi.fn(),
+    setCodexSandboxMode: vi.fn(),
+    setLocalSendShortcut: vi.fn(),
+    setLoading: vi.fn(),
+    setCodexLoading: vi.fn(),
+    setCodexConfigLoading: vi.fn(),
+    setOpenCodeLoading: vi.fn(),
+    setOpenCodeConfigLoading: vi.fn(),
+    setInvocationMode: vi.fn(),
+    setCliPath: vi.fn(),
+    updateProviders: vi.fn(),
+    updateActiveProvider: vi.fn(),
+    loadProviders: vi.fn(),
+    loadCodexProviders: vi.fn(),
+    loadOpenCodeProviders: vi.fn(),
+    loadAgents: vi.fn(),
+    updateAgents: vi.fn(),
+    handleAgentOperationResult: vi.fn(),
+    handleAgentImportPreviewResult: vi.fn(),
+    handleAgentImportResult: vi.fn(),
+    updateCodexProviders: vi.fn(),
+    updateActiveCodexProvider: vi.fn(),
+    updateCurrentCodexConfig: vi.fn(),
+    updateOpenCodeProviders: vi.fn(),
+    updateActiveOpenCodeProvider: vi.fn(),
+    updateCurrentOpenCodeConfig: vi.fn(),
+    cleanupAgentsTimeout: vi.fn(),
+    showAlert: vi.fn(),
+    addToast: vi.fn(),
+    setClaudeCliPath: vi.fn(),
+    setSavingClaudeCliPath: vi.fn(),
+  });
+
+  beforeEach(() => {
+    window.sendToJava = vi.fn();
+    window.applyUiFontConfig = vi.fn();
+  });
+
+  it('does not auto-request current Claude config on mount', () => {
+    const deps = createDeps();
+
+    renderHook(() => useSettingsWindowCallbacks(deps));
+
+    expect(deps.loadProviders).toHaveBeenCalledTimes(1);
+    expect(deps.loadCodexProviders).toHaveBeenCalledTimes(1);
+    expect(deps.loadOpenCodeProviders).toHaveBeenCalledTimes(1);
+    expect(deps.loadAgents).toHaveBeenCalledTimes(1);
+    expect(window.sendToJava).not.toHaveBeenCalledWith(bridgeCall('get_current_claude_config'));
+    expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('get_node_path'));
+    expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('get_working_directory'));
+    expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('get_editor_font_config'));
+    expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('get_streaming_enabled'));
+    expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('get_show_thinking_enabled'));
+    expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('get_codex_sandbox_mode'));
+    expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('get_commit_prompt'));
+    expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('get_commit_ai_config'));
+    expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('get_prompt_enhancer_config'));
+    expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('get_ui_font_config'));
+  });
+
+  it('registers prompt enhancer callback and updates state from backend payload', () => {
+    const deps = createDeps();
+
+    renderHook(() => useSettingsWindowCallbacks(deps));
+
+    const payload: PromptEnhancerConfig = {
+      provider: null,
+      effectiveProvider: 'codex',
+      resolutionSource: 'auto',
+      models: {
+        claude: 'claude-sonnet-4-6',
+        codex: 'gpt-5.5',
+        opencode: '',
+      },
+      availability: {
+        claude: true,
+        codex: true,
+        opencode: true,
+      },
+    };
+
+    window.updatePromptEnhancerConfig?.(JSON.stringify(payload));
+
+    expect(deps.setPromptEnhancerConfig).toHaveBeenCalledWith(payload);
+  });
+
+  it('registers commit AI callback and updates only commit AI state from backend payload', () => {
+    const deps = createDeps();
+
+    renderHook(() => useSettingsWindowCallbacks(deps));
+
+    const payload: CommitAiConfig = {
+      provider: null,
+      effectiveProvider: 'codex',
+      resolutionSource: 'auto',
+      models: {
+        claude: 'claude-sonnet-4-6',
+        codex: 'gpt-5.5',
+        opencode: '',
+      },
+      availability: {
+        claude: true,
+        codex: true,
+        opencode: true,
+      },
+    };
+
+    window.updateCommitAiConfig?.(JSON.stringify(payload));
+
+    expect(deps.setCommitAiConfig).toHaveBeenCalledWith(payload);
+    expect(deps.setPromptEnhancerConfig).not.toHaveBeenCalled();
+  });
+
+  it('registers ui font callback and updates ui font state from backend payload', () => {
+    const deps = createDeps();
+
+    renderHook(() => useSettingsWindowCallbacks(deps));
+
+    window.onUiFontConfigReceived?.(JSON.stringify({
+      mode: 'customFile',
+      effectiveMode: 'customFile',
+      customFontPath: '/tmp/MapleMono.ttf',
+      fontFamily: 'CC GUI UI Custom',
+      fontSize: 14,
+      lineSpacing: 1.35,
+    }));
+
+    expect((deps as any).setUiFontConfig).toHaveBeenCalledWith(expect.objectContaining({
+      mode: 'customFile',
+      customFontPath: '/tmp/MapleMono.ttf',
+      fontFamily: 'CC GUI UI Custom',
+    }));
+  });
+
+  it('applies ui font immediately when backend pushes updated config', () => {
+    const deps = createDeps();
+
+    renderHook(() => useSettingsWindowCallbacks(deps));
+
+    const payload = {
+      mode: 'customFile',
+      effectiveMode: 'customFile',
+      customFontPath: '/tmp/MapleMono.ttf',
+      fontFamily: 'CC GUI UI Custom',
+      fontSize: 14,
+      lineSpacing: 1.35,
+      fontBase64: 'AAECA',
+      fontFormat: 'truetype',
+    };
+
+    window.onUiFontConfigReceived?.(JSON.stringify(payload));
+
+    expect(window.applyUiFontConfig).toHaveBeenCalledWith(expect.objectContaining({
+      mode: 'customFile',
+      customFontPath: '/tmp/MapleMono.ttf',
+      fontBase64: 'AAECA',
+      fontFormat: 'truetype',
+    }));
+  });
+
+  it('auto-requests Claude CLI path on mount', () => {
+    const deps = createDeps();
+    renderHook(() => useSettingsWindowCallbacks(deps));
+    expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('get_claude_cli_path'));
+  });
+
+  it('registers Claude CLI path callback and updates state from backend payload', () => {
+    const deps = createDeps();
+    renderHook(() => useSettingsWindowCallbacks(deps));
+    window.updateClaudeCliPath?.(JSON.stringify({ path: '/usr/local/bin/claude' }));
+    expect(deps.setClaudeCliPath).toHaveBeenCalledWith('/usr/local/bin/claude');
+    expect(deps.setSavingClaudeCliPath).toHaveBeenCalledWith(false);
+  });
+});

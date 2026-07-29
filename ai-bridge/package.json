@@ -18,7 +18,7 @@
     "lint:fix": "eslint --fix .",
     "format": "prettier --write \"**/*.{js,mjs,cjs,ts,json}\"",
     "format:check": "prettier --check \"**/*.{js,mjs,cjs,ts,json}\"",
-    "test": "node --import tsx --test \"**/*.test.{js,mjs,ts}\""
+    "test": "node --import tsx --test \"test/**/*.test.{js,mjs,ts}\""
   },
   "devDependencies": {
     "c8": "^10.1.3",

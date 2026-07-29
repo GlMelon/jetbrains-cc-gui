@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     environment: 'happy-dom',
     setupFiles: ['./vitest-setup.ts'],
-    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    include: ['test/**/*.test.ts', 'test/**/*.test.tsx'],
     exclude: ['../.worktrees/**'],
     globals: true,
     coverage: {
@@ -18,7 +18,7 @@ export default defineConfig({
       all: false,
       include: ['src/**/*.{ts,tsx}'],
       exclude: [
-        'src/**/*.test.{ts,tsx}',
+        'test/**/*.test.{ts,tsx}',
         'src/generated/**',
         'src/version/**',
         'src/**/*.d.ts',

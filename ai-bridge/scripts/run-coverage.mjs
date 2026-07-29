@@ -25,7 +25,7 @@ const C8RC = join(AI_BRIDGE_DIR, '.c8rc.json');
 const result = spawnSync(process.execPath, [
   C8_JS,
   '--config', C8RC,
-  'node', '--test', 'ai-bridge/**/*.test.js',
+  'node', '--test', 'ai-bridge/test/**/*.test.js',
 ], {
   cwd: REPO_ROOT,
   stdio: 'inherit',
