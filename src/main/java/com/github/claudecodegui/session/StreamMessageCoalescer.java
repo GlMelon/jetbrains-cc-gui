@@ -40,6 +40,8 @@ public class StreamMessageCoalescer {
     private static final int MEDIUM_INTERVAL_MS = 500;             // 100-200KB
     private static final int LARGE_INTERVAL_MS = 2_000;            // 200-500KB
     private static final int XLARGE_INTERVAL_MS = 5_000;           // >500KB
+    private static final int LONG_CONVERSATION_THRESHOLD = 300;
+    private static final int LONG_CONVERSATION_TAIL_SIZE = 180;
 
     // During streaming, delta channel (onContentDelta/onThinkingDelta) provides
     // real-time character-by-character updates.  updateMessages carries authoritative
@@ -71,6 +73,7 @@ public class StreamMessageCoalescer {
     private volatile int lastPayloadChars = 0;
     private volatile List<ClaudeSession.Message> pendingMessages = null;
     private volatile List<ClaudeSession.Message> lastSnapshot = null;
+    private volatile List<ClaudeSession.Message> lastDeliveredSnapshot = null;
     // usage 增量去重:流式期间重复推送相同 usage 的引用缓存(详见 sendToWebView 去重逻辑)。
     private volatile JsonObject lastPushedUsageRef = null;
 
@@ -94,6 +97,12 @@ public class StreamMessageCoalescer {
          */
         default void onStreamEnded() {}
     }
+
+    record MessageTransport(
+            List<ClaudeSession.Message> messages,
+            int baseIndex,
+            boolean tailUpdate
+    ) {}
 
     public StreamMessageCoalescer(JsCallbackTarget callbackTarget) {
         this(callbackTarget, null);
@@ -176,6 +185,7 @@ public class StreamMessageCoalescer {
             updateScheduled = false;
             pendingMessages = null;
             lastSnapshot = null;
+            lastDeliveredSnapshot = null;
             lastUpdateAtMs = 0L;
             lastPayloadChars = 0;
             ++updateSequence;
@@ -310,10 +320,19 @@ public class StreamMessageCoalescer {
             long sequence,
             LongConsumer afterSendOnEdt
     ) {
-        // Keep the snapshot for potential re-flush after webview reload/recreate
+        // Keep the snapshot for potential re-flush after webview reload/recreate.
+        // Only a snapshot actually delivered to the webview can prove that an
+        // omitted prefix is stable enough for an indexed tail update.
+        final List<ClaudeSession.Message> deliveredSnapshot;
         synchronized (lock) {
+            deliveredSnapshot = lastDeliveredSnapshot;
             lastSnapshot = messages;
         }
+
+        MessageTransport transport = selectMessageTransport(messages, deliveredSnapshot);
+        final boolean tailUpdate = transport.tailUpdate();
+        final int tailBaseIndex = transport.baseIndex();
+        final List<ClaudeSession.Message> transportMessages = transport.messages();
 
         ApplicationManager.getApplication().executeOnPooledThread(() -> {
             final int payloadChars;
@@ -321,7 +340,7 @@ public class StreamMessageCoalescer {
             final String escapedMessagesJson;
             try {
                 long buildStartedAt = System.nanoTime();
-                String messagesJson = MessageJsonConverter.convertMessagesToJson(messages);
+                String messagesJson = MessageJsonConverter.convertMessagesToJson(transportMessages);
                 payloadChars = messagesJson.length();
                 escapedMessagesJson = JsUtils.escapeJs(messagesJson);
                 payloadBuildMs = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - buildStartedAt);
@@ -332,11 +351,14 @@ public class StreamMessageCoalescer {
                 if (payloadChars >= LARGE_UPDATE_PAYLOAD_CHARS || payloadBuildMs >= SLOW_PAYLOAD_BUILD_MS) {
                     LOG.info("[WebviewTransport] updateMessages payload chars=" + payloadChars
                             + ", messages=" + messages.size()
+                            + ", transportedMessages=" + transportMessages.size()
+                            + ", tailBaseIndex=" + tailBaseIndex
                             + ", buildMs=" + payloadBuildMs
                             + ", sequence=" + sequence);
                 } else if (LOG.isDebugEnabled()) {
                     LOG.debug("[WebviewTransport] updateMessages payload chars=" + payloadChars
                             + ", messages=" + messages.size()
+                            + ", transportedMessages=" + transportMessages.size()
                             + ", buildMs=" + payloadBuildMs
                             + ", sequence=" + sequence);
                 }
@@ -378,7 +400,21 @@ public class StreamMessageCoalescer {
                 // prevent afterSendOnEdt from running.  When afterSendOnEdt carries
                 // the onStreamEnd signal, failing to run it permanently freezes the UI.
                 try {
-                    callbackTarget.callJavaScript("updateMessages", escapedMessagesJson, String.valueOf(sequence));
+                    if (tailUpdate) {
+                        callbackTarget.callJavaScript(
+                                "updateMessageTail",
+                                escapedMessagesJson,
+                                String.valueOf(tailBaseIndex),
+                                String.valueOf(sequence));
+                    } else {
+                        callbackTarget.callJavaScript(
+                                "updateMessages", escapedMessagesJson, String.valueOf(sequence));
+                    }
+                    synchronized (lock) {
+                        if (sequence == updateSequence) {
+                            lastDeliveredSnapshot = messages;
+                        }
+                    }
                     // usage 增量去重:流式 delta 不含 usage(仅回合末 result 才有),若每次 updateMessages
                     // 都全量推送 usage,是稳态 ~30/s 的冗余 IPC + CPU。usage 变化总伴随新 JSON 对象引用
                     // (回合制,result 新建 usage 对象),故引用相等即可安全跳过整个推送。新会话由
@@ -403,6 +439,41 @@ public class StreamMessageCoalescer {
                 }
             });
         });
+    }
+
+    static MessageTransport selectMessageTransport(
+            List<ClaudeSession.Message> messages,
+            List<ClaudeSession.Message> previousMessages
+    ) {
+        boolean longConversation = messages.size() > LONG_CONVERSATION_THRESHOLD;
+        int candidateBaseIndex = longConversation
+                ? Math.max(0, messages.size() - LONG_CONVERSATION_TAIL_SIZE)
+                : 0;
+        boolean stablePrefix = previousMessages != null
+                && messages.size() >= previousMessages.size()
+                && hasSamePrefix(previousMessages, messages, candidateBaseIndex);
+        boolean tailUpdate = longConversation && stablePrefix;
+        int baseIndex = tailUpdate ? candidateBaseIndex : 0;
+        List<ClaudeSession.Message> transportMessages = tailUpdate
+                ? List.copyOf(messages.subList(baseIndex, messages.size()))
+                : messages;
+        return new MessageTransport(transportMessages, baseIndex, tailUpdate);
+    }
+
+    private static boolean hasSamePrefix(
+            List<ClaudeSession.Message> previousMessages,
+            List<ClaudeSession.Message> messages,
+            int prefixLength
+    ) {
+        if (previousMessages.size() < prefixLength) {
+            return false;
+        }
+        for (int i = 0; i < prefixLength; i++) {
+            if (previousMessages.get(i) != messages.get(i)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     // ===== Streaming heartbeat =====

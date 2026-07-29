@@ -318,8 +318,9 @@ public class CodexMessageHandlerTest {
             callbackHandler.setCallback(callback);
 
             CodexMessageHandler handler = new CodexMessageHandler(state, callbackHandler);
+            String escapedImagePath = imagePath.toString().replace("\\", "\\\\");
             handler.onMessage("user", "{\"message\":{\"role\":\"user\",\"content\":[{\"type\":\"text\","
-                    + "\"text\":\"<image name=[Image #1] path=\\\"" + imagePath + "\\\">\\n</image>\\n\\n测试通讯\"}]}}");
+                    + "\"text\":\"<image name=[Image #1] path=\\\"" + escapedImagePath + "\\\">\\n</image>\\n\\n测试通讯\"}]}}");
 
             assertEquals(1, state.getMessages().size());
             Message message = state.getMessages().get(0);
