@@ -63,6 +63,7 @@
     <depends optional="true" config-file="java-features.xml">com.intellij.java</depends>
     <!-- Optional: Python support for enhanced context collection in PyCharm/IDEA with Python plugin -->
     <depends optional="true" config-file="python-features.xml">com.intellij.modules.python</depends>
+    <depends optional="true" config-file="jcef-features.xml">com.intellij.modules.jcef</depends>
 
     <!-- Custom extension points (A5) -->
     <extensionPoint name="semanticContextProvider"
@@ -163,7 +164,7 @@
         <!-- Save As Template Action -->
         <action id="ClaudeCodeGUI.SaveAsTemplateAction"
                 class="com.github.claudecodegui.action.SaveAsTemplateAction"
-                icon="AllIcons.Actions.Saveall"/>
+                icon="/icons/cc-gui-icon.svg"/>
 
         <!-- Create From Template Action -->
         <action id="ClaudeCodeGUI.CreateFromTemplateAction"

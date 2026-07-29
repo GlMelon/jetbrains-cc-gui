@@ -408,6 +408,9 @@ public class ClaudeSDKToolWindow implements ToolWindowFactory, DumbAware {
 
             @Override
             public void selectionChanged(@NotNull ContentManagerEvent event) {
+                if (contentManager.getSelectedContent() != event.getContent()) {
+                    return;
+                }
                 ClaudeChatWindow window = contentToWindowMap.get(event.getContent());
                 if (window != null) {
                     long startNanos = System.nanoTime();
@@ -415,6 +418,7 @@ public class ClaudeSDKToolWindow implements ToolWindowFactory, DumbAware {
                             event.getContent().getDisplayName(),
                             window.getSession().getSessionId());
                     LOG.info("[TabPerf] Tab selection changed: " + tabDescriptor);
+                    window.onTabActivated();
                     window.loadRestoredHistoryIfNeeded();
                     LOG.info("[TabPerf] selectionChanged handler returned in "
                             + TabPerformanceLogger.elapsedMillis(startNanos) + "ms: " + tabDescriptor);
