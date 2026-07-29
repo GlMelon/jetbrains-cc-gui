@@ -191,21 +191,31 @@ public class AppearanceSettingsServiceTest {
         useTemporaryHomeDirectory(tempHome = Files.createTempDirectory("appearance-cas-home"));
         final Path configFile = tempHome.resolve(".codemoss").resolve("config.json");
 
-        // bootstrap:先写一次合法 config,确保后续 readConfig 走 load(建 snapshot)而非 createDefault。
-        new CodemossSettingsService().setAppearanceConfig(new JsonObject());
+        ConfigStore delegate = SettingsTestConfig.create().configStore();
+        delegate.update(config -> config.addProperty("bootstrap", true));
         assertTrue("config.json should exist after bootstrap", Files.exists(configFile));
 
-        // override readConfig:super.readConfig() 建 snapshot 后立即外部改写文件,模拟 read→write 窗口内外部编辑。
-        CodemossSettingsService css = new CodemossSettingsService() {
+        ConfigStore externallyEditedStore = new ConfigStore() {
             @Override
-            public JsonObject readConfig() throws IOException {
-                JsonObject c = super.readConfig();
-                Files.writeString(configFile, "{\"externalEdit\":true,\"differentSize\":12345}",
-                        StandardCharsets.UTF_8);
-                return c;
+            public JsonObject read() throws IOException {
+                return delegate.read();
+            }
+
+            @Override
+            public void write(JsonObject config) throws IOException {
+                delegate.write(config);
+            }
+
+            @Override
+            public void update(ConfigMutation mutation) throws IOException {
+                delegate.update(config -> {
+                    mutation.apply(config);
+                    Files.writeString(configFile, "{\"externalEdit\":true,\"differentSize\":12345}",
+                            StandardCharsets.UTF_8);
+                });
             }
         };
-        AppearanceSettingsService svc = new AppearanceSettingsService(css);
+        AppearanceSettingsService svc = new AppearanceSettingsService(externallyEditedStore);
 
         try {
             svc.setAppearanceConfig(new JsonObject());
@@ -219,8 +229,7 @@ public class AppearanceSettingsServiceTest {
 
     private AppearanceSettingsService newService() throws Exception {
         useTemporaryHomeDirectory(tempHome = Files.createTempDirectory("appearance-test-home"));
-        CodemossSettingsService css = new CodemossSettingsService();
-        return new AppearanceSettingsService(css);
+        return new AppearanceSettingsService(SettingsTestConfig.create().configStore());
     }
 
     private void useTemporaryHomeDirectory(Path home) throws Exception {

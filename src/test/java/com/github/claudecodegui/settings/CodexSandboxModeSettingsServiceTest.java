@@ -123,7 +123,7 @@ public class CodexSandboxModeSettingsServiceTest {
 
     private CodexSandboxModeSettingsService newService() throws Exception {
         useTemporaryHomeDirectory(tempHome = Files.createTempDirectory("codex-sandbox-test-home"));
-        return new CodexSandboxModeSettingsService(new CodemossSettingsService());
+        return new CodexSandboxModeSettingsService(SettingsTestConfig.create().configStore());
     }
 
     private CodemossSettingsService newCss() throws Exception {
@@ -133,7 +133,7 @@ public class CodexSandboxModeSettingsServiceTest {
 
     /** 预置 config 后在当前 tempHome 上 new CSS(不重建 home,复用 writePresetConfig 写好的 home)。 */
     private CodexSandboxModeSettingsService newServiceOnPresetHome() throws Exception {
-        return new CodexSandboxModeSettingsService(new CodemossSettingsService());
+        return new CodexSandboxModeSettingsService(SettingsTestConfig.create().configStore());
     }
 
     /** 在新的临时 home 写入预设 config.json(必须在 new CSS 之前,使其 load 读到预设)。 */
