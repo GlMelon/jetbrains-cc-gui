@@ -81,7 +81,13 @@ public class HistoryActionHandlers implements HistoryRefreshService {
     public void handleDeleteSession(String content) {
         LOG.info("[HistoryHandler] 处理: delete_session, sessionId=" + content);
         String providerSnapshot = this.currentProvider;
-        CompletableFuture.runAsync(() -> historyWorkflowService.deleteOne(providerSnapshot, content));
+        HistoryDeleteService.quiesceActiveSessionForDeletion(
+                context.getSession(), List.of(content), providerSnapshot)
+                .thenRunAsync(() -> historyWorkflowService.deleteOne(providerSnapshot, content))
+                .exceptionally(error -> {
+                    restoreHistoryAfterAbortedDeletion(providerSnapshot, error);
+                    return null;
+                });
     }
 
     public void handleDeleteSessions(String content) {
@@ -93,7 +99,19 @@ public class HistoryActionHandlers implements HistoryRefreshService {
         }
         String providerSnapshot = this.currentProvider;
         LOG.info("[HistoryHandler] Batch delete sessionIds: " + HistoryDeleteService.sessionIdsToJson(sessionIds));
-        CompletableFuture.runAsync(() -> historyWorkflowService.deleteMany(providerSnapshot, sessionIds));
+        HistoryDeleteService.quiesceActiveSessionForDeletion(
+                context.getSession(), sessionIds, providerSnapshot)
+                .thenRunAsync(() -> historyWorkflowService.deleteMany(providerSnapshot, sessionIds))
+                .exceptionally(error -> {
+                    restoreHistoryAfterAbortedDeletion(providerSnapshot, error);
+                    return null;
+                });
+    }
+
+    private void restoreHistoryAfterAbortedDeletion(String provider, Throwable error) {
+        LOG.warn("[HistoryHandler] Failed to stop active session before deletion: "
+                + error.getMessage(), error);
+        historyWorkflowService.refresh(provider);
     }
 
     public void handleArchiveSessions(String content) {

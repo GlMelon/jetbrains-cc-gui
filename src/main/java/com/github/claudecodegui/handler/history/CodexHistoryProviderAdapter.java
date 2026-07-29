@@ -11,10 +11,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 final class CodexHistoryProviderAdapter implements HistoryProviderAdapter {
     private static final Logger LOG = Logger.getInstance(CodexHistoryProviderAdapter.class);
@@ -63,24 +62,19 @@ final class CodexHistoryProviderAdapter implements HistoryProviderAdapter {
             return HistoryDeleteResult.none();
         }
 
-        boolean deleted = false;
-        try (Stream<Path> paths = Files.walk(sessionDir)) {
-            List<Path> sessionFiles = paths
-                    .filter(Files::isRegularFile)
-                    .filter(path -> isCodexSessionFileMatch(path, sessionId))
-                    .collect(Collectors.toList());
-
-            for (Path sessionFile : sessionFiles) {
-                try {
-                    Files.delete(sessionFile);
-                    LOG.info("[HistoryHandler] Deleted Codex session file: " + sessionFile);
-                    deleted = true;
-                } catch (Exception e) {
-                    LOG.error("[HistoryHandler] Failed to delete Codex session file: "
-                            + sessionFile + " - " + e.getMessage(), e);
-                }
+        List<Path> sessionFiles = HistoryDeleteService.findCodexSessionFiles(sessionDir, sessionId);
+        Set<Path> failedPaths = new HashSet<>();
+        for (Path sessionFile : sessionFiles) {
+            try {
+                Files.delete(sessionFile);
+                LOG.info("[HistoryHandler] Deleted Codex session file: " + sessionFile);
+            } catch (Exception e) {
+                failedPaths.add(sessionFile);
+                LOG.error("[HistoryHandler] Failed to delete Codex session file: "
+                        + sessionFile + " - " + e.getMessage(), e);
             }
         }
+        boolean deleted = HistoryDeleteService.isCodexSessionDeletionComplete(sessionFiles, failedPaths);
         return new HistoryDeleteResult(deleted, 0);
     }
 
