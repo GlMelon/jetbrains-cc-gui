@@ -6,7 +6,11 @@ import { ToolBlockShell } from './ToolBlockShell';
 import { TerminalIcon, XCircleIcon } from '../Icons';
 
 const TASK_DETAILS_STYLE: React.CSSProperties = { padding: 0, border: 'none' };
-const TASK_CONTENT_WRAPPER_STYLE: React.CSSProperties = { paddingLeft: '40px', position: 'relative', zIndex: 1 };
+const TASK_CONTENT_WRAPPER_STYLE: React.CSSProperties = {
+  paddingLeft: '40px',
+  position: 'relative',
+  zIndex: 1,
+};
 const ERROR_ICON_STYLE: React.CSSProperties = { fontSize: '14px', marginTop: '1px' };
 
 interface BashToolBlockProps {
@@ -28,8 +32,11 @@ const BashToolBlock = memo(function BashToolBlock({ input, result, toolId }: Bas
     return null;
   }
 
-  const command = typeof input.command === 'string' ? input.command : '';
-  const description = typeof input.description === 'string' ? input.description : '';
+  const command = typeof input.command === 'string' ? input.command.trim() : '';
+  const description = typeof input.description === 'string' ? input.description.trim() : '';
+  if (!command && !description) {
+    return null;
+  }
 
   // Determine tool call status based on result
   // If denied, treat as completed (show error state)
@@ -73,9 +80,7 @@ const BashToolBlock = memo(function BashToolBlock({ input, result, toolId }: Bas
 
             {output && (
               <div className={`bash-output-block ${isError ? 'error' : 'normal'}`}>
-                {isError && (
-                  <XCircleIcon size={16} style={ERROR_ICON_STYLE} />
-                )}
+                {isError && <XCircleIcon size={16} style={ERROR_ICON_STYLE} />}
                 <span className="bash-output-text">{output}</span>
               </div>
             )}
