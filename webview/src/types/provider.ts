@@ -163,11 +163,11 @@ export function validateCodexCustomModels(models: unknown): CodexCustomModel[] {
  * Provider category
  */
 type ProviderCategory =
-  | 'official'      // Official
-  | 'cn_official'   // Chinese official
-  | 'aggregator'    // Aggregator service
-  | 'third_party'   // Third-party
-  | 'custom';       // Custom
+  | 'official' // Official
+  | 'cn_official' // Chinese official
+  | 'aggregator' // Aggregator service
+  | 'third_party' // Third-party
+  | 'custom'; // Custom
 
 /**
  * Provider configuration (simplified, adapted for current project)
@@ -194,7 +194,6 @@ export interface ProviderConfig {
       ANTHROPIC_DEFAULT_SONNET_MODEL?: string;
       ANTHROPIC_DEFAULT_OPUS_MODEL?: string;
       ANTHROPIC_DEFAULT_HAIKU_MODEL?: string;
-      ANTHROPIC_DEFAULT_FABLE_MODEL?: string;
       [key: string]: any;
     };
     alwaysThinkingEnabled?: boolean;
@@ -269,7 +268,9 @@ export function isValidEnvVarKey(key: string): boolean {
  * (webview/src/generated/protocol.ts#CODEX_PROTECTED_ENV_KEY),消除此处手抄的第二
  * 真相源(与后端 CodexCliCommandUtils/CodexSDKBridge 三处同源)。
  */
-const CODEX_PROTECTED_ENV_KEYS: ReadonlySet<string> = new Set(Object.values(CODEX_PROTECTED_ENV_KEY));
+const CODEX_PROTECTED_ENV_KEYS: ReadonlySet<string> = new Set(
+  Object.values(CODEX_PROTECTED_ENV_KEY),
+);
 
 /**
  * Check if an env var key is a protected Codex built-in variable.
@@ -451,7 +452,6 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       ANTHROPIC_DEFAULT_HAIKU_MODEL: 'glm-4.7',
       ANTHROPIC_DEFAULT_SONNET_MODEL: 'glm-4.7',
       ANTHROPIC_DEFAULT_OPUS_MODEL: 'glm-4.7',
-      ANTHROPIC_DEFAULT_FABLE_MODEL: 'glm-4.7',
     },
   },
   {
@@ -464,7 +464,6 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       ANTHROPIC_DEFAULT_HAIKU_MODEL: 'kimi-k2.5',
       ANTHROPIC_DEFAULT_SONNET_MODEL: 'kimi-k2.5',
       ANTHROPIC_DEFAULT_OPUS_MODEL: 'kimi-k2.5',
-      ANTHROPIC_DEFAULT_FABLE_MODEL: 'kimi-k2.5',
     },
   },
   {
@@ -477,7 +476,6 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       ANTHROPIC_DEFAULT_HAIKU_MODEL: 'deepseek-v4-flash',
       ANTHROPIC_DEFAULT_SONNET_MODEL: 'deepseek-v4-pro[1m]',
       ANTHROPIC_DEFAULT_OPUS_MODEL: 'deepseek-v4-pro[1m]',
-      ANTHROPIC_DEFAULT_FABLE_MODEL: 'deepseek-v4-pro[1m]',
       CLAUDE_CODE_EFFORT_LEVEL: 'max',
     },
   },
@@ -494,7 +492,6 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       ANTHROPIC_DEFAULT_SONNET_MODEL: 'MiniMax-M2.1',
       ANTHROPIC_DEFAULT_OPUS_MODEL: 'MiniMax-M2.1',
       ANTHROPIC_DEFAULT_HAIKU_MODEL: 'MiniMax-M2.1',
-      ANTHROPIC_DEFAULT_FABLE_MODEL: 'MiniMax-M2.1',
     },
   },
   {
@@ -507,7 +504,6 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       ANTHROPIC_DEFAULT_HAIKU_MODEL: 'mimo-v2.5-pro',
       ANTHROPIC_DEFAULT_SONNET_MODEL: 'mimo-v2.5-pro',
       ANTHROPIC_DEFAULT_OPUS_MODEL: 'mimo-v2.5-pro',
-      ANTHROPIC_DEFAULT_FABLE_MODEL: 'mimo-v2.5-pro',
     },
   },
   {
@@ -520,7 +516,6 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       ANTHROPIC_DEFAULT_HAIKU_MODEL: 'mimo-v2.5-pro',
       ANTHROPIC_DEFAULT_SONNET_MODEL: 'mimo-v2.5-pro',
       ANTHROPIC_DEFAULT_OPUS_MODEL: 'mimo-v2.5-pro',
-      ANTHROPIC_DEFAULT_FABLE_MODEL: 'mimo-v2.5-pro',
     },
   },
   {
@@ -533,7 +528,6 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       ANTHROPIC_DEFAULT_HAIKU_MODEL: 'qwen3-max',
       ANTHROPIC_DEFAULT_SONNET_MODEL: 'qwen3-max',
       ANTHROPIC_DEFAULT_OPUS_MODEL: 'qwen3-max',
-      ANTHROPIC_DEFAULT_FABLE_MODEL: 'qwen3-max',
     },
   },
   {
@@ -546,7 +540,6 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       ANTHROPIC_DEFAULT_HAIKU_MODEL: 'anthropic/claude-haiku-4.5',
       ANTHROPIC_DEFAULT_SONNET_MODEL: 'anthropic/claude-sonnet-4.5',
       ANTHROPIC_DEFAULT_OPUS_MODEL: 'anthropic/claude-opus-4.5',
-      ANTHROPIC_DEFAULT_FABLE_MODEL: 'anthropic/claude-opus-4.5',
     },
   },
 ];
