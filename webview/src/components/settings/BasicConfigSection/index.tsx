@@ -1,10 +1,10 @@
-import {useState} from 'react';
+import { useState } from 'react';
 import styles from './style.module.less';
-import {useTranslation} from 'react-i18next';
-import type {DiffThemeMode} from '../../../utils/diffTheme';
-import type {Theme} from '../../../utils/appearanceColors';
-import type {UiFontConfig, CodeFontConfig} from '../hooks/useSettingsBasicActions';
-import type {AvatarConfig} from '../../../types/avatar';
+import { useTranslation } from 'react-i18next';
+import type { DiffThemeMode } from '../../../utils/diffTheme';
+import type { Theme } from '../../../utils/appearanceColors';
+import type { UiFontConfig, CodeFontConfig } from '../hooks/useSettingsBasicActions';
+import type { AvatarConfig } from '../../../types/avatar';
 import AppearanceTab from './AppearanceTab';
 import BehaviorTab from './BehaviorTab';
 import EnvironmentTab from './EnvironmentTab';
@@ -23,8 +23,7 @@ const subTabIconPaths: Record<string, string> = {
   palette:
     '<circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="10.5" r="2.5" fill="currentColor" stroke="none" opacity="0.3"/><circle cx="8.5" cy="7.5" r="2.5" fill="currentColor" stroke="none" opacity="0.3"/><circle cx="6.5" cy="12.5" r="2.5" fill="currentColor" stroke="none" opacity="0.3"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.04-.23-.29-.38-.63-.38-1.04C12.73 17.56 13.57 17 14.5 17H16c3.31 0 6-2.69 6-6 0-5.17-4.36-9-10-9z"/>',
   // Zap / Lightning
-  zap:
-    '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+  zap: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
   // Wrench / Tool
   wrench:
     '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
@@ -107,6 +106,8 @@ interface BasicConfigSectionProps {
   // AskUserQuestion reminder notification configuration
   askUserQuestionNotificationEnabled?: boolean;
   onAskUserQuestionNotificationEnabledChange?: (enabled: boolean) => void;
+  detailedOutputEnabled?: boolean;
+  onDetailedOutputEnabledChange?: (enabled: boolean) => void;
   // Invocation mode configuration
   invocationMode?: 'sdk' | 'cli';
   onInvocationModeChange?: (mode: 'sdk' | 'cli') => void;
@@ -207,9 +208,15 @@ const BasicConfigSection = (props: BasicConfigSectionProps) => {
           newSessionConfirmEnabled={props.newSessionConfirmEnabled}
           onNewSessionConfirmEnabledChange={props.onNewSessionConfirmEnabledChange}
           taskCompletionNotificationEnabled={props.taskCompletionNotificationEnabled}
-          onTaskCompletionNotificationEnabledChange={props.onTaskCompletionNotificationEnabledChange}
+          onTaskCompletionNotificationEnabledChange={
+            props.onTaskCompletionNotificationEnabledChange
+          }
           askUserQuestionNotificationEnabled={props.askUserQuestionNotificationEnabled}
-          onAskUserQuestionNotificationEnabledChange={props.onAskUserQuestionNotificationEnabledChange}
+          onAskUserQuestionNotificationEnabledChange={
+            props.onAskUserQuestionNotificationEnabledChange
+          }
+          detailedOutputEnabled={props.detailedOutputEnabled}
+          onDetailedOutputEnabledChange={props.onDetailedOutputEnabledChange}
           permissionDialogTimeoutSeconds={props.permissionDialogTimeoutSeconds}
           onPermissionDialogTimeoutChange={props.onPermissionDialogTimeoutChange}
         />

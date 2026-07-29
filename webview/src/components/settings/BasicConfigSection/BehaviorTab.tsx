@@ -1,8 +1,21 @@
 import styles from './style.module.less';
-import {useTranslation} from 'react-i18next';
-import {DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS} from '../../../utils/permissionDialogTimeout';
-import {PermissionDialogTimeoutSetting} from './PermissionDialogTimeoutSetting';
-import { BellIcon, CheckIcon, CommentIcon, DiffIcon, FileIcon, GitCommitIcon, InfoIcon, KeyboardIcon, LayoutIcon, LightbulbIcon, SparklesIcon, SyncIcon } from '../../Icons';
+import { useTranslation } from 'react-i18next';
+import { DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS } from '../../../utils/permissionDialogTimeout';
+import { PermissionDialogTimeoutSetting } from './PermissionDialogTimeoutSetting';
+import {
+  BellIcon,
+  CheckIcon,
+  CommentIcon,
+  DiffIcon,
+  FileIcon,
+  GitCommitIcon,
+  InfoIcon,
+  KeyboardIcon,
+  LayoutIcon,
+  LightbulbIcon,
+  SparklesIcon,
+  SyncIcon,
+} from '../../Icons';
 
 export interface BehaviorTabProps {
   sendShortcut?: 'enter' | 'cmdEnter';
@@ -35,6 +48,8 @@ export interface BehaviorTabProps {
   onTaskCompletionNotificationEnabledChange?: (enabled: boolean) => void;
   askUserQuestionNotificationEnabled?: boolean;
   onAskUserQuestionNotificationEnabledChange?: (enabled: boolean) => void;
+  detailedOutputEnabled?: boolean;
+  onDetailedOutputEnabledChange?: (enabled: boolean) => void;
   permissionDialogTimeoutSeconds?: number;
   onPermissionDialogTimeoutChange?: (seconds: number) => void;
 }
@@ -64,6 +79,8 @@ const BehaviorTab = ({
   onTaskCompletionNotificationEnabledChange = () => {},
   askUserQuestionNotificationEnabled = false,
   onAskUserQuestionNotificationEnabledChange = () => {},
+  detailedOutputEnabled = false,
+  onDetailedOutputEnabledChange = () => {},
   permissionDialogTimeoutSeconds = DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS,
   onPermissionDialogTimeoutChange = () => {},
 }: BehaviorTabProps) => {
@@ -101,7 +118,9 @@ const BehaviorTab = ({
               </div>
             )}
             <div className={styles.themeCardTitle}>{t('settings.basic.sendShortcut.cmdEnter')}</div>
-            <div className={styles.themeCardDesc}>{t('settings.basic.sendShortcut.cmdEnterDesc')}</div>
+            <div className={styles.themeCardDesc}>
+              {t('settings.basic.sendShortcut.cmdEnterDesc')}
+            </div>
           </div>
         </div>
       </div>
@@ -299,7 +318,9 @@ const BehaviorTab = ({
       <div className={styles.streamingSection}>
         <div className={styles.fieldHeader}>
           <BellIcon size={16} />
-          <span className={styles.fieldLabel}>{t('settings.basic.taskCompletionNotification.label')}</span>
+          <span className={styles.fieldLabel}>
+            {t('settings.basic.taskCompletionNotification.label')}
+          </span>
         </div>
         <label className={styles.toggleWrapper}>
           <input
@@ -321,11 +342,39 @@ const BehaviorTab = ({
         </small>
       </div>
 
+      {/* Detailed output information toggle */}
+      <div className={styles.streamingSection}>
+        <div className={styles.fieldHeader}>
+          <span className="codicon codicon-output" aria-hidden="true" />
+          <span className={styles.fieldLabel}>{t('settings.basic.detailedOutput.label')}</span>
+        </div>
+        <label className={styles.toggleWrapper}>
+          <input
+            type="checkbox"
+            className={styles.toggleInput}
+            checked={detailedOutputEnabled}
+            onChange={(event) => onDetailedOutputEnabledChange(event.target.checked)}
+          />
+          <span className={styles.toggleSlider} />
+          <span className={styles.toggleLabel}>
+            {detailedOutputEnabled
+              ? t('settings.basic.detailedOutput.enabled')
+              : t('settings.basic.detailedOutput.disabled')}
+          </span>
+        </label>
+        <small className={styles.formHint}>
+          <InfoIcon size={16} />
+          <span>{t('settings.basic.detailedOutput.hint')}</span>
+        </small>
+      </div>
+
       {/* AskUserQuestion reminder notification toggle */}
       <div className={styles.streamingSection}>
         <div className={styles.fieldHeader}>
           <CommentIcon size={16} />
-          <span className={styles.fieldLabel}>{t('settings.basic.askUserQuestionNotification.label')}</span>
+          <span className={styles.fieldLabel}>
+            {t('settings.basic.askUserQuestionNotification.label')}
+          </span>
         </div>
         <label className={styles.toggleWrapper}>
           <input
@@ -400,7 +449,6 @@ const BehaviorTab = ({
           <span>{t('settings.basic.newSessionConfirm.hint')}</span>
         </small>
       </div>
-
     </div>
   );
 };
