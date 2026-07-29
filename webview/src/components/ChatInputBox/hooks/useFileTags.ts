@@ -3,14 +3,8 @@ import { escapeHtmlAttr } from '../utils/htmlEscape.js';
 import { getFileIcon } from '../../../utils/fileIcons.js';
 import { icon_folder, icon_terminal, icon_server } from '../../../utils/icons.js';
 import { perfTimer } from '../../../utils/debug.js';
-import {
-  TEXT_LENGTH_THRESHOLDS,
-  RENDERING_LIMITS,
-} from '../../../constants/performance.js';
-import {
-  getVirtualCursorPosition,
-  setVirtualCursorPosition,
-} from '../utils/virtualCursorUtils.js';
+import { TEXT_LENGTH_THRESHOLDS, RENDERING_LIMITS } from '../../../constants/performance.js';
+import { getVirtualCursorPosition, setVirtualCursorPosition } from '../utils/virtualCursorUtils.js';
 import type { FileTagInfo } from '../types.js';
 
 interface FileMatch {
@@ -110,7 +104,7 @@ export function useFileTags({
       // Log warning in debug mode so developers are aware
       if (import.meta.env.DEV) {
         console.warn(
-          `[useFileTags] Skipping file tag rendering for large text (${currentText.length} chars > ${TEXT_LENGTH_THRESHOLDS.FILE_TAG_RENDERING} threshold)`
+          `[useFileTags] Skipping file tag rendering for large text (${currentText.length} chars > ${TEXT_LENGTH_THRESHOLDS.FILE_TAG_RENDERING} threshold)`,
         );
       }
       timer.mark('skip-large-text');
@@ -145,7 +139,13 @@ export function useFileTags({
           if (currentText.startsWith(key, i + 1)) {
             // Match must be followed by whitespace or end of string
             const afterChar = currentText[i + 1 + key.length];
-            if (afterChar === undefined || afterChar === ' ' || afterChar === '\n' || afterChar === '\t' || afterChar === '\r') {
+            if (
+              afterChar === undefined ||
+              afterChar === ' ' ||
+              afterChar === '\n' ||
+              afterChar === '\t' ||
+              afterChar === '\r'
+            ) {
               if (!longestMatch || key.length > longestMatch.length) {
                 longestMatch = { path: key, length: key.length };
               }
@@ -296,7 +296,7 @@ export function useFileTags({
       // Determine if file or directory (only when not terminal/service)
       const isDirectory = !isTerminal && !isService && !pureFileName.includes('.');
 
-      let iconSvg = '';
+      let iconSvg: string;
       if (isTerminal) {
         iconSvg = icon_terminal;
       } else if (isService) {
@@ -325,7 +325,7 @@ export function useFileTags({
         `<span class="file-tag-text">${escapedDisplayFileName}</span>`,
         `<span class="file-tag-close">&times;</span>`,
         `</span>`,
-        ' '
+        ' ',
       );
 
       lastIndex = matchIndex + fullMatch.length;
