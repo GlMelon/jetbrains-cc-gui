@@ -2,6 +2,10 @@ package com.github.claudecodegui.settings;
 
 import com.github.claudecodegui.settings.ConfigRepository.ConfigConflictException;
 import com.github.claudecodegui.settings.ConfigRepository.LoadedConfig;
+import com.github.claudecodegui.settings.credentials.CredentialBackend.Availability;
+import com.github.claudecodegui.settings.credentials.InMemoryCredentialBackend;
+import com.github.claudecodegui.settings.credentials.PasswordStore;
+import com.github.claudecodegui.settings.migration.ConfigMigrationRegistry.UnsupportedConfigVersionException;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
@@ -14,6 +18,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static org.junit.Assert.assertEquals;
@@ -65,6 +74,32 @@ public class ConfigRepositoryTest {
         Files.writeString(configFile(), content, StandardCharsets.UTF_8);
     }
 
+    private ConfigRepository newRepository() {
+        PasswordStore passwordStore = new PasswordStore(new InMemoryCredentialBackend());
+        return new ConfigRepository(
+                dir,
+                gson,
+                ConfigSchema::createDefaultConfig,
+                ConfigSchema.createMigrationRegistry(passwordStore)
+        );
+    }
+
+    private void incrementRepeatedly(
+            ConfigRepository repository,
+            int iterations,
+            CountDownLatch start) {
+        try {
+            start.await(30, TimeUnit.SECONDS);
+            for (int i = 0; i < iterations; i++) {
+                repository.update(config -> {
+                    int current = config.has("counter") ? config.get("counter").getAsInt() : 0;
+                    config.addProperty("counter", current + 1);
+                });
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
     private long size(Path p) throws IOException {
         return Files.size(p);
     }
@@ -163,6 +198,129 @@ public class ConfigRepositoryTest {
         assertEquals("v", repo.load().getConfig().get("k").getAsString());
     }
 
+    // ---- schema migration lifecycle ----
+
+    @Test
+    public void futureSchemaVersionIsRejectedWithoutQuarantine() throws Exception {
+        String futureConfig = "{\"schemaVersion\":" + (ConfigSchema.CURRENT_VERSION + 1)
+                + ",\"unknown\":true}";
+        writeRaw(futureConfig);
+
+        try {
+            repo.load();
+            fail("expected unsupported future schema version");
+        } catch (UnsupportedConfigVersionException expected) {
+            assertTrue(expected.getMessage().contains("newer than supported"));
+        }
+
+        assertEquals(futureConfig, Files.readString(configFile(), StandardCharsets.UTF_8));
+        try (Stream<Path> files = Files.list(dir)) {
+            assertFalse("future versions are valid JSON and must not be quarantined",
+                    files.anyMatch(path -> path.getFileName().toString().startsWith("config.json.quarantine-")));
+        }
+    }
+
+    @Test
+    public void deferredSecretMigrationPersistsProgressAndResumesAfterRecovery() throws Exception {
+        InMemoryCredentialBackend backend = new InMemoryCredentialBackend();
+        backend.setAvailability(Availability.HEADLESS_NO_BACKEND);
+        PasswordStore passwordStore = new PasswordStore(backend);
+        ConfigRepository migrationRepo = new ConfigRepository(
+                dir,
+                gson,
+                ConfigSchema::createDefaultConfig,
+                ConfigSchema.createMigrationRegistry(passwordStore)
+        );
+        writeRaw("{\"smitheryApiKey\":\"legacy-secret\",\"unknown\":true}");
+
+        JsonObject deferred = migrationRepo.read();
+
+        assertEquals(1, deferred.get(ConfigSchema.SCHEMA_VERSION_KEY).getAsInt());
+        assertEquals("legacy-secret", deferred.get(ConfigSchema.SMITHERY_API_KEY).getAsString());
+        JsonObject persistedDeferred = com.google.gson.JsonParser
+                .parseString(Files.readString(configFile(), StandardCharsets.UTF_8))
+                .getAsJsonObject();
+        assertEquals(1, persistedDeferred.get(ConfigSchema.SCHEMA_VERSION_KEY).getAsInt());
+        assertTrue(persistedDeferred.has(ConfigSchema.SMITHERY_API_KEY));
+
+        backend.setAvailability(Availability.AVAILABLE);
+        JsonObject recovered = migrationRepo.read();
+
+        assertEquals(ConfigSchema.CURRENT_VERSION,
+                recovered.get(ConfigSchema.SCHEMA_VERSION_KEY).getAsInt());
+        assertFalse(recovered.has(ConfigSchema.SMITHERY_API_KEY));
+        assertTrue(recovered.get("unknown").getAsBoolean());
+        assertEquals("legacy-secret",
+                passwordStore.loadPassword(ConfigSchema.SMITHERY_CREDENTIAL_KEY));
+    }
+
+    // ---- process-wide update serialization ----
+
+    @Test
+    public void concurrentRepositoriesDoNotLoseUpdates() throws Exception {
+        ConfigRepository first = newRepository();
+        ConfigRepository second = newRepository();
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        int updatesPerThread = 40;
+        try {
+            Future<?> firstTask = pool.submit(() -> incrementRepeatedly(first, updatesPerThread, start));
+            Future<?> secondTask = pool.submit(() -> incrementRepeatedly(second, updatesPerThread, start));
+
+            start.countDown();
+            firstTask.get(30, TimeUnit.SECONDS);
+            secondTask.get(30, TimeUnit.SECONDS);
+        } finally {
+            pool.shutdownNow();
+            assertTrue("executor should terminate", pool.awaitTermination(30, TimeUnit.SECONDS));
+        }
+
+        assertEquals(updatesPerThread * 2, repo.read().get("counter").getAsInt());
+    }
+
+    @Test
+    public void failedMutationDoesNotChangeConfigFile() throws Exception {
+        repo.update(config -> config.addProperty("counter", 1));
+        String before = Files.readString(configFile(), StandardCharsets.UTF_8);
+
+        try {
+            repo.update(config -> {
+                config.addProperty("counter", 2);
+                throw new IOException("injected mutation failure");
+            });
+            fail("expected mutation failure");
+        } catch (IOException expected) {
+            assertEquals("injected mutation failure", expected.getMessage());
+        }
+
+        assertEquals(before, Files.readString(configFile(), StandardCharsets.UTF_8));
+        assertEquals(1, repo.read().get("counter").getAsInt());
+    }
+
+    @Test
+    public void casConflictDoesNotRotateBackups() throws Exception {
+        JsonObject first = new JsonObject();
+        first.addProperty("value", "first");
+        repo.save(first);
+        JsonObject second = new JsonObject();
+        second.addProperty("value", "second");
+        repo.save(second);
+        Path backup1 = dir.resolve("config.json.bak.1");
+        String backupBefore = Files.readString(backup1, StandardCharsets.UTF_8);
+
+        repo.load();
+        writeRaw("{\"externalEdit\":true,\"differentSize\":12345}");
+        try {
+            repo.save(second);
+            fail("expected ConfigConflictException");
+        } catch (ConfigConflictException expected) {
+            assertTrue(expected.getMessage().contains("changed externally"));
+        }
+
+        assertEquals(backupBefore, Files.readString(backup1, StandardCharsets.UTF_8));
+        assertFalse("conflict must not advance backup generations",
+                Files.exists(dir.resolve("config.json.bak.2")));
+    }
     // ---- backup 滚动 ----
 
     @Test
