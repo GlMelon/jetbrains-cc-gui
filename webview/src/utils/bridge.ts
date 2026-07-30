@@ -125,17 +125,6 @@ const isValidFqcn = (className: string): boolean => {
   return isJavaFqcnCandidate(trimmed);
 };
 
-export const resolveFilePath = (filePath?: string) => {
-  if (!filePath) {
-    return;
-  }
-  const normalizedPath = normalizeFileNavigationTarget(filePath);
-  if (!normalizedPath || !isValidOpenFileTarget(normalizedPath)) {
-    return;
-  }
-  sendAction(UPSTREAM.RESOLVE_FILE_PATH, normalizedPath);
-};
-
 export const openFile = (filePath?: string, lineStart?: number, lineEnd?: number) => {
   if (!filePath) {
     return;
@@ -203,17 +192,6 @@ export const showDiff = (
   sendAction(UPSTREAM.SHOW_DIFF, { filePath, oldContent, newContent, title });
 };
 
-export const showMultiEditDiff = (
-  filePath: string,
-  edits: Array<{ oldString: string; newString: string; replaceAll?: boolean }>,
-  currentContent?: string,
-) => {
-  if (!isValidMutatingPath(filePath)) {
-    return;
-  }
-  sendAction(UPSTREAM.SHOW_MULTI_EDIT_DIFF, { filePath, edits, currentContent });
-};
-
 /**
  * Show editable diff view for a file
  * Opens IDEA's native diff view where user can selectively accept/reject changes
@@ -231,31 +209,6 @@ export const showEditableDiff = (
     return;
   }
   sendAction(UPSTREAM.SHOW_EDITABLE_DIFF, { filePath, operations, status });
-};
-
-/**
- * Show interactive diff view with Apply/Reject buttons
- * Based on the official Claude Code JetBrains plugin implementation
- * @param filePath - Absolute path to the file
- * @param newFileContents - The proposed new content for the file
- * @param tabName - Optional name for the diff tab
- * @param isNewFile - Whether this is a new file (no original content)
- */
-export const showInteractiveDiff = (
-  filePath: string,
-  newFileContents: string,
-  tabName?: string,
-  isNewFile?: boolean,
-) => {
-  if (!isValidMutatingPath(filePath)) {
-    return;
-  }
-  sendAction(UPSTREAM.SHOW_INTERACTIVE_DIFF, {
-    filePath,
-    newFileContents,
-    tabName,
-    isNewFile: isNewFile ?? false,
-  });
 };
 
 /**
@@ -288,19 +241,7 @@ export const undoFileChanges = (
 // RPC 超时:HTTP 拉取 + 多候选回退(最多 3 候选 × 各自网络往返),比本地 file resolve 宽。
 const FETCH_PROVIDER_MODELS_TIMEOUT_MS = 30000;
 
-export interface FetchProviderModelsParams {
-  baseUrl: string;
-  apiKey?: string;
-  /** baseUrl 是否为完整 chat 端点 URL(如 .../v1/chat/completions),后端据此推导 models 端点 */
-  isFullUrl?: boolean;
-  /** 显式 models URL 覆盖(非空时后端直接用,跳过候选构造) */
-  modelsUrlOverride?: string;
-}
 
-export interface FetchedProviderModels {
-  models?: string[];
-  error?: string;
-}
 
 /**
  * 拉取第三方/代理 OpenAI 兼容 models 列表(RPC,业务逻辑下沉后端)。
@@ -314,10 +255,15 @@ export interface FetchedProviderModels {
  * 下行 {@code provider.models_fetched}(携带 {@code __requestId} 供 hub 路由 Promise)。
  */
 export const fetchProviderModels = (
-  params: FetchProviderModelsParams,
-): Promise<FetchedProviderModels> => {
+  params: {
+    baseUrl: string;
+    apiKey?: string;
+    isFullUrl?: boolean;
+    modelsUrlOverride?: string;
+  },
+): Promise<{ models?: string[]; error?: string }> => {
   return bridgeHub
-    .request<FetchedProviderModels>(
+    .request<{ models?: string[]; error?: string }>(
       UPSTREAM.FETCH_PROVIDER_MODELS,
       {
         baseUrl: params.baseUrl,
@@ -354,28 +300,9 @@ export interface SmitheryServerSummary {
   useCount?: number;
 }
 
-export interface SmitheryPagination {
-  page?: number;
-  pageSize?: number;
-  total?: number;
-  totalPages?: number;
-  nextCursor?: string;
-}
 
-export interface SearchMcpMarketResult {
-  servers?: SmitheryServerSummary[];
-  pagination?: SmitheryPagination;
-  error?: string;
-  errorCode?: string;
-}
 
-export interface SmitheryConnection {
-  mcpUrl?: string;
-  url?: string;
-  command?: string;
-  args?: string[] | string;
-  env?: Record<string, string>;
-}
+
 
 export interface McpMarketDetailResult {
   namespace?: string;
@@ -389,7 +316,13 @@ export interface McpMarketDetailResult {
   verified?: boolean;
   remote?: boolean;
   useCount?: number;
-  connection?: SmitheryConnection;
+  connection?: {
+    mcpUrl?: string;
+    url?: string;
+    command?: string;
+    args?: string[] | string;
+    env?: Record<string, string>;
+  };
   error?: string;
   errorCode?: string;
 }
@@ -403,9 +336,19 @@ export const searchMcpMarket = (
   query: string,
   page = 1,
   pageSize = 20,
-): Promise<SearchMcpMarketResult> => {
+): Promise<{
+  servers?: SmitheryServerSummary[];
+  pagination?: { page?: number; pageSize?: number; total?: number; totalPages?: number; nextCursor?: string };
+  error?: string;
+  errorCode?: string;
+}> => {
   return bridgeHub
-    .request<SearchMcpMarketResult>(
+    .request<{
+      servers?: SmitheryServerSummary[];
+      pagination?: { page?: number; pageSize?: number; total?: number; totalPages?: number; nextCursor?: string };
+      error?: string;
+      errorCode?: string;
+    }>(
       UPSTREAM.SEARCH_MCP_MARKET,
       { query, page, pageSize },
       { timeoutMs: MCP_MARKET_TIMEOUT_MS, responseType: DOWNSTREAM.MCP_MARKET_LIST },
@@ -460,15 +403,7 @@ export interface ListSkillMarketResult {
   errorCode?: string;
 }
 
-export interface SkillMarketInstallResult {
-  success?: boolean;
-  skillName?: string;
-  source?: string;
-  hash?: string;
-  importResult?: Record<string, unknown>;
-  error?: string;
-  errorCode?: string;
-}
+
 
 /**
  * 列出某 Skills 市场源的 skills(RPC)。
@@ -496,9 +431,25 @@ export const installSkillFromMarket = (
   source: string,
   skillPath: string,
   scope: string,
-): Promise<SkillMarketInstallResult> => {
+): Promise<{
+  success?: boolean;
+  skillName?: string;
+  source?: string;
+  hash?: string;
+  importResult?: Record<string, unknown>;
+  error?: string;
+  errorCode?: string;
+}> => {
   return bridgeHub
-    .request<SkillMarketInstallResult>(
+    .request<{
+      success?: boolean;
+      skillName?: string;
+      source?: string;
+      hash?: string;
+      importResult?: Record<string, unknown>;
+      error?: string;
+      errorCode?: string;
+    }>(
       UPSTREAM.INSTALL_SKILL_FROM_MARKET,
       { source, skillPath, scope },
       { timeoutMs: SKILL_MARKET_TIMEOUT_MS, responseType: DOWNSTREAM.SKILL_MARKET_INSTALL_RESULT },
