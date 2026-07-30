@@ -4,6 +4,8 @@ import {
   parsePayloadFieldSource,
   generateFromManifest,
   parseIntConstants,
+  parseGenerationMode,
+  findMissingSources,
 } from '../../scripts/generate-protocol-types.mjs';
 
 /**
@@ -15,6 +17,31 @@ import {
  * 注:本文件位于 src/__tests__(入库),不在 src/generated(被 .gitignore)。
  * generate-protocol-types.mjs 是入库生成脚本,守门测试必须随源入库。
  */
+
+describe('generation mode — Java SSOT fail-fast', () => {
+  it('defaults to strict Java source mode', () => {
+    expect(parseGenerationMode()).toBe('java');
+  });
+
+  it('uses manifest and stub only when explicitly requested', () => {
+    expect(parseGenerationMode(['--from-manifest'])).toBe('manifest');
+    expect(parseGenerationMode(['--stub'])).toBe('stub');
+  });
+
+  it('rejects conflicting or unknown options', () => {
+    expect(() => parseGenerationMode(['--from-manifest', '--stub'])).toThrow(/cannot be used together/);
+    expect(() => parseGenerationMode(['--legacy-fallback'])).toThrow(/unknown option/);
+  });
+
+  it('reports every missing Java source instead of silently falling back', () => {
+    const existing = new Set(['A.java']);
+    expect(findMissingSources(['A.java', 'B.java', 'C.java'], (path) => existing.has(path))).toEqual([
+      'B.java',
+      'C.java',
+    ]);
+  });
+});
+
 describe('parseEnumSource — C8 drift guard', () => {
   it('parses single-arg NAME("value") entries correctly', () => {
     const src = `

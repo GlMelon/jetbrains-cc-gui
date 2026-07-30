@@ -2,14 +2,58 @@
 
 import {renderHook} from '@testing-library/react';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
-import {useModelStatePersistence, type UseModelStatePersistenceOptions} from '../../../src/hooks/providers/useModelStatePersistence';
-import {CLAUDE_ROLE_MODEL_IDS} from '../../../src/components/ChatInputBox/types';
+import {useModelStatePersistence} from '../../../src/hooks/providers/useModelStatePersistence';
+import {CLAUDE_ROLE_MODEL_IDS, type PermissionMode, type ReasoningEffort, type CodexFastMode} from '../../../src/components/ChatInputBox/types';
 import {resetModelRegistryForTests} from '../../../src/utils/modelRegistry';
 
 describe('useModelStatePersistence', () => {
     const createOptions = (
-        overrides: Partial<UseModelStatePersistenceOptions> = {},
-    ): UseModelStatePersistenceOptions => ({
+        overrides: Partial<{
+      // Cross-slice load setters (run once on mount)
+      setCurrentProvider: (value: string) => void;
+      setSelectedClaudeModel: (value: string) => void;
+      setSelectedCodexModel: (value: string) => void;
+      setSelectedOpenCodeModel: (value: string) => void;
+      setClaudePermissionMode: (value: PermissionMode) => void;
+      setCodexPermissionMode: (value: PermissionMode) => void;
+      setPermissionMode: (value: PermissionMode) => void;
+      setLongContextEnabled: (value: boolean) => void;
+      setReasoningEffort: (value: ReasoningEffort) => void;
+      setCodexFastMode: (value: CodexFastMode) => void;
+      // Cross-slice save deps (re-saves on any change)
+      currentProvider: string;
+      selectedClaudeModel: string;
+      selectedCodexModel: string;
+      selectedOpenCodeModel: string;
+      claudePermissionMode: PermissionMode;
+      codexPermissionMode: PermissionMode;
+      longContextEnabled: boolean;
+      reasoningEffort: ReasoningEffort;
+      codexFastMode: CodexFastMode;
+    }> = {},
+    ): {
+      // Cross-slice load setters (run once on mount)
+      setCurrentProvider: (value: string) => void;
+      setSelectedClaudeModel: (value: string) => void;
+      setSelectedCodexModel: (value: string) => void;
+      setSelectedOpenCodeModel: (value: string) => void;
+      setClaudePermissionMode: (value: PermissionMode) => void;
+      setCodexPermissionMode: (value: PermissionMode) => void;
+      setPermissionMode: (value: PermissionMode) => void;
+      setLongContextEnabled: (value: boolean) => void;
+      setReasoningEffort: (value: ReasoningEffort) => void;
+      setCodexFastMode: (value: CodexFastMode) => void;
+      // Cross-slice save deps (re-saves on any change)
+      currentProvider: string;
+      selectedClaudeModel: string;
+      selectedCodexModel: string;
+      selectedOpenCodeModel: string;
+      claudePermissionMode: PermissionMode;
+      codexPermissionMode: PermissionMode;
+      longContextEnabled: boolean;
+      reasoningEffort: ReasoningEffort;
+      codexFastMode: CodexFastMode;
+    } => ({
         setCurrentProvider: vi.fn(),
         setSelectedClaudeModel: vi.fn(),
         setSelectedCodexModel: vi.fn(),

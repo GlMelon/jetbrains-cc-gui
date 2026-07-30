@@ -1,6 +1,8 @@
 package com.github.claudecodegui.session;
 
 import com.github.claudecodegui.permission.PermissionRequest;
+import com.github.claudecodegui.protocol.DownstreamEvent;
+import com.github.claudecodegui.provider.SessionHistoryLoadResult;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import org.junit.Test;
@@ -115,7 +117,7 @@ public class SessionMessageOrchestratorTest {
 
         orchestrator.loadFromServer().join();
 
-        assertEquals(1, historyAccess.providerHistoryRequests.get());
+        assertEquals(1, historyAccess.initialHistoryRequests.get());
         assertFalse(state.isLoading());
         assertEquals(2, state.getMessages().size());
         assertEquals(ClaudeSession.Message.Type.USER, state.getMessages().get(0).type);
@@ -309,6 +311,43 @@ public class SessionMessageOrchestratorTest {
         assertNull(orchestrator.extractMessageContentForMatching(msgWithEmptyMessage));
     }
 
+    @Test
+    public void loadFromServerDispatchesInitialHistoryPageInfoWhenProviderSuppliesIt() {
+        SessionState state = new SessionState();
+        state.setProvider("codex");
+        state.setSessionId("session-page");
+        state.setCwd("/workspace");
+
+        RecordingCallback callback = new RecordingCallback();
+        SessionCallbackFacade callbackFacade = new SessionCallbackFacade(null);
+        callbackFacade.setCallback(callback);
+
+        RecordingHistoryAccess historyAccess = new RecordingHistoryAccess();
+        JsonObject pageInfo = new JsonObject();
+        pageInfo.addProperty("sessionId", "session-page");
+        historyAccess.initialHistoryResult = new SessionHistoryLoadResult(
+                List.of(createProviderMessage("user", "latest")),
+                pageInfo
+        );
+
+        SessionMessageOrchestrator orchestrator = new SessionMessageOrchestrator(
+                state,
+                new MessageParser(),
+                callbackFacade,
+                historyAccess,
+                (usedTokens, maxTokens) -> {
+                },
+                0,
+                0
+        );
+
+        orchestrator.loadFromServer().join();
+
+        assertEquals(1, historyAccess.initialHistoryRequests.get());
+        assertEquals(1, state.getMessages().size());
+        assertEquals(List.of(DownstreamEvent.HISTORY_CODEX_PAGE_INFO.value() + "|{" + "\"sessionId\":\"session-page\"}"),
+                callback.protocolEvents);
+    }
     private JsonObject createHistoryUserMessage(String uuid, String text) {
         JsonObject contentBlock = new JsonObject();
         contentBlock.addProperty("type", "text");
@@ -347,13 +386,20 @@ public class SessionMessageOrchestratorTest {
     private static final class RecordingHistoryAccess implements SessionMessageOrchestrator.SessionHistoryAccess {
         private final AtomicInteger providerHistoryRequests = new AtomicInteger();
         private final AtomicInteger latestClaudeUserMessageRequests = new AtomicInteger();
+        private final AtomicInteger initialHistoryRequests = new AtomicInteger();
         private List<JsonObject> providerHistory = List.of();
+        private SessionHistoryLoadResult initialHistoryResult;
         private JsonObject latestClaudeUserMessage;
-
         @Override
         public List<JsonObject> getProviderSessionMessages(String provider, String sessionId, String cwd) {
             providerHistoryRequests.incrementAndGet();
             return providerHistory;
+        }
+
+        @Override
+        public SessionHistoryLoadResult getProviderInitialSessionHistory(String provider, String sessionId, String cwd) {
+            initialHistoryRequests.incrementAndGet();
+            return initialHistoryResult != null ? initialHistoryResult : SessionHistoryLoadResult.fromMessages(providerHistory);
         }
 
         @Override
@@ -367,6 +413,7 @@ public class SessionMessageOrchestratorTest {
         private final List<List<ClaudeSession.Message>> messageUpdates = new ArrayList<>();
         private final List<String> stateChanges = new ArrayList<>();
         private final List<String> messageUuidPatches = new ArrayList<>();
+        private final List<String> protocolEvents = new ArrayList<>();
 
         @Override
         public void onMessageUpdate(List<ClaudeSession.Message> messages) {
@@ -381,6 +428,11 @@ public class SessionMessageOrchestratorTest {
         @Override
         public void onUserMessageUuidPatched(String content, String uuid) {
             messageUuidPatches.add(content + "|" + uuid);
+        }
+
+        @Override
+        public void onProtocolEvent(String type, String payloadJson) {
+            protocolEvents.add(type + "|" + payloadJson);
         }
 
         @Override
@@ -408,3 +460,4 @@ public class SessionMessageOrchestratorTest {
         }
     }
 }
+
