@@ -76,7 +76,7 @@ const SubagentProcessDetails = memo(function SubagentProcessDetails({
                 {t('subagent.process.filesRead', { count: process.readFiles.length })}
               </div>
               <div className="subagent-file-grid">
-                {process.readFiles.map((file) => (
+                {process.readFiles.map((file: string) => (
                   <div key={file} className="subagent-file-chip" title={file}>
                     <FileCodeIcon size={14} />
                     <span>{file}</span>
@@ -93,7 +93,7 @@ const SubagentProcessDetails = memo(function SubagentProcessDetails({
                 {t('subagent.process.otherTools')}
               </div>
               <div className="subagent-tool-list">
-                {process.toolCalls.map((tool) => (
+                {process.toolCalls.map((tool: { id: string; name: string; detail?: string }) => (
                   <div key={tool.id} className="subagent-tool-chip">
                     <span>{tool.name}</span>
                     {tool.detail && <small>{tool.detail}</small>}

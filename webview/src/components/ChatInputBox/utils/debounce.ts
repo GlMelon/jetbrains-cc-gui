@@ -1,7 +1,7 @@
 /**
  * Debounced function interface with cancel and flush capabilities
  */
-export interface DebouncedFunction<Args extends unknown[]> {
+interface DebouncedFunction<Args extends unknown[]> {
   (...args: Args): void;
   /** Cancel any pending execution */
   cancel: () => void;

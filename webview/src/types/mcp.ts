@@ -85,10 +85,7 @@ export interface McpPreset {
   docs?: string;
 }
 
-/**
- * MCP server status
- */
-export type McpServerStatus = 'connected' | 'checking' | 'error' | 'unknown';
+
 
 /**
  * MCP server connection status info (from Claude SDK)
@@ -123,54 +120,7 @@ export interface McpLogEntry {
   message: string;
 }
 
-// ==================== Codex MCP Types ====================
 
-/**
- * Codex MCP server connection specification
- * Configuration format based on ~/.codex/config.toml
- *
- * Supports two connection types:
- * 1. STDIO: Local command-line tool
- * 2. Streamable HTTP: Remote HTTP service
- */
-export interface CodexMcpServerSpec {
-  // STDIO type fields
-  /** Command to execute (required for STDIO type) */
-  command?: string;
-  /** Command arguments */
-  args?: string[];
-  /** Environment variables */
-  env?: Record<string, string>;
-  /** Working directory */
-  cwd?: string;
-  /** Additional environment variable allowlist */
-  env_vars?: string[];
-
-  // Streamable HTTP type fields
-  /** Server URL (required for HTTP type) */
-  url?: string;
-  /** Bearer token environment variable name */
-  bearer_token_env_var?: string;
-  /** HTTP request headers */
-  http_headers?: Record<string, string>;
-  /** HTTP headers read from environment variables */
-  env_http_headers?: Record<string, string>;
-
-  // Common optional fields
-  /** Whether enabled */
-  enabled?: boolean;
-  /** Startup timeout in seconds */
-  startup_timeout_sec?: number;
-  /** Tool call timeout in seconds */
-  tool_timeout_sec?: number;
-  /** List of enabled tools */
-  enabled_tools?: string[];
-  /** List of disabled tools */
-  disabled_tools?: string[];
-
-  /** Allow extension fields */
-  [key: string]: unknown;
-}
 
 // ==================== MCP Marketplace Types ====================
 

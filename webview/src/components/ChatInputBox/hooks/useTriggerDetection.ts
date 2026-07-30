@@ -9,12 +9,7 @@ function textEndsWithNewline(text: string | null): boolean {
   return text !== null && text.length > 0 && text.endsWith('\n');
 }
 
-/**
- * Get screen coordinates at a given character offset
- * Note: Must be consistent with the text format returned by getTextContent
- * File tags are converted to @filepath format, requiring virtual length calculation
- */
-export function getRectAtCharOffset(
+function getRectAtCharOffset(
   element: HTMLElement,
   charOffset: number
 ): DOMRect | null {

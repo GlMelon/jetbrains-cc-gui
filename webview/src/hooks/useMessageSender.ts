@@ -26,32 +26,6 @@ function createContextUsageRequestId(): string {
   return `context-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-export interface UseMessageSenderOptions {
-  t: TFunction;
-  addToast: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
-  currentProvider: string;
-  selectedModel: string;
-  permissionMode: PermissionMode;
-  selectedAgent: SelectedAgent | null;
-  sdkStatusLoaded: boolean;
-  sentAttachmentsRef: RefObject<Map<string, Array<{ fileName: string; mediaType: string }>>>;
-  chatInputRef: RefObject<ChatInputBoxHandle | null>;
-  messagesContainerRef: RefObject<HTMLDivElement | null>;
-  isUserAtBottomRef: RefObject<boolean>;
-  userPausedRef: RefObject<boolean>;
-  isStreamingRef: RefObject<boolean>;
-  setMessages: React.Dispatch<React.SetStateAction<ClaudeMessage[]>>;
-  setLoading: React.Dispatch<React.SetStateAction<boolean>>;
-  setLoadingStartTime: React.Dispatch<React.SetStateAction<number | null>>;
-  setStreamingActive: React.Dispatch<React.SetStateAction<boolean>>;
-  setCurrentView: React.Dispatch<React.SetStateAction<ViewMode>>;
-  forceCreateNewSession: () => void;
-  handleModeSelect?: (mode: PermissionMode) => void;
-  longContextEnabled?: boolean;
-  openContextUsageDialog: (requestId?: string | null, loading?: boolean) => void;
-  closeContextUsageDialog: (requestId?: string | null) => boolean;
-}
-
 /**
  * Handles message building, validation, and sending to the backend.
  */
@@ -78,7 +52,31 @@ export function useMessageSender({
   longContextEnabled,
   openContextUsageDialog,
   closeContextUsageDialog,
-}: UseMessageSenderOptions) {
+}: {
+  t: TFunction;
+  addToast: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
+  currentProvider: string;
+  selectedModel: string;
+  permissionMode: PermissionMode;
+  selectedAgent: SelectedAgent | null;
+  sdkStatusLoaded: boolean;
+  sentAttachmentsRef: RefObject<Map<string, Array<{ fileName: string; mediaType: string }>>>;
+  chatInputRef: RefObject<ChatInputBoxHandle | null>;
+  messagesContainerRef: RefObject<HTMLDivElement | null>;
+  isUserAtBottomRef: RefObject<boolean>;
+  userPausedRef: RefObject<boolean>;
+  isStreamingRef: RefObject<boolean>;
+  setMessages: React.Dispatch<React.SetStateAction<ClaudeMessage[]>>;
+  setLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  setLoadingStartTime: React.Dispatch<React.SetStateAction<number | null>>;
+  setStreamingActive: React.Dispatch<React.SetStateAction<boolean>>;
+  setCurrentView: React.Dispatch<React.SetStateAction<ViewMode>>;
+  forceCreateNewSession: () => void;
+  handleModeSelect?: (mode: PermissionMode) => void;
+  longContextEnabled?: boolean;
+  openContextUsageDialog: (requestId?: string | null, loading?: boolean) => void;
+  closeContextUsageDialog: (requestId?: string | null) => boolean;
+}) {
   const getProviderDisplayName = useCallback((provider: string): string => {
     return provider === 'codex' ? 'Codex' : 'Claude Code';
   }, []);

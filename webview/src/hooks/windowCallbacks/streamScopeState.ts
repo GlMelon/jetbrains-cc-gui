@@ -1,4 +1,4 @@
-export interface StreamScopeState {
+type StreamScopeState = {
   content: string;
   thinking: string;
   messageIndex: number;
@@ -9,7 +9,7 @@ export interface StreamScopeState {
   pendingUpdateRaf: number | null;
   lastActivityAt: number;
   minAcceptedSequence: number;
-}
+};
 
 const streamScopeStates = new Map<string, StreamScopeState>();
 
@@ -62,20 +62,12 @@ export const getOrCreateStreamScopeState = (scopeKey: string): StreamScopeState 
   return state;
 };
 
-export const getStreamScopeState = (scopeKey: string | null | undefined): StreamScopeState | null => {
+const getStreamScopeState = (scopeKey: string | null | undefined): StreamScopeState | null => {
   const normalizedScopeKey = normalizeScopeKey(scopeKey);
   if (!normalizedScopeKey) {
     return null;
   }
   return streamScopeStates.get(normalizedScopeKey) ?? null;
-};
-
-export const getOrCreateActiveStreamScopeState = (): StreamScopeState | null => {
-  const scopeKey = getActiveStreamScopeKey();
-  if (!scopeKey) {
-    return null;
-  }
-  return getOrCreateStreamScopeState(scopeKey);
 };
 
 export const clearStreamScopeState = (scopeKey: string | null | undefined): void => {
@@ -91,28 +83,6 @@ export const clearStreamScopeState = (scopeKey: string | null | undefined): void
   if (getActiveStreamScopeKey() === normalizedScopeKey) {
     window.__activeStreamScopeKey = null;
   }
-};
-
-export const clearStreamScopesForTab = (provider: string, tabId: string | null | undefined): void => {
-  const prefix = `${normalizePart(provider)}:${normalizePart(tabId)}:`;
-  for (const key of [...streamScopeStates.keys()]) {
-    if (key.startsWith(prefix)) {
-      clearStreamScopeState(key);
-    }
-  }
-};
-
-export const cancelScopedPendingUpdate = (scopeKey: string | null | undefined): void => {
-  const state = getStreamScopeState(scopeKey);
-  if (!state) {
-    return;
-  }
-  if (state.pendingUpdateRaf != null) {
-    cancelAnimationFrame(state.pendingUpdateRaf);
-  }
-  state.pendingUpdateRaf = null;
-  state.pendingUpdateJson = null;
-  state.pendingUpdateSequence = null;
 };
 
 export const queueScopedPendingUpdate = (

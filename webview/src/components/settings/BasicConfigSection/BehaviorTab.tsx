@@ -17,7 +17,36 @@ import {
   SyncIcon,
 } from '../../Icons';
 
-export interface BehaviorTabProps {
+const BehaviorTab = ({
+  sendShortcut = 'enter',
+  onSendShortcutChange = () => {},
+  streamingEnabled = true,
+  onStreamingEnabledChange = () => {},
+  showThinkingEnabled = true,
+  onShowThinkingEnabledChange = () => {},
+  autoOpenFileEnabled = true,
+  onAutoOpenFileEnabledChange = () => {},
+  diffExpandedByDefault = false,
+  onDiffExpandedByDefaultChange = () => {},
+  commitGenerationEnabled = true,
+  onCommitGenerationEnabledChange = () => {},
+  mcpGatewayEnabled = true,
+  onMcpGatewayEnabledChange = () => {},
+  statusBarWidgetEnabled = true,
+  onStatusBarWidgetEnabledChange = () => {},
+  aiTitleGenerationEnabled = true,
+  onAiTitleGenerationEnabledChange = () => {},
+  newSessionConfirmEnabled = true,
+  onNewSessionConfirmEnabledChange = () => {},
+  taskCompletionNotificationEnabled = false,
+  onTaskCompletionNotificationEnabledChange = () => {},
+  askUserQuestionNotificationEnabled = false,
+  onAskUserQuestionNotificationEnabledChange = () => {},
+  detailedOutputEnabled = false,
+  onDetailedOutputEnabledChange = () => {},
+  permissionDialogTimeoutSeconds = DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS,
+  onPermissionDialogTimeoutChange = () => {},
+}: {
   sendShortcut?: 'enter' | 'cmdEnter';
   onSendShortcutChange?: (shortcut: 'enter' | 'cmdEnter') => void;
   streamingEnabled?: boolean;
@@ -52,38 +81,7 @@ export interface BehaviorTabProps {
   onDetailedOutputEnabledChange?: (enabled: boolean) => void;
   permissionDialogTimeoutSeconds?: number;
   onPermissionDialogTimeoutChange?: (seconds: number) => void;
-}
-
-const BehaviorTab = ({
-  sendShortcut = 'enter',
-  onSendShortcutChange = () => {},
-  streamingEnabled = true,
-  onStreamingEnabledChange = () => {},
-  showThinkingEnabled = true,
-  onShowThinkingEnabledChange = () => {},
-  autoOpenFileEnabled = true,
-  onAutoOpenFileEnabledChange = () => {},
-  diffExpandedByDefault = false,
-  onDiffExpandedByDefaultChange = () => {},
-  commitGenerationEnabled = true,
-  onCommitGenerationEnabledChange = () => {},
-  mcpGatewayEnabled = true,
-  onMcpGatewayEnabledChange = () => {},
-  statusBarWidgetEnabled = true,
-  onStatusBarWidgetEnabledChange = () => {},
-  aiTitleGenerationEnabled = true,
-  onAiTitleGenerationEnabledChange = () => {},
-  newSessionConfirmEnabled = true,
-  onNewSessionConfirmEnabledChange = () => {},
-  taskCompletionNotificationEnabled = false,
-  onTaskCompletionNotificationEnabledChange = () => {},
-  askUserQuestionNotificationEnabled = false,
-  onAskUserQuestionNotificationEnabledChange = () => {},
-  detailedOutputEnabled = false,
-  onDetailedOutputEnabledChange = () => {},
-  permissionDialogTimeoutSeconds = DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS,
-  onPermissionDialogTimeoutChange = () => {},
-}: BehaviorTabProps) => {
+}) => {
   const { t } = useTranslation();
 
   return (

@@ -9,8 +9,6 @@
 import type { MutableRefObject } from 'react';
 import type { ClaudeContentOrResultBlock, ClaudeMessage, ClaudeRawMessage } from '../../types';
 
-/** Time window (ms) for matching optimistic messages with backend messages. */
-export const OPTIMISTIC_MESSAGE_TIME_WINDOW = 5000;
 const UPLOADED_ATTACHMENT_PLACEHOLDER_RE = /^\[Uploaded(?:\s[\s\S]*)?\]$/;
 
 export const getStreamEndHandlingMode = (
@@ -38,46 +36,9 @@ export const getRawUuid = (msg: ClaudeMessage | undefined): string | undefined =
   return typeof rawObj.uuid === 'string' ? rawObj.uuid : undefined;
 };
 
-export const stripUuidFromRaw = (raw: unknown): unknown => {
-  if (!raw || typeof raw !== 'object') return raw;
-  const rawObj = raw as any;
-  if (!('uuid' in rawObj)) return raw;
-  const { uuid: _uuid, ...rest } = rawObj;
-  return rest;
-};
-
 // ---------------------------------------------------------------------------
 // Identity preservation
 // ---------------------------------------------------------------------------
-
-/**
- * Merge identity fields (timestamp, uuid) from prevMsg into nextMsg so that
- * React referential equality checks remain stable across backend re-sends.
- */
-export const preserveMessageIdentity = (
-  prevMsg: ClaudeMessage | undefined,
-  nextMsg: ClaudeMessage,
-): ClaudeMessage => {
-  if (!prevMsg?.timestamp) return nextMsg;
-  if (prevMsg.type !== nextMsg.type) return nextMsg;
-
-  const prevUuid = getRawUuid(prevMsg);
-  const nextUuid = getRawUuid(nextMsg);
-
-  const nextWithStableTimestamp =
-    nextMsg.timestamp === prevMsg.timestamp
-      ? nextMsg
-      : { ...nextMsg, timestamp: prevMsg.timestamp };
-
-  if (!prevUuid && nextUuid) {
-    return {
-      ...nextWithStableTimestamp,
-      raw: stripUuidFromRaw(nextWithStableTimestamp.raw) as any,
-    };
-  }
-
-  return nextWithStableTimestamp;
-};
 
 /**
  * If the previous list ended with an optimistic user message that has not yet
@@ -111,7 +72,7 @@ export const appendOptimisticMessageIfMissing = (
     if (getUserMessageComparableContent(m) !== optimisticText) return false;
     const candidateTime = getMessageTimestampMs(m) ?? Number.NaN;
     if (!Number.isFinite(candidateTime) || !Number.isFinite(optimisticTime)) return false;
-    return Math.abs(candidateTime - optimisticTime) < OPTIMISTIC_MESSAGE_TIME_WINDOW;
+    return Math.abs(candidateTime - optimisticTime) < 5000;
   };
 
   let matchedIndex = nextList.findIndex(matchFn);
@@ -127,7 +88,7 @@ export const appendOptimisticMessageIfMissing = (
       // Reject only if candidate is significantly older (> time window) to avoid
       // matching historical duplicate messages.
       if (Number.isFinite(optimisticTime) && Number.isFinite(candidateTime) &&
-          optimisticTime - candidateTime > OPTIMISTIC_MESSAGE_TIME_WINDOW) {
+          optimisticTime - candidateTime > 5000) {
         continue;
       }
       matchedIndex = i;
@@ -304,7 +265,7 @@ const getAssistantComparableContent = (message: ClaudeMessage): string => {
  *
  * Returns milliseconds since epoch for consistent comparison.
  */
-export const getMessageTimestampMs = (message: ClaudeMessage): number | undefined => {
+const getMessageTimestampMs = (message: ClaudeMessage): number | undefined => {
   // First check the raw.timestamp field (SDK source, ISO string format)
   const rawTimestamp = (message.raw as any)?.timestamp;
   if (rawTimestamp != null) {
@@ -332,88 +293,6 @@ export const getMessageTimestampMs = (message: ClaudeMessage): number | undefine
 };
 
 /**
- * Preserve the identity (timestamp / uuid) of the last assistant message
- * across list updates.
- */
-export const preserveLastAssistantIdentity = (
-  prevList: ClaudeMessage[],
-  nextList: ClaudeMessage[],
-  findLastAssistantIndex: (messages: ClaudeMessage[]) => number,
-): ClaudeMessage[] => {
-  const prevAssistantIdx = findLastAssistantIndex(prevList);
-  const nextAssistantIdx = findLastAssistantIndex(nextList);
-  if (prevAssistantIdx < 0 || nextAssistantIdx < 0) return nextList;
-
-  const prevAssistant = prevList[prevAssistantIdx];
-  const nextAssistant = nextList[nextAssistantIdx];
-  // Guard: do not merge identity across different streaming turns
-  // Block when either side has __turnId and they differ
-  if ((prevAssistant.__turnId !== undefined || nextAssistant.__turnId !== undefined) &&
-      prevAssistant.__turnId !== nextAssistant.__turnId) {
-    return nextList;
-  }
-  const stabilized = preserveMessageIdentity(prevAssistant, nextAssistant);
-  if (stabilized === nextAssistant) return nextList;
-
-  const copy = [...nextList];
-  copy[nextAssistantIdx] = stabilized;
-  return copy;
-};
-
-export const preserveAssistantResponseGrouping = (
-  prevList: ClaudeMessage[],
-  nextList: ClaudeMessage[],
-): ClaudeMessage[] => {
-  const previousAssistants = prevList.filter((message) => message.type === 'assistant');
-  if (!previousAssistants.some((message) => typeof message.__responseId === 'string' && message.__responseId.length > 0)) {
-    return nextList;
-  }
-
-  let changed = false;
-  let assistantOrdinal = 0;
-  const next = nextList.map((message) => {
-    if (message.type !== 'assistant') return message;
-    const previousAssistant = previousAssistants[assistantOrdinal];
-    assistantOrdinal += 1;
-    if (!previousAssistant?.__responseId || message.__responseId) return message;
-    changed = true;
-    return {
-      ...message,
-      __responseId: previousAssistant.__responseId,
-    };
-  });
-
-  return changed ? next : nextList;
-};
-
-// ---------------------------------------------------------------------------
-// Raw blocks merging during streaming
-// ---------------------------------------------------------------------------
-
-const isTextLikeBlock = (block: unknown): block is Record<string, unknown> => {
-  if (!block || typeof block !== 'object') return false;
-  const t = (block as Record<string, unknown>).type;
-  return t === 'text' || t === 'thinking';
-};
-
-const getTextLikeLength = (block: Record<string, unknown>): number => {
-  if (block.type === 'text') return typeof block.text === 'string' ? block.text.length : 0;
-  if (block.type === 'thinking') {
-    const t = typeof block.thinking === 'string' ? block.thinking : typeof block.text === 'string' ? block.text : '';
-    return t.length;
-  }
-  return 0;
-};
-
-const getTextLikeContent = (block: Record<string, unknown>): string => {
-  if (block.type === 'text') return typeof block.text === 'string' ? block.text : '';
-  if (block.type === 'thinking') {
-    return typeof block.thinking === 'string' ? block.thinking : typeof block.text === 'string' ? block.text : '';
-  }
-  return '';
-};
-
-/**
  * Merge raw message blocks during active streaming so that the frontend's
  * accumulated segment text/thinking always wins over a stale backend snapshot,
  * while structural blocks (tool_use, tool_result, image, attachment) are
@@ -424,7 +303,7 @@ const getTextLikeContent = (block: Record<string, unknown>): string => {
  *
  * Returns nextRaw unchanged (same reference) when no block needs protecting.
  */
-export const mergeRawBlocksDuringStreaming = (
+const mergeRawBlocksDuringStreaming = (
   prevRaw: unknown,
   nextRaw: unknown,
 ): unknown => {
@@ -450,6 +329,29 @@ export const mergeRawBlocksDuringStreaming = (
       : [];
 
   if (nextBlocks.length === 0) return nextRaw;
+
+  const isTextLikeBlock = (block: unknown): block is Record<string, unknown> => {
+    if (!block || typeof block !== 'object') return false;
+    const t = (block as Record<string, unknown>).type;
+    return t === 'text' || t === 'thinking';
+  };
+
+  const getTextLikeLength = (block: Record<string, unknown>): number => {
+    if (block.type === 'text') return typeof block.text === 'string' ? block.text.length : 0;
+    if (block.type === 'thinking') {
+      const t = typeof block.thinking === 'string' ? block.thinking : typeof block.text === 'string' ? block.text : '';
+      return t.length;
+    }
+    return 0;
+  };
+
+  const getTextLikeContent = (block: Record<string, unknown>): string => {
+    if (block.type === 'text') return typeof block.text === 'string' ? block.text : '';
+    if (block.type === 'thinking') {
+      return typeof block.thinking === 'string' ? block.thinking : typeof block.text === 'string' ? block.text : '';
+    }
+    return '';
+  };
 
   let prevTextLikeIdx = 0;
   let changed = false;
@@ -504,6 +406,84 @@ export const mergeRawBlocksDuringStreaming = (
   }
   return { ...nextObj, content: mergedBlocks };
 };
+
+export const preserveAssistantResponseGrouping = (
+  prevList: ClaudeMessage[],
+  nextList: ClaudeMessage[],
+): ClaudeMessage[] => {
+  const previousAssistants = prevList.filter((message) => message.type === 'assistant');
+  if (!previousAssistants.some((message) => typeof message.__responseId === 'string' && message.__responseId.length > 0)) {
+    return nextList;
+  }
+
+  let changed = false;
+  let assistantOrdinal = 0;
+  const next = nextList.map((message) => {
+    if (message.type !== 'assistant') return message;
+    const previousAssistant = previousAssistants[assistantOrdinal];
+    assistantOrdinal += 1;
+    if (!previousAssistant?.__responseId || message.__responseId) return message;
+    changed = true;
+    return {
+      ...message,
+      __responseId: previousAssistant.__responseId,
+    };
+  });
+
+  return changed ? next : nextList;
+};
+
+/**
+ * Merge identity fields (timestamp, uuid) from prevMsg into nextMsg so that
+ * React referential equality checks remain stable across backend re-sends.
+ */
+const preserveMessageIdentity = (
+  prevMsg: ClaudeMessage | undefined,
+  nextMsg: ClaudeMessage,
+): ClaudeMessage => {
+  if (!prevMsg?.timestamp) return nextMsg;
+  if (prevMsg.type !== nextMsg.type) return nextMsg;
+
+  const nextWithStableTimestamp =
+    nextMsg.timestamp === prevMsg.timestamp
+      ? nextMsg
+      : { ...nextMsg, timestamp: prevMsg.timestamp };
+
+  return nextWithStableTimestamp;
+};
+
+/**
+ * Preserve the identity (timestamp / uuid) of the last assistant message
+ * across list updates.
+ */
+export const preserveLastAssistantIdentity = (
+  prevList: ClaudeMessage[],
+  nextList: ClaudeMessage[],
+  findLastAssistantIndex: (messages: ClaudeMessage[]) => number,
+): ClaudeMessage[] => {
+  const prevAssistantIdx = findLastAssistantIndex(prevList);
+  const nextAssistantIdx = findLastAssistantIndex(nextList);
+  if (prevAssistantIdx < 0 || nextAssistantIdx < 0) return nextList;
+
+  const prevAssistant = prevList[prevAssistantIdx];
+  const nextAssistant = nextList[nextAssistantIdx];
+  // Guard: do not merge identity across different streaming turns
+  // Block when either side has __turnId and they differ
+  if ((prevAssistant.__turnId !== undefined || nextAssistant.__turnId !== undefined) &&
+      prevAssistant.__turnId !== nextAssistant.__turnId) {
+    return nextList;
+  }
+  const stabilized = preserveMessageIdentity(prevAssistant, nextAssistant);
+  if (stabilized === nextAssistant) return nextList;
+
+  const copy = [...nextList];
+  copy[nextAssistantIdx] = stabilized;
+  return copy;
+};
+
+// ---------------------------------------------------------------------------
+// Streaming assistant preservation
+// ---------------------------------------------------------------------------
 
 /**
  * When streaming is active, prevent the backend from replacing the streamed

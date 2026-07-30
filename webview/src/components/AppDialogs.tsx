@@ -1,4 +1,4 @@
-import { useEffect, useState, type ComponentProps } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import ConfirmDialog from './ConfirmDialog';
 import PermissionDialog from './PermissionDialog';
@@ -14,23 +14,7 @@ import ContextUsageDialog from './ContextUsageDialog';
 import { DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS } from '../utils/permissionDialogTimeout';
 import { setSkipNewSessionConfirm } from '../utils/skipNewSessionConfirm';
 
-export interface AppDialogsProps {
-  /** Session-management dialogs come from useSessionManagement, still passed as props. */
-  showNewSessionConfirm: boolean;
-  onConfirmNewSession: () => void;
-  onCancelNewSession: () => void;
-  showInterruptConfirm: boolean;
-  onConfirmInterrupt: () => void;
-  onCancelInterrupt: () => void;
-  /** Rewind selection list is computed in App.tsx from messages, still a prop. */
-  rewindableMessages: RewindableMessage[];
-  onRewindSelect: ComponentProps<typeof RewindSelectDialog>['onSelect'];
-  onRewindSelectCancel: ComponentProps<typeof RewindSelectDialog>['onCancel'];
-  onRewindConfirm: ComponentProps<typeof RewindDialog>['onConfirm'];
-  onRewindCancel: ComponentProps<typeof RewindDialog>['onCancel'];
-  /** Permission dialog timeout in seconds (from backend config). */
-  permissionDialogTimeoutSeconds?: number;
-}
+
 
 /**
  * Renders all top-level dialogs.
@@ -51,7 +35,20 @@ export const AppDialogs = ({
   onRewindConfirm,
   onRewindCancel,
   permissionDialogTimeoutSeconds = DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS,
-}: AppDialogsProps) => {
+}: {
+  showNewSessionConfirm: boolean;
+  onConfirmNewSession: () => void;
+  onCancelNewSession: () => void;
+  showInterruptConfirm: boolean;
+  onConfirmInterrupt: () => void;
+  onCancelInterrupt: () => void;
+  rewindableMessages: RewindableMessage[];
+  onRewindSelect: (item: RewindableMessage) => void;
+  onRewindSelectCancel: () => void;
+  onRewindConfirm: (sessionId: string, userMessageId: string) => void;
+  onRewindCancel: () => void;
+  permissionDialogTimeoutSeconds?: number;
+}) => {
   const { t } = useTranslation();
   const {
     permissionDialogOpen, currentPermissionRequest,

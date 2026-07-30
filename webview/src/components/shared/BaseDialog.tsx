@@ -14,19 +14,12 @@ const DIALOG_LEAVE_MS = 160;
 export type DialogSize = 'sm' | 'md' | 'lg' | 'xl' | 'auto';
 
 export interface BaseDialogProps {
-  /** 弹窗是否打开 */
   isOpen: boolean;
-  /** 关闭回调 */
   onClose: () => void;
-  /** 点击遮罩是否关闭，默认 true */
   overlayClosable?: boolean;
-  /** 弹窗尺寸 */
   size?: DialogSize;
-  /** 无障碍标签：弹窗的 accessible name，强烈建议每个调用都提供 */
   ariaLabel?: string;
-  /** 弹窗内容 */
   children: ReactNode;
-  /** 额外的 className */
   className?: string;
 }
 

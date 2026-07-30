@@ -8,15 +8,6 @@ import type { ServerToolsState, McpTool } from './types';
 import { getToolIcon } from './utils';
 import { SyncIcon, codiconToIcon } from '../Icons';
 
-export interface ServerToolsPanelProps {
-  toolsInfo?: ServerToolsState[string];
-  isConnected: boolean;
-  isCodexMode: boolean;
-  t: (key: string, options?: Record<string, unknown>) => string;
-  onLoadTools: (forceRefresh: boolean) => void;
-  onToolHover: (tool: McpTool | null, position?: { x: number; y: number }) => void;
-}
-
 /**
  * Server Tools Panel — chip 流式工具列表
  */
@@ -26,7 +17,14 @@ export function ServerToolsPanel({
   t,
   onLoadTools,
   onToolHover,
-}: ServerToolsPanelProps) {
+}: {
+  toolsInfo?: ServerToolsState[string];
+  isConnected: boolean;
+  isCodexMode: boolean;
+  t: (key: string, options?: Record<string, unknown>) => string;
+  onLoadTools: (forceRefresh: boolean) => void;
+  onToolHover: (tool: McpTool | null, position?: { x: number; y: number }) => void;
+}) {
   const toolCount = toolsInfo?.tools?.length ?? 0;
 
   return (

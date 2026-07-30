@@ -6,11 +6,6 @@ import { writeClaudeModelMapping } from '../../utils/claudeModelMapping';
 import type { ProviderConfig } from '../../types/provider';
 import type { SelectedAgent } from '../../components/ChatInputBox/types';
 
-export interface UseProviderSettingsOptions {
-  addToast: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
-  t: TFunction;
-}
-
 /**
  * Cross-cutting provider settings: streaming, show-thinking (display toggle),
  * send shortcut, auto-open file, selected agent, and the active provider config.
@@ -24,7 +19,10 @@ export interface UseProviderSettingsOptions {
  * 思考区 off → 不推送 thinking delta/thinking-status(模型照常思考,纯显示控制)。
  * 思考预算仍由 reasoning effort 控制,与思考区显示开关解耦。
  */
-export function useProviderSettings({ addToast, t }: UseProviderSettingsOptions) {
+export function useProviderSettings({ addToast, t }: {
+  addToast: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
+  t: TFunction;
+}) {
   const [streamingEnabledSetting, setStreamingEnabledSetting] = useState(true);
   const [showThinkingEnabledSetting, setShowThinkingEnabledSetting] = useState(true);
   const [sendShortcut, setSendShortcut] = useState<'enter' | 'cmdEnter'>('enter');
@@ -141,4 +139,3 @@ export function useProviderSettings({ addToast, t }: UseProviderSettingsOptions)
   };
 }
 
-export type UseProviderSettingsReturn = ReturnType<typeof useProviderSettings>;

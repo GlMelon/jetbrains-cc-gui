@@ -52,4 +52,3 @@ export function useUsageTracking() {
   };
 }
 
-export type UseUsageTrackingReturn = ReturnType<typeof useUsageTracking>;

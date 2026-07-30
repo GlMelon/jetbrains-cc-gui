@@ -10,27 +10,9 @@
  * 详见 plan: typed-booping-newt.md
  */
 
-/**
- * 下行事件的语义类别,决定 hub 内部的承载与传递方式。
- * - event:       标准广播(usage/mode/provider/...),走 Set<Listener>,可多订阅者。
- * - rpc:         请求-响应(onFilePathResolved),需 requestId correlation + 超时。
- * - streaming:   高频流式增量(onContentDelta 等),走 passthrough 直通单 handler,
- *                不广播、不拷贝,保持 ref-first + rAF/startTransition 节流(性能红线)。
- * - bootstrap:   启动期一次性 / DOM 副作用(font/theme/language),多为非 React 状态。
- */
-export type BridgeEventKind = 'event' | 'rpc' | 'streaming' | 'bootstrap';
 
-/**
- * 事件目录条目。新增下行事件时在 events/ 目录登记一行即可。
- */
-export interface BridgeEventDef<P = unknown> {
-  /** 事件 type 字符串,后端 dispatchEvent 与前端 subscribe 共用 */
-  type: string;
-  /** 语义类别 */
-  kind: BridgeEventKind;
-  /** payload 类型(订阅者拿到的已解析对象) */
-  payload?: P;
-}
+
+
 
 /**
  * hub.subscribe / subscribePassthrough 的处理器签名。
@@ -47,24 +29,6 @@ export type BridgeListener<P = unknown> = (value: P) => void;
  */
 export type Unsubscribe = () => void;
 
-/**
- * window 上安装的总线入口对象。
- *
- * dispatch 由后端 executeJavaScript 调用:
- *   window.__bridge.dispatch('usage.update', '{"percentage":42}')
- *
- * 内部负责:type 路由 → 已注册 handler 调用;未就绪时入缓冲队列,握手后回放。
- */
-export interface BridgeDispatch {
-  /**
-   * 后端下行唯一入口。
-   * @param type        事件 type(见 events/ 目录)
-   * @param payloadJson payload 的 JSON 字符串;空字符串/undefined 视为无 payload(undefined)
-   */
-  dispatch(type: string, payloadJson?: string): void;
-}
 
-/**
- * 完整的 window.__bridge 形态:对外暴露 dispatch(供后端),内部状态由 bridgeHub 持有。
- */
-export type WindowBridge = BridgeDispatch;
+
+

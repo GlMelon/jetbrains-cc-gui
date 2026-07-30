@@ -18,11 +18,6 @@ import type { ViewMode } from '../types';
 // D3:ViewMode 真相源在 types/index.ts,此处 re-export 保持 hooks/index 与 useMessageSender 下游 import 兼容
 export type {ViewMode};
 
-export interface UseModelProviderStateOptions {
-  addToast: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
-  t: TFunction;
-}
-
 /**
  * Orchestrates provider/model/permission state. Composes four single-purpose
  * sub-hooks (Claude / Codex / usage tracking / provider settings) plus a
@@ -37,7 +32,7 @@ export interface UseModelProviderStateOptions {
  * identity that must read the current provider when fired by the JCEF bridge.
  * The ref is updated via render-time assignment (no useEffect mirror).
  */
-export function useModelProviderState({ addToast, t }: UseModelProviderStateOptions) {
+export function useModelProviderState({ addToast, t }: { addToast: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void; t: TFunction }) {
   // ── Cross-slice state owned by the orchestrator ──
   const [currentProvider, setCurrentProvider] = useState('claude');
   const [permissionMode, setPermissionMode] = useState<PermissionMode>('default');

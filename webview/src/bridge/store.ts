@@ -20,7 +20,7 @@
 
 type Key = string;
 
-class BridgeStateStore {
+export class BridgeStateStore {
   private readonly values = new Map<Key, unknown>();
 
   /**
@@ -68,32 +68,4 @@ class BridgeStateStore {
   }
 }
 
-/**
- * 单例。模块加载即创建,main.tsx 安装 bus 时一并挂到 window.__bridge.state。
- */
-export const bridgeState = new BridgeStateStore();
 
-/**
- * 状态键常量集中声明处(随迁移逐步填充)。
- * 命名沿用原 window.__xxx 去掉 `__` 前缀,便于追溯。
- */
-export const BridgeStateKey = {
-  /** 会话切换期间抑制旧 session 的 stale 回调 */
-  SESSION_TRANSITIONING: 'sessionTransitioning',
-  /** 当前活跃流 scope(provider:tabId:turnId),多 tab/多 turn 隔离 */
-  ACTIVE_STREAM_SCOPE_KEY: 'activeStreamScopeKey',
-  /** onStreamEnd 幂等守卫 */
-  STREAM_END_PROCESSED_TURN_ID: 'streamEndProcessedTurnId',
-  /** stall watchdog 心跳时间戳 */
-  LAST_STREAM_ACTIVITY_AT: 'lastStreamActivityAt',
-  /** watchdog 定时器句柄(防重装叠加) */
-  STALL_WATCHDOG_INTERVAL: 'stallWatchdogInterval',
-  /** 前端运行时 response 分组 id */
-  ACTIVE_STREAMING_RESPONSE_ID: 'activeStreamingResponseId',
-  /** 当前 turn 起始时间,算 durationMs */
-  TURN_STARTED_AT: 'turnStartedAt',
-  /** 诊断 onStreamEnd 来源 */
-  LAST_STREAM_END_SOURCE: 'lastStreamEndSource',
-} as const;
-
-export type BridgeStateKeyDef = (typeof BridgeStateKey)[keyof typeof BridgeStateKey];

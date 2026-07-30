@@ -2,19 +2,6 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import type { ClaudeMessage, ToolResultBlock } from '../types';
 import { debugLog } from '../utils/debug';
 
-export interface UseFileChangesManagementOptions {
-  currentSessionId: string | null;
-  currentSessionIdRef: RefObject<string | null>;
-  messages: ClaudeMessage[];
-  getContentBlocks: (message: ClaudeMessage) => any[];
-  findToolResult: (toolUseId?: string, messageIndex?: number) => ToolResultBlock | null;
-}
-
-export interface FileChange {
-  filePath: string;
-  [key: string]: any;
-}
-
 /**
  * Manages file change tracking: processedFiles, baseMessageIndex,
  * undo/discard/keep handlers, diff result callbacks, and session state restore.
@@ -23,7 +10,13 @@ export function useFileChangesManagement({
   currentSessionId,
   currentSessionIdRef,
   messages,
-}: UseFileChangesManagementOptions) {
+}: {
+  currentSessionId: string | null;
+  currentSessionIdRef: RefObject<string | null>;
+  messages: ClaudeMessage[];
+  getContentBlocks: (message: ClaudeMessage) => any[];
+  findToolResult: (toolUseId?: string, messageIndex?: number) => ToolResultBlock | null;
+}) {
   // List of processed file paths (filtered from fileChanges after Apply/Reject, persisted to localStorage)
   const [processedFiles, setProcessedFiles] = useState<string[]>([]);
   // Base message index (for Keep All feature, only counts changes after this index)
@@ -79,7 +72,7 @@ export function useFileChangesManagement({
   }, [currentSessionIdRef]);
 
   // Callback after batch undo success (Discard All)
-  const handleDiscardAll = useCallback((filteredFileChanges: FileChange[]) => {
+  const handleDiscardAll = useCallback((filteredFileChanges: { filePath: string; [key: string]: any }[]) => {
     setProcessedFiles(prev => {
       const filesToAdd = filteredFileChanges.map(fc => fc.filePath);
       const newList = [...prev, ...filesToAdd.filter(f => !prev.includes(f))];

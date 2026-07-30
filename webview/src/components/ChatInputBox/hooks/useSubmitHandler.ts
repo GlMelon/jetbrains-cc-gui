@@ -6,34 +6,6 @@ interface CompletionLike {
   close: () => void;
 }
 
-export interface UseSubmitHandlerOptions {
-  getTextContent: () => string;
-  attachments: Attachment[];
-  isLoading: boolean;
-  sdkStatusLoading: boolean;
-  sdkInstalled: boolean;
-  currentProvider: string;
-  clearInput: () => void;
-  /** Cancel any pending debounced input callbacks to prevent stale values from refilling the input */
-  cancelPendingInput: () => void;
-  /** Invalidate text content cache to force fresh DOM read on submit */
-  invalidateCache: () => void;
-  externalAttachments: Attachment[] | undefined;
-  setInternalAttachments: Dispatch<SetStateAction<Attachment[]>>;
-  /** Clear attachments draft from localStorage */
-  clearAttachmentsDraft?: () => void;
-  fileCompletion: CompletionLike;
-  commandCompletion: CompletionLike;
-  agentCompletion: CompletionLike;
-  promptCompletion: CompletionLike;
-  dollarCommandCompletion: CompletionLike;
-  recordInputHistory: (text: string) => void;
-  onSubmit?: (content: string, attachmentsToSend?: Attachment[]) => void;
-  onInstallSdk?: () => void;
-  addToast?: (message: string, type: 'info' | 'warning' | 'error' | 'success') => void;
-  t: (key: string, options?: Record<string, unknown>) => string;
-}
-
 /**
  * useSubmitHandler - Submit logic for the chat input box
  *
@@ -65,7 +37,33 @@ export function useSubmitHandler({
   onInstallSdk,
   addToast,
   t,
-}: UseSubmitHandlerOptions) {
+}: {
+  getTextContent: () => string;
+  attachments: Attachment[];
+  isLoading: boolean;
+  sdkStatusLoading: boolean;
+  sdkInstalled: boolean;
+  currentProvider: string;
+  clearInput: () => void;
+  /** Cancel any pending debounced input callbacks to prevent stale values from refilling the input */
+  cancelPendingInput: () => void;
+  /** Invalidate text content cache to force fresh DOM read on submit */
+  invalidateCache: () => void;
+  externalAttachments: Attachment[] | undefined;
+  setInternalAttachments: Dispatch<SetStateAction<Attachment[]>>;
+  /** Clear attachments draft from localStorage */
+  clearAttachmentsDraft?: () => void;
+  fileCompletion: CompletionLike;
+  commandCompletion: CompletionLike;
+  agentCompletion: CompletionLike;
+  promptCompletion: CompletionLike;
+  dollarCommandCompletion: CompletionLike;
+  recordInputHistory: (text: string) => void;
+  onSubmit?: (content: string, attachmentsToSend?: Attachment[]) => void;
+  onInstallSdk?: () => void;
+  addToast?: (message: string, type: 'info' | 'warning' | 'error' | 'success') => void;
+  t: (key: string, options?: Record<string, unknown>) => string;
+}) {
   // In-flight guard: prevents a rapid second invocation (double-Enter, or
   // Enter + send-button within the deferred-onSubmit window) from creating a
   // duplicate optimistic message / duplicate backend request. The text path is

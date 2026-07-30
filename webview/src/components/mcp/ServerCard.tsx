@@ -10,25 +10,6 @@ import { getServerStatusInfo, getStatusText, getIconColor, getServerInitial, isS
 import { ServerToolsPanel } from './ServerToolsPanel';
 import { BookIcon, ChevronRightIcon, CopyIcon, EditIcon, HomeIcon, TrashIcon } from '../Icons';
 
-export interface ServerCardProps {
-  server: McpServer;
-  isExpanded: boolean;
-  isCodexMode: boolean;
-  serverStatus: Map<string, McpServerStatusInfo>;
-  refreshState?: ServerRefreshState[string];
-  toolsInfo?: ServerToolsState[string];
-  t: (key: string, options?: Record<string, unknown>) => string;
-  onToggleExpand: () => void;
-  onToggleServer: (enabled: boolean) => void;
-  onEdit: () => void;
-  onDelete: () => void;
-  onCopy: () => void;
-  onRefresh: () => void;
-  onLoadTools: (forceRefresh: boolean) => void;
-  onCopyUrl: (url: string) => void;
-  onToolHover: (tool: McpTool | null, position?: { x: number; y: number }) => void;
-}
-
 /** 状态 → pill 修饰类(ok/err/warn/muted),用于常驻状态 pill */
 function getStatusPillClass(
   server: McpServer,
@@ -62,7 +43,24 @@ export function ServerCard({
   onLoadTools,
   onCopyUrl,
   onToolHover,
-}: ServerCardProps) {
+}: {
+  server: McpServer;
+  isExpanded: boolean;
+  isCodexMode: boolean;
+  serverStatus: Map<string, McpServerStatusInfo>;
+  refreshState?: ServerRefreshState[string];
+  toolsInfo?: ServerToolsState[string];
+  t: (key: string, options?: Record<string, unknown>) => string;
+  onToggleExpand: () => void;
+  onToggleServer: (enabled: boolean) => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onCopy: () => void;
+  onRefresh: () => void;
+  onLoadTools: (forceRefresh: boolean) => void;
+  onCopyUrl: (url: string) => void;
+  onToolHover: (tool: McpTool | null, position?: { x: number; y: number }) => void;
+}) {
   const statusInfo = getServerStatusInfo(server, serverStatus);
   const status = statusInfo?.status;
   const effectiveStatus: McpServerStatusInfo['status'] | undefined =

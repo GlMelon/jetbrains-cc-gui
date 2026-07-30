@@ -1,5 +1,5 @@
-export const DETAILED_OUTPUT_ENABLED_KEY = 'detailedOutputEnabled';
-export const DETAILED_OUTPUT_ENABLED_EVENT = 'detailed-output-enabled-changed';
+const DETAILED_OUTPUT_ENABLED_KEY = 'detailedOutputEnabled';
+const DETAILED_OUTPUT_ENABLED_EVENT = 'detailed-output-enabled-changed';
 
 export interface DetailedOutputEnabledChangedDetail {
   enabled: boolean;

@@ -8,7 +8,7 @@ import { forceWebviewRepaint } from '../utils/forceWebviewRepaint';
 
 const LAST_SEEN_VERSION_KEY = 'lastSeenChangelogVersion';
 
-export interface UIStateContextValue {
+interface UIStateContextValue {
   // Navigation
   currentView: ViewMode;
   setCurrentView: React.Dispatch<React.SetStateAction<ViewMode>>;

@@ -10,8 +10,8 @@ import type { ProjectStatistics, DailyUsage } from '../../types/usage';
 import { registerLegacyAlias } from '../../bridge';
 
 export type TabType = 'overview' | 'models' | 'sessions' | 'timeline';
-export type ScopeType = 'current' | 'all';
-export type DateRangeType = '7d' | '30d' | 'all';
+type ScopeType = 'current' | 'all';
+type DateRangeType = '7d' | '30d' | 'all';
 
 export function useUsageStatistics(currentProvider?: string) {
   const { t } = useTranslation();

@@ -6,19 +6,6 @@ import 'highlight.js/styles/github-dark.css';
 // 幂等注册 json(hljs 内部去重,与 MarkdownBlock 重复注册无副作用,不依赖加载顺序)。
 hljs.registerLanguage('json', jsonLang);
 
-export interface JsonEditorProps {
-  value: string;
-  onChange: (next: string) => void;
-  onBlur?: () => void;
-  error?: string | null;
-  readOnly?: boolean;
-  /** 是否叠加 hljs 只读高亮(默认 true;error 非空时强制关闭防错位)。 */
-  highlighted?: boolean;
-  rows?: number;
-  placeholder?: string;
-  ariaLabel?: string;
-}
-
 /**
  * 通用 JSON 编辑器:textarea(透明文字 + 光标)+ 同位叠加 hljs 只读高亮层 + 行号 gutter。
  *
@@ -26,6 +13,18 @@ export interface JsonEditorProps {
  * 保证对齐(见 dual-view.less)。parse 失败(error 非 null)时关闭叠加层,退回纯 textarea
  * 显示原文,避免高亮与 textarea 错位。Tab 缩进两空格而非切焦点。
  */
+export interface JsonEditorProps {
+  value: string;
+  onChange: (value: string) => void;
+  onBlur?: () => void;
+  error?: string | null;
+  readOnly?: boolean;
+  highlighted?: boolean;
+  rows?: number;
+  placeholder?: string;
+  ariaLabel?: string;
+}
+
 export default function JsonEditor({
   value,
   onChange,

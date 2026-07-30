@@ -1,11 +1,5 @@
 import type { SubagentHistoryResponse } from '../../types';
 
-export interface SubagentProcessModel {
-  notes: string[];
-  readFiles: string[];
-  toolCalls: Array<{ id: string; name: string; detail?: string }>;
-}
-
 export function formatSubagentDuration(
   totalDurationMs?: number,
   units?: { ms?: string; s?: string },
@@ -39,6 +33,12 @@ function getToolDetail(input: unknown): string | undefined {
 function compactPath(path: string): string {
   const parts = path.split('/').filter(Boolean);
   return parts.length > 4 ? `…/${parts.slice(-4).join('/')}` : path;
+}
+
+export interface SubagentProcessModel {
+  notes: string[];
+  readFiles: string[];
+  toolCalls: Array<{ id: string; name: string; detail?: string }>;
 }
 
 function pushUnique(list: string[], value: string) {

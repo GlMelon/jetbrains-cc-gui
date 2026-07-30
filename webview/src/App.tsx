@@ -651,7 +651,7 @@ const App = () => {
         }}
         onOpenSearch={() => setSearchOpen(true)}
         titleEditable
-        onTitleChange={(newTitle) => {
+        onTitleChange={(newTitle: string) => {
           setCustomSessionTitle(newTitle);
           if (currentSessionId) {
             updateHistoryTitle(currentSessionId, newTitle);

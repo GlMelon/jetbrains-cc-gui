@@ -43,17 +43,6 @@ type KeyEventLike = {
   stopPropagation: () => void;
 };
 
-export interface UseInputHistoryOptions {
-  editableRef: EditableRef;
-  getTextContent: () => string;
-  handleInput: (isComposingFromEvent?: boolean) => void;
-}
-
-export interface UseInputHistoryReturn {
-  record: (text: string) => void;
-  handleKeyDown: (e: KeyEventLike) => boolean;
-}
-
 /**
  * Provides input history navigation for the chat input box.
  *
@@ -66,7 +55,11 @@ export function useInputHistory({
   editableRef,
   getTextContent,
   handleInput,
-}: UseInputHistoryOptions): UseInputHistoryReturn {
+}: {
+  editableRef: EditableRef;
+  getTextContent: () => string;
+  handleInput: (isComposingFromEvent?: boolean) => void;
+}): { record: (text: string) => void; handleKeyDown: (e: KeyEventLike) => boolean } {
   const historyRef = useRef<string[]>([]);
   const historyIndexRef = useRef<number>(-1);
   const draftRef = useRef<string>('');

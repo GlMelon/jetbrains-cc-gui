@@ -2,13 +2,7 @@ import { memo } from 'react';
 import type { TFunction } from 'i18next';
 import { SearchIcon } from '../Icons';
 
-export interface HistoryFiltersProps {
-  inputValue: string;
-  onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  t: TFunction;
-}
-
-export const HistoryFilters = memo(({ inputValue, onInputChange, t }: HistoryFiltersProps) => {
+export const HistoryFilters = memo(({ inputValue, onInputChange, t }: { inputValue: string; onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void; t: TFunction }) => {
   return (
     <div className="history-search-container">
       <input

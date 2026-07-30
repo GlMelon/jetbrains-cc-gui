@@ -47,17 +47,6 @@ import type { ReactElement } from 'react';
 import { resolveIconVendor, type ModelVendor } from '../../utils/modelIconMapping';
 import { OpenCodeIcon } from './OpenCodeIcon';
 
-export interface ProviderModelIconProps {
-  /** Provider type: claude, codex, gemini, etc. */
-  providerId?: string;
-  /** Model ID for vendor-specific icon resolution (e.g. "qwen3.5-plus") */
-  modelId?: string;
-  /** Icon size in pixels */
-  size?: number;
-  /** Whether to use colored variant (true) or avatar/mono variant (false) */
-  colored?: boolean;
-}
-
 function getXiaomiWrapperStyle(size: number): React.CSSProperties {
   return {
     alignItems: 'center',
@@ -149,6 +138,13 @@ const VENDOR_ICON_MAP: Record<
  * 2. providerId lookup
  * 3. Claude default
  */
+export interface ProviderModelIconProps {
+  providerId: string;
+  modelId?: string;
+  size?: number;
+  colored?: boolean;
+}
+
 export const ProviderModelIcon = ({
   providerId,
   modelId,

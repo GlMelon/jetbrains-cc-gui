@@ -2,7 +2,7 @@ import { memo } from 'react';
 import type { TFunction } from 'i18next';
 import { TaskIcon, CheckAllIcon, ClearAllIcon, TrashIcon, CloseIcon, SyncIcon, SearchDeepIcon, InboxIcon } from '../Icons';
 
-export interface HistoryActionsProps {
+interface HistoryActionsProps {
   isSelectionMode: boolean;
   selectedCount: number;
   visibleCount: number;

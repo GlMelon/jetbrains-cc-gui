@@ -35,20 +35,6 @@ export interface Attachment {
 }
 
 /**
- * Code snippet (from editor selection)
- */
-export interface CodeSnippet {
-  /** Unique identifier */
-  id: string;
-  /** File path (relative) */
-  filePath: string;
-  /** Start line number */
-  startLine?: number;
-  /** End line number */
-  endLine?: number;
-}
-
-/**
  * Image media type constants
  */
 export const IMAGE_MEDIA_TYPES = [
@@ -59,33 +45,16 @@ export const IMAGE_MEDIA_TYPES = [
   'image/svg+xml',
 ] as const;
 
-export type ImageMediaType = (typeof IMAGE_MEDIA_TYPES)[number];
-
 /**
  * Check if attachment is an image
  */
 export function isImageAttachment(attachment: Attachment): boolean {
-  return IMAGE_MEDIA_TYPES.includes(attachment.mediaType as ImageMediaType);
+  return IMAGE_MEDIA_TYPES.includes(attachment.mediaType as (typeof IMAGE_MEDIA_TYPES)[number]);
 }
 
 // ============================================================
 // Completion System Types
 // ============================================================
-
-/**
- * Completion item type
- */
-export type CompletionType =
-  | 'file'
-  | 'directory'
-  | 'command'
-  | 'agent'
-  | 'prompt'
-  | 'terminal'
-  | 'service'
-  | 'info'
-  | 'separator'
-  | 'section-header';
 
 /**
  * Dropdown menu item data
@@ -100,7 +69,7 @@ export interface DropdownItemData {
   /** Icon class name */
   icon?: string;
   /** Item type */
-  type: CompletionType;
+  type: 'file' | 'directory' | 'command' | 'agent' | 'prompt' | 'terminal' | 'service' | 'info' | 'separator' | 'section-header';
   /** Whether selected (for selectors) */
   checked?: boolean;
   /** Associated data */
@@ -196,7 +165,7 @@ export type CodexFastMode = 'normal' | 'fast';
 /**
  * Mode information
  */
-export interface ModeInfo {
+interface ModeInfo {
   id: PermissionMode;
   label: string;
   icon: string;
@@ -240,21 +209,10 @@ export const AVAILABLE_MODES: ModeInfo[] = [
 ];
 
 /**
- * Set of valid permission mode IDs, derived from the SSOT PERMISSION_MODE(5 值,含 autoEdit 别名)。
- *
- * 刻意与展示列表 AVAILABLE_MODES(4 值,无 autoEdit)解耦:autoEdit 是 acceptEdits 的
- * 历史别名,后端 session 可能下发,UI 不单独展示但必须接受为合法值,否则状态静默丢失。
- * Use isValidPermissionMode() for validation instead of inline checks.
- */
-export const VALID_PERMISSION_MODE_IDS: ReadonlySet<string> = new Set(
-  Object.values(PERMISSION_MODE)
-);
-
-/**
  * Check whether a string is a recognized PermissionMode.
  */
 export function isValidPermissionMode(mode: string | undefined | null): mode is PermissionMode {
-  return typeof mode === 'string' && VALID_PERMISSION_MODE_IDS.has(mode);
+  return typeof mode === 'string' && Object.values(PERMISSION_MODE).includes(mode as any);
 }
 
 /**
@@ -297,8 +255,6 @@ export const CLAUDE_ROLE_MODEL_IDS = {
   haiku: 'claude-role-haiku',
 } as const;
 
-export type ClaudeRoleModelId = typeof CLAUDE_ROLE_MODEL_IDS[keyof typeof CLAUDE_ROLE_MODEL_IDS];
-
 // A3(2026-06-23):getClaudeRoleFromModelId / normalizeClaudeModelId 已删除。
 // 前端不再做「id→role 离线推导」与「未知 id 归一为 sonnet」的业务归一化——
 // role 判定改读后端 registry 的 role 字段(utils/modelRegistry.resolveClaudeRoleForModel),
@@ -317,7 +273,7 @@ export { DEFAULT_CONTEXT_WINDOW, ONE_MILLION_CONTEXT_WINDOW } from '../../genera
 /**
  * AI provider information
  */
-export interface ProviderInfo {
+interface ProviderInfo {
   id: string;
   label: string;
   icon: string;
@@ -354,7 +310,7 @@ export type { ReasoningEffort };
 /**
  * Reasoning level information
  */
-export interface ReasoningInfo {
+interface ReasoningInfo {
   id: ReasoningEffort;
   label: string;
   icon: string;
@@ -396,22 +352,6 @@ export const REASONING_LEVELS: ReasoningInfo[] = [
     description: 'Maximum reasoning depth',
   },
 ];
-
-// ============================================================
-// Usage Types
-// ============================================================
-
-/**
- * Usage information
- */
-export interface UsageInfo {
-  /** Usage percentage (0-100) */
-  percentage: number;
-  /** Used amount */
-  used?: number;
-  /** Total amount */
-  total?: number;
-}
 
 // ============================================================
 // Component Ref Handle Types

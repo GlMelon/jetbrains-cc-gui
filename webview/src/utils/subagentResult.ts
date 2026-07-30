@@ -1,5 +1,4 @@
 import type { ToolResultBlock } from '../types';
-import type { GetToolResultRawFn } from '../contexts/SubagentContext';
 
 /**
  * Extract concatenated text content from a tool_result block.
@@ -40,27 +39,4 @@ export function isAsyncAgentInput(input: unknown): boolean {
   return record.run_in_background === true || record.runInBackground === true;
 }
 
-/**
- * Per-agent usage metadata the SDK stamps on the tool_result's toolUseResult
- * field (agentId, totalDurationMs, totalTokens, totalToolUseCount). Shared by
- * AgentGroupBlock and TaskExecutionBlock so the field extraction stays single-
- * sourced. Returns an empty object when there is no usable metadata.
- */
-export function parseAgentToolMeta(
-  getToolResultRaw: GetToolResultRawFn,
-  toolUseId?: string,
-): { agentId?: string; totalDurationMs?: number; totalTokens?: number; totalToolUseCount?: number } {
-  if (!toolUseId) return {};
-  const rawMessage = getToolResultRaw(toolUseId);
-  const metadata = rawMessage?.toolUseResult;
-  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return {};
-  const record = metadata as Record<string, unknown>;
-  const getString = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : undefined);
-  const getNumber = (value: unknown) => (typeof value === 'number' && Number.isFinite(value) ? value : undefined);
-  return {
-    agentId: getString(record.agentId),
-    totalDurationMs: getNumber(record.totalDurationMs),
-    totalTokens: getNumber(record.totalTokens),
-    totalToolUseCount: getNumber(record.totalToolUseCount),
-  };
-}
+

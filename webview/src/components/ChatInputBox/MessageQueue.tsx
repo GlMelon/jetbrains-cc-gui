@@ -1,18 +1,16 @@
 import type { QueuedMessage } from '../../hooks/useMessageQueue';
 import { CloseIcon } from '../Icons';
 
-export interface MessageQueueProps {
-  /** Queue items */
-  queue: QueuedMessage[];
-  /** Remove item callback */
-  onRemove: (id: string) => void;
-}
-
 /**
  * MessageQueue - Displays queued messages above input box
  * Shows numbered list with message preview and close button
  */
-export function MessageQueue({ queue, onRemove }: MessageQueueProps) {
+export function MessageQueue({ queue, onRemove }: {
+  /** Queue items */
+  queue: QueuedMessage[];
+  /** Remove item callback */
+  onRemove: (id: string) => void;
+}) {
   if (queue.length === 0) {
     return null;
   }

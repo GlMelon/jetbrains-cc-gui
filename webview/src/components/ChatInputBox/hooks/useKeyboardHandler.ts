@@ -10,34 +10,6 @@ interface InlineCompletionHandler {
   applySuggestion: () => boolean;
 }
 
-export interface UseKeyboardHandlerOptions {
-  isComposingRef: MutableRefObject<boolean>;
-  lastCompositionEndTimeRef: MutableRefObject<number>;
-  sendShortcut: 'enter' | 'cmdEnter';
-  sdkStatusLoading: boolean;
-  sdkInstalled: boolean;
-  fileCompletion: CompletionWithKeyDown;
-  commandCompletion: CompletionWithKeyDown;
-  agentCompletion: CompletionWithKeyDown;
-  promptCompletion: CompletionWithKeyDown;
-  dollarCommandCompletion: CompletionWithKeyDown;
-  handleMacCursorMovement: (e: ReactKeyboardEvent<HTMLDivElement>) => boolean;
-  handleHistoryKeyDown: (e: {
-    key: string;
-    metaKey?: boolean;
-    ctrlKey?: boolean;
-    altKey?: boolean;
-    shiftKey?: boolean;
-    preventDefault: () => void;
-    stopPropagation: () => void;
-  }) => boolean;
-  /** Inline history completion (Tab to apply) */
-  inlineCompletion?: InlineCompletionHandler;
-  completionSelectedRef: MutableRefObject<boolean>;
-  submittedOnEnterRef: MutableRefObject<boolean>;
-  handleSubmit: () => void;
-}
-
 /**
  * useKeyboardHandler - React keyboard event handling for the chat input box
  *
@@ -64,7 +36,33 @@ export function useKeyboardHandler({
   completionSelectedRef,
   submittedOnEnterRef,
   handleSubmit,
-}: UseKeyboardHandlerOptions) {
+}: {
+  isComposingRef: MutableRefObject<boolean>;
+  lastCompositionEndTimeRef: MutableRefObject<number>;
+  sendShortcut: 'enter' | 'cmdEnter';
+  sdkStatusLoading: boolean;
+  sdkInstalled: boolean;
+  fileCompletion: CompletionWithKeyDown;
+  commandCompletion: CompletionWithKeyDown;
+  agentCompletion: CompletionWithKeyDown;
+  promptCompletion: CompletionWithKeyDown;
+  dollarCommandCompletion: CompletionWithKeyDown;
+  handleMacCursorMovement: (e: ReactKeyboardEvent<HTMLDivElement>) => boolean;
+  handleHistoryKeyDown: (e: {
+    key: string;
+    metaKey?: boolean;
+    ctrlKey?: boolean;
+    altKey?: boolean;
+    shiftKey?: boolean;
+    preventDefault: () => void;
+    stopPropagation: () => void;
+  }) => boolean;
+  /** Inline history completion (Tab to apply) */
+  inlineCompletion?: InlineCompletionHandler;
+  completionSelectedRef: MutableRefObject<boolean>;
+  submittedOnEnterRef: MutableRefObject<boolean>;
+  handleSubmit: () => void;
+}) {
   const onKeyDown = useCallback(
     (e: ReactKeyboardEvent<HTMLDivElement>) => {
       const isIMEComposing = isComposingRef.current || e.nativeEvent.isComposing;

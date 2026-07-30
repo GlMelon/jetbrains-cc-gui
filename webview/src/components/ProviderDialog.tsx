@@ -5,7 +5,7 @@ import type { ProviderConfig } from '../types/provider';
 import { CLAUDE_MODEL_MAPPING_ENV_KEYS, PROVIDER_PRESETS } from '../types/provider';
 import { GuidedProviderDialog, type GuidedStep } from './shared/GuidedProviderDialog';
 import DualViewSwitcher, { type DualViewMode } from './shared/DualViewSwitcher';
-import { claudeConfigAdapter } from './shared/dualView/adapters';
+import { claudeConfigAdapter, type ClaudeConfigFormState } from './shared/dualView/adapters';
 import EnvRecordEditor from './shared/dualView/EnvRecordEditor';
 import { fetchProviderModels } from '../utils/bridge';
 
@@ -48,7 +48,7 @@ const readStringEnv = (env: Record<string, unknown>, key: string): string => (
   trimString(env[key])
 );
 
-export function normalizeProviderEnvForSave(
+function normalizeProviderEnvForSave(
   env: Record<string, unknown>,
   options: { stripAllModelMappings?: boolean } = {}
 ): Record<string, unknown> {
@@ -81,7 +81,7 @@ export function normalizeProviderEnvForSave(
   return nextEnv;
 }
 
-export function sanitizeProviderJsonConfig(
+function sanitizeProviderJsonConfig(
   rawJsonConfig: string,
   options: { stripAllModelMappings?: boolean } = {}
 ): string {
@@ -751,7 +751,7 @@ export default function ProviderDialog({
           <DualViewSwitcher
             label={t('settings.provider.dialog.jsonConfig')}
             formState={claudeFormState}
-            onFormStateChange={(config) => {
+            onFormStateChange={(config: ClaudeConfigFormState) => {
               setJsonConfig(JSON.stringify(config, null, 2));
               reconcileFromConfig(config);
               setJsonError('');
@@ -760,7 +760,7 @@ export default function ProviderDialog({
             mode={envViewMode}
             onModeChange={setEnvViewMode}
             jsonHint={t('settings.provider.dialog.jsonConfigDescription', '完整 settingsConfig:env + model + alwaysThinkingEnabled + …(切换到 JSON 视图可编辑全部字段)')}
-            renderForm={(config, onChange) => (
+            renderForm={(config: ClaudeConfigFormState, onChange: (s: ClaudeConfigFormState) => void) => (
               <EnvRecordEditor config={config} onChange={onChange} />
             )}
           />

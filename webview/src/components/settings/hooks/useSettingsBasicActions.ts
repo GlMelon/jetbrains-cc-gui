@@ -18,158 +18,6 @@ import {
   type SkipNewSessionConfirmChangedDetail,
 } from '../../../utils/skipNewSessionConfirm';
 
-export interface UseSettingsBasicActionsProps {
-  streamingEnabledProp?: boolean;
-  onStreamingEnabledChangeProp?: (enabled: boolean) => void;
-  showThinkingEnabledProp?: boolean;
-  onShowThinkingEnabledChangeProp?: (enabled: boolean) => void;
-  sendShortcutProp?: 'enter' | 'cmdEnter';
-  onSendShortcutChangeProp?: (shortcut: 'enter' | 'cmdEnter') => void;
-  autoOpenFileEnabledProp?: boolean;
-  onAutoOpenFileEnabledChangeProp?: (enabled: boolean) => void;
-  detailedOutputEnabledProp?: boolean;
-  onDetailedOutputEnabledChangeProp?: (enabled: boolean) => void;
-  permissionDialogTimeoutSecondsProp?: number;
-  onPermissionDialogTimeoutChangeProp?: (seconds: number) => void;
-}
-
-export interface UseSettingsBasicActionsReturn {
-  // =========================================================================
-  // Public read-only state (safe to read in components)
-  // =========================================================================
-  nodePath: string;
-  nodeVersion: string | null;
-  minNodeVersion: number;
-  savingNodePath: boolean;
-  workingDirectory: string;
-  savingWorkingDirectory: boolean;
-  editorFontConfig:
-    | {
-        fontFamily: string;
-        fontSize: number;
-        lineSpacing: number;
-      }
-    | undefined;
-  uiFontConfig: UiFontConfig | undefined;
-  codeFontConfig: CodeFontConfig | undefined;
-  /** Streaming enabled state (prefers prop over local state) */
-  streamingEnabled: boolean;
-  localStreamingEnabled: boolean;
-  /** Show thinking enabled state (prefers prop over local state) */
-  showThinkingEnabled: boolean;
-  localShowThinkingEnabled: boolean;
-  codexSandboxMode: 'workspace-write' | 'danger-full-access';
-  /** Send shortcut state (prefers prop over local state) */
-  sendShortcut: 'enter' | 'cmdEnter';
-  localSendShortcut: 'enter' | 'cmdEnter';
-  /** Auto open file state (prefers prop over local state) */
-  autoOpenFileEnabled: boolean;
-  localAutoOpenFileEnabled: boolean;
-  commitPrompt: string;
-  savingCommitPrompt: boolean;
-  projectCommitPrompt: string;
-  savingProjectCommitPrompt: boolean;
-  diffExpandedByDefault: boolean;
-  historyCompletionEnabled: boolean;
-  /** Whether to skip the "create new session with existing messages" confirm dialog. */
-  skipNewSessionConfirm: boolean;
-  commitGenerationEnabled: boolean;
-  /** MCP Gateway 加速开关(行为菜单,默认 true;关闭回退直连 MCP) */
-  mcpGatewayEnabled: boolean;
-  aiTitleGenerationEnabled: boolean;
-  statusBarWidgetEnabled: boolean;
-  taskCompletionNotificationEnabled: boolean;
-  askUserQuestionNotificationEnabled: boolean;
-  detailedOutputEnabled: boolean;
-  commitAiConfig: CommitAiConfig;
-  promptEnhancerConfig: PromptEnhancerConfig;
-  invocationMode: 'sdk' | 'cli';
-  cliPath: string;
-  claudeCliPath: string;
-  savingClaudeCliPath: boolean;
-
-  // =========================================================================
-  // Handler functions (public API for components)
-  // =========================================================================
-  handleSaveNodePath: () => void;
-  handleSaveClaudeCliPath: () => void;
-  handleSaveWorkingDirectory: () => void;
-  handleUiFontSelectionChange: (selection: string) => void;
-  handleSaveUiFontCustomPath: (path: string) => void;
-  handleBrowseUiFontFile: () => void;
-  handleCodeFontSelectionChange: (selection: string) => void;
-  handleSaveCodeFontCustomPath: (path: string) => void;
-  handleBrowseCodeFontFile: () => void;
-  handleStreamingEnabledChange: (enabled: boolean) => void;
-  handleShowThinkingEnabledChange: (enabled: boolean) => void;
-  handleCodexSandboxModeChange: (mode: 'workspace-write' | 'danger-full-access') => void;
-  handleSendShortcutChange: (shortcut: 'enter' | 'cmdEnter') => void;
-  handleAutoOpenFileEnabledChange: (enabled: boolean) => void;
-  handleSaveCommitPrompt: () => void;
-  handleSaveProjectCommitPrompt: () => void;
-  handleCommitGenerationEnabledChange: (enabled: boolean) => void;
-  handleMcpGatewayEnabledChange: (enabled: boolean) => void;
-  handleAiTitleGenerationEnabledChange: (enabled: boolean) => void;
-  handleStatusBarWidgetEnabledChange: (enabled: boolean) => void;
-  handleTaskCompletionNotificationEnabledChange: (enabled: boolean) => void;
-  handleAskUserQuestionNotificationEnabledChange: (enabled: boolean) => void;
-  handleDetailedOutputEnabledChange: (enabled: boolean) => void;
-  permissionDialogTimeoutSeconds: number;
-  handlePermissionDialogTimeoutChange: (seconds: number) => void;
-  handleCommitAiProviderChange: (provider: CommitAiProvider) => void;
-  handleCommitAiModelChange: (model: string) => void;
-  handlePromptEnhancerProviderChange: (provider: PromptEnhancerProvider) => void;
-  handlePromptEnhancerModelChange: (model: string) => void;
-  handleInvocationModeChange: (mode: 'sdk' | 'cli') => void;
-  handleCliPathChange: (path: string) => void;
-
-  // =========================================================================
-  // @internal — State setters used only by useSettingsWindowCallbacks.
-  // Components should not call these directly; use handlers above instead.
-  // =========================================================================
-  /** @internal */ setNodePath: (path: string) => void;
-  /** @internal */ setNodeVersion: (version: string | null) => void;
-  /** @internal */ setMinNodeVersion: (version: number) => void;
-  /** @internal */ setSavingNodePath: (saving: boolean) => void;
-  /** @internal */ setWorkingDirectory: (dir: string) => void;
-  /** @internal */ setSavingWorkingDirectory: (saving: boolean) => void;
-  /** @internal */ setEditorFontConfig: (
-    config:
-      | {
-          fontFamily: string;
-          fontSize: number;
-          lineSpacing: number;
-        }
-      | undefined,
-  ) => void;
-  /** @internal */ setUiFontConfig: (config: UiFontConfig | undefined) => void;
-  /** @internal */ setCodeFontConfig: (config: CodeFontConfig | undefined) => void;
-  /** @internal */ setLocalStreamingEnabled: (enabled: boolean) => void;
-  /** @internal */ setLocalShowThinkingEnabled: (enabled: boolean) => void;
-  /** @internal */ setCodexSandboxMode: (mode: 'workspace-write' | 'danger-full-access') => void;
-  /** @internal */ setLocalSendShortcut: (shortcut: 'enter' | 'cmdEnter') => void;
-  /** @internal */ setLocalAutoOpenFileEnabled: (enabled: boolean) => void;
-  /** @internal */ setCommitPrompt: (prompt: string) => void;
-  /** @internal */ setSavingCommitPrompt: (saving: boolean) => void;
-  /** @internal */ setProjectCommitPrompt: (prompt: string) => void;
-  /** @internal */ setSavingProjectCommitPrompt: (saving: boolean) => void;
-  /** @internal */ setDiffExpandedByDefault: (expanded: boolean) => void;
-  /** @internal */ setHistoryCompletionEnabled: (enabled: boolean) => void;
-  /** @internal */ setSkipNewSessionConfirm: (enabled: boolean) => void;
-  /** @internal */ setCommitGenerationEnabled: (enabled: boolean) => void;
-  /** @internal */ setMcpGatewayEnabled: (enabled: boolean) => void;
-  /** @internal */ setAiTitleGenerationEnabled: (enabled: boolean) => void;
-  /** @internal */ setStatusBarWidgetEnabled: (enabled: boolean) => void;
-  /** @internal */ setTaskCompletionNotificationEnabled: (enabled: boolean) => void;
-  /** @internal */ setAskUserQuestionNotificationEnabled: (enabled: boolean) => void;
-  /** @internal */ setCommitAiConfig: (config: CommitAiConfig) => void;
-  /** @internal */ setPromptEnhancerConfig: (config: PromptEnhancerConfig) => void;
-  /** @internal */ setInvocationMode: (mode: 'sdk' | 'cli') => void;
-  /** @internal */ setCliPath: (path: string) => void;
-  /** @internal */ setClaudeCliPath: (path: string) => void;
-  /** @internal */ setSavingClaudeCliPath: (saving: boolean) => void;
-}
-
 export function useSettingsBasicActions({
   streamingEnabledProp,
   onStreamingEnabledChangeProp,
@@ -183,7 +31,20 @@ export function useSettingsBasicActions({
   onDetailedOutputEnabledChangeProp,
   permissionDialogTimeoutSecondsProp,
   onPermissionDialogTimeoutChangeProp,
-}: UseSettingsBasicActionsProps): UseSettingsBasicActionsReturn {
+}: {
+  streamingEnabledProp?: boolean;
+  onStreamingEnabledChangeProp?: (enabled: boolean) => void;
+  showThinkingEnabledProp?: boolean;
+  onShowThinkingEnabledChangeProp?: (enabled: boolean) => void;
+  sendShortcutProp?: 'enter' | 'cmdEnter';
+  onSendShortcutChangeProp?: (shortcut: 'enter' | 'cmdEnter') => void;
+  autoOpenFileEnabledProp?: boolean;
+  onAutoOpenFileEnabledChangeProp?: (enabled: boolean) => void;
+  detailedOutputEnabledProp?: boolean;
+  onDetailedOutputEnabledChangeProp?: (enabled: boolean) => void;
+  permissionDialogTimeoutSecondsProp?: number;
+  onPermissionDialogTimeoutChangeProp?: (seconds: number) => void;
+}) {
   // Node.js path
   const [nodePath, setNodePath] = useState('');
   const [nodeVersion, setNodeVersion] = useState<string | null>(null);

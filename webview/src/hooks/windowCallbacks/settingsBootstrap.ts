@@ -93,31 +93,6 @@ export const startActiveProviderRequest = (): void => {
 };
 
 /**
- * Request the current permission mode from the backend.
- */
-export const startModeRequest = (): void => {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  let modeRetryCount = 0;
-  const requestMode = () => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    if (window.sendToJava) {
-      sendAction(UPSTREAM.GET_MODE);
-    } else {
-      modeRetryCount++;
-      if (modeRetryCount < MAX_RETRIES) {
-        setTimeout(requestMode, 100);
-      }
-    }
-  };
-  setTimeout(requestMode, 200);
-};
-
-/**
  * Drain any pending window.__pending* values captured by main.tsx before
  * the React callbacks were registered.  Must be called after the corresponding
  * window.updateXxx / window.onXxx callbacks have been assigned.

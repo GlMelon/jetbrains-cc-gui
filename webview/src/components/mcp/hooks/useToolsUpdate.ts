@@ -13,15 +13,6 @@ import { registerLegacyAlias } from '../../../bridge';
 import { subscribeEvent } from '../../../bridge/typed';
 import { DOWNSTREAM } from '../../../generated/protocol';
 
-export interface UseToolsUpdateOptions {
-  isCodexMode: boolean;
-  cacheKeys: CacheKeys;
-  setServerTools: React.Dispatch<React.SetStateAction<ServerToolsState>>;
-  acceptToolsResponse: (serverId: string, requestId: string) => boolean;
-  failPendingToolsRequests: (error: string) => void;
-  onLog: (message: string, type: RefreshLog['type'], details?: string, serverName?: string, requestInfo?: string, errorReason?: string) => void;
-}
-
 /**
  * Tools List Update Hook
  * 订阅 mcp.server_tools / codex.mcp.server_tools 事件(归一化下行总线)。
@@ -33,7 +24,14 @@ export function useToolsUpdate({
   acceptToolsResponse,
   failPendingToolsRequests,
   onLog,
-}: UseToolsUpdateOptions): void {
+}: {
+  isCodexMode: boolean;
+  cacheKeys: CacheKeys;
+  setServerTools: React.Dispatch<React.SetStateAction<ServerToolsState>>;
+  acceptToolsResponse: (serverId: string, requestId: string) => boolean;
+  failPendingToolsRequests: (error: string) => void;
+  onLog: (message: string, type: RefreshLog['type'], details?: string, serverName?: string, requestInfo?: string, errorReason?: string) => void;
+}): void {
   useEffect(() => {
     const type = isCodexMode ? DOWNSTREAM.CODEX_MCP_SERVER_TOOLS : DOWNSTREAM.MCP_SERVER_TOOLS;
     const legacyName = isCodexMode ? 'updateCodexMcpServerTools' : 'updateMcpServerTools';

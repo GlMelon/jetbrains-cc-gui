@@ -37,5 +37,3 @@ export function useCodexProvider() {
     handleCodexFastModeChange,
   };
 }
-
-export type UseCodexProviderReturn = ReturnType<typeof useCodexProvider>;

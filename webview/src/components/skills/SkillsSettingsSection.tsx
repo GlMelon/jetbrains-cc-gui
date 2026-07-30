@@ -53,7 +53,7 @@ function isSkillRecord(value: unknown): value is Record<string, Skill> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-export function normalizeSkillsConfig(value: unknown): SkillsConfig {
+function normalizeSkillsConfig(value: unknown): SkillsConfig {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     return createEmptySkillsConfig();
   }

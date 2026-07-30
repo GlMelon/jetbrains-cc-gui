@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { HistoryData } from '../types';
 
-export interface SessionContextValue {
+interface SessionContextValue {
   currentSessionId: string | null;
   setCurrentSessionId: React.Dispatch<React.SetStateAction<string | null>>;
   customSessionTitle: string | null;

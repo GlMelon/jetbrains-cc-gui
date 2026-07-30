@@ -37,6 +37,7 @@ export const getRequestedVersion = (
   return normalizeVersion(selectedVersion);
 };
 
+
 /**
  * 查表取版本动作（A6）:不再前端计算版本比较,而是从后端下发的 versionActions map
  * 查目标版本对应动作。

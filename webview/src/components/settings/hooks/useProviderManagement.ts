@@ -16,12 +16,7 @@ export interface DeleteConfirmState {
   provider: ProviderConfig | null;
 }
 
-export interface UseProviderManagementOptions {
-  onError?: (message: string) => void;
-  onSuccess?: (message: string) => void;
-}
-
-export function useProviderManagement(options: UseProviderManagementOptions = {}) {
+export function useProviderManagement(options: { onError?: (message: string) => void; onSuccess?: (message: string) => void } = {}) {
   const { t } = useTranslation();
   const { onError, onSuccess } = options;
 
@@ -245,5 +240,3 @@ export function useProviderManagement(options: UseProviderManagementOptions = {}
     setLoading,
   };
 }
-
-export type UseProviderManagementReturn = ReturnType<typeof useProviderManagement>;

@@ -32,16 +32,6 @@ export const AGENT_TOOL_NAMES = new Set(['task', 'agent', 'spawn_agent']);
 // Task management tools (new structured Task API)
 export const TASK_MANAGE_TOOL_NAMES = new Set(['taskcreate', 'taskupdate', 'taskget', 'tasklist']);
 
-// Internal orchestration tools that may be useful during streaming but should
-// not remain as residual tool cards after the final answer is complete.
-export const TRANSIENT_INTERNAL_TOOL_NAMES = new Set([
-  'list_mcp_resources',
-  'list_mcp_resource_templates',
-  'read_mcp_resource',
-  'parallel',
-  'multi_tool_use.parallel',
-]);
-
 // File modification tools (for rewind feature - includes write for new file creation)
 export const FILE_MODIFY_TOOL_NAMES = new Set([
   'write',
@@ -77,8 +67,18 @@ export function isToolName(toolName: string | undefined, toolSet: Set<string>): 
   return toolName !== undefined && toolSet.has(normalizeToolName(toolName));
 }
 
+const TRANSIENT_INTERNAL_TOOL_NAMES = new Set([
+  'list_mcp_resources',
+  'list_mcp_resource_templates',
+  'read_mcp_resource',
+  'parallel',
+  'multi_tool_use.parallel',
+]);
+
 export function isTransientInternalToolName(toolName: string | undefined): boolean {
   if (!toolName) return false;
   const lower = toolName.toLowerCase();
   return TRANSIENT_INTERNAL_TOOL_NAMES.has(lower) || TRANSIENT_INTERNAL_TOOL_NAMES.has(normalizeToolName(lower));
 }
+
+

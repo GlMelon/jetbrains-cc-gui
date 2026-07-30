@@ -15,82 +15,51 @@ const PROVIDER_BADGE_STYLE: React.CSSProperties = {
   verticalAlign: 'middle',
 };
 
-const HIGHLIGHT_MARK_STYLE: React.CSSProperties = {
-  backgroundColor: '#ffd700',
-  color: '#000',
-  padding: '0 2px',
-};
-
-export const formatTimeAgo = (timestamp: string | undefined, t: (key: string) => string) => {
-  if (!timestamp) {
-    return '';
-  }
-  const seconds = Math.floor((Date.now() - new Date(timestamp).getTime()) / 1000);
-  const units: [number, string][] = [
-    [31536000, t('history.timeAgo.yearsAgo')],
-    [2592000, t('history.timeAgo.monthsAgo')],
-    [86400, t('history.timeAgo.daysAgo')],
-    [3600, t('history.timeAgo.hoursAgo')],
-    [60, t('history.timeAgo.minutesAgo')],
-  ];
-
-  for (const [unitSeconds, label] of units) {
-    const interval = Math.floor(seconds / unitSeconds);
-    if (interval >= 1) {
-      return `${interval} ${label}`;
-    }
-  }
-  return `${Math.max(seconds, 1)} ${t('history.timeAgo.secondsAgo')}`;
-};
-
-export const formatFileSize = (bytes: number | undefined): { text: string; isMB: boolean } => {
-  if (!bytes || bytes === 0) {
-    return { text: '0 KB', isMB: false };
-  }
-  const kb = bytes / 1024;
-  if (kb < 1024) {
-    return { text: `${kb.toFixed(1)} KB`, isMB: false };
-  }
-  const mb = kb / 1024;
-  return { text: `${mb.toFixed(1)} MB`, isMB: true };
-};
-
-// Highlight matching text within a label
-export const highlightText = (text: string, query: string) => {
-  if (!query.trim()) {
-    return <span>{text}</span>;
-  }
-
-  const lowerText = text.toLowerCase();
-  const lowerQuery = query.toLowerCase();
-  const index = lowerText.indexOf(lowerQuery);
-
-  if (index === -1) {
-    return <span>{text}</span>;
-  }
-
-  const before = text.slice(0, index);
-  const match = text.slice(index, index + query.length);
-  const after = text.slice(index + query.length);
-
-  return (
-    <span>
-      {before}
-      <mark style={HIGHLIGHT_MARK_STYLE}>{match}</mark>
-      {after}
-    </span>
-  );
-};
-
-export const stopPropagationHandler = (e: React.MouseEvent) => {
-  e.stopPropagation();
-};
 
 // Entrypoints the backend conversion service actually knows how to rewrite
 // (SessionConversionService only matches sdk-cli / claude-vscode patterns).
 const CONVERTIBLE_ENTRYPOINTS = new Set(['sdk-cli', 'claude-vscode']);
 
-export interface HistoryListItemProps {
+function formatFileSize(bytes: number): { text: string; isMB: boolean } {
+  if (bytes < 1024) return { text: `${bytes} B`, isMB: false };
+  if (bytes < 1024 * 1024) return { text: `${(bytes / 1024).toFixed(1)} KB`, isMB: false };
+  return { text: `${(bytes / (1024 * 1024)).toFixed(1)} MB`, isMB: true };
+}
+
+function formatTimeAgo(timestamp: string | undefined, t: TFunction): string {
+  if (!timestamp) return '';
+  const now = Date.now();
+  const then = new Date(timestamp).getTime();
+  const diffMs = now - then;
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return t('history.timeAgo.justNow', '刚刚');
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return t('history.timeAgo.minutesAgo', '{{count}} 分钟前', { count: diffMin });
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return t('history.timeAgo.hoursAgo', '{{count}} 小时前', { count: diffHr });
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 30) return t('history.timeAgo.daysAgo', '{{count}} 天前', { count: diffDay });
+  const diffMonth = Math.floor(diffDay / 30);
+  if (diffMonth < 12) return t('history.timeAgo.monthsAgo', '{{count}} 个月前', { count: diffMonth });
+  const diffYear = Math.floor(diffMonth / 12);
+  return t('history.timeAgo.yearsAgo', '{{count}} 年前', { count: diffYear });
+}
+
+function highlightText(text: string, query: string | undefined): React.ReactNode {
+  if (!query) return text;
+  const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'));
+  return parts.map((part, i) =>
+    part.toLowerCase() === query.toLowerCase()
+      ? <mark key={i} style={{ backgroundColor: '#ffd700', color: '#000', padding: '0 2px' }}>{part}</mark>
+      : part
+  );
+}
+
+const stopPropagationHandler = (e: React.MouseEvent) => {
+  e.stopPropagation();
+};
+
+interface HistoryListItemProps {
   session: HistorySessionSummary;
   isEditing: boolean;
   isSelected: boolean;

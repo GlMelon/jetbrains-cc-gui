@@ -176,5 +176,3 @@ export interface DeleteOpenCodeConfirmState {
   isOpen: boolean;
   provider: OpenCodeProviderConfig | null;
 }
-
-export type UseOpenCodeProviderManagementReturn = ReturnType<typeof useOpenCodeProviderManagement>;

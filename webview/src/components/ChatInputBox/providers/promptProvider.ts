@@ -27,7 +27,7 @@ export interface PromptItem {
 // ============================================================================
 
 type LoadingState = 'idle' | 'loading' | 'success' | 'failed';
-export type PromptCallbackPayload = { provider: PromptProvider; prompts: PromptConfig[] };
+type PromptCallbackPayload = { provider: PromptProvider; prompts: PromptConfig[] };
 
 const PROMPT_PROVIDERS = new Set<PromptProvider>(Object.values(PROVIDER_TYPE));
 

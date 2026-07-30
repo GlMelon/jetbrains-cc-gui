@@ -12,8 +12,9 @@
  * task 产出的依赖输入(该 task 默认禁用,见 build.gradle)。
  *
  * 使用方式:
- *   node scripts/generate-protocol-types.mjs          # 直读 Java 源生成(主路径)
- *   node scripts/generate-protocol-types.mjs --stub   # 无 Java 源时生成 stub
+ *   node scripts/generate-protocol-types.mjs                 # 直读 Java 源生成(主路径,缺失即失败)
+ *   node scripts/generate-protocol-types.mjs --from-manifest # 显式从既有 manifest 生成
+ *   node scripts/generate-protocol-types.mjs --stub          # 显式生成最小 stub
  */
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
@@ -130,7 +131,52 @@ const INT_CONSTANT_ALLOWLIST = [
   'MAX_PERMISSION_DIALOG_TIMEOUT_SECONDS',
 ];
 
-const isStubMode = process.argv.includes('--stub');
+const REQUIRED_JAVA_SOURCES = [
+  upstreamJavaPath,
+  downstreamJavaPath,
+  permissionModeJavaPath,
+  reasoningEffortJavaPath,
+  providerTypeJavaPath,
+  skillScopeJavaPath,
+  skillFieldControlJavaPath,
+  modelRegistryPayloadJavaPath,
+  webviewBootstrapPayloadJavaPath,
+  historyExportFormatJavaPath,
+  codexHistoryPageModeJavaPath,
+  historyExportPayloadJavaPath,
+  historyCapabilitiesPayloadJavaPath,
+  historyArchiveResultPayloadJavaPath,
+  codexHistoryPageRequestPayloadJavaPath,
+  codexHistoryPageInfoPayloadJavaPath,
+  codexHistoryPageErrorPayloadJavaPath,
+  skillDocumentFieldPayloadJavaPath,
+  skillDocumentResultPayloadJavaPath,
+  skillDocumentSavePayloadJavaPath,
+  codexProtectedEnvKeyJavaPath,
+  versionActionJavaPath,
+  commonConstantsJavaPath,
+  permissionDialogTimeoutSettingsJavaPath,
+];
+
+export function parseGenerationMode(args = []) {
+  const supported = new Set(['--from-manifest', '--stub']);
+  const unknown = args.filter((arg) => !supported.has(arg));
+  if (unknown.length > 0) {
+    throw new Error(`unknown option(s): ${unknown.join(', ')}`);
+  }
+  const fromManifest = args.includes('--from-manifest');
+  const stub = args.includes('--stub');
+  if (fromManifest && stub) {
+    throw new Error('--from-manifest and --stub cannot be used together');
+  }
+  if (fromManifest) return 'manifest';
+  if (stub) return 'stub';
+  return 'java';
+}
+
+export function findMissingSources(paths, exists = existsSync) {
+  return paths.filter((path) => !exists(path));
+}
 
 /**
  * 从 manifest 生成完整类型文件
@@ -504,62 +550,51 @@ export interface HistoryArchiveResultPayloadWire {
 
 // ── Main ──
 
-function main() {
+function main(args = process.argv.slice(2)) {
   mkdirSync(dirname(outputPath), { recursive: true });
 
+  let mode;
+  try {
+    mode = parseGenerationMode(args);
+  } catch (error) {
+    console.error(`[generate-protocol-types] ERROR: ${error.message}`);
+    process.exitCode = 2;
+    return;
+  }
+
   let content;
-  if (
-    existsSync(upstreamJavaPath) &&
-    existsSync(downstreamJavaPath) &&
-    existsSync(permissionModeJavaPath) &&
-    existsSync(reasoningEffortJavaPath) &&
-    existsSync(providerTypeJavaPath) &&
-    existsSync(skillScopeJavaPath) &&
-    existsSync(skillFieldControlJavaPath) &&
-    existsSync(modelRegistryPayloadJavaPath) &&
-    existsSync(webviewBootstrapPayloadJavaPath) &&
-    existsSync(historyExportFormatJavaPath) &&
-    existsSync(codexHistoryPageModeJavaPath) &&
-    existsSync(historyExportPayloadJavaPath) &&
-    existsSync(historyCapabilitiesPayloadJavaPath) &&
-    existsSync(historyArchiveResultPayloadJavaPath) &&
-    existsSync(codexHistoryPageRequestPayloadJavaPath) &&
-    existsSync(codexHistoryPageInfoPayloadJavaPath) &&
-    existsSync(codexHistoryPageErrorPayloadJavaPath) &&
-    existsSync(skillDocumentFieldPayloadJavaPath) &&
-    existsSync(skillDocumentResultPayloadJavaPath) &&
-    existsSync(skillDocumentSavePayloadJavaPath) &&
-    existsSync(codexProtectedEnvKeyJavaPath) &&
-    existsSync(versionActionJavaPath) &&
-    existsSync(commonConstantsJavaPath) &&
-    existsSync(permissionDialogTimeoutSettingsJavaPath)
-  ) {
+  if (mode === 'java') {
+    const missingSources = findMissingSources(REQUIRED_JAVA_SOURCES);
+    if (missingSources.length > 0) {
+      console.error('[generate-protocol-types] ERROR: required Java SSOT source files are missing:');
+      for (const sourcePath of missingSources) {
+        console.error(`  - ${sourcePath}`);
+      }
+      console.error('  Restore the Java sources, or explicitly use --from-manifest / --stub.');
+      process.exitCode = 1;
+      return;
+    }
+
     const manifest = generateManifestFromJavaSources();
     writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8');
     content = generateFromManifest(manifest);
     console.log(
       `[generate-protocol-types] Generated from Java sources (${manifest.upstream.length} upstream, ${manifest.downstream.length} downstream, ${manifest.permissionMode?.length ?? 0} permissionMode, ${manifest.reasoningEffort?.length ?? 0} reasoningEffort, ${manifest.providerType?.length ?? 0} providerType, ${manifest.skillScope?.length ?? 0} skillScope, ${manifest.skillFieldControl?.length ?? 0} skillFieldControl, ${manifest.historyExportFormat?.length ?? 0} historyExportFormat, ${manifest.codexProtectedEnvKey?.length ?? 0} codexProtectedEnvKey, ${manifest.versionAction?.length ?? 0} versionAction, ${manifest.intConstants?.length ?? 0} intConstants, ${manifest.payloadSchemas?.modelRegistry?.fields?.length ?? 0} modelRegistry payload fields, ${manifest.payloadSchemas?.webviewBootstrap?.fields?.length ?? 0} webviewBootstrap payload fields, ${manifest.payloadSchemas?.historyExport?.fields?.length ?? 0} historyExport payload fields, ${manifest.payloadSchemas?.historyCapabilities?.fields?.length ?? 0} historyCapabilities payload fields, ${manifest.payloadSchemas?.historyArchiveResult?.fields?.length ?? 0} historyArchiveResult payload fields, ${manifest.payloadSchemas?.skillDocumentField?.fields?.length ?? 0} skillDocumentField payload fields, ${manifest.payloadSchemas?.skillDocumentResult?.fields?.length ?? 0} skillDocumentResult payload fields, ${manifest.payloadSchemas?.skillDocumentSave?.fields?.length ?? 0} skillDocumentSave payload fields)`,
     );
-  } else if (existsSync(manifestPath)) {
-    const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'));
-    if (existsSync(webviewBootstrapPayloadJavaPath)) {
-      manifest.payloadSchemas = {
-        ...(manifest.payloadSchemas ?? {}),
-        webviewBootstrap: parsePayloadSchema(webviewBootstrapPayloadJavaPath),
-      };
-      writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8');
+  } else if (mode === 'manifest') {
+    if (!existsSync(manifestPath)) {
+      console.error(`[generate-protocol-types] ERROR: manifest not found at ${manifestPath}`);
+      process.exitCode = 1;
+      return;
     }
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'));
     content = generateFromManifest(manifest);
     console.log(
-      `[generate-protocol-types] Generated from manifest (${manifest.upstream?.length ?? 0} upstream, ${manifest.downstream?.length ?? 0} downstream, ${manifest.payloadSchemas?.webviewBootstrap?.fields?.length ?? 0} webviewBootstrap payload fields)`,
+      `[generate-protocol-types] Generated explicitly from manifest (${manifest.upstream?.length ?? 0} upstream, ${manifest.downstream?.length ?? 0} downstream)`,
     );
-  } else if (isStubMode) {
-    content = generateStub();
-    console.log('[generate-protocol-types] Generated stub (manifest not found, use --stub)');
   } else {
-    console.error(`[generate-protocol-types] ERROR: manifest not found at ${manifestPath}`);
-    console.error('  Run "gradle generateProtocol" first, or use --stub for a fallback.');
-    process.exit(1);
+    content = generateStub();
+    console.log('[generate-protocol-types] Generated explicit stub (--stub)');
   }
 
   writeFileSync(outputPath, content, 'utf-8');

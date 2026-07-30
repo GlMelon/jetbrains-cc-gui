@@ -6,96 +6,79 @@ import { useTranslation } from 'react-i18next';
 import type { ProviderConfig, CodexProviderConfig, OpenCodeProviderConfig } from '../../../types/provider';
 import type { AgentConfig } from '../../../types/agent';
 import type { PromptConfig } from '../../../types/prompt';
-import type { CommitAiConfig } from '../../../types/aiFeatureConfig';
-import type { UiFontConfig, CodeFontConfig } from './useSettingsBasicActions';
-import type { PromptEnhancerConfig } from '../../../types/promptEnhancer';
-import type { AlertType } from '../../AlertDialog';
-import type { ToastMessage } from '../../Toast';
 import { subscribeActiveCodexProvider, subscribeActiveOpenCodeProvider, subscribeActiveProvider, subscribeCodexProviderList, subscribeOpenCodeProviderList, subscribeProviderList } from '../../../utils/runtimeProviderCapabilities';
 import { registerLegacyAlias } from '../../../bridge';
 
+/**
+ * Registers window callbacks for Java bridge communication in settings view.
+ * Handles provider, agent, prompt, config, and theme callbacks.
+ */
 export interface SettingsWindowCallbacksDeps {
-  // State setters
+  updateProviders: (providers: ProviderConfig[]) => void;
+  setLoading: (loading: boolean) => void;
+  updateActiveProvider: (provider: ProviderConfig) => void;
+  showAlert: (type: 'error' | 'success' | 'info', title: string, message: string) => void;
+  setSavingNodePath: (saving: boolean) => void;
+  setSavingWorkingDirectory: (saving: boolean) => void;
+  setSavingCommitPrompt: (saving: boolean) => void;
+  setSavingProjectCommitPrompt: (saving: boolean) => void;
   setNodePath: (path: string) => void;
   setNodeVersion: (version: string | null) => void;
-  setMinNodeVersion: (version: number) => void;
-  setSavingNodePath: (saving: boolean) => void;
+  setMinNodeVersion?: (version: number) => void;
   setWorkingDirectory: (dir: string) => void;
-  setSavingWorkingDirectory: (saving: boolean) => void;
-  setCommitPrompt: (prompt: string) => void;
-  setSavingCommitPrompt: (saving: boolean) => void;
-  setCommitAiConfig: (config: CommitAiConfig) => void;
-  setPromptEnhancerConfig: (config: PromptEnhancerConfig) => void;
-  setProjectCommitPrompt: (prompt: string) => void;
-  setSavingProjectCommitPrompt: (saving: boolean) => void;
-  setEditorFontConfig: (config: { fontFamily: string; fontSize: number; lineSpacing: number } | undefined) => void;
-  setUiFontConfig: (config: UiFontConfig | undefined) => void;
-  setCodeFontConfig: (config: CodeFontConfig | undefined) => void;
-  setIdeTheme: (theme: 'light' | 'dark' | null) => void;
+  setClaudeCliPath?: (path: string) => void;
+  setSavingClaudeCliPath?: (saving: boolean) => void;
+  addToast: (message: string, type: 'success' | 'error') => void;
+  setEditorFontConfig: (config: any) => void;
+  setUiFontConfig: (config: any) => void;
+  setCodeFontConfig: (config: any) => void;
+  setIdeTheme: (theme: 'light' | 'dark') => void;
+  onStreamingEnabledChangeProp?: ((enabled: boolean) => void) | boolean;
   setLocalStreamingEnabled: (enabled: boolean) => void;
+  onShowThinkingEnabledChangeProp?: ((enabled: boolean) => void) | boolean;
   setLocalShowThinkingEnabled: (enabled: boolean) => void;
   setCodexSandboxMode?: (mode: 'workspace-write' | 'danger-full-access') => void;
+  onSendShortcutChangeProp?: ((shortcut: 'enter' | 'cmdEnter') => void) | string;
   setLocalSendShortcut: (shortcut: 'enter' | 'cmdEnter') => void;
-  setLoading: (loading: boolean) => void;
-  setCodexLoading: (loading: boolean) => void;
-  setCodexConfigLoading: (loading: boolean) => void;
-  setOpenCodeLoading: (loading: boolean) => void;
-  setOpenCodeConfigLoading: (loading: boolean) => void;
-  // AI feature toggle setters
+  setCommitPrompt: (prompt: string) => void;
+  setPromptEnhancerConfig: (config: any) => void;
+  setCommitAiConfig: (config: any) => void;
+  setProjectCommitPrompt: (prompt: string) => void;
   setCommitGenerationEnabled?: (enabled: boolean) => void;
   setMcpGatewayEnabled?: (enabled: boolean) => void;
   setAiTitleGenerationEnabled?: (enabled: boolean) => void;
   setStatusBarWidgetEnabled?: (enabled: boolean) => void;
   setTaskCompletionNotificationEnabled?: (enabled: boolean) => void;
   setAskUserQuestionNotificationEnabled?: (enabled: boolean) => void;
-  // Invocation mode setters
   setInvocationMode: (mode: 'sdk' | 'cli') => void;
   setCliPath: (path: string) => void;
-  // Claude CLI path setters
-  setClaudeCliPath?: (path: string) => void;
-  setSavingClaudeCliPath?: (saving: boolean) => void;
-
-  // Hook functions
-  updateProviders: (providers: ProviderConfig[]) => void;
-  updateActiveProvider: (provider: ProviderConfig) => void;
-  loadProviders: () => void;
-  loadCodexProviders: () => void;
-  loadOpenCodeProviders: () => void;
-  loadAgents: () => void;
   updateAgents: (agents: AgentConfig[]) => void;
   handleAgentOperationResult: (result: any) => void;
   handleAgentImportPreviewResult: (previewData: any) => void;
   handleAgentImportResult: (result: any) => void;
-  updateCodexProviders: (providers: CodexProviderConfig[]) => void;
-  updateActiveCodexProvider: (provider: CodexProviderConfig) => void;
-  updateCurrentCodexConfig: (config: any) => void;
-  updateOpenCodeProviders: (providers: OpenCodeProviderConfig[]) => void;
-  updateActiveOpenCodeProvider: (provider: OpenCodeProviderConfig) => void;
-  updateCurrentOpenCodeConfig: (config: any) => void;
-  cleanupAgentsTimeout: () => void;
-
-  // Prompt-related handlers (optional - now handled by PromptSection component)
-  loadPrompts?: () => void;
   updatePrompts?: (prompts: PromptConfig[]) => void;
   handlePromptOperationResult?: (result: any) => void;
   handlePromptImportPreviewResult?: (previewData: any) => void;
   handlePromptImportResult?: (result: any) => void;
+  updateCodexProviders: (providers: CodexProviderConfig[]) => void;
+  setCodexLoading: (loading: boolean) => void;
+  updateActiveCodexProvider: (provider: CodexProviderConfig) => void;
+  updateCurrentCodexConfig: (config: any) => void;
+  setCodexConfigLoading: (loading: boolean) => void;
+  updateOpenCodeProviders: (providers: OpenCodeProviderConfig[]) => void;
+  setOpenCodeLoading: (loading: boolean) => void;
+  updateActiveOpenCodeProvider: (provider: OpenCodeProviderConfig) => void;
+  updateCurrentOpenCodeConfig: (config: any) => void;
+  setOpenCodeConfigLoading: (loading: boolean) => void;
+  loadProviders: () => void;
+  loadCodexProviders: () => void;
+  loadOpenCodeProviders: () => void;
+  loadAgents: () => void;
+  loadPrompts?: () => void;
+  cleanupAgentsTimeout: () => void;
   cleanupPromptsTimeout?: () => void;
-
-  // Callbacks
-  showAlert: (type: AlertType, title: string, message: string) => void;
-  addToast: (message: string, type?: ToastMessage['type']) => void;
-
-  // Props
-  onStreamingEnabledChangeProp?: (enabled: boolean) => void;
-  onShowThinkingEnabledChangeProp?: (enabled: boolean) => void;
-  onSendShortcutChangeProp?: (shortcut: 'enter' | 'cmdEnter') => void;
 }
 
-/**
- * Registers window callbacks for Java bridge communication in settings view.
- * Handles provider, agent, prompt, config, and theme callbacks.
- */
 export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
   const { t } = useTranslation();
 
@@ -187,7 +170,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
         d().setNodePath(data.path || '');
         d().setNodeVersion(data.version || null);
         if (data.minVersion) {
-          d().setMinNodeVersion(data.minVersion);
+          d().setMinNodeVersion?.(data.minVersion);
         }
       } catch (e) {
         console.warn('[SettingsView] Failed to parse updateNodePath JSON, fallback to legacy format:', e);

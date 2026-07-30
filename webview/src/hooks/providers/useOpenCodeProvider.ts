@@ -15,4 +15,3 @@ export function useOpenCodeProvider() {
   return { selectedOpenCodeModel, setSelectedOpenCodeModel };
 }
 
-export type UseOpenCodeProviderReturn = ReturnType<typeof useOpenCodeProvider>;

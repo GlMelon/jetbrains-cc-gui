@@ -9,17 +9,18 @@ import type { McpServer, McpServerStatusInfo } from '../types';
 // Icon color configuration
 // ============================================================================
 
-/** Server icon color list */
-export const iconColors = [
+const iconColors = [
   '#3B82F6', // blue
   '#10B981', // green
   '#8B5CF6', // purple
   '#F59E0B', // amber
   '#EF4444', // red
-  '#06B6D4', // cyan
   '#EC4899', // pink
+  '#06B6D4', // cyan
   '#6366F1', // indigo
 ];
+
+
 
 // ============================================================================
 // Server status query functions
@@ -74,71 +75,7 @@ export function isServerEnabled(server: McpServer, isCodexMode: boolean): boolea
     : server.apps?.claude !== false;
 }
 
-// ============================================================================
-// Status icon and color functions
-// ============================================================================
 
-/**
- * Get the status icon
- * @param server - Server object
- * @param status - Server status
- * @param isCodexMode - Whether in Codex mode
- * @returns Icon class name
- */
-export function getStatusIcon(
-  server: McpServer,
-  status: McpServerStatusInfo['status'] | undefined,
-  isCodexMode: boolean
-): string {
-  // Show disabled icon if the server is disabled
-  if (!isServerEnabled(server, isCodexMode)) {
-    return 'codicon-circle-slash';
-  }
-
-  switch (status) {
-    case 'connected':
-      return 'codicon-check';
-    case 'failed':
-      return 'codicon-error';
-    case 'needs-auth':
-      return 'codicon-key';
-    case 'pending':
-      return 'codicon-loading codicon-modifier-spin';
-    default:
-      return 'codicon-circle-outline';
-  }
-}
-
-/**
- * Get the status color
- * @param server - Server object
- * @param status - Server status
- * @param isCodexMode - Whether in Codex mode
- * @returns Color value
- */
-export function getStatusColor(
-  server: McpServer,
-  status: McpServerStatusInfo['status'] | undefined,
-  isCodexMode: boolean
-): string {
-  // Show gray if the server is disabled
-  if (!isServerEnabled(server, isCodexMode)) {
-    return '#9CA3AF';
-  }
-
-  switch (status) {
-    case 'connected':
-      return '#10B981';
-    case 'failed':
-      return '#EF4444';
-    case 'needs-auth':
-      return '#F59E0B';
-    case 'pending':
-      return '#6B7280';
-    default:
-      return '#6B7280';
-  }
-}
 
 /**
  * Get the status text
@@ -242,35 +179,4 @@ export function getToolIcon(toolName: string): string {
     return 'codicon-symbol-misc';
   }
   return 'codicon-symbol-property';
-}
-
-// ============================================================================
-// Input schema rendering functions
-// ============================================================================
-
-/**
- * Render inputSchema as a parameter list (text version)
- * @param inputSchema - Input schema
- * @returns Parameter list
- */
-export function renderInputSchemaText(
-  inputSchema: Record<string, unknown> | undefined
-): { name: string; type: string; description: string; required: boolean }[] {
-  if (!inputSchema) {
-    return [];
-  }
-
-  const properties = inputSchema.properties as Record<string, { type?: string; description?: string }> | undefined;
-  const required = (inputSchema.required as string[]) || [];
-
-  if (!properties || Object.keys(properties).length === 0) {
-    return [];
-  }
-
-  return Object.entries(properties).map(([name, prop]) => ({
-    name,
-    type: prop.type || 'unknown',
-    description: prop.description || '',
-    required: required.includes(name),
-  }));
 }

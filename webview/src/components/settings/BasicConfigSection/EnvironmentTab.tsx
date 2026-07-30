@@ -3,27 +3,6 @@ import { useTranslation } from 'react-i18next';
 import RuntimePolicySection from './RuntimePolicySection';
 import { CheckIcon, FolderIcon, InfoIcon, RocketIcon, ServerProcessIcon, TerminalIcon, AlertIcon } from '../../Icons';
 
-export interface EnvironmentTabProps {
-  nodePath: string;
-  onNodePathChange: (path: string) => void;
-  onSaveNodePath: () => void;
-  savingNodePath: boolean;
-  nodeVersion?: string | null;
-  minNodeVersion?: number;
-  claudeCliPath?: string;
-  onClaudeCliPathChange?: (path: string) => void;
-  onSaveClaudeCliPath?: () => void;
-  savingClaudeCliPath?: boolean;
-  workingDirectory?: string;
-  onWorkingDirectoryChange?: (dir: string) => void;
-  onSaveWorkingDirectory?: () => void;
-  savingWorkingDirectory?: boolean;
-  invocationMode?: 'sdk' | 'cli';
-  onInvocationModeChange?: (mode: 'sdk' | 'cli') => void;
-  cliPath?: string;
-  onCliPathChange?: (path: string) => void;
-}
-
 const EnvironmentTab = ({
   nodePath,
   onNodePathChange,
@@ -43,7 +22,26 @@ const EnvironmentTab = ({
   onInvocationModeChange = () => {},
   cliPath = '',
   onCliPathChange = () => {},
-}: EnvironmentTabProps) => {
+}: {
+  nodePath: string;
+  onNodePathChange: (path: string) => void;
+  onSaveNodePath: () => void;
+  savingNodePath: boolean;
+  nodeVersion?: string | null;
+  minNodeVersion?: number;
+  claudeCliPath?: string;
+  onClaudeCliPathChange?: (path: string) => void;
+  onSaveClaudeCliPath?: () => void;
+  savingClaudeCliPath?: boolean;
+  workingDirectory?: string;
+  onWorkingDirectoryChange?: (dir: string) => void;
+  onSaveWorkingDirectory?: () => void;
+  savingWorkingDirectory?: boolean;
+  invocationMode?: 'sdk' | 'cli';
+  onInvocationModeChange?: (mode: 'sdk' | 'cli') => void;
+  cliPath?: string;
+  onCliPathChange?: (path: string) => void;
+}) => {
   const { t } = useTranslation();
 
   // Parse the major version number

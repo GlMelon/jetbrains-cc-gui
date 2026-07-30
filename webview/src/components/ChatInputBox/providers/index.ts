@@ -34,7 +34,7 @@ export {
   forceRefreshPrompts,
 } from './promptProvider';
 
-export type { PromptCallbackPayload, PromptItem } from './promptProvider';
+export type { PromptItem } from './promptProvider';
 
 export {
   dollarCommandProvider,

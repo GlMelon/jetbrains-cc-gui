@@ -1,25 +1,9 @@
 import { useCallback, useRef, useState, useEffect, useMemo } from 'react';
 import { loadHistory, loadCounts, isHistoryCompletionEnabled, HISTORY_ENABLED_KEY } from './useInputHistory.js';
 
-export interface UseInlineHistoryCompletionOptions {
-  /** Debounce delay in milliseconds */
-  debounceMs?: number;
-  /** Minimum query length to trigger completion */
-  minQueryLength?: number;
-}
 
-export interface UseInlineHistoryCompletionReturn {
-  /** The suffix text to display as completion hint */
-  suffix: string;
-  /** Whether there is a suggestion available */
-  hasSuggestion: boolean;
-  /** Update the query text to find matching history */
-  updateQuery: (text: string) => void;
-  /** Clear the current suggestion */
-  clear: () => void;
-  /** Apply the current suggestion and return the full text */
-  applySuggestion: () => string | null;
-}
+
+
 
 /**
  * Provides inline history completion for the chat input box.
@@ -37,7 +21,7 @@ export interface UseInlineHistoryCompletionReturn {
 export function useInlineHistoryCompletion({
   debounceMs = 100,
   minQueryLength = 2,
-}: UseInlineHistoryCompletionOptions = {}): UseInlineHistoryCompletionReturn {
+} = {}) {
   const [suffix, setSuffix] = useState('');
   const [fullSuggestion, setFullSuggestion] = useState<string | null>(null);
   const [enabled, setEnabled] = useState(() => isHistoryCompletionEnabled());

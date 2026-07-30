@@ -1,6 +1,18 @@
 // generate-protocol-types.mjs 的类型声明(供 webview 测试 import 类型检查)
 // .d.mts 与 .mjs 配对(TS ESM 约定)。维护:函数签名/类型变化时同步本声明。
 
+
+export type ProtocolGenerationMode = 'java' | 'manifest' | 'stub';
+
+/** 解析生成模式；默认严格使用 Java SSOT，显式参数才允许 manifest/stub。 */
+export declare function parseGenerationMode(args?: string[]): ProtocolGenerationMode;
+
+/** 返回缺失的 Java SSOT 源文件。 */
+export declare function findMissingSources(
+  paths: string[],
+  exists?: (path: string) => boolean,
+): string[];
+
 export interface ProtocolEnumEntry {
   name: string;
   value: string;

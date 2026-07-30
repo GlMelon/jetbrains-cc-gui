@@ -264,13 +264,5 @@ export function agentToDropdownItem(agent: AgentItem): DropdownItemData {
   };
 }
 
-export function forceRefreshAgents(): void {
-  debugLog('[AgentProvider] Force refresh requested');
-  loadingState = 'idle';
-  lastRefreshTime = 0;
-  retryCount = 0; // Reset retry count
-  pendingWaiters.forEach(w => w.reject(new Error('Agents refresh requested')));
-  pendingWaiters = [];
-  requestRefresh();
-}
+
 

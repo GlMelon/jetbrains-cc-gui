@@ -180,27 +180,23 @@ type PendingConfirm =
   | { kind: 'restart'; proc: NodeProcessInfo }
   | { kind: 'killAll'; orphans: NodeProcessInfo[] };
 
-export interface EmbeddedNodeProcessDropdownLayout {
+function getEmbeddedNodeProcessDropdownLayout({
+  parentRect,
+  viewportWidth,
+  viewportHeight,
+  dropdownHeight,
+}: {
+  parentRect: { left: number; right: number; top: number };
+  viewportWidth: number;
+  viewportHeight: number;
+  dropdownHeight: number;
+}): {
   flipToLeft: boolean;
   maxWidth: number;
   maxHeight: number;
   topOffset: number;
   horizontalOverlap: number;
-}
-
-export interface EmbeddedNodeProcessDropdownLayoutInput {
-  parentRect: { left: number; right: number; top: number };
-  viewportWidth: number;
-  viewportHeight: number;
-  dropdownHeight: number;
-}
-
-export function getEmbeddedNodeProcessDropdownLayout({
-  parentRect,
-  viewportWidth,
-  viewportHeight,
-  dropdownHeight,
-}: EmbeddedNodeProcessDropdownLayoutInput): EmbeddedNodeProcessDropdownLayout {
+} {
   const normalAvailableWidth = Math.max(
     0,
     viewportWidth - DROPDOWN_VIEWPORT_PADDING_PX - parentRect.right,
@@ -281,7 +277,13 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
   const [snapshot, setSnapshot] = useState<NodeProcessSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [pendingPids, setPendingPids] = useState<Set<number>>(() => new Set());
-  const [embeddedLayout, setEmbeddedLayout] = useState<EmbeddedNodeProcessDropdownLayout>(() => ({
+  const [embeddedLayout, setEmbeddedLayout] = useState<{
+    flipToLeft: boolean;
+    maxWidth: number;
+    maxHeight: number;
+    topOffset: number;
+    horizontalOverlap: number;
+  }>(() => ({
     flipToLeft: false,
     maxWidth: DROPDOWN_MAX_WIDTH_PX,
     maxHeight: DROPDOWN_MAX_HEIGHT_PX,

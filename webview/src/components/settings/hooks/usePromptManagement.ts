@@ -17,6 +17,17 @@ import type {
 } from '../../../types/prompt';
 import type { ImportPreviewResult, ConflictStrategy } from '../../../types/import';
 
+export interface ImportPreviewDialogState {
+  isOpen: boolean;
+  previewData: ImportPreviewResult<PromptConfig> | null;
+  scope: PromptScope;
+}
+
+export interface ExportDialogState {
+  isOpen: boolean;
+  scope: PromptScope;
+}
+
 export interface PromptDialogState {
   isOpen: boolean;
   prompt: PromptConfig | null;
@@ -29,24 +40,7 @@ export interface DeletePromptConfirmState {
   scope: PromptScope;
 }
 
-export interface ImportPreviewDialogState {
-  isOpen: boolean;
-  previewData: ImportPreviewResult<PromptConfig> | null;
-  scope: PromptScope;
-}
-
-export interface ExportDialogState {
-  isOpen: boolean;
-  scope: PromptScope;
-}
-
-export interface UsePromptManagementOptions {
-  provider?: PromptProvider;
-  onError?: (message: string) => void;
-  onSuccess?: (message: string) => void;
-}
-
-export function usePromptManagement(options: UsePromptManagementOptions = {}) {
+export function usePromptManagement(options: { provider?: PromptProvider; onError?: (message: string) => void; onSuccess?: (message: string) => void } = {}) {
   const { provider = PROVIDER_TYPE.CLAUDE, onSuccess, onError } = options;
   const { t } = useTranslation();
 
@@ -408,5 +402,3 @@ export function usePromptManagement(options: UsePromptManagementOptions = {}) {
     setPromptsLoading,
   };
 }
-
-export type UsePromptManagementReturn = ReturnType<typeof usePromptManagement>;

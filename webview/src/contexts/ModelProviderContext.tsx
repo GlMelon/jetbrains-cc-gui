@@ -10,7 +10,7 @@ type ProviderState = ReturnType<typeof useModelProviderState>;
  * and refs consumed only by App-level hooks (useWindowCallbacks,
  * useMessageSender, useSessionManagement).
  */
-export interface ModelProviderContextValue {
+interface ModelProviderContextValue {
   // Provider / model state
   currentProvider: ProviderState['currentProvider'];
   selectedModel: ProviderState['selectedModel'];

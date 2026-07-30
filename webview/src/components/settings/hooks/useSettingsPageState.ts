@@ -5,28 +5,7 @@ import type { SettingsTab } from '../SettingsSidebar';
 import type { AlertType } from '../../AlertDialog';
 import type { ToastMessage } from '../../Toast';
 
-// Auto-collapse threshold (window width)
-export const AUTO_COLLAPSE_THRESHOLD = 900;
-
-export interface UseSettingsPageStateReturn {
-  currentTab: SettingsTab;
-  toasts: ToastMessage[];
-  windowWidth: number;
-  manualCollapsed: boolean | null;
-  alertDialog: {
-    isOpen: boolean;
-    type: AlertType;
-    title: string;
-    message: string;
-  };
-  isCollapsed: boolean;
-  handleTabChange: (tab: SettingsTab) => void;
-  toggleManualCollapse: () => void;
-  showAlert: (type: AlertType, title: string, message: string) => void;
-  closeAlert: () => void;
-  addToast: (message: string, type?: ToastMessage['type']) => void;
-  dismissToast: (id: string) => void;
-}
+const AUTO_COLLAPSE_THRESHOLD = 800;
 
 interface UseSettingsPageStateProps {
   initialTab?: SettingsTab;
@@ -38,7 +17,7 @@ export function useSettingsPageState({
   initialTab,
   isCodexMode,
   disabledTabs,
-}: UseSettingsPageStateProps): UseSettingsPageStateReturn {
+}: UseSettingsPageStateProps) {
   const { t } = useTranslation();
 
   const [currentTab, setCurrentTab] = useState<SettingsTab>(() => {

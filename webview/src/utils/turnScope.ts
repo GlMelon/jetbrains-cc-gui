@@ -15,16 +15,14 @@ export function isToolResultOnlyUserMessage(message: ClaudeMessage): boolean {
   );
 }
 
-export function findLatestConversationTurnStart(messages: ClaudeMessage[]): number {
-  for (let i = messages.length - 1; i >= 0; i -= 1) {
-    const message = messages[i];
-    if (message.type !== 'user') continue;
-    if (isToolResultOnlyUserMessage(message)) continue;
-    return i;
+function findLatestConversationTurnStart(messages: ClaudeMessage[]): number {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].type === 'user') {
+      return i;
+    }
   }
-  return -1;
+  return 0;
 }
-
 export function sliceLatestConversationTurn(messages: ClaudeMessage[]): ClaudeMessage[] {
   const start = findLatestConversationTurnStart(messages);
   return start >= 0 ? messages.slice(start) : [];

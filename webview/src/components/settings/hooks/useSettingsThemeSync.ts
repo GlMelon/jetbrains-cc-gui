@@ -56,24 +56,7 @@ function normalizeAppearanceForCompare(obj: {
   });
 }
 
-export interface UseSettingsThemeSyncReturn {
-  themePreference: 'light' | 'dark' | 'system';
-  setThemePreference: (theme: 'light' | 'dark' | 'system') => void;
-  ideTheme: 'light' | 'dark' | null;
-  setIdeTheme: (theme: 'light' | 'dark' | null) => void;
-  /** 解析后的实际主题(亮/暗);颜色预设与按主题存储都以它为准 */
-  resolvedTheme: Theme;
-  fontSizeLevel: number;
-  setFontSizeLevel: (level: number) => void;
-  chatBgColor: string;
-  setChatBgColor: (color: string) => void;
-  userMsgColor: string;
-  setUserMsgColor: (color: string) => void;
-  diffTheme: DiffThemeMode;
-  setDiffTheme: (theme: DiffThemeMode) => void;
-}
-
-export function useSettingsThemeSync(): UseSettingsThemeSyncReturn {
+export function useSettingsThemeSync() {
   const [themePreference, setThemePreference] = useState<'light' | 'dark' | 'system'>(() => {
     // Read theme preference from localStorage
     const savedTheme = localStorage.getItem('theme');

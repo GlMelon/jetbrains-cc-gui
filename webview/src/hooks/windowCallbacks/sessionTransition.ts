@@ -9,7 +9,12 @@
 import type { MutableRefObject } from 'react';
 import { forceWebviewRepaint } from '../../utils/forceWebviewRepaint';
 
-export interface ResetTransientUiStateOptions {
+/**
+ * Clear all transient UI state (streaming refs + React state flags).
+ * Called on clearMessages and exposed as window.__resetTransientUiState so
+ * useSessionManagement can invoke it synchronously during session transitions.
+ */
+export const buildResetTransientUiState = (opts: {
   clearToasts: () => void;
   setStatus: React.Dispatch<React.SetStateAction<string>>;
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;
@@ -29,14 +34,7 @@ export interface ResetTransientUiStateOptions {
 
   // Turn tracking ref (for streaming assistant isolation)
   streamingTurnIdRef: MutableRefObject<number>;
-}
-
-/**
- * Clear all transient UI state (streaming refs + React state flags).
- * Called on clearMessages and exposed as window.__resetTransientUiState so
- * useSessionManagement can invoke it synchronously during session transitions.
- */
-export const buildResetTransientUiState = (opts: ResetTransientUiStateOptions) => {
+}) => {
   return () => {
     opts.clearToasts();
     opts.setStatus('');

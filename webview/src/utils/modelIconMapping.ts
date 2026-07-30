@@ -81,30 +81,6 @@ const PROVIDER_TO_VENDOR: Record<string, ModelVendor> = {
 };
 
 /**
- * Resolve a model ID to its vendor key by pattern matching.
- *
- * @param modelId - The model ID string (e.g. "qwen3.5-plus", "gpt-5.1-codex")
- * @returns The matched vendor key, or null if no match
- */
-export function resolveModelVendor(modelId: string): ModelVendor | null {
-  if (!modelId) return null;
-  for (const [pattern, vendor] of MODEL_VENDOR_PATTERNS) {
-    if (pattern.test(modelId)) return vendor;
-  }
-  return null;
-}
-
-/**
- * Resolve vendor from a provider ID.
- *
- * @param providerId - The provider preset ID (e.g. "claude", "qwen", "deepseek")
- * @returns The vendor key, or null if not a known provider
- */
-export function resolveProviderVendor(providerId: string): ModelVendor | null {
-  return PROVIDER_TO_VENDOR[providerId] ?? null;
-}
-
-/**
  * Resolve the best vendor for icon display.
  * Priority: modelId match > providerId match > null
  *
@@ -115,12 +91,13 @@ export function resolveProviderVendor(providerId: string): ModelVendor | null {
 export function resolveIconVendor(providerId?: string, modelId?: string): ModelVendor {
   // Try model ID first (most specific)
   if (modelId) {
-    const modelVendor = resolveModelVendor(modelId);
-    if (modelVendor) return modelVendor;
+    for (const [pattern, vendor] of MODEL_VENDOR_PATTERNS) {
+      if (pattern.test(modelId)) return vendor;
+    }
   }
   // Fall back to provider ID
   if (providerId) {
-    const providerVendor = resolveProviderVendor(providerId);
+    const providerVendor = PROVIDER_TO_VENDOR[providerId];
     if (providerVendor) return providerVendor;
   }
   // Default

@@ -47,25 +47,6 @@ function persistOptions(opts: SearchOptions): void {
   }
 }
 
-export interface ConversationSearchProps {
-  /** True when the panel is visible. Controlled by the parent (UIState). */
-  open: boolean;
-  /** Called when the user closes the panel (Esc / × button / view change). */
-  onClose: () => void;
-  /** The DOM container we search inside (the messages list scroll area). */
-  containerRef: React.RefObject<HTMLElement | null>;
-  /**
-   * Signal that changes whenever the rendered messages change. Used to
-   * trigger a re-scan after streaming appends, after history loads, after
-   * collapse is expanded, etc.
-   */
-  messagesSignal: string | number;
-  /** Imperative handle for revealing collapsed earlier messages. */
-  messageListRef?: React.RefObject<MessageListRevealHandle | null>;
-  /** Optional ref to scroll-behavior's auto-scroll flag for cooperation. */
-  isAutoScrollingRef?: React.RefObject<boolean>;
-}
-
 export const ConversationSearch = memo(function ConversationSearch({
   open,
   onClose,
@@ -73,7 +54,14 @@ export const ConversationSearch = memo(function ConversationSearch({
   messagesSignal,
   messageListRef,
   isAutoScrollingRef,
-}: ConversationSearchProps) {
+}: {
+  open: boolean;
+  onClose: () => void;
+  containerRef: React.RefObject<HTMLElement | null>;
+  messagesSignal: string | number;
+  messageListRef?: React.RefObject<MessageListRevealHandle | null>;
+  isAutoScrollingRef?: React.RefObject<boolean>;
+}) {
   const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [searchOptions, setSearchOptions] = useState<SearchOptions>(loadStoredOptions);

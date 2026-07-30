@@ -4,7 +4,7 @@ import type { ClaudeMessage, SubagentHistoryResponse } from '../types';
 export const DEFAULT_STATUS = 'ready';
 export type QueueDisplayState = 'NONE' | 'QUEUED' | 'PROCESSING' | 'COMPLETED';
 
-export interface MessagesContextValue {
+interface MessagesContextValue {
   messages: ClaudeMessage[];
   setMessages: React.Dispatch<React.SetStateAction<ClaudeMessage[]>>;
   subagentHistories: Record<string, SubagentHistoryResponse>;

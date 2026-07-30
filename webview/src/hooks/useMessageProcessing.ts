@@ -16,18 +16,12 @@ import {
 } from '../utils/messageUtils';
 import type { ClaudeContentBlock, ClaudeMessage, ClaudeRawMessage } from '../types';
 
-export interface UseMessageProcessingOptions {
-  messages: ClaudeMessage[];
-  currentSessionId: string | null;
-  t: TFunction;
-}
-
 /**
  * Message utility functions with memoization and caching.
  * Handles normalizeBlocks, getMessageText, shouldShowMessage, getContentBlocks,
  * and computes mergedMessages.
  */
-export function useMessageProcessing({ messages, currentSessionId, t }: UseMessageProcessingOptions) {
+export function useMessageProcessing({ messages, currentSessionId, t }: { messages: ClaudeMessage[]; currentSessionId: string | null; t: TFunction }) {
   const localizeMessage = useMemo(() => createLocalizeMessage(t), [t]);
 
   // Cache for normalizeBlocks to avoid re-parsing unchanged messages

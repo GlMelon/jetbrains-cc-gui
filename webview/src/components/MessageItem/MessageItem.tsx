@@ -38,43 +38,6 @@ import { AssistantResponseStatus } from './AssistantResponseStatus';
 import { AssistantStreamingFooter } from './AssistantStreamingFooter';
 import type { AvatarConfig } from '../../types/avatar';
 
-export interface MessageItemProps {
-  message: ClaudeMessage;
-  messageIndex: number;
-  messageKey: string;
-  isLast: boolean;
-  streamingActive: boolean;
-  isThinking: boolean;
-  t: TFunction;
-  getMessageText: (message: ClaudeMessage) => string;
-  getContentBlocks: (message: ClaudeMessage) => ClaudeContentBlock[];
-  findToolResult: (
-    toolId: string | undefined,
-    messageIndex: number,
-  ) => ToolResultBlock | null | undefined;
-  extractMarkdownContent: (message: ClaudeMessage) => string;
-  onNodeRef?: (id: string, node: HTMLDivElement | null) => void;
-  onNavigateToProviderSettings?: () => void;
-  onNavigateToDependencySettings?: () => void;
-  toolResultSignature?: string;
-  /** Current active provider id. */
-  currentProvider?: string;
-  detailedOutputEnabled?: boolean;
-  avatarConfig?: AvatarConfig | null;
-  /** Timestamp when the current assistant generation/loading cycle started. */
-  loadingStartTime?: number | null;
-  /** Rendered inside a grouped assistant response container. */
-  withinResponseGroup?: boolean;
-  /** Render only message blocks, without avatar, bubble, copy button, or usage stats. */
-  renderMode?: 'full' | 'response-segment';
-  /** Play the messageFadeIn entry animation on this card. Set only on the card's
-   *  first logical appearance so React remounts never replay the animation. */
-  shouldAnimateIn?: boolean;
-  /** Play the messageFadeOut exit animation on this card (H3). Applied when a
-   *  message is being removed from the list and kept in DOM briefly to animate out. */
-  shouldAnimateOut?: boolean;
-}
-
 type GroupedBlock =
   | { type: 'single'; block: ClaudeContentBlock; originalIndex: number }
   | { type: 'read_group'; blocks: ClaudeContentBlock[]; startIndex: number }
@@ -300,7 +263,42 @@ export const MessageItem = memo(function MessageItem({
   renderMode = 'full',
   shouldAnimateIn = false,
   shouldAnimateOut = false,
-}: MessageItemProps): React.ReactElement {
+}: {
+  message: ClaudeMessage;
+  messageIndex: number;
+  messageKey: string;
+  isLast: boolean;
+  streamingActive: boolean;
+  isThinking: boolean;
+  t: TFunction;
+  getMessageText: (message: ClaudeMessage) => string;
+  getContentBlocks: (message: ClaudeMessage) => ClaudeContentBlock[];
+  findToolResult: (
+    toolId: string | undefined,
+    messageIndex: number,
+  ) => ToolResultBlock | null | undefined;
+  extractMarkdownContent: (message: ClaudeMessage) => string;
+  onNodeRef?: (id: string, node: HTMLDivElement | null) => void;
+  onNavigateToProviderSettings?: () => void;
+  onNavigateToDependencySettings?: () => void;
+  toolResultSignature?: string;
+  /** Current active provider id. */
+  currentProvider?: string;
+  detailedOutputEnabled?: boolean;
+  avatarConfig?: AvatarConfig | null;
+  /** Timestamp when the current assistant generation/loading cycle started. */
+  loadingStartTime?: number | null;
+  /** Rendered inside a grouped assistant response container. */
+  withinResponseGroup?: boolean;
+  /** Render only message blocks, without avatar, bubble, copy button, or usage stats. */
+  renderMode?: 'full' | 'response-segment';
+  /** Play the messageFadeIn entry animation on this card. Set only on the card's
+   *  first logical appearance so React remounts never replay the animation. */
+  shouldAnimateIn?: boolean;
+  /** Play the messageFadeOut exit animation on this card (H3). Applied when a
+   *  message is being removed from the list and kept in DOM briefly to animate out. */
+  shouldAnimateOut?: boolean;
+}): React.ReactElement {
   const [copiedMessageIndex, setCopiedMessageIndex] = useState<number | null>(null);
 
   // Track timeout to properly cleanup on unmount

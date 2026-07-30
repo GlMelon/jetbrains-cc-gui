@@ -49,12 +49,7 @@ export interface SdkStatus {
   errorMessage?: string;
 }
 
-/**
- * Status map for all SDKs
- */
-export interface DependencyStatus {
-  [key: string]: SdkStatus;
-}
+
 
 /**
  * Installation progress information
@@ -143,40 +138,6 @@ export interface NodeEnvironmentStatus {
   error?: string;
 }
 
-/**
- * SDK definition (for UI display)
- */
-export interface SdkDefinition {
-  /** SDK ID */
-  id: SdkId;
-  /** Display name */
-  name: string;
-  /** Description */
-  description: string;
-  /** Related providers (for feature association) */
-  relatedProviders: string[];
-}
 
-/**
- * Predefined SDK list
- */
-export const SDK_DEFINITIONS: SdkDefinition[] = [
-  {
-    id: 'claude-sdk',
-    name: 'Claude Code SDK',
-    description: 'Claude AI 提供商所需。包含 @anthropic-ai/claude-agent-sdk 及相关依赖。',
-    relatedProviders: ['anthropic', 'bedrock'],
-  },
-  {
-    id: 'codex-sdk',
-    name: 'Codex SDK',
-    description: 'Codex AI 提供商所需。包含 @openai/codex-sdk。',
-    relatedProviders: ['openai'],
-  },
-  {
-    id: 'opencode-sdk',
-    name: 'OpenCode SDK',
-    description: 'OpenCode AI 提供商所需。包含 @opencode-ai/sdk。',
-    relatedProviders: ['opencode'],
-  },
-];
+
+

@@ -1,5 +1,11 @@
 import type { ReactNode } from 'react';
 
+export interface SkeletonListProps {
+  label?: string;
+  count?: number;
+  item?: ReactNode;
+}
+
 /**
  * SkeletonList —— 首次加载列表的骨架屏占位（H5）。
  *
@@ -13,15 +19,6 @@ import type { ReactNode } from 'react';
  * `@media (prefers-reduced-motion: reduce)` 收口（animation-duration: 0.01ms + iteration-count: 1），
  * 本组件不重复声明。
  */
-export interface SkeletonListProps {
-  /** 无障碍标签：screen reader 据此宣读「加载中」语义（如 t('mcp.loading')）。 */
-  label: string;
-  /** 占位项数量，默认 3。 */
-  count?: number;
-  /** 单个占位项内容；缺省渲染「图标 + 标题条 + 副条」的标准卡片式占位。 */
-  item?: ReactNode;
-}
-
 const DEFAULT_ITEM = (
   <>
     <div className="skeleton-bar skeleton-bar-icon" />

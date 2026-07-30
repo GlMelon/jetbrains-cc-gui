@@ -38,57 +38,6 @@ export const DEFAULT_SEARCH_OPTIONS: SearchOptions = {
   regex: false,
 };
 
-export interface UseConversationSearchOptions {
-  /** The container we scan + decorate. Usually `.messages-container`. */
-  containerRef: React.RefObject<HTMLElement | null>;
-  /**
-   * Value that changes whenever rendered messages change. Drives re-scan.
-   * Typically derived from `mergedMessages.length` + last message stamp.
-   */
-  messagesSignal: string | number;
-  /**
-   * Called right before each scan. Returns the number of messages that were
-   * just revealed. Used to surface a `Expanded N earlier messages` hint.
-   *
-   * When the panel is open we want to scan the entire conversation, so
-   * collapsed messages must be expanded first.
-   */
-  ensureRevealed?: () => number;
-  /** Optional opt-out for tests. Defaults to 180ms. */
-  debounceMs?: number;
-  /** Whether to scan + maintain highlights at all. Toggle to enable/disable. */
-  enabled: boolean;
-  /**
-   * Three search-mode toggles. Re-scan happens whenever these change.
-   * Optional; defaults to {@link DEFAULT_SEARCH_OPTIONS} for callers that
-   * don't expose the toggles (e.g. simple test setups).
-   */
-  searchOptions?: SearchOptions;
-}
-
-export interface UseConversationSearchReturn {
-  /** Raw user input. */
-  query: string;
-  /** Setter — caller wires to <input onChange>. */
-  setQuery: (next: string) => void;
-  /** All matches in document order. */
-  matches: ConversationSearchMatch[];
-  /** 0-based current match index. -1 when there is no current match. */
-  currentIndex: number;
-  /** Move to the next match (wraps). No-op when matches is empty. */
-  next: () => void;
-  /** Move to the previous match (wraps). No-op when matches is empty. */
-  previous: () => void;
-  /** True while a debounced scan is pending. */
-  isSearching: boolean;
-  /** Number of messages auto-revealed by the most recent scan (0 if none). */
-  expandedCount: number;
-  /** True when `searchOptions.regex` is on and the query failed to compile. */
-  isRegexInvalid: boolean;
-  /** Clear query + remove all DOM highlights. */
-  clear: () => void;
-}
-
 /** CSS class names — kept here so the cleanup logic and CSS match. */
 const MARK_CLASS = 'cc-search-match';
 const CURRENT_CLASS = 'is-current';
@@ -129,7 +78,7 @@ function buildNodeFilter(): NodeFilter {
  * giving O(n) overall instead of O(n²) when there are many marks under
  * the same parent (per code review feedback).
  */
-export function clearSearchDecorations(container: HTMLElement | null): void {
+function clearSearchDecorations(container: HTMLElement | null): void {
   if (!container) return;
   // Unwrap <mark.cc-search-match>
   const marks = container.querySelectorAll(`mark.${MARK_CLASS}`);
@@ -163,7 +112,7 @@ interface MatchOccurrence {
  * Escape every regex metacharacter so the resulting pattern matches the
  * literal string. Standard library implementation per MDN.
  */
-export function escapeRegExp(s: string): string {
+function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
@@ -178,7 +127,7 @@ export function escapeRegExp(s: string): string {
  * `regex.exec` and re-use the same instance across nodes (with explicit
  * `lastIndex = 0` resets to avoid stale state).
  */
-export function buildMatchRegex(query: string, options: SearchOptions): RegExp | null {
+function buildMatchRegex(query: string, options: SearchOptions): RegExp | null {
   if (!query) return null;
   let pattern: string;
   if (options.regex) {
@@ -203,7 +152,7 @@ export function buildMatchRegex(query: string, options: SearchOptions): RegExp |
  *
  * Exported for testing.
  */
-export function collectTextMatches(
+function collectTextMatches(
   container: HTMLElement,
   query: string,
   options: SearchOptions = DEFAULT_SEARCH_OPTIONS,
@@ -314,8 +263,55 @@ function tagCodeBlocks(
 }
 
 export function useConversationSearch(
-  options: UseConversationSearchOptions,
-): UseConversationSearchReturn {
+  options: {
+  /** The container we scan + decorate. Usually `.messages-container`. */
+  containerRef: React.RefObject<HTMLElement | null>;
+  /**
+   * Value that changes whenever rendered messages change. Drives re-scan.
+   * Typically derived from `mergedMessages.length` + last message stamp.
+   */
+  messagesSignal: string | number;
+  /**
+   * Called right before each scan. Returns the number of messages that were
+   * just revealed. Used to surface a `Expanded N earlier messages` hint.
+   *
+   * When the panel is open we want to scan the entire conversation, so
+   * collapsed messages must be expanded first.
+   */
+  ensureRevealed?: () => number;
+  /** Optional opt-out for tests. Defaults to 180ms. */
+  debounceMs?: number;
+  /** Whether to scan + maintain highlights at all. Toggle to enable/disable. */
+  enabled: boolean;
+  /**
+   * Three search-mode toggles. Re-scan happens whenever these change.
+   * Optional; defaults to {@link DEFAULT_SEARCH_OPTIONS} for callers that
+   * don't expose the toggles (e.g. simple test setups).
+   */
+  searchOptions?: SearchOptions;
+},
+): {
+  /** Raw user input. */
+  query: string;
+  /** Setter — caller wires to <input onChange>. */
+  setQuery: (next: string) => void;
+  /** All matches in document order. */
+  matches: ConversationSearchMatch[];
+  /** 0-based current match index. -1 when there is no current match. */
+  currentIndex: number;
+  /** Move to the next match (wraps). No-op when matches is empty. */
+  next: () => void;
+  /** Move to the previous match (wraps). No-op when matches is empty. */
+  previous: () => void;
+  /** True while a debounced scan is pending. */
+  isSearching: boolean;
+  /** Number of messages auto-revealed by the most recent scan (0 if none). */
+  expandedCount: number;
+  /** True when `searchOptions.regex` is on and the query failed to compile. */
+  isRegexInvalid: boolean;
+  /** Clear query + remove all DOM highlights. */
+  clear: () => void;
+} {
   const { containerRef, messagesSignal, ensureRevealed, debounceMs = 180, enabled, searchOptions = DEFAULT_SEARCH_OPTIONS } = options;
   const [query, setQuery] = useState<string>('');
   const [matches, setMatches] = useState<ConversationSearchMatch[]>([]);

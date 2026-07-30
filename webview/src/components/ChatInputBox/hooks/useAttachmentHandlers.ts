@@ -3,12 +3,7 @@ import type { Attachment } from '../types.js';
 import { generateId } from '../utils/generateId.js';
 import { debugError } from '../../../utils/debug.js';
 
-export interface UseAttachmentHandlersOptions {
-  externalAttachments: Attachment[] | undefined;
-  onAddAttachment?: (files: FileList) => void;
-  onRemoveAttachment?: (id: string) => void;
-  setInternalAttachments: React.Dispatch<React.SetStateAction<Attachment[]>>;
-}
+
 
 /**
  * useAttachmentHandlers - Handle attachment add/remove
@@ -20,7 +15,12 @@ export function useAttachmentHandlers({
   onAddAttachment,
   onRemoveAttachment,
   setInternalAttachments,
-}: UseAttachmentHandlersOptions) {
+}: {
+  externalAttachments?: Attachment[];
+  onAddAttachment?: (files: FileList) => void;
+  onRemoveAttachment?: (id: string) => void;
+  setInternalAttachments: React.Dispatch<React.SetStateAction<Attachment[]>>;
+}) {
   const handleAddAttachment = useCallback(
     (files: FileList) => {
       if (externalAttachments !== undefined) {
@@ -42,7 +42,7 @@ export function useAttachmentHandlers({
             mediaType: file.type || 'application/octet-stream',
             data: base64,
           };
-          setInternalAttachments((prev) => [...prev, attachment]);
+          setInternalAttachments((prev: Attachment[]) => [...prev, attachment]);
         };
         reader.onerror = () => {
           debugError('[useAttachmentHandlers] Failed to read file:', file.name);
@@ -62,7 +62,7 @@ export function useAttachmentHandlers({
         onRemoveAttachment?.(id);
         return;
       }
-      setInternalAttachments((prev) => prev.filter((a) => a.id !== id));
+      setInternalAttachments((prev: Attachment[]) => prev.filter((a: Attachment) => a.id !== id));
     },
     [externalAttachments, onRemoveAttachment, setInternalAttachments]
   );

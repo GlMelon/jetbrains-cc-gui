@@ -19,7 +19,6 @@ export type {
   TriggerQuery,
   FileItem,
   CommandItem,
-  CompletionType,
 } from './types';
 
 // Export constants

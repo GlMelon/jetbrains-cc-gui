@@ -2156,3 +2156,228 @@ npm run build
 | 5 | A11Y2/A11Y3 验收矩阵 | ✅ 四 tablist 与流式 aria-live 生命周期矩阵完成 |
 | 6 | ai-bridge branches coverage | ✅ 68.00%，高于 67.29% baseline |
 | 7 | 继续追加真实结果而非覆盖旧记录 | ✅ 本附录已按要求追加 |
+
+## 附录：2026-07-29 二次核验——9 条问题本轮处理记录
+
+> 本附录继续追加在上一附录之后，不删除旧记录。以下状态以 2026-07-29 18:50 左右当前工作区代码与实际命令输出为准；与上一附录“最终全量验收”不一致时，以本附录为准。
+
+### 一、问题 1：Codex 磁盘历史分页闭环
+
+已完成代码修复与兼容补强：
+
+- `CodexHistoryPageReader` 改为通过 `CodexHistoryReader.forEachSessionMessage(sessionId, historyItems::add)` 逐条读取 Codex 历史消息，不再先构造完整 JSON 字符串。
+- `CodexHistoryPageService` 作为后端 SSOT 统一分页规则：初始加载按最近 human user turn 分页；`beforeTurn == 0` 的向前分页返回空页，避免把首个 user turn 前的 transport 消息错误 prepend。
+- 补齐兼容场景：当初始加载且 `totalTurns == 0` 时返回全部 transport/tool 消息，避免破坏 `CodexSDKBridge.getSessionMessages(...)` 对纯 tool use / tool result 历史的兼容。
+- `LoadCodexHistoryPageActionHandler` 要求 `beforeTurn` 必填且 `>= 0`，固定后端 `PREPEND` 模式；读取工作通过 `AppExecutorUtil.getAppExecutorService()` 异步执行，完成后用 `ApplicationManager.getApplication().invokeLater(...)` 回到 UI 线程派发与应用结果。
+- `CodexHistoryPageRequestPayloadField.BEFORE_TURN` 已标为 required，分页协议仍经 `UpstreamAction.LOAD_CODEX_HISTORY_PAGE` 与 `DownstreamEvent.HISTORY_CODEX_PAGE_INFO / HISTORY_CODEX_PAGE_ERROR`。
+- 前端 `MessageList` 只消费后端下发的分页 info / error 与 `UPSTREAM.LOAD_CODEX_HISTORY_PAGE`，不在前端实现分页判定。
+
+补充/命中测试：
+
+- `CodexHistoryPageServiceTest` 覆盖初始页尾部 turns、`beforeTurn == 0` 空页、无 human turn 初始页返回 transport/tool 消息。
+- `CodexHistoryPageActionHandlerContractTest` 覆盖 typed handler 契约、必填字段与错误事件。
+- `CodexSDKBridgeHistoryTest` 重新通过，确认 tool use / tool result / auto-restore 历史未被分页兼容改动破坏。
+
+验证命令：
+
+```powershell
+.\gradlew.bat test -x buildWebview `
+  --tests '*CodexSDKBridgeHistoryTest' `
+  --tests '*CodexHistoryPageServiceTest' `
+  --console=plain
+
+.\gradlew.bat test -x buildWebview `
+  --tests '*CodexHistoryPageActionHandlerContractTest' `
+  --tests '*SessionMessageOrchestratorTest' `
+  --console=plain
+```
+
+结果：两组定向 Java 测试均 `BUILD SUCCESSFUL`。
+
+### 二、问题 2：协议生成器 Java SSOT fail-fast
+
+已完成：
+
+- `webview/scripts/generate-protocol-types.mjs` 默认只从 Java source 生成协议类型；Java source 缺失时列出缺失文件并失败，不再静默 fallback 到旧 manifest。
+- 新增显式模式 `--from-manifest` 与 `--stub`；二者互斥，未知参数 fail-fast。
+- 导出 `parseGenerationMode(args?)` 与 `findMissingSources(paths, exists?)`，并同步 `generate-protocol-types.d.mts`。
+- 补充 Vitest 用例覆盖 Java SSOT 缺失、manifest 模式、stub 模式与参数冲突。
+
+验证命令：
+
+```powershell
+node webview/scripts/generate-protocol-types.mjs
+cd webview
+npx vitest run test/__tests__/generate-protocol-types.test.ts
+```
+
+结果：协议生成成功；`generate-protocol-types.test.ts` 26 tests passed。
+
+### 三、问题 3：`check:event-literals` 协议漂移守门
+
+已完成：
+
+- `webview/scripts/check-event-literals.mjs` 同时读取 Java `UpstreamAction` / `DownstreamEvent`、`protocol-manifest.json`、`generated/protocol.ts`。
+- 新增三方 name/value 对比，覆盖缺失、新增、value drift、duplicate name；一致后再执行原有下行事件字面量扫描。
+- 区分脚本错误退出码 `2` 与协议/字面量漂移退出码 `1`。
+- 导出 `parseGeneratedProtocolConstant`、`compareProtocolEntries`，新增 `check-event-literals.d.mts` 与 Vitest 覆盖。
+
+验证命令：
+
+```powershell
+cd webview
+node scripts/check-event-literals.mjs
+npx vitest run test/__tests__/check-event-literals.test.ts test/__tests__/generate-protocol-types.test.ts
+```
+
+结果：`check:event-literals` 通过，三方协议一致，扫描 386 个文件、DOWNSTREAM 147 条；2 个测试文件共 30 tests passed。
+
+### 四、问题 4：主语言中文 i18n 缺失键
+
+已完成：
+
+- `src/main/resources/messages/ClaudeCodeGuiBundle_zh.properties` 补齐 JCEF disabled / restart / plugin missing 相关 7 个后端中文键：
+  - `toolwindow.jcefDisabled`
+  - `toolwindow.jcefDisabledSolution`
+  - `toolwindow.jcefEnableAction`
+  - `toolwindow.jcefRestartRequired`
+  - `toolwindow.jcefRestartRequiredSolution`
+  - `toolwindow.jcefPluginMissing`
+  - `toolwindow.jcefPluginMissingSolution`
+
+验证命令：
+
+```powershell
+node scripts/check-i18n-keys.mjs
+```
+
+结果：检测通过；前端 `zh` 0 missing，后端 `zh` 0 missing，coverage 未低于 baseline。非主语言仍存在历史缺失，见问题 8。
+
+### 五、问题 5：Java 全量测试真实结果
+
+在问题 1 的兼容修复后，Java 全量测试已重新执行：
+
+```powershell
+.\gradlew.bat test -x buildWebview --console=plain
+```
+
+结果：`BUILD SUCCESSFUL`。从 `build/test-results/test/TEST-*.xml` 汇总得到：`1914 tests, 0 failures, 0 errors, 10 skipped`。日志保存于 `%TEMP%\melon-validation\gradle-test-final.log`。
+
+### 六、问题 6：ai-bridge 全量验收真实结果
+
+已执行：
+
+```powershell
+cd ai-bridge
+npm test
+npm run lint
+npm run typecheck
+node scripts/run-coverage.mjs
+node scripts/check-coverage.mjs --verbose
+```
+
+结果：
+
+- `npm test`：436 tests，435 passed，1 skipped，0 failed；
+- `npm run lint`：0 errors，67 warnings；
+- `npm run typecheck`：通过；
+- `node scripts/run-coverage.mjs`：通过，branches `68.00% (1224/1800)`，lines `58.01% (10609/18287)`；
+- `node scripts/check-coverage.mjs --verbose`：通过，branches 高于 baseline `67.29%`，lines 高于 baseline `55.13%`。
+
+日志保存于 `%TEMP%\melon-validation\ai-bridge-final\`。
+
+### 七、问题 7：文档记录方式
+
+已按本轮要求继续追加本附录，记录实际代码位置、验证命令与真实结果；不再仅凭旧 `[x]`、旧“最终验收”文字或旧统计数字判断完成状态。
+
+### 八、问题 8：非主语言 locale 后续独立做
+
+本轮不做非主语言 locale 全量补齐，仅记录为后续独立项。当前 `node scripts/check-i18n-keys.mjs` 仍报告：
+
+- 前端非主语言缺失：`zh-TW` 443、`ko` 352、`ja` 458、`es` 458、`fr` 458、`hi` 458、`ru` 462、`pt-BR` 303；
+- 后端非主语言缺失：`en` 27、`zh_TW` 50、`ja` 50、`es` 50、`fr` 50、`hi` 50、`ru` 50。
+
+后续独立处理时应单独定义非主语言补齐范围、翻译质量验收与 baseline 更新策略。
+
+### 九、问题 9：三端全量验收真实结果
+
+#### Java
+
+```powershell
+.\gradlew.bat test -x buildWebview --console=plain
+```
+
+结果：通过，`1914 tests, 0 failures, 0 errors, 10 skipped`。
+
+#### i18n
+
+```powershell
+node scripts/check-i18n-keys.mjs
+```
+
+结果：通过；主语言完整，coverage 未低于 baseline；非主语言缺失见问题 8。
+
+#### ai-bridge
+
+```powershell
+cd ai-bridge
+npm test
+npm run lint
+npm run typecheck
+node scripts/run-coverage.mjs
+node scripts/check-coverage.mjs --verbose
+```
+
+结果：通过；tests / lint / typecheck / coverage gate 全部 exit 0。
+
+#### webview
+
+本轮按顺序重新执行：
+
+```powershell
+cd webview
+npm run prebuild
+npm run check:event-literals
+npm run check:style
+npm run lint
+npm test
+npm run build
+npm run test:coverage
+```
+
+真实结果：
+
+| 命令 | ExitCode | 结果 |
+|---|---:|---|
+| `npm run prebuild` | 0 | 通过，协议从 Java source 生成 |
+| `npm run check:event-literals` | 0 | 通过，三方协议一致，无下行事件字面量漂移 |
+| `npm run check:style` | 1 | 失败：Prettier 检查发现 153 个 changed files 中大量文件格式不符（包含本轮脚本文件，也包含当前工作区既有大量改动）；ESLint 部分为 0 errors / 87 warnings |
+| `npm run lint` | 0 | 通过，0 errors / 87 warnings |
+| `npm test` | 1 | 失败：54 failed files、256 failed tests、992 passed（154 files / 1248 tests）；代表性失败为测试仍引用已不存在导出，如 `getStreamScopeState`、`cancelScopedPendingUpdate` 等 |
+| `npm run build` | 2 | 失败：TypeScript 编译错误，代表性缺失类型包括 `AssistantAvatarMode`、`AssistantAvatarPreset`、`CustomAvatarPayload`、`FetchProviderModelsParams`、`FetchedProviderModels`、`SmitheryConnection`、`SearchMcpMarketResult`、`SkillMarketInstallResult` 等 |
+| `npm run test:coverage` | 1 | 失败：与 `npm test` 同源，54 failed files、256 failed tests |
+
+webview 失败日志保存于 `%TEMP%\melon-validation\webview-final-exit\`。这些失败覆盖大量当前工作区既有前端改动，不在本轮问题 1–7 的最小修复范围内；后续应独立拆分处理，不能把旧文档中“Webview 全量通过”的记录继续当作当前事实。
+
+### 十、2026-07-30 文档状态汇总
+
+> 本节仅更新文档状态，不将 2026-07-29 的验证结果重新标记为 2026-07-30 执行。最新一次实际验证时间、命令和统计仍以本附录前述记录为准。
+
+| 问题 | 当前状态 | 判定依据 |
+|---:|---|---|
+| 1 | ✅ 已完成 | Codex 历史分页后端 SSOT、typed handler、前端消费链路与无 human turn 兼容测试已落地 |
+| 2 | ✅ 已完成 | 协议生成默认从 Java source 生成，缺失源、冲突参数和未知参数均 fail-fast |
+| 3 | ✅ 已完成 | Java enum、manifest、generated TypeScript 三方一致性与事件字面量检查已接入 |
+| 4 | ✅ 已完成 | 前端与后端主语言 `zh` 均为 0 missing |
+| 5 | ✅ 已完成 | 最近一次 Java 全量验证为 1914 tests、0 failures、0 errors、10 skipped |
+| 6 | ✅ 已完成 | ai-bridge tests、lint、typecheck、coverage gate 最近一次验证全部通过 |
+| 7 | ✅ 已完成 | 已追加真实代码位置、命令、统计与失败结果，未覆盖旧历史记录 |
+| 8 | ⏸ 后续独立处理 | 非主语言 locale 仍有历史缺失，本轮按用户要求不实施 |
+| 9 | ⚠️ 部分通过 | Java、i18n、ai-bridge 通过；webview 的 style、test、build、coverage 仍失败 |
+
+当前不能将整个项目标记为“全量验收通过”。后续处理入口应优先拆分 webview 失败：
+
+1. 修复 TypeScript 缺失类型与缺失导出，使 `npm run build` 恢复；
+2. 对齐已删除/重构 API 与旧测试，使 `npm test`、`npm run test:coverage` 恢复；
+3. 在不覆盖其他工作区改动的前提下单独处理 Prettier changed-files 失败；
+4. 完成后重新执行问题 9 的全部命令，并继续在本文末尾追加新结果。

@@ -4,9 +4,9 @@ export type LinkifyCapabilities = {
   classNavigationEnabled: boolean;
 };
 
-export const DEFAULT_LINKIFY_CAPABILITIES: LinkifyCapabilities = Object.freeze({
+const DEFAULT_LINKIFY_CAPABILITIES: LinkifyCapabilities = {
   classNavigationEnabled: false,
-});
+};
 
 type LinkifyCapabilitiesListener = (capabilities: LinkifyCapabilities) => void;
 
@@ -43,22 +43,24 @@ export function getLinkifyCapabilities(): LinkifyCapabilities {
   return cloneCapabilities(currentCapabilities);
 }
 
-export function setLinkifyCapabilities(value: unknown): LinkifyCapabilities {
-  const nextCapabilities = normalizeLinkifyCapabilities(value);
-  if (areCapabilitiesEqual(currentCapabilities, nextCapabilities)) {
-    return cloneCapabilities(currentCapabilities);
-  }
-
-  currentCapabilities = nextCapabilities;
-  channel.emit(currentCapabilities);
-  return cloneCapabilities(currentCapabilities);
-}
-
 export function applyLinkifyCapabilitiesPayload(json: string): LinkifyCapabilities {
   try {
-    return setLinkifyCapabilities(JSON.parse(json));
+    const parsed = JSON.parse(json);
+    const nextCapabilities = normalizeLinkifyCapabilities(parsed);
+    if (areCapabilitiesEqual(currentCapabilities, nextCapabilities)) {
+      return cloneCapabilities(currentCapabilities);
+    }
+    currentCapabilities = nextCapabilities;
+    channel.emit(currentCapabilities);
+    return cloneCapabilities(currentCapabilities);
   } catch {
-    return setLinkifyCapabilities(DEFAULT_LINKIFY_CAPABILITIES);
+    const nextCapabilities = DEFAULT_LINKIFY_CAPABILITIES;
+    if (areCapabilitiesEqual(currentCapabilities, nextCapabilities)) {
+      return cloneCapabilities(currentCapabilities);
+    }
+    currentCapabilities = nextCapabilities;
+    channel.emit(currentCapabilities);
+    return cloneCapabilities(currentCapabilities);
   }
 }
 
@@ -66,8 +68,4 @@ export function subscribeLinkifyCapabilities(
   listener: LinkifyCapabilitiesListener,
 ): () => void {
   return channel.subscribe(listener);
-}
-
-export function resetLinkifyCapabilities(): void {
-  setLinkifyCapabilities(DEFAULT_LINKIFY_CAPABILITIES);
 }

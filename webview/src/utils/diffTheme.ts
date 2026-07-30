@@ -2,20 +2,6 @@ export type DiffThemeMode = 'follow' | 'editor' | 'light' | 'soft-dark';
 
 type ResolvedDiffTheme = 'light' | 'dark' | 'soft-dark';
 
-const DIFF_THEME_KEYS = [
-  '--diff-surface',
-  '--diff-gutter-bg',
-  '--diff-gutter-border',
-  '--diff-text',
-  '--diff-muted-text',
-  '--diff-added-bg',
-  '--diff-added-glyph-bg',
-  '--diff-added-accent',
-  '--diff-deleted-bg',
-  '--diff-deleted-glyph-bg',
-  '--diff-deleted-accent',
-] as const;
-
 export const getStoredDiffTheme = (): DiffThemeMode => {
   const saved = localStorage.getItem('diffTheme');
   if (saved === 'follow' || saved === 'editor' || saved === 'light' || saved === 'soft-dark') {
@@ -91,10 +77,4 @@ export const applyDiffTheme = (
   root.style.setProperty('--diff-deleted-accent', '#ff6b6b');
 };
 
-export const clearDiffTheme = (): void => {
-  const root = document.documentElement;
-  root.removeAttribute('data-diff-theme');
-  for (const key of DIFF_THEME_KEYS) {
-    root.style.removeProperty(key);
-  }
-};
+

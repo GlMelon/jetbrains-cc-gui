@@ -6,7 +6,7 @@ import type { RewindableMessage } from '../components/RewindSelectDialog';
 import { rewindFiles } from '../utils/bridge';
 import { formatTime } from '../utils/helpers';
 
-export interface UseRewindHandlersOptions {
+export function useRewindHandlers(options: {
   t: TFunction;
   addToast: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
   currentSessionId: string | null;
@@ -17,18 +17,14 @@ export interface UseRewindHandlersOptions {
   setRewindSelectDialogOpen: (open: boolean) => void;
   setIsRewinding: (loading: boolean) => void;
   isRewinding: boolean;
-}
-
-export interface UseRewindHandlersReturn {
+}): {
   handleRewindClick: (messageIndex: number, message: ClaudeMessage) => void;
   handleRewindConfirm: (sessionId: string, userMessageId: string) => void;
   handleRewindCancel: () => void;
   handleOpenRewindSelectDialog: () => void;
   handleRewindSelect: (item: RewindableMessage) => void;
   handleRewindSelectCancel: () => void;
-}
-
-export function useRewindHandlers(options: UseRewindHandlersOptions): UseRewindHandlersReturn {
+} {
   const {
     t,
     addToast,

@@ -9,12 +9,13 @@ import type { CachedData, ToolsCacheData, CacheKeys, McpTool } from '../types';
 // Cache Configuration
 // ============================================================================
 
-/** Cache expiry durations (server list: 10min, status: 5min, tool list: 10min) */
-export const CACHE_EXPIRY = {
-  SERVERS: 10 * 60 * 1000,
-  STATUS: 5 * 60 * 1000,
-  TOOLS: 10 * 60 * 1000,
+const CACHE_EXPIRY = {
+  SERVERS: 5 * 60 * 1000, // 5 minutes
+  STATUS: 30 * 1000, // 30 seconds
+  TOOLS: 10 * 60 * 1000, // 10 minutes
 };
+
+
 
 /** Maximum size per cache item (in bytes); items exceeding this are not cached */
 const MAX_CACHE_ITEM_SIZE = 512 * 1024; // 512KB
@@ -50,7 +51,7 @@ export function getCacheKeys(provider: 'claude' | 'codex'): CacheKeys {
  * @param cacheKeys - Set of cache keys
  * @returns Expiry duration in milliseconds
  */
-export function getCacheExpiry(key: string, cacheKeys: CacheKeys): number {
+function getCacheExpiry(key: string, cacheKeys: CacheKeys): number {
   if (key === cacheKeys.SERVERS) return CACHE_EXPIRY.SERVERS;
   if (key === cacheKeys.STATUS) return CACHE_EXPIRY.STATUS;
   if (key === cacheKeys.TOOLS) return CACHE_EXPIRY.TOOLS;

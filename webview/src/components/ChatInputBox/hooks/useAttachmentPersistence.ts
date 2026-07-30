@@ -3,11 +3,12 @@ import type { Attachment } from '../types.js';
 import { debugLog, debugError } from '../../../utils/debug.js';
 import { canUseLocalStorage } from '../../../utils/storageAvailability.js';
 
-/** localStorage key for chat input attachments draft */
-export const ATTACHMENTS_DRAFT_KEY = 'chat-input-attachments-draft';
+
 
 /** Maximum size for serialized attachments draft (2MB) */
 const MAX_DRAFT_SIZE = 2097152; // 2 * 1024 * 1024
+
+const ATTACHMENTS_DRAFT_KEY = 'melongui_attachments_draft';
 
 /**
  * Check if error is a quota exceeded error
@@ -127,32 +128,9 @@ function loadAttachmentsDraft(): Attachment[] {
   }
 }
 
-export interface UseAttachmentPersistenceOptions {
-  /**
-   * Current attachments state
-   */
-  attachments: Attachment[];
-  /**
-   * Whether the component is in controlled mode (external attachments)
-   * If true, persistence is disabled (parent manages state)
-   */
-  isControlled: boolean;
-  /**
-   * Callback to restore attachments from localStorage on mount
-   */
-  onRestore: (attachments: Attachment[]) => void;
-}
 
-export interface UseAttachmentPersistenceReturn {
-  /**
-   * Save current attachments to localStorage
-   */
-  saveDraft: () => void;
-  /**
-   * Clear attachments draft from localStorage
-   */
-  clearDraft: () => void;
-}
+
+
 
 /**
  * useAttachmentPersistence - Persist input box attachments to localStorage
@@ -185,7 +163,11 @@ export function useAttachmentPersistence({
   attachments,
   isControlled,
   onRestore,
-}: UseAttachmentPersistenceOptions): UseAttachmentPersistenceReturn {
+}: {
+  attachments: Attachment[];
+  isControlled: boolean;
+  onRestore: (attachments: Attachment[]) => void;
+}) {
   const isFirstMountRef = useRef(true);
   const prevAttachmentsRef = useRef<Attachment[]>([]);
 
@@ -210,7 +192,7 @@ export function useAttachmentPersistence({
     const prevAttachments = prevAttachmentsRef.current;
     const hasChanged =
       attachments.length !== prevAttachments.length ||
-      attachments.some((att, i) => att.id !== prevAttachments[i]?.id);
+      attachments.some((att: Attachment, i: number) => att.id !== prevAttachments[i]?.id);
 
     if (!hasChanged) return;
 

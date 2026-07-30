@@ -8,26 +8,6 @@ export interface QueuedMessage {
   queuedAt: number;
 }
 
-export interface UseMessageQueueOptions {
-  /** Whether AI is currently processing */
-  isLoading: boolean;
-  /** Callback to execute a message */
-  onExecute: (content: string, attachments?: Attachment[]) => void;
-}
-
-export interface UseMessageQueueReturn {
-  /** Current queue */
-  queue: QueuedMessage[];
-  /** Add message to queue */
-  enqueue: (content: string, attachments?: Attachment[]) => void;
-  /** Remove message from queue by id */
-  dequeue: (id: string) => void;
-  /** Clear entire queue */
-  clearQueue: () => void;
-  /** Whether queue has items */
-  hasQueuedMessages: boolean;
-}
-
 /**
  * Hook for managing message queue
  * Automatically executes next message when loading completes
@@ -35,7 +15,7 @@ export interface UseMessageQueueReturn {
 export function useMessageQueue({
   isLoading,
   onExecute,
-}: UseMessageQueueOptions): UseMessageQueueReturn {
+}: { isLoading: boolean; onExecute: (content: string, attachments?: Attachment[]) => void }): { queue: QueuedMessage[]; enqueue: (content: string, attachments?: Attachment[]) => void; dequeue: (id: string) => void; clearQueue: () => void; hasQueuedMessages: boolean; } {
   const [queue, setQueue] = useState<QueuedMessage[]>([]);
   const prevLoadingRef = useRef(isLoading);
   const isExecutingFromQueueRef = useRef(false);

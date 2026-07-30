@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { CheckIcon, ChevronLeftIcon, ChevronRightIcon } from '../Icons';
 import { BaseDialog, DialogBody, DialogFooter, DialogHeader, type DialogSize } from './BaseDialog';
 
+
 /**
  * 引导式步骤定义。{@code id} 作为 React key,{@code title} 渲染在步骤指示器中。
  */
@@ -11,37 +12,26 @@ export interface GuidedStep {
   title: string;
 }
 
-export interface GuidedProviderDialogProps {
-  /** 弹窗是否打开 */
-  isOpen: boolean;
-  /** 关闭回调 */
-  onClose: () => void;
-  /** 无障碍标签(同时作为头部标题) */
-  ariaLabel: string;
-  /** 全部步骤定义 */
-  steps: GuidedStep[];
-  /** 当前步骤下标(0-based) */
-  currentStep: number;
-  /** 切换步骤回调(收到目标下标) */
-  onStepChange: (step: number) => void;
-  /** 是否允许前进到下一步(false 时 Next/Finish 禁用),默认 true */
-  canProceed?: boolean;
-  /** 完成回调(最后一步点击 Finish) */
-  onFinish: () => void;
-  /** 最后一步按钮文案,缺省走 i18n common.finish */
-  finishLabel?: string;
-  /** 弹窗尺寸,默认 'lg' */
-  size?: DialogSize;
-  /** 当前步骤主体内容(由父组件根据 currentStep 渲染) */
-  children: ReactNode;
-}
-
 const STEPPER_STYLE: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: '4px',
   padding: '12px 20px 0',
 };
+
+export interface GuidedProviderDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  ariaLabel: string;
+  steps: GuidedStep[];
+  currentStep: number;
+  onStepChange: (step: number) => void;
+  canProceed?: boolean;
+  onFinish: () => void;
+  finishLabel?: string;
+  size?: DialogSize;
+  children: ReactNode;
+}
 
 const STEP_ITEM_STYLE: CSSProperties = {
   display: 'flex',
@@ -132,7 +122,7 @@ export function GuidedProviderDialog({
       <div className="provider-dialog guided-provider-dialog">
         <DialogHeader title={ariaLabel} onClose={onClose} />
         <div className="guided-stepper" role="list" style={STEPPER_STYLE}>
-          {steps.map((step, idx) => {
+          {steps.map((step: GuidedStep, idx: number) => {
             const state: 'done' | 'current' | 'future' =
               idx < currentStep ? 'done' : idx === currentStep ? 'current' : 'future';
             return (

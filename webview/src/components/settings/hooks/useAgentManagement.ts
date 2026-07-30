@@ -24,12 +24,7 @@ export interface ExportDialogState {
   isOpen: boolean;
 }
 
-export interface UseAgentManagementOptions {
-  onError?: (message: string) => void;
-  onSuccess?: (message: string) => void;
-}
-
-export function useAgentManagement(options: UseAgentManagementOptions = {}) {
+export function useAgentManagement(options: { onError?: (message: string) => void; onSuccess?: (message: string) => void } = {}) {
   const { t } = useTranslation();
   const { onSuccess } = options;
 
@@ -305,5 +300,3 @@ export function useAgentManagement(options: UseAgentManagementOptions = {}) {
     setAgentsLoading,
   };
 }
-
-export type UseAgentManagementReturn = ReturnType<typeof useAgentManagement>;

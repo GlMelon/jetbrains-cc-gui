@@ -1,5 +1,5 @@
 import type { ClaudeContentBlock, ClaudeMessage, TodoItem, ToolInput } from '../types';
-import { normalizeToolName, TASK_MANAGE_TOOL_NAMES } from './toolConstants';
+import { normalizeToolName } from './toolConstants';
 import { normalizeTodoStatus } from './todoShared';
 import type { RawTodoItem } from './todoShared';
 
@@ -67,10 +67,7 @@ export function extractTodosFromToolUse(block: ClaudeContentBlock): TodoItem[] |
   return null;
 }
 
-export function isTaskManageTool(block: ClaudeContentBlock): boolean {
-  if (block.type !== 'tool_use') return false;
-  return TASK_MANAGE_TOOL_NAMES.has(normalizeToolName(block.name ?? ''));
-}
+
 
 /**
  * Extract accumulated tasks from TaskCreate/TaskUpdate tool calls (new structured Task API).

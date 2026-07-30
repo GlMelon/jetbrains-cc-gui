@@ -161,24 +161,12 @@ function isSourceFileName(value: string): boolean {
   return true;
 }
 
-const HTML_ESCAPE_LOOKUP: Record<string, string> = {
-  '&': '&amp;',
-  '<': '&lt;',
-  '>': '&gt;',
-  '"': '&quot;',
-  "'": '&#39;',
-};
-
 const GENERIC_LEADING_BOUNDARY_CHARS = /[\s([\]{}<>"'`=,:;!?]/;
 const GENERIC_TRAILING_BOUNDARY_CHARS = /[\s)\]}>"'`.,:;!?]/;
 
 function createGlobalRegex(regex: RegExp): RegExp {
   const flags = regex.flags.includes('g') ? regex.flags : `${regex.flags}g`;
   return new RegExp(regex.source, flags);
-}
-
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (char) => HTML_ESCAPE_LOOKUP[char] ?? char);
 }
 
 function hasLeadingBoundary(text: string, start: number, boundaryChars: RegExp): boolean {
@@ -297,11 +285,6 @@ function createLinkElement(document: Document, match: LinkifyMatch): HTMLAnchorE
   anchor.classList.add(`${match.type}-link`);
   anchor.textContent = match.value;
   return anchor;
-}
-
-function buildAnchorHtml(match: LinkifyMatch): string {
-  const escapedValue = escapeHtml(match.value);
-  return `<a class="${match.type}-link" data-linkify="${match.type}" href="${escapedValue}">${escapedValue}</a>`;
 }
 
 function findNextMatch(
@@ -426,7 +409,6 @@ function shouldSkipTextNode(textNode: Text): boolean {
 }
 
 const FILE_URI_SCHEME_REGEX = /^file:/i;
-const WINDOWS_DRIVE_PATH_REGEX = /^[A-Za-z]:[\\/]/;
 
 /**
  * Percent-decode an href, repeating to collapse double-encoding such as
@@ -485,27 +467,6 @@ export function normalizeFileNavigationTarget(href: string): string | null {
   }
 
   return decodeHrefRepeatedly(trimmed);
-}
-
-export function isMarkdownFileNavigationHref(href: string): boolean {
-  const normalized = normalizeFileNavigationTarget(href);
-  if (!normalized) {
-    return false;
-  }
-
-  if (FILE_URI_SCHEME_REGEX.test(href.trim())) {
-    return true;
-  }
-
-  if (WINDOWS_DRIVE_PATH_REGEX.test(normalized)) {
-    return true;
-  }
-
-  if (normalized.startsWith('./') || normalized.startsWith('../') || normalized.startsWith('/')) {
-    return true;
-  }
-
-  return /\.[A-Za-z0-9._-]+$/.test(normalized);
 }
 
 export function parseFileLinkTarget(value: string): FileLinkTarget | null {
@@ -567,7 +528,8 @@ export function decorateExistingAnchors(root: Element): void {
       return;
     }
 
-    if (isMarkdownFileNavigationHref(href)) {
+    const normalized = normalizeFileNavigationTarget(href);
+    if (normalized) {
       anchor.classList.add('file-link');
       anchor.setAttribute('data-linkify', 'file');
     }
@@ -606,35 +568,4 @@ export function linkifyHtml(root: Element, capabilities: LinkifyCapabilities): v
 
     replaceTextNodeWithLinks(textNode, matches);
   });
-}
-
-export function linkifyPlainTextSegment(
-  text: string,
-  capabilities: LinkifyCapabilities,
-): string {
-  if (!text) {
-    return '';
-  }
-
-  const matches = collectLinkifyMatches(text, capabilities, true);
-  if (matches.length === 0) {
-    return escapeHtml(text);
-  }
-
-  let html = '';
-  let cursor = 0;
-
-  matches.forEach((match) => {
-    if (match.start > cursor) {
-      html += escapeHtml(text.slice(cursor, match.start));
-    }
-    html += buildAnchorHtml(match);
-    cursor = match.end;
-  });
-
-  if (cursor < text.length) {
-    html += escapeHtml(text.slice(cursor));
-  }
-
-  return html;
 }

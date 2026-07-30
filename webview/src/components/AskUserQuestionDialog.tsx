@@ -13,17 +13,18 @@ const OTHER_OPTION_MARKER = '__OTHER__';
 // Maximum length limit for custom input
 const MAX_CUSTOM_INPUT_LENGTH = 2000;
 
-export interface QuestionOption {
+interface QuestionOption {
   label: string;
   description: string;
 }
 
-export interface Question {
+interface Question {
   question: string;
   header: string;
   options: QuestionOption[];
   multiSelect: boolean;
 }
+
 
 export interface AskUserQuestionRequest {
   requestId: string;
@@ -351,7 +352,7 @@ const AskUserQuestionDialog = ({
 
               {/* Options list */}
               <div className="question-options">
-                {currentQuestion.options.map((option) => {
+                {currentQuestion.options.map((option: QuestionOption) => {
                   const isSelected = currentAnswerSet.has(option.label);
                   return (
                     <button

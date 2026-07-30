@@ -9,9 +9,8 @@
  * subscribe without overwriting each other's callbacks.
  */
 
-import { sendAction, subscribeEvent } from '../bridge/typed';
-import { UPSTREAM, DOWNSTREAM } from '../generated/protocol';
-import { registerLegacyAlias } from '../bridge';
+import { sendAction } from '../bridge/typed';
+import { UPSTREAM } from '../generated/protocol';
 import { createCallbackChannel } from './createCallbackChannel';
 
 export type NodeProcessKind = 'DAEMON' | 'CHANNEL' | 'ORPHAN';
@@ -58,28 +57,6 @@ export interface NodeProcessKillResult {
 type SnapshotListener = (snapshot: NodeProcessSnapshot) => void;
 type KillResultListener = (result: NodeProcessKillResult) => void;
 
-function safeParseSnapshot(json: string): NodeProcessSnapshot | null {
-  try {
-    const parsed = JSON.parse(json) as NodeProcessSnapshot;
-    if (!parsed || !Array.isArray(parsed.processes)) {
-      return null;
-    }
-    return parsed;
-  } catch (error) {
-    console.error('[nodeProcessCapabilities] Failed to parse snapshot:', error);
-    return null;
-  }
-}
-
-function safeParseKillResult(json: string): NodeProcessKillResult | null {
-  try {
-    return JSON.parse(json) as NodeProcessKillResult;
-  } catch (error) {
-    console.error('[nodeProcessCapabilities] Failed to parse kill result:', error);
-    return null;
-  }
-}
-
 // 创建回调通道
 const snapshotChannel = createCallbackChannel<NodeProcessSnapshot>({
   name: 'nodeProcess:snapshot',
@@ -89,31 +66,7 @@ const killResultChannel = createCallbackChannel<NodeProcessKillResult>({
   name: 'nodeProcess:killResult',
 });
 
-let dispatcherSubscribed = false;
-export function installNodeProcessDispatchers(): void {
-  // [归一化] 经 bridgeHub 订阅,替代旧 window.xxx 覆盖。
-  // 别名每次重新注册(幂等,刷新 window.xxx 转发函数);订阅只发生一次避免累积。
-  registerLegacyAlias('updateNodeProcesses', DOWNSTREAM.NODE_PROCESS_LIST);
-  registerLegacyAlias('nodeProcessKillResult', DOWNSTREAM.NODE_PROCESS_KILL_RESULT);
-  if (dispatcherSubscribed) return;
-  dispatcherSubscribed = true;
-  subscribeEvent(DOWNSTREAM.NODE_PROCESS_LIST, (json) => {
-    const snapshot = safeParseSnapshot(json as string);
-    if (snapshot) snapshotChannel.emit(snapshot);
-  });
-  subscribeEvent(DOWNSTREAM.NODE_PROCESS_KILL_RESULT, (json) => {
-    const result = safeParseKillResult(json as string);
-    if (result) killResultChannel.emit(result);
-  });
-}
 
-const ensureInstalled = (): void => {
-  if (typeof window === 'undefined') return;
-  installNodeProcessDispatchers();
-};
-
-// 自动安装 dispatchers
-ensureInstalled();
 
 export function subscribeNodeProcesses(listener: SnapshotListener): () => void {
   return snapshotChannel.subscribe(listener);

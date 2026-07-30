@@ -31,16 +31,13 @@ const DEFAULT_POLICY: Record<ProviderKey, ProviderPolicy> = {
 // SDK + CLI 两种运行时;用于计算「已限制」徽标计数
 const FULL_RUNTIME_COUNT = 2;
 
-export interface RuntimePolicySectionProps {
-  isActive?: boolean;
-  // 上方「调用模式」的当前值,用于在同一视野内联动展示降级预览
-  invocationMode?: 'sdk' | 'cli';
-}
-
 const RuntimePolicySection = ({
   isActive = true,
   invocationMode = 'sdk',
-}: RuntimePolicySectionProps) => {
+}: {
+  isActive?: boolean;
+  invocationMode?: 'sdk' | 'cli';
+}) => {
   const {t} = useTranslation();
   const [policy, setPolicy] = useState<Record<ProviderKey, ProviderPolicy>>(DEFAULT_POLICY);
   const [loaded, setLoaded] = useState(false);

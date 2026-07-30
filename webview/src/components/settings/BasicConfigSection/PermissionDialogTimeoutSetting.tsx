@@ -9,15 +9,13 @@ import {
   clampPermissionDialogTimeoutSeconds,
 } from '../../../utils/permissionDialogTimeout';
 
-export interface PermissionDialogTimeoutSettingProps {
-  permissionDialogTimeoutSeconds?: number;
-  onPermissionDialogTimeoutChange?: (seconds: number) => void;
-}
-
 export function PermissionDialogTimeoutSetting({
   permissionDialogTimeoutSeconds = DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS,
   onPermissionDialogTimeoutChange = () => {},
-}: PermissionDialogTimeoutSettingProps) {
+}: {
+  permissionDialogTimeoutSeconds?: number;
+  onPermissionDialogTimeoutChange?: (seconds: number) => void;
+}) {
   const { t } = useTranslation();
   const [timeoutInputValue, setTimeoutInputValue] = useState(String(permissionDialogTimeoutSeconds));
 

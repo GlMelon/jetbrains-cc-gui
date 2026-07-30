@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BracesIcon, RefreshIcon } from './Icons';
 import DualViewSwitcher, { type DualViewMode } from './shared/DualViewSwitcher';
-import { codexEnvAdapter } from './shared/dualView/adapters';
+import { codexEnvAdapter, type CodexEnvFormState } from './shared/dualView/adapters';
 import type { CodexProviderConfig, EnvVarEntry } from '../types/provider';
 import { validateEnvVarEntries, ENV_VAR_VALUE_MAX_LENGTH } from '../types/provider';
 import EnvVarEditor from './EnvVarEditor';
@@ -459,14 +459,14 @@ wire_api = "responses"`);
           <DualViewSwitcher
             label={t('settings.codexProvider.dialog.envVarsTitle')}
             formState={{ messageEnvVars, mcpEnvVars }}
-            onFormStateChange={(next) => {
+            onFormStateChange={(next: CodexEnvFormState) => {
               setMessageEnvVars(next.messageEnvVars);
               setMcpEnvVars(next.mcpEnvVars);
             }}
             adapter={codexEnvAdapter}
             mode={envViewMode}
             onModeChange={setEnvViewMode}
-            renderForm={(state, onChange) => (
+            renderForm={(state: CodexEnvFormState, onChange: (s: CodexEnvFormState) => void) => (
               <>
                 <div className="form-group" style={{ marginTop: '16px' }}>
                   <label>{t('settings.codexProvider.dialog.messageEnvLabel')}</label>

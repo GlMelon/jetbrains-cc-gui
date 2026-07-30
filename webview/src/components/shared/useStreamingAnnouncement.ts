@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 
-export const STREAM_ANNOUNCEMENT_INTERVAL_MS = 1000;
+const STREAM_ANNOUNCEMENT_INTERVAL_MS = 300;
 
 interface UseStreamingAnnouncementOptions {
   latestText: string;

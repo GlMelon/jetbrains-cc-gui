@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
-import type { ClaudeRawMessage, SubagentHistoryResponse, TaskEvent, TaskEventMap } from '../types';
+import type { ClaudeRawMessage, SubagentHistoryResponse, TaskEventMap } from '../types';
 
 // SubagentHistoryContext holds the full history map so consumers
 // (AgentGroupBlock / TaskExecutionBlock) re-render when an entry arrives.
@@ -77,15 +77,7 @@ export function useSetTaskEvents(): React.Dispatch<React.SetStateAction<TaskEven
   return setTaskEvents;
 }
 
-/**
- * Read the full subagent-history map. Re-renders the caller whenever any entry
- * changes, so an expanded inline Agent card reflects a freshly loaded sidechain
- * transcript without a manual reload. Callers narrow to the key they care about
- * (toolUseId, falling back to agentId).
- */
-export function useSubagentHistories(): Record<string, SubagentHistoryResponse> {
-  return useContext(SubagentHistoryContext);
-}
+
 
 /**
  * Returns a getter function to look up a single subagent's history by key.
@@ -111,16 +103,7 @@ export function useGetToolResultRaw(): GetToolResultRawFn {
   return useContext(ToolResultRawContext);
 }
 
-/**
- * Hook returning the latest task_* event for a background (run_in_background)
- * Agent tool call, keyed by its tool_use_id. Re-renders the caller when the
- * event map changes so inline Agent cards reflect completion in real time.
- */
-export function useTaskEvent(toolUseId: string | undefined): TaskEvent | undefined {
-  const taskEvents = useContext(TaskEventContext);
-  if (!toolUseId) return undefined;
-  return taskEvents[toolUseId];
-}
+
 
 /**
  * Creates the context value objects used by App.tsx's Providers.

@@ -66,12 +66,10 @@ export function migrateLegacyScopedColor(baseKey: ColorBaseKey, theme: Theme): v
   localStorage.removeItem(baseKey);
 }
 
-/**
- * 按 baseKey + theme 应用 CSS 变量;未设则移除变量(回退 LESS 默认)。
- */
-export function applyScopedColor(baseKey: ColorBaseKey, theme: Theme): void {
-  const color = readScopedColor(baseKey, theme);
-  const vars = CSS_VARS[baseKey];
+/** 便捷:应用聊天背景色(--bg-chat) */
+export function applyChatBackground(theme: Theme): void {
+  const color = readScopedColor('chatBgColor', theme);
+  const vars = CSS_VARS['chatBgColor'];
   const root = document.documentElement;
   if (color) {
     vars.forEach((v) => root.style.setProperty(v, color));
@@ -80,12 +78,14 @@ export function applyScopedColor(baseKey: ColorBaseKey, theme: Theme): void {
   }
 }
 
-/** 便捷:应用聊天背景色(--bg-chat) */
-export function applyChatBackground(theme: Theme): void {
-  applyScopedColor('chatBgColor', theme);
-}
-
 /** 便捷:应用用户消息气泡色(--color-message-user-bg/-fade) */
 export function applyUserMsgColor(theme: Theme): void {
-  applyScopedColor('userMsgColor', theme);
+  const color = readScopedColor('userMsgColor', theme);
+  const vars = CSS_VARS['userMsgColor'];
+  const root = document.documentElement;
+  if (color) {
+    vars.forEach((v) => root.style.setProperty(v, color));
+  } else {
+    vars.forEach((v) => root.style.removeProperty(v));
+  }
 }

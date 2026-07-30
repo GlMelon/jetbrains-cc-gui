@@ -22,12 +22,6 @@ const prefersReducedMotion = (): boolean =>
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /**
- * 是否可安全使用 View Transitions：API 存在且用户未要求减少动画。
- */
-export const supportsViewTransition = (): boolean =>
-  hasStartViewTransition() && !prefersReducedMotion();
-
-/**
  * 在一次 View Transition 内执行同步 DOM 更新。
  *
  * React 的 setState 默认并发异步，而 startViewTransition 的回调必须在返回前完成
@@ -38,7 +32,7 @@ export const supportsViewTransition = (): boolean =>
  * @param update 触发重排的 React 状态更新（内部会被 flushSync 同步刷新）
  */
 export const runWithViewTransition = (update: () => void): void => {
-  if (!supportsViewTransition()) {
+  if (!hasStartViewTransition() || prefersReducedMotion()) {
     update();
     return;
   }

@@ -263,14 +263,6 @@ export const extractFilePathFromCommand = (command: string | undefined, workdir?
   return undefined;
 };
 
-export const isFileViewingCommand = (command?: string): boolean => {
-  if (!command || typeof command !== 'string') {
-    return false;
-  }
-
-  return extractFilePathFromCommand(command) !== undefined;
-};
-
 export type ParsedCommandType = 'read' | 'list' | 'search' | 'unknown';
 
 export interface ParsedCommandInfo {
@@ -279,8 +271,7 @@ export interface ParsedCommandInfo {
   path?: string;
 }
 
-/** Tool names that execute shell commands (shared across components). */
-export const COMMAND_TOOL_NAMES = new Set([
+const COMMAND_TOOL_NAMES = new Set([
   'shell_command', 'exec_command', 'execute_command',
   'executecommand', 'bash', 'run_terminal_cmd',
 ]);

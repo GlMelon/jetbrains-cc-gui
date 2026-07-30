@@ -22,5 +22,3 @@ export function useClaudeProvider() {
     setLongContextEnabled,
   };
 }
-
-export type UseClaudeProviderReturn = ReturnType<typeof useClaudeProvider>;

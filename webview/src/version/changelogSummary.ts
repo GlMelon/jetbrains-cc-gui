@@ -6,18 +6,6 @@
  * 列表 + 统计胶囊;旧 renderChangelogMarkdown 暂留作降级兜底。
  */
 
-/** emoji 前缀 → 分区语义,用于彩色着色(✨新功能 / 🐛修复 / 🔧改进 / ⚡性能)。 */
-export const SECTION_KIND: Record<string, string> = {
-  '✨': 'feature',
-  '🐛': 'fix',
-  '🔧': 'improve',
-  '⚡': 'perf',
-  '⚡️': 'perf',
-};
-
-/** 行首 emoji(含中文版本与性能变体 ⚡️)。未知 emoji 归类为 other。 */
-export const SECTION_EMOJI = /^[✨🐛🔧🎉🚀💡⚡️🔥📦🛠️]/;
-
 export function escapeHtml(text: string): string {
   return text
     .replace(/&/g, '&amp;')
@@ -26,12 +14,14 @@ export function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;');
 }
 
-/** 行内格式化:先转义,再还原 **bold** 与 `code`。 */
-export function formatInline(text: string): string {
+function formatInline(text: string): string {
   return escapeHtml(text)
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/`([^`]+)`/g, '<code>$1</code>');
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/`(.+?)`/g, '<code>$1</code>');
 }
+
+
 
 export interface ChangelogSection {
   /** 分区语义:feature/fix/improve/perf/other(取自 SECTION_KIND)。 */
@@ -68,6 +58,16 @@ const EMPTY_SUMMARY: ChangelogSummary = { sections: [], loose: [], stats: [], to
  */
 export function summarizeChangelog(text: string): ChangelogSummary {
   if (!text || !text.trim()) return EMPTY_SUMMARY;
+
+  const SECTION_KIND: Record<string, string> = {
+    '✨': 'feature',
+    '🐛': 'fix',
+    '🔧': 'improve',
+    '⚡': 'perf',
+    '⚡️': 'perf',
+  };
+
+  const SECTION_EMOJI = /^[✨🐛🔧🎉🚀💡⚡️🔥📦🛠️]/;
 
   const sections: ChangelogSection[] = [];
   const loose: string[] = [];

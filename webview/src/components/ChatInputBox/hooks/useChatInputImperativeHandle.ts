@@ -2,19 +2,7 @@ import { useImperativeHandle } from 'react';
 import type { ForwardedRef, MutableRefObject } from 'react';
 import type { ChatInputBoxHandle, FileTagInfo } from '../types.js';
 
-export interface UseChatInputImperativeHandleOptions {
-  ref: ForwardedRef<ChatInputBoxHandle>;
-  editableRef: React.RefObject<HTMLDivElement | null>;
-  getTextContent: () => string;
-  invalidateCache: () => void;
-  isExternalUpdateRef: MutableRefObject<boolean>;
-  setHasContent: (hasContent: boolean) => void;
-  adjustHeight: () => void;
-  focusInput: () => void;
-  clearInput: () => void;
-  hasContent: boolean;
-  extractFileTags: () => FileTagInfo[];
-}
+
 
 /**
  * useChatInputImperativeHandle - Exposes an imperative API for the input box
@@ -33,7 +21,19 @@ export function useChatInputImperativeHandle({
   clearInput,
   hasContent,
   extractFileTags,
-}: UseChatInputImperativeHandleOptions): void {
+}: {
+  ref: ForwardedRef<ChatInputBoxHandle>;
+  editableRef: MutableRefObject<HTMLDivElement | null>;
+  getTextContent: () => string;
+  invalidateCache: () => void;
+  isExternalUpdateRef: MutableRefObject<boolean>;
+  setHasContent: (has: boolean) => void;
+  adjustHeight: () => void;
+  focusInput: () => void;
+  clearInput: () => void;
+  hasContent: boolean;
+  extractFileTags: () => FileTagInfo[];
+}): void {
   useImperativeHandle(
     ref,
     () => ({

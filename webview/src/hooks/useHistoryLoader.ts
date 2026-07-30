@@ -4,12 +4,7 @@ import { useEffect } from 'react';
 
 
 
-export interface UseHistoryLoaderOptions {
-  currentView: 'chat' | 'history' | 'settings';
-  currentProvider: string;
-}
-
-export function useHistoryLoader(options: UseHistoryLoaderOptions): void {
+export function useHistoryLoader(options: { currentView: 'chat' | 'history' | 'settings'; currentProvider: string }): void {
   const { currentView, currentProvider } = options;
 
   useEffect(() => {

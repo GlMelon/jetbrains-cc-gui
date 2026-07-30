@@ -4,8 +4,8 @@ import { BracesIcon, RefreshIcon } from './Icons';
 import type { OpenCodeProviderConfig } from '../types/provider';
 import { GuidedProviderDialog, type GuidedStep } from './shared/GuidedProviderDialog';
 import DualViewSwitcher, { type DualViewMode } from './shared/DualViewSwitcher';
-import { openCodeAdvancedAdapter } from './shared/dualView/adapters';
-import OpenCodeAdvancedForm, { extractAdvancedRaw } from './shared/OpenCodeAdvancedForm';
+import { openCodeAdvancedAdapter, type OpenCodeAdvancedFormState } from './shared/dualView/adapters';
+import OpenCodeAdvancedForm from './shared/OpenCodeAdvancedForm';
 import { fetchProviderModels } from '../utils/bridge';
 
 const FORM_HEADER_STYLE: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'center' };
@@ -76,7 +76,14 @@ export default function OpenCodeProviderDialog({
         setApiKey(provider.apiKey || '');
         setModelsJson(provider.models ? JSON.stringify(provider.models, null, 2) : '{}');
         // 回灌 opencode 原生透传字段(剥离已知业务字段),避免编辑丢失
-        setAdvancedRaw(extractAdvancedRaw(provider));
+        const ADVANCED_RAW_EXCLUDE = ['id', 'name', 'baseURL', 'apiBase', 'apiKey', 'models', 'createdAt', 'isActive'];
+        const raw: Record<string, any> = {};
+        for (const [k, v] of Object.entries(provider || {})) {
+          if (!ADVANCED_RAW_EXCLUDE.includes(k)) {
+            raw[k] = v;
+          }
+        }
+        setAdvancedRaw(raw);
       } else {
         // Add mode - reset with default template
         setProviderKey('');
@@ -379,12 +386,12 @@ export default function OpenCodeProviderDialog({
           <DualViewSwitcher
             label={t('settings.openCodeProvider.dialog.advancedTitle', '高级 / 透传字段')}
             formState={{ raw: advancedRaw }}
-            onFormStateChange={(next) => setAdvancedRaw(next.raw)}
+            onFormStateChange={(next: OpenCodeAdvancedFormState) => setAdvancedRaw(next.raw)}
             adapter={openCodeAdvancedAdapter}
             mode={advancedViewMode}
             onModeChange={setAdvancedViewMode}
             jsonHint={t('settings.openCodeProvider.dialog.advancedJsonHint', '含 opencode 原生透传字段')}
-            renderForm={(state, onChange) => (
+            renderForm={(state: OpenCodeAdvancedFormState, onChange: (s: OpenCodeAdvancedFormState) => void) => (
               <OpenCodeAdvancedForm state={state} onChange={onChange} />
             )}
           />

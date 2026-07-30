@@ -286,21 +286,6 @@ const CompactSummaryBlock = memo(function CompactSummaryBlock({ block, t }: Comp
   );
 });
 
-export interface ContentBlockRendererProps {
-  block: ClaudeContentBlock;
-  blockIndex: number;
-  messageIndex: number;
-  messageType: string;
-  isStreaming: boolean;
-  isThinkingExpanded: boolean;
-  isThinking: boolean;
-  isLastMessage: boolean;
-  isLastBlock?: boolean;
-  t: TFunction;
-  onToggleThinking: (blockIndex: number) => void;
-  findToolResult: (toolId: string | undefined, messageIndex: number) => ToolResultBlock | null | undefined;
-}
-
 export const ContentBlockRenderer = memo(function ContentBlockRenderer({
   block,
   blockIndex,
@@ -314,7 +299,20 @@ export const ContentBlockRenderer = memo(function ContentBlockRenderer({
   t,
   onToggleThinking,
   findToolResult,
-}: ContentBlockRendererProps): React.ReactElement | null {
+}: {
+  block: ClaudeContentBlock;
+  blockIndex: number;
+  messageIndex: number;
+  messageType: string;
+  isStreaming: boolean;
+  isThinkingExpanded: boolean;
+  isThinking: boolean;
+  isLastMessage: boolean;
+  isLastBlock?: boolean;
+  t: TFunction;
+  onToggleThinking: (blockIndex: number) => void;
+  findToolResult: (toolId: string | undefined, messageIndex: number) => ToolResultBlock | null | undefined;
+}): React.ReactElement | null {
   if (block.type === 'text') {
     return messageType === 'user' ? (
       <CollapsibleTextBlock content={block.text ?? ''} />

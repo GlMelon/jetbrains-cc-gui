@@ -10,26 +10,6 @@ import { UPSTREAM } from '../../../generated/protocol';
 import { clearToolsCache, clearAllToolsCache } from '../utils';
 import type { ToastMessage } from '../../Toast';
 
-export interface UseServerManagementOptions {
-  isCodexMode: boolean;
-  messagePrefix: string;
-  cacheKeys: CacheKeys;
-  setServerTools: React.Dispatch<React.SetStateAction<ServerToolsState>>;
-  loadServers: () => void;
-  loadServerStatus: () => void;
-  loadServerTools: (server: McpServer, forceRefresh?: boolean) => void;
-  onLog: (message: string, type: RefreshLog['type'], details?: string, serverName?: string, requestInfo?: string, errorReason?: string) => void;
-  onToast: (message: string, type: ToastMessage['type']) => void;
-  t: (key: string, options?: Record<string, unknown>) => string;
-}
-
-export interface UseServerManagementReturn {
-  serverRefreshStates: ServerRefreshState;
-  handleRefresh: () => void;
-  handleRefreshSingleServer: (server: McpServer, forceRefreshTools?: boolean) => void;
-  handleToggleServer: (server: McpServer, enabled: boolean) => void;
-}
-
 /**
  * Server Management Operations Hook
  */
@@ -44,7 +24,23 @@ export function useServerManagement({
   onLog,
   onToast,
   t,
-}: UseServerManagementOptions): UseServerManagementReturn {
+}: {
+  isCodexMode: boolean;
+  messagePrefix: string;
+  cacheKeys: CacheKeys;
+  setServerTools: React.Dispatch<React.SetStateAction<ServerToolsState>>;
+  loadServers: () => void;
+  loadServerStatus: () => void;
+  loadServerTools: (server: McpServer, forceRefresh?: boolean) => void;
+  onLog: (message: string, type: RefreshLog['type'], details?: string, serverName?: string, requestInfo?: string, errorReason?: string) => void;
+  onToast: (message: string, type: ToastMessage['type']) => void;
+  t: (key: string, options?: Record<string, unknown>) => string;
+}): {
+  serverRefreshStates: ServerRefreshState;
+  handleRefresh: () => void;
+  handleRefreshSingleServer: (server: McpServer, forceRefreshTools?: boolean) => void;
+  handleToggleServer: (server: McpServer, enabled: boolean) => void;
+} {
   // Individual server refresh state
   const [serverRefreshStates, setServerRefreshStates] = useState<ServerRefreshState>({});
 

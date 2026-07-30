@@ -1,16 +1,7 @@
 import { useEffect } from 'react';
 import type { MutableRefObject } from 'react';
 
-export interface UseControlledValueSyncOptions {
-  value: string | undefined;
-  editableRef: React.RefObject<HTMLDivElement | null>;
-  isComposingRef: MutableRefObject<boolean>;
-  isExternalUpdateRef: MutableRefObject<boolean>;
-  getTextContent: () => string;
-  setHasContent: (hasContent: boolean) => void;
-  adjustHeight: () => void;
-  invalidateCache: () => void;
-}
+
 
 /**
  * useControlledValueSync - Sync external `value` into the contenteditable input
@@ -34,7 +25,16 @@ export function useControlledValueSync({
   setHasContent,
   adjustHeight,
   invalidateCache,
-}: UseControlledValueSyncOptions): void {
+}: {
+  value: string | undefined;
+  editableRef: MutableRefObject<HTMLDivElement | null>;
+  isComposingRef: MutableRefObject<boolean>;
+  isExternalUpdateRef: MutableRefObject<boolean>;
+  getTextContent: () => string;
+  setHasContent: (has: boolean) => void;
+  adjustHeight: () => void;
+  invalidateCache: () => void;
+}): void {
   useEffect(() => {
     if (value === undefined) return;
     if (!editableRef.current) return;

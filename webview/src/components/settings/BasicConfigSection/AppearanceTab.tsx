@@ -181,7 +181,34 @@ const SystemIcon = () => (
   </svg>
 );
 
-export interface AppearanceTabProps {
+const AppearanceTab = ({
+  theme,
+  onThemeChange,
+  resolvedTheme = 'dark',
+  fontSizeLevel,
+  onFontSizeLevelChange,
+  editorFontConfig,
+  uiFontConfig,
+  codeFontConfig,
+  onUiFontSelectionChange = () => {},
+  onSaveUiFontCustomPath = () => {},
+  onBrowseUiFontFile = () => {},
+  onCodeFontSelectionChange = () => {},
+  onSaveCodeFontCustomPath = () => {},
+  onBrowseCodeFontFile = () => {},
+  chatBgColor = '',
+  onChatBgColorChange = () => {},
+  userMsgColor = '',
+  onUserMsgColorChange = () => {},
+  diffTheme = 'follow',
+  onDiffThemeChange = () => {},
+  currentProvider,
+  avatarConfig,
+  onAssistantAvatarChange = () => {},
+  onUserAvatarChange = () => {},
+  onUploadAssistantAvatar = () => {},
+  onUploadUserAvatar = () => {},
+}: {
   theme: 'light' | 'dark' | 'system';
   onThemeChange: (theme: 'light' | 'dark' | 'system') => void;
   /** 解析后的实际主题(亮/暗),决定颜色预设与默认色;由父 hook(themePreference + ideTheme)派生 */
@@ -213,36 +240,7 @@ export interface AppearanceTabProps {
   onUserAvatarChange?: (selection: AvatarConfig['user']) => void;
   onUploadAssistantAvatar?: () => void;
   onUploadUserAvatar?: () => void;
-}
-
-const AppearanceTab = ({
-  theme,
-  onThemeChange,
-  resolvedTheme = 'dark',
-  fontSizeLevel,
-  onFontSizeLevelChange,
-  editorFontConfig,
-  uiFontConfig,
-  codeFontConfig,
-  onUiFontSelectionChange = () => {},
-  onSaveUiFontCustomPath = () => {},
-  onBrowseUiFontFile = () => {},
-  onCodeFontSelectionChange = () => {},
-  onSaveCodeFontCustomPath = () => {},
-  onBrowseCodeFontFile = () => {},
-  chatBgColor = '',
-  onChatBgColorChange = () => {},
-  userMsgColor = '',
-  onUserMsgColorChange = () => {},
-  diffTheme = 'follow',
-  onDiffThemeChange = () => {},
-  currentProvider,
-  avatarConfig,
-  onAssistantAvatarChange = () => {},
-  onUserAvatarChange = () => {},
-  onUploadAssistantAvatar = () => {},
-  onUploadUserAvatar = () => {},
-}: AppearanceTabProps) => {
+}) => {
   const { t, i18n } = useTranslation();
   const colorInputRef = useRef<HTMLInputElement>(null);
   const userMsgColorInputRef = useRef<HTMLInputElement>(null);
@@ -805,12 +803,12 @@ const AppearanceTab = ({
                       <strong>{t('settings.basic.avatar.assistantDefault')}</strong>
                     </span>
                   </button>
-                  {assistantProviderAvatarOptions.map((option) => (
+                  {assistantProviderAvatarOptions.map((option) => option.value != null && (
                     <button
                       key={option.value}
                       type="button"
                       className={`${styles.avatarChoiceCard} ${assistantActivePreset(option.value) ? styles.active : ''}`}
-                      onClick={() => selectAssistantPresetAvatar(option.value)}
+                      onClick={() => option.value != null && selectAssistantPresetAvatar(option.value)}
                     >
                       <span className={styles.avatarChoiceCheck}>✓</span>
                       <span

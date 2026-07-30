@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import './ContextMenu.css';
 
-export type ContextMenuItem =
+type ContextMenuItem =
   | { separator: true }
   | { separator?: false; label: string; action: () => void; disabled?: boolean };
 

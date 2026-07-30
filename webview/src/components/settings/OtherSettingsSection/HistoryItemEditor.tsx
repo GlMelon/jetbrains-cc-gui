@@ -3,18 +3,12 @@ import { useTranslation } from 'react-i18next';
 import styles from './style.module.less';
 import { InfoIcon, MinusIcon, PlusIcon, CloseIcon } from '../../Icons';
 
-export interface HistoryItemEditorProps {
-  /** Whether the editor is open */
+interface HistoryItemEditorProps {
   isOpen: boolean;
-  /** Close the editor */
   onClose: () => void;
-  /** Save the item */
   onSave: (text: string, importance: number) => void;
-  /** Mode: 'add' for new item, 'edit' for existing item */
   mode: 'add' | 'edit';
-  /** Initial text (for edit mode) */
   initialText?: string;
-  /** Initial importance (for edit mode) */
   initialImportance?: number;
 }
 
@@ -65,7 +59,7 @@ export function HistoryItemEditor({
   );
 
   const handleImportanceChange = useCallback((delta: number) => {
-    setImportance((prev) => Math.max(1, prev + delta));
+    setImportance((prev: number) => Math.max(1, prev + delta));
   }, []);
 
   const handleImportanceInput = useCallback(

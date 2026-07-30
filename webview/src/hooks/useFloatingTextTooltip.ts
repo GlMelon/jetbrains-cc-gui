@@ -1,11 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-export interface FloatingTextTooltipController {
-  showTooltip: (text: string, clientX: number, clientY: number) => HTMLDivElement | null;
-  moveTooltip: (text: string, clientX: number, clientY: number) => void;
-  hideTooltip: () => void;
-}
-
 function updateTooltipPosition(
   tooltip: HTMLDivElement,
   clientX: number,
@@ -37,7 +31,11 @@ function updateTooltipPosition(
   tooltip.style.transform = transform;
 }
 
-export function useFloatingTextTooltip(): FloatingTextTooltipController {
+export function useFloatingTextTooltip(): {
+  showTooltip: (text: string, clientX: number, clientY: number) => HTMLDivElement | null;
+  moveTooltip: (text: string, clientX: number, clientY: number) => void;
+  hideTooltip: () => void;
+} {
   const tooltipElRef = useRef<HTMLDivElement | null>(null);
 
   const hideTooltip = useCallback(() => {

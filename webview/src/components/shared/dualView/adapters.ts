@@ -19,12 +19,6 @@ export interface DualViewAdapter<S> {
   validate?: (state: S) => string | null;
 }
 
-// ── Claude:env 是对象 Record<string, any>(含保留 key ANTHROPIC_*,作 JSON 视图真相源) ──
-
-export interface ClaudeEnvFormState {
-  env: Record<string, any>;
-}
-
 // ── Claude(整体 settingsConfig):JSON 视图=完整 jsonConfig,不丢非 env 字段 ──
 // Claude 的 jsonConfig 是整个 settingsConfig(env + model + alwaysThinkingEnabled + ccSwitchProviderId + …),
 // 故 DualViewSwitcher 的 formState 直接是 settingsConfig 对象(非 env-only),
@@ -56,35 +50,7 @@ export const claudeConfigAdapter: DualViewAdapter<ClaudeConfigFormState> = {
   },
 };
 
-export const claudeEnvAdapter: DualViewAdapter<ClaudeEnvFormState> = {
-  serialize: ({ env }) => JSON.stringify({ env }, null, 2),
-  parse: (text) => {
-    let obj: unknown;
-    try {
-      obj = JSON.parse(text);
-    } catch {
-      return { ok: false, error: 'JSON 语法错误' };
-    }
-    if (obj === null || typeof obj !== 'object' || Array.isArray(obj)) {
-      return { ok: false, error: '根必须是对象' };
-    }
-    const { env } = obj as { env?: unknown };
-    if (env === undefined) {
-      return { ok: true, state: { env: {} } };
-    }
-    if (env === null || typeof env !== 'object' || Array.isArray(env)) {
-      return { ok: false, error: 'env 必须是对象' };
-    }
-    return { ok: true, state: { env: env as Record<string, any> } };
-  },
-};
 
-// ── Codex:env 是 EnvVarEntry[] ×2(messageEnvVars + mcpEnvVars) ──
-
-export interface CodexEnvFormState {
-  messageEnvVars: EnvVarEntry[];
-  mcpEnvVars: EnvVarEntry[];
-}
 
 /** 过滤 key 为空(空串或纯空白)的 entry;save 时用,避免把占位空行落盘。 */
 function stripEmptyKey(entries: EnvVarEntry[]): EnvVarEntry[] {
@@ -114,6 +80,11 @@ function parseEnvVarArray(
     result.push({ key, value: v });
   }
   return { ok: true, v: result };
+}
+
+export interface CodexEnvFormState {
+  messageEnvVars: EnvVarEntry[];
+  mcpEnvVars: EnvVarEntry[];
 }
 
 export const codexEnvAdapter: DualViewAdapter<CodexEnvFormState> = {

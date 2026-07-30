@@ -4,14 +4,6 @@ import type { ClaudeMessage, ViewMode } from '../types';
 const SCROLL_ANCHOR_ENABLED_CLASS = 'scroll-anchor-enabled';
 const BOTTOM_THRESHOLD_PX = 100;
 
-export interface UseScrollBehaviorOptions {
-  currentView: ViewMode;
-  messages: ClaudeMessage[];
-  expandedThinking?: Record<string, boolean>;
-  loading: boolean;
-  streamingActive: boolean;
-}
-
 interface UseScrollBehaviorReturn {
   messagesContainerRef: React.RefObject<HTMLDivElement | null>;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
@@ -36,7 +28,13 @@ export function useScrollBehavior({
   expandedThinking,
   loading,
   streamingActive,
-}: UseScrollBehaviorOptions): UseScrollBehaviorReturn {
+}: {
+  currentView: ViewMode;
+  messages: ClaudeMessage[];
+  expandedThinking?: Record<string, boolean>;
+  loading: boolean;
+  streamingActive: boolean;
+}): UseScrollBehaviorReturn {
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const inputAreaRef = useRef<HTMLDivElement | null>(null);

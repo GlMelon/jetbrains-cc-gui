@@ -154,20 +154,11 @@ export function isCompactCommandMessage(message: ClaudeMessage): boolean {
 }
 
 /**
- * Check if a message is a compact stdout message (contains <local-command-stdout>).
- */
-export function isCompactStdoutMessage(message: ClaudeMessage): boolean {
-  if (message.type !== MESSAGE_TYPES.USER) return false;
-  const texts = extractTextsFromRaw(message.raw);
-  return texts.some((t) => t.includes('<local-command-stdout>'));
-}
-
-/**
  * Check if a message is compact-related (command, stdout, or summary).
  */
 export function isCompactRelatedMessage(message: ClaudeMessage): boolean {
   if (message.type !== MESSAGE_TYPES.USER) return false;
-  if (isCompactCommandMessage(message) || isCompactStdoutMessage(message)) return true;
+  if (isCompactCommandMessage(message)) return true;
   // Also check isCompactSummary flag on raw
   if (
     message.raw &&
@@ -180,18 +171,11 @@ export function isCompactRelatedMessage(message: ClaudeMessage): boolean {
   return false;
 }
 
-/**
- * Check if a message is a compact-boundary system line. The CLI writes the real
- * compaction metadata ({ trigger, preTokens, postTokens, durationMs, … }) on a
- * separate `type: 'system', subtype: 'compact_boundary'` JSONL line, NOT on the
- * compact-summary user line itself.
- */
-export function isCompactBoundaryMessage(message: ClaudeMessage): boolean {
+function isCompactBoundaryMessageInline(message: ClaudeMessage): boolean {
   const raw = message.raw;
   if (!raw || typeof raw !== 'object') return false;
   const rawObj = raw as Record<string, unknown>;
-  const type = rawObj.type === 'system';
-  return type && rawObj.subtype === 'compact_boundary';
+  return rawObj.type === 'system' && rawObj.subtype === 'compact_boundary';
 }
 
 /**
@@ -202,13 +186,13 @@ export function isCompactBoundaryMessage(message: ClaudeMessage): boolean {
  * Returns the input array unchanged when no boundary lines are present.
  */
 export function attachCompactBoundaryMetadata(messages: ClaudeMessage[]): ClaudeMessage[] {
-  if (!messages.some(isCompactBoundaryMessage)) return messages;
+  if (!messages.some(isCompactBoundaryMessageInline)) return messages;
 
   const result: ClaudeMessage[] = [];
   let pendingMetadata: unknown = null;
 
   for (const message of messages) {
-    if (isCompactBoundaryMessage(message)) {
+    if (isCompactBoundaryMessageInline(message)) {
       const rawObj = message.raw as Record<string, unknown>;
       const meta = rawObj.compactMetadata;
       if (meta && typeof meta === 'object') {
@@ -240,58 +224,6 @@ export function attachCompactBoundaryMetadata(messages: ClaudeMessage[]): Claude
   }
 
   return result;
-}
-
-const COMPACT_STDOUT_REGEX = /<local-command-stdout>([\s\S]*?)<\/local-command-stdout>/;
-
-/**
- * Extract compact notification items from a group of messages.
- */
-export function extractCompactItems(group: ClaudeMessage[]): CompactNotificationItem[] {
-  return group.flatMap((msg) => {
-    const texts = extractTextsFromRaw(msg.raw);
-    return texts.flatMap((text) => {
-      const match = COMPACT_STDOUT_REGEX.exec(text);
-      return match?.[1] ? [{ type: 'stdout' as const, text: match[1].trim() }] : [];
-    });
-  });
-}
-
-/**
- * Build a compact_notification message from a group of compact-related messages.
- * Returns null if no command message is found in the group.
- */
-export function buildCompactNotification(group: ClaudeMessage[]): ClaudeMessage | null {
-  if (group.length === 0) return null;
-
-  // Find the command message as primary
-  const commandMsg = group.find((m) => isCompactCommandMessage(m));
-  if (!commandMsg) return null;
-
-  let headerText = '/compact';
-  const commandTexts = extractTextsFromRaw(commandMsg.raw);
-  for (const text of commandTexts) {
-    const display = formatCommandForDisplay(text);
-    if (display) {
-      headerText = display;
-      break;
-    }
-  }
-
-  // Collect stdout items from the group
-  const items = extractCompactItems(group);
-
-  // Preserve timestamp from first message for ordering
-  const timestamp = commandMsg.timestamp || group[0].timestamp;
-
-  return {
-    type: MESSAGE_TYPES.COMPACT_NOTIFICATION,
-    content: headerText,
-    timestamp,
-    raw: {
-      compactItems: items,
-    },
-  };
 }
 
 function normalizeComparableMessageText(text: string | undefined): string {

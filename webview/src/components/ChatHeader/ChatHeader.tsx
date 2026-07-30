@@ -12,12 +12,8 @@ export interface ChatHeaderProps {
   onNewTab: () => void;
   onHistory: () => void;
   onSettings: () => void;
-  /**
-   * Opens the in-conversation search panel. Only rendered when provided.
-   * Wired up by App.tsx via UIStateContext.setSearchOpen.
-   */
   onOpenSearch?: () => void;
-  onTitleChange?: (newTitle: string) => void;
+  onTitleChange?: (title: string) => void;
   titleEditable?: boolean;
 }
 

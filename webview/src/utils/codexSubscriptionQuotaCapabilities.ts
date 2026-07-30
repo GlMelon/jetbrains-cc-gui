@@ -54,21 +54,14 @@ const quotaChannel = createCallbackChannel<CodexSubscriptionQuotaSnapshot>({
   name: 'codexSubscriptionQuota',
 });
 
-let dispatcherSubscribed = false;
-export function installCodexSubscriptionQuotaDispatchers(): void {
+const ensureInstalled = (): void => {
+  if (typeof window === 'undefined') return;
   // [归一化] 经 bridgeHub 订阅,替代旧 window.xxx 覆盖。别名每次重注册;订阅只发生一次。
   registerLegacyAlias('updateCodexSubscriptionQuota', DOWNSTREAM.CODEX_SUBSCRIPTION_QUOTA);
-  if (dispatcherSubscribed) return;
-  dispatcherSubscribed = true;
   subscribeEvent(DOWNSTREAM.CODEX_SUBSCRIPTION_QUOTA, (json) => {
     const snapshot = safeParseSnapshot(json as string);
     if (snapshot) quotaChannel.emit(snapshot);
   });
-}
-
-const ensureInstalled = (): void => {
-  if (typeof window === 'undefined') return;
-  installCodexSubscriptionQuotaDispatchers();
 };
 
 // 自动安装 dispatchers

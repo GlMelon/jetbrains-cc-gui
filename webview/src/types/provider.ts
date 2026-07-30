@@ -35,21 +35,6 @@ export const SPECIAL_PROVIDER_IDS = {
 export const PROVIDER_IDS = PROVIDER_TYPE;
 
 /**
- * Check if a provider ID is a special pseudo provider
- * @param id - Provider ID to check
- * @returns Whether this is a special pseudo provider that cannot be updated via update_provider
- */
-export function isSpecialProviderId(id: string): boolean {
-  return (
-    id === SPECIAL_PROVIDER_IDS.DISABLED ||
-    id === SPECIAL_PROVIDER_IDS.LOCAL_SETTINGS ||
-    id === SPECIAL_PROVIDER_IDS.CLI_LOGIN ||
-    id === SPECIAL_PROVIDER_IDS.CODEX_CLI_LOGIN ||
-    id === SPECIAL_PROVIDER_IDS.OPENCODE_LOCAL_CONFIG
-  );
-}
-
-/**
  * localStorage keys for provider-related data
  */
 export const STORAGE_KEYS = {
@@ -82,51 +67,6 @@ export const CLAUDE_MODEL_MAPPING_ENV_KEYS = [
 // ============ Validation Helpers ============
 
 /**
- * Validate whether a model ID format is valid.
- *
- * NOTE: Model ID format is intentionally NOT restricted by regex.
- * Third-party providers use diverse model ID formats that cannot be
- * predicted (e.g., slashes, brackets, CJK characters). Only basic
- * sanity checks (non-empty, length limit) are applied.
- * Do NOT re-add MODEL_ID_PATTERN validation here.
- *
- * @param id - Model ID
- * @returns Whether the ID is valid
- */
-export function isValidModelId(id: string): boolean {
-  if (!id || typeof id !== 'string') return false;
-  const trimmed = id.trim();
-  if (trimmed.length === 0 || trimmed.length > 256) return false;
-  return true;
-}
-
-/**
- * Validate whether a CodexCustomModel object is valid
- * @param model - Object to validate
- * @returns Whether it is a valid CodexCustomModel
- */
-export function isValidCodexCustomModel(model: unknown): model is CodexCustomModel {
-  if (!model || typeof model !== 'object') return false;
-  const obj = model as Record<string, unknown>;
-
-  // id must be a valid model ID
-  if (typeof obj.id !== 'string' || !isValidModelId(obj.id)) return false;
-
-  // label must be a string
-  if (typeof obj.label !== 'string' || obj.label.trim().length === 0) return false;
-
-  // description is optional, but must be a string if present
-  if (obj.description !== undefined && typeof obj.description !== 'string') return false;
-
-  // pricing is optional; when present every provided field must be a non-negative number
-  if (obj.pricing !== undefined) {
-    if (!isValidModelPricing(obj.pricing)) return false;
-  }
-
-  return true;
-}
-
-/**
  * Validate whether a ModelPricing object is valid.
  * Every field is optional, but if present must be a finite number >= 0.
  */
@@ -154,7 +94,15 @@ export function isValidModelPricing(pricing: unknown): boolean {
  */
 export function validateCodexCustomModels(models: unknown): CodexCustomModel[] {
   if (!Array.isArray(models)) return [];
-  return models.filter(isValidCodexCustomModel);
+  return models.filter((model): model is CodexCustomModel => {
+    if (!model || typeof model !== 'object') return false;
+    const obj = model as Record<string, unknown>;
+    if (typeof obj.id !== 'string' || !obj.id.trim() || obj.id.trim().length > 256) return false;
+    if (typeof obj.label !== 'string' || obj.label.trim().length === 0) return false;
+    if (obj.description !== undefined && typeof obj.description !== 'string') return false;
+    if (obj.pricing !== undefined && !isValidModelPricing(obj.pricing)) return false;
+    return true;
+  });
 }
 
 // ============ Types ============

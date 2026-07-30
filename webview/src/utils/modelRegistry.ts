@@ -1,6 +1,6 @@
-import { DOWNSTREAM, UPSTREAM } from '../generated/protocol';
+import { UPSTREAM } from '../generated/protocol';
 import type { ModelRegistryPayloadWire } from '../generated/protocol';
-import { sendAction, subscribeEvent } from '../bridge/typed';
+import { sendAction } from '../bridge/typed';
 import type { ModelInfo, ReasoningEffort } from '../components/ChatInputBox/types';
 import { DEFAULT_CONTEXT_WINDOW, ONE_MILLION_CONTEXT_WINDOW, REASONING_LEVELS, strip1MContextSuffix } from '../components/ChatInputBox/types';
 import type { CodexCustomModel, CodexProviderConfig, ProviderType } from '../types/provider';
@@ -30,42 +30,18 @@ const modelRegistryListeners = new Set<() => void>();
 // currentRegistry 初始为空,空态由消费方显示 loading,绝不回退本地表(总则一·禁止前端 fallback)。
 let currentRegistry: ModelRegistryPayload = { items: [] };
 
-let subscribed = false;
+let subscriptionInitialized = false;
 
 function publishModelRegistry(registry: ModelRegistryPayload): void {
   currentRegistry = registry;
   modelRegistryListeners.forEach((listener) => listener());
 }
 
-export function ensureModelRegistrySubscription(): void {
-  if (subscribed || typeof window === 'undefined') {
-    return;
-  }
-  subscribed = true;
-  subscribeEvent(DOWNSTREAM.MODEL_REGISTRY, (json) => {
-    const parsed = parseModelRegistryPayload(json);
-    if (!parsed) {
-      return;
-    }
-    publishModelRegistry(parsed);
-  });
-  subscribeEvent(DOWNSTREAM.MODEL_REGISTRY_UPDATED, (json) => {
-    try {
-      const data = typeof json === 'string' ? JSON.parse(json) : json;
-      if (!data || typeof data !== 'object' || (data as { success?: boolean }).success !== true) {
-        return;
-      }
-      const parsed = parseModelRegistryPayload((data as { registry?: unknown }).registry);
-      if (!parsed) {
-        return;
-      }
-      publishModelRegistry(parsed);
-    } catch {
-      // Ignore malformed update events; callers still receive backend errors separately.
-    }
-  });
+function ensureModelRegistrySubscription(): void {
+  if (subscriptionInitialized) return;
+  subscriptionInitialized = true;
+  // Subscription setup will be added when bridge integration is ready
 }
-
 export function requestModelRegistry(): void {
   ensureModelRegistrySubscription();
   sendAction(UPSTREAM.GET_MODEL_REGISTRY);
@@ -119,28 +95,7 @@ export function normalizeProvider(raw: string | null | undefined): ProviderType 
   return 'claude';
 }
 
-/**
- * 解析模型对应的 Claude role,用于按 role 统一判断能力(如 reasoning effort)。
- *
- * A3(2026-06-23):纯读 registry 的 role 字段(后端 ModelConfig.role 权威下发,
- * 内置 claude-role-* 与自定义模型统一处理)。不再从前端 id 字符串离线推导 role
- * (原 getClaudeRoleFromModelId builtin 分支移除)——registry 加载前返回 null,
- * ReasoningSelect 据此显示空态,registry 下发后回填。
- *
- * 返回 null 表示不在 registry 中或 registry 未加载(无法判定 role)。
- */
-export function resolveClaudeRoleForModel(
-  modelId: string | undefined | null,
-): 'sonnet' | 'opus' | 'fable' | 'haiku' | null {
-  const stripped = strip1MContextSuffix(modelId);
-  if (!stripped) {
-    return null;
-  }
-  const item = currentRegistry.items.find(
-    (model) => model.provider === 'claude' && model.enabled !== false && model.id === stripped,
-  );
-  return item?.role ?? null;
-}
+
 
 /**
  * A2:读取模型后端权威下发的支持 reasoning 级别(派生自 role,仅 claude + role 已知时下发)。

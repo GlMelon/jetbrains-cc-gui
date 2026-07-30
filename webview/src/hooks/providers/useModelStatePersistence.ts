@@ -19,7 +19,16 @@ const CODEX_FAST_MODE_VALUES = ['normal', 'fast'] as const;
 const isCodexFastMode = (value: unknown): value is CodexFastMode =>
   typeof value === 'string' && (CODEX_FAST_MODE_VALUES as readonly string[]).includes(value);
 
-export interface UseModelStatePersistenceOptions {
+/**
+ * Two effects for persisting cross-slice provider/model state to localStorage:
+ *  1. On mount: hydrate local UI preferences from localStorage.
+ *  2. On change: re-save the snapshot to localStorage.
+ *
+ * Save uses `JSON.stringify` of the persisted keys; load applies
+ * defensive validation (role model allowlist, permission mode allowlist,
+ * reasoning effort allowlist) before invoking the slice setters.
+ */
+export function useModelStatePersistence(options: {
   // Cross-slice load setters (run once on mount)
   setCurrentProvider: (value: string) => void;
   setSelectedClaudeModel: (value: string) => void;
@@ -41,18 +50,7 @@ export interface UseModelStatePersistenceOptions {
   longContextEnabled: boolean;
   reasoningEffort: ReasoningEffort;
   codexFastMode: CodexFastMode;
-}
-
-/**
- * Two effects for persisting cross-slice provider/model state to localStorage:
- *  1. On mount: hydrate local UI preferences from localStorage.
- *  2. On change: re-save the snapshot to localStorage.
- *
- * Save uses `JSON.stringify` of the persisted keys; load applies
- * defensive validation (role model allowlist, permission mode allowlist,
- * reasoning effort allowlist) before invoking the slice setters.
- */
-export function useModelStatePersistence(options: UseModelStatePersistenceOptions) {
+}) {
   const {
     setCurrentProvider,
     setSelectedClaudeModel,

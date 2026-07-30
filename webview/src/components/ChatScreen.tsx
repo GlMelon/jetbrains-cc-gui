@@ -35,7 +35,7 @@ type SubagentList = ReturnType<typeof useSubagents>;
 type FileChangeList = ReturnType<typeof useFileChanges>;
 type FileChangeMgmt = ReturnType<typeof useFileChangesManagement>;
 
-export interface ChatScreenProps {
+interface ChatScreenProps {
   // Computed message data
   mergedMessages: ClaudeMessage[];
   getMessageText: (message: ClaudeMessage) => string;

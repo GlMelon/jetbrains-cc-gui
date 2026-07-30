@@ -20,7 +20,7 @@
  * Internal call sites that gate "should we bypass the dialog?" stay with the raw pair.
  */
 
-export const SKIP_NEW_SESSION_CONFIRM_KEY = 'skipNewSessionConfirm';
+const SKIP_NEW_SESSION_CONFIRM_KEY = 'skipNewSessionConfirm';
 export const SKIP_NEW_SESSION_CONFIRM_EVENT = 'skipNewSessionConfirmChanged';
 
 export interface SkipNewSessionConfirmChangedDetail {
@@ -63,15 +63,7 @@ export function setSkipNewSessionConfirm(value: boolean): void {
   window.dispatchEvent(new CustomEvent(SKIP_NEW_SESSION_CONFIRM_EVENT, { detail }));
 }
 
-/**
- * Positive-semantics read: is the confirm dialog currently enabled (i.e. will it show)?
- *
- * Prefer this in UI code so that the toggle's "checked" state maps 1:1 to the
- * user-facing label without inversions.
- */
-export function isNewSessionConfirmEnabled(): boolean {
-  return !getSkipNewSessionConfirm();
-}
+
 
 /**
  * Positive-semantics write: enable (true) or disable (false) the confirm dialog.

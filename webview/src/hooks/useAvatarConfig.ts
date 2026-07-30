@@ -5,21 +5,19 @@ import { AVATAR_CONFIG_APPLIED_EVENT } from '../bootstrap/avatar';
 import type { AssistantAvatarSelection, AvatarConfig, AvatarRole, UserAvatarSelection } from '../types/avatar';
 import { AVATAR_ROLE } from '../types/avatar';
 
-export interface UseAvatarConfigReturn {
-  avatarConfig: AvatarConfig | null;
-  setAssistantAvatarSelection: (selection: AssistantAvatarSelection) => void;
-  setUserAvatarSelection: (selection: UserAvatarSelection) => void;
-  uploadAssistantAvatar: () => void;
-  uploadUserAvatar: () => void;
-}
-
 function isAvatarConfig(value: unknown): value is AvatarConfig {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<AvatarConfig>;
   return Boolean(candidate.assistant && candidate.user);
 }
 
-export function useAvatarConfig(): UseAvatarConfigReturn {
+export function useAvatarConfig(): {
+  avatarConfig: AvatarConfig | null;
+  setAssistantAvatarSelection: (selection: AssistantAvatarSelection) => void;
+  setUserAvatarSelection: (selection: UserAvatarSelection) => void;
+  uploadAssistantAvatar: () => void;
+  uploadUserAvatar: () => void;
+} {
   const [avatarConfig, setAvatarConfig] = useState<AvatarConfig | null>(null);
 
   useEffect(() => {

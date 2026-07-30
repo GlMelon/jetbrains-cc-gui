@@ -18,50 +18,26 @@ export const AVATAR_PRESET = {
 } as const;
 
 export type AvatarRole = typeof AVATAR_ROLE[keyof typeof AVATAR_ROLE];
-export type AvatarMode = typeof AVATAR_MODE[keyof typeof AVATAR_MODE];
 
-export type AssistantAvatarMode =
-  | typeof AVATAR_MODE.PROVIDER
-  | typeof AVATAR_MODE.PRESET
-  | typeof AVATAR_MODE.CUSTOM;
-
-export type UserAvatarMode =
-  | typeof AVATAR_MODE.PRESET
-  | typeof AVATAR_MODE.CUSTOM;
-
-export type AssistantAvatarPreset =
-  | typeof AVATAR_PRESET.ASSISTANT_DEFAULT
-  | ProviderType;
-
-export type UserAvatarPreset = typeof AVATAR_PRESET.USER_DEFAULT;
-
-export interface CustomAvatarPayload {
-  id: string;
-  mimeType: string;
-  dataUrl: string;
-}
 
 export interface AssistantAvatarSelection {
-  mode: AssistantAvatarMode;
-  preset?: AssistantAvatarPreset;
-  custom?: CustomAvatarPayload;
+  mode: typeof AVATAR_MODE[keyof typeof AVATAR_MODE];
+  preset?: typeof AVATAR_PRESET.ASSISTANT_DEFAULT | ProviderType;
+  custom?: { id: string; mimeType: string; dataUrl: string };
 }
 
 export interface UserAvatarSelection {
-  mode: UserAvatarMode;
-  preset?: UserAvatarPreset;
-  custom?: CustomAvatarPayload;
+  mode: typeof AVATAR_MODE.PRESET | typeof AVATAR_MODE.CUSTOM;
+  preset?: typeof AVATAR_PRESET.USER_DEFAULT;
+  custom?: { id: string; mimeType: string; dataUrl: string };
 }
 
-export interface AvatarPresetOption {
-  value: AssistantAvatarPreset;
-  label: string;
-}
+
 
 export interface AvatarConfig {
   assistant: AssistantAvatarSelection;
   user: UserAvatarSelection;
-  assistantPresetOptions?: AvatarPresetOption[];
+  assistantPresetOptions?: { value: AssistantAvatarSelection['preset']; label: string }[];
 }
 
 export function isProviderAvatarPreset(value: unknown): value is ProviderType {

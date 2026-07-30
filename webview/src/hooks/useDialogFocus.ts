@@ -65,19 +65,15 @@ function syncBackgroundInert(): void {
   });
 }
 
-export interface DialogFocusOptions {
+export function useDialogFocus({ open, ready }: {
   /** 弹窗逻辑打开状态（BaseDialog 的 isOpen）。 */
   open: boolean;
   /** 弹窗 DOM 是否已挂载（BaseDialog 的 shouldRender，延迟卸载期间为 true）。 */
   ready: boolean;
-}
-
-export interface DialogFocusController {
+}): {
   /** 附到弹窗根元素（role=dialog 的容器）上的 ref。 */
   dialogRef: React.RefObject<HTMLDivElement | null>;
-}
-
-export function useDialogFocus({ open, ready }: DialogFocusOptions): DialogFocusController {
+} {
   const dialogRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
   const prevOpenRef = useRef(false);

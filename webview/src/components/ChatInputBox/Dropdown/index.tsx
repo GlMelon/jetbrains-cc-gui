@@ -13,9 +13,9 @@ interface CompletionDropdownProps extends Omit<DropdownProps, 'children'> {
 }
 
 /**
- * Dropdown - Generic dropdown menu component
+ * Dropdown - Generic dropdown menu component (internal only, not exported)
  */
-export const Dropdown = ({
+const Dropdown = ({
   isVisible,
   position,
   width = 300,

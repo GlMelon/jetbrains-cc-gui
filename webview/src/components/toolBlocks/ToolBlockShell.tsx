@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react';
 
-export interface ToolBlockShellProps {
+interface ToolBlockShellProps {
   /** 是否展开 */
   expanded: boolean;
   /** 切换展开状态 */
@@ -57,13 +57,6 @@ export function ToolBlockShell({
   );
 }
 
-export interface StatusIndicatorProps {
-  /** 工具是否出错 */
-  isError: boolean;
-  /** 工具是否已完成 */
-  isCompleted: boolean;
-}
-
 /**
  * StatusIndicator - 工具状态指示器。
  *
@@ -72,7 +65,14 @@ export interface StatusIndicatorProps {
  * - completed: 绿色实心点
  * - pending: 旋转环(warning 色, tool-status-spin),表示"执行中"
  */
-export function StatusIndicator({ isError, isCompleted }: StatusIndicatorProps) {
+interface StatusIndicatorProps {
+  /** 工具是否出错 */
+  isError: boolean;
+  /** 工具是否已完成 */
+  isCompleted: boolean;
+}
+
+function StatusIndicator({ isError, isCompleted }: StatusIndicatorProps) {
   const statusClass = isError ? 'error' : isCompleted ? 'completed' : 'pending';
   return <div className={`tool-status-indicator ${statusClass}`} />;
 }

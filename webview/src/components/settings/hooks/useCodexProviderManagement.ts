@@ -25,12 +25,7 @@ export interface DeleteCodexConfirmState {
   provider: CodexProviderConfig | null;
 }
 
-export interface UseCodexProviderManagementOptions {
-  onError?: (message: string) => void;
-  onSuccess?: (message: string) => void;
-}
-
-export function useCodexProviderManagement(options: UseCodexProviderManagementOptions = {}) {
+export function useCodexProviderManagement(options: { onError?: (message: string) => void; onSuccess?: (message: string) => void } = {}) {
   const { t } = useTranslation();
   const { onSuccess } = options;
 
@@ -194,5 +189,3 @@ export function useCodexProviderManagement(options: UseCodexProviderManagementOp
     setCodexConfigLoading,
   };
 }
-
-export type UseCodexProviderManagementReturn = ReturnType<typeof useCodexProviderManagement>;

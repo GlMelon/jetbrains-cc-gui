@@ -1,29 +1,22 @@
-import { useEffect, useId, useState, type ReactNode } from 'react';
+import { useEffect, useId, useState } from 'react';
 import type { DualViewAdapter } from './dualView/adapters';
 import JsonEditor from './JsonEditor';
 import { useRovingTabs } from './useRovingTabs';
 
 export type DualViewMode = 'form' | 'json';
 
-const DUAL_VIEW_MODES = ['form', 'json'] as const;
-
 export interface DualViewSwitcherProps<S> {
-  /** 区块标题(可选)。 */
   label?: string;
-  /** 表单状态(SSOT,父级持有)。 */
   formState: S;
-  /** 表单状态变更回调(边界同步时调用)。 */
-  onFormStateChange: (next: S) => void;
-  /** 双向同步适配器。 */
+  onFormStateChange: (state: S) => void;
   adapter: DualViewAdapter<S>;
-  /** 表单视图渲染(调用方提供具体字段)。 */
-  renderForm: (state: S, onChange: (next: S) => void) => ReactNode;
-  /** 当前视图模式(受控)。 */
+  renderForm: (state: S, onChange: (state: S) => void) => React.ReactNode;
   mode: DualViewMode;
   onModeChange: (mode: DualViewMode) => void;
-  /** JSON 视图附加提示(如 OpenCode「含透传字段」)。 */
   jsonHint?: string;
 }
+
+const DUAL_VIEW_MODES = ['form', 'json'] as const;
 
 /**
  * 分块 JSON↔表单 双视图切换器(仅管环境变量/参数区块,不管 models/baseURL/apiKey)。

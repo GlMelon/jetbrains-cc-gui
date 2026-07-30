@@ -2,7 +2,6 @@ import type {
   SkillDocumentFieldPayloadWire,
   SkillDocumentResultPayloadWire,
   SkillDocumentSavePayloadWire,
-  SkillFieldControl as GeneratedSkillFieldControl,
   SkillScope as GeneratedSkillScope,
 } from '../generated/protocol';
 
@@ -81,10 +80,9 @@ export type SkillFilter = 'all' | SkillScope;
  */
 export type SkillEnabledFilter = 'all' | 'enabled' | 'disabled';
 
-/** Backend-declared generic editor control. */
-export type SkillFieldControl = GeneratedSkillFieldControl;
+
 
 export type SkillDocumentField = SkillDocumentFieldPayloadWire;
 export type SkillFieldValue = SkillDocumentFieldPayloadWire['value'];
 export type SkillDocumentResult = SkillDocumentResultPayloadWire;
-export type SkillDocumentSavePayload = SkillDocumentSavePayloadWire;
+export type SkillDocumentSavePayload = Pick<SkillDocumentSavePayloadWire, 'changes' | 'body'>;

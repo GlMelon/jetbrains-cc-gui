@@ -10,7 +10,7 @@ import { registerLegacyAlias } from '../../../bridge';
 import type { McpServer, McpServerStatusInfo, ServerToolsState, RefreshLog, CacheKeys } from '../types';
 import { readCache, readToolsCache, writeCache } from '../utils';
 
-export interface UseServerDataOptions {
+interface UseServerDataOptions {
   isCodexMode: boolean;
   messagePrefix: string;
   cacheKeys: CacheKeys;
@@ -18,7 +18,7 @@ export interface UseServerDataOptions {
   onLog: (message: string, type: RefreshLog['type'], details?: string, serverName?: string, requestInfo?: string, errorReason?: string) => void;
 }
 
-export interface UseServerDataReturn {
+interface UseServerDataReturn {
   // State
   servers: McpServer[];
   serverStatus: Map<string, McpServerStatusInfo>;

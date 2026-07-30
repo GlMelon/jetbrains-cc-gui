@@ -313,15 +313,7 @@ export function commandToDropdownItem(command: CommandItem): DropdownItemData {
   };
 }
 
-export function forceRefreshSlashCommands(): void {
-  debugLog('[SlashCommand] Force refresh requested');
-  loadingState = 'idle';
-  lastRefreshTime = 0;
-  retryCount = 0;
-  pendingWaiters.forEach(w => w.reject(new Error('Slash commands refresh requested')));
-  pendingWaiters = [];
-  requestRefresh();
-}
+
 
 /**
  * Preload slash commands during app initialization

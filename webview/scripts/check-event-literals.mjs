@@ -33,13 +33,23 @@
  */
 
 import { readFileSync, readdirSync, statSync } from 'fs';
-import { resolve, join, extname, relative } from 'path';
+import { parseEnumSource } from './generate-protocol-types.mjs';
+import { resolve, join, extname, relative, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
-const __dirname = fileURLToPath(new URL('.', import.meta.url));
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..'); // webview/
 const SRC_DIR = resolve(ROOT, 'src');
 const PROTOCOL_PATH = resolve(SRC_DIR, 'generated/protocol.ts');
+const MANIFEST_PATH = resolve(SRC_DIR, 'generated/protocol-manifest.json');
+const UPSTREAM_JAVA_PATH = resolve(
+  ROOT,
+  '../src/main/java/com/github/claudecodegui/protocol/UpstreamAction.java',
+);
+const DOWNSTREAM_JAVA_PATH = resolve(
+  ROOT,
+  '../src/main/java/com/github/claudecodegui/protocol/DownstreamEvent.java',
+);
 
 const isQuiet = process.argv.includes('--quiet');
 
@@ -84,37 +94,106 @@ const ALLOWLIST = [
 
 // ── 1. 解析 protocol.ts DOWNSTREAM ────────────────────────────────────────
 
-function parseDownstream(protocolSrc) {
-  // 抓取 `export const DOWNSTREAM = { ... } as const;` 块。
-  // 不用贪婪匹配整个文件(其他常量块如 PERMISSION_MODE 也有类似结构),只取 DOWNSTREAM。
-  const blockMatch = protocolSrc.match(
-    /export\s+const\s+DOWNSTREAM\s*=\s*\{([\s\S]*?)\}\s*as\s+const\s*;/,
+export function parseGeneratedProtocolConstant(protocolSrc, constantName) {
+  const blockRe = new RegExp(
+    `export\\s+const\\s+${constantName}\\s*=\\s*\\{([\\s\\S]*?)\\}\\s*as\\s+const\\s*;`,
   );
+  const blockMatch = protocolSrc.match(blockRe);
   if (!blockMatch) {
-    console.error('[check-event-literals] ERROR: 未在 protocol.ts 中找到 DOWNSTREAM 常量块。');
-    console.error('  请确认 protocol.ts 已由 generate-protocol-types.mjs 正确生成。');
-    process.exit(2);
+    throw new Error(`未在 protocol.ts 中找到 ${constantName} 常量块`);
   }
-  const block = blockMatch[1];
-
-  // 匹配每条 `  KEY: 'value' as const,`。KEY 全大写下划线;value 为单引号字符串。
   const entryRe = /^\s*([A-Z][A-Z0-9_]*)\s*:\s*'([^']*)'\s+as\s+const\s*,?/gm;
-  /** value → KEY 列表(value 通常唯一,但理论上可能有同 value 多 KEY 的退化情况,保留数组)。 */
+  const entries = [];
+  let match;
+  while ((match = entryRe.exec(blockMatch[1])) !== null) {
+    entries.push({ name: match[1], value: match[2] });
+  }
+  if (entries.length === 0) {
+    throw new Error(`${constantName} 块解析出 0 个条目,regex 可能过时`);
+  }
+  return entries;
+}
+
+export function compareProtocolEntries(reference, actual, referenceLabel, actualLabel) {
+  const errors = [];
+  const buildMap = (entries, label) => {
+    const map = new Map();
+    for (const entry of entries) {
+      if (!entry || typeof entry.name !== 'string' || typeof entry.value !== 'string') {
+        errors.push(`${label}: invalid entry ${JSON.stringify(entry)}`);
+        continue;
+      }
+      if (map.has(entry.name)) {
+        errors.push(`${label}: duplicate name ${entry.name}`);
+        continue;
+      }
+      map.set(entry.name, entry.value);
+    }
+    return map;
+  };
+
+  const referenceMap = buildMap(reference, referenceLabel);
+  const actualMap = buildMap(actual, actualLabel);
+  for (const [name, value] of referenceMap) {
+    if (!actualMap.has(name)) {
+      errors.push(`${actualLabel}: missing ${name}=${JSON.stringify(value)}`);
+    } else if (actualMap.get(name) !== value) {
+      errors.push(
+        `${actualLabel}: value drift for ${name}, expected ${JSON.stringify(value)}, actual ${JSON.stringify(actualMap.get(name))}`,
+      );
+    }
+  }
+  for (const [name, value] of actualMap) {
+    if (!referenceMap.has(name)) {
+      errors.push(`${actualLabel}: unexpected ${name}=${JSON.stringify(value)}`);
+    }
+  }
+  return errors;
+}
+
+function parseDownstream(protocolSrc) {
+  const entries = parseGeneratedProtocolConstant(protocolSrc, 'DOWNSTREAM');
   const valueToKeys = new Map();
-  let m;
-  let count = 0;
-  while ((m = entryRe.exec(block)) !== null) {
-    const key = m[1];
-    const value = m[2];
-    if (!valueToKeys.has(value)) valueToKeys.set(value, []);
-    valueToKeys.get(value).push(key);
-    count++;
+  for (const entry of entries) {
+    if (!valueToKeys.has(entry.value)) valueToKeys.set(entry.value, []);
+    valueToKeys.get(entry.value).push(entry.name);
   }
-  if (count === 0) {
-    console.error('[check-event-literals] ERROR: DOWNSTREAM 块解析出 0 个条目,regex 可能过时。');
-    process.exit(2);
+  return { valueToKeys, count: entries.length };
+}
+
+function validateProtocolConsistency(protocolSrc) {
+  const manifest = JSON.parse(readFileSync(MANIFEST_PATH, 'utf-8'));
+  if (!Array.isArray(manifest.upstream) || !Array.isArray(manifest.downstream)) {
+    throw new Error('protocol-manifest.json 缺少 upstream/downstream 数组');
   }
-  return { valueToKeys, count };
+
+  const javaUpstream = parseEnumSource(readFileSync(UPSTREAM_JAVA_PATH, 'utf-8'), UPSTREAM_JAVA_PATH);
+  const javaDownstream = parseEnumSource(
+    readFileSync(DOWNSTREAM_JAVA_PATH, 'utf-8'),
+    DOWNSTREAM_JAVA_PATH,
+  );
+  if (javaUpstream.length === 0 || javaDownstream.length === 0) {
+    throw new Error('Java 协议枚举解析结果为空');
+  }
+
+  const generatedUpstream = parseGeneratedProtocolConstant(protocolSrc, 'UPSTREAM');
+  const generatedDownstream = parseGeneratedProtocolConstant(protocolSrc, 'DOWNSTREAM');
+  return [
+    ...compareProtocolEntries(javaUpstream, manifest.upstream, 'Java UpstreamAction', 'manifest upstream'),
+    ...compareProtocolEntries(
+      javaDownstream,
+      manifest.downstream,
+      'Java DownstreamEvent',
+      'manifest downstream',
+    ),
+    ...compareProtocolEntries(javaUpstream, generatedUpstream, 'Java UpstreamAction', 'generated UPSTREAM'),
+    ...compareProtocolEntries(
+      javaDownstream,
+      generatedDownstream,
+      'Java DownstreamEvent',
+      'generated DOWNSTREAM',
+    ),
+  ];
 }
 
 // ── 2. 遍历目标文件 ────────────────────────────────────────────────────────
@@ -270,53 +349,65 @@ function isAllowlisted(relPath, value) {
 }
 
 function main() {
-  if (!exists(SRC_DIR)) {
-    console.error(`[check-event-literals] ERROR: webview/src 不存在于 ${SRC_DIR}`);
-    process.exit(2);
-  }
-
-  const protocolSrc = readFileSync(PROTOCOL_PATH, 'utf-8');
-  const { valueToKeys, count } = parseDownstream(protocolSrc);
-
-  const files = collectTargetFiles(SRC_DIR);
-  const drifts = []; // { relPath, line, value, keys, quote }
-
-  for (const f of files) {
-    const relPath = relative(ROOT, f).replace(/\\/g, '/');
-    const hits = scanFile(f, valueToKeys);
-    for (const h of hits) {
-      if (isAllowlisted(relPath, h.value)) continue;
-      drifts.push({ relPath, ...h });
+  try {
+    if (!exists(SRC_DIR)) {
+      throw new Error(`webview/src 不存在于 ${SRC_DIR}`);
     }
-  }
 
-  if (drifts.length === 0) {
-    if (!isQuiet) {
-      console.log(
-        `[check-event-literals] ✓ 无漂移。扫描 ${files.length} 个文件,DOWNSTREAM 共 ${count} 条。`,
+    const protocolSrc = readFileSync(PROTOCOL_PATH, 'utf-8');
+    const protocolDrifts = validateProtocolConsistency(protocolSrc);
+    if (protocolDrifts.length > 0) {
+      console.error('[check-event-literals] ✗ Java enum / manifest / generated TypeScript 协议不一致:');
+      for (const drift of protocolDrifts) {
+        console.error(`  - ${drift}`);
+      }
+      process.exitCode = 1;
+      return;
+    }
+
+    const { valueToKeys, count } = parseDownstream(protocolSrc);
+    const files = collectTargetFiles(SRC_DIR);
+    const drifts = [];
+
+    for (const f of files) {
+      const relPath = relative(ROOT, f).replace(/\\/g, '/');
+      const hits = scanFile(f, valueToKeys);
+      for (const h of hits) {
+        if (isAllowlisted(relPath, h.value)) continue;
+        drifts.push({ relPath, ...h });
+      }
+    }
+
+    if (drifts.length === 0) {
+      if (!isQuiet) {
+        console.log(
+          `[check-event-literals] ✓ 三方协议一致且无字面量漂移。扫描 ${files.length} 个文件,DOWNSTREAM 共 ${count} 条。`,
+        );
+      }
+      return;
+    }
+
+    drifts.sort((a, b) =>
+      a.relPath === b.relPath ? a.line - b.line : a.relPath < b.relPath ? -1 : 1,
+    );
+
+    console.error('[check-event-literals] ✗ 发现协议字面量漂移(应使用 DOWNSTREAM.* 引用):');
+    for (const d of drifts) {
+      const suggestion = d.keys.length === 1
+        ? `DOWNSTREAM.${d.keys[0]}`
+        : d.keys.map((k) => `DOWNSTREAM.${k}`).join(' 或 ');
+      console.error(
+        `  ${d.relPath}:${d.line}  ${d.quote}${d.value}${d.quote}  →  ${suggestion}`,
       );
     }
-    process.exit(0);
+    console.error('');
+    console.error(`共 ${drifts.length} 处漂移。请替换为 DOWNSTREAM.* 引用以保持 SSOT。`);
+    console.error('详见:AGENTS.md 总则三 / docs/comprehensive-optimization-directions.md §A8。');
+    process.exitCode = 1;
+  } catch (error) {
+    console.error(`[check-event-literals] ERROR: ${error.message}`);
+    process.exitCode = 2;
   }
-
-  // 按文件 → 行号稳定排序输出
-  drifts.sort((a, b) =>
-    a.relPath === b.relPath ? a.line - b.line : a.relPath < b.relPath ? -1 : 1,
-  );
-
-  console.error('[check-event-literals] ✗ 发现协议字面量漂移(应使用 DOWNSTREAM.* 引用):');
-  for (const d of drifts) {
-    const suggestion = d.keys.length === 1
-      ? `DOWNSTREAM.${d.keys[0]}`
-      : d.keys.map((k) => `DOWNSTREAM.${k}`).join(' 或 ');
-    console.error(
-      `  ${d.relPath}:${d.line}  ${d.quote}${d.value}${d.quote}  →  ${suggestion}`,
-    );
-  }
-  console.error('');
-  console.error(`共 ${drifts.length} 处漂移。请替换为 DOWNSTREAM.* 引用以保持 SSOT。`);
-  console.error('详见:AGENTS.md 总则三 / docs/comprehensive-optimization-directions.md §A8。');
-  process.exit(1);
 }
 
 function exists(p) {
@@ -328,4 +419,6 @@ function exists(p) {
   }
 }
 
-main();
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main();
+}

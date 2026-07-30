@@ -23,32 +23,30 @@ function parseBootstrapPayload(raw: WebviewBootstrapPayload | string): WebviewBo
   }
 }
 
-export function applyWebviewBootstrap(raw: WebviewBootstrapPayload | string): void {
-  const payload = parseBootstrapPayload(raw);
-  if (!payload) {
-    return;
-  }
-
-  if (payload.editorFontConfig) {
-    applyEditorTypographyConfig(payload.editorFontConfig);
-  }
-  if (payload.uiFontConfig) {
-    applyUiFontConfig(payload.uiFontConfig);
-  }
-  if (payload.codeFontConfig) {
-    applyCodeFontConfig(payload.codeFontConfig);
-  }
-  if (payload.languageConfig) {
-    applyLanguageConfig(payload.languageConfig);
-  }
-  if (payload.appearanceConfig) {
-    applyAppearanceConfig(payload.appearanceConfig);
-  }
-  if (payload.avatarConfig) {
-    applyAvatarConfig(payload.avatarConfig);
-  }
-}
-
 export function initWebviewBootstrap(): void {
-  subscribeEvent<WebviewBootstrapPayload | string>(DOWNSTREAM.WEBVIEW_BOOTSTRAP, applyWebviewBootstrap);
+  subscribeEvent<WebviewBootstrapPayload | string>(DOWNSTREAM.WEBVIEW_BOOTSTRAP, (raw) => {
+    const payload = parseBootstrapPayload(raw);
+    if (!payload) {
+      return;
+    }
+
+    if (payload.editorFontConfig) {
+      applyEditorTypographyConfig(payload.editorFontConfig);
+    }
+    if (payload.uiFontConfig) {
+      applyUiFontConfig(payload.uiFontConfig);
+    }
+    if (payload.codeFontConfig) {
+      applyCodeFontConfig(payload.codeFontConfig);
+    }
+    if (payload.languageConfig) {
+      applyLanguageConfig(payload.languageConfig);
+    }
+    if (payload.appearanceConfig) {
+      applyAppearanceConfig(payload.appearanceConfig);
+    }
+    if (payload.avatarConfig) {
+      applyAvatarConfig(payload.avatarConfig);
+    }
+  });
 }

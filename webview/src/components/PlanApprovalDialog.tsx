@@ -9,16 +9,11 @@ import { isEditableEventTarget } from '../utils/isEditableEventTarget';
 import './PlanApprovalDialog.css';
 import { ChevronDownIcon, ChevronUpIcon, CircleFilledIcon, CircleIcon, ClockIcon, AlertIcon } from './Icons';
 
-export interface AllowedPrompt {
-  tool: string;
-  prompt: string;
-}
-
 export interface PlanApprovalRequest {
   requestId: string;
   toolName: string;
   plan?: string;
-  allowedPrompts?: AllowedPrompt[];
+  allowedPrompts?: { tool: string; prompt: string }[];
   timestamp?: string;
 }
 
