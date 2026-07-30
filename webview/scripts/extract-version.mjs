@@ -51,5 +51,15 @@ const versionFileContent = `// Auto-generated version file
 export const APP_VERSION = '${version}';
 `;
 
-fs.writeFileSync(versionFilePath, versionFileContent);
-console.log(`Version file created at: ${versionFilePath}`);
+// Only write if content changed (avoid unnecessary vite restart)
+let currentContent = '';
+if (fs.existsSync(versionFilePath)) {
+  currentContent = fs.readFileSync(versionFilePath, 'utf8');
+}
+
+if (currentContent !== versionFileContent) {
+  fs.writeFileSync(versionFilePath, versionFileContent);
+  console.log(`Version file updated at: ${versionFilePath}`);
+} else {
+  console.log(`Version file is up to date: ${versionFilePath}`);
+}

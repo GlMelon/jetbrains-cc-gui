@@ -2,6 +2,7 @@ import { sendAction } from '../../bridge/typed';
 import { UPSTREAM } from '../../generated/protocol';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { APP_VERSION } from '../../version/version';
 import type { CodexProviderConfig, OpenCodeProviderConfig } from '../../types/provider';
 import type { AvatarConfig } from '../../types/avatar';
 import { ToastContainer } from '../Toast';
@@ -503,7 +504,7 @@ const SettingsView = ({
   return (
     <div className={styles.settingsPage}>
       {/* Top header bar */}
-      <SettingsHeader onClose={onClose} version="0.4.5" />
+      <SettingsHeader onClose={onClose} version={APP_VERSION} />
 
       {/* Main content */}
       <div className={styles.settingsMain}>
