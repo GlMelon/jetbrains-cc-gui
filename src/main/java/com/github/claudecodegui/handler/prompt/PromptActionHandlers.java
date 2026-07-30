@@ -509,7 +509,7 @@ public class PromptActionHandlers {
 
     private void showNotification(String title, String content, NotificationType type) {
         NotificationGroupManager.getInstance()
-                .getNotificationGroup("CC GUI Notifications")
+                .getNotificationGroup("AI Code GUI Notifications")
                 .createNotification(title, content, type)
                 .notify(context.getProject());
     }

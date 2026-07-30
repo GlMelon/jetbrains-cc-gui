@@ -55,7 +55,7 @@ public class SendSelectionToTerminalAction extends AnAction implements DumbAware
     /**
      * Main logic for executing the action.
      * With selection: sends selected code and opens the panel.
-     * Without selection: just opens the CCG panel.
+     * Without selection: just opens the AICG panel.
      */
     @Override
     public void actionPerformed(@NotNull AnActionEvent e) {
@@ -108,7 +108,7 @@ public class SendSelectionToTerminalAction extends AnAction implements DumbAware
      * Updates the action's availability state.
      * Always enabled when an editor is active.
      * With selection: sends selected code and opens the panel.
-     * Without selection: just opens the CCG panel.
+     * Without selection: just opens the AICG panel.
      */
     @Override
     public void update(@NotNull AnActionEvent e) {
@@ -140,7 +140,7 @@ public class SendSelectionToTerminalAction extends AnAction implements DumbAware
         try {
             // Get the plugin tool window
             ToolWindowManager toolWindowManager = ToolWindowManager.getInstance(project);
-            ToolWindow toolWindow = toolWindowManager.getToolWindow("CCG");
+            ToolWindow toolWindow = toolWindowManager.getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
 
             if (toolWindow != null) {
                 // If the window is not visible, activate it first and wait for it to open before sending content
@@ -200,11 +200,11 @@ public class SendSelectionToTerminalAction extends AnAction implements DumbAware
     }
 
     /**
-     * Activate the CCG tool window and focus the input field.
+     * Activate the AICG tool window and focus the input field.
      */
     private void activateToolWindow(@NotNull Project project) {
         ToolWindowManager toolWindowManager = ToolWindowManager.getInstance(project);
-        ToolWindow toolWindow = toolWindowManager.getToolWindow("CCG");
+        ToolWindow toolWindow = toolWindowManager.getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
         if (toolWindow == null) {
             return;
         }

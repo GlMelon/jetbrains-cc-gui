@@ -902,7 +902,7 @@ public class ClaudeChatWindow {
             content = parts.length > 1 ? parts[1] : "";
         }
 
-        // hide_panel:Shift+Esc 隐藏 CCG 面板。从 WebviewInitializer 的独立 hidePanelQuery 合并到主 sendToJava 路由,
+        // hide_panel:Shift+Esc 隐藏 AICG 面板。从 WebviewInitializer 的独立 hidePanelQuery 合并到主 sendToJava 路由,
         // 减少每个标签一个 JBCefJSQuery 实例。前置处理(在 SEND_MESSAGE 日志与 dispatcher 之前)。
         if ("hide_panel".equals(type)) {
             handleHidePanel();
@@ -929,21 +929,21 @@ public class ClaudeChatWindow {
     }
 
     /**
-     * 隐藏 CCG 工具窗口(Shift+Esc)。逻辑从 WebviewInitializer 的 hidePanelQuery handler 搬移而来,
+     * 隐藏 AICG 工具窗口(Shift+Esc)。逻辑从 WebviewInitializer 的 hidePanelQuery handler 搬移而来,
      * 保留原 project 存活守卫与 EDT 派发(ToolWindow 操作必须在 EDT)。
      */
     private void handleHidePanel() {
         try {
             if (project != null && !project.isDisposed()) {
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow("CCG");
+                    ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
                     if (toolWindow != null && toolWindow.isVisible()) {
                         toolWindow.hide();
                     }
                 });
             }
         } catch (Exception ex) {
-            LOG.warn("Failed to hide CCG panel via shortcut: " + ex.getMessage());
+            LOG.warn("Failed to hide AICG panel via shortcut: " + ex.getMessage());
         }
     }
 

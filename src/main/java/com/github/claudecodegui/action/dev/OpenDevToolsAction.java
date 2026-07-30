@@ -101,7 +101,7 @@ public class OpenDevToolsAction extends AnAction {
     private void openEmbeddedDevTools(Project project) {
         JBCefBrowser browser = findBrowserInToolWindow(project);
         if (browser == null) {
-            LOG.warn("[OpenDevToolsAction] No JBCefBrowser found in CCG tool window");
+            LOG.warn("[OpenDevToolsAction] No JBCefBrowser found in AICG tool window");
             showNotification(project, ClaudeCodeGuiBundle.message("devtools.noBrowser"), NotificationType.WARNING);
             return;
         }
@@ -272,14 +272,14 @@ public class OpenDevToolsAction extends AnAction {
 
     private void showNotification(Project project, String message, NotificationType type) {
         NotificationGroupManager.getInstance()
-                .getNotificationGroup("CC GUI Notifications")
+                .getNotificationGroup("AI Code GUI Notifications")
                 .createNotification(message, type)
                 .notify(project);
     }
 
     @Nullable
     private JBCefBrowser findBrowserInToolWindow(Project project) {
-        ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow("CCG");
+        ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
         if (toolWindow == null) {
             return null;
         }

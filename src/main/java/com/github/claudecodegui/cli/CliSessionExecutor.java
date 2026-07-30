@@ -15,7 +15,7 @@ public final class CliSessionExecutor {
 
     private static final AtomicInteger THREAD_COUNTER = new AtomicInteger(1);
     private static final ExecutorService EXECUTOR = Executors.newCachedThreadPool(runnable -> {
-        Thread thread = new Thread(runnable, "CCG-CLI-Session-" + THREAD_COUNTER.getAndIncrement());
+        Thread thread = new Thread(runnable, "AICG-CLI-Session-" + THREAD_COUNTER.getAndIncrement());
         thread.setDaemon(true);
         return thread;
     });

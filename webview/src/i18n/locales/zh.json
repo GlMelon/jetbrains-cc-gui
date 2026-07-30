@@ -759,7 +759,7 @@
       "prompt": {
         "label": "附加提示词",
         "placeholder": "在此添加您的额外要求，例如：使用中文生成 commit、包含 issue 编号，使用表情符号等等...",
-        "hint": "插件已内置完整的 CCG Commits 规范提示词。您在此处添加的内容将作为附加要求，AI 会优先遵循您的要求。"
+        "hint": "插件已内置完整的 AICG Commits 规范提示词。您在此处添加的内容将作为附加要求，AI 会优先遵循您的要求。"
       },
       "projectPrompt": {
         "label": "项目级附加提示词",

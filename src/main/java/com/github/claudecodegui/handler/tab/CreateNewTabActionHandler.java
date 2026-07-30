@@ -52,7 +52,7 @@ public final class CreateNewTabActionHandler implements FrontendActionHandler<St
                         .getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
                 if (toolWindow == null) {
                     LOG.error("[CreateNewTabActionHandler] Tool window not found");
-                    ctx.callJavaScript("addErrorMessage", ctx.escapeJs("无法找到 CCG 工具窗口"));
+                    ctx.callJavaScript("addErrorMessage", ctx.escapeJs("无法找到 AICG 工具窗口"));
                     return;
                 }
 

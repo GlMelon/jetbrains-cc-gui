@@ -194,7 +194,7 @@ public class SystemNotificationService {
      */
     private void showIdeNativeNotification(@NotNull Project project, String title, String message) {
         Notification notification = NotificationGroupManager.getInstance()
-            .getNotificationGroup("CC GUI Notifications")
+            .getNotificationGroup("AI Code GUI Notifications")
             .createNotification(title, message, NotificationType.INFORMATION);
         notification.notify(project);
     }

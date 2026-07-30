@@ -48,8 +48,8 @@ import javax.swing.JPanel;
 public class ClaudeSDKToolWindow implements ToolWindowFactory, DumbAware {
 
     private static final Logger LOG = Logger.getInstance(ClaudeSDKToolWindow.class);
-    public static final String TOOL_WINDOW_ID = "CCG";
-    public static final String TOOL_WINDOW_DISPLAY_NAME = "CC GUI";
+    public static final String TOOL_WINDOW_ID = "AICG";
+    public static final String TOOL_WINDOW_DISPLAY_NAME = "AI Code GUI";
     private static final Map<Project, ClaudeChatWindow> instances = new ConcurrentHashMap<>();
     private static final Map<Content, ClaudeChatWindow> contentToWindowMap = new ConcurrentHashMap<>();
     private static volatile boolean shutdownHookRegistered = false;
@@ -62,7 +62,7 @@ public class ClaudeSDKToolWindow implements ToolWindowFactory, DumbAware {
 
     /** Per-Content runtime flag mirroring the persisted pinned state for closeable decisions. */
     public static final com.intellij.openapi.util.Key<Boolean> PINNED_KEY =
-            com.intellij.openapi.util.Key.create("CCG.tab.pinned");
+            com.intellij.openapi.util.Key.create("AICG.tab.pinned");
 
     public static boolean isPinned(Content content) {
         Boolean pinned = content == null ? null : content.getUserData(PINNED_KEY);

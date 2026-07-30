@@ -1,6 +1,6 @@
 <div align="center">
 
-# CC GUI（Claude、Codex or OpenCode）
+# AI Code GUI
 
 > Originally Claude Code GUI
 
@@ -14,7 +14,7 @@
 
 </div>
 
-> To mitigate Claude trademark risks, this project has been renamed to CC GUI (originally Claude Code GUI). The logo has also been updated to reduce Chinese-specific elements. Regarding security, a        
+> Originally Claude Code GUI, now renamed to AI Code GUI to support multiple AI coding tools. Regarding security, a        
   /security-review audit will be conducted before each minor version release, and a comprehensive claude-code-security audit will be performed every 10 minor versions. 
 
 A powerful IntelliJ IDEA plugin that provides a visual interface for **Claude Code**, **OpenAI Codex**, and **OpenCode** triple AI tools, making AI-assisted programming more efficient and intuitive.
@@ -25,7 +25,7 @@ A powerful IntelliJ IDEA plugin that provides a visual interface for **Claude Co
 
 ## Installation
 
-[CC GUI（Claude or Codex） Installation](https://plugins.jetbrains.com/plugin/29342-cc-gui-claude-or-codex-)
+[AI Code GUI Installation](https://plugins.jetbrains.com/plugin/29342-cc-gui-claude-or-codex-)
 
 ---
 
@@ -93,6 +93,10 @@ npm install
 cd ai-bridge
 npm install
 ```
+
+# 编译
+```bash
+./gradlew compileJava
 
 ### 3. Debug Plugin
 

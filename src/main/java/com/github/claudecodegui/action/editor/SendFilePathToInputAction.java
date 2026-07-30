@@ -19,7 +19,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Action to send file paths from the project tree to the CCG input box.
+ * Action to send file paths from the project tree to the AICG input box.
  * Shown in the project file tree context menu.
  * Implements DumbAware to allow usage during index building.
  */
@@ -120,7 +120,7 @@ public class SendFilePathToInputAction extends AnAction implements DumbAware {
         try {
             // Get the plugin tool window
             ToolWindowManager toolWindowManager = ToolWindowManager.getInstance(project);
-            ToolWindow toolWindow = toolWindowManager.getToolWindow("CCG");
+            ToolWindow toolWindow = toolWindowManager.getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
 
             if (toolWindow != null) {
                 // If window is not visible, activate it first, then send content after it opens
@@ -148,7 +148,7 @@ public class SendFilePathToInputAction extends AnAction implements DumbAware {
                     LOG.info("Chat window activated and sent file paths to project: " + project.getName());
                 }
             } else {
-                LOG.error("CCG tool window not found");
+                LOG.error("AICG tool window not found");
             }
 
         } catch (Exception ex) {

@@ -20,7 +20,7 @@ import com.intellij.ui.content.ContentManager;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Action to detach a tab from the CCG tool window and show it in a floating window.
+ * Action to detach a tab from the AICG tool window and show it in a floating window.
  * Implements DumbAware interface to allow detaching during indexing.
  */
 public class DetachTabAction extends AnAction implements DumbAware {
@@ -48,7 +48,7 @@ public class DetachTabAction extends AnAction implements DumbAware {
             return;
         }
 
-        ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow("CCG");
+        ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
         if (toolWindow == null) {
             LOG.warn("[DetachTabAction] Tool window not found");
             return;
@@ -175,7 +175,7 @@ public class DetachTabAction extends AnAction implements DumbAware {
             return;
         }
 
-        ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow("CCG");
+        ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
         if (toolWindow == null) {
             e.getPresentation().setEnabledAndVisible(false);
             return;

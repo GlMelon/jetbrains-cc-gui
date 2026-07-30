@@ -1,5 +1,6 @@
 package com.github.claudecodegui.action;
 
+import com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow;
 import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
@@ -10,8 +11,6 @@ import com.intellij.openapi.wm.ToolWindowManager;
 import org.jetbrains.annotations.NotNull;
 
 public class HidePanelAction extends AnAction implements DumbAware {
-
-    private static final String TOOL_WINDOW_ID = "CCG";
 
     @Override
     public @NotNull ActionUpdateThread getActionUpdateThread() {
@@ -25,7 +24,7 @@ public class HidePanelAction extends AnAction implements DumbAware {
             e.getPresentation().setEnabled(false);
             return;
         }
-        ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow(TOOL_WINDOW_ID);
+        ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
         e.getPresentation().setEnabled(toolWindow != null && toolWindow.isVisible());
     }
 
@@ -36,7 +35,7 @@ public class HidePanelAction extends AnAction implements DumbAware {
             return;
         }
 
-        ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow(TOOL_WINDOW_ID);
+        ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
         if (toolWindow != null && toolWindow.isVisible()) {
             toolWindow.hide();
         }

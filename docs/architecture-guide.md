@@ -1,8 +1,8 @@
-# CC GUI 架构指南
+# AI Code GUI 架构指南
 
 ## 1. 插件概述
 
-CC GUI（原名 Claude Code GUI）是一个基于 IntelliJ 平台的插件，为开发者提供 **Claude Code**、**OpenAI Codex** 和 **OpenCode** 三个 AI 工具的可视化操作界面。插件采用三层架构设计，实现了前后端职责分离和灵活的扩展机制。
+AI Code GUI（原名 Claude Code GUI）是一个基于 IntelliJ 平台的插件，为开发者提供 **Claude Code**、**OpenAI Codex** 和 **OpenCode** 三个 AI 工具的可视化操作界面。插件采用三层架构设计，实现了前后端职责分离和灵活的扩展机制。
 
 ## 2. 三层架构
 

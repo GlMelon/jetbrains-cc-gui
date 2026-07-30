@@ -272,7 +272,7 @@ public class WebviewInitializer {
                              .append(jsQuery.inject("msg"))
                              .append(" }; })();");
 
-                    // 2. Shift+Esc 隐藏 CCG 面板。JS 层拦截 keydown(JCEF 在 Chromium 处理前转发给渲染进程),
+                    // 2. Shift+Esc 隐藏 AICG 面板。JS 层拦截 keydown(JCEF 在 Chromium 处理前转发给渲染进程),
                     // 走主 sendToJava 通道,ClaudeChatWindow.handleJavaScriptMessage 路由 hide_panel 类型。
                     bootstrap.append("(function(){ document.addEventListener('keydown', function(e) {")
                              .append(" if (e.key === 'Escape' && e.shiftKey) {")

@@ -77,7 +77,7 @@ public class BridgePreloader implements ProjectActivity {
                 resolver.findSdkDir();
 
                 // ai-bridge 解压完成后,后台预热 MCP Gateway(若 isGatewayActive)。这是"插件启动预热":
-                // 比打开工具窗口更早,让用户打开 CCG 窗口/发首条消息时 gateway 进程已起、各 MCP server
+                // 比打开工具窗口更早,让用户打开 AICG 窗口/发首条消息时 gateway 进程已起、各 MCP server
                 // 已加载 → 首次 buildCliConfig/buildSdkMcpServers 因 configHash 相同而 skip(秒回)。
                 // WebviewInitializer 的预热保留作双保险;applySnapshot 的 configHash 幂等保证不重复推送。
                 prewarmMcpGateway(project);

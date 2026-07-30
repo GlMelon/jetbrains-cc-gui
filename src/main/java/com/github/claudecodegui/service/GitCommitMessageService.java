@@ -33,7 +33,7 @@ public class GitCommitMessageService {
     private static final int MAX_DIFF_LENGTH = 4000; // Limit diff length to avoid exceeding token limits
 
     /**
-     * Built-in commit prompt (based on CCG Commits specification).
+     * Built-in commit prompt (based on AICG Commits specification).
      * Users can append additional prompts via the settings page, which take priority.
      */
     private static final String BUILTIN_COMMIT_PROMPT = """

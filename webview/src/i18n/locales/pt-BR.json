@@ -493,7 +493,7 @@
       "prompt": {
         "label": "Prompt Adicional",
         "placeholder": "Adicione seus requisitos extras aqui, ex: gerar commit em português, incluir número do issue, etc...",
-        "hint": "O plugin possui prompts de especificação CCG Commits integrados. O conteúdo que você adicionar aqui será usado como requisitos adicionais, e a IA priorizará suas instruções."
+        "hint": "O plugin possui prompts de especificação AICG Commits integrados. O conteúdo que você adicionar aqui será usado como requisitos adicionais, e a IA priorizará suas instruções."
       },
       "codeReview": {
         "label": "Prompt Adicional para Code Review com IA",

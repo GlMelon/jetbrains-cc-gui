@@ -54,12 +54,12 @@ public class CodeSnippetManager {
             LOG.info("Window instance not found, opening tool window automatically: " + project.getName());
             ApplicationManager.getApplication().invokeLater(() -> {
                 try {
-                    ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow("CCG");
+                    ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
                     if (toolWindow != null) {
                         toolWindow.show(null);
                         scheduleCodeSnippetRetry(project, selectionInfo, 3);
                     } else {
-                        LOG.error("Cannot find CCG tool window");
+                        LOG.error("Cannot find AICG tool window");
                     }
                 } catch (Exception e) {
                     LOG.error("Error opening tool window: " + e.getMessage());
@@ -93,7 +93,7 @@ public class CodeSnippetManager {
         }
 
         try {
-            ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow("CCG");
+            ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
             if (toolWindow == null) {
                 return null;
             }
