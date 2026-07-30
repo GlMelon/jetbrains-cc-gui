@@ -1,7 +1,10 @@
 package com.github.claudecodegui.session;
 
 import com.github.claudecodegui.notifications.ClaudeNotifier;
+import com.github.claudecodegui.protocol.DownstreamEvent;
+import com.github.claudecodegui.provider.SessionHistoryLoadResult;
 import com.github.claudecodegui.session.runtime.ProviderType;
+import com.github.claudecodegui.util.GsonHolder;
 import com.github.claudecodegui.util.TokenUsageUtils;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -22,6 +25,11 @@ public class SessionMessageOrchestrator {
 
     public interface SessionHistoryAccess {
         List<JsonObject> getProviderSessionMessages(String provider, String sessionId, String cwd);
+
+        default SessionHistoryLoadResult getProviderInitialSessionHistory(
+                String provider, String sessionId, String cwd) {
+            return SessionHistoryLoadResult.fromMessages(getProviderSessionMessages(provider, sessionId, cwd));
+        }
 
         JsonObject getLatestClaudeUserMessage(String sessionId, String cwd);
     }
@@ -146,11 +154,12 @@ public class SessionMessageOrchestrator {
                 String currentProvider = state.getProvider();
 
                 LOG.info("Loading session from server: sessionId=" + currentSessionId + ", cwd=" + currentCwd);
-                List<JsonObject> serverMessages =
-                        historyAccess.getProviderSessionMessages(currentProvider, currentSessionId, currentCwd);
-                if (serverMessages == null) {
-                    serverMessages = List.of();
+                SessionHistoryLoadResult historyResult =
+                        historyAccess.getProviderInitialSessionHistory(currentProvider, currentSessionId, currentCwd);
+                if (historyResult == null) {
+                    historyResult = SessionHistoryLoadResult.fromMessages(List.of());
                 }
+                List<JsonObject> serverMessages = historyResult.messages();
 
                 LOG.debug("Received " + serverMessages.size() + " messages from server");
 
@@ -164,6 +173,12 @@ public class SessionMessageOrchestrator {
 
                 restoreTokenUsage(serverMessages);
                 callbackFacade.notifyMessageUpdate(state.getMessages());
+                if (historyResult.pageInfo() != null) {
+                    callbackFacade.notifyProtocolEvent(
+                            DownstreamEvent.HISTORY_CODEX_PAGE_INFO.value(),
+                            GsonHolder.GSON.toJson(historyResult.pageInfo())
+                    );
+                }
             } catch (Exception e) {
                 state.setError(e.getMessage());
                 LOG.error("Error loading session: " + e.getMessage(), e);

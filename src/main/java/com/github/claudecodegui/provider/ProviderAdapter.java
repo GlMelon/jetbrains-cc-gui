@@ -25,6 +25,10 @@ public interface ProviderAdapter {
         throw new UnsupportedOperationException("getSessionMessages is not supported by " + providerId().value());
     }
 
+    default SessionHistoryLoadResult getInitialSessionHistory(String sessionId, String cwd) {
+        return SessionHistoryLoadResult.fromMessages(getSessionMessages(sessionId, cwd));
+    }
+
     /**
      * 该 Provider 声明支持的横切能力维度（F1 capability descriptor）。
      *
@@ -42,3 +46,4 @@ public interface ProviderAdapter {
         return capabilities().contains(capability);
     }
 }
+

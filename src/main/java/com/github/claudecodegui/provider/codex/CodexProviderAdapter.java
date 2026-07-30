@@ -4,6 +4,7 @@ import com.github.claudecodegui.provider.ProviderAdapter;
 import com.github.claudecodegui.provider.ProviderCapability;
 import com.github.claudecodegui.provider.ProviderId;
 import com.github.claudecodegui.provider.ProviderViewModel;
+import com.github.claudecodegui.provider.SessionHistoryLoadResult;
 import com.google.gson.JsonObject;
 
 import java.util.List;
@@ -64,6 +65,11 @@ public class CodexProviderAdapter implements ProviderAdapter {
         return requireBridge().getSessionMessages(sessionId, cwd);
     }
 
+    @Override
+    public SessionHistoryLoadResult getInitialSessionHistory(String sessionId, String cwd) {
+        return requireBridge().getInitialSessionHistory(sessionId, cwd);
+    }
+
     private CodexSDKBridge requireBridge() {
         if (codexSDKBridge == null) {
             throw new IllegalStateException("Codex SDK bridge is required for session routing");
@@ -71,3 +77,4 @@ public class CodexProviderAdapter implements ProviderAdapter {
         return codexSDKBridge;
     }
 }
+

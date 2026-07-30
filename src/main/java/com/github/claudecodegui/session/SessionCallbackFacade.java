@@ -100,4 +100,8 @@ public class SessionCallbackFacade {
     public void notifyQueueDisplayStateChanged(ClaudeSession.SessionCallback.QueueDisplayState state, int aheadCount) {
         callbackHandler.notifyQueueDisplayStateChanged(state, aheadCount);
     }
+    public void notifyProtocolEvent(String type, String payloadJson) {
+        callbackHandler.notifyProtocolEvent(type, payloadJson);
+    }
 }
+

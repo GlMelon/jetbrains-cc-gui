@@ -4,7 +4,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
-import com.github.claudecodegui.handler.history.HistoryMessageInjector;
 import com.github.claudecodegui.session.ClaudeSession;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
@@ -20,6 +19,7 @@ import com.github.claudecodegui.protocol.CodexProtectedEnvKey;
 import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.mcp.McpGatewaySdkBinding;
 import com.github.claudecodegui.session.runtime.ProviderType;
+import com.github.claudecodegui.provider.SessionHistoryLoadResult;
 import com.github.claudecodegui.provider.common.BaseSDKBridge;
 import com.github.claudecodegui.provider.common.DaemonBridge;
 import com.github.claudecodegui.provider.common.DaemonConstants;
@@ -76,6 +76,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
             "image/svg+xml", ".svg"
     );
     private final CodexHistoryReader historyReader;
+    private final CodexHistoryPageService historyPageService;
     private final CodemossSettingsService settingsService;
     private final CodexDaemonCoordinator daemonCoordinator;
     private final CodexDaemonRequestExecutor daemonRequestExecutor;
@@ -112,6 +113,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
         this.mcpGatewayService = mcpGatewayService;
         this.settingsService = CodemossSettingsService.getInstance();
         this.historyReader = new CodexHistoryReader();
+        this.historyPageService = new CodexHistoryPageService(new CodexHistoryPageReader(historyReader));
         this.daemonCoordinator = new CodexDaemonCoordinator(
                 LOG, nodeDetector, this::getDirectoryResolver, envConfigurator
         );
@@ -123,6 +125,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
         this.mcpGatewayService = null;
         this.settingsService = CodemossSettingsService.getInstance();
         this.historyReader = new CodexHistoryReader(sessionsDir, gson);
+        this.historyPageService = new CodexHistoryPageService(new CodexHistoryPageReader(historyReader));
         this.daemonCoordinator = new CodexDaemonCoordinator(
                 LOG, nodeDetector, this::getDirectoryResolver, envConfigurator
         );
@@ -139,6 +142,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
         this.mcpGatewayService = null;
         this.settingsService = settingsService;
         this.historyReader = new CodexHistoryReader(sessionsDir, gson);
+        this.historyPageService = new CodexHistoryPageService(new CodexHistoryPageReader(historyReader));
         this.daemonCoordinator = new CodexDaemonCoordinator(
                 LOG, nodeDetector, this::getDirectoryResolver, envConfigurator
         );
@@ -765,17 +769,21 @@ public class CodexSDKBridge extends BaseSDKBridge {
      * Get persisted Codex session history messages.
      */
     public List<JsonObject> getSessionMessages(String sessionId, String cwd) {
+        return getInitialSessionHistory(sessionId, cwd).messages();
+    }
+
+    public SessionHistoryLoadResult getInitialSessionHistory(String sessionId, String cwd) {
         try {
-            String rawMessages = historyReader.getSessionMessagesAsJson(sessionId);
-            JsonArray historyItems = gson.fromJson(rawMessages, JsonArray.class);
-            if (historyItems == null) {
-                return List.of();
-            }
-            return HistoryMessageInjector.convertCodexMessagesToFrontendBatch(historyItems);
+            CodexHistoryPageResult result = historyPageService.loadInitialPage(sessionId);
+            return new SessionHistoryLoadResult(result.messages(), result.pageInfo());
         } catch (Exception e) {
             LOG.warn("Failed to load Codex session history: " + e.getMessage(), e);
-            return List.of();
+            return SessionHistoryLoadResult.fromMessages(List.of());
         }
+    }
+
+    public CodexHistoryPageResult loadHistoryPage(String sessionId, int beforeTurn) {
+        return historyPageService.loadEarlierPage(sessionId, beforeTurn);
     }
 
     /**
@@ -1206,3 +1214,6 @@ public class CodexSDKBridge extends BaseSDKBridge {
         }
     }
 }
+
+
+

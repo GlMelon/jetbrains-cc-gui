@@ -341,6 +341,20 @@ public class SessionState {
         messages.add(message);
     }
 
+    public void replaceMessages(List<ClaudeSession.Message> replacement) {
+        messages.clear();
+        if (replacement != null && !replacement.isEmpty()) {
+            messages.addAll(replacement);
+        }
+    }
+
+    public void prependMessages(List<ClaudeSession.Message> prefix) {
+        if (prefix == null || prefix.isEmpty()) {
+            return;
+        }
+        messages.addAll(0, prefix);
+    }
+
     /**
      * Clear all messages.
      */

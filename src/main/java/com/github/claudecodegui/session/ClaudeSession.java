@@ -3,6 +3,7 @@ package com.github.claudecodegui.session;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.permission.PermissionManager;
 import com.github.claudecodegui.permission.PermissionRequest;
+import com.github.claudecodegui.protocol.CodexHistoryPageMode;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
 import com.github.claudecodegui.provider.codex.CodexSDKBridge;
 import com.github.claudecodegui.session.runtime.EffectiveRuntimeResolver;
@@ -13,6 +14,7 @@ import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -173,6 +175,9 @@ public class ClaudeSession {
 
         default void onQueueDisplayStateChanged(QueueDisplayState state, int aheadCount) {
         }
+
+        default void onProtocolEvent(String type, String payloadJson) {
+        }
     }
 
     public ClaudeSession(Project project, ClaudeSDKBridge claudeSDKBridge, CodexSDKBridge codexSDKBridge) {
@@ -212,6 +217,11 @@ public class ClaudeSession {
                         return providerRouter.getSessionMessages(provider, sessionId, cwd);
                     }
 
+                    @Override
+                    public com.github.claudecodegui.provider.SessionHistoryLoadResult getProviderInitialSessionHistory(
+                            String provider, String sessionId, String cwd) {
+                        return providerRouter.getInitialSessionHistory(provider, sessionId, cwd);
+                    }
                     @Override
                     public JsonObject getLatestClaudeUserMessage(String sessionId, String cwd) {
                         return claudeSDKBridge.getLatestClaudeUserMessage(sessionId, cwd);
@@ -546,6 +556,26 @@ public class ClaudeSession {
         return messageOrchestrator.loadFromServer();
     }
 
+    public void applyCodexHistoryPage(
+            List<JsonObject> serverMessages,
+            CodexHistoryPageMode mode
+    ) {
+        List<Message> parsedMessages = new ArrayList<>();
+        if (serverMessages != null) {
+            for (JsonObject serverMessage : serverMessages) {
+                Message parsed = messageParser.parseServerMessage(serverMessage);
+                if (parsed != null) {
+                    parsedMessages.add(parsed);
+                }
+            }
+        }
+        if (mode == CodexHistoryPageMode.PREPEND) {
+            state.prependMessages(parsedMessages);
+        } else {
+            state.replaceMessages(parsedMessages);
+        }
+        callbackFacade.notifyMessageUpdate(state.getMessages());
+    }
     /**
      * Represents a file attachment (e.g., image).
      */

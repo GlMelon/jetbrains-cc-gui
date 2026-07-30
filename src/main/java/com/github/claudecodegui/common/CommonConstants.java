@@ -72,6 +72,8 @@ public final class CommonConstants {
      * ModelRegistryService / CodemossSettingsService / ReadOnlyDefaultModels。
      */
     public static final int DEFAULT_CONTEXT_WINDOW = 200_000;
+    /** Number of complete Codex user turns loaded per history page. */
+    public static final int CODEX_HISTORY_PAGE_SIZE = 30;
     /**
      * 长上下文（1M）窗口阈值（token 数）。
      * <p>判定 supports1MContext / 1M 切换 / 配置校验的边界 —— 全局 SSOT。

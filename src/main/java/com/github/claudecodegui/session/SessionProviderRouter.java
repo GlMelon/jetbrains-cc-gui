@@ -3,6 +3,7 @@ package com.github.claudecodegui.session;
 import com.github.claudecodegui.provider.ProviderAdapter;
 import com.github.claudecodegui.provider.ProviderId;
 import com.github.claudecodegui.provider.ProviderRegistry;
+import com.github.claudecodegui.provider.SessionHistoryLoadResult;
 import com.github.claudecodegui.provider.claude.ClaudeProviderAdapter;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
 import com.github.claudecodegui.provider.codex.CodexProviderAdapter;
@@ -67,6 +68,10 @@ public class SessionProviderRouter {
         return adapter(provider).getSessionMessages(sessionId, cwd);
     }
 
+    public SessionHistoryLoadResult getInitialSessionHistory(String provider, String sessionId, String cwd) {
+        return adapter(provider).getInitialSessionHistory(sessionId, cwd);
+    }
+
     private ProviderAdapter adapter(String provider) {
         // 直接用 ProviderId.of(内部 trim/lowercase 归一)路由,消除手写 provider 解析(总则五·开闭 / E3)。
         // 未知 provider 由 ProviderRegistry.require fail-fast 抛异常,对齐 registry 设计意图,
@@ -74,3 +79,4 @@ public class SessionProviderRouter {
         return providerRegistry.require(ProviderId.of(provider));
     }
 }
+

@@ -249,6 +249,7 @@ public enum UpstreamAction implements ProtocolValue {
 
     // ── History ──
     LOAD_HISTORY_DATA("load_history_data"),
+    LOAD_CODEX_HISTORY_PAGE("load_codex_history_page"),
     LOAD_SESSION("load_session"),
     DELETE_SESSION("delete_session"),
     DELETE_SESSIONS("delete_sessions"),

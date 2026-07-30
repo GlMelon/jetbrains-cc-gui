@@ -172,6 +172,8 @@ public enum DownstreamEvent implements ProtocolValue {
     // ── History ──
     HISTORY_EXPORT_DATA("history.export_data"),
     HISTORY_ARCHIVE_RESULT("history.archive_result"),
+    HISTORY_CODEX_PAGE_INFO("history.codex.page.info"),
+    HISTORY_CODEX_PAGE_ERROR("history.codex.page.error"),
 
     // ── Input History ──
     INPUT_HISTORY_LOADED("input_history.loaded"),

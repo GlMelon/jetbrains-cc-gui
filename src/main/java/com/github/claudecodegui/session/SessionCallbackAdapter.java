@@ -29,6 +29,10 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
      */
     public interface JsTarget {
         void callJavaScript(String functionName, String... args);
+
+        default void dispatchEvent(String type, String payloadJson) {
+            callJavaScript("window.__bridge.dispatch", type, payloadJson == null ? "" : payloadJson);
+        }
     }
 
     private final StreamMessageCoalescer streamCoalescer;
@@ -534,6 +538,17 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
         });
     }
 
+    @Override
+    public void onProtocolEvent(String type, String payloadJson) {
+        if (isInactive()) {
+            return;
+        }
+        ApplicationManager.getApplication().invokeLater(() -> {
+            if (!isInactive()) {
+                jsTarget.dispatchEvent(type, payloadJson);
+            }
+        });
+    }
     /**
      * Dispose internal resources. Call when the parent window is disposed.
      */
@@ -546,3 +561,4 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
         }
     }
 }
+

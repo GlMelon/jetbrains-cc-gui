@@ -926,7 +926,14 @@ public class ClaudeChatWindow {
                     public void callJavaScript(String functionName, String... args) {
                         ClaudeChatWindow.this.callJavaScript(functionName, args);
                     }
-                },
+
+                    @Override
+                    public void dispatchEvent(String type, String payloadJson) {
+                        HandlerContext currentContext = ClaudeChatWindow.this.handlerContext;
+                        if (currentContext != null) {
+                            currentContext.dispatchEvent(type, currentContext.escapeJs(payloadJson));
+                        }
+                    }                },
                 permissionHandler,
                 () -> slashCommandsFetched,
                 this::onStreamCompleted,
@@ -1087,24 +1094,6 @@ public class ClaudeChatWindow {
             sessionReloadInFlight = true;
         }
         driveSessionReload(targetSessionId);
-    }
-
-    /**
-     * Run a session_updated reload that was deferred because a turn was
-     * streaming (see the session_updated handler). Called from the coalescer's
-     * onStreamEnded hook when the stream goes inactive — the safe point to
-     * reload, since SessionState is no longer being mutated by a streaming turn.
-     * A no-op when nothing was deferred. The reload still validates the target
-     * session before touching anything (driveSessionReload), so a session the
-     * user has navigated away from is never reloaded.
-     */
-    private void drainDeferredReload() {
-        String target = deferredReload.takeIfRunnable(disposed);
-        if (target == null) {
-            return;
-        }
-        LOG.info("[ClaudeChatWindow] draining deferred session_updated reload after stream end, sessionId=" + target);
-        requestSessionReload(target);
     }
 
     /**
@@ -1756,3 +1745,4 @@ public class ClaudeChatWindow {
         };
     }
 }
+

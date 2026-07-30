@@ -190,4 +190,10 @@ public class CallbackHandler {
             callback.onQueueDisplayStateChanged(state, aheadCount);
         }
     }
+    public void notifyProtocolEvent(String type, String payloadJson) {
+        if (callback != null) {
+            callback.onProtocolEvent(type, payloadJson);
+        }
+    }
 }
+

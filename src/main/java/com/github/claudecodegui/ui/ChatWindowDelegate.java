@@ -52,6 +52,7 @@ import com.github.claudecodegui.handler.history.HistoryActionHandlers;
 import com.github.claudecodegui.handler.history.HistoryRefreshService;
 import com.github.claudecodegui.handler.history.LoadHistoryDataActionHandler;
 import com.github.claudecodegui.handler.history.LoadSessionActionHandler;
+import com.github.claudecodegui.handler.history.LoadCodexHistoryPageActionHandler;
 import com.github.claudecodegui.handler.history.DeleteSessionActionHandler;
 import com.github.claudecodegui.handler.history.DeleteSessionsActionHandler;
 import com.github.claudecodegui.handler.history.ArchiveSessionsActionHandler;
@@ -836,6 +837,7 @@ public class ChatWindowDelegate {
             host.getSessionLifecycleManager().loadHistorySession(sessionId, projectPath, provider));
         typedHandlers.add(new LoadHistoryDataActionHandler(historyHandlers));
         typedHandlers.add(new LoadSessionActionHandler(historyHandlers));
+        typedHandlers.add(new LoadCodexHistoryPageActionHandler());
         typedHandlers.add(new DeleteSessionActionHandler(historyHandlers));
         typedHandlers.add(new DeleteSessionsActionHandler(historyHandlers));
         typedHandlers.add(new ArchiveSessionsActionHandler(historyHandlers));
@@ -1208,3 +1210,5 @@ public class ChatWindowDelegate {
         }
     }
 }
+
+
