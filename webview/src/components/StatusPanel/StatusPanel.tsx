@@ -11,7 +11,7 @@ import FileChangesList from './FileChangesList';
 import UndoConfirmDialog from './UndoConfirmDialog';
 import DiscardAllDialog from './DiscardAllDialog';
 import type { TabType, StatusPanelProps } from './types';
-import { TaskIcon, RobotIcon, FileDiffIcon, LoadingIcon } from '../Icons';
+import { LoadingIcon } from '../Icons';
 import './StatusPanel.less';
 
 const StatusPanel = memo(function StatusPanel({ todos, fileChanges, subagents, subagentHistories, currentSessionId, expanded = true, isStreaming = false, onUndoFile, onDiscardAll, onKeepAll }: StatusPanelProps) {
@@ -236,7 +236,7 @@ const StatusPanel = memo(function StatusPanel({ todos, fileChanges, subagents, s
           className={`status-panel-tab ${openPopover === 'todo' ? 'active' : ''}`}
           onClick={() => handleTabClick('todo')}
         >
-          <TaskIcon size={14} />
+          <span style={{ fontSize: '14px' }}>📋</span>
           <span className="tab-label">{t('statusPanel.tasksTab')}</span>
           {hasTodos && (
             <span className="tab-progress">
@@ -253,7 +253,7 @@ const StatusPanel = memo(function StatusPanel({ todos, fileChanges, subagents, s
           className={`status-panel-tab ${openPopover === 'subagent' ? 'active' : ''}`}
           onClick={() => handleTabClick('subagent')}
         >
-          <RobotIcon size={14} />
+          <span style={{ fontSize: '14px' }}>🤖</span>
           <span className="tab-label">{t('statusPanel.subagentTab')}</span>
           {hasSubagents && (
             <span className="tab-progress">
@@ -270,7 +270,7 @@ const StatusPanel = memo(function StatusPanel({ todos, fileChanges, subagents, s
           className={`status-panel-tab ${openPopover === 'files' ? 'active' : ''}`}
           onClick={() => handleTabClick('files')}
         >
-          <FileDiffIcon size={14} />
+          <span style={{ fontSize: '14px' }}>✏️</span>
           <span className="tab-label">{t('statusPanel.editsTab')}</span>
           {hasFileChanges && (
             <span className="tab-stats">
