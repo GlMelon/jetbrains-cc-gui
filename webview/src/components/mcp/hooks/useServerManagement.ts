@@ -111,6 +111,15 @@ export function useServerManagement({
 
     sendAction(isCodexMode ? UPSTREAM.TOGGLE_CODEX_MCP_SERVER : UPSTREAM.TOGGLE_MCP_SERVER, updatedServer);
 
+    // A toggle invalidates the previous tool result. This forces a fresh
+    // tools/list request after the server becomes connected again.
+    clearToolsCache(server.id, cacheKeys);
+    setServerTools(prev => {
+      const next = { ...prev };
+      delete next[server.id];
+      return next;
+    });
+
     // Show toast notification
     onToast(
       enabled
@@ -121,7 +130,7 @@ export function useServerManagement({
 
     loadServers();
     loadServerStatus();
-  }, [isCodexMode, messagePrefix, onToast, t, loadServers, loadServerStatus]);
+  }, [isCodexMode, messagePrefix, cacheKeys, setServerTools, onToast, t, loadServers, loadServerStatus]);
 
   return {
     serverRefreshStates,

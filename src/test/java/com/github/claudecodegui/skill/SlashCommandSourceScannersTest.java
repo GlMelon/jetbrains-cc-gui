@@ -1,5 +1,6 @@
 package com.github.claudecodegui.skill;
 
+import com.google.gson.JsonObject;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -7,7 +8,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
+import static org.junit.Assume.assumeNoException;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public class SlashCommandSourceScannersTest {
 

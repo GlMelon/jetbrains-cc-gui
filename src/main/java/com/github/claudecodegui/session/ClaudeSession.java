@@ -707,6 +707,14 @@ public class ClaudeSession {
     }
 
     /**
+     * Returns the start time of the latest submitted turn, or {@code 0} when
+     * no turn has been submitted yet.
+     */
+    public long getLastTurnStartedAtMillis() {
+        return lastTurnStartedAtMillis;
+    }
+
+    /**
      * Set the AI provider.
      */
     public void setProvider(String provider) {

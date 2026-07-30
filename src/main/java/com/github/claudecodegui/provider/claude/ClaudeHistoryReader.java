@@ -35,7 +35,6 @@ public class ClaudeHistoryReader {
     // Sub-services
     private final ClaudeHistoryParser parser;
     private final ClaudeHistoryIndexService indexService;
-    private final ClaudeUsageAggregator usageAggregator;
     private final ClaudeHistorySearchService searchService;
 
     public ClaudeHistoryReader() {
@@ -74,7 +73,9 @@ public class ClaudeHistoryReader {
 
         public ProjectInfo(String path) {
             this.path = path;
-            this.name = path != null ? Paths.get(path).getFileName().toString() : "Root";
+            // getFileName() returns null for filesystem roots ("/", "C:\", UNC share roots)
+            Path fileName = path != null ? Paths.get(path).getFileName() : null;
+            this.name = fileName != null ? fileName.toString() : "";
             if (this.name.isEmpty()) {
                 this.name = "Root";
             }
@@ -321,10 +322,6 @@ public class ClaudeHistoryReader {
 
     public String getAllDataAsJson() {
         return searchService.getAllDataAsJson();
-    }
-
-    public ProjectStatistics getProjectStatistics(String projectPath, long cutoffTime) {
-        return usageAggregator.getProjectStatistics(projectPath, cutoffTime);
     }
 
     public String handleApiRequest(String endpoint, Map<String, String> params) {

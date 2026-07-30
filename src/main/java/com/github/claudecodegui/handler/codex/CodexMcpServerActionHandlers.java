@@ -133,6 +133,10 @@ public class CodexMcpServerActionHandlers {
             }
 
             JsonObject serverConfig = targetServer.getAsJsonObject("server");
+            // Inject cwd from session or project if not already set (mirrors upstream prepareServerConfig)
+            String sessionCwd = context.getSession() != null ? context.getSession().getCwd() : null;
+            String projectBasePath = context.getProject() != null ? context.getProject().getBasePath() : null;
+            serverConfig = prepareServerConfig(serverConfig, sessionCwd, projectBasePath);
             LOG.info("[CodexMcpServerActionHandlers] Getting tools for Codex MCP server: " + request.serverId());
 
             context.getCodexSDKBridge().getMcpServerTools(request.serverId(), serverConfig)
@@ -292,6 +296,23 @@ public class CodexMcpServerActionHandlers {
             LOG.warn("[CodexMcpServerActionHandlers] Failed to read Codex local authorization state: " + e.getMessage());
             return false;
         }
+    }
+
+    /**
+     * Prepare server config by injecting cwd if not already set.
+     * Mirrors upstream CodexMcpServerHandler.prepareServerConfig.
+     */
+    static JsonObject prepareServerConfig(JsonObject originalConfig, String sessionCwd, String projectBasePath) {
+        JsonObject serverConfig = originalConfig.deepCopy();
+        if (!serverConfig.has("cwd")) {
+            String cwd = sessionCwd != null && !sessionCwd.trim().isEmpty()
+                    ? sessionCwd
+                    : projectBasePath;
+            if (cwd != null && !cwd.trim().isEmpty()) {
+                serverConfig.addProperty("cwd", cwd);
+            }
+        }
+        return serverConfig;
     }
 
     private void refreshGateway() {

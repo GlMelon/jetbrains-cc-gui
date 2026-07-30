@@ -121,6 +121,18 @@ public class ProviderActionHandlers {
         orderingService.handleSortCodexProviders(content);
     }
 
+    public void handlePreviewCodexCcSwitchImport() {
+        importExportSupport.handlePreviewCodexCcSwitchImport();
+    }
+
+    public void handleOpenFileChooserForCodexCcSwitch() {
+        importExportSupport.handleOpenFileChooserForCodexCcSwitch();
+    }
+
+    public void handleSaveImportedCodexProviders(String content) {
+        importExportSupport.handleSaveImportedCodexProviders(content);
+    }
+
     // ============================================================================
     // OpenCode provider operations (对称 codex 块, Principle 6)
     // ============================================================================

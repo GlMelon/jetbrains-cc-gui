@@ -86,3 +86,10 @@ export function ServerToolsPanel({
     </>
   );
 }
+
+export function isEmptyToolsResult(toolsInfo: ServerToolsState[string] | undefined): boolean {
+  return toolsInfo != null
+    && !toolsInfo.loading
+    && !toolsInfo.error
+    && toolsInfo.tools.length === 0;
+}

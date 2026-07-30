@@ -283,7 +283,7 @@ export const fetchProviderModels = (
 // ── MCP 市场 (Smithery Registry) RPC ──
 // search/detail 走 RPC Promise(__requestId 路由);Smithery Key 配置走广播
 // (GET/SET_SMITHERY_API_KEY → CONFIG_SMITHERY_API_KEY,无 __requestId,组件内 subscribeEvent)。
-const MCP_MARKET_TIMEOUT_MS = 30000;
+const MCP_MARKET_TIMEOUT_MS = 60000;
 
 export interface SmitheryServerSummary {
   id?: string;
@@ -319,6 +319,7 @@ export interface McpMarketDetailResult {
   connection?: {
     mcpUrl?: string;
     url?: string;
+    deploymentUrl?: string;
     command?: string;
     args?: string[] | string;
     env?: Record<string, string>;

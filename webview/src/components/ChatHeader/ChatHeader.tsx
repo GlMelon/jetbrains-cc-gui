@@ -152,6 +152,16 @@ export function ChatHeader({
             >
               <NewTabIcon size={16} />
             </button>
+            {onOpenSearch && (
+              <button
+                className="icon-button"
+                onClick={onOpenSearch}
+                data-tooltip={t('chat.search.openTooltip', { defaultValue: 'Search in conversation' })}
+                aria-label={t('chat.search.openTooltip', { defaultValue: 'Search in conversation' })}
+              >
+                <span className="codicon codicon-search" />
+              </button>
+            )}
             <button
               className="icon-button"
               onClick={onHistory}

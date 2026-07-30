@@ -368,11 +368,19 @@ export function SkillMarketDialog({
             )}
             {!detailLoading && detail?.error && (
               <div className="market-error">
-                {mapErrorMessage(
-                  detail.errorCode,
-                  detail.error || t('skills.market.errorParse'),
-                  t,
-                )}
+                <span>
+                  {mapErrorMessage(
+                    detail.errorCode,
+                    detail.error || t('skills.market.errorParse'),
+                    t,
+                  )}
+                </span>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => handleShowDetail(detailSkill)}
+                >
+                  {t('skills.market.retry')}
+                </button>
               </div>
             )}
             {!detailLoading && detail && !detail.error && (

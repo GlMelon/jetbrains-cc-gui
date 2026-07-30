@@ -35,14 +35,17 @@ import com.github.claudecodegui.util.JsUtils;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.intellij.openapi.Disposable;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowManager;
+import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.ui.content.Content;
 import com.intellij.ui.content.ContentManager;
 import com.intellij.ui.jcef.JBCefBrowser;
+import com.intellij.util.Alarm;
 import org.cef.browser.CefBrowser;
 
 import java.awt.BorderLayout;
@@ -179,6 +182,20 @@ public class ClaudeChatWindow {
     // A session_updated reload that arrived while a turn was streaming is parked
     // here and drained at stream end (onStreamEnded). See {@link DeferredReload}.
     private final DeferredReload deferredReload = new DeferredReload();
+    // Backstop for the parked reload. onStreamEnded is the fast drain path, but it
+    // is edge-triggered: a defer that lands just after the stream-end edge (a
+    // cross-thread check-then-act between the daemon reader's isStreamActive() read
+    // and the stream reader's streamActive=false + drain), or the LAST background
+    // answer of a fan-out with no following stream end, would otherwise never be
+    // drained — the answer stays invisible forever. This alarm re-checks after a
+    // short delay and drains the parked reload the moment the stream is idle,
+    // without ever reloading mid-stream. Pooled thread: draining kicks off an async
+    // loadFromServer() that reads JSONL, so it must not run on the EDT.
+    private static final int DEFERRED_RELOAD_SAFETY_DRAIN_MS = 500;
+    private final Disposable safetyAlarmDisposable =
+            Disposer.newDisposable("ccgui-deferred-reload-safety");
+    private final Alarm deferredReloadSafetyAlarm =
+            new Alarm(Alarm.ThreadToUse.POOLED_THREAD, safetyAlarmDisposable);
 
     /**
      * handler context.
@@ -257,10 +274,11 @@ public class ClaudeChatWindow {
         this.webviewWatchdog = new WebviewWatchdog(
                 mainPanel,
                 () -> browser,
-                htmlLoader,
+                () -> webviewInitializer.reloadWebview("watchdog_reload"),
                 () -> webviewInitializer.recreateWebview("watchdog_recreate"),
                 () -> disposed,
-                () -> streamCoalescer.isStreamActive()
+                () -> streamCoalescer.isStreamActive(),
+                () -> frontendReady
         );
 
         this.session = new ClaudeSession(project, claudeSDKBridge, codexSDKBridge, openCodeSDKBridge);
@@ -456,6 +474,48 @@ public class ClaudeChatWindow {
 
     public Content getParentContent() {
         return parentContent;
+    }
+
+    private boolean isActiveContent() {
+        Content content = parentContent;
+        ContentManager contentManager = content == null ? null : content.getManager();
+        if (contentManager != null && contentManager.getIndexOfContent(content) >= 0) {
+            return contentManager.getSelectedContent() == content;
+        }
+        DetachedChatFrame detachedFrame = DetachedWindowManager.getDetachedFrame(project, this);
+        return detachedFrame == null || detachedFrame.isActive();
+    }
+
+    private void activateContent() {
+        Runnable activation = () -> {
+            if (disposed) {
+                return;
+            }
+            Content content = parentContent;
+            ContentManager contentManager = content == null ? null : content.getManager();
+            if (contentManager != null && contentManager.getIndexOfContent(content) >= 0) {
+                contentManager.setSelectedContent(content);
+                ToolWindow toolWindow = ToolWindowManager.getInstance(project)
+                        .getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
+                if (toolWindow != null
+                        && toolWindow.getContentManager() == contentManager
+                        && !toolWindow.isActive()) {
+                    toolWindow.activate(null);
+                }
+                return;
+            }
+            DetachedChatFrame detachedFrame = DetachedWindowManager.getDetachedFrame(project, this);
+            if (detachedFrame != null) {
+                detachedFrame.setVisible(true);
+                detachedFrame.toFront();
+                detachedFrame.requestFocus();
+            }
+        };
+        if (SwingUtilities.isEventDispatchThread()) {
+            activation.run();
+        } else {
+            ApplicationManager.getApplication().invokeLater(activation);
+        }
     }
 
     public JPanel getContent() {
@@ -1044,6 +1104,11 @@ public class ClaudeChatWindow {
                     // and drain it at stream end (onStreamEnded).
                     if (sessionCallbackAdapter != null && streamCoalescer != null && streamCoalescer.isStreamActive()) {
                         deferredReload.defer(updatedSessionId);
+                        // onStreamEnded drains this at the next stream-end. Also arm the
+                        // safety backstop so a defer that races the stream-end edge — or
+                        // the last fan-out answer with no following stream end — is still
+                        // drained once the stream goes idle (see deferredReloadSafetyTick).
+                        scheduleDeferredReloadSafetyDrain();
                         LOG.info("[ClaudeChatWindow] session_updated during active turn, deferring reload to stream end");
                         return;
                     }
@@ -1396,6 +1461,8 @@ public class ClaudeChatWindow {
         chatWindowDelegate.dispose();
         editorContextTracker.dispose();
         streamCoalescer.dispose();
+        deferredReloadSafetyAlarm.cancelAllRequests();
+        Disposer.dispose(safetyAlarmDisposable);
         if (sessionCallbackAdapter != null) {
             sessionCallbackAdapter.dispose();
         }
@@ -1661,6 +1728,16 @@ public class ClaudeChatWindow {
             @Override
             public String getSessionId() {
                 return sessionId;
+            }
+
+            @Override
+            public boolean isActiveContent() {
+                return ClaudeChatWindow.this.isActiveContent();
+            }
+
+            @Override
+            public void activateContent() {
+                ClaudeChatWindow.this.activateContent();
             }
 
             @Override

@@ -319,7 +319,7 @@ export const ContentBlockRenderer = memo(function ContentBlockRenderer({
     ) : (
       <MarkdownBlock
         content={block.text ?? ''}
-        isStreaming={isStreaming}
+        isStreaming={isActivelyStreaming}
       />
     );
   }
@@ -541,7 +541,7 @@ export const ContentBlockRenderer = memo(function ContentBlockRenderer({
 
     if (isToolName(block.name, EDIT_TOOL_NAMES)) {
       return (
-        <EditToolBlock
+        <SingleEditToolBlock
           name={block.name}
           input={block.input}
           result={findToolResult(block.id, messageIndex)}

@@ -94,7 +94,7 @@ export interface McpServerStatusInfo {
   /** Server name */
   name: string;
   /** Connection status */
-  status: 'connected' | 'failed' | 'needs-auth' | 'pending';
+  status: 'connected' | 'failed' | 'needs-auth' | 'pending' | 'disabled';
   /** Server info (available on successful connection) */
   serverInfo?: {
     name: string;

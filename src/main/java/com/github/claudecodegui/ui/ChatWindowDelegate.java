@@ -349,6 +349,8 @@ public class ChatWindowDelegate {
         String getOriginalTabName();
         void setOriginalTabName(String name);
         String getSessionId();
+        boolean isActiveContent();
+        void activateContent();
         HandlerContext getHandlerContext();
         void setHandlerContext(HandlerContext ctx);
         void setFrontendActionDispatcher(FrontendActionDispatcher d);
@@ -1040,6 +1042,7 @@ public class ChatWindowDelegate {
     public void handleFrontendReady() {
         LOG.info("Received frontend_ready signal, frontend is now ready to receive data");
         host.setFrontendReady(true);
+        host.getWebviewWatchdog().markFrontendReady();
 
         host.callJavaScript(
             "window.updateLinkifyCapabilities",

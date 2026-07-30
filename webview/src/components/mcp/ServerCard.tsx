@@ -69,6 +69,7 @@ export function ServerCard({
       : status;
   const enabled = isServerEnabled(server, isCodexMode);
   const isConnected = effectiveStatus === 'connected';
+  const emptyToolsWarning = hasEmptyToolsWarning(effectiveStatus, toolsInfo, enabled);
 
   const iconStyle: React.CSSProperties = { background: getIconColor(server.id) };
   const statusPillClass = getStatusPillClass(server, effectiveStatus, isCodexMode);
@@ -219,4 +220,12 @@ export function ServerCard({
       )}
     </div>
   );
+}
+
+export function hasEmptyToolsWarning(
+  status: McpServerStatusInfo['status'] | undefined,
+  toolsInfo: ServerToolsState[string] | undefined,
+  enabled: boolean,
+): boolean {
+  return enabled && status === 'connected' && isEmptyToolsResult(toolsInfo);
 }

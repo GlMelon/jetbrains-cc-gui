@@ -58,6 +58,7 @@ export default function ProviderList({
   const [showCliLoginConfirm, setShowCliLoginConfirm] = useState(false);
   const [showCliLoginDisableConfirm, setShowCliLoginDisableConfirm] = useState(false);
   const [cliLoginAccountEmail, setCliLoginAccountEmail] = useState<string | null>(null);
+  const [helpKind, setHelpKind] = useState<'local' | 'cli' | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const importMenuRef = useRef<HTMLDivElement>(null);
   const mountedRef = useRef(true);
@@ -464,6 +465,32 @@ export default function ProviderList({
                 }}
               >
                 {t('settings.provider.revokeAuthorization')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {helpKind && (
+        <div className={styles.warningOverlay}>
+          <div className={styles.warningDialog}>
+            <div className={styles.warningTitle}>
+              <span className="codicon codicon-info" />
+              {helpKind === 'local'
+                ? t('settings.provider.localProviderHelpTitle')
+                : t('settings.provider.cliLoginHelpTitle')}
+            </div>
+            <div className={styles.warningContent} style={{ whiteSpace: 'pre-wrap' }}>
+              {helpKind === 'local'
+                ? t('settings.provider.localProviderHelpBody')
+                : t('settings.provider.cliLoginHelpBody')}
+            </div>
+            <div className={styles.warningActions}>
+              <button
+                className={styles.btnPrimary}
+                onClick={() => setHelpKind(null)}
+              >
+                {t('common.gotIt')}
               </button>
             </div>
           </div>

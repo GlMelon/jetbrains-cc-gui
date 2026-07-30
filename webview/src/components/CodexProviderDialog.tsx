@@ -4,13 +4,34 @@ import { BracesIcon, RefreshIcon } from './Icons';
 import DualViewSwitcher, { type DualViewMode } from './shared/DualViewSwitcher';
 import { codexEnvAdapter, type CodexEnvFormState } from './shared/dualView/adapters';
 import type { CodexProviderConfig, EnvVarEntry } from '../types/provider';
-import { validateEnvVarEntries, ENV_VAR_VALUE_MAX_LENGTH } from '../types/provider';
+import {
+  CODEX_PROVIDER_PRESETS,
+  DEFAULT_CODEX_AUTH_JSON,
+  OFFICIAL_CODEX_CONFIG_TOML,
+  OFFICIAL_CODEX_PROVIDER_NAME,
+  validateEnvVarEntries,
+  ENV_VAR_VALUE_MAX_LENGTH,
+} from '../types/provider';
 import EnvVarEditor from './EnvVarEditor';
 import { GuidedProviderDialog, type GuidedStep } from './shared/GuidedProviderDialog';
 import { fetchProviderModels } from '../utils/bridge';
 
-const FORM_HEADER_STYLE: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'center' };
-const FORMAT_BUTTON_STYLE: React.CSSProperties = { padding: '4px 8px', fontSize: '12px' };
+const FORM_HEADER_STYLE: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  gap: '12px',
+  flexWrap: 'wrap',
+};
+const FORMAT_BUTTON_STYLE: React.CSSProperties = {
+  width: 'auto',
+  minWidth: 'auto',
+  flex: '0 0 auto',
+  padding: '4px 10px',
+  fontSize: '12px',
+  lineHeight: 1.2,
+  whiteSpace: 'nowrap',
+};
 const CODE_TEXTAREA_STYLE: React.CSSProperties = {
   fontFamily: 'var(--idea-editor-font-family, monospace)',
   fontSize: '12px',
@@ -95,6 +116,7 @@ export default function CodexProviderDialog({
         setModelCatalogJson(JSON.stringify(provider.modelCatalog ?? provider.customModels ?? [], null, 2));
         setMessageEnvVars(provider.messageEnvVars || []);
         setMcpEnvVars(provider.mcpEnvVars || []);
+        setActivePreset('custom');
       } else {
         // Add mode - reset with default template
         setProviderName('');
@@ -114,6 +136,7 @@ wire_api = "responses"`);
         setModelCatalogJson('[]');
         setMessageEnvVars([]);
         setMcpEnvVars([]);
+        setActivePreset(OFFICIAL_DIRECT_PRESET_ID);
       }
       setCurrentStep(0);
       setFetchedModels([]);
@@ -121,6 +144,24 @@ wire_api = "responses"`);
       setFetchError('');
     }
   }, [isOpen, provider]);
+
+  const handlePresetClick = (presetId: string) => {
+    if (presetId === OFFICIAL_DIRECT_PRESET_ID) {
+      setActivePreset(OFFICIAL_DIRECT_PRESET_ID);
+      setProviderName(OFFICIAL_CODEX_PROVIDER_NAME);
+      setConfigTomlJson(OFFICIAL_CODEX_CONFIG_TOML);
+      setAuthJson(DEFAULT_CODEX_AUTH_JSON);
+      return;
+    }
+
+    const preset = CODEX_PROVIDER_PRESETS.find(item => item.id === presetId);
+    if (!preset) return;
+
+    setActivePreset(preset.id);
+    setProviderName(preset.name);
+    setConfigTomlJson(preset.configToml);
+    setAuthJson(preset.authJson);
+  };
 
   // Format JSON
   const handleFormatConfigJson = () => {
@@ -310,6 +351,58 @@ wire_api = "responses"`);
               : t('settings.codexProvider.dialog.editDescription')}
           </p>
 
+          {isAdding && (
+            <>
+              <div className="notice-box notice-box--info">
+                <span className="codicon codicon-shield" />
+                {t('settings.provider.dialog.securityNotice')}
+              </div>
+
+              <div className="form-group">
+                <label>{t('settings.provider.dialog.officialSectionTitle')}</label>
+                <div className="preset-buttons" role="radiogroup" aria-label={t('settings.provider.dialog.officialSectionTitle')}>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={activePreset === OFFICIAL_DIRECT_PRESET_ID}
+                    className={`preset-btn ${activePreset === OFFICIAL_DIRECT_PRESET_ID ? 'active' : ''}`}
+                    onClick={() => handlePresetClick(OFFICIAL_DIRECT_PRESET_ID)}
+                  >
+                    <span aria-hidden="true" className="preset-btn-icon">
+                      <ProviderModelIcon providerId="codex" size={16} colored />
+                    </span>
+                    {t('settings.codexProvider.dialog.officialPreset')}
+                  </button>
+                </div>
+                <small className="form-hint">{t('settings.codexProvider.dialog.officialSectionHint')}</small>
+              </div>
+            </>
+          )}
+
+          {isAdding && (
+            <div className="form-group">
+              <label>{t('settings.provider.dialog.proxySectionTitle')}</label>
+              <div className="preset-buttons" role="radiogroup" aria-label={t('settings.provider.dialog.proxySectionTitle')}>
+                {CODEX_PROVIDER_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={activePreset === preset.id}
+                    className={`preset-btn ${activePreset === preset.id ? 'active' : ''}`}
+                    onClick={() => handlePresetClick(preset.id)}
+                  >
+                    <span aria-hidden="true" className="preset-btn-icon">
+                      <ProviderModelIcon providerId={preset.id} size={16} colored />
+                    </span>
+                    {t(preset.nameKey)}
+                  </button>
+                ))}
+              </div>
+              <small className="form-hint">{t('settings.codexProvider.dialog.presetHint')}</small>
+            </div>
+          )}
+
           {/* Provider Name */}
           <div className="form-group">
             <label htmlFor="providerName">
@@ -340,9 +433,10 @@ wire_api = "responses"`);
               </label>
               <button
                 type="button"
-                className="btn btn-secondary btn-sm"
+                className="btn-small"
                 onClick={handleFormatConfigJson}
                 style={FORMAT_BUTTON_STYLE}
+                title={t('settings.codexProvider.dialog.formatJson')}
               >
                 <BracesIcon size={14} />
                 {t('settings.codexProvider.dialog.formatJson')}
@@ -367,9 +461,10 @@ wire_api = "responses"`);
               </label>
               <button
                 type="button"
-                className="btn btn-secondary btn-sm"
+                className="btn-small"
                 onClick={handleFormatAuthJson}
                 style={FORMAT_BUTTON_STYLE}
+                title={t('settings.codexProvider.dialog.formatJson')}
               >
                 <BracesIcon size={14} />
                 {t('settings.codexProvider.dialog.formatJson')}

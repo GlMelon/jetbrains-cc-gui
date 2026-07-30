@@ -1,10 +1,15 @@
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
-import { memo, useMemo, useState, useRef, useEffect, useCallback } from 'react';
+import { memo, useMemo, useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import katex from 'katex';
 import markedKatex from 'marked-katex-extension';
 import { openBrowser, openClass, openFile } from '../utils/bridge';
+import {
+  captureRangeOffsets,
+  restoreRangeOffsets,
+  type TextSelectionOffsets,
+} from '../utils/selectionOffsets';
 import { useMarkdownFileLinkTooltip } from '../hooks/useMarkdownFileLinkTooltip';
 import { useTypewriterStream } from '../hooks/useTypewriterStream';
 import { decorateExistingAnchors, linkifyHtml } from '../utils/linkify';
@@ -817,6 +822,10 @@ const MarkdownBlock = ({ content = '', isStreaming = false }: MarkdownBlockProps
     }
   };
 
+  // `html` is committed directly: streaming selection is preserved by
+  // re-anchoring the Range in the layout effect above, not by freezing the
+  // output, so the visible content keeps flowing while the user holds a
+  // selection.
   return (
     <>
       {isStreaming ? (

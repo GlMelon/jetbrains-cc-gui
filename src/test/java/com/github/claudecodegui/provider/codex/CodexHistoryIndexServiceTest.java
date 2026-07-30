@@ -183,4 +183,19 @@ public class CodexHistoryIndexServiceTest {
         Files.writeString(file, sb.toString());
         return file;
     }
+
+    private Path writeSubagentSessionFile(Path dir, String fileName, String sessionMetaId) throws IOException {
+        Path file = dir.resolve(fileName);
+        StringBuilder sb = new StringBuilder();
+        sb.append("{\"timestamp\":\"2026-07-29T10:00:00Z\",\"type\":\"session_meta\",")
+                .append("\"payload\":{\"id\":\"").append(sessionMetaId)
+                .append("\",\"cwd\":\"/workspace/demo\",\"source\":{\"subagent\":{\"thread_spawn\":{")
+                .append("\"parent_thread_id\":\"thread_main1234567890\",\"depth\":1}}}}}\n");
+        sb.append("{\"timestamp\":\"2026-07-29T10:00:05Z\",\"type\":\"event_msg\",")
+                .append("\"payload\":{\"type\":\"user_message\",\"message\":\"Inherited parent context\"}}\n");
+        sb.append("{\"timestamp\":\"2026-07-29T10:00:10Z\",\"type\":\"response_item\",")
+                .append("\"payload\":{\"type\":\"message\"}}\n");
+        Files.writeString(file, sb.toString());
+        return file;
+    }
 }

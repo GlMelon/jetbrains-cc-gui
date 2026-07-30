@@ -52,7 +52,7 @@ export function useServerData({
   onLog
 }: UseServerDataOptions): UseServerDataReturn {
   // State
-  const [servers, setServers] = useState<McpServer[]>([]);
+  const [servers, setServersState] = useState<McpServer[]>([]);
   const [serverStatus, setServerStatus] = useState<Map<string, McpServerStatusInfo>>(new Map());
   const [loading, setLoading] = useState(true);
   const [statusLoading, setStatusLoading] = useState(false);
@@ -189,6 +189,7 @@ export function useServerData({
 
     // Load data from cache
     const loadFromCache = (): boolean => {
+      terminalStatusNamesRef.current = new Set();
       const cachedServers = readCache<McpServer[]>(cacheKeys.SERVERS, cacheKeys);
       const hasValidCache = !!cachedServers && cachedServers.length > 0;
 
@@ -204,6 +205,9 @@ export function useServerData({
       if (!isCodexMode) {
         const cachedStatus = readCache<McpServerStatusInfo[]>(cacheKeys.STATUS, cacheKeys);
         if (cachedStatus && cachedStatus.length > 0) {
+          const terminalStatusNames = getTerminalStatusNames(cachedStatus);
+          terminalStatusNamesRef.current = terminalStatusNames;
+          clearToolsForTerminalStatuses(cachedServers || [], terminalStatusNames);
           const statusMap = new Map<string, McpServerStatusInfo>();
           cachedStatus.forEach((status) => {
             statusMap.set(status.name, status);
@@ -257,7 +261,7 @@ export function useServerData({
     return () => {
       clearRefreshTimers();
     };
-  }, [cacheKeys, isCodexMode, loadServers, loadServerStatus, t, onLog]);
+  }, [cacheKeys, isCodexMode, loadServers, loadServerStatus, t, onLog, clearToolsForTerminalStatuses]);
 
   // Register server list update callback
   useEffect(() => {
@@ -265,6 +269,7 @@ export function useServerData({
       try {
         const serverList: McpServer[] = JSON.parse(jsonStr);
         setServers(serverList);
+        clearToolsForTerminalStatuses(serverList, terminalStatusNamesRef.current);
         setLoading(false);
         // Persist to cache so subsequent mounts can load instantly
         writeCache(cacheKeys.SERVERS, serverList);
@@ -284,6 +289,9 @@ export function useServerData({
           statusMap.set(status.name, status);
         });
         setServerStatus(statusMap);
+        const terminalStatusNames = getTerminalStatusNames(statusList);
+        terminalStatusNamesRef.current = terminalStatusNames;
+        clearToolsForTerminalStatuses(serversRef.current, terminalStatusNames);
         setStatusLoading(false);
         // Persist status to cache
         writeCache(cacheKeys.STATUS, statusList);

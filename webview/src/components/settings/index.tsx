@@ -656,9 +656,9 @@ const SettingsView = ({
             <DependencySection addToast={addToast} isActive={currentTab === 'dependencies'} />
           </div>
 
-          {/* Usage statistics */}
+          {/* Usage statistics (vendored TokenTracker dashboard) */}
           <div style={currentTab === 'usage' ? BLOCK_STYLE : NONE_STYLE}>
-            <UsageSection currentProvider={currentProvider} />
+            <UsageSection />
           </div>
 
           {/* MCP servers */}
@@ -728,6 +728,10 @@ const SettingsView = ({
           {/* Skills */}
           <div style={currentTab === 'skills' ? BLOCK_STYLE : NONE_STYLE}>
             <SkillsSettingsSection currentProvider={currentProvider} />
+          </div>
+
+          <div style={currentTab === 'pet' ? BLOCK_STYLE : NONE_STYLE}>
+            {currentTab === 'pet' && <PetSettingsSection addToast={addToast} />}
           </div>
 
           {/* Other settings */}

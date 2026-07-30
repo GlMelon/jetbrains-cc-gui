@@ -21,6 +21,9 @@ export type ModelVendor =
   | 'zhipu'
   | 'minimax'
   | 'xiaomi'
+  | 'bailian'
+  | 'longcat'
+  | 'opencode'
   | 'doubao'
   | 'spark'
   | 'hunyuan'
@@ -46,6 +49,8 @@ const MODEL_VENDOR_PATTERNS: ReadonlyArray<readonly [RegExp, ModelVendor]> = [
   [/zhipu/i, 'zhipu'],
   [/minimax/i, 'minimax'],
   [/xiaomi|mimo/i, 'xiaomi'],
+  [/longcat/i, 'longcat'],
+  [/opencode/i, 'opencode'],
   [/doubao/i, 'doubao'],
   [/^spark(?:[-\s]|$)/i, 'spark'],
   [/hunyuan/i, 'hunyuan'],
@@ -63,6 +68,30 @@ const MODEL_VENDOR_PATTERNS: ReadonlyArray<readonly [RegExp, ModelVendor]> = [
 ];
 
 /**
+ * ANTHROPIC_BASE_URL host to vendor mapping.
+ *
+ * The base URL is the most authoritative brand signal for a provider: it
+ * correctly identifies endpoints that serve another vendor's models under
+ * their own brand (e.g. OpenRouter routes `anthropic/claude-*` models,
+ * OpenCode-Go serves `deepseek-*` models). Matching by substring
+ * (case-insensitive) tolerates scheme/path variants.
+ */
+const BASE_URL_VENDOR_PATTERNS: ReadonlyArray<readonly [RegExp, ModelVendor]> = [
+  [/bigmodel\.cn/i, 'zhipu'],
+  [/moonshot\.(cn|ai)|kimi\.com/i, 'kimi'],
+  [/deepseek\.com/i, 'deepseek'],
+  [/minimaxi\.com|minimax\.(io|com)/i, 'minimax'],
+  [/xiaomimimo\.com/i, 'xiaomi'],
+  [/dashscope\.aliyuncs\.com/i, 'bailian'],
+  [/longcat\.chat/i, 'longcat'],
+  [/opencode\.ai/i, 'opencode'],
+  [/openrouter\.ai/i, 'openrouter'],
+  [/api\.anthropic\.com/i, 'claude'],
+  [/googleapis\.com/i, 'gemini'],
+  [/api\.openai\.com/i, 'openai'],
+];
+
+/**
  * Provider ID to vendor mapping.
  * Used when provider preset ID is known (e.g. from PROVIDER_PRESETS).
  */
@@ -74,22 +103,53 @@ const PROVIDER_TO_VENDOR: Record<string, ModelVendor> = {
   qwen: 'qwen',
   deepseek: 'deepseek',
   kimi: 'kimi',
+  'kimi-coding': 'kimi',
   zhipu: 'zhipu',
   minimax: 'minimax',
   xiaomi: 'xiaomi',
+  'xiaomi-plan': 'xiaomi',
+  bailian: 'bailian',
+  'bailian-coding': 'bailian',
+  longcat: 'longcat',
+  'opencode-go': 'opencode',
   openrouter: 'openrouter',
 };
 
 /**
+ * Resolve vendor from base URL using pattern matching.
+ * Returns undefined if no pattern matches.
+ */
+function resolveVendorFromBaseUrl(baseUrl: string): ModelVendor | undefined {
+  for (const [pattern, vendor] of BASE_URL_VENDOR_PATTERNS) {
+    if (pattern.test(baseUrl)) return vendor;
+  }
+  return undefined;
+}
+
+/**
  * Resolve the best vendor for icon display.
- * Priority: modelId match > providerId match > null
+ * Priority: baseUrl match > modelId match > providerId match > 'claude' default
+ *
+ * The base URL wins because it identifies the provider's brand regardless of
+ * which model it currently serves (e.g. an OpenRouter endpoint serving a
+ * claude model should still show the OpenRouter icon).
  *
  * @param providerId - The provider type (e.g. "claude", "codex")
  * @param modelId - Optional model ID for more specific matching
+ * @param baseUrl - Optional provider base URL; the strongest brand signal when present
  * @returns The best-matched vendor key, or 'claude' as default
  */
-export function resolveIconVendor(providerId?: string, modelId?: string): ModelVendor {
-  // Try model ID first (most specific)
+export function resolveIconVendor(
+  providerId?: string,
+  modelId?: string,
+  baseUrl?: string,
+): ModelVendor {
+  // Base URL is the most authoritative brand signal
+  if (baseUrl) {
+    const urlVendor = resolveVendorFromBaseUrl(baseUrl);
+    if (urlVendor) return urlVendor;
+  }
+  // Try model ID next (most specific model-level signal)
   if (modelId) {
     for (const [pattern, vendor] of MODEL_VENDOR_PATTERNS) {
       if (pattern.test(modelId)) return vendor;

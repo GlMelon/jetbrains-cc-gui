@@ -37,8 +37,8 @@ public class SmitheryMarketService {
     private static final Logger LOG = Logger.getInstance(SmitheryMarketService.class);
 
     static final String BASE_URL = "https://api.smithery.ai";
-    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
-    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(15);
+    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(20);
+    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(30);
     private static final String USER_AGENT = "jetbrains-melon-cc-gui-smithery";
     /** Smithery 单页上限(防滥用,实际 API 通常 ≤60) */
     private static final int MAX_PAGE_SIZE = 60;
@@ -198,7 +198,8 @@ public class SmitheryMarketService {
 
     /**
      * 解析详情响应 → 规范化 {namespace,slug,qualifiedName,...,remote, connection:{...}}。
-     * connection 做防御性提取:顶层 mcpUrl/url/command/args/env + 嵌套 connection 子对象,
+     * connection 做防御性提取:顶层 mcpUrl/url/deploymentUrl/command/args/env +
+     * 嵌套 connection 子对象 + connections 数组(当前 API 版本),
      * 有则预填,无则字段缺省。纯函数无 Logger 调用,便于单测。
      */
     static JsonObject parseDetailResponse(String body, String namespace, String slug) {
@@ -227,6 +228,10 @@ public class SmitheryMarketService {
                     copyString(connection, s, "mcpUrl");
                     copyString(connection, s, "url");
                     copyString(connection, s, "command");
+                    // deploymentUrl → url(当前 Smithery API 使用 deploymentUrl)
+                    if (!connection.has("url")) {
+                        copyString(connection, s, "deploymentUrl");
+                    }
                     if (hasArrayOrPrimitive(s, "args")) {
                         connection.add("args", s.get("args"));
                     }
@@ -243,6 +248,9 @@ public class SmitheryMarketService {
                         if (!connection.has("url")) {
                             copyString(connection, c, "url");
                         }
+                        if (!connection.has("url")) {
+                            copyString(connection, c, "deploymentUrl");
+                        }
                         if (!connection.has("command")) {
                             copyString(connection, c, "command");
                         }
@@ -251,6 +259,32 @@ public class SmitheryMarketService {
                         }
                         if (!connection.has("env") && c.has("env") && c.get("env").isJsonObject()) {
                             connection.add("env", c.get("env"));
+                        }
+                    }
+                    // connections 数组(当前 API 版本:connections 是数组,取第一个连接)
+                    JsonElement connArrEl = s.get("connections");
+                    if (connArrEl != null && connArrEl.isJsonArray()) {
+                        JsonArray connArr = connArrEl.getAsJsonArray();
+                        if (connArr.size() > 0 && connArr.get(0).isJsonObject()) {
+                            JsonObject c = connArr.get(0).getAsJsonObject();
+                            if (!connection.has("mcpUrl")) {
+                                copyString(connection, c, "mcpUrl");
+                            }
+                            if (!connection.has("url")) {
+                                copyString(connection, c, "url");
+                            }
+                            if (!connection.has("url")) {
+                                copyString(connection, c, "deploymentUrl");
+                            }
+                            if (!connection.has("command")) {
+                                copyString(connection, c, "command");
+                            }
+                            if (!connection.has("args") && hasArrayOrPrimitive(c, "args")) {
+                                connection.add("args", c.get("args"));
+                            }
+                            if (!connection.has("env") && c.has("env") && c.get("env").isJsonObject()) {
+                                connection.add("env", c.get("env"));
+                            }
                         }
                     }
                 }

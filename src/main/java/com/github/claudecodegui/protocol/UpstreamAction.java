@@ -220,6 +220,9 @@ public enum UpstreamAction implements ProtocolValue {
     REVOKE_CODEX_LOCAL_CONFIG_AUTHORIZATION("revoke_codex_local_config_authorization"),
     SORT_CODEX_PROVIDERS("sort_codex_providers"),
     GET_ACTIVE_CODEX_PROVIDER("get_active_codex_provider"),
+    PREVIEW_CODEX_CC_SWITCH_IMPORT("preview_codex_cc_switch_import"),
+    OPEN_FILE_CHOOSER_FOR_CODEX_CC_SWITCH("open_file_chooser_for_codex_cc_switch"),
+    SAVE_IMPORTED_CODEX_PROVIDERS("save_imported_codex_providers"),
 
     // ── Provider (OpenCode) ── 对称 codex 块(Principle 6 多 provider 对称)
     GET_OPENCODE_PROVIDERS("get_opencode_providers"),

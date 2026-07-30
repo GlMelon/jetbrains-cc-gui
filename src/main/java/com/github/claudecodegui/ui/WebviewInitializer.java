@@ -617,9 +617,23 @@ public class WebviewInitializer {
                 host.getMainPanel().revalidate();
                 host.getMainPanel().repaint();
             } catch (Exception e) {
-                LOG.warn("[WebviewWatchdog] Reload failed: " + e.getMessage(), e);
+                LOG.warn("[WebviewWatchdog] Reload failed, escalating to recreate: " + e.getMessage(), e);
+                recreateWebview(reason + "_reload_failed");
             }
         });
+    }
+
+    private String loadChatHtmlWithInitialTabState() {
+        HtmlLoader htmlLoader = host.getHtmlLoader();
+        String htmlContent = htmlLoader.loadChatHtml();
+
+        // Each tab reads the same localStorage snapshot. Preserve the session's
+        // provider and model on both initial load and watchdog recovery.
+        ClaudeSession session = host.getHandlerContext() != null
+                ? host.getHandlerContext().getSession() : null;
+        String tabProvider = session != null ? session.getProvider() : null;
+        String tabModel = session != null ? session.getModel() : null;
+        return htmlLoader.injectInitialTabState(htmlContent, tabProvider, tabModel);
     }
 
     /**

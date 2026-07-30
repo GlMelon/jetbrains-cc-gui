@@ -12,7 +12,6 @@ import { ErrorDiagnosticCard } from './ErrorDiagnosticCard';
 import { matchErrorPattern } from '../../utils/errorMatcher';
 import {
   EditToolBlock,
-  EditToolGroupBlock,
   ReadToolBlock,
   ReadToolGroupBlock,
   BashToolBlock,
@@ -127,7 +126,7 @@ function isToolBlockOfType(block: ClaudeContentBlock, toolNames: Set<string>): b
   return block.type === 'tool_use' && isToolName(block.name, toolNames);
 }
 
-function groupBlocks(blocks: ClaudeContentBlock[]): GroupedBlock[] {
+export function groupBlocks(blocks: ClaudeContentBlock[]): GroupedBlock[] {
   const groupedBlocks: GroupedBlock[] = [];
   let currentReadGroup: ClaudeContentBlock[] = [];
   let readGroupStartIndex = -1;
@@ -404,7 +403,7 @@ export const MessageItem = memo(function MessageItem({
   useEffect(() => {
     if (message.type !== 'assistant') return;
 
-    const thinkingIndices = blocks
+    const thinkingIndices = renderedBlocks
       .map((block, index) => (block.type === 'thinking' ? index : -1))
       .filter((index) => index !== -1);
 

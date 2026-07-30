@@ -10,6 +10,9 @@ import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.ui.jcef.JBCefBrowser;
 
+import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
+
 /**
  * Handler context.
  * Provides all shared resources and callbacks needed by handlers.
@@ -188,6 +191,10 @@ public class HandlerContext {
 
     public void setDisposed(boolean disposed) {
         this.disposed = disposed;
+    }
+
+    public void setContentActivator(Runnable contentActivator) {
+        this.contentActivator = contentActivator == null ? () -> { } : contentActivator;
     }
 
     // JavaScript callback proxy methods

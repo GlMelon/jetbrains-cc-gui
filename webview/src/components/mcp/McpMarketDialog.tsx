@@ -29,7 +29,7 @@ interface McpMarketDialogProps {
  */
 function buildServerSpec(detail: McpMarketDetailResult): McpServerSpec | null {
   const conn = detail.connection || {};
-  const url = conn.mcpUrl || conn.url;
+  const url = conn.mcpUrl || conn.url || conn.deploymentUrl;
   if (detail.remote) {
     if (!url) return null;
     return { type: 'http', url, headers: {} };
@@ -375,7 +375,15 @@ export function McpMarketDialog({ isCodexMode, onClose, onSelect }: McpMarketDia
                 </div>
               )}
               {!detailLoading && detail?.error && (
-                <div className="market-error">{mapErrorMessage(detail.errorCode, detail.error, t)}</div>
+                <div className="market-error">
+                  <span>{mapErrorMessage(detail.errorCode, detail.error, t)}</span>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => handleShowDetail(detailServer)}
+                  >
+                    {t('mcp.market.retry')}
+                  </button>
+                </div>
               )}
               {!detailLoading && detail && !detail.error && (
                 <div className="market-detail-content">

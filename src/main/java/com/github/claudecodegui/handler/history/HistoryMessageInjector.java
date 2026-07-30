@@ -309,7 +309,10 @@ public class HistoryMessageInjector {
     }
 
     private static String getStringProperty(JsonObject object, String propertyName) {
-        if (object == null || !object.has(propertyName) || object.get(propertyName).isJsonNull()) {
+        if (object == null
+                || !object.has(propertyName)
+                || object.get(propertyName).isJsonNull()
+                || !object.get(propertyName).isJsonPrimitive()) {
             return null;
         }
         return object.get(propertyName).getAsString();

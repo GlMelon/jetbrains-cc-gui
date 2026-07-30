@@ -166,6 +166,10 @@ const BashToolGroupBlock = ({ items, deniedToolIds }: BashToolGroupBlockProps) =
     overflowY: overflowY,
   };
 
+  const headerStyle: React.CSSProperties = {
+    ...(expanded && { borderBottom: '1px solid var(--border-primary)' }),
+  };
+
   return (
     <div className="task-container bash-group-container">
       {/* Header - always visible */}
