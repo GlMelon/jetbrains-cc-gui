@@ -364,15 +364,6 @@ public class CodexMessageConverter {
         return content;
     }
 
-    private static JsonArray textContentBlocks(String text) {
-        JsonArray content = new JsonArray();
-        JsonObject textBlock = new JsonObject();
-        textBlock.addProperty("type", "text");
-        textBlock.addProperty("text", text);
-        content.add(textBlock);
-        return content;
-    }
-
     private static JsonObject createLocalImageBlock(String imagePath) {
         if (imagePath == null || imagePath.trim().isEmpty()) {
             return null;

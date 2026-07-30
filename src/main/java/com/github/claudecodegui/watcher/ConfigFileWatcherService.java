@@ -51,7 +51,6 @@ public class ConfigFileWatcherService implements Disposable {
     private static final String CONFIG_FILE_NAME = "config.json";
     /** 默认 debounce(毫秒):合并 atomic-replace / 重复事件抖动。包级可见供测试引用。 */
     static final long DEFAULT_DEBOUNCE_MS = 200;
-    private static final int ERROR_RETRY_DELAY_MS = 1000;
     private static final long THREAD_JOIN_MS = 1000;
 
     /** 应用级单例(applicationService)。 */

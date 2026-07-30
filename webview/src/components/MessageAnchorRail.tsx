@@ -34,20 +34,6 @@ const CONTROL_CHARS_RE = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F\u200B-\u200D\uFEFF]/g;
 const HIGHLIGHT_CLASS_NAME = 'is-user-panel-highlight';
 const MAX_SCROLL_ATTEMPTS = 60;
 
-export function sampleAnchorItems<T>(items: readonly T[], maxItems: number): T[] {
-  if (maxItems <= 0 || items.length === 0) return [];
-  if (items.length <= maxItems) return [...items];
-  if (maxItems === 1) return [items[0]];
-
-  const sampled: T[] = [];
-  const lastIndex = items.length - 1;
-  for (let index = 0; index < maxItems; index += 1) {
-    const sourceIndex = Math.round((index * lastIndex) / (maxItems - 1));
-    sampled.push(items[sourceIndex]);
-  }
-  return sampled;
-}
-
 function normalizeText(text: string): string {
   return text.replace(CONTROL_CHARS_RE, '').replace(/\s+/g, ' ').trim();
 }

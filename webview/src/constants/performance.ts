@@ -132,10 +132,3 @@ export const DEBOUNCE_TIMING = {
   ON_INPUT_CALLBACK_MS: 100,
 } as const;
 
-/**
- * Type definitions for external consumers
- */
-export type TextLengthThresholds = typeof TEXT_LENGTH_THRESHOLDS;
-export type RenderingLimits = typeof RENDERING_LIMITS;
-export type PerfTiming = typeof PERF_TIMING;
-export type DebounceTiming = typeof DEBOUNCE_TIMING;

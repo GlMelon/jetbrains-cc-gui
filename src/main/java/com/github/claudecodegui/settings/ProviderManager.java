@@ -647,22 +647,6 @@ public class ProviderManager {
     }
 
     /**
-     * Extract environment configuration.
-     */
-    private JsonObject extractEnvConfig(JsonObject provider) {
-        if (provider == null ||
-                !provider.has("settingsConfig") ||
-                provider.get("settingsConfig").isJsonNull()) {
-            return null;
-        }
-        JsonObject settingsConfig = provider.getAsJsonObject("settingsConfig");
-        if (!settingsConfig.has("env") || settingsConfig.get("env").isJsonNull()) {
-            return null;
-        }
-        return settingsConfig.getAsJsonObject("env");
-    }
-
-    /**
      * Create local provider object with internationalized name and description.
      * When active, includes settingsConfig from ~/.claude/settings.json so the
      * webview can sync model mapping (env vars) without an extra round-trip.

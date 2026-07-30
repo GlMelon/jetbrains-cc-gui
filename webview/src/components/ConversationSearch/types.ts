@@ -30,15 +30,6 @@ export interface ConversationSearchMatch {
   preview?: string;
 }
 
-export interface ConversationSearchHandle {
-  /** Open the search panel (focuses input). */
-  open: () => void;
-  /** Close the search panel and clear all highlights. */
-  close: () => void;
-  /** Whether the search panel is currently open. */
-  isOpen: () => boolean;
-}
-
 /**
  * Optional API a parent component can expose so the search hook can force
  * the message list to unfold all earlier collapsed messages.

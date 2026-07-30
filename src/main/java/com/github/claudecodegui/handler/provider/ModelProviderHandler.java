@@ -189,18 +189,6 @@ public class ModelProviderHandler {
         return !previousModel.equals(newModel);
     }
 
-    /**
-     * Check if a model is a Claude-family model (starts with claude- or claude_).
-     * Used to decide whether to append the [1m] suffix.
-     */
-    private static boolean isClaudeModel(String model) {
-        if (model == null) {
-            return false;
-        }
-        String lower = model.toLowerCase();
-        return lower.startsWith("claude-") || lower.startsWith("claude_");
-    }
-
     public static JsonObject buildModelSelectionPayload(ModelSelectionResult selection) {
         JsonObject payload = new JsonObject();
         payload.addProperty("provider", selection.provider());
@@ -414,28 +402,6 @@ public class ModelProviderHandler {
         });
     }
 
-    private String parseModel(String content) {
-        String model = content;
-        if (content != null && !content.isEmpty()) {
-            try {
-                JsonObject json = gson.fromJson(content, JsonObject.class);
-                if (json.has("model")) {
-                    model = json.get("model").getAsString();
-                }
-            } catch (Exception e) {
-                // content itself is the model
-            }
-        }
-        return model;
-    }
-
-    private String confirmedProviderForModelChange(boolean isSessionOnly) {
-        if (isSessionOnly && context.getSession() != null) {
-            return context.getSession().getProvider();
-        }
-        return context.getCurrentProvider();
-    }
-
     private String parseProvider(String content) {
         String provider = content;
         if (content != null && !content.isEmpty()) {
@@ -449,20 +415,6 @@ public class ModelProviderHandler {
             }
         }
         return provider;
-    }
-
-    private String resolveConfiguredClaudeModelFromSettings(String baseModel) {
-        try {
-            JsonObject claudeSettings = context.getSettingsService().readClaudeSettings();
-            if (claudeSettings == null || !claudeSettings.has("env") || !claudeSettings.get("env").isJsonObject()) {
-                return baseModel;
-            }
-            return resolveConfiguredClaudeModel(baseModel, claudeSettings.getAsJsonObject("env"));
-        } catch (Exception e) {
-            LOG.error("[ModelProviderHandler] Failed to resolve actual model name: " + e.getMessage());
-        }
-
-        return baseModel;
     }
 
     static String resolveConfiguredClaudeModel(String baseModel, JsonObject env) {
