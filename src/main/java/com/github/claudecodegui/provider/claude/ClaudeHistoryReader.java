@@ -40,7 +40,6 @@ public class ClaudeHistoryReader {
     public ClaudeHistoryReader() {
         this.parser = new ClaudeHistoryParser();
         this.indexService = new ClaudeHistoryIndexService(PROJECTS_DIR, parser);
-        this.usageAggregator = new ClaudeUsageAggregator(PROJECTS_DIR, parser);
         this.searchService = new ClaudeHistorySearchService(PROJECTS_DIR, this, indexService);
     }
 
@@ -326,5 +325,19 @@ public class ClaudeHistoryReader {
 
     public String handleApiRequest(String endpoint, Map<String, String> params) {
         return searchService.handleApiRequest(endpoint, params);
+    }
+
+    /**
+     * Get project statistics for sessions in a given path since a cutoff time.
+     *
+     * @param projectPath the project path to filter sessions
+     * @param cutoffTime the cutoff time in milliseconds
+     * @return project statistics
+     */
+    public ProjectStatistics getProjectStatistics(String projectPath, long cutoffTime) throws IOException {
+        ProjectStatistics stats = new ProjectStatistics();
+        // TODO: Implement actual statistics gathering from session files
+        // For now, return empty statistics
+        return stats;
     }
 }

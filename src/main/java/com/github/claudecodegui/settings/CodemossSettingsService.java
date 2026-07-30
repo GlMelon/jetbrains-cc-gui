@@ -719,11 +719,21 @@ public class CodemossSettingsService {
      * Parse Codex provider configurations from cc-switch.db.
      */
     public List<JsonObject> parseCodexProvidersFromCcSwitchDb(String dbPath) throws IOException {
-        return providerManager.parseProvidersFromCcSwitchDb(dbPath, "codex");
+        return providerSettingsService.parseProvidersFromCcSwitchDb(dbPath, "codex");
     }
 
     public int saveProviders(List<JsonObject> providers) throws IOException {
         return providerSettingsService.saveProviders(providers);
+    }
+
+    /**
+     * Save Codex provider configurations.
+     *
+     * @param providers list of Codex provider JSON objects
+     * @return number of providers saved
+     */
+    public int saveCodexProviders(List<JsonObject> providers) throws IOException {
+        return providerSettingsService.saveCodexProviders(providers);
     }
 
     public void saveProviderOrder(List<String> orderedIds) throws IOException {

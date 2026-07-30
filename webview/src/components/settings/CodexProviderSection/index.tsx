@@ -1,7 +1,7 @@
 import { sendAction } from '../../../bridge/typed';
 import { BanIcon, CheckIcon, EditIcon, GripIcon, InfoIcon, KeyIcon, PlusIcon, PowerIcon, TrashIcon } from '../../Icons';;
 import { UPSTREAM } from '../../../generated/protocol';
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 
 import { useTranslation } from 'react-i18next';
 
@@ -13,6 +13,8 @@ import { SPECIAL_PROVIDER_IDS } from '../../../types/provider';
 import { useDragSort } from '../hooks/useDragSort';
 
 import sharedStyles from '../ProviderList/style.module.less';
+import ImportConfirmDialog from '../ProviderList/ImportConfirmDialog';
+import { ProviderModelIcon } from '../../shared/ProviderModelIcon';
 import styles from './style.module.less';
 
 const ICON_MR_8_STYLE: React.CSSProperties = { marginRight: '8px' };
@@ -189,7 +191,7 @@ const CodexProviderSection = ({
         <ImportConfirmDialog
           providers={importPreviewData}
           existingProviders={codexProviders}
-          onConfirm={(selectedProviders) => {
+          onConfirm={(selectedProviders: CodexProviderConfig[]) => {
             sendAction(UPSTREAM.SAVE_IMPORTED_CODEX_PROVIDERS, { providers: selectedProviders });
             setShowImportDialog(false);
           }}
@@ -431,6 +433,7 @@ const CodexProviderSection = ({
                         return (
                           <span style={PROVIDER_LOGO_STYLE}>
                             <ProviderModelIcon
+                              providerId="codex"
                               baseUrl={baseUrl}
                               modelId={modelId}
                               size={18}

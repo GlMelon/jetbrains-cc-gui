@@ -49,6 +49,39 @@ public class HtmlLoader {
     }
 
     /**
+     * Inject the initial tab state into the HTML for the webview.
+     * This provides the initial tab configuration so the frontend can render
+     * the correct tab on load.
+     *
+     * @param html the HTML content
+     * @param tabProvider the initial provider tab identifier
+     * @param tabModel the initial model tab identifier
+     * @return HTML with the initial tab state injected
+     */
+    public String injectInitialTabState(String html, String tabProvider, String tabModel) {
+        StringBuilder script = new StringBuilder("<script>");
+        if (tabProvider != null && !tabProvider.isEmpty()) {
+            script.append("window.__INITIAL_TAB_PROVIDER__ = ").append(escapeJson(tabProvider)).append(";");
+        }
+        if (tabModel != null && !tabModel.isEmpty()) {
+            script.append("window.__INITIAL_TAB_MODEL__ = ").append(escapeJson(tabModel)).append(";");
+        }
+        script.append("</script>");
+        if (script.length() > "<script></script>".length() && html.contains("<head>")) {
+            html = html.replace("<head>", "<head>" + script);
+        }
+        return html;
+    }
+
+    /**
+     * Escape a string for safe inclusion in JSON.
+     */
+    private String escapeJson(String s) {
+        if (s == null) return "null";
+        return "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+    }
+
+    /**
      * Inject the IDE theme into the HTML.
      *
      * Strategy: add inline style attributes directly on HTML tags to ensure the background

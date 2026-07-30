@@ -12,6 +12,7 @@ import { ErrorDiagnosticCard } from './ErrorDiagnosticCard';
 import { matchErrorPattern } from '../../utils/errorMatcher';
 import {
   EditToolBlock,
+  EditToolGroupBlock,
   ReadToolBlock,
   ReadToolGroupBlock,
   BashToolBlock,
@@ -403,7 +404,7 @@ export const MessageItem = memo(function MessageItem({
   useEffect(() => {
     if (message.type !== 'assistant') return;
 
-    const thinkingIndices = renderedBlocks
+    const thinkingIndices = blocks
       .map((block, index) => (block.type === 'thinking' ? index : -1))
       .filter((index) => index !== -1);
 
@@ -554,11 +555,7 @@ export const MessageItem = memo(function MessageItem({
       if (editItems.length === 1) {
         return (
           <div key={`${messageIndex}-editgroup-${grouped.startIndex}`} className="content-block">
-            <EditToolBlock
-              name={editItems[0].name}
-              input={editItems[0].input}
-              result={editItems[0].result}
-            />
+            <EditToolBlock items={editItems} />
           </div>
         );
       }

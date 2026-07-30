@@ -2,7 +2,7 @@ import {useMemo, useState} from 'react';
 import styles from './style.module.less';
 import { useTranslation } from 'react-i18next';
 
-export type SettingsTab = 'basic' | 'providers' | 'models' | 'dependencies' | 'usage' | 'permissions' | 'promptEnhancer' | 'commit' | 'mcp' | 'agents' | 'prompts' | 'skills' | 'other' | 'community';
+export type SettingsTab = 'basic' | 'providers' | 'models' | 'dependencies' | 'usage' | 'permissions' | 'promptEnhancer' | 'commit' | 'mcp' | 'agents' | 'prompts' | 'skills' | 'pet' | 'other' | 'community';
 
 interface SidebarItem {
   key: SettingsTab;

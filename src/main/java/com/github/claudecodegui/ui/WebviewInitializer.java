@@ -8,6 +8,7 @@ import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.model.NodeDetectionResult;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
 import com.github.claudecodegui.provider.codex.CodexSDKBridge;
+import com.github.claudecodegui.session.ClaudeSession;
 import com.github.claudecodegui.session.runtime.EffectiveRuntimeResolver;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.settings.CodemossSettingsService;

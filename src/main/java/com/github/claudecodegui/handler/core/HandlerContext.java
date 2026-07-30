@@ -37,6 +37,9 @@ public class HandlerContext {
     private volatile String currentProvider = DEFAULT_PROVIDER;
     private volatile boolean disposed = false;
     private volatile Integer currentModelContextWindow;
+    private volatile Runnable contentActivator;
+    private volatile BooleanSupplier activeContentChecker;
+    private volatile Supplier<String> contentTitleProvider;
 
     /**
      * JavaScript callback interface.
@@ -195,6 +198,31 @@ public class HandlerContext {
 
     public void setContentActivator(Runnable contentActivator) {
         this.contentActivator = contentActivator == null ? () -> { } : contentActivator;
+    }
+
+    public void setActiveContentChecker(BooleanSupplier checker) {
+        this.activeContentChecker = checker;
+    }
+
+    public void setContentTitleProvider(Supplier<String> provider) {
+        this.contentTitleProvider = provider;
+    }
+
+    public boolean isActiveContent() {
+        BooleanSupplier checker = this.activeContentChecker;
+        return checker != null && checker.getAsBoolean();
+    }
+
+    public String getContentTitle() {
+        Supplier<String> provider = this.contentTitleProvider;
+        return provider != null ? provider.get() : null;
+    }
+
+    public void activateContent() {
+        Runnable activator = this.contentActivator;
+        if (activator != null) {
+            activator.run();
+        }
     }
 
     // JavaScript callback proxy methods

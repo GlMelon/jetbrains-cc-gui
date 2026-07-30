@@ -7,7 +7,7 @@
 import type { McpServer, McpServerStatusInfo } from '../../types/mcp';
 import type { ServerRefreshState, ServerToolsState, McpTool } from './types';
 import { getServerStatusInfo, getStatusText, getIconColor, getServerInitial, isServerEnabled } from './utils';
-import { ServerToolsPanel } from './ServerToolsPanel';
+import { ServerToolsPanel, isEmptyToolsResult } from './ServerToolsPanel';
 import { BookIcon, ChevronRightIcon, CopyIcon, EditIcon, HomeIcon, TrashIcon } from '../Icons';
 
 /** 状态 → pill 修饰类(ok/err/warn/muted),用于常驻状态 pill */
@@ -69,7 +69,6 @@ export function ServerCard({
       : status;
   const enabled = isServerEnabled(server, isCodexMode);
   const isConnected = effectiveStatus === 'connected';
-  const emptyToolsWarning = hasEmptyToolsWarning(effectiveStatus, toolsInfo, enabled);
 
   const iconStyle: React.CSSProperties = { background: getIconColor(server.id) };
   const statusPillClass = getStatusPillClass(server, effectiveStatus, isCodexMode);

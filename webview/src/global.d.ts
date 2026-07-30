@@ -158,6 +158,16 @@ interface Window {
   onUsageUpdate?: (json: string) => void;
 
   /**
+   * Pending usage statistics before onUsageUpdate is registered
+   */
+  __pendingUsageStatistics?: string;
+
+  /**
+   * Update usage statistics callback
+   */
+  updateUsageStatistics?: (json: string) => void;
+
+  /**
    * Mode received callback - backend pushes the permission mode (called during window initialization)
    */
   onModeReceived?: (mode: string) => void;

@@ -54,6 +54,9 @@ public class ClaudeSession {
     // Permission manager
     private final PermissionManager permissionManager = new PermissionManager();
 
+    // Track when the last turn was started
+    private long lastTurnStartedAtMillis;
+
     /**
      * Represents a single message in the conversation.
      */

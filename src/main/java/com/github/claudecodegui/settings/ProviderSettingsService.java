@@ -112,12 +112,20 @@ public final class ProviderSettingsService {
         return providerManager.parseProvidersFromCcSwitchDb(dbPath);
     }
 
+    public List<JsonObject> parseProvidersFromCcSwitchDb(String dbPath, String appType) throws IOException {
+        return providerManager.parseProvidersFromCcSwitchDb(dbPath, appType);
+    }
+
     public int saveProviders(List<JsonObject> providers) throws IOException {
         return providerManager.saveProviders(providers);
     }
 
     public void saveProviderOrder(List<String> orderedIds) throws IOException {
         providerManager.saveProviderOrder(orderedIds);
+    }
+
+    public int saveCodexProviders(List<JsonObject> providers) throws IOException {
+        return codexProviderManager.saveProviders(providers);
     }
 
     public boolean isLocalProviderActive() {

@@ -35,7 +35,8 @@ public enum SdkDefinition {
         "latest",
         Collections.emptyList(),
         Arrays.asList("0.117.0", "0.116.0", "0.115.0"),
-        "Codex AI 提供商所需。"
+        "Codex AI 提供商所需。",
+        null
     ),
 
     OPENCODE_SDK(
@@ -47,7 +48,8 @@ public enum SdkDefinition {
         // §15.5 B17:fallback 版本对齐 npm 实测 @opencode-ai/sdk(2026-06 latest=1.17.11)。
         // registry 不可达时降级用,避免落到早期臆造的 0.1.0 等不存在的远古版本。
         Arrays.asList("1.17.11", "1.17.10", "1.17.9"),
-        "OpenCode AI 提供商所需。"
+        "OpenCode AI 提供商所需。",
+        null
     );
 
     private final String id;

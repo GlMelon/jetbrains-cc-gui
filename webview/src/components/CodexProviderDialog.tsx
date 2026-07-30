@@ -5,16 +5,36 @@ import DualViewSwitcher, { type DualViewMode } from './shared/DualViewSwitcher';
 import { codexEnvAdapter, type CodexEnvFormState } from './shared/dualView/adapters';
 import type { CodexProviderConfig, EnvVarEntry } from '../types/provider';
 import {
-  CODEX_PROVIDER_PRESETS,
-  DEFAULT_CODEX_AUTH_JSON,
-  OFFICIAL_CODEX_CONFIG_TOML,
-  OFFICIAL_CODEX_PROVIDER_NAME,
   validateEnvVarEntries,
   ENV_VAR_VALUE_MAX_LENGTH,
 } from '../types/provider';
 import EnvVarEditor from './EnvVarEditor';
 import { GuidedProviderDialog, type GuidedStep } from './shared/GuidedProviderDialog';
 import { fetchProviderModels } from '../utils/bridge';
+import { ProviderModelIcon } from './shared/ProviderModelIcon';
+
+const OFFICIAL_DIRECT_PRESET_ID = 'official_direct';
+const OFFICIAL_CODEX_PROVIDER_NAME = 'Official Codex Direct';
+const OFFICIAL_CODEX_CONFIG_TOML = `disable_response_storage = true
+model = "o3"
+model_reasoning_effort = "high"
+model_provider = "crs"
+
+[model_providers.crs]
+base_url = "https://api.openai.com/v1"
+name = "crs"
+requires_openai_auth = true
+wire_api = "responses"`;
+const DEFAULT_CODEX_AUTH_JSON = `{
+  "OPENAI_API_KEY": ""
+}`;
+const CODEX_PROVIDER_PRESETS: Array<{
+  id: string;
+  name: string;
+  nameKey: string;
+  configToml: string;
+  authJson: string;
+}> = [];
 
 const FORM_HEADER_STYLE: React.CSSProperties = {
   display: 'flex',
@@ -104,6 +124,7 @@ export default function CodexProviderDialog({
   const [fetchedModels, setFetchedModels] = useState<string[]>([]);
   const [fetchingModels, setFetchingModels] = useState(false);
   const [fetchError, setFetchError] = useState('');
+  const [activePreset, setActivePreset] = useState('custom');
 
   // Initialize form
   useEffect(() => {

@@ -53,6 +53,7 @@
   "dependencies": {
     "@base-ui/react": "^1.6.0",
     "@lobehub/icons": "^5.8.0",
+    "antd": "^6.5.2",
     "dompurify": "^3.3.1",
     "highlight.js": "^11.11.1",
     "i18next": "^25.7.2",

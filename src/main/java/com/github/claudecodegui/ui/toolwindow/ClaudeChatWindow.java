@@ -29,6 +29,8 @@ import com.github.claudecodegui.ui.ChatWindowDelegate;
 import com.github.claudecodegui.ui.EditorContextTracker;
 import com.github.claudecodegui.ui.WebviewInitializer;
 import com.github.claudecodegui.ui.WebviewWatchdog;
+import com.github.claudecodegui.ui.detached.DetachedChatFrame;
+import com.github.claudecodegui.ui.detached.DetachedWindowManager;
 import com.github.claudecodegui.util.AttachmentStorageService;
 import com.github.claudecodegui.util.HtmlLoader;
 import com.github.claudecodegui.util.JsUtils;
@@ -39,13 +41,14 @@ import com.intellij.openapi.Disposable;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.util.Disposer;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowManager;
-import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.ui.content.Content;
 import com.intellij.ui.content.ContentManager;
 import com.intellij.ui.jcef.JBCefBrowser;
 import com.intellij.util.Alarm;
+import javax.swing.SwingUtilities;
 import org.cef.browser.CefBrowser;
 
 import java.awt.BorderLayout;
@@ -1207,6 +1210,24 @@ public class ClaudeChatWindow {
         synchronized boolean hasPending() {
             return pendingSessionId != null;
         }
+    }
+
+    /**
+     * Schedule a safety-backstop drain of any deferred reload. This ensures that
+     * a deferred reload that races the stream-end edge — or the last fan-out answer
+     * with no following stream end — is still drained once the stream goes idle.
+     */
+    private void scheduleDeferredReloadSafetyDrain() {
+        deferredReloadSafetyAlarm.cancelAllRequests();
+        deferredReloadSafetyAlarm.addRequest(() -> {
+            if (disposed) return;
+            if (streamCoalescer != null && !streamCoalescer.isStreamActive()) {
+                String deferredId = deferredReload.takeIfRunnable(disposed);
+                if (deferredId != null) {
+                    driveSessionReload(deferredId);
+                }
+            }
+        }, DEFERRED_RELOAD_SAFETY_DRAIN_MS);
     }
 
     private void driveSessionReload(String targetSessionId) {

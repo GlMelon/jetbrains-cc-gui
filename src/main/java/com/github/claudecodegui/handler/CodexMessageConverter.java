@@ -668,15 +668,13 @@ public class CodexMessageConverter {
      * Handles apply_patch and other custom tools.
      */
     public static JsonObject convertCustomToolCallToToolUse(JsonObject payload, String timestamp) {
-        String toolName = payload.has("name") ? payload.get("name").getAsString() : "unknown";
+        String toolName = payload.has("name") ? payload.get("name").getAsString() : DaemonConstants.UNKNOWN;
         if (isHiddenHistoryToolName(toolName)) {
             return null;
         }
 
         JsonObject frontendMsg = new JsonObject();
         frontendMsg.addProperty("type", "assistant");
-
-        String toolName = payload.has("name") ? payload.get("name").getAsString() : DaemonConstants.UNKNOWN;
 
         String toolInput = safeGetAsString(payload.get("input"), "");
 

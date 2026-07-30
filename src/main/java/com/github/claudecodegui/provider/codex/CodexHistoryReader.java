@@ -213,4 +213,44 @@ public class CodexHistoryReader {
             return false;
         }
     }
+
+    /**
+     * Project statistics for Codex history.
+     */
+    public static class ProjectStatistics {
+        public int totalSessions;
+        public int totalMessages;
+        public long firstSessionTime;
+        public long lastSessionTime;
+        public double estimatedCost;
+        public TotalUsage totalUsage;
+        public Map<String, Integer> modelUsage;
+        public Map<String, Integer> providerUsage;
+
+        public ProjectStatistics() {
+            this.modelUsage = new HashMap<>();
+            this.providerUsage = new HashMap<>();
+            this.totalUsage = new TotalUsage();
+        }
+
+        public static class TotalUsage {
+            public long totalTokens;
+            public long inputTokens;
+            public long outputTokens;
+        }
+    }
+
+    /**
+     * Get project statistics for sessions in a given path since a cutoff time.
+     *
+     * @param projectPath the project path to filter sessions
+     * @param cutoffTime the cutoff time in milliseconds
+     * @return project statistics
+     */
+    public ProjectStatistics getProjectStatistics(String projectPath, long cutoffTime) throws IOException {
+        ProjectStatistics stats = new ProjectStatistics();
+        // TODO: Implement actual statistics gathering from session files
+        // For now, return empty statistics
+        return stats;
+    }
 }

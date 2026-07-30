@@ -247,6 +247,7 @@ const App = () => {
     handleSendShortcutChange,
     handleAutoOpenFileEnabledChange,
     handleLongContextChange,
+    claudeSdkMeetsMinimum,
   } = useModelProviderState({ addToast, t });
 
   // ── Global drag event interception ──
@@ -742,6 +743,7 @@ const App = () => {
         >
           <ChatScreen
             mergedMessages={mergedMessages}
+            sessionTitle={sessionTitle}
             getMessageText={getMessageText}
             getContentBlocks={getContentBlocks}
             findToolResult={findToolResult}

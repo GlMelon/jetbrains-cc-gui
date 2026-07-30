@@ -29,6 +29,9 @@ import type {
 } from '../hooks';
 import type { GetToolResultRawFn } from '../contexts/SubagentContext';
 import type { AvatarConfig } from '../types/avatar';
+import { useCodexPetPreference } from './codexPet/useCodexPetPreference';
+import { shouldToggleCodexPet } from './codexPet/petState';
+import { CodexPetStatusBridge } from './codexPet/CodexPetStatusBridge';
 
 type MessageQueueValue = ReturnType<typeof useMessageQueue>['queue'];
 type SubagentList = ReturnType<typeof useSubagents>;
@@ -102,6 +105,7 @@ interface ChatScreenProps {
  */
 export const ChatScreen = ({
   mergedMessages,
+  sessionTitle,
   getMessageText,
   getContentBlocks,
   findToolResult,

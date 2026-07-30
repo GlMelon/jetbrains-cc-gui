@@ -8,6 +8,7 @@ import DualViewSwitcher, { type DualViewMode } from './shared/DualViewSwitcher';
 import { claudeConfigAdapter, type ClaudeConfigFormState } from './shared/dualView/adapters';
 import EnvRecordEditor from './shared/dualView/EnvRecordEditor';
 import { fetchProviderModels } from '../utils/bridge';
+import { ProviderModelIcon } from './shared/ProviderModelIcon';
 
 const INFO_ICON_STYLE: React.CSSProperties = { fontSize: '12px', marginRight: '4px' };
 const NOTICE_MT_STYLE: React.CSSProperties = { marginTop: '8px' };

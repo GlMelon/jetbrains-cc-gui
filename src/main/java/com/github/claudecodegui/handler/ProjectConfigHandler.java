@@ -29,6 +29,8 @@ import com.intellij.openapi.fileChooser.FileChooserDescriptor;
 import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 
+import java.util.concurrent.CompletableFuture;
+
 /**
  * Handles project-level configuration: working directory, streaming, sandbox mode,
  * auto-open file, send shortcut, commit prompt, IDE theme, editor font config, and usage statistics.

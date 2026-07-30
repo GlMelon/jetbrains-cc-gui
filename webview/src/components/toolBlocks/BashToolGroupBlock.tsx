@@ -173,7 +173,7 @@ const BashToolGroupBlock = ({ items, deniedToolIds }: BashToolGroupBlockProps) =
   return (
     <div className="task-container bash-group-container">
       {/* Header - always visible */}
-      <div className="task-header bash-group-header" onClick={() => setExpanded((prev) => !prev)}>
+      <div className="task-header bash-group-header" style={headerStyle} onClick={() => setExpanded((prev) => !prev)}>
         <div className="task-title-section">
           <span className="tool-title-text">
             {t('tools.bashGroupBatchRun')} ({totalCount})

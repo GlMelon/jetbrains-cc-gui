@@ -22,6 +22,8 @@ import { copyToClipboard } from '../../utils/copyUtils';
 // Types and utility functions
 import type { McpSettingsSectionProps, RefreshLog, McpTool } from './types';
 import { getCacheKeys, getToolIcon, getServerStatusInfo, isServerEnabled } from './utils';
+import type { McpProvider } from './providerSelection';
+import { resolveInitialMcpProvider, getMcpMessagePrefix } from './providerSelection';
 
 // Hooks
 import { useServerData } from './hooks/useServerData';
@@ -460,7 +462,7 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
             {t('mcp.manualConfig')}
           </button>
           {/* 从市场获取(主色按钮,OpenCode 无 MCP 后端时隐藏) */}
-          {currentProvider !== 'opencode' && (
+          {(currentProvider as string) !== 'opencode' && (
             <button
               className="market-btn"
               onClick={handleAddFromMarket}

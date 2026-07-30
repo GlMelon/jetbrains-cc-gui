@@ -21,7 +21,7 @@ public class ProviderActionHandlers {
         this.claudeOps = new ClaudeProviderOperations(context);
         this.codexOps = new CodexProviderOperations(context);
         this.openCodeOps = new OpenCodeProviderOperations(context);
-        this.importExportSupport = new ProviderImportExportSupport(context, claudeOps);
+        this.importExportSupport = new ProviderImportExportSupport(context, claudeOps, codexOps);
         this.orderingService = new ProviderOrderingService(context, claudeOps, codexOps, openCodeOps);
     }
 

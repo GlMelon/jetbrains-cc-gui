@@ -18,6 +18,35 @@ interface UseServerDataOptions {
   onLog: (message: string, type: RefreshLog['type'], details?: string, serverName?: string, requestInfo?: string, errorReason?: string) => void;
 }
 
+const TERMINAL_STATUSES = new Set(['failed', 'needs-auth', 'disabled']);
+
+function getTerminalStatusNames(statusList: McpServerStatusInfo[]): Set<string> {
+  const names = new Set<string>();
+  for (const status of statusList) {
+    if (TERMINAL_STATUSES.has(status.status)) {
+      names.add(status.name);
+    }
+  }
+  return names;
+}
+
+function clearToolsForTerminalStatuses(
+  toolsState: ServerToolsState,
+  servers: McpServer[],
+  terminalNames: Set<string>,
+): ServerToolsState {
+  if (terminalNames.size === 0) return toolsState;
+  const next = { ...toolsState };
+  let changed = false;
+  for (const server of servers) {
+    if (server.name && terminalNames.has(server.name) && next[server.id]) {
+      delete next[server.id];
+      changed = true;
+    }
+  }
+  return changed ? next : toolsState;
+}
+
 interface UseServerDataReturn {
   // State
   servers: McpServer[];
@@ -59,15 +88,25 @@ export function useServerData({
   const [serverTools, setServerTools] = useState<ServerToolsState>({});
   const [expandedServers, setExpandedServers] = useState<Set<string>>(new Set());
 
+  // Aliases for state setters used in callbacks
+  const setServers = setServersState;
+
   // Refs
   const refreshTimersRef = useRef<number[]>([]);
   const toolsRequestCounterRef = useRef(0);
   const latestToolsRequestIdsRef = useRef<Map<string, string>>(new Map());
+  const terminalStatusNamesRef = useRef<Set<string>>(new Set());
+  const serversRef = useRef<McpServer[]>([]);
 
   useEffect(() => {
     latestToolsRequestIdsRef.current.clear();
     setServerTools({});
   }, [isCodexMode, cacheKeys]);
+
+  // Keep serversRef in sync with servers state
+  useEffect(() => {
+    serversRef.current = servers;
+  }, [servers]);
 
   const acceptToolsResponse = useCallback((serverId: string, requestId: string): boolean => {
     if (!serverId || !requestId) {
@@ -207,7 +246,7 @@ export function useServerData({
         if (cachedStatus && cachedStatus.length > 0) {
           const terminalStatusNames = getTerminalStatusNames(cachedStatus);
           terminalStatusNamesRef.current = terminalStatusNames;
-          clearToolsForTerminalStatuses(cachedServers || [], terminalStatusNames);
+          setServerTools(prev => clearToolsForTerminalStatuses(prev, cachedServers || [], terminalStatusNames));
           const statusMap = new Map<string, McpServerStatusInfo>();
           cachedStatus.forEach((status) => {
             statusMap.set(status.name, status);
@@ -269,7 +308,7 @@ export function useServerData({
       try {
         const serverList: McpServer[] = JSON.parse(jsonStr);
         setServers(serverList);
-        clearToolsForTerminalStatuses(serverList, terminalStatusNamesRef.current);
+        setServerTools(prev => clearToolsForTerminalStatuses(prev, serverList, terminalStatusNamesRef.current));
         setLoading(false);
         // Persist to cache so subsequent mounts can load instantly
         writeCache(cacheKeys.SERVERS, serverList);
@@ -291,7 +330,7 @@ export function useServerData({
         setServerStatus(statusMap);
         const terminalStatusNames = getTerminalStatusNames(statusList);
         terminalStatusNamesRef.current = terminalStatusNames;
-        clearToolsForTerminalStatuses(serversRef.current, terminalStatusNames);
+        setServerTools(prev => clearToolsForTerminalStatuses(prev, serversRef.current, terminalStatusNames));
         setStatusLoading(false);
         // Persist status to cache
         writeCache(cacheKeys.STATUS, statusList);

@@ -1,15 +1,10 @@
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
-import { memo, useMemo, useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
+import { memo, useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import katex from 'katex';
 import markedKatex from 'marked-katex-extension';
 import { openBrowser, openClass, openFile } from '../utils/bridge';
-import {
-  captureRangeOffsets,
-  restoreRangeOffsets,
-  type TextSelectionOffsets,
-} from '../utils/selectionOffsets';
 import { useMarkdownFileLinkTooltip } from '../hooks/useMarkdownFileLinkTooltip';
 import { useTypewriterStream } from '../hooks/useTypewriterStream';
 import { decorateExistingAnchors, linkifyHtml } from '../utils/linkify';

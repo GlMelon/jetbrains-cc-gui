@@ -23,7 +23,6 @@ import BailianColor from '@lobehub/icons/es/Bailian/components/Color';
 import BailianMono from '@lobehub/icons/es/Bailian/components/Mono';
 import LongCatColor from '@lobehub/icons/es/LongCat/components/Color';
 import LongCatMono from '@lobehub/icons/es/LongCat/components/Mono';
-import OpenCodeMono from '@lobehub/icons/es/OpenCode/components/Mono';
 import MoonshotMono from '@lobehub/icons/es/Moonshot/components/Mono';
 import ZhipuColor from '@lobehub/icons/es/Zhipu/components/Color';
 import ZhipuMono from '@lobehub/icons/es/Zhipu/components/Mono';
