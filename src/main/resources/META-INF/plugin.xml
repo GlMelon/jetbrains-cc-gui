@@ -1,6 +1,6 @@
 <idea-plugin>
     <id>com.github.idea-claude-code-gui</id>
-    <name>CC GUI (Claude or Codex)</name>
+    <name>Ai Code Gui</name>
     <vendor>MossX</vendor>
 
     <!-- Resource bundle for i18n -->
@@ -48,7 +48,7 @@
 
         <h2>使用方法</h2>
         <ul>
-            <li>从右侧边栏打开 CC GUI 工具窗口</li>
+            <li>从右侧边栏打开 AI Code GUI 工具窗口</li>
             <li>选中代码后使用 <kbd>Ctrl+Alt+K</kbd>（Win/Linux）或 <kbd>Cmd+Alt+K</kbd>（Mac）发送给 AI</li>
             <li>即时获得 AI 驱动的代码辅助和智能建议</li>
         </ul>
@@ -83,8 +83,8 @@
              MODEL_REGISTRY to all open projects' frontends. Application-scoped Disposable. -->
         <applicationService serviceImplementation="com.github.claudecodegui.watcher.ConfigFileWatcherService"/>
 
-        <!-- CC GUI tool window (includes history feature) -->
-        <toolWindow id="CCG"
+        <!-- AI Code GUI tool window (includes history feature) -->
+        <toolWindow id="AICG"
                     anchor="right"
                     factoryClass="com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow"
                     icon="/icons/cc-gui-icon.svg"
@@ -107,11 +107,11 @@
                                 implementation="com.github.claudecodegui.notifications.ClaudeStatusBarWidget$Factory"/>
 
         <!-- Notification group for DevTools and other balloon notifications -->
-        <notificationGroup id="CC GUI Notifications" displayType="BALLOON"/>
+        <notificationGroup id="AI Code GUI Notifications" displayType="BALLOON"/>
     </extensions>
 
     <actions>
-        <!-- Action to send selected code to CC GUI -->
+        <!-- Action to send selected code to AI Code GUI -->
         <action id="ClaudeCodeGUI.SendSelectionToTerminalAction"
                 class="com.github.claudecodegui.action.editor.SendSelectionToTerminalAction"
                 icon="/icons/send-to-terminal.svg">
@@ -187,7 +187,7 @@
             <add-to-group group-id="EditorTabPopupMenu" anchor="first"/>
         </action>
 
-        <!-- Action to send the selected console text to CC GUI -->
+        <!-- Action to send the selected console text to AI Code GUI -->
         <action id="ClaudeCodeGUI.SendConsoleSelectionToInputAction"
                 class="com.github.claudecodegui.action.console.SendConsoleSelectionToInputAction"
                 icon="/icons/terminal-to-input.svg">
@@ -202,7 +202,7 @@
             <add-to-group group-id="Vcs.MessageActionGroup" anchor="last"/>
         </action>
 
-        <!-- Chat tool window clipboard actions (scoped to CCG tool window) -->
+        <!-- Chat tool window clipboard actions (scoped to AICG tool window) -->
         <action id="ClaudeCodeGUI.ChatCopyAction"
                 class="com.github.claudecodegui.action.ChatCopyAction"
                 text="Copy (Chat Window)"
@@ -245,7 +245,7 @@
         </action>
 
         <!--
-          Hide CC GUI Panel. A standalone action with NO default keyboard shortcut: users may bind one
+          Hide AI Code GUI Panel. A standalone action with NO default keyboard shortcut: users may bind one
           in Settings | Keymap to hide the tool window while focus is in the IDE (e.g. the editor).
           NOTE: The Shift+Esc shortcut that hides the panel while focus is INSIDE the webview is
           implemented separately in WebviewInitializer via a JS keydown listener
@@ -255,7 +255,7 @@
         -->
         <action id="ClaudeCodeGUI.HidePanelAction"
                 class="com.github.claudecodegui.action.HidePanelAction"
-                text="Hide CC GUI Panel"
-                description="Hide the CC GUI tool window panel"/>
+                text="Hide AI Code GUI Panel"
+                description="Hide the AI Code GUI tool window panel"/>
     </actions>
 </idea-plugin>
