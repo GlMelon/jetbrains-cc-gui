@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AVAILABLE_MODES, type PermissionMode } from '../types';
-import { ChatIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, FileCheckIcon, TaskIcon, UnlockIcon } from '../../Icons';
+import { ChatIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, CompassIcon, RobotIcon, ZapIcon } from '../../Icons';
 import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
 
 const RELATIVE_INLINE_BLOCK_STYLE: React.CSSProperties = { position: 'relative', display: 'inline-block' };
@@ -30,18 +30,21 @@ interface ModeSelectProps {
   provider?: string;
 }
 
-// Map mode ID to SVG icon component
+// Map mode ID to SVG icon component.
+// 方案一(Claude 官方风格):default=对话气泡 / plan=罗盘 / acceptEdits(Agent)=机器人 /
+// bypassPermissions(Auto)=闪电。单色 currentColor,着色由 .selector-button CSS 统一处理
+// (bypassPermissions 额外有 .mode-auto-active 橙色高亮,呼应 Auto 警示语义)。
 function getModeIcon(modeId: PermissionMode) {
   switch (modeId) {
     case 'default':
       return <ChatIcon size={14} />;
     case 'plan':
-      return <TaskIcon size={14} />;
+      return <CompassIcon size={14} />;
     case 'acceptEdits':
-    case 'autoEdit': // acceptEdits 历史别名,UI 同样显示文件确认图标(C2 值域对齐)
-      return <FileCheckIcon size={14} />;
+    case 'autoEdit': // acceptEdits 历史别名(C2 值域对齐),UI 同为 Agent=机器人
+      return <RobotIcon size={14} />;
     case 'bypassPermissions':
-      return <UnlockIcon size={14} />;
+      return <ZapIcon size={14} />;
     default:
       return <ChatIcon size={14} />;
   }

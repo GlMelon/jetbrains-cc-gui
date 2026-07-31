@@ -114,6 +114,66 @@ export const ChatIcon = createIcon(
   </>
 );
 
+// Compass / 罗盘 — 方案一 Plan 模式图标(Claude 官方 compass 语义)
+export const CompassIcon = createIcon(
+  <>
+    <circle cx="12" cy="12" r="9" />
+    <polygon points="12 4.5 14.2 11 12 12.5 9.8 11" fill="currentColor" stroke="none" />
+    <polygon points="12 19.5 9.8 13 12 11.5 14.2 13" fill="currentColor" stroke="none" opacity="0.45" />
+    <circle cx="12" cy="12" r="0.9" fill="currentColor" stroke="none" />
+  </>
+);
+
+// ReasoningGauge / 油表仪表盘 — 推理程度图标。指针角度随级别从左(low)扫到右(max),
+// 底部半圆为表盘(opacity 0.4 中性灰);指针+中心轴点按级别彩色(绿→红,强度递增),直观反映思考深度。
+// 注:本文件另有固定 GaugeIcon(配额/用量),此为参数化版,故独立命名。
+const REASONING_GAUGE_NEEDLE_TIP: ReadonlyArray<readonly [number, number]> = [
+  [6.34, 10.34], // 0 low  (左上)
+  [8.94, 8.61], // 1 medium
+  [12, 8], // 2 high (正上)
+  [15.06, 8.61], // 3 xhigh
+  [17.66, 10.34], // 4 max  (右上)
+];
+
+// 档位颜色:绿(low,温和/省)→青柠→琥珀→橙→红(max,极致/烧),强度递增;深色背景下区分清晰。
+// 表盘(path)保持中性灰(opacity 0.4),仅指针+中心点着色,聚焦"当前强度"一眼可辨。
+const REASONING_GAUGE_COLORS: ReadonlyArray<string> = [
+  '#4caf50', // 0 low  绿
+  '#cddc39', // 1 medium 青柠
+  '#ffc107', // 2 high 琥珀
+  '#ff9800', // 3 xhigh 橙
+  '#ef5350', // 4 max  红
+];
+
+interface ReasoningGaugeIconProps extends IconProps {
+  /** 档位 0-4(low→max),决定指针角度;越界回退 low */
+  level?: number;
+}
+
+export const ReasoningGaugeIcon: React.FC<ReasoningGaugeIconProps> = ({ level = 0, size = ICON_MD, className, style }) => {
+  const tip = REASONING_GAUGE_NEEDLE_TIP[level] ?? REASONING_GAUGE_NEEDLE_TIP[0];
+  const color = REASONING_GAUGE_COLORS[level] ?? REASONING_GAUGE_COLORS[0];
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      style={style}
+    >
+      <path d="M4 16 A8 8 0 0 1 20 16" opacity="0.4" />
+      <line x1="12" y1="16" x2={tip[0]} y2={tip[1]} stroke={color} />
+      <circle cx="12" cy="16" r="1.4" fill={color} stroke="none" />
+    </svg>
+  );
+};
+ReasoningGaugeIcon.displayName = 'ReasoningGaugeIcon';
+
 // ==================== Files & Folders ====================
 
 export const FileIcon = createIcon(

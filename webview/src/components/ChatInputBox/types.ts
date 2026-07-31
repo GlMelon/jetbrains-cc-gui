@@ -209,10 +209,21 @@ export const AVAILABLE_MODES: ModeInfo[] = [
 ];
 
 /**
+ * All valid PermissionMode IDs (SSOT-derived).
+ *
+ * 从 SSOT {@link PERMISSION_MODE}(5 值含 autoEdit 别名)派生,而非展示列表
+ * {@link AVAILABLE_MODES}(4 值,不含 autoEdit)。用于校验,避免后端下发 autoEdit
+ * 时被当作非法值拒绝而静默丢失状态(原 C2 bug:从 AVAILABLE_MODES 派生漏 autoEdit)。
+ */
+export const VALID_PERMISSION_MODE_IDS: ReadonlySet<PermissionMode> = new Set(
+  Object.values(PERMISSION_MODE) as PermissionMode[],
+);
+
+/**
  * Check whether a string is a recognized PermissionMode.
  */
 export function isValidPermissionMode(mode: string | undefined | null): mode is PermissionMode {
-  return typeof mode === 'string' && Object.values(PERMISSION_MODE).includes(mode as any);
+  return typeof mode === 'string' && VALID_PERMISSION_MODE_IDS.has(mode as PermissionMode);
 }
 
 /**
@@ -257,7 +268,7 @@ export const CLAUDE_ROLE_MODEL_IDS = {
 
 // A3(2026-06-23):getClaudeRoleFromModelId / normalizeClaudeModelId 已删除。
 // 前端不再做「id→role 离线推导」与「未知 id 归一为 sonnet」的业务归一化——
-// role 判定改读后端 registry 的 role 字段(utils/modelRegistry.resolveClaudeRoleForModel),
+// role 判定改读后端 registry 的 role 字段(直接查 currentRegistry.items,见 getModelSupportedReasoningLevels),
 // id 规整仅剥离 [1m] 后缀(resolveClaudeModelId),业务真相源统一在后端。
 
 // C5 SSOT:context window 默认值由后端 CommonConstants 经生成链产出
@@ -292,18 +303,18 @@ export const AVAILABLE_PROVIDERS: ProviderInfo[] = [
 
 /**
  * Reasoning effort(adaptive thinking)的支持情况按模型的 role 判断,不再使用
- * model-id 白名单:opus/fable/sonnet 支持 effort(其中 opus/fable 额外支持
- * xhigh),haiku 不支持。判断逻辑见 ReasoningSelect +
- * utils/modelRegistry.resolveClaudeRoleForModel(内置 role 与自定义模型的
- * role 字段统一处理)。
+ * model-id 白名单:sonnet/opus/fable 支持全集 5 档(含 xhigh/max),haiku 仅
+ * low/medium/high(3 档)。判断逻辑见 ReasoningSelect +
+ * utils/modelRegistry.getModelSupportedReasoningLevels(读 registry 的 role 字段,
+ * 内置 role 与自定义模型统一处理)。Codex/OpenCode 不按 role 过滤,展示全集 5 档。
  */
 
 /**
  * Reasoning Effort (thinking depth).
  *
  * 类型 SSOT(C2):由后端 {@code protocol.ReasoningEffort} 枚举经构建时生成器产出,此处 re-export。
- * 全集 5 档(= Claude API 全集);实际展示为按 role/provider 子集过滤(Codex 无 max、HAIKU 无
- * xhigh/max),见 {@link REASONING_LEVELS} + {@code ReasoningSelect}。
+ * 全集 5 档(= Claude Code CLI 全集);实际展示为按 role 子集过滤(Claude HAIKU 仅 3 档
+ * low/medium/high),Codex/OpenCode 展示全集,见 {@link REASONING_LEVELS} + {@code ReasoningSelect}。
  */
 export type { ReasoningEffort };
 

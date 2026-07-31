@@ -7,7 +7,16 @@ import {
 import { PROVIDER_IDS } from '../../../types/provider';
 import { getModelSupportedReasoningLevels } from '../../../utils/modelRegistry';
 import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
-import { CheckIcon, ChevronDownIcon, ChevronUpIcon, LightbulbIcon, codiconToIcon } from '../../Icons';
+import { CheckIcon, ChevronDownIcon, ChevronUpIcon, ReasoningGaugeIcon } from '../../Icons';
+
+/** ReasoningEffort → 油表档位(0-4),与 REASONING_LEVELS 顺序一致(low/medium/high/xhigh/max) */
+const REASONING_GAUGE_LEVEL: Record<ReasoningEffort, 0 | 1 | 2 | 3 | 4> = {
+  low: 0,
+  medium: 1,
+  high: 2,
+  xhigh: 3,
+  max: 4,
+};
 
 const RELATIVE_INLINE_BLOCK_STYLE: React.CSSProperties = { position: 'relative', display: 'inline-block' };
 const CHEVRON_ICON_STYLE: React.CSSProperties = { fontSize: '10px', marginLeft: '2px' };
@@ -33,11 +42,13 @@ interface ReasoningSelectProps {
  * ReasoningSelect - Reasoning Effort Selector
  * Controls the depth of reasoning for AI models.
  *
- * A2:可选级别来自后端权威下发的 supportedReasoningLevels(派生自 ClaudeRole.reasoningLevels):
- * - Claude role sonnet/opus/fable: low/medium/high/xhigh/max(5 档)
- * - Claude role haiku: low/medium/high(3 档)
- * - Codex: 前端默认 low/medium/high/xhigh(后端 codex capability 待后续补齐)
- * - 未配置 role 的自定义 Claude 模型:不下发 supportedReasoningLevels → 隐藏
+ * 三 provider 统一 5 档(low/medium/high/xhigh/max),对齐 Claude Code CLI 全集:
+ * - Claude:可选级别来自后端权威下发的 supportedReasoningLevels(派生自 ClaudeRole.reasoningLevels)
+ *   —— sonnet/opus/fable=5 档、haiku=3 档(low/medium/high)。
+ * - Codex/OpenCode:后端 capability 下发前展示全集 5 档,值透传由 CLI/SDK 消费
+ *   (Codex 透传 OpenAI reasoning.effort;OpenCode CLI 映射 --variant);
+ *   模型不支持的高档由 CLI/模型层 clamp/降级(插件不建 per-model 映射表)。
+ * - 未配置 role 的自定义 Claude 模型:不下发 supportedReasoningLevels → 隐藏。
  *
  * registry 未加载时返回 null,组件隐藏(loading 态,registry 下发后回填)。
  */
@@ -60,16 +71,18 @@ export const ReasoningSelect = ({ value, onChange, disabled, selectedModel, curr
     : null;
 
   // Claude:有后端下发的级别才显示;未选模型时 fallback 显示全部(向后兼容)。
-  // Codex 等:前端默认 low/medium/high/xhigh(后端 codex capability 待后续补齐)。
+  // Codex/OpenCode:展示全集 5 档(后端 capability 下发前的统一行为)。
   const supportsEffort = currentProvider !== PROVIDER_IDS.CLAUDE
     || !selectedModel
     || (!!supportedLevels && supportedLevels.length > 0);
   const isVisible = currentProvider !== PROVIDER_IDS.CLAUDE || !selectedModel || supportsEffort;
 
   const availableLevels = REASONING_LEVELS.filter(level => {
+    // Codex/OpenCode:展示全集 5 档(与 Claude 对齐;模型不支持的高档由 CLI/模型层 clamp)。
     if (currentProvider !== PROVIDER_IDS.CLAUDE) {
-      return level.id !== 'max';
+      return true;
     }
+    // Claude:按后端 supportedReasoningLevels(派生自 role)过滤——sonnet/opus/fable=5 档、haiku=3 档。
     if (!selectedModel) {
       return true;
     }
@@ -164,7 +177,7 @@ export const ReasoningSelect = ({ value, onChange, disabled, selectedModel, curr
         disabled={disabled}
         title={t('reasoning.title', { defaultValue: 'Select reasoning depth' })}
       >
-        <LightbulbIcon size={16} />
+        <ReasoningGaugeIcon level={REASONING_GAUGE_LEVEL[currentLevel.id]} size={16} />
         <span className="selector-button-text">{getReasoningText(currentLevel.id, 'label')}</span>
         {isOpen ? <ChevronUpIcon size={16} style={CHEVRON_ICON_STYLE} /> : <ChevronDownIcon size={16} style={CHEVRON_ICON_STYLE} />}
       </button>
@@ -182,7 +195,7 @@ export const ReasoningSelect = ({ value, onChange, disabled, selectedModel, curr
               onClick={() => handleSelect(level.id)}
               title={getReasoningText(level.id, 'description')}
             >
-              {codiconToIcon(level.icon, 16)}
+              <ReasoningGaugeIcon level={REASONING_GAUGE_LEVEL[level.id]} size={16} />
               <div style={LEVEL_INFO_STYLE}>
                 <span>{getReasoningText(level.id, 'label')}</span>
                 <span className="mode-description">{getReasoningText(level.id, 'description')}</span>
