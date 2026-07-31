@@ -1,6 +1,7 @@
 package com.github.claudecodegui.action.dev;
 
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
+import com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow;
 import com.github.claudecodegui.util.JBCefBrowserFactory;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;

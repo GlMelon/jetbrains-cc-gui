@@ -3,6 +3,7 @@ package com.github.claudecodegui.notifications;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.settings.CodemossSettingsService;
+import com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.Project;
