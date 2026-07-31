@@ -1,6 +1,6 @@
-import { UPSTREAM } from '../generated/protocol';
+import { DOWNSTREAM, UPSTREAM } from '../generated/protocol';
 import type { ModelRegistryPayloadWire } from '../generated/protocol';
-import { sendAction } from '../bridge/typed';
+import { sendAction, subscribeEvent } from '../bridge/typed';
 import type { ModelInfo, ReasoningEffort } from '../components/ChatInputBox/types';
 import { DEFAULT_CONTEXT_WINDOW, ONE_MILLION_CONTEXT_WINDOW, REASONING_LEVELS, strip1MContextSuffix } from '../components/ChatInputBox/types';
 import type { CodexCustomModel, CodexProviderConfig, ProviderType } from '../types/provider';
@@ -38,9 +38,34 @@ function publishModelRegistry(registry: ModelRegistryPayload): void {
 }
 
 function ensureModelRegistrySubscription(): void {
-  if (subscriptionInitialized) return;
+  if (subscriptionInitialized || typeof window === 'undefined') {
+    return;
+  }
   subscriptionInitialized = true;
-  // Subscription setup will be added when bridge integration is ready
+  // 85ccb80e "简化 bridge 类型" 时误删此订阅接线,致共享 currentRegistry 永不填充
+  // → 聊天模型列表恒空 "No model configured"(设置弹窗因有独立订阅仍正常)。此处还原。
+  subscribeEvent(DOWNSTREAM.MODEL_REGISTRY, (json) => {
+    const parsed = parseModelRegistryPayload(json);
+    if (!parsed) {
+      return;
+    }
+    publishModelRegistry(parsed);
+  });
+  subscribeEvent(DOWNSTREAM.MODEL_REGISTRY_UPDATED, (json) => {
+    try {
+      const data = typeof json === 'string' ? JSON.parse(json) : json;
+      if (!data || typeof data !== 'object' || (data as { success?: boolean }).success !== true) {
+        return;
+      }
+      const parsed = parseModelRegistryPayload((data as { registry?: unknown }).registry);
+      if (!parsed) {
+        return;
+      }
+      publishModelRegistry(parsed);
+    } catch {
+      // Ignore malformed update events; callers still receive backend errors separately.
+    }
+  });
 }
 export function requestModelRegistry(): void {
   ensureModelRegistrySubscription();

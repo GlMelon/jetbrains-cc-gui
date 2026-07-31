@@ -37,9 +37,22 @@ interface BlinkingLogoProps {
 
 export const BlinkingLogo = ({ provider, modelId, onProviderChange }: BlinkingLogoProps) => {
   const { t } = useTranslation();
-  const [displayProvider, setDisplayProvider] = useState(provider);
-  const [displayModelId, setDisplayModelId] = useState(modelId);
   const [animationState, setAnimationState] = useState<'idle' | 'closing' | 'opening'>('idle');
+
+  // Track previous provider/model only to detect changes and trigger the blink
+  // animation. The icon itself renders DIRECTLY from props (always reflects the
+  // current provider) — these refs are NOT a mirrored display state.
+  //
+  // The prior displayProvider/displayModelId mirror synced via a 200ms setTimeout
+  // and could desync from props during a switch: Claude switches round-trip a
+  // MODEL_SELECTION event (plus a longContext re-negotiation), so modelId changes
+  // again inside the closing window, and effect 2's timer (which depended on
+  // [animationState, provider, modelId]) got cleared/reset, leaving the local
+  // state stuck on the previous Codex modelId. That stale 'gpt-5-codex' then won
+  // over providerId='claude' in resolveIconVendor() (modelId has higher priority)
+  // and rendered the OpenAI/Codex icon even after switching to Claude.
+  const prevProviderRef = useRef(provider);
+  const prevModelIdRef = useRef(modelId);
 
   // Dropdown state
   const [isOpen, setIsOpen] = useState(false);
@@ -49,34 +62,28 @@ export const BlinkingLogo = ({ provider, modelId, onProviderChange }: BlinkingLo
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (provider !== displayProvider || modelId !== displayModelId) {
-      if (animationState === 'idle') {
+    if (provider !== prevProviderRef.current || modelId !== prevModelIdRef.current) {
+      prevProviderRef.current = provider;
+      prevModelIdRef.current = modelId;
+      if (animationState === 'idle' || animationState === 'opening') {
         setAnimationState('closing');
-      } else if (animationState === 'opening') {
-         setAnimationState('closing');
       }
     }
-  }, [provider, modelId, displayProvider, displayModelId, animationState]);
+  }, [provider, modelId, animationState]);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
 
     if (animationState === 'closing') {
-      timer = setTimeout(() => {
-        setDisplayProvider(provider);
-        setDisplayModelId(modelId);
-        setAnimationState('opening');
-      }, 200);
+      timer = setTimeout(() => setAnimationState('opening'), 200);
     } else if (animationState === 'opening') {
-      timer = setTimeout(() => {
-        setAnimationState('idle');
-      }, 200);
+      timer = setTimeout(() => setAnimationState('idle'), 200);
     }
 
     return () => {
       if (timer) clearTimeout(timer);
     };
-  }, [animationState, provider, modelId]);
+  }, [animationState]);
 
   // Click outside handler
   useEffect(() => {
@@ -145,9 +152,9 @@ export const BlinkingLogo = ({ provider, modelId, onProviderChange }: BlinkingLo
         style={logoStyle}
       >
         <ProviderModelIcon
-          providerId={displayProvider}
-          modelId={displayModelId}
-          size={displayProvider === 'codex' ? 64 : 58}
+          providerId={provider}
+          modelId={modelId}
+          size={provider === 'codex' ? 64 : 58}
           colored
         />
       </div>
