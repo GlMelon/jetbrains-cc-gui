@@ -45,7 +45,9 @@ async function defaultClientFactory(baseUrl) {
  * @param {string} params.cwd         工作目录(用作 session title)
  * @param {string} params.permissionMode 权限模式(透传,SDK 侧由 serve 配置消费)
  * @param {string} params.model       `provider/model` 聚合字符串
- * @param {string} [params.reasoningEffort] 推理档位(透传)
+ * @param {string} [params.reasoningEffort] 推理档位(opencode serve prompt API 不含 per-prompt
+ *   reasoning 字段,SDK 模式忽略不透传;reasoning 由 config 层 provider/model options 配置,
+ *   CLI 模式由 OpenCodeCliSession.opencodeVariant 映射 --variant)
  * @param {Array<any>}  [params.attachments] 附件 parts(按 opencode part schema)
  * @param {string} params.baseUrl     opencode serve 的 http base url
  * @param {object} [params.env]       环境变量(透传)
@@ -143,6 +145,11 @@ export async function sendMessage(params, deps = {}) {
 
         // 5. 并发:订阅 SSE 流 + 发 prompt(signal 绑定 controller,finally abort 释放连接)
         const events = await client.event.subscribe({ signal: controller.signal });
+        // opencode serve `POST /session/:id/message` body schema = {messageID?,model?,agent?,
+        // noReply?,system?,tools?,parts},不含 per-prompt reasoning 字段——reasoningEffort 此处
+        // 无法透传(平台限制,非 bug)。reasoning 由 config 层 provider/model options 配置;
+        // CLI 模式经 OpenCodeCliSession.opencodeVariant 映射 --variant。不做 PATCH /config 全局
+        // 注入(opencode serve 多 tab 共享,注入会污染 per-tab 独立)。
         const promptPromise = client.session.prompt({
             path: { id: sessionId },
             body: { model: modelBody, parts },

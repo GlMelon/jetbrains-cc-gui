@@ -38,7 +38,7 @@ export async function handleOpenCodeCommand(command, args, stdinData) {
           cwd: cwd || '',
           permissionMode: permissionMode || '',
           model: model || '',
-          reasoningEffort: reasoningEffort || 'medium',
+          reasoningEffort: reasoningEffort || 'high',
           attachments: attachments || [],
           baseUrl: baseUrl || ''
         });

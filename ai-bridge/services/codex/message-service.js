@@ -273,7 +273,7 @@ export async function sendMessage(
   model = null,
   baseUrl = null,
   apiKey = null,
-  reasoningEffort = 'medium',
+  reasoningEffort = 'high',
   serviceTier = null,
   attachments = [],
   mcpGatewayBinding = null
