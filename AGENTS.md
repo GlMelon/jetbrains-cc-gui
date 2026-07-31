@@ -360,6 +360,30 @@ refactor(format): extract shared capacity formatting into formatCapacity
 
 ---
 
+## 9. 测试运行准则
+
+### 原则:定向验证,禁止每次全量跑
+
+验证本次改动时**只跑与改动直接相关的测试**,**禁止**把"每次都全量跑测试套件"当作默认动作。尤其**禁止**为了"确认无关的预先存在失败不是自己引入"而跑全量基线对比(stash → 全量 → pop)——那是高代价低收益的浪费。
+
+### 为什么
+
+全量跑信噪比低且耗时:① 项目分支常存在预先存在的 test/src 不同步失败(测试引用了源中已不存在的导出),全量跑会用这些无关失败淹没真正的回归信号;② 改动是否引入回归,应通过「改动相关测试 + typecheck + 改动孤立性分析」判断,而非全量基线对比。
+
+### 落地指引
+
+- **定向跑**:用文件路径 / 测试名过滤,只跑改动触及的模块。
+  - **ai-bridge**(Node 内置 test runner):`cd ai-bridge && node --import tsx --test test/<改动路径>`。**必须在 ai-bridge 目录跑**(tsx 装在 `ai-bridge/node_modules`,从仓库根跑会 `ERR_MODULE_NOT_FOUND: tsx`)。
+  - **webview**(vitest):`cd webview && npx vitest run <改动路径>` 或 `npx vitest run -t "<测试名>"`。
+- **无测试覆盖的孤立改动**:改动文件无任何测试引用时,不必强行全量;以改动孤立性 + `tsc --noEmit` typecheck 兜底即可。
+- **全量跑仅限**:CI 门禁、发布前回归、或确有理由怀疑改动有广泛连带影响时。
+
+### 合规检查清单
+
+- [ ] 验证是否只跑了改动相关测试?有无为"确认无关失败"而跑全量基线对比?
+
+---
+
 ## 附录 A · 成熟模式参考
 
 下列范式已在工业级项目中验证(参考 zh-park-new),其**思想**适用于本插件,但**实现**需按本插件技术栈(Java + TS + JCEF 总线)等价落地,不照搬原项目的 Spring / Jackson / Atom 具体类:
