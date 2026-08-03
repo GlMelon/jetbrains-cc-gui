@@ -154,11 +154,13 @@ public enum DownstreamEvent implements ProtocolValue {
     CODEX_MCP_SERVER_TOGGLED("codex.mcp.server_toggled"),
     CODEX_MCP_SERVER_VALIDATED("codex.mcp.server_validated"),
 
+    // ── MCP Import ── Copilot 配置解析预览(对称 parse_copilot_mcp_config 上行;承载 servers/error)
+    MCP_IMPORT_PREVIEW("mcp.import_preview"),
+
     // ── MCP Market (Smithery Registry) ──
     MCP_MARKET_LIST("mcp.market_list"),
     MCP_MARKET_DETAIL("mcp.market_detail"),
     MCP_MARKET_ERROR("mcp.market_error"),
-    MCP_MARKET_INSTALL_RESULT("mcp.market_install_result"),
 
     // ── Dependency ──
     DEPENDENCY_STATUS("dependency.status"),

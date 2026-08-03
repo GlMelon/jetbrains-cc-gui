@@ -18,10 +18,6 @@ import java.util.Optional;
  * 处理)。保留以兼容协议线上可能出现的旧值;前端 UI 展示列表({@code AVAILABLE_MODES})
  * 可不含此别名,但类型与校验必须覆盖。
  *
- * <p>与 {@code permission/PermissionManager.PermissionMode}(内部状态机:
- * DEFAULT/ACCEPT_EDITS/ALLOW_ALL/DENY_ALL)是<b>不同概念</b>,不可复用——后者是会话内部
- * 权限决策状态,多 ALLOW_ALL/DENY_ALL,且无 plan/autoEdit。
- *
  * <p>⚠️ 修改此文件后需运行 {@code gradle generateProtocol} 更新前端类型。
  */
 public enum PermissionMode implements ProtocolValue {

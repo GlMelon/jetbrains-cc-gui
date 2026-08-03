@@ -156,10 +156,12 @@ public enum UpstreamAction implements ProtocolValue {
     TOGGLE_CODEX_MCP_SERVER("toggle_codex_mcp_server"),
     VALIDATE_CODEX_MCP_SERVER("validate_codex_mcp_server"),
 
+    // ── MCP Import ── 从外部配置(GitHub Copilot 格式)解析导入 MCP 服务器(业务在后端 McpServerImportService,前端只 paste/预览/确认)
+    PARSE_COPILOT_MCP_CONFIG("parse_copilot_mcp_config"),
+
     // ── MCP Market (Smithery Registry) ── 从市场搜索/获取 MCP 服务器连接配置
     SEARCH_MCP_MARKET("search_mcp_market"),
     GET_MCP_MARKET_DETAIL("get_mcp_market_detail"),
-    INSTALL_MCP_FROM_MARKET("install_mcp_from_market"),
 
     // ── Agent ──
     GET_AGENTS("get_agents"),
