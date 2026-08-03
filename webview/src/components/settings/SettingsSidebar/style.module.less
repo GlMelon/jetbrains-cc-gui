@@ -16,7 +16,10 @@
     }
 
     .searchInputWrapper {
-      display: none;
+      opacity: 0;
+      width: 0;
+      padding: 0;
+      overflow: hidden;
     }
 
     .sidebarSectionLabel {
@@ -32,11 +35,15 @@
     }
 
     .sidebarItemText {
-      display: none;
+      opacity: 0;
+      width: 0;
+      overflow: hidden;
     }
 
     .sidebarItemBadge {
-      display: none;
+      opacity: 0;
+      width: 0;
+      overflow: hidden;
     }
   }
 }
@@ -51,6 +58,7 @@
   position: relative;
   display: flex;
   align-items: center;
+  transition: opacity 0.2s ease, width 0.2s ease;
 }
 
 .searchIcon {
@@ -180,6 +188,7 @@
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: opacity 0.2s ease, width 0.2s ease;
 }
 
 .sidebarItemBadge {
@@ -194,6 +203,7 @@
   color: #ffffff;
   font-size: 10px;
   font-weight: 600;
+  transition: opacity 0.2s ease, width 0.2s ease;
   flex-shrink: 0;
   transition: background-color 0.15s ease;
 }

@@ -34,11 +34,6 @@ const LINE_INFO_STYLE: React.CSSProperties = {
   fontSize: '12px',
 };
 
-const TASK_DETAILS_STYLE: React.CSSProperties = {
-  padding: '12px',
-  border: 'none',
-};
-
 const PARAMS_CONTAINER_STYLE: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
@@ -164,17 +159,15 @@ const ReadToolBlock = memo(function ReadToolBlock({ input, result, toolId }: Rea
       titleContent={titleContent}
     >
       {params.length > 0 && (
-        <div className="task-details" style={TASK_DETAILS_STYLE}>
-          <div style={PARAMS_CONTAINER_STYLE}>
-            {params.map(([key, value]) => (
-              <div key={key} style={PARAM_ROW_STYLE}>
-                <span style={PARAM_KEY_STYLE}>{key}：</span>
-                <span style={PARAM_VALUE_STYLE}>
-                  {String(value)}
-                </span>
-              </div>
-            ))}
-          </div>
+        <div style={PARAMS_CONTAINER_STYLE}>
+          {params.map(([key, value]) => (
+            <div key={key} style={PARAM_ROW_STYLE}>
+              <span style={PARAM_KEY_STYLE}>{key}：</span>
+              <span style={PARAM_VALUE_STYLE}>
+                {String(value)}
+              </span>
+            </div>
+          ))}
         </div>
       )}
     </ToolBlockShell>

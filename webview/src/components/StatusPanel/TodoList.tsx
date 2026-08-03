@@ -50,7 +50,11 @@ const TodoList = memo(({ todos }: TodoListProps) => {
         const statusClass = statusClassMap[status] ?? '';
 
         return (
-          <div key={todo.id ?? index} className={`status-panel-todo-item ${statusClass}`}>
+          <div
+            key={todo.id ?? index}
+            className={`status-panel-todo-item ${statusClass}`}
+            style={{ '--stagger-delay': `${index * 50}ms` } as React.CSSProperties}
+          >
             <div className={`status-panel-todo-icon ${statusClass}`}>
               {renderStatusIcon(status)}
             </div>

@@ -78,6 +78,7 @@
   color: var(--text-tertiary);
   flex-shrink: 0;
   border-radius: 4px;
+  transition: background-color 0.15s ease, color 0.15s ease;
 
   &:hover {
     color: var(--color-error, #f44336);
@@ -105,6 +106,7 @@
   justify-content: center;
   gap: 6px;
   box-sizing: border-box;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 
   &:hover:not(:disabled) {
     background: var(--bg-secondary);

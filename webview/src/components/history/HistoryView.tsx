@@ -481,7 +481,7 @@ const HistoryView = ({ historyData, currentProvider, currentSessionId, onLoadSes
     return null;
   };
 
-  const renderHistoryItem = (session: HistorySessionSummary) => (
+  const renderHistoryItem = (session: HistorySessionSummary, index: number) => (
     <HistoryListItem
       key={`${session.sessionId}-${session.lastTimestamp ?? '0'}`}
       session={session}
@@ -509,6 +509,7 @@ const HistoryView = ({ historyData, currentProvider, currentSessionId, onLoadSes
       onFavorite={handleFavoriteRequest}
       onCopySessionId={handleCopySessionId}
       onConvertToCliSession={handleConvertRequest}
+      animationIndex={index}
     />
   );
 

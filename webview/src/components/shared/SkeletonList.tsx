@@ -33,7 +33,12 @@ export function SkeletonList({ label, count = 3, item }: SkeletonListProps) {
   return (
     <div className="skeleton-list" role="status" aria-label={label}>
       {Array.from({ length: count }, (_, i) => (
-        <div className="skeleton-item" key={i} aria-hidden="true">
+        <div 
+          className="skeleton-item" 
+          key={i} 
+          aria-hidden="true"
+          style={{ '--stagger-delay': `${i * 50}ms` } as React.CSSProperties}
+        >
           {item ?? DEFAULT_ITEM}
         </div>
       ))}

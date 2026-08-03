@@ -121,11 +121,6 @@ const FILE_ICON_STYLE: React.CSSProperties = {
 
 const STATS_SPACER_STYLE: React.CSSProperties = { margin: '0 4px' };
 
-const TASK_DETAILS_STYLE: React.CSSProperties = {
-  padding: 0,
-  borderTop: '1px solid var(--border-primary)',
-};
-
 const DIFF_CONTAINER_STYLE: React.CSSProperties = {
   // Use monospace font to ensure consistent tab and space widths
   fontFamily: 'var(--idea-editor-font-family, monospace)',
@@ -488,8 +483,7 @@ const EditToolBlock = memo(function EditToolBlock({ items }: EditToolBlockProps)
         className="task-container-custom"
         headerClassName=""
       >
-        <div className="task-details" style={TASK_DETAILS_STYLE}>
-          <div style={DIFF_CONTAINER_STYLE}>
+        <div style={DIFF_CONTAINER_STYLE}>
             {/* Inner wrapper stretches to scrollWidth so row backgrounds fill the full width */}
             <div style={INNER_WRAPPER_STYLE}>
             {diff.lines.map((line, index) => {
@@ -500,7 +494,8 @@ const EditToolBlock = memo(function EditToolBlock({ items }: EditToolBlockProps)
               return (
                 <div
                   key={index}
-                  style={getDiffLineStyle(isDeleted, isAdded)}
+                  className="diff-line-animated"
+                  style={{ ...getDiffLineStyle(isDeleted, isAdded), animationDelay: `${Math.min(index * 20, 600)}ms` }}
                 >
                   <div style={getDiffGlyphStyle(isDeleted, isAdded, isUnchanged)}>
                     {isDeleted ? '-' : isAdded ? '+' : ' '}
@@ -513,7 +508,6 @@ const EditToolBlock = memo(function EditToolBlock({ items }: EditToolBlockProps)
             })}
             </div>
           </div>
-        </div>
       </ToolBlockShell>
     </div>
   );

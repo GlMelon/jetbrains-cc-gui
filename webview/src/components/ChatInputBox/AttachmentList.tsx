@@ -70,12 +70,13 @@ export const AttachmentList = ({
   return (
     <>
       <div className="attachment-list">
-        {attachments.map((attachment) => (
+        {attachments.map((attachment, index) => (
           <div
             key={attachment.id}
             className="attachment-item"
             onClick={() => handleClick(attachment)}
             title={attachment.fileName}
+            style={{ '--stagger-delay': `${index * 50}ms` } as React.CSSProperties}
           >
             {isImageAttachment(attachment) ? (
               <img

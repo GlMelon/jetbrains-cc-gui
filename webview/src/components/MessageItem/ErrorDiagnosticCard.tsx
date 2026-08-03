@@ -106,10 +106,14 @@ export const ErrorDiagnosticCard = memo(function ErrorDiagnosticCard({
         {t(`${baseKey}.intro`)}
       </p>
 
-      {pattern.solutions.map((solution) => {
+      {pattern.solutions.map((solution, index) => {
         const solutionKey = `${baseKey}.solutions.${solution.key}`;
         return (
-          <div className="error-diagnostic-solution" key={solution.key}>
+          <div 
+            className="error-diagnostic-solution" 
+            key={solution.key}
+            style={{ '--stagger-delay': `${index * 100}ms` } as React.CSSProperties}
+          >
             <div className="error-diagnostic-solution-header">
               <span className="error-diagnostic-solution-title">
                 {t(`${solutionKey}.title`)}

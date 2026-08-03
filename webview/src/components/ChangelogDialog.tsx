@@ -109,7 +109,11 @@ const ChangelogDialog = ({ isOpen, onClose, entries, initialPage = 0 }: Changelo
           {contentParts.map((part, idx) => {
             const summary = summarizeChangelog(part);
             return (
-              <div key={idx} className="wn-b-lang">
+              <div 
+                key={idx} 
+                className="wn-b-lang"
+                style={{ '--stagger-delay': `${idx * 100}ms` } as React.CSSProperties}
+              >
                 {idx > 0 && <hr className="wn-b-divider" />}
                 {summary.loose.length > 0 && (
                   <div className="wn-b-loose">

@@ -17,9 +17,10 @@ interface ToastProps {
   message: ToastMessage;
   onDismiss: (id: string) => void;
   duration?: number;
+  animationIndex?: number;
 }
 
-const Toast: React.FC<ToastProps> = ({ message, onDismiss, duration = 1000 }) => {
+const Toast: React.FC<ToastProps> = ({ message, onDismiss, duration = 1000, animationIndex = 0 }) => {
   const [isExiting, setIsExiting] = useState(false);
 
   useEffect(() => {
@@ -32,7 +33,10 @@ const Toast: React.FC<ToastProps> = ({ message, onDismiss, duration = 1000 }) =>
   }, [message.id, duration, onDismiss]);
 
   return (
-    <div className={`toast toast-${message.type || 'info'} ${isExiting ? 'toast-exit' : ''}`}>
+    <div 
+      className={`toast toast-${message.type || 'info'} ${isExiting ? 'toast-exit' : ''}`}
+      style={{ '--stagger-delay': `${animationIndex * 50}ms` } as React.CSSProperties}
+    >
       <div className="toast-content">
         <span className="toast-message">{message.message}</span>
         {message.action && (
@@ -88,12 +92,13 @@ const getDuration = (type?: ToastMessage['type']) => {
 export const ToastContainer: React.FC<ToastContainerProps> = ({ messages, onDismiss }) => {
   return (
     <div className="toast-container">
-      {messages.map((msg) => (
+      {messages.map((msg, index) => (
         <Toast
           key={msg.id}
           message={msg}
           onDismiss={onDismiss}
           duration={getDuration(msg.type)}
+          animationIndex={index}
         />
       ))}
     </div>

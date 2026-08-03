@@ -43,6 +43,7 @@ export function ServerCard({
   onLoadTools,
   onCopyUrl,
   onToolHover,
+  animationIndex = 0,
 }: {
   server: McpServer;
   isExpanded: boolean;
@@ -60,6 +61,7 @@ export function ServerCard({
   onLoadTools: (forceRefresh: boolean) => void;
   onCopyUrl: (url: string) => void;
   onToolHover: (tool: McpTool | null, position?: { x: number; y: number }) => void;
+  animationIndex?: number;
 }) {
   const statusInfo = getServerStatusInfo(server, serverStatus);
   const status = statusInfo?.status;
@@ -83,7 +85,10 @@ export function ServerCard({
   const toolCount = toolsInfo?.tools?.length;
 
   return (
-    <div className={`item-card ${isExpanded ? 'expanded' : ''} ${!enabled ? 'disabled' : ''}`}>
+    <div 
+      className={`item-card ${isExpanded ? 'expanded' : ''} ${!enabled ? 'disabled' : ''}`}
+      style={{ '--stagger-delay': `${animationIndex * 50}ms` } as React.CSSProperties}
+    >
       {/* 卡片行 */}
       <div className="card-row" onClick={onToggleExpand}>
         <span className="chev">
@@ -150,7 +155,7 @@ export function ServerCard({
       </div>
 
       {/* 展开内容 */}
-      {isExpanded && (
+      <div className={`card-expand-wrapper ${isExpanded ? 'expanded' : ''}`}>
         <div className="card-expand">
           <div className="expand-grid">
             {statusInfo?.serverInfo && (
@@ -216,7 +221,7 @@ export function ServerCard({
             </div>
           )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

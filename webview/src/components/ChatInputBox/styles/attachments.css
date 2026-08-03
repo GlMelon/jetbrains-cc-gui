@@ -22,6 +22,8 @@
   background: var(--attachment-bg);
   border: 1px solid var(--attachment-border);
   cursor: pointer;
+  animation: scaleIn var(--dur-enter) var(--ease-out) both;
+  animation-delay: var(--stagger-delay, 0ms);
 }
 
 .attachment-item:hover .attachment-remove {

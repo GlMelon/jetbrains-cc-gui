@@ -17,7 +17,10 @@ import './StatusPanel.less';
 const StatusPanel = memo(function StatusPanel({ todos, fileChanges, subagents, subagentHistories, currentSessionId, expanded = true, isStreaming = false, onUndoFile, onDiscardAll, onKeepAll }: StatusPanelProps) {
   const { t } = useTranslation();
   const [openPopover, setOpenPopover] = useState<TabType | null>(null);
+  const [isPopoverExiting, setIsPopoverExiting] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const [indicatorStyle, setIndicatorStyle] = useState<React.CSSProperties>({});
 
   // Undo related state
   const [undoingFile, setUndoingFile] = useState<string | null>(null);
@@ -78,8 +81,40 @@ const StatusPanel = memo(function StatusPanel({ todos, fileChanges, subagents, s
   }, [openPopover]);
 
   const handleTabClick = useCallback((tab: TabType) => {
-    setOpenPopover((prev) => (prev === tab ? null : tab));
-  }, []);
+    if (openPopover === tab) {
+      // Closing: trigger exit animation
+      setIsPopoverExiting(true);
+      setTimeout(() => {
+        setOpenPopover(null);
+        setIsPopoverExiting(false);
+      }, 150);
+    } else {
+      // Opening or switching: open immediately
+      setOpenPopover(tab);
+      setIsPopoverExiting(false);
+    }
+  }, [openPopover]);
+
+  // Update indicator position when active tab changes
+  useEffect(() => {
+    if (!tabsRef.current || !openPopover) {
+      setIndicatorStyle({ opacity: 0 });
+      return;
+    }
+
+    const tabsContainer = tabsRef.current;
+    const activeTab = tabsContainer.querySelector(`.status-panel-tab.active`);
+    
+    if (activeTab) {
+      const tabRect = activeTab.getBoundingClientRect();
+      const containerRect = tabsContainer.getBoundingClientRect();
+      setIndicatorStyle({
+        left: tabRect.left - containerRect.left,
+        width: tabRect.width,
+        opacity: 1,
+      });
+    }
+  }, [openPopover]);
 
   // Undo handlers
   const handleUndoClick = useCallback((fileChange: FileChangeSummary) => {
@@ -230,7 +265,13 @@ const StatusPanel = memo(function StatusPanel({ todos, fileChanges, subagents, s
   return (
     <div className="status-panel" ref={popoverRef}>
       {/* Tab Header */}
-      <div className="status-panel-tabs">
+      <div className="status-panel-tabs" ref={tabsRef}>
+        {/* Sliding Indicator */}
+        <div 
+          className="status-panel-tab-indicator"
+          style={indicatorStyle}
+        />
+        
         {/* Todo Tab */}
         <div
           className={`status-panel-tab ${openPopover === 'todo' ? 'active' : ''}`}
@@ -283,7 +324,7 @@ const StatusPanel = memo(function StatusPanel({ todos, fileChanges, subagents, s
 
       {/* Popover Content */}
       {openPopover && (
-        <div className="status-panel-popover">
+        <div className={`status-panel-popover ${isPopoverExiting ? 'status-panel-popover-exit' : ''}`}>
           {renderPopoverContent()}
         </div>
       )}

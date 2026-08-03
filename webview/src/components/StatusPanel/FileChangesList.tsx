@@ -23,9 +23,10 @@ interface FileChangeRowProps {
   onShowDiff: (fileChange: FileChangeSummary) => void;
   onUndo: (fileChange: FileChangeSummary) => void;
   t: TFunction;
+  animationIndex?: number;
 }
 
-const FileChangeRow = memo(({ fileChange, isUndoing, onOpen, onShowDiff, onUndo, t }: FileChangeRowProps) => {
+const FileChangeRow = memo(({ fileChange, isUndoing, onOpen, onShowDiff, onUndo, t, animationIndex }: FileChangeRowProps) => {
   const status = String(fileChange.status || 'M');
   const statusClass = status === 'A' ? 'added' : 'modified';
 
@@ -49,7 +50,10 @@ const FileChangeRow = memo(({ fileChange, isUndoing, onOpen, onShowDiff, onUndo,
   }, [onUndo, fileChange]);
 
   return (
-    <div className="file-change-item">
+    <div
+      className="file-change-item"
+      style={{ '--stagger-delay': `${(animationIndex ?? 0) * 50}ms` } as React.CSSProperties}
+    >
       {/* Status indicator (A/M) */}
       <span className={`file-change-status status-${statusClass}`}>
         {status}
@@ -164,7 +168,7 @@ const FileChangesList = memo(({
 
       {/* File list */}
       <div className="file-changes-list">
-        {fileChanges.map((fileChange) => (
+        {fileChanges.map((fileChange, index) => (
           <FileChangeRow
             key={fileChange.filePath}
             fileChange={fileChange}
@@ -173,6 +177,7 @@ const FileChangesList = memo(({
             onShowDiff={handleShowDiff}
             onUndo={onUndoClick}
             t={t}
+            animationIndex={index}
           />
         ))}
       </div>

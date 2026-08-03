@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import type { SubagentHistoryResponse, SubagentInfo } from '../../types';
 import SubagentProcessDetails from './SubagentProcessDetails';
-import { RobotIcon, CheckCircleIcon, XCircleIcon, CircleIcon, ChevronDownIcon, ChevronRightIcon, ClockIcon, LayersIcon } from '../Icons';
+import { RobotIcon, CheckCircleIcon, XCircleIcon, CircleIcon, ChevronDownIcon, ClockIcon, LayersIcon } from '../Icons';
 
 interface SubagentListProps {
   subagents: SubagentInfo[];
@@ -21,6 +21,7 @@ interface SubagentRowProps {
   canLoad: boolean;
   onToggle: (id: string) => void;
   t: TFunction;
+  animationIndex?: number;
 }
 
 // Render status icon based on type
@@ -62,7 +63,7 @@ function formatDuration(ms?: number): string | null {
   return `${minutes}m ${remainingSeconds}s`;
 }
 
-const SubagentRow = memo(({ subagent, isExpanded, history, canLoad, onToggle, t }: SubagentRowProps) => {
+const SubagentRow = memo(({ subagent, isExpanded, history, canLoad, onToggle, t, animationIndex }: SubagentRowProps) => {
   const statusClass = `status-${subagent.status}`;
 
   const handleClick = useCallback(() => {
@@ -72,7 +73,10 @@ const SubagentRow = memo(({ subagent, isExpanded, history, canLoad, onToggle, t 
   const durationText = formatDuration(subagent.totalDurationMs);
 
   return (
-    <div className={`subagent-item-wrapper ${statusClass}`}>
+    <div
+      className={`subagent-item-wrapper ${statusClass}`}
+      style={{ '--stagger-delay': `${(animationIndex ?? 0) * 50}ms` } as React.CSSProperties}
+    >
       <button
         type="button"
         className={`subagent-item ${statusClass}`}
@@ -113,12 +117,12 @@ const SubagentRow = memo(({ subagent, isExpanded, history, canLoad, onToggle, t 
             )}
           </div>
         </div>
-        <span className="subagent-chevron">
-          {isExpanded ? <ChevronDownIcon size={14} /> : <ChevronRightIcon size={14} />}
+        <span className={`subagent-chevron ${isExpanded ? 'expanded' : ''}`}>
+          <ChevronDownIcon size={14} />
         </span>
       </button>
 
-      {isExpanded && (
+      <div className={`subagent-details-wrapper ${isExpanded ? 'expanded' : ''}`}>
         <SubagentProcessDetails
           agentId={subagent.agentId}
           totalDurationMs={subagent.totalDurationMs}
@@ -128,7 +132,7 @@ const SubagentRow = memo(({ subagent, isExpanded, history, canLoad, onToggle, t 
           history={history}
           canLoad={canLoad}
         />
-      )}
+      </div>
     </div>
   );
 });
@@ -205,6 +209,7 @@ const SubagentList = memo(({ subagents, histories = {}, currentSessionId }: Suba
             canLoad={canLoad}
             onToggle={handleToggleRow}
             t={t}
+            animationIndex={index}
           />
         );
       })}

@@ -23,13 +23,6 @@ interface BashToolGroupBlockProps {
   deniedToolIds?: Set<string>;
 }
 
-/** Max visible items before scroll (3.5 items) */
-const MAX_VISIBLE_ITEMS = 3.5;
-/** Height per item in pixels */
-const ITEM_HEIGHT = 32;
-/** Max height when an item is expanded */
-const EXPANDED_MAX_HEIGHT = 400;
-
 const PROGRESS_ICON_STYLE: React.CSSProperties = { fontSize: '12px', marginRight: '4px' };
 const ERROR_ICON_STYLE: React.CSSProperties = { fontSize: '14px', marginTop: '1px' };
 
@@ -103,7 +96,7 @@ const BashToolGroupBlock = ({ items, deniedToolIds }: BashToolGroupBlockProps) =
   // Auto-scroll to bottom when new items are added
   useEffect(() => {
     if (listRef.current && bashItems.length > prevItemCountRef.current) {
-      listRef.current.scrollTop = listRef.current.scrollHeight;
+      listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
     }
     prevItemCountRef.current = bashItems.length;
   }, [bashItems.length]);
@@ -122,19 +115,6 @@ const BashToolGroupBlock = ({ items, deniedToolIds }: BashToolGroupBlockProps) =
   if (bashItems.length === 0) {
     return null;
   }
-
-  // Calculate list height for 3.5 visible items
-  const needsScroll = bashItems.length > MAX_VISIBLE_ITEMS;
-
-  // Base height for collapsed state
-  const baseHeight = needsScroll ? MAX_VISIBLE_ITEMS * ITEM_HEIGHT : bashItems.length * ITEM_HEIGHT;
-
-  // When an item is expanded, increase max-height to allow viewing details
-  // otherwise use the compact base height
-  const listHeight = expandedItemIndex !== null ? EXPANDED_MAX_HEIGHT : baseHeight;
-
-  // Enable scrolling if there are many items OR if an item is expanded (content might overflow)
-  const overflowY = needsScroll || expandedItemIndex !== null ? 'auto' : 'hidden';
 
   // Progress summary text
   const getProgressSummary = () => {
@@ -161,17 +141,12 @@ const BashToolGroupBlock = ({ items, deniedToolIds }: BashToolGroupBlockProps) =
     );
   };
 
-  const timelineStyle: React.CSSProperties = {
-    maxHeight: `${listHeight + 16}px`,
-    overflowY: overflowY,
-  };
-
   const headerStyle: React.CSSProperties = {
     ...(expanded && { borderBottom: '1px solid var(--border-primary)' }),
   };
 
   return (
-    <div className="task-container bash-group-container">
+    <div className={`task-container bash-group-container ${expanded ? 'expanded' : ''}`}>
       {/* Header - always visible */}
       <div className="task-header bash-group-header" style={headerStyle} onClick={() => setExpanded((prev) => !prev)}>
         <div className="task-title-section">
@@ -182,9 +157,9 @@ const BashToolGroupBlock = ({ items, deniedToolIds }: BashToolGroupBlockProps) =
         <div className="bash-group-summary">{getProgressSummary()}</div>
       </div>
 
-      {/* Timeline list - visible when expanded */}
-      {expanded && (
-        <div ref={listRef} className="bash-group-timeline" style={timelineStyle}>
+      {/* Timeline list - grid accordion */}
+      <div className="bash-group-accordion">
+        <div ref={listRef} className="bash-group-timeline">
           {bashItems.map((item, index) => {
             const isLast = index === bashItems.length - 1;
             const isItemExpanded = expandedItemIndex === index;
@@ -232,7 +207,7 @@ const BashToolGroupBlock = ({ items, deniedToolIds }: BashToolGroupBlockProps) =
             );
           })}
         </div>
-      )}
+      </div>
     </div>
   );
 };

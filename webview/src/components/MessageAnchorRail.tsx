@@ -290,11 +290,12 @@ export const MessageAnchorRail = memo(function MessageAnchorRail({
           </div>
         ) : (
           <div className="messages-user-panel-list" role="list">
-            {filteredMessages.map((item) => (
+            {filteredMessages.map((item, index) => (
               <article
                 key={item.id}
                 className={`messages-user-panel-card${activeMessageId === item.id ? ' is-active' : ''}`}
                 role="listitem"
+                style={{ '--stagger-delay': `${index * 50}ms` } as React.CSSProperties}
               >
                 <div className="messages-user-panel-card-top">
                   <span>{item.timeLabel || t('chat.userPanel.noTime')}</span>

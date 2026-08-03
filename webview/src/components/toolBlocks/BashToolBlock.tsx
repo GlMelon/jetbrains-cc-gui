@@ -5,7 +5,6 @@ import { useIsToolDenied } from '../../hooks/useIsToolDenied';
 import { ToolBlockShell } from './ToolBlockShell';
 import { TerminalIcon, XCircleIcon } from '../Icons';
 
-const TASK_DETAILS_STYLE: React.CSSProperties = { padding: 0, border: 'none' };
 const TASK_CONTENT_WRAPPER_STYLE: React.CSSProperties = {
   paddingLeft: '40px',
   position: 'relative',
@@ -72,19 +71,17 @@ const BashToolBlock = memo(function BashToolBlock({ input, result, toolId }: Bas
       titleContent={titleContent}
       headerClassName="bash-tool-header"
     >
-      <div className="task-details" style={TASK_DETAILS_STYLE}>
-        <div className="bash-tool-content">
-          <div className="bash-tool-line" />
-          <div className="task-content-wrapper" style={TASK_CONTENT_WRAPPER_STYLE}>
-            <div className="bash-command-block">{command}</div>
+      <div className="bash-tool-content">
+        <div className="bash-tool-line" />
+        <div className="task-content-wrapper" style={TASK_CONTENT_WRAPPER_STYLE}>
+          <div className="bash-command-block">{command}</div>
 
-            {output && (
-              <div className={`bash-output-block ${isError ? 'error' : 'normal'}`}>
-                {isError && <XCircleIcon size={16} style={ERROR_ICON_STYLE} />}
-                <span className="bash-output-text">{output}</span>
-              </div>
-            )}
-          </div>
+          {output && (
+            <div className={`bash-output-block ${isError ? 'error' : 'normal'}`}>
+              {isError && <XCircleIcon size={16} style={ERROR_ICON_STYLE} />}
+              <span className="bash-output-text">{output}</span>
+            </div>
+          )}
         </div>
       </div>
     </ToolBlockShell>

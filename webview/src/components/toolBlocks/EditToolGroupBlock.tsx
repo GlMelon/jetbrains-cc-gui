@@ -32,12 +32,19 @@ interface EditToolGroupBlockProps {
   }>;
 }
 
-/** Max visible items before scroll */
-const MAX_VISIBLE_ITEMS = 3;
-/** Height per item in pixels */
 const ITEM_HEIGHT = 32;
 
 const CONTAINER_STYLE: React.CSSProperties = { margin: '12px 0' };
+
+const DETAILS_STYLE: React.CSSProperties = {
+  padding: '6px 8px',
+  border: 'none',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0',
+  overflowY: 'auto',
+  overflowX: 'hidden',
+};
 
 const TITLE_SECTION_STYLE: React.CSSProperties = { overflow: 'hidden' };
 
@@ -317,7 +324,7 @@ const EditToolGroupBlock = ({ items }: EditToolGroupBlockProps) => {
   // Auto-scroll to bottom when new items are added
   useEffect(() => {
     if (listRef.current && editItems.length > prevItemCountRef.current) {
-      listRef.current.scrollTop = listRef.current.scrollHeight;
+      listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
     }
     prevItemCountRef.current = editItems.length;
   }, [editItems.length]);
@@ -330,25 +337,8 @@ const EditToolGroupBlock = ({ items }: EditToolGroupBlockProps) => {
   const totalAdditions = editItems.reduce((sum, item) => sum + item.additions, 0);
   const totalDeletions = editItems.reduce((sum, item) => sum + item.deletions, 0);
 
-  // Calculate list height
-  const needsScroll = editItems.length > MAX_VISIBLE_ITEMS;
-  const listHeight = needsScroll
-    ? MAX_VISIBLE_ITEMS * ITEM_HEIGHT
-    : editItems.length * ITEM_HEIGHT;
-
   const headerStyle: React.CSSProperties = {
     borderBottom: expanded ? '1px solid var(--border-primary)' : undefined,
-  };
-
-  const detailsStyle: React.CSSProperties = {
-    padding: '6px 8px',
-    border: 'none',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0',
-    maxHeight: `${listHeight + 12}px`,
-    overflowY: needsScroll ? 'auto' : 'hidden',
-    overflowX: 'hidden',
   };
 
   const handleFileClick = (item: EditItem, e: React.MouseEvent) => {
@@ -368,7 +358,7 @@ const EditToolGroupBlock = ({ items }: EditToolGroupBlockProps) => {
   };
 
   return (
-    <div className="task-container" style={CONTAINER_STYLE}>
+    <div className={`task-container ${expanded ? 'expanded' : ''}`} style={CONTAINER_STYLE}>
       <div
         className="task-header"
         onClick={() => setExpanded((prev) => !prev)}
@@ -393,11 +383,11 @@ const EditToolGroupBlock = ({ items }: EditToolGroupBlockProps) => {
         </div>
       </div>
 
-      {expanded && (
+      <div className="task-details-accordion">
         <div
           ref={listRef}
           className="task-details file-list-container"
-          style={detailsStyle}
+          style={DETAILS_STYLE}
         >
           {editItems.map((item, index) => (
             <EditFileItem
@@ -410,7 +400,7 @@ const EditToolGroupBlock = ({ items }: EditToolGroupBlockProps) => {
             />
           ))}
         </div>
-      )}
+      </div>
     </div>
   );
 };

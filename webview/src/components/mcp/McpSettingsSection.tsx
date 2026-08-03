@@ -549,7 +549,7 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
         <div className="mcp-server-panel">
           {!loading || servers.length > 0 ? (
             <div className="server-list">
-              {servers.map(server => (
+              {servers.map((server, index) => (
                 <ServerCard
                   key={server.id}
                   server={server}
@@ -568,6 +568,7 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
                   onLoadTools={(forceRefresh) => loadServerTools(server, forceRefresh)}
                   onCopyUrl={handleCopyUrl}
                   onToolHover={(tool, position) => handleToolHover(tool, position, server.id)}
+                  animationIndex={index}
                 />
               ))}
 

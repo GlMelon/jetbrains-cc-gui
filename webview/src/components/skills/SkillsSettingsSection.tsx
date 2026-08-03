@@ -705,12 +705,13 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
 
       {/* Skills list */}
       <div className="skill-list">
-        {filteredSkills.map((skill) => {
+        {filteredSkills.map((skill, index) => {
           const isGlobal = skill.scope === SKILL_SCOPE.GLOBAL || skill.scope === SKILL_SCOPE.USER;
           return (
             <div
               key={skill.id}
               className={`item-card ${expandedSkills.has(skill.id) ? 'expanded' : ''} ${!skill.enabled ? 'disabled' : ''}`}
+              style={{ '--stagger-delay': `${index * 50}ms` } as React.CSSProperties}
             >
               {/* 卡片行 */}
               <div className="card-row" onClick={() => toggleExpand(skill.id)}>

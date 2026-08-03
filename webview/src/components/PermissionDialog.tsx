@@ -219,14 +219,14 @@ const PermissionDialog = ({
             </button>
           </div>
 
-          {showCommand && (
+          <div className={`permission-dialog-v3-command-wrapper ${showCommand ? 'expanded' : ''}`}>
             <div
               className="permission-dialog-v3-command-content"
               style={dialogHeight ? { maxHeight: 'none' } : undefined}
             >
               <MarkdownBlock content={commandContent} isStreaming={false} />
             </div>
-          )}
+          </div>
         </div>
 
         {/* Option buttons list */}

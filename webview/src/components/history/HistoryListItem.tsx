@@ -85,6 +85,9 @@ interface HistoryListItemProps {
   onFavorite: (sessionId: string) => void;
   onCopySessionId: (sessionId: string) => void;
   onConvertToCliSession: (sessionId: string) => void;
+  animationIndex?: number;
+  isDeleting?: boolean;
+  onAnimationEnd?: (sessionId: string) => void;
 }
 
 export const HistoryListItem = memo(({
@@ -113,6 +116,9 @@ export const HistoryListItem = memo(({
   onFavorite,
   onCopySessionId,
   onConvertToCliSession,
+  animationIndex = 0,
+  isDeleting = false,
+  onAnimationEnd,
 }: HistoryListItemProps) => {
   const handleRowClick = useCallback(() => {
     onItemClick(session, isEditing);
@@ -199,7 +205,13 @@ export const HistoryListItem = memo(({
 
   return (
     <div
-      className={`history-item ${isSelectionMode ? 'selection-mode' : ''} ${isSelected ? 'selected' : ''}`}
+      className={`history-item ${isSelectionMode ? 'selection-mode' : ''} ${isSelected ? 'selected' : ''} ${isDeleting ? 'deleting' : ''}`}
+      style={{ '--stagger-delay': `${animationIndex * 50}ms` } as React.CSSProperties}
+      onAnimationEnd={(e) => {
+        if (isDeleting && e.animationName === 'slideOutRight' && onAnimationEnd) {
+          onAnimationEnd(session.sessionId);
+        }
+      }}
       onClick={handleRowClick}
     >
       <div className="history-item-header">
