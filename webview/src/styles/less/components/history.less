@@ -7,6 +7,8 @@
     overflow: hidden;
     box-sizing: border-box;
     position: relative;
+    animation: stream-block-in var(--dur-enter) var(--ease-out) both;
+    animation-delay: var(--stagger-delay, 0ms);
 }
 
 .history-item:hover {
@@ -200,7 +202,7 @@
 
     &:focus {
         border-color: #0a84ff !important;
-        box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.15);
+        box-shadow: var(--shadow-focus);
     }
 
     &::placeholder {
@@ -469,7 +471,7 @@
 
     &:focus {
         border-color: #0a84ff;
-        box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.15);
+        box-shadow: var(--shadow-focus);
     }
 }
 
@@ -748,4 +750,9 @@
 .history-copy-id-btn:focus-visible {
     outline: 2px solid color-mix(in srgb, var(--accent-primary) 60%, transparent);
     outline-offset: 1px;
+}
+
+/* History Item Delete Animation */
+.history-item.deleting {
+    animation: slideOutRight var(--dur-exit) var(--ease-in) forwards;
 }

@@ -87,7 +87,7 @@
 
 .wn-b-date {
   margin-top: 2px;
-  font-size: 12.5px;
+  font-size: var(--font-size-sm);
   color: var(--text-tertiary);
   font-family: 'JetBrains Mono', 'Consolas', 'Monaco', monospace;
 }
@@ -169,6 +169,12 @@
   padding: 6px 14px 14px;
 }
 
+/* Language block with staggered animation */
+.wn-b-lang {
+  animation: fadeIn var(--dur-enter) var(--ease-out) both;
+  animation-delay: var(--stagger-delay, 0ms);
+}
+
 .wn-b-divider {
   border: none;
   border-top: 1px solid var(--border-secondary);
@@ -199,7 +205,7 @@
   align-items: center;
   gap: 9px;
   margin: 0 0 9px;
-  font-size: 13.5px;
+  font-size: var(--font-size-base);
   font-weight: 650;
   color: var(--text-primary);
 }

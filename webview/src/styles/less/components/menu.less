@@ -7,9 +7,22 @@
     border: 1px solid var(--border-secondary);
     border-radius: 6px;
     padding: 4px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    box-shadow: var(--shadow-md);
     z-index: 100;
     min-width: 140px;
+    /* 添加进入动画，与 ContextMenu.css 保持一致 */
+    animation: menuDropdownIn var(--dur-enter) var(--ease-out) both;
+}
+
+@keyframes menuDropdownIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
 }
 
 .menu-item {
@@ -25,10 +38,19 @@
     border-radius: 4px;
     align-items: center;
     gap: 8px;
+    /* 添加 hover 过渡动画 */
+    transition: background-color var(--dur-hover) var(--ease-smooth),
+                color var(--dur-hover) var(--ease-smooth);
 }
 
 .menu-item:hover {
     background: var(--color-menu-bg-hover);
+}
+
+/* focus-visible 样式 - 无障碍支持 */
+.menu-item:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: -2px;
 }
 
 .menu-item.danger {

@@ -271,7 +271,7 @@
     padding: 8px 10px;
     border-bottom: none;
     color: var(--assistant-reference-card-text-secondary);
-    font-size: 12.5px;
+    font-size: var(--font-size-sm);
     font-weight: 650;
     letter-spacing: 0;
     line-height: 1.25;
@@ -312,7 +312,7 @@
     padding: 0 11px 10px 40px;
     min-width: 0;
     color: var(--assistant-reference-card-text-secondary);
-    font-size: 12.5px;
+    font-size: var(--font-size-sm);
     line-height: 1.55;
 }
 
@@ -390,7 +390,7 @@
 
 .message.assistant .assistant-message-section-body .markdown-content {
     color: var(--assistant-reference-card-text-secondary);
-    font-size: 12.5px;
+    font-size: var(--font-size-sm);
     line-height: 1.55;
 }
 
@@ -546,6 +546,25 @@
     border: 1px solid rgba(169, 137, 255, 0.2);
     border-radius: 8px;
     overflow: hidden;
+    /* 思考中时的脉冲边框动画 */
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+/* 思考中状态：添加脉冲边框效果 */
+.thinking-section.thinking-active {
+    border-color: rgba(169, 137, 255, 0.5);
+    animation: thinking-border-pulse 2s ease-in-out infinite;
+}
+
+@keyframes thinking-border-pulse {
+    0%, 100% {
+        border-color: rgba(169, 137, 255, 0.3);
+        box-shadow: 0 0 0 0 rgba(169, 137, 255, 0);
+    }
+    50% {
+        border-color: rgba(169, 137, 255, 0.6);
+        box-shadow: 0 0 8px 2px rgba(169, 137, 255, 0.15);
+    }
 }
 
 .thinking-section-header {
@@ -565,6 +584,17 @@
     width: 18px;
     height: 18px;
     color: var(--violet, #a989ff);
+    /* 思考中时图标旋转动画 */
+    transition: transform 0.3s;
+}
+
+.thinking-active .thinking-section-icon {
+    animation: thinking-icon-spin 1.5s linear infinite;
+}
+
+@keyframes thinking-icon-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 .thinking-section-label {
@@ -577,6 +607,21 @@
     font-size: 12px;
     color: var(--text-tertiary, #a8adb7);
     margin-left: auto;
+    /* 思考中时省略号动画 */
+    min-width: 24px;
+}
+
+.thinking-active .thinking-section-duration::after {
+    content: '';
+    animation: thinking-dots 1.5s steps(4, end) infinite;
+}
+
+@keyframes thinking-dots {
+    0% { content: ''; }
+    25% { content: '.'; }
+    50% { content: '..'; }
+    75% { content: '...'; }
+    100% { content: ''; }
 }
 
 .thinking-section-chevron {
@@ -610,6 +655,13 @@
     font-size: 13px;
     color: var(--text-secondary, #d8dde6);
     line-height: 1.6;
+    /* 内容淡入动画 */
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.thinking-section.expanded .thinking-section-content-inner {
+    opacity: 1;
 }
 
 .thinking-section-content p {
@@ -1079,7 +1131,7 @@
     border-top: 1px solid var(--assistant-reference-card-border-soft);
     background: rgba(0, 0, 0, 0.08);
     color: var(--assistant-reference-card-text-secondary);
-    font-size: 12.5px;
+    font-size: var(--font-size-sm);
     line-height: 1.58;
 }
 

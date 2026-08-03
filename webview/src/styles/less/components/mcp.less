@@ -189,7 +189,7 @@
     border-radius: 6px;
     background: transparent;
     color: var(--text-secondary);
-    font-size: 12.5px;
+    font-size: var(--font-size-sm);
     font-weight: 500;
     cursor: pointer;
     white-space: nowrap;
@@ -216,12 +216,12 @@
     border-radius: 6px;
     background: var(--accent-primary);
     color: var(--text-white);
-    font-size: 12.5px;
+    font-size: var(--font-size-sm);
     font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
     position: relative;
-    box-shadow: 0 2px 8px rgba(0, 127, 212, 0.28);
+    box-shadow: var(--shadow-button-accent);
     transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
@@ -657,6 +657,7 @@
     text-align: center;
     padding: 48px 24px;
     color: var(--text-tertiary);
+    animation: fadeIn var(--dur-enter) var(--ease-out) both;
 }
 
 .empty-state .codicon,
@@ -695,6 +696,8 @@
     border: 1px solid var(--border-primary);
     border-radius: 8px;
     background: var(--bg-secondary);
+    animation: fadeIn var(--dur-enter) var(--ease-out) both;
+    animation-delay: var(--stagger-delay, 0ms);
 }
 
 .skeleton-bar {
@@ -842,7 +845,7 @@
     max-height: 90vh;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--shadow-modal);
     animation: slideUp 0.3s ease-out;
 }
 
@@ -1097,7 +1100,7 @@
     background: var(--vscode-list-hoverBackground, rgba(255, 255, 255, 0.1));
     border-color: var(--vscode-focusBorder, var(--accent-primary));
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    box-shadow: var(--shadow-md);
 }
 
 .preset-item:hover .add-icon {
@@ -1367,7 +1370,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 12.5px;
+    font-size: var(--font-size-sm);
     color: var(--text-primary);
 }
 
@@ -1414,7 +1417,7 @@
     border: 1px solid var(--vscode-input-border, var(--border-primary));
     border-radius: 4px;
     color: var(--text-primary);
-    font-size: 12.5px;
+    font-size: var(--font-size-sm);
     padding: 7px 10px;
     outline: none;
     transition: border-color 0.15s ease;
@@ -2702,13 +2705,15 @@
     background: var(--bg-secondary);
     transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
     overflow: hidden;
+    animation: stream-block-in var(--dur-enter) var(--ease-out) both;
+    animation-delay: var(--stagger-delay, 0ms);
 }
 
 .item-card:hover {
     background: var(--bg-hover);
     border-color: var(--accent-primary);
     transform: translateY(-1px);
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+    box-shadow: var(--shadow-md);
 }
 
 .item-card.disabled { opacity: 0.62; }
@@ -2754,7 +2759,7 @@
     align-items: center;
     gap: 8px;
     margin-bottom: 3px;
-    font-size: 13.5px;
+    font-size: var(--font-size-base);
     font-weight: 600;
     color: var(--text-primary);
 }
@@ -2870,15 +2875,24 @@
 .item-card.expanded .chev { transform: rotate(90deg); }
 
 /* ---------- 展开区 ---------- */
+/* Grid-based accordion animation wrapper */
+.card-expand-wrapper {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows var(--dur-normal) var(--ease-out);
+}
+
+.card-expand-wrapper.expanded {
+    grid-template-rows: 1fr;
+}
+
+.card-expand-wrapper > .card-expand {
+    overflow: hidden;
+}
+
 .card-expand {
     border-top: 1px solid var(--border-primary);
     padding: 14px 16px 16px 64px;
-    animation: ccg-slide-down 0.15s ease;
-}
-
-@keyframes ccg-slide-down {
-    from { opacity: 0; transform: translateY(-6px); }
-    to { opacity: 1; transform: none; }
 }
 
 .expand-grid {
@@ -3012,7 +3026,7 @@
     border: 0;
     background: transparent;
     color: var(--text-tertiary);
-    font-size: 12.5px;
+    font-size: var(--font-size-sm);
     font-weight: 500;
     padding: 6px 12px;
     border-radius: 4px;
@@ -3099,7 +3113,7 @@
     border-radius: 8px;
     background: var(--bg-elevated);
     border: 1px solid var(--border-primary);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--shadow-modal);
     animation: tooltipFadeIn 0.15s ease-out;
     pointer-events: none;
 }

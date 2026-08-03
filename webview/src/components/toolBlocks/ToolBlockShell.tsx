@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { type ReactNode, useState, useEffect, useRef } from 'react';
 
 interface ToolBlockShellProps {
   /** 是否展开 */
@@ -17,6 +17,8 @@ interface ToolBlockShellProps {
   className?: string;
   /** header 的额外 className */
   headerClassName?: string;
+  /** 启用增强动画效果（默认 true） */
+  enableAnimations?: boolean;
 }
 
 /**
@@ -28,6 +30,7 @@ interface ToolBlockShellProps {
  * - task-title-section
  * - tool-status-indicator 状态点
  * - 条件渲染展开内容
+ * - 增强动画：执行中脉冲、完成淡入、错误抖动
  */
 export function ToolBlockShell({
   expanded,
@@ -38,9 +41,46 @@ export function ToolBlockShell({
   children,
   className = '',
   headerClassName = '',
+  enableAnimations = true,
 }: ToolBlockShellProps) {
+  const [animPhase, setAnimPhase] = useState<'idle' | 'completing' | 'erroring'>('idle');
+  const prevCompletedRef = useRef(isCompleted);
+  const prevErrorRef = useRef(isError);
+
+  // 检测状态变化并触发动画
+  useEffect(() => {
+    if (!enableAnimations) return;
+
+    // 完成动画：pending → completed
+    if (!prevCompletedRef.current && isCompleted && !isError) {
+      setAnimPhase('completing');
+      const timer = setTimeout(() => setAnimPhase('idle'), 400);
+      prevCompletedRef.current = isCompleted;
+      return () => clearTimeout(timer);
+    }
+
+    // 错误动画：任何 → error
+    if (!prevErrorRef.current && isError) {
+      setAnimPhase('erroring');
+      const timer = setTimeout(() => setAnimPhase('idle'), 500);
+      prevErrorRef.current = isError;
+      return () => clearTimeout(timer);
+    }
+
+    prevCompletedRef.current = isCompleted;
+    prevErrorRef.current = isError;
+  }, [isCompleted, isError, enableAnimations]);
+
+  // 构建容器 className
+  const containerClasses = [
+    'task-container',
+    className,
+    animPhase === 'completing' ? 'tool-completing' : '',
+    animPhase === 'erroring' ? 'tool-erroring' : '',
+  ].filter(Boolean).join(' ');
+
   return (
-    <div className={`task-container ${className}`}>
+    <div className={containerClasses}>
       <div
         className={`task-header ${headerClassName} ${expanded ? 'expanded' : ''}`}
         onClick={onToggle}
@@ -52,7 +92,11 @@ export function ToolBlockShell({
         <StatusIndicator isError={isError} isCompleted={isCompleted} />
       </div>
 
-      {expanded && children}
+      <div className={`task-details-accordion ${expanded ? 'expanded' : ''}`}>
+        <div className="task-details">
+          {children}
+        </div>
+      </div>
     </div>
   );
 }

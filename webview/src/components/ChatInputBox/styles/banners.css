@@ -5,18 +5,18 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 12px;
-  background: rgba(255, 152, 0, 0.15); /* Orange tint */
-  border-bottom: 1px solid rgba(255, 152, 0, 0.3);
-  color: #ffb74d; /* Orange text */
-  font-size: 12px;
+  padding: var(--spacing-sm) var(--spacing-lg);
+  background: var(--banner-warning-bg);
+  border-bottom: 1px solid var(--banner-warning-border);
+  color: var(--banner-warning-text);
+  font-size: var(--font-size-md);
   /* Border radius is controlled by .chat-input-box > :first-child, but may need explicit setting in some cases */
 }
 
 .sdk-warning-bar .codicon-warning {
-  margin-right: 8px;
-  font-size: 14px;
-  color: #ffb74d;
+  margin-right: var(--spacing-sm);
+  font-size: var(--font-size-lg);
+  color: var(--banner-warning-icon);
 }
 
 .sdk-warning-text {
@@ -28,15 +28,18 @@
 }
 
 .sdk-install-btn {
-  background: rgba(255, 152, 0, 0.2);
-  border: 1px solid rgba(255, 152, 0, 0.4);
-  color: #ffb74d;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 11px;
+  background: var(--banner-warning-bg);
+  border: 1px solid var(--banner-warning-border);
+  color: var(--banner-warning-text);
+  padding: var(--spacing-xxs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
   cursor: pointer;
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-  margin-left: 12px;
+  /* 使用动效 token */
+  transition: background-color var(--dur-hover) var(--ease-smooth),
+              border-color var(--dur-hover) var(--ease-smooth),
+              color var(--dur-hover) var(--ease-smooth);
+  margin-left: var(--spacing-lg);
   white-space: nowrap;
   display: flex;
   align-items: center;
@@ -47,49 +50,17 @@
   border-color: rgba(255, 152, 0, 0.6);
 }
 
-/* Light theme adaptation */
-[data-theme="light"] .sdk-warning-bar {
-  background: rgba(255, 149, 0, 0.1);
-  border-bottom-color: rgba(255, 149, 0, 0.2);
-  color: #e65100;
-}
-
-[data-theme="light"] .sdk-warning-bar .codicon-warning {
-  color: #ef6c00;
-}
-
-[data-theme="light"] .sdk-install-btn {
-  background: rgba(255, 149, 0, 0.15);
-  border-color: rgba(255, 149, 0, 0.3);
-  color: #ef6c00;
-}
-
-[data-theme="light"] .sdk-install-btn:hover {
-  background: rgba(255, 149, 0, 0.25);
-  border-color: rgba(255, 149, 0, 0.5);
-}
-
 /* SDK status loading styles */
 .sdk-warning-bar.sdk-loading {
-  background: rgba(33, 150, 243, 0.1);
-  border-bottom-color: rgba(33, 150, 243, 0.2);
-  color: #64b5f6;
+  background: var(--banner-info-bg);
+  border-bottom-color: var(--banner-info-border);
+  color: var(--banner-info-text);
 }
 
 .sdk-warning-bar.sdk-loading .codicon-loading {
-  margin-right: 8px;
-  font-size: 14px;
-  color: #64b5f6;
-}
-
-[data-theme="light"] .sdk-warning-bar.sdk-loading {
-  background: rgba(33, 150, 243, 0.08);
-  border-bottom-color: rgba(33, 150, 243, 0.15);
-  color: #1976d2;
-}
-
-[data-theme="light"] .sdk-warning-bar.sdk-loading .codicon-loading {
-  color: #1976d2;
+  margin-right: var(--spacing-sm);
+  font-size: var(--font-size-lg);
+  color: var(--banner-info-icon);
 }
 
 /* ============================================================
@@ -99,11 +70,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 12px;
-  background: rgba(33, 150, 243, 0.1);
-  border-bottom: 1px solid rgba(33, 150, 243, 0.2);
-  color: #64b5f6;
-  font-size: 12px;
+  padding: var(--spacing-sm) var(--spacing-lg);
+  background: var(--banner-info-bg);
+  border-bottom: 1px solid var(--banner-info-border);
+  color: var(--banner-info-text);
+  font-size: var(--font-size-md);
 }
 
 .open-source-banner .banner-text {
@@ -113,27 +84,18 @@
 .open-source-banner .banner-close {
   background: none;
   border: none;
-  color: #64b5f6;
+  color: var(--banner-info-icon);
   cursor: pointer;
-  font-size: 14px;
-  padding: 0 0 0 10px;
+  font-size: var(--font-size-lg);
+  padding: 0 0 0 var(--spacing-md);
   line-height: 1;
   opacity: 0.7;
-  transition: opacity 0.2s;
+  /* 使用动效 token */
+  transition: opacity var(--dur-hover) var(--ease-smooth);
 }
 
 .open-source-banner .banner-close:hover {
   opacity: 1;
-}
-
-[data-theme="light"] .open-source-banner {
-  background: rgba(33, 150, 243, 0.08);
-  border-bottom-color: rgba(33, 150, 243, 0.15);
-  color: #1976d2;
-}
-
-[data-theme="light"] .open-source-banner .banner-close {
-  color: #1976d2;
 }
 
 /* ============================================================
@@ -142,8 +104,8 @@
 .message-queue {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px 12px;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-lg);
   border-bottom: 1px solid var(--input-border);
   background: var(--context-bar-bg);
   max-height: 120px;
@@ -153,12 +115,12 @@
 .message-queue-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 8px;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
   background: var(--dropdown-bg);
   border: 1px solid var(--input-border);
-  border-radius: 4px;
-  font-size: 12px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-md);
   color: var(--text-primary);
   min-height: 28px;
 }
@@ -171,9 +133,9 @@
   align-items: center;
   justify-content: center;
   background: var(--button-primary);
-  color: white;
+  color: var(--text-white);
   border-radius: 50%;
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   font-weight: 600;
 }
 
@@ -196,27 +158,19 @@
   padding: 0;
   background: transparent;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: var(--text-muted);
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  /* 使用动效 token */
+  transition: background-color var(--dur-hover) var(--ease-smooth),
+              color var(--dur-hover) var(--ease-smooth);
 }
 
 .message-queue-remove:hover {
   background: var(--error-color);
-  color: white;
+  color: var(--text-white);
 }
 
 .message-queue-remove .codicon {
-  font-size: 12px;
-}
-
-/* Light theme adaptation */
-[data-theme="light"] .message-queue {
-  background: #f5f5f5;
-}
-
-[data-theme="light"] .message-queue-item {
-  background: #ffffff;
-  border-color: #e0e0e0;
+  font-size: var(--font-size-md);
 }

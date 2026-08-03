@@ -9,15 +9,30 @@
 
 .waveChar {
   display: inline-block;
-  animation: wave 1.5s ease-in-out infinite;
+  /* 默认状态：无动画 */
+  transform: translateY(0);
+  transition: transform 0.2s ease;
 }
 
-/* 波浪动画 */
+/* 波浪动画激活状态 */
+.waveAnimating {
+  animation: wave var(--wave-duration, 1.5s) ease-in-out infinite;
+}
+
+/* 波浪动画 - 使用 CSS 变量控制振幅 */
 @keyframes wave {
   0%, 100% {
     transform: translateY(0);
   }
   50% {
-    transform: translateY(-8px);
+    transform: translateY(calc(-1 * var(--wave-amplitude, 8px)));
+  }
+}
+
+/* 无障碍：减少动画偏好 */
+@media (prefers-reduced-motion: reduce) {
+  .waveAnimating {
+    animation: none !important;
+    transform: translateY(0);
   }
 }

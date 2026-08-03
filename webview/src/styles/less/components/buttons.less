@@ -11,7 +11,9 @@
     cursor: pointer;
     font-size: 13px;
     font-weight: 500;
-    transition: background-color 0.2s;
+    /* 使用动效 token 替换硬编码值 */
+    transition: background-color var(--dur-hover) var(--ease-smooth),
+                transform var(--dur-hover) var(--ease-smooth);
 }
 
 .btn-primary:hover {
@@ -20,6 +22,13 @@
 
 .btn-primary:active {
     background: var(--accent-primary-active);
+    transform: scale(0.98);
+}
+
+/* focus-visible 样式 - 无障碍支持 */
+.btn-primary:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
 }
 
 .btn-primary .codicon {
@@ -38,7 +47,11 @@
     cursor: pointer;
     font-size: 13px;
     font-weight: 500;
-    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    /* 使用动效 token 替换硬编码值 */
+    transition: background-color var(--dur-hover) var(--ease-smooth),
+                border-color var(--dur-hover) var(--ease-smooth),
+                color var(--dur-hover) var(--ease-smooth),
+                transform var(--dur-hover) var(--ease-smooth);
 }
 
 .btn-secondary:hover {
@@ -48,6 +61,13 @@
 
 .btn-secondary:active {
     background: rgba(255, 255, 255, 0.15);
+    transform: scale(0.98);
+}
+
+/* focus-visible 样式 - 无障碍支持 */
+.btn-secondary:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
 }
 
 .btn-secondary .codicon {
@@ -65,7 +85,11 @@
     background: var(--bg-tertiary);
     color: var(--text-primary);
     cursor: pointer;
-    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+    /* 使用动效 token 替换硬编码值 */
+    transition: background-color var(--dur-hover) var(--ease-smooth),
+                border-color var(--dur-hover) var(--ease-smooth),
+                color var(--dur-hover) var(--ease-smooth),
+                transform var(--dur-hover) var(--ease-smooth);
     font-weight: 500;
 }
 
@@ -74,9 +98,16 @@
     border-color: var(--text-tertiary);
 }
 
+/* 合并重复的 :active 定义 */
 .btn-small:active {
     background: var(--bg-active);
-    transform: translateY(1px);
+    transform: translateY(1px) scale(0.98);
+}
+
+/* focus-visible 样式 - 无障碍支持 */
+.btn-small:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
 }
 
 .btn-small.btn-primary {
@@ -87,7 +118,7 @@
 
 .btn-small.btn-primary:hover {
     background: var(--accent-primary-hover);
-    box-shadow: 0 2px 8px rgba(0, 127, 212, 0.3);
+    box-shadow: var(--shadow-button-accent);
 }
 
 .btn-small.btn-danger {
@@ -110,13 +141,14 @@
 .btn-small.btn-success:hover {
     background: var(--color-button-success-hover-bg);
     border-color: var(--color-success);
-    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+    box-shadow: var(--shadow-button-success);
 }
 
 .btn-small:disabled {
     opacity: 0.5;
     cursor: not-allowed;
     pointer-events: none;
+    transition: opacity var(--dur-hover) var(--ease-smooth);
 }
 
 .btn-small .codicon {

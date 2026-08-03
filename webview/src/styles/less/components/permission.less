@@ -39,20 +39,21 @@
 .permission-dialog {
     background: var(--bg-elevated);
     border: 1px solid var(--border-secondary);
-    border-radius: 12px;
+    border-radius: var(--radius-xl);
     box-shadow: var(--shadow-lg);
-    min-width: 500px;
+    /* 使用 min() 函数防止窄屏溢出 */
+    min-width: min(500px, calc(100vw - 32px));
     max-width: 600px;
     max-height: 80vh;
     overflow: hidden;
 }
 
 .permission-dialog-header {
-    padding: 20px 24px;
+    padding: var(--spacing-lg) var(--spacing-xxl);
     border-bottom: 1px solid var(--border-secondary);
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: var(--spacing-lg);
     background: var(--bg-secondary);
 }
 
@@ -64,20 +65,20 @@
 
 .permission-dialog-title {
     margin: 0;
-    font-size: 16px;
+    font-size: var(--font-size-xl);
     font-weight: 600;
     color: var(--text-secondary);
     flex: 1;
 }
 
 .permission-dialog-body {
-    padding: 24px;
+    padding: var(--spacing-xxl);
     max-height: 400px;
     overflow-y: auto;
 }
 
 .permission-dialog-section {
-    margin-bottom: 20px;
+    margin-bottom: var(--spacing-lg);
 }
 
 .permission-dialog-section:last-child {
@@ -85,18 +86,18 @@
 }
 
 .permission-dialog-label {
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     font-weight: 600;
     color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    margin-bottom: 8px;
+    margin-bottom: var(--spacing-sm);
 }
 
 .permission-dialog-value {
-    font-size: 14px;
+    font-size: var(--font-size-lg);
     color: var(--text-secondary);
-    padding: 10px 12px;
+    padding: var(--spacing-md) var(--spacing-lg);
     background: var(--bg-primary);
     border: 1px solid var(--border-secondary);
     border-radius: 6px;
@@ -165,22 +166,25 @@
 }
 
 .permission-dialog-footer {
-    padding: 16px 24px;
+    padding: var(--spacing-xl) var(--spacing-xxl);
     border-top: 1px solid var(--border-secondary);
     display: flex;
     justify-content: flex-end;
-    gap: 12px;
+    gap: var(--spacing-lg);
     background: var(--bg-secondary);
 }
 
 .permission-dialog-button {
-    padding: 10px 20px;
+    padding: var(--spacing-md) var(--spacing-lg);
     border: none;
-    border-radius: 6px;
-    font-size: 14px;
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-lg);
     font-weight: 600;
     cursor: pointer;
-    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    /* 使用动效 token 替换硬编码值 */
+    transition: background-color var(--dur-hover) var(--ease-smooth),
+                border-color var(--dur-hover) var(--ease-smooth),
+                color var(--dur-hover) var(--ease-smooth);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -188,7 +192,7 @@
 
 .permission-dialog-button.deny-button {
     background: var(--color-dialog-button-danger);
-    color: #ffffff;
+    color: var(--text-white);
     border: 1px solid var(--color-dialog-button-danger);
 }
 
@@ -210,13 +214,13 @@
 
 .permission-dialog-button.approve-always-button {
     background: var(--accent-primary);
-    color: #ffffff;
+    color: var(--text-white);
     min-width: 120px;
 }
 
 .permission-dialog-button.approve-always-button:hover {
     background: var(--accent-primary-hover);
-    box-shadow: 0 0 12px rgba(0, 127, 212, 0.4);
+    box-shadow: var(--shadow-glow);
 }
 
 .permission-dialog-button.approve-always-button:active {
@@ -507,6 +511,21 @@
 
 .permission-dialog-v3-command-header .command-toggle .codicon {
     font-size: 14px;
+}
+
+/* Grid-based accordion animation wrapper */
+.permission-dialog-v3-command-wrapper {
+    display: grid;
+    grid-template-rows: 1fr;
+    transition: grid-template-rows var(--dur-normal) var(--ease-out);
+}
+
+.permission-dialog-v3-command-wrapper:not(.expanded) {
+    grid-template-rows: 0fr;
+}
+
+.permission-dialog-v3-command-wrapper > .permission-dialog-v3-command-content {
+    overflow: hidden;
 }
 
 .permission-dialog-v3-command-content {

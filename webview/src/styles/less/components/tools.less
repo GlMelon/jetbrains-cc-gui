@@ -258,6 +258,17 @@
     color: var(--color-error);
 }
 
+/* ==================== Diff 行交错淡入动画 ==================== */
+.diff-line-animated {
+  animation: stream-block-in var(--dur-enter) var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .diff-line-animated {
+    animation: none;
+  }
+}
+
 /* ==================== 亮色模式适配 ==================== */
 [data-theme="light"] .tool-block {
     background: rgba(0, 0, 0, 0.03);
@@ -343,10 +354,23 @@
     color: var(--color-error);
 }
 
+/* 时间线列表容器 - 手风琴模式 */
+.bash-group-accordion {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bash-group-container.expanded .bash-group-accordion {
+    grid-template-rows: 1fr;
+}
+
 /* 时间线列表容器 */
 .bash-group-timeline {
     padding: 8px 12px 8px 16px;
     overflow-x: hidden;
+    overflow-y: auto;
+    min-height: 0;
 }
 
 /* 自定义滚动条 */
@@ -496,4 +520,118 @@
 
 [data-theme="light"] .bash-timeline-content.expanded {
     background-color: rgba(0, 0, 0, 0.04);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   增强动画效果 - 工具调用状态过渡
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* 完成动画：边框高亮脉冲 + 背景渐变 */
+.tool-completing {
+    animation: tool-complete-pulse 0.4s ease-out;
+}
+
+@keyframes tool-complete-pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(var(--color-success-rgb, 76, 175, 80), 0.4);
+    }
+    50% {
+        box-shadow: 0 0 0 4px rgba(var(--color-success-rgb, 76, 175, 80), 0.2);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(var(--color-success-rgb, 76, 175, 80), 0);
+    }
+}
+
+/* 错误动画：轻微抖动 + 红色边框闪烁 */
+.tool-erroring {
+    animation: tool-error-shake 0.5s ease-out;
+}
+
+@keyframes tool-error-shake {
+    0%, 100% {
+        transform: translateX(0);
+        box-shadow: 0 0 0 0 rgba(var(--color-error-rgb, 244, 67, 54), 0);
+    }
+    10% {
+        transform: translateX(-2px);
+        box-shadow: 0 0 0 2px rgba(var(--color-error-rgb, 244, 67, 54), 0.3);
+    }
+    30% {
+        transform: translateX(2px);
+        box-shadow: 0 0 0 2px rgba(var(--color-error-rgb, 244, 67, 54), 0.3);
+    }
+    50% {
+        transform: translateX(-1px);
+        box-shadow: 0 0 0 1px rgba(var(--color-error-rgb, 244, 67, 54), 0.2);
+    }
+    70% {
+        transform: translateX(1px);
+        box-shadow: 0 0 0 1px rgba(var(--color-error-rgb, 244, 67, 54), 0.1);
+    }
+}
+
+/* 状态指示器增强动画 */
+.tool-status-indicator.completed {
+    animation: status-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.tool-status-indicator.error {
+    animation: status-shake 0.4s ease-out;
+}
+
+@keyframes status-pop {
+    0% {
+        transform: scale(0.5);
+        opacity: 0;
+    }
+    60% {
+        transform: scale(1.2);
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes status-shake {
+    0%, 100% {
+        transform: translateX(0);
+    }
+    25% {
+        transform: translateX(-2px);
+    }
+    50% {
+        transform: translateX(2px);
+    }
+    75% {
+        transform: translateX(-1px);
+    }
+}
+
+/* 展开内容淡入动画 */
+.task-details-accordion.expanded .task-details {
+    animation: details-fade-in 0.2s ease-out;
+}
+
+@keyframes details-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 无障碍：减少动画偏好 */
+@media (prefers-reduced-motion: reduce) {
+    .tool-completing,
+    .tool-erroring,
+    .tool-status-indicator.completed,
+    .tool-status-indicator.error,
+    .task-details-accordion.expanded .task-details {
+        animation: none !important;
+    }
 }

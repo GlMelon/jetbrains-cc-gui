@@ -6,7 +6,8 @@
   border: none;
   cursor: pointer;
   background: var(--bg-tertiary, #3e3e42);
-  transition: background 0.2s;
+  /* 使用动效 token 替换硬编码值 */
+  transition: background var(--dur-enter) var(--ease-smooth);
   padding: 0;
   flex-shrink: 0;
 }
@@ -24,7 +25,9 @@
   height: 16px;
   border-radius: 50%;
   background: var(--color-button-text, #fff);
-  transition: transform 0.2s;
+  /* 使用弹性缓动，添加过冲效果 */
+  transition: transform var(--dur-enter) var(--ease-pop);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 .custom-switch.switch-small::after {
   width: 12px;
@@ -39,7 +42,13 @@
 .custom-switch.switch-small.switch-checked::after {
   transform: translateX(12px);
 }
+/* focus-visible 样式 - 无障碍支持 */
+.custom-switch:focus-visible {
+  outline: 2px solid var(--accent-primary, #007acc);
+  outline-offset: 2px;
+}
 .custom-switch:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  transition: opacity var(--dur-hover) var(--ease-smooth);
 }

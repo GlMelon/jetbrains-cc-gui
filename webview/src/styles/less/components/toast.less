@@ -6,7 +6,7 @@
     z-index: 9999;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--spacing-sm);
     pointer-events: none;
 }
 
@@ -14,13 +14,15 @@
     pointer-events: auto;
     background: var(--bg-elevated);
     border: 1px solid var(--border-secondary);
-    border-radius: 6px;
-    padding: 12px 16px;
+    border-radius: var(--radius-md);
+    padding: var(--spacing-lg) var(--spacing-xl);
     min-width: 280px;
     max-width: 400px;
     box-shadow: var(--shadow-md);
     /* 进入:右侧弹入带过冲(B 方案 toast-pop-in,统一定义见 animations.less) */
     animation: toast-pop-in var(--dur-enter) var(--ease-pop);
+    animation-delay: var(--stagger-delay, 0ms);
+    animation-fill-mode: both;
     transition: opacity var(--dur-enter) var(--ease-smooth), transform var(--dur-enter) var(--ease-smooth);
 }
 
@@ -35,11 +37,11 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: var(--spacing-lg);
 }
 
 .toast-message {
-    font-size: 13px;
+    font-size: var(--font-size-base);
     color: var(--text-secondary);
     flex: 1;
     line-height: 1.4;
@@ -52,12 +54,14 @@
     border: none;
     color: var(--text-tertiary);
     cursor: pointer;
-    padding: 4px;
+    padding: var(--spacing-xs);
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 4px;
-    transition: background-color 0.2s ease, color 0.2s ease;
+    border-radius: var(--radius-sm);
+    /* 使用动效 token 替换硬编码值 */
+    transition: background-color var(--dur-hover) var(--ease-smooth),
+                color var(--dur-hover) var(--ease-smooth);
     flex-shrink: 0;
 }
 
@@ -67,19 +71,21 @@
 }
 
 .toast-close .codicon {
-    font-size: 14px;
+    font-size: var(--font-size-lg);
 }
 
 .toast-action {
     background: transparent;
     border: 1px solid var(--color-toast-warning-border);
     color: var(--color-toast-warning-border);
-    border-radius: 4px;
-    padding: 3px 10px;
-    font-size: 12px;
+    border-radius: var(--radius-sm);
+    padding: var(--spacing-xxs) var(--spacing-md);
+    font-size: var(--font-size-sm);
     cursor: pointer;
     flex-shrink: 0;
-    transition: all 0.2s;
+    /* 使用动效 token 替换硬编码值 */
+    transition: background-color var(--dur-hover) var(--ease-smooth),
+                color var(--dur-hover) var(--ease-smooth);
 }
 
 .toast-action:hover {

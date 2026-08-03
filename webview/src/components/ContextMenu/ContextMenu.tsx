@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import './ContextMenu.css';
 
@@ -17,6 +17,7 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  const [isExiting, setIsExiting] = useState(false);
 
   // State-driven position to avoid React overwriting imperative DOM changes
   const [pos, setPos] = useState({ left: x, top: y });
@@ -34,19 +35,24 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
     });
   }, [x, y]);
 
+  const handleClose = useCallback(() => {
+    setIsExiting(true);
+    setTimeout(() => onCloseRef.current(), 150);
+  }, []);
+
   // Close on outside click, escape, scroll
   // Use menuRef.contains check instead of stopPropagation to avoid
   // native vs React event ordering issues in JBCefBrowser
   useEffect(() => {
     const handleMouseDown = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        onCloseRef.current();
+        handleClose();
       }
     };
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCloseRef.current();
+      if (e.key === 'Escape') handleClose();
     };
-    const handleScroll = () => onCloseRef.current();
+    const handleScroll = () => handleClose();
     document.addEventListener('mousedown', handleMouseDown);
     document.addEventListener('keydown', handleKeyDown);
     window.addEventListener('scroll', handleScroll, true);
@@ -55,14 +61,14 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
       document.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('scroll', handleScroll, true);
     };
-  }, []);
+  }, [handleClose]);
 
   const menuStyle: React.CSSProperties = { left: pos.left, top: pos.top };
 
   return createPortal(
     <div
       ref={menuRef}
-      className="context-menu"
+      className={`context-menu ${isExiting ? 'context-menu-exit' : ''}`}
       role="menu"
       aria-label="Context menu"
       style={menuStyle}
@@ -80,13 +86,13 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
             onClick={() => {
               if (!item.disabled) {
                 item.action();
-                onCloseRef.current();
+                handleClose();
               }
             }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !item.disabled) {
                 item.action();
-                onCloseRef.current();
+                handleClose();
               }
             }}
           >

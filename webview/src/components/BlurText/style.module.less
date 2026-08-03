@@ -10,10 +10,13 @@
 .segment {
   display: inline-block;
   will-change: transform, filter, opacity;
-  /* 使用项目统一的动效 Token */
-  animation-duration: var(--dur-enter);
+  /* 使用项目统一的动效 Token，默认时长可通过 --step-duration 覆盖 */
+  animation-duration: var(--step-duration, var(--dur-enter));
   animation-timing-function: var(--ease-out);
   animation-fill-mode: forwards;
+  /* 性能优化：启用 GPU 加速 */
+  backface-visibility: hidden;
+  perspective: 1000px;
 }
 
 /* 初始隐藏状态 */
@@ -33,16 +36,21 @@
   animation-name: blurFadeInBottom;
 }
 
-/* 从上方进入的模糊淡入动画 */
+/* 从上方进入的模糊淡入动画 - 多阶段过渡 */
 @keyframes blurFadeInTop {
   0% {
     opacity: 0;
     filter: blur(10px);
     transform: translateY(-20px);
   }
-  60% {
-    opacity: 0.5;
-    filter: blur(5px);
+  40% {
+    opacity: 0.3;
+    filter: blur(7px);
+    transform: translateY(-8px);
+  }
+  70% {
+    opacity: 0.7;
+    filter: blur(3px);
     transform: translateY(2px);
   }
   100% {
@@ -52,21 +60,36 @@
   }
 }
 
-/* 从下方进入的模糊淡入动画 */
+/* 从下方进入的模糊淡入动画 - 多阶段过渡 */
 @keyframes blurFadeInBottom {
   0% {
     opacity: 0;
     filter: blur(10px);
     transform: translateY(20px);
   }
-  60% {
-    opacity: 0.5;
-    filter: blur(5px);
+  40% {
+    opacity: 0.3;
+    filter: blur(7px);
+    transform: translateY(8px);
+  }
+  70% {
+    opacity: 0.7;
+    filter: blur(3px);
     transform: translateY(-2px);
   }
   100% {
     opacity: 1;
     filter: blur(0);
     transform: translateY(0);
+  }
+}
+
+/* 无障碍：减少动画偏好 */
+@media (prefers-reduced-motion: reduce) {
+  .segment {
+    animation: none !important;
+    opacity: 1;
+    filter: none;
+    transform: none;
   }
 }

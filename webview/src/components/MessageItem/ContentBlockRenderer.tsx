@@ -465,8 +465,9 @@ export const ContentBlockRenderer = memo(function ContentBlockRenderer({
   }
 
   if (block.type === 'thinking') {
+    const isThinkingActive = isThinking && isLastMessage && isLastBlock;
     return (
-      <div className={`thinking-section${isThinkingExpanded ? ' expanded' : ''}`}>
+      <div className={`thinking-section${isThinkingExpanded ? ' expanded' : ''}${isThinkingActive ? ' thinking-active' : ''}`}>
         <div
           className="thinking-section-header"
           onClick={() => onToggleThinking(blockIndex)}
@@ -476,12 +477,12 @@ export const ContentBlockRenderer = memo(function ContentBlockRenderer({
             <path d="M14.5 2A2.5 2.5 0 0012 4.5v15a2.5 2.5 0 004.96.44 2.5 2.5 0 002.96-3.08 3 3 0 00.34-5.58 2.5 2.5 0 00-1.32-4.24 2.5 2.5 0 00-1.98-3A2.5 2.5 0 0014.5 2z" />
           </svg>
           <span className="thinking-section-label">
-            {isThinking && isLastMessage && isLastBlock
+            {isThinkingActive
               ? t('common.thinkingProcess')
               : t('common.thinking')}
           </span>
           <span className="thinking-section-duration">
-            {isThinking && isLastMessage && isLastBlock ? '...' : ''}
+            {isThinkingActive ? '...' : ''}
           </span>
           <svg className="thinking-section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M6 9l6 6 6-6" />

@@ -7,6 +7,34 @@
   border-radius: 4px;
   padding: 4px 0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  /* 使用动效 token 替换硬编码值 */
+  animation: contextMenuIn var(--dur-enter) var(--ease-out) both;
+}
+
+.context-menu-exit {
+  animation: contextMenuOut var(--dlg-out) var(--ease-smooth) both;
+}
+
+@keyframes contextMenuIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes contextMenuOut {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95);
+  }
 }
 
 .context-menu-item {
@@ -15,11 +43,18 @@
   color: var(--vscode-menu-foreground, #ccc);
   cursor: pointer;
   white-space: nowrap;
+  transition: background-color var(--dur-hover) var(--ease-smooth), color var(--dur-hover) var(--ease-smooth);
 }
 
 .context-menu-item:hover:not(.disabled) {
   background: var(--vscode-menu-selectionBackground, #094771);
   color: var(--vscode-menu-selectionForeground, #fff);
+}
+
+/* focus-visible 样式 - 无障碍支持 */
+.context-menu-item:focus-visible {
+  outline: 2px solid var(--accent-primary, #007acc);
+  outline-offset: -2px;
 }
 
 .context-menu-item.disabled {

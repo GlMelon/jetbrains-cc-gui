@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import type { ReactNode } from 'react';
 import i18n from '../i18n/config';
 import { CheckIcon, CopyIcon, RefreshIcon, XCircleIcon } from './Icons';
+import './ErrorBoundary.css';
 
 interface Props {
   children: ReactNode;
@@ -13,148 +14,6 @@ interface State {
   error?: Error;
   errorInfo?: React.ErrorInfo;
   copied: boolean;
-}
-
-const ROOT_STYLE: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  minHeight: '100vh',
-  padding: '20px',
-  backgroundColor: 'var(--vscode-editor-background, #1e1e1e)',
-  color: 'var(--vscode-editor-foreground, #cccccc)',
-};
-
-const CARD_STYLE: React.CSSProperties = {
-  maxWidth: '700px',
-  width: '100%',
-  padding: '24px',
-  backgroundColor: 'var(--vscode-notifications-background, #252526)',
-  border: '1px solid var(--vscode-notifications-border, #454545)',
-  borderRadius: '6px',
-};
-
-const HEADER_STYLE: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  marginBottom: '16px',
-};
-
-const HEADER_ICON_STYLE: React.CSSProperties = {
-  fontSize: '24px',
-  color: 'var(--vscode-errorForeground, #f48771)',
-  marginRight: '12px',
-};
-
-const HEADER_TITLE_STYLE: React.CSSProperties = {
-  margin: 0,
-  fontSize: '18px',
-  fontWeight: 600,
-};
-
-const DESCRIPTION_STYLE: React.CSSProperties = {
-  marginBottom: '16px',
-  lineHeight: '1.5',
-};
-
-const CAUSES_BOX_STYLE: React.CSSProperties = {
-  padding: '12px',
-  marginBottom: '16px',
-  backgroundColor: 'var(--vscode-inputValidation-warningBackground, #352a05)',
-  border: '1px solid var(--vscode-inputValidation-warningBorder, #be8c0088)',
-  borderRadius: '4px',
-};
-
-const CAUSES_TITLE_STYLE: React.CSSProperties = {
-  fontWeight: 500,
-  marginBottom: '8px',
-};
-
-const CAUSES_LIST_STYLE: React.CSSProperties = {
-  margin: 0,
-  paddingLeft: '20px',
-  lineHeight: '1.6',
-};
-
-const DETAILS_STYLE: React.CSSProperties = {
-  marginBottom: '16px',
-};
-
-const SUMMARY_STYLE: React.CSSProperties = {
-  cursor: 'pointer',
-  padding: '8px 12px',
-  backgroundColor: 'var(--vscode-input-background, #3c3c3c)',
-  border: '1px solid var(--vscode-input-border, #3c3c3c)',
-  borderRadius: '4px',
-  marginBottom: '8px',
-  fontWeight: 500,
-};
-
-const PRE_STYLE: React.CSSProperties = {
-  padding: '12px',
-  backgroundColor: 'var(--vscode-textCodeBlock-background, #2d2d2d)',
-  border: '1px solid var(--vscode-input-border, #3c3c3c)',
-  borderRadius: '4px',
-  overflow: 'auto',
-  fontSize: '11px',
-  lineHeight: '1.4',
-  maxHeight: '300px',
-  whiteSpace: 'pre-wrap',
-  wordBreak: 'break-word',
-};
-
-const ACTION_BUTTONS_STYLE: React.CSSProperties = {
-  display: 'flex',
-  gap: '12px',
-  flexWrap: 'wrap',
-};
-
-const RELOAD_BUTTON_STYLE: React.CSSProperties = {
-  padding: '8px 16px',
-  backgroundColor: 'var(--vscode-button-secondaryBackground, #3a3d41)',
-  color: 'var(--vscode-button-secondaryForeground, #cccccc)',
-  border: 'none',
-  borderRadius: '4px',
-  cursor: 'pointer',
-  fontSize: '13px',
-  fontWeight: 500,
-  display: 'flex',
-  alignItems: 'center',
-  gap: '6px',
-};
-
-const BUTTON_ICON_STYLE: React.CSSProperties = {
-  fontSize: '14px',
-};
-
-const HELP_TEXT_STYLE: React.CSSProperties = {
-  marginTop: '16px',
-  marginBottom: 0,
-  fontSize: '12px',
-  color: 'var(--vscode-descriptionForeground, #8b8b8b)',
-  lineHeight: '1.5',
-};
-
-function getCopyButtonStyle(copied: boolean): React.CSSProperties {
-  return {
-    padding: '8px 16px',
-    backgroundColor: copied
-      ? 'var(--vscode-button-secondaryBackground, #3a3d41)'
-      : 'var(--vscode-button-background, #0e639c)',
-    color: copied
-      ? 'var(--vscode-button-secondaryForeground, #cccccc)'
-      : 'var(--vscode-button-foreground, #ffffff)',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontSize: '13px',
-    fontWeight: 500,
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    transition: 'background-color 0.2s',
-  };
 }
 
 /**
@@ -281,7 +140,7 @@ class ErrorBoundary extends Component<Props, State> {
     try {
       await navigator.clipboard.writeText(errorDetails);
       this.setCopiedWithAutoReset();
-    } catch (err) {
+    } catch {
       // Fallback: create a textarea and copy from there
       const textarea = document.createElement('textarea');
       textarea.value = errorDetails;
@@ -307,42 +166,41 @@ class ErrorBoundary extends Component<Props, State> {
       }
 
       const errorDetails = formatErrorDetails(this.state.error, this.state.errorInfo);
-      const copyButtonStyle = getCopyButtonStyle(this.state.copied);
 
       // Default fallback UI — role/aria-live announce the error to assistive
       // tech, otherwise screen-reader users have no signal that the surface
       // suddenly switched to an error state.
       return (
         <div
-          style={ROOT_STYLE}
+          className="error-boundary"
           role="alert"
           aria-live="assertive"
           aria-atomic="true"
         >
-          <div style={CARD_STYLE}>
+          <div className="error-boundary-card">
             {/* Header */}
-            <div style={HEADER_STYLE}>
+            <div className="error-boundary-header">
               <XCircleIcon
                 size={16}
-                style={HEADER_ICON_STYLE}
+                className="error-boundary-icon"
                 aria-hidden="true"
               />
-              <h2 style={HEADER_TITLE_STYLE}>
+              <h2 className="error-boundary-title">
                 {t('errorBoundary.title', 'Something went wrong')}
               </h2>
             </div>
 
             {/* Description */}
-            <p style={DESCRIPTION_STYLE}>
+            <p className="error-boundary-description">
               {t('errorBoundary.description', 'The application encountered an unexpected error. Please copy the error details below and share them with the developer for troubleshooting.')}
             </p>
 
             {/* Possible causes hint */}
-            <div style={CAUSES_BOX_STYLE}>
-              <div style={CAUSES_TITLE_STYLE}>
+            <div className="error-boundary-causes-box">
+              <div className="error-boundary-causes-title">
                 {t('errorBoundary.possibleCauses', 'Possible causes:')}
               </div>
-              <ul style={CAUSES_LIST_STYLE}>
+              <ul className="error-boundary-causes-list">
                 <li>{t('errorBoundary.cause1', 'Node.js is not installed or not configured correctly')}</li>
                 <li>{t('errorBoundary.cause2', 'Network connection issues')}</li>
                 <li>{t('errorBoundary.cause3', 'Plugin or IDE compatibility issues')}</li>
@@ -352,39 +210,27 @@ class ErrorBoundary extends Component<Props, State> {
 
             {/* Error Details */}
             {this.state.error && (
-              <details style={DETAILS_STYLE} open>
-                <summary style={SUMMARY_STYLE}>
+              <details className="error-boundary-details" open>
+                <summary className="error-boundary-summary">
                   {t('errorBoundary.errorDetails', 'Error Details')}
                 </summary>
-                <pre style={PRE_STYLE}>
+                <pre className="error-boundary-pre">
                   {errorDetails}
                 </pre>
               </details>
             )}
 
             {/* Action Buttons */}
-            <div style={ACTION_BUTTONS_STYLE}>
+            <div className="error-boundary-actions">
               {/* Copy Error Button */}
               <button
                 onClick={this.handleCopyError}
                 aria-label={t('errorBoundary.copyError', 'Copy Error Info')}
-                style={copyButtonStyle}
-                onMouseOver={(e) => {
-                  if (!this.state.copied) {
-                    e.currentTarget.style.backgroundColor =
-                      'var(--vscode-button-hoverBackground, #1177bb)';
-                  }
-                }}
-                onMouseOut={(e) => {
-                  if (!this.state.copied) {
-                    e.currentTarget.style.backgroundColor =
-                      'var(--vscode-button-background, #0e639c)';
-                  }
-                }}
+                className={`error-boundary-button ${this.state.copied ? '' : 'error-boundary-button-primary'}`}
               >
                 {this.state.copied
-                  ? <CheckIcon size={16} style={BUTTON_ICON_STYLE} />
-                  : <CopyIcon size={16} style={BUTTON_ICON_STYLE} />}
+                  ? <CheckIcon size={16} className="error-boundary-button-icon" />
+                  : <CopyIcon size={16} className="error-boundary-button-icon" />}
                 {this.state.copied
                   ? t('errorBoundary.copied', 'Copied!')
                   : t('errorBoundary.copyError', 'Copy Error Info')}
@@ -394,23 +240,15 @@ class ErrorBoundary extends Component<Props, State> {
               <button
                 onClick={this.handleReset}
                 aria-label={t('errorBoundary.reload', 'Reload Application')}
-                style={RELOAD_BUTTON_STYLE}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.backgroundColor =
-                    'var(--vscode-button-secondaryHoverBackground, #45494e)';
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.backgroundColor =
-                    'var(--vscode-button-secondaryBackground, #3a3d41)';
-                }}
+                className="error-boundary-button"
               >
-                <RefreshIcon size={16} style={BUTTON_ICON_STYLE} />
+                <RefreshIcon size={16} className="error-boundary-button-icon" />
                 {t('errorBoundary.reload', 'Reload Application')}
               </button>
             </div>
 
             {/* Help text */}
-            <p style={HELP_TEXT_STYLE}>
+            <p className="error-boundary-help-text">
               {t('errorBoundary.helpText', 'If the problem persists, please copy the error information and submit it as an issue on GitHub, or share it in the community group.')}
             </p>
           </div>
