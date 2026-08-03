@@ -359,7 +359,13 @@ public class PermissionService {
                 PermissionResponse decision = resolveDecision(response);
                 boolean allow = decision.isAllow();
                 if (decision == PermissionResponse.ALLOW_ALWAYS) {
-                    decisionStore.rememberToolDecision(toolName, PermissionResponse.ALLOW_ALWAYS);
+                    // SEC-02:命令执行类工具(Bash/Agent)按 command 串记忆——勾"总是允许 npm test"只放行
+                    // 该命令,不放行会话内任意 Bash(含 rm -rf)。其余工具(Edit/Write 等)保持 tool-level。
+                    if (PermissionDecisionStore.isCommandExecutionTool(toolName)) {
+                        decisionStore.rememberParameterDecision(toolName, inputs, PermissionResponse.ALLOW_ALWAYS);
+                    } else {
+                        decisionStore.rememberToolDecision(toolName, PermissionResponse.ALLOW_ALWAYS);
+                    }
                 }
                 notifyDecision(toolName, inputs, decision);
                 fileProtocol.writePermissionResponse(requestId, allow);
