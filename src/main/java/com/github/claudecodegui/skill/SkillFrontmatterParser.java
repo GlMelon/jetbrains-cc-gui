@@ -28,6 +28,12 @@ public final class SkillFrontmatterParser {
     private static final int NAME_MAX_LENGTH = 64;
     private static final int DESCRIPTION_MAX_LENGTH = 1024;
     private static final Pattern CONSECUTIVE_HYPHENS = Pattern.compile("--");
+    /**
+     * SKILL.md 读取大小上限(SKILL-01):Files.readString 无上限,恶意/超大文件致 IDE OOM。
+     * 8MB 远超合法 SKILL.md(frontmatter≤8KB + body≤1MB),同时挡住 GB 级恶意文件。
+     * public 供 {@code SkillDocumentService} 读取路径复用同一上限,避免常量重复。
+     */
+    public static final long MAX_SKILL_FILE_SIZE = 8L * 1024 * 1024;
 
     private SkillFrontmatterParser() {
     }
@@ -85,6 +91,12 @@ public final class SkillFrontmatterParser {
     static String extractFrontmatter(Path filePath) {
         String content;
         try {
+            // SKILL-01: 读取前校验大小,防超大文件 OOM。
+            if (Files.size(filePath) > MAX_SKILL_FILE_SIZE) {
+                LOG.warn("Skill file exceeds max size (" + MAX_SKILL_FILE_SIZE
+                        + " bytes), skipping: " + filePath);
+                return null;
+            }
             content = stripUtf8Bom(Files.readString(filePath, StandardCharsets.UTF_8));
         } catch (IOException e) {
             LOG.warn("Failed to read skill file: " + filePath, e);
@@ -136,9 +148,11 @@ public final class SkillFrontmatterParser {
         // Step 3: Parse YAML
         Map<String, Object> yamlMap;
         try {
+            // FIX: Use consistent code-point limit with SkillDocumentCodec (65536)
+            // to avoid 8K-64K frontmatter passing codec but failing parser
             LoadSettings settings = LoadSettings.builder()
                     .setMaxAliasesForCollections(0)
-                    .setCodePointLimit(8192)
+                    .setCodePointLimit(SkillDocumentCodec.FRONTMATTER_CODE_POINT_LIMIT)
                     .build();
             Load load = new Load(settings);
             Object parsed = load.loadFromString(yamlText);
@@ -253,6 +267,10 @@ public final class SkillFrontmatterParser {
     static String extractFirstParagraph(Path filePath) {
         String content;
         try {
+            // SKILL-01: 读取前校验大小,防超大文件 OOM。
+            if (Files.size(filePath) > MAX_SKILL_FILE_SIZE) {
+                return null;
+            }
             content = stripUtf8Bom(Files.readString(filePath, StandardCharsets.UTF_8));
         } catch (IOException e) {
             return null;
@@ -278,7 +296,11 @@ public final class SkillFrontmatterParser {
         }
 
         // Take text up to the first blank line (double newline)
+        // FIX: Handle both \n\n and \r\n\r\n for CRLF compatibility
         int blankLine = body.indexOf("\n\n");
+        if (blankLine < 0) {
+            blankLine = body.indexOf("\r\n\r\n");
+        }
         String firstParagraph = (blankLine > 0 ? body.substring(0, blankLine) : body).trim();
 
         // Strip leading markdown heading markers (# ## etc.)

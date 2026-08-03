@@ -23,7 +23,8 @@ final class SkillDocumentCodec {
     private static final String LF = "\n";
     private static final Pattern TOP_LEVEL_KEY =
             Pattern.compile("^([A-Za-z0-9_-]+)[ \\t]*:.*$");
-    private static final int FRONTMATTER_CODE_POINT_LIMIT = 65_536;
+    // Public for SkillFrontmatterParser to use consistent limit
+    public static final int FRONTMATTER_CODE_POINT_LIMIT = 65_536;
 
     ParsedDocument parse(String content) throws SkillDocumentFormatException {
         if (content == null) {

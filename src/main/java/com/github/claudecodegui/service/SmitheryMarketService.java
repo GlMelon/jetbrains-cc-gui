@@ -108,6 +108,21 @@ public class SmitheryMarketService {
     }
 
     private static String httpGet(String url, String apiKey) throws MarketFetchException {
+        try {
+            return httpGetOnce(url, apiKey);
+        } catch (MarketFetchException e) {
+            // 瞬时错误(超时/网络)自动重试 1 次,缓解 api.smithery.ai 偶发抖动;GET 幂等故重试安全。
+            // 认证/解析/HTTP 状态码错误不重试(重试也是同样结果)。
+            if (isTransientError(e.getErrorCode())) {
+                LOG.debug("[SmitheryMarketService] retry GET " + url + " after " + e.getErrorCode());
+                return httpGetOnce(url, apiKey);
+            }
+            throw e;
+        }
+    }
+
+    /** 单次 GET(无重试)。 */
+    private static String httpGetOnce(String url, String apiKey) throws MarketFetchException {
         HttpClient client = HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT).build();
         try {
             HttpRequest req = HttpRequest.newBuilder()
@@ -137,6 +152,12 @@ public class SmitheryMarketService {
             LOG.debug("[SmitheryMarketService] GET " + url + " failed: " + e);
             throw new MarketFetchException(MarketFetchException.NETWORK_ERROR, e);
         }
+    }
+
+    /** 瞬时错误(可安全重试):超时/网络抖动。GET 幂等故重试安全;认证/解析/HTTP 状态码错误不重试。 */
+    static boolean isTransientError(String errorCode) {
+        return MarketFetchException.TIMEOUT.equals(errorCode)
+            || MarketFetchException.NETWORK_ERROR.equals(errorCode);
     }
 
     /**

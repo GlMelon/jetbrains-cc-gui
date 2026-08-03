@@ -26,7 +26,9 @@ public final class SkillDocumentService {
             new SkillDocumentService(new AtomicSkillDocumentWriter());
     private static final int MAX_BODY_LENGTH = 1_048_576;
     private static final int MAX_PATHS = 256;
-    private static final Map<Path, Object> FILE_LOCKS = new HashMap<>();
+    // FIX: Use ConcurrentHashMap to prevent memory leaks. Old HashMap never evicted entries,
+    // causing slow memory growth in long-running IDE sessions.
+    private static final Map<Path, Object> FILE_LOCKS = new java.util.concurrent.ConcurrentHashMap<>();
 
     private final SkillDocumentCodec codec = new SkillDocumentCodec();
     private final SkillDocumentWriter writer;
@@ -46,6 +48,10 @@ public final class SkillDocumentService {
     JsonObject read(UnifiedSkillService provider, SkillDocumentIdentity identity, String cwd) {
         try {
             SkillDocumentTarget target = provider.resolveSkillDocument(identity, cwd);
+            // SKILL-01: 读取前校验大小,防超大文件 OOM。
+            if (Files.size(target.file()) > SkillFrontmatterParser.MAX_SKILL_FILE_SIZE) {
+                return failure("SKILL.md exceeds the maximum allowed size", false, false);
+            }
             String content = Files.readString(target.file(), StandardCharsets.UTF_8);
             SkillDocumentCodec.ParsedDocument document = codec.parse(content);
             SkillFrontmatterParser.SkillMetadata metadata =
@@ -81,6 +87,10 @@ public final class SkillDocumentService {
         Object lock = lockFor(target.file());
         synchronized (lock) {
             try {
+                // SKILL-01: 读取前校验大小,防超大文件 OOM。
+                if (Files.size(target.file()) > SkillFrontmatterParser.MAX_SKILL_FILE_SIZE) {
+                    return failure("SKILL.md exceeds the maximum allowed size", false, false);
+                }
                 String current = Files.readString(target.file(), StandardCharsets.UTF_8);
                 String currentRevision = revision(current);
                 if (revision == null || !currentRevision.equals(revision)) {
@@ -115,11 +125,28 @@ public final class SkillDocumentService {
                     result.addProperty("backupPath", backup.toString());
                     return result;
                 } catch (Exception verificationFailure) {
-                    writer.restore(target.file(), backup);
-                    JsonObject result = failure(
-                            "SKILL.md verification failed and the backup was restored: "
-                                    + verificationFailure.getMessage(), false, false);
-                    result.addProperty("rolledBack", true);
+                    // SKILL-03: restore 自身失败时文件留 corrupt + 孤儿 backup。异常不可逃逸到外层
+                    // catch(IOException) 被伪装成通用 "Failed to save"——需显式告知用户回滚失败、
+                    // 文件可能已损坏,提示从 backup 手动恢复。
+                    boolean rolledBackOk;
+                    String restoreError = null;
+                    try {
+                        writer.restore(target.file(), backup);
+                        rolledBackOk = true;
+                    } catch (Exception restoreFailure) {
+                        rolledBackOk = false;
+                        restoreError = restoreFailure instanceof IOException
+                                ? restoreFailure.getMessage() : String.valueOf(restoreFailure);
+                    }
+                    String message = rolledBackOk
+                            ? "SKILL.md verification failed and the backup was restored: "
+                                    + verificationFailure.getMessage()
+                            : "SKILL.md verification failed and rollback FAILED — the file may be corrupt; "
+                                    + "recover from backup. Verification error: "
+                                    + verificationFailure.getMessage()
+                                    + (restoreError != null ? " | rollback error: " + restoreError : "");
+                    JsonObject result = failure(message, false, false);
+                    result.addProperty("rolledBack", rolledBackOk);
                     return result;
                 }
             } catch (SkillDocumentFormatException e) {
@@ -293,9 +320,8 @@ public final class SkillDocumentService {
 
     private static Object lockFor(Path file) {
         Path normalized = file.toAbsolutePath().normalize();
-        synchronized (FILE_LOCKS) {
-            return FILE_LOCKS.computeIfAbsent(normalized, ignored -> new Object());
-        }
+        // ConcurrentHashMap.computeIfAbsent is atomic, no external sync needed
+        return FILE_LOCKS.computeIfAbsent(normalized, ignored -> new Object());
     }
 
     private static String revision(String content) {

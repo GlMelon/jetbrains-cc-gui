@@ -20,6 +20,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Base64;
 import java.util.List;
 
 /**
@@ -118,6 +119,42 @@ public class SkillMarketService {
         String pathSeg = p.isEmpty() ? "" : "/" + p;
         return RAW_GITHUB + "/" + src.owner() + "/" + src.repo()
                 + "/" + src.branch() + pathSeg + "/" + fileName;
+    }
+
+    /** 规范化拼接 skillPath 与文件名(去首尾斜杠、反斜杠归一),用于 Contents API 单文件路径。 */
+    static String joinPath(String skillPath, String fileName) {
+        String p = skillPath == null ? "" : skillPath.replace('\\', '/');
+        while (p.startsWith("/")) {
+            p = p.substring(1);
+        }
+        while (p.endsWith("/")) {
+            p = p.substring(0, p.length() - 1);
+        }
+        return p.isEmpty() ? fileName : p + "/" + fileName;
+    }
+
+    /**
+     * 解析 Contents API 单文件响应 → SKILL.md 文本(纯函数,便于单测)。
+     * <p>响应:{type:"file", content:"<base64>", encoding:"base64"}。GitHub 返回的 content 字段为
+     * base64 编码且按 76 字符折行(含真实换行),解码得 SKILL.md 原文。缺 content 字段或解码失败 → PARSE_ERROR。
+     */
+    static String decodeContentFileBody(String body) throws MarketFetchException {
+        if (body == null || body.isBlank()) {
+            throw new MarketFetchException(MarketFetchException.PARSE_ERROR);
+        }
+        try {
+            JsonObject obj = JsonParser.parseString(body).getAsJsonObject();
+            if (!obj.has("content") || !obj.get("content").isJsonPrimitive()) {
+                throw new MarketFetchException(MarketFetchException.PARSE_ERROR);
+            }
+            String b64 = obj.get("content").getAsString().replace("\n", "");
+            return new String(Base64.getDecoder().decode(b64), StandardCharsets.UTF_8);
+        } catch (MarketFetchException e) {
+            throw e;
+        } catch (Exception e) {
+            LOG.warn("[SkillMarket] decode SKILL.md content failed: " + e.getMessage());
+            throw new MarketFetchException(MarketFetchException.PARSE_ERROR, e);
+        }
     }
 
     /** 源列表 → JsonArray(前端 Tab 用)。 */
@@ -256,7 +293,10 @@ public class SkillMarketService {
      *
      * <p>列表({@link #listMarketSkills})走 Contents API 快速路径,只返回 name/path(不读 SKILL.md 内容,
      * 避免 N 次 GitHub 请求撞 60 req/h 限流);详情按需拉取单个 SKILL.md(用户主动点击,单文件请求不撞限流)。
-     * raw 大写 SKILL.md 优先,404 fallback 小写 skill.md(对称 {@link #hasSkillMd} 双写兼容)。
+     * <b>取数路径</b>:走 Contents API 单文件端点({@code api.github.com},与列表同域名)而非
+     * {@code raw.githubusercontent.com}——后者在部分网络环境(如中国大陆)DNS 污染/不可达会导致详情必超时;
+     * 前者复用列表已验证可达的域名,响应 {@code content} 字段 base64 编码(经 {@link #decodeContentFileBody} 解码)。
+     * 大写 SKILL.md 优先,404 fallback 小写 skill.md(对称 {@link #hasSkillMd} 双写兼容)。
      *
      * @param sourceId  源 id(anthropics/vercel/superpowers)
      * @param skillPath skill 相对仓库根路径(Contents API 返回的 path,如 "skills/pdf")
@@ -273,17 +313,20 @@ public class SkillMarketService {
             throw new MarketFetchException("INVALID_SKILL_NAME");
         }
 
-        // raw 下载 SKILL.md(大写优先,404 fallback 小写)
-        String content;
+        // 经 Contents API 单文件端点拉取 SKILL.md(api.github.com,与列表同域名,国内可达)。
+        // raw.githubusercontent.com 在部分网络环境 DNS 污染/不可达 → 详情必超时;复用列表已验证可达的
+        // Contents API(响应 content 字段 base64 编码)规避可达性问题。大写优先,404 fallback 小写。
+        String body;
         try {
-            content = httpGetString(buildRawUrl(src, skillPath, "SKILL.md"));
+            body = httpGetJson(buildContentsUrl(src, joinPath(skillPath, "SKILL.md")));
         } catch (MarketFetchException e) {
             if ("HTTP_404".equals(e.getErrorCode())) {
-                content = httpGetString(buildRawUrl(src, skillPath, "skill.md"));
+                body = httpGetJson(buildContentsUrl(src, joinPath(skillPath, "skill.md")));
             } else {
                 throw e;
             }
         }
+        String content = decodeContentFileBody(body);
 
         // 写临时目录复用 SkillFrontmatterParser.parse(含 frontmatter 提取 + 正文首段 fallback)
         File tmpBase = CliTempDir.getManagedTempDir();
