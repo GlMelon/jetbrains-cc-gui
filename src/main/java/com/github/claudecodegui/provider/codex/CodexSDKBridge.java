@@ -26,6 +26,7 @@ import com.github.claudecodegui.provider.common.DaemonConstants;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.SDKResult;
 import com.github.claudecodegui.util.PlatformUtils;
+import com.intellij.util.concurrency.AppExecutorUtil;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -460,6 +461,10 @@ public class CodexSDKBridge extends BaseSDKBridge {
             final List<File> tempImageFiles = new ArrayList<>();  // Track temp images for cleanup
 
             try {
+                // STREAM-02②:标记 channel 开始,关闭「interrupt 在 registerProcess 前到达被丢失」的窗口,
+                // 并清除上一次请求残留的 interruptedChannels 标记(否则 registerProcess 会立即误杀新进程)。
+                // 对齐 BaseSDKBridge.executeStreamingCommand 的 beginChannel(:273);finishChannelStart 在外层 finally。
+                processManager.beginChannel(channelId);
                 String accessMode = CodemossSettingsService.CODEX_RUNTIME_ACCESS_INACTIVE;
                 try {
                     accessMode = CodemossSettingsService.getInstance().getCodexRuntimeAccessMode();
@@ -603,28 +608,44 @@ public class CodexSDKBridge extends BaseSDKBridge {
                         stdin.write(stdinJson.getBytes(StandardCharsets.UTF_8));
                         stdin.flush();
                     } catch (Exception e) {
-                        LOG.warn("Failed to write stdin: " + e.getMessage());
+                        // STREAM-02④:stdin 写入失败(进程已死/管道破裂)须传播为请求失败,而非吞掉后让
+                        // waitFor 干等进程 EOF 行为(可能挂至 15min 超时)。标记 error + 终止进程 + 立即回调;
+                        // 下方 exitCode 分支经 `result.error != null` 守卫(:645)避免双重报错。
+                        LOG.warn("[Codex] Failed to write stdin: " + e.getMessage());
+                        hadSendError.set(true);
+                        String error = "Failed to deliver request to Codex process: " + e.getMessage();
+                        result.error = error;
+                        lastNodeError.compareAndSet(null, error);
+                        PlatformUtils.terminateProcess(process);
+                        safeOnError(callback, error);
                     }
 
-                    try (BufferedReader reader = new BufferedReader(
-                            new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                    // STAB-03: drain 放独立 future,主任务 waitFor(requestTimeoutMs) 有界等待。
+                    // 此前内联 readLine 循环 + 裸 waitFor() 全跑在 commonPool 线程,Node 子进程网络读
+                    // 卡住即无限阻塞,累积耗尽 JVM 共享线程池。对齐 BaseSDKBridge.executeStreamingCommand
+                    // 已验证模式:超时 terminateProcess 关闭子进程 stdout → drain 解除阻塞 → 线程释放。
+                    final Process drainingProcess = process;
+                    CompletableFuture<Void> outputFuture = CompletableFuture.runAsync(
+                            () -> drainOutput(channelId, drainingProcess, callback, result, assistantContent,
+                                    hadSendError, lastNodeError),
+                            AppExecutorUtil.getAppExecutorService());
 
-                        String line;
-                        while ((line = reader.readLine()) != null) {
-                            // Capture Node.js error logs
-                            if (line.startsWith("[UNCAUGHT_ERROR]")
-                                    || line.startsWith("[UNHANDLED_REJECTION]")
-                                    || line.startsWith("[COMMAND_ERROR]")) {
-                                LOG.warn("[Node.js ERROR] " + line);
-                                lastNodeError.set(line);
-                            }
-                            processOutputLine(channelId, line, callback, result, assistantContent, hadSendError, lastNodeError);
-                        }
+                    boolean completed = process.waitFor(requestTimeoutMs(), TimeUnit.MILLISECONDS);
+                    if (!completed) {
+                        String timeoutMessage = getProviderName() + " request timed out after "
+                                + requestTimeoutMs() + "ms";
+                        result.success = false;
+                        result.error = timeoutMessage;
+                        lastNodeError.compareAndSet(null, timeoutMessage);
+                        PlatformUtils.terminateProcess(process);
+                        safeOnError(callback, timeoutMessage);
+                    }
+                    awaitOutputDrain(outputFuture, !completed);
+                    if (process.isAlive()) {
+                        PlatformUtils.terminateProcess(process);
                     }
 
-                    process.waitFor();
-
-                    int exitCode = process.exitValue();
+                    int exitCode = process.isAlive() ? -1 : process.exitValue();
                     boolean wasInterrupted = processManager.wasInterrupted(channelId);
 
                     result.finalResult = assistantContent.toString();
@@ -634,6 +655,8 @@ public class CodexSDKBridge extends BaseSDKBridge {
                         result.success = false;
                         result.error = "User interrupted";
                         callback.onComplete(result);
+                    } else if (result.error != null && !result.error.isEmpty()) {
+                        // 超时已在上方 notify(且经 safeOnError),不重复处理,避免与下方 exitCode 分支双重报错
                     } else if (!hadSendError.get()) {
                         result.success = exitCode == 0;
                         if (result.success) {
@@ -662,6 +685,10 @@ public class CodexSDKBridge extends BaseSDKBridge {
                 callback.onError(e.getMessage());
                 cleanupTempImages(tempImageFiles);  // Cleanup temp image files on error
                 return result;
+            } finally {
+                // STREAM-02②:无论正常返回/早退(accessMode 拒绝、bridgeDir 缺失)/异常,都清 startingChannels,
+                // 与 beginChannel 配对,避免 startingChannels 泄漏致后续 interruptChannel 误判 channel 仍在启动。
+                processManager.finishChannelStart(channelId);
             }
         });
     }

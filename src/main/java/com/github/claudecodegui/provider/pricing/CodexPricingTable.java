@@ -1,6 +1,7 @@
 package com.github.claudecodegui.provider.pricing;
 
 import com.github.claudecodegui.provider.CustomPricingProvider;
+import com.github.claudecodegui.session.runtime.ProviderType;
 
 import java.util.List;
 import java.util.Map;
@@ -83,7 +84,7 @@ public final class CodexPricingTable {
         if (model == null || model.isBlank()) {
             return null;
         }
-        return CustomPricingProvider.getInstance().getPricing("codex", model)
+        return CustomPricingProvider.getInstance().getPricing(ProviderType.CODEX.value(), model)
                 .map(p -> new CodexPricing(
                         p.inputCostPer1M() != null ? p.inputCostPer1M() : (builtin != null ? builtin.inputCostPer1M() : 0.0),
                         p.outputCostPer1M() != null ? p.outputCostPer1M() : (builtin != null ? builtin.outputCostPer1M() : 0.0),

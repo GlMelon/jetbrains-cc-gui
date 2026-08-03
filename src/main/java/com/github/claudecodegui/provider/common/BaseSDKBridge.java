@@ -325,7 +325,16 @@ public abstract class BaseSDKBridge {
                         stdin.write(stdinJson.getBytes(StandardCharsets.UTF_8));
                         stdin.flush();
                     } catch (Exception e) {
+                        // 项6/STREAM-02④:stdin 写失败须传播为请求失败(对齐 CodexSDKBridge),否则进程可能已死
+                        // 却让 waitFor 干等到超时、空响应被当 success。标记 error+终止进程+立即回调。
                         LOG.warn("Failed to write stdin: " + e.getMessage());
+                        hadSendError.set(true);
+                        String error = "Failed to deliver request to " + getProviderName()
+                                + " process: " + e.getMessage();
+                        result.error = error;
+                        lastNodeError.compareAndSet(null, error);
+                        PlatformUtils.terminateProcess(process);
+                        safeOnError(callback, error);
                     }
 
                     Process runningProcess = process;
@@ -418,7 +427,7 @@ public abstract class BaseSDKBridge {
         });
     }
 
-    private void drainOutput(
+    protected void drainOutput(
             String channelId,
             Process process,
             MessageCallback callback,
@@ -455,7 +464,7 @@ public abstract class BaseSDKBridge {
         }
     }
 
-    private void awaitOutputDrain(CompletableFuture<Void> outputFuture, boolean bestEffort) {
+    protected void awaitOutputDrain(CompletableFuture<Void> outputFuture, boolean bestEffort) {
         if (outputFuture == null) {
             return;
         }
@@ -473,7 +482,7 @@ public abstract class BaseSDKBridge {
         }
     }
 
-    private void safeOnError(MessageCallback callback, String error) {
+    protected void safeOnError(MessageCallback callback, String error) {
         try {
             callback.onError(error);
         } catch (RuntimeException callbackFailure) {

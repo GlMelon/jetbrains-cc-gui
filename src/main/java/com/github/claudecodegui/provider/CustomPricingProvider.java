@@ -2,6 +2,7 @@ package com.github.claudecodegui.provider;
 
 import com.github.claudecodegui.settings.ConfigPathManager;
 import com.github.claudecodegui.settings.ModelPricing;
+import com.github.claudecodegui.session.runtime.ProviderType;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
@@ -127,7 +128,7 @@ public final class CustomPricingProvider {
         // when it resolves to one unique configured model. This keeps exact matches
         // authoritative and avoids silently choosing between ambiguous providers such as
         // "ppio/pa/gpt-5.5" and "openrouter/pa/gpt-5.5".
-        if ("claude".equals(provider)) {
+        if (ProviderType.CLAUDE.value().equals(provider)) {
             Optional<ModelPricing> contextSuffixPricing =
                     findUniqueConfiguredContextSuffixPricing(forProvider, trimmedModelId);
             if (contextSuffixPricing.isPresent()) {
@@ -181,7 +182,7 @@ public final class CustomPricingProvider {
             }
             JsonObject rootObj = root.getAsJsonObject(ROOT_KEY);
             Map<String, Map<String, ModelPricing>> result = new HashMap<>();
-            for (String provider : new String[]{"claude", "codex"}) {
+            for (String provider : new String[]{ProviderType.CLAUDE.value(), ProviderType.CODEX.value()}) {
                 if (!rootObj.has(provider) || !rootObj.get(provider).isJsonObject()) {
                     continue;
                 }
