@@ -412,12 +412,15 @@
       "updateSuccess": "{{name}} 更新成功",
       "update": "更新"
     },
-    "usage": "使用統計",
-    "usageDesc": "檢視您的 Token 消耗、費用統計和使用趨勢分析",
     "mcp": "MCP 伺服器",
     "mcpDesc": "配置和管理 Model Context Protocol 伺服器",
     "permissions": "權限配置",
     "permissionsDesc": "管理 Claude Code 的檔案存取和操作權限",
+    "openCodePermissionsDesc": "OpenCode permissions are managed by opencode itself",
+    "openCodePermissionNotice": "OpenCode tool calls are governed by opencode's native policy. This plugin does not intercept or enforce permissions for OpenCode, so the permission mode selector is hidden here.",
+    "permissionsPanel": {
+      "fireThenAskNotice": "Codex command approvals are requested after a command has already started (post-hoc abort). Denying a request aborts the turn, but the command may have already begun executing — a weaker guarantee than a pre-execution prompt."
+    },
     "promptEnhancer": {
       "title": "增強提示詞",
       "description": "設定增強提示詞功能使用的 provider 與模型，在訊息送出前先重寫並增強輸入內容。"
@@ -1066,22 +1069,6 @@
     "copyMessage": "複製訊息",
     "copySuccess": "複製成功"
   },
-  "usage": {
-    "checkingLabel": "正在偵測 tokentracker-cli…",
-    "installingLabel": "正在安裝 tokentracker-cli…",
-    "installingDesc": "可能需要一點時間。安裝完成後，應用程式會自動重新偵測並啟動本機服務。",
-    "startingLabel": "正在啟動 tokentracker 服務…",
-    "guideTitle": "安裝 tokentracker-cli 以檢視使用統計",
-    "guideDesc": "使用統計由 tokentracker-cli 提供。它會在本機執行一個本地服務，彙整各 AI 工具的 token 用量，並以儀表板呈現。",
-    "guideInstallLabel": "安裝指令",
-    "guideCopy": "複製",
-    "guideCopied": "已複製",
-    "guideInstallNow": "一鍵安裝",
-    "guideNoteHooks": "首次啟動時，tokentracker 服務會向已安裝的 AI 工具寫入 hooks（這是它的資料蒐集機制）。",
-    "guideNoteTelemetry": "本應用已為其關閉匿名遥測。",
-    "errorTitle": "tokentracker 服務啟動失敗",
-    "errorRetry": "重試"
-  },
   "mcp": {
     "title": "MCP 伺服器",
     "whatIsMcp": "什麼是 MCP?",
@@ -1267,7 +1254,17 @@
     "clear": "Clear",
     "noRefreshLogs": "No Refresh Logs",
     "refreshLogsHint": "After clicking the refresh button, detailed refresh process information will be displayed here",
-    "refreshServer": "Refresh {{name}}"
+    "refreshServer": "Refresh {{name}}",
+    "packageConfirm": {
+      "title": "Confirm External Package",
+      "message": "This MCP server runs via {{runner}} and will install/run the external package: {{package}}",
+      "messageContainer": "This MCP server runs in a {{runner}} container with image: {{package}}",
+      "messageNoPackage": "This MCP server runs via {{runner}} (an external runner)",
+      "batchPrefix": "The following external packages will be installed and run:",
+      "risk": "Only continue if you trust the source. Malicious packages can execute arbitrary code.",
+      "confirm": "Install",
+      "cancel": "Cancel"
+    }
   },
   "tools": {
     "toolCall": "工具調用",
@@ -1601,7 +1598,7 @@
   "codexModes": {
     "default": {
       "label": "Suggest (approval)",
-      "tooltip": "Codex approval_policy=untrusted – prompts before editing files or running shell commands.",
+      "tooltip": "Codex approval_policy=untrusted – 每個檔案編輯與 shell 命令都需要你核准。",
       "description": "Safest option. Every write or command requires your approval."
     },
     "plan": {

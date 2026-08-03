@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { McpImportPreviewResponse, McpServer } from '../../types/mcp';
-import { sendToJava } from '../../utils/bridge';
+import { sendAction, subscribeEvent } from '../../bridge/typed';
+import { UPSTREAM, DOWNSTREAM } from '../../generated/protocol';
 
 interface McpImportDialogProps {
   currentProvider?: 'claude' | 'codex' | string;
@@ -64,8 +65,9 @@ export function McpImportDialog({ currentProvider = 'claude', existingIds = [], 
   }, [onClose]);
 
   useEffect(() => {
-    const previousHandler = window.updateCopilotImportPreview;
-    window.updateCopilotImportPreview = (json: string) => {
+    // 后端 PARSE_COPILOT_MCP_CONFIG 处理后经 MCP_IMPORT_PREVIEW 下发预览(servers/error)。
+    // 总线是透明字符串管道(hub.deliver 不自动 parse),listener 收到 JSON 字符串需自行解析。
+    const unsubscribe = subscribeEvent<string>(DOWNSTREAM.MCP_IMPORT_PREVIEW, (json) => {
       setLoading(false);
       try {
         const response = JSON.parse(json) as McpImportPreviewResponse;
@@ -80,10 +82,8 @@ export function McpImportDialog({ currentProvider = 'claude', existingIds = [], 
         setError(String(parseError));
         setPreview([]);
       }
-    };
-    return () => {
-      window.updateCopilotImportPreview = previousHandler;
-    };
+    });
+    return unsubscribe;
   }, [buildPreview]);
 
   const handlePreview = useCallback(() => {
@@ -92,7 +92,7 @@ export function McpImportDialog({ currentProvider = 'claude', existingIds = [], 
     }
     setLoading(true);
     setError(null);
-    sendToJava('parse_copilot_mcp_config', { json: jsonContent, isCodexMode });
+    sendAction(UPSTREAM.PARSE_COPILOT_MCP_CONFIG, { json: jsonContent, isCodexMode });
   }, [jsonContent, isCodexMode]);
 
   const handleContentChange = (value: string) => {

@@ -57,9 +57,14 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
           }
           addToast(t('settings.models.saveSuccess', 'Model configuration saved'), 'success');
         } else {
+          // FIX: On failure, request fresh registry from backend to roll back optimistic update
+          // This ensures SettingsPanel and ChatScreen show consistent data
+          requestModelRegistry();
           addToast((data.errors || []).join('\n') || t('settings.models.saveFailed', 'Model configuration rejected'), 'error');
         }
       } catch {
+        // FIX: On parse failure, also request fresh registry to roll back
+        requestModelRegistry();
         addToast(t('settings.models.saveFailed', 'Model configuration rejected'), 'error');
       }
     });
@@ -90,9 +95,12 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
 
   const persistRegistry = useCallback((nextRegistry: ModelRegistryPayload) => {
     const userOnly = { items: nextRegistry.items.filter((item) => !item.readOnly) };
+    // Optimistically update local state
     setRegistry(nextRegistry);
     sendAction(UPSTREAM.SET_MODEL_REGISTRY, userOnly);
-  }, []);
+    // Note: Rollback on failure is handled by MODEL_REGISTRY_UPDATED event handler
+    // which will set the registry to the backend's authoritative value on failure
+  }, [registry]);
 
   const removeModel = useCallback((model: ModelRegistryItem) => {
     const nextRegistry = { items: registry.items.filter((item) => toKey(item) !== toKey(model)) };

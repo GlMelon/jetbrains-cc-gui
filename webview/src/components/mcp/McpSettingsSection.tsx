@@ -11,10 +11,10 @@ import { UPSTREAM } from '../../generated/protocol';
 import { McpServerDialog } from './McpServerDialog';
 import { McpMarketDialog } from './McpMarketDialog';
 import { McpPresetDialog } from './McpPresetDialog';
-import { McpMarketplaceDialog } from './McpMarketplaceDialog';
 import { McpImportDialog } from './McpImportDialog';
 import { McpHelpDialog } from './McpHelpDialog';
 import { McpConfirmDialog } from './McpConfirmDialog';
+import { McpPackageConfirmDialog, type PackageConfirmItem } from './McpPackageConfirmDialog';
 import { McpLogDialog } from './McpLogDialog';
 import { ToastContainer, type ToastMessage } from '../Toast';
 import { copyToClipboard } from '../../utils/copyUtils';
@@ -22,6 +22,7 @@ import { copyToClipboard } from '../../utils/copyUtils';
 // Types and utility functions
 import type { McpSettingsSectionProps, RefreshLog, McpTool } from './types';
 import { getCacheKeys, getToolIcon, getServerStatusInfo, isServerEnabled } from './utils';
+import { parsePackageRunner } from './packageRunner';
 import type { McpProvider } from './providerSelection';
 import { resolveInitialMcpProvider, getMcpMessagePrefix } from './providerSelection';
 
@@ -106,13 +107,18 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
   const [showMarketDialog, setShowMarketDialog] = useState(false);
   const [pendingPresetServer, setPendingPresetServer] = useState<McpServer | null>(null);
   const [showPresetDialog, setShowPresetDialog] = useState(false);
-  const [showMarketplaceDialog, setShowMarketplaceDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showLogDialog, setShowLogDialog] = useState(false);
   const [editingServer, setEditingServer] = useState<McpServer | null>(null);
   const [deletingServer, setDeletingServer] = useState<McpServer | null>(null);
+
+  // B3/SEC-06:包管理型 / 容器型 runner 安装前的包名二次确认
+  const [pendingPackageApproval, setPendingPackageApproval] = useState<{
+    items: PackageConfirmItem[];
+    onApprove: () => void;
+  } | null>(null);
 
   // Toast state management
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -267,6 +273,47 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
     setDeletingServer(null);
   }, []);
 
+  // B3/SEC-06:单个 server 安装前检测包名,命中包管理 / 容器型 runner 则弹二次确认
+  const requirePackageApproval = useCallback((server: McpServer, onApprove: () => void) => {
+    const info = parsePackageRunner(server.server);
+    if (!info) {
+      onApprove();
+      return;
+    }
+    setPendingPackageApproval({
+      items: [{ serverName: server.name || server.id, info }],
+      onApprove,
+    });
+  }, []);
+
+  // B3/SEC-06:批量导入前检测包名,命中任一则弹汇总确认
+  const requirePackageApprovalBatch = useCallback((servers: McpServer[], onApprove: () => void) => {
+    const items: PackageConfirmItem[] = [];
+    for (const server of servers) {
+      const info = parsePackageRunner(server.server);
+      if (info) {
+        items.push({ serverName: server.name || server.id, info });
+      }
+    }
+    if (items.length === 0) {
+      onApprove();
+      return;
+    }
+    setPendingPackageApproval({ items, onApprove });
+  }, []);
+
+  const confirmPackageApproval = useCallback(() => {
+    const pending = pendingPackageApproval;
+    setPendingPackageApproval(null);
+    if (pending) {
+      pending.onApprove();
+    }
+  }, [pendingPackageApproval]);
+
+  const cancelPackageApproval = useCallback(() => {
+    setPendingPackageApproval(null);
+  }, []);
+
   // Add server manually
   const handleAddManual = useCallback(() => {
     setEditingServer(null);
@@ -286,30 +333,32 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
     setShowServerDialog(true);
   }, []);
 
-  // Save server
+  // Save server(经 requirePackageApproval:包管理 / 容器 runner 命中则先弹二次确认)
   const handleSaveServer = useCallback((server: McpServer) => {
-    if (editingServer) {
-      if (editingServer.id !== server.id) {
-        sendAction(isCodexMode ? UPSTREAM.DELETE_CODEX_MCP_SERVER : UPSTREAM.DELETE_MCP_SERVER, { id: editingServer.id });
-        sendAction(isCodexMode ? UPSTREAM.ADD_CODEX_MCP_SERVER : UPSTREAM.ADD_MCP_SERVER, server);
-        addToast(`${t('mcp.updated')} ${server.name || server.id}`, 'success');
+    requirePackageApproval(server, () => {
+      if (editingServer) {
+        if (editingServer.id !== server.id) {
+          sendAction(isCodexMode ? UPSTREAM.DELETE_CODEX_MCP_SERVER : UPSTREAM.DELETE_MCP_SERVER, { id: editingServer.id });
+          sendAction(isCodexMode ? UPSTREAM.ADD_CODEX_MCP_SERVER : UPSTREAM.ADD_MCP_SERVER, server);
+          addToast(`${t('mcp.updated')} ${server.name || server.id}`, 'success');
+        } else {
+          sendAction(isCodexMode ? UPSTREAM.UPDATE_CODEX_MCP_SERVER : UPSTREAM.UPDATE_MCP_SERVER, server);
+          addToast(`${t('mcp.saved')} ${server.name || server.id}`, 'success');
+        }
       } else {
-        sendAction(isCodexMode ? UPSTREAM.UPDATE_CODEX_MCP_SERVER : UPSTREAM.UPDATE_MCP_SERVER, server);
-        addToast(`${t('mcp.saved')} ${server.name || server.id}`, 'success');
+        sendAction(isCodexMode ? UPSTREAM.ADD_CODEX_MCP_SERVER : UPSTREAM.ADD_MCP_SERVER, server);
+        addToast(`${t('mcp.added')} ${server.name || server.id}`, 'success');
       }
-    } else {
-      sendAction(isCodexMode ? UPSTREAM.ADD_CODEX_MCP_SERVER : UPSTREAM.ADD_MCP_SERVER, server);
-      addToast(`${t('mcp.added')} ${server.name || server.id}`, 'success');
-    }
 
-    setTimeout(() => {
-      loadServers();
-    }, 100);
+      setTimeout(() => {
+        loadServers();
+      }, 100);
 
-    setShowServerDialog(false);
-    setEditingServer(null);
-    setPendingPresetServer(null);
-  }, [editingServer, messagePrefix, addToast, t, loadServers]);
+      setShowServerDialog(false);
+      setEditingServer(null);
+      setPendingPresetServer(null);
+    });
+  }, [editingServer, messagePrefix, addToast, t, loadServers, requirePackageApproval]);
 
   // Select preset
   const handleSelectPreset = useCallback((preset: McpPreset) => {
@@ -328,27 +377,32 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
       docs: preset.docs,
       enabled: true,
     };
-    sendAction(isCodexMode ? UPSTREAM.ADD_CODEX_MCP_SERVER : UPSTREAM.ADD_MCP_SERVER, server);
-    addToast(`${t('mcp.added')} ${preset.name}`, 'success');
+    requirePackageApproval(server, () => {
+      sendAction(isCodexMode ? UPSTREAM.ADD_CODEX_MCP_SERVER : UPSTREAM.ADD_MCP_SERVER, server);
+      addToast(`${t('mcp.added')} ${preset.name}`, 'success');
 
-    setTimeout(() => {
-      loadServers();
-    }, 100);
+      setTimeout(() => {
+        loadServers();
+      }, 100);
 
-    setShowPresetDialog(false);
-  }, [isCodexMode, messagePrefix, addToast, t, loadServers]);
+      setShowPresetDialog(false);
+    });
+  }, [isCodexMode, messagePrefix, addToast, t, loadServers, requirePackageApproval]);
 
   // Handle import servers from external config (e.g. Copilot MCP config)
+  // B3/SEC-06:批量导入命中包管理 / 容器 runner 时弹汇总确认,确认后逐个 ADD
   const handleImportServers = useCallback((servers: McpServer[]) => {
-    for (const server of servers) {
-      sendAction(isCodexMode ? UPSTREAM.ADD_CODEX_MCP_SERVER : UPSTREAM.ADD_MCP_SERVER, server);
-    }
-    addToast(`${t('mcp.imported')} ${servers.length} ${t('mcp.servers')}`, 'success');
-    setTimeout(() => {
-      loadServers();
-    }, 100);
-    setShowImportDialog(false);
-  }, [isCodexMode, addToast, t, loadServers]);
+    requirePackageApprovalBatch(servers, () => {
+      for (const server of servers) {
+        sendAction(isCodexMode ? UPSTREAM.ADD_CODEX_MCP_SERVER : UPSTREAM.ADD_MCP_SERVER, server);
+      }
+      addToast(`${t('mcp.imported')} ${servers.length} ${t('mcp.servers')}`, 'success');
+      setTimeout(() => {
+        loadServers();
+      }, 100);
+      setShowImportDialog(false);
+    });
+  }, [isCodexMode, addToast, t, loadServers, requirePackageApprovalBatch]);
 
   // Copy URL
   const handleCopyUrl = useCallback(async (url: string) => {
@@ -568,15 +622,6 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
         />
       )}
 
-      {showMarketplaceDialog && (
-        <McpMarketplaceDialog
-          currentProvider={currentProvider}
-          existingIds={servers.map(s => s.id)}
-          onClose={() => setShowMarketplaceDialog(false)}
-          onInstalled={loadServers}
-        />
-      )}
-
       {showImportDialog && (
         <McpImportDialog
           currentProvider={currentProvider}
@@ -598,6 +643,14 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
           cancelText={t('mcp.cancel')}
           onConfirm={confirmDelete}
           onCancel={cancelDelete}
+        />
+      )}
+
+      {pendingPackageApproval && (
+        <McpPackageConfirmDialog
+          items={pendingPackageApproval.items}
+          onConfirm={confirmPackageApproval}
+          onCancel={cancelPackageApproval}
         />
       )}
 

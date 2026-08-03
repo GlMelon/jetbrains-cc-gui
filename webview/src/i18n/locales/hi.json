@@ -400,12 +400,15 @@
       "updateSuccess": "{{name}} सफलतापूर्वक अपडेट हो गया",
       "update": "अपडेट करें"
     },
-    "usage": "उपयोग सांख्यिकी",
-    "usageDesc": "अपनी Token खपत, लागत सांख्यिकी और उपयोग प्रवृत्ति विश्लेषण देखें",
     "mcp": "MCP सर्वर",
     "mcpDesc": "Model Context Protocol सर्वर कॉन्फ़िगर और प्रबंधित करें",
     "permissions": "अनुमति कॉन्फ़िगरेशन",
     "permissionsDesc": "Claude Code की फ़ाइल एक्सेस और ऑपरेशन अनुमतियां प्रबंधित करें",
+    "openCodePermissionsDesc": "OpenCode permissions are managed by opencode itself",
+    "openCodePermissionNotice": "OpenCode tool calls are governed by opencode's native policy. This plugin does not intercept or enforce permissions for OpenCode, so the permission mode selector is hidden here.",
+    "permissionsPanel": {
+      "fireThenAskNotice": "Codex command approvals are requested after a command has already started (post-hoc abort). Denying a request aborts the turn, but the command may have already begun executing — a weaker guarantee than a pre-execution prompt."
+    },
     "promptEnhancer": {
       "title": "Prompt Enhancer",
       "description": "Choose which provider and model should be used when enhancing prompts before sending them."
@@ -1049,22 +1052,6 @@
     "copyMessage": "संदेश कॉपी करें",
     "copySuccess": "कॉपी हो गया"
   },
-  "usage": {
-    "checkingLabel": "tokentracker-cli की जाँच हो रही है…",
-    "installingLabel": "tokentracker-cli इंस्टॉल हो रहा है…",
-    "installingDesc": "इसमें थोड़ा समय लग सकता है। इंस्टॉल पूरा होने पर ऐप फिर से जाँच करेगा और स्थानीय सर्वर शुरू करेगा।",
-    "startingLabel": "tokentracker सर्वर शुरू हो रहा है…",
-    "guideTitle": "उपयोग आँकड़े देखने के लिए tokentracker-cli इंस्टॉल करें",
-    "guideDesc": "उपयोग आँकड़े tokentracker-cli द्वारा प्रदान किए जाते हैं। यह एक लोकल सर्वर चलाता है जो आपके AI टूल्स के token उपयोग को एकत्र कर डैशबोर्ड पर दिखाता है।",
-    "guideInstallLabel": "इंस्टॉल कमांड",
-    "guideCopy": "कॉपी करें",
-    "guideCopied": "कॉपी हो गया",
-    "guideInstallNow": "अभी इंस्टॉल करें",
-    "guideNoteHooks": "पहली बार शुरू होने पर, tokentracker सर्वर इंस्टॉल किए गए AI टूल्स में hooks लिखता है (यही इसका डेटा संग्रह तरीका है)।",
-    "guideNoteTelemetry": "इस ऐप ने इसके लिए अनाम टेलीमेट्री बंद कर दी है।",
-    "errorTitle": "tokentracker सर्वर शुरू नहीं हो सका",
-    "errorRetry": "पुनः प्रयास करें"
-  },
   "mcp": {
     "title": "MCP सर्वर",
     "whatIsMcp": "MCP क्या है?",
@@ -1250,7 +1237,17 @@
     "clear": "Clear",
     "noRefreshLogs": "No Refresh Logs",
     "refreshLogsHint": "After clicking the refresh button, detailed refresh process information will be displayed here",
-    "refreshServer": "Refresh {{name}}"
+    "refreshServer": "Refresh {{name}}",
+    "packageConfirm": {
+      "title": "Confirm External Package",
+      "message": "This MCP server runs via {{runner}} and will install/run the external package: {{package}}",
+      "messageContainer": "This MCP server runs in a {{runner}} container with image: {{package}}",
+      "messageNoPackage": "This MCP server runs via {{runner}} (an external runner)",
+      "batchPrefix": "The following external packages will be installed and run:",
+      "risk": "Only continue if you trust the source. Malicious packages can execute arbitrary code.",
+      "confirm": "Install",
+      "cancel": "Cancel"
+    }
   },
   "tools": {
     "toolCall": "उपकरण कॉल",
@@ -1578,7 +1575,7 @@
   "codexModes": {
     "default": {
       "label": "Suggest (approval)",
-      "tooltip": "Codex approval_policy=untrusted – prompts before editing files or running shell commands.",
+      "tooltip": "Codex approval_policy=untrusted – हर फ़ाइल संपादन और शेल कमांड के लिए आपकी स्वीकृति आवश्यक है।",
       "description": "Safest option. Every write or command requires your approval."
     },
     "plan": {

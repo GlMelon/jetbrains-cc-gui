@@ -5,7 +5,7 @@ import {
   type ReasoningEffort,
 } from '../types';
 import { PROVIDER_IDS } from '../../../types/provider';
-import { getModelSupportedReasoningLevels } from '../../../utils/modelRegistry';
+import { getModelSupportedReasoningLevels, subscribeModelRegistry } from '../../../utils/modelRegistry';
 import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon, ReasoningGaugeIcon } from '../../Icons';
 
@@ -64,9 +64,16 @@ export const ReasoningSelect = ({ value, onChange, disabled, selectedModel, curr
     preferredAlignment: 'right',
   });
 
+  // 订阅 model registry 更新,确保 registry 异步加载完成后重新渲染
+  const [registryVersion, setRegistryVersion] = useState(0);
+  useEffect(() => {
+    return subscribeModelRegistry(() => setRegistryVersion((v) => v + 1));
+  }, []);
+
   // A2:能力来自后端权威下发的 supportedReasoningLevels(派生自 role,见 ClaudeRole.reasoningLevels)。
   // 不再在前端按 role 硬编码级别规则——sonnet/opus/fable=5 档、haiku=3 档,均由后端定义。
-  const supportedLevels = currentProvider === PROVIDER_IDS.CLAUDE && selectedModel
+  // registryVersion 依赖确保 registry 加载完成后重新计算
+  const supportedLevels = currentProvider === PROVIDER_IDS.CLAUDE && selectedModel && registryVersion >= 0
     ? getModelSupportedReasoningLevels(selectedModel)
     : null;
 

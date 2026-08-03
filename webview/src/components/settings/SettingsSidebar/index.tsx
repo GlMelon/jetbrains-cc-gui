@@ -2,7 +2,7 @@ import {useMemo, useState} from 'react';
 import styles from './style.module.less';
 import { useTranslation } from 'react-i18next';
 
-export type SettingsTab = 'basic' | 'providers' | 'models' | 'dependencies' | 'usage' | 'permissions' | 'promptEnhancer' | 'commit' | 'mcp' | 'agents' | 'prompts' | 'skills' | 'pet' | 'other' | 'community';
+export type SettingsTab = 'basic' | 'providers' | 'models' | 'dependencies' | 'permissions' | 'promptEnhancer' | 'commit' | 'mcp' | 'agents' | 'prompts' | 'skills' | 'other' | 'community';
 
 interface SidebarItem {
   key: SettingsTab;
@@ -23,7 +23,6 @@ const sidebarGroups: SidebarGroup[] = [
       { key: 'providers', icon: 'plug', labelKey: 'settings.providers' },
       { key: 'models', icon: 'list', labelKey: 'settings.models.title' },
       { key: 'dependencies', icon: 'package', labelKey: 'settings.dependencies' },
-      { key: 'usage', icon: 'barChart', labelKey: 'settings.usage' },
     ],
   },
   {

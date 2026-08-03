@@ -154,6 +154,10 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
 
   // ── Cross-provider handlers ──
   const handleModeSelect = useCallback((mode: PermissionMode) => {
+    // opencode 工具由 opencode 原生策略管控,本插件不拦截——不收集/传递 permissionMode(B1/SEC-03)
+    if (currentProvider === 'opencode') {
+      return;
+    }
     if (currentProvider === 'codex') {
       setPermissionMode(mode);
       setCodexPermissionMode(mode);
@@ -235,13 +239,36 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
       && newProviderModels.some((model) => model.id === strip1MContextSuffix(newModel));
     if (!belongsToProvider && newProviderModels.length > 0) {
       newModel = newProviderModels[0].id;
-      if (providerId === 'codex') {
-        setSelectedCodexModel(newModel);
-      } else if (providerId === 'opencode') {
-        setSelectedOpenCodeModel(newModel);
-      } else {
-        setSelectedClaudeModel(newModel);
-      }
+    }
+
+    // 始终同步设置对应 provider 的模型状态,确保 selectedModel 计算正确
+    // (resolveIconVendor 中 modelId 优先级高于 providerId,若模型状态未同步会导致图标错误)
+    if (providerId === 'codex') {
+      setSelectedCodexModel(newModel);
+    } else if (providerId === 'opencode') {
+      setSelectedOpenCodeModel(newModel);
+    } else {
+      setSelectedClaudeModel(newModel);
+    }
+
+    // FIX: Reset provider-specific settings when switching providers
+    // to avoid cross-provider state contamination
+    if (providerId === 'claude') {
+      // Reset longContextEnabled based on new model's 1M support
+      const supports1M = newProviderModels.find((model) => model.id === strip1MContextSuffix(newModel))?.supports1MContext ?? false;
+      setLongContextEnabled(supports1M);
+      // Reset codex-specific settings
+      setReasoningEffort('high');
+      setCodexFastMode('normal');
+    } else if (providerId === 'codex') {
+      // Reset longContextEnabled (codex doesn't support it)
+      setLongContextEnabled(false);
+    } else if (providerId === 'opencode') {
+      // Reset longContextEnabled (opencode doesn't support it)
+      setLongContextEnabled(false);
+      // Reset codex-specific settings for opencode
+      setReasoningEffort('high');
+      setCodexFastMode('normal');
     }
 
     // 切换 provider 后重发当前模型。claude 仅发送意图(longContextEnabled),
@@ -269,6 +296,9 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
     setSelectedClaudeModel,
     setSelectedCodexModel,
     setSelectedOpenCodeModel,
+    setLongContextEnabled,
+    setReasoningEffort,
+    setCodexFastMode,
   ]);
 
     const handleLongContextChange = useCallback((enabled: boolean) => {

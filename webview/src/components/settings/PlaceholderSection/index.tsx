@@ -14,9 +14,9 @@ const PlaceholderSection = ({ type, currentProvider }: PlaceholderSectionProps) 
   const sectionConfig = {
     permissions: {
       title: t('settings.permissions'),
-      desc: t('settings.permissionsDesc'),
+      desc: currentProvider === 'opencode' ? t('settings.openCodePermissionsDesc') : t('settings.permissionsDesc'),
       IconComponent: ShieldIcon,
-      message: t('settings.permissionsComingSoon'),
+      message: currentProvider === 'opencode' ? t('settings.openCodePermissionNotice') : t('settings.permissionsComingSoon'),
     },
     mcp: {
       title: t('settings.mcp'),

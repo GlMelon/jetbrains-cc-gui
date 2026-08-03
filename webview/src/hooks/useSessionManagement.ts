@@ -25,6 +25,7 @@ interface UseSessionManagementOptions {
   setUsagePercentage: (percent: number) => void;
   setUsageUsedTokens: (tokens: number | undefined) => void;
   setUsageMaxTokens: (tokens: number | undefined) => void;
+  setTokenDetail: (detail: any | undefined) => void;
   setStatus: (status: string) => void;
   setLoading: (loading: boolean) => void;
   setIsThinking: (thinking: boolean) => void;
@@ -80,6 +81,7 @@ export function useSessionManagement({
   setUsagePercentage,
   setUsageUsedTokens,
   setUsageMaxTokens,
+  setTokenDetail,
   setStatus,
   setLoading: setLoadingState,
   setIsThinking,
@@ -135,6 +137,7 @@ export function useSessionManagement({
     setUsagePercentage(0);
     setUsageUsedTokens(undefined);
     setUsageMaxTokens(undefined);
+    setTokenDetail(undefined);
 
     // FIX: Safety timeout to auto-release the session transition guard.
     // If the backend's historyLoadComplete signal is lost (e.g., JCEF IPC failure
@@ -154,7 +157,7 @@ export function useSessionManagement({
         window.__sessionTransitionToken = null;
       }
     }, 15_000); // 15 seconds — generous enough for slow history loads
-  }, [clearToasts, setStatus, setLoadingState, setIsThinking, setStreamingActive, setMessages, setCurrentSessionId, setCustomSessionTitle, setUsagePercentage, setUsageUsedTokens, setUsageMaxTokens]);
+  }, [clearToasts, setStatus, setLoadingState, setIsThinking, setStreamingActive, setMessages, setCurrentSessionId, setCustomSessionTitle, setUsagePercentage, setUsageUsedTokens, setUsageMaxTokens, setTokenDetail]);
 
   // Create new session
   const createNewSession = useCallback(() => {

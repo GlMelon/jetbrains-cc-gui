@@ -379,6 +379,7 @@ const App = () => {
     setUsagePercentage,
     setUsageUsedTokens,
     setUsageMaxTokens,
+    setTokenDetail,
     setStatus,
     setLoading,
     setIsThinking,
@@ -743,7 +744,6 @@ const App = () => {
         >
           <ChatScreen
             mergedMessages={mergedMessages}
-            sessionTitle={sessionTitle}
             getMessageText={getMessageText}
             getContentBlocks={getContentBlocks}
             findToolResult={findToolResult}

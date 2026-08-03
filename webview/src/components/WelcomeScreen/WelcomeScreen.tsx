@@ -2,7 +2,7 @@ import { memo } from 'react';
 import type { TFunction } from 'i18next';
 
 import { BlinkingLogo } from '../BlinkingLogo';
-import { AnimatedText } from '../AnimatedText';
+import { BlurText } from '../BlurText';
 import { APP_VERSION } from '../../version/version';
 
 const ROOT_STYLE: React.CSSProperties = {
@@ -57,7 +57,11 @@ export const WelcomeScreen = memo(function WelcomeScreen({
         </span>
       </div>
       <div>
-        <AnimatedText text={t('chat.sendMessage', { provider: providerLabels[currentProvider] ?? currentProvider })} />
+        <BlurText
+          text={t('chat.sendMessage', { provider: providerLabels[currentProvider] ?? currentProvider })}
+          delay={80}
+          animateBy="words"
+        />
       </div>
     </div>
   );

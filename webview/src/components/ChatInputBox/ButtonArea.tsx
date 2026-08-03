@@ -181,8 +181,10 @@ export const ButtonArea = memo(function ButtonArea({
           onChange={handleProviderSelect}
           compact
         />
-        <span className="selector-separator" />
-        <ModeSelect value={permissionMode} onChange={handleModeSelect} provider={currentProvider} />
+        {currentProvider !== 'opencode' && <span className="selector-separator" />}
+        {currentProvider !== 'opencode' && (
+          <ModeSelect value={permissionMode} onChange={handleModeSelect} provider={currentProvider} />
+        )}
         <span className="selector-separator" />
         <ModelSelect value={selectedModel} onChange={handleModelSelect} models={availableModels} currentProvider={currentProvider} />
         <span className="selector-separator" />

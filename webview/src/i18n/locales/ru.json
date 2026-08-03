@@ -400,12 +400,15 @@
       "updateSuccess": "{{name}} успешно обновлён",
       "update": "Обновить"
     },
-    "usage": "Статистика использования",
-    "usageDesc": "Просмотр потребления токенов, статистики затрат и анализа тенденций",
     "mcp": "MCP-серверы",
     "mcpDesc": "Настройка и управление серверами Model Context Protocol",
     "permissions": "Разрешения",
     "permissionsDesc": "Управление правами доступа Claude Code к файлам и операциям",
+    "openCodePermissionsDesc": "OpenCode permissions are managed by opencode itself",
+    "openCodePermissionNotice": "OpenCode tool calls are governed by opencode's native policy. This plugin does not intercept or enforce permissions for OpenCode, so the permission mode selector is hidden here.",
+    "permissionsPanel": {
+      "fireThenAskNotice": "Codex command approvals are requested after a command has already started (post-hoc abort). Denying a request aborts the turn, but the command may have already begun executing — a weaker guarantee than a pre-execution prompt."
+    },
     "promptEnhancer": {
       "title": "Prompt Enhancer",
       "description": "Choose which provider and model should be used when enhancing prompts before sending them."
@@ -1076,22 +1079,6 @@
     "copyMessage": "Копировать сообщение",
     "copySuccess": "Скопировано!"
   },
-  "usage": {
-    "checkingLabel": "Проверка tokentracker-cli…",
-    "installingLabel": "Установка tokentracker-cli…",
-    "installingDesc": "Это может занять минуту. После установки приложение снова выполнит проверку и запустит локальный сервер.",
-    "startingLabel": "Запуск сервера tokentracker…",
-    "guideTitle": "Установите tokentracker-cli, чтобы видеть статистику использования",
-    "guideDesc": "Статистику использования предоставляет tokentracker-cli. Он запускает локальный сервер, который собирает данные об использовании токенов из ваших AI-инструментов и показывает их на дашборде.",
-    "guideInstallLabel": "Команда установки",
-    "guideCopy": "Копировать",
-    "guideCopied": "Скопировано",
-    "guideInstallNow": "Установить",
-    "guideNoteHooks": "При первом запуске сервер tokentracker записывает hooks в установленные AI-инструменты (так он собирает данные об использовании).",
-    "guideNoteTelemetry": "Это приложение отключило анонимную телеметрию.",
-    "errorTitle": "Не удалось запустить сервер tokentracker",
-    "errorRetry": "Повторить"
-  },
   "mcp": {
     "title": "MCP-серверы",
     "whatIsMcp": "Что такое MCP?",
@@ -1277,7 +1264,17 @@
     "clear": "Очистить",
     "noRefreshLogs": "Нет журнала обновлений",
     "refreshLogsHint": "После нажатия кнопки обновления здесь отобразится подробная информация о процессе",
-    "refreshServer": "Обновить {{name}}"
+    "refreshServer": "Обновить {{name}}",
+    "packageConfirm": {
+      "title": "Confirm External Package",
+      "message": "This MCP server runs via {{runner}} and will install/run the external package: {{package}}",
+      "messageContainer": "This MCP server runs in a {{runner}} container with image: {{package}}",
+      "messageNoPackage": "This MCP server runs via {{runner}} (an external runner)",
+      "batchPrefix": "The following external packages will be installed and run:",
+      "risk": "Only continue if you trust the source. Malicious packages can execute arbitrary code.",
+      "confirm": "Install",
+      "cancel": "Cancel"
+    }
   },
   "tools": {
     "toolCall": "Вызываю инструмент",
@@ -1605,7 +1602,7 @@
   "codexModes": {
     "default": {
       "label": "Предложение (одобрение)",
-      "tooltip": "Codex approval_policy=untrusted — запрашивает перед редактированием файлов или выполнением команд.",
+      "tooltip": "Codex approval_policy=untrusted — каждое редактирование файла и команда оболочки требуют вашего подтверждения.",
       "description": "Самый безопасный вариант. Каждая запись или команда требует вашего одобрения."
     },
     "plan": {

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { WaveText } from './WaveText';
+
 interface WaitingIndicatorProps {
   queueAheadCount?: number;
   loading?: boolean;
@@ -64,7 +66,10 @@ export const WaitingIndicator = ({
       <div className={`generating-strip queued ${contentClass}`}>
         <div className="gen-orb" />
         <span className="gen-text">
-          {t('chat.queueWaiting', { count: queueAheadCount })}
+          <WaveText
+            text={t('chat.queueWaiting', { count: queueAheadCount })}
+            delay={80}
+          />
         </span>
       </div>
     </div>

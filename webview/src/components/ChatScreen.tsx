@@ -29,9 +29,6 @@ import type {
 } from '../hooks';
 import type { GetToolResultRawFn } from '../contexts/SubagentContext';
 import type { AvatarConfig } from '../types/avatar';
-import { useCodexPetPreference } from './codexPet/useCodexPetPreference';
-import { shouldToggleCodexPet } from './codexPet/petState';
-import { CodexPetStatusBridge } from './codexPet/CodexPetStatusBridge';
 
 type MessageQueueValue = ReturnType<typeof useMessageQueue>['queue'];
 type SubagentList = ReturnType<typeof useSubagents>;
@@ -41,7 +38,6 @@ type FileChangeMgmt = ReturnType<typeof useFileChangesManagement>;
 interface ChatScreenProps {
   // Computed message data
   mergedMessages: ClaudeMessage[];
-  sessionTitle: string;
   getMessageText: (message: ClaudeMessage) => string;
   getContentBlocks: ReturnType<typeof useMessageProcessing>['getContentBlocks'];
   findToolResult: (toolUseId?: string, messageIndex?: number) => ToolResultBlock | null;
@@ -105,7 +101,6 @@ interface ChatScreenProps {
  */
 export const ChatScreen = ({
   mergedMessages,
-  sessionTitle,
   getMessageText,
   getContentBlocks,
   findToolResult,
@@ -193,23 +188,9 @@ export const ChatScreen = ({
     searchOpen,
     setSearchOpen,
   } = useUIState();
-  const { enabled: petEnabled, toggle: togglePet } = useCodexPetPreference();
-  const codexPetErrorCount = useMemo(
-    () => messages.reduce((count, message) => count + (message.type === 'error' ? 1 : 0), 0),
-    [messages],
-  );
   const handleSubmit = useCallback((content: string, attachments?: Attachment[]) => {
-    if (shouldToggleCodexPet(currentProvider, content, attachments?.length ?? 0)) {
-      togglePet();
-      setDraftInput('');
-      addToast(
-        petEnabled ? t('codexPet.hidden', 'Codex pet hidden') : t('codexPet.shown', 'Codex pet shown'),
-        'success',
-      );
-      return;
-    }
     onSubmit(content, attachments);
-  }, [addToast, currentProvider, onSubmit, petEnabled, setDraftInput, t, togglePet]);
+  }, [onSubmit]);
 
   // Stable callback so MessageList's memo isn't busted by a fresh inline
   // function on every ChatScreen render (these setters are stable).
@@ -323,17 +304,6 @@ export const ChatScreen = ({
             </SubagentHistoryContext.Provider>
           </SessionIdContext.Provider>
         </div>
-        <CodexPetStatusBridge
-          active={currentProvider === 'codex' && petEnabled}
-          loading={loading}
-          streamingActive={streamingActive}
-          isThinking={isThinking}
-          status={status}
-          errorCount={codexPetErrorCount}
-          provider={currentProvider}
-          model={selectedModel}
-          tabTitle={sessionTitle.trim() || undefined}
-        />
       </div>
 
       <ScrollControl containerRef={messagesContainerRef} inputAreaRef={inputAreaRef} />

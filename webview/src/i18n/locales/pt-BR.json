@@ -460,12 +460,12 @@
       "updateSuccess": "{{name}} atualizado com sucesso",
       "update": "Atualizar"
     },
-    "usage": "Estatísticas de Uso",
-    "usageDesc": "Visualize o consumo de Tokens, estatísticas de custo e análise de tendência de uso",
     "mcp": "Servidores MCP",
     "mcpDesc": "Configurar e gerenciar servidores do Model Context Protocol",
     "permissions": "Permissões",
     "permissionsDesc": "Gerenciar permissões de acesso a arquivos e operações do Claude Code",
+    "openCodePermissionsDesc": "OpenCode permissions are managed by opencode itself",
+    "openCodePermissionNotice": "OpenCode tool calls are governed by opencode's native policy. This plugin does not intercept or enforce permissions for OpenCode, so the permission mode selector is hidden here.",
     "codexPermissionsDesc": "Gerenciar permissões e políticas de sandbox do Codex",
     "permissionsPanel": {
       "codexSandboxTitle": "Modo Sandbox do Codex",
@@ -475,6 +475,7 @@
       "fullAccessTitle": "danger-full-access",
       "fullAccessDesc": "Permite maior acesso ao sistema, adequado para comandos como adb ou docker que requerem permissões extras.",
       "hint": "Esta configuração afeta apenas o sandbox do processo Codex e não altera o comportamento de permissões do Claude Code.",
+      "fireThenAskNotice": "Codex command approvals are requested after a command has already started (post-hoc abort). Denying a request aborts the turn, but the command may have already begun executing — a weaker guarantee than a pre-execution prompt.",
       "claudeTip": "O modo de aprovação do Claude Code é configurado pelo seletor de modo na entrada do chat."
     },
     "commit": {
@@ -1219,22 +1220,6 @@
     "copyMessage": "Copiar mensagem",
     "copySuccess": "Copiado!"
   },
-  "usage": {
-    "checkingLabel": "Verificando tokentracker-cli…",
-    "installingLabel": "Instalando tokentracker-cli…",
-    "installingDesc": "Isso pode levar um minuto. O app verificará novamente e iniciará o servidor local quando a instalação terminar.",
-    "startingLabel": "Iniciando o servidor tokentracker…",
-    "guideTitle": "Instale o tokentracker-cli para ver as estatísticas de uso",
-    "guideDesc": "As estatísticas de uso são fornecidas pelo tokentracker-cli. Ele executa um servidor local que agrega o uso de tokens das suas ferramentas de IA e as exibe em um painel.",
-    "guideInstallLabel": "Comando de instalação",
-    "guideCopy": "Copiar",
-    "guideCopied": "Copiado",
-    "guideInstallNow": "Instalar agora",
-    "guideNoteHooks": "Na primeira inicialização, o servidor tokentracker grava hooks nas suas ferramentas de IA instaladas (é assim que ele coleta os dados de uso).",
-    "guideNoteTelemetry": "Este aplicativo desativou a telemetria anônima.",
-    "errorTitle": "Falha ao iniciar o servidor tokentracker",
-    "errorRetry": "Tentar novamente"
-  },
   "mcp": {
     "title": "Servidores MCP",
     "whatIsMcp": "O que é MCP?",
@@ -1420,7 +1405,17 @@
     "clear": "Limpar",
     "noRefreshLogs": "Sem Logs de Atualização",
     "refreshLogsHint": "Após clicar no botão de atualização, informações detalhadas do processo serão exibidas aqui",
-    "refreshServer": "Atualizar {{name}}"
+    "refreshServer": "Atualizar {{name}}",
+    "packageConfirm": {
+      "title": "Confirm External Package",
+      "message": "This MCP server runs via {{runner}} and will install/run the external package: {{package}}",
+      "messageContainer": "This MCP server runs in a {{runner}} container with image: {{package}}",
+      "messageNoPackage": "This MCP server runs via {{runner}} (an external runner)",
+      "batchPrefix": "The following external packages will be installed and run:",
+      "risk": "Only continue if you trust the source. Malicious packages can execute arbitrary code.",
+      "confirm": "Install",
+      "cancel": "Cancel"
+    }
   },
   "tools": {
     "toolCall": "Chamada de Ferramenta",
@@ -1751,7 +1746,7 @@
   "codexModes": {
     "default": {
       "label": "Sugerir (aprovação)",
-      "tooltip": "Codex approval_policy=untrusted – solicita antes de editar arquivos ou executar comandos shell.",
+      "tooltip": "Codex approval_policy=untrusted – cada edição de arquivo e comando shell exige sua aprovação.",
       "description": "Opção mais segura. Cada escrita ou comando requer sua aprovação."
     },
     "plan": {

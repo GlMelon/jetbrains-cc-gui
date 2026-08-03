@@ -400,12 +400,15 @@
       "updateSuccess": "{{name}} mis à jour avec succès",
       "update": "Mettre à jour"
     },
-    "usage": "Statistiques d'utilisation",
-    "usageDesc": "Afficher votre consommation de Token, statistiques de coûts et analyse des tendances d'utilisation",
     "mcp": "Serveurs MCP",
     "mcpDesc": "Configurer et gérer les serveurs Model Context Protocol",
     "permissions": "Permissions",
     "permissionsDesc": "Gérer les permissions d'accès et d'opération de fichiers de Claude Code",
+    "openCodePermissionsDesc": "OpenCode permissions are managed by opencode itself",
+    "openCodePermissionNotice": "OpenCode tool calls are governed by opencode's native policy. This plugin does not intercept or enforce permissions for OpenCode, so the permission mode selector is hidden here.",
+    "permissionsPanel": {
+      "fireThenAskNotice": "Codex command approvals are requested after a command has already started (post-hoc abort). Denying a request aborts the turn, but the command may have already begun executing — a weaker guarantee than a pre-execution prompt."
+    },
     "promptEnhancer": {
       "title": "Prompt Enhancer",
       "description": "Choose which provider and model should be used when enhancing prompts before sending them."
@@ -1049,22 +1052,6 @@
     "copyMessage": "Copier le message",
     "copySuccess": "Copié !"
   },
-  "usage": {
-    "checkingLabel": "Vérification de tokentracker-cli…",
-    "installingLabel": "Installation de tokentracker-cli…",
-    "installingDesc": "Cela peut prendre une minute. L'application vérifiera à nouveau et démarrera le serveur local une fois l'installation terminée.",
-    "startingLabel": "Démarrage du serveur tokentracker…",
-    "guideTitle": "Installez tokentracker-cli pour voir les statistiques d'utilisation",
-    "guideDesc": "Les statistiques d'utilisation sont fournies par tokentracker-cli. Il exécute un serveur local qui agrège l'utilisation des tokens de vos outils IA et les affiche dans un tableau de bord.",
-    "guideInstallLabel": "Commande d'installation",
-    "guideCopy": "Copier",
-    "guideCopied": "Copié",
-    "guideInstallNow": "Installer maintenant",
-    "guideNoteHooks": "Au premier démarrage, le serveur tokentracker écrit des hooks dans vos outils IA installés (c'est ainsi qu'il collecte les données d'utilisation).",
-    "guideNoteTelemetry": "Cette application a désactivé la télémétrie anonyme.",
-    "errorTitle": "Échec du démarrage du serveur tokentracker",
-    "errorRetry": "Réessayer"
-  },
   "mcp": {
     "title": "Serveurs MCP",
     "whatIsMcp": "Qu'est-ce que MCP?",
@@ -1250,7 +1237,17 @@
     "clear": "Clear",
     "noRefreshLogs": "No Refresh Logs",
     "refreshLogsHint": "After clicking the refresh button, detailed refresh process information will be displayed here",
-    "refreshServer": "Refresh {{name}}"
+    "refreshServer": "Refresh {{name}}",
+    "packageConfirm": {
+      "title": "Confirm External Package",
+      "message": "This MCP server runs via {{runner}} and will install/run the external package: {{package}}",
+      "messageContainer": "This MCP server runs in a {{runner}} container with image: {{package}}",
+      "messageNoPackage": "This MCP server runs via {{runner}} (an external runner)",
+      "batchPrefix": "The following external packages will be installed and run:",
+      "risk": "Only continue if you trust the source. Malicious packages can execute arbitrary code.",
+      "confirm": "Install",
+      "cancel": "Cancel"
+    }
   },
   "tools": {
     "toolCall": "Appel d'outil",
@@ -1584,7 +1581,7 @@
   "codexModes": {
     "default": {
       "label": "Suggest (approval)",
-      "tooltip": "Codex approval_policy=untrusted – prompts before editing files or running shell commands.",
+      "tooltip": "Codex approval_policy=untrusted – chaque édition de fichier et commande shell nécessite votre approbation.",
       "description": "Safest option. Every write or command requires your approval."
     },
     "plan": {

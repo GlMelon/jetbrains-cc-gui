@@ -13,7 +13,6 @@ import SettingsSidebar, { type SettingsTab } from './SettingsSidebar';
 import BasicConfigSection from './BasicConfigSection';
 import ProviderTabSection from './ProviderTabSection';
 import DependencySection from './DependencySection';
-import UsageSection from './UsageSection';
 import PlaceholderSection from './PlaceholderSection';
 import PermissionsSection from './PermissionsSection';
 import CommunitySection from './CommunitySection';
@@ -23,7 +22,6 @@ import CommitSection from './CommitSection';
 import PromptEnhancerSection from './PromptEnhancerSection';
 import OtherSettingsSection from './OtherSettingsSection';
 import ModelRegistrySection from './ModelRegistrySection';
-import PetSettingsSection from './PetSettingsSection';
 import { SkillsSettingsSection } from '../skills';
 import SettingsDialogs from './SettingsDialogs';
 import { setNewSessionConfirmEnabled as persistNewSessionConfirmEnabled } from '../../utils/skipNewSessionConfirm';
@@ -658,11 +656,6 @@ const SettingsView = ({
             <DependencySection addToast={addToast} isActive={currentTab === 'dependencies'} />
           </div>
 
-          {/* Usage statistics (vendored TokenTracker dashboard) */}
-          <div style={currentTab === 'usage' ? BLOCK_STYLE : NONE_STYLE}>
-            <UsageSection />
-          </div>
-
           {/* MCP servers */}
           <div style={currentTab === 'mcp' ? BLOCK_STYLE : NONE_STYLE}>
             <PlaceholderSection type="mcp" currentProvider={currentProvider} />
@@ -676,7 +669,7 @@ const SettingsView = ({
                 onCodexSandboxModeChange={handleCodexSandboxModeChange}
               />
             ) : (
-              <PlaceholderSection type="permissions" />
+              <PlaceholderSection type="permissions" currentProvider={currentProvider} />
             )}
           </div>
 
@@ -730,10 +723,6 @@ const SettingsView = ({
           {/* Skills */}
           <div style={currentTab === 'skills' ? BLOCK_STYLE : NONE_STYLE}>
             <SkillsSettingsSection currentProvider={currentProvider} />
-          </div>
-
-          <div style={currentTab === 'pet' ? BLOCK_STYLE : NONE_STYLE}>
-            {currentTab === 'pet' && <PetSettingsSection addToast={addToast} />}
           </div>
 
           {/* Other settings */}

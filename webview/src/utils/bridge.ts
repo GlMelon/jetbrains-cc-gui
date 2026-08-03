@@ -476,7 +476,7 @@ export interface SkillMarketDetailResult {
 
 /**
  * 获取单个 skill 详情(RPC)。
- * 后端 SkillMarketService.getSkillMarketDetail → raw 下载单个 SKILL.md → frontmatter 解析 →
+ * 后端 SkillMarketService.getSkillMarketDetail → Contents API 单文件拉取 SKILL.md → frontmatter 解析 →
  * SKILL_MARKET_DETAIL(带 __requestId)。列表不展示简介(走 Contents API 快速路径只返 name/path),
  * 详情按需拉取(用户点击,单文件请求不撞 GitHub 60 req/h 限流)。
  * 失败返回 {error, errorCode}(UNKNOWN_SOURCE/INVALID_SKILL_NAME/HTTP_404/HTTP_403/NETWORK_ERROR/TIMEOUT/PARSE_ERROR)。

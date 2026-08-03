@@ -422,12 +422,12 @@
       "updateSuccess": "{{name}} 업데이트 완료",
       "update": "업데이트"
     },
-    "usage": "사용 통계",
-    "usageDesc": "토큰 소비량, 비용 통계 및 사용 추이 분석 보기",
     "mcp": "MCP 서버",
     "mcpDesc": "Model Context Protocol 서버 설정 및 관리",
     "permissions": "권한",
     "permissionsDesc": "Claude Code 파일 접근 및 작업 권한 관리",
+    "openCodePermissionsDesc": "OpenCode permissions are managed by opencode itself",
+    "openCodePermissionNotice": "OpenCode tool calls are governed by opencode's native policy. This plugin does not intercept or enforce permissions for OpenCode, so the permission mode selector is hidden here.",
     "codexPermissionsDesc": "Codex 권한 및 샌드박스 정책 관리",
     "promptEnhancer": {
       "title": "Prompt Enhancer",
@@ -441,6 +441,7 @@
       "fullAccessTitle": "danger-full-access",
       "fullAccessDesc": "더 높은 시스템 접근을 허용하며, adb나 docker 같은 추가 권한이 필요한 명령에 적합합니다.",
       "hint": "이 설정은 Codex 프로세스 샌드박스에만 영향을 미치며 Claude Code 권한 동작은 변경하지 않습니다.",
+      "fireThenAskNotice": "Codex command approvals are requested after a command has already started (post-hoc abort). Denying a request aborts the turn, but the command may have already begun executing — a weaker guarantee than a pre-execution prompt.",
       "claudeTip": "Claude Code 승인 모드는 채팅 입력의 모드 선택기에서 설정합니다."
     },
     "commit": {
@@ -1165,22 +1166,6 @@
     "copyMessage": "메시지 복사",
     "copySuccess": "복사됨!"
   },
-  "usage": {
-    "checkingLabel": "tokentracker-cli 확인 중…",
-    "installingLabel": "tokentracker-cli 설치 중…",
-    "installingDesc": "잠시 걸릴 수 있습니다. 설치가 끝나면 앱이 다시 확인하고 로컬 서버를 시작합니다.",
-    "startingLabel": "tokentracker 서버 시작 중…",
-    "guideTitle": "사용 통계를 볼 수 있도록 tokentracker-cli를 설치하세요",
-    "guideDesc": "사용 통계는 tokentracker-cli가 제공합니다. 로컬 서버를 실행해 AI 도구들의 토큰 사용량을 모아 대시보드로 보여줍니다.",
-    "guideInstallLabel": "설치 명령어",
-    "guideCopy": "복사",
-    "guideCopied": "복사됨",
-    "guideInstallNow": "지금 설치",
-    "guideNoteHooks": "첫 실행 시 tokentracker 서버는 설치된 AI 도구에 hooks를 작성합니다(이것이 데이터 수집 방식입니다).",
-    "guideNoteTelemetry": "이 앱은 익명 텔레메트리를 비활성화했습니다.",
-    "errorTitle": "tokentracker 서버 시작 실패",
-    "errorRetry": "다시 시도"
-  },
   "mcp": {
     "title": "MCP 서버",
     "whatIsMcp": "MCP란?",
@@ -1366,7 +1351,17 @@
     "clear": "지우기",
     "noRefreshLogs": "새로고침 로그 없음",
     "refreshLogsHint": "새로고침 버튼을 클릭하면 여기에 상세한 새로고침 과정 정보가 표시됩니다",
-    "refreshServer": "{{name}} 새로고침"
+    "refreshServer": "{{name}} 새로고침",
+    "packageConfirm": {
+      "title": "Confirm External Package",
+      "message": "This MCP server runs via {{runner}} and will install/run the external package: {{package}}",
+      "messageContainer": "This MCP server runs in a {{runner}} container with image: {{package}}",
+      "messageNoPackage": "This MCP server runs via {{runner}} (an external runner)",
+      "batchPrefix": "The following external packages will be installed and run:",
+      "risk": "Only continue if you trust the source. Malicious packages can execute arbitrary code.",
+      "confirm": "Install",
+      "cancel": "Cancel"
+    }
   },
   "tools": {
     "toolCall": "도구 호출",
@@ -1696,7 +1691,7 @@
   "codexModes": {
     "default": {
       "label": "제안 (승인 필요)",
-      "tooltip": "Codex approval_policy=untrusted – 파일 편집이나 셸 명령 실행 전에 확인합니다.",
+      "tooltip": "Codex approval_policy=untrusted – 모든 파일 편집과 셸 명령은 승인이 필요합니다.",
       "description": "가장 안전한 옵션. 모든 쓰기 또는 명령에 승인이 필요합니다."
     },
     "plan": {

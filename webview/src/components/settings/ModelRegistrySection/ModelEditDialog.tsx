@@ -62,7 +62,12 @@ export default function ModelEditDialog({ isOpen, editing, editingOriginalKey, o
   const handleSubmit = () => {
     if (!canSubmit) return;
     const actualModel = useClaudeFormat ? (form.actualModel ?? '').trim() : '';
-    const id = useClaudeFormat ? actualModel : form.id.trim();
+    // FIX: When editing, preserve the original id to avoid key change that triggers
+    // "delete old + add new" treatment and causes selectedModel to silently revert.
+    // For new models, use actualModel as id for claude format.
+    const id = isEditing && editingOriginalKey
+      ? editingOriginalKey.split(':')[1] || actualModel
+      : useClaudeFormat ? actualModel : form.id.trim();
     const normalized: ModelRegistryItem = {
       ...form,
       id,

@@ -400,12 +400,15 @@
       "updateSuccess": "{{name}}が正常に更新されました",
       "update": "更新"
     },
-    "usage": "使用統計",
-    "usageDesc": "トークン消費量、コスト統計、使用傾向分析を表示",
     "mcp": "MCPサーバー",
     "mcpDesc": "Model Context Protocolサーバーを設定および管理",
     "permissions": "権限",
     "permissionsDesc": "Claude Codeのファイルアクセスおよび操作権限を管理",
+    "openCodePermissionsDesc": "OpenCode permissions are managed by opencode itself",
+    "openCodePermissionNotice": "OpenCode tool calls are governed by opencode's native policy. This plugin does not intercept or enforce permissions for OpenCode, so the permission mode selector is hidden here.",
+    "permissionsPanel": {
+      "fireThenAskNotice": "Codex command approvals are requested after a command has already started (post-hoc abort). Denying a request aborts the turn, but the command may have already begun executing — a weaker guarantee than a pre-execution prompt."
+    },
     "promptEnhancer": {
       "title": "Prompt Enhancer",
       "description": "Choose which provider and model should be used when enhancing prompts before sending them."
@@ -1054,22 +1057,6 @@
     "copyMessage": "メッセージをコピー",
     "copySuccess": "コピーされました!"
   },
-  "usage": {
-    "checkingLabel": "tokentracker-cli を確認しています…",
-    "installingLabel": "tokentracker-cli をインストールしています…",
-    "installingDesc": "少し時間がかかる場合があります。インストール後、アプリが再検出してローカルサーバーを起動します。",
-    "startingLabel": "tokentracker サーバーを起動しています…",
-    "guideTitle": "使用統計を見るには tokentracker-cli をインストール",
-    "guideDesc": "使用統計は tokentracker-cli が提供します。ローカルサーバーを起動し、各 AI ツールのトークン使用量を集約してダッシュボードに表示します。",
-    "guideInstallLabel": "インストールコマンド",
-    "guideCopy": "コピー",
-    "guideCopied": "コピーしました",
-    "guideInstallNow": "今すぐインストール",
-    "guideNoteHooks": "初回起動時、tokentracker サーバーはインストール済みの AI ツールに hooks を書き込みます（これがデータ収集の仕組みです）。",
-    "guideNoteTelemetry": "本アプリでは匿名テレメトリを無効化しています。",
-    "errorTitle": "tokentracker サーバーの起動に失敗しました",
-    "errorRetry": "再試行"
-  },
   "mcp": {
     "title": "MCPサーバー",
     "whatIsMcp": "MCPとは?",
@@ -1255,7 +1242,17 @@
     "clear": "Clear",
     "noRefreshLogs": "No Refresh Logs",
     "refreshLogsHint": "After clicking the refresh button, detailed refresh process information will be displayed here",
-    "refreshServer": "Refresh {{name}}"
+    "refreshServer": "Refresh {{name}}",
+    "packageConfirm": {
+      "title": "Confirm External Package",
+      "message": "This MCP server runs via {{runner}} and will install/run the external package: {{package}}",
+      "messageContainer": "This MCP server runs in a {{runner}} container with image: {{package}}",
+      "messageNoPackage": "This MCP server runs via {{runner}} (an external runner)",
+      "batchPrefix": "The following external packages will be installed and run:",
+      "risk": "Only continue if you trust the source. Malicious packages can execute arbitrary code.",
+      "confirm": "Install",
+      "cancel": "Cancel"
+    }
   },
   "tools": {
     "toolCall": "ツール呼び出し",
@@ -1589,7 +1586,7 @@
   "codexModes": {
     "default": {
       "label": "Suggest (approval)",
-      "tooltip": "Codex approval_policy=untrusted – prompts before editing files or running shell commands.",
+      "tooltip": "Codex approval_policy=untrusted – すべてのファイル編集とシェルコマンドの実行に承認が必要です。",
       "description": "Safest option. Every write or command requires your approval."
     },
     "plan": {

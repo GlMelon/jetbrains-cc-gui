@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import styles from './style.module.less';
-import { InfoIcon, ShieldIcon } from '../../Icons';
+import { AlertIcon, InfoIcon, ShieldIcon } from '../../Icons';
 
 interface PermissionsSectionProps {
   codexSandboxMode: 'workspace-write' | 'danger-full-access';
@@ -54,6 +54,11 @@ const PermissionsSection = ({
             </div>
           </label>
         </div>
+
+        <small className={styles.hint}>
+          <AlertIcon size={16} />
+          <span>{t('settings.permissionsPanel.fireThenAskNotice')}</span>
+        </small>
 
         <small className={styles.hint}>
           <InfoIcon size={16} />
