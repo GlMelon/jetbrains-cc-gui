@@ -21,6 +21,9 @@ import { writeMessage } from './framing.js';
 export class GatewayHttpClient {
   // 单次请求默认超时(ms)。gateway 本地 HTTP,5s 足够;挂死 TCP 不再拖 30s。
   static DEFAULT_TIMEOUT_MS = 5000;
+  // tools/call 超时(ms)。工具执行(DB 查询/Web 抓取/代码执行)远比 tools/list(本地秒回)慢,
+  // 不能复用 5s——>5s 的工具调用会被误判为失败并报 JSON-RPC error(MCP-02)。60s 覆盖绝大多数工具。
+  static TOOLS_CALL_TIMEOUT_MS = 60_000;
 
   /**
    * @param {{ host?: string; port?: number; token?: string; timeoutMs?: number }} [opts]

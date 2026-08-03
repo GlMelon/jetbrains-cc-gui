@@ -76,11 +76,15 @@ export class StdioMcpClient {
     this.reader.on('error', (/** @type {Error} */ error) => this.rejectAll(error));
     // spawn ENOENT 等异步失败会触发 ChildProcess 的 'error'(不是 'exit')。必须监听,
     // 否则 EventEmitter 无 'error' 监听器时默认 throw → uncaught exception → 整个 gateway 进程崩溃。
-    this.process.on('error', (/** @type {Error} */ error) => {
-      this.errored = error;
-      this.rejectAll(error);
-    });
-    this.process.on('exit', () => this.rejectAll(new Error(`MCP process exited: ${spec.serverId}`)));
+    this.process.on('error', (/** @type {Error} */ error) => this.markDead(error));
+    // 进程退出(error/自然退出)后 stdin 写端随之关闭:继续往死 stdin 写会触发 EPIPE。Writable 流无
+    // 'error' 监听器时 Node 默认 throw → uncaughtException → 整个 gateway 崩(STAB-01)。stdin 写端
+    // 关闭与进程死亡同语义,故与 process 'error'/'exit' 一样走 markDead(置 errored + rejectAll)。
+    stdin.on('error', (/** @type {Error} */ error) => this.markDead(error));
+    // 进程退出须置 errored(STAB-02):否则 supervisor 持有的死 client 仍非 null,后续 catalog refresh
+    // 复用死 client 调 listTools 写已关闭 stdin,等满 DEFAULT_REQUEST_TIMEOUT_MS=15s 才超时;坏 MCP 反复
+    // 触发持续拖慢首屏。置 errored 后 request() 立即抛、supervisor 检测死 client 即重建重连。
+    this.process.on('exit', () => this.markDead(new Error(`MCP process exited: ${spec.serverId}`)));
   }
 
   async initialize() {
@@ -158,6 +162,16 @@ export class StdioMcpClient {
     try {
       this.process.kill();
     } catch {}
+  }
+
+  /**
+   * 标记 client 已死(进程 'error'/'exit' 或 stdin EPIPE):置 errored 使后续 request() 立即失败,
+   * 并 rejectAll 消化所有 pending。幂等守卫避免覆盖首个根因 error。
+   * @param {Error} error
+   */
+  markDead(error) {
+    if (!this.errored) this.errored = error;
+    this.rejectAll(error);
   }
 
   /** @param {Error} error */

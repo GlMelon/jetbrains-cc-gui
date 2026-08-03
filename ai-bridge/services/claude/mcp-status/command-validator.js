@@ -58,7 +58,8 @@ export function validateCommand(command) {
 // injection (e.g. args ['-y', 'pkg & calc.exe'] -> cmd.exe also runs calc.exe).
 // '(' and ')' are intentionally NOT included: legitimate Windows paths such as
 // "C:\\Program Files (x86)\\..." contain them.
-const SHELL_METACHARACTER_REGEX = /[&|;<>\r\n`]/;
+// 项17:加 %(cmd.exe 环境变量展开 %VAR%)和 ^(cmd.exe 转义字符),防止 useShell 场景注入。
+const SHELL_METACHARACTER_REGEX = /[&|;<>\r\n`%^]/;
 
 /**
  * @param {string} value - command or argument value

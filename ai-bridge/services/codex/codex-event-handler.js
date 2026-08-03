@@ -574,6 +574,12 @@ async function rollbackSinglePatchOperation(operation) {
   if (!newString) return { ok: false, reason: 'unsupported-empty-new-string' };
   const index = currentContent.indexOf(newString);
   if (index < 0) return { ok: false, reason: 'new-string-not-found' };
+  // SEC-08: newString 在文件中出现多次时 indexOf 只回滚第一个,可能改错位置(静默错位损坏文件)。
+  // 此时无法可靠定位 codex 实际修改处 → 标记失败,由 emitSyntheticPatchOperations 的 rollback-failed
+  // 分支提示用户介入,而非静默回滚。
+  if (currentContent.lastIndexOf(newString) !== index) {
+    return { ok: false, reason: 'ambiguous-new-string-multiple-occurrences' };
+  }
   const revertedContent = currentContent.slice(0, index) + oldString + currentContent.slice(index + newString.length);
   try { await writeFile(filePath, revertedContent, 'utf8'); return { ok: true, reason: 'replaced' }; }
   catch (error) { return { ok: false, reason: error instanceof Error ? error.message : String(error) }; }

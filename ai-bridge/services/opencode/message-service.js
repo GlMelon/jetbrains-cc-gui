@@ -43,7 +43,6 @@ async function defaultClientFactory(baseUrl) {
  * @param {string} params.message     用户消息文本
  * @param {string} params.threadId    会话 id(空则新建)
  * @param {string} params.cwd         工作目录(用作 session title)
- * @param {string} params.permissionMode 权限模式(透传,SDK 侧由 serve 配置消费)
  * @param {string} params.model       `provider/model` 聚合字符串
  * @param {string} [params.reasoningEffort] 推理档位(opencode serve prompt API 不含 per-prompt
  *   reasoning 字段,SDK 模式忽略不透传;reasoning 由 config 层 provider/model options 配置,
@@ -62,7 +61,6 @@ export async function sendMessage(params, deps = {}) {
         message = '',
         threadId = '',
         cwd = '',
-        permissionMode = '',
         model = '',
         reasoningEffort = '',
         attachments = [],

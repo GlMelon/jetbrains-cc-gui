@@ -26,6 +26,28 @@
  */
 
 /**
+ * Maximum characters for tool_result content (matches Claude's MAX_TOOL_RESULT_CONTENT_CHARS).
+ * @type {number}
+ */
+const MAX_TOOL_RESULT_CHARS = 20000;
+
+/**
+ * Truncate tool result content to prevent memory issues (matches Claude/Codex behavior).
+ * @param {string | null | undefined} text
+ * @param {number} [maxChars=MAX_TOOL_RESULT_CHARS]
+ * @returns {string}
+ */
+function truncateToolResult(text, maxChars = MAX_TOOL_RESULT_CHARS) {
+  if (!text || typeof text !== 'string') return '';
+  if (text.length <= maxChars) return text;
+  const head = Math.floor(maxChars * 0.65);
+  const tail = maxChars - head;
+  return text.substring(0, head) +
+    `\n...\n(truncated, original length: ${text.length} chars)\n...\n` +
+    text.substring(text.length - tail);
+}
+
+/**
  * Bridge NDJSON 输出事件(统一形状,字段随 type 变化)。
  * @typedef {{ type: string; [key: string]: any }} OutEvent
  */
@@ -150,9 +172,19 @@ export function createOpenCodeEventMapper(sessionId, options = {}) {
                 if (!isCurrentSession(props)) return [];
                 const out = ensureStarted().concat(emitSessionIdOnce(props));
                 const part = props.part || {};
-                const role = part.messageID ? roleByMessageId.get(part.messageID) : undefined;
-                // role=user 的 text part 是用户消息回显,跳过(避免污染 assistant 文本)
+                const hasMessageId = part.messageID != null;
+                const role = hasMessageId ? roleByMessageId.get(part.messageID) : undefined;
+                // role=user 的 part 是用户消息回显,跳过(避免污染 assistant 文本/工具)
                 if (role === 'user') return out;
+                // STREAM-05:role 判定依赖 message.updated 严格先于 part.updated(见文件头注释)。顺序倒转
+                // (网络重排/serve 差异)时 part.updated 先到、roleByMessageId 未命中 → role=undefined,旧守卫仅
+                // 挡 role==='user' 而放行 undefined,致 user 消息的 text part 被当 assistant content_delta 泄漏。
+                // 仅对 text/reasoning 在「messageID 已知但 role 未到」时跳过:user 回显不泄漏;assistant 文本/
+                // reasoning 因 part.text 为累积量,后续 role 已知的 part.updated 经 delta('', 累积全文)=全文
+                // 自愈,不丢内容。tool part 发射由 callID 驱动、与 role 无关,不跳过(否则丢工具卡)。
+                if ((part.type === 'text' || part.type === 'reasoning') && hasMessageId && role === undefined) {
+                    return out;
+                }
                 if (part.type === 'text') {
                     const d = delta(assistantText, part.text);
                     if (d) {
@@ -290,15 +322,22 @@ export function createOpenCodeEventMapper(sessionId, options = {}) {
                 })
             });
         }
-        if ((status === 'completed' || (output != null && output !== '')) && !toolResultEmitted.has(callId)) {
+        // STREAM-04:tool_result 仅在终态(completed/error/failed)发射。此前 `output != null && output !== ''`
+        // 让 running 阶段(已流式产出 output 但 status 非 completed)也提前发射 tool_result(is_error 取当前
+        // 非终态=false),callId 进 toolResultEmitted 后真正的 completed/failed 被丢弃 → 失败工具显示为成功。
+        // 改为只在终态发射,失败语义(is_error)随终态 status 正确判定。
+        const isTerminal = status === 'completed' || isError;
+        if (isTerminal && !toolResultEmitted.has(callId)) {
             toolResultEmitted.add(callId);
+            // FIX: Truncate tool result content to prevent memory issues (matches Claude/Codex)
+            const truncatedOutput = truncateToolResult(output);
             out2.push({
                 type: 'tool_result',
                 content: JSON.stringify({
                     type: 'tool_result',
                     tool_use_id: callId,
                     is_error: isError,
-                    content: output != null ? output : '(running)'
+                    content: truncatedOutput
                 })
             });
         }

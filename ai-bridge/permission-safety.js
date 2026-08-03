@@ -96,84 +96,23 @@ export function rewriteToolInputPaths(toolName, input) {
   return { changed: rewrites.length > 0 };
 }
 
-// ========== acceptEdits CWD path validation ==========
-// Matches CLI's filesystem.ts: pathInAllowedWorkingPath + checkPathSafetyForAutoEdit
-
-// Files that should NOT be auto-edited even within CWD (matches CLI's DANGEROUS_FILES/DIRECTORIES)
-/** @type {Set<string>} */
-const DANGEROUS_AUTO_EDIT_FILES = new Set([
-  '.gitconfig', '.gitmodules', '.bashrc', '.bash_profile', '.zshrc',
-  '.zprofile', '.profile', '.ripgreprc', '.mcp.json', '.claude.json',
-]);
-
-/** @type {Set<string>} */
-const DANGEROUS_AUTO_EDIT_DIRS = new Set([
-  '.git', '.vscode', '.idea', '.claude',
-]);
+// (removed 2026-08-03) acceptEdits CWD 校验块(checkPathSafetyForAutoEdit / isAcceptEditsAllowed /
+// isPathInWorkingDirectory / DANGEROUS_AUTO_EDIT_FILES|DIRS)—— 全仓 grep 确认零活跃调用方:
+// acceptEdits 下 EDIT_TOOLS 直接 YIELD_TO_SDK(见 permission-handler.js canUseTool),不经此 Node
+// 侧校验;真正的 acceptEdits 约束在后端 mode 映射。audit P3-SEC 低危。
 
 /**
- * Check if a file path is within the allowed working directory.
- * Matches CLI's pathInAllowedWorkingPath (filesystem.ts:683-707).
- * @param {string} filePath - Absolute file path to check
- * @param {string} cwd - Working directory
- * @param {string[]} [additionalDirs] - Additional allowed directories
- * @returns {boolean}
+ * 敏感凭证文件名/片段(SEC-05 兜底):不依赖 home 目录展开,直接匹配命令/路径中的凭证引用。
+ * 覆盖 $HOME/${HOME} 未展开、/home/$USER、相对路径等所有变体——只要 Bash 命令触及这些凭证即危险。
+ * 仅列高敏感凭证文件名,避免对普通项目文件误伤。
  */
-export function isPathInWorkingDirectory(filePath, cwd, additionalDirs = []) {
-  if (!filePath || !cwd) return false;
-
-  const resolvedPath = resolve(filePath);
-  const allowedDirs = [cwd, ...additionalDirs].filter(Boolean).map(d => resolve(d));
-
-  return allowedDirs.some(dir => {
-    if (resolvedPath === dir) return true;
-    return resolvedPath.startsWith(dir + sep);
-  });
-}
-
-/**
- * Check if a file path is safe for auto-edit in acceptEdits mode.
- * Matches CLI's checkPathSafetyForAutoEdit (filesystem.ts:620-665).
- * Returns false for dangerous config files and directories even if inside CWD.
- * @param {string} filePath - Absolute file path to check
- * @returns {{ safe: boolean, message?: string }}
- */
-export function checkPathSafetyForAutoEdit(filePath) {
-  if (!filePath) return { safe: false, message: 'No file path provided' };
-
-  const resolvedPath = resolve(filePath);
-  const parts = resolvedPath.split(sep);
-  const fileName = parts[parts.length - 1];
-
-  // Check if file is in a dangerous directory (e.g. .git/, .vscode/, .idea/, .claude/)
-  for (const part of parts) {
-    if (DANGEROUS_AUTO_EDIT_DIRS.has(part)) {
-      return { safe: false, message: `Auto-edit not allowed in ${part}/ directory` };
-    }
-  }
-
-  // Check if file itself is a dangerous config file
-  if (DANGEROUS_AUTO_EDIT_FILES.has(fileName)) {
-    return { safe: false, message: `Auto-edit not allowed for ${fileName}` };
-  }
-
-  return { safe: true };
-}
-
-/**
- * Full acceptEdits path validation: CWD check + safety check.
- * Returns true only if the path is within CWD AND passes safety checks.
- * @param {string} filePath - File path from tool input
- * @param {string} cwd - Working directory
- * @param {string[]} [additionalDirs] - Additional allowed directories
- * @returns {boolean}
- */
-export function isAcceptEditsAllowed(filePath, cwd, additionalDirs) {
-  if (!filePath || !cwd) return false;
-  const safety = checkPathSafetyForAutoEdit(filePath);
-  if (!safety.safe) return false;
-  return isPathInWorkingDirectory(filePath, cwd, additionalDirs);
-}
+const SENSITIVE_CREDENTIAL_TOKENS = [
+  'id_rsa', 'id_ecdsa', 'id_ed25519', 'id_dsa', // SSH 私钥
+  '.aws/credentials', '.aws\\credentials',
+  '.kube/config', '.kube\\config',
+  '.docker/config.json', '.docker\\config.json',
+  '.npmrc', '.pypirc', // 包管理器凭证
+];
 
 /**
  * Check whether a file path matches any known dangerous pattern.
@@ -221,19 +160,46 @@ export function isDangerousPath(filePath) {
     );
   }
 
-  // Security (K): expand a leading ~ to the real home dir so shell-style references such as
-  // "cat ~/.ssh/id_rsa" inside a Bash command are matched, not only absolute paths.
+  // Security (K) + SEC-05: expand shell-style home references so dangerous-path checks cover
+  // Bash commands like "cat $HOME/.ssh/id_rsa" or "cat ~/$USER/.ssh/key", not only absolute paths.
+  // Previously only ~ was expanded, leaving $HOME/${HOME}/$USER references unmatched (the command
+  // string contained neither ~ nor the literal home path, so it bypassed the hard-deny check).
   let expandedPath = String(filePath);
   if (userHomeDir) {
     expandedPath = expandedPath.split('~/').join(`${userHomeDir}/`);
     if (isWindows) {
       expandedPath = expandedPath.split('~\\').join(`${userHomeDir}\\`);
     }
+    // 展开 $HOME/${HOME}(Unix)/$USERPROFILE/${USERPROFILE}(Windows)为真实 home
+    const homeVars = isWindows ? ['USERPROFILE', 'HOME'] : ['HOME', 'USERPROFILE'];
+    for (const name of homeVars) {
+      expandedPath = expandedPath.split(`$${name}`).join(userHomeDir);
+      expandedPath = expandedPath.split(`\${${name}}`).join(userHomeDir);
+    }
+    if (isWindows) {
+      expandedPath = expandedPath.split('%USERPROFILE%').join(userHomeDir);
+    }
+    // $USER/${USER}:从 home 路径末段反推用户名(Unix /home/alice、macOS /Users/alice、Win C:\Users\alice)
+    const homeUser = userHomeDir.split(sep).pop();
+    if (homeUser) {
+      expandedPath = expandedPath.split('$USER').join(homeUser);
+      expandedPath = expandedPath.split('${USER}').join(homeUser);
+    }
   }
   const normalizedPath = isWindows ? expandedPath.toLowerCase() : expandedPath;
   for (const pattern of dangerousPatterns) {
     const normalizedPattern = isWindows ? pattern.toLowerCase() : pattern;
     if (normalizedPath.includes(normalizedPattern)) {
+      return true;
+    }
+  }
+  // SEC-05 兜底:不依赖 home 展开的凭证文件名/片段直配。覆盖 $USER 未展开或异形引用——只要命令/路径
+  // 触及 SSH 私钥、云凭证、包管理器凭证即判危险(fail-safe,宁可误拒不放过)。
+  const normalizedTokens = isWindows
+    ? SENSITIVE_CREDENTIAL_TOKENS.map((t) => t.toLowerCase())
+    : SENSITIVE_CREDENTIAL_TOKENS;
+  for (const token of normalizedTokens) {
+    if (normalizedPath.includes(token)) {
       return true;
     }
   }

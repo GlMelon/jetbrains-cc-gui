@@ -50,7 +50,10 @@ export class RevisionStore {
    */
   get(revision) {
     const key = Number(revision || this.latestRevision);
-    return this.revisions.get(key) ?? { revision: key, tools: [] };
+    const snapshot = this.revisions.get(key) ?? { revision: key, tools: [] };
+    // 项10:put 已深拷贝隔离存储,但 get 返回内部引用会让调用方修改污染 store(下次 get 拿到被改的)。
+    // 返回深拷贝保持快照不变性。
+    return JSON.parse(JSON.stringify(snapshot));
   }
 
   /**

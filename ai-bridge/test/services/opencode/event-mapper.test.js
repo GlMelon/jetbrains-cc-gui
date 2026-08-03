@@ -308,3 +308,64 @@ test('assistant message text part IS emitted as content_delta', () => {
     assert.equal(deltas.length, 1);
     assert.equal(deltas[0].text, 'hello world');
 });
+
+test('STREAM-04: tool running with output does NOT emit tool_result early; failed emits is_error=true', () => {
+    // 流式工具在 running 阶段已产出 output;旧逻辑 `output != null && output !== ''` 即提前发 tool_result
+    // (is_error 取当前非 completed=false),随后 callId 进 toolResultEmitted,真正的 failed 被丢弃 → 失败显示成功。
+    // 修复:tool_result 仅终态(completed/error/failed)发射;失败语义随终态 status 判定。
+    const m = createOpenCodeEventMapper(SID);
+    m.map(ev('server.connected'));
+    const o1 = m.map(ev('message.part.updated', {
+        sessionID: SID,
+        part: { type: 'tool', tool: 'bash', callID: 'call_r',
+            state: { status: 'running', input: '{"command":"ls"}', output: 'partial stdout' } }
+    }));
+    assert.equal(o1.filter((e) => e.type === 'tool_use').length, 1, 'running emits tool_use');
+    assert.equal(o1.filter((e) => e.type === 'tool_result').length, 0,
+        'running must NOT emit tool_result even with non-empty output');
+    // 随后 failed 到达:终态发射,is_error=true
+    const o2 = m.map(ev('message.part.updated', {
+        sessionID: SID,
+        part: { type: 'tool', tool: 'bash', callID: 'call_r',
+            state: { status: 'failed', input: '{"command":"ls"}', output: 'partial stdout' } }
+    }));
+    const results = o2.filter((e) => e.type === 'tool_result');
+    assert.equal(results.length, 1, 'failed (terminal) emits tool_result');
+    const block = JSON.parse(results[0].content);
+    assert.equal(block.is_error, true, 'failed tool_result must be is_error=true');
+    assert.equal(block.content, 'partial stdout');
+});
+
+test('STREAM-05: text part.updated before message.updated (role unknown) does not leak as assistant', () => {
+    // 顺序倒转(网络重排/serve 差异):part.updated 先于 message.updated 到达,roleByMessageId 未命中 → role=undefined。
+    // 旧守卫仅挡 role==='user' 而放行 undefined,致 user 消息 text part 被当 assistant content_delta 泄漏。
+    // 修复:messageID 已知但 role 未到时跳过 text/reasoning,避免泄漏。
+    const m = createOpenCodeEventMapper(SID);
+    prime(m);
+    // part.updated 先到,messageID 已知但尚无 message.updated → role 未知
+    const out = m.map(ev('message.part.updated', {
+        sessionID: SID, part: { type: 'text', text: 'would leak as assistant', messageID: 'msg_late' }
+    }));
+    assert.deepEqual(out.filter((o) => o.type === 'content_delta'), [],
+        'role unknown → no content_delta leak');
+});
+
+test('STREAM-05: assistant text recovers via cumulative delta after role arrives (no loss)', () => {
+    // 跳过首个乱序 part.updated 不丢 assistant 内容:part.text 为累积量,role 到达后下一帧经
+    // delta('', 累积全文) = 全文 自愈。
+    const m = createOpenCodeEventMapper(SID);
+    prime(m);
+    // 首帧乱序(role 未知)→ 跳过,assistantText 仍为 ''
+    m.map(ev('message.part.updated', {
+        sessionID: SID, part: { type: 'text', text: 'Hello', messageID: 'msg_h' }
+    }));
+    // message.updated 到达,role=assistant
+    m.map(ev('message.updated', { sessionID: SID, info: { id: 'msg_h', role: 'assistant' } }));
+    // 下一帧累积全文 → delta('', 'Hello world') = 'Hello world',完整自愈
+    const out = m.map(ev('message.part.updated', {
+        sessionID: SID, part: { type: 'text', text: 'Hello world', messageID: 'msg_h' }
+    }));
+    const deltas = out.filter((o) => o.type === 'content_delta');
+    assert.equal(deltas.length, 1);
+    assert.equal(deltas[0].text, 'Hello world', 'cumulative text fully recovered, no loss');
+});

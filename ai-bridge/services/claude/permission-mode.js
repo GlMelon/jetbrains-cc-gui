@@ -75,8 +75,10 @@ function isPlanFilePath(filePath, cwd) {
   // Only compare filename case-insensitively (PLAN.md, plan.md, Plan.md are all valid)
   const fileName = normalizedPath.split('/').pop() || '';
   if (fileName.toLowerCase() !== 'plan.md') return false;
-  // Check if the file is in the project root (CWD)
-  if (normalizedPath.startsWith(normalizedCwd + '/') || normalizedPath.startsWith(normalizedCwd)) return true;
+  // Check if the file is in the project root (CWD). SEC-07: require a path boundary so a
+  // sibling directory sharing the CWD prefix (cwd=/a/proj vs /a/project-evil/PLAN.md) cannot
+  // pass — previously startsWith(normalizedCwd) with no separator matched such prefixes.
+  if (normalizedPath === normalizedCwd || normalizedPath.startsWith(normalizedCwd + '/')) return true;
   if (!normalizedPath.includes('/')) return true; // Relative path like "PLAN.md"
   return false;
 }

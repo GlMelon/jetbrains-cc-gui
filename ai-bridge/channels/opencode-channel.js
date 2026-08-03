@@ -26,7 +26,6 @@ export async function handleOpenCodeCommand(command, args, stdinData) {
           message,
           threadId,
           cwd,
-          permissionMode,
           model,
           reasoningEffort,
           attachments,
@@ -36,7 +35,6 @@ export async function handleOpenCodeCommand(command, args, stdinData) {
           message,
           threadId: threadId || '',
           cwd: cwd || '',
-          permissionMode: permissionMode || '',
           model: model || '',
           reasoningEffort: reasoningEffort || 'high',
           attachments: attachments || [],
@@ -48,7 +46,6 @@ export async function handleOpenCodeCommand(command, args, stdinData) {
           message: args[0] || '',
           threadId: args[1] || '',
           cwd: args[2] || '',
-          permissionMode: '',
           model: args[4] || '',
           baseUrl: ''
         });

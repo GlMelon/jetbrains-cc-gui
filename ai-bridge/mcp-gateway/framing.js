@@ -43,6 +43,8 @@ const CONTENT_LENGTH_RE = /content-length:\s*(\d+)/i;
 // buffer 头部前若干字节即足以判断是否为 LSP header(ASCII,"Content-Length:" = 15 字节)。
 const LSP_PEEK = 32;
 const LSP_HEAD_RE = /^\s*content-length:/i;
+// 项12:单条 MCP 消息体字节上限,防超大 Content-Length 声明(声明 1GB body 等收满)或无换行 NDJSON 流无限累积撑爆内存。
+const MAX_MESSAGE_BYTES = 16 * 1024 * 1024;
 
 /**
  * 把一条 JSON-RPC 消息编码为 stdio 帧字节。
@@ -99,6 +101,13 @@ export class FramedReader extends EventEmitter {
    */
   push(chunk) {
     this.buffer = Buffer.concat([this.buffer, chunk]);
+    // 项12:超上限(超大 Content-Length 声明或无换行 NDJSON 流)直接报错并丢弃 buffer,防内存撑爆。
+    if (this.buffer.length > MAX_MESSAGE_BYTES) {
+      const error = new Error(`MCP message exceeds ${MAX_MESSAGE_BYTES} bytes`);
+      this.buffer = Buffer.alloc(0);
+      this.emit('error', error);
+      return;
+    }
     while (this.consumeOne()) {
       // 循环消费所有已完整的消息
     }

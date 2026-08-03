@@ -18,7 +18,12 @@ import path from 'node:path';
  */
 export function writeStateFile(path, state) {
   fs.mkdirSync(pathModuleDirname(path), { recursive: true });
-  fs.writeFileSync(path, JSON.stringify(state, null, 2), { encoding: 'utf8', mode: 0o600 });
+  const data = JSON.stringify(state, null, 2);
+  // 项9:writeFileSync 直接写目标文件,写到一半被并发进程读到部分 JSON 致 parse 失败。
+  // 改"写同目录临时文件 + rename":rename 在同文件系统内原子,读者要么见旧版要么见新版,不读半截。
+  const tmp = `${path}.${process.pid}.tmp`;
+  fs.writeFileSync(tmp, data, { encoding: 'utf8', mode: 0o600 });
+  fs.renameSync(tmp, path);
 }
 
 /**

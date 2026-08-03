@@ -64,6 +64,17 @@ export class ServerSupervisor {
   }
 
   /**
+   * 当前 client 是否已死(仅 stdio:进程 exit/error 后由 StdioMcpClient 置 errored;http client
+   * 无持久进程,每次 request 独立 fetch,恒活)。用 'errored' in 守卫,避免触碰 HttpMcpClient
+   * 不存在的字段。
+   * @returns {boolean}
+   */
+  isClientDead() {
+    const client = this.client;
+    return !!client && 'errored' in client && !!client.errored;
+  }
+
+  /**
    * 重建/刷新工具列表;并发调用合并为一次(由 refreshing 标志串行化)。
    *
    * @returns {Promise<GatewayTool[]>}
@@ -72,7 +83,17 @@ export class ServerSupervisor {
     if (this.refreshing) return this.tools;
     this.refreshing = true;
     try {
-      if (!this.client) {
+      // 死 client(底层 stdio 进程已 exit/error,errored 置位;http client 无持久进程恒活)等同无 client:
+      // 须释放并重建以重连,否则 supervisor 持有的死 client 永不释放,后续 listTools 写已关闭 stdin,
+      // 等满 15s 超时才失败,坏 MCP 反复触发持续拖慢首屏(STAB-02)。
+      const deadClient = this.isClientDead();
+      if (!this.client || deadClient) {
+        if (deadClient) {
+          try {
+            this.client?.close();
+          } catch {}
+          this.client = null;
+        }
         const newClient = createMcpClient(this.spec);
         await newClient.initialize();
         this.client = newClient;

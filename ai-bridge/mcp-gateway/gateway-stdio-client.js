@@ -50,7 +50,7 @@ class RuntimeProxy {
    * @returns {Promise<unknown>}
    */
   async call(name, toolArgs) {
-    return httpClient.post('/runtime/tools/call', { revision, name, arguments: toolArgs });
+    return httpClient.post('/runtime/tools/call', { revision, name, arguments: toolArgs }, GatewayHttpClient.TOOLS_CALL_TIMEOUT_MS);
   }
 }
 
@@ -58,7 +58,7 @@ const revisionStore = new RevisionStore(1);
 // ToolRouter 构造期望 Map<string, SupervisorLike>(仅 callTool);此处 RuntimeProxy 只用于占位,
 // 真正路由由下一行覆盖 toolRouter.call,故 map 结构强转为 any。
 const toolRouter = new ToolRouter(/** @type {any} */ (new Map([['runtime:proxy', new RuntimeProxy()]])));
-toolRouter.call = async (/** @type {string} */ name, /** @type {unknown} */ toolArgs) => httpClient.post('/runtime/tools/call', { revision, name, arguments: toolArgs });
+toolRouter.call = async (/** @type {string} */ name, /** @type {unknown} */ toolArgs) => httpClient.post('/runtime/tools/call', { revision, name, arguments: toolArgs }, GatewayHttpClient.TOOLS_CALL_TIMEOUT_MS);
 
 const server = new GatewayMcpServer({
   revisionStore,
@@ -88,6 +88,21 @@ const reader = new FramedReader(process.stdin);
 reader.on('message', (/** @type {JsonRpcMessage} */ message) => {
   (/** @type {NodeJS.WriteStream & { __mcpFrameFormat?: FrameFormat }} */ (process.stdout)).__mcpFrameFormat = reader.lastFormat || 'ndjson';
   server.handle(message, process.stdout);
+});
+// FramedReader 转发 stdin 的 'error'/'end'(见 framing.js:93-94)。本脚本是独立 spawn 的入口进程
+// (provider CLI 经它桥接 gateway HTTP),无 process.on('uncaughtException') 守卫——若不监听 'error',
+// EventEmitter 无 'error' 监听器时默认 throw → uncaughtException 杀进程,与上方 Opt1 的 state-file
+// 错误处理不对称。显式捕获:写 [melon-gateway-down] stderr 标记(供 Java 侧 GatewayDownMatcher 上行
+// toast)后 exit(1),范式对齐 transport/stdio-client.js 的 stdin.on('error')+markDown(STAB-01)。
+reader.on('error', (error) => {
+  const msg = error instanceof Error ? error.message : String(error);
+  process.stderr.write(`[melon-gateway-down] stdio reader error: ${msg}\n`);
+  process.exit(1);
+});
+// 父进程(provider CLI)关闭 stdin → 不再有请求。GatewayHttpClient 用短连接 fetch(AbortController),
+// 无残留 socket 句柄,但显式 exit(0) 确保进程干净退出,避免任何未消费句柄导致悬挂。
+reader.on('end', () => {
+  process.exit(0);
 });
 
 /**
