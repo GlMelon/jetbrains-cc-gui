@@ -210,4 +210,22 @@ public class SmitheryMarketServiceTest {
         assertEquals("org", r.get("namespace").getAsString());
         assertTrue(r.getAsJsonObject("connection").entrySet().isEmpty());
     }
+
+    // ── isTransientError ──
+
+    @Test
+    public void isTransientErrorTrueForTimeoutAndNetwork() {
+        assertTrue(SmitheryMarketService.isTransientError(MarketFetchException.TIMEOUT));
+        assertTrue(SmitheryMarketService.isTransientError(MarketFetchException.NETWORK_ERROR));
+    }
+
+    @Test
+    public void isTransientErrorFalseForAuthParseHttpAndNull() {
+        // 认证/解析/HTTP 状态码错误重试无意义,不重试
+        assertFalse(SmitheryMarketService.isTransientError(MarketFetchException.INVALID_API_KEY));
+        assertFalse(SmitheryMarketService.isTransientError(MarketFetchException.MISSING_API_KEY));
+        assertFalse(SmitheryMarketService.isTransientError(MarketFetchException.PARSE_ERROR));
+        assertFalse(SmitheryMarketService.isTransientError("HTTP_500"));
+        assertFalse(SmitheryMarketService.isTransientError(null));
+    }
 }

@@ -288,4 +288,26 @@ public class MessageMergerTest {
         assertEquals(1, mergedContent.size());
         assertEquals("full answer", mergedContent.get(0).getAsJsonObject().get("text").getAsString());
     }
+
+    @Test
+    public void mergeAssistantMessagePreservesDistinctUnkeyedTextBlocksWhenTailBlockConsumed() {
+        // STREAM-03:单个 assistant 快照含多个无 key 的不相关 text 块时,第一个块经 findMatchingUnkeyedBlockIndex
+        // 合并并占用尾段同类块(consumedUnkeyedIndexes);第二个块 findMatching 返回 -1(占用块被跳过),
+        // fallback findLastSameTypeBlockIndex 旧实现忽略 consumed → 再次命中已占用的尾段块 → 经
+        // preferMoreCompleteContent 取较长者,较短块内容丢失(本例 text A 被 text B 覆盖,仅剩 1 块)。
+        // 修复:fallback 跳过 consumed → 返回 -1 → 调用方 append 新块,两段均保留。
+        MessageMerger merger = new MessageMerger();
+
+        JsonObject existingRaw = assistantMessage(textBlock("text A"));
+
+        JsonObject newRaw = assistantMessage(textBlock("text A"), textBlock("text B"));
+
+        JsonArray mergedContent = merger.mergeAssistantMessage(existingRaw, newRaw)
+                .getAsJsonObject("message")
+                .getAsJsonArray("content");
+
+        assertEquals(2, mergedContent.size());
+        assertEquals("text A", mergedContent.get(0).getAsJsonObject().get("text").getAsString());
+        assertEquals("text B", mergedContent.get(1).getAsJsonObject().get("text").getAsString());
+    }
 }

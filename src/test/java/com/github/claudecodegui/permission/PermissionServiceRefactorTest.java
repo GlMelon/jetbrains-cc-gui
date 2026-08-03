@@ -90,6 +90,38 @@ public class PermissionServiceRefactorTest {
     }
 
     @Test
+    public void commandExecutionToolsRouteParameterMemoryByCommand() {
+        // SEC-02 守护:dispatchPermissionDialog 对 ALLOW_ALWAYS 分流——命令执行类(Bash/Agent)→
+        // parameter-level(按 command 串),其余(Edit/Write 等)→ tool-level(整工具放行)。
+        // 本测不触发 dispatchPermissionDialog 的异步弹窗链(需 mock PermissionDialogShower + 反射构造
+        // 重型 PermissionService),而是直接守护分流所依赖的两个不变量:
+        //   ① isCommandExecutionTool 的工具分类;
+        //   ② 两类工具落到不同记忆作用域后,"总是允许 npm test" 绝不越权放行 "rm -rf"。
+        // (Bash parameter-level 按 command 串建键的正确性另由 commandLevelMemoryIgnoresVolatileDescription 覆盖。)
+        assertTrue(PermissionDecisionStore.isCommandExecutionTool("Bash"));
+        assertTrue(PermissionDecisionStore.isCommandExecutionTool("Agent"));
+        assertFalse(PermissionDecisionStore.isCommandExecutionTool("Edit"));
+        assertFalse(PermissionDecisionStore.isCommandExecutionTool("Write"));
+
+        PermissionDecisionStore store = new PermissionDecisionStore();
+
+        // 命令执行类走 parameter-level:"npm test" 的 ALLOW_ALWAYS 只放行该命令。
+        JsonObject npmTest = new JsonObject();
+        npmTest.addProperty("command", "npm test");
+        store.rememberParameterDecision("Bash", npmTest, PermissionService.PermissionResponse.ALLOW_ALWAYS);
+
+        JsonObject rmRf = new JsonObject();
+        rmRf.addProperty("command", "rm -rf /tmp/x");
+        assertEquals(null, store.getParameterDecision("Bash", rmRf));
+        // 且未污染 tool-level——这正是 SEC-02 要堵的"勾一次 Bash always-allow 就全 Bash 放行"越权。
+        assertEquals(null, store.getToolDecision("Bash"));
+
+        // 非命令执行类走 tool-level:一次 ALLOW_ALWAYS 整工具放行(不变,符合既有 Edit/Write 语义)。
+        store.rememberToolDecision("Edit", PermissionService.PermissionResponse.ALLOW_ALWAYS);
+        assertEquals(PermissionService.PermissionResponse.ALLOW_ALWAYS, store.getToolDecision("Edit"));
+    }
+
+    @Test
     public void fileProtocolCleanupRemovesOnlyCurrentSessionFiles() throws IOException {
         Path permissionDir = Files.createTempDirectory("permission-protocol-cleanup");
         try {

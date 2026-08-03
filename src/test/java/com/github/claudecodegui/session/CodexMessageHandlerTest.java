@@ -2,7 +2,6 @@ package com.github.claudecodegui.session;
 
 import com.github.claudecodegui.provider.common.SDKResult;
 import com.github.claudecodegui.session.ClaudeSession.Message;
-import com.github.claudecodegui.permission.PermissionRequest;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import org.junit.Test;
@@ -52,10 +51,6 @@ public class CodexMessageHandlerTest {
 
         @Override
         public void onSessionIdReceived(String sessionId) {
-        }
-
-        @Override
-        public void onPermissionRequested(PermissionRequest request) {
         }
 
         @Override

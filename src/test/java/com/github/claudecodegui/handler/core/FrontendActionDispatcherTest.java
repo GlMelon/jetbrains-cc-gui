@@ -4,7 +4,6 @@ import com.github.claudecodegui.protocol.UpstreamAction;
 import org.junit.Test;
 
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.Assert.assertEquals;
@@ -85,37 +84,6 @@ public class FrontendActionDispatcherTest {
             assertTrue("message should name the missing action, got: " + expected.getMessage(),
                     expected.getMessage().contains("load_history_data"));
         }
-    }
-
-    @Test
-    public void legacyHandlerAdapterForwardsRawContent() {
-        AtomicBoolean called = new AtomicBoolean(false);
-        AtomicReference<String> seenType = new AtomicReference<>();
-        AtomicReference<String> seenContent = new AtomicReference<>();
-        MessageHandler legacyHandler = new MessageHandler() {
-            @Override
-            public boolean handle(String type, String content) {
-                called.set(true);
-                seenType.set(type);
-                seenContent.set(content);
-                return true;
-            }
-
-            @Override
-            public String[] getSupportedTypes() {
-                return new String[]{"set_mode"};
-            }
-        };
-
-        FrontendActionDispatcher dispatcher = new FrontendActionDispatcher(
-                LegacyMessageHandlerAdapter.from(legacyHandler),
-                null
-        );
-
-        assertTrue(dispatcher.dispatch("set_mode", "plan"));
-        assertTrue(called.get());
-        assertEquals("set_mode", seenType.get());
-        assertEquals("plan", seenContent.get());
     }
 
     private static class StringActionHandler implements FrontendActionHandler<String> {

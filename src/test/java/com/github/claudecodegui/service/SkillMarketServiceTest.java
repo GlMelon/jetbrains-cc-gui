@@ -7,12 +7,15 @@ import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.Base64;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 /**
  * {@link SkillMarketService} 纯函数单测(URL 构造 + Contents API 解析 + skill 目录定位)。
@@ -116,6 +119,71 @@ public class SkillMarketServiceTest {
         // Windows 反斜杠 → 正斜杠
         assertEquals("https://raw.githubusercontent.com/anthropics/skills/main/skills/pdf/SKILL.md",
             SkillMarketService.buildRawUrl(ANTHROPICS, "skills\\pdf", "SKILL.md"));
+    }
+
+    // ── joinPath ──
+
+    @Test
+    public void joinPathCombinesPathAndFile() {
+        assertEquals("skills/pdf/SKILL.md", SkillMarketService.joinPath("skills/pdf", "SKILL.md"));
+    }
+
+    @Test
+    public void joinPathEmptyOrNullPathRootLevel() {
+        assertEquals("SKILL.md", SkillMarketService.joinPath("", "SKILL.md"));
+        assertEquals("SKILL.md", SkillMarketService.joinPath(null, "SKILL.md"));
+    }
+
+    @Test
+    public void joinPathStripsSlashesAndNormalizesBackslashes() {
+        assertEquals("skills/pdf/SKILL.md", SkillMarketService.joinPath("/skills/pdf/", "SKILL.md"));
+        assertEquals("skills/pdf/SKILL.md", SkillMarketService.joinPath("skills\\pdf", "SKILL.md"));
+    }
+
+    // ── decodeContentFileBody ──
+
+    @Test
+    public void decodeContentFileBodyDecodesBase64() throws MarketFetchException {
+        String md = "---\nname: pdf\ndescription: gen pdf\n---\n# PDF body";
+        String b64 = Base64.getEncoder().encodeToString(md.getBytes(StandardCharsets.UTF_8));
+        JsonObject resp = new JsonObject();
+        resp.addProperty("type", "file");
+        resp.addProperty("encoding", "base64");
+        resp.addProperty("content", b64);
+        assertEquals(md, SkillMarketService.decodeContentFileBody(resp.toString()));
+    }
+
+    @Test
+    public void decodeContentFileBodyHandlesGithubLineFolding() throws MarketFetchException {
+        // GitHub content 字段按 ~76 字符折行(含真实换行),解码前须剥离
+        String md = "hello skill ".repeat(50);
+        String b64 = Base64.getEncoder().encodeToString(md.getBytes(StandardCharsets.UTF_8));
+        String folded = b64.replaceAll("(.{20})", "$1\n"); // 每 20 字符插换行模拟折行
+        JsonObject resp = new JsonObject();
+        resp.addProperty("content", folded);
+        assertEquals(md, SkillMarketService.decodeContentFileBody(resp.toString()));
+    }
+
+    @Test
+    public void decodeContentFileBodyMissingContentThrowsParseError() {
+        JsonObject resp = new JsonObject();
+        resp.addProperty("type", "file");
+        try {
+            SkillMarketService.decodeContentFileBody(resp.toString());
+            fail("expected PARSE_ERROR");
+        } catch (MarketFetchException e) {
+            assertEquals(MarketFetchException.PARSE_ERROR, e.getErrorCode());
+        }
+    }
+
+    @Test
+    public void decodeContentFileBodyNullBodyThrowsParseError() {
+        try {
+            SkillMarketService.decodeContentFileBody(null);
+            fail("expected PARSE_ERROR");
+        } catch (MarketFetchException e) {
+            assertEquals(MarketFetchException.PARSE_ERROR, e.getErrorCode());
+        }
     }
 
     // ── parseContentsResponse ──

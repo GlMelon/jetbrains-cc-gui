@@ -1,6 +1,5 @@
 package com.github.claudecodegui.session;
 
-import com.github.claudecodegui.permission.PermissionRequest;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.provider.SessionHistoryLoadResult;
 import com.google.gson.JsonArray;
@@ -437,10 +436,6 @@ public class SessionMessageOrchestratorTest {
 
         @Override
         public void onSessionIdReceived(String sessionId) {
-        }
-
-        @Override
-        public void onPermissionRequested(PermissionRequest request) {
         }
 
         @Override

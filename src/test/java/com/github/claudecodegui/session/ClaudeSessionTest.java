@@ -62,10 +62,6 @@ public class ClaudeSessionTest {
         }
 
         @Override
-        public void onPermissionRequested(com.github.claudecodegui.permission.PermissionRequest request) {
-        }
-
-        @Override
         public void onThinkingStatusChanged(boolean isThinking) {
         }
 
