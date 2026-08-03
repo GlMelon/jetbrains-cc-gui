@@ -298,6 +298,11 @@ public final class McpGatewayService implements Disposable {
      */
     private void onGatewayProcessExit() {
         CompletableFuture.runAsync(() -> {
+            // MCP-01:dispose() 后 project 已销毁,自愈无意义(ensureStarted 会触碰已释放的平台资源)。
+            // processHandle==null 早退是主屏障,此处 project.isDisposed() 是竞态双保险。
+            if (project != null && project.isDisposed()) {
+                return;
+            }
             synchronized (lock) {
                 if (processHandle == null) {
                     return;
@@ -358,6 +363,11 @@ public final class McpGatewayService implements Disposable {
                 Files.deleteIfExists(stateFile);
             } catch (Exception ignored) {
             }
+            // MCP-01:与 stopGateway() 对齐显式置空字段。dispose 后在飞的 onGatewayProcessExit 自愈
+            // 回调等到锁时 processHandle==null 早退生效,杜绝「dispose 已停进程→自愈仍在 disposed
+            // service 上 ensureStarted 重启 Node→孤儿进程 + 端口占用」竞态。
+            processHandle = null;
+            bridgeClient = null;
         }
     }
 
