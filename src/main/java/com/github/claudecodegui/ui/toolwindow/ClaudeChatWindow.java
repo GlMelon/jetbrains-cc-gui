@@ -54,7 +54,6 @@ import org.cef.browser.CefBrowser;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;
-import com.intellij.util.Alarm;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -997,7 +996,6 @@ public class ClaudeChatWindow {
                             currentContext.dispatchEvent(type, currentContext.escapeJs(payloadJson));
                         }
                     }                },
-                permissionHandler,
                 () -> slashCommandsFetched,
                 this::onStreamCompleted,
                 // 流式/思考区开关:按 projectPath 读 setting,默认 true(无 project 或读取出错走默认)。
@@ -1213,6 +1211,36 @@ public class ClaudeChatWindow {
     }
 
     /**
+     * Action the deferred-reload safety backstop should take on a given tick.
+     * Extracted as an enum so the decision is a pure, unit-testable function
+     * (see {@code DeferredReloadTest}) independent of the {@code Alarm}/EDT plumbing.
+     */
+    enum SafetyDrainAction {
+        /** A reload is parked, the window is alive, and the stream is idle: drain it now. */
+        DRAIN,
+        /** A reload is parked but a stream is still active: wait and re-check on a later tick. */
+        RECHECK_LATER,
+        /** Nothing to do (nothing parked, or the window is disposed): stop polling. */
+        DONE
+    }
+
+    /**
+     * Pure decision for the deferred-reload safety backstop. Extracted from
+     * {@link #scheduleDeferredReloadSafetyDrain} so the orphan-rescue / re-check /
+     * stop semantics are pinned down without a full window.
+     *
+     * @param disposed     whether the window has been disposed
+     * @param hasPending   whether a reload is currently parked in {@link DeferredReload}
+     * @param streamActive whether a turn is currently streaming
+     */
+    static SafetyDrainAction decideDeferredReloadSafety(boolean disposed, boolean hasPending, boolean streamActive) {
+        if (disposed || !hasPending) {
+            return SafetyDrainAction.DONE;
+        }
+        return streamActive ? SafetyDrainAction.RECHECK_LATER : SafetyDrainAction.DRAIN;
+    }
+
+    /**
      * Schedule a safety-backstop drain of any deferred reload. This ensures that
      * a deferred reload that races the stream-end edge — or the last fan-out answer
      * with no following stream end — is still drained once the stream goes idle.
@@ -1220,8 +1248,8 @@ public class ClaudeChatWindow {
     private void scheduleDeferredReloadSafetyDrain() {
         deferredReloadSafetyAlarm.cancelAllRequests();
         deferredReloadSafetyAlarm.addRequest(() -> {
-            if (disposed) return;
-            if (streamCoalescer != null && !streamCoalescer.isStreamActive()) {
+            boolean streamActive = streamCoalescer != null && streamCoalescer.isStreamActive();
+            if (decideDeferredReloadSafety(disposed, deferredReload.hasPending(), streamActive) == SafetyDrainAction.DRAIN) {
                 String deferredId = deferredReload.takeIfRunnable(disposed);
                 if (deferredId != null) {
                     driveSessionReload(deferredId);

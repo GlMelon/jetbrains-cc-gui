@@ -234,10 +234,10 @@ import com.github.claudecodegui.handler.mcp.UpdateMcpServerActionHandler;
 import com.github.claudecodegui.handler.mcp.DeleteMcpServerActionHandler;
 import com.github.claudecodegui.handler.mcp.ToggleMcpServerActionHandler;
 import com.github.claudecodegui.handler.mcp.ValidateMcpServerActionHandler;
+import com.github.claudecodegui.handler.importer.McpServerImportHandler;
 import com.github.claudecodegui.handler.mcp.McpMarketActionHandlers;
 import com.github.claudecodegui.handler.mcp.SearchMcpMarketActionHandler;
 import com.github.claudecodegui.handler.mcp.GetMcpMarketDetailActionHandler;
-import com.github.claudecodegui.handler.mcp.InstallMcpFromMarketActionHandler;
 import com.github.claudecodegui.handler.skill.SkillActionHandlers;
 import com.github.claudecodegui.handler.skill.GetAllSkillsActionHandler;
 import com.github.claudecodegui.handler.skill.ImportSkillActionHandler;
@@ -700,7 +700,9 @@ public class ChatWindowDelegate {
         McpMarketActionHandlers mcpMarketHandlers = new McpMarketActionHandlers(handlerContext);
         typedHandlers.add(new SearchMcpMarketActionHandler(mcpMarketHandlers));
         typedHandlers.add(new GetMcpMarketDetailActionHandler(mcpMarketHandlers));
-        typedHandlers.add(new InstallMcpFromMarketActionHandler(mcpMarketHandlers));
+
+        // MCP 导入: 从外部配置(GitHub Copilot 格式)解析预览(业务在 McpServerImportService,前端只 paste/预览/确认)
+        typedHandlers.add(new McpServerImportHandler());
 
         // Codex MCP server action handlers (B2 迁移: Codex server CRUD + status + tools)
         CodexMcpServerActionHandlers codexMcpServerHandlers = new CodexMcpServerActionHandlers(handlerContext, settingsService.getCodexMcpServerManager());

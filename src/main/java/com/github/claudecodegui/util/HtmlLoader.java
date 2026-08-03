@@ -77,7 +77,9 @@ public class HtmlLoader {
      * Escape a string for safe inclusion in JSON.
      */
     private String escapeJson(String s) {
-        if (s == null) return "null";
+        if (s == null) {
+            return "null";
+        }
         return "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
     }
 

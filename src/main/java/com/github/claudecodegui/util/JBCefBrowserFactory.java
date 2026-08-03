@@ -8,7 +8,6 @@ import com.intellij.openapi.util.registry.Registry;
 import com.intellij.ui.jcef.JBCefBrowser;
 import com.intellij.ui.jcef.JBCefBrowserBase;
 import com.intellij.ui.jcef.JBCefBrowserBuilder;
-import com.intellij.ui.jcef.JBCefClient;
 import org.cef.browser.CefBrowser;
 import org.cef.handler.CefKeyboardHandler;
 import org.cef.handler.CefKeyboardHandlerAdapter;

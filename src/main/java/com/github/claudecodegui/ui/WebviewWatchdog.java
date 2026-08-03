@@ -1,6 +1,5 @@
 package com.github.claudecodegui.ui;
 
-import com.github.claudecodegui.util.HtmlLoader;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.application.ApplicationManager;

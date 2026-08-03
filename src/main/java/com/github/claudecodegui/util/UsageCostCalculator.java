@@ -4,6 +4,7 @@ import com.github.claudecodegui.provider.pricing.ClaudePricing;
 import com.github.claudecodegui.provider.pricing.ClaudePricingTable;
 import com.github.claudecodegui.provider.pricing.CodexPricing;
 import com.github.claudecodegui.provider.pricing.CodexPricingTable;
+import com.github.claudecodegui.session.runtime.ProviderType;
 import com.google.gson.JsonObject;
 
 /**
@@ -27,7 +28,7 @@ public final class UsageCostCalculator {
         long outputTokens = readLong(turnUsage, "output_tokens");
         long cacheWriteTokens = readLong(turnUsage, "cache_creation_input_tokens");
         long cacheReadTokens = readLong(turnUsage, "cache_read_input_tokens", "cached_input_tokens");
-        if ("codex".equalsIgnoreCase(provider)) {
+        if (ProviderType.CODEX.value().equalsIgnoreCase(provider)) {
             // turnUsage.input_tokens is already normalized to exclude cached input.
             CodexPricing pricing = CodexPricingTable.resolve(model);
             return pricing == null ? null : pricing.costUsd(inputTokens, outputTokens, cacheReadTokens);

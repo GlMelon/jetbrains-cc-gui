@@ -105,6 +105,19 @@ public class CliSessionManager {
         // (activeHandle 被覆盖致孤儿进程、userInterrupted 被清零致中断失效、
         // Codex 的 HashMap/HashSet 并发损坏)。compute 保证后到的 send 必然链在前一个之后。
         return inFlight.compute(tabId, (k, prev) -> {
+            // STREAM-01:锁区内重检 disposedTabs。send 入口检查(:96)与此 compute 非原子:disposeTab 可在两步
+            // 之间完整执行(标记+清 inFlight),此时 prev 已为 null,串行链不会复活会话;但若放行,dispatchSend
+            // 异步仍会经 resolveSession→computeIfAbsent 重建 CliSession 并重启 CLI 子进程→孤儿。重检后直接拒绝,
+            // 不调度 dispatchSend。(dispatchSend 另有末道守卫,覆盖 compute 通过后 disposeTab 才执行的窗口。)
+            if (disposedTabs.contains(tabId)) {
+                String error = "Session disposed, send rejected: tab=" + tabId;
+                SDKResult errorResult = SDKResult.error(error);
+                callback.onError(error);
+                callback.onComplete(errorResult);
+                CompletableFuture<SDKResult> rejected = CompletableFuture.completedFuture(errorResult);
+                rejected.whenComplete((r, ex) -> inFlight.remove(tabId, rejected));
+                return rejected;
+            }
             // 等前一个 send 完成(吞掉异常以放行后续),再开始当前 send。
             CompletableFuture<SDKResult> waitChain = (prev != null)
                     ? prev.exceptionally(ex -> null)
@@ -119,6 +132,16 @@ public class CliSessionManager {
     private CompletableFuture<SDKResult> dispatchSend(CliSendRequest request, MessageCallback callback) {
         String tabId = request.tabId();
         String provider = request.provider();
+        // STREAM-01 末道守卫:dispatchSend 经 thenComposeAsync 异步执行,可能在 send 入口/锁区检查通过之后、
+        // disposeTab 完整执行(sessions 已清)之后才到达。此时 resolveSession→computeIfAbsent 会重建 CliSession
+        // 并重启 CLI 子进程→孤儿。重检 disposedTabs 直接拒绝。
+        if (disposedTabs.contains(tabId)) {
+            String error = "Session disposed, send rejected (async dispatch): tab=" + tabId;
+            SDKResult errorResult = SDKResult.error(error);
+            callback.onError(error);
+            callback.onComplete(errorResult);
+            return CompletableFuture.completedFuture(errorResult);
+        }
         CliSession session = resolveSession(tabId, provider);
         return sendToSession(request, callback, session);
     }
@@ -204,7 +227,7 @@ public class CliSessionManager {
      * 语义与原 switch 完全一致:CliSessionManagerTest 4 断言逐项等价。
      */
     static String normalizeInterruptProvider(String provider) {
-        return ProviderType.fromString(provider).toLowerCase();
+        return ProviderType.fromString(provider).value();
     }
 
     /** 将 CliSessionCallback 适配为 MessageCallback，统一回调格式。 */

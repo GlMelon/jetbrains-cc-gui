@@ -48,6 +48,15 @@ public final class BridgeArchiveExtractor {
     static void unzipArchive(File archiveFile, File targetDir) throws IOException {
         Files.createDirectories(targetDir.toPath());
 
+        // ARCH-01: 系统解压前预检 zip 条目名。系统 unzip/tar 默认会解压 ../ 到目标外,绕过 Java
+        // ZipSlip 防御。zip 来源虽为嵌入式可信(插件自带 ai-bridge.zip),但 defense-in-depth:发现
+        // 任何逃逸条目即跳过系统解压,走纯 Java(Java 路径有 startsWith 边界校验)。
+        if (hasTraversalEntry(archiveFile, targetDir)) {
+            LOG.warn("[BridgeResolver] Zip contains path-traversal entries; using safe Java extraction");
+            unzipWithJava(archiveFile, targetDir);
+            return;
+        }
+
         // Try to use system unzip command to preserve permissions
         if (trySystemUnzip(archiveFile, targetDir)) {
             LOG.info("[BridgeResolver] Successfully extracted using system unzip command");
@@ -65,6 +74,13 @@ public final class BridgeArchiveExtractor {
      */
     static void unzipArchiveWithProgress(File archiveFile, File targetDir, ProgressIndicator indicator) throws IOException {
         Files.createDirectories(targetDir.toPath());
+
+        // ARCH-01: 同 unzipArchive,系统解压前预检路径逃逸条目(详见 hasTraversalEntry)。
+        if (hasTraversalEntry(archiveFile, targetDir)) {
+            LOG.warn("[BridgeResolver] Zip contains path-traversal entries; using safe Java extraction");
+            unzipWithJavaAndProgress(archiveFile, targetDir, indicator);
+            return;
+        }
 
         // Try to use system unzip command first
         if (trySystemUnzipWithProgress(archiveFile, targetDir, indicator)) {
@@ -236,6 +252,30 @@ public final class BridgeArchiveExtractor {
         }
     }
 
+    /**
+     * ARCH-01: 扫描 zip 是否含路径逃逸条目(entry 名 resolve+normalize 后逃出 targetDir)。
+     * 仅读 entry header 不读内容,开销低。用于系统解压前预检——系统 unzip/tar 默认解压 {@code ../}
+     * 到目标外,绕过 Java 侧 ZipSlip 防御。zip 来源虽为嵌入式可信,但保留 defense-in-depth。
+     * 读取出错时保守返回 true(交给有同样防御的 Java 路径处理 + 抛具体错)。
+     */
+    private static boolean hasTraversalEntry(File archiveFile, File targetDir) {
+        Path targetPath = targetDir.toPath();
+        try (ZipInputStream zis = new ZipInputStream(new BufferedInputStream(new FileInputStream(archiveFile)))) {
+            ZipEntry entry;
+            while ((entry = zis.getNextEntry()) != null) {
+                Path resolved = targetPath.resolve(entry.getName()).normalize();
+                if (!resolved.startsWith(targetPath)) {
+                    return true;
+                }
+                zis.closeEntry();
+            }
+        } catch (IOException e) {
+            LOG.debug("[BridgeResolver] Zip traversal pre-scan failed, falling back to Java extraction: " + e.getMessage());
+            return true;
+        }
+        return false;
+    }
+
     // ── tar.gz 解压(Skills 市场 GitHub tarball 用) ──
     // 与上面 unzipArchive 区分:后者是 ai-bridge .zip 专用(Unix 用 unzip,无法解 tar.gz)。
 
@@ -260,11 +300,19 @@ public final class BridgeArchiveExtractor {
                 new GzipCompressorInputStream(new BufferedInputStream(new FileInputStream(archiveFile))))) {
             TarArchiveEntry entry;
             int processed = 0;
-            while ((entry = tis.getNextTarEntry()) != null) {
+            // commons-compress 1.22+ 已 @Deprecated getNextTarEntry();getNextEntry() 借协变返回直接给 TarArchiveEntry
+            while ((entry = tis.getNextEntry()) != null) {
                 Path resolvedPath = targetPath.resolve(entry.getName()).normalize();
                 // ZipSlip 防御:禁止逃逸出 targetDir
                 if (!resolvedPath.startsWith(targetPath)) {
                     throw new IOException("Unsafe tar entry detected: " + entry.getName());
+                }
+                // ARCH-02: 显式拒绝符号链接/硬链接条目——linkName 可指向 targetDir 外,仅靠
+                // FileOutputStream 把 symlink 降级为普通文件的副作用间接阻断,防御深度不足
+                //(未来改 Files.copy 即会引入 symlink 漏洞)。
+                if (entry.isSymbolicLink() || entry.isLink()) {
+                    throw new IOException("Refusing to extract link entry (possible path escape): "
+                            + entry.getName());
                 }
                 if (entry.isDirectory()) {
                     Files.createDirectories(resolvedPath);
