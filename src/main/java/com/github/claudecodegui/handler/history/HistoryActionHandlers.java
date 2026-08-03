@@ -5,7 +5,9 @@ import com.github.claudecodegui.handler.NodeJsServiceCaller;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.session.runtime.ProviderType;
+import com.intellij.openapi.Disposable;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.util.Disposer;
 import com.intellij.util.Alarm;
 
 import java.util.List;
@@ -19,7 +21,7 @@ import java.util.concurrent.CompletableFuture;
  * state and the {@link SessionLoadCallback} previously wired via the legacy
  * {@code HistoryHandler}.
  */
-public class HistoryActionHandlers implements HistoryRefreshService {
+public class HistoryActionHandlers implements HistoryRefreshService, Disposable {
 
     private static final Logger LOG = Logger.getInstance(HistoryActionHandlers.class);
     private static final int OPENCODE_HISTORY_REFRESH_DELAY_MS = 1_500;
@@ -39,7 +41,8 @@ public class HistoryActionHandlers implements HistoryRefreshService {
     private final HistoryMetadataService historyMetadataService;
     private final SubagentHistoryService subagentHistoryService;
     private final SessionConversionService sessionConversionService;
-    private final Alarm postStreamRefreshAlarm = new Alarm(Alarm.ThreadToUse.POOLED_THREAD);
+    private final Disposable alarmParentDisposable = Disposer.newDisposable("history-post-stream-refresh");
+    private final Alarm postStreamRefreshAlarm = new Alarm(Alarm.ThreadToUse.POOLED_THREAD, alarmParentDisposable);
     private volatile boolean disposed;
 
     public HistoryActionHandlers(HandlerContext context) {
@@ -193,6 +196,6 @@ public class HistoryActionHandlers implements HistoryRefreshService {
     public synchronized void dispose() {
         disposed = true;
         postStreamRefreshAlarm.cancelAllRequests();
-        postStreamRefreshAlarm.dispose();
+        Disposer.dispose(alarmParentDisposable);
     }
 }

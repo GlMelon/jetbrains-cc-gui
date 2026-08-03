@@ -46,6 +46,9 @@ public final class GetNodePathActionHandler implements FrontendActionHandler<Str
         CompletableFuture.runAsync(() -> {
             try {
                 PropertiesComponent props = PropertiesComponent.getInstance();
+                // §6 对称:三家 SDK bridge 各自持有 NodeDetector 引用(当前同单例,未来可能 per-bridge),
+                // 显式同步 OpenCode 避免遗漏。测试 fixture 中 OpenCode bridge 可能为 null,守卫之。
+                final com.github.claudecodegui.provider.opencode.OpenCodeSDKBridge openCodeBridge = ctx.getOpenCodeSDKBridge();
                 String saved = props.getValue(NODE_PATH_PROPERTY_KEY);
                 String pathToSend = "";
                 String versionToSend = null;
@@ -63,6 +66,7 @@ public final class GetNodePathActionHandler implements FrontendActionHandler<Str
                         props.unsetValue(NODE_PATH_PROPERTY_KEY);
                         ctx.getClaudeSDKBridge().setNodeExecutable(null);
                         ctx.getCodexSDKBridge().setNodeExecutable(null);
+                        if (openCodeBridge != null) openCodeBridge.setNodeExecutable(null);
 
                         NodeDetectionResult detected = ctx.getClaudeSDKBridge().detectNodeWithDetails();
                         if (detected != null && detected.isFound() && detected.getNodePath() != null) {
@@ -71,6 +75,7 @@ public final class GetNodePathActionHandler implements FrontendActionHandler<Str
                             props.setValue(NODE_PATH_PROPERTY_KEY, pathToSend);
                             ctx.getClaudeSDKBridge().verifyAndCacheNodePath(pathToSend);
                             ctx.getCodexSDKBridge().setNodeExecutable(pathToSend);
+                            if (openCodeBridge != null) openCodeBridge.setNodeExecutable(pathToSend);
                         }
                     }
                 } else {
@@ -82,6 +87,7 @@ public final class GetNodePathActionHandler implements FrontendActionHandler<Str
                         // Use verifyAndCacheNodePath instead of setNodeExecutable to ensure version info is cached
                         ctx.getClaudeSDKBridge().verifyAndCacheNodePath(pathToSend);
                         ctx.getCodexSDKBridge().setNodeExecutable(pathToSend);
+                        if (openCodeBridge != null) openCodeBridge.setNodeExecutable(pathToSend);
                     }
                 }
 

@@ -120,7 +120,7 @@ public class RuntimePolicyHandler {
         JsonObject result = new JsonObject();
         JsonObject providers = new JsonObject();
         for (var entry : policyConfig.providers().entrySet()) {
-            String key = entry.getKey().toLowerCase();
+            String key = entry.getKey().value();
             var policy = entry.getValue();
             JsonObject policyObj = new JsonObject();
             policyObj.addProperty("enabled", policy.enabled());

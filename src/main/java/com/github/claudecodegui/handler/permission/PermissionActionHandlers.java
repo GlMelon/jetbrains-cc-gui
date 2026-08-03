@@ -2,7 +2,6 @@ package com.github.claudecodegui.handler.permission;
 
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.core.HandlerContext;
-import com.github.claudecodegui.permission.PermissionRequest;
 import com.github.claudecodegui.permission.PermissionService;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.util.GsonHolder;
@@ -10,7 +9,6 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
-import com.intellij.openapi.project.Project;
 import com.intellij.util.Alarm;
 import com.intellij.util.concurrency.AppExecutorUtil;
 
@@ -158,67 +156,6 @@ public class PermissionActionHandlers {
     }
 
     /**
-     * Show permission request dialog (from PermissionRequest).
-     */
-    public void showPermissionDialog(PermissionRequest request) {
-        LOG.info("[PermissionActionHandlers] 显示权限请求对话框: " + request.getToolName());
-
-        try {
-            Gson gson = GsonHolder.GSON;
-            JsonObject requestData = new JsonObject();
-            requestData.addProperty("channelId", request.getChannelId());
-            requestData.addProperty("toolName", request.getToolName());
-
-            JsonObject inputsJson = gson.toJsonTree(request.getInputs()).getAsJsonObject();
-            requestData.add("inputs", inputsJson);
-
-            if (request.getSuggestions() != null) {
-                requestData.add("suggestions", request.getSuggestions());
-            }
-
-            String requestJson = gson.toJson(requestData);
-            String escapedJson = escapeJs(requestJson);
-
-            Project targetProject = request.getProject();
-            if (targetProject == null) {
-                LOG.warn("[PermissionActionHandlers] 警告: PermissionRequest 没有关联的 Project，使用当前 context 的窗口");
-                targetProject = this.context.getProject();
-            }
-
-            com.github.claudecodegui.ui.toolwindow.ClaudeChatWindow targetWindow =
-                com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow.getChatWindow(targetProject);
-
-            if (targetWindow == null) {
-                LOG.error("[PermissionActionHandlers] Error: cannot find window instance for project " + targetProject.getName());
-                this.context.getSession().handlePermissionDecision(
-                    request.getChannelId(),
-                    false,
-                    false,
-                    "Failed to show permission dialog: window not found"
-                );
-                notifyPermissionDenied();
-                return;
-            }
-
-            String jsCode = "if (window.showPermissionDialog) { " +
-                "  window.showPermissionDialog('" + escapedJson + "'); " +
-                "}";
-
-            targetWindow.executeJavaScriptCode(jsCode);
-
-        } catch (Exception e) {
-            LOG.error("[PermissionActionHandlers] 显示权限弹窗失败: errorClass=" + e.getClass().getSimpleName(), e);
-            this.context.getSession().handlePermissionDecision(
-                request.getChannelId(),
-                false,
-                false,
-                "Failed to show permission dialog"
-            );
-            notifyPermissionDenied();
-        }
-    }
-
-    /**
      * Show AskUserQuestion dialog.
      */
     public CompletableFuture<JsonObject> showAskUserQuestionDialog(String requestId, JsonObject questionsData) {
@@ -358,11 +295,6 @@ public class PermissionActionHandlers {
                 }
             } else {
                 LOG.warn("[PERM_DECISION] No pending future found for channelId=" + channelId);
-                if (remember) {
-                    context.getSession().handlePermissionDecisionAlways(channelId, allow);
-                } else {
-                    context.getSession().handlePermissionDecision(channelId, allow, false, rejectMessage);
-                }
                 if (!allow) {
                     notifyPermissionDenied();
                 }

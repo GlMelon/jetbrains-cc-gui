@@ -67,6 +67,9 @@ public final class SetNodePathActionHandler implements FrontendActionHandler<Str
         CompletableFuture.runAsync(() -> {
             try {
                 PropertiesComponent props = PropertiesComponent.getInstance();
+                // §6 对称:三家 SDK bridge 各自持有 NodeDetector 引用(当前同单例,未来可能 per-bridge),
+                // 显式同步 OpenCode 避免遗漏。测试 fixture 中 OpenCode bridge 可能为 null,守卫之。
+                final com.github.claudecodegui.provider.opencode.OpenCodeSDKBridge openCodeBridge = ctx.getOpenCodeSDKBridge();
                 String finalPath = "";
                 String versionToSend = null;
                 boolean verifySuccess = false;
@@ -76,6 +79,7 @@ public final class SetNodePathActionHandler implements FrontendActionHandler<Str
                     props.unsetValue(NODE_PATH_PROPERTY_KEY);
                     ctx.getClaudeSDKBridge().setNodeExecutable(null);
                     ctx.getCodexSDKBridge().setNodeExecutable(null);
+                    if (openCodeBridge != null) openCodeBridge.setNodeExecutable(null);
                     LOG.info("[SetNodePathActionHandler] Cleared manual Node.js path from settings");
 
                     NodeDetectionResult detected = ctx.getClaudeSDKBridge().detectNodeWithDetails();
@@ -86,6 +90,7 @@ public final class SetNodePathActionHandler implements FrontendActionHandler<Str
                         // Use verifyAndCacheNodePath to ensure version info is cached
                         ctx.getClaudeSDKBridge().verifyAndCacheNodePath(finalPath);
                         ctx.getCodexSDKBridge().setNodeExecutable(finalPath);
+                        if (openCodeBridge != null) openCodeBridge.setNodeExecutable(finalPath);
                         verifySuccess = true;
                     } else {
                         failureMsg = "已清空自定义路径，但无法自动检测到 Node.js，请手动配置路径";
@@ -97,6 +102,7 @@ public final class SetNodePathActionHandler implements FrontendActionHandler<Str
                         // Only save if verification succeeds
                         props.setValue(NODE_PATH_PROPERTY_KEY, pathArg);
                         ctx.getCodexSDKBridge().setNodeExecutable(pathArg);
+                        if (openCodeBridge != null) openCodeBridge.setNodeExecutable(pathArg);
                         finalPath = pathArg;
                         versionToSend = result.getNodeVersion();
                         verifySuccess = true;

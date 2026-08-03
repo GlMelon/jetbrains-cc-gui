@@ -23,7 +23,11 @@ final class HtmlHistoryExportRenderer implements HistoryExportRenderer {
             <head>
               <meta charset="utf-8">
               <meta name="viewport" content="width=device-width, initial-scale=1">
-              <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src 'none'; font-src 'none'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
+              <meta http-equiv="Content-Security-Policy"
+                    content="default-src 'none'; style-src 'unsafe-inline'; img-src 'none';
+                             font-src 'none'; connect-src 'none'; media-src 'none';
+                             object-src 'none'; frame-src 'none'; base-uri 'none';
+                             form-action 'none'">
             """;
     private static final String STYLE = """
               <style>
@@ -31,9 +35,27 @@ final class HtmlHistoryExportRenderer implements HistoryExportRenderer {
                 body{max-width:960px;margin:0 auto;padding:32px 20px;background:#f7f7f8;color:#202124;line-height:1.55}
                 header{margin-bottom:24px;padding:20px;border:1px solid #d9d9df;border-radius:12px;background:#fff}
                 h1{margin:0 0 8px;font-size:24px;overflow-wrap:anywhere}.meta{color:#666;font-size:13px}.notice{margin-top:12px;padding:10px 12px;border-radius:8px;background:#fff3cd;color:#664d03}
-                main{display:flex;flex-direction:column;gap:14px}.message{border:1px solid #d9d9df;border-radius:12px;background:#fff;overflow:hidden}.message-head{display:flex;justify-content:space-between;gap:12px;padding:10px 14px;background:#f0f1f3;font-size:13px}.role{font-weight:700}.timestamp{color:#666;overflow-wrap:anywhere}.message-body{padding:14px}
-                .block+.block{margin-top:12px}pre{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.55 ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace}.thinking,.tool{padding:10px 12px;border-left:3px solid #8b5cf6;background:#f6f3ff;border-radius:6px}.tool{border-left-color:#0a84ff;background:#eef6ff}.tool-title{margin-bottom:6px;font-weight:700}.image-omitted{color:#777;font-style:italic}
-                @media(prefers-color-scheme:dark){body{background:#171719;color:#ececf1}header,.message{background:#232326;border-color:#3a3a40}.message-head{background:#2d2d31}.meta,.timestamp{color:#aaa}.notice{background:#4a3c11;color:#ffe69c}.thinking{background:#302a43}.tool{background:#1d3044}}
+                main{display:flex;flex-direction:column;gap:14px}
+                .message{border:1px solid #d9d9df;border-radius:12px;background:#fff;overflow:hidden}
+                .message-head{display:flex;justify-content:space-between;gap:12px;padding:10px 14px;background:#f0f1f3;font-size:13px}
+                .role{font-weight:700}
+                .timestamp{color:#666;overflow-wrap:anywhere}
+                .message-body{padding:14px}
+                .block+.block{margin-top:12px}
+                pre{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.55 ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace}
+                .thinking,.tool{padding:10px 12px;border-left:3px solid #8b5cf6;background:#f6f3ff;border-radius:6px}
+                .tool{border-left-color:#0a84ff;background:#eef6ff}
+                .tool-title{margin-bottom:6px;font-weight:700}
+                .image-omitted{color:#777;font-style:italic}
+                @media(prefers-color-scheme:dark){
+                  body{background:#171719;color:#ececf1}
+                  header,.message{background:#232326;border-color:#3a3a40}
+                  .message-head{background:#2d2d31}
+                  .meta,.timestamp{color:#aaa}
+                  .notice{background:#4a3c11;color:#ffe69c}
+                  .thinking{background:#302a43}
+                  .tool{background:#1d3044}
+                }
               </style>
             """;
 
@@ -106,8 +128,15 @@ final class HtmlHistoryExportRenderer implements HistoryExportRenderer {
         JsonObject object = block.getAsJsonObject();
         String type = resolveString(object, CommonConstants.JSON_KEY_TYPE);
         switch (type) {
-            case CommonConstants.BLOCK_TYPE_TEXT, CommonConstants.BLOCK_TYPE_INPUT_TEXT, CommonConstants.BLOCK_TYPE_OUTPUT_TEXT -> appendPreBlock(html, "block", resolveString(object, CommonConstants.JSON_KEY_TEXT, CommonConstants.JSON_KEY_CONTENT));
-            case CommonConstants.BLOCK_TYPE_THINKING, CommonConstants.BLOCK_TYPE_REASONING -> appendPreBlock(html, "block thinking", resolveString(object, CommonConstants.JSON_KEY_THINKING, CommonConstants.JSON_KEY_TEXT, CommonConstants.JSON_KEY_CONTENT));
+            case CommonConstants.BLOCK_TYPE_TEXT, CommonConstants.BLOCK_TYPE_INPUT_TEXT,
+                 CommonConstants.BLOCK_TYPE_OUTPUT_TEXT ->
+                    appendPreBlock(html, "block",
+                            resolveString(object, CommonConstants.JSON_KEY_TEXT,
+                                    CommonConstants.JSON_KEY_CONTENT));
+            case CommonConstants.BLOCK_TYPE_THINKING, CommonConstants.BLOCK_TYPE_REASONING ->
+                    appendPreBlock(html, "block thinking",
+                            resolveString(object, CommonConstants.JSON_KEY_THINKING,
+                                    CommonConstants.JSON_KEY_TEXT, CommonConstants.JSON_KEY_CONTENT));
             case CommonConstants.BLOCK_TYPE_TOOL_USE -> appendToolUse(html, object);
             case CommonConstants.BLOCK_TYPE_TOOL_RESULT -> appendToolResult(html, object);
             case CommonConstants.BLOCK_TYPE_IMAGE -> html.append("      <div class=\"block image-omitted\">[Image omitted from safe HTML export]</div>\n");

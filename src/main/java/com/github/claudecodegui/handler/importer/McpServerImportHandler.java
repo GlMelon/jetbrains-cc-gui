@@ -1,8 +1,10 @@
 package com.github.claudecodegui.handler.importer;
 
-import com.github.claudecodegui.handler.core.BaseMessageHandler;
-import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.handler.core.FrontendActionContext;
+import com.github.claudecodegui.handler.core.FrontendActionHandler;
 import com.github.claudecodegui.mcp.importer.McpServerImportService;
+import com.github.claudecodegui.protocol.DownstreamEvent;
+import com.github.claudecodegui.protocol.UpstreamAction;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -12,49 +14,45 @@ import com.intellij.openapi.diagnostic.Logger;
 import java.util.List;
 
 /**
- * Parses an external MCP configuration (currently the GitHub Copilot format) into internal
- * server entries and sends them back to the webview as an import preview. Persisting the
- * previewed servers stays on the existing add/save path in the webview.
+ * Typed handler for {@link UpstreamAction#PARSE_COPILOT_MCP_CONFIG}.
+ *
+ * <p>Parses an external MCP configuration (GitHub Copilot format) into internal server entries
+ * via {@link McpServerImportService} and sends them back to the webview as an import preview
+ * ({@link DownstreamEvent#MCP_IMPORT_PREVIEW}). Persisting the previewed servers stays on the
+ * existing add/save path in the webview ({@code ADD_MCP_SERVER}/{@code ADD_CODEX_MCP_SERVER}) —
+ * the backend only does the format mapping, the frontend only pastes / previews / confirms.
  */
-public final class McpServerImportHandler extends BaseMessageHandler {
+public final class McpServerImportHandler implements FrontendActionHandler<String> {
 
     private static final Logger LOG = Logger.getInstance(McpServerImportHandler.class);
+    private static final Gson GSON = new Gson();
 
-    private static final String[] SUPPORTED_TYPES = {
-        "parse_copilot_mcp_config"
-    };
-
-    private final Gson gson;
     private final McpServerImportService importService;
 
-    public McpServerImportHandler(HandlerContext context) {
-        this(context, new McpServerImportService());
+    public McpServerImportHandler() {
+        this(new McpServerImportService());
     }
 
-    McpServerImportHandler(HandlerContext context, McpServerImportService importService) {
-        super(context);
-        this.gson = new Gson();
+    /** Test-only: inject a fake import service. */
+    McpServerImportHandler(McpServerImportService importService) {
         this.importService = importService;
     }
 
     @Override
-    public String[] getSupportedTypes() {
-        return SUPPORTED_TYPES;
+    public UpstreamAction action() {
+        return UpstreamAction.PARSE_COPILOT_MCP_CONFIG;
     }
 
     @Override
-    public boolean handle(String type, String content) {
-        if ("parse_copilot_mcp_config".equals(type)) {
-            handleParseCopilotConfig(content);
-            return true;
-        }
-        return false;
+    public Class<String> payloadType() {
+        return String.class;
     }
 
-    private void handleParseCopilotConfig(String content) {
+    @Override
+    public void handle(String payload, FrontendActionContext context) {
         JsonObject response = new JsonObject();
         try {
-            JsonObject request = gson.fromJson(content, JsonObject.class);
+            JsonObject request = GSON.fromJson(payload, JsonObject.class);
             boolean isCodexMode = request != null
                 && request.has("isCodexMode")
                 && !request.get("isCodexMode").isJsonNull()
@@ -67,17 +65,18 @@ public final class McpServerImportHandler extends BaseMessageHandler {
                 throw new IllegalArgumentException("Configuration is empty.");
             }
 
-            JsonObject config = gson.fromJson(rawJson, JsonObject.class);
+            JsonObject config = GSON.fromJson(rawJson, JsonObject.class);
             List<JsonObject> servers = importService.parseCopilotConfig(config, isCodexMode);
-            response.add("servers", gson.toJsonTree(servers));
+            response.add("servers", GSON.toJsonTree(servers));
         } catch (Exception e) {
             LOG.warn("Failed to parse Copilot MCP config: " + e.getMessage());
             response.add("servers", new JsonArray());
             response.addProperty("error", e.getMessage());
         }
 
-        String json = gson.toJson(response);
+        String json = GSON.toJson(response);
+        var ctx = context.handlerContext();
         ApplicationManager.getApplication().invokeLater(
-            () -> callJavaScript("window.updateCopilotImportPreview", escapeJs(json)));
+            () -> ctx.dispatchEvent(DownstreamEvent.MCP_IMPORT_PREVIEW.value(), ctx.escapeJs(json)));
     }
 }

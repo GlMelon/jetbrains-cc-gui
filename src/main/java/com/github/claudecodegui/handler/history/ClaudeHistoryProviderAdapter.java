@@ -8,7 +8,6 @@ import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.util.GsonHolder;
 import com.github.claudecodegui.util.PathUtils;
 import com.github.claudecodegui.util.PlatformUtils;
-import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
 
 import java.io.BufferedReader;
