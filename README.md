@@ -4,7 +4,7 @@
 
 > Originally Claude Code GUI
 
-<img width="120" alt="Image" src="./docs/images/idea-claude-code-gui-logo.png" />
+<img width="120" alt="AI Code GUI" src="./docs/images/ai-code-gui.png" />
 
 **English** · [简体中文](./README.zh-CN.md)
 
@@ -97,10 +97,10 @@ npm install
 # 编译
 ```bash
 ./gradlew compileJava
-
+```
 ### 3. Debug Plugin
 
-Run in IDEA:
+# 编译
 ```bash
 ./gradlew clean runIde
 ```

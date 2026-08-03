@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Code GUI 图标方案 v2 · 参考原图机器人吉祥物</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #1e1e1e; --panel: #252525; --panel2: #2d2d2d; --line: #333;
+    --text: #e0e0e0; --muted: #888; --accent: #4fc3f7; --green: #81c784; --orange: #ffb74d;
+  }
+  html.light {
+    --bg: #f4f4f6; --panel: #ffffff; --panel2: #f0f0f2; --line: #dcdce0;
+    --text: #1f1f24; --muted: #6a6a72; --accent: #0288d1; --green: #2e7d32; --orange: #ef6c00;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: var(--bg); color: var(--text); padding: 36px 24px 80px; line-height: 1.65;
+    transition: background .25s, color .25s;
+  }
+  .container { max-width: 1240px; margin: 0 auto; }
+  h1 { font-size: 27px; margin-bottom: 8px; }
+  h1 b { color: var(--accent); }
+  .subtitle { color: var(--muted); margin-bottom: 24px; }
+  .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 26px; }
+  .btn {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--line);
+    padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; transition: all .2s;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .info-box {
+    background: var(--panel2); border-left: 4px solid var(--accent);
+    padding: 14px 18px; margin: 22px 0; border-radius: 0 8px 8px 0; font-size: 14px;
+  }
+  .info-box strong { color: var(--accent); }
+
+  /* 原图参照区 */
+  .ref-row { display: flex; gap: 24px; flex-wrap: wrap; align-items: stretch; margin: 22px 0; }
+  .ref-card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px;
+  }
+  .ref-original {
+    display: flex; gap: 18px; align-items: center; flex: 1; min-width: 280px;
+  }
+  .ref-original img {
+    width: 120px; height: 160px; object-fit: contain; border-radius: 10px;
+    background: #fff; border: 1px solid var(--line);
+  }
+  .swatches { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+  .sw { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; color: var(--muted); }
+  .sw i { width: 34px; height: 34px; border-radius: 8px; border: 1px solid rgba(127,127,127,.4); display: block; }
+
+  /* 方案卡片 */
+  .scheme {
+    background: var(--panel); border-radius: 16px; padding: 26px; margin: 24px 0;
+    border: 1px solid var(--line); transition: border-color .2s;
+  }
+  .scheme.recommended { border-color: var(--green); box-shadow: 0 0 0 1px var(--green) inset; }
+  .scheme-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 6px; }
+  .scheme-title { font-size: 20px; color: var(--orange); }
+  .scheme.recommended .scheme-title { color: var(--green); }
+  .tag {
+    font-size: 11px; padding: 3px 10px; border-radius: 20px; background: var(--panel2);
+    color: var(--muted); border: 1px solid var(--line); white-space: nowrap;
+  }
+  .tag.rec { background: rgba(129,199,132,.15); color: var(--green); border-color: var(--green); }
+  .scheme-desc { color: var(--muted); font-size: 14px; margin-bottom: 22px; max-width: 760px; }
+
+  .preview-block { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-end; }
+  .big-preview { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .big-box {
+    width: 150px; height: 150px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+  }
+  .big-box.checker { /* 棋盘格=透明背景参考 */
+    background-color: #fff;
+    background-image:
+      linear-gradient(45deg, #c8c8d0 25%, transparent 25%),
+      linear-gradient(-45deg, #c8c8d0 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #c8c8d0 75%),
+      linear-gradient(-45deg, transparent 75%, #c8c8d0 75%);
+    background-size: 18px 18px;
+    background-position: 0 0, 0 9px, 9px -9px, -9px 0;
+  }
+  .caption { font-size: 11px; color: var(--muted); }
+
+  .sizes { display: flex; gap: 18px; align-items: flex-end; }
+  .size-cell { display: flex; flex-direction: column; align-items: center; gap: 7px; }
+  .size-cell .frame {
+    width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
+    border-radius: 8px; border: 1px solid var(--line);
+  }
+  .size-cell .frame.light-bg { background: #f0f0f2; }
+  .size-cell .frame.dark-bg { background: #2b2b2b; }
+  .size-cell .frame.toolwin { background: #3c3f41; border-radius: 4px; }
+
+  .pick {
+    margin-top: 18px; background: transparent; color: var(--green); border: 1px solid var(--green);
+    padding: 7px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; transition: all .2s;
+  }
+  .pick:hover { background: var(--green); color: #fff; }
+  .scheme.picked { outline: 3px solid var(--green); outline-offset: 2px; }
+  .pick.picked { background: var(--green); color: #fff; }
+
+  /* currentColor 主题演示容器 */
+  .themed { color: var(--accent); }
+
+  footer { margin-top: 40px; padding-top: 22px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+  code { background: var(--panel2); padding: 1px 6px; border-radius: 4px; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>AI Code GUI 图标方案 <b>v2</b></h1>
+  <p class="subtitle">参考原机器人吉祥物 · 5 套不同风格的 SVG · 透明背景 · 矢量清晰 · 可主题感知。在浏览器里直接对比渲染效果。</p>
+
+  <div class="toolbar">
+    <button class="btn active" onclick="setTheme('dark')">🌙 深色背景</button>
+    <button class="btn" onclick="setTheme('light')">☀️ 浅色背景</button>
+    <span style="flex:1"></span>
+    <span style="color:var(--muted);font-size:13px;">💡 棋盘格 = 透明背景 · 灰框 = 模拟工具窗口</span>
+  </div>
+
+  <div class="info-box">
+    <strong>原图视觉特征（已用于还原）：</strong> 浅灰圆顶头盔 <code>#D1D1D1</code> + 橙色帽檐条纹 <code>#F4A460</code> + 黑色椭圆面罩 + 两只青色发光圆眼 <code>#00FFFF</code> + 灰色卫衣身体 + 机械手捧棕色书。风格：<strong>Q版 · 可爱 · 科技感 · 扁平卡通</strong>。
+  </div>
+
+  <div class="ref-row">
+    <div class="ref-card ref-original">
+      <img src="../images/ai-code-gui.png" alt="原图吉祥物">
+      <div>
+        <div style="font-weight:600;margin-bottom:6px;">原图参照（缩放后保留白底、小尺寸模糊）</div>
+        <div style="color:var(--muted);font-size:13px;">SVG 方案的目标：保留这个可爱机器人的辨识度，同时透明背景、任意尺寸清晰。</div>
+        <div class="swatches">
+          <span class="sw"><i style="background:#D1D1D1"></i>头盔灰</span>
+          <span class="sw"><i style="background:#F4A460"></i>帽檐橙</span>
+          <span class="sw"><i style="background:#0E1116"></i>面罩黑</span>
+          <span class="sw"><i style="background:#22D3EE"></i>发光青</span>
+          <span class="sw"><i style="background:#8B4513"></i>书棕</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== SVG 定义（symbol，多尺寸复用） ===================== -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <!-- 通用渐变 -->
+      <linearGradient id="helmetGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#F2F3F6"/><stop offset="52%" stop-color="#D1D1D1"/><stop offset="100%" stop-color="#A6A8AE"/>
+      </linearGradient>
+      <linearGradient id="bodyGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#D1D1D1"/><stop offset="100%" stop-color="#9A9CA2"/>
+      </linearGradient>
+      <radialGradient id="visorGrad" cx="50%" cy="38%" r="62%">
+        <stop offset="0%" stop-color="#2A2D33"/><stop offset="100%" stop-color="#08090C"/>
+      </radialGradient>
+      <radialGradient id="eyeGrad" cx="38%" cy="38%" r="62%">
+        <stop offset="0%" stop-color="#B8FFFB"/><stop offset="48%" stop-color="#22D3EE"/><stop offset="100%" stop-color="#0891B2"/>
+      </radialGradient>
+      <filter id="softGlow" x="-60%" y="-60%" width="220%" height="220%">
+        <feGaussianBlur stdDeviation="2.4" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="neonGlow" x="-80%" y="-80%" width="260%" height="260%">
+        <feGaussianBlur stdDeviation="3.2" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+
+      <!-- 方案 A：Q版头像（忠实还原头部，精致可爱） -->
+      <symbol id="schemeA" viewBox="0 0 128 128">
+        <!-- 头盔圆顶 -->
+        <path d="M22 60 C22 22 44 10 64 10 C84 10 106 22 106 60 L106 74 C106 84 100 88 90 88 L38 88 C28 88 22 84 22 74 Z"
+              fill="url(#helmetGrad)" stroke="#6E7079" stroke-width="2.5" stroke-linejoin="round"/>
+        <!-- 顶部高光 -->
+        <ellipse cx="54" cy="30" rx="22" ry="10" fill="#FFFFFF" opacity="0.4"/>
+        <!-- 顶部铆钉 -->
+        <circle cx="64" cy="13" r="3" fill="#6E7079"/>
+        <!-- 橙色帽檐 -->
+        <path d="M24 80 Q64 94 104 80 L101 89 Q64 97 27 89 Z" fill="#F4A460" stroke="#C97F3D" stroke-width="1.5" stroke-linejoin="round"/>
+        <!-- 黑色面罩 -->
+        <ellipse cx="64" cy="54" rx="36" ry="24" fill="url(#visorGrad)" stroke="#000" stroke-width="2"/>
+        <ellipse cx="52" cy="44" rx="14" ry="6.5" fill="#FFFFFF" opacity="0.08"/>
+        <!-- 双眼发光 -->
+        <g filter="url(#softGlow)">
+          <circle cx="50" cy="54" r="8" fill="url(#eyeGrad)"/>
+          <circle cx="47" cy="51" r="2.6" fill="#E6FBFF"/>
+        </g>
+        <g filter="url(#softGlow)">
+          <circle cx="78" cy="54" r="8" fill="url(#eyeGrad)"/>
+          <circle cx="75" cy="51" r="2.6" fill="#E6FBFF"/>
+        </g>
+      </symbol>
+
+      <!-- 方案 B：完整吉祥物（头+身体+书） -->
+      <symbol id="schemeB" viewBox="0 0 128 128">
+        <!-- 身体（卫衣） -->
+        <path d="M34 120 C34 84 49 74 64 74 C79 74 94 84 94 120 Z"
+              fill="url(#bodyGrad)" stroke="#6E7079" stroke-width="2.5" stroke-linejoin="round"/>
+        <!-- 卫衣领口 -->
+        <path d="M50 76 Q64 84 78 76" fill="none" stroke="#6E7079" stroke-width="2"/>
+        <!-- 头盔 -->
+        <path d="M30 50 C30 20 46 9 64 9 C82 9 98 20 98 50 L98 60 C98 68 93 71 85 71 L43 71 C35 71 30 68 30 60 Z"
+              fill="url(#helmetGrad)" stroke="#6E7079" stroke-width="2.5" stroke-linejoin="round"/>
+        <ellipse cx="54" cy="26" rx="18" ry="8" fill="#FFFFFF" opacity="0.4"/>
+        <circle cx="64" cy="12" r="2.6" fill="#6E7079"/>
+        <!-- 橙帽檐 -->
+        <path d="M32 64 Q64 76 96 64 L93 71 Q64 78 35 71 Z" fill="#F4A460" stroke="#C97F3D" stroke-width="1.3" stroke-linejoin="round"/>
+        <!-- 面罩 -->
+        <ellipse cx="64" cy="42" rx="30" ry="20" fill="url(#visorGrad)" stroke="#000" stroke-width="2"/>
+        <!-- 双眼 -->
+        <g filter="url(#softGlow)">
+          <circle cx="53" cy="42" r="6.5" fill="url(#eyeGrad)"/>
+          <circle cx="51" cy="40" r="2" fill="#E6FBFF"/>
+        </g>
+        <g filter="url(#softGlow)">
+          <circle cx="75" cy="42" r="6.5" fill="url(#eyeGrad)"/>
+          <circle cx="73" cy="40" r="2" fill="#E6FBFF"/>
+        </g>
+        <!-- 书 -->
+        <rect x="47" y="92" width="34" height="24" rx="2.5" fill="#8B4513" stroke="#5C2E0C" stroke-width="1.5"/>
+        <line x1="64" y1="93" x2="64" y2="115" stroke="#5C2E0C" stroke-width="1.5"/>
+        <text x="55" y="108" font-size="11" fill="#22D3EE" font-family="monospace" font-weight="bold">&lt;/&gt;</text>
+        <text x="67" y="108" font-size="11" fill="#22D3EE" font-family="monospace" font-weight="bold">&gt;</text>
+        <!-- 手 -->
+        <circle cx="43" cy="102" r="6.5" fill="url(#bodyGrad)" stroke="#6E7079" stroke-width="2"/>
+        <circle cx="85" cy="102" r="6.5" fill="url(#bodyGrad)" stroke="#6E7079" stroke-width="2"/>
+      </symbol>
+
+      <!-- 方案 C：扁平极简（currentColor 跟随主题，仅青眼） -->
+      <symbol id="schemeC" viewBox="0 0 128 128">
+        <path d="M22 60 C22 22 44 10 64 10 C84 10 106 22 106 60 L106 74 C106 84 100 88 90 88 L38 88 C28 88 22 84 22 74 Z"
+              fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/>
+        <ellipse cx="64" cy="54" rx="34" ry="22" fill="none" stroke="currentColor" stroke-width="5"/>
+        <path d="M26 80 Q64 92 102 80" fill="none" stroke="#F4A460" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="50" cy="54" r="7" fill="#22D3EE"/>
+        <circle cx="78" cy="54" r="7" fill="#22D3EE"/>
+      </symbol>
+
+      <!-- 方案 D：霓虹科技（深色头盔 + 青色发光） -->
+      <symbol id="schemeD" viewBox="0 0 128 128">
+        <g filter="url(#neonGlow)">
+          <path d="M22 60 C22 22 44 10 64 10 C84 10 106 22 106 60 L106 74 C106 84 100 88 90 88 L38 88 C28 88 22 84 22 74 Z"
+                fill="#11152B" stroke="#22D3EE" stroke-width="2.5" stroke-linejoin="round"/>
+          <path d="M24 80 Q64 94 104 80" fill="none" stroke="#F4A460" stroke-width="2.5" stroke-linecap="round"/>
+          <!-- 天线 -->
+          <line x1="64" y1="10" x2="64" y2="-2" stroke="#22D3EE" stroke-width="2"/>
+        </g>
+        <ellipse cx="64" cy="54" rx="35" ry="23" fill="#070A12" stroke="#0E7490" stroke-width="1.5"/>
+        <g filter="url(#neonGlow)">
+          <circle cx="50" cy="54" r="8" fill="#22D3EE"/>
+          <circle cx="78" cy="54" r="8" fill="#22D3EE"/>
+          <circle cx="48" cy="52" r="2.6" fill="#E6FBFF"/>
+          <circle cx="76" cy="52" r="2.6" fill="#E6FBFF"/>
+        </g>
+      </symbol>
+
+      <!-- 方案 E：双色线性（浅灰填充 + 描边，清新简约） -->
+      <symbol id="schemeE" viewBox="0 0 128 128">
+        <path d="M22 60 C22 22 44 10 64 10 C84 10 106 22 106 60 L106 74 C106 84 100 88 90 88 L38 88 C28 88 22 84 22 74 Z"
+              fill="#EDEEF1" stroke="#2B2F36" stroke-width="3" stroke-linejoin="round"/>
+        <path d="M24 80 Q64 94 104 80 L101 89 Q64 97 27 89 Z" fill="#F4A460" stroke="#2B2F36" stroke-width="2" stroke-linejoin="round"/>
+        <ellipse cx="64" cy="54" rx="34" ry="22" fill="#FFFFFF" stroke="#2B2F36" stroke-width="3"/>
+        <circle cx="50" cy="54" r="7.5" fill="#22D3EE"/>
+        <circle cx="78" cy="54" r="7.5" fill="#22D3EE"/>
+        <circle cx="47.5" cy="51.5" r="2.2" fill="#fff" opacity="0.7"/>
+        <circle cx="75.5" cy="51.5" r="2.2" fill="#fff" opacity="0.7"/>
+      </symbol>
+    </defs>
+  </svg>
+
+  <!-- ===================== 方案展示 ===================== -->
+
+  <div class="scheme recommended" data-scheme="A">
+    <div class="scheme-head">
+      <div>
+        <div class="scheme-title">A · Q版头像（最还原）</div>
+      </div>
+      <div><span class="tag rec">⭐ 推荐</span> <span class="tag">金属渐变 · 发光眼</span></div>
+    </div>
+    <p class="scheme-desc">忠实还原原图头部：圆顶金属灰头盔 + 橙色帽檐 + 黑色面罩 + 两只青色发光圆眼。圆润可爱、辨识度最高，透明背景在亮/暗主题都清晰。最适合做工具窗口主图标。</p>
+    <div class="preview-block">
+      <div class="big-preview">
+        <div class="big-box checker"><svg width="120" height="120" viewBox="0 0 128 128"><use href="#schemeA"/></svg></div>
+        <span class="caption">透明背景 · 120px</span>
+      </div>
+      <div class="sizes">
+        <div class="size-cell"><div class="frame light-bg"><svg width="32" height="32" viewBox="0 0 128 128"><use href="#schemeA"/></svg></div><span class="caption">浅色 32</span></div>
+        <div class="size-cell"><div class="frame dark-bg"><svg width="32" height="32" viewBox="0 0 128 128"><use href="#schemeA"/></svg></div><span class="caption">深色 32</span></div>
+        <div class="size-cell"><div class="frame toolwin"><svg width="16" height="16" viewBox="0 0 128 128"><use href="#schemeA"/></svg></div><span class="caption">工具栏 16</span></div>
+      </div>
+    </div>
+    <button class="pick" onclick="pick(this)">✓ 选用方案 A</button>
+  </div>
+
+  <div class="scheme" data-scheme="B">
+    <div class="scheme-head">
+      <div><div class="scheme-title">B · 完整吉祥物（头+身体+书）</div></div>
+      <div><span class="tag">完整角色 · 品牌大图</span></div>
+    </div>
+    <p class="scheme-desc">最完整还原原图整体形象：Q版头部 + 灰色卫衣身体 + 两只机械手捧着一本印有 <code>&lt;/&gt;</code> 代码图标的棕色书。信息量最大，适合 README / 启动页 / 品牌大图；做 16px 小图标细节会略挤。</p>
+    <div class="preview-block">
+      <div class="big-preview">
+        <div class="big-box checker"><svg width="120" height="120" viewBox="0 0 128 128"><use href="#schemeB"/></svg></div>
+        <span class="caption">透明背景 · 120px</span>
+      </div>
+      <div class="sizes">
+        <div class="size-cell"><div class="frame light-bg"><svg width="32" height="32" viewBox="0 0 128 128"><use href="#schemeB"/></svg></div><span class="caption">浅色 32</span></div>
+        <div class="size-cell"><div class="frame dark-bg"><svg width="32" height="32" viewBox="0 0 128 128"><use href="#schemeB"/></svg></div><span class="caption">深色 32</span></div>
+        <div class="size-cell"><div class="frame toolwin"><svg width="16" height="16" viewBox="0 0 128 128"><use href="#schemeB"/></svg></div><span class="caption">工具栏 16</span></div>
+      </div>
+    </div>
+    <button class="pick" onclick="pick(this)">✓ 选用方案 B</button>
+  </div>
+
+  <div class="scheme" data-scheme="C">
+    <div class="scheme-head">
+      <div><div class="scheme-title">C · 扁平极简（跟随主题色）</div></div>
+      <div><span class="tag">currentColor · 融入主题</span></div>
+    </div>
+    <p class="scheme-desc">参考其他插件的融入感（你给的 Image #2）：纯线条勾勒机器人轮廓，<strong>描边跟随 IDE 主题色</strong>（浅色主题变深、深色主题变浅），只保留青色眼睛 + 一抹橙色帽檐点睛。最简洁，16px 依然清晰，最「像原生插件」。</p>
+    <div class="preview-block">
+      <div class="big-preview">
+        <div class="big-box checker themed"><svg width="120" height="120" viewBox="0 0 128 128"><use href="#schemeC"/></svg></div>
+        <span class="caption">透明 · 随主题色</span>
+      </div>
+      <div class="sizes">
+        <div class="size-cell"><div class="frame light-bg" style="color:#1f1f24"><svg width="32" height="32" viewBox="0 0 128 128"><use href="#schemeC"/></svg></div><span class="caption">浅色 32</span></div>
+        <div class="size-cell"><div class="frame dark-bg" style="color:#cfd3da"><svg width="32" height="32" viewBox="0 0 128 128"><use href="#schemeC"/></svg></div><span class="caption">深色 32</span></div>
+        <div class="size-cell"><div class="frame toolwin" style="color:#cfd3da"><svg width="16" height="16" viewBox="0 0 128 128"><use href="#schemeC"/></svg></div><span class="caption">工具栏 16</span></div>
+      </div>
+    </div>
+    <button class="pick" onclick="pick(this)">✓ 选用方案 C</button>
+  </div>
+
+  <div class="scheme" data-scheme="D">
+    <div class="scheme-head">
+      <div><div class="scheme-title">D · 霓虹科技（深色发光）</div></div>
+      <div><span class="tag">赛博朋克 · 强科技感</span></div>
+    </div>
+    <p class="scheme-desc">深色头盔 + 青色霓虹描边/发光眼 + 小天线。科技感最强，深色主题下非常炫。代价是浅色主题下存在感偏弱（深色块），且更「重」。</p>
+    <div class="preview-block">
+      <div class="big-preview">
+        <div class="big-box checker"><svg width="120" height="120" viewBox="0 0 128 128"><use href="#schemeD"/></svg></div>
+        <span class="caption">透明背景 · 120px</span>
+      </div>
+      <div class="sizes">
+        <div class="size-cell"><div class="frame light-bg"><svg width="32" height="32" viewBox="0 0 128 128"><use href="#schemeD"/></svg></div><span class="caption">浅色 32</span></div>
+        <div class="size-cell"><div class="frame dark-bg"><svg width="32" height="32" viewBox="0 0 128 128"><use href="#schemeD"/></svg></div><span class="caption">深色 32</span></div>
+        <div class="size-cell"><div class="frame toolwin"><svg width="16" height="16" viewBox="0 0 128 128"><use href="#schemeD"/></svg></div><span class="caption">工具栏 16</span></div>
+      </div>
+    </div>
+    <button class="pick" onclick="pick(this)">✓ 选用方案 D</button>
+  </div>
+
+  <div class="scheme" data-scheme="E">
+    <div class="scheme-head">
+      <div><div class="scheme-title">E · 双色线性（清新简约）</div></div>
+      <div><span class="tag">浅色填充 · 描边卡通风</span></div>
+    </div>
+    <p class="scheme-desc">浅灰头盔 + 白色面罩 + 黑色描边 + 青眼 + 橙帽檐。介于 A（精致）和 C（极简）之间：有填色更醒目，但比 A 轻。清新、现代、卡通感强。</p>
+    <div class="preview-block">
+      <div class="big-preview">
+        <div class="big-box checker"><svg width="120" height="120" viewBox="0 0 128 128"><use href="#schemeE"/></svg></div>
+        <span class="caption">透明背景 · 120px</span>
+      </div>
+      <div class="sizes">
+        <div class="size-cell"><div class="frame light-bg"><svg width="32" height="32" viewBox="0 0 128 128"><use href="#schemeE"/></svg></div><span class="caption">浅色 32</span></div>
+        <div class="size-cell"><div class="frame dark-bg"><svg width="32" height="32" viewBox="0 0 128 128"><use href="#schemeE"/></svg></div><span class="caption">深色 32</span></div>
+        <div class="size-cell"><div class="frame toolwin"><svg width="16" height="16" viewBox="0 0 128 128"><use href="#schemeE"/></svg></div><span class="caption">工具栏 16</span></div>
+      </div>
+    </div>
+    <button class="pick" onclick="pick(this)">✓ 选用方案 E</button>
+  </div>
+
+  <footer>
+    <p><strong>怎么看：</strong> 用顶部按钮切换亮/暗背景；棋盘格区域表示图标是透明背景；「工具栏 16」模拟插件在 IDE 工具窗口的实际小尺寸效果。</p>
+    <p style="margin-top:10px;"><strong>选定后：</strong> 告诉我选哪套（A/B/C/D/E），以及是否要微调（比如换眼睛颜色、去掉天线、调整圆胖度）。我会把它落地到 <code>plugin.xml</code> 工具窗口 + 动作图标，并同步窗口图标。</p>
+  </footer>
+</div>
+
+<script>
+  function setTheme(t) {
+    document.documentElement.classList.toggle('light', t === 'light');
+    document.querySelectorAll('.toolbar .btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+  }
+  function pick(btn) {
+    document.querySelectorAll('.scheme').forEach(s => s.classList.remove('picked'));
+    document.querySelectorAll('.pick').forEach(b => b.classList.remove('picked'));
+    btn.closest('.scheme').classList.add('picked');
+    btn.classList.add('picked');
+    btn.textContent = '✓ 已选用，告诉我即可';
+  }
+</script>
+</body>
+</html>

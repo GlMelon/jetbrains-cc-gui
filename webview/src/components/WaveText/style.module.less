@@ -1,0 +1,23 @@
+/* WaveText 组件样式 - 波浪起伏文字效果 */
+
+.container {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0;
+}
+
+.waveChar {
+  display: inline-block;
+  animation: wave 1.5s ease-in-out infinite;
+}
+
+/* 波浪动画 */
+@keyframes wave {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}

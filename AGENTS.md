@@ -76,9 +76,9 @@
 
 ### 落地指引(本项目)
 
-- 新增**上行 action** 处理:**必须**实现 `handler/core/FrontendActionHandler<T>` 泛型接口(声明 `UpstreamAction`、`payloadType()`、`handle(T, ctx)`),由 `FrontendActionDispatcher` 注册派发。**禁止**向 `MessageDispatcher` 的线性遍历链或 `SettingsHandler.SUPPORTED_TYPES` 这类**字符串数组**里追加条目——那是违反开闭原则的旧路径。
+- 新增**上行 action** 处理:**必须**实现 `handler/core/FrontendActionHandler<T>` 泛型接口(声明 `UpstreamAction`、`payloadType()`、`handle(T, ctx)`),由 `FrontendActionDispatcher` 注册派发——这是**唯一**的上行通道(B3 起旧的 `MessageDispatcher` 字符串派发 / `SettingsHandler.SUPPORTED_TYPES` 数组已完全退役)。新增 action 只走 typed handler,无任何字符串数组分支或线性回退链。
   - **装配机制(本插件无 Spring)**:`FrontendActionDispatcher` 构造器接收 `List<FrontendActionHandler<?>>`,由 `ChatWindowDelegate.initializeHandlers()` 手工 `new` 并注入;Dispatcher 内部按 `handler.action().value()` 建 `LinkedHashMap<String, FrontendActionHandler<?>>` 路由,**重复注册即抛 `IllegalArgumentException`**。新增 typed handler 只需在装配列表加一行,不改分派主体。接口靠 `action()` 返回值声明支持范围,**无独立 `support()` 方法**。
-  - **过渡适配器**:`LegacyMessageHandlerAdapter` 把旧 `MessageHandler.getSupportedTypes()` 的字符串原地适配进 typed 注册表(`SettingsHandler` 经此桥接),**禁止误删**。上行派发规则:typed 通道优先命中即短路,否则回退 `MessageDispatcher` 线性链(`ClaudeChatWindow.handleMessage`)。
+  - **派发规则(无回退)**:`FrontendActionDispatcher` 按 `handler.action().value()` 建 `LinkedHashMap` 路由,命中即处理;未命中由 `ClaudeChatWindow.handleMessage` 记 `LOG.warn("Unknown message type")` 后**丢弃**——**不回退、不兜底**。旧的 `LegacyMessageHandlerAdapter` / `MessageDispatcher` / `BaseMessageHandler` 字符串派发框架已无任何注册项,属待清理死代码,**禁止再向其注册新 handler**。
 - 新增**下行事件**派发:type **必须**使用 `DownstreamEvent` 枚举常量(`.value()`),**禁止**散落字符串字面量(如 `"theme.changed"`、`"language.apply"`);派发**统一**经 `HandlerContext.dispatchEvent(type, payloadJson)`,**禁止**直接 `callJavaScript("window.xxx")`。
 - 新增**领域 handler**:按 `handler/{domain}/` 分目录组织,单一职责,一个 handler 只处理一个领域。
 - 新增**第三方 / 外部能力对接**:用 Adapter 接口 + `support()` 路由 + 配置外置(见总则五)。
