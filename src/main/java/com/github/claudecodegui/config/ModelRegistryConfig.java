@@ -162,7 +162,7 @@ public class ModelRegistryConfig {
     private static String normalizeProvider(String provider) {
         // 委托 ProviderType.fromString 归一(总则五·开闭 / E4,与 CliSessionManager.normalizeInterruptProvider 范式一致),
         // 消除手写 if(PROVIDER_CODEX.equalsIgnoreCase) 分支。fromString: codex→CODEX→"codex", 其余→CLAUDE→"claude"。
-        return ProviderType.fromString(provider).toLowerCase();
+        return ProviderType.fromString(provider).value();
     }
 
     /**

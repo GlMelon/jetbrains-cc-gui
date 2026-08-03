@@ -1681,7 +1681,7 @@ public class CodemossSettingsService {
         JsonObject providersObj = new JsonObject();
 
         for (var entry : policyConfig.providers().entrySet()) {
-            String key = entry.getKey().toLowerCase();
+            String key = entry.getKey().value();
             com.github.claudecodegui.config.ProviderRuntimePolicy policy = entry.getValue();
             JsonObject policyObj = new JsonObject();
             policyObj.addProperty("enabled", policy.enabled());

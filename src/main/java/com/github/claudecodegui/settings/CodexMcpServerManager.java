@@ -2,6 +2,8 @@ package com.github.claudecodegui.settings;
 
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.cli.common.CliConstants;
+import com.github.claudecodegui.mcp.McpCommandRiskEvaluator;
+import com.github.claudecodegui.mcp.McpInstallRejectedException;
 import com.github.claudecodegui.provider.common.DaemonConstants;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.util.PlatformUtils;
@@ -201,6 +203,15 @@ public class CodexMcpServerManager {
         }
 
         String serverId = server.get("id").getAsString();
+
+        // SEC-01 安全闸门:从 command/args 重算 riskLevel,危险则拒绝落盘。
+        // Codex upsert 为整条覆盖(无 merge 语义),故入口重算传入 server 的 serverSpec 即充分。
+        JsonObject serverSpec = (server.has("server") && server.get("server").isJsonObject())
+                ? server.getAsJsonObject("server") : null;
+        if (McpCommandRiskEvaluator.shouldReject(serverSpec)) {
+            throw new McpInstallRejectedException(
+                    "MCP server '" + serverId + "' rejected: " + McpCommandRiskEvaluator.explainRisk(serverSpec));
+        }
 
         // Read current config
         Map<String, Object> config = settingsManager.readConfigToml();

@@ -2,6 +2,8 @@ package com.github.claudecodegui.settings;
 
 import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.common.CommonConstants;
+import com.github.claudecodegui.mcp.McpCommandRiskEvaluator;
+import com.github.claudecodegui.mcp.McpInstallRejectedException;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -220,6 +222,12 @@ public class McpServerManager {
         }
 
         String serverId = server.get("id").getAsString();
+
+        // SEC-01 安全闸门:在写盘 try 之外触发,避免被下方 catch(Exception) 吞后 fallback 写 ~/.codemoss 绕过。
+        // 基于「合并现有 ~/.claude.json 同名 spec 后」的最终 command/args 重算 riskLevel
+        // (UPDATE 只改 args、command 来自旧配置时,入口重算会漏判,故必须 merge 后重算)。
+        enforceRiskGate(serverId, server);
+
         boolean isEnabled = !server.has("enabled") || server.get("enabled").getAsBoolean();
 
         // 1. Try to update ~/.claude.json
@@ -365,6 +373,48 @@ public class McpServerManager {
 
         configWriter.accept(config);
         LOG.info("[McpServerManager] Upserted MCP server in ~/.codemoss/config.json: " + serverId);
+    }
+
+    /**
+     * SEC-01 安全闸门:基于「合并现有 ~/.claude.json 同名 server spec 后」的最终 command/args 重算
+     * riskLevel,危险(unverified-command)则抛 {@link McpInstallRejectedException} 阻止落盘。
+     * <p>在 {@code upsertMcpServer} 写盘 try 之外调用,确保拒绝异常不被内部 catch(Exception) 吞后
+     * fallback 写 ~/.codemoss/config.json 绕过。读现有配置失败时按 best-effort 用传入 spec 判定,
+     * 不阻塞正常安装流程。
+     */
+    private void enforceRiskGate(String serverId, JsonObject incoming) {
+        JsonObject incomingSpec = (incoming.has("server") && incoming.get("server").isJsonObject())
+                ? incoming.getAsJsonObject("server").deepCopy() : new JsonObject();
+
+        JsonObject finalSpec = incomingSpec;
+        try {
+            String homeDir = NodeDetector.resolveHomeForFileOps();
+            File claudeJsonFile = Paths.get(homeDir, ".claude.json").toFile();
+            if (claudeJsonFile.exists()) {
+                try (FileReader reader = new FileReader(claudeJsonFile, StandardCharsets.UTF_8)) {
+                    JsonObject claudeJson = JsonParser.parseReader(reader).getAsJsonObject();
+                    if (claudeJson.has("mcpServers") && claudeJson.get("mcpServers").isJsonObject()) {
+                        JsonObject mcpServers = claudeJson.getAsJsonObject("mcpServers");
+                        if (mcpServers.has(serverId) && mcpServers.get(serverId).isJsonObject()) {
+                            // 与 upsertMcpServer 内部 merge 同语义:现有 spec 为底,incoming 字段覆盖
+                            JsonObject existingSpec = mcpServers.getAsJsonObject(serverId).deepCopy();
+                            for (String key : incomingSpec.keySet()) {
+                                existingSpec.add(key, incomingSpec.get(key));
+                            }
+                            finalSpec = existingSpec;
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            LOG.warn("[McpServerManager] Risk gate could not read existing server, using incoming spec: "
+                    + e.getMessage());
+        }
+
+        if (McpCommandRiskEvaluator.shouldReject(finalSpec)) {
+            throw new McpInstallRejectedException(
+                    "MCP server '" + serverId + "' rejected: " + McpCommandRiskEvaluator.explainRisk(finalSpec));
+        }
     }
 
     /**
