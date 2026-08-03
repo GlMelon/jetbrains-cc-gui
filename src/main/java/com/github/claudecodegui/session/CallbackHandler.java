@@ -1,7 +1,5 @@
 package com.github.claudecodegui.session;
 
-import com.github.claudecodegui.permission.PermissionRequest;
-
 import java.util.List;
 
 /**
@@ -48,15 +46,6 @@ public class CallbackHandler {
     public void notifySessionIdReceived(String sessionId) {
         if (callback != null) {
             callback.onSessionIdReceived(sessionId);
-        }
-    }
-
-    /**
-     * Notify of a permission request.
-     */
-    public void notifyPermissionRequested(PermissionRequest request) {
-        if (callback != null) {
-            callback.onPermissionRequested(request);
         }
     }
 

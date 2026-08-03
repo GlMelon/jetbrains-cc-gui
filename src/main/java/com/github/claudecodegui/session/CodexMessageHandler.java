@@ -214,7 +214,7 @@ public class CodexMessageHandler implements MessageCallback {
         if (wasStreaming) {
             callbackHandler.notifyStreamEnd();
         }
-        callbackHandler.notifyMessageUpdate(state.getMessages());
+        // 项4:删除 notifyStreamEnd 之后冗余的第二次 notifyMessageUpdate(上方已通知,与 Claude onError 对称)。
         resetStreamingAccumulator();
         callbackHandler.notifyQueueDisplayStateChanged(state.getQueueDisplayState(), state.getQueueAheadCount());
         callbackHandler.notifyStateChange(state.isBusy(), state.isLoading(), state.getError());
@@ -579,17 +579,31 @@ public class CodexMessageHandler implements MessageCallback {
      * @since 1.0.0
      */
     private static com.google.gson.JsonObject buildTurnUsage(com.google.gson.JsonObject usage) {
-        int input = usage.has("input_tokens") ? usage.get("input_tokens").getAsInt() : 0;
-        int output = usage.has("output_tokens") ? usage.get("output_tokens").getAsInt() : 0;
-        int cacheRead = usage.has("cache_read_input_tokens")
-                ? usage.get("cache_read_input_tokens").getAsInt()
-                : usage.has("cached_input_tokens") ? usage.get("cached_input_tokens").getAsInt() : 0;
+        // 项2:has() 不够——值为 JsonNull 时 getAsInt() 抛异常被外层 catch 静默吞,整笔 usage 丢失。
+        // 统一用 jsonIntOrZero 守卫(仅 primitive 才取值);cacheRead 保留"缺失 vs 0"语义(fallback 到 cached_input_tokens)。
+        int input = jsonIntOrZero(usage, "input_tokens");
+        int output = jsonIntOrZero(usage, "output_tokens");
+        int cacheRead;
+        if (usage.has("cache_read_input_tokens") && usage.get("cache_read_input_tokens").isJsonPrimitive()) {
+            cacheRead = usage.get("cache_read_input_tokens").getAsInt();
+        } else if (usage.has("cached_input_tokens") && usage.get("cached_input_tokens").isJsonPrimitive()) {
+            cacheRead = usage.get("cached_input_tokens").getAsInt();
+        } else {
+            cacheRead = 0;
+        }
         com.google.gson.JsonObject turnUsage = new com.google.gson.JsonObject();
         turnUsage.addProperty("input_tokens", Math.max(0, input - cacheRead));
         turnUsage.addProperty("cache_creation_input_tokens", 0);
         turnUsage.addProperty("cache_read_input_tokens", cacheRead);
         turnUsage.addProperty("output_tokens", output);
         return turnUsage;
+    }
+
+    /** 项2:安全取 JsonObject 整数字段——has() 不够,JsonNull/非 primitive 的 getAsInt() 会抛异常被吞。 */
+    private static int jsonIntOrZero(com.google.gson.JsonObject obj, String key) {
+        return obj.has(key) && obj.get(key).isJsonPrimitive()
+                ? obj.get(key).getAsInt()
+                : 0;
     }
 
     /**
@@ -620,9 +634,10 @@ public class CodexMessageHandler implements MessageCallback {
             }
 
             com.google.gson.JsonObject totalUsage = info.getAsJsonObject("total_token_usage");
-            int inputTokens = totalUsage.has("input_tokens") ? totalUsage.get("input_tokens").getAsInt() : 0;
-            int outputTokens = totalUsage.has("output_tokens") ? totalUsage.get("output_tokens").getAsInt() : 0;
-            int cachedInputTokens = totalUsage.has("cached_input_tokens") ? totalUsage.get("cached_input_tokens").getAsInt() : 0;
+            // 项2:同 buildTurnUsage,统一 jsonIntOrZero 守卫(JsonNull 不再抛异常吞掉 usage)。
+            int inputTokens = jsonIntOrZero(totalUsage, "input_tokens");
+            int outputTokens = jsonIntOrZero(totalUsage, "output_tokens");
+            int cachedInputTokens = jsonIntOrZero(totalUsage, "cached_input_tokens");
 
             com.google.gson.JsonObject usage = new com.google.gson.JsonObject();
             usage.addProperty("input_tokens", inputTokens);
@@ -1182,6 +1197,12 @@ public class CodexMessageHandler implements MessageCallback {
     }
 
     private void handleBlockReset() {
+        // 项3:block_reset 应在 streaming 期间到达;非 streaming 时收到是乱序残留,清空已显示的
+        // assistantContent/currentAssistantMessage 会破坏当前 turn(对比 Claude handleNewTurnStart 有 isStreaming 守卫)。
+        if (!isStreaming) {
+            LOG.debug("Codex block_reset received while not streaming, ignoring");
+            return;
+        }
         resetThinkingStatus();
         assistantContent.setLength(0);
         currentAssistantMessage = null;

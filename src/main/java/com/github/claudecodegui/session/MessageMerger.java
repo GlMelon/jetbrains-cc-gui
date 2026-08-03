@@ -107,7 +107,7 @@ public class MessageMerger {
                     }
 
                     // Fallback: merge with last same-type block instead of adding duplicate
-                    int lastSameTypeIdx = findLastSameTypeBlockIndex(baseContent, block);
+                    int lastSameTypeIdx = findLastSameTypeBlockIndex(baseContent, block, consumedUnkeyedIndexes);
                     if (lastSameTypeIdx >= 0) {
                         baseContent.set(lastSameTypeIdx,
                                 mergeUnkeyedBlock(baseContent.get(lastSameTypeIdx).getAsJsonObject(), block));
@@ -265,7 +265,8 @@ public class MessageMerger {
         }
     }
 
-    private int findLastSameTypeBlockIndex(JsonArray baseContent, JsonObject incomingBlock) {
+    private int findLastSameTypeBlockIndex(JsonArray baseContent, JsonObject incomingBlock,
+                                           Set<Integer> consumedUnkeyedIndexes) {
         String incomingType = getContentBlockType(incomingBlock);
         if (incomingType == null) {
             return -1;
@@ -282,6 +283,12 @@ public class MessageMerger {
             // Stop scanning if we hit a keyed block (tool_use, tool_result)
             if (getContentBlockKey(existingBlock) != null) {
                 break;
+            }
+            // STREAM-03:跳过已被前序 incoming 块(经 findMatchingUnkeyedBlockIndex)合并占用的同类型块。
+            // 否则当尾段同类块已被占用时,fallback 会把本不相关的新段并入已占用块,经
+            // preferMoreCompleteContent 取较长者,丢较短段内容。跳过后返回 -1,由调用方 baseContent.add 新块。
+            if (consumedUnkeyedIndexes.contains(i)) {
+                continue;
             }
             if (incomingType.equals(getContentBlockType(existingBlock))) {
                 return i;

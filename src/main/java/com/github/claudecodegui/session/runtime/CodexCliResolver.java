@@ -236,6 +236,11 @@ public final class CodexCliResolver {
                 return null;
             }
             return null;
+        } catch (InterruptedException e) {
+            // 项7:waitFor 抛 InterruptedException,原被 catch(Exception ignored) 吞掉丢失中断标志——
+            // 上层无法感知中断。恢复中断标志后返回 null(版本检测中止)。
+            Thread.currentThread().interrupt();
+            return null;
         } catch (Exception ignored) {
             return null;
         }

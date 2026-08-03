@@ -1,8 +1,6 @@
 package com.github.claudecodegui.session;
 
 import com.github.claudecodegui.common.CommonConstants;
-import com.github.claudecodegui.permission.PermissionManager;
-import com.github.claudecodegui.permission.PermissionRequest;
 import com.github.claudecodegui.protocol.CodexHistoryPageMode;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
 import com.github.claudecodegui.provider.codex.CodexSDKBridge;
@@ -50,9 +48,6 @@ public class ClaudeSession {
 
     // Callback facade
     private final SessionCallbackFacade callbackFacade;
-
-    // Permission manager
-    private final PermissionManager permissionManager = new PermissionManager();
 
     // Track when the last turn was started
     private long lastTurnStartedAtMillis;
@@ -128,8 +123,6 @@ public class ClaudeSession {
         }
 
         void onSessionIdReceived(String sessionId);
-
-        void onPermissionRequested(PermissionRequest request);
 
         void onThinkingStatusChanged(boolean isThinking);
 
@@ -231,11 +224,6 @@ public class ClaudeSession {
                     }
                 }
         );
-
-        // Set up permission manager callback
-        permissionManager.setOnPermissionRequestedCallback(request -> {
-            callbackFacade.notifyPermissionRequested(request);
-        });
     }
 
     public void setCallback(SessionCallback callback) {
@@ -647,44 +635,17 @@ public class ClaudeSession {
             LOG.warn("[ClaudeSession] cleanupRuntimeTab during dispose failed: " + e.getMessage());
         }
 
-        // Clear callback reference to break: PermissionManager -> lambda -> callbackFacade -> UI
+        // Clear callback reference to break: callbackFacade -> UI
         callbackFacade.setCallback(null);
-
-        // Clear permission callback to break reference chain
-        permissionManager.setOnPermissionRequestedCallback(null);
 
         state.setChannelId(null);
     }
 
     /**
      * Set the permission mode.
-     * Maps frontend permission mode strings to PermissionManager enum values.
      */
     public void setPermissionMode(String mode) {
         state.setPermissionMode(mode);
-
-        // Sync PermissionManager mode with frontend mode:
-        // - "default" -> DEFAULT (ask every time)
-        // - "acceptEdits"/"autoEdit" -> ACCEPT_EDITS (agent mode, auto-accept file edits)
-        // - "bypassPermissions" -> ALLOW_ALL (auto mode, bypass all permission checks)
-        // - "plan" -> DENY_ALL (plan mode, not yet supported)
-        PermissionManager.PermissionMode pmMode;
-        if (CommonConstants.PERMISSION_MODE_BYPASS.equals(mode)) {
-            pmMode = PermissionManager.PermissionMode.ALLOW_ALL;
-            LOG.info("Permission mode set to ALLOW_ALL for mode: " + mode);
-        } else if (CommonConstants.PERMISSION_MODE_ACCEPT_EDITS.equals(mode) || CommonConstants.PERMISSION_MODE_AUTO_EDIT.equals(mode)) {
-            pmMode = PermissionManager.PermissionMode.ACCEPT_EDITS;
-            LOG.info("Permission mode set to ACCEPT_EDITS for mode: " + mode);
-        } else if (CommonConstants.PERMISSION_MODE_PLAN.equals(mode)) {
-            pmMode = PermissionManager.PermissionMode.DENY_ALL;
-            LOG.info("Permission mode set to DENY_ALL for mode: " + mode);
-        } else {
-            // "default" or other unknown modes
-            pmMode = PermissionManager.PermissionMode.DEFAULT;
-            LOG.info("Permission mode set to DEFAULT for mode: " + mode);
-        }
-
-        permissionManager.setPermissionMode(pmMode);
     }
 
     /**
@@ -781,19 +742,5 @@ public class ClaudeSession {
      */
     public void setCodexServiceTier(String serviceTier) {
         state.setCodexServiceTier(serviceTier);
-    }
-
-    /**
-     * Handle a permission decision.
-     */
-    public void handlePermissionDecision(String channelId, boolean allow, boolean remember, String rejectMessage) {
-        permissionManager.handlePermissionDecision(channelId, allow, remember, rejectMessage);
-    }
-
-    /**
-     * Handle an "always allow" permission decision.
-     */
-    public void handlePermissionDecisionAlways(String channelId, boolean allow) {
-        permissionManager.handlePermissionDecisionAlways(channelId, allow);
     }
 }

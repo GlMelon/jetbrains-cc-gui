@@ -1,6 +1,5 @@
 package com.github.claudecodegui.session;
 
-import com.github.claudecodegui.permission.PermissionRequest;
 import com.intellij.openapi.project.Project;
 
 import java.util.List;
@@ -39,10 +38,6 @@ public class SessionCallbackFacade {
 
     public void notifySessionIdReceived(String sessionId) {
         callbackHandler.notifySessionIdReceived(sessionId);
-    }
-
-    public void notifyPermissionRequested(PermissionRequest request) {
-        callbackHandler.notifyPermissionRequested(request);
     }
 
     public void notifyThinkingStatusChanged(boolean isThinking) {

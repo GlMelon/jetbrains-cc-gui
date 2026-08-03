@@ -29,8 +29,6 @@ import java.util.Optional;
  *   <li>{@link #fromString(String)} —— 历史宽容解析(null/未知 → {@code CLAUDE}),
  *       路由层依赖此默认(见 {@code SessionSendService}/{@code EffectiveRuntimeResolver}/
  *       {@code SettingsHandler}),保留不变。</li>
- *   <li>{@link #toLowerCase()} —— 等价 {@link #value()},保留兼容(已确认无调用方,
- *       未来可移除)。</li>
  * </ul>
  *
  * <p>注:本枚举留在 {@code session.runtime} 包(SSOT 语义不要求物理位置必须在 {@code protocol}
@@ -118,13 +116,5 @@ public enum ProviderType implements ProtocolValue {
             case CommonConstants.PROVIDER_OPENCODE -> OPENCODE;
             default -> CLAUDE;
         };
-    }
-
-    /**
-     * 转换为小写字符串,等价 {@link #value()}。
-     * <p>历史兼容方法(已确认无调用方),保留以防遗漏;新代码请用 {@link #value()}。
-     */
-    public String toLowerCase() {
-        return value;
     }
 }

@@ -1,7 +1,6 @@
 package com.github.claudecodegui.session.runtime;
 
 import com.github.claudecodegui.cli.CliSendRequest;
-import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.cli.CliSessionManager;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.SDKResult;
@@ -38,7 +37,7 @@ public class ClaudeCliSessionRuntime implements SessionRuntime {
 
     @Override
     public void interrupt(String tabId) {
-        cliManager.interrupt(tabId, CommonConstants.PROVIDER_CLAUDE);
+        cliManager.interrupt(tabId, ProviderType.CLAUDE.value());
     }
 
     @Override
@@ -47,13 +46,11 @@ public class ClaudeCliSessionRuntime implements SessionRuntime {
     }
 
     static CliSendRequest toCliSendRequest(SessionRequest req) {
+        // 项8:RuntimeKey 紧凑构造器 normalizeRequired 已强制 tabId 非空非 blank(channelId fallback 是死代码,删除)。
         String tabId = req.key().tabId();
-        if (tabId == null || tabId.isBlank()) {
-            tabId = req.key().channelId();
-        }
         return new CliSendRequest(
                 tabId,
-                CommonConstants.PROVIDER_CLAUDE,
+                ProviderType.CLAUDE.value(),
                 req.message(),
                 req.sessionId(),
                 req.cwd(),

@@ -20,11 +20,11 @@ public final class EffectiveRuntimeResolver {
                 : RuntimePolicyConfig.getDefault();
         ProviderRuntimePolicy providerPolicy = effectivePolicy.of(providerType);
         if (providerPolicy == null || !providerPolicy.enabled()) {
-            throw new IllegalStateException("Provider disabled/unknown: " + providerType.toLowerCase());
+            throw new IllegalStateException("Provider disabled/unknown: " + providerType.value());
         }
         RuntimeType runtimeType = providerPolicy.defaultRuntime();
         if (runtimeType == null || !providerPolicy.supported().contains(runtimeType)) {
-            throw new IllegalStateException("Provider has no valid default runtime: " + providerType.toLowerCase());
+            throw new IllegalStateException("Provider has no valid default runtime: " + providerType.value());
         }
         return new Runtime(providerType, runtimeType);
     }

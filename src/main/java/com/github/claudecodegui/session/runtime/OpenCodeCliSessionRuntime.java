@@ -46,10 +46,8 @@ public class OpenCodeCliSessionRuntime implements SessionRuntime {
     }
 
     static CliSendRequest toCliSendRequest(SessionRequest req) {
+        // 项8:RuntimeKey 紧凑构造器 normalizeRequired 已强制 tabId 非空非 blank(channelId fallback 是死代码,删除)。
         String tabId = req.key().tabId();
-        if (tabId == null || tabId.isBlank()) {
-            tabId = req.key().channelId();
-        }
         return new CliSendRequest(
                 tabId,
                 ProviderType.OPENCODE.value(),

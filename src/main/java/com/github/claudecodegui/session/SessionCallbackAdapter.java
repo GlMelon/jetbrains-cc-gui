@@ -1,7 +1,5 @@
 package com.github.claudecodegui.session;
 
-import com.github.claudecodegui.handler.permission.PermissionActionHandlers;
-import com.github.claudecodegui.permission.PermissionRequest;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.util.GsonHolder;
 import com.github.claudecodegui.util.JsUtils;
@@ -37,7 +35,6 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
 
     private final StreamMessageCoalescer streamCoalescer;
     private final JsTarget jsTarget;
-    private final PermissionActionHandlers permissionHandler;
     private final BooleanSupplier slashCommandsFetchedSupplier;
     private final Runnable streamEndCallback;
     private final StreamDeltaThrottler contentDeltaThrottler;
@@ -69,7 +66,6 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
     public SessionCallbackAdapter(
             StreamMessageCoalescer streamCoalescer,
             JsTarget jsTarget,
-            PermissionActionHandlers permissionHandler,
             BooleanSupplier slashCommandsFetchedSupplier,
             Runnable streamEndCallback,
             BooleanSupplier streamingEnabledSupplier,
@@ -77,7 +73,6 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
     ) {
         this.streamCoalescer = streamCoalescer;
         this.jsTarget = jsTarget;
-        this.permissionHandler = permissionHandler;
         this.slashCommandsFetchedSupplier = slashCommandsFetchedSupplier;
         this.streamEndCallback = streamEndCallback;
         this.contentDeltaThrottler = new StreamDeltaThrottler(
@@ -183,19 +178,6 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
                 return;
             }
             jsTarget.callJavaScript("setSessionId", JsUtils.escapeJs(sessionId));
-        });
-    }
-
-    @Override
-    public void onPermissionRequested(PermissionRequest request) {
-        if (isInactive()) {
-            return;
-        }
-        ApplicationManager.getApplication().invokeLater(() -> {
-            if (isInactive()) {
-                return;
-            }
-            permissionHandler.showPermissionDialog(request);
         });
     }
 
