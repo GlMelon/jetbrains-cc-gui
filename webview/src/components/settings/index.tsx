@@ -40,7 +40,7 @@ import {
 
 import styles from './style.module.less';
 
-const BLOCK_STYLE: React.CSSProperties = { display: 'block' };
+const BLOCK_STYLE: React.CSSProperties = { display: 'block', animation: 'fadeIn 0.2s ease-out' };
 const NONE_STYLE: React.CSSProperties = { display: 'none' };
 
 interface SettingsViewProps {

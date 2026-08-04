@@ -1,4 +1,5 @@
 import {useMemo, useState} from 'react';
+import { motion } from 'motion/react';
 import styles from './style.module.less';
 import { useTranslation } from 'react-i18next';
 
@@ -232,6 +233,22 @@ const SettingsSidebar = ({
                     title={isCollapsed ? label : ''}
                     aria-disabled={isDisabled}
                   >
+                    {currentTab === item.key && (
+                      <motion.div
+                        layoutId="sidebar-active-indicator"
+                        className={styles.sidebarItemActiveBg}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2, ease: 'easeOut' }}
+                        style={{
+                          position: 'absolute',
+                          inset: 0,
+                          borderRadius: 'inherit',
+                          pointerEvents: 'none',
+                        }}
+                      />
+                    )}
                     <SvgIcon name={item.icon} />
                     <span className={styles.sidebarItemText}>{label}</span>
                     {badge !== undefined && (

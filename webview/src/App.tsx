@@ -2,6 +2,7 @@ import { sendAction } from './bridge/typed';
 import { UPSTREAM } from './generated/protocol';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { motion, AnimatePresence } from 'motion/react';
 import HistoryView from './components/history/HistoryView';
 import SettingsView from './components/settings';
 import { preloadSlashCommands, forceRefreshPrompts } from './components/ChatInputBox/providers';
@@ -689,7 +690,16 @@ const App = () => {
         }}
       />
 
-      {currentView === 'settings' ? (
+      <AnimatePresence mode="wait">
+        {currentView === 'settings' ? (
+          <motion.div
+            key="settings"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            style={{ height: '100%' }}
+          >
         <SettingsView
           onClose={() => setCurrentView('chat')}
           initialTab={settingsInitialTab}
@@ -712,7 +722,16 @@ const App = () => {
           onUploadAssistantAvatar={uploadAssistantAvatar}
           onUploadUserAvatar={uploadUserAvatar}
         />
-      ) : currentView === 'chat' ? (
+          </motion.div>
+        ) : currentView === 'chat' ? (
+          <motion.div
+            key="chat"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            style={{ height: '100%' }}
+          >
         <ModelProviderProvider
           value={{
             currentProvider,
@@ -781,7 +800,16 @@ const App = () => {
             onRemoveFromQueue={dequeueMessage}
           />
         </ModelProviderProvider>
+          </motion.div>
       ) : (
+          <motion.div
+            key="history"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            style={{ height: '100%' }}
+          >
         <HistoryView
           historyData={historyData}
           currentProvider={currentProvider}
@@ -795,7 +823,9 @@ const App = () => {
           onUpdateTitle={updateHistoryTitle}
           onConvertToCliSession={convertToCliSession}
         />
+          </motion.div>
       )}
+      </AnimatePresence>
 
       <div id="image-preview-root" />
 

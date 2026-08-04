@@ -1,5 +1,6 @@
 import { memo, useEffect, useState, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { motion, AnimatePresence } from 'motion/react';
 import { getAppViewport } from '../utils/viewport';
 
 interface ScrollControlProps {
@@ -199,29 +200,37 @@ export const ScrollControl = memo(({ containerRef, inputAreaRef }: ScrollControl
   }, [containerRef, inputAreaRef, checkScrollPosition, handleWheel, updatePosition]);
 
   const buttonStyle: React.CSSProperties = { bottom: `${bottomOffset}px` };
-  const svgStyle: React.CSSProperties = { transform: direction === 'up' ? 'rotate(180deg)' : 'none' };
 
   return (
-    <button
-      className={`scroll-control-button ${visible ? 'visible' : ''}`}
-      style={buttonStyle}
-      onClick={handleClick}
-      aria-label={direction === 'up' ? t('chat.backToTop') : t('chat.backToBottom')}
-      title={direction === 'up' ? t('chat.backToTop') : t('chat.backToBottom')}
-    >
-      <svg
-        width="24"
-        height="24"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        style={svgStyle}
-      >
-        <path d="M12 5v14M19 12l-7 7-7-7" />
-      </svg>
-    </button>
+    <AnimatePresence>
+      {visible && (
+        <motion.button
+          className="scroll-control-button visible"
+          style={buttonStyle}
+          onClick={handleClick}
+          aria-label={direction === 'up' ? t('chat.backToTop') : t('chat.backToBottom')}
+          title={direction === 'up' ? t('chat.backToTop') : t('chat.backToBottom')}
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.8 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+        >
+          <motion.svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            animate={{ rotate: direction === 'up' ? 180 : 0 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+          >
+            <path d="M12 5v14M19 12l-7 7-7-7" />
+          </motion.svg>
+        </motion.button>
+      )}
+    </AnimatePresence>
   );
 });

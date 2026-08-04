@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { motion } from 'motion/react';
 import { ChevronDownIcon } from './Icons';
 
 interface CollapsibleTextBlockProps {
@@ -45,10 +46,6 @@ const CollapsibleTextBlock: React.FC<CollapsibleTextBlockProps> = ({ content }) 
     maxHeight: (expanded || !isOverflowing) ? 'none' : `${MAX_HEIGHT}px`,
     overflow: 'hidden',
   };
-  const chevronStyle: React.CSSProperties = {
-    transform: expanded ? 'rotate(180deg)' : 'none',
-    transition: 'transform var(--dur-enter)',
-  };
 
   return (
     <div className={`collapsible-block ${expanded ? 'expanded' : 'collapsed'}`}>
@@ -67,7 +64,12 @@ const CollapsibleTextBlock: React.FC<CollapsibleTextBlockProps> = ({ content }) 
 
       {isOverflowing && (
         <div className="collapse-toggle" onClick={toggleExpand}>
-            <ChevronDownIcon size={16} style={chevronStyle} />
+            <motion.div
+              animate={{ rotate: expanded ? 180 : 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+            >
+              <ChevronDownIcon size={16} />
+            </motion.div>
         </div>
       )}
     </div>

@@ -11,7 +11,7 @@ import OpenCodeProviderSection from '../OpenCodeProviderSection';
 import styles from './style.module.less';
 import { useRovingTabs } from '../../shared/useRovingTabs';
 
-const BLOCK_STYLE: React.CSSProperties = { display: 'block' };
+const BLOCK_STYLE: React.CSSProperties = { display: 'block', animation: 'fadeIn 0.2s ease-out' };
 const NONE_STYLE: React.CSSProperties = { display: 'none' };
 
 type ProviderTab = 'claude' | 'codex' | 'opencode';

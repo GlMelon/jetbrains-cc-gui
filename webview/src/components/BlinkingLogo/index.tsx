@@ -1,15 +1,10 @@
 import { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { motion, AnimatePresence } from 'motion/react';
 import styles from './style.module.less';
 import { AVAILABLE_PROVIDERS } from '../ChatInputBox/types';
 import { ProviderModelIcon } from '../shared/ProviderModelIcon';
 import { CheckIcon } from '../Icons';
-
-/**
- * Animation duration constant for state transitions.
- * Must match the CSS transition duration in style.module.less (0.2s = 200ms).
- */
-const BLINK_ANIMATION_MS = 200;
 
 const ROOT_STYLE: React.CSSProperties = {
   position: 'relative',
@@ -45,22 +40,9 @@ export const BlinkingLogo = ({ provider, modelId, onProviderChange }: BlinkingLo
   const { t } = useTranslation();
   const [animationState, setAnimationState] = useState<'idle' | 'closing' | 'opening'>('idle');
 
-  // Track previous provider/model only to detect changes and trigger the blink
-  // animation. The icon itself renders DIRECTLY from props (always reflects the
-  // current provider) — these refs are NOT a mirrored display state.
-  //
-  // The prior displayProvider/displayModelId mirror synced via a 200ms setTimeout
-  // and could desync from props during a switch: Claude switches round-trip a
-  // MODEL_SELECTION event (plus a longContext re-negotiation), so modelId changes
-  // again inside the closing window, and effect 2's timer (which depended on
-  // [animationState, provider, modelId]) got cleared/reset, leaving the local
-  // state stuck on the previous Codex modelId. That stale 'gpt-5-codex' then won
-  // over providerId='claude' in resolveIconVendor() (modelId has higher priority)
-  // and rendered the OpenAI/Codex icon even after switching to Claude.
   const prevProviderRef = useRef(provider);
   const prevModelIdRef = useRef(modelId);
 
-  // Dropdown state
   const [isOpen, setIsOpen] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
@@ -81,9 +63,9 @@ export const BlinkingLogo = ({ provider, modelId, onProviderChange }: BlinkingLo
     let timer: ReturnType<typeof setTimeout>;
 
     if (animationState === 'closing') {
-      timer = setTimeout(() => setAnimationState('opening'), BLINK_ANIMATION_MS);
+      timer = setTimeout(() => setAnimationState('opening'), 200);
     } else if (animationState === 'opening') {
-      timer = setTimeout(() => setAnimationState('idle'), BLINK_ANIMATION_MS);
+      timer = setTimeout(() => setAnimationState('idle'), 200);
     }
 
     return () => {
@@ -91,7 +73,6 @@ export const BlinkingLogo = ({ provider, modelId, onProviderChange }: BlinkingLo
     };
   }, [animationState]);
 
-  // Click outside handler
   useEffect(() => {
     if (!isOpen) return;
 
@@ -149,13 +130,22 @@ export const BlinkingLogo = ({ provider, modelId, onProviderChange }: BlinkingLo
     cursor: onProviderChange ? 'pointer' : 'default',
   };
 
+  const blinkVariants = {
+    idle: { scaleY: 1, opacity: 1 },
+    closing: { scaleY: 0.05, opacity: 0.3 },
+    opening: { scaleY: 1, opacity: 1 },
+  };
+
   return (
     <div style={ROOT_STYLE}>
-      <div
+      <motion.div
         ref={containerRef}
-        className={`${styles.container} ${styles[animationState]}`}
+        className={styles.container}
         onClick={handleToggle}
         style={logoStyle}
+        variants={blinkVariants}
+        animate={animationState}
+        transition={{ duration: 0.2, ease: 'easeInOut' }}
       >
         <ProviderModelIcon
           providerId={provider}
@@ -163,40 +153,53 @@ export const BlinkingLogo = ({ provider, modelId, onProviderChange }: BlinkingLo
           size={provider === 'codex' ? 64 : 58}
           colored
         />
-      </div>
+      </motion.div>
 
-      {isOpen && (
-        <div
-          ref={dropdownRef}
-          className="selector-dropdown"
-          style={DROPDOWN_STYLE}
-        >
-          {AVAILABLE_PROVIDERS.map((p) => (
-            <div
-              key={p.id}
-              className={`selector-option ${p.id === provider ? 'selected' : ''} ${!p.enabled ? 'disabled' : ''}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleSelect(p.id);
-              }}
-              style={getProviderOptionStyle(!!p.enabled)}
-            >
-              <ProviderModelIcon providerId={p.id} size={16} colored />
-              <span>{getProviderLabel(p.id)}</span>
-              {p.id === provider && (
-                <CheckIcon size={16} className="check-mark" />
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            ref={dropdownRef}
+            className="selector-dropdown"
+            style={DROPDOWN_STYLE}
+            initial={{ opacity: 0, y: -8, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.95 }}
+            transition={{ duration: 0.15, ease: 'easeOut' }}
+          >
+            {AVAILABLE_PROVIDERS.map((p) => (
+              <div
+                key={p.id}
+                className={`selector-option ${p.id === provider ? 'selected' : ''} ${!p.enabled ? 'disabled' : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSelect(p.id);
+                }}
+                style={getProviderOptionStyle(!!p.enabled)}
+              >
+                <ProviderModelIcon providerId={p.id} size={16} colored />
+                <span>{getProviderLabel(p.id)}</span>
+                {p.id === provider && (
+                  <CheckIcon size={16} className="check-mark" />
+                )}
+              </div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Toast notification */}
-      {showToast && (
-        <div className="selector-toast">
-          {toastMessage}
-        </div>
-      )}
+      <AnimatePresence>
+        {showToast && (
+          <motion.div
+            className="selector-toast"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+          >
+            {toastMessage}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

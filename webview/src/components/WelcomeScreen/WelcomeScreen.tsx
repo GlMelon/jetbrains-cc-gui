@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import type { TFunction } from 'i18next';
+import { motion } from 'motion/react';
 
 import { BlinkingLogo } from '../BlinkingLogo';
 import { BlurText } from '../BlurText';
@@ -13,6 +14,8 @@ const ROOT_STYLE: React.CSSProperties = {
   height: '100%',
   color: '#555',
   gap: '16px',
+  position: 'relative',
+  overflow: 'hidden',
 };
 
 const LOGO_WRAPPER_STYLE: React.CSSProperties = { position: 'relative', display: 'inline-block' };
@@ -43,25 +46,51 @@ export const WelcomeScreen = memo(function WelcomeScreen({
 
   return (
     <div style={ROOT_STYLE}>
-      <div style={LOGO_WRAPPER_STYLE}>
-        <BlinkingLogo provider={currentProvider} modelId={currentModelId} onProviderChange={onProviderChange} />
-        <span
-          className="version-tag"
-          role="button"
-          tabIndex={0}
-          style={VERSION_TAG_STYLE}
-          onClick={onVersionClick}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onVersionClick?.(); }}
-        >
-          v{APP_VERSION}
-        </span>
-      </div>
-      <div>
-        <BlurText
-          text={t('chat.sendMessage', { provider: providerLabels[currentProvider] ?? currentProvider })}
-          delay={80}
-          animateBy="words"
-        />
+      {/* Ambient background glow */}
+      <motion.div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          width: '400px',
+          height: '400px',
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, color-mix(in srgb, var(--accent-primary, #4ea1ff) 8%, transparent) 0%, transparent 70%)',
+          filter: 'blur(40px)',
+          pointerEvents: 'none',
+          zIndex: 0,
+        }}
+        animate={{
+          scale: [1, 1.1, 1],
+          opacity: [0.5, 0.8, 0.5],
+        }}
+        transition={{
+          duration: 4,
+          repeat: Infinity,
+          ease: 'easeInOut',
+        }}
+      />
+      {/* Content layer */}
+      <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+        <div style={LOGO_WRAPPER_STYLE}>
+          <BlinkingLogo provider={currentProvider} modelId={currentModelId} onProviderChange={onProviderChange} />
+          <span
+            className="version-tag"
+            role="button"
+            tabIndex={0}
+            style={VERSION_TAG_STYLE}
+            onClick={onVersionClick}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onVersionClick?.(); }}
+          >
+            v{APP_VERSION}
+          </span>
+        </div>
+        <div>
+          <BlurText
+            text={t('chat.sendMessage', { provider: providerLabels[currentProvider] ?? currentProvider })}
+            delay={80}
+            animateBy="words"
+          />
+        </div>
       </div>
     </div>
   );
