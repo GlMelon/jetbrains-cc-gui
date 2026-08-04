@@ -63,6 +63,7 @@
     "marked-highlight": "^2.2.3",
     "marked-katex-extension": "^5.1.10",
     "mermaid": "^11.12.2",
+    "motion": "^12.43.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-i18next": "^16.4.1",
