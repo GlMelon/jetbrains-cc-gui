@@ -178,8 +178,8 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
       />
 
       <div className={styles.table}>
-        {visibleModels.map((model) => (
-          <div key={toKey(model)} className={styles.row}>
+        {visibleModels.map((model, index) => (
+          <div key={toKey(model)} className={styles.row} style={{ animation: 'fadeIn 0.3s ease-out both', animationDelay: `${index * 50}ms` }}>
             <div className={styles.mainCell}>
               <span className={styles.modelId}>{model.actualModel || model.id}</span>
               <span className={styles.provider}>

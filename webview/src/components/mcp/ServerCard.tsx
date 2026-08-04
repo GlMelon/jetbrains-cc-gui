@@ -9,6 +9,7 @@ import type { ServerRefreshState, ServerToolsState, McpTool } from './types';
 import { getServerStatusInfo, getStatusText, getIconColor, getServerInitial, isServerEnabled } from './utils';
 import { ServerToolsPanel, isEmptyToolsResult } from './ServerToolsPanel';
 import { BookIcon, ChevronRightIcon, CopyIcon, EditIcon, HomeIcon, TrashIcon } from '../Icons';
+import { HoverLift } from '../react-bits';
 
 /** 状态 → pill 修饰类(ok/err/warn/muted),用于常驻状态 pill */
 function getStatusPillClass(
@@ -85,6 +86,7 @@ export function ServerCard({
   const toolCount = toolsInfo?.tools?.length;
 
   return (
+    <HoverLift lift={3} shadowIntensity={0.8} duration={200}>
     <div 
       className={`item-card ${isExpanded ? 'expanded' : ''} ${!enabled ? 'disabled' : ''}`}
       style={{ '--stagger-delay': `${animationIndex * 50}ms` } as React.CSSProperties}
@@ -223,6 +225,7 @@ export function ServerCard({
         </div>
       </div>
     </div>
+    </HoverLift>
   );
 }
 

@@ -338,12 +338,12 @@ export default function OpenCodeProviderDialog({
                   {t('settings.openCodeProvider.dialog.fetchModelsSuccess', { count: fetchedModels.length, defaultValue: '已拉取 {{count}} 个模型,点击追加到 JSON' })}
                 </small>
                 <div style={FETCHED_LIST_STYLE}>
-                  {fetchedModels.map((m) => (
+                  {fetchedModels.map((m, index) => (
                     <button
                       key={m}
                       type="button"
                       className="preset-btn"
-                      style={FETCHED_CHIP_STYLE}
+                      style={{ ...FETCHED_CHIP_STYLE, animation: 'fadeIn 0.3s ease-out both', animationDelay: `${index * 50}ms` }}
                       onClick={() => handleAppendModel(m)}
                       title={m}
                     >

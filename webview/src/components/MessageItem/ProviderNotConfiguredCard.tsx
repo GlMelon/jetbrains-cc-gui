@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import type { TFunction } from 'i18next';
 import { SettingsIcon, ArrowRightIcon } from '../Icons';
+import { HoverLift } from '../react-bits';
 
 interface ProviderNotConfiguredCardProps {
   t: TFunction;
@@ -24,6 +25,7 @@ export const ProviderNotConfiguredCard = memo(function ProviderNotConfiguredCard
   onNavigateToSettings,
 }: ProviderNotConfiguredCardProps) {
   return (
+    <HoverLift lift={3} duration={200}>
     <div className="provider-not-configured-card">
       <div className="provider-card-header">
         <span className="provider-card-icon">
@@ -47,5 +49,6 @@ export const ProviderNotConfiguredCard = memo(function ProviderNotConfiguredCard
         </button>
       )}
     </div>
+    </HoverLift>
   );
 });

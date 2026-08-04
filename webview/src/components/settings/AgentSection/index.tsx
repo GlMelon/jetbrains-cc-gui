@@ -94,8 +94,8 @@ export default function AgentSection({
           </div>
         ) : (
           <div className={styles.agentList}>
-            {agents.map((agent) => (
-              <div key={agent.id} className={styles.agentCard}>
+            {agents.map((agent, index) => (
+              <div key={agent.id} className={styles.agentCard} style={{ animation: 'fadeIn 0.3s ease-out both', animationDelay: `${index * 50}ms` }}>
                 <div className={styles.agentIcon}>
                   <RobotIcon size={16} />
                 </div>
