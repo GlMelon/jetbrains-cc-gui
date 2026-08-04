@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-interface SpinLoaderProps {
+export interface SpinLoaderProps {
   /** Diameter of the spinner in px (default: 24) */
   size?: number;
   /** Stroke width in px (default: 2) */
@@ -16,6 +16,11 @@ interface SpinLoaderProps {
   /** Whether the loader is active (default: true) */
   active?: boolean;
 }
+
+const DOT_COUNT = 8;
+const BAR_COUNT = 3;
+
+const makeArray = (n: number) => Array.from({ length: n }, (_, i) => i);
 
 /**
  * SpinLoader - A spinning loader with multiple variants.
@@ -35,12 +40,12 @@ export const SpinLoader = ({
   className = '',
   active = true,
 }: SpinLoaderProps) => {
+  const dots = useMemo(() => makeArray(DOT_COUNT), []);
+  const bars = useMemo(() => makeArray(BAR_COUNT), []);
+
   if (!active) return null;
 
   if (variant === 'dots') {
-    const dotCount = 8;
-    const dots = useMemo(() => Array.from({ length: dotCount }, (_, i) => i), []);
-
     return (
       <div
         className={`spin-loader spin-loader-dots ${className}`}
@@ -53,8 +58,8 @@ export const SpinLoader = ({
         aria-label="Loading"
       >
         {dots.map((i) => {
-          const angle = (i * 360) / dotCount;
-          const delay = i * (duration / dotCount);
+          const angle = (i * 360) / DOT_COUNT;
+          const delay = i * (duration / DOT_COUNT);
           return (
             <span
               key={i}
@@ -69,7 +74,7 @@ export const SpinLoader = ({
                 transform: `rotate(${angle}deg) translateY(-${size * 0.35}px)`,
                 transformOrigin: `0 ${size * 0.35}px`,
                 animation: `spin-dot ${duration}s linear ${delay}s infinite`,
-                opacity: 0.3 + (i / dotCount) * 0.7,
+                opacity: 0.3 + (i / DOT_COUNT) * 0.7,
               }}
             />
           );
@@ -86,9 +91,6 @@ export const SpinLoader = ({
   }
 
   if (variant === 'bars') {
-    const barCount = 3;
-    const bars = useMemo(() => Array.from({ length: barCount }, (_, i) => i), []);
-
     return (
       <div
         className={`spin-loader spin-loader-bars ${className}`}

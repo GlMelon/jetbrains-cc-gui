@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-interface RippleLoaderProps {
+export interface RippleLoaderProps {
   /** Size of the center dot in px (default: 8) */
   size?: number;
   /** Number of ripple rings (default: 3) */

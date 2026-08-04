@@ -1,4 +1,4 @@
-interface OrbitLoaderProps {
+export interface OrbitLoaderProps {
   /** Outer diameter of the loader in px (default: 40) */
   size?: number;
   /** Color of the orbits (default: currentColor) */

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-interface PulseLoaderProps {
+export interface PulseLoaderProps {
   /** Number of dots to display (default: 3) */
   count?: number;
   /** Size of each dot in px (default: 8) */

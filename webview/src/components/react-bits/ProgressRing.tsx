@@ -1,4 +1,4 @@
-interface ProgressRingProps {
+export interface ProgressRingProps {
   /** Diameter of the ring in px (default: 24) */
   size?: number;
   /** Stroke width in px (default: 2) */

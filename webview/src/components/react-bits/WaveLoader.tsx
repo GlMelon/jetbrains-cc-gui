@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-interface WaveLoaderProps {
+export interface WaveLoaderProps {
   /** Number of bars to display (default: 5) */
   count?: number;
   /** Width of each bar in px (default: 3) */

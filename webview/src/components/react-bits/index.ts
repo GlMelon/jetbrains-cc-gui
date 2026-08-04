@@ -6,6 +6,10 @@ export { BounceLoader } from './BounceLoader';
 export { OrbitLoader } from './OrbitLoader';
 export { Skeleton } from './Skeleton';
 export { ProgressRing } from './ProgressRing';
+export { HoverLift } from './HoverLift';
+export { Tilt } from './Tilt';
+export { AnimatedTooltip } from './AnimatedTooltip';
+export { StaggerContainer } from './StaggerContainer';
 
 export type { PulseLoaderProps } from './PulseLoader';
 export type { RippleLoaderProps } from './RippleLoader';
@@ -15,3 +19,7 @@ export type { BounceLoaderProps } from './BounceLoader';
 export type { OrbitLoaderProps } from './OrbitLoader';
 export type { SkeletonProps } from './Skeleton';
 export type { ProgressRingProps } from './ProgressRing';
+export type { HoverLiftProps } from './HoverLift';
+export type { TiltProps } from './Tilt';
+export type { AnimatedTooltipProps } from './AnimatedTooltip';
+export type { StaggerContainerProps } from './StaggerContainer';

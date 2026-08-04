@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-interface SkeletonProps {
+export interface SkeletonProps {
   /** Width of the skeleton (default: '100%') */
   width?: string | number;
   /** Height of the skeleton (default: '16px') */

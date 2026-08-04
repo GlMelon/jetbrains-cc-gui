@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-interface BounceLoaderProps {
+export interface BounceLoaderProps {
   /** Number of dots to display (default: 3) */
   count?: number;
   /** Size of each dot in px (default: 10) */
