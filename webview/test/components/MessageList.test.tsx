@@ -7,7 +7,7 @@ import { bridgeHub } from '../../src/bridge/hub';
 import { DOWNSTREAM } from '../../src/generated/protocol';
 
 // Mock MessageItem to keep this suite focused on list-level paging behaviour.
-vi.mock('./MessageItem', () => ({
+vi.mock('../../src/components/MessageItem', () => ({
   MessageItem: ({
     messageKey,
     message,
@@ -31,11 +31,11 @@ vi.mock('./MessageItem', () => ({
   ),
 }));
 
-vi.mock('./MessageItem/MessageUsageStats', () => ({
+vi.mock('../../src/components/MessageItem/MessageUsageStats', () => ({
   MessageUsageStats: () => <div data-testid="usage-stats">usage</div>,
 }));
 
-vi.mock('./MessageItem/AssistantStreamingFooter', () => ({
+vi.mock('../../src/components/MessageItem/AssistantStreamingFooter', () => ({
   AssistantStreamingFooter: ({
     elapsedMs,
     startedAt,
@@ -53,15 +53,15 @@ vi.mock('./MessageItem/AssistantStreamingFooter', () => ({
   ),
 }));
 
-vi.mock('./WaitingIndicator', () => ({
+vi.mock('../../src/components/WaitingIndicator', () => ({
   default: () => <div data-testid="waiting-indicator">waiting</div>,
 }));
 
-vi.mock('./ContextMenu', () => ({
+vi.mock('../../src/components/ContextMenu', () => ({
   ContextMenu: () => null,
 }));
 
-vi.mock('../hooks/useContextMenu.js', () => ({
+vi.mock('../../src/hooks/useContextMenu.js', () => ({
   useContextMenu: () => ({
     visible: false,
     x: 0,

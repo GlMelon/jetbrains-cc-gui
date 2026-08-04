@@ -1,4 +1,4 @@
-vi.mock('../bridge/typed.js', () => ({
+vi.mock('../../src/bridge/typed.js', () => ({
   sendAction: vi.fn(),
   subscribeEvent: vi.fn(() => () => {}),
 }));

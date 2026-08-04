@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import PermissionDialog, { type PermissionRequest } from '../../src/components/PermissionDialog';
 import { resetLinkifyCapabilities, setLinkifyCapabilities } from '../../src/utils/linkifyCapabilities';
 
-vi.mock('../hooks/useDialogResize', () => ({
+vi.mock('../../src/hooks/useDialogResize', () => ({
   useDialogResize: () => ({
     dialogRef: { current: null },
     dialogHeight: null,

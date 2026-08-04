@@ -9,7 +9,7 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-vi.mock('./shared/ProviderModelIcon', () => ({
+vi.mock('../../src/components/shared/ProviderModelIcon', () => ({
   ProviderModelIcon: ({ providerId }: { providerId?: string }) => (
     <span data-provider-icon={providerId} />
   ),

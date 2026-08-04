@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ClaudeContentBlock } from '../../../src/types';
 import { ContentBlockRenderer } from '../../../src/components/MessageItem/ContentBlockRenderer';
 
-vi.mock('../MarkdownBlock', () => ({
+vi.mock('../../../src/components/MarkdownBlock', () => ({
   default: ({ content }: { content: string }) => <div data-testid="markdown-block">{content}</div>,
 }));
 

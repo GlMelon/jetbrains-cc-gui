@@ -4,7 +4,7 @@ import { HISTORY_EXPORT_FORMAT, UPSTREAM } from '../../src/generated/protocol';
 import type { SuccessfulHistoryExportPayload } from '../../src/utils/historyExport';
 import { downloadExportedFile } from '../../src/utils/exportedFile';
 
-vi.mock('../bridge/typed', () => ({
+vi.mock('../../src/bridge/typed', () => ({
   sendAction: vi.fn(),
 }));
 

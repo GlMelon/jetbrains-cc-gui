@@ -44,15 +44,15 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-vi.mock('../shared/ProviderModelIcon', () => ({
+vi.mock('../../../src/components/shared/ProviderModelIcon', () => ({
   ProviderModelIcon: () => <span data-testid="provider-icon" />,
 }));
 
-vi.mock('../../bridge/typed', () => ({
+vi.mock('../../../src/bridge/typed', () => ({
   sendAction: vi.fn(),
 }));
 
-vi.mock('../../utils/copyUtils', () => ({
+vi.mock('../../../src/utils/copyUtils', () => ({
   copyToClipboard: vi.fn(async () => true),
 }));
 

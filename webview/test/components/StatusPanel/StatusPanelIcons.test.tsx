@@ -15,7 +15,7 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-vi.mock('../../utils/bridge', () => ({
+vi.mock('../../../src/utils/bridge', () => ({
   showEditableDiff: vi.fn(),
   openFile: vi.fn(),
 }));

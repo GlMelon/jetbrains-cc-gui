@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { bridgeHub } from '../../../src/bridge/hub';
+import { bridgeHub } from '../../../src/bridge';
 import { DOWNSTREAM, UPSTREAM } from '../../../src/generated/protocol';
 import { sendAction, subscribeEvent } from '../../../src/bridge/typed';
 

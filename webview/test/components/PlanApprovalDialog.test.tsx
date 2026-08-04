@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import PlanApprovalDialog, { type PlanApprovalRequest } from '../../src/components/PlanApprovalDialog';
 import { resetLinkifyCapabilities, setLinkifyCapabilities } from '../../src/utils/linkifyCapabilities';
 
-vi.mock('../hooks/useDialogResize', () => ({
+vi.mock('../../src/hooks/useDialogResize', () => ({
   useDialogResize: () => ({
     dialogRef: { current: null },
     dialogHeight: null,

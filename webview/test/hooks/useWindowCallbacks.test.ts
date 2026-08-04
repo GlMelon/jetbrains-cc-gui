@@ -6,7 +6,7 @@ import { forceWebviewRepaint } from '../../src/utils/forceWebviewRepaint.js';
 
 // Mock the repaint util so we can assert the session-transition path triggers it
 // without touching the real DOM (there is no #app element under jsdom).
-vi.mock('../utils/forceWebviewRepaint.js', () => ({ forceWebviewRepaint: vi.fn() }));
+vi.mock('../../src/utils/forceWebviewRepaint.js', () => ({ forceWebviewRepaint: vi.fn() }));
 
 /**
  * Integration tests for useWindowCallbacks — verifies the real window callback

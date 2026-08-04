@@ -6,7 +6,7 @@ const bridgeMocks = vi.hoisted(() => ({
   resolveFilePathWithCallback: vi.fn(),
 }));
 
-vi.mock('../utils/bridge', () => ({
+vi.mock('../../src/utils/bridge', () => ({
   resolveFilePathWithCallback: bridgeMocks.resolveFilePathWithCallback,
 }));
 

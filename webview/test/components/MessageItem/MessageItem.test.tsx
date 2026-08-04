@@ -4,11 +4,11 @@ import type { ClaudeContentBlock, ClaudeMessage, ToolResultBlock } from '../../.
 import { extractMarkdownContent } from '../../../src/utils/copyUtils';
 import { MessageItem } from '../../../src/components/MessageItem/MessageItem';
 
-vi.mock('../MarkdownBlock', () => ({
+vi.mock('../../../src/components/MarkdownBlock', () => ({
   default: ({ content }: { content: string }) => <div data-testid="markdown-block">{content}</div>,
 }));
 
-vi.mock('../toolBlocks', () => ({
+vi.mock('../../../src/components/toolBlocks', () => ({
   ReadToolBlock: () => <div data-testid="read-tool-block">read</div>,
   ReadToolGroupBlock: () => <div data-testid="read-tool-group-block">read-group</div>,
   EditToolBlock: () => <div data-testid="edit-tool-block">edit</div>,
@@ -18,7 +18,7 @@ vi.mock('../toolBlocks', () => ({
   SearchToolGroupBlock: () => <div data-testid="search-tool-group-block">search-group</div>,
 }));
 
-vi.mock('./ContentBlockRenderer', () => ({
+vi.mock('../../../src/components/MessageItem/ContentBlockRenderer', () => ({
   ContentBlockRenderer: ({
     block,
     blockIndex,
@@ -41,7 +41,7 @@ vi.mock('./ContentBlockRenderer', () => ({
   ),
 }));
 
-vi.mock('./ProviderNotConfiguredCard', () => ({
+vi.mock('../../../src/components/MessageItem/ProviderNotConfiguredCard', () => ({
   ProviderNotConfiguredCard: () => <div data-testid="provider-not-configured-card">provider-card</div>,
   isProviderNotConfiguredError: () => false,
 }));

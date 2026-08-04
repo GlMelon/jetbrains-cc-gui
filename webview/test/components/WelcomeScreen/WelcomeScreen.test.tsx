@@ -4,15 +4,19 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { WelcomeScreen } from '../../../src/components/WelcomeScreen/WelcomeScreen';
 
-vi.mock('../BlinkingLogo', () => ({
+// 注意:vi.mock 相对路径按测试文件位置(test/)解析,须指向真实源码 src/...,
+// 写成 '../BlinkingLogo' 会落到不存在的 test/components/BlinkingLogo 而静默失效。
+vi.mock('../../../src/components/BlinkingLogo', () => ({
   BlinkingLogo: () => <div data-testid="blinking-logo" />,
 }));
 
-vi.mock('../AnimatedText', () => ({
-  AnimatedText: ({ text }: { text: string }) => <div>{text}</div>,
+// 注意:vi.mock 相对路径按测试文件位置解析,需指向真实源码 src/components/BlurText,
+// 否则不生效(真实 BlurText 会把文字拆成 <span>,致 getByText 整句匹配失败)。
+vi.mock('../../../src/components/BlurText', () => ({
+  BlurText: ({ text }: { text: string }) => <div>{text}</div>,
 }));
 
-vi.mock('../../version/version', () => ({
+vi.mock('../../../src/version/version', () => ({
   APP_VERSION: '0.0.0-test',
 }));
 

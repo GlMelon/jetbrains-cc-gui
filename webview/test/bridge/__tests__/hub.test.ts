@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 // 注意:bridgeHub 为模块单例。测试用 reset()/clear() 在用例间复位状态。
 // 总线语义:透明字符串管道 —— 订阅者收到原始 payloadJson 字符串(逐字节等价于旧 window.xxx(json))。
-import { bridgeHub, installBridge } from '../../../src/bridge/hub';
+import { bridgeHub, installBridge } from '../../../src/bridge';
 import { bridgeState } from '../../../src/bridge/store';
 import {
   registerLegacyAlias,

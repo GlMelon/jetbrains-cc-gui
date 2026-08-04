@@ -5,7 +5,7 @@ import type { Unsubscribe } from '../../src/bridge/types';
 const subscribeEventMock = vi.fn();
 const sendActionMock = vi.fn();
 
-vi.mock('../bridge/typed', () => ({
+vi.mock('../../src/bridge/typed', () => ({
   subscribeEvent: (...args: unknown[]) => subscribeEventMock(...args),
   sendAction: (...args: unknown[]) => sendActionMock(...args),
 }));
