@@ -20,14 +20,14 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-vi.mock('../../utils/modelRegistry', () => ({
+vi.mock('../../../src/utils/modelRegistry', () => ({
   getModelsForProvider: vi.fn(() => mocks.registryModels),
   getModelRegistrySnapshot: vi.fn(() => ({ items: mocks.registryModels })),
   requestModelRegistry: vi.fn(),
   subscribeModelRegistry: vi.fn(() => () => undefined),
 }));
 
-vi.mock('./selectors', () => ({
+vi.mock('../../../src/components/ChatInputBox/selectors', () => ({
   ConfigSelect: () => null,
   ProviderSelect: () => null,
   ModeSelect: () => null,

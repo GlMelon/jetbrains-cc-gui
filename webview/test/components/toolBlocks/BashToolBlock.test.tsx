@@ -8,7 +8,7 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-vi.mock('../../hooks/useIsToolDenied', () => ({
+vi.mock('../../../src/hooks/useIsToolDenied', () => ({
   useIsToolDenied: () => false,
 }));
 

@@ -9,7 +9,7 @@ vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (_key: string, fallback?: string) => fallback ?? _key }),
 }));
 
-vi.mock('../../../bridge/typed', () => ({
+vi.mock('../../../../src/bridge/typed', () => ({
   sendAction: vi.fn(),
   subscribeEvent: vi.fn(() => () => {}),
 }));

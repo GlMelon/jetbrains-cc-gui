@@ -13,7 +13,7 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-vi.mock('../../utils/bridge', () => ({
+vi.mock('../../../src/utils/bridge', () => ({
   openFile: bridgeMocks.openFile,
   resolveFilePathWithCallback: bridgeMocks.resolveFilePathWithCallback,
 }));

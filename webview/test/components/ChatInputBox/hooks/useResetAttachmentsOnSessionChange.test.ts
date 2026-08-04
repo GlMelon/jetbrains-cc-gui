@@ -3,7 +3,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { forceWebviewRepaint } from '../../../../src/utils/forceWebviewRepaint.js';
 import { useResetAttachmentsOnSessionChange } from '../../../../src/components/ChatInputBox/hooks/useResetAttachmentsOnSessionChange.js';
 
-vi.mock('../../../utils/forceWebviewRepaint.js', () => ({ forceWebviewRepaint: vi.fn() }));
+vi.mock('../../../../src/utils/forceWebviewRepaint.js', () => ({ forceWebviewRepaint: vi.fn() }));
 
 describe('useResetAttachmentsOnSessionChange', () => {
   beforeEach(() => {

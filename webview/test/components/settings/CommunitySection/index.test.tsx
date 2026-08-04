@@ -7,7 +7,7 @@ import CommunitySection from '../../../../src/components/settings/CommunitySecti
 // 而非驱动本地第二实例(其 onClose 不写 localStorage,与 AppDialogs 实例叠加成双层)。
 const openChangelogDialog = vi.fn();
 
-vi.mock('../../../contexts/UIStateContext', () => ({
+vi.mock('../../../../src/contexts/UIStateContext', () => ({
   useUIState: () => ({ openChangelogDialog }),
 }));
 

@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProviderSelect } from '../../../../src/components/ChatInputBox/selectors/ProviderSelect';
 
-vi.mock('../../shared/ProviderModelIcon', () => ({
+vi.mock('../../../../src/components/shared/ProviderModelIcon', () => ({
   ProviderModelIcon: () => <span data-testid="provider-icon" />,
 }));
 

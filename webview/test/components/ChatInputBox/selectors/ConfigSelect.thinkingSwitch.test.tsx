@@ -4,7 +4,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { ConfigSelect } from '../../../../src/components/ChatInputBox/selectors/ConfigSelect';
 
-vi.mock('../providers/agentProvider', () => ({
+vi.mock('../../../../src/components/ChatInputBox/providers/agentProvider', () => ({
   CREATE_NEW_AGENT_ID: '__create__',
   EMPTY_STATE_ID: '__empty__',
   agentProvider: vi.fn(async () => []),

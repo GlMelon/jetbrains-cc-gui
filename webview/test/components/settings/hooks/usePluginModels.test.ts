@@ -5,7 +5,7 @@ import { usePluginModels } from '../../../../src/components/settings/hooks/usePl
 
 const sendBridgeEventMock = vi.hoisted(() => vi.fn());
 
-vi.mock('../../../utils/bridge', () => ({
+vi.mock('../../../../src/utils/bridge', () => ({
   sendBridgeEvent: (...args: unknown[]) => sendBridgeEventMock(...args),
 }));
 

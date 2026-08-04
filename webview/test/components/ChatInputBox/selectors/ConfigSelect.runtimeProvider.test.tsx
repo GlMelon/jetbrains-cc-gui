@@ -9,7 +9,7 @@ vi.mock('antd', () => ({
   ),
 }));
 
-vi.mock('../providers/agentProvider', () => ({
+vi.mock('../../../../src/components/ChatInputBox/providers/agentProvider', () => ({
   CREATE_NEW_AGENT_ID: '__create__',
   EMPTY_STATE_ID: '__empty__',
   agentProvider: vi.fn(async () => []),

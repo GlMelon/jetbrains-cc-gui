@@ -5,7 +5,7 @@ import { useConfiguredClaudeModelPricing } from '../../../../src/components/sett
 
 const sendBridgeEventMock = vi.hoisted(() => vi.fn());
 
-vi.mock('../../../utils/bridge', () => ({
+vi.mock('../../../../src/utils/bridge', () => ({
   sendBridgeEvent: (...args: unknown[]) => sendBridgeEventMock(...args),
 }));
 

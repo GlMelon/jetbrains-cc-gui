@@ -11,7 +11,7 @@ const nodeProcessMocks = vi.hoisted(() => ({
   subscribeNodeProcesses: vi.fn(() => vi.fn()),
 }));
 
-vi.mock('../../../utils/nodeProcessCapabilities', () => ({
+vi.mock('../../../../src/utils/nodeProcessCapabilities', () => ({
   ...nodeProcessMocks,
 }));
 

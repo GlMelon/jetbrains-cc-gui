@@ -17,7 +17,7 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-vi.mock('../../../utils/modelRegistry', () => ({
+vi.mock('../../../../src/utils/modelRegistry', () => ({
   getModelsForProvider: vi.fn((provider: string) => provider === 'codex'
     ? [
       { id: 'gpt-5.4', label: 'GPT-5.4', contextWindow: 1_000_000 },

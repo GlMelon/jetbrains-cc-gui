@@ -13,11 +13,11 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-vi.mock('../../bridge/typed', () => ({
+vi.mock('../../../src/bridge/typed', () => ({
   sendAction: (...args: unknown[]) => mockSendAction(...args),
 }));
 
-vi.mock('../../contexts/SubagentContext', () => ({
+vi.mock('../../../src/contexts/SubagentContext', () => ({
   useSubagentHistoryGetter: () => mockGetSubagentHistory,
   useSessionId: () => mockUseSessionId(),
   useGetToolResultRaw: () => mockGetToolResultRaw,

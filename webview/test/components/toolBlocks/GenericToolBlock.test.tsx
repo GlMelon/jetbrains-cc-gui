@@ -12,15 +12,15 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-vi.mock('../../hooks/useIsToolDenied', () => ({
+vi.mock('../../../src/hooks/useIsToolDenied', () => ({
   useIsToolDenied: () => false,
 }));
 
-vi.mock('../../utils/bridge', () => ({
+vi.mock('../../../src/utils/bridge', () => ({
   openFile: vi.fn(),
 }));
 
-vi.mock('../../hooks/useResolvedFileLinkTooltip', () => ({
+vi.mock('../../../src/hooks/useResolvedFileLinkTooltip', () => ({
   useResolvedFileLinkTooltip: hookMocks.useResolvedFileLinkTooltip,
 }));
 

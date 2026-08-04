@@ -37,7 +37,7 @@ const translations: Record<string, string> = {
   'common.delete': 'Delete',
 };
 
-vi.mock('../../../utils/bridge', () => ({
+vi.mock('../../../../src/utils/bridge', () => ({
   sendToJava: vi.fn(),
 }));
 

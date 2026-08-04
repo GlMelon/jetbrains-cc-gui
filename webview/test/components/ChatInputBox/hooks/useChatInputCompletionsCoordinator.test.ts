@@ -11,7 +11,7 @@ const inlineCompletionMock = {
 };
 const debouncedDetectCompletion = vi.fn();
 
-vi.mock('./useCompletionDropdown.js', () => ({
+vi.mock('../../../../src/components/ChatInputBox/hooks/useCompletionDropdown.js', () => ({
   useCompletionDropdown: vi.fn(() => {
     const mock = {
       isOpen: false,
@@ -31,11 +31,11 @@ vi.mock('./useCompletionDropdown.js', () => ({
   }),
 }));
 
-vi.mock('./useInlineHistoryCompletion.js', () => ({
+vi.mock('../../../../src/components/ChatInputBox/hooks/useInlineHistoryCompletion.js', () => ({
   useInlineHistoryCompletion: vi.fn(() => inlineCompletionMock),
 }));
 
-vi.mock('./useCompletionTriggerDetection.js', () => ({
+vi.mock('../../../../src/components/ChatInputBox/hooks/useCompletionTriggerDetection.js', () => ({
   useCompletionTriggerDetection: vi.fn(() => ({
     debouncedDetectCompletion,
   })),

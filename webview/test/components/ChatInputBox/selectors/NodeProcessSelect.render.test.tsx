@@ -13,7 +13,7 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-vi.mock('../../../utils/nodeProcessCapabilities', () => ({
+vi.mock('../../../../src/utils/nodeProcessCapabilities', () => ({
   fetchNodeProcesses: vi.fn(),
   killAllOrphanProcesses: vi.fn(),
   killNodeProcess: vi.fn(),
@@ -22,7 +22,7 @@ vi.mock('../../../utils/nodeProcessCapabilities', () => ({
   subscribeNodeProcessKillResult: vi.fn(() => () => undefined),
 }));
 
-vi.mock('../../../utils/viewport', () => ({
+vi.mock('../../../../src/utils/viewport', () => ({
   getAppViewport: () => ({ left: 0, top: 0, width: 410, height: 700 }),
 }));
 
