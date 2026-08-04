@@ -129,7 +129,7 @@ export const DropdownItem = ({
       wordBreak: 'break-word',
       boxShadow: '0 4px 12px rgba(0, 0, 0, 0.25)',
       pointerEvents: 'none',
-      animation: 'tooltip-fade-in 0.2s forwards'
+      animation: 'tooltip-fade-in var(--dur-enter) forwards'
     };
 
     const arrowStyle: React.CSSProperties = {

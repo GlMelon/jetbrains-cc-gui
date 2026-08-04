@@ -12,7 +12,7 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition: opacity var(--dlg-in) ease, transform var(--dlg-in) ease;
 }
 
 /* Expanded state - no height limit, scrollable */
@@ -70,7 +70,7 @@
   border-radius: 4px;
   cursor: pointer;
   color: var(--text-primary);
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  transition: background-color var(--dur-enter) ease, border-color var(--dur-enter) ease, color var(--dur-enter) ease;
 }
 
 .collapse-toggle-button:hover {
@@ -89,7 +89,7 @@
   border-radius: 4px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-secondary);
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition: opacity var(--dlg-in) ease, transform var(--dlg-in) ease;
 }
 
 .countdown-timer .codicon {
@@ -123,7 +123,7 @@
   color: var(--text-warning);
   font-size: 13px;
   margin: -8px 0 0 0;
-  animation: slideIn 0.3s ease-out;
+  animation: slideIn var(--dlg-in) ease-out;
 }
 
 .timeout-warning-banner .codicon {
@@ -240,7 +240,7 @@
   border-radius: 6px;
   background: var(--bg-elevated);
   cursor: pointer;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color var(--dur-enter) ease, box-shadow var(--dur-enter) ease;
   text-align: left;
   width: 100%;
 }
@@ -353,7 +353,7 @@
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: opacity var(--dur-enter) ease, transform var(--dur-enter) ease;
   white-space: nowrap;
   min-width: 80px;
   display: flex;

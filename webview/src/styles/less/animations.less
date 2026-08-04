@@ -163,10 +163,23 @@
   to { opacity: 0; transform: scale(0.95); }
 }
 
-/* 流式逐字弹出（单字）：scale + 淡入。无光标设计 */
+/* 流式逐字弹出（单字）：增强版 - 淡入 + 位移 + 缩放 + 模糊渐清 */
 @keyframes char-pop {
-  from { opacity: 0; transform: translateY(3px) scale(0.86); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  0% {
+    opacity: 0;
+    transform: translateY(5px) scale(0.75);
+    filter: blur(0.5px);
+  }
+  50% {
+    opacity: 0.8;
+    transform: translateY(-2px) scale(1.04);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
 }
 
 /* 流式段落块弹入:块级(整段)比字符级(char-pop)更克制——不缩放过冲,
@@ -220,5 +233,17 @@
   100% {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+/* 流式光标脉冲动画 - 竖线光标 */
+@keyframes cursor-pulse {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 4px rgba(var(--accent-primary-rgb, 78, 161, 255), 0.5);
+  }
+  50% {
+    opacity: 0.3;
+    box-shadow: 0 0 0 transparent;
   }
 }

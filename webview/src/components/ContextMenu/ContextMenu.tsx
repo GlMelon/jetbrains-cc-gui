@@ -2,6 +2,12 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import './ContextMenu.css';
 
+/**
+ * Exit animation duration in ms.
+ * Must match --dlg-out (0.16s = 160ms) in the CSS variables.
+ */
+const CONTEXT_MENU_EXIT_ANIMATION_MS = 160;
+
 type ContextMenuItem =
   | { separator: true }
   | { separator?: false; label: string; action: () => void; disabled?: boolean };
@@ -37,7 +43,7 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
 
   const handleClose = useCallback(() => {
     setIsExiting(true);
-    setTimeout(() => onCloseRef.current(), 150);
+    setTimeout(() => onCloseRef.current(), CONTEXT_MENU_EXIT_ANIMATION_MS);
   }, []);
 
   // Close on outside click, escape, scroll

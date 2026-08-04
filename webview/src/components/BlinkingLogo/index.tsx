@@ -5,6 +5,12 @@ import { AVAILABLE_PROVIDERS } from '../ChatInputBox/types';
 import { ProviderModelIcon } from '../shared/ProviderModelIcon';
 import { CheckIcon } from '../Icons';
 
+/**
+ * Animation duration constant for state transitions.
+ * Must match the CSS transition duration in style.module.less (0.2s = 200ms).
+ */
+const BLINK_ANIMATION_MS = 200;
+
 const ROOT_STYLE: React.CSSProperties = {
   position: 'relative',
   display: 'inline-flex',
@@ -75,9 +81,9 @@ export const BlinkingLogo = ({ provider, modelId, onProviderChange }: BlinkingLo
     let timer: ReturnType<typeof setTimeout>;
 
     if (animationState === 'closing') {
-      timer = setTimeout(() => setAnimationState('opening'), 200);
+      timer = setTimeout(() => setAnimationState('opening'), BLINK_ANIMATION_MS);
     } else if (animationState === 'opening') {
-      timer = setTimeout(() => setAnimationState('idle'), 200);
+      timer = setTimeout(() => setAnimationState('idle'), BLINK_ANIMATION_MS);
     }
 
     return () => {

@@ -112,7 +112,7 @@ const ICON_BUTTON_STYLE: React.CSSProperties = {
   color: 'var(--text-secondary)',
   cursor: 'pointer',
   flexShrink: 0,
-  transition: 'background-color 0.15s ease, color 0.15s ease',
+  transition: 'background-color var(--dur-hover) ease, color var(--dur-hover) ease',
 };
 
 const ICON_BUTTON_DANGER_STYLE: React.CSSProperties = {

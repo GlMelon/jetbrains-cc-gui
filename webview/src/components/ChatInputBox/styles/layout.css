@@ -10,7 +10,7 @@
   overflow: visible;
   position: relative;
   margin: 0 auto;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color var(--dur-hover) ease, box-shadow var(--dur-hover) ease;
 }
 
 /* Show blue border glow effect on hover */
@@ -61,7 +61,7 @@
   border-radius: 999px;
   background: var(--text-muted);
   opacity: 0.55;
-  transition: opacity 0.15s ease, background-color 0.15s ease;
+  transition: opacity var(--dur-hover) ease, background-color var(--dur-hover) ease;
 }
 
 /* Only highlight when hovering over the resize handle itself or while dragging */
@@ -90,7 +90,7 @@
   border-radius: 2px;
   background: var(--text-muted);
   opacity: 0.0;
-  transition: opacity 0.15s ease;
+  transition: opacity var(--dur-hover) ease;
 }
 
 /* Only show when hovering over the resize handle itself or while dragging */
@@ -118,7 +118,7 @@
   border-right: 2px solid var(--text-muted);
   border-top: 2px solid var(--text-muted);
   opacity: 0.0;
-  transition: opacity 0.15s ease;
+  transition: opacity var(--dur-hover) ease;
 }
 
 /* Only show when hovering over the resize handle itself or while dragging */

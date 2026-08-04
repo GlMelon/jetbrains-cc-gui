@@ -38,7 +38,7 @@
   border-radius: 5px;
   cursor: pointer;
   color: var(--text-secondary);
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition: background-color var(--dur-hover) ease, color var(--dur-hover) ease;
   /* Reset button styles */
   background: transparent;
   border: none;
@@ -86,11 +86,11 @@
 /* StatusPanel toggle button */
 .status-panel-toggle {
   position: relative;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  transition: background-color var(--dur-enter) ease, color var(--dur-enter) ease;
 }
 
 .status-panel-toggle .codicon {
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: transform var(--dlg-in) cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .status-panel-toggle.expanded .codicon {
@@ -146,7 +146,7 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   pointer-events: none;
   opacity: 0;
-  animation: tooltip-fade-in 0.2s forwards;
+  animation: tooltip-fade-in var(--dur-enter) forwards;
 }
 
 .context-item.has-tooltip:hover::before {
@@ -160,7 +160,7 @@
   border-top-color: var(--dropdown-border);
   z-index: 1000;
   opacity: 0;
-  animation: tooltip-fade-in 0.2s forwards;
+  animation: tooltip-fade-in var(--dur-enter) forwards;
 }
 
 /* Tooltip Popup (JS implementation, used to break out of overflow constraints in InputBox) */
@@ -205,7 +205,7 @@
   box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
   /* Override transform */
   transform: translate(0, -100%);
-  animation: tooltip-bar-fade-in 0.2s forwards;
+  animation: tooltip-bar-fade-in var(--dur-enter) forwards;
 }
 
 @keyframes tooltip-bar-fade-in {
@@ -229,7 +229,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: opacity 0.15s;
+  transition: opacity var(--dur-hover);
 }
 
 .context-close:hover {
@@ -266,7 +266,7 @@ button.context-file-placeholder {
   color: var(--text-secondary);
   background: transparent;
   cursor: pointer;
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, opacity 0.2s ease;
+  transition: background-color var(--dur-enter) ease, border-color var(--dur-enter) ease, color var(--dur-enter) ease, opacity var(--dur-enter) ease;
   opacity: 0.7;
   outline: none;
 }
@@ -312,7 +312,7 @@ button.context-file-placeholder:focus-visible {
   border-radius: 8px;
   padding: 12px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
-  animation: popover-fade-in 0.15s ease-out;
+  animation: popover-fade-in var(--dur-hover) ease-out;
 }
 
 .file-context-confirm-popover::before {
@@ -359,7 +359,7 @@ button.context-file-placeholder:focus-visible {
   font-size: 12px;
   cursor: pointer;
   border: 1px solid var(--input-border);
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  transition: background-color var(--dur-hover) ease, border-color var(--dur-hover) ease, color var(--dur-hover) ease;
 }
 
 .popover-btn-cancel {

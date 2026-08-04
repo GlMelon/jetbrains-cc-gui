@@ -12,7 +12,7 @@
     border-radius: 50%;
   color: var(--orange, #f5a623);
   cursor: pointer;
-    transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: background-color var(--dur-enter) cubic-bezier(0.4, 0, 0.2, 1), border-color var(--dur-enter) cubic-bezier(0.4, 0, 0.2, 1), color var(--dur-enter) cubic-bezier(0.4, 0, 0.2, 1), transform var(--dur-enter) cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .enhance-prompt-button:hover:not(:disabled) {
@@ -58,7 +58,7 @@
   align-items: center;
   justify-content: center;
   z-index: 2000;
-  animation: fadeIn 0.2s ease-out;
+  animation: fadeIn var(--dur-enter) ease-out;
 }
 
 /* fadeIn 统一定义见 animations.less（已由 app.less 全局 @import） */
@@ -72,7 +72,7 @@
   max-height: 80vh;
   display: flex;
   flex-direction: column;
-  animation: slideUp 0.2s ease-out;
+  animation: slideUp var(--dur-enter) ease-out;
 }
 
 @keyframes slideUp {
@@ -123,7 +123,7 @@
   border-radius: 4px;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: background-color 0.15s, color 0.15s;
+  transition: background-color var(--dur-hover), color var(--dur-hover);
 }
 
 .prompt-enhancer-close:hover {
@@ -263,7 +263,7 @@
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition: background-color var(--dur-hover) ease, color var(--dur-hover) ease;
 }
 
 .prompt-enhancer-btn:disabled {

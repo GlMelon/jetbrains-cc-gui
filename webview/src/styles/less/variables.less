@@ -48,6 +48,7 @@
     --accent-primary: #007fd4;
     --accent-primary-hover: #026ec1;
     --accent-primary-active: #0060a0;
+    --accent-primary-rgb: 0, 127, 212;  /* RGB 格式，用于 rgba() */
     --accent-secondary: #4a90e2;
 
     /* 状态色 */
@@ -324,14 +325,15 @@
     --dur-fold: 0.26s;        /* 折叠展开：grid-rows / accordion */
     --dlg-in: 0.32s;          /* 弹窗进入 */
     --dlg-out: 0.16s;         /* 弹窗退出 */
-    --dur-char: 0.14s;        /* 流式逐字弹出单字时长 */
+    --dur-char: 0.2s;         /* 流式逐字弹出单字时长 - 延长以增强视觉效果 */
     --dur-fast: 0.1s;         /* 最快速:遮罩淡入 / 瞬态过渡 */
+    --dur-toast: 1.5s;        /* Toast 提示显示/消失 */
 
     /* 缓动函数 */
     --ease-out: cubic-bezier(0, 0, 0.2, 1);
     --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
     --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);   /* 同 ease-standard，语义别名：状态/颜色平滑 */
-    --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);   /* 弹性过冲：进入 / 出现 / 逐字弹出 */
+    --ease-pop: cubic-bezier(0.34, 1.6, 0.64, 1);    /* 弹性过冲：进入 / 出现 / 逐字弹出 - 增强过冲效果 */
 }
 
 /* 亮色主题 */
@@ -381,6 +383,7 @@
     --accent-primary: #0078d4;
     --accent-primary-hover: #106ebe;
     --accent-primary-active: #005a9e;
+    --accent-primary-rgb: 0, 120, 212;  /* RGB 格式，用于 rgba() */
     --accent-secondary: #2b88d8;
 
     /* 状态色 */

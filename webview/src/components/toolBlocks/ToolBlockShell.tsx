@@ -1,5 +1,14 @@
 import { type ReactNode, useState, useEffect, useRef } from 'react';
 
+/**
+ * Animation duration constants for tool block state transitions.
+ * These must match the CSS animation durations in tools.less:
+ * - tool-complete-pulse: 0.4s (400ms)
+ * - tool-error-shake: 0.5s (500ms)
+ */
+const TOOL_COMPLETE_ANIMATION_MS = 400;
+const TOOL_ERROR_ANIMATION_MS = 500;
+
 interface ToolBlockShellProps {
   /** 是否展开 */
   expanded: boolean;
@@ -54,7 +63,7 @@ export function ToolBlockShell({
     // 完成动画：pending → completed
     if (!prevCompletedRef.current && isCompleted && !isError) {
       setAnimPhase('completing');
-      const timer = setTimeout(() => setAnimPhase('idle'), 400);
+      const timer = setTimeout(() => setAnimPhase('idle'), TOOL_COMPLETE_ANIMATION_MS);
       prevCompletedRef.current = isCompleted;
       return () => clearTimeout(timer);
     }
@@ -62,7 +71,7 @@ export function ToolBlockShell({
     // 错误动画：任何 → error
     if (!prevErrorRef.current && isError) {
       setAnimPhase('erroring');
-      const timer = setTimeout(() => setAnimPhase('idle'), 500);
+      const timer = setTimeout(() => setAnimPhase('idle'), TOOL_ERROR_ANIMATION_MS);
       prevErrorRef.current = isError;
       return () => clearTimeout(timer);
     }

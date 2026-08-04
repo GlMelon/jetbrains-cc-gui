@@ -583,6 +583,22 @@
     line-height: 1.75;
     word-wrap: break-word;
     overflow-wrap: break-word;
+    position: relative;
+}
+
+/* 流式光标 - 竖线设计，增强流畅感 */
+.markdown-streaming::after {
+    content: '';
+    display: inline-block;
+    width: 2px;
+    height: 1.1em;
+    background: var(--accent-primary, #4ea1ff);
+    margin-left: 2px;
+    vertical-align: text-bottom;
+    animation: cursor-pulse 1s ease-in-out infinite;
+    border-radius: 1px;
+    position: relative;
+    top: 2px;
 }
 
 .markdown-streaming .md-char {

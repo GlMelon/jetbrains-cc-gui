@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { CloseIcon } from './Icons';
 
 export interface ToastAction {
@@ -20,20 +20,61 @@ interface ToastProps {
   animationIndex?: number;
 }
 
+/**
+ * Toast exit animation duration (ms).
+ * Must match --dlg-out in variables.less (0.16s = 160ms).
+ * We use 200ms as a safe buffer to ensure CSS animation completes before DOM removal.
+ */
+const TOAST_EXIT_ANIMATION_MS = 200;
+
 const Toast: React.FC<ToastProps> = ({ message, onDismiss, duration = 1000, animationIndex = 0 }) => {
   const [isExiting, setIsExiting] = useState(false);
+  const toastRef = useRef<HTMLDivElement>(null);
+  // setTimeout 在浏览器/webview 返回 number;用 ReturnType 推断避免引入 NodeJS 类型
+  const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Stable dismiss handler - triggers exit animation, then calls onDismiss after animation completes
+  const handleDismiss = useCallback(() => {
+    if (isExiting) return; // Prevent double dismiss
+    setIsExiting(true);
+    exitTimerRef.current = setTimeout(() => {
+      onDismiss(message.id);
+    }, TOAST_EXIT_ANIMATION_MS);
+  }, [isExiting, message.id, onDismiss]);
+
+  // Auto-dismiss timer
   useEffect(() => {
     const timer = setTimeout(() => {
-      setIsExiting(true);
-      setTimeout(() => onDismiss(message.id), 300); // Wait for exit animation
+      handleDismiss();
     }, duration);
 
-    return () => clearTimeout(timer);
-  }, [message.id, duration, onDismiss]);
+    return () => {
+      clearTimeout(timer);
+      if (exitTimerRef.current) {
+        clearTimeout(exitTimerRef.current);
+      }
+    };
+  }, [message.id, duration, handleDismiss]);
+
+  // Alternative: Use animationend event for more precise timing
+  // Uncomment below and remove setTimeout above if you prefer event-driven approach
+  /*
+  useEffect(() => {
+    const el = toastRef.current;
+    if (!el || !isExiting) return;
+
+    const handleAnimationEnd = () => {
+      onDismiss(message.id);
+    };
+
+    el.addEventListener('animationend', handleAnimationEnd, { once: true });
+    return () => el.removeEventListener('animationend', handleAnimationEnd);
+  }, [isExiting, message.id, onDismiss]);
+  */
 
   return (
     <div 
+      ref={toastRef}
       className={`toast toast-${message.type || 'info'} ${isExiting ? 'toast-exit' : ''}`}
       style={{ '--stagger-delay': `${animationIndex * 50}ms` } as React.CSSProperties}
     >
@@ -44,8 +85,7 @@ const Toast: React.FC<ToastProps> = ({ message, onDismiss, duration = 1000, anim
             className="toast-action"
             onClick={() => {
               message.action?.onClick();
-              setIsExiting(true);
-              setTimeout(() => onDismiss(message.id), 300);
+              handleDismiss();
             }}
           >
             {message.action.label}
@@ -53,10 +93,7 @@ const Toast: React.FC<ToastProps> = ({ message, onDismiss, duration = 1000, anim
         )}
         <button
           className="toast-close"
-          onClick={() => {
-            setIsExiting(true);
-            setTimeout(() => onDismiss(message.id), 300);
-          }}
+          onClick={handleDismiss}
         >
           <CloseIcon size={16} />
         </button>

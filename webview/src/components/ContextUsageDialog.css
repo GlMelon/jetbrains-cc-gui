@@ -11,7 +11,7 @@
   align-items: center;
   justify-content: center;
   z-index: 1200;
-  animation: fadeIn 0.2s ease-out;
+  animation: fadeIn var(--dur-enter) ease-out;
 }
 
 .context-usage-dialog {
@@ -23,7 +23,7 @@
   max-width: 560px;
   max-height: 80vh;
   overflow-y: auto;
-  animation: context-slide-in 0.2s ease-out;
+  animation: context-slide-in var(--dur-enter) ease-out;
 }
 
 .context-usage-header {
@@ -107,7 +107,7 @@
   height: 20px;
   border-radius: 3px;
   cursor: pointer;
-  transition: transform 0.1s;
+  transition: transform var(--dur-fast);
 }
 
 .context-usage-grid-cell:hover {

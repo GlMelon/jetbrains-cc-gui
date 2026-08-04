@@ -57,7 +57,7 @@
   height: 3px;
   background: var(--border-secondary);
   border-radius: 2px;
-  transition: background-color 0.15s;
+  transition: background-color var(--dur-hover);
 }
 
 .plan-approval-resize-handle:hover::after {
@@ -142,7 +142,7 @@
   background: var(--bg-elevated);
   color: var(--text-primary);
   cursor: pointer;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  transition: background-color var(--dur-enter) ease, color var(--dur-enter) ease;
 }
 
 .collapse-button:hover,
@@ -267,9 +267,8 @@
   border-radius: 6px;
   background: var(--plan-card-bg);
   cursor: pointer;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  transition: background-color var(--dur-enter) ease, color var(--dur-enter) ease;
   text-align: left;
-  width: 100%;
 }
 
 .mode-option:hover {

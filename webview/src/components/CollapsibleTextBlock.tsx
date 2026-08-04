@@ -47,7 +47,7 @@ const CollapsibleTextBlock: React.FC<CollapsibleTextBlockProps> = ({ content }) 
   };
   const chevronStyle: React.CSSProperties = {
     transform: expanded ? 'rotate(180deg)' : 'none',
-    transition: 'transform 0.2s',
+    transition: 'transform var(--dur-enter)',
   };
 
   return (

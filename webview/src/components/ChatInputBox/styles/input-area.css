@@ -1,6 +1,19 @@
 /* ============================================================
    Input Area
    ============================================================ */
+
+/* Tooltip fade-in animation for code snippet tags */
+@keyframes input-tooltip-fade-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
 .input-editable-wrapper {
   position: relative;
   padding: 6px 8px;
@@ -56,7 +69,7 @@
   font-size: 14px;
   display: flex;
   align-items: center;
-  transition: opacity 0.2s;
+  transition: opacity var(--dur-enter);
 }
 
 .code-snippet-close:hover {
@@ -88,7 +101,7 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   pointer-events: none;
   opacity: 0;
-  animation: tooltip-fade-in 0.2s forwards;
+  animation: input-tooltip-fade-in var(--dur-enter) forwards;
 }
 
 .code-snippet-tag.has-tooltip:hover::before {
@@ -102,7 +115,7 @@
   border-top-color: var(--dropdown-border);
   z-index: 1000;
   opacity: 0;
-  animation: tooltip-fade-in 0.2s forwards;
+  animation: input-tooltip-fade-in var(--dur-enter) forwards;
 }
 
 /* Tooltip for tool buttons (rewind, enhance prompt, etc.) is rendered via the

@@ -153,11 +153,11 @@
   box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.15);
   overflow: hidden;
   z-index: 100;
-  animation: popover-slide-up 0.15s ease-out;
+  animation: popover-slide-up var(--dur-hover) ease-out;
 }
 
 .status-panel-popover-exit {
-  animation: popover-slide-down 0.15s ease-in forwards;
+  animation: popover-slide-down var(--dur-hover) ease-in forwards;
 }
 
 @keyframes popover-slide-up {
@@ -933,7 +933,7 @@
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  animation: fade-in 0.15s ease-out;
+  animation: fade-in var(--dur-hover) ease-out;
 }
 
 @keyframes fade-in {
@@ -952,7 +952,7 @@
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   width: 90%;
   max-width: 400px;
-  animation: dialog-slide-up 0.2s ease-out;
+  animation: dialog-slide-up var(--dur-enter) ease-out;
 }
 
 @keyframes dialog-slide-up {

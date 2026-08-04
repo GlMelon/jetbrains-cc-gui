@@ -77,7 +77,7 @@
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition: opacity 0.15s;
+  transition: opacity var(--dur-hover);
   font-size: 10px;
 }
 
