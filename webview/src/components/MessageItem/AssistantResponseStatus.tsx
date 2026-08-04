@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import type { AssistantResponseStatusPayload } from '../../types';
+import { SpinLoader } from '../react-bits';
 
 interface AssistantResponseStatusProps {
   payload?: AssistantResponseStatusPayload;
@@ -29,7 +30,7 @@ export function AssistantResponseStatus({ payload }: AssistantResponseStatusProp
       aria-live="polite"
     >
       {isActive ? (
-        <span className="ars-spinner" aria-hidden="true" />
+        <SpinLoader size={14} variant="ring" duration={0.7} />
       ) : (
         <span className="ars-icon" aria-hidden="true">
           {isError ? '✕' : '✓'}

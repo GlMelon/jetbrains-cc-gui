@@ -1,4 +1,5 @@
 import { type ReactNode, useState, useEffect, useRef } from 'react';
+import { ProgressRing } from '../react-bits';
 
 /**
  * Animation duration constants for tool block state transitions.
@@ -127,5 +128,10 @@ interface StatusIndicatorProps {
 
 function StatusIndicator({ isError, isCompleted }: StatusIndicatorProps) {
   const statusClass = isError ? 'error' : isCompleted ? 'completed' : 'pending';
+  
+  if (!isError && !isCompleted) {
+    return <ProgressRing size={12} strokeWidth={2} duration={0.85} className={`tool-status-indicator ${statusClass}`} />;
+  }
+  
   return <div className={`tool-status-indicator ${statusClass}`} />;
 }

@@ -10,6 +10,7 @@ import { HistoryListItem } from './HistoryListItem';
 import { HistoryFilters } from './HistoryFilters';
 import { HistoryActions } from './HistoryActions';
 import ConfirmDialog from '../ConfirmDialog';
+import { OrbitLoader } from '../react-bits';
 
 // Deep search timeout (milliseconds)
 const DEEP_SEARCH_TIMEOUT_MS = 30000;
@@ -23,16 +24,6 @@ const ROOT_STYLE: React.CSSProperties = {
 const LIST_WRAPPER_STYLE: React.CSSProperties = {
   flex: 1,
   overflow: 'hidden',
-};
-
-const SPINNER_STYLE: React.CSSProperties = {
-  width: '48px',
-  height: '48px',
-  margin: '0 auto 16px',
-  border: '4px solid rgba(133, 133, 133, 0.2)',
-  borderTop: '4px solid #858585',
-  borderRadius: '50%',
-  animation: 'spin 1s linear infinite',
 };
 
 const CENTER_BLOCK_STYLE: React.CSSProperties = {
@@ -432,7 +423,9 @@ const HistoryView = ({ historyData, currentProvider, currentSessionId, onLoadSes
     return (
       <div className="messages-container" style={CENTER_BLOCK_STYLE}>
         <div style={EMPTY_TEXT_STYLE}>
-          <div style={SPINNER_STYLE}></div>
+          <div style={{ margin: '0 auto 16px' }}>
+            <OrbitLoader size={48} duration={1} />
+          </div>
           <div>{t('history.loading')}</div>
         </div>
       </div>

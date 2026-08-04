@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 import type { TFunction } from 'i18next';
 
 import { formatLiveElapsedMs, useLiveElapsedMs } from './useLiveElapsedMs';
+import { PulseLoader } from '../react-bits';
 
 interface AssistantStreamingFooterProps {
   elapsedMs?: number;
@@ -16,11 +17,7 @@ export function AssistantStreamingFooter({ elapsedMs, startedAt, t }: AssistantS
   return (
     <div className="assistant-streaming-footer" role="status" aria-live="polite">
       <span className="assistant-streaming-footer-main">
-        <span className="assistant-streaming-footer-dots" aria-hidden="true">
-          <span />
-          <span />
-          <span />
-        </span>
+        <PulseLoader count={3} size={4} duration={1.2} />
         <span className="assistant-streaming-footer-label">{t('chat.streamingResponse')}</span>
       </span>
       {elapsedLabel ? (

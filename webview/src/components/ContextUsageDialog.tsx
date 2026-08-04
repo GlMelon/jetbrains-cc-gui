@@ -2,6 +2,7 @@ import { useEffect, useRef, useMemo, useCallback, useId, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import './ContextUsageDialog.css';
 import { clampUsagePercentage } from '../utils/usagePercentage';
+import { SpinLoader } from './react-bits';
 
 export interface ContextUsageData {
   categories: Array<{
@@ -246,7 +247,7 @@ const ContextUsageDialog = memo(function ContextUsageDialog({
             </button>
           </div>
           <div className="context-usage-loading-body">
-            <div className="context-usage-spinner" />
+            <SpinLoader size={32} strokeWidth={3} duration={1} />
             <span id={descriptionId} className="context-usage-loading-text">
               {t('contextUsage.loading', { defaultValue: 'Loading context usage...' })}
             </span>

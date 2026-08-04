@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { WaveText } from './WaveText';
+import { RippleLoader } from './react-bits';
 
 interface WaitingIndicatorProps {
   queueAheadCount?: number;
@@ -64,7 +65,7 @@ export const WaitingIndicator = ({
   return (
     <div className={containerClass}>
       <div className={`generating-strip queued ${contentClass}`}>
-        <div className="gen-orb" />
+        <RippleLoader size={8} ripples={2} duration={2} />
         <span className="gen-text">
           <WaveText
             text={t('chat.queueWaiting', { count: queueAheadCount })}
