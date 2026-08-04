@@ -97,40 +97,6 @@
     );
 }
 
-/* ── 光球（排队中使用） ── */
-
-.gen-orb {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: currentColor;
-    position: relative;
-    z-index: 1;
-    animation: orb-pulse 2s ease-in-out infinite;
-    will-change: transform, opacity;
-}
-
-.gen-orb::before {
-    content: '';
-    position: absolute;
-    inset: -3px;
-    border-radius: 50%;
-    border: 1.5px solid currentColor;
-    animation: orb-ring 2s ease-out infinite;
-    opacity: 0;
-    will-change: transform, opacity;
-}
-
-@keyframes orb-pulse {
-    0%, 100% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(0.75); opacity: 0.5; }
-}
-
-@keyframes orb-ring {
-    0% { transform: scale(1); opacity: 0.5; }
-    100% { transform: scale(2.8); opacity: 0; }
-}
-
 /* ── 文字 ── */
 
 .gen-text {
@@ -138,55 +104,6 @@
     z-index: 1;
     font-weight: 500;
     letter-spacing: 0.2px;
-}
-
-/* ── 旧样式兼容（等待移除） ── */
-
-.waiting-text {
-    font-size: 14px;
-    color: var(--vscode-descriptionForeground, #858585);
-    letter-spacing: 1px;
-}
-
-.waiting-dots {
-    display: inline-block;
-    min-width: 2em;
-    text-align: left;
-}
-
-.waiting-spinner {
-    display: inline-block;
-    position: relative;
-    flex-shrink: 0;
-}
-
-.waiting-spinner::before,
-.waiting-spinner::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    border: 2px solid transparent;
-    border-top-color: #b0b0b0;
-    transform: translate(-50%, -50%);
-    animation: waiting-spin 1s linear infinite;
-    will-change: transform;
-}
-
-.waiting-spinner::after {
-    width: 60%;
-    height: 60%;
-    border-top-color: #707070;
-    animation-duration: 0.8s;
-    animation-direction: reverse;
-}
-
-@keyframes waiting-spin {
-    0% { transform: translate(-50%, -50%) rotate(0deg); }
-    100% { transform: translate(-50%, -50%) rotate(360deg); }
 }
 
 /* ══════════════════════════════════════════════ */
@@ -229,5 +146,5 @@
 }
 
 /* prefers-reduced-motion 由 base.less 全局收口（H7）：
-   .queue-pill-enter / .waiting-indicator-exit 过渡时长归 0.01ms，
-   .gen-orb / .generating-strip::before 持续动画退化为静态（含 opacity 静态替代）。 */
+    .queue-pill-enter / .waiting-indicator-exit 过渡时长归 0.01ms，
+    .generating-strip::before 持续动画退化为静态。 */

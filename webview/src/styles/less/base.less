@@ -148,23 +148,8 @@ html {
 
     /* 持续运行类动画：退化为静态，避免无限重绘与视觉扰动
        （* 选择器只把时长压到 0.01ms，这里进一步完全取消动画） */
-    .ars-spinner,
-    .gen-orb,
-    .gen-orb::before,
-    .generating-strip::before,
-    .waiting-spinner::before,
-    .waiting-spinner::after {
+    .generating-strip::before {
         animation: none !important;
-    }
-
-    /* 静态替代：补全 spinner 圆环顶部颜色，避免出现视觉缺口 */
-    .ars-spinner {
-        border-top-color: currentColor !important;
-    }
-
-    /* 静态替代：维持光球半透明，保留视觉占位（与未动画状态视觉一致） */
-    .gen-orb {
-        opacity: 0.7 !important;
     }
 }
 

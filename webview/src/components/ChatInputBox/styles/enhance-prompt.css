@@ -75,17 +75,6 @@
   animation: slideUp var(--dur-enter) ease-out;
 }
 
-@keyframes slideUp {
-  from {
-    transform: translateY(20px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
 .prompt-enhancer-header {
   display: flex;
   justify-content: space-between;
@@ -223,11 +212,6 @@
 
 .prompt-loading .codicon-loading {
   animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
 }
 
 @keyframes twinkle {

@@ -1261,18 +1261,6 @@
     user-select: none;
 }
 
-/* 旋转圈 */
-.assistant-response-status .ars-spinner {
-    width: 13px;
-    height: 13px;
-    flex-shrink: 0;
-    border: 2px solid var(--border-secondary, #313244);
-    border-top-color: var(--accent-primary, #7aa2f7);
-    border-radius: 50%;
-    animation: ars-spin .7s linear infinite;
-}
-@keyframes ars-spin { to { transform: rotate(360deg); } }
-
 /* 状态图标 */
 .assistant-response-status .ars-icon {
     font-size: 13px;
@@ -1297,8 +1285,7 @@
 .assistant-response-status.state-done      { color: var(--green, #a6da95); }
 .assistant-response-status.state-error     { color: var(--red, #ed8796); }
 
-/* prefers-reduced-motion 由 base.less 全局收口（H7）：
-   .ars-spinner 持续旋转退化为静态，并补全 border-top-color 避免视觉缺口。 */
+/* prefers-reduced-motion 由 base.less 全局收口（H7）。 */
 
 .assistant-streaming-footer {
     width: fit-content;

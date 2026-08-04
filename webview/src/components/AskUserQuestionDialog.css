@@ -131,17 +131,6 @@
   flex-shrink: 0;
 }
 
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 /* Dialog warning state border */
 .ask-user-question-dialog.time-warning {
   border-color: var(--text-warning);
