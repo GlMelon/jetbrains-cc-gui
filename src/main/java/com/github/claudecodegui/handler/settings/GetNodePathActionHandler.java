@@ -66,7 +66,9 @@ public final class GetNodePathActionHandler implements FrontendActionHandler<Str
                         props.unsetValue(NODE_PATH_PROPERTY_KEY);
                         ctx.getClaudeSDKBridge().setNodeExecutable(null);
                         ctx.getCodexSDKBridge().setNodeExecutable(null);
-                        if (openCodeBridge != null) openCodeBridge.setNodeExecutable(null);
+                        if (openCodeBridge != null) {
+                            openCodeBridge.setNodeExecutable(null);
+                        }
 
                         NodeDetectionResult detected = ctx.getClaudeSDKBridge().detectNodeWithDetails();
                         if (detected != null && detected.isFound() && detected.getNodePath() != null) {
@@ -75,7 +77,9 @@ public final class GetNodePathActionHandler implements FrontendActionHandler<Str
                             props.setValue(NODE_PATH_PROPERTY_KEY, pathToSend);
                             ctx.getClaudeSDKBridge().verifyAndCacheNodePath(pathToSend);
                             ctx.getCodexSDKBridge().setNodeExecutable(pathToSend);
-                            if (openCodeBridge != null) openCodeBridge.setNodeExecutable(pathToSend);
+                            if (openCodeBridge != null) {
+                                openCodeBridge.setNodeExecutable(pathToSend);
+                            }
                         }
                     }
                 } else {
@@ -87,7 +91,9 @@ public final class GetNodePathActionHandler implements FrontendActionHandler<Str
                         // Use verifyAndCacheNodePath instead of setNodeExecutable to ensure version info is cached
                         ctx.getClaudeSDKBridge().verifyAndCacheNodePath(pathToSend);
                         ctx.getCodexSDKBridge().setNodeExecutable(pathToSend);
-                        if (openCodeBridge != null) openCodeBridge.setNodeExecutable(pathToSend);
+                        if (openCodeBridge != null) {
+                            openCodeBridge.setNodeExecutable(pathToSend);
+                        }
                     }
                 }
 

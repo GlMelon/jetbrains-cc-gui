@@ -79,7 +79,9 @@ public final class SetNodePathActionHandler implements FrontendActionHandler<Str
                     props.unsetValue(NODE_PATH_PROPERTY_KEY);
                     ctx.getClaudeSDKBridge().setNodeExecutable(null);
                     ctx.getCodexSDKBridge().setNodeExecutable(null);
-                    if (openCodeBridge != null) openCodeBridge.setNodeExecutable(null);
+                    if (openCodeBridge != null) {
+                        openCodeBridge.setNodeExecutable(null);
+                    }
                     LOG.info("[SetNodePathActionHandler] Cleared manual Node.js path from settings");
 
                     NodeDetectionResult detected = ctx.getClaudeSDKBridge().detectNodeWithDetails();
@@ -90,7 +92,9 @@ public final class SetNodePathActionHandler implements FrontendActionHandler<Str
                         // Use verifyAndCacheNodePath to ensure version info is cached
                         ctx.getClaudeSDKBridge().verifyAndCacheNodePath(finalPath);
                         ctx.getCodexSDKBridge().setNodeExecutable(finalPath);
-                        if (openCodeBridge != null) openCodeBridge.setNodeExecutable(finalPath);
+                        if (openCodeBridge != null) {
+                            openCodeBridge.setNodeExecutable(finalPath);
+                        }
                         verifySuccess = true;
                     } else {
                         failureMsg = "已清空自定义路径，但无法自动检测到 Node.js，请手动配置路径";
@@ -102,7 +106,9 @@ public final class SetNodePathActionHandler implements FrontendActionHandler<Str
                         // Only save if verification succeeds
                         props.setValue(NODE_PATH_PROPERTY_KEY, pathArg);
                         ctx.getCodexSDKBridge().setNodeExecutable(pathArg);
-                        if (openCodeBridge != null) openCodeBridge.setNodeExecutable(pathArg);
+                        if (openCodeBridge != null) {
+                            openCodeBridge.setNodeExecutable(pathArg);
+                        }
                         finalPath = pathArg;
                         versionToSend = result.getNodeVersion();
                         verifySuccess = true;
