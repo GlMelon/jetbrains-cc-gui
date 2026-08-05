@@ -104,28 +104,44 @@ public class HtmlLoader {
      * provider that ClaudeChatWindow.restorePersistedTabSessionState already
      * applied to the session — see issue #1353.
      *
-     * Both arguments may be null/empty. Null/empty values are injected as
-     * empty strings; the frontend treats an empty string as "no backend
-     * preference" and falls back to localStorage. Only non-empty values
-     * override the global localStorage snapshot.
+     * Values are injected as JSON string literals (double-quoted, fully
+     * escaped) so a malicious settings.json provider/model cannot break out
+     * of the script context. Null/empty values are omitted entirely; the
+     * frontend treats an absent window flag as "no backend preference" and
+     * falls back to localStorage. Only non-empty values override the global
+     * localStorage snapshot.
      */
     public String injectInitialTabState(String html, String provider, String model) {
-        try {
-            String safeProvider = escapeForSingleQuotedJs(provider == null ? "" : provider);
-            String safeModel = escapeForSingleQuotedJs(model == null ? "" : model);
-            String scriptInjection = "\n    <script>"
-                    + "window.__INITIAL_TAB_PROVIDER__ = '" + safeProvider + "';"
-                    + "window.__INITIAL_TAB_MODEL__ = '" + safeModel + "';"
-                    + "</script>";
-            int headIndex = html.indexOf("<head>");
-            if (headIndex != -1) {
-                int insertPos = headIndex + "<head>".length();
-                return html.substring(0, insertPos) + scriptInjection + html.substring(insertPos);
-            }
-        } catch (Exception e) {
-            LOG.error("Failed to inject initial tab state: " + e.getMessage(), e);
+        StringBuilder script = new StringBuilder("<script>");
+        if (provider != null && !provider.isEmpty()) {
+            script.append("window.__INITIAL_TAB_PROVIDER__ = ").append(escapeJson(provider)).append(";");
+        }
+        if (model != null && !model.isEmpty()) {
+            script.append("window.__INITIAL_TAB_MODEL__ = ").append(escapeJson(model)).append(";");
+        }
+        script.append("</script>");
+        if (script.length() > "<script></script>".length() && html.contains("<head>")) {
+            html = html.replace("<head>", "<head>" + script);
         }
         return html;
+    }
+
+    /**
+     * Escape a string as a JSON string literal (surrounding double quotes
+     * included) for safe inline embedding inside a {@code <script>} block.
+     * Returns the JSON {@code null} keyword when the value is null.
+     */
+    private String escapeJson(String s) {
+        if (s == null) {
+            return "null";
+        }
+        return "\"" + s
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t")
+                + "\"";
     }
 
     /** Injects the page generation before the frontend bundle executes. */
@@ -140,21 +156,6 @@ public class HtmlLoader {
         return html.substring(0, insertPos) + scriptInjection + html.substring(insertPos);
     }
 
-    private static String escapeForSingleQuotedJs(String value) {
-        // Restricted set — provider/model IDs only contain safe chars in
-        // practice, but a malicious settings.json provider list could carry
-        // arbitrary text. Reject the small set that can break out of the
-        // single-quoted literal.
-        return value
-                .replace("\\", "\\\\")
-                .replace("'", "\\'")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r")
-                .replace("<", "\\u003c")
-                .replace(">", "\\u003e")
-                .replace("\u2028", "\\u2028")   // Line separator — string-literal break in pre-ES2019 JS engines
-                .replace("\u2029", "\\u2029");  // Paragraph separator — same risk
-    }
 
     /**
      * Generate fallback HTML.
