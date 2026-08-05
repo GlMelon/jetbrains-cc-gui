@@ -10,6 +10,7 @@ import {
   hasCommandMessageTag,
   hasTaskNotificationTag,
   isSyntheticToolMessageContent,
+  parseSkillCommandBlock,
   HIDDEN_OUTPUT_TAGS,
   INTERNAL_METADATA_TAGS,
   MESSAGE_TYPES,
@@ -41,6 +42,7 @@ export {
   createTaskNotificationBlock,
   extractCommandMessageContent,
   isSyntheticToolMessageContent,
+  parseSkillCommandBlock,
   normalizeBlocks,
 } from './contentBlockNormalize';
 export type { LocalizeMessageFn } from './contentBlockNormalize';
@@ -322,6 +324,36 @@ export function attachCompactBoundaryMetadata(messages: ClaudeMessage[]): Claude
   }
 
   return result;
+}
+
+function normalizeComparableMessageText(text: string | undefined): string {
+  return (text ?? '').replace(/\s+/g, ' ').trim();
+}
+
+function isProviderErrorContentAlreadyRendered(
+  content: string | undefined,
+  blocks: readonly ClaudeContentBlock[],
+): boolean {
+  const normalizedContent = normalizeComparableMessageText(content);
+  if (!normalizedContent) {
+    return false;
+  }
+
+  return blocks.some((block) => {
+    if (block.type !== 'provider_error') {
+      return false;
+    }
+
+    return [block.details, block.summary].some((value) => {
+      const normalizedValue = normalizeComparableMessageText(value);
+      return Boolean(
+        normalizedValue &&
+          (normalizedValue === normalizedContent ||
+            normalizedValue.includes(normalizedContent) ||
+            normalizedContent.includes(normalizedValue)),
+      );
+    });
+  });
 }
 
 const COMPACT_STDOUT_REGEX = /<local-command-stdout>([\s\S]*?)<\/local-command-stdout>/;
@@ -642,7 +674,8 @@ export function getContentBlocks(
       !hasTextBlock &&
       message.content &&
       message.content.trim() &&
-      !isSyntheticToolMessageContent(message.content, rawBlocks)
+      !isSyntheticToolMessageContent(message.content, rawBlocks) &&
+      !isProviderErrorContentAlreadyRendered(message.content, rawBlocks)
     ) {
       return [...rawBlocks, { type: 'text', text: localizeMessage(message.content) }];
     }
@@ -657,6 +690,10 @@ export function getContentBlocks(
     }
     // Handle command-message in message.content directly
     if (hasCommandMessageTag(message.content)) {
+      const skillBlock = parseSkillCommandBlock(message.content);
+      if (skillBlock) {
+        return [{ type: 'skill_use' as const, ...skillBlock, source: 'command-message' }];
+      }
       const displayContent = formatCommandForDisplay(message.content);
       if (displayContent) {
         return [{ type: 'text' as const, text: localizeMessage(displayContent) }];
@@ -709,6 +746,18 @@ export function mergeConsecutiveAssistantMessages(
     // streaming messages from true history messages.
     const prevTurnId = previous.__turnId;
     const nextTurnId = next.__turnId;
+    const prevResponseId = previous.__responseId;
+    const nextResponseId = next.__responseId;
+
+    // Fragments sharing the same response stay independent so MessageList can
+    // render them as a response group (grouping by __responseId).
+    if (
+      prevResponseId !== undefined &&
+      nextResponseId !== undefined &&
+      prevResponseId === nextResponseId
+    ) {
+      return false;
+    }
 
     // If either message has the recently-ended turn ID, block merging
     if (hasRecentlyEndedTurnId(prevTurnId) || hasRecentlyEndedTurnId(nextTurnId)) {
@@ -716,9 +765,16 @@ export function mergeConsecutiveAssistantMessages(
     }
 
     // Block merge when either side has a __turnId and they differ
-    if ((prevTurnId !== undefined || nextTurnId !== undefined) &&
-        prevTurnId !== nextTurnId) {
+    if ((prevTurnId !== undefined || nextTurnId !== undefined) && prevTurnId !== nextTurnId) {
       return false;
+    }
+
+    // Fragments from the same active streaming turn are one assistant message.
+    // Codex CLI emits text snapshots and tool_use snapshots as adjacent assistant
+    // messages; splitting them makes text repeat and moves tool rows outside the
+    // message card. Different-turn isolation and recently-ended turns are handled above.
+    if (prevTurnId !== undefined && prevTurnId === nextTurnId) {
+      return true;
     }
 
     const previousSummary = getAssistantBlockSummary(previous);
@@ -792,6 +848,7 @@ export function mergeConsecutiveAssistantMessages(
       content: mergedContent,
       raw: nextRaw,
       __turnId: first.__turnId,
+      __responseId: first.__responseId,
     };
   };
 
