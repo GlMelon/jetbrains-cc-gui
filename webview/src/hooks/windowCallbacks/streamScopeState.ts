@@ -62,12 +62,20 @@ export const getOrCreateStreamScopeState = (scopeKey: string): StreamScopeState 
   return state;
 };
 
-const getStreamScopeState = (scopeKey: string | null | undefined): StreamScopeState | null => {
+export const getStreamScopeState = (scopeKey: string | null | undefined): StreamScopeState | null => {
   const normalizedScopeKey = normalizeScopeKey(scopeKey);
   if (!normalizedScopeKey) {
     return null;
   }
   return streamScopeStates.get(normalizedScopeKey) ?? null;
+};
+
+export const cancelScopedPendingUpdate = (scopeKey: string | null | undefined): void => {
+  const state = getStreamScopeState(scopeKey);
+  if (state?.pendingUpdateRaf != null) {
+    cancelAnimationFrame(state.pendingUpdateRaf);
+    state.pendingUpdateRaf = null;
+  }
 };
 
 export const clearStreamScopeState = (scopeKey: string | null | undefined): void => {

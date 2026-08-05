@@ -68,4 +68,6 @@ export class BridgeStateStore {
   }
 }
 
+export const bridgeState = new BridgeStateStore();
+
 

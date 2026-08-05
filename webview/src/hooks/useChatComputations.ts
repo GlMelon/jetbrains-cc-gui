@@ -40,7 +40,7 @@ interface UseChatComputationsParams {
  * 非 human origin / 纯 tool_result 块属 UI 展示过滤,非业务语义判定。按 §A8 取向
  * 保留并标注为展示过滤;标题 SSOT 以 customSessionTitle 为准。
  */
-function isSessionTitleUserCandidate(message: ClaudeMessage): boolean {
+export function isSessionTitleUserCandidate(message: ClaudeMessage): boolean {
   if (message.type !== 'user') return false;
   if ((message.content ?? '').trim() === '[tool_result]') return false;
   if (isInternalContextOnlyText(message.content)) return false;

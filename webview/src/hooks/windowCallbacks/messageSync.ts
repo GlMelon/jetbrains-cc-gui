@@ -11,6 +11,22 @@ import type { ClaudeContentOrResultBlock, ClaudeMessage, ClaudeRawMessage } from
 
 const UPLOADED_ATTACHMENT_PLACEHOLDER_RE = /^\[Uploaded(?:\s[\s\S]*)?\]$/;
 
+export const OPTIMISTIC_MESSAGE_TIME_WINDOW = 5000;
+
+export function stripUuidFromRaw(raw: ClaudeMessage['raw']): ClaudeMessage['raw'] {
+  if (raw === null || raw === undefined || typeof raw === 'string') {
+    return raw;
+  }
+  if (typeof raw === 'object' && !Array.isArray(raw)) {
+    const obj = raw as Record<string, unknown>;
+    if ('uuid' in obj) {
+      const { uuid, ...rest } = obj;
+      return rest;
+    }
+  }
+  return raw;
+}
+
 export const getStreamEndHandlingMode = (
   provider: string,
   isStreaming: boolean,
@@ -265,7 +281,7 @@ const getAssistantComparableContent = (message: ClaudeMessage): string => {
  *
  * Returns milliseconds since epoch for consistent comparison.
  */
-const getMessageTimestampMs = (message: ClaudeMessage): number | undefined => {
+export const getMessageTimestampMs = (message: ClaudeMessage): number | undefined => {
   // First check the raw.timestamp field (SDK source, ISO string format)
   const rawTimestamp = (message.raw as any)?.timestamp;
   if (rawTimestamp != null) {
@@ -437,19 +453,25 @@ export const preserveAssistantResponseGrouping = (
  * Merge identity fields (timestamp, uuid) from prevMsg into nextMsg so that
  * React referential equality checks remain stable across backend re-sends.
  */
-const preserveMessageIdentity = (
+export const preserveMessageIdentity = (
   prevMsg: ClaudeMessage | undefined,
   nextMsg: ClaudeMessage,
 ): ClaudeMessage => {
   if (!prevMsg?.timestamp) return nextMsg;
   if (prevMsg.type !== nextMsg.type) return nextMsg;
 
-  const nextWithStableTimestamp =
+  let result: ClaudeMessage =
     nextMsg.timestamp === prevMsg.timestamp
       ? nextMsg
       : { ...nextMsg, timestamp: prevMsg.timestamp };
 
-  return nextWithStableTimestamp;
+  const prevUuid = getRawUuid(prevMsg);
+  const nextUuid = getRawUuid(nextMsg);
+  if (!prevUuid && nextUuid) {
+    result = { ...result, raw: stripUuidFromRaw(result.raw) };
+  }
+
+  return result;
 };
 
 /**
