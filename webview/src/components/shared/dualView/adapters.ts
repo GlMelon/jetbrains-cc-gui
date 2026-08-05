@@ -26,6 +26,31 @@ export interface DualViewAdapter<S> {
 
 export type ClaudeConfigFormState = Record<string, any>;
 
+export interface ClaudeEnvFormState {
+  env: Record<string, any>;
+}
+
+export const claudeEnvAdapter: DualViewAdapter<ClaudeEnvFormState> = {
+  serialize: (state) => JSON.stringify(state, null, 2),
+  parse: (text) => {
+    let obj: unknown;
+    try {
+      obj = JSON.parse(text);
+    } catch {
+      return { ok: false, error: 'JSON 语法错误' };
+    }
+    if (obj === null || typeof obj !== 'object' || Array.isArray(obj)) {
+      return { ok: false, error: '根必须是对象' };
+    }
+    const root = obj as Record<string, unknown>;
+    const env = root.env;
+    if (env !== undefined && env !== null && (typeof env !== 'object' || Array.isArray(env))) {
+      return { ok: false, error: 'env 必须是对象' };
+    }
+    return { ok: true, state: { env: (env ?? {}) as Record<string, any> } };
+  },
+};
+
 export const claudeConfigAdapter: DualViewAdapter<ClaudeConfigFormState> = {
   serialize: (config) => JSON.stringify(config, null, 2),
   parse: (text) => {

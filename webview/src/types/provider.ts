@@ -440,6 +440,14 @@ export interface ProviderPreset {
  * NOTE:能力字段(defaultContextWindow/supports1MContext)已移除 —— 模型能力权威来源是
  * 后端 ModelRegistry 下行,前端不得预置(见 ProviderPreset 架构注释)。
  */
+export const CODEX_PROVIDER_PRESETS: Array<{
+  id: string;
+  name: string;
+  nameKey: string;
+  configToml: string;
+  authJson: string;
+}> = [];
+
 export const PROVIDER_PRESETS: ProviderPreset[] = [
   {
     id: 'custom',

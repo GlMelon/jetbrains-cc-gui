@@ -12,6 +12,20 @@ interface OpenCodeAdvancedFormProps {
  * <p>opencode 原生字段多为嵌套对象/命令(options/command 等),表单化收益低且结构不稳定,
  * 故表单视图只列 npm + 提示;其余透传字段只在 DualViewSwitcher 的 JSON 视图可见可编辑。
  */
+const KNOWN_ADVANCED_FIELDS = new Set([
+  'id', 'name', 'baseURL', 'apiBase', 'apiKey', 'models', 'createdAt', 'isActive',
+]);
+
+export function extractAdvancedRaw(config: Record<string, any>): Record<string, any> {
+  const raw: Record<string, any> = {};
+  for (const key of Object.keys(config)) {
+    if (!KNOWN_ADVANCED_FIELDS.has(key)) {
+      raw[key] = config[key];
+    }
+  }
+  return raw;
+}
+
 export default function OpenCodeAdvancedForm({
   state,
   onChange,
