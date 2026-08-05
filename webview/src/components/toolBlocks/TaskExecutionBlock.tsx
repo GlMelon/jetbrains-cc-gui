@@ -17,11 +17,46 @@ import {
   useTaskEvent,
 } from '../../contexts/SubagentContext';
 import SubagentProcessDetails from '../StatusPanel/SubagentProcessDetails';
+import { CommentIcon, WrenchIcon } from '../Icons';
 
 const MONO_FONT_STYLE: React.CSSProperties = {
   fontFamily: "var(--cc-gui-code-font-family, var(--idea-editor-font-family, 'JetBrains Mono', 'Consolas', monospace))",
 };
 const NORMAL_WEIGHT_STYLE: React.CSSProperties = { fontWeight: 'normal' };
+
+// 元数据标签样式 - 参考 chat-message-preview 风格
+const META_TAG_STYLE: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '4px',
+  padding: '2px 8px',
+  background: 'var(--bg-hover)',
+  border: '1px solid var(--border-primary)',
+  borderRadius: '4px',
+  fontSize: '11px',
+  fontFamily: "var(--idea-editor-font-family, 'JetBrains Mono', monospace)",
+  color: 'var(--text-tertiary)',
+};
+
+const META_TAG_MODEL_STYLE: React.CSSProperties = {
+  ...META_TAG_STYLE,
+  color: 'var(--violet)',
+  background: 'rgba(169, 137, 255, 0.1)',
+  borderColor: 'rgba(169, 137, 255, 0.2)',
+};
+
+const META_TAG_NICKNAME_STYLE: React.CSSProperties = {
+  ...META_TAG_STYLE,
+  color: 'var(--amber)',
+  background: 'rgba(231, 184, 90, 0.1)',
+  borderColor: 'rgba(231, 184, 90, 0.2)',
+};
+
+const META_TAG_ID_STYLE: React.CSSProperties = {
+  ...META_TAG_STYLE,
+  fontSize: '10px',
+  color: 'var(--text-muted)',
+};
 
 interface TaskExecutionBlockProps {
   name?: string;
@@ -160,22 +195,24 @@ const TaskExecutionBlock = memo(function TaskExecutionBlock({ name, input, resul
         onClick={() => setExpanded((prev) => !prev)}
       >
         <div className="task-title-section">
-          <span className="codicon codicon-tools tool-title-icon" />
+          <WrenchIcon size={16} className="tool-title-icon" />
 
           <span className="tool-title-text">
             {name ?? t('tools.task')}
           </span>
-          {identityLabel && (
-            <span className="tool-title-summary">{identityLabel}</span>
-          )}
-          {modelSummary && (
-            <span className="tool-title-summary">· {modelSummary}</span>
-          )}
-          {shortAgentId && (
-            <span className="tool-title-summary" style={MONO_FONT_STYLE}>
-              · {shortAgentId}
-            </span>
-          )}
+
+          {/* 元数据标签 - 使用药丸样式 */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginLeft: '8px' }}>
+            {identityLabel && (
+              <span style={META_TAG_NICKNAME_STYLE}>{identityLabel}</span>
+            )}
+            {modelSummary && (
+              <span style={META_TAG_MODEL_STYLE}>{modelSummary}</span>
+            )}
+            {shortAgentId && (
+              <span style={META_TAG_ID_STYLE}>{shortAgentId}</span>
+            )}
+          </div>
 
           {!isSpawnAgent && typeof description === 'string' && (
             <span className="task-summary-text tool-title-summary" title={description} style={NORMAL_WEIGHT_STYLE}>
@@ -216,7 +253,7 @@ const TaskExecutionBlock = memo(function TaskExecutionBlock({ name, input, resul
             {spawnMeta.agentId && (
               <div className="task-field">
                 <div className="task-field-label">agent_id</div>
-                <div className="task-field-content">{spawnMeta.agentId}</div>
+                <div className="task-field-content" style={MONO_FONT_STYLE}>{spawnMeta.agentId}</div>
               </div>
             )}
 
@@ -235,7 +272,7 @@ const TaskExecutionBlock = memo(function TaskExecutionBlock({ name, input, resul
             {typeof prompt === 'string' && (
               <div className="task-field">
                 <div className="task-field-label">
-                  <span className="codicon codicon-comment" />
+                  <CommentIcon size={16} />
                   {t('tools.promptLabel')}
                 </div>
                 <div className="task-field-content">{prompt}</div>
