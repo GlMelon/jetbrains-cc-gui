@@ -1,11 +1,11 @@
 import { act, fireEvent, render } from '@testing-library/react';
 import TaskExecutionBlock from '../../../src/components/toolBlocks/TaskExecutionBlock';
-import { UPSTREAM } from '../../../src/generated/protocol';
 
-const mockSendAction = vi.fn();
-const mockGetSubagentHistory = vi.fn<(key: string) => unknown>();
+const mockSendBridgeEvent = vi.fn();
+const mockHistories: Record<string, unknown> = {};
 const mockUseSessionId = vi.fn<() => string | null>();
 const mockGetToolResultRaw = vi.fn<(toolUseId: string) => Record<string, unknown> | null>();
+const mockUseTaskEvent = vi.fn<(toolUseId?: string) => unknown>();
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -13,41 +13,48 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-vi.mock('../../../src/bridge/typed', () => ({
-  sendAction: (...args: unknown[]) => mockSendAction(...args),
+vi.mock('../../../src/utils/bridge', () => ({
+  sendBridgeEvent: (...args: unknown[]) => mockSendBridgeEvent(...args),
 }));
 
 vi.mock('../../../src/contexts/SubagentContext', () => ({
-  useSubagentHistoryGetter: () => mockGetSubagentHistory,
+  useSubagentHistories: () => mockHistories,
   useSessionId: () => mockUseSessionId(),
+  useSessionProvider: () => 'claude',
   useGetToolResultRaw: () => mockGetToolResultRaw,
+  useTaskEvent: (id?: string) => mockUseTaskEvent(id),
 }));
 
 describe('TaskExecutionBlock polling', () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    mockSendAction.mockReset();
-    mockGetSubagentHistory.mockReset();
-    mockGetToolResultRaw.mockReset();
+    mockSendBridgeEvent.mockReset();
     mockUseSessionId.mockReset();
+    mockGetToolResultRaw.mockReset();
+    mockUseTaskEvent.mockReset();
 
-    mockGetSubagentHistory.mockReturnValue(undefined);
+    // Clear the shared history map without resetting the reference the mock
+    // factory closes over.
+    for (const key of Object.keys(mockHistories)) {
+      delete mockHistories[key];
+    }
+
     mockGetToolResultRaw.mockReturnValue(null);
     mockUseSessionId.mockReturnValue('session-1');
+    mockUseTaskEvent.mockReturnValue(undefined);
   });
 
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  it('does not start polling when the agent tool is no longer streaming', () => {
+  it('does not start polling before the card is expanded', () => {
     const setIntervalSpy = vi.spyOn(window, 'setInterval');
 
     const { container } = render(
       <TaskExecutionBlock
         name="Task"
         toolId="task-1"
-        isStreaming={false}
         input={{
           description: 'Inspect render path',
           subagent_type: 'Explore',
@@ -55,9 +62,13 @@ describe('TaskExecutionBlock polling', () => {
       />,
     );
 
+    // Collapsed card must not schedule any polling interval.
+    expect(setIntervalSpy).not.toHaveBeenCalled();
+
     fireEvent.click(container.querySelector('.task-header') as HTMLElement);
 
-    expect(setIntervalSpy).not.toHaveBeenCalled();
+    // Expanding an unresolved agent card starts the history-poll interval.
+    expect(setIntervalSpy).toHaveBeenCalled();
   });
 
   it('keeps the task header expandable without rendering a chevron icon', () => {
@@ -86,7 +97,6 @@ describe('TaskExecutionBlock polling', () => {
       <TaskExecutionBlock
         name="Task"
         toolId="task-1"
-        isStreaming={true}
         input={{
           description: 'Inspect render path',
           subagent_type: 'Explore',
@@ -100,8 +110,8 @@ describe('TaskExecutionBlock polling', () => {
       vi.advanceTimersByTime(2_000);
     });
 
-    expect(mockSendAction).toHaveBeenCalledWith(
-      UPSTREAM.LOAD_SUBAGENT_SESSION,
+    expect(mockSendBridgeEvent).toHaveBeenCalledWith(
+      'load_subagent_session',
       expect.stringContaining('"toolUseId":"task-1"'),
     );
 
@@ -109,7 +119,6 @@ describe('TaskExecutionBlock polling', () => {
       <TaskExecutionBlock
         name="Task"
         toolId="task-1"
-        isStreaming={true}
         result={{ type: 'tool_result', tool_use_id: 'task-1', content: 'done' } as any}
         input={{
           description: 'Inspect render path',
@@ -120,11 +129,11 @@ describe('TaskExecutionBlock polling', () => {
 
     expect(clearIntervalSpy).toHaveBeenCalled();
 
-    mockSendAction.mockClear();
+    mockSendBridgeEvent.mockClear();
     act(() => {
       vi.advanceTimersByTime(4_000);
     });
 
-    expect(mockSendAction).not.toHaveBeenCalled();
+    expect(mockSendBridgeEvent).not.toHaveBeenCalled();
   });
 });
