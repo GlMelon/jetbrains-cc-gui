@@ -14,7 +14,7 @@ import type { TabType, StatusPanelProps } from './types';
 import { LoadingIcon } from '../Icons';
 import './StatusPanel.less';
 
-const StatusPanel = memo(function StatusPanel({ todos, fileChanges, subagents, subagentHistories, currentSessionId, expanded = true, isStreaming = false, onUndoFile, onDiscardAll, onKeepAll }: StatusPanelProps) {
+const StatusPanel = memo(function StatusPanel({ todos, fileChanges, subagents, subagentHistories, currentSessionId, currentProvider, expanded = true, isStreaming = false, onUndoFile, onDiscardAll, onKeepAll }: StatusPanelProps) {
   const { t } = useTranslation();
   const [openPopover, setOpenPopover] = useState<TabType | null>(null);
   const [isPopoverExiting, setIsPopoverExiting] = useState(false);
@@ -245,7 +245,7 @@ const StatusPanel = memo(function StatusPanel({ todos, fileChanges, subagents, s
       case 'todo':
         return <TodoList todos={todos} />;
       case 'subagent':
-        return <SubagentList subagents={subagents} histories={subagentHistories} currentSessionId={currentSessionId} isStreaming={isStreaming} />;
+        return <SubagentList subagents={subagents} histories={subagentHistories} currentSessionId={currentSessionId} currentProvider={currentProvider} isStreaming={isStreaming} />;
       case 'files':
         return (
           <FileChangesList

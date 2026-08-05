@@ -77,6 +77,8 @@
     "disabled": "無効",
     "sdkNotInstalled": "{{provider}} SDKがインストールされていません。チャットを開始するにはSDKをインストールしてください。",
     "sdkStatusLoading": "Checking SDK status...",
+    "sdkStatusUnavailable": "SDK の状態を確認できませんでした。",
+    "retrySdkStatus": "再試行",
     "openSourceBanner": "このプロジェクトは100%オープンソースかつ無料を保証します（海賊版プロジェクトにご注意ください）",
     "goInstallSdk": "インストールへ",
     "commandNotImplemented": "`{{command}}` 機能はまだ実装されていません。",
@@ -163,9 +165,6 @@
     "minutesAndSeconds": "{{minutes}}分 {{seconds}}秒",
     "usage": "使用状況",
     "noMatchingHistory": "一致する履歴がありません",
-    "openSourceBannerStar": "Star",
-    "openSourceBannerStarToast": "リポジトリのURLをクリップボードにコピーしました。ブラウザに貼り付けてアクセスできます ⭐",
-    "openSourceBannerStarAria": "リポジトリのURLをコピーして GitHub でスター",
     "attachmentFile": "[添付ファイル: {{fileName}}]",
     "attachmentsUploaded": "[添付ファイルがアップロードされました]",
     "showEarlierTurns": "前の{{count}}ターンを表示（読み込み済み残り{{remaining}}ターン）",
@@ -330,6 +329,12 @@
         "reset": "デフォルトに戻す",
         "hint": "チャットエリアの背景色をカスタマイズします。空欄の場合はテーマのデフォルト色に従います。"
       },
+      "chatBarColor": {
+        "label": "ヘッダーとステータスバーの色",
+        "custom": "カスタム",
+        "reset": "リセット",
+        "hint": "セッションヘッダーとタスクステータスバーに共通のテーマ色を設定します。空欄の場合は現在のUIテーマに従います。"
+      },
       "userMsgColor": {
         "label": "ユーザーメッセージの色",
         "custom": "カスタム",
@@ -373,6 +378,39 @@
     "providerTab": {
       "claude": "Claude Code",
       "codex": "Codex"
+    },
+"pluginModels": {
+      "title": "カスタムモデル",
+      "description": "ここで追加されたカスタムモデルは、すべてのプロバイダーで表示され、モデル選択リストの先頭に表示されます",
+      "dialogTitle": "カスタムモデル管理",
+      "manage": "モデル管理",
+      "pricing": {
+        "title": "料金（USD/100万トークン）",
+        "optionalLabel": "任意",
+        "hint": "任意です。空欄の項目はそのトークン種別の既定レートを使用します。",
+        "inputLabel": "入力",
+        "outputLabel": "出力",
+        "cacheWriteLabel": "キャッシュ書き込み",
+        "cacheReadLabel": "キャッシュ読み取り",
+        "inputShort": "入力",
+        "outputShort": "出力",
+        "cacheWriteShort": "キャッシュ書き込み",
+        "cacheReadShort": "キャッシュ読み取り",
+        "invalidValue": "料金は0以上の数値で入力してください",
+        "defaultPricing": "既定料金を使用中"
+      },
+      "contextWindow": {
+        "label": "最大コンテキスト（Kトークン）",
+        "placeholder": "例: 500",
+        "hint": "任意。トークン数を千単位の整数で入力します（500 = 500,000トークン）。プラグインの使用量表示にのみ使用されます。",
+        "invalidValue": "最大コンテキストはK単位の正の整数で入力してください",
+        "summary": "コンテキスト: {{value}} トークン"
+      },
+      "configuredSectionTitle": "設定済みの Claude モデル",
+      "configuredSectionDesc": "現在の Claude プロバイダーまたは settings.json のモデルは既にモデル選択リストに表示されています。ここでは料金のみ変更できます。",
+      "configuredEditHint": "このモデルは現在の Claude プロバイダーまたは settings.json で管理されています。ここでは料金のみ変更できます。",
+      "customSectionTitle": "カスタムモデル",
+      "editPricing": "料金を編集"
     },
     "dependencies": "SDK依存関係",
     "dependency": {

@@ -168,11 +168,14 @@ test('Codex new thread replays function calls from current thread session file d
       makeConfig(),
     );
 
-    assert.equal(emittedMessages.length, 2);
-    assert.equal(emittedMessages[0].type, 'assistant');
-    assert.equal(emittedMessages[0].message.content[0].type, 'tool_use');
-    assert.equal(emittedMessages[1].type, 'user');
-    assert.equal(emittedMessages[1].message.content[0].type, 'tool_result');
+    // 合并带来上游 token_count 特性:event_msg 收到 token_count 会额外 emit 给前端。
+    // 过滤 event_msg 后验证 function call replay 的结果(本测试的核心目的)
+    const replayMessages = emittedMessages.filter((m) => m.type !== 'event_msg');
+    assert.equal(replayMessages.length, 2);
+    assert.equal(replayMessages[0].type, 'assistant');
+    assert.equal(replayMessages[0].message.content[0].type, 'tool_use');
+    assert.equal(replayMessages[1].type, 'user');
+    assert.equal(replayMessages[1].message.content[0].type, 'tool_result');
   } finally {
     if (originalSessionsDir === undefined) {
       delete process.env.CODEX_SESSIONS_DIR;

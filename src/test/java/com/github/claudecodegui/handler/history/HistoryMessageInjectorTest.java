@@ -1,6 +1,7 @@
 package com.github.claudecodegui.handler.history;
 
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.session.ClaudeSession;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -112,6 +113,37 @@ public class HistoryMessageInjectorTest {
 
     @Test
     public void convertCodexMessagesKeepsRepeatedUserMessagesWithDifferentTimestamps() {
+        JsonArray messages = new JsonArray();
+        messages.add(responseItemUserMessage("2026-04-30T09:40:26.701Z", "hello"));
+        messages.add(eventUserMessage("2026-04-30T09:40:27.701Z", "hello"));
+
+        List<JsonObject> result = HistoryMessageInjector.convertCodexMessagesToFrontendBatch(messages);
+
+        assertEquals(2, result.size());
+    }
+
+    @Test
+    public void restoresIsoTimestampWhenHydratingCodexMessagesIntoSessionState() {
+        JsonObject frontendMessage = frontendMessage("assistant", "done", "text");
+        frontendMessage.addProperty("timestamp", "2026-07-28T12:50:07.123Z");
+
+        ClaudeSession.Message restored = HistoryMessageInjector.toSessionMessage(frontendMessage);
+
+        assertEquals(1785243007123L, restored.timestamp);
+    }
+
+    @Test
+    public void restoresNumericStringTimestampWhenHydratingSessionState() {
+        JsonObject frontendMessage = frontendMessage("user", "hello", "text");
+        frontendMessage.addProperty("timestamp", "1785243007123");
+
+        ClaudeSession.Message restored = HistoryMessageInjector.toSessionMessage(frontendMessage);
+
+        assertEquals(1785243007123L, restored.timestamp);
+    }
+
+    @Test
+    public void convertCodexMessagesDeduplicatesDualRecordedUserMessageWithDifferentTimestamps() {
         JsonArray messages = new JsonArray();
         messages.add(responseItemUserMessage("2026-04-30T09:40:26.701Z", "hello"));
         messages.add(eventUserMessage("2026-04-30T09:40:27.701Z", "hello"));
@@ -520,6 +552,23 @@ public class HistoryMessageInjectorTest {
         assertEquals("thinking", thinkingBlock.get("type").getAsString());
         assertEquals(expectedText, thinkingBlock.get("thinking").getAsString());
         assertEquals(expectedText, thinkingBlock.get("text").getAsString());
+    }
+
+    private static JsonObject frontendMessage(String type, String content, String text) {
+        JsonObject msg = new JsonObject();
+        msg.addProperty("type", type);
+        msg.addProperty("content", content);
+        JsonObject raw = new JsonObject();
+        JsonObject message = new JsonObject();
+        JsonArray contentArr = new JsonArray();
+        JsonObject textBlock = new JsonObject();
+        textBlock.addProperty("type", "text");
+        textBlock.addProperty("text", text);
+        contentArr.add(textBlock);
+        message.add("content", contentArr);
+        raw.add("message", message);
+        msg.add("raw", raw);
+        return msg;
     }
 
     private static JsonObject responseItemUserMessage(String timestamp, String text) {

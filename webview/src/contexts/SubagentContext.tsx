@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
-import type { ClaudeRawMessage, SubagentHistoryResponse, TaskEventMap } from '../types';
+import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import type { ClaudeRawMessage, SubagentHistoryResponse, TaskEvent, TaskEventMap } from '../types';
 
 // SubagentHistoryContext holds the full history map so consumers
 // (AgentGroupBlock / TaskExecutionBlock) re-render when an entry arrives.
@@ -13,10 +13,12 @@ const SubagentHistoryContext = createContext<Record<string, SubagentHistoryRespo
 
 interface SessionIdContextValue {
   currentSessionId: string | null;
+  currentProvider: string;
 }
 
 const SessionIdContext = createContext<SessionIdContextValue>({
   currentSessionId: null,
+  currentProvider: 'claude',
 });
 
 export type GetToolResultRawFn = (toolUseId: string) => ClaudeRawMessage | null;
@@ -40,9 +42,7 @@ const TaskEventContext = createContext<TaskEventMap>({});
 // SetTaskEventContext is separated from TaskEventContext so that components
 // which only need the setter (App.tsx, useSessionManagement, useWindowCallbacks)
 // do not re-render when the map changes.
-const SetTaskEventContext = createContext<React.Dispatch<
-  React.SetStateAction<TaskEventMap>
-> | null>(null);
+const SetTaskEventContext = createContext<React.Dispatch<React.SetStateAction<TaskEventMap>> | null>(null);
 
 /**
  * Provider that owns the task-events map state. Mount once above the App so
@@ -53,7 +53,9 @@ export function TaskEventProvider({ children }: { children: ReactNode }) {
   const [taskEvents, setTaskEvents] = useState<TaskEventMap>({});
   return (
     <SetTaskEventContext.Provider value={setTaskEvents}>
-      <TaskEventContext.Provider value={taskEvents}>{children}</TaskEventContext.Provider>
+      <TaskEventContext.Provider value={taskEvents}>
+        {children}
+      </TaskEventContext.Provider>
     </SetTaskEventContext.Provider>
   );
 }
@@ -77,16 +79,14 @@ export function useSetTaskEvents(): React.Dispatch<React.SetStateAction<TaskEven
   return setTaskEvents;
 }
 
-
-
 /**
- * Returns a getter function to look up a single subagent's history by key.
- * The getter is stable (never changes identity) so it won't cause re-renders
- * when used as a hook dependency. Returns undefined when the key is not found.
+ * Read the full subagent-history map. Re-renders the caller whenever any entry
+ * changes, so an expanded inline Agent card reflects a freshly loaded sidechain
+ * transcript without a manual reload. Callers narrow to the key they care about
+ * (toolUseId, falling back to agentId).
  */
-export function useSubagentHistoryGetter(): (key: string) => SubagentHistoryResponse | undefined {
-  const histories = useContext(SubagentHistoryContext);
-  return useCallback((key: string) => histories[key], [histories]);
+export function useSubagentHistories(): Record<string, SubagentHistoryResponse> {
+  return useContext(SubagentHistoryContext);
 }
 
 /**
@@ -96,6 +96,11 @@ export function useSessionId(): string | null {
   return useContext(SessionIdContext).currentSessionId;
 }
 
+/** Current provider paired with the session ID for provider-specific history reads. */
+export function useSessionProvider(): string {
+  return useContext(SessionIdContext).currentProvider;
+}
+
 /**
  * Hook for looking up the raw message that contains a given tool result.
  */
@@ -103,7 +108,16 @@ export function useGetToolResultRaw(): GetToolResultRawFn {
   return useContext(ToolResultRawContext);
 }
 
-
+/**
+ * Hook returning the latest task_* event for a background (run_in_background)
+ * Agent tool call, keyed by its tool_use_id. Re-renders the caller when the
+ * event map changes so inline Agent cards reflect completion in real time.
+ */
+export function useTaskEvent(toolUseId: string | undefined): TaskEvent | undefined {
+  const taskEvents = useContext(TaskEventContext);
+  if (!toolUseId) return undefined;
+  return taskEvents[toolUseId];
+}
 
 /**
  * Creates the context value objects used by App.tsx's Providers.
@@ -116,8 +130,12 @@ export function useGetToolResultRaw(): GetToolResultRawFn {
 export function useSubagentContextValues(
   subagentHistories: Record<string, SubagentHistoryResponse>,
   currentSessionId: string | null,
+  currentProvider: string,
 ) {
-  const sessionIdCtxValue = useMemo(() => ({ currentSessionId }), [currentSessionId]);
+  const sessionIdCtxValue = useMemo(
+    () => ({ currentSessionId, currentProvider }),
+    [currentProvider, currentSessionId],
+  );
   return { subagentHistoryCtxValue: subagentHistories, sessionIdCtxValue };
 }
 

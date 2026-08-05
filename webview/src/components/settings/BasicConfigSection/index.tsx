@@ -80,6 +80,9 @@ interface BasicConfigSectionProps {
   // User message bubble color configuration
   userMsgColor?: string;
   onUserMsgColorChange?: (color: string) => void;
+  // Shared chat header and status bar color configuration
+  chatBarColor?: string;
+  onChatBarColorChange?: (color: string) => void;
   // Diff theme configuration
   diffTheme?: DiffThemeMode;
   onDiffThemeChange?: (theme: DiffThemeMode) => void;

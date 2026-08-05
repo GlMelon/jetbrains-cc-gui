@@ -77,6 +77,8 @@
     "disabled": "Deshabilitado",
     "sdkNotInstalled": "{{provider}} SDK no está instalado. Instala el SDK para comenzar a chatear.",
     "sdkStatusLoading": "Checking SDK status...",
+    "sdkStatusUnavailable": "No se pudo comprobar el estado del SDK.",
+    "retrySdkStatus": "Reintentar",
     "openSourceBanner": "Este proyecto garantiza ser 100% de código abierto y gratuito (cuidado con los proyectos pirateados)",
     "goInstallSdk": "Ir a instalar",
     "commandNotImplemented": "La función `{{command}}` aún no está implementada.",
@@ -163,9 +165,6 @@
     "minutesAndSeconds": "{{minutes}}m {{seconds}}s",
     "usage": "Uso",
     "noMatchingHistory": "Sin historial coincidente",
-    "openSourceBannerStar": "Star",
-    "openSourceBannerStarToast": "Enlace copiado al portapapeles — pégalo en el navegador para acceder ⭐",
-    "openSourceBannerStarAria": "Copiar enlace y dar una estrella en GitHub",
     "attachmentFile": "[Adjunto: {{fileName}}]",
     "attachmentsUploaded": "[Archivos adjuntos cargados]",
     "showEarlierTurns": "Mostrar {{count}} turnos anteriores (quedan {{remaining}} cargados)",
@@ -330,6 +329,12 @@
         "reset": "Restablecer",
         "hint": "Personalizar el color de fondo del área de chat. Dejar vacío para seguir el tema predeterminado."
       },
+      "chatBarColor": {
+        "label": "Color del encabezado y la barra de estado",
+        "custom": "Personalizado",
+        "reset": "Restablecer",
+        "hint": "Usa un color de tema para el encabezado de sesión y la barra de estado de tareas. Déjalo vacío para seguir el tema actual."
+      },
       "userMsgColor": {
         "label": "Color de mensajes del usuario",
         "custom": "Personalizado",
@@ -373,6 +378,39 @@
     "providerTab": {
       "claude": "Claude Code",
       "codex": "Codex"
+    },
+"pluginModels": {
+      "title": "Modelos personalizados",
+      "description": "Los modelos personalizados agregados aquí serán visibles en todos los proveedores, mostrados en la parte superior de la lista de selección de modelos",
+      "dialogTitle": "Gestionar modelos personalizados",
+      "manage": "Gestionar modelos",
+      "pricing": {
+        "title": "Precio (USD por 1M tokens)",
+        "optionalLabel": "Opcional",
+        "hint": "Opcional. Deja un campo vacío para usar la tarifa predeterminada de ese tipo de token.",
+        "inputLabel": "Entrada",
+        "outputLabel": "Salida",
+        "cacheWriteLabel": "Escritura de caché",
+        "cacheReadLabel": "Lectura de caché",
+        "inputShort": "Entrada",
+        "outputShort": "Salida",
+        "cacheWriteShort": "Escritura de caché",
+        "cacheReadShort": "Lectura de caché",
+        "invalidValue": "El precio debe ser un número no negativo",
+        "defaultPricing": "Usando el precio predeterminado"
+      },
+      "contextWindow": {
+        "label": "Contexto máximo (K tokens)",
+        "placeholder": "p. ej. 500",
+        "hint": "Opcional. Introduce un número entero de miles de tokens (500 = 500.000 tokens). Solo se usa para mostrar el uso de contexto del plugin.",
+        "invalidValue": "El contexto máximo debe ser un entero positivo en unidades K",
+        "summary": "Contexto: {{value}} tokens"
+      },
+      "configuredSectionTitle": "Modelos de Claude configurados",
+      "configuredSectionDesc": "Los modelos del proveedor de Claude activo o settings.json ya aparecen en el selector. Aquí solo se puede modificar el precio.",
+      "configuredEditHint": "Este modelo está gestionado por el proveedor de Claude activo o settings.json. Aquí solo se puede modificar el precio.",
+      "customSectionTitle": "Modelos personalizados",
+      "editPricing": "Editar precio"
     },
     "dependencies": "Dependencias SDK",
     "dependency": {

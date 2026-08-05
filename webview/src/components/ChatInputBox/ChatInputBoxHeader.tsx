@@ -38,6 +38,8 @@ export const ChatInputBoxHeader = memo(function ChatInputBoxHeader({
 }: {
   sdkInstalled: boolean;
   sdkStatusLoading: boolean;
+  sdkStatusError?: boolean;
+  onRetrySdkStatus?: () => void;
   currentProvider: string;
   onInstallSdk?: () => void;
   t: TFunction;

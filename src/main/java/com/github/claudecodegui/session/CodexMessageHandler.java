@@ -71,6 +71,8 @@ public class CodexMessageHandler implements MessageCallback {
      */
     private boolean isThinking = false;
 
+    private com.google.gson.JsonObject currentTurnContextUsage;
+
     /**
      * 便捷构造器(不参与 epoch 守卫);测试与遗留路径用。
      *
@@ -524,7 +526,10 @@ public class CodexMessageHandler implements MessageCallback {
             // Normalize to the Claude usage schema (input excludes cache) and stamp it
             // as turnUsage for the per-turn token display in the webview.
             com.google.gson.JsonObject turnUsage = buildTurnUsage(usage);
-            boolean updated = attachUsageToLastAssistant(usage, turnUsage);
+            com.google.gson.JsonObject statusUsage = currentTurnContextUsage == null
+                    ? usage
+                    : currentTurnContextUsage;
+            boolean updated = attachUsageToLastAssistant(statusUsage, turnUsage);
             if (updated) {
                 pushUsageUpdate(usage);
                 callbackHandler.notifyMessageUpdate(state.getMessages());
@@ -629,7 +634,8 @@ public class CodexMessageHandler implements MessageCallback {
             }
 
             com.google.gson.JsonObject info = payload.getAsJsonObject("info");
-            if (!info.has("total_token_usage") || !info.get("total_token_usage").isJsonObject()) {
+            if (!info.has("last_token_usage") || !info.get("last_token_usage").isJsonObject()) {
+                LOG.debug("Ignoring Codex cumulative token_count without last_token_usage");
                 return;
             }
 
@@ -644,11 +650,10 @@ public class CodexMessageHandler implements MessageCallback {
             usage.addProperty("output_tokens", outputTokens);
             usage.addProperty("cache_read_input_tokens", cachedInputTokens);
             usage.addProperty("cache_creation_input_tokens", 0);
+            currentTurnContextUsage = usage.deepCopy();
 
-            // token_count carries total_token_usage (session-cumulative), which feeds the
-            // context-usage status bar via the top-level usage field. It is NOT turn-scoped,
-            // so never stamp it as turnUsage — the turn aggregate comes from the result
-            // message (turn.completed) in handleResultMessage.
+            // token_count is not turn-scoped, so never stamp it as turnUsage. The latest
+            // token usage is used for the context status; cumulative totals are ignored.
             boolean updated = attachUsageToLastAssistant(usage, null);
             if (updated) {
                 pushUsageUpdate(usage);
@@ -1158,6 +1163,7 @@ public class CodexMessageHandler implements MessageCallback {
         isStreaming = true;
         streamEndedThisTurn = false;
         replayDedup.reset();
+        currentTurnContextUsage = null;
         resetStreamingAccumulator();
         callbackHandler.notifyStreamStart();
         LOG.debug("Codex stream started");

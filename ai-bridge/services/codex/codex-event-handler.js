@@ -68,6 +68,7 @@ const COMMAND_DENIED_ABORT_ERROR = '__CODEX_COMMAND_DENIED_ABORT__';
  *   suppressNoResponseFallback: boolean;
  *   userAbortObserved: boolean;
  *   turnCompleted: boolean;
+ *   sessionTurnBoundaryReady: boolean;
  *   currentThreadId: string | null;
  *   finalResponse: string;
  *   assistantText: string;
@@ -271,6 +272,8 @@ export function createInitialEventState(emitMessage) {
     suppressNoResponseFallback: false,
     userAbortObserved: false,
     turnCompleted: false,
+    sessionTurnBoundaryReady: false,
+    currentTurnTokenCountPayload: null,
     currentThreadId: null,
     finalResponse: '',
     assistantText: '',
@@ -387,6 +390,62 @@ async function readLatestTurnContextFromSession(state, threadId) {
     }
   }
   return null;
+}
+
+function hasLastTokenUsage(payload) {
+  return payload?.type === 'token_count' &&
+    payload.info?.last_token_usage &&
+    typeof payload.info.last_token_usage === 'object';
+}
+
+async function readCurrentTurnTokenCountFromSession(state, config) {
+  if (!state.sessionTurnBoundaryReady) {
+    await ensureSessionTurnBoundary(state, config);
+  }
+  if (!state.sessionTurnBoundaryReady || !Number.isInteger(state.sessionTurnStartCursor)) {
+    return null;
+  }
+
+  const sessionPath = ensureSessionFilePath(state, resolveSessionThreadId(state, config));
+  if (!sessionPath) return null;
+
+  let content = '';
+  try {
+    content = await readFile(sessionPath, 'utf8');
+  } catch (error) {
+    logDebug('CONTEXT_USAGE', 'Failed to read session file for token usage:', error?.message || error);
+    return null;
+  }
+
+  const lines = splitSessionJsonlEntries(content);
+  for (let i = lines.length - 1; i >= state.sessionTurnStartCursor; i--) {
+    let parsed;
+    try { parsed = JSON.parse(lines[i]); } catch { continue; }
+    if (parsed?.type === 'event_msg' && hasLastTokenUsage(parsed.payload)) {
+      return parsed.payload;
+    }
+  }
+  return null;
+}
+
+/**
+ * @param {EventProcessingState} state
+ * @param {EventStreamConfig} config
+ * @returns {Promise<void>}
+ */
+async function ensureSessionTurnBoundary(state, config) {
+  const sessionPath = ensureSessionFilePath(state, resolveSessionThreadId(state, config));
+  if (sessionPath && existsSync(sessionPath)) {
+    try {
+      const content = await readFile(sessionPath, 'utf8');
+      state.sessionTurnStartCursor = countSessionJsonlLines(content);
+    } catch {
+      state.sessionTurnStartCursor = state.sessionFunctionCursor;
+    }
+  } else {
+    state.sessionTurnStartCursor = state.sessionFunctionCursor;
+  }
+  state.sessionTurnBoundaryReady = true;
 }
 
 /**
@@ -771,11 +830,6 @@ async function maybeLogRuntimePolicy(state, config) {
  * Handle a completed item from the Codex event stream.
  * Dispatches to type-specific handlers for agent_message, command_execution,
  * file_change, and mcp_tool_call.
- */
-/**
- * Handle a completed item from the Codex event stream.
- * Dispatches to type-specific handlers for agent_message, command_execution,
- * file_change, and mcp_tool_call.
  *
  * @param {any} item
  * @param {EventProcessingState} state
@@ -962,22 +1016,19 @@ export async function processCodexEventStream(events, state, config) {
 
       case 'turn.started': {
         state.turnCompleted = false;
-        const sessionPath = ensureSessionFilePath(state, resolveSessionThreadId(state, config));
-        if (sessionPath && existsSync(sessionPath)) {
-          try {
-            const content = await readFile(sessionPath, 'utf8');
-            state.sessionTurnStartCursor = countSessionJsonlLines(content);
-          } catch {
-            state.sessionTurnStartCursor = state.sessionFunctionCursor;
-          }
-        } else {
-          state.sessionTurnStartCursor = state.sessionFunctionCursor;
-        }
+        state.currentTurnTokenCountPayload = null;
+        await ensureSessionTurnBoundary(state, config);
         console.log('[DEBUG] Turn started');
         break;
       }
 
       case 'event_msg': {
+        if (event.payload?.type === 'token_count') {
+          if (hasLastTokenUsage(event.payload)) {
+            state.currentTurnTokenCountPayload = event.payload;
+          }
+          state.emitMessage({ type: 'event_msg', payload: event.payload });
+        }
         await replayMissingFunctionCallsDuringStream(state, config);
         break;
       }
@@ -1037,6 +1088,14 @@ export async function processCodexEventStream(events, state, config) {
         const replayed = await replayMissingFunctionCallsFromSession(state, config);
         if (replayed.toolUses > 0 || replayed.toolResults > 0) {
           console.log('[DEBUG] Replayed session function calls:', JSON.stringify(replayed));
+        }
+        if (!state.currentTurnTokenCountPayload) {
+          const recoveredTokenCount = await readCurrentTurnTokenCountFromSession(state, config);
+          if (recoveredTokenCount) {
+            state.currentTurnTokenCountPayload = recoveredTokenCount;
+            state.emitMessage({ type: 'event_msg', payload: recoveredTokenCount });
+            logDebug('CONTEXT_USAGE', 'Recovered current context usage from the Codex session JSONL.');
+          }
         }
         if (event.usage) {
           console.log('[DEBUG] Token usage:', event.usage);

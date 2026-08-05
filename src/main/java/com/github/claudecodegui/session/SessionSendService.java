@@ -400,7 +400,8 @@ public class SessionSendService {
                 messageParser,
                 messageMerger,
                 gson,
-                state.getRuntimeSessionEpoch()
+                state.getRuntimeSessionEpoch(),
+                CodemossSettingsService.getInstance()
         );
 
         Boolean streaming = readStreamingEnabled();

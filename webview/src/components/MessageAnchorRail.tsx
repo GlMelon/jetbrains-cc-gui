@@ -21,6 +21,8 @@ interface UserMessageItem {
 
 interface MessageAnchorRailProps {
   messages: ClaudeMessage[];
+  /** Stable message keys for anchor identity (from reconcileMessageKeys). */
+  messageKeys?: string[];
   /** Number of messages hidden by the collapse feature. Kept for call-site compatibility. */
   collapsedCount?: number;
   containerRef: React.RefObject<HTMLDivElement | null>;

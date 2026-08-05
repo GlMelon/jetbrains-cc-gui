@@ -66,6 +66,7 @@ export interface UseWindowCallbacksOptions {
     React.SetStateAction<Record<string, { installed?: boolean; status?: string }>>
   >;
   setSdkStatusLoaded: React.Dispatch<React.SetStateAction<boolean>>;
+  setSdkStatusError: React.Dispatch<React.SetStateAction<string | null>>;
   setIsRewinding: (loading: boolean) => void;
   setRewindDialogOpen: (open: boolean) => void;
   setCurrentRewindRequest: (request: RewindRequest | null) => void;

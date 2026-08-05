@@ -3,31 +3,29 @@ package com.github.claudecodegui.ui;
 import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
-import com.github.claudecodegui.protocol.DownstreamEvent;
-import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.model.NodeDetectionResult;
+import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
 import com.github.claudecodegui.provider.codex.CodexSDKBridge;
 import com.github.claudecodegui.session.ClaudeSession;
-import com.github.claudecodegui.session.runtime.EffectiveRuntimeResolver;
-import com.github.claudecodegui.session.runtime.ProviderType;
-import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.startup.BridgePreloader;
+import com.github.claudecodegui.ui.bootstrap.WebviewBootstrapPayloadFactory;
 import com.github.claudecodegui.util.HtmlLoader;
 import com.github.claudecodegui.util.JBCefBrowserFactory;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.github.claudecodegui.util.ThemeConfigService;
-import com.github.claudecodegui.ui.bootstrap.WebviewBootstrapPayloadFactory;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.ui.jcef.JBCefBrowser;
 import com.intellij.ui.jcef.JBCefBrowserBase;
 import com.intellij.ui.jcef.JBCefJSQuery;
+import org.cef.CefClient;
 import org.cef.browser.CefBrowser;
 import org.cef.browser.CefFrame;
 import org.cef.handler.CefLoadHandlerAdapter;
@@ -45,6 +43,7 @@ import java.awt.dnd.DropTargetDropEvent;
 import java.io.File;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Handles webview (JCEF browser) creation, configuration, error panels,
@@ -55,6 +54,9 @@ public class WebviewInitializer {
     private static final Logger LOG = Logger.getInstance(WebviewInitializer.class);
     private static final Gson GSON = new Gson();
     private static final String NODE_PATH_PROPERTY_KEY = "claude.code.node.path";
+    private static final int BRIDGE_INJECTION_FAST_RETRY_INTERVAL_MS = 100;
+    private static final int BRIDGE_INJECTION_SLOW_RETRY_INTERVAL_MS = 1000;
+    private static final int BRIDGE_INJECTION_FAST_RETRY_ATTEMPTS = 50;
 
     /**
      * Host interface providing access to window-level dependencies.
@@ -63,19 +65,30 @@ public class WebviewInitializer {
         Project getProject();
         ClaudeSDKBridge getClaudeSDKBridge();
         CodexSDKBridge getCodexSDKBridge();
-        com.github.claudecodegui.provider.opencode.OpenCodeSDKBridge getOpenCodeSDKBridge();
         JPanel getMainPanel();
         HtmlLoader getHtmlLoader();
         HandlerContext getHandlerContext();
         JBCefBrowser getBrowser();
         void setBrowser(JBCefBrowser browser);
         boolean isDisposed();
-        void handleJavaScriptMessage(String message);
+        void activatePageGeneration(int pageGeneration);
+        void handleJavaScriptMessage(int pageGeneration, String message);
         WebviewWatchdog getWebviewWatchdog();
+        boolean isFrontendReady();
         void setFrontendReady(boolean ready);
     }
 
     private final WebviewHost host;
+
+    private final Object bridgeLock = new Object();
+
+    /**
+     * JCEF JS bridges for the current browser. Keeping each browser's queries
+     * together prevents a stale load callback from using a replacement browser's
+     * native callback handles during a watchdog recreation.
+     */
+    private volatile BrowserBridges bridges;
+    private int pageGeneration;
 
     public WebviewInitializer(WebviewHost host) {
         this.host = host;
@@ -85,7 +98,20 @@ public class WebviewInitializer {
      * Create and configure UI components (browser, JS bridge, drag-and-drop).
      */
     public void createUIComponents() {
+        if (this.host.isDisposed()) {
+            return;
+        }
+        JBCefBrowser existingBrowser = this.host.getBrowser();
+        if (existingBrowser != null) {
+            // Browser lifecycle is owned by this initializer. Remote JCEF can
+            // report isClosed() for an active proxy, so a non-null host browser
+            // is the authoritative signal that initialization already ran.
+            LOG.debug("Skip duplicate webview initialization: browser is already active");
+            return;
+        }
+
         JPanel mainPanel = host.getMainPanel();
+        JBCefBrowser browser = null;
 
         // Use the shared resolver from BridgePreloader for consistent state
         com.github.claudecodegui.bridge.BridgeDirectoryResolver sharedResolver = BridgePreloader.getSharedResolver();
@@ -170,155 +196,209 @@ public class WebviewInitializer {
         // Prewarm daemon in background so first user message starts faster.
         // Bind the warm runtime to the current logical session epoch so future new-session
         // transitions cannot accidentally reuse stale anonymous runtime ownership.
-        // Skip daemon prewarm when CLI invocation mode is active — CLI mode uses a separate
-        // process per request and does not need the Node.js daemon.
-        if (!isClaudeCliRuntime()) {
-            claudeSDKBridge.prewarmDaemonAsync(host.getProject().getBasePath(), host.getHandlerContext().getSession() != null
-                    ? host.getHandlerContext().getSession().getRuntimeSessionEpoch()
-                    : null);
-        }
+        claudeSDKBridge.prewarmDaemonAsync(host.getProject().getBasePath(), host.getHandlerContext().getSession() != null
+                ? host.getHandlerContext().getSession().getRuntimeSessionEpoch()
+                : null);
 
-        // 兜底预热 MCP Gateway:BridgePreloader 在项目打开时已做主预热(isGatewayActive 守卫,
-        // 见 BridgePreloader.prewarmMcpGateway),此处是打开工具窗口时的二次保险——若 BridgePreloader
-        // 因故未跑到(如 ai-bridge 解压失败重试路径),这里再触发。applySnapshot 的 configHash 幂等
-        // 保证两次预热不会重复 postSnapshot,已 ready 时 ensureStarted 复用秒回。
-        // refreshConfig 内部 isGatewayActive(cli||sdk)守卫:gateway 整体禁用时 no-op 无副作用。
-        ApplicationManager.getApplication().executeOnPooledThread(() -> {
-            try {
-                Project project = host.getProject();
-                McpGatewayService.getInstance(project).refreshConfig(project.getBasePath());
-            } catch (Exception e) {
-                LOG.warn("[WebviewInitializer] MCP Gateway prewarm failed: " + e.getMessage(), e);
-            }
-        });
-
-        // Check JCEF support before creating browser
-        if (!JBCefBrowserFactory.isJcefSupported()) {
-            LOG.warn("JCEF is not supported in this environment");
-            showJcefNotSupportedPanel();
+        // Check JCEF support before creating browser. Keep the precise status
+        // so the fallback panel can distinguish a disabled registry flag from
+        // a missing runtime or Android Studio's optional JCEF plugin.
+        JBCefBrowserFactory.JcefSupportStatus jcefStatus = JBCefBrowserFactory.getJcefSupportStatus();
+        if (jcefStatus != JBCefBrowserFactory.JcefSupportStatus.SUPPORTED) {
+            LOG.warn("JCEF is not supported in this environment: " + jcefStatus);
+            showJcefNotSupportedPanel(jcefStatus);
             return;
         }
 
         try {
-            JBCefBrowser browser = JBCefBrowserFactory.create();
-            host.setBrowser(browser);
-            host.getHandlerContext().setBrowser(browser);
+            browser = JBCefBrowserFactory.create();
+            JBCefBrowser createdBrowser = browser;
+            host.setBrowser(createdBrowser);
+            host.getHandlerContext().setBrowser(createdBrowser);
 
-            browser.getJBCefClient().addRequestHandler(
+            createdBrowser.getJBCefClient().addRequestHandler(
                     new UiFontResourceRequestHandler(),
-                    browser.getCefBrowser()
-            );
-            browser.getJBCefClient().addRequestHandler(
-                    new AttachmentResourceRequestHandler(),
-                    browser.getCefBrowser()
+                    createdBrowser.getCefBrowser()
             );
 
-            JBCefBrowserBase browserBase = browser;
-            JBCefJSQuery jsQuery = JBCefJSQuery.create(browserBase);
-            jsQuery.addHandler((msg) -> {
-                host.handleJavaScriptMessage(msg);
+            // JCEF JS bridges must be created and registered before loadHTML,
+            // because the window.sendToJava / shortcut / clipboard handlers
+            // injected in onLoadEnd depend on these JSQuery inject() handles.
+            BrowserBridges currentBridges = new BrowserBridges(createdBrowser);
+            synchronized (this.bridgeLock) {
+                this.bridges = currentBridges;
+            }
+            currentBridges.jsQuery.addHandler((msg) -> {
+                boolean dispatch;
+                int pageGeneration;
+                String message;
+                synchronized (this.bridgeLock) {
+                    pageGeneration = currentBridges.getPageGeneration();
+                    message = unwrapBridgeMessage(msg, pageGeneration);
+                    dispatch = message != null && !host.isDisposed()
+                            && this.bridges == currentBridges
+                            && currentBridges.isCurrentPage(createdBrowser, pageGeneration);
+                }
+                // Dispatch outside bridgeLock: handleJavaScriptMessage serializes on the dispatch
+                // gate (MessageDispatchGate), not the host window, and dispose() runs
+                // disposeBridges() outside that gate. Keeping bridgeLock and the gate un-nested -
+                // bridgeLock is released before dispatch acquires the gate, and dispose acquires
+                // the gate only for its short check-and-set (beginTeardown) before releasing it
+                // for heavy teardown - avoids any lock-order inversion between the two. A teardown
+                // that races this gap is caught by the gate: runInDispatch refuses once
+                // beginTeardown has flipped disposed.
+                if (dispatch) {
+                    host.handleJavaScriptMessage(pageGeneration, message);
+                }
+                return new JBCefJSQuery.Response(dispatch ? "ok" : "stale");
+            });
+
+            currentBridges.clipboardPathQuery.addHandler((msg) -> {
+                synchronized (this.bridgeLock) {
+                    if (host.isDisposed() || this.bridges != currentBridges
+                            || !currentBridges.isCurrentFor(createdBrowser)) {
+                        return new JBCefJSQuery.Response("closed");
+                    }
+                }
+                // Clipboard reads can stall on remote/slow clipboards (X11
+                // selection IPC). Keep them outside bridgeLock so the message
+                // dispatcher and sibling handlers are not blocked behind one
+                // slow paste. handleClipboardPathRequest is a pure read and
+                // never touches the browser or bridges, so racing a teardown
+                // here is harmless — the response is dropped if the browser is
+                // gone by the time it returns.
+                return handleClipboardPathRequest();
+            });
+
+            // Create a dedicated JSQuery for hiding the CCG panel via Shift+Esc
+            currentBridges.hidePanelQuery.addHandler((msg) -> {
+                synchronized (this.bridgeLock) {
+                    if (host.isDisposed() || this.bridges != currentBridges
+                            || !currentBridges.isCurrentFor(createdBrowser)) {
+                        return new JBCefJSQuery.Response("closed");
+                    }
+                }
+                // Route through the project-aware invoker rather than
+                // ApplicationManager.invokeLater: getInstance(project) throws
+                // AlreadyDisposedException once the project closes, and the gap
+                // between the isDisposed() check above and the EDT callback is
+                // exactly when a project teardown can slip in. The helper uses
+                // ToolWindowManager.invokeLater, which drops the callback when
+                // the project is disposed.
+                invokeLaterForToolWindow(() -> {
+                    if (host.isDisposed()) {
+                        return;
+                    }
+                    Project project = host.getProject();
+                    if (project == null || project.isDisposed()) {
+                        return;
+                    }
+                    ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow("CCG");
+                    if (toolWindow != null && toolWindow.isVisible()) {
+                        toolWindow.hide();
+                    }
+                });
                 return new JBCefJSQuery.Response("ok");
             });
 
-            // Create a dedicated JSQuery for getting clipboard file paths
-            JBCefJSQuery getClipboardPathQuery = JBCefJSQuery.create(browserBase);
-            getClipboardPathQuery.addHandler((msg) -> {
-                try {
-                    LOG.debug("Clipboard path request received");
-                    Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
-                    Transferable contents = clipboard.getContents(null);
+            int initialPageGeneration = beginPageLoad(currentBridges);
+            host.activatePageGeneration(initialPageGeneration);
+            host.setFrontendReady(false);
+            String htmlContent = loadChatHtmlWithInitialTabState(initialPageGeneration);
 
-                    if (contents != null && contents.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
-                        @SuppressWarnings("unchecked")
-                        List<File> files = (List<File>) contents.getTransferData(DataFlavor.javaFileListFlavor);
-
-                        if (!files.isEmpty()) {
-                            File file = files.get(0);
-                            String filePath = file.getAbsolutePath();
-                            LOG.debug("Returning file path from clipboard: " + filePath);
-                            return new JBCefJSQuery.Response(filePath);
-                        }
-                    }
-                    LOG.debug("No file in clipboard");
-                    return new JBCefJSQuery.Response("");
-                } catch (Exception ex) {
-                    LOG.warn("Error getting clipboard path: " + ex.getMessage());
-                    return new JBCefJSQuery.Response("");
-                }
-            });
-
-            // Shift+Esc 隐藏面板已合并到主 sendToJava 路由(hide_panel 类型),不再使用独立的 hidePanelQuery,
-            // 减少每个标签一个 JBCefJSQuery 实例。路由处理在 ClaudeChatWindow.handleJavaScriptMessage。
-
-            HtmlLoader htmlLoader = host.getHtmlLoader();
-            String htmlContent = htmlLoader.loadChatHtml();
-
-            browser.getJBCefClient().addLoadHandler(new CefLoadHandlerAdapter() {
+            // LoadHandler must be registered before loadHTML, otherwise the
+            // first frame's onLoadEnd is missed and the JS bridge injection
+            // never runs, leaving the frontend without a sendToJava channel.
+            // Register directly on the browser's dedicated native client. The
+            // JBCefClient convenience overload filters callbacks through a map
+            // keyed by CefBrowser objects, which is not reliable with Android
+            // Studio's remote JCEF proxies and can silently drop onLoadEnd.
+            CefLoadHandlerAdapter bridgeLoadHandler = new CefLoadHandlerAdapter() {
                 @Override
                 public void onLoadEnd(CefBrowser cefBrowser, CefFrame frame, int httpStatusCode) {
                     LOG.debug("onLoadEnd called, isMain=" + frame.isMain() + ", url=" + cefBrowser.getURL());
 
-                    if (!frame.isMain()) {
+                    if (!frame.isMain() || host.isDisposed()) {
                         return;
                     }
 
-                    // 注入所有启动期 JS:单次 executeJavaScript 替代原先 10+ 次独立调用,减少 JCEF IPC 往返。
-                    // 每段用独立 IIFE 包裹隔离错误(一段抛异常不影响其他段,等价于原先各自 executeJavaScript 的语义)。
-                    // Shift+Esc 隐藏面板已合并到主 sendToJava 路由(hide_panel),不再使用独立的 hidePanelQuery。
-                    StringBuilder bootstrap = new StringBuilder();
-
-                    // 1. 主上行桥 window.sendToJava — 必须最先注入,后续 keydown 监听器与 console 转发依赖它。
-                    bootstrap.append("(function(){ window.sendToJava = function(msg) { ")
-                             .append(jsQuery.inject("msg"))
-                             .append(" }; })();");
-
-                    // 2. Shift+Esc 隐藏 AICG 面板。JS 层拦截 keydown(JCEF 在 Chromium 处理前转发给渲染进程),
-                    // 走主 sendToJava 通道,ClaudeChatWindow.handleJavaScriptMessage 路由 hide_panel 类型。
-                    bootstrap.append("(function(){ document.addEventListener('keydown', function(e) {")
-                             .append(" if (e.key === 'Escape' && e.shiftKey) {")
-                             .append(" e.preventDefault(); e.stopPropagation();")
-                             .append(" window.sendToJava(JSON.stringify({type:'hide_panel', content:''}));")
-                             .append(" }")
-                             .append(" }, true); })();");
-
-                    // 3. 剪贴板文件路径读取(Promise RPC;保留独立 query 因其 request/response 契约)。
-                    bootstrap.append("(function(){ window.getClipboardFilePath = function() {")
-                             .append(" return new Promise((resolve) => { ")
-                             .append(getClipboardPathQuery.inject("''",
-                                 "function(response) { resolve(response); }",
-                                 "function(error_code, error_message) { console.error('Failed to get clipboard path:', error_message); resolve(''); }"))
-                             .append(" }); }; })();");
-
-                    // 4. 控制台转发(仅 dev 模式 — 生产环境 IPC 开销影响滚动 FPS)。
-                    if (PlatformUtils.isPluginDevMode()) {
-                        bootstrap.append("(function(){")
-                                 .append(" var originalLog = console.log, originalError = console.error, originalWarn = console.warn;")
-                                 .append(" console.log = function(...args) { originalLog.apply(console, args);")
-                                 .append("   window.sendToJava(JSON.stringify({type: 'console.log', args: args})); };")
-                                 .append(" console.error = function(...args) { originalError.apply(console, args);")
-                                 .append("   window.sendToJava(JSON.stringify({type: 'console.error', args: args})); };")
-                                 .append(" console.warn = function(...args) { originalWarn.apply(console, args);")
-                                 .append("   window.sendToJava(JSON.stringify({type: 'console.warn', args: args})); };")
-                                 .append("})();");
+                    String injection;
+                    String shiftEscInjection;
+                    String clipboardPathInjection;
+                    int pageGeneration;
+                    synchronized (WebviewInitializer.this.bridgeLock) {
+                        if (WebviewInitializer.this.bridges != currentBridges
+                                || !currentBridges.isCurrentFor(createdBrowser)) {
+                            return;
+                        }
+                        pageGeneration = currentBridges.getPageGeneration();
+                        injection = guardPageScript(pageGeneration,
+                                buildBridgeInjection(currentBridges.jsQuery.inject(
+                                        buildBridgeMessageExpression(pageGeneration))));
+                        shiftEscInjection = guardPageScript(pageGeneration,
+                                buildShiftEscInjection(
+                                        currentBridges.hidePanelQuery.inject("''",
+                                                "function() {}",
+                                                "function() {}")));
+                        clipboardPathInjection = guardPageScript(pageGeneration,
+                            "window.getClipboardFilePath = function() {" +
+                            "  return new Promise((resolve) => {" +
+                            "    " + currentBridges.clipboardPathQuery.inject("''",
+                                "function(response) { resolve(response); }",
+                                "function(error_code, error_message) { console.error('Failed to get clipboard path:', error_message); resolve(''); }") +
+                            "  });" +
+                            "};");
                     }
 
-                    cefBrowser.executeJavaScript(bootstrap.toString(), cefBrowser.getURL(), 0);
+                    try {
+                        cefBrowser.executeJavaScript(injection, cefBrowser.getURL(), 0);
+                        cefBrowser.executeJavaScript(shiftEscInjection, cefBrowser.getURL(), 0);
+                        cefBrowser.executeJavaScript(clipboardPathInjection, cefBrowser.getURL(), 0);
+                    } catch (Exception | LinkageError e) {
+                        LOG.debug("Skipping webview bridge injection after browser disposal: " + e.getMessage(), e);
+                        return;
+                    }
 
-                    String bootstrapPayload = GSON.toJson(
-                            WebviewBootstrapPayloadFactory.create(host.getHandlerContext().getSettingsService())
-                    );
-                    host.getHandlerContext().dispatchEvent(DownstreamEvent.WEBVIEW_BOOTSTRAP.value(), bootstrapPayload);
-                    LOG.debug("onLoadEnd bootstrap injected (" + bootstrap.length() + " chars), waiting for frontend_ready signal");
+                    try {
+                        // Forward console logs to IDEA console (dev mode only — IPC overhead hurts scroll FPS in production)
+                        if (PlatformUtils.isPluginDevMode()) {
+                            String consoleForward =
+                            "const originalLog = console.log;" +
+                            "const originalError = console.error;" +
+                            "const originalWarn = console.warn;" +
+                            "console.log = function(...args) {" +
+                            "  originalLog.apply(console, args);" +
+                            "  window.sendToJava(JSON.stringify({type: 'console.log', args: args}));" +
+                            "};" +
+                            "console.error = function(...args) {" +
+                            "  originalError.apply(console, args);" +
+                            "  window.sendToJava(JSON.stringify({type: 'console.error', args: args}));" +
+                            "};" +
+                            "console.warn = function(...args) {" +
+                            "  originalWarn.apply(console, args);" +
+                            "  window.sendToJava(JSON.stringify({type: 'console.warn', args: args}));" +
+                            "};";
+                            cefBrowser.executeJavaScript(consoleForward, cefBrowser.getURL(), 0);
+                        }
+
+                        injectFrontendConfiguration(cefBrowser, pageGeneration);
+
+                        LOG.debug("onLoadEnd completed, waiting for frontend_ready signal");
+                    } catch (Exception | LinkageError e) {
+                        LOG.debug("Skipping webview initialization after browser disposal: " + e.getMessage(), e);
+                    }
                 }
-            }, browser.getCefBrowser());
+            };
+            CefClient nativeClient = createdBrowser.getJBCefClient().getCefClient();
+            nativeClient.addLoadHandler(bridgeLoadHandler);
 
-            browser.loadHTML(htmlContent);
+            // At this point the JSQuery bridges and the LoadHandler are both
+            // registered, so it is safe to load the HTML - the first frame's
+            // onLoadEnd will fire and inject the sendToJava bridge as expected.
+            createdBrowser.loadHTML(htmlContent);
+            scheduleBridgeInjectionRetries(createdBrowser, currentBridges, initialPageGeneration);
 
-            // Reset webview health markers and start watchdog once the browser is created.
-            host.getWebviewWatchdog().resetTimestamps();
-            host.getWebviewWatchdog().start();
-
-            JComponent browserComponent = browser.getComponent();
+            JComponent browserComponent = createdBrowser.getComponent();
 
             // Set webview container background color to prevent white flash before HTML loads.
             browserComponent.setBackground(ThemeConfigService.getBackgroundColor());
@@ -347,7 +427,8 @@ public class WebviewInitializer {
                                     "if (window.handleFilePathFromJava) { window.handleFilePathFromJava(%s); }",
                                     jsonArray.toString()
                                 );
-                                browser.getCefBrowser().executeJavaScript(jsCode, browser.getCefBrowser().getURL(), 0);
+                                createdBrowser.getCefBrowser().executeJavaScript(
+                                        jsCode, createdBrowser.getCefBrowser().getURL(), 0);
                             }
                             dtde.dropComplete(true);
                             return;
@@ -360,16 +441,22 @@ public class WebviewInitializer {
             });
 
             mainPanel.add(browserComponent, BorderLayout.CENTER);
+            mainPanel.revalidate();
+            mainPanel.repaint();
+            host.getWebviewWatchdog().resetTimestamps();
+            host.getWebviewWatchdog().start();
 
         } catch (IllegalStateException e) {
+            this.disposeFailedBrowser(browser);
             if (e.getMessage() != null && e.getMessage().contains("JCEF")) {
                 LOG.error("JCEF initialization failed: " + e.getMessage(), e);
-                showJcefNotSupportedPanel();
+                showJcefNotSupportedPanel(JBCefBrowserFactory.JcefSupportStatus.UNAVAILABLE);
             } else {
                 LOG.error("Failed to create UI components: " + e.getMessage(), e);
                 showErrorPanel();
             }
         } catch (NullPointerException e) {
+            this.disposeFailedBrowser(browser);
             String msg = e.getMessage();
             if (msg != null && msg.contains("isNull") && msg.contains("robj")) {
                 LOG.error("JCEF remote mode incompatibility: " + e.getMessage(), e);
@@ -379,14 +466,242 @@ public class WebviewInitializer {
                 showErrorPanel();
             }
         } catch (Exception e) {
+            this.disposeFailedBrowser(browser);
             LOG.error("Failed to create UI components: " + e.getMessage(), e);
             showErrorPanel();
         } catch (LinkageError e) {
+            this.disposeFailedBrowser(browser);
             // Platform/JBR binary mismatch (e.g. Android Studio 2026.x whose
             // bundled JBR lacks JCefAppConfig.isRemoteEnabled()) throws Error,
             // not Exception - it must not crash the EDT with a blank panel.
             LOG.error("JCEF binary incompatibility: " + e.getMessage(), e);
-            showJcefNotSupportedPanel();
+            JBCefBrowserFactory.JcefSupportStatus status = JBCefBrowserFactory.isJbrMissingJcefRemoteApi()
+                    ? JBCefBrowserFactory.JcefSupportStatus.OUTDATED_JBR
+                    : JBCefBrowserFactory.JcefSupportStatus.UNAVAILABLE;
+            showJcefNotSupportedPanel(status);
+        }
+    }
+
+    private void scheduleBridgeInjectionRetries(
+            JBCefBrowser browser,
+            BrowserBridges currentBridges,
+            int pageGeneration
+    ) {
+        AtomicInteger attempts = new AtomicInteger();
+        Timer timer = new Timer(BRIDGE_INJECTION_FAST_RETRY_INTERVAL_MS, null);
+        timer.addActionListener(event -> {
+            int attempt = attempts.incrementAndGet();
+            if (host.isDisposed() || host.isFrontendReady()) {
+                currentBridges.stopBridgeInjectionTimer(timer);
+                return;
+            }
+            timer.setDelay(bridgeInjectionRetryDelayMs(attempt + 1));
+            if (!injectBridgeFallback(browser, currentBridges, pageGeneration, attempt)) {
+                currentBridges.stopBridgeInjectionTimer(timer);
+            }
+        });
+        timer.setInitialDelay(BRIDGE_INJECTION_FAST_RETRY_INTERVAL_MS);
+        currentBridges.setBridgeInjectionTimer(timer);
+        LOG.info("[JCEF] Scheduled fallback bridge injection retries until frontend readiness");
+        timer.start();
+    }
+
+    private int beginPageLoad(BrowserBridges expectedBridges) {
+        synchronized (this.bridgeLock) {
+            if (this.bridges != expectedBridges) {
+                throw new IllegalStateException("Cannot load a page for stale browser bridges");
+            }
+            int nextPageGeneration = nextPageGeneration();
+            expectedBridges.beginPageLoad(nextPageGeneration);
+            return nextPageGeneration;
+        }
+    }
+
+    private int invalidateCurrentPage() {
+        synchronized (this.bridgeLock) {
+            int nextPageGeneration = nextPageGeneration();
+            if (this.bridges != null) {
+                this.bridges.beginPageLoad(nextPageGeneration);
+            }
+            return nextPageGeneration;
+        }
+    }
+
+    int nextPageGeneration() {
+        synchronized (this.bridgeLock) {
+            this.pageGeneration += 1;
+            return this.pageGeneration;
+        }
+    }
+
+    static int bridgeInjectionRetryDelayMs(int attempt) {
+        return attempt <= BRIDGE_INJECTION_FAST_RETRY_ATTEMPTS
+                ? BRIDGE_INJECTION_FAST_RETRY_INTERVAL_MS
+                : BRIDGE_INJECTION_SLOW_RETRY_INTERVAL_MS;
+    }
+
+    /**
+     * Android Studio's remote JCEF can render loadHTML without delivering the
+     * browser-scoped onLoadEnd callback. Retry the minimum bootstrap directly
+     * in the active page so the frontend can establish its Java bridge and
+     * request dependency status. The timer stops as soon as frontend_ready is
+     * received. Retries slow down after the initial five-second startup window.
+     */
+    private boolean injectBridgeFallback(
+            JBCefBrowser browser,
+            BrowserBridges currentBridges,
+            int pageGeneration,
+            int attempt
+    ) {
+        String bridgeInjection;
+        String shiftEscInjection;
+        String clipboardPathInjection;
+        synchronized (this.bridgeLock) {
+            if (this.bridges != currentBridges
+                    || !currentBridges.isCurrentPage(browser, pageGeneration)) {
+                return false;
+            }
+            bridgeInjection = guardPageScript(pageGeneration,
+                    buildBridgeInjection(currentBridges.jsQuery.inject(
+                            buildBridgeMessageExpression(pageGeneration))));
+            shiftEscInjection = guardPageScript(pageGeneration,
+                    buildShiftEscInjection(
+                            currentBridges.hidePanelQuery.inject("''",
+                                    "function() {}",
+                                    "function() {}")));
+            clipboardPathInjection = guardPageScript(pageGeneration,
+                    "window.getClipboardFilePath = function() {" +
+                    "  return new Promise((resolve) => {" +
+                    "    " + currentBridges.clipboardPathQuery.inject("''",
+                            "function(response) { resolve(response); }",
+                            "function(error_code, error_message) { console.error('Failed to get clipboard path:', error_message); resolve(''); }") +
+                    "  });" +
+                    "};");
+        }
+
+        try {
+            CefBrowser cefBrowser = browser.getCefBrowser();
+            String url = cefBrowser.getURL();
+            cefBrowser.executeJavaScript(bridgeInjection, url, 0);
+            cefBrowser.executeJavaScript(shiftEscInjection, url, 0);
+            cefBrowser.executeJavaScript(clipboardPathInjection, url, 0);
+
+            injectFrontendConfiguration(cefBrowser, pageGeneration);
+            if (attempt == 1) {
+                LOG.info("[JCEF] Executed first fallback bridge injection for remote-mode startup");
+            }
+            return true;
+        } catch (Exception e) {
+            LOG.debug("Fallback bridge injection failed on attempt " + attempt + ": " + e.getMessage(), e);
+            return true;
+        } catch (LinkageError e) {
+            LOG.warn("Fallback bridge injection is unavailable: " + e.getMessage(), e);
+            return false;
+        }
+    }
+
+    static String buildShiftEscInjection(String hidePanelInvocation) {
+        return "if (!window.__ccgShiftEscInstalled) {" +
+                "  window.__ccgShiftEscInstalled = true;" +
+                "  document.addEventListener('keydown', function(e) {" +
+                "    if (e.key === 'Escape' && e.shiftKey) {" +
+                "      e.preventDefault();" +
+                "      e.stopPropagation();" +
+                "      " + hidePanelInvocation +
+                "    }" +
+                "  }, true);" +
+                "}";
+    }
+
+    static String buildBridgeInjection(String queryInvocation) {
+        return "window.sendToJava = function(msg) { " + queryInvocation + " };"
+                + "if (typeof window.__ccgOnBridgeReady === 'function') {"
+                + "  window.__ccgOnBridgeReady();"
+                + "}";
+    }
+
+    static String buildBridgeMessageExpression(int pageGeneration) {
+        return "'__CCG_PAGE_GENERATION__:" + pageGeneration + ":' + String(msg)";
+    }
+
+    static String unwrapBridgeMessage(String message, int expectedPageGeneration) {
+        String prefix = "__CCG_PAGE_GENERATION__:" + expectedPageGeneration + ":";
+        if (message == null || !message.startsWith(prefix)) {
+            return null;
+        }
+        return message.substring(prefix.length());
+    }
+
+    static String guardPageScript(int pageGeneration, String script) {
+        return "if (window.__CCG_PAGE_GENERATION__ === " + pageGeneration + ") {"
+                + script
+                + "}";
+    }
+
+    private void injectFrontendConfiguration(CefBrowser cefBrowser, int pageGeneration) {
+        // [bootstrap 重构] 配置通过单一 WEBVIEW_BOOTSTRAP 下行事件传递(归一化下行总线),
+        // 不再 executeJavaScript applyXxxConfig。下行事件由前端订阅,与 JS 桥接注入的
+        // pageGeneration 防抖通道正交,无需 guardPageScript 守卫。
+        // payload 打包字体×3 / 语言 / 外观 / 头像(见 WebviewBootstrapPayloadFactory)。
+        String bootstrapPayload = GSON.toJson(
+                WebviewBootstrapPayloadFactory.create(host.getHandlerContext().getSettingsService())
+        );
+        host.getHandlerContext().dispatchEvent(
+                DownstreamEvent.WEBVIEW_BOOTSTRAP.value(), bootstrapPayload);
+        LOG.debug("[WebviewConfigSync] Bootstrap payload dispatched via WEBVIEW_BOOTSTRAP event"
+                + " (pageGeneration=" + pageGeneration + ")");
+    }
+
+    private JBCefJSQuery.Response handleClipboardPathRequest() {
+        try {
+            LOG.debug("Clipboard path request received");
+            Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+            Transferable contents = clipboard.getContents(null);
+
+            if (contents != null && contents.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
+                @SuppressWarnings("unchecked")
+                List<File> files = (List<File>) contents.getTransferData(DataFlavor.javaFileListFlavor);
+
+                if (!files.isEmpty()) {
+                    File file = files.get(0);
+                    String filePath = file.getAbsolutePath();
+                    LOG.debug("Returning file path from clipboard: " + filePath);
+                    return new JBCefJSQuery.Response(filePath);
+                }
+            }
+            LOG.debug("No file in clipboard");
+            return new JBCefJSQuery.Response("");
+        } catch (Exception ex) {
+            LOG.warn("Error getting clipboard path: " + ex.getMessage());
+            return new JBCefJSQuery.Response("");
+        }
+    }
+
+    private void disposeFailedBrowser(JBCefBrowser browser) {
+        if (browser == null) {
+            return;
+        }
+
+        BrowserBridges currentBridges;
+        synchronized (this.bridgeLock) {
+            currentBridges = this.bridges;
+            if (currentBridges != null && currentBridges.belongsTo(browser)) {
+                this.bridges = null;
+            } else {
+                currentBridges = null;
+            }
+        }
+        if (currentBridges != null) {
+            currentBridges.dispose();
+        }
+        if (this.host.getBrowser() == browser) {
+            this.host.setBrowser(null);
+            this.host.getHandlerContext().setBrowser(null);
+        }
+        try {
+            browser.dispose();
+        } catch (Exception | LinkageError e) {
+            LOG.warn("Failed to dispose browser after webview initialization error: " + e.getMessage(), e);
         }
     }
 
@@ -447,29 +762,78 @@ public class WebviewInitializer {
         replaceMainContent(errorPanel);
     }
 
-    private void showJcefNotSupportedPanel() {
+    private void showJcefNotSupportedPanel(JBCefBrowserFactory.JcefSupportStatus status) {
+        // Terminal state: JCEF is unavailable, so the watchdog has no webview to
+        // monitor. Stop it to avoid spurious recovery cycles after the user
+        // enables JCEF (which requires a restart anyway).
+        host.getWebviewWatchdog().stop();
         String title;
         String solution;
-        if (JBCefBrowserFactory.isJbrMissingJcefRemoteApi()) {
-            // Known Android Studio 2026.x case: JCEF is present but the
-            // bundled JBR is too old for the platform's JCEF API. Show a
-            // targeted "upgrade your Boot JBR" guide instead of the generic
-            // "JCEF not installed" message.
-            title = ClaudeCodeGuiBundle.message("toolwindow.jcefOutdatedJbr");
-            solution = ClaudeCodeGuiBundle.message("toolwindow.jcefOutdatedJbrSolution");
-        } else {
-            title = ClaudeCodeGuiBundle.message("toolwindow.jcefNotInstalled");
-            solution = ClaudeCodeGuiBundle.message("toolwindow.jcefNotInstalledSolution");
+        switch (status) {
+            case DISABLED_BY_REGISTRY:
+                JPanel disabledPanel = ErrorPanelBuilder.buildCenteredPanel(
+                        "⚠️",
+                        ClaudeCodeGuiBundle.message("toolwindow.jcefDisabled"),
+                        ClaudeCodeGuiBundle.message("toolwindow.jcefDisabledSolution"),
+                        ClaudeCodeGuiBundle.message("toolwindow.jcefEnableAction"),
+                        this::enableJcefAndShowRestartPanel
+                );
+                replaceMainContent(disabledPanel);
+                return;
+            case OUTDATED_JBR:
+                title = ClaudeCodeGuiBundle.message("toolwindow.jcefOutdatedJbr");
+                solution = ClaudeCodeGuiBundle.message("toolwindow.jcefOutdatedJbrSolution");
+                break;
+            case ANDROID_STUDIO_PLUGIN_MISSING:
+                title = ClaudeCodeGuiBundle.message("toolwindow.jcefPluginMissing");
+                solution = ClaudeCodeGuiBundle.message("toolwindow.jcefPluginMissingSolution");
+                break;
+            default:
+                title = ClaudeCodeGuiBundle.message("toolwindow.jcefNotInstalled");
+                solution = ClaudeCodeGuiBundle.message("toolwindow.jcefNotInstalledSolution");
+                break;
         }
         JPanel panel = ErrorPanelBuilder.buildCenteredPanel("⚠️", title, solution);
         replaceMainContent(panel);
     }
 
+    private void enableJcefAndShowRestartPanel() {
+        if (!JBCefBrowserFactory.enableJcefInRegistry()) {
+            LOG.warn("Could not enable JCEF in the IDE registry");
+            return;
+        }
+        JPanel panel = ErrorPanelBuilder.buildCenteredPanel(
+                "✓",
+                ClaudeCodeGuiBundle.message("toolwindow.jcefRestartRequired"),
+                ClaudeCodeGuiBundle.message("toolwindow.jcefRestartRequiredSolution")
+        );
+        replaceMainContent(panel);
+    }
+
     private void showJcefRemoteModeErrorPanel() {
+        // Terminal state: the remote CefServer process is unhealthy, so every
+        // reload/recreate against it will keep throwing the same NPE. Stop the
+        // watchdog so it does not loop back into recreate every cooldown and
+        // re-flash this panel. Recovery requires an IDE restart.
+        host.getWebviewWatchdog().stop();
         JPanel panel = ErrorPanelBuilder.buildCenteredPanel(
             "⚠️",
             ClaudeCodeGuiBundle.message("toolwindow.jcefRemoteError"),
             ClaudeCodeGuiBundle.message("toolwindow.jcefRemoteSolution")
+        );
+        replaceMainContent(panel);
+    }
+
+    /**
+     * Show a generic restart-required panel when webview recovery failed
+     * for non-JCEF-specific reasons (e.g., panel removal, dispose errors).
+     */
+    private void showWebviewRecoveryFailedPanel() {
+        host.getWebviewWatchdog().stop();
+        JPanel panel = ErrorPanelBuilder.buildCenteredPanel(
+            "⚠️",
+            ClaudeCodeGuiBundle.message("toolwindow.jcefRestartRequired"),
+            ClaudeCodeGuiBundle.message("toolwindow.jcefRestartRequiredSolution")
         );
         replaceMainContent(panel);
     }
@@ -612,9 +976,23 @@ public class WebviewInitializer {
                 recreateWebview(reason + "_no_browser");
                 return;
             }
-            host.setFrontendReady(false);
             try {
-                browser.loadHTML(host.getHtmlLoader().loadChatHtml());
+                LOG.info("[WebviewWatchdog] Reloading webview (" + reason + ")");
+                BrowserBridges currentBridges;
+                int pageGeneration;
+                synchronized (this.bridgeLock) {
+                    currentBridges = this.bridges;
+                    if (currentBridges == null || !currentBridges.belongsTo(browser)) {
+                        recreateWebview(reason + "_stale_bridges");
+                        return;
+                    }
+                    pageGeneration = beginPageLoad(currentBridges);
+                }
+                host.activatePageGeneration(pageGeneration);
+                host.setFrontendReady(false);
+                browser.loadHTML(loadChatHtmlWithInitialTabState(pageGeneration));
+                scheduleBridgeInjectionRetries(browser, currentBridges, pageGeneration);
+                host.getWebviewWatchdog().resetTimestamps();
                 host.getMainPanel().revalidate();
                 host.getMainPanel().repaint();
             } catch (Exception e) {
@@ -624,7 +1002,7 @@ public class WebviewInitializer {
         });
     }
 
-    private String loadChatHtmlWithInitialTabState() {
+    private String loadChatHtmlWithInitialTabState(int pageGeneration) {
         HtmlLoader htmlLoader = host.getHtmlLoader();
         String htmlContent = htmlLoader.loadChatHtml();
 
@@ -634,7 +1012,8 @@ public class WebviewInitializer {
                 ? host.getHandlerContext().getSession() : null;
         String tabProvider = session != null ? session.getProvider() : null;
         String tabModel = session != null ? session.getModel() : null;
-        return htmlLoader.injectInitialTabState(htmlContent, tabProvider, tabModel);
+        String htmlWithTabState = htmlLoader.injectInitialTabState(htmlContent, tabProvider, tabModel);
+        return htmlLoader.injectPageGeneration(htmlWithTabState, pageGeneration);
     }
 
     /**
@@ -644,6 +1023,8 @@ public class WebviewInitializer {
         ApplicationManager.getApplication().invokeLater(() -> {
             if (host.isDisposed()) { return; }
 
+            int invalidationGeneration = invalidateCurrentPage();
+            host.activatePageGeneration(invalidationGeneration);
             host.setFrontendReady(false);
             JPanel mainPanel = host.getMainPanel();
             JBCefBrowser browser = host.getBrowser();
@@ -653,12 +1034,16 @@ public class WebviewInitializer {
                         mainPanel.remove(browser.getComponent());
                     } catch (Exception ignored) {
                     }
+                    // Release the JS bridges before the browser itself so the
+                    // native callback handles do not outlive the browser.
+                    this.disposeBridges();
+                    host.getHandlerContext().setBrowser(null);
+                    host.setBrowser(null);
                     try {
                         browser.dispose();
-                    } catch (Exception e) {
+                    } catch (Exception | LinkageError e) {
                         LOG.debug("[WebviewWatchdog] Failed to dispose old browser: " + e.getMessage(), e);
                     }
-                    host.setBrowser(null);
                 }
 
                 LOG.info("[WebviewWatchdog] Recreating webview (" + reason + ")");
@@ -668,19 +1053,130 @@ public class WebviewInitializer {
                 mainPanel.repaint();
             } catch (Exception e) {
                 LOG.warn("[WebviewWatchdog] Recreate failed: " + e.getMessage(), e);
+                // An exception reaching here escaped createUIComponents' internal
+                // handler (which already routes JCEF remote NPEs to the restart
+                // panel). mainPanel was already cleared above, so without a
+                // terminal panel the tab would be left permanently blank.
+                // Use a generic restart panel instead of JCEF-remote-specific,
+                // since the error could be from remove/dispose/revalidate rather
+                // than JCEF itself.
+                showWebviewRecoveryFailedPanel();
             }
         });
     }
 
-    private boolean isClaudeCliRuntime() {
+    /**
+     * Release the JBCefJSQuery bridges.
+     * Must be called before the owning browser is disposed so the native
+     * callback handles do not outlive the browser.
+     */
+    public void disposeBridges() {
+        BrowserBridges currentBridges;
+        synchronized (this.bridgeLock) {
+            currentBridges = this.bridges;
+            this.bridges = null;
+        }
+        // Dispose outside the lock so the JCEF native teardown each query
+        // triggers does not stall other bridgeLock waiters (onLoadEnd, the
+        // generation checks in sibling handlers). Bridges == null above
+        // guarantees no new dispatch will race with the native query disposal
+        // that follows, and message handlers no longer hold bridgeLock while
+        // dispatching into the host.
+        if (currentBridges != null) {
+            currentBridges.dispose();
+        }
+    }
+
+    private static final class BrowserBridges {
+        private final JBCefBrowser browser;
+        private final JBCefJSQuery jsQuery;
+        private final JBCefJSQuery clipboardPathQuery;
+        private final JBCefJSQuery hidePanelQuery;
+        private Timer bridgeInjectionTimer;
+        private int pageGeneration;
+
+        private BrowserBridges(JBCefBrowser browser) {
+            this.browser = browser;
+            JBCefJSQuery createdJsQuery = null;
+            JBCefJSQuery createdClipboardPathQuery = null;
+            JBCefJSQuery createdHidePanelQuery = null;
+            try {
+                JBCefBrowserBase browserBase = browser;
+                createdJsQuery = JBCefJSQuery.create(browserBase);
+                createdClipboardPathQuery = JBCefJSQuery.create(browserBase);
+                createdHidePanelQuery = JBCefJSQuery.create(browserBase);
+            } catch (RuntimeException | LinkageError e) {
+                disposeQueryQuietly(createdHidePanelQuery);
+                disposeQueryQuietly(createdClipboardPathQuery);
+                disposeQueryQuietly(createdJsQuery);
+                throw e;
+            }
+            this.jsQuery = createdJsQuery;
+            this.clipboardPathQuery = createdClipboardPathQuery;
+            this.hidePanelQuery = createdHidePanelQuery;
+        }
+
+        private synchronized void beginPageLoad(int newPageGeneration) {
+            stopBridgeInjectionTimer();
+            this.pageGeneration = newPageGeneration;
+        }
+
+        private synchronized int getPageGeneration() {
+            return pageGeneration;
+        }
+
+        private boolean belongsTo(JBCefBrowser browser) {
+            return this.browser == browser;
+        }
+
+        private boolean isCurrentFor(JBCefBrowser browser) {
+            // Remote JCEF proxies used by Android Studio can report isClosed()
+            // while their rendered page and JSQuery channel are still active.
+            // The owning WebviewInitializer already clears its bridge generation
+            // before browser disposal/recreation, so identity is the reliable
+            // lifecycle guard for callbacks and fallback injection.
+            return this.belongsTo(browser);
+        }
+
+        private synchronized boolean isCurrentPage(JBCefBrowser browser, int expectedPageGeneration) {
+            return this.belongsTo(browser) && pageGeneration == expectedPageGeneration;
+        }
+
+        private synchronized void setBridgeInjectionTimer(Timer timer) {
+            stopBridgeInjectionTimer();
+            this.bridgeInjectionTimer = timer;
+        }
+
+        private synchronized void stopBridgeInjectionTimer() {
+            if (this.bridgeInjectionTimer != null) {
+                this.bridgeInjectionTimer.stop();
+                this.bridgeInjectionTimer = null;
+            }
+        }
+
+        private synchronized void stopBridgeInjectionTimer(Timer expectedTimer) {
+            expectedTimer.stop();
+            if (this.bridgeInjectionTimer == expectedTimer) {
+                this.bridgeInjectionTimer = null;
+            }
+        }
+
+        private void dispose() {
+            stopBridgeInjectionTimer();
+            disposeQueryQuietly(this.hidePanelQuery);
+            disposeQueryQuietly(this.clipboardPathQuery);
+            disposeQueryQuietly(this.jsQuery);
+        }
+    }
+
+    private static void disposeQueryQuietly(JBCefJSQuery query) {
+        if (query == null) {
+            return;
+        }
         try {
-            return EffectiveRuntimeResolver.isCliMode(
-                    ProviderType.CLAUDE.value(),
-                    CodemossSettingsService.getInstance().getRuntimePolicy()
-            );
-        } catch (Exception e) {
-            LOG.warn("Failed to resolve Claude runtime, defaulting to SDK behavior: " + e.getMessage());
-            return false;
+            query.dispose();
+        } catch (Exception | LinkageError e) {
+            LOG.warn("Failed to dispose JBCefJSQuery: " + e.getMessage(), e);
         }
     }
 }

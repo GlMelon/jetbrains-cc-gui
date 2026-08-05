@@ -1,7 +1,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import type { useModelProviderState } from '../hooks';
 
-type ProviderState = ReturnType<typeof useModelProviderState>;
+export type ProviderState = ReturnType<typeof useModelProviderState>;
 
 /**
  * ChatScreen-facing slice of useModelProviderState. Contains only the state

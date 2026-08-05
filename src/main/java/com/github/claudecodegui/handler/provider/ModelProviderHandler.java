@@ -417,7 +417,7 @@ public class ModelProviderHandler {
         return provider;
     }
 
-    static String resolveConfiguredClaudeModel(String baseModel, JsonObject env) {
+    public static String resolveConfiguredClaudeModel(String baseModel, JsonObject env) {
         if (baseModel == null || baseModel.isEmpty() || env == null) {
             return baseModel;
         }
@@ -461,6 +461,20 @@ public class ModelProviderHandler {
 
     public static int getModelContextLimit(String model) {
         return getModelContextLimit(ModelRegistryConfig.getDefault(), model);
+    }
+
+    /**
+     * 返回指定 provider 下的模型上下文窗口上限。
+     *
+     * <p>Codex 等非 Claude provider 支持用户自定义 context window(见
+     * {@link com.github.claudecodegui.provider.CustomModelContextWindowProvider}),
+     * 优先查自定义配置;未配置或为 Claude provider 时回退到 {@link #getModelContextLimit(String)}。
+     * Claude 的运行时上下文行为不受自定义配置影响(provider 内部仅认 codex)。
+     */
+    public static int getModelContextLimit(String provider, String model) {
+        return com.github.claudecodegui.provider.CustomModelContextWindowProvider.getInstance()
+                .getContextWindow(provider, model)
+                .orElseGet(() -> getModelContextLimit(model));
     }
 
     public static int getModelContextLimit(ModelRegistryConfig registry, String model) {

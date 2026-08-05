@@ -67,6 +67,62 @@ export const CLAUDE_MODEL_MAPPING_ENV_KEYS = [
 // ============ Validation Helpers ============
 
 /**
+* Validate whether a model ID format is valid.
+ *
+ * NOTE: Model ID format is intentionally NOT restricted by regex.
+ * Third-party providers use diverse model ID formats that cannot be
+ * predicted (e.g., slashes, brackets, CJK characters). Only basic
+ * sanity checks (non-empty, length limit) are applied.
+ * Do NOT re-add MODEL_ID_PATTERN validation here.
+ *
+ * @param id - Model ID
+ * @returns Whether the ID is valid
+ */
+export function isValidModelId(id: string): boolean {
+  if (!id || typeof id !== 'string') return false;
+  const trimmed = id.trim();
+  if (trimmed.length === 0 || trimmed.length > 256) return false;
+  return true;
+}
+
+/**
+ * Validate whether a CodexCustomModel object is valid
+ * @param model - Object to validate
+ * @returns Whether it is a valid CodexCustomModel
+ */
+export function isValidCodexCustomModel(model: unknown): model is CodexCustomModel {
+  if (!model || typeof model !== 'object') return false;
+  const obj = model as Record<string, unknown>;
+
+  // id must be a valid model ID
+  if (typeof obj.id !== 'string' || !isValidModelId(obj.id)) return false;
+
+  // label must be a string
+  if (typeof obj.label !== 'string' || obj.label.trim().length === 0) return false;
+
+  // description is optional, but must be a string if present
+  if (obj.description !== undefined && typeof obj.description !== 'string') return false;
+
+  // contextWindow is optional, but must fit the Java int-based usage pipeline
+  if (obj.contextWindow !== undefined) {
+    if (
+      typeof obj.contextWindow !== 'number'
+      || !Number.isSafeInteger(obj.contextWindow)
+      || obj.contextWindow < 1_000
+      || obj.contextWindow % 1_000 !== 0
+      || obj.contextWindow > 2_147_483_647
+    ) return false;
+  }
+
+  // pricing is optional; when present every provided field must be a non-negative number
+  if (obj.pricing !== undefined) {
+    if (!isValidModelPricing(obj.pricing)) return false;
+  }
+
+  return true;
+}
+
+/**
  * Validate whether a ModelPricing object is valid.
  * Every field is optional, but if present must be a finite number >= 0.
  */
@@ -162,7 +218,7 @@ export interface CodexCustomModel {
   label: string;
   /** Model description */
   description?: string;
-  /** Base context window size in tokens; undefined = use backend default (200K) */
+/** Base context window size in tokens; undefined = use backend default (200K) */
   contextWindow?: number;
   /** Optional usage pricing supplied by the backend/provider configuration */
   pricing?: ModelPricing;

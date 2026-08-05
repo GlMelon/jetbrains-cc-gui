@@ -18,6 +18,9 @@ interface Window {
    */
   sendToJava?: (message: string) => void;
 
+  /** Re-rasterize the JCEF surface after its IntelliJ content tab is activated. */
+  onTabActivated?: () => void;
+
   /**
    * Get clipboard file path from Java
    */
@@ -32,10 +35,7 @@ interface Window {
    * Update messages from backend
    */
   updateMessages?: (json: string, sequence?: string | number) => void;
-
-  /**
-   * Apply an indexed tail update for long conversations.
-   */
+  /** Replace a long conversation's tail without resending its unchanged prefix. */
   updateMessageTail?: (
     json: string,
     baseIndex: string | number,
@@ -88,9 +88,16 @@ interface Window {
   setHistoryData?: (data: any) => void;
 
   /**
-   * Clear all messages
+   * Export session data callback
    */
-  clearMessages?: () => void;
+  onExportSessionData?: (json: string) => void;
+
+  /**
+   * Clear all messages. The optional barrier sequence (the backend coalescer's
+   * post-reset updateSequence) advances __minAcceptedUpdateSequence so stale
+   * in-flight updateMessages from the previous session are rejected.
+   */
+  clearMessages?: (barrierSequence?: string | number) => void;
 
   /**
    * Add error message
@@ -108,6 +115,34 @@ interface Window {
   onContextUsageError?: (message: string, requestId?: string) => void;
 
   /**
+   * Add single history message (used for Codex session loading)
+   */
+  addHistoryMessage?: (message: any) => void;
+  onSubagentHistoryChunk?: (transferId: string, chunk: string, isFinal: string | boolean) => void;
+  beginCodexHistoryPage?: (json: string) => void;
+  appendCodexHistoryPageBatch?: (pageId: string, json: string) => void;
+  appendCodexHistoryPageChunk?: (
+    pageId: string,
+    chunk: string,
+    transferId: string,
+    isFinal: string | boolean,
+  ) => void;
+  completeCodexHistoryPage?: (json: string) => void;
+  codexHistoryPageError?: (json: string) => void;
+  codexHistoryPageRenderComplete?: () => void;
+  __codexHistoryPageInfo?: {
+    pageId: string;
+    sessionId: string;
+    mode: 'replace' | 'prepend';
+    fromTurn: number;
+    toTurn: number;
+    totalTurns: number;
+    hasMore: boolean;
+    loadedMessageCount: number;
+    cursorReset?: boolean;
+  };
+
+  /**
    * History load complete callback - invoked when history messages finish loading.
    * Triggers Markdown re-rendering to fix incorrect rendering on first history load.
    */
@@ -117,6 +152,15 @@ interface Window {
    * Subagent sidechain history callback.
    */
   onSubagentHistoryLoaded?: (json: string) => void;
+
+  /**
+   * task_* SDK system event callback (async subagent lifecycle).
+   * Payload: { subtype: 'task_started'|'task_progress'|'task_notification',
+   *   task_id, tool_use_id, status?, summary?, usage?, output_file? }.
+   * task_notification carries the terminal status and result summary that the
+   * StatusPanel uses to mark a background (run_in_background) Agent subagent as completed.
+   */
+  onTaskEvent?: (eventJson: string) => void;
 
   /**
    * SDK-to-CLI session conversion result callback.
@@ -168,9 +212,19 @@ interface Window {
   updateUsageStatistics?: (json: string) => void;
 
   /**
+   * Mode changed callback
+   */
+  onModeChanged?: (mode: string) => void;
+
+  /**
    * Mode received callback - backend pushes the permission mode (called during window initialization)
    */
   onModeReceived?: (mode: string) => void;
+
+  /**
+   * Model changed callback
+   */
+  onModelChanged?: (modelId: string) => void;
 
   /**
    * Model confirmed callback - called after the backend confirms the model was set successfully
@@ -188,6 +242,13 @@ interface Window {
    * Show AskUserQuestion dialog
    */
   showAskUserQuestionDialog?: (json: string) => void;
+  updateCodexPets?: (json: string) => void;
+  updateCodexPetPreview?: (json: string) => void;
+  onCodexPetAssetsChanged?: () => void;
+  updateCodexPetConfig?: (json: string) => void;
+  updatePetdexCatalog?: (json: string) => void;
+  updatePetdexPreview?: (json: string) => void;
+  onCodexPetOperation?: (json: string) => void;
   updateHatchPetStatus?: (json: string) => void;
   updateHatchPetReference?: (json: string) => void;
   onHatchPetCommandPrepared?: (json: string) => void;
@@ -196,6 +257,30 @@ interface Window {
    * Show PlanApproval dialog
    */
   showPlanApprovalDialog?: (json: string) => void;
+
+  /**
+   * Force-close the open AskUserQuestion dialog matching the given requestId.
+   * Sent by the Java backend when its safety-net timer fires and resolves the
+   * pending future with an empty answer — the WebView dialog (if still visible)
+   * must be torn down too, otherwise its open-refs stay set and every
+   * subsequent showAskUserQuestionDialog call is silently enqueued behind the
+   * orphaned dialog (issue #1360). When requestId is null/empty, every open
+   * dialog is closed.
+   */
+  forceCloseAskUserQuestionDialog?: (requestId?: string | null) => void;
+
+  /**
+   * Force-close the open permission dialog matching the given channelId, or
+   * every open dialog when channelId is null/empty. Same rationale as
+   * forceCloseAskUserQuestionDialog.
+   */
+  forceClosePermissionDialog?: (channelId?: string | null) => void;
+
+  /**
+   * Force-close the open plan approval dialog matching the given requestId, or
+   * every open dialog when requestId is null/empty.
+   */
+  forceClosePlanApprovalDialog?: (requestId?: string | null) => void;
 
   /**
    * Add selection info (file and line numbers) - auto-tracked, only updates ContextBar
@@ -231,6 +316,21 @@ interface Window {
    * File list result callback (for file reference provider)
    */
   onFileListResult?: (json: string) => void;
+
+  /**
+   * Update MCP marketplace sources.
+   */
+  updateMcpMarketplaceSources?: (json: string) => void;
+
+  /**
+   * Update MCP marketplace entries.
+   */
+  updateMcpMarketplaceEntries?: (json: string) => void;
+
+  /**
+   * Preview of MCP servers parsed from an external (e.g. GitHub Copilot) configuration.
+   */
+  updateCopilotImportPreview?: (json: string) => void;
 
   /**
    * Update MCP servers list
@@ -328,6 +428,11 @@ interface Window {
    * Update project-level commit AI prompt configuration
    */
   updateProjectCommitPrompt?: (json: string) => void;
+
+  /**
+   * Update sound notification configuration
+   */
+  updateSoundNotificationConfig?: (json: string) => void;
 
   /**
    * Update AI commit generation enabled state
@@ -430,6 +535,11 @@ interface Window {
   skillToggleResult?: (json: string) => void;
 
   /**
+   * TokenTracker bridge response callback (correlated by requestId)
+   */
+  onTokenTrackerResponse?: (json: string) => void;
+
+  /**
    * Update slash commands list (from SDK)
    */
   updateSlashCommands?: (json: string) => void;
@@ -499,15 +609,11 @@ interface Window {
    * Apply IDEA language configuration (called from Java backend)
    * @param config Language configuration object containing language code and IDEA locale
    */
-  applyIdeaLanguageConfig?: (
-    config:
-      | {
-          language: string;
-          source?: string;
-          ideaLocale?: string;
-        }
-      | string,
-  ) => void;
+  applyIdeaLanguageConfig?: (config: {
+    language: string;
+    source?: string;
+    ideaLocale?: string;
+  } | string) => void;
 
   /**
    * Pending language config before applyIdeaLanguageConfig is registered
@@ -572,9 +678,10 @@ interface Window {
 
   /**
    * Update session title (called when AI generates a title).
-   * Payload: { sessionId: string, title: string }.
+   * @param sessionId - The session ID the title belongs to
+   * @param title - The generated title text
    */
-  updateSessionTitle?: (json: string) => void;
+  updateSessionTitle?: (sessionId: string, title: string) => void;
 
   /**
    * Editor font config received callback - receives IDEA editor font configuration
@@ -713,7 +820,7 @@ interface Window {
    */
   updateCurrentCodexConfig?: (json: string) => void;
 
-  // ============================================================================
+// ============================================================================
   // Streaming Callbacks
   // ============================================================================
 
@@ -805,22 +912,23 @@ interface Window {
    * Used with __lastStreamEndedTurnId to implement a time-based cleanup.
    * @default undefined (no stream end recorded)
    */
-  __lastStreamEndedAt?: number;
+   __lastStreamEndedAt?: number;
+
   /**
    * Runtime-only id for grouping assistant content groups from the same
    * streamed response in the frontend.
    */
   __activeStreamingResponseId?: string | null;
 
-  /**
-   * Turn ID for which onStreamEnd has already been processed.
-   * Used as an idempotency guard: when dual-path delivery sends onStreamEnd
-   * twice (primary via flush callback + fallback via Alarm), only the first
-   * arrival takes effect; the second is a no-op.
-   * Cleared in onStreamStart to allow the next turn.
-   * @default undefined (no processed turn)
-   */
-  __streamEndProcessedTurnId?: number;
+   /**
+    * Turn ID for which onStreamEnd has already been processed.
+    * Used as an idempotency guard: when dual-path delivery sends onStreamEnd
+    * twice (primary via flush callback + fallback via Alarm), only the first
+    * arrival takes effect; the second is a no-op.
+    * Cleared in onStreamStart to allow the next turn.
+    * @default undefined (no processed turn)
+    */
+   __streamEndProcessedTurnId?: number;
 
   /**
    * Source of the last onStreamEnd call ('watchdog' | 'backend').
@@ -829,7 +937,7 @@ interface Window {
    */
   __lastStreamEndSource?: string;
 
-  /**
+   /**
    * Timestamp when the current streaming turn started.
    * Used to calculate durationMs on the assistant message when the stream ends.
    */
@@ -850,12 +958,15 @@ interface Window {
   __pendingUpdateSequence?: number | null;
   __streamingDeltaRenderingFrame?: number;
   __minAcceptedUpdateSequence?: number;
-  /** Absolute index represented by messages[0] when only a tail snapshot is retained. */
+  /** Number of paged history messages prepended ahead of the backend session snapshot. */
+  __prependedHistoryMessageCount?: number;
+  /** Backend index represented by the first non-prepended message; zero means its full prefix is present. */
   __messageBaseIndex?: number;
   /** Cancel pending rAF-deferred updateMessages (set by messageCallbacks, called by onStreamEnd). */
   __cancelPendingUpdateMessages?: () => void;
   /** Currently active streaming scope key: provider:tabId:turnId. */
   __activeStreamScopeKey?: string | null;
+
   /**
    * Rewind result callback - returns the result of a rewind operation
    */
@@ -945,6 +1056,8 @@ interface Window {
    * Pending dependency status payload before React initialization
    */
   __pendingDependencyStatus?: string;
+  __dependencyStatusState?: 'pending' | 'ready' | 'error';
+  __ccgOnBridgeReady?: () => void;
 
   /**
    * Pending streaming enabled status before React initialization
@@ -1031,6 +1144,21 @@ interface Window {
    * Used by useThemeInit to avoid a flash of incorrect theme.
    */
   __INITIAL_IDE_THEME__?: 'light' | 'dark';
+
+  /**
+   * Per-tab provider id ("claude" / "codex") injected by Java into the HTML
+   * before React boots. Used by useModelStatePersistence to override the
+   * global localStorage snapshot ("model-selection-state") when the backend
+   * has already restored a provider for this tab. Empty / unset means no
+   * backend preference — fall back to localStorage. See issue #1353.
+   */
+  __INITIAL_TAB_PROVIDER__?: string;
+
+  /**
+   * Per-tab model id injected by Java, used the same way as
+   * __INITIAL_TAB_PROVIDER__. Empty / unset means no backend preference.
+   */
+  __INITIAL_TAB_MODEL__?: string;
 
   // ============================================================================
   // Provider settings panel callbacks (registered by ProviderList)

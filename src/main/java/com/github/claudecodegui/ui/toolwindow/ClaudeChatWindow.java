@@ -1661,11 +1661,6 @@ public class ClaudeChatWindow {
             }
 
             @Override
-            public com.github.claudecodegui.provider.opencode.OpenCodeSDKBridge getOpenCodeSDKBridge() {
-                return openCodeSDKBridge;
-            }
-
-            @Override
             public JPanel getMainPanel() {
                 return mainPanel;
             }
@@ -1696,7 +1691,7 @@ public class ClaudeChatWindow {
             }
 
             @Override
-            public void handleJavaScriptMessage(String msg) {
+            public void handleJavaScriptMessage(int pageGeneration, String msg) {
                 ClaudeChatWindow.this.handleJavaScriptMessage(msg);
             }
 
@@ -1708,6 +1703,18 @@ public class ClaudeChatWindow {
             @Override
             public void setFrontendReady(boolean ready) {
                 frontendReady = ready;
+            }
+
+            @Override
+            public boolean isFrontendReady() {
+                return frontendReady;
+            }
+
+            @Override
+            public void activatePageGeneration(int pageGeneration) {
+                // page-generation tracking is owned by WebviewInitializer (guardPageScript).
+                // The host only needs to accept the notification; user architecture has no
+                // per-page message gating, so this is intentionally a no-op.
             }
         };
     }

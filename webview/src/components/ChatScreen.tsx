@@ -1,4 +1,4 @@
-import { type RefObject, useCallback, useMemo } from 'react';
+import { type RefObject, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChatInputBox } from './ChatInputBox';
 import type { Attachment, ChatInputBoxHandle } from './ChatInputBox/types';
@@ -16,6 +16,7 @@ import {
 } from '../contexts/SubagentContext';
 import { useMessages } from '../contexts/MessagesContext';
 import { useModelProvider } from '../contexts/ModelProviderContext';
+import type { ProviderState } from '../contexts/ModelProviderContext';
 import { useSession } from '../contexts/SessionContext';
 import { useUIState } from '../contexts/UIStateContext';
 import { extractMarkdownContent } from '../utils/copyUtils';
@@ -29,6 +30,7 @@ import type {
 } from '../hooks';
 import type { GetToolResultRawFn } from '../contexts/SubagentContext';
 import type { AvatarConfig } from '../types/avatar';
+import { reconcileMessageKeys, type MessageKeySnapshot } from '../utils/messageUtils';
 
 type MessageQueueValue = ReturnType<typeof useMessageQueue>['queue'];
 type SubagentList = ReturnType<typeof useSubagents>;
@@ -47,8 +49,8 @@ interface ChatScreenProps {
   subagents: SubagentList;
   globalTodos: TodoItem[];
   filteredFileChanges: FileChangeList;
-  subagentHistoryCtxValue: Record<string, SubagentHistoryResponse>;
-  sessionIdCtxValue: { currentSessionId: string | null };
+subagentHistoryCtxValue: Record<string, SubagentHistoryResponse>;
+  sessionIdCtxValue: { currentSessionId: string | null; currentProvider: string };
 
   // Refs
   chatInputRef: RefObject<ChatInputBoxHandle | null>;
@@ -84,6 +86,13 @@ interface ChatScreenProps {
   onProviderSelect: (providerId: string) => void;
   detailedOutputEnabled?: boolean;
   avatarConfig?: AvatarConfig | null;
+
+  // SDK status (not yet in ModelProviderContext — passed from App)
+  sdkStatusLoading: ProviderState['sdkStatusLoading'];
+  sdkStatusError: ProviderState['sdkStatusError'];
+  onRetrySdkStatus: ProviderState['retrySdkStatus'];
+
+  sessionTitle: string;
 
   // Message queue
   messageQueue: MessageQueueValue;
@@ -134,6 +143,9 @@ export const ChatScreen = ({
   onProviderSelect,
   detailedOutputEnabled = false,
   avatarConfig,
+  sdkStatusLoading,
+  sdkStatusError,
+  onRetrySdkStatus,
   messageQueue,
   onRemoveFromQueue,
 }: ChatScreenProps) => {
@@ -145,7 +157,6 @@ export const ChatScreen = ({
     selectedModel,
     permissionMode,
     selectedAgent,
-    sdkStatusLoaded,
     currentSdkInstalled,
     reasoningEffort,
     streamingEnabledSetting,
@@ -176,6 +187,18 @@ export const ChatScreen = ({
     subagentHistories,
   } = useMessages();
   const { currentSessionId } = useSession();
+  const previousMessageKeySnapshotRef = useRef<MessageKeySnapshot | undefined>(undefined);
+  const messageKeySnapshot = useMemo(
+    () => reconcileMessageKeys(
+      mergedMessages,
+      previousMessageKeySnapshotRef.current,
+      `${currentProvider}:${currentSessionId ?? 'active-session'}`,
+    ),
+    [currentProvider, currentSessionId, mergedMessages],
+  );
+  useLayoutEffect(() => {
+    previousMessageKeySnapshotRef.current = messageKeySnapshot;
+  }, [messageKeySnapshot]);
   const {
     setSettingsInitialTab,
     setCurrentView,
@@ -247,6 +270,7 @@ export const ChatScreen = ({
       <div className="messages-shell">
         <MessageAnchorRail
           messages={mergedMessages}
+          messageKeys={messageKeySnapshot.keys}
           collapsedCount={anchorCollapsedCount}
           containerRef={messagesContainerRef}
           messageNodeMap={messageNodeMapRef}
@@ -278,6 +302,7 @@ export const ChatScreen = ({
                 <MessageList
                   ref={messageListRef}
                   messages={mergedMessages}
+                  messageKeys={messageKeySnapshot.keys}
                   streamingActive={streamingActive}
                   isThinking={isThinking}
                   loading={loading}
@@ -315,6 +340,7 @@ export const ChatScreen = ({
           subagents={subagents}
           subagentHistories={subagentHistories}
           currentSessionId={currentSessionId}
+          currentProvider={currentProvider}
           expanded={statusPanelExpanded}
           isStreaming={streamingActive}
           onUndoFile={onUndoFile}
@@ -342,7 +368,9 @@ export const ChatScreen = ({
               : t('chat.inputPlaceholderEnter')
           }
           sdkInstalled={currentSdkInstalled}
-          sdkStatusLoading={!sdkStatusLoaded}
+          sdkStatusLoading={sdkStatusLoading}
+          sdkStatusError={sdkStatusError !== null}
+          onRetrySdkStatus={onRetrySdkStatus}
           onInstallSdk={() => {
             setSettingsInitialTab('dependencies');
             setCurrentView('settings');

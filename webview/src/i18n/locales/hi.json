@@ -77,6 +77,8 @@
     "disabled": "अक्षम",
     "sdkNotInstalled": "{{provider}} SDK इंस्टॉल नहीं है। चैट शुरू करने के लिए कृपया SDK इंस्टॉल करें।",
     "sdkStatusLoading": "Checking SDK status...",
+    "sdkStatusUnavailable": "SDK स्थिति की जांच नहीं हो सकी।",
+    "retrySdkStatus": "पुनः प्रयास करें",
     "openSourceBanner": "यह प्रोजेक्ट 100% ओपन सोर्स और मुफ़्त है (नकली प्रोजेक्ट से सावधान रहें)",
     "goInstallSdk": "इंस्टॉल करने जाएं",
     "commandNotImplemented": "`{{command}}` सुविधा अभी तक लागू नहीं की गई है।",
@@ -163,9 +165,6 @@
     "minutesAndSeconds": "{{minutes}} मि {{seconds}} से",
     "usage": "उपयोग",
     "noMatchingHistory": "कोई मेल खाने वाली इतिहास नहीं",
-    "openSourceBannerStar": "Star",
-    "openSourceBannerStarToast": "रिपॉजिटरी लिंक क्लिपबोर्ड पर कॉपी हो गया — ब्राउज़र में पेस्ट करके खोलें ⭐",
-    "openSourceBannerStarAria": "रिपॉजिटरी लिंक कॉपी करें और GitHub पर स्टार करें",
     "attachmentFile": "[अटैचमेंट: {{fileName}}]",
     "attachmentsUploaded": "[अटैचमेंट अपलोड हो गए]",
     "showEarlierTurns": "पहले के {{count}} संवाद दौर दिखाएं ({{remaining}} लोड किए हुए शेष)",
@@ -330,6 +329,12 @@
         "reset": "रीसेट करें",
         "hint": "चैट क्षेत्र के पृष्ठभूमि रंग को अनुकूलित करें। थीम डिफ़ॉल्ट का पालन करने के लिए खाली छोड़ दें।"
       },
+      "chatBarColor": {
+        "label": "हेडर और स्टेटस बार का रंग",
+        "custom": "कस्टम",
+        "reset": "रीसेट करें",
+        "hint": "सेशन हेडर और टास्क स्टेटस बार के लिए एक थीम रंग चुनें। वर्तमान UI थीम अपनाने के लिए इसे खाली छोड़ें।"
+      },
       "userMsgColor": {
         "label": "उपयोगकर्ता संदेश रंग",
         "custom": "कस्टम",
@@ -373,6 +378,39 @@
     "providerTab": {
       "claude": "Claude Code",
       "codex": "Codex"
+    },
+"pluginModels": {
+      "title": "कस्टम मॉडल",
+      "description": "यहाँ जोड़े गए कस्टम मॉडल सभी प्रदाताओं के अंतर्गत दिखाई देंगे, मॉडल चयन सूची में सबसे ऊपर प्रदर्शित होंगे",
+      "dialogTitle": "कस्टम मॉडल प्रबंधन",
+      "manage": "मॉडल प्रबंधन",
+      "pricing": {
+        "title": "मूल्य (USD प्रति 1M tokens)",
+        "optionalLabel": "वैकल्पिक",
+        "hint": "वैकल्पिक। उस token प्रकार के लिए डिफ़ॉल्ट दर उपयोग करने हेतु फ़ील्ड खाली छोड़ें।",
+        "inputLabel": "इनपुट",
+        "outputLabel": "आउटपुट",
+        "cacheWriteLabel": "कैश लेखन",
+        "cacheReadLabel": "कैश पठन",
+        "inputShort": "इनपुट",
+        "outputShort": "आउटपुट",
+        "cacheWriteShort": "कैश लेखन",
+        "cacheReadShort": "कैश पठन",
+        "invalidValue": "मूल्य एक गैर-ऋणात्मक संख्या होना चाहिए",
+        "defaultPricing": "डिफ़ॉल्ट मूल्य उपयोग में"
+      },
+      "contextWindow": {
+        "label": "अधिकतम कॉन्टेक्स्ट (K टोकन)",
+        "placeholder": "उदा. 500",
+        "hint": "वैकल्पिक। टोकन को हजारों में पूर्णांक के रूप में दर्ज करें (500 = 500,000 टोकन)। इसका उपयोग केवल प्लगइन के कॉन्टेक्स्ट उपयोग प्रदर्शन में होता है।",
+        "invalidValue": "अधिकतम कॉन्टेक्स्ट K इकाइयों में एक धनात्मक पूर्णांक होना चाहिए",
+        "summary": "कॉन्टेक्स्ट: {{value}} टोकन"
+      },
+      "configuredSectionTitle": "कॉन्फ़िगर किए गए Claude मॉडल",
+      "configuredSectionDesc": "सक्रिय Claude प्रदाता या settings.json के मॉडल पहले से ही चयनकर्ता में दिखते हैं। यहाँ केवल मूल्य बदला जा सकता है।",
+      "configuredEditHint": "यह मॉडल सक्रिय Claude प्रदाता या settings.json द्वारा प्रबंधित है। यहाँ केवल मूल्य बदला जा सकता है।",
+      "customSectionTitle": "कस्टम मॉडल",
+      "editPricing": "मूल्य संपादित करें"
     },
     "dependencies": "SDK निर्भरताएं",
     "dependency": {

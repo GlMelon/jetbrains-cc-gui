@@ -241,6 +241,7 @@ function getGroupedAssistantUsage(items: Array<{ message: ClaudeMessage }>): {
 
 interface MessageListProps {
   messages: ClaudeMessage[];
+  messageKeys: readonly string[];
   streamingActive: boolean;
   isThinking: boolean;
   loading: boolean;

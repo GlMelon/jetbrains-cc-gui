@@ -2,12 +2,15 @@ package com.github.claudecodegui.session;
 
 import com.github.claudecodegui.cli.common.CliConstants;
 import com.github.claudecodegui.common.CommonConstants;
+import com.github.claudecodegui.handler.provider.ModelProviderHandler;
 import com.github.claudecodegui.notifications.ClaudeNotifier;
 import com.github.claudecodegui.provider.common.MessageCallback;
+import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.provider.common.SDKResult;
 import com.github.claudecodegui.session.ClaudeSession.Message;
 import com.github.claudecodegui.util.ClaudeHistoryWriter;
 import com.github.claudecodegui.util.TokenUsageUtils;
+import com.github.claudecodegui.util.UsageCostCalculator;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -32,6 +35,7 @@ public class ClaudeMessageHandler implements MessageCallback {
     private final ReplayDeduplicator replayDedup = new ReplayDeduplicator();
     private final Gson gson;
     private final String expectedRuntimeSessionEpoch;
+    private final CodemossSettingsService settingsService;
 
     // Content accumulator for the current assistant message
     private final StringBuilder assistantContent = new StringBuilder();
@@ -58,7 +62,34 @@ public class ClaudeMessageHandler implements MessageCallback {
     private volatile boolean thinkingSegmentActive = false;
 
     /**
-     * Constructor.
+     * Full constructor — binds the runtime-session epoch (stale-callback guard, see
+     * {@link #isStaleRuntimeEpoch()}) and an injectable settings service used to resolve
+     * the model actually billed for a turn (slot ID → provider-mapped real ID). Production
+     * path (SessionSendService) supplies both; the two convenience constructors delegate here.
+     */
+    public ClaudeMessageHandler(
+            Project project,
+            SessionState state,
+            CallbackHandler callbackHandler,
+            MessageParser messageParser,
+            MessageMerger messageMerger,
+            Gson gson,
+            String expectedRuntimeSessionEpoch,
+            CodemossSettingsService settingsService
+    ) {
+        this.project = project;
+        this.state = state;
+        this.callbackHandler = callbackHandler;
+        this.messageParser = messageParser;
+        this.messageMerger = messageMerger;
+        this.gson = gson;
+        this.expectedRuntimeSessionEpoch = expectedRuntimeSessionEpoch;
+        this.settingsService = settingsService != null ? settingsService : new CodemossSettingsService();
+    }
+
+    /**
+     * Convenience constructor binding only the runtime-session epoch; the settings service
+     * falls back to a default instance.
      */
     public ClaudeMessageHandler(
             Project project,
@@ -69,13 +100,26 @@ public class ClaudeMessageHandler implements MessageCallback {
             Gson gson,
             String expectedRuntimeSessionEpoch
     ) {
-        this.project = project;
-        this.state = state;
-        this.callbackHandler = callbackHandler;
-        this.messageParser = messageParser;
-        this.messageMerger = messageMerger;
-        this.gson = gson;
-        this.expectedRuntimeSessionEpoch = expectedRuntimeSessionEpoch;
+        this(project, state, callbackHandler, messageParser, messageMerger, gson,
+                expectedRuntimeSessionEpoch, null);
+    }
+
+    /**
+     * Constructor with an injectable settings service. The service is used to resolve the
+     * model actually billed for a turn (slot ID → provider-mapped real ID); tests inject a
+     * fake so pricing never depends on the developer's real config file. The epoch guard is
+     * left inactive (null) since these tests do not exercise runtime rotation.
+     */
+    ClaudeMessageHandler(
+            Project project,
+            SessionState state,
+            CallbackHandler callbackHandler,
+            MessageParser messageParser,
+            MessageMerger messageMerger,
+            Gson gson,
+            CodemossSettingsService settingsService
+    ) {
+        this(project, state, callbackHandler, messageParser, messageMerger, gson, null, settingsService);
     }
 
     private boolean isStaleRuntimeEpoch() {
@@ -749,6 +793,27 @@ public class ClaudeMessageHandler implements MessageCallback {
     }
 
     /**
+     * Resolve the model that should be billed for this turn.
+     *
+     * <p>The chat UI selects Claude slot IDs (e.g. {@code claude-sonnet-4-6[1m]}), which the
+     * active provider's env maps to real model IDs (e.g. {@code deepseek-v4-flash}) before the
+     * request reaches the API. Pricing must use the real ID — otherwise a custom price configured
+     * for the mapped model is never matched and the turn is billed at built-in Claude rates
+     * (same resolution used for the context limit at {@link ModelProviderHandler}).
+     */
+    private String resolvePricingModel(String model) {
+        try {
+            JsonObject claudeSettings = settingsService.readClaudeSettings();
+            if (claudeSettings != null && claudeSettings.has("env") && claudeSettings.get("env").isJsonObject()) {
+                return ModelProviderHandler.resolveConfiguredClaudeModel(model, claudeSettings.getAsJsonObject("env"));
+            }
+        } catch (Exception e) {
+            LOG.warn("Failed to resolve pricing model: " + e.getMessage());
+        }
+        return model;
+    }
+
+    /**
      * Handle the result message as a fallback for non-streaming mode.
      * In streaming mode, usage is updated via handleUsage() from [USAGE] tags.
      * In non-streaming mode, [USAGE] tags may not be emitted, so result.usage
@@ -765,6 +830,18 @@ public class ClaudeMessageHandler implements MessageCallback {
             // Fallback: only update usage from result if no usage was received via [USAGE] tag or assistant message
             if (resultJson.has("usage") && resultJson.get("usage").isJsonObject()
                     && currentAssistantMessage != null && currentAssistantMessage.raw != null) {
+                // SDKResultMessage.usage aggregates every API call of the turn. Stamp it as the
+                // top-level turnUsage field for the per-turn token display in the webview.
+                // Distinct from message.usage below, which tracks per-call context occupancy
+                // for the status bar and must keep its semantics.
+                JsonObject turnUsage = resultJson.getAsJsonObject("usage");
+                currentAssistantMessage.raw.add("turnUsage", turnUsage.deepCopy());
+                Double turnCostUsd = UsageCostCalculator.calculateTurnCostUsd(state.getProvider(), turnUsage, resolvePricingModel(state.getModel()));
+                if (turnCostUsd != null) {
+                    currentAssistantMessage.raw.addProperty("turnCostUsd", turnCostUsd);
+                }
+
+                // Fallback: only update usage from result if no usage was received via [USAGE] tag or assistant message
                 JsonObject msg = currentAssistantMessage.raw.has(CommonConstants.JSON_KEY_MESSAGE)
                         && currentAssistantMessage.raw.get(CommonConstants.JSON_KEY_MESSAGE).isJsonObject()
                         ? currentAssistantMessage.raw.getAsJsonObject(CommonConstants.JSON_KEY_MESSAGE) : null;
@@ -784,13 +861,6 @@ public class ClaudeMessageHandler implements MessageCallback {
                     callbackHandler.notifyMessageUpdate(state.getMessages());
                     LOG.debug("Fallback: updated token usage from result message: " + usedTokens);
                 }
-            }
-            // Stamp turnUsage on the assistant message for per-turn token display
-            if (currentAssistantMessage != null && currentAssistantMessage.raw != null
-                    && resultJson.has("usage") && resultJson.get("usage").isJsonObject()) {
-                currentAssistantMessage.raw.add("turnUsage", resultJson.getAsJsonObject("usage"));
-                // Notify frontend so MessageUsageStats can render per-turn token display
-                callbackHandler.notifyMessageUpdate(state.getMessages());
             }
         } catch (Exception e) {
             LOG.warn("Failed to parse result message: " + e.getMessage());

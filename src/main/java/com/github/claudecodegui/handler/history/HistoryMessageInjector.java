@@ -5,6 +5,8 @@ import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.handler.CodexMessageConverter;
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.session.ClaudeSession;
+import com.github.claudecodegui.session.SessionState;
 import com.github.claudecodegui.util.AttachmentStorageService;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.JsonArray;
@@ -12,6 +14,12 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -334,6 +342,117 @@ public class HistoryMessageInjector {
             }
         }
         return 0;
+    }
+
+    /**
+     * 将 Codex 历史消息恢复到后端 SessionState，保证历史加载后继续发送时，
+     * 后端内存态与前端显示态使用同一份消息基线。
+     */
+    static void restoreCodexMessagesToSessionState(SessionState state, JsonArray messages) {
+        restoreCodexFrontendMessagesToSessionState(
+                state, convertCodexMessagesToFrontendBatch(messages));
+    }
+
+    private static void restoreCodexFrontendMessagesToSessionState(SessionState state,
+                                                                    List<JsonObject> frontendMessages) {
+        state.clearMessages();
+        for (JsonObject frontendMsg : frontendMessages) {
+            ClaudeSession.Message restoredMessage = toSessionMessage(frontendMsg);
+            if (restoredMessage != null) {
+                state.addMessage(restoredMessage);
+            }
+        }
+    }
+
+    private static boolean isHumanUserMessage(JsonObject message) {
+        if (!isUserMessage(message)) {
+            return false;
+        }
+        if (!message.has("raw") || !message.get("raw").isJsonObject()) {
+            return !"[tool_result]".equals(getStringProperty(message, "content"));
+        }
+
+        JsonObject raw = message.getAsJsonObject("raw");
+        if (!raw.has("content") || !raw.get("content").isJsonArray()) {
+            return !"[tool_result]".equals(getStringProperty(message, "content"));
+        }
+        for (JsonElement blockElement : raw.getAsJsonArray("content")) {
+            if (!blockElement.isJsonObject()) {
+                continue;
+            }
+            String blockType = getStringProperty(blockElement.getAsJsonObject(), "type");
+            if ("text".equals(blockType) || "image".equals(blockType)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 将前端统一消息结构恢复为会话内存消息结构。
+     */
+    static ClaudeSession.Message toSessionMessage(JsonObject frontendMsg) {
+        if (frontendMsg == null || !frontendMsg.has("type")) {
+            return null;
+        }
+
+        String type = frontendMsg.get("type").getAsString();
+        ClaudeSession.Message.Type messageType;
+        switch (type) {
+            case "user":
+                messageType = ClaudeSession.Message.Type.USER;
+                break;
+            case "assistant":
+                messageType = ClaudeSession.Message.Type.ASSISTANT;
+                break;
+            case "system":
+                messageType = ClaudeSession.Message.Type.SYSTEM;
+                break;
+            case "error":
+                messageType = ClaudeSession.Message.Type.ERROR;
+                break;
+            default:
+                return null;
+        }
+
+        String content = frontendMsg.has("content") ? frontendMsg.get("content").getAsString() : "";
+        JsonObject raw = frontendMsg.has("raw") && frontendMsg.get("raw").isJsonObject()
+            ? frontendMsg.getAsJsonObject("raw")
+            : null;
+        ClaudeSession.Message restored = raw != null
+            ? new ClaudeSession.Message(messageType, content, raw.deepCopy())
+            : new ClaudeSession.Message(messageType, content);
+        Long sourceTimestamp = parseFrontendTimestamp(frontendMsg);
+        if (sourceTimestamp != null) {
+            restored.timestamp = sourceTimestamp;
+        }
+        return restored;
+    }
+
+    private static Long parseFrontendTimestamp(JsonObject frontendMsg) {
+        if (!frontendMsg.has("timestamp") || frontendMsg.get("timestamp").isJsonNull()) {
+            return null;
+        }
+        JsonElement timestamp = frontendMsg.get("timestamp");
+        if (!timestamp.isJsonPrimitive()) {
+            return null;
+        }
+        try {
+            if (timestamp.getAsJsonPrimitive().isNumber()) {
+                return timestamp.getAsLong();
+            }
+            String value = timestamp.getAsString();
+            if (value == null || value.isBlank()) {
+                return null;
+            }
+            try {
+                return Long.parseLong(value);
+            } catch (NumberFormatException ignored) {
+                return Instant.parse(value).toEpochMilli();
+            }
+        } catch (NumberFormatException | DateTimeParseException ignored) {
+            return null;
+        }
     }
 
     /**
@@ -916,6 +1035,66 @@ public class HistoryMessageInjector {
             LOG.debug("[HistoryMessageInjector] Skip missing local image: " + imagePath);
         }
         return imageBlock;
+    }
+
+    /** Target character budget for a single history batch payload (upstream chunking). */
+    static final int HISTORY_BATCH_TARGET_CHAR_LIMIT = 180_000;
+
+    /**
+     * Split a history payload string into chunks no larger than {@link #HISTORY_BATCH_TARGET_CHAR_LIMIT}
+     * when measured in escaped-JS characters. Used by SubagentHistoryService to stream large
+     * history batches to the frontend in chunks.
+     */
+    static List<String> splitHistoryPayload(String payload) {
+        List<String> chunks = new ArrayList<>();
+        if (payload == null || payload.isEmpty()) {
+            return chunks;
+        }
+
+        StringBuilder current = new StringBuilder(HISTORY_BATCH_TARGET_CHAR_LIMIT);
+        int escapedChars = 0;
+        for (int i = 0; i < payload.length(); i++) {
+            char value = payload.charAt(i);
+            int charCount = escapedCharCount(current, value);
+            boolean surrogatePair = Character.isHighSurrogate(value)
+                    && i + 1 < payload.length()
+                    && Character.isLowSurrogate(payload.charAt(i + 1));
+            if (surrogatePair) {
+                charCount += 1;
+            }
+
+            if (escapedChars + charCount > HISTORY_BATCH_TARGET_CHAR_LIMIT && current.length() > 0) {
+                chunks.add(current.toString());
+                current.setLength(0);
+                escapedChars = 0;
+                charCount = escapedCharCount(current, value) + (surrogatePair ? 1 : 0);
+            }
+
+            current.append(value);
+            if (surrogatePair) {
+                current.append(payload.charAt(++i));
+            }
+            escapedChars += charCount;
+        }
+        if (current.length() > 0) {
+            chunks.add(current.toString());
+        }
+        return chunks;
+    }
+
+    private static int escapedCharCount(StringBuilder current, char value) {
+        if (value == '' || value == ' ' || value == ' ') {
+            return 6;
+        }
+        if (value == '\\' || value == '\'' || value == '"' || value == '`'
+                || value == '\n' || value == '\r' || value == '\t'
+                || value == '\b' || value == '\f' || value == '\0') {
+            return 2;
+        }
+        if (value == '/' && current.length() > 0 && current.charAt(current.length() - 1) == '<') {
+            return 2;
+        }
+        return 1;
     }
 
 }

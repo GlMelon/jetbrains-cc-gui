@@ -14,8 +14,12 @@ import type { UseWindowCallbacksOptions } from '../../useWindowCallbacks';
 import { downloadExportedFile } from '../../../utils/exportedFile';
 import { parseHistoryExportPayload } from '../../../utils/historyExport';
 import { releaseSessionTransition } from '../sessionTransition';
-import { drainAndRequestDependencyStatus } from '../settingsBootstrap';
+import { drainPendingDependencyStatus } from '../settingsBootstrap';
 import { registerLegacyAlias } from '../../../bridge';
+import {
+  isDependencyStatusResponse,
+  settleDependencyStatusRequest,
+} from '../../../utils/bridgeStartup';
 
 // Matches session-titles-service.cjs#updateTitle, which rejects longer titles.
 const CUSTOM_TITLE_MAX_LENGTH = 50;
@@ -29,6 +33,7 @@ export function registerSessionAndSdkCallbacks(
     setCurrentSessionId,
     setSdkStatus,
     setSdkStatusLoaded,
+    setSdkStatusError,
     setIsRewinding,
     setRewindDialogOpen,
     setCurrentRewindRequest,
@@ -121,16 +126,30 @@ export function registerSessionAndSdkCallbacks(
   registerLegacyAlias('updateDependencyStatus', DOWNSTREAM.DEPENDENCY_STATUS);
   subscribeEvent(DOWNSTREAM.DEPENDENCY_STATUS, (jsonStr) => {
     try {
-      const data = JSON.parse(jsonStr as string);
+        const data = JSON.parse(jsonStr as string);
+      if (!isDependencyStatusResponse(data)) {
+        console.error('[Frontend] Dependency status request failed:', data);
+        const error = typeof data.error === 'string' && data.error.trim()
+          ? data.error
+          : 'dependency_status_unavailable';
+        setSdkStatusLoaded(false);
+        setSdkStatusError(error);
+        settleDependencyStatusRequest('error');
+        return;
+      }
       setSdkStatus(data);
       setSdkStatusLoaded(true);
+      setSdkStatusError(null);
+      settleDependencyStatusRequest('ready');
     } catch (error) {
       console.error('[Frontend] Failed to parse dependency status:', error);
-      setSdkStatusLoaded(true);
+setSdkStatusLoaded(false);
+      setSdkStatusError(error instanceof Error ? error.message : 'invalid_dependency_status');
+      settleDependencyStatusRequest('error');
     }
   });
 
-  drainAndRequestDependencyStatus();
+  drainPendingDependencyStatus();
 
   // =========================================================================
   // Rewind Result Callback

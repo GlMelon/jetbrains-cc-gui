@@ -204,6 +204,8 @@ const App = () => {
     permissionMode,
     selectedAgent,
     sdkStatusLoaded,
+    sdkStatusLoading,
+    sdkStatusError,
     currentSdkInstalled,
     currentProviderRef,
     activeProviderConfig,
@@ -232,6 +234,8 @@ const App = () => {
     setAutoOpenFileEnabled,
     setSdkStatus,
     setSdkStatusLoaded,
+    setSdkStatusError,
+    retrySdkStatus,
     setSelectedAgent,
     setUsagePercentage,
     setUsageUsedTokens,
@@ -426,7 +430,8 @@ const App = () => {
     setSendShortcut,
     setAutoOpenFileEnabled,
     setSdkStatus,
-    setSdkStatusLoaded, // These come from useUsageTracking
+    setSdkStatusLoaded,
+    setSdkStatusError,
     setIsRewinding,
     setRewindDialogOpen,
     setCurrentRewindRequest,
@@ -608,6 +613,7 @@ const App = () => {
   const { subagentHistoryCtxValue, sessionIdCtxValue } = useSubagentContextValues(
     subagentHistories,
     currentSessionId,
+    currentProvider,
   );
 
   const handleNavigateToProviderSettings = useCallback(() => {
@@ -722,7 +728,7 @@ const App = () => {
           onUploadAssistantAvatar={uploadAssistantAvatar}
           onUploadUserAvatar={uploadUserAvatar}
         />
-          </motion.div>
+</motion.div>
         ) : currentView === 'chat' ? (
           <motion.div
             key="chat"
@@ -794,6 +800,10 @@ const App = () => {
             onRewind={handleOpenRewindSelectDialog}
             onNavigateToProviderSettings={handleNavigateToProviderSettings}
             onProviderSelect={wrappedHandleProviderSelect}
+            sessionTitle={sessionTitle}
+            sdkStatusLoading={sdkStatusLoading}
+            sdkStatusError={sdkStatusError}
+            onRetrySdkStatus={retrySdkStatus}
             detailedOutputEnabled={detailedOutputEnabled}
             avatarConfig={avatarConfig}
             messageQueue={messageQueue}

@@ -173,3 +173,22 @@ export const drainAndRequestDependencyStatus = (): void => {
     sendAction(UPSTREAM.GET_DEPENDENCY_STATUS);
   }
 };
+
+/**
+ * Drain any dependency-status payload that arrived before the callback was
+ * registered. The startup poller in main.tsx owns the initial request so this
+ * callback registration cannot create a duplicate in-flight query.
+ */
+export const drainPendingDependencyStatus = (): void => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const w = window as unknown as Record<string, unknown>;
+
+  if (w.__pendingDependencyStatus) {
+    const pending = w.__pendingDependencyStatus as string;
+    delete w.__pendingDependencyStatus;
+    window.updateDependencyStatus?.(pending);
+  }
+};

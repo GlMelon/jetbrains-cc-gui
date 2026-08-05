@@ -49,8 +49,8 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
   // ── Provider-specific sub-hooks ──
   const claude = useClaudeProvider();
   const codex = useCodexProvider();
-  const opencode = useOpenCodeProvider();
-  const { isSdkInstalled, ...usage } = useUsageTracking();
+const opencode = useOpenCodeProvider();
+  const { isSdkInstalled, isSdkStatusKnown, ...usage } = useUsageTracking();
   const settings = useProviderSettings({ addToast, t });
 
   const {
@@ -96,6 +96,12 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
   const currentSdkInstalled = useMemo(
     () => isSdkInstalled(currentProvider),
     [isSdkInstalled, currentProvider],
+  );
+  const currentSdkStatusError = useMemo(
+    () => usage.sdkStatusError !== null && !isSdkStatusKnown(currentProvider)
+      ? usage.sdkStatusError
+      : null,
+    [currentProvider, isSdkStatusKnown, usage.sdkStatusError],
   );
   // Whether the installed Claude SDK meets the minimum version required for the
   // selected model's tier (Fable needs >= 0.3.182). `undefined` means the backend
@@ -370,6 +376,7 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
     ...usage,
     ...settings,
     sdkStatus,
+    sdkStatusError: currentSdkStatusError,
     currentProvider, setCurrentProvider,
     permissionMode, setPermissionMode,
     selectedModel,

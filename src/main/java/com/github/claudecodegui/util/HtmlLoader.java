@@ -49,41 +49,6 @@ public class HtmlLoader {
     }
 
     /**
-     * Inject the initial tab state into the HTML for the webview.
-     * This provides the initial tab configuration so the frontend can render
-     * the correct tab on load.
-     *
-     * @param html the HTML content
-     * @param tabProvider the initial provider tab identifier
-     * @param tabModel the initial model tab identifier
-     * @return HTML with the initial tab state injected
-     */
-    public String injectInitialTabState(String html, String tabProvider, String tabModel) {
-        StringBuilder script = new StringBuilder("<script>");
-        if (tabProvider != null && !tabProvider.isEmpty()) {
-            script.append("window.__INITIAL_TAB_PROVIDER__ = ").append(escapeJson(tabProvider)).append(";");
-        }
-        if (tabModel != null && !tabModel.isEmpty()) {
-            script.append("window.__INITIAL_TAB_MODEL__ = ").append(escapeJson(tabModel)).append(";");
-        }
-        script.append("</script>");
-        if (script.length() > "<script></script>".length() && html.contains("<head>")) {
-            html = html.replace("<head>", "<head>" + script);
-        }
-        return html;
-    }
-
-    /**
-     * Escape a string for safe inclusion in JSON.
-     */
-    private String escapeJson(String s) {
-        if (s == null) {
-            return "null";
-        }
-        return "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
-    }
-
-    /**
      * Inject the IDE theme into the HTML.
      *
      * Strategy: add inline style attributes directly on HTML tags to ensure the background
@@ -131,6 +96,67 @@ public class HtmlLoader {
     }
 
     /**
+     * Inject per-tab provider/model into the HTML so the WebView can prefer
+     * the backend-restored values over the global localStorage snapshot.
+     *
+     * Without this, every tab in a multi-tab setup hydrates from the same
+     * localStorage key ("model-selection-state") and clobbers the per-tab
+     * provider that ClaudeChatWindow.restorePersistedTabSessionState already
+     * applied to the session — see issue #1353.
+     *
+     * Both arguments may be null/empty. Null/empty values are injected as
+     * empty strings; the frontend treats an empty string as "no backend
+     * preference" and falls back to localStorage. Only non-empty values
+     * override the global localStorage snapshot.
+     */
+    public String injectInitialTabState(String html, String provider, String model) {
+        try {
+            String safeProvider = escapeForSingleQuotedJs(provider == null ? "" : provider);
+            String safeModel = escapeForSingleQuotedJs(model == null ? "" : model);
+            String scriptInjection = "\n    <script>"
+                    + "window.__INITIAL_TAB_PROVIDER__ = '" + safeProvider + "';"
+                    + "window.__INITIAL_TAB_MODEL__ = '" + safeModel + "';"
+                    + "</script>";
+            int headIndex = html.indexOf("<head>");
+            if (headIndex != -1) {
+                int insertPos = headIndex + "<head>".length();
+                return html.substring(0, insertPos) + scriptInjection + html.substring(insertPos);
+            }
+        } catch (Exception e) {
+            LOG.error("Failed to inject initial tab state: " + e.getMessage(), e);
+        }
+        return html;
+    }
+
+    /** Injects the page generation before the frontend bundle executes. */
+    public String injectPageGeneration(String html, int pageGeneration) {
+        String scriptInjection = "\n    <script>window.__CCG_PAGE_GENERATION__ = "
+                + pageGeneration + ";</script>";
+        int headIndex = html.indexOf("<head>");
+        if (headIndex == -1) {
+            return html;
+        }
+        int insertPos = headIndex + "<head>".length();
+        return html.substring(0, insertPos) + scriptInjection + html.substring(insertPos);
+    }
+
+    private static String escapeForSingleQuotedJs(String value) {
+        // Restricted set — provider/model IDs only contain safe chars in
+        // practice, but a malicious settings.json provider list could carry
+        // arbitrary text. Reject the small set that can break out of the
+        // single-quoted literal.
+        return value
+                .replace("\\", "\\\\")
+                .replace("'", "\\'")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("<", "\\u003c")
+                .replace(">", "\\u003e")
+                .replace("\u2028", "\\u2028")   // Line separator — string-literal break in pre-ES2019 JS engines
+                .replace("\u2029", "\\u2029");  // Paragraph separator — same risk
+    }
+
+    /**
      * Generate fallback HTML.
      */
     public String generateFallbackHtml() {
@@ -138,7 +164,7 @@ public class HtmlLoader {
             "<html>" +
             "<head>" +
             "<meta charset=\"UTF-8\">" +
-            "<title>AI Code GUI</title>" +
+            "<title>CC GUI（Claude or Codex）</title>" +
             "<style>" +
             "body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; " +
             "background: #1e1e1e; color: #fff; display: flex; align-items: center; " +

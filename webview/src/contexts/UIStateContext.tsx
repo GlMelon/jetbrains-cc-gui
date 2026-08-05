@@ -37,6 +37,10 @@ interface UIStateContextValue {
   // In-conversation search panel (Cmd/Ctrl+F)
   searchOpen: boolean;
   setSearchOpen: React.Dispatch<React.SetStateAction<boolean>>;
+
+  // Add-custom-model dialog
+  addModelDialogOpen: boolean;
+  setAddModelDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const UIStateContext = createContext<UIStateContextValue | null>(null);
@@ -58,6 +62,7 @@ export function UIStateProvider({ children }: { children: ReactNode }) {
   const [contextInfo, setContextInfo] = useState<ContextInfo | null>(null);
   const [draftInput, setDraftInput] = useState<string>('');
   const [searchOpen, setSearchOpen] = useState<boolean>(false);
+  const [addModelDialogOpen, setAddModelDialogOpen] = useState<boolean>(false);
 
   const addToast = useCallback((message: string, type: ToastMessage['type'] = 'info', action?: ToastAction) => {
     if (message === DEFAULT_STATUS || !message) return;
@@ -89,6 +94,7 @@ export function UIStateProvider({ children }: { children: ReactNode }) {
       contextInfo, setContextInfo,
       draftInput, setDraftInput,
       searchOpen, setSearchOpen,
+      addModelDialogOpen, setAddModelDialogOpen,
     }),
     [
       currentView, settingsInitialTab,
@@ -96,6 +102,7 @@ export function UIStateProvider({ children }: { children: ReactNode }) {
       showChangelogDialog, closeChangelogDialog, openChangelogDialog,
       contextInfo, draftInput,
       searchOpen,
+      addModelDialogOpen,
     ],
   );
 

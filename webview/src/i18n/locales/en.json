@@ -79,8 +79,10 @@
     "disabled": "Disabled",
     "sdkNotInstalled": "{{provider}} SDK is not installed. Please install the SDK to start chatting.",
     "sdkStatusLoading": "Checking SDK status...",
-    "sdkStatusCheckDeferred": "{{provider}} SDK status is still loading. Sending will continue and the backend will verify it before execution.",
+"sdkStatusCheckDeferred": "{{provider}} SDK status is still loading. Sending will continue and the backend will verify it before execution.",
     "planModeEnabled": "Plan mode enabled",
+    "sdkStatusUnavailable": "Could not check SDK status.",
+    "retrySdkStatus": "Retry",
     "openSourceBanner": "This project is guaranteed to be 100% open source and free (beware of pirated projects)",
     "goInstallSdk": "Go to Install",
     "sdkTooLowForFable": "Claude SDK version is too low for the Fable model. Update the Claude Code SDK in Settings.",
@@ -176,9 +178,6 @@
     "minutesAndSeconds": "{{minutes}}m {{seconds}}s",
     "usage": "Usage",
     "noMatchingHistory": "No matching history",
-    "openSourceBannerStar": "Star",
-    "openSourceBannerStarToast": "Repo link copied to clipboard — paste it in your browser to visit ⭐",
-    "openSourceBannerStarAria": "Copy repository link and star on GitHub",
     "attachmentFile": "[Attachment: {{fileName}}]",
     "attachmentsUploaded": "[Attachments Uploaded]",
     "showEarlierTurns": "Show {{count}} earlier turns ({{remaining}} loaded turns remaining)",
@@ -395,6 +394,12 @@
         "reset": "Reset",
         "hint": "Customize the chat area background color. Leave empty to follow the theme default."
       },
+      "chatBarColor": {
+        "label": "Header & Status Bar Color",
+        "custom": "Custom",
+        "reset": "Reset",
+        "hint": "Use one theme color for the session header and task status bar. Leave empty to follow the current UI theme."
+      },
       "diffTheme": {
         "label": "Diff Theme",
         "follow": "Follow UI",
@@ -477,7 +482,7 @@
       "codex": "Codex",
       "opencode": "OpenCode"
     },
-    "openCodeProvider": {
+"openCodeProvider": {
       "title": "OpenCode Provider",
       "description": "Manage OpenCode AI feature provider configuration",
       "info": "OpenCode uses a local daemon mode and does not require API key configuration. After installing the OpenCode SDK, you can use the Prompt Enhancer and Commit AI features.",
@@ -562,6 +567,39 @@
         "confirmAdd": "Add",
         "saveChanges": "Save Changes"
       }
+    },
+    "pluginModels": {
+      "title": "Custom Models",
+      "description": "Custom models added here will be visible under all providers, shown at the top of the model selector",
+      "dialogTitle": "Manage Custom Models",
+      "manage": "Manage Models",
+      "pricing": {
+        "title": "Pricing (USD per 1M tokens)",
+        "optionalLabel": "Optional",
+        "hint": "Optional. Leave a field empty to use the default rate for that token type.",
+        "inputLabel": "Input",
+        "outputLabel": "Output",
+        "cacheWriteLabel": "Cache write",
+        "cacheReadLabel": "Cache read",
+        "inputShort": "In",
+        "outputShort": "Out",
+        "cacheWriteShort": "Cache write",
+        "cacheReadShort": "Cache read",
+        "invalidValue": "Pricing must be a non-negative number",
+        "defaultPricing": "Using default pricing"
+      },
+      "contextWindow": {
+        "label": "Maximum context (K tokens)",
+        "placeholder": "e.g. 500",
+        "hint": "Optional. Enter a whole number of thousands of tokens (500 = 500,000 tokens). Used only for the plugin context usage display.",
+        "invalidValue": "Maximum context must be a positive integer in K units",
+        "summary": "Context: {{value}} tokens"
+      },
+      "configuredSectionTitle": "Configured Claude models",
+      "configuredSectionDesc": "Models from the active Claude provider/settings.json are already in the selector. Only pricing can be changed here.",
+      "configuredEditHint": "This model is managed by the active Claude provider/settings.json. Only pricing can be changed here.",
+      "customSectionTitle": "Custom models",
+      "editPricing": "Edit pricing"
     },
     "dependencies": "SDK Dependencies",
     "dependency": {

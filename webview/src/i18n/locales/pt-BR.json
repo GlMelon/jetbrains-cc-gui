@@ -77,6 +77,8 @@
     "disabled": "Desativado",
     "sdkNotInstalled": "O SDK de {{provider}} não está instalado. Por favor, instale o SDK para iniciar o chat.",
     "sdkStatusLoading": "Verificando status do SDK...",
+    "sdkStatusUnavailable": "Não foi possível verificar o status do SDK.",
+    "retrySdkStatus": "Tentar novamente",
     "openSourceBanner": "Este projeto é garantidamente 100% open source e gratuito (cuidado com projetos piratas)",
     "goInstallSdk": "Ir para Instalação",
     "commandNotImplemented": "O recurso `{{command}}` ainda não foi implementado.",
@@ -163,9 +165,6 @@
     "minutesAndSeconds": "{{minutes}}m {{seconds}}s",
     "usage": "Uso",
     "noMatchingHistory": "Nenhum histórico encontrado",
-    "openSourceBannerStar": "Star",
-    "openSourceBannerStarToast": "Link copiado para a área de transferência — cole no navegador para acessar ⭐",
-    "openSourceBannerStarAria": "Copiar link e dar uma estrela no GitHub",
     "attachmentFile": "[Anexo: {{fileName}}]",
     "attachmentsUploaded": "[Anexos Enviados]",
     "showEarlierTurns": "Mostrar {{count}} turnos anteriores (restam {{remaining}} carregados)",
@@ -342,6 +341,12 @@
         "reset": "Redefinir",
         "hint": "Personalize a cor de fundo da área de chat. Deixe vazio para seguir o padrão do tema."
       },
+      "chatBarColor": {
+        "label": "Cor do cabeçalho e da barra de status",
+        "custom": "Personalizada",
+        "reset": "Redefinir",
+        "hint": "Use uma cor de tema para o cabeçalho da sessão e a barra de status das tarefas. Deixe vazio para seguir o tema atual."
+      },
       "diffTheme": {
         "label": "Tema do Diff",
         "follow": "Seguir UI",
@@ -422,6 +427,39 @@
     "providerTab": {
       "claude": "Claude Code",
       "codex": "Codex"
+    },
+"pluginModels": {
+      "title": "Modelos Personalizados",
+      "description": "Modelos personalizados adicionados aqui serão visíveis em todos os provedores, exibidos no topo do seletor de modelos",
+      "dialogTitle": "Gerenciar Modelos Personalizados",
+      "manage": "Gerenciar Modelos",
+      "pricing": {
+        "title": "Preço (USD por 1M tokens)",
+        "optionalLabel": "Opcional",
+        "hint": "Opcional. Deixe um campo vazio para usar a tarifa padrão desse tipo de token.",
+        "inputLabel": "Entrada",
+        "outputLabel": "Saída",
+        "cacheWriteLabel": "Gravação de cache",
+        "cacheReadLabel": "Leitura de cache",
+        "inputShort": "Entrada",
+        "outputShort": "Saída",
+        "cacheWriteShort": "Gravação de cache",
+        "cacheReadShort": "Leitura de cache",
+        "invalidValue": "O preço deve ser um número não negativo",
+        "defaultPricing": "Usando o preço padrão"
+      },
+      "contextWindow": {
+        "label": "Contexto máximo (K tokens)",
+        "placeholder": "ex.: 500",
+        "hint": "Opcional. Informe um número inteiro de milhares de tokens (500 = 500.000 tokens). Usado apenas para exibir o uso de contexto no plugin.",
+        "invalidValue": "O contexto máximo deve ser um inteiro positivo em unidades K",
+        "summary": "Contexto: {{value}} tokens"
+      },
+      "configuredSectionTitle": "Modelos Claude configurados",
+      "configuredSectionDesc": "Os modelos do provedor Claude ativo ou do settings.json já aparecem no seletor. Aqui só é possível alterar o preço.",
+      "configuredEditHint": "Este modelo é gerenciado pelo provedor Claude ativo ou pelo settings.json. Aqui só é possível alterar o preço.",
+      "customSectionTitle": "Modelos personalizados",
+      "editPricing": "Editar preço"
     },
     "dependencies": "Dependências do SDK",
     "dependency": {

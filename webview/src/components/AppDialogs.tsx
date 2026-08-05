@@ -13,7 +13,39 @@ import { useUIState } from '../contexts/UIStateContext';
 import ContextUsageDialog from './ContextUsageDialog';
 import { DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS } from '../utils/permissionDialogTimeout';
 import { setSkipNewSessionConfirm } from '../utils/skipNewSessionConfirm';
+import { useModelProvider } from '../contexts/ModelProviderContext';
+import { STORAGE_KEYS } from '../types/provider';
+import { usePluginModels } from './settings/hooks/usePluginModels';
+import CustomModelDialog from './settings/CustomModelDialog';
 
+/**
+ * Wrapper that manages plugin-level custom models for the add-model dialog.
+ * Uses the shared usePluginModels hook for localStorage persistence.
+ */
+const AddModelDialogWrapper = ({
+  isOpen,
+  onClose,
+  currentProvider,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  currentProvider: string;
+}) => {
+  const storageKey = currentProvider === 'codex'
+    ? STORAGE_KEYS.CODEX_CUSTOM_MODELS
+    : STORAGE_KEYS.CLAUDE_CUSTOM_MODELS;
+  const { models, updateModels } = usePluginModels(storageKey);
+  return (
+    <CustomModelDialog
+      isOpen={isOpen}
+      models={models}
+      onModelsChange={updateModels}
+      onClose={onClose}
+      contextWindowEnabled={currentProvider === 'codex'}
+      initialAddMode
+    />
+  );
+};
 
 
 /**
@@ -50,6 +82,7 @@ export const AppDialogs = ({
   permissionDialogTimeoutSeconds?: number;
 }) => {
   const { t } = useTranslation();
+  const { currentProvider } = useModelProvider();
   const {
     permissionDialogOpen, currentPermissionRequest,
     handlePermissionApprove, handlePermissionApproveAlways, handlePermissionSkip,
@@ -62,6 +95,7 @@ export const AppDialogs = ({
   } = useDialogs();
   const {
     showChangelogDialog, closeChangelogDialog,
+    addModelDialogOpen, setAddModelDialogOpen,
   } = useUIState();
 
   // ── Dialog stacking guard ──────────────────────────────────────────
@@ -163,6 +197,11 @@ export const AppDialogs = ({
         isOpen={showChangelogNow}
         onClose={closeChangelogDialog}
         entries={CHANGELOG_DATA}
+      />
+      <AddModelDialogWrapper
+        isOpen={addModelDialogOpen}
+        onClose={() => setAddModelDialogOpen(false)}
+        currentProvider={currentProvider}
       />
       {contextUsageDialogOpen ? (
         <ContextUsageDialog

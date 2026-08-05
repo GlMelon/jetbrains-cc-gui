@@ -2,8 +2,12 @@ package com.github.claudecodegui.handler.provider;
 
 import com.github.claudecodegui.model.selection.ModelSelectionResult;
 import com.github.claudecodegui.protocol.DownstreamEvent;
+import com.github.claudecodegui.provider.CustomModelContextWindowProvider;
 import com.google.gson.JsonObject;
 import org.junit.Test;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static org.junit.Assert.*;
 
@@ -135,6 +139,56 @@ public class ModelProviderHandlerTest {
     public void shouldParseContextWindowFromSuffixForUnknownModels() {
         assertEquals(1_000_000, ModelProviderHandler.getModelContextLimit("deepseek-v4-pro[1m]"));
         assertEquals(128_000, ModelProviderHandler.getModelContextLimit("custom-model[128k]"));
+    }
+
+    @Test
+    public void shouldPreferConfiguredCustomContextAndKeepExistingFallbacks() throws Exception {
+        Path config = Files.createTempFile("model-context-limit", ".json");
+        Files.writeString(config, """
+                {
+                  "customModelContextWindows": {
+                    "codex": {
+                      "custom-model": 750000
+                    }
+                  }
+                }
+                """);
+        CustomModelContextWindowProvider.setInstanceForTests(
+                CustomModelContextWindowProvider.createForTests(config)
+        );
+
+        try {
+            assertEquals(750_000, ModelProviderHandler.getModelContextLimit("codex", "custom-model"));
+            assertEquals(1_000_000, ModelProviderHandler.getModelContextLimit("codex", "custom-model[1m]"));
+            assertEquals(500_000, ModelProviderHandler.getModelContextLimit("codex", "legacy-model[500k]"));
+            assertEquals(200_000, ModelProviderHandler.getModelContextLimit("codex", "unknown-model"));
+        } finally {
+            CustomModelContextWindowProvider.setInstanceForTests(null);
+        }
+    }
+
+    @Test
+    public void shouldIgnoreConfiguredCustomContextForClaude() throws Exception {
+        Path config = Files.createTempFile("model-context-limit", ".json");
+        Files.writeString(config, """
+                {
+                  "customModelContextWindows": {
+                    "claude": {
+                      "custom-claude": 750000
+                    }
+                  }
+                }
+                """);
+        CustomModelContextWindowProvider.setInstanceForTests(
+                CustomModelContextWindowProvider.createForTests(config)
+        );
+
+        try {
+            assertEquals(200_000, ModelProviderHandler.getModelContextLimit("claude", "custom-claude"));
+            assertEquals(1_000_000, ModelProviderHandler.getModelContextLimit("claude", "custom-claude[1m]"));
+        } finally {
+            CustomModelContextWindowProvider.setInstanceForTests(null);
+        }
     }
 
     // ============================================================================

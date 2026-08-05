@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
-import type { ClaudeMessage, ClaudeRawMessage, ClaudeContentBlock, ToolResultBlock, SubagentHistoryResponse, SubagentInfo, SubagentStatus, TaskEvent } from '../types';
+import type { ClaudeMessage, ClaudeRawMessage, ClaudeContentBlock, ToolResultBlock, SubagentHistoryResponse, SubagentInfo, SubagentStatus, TaskEvent, TaskEventMap } from '../types';
 import { normalizeToolInput } from '../utils/toolInputNormalization';
 import { normalizeToolName } from '../utils/toolConstants';
-import { extractResultText, isAsyncAgentInput } from '../utils/subagentResult';
+import { extractResultText, isAsyncAgentInput, parseSpawnAgentMeta } from '../utils/subagentResult';
 import { useTaskEvents } from '../contexts/SubagentContext';
 
 type GetToolResultRawFn = (toolUseId: string) => ClaudeRawMessage | null;
@@ -86,6 +86,80 @@ function extractResultMetadata(
   };
 }
 
+export function extractSubagentsFromMessages(
+  messages: ClaudeMessage[],
+  getContentBlocks: (message: ClaudeMessage) => ClaudeContentBlock[],
+  findToolResult: (toolUseId?: string, messageIndex?: number) => ToolResultBlock | null,
+  getToolResultRaw: GetToolResultRawFn,
+  taskEvents: TaskEventMap = {},
+): SubagentInfo[] {
+  const subagents: SubagentInfo[] = [];
+
+  messages.forEach((message, messageIndex) => {
+    if (message.type !== 'assistant') return;
+
+    const blocks = getContentBlocks(message);
+
+    blocks.forEach((block) => {
+      if (block.type !== 'tool_use') return;
+
+      const toolName = normalizeToolName(block.name ?? '');
+
+      // Only process task/agent-style subagent tool calls.
+      if (toolName !== 'task' && toolName !== 'agent' && toolName !== 'spawn_agent') return;
+
+      const rawInput = block.input as Record<string, unknown> | undefined;
+      const input = rawInput ? normalizeToolInput(block.name, rawInput) as Record<string, unknown> : undefined;
+      if (!input) return;
+
+      // Defensive: ensure all string values are actually strings
+      const id = String(block.id ?? `task-${messageIndex}-${subagents.length}`);
+      const subagentType = String((input.subagent_type as string) ?? (input.subagentType as string) ?? 'Unknown');
+      const description = String((input.description as string) ?? '');
+      const prompt = String((input.prompt as string) ?? '');
+
+      // Check tool result to determine status
+      const toolUseId = block.id ?? '';
+      const result = findToolResult(toolUseId, messageIndex);
+      const taskEvent = taskEvents[toolUseId];
+      // isAsync is read via the shared isAsyncAgentInput helper so the
+      // StatusPanel list and the inline Agent cards stay in lockstep.
+      const isAsync = isAsyncAgentInput(input, toolName);
+      const status = determineStatus(result, isAsync, taskEvent);
+      const resultMetadata = extractResultMetadata(result, getToolResultRaw, toolUseId, taskEvent);
+      const spawnMeta = toolName === 'spawn_agent' ? parseSpawnAgentMeta(input, result) : {};
+
+      subagents.push({
+        id,
+        type: subagentType,
+        description,
+        prompt,
+        status,
+        isAsync,
+        messageIndex,
+        ...resultMetadata,
+        ...(spawnMeta.agentId && { agentId: spawnMeta.agentId }),
+        ...(spawnMeta.agentPath && { agentPath: spawnMeta.agentPath }),
+      });
+    });
+  });
+
+  return subagents;
+}
+
+export function applySubagentHistoryCompletion(
+  subagents: SubagentInfo[],
+  subagentHistories: Record<string, SubagentHistoryResponse>,
+): SubagentInfo[] {
+  return subagents.map((subagent) => {
+    if (!subagent.isAsync || subagent.status !== 'running') return subagent;
+    const history = subagentHistories[subagent.id]
+      ?? (subagent.agentId ? subagentHistories[subagent.agentId] : undefined);
+    if (history?.status === 'error') return { ...subagent, status: 'error' as const };
+    return history?.completed ? { ...subagent, status: 'completed' as const } : subagent;
+  });
+}
+
 /**
  * Hook to extract subagent information from Task tool calls.
  */
@@ -98,59 +172,13 @@ export function useSubagents({
 }: UseSubagentsParams): SubagentInfo[] {
   const taskEvents = useTaskEvents();
   return useMemo(() => {
-    const subagents: SubagentInfo[] = [];
-
-    messages.forEach((message, messageIndex) => {
-      if (message.type !== 'assistant') return;
-
-      const blocks = getContentBlocks(message);
-
-      blocks.forEach((block) => {
-        if (block.type !== 'tool_use') return;
-
-        const toolName = normalizeToolName(block.name ?? '');
-
-        // Only process task/agent-style subagent tool calls.
-        if (toolName !== 'task' && toolName !== 'agent' && toolName !== 'spawn_agent') return;
-
-        const rawInput = block.input as Record<string, unknown> | undefined;
-        const input = rawInput ? normalizeToolInput(block.name, rawInput) as Record<string, unknown> : undefined;
-        if (!input) return;
-
-        // Defensive: ensure all string values are actually strings
-        const id = String(block.id ?? `task-${messageIndex}-${subagents.length}`);
-        const subagentType = String((input.subagent_type as string) ?? (input.subagentType as string) ?? 'Unknown');
-        const description = String((input.description as string) ?? '');
-        const prompt = String((input.prompt as string) ?? '');
-
-        // Check tool result to determine status
-        const toolUseId = block.id ?? '';
-        const result = findToolResult(toolUseId, messageIndex);
-        const taskEvent = taskEvents[toolUseId];
-        // isAsync is read via the shared isAsyncAgentInput helper so the
-        // StatusPanel list and the inline Agent cards stay in lockstep.
-        const isAsync = isAsyncAgentInput(input);
-        const status = determineStatus(result, isAsync, taskEvent);
-        const resultMetadata = extractResultMetadata(result, getToolResultRaw, toolUseId, taskEvent);
-
-        subagents.push({
-          id,
-          type: subagentType,
-          description,
-          prompt,
-          status,
-          isAsync,
-          messageIndex,
-          ...resultMetadata,
-        });
-      });
-    });
-
-    return subagents.map((subagent) => {
-      if (!subagent.isAsync || subagent.status !== 'running') return subagent;
-      const history = subagentHistories[subagent.id]
-        ?? (subagent.agentId ? subagentHistories[subagent.agentId] : undefined);
-      return history?.completed ? { ...subagent, status: 'completed' as const } : subagent;
-    });
+    const extracted = extractSubagentsFromMessages(
+      messages,
+      getContentBlocks,
+      findToolResult,
+      getToolResultRaw,
+      taskEvents,
+    );
+    return applySubagentHistoryCompletion(extracted, subagentHistories);
   }, [messages, getContentBlocks, findToolResult, getToolResultRaw, taskEvents, subagentHistories]);
 }

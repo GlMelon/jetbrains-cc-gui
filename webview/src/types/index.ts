@@ -165,7 +165,7 @@ export interface AssistantResponseStatusPayload {
 /** Represents a single message in the chat conversation. */
 export interface ClaudeMessage {
   type:
-    'user' | 'assistant' | 'error' | 'task_notification' | 'notification' | 'compact_notification';
+    'user' | 'assistant' | 'error' | 'task_notification' | 'notification' | 'compact_notification' | 'system';
   content?: string;
   raw?: ClaudeRawMessage | string;
   timestamp?: string;

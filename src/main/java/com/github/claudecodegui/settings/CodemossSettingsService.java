@@ -1741,4 +1741,41 @@ public class CodemossSettingsService {
         if (pricing.cacheReadCostPer1M() != null) { node.addProperty("cacheReadCostPer1M", pricing.cacheReadCostPer1M()); }
         return node;
     }
+
+    public void setCustomModelContextWindows(String provider, Map<String, Integer> contextWindows) throws IOException {
+        if (!"codex".equalsIgnoreCase(provider)) {
+            LOG.warn("[CodemossSettings] Ignored custom context windows for unsupported provider: " + provider);
+            return;
+        }
+        JsonObject config = readConfig();
+
+        JsonObject root;
+        if (config.has("customModelContextWindows") && config.get("customModelContextWindows").isJsonObject()) {
+            root = config.getAsJsonObject("customModelContextWindows");
+        } else {
+            root = new JsonObject();
+            config.add("customModelContextWindows", root);
+        }
+
+        if (contextWindows == null || contextWindows.isEmpty()) {
+            root.remove("codex");
+        } else {
+            JsonObject providerNode = new JsonObject();
+            for (Map.Entry<String, Integer> entry : contextWindows.entrySet()) {
+                Integer value = entry.getValue();
+                if (value != null && value >= 1_000 && value % 1_000 == 0) {
+                    providerNode.addProperty(entry.getKey(), value);
+                }
+            }
+            if (providerNode.size() == 0) {
+                root.remove("codex");
+            } else {
+                root.add("codex", providerNode);
+            }
+        }
+
+        writeConfig(config);
+        LOG.info("[CodemossSettings] Set user model context windows for codex"
+                + ": " + (contextWindows == null ? 0 : contextWindows.size()) + " models");
+    }
 }
