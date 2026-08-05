@@ -199,6 +199,16 @@ export const showDiff = (
  * @param operations - Array of edit operations
  * @param status - File status: 'A' (added) or 'M' (modified)
  */
+export const showInteractiveDiff = (
+  filePath: string,
+  _next?: string,
+) => {
+  if (!isValidMutatingPath(filePath)) {
+    return;
+  }
+  sendAction(UPSTREAM.SHOW_EDITABLE_DIFF, { filePath, operations: [], status: 'M' });
+};
+
 export const showEditableDiff = (
   filePath: string,
   operations: Array<{ oldString: string; newString: string; replaceAll?: boolean }>,

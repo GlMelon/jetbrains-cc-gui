@@ -4,7 +4,7 @@ export type LinkifyCapabilities = {
   classNavigationEnabled: boolean;
 };
 
-const DEFAULT_LINKIFY_CAPABILITIES: LinkifyCapabilities = {
+export const DEFAULT_LINKIFY_CAPABILITIES: LinkifyCapabilities = {
   classNavigationEnabled: false,
 };
 
@@ -62,6 +62,16 @@ export function applyLinkifyCapabilitiesPayload(json: string): LinkifyCapabiliti
     channel.emit(currentCapabilities);
     return cloneCapabilities(currentCapabilities);
   }
+}
+
+export function setLinkifyCapabilities(capabilities: LinkifyCapabilities): void {
+  currentCapabilities = { ...capabilities };
+  channel.emit(currentCapabilities);
+}
+
+export function resetLinkifyCapabilities(): void {
+  currentCapabilities = { ...DEFAULT_LINKIFY_CAPABILITIES };
+  channel.emit(currentCapabilities);
 }
 
 export function subscribeLinkifyCapabilities(

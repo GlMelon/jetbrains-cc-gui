@@ -68,6 +68,29 @@ const killResultChannel = createCallbackChannel<NodeProcessKillResult>({
 
 
 
+export function installNodeProcessDispatchers(): void {
+  (window as unknown as Record<string, unknown>).updateNodeProcesses = (json: string) => {
+    try {
+      const parsed = JSON.parse(json);
+      if (parsed && typeof parsed === 'object' && Array.isArray(parsed.processes)) {
+        snapshotChannel.emit(parsed as NodeProcessSnapshot);
+      }
+    } catch {
+      // malformed JSON — silently drop
+    }
+  };
+  (window as unknown as Record<string, unknown>).nodeProcessKillResult = (json: string) => {
+    try {
+      const parsed = JSON.parse(json);
+      if (parsed && typeof parsed === 'object') {
+        killResultChannel.emit(parsed as NodeProcessKillResult);
+      }
+    } catch {
+      // malformed JSON — silently drop
+    }
+  };
+}
+
 export function subscribeNodeProcesses(listener: SnapshotListener): () => void {
   return snapshotChannel.subscribe(listener);
 }
