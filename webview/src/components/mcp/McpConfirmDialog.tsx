@@ -1,5 +1,6 @@
 import { BaseDialog, DialogHeader, DialogBody, DialogFooter } from '../shared/BaseDialog';
 import { AlertIcon } from '../Icons';
+import { ClickSpark } from '../react-bits';
 
 interface McpConfirmDialogProps {
   title: string;
@@ -26,7 +27,7 @@ export function McpConfirmDialog({
   onCancel,
 }: McpConfirmDialogProps) {
   return (
-    <BaseDialog isOpen onClose={onCancel} ariaLabel={title} size="sm">
+    <BaseDialog isOpen onClose={onCancel} ariaLabel={title} size="sm" animation="pop">
       <DialogHeader title={title} onClose={onCancel} />
       <DialogBody>
         <div className="confirm-content">
@@ -38,9 +39,11 @@ export function McpConfirmDialog({
         <button className="btn btn-secondary" onClick={onCancel}>
           {cancelText}
         </button>
-        <button className="btn btn-danger" onClick={onConfirm}>
-          {confirmText}
-        </button>
+        <ClickSpark>
+          <button className="btn btn-danger" onClick={onConfirm}>
+            {confirmText}
+          </button>
+        </ClickSpark>
       </DialogFooter>
     </BaseDialog>
   );

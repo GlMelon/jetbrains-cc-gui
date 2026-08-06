@@ -18,6 +18,7 @@ import {
   subscribeProviderList,
 } from '../../../utils/runtimeProviderCapabilities';
 import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
+import { UnifiedLoader } from '../../UnifiedLoader';
 
 const DISABLED_OPTION_STYLE: React.CSSProperties = { cursor: 'default' };
 const PROVIDER_INFO_STYLE: React.CSSProperties = { display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 };
@@ -302,7 +303,7 @@ export const RuntimeProviderSelect = ({ currentProvider, embedded = false, trigg
     >
       {loading && visibleProviders.length === 0 ? (
         <div className="selector-option disabled" style={DISABLED_OPTION_STYLE}>
-          <span className="codicon codicon-loading codicon-modifier-spin" />
+          <UnifiedLoader type="orbit" size={14} />
           <span>{t('config.runtimeProvider.loading')}</span>
         </div>
       ) : visibleProviders.length === 0 ? (

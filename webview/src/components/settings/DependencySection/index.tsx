@@ -2,6 +2,7 @@ import { sendAction, subscribeEvent } from '../../../bridge/typed';
 import { UPSTREAM, DOWNSTREAM } from '../../../generated/protocol';
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { UnifiedLoader } from '../../UnifiedLoader';
 import type {
   SdkId,
   SdkStatus,
@@ -539,7 +540,7 @@ setStatusError(false);
       <div className={styles.sdkList}>
         {loading ? (
           <div className={styles.loadingState}>
-            <span className="codicon codicon-loading codicon-modifier-spin" />
+            <UnifiedLoader type="bounce" size={16} />
             <span>{t('settings.dependency.loading')}</span>
           </div>
         ) : statusError ? (
@@ -628,7 +629,7 @@ setStatusError(false);
                             >
                               {isInstalling ? (
                                 <>
-                                  <span className="codicon codicon-loading codicon-modifier-spin" />
+                                  <UnifiedLoader type="spin" size={14} />
                                   <span>{t('settings.dependency.installing')}</span>
                                 </>
                               ) : (
@@ -647,7 +648,7 @@ setStatusError(false);
                               >
                                 {isUpdating ? (
                                   <>
-                                    <span className="codicon codicon-loading codicon-modifier-spin" />
+                                    <UnifiedLoader type="spin" size={14} />
                                     <span>{t('settings.dependency.updating')}</span>
                                   </>
                                 ) : (
@@ -664,7 +665,7 @@ setStatusError(false);
                               >
                                 {isUninstalling ? (
                                   <>
-                                    <span className="codicon codicon-loading codicon-modifier-spin" />
+                                    <UnifiedLoader type="spin" size={14} />
                                     <span>{t('settings.dependency.uninstalling')}</span>
                                   </>
                                 ) : (
@@ -680,7 +681,7 @@ setStatusError(false);
                       </div>
                       {isVersionLoading && (
                         <div className={styles.versionLoadingHint}>
-                          <span className="codicon codicon-loading codicon-modifier-spin" />
+                          <UnifiedLoader type="pulse" size={14} />
                           <span>{t('settings.dependency.loadingVersions')}</span>
                         </div>
                       )}

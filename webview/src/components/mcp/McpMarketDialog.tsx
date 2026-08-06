@@ -10,7 +10,9 @@ import {
   type McpMarketDetailResult,
 } from '../../utils/bridge';
 import { BaseDialog, DialogHeader, DialogBody, DialogFooter } from '../shared/BaseDialog';
-import { PlusIcon, CloseIcon, InfoIcon, SearchIcon, KeyIcon, ExternalLinkIcon, BookIcon, StarIcon, ShieldCheckIcon } from '../Icons';
+import { PlusIcon, InfoIcon, SearchIcon, KeyIcon, ExternalLinkIcon, BookIcon, StarIcon, ShieldCheckIcon } from '../Icons';
+import { UnifiedLoader } from '../UnifiedLoader';
+import { ClickSpark } from '../react-bits';
 
 interface SmitheryKeyStatus {
   hasKey: boolean;
@@ -211,23 +213,15 @@ export function McpMarketDialog({ isCodexMode, onClose, onSelect }: McpMarketDia
     setShowKeyInput(false);
   }, [keyInput]);
 
-  const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) onClose();
-  };
-
   const handleQueryKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') handleSearch(query);
   };
 
   return (
-    <div className="dialog-overlay" onClick={handleOverlayClick}>
-      <div className="dialog mcp-market-dialog">
-        <div className="dialog-header">
-          <h3>{t('mcp.market.title')}</h3>
-          <button className="close-btn" onClick={onClose}><CloseIcon size={16} /></button>
-        </div>
+    <BaseDialog isOpen onClose={onClose} animation="pop" size="lg">
+      <DialogHeader title={t('mcp.market.title')} onClose={onClose} />
 
-        <div className="dialog-body">
+        <DialogBody>
           <p className="dialog-desc">{t('mcp.market.desc')}</p>
 
           {/* Smithery API Key 配置区(ok=已配置 / warn=未配置,左边框着色) */}
@@ -252,9 +246,11 @@ export function McpMarketDialog({ isCodexMode, onClose, onSelect }: McpMarketDia
                   onChange={(e) => setKeyInput(e.target.value)}
                   placeholder={t('mcp.market.keyPlaceholder')}
                 />
-                <button className="btn btn-primary" onClick={handleSaveKey} disabled={!keyInput.trim()}>
-                  {t('mcp.market.saveKey')}
-                </button>
+                <ClickSpark>
+                  <button className="btn btn-primary" onClick={handleSaveKey} disabled={!keyInput.trim()}>
+                    {t('mcp.market.saveKey')}
+                  </button>
+                </ClickSpark>
               </div>
             )}
           </div>
@@ -268,10 +264,12 @@ export function McpMarketDialog({ isCodexMode, onClose, onSelect }: McpMarketDia
               placeholder={t('mcp.market.searchPlaceholder')}
               disabled={loading}
             />
-            <button className="btn btn-primary" onClick={() => handleSearch(query)} disabled={loading}>
-              <SearchIcon size={14} />
-              {t('mcp.market.search')}
-            </button>
+            <ClickSpark>
+              <button className="btn btn-primary" onClick={() => handleSearch(query)} disabled={loading}>
+                <SearchIcon size={14} />
+                {t('mcp.market.search')}
+              </button>
+            </ClickSpark>
           </div>
 
           {/* 错误态(含重试:搜索/详情失败时重新执行失败操作;.market-error 已是 flex 容器) */}
@@ -287,7 +285,7 @@ export function McpMarketDialog({ isCodexMode, onClose, onSelect }: McpMarketDia
           {/* 加载态 */}
           {loading && (
             <div className="market-loading">
-              <span className="codicon codicon-loading codicon-modifier-spin"></span> {t('mcp.market.loading')}
+              <UnifiedLoader type="bounce" size={16} /> {t('mcp.market.loading')}
             </div>
           )}
 
@@ -354,24 +352,24 @@ export function McpMarketDialog({ isCodexMode, onClose, onSelect }: McpMarketDia
           {!loading && !error && !searched && (
             <div className="market-empty">{t('mcp.market.startHint')}</div>
           )}
-        </div>
+        </DialogBody>
 
-        <div className="dialog-footer">
+        <DialogFooter>
           <div className="footer-hint">
             <ExternalLinkIcon size={14} />
             <a href="https://smithery.ai/account/api-keys" target="_blank" rel="noreferrer">{t('mcp.market.getKey')}</a>
           </div>
           <button className="btn btn-secondary" onClick={onClose}>{t('mcp.cancel')}</button>
-        </div>
+        </DialogFooter>
 
         {/* 详情弹窗:按需拉取单 server 完整信息(readme/connection/homepage) */}
         {detailServer && (
-          <BaseDialog isOpen onClose={handleCloseDetail} size="lg" ariaLabel={t('mcp.market.detail')} className="market-detail-dialog">
+          <BaseDialog isOpen onClose={handleCloseDetail} size="lg" ariaLabel={t('mcp.market.detail')} className="market-detail-dialog" animation="pop">
             <DialogHeader title={detailServer.displayName || detailServer.qualifiedName || t('mcp.market.detail')} onClose={handleCloseDetail} />
             <DialogBody>
               {detailLoading && (
                 <div className="market-loading">
-                  <span className="codicon codicon-loading codicon-modifier-spin"></span> {t('mcp.market.detailLoading')}
+                  <UnifiedLoader type="orbit" size={16} /> {t('mcp.market.detailLoading')}
                 </div>
               )}
               {!detailLoading && detail?.error && (
@@ -420,18 +418,19 @@ export function McpMarketDialog({ isCodexMode, onClose, onSelect }: McpMarketDia
             </DialogBody>
             <DialogFooter>
               <button className="btn btn-secondary" onClick={handleCloseDetail}>{t('mcp.cancel')}</button>
-              <button
-                className="btn btn-primary"
-                onClick={() => { handleCloseDetail(); handleSelect(detailServer); }}
-                disabled={!detail || !!detail.error}
-              >
-                <PlusIcon size={14} />
-                {t('mcp.add')}
-              </button>
+              <ClickSpark>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => { handleCloseDetail(); handleSelect(detailServer); }}
+                  disabled={!detail || !!detail.error}
+                >
+                  <PlusIcon size={14} />
+                  {t('mcp.add')}
+                </button>
+              </ClickSpark>
             </DialogFooter>
           </BaseDialog>
         )}
-      </div>
-    </div>
+      </BaseDialog>
   );
 }

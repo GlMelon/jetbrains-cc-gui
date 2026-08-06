@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import type { TFunction } from 'i18next';
 import { SettingsIcon, ArrowRightIcon } from '../Icons';
-import { HoverLift } from '../react-bits';
+import { HoverLift, ClickSpark } from '../react-bits';
 
 interface ProviderNotConfiguredCardProps {
   t: TFunction;
@@ -39,14 +39,16 @@ export const ProviderNotConfiguredCard = memo(function ProviderNotConfiguredCard
         {t('error.providerNotConfiguredDesc')}
       </p>
       {onNavigateToSettings && (
-        <button
-          type="button"
-          className="provider-card-action"
-          onClick={onNavigateToSettings}
-        >
-          {t('error.goToProviderSettings')}
-          <ArrowRightIcon />
-        </button>
+        <ClickSpark>
+          <button
+            type="button"
+            className="provider-card-action"
+            onClick={onNavigateToSettings}
+          >
+            {t('error.goToProviderSettings')}
+            <ArrowRightIcon />
+          </button>
+        </ClickSpark>
       )}
     </div>
     </HoverLift>

@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertIcon, TrashIcon } from '../Icons';
+import { ClickSpark } from '../react-bits';
 
 interface DiscardAllDialogProps {
   visible: boolean;
@@ -34,9 +35,11 @@ const DiscardAllDialog = memo(({ visible, onConfirm, onCancel }: DiscardAllDialo
           <button className="cancel-btn" onClick={onCancel}>
             {t('common.cancel')}
           </button>
-          <button className="confirm-btn danger" onClick={onConfirm}>
-            {t('common.confirm')}
-          </button>
+          <ClickSpark>
+            <button className="confirm-btn danger" onClick={onConfirm}>
+              {t('common.confirm')}
+            </button>
+          </ClickSpark>
         </div>
       </div>
     </div>

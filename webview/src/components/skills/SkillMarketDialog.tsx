@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useId, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BaseDialog, DialogHeader, DialogBody, DialogFooter } from '../shared/BaseDialog';
+import { ClickSpark } from '../react-bits';
 import {
   listSkillMarket,
   installSkillFromMarket,
@@ -14,6 +15,7 @@ import { DownloadIcon, GlobeIcon, FolderIcon, InfoIcon } from '../Icons';
 import { SKILL_SCOPE } from '../../types/skill';
 import type { SkillScope } from '../../types/skill';
 import { useRovingTabs } from '../shared/useRovingTabs';
+import { UnifiedLoader } from '../UnifiedLoader';
 
 interface SkillMarketDialogProps {
   currentProvider: string;
@@ -211,6 +213,7 @@ export function SkillMarketDialog({
       size="lg"
       ariaLabel={t('skills.market.title')}
       className="skill-market-dialog"
+      animation="pop"
     >
       <DialogHeader title={t('skills.market.title')} onClose={onClose} />
       <DialogBody>
@@ -277,7 +280,7 @@ export function SkillMarketDialog({
           {/* 加载态 */}
           {loading && (
             <div className="market-loading">
-              <span className="codicon codicon-loading codicon-modifier-spin"></span>{' '}
+              <UnifiedLoader type="wave" size={16} />{' '}
               {t('skills.market.loading')}
             </div>
           )}
@@ -318,19 +321,21 @@ export function SkillMarketDialog({
                     >
                       <InfoIcon size={14} />
                     </button>
-                    <button
-                      className="btn btn-primary install-btn"
-                      onClick={() => handleInstall(s)}
-                      disabled={installingThis}
-                      title={t('skills.market.install')}
-                    >
-                      {installingThis ? (
-                        <span className="codicon codicon-loading codicon-modifier-spin"></span>
-                      ) : (
-                        <DownloadIcon size={14} />
-                      )}
-                      {installingThis ? t('common.loading') : t('skills.market.install')}
-                    </button>
+                    <ClickSpark>
+                      <button
+                        className="btn btn-primary install-btn"
+                        onClick={() => handleInstall(s)}
+                        disabled={installingThis}
+                        title={t('skills.market.install')}
+                      >
+                        {installingThis ? (
+                          <UnifiedLoader type="pulse" size={14} />
+                        ) : (
+                          <DownloadIcon size={14} />
+                        )}
+                        {installingThis ? t('common.loading') : t('skills.market.install')}
+                      </button>
+                    </ClickSpark>
                   </div>
                 );
               })}
@@ -357,12 +362,13 @@ export function SkillMarketDialog({
           size="lg"
           ariaLabel={t('skills.market.detail')}
           className="market-detail-dialog"
+          animation="pop"
         >
           <DialogHeader title={detail?.name || detailSkill.name} onClose={handleCloseDetail} />
           <DialogBody>
             {detailLoading && (
               <div className="market-loading">
-                <span className="codicon codicon-loading codicon-modifier-spin"></span>{' '}
+                <UnifiedLoader type="orbit" size={16} />{' '}
                 {t('skills.market.detailLoading')}
               </div>
             )}
@@ -452,21 +458,23 @@ export function SkillMarketDialog({
             <button className="btn btn-secondary" onClick={handleCloseDetail}>
               {t('common.close')}
             </button>
-            <button
-              className="btn btn-primary"
-              onClick={() => {
-                handleCloseDetail();
-                handleInstall(detailSkill);
-              }}
-              disabled={installing === detailSkill.path}
-            >
-              {installing === detailSkill.path ? (
-                <span className="codicon codicon-loading codicon-modifier-spin"></span>
-              ) : (
-                <DownloadIcon size={14} />
-              )}
-              {t('skills.market.install')}
-            </button>
+            <ClickSpark>
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  handleCloseDetail();
+                  handleInstall(detailSkill);
+                }}
+                disabled={installing === detailSkill.path}
+              >
+                {installing === detailSkill.path ? (
+                  <UnifiedLoader type="bounce" size={14} />
+                ) : (
+                  <DownloadIcon size={14} />
+                )}
+                {t('skills.market.install')}
+              </button>
+            </ClickSpark>
           </DialogFooter>
         </BaseDialog>
       )}

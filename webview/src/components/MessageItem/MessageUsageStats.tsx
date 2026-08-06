@@ -2,6 +2,7 @@ import { memo } from 'react';
 import type { TFunction } from 'i18next';
 
 import { formatDurationMs, formatTokenCount, formatUsdCost } from '../../utils/messageUsage';
+import { CountUp } from '../react-bits';
 
 interface MessageUsageStatsProps {
   inputTokens: number | null;
@@ -13,6 +14,8 @@ interface MessageUsageStatsProps {
   durationMs: number | null;
   t: TFunction;
   durationLabelKey?: string;
+  /** Whether to animate token counts (default: true) */
+  animateCounts?: boolean;
 }
 
 /**
@@ -29,6 +32,7 @@ export const MessageUsageStats = memo(function MessageUsageStats({
   durationMs,
   t,
   durationLabelKey = 'chat.usageStats.duration',
+  animateCounts = true,
 }: MessageUsageStatsProps) {
   const hasTokens =
     (inputTokens !== null && inputTokens > 0) || (outputTokens !== null && outputTokens > 0);
@@ -58,7 +62,13 @@ export const MessageUsageStats = memo(function MessageUsageStats({
             <line x1="12" y1="3" x2="12" y2="15" />
           </svg>
           <span>{t('chat.usageStats.input')}</span>
-          <span className="usage-value">{formatTokenCount(inputTokens)}</span>
+          <span className="usage-value">
+            {animateCounts ? (
+              <CountUp end={inputTokens} duration={800} />
+            ) : (
+              formatTokenCount(inputTokens)
+            )}
+          </span>
         </div>
       )}
 
@@ -77,7 +87,13 @@ export const MessageUsageStats = memo(function MessageUsageStats({
             <line x1="12" y1="15" x2="12" y2="3" />
           </svg>
           <span>{t('chat.usageStats.output')}</span>
-          <span className="usage-value">{formatTokenCount(outputTokens)}</span>
+          <span className="usage-value">
+            {animateCounts ? (
+              <CountUp end={outputTokens} duration={800} />
+            ) : (
+              formatTokenCount(outputTokens)
+            )}
+          </span>
         </div>
       )}
 
@@ -96,7 +112,13 @@ export const MessageUsageStats = memo(function MessageUsageStats({
             <path d="M4 18h16" />
           </svg>
           <span>{t('chat.usageStats.total')}</span>
-          <span className="usage-value">{formatTokenCount(totalTokens)}</span>
+          <span className="usage-value">
+            {animateCounts ? (
+              <CountUp end={totalTokens} duration={1000} />
+            ) : (
+              formatTokenCount(totalTokens)
+            )}
+          </span>
         </div>
       )}
 

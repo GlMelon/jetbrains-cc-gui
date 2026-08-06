@@ -2,6 +2,7 @@ import styles from './style.module.less';
 import { useTranslation } from 'react-i18next';
 import RuntimePolicySection from './RuntimePolicySection';
 import { CheckIcon, FolderIcon, InfoIcon, RocketIcon, ServerProcessIcon, TerminalIcon, AlertIcon } from '../../Icons';
+import { UnifiedLoader } from '../../UnifiedLoader';
 
 const EnvironmentTab = ({
   nodePath,
@@ -153,9 +154,7 @@ const EnvironmentTab = ({
             disabled={savingNodePath}
           >
             {savingNodePath && (
-              <span
-                className="codicon codicon-loading codicon-modifier-spin"
-              />
+              <UnifiedLoader type="spin" size={14} />
             )}
             {t('common.save')}
           </button>
@@ -188,9 +187,7 @@ const EnvironmentTab = ({
             disabled={savingClaudeCliPath}
           >
             {savingClaudeCliPath && (
-              <span
-                className="codicon codicon-loading codicon-modifier-spin"
-              />
+              <UnifiedLoader type="spin" size={14} />
             )}
             {t('common.save')}
           </button>
@@ -221,9 +218,7 @@ const EnvironmentTab = ({
             disabled={savingWorkingDirectory}
           >
             {savingWorkingDirectory && (
-              <span
-                className="codicon codicon-loading codicon-modifier-spin"
-              />
+              <UnifiedLoader type="spin" size={14} />
             )}
             {t('common.save')}
           </button>

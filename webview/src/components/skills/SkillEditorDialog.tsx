@@ -8,7 +8,9 @@ import type {
   SkillFieldValue,
 } from '../../types/skill';
 import { BaseDialog, DialogBody, DialogFooter, DialogHeader } from '../shared/BaseDialog';
+import { ClickSpark } from '../react-bits';
 import { EditIcon, FileCodeIcon, RefreshIcon, SaveIcon } from '../Icons';
+import { UnifiedLoader } from '../UnifiedLoader';
 
 interface SkillEditorDialogProps {
   isOpen: boolean;
@@ -139,6 +141,7 @@ export function SkillEditorDialog({
       size="lg"
       className="skill-editor-dialog"
       ariaLabel={t('skills.editor.title', { name: skillName })}
+      animation="pop"
     >
       <DialogHeader
         title={t('skills.editor.title', { name: skillName })}
@@ -148,7 +151,7 @@ export function SkillEditorDialog({
       <DialogBody className="skill-editor-body">
         {loading ? (
           <div className="loading-state">
-            <span className="codicon codicon-loading codicon-modifier-spin" />
+            <UnifiedLoader type="pulse" size={20} />
             <p>{t('skills.editor.loading')}</p>
           </div>
         ) : (
@@ -222,15 +225,17 @@ export function SkillEditorDialog({
           <RefreshIcon size={16} />
           {t('skills.editor.reload')}
         </button>
-        <button
-          className="btn btn-primary"
-          type="button"
-          onClick={handleSave}
-          disabled={saveDisabled}
-        >
-          <SaveIcon size={16} />
-          {saving ? t('skills.editor.saving') : t('common.save')}
-        </button>
+        <ClickSpark>
+          <button
+            className="btn btn-primary"
+            type="button"
+            onClick={handleSave}
+            disabled={saveDisabled}
+          >
+            <SaveIcon size={16} />
+            {saving ? t('skills.editor.saving') : t('common.save')}
+          </button>
+        </ClickSpark>
       </DialogFooter>
     </BaseDialog>
   );

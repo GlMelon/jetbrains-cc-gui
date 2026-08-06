@@ -13,6 +13,7 @@ import {
   type NodeProcessSnapshot,
 } from '../../../utils/nodeProcessCapabilities';
 import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
+import { UnifiedLoader } from '../../UnifiedLoader';
 
 interface ConfigSelectProps {
   showThinkingEnabled?: boolean;
@@ -335,7 +336,7 @@ export const ConfigSelect = ({
     >
       {agentsLoading ? (
         <div className="selector-option" style={LOADING_OPTION_STYLE}>
-          <span className="codicon codicon-loading codicon-modifier-spin" />
+          <UnifiedLoader type="pulse" size={14} />
           <span>{t('chat.loadingDropdown')}</span>
         </div>
       ) : (

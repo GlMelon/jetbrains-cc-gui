@@ -1,4 +1,5 @@
 import { AlertIcon, CloseIcon } from '../Icons';
+import { ClickSpark } from '../react-bits';
 interface SkillConfirmDialogProps {
   title: string;
   message: string;
@@ -51,9 +52,11 @@ export function SkillConfirmDialog({
           <button className="btn-secondary" onClick={onCancel}>
             {cancelText}
           </button>
-          <button className="btn-danger" onClick={onConfirm}>
-            {confirmText}
-          </button>
+          <ClickSpark>
+            <button className="btn-danger" onClick={onConfirm}>
+              {confirmText}
+            </button>
+          </ClickSpark>
         </div>
       </div>
     </div>

@@ -4,6 +4,7 @@ import { BaseDialog, DialogHeader, DialogBody, DialogFooter } from '../../shared
 import { Switch } from '../../shared/Switch';
 import { ProviderModelIcon } from '../../shared/ProviderModelIcon';
 import { EditIcon, PlusIcon } from '../../Icons';
+import { ClickSpark } from '../../react-bits';
 import type { ModelRegistryItem } from '../../../utils/modelRegistry';
 import { DEFAULT_CONTEXT_WINDOW, ONE_MILLION_CONTEXT_WINDOW } from '../../../components/ChatInputBox/types';
 
@@ -87,7 +88,7 @@ export default function ModelEditDialog({ isOpen, editing, editingOriginalKey, o
   const titleText = t(titleKey, isEditing ? '编辑模型' : '新增模型');
 
   return (
-    <BaseDialog isOpen={isOpen} onClose={onClose} className="model-edit-dialog-wrapper" ariaLabel={titleText}>
+    <BaseDialog isOpen={isOpen} onClose={onClose} className="model-edit-dialog-wrapper" ariaLabel={titleText} animation="pop">
       <DialogHeader title={titleText} icon={isEditing ? <EditIcon size={16} /> : <PlusIcon size={16} />} onClose={onClose} />
       <DialogBody>
         <div className="form-group">
@@ -220,9 +221,11 @@ export default function ModelEditDialog({ isOpen, editing, editingOriginalKey, o
         <button className="btn btn-secondary" onClick={onClose}>
           {t('common.cancel', '取消')}
         </button>
-        <button className="btn btn-primary" onClick={handleSubmit} disabled={!canSubmit}>
-          {t(confirmKey, isEditing ? '保存修改' : '确定')}
-        </button>
+        <ClickSpark>
+          <button className="btn btn-primary" onClick={handleSubmit} disabled={!canSubmit}>
+            {t(confirmKey, isEditing ? '保存修改' : '确定')}
+          </button>
+        </ClickSpark>
       </DialogFooter>
     </BaseDialog>
   );

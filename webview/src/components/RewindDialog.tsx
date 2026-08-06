@@ -1,5 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { BaseDialog, DialogHeader, DialogBody, DialogFooter } from './shared/BaseDialog';
+import { UnifiedLoader } from './UnifiedLoader';
+import { ClickSpark } from './react-bits';
 
 export interface RewindRequest {
   sessionId: string;
@@ -40,7 +42,7 @@ const RewindDialog = ({
     : request.messageContent;
 
   return (
-    <BaseDialog isOpen={isOpen} onClose={onCancel} ariaLabel={t('rewind.title')}>
+    <BaseDialog isOpen={isOpen} onClose={onCancel} ariaLabel={t('rewind.title')} animation="pop">
       <DialogHeader
         title={t('rewind.title', 'Rewind Files to Previous State')}
         icon={<span className="rewind-icon">&#x21BA;</span>}
@@ -48,7 +50,7 @@ const RewindDialog = ({
       <DialogBody>
         {isLoading ? (
           <div className="rewind-loading">
-            <span className="codicon codicon-loading codicon-modifier-spin rewind-loading-icon" />
+            <UnifiedLoader type="spin" size={20} className="rewind-loading-icon" />
             <span className="rewind-loading-text">{t('rewind.restoring', 'Restoring files...')}</span>
           </div>
         ) : (
@@ -98,13 +100,15 @@ const RewindDialog = ({
             <button className="btn btn-secondary" onClick={onCancel}>
               {t('common.cancel', 'Cancel')}
             </button>
-            <button
-              className="btn btn-primary rewind-confirm-button"
-              onClick={handleConfirm}
-              autoFocus
-            >
-              {t('rewind.restoreFiles', 'Restore Files')}
-            </button>
+            <ClickSpark>
+              <button
+                className="btn btn-primary rewind-confirm-button"
+                onClick={handleConfirm}
+                autoFocus
+              >
+                {t('rewind.restoreFiles', 'Restore Files')}
+              </button>
+            </ClickSpark>
           </>
         )}
       </DialogFooter>

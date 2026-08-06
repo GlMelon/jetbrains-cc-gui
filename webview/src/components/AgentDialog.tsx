@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { AgentConfig } from '../types/agent';
 import { BaseDialog, DialogHeader, DialogBody, DialogFooter } from './shared/BaseDialog';
 import { UserIcon, SaveIcon, XCircleIcon, CloseIcon } from './Icons';
+import { ClickSpark } from './react-bits';
 
 interface AgentDialogProps {
   isOpen: boolean;
@@ -71,7 +72,7 @@ export default function AgentDialog({
   };
 
   return (
-    <BaseDialog isOpen={isOpen} onClose={onClose} size="md" ariaLabel={isAdding ? t('settings.agent.dialog.addTitle') : t('settings.agent.dialog.editTitle')}>
+    <BaseDialog isOpen={isOpen} onClose={onClose} size="md" ariaLabel={isAdding ? t('settings.agent.dialog.addTitle') : t('settings.agent.dialog.editTitle')} animation="pop">
       <DialogHeader
         title={isAdding ? t('settings.agent.dialog.addTitle') : t('settings.agent.dialog.editTitle')}
         icon={<UserIcon size={16} style={{ fontSize: '16px', color: 'var(--violet)' }} />}
@@ -129,10 +130,12 @@ export default function AgentDialog({
           <CloseIcon size={16} />
           {t('common.cancel')}
         </button>
-        <button className="btn btn-primary" onClick={handleSave}>
-          <SaveIcon size={16} />
-          {isAdding ? t('settings.agent.dialog.confirmAdd') : t('settings.agent.dialog.saveChanges')}
-        </button>
+        <ClickSpark>
+          <button className="btn btn-primary" onClick={handleSave}>
+            <SaveIcon size={16} />
+            {isAdding ? t('settings.agent.dialog.confirmAdd') : t('settings.agent.dialog.saveChanges')}
+          </button>
+        </ClickSpark>
       </DialogFooter>
     </BaseDialog>
   );

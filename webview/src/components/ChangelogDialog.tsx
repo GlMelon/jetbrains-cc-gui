@@ -4,6 +4,7 @@ import type { ChangelogEntry } from '../version/changelog';
 import { summarizeChangelog, escapeHtml, type ChangelogSummary } from '../version/changelogSummary';
 import { BaseDialog } from './shared/BaseDialog';
 import { ChevronLeftIcon, ChevronRightIcon, CloseIcon } from './Icons';
+import { GradientText, ClickSpark } from './react-bits';
 
 interface ChangelogDialogProps {
   isOpen: boolean;
@@ -73,7 +74,7 @@ const ChangelogDialog = ({ isOpen, onClose, entries, initialPage = 0 }: Changelo
   const heroSummary = contentParts.length > 0 ? summarizeChangelog(contentParts[0]) : EMPTY_SUMMARY;
 
   return (
-    <BaseDialog isOpen={isOpen} onClose={onClose} ariaLabel={t('changelog.title')}>
+    <BaseDialog isOpen={isOpen} onClose={onClose} ariaLabel={t('changelog.title')} animation="pop">
       <div className="changelog-dialog wn-hero">
         {/* Hero 区:渐变 + 光晕 + 版本号 + 统计胶囊 */}
         <div className="wn-b-hero">
@@ -83,7 +84,13 @@ const ChangelogDialog = ({ isOpen, onClose, entries, initialPage = 0 }: Changelo
               <span className="wn-b-gift" aria-hidden="true">🎁</span>
               <span>{t('changelog.title')}</span>
             </div>
-            <div className="wn-b-ver">v{entry.version}</div>
+            <GradientText
+              className="wn-b-ver"
+              colors={['var(--accent-primary, #4ea1ff)', 'var(--c-perf, #7c3aed)']}
+              angle={135}
+            >
+              v{entry.version}
+            </GradientText>
             <div className="wn-b-date">{entry.date}</div>
             {heroSummary.stats.length > 0 && (
               <div className="wn-b-stats">
@@ -180,9 +187,11 @@ const ChangelogDialog = ({ isOpen, onClose, entries, initialPage = 0 }: Changelo
             <ChevronRightIcon size={16} />
           </button>
 
-          <button className="changelog-got-it" onClick={onClose}>
-            {t('changelog.close')}
-          </button>
+          <ClickSpark>
+            <button className="changelog-got-it" onClick={onClose}>
+              {t('changelog.close')}
+            </button>
+          </ClickSpark>
         </div>
       </div>
     </BaseDialog>

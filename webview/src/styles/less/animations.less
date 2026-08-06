@@ -16,46 +16,32 @@
    唯一生效入口为 base.less 的 @media (prefers-reduced-motion: reduce) 块，
    以便 *, *::before, *::after 全站继承，避免每个组件各写一份。 */
 
-/* 旋转动画 */
+/* 旋转动画 — 统一为 spin，status-spin / icon-spin 为向后兼容别名 */
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
-
 @keyframes status-spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
-
 @keyframes icon-spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
 
-/* 淡入动画 */
+/* 淡入动画 — fadeIn 为主，fade-in 为向后兼容别名 */
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
 }
-
 @keyframes fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
-/* 滑入动画 */
+/* 滑入动画 — slideIn 为主，slide-in 为向后兼容别名 */
 @keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes slide-in {
   from {
     opacity: 0;
     transform: translateY(-10px);
@@ -78,17 +64,6 @@
   }
 }
 
-@keyframes slide-up {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 /* 淡入上移动画 - 用于列表项 stagger 进入 */
 @keyframes fadeInUp {
   from {
@@ -101,17 +76,7 @@
   }
 }
 
-/* 脉冲警告动画 */
-@keyframes pulse-warning {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
-}
-
-/* 脉冲动画 */
+/* 脉冲动画 — pulse-warning / pulse / todo-pulse 统一为 pulse，其余为别名 */
 @keyframes pulse {
   0%, 100% {
     opacity: 1;
@@ -120,7 +85,14 @@
     opacity: 0.7;
   }
 }
-
+@keyframes pulse-warning {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
 @keyframes todo-pulse {
   0%, 100% {
     opacity: 1;
@@ -246,4 +218,24 @@
     opacity: 0.3;
     box-shadow: 0 0 0 transparent;
   }
+}
+
+/* 菜单进入动画 — 统一 contextMenuIn / menuDropdownIn */
+@keyframes menu-in {
+  from { opacity: 0; transform: scale(0.95) translateY(-4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* 卡片悬浮提升效果 — 共享 hover lift */
+.card-lift-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-lift-hover:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+/* 图标按钮旋转动画 — 共享 spinning 状态 */
+.icon-btn-spinning {
+  animation: spin 1s linear infinite;
 }

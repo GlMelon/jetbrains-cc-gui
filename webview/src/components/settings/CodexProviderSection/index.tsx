@@ -16,6 +16,7 @@ import sharedStyles from '../ProviderList/style.module.less';
 import ImportConfirmDialog from '../ProviderList/ImportConfirmDialog';
 import { ProviderModelIcon } from '../../shared/ProviderModelIcon';
 import styles from './style.module.less';
+import { UnifiedLoader } from '../../UnifiedLoader';
 
 const ICON_MR_8_STYLE: React.CSSProperties = { marginRight: '8px' };
 
@@ -203,7 +204,7 @@ const CodexProviderSection = ({
       {isImporting && (
         <div className={sharedStyles.loadingOverlay}>
           <div className={sharedStyles.loadingContent}>
-            <span className="codicon codicon-loading codicon-modifier-spin" />
+            <UnifiedLoader type="orbit" size={20} />
             <span>{t('settings.provider.readingCcSwitch')}</span>
           </div>
         </div>
@@ -309,7 +310,7 @@ const CodexProviderSection = ({
 
       {codexLoading && (
         <div className={styles.tempNotice}>
-          <span className="codicon codicon-loading codicon-modifier-spin" />
+          <UnifiedLoader type="pulse" size={16} />
           <p>{t('settings.provider.loading')}</p>
         </div>
       )}

@@ -2,7 +2,8 @@ import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TodoItem } from '../../types';
 import { statusClassMap } from './types';
-import { CircleIcon, LoadingIcon, CheckIcon } from '../Icons';
+import { CircleIcon, CheckIcon } from '../Icons';
+import { UnifiedLoader } from '../UnifiedLoader';
 
 interface TodoListProps {
   todos: TodoItem[];
@@ -14,7 +15,7 @@ function renderStatusIcon(status: TodoItem['status']) {
     case 'pending':
       return <CircleIcon size={14} />;
     case 'in_progress':
-      return <LoadingIcon size={14} spinning={true} />;
+      return <UnifiedLoader type="spin" size={14} />;
     case 'completed':
       return <CheckIcon size={14} />;
     default:

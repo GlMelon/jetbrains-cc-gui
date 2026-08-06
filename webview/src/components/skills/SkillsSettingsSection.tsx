@@ -40,6 +40,7 @@ import { SkillConfirmDialog } from './SkillConfirmDialog';
 import { SkillMarketDialog } from './SkillMarketDialog';
 import { SkillEditorDialog } from './SkillEditorDialog';
 import { ToastContainer, type ToastMessage } from '../Toast';
+import { UnifiedLoader } from '../UnifiedLoader';
 
 interface SkillsSettingsSectionProps {
   currentProvider?: string;
@@ -710,7 +711,7 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
           return (
             <div
               key={skill.id}
-              className={`item-card ${expandedSkills.has(skill.id) ? 'expanded' : ''} ${!skill.enabled ? 'disabled' : ''}`}
+              className={`item-card card-lift-hover ${expandedSkills.has(skill.id) ? 'expanded' : ''} ${!skill.enabled ? 'disabled' : ''}`}
               style={{ '--stagger-delay': `${index * 50}ms` } as React.CSSProperties}
             >
               {/* 卡片行 */}
@@ -722,7 +723,7 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
                   title={skill.enabled ? t('chat.clickToDisable') : t('chat.clickToEnable')}
                 >
                   {togglingSkills.has(skill.id) ? (
-                    <span className="codicon codicon-loading codicon-modifier-spin"></span>
+                    <UnifiedLoader type="spin" size={16} />
                   ) : skill.enabled ? (
                     <CheckIcon size={16} />
                   ) : (
@@ -811,7 +812,7 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
         {/* Loading state */}
         {loading && filteredSkills.length === 0 && (
           <div className="loading-state">
-            <span className="codicon codicon-loading codicon-modifier-spin"></span>
+            <UnifiedLoader type="wave" size={20} />
             <p>{t('common.loading')}</p>
           </div>
         )}

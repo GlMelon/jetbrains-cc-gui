@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { BaseDialog, DialogBody, DialogFooter } from './shared/BaseDialog';
 import { codiconToIcon } from './Icons';
+import { ClickSpark } from './react-bits';
 
 export type AlertType = 'error' | 'warning' | 'info' | 'success';
 
@@ -51,7 +52,7 @@ const AlertDialog = ({
   };
 
   return (
-    <BaseDialog isOpen={isOpen} onClose={onClose} ariaLabel={title} className="alert-dialog-overlay">
+    <BaseDialog isOpen={isOpen} onClose={onClose} ariaLabel={title} className="alert-dialog-overlay" animation="pop">
       <div className="dialog-header" style={{ display: 'flex', alignItems: 'center' }}>
         {codiconToIcon(getIconClass(), 16, {
           style: {
@@ -66,9 +67,11 @@ const AlertDialog = ({
         <p className="alert-dialog-message">{message}</p>
       </DialogBody>
       <DialogFooter align="center">
-        <button className="btn btn-primary" onClick={onClose} autoFocus>
-          {buttonText}
-        </button>
+        <ClickSpark>
+          <button className="btn btn-primary" onClick={onClose} autoFocus>
+            {buttonText}
+          </button>
+        </ClickSpark>
       </DialogFooter>
     </BaseDialog>
   );

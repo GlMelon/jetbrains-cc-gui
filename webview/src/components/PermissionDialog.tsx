@@ -8,6 +8,7 @@ import { useDialogResize } from '../hooks/useDialogResize';
 import { isEditableEventTarget } from '../utils/isEditableEventTarget';
 import { BaseDialog } from './shared/BaseDialog';
 import { ChevronDownIcon, ChevronUpIcon, ClockIcon, AlertIcon } from './Icons';
+import { ClickSpark } from './react-bits';
 
 export interface PermissionRequest {
   channelId: string;
@@ -183,6 +184,7 @@ const PermissionDialog = ({
       onClose={handleSkip}
       className="permission-dialog-overlay"
       ariaLabel={getToolTitle(request.toolName)}
+      animation="pop"
     >
       <div
         ref={dialogRef}
@@ -231,34 +233,40 @@ const PermissionDialog = ({
 
         {/* Option buttons list */}
         <div className="permission-dialog-v3-options">
-          <button
-            className={`permission-dialog-v3-option ${selectedIndex === 0 ? 'selected' : ''}`}
-            onClick={handleApprove}
-            onMouseEnter={() => setSelectedIndex(0)}
-          >
-            <span className="option-text">{t('permission.allow')}</span>
-            <span className="option-key">1</span>
-          </button>
-          <button
-            className={`permission-dialog-v3-option ${selectedIndex === 1 ? 'selected' : ''}`}
-            onClick={handleApproveAlways}
-            onMouseEnter={() => setSelectedIndex(1)}
-          >
-            {/* "Always allow" is remembered at the TOOL level for the current conversation
-                (PermissionService.dispatchPermissionDialog -> rememberToolDecision), so for
-                Bash/Agent this approves every future command this session — the label must
-                say "Always allow", not "Always allow this command". */}
-            <span className="option-text">{t('permission.allowAlways')}</span>
-            <span className="option-key">2</span>
-          </button>
-          <button
-            className={`permission-dialog-v3-option ${selectedIndex === 2 ? 'selected' : ''}`}
-            onClick={handleSkip}
-            onMouseEnter={() => setSelectedIndex(2)}
-          >
-            <span className="option-text">{t('permission.deny')}</span>
-            <span className="option-key">3</span>
-          </button>
+          <ClickSpark>
+            <button
+              className={`permission-dialog-v3-option ${selectedIndex === 0 ? 'selected' : ''}`}
+              onClick={handleApprove}
+              onMouseEnter={() => setSelectedIndex(0)}
+            >
+              <span className="option-text">{t('permission.allow')}</span>
+              <span className="option-key">1</span>
+            </button>
+          </ClickSpark>
+          <ClickSpark>
+            <button
+              className={`permission-dialog-v3-option ${selectedIndex === 1 ? 'selected' : ''}`}
+              onClick={handleApproveAlways}
+              onMouseEnter={() => setSelectedIndex(1)}
+            >
+              {/* "Always allow" is remembered at the TOOL level for the current conversation
+                  (PermissionService.dispatchPermissionDialog -> rememberToolDecision), so for
+                  Bash/Agent this approves every future command this session — the label must
+                  say "Always allow", not "Always allow this command". */}
+              <span className="option-text">{t('permission.allowAlways')}</span>
+              <span className="option-key">2</span>
+            </button>
+          </ClickSpark>
+          <ClickSpark>
+            <button
+              className={`permission-dialog-v3-option ${selectedIndex === 2 ? 'selected' : ''}`}
+              onClick={handleSkip}
+              onMouseEnter={() => setSelectedIndex(2)}
+            >
+              <span className="option-text">{t('permission.deny')}</span>
+              <span className="option-key">3</span>
+            </button>
+          </ClickSpark>
         </div>
       </div>
     </BaseDialog>

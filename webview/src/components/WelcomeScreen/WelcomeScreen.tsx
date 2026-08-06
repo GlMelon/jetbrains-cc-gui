@@ -4,6 +4,7 @@ import { motion } from 'motion/react';
 
 import { BlinkingLogo } from '../BlinkingLogo';
 import { BlurText } from '../BlurText';
+import { TypewriterText, Aurora, ShinyText } from '../react-bits';
 import { APP_VERSION } from '../../version/version';
 
 const ROOT_STYLE: React.CSSProperties = {
@@ -25,6 +26,10 @@ export interface WelcomeScreenProps {
   currentProvider: string;
   /** Current model ID for vendor-specific icon display */
   currentModelId?: string;
+  /** Text animation type: 'blur' (default) or 'typewriter' */
+  textAnimation?: 'blur' | 'typewriter';
+  /** Whether to show Aurora background effect (default: false) */
+  showAurora?: boolean;
   t: TFunction;
   onProviderChange: (provider: string) => void;
   onVersionClick?: () => void;
@@ -33,6 +38,8 @@ export interface WelcomeScreenProps {
 export const WelcomeScreen = memo(function WelcomeScreen({
   currentProvider,
   currentModelId,
+  textAnimation = 'blur',
+  showAurora = true,
   t,
   onProviderChange,
   onVersionClick,
@@ -46,6 +53,14 @@ export const WelcomeScreen = memo(function WelcomeScreen({
 
   return (
     <div style={ROOT_STYLE}>
+      {/* Aurora background effect */}
+      {showAurora && (
+        <Aurora
+          colors={['var(--accent-primary, #4ea1ff)', 'var(--accent-secondary, #7c3aed)', 'var(--accent-success, #10b981)']}
+          speed={0.3}
+          opacity={0.4}
+        />
+      )}
       {/* Ambient background glow */}
       <motion.div
         aria-hidden="true"
@@ -81,15 +96,24 @@ export const WelcomeScreen = memo(function WelcomeScreen({
             onClick={onVersionClick}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onVersionClick?.(); }}
           >
-            v{APP_VERSION}
+            <ShinyText duration={3} enabled>v{APP_VERSION}</ShinyText>
           </span>
         </div>
         <div>
-          <BlurText
-            text={t('chat.sendMessage', { provider: providerLabels[currentProvider] ?? currentProvider })}
-            delay={80}
-            animateBy="words"
-          />
+          {textAnimation === 'typewriter' ? (
+            <TypewriterText
+              text={t('chat.sendMessage', { provider: providerLabels[currentProvider] ?? currentProvider })}
+              speed={80}
+              showCursor
+              cursor="|"
+            />
+          ) : (
+            <BlurText
+              text={t('chat.sendMessage', { provider: providerLabels[currentProvider] ?? currentProvider })}
+              delay={80}
+              animateBy="words"
+            />
+          )}
         </div>
       </div>
     </div>

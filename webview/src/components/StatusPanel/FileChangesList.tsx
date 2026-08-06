@@ -5,7 +5,8 @@ import type { TFunction } from 'i18next';
 import type { FileChangeSummary } from '../../types';
 import { showEditableDiff, openFile } from '../../utils/bridge';
 import FileIcon from './FileIcon';
-import { LoadingIcon, TrashIcon, UndoIcon, DiffViewIcon, KeepAllIcon } from '../Icons';
+import { TrashIcon, UndoIcon, DiffViewIcon, KeepAllIcon } from '../Icons';
+import { UnifiedLoader } from '../UnifiedLoader';
 
 interface FileChangesListProps {
   fileChanges: FileChangeSummary[];
@@ -98,7 +99,7 @@ const FileChangeRow = memo(({ fileChange, isUndoing, onOpen, onShowDiff, onUndo,
           disabled={isUndoing}
         >
           {isUndoing ? (
-            <LoadingIcon size={16} className="status-panel-spin-icon" />
+            <UnifiedLoader type="spin" size={16} />
           ) : (
             <UndoIcon size={16} />
           )}
@@ -150,7 +151,7 @@ const FileChangesList = memo(({
           title={t('statusPanel.discardAll')}
         >
           {isDiscardingAll ? (
-            <LoadingIcon size={16} className="status-panel-spin-icon" />
+            <UnifiedLoader type="spin" size={16} />
           ) : (
             <TrashIcon size={16} />
           )}

@@ -4,6 +4,7 @@ import { SPECIAL_PROVIDER_IDS } from '../../../types/provider';
 import ProviderList from '../ProviderList';
 import styles from './style.module.less';
 import { InfoIcon } from '../../Icons';
+import { UnifiedLoader } from '../../UnifiedLoader';
 
 interface ProviderManageSectionProps {
   providers: ProviderConfig[];
@@ -63,7 +64,7 @@ const ProviderManageSection = ({
       )}
       {loading && (
         <div className={styles.tempNotice}>
-          <span className="codicon codicon-loading codicon-modifier-spin" />
+          <UnifiedLoader type="pulse" size={16} />
           <p>{t('settings.provider.loading')}</p>
         </div>
       )}

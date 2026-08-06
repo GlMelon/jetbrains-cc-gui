@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { AgentConfig } from '../../../types/agent';
 import styles from './style.module.less';
 import { DownloadIcon, EditIcon, UploadIcon, KebabVerticalIcon, PlusIcon, RobotIcon, TrashIcon } from '../../Icons';
+import { UnifiedLoader } from '../../UnifiedLoader';
 
 interface AgentSectionProps {
   agents: AgentConfig[];
@@ -82,7 +83,7 @@ export default function AgentSection({
 
         {loading ? (
           <div className={styles.loadingState}>
-            <span className="codicon codicon-loading codicon-modifier-spin" />
+            <UnifiedLoader type="bounce" size={16} />
             <span>{t('settings.agent.loading')}</span>
           </div>
         ) : agents.length === 0 ? (

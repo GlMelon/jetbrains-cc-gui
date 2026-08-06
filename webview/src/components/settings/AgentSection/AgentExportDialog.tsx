@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AgentConfig } from '../../../types/agent';
 import styles from '../ProviderList/style.module.less';
-import { CloseIcon } from '../../Icons';
+import { BaseDialog, DialogHeader, DialogBody, DialogFooter } from '../../shared/BaseDialog';
+import { ClickSpark } from '../../react-bits';
 
 interface AgentExportDialogProps {
   agents: AgentConfig[];
@@ -20,12 +20,6 @@ export default function AgentExportDialog({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
     new Set(agents.map(agent => agent.id))
   );
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    return () => setMounted(false);
-  }, []);
 
   const toggleSelect = (id: string) => {
     const newSelected = new Set(selectedIds);
@@ -46,89 +40,52 @@ export default function AgentExportDialog({
   };
 
   const handleConfirm = () => {
-    if (selectedIds.size === 0) {
-      return;
-    }
+    if (selectedIds.size === 0) return;
     onConfirm(Array.from(selectedIds));
   };
 
-  if (!mounted) return null;
-
-  return createPortal(
-    <div className={styles.overlay} onClick={(e) => {
-        if (e.target === e.currentTarget) {
-            onCancel();
-        }
-    }}>
-      <div className={styles.dialog}>
-        <div className={styles.dialogHeader}>
-          <h3>{t('settings.agent.exportDialog.title')}</h3>
-          <button className={styles.closeBtn} onClick={onCancel}>
-            <CloseIcon size={16} />
-          </button>
+  return (
+    <BaseDialog isOpen onClose={onCancel} animation="pop">
+      <DialogHeader title={t('settings.agent.exportDialog.title')} onClose={onCancel} />
+      <DialogBody>
+        <div className={styles.summary}>
+          {t('settings.agent.exportDialog.selectHint')}
         </div>
 
-        <div className={styles.dialogContent}>
-          <div className={styles.summary}>
-            {t('settings.agent.exportDialog.selectHint')}
+        <div className={styles.tableHeader}>
+          <div className={styles.colCheckbox}>
+            <input type="checkbox" checked={selectedIds.size === agents.length && agents.length > 0} onChange={toggleAll} />
           </div>
+          <div className={styles.colName}>{t('settings.agent.importDialog.columnName')}</div>
+          <div className={styles.colId}>{t('settings.agent.importDialog.columnId')}</div>
+        </div>
 
-          <div className={styles.tableHeader}>
-            <div className={styles.colCheckbox}>
-              <input
-                type="checkbox"
-                checked={selectedIds.size === agents.length && agents.length > 0}
-                onChange={toggleAll}
-              />
-            </div>
-            <div className={styles.colName}>{t('settings.agent.importDialog.columnName')}</div>
-            <div className={styles.colId}>{t('settings.agent.importDialog.columnId')}</div>
-          </div>
-
-          <div className={styles.providerList}>
-            {agents.map(agent => {
-              const isSelected = selectedIds.has(agent.id);
-
-              return (
-                <div
-                  key={agent.id}
-                  className={`${styles.providerRow} ${isSelected ? styles.selected : ''}`}
-                  onClick={() => toggleSelect(agent.id)}
-                >
-                  <div className={styles.colCheckbox}>
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => {}} // handled by row click
-                    />
-                  </div>
-                  <div className={styles.colName}>{agent.name}</div>
-                  <div className={styles.colId}>{agent.id}</div>
+        <div className={styles.providerList}>
+          {agents.map(agent => {
+            const isSelected = selectedIds.has(agent.id);
+            return (
+              <div key={agent.id} className={`${styles.providerRow} ${isSelected ? styles.selected : ''}`} onClick={() => toggleSelect(agent.id)}>
+                <div className={styles.colCheckbox}>
+                  <input type="checkbox" checked={isSelected} onChange={() => {}} />
                 </div>
-              );
-            })}
-          </div>
+                <div className={styles.colName}>{agent.name}</div>
+                <div className={styles.colId}>{agent.id}</div>
+              </div>
+            );
+          })}
         </div>
-
-        <div className={styles.dialogFooter}>
-          <div className={styles.selectedCount}>
-            {t('settings.agent.importDialog.selectedCount', { count: selectedIds.size })}
-          </div>
-          <div className={styles.dialogActions}>
-            <button className={styles.btnCancel} onClick={onCancel}>
-              {t('common.cancel')}
-            </button>
-            <button
-              className={styles.btnConfirm}
-              onClick={handleConfirm}
-              disabled={selectedIds.size === 0}
-            >
-              {t('settings.agent.exportDialog.confirmExport')}
-            </button>
-          </div>
+      </DialogBody>
+      <DialogFooter>
+        <div className={styles.selectedCount}>
+          {t('settings.agent.importDialog.selectedCount', { count: selectedIds.size })}
         </div>
-      </div>
-    </div>,
-    document.body
+        <button className={styles.btnCancel} onClick={onCancel}>{t('common.cancel')}</button>
+        <ClickSpark>
+          <button className={styles.btnConfirm} onClick={handleConfirm} disabled={selectedIds.size === 0}>
+            {t('settings.agent.exportDialog.confirmExport')}
+          </button>
+        </ClickSpark>
+      </DialogFooter>
+    </BaseDialog>
   );
 }

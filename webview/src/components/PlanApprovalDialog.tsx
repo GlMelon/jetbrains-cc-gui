@@ -8,6 +8,7 @@ import { useDialogResize } from '../hooks/useDialogResize';
 import { isEditableEventTarget } from '../utils/isEditableEventTarget';
 import './PlanApprovalDialog.css';
 import { ChevronDownIcon, ChevronUpIcon, CircleFilledIcon, CircleIcon, ClockIcon, AlertIcon } from './Icons';
+import { ClickSpark } from './react-bits';
 
 export interface PlanApprovalRequest {
   requestId: string;
@@ -216,12 +217,14 @@ const PlanApprovalDialog = ({
           </button>
 
           <div className="action-buttons-right">
-            <button
-              className="action-button primary"
-              onClick={handleApprove}
-            >
-              {t('planApproval.approve', '批准并执行')}
-            </button>
+            <ClickSpark>
+              <button
+                className="action-button primary"
+                onClick={handleApprove}
+              >
+                {t('planApproval.approve', '批准并执行')}
+              </button>
+            </ClickSpark>
           </div>
         </div>
 

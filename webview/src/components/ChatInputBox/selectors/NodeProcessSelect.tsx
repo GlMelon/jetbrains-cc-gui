@@ -14,6 +14,7 @@ import {
   type NodeProcessInfo,
   type NodeProcessSnapshot,
 } from '../../../utils/nodeProcessCapabilities';
+import { UnifiedLoader } from '../../UnifiedLoader';
 
 interface NodeProcessSelectProps {
   embedded?: boolean;
@@ -544,7 +545,7 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
               title={t('config.nodeProcesses.restart')}
               aria-label={t('config.nodeProcesses.restart')}
             >
-              {isPending ? <span className="codicon codicon-loading codicon-modifier-spin" /> : codiconToIcon('codicon-debug-restart', 16)}
+              {isPending ? <UnifiedLoader type="spin" size={14} /> : codiconToIcon('codicon-debug-restart', 16)}
             </button>
           )}
           <button
@@ -556,7 +557,7 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
             title={t(killHintKey)}
             aria-label={t(killHintKey)}
           >
-            {isPending ? <span className="codicon codicon-loading codicon-modifier-spin" /> : codiconToIcon(killIconClass, 16)}
+            {isPending ? <UnifiedLoader type="spin" size={14} /> : codiconToIcon(killIconClass, 16)}
           </button>
         </div>
       </div>
@@ -632,7 +633,7 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
 
       {loading && !snapshot ? (
         <div style={EMPTY_STATE_STYLE}>
-          <span className="codicon codicon-loading codicon-modifier-spin" />
+          <UnifiedLoader type="wave" size={16} />
           <span style={{ marginLeft: 6 }}>{t('config.nodeProcesses.loading')}</span>
         </div>
       ) : totalCount === 0 ? (

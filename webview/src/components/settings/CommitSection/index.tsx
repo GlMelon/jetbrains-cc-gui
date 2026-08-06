@@ -5,6 +5,7 @@ import { DEFAULT_COMMIT_AI_CONFIG } from '../../../types/aiFeatureConfig';
 import AiFeatureProviderModelPanel from '../AiFeatureProviderModelPanel';
 import AiFeatureSettingsCard from '../AiFeatureSettingsCard';
 import { EditIcon, FolderIcon, InfoIcon } from '../../Icons';
+import { UnifiedLoader } from '../../UnifiedLoader';
 
 interface CommitSectionProps {
   commitAiConfig?: CommitAiConfig;
@@ -72,7 +73,7 @@ const CommitSection = ({
             disabled={savingCommitPrompt}
           >
             {savingCommitPrompt && (
-              <span className="codicon codicon-loading codicon-modifier-spin" />
+              <UnifiedLoader type="spin" size={14} />
             )}
             {t('common.save')}
           </button>
@@ -103,7 +104,7 @@ const CommitSection = ({
             disabled={savingProjectCommitPrompt}
           >
             {savingProjectCommitPrompt && (
-              <span className="codicon codicon-loading codicon-modifier-spin" />
+              <UnifiedLoader type="spin" size={14} />
             )}
             {t('common.save')}
           </button>

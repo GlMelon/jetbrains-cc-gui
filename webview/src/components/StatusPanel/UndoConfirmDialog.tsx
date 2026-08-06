@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { FileChangeSummary } from '../../types';
 import FileIcon from './FileIcon';
 import { AlertIcon, UndoIcon } from '../Icons';
+import { ClickSpark } from '../react-bits';
 
 interface UndoConfirmDialogProps {
   fileChange: FileChangeSummary | null;
@@ -56,9 +57,11 @@ const UndoConfirmDialog = memo(({ fileChange, onConfirm, onCancel }: UndoConfirm
           <button className="cancel-btn" onClick={onCancel}>
             {t('common.cancel')}
           </button>
-          <button className="confirm-btn danger" onClick={onConfirm}>
-            {t('statusPanel.confirmUndo')}
-          </button>
+          <ClickSpark>
+            <button className="confirm-btn danger" onClick={onConfirm}>
+              {t('statusPanel.confirmUndo')}
+            </button>
+          </ClickSpark>
         </div>
       </div>
     </div>

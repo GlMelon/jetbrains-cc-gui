@@ -7,6 +7,7 @@
 import type { ServerToolsState, McpTool } from './types';
 import { getToolIcon } from './utils';
 import { SyncIcon, codiconToIcon } from '../Icons';
+import { UnifiedLoader } from '../UnifiedLoader';
 
 /**
  * Server Tools Panel — chip 流式工具列表
@@ -44,7 +45,7 @@ export function ServerToolsPanel({
             </button>
           )}
           {toolsInfo?.loading && (
-            <span className="codicon codicon-loading codicon-modifier-spin"></span>
+            <UnifiedLoader type="bounce" size={14} />
           )}
         </span>
       </div>

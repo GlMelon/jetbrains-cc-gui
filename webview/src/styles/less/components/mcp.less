@@ -2703,17 +2703,15 @@
     border: 1px solid var(--border-primary);
     border-radius: 8px;
     background: var(--bg-secondary);
-    transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
     overflow: hidden;
     animation: stream-block-in var(--dur-enter) var(--ease-out) both;
     animation-delay: var(--stagger-delay, 0ms);
 }
 
-.item-card:hover {
+.item-card.card-lift-hover:hover {
     background: var(--bg-hover);
     border-color: var(--accent-primary);
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-md);
 }
 
 .item-card.disabled { opacity: 0.62; }

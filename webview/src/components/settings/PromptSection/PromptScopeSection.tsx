@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { PromptConfig, PromptScope } from '../../../types/prompt';
 import styles from './style.module.less';
 import { BookmarkIcon, DownloadIcon, EditIcon, UploadIcon, KebabVerticalIcon, PlusIcon, TrashIcon } from '../../Icons';
+import { UnifiedLoader } from '../../UnifiedLoader';
 
 interface PromptScopeSectionProps {
   /** Section title (e.g., "Global Prompts" or "Project Prompts - ProjectName") */
@@ -102,7 +103,7 @@ export default function PromptScopeSection({
 
       {loading ? (
         <div className={styles.loadingState}>
-          <span className="codicon codicon-loading codicon-modifier-spin" />
+          <UnifiedLoader type="wave" size={16} />
           <span>{t('settings.prompt.loading')}</span>
         </div>
       ) : prompts.length === 0 ? (

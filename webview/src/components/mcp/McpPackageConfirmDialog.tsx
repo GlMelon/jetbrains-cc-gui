@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { BaseDialog, DialogHeader, DialogBody, DialogFooter } from '../shared/BaseDialog';
 import { AlertIcon } from '../Icons';
+import { ClickSpark } from '../react-bits';
 import type { PackageRunnerInfo } from './packageRunner';
 
 export interface PackageConfirmItem {
@@ -37,7 +38,7 @@ export function McpPackageConfirmDialog({ items, onConfirm, onCancel }: McpPacka
   };
 
   return (
-    <BaseDialog isOpen onClose={onCancel} ariaLabel={t('mcp.packageConfirm.title')} size="sm">
+    <BaseDialog isOpen onClose={onCancel} ariaLabel={t('mcp.packageConfirm.title')} size="sm" animation="pop">
       <DialogHeader title={t('mcp.packageConfirm.title')} onClose={onCancel} />
       <DialogBody>
         <div className="confirm-content">
@@ -64,9 +65,11 @@ export function McpPackageConfirmDialog({ items, onConfirm, onCancel }: McpPacka
         <button className="btn btn-secondary" onClick={onCancel}>
           {t('mcp.packageConfirm.cancel')}
         </button>
-        <button className="btn btn-danger" onClick={onConfirm}>
-          {t('mcp.packageConfirm.confirm')}
-        </button>
+        <ClickSpark>
+          <button className="btn btn-danger" onClick={onConfirm}>
+            {t('mcp.packageConfirm.confirm')}
+          </button>
+        </ClickSpark>
       </DialogFooter>
     </BaseDialog>
   );

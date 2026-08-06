@@ -4,6 +4,7 @@ import type { Attachment, SelectedAgent, QueuedMessage } from './types.js';
 import { AttachmentList } from './AttachmentList.js';
 import { ContextBar } from './ContextBar.js';
 import { MessageQueue } from './MessageQueue.js';
+import { UnifiedLoader } from '../UnifiedLoader';
 
 export const ChatInputBoxHeader = memo(function ChatInputBoxHeader({
   sdkStatusLoading,
@@ -90,9 +91,11 @@ export const ChatInputBoxHeader = memo(function ChatInputBoxHeader({
       {/* SDK status loading or not installed warning bar */}
       {(sdkStatusLoading || !sdkInstalled) && (
         <div className={`sdk-warning-bar ${sdkStatusLoading ? 'sdk-loading' : ''}`}>
-          <span
-            className={`codicon ${sdkStatusLoading ? 'codicon-loading codicon-modifier-spin' : 'codicon-warning'}`}
-          />
+          {sdkStatusLoading ? (
+            <UnifiedLoader type="spin" size={14} />
+          ) : (
+            <span className="codicon codicon-warning" />
+          )}
           <span className="sdk-warning-text">
             {sdkStatusLoading
               ? t('chat.sdkStatusLoading')

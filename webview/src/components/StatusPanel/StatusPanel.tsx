@@ -11,7 +11,7 @@ import FileChangesList from './FileChangesList';
 import UndoConfirmDialog from './UndoConfirmDialog';
 import DiscardAllDialog from './DiscardAllDialog';
 import type { TabType, StatusPanelProps } from './types';
-import { LoadingIcon } from '../Icons';
+import { UnifiedLoader } from '../UnifiedLoader';
 import './StatusPanel.less';
 
 const StatusPanel = memo(function StatusPanel({ todos, fileChanges, subagents, subagentHistories, currentSessionId, currentProvider, expanded = true, isStreaming = false, onUndoFile, onDiscardAll, onKeepAll }: StatusPanelProps) {
@@ -285,7 +285,7 @@ const StatusPanel = memo(function StatusPanel({ todos, fileChanges, subagents, s
             </span>
           )}
           {isStreaming && hasInProgressTodo && (
-            <LoadingIcon size={14} className="status-panel-tab-loading" />
+            <UnifiedLoader type="spin" size={14} />
           )}
         </div>
 
@@ -302,7 +302,7 @@ const StatusPanel = memo(function StatusPanel({ todos, fileChanges, subagents, s
             </span>
           )}
           {isStreaming && hasRunningSubagent && (
-            <LoadingIcon size={14} className="status-panel-tab-loading" />
+            <UnifiedLoader type="spin" size={14} />
           )}
         </div>
 

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { PromptConfig } from '../types/prompt';
 import { BaseDialog, DialogHeader, DialogBody, DialogFooter } from './shared/BaseDialog';
 import { SaveIcon, XCircleIcon, CloseIcon } from './Icons';
+import { ClickSpark } from './react-bits';
 
 interface PromptDialogProps {
   isOpen: boolean;
@@ -71,7 +72,7 @@ export default function PromptDialog({
   };
 
   return (
-    <BaseDialog isOpen={isOpen} onClose={onClose} size="md" ariaLabel={isAdding ? t('settings.prompt.dialog.addTitle') : t('settings.prompt.dialog.editTitle')}>
+    <BaseDialog isOpen={isOpen} onClose={onClose} size="md" ariaLabel={isAdding ? t('settings.prompt.dialog.addTitle') : t('settings.prompt.dialog.editTitle')} animation="pop">
       <DialogHeader
         title={isAdding ? t('settings.prompt.dialog.addTitle') : t('settings.prompt.dialog.editTitle')}
         onClose={onClose}
@@ -128,10 +129,12 @@ export default function PromptDialog({
           <CloseIcon size={16} />
           {t('common.cancel')}
         </button>
-        <button className="btn btn-primary" onClick={handleSave}>
-          <SaveIcon size={16} />
-          {isAdding ? t('settings.prompt.dialog.confirmAdd') : t('settings.prompt.dialog.saveChanges')}
-        </button>
+        <ClickSpark>
+          <button className="btn btn-primary" onClick={handleSave}>
+            <SaveIcon size={16} />
+            {isAdding ? t('settings.prompt.dialog.confirmAdd') : t('settings.prompt.dialog.saveChanges')}
+          </button>
+        </ClickSpark>
       </DialogFooter>
     </BaseDialog>
   );

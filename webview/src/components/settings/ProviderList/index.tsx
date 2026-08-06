@@ -25,6 +25,7 @@ import { useDragSort } from '../hooks/useDragSort';
 import { ProviderModelIcon } from '../../shared/ProviderModelIcon';
 import ImportConfirmDialog from './ImportConfirmDialog';
 import styles from './style.module.less';
+import { UnifiedLoader } from '../../UnifiedLoader';
 
 interface ProviderListProps {
   providers: ProviderConfig[];
@@ -260,7 +261,7 @@ export default function ProviderList({
       {isImporting && (
         <div className={styles.loadingOverlay}>
           <div className={styles.loadingContent}>
-            <span className="codicon codicon-loading codicon-modifier-spin" />
+            <UnifiedLoader type="orbit" size={20} />
             <span>{t('settings.provider.readingCcSwitch')}</span>
           </div>
         </div>

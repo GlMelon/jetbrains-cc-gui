@@ -6,6 +6,7 @@ import { DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS } from '../utils/permissionDi
 import { isEditableEventTarget } from '../utils/isEditableEventTarget';
 import './AskUserQuestionDialog.css';
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon, CircleFilledIcon, CircleIcon, ClockIcon, AlertIcon } from './Icons';
+import { ClickSpark } from './react-bits';
 
 // Special marker to identify the "Other" option
 const OTHER_OPTION_MARKER = '__OTHER__';
@@ -320,12 +321,14 @@ const AskUserQuestionDialog = ({
                 {formatCountdown(remainingSeconds)}
               </span>
             )}
-            <button
-              className="action-button primary expand-button"
-              onClick={() => setIsCollapsed(false)}
-            >
-              {t('askUserQuestion.clickToAnswer', '点击回答')}
-            </button>
+            <ClickSpark>
+              <button
+                className="action-button primary expand-button"
+                onClick={() => setIsCollapsed(false)}
+              >
+                {t('askUserQuestion.clickToAnswer', '点击回答')}
+              </button>
+            </ClickSpark>
           </div>
         ) : (
           <>
@@ -436,15 +439,17 @@ const AskUserQuestionDialog = ({
                   </button>
                 )}
 
-                <button
-                  className={`action-button primary ${!canProceed ? 'disabled' : ''}`}
-                  onClick={handleNext}
-                  disabled={!canProceed}
-                >
-                  {isLastQuestion
-                    ? t('askUserQuestion.submit', '提交')
-                    : t('askUserQuestion.next', '下一步')}
-                </button>
+                <ClickSpark>
+                  <button
+                    className={`action-button primary ${!canProceed ? 'disabled' : ''}`}
+                    onClick={handleNext}
+                    disabled={!canProceed}
+                  >
+                    {isLastQuestion
+                      ? t('askUserQuestion.submit', '提交')
+                      : t('askUserQuestion.next', '下一步')}
+                  </button>
+                </ClickSpark>
               </div>
             </div>
           </>

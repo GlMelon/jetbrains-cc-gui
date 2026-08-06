@@ -2,6 +2,7 @@ import { type CSSProperties, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CheckIcon, ChevronLeftIcon, ChevronRightIcon } from '../Icons';
 import { BaseDialog, DialogBody, DialogFooter, DialogHeader, type DialogSize } from './BaseDialog';
+import { ClickSpark } from '../react-bits';
 
 
 /**
@@ -118,7 +119,7 @@ export function GuidedProviderDialog({
   const doneLabel = finishLabel ?? t('common.finish', 'Finish');
 
   return (
-    <BaseDialog isOpen={isOpen} onClose={onClose} size={size} ariaLabel={ariaLabel}>
+    <BaseDialog isOpen={isOpen} onClose={onClose} size={size} ariaLabel={ariaLabel} animation="pop">
       <div className="provider-dialog guided-provider-dialog">
         <DialogHeader title={ariaLabel} onClose={onClose} />
         <div className="guided-stepper" role="list" style={STEPPER_STYLE}>
@@ -148,25 +149,29 @@ export function GuidedProviderDialog({
             {backLabel}
           </button>
           {isLast ? (
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={onFinish}
-              disabled={!canProceed}
-            >
-              <CheckIcon size={16} />
-              {doneLabel}
-            </button>
+            <ClickSpark>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={onFinish}
+                disabled={!canProceed}
+              >
+                <CheckIcon size={16} />
+                {doneLabel}
+              </button>
+            </ClickSpark>
           ) : (
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => onStepChange(currentStep + 1)}
-              disabled={!canProceed}
-            >
-              {nextLabel}
-              <ChevronRightIcon size={16} />
-            </button>
+            <ClickSpark>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => onStepChange(currentStep + 1)}
+                disabled={!canProceed}
+              >
+                {nextLabel}
+                <ChevronRightIcon size={16} />
+              </button>
+            </ClickSpark>
           )}
         </DialogFooter>
       </div>

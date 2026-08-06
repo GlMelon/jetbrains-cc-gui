@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { BaseDialog, DialogHeader, DialogBody, DialogFooter } from './shared/BaseDialog';
+import { ClickSpark } from './react-bits';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -29,7 +30,7 @@ const ConfirmDialog = ({
   children,
 }: ConfirmDialogProps) => {
   return (
-    <BaseDialog isOpen={isOpen} onClose={onCancel} ariaLabel={title}>
+    <BaseDialog isOpen={isOpen} onClose={onCancel} ariaLabel={title} animation="pop">
       <DialogHeader title={title} onClose={onCancel} />
       <DialogBody>
         <p className="confirm-dialog-message">{message}</p>
@@ -39,9 +40,11 @@ const ConfirmDialog = ({
         <button className="btn btn-secondary" onClick={onCancel}>
           {cancelText}
         </button>
-        <button className="btn btn-primary" onClick={onConfirm} autoFocus>
-          {confirmText}
-        </button>
+        <ClickSpark>
+          <button className="btn btn-primary" onClick={onConfirm} autoFocus>
+            {confirmText}
+          </button>
+        </ClickSpark>
       </DialogFooter>
     </BaseDialog>
   );

@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { PromptConfig } from '../../../types/prompt';
 import styles from '../ProviderList/style.module.less';
-import { CloseIcon } from '../../Icons';
+import { BaseDialog, DialogHeader, DialogBody, DialogFooter } from '../../shared/BaseDialog';
+import { ClickSpark } from '../../react-bits';
 
 interface PromptExportDialogProps {
   prompts: PromptConfig[];
@@ -20,12 +20,6 @@ export default function PromptExportDialog({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
     new Set(prompts.map(prompt => prompt.id))
   );
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    return () => setMounted(false);
-  }, []);
 
   const toggleSelect = (id: string) => {
     const newSelected = new Set(selectedIds);
@@ -46,89 +40,52 @@ export default function PromptExportDialog({
   };
 
   const handleConfirm = () => {
-    if (selectedIds.size === 0) {
-      return;
-    }
+    if (selectedIds.size === 0) return;
     onConfirm(Array.from(selectedIds));
   };
 
-  if (!mounted) return null;
-
-  return createPortal(
-    <div className={styles.overlay} onClick={(e) => {
-        if (e.target === e.currentTarget) {
-            onCancel();
-        }
-    }}>
-      <div className={styles.dialog}>
-        <div className={styles.dialogHeader}>
-          <h3>{t('settings.prompt.exportDialog.title')}</h3>
-          <button className={styles.closeBtn} onClick={onCancel}>
-            <CloseIcon size={16} />
-          </button>
+  return (
+    <BaseDialog isOpen onClose={onCancel} animation="pop">
+      <DialogHeader title={t('settings.prompt.exportDialog.title')} onClose={onCancel} />
+      <DialogBody>
+        <div className={styles.summary}>
+          {t('settings.prompt.exportDialog.selectHint')}
         </div>
 
-        <div className={styles.dialogContent}>
-          <div className={styles.summary}>
-            {t('settings.prompt.exportDialog.selectHint')}
+        <div className={styles.tableHeader}>
+          <div className={styles.colCheckbox}>
+            <input type="checkbox" checked={selectedIds.size === prompts.length && prompts.length > 0} onChange={toggleAll} />
           </div>
+          <div className={styles.colName}>{t('settings.prompt.importDialog.columnName')}</div>
+          <div className={styles.colId}>{t('settings.prompt.importDialog.columnId')}</div>
+        </div>
 
-          <div className={styles.tableHeader}>
-            <div className={styles.colCheckbox}>
-              <input
-                type="checkbox"
-                checked={selectedIds.size === prompts.length && prompts.length > 0}
-                onChange={toggleAll}
-              />
-            </div>
-            <div className={styles.colName}>{t('settings.prompt.importDialog.columnName')}</div>
-            <div className={styles.colId}>{t('settings.prompt.importDialog.columnId')}</div>
-          </div>
-
-          <div className={styles.providerList}>
-            {prompts.map(prompt => {
-              const isSelected = selectedIds.has(prompt.id);
-
-              return (
-                <div
-                  key={prompt.id}
-                  className={`${styles.providerRow} ${isSelected ? styles.selected : ''}`}
-                  onClick={() => toggleSelect(prompt.id)}
-                >
-                  <div className={styles.colCheckbox}>
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => {}} // handled by row click
-                    />
-                  </div>
-                  <div className={styles.colName}>{prompt.name}</div>
-                  <div className={styles.colId}>{prompt.id}</div>
+        <div className={styles.providerList}>
+          {prompts.map(prompt => {
+            const isSelected = selectedIds.has(prompt.id);
+            return (
+              <div key={prompt.id} className={`${styles.providerRow} ${isSelected ? styles.selected : ''}`} onClick={() => toggleSelect(prompt.id)}>
+                <div className={styles.colCheckbox}>
+                  <input type="checkbox" checked={isSelected} onChange={() => {}} />
                 </div>
-              );
-            })}
-          </div>
+                <div className={styles.colName}>{prompt.name}</div>
+                <div className={styles.colId}>{prompt.id}</div>
+              </div>
+            );
+          })}
         </div>
-
-        <div className={styles.dialogFooter}>
-          <div className={styles.selectedCount}>
-            {t('settings.prompt.importDialog.selectedCount', { count: selectedIds.size })}
-          </div>
-          <div className={styles.dialogActions}>
-            <button className={styles.btnCancel} onClick={onCancel}>
-              {t('common.cancel')}
-            </button>
-            <button
-              className={styles.btnConfirm}
-              onClick={handleConfirm}
-              disabled={selectedIds.size === 0}
-            >
-              {t('settings.prompt.exportDialog.confirmExport')}
-            </button>
-          </div>
+      </DialogBody>
+      <DialogFooter>
+        <div className={styles.selectedCount}>
+          {t('settings.prompt.importDialog.selectedCount', { count: selectedIds.size })}
         </div>
-      </div>
-    </div>,
-    document.body
+        <button className={styles.btnCancel} onClick={onCancel}>{t('common.cancel')}</button>
+        <ClickSpark>
+          <button className={styles.btnConfirm} onClick={handleConfirm} disabled={selectedIds.size === 0}>
+            {t('settings.prompt.exportDialog.confirmExport')}
+          </button>
+        </ClickSpark>
+      </DialogFooter>
+    </BaseDialog>
   );
 }

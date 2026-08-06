@@ -13,6 +13,7 @@ import { useDragSort } from '../hooks/useDragSort';
 
 import sharedStyles from '../ProviderList/style.module.less';
 import styles from './style.module.less';
+import { UnifiedLoader } from '../../UnifiedLoader';
 
 const ICON_MR_8_STYLE: React.CSSProperties = { marginRight: '8px' };
 
@@ -156,7 +157,7 @@ const OpenCodeProviderSection = ({
 
       {openCodeLoading && (
         <div className={styles.tempNotice}>
-          <span className="codicon codicon-loading codicon-modifier-spin" />
+          <UnifiedLoader type="orbit" size={16} />
           <p>{t('settings.provider.loading')}</p>
         </div>
       )}

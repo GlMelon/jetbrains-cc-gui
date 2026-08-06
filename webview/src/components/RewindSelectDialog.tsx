@@ -40,7 +40,7 @@ const RewindSelectDialog = ({
   };
 
   return (
-    <BaseDialog isOpen={isOpen} onClose={onCancel} ariaLabel={t('rewind.selectTitle')}>
+    <BaseDialog isOpen={isOpen} onClose={onCancel} ariaLabel={t('rewind.selectTitle')} animation="pop">
       <DialogHeader
         title={t('rewind.selectTitle', '选择回溯点')}
         icon={<span className="rewind-icon">&#x21BA;</span>}

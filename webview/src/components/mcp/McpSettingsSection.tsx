@@ -34,6 +34,7 @@ import { useToolsUpdate } from './hooks/useToolsUpdate';
 // Sub-components
 import { ServerCard } from './ServerCard';
 import { SkeletonList } from '../shared/SkeletonList';
+import { UnifiedLoader } from '../UnifiedLoader';
 import { BracesIcon, ClipboardIcon, ExtensionsIcon, PlugIcon, RefreshIcon, ServerIcon, codiconToIcon } from '../Icons';
 
 /**
@@ -504,7 +505,7 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
             title={t('mcp.refreshStatus')}
             aria-label={t('mcp.refreshStatus')}
           >
-            <RefreshIcon size={16} className={loading || statusLoading ? 'spinning' : ''} />
+            {loading || statusLoading ? <UnifiedLoader type="spin" size={16} /> : <RefreshIcon size={16} />}
           </button>
           {/* 手动配置(幽灵按钮) */}
           <button

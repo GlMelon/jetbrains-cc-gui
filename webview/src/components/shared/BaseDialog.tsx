@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useEscapeClose } from '../../hooks/useEscapeClose';
@@ -12,6 +12,7 @@ import { CloseIcon } from '../Icons';
 const DIALOG_LEAVE_MS = 160;
 
 export type DialogSize = 'sm' | 'md' | 'lg' | 'xl' | 'auto';
+export type DialogAnimation = 'css' | 'pop' | 'slide' | 'scale' | 'flip';
 
 export interface BaseDialogProps {
   isOpen: boolean;
@@ -21,6 +22,10 @@ export interface BaseDialogProps {
   ariaLabel?: string;
   children: ReactNode;
   className?: string;
+  /** Animation mode: 'css' uses CSS classes (default), others use inline transform animations */
+  animation?: DialogAnimation;
+  /** Animation duration in ms (only used when animation != 'css', default: 320) */
+  animationDuration?: number;
 }
 
 /**
@@ -42,6 +47,8 @@ export function BaseDialog({
   ariaLabel,
   children,
   className = '',
+  animation = 'css',
+  animationDuration = 320,
 }: BaseDialogProps) {
   // ESC 键关闭
   useEscapeClose(isOpen, onClose);
@@ -50,25 +57,49 @@ export function BaseDialog({
   // 退出动画（.dialog-leaving），动画结束（DIALOG_LEAVE_MS）后再卸载。
   const [shouldRender, setShouldRender] = useState(isOpen);
   const [leaving, setLeaving] = useState(false);
+  const [animState, setAnimState] = useState<'entering' | 'entered' | 'leaving' | 'left'>(
+    isOpen ? 'entered' : 'left'
+  );
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isOpen) {
       setShouldRender(true);
       setLeaving(false);
+      if (animation !== 'css') {
+        setAnimState('entering');
+      }
     } else if (shouldRender) {
-      setLeaving(true);
-      const timer = setTimeout(() => {
-        setShouldRender(false);
-        setLeaving(false);
-      }, DIALOG_LEAVE_MS);
-      return () => clearTimeout(timer);
+      if (animation !== 'css') {
+        setAnimState('leaving');
+        const timer = setTimeout(() => {
+          setAnimState('left');
+          setShouldRender(false);
+          setLeaving(false);
+        }, animationDuration);
+        return () => clearTimeout(timer);
+      } else {
+        setLeaving(true);
+        const timer = setTimeout(() => {
+          setShouldRender(false);
+          setLeaving(false);
+        }, DIALOG_LEAVE_MS);
+        return () => clearTimeout(timer);
+      }
     }
-  }, [isOpen, shouldRender]);
+  }, [isOpen, shouldRender, animation, animationDuration]);
 
-  // 焦点管理：open=isOpen（逻辑开关，render 阶段捕获触发者 + 关闭瞬间归还焦点），
-  // ready=shouldRender（DOM 已挂载）。两者共同作为 effect 依赖，确保 dialogRef.current
-  // 就绪后才初始化焦点陷阱，避免延迟卸载导致的 dialogRef 时序空窗。
-  const { dialogRef } = useDialogFocus({ open: isOpen, ready: shouldRender });
+  // Trigger entering state after mount
+  useEffect(() => {
+    if (animState === 'entering') {
+      requestAnimationFrame(() => {
+        setAnimState('entered');
+      });
+    }
+  }, [animState]);
+
+  // 焦点管理
+  const { dialogRef: focusRef } = useDialogFocus({ open: isOpen, ready: shouldRender });
 
   if (!shouldRender) {
     return null;
@@ -76,21 +107,76 @@ export function BaseDialog({
 
   const sizeClass = size !== 'auto' ? `dialog-size-${size}` : '';
 
+  // Compute animation styles for non-css modes
+  const getAnimStyles = (): React.CSSProperties => {
+    if (animation === 'css') return {};
+    const isEntering = animState === 'entering';
+    const isLeaving = animState === 'leaving';
+    const base: React.CSSProperties = {
+      transition: `transform ${animationDuration}ms cubic-bezier(0.34, 1.6, 0.64, 1), opacity ${animationDuration}ms ease`,
+      willChange: 'transform, opacity',
+    };
+    switch (animation) {
+      case 'pop':
+        return {
+          ...base,
+          opacity: isLeaving ? 0 : 1,
+          transform: isLeaving ? 'scale(0.95) translateY(8px)' : isEntering ? 'scale(0.95) translateY(8px)' : 'scale(1) translateY(0)',
+        };
+      case 'slide':
+        return {
+          ...base,
+          opacity: isLeaving ? 0 : 1,
+          transform: isLeaving ? 'translateY(100%)' : isEntering ? 'translateY(100%)' : 'translateY(0)',
+        };
+      case 'scale':
+        return {
+          ...base,
+          opacity: isLeaving ? 0 : 1,
+          transform: isLeaving ? 'scale(0.8)' : isEntering ? 'scale(0.8)' : 'scale(1)',
+        };
+      case 'flip':
+        return {
+          ...base,
+          opacity: isLeaving ? 0 : 1,
+          transform: isLeaving
+            ? 'perspective(1000px) rotateX(90deg)'
+            : isEntering
+              ? 'perspective(1000px) rotateX(90deg)'
+              : 'perspective(1000px) rotateX(0)',
+        };
+      default:
+        return {};
+    }
+  };
+
+  const overlayAnimStyle: React.CSSProperties = animation !== 'css'
+    ? {
+        transition: `opacity ${animationDuration}ms ease`,
+        opacity: animState === 'leaving' ? 0 : 1,
+      }
+    : {};
+
+  // Merge refs
+  const setRefs = (el: HTMLDivElement | null) => {
+    (dialogRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+    (focusRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+  };
+
   return createPortal(
-    // 遮罩层：纯视觉，role=presentation，承担点击空白关闭。
-    // A11Y1：role=dialog 不再放在遮罩上，下沉到内层弹窗本体。
     <div
-      className={`dialog-overlay ${className}${leaving ? ' dialog-leaving' : ''}`}
+      className={`dialog-overlay ${animation === 'css' ? `${className}${leaving ? ' dialog-leaving' : ''}` : className}`}
+      style={overlayAnimStyle}
       onClick={overlayClosable ? onClose : undefined}
     >
-      {/* 弹窗本体：role=dialog 在此层，承接焦点管理（tabIndex=-1 允许无子焦点时自身接收焦点） */}
       <div
-        ref={dialogRef}
+        ref={setRefs}
         className={`dialog-base ${sizeClass}`}
         role="dialog"
         aria-modal="true"
         aria-label={ariaLabel}
         tabIndex={-1}
+        style={getAnimStyles()}
         onClick={(e) => e.stopPropagation()}
       >
         {children}

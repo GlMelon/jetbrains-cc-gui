@@ -1,6 +1,7 @@
 import { useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CheckIcon, EditIcon, SparklesIcon, CloseIcon } from '../Icons';
+import { UnifiedLoader } from '../UnifiedLoader';
 
 interface PromptEnhancerDialogProps {
   isOpen: boolean;
@@ -91,7 +92,7 @@ export const PromptEnhancerDialog = ({
             <div className="prompt-text enhanced-prompt">
               {isLoading ? (
                 <div className="prompt-loading">
-                  <span className="codicon codicon-loading codicon-modifier-spin" />
+                  <UnifiedLoader type="wave" size={16} />
                   <span>{t('promptEnhancer.enhancing')}</span>
                 </div>
               ) : (

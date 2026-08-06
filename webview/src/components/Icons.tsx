@@ -370,34 +370,6 @@ export const HelpIcon = createIcon(
   </>
 );
 
-export const LoadingIcon: React.FC<IconProps & { spinning?: boolean }> = ({
-  size = 16,
-  className,
-  style,
-  spinning = true,
-}) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-    style={{
-      ...style,
-      animation: spinning ? 'icon-spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite' : undefined,
-      willChange: spinning ? 'transform' : undefined,
-    }}
-  >
-    <path d="M21 12a9 9 0 11-6.219-8.56" />
-  </svg>
-);
-
-export const SpinnerIcon = LoadingIcon;
-
 // ==================== Search ====================
 
 export const SearchIcon = createIcon(
@@ -1544,8 +1516,6 @@ export const Icons = {
   alert: AlertIcon,
   info: InfoIcon,
   help: HelpIcon,
-  loading: LoadingIcon,
-  spinner: SpinnerIcon,
   search: SearchIcon,
   filter: FilterIcon,
   replace: ReplaceIcon,

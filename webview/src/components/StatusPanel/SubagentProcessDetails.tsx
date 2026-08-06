@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import type { SubagentHistoryResponse } from '../../types';
 import { buildSubagentProcessModel, formatSubagentDuration } from './subagentProcess';
-import { MessageIcon, FileCodeIcon, LayersIcon, CheckCircleIcon, LoadingIcon } from '../Icons';
+import { MessageIcon, FileCodeIcon, LayersIcon, CheckCircleIcon } from '../Icons';
+import { UnifiedLoader } from '../UnifiedLoader';
 
 interface SubagentProcessDetailsProps {
   agentId?: string;
@@ -119,7 +120,7 @@ const SubagentProcessDetails = memo(function SubagentProcessDetails({
         </div>
       ) : (
         <div className="subagent-loading-card">
-          <LoadingIcon size={14} className="status-panel-spin-icon" />
+          <UnifiedLoader type="spin" size={14} />
           {canLoad ? t('subagent.process.loading') : t('subagent.process.unavailable')}
         </div>
       )}
