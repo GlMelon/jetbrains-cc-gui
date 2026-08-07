@@ -2,6 +2,9 @@
 import { claudeChannelDescriptor } from './claude-channel.js';
 import { codexChannelDescriptor } from './codex-channel.js';
 import { opencodeChannelDescriptor } from './opencode-channel.js';
+import { grokChannelDescriptor } from './grok-channel.js';
+import { kimiChannelDescriptor } from './kimi-channel.js';
+import { piChannelDescriptor } from './pi-channel.js';
 
 /**
  * Provider channel descriptor:provider 名 + 支持命令列表 + dispatch 入口。
@@ -68,6 +71,9 @@ export function getDefaultProviderRegistry() {
     claudeChannelDescriptor,
     codexChannelDescriptor,
     opencodeChannelDescriptor,
+    grokChannelDescriptor,
+    kimiChannelDescriptor,
+    piChannelDescriptor,
   ]);
 }
 

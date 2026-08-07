@@ -11,6 +11,7 @@ import { setupApiKey, loadClaudeSettings, getCliUserAgent } from '../config/api-
 import { ensureAnthropicSdk, ensureBedrockSdk } from './claude/message-utils.js';
 import { resolveModelFromSettings } from '../utils/model-utils.js';
 import { getClaudeDir, getCodemossDir } from '../utils/path-utils.js';
+import { pathToFileURL } from 'node:url';
 
 const DEFAULT_HAIKU_MODEL = 'claude-haiku-4-5-20251001';
 const MAX_CONVERSATION_TEXT = 1000;
@@ -420,4 +421,52 @@ export async function generateSessionTitle(userMessage, sessionId, cwd) {
     logTitleEvent('error', 'Title generation failed: ' + (e instanceof Error ? e.message : String(e)));
     return false;
   }
+}
+
+/**
+ * 读取整个 stdin 流为 UTF-8 字符串(与 prompt-enhancer.js 同一模式)。
+ * @returns {Promise<string>}
+ */
+async function readStdin() {
+  return new Promise((resolve, reject) => {
+    let data = '';
+    process.stdin.setEncoding('utf8');
+    process.stdin.on('data', (/** @type {string} */ chunk) => {
+      data += chunk;
+    });
+    process.stdin.on('end', () => {
+      resolve(data);
+    });
+    process.stdin.on('error', reject);
+  });
+}
+
+/**
+ * 独立可执行入口:供 CLI 模式由 Java 侧以一次性子进程调用(双重角色,仿 prompt-enhancer.js)。
+ *
+ * daemon 路径(message-sender.js / persistent-query-service.js)通过 import 直接调
+ * generateSessionTitle,不会触发此 main —— 由 import.meta.url 守卫隔离。
+ *
+ * stdin: { userMessage, sessionId, cwd }
+ * stdout: generateSessionTitle 内部经 emitTitleGenerated 写出 title_generated daemon 事件行,
+ *         Java 侧 PromptEnhancerProcessRunner 的 lineHandler 解析该行并下发 SESSION_TITLE。
+ *
+ * @returns {Promise<void>}
+ */
+async function main() {
+  try {
+    const input = await readStdin();
+    const data = JSON.parse(input);
+    const { userMessage, sessionId, cwd } = data;
+    await generateSessionTitle(userMessage, sessionId, cwd);
+    process.exit(0);
+  } catch (error) {
+    logTitleEvent('error', 'CLI title generation main failed: '
+      + (error instanceof Error ? error.message : String(error)));
+    process.exit(1);
+  }
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
 }

@@ -1,0 +1,51 @@
+// @ts-check
+/**
+ * Grok channel command handler – keeps Grok-specific logic separated.
+ * Grok has no official SDK; this channel shells out to the local CLI.
+ */
+import { sendMessage as grokSendMessage } from '../services/grok/message-service.js';
+
+/**
+ * Execute a Grok command.
+ * @param {string} command
+ * @param {string[]} args
+ * @param {Record<string, any> | null} stdinData
+ */
+export async function handleGrokCommand(command, args, stdinData) {
+  switch (command) {
+    case 'send': {
+      if (stdinData && stdinData.message !== undefined) {
+        const {
+          message,
+          sessionId,
+          cwd,
+          model,
+          reasoningEffort,
+        } = stdinData;
+        await grokSendMessage(
+          message,
+          sessionId || '',
+          cwd || '',
+          model || '',
+          reasoningEffort || 'medium'
+        );
+      } else {
+        await grokSendMessage(args[0], args[1], args[2], args[3], args[4]);
+      }
+      break;
+    }
+
+    default:
+      throw new Error(`Unknown Grok command: ${command}`);
+  }
+}
+
+export function getGrokCommandList() {
+  return ['send'];
+}
+
+export const grokChannelDescriptor = {
+  provider: 'grok',
+  commands: getGrokCommandList(),
+  handle: handleGrokCommand,
+};
