@@ -38,6 +38,95 @@ import {
 } from './codex-tool-normalization.js';
 
 const COMMAND_DENIED_ABORT_ERROR = '__CODEX_COMMAND_DENIED_ABORT__';
+const CODEX_USAGE_FIELDS = [
+  'input_tokens',
+  'cached_input_tokens',
+  'cache_write_input_tokens',
+  'output_tokens',
+  'reasoning_output_tokens',
+  'total_tokens',
+];
+
+/**
+ * Normalize raw Codex usage fields to non-negative finite numbers.
+ * @param {Record<string, any> | null | undefined} usage
+ * @returns {Record<string, number> | null}
+ */
+function normalizeCodexUsage(usage) {
+  if (!usage || typeof usage !== 'object') return null;
+  /** @type {Record<string, number>} */
+  const normalized = {};
+  let hasNumericField = false;
+  for (const field of CODEX_USAGE_FIELDS) {
+    const value = Number(/** @type {Record<string, any>} */ (usage)[field]);
+    if (Number.isFinite(value)) {
+      normalized[field] = Math.max(0, value);
+      hasNumericField = true;
+    }
+  }
+  return hasNumericField ? normalized : null;
+}
+
+/**
+ * Subtract baseline usage from total usage, clamping each field to >= 0.
+ * @param {Record<string, number> | null} total
+ * @param {Record<string, number> | null} baseline
+ * @returns {Record<string, number> | null}
+ */
+function subtractCodexUsage(total, baseline) {
+  if (!total || !baseline) return null;
+  /** @type {Record<string, number>} */
+  const delta = {};
+  for (const field of CODEX_USAGE_FIELDS) {
+    delta[field] = Math.max(0, (total[field] || 0) - (baseline[field] || 0));
+  }
+  return delta;
+}
+
+/**
+ * Handle a token_count event from the Codex SDK stream.
+ * @param {any} event
+ * @param {EventProcessingState} state
+ * @returns {boolean}
+ */
+function handleTokenCountEvent(event, state) {
+  const info = event?.payload?.info;
+  if (!info || typeof info !== 'object') return false;
+
+  const totalUsage = normalizeCodexUsage(info.total_token_usage);
+  const lastUsage = normalizeCodexUsage(info.last_token_usage);
+  if (!totalUsage && !lastUsage) return false;
+
+  if (!state.turnUsageBaseline && totalUsage && lastUsage) {
+    state.turnUsageBaseline = subtractCodexUsage(totalUsage, lastUsage);
+  }
+  if (totalUsage) {
+    state.latestTotalTokenUsage = totalUsage;
+  }
+
+  const forwardedInfo = {};
+  if (totalUsage) forwardedInfo.total_token_usage = totalUsage;
+  if (lastUsage) forwardedInfo.last_token_usage = lastUsage;
+  const contextWindow = Number(info.model_context_window);
+  if (Number.isFinite(contextWindow) && contextWindow > 0) {
+    forwardedInfo.model_context_window = contextWindow;
+  }
+
+  state.emitMessage({
+    type: 'event_msg',
+    payload: { type: 'token_count', info: forwardedInfo },
+  });
+  return true;
+}
+
+/**
+ * Compute the delta usage for the completed turn by subtracting baseline from latest total.
+ * @param {EventProcessingState} state
+ * @returns {Record<string, number> | null}
+ */
+function resolveCompletedTurnUsage(state) {
+  return subtractCodexUsage(state.latestTotalTokenUsage, state.turnUsageBaseline);
+}
 
 /** @typedef {(message: object) => void} EmitMessage */
 
@@ -67,8 +156,11 @@ const COMMAND_DENIED_ABORT_ERROR = '__CODEX_COMMAND_DENIED_ABORT__';
  *   runtimePolicyLogged: boolean;
  *   suppressNoResponseFallback: boolean;
  *   userAbortObserved: boolean;
+ *   turnStarted: boolean;
  *   turnCompleted: boolean;
  *   sessionTurnBoundaryReady: boolean;
+ *   turnUsageBaseline: Record<string, number> | null;
+ *   latestTotalTokenUsage: Record<string, number> | null;
  *   currentThreadId: string | null;
  *   finalResponse: string;
  *   assistantText: string;
@@ -271,9 +363,11 @@ export function createInitialEventState(emitMessage) {
     runtimePolicyLogged: false,
     suppressNoResponseFallback: false,
     userAbortObserved: false,
+    turnStarted: false,
     turnCompleted: false,
     sessionTurnBoundaryReady: false,
-    currentTurnTokenCountPayload: null,
+    turnUsageBaseline: null,
+    latestTotalTokenUsage: null,
     currentThreadId: null,
     finalResponse: '',
     assistantText: '',
@@ -392,40 +486,43 @@ async function readLatestTurnContextFromSession(state, threadId) {
   return null;
 }
 
-function hasLastTokenUsage(payload) {
-  return payload?.type === 'token_count' &&
-    payload.info?.last_token_usage &&
-    typeof payload.info.last_token_usage === 'object';
-}
-
-async function readCurrentTurnTokenCountFromSession(state, config) {
+/**
+ * Recover raw token_count events that the public Codex SDK stream omits. Only
+ * entries after the verified current-turn boundary are accepted, preventing a
+ * resumed thread from reusing the previous turn's context snapshot.
+ * @param {EventProcessingState} state
+ * @param {EventStreamConfig} config
+ */
+async function replayCurrentTurnTokenCountsFromSession(state, config) {
+  if (state.latestTotalTokenUsage) return 0;
   if (!state.sessionTurnBoundaryReady) {
     await ensureSessionTurnBoundary(state, config);
   }
-  if (!state.sessionTurnBoundaryReady || !Number.isInteger(state.sessionTurnStartCursor)) {
-    return null;
-  }
+  if (!state.sessionTurnBoundaryReady) return 0;
 
   const sessionPath = ensureSessionFilePath(state, resolveSessionThreadId(state, config));
-  if (!sessionPath) return null;
+  if (!sessionPath) return 0;
 
   let content = '';
   try {
     content = await readFile(sessionPath, 'utf8');
   } catch (error) {
-    logDebug('CONTEXT_USAGE', 'Failed to read session file for token usage:', error?.message || error);
-    return null;
+    logDebug('CONTEXT_USAGE', 'Failed to read current-turn token usage:', /** @type {any} */ (error)?.message || error);
+    return 0;
   }
 
   const lines = splitSessionJsonlEntries(content);
-  for (let i = lines.length - 1; i >= state.sessionTurnStartCursor; i--) {
+  const startIndex = Number.isInteger(state.sessionTurnStartCursor)
+    ? state.sessionTurnStartCursor
+    : lines.length;
+  let replayed = 0;
+  for (let i = startIndex; i < lines.length; i++) {
     let parsed;
     try { parsed = JSON.parse(lines[i]); } catch { continue; }
-    if (parsed?.type === 'event_msg' && hasLastTokenUsage(parsed.payload)) {
-      return parsed.payload;
-    }
+    if (parsed?.type !== 'event_msg' || parsed?.payload?.type !== 'token_count') continue;
+    if (handleTokenCountEvent(parsed, state)) replayed += 1;
   }
-  return null;
+  return replayed;
 }
 
 /**
@@ -1015,19 +1112,18 @@ export async function processCodexEventStream(events, state, config) {
       }
 
       case 'turn.started': {
+        state.turnStarted = true;
         state.turnCompleted = false;
-        state.currentTurnTokenCountPayload = null;
+        state.turnUsageBaseline = null;
+        state.latestTotalTokenUsage = null;
         await ensureSessionTurnBoundary(state, config);
         console.log('[DEBUG] Turn started');
         break;
       }
 
       case 'event_msg': {
-        if (event.payload?.type === 'token_count') {
-          if (hasLastTokenUsage(event.payload)) {
-            state.currentTurnTokenCountPayload = event.payload;
-          }
-          state.emitMessage({ type: 'event_msg', payload: event.payload });
+        if (state.turnStarted && event?.payload?.type === 'token_count') {
+          handleTokenCountEvent(event, state);
         }
         await replayMissingFunctionCallsDuringStream(state, config);
         break;
@@ -1089,21 +1185,18 @@ export async function processCodexEventStream(events, state, config) {
         if (replayed.toolUses > 0 || replayed.toolResults > 0) {
           console.log('[DEBUG] Replayed session function calls:', JSON.stringify(replayed));
         }
-        if (!state.currentTurnTokenCountPayload) {
-          const recoveredTokenCount = await readCurrentTurnTokenCountFromSession(state, config);
-          if (recoveredTokenCount) {
-            state.currentTurnTokenCountPayload = recoveredTokenCount;
-            state.emitMessage({ type: 'event_msg', payload: recoveredTokenCount });
-            logDebug('CONTEXT_USAGE', 'Recovered current context usage from the Codex session JSONL.');
-          }
+        const replayedTokenCounts = await replayCurrentTurnTokenCountsFromSession(state, config);
+        if (replayedTokenCounts > 0) {
+          logDebug('CONTEXT_USAGE', `Replayed current-turn token_count events: ${replayedTokenCounts}`);
         }
-        if (event.usage) {
-          console.log('[DEBUG] Token usage:', event.usage);
+        const completedTurnUsage = resolveCompletedTurnUsage(state);
+        if (completedTurnUsage) {
+          console.log('[DEBUG] Token usage:', completedTurnUsage);
           const claudeUsage = {
-            input_tokens: event.usage.input_tokens || 0,
-            output_tokens: event.usage.output_tokens || 0,
+            input_tokens: completedTurnUsage.input_tokens || 0,
+            output_tokens: completedTurnUsage.output_tokens || 0,
             cache_creation_input_tokens: 0,
-            cache_read_input_tokens: event.usage.cached_input_tokens || 0
+            cache_read_input_tokens: completedTurnUsage.cached_input_tokens || 0
           };
           state.emitMessage({
             type: 'result', subtype: 'usage', is_error: false,
@@ -1114,6 +1207,7 @@ export async function processCodexEventStream(events, state, config) {
         if (typeof config.onTurnCompleted === 'function') {
           config.onTurnCompleted(event, state);
         }
+        state.turnStarted = false;
         break;
       }
 

@@ -168,8 +168,8 @@ test('Codex new thread replays function calls from current thread session file d
       makeConfig(),
     );
 
-    // 合并带来上游 token_count 特性:event_msg 收到 token_count 会额外 emit 给前端。
-    // 过滤 event_msg 后验证 function call replay 的结果(本测试的核心目的)
+    // event_msg 的 token_count 仅在携带 info 时由 handleTokenCountEvent 转发;
+    // 本测试故意不带 info,故不产生额外 event_msg,只验证 function call replay。
     const replayMessages = emittedMessages.filter((m) => m.type !== 'event_msg');
     assert.equal(replayMessages.length, 2);
     assert.equal(replayMessages[0].type, 'assistant');
