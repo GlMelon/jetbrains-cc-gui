@@ -1,0 +1,197 @@
+package com.github.claudecodegui.cli;
+
+import com.github.claudecodegui.bridge.EnvironmentConfigurator;
+import com.github.claudecodegui.bridge.ProcessManager;
+import com.github.claudecodegui.handler.PromptEnhancerProcessRunner;
+import com.github.claudecodegui.protocol.DownstreamEvent;
+import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
+import com.github.claudecodegui.session.SessionCallbackFacade;
+import com.github.claudecodegui.settings.CodemossSettingsService;
+import com.github.claudecodegui.util.GsonHolder;
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.diagnostic.Logger;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+
+/**
+ * CLI 模式 AI 会话标题生成服务(provider 无关)。
+ *
+ * <p>SDK 模式下标题由 daemon 在轮次结束后 fire-and-forget 调用
+ * {@code ai-bridge/services/session-title-service.js#generateSessionTitle} 生成;
+ * CLI 模式每轮是一次性子进程,不经过 daemon,故由本服务在 CLI 轮次成功完成后,
+ * 以独立 node 子进程复用同一 {@code session-title-service.js} 生成标题。
+ *
+ * <p>触发条件(CLI 运行时 + 首轮 + 成功 + 配置开启)由 {@link com.github.claudecodegui.session.SessionSendService}
+ * 在 provider 无关的公共出口经 {@code whenComplete} 钩子统一判定后传入本服务;
+ * Claude / Codex / OpenCode 三条 CLI 路径共用本组件——{@code session-title-service.js}
+ * 调 Haiku API,本身与对话 provider 解耦。
+ *
+ * <p>{@link ClaudeSDKBridge} 在此仅作为 Node 可执行文件 / ai-bridge 目录 / {@link ProcessManager}
+ * 的共享基础设施提供者(三 provider 共用同一 ai-bridge 目录),非 Claude 特异依赖。
+ *
+ * <p>下行复用既有 {@link DownstreamEvent#SESSION_TITLE} 事件:
+ * {@link SessionCallbackFacade#notifyProtocolEvent} → SessionCallbackAdapter.onProtocolEvent
+ * → dispatchEvent,与 SDK 模式走同一前端入口,前端零改动。
+ */
+public class CliSessionTitleService {
+
+    private static final Logger LOG = Logger.getInstance(CliSessionTitleService.class);
+    private static final Gson gson = GsonHolder.GSON;
+
+    // 标题生成 node 进程硬超时。session-title-service.js 内部 Haiku 调用 15s 超时,
+    // 这里留足余量覆盖进程启动 + stdin/stdout 往返 + 网络抖动。超时强杀,fire-and-forget 不阻塞对话。
+    private static final long TITLE_TIMEOUT_SECONDS = 30;
+    private static final long READER_DRAIN_SECONDS = 5;
+
+    private final ClaudeSDKBridge sdkBridge;
+
+    public CliSessionTitleService(ClaudeSDKBridge sdkBridge) {
+        this.sdkBridge = sdkBridge;
+    }
+
+    /**
+     * 在 CLI 轮次成功完成后,按需触发 AI 标题生成。
+     *
+     * <p>所有前置判定(CLI / 首轮 / 成功)由调用方完成并传入布尔标志;本方法再做
+     * sessionId / userMessage / 配置开关 / Node 基础设施可用性的二次校验,然后
+     * fire-and-forget 起子进程。标题失败不影响对话(锦上添花能力)。
+     *
+     * @param isCliRuntime   当前 provider 解析到的运行时是否为 CLI
+     * @param isFirstTurn    本次发送是否为新会话首轮(send 前 sessionId 为空)
+     * @param userMessage    首轮用户消息文本(标题生成的输入)
+     * @param sessionId      轮次完成后解析到的会话 ID(首轮由 CLI 流输出捕获)
+     * @param cwd            工作目录(定位 ~/.claude/projects/<sanitized-cwd>/<sessionId>.jsonl)
+     * @param callbackFacade 用于回传 SESSION_TITLE 事件
+     */
+    public void maybeGenerateTitle(boolean isCliRuntime,
+                                   boolean isFirstTurn,
+                                   String userMessage,
+                                   String sessionId,
+                                   String cwd,
+                                   SessionCallbackFacade callbackFacade) {
+        if (!isCliRuntime || !isFirstTurn) {
+            return;
+        }
+        if (callbackFacade == null) {
+            return;
+        }
+        if (sessionId == null || sessionId.isEmpty()) {
+            LOG.debug("[CliTitle] Skipping: no sessionId resolved after CLI turn");
+            return;
+        }
+        if (userMessage == null || userMessage.trim().isEmpty()) {
+            return;
+        }
+        try {
+            if (!CodemossSettingsService.getInstance().getAiTitleGenerationEnabled()) {
+                LOG.debug("[CliTitle] Skipping: AI title generation disabled in settings");
+                return;
+            }
+        } catch (Exception e) {
+            // getAiTitleGenerationEnabled 读配置可能抛 IOException;读失败时保守放行(默认开启)。
+            LOG.warn("[CliTitle] Failed to read AI title toggle, proceeding: " + e.getMessage());
+        }
+
+        final String nodeExecutable = sdkBridge.getNodeExecutable();
+        if (nodeExecutable == null || nodeExecutable.isEmpty()) {
+            LOG.warn("[CliTitle] Skipping: Node.js executable not configured");
+            return;
+        }
+        File bridgeDir = sdkBridge.getSdkTestDir();
+        if (bridgeDir == null || !bridgeDir.exists()) {
+            LOG.warn("[CliTitle] Skipping: ai-bridge directory unavailable");
+            return;
+        }
+
+        CompletableFuture.runAsync(() -> runTitleGeneration(
+                nodeExecutable, bridgeDir, userMessage, sessionId, cwd, callbackFacade));
+    }
+
+    private void runTitleGeneration(String nodeExecutable,
+                                    File bridgeDir,
+                                    String userMessage,
+                                    String sessionId,
+                                    String cwd,
+                                    SessionCallbackFacade callbackFacade) {
+        List<String> command = new ArrayList<>();
+        command.add(nodeExecutable);
+        command.add(new File(bridgeDir, "services/session-title-service.js").getAbsolutePath());
+
+        ProcessBuilder pb = new ProcessBuilder(command);
+        pb.directory(bridgeDir);
+        pb.redirectErrorStream(true);
+        try {
+            new EnvironmentConfigurator().updateProcessEnvironment(pb, nodeExecutable);
+        } catch (Exception e) {
+            LOG.warn("[CliTitle] Failed to configure process environment: " + e.getMessage());
+        }
+
+        JsonObject stdinInput = new JsonObject();
+        stdinInput.addProperty("userMessage", userMessage);
+        stdinInput.addProperty("sessionId", sessionId);
+        if (cwd != null && !cwd.isEmpty()) {
+            stdinInput.addProperty("cwd", cwd);
+        }
+
+        ProcessManager processManager = sdkBridge.getProcessManager();
+        try {
+            PromptEnhancerProcessRunner.runWithProcessManager(
+                    pb,
+                    processManager,
+                    gson.toJson(stdinInput),
+                    TITLE_TIMEOUT_SECONDS,
+                    READER_DRAIN_SECONDS,
+                    line -> handleStdoutLine(line, sessionId, callbackFacade));
+        } catch (Exception e) {
+            // 标题生成是 fire-and-forget,任何失败(超时 / 进程异常)都不影响对话。
+            LOG.warn("[CliTitle] Title generation process failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 解析 node 子进程 stdout 行。{@code session-title-service.js} 经
+     * {@code emitTitleGenerated} 写出 {@code {type:'daemon', event:'title_generated',
+     * sessionId, title}} 行;捕获后下发 SESSION_TITLE 事件。
+     */
+    private void handleStdoutLine(String line, String sessionId, SessionCallbackFacade callbackFacade) {
+        if (line == null || line.isEmpty() || line.charAt(0) != '{') {
+            // 非 JSON 行(进程 stderr 合并行、空行)忽略。
+            return;
+        }
+        try {
+            JsonObject obj = gson.fromJson(line, JsonObject.class);
+            if (obj == null) {
+                return;
+            }
+            String event = obj.has("event") ? obj.get("event").getAsString() : null;
+            if (!"title_generated".equals(event)) {
+                // title_log 等其他 daemon 事件忽略。
+                return;
+            }
+            String title = obj.has("title") ? obj.get("title").getAsString() : null;
+            if (title == null || title.isEmpty()) {
+                return;
+            }
+            JsonObject payload = new JsonObject();
+            payload.addProperty("sessionId", sessionId);
+            payload.addProperty("title", title);
+            String payloadJson = gson.toJson(payload);
+            LOG.info("[CliTitle] AI title generated for session " + sessionId + ": " + title);
+            ApplicationManager.getApplication().invokeLater(() -> {
+                try {
+                    callbackFacade.notifyProtocolEvent(
+                            DownstreamEvent.SESSION_TITLE.value(), payloadJson);
+                } catch (Exception e) {
+                    LOG.warn("[CliTitle] Failed to dispatch SESSION_TITLE: " + e.getMessage());
+                }
+            });
+        } catch (Exception e) {
+            LOG.debug("[CliTitle] Unparseable stdout line: " + line);
+        }
+    }
+}
