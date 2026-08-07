@@ -104,6 +104,12 @@ public final class UserPathResolver {
         if (userProfile != null && !userProfile.isBlank()) {
             dirs.add(userProfile + "\\scoop\\shims"); // scoop 全局 shim
             dirs.add(userProfile + "\\.bun\\bin"); // bun 全局
+            // CLI provider home bin directories (Kimi / Grok / Pi / OpenCode)
+            dirs.add(userProfile + "\\.kimi-code\\bin");
+            dirs.add(userProfile + "\\.kimi\\bin");
+            dirs.add(userProfile + "\\.moonshot\\bin");
+            dirs.add(userProfile + "\\.grok\\bin");
+            dirs.add(userProfile + "\\.pi\\bin");
         }
         if (localAppData != null && !localAppData.isBlank()) {
             dirs.add(localAppData + "\\Volta\\bin"); // volta shim(node/binary manager)

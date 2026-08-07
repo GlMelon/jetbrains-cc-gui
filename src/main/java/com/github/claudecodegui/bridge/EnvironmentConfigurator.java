@@ -123,6 +123,12 @@ public class EnvironmentConfigurator {
                     userHome + "/.local/bin",
                     // Rust / cargo tool installation directory
                     userHome + "/.cargo/bin",
+                    // CLI provider home bin directories (Kimi / Grok / Pi / OpenCode)
+                    userHome + "/.kimi-code/bin",
+                    userHome + "/.kimi/bin",
+                    userHome + "/.moonshot/bin",
+                    userHome + "/.grok/bin",
+                    userHome + "/.pi/bin",
             };
             for (String p : unixPaths) {
                 if (!pathContains(currentPath, p)) {
