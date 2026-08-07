@@ -40,7 +40,12 @@ public final class MessageNormalizers {
             // B6: OpenCode 事件经 OpenCodeSDKBridge(SDK)/OpenCodeCliSession(CLI)已归一为统一 MSG_*,
             // 归一化器仅需透传(与 ClaudeSdkMessageNormalizer 同构);CLI/SDK 复用同一透传实现。
             entry(CommonConstants.PROVIDER_OPENCODE, CommonConstants.INVOCATION_MODE_CLI, OpenCodeMessageNormalizer::new),
-            entry(CommonConstants.PROVIDER_OPENCODE, CommonConstants.INVOCATION_MODE_SDK, OpenCodeMessageNormalizer::new)
+            entry(CommonConstants.PROVIDER_OPENCODE, CommonConstants.INVOCATION_MODE_SDK, OpenCodeMessageNormalizer::new),
+            // Grok/Kimi/Pi: CLI-only providers, events normalized by MarkerCliStreamParser in CliSession,
+            // normalizer is pure passthrough (same pattern as OpenCode).
+            entry(CommonConstants.PROVIDER_GROK, CommonConstants.INVOCATION_MODE_CLI, GrokMessageNormalizer::new),
+            entry(CommonConstants.PROVIDER_KIMI, CommonConstants.INVOCATION_MODE_CLI, KimiMessageNormalizer::new),
+            entry(CommonConstants.PROVIDER_PI, CommonConstants.INVOCATION_MODE_CLI, PiMessageNormalizer::new)
     );
 
     private MessageNormalizers() {

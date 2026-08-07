@@ -45,7 +45,7 @@ public class SessionRuntimeRouter {
                                 OpenCodeSDKBridge openCodeSDKBridge) {
         this.registry = new SessionRuntimeRegistry();
         this.cliManager = project != null ? new CliSessionManager(project) : new CliSessionManager();
-        // 注册 6 个 runtime 实现（3 provider × 2 runtime）
+        // 注册 9 个 runtime 实现（6 provider × CLI + 3 provider × SDK）
         registry.register(new ClaudeSdkSessionRuntime(claudeSDKBridge));
         registry.register(new CodexSdkSessionRuntime(codexSDKBridge));
         if (openCodeSDKBridge != null) {
@@ -54,6 +54,9 @@ public class SessionRuntimeRouter {
         registry.register(new ClaudeCliSessionRuntime(cliManager));
         registry.register(new CodexCliSessionRuntime(cliManager));
         registry.register(new OpenCodeCliSessionRuntime(cliManager));
+        registry.register(new GrokCliSessionRuntime(cliManager));
+        registry.register(new KimiCliSessionRuntime(cliManager));
+        registry.register(new PiCliSessionRuntime(cliManager));
     }
 
     /**

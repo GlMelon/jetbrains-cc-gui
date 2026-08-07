@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "revision": 2026072201,
-  "generatedAt": "2026-07-22",
+  "revision": 2026080701,
+  "generatedAt": "2026-08-07",
   "providers": {
     "claude": {
       "minimumSupported": "0.0.0",
@@ -20,6 +20,27 @@
     "opencode": {
       "minimumSupported": "0.0.0",
       "maximumTested": "1.17.11",
+      "blockedVersions": [],
+      "unknownVersionPolicy": "WARN_ALLOW",
+      "higherVersionPolicy": "WARN_ALLOW"
+    },
+    "grok": {
+      "minimumSupported": "0.0.0",
+      "maximumTested": "0.0.0",
+      "blockedVersions": [],
+      "unknownVersionPolicy": "WARN_ALLOW",
+      "higherVersionPolicy": "WARN_ALLOW"
+    },
+    "kimi": {
+      "minimumSupported": "0.0.0",
+      "maximumTested": "0.0.0",
+      "blockedVersions": [],
+      "unknownVersionPolicy": "WARN_ALLOW",
+      "higherVersionPolicy": "WARN_ALLOW"
+    },
+    "pi": {
+      "minimumSupported": "0.0.0",
+      "maximumTested": "0.0.0",
       "blockedVersions": [],
       "unknownVersionPolicy": "WARN_ALLOW",
       "higherVersionPolicy": "WARN_ALLOW"

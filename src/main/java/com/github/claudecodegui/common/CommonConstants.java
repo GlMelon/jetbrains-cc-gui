@@ -27,6 +27,12 @@ public final class CommonConstants {
     public static final String PROVIDER_CODEX = "codex";
     /** OpenCode AI 提供者标识 */
     public static final String PROVIDER_OPENCODE = "opencode";
+    /** Grok AI 提供者标识(纯 CLI,无 SDK 实现 —— 上游 CliToolId) */
+    public static final String PROVIDER_GROK = "grok";
+    /** Kimi AI 提供者标识(纯 CLI,无 SDK 实现 —— 上游 CliToolId) */
+    public static final String PROVIDER_KIMI = "kimi";
+    /** Pi AI 提供者标识(纯 CLI,无 SDK 实现 —— 上游 CliToolId) */
+    public static final String PROVIDER_PI = "pi";
 
     // ===== 权限模式 =====
     // 控制工具调用（文件写入、命令执行等）的自动审批策略

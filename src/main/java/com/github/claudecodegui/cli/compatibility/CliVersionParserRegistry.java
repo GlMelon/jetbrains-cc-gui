@@ -31,7 +31,10 @@ public final class CliVersionParserRegistry {
         return new CliVersionParserRegistry(Arrays.asList(
                 new ClaudeCliVersionParser(),
                 new CodexCliVersionParser(),
-                new OpenCodeCliVersionParser()));
+                new OpenCodeCliVersionParser(),
+                new GrokCliVersionParser(),
+                new KimiCliVersionParser(),
+                new PiCliVersionParser()));
     }
 
     public Optional<String> parse(ProviderType provider, String rawVersion) {

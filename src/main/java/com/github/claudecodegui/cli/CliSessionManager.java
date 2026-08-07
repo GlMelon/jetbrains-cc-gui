@@ -3,6 +3,9 @@ package com.github.claudecodegui.cli;
 import com.github.claudecodegui.cli.claude.ClaudeCliSessionFactory;
 import com.github.claudecodegui.cli.codex.CodexCliSessionFactory;
 import com.github.claudecodegui.cli.opencode.OpenCodeCliSessionFactory;
+import com.github.claudecodegui.cli.grok.GrokCliSessionFactory;
+import com.github.claudecodegui.cli.kimi.KimiCliSessionFactory;
+import com.github.claudecodegui.cli.pi.PiCliSessionFactory;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.SDKResult;
 import com.github.claudecodegui.mcp.McpGatewayService;
@@ -59,11 +62,12 @@ public class CliSessionManager {
     private final Map<String, CliSessionFactory> factories;
 
     /**
-     * 默认装配 Claude + Codex + OpenCode 三个工厂。
+     * 默认装配 Claude + Codex + OpenCode + Grok + Kimi + Pi 六个工厂。
      */
     public CliSessionManager() {
         this(List.of(new ClaudeCliSessionFactory(), new CodexCliSessionFactory(),
-                new OpenCodeCliSessionFactory()));
+                new OpenCodeCliSessionFactory(), new GrokCliSessionFactory(),
+                new KimiCliSessionFactory(), new PiCliSessionFactory()));
     }
 
     /**
@@ -73,7 +77,10 @@ public class CliSessionManager {
         this(List.of(
                 new ClaudeCliSessionFactory(McpGatewayService.getInstance(project)),
                 new CodexCliSessionFactory(McpGatewayService.getInstance(project)),
-                new OpenCodeCliSessionFactory(McpGatewayService.getInstance(project))
+                new OpenCodeCliSessionFactory(McpGatewayService.getInstance(project)),
+                new GrokCliSessionFactory(),
+                new KimiCliSessionFactory(),
+                new PiCliSessionFactory()
         ));
     }
 

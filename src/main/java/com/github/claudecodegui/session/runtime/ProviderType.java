@@ -42,6 +42,10 @@ public enum ProviderType implements ProtocolValue {
     CLAUDE("claude", "Claude", "claude", "claude.cmd"),
     CODEX("codex", "Codex", "codex", "codex.cmd"),
     OPENCODE("opencode", "OpenCode", "opencode", "opencode.cmd"),
+    // grok/kimi/pi 为纯 CLI provider(上游 CliToolId,无 SDK 实现);cliCommand 对齐上游 binaryName。
+    GROK("grok", "Grok", "grok", "grok.cmd"),
+    KIMI("kimi", "Kimi", "kimi", "kimi.cmd"),
+    PI("pi", "Pi", "pi", "pi.cmd"),
     ;
 
     private final String value;
@@ -114,6 +118,9 @@ public enum ProviderType implements ProtocolValue {
         return switch (provider.trim().toLowerCase()) {
             case CommonConstants.PROVIDER_CODEX -> CODEX;
             case CommonConstants.PROVIDER_OPENCODE -> OPENCODE;
+            case CommonConstants.PROVIDER_GROK -> GROK;
+            case CommonConstants.PROVIDER_KIMI -> KIMI;
+            case CommonConstants.PROVIDER_PI -> PI;
             default -> CLAUDE;
         };
     }

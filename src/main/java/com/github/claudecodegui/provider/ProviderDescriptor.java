@@ -70,6 +70,21 @@ public record ProviderDescriptor(
         return builtin(ProviderType.OPENCODE);
     }
 
+    /** Grok Provider 描述符(纯 CLI,无 SDK 实现;marker 协议流式)。 */
+    public static ProviderDescriptor grok() {
+        return cliBuiltin(ProviderType.GROK);
+    }
+
+    /** Kimi Provider 描述符(纯 CLI,无 SDK 实现;marker 协议流式)。 */
+    public static ProviderDescriptor kimi() {
+        return cliBuiltin(ProviderType.KIMI);
+    }
+
+    /** Pi Provider 描述符(纯 CLI,无 SDK 实现;marker 协议流式)。 */
+    public static ProviderDescriptor pi() {
+        return cliBuiltin(ProviderType.PI);
+    }
+
     private static ProviderDescriptor builtin(ProviderType type) {
         return new ProviderDescriptor(
                 type.value(),
@@ -81,8 +96,24 @@ public record ProviderDescriptor(
         );
     }
 
-    /** 三内置 Provider 描述符(Claude / Codex / OpenCode),按 {@link ProviderType} 声明顺序。 */
+    /**
+     * 纯 CLI 内置 Provider 描述符:仅声明 CLI_SESSION + STREAMING(marker 协议提供流式增量),
+     * supportedRuntimes 仅 CLI(无 SDK 实现)。reasoning/history/skills/mcp 等能力按 Stage 3
+     * 各 provider 实际接入再补充,此处保守声明避免过度承诺。
+     */
+    private static ProviderDescriptor cliBuiltin(ProviderType type) {
+        return new ProviderDescriptor(
+                type.value(),
+                type.displayLabel(),
+                type.cliCommand(),
+                type.cliCommandWindows(),
+                EnumSet.of(ProviderCapability.CLI_SESSION, ProviderCapability.STREAMING),
+                EnumSet.of(RuntimeType.CLI)
+        );
+    }
+
+    /** 内置 Provider 描述符(Claude / Codex / OpenCode + Grok / Kimi / Pi),按 {@link ProviderType} 声明顺序。 */
     public static List<ProviderDescriptor> builtins() {
-        return List.of(claude(), codex(), opencode());
+        return List.of(claude(), codex(), opencode(), grok(), kimi(), pi());
     }
 }
