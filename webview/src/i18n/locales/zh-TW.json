@@ -219,7 +219,7 @@
         "cli": "CLI 模式",
         "cliDesc": "直接呼叫本機 Claude CLI",
         "cliPathPlaceholder": "Claude CLI 可執行檔案路徑（留空自動偵測）",
-        "hint": "CLI 模式不支援 thinking / /context 等部分功能，權限模式跟隨上方設定。",
+        "hint": "切換後新請求將按所選模式發起。CLI 模式下部分能力可能與 SDK 模式存在差異。權限模式跟隨上方設定。",
         "scopeNotice": "僅對新會話和新分頁生效;已有分頁保留目前模式,新增分頁才會套用新模式。"
       },
       "nodePath": {

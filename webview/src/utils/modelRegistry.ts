@@ -111,12 +111,11 @@ export function resolveClaudeModelId(modelId: string | undefined | null): string
  * 过滤"语义不同,不复用本函数)。
  */
 export function normalizeProvider(raw: string | null | undefined): ProviderType {
-  if (raw === 'codex') {
-    return 'codex';
-  }
-  if (raw === 'opencode') {
-    return 'opencode';
-  }
+  if (raw === 'codex') return 'codex';
+  if (raw === 'opencode') return 'opencode';
+  if (raw === 'grok') return 'grok';
+  if (raw === 'kimi') return 'kimi';
+  if (raw === 'pi') return 'pi';
   return 'claude';
 }
 
@@ -235,7 +234,7 @@ export function parseModelRegistryPayload(raw: unknown): ModelRegistryPayload | 
       }
       const obj = item as Record<string, unknown>;
       const id = typeof obj.id === 'string' ? obj.id.trim() : '';
-      const provider = obj.provider === 'codex' ? 'codex' : obj.provider === 'claude' ? 'claude' : obj.provider === 'opencode' ? 'opencode' : null;
+      const provider = obj.provider === 'codex' ? 'codex' : obj.provider === 'claude' ? 'claude' : obj.provider === 'opencode' ? 'opencode' : obj.provider === 'grok' ? 'grok' : obj.provider === 'kimi' ? 'kimi' : obj.provider === 'pi' ? 'pi' : null;
       const rawContextWindow = typeof obj.contextWindow === 'number' ? obj.contextWindow : undefined;
       if (!id || !provider) {
         continue;

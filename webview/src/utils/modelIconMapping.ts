@@ -113,6 +113,8 @@ const PROVIDER_TO_VENDOR: Record<string, ModelVendor> = {
   longcat: 'longcat',
   'opencode-go': 'opencode',
   openrouter: 'openrouter',
+  grok: 'grok',
+  pi: 'grok',
 };
 
 /**

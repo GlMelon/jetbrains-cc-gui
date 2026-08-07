@@ -9,6 +9,10 @@ import { DEFAULT_CONTEXT_WINDOW, strip1MContextSuffix } from '../components/Chat
 import { useClaudeProvider } from './providers/useClaudeProvider';
 import { useCodexProvider } from './providers/useCodexProvider';
 import { useOpenCodeProvider } from './providers/useOpenCodeProvider';
+import { useGrokProvider } from './providers/useGrokProvider';
+import { useKimiProvider } from './providers/useKimiProvider';
+import { usePiProvider } from './providers/usePiProvider';
+import { isCliOnlyProvider, normalizeCliPermissionMode } from './providers/cliProviders';
 import { useUsageTracking } from './providers/useUsageTracking';
 import { useProviderSettings } from './providers/useProviderSettings';
 import { useModelStatePersistence } from './providers/useModelStatePersistence';
@@ -49,7 +53,10 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
   // ── Provider-specific sub-hooks ──
   const claude = useClaudeProvider();
   const codex = useCodexProvider();
-const opencode = useOpenCodeProvider();
+  const opencode = useOpenCodeProvider();
+  const grok = useGrokProvider();
+  const kimi = useKimiProvider();
+  const pi = usePiProvider();
   const { isSdkInstalled, isSdkStatusKnown, ...usage } = useUsageTracking();
   const settings = useProviderSettings({ addToast, t });
 
@@ -65,6 +72,18 @@ const opencode = useOpenCodeProvider();
     codexFastMode, setCodexFastMode,
   } = codex;
   const { selectedOpenCodeModel, setSelectedOpenCodeModel } = opencode;
+  const {
+    selectedGrokModel, setSelectedGrokModel,
+    grokPermissionMode, setGrokPermissionMode,
+  } = grok;
+  const {
+    selectedKimiModel, setSelectedKimiModel,
+    kimiPermissionMode, setKimiPermissionMode,
+  } = kimi;
+  const {
+    selectedPiModel, setSelectedPiModel,
+    piPermissionMode, setPiPermissionMode,
+  } = pi;
 
   // ── Persistence: load on mount + save on change ──
   useModelStatePersistence({
@@ -72,6 +91,9 @@ const opencode = useOpenCodeProvider();
     setSelectedClaudeModel,
     setSelectedCodexModel,
     setSelectedOpenCodeModel,
+    setSelectedGrokModel,
+    setSelectedKimiModel,
+    setSelectedPiModel,
     setClaudePermissionMode,
     setCodexPermissionMode,
     setPermissionMode,
@@ -82,17 +104,32 @@ const opencode = useOpenCodeProvider();
     selectedClaudeModel,
     selectedCodexModel,
     selectedOpenCodeModel,
+    selectedGrokModel,
+    selectedKimiModel,
+    selectedPiModel,
     claudePermissionMode,
     codexPermissionMode,
+    grokPermissionMode,
+    kimiPermissionMode,
+    openCodePermissionMode: 'default',
+    piPermissionMode,
     longContextEnabled,
     reasoningEffort,
     codexFastMode,
   });
 
   // ── Computed values ──
-  const selectedModel = currentProvider === 'codex' ? selectedCodexModel
-    : currentProvider === 'opencode' ? selectedOpenCodeModel
-    : selectedClaudeModel;
+  const selectedModel = currentProvider === 'codex'
+    ? selectedCodexModel
+    : currentProvider === 'grok'
+      ? selectedGrokModel
+      : currentProvider === 'kimi'
+        ? selectedKimiModel
+        : currentProvider === 'opencode'
+          ? selectedOpenCodeModel
+          : currentProvider === 'pi'
+            ? selectedPiModel
+            : selectedClaudeModel;
   const currentSdkInstalled = useMemo(
     () => isSdkInstalled(currentProvider),
     [isSdkInstalled, currentProvider],
@@ -138,13 +175,25 @@ const opencode = useOpenCodeProvider();
         setSelectedOpenCodeModel(selected);
         return;
       }
+      if (provider === 'grok') {
+        setSelectedGrokModel(selected);
+        return;
+      }
+      if (provider === 'kimi') {
+        setSelectedKimiModel(selected);
+        return;
+      }
+      if (provider === 'pi') {
+        setSelectedPiModel(selected);
+        return;
+      }
       setSelectedClaudeModel(selected);
-      // A4:longContext 直接读后端权威布尔 supportsLongContext(见 ModelProviderHandler),不再前端按 effectiveContextWindow 数值推断。
+      // A4:longContext 直读后端权威布尔 supportsLongContext(见 ModelProviderHandler),不再前端按 effectiveContextWindow 数值推断。
       setLongContextEnabled(selection.supportsLongContext === true);
     } catch {
       // Ignore malformed backend selection events; existing state remains authoritative for display.
     }
-  }), [setLongContextEnabled, setSelectedClaudeModel, setSelectedCodexModel, setSelectedOpenCodeModel]);
+  }), [setLongContextEnabled, setSelectedClaudeModel, setSelectedCodexModel, setSelectedOpenCodeModel, setSelectedGrokModel, setSelectedKimiModel, setSelectedPiModel]);
 
   // Subscribe to dependency status updates to populate sdkStatus
   useEffect(() => subscribeEvent(DOWNSTREAM.DEPENDENCY_STATUS, (json) => {
@@ -160,50 +209,53 @@ const opencode = useOpenCodeProvider();
 
   // ── Cross-provider handlers ──
   const handleModeSelect = useCallback((mode: PermissionMode) => {
-    // opencode 工具由 opencode 原生策略管控,本插件不拦截——不收集/传递 permissionMode(B1/SEC-03)
     if (currentProvider === 'opencode') {
       return;
     }
     if (currentProvider === 'codex') {
       setPermissionMode(mode);
       setCodexPermissionMode(mode);
-        sendAction(UPSTREAM.SET_SESSION_MODE, mode);
+      sendAction(UPSTREAM.SET_SESSION_MODE, mode);
+      return;
+    }
+    if (isCliOnlyProvider(currentProvider)) {
+      const cliMode = normalizeCliPermissionMode(mode);
+      setPermissionMode(cliMode);
+      if (currentProvider === 'grok') setGrokPermissionMode(cliMode);
+      if (currentProvider === 'kimi') setKimiPermissionMode(cliMode);
+      if (currentProvider === 'pi') setPiPermissionMode(cliMode);
+      sendAction(UPSTREAM.SET_SESSION_MODE, cliMode);
       return;
     }
     setPermissionMode(mode);
     setClaudePermissionMode(mode);
-      sendAction(UPSTREAM.SET_SESSION_MODE, mode);
-  }, [currentProvider, setCodexPermissionMode, setClaudePermissionMode]);
+    sendAction(UPSTREAM.SET_SESSION_MODE, mode);
+  }, [currentProvider, setCodexPermissionMode, setClaudePermissionMode, setGrokPermissionMode, setKimiPermissionMode, setPiPermissionMode]);
 
-    const handleModelSelect = useCallback((modelId: string, contextWindow?: number) => {
+  const handleModelSelect = useCallback((modelId: string, contextWindow?: number) => {
     if (currentProvider === 'claude') {
       const strippedModelId = strip1MContextSuffix(modelId);
       const registryModels = getModelsForProvider('claude');
-      // A3:不再前端归一化,保留 stripped 原值;registry 是否命中不影响 state,由后端 session 下发纠正。
       setSelectedClaudeModel(strippedModelId);
-      // A4:supports1M 读 registry item.supports1MContext(后端权威),取代前端字符串推断。
       const supports1M = registryModels.find((model) => model.id === strippedModelId)?.supports1MContext ?? false;
 
-      // Auto-reset: disable longContext if new model doesn't support 1M
       if (longContextEnabled && !supports1M) {
         setLongContextEnabled(false);
       }
 
-      // 仅发送「意图」(模型 ID + 长上下文开关);effectiveContextWindow 由后端权威计算,
-      // 并通过 MODEL_SELECTION 下行回推(见上方订阅)。前端不再硬编码 1M/200k 计算。
       sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
         model: strippedModelId,
         longContextEnabled: longContextEnabled && supports1M,
       }));
     } else if (currentProvider === 'codex') {
       setSelectedCodexModel(modelId);
-        const registryModels = getModelsForProvider('codex');
-        const modelInfo = registryModels.find((model) => model.id === strip1MContextSuffix(modelId));
-        const effectiveContextWindow = contextWindow ?? modelInfo?.contextWindow;
-        const payload = effectiveContextWindow
-            ? JSON.stringify({model: modelId, contextWindow: effectiveContextWindow})
-            : modelId;
-        sendAction(UPSTREAM.SET_SESSION_MODEL, payload);
+      const registryModels = getModelsForProvider('codex');
+      const modelInfo = registryModels.find((model) => model.id === strip1MContextSuffix(modelId));
+      const effectiveContextWindow = contextWindow ?? modelInfo?.contextWindow;
+      const payload = effectiveContextWindow
+        ? JSON.stringify({model: modelId, contextWindow: effectiveContextWindow})
+        : modelId;
+      sendAction(UPSTREAM.SET_SESSION_MODEL, payload);
     } else if (currentProvider === 'opencode') {
       setSelectedOpenCodeModel(modelId);
       const registryModels = getModelsForProvider('opencode');
@@ -213,72 +265,87 @@ const opencode = useOpenCodeProvider();
         ? JSON.stringify({model: modelId, contextWindow: effectiveContextWindow})
         : modelId;
       sendAction(UPSTREAM.SET_SESSION_MODEL, payload);
+    } else if (currentProvider === 'grok') {
+      setSelectedGrokModel(modelId);
+      sendAction(UPSTREAM.SET_SESSION_MODEL, modelId);
+    } else if (currentProvider === 'kimi') {
+      setSelectedKimiModel(modelId);
+      sendAction(UPSTREAM.SET_SESSION_MODEL, modelId);
+    } else if (currentProvider === 'pi') {
+      setSelectedPiModel(modelId);
+      sendAction(UPSTREAM.SET_SESSION_MODEL, modelId);
     }
-  }, [currentProvider, longContextEnabled, setSelectedClaudeModel, setSelectedCodexModel, setSelectedOpenCodeModel]);
+  }, [currentProvider, longContextEnabled, setSelectedClaudeModel, setSelectedCodexModel, setSelectedOpenCodeModel, setSelectedGrokModel, setSelectedKimiModel, setSelectedPiModel]);
 
-    const handleProviderSelect = useCallback((providerId: string, contextWindow?: number) => {
+  const handleProviderSelect = useCallback((providerId: string, contextWindow?: number) => {
     setCurrentProvider(providerId);
-      sendAction(UPSTREAM.SET_SESSION_PROVIDER, providerId);
+    sendAction(UPSTREAM.SET_SESSION_PROVIDER, providerId);
 
-    const modeToSet: PermissionMode = providerId === 'codex'
-      ? codexPermissionMode
-      : providerId === 'opencode'
-        ? 'default'
-        : claudePermissionMode;
+    let modeToSet: PermissionMode = claudePermissionMode;
+    if (providerId === 'codex') {
+      modeToSet = codexPermissionMode;
+    } else if (providerId === 'opencode') {
+      modeToSet = 'default';
+    } else if (providerId === 'grok') {
+      modeToSet = normalizeCliPermissionMode(grokPermissionMode);
+    } else if (providerId === 'kimi') {
+      modeToSet = normalizeCliPermissionMode(kimiPermissionMode);
+    } else if (providerId === 'pi') {
+      modeToSet = normalizeCliPermissionMode(piPermissionMode);
+    }
     setPermissionMode(modeToSet);
-      sendAction(UPSTREAM.SET_SESSION_MODE, modeToSet);
+    sendAction(UPSTREAM.SET_SESSION_MODE, modeToSet);
 
     let newModel = providerId === 'codex'
       ? selectedCodexModel
       : providerId === 'opencode'
         ? selectedOpenCodeModel
-        : selectedClaudeModel;  // Clean ID, no [1m]
+        : providerId === 'grok'
+          ? selectedGrokModel
+          : providerId === 'kimi'
+            ? selectedKimiModel
+            : providerId === 'pi'
+              ? selectedPiModel
+              : selectedClaudeModel;
 
     const newProviderModels = getModelsForProvider(providerId);
 
-    // 切 provider 时默认该 provider 第一个模型:已选模型为空或不属于该 provider registry(跨 provider
-    // 串台污染,典型:persisted selectedOpenCodeModel 被历史 MODEL_SELECTION 设成 claude-role-sonnet,
-    // useModelStatePersistence 持久化后重启 hydrate 形成自强化循环)时,回退到该 provider 第一个可用模型。
-    // 避免污染的 -m claude-role-sonnet 透传给 opencode CLI 触发"进程退出但未返回任何内容"静默失败;
-    // setSelectedXxxModel 同步校正,打破 localStorage 持久化污染循环。对称三 provider(Principle 6)。
     const belongsToProvider = newModel
       && newProviderModels.some((model) => model.id === strip1MContextSuffix(newModel));
     if (!belongsToProvider && newProviderModels.length > 0) {
       newModel = newProviderModels[0].id;
     }
 
-    // 始终同步设置对应 provider 的模型状态,确保 selectedModel 计算正确
-    // (resolveIconVendor 中 modelId 优先级高于 providerId,若模型状态未同步会导致图标错误)
     if (providerId === 'codex') {
       setSelectedCodexModel(newModel);
     } else if (providerId === 'opencode') {
       setSelectedOpenCodeModel(newModel);
+    } else if (providerId === 'grok') {
+      setSelectedGrokModel(newModel);
+    } else if (providerId === 'kimi') {
+      setSelectedKimiModel(newModel);
+    } else if (providerId === 'pi') {
+      setSelectedPiModel(newModel);
     } else {
       setSelectedClaudeModel(newModel);
     }
 
-    // FIX: Reset provider-specific settings when switching providers
-    // to avoid cross-provider state contamination
     if (providerId === 'claude') {
-      // Reset longContextEnabled based on new model's 1M support
       const supports1M = newProviderModels.find((model) => model.id === strip1MContextSuffix(newModel))?.supports1MContext ?? false;
       setLongContextEnabled(supports1M);
-      // Reset codex-specific settings
       setReasoningEffort('high');
       setCodexFastMode('normal');
     } else if (providerId === 'codex') {
-      // Reset longContextEnabled (codex doesn't support it)
       setLongContextEnabled(false);
     } else if (providerId === 'opencode') {
-      // Reset longContextEnabled (opencode doesn't support it)
       setLongContextEnabled(false);
-      // Reset codex-specific settings for opencode
       setReasoningEffort('high');
       setCodexFastMode('normal');
+    } else {
+      // grok/kimi/pi: CLI providers don't support long context
+      setLongContextEnabled(false);
     }
 
-    // 切换 provider 后重发当前模型。claude 仅发送意图(longContextEnabled),
-    // effectiveContextWindow 由后端权威计算;codex/opencode 发送 registry contextWindow(用校正后的 newModel 查)。
     if (providerId === 'claude') {
       sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
         model: newModel,
@@ -295,24 +362,32 @@ const opencode = useOpenCodeProvider();
   }, [
     claudePermissionMode,
     codexPermissionMode,
+    grokPermissionMode,
+    kimiPermissionMode,
+    piPermissionMode,
     selectedCodexModel,
     selectedClaudeModel,
     selectedOpenCodeModel,
+    selectedGrokModel,
+    selectedKimiModel,
+    selectedPiModel,
     longContextEnabled,
     setSelectedClaudeModel,
     setSelectedCodexModel,
     setSelectedOpenCodeModel,
+    setSelectedGrokModel,
+    setSelectedKimiModel,
+    setSelectedPiModel,
     setLongContextEnabled,
     setReasoningEffort,
     setCodexFastMode,
   ]);
 
-    const handleLongContextChange = useCallback((enabled: boolean) => {
+  const handleLongContextChange = useCallback((enabled: boolean) => {
     setLongContextEnabled(enabled);
     if (currentProvider === 'claude') {
       const registryModels = getModelsForProvider('claude');
       const supports1M = registryModels.find((model) => model.id === strip1MContextSuffix(selectedClaudeModel))?.supports1MContext ?? false;
-      // 仅发送意图;effectiveContextWindow 由后端计算并通过 MODEL_SELECTION 回推。
       sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
         model: selectedClaudeModel,
         longContextEnabled: enabled && supports1M,
@@ -338,7 +413,6 @@ const opencode = useOpenCodeProvider();
       if (longContextEnabled && !supports1M) {
         setLongContextEnabled(false);
       }
-      // 仅发送意图;effectiveContextWindow 由后端权威计算。
       sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
         model: selectedClaudeModel,
         longContextEnabled: longContextEnabled && supports1M,
@@ -349,6 +423,30 @@ const opencode = useOpenCodeProvider();
     if (currentProvider === 'opencode') {
       sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
         model: selectedOpenCodeModel,
+        contextWindow: selectedRegistryModel.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
+      }));
+      return;
+    }
+
+    if (currentProvider === 'grok') {
+      sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
+        model: selectedGrokModel,
+        contextWindow: selectedRegistryModel.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
+      }));
+      return;
+    }
+
+    if (currentProvider === 'kimi') {
+      sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
+        model: selectedKimiModel,
+        contextWindow: selectedRegistryModel.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
+      }));
+      return;
+    }
+
+    if (currentProvider === 'pi') {
+      sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
+        model: selectedPiModel,
         contextWindow: selectedRegistryModel.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
       }));
       return;
@@ -365,6 +463,9 @@ const opencode = useOpenCodeProvider();
     selectedClaudeModel,
     selectedCodexModel,
     selectedOpenCodeModel,
+    selectedGrokModel,
+    selectedKimiModel,
+    selectedPiModel,
     selectedModel,
     setLongContextEnabled,
   ]);
@@ -373,6 +474,9 @@ const opencode = useOpenCodeProvider();
     ...claude,
     ...codex,
     ...opencode,
+    ...grok,
+    ...kimi,
+    ...pi,
     ...usage,
     ...settings,
     sdkStatus,

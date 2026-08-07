@@ -227,7 +227,7 @@
         "cli": "CLI Mode",
         "cliDesc": "Invoke the local Claude CLI directly",
         "cliPathPlaceholder": "Path to the Claude CLI executable (leave blank to auto-detect)",
-        "hint": "CLI mode does not support thinking, /context and a few other features. Permission mode follows the setting above.",
+        "hint": "New requests use the selected mode after switching. Some capabilities in CLI mode may differ from SDK mode. Permission mode follows the setting above.",
         "policyHint": "Per-session runtime preference. If the chosen mode isn't allowed by 'Runtime Routing Policy' below, it falls back to that provider's default runtime with a notice.",
         "scopeNotice": "Only applies to new sessions and new tabs. Existing tabs keep their current mode — create a new tab to use the new mode."
       },
@@ -2095,6 +2095,15 @@
     },
     "opencode": {
       "label": "OpenCode"
+    },
+    "grok": {
+      "label": "Grok"
+    },
+    "kimi": {
+      "label": "Kimi"
+    },
+    "pi": {
+      "label": "Pi"
     }
   },
   "promptEnhancer": {

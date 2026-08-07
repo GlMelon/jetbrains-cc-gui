@@ -34,6 +34,9 @@ export function useModelStatePersistence(options: {
   setSelectedClaudeModel: (value: string) => void;
   setSelectedCodexModel: (value: string) => void;
   setSelectedOpenCodeModel: (value: string) => void;
+  setSelectedGrokModel: (value: string) => void;
+  setSelectedKimiModel: (value: string) => void;
+  setSelectedPiModel: (value: string) => void;
   setClaudePermissionMode: (value: PermissionMode) => void;
   setCodexPermissionMode: (value: PermissionMode) => void;
   setPermissionMode: (value: PermissionMode) => void;
@@ -45,8 +48,15 @@ export function useModelStatePersistence(options: {
   selectedClaudeModel: string;
   selectedCodexModel: string;
   selectedOpenCodeModel: string;
+  selectedGrokModel: string;
+  selectedKimiModel: string;
+  selectedPiModel: string;
   claudePermissionMode: PermissionMode;
   codexPermissionMode: PermissionMode;
+  grokPermissionMode: PermissionMode;
+  kimiPermissionMode: PermissionMode;
+  openCodePermissionMode: PermissionMode;
+  piPermissionMode: PermissionMode;
   longContextEnabled: boolean;
   reasoningEffort: ReasoningEffort;
   codexFastMode: CodexFastMode;
@@ -56,6 +66,9 @@ export function useModelStatePersistence(options: {
     setSelectedClaudeModel,
     setSelectedCodexModel,
     setSelectedOpenCodeModel,
+    setSelectedGrokModel,
+    setSelectedKimiModel,
+    setSelectedPiModel,
     setClaudePermissionMode,
     setCodexPermissionMode,
     setPermissionMode,
@@ -66,8 +79,15 @@ export function useModelStatePersistence(options: {
     selectedClaudeModel,
     selectedCodexModel,
     selectedOpenCodeModel,
+    selectedGrokModel,
+    selectedKimiModel,
+    selectedPiModel,
     claudePermissionMode,
     codexPermissionMode,
+    grokPermissionMode,
+    kimiPermissionMode,
+    openCodePermissionMode,
+    piPermissionMode,
     longContextEnabled,
     reasoningEffort,
     codexFastMode,
@@ -93,7 +113,7 @@ export function useModelStatePersistence(options: {
       if (saved) {
         const state = JSON.parse(saved);
 
-        if (['claude', 'codex', 'opencode'].includes(state.provider)) {
+        if (['claude', 'codex', 'opencode', 'grok', 'kimi', 'pi'].includes(state.provider)) {
           restoredProvider = state.provider;
           setCurrentProvider(state.provider);
         }
@@ -132,11 +152,31 @@ export function useModelStatePersistence(options: {
         if (typeof state.opencodeModel === 'string' && state.opencodeModel.trim()) {
           setSelectedOpenCodeModel(state.opencodeModel);
         }
+
+        if (typeof state.grokModel === 'string' && state.grokModel.trim()) {
+          setSelectedGrokModel(state.grokModel);
+        }
+
+        if (typeof state.kimiModel === 'string' && state.kimiModel.trim()) {
+          setSelectedKimiModel(state.kimiModel);
+        }
+
+        if (typeof state.piModel === 'string' && state.piModel.trim()) {
+          setSelectedPiModel(state.piModel);
+        }
       }
 
       const initialPermissionMode: PermissionMode = restoredProvider === 'codex'
         ? restoredCodexPermissionMode
-        : restoredClaudePermissionMode;
+        : restoredProvider === 'grok'
+          ? grokPermissionMode
+          : restoredProvider === 'kimi'
+            ? kimiPermissionMode
+            : restoredProvider === 'opencode'
+              ? openCodePermissionMode
+              : restoredProvider === 'pi'
+                ? piPermissionMode
+                : restoredClaudePermissionMode;
       setClaudePermissionMode(restoredClaudePermissionMode);
       setCodexPermissionMode(restoredCodexPermissionMode);
       setPermissionMode(initialPermissionMode);
@@ -155,6 +195,9 @@ export function useModelStatePersistence(options: {
         claudeModel: selectedClaudeModel,
         codexModel: selectedCodexModel,
         opencodeModel: selectedOpenCodeModel,
+        grokModel: selectedGrokModel,
+        kimiModel: selectedKimiModel,
+        piModel: selectedPiModel,
         claudePermissionMode,
         codexPermissionMode,
         longContextEnabled,
@@ -169,6 +212,9 @@ export function useModelStatePersistence(options: {
     selectedClaudeModel,
     selectedCodexModel,
     selectedOpenCodeModel,
+    selectedGrokModel,
+    selectedKimiModel,
+    selectedPiModel,
     claudePermissionMode,
     codexPermissionMode,
     longContextEnabled,

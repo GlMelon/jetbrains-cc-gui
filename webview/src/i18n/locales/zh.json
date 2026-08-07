@@ -2112,6 +2112,15 @@
     },
     "opencode": {
       "label": "OpenCode"
+    },
+    "grok": {
+      "label": "Grok"
+    },
+    "kimi": {
+      "label": "Kimi"
+    },
+    "pi": {
+      "label": "Pi"
     }
   },
   "promptEnhancer": {

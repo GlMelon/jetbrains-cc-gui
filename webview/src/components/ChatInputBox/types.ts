@@ -276,6 +276,11 @@ export const CLAUDE_ROLE_MODEL_IDS = {
 // 此处 re-export 消除手抄(原 200_000 / 1_000_000 与后端逐字重复的第二真相源)。
 export { DEFAULT_CONTEXT_WINDOW, ONE_MILLION_CONTEXT_WINDOW } from '../../generated/protocol';
 
+export const GROK_DEFAULT_MODEL_ID = 'grok';
+export const KIMI_DEFAULT_MODEL_ID = 'auto';
+export const OPENCODE_DEFAULT_MODEL_ID = 'opencode-default';
+export const PI_DEFAULT_MODEL_ID = 'auto';
+
 // A1(2026-06-23):CLAUDE_MODELS / CODEX_MODELS / AVAILABLE_MODELS 本地表已删除。
 // 模型真相源唯一为后端 MODEL_REGISTRY 下发(ReadOnlyDefaultModels → ModelRegistryService.serialize);
 // 前端经 utils/modelRegistry 订阅,空 registry 时显示 loading,不回退本地表。
@@ -298,6 +303,9 @@ export const AVAILABLE_PROVIDERS: ProviderInfo[] = [
   { id: 'claude', label: 'Claude Code', icon: 'codicon-terminal', enabled: true },
   { id: 'codex', label: 'Codex', icon: 'codicon-terminal', enabled: true },
   { id: 'opencode', label: 'OpenCode', icon: 'codicon-terminal', enabled: true },
+  { id: 'grok', label: 'Grok', icon: 'codicon-terminal', enabled: true },
+  { id: 'kimi', label: 'Kimi', icon: 'codicon-terminal', enabled: true },
+  { id: 'pi', label: 'Pi', icon: 'codicon-terminal', enabled: true },
   { id: 'gemini', label: 'Gemini Cli', icon: 'codicon-terminal', enabled: false },
 ];
 
