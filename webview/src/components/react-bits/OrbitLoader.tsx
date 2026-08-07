@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react';
+
 export interface OrbitLoaderProps {
   /** Outer diameter of the loader in px (default: 40) */
   size?: number;
@@ -63,7 +65,8 @@ export const OrbitLoader = ({
             transform: `scale(${config.scale})`,
             animation: `orbit-spin ${config.duration}s linear infinite ${config.direction}`,
             willChange: 'transform',
-          }}
+            '--orbit-scale': config.scale,
+          } as CSSProperties}
         />
       ))}
       <style>{`

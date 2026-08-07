@@ -56,7 +56,7 @@ export const WelcomeScreen = memo(function WelcomeScreen({
       {/* Aurora background effect */}
       {showAurora && (
         <Aurora
-          colors={['var(--accent-primary, #4ea1ff)', 'var(--accent-secondary, #7c3aed)', 'var(--accent-success, #10b981)']}
+          colors={['#4ea1ff', '#7c3aed', '#10b981']}
           speed={0.3}
           opacity={0.4}
         />

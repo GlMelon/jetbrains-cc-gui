@@ -59,6 +59,32 @@ public final class TokenUsageUtils {
     }
 
     /**
+     * Resolve the effective context window retained in provider usage metadata.
+     * Providers that report a session-specific value (e.g. Codex {@code model_context_window})
+     * override the static model limit; others keep the supplied fallback. The static mapping
+     * thus serves only as a denominator fallback when a real numerator exists.
+     */
+    public static int extractMaxTokens(JsonObject usage, int fallbackMaxTokens) {
+        if (usage != null) {
+            String[] keys = {"model_context_window", "maxTokens", "limit"};
+            for (String key : keys) {
+                if (!usage.has(key) || usage.get(key).isJsonNull()) {
+                    continue;
+                }
+                try {
+                    int value = usage.get(key).getAsInt();
+                    if (value > 0) {
+                        return value;
+                    }
+                } catch (RuntimeException ignored) {
+                    // Ignore malformed provider metadata and retain the static fallback.
+                }
+            }
+        }
+        return Math.max(0, fallbackMaxTokens);
+    }
+
+    /**
      * Build the frontend usage update payload from provider-native usage JSON.
      * Keeps the provider-specific used-token formula while also exposing the
      * raw breakdown fields used by the context bar hover detail.
@@ -150,5 +176,25 @@ public final class TokenUsageUtils {
             }
         }
         return null;
+    }
+
+    /**
+     * 移除 retained 消息中 provider/model 特有的当前上下文快照。历史 per-turn 计量
+     * (turnUsage、turnCostUsd)刻意保留不动,故仅删 {@code usage} 字段。
+     * 用于真实 provider/model 切换时作废旧快照,避免把旧模型的上下文误当作新模型活跃上下文。
+     */
+    public static void clearContextUsageFromSessionMessages(List<ClaudeSession.Message> messages) {
+        if (messages == null) {
+            return;
+        }
+        for (ClaudeSession.Message message : messages) {
+            if (message == null || message.raw == null) {
+                continue;
+            }
+            message.raw.remove("usage");
+            if (message.raw.has("message") && message.raw.get("message").isJsonObject()) {
+                message.raw.getAsJsonObject("message").remove("usage");
+            }
+        }
     }
 }

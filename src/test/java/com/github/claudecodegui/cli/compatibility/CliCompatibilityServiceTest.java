@@ -110,9 +110,16 @@ public class CliCompatibilityServiceTest {
                 + "\",\"blockedVersions\":" + blockedJson
                 + ",\"unknownVersionPolicy\":\"" + unknownPolicy
                 + "\",\"higherVersionPolicy\":\"" + higherPolicy + "\"}";
+        // providers 必须覆盖全部 ProviderType(codec.validate() fail-fast),按枚举 SSOT 动态生成。
+        StringBuilder providers = new StringBuilder();
+        for (ProviderType provider : ProviderType.values()) {
+            if (providers.length() > 0) {
+                providers.append(',');
+            }
+            providers.append('"').append(provider.value()).append("\":").append(rule);
+        }
         String json = "{\"schemaVersion\":1,\"revision\":" + revision
-                + ",\"generatedAt\":\"2026-07-22\",\"providers\":{"
-                + "\"claude\":" + rule + ",\"codex\":" + rule + ",\"opencode\":" + rule + "}}";
+                + ",\"generatedAt\":\"2026-07-22\",\"providers\":{" + providers + "}}";
         return bytes(json);
     }
 

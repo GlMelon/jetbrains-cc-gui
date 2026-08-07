@@ -22,6 +22,7 @@ import com.github.claudecodegui.handler.codex.UpdateCodexMcpServerActionHandler;
 import com.github.claudecodegui.handler.codex.DeleteCodexMcpServerActionHandler;
 import com.github.claudecodegui.handler.codex.ToggleCodexMcpServerActionHandler;
 import com.github.claudecodegui.handler.codex.ValidateCodexMcpServerActionHandler;
+import com.github.claudecodegui.handler.UsagePushService;
 import com.github.claudecodegui.handler.context.GetContextUsageActionHandler;
 import com.github.claudecodegui.handler.dependency.DependencyActionHandlers;
 import com.github.claudecodegui.handler.dependency.GetDependencyStatusActionHandler;
@@ -1055,6 +1056,7 @@ public class ChatWindowDelegate {
         sendCurrentAvatarConfigToFrontend();
         sendCurrentModelSelectionToFrontend();
         replayCurrentSessionStateToFrontend();
+        restoreUsageDisplayAfterReady();
         host.persistTabSessionState();
 
         if (pendingQuickFixPrompt != null && pendingQuickFixCallback != null) {
@@ -1069,6 +1071,32 @@ public class ChatWindowDelegate {
         }
 
         host.getStreamCoalescer().flush(null);
+    }
+
+    /**
+     * watchdog recovery(reload/recreate)后恢复状态栏 usage 显示。
+     *
+     * <p>reload/recreate 重建 webview 后前端 usage 状态丢失,而 loadFromServer 的
+     * {@code restoreTokenUsage} 不在 recovery 路径触发、CodexMessageHandler 也不重发
+     * usage 消息,导致恢复后状态栏 token 用量空白。对称 {@link #sendCurrentModelSelectionToFrontend}
+     * 等 ready 回灌,从 session 真相源(messages 中的 lastUsage)恢复 context 快照;
+     * 空会话或无可信快照时 {@link UsagePushService#pushCurrentUsageIfAvailable} 返回
+     * false 不下行,保持 unknown 而非误显静态容量(对齐上游"empty sessions remain untouched"契约)。
+     * 本地 handleFrontendReady 不区分 initial/recovery——initial 续接历史同样受益,
+     * 新空会话因无快照自然跳过。</p>
+     */
+    private void restoreUsageDisplayAfterReady() {
+        try {
+            HandlerContext ctx = host.getHandlerContext();
+            ClaudeSession session = ctx != null ? ctx.getSession() : null;
+            if (session == null) {
+                return;
+            }
+            int fallbackMaxTokens = session.getState().getEffectiveMaxTokens();
+            new UsagePushService(ctx).pushCurrentUsageIfAvailable(fallbackMaxTokens);
+        } catch (Exception e) {
+            LOG.warn("Failed to restore usage display after frontend ready: " + e.getMessage());
+        }
     }
 
     /**

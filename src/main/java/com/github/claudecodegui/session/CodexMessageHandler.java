@@ -526,12 +526,13 @@ public class CodexMessageHandler implements MessageCallback {
             // Normalize to the Claude usage schema (input excludes cache) and stamp it
             // as turnUsage for the per-turn token display in the webview.
             com.google.gson.JsonObject turnUsage = buildTurnUsage(usage);
-            com.google.gson.JsonObject statusUsage = currentTurnContextUsage == null
-                    ? usage
-                    : currentTurnContextUsage;
-            boolean updated = attachUsageToLastAssistant(statusUsage, turnUsage);
+            // turn.completed 的 usage 仅是单轮记账(Codex SDK 某些版本在此暴露会话累积值,且永不含权威
+            // context window)。只有 token_count 可更新顶层上下文快照;无 token_count 时保留既有快照。
+            boolean updated = attachUsageToLastAssistant(currentTurnContextUsage, turnUsage);
             if (updated) {
-                pushUsageUpdate(usage);
+                if (currentTurnContextUsage != null) {
+                    pushUsageUpdate(currentTurnContextUsage);
+                }
                 callbackHandler.notifyMessageUpdate(state.getMessages());
                 LOG.info("Codex usage applied from result message");
             } else {
@@ -639,17 +640,22 @@ public class CodexMessageHandler implements MessageCallback {
                 return;
             }
 
-            com.google.gson.JsonObject totalUsage = info.getAsJsonObject("total_token_usage");
-            // 项2:同 buildTurnUsage,统一 jsonIntOrZero 守卫(JsonNull 不再抛异常吞掉 usage)。
-            int inputTokens = jsonIntOrZero(totalUsage, "input_tokens");
-            int outputTokens = jsonIntOrZero(totalUsage, "output_tokens");
-            int cachedInputTokens = jsonIntOrZero(totalUsage, "cached_input_tokens");
+            // last_token_usage 是当前活跃模型上下文快照(权威 numerator);total_token_usage 是
+            // 会话累积计数,可能超过模型窗口,仅可用于 Node 侧 per-turn delta 计算,绝不可作当前上下文。
+            com.google.gson.JsonObject contextUsage = info.getAsJsonObject("last_token_usage");
+            int inputTokens = jsonIntOrZero(contextUsage, "input_tokens");
+            int outputTokens = jsonIntOrZero(contextUsage, "output_tokens");
+            int cachedInputTokens = jsonIntOrZero(contextUsage, "cached_input_tokens");
 
             com.google.gson.JsonObject usage = new com.google.gson.JsonObject();
             usage.addProperty("input_tokens", inputTokens);
             usage.addProperty("output_tokens", outputTokens);
             usage.addProperty("cache_read_input_tokens", cachedInputTokens);
             usage.addProperty("cache_creation_input_tokens", 0);
+            int modelContextWindow = jsonIntOrZero(info, "model_context_window");
+            if (modelContextWindow > 0) {
+                usage.addProperty("model_context_window", modelContextWindow);
+            }
             currentTurnContextUsage = usage.deepCopy();
 
             // token_count is not turn-scoped, so never stamp it as turnUsage. The latest
@@ -681,7 +687,9 @@ public class CodexMessageHandler implements MessageCallback {
         for (int i = messages.size() - 1; i >= 0; i--) {
             Message msg = messages.get(i);
             if (msg.type == Message.Type.ASSISTANT && msg.raw != null) {
-                msg.raw.add("usage", usage);
+                if (usage != null) {
+                    msg.raw.add("usage", usage);
+                }
                 if (turnUsage != null) {
                     msg.raw.add("turnUsage", turnUsage);
                     Double turnCostUsd = UsageCostCalculator.calculateTurnCostUsd(

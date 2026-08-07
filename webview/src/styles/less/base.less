@@ -1,3 +1,12 @@
+/* ==================== 高度链契约 ====================
+   #app(flex col, 视口容器) → AnimatedView(flex:1, 动画+高度传递)
+     → 视图根(flex col, height:100%, 自包含三段: header / 内容(flex:1) / footer)
+     → 内容区(flex:1 撑满剩余, min-height:0 允许内部滚动)
+
+   铁律:任何在视图根外新增包裹层(Provider / Boundary / lazy Suspense)都不得
+        破坏 flex:1 链;新屏幕必须自包含(height:100% + flex column 根),
+        不依赖被谁包裹。详见 components/AnimatedView.tsx。
+   ==================================================== */
 * {
     margin: 0;
     padding: 0;

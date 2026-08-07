@@ -391,15 +391,10 @@ public class SessionLifecycleManager {
      * Reset token usage statistics in the frontend (used after new session creation).
      */
     private void resetTokenUsage() {
-        int maxTokens = host.getHandlerContext().getSession() != null
-                ? host.getHandlerContext().getSession().getState().getEffectiveMaxTokens()
-                : ModelProviderHandler.getModelContextLimit(host.getHandlerContext().getCurrentModel());
+        // 新会话的 provider 尚未上报 trusted token 计数:不附 limit/usedTokens,让前端保持
+        // unknown 而非把静态模型容量(200k/1050k)误当作当前上下文。
         JsonObject usageUpdate = new JsonObject();
         usageUpdate.addProperty("percentage", 0);
-        usageUpdate.addProperty("totalTokens", 0);
-        usageUpdate.addProperty("limit", maxTokens);
-        usageUpdate.addProperty("usedTokens", 0);
-        usageUpdate.addProperty("maxTokens", maxTokens);
 
         String usageJson = GsonHolder.GSON.toJson(usageUpdate);
 

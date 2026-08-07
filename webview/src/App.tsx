@@ -2,7 +2,7 @@ import { sendAction } from './bridge/typed';
 import { UPSTREAM } from './generated/protocol';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { motion, AnimatePresence } from 'motion/react';
+import { AnimatePresence } from 'motion/react';
 import HistoryView from './components/history/HistoryView';
 import SettingsView from './components/settings';
 import { preloadSlashCommands, forceRefreshPrompts } from './components/ChatInputBox/providers';
@@ -32,6 +32,7 @@ import { applyDiffTheme, getStoredDiffTheme } from './utils/diffTheme';
 import type { Attachment, ChatInputBoxHandle } from './components/ChatInputBox/types';
 import { ChatHeader } from './components/ChatHeader';
 import { ChatScreen } from './components/ChatScreen';
+import { AnimatedView } from './components/AnimatedView';
 import type { MessageListRevealHandle } from './components/ConversationSearch/types';
 import { ModelProviderProvider } from './contexts/ModelProviderContext';
 import { useSubagentContextValues, useSetTaskEvents } from './contexts/SubagentContext';
@@ -698,14 +699,7 @@ const App = () => {
 
       <AnimatePresence mode="wait">
         {currentView === 'settings' ? (
-          <motion.div
-            key="settings"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
-            style={{ height: '100%' }}
-          >
+          <AnimatedView key="settings">
         <SettingsView
           onClose={() => setCurrentView('chat')}
           initialTab={settingsInitialTab}
@@ -728,16 +722,9 @@ const App = () => {
           onUploadAssistantAvatar={uploadAssistantAvatar}
           onUploadUserAvatar={uploadUserAvatar}
         />
-</motion.div>
+          </AnimatedView>
         ) : currentView === 'chat' ? (
-          <motion.div
-            key="chat"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
-            style={{ height: '100%' }}
-          >
+          <AnimatedView key="chat">
         <ModelProviderProvider
           value={{
             currentProvider,
@@ -810,16 +797,9 @@ const App = () => {
             onRemoveFromQueue={dequeueMessage}
           />
         </ModelProviderProvider>
-          </motion.div>
+          </AnimatedView>
       ) : (
-          <motion.div
-            key="history"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
-            style={{ height: '100%' }}
-          >
+          <AnimatedView key="history">
         <HistoryView
           historyData={historyData}
           currentProvider={currentProvider}
@@ -833,7 +813,7 @@ const App = () => {
           onUpdateTitle={updateHistoryTitle}
           onConvertToCliSession={convertToCliSession}
         />
-          </motion.div>
+          </AnimatedView>
       )}
       </AnimatePresence>
 

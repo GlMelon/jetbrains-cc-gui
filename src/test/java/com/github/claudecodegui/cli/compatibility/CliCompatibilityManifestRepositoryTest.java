@@ -1,5 +1,6 @@
 package com.github.claudecodegui.cli.compatibility;
 
+import com.github.claudecodegui.session.runtime.ProviderType;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -104,9 +105,17 @@ public class CliCompatibilityManifestRepositoryTest {
         String rule = "{\"minimumSupported\":\"0.0.0\",\"maximumTested\":\"2.0.0\","
                 + "\"blockedVersions\":[],\"unknownVersionPolicy\":\"WARN_ALLOW\","
                 + "\"higherVersionPolicy\":\"WARN_ALLOW\"}";
+        // 合成 manifest 的 providers 必须覆盖全部 ProviderType(codec.validate() fail-fast),
+        // 故按枚举 SSOT 动态生成,避免新增 provider 时再次硬编码失配。
+        StringBuilder providers = new StringBuilder();
+        for (ProviderType provider : ProviderType.values()) {
+            if (providers.length() > 0) {
+                providers.append(',');
+            }
+            providers.append('"').append(provider.value()).append("\":").append(rule);
+        }
         return bytes("{\"schemaVersion\":1,\"revision\":" + revision
-                + ",\"generatedAt\":\"2026-07-22\",\"providers\":{"
-                + "\"claude\":" + rule + ",\"codex\":" + rule + ",\"opencode\":" + rule + "}}");
+                + ",\"generatedAt\":\"2026-07-22\",\"providers\":{" + providers + "}}");
     }
 
     private static byte[] bytes(String value) {

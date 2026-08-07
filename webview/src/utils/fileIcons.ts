@@ -1,6 +1,6 @@
 /**
  * File icon mapping utility
- * Returns inline SVG strings to support vite-plugin-singlefile bundling
+ * Returns inline SVG strings so icons remain self-contained across webview builds
  *
  * Data tables are in ./fileIconMaps.ts
  */

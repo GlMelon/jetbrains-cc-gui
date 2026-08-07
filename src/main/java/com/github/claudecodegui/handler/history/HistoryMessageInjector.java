@@ -14,12 +14,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -120,8 +116,14 @@ public class HistoryMessageInjector {
     static final class CodexMessageStreamConverter {
         private final Set<String> emittedCliToolUseIds = new HashSet<>();
         private JsonObject previous;
+        private JsonObject latestAssistant;
 
         void accept(JsonObject rawMessage, CodexMessageSink sink) {
+            JsonObject tokenCountUsage = extractCodexTokenCountUsage(rawMessage);
+            if (tokenCountUsage != null) {
+                attachUsageToLatestAssistant(tokenCountUsage);
+                return;
+            }
             List<JsonObject> convertedMessages = convertCodexMessageToFrontendMessages(
                     rawMessage,
                     emittedCliToolUseIds
@@ -130,6 +132,7 @@ public class HistoryMessageInjector {
                 if (previous == null) {
                     sink.append(incoming);
                     previous = incoming;
+                    rememberLatestAssistant(incoming);
                     continue;
                 }
                 if (isDuplicateAdjacentCodexUserMessage(previous, incoming)) {
@@ -142,7 +145,77 @@ public class HistoryMessageInjector {
                 }
                 sink.append(incoming);
                 previous = incoming;
+                rememberLatestAssistant(incoming);
             }
+        }
+
+        private void rememberLatestAssistant(JsonObject incoming) {
+            if (incoming != null
+                    && CommonConstants.MSG_TYPE_ASSISTANT.equals(getStringProperty(incoming, CommonConstants.JSON_KEY_TYPE))) {
+                latestAssistant = incoming;
+            }
+        }
+
+        private void attachUsageToLatestAssistant(JsonObject usage) {
+            if (latestAssistant == null || usage == null) {
+                return;
+            }
+            JsonObject raw;
+            if (latestAssistant.has("raw") && latestAssistant.get("raw").isJsonObject()) {
+                raw = latestAssistant.getAsJsonObject("raw");
+            } else {
+                raw = new JsonObject();
+                latestAssistant.add("raw", raw);
+            }
+            raw.add("usage", usage.deepCopy());
+        }
+    }
+
+    /**
+     * 从 JSONL token_count 记录提取 provider 上报的 Codex 上下文快照。仅 last_token_usage
+     * 代表活跃模型上下文;会话累积的 total_token_usage 被刻意忽略(可能超过模型窗口)。
+     * 与实时流 {@code CodexMessageHandler#handleEventMessage} 对称,且不作为消息 emit(不计入
+     * conversation messageCount),仅把 usage 附加到最近的 assistant 消息。
+     */
+    private static JsonObject extractCodexTokenCountUsage(JsonObject message) {
+        if (message == null
+                || !CliConstants.CODEX_MSG_EVENT_MSG.equals(getStringProperty(message, CommonConstants.JSON_KEY_TYPE))
+                || !message.has("payload")
+                || !message.get("payload").isJsonObject()) {
+            return null;
+        }
+        JsonObject payload = message.getAsJsonObject("payload");
+        if (!CliConstants.CODEX_MSG_TOKEN_COUNT.equals(getStringProperty(payload, CommonConstants.JSON_KEY_TYPE))
+                || !payload.has("info")
+                || !payload.get("info").isJsonObject()) {
+            return null;
+        }
+        JsonObject info = payload.getAsJsonObject("info");
+        if (!info.has("last_token_usage") || !info.get("last_token_usage").isJsonObject()) {
+            return null;
+        }
+        JsonObject contextUsage = info.getAsJsonObject("last_token_usage");
+
+        JsonObject usage = new JsonObject();
+        usage.addProperty("input_tokens", getIntProperty(contextUsage, "input_tokens"));
+        usage.addProperty("output_tokens", getIntProperty(contextUsage, "output_tokens"));
+        usage.addProperty("cache_read_input_tokens", getIntProperty(contextUsage, "cached_input_tokens"));
+        usage.addProperty("cache_creation_input_tokens", 0);
+        int contextWindow = getIntProperty(info, "model_context_window");
+        if (contextWindow > 0) {
+            usage.addProperty("model_context_window", contextWindow);
+        }
+        return usage;
+    }
+
+    private static int getIntProperty(JsonObject object, String propertyName) {
+        if (object == null || !object.has(propertyName) || object.get(propertyName).isJsonNull()) {
+            return 0;
+        }
+        try {
+            return Math.max(0, object.get(propertyName).getAsInt());
+        } catch (RuntimeException ignored) {
+            return 0;
         }
     }
 

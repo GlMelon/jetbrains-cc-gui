@@ -25,7 +25,7 @@ public class HtmlLoader {
      */
     public String loadChatHtml() {
         try {
-            InputStream is = resourceClass.getResourceAsStream("/html/claude-chat.html");
+            InputStream is = resourceClass.getResourceAsStream("/webview/index.html");
             if (is != null) {
                 String html = new String(is.readAllBytes(), StandardCharsets.UTF_8);
                 is.close();
@@ -42,7 +42,7 @@ public class HtmlLoader {
                 return html;
             }
         } catch (Exception e) {
-            LOG.error("Failed to load claude-chat.html: " + e.getMessage());
+            LOG.error("Failed to load webview/index.html: " + e.getMessage());
         }
 
         return generateFallbackHtml();

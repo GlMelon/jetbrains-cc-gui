@@ -33,6 +33,10 @@ public class SessionState {
         providers.add(CommonConstants.PROVIDER_CODEX);
         // B5: OpenCode 作为第三 provider 纳入校验白名单,否则 setProvider("opencode") 被拒(provider 选择无法持久化)。
         providers.add(CommonConstants.PROVIDER_OPENCODE);
+        // grok/kimi/pi:纯 CLI provider(上游 CliToolId),纳入校验白名单供 setProvider 持久化。
+        providers.add(CommonConstants.PROVIDER_GROK);
+        providers.add(CommonConstants.PROVIDER_KIMI);
+        providers.add(CommonConstants.PROVIDER_PI);
         VALID_PROVIDERS = Collections.unmodifiableSet(providers);
     }
 

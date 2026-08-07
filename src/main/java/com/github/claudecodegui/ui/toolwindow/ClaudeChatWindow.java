@@ -688,6 +688,11 @@ public class ClaudeChatWindow {
         }
         if (savedState.model != null && !savedState.model.trim().isEmpty()) {
             session.setModel(savedState.model);
+            // 同步 handler 持有的 model,避免恢复的非默认 model 被前端 startup sync 误判为
+            // 真实切换而作废刚加载的 usage 快照(与 ModelProviderHandler.isActualModelSwitch 对齐)。
+            if (handlerContext != null) {
+                handlerContext.setCurrentModel(savedState.model);
+            }
         }
         if (savedState.reasoningEffort != null && !savedState.reasoningEffort.trim().isEmpty()) {
             session.setReasoningEffort(savedState.reasoningEffort);

@@ -15,6 +15,7 @@ import com.github.claudecodegui.session.SessionRuntimeDefaults;
 import com.github.claudecodegui.session.SessionSendService;
 import com.github.claudecodegui.skill.SlashCommandRegistry;
 import com.github.claudecodegui.util.EditorFileUtils;
+import com.github.claudecodegui.util.TokenUsageUtils;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -120,6 +121,9 @@ public class ModelProviderHandler {
         // 检测模型是否真变化:仅在实际切换时旋转运行时会话 epoch,避免重复设置同 model 触发不必要的回调丢弃
         String previousModel = context.getCurrentModel();
         boolean modelChanged = hasModelChanged(previousModel, model);
+        // 真实模型切换(null/空首次设置视为 no-op):用于作废旧 usage 快照,独立于 modelChanged
+        // (epoch 旋转在首次设置时仍需触发,故保留 hasModelChanged 的 null→true 语义)。
+        final boolean realModelSwitch = isActualModelSwitch(previousModel, model);
 
         // 模型选择同时更新全局默认(粘性):无论 set_model 还是 set_session_model,
         // 都让用户最近选择的模型成为新建会话的默认。model 与 provider 成对更新
@@ -145,11 +149,20 @@ public class ModelProviderHandler {
                 // 被 ClaudeMessageHandler/CodexMessageHandler 守卫丢弃,避免串台到新模型会话。
                 context.getSession().getState().rotateRuntimeSessionEpoch();
             }
+            if (realModelSwitch) {
+                // 作废旧模型的当前上下文快照,避免被误当作新模型活跃上下文;
+                // 历史 per-turn 计量(turnUsage/turnCostUsd)由工具方法保留。
+                TokenUsageUtils.clearContextUsageFromSessionMessages(context.getSession().getMessages());
+            }
             LOG.info("[ModelProviderHandler] Updated session model to: " + storedModel);
         }
         SessionRuntimeDefaults.rememberModel(context.getProject(), confirmedProvider, storedModel);
 
         ClaudeNotifier.setModel(context.getProject(), StatusBarModelResolver.displayModel(selection));
+
+        if (realModelSwitch) {
+            usagePushService.clearUsageDisplay();
+        }
 
         // Store contextWindow override for later use by message handlers
         context.setCurrentModelContextWindow(contextWindowOverride);
@@ -174,7 +187,9 @@ public class ModelProviderHandler {
                     DownstreamEvent.MODEL_SELECTION.value(),
                     context.escapeJs(gson.toJson(buildModelSelectionPayload(confirmedSelection)))
             );
-            usagePushService.pushUsageUpdateAfterModelChange(newMaxTokens);
+            if (realModelSwitch) {
+                usagePushService.pushUsageUpdateAfterModelChange(newMaxTokens);
+            }
         });
     }
 
@@ -187,6 +202,30 @@ public class ModelProviderHandler {
             return true;
         }
         return !previousModel.equals(newModel);
+    }
+
+    /**
+     * 判断 provider 切换命令是否代表真实跨 provider 转换。null/空初始化值与同 provider 重申
+     * 均视为 no-op(首次设置不清 usage)。与 {@link #hasModelChanged} 区别:后者在首次设置
+     * (previousModel==null)时返回 true 以触发 epoch 旋转,本方法返回 false 以跳过 usage 作废。
+     */
+    static boolean isActualProviderSwitch(String previousProvider, String newProvider) {
+        return previousProvider != null
+                && newProvider != null
+                && !previousProvider.isEmpty()
+                && !newProvider.isEmpty()
+                && !previousProvider.equals(newProvider);
+    }
+
+    /**
+     * 判断 model 切换命令是否代表真实模型转换。null/空初始化值与同模型重申均视为 no-op。
+     */
+    static boolean isActualModelSwitch(String previousModel, String newModel) {
+        return previousModel != null
+                && newModel != null
+                && !previousModel.isEmpty()
+                && !newModel.isEmpty()
+                && !previousModel.equals(newModel);
     }
 
     public static JsonObject buildModelSelectionPayload(ModelSelectionResult selection) {
@@ -205,6 +244,7 @@ public class ModelProviderHandler {
         try {
             String provider = parseProvider(content);
             String previousProvider = context.getCurrentProvider();
+            boolean providerChanged = isActualProviderSwitch(previousProvider, provider);
 
             LOG.info("[ModelProviderHandler] Setting provider to: " + provider);
             context.setCurrentProvider(provider);
@@ -212,7 +252,14 @@ public class ModelProviderHandler {
 
             if (context.getSession() != null) {
                 context.getSession().setProvider(provider);
+                if (providerChanged) {
+                    TokenUsageUtils.clearContextUsageFromSessionMessages(context.getSession().getMessages());
+                }
                 SessionRuntimeDefaults.rememberModel(context.getProject(), provider, context.getSession().getModel());
+            }
+
+            if (providerChanged) {
+                usagePushService.clearUsageDisplay();
             }
 
             // Bug fix (Node process leak L2): when the tab moves AWAY from Claude

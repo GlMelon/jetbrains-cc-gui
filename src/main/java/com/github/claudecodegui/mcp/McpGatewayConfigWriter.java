@@ -56,6 +56,10 @@ public class McpGatewayConfigWriter {
             // Codex/OpenCode 无文件产出(configPath=null),不需要 providerDir。
             case CODEX -> writeCodex(revision, stateFile, command, realServerIds);
             case OPENCODE -> writeOpenCode(revision, stateFile, command, realServerIds);
+            // Grok/Kimi/Pi 等纯 CLI provider 暂无 MCP gateway 注入机制(三机制均 claude/codex/opencode 专属),
+            // 返回 disabled:不注入 gateway、不产文件。Stage 3+ 若需 MCP 接入再为对应 provider 增设机制分支。
+            default -> McpGatewayCliConfig.disabled(
+                    "MCP gateway injection not configured for provider: " + provider.value());
         };
     }
 

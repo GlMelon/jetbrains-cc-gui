@@ -20,11 +20,10 @@ public class RuntimePolicyConfig {
     private Map<ProviderType, ProviderRuntimePolicy> providers;
 
     /**
-     * 构建默认配置(Claude/Codex/OpenCode 对称:均支持 SDK+CLI,默认 SDK)。
+     * 构建默认配置。
      * <ul>
-     *   <li>Claude: enabled, 支持 SDK+CLI, 默认 SDK</li>
-     *   <li>Codex: enabled, 支持 SDK+CLI, 默认 SDK</li>
-     *   <li>OpenCode: enabled, 支持 SDK+CLI, 默认 SDK</li>
+     *   <li>Claude/Codex/OpenCode: enabled, 支持 SDK+CLI, 默认 SDK</li>
+     *   <li>Grok/Kimi/Pi: enabled, 仅 CLI(纯 CLI provider,无 SDK 实现),默认 CLI</li>
      * </ul>
      */
     private static final RuntimePolicyConfig DEFAULT = buildDefault();
@@ -81,6 +80,11 @@ public class RuntimePolicyConfig {
         m.put(ProviderType.CLAUDE, new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK));
         m.put(ProviderType.CODEX, new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK));
         m.put(ProviderType.OPENCODE, new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK));
+        // grok/kimi/pi 为纯 CLI provider(无 SDK 实现):仅启用 CLI,默认 CLI。
+        // 未加 entry 会使 EffectiveRuntimeResolver.resolve 抛 "Provider disabled/unknown"。
+        m.put(ProviderType.GROK, new ProviderRuntimePolicy(true, Set.of(RuntimeType.CLI), RuntimeType.CLI));
+        m.put(ProviderType.KIMI, new ProviderRuntimePolicy(true, Set.of(RuntimeType.CLI), RuntimeType.CLI));
+        m.put(ProviderType.PI, new ProviderRuntimePolicy(true, Set.of(RuntimeType.CLI), RuntimeType.CLI));
         return new RuntimePolicyConfig(m);
     }
 }

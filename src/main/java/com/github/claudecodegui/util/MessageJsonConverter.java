@@ -269,9 +269,12 @@ public class MessageJsonConverter {
 
             String currentProvider = handlerContext.getCurrentProvider();
             int usedTokens = TokenUsageUtils.extractUsedTokens(lastUsage, currentProvider);
-            int maxTokens = handlerContext.getSession() != null
+            // 优先采用 provider 上报的真实上下文窗口(Codex model_context_window);静态模型映射
+            // 仅在有真实分子时作分母 fallback,避免把 200k/1050k 静态上限当作活跃上下文。
+            int fallbackMaxTokens = handlerContext.getSession() != null
                     ? handlerContext.getSession().getState().getEffectiveMaxTokens()
                     : ModelProviderHandler.getModelContextLimit(handlerContext.getCurrentModel());
+            int maxTokens = TokenUsageUtils.extractMaxTokens(lastUsage, fallbackMaxTokens);
             int percentage = Math.min(100, maxTokens > 0 ? (int) ((usedTokens * 100.0) / maxTokens) : 0);
 
             LOG.debug("Pushing usage update: provider=" + currentProvider + ", usedTokens=" + usedTokens + ", max=" + maxTokens + ", percentage=" + percentage + "%");

@@ -115,13 +115,15 @@ public class ProviderSixPathContractTest {
         List<SessionRuntime> runtimes = sixRuntimes();
         assertEquals(6, runtimes.size());
 
-        // 六路径必须正好覆盖 3 Provider × 2 Runtime 的全组合,无重复、无遗漏
+        // 六路径必须正好覆盖 3 SDK-capable Provider(Claude/Codex/OpenCode)× {SDK,CLI} 全组合,无重复、无遗漏。
+        // grok/kimi/pi 为纯 CLI provider,其 CLI runtime 由 Stage 3 接入(GrokCliSessionRuntime 等),
+        // 当前六路径矩阵不覆盖它们,故此处仅校验三 full provider 的全组合。
         Set<String> keys = new HashSet<>();
         for (SessionRuntime rt : runtimes) {
             assertTrue("duplicate path " + rt.provider() + "/" + rt.runtimeType(),
                     keys.add(rt.provider().value() + "/" + rt.runtimeType()));
         }
-        for (ProviderType provider : ProviderType.values()) {
+        for (ProviderType provider : new ProviderType[]{ProviderType.CLAUDE, ProviderType.CODEX, ProviderType.OPENCODE}) {
             for (RuntimeType runtime : RuntimeType.values()) {
                 assertTrue("missing path " + provider + "/" + runtime,
                         keys.contains(provider.value() + "/" + runtime));

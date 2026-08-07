@@ -305,7 +305,9 @@ public class SessionMessageOrchestrator {
             }
 
             int usedTokens = TokenUsageUtils.extractUsedTokens(lastUsage, state.getProvider());
-            int maxTokens = state.getEffectiveMaxTokens();
+            // 优先采用 provider 上报的真实上下文窗口(Codex model_context_window);静态模型映射仅作 fallback 分母。
+            int fallbackMaxTokens = state.getEffectiveMaxTokens();
+            int maxTokens = TokenUsageUtils.extractMaxTokens(lastUsage, fallbackMaxTokens);
             usageDisplay.show(usedTokens, maxTokens);
             LOG.debug("Restored token usage from history: " + usedTokens + " / " + maxTokens);
         } catch (Exception e) {

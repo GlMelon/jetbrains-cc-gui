@@ -1,5 +1,6 @@
 package com.github.claudecodegui.session;
 
+import com.github.claudecodegui.cli.CliSessionTitleService;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.config.ModelRegistryConfig;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
@@ -35,6 +36,7 @@ public class SessionSendService {
     private final Gson gson;
     private final SessionContextService contextService;
     private final SessionRuntimeRouter runtimeRouter;
+    private final CliSessionTitleService cliTitleService;
     private volatile long responseStatusTurnStartedAtMillis = 0L;
 
     public SessionSendService(
@@ -72,6 +74,7 @@ public class SessionSendService {
         this.gson = gson;
         this.contextService = contextService;
         this.runtimeRouter = new SessionRuntimeRouter(project, claudeSDKBridge, codexSDKBridge, openCodeSDKBridge);
+        this.cliTitleService = new CliSessionTitleService(claudeSDKBridge);
     }
 
     public void prepareContextCollector(EditorContextCollector contextCollector) {
@@ -203,8 +206,14 @@ public class SessionSendService {
                         + ", effective=" + effectivePermissionMode
         );
 
+        // CLI 标题生成所需的首轮判据:send 前 sessionId 为空即新会话首轮。
+        // 首轮 CLI 的 sessionId 是流解析后才确定的,故 post-success 时从 state 重新读取权威值。
+        final String sessionIdBeforeSend = state.getSessionId();
+        final boolean isCliRuntime = isCliRuntime(currentProvider);
+
+        CompletableFuture<Void> future;
         if (CommonConstants.PROVIDER_CODEX.equals(currentProvider)) {
-            return sendToCodex(
+            future = sendToCodex(
                     channelId,
                     input,
                     attachments,
@@ -213,10 +222,8 @@ public class SessionSendService {
                     fileTagPaths,
                     effectivePermissionMode
             );
-        }
-
-        if (CommonConstants.PROVIDER_OPENCODE.equals(currentProvider)) {
-            return sendToOpenCode(
+        } else if (CommonConstants.PROVIDER_OPENCODE.equals(currentProvider)) {
+            future = sendToOpenCode(
                     channelId,
                     input,
                     attachments,
@@ -225,10 +232,25 @@ public class SessionSendService {
                     fileTagPaths,
                     effectivePermissionMode
             );
+        } else {
+            future = sendToClaude(channelId, input, attachments, openedFilesJson, agentPrompt,
+                    effectivePermissionMode);
         }
 
-        return sendToClaude(channelId, input, attachments, openedFilesJson, agentPrompt,
-                effectivePermissionMode);
+        // provider 无关的统一 post-turn 钩子:仅在 CLI 首轮成功后 fire-and-forget 触发标题生成。
+        // 三 provider(Claude/Codex/OpenCode)共用同一 CliSessionTitleService,内部判 CLI+首轮+配置。
+        return future.whenComplete((result, ex) -> {
+            if (ex != null) {
+                return;
+            }
+            cliTitleService.maybeGenerateTitle(
+                    isCliRuntime,
+                    sessionIdBeforeSend == null,
+                    input,
+                    state.getSessionId(),
+                    state.getCwd(),
+                    callbackFacade);
+        });
     }
 
     private CompletableFuture<Void> sendToCodex(
@@ -450,6 +472,19 @@ public class SessionSendService {
                 provider,
                 CodemossSettingsService.getInstance().getRuntimePolicy()
         );
+    }
+
+    /**
+     * 判断给定 provider 当前解析到的运行时是否为 CLI。供 CLI 标题生成钩子使用:
+     * 解析失败时保守返回 false(不触发标题,与 SDK 行为一致)。
+     */
+    private boolean isCliRuntime(String provider) {
+        try {
+            return resolveRuntime(provider).runtimeType() == RuntimeType.CLI;
+        } catch (Exception e) {
+            LOG.warn("[CliTitle] Failed to resolve runtime for title trigger, skipping: " + e.getMessage());
+            return false;
+        }
     }
 
     private ModelRegistryConfig.ResolvedModelSelection resolveModelSelection(String provider, String selectedModel) {

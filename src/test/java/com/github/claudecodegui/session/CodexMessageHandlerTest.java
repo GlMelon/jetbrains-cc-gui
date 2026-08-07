@@ -417,8 +417,11 @@ public class CodexMessageHandlerTest {
                 + "\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":36310}}");
 
         Message message = state.getMessages().get(0);
-        // Status-bar channel keeps the cache-inclusive usage untouched
-        assertEquals(37000, message.raw.getAsJsonObject("usage").get("input_tokens").getAsInt());
+        // 无 token_count 时,result usage 不提升为顶层 context 快照——
+        // Codex SDK 某些版本在此暴露会话累积值,误作活跃上下文会导致用量显示 100%。
+        // result usage 仅保留为 per-turn 记账(turnUsage),顶层 context 由 token_count 的
+        // last_token_usage + model_context_window 提供(见 handleEventMessage)。
+        assertFalse(message.raw.has("usage"));
         // turnUsage is normalized to the Claude schema: input excludes cache
         var turnUsage = message.raw.getAsJsonObject("turnUsage");
         assertEquals(690, turnUsage.get("input_tokens").getAsInt());

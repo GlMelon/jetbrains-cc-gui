@@ -1,6 +1,7 @@
 package com.github.claudecodegui.handler;
 
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.notifications.ClaudeNotifier;
 
 import com.github.claudecodegui.session.ClaudeSession;
 import com.github.claudecodegui.util.TokenUsageUtils;
@@ -41,8 +42,9 @@ public class UsagePushService {
         try {
             ClaudeSession session = context.getSession();
             if (session == null) {
-                // Even without a session, send update so frontend knows the new maxTokens
-                sendUsageUpdate(0, newMaxTokens);
+                // No session owns a usage snapshot — clear the display instead of
+                // presenting the static capacity as session truth.
+                clearUsageDisplay();
                 return;
             }
 
@@ -53,8 +55,9 @@ public class UsagePushService {
                     context.getCurrentProvider()
             );
             if (lastUsage == null) {
-                // No usage data available yet — send update with zero used tokens
-                sendUsageUpdate(0, newMaxTokens);
+                // No provider snapshot is available yet. Keep the context unknown
+                // instead of presenting a static capacity as session truth.
+                clearUsageDisplay();
                 return;
             }
 
@@ -70,6 +73,38 @@ public class UsagePushService {
 
         } catch (Exception e) {
             LOG.error("[UsagePushService] Failed to push usage update after model change: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Push the context snapshot already retained by the active session during WebView
+     * recovery. Empty sessions remain untouched because their history may still be loading.
+     *
+     * @param fallbackMaxTokens static model limit used only when provider metadata does not
+     *                          contain a session-specific context window
+     * @return true when a trusted usage snapshot was scheduled for delivery
+     */
+    public boolean pushCurrentUsageIfAvailable(int fallbackMaxTokens) {
+        try {
+            ClaudeSession session = context.getSession();
+            if (session == null) {
+                return false;
+            }
+
+            String provider = session.getProvider();
+            JsonObject lastUsage = TokenUsageUtils.findLastUsageFromSessionMessages(
+                    session.getMessages(), provider);
+            if (lastUsage == null) {
+                return false;
+            }
+
+            int usedTokens = TokenUsageUtils.extractContextTokens(lastUsage, provider);
+            int maxTokens = TokenUsageUtils.extractMaxTokens(lastUsage, fallbackMaxTokens);
+            sendUsageUpdate(usedTokens, maxTokens);
+            return true;
+        } catch (Exception e) {
+            LOG.error("[UsagePushService] Failed to restore current usage: " + e.getMessage(), e);
+            return false;
         }
     }
 
@@ -97,6 +132,27 @@ public class UsagePushService {
         rawUsage.addProperty("cache_read_input_tokens", cacheReadTokens);
         JsonObject usageUpdate = TokenUsageUtils.buildUsageUpdatePayload(rawUsage, context.getCurrentProvider(), maxTokens);
 
+        sendUsagePayload(usageUpdate);
+    }
+
+    /**
+     * Clear provider-specific usage while the next provider snapshot is unknown.
+     * Omitting numerator and denominator also clears the frontend tooltip values.
+     */
+    public void clearUsageDisplay() {
+        clearStatusBarUsage();
+        JsonObject usageUpdate = new JsonObject();
+        usageUpdate.addProperty("percentage", 0);
+        sendUsagePayload(usageUpdate);
+    }
+
+    void clearStatusBarUsage() {
+        if (context.getProject() != null) {
+            ClaudeNotifier.clearTokenUsage(context.getProject());
+        }
+    }
+
+    private void sendUsagePayload(JsonObject usageUpdate) {
         String usageJson = gson.toJson(usageUpdate);
 
         // Push to frontend (must be executed on the EDT thread)

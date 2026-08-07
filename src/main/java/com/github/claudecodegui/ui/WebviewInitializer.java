@@ -28,6 +28,7 @@ import com.intellij.ui.jcef.JBCefJSQuery;
 import org.cef.CefClient;
 import org.cef.browser.CefBrowser;
 import org.cef.browser.CefFrame;
+import org.cef.handler.CefLoadHandler;
 import org.cef.handler.CefLoadHandlerAdapter;
 import org.jetbrains.annotations.NotNull;
 
@@ -220,8 +221,12 @@ public class WebviewInitializer {
                     new UiFontResourceRequestHandler(),
                     createdBrowser.getCefBrowser()
             );
+            createdBrowser.getJBCefClient().addRequestHandler(
+                    new WebviewResourceRequestHandler(getClass(), this::loadChatHtmlWithInitialTabState),
+                    createdBrowser.getCefBrowser()
+            );
 
-            // JCEF JS bridges must be created and registered before loadHTML,
+            // JCEF JS bridges must be created and registered before loadURL,
             // because the window.sendToJava / shortcut / clipboard handlers
             // injected in onLoadEnd depend on these JSQuery inject() handles.
             BrowserBridges currentBridges = new BrowserBridges(createdBrowser);
@@ -304,9 +309,8 @@ public class WebviewInitializer {
             int initialPageGeneration = beginPageLoad(currentBridges);
             host.activatePageGeneration(initialPageGeneration);
             host.setFrontendReady(false);
-            String htmlContent = loadChatHtmlWithInitialTabState(initialPageGeneration);
 
-            // LoadHandler must be registered before loadHTML, otherwise the
+            // LoadHandler must be registered before loadURL, otherwise the
             // first frame's onLoadEnd is missed and the JS bridge injection
             // never runs, leaving the frontend without a sendToJava channel.
             // Register directly on the browser's dedicated native client. The
@@ -314,6 +318,20 @@ public class WebviewInitializer {
             // keyed by CefBrowser objects, which is not reliable with Android
             // Studio's remote JCEF proxies and can silently drop onLoadEnd.
             CefLoadHandlerAdapter bridgeLoadHandler = new CefLoadHandlerAdapter() {
+                @Override
+                public void onLoadError(
+                        CefBrowser cefBrowser,
+                        CefFrame frame,
+                        CefLoadHandler.ErrorCode errorCode,
+                        String errorText,
+                        String failedUrl
+                ) {
+                    if (frame.isMain()) {
+                        LOG.warn("[JCEF] Webview resource load failed: " + errorCode
+                                + " (" + errorText + ") url=" + failedUrl);
+                    }
+                }
+
                 @Override
                 public void onLoadEnd(CefBrowser cefBrowser, CefFrame frame, int httpStatusCode) {
                     LOG.debug("onLoadEnd called, isMain=" + frame.isMain() + ", url=" + cefBrowser.getURL());
@@ -392,10 +410,10 @@ public class WebviewInitializer {
             CefClient nativeClient = createdBrowser.getJBCefClient().getCefClient();
             nativeClient.addLoadHandler(bridgeLoadHandler);
 
-            // At this point the JSQuery bridges and the LoadHandler are both
-            // registered, so it is safe to load the HTML - the first frame's
-            // onLoadEnd will fire and inject the sendToJava bridge as expected.
-            createdBrowser.loadHTML(htmlContent);
+            // Load the standard multi-file Vite build through the custom JCEF origin.
+            // This preserves ES modules and lazy chunks while avoiding the large-string
+            // path used by loadHTML().
+            createdBrowser.loadURL(WebviewResourceRequestHandler.indexUrl(initialPageGeneration));
             scheduleBridgeInjectionRetries(createdBrowser, currentBridges, initialPageGeneration);
 
             JComponent browserComponent = createdBrowser.getComponent();
@@ -541,11 +559,12 @@ public class WebviewInitializer {
     }
 
     /**
-     * Android Studio's remote JCEF can render loadHTML without delivering the
-     * browser-scoped onLoadEnd callback. Retry the minimum bootstrap directly
-     * in the active page so the frontend can establish its Java bridge and
-     * request dependency status. The timer stops as soon as frontend_ready is
-     * received. Retries slow down after the initial five-second startup window.
+     * Android Studio's remote JCEF can occasionally delay the browser-scoped
+     * onLoadEnd callback even when the custom-origin page is already visible.
+     * Retry the minimum bootstrap directly in the active page so the frontend
+     * can establish its Java bridge and request dependency status. The timer
+     * stops as soon as frontend_ready is received. Retries slow down after the
+     * initial five-second startup window.
      */
     private boolean injectBridgeFallback(
             JBCefBrowser browser,
@@ -990,7 +1009,7 @@ public class WebviewInitializer {
                 }
                 host.activatePageGeneration(pageGeneration);
                 host.setFrontendReady(false);
-                browser.loadHTML(loadChatHtmlWithInitialTabState(pageGeneration));
+                browser.loadURL(WebviewResourceRequestHandler.indexUrl(pageGeneration));
                 scheduleBridgeInjectionRetries(browser, currentBridges, pageGeneration);
                 host.getWebviewWatchdog().resetTimestamps();
                 host.getMainPanel().revalidate();

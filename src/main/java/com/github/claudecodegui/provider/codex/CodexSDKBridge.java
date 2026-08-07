@@ -274,7 +274,11 @@ public class CodexSDKBridge extends BaseSDKBridge {
                         return;
                     }
 
-                    result.messages.add(msg);
+                    // event_msg 是协议元数据(如 token_count),非对话消息:不计入 SDKResult.messages,
+                    // 避免膨胀 messageCount;仍经下方回调让上层提取 usage 快照。
+                    if (!CliConstants.CODEX_MSG_EVENT_MSG.equals(msgType)) {
+                        result.messages.add(msg);
+                    }
 
                     if (CommonConstants.MSG_TYPE_ASSISTANT.equals(msgType)) {
                         try {

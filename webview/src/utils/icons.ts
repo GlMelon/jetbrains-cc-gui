@@ -1,6 +1,6 @@
 /**
  * SVG icon constants
- * All icons are inline SVG strings to support vite-plugin-singlefile bundling
+ * All icons are inline SVG strings so icons remain self-contained across webview builds
  *
  * Split into category files for maintainability.
  */

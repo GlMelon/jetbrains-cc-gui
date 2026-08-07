@@ -266,7 +266,7 @@ export const ChatScreen = ({
   }, [setSearchOpen]);
 
   return (
-    <>
+    <div className="chat-view">
       <div className="messages-shell">
         <MessageAnchorRail
           messages={mergedMessages}
@@ -425,6 +425,6 @@ export const ChatScreen = ({
           onAutoOpenFileEnabledChange={handleAutoOpenFileEnabledChange}
         />
       </div>
-    </>
+    </div>
   );
 };

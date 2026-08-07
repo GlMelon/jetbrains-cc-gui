@@ -24,11 +24,19 @@ public class CliCompatibilityProviderMatrixTest {
         compatibleOutputs.put(ProviderType.CLAUDE, "Claude Code 1.4.0");
         compatibleOutputs.put(ProviderType.CODEX, "codex-cli 1.4.0");
         compatibleOutputs.put(ProviderType.OPENCODE, "OpenCode 1.4.0");
+        // grok/kimi/pi 纯 CLI provider:各自的 VersionParser 模式 (?i)<value>[^0-9]*v?<ver>
+        // 从 "<Label> 1.4.0" 提取 "1.4.0",与三 full provider 走同一条 evaluate 路径。
+        compatibleOutputs.put(ProviderType.GROK, "Grok 1.4.0");
+        compatibleOutputs.put(ProviderType.KIMI, "Kimi 1.4.0");
+        compatibleOutputs.put(ProviderType.PI, "Pi 1.4.0");
 
         Map<ProviderType, String> blockedOutputs = new EnumMap<>(ProviderType.class);
         blockedOutputs.put(ProviderType.CLAUDE, "Claude Code 1.5.0");
         blockedOutputs.put(ProviderType.CODEX, "codex-cli 1.5.0");
         blockedOutputs.put(ProviderType.OPENCODE, "OpenCode 1.5.0");
+        blockedOutputs.put(ProviderType.GROK, "Grok 1.5.0");
+        blockedOutputs.put(ProviderType.KIMI, "Kimi 1.5.0");
+        blockedOutputs.put(ProviderType.PI, "Pi 1.5.0");
 
         for (ProviderType provider : ProviderType.values()) {
             CliCompatibilityDecision compatible = service.evaluate(provider, compatibleOutputs.get(provider));
@@ -69,11 +77,17 @@ public class CliCompatibilityProviderMatrixTest {
                 + "\"blockedVersions\":[\"1.5.0\"],"
                 + "\"unknownVersionPolicy\":\"BLOCK\","
                 + "\"higherVersionPolicy\":\"BLOCK\"}";
+        // providers 必须覆盖全部 ProviderType(codec.validate() fail-fast),按枚举 SSOT 动态生成,
+        // 使每个 provider 都套用同一 rule(compatible 1.4.0 / blocked 1.5.0)。
+        StringBuilder providers = new StringBuilder();
+        for (ProviderType provider : ProviderType.values()) {
+            if (providers.length() > 0) {
+                providers.append(',');
+            }
+            providers.append('"').append(provider.value()).append("\":").append(rule);
+        }
         String json = "{\"schemaVersion\":1,\"revision\":2026072901,"
-                + "\"generatedAt\":\"2026-07-29\",\"providers\":{"
-                + "\"claude\":" + rule + ","
-                + "\"codex\":" + rule + ","
-                + "\"opencode\":" + rule + "}}";
+                + "\"generatedAt\":\"2026-07-29\",\"providers\":{" + providers + "}}";
         return json.getBytes(StandardCharsets.UTF_8);
     }
 }

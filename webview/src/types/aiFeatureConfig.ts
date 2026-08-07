@@ -12,16 +12,11 @@ export interface AiFeatureConfig {
   provider: AiFeatureProvider | null;
   effectiveProvider: AiFeatureProvider | null;
   resolutionSource: 'manual' | 'auto' | 'unavailable';
-  models: {
-    claude: string;
-    codex: string;
-    opencode: string;
-  };
-  availability: {
-    claude: boolean;
-    codex: boolean;
-    opencode: boolean;
-  };
+  // models/availability 仅对 SDK-capable provider(claude/codex/opencode)登记;
+  // grok/kimi/pi 等纯 CLI provider 不参与 AI 辅助功能(commit/prompt-enhancer),
+  // 故无条目(索引得 undefined,各访问点已以 truthiness 容错)。
+  models: Partial<Record<ProviderType, string>>;
+  availability: Partial<Record<ProviderType, boolean>>;
 }
 
 export type CommitAiProvider = AiFeatureProvider;

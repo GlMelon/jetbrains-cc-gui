@@ -6,6 +6,7 @@ import {ConfigSelect, ModelSelect, ModeSelect, ProviderSelect, ReasoningSelect} 
 import {readClaudeModelMapping, resolveMappedModelName} from '../../utils/claudeModelMapping';
 import {getModelsForProvider, getModelRegistrySnapshot, requestModelRegistry, subscribeModelRegistry} from '../../utils/modelRegistry';
 import {SendIcon, SparklesIcon, StopIcon} from '../Icons';
+import {ClickSpark, SpinLoader} from '../react-bits';
 
 /**
  * ButtonArea - Bottom toolbar component
@@ -203,9 +204,7 @@ export const ButtonArea = memo(function ButtonArea({
           data-tooltip={`${t('promptEnhancer.tooltip')} (${t('promptEnhancer.shortcut')})`}
         >
           {isEnhancing ? (
-            <svg className="icon spinning" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 12a9 9 0 11-6.219-8.56" />
-            </svg>
+            <SpinLoader variant="ring" size={16} strokeWidth={2} />
           ) : (
             <SparklesIcon size={16} />
           )}
@@ -221,14 +220,20 @@ export const ButtonArea = memo(function ButtonArea({
             <StopIcon size={14} />
           </button>
         ) : (
-          <button
-            className="submit-button"
+          <ClickSpark
             onClick={handleSubmitClick}
-            disabled={disabled || !hasInputContent}
-            title={t('chat.sendMessageEnter')}
+            enabled={!disabled && hasInputContent}
+            className="submit-spark"
+            style={{display: 'inline-flex', flexShrink: 0}}
           >
-            <SendIcon size={16} />
-          </button>
+            <button
+              className="submit-button"
+              disabled={disabled || !hasInputContent}
+              title={t('chat.sendMessageEnter')}
+            >
+              <SendIcon size={16} />
+            </button>
+          </ClickSpark>
         )}
       </div>
     </div>

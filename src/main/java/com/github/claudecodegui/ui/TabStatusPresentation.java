@@ -23,6 +23,12 @@ final class TabStatusPresentation {
             "/icons/providers/codex.svg", TabStatusPresentation.class);
     private static final Icon OPENCODE_ICON = IconLoader.getIcon(
             "/icons/providers/opencode.svg", TabStatusPresentation.class);
+    private static final Icon GROK_ICON = IconLoader.getIcon(
+            "/icons/providers/grok.svg", TabStatusPresentation.class);
+    private static final Icon KIMI_ICON = IconLoader.getIcon(
+            "/icons/providers/kimi.svg", TabStatusPresentation.class);
+    private static final Icon PI_ICON = IconLoader.getIcon(
+            "/icons/providers/pi.svg", TabStatusPresentation.class);
 
     static final Color QUEUED_COLOR = new Color(0xE1B56F);
     static final Color PROCESSING_COLOR = new Color(0x8FBFFF);
@@ -90,6 +96,9 @@ final class TabStatusPresentation {
             case CLAUDE -> CLAUDE_ICON;
             case CODEX -> CODEX_ICON;
             case OPENCODE -> OPENCODE_ICON;
+            case GROK -> GROK_ICON;
+            case KIMI -> KIMI_ICON;
+            case PI -> PI_ICON;
         };
     }
 
