@@ -218,11 +218,6 @@
         "hintText": "वास्तविक Node.js निष्पादन योग्य फ़ाइल पथ प्राप्त करें। खाली होने पर प्लगइन स्वचालित रूप से Node.js का पता लगाने का प्रयास करेगा।",
         "versionTooLow": "Node.js संस्करण बहुत पुराना है। प्लगइन को ठीक से चलाने के लिए v{{minVersion}} या उच्चतर की आवश्यकता है"
       },
-      "claudeCliPath": {
-        "label": "Claude CLI पथ (ओवरराइड)",
-        "placeholder": "उदा. /usr/local/bin/claude — अंतर्निहित SDK का उपयोग करने के लिए खाली छोड़ें",
-        "hint": "वैकल्पिक। सेट करने पर, प्लगइन अंतर्निहित @anthropic-ai/claude-agent-sdk के बजाय इस बाइनरी को चलाता है। सहेजने पर डेमॉन पुनः आरंभ होता है।"
-      },
       "workingDirectory": {
         "label": "Working Directory",
         "placeholder": "e.g. project1 or leave empty to use project root",
@@ -536,15 +531,11 @@
       "expand": "Expand Sidebar",
       "collapse": "Collapse Sidebar"
     },
-    "community": "आधिकारिक समुदाय",
-    "communityDesc": "नवीनतम जानकारी और तकनीकी सहायता के लिए आधिकारिक WeChat समूह में शामिल होने के लिए नीचे QR कोड स्कैन करें",
-    "communityQrTip": "WeChat से स्कैन करके समुदाय में शामिल हों",
-    "communityQrAlt": "आधिकारिक WeChat समुदाय QR कोड",
-    "githubTitle": "GitHub रिपॉजिटरी",
-    "githubDesc": "यह प्रोजेक्ट GitHub पर ओपन सोर्स है। सपोर्ट के लिए Star करें!",
-    "githubCopyBtn": "रिपॉजिटरी URL कॉपी करें",
-    "githubCopied": "रिपॉजिटरी URL क्लिपबोर्ड पर कॉपी हो गया। कृपया इसे अपने ब्राउज़र में खोलें।",
-    "githubCopyFailed": "कॉपी करने में विफल। कृपया मैन्युअल रूप से कॉपी करें।",
+    "versionHistory": "संस्करण इतिहास",
+    "versionHistoryDesc": "सभी संस्करण अपडेट रिकॉर्ड और परिवर्तन लॉग देखें",
+    "versionHistoryLatest": "नवीनतम",
+    "versionHistoryViewDetails": "विवरण देखें",
+    "versionHistoryViewAll": "सभी संस्करण देखें",
     "provider": {
       "loading": "लोड हो रहा है...",
       "emptyProvider": "कोई प्रदाता कॉन्फ़िगर नहीं",

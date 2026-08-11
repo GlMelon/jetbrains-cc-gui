@@ -218,11 +218,6 @@
         "hintText": "para obtener la ruta del ejecutable real de Node.js. Dejar vacío para detección automática.",
         "versionTooLow": "La versión de Node.js es demasiado baja. El plugin requiere v{{minVersion}} o superior para funcionar correctamente"
       },
-      "claudeCliPath": {
-        "label": "Ruta del CLI de Claude (anulación)",
-        "placeholder": "p. ej. /usr/local/bin/claude — déjalo vacío para usar el SDK integrado",
-        "hint": "Opcional. Cuando se establece, el complemento ejecuta este binario en lugar del @anthropic-ai/claude-agent-sdk integrado. El daemon se reinicia al guardar."
-      },
       "workingDirectory": {
         "label": "Working Directory",
         "placeholder": "e.g. project1 or leave empty to use project root",
@@ -536,15 +531,11 @@
       "expand": "Expand Sidebar",
       "collapse": "Collapse Sidebar"
     },
-    "community": "Comunidad oficial",
-    "communityDesc": "Escanea el código QR a continuación para unirte al grupo oficial de WeChat para obtener las últimas noticias y soporte técnico",
-    "communityQrTip": "Escanea con WeChat para unirte a la comunidad",
-    "communityQrAlt": "Código QR de la comunidad oficial de WeChat",
-    "githubTitle": "Repositorio GitHub",
-    "githubDesc": "Este proyecto es de código abierto en GitHub. ¡Dale una estrella para apoyarnos!",
-    "githubCopyBtn": "Copiar URL del repositorio",
-    "githubCopied": "URL del repositorio copiada al portapapeles. Por favor, ábrela en tu navegador.",
-    "githubCopyFailed": "Error al copiar. Por favor, copia manualmente.",
+    "versionHistory": "Historial de versiones",
+    "versionHistoryDesc": "Ver todos los registros de actualizaciones de versiones y registros de cambios",
+    "versionHistoryLatest": "Última",
+    "versionHistoryViewDetails": "Ver detalles",
+    "versionHistoryViewAll": "Ver todas las versiones",
     "provider": {
       "loading": "Cargando...",
       "emptyProvider": "Ningún proveedor configurado",

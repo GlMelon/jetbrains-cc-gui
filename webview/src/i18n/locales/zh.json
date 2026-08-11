@@ -234,47 +234,10 @@
         "invalidFileName": "Windows 下路径必须以 node.exe 结尾，macOS/Linux 下必须以 node 结尾",
         "cannotExecute": "文件存在但无法执行，请检查文件权限"
       },
-      "claudeCliPath": {
-        "label": "Claude CLI 路径（覆盖）",
-        "placeholder": "例如 /usr/local/bin/claude — 留空则使用内置 SDK",
-        "hint": "可选。设置后，插件将启动此二进制文件，而非内置的 @anthropic-ai/claude-agent-sdk。保存时会重启守护进程。"
-      },
       "workingDirectory": {
         "label": "工作目录",
         "placeholder": "例如 project1 或留空使用项目根目录",
         "hint": "指定 Claude 工作的目录。可以使用相对路径（相对于项目根目录）或绝对路径。留空则使用项目根目录。"
-      },
-      "runtimePolicy": {
-        "loaded": "路由策略已加载",
-        "saveSuccess": "路由策略已保存",
-        "resetSuccess": "已恢复默认路由策略",
-        "loadFailed": "路由策略加载失败",
-        "saveFailed": "路由策略保存失败",
-        "save": "保存策略",
-        "reset": "恢复默认",
-        "enabled": "已启用",
-        "disabled": "已停用",
-        "providers": {
-          "claude": "Claude",
-          "codex": "Codex",
-          "opencode": "OpenCode"
-        },
-        "advancedLabel": "高级 · 限制可用运行时",
-        "allAllowed": "全部允许",
-        "restricted": "已限制 {{count}} 项",
-        "defaultRemovedHint": "默认运行时已自动跟随上方「调用模式」,无需手动选择;仅当需要禁止某 provider 使用某种运行时时才在此收窄。",
-        "degradePreview": "当前调用模式为 {{mode}},不在 {{provider}} 允许范围内,新请求将自动回退到 {{fallback}}。"
-      },
-      "invocationMode": {
-        "label": "调用模式",
-        "sdk": "SDK 模式",
-        "sdkDesc": "通过内置桥接与常驻运行时调用，状态反馈更完整，兼容性更好。",
-        "cli": "CLI 模式",
-        "cliDesc": "直接调用本地 CLI，可复用本机环境与登录态，但能力和输出受 CLI 本身限制。",
-        "cliPathPlaceholder": "可选：指定 Claude CLI 可执行文件路径，留空则自动检测",
-        "hint": "切换后新请求将按所选模式发起。CLI 模式下部分能力可能与 SDK 模式存在差异。",
-        "policyHint": "会话级运行时偏好;若所选不在下方「运行时路由策略」的允许范围内,将自动降级到该 provider 默认运行时并提示。",
-        "scopeNotice": "仅对新会话和新标签页生效;已有标签页保留当前模式,新建标签页才会应用新模式。"
       },
       "fontSize": {
         "label": "字体大小",
@@ -603,10 +566,31 @@
       "customSectionTitle": "自定义模型",
       "editPricing": "编辑价格"
     },
-    "dependencies": "SDK 依赖",
+    "cli": {
+      "title": "CLI 环境检查",
+      "description": "检测本地安装的 AI CLI 工具状态，包括版本信息和安装路径。",
+      "claudeName": "Claude CLI",
+      "claudeDescription": "Claude AI 命令行工具，用于交互式编程辅助",
+      "codexName": "Codex CLI",
+      "codexDescription": "OpenAI Codex 命令行工具，用于 AI 代码生成",
+      "opencodeName": "OpenCode CLI",
+      "opencodeDescription": "OpenCode AI 命令行工具，支持多模型",
+      "installed": "已安装",
+      "notInstalled": "未安装",
+      "updateAvailable": "有更新",
+      "currentVersion": "当前版本",
+      "latestVersion": "最新版本",
+      "installPath": "安装路径",
+      "installSource": "安装来源",
+      "lastChecked": "上次检查",
+      "refreshCheck": "刷新检查",
+      "checking": "检查中...",
+      "error": "检测 CLI 状态时出错"
+    },
+    "dependencies": "CLI 工具",
     "dependency": {
-      "title": "SDK 依赖管理",
-      "description": "管理 AI SDK 依赖包。首次使用时需要安装对应的 SDK。",
+      "title": "CLI 环境检查",
+      "description": "检测本地安装的 AI CLI 工具状态，包括版本信息和安装路径。",
       "installPolicyTip": "安装遇到问题？可将报错复制给终端CLI AI 解决",
       "claudeSdkName": "Claude Code SDK",
       "claudeSdkDescription": "Claude AI 功能所需。包含 Claude Code SDK 及相关依赖。",
@@ -757,17 +741,11 @@
         "other": "其他"
       }
     },
-    "community": "官方交流群",
-    "communityDesc": "扫描作者个人公众号二维码，获取微信交流群二维码，加群获得最新资讯和技术支持",
     "versionHistory": "版本记录",
-    "versionHistoryDesc": "查看所有版本更新记录",
-    "communityQrTip": "使用微信扫一扫",
-    "communityQrAlt": "官方微信交流群二维码",
-    "githubTitle": "GitHub 开源地址",
-    "githubDesc": "本项目已在 GitHub 开源，欢迎 Star 支持",
-    "githubCopyBtn": "复制开源地址",
-    "githubCopied": "开源地址已复制到剪切板，请在浏览器中访问",
-    "githubCopyFailed": "复制失败，请手动复制",
+    "versionHistoryDesc": "查看所有版本更新记录和变更日志",
+    "versionHistoryLatest": "最新",
+    "versionHistoryViewDetails": "查看详情",
+    "versionHistoryViewAll": "查看所有版本",
     "provider": {
       "loading": "加载中...",
       "emptyProvider": "暂无供应商配置",

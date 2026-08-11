@@ -212,16 +212,6 @@
         "korean": "한국어",
         "portuguese": "Português (Brasil)"
       },
-      "invocationMode": {
-        "label": "呼叫模式",
-        "sdk": "SDK 模式",
-        "sdkDesc": "使用官方 SDK 整合（預設，穩定，支援權限確認）",
-        "cli": "CLI 模式",
-        "cliDesc": "直接呼叫本機 Claude CLI",
-        "cliPathPlaceholder": "Claude CLI 可執行檔案路徑（留空自動偵測）",
-        "hint": "切換後新請求將按所選模式發起。CLI 模式下部分能力可能與 SDK 模式存在差異。權限模式跟隨上方設定。",
-        "scopeNotice": "僅對新會話和新分頁生效;已有分頁保留目前模式,新增分頁才會套用新模式。"
-      },
       "nodePath": {
         "label": "Node.js 路徑",
         "placeholder": "例如 C:\\Program Files\\nodejs\\node.exe 或 /usr/local/bin/node",
@@ -229,11 +219,6 @@
         "hintCommand": "node -p \"process.execPath\"",
         "hintText": "獲取實際的 Node.js 可執行檔案路徑。為空時外掛會自動嘗試檢測 Node.js。",
         "versionTooLow": "Node.js 版本過低，外掛需要 v{{minVersion}} 或更高版本才能正常運行"
-      },
-      "claudeCliPath": {
-        "label": "Claude CLI 路徑（覆寫）",
-        "placeholder": "例如 /usr/local/bin/claude — 留空則使用內建 SDK",
-        "hint": "可選。設定後，外掛程式將啟動此二進位檔案，而非內建的 @anthropic-ai/claude-agent-sdk。儲存時會重新啟動守護程序。"
       },
       "workingDirectory": {
         "label": "Working Directory",
@@ -553,15 +538,11 @@
       "expand": "Expand Sidebar",
       "collapse": "Collapse Sidebar"
     },
-    "community": "官方交流群",
-    "communityDesc": "掃描下方二維碼加入官方微信交流群，獲取最新資訊和技術支援",
-    "communityQrTip": "使用微信掃一掃加入交流群",
-    "communityQrAlt": "官方微信交流群二維碼",
-    "githubTitle": "GitHub 開源地址",
-    "githubDesc": "本專案已在 GitHub 開源，歡迎 Star 支持",
-    "githubCopyBtn": "複製開源地址",
-    "githubCopied": "開源地址已複製到剪貼簿，請在瀏覽器中訪問",
-    "githubCopyFailed": "複製失敗，請手動複製",
+    "versionHistory": "版本記錄",
+    "versionHistoryDesc": "查看所有版本更新記錄和變更日誌",
+    "versionHistoryLatest": "最新",
+    "versionHistoryViewDetails": "查看詳細資訊",
+    "versionHistoryViewAll": "查看所有版本",
     "provider": {
       "loading": "載入中...",
       "emptyProvider": "暫無供應商配置",

@@ -220,17 +220,6 @@
         "korean": "한국어",
         "portuguese": "Português (Brasil)"
       },
-      "invocationMode": {
-        "label": "Invocation Mode",
-        "sdk": "SDK Mode",
-        "sdkDesc": "Use the official SDK integration (default, stable, supports permission prompts)",
-        "cli": "CLI Mode",
-        "cliDesc": "Invoke the local Claude CLI directly",
-        "cliPathPlaceholder": "Path to the Claude CLI executable (leave blank to auto-detect)",
-        "hint": "New requests use the selected mode after switching. Some capabilities in CLI mode may differ from SDK mode. Permission mode follows the setting above.",
-        "policyHint": "Per-session runtime preference. If the chosen mode isn't allowed by 'Runtime Routing Policy' below, it falls back to that provider's default runtime with a notice.",
-        "scopeNotice": "Only applies to new sessions and new tabs. Existing tabs keep their current mode — create a new tab to use the new mode."
-      },
       "nodePath": {
         "label": "Node.js Path",
         "placeholder": "Windows: C:\\Program Files\\nodejs\\node.exe (must end with .exe) | macOS/Linux: /usr/local/bin/node",
@@ -243,36 +232,10 @@
         "invalidFileName": "Path must end with node.exe on Windows, or node on macOS/Linux",
         "cannotExecute": "File exists but cannot be executed, please check file permissions"
       },
-      "claudeCliPath": {
-        "label": "Claude CLI Path (override)",
-        "placeholder": "e.g. /usr/local/bin/claude — leave empty to use the bundled SDK",
-        "hint": "Optional. When set, the plugin spawns this binary instead of the bundled @anthropic-ai/claude-agent-sdk. Daemon restarts on save."
-      },
       "workingDirectory": {
         "label": "Working Directory",
         "placeholder": "e.g. project1 or leave empty to use project root",
         "hint": "Specify the directory where Claude works. Can use relative path (relative to project root) or absolute path. Leave empty to use project root."
-      },
-      "runtimePolicy": {
-        "loaded": "Runtime policy loaded",
-        "saveSuccess": "Runtime policy saved",
-        "resetSuccess": "Default runtime policy restored",
-        "loadFailed": "Failed to load runtime policy",
-        "saveFailed": "Failed to save runtime policy",
-        "save": "Save Policy",
-        "reset": "Restore Default",
-        "enabled": "Enabled",
-        "disabled": "Disabled",
-        "providers": {
-          "claude": "Claude",
-          "codex": "Codex",
-          "opencode": "OpenCode"
-        },
-        "advancedLabel": "Advanced · Restrict runtimes",
-        "allAllowed": "All allowed",
-        "restricted": "Restricted ({{count}})",
-        "defaultRemovedHint": "The default runtime now follows the Invocation Mode above automatically; narrow this only when you need to disable a runtime for a provider.",
-        "degradePreview": "Current invocation mode is {{mode}}, not allowed for {{provider}}; new requests will fall back to {{fallback}}."
       },
       "fontSize": {
         "label": "Font Size",
@@ -601,10 +564,31 @@
       "customSectionTitle": "Custom models",
       "editPricing": "Edit pricing"
     },
-    "dependencies": "SDK Dependencies",
+    "cli": {
+      "title": "CLI Environment Check",
+      "description": "Detect locally installed AI CLI tools, including version information and installation paths.",
+      "claudeName": "Claude CLI",
+      "claudeDescription": "Claude AI command-line tool for interactive coding assistance",
+      "codexName": "Codex CLI",
+      "codexDescription": "OpenAI Codex command-line tool for AI-powered code generation",
+      "opencodeName": "OpenCode CLI",
+      "opencodeDescription": "OpenCode AI command-line tool for multi-model support",
+      "installed": "Installed",
+      "notInstalled": "Not Installed",
+      "updateAvailable": "Update Available",
+      "currentVersion": "Current Version",
+      "latestVersion": "Latest Version",
+      "installPath": "Install Path",
+      "installSource": "Install Source",
+      "lastChecked": "Last Checked",
+      "refreshCheck": "Refresh Check",
+      "checking": "Checking...",
+      "error": "Error detecting CLI status"
+    },
+    "dependencies": "CLI Tools",
     "dependency": {
-      "title": "SDK Dependency Management",
-      "description": "Manage AI SDK dependencies. Install the required SDK before first use.",
+      "title": "CLI Environment Check",
+      "description": "Detect locally installed AI CLI tools, including version information and installation paths.",
       "installPolicyTip": "Installation issues? Copy the error to a terminal CLI AI to resolve",
       "claudeSdkName": "Claude Code SDK",
       "claudeSdkDescription": "Required for Claude AI features. Includes Claude Code SDK and related dependencies.",
@@ -750,17 +734,11 @@
         "other": "Other"
       }
     },
-    "community": "Community",
-    "communityDesc": "Scan the QR code below to join the official WeChat group for the latest news and technical support",
     "versionHistory": "Version History",
-    "versionHistoryDesc": "View all version update records",
-    "communityQrTip": "Scan with WeChat to join the community",
-    "communityQrAlt": "Official WeChat community QR code",
-    "githubTitle": "GitHub Repository",
-    "githubDesc": "This project is open source on GitHub. Star us to show your support!",
-    "githubCopyBtn": "Copy Repository URL",
-    "githubCopied": "Repository URL copied to clipboard. Please visit it in your browser.",
-    "githubCopyFailed": "Failed to copy. Please copy manually.",
+    "versionHistoryDesc": "View all version update records and changelogs",
+    "versionHistoryLatest": "Latest",
+    "versionHistoryViewDetails": "View Details",
+    "versionHistoryViewAll": "View All Versions",
     "provider": {
       "loading": "Loading...",
       "emptyProvider": "No provider configured",

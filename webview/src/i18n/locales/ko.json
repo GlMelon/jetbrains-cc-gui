@@ -218,11 +218,6 @@
         "hintText": "을 실행하여 실제 Node.js 실행 파일 경로를 확인하세요. 비워두면 자동 감지합니다.",
         "versionTooLow": "Node.js 버전이 너무 낮습니다. 플러그인을 정상적으로 실행하려면 v{{minVersion}} 이상이 필요합니다"
       },
-      "claudeCliPath": {
-        "label": "Claude CLI 경로 (재정의)",
-        "placeholder": "예: /usr/local/bin/claude — 비워 두면 내장 SDK 사용",
-        "hint": "선택 사항. 설정하면 플러그인이 내장된 @anthropic-ai/claude-agent-sdk 대신 이 바이너리를 실행합니다. 저장 시 데몬이 다시 시작됩니다."
-      },
       "workingDirectory": {
         "label": "작업 디렉토리",
         "placeholder": "예: project1 또는 프로젝트 루트를 사용하려면 비워두세요",
@@ -562,16 +557,11 @@
       "expand": "사이드바 펼치기",
       "collapse": "사이드바 접기"
     },
-    "community": "커뮤니티",
-    "communityDesc": "아래 QR 코드를 스캔하여 공식 WeChat 그룹에 참여하고 최신 소식과 기술 지원을 받으세요",
     "versionHistory": "버전 히스토리",
-    "versionHistoryDesc": "모든 버전 업데이트 기록 보기",
-    "communityQrTip": "WeChat으로 스캔하여 커뮤니티에 참여하세요",
-    "communityQrAlt": "공식 WeChat 커뮤니티 QR 코드",
-    "githubTitle": "GitHub 저장소",
-    "githubDesc": "이 프로젝트는 GitHub에서 오픈소스로 공개되어 있습니다. Star를 눌러 응원해주세요!",
-    "githubCopyBtn": "저장소 URL 복사",
-    "githubCopied": "저장소 URL이 클립보드에 복사되었습니다. 브라우저에서 방문해주세요.",
+    "versionHistoryDesc": "모든 버전 업데이트 기록과 변경 로그 보기",
+    "versionHistoryLatest": "최신",
+    "versionHistoryViewDetails": "세부 정보 보기",
+    "versionHistoryViewAll": "모든 버전 보기",
     "githubCopyFailed": "복사에 실패했습니다. 수동으로 복사해주세요.",
     "provider": {
       "loading": "로딩 중...",
