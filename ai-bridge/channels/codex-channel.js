@@ -1,10 +1,13 @@
 // @ts-check
 /**
  * Codex channel command handler – keeps Codex specific logic separated.
+ *
+ * send 经 services/codex/message-service.js 调 @openai/codex-sdk,服务于 commit message
+ * 生成(CommitMessageAiService);会话交互式发送走 CodexCliSession(CLI),不经此处。
+ * clearThreadCache(SDK thread 缓存清理)已随 SDK 会话模式移除——CLI 模式每次 spawn 新进程,
+ * 无跨进程 thread 缓存。
  */
-import { sendMessage as codexSendMessage } from '../services/codex/message-service.js';
-import { getMcpServerTools as codexGetMcpServerTools } from '../services/codex/message-service.js';
-import { resetCodexThreadCache } from '../services/codex/message-service.js';
+import { sendMessage as codexSendMessage, getMcpServerTools as codexGetMcpServerTools } from '../services/codex/message-service.js';
 
 /**
  * Execute a Codex command.
@@ -54,12 +57,6 @@ export async function handleCodexCommand(command, args, stdinData) {
       break;
     }
 
-    case 'clearThreadCache': {
-      const threadId = stdinData?.threadId || args[0] || null;
-      resetCodexThreadCache(threadId);
-      break;
-    }
-
     default:
       throw new Error(`Unknown Codex command: ${command}`);
   }
@@ -67,7 +64,7 @@ export async function handleCodexCommand(command, args, stdinData) {
 
 /** @returns {string[]} */
 export function getCodexCommandList() {
-  return ['send', 'getMcpServerTools', 'clearThreadCache'];
+  return ['send', 'getMcpServerTools'];
 }
 
 export const codexChannelDescriptor = {

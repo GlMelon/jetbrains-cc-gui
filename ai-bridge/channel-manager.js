@@ -26,7 +26,6 @@
 // Shared utilities
 import { readStdinData } from './utils/stdin-utils.js';
 import { getDefaultProviderRegistry } from './channels/provider-registry.js';
-import { getSdkStatus, isClaudeSdkAvailable, isCodexSdkAvailable } from './utils/sdk-loader.js';
 import { injectStartupEnvVars, configureCliIdentity } from './config/api-config.js';
 import { resolveExitStrategy, exitDelayFor, EXIT_STRATEGY } from './utils/exit-strategy.js';
 
@@ -76,50 +75,6 @@ process.on('unhandledRejection', (reason) => {
   process.exit(1);
 });
 
-/**
- * Handle system-level commands (e.g., SDK status checks)
- * @param {string} command
- * @param {string[]} args
- * @param {Record<string, any> | null} [stdinData]
- * @returns {Promise<void>}
- */
-async function handleSystemCommand(command, args, stdinData) {
-  switch (command) {
-    case 'getSdkStatus': {
-      // Return the installation status of all SDKs
-      const status = getSdkStatus();
-      console.log(JSON.stringify({
-        success: true,
-        data: status
-      }));
-      break;
-    }
-
-    case 'checkClaudeSdk':
-      // Check if Claude SDK is available
-      console.log(JSON.stringify({
-        success: true,
-        available: isClaudeSdkAvailable()
-      }));
-      break;
-
-    case 'checkCodexSdk':
-      // Check if Codex SDK is available
-      console.log(JSON.stringify({
-        success: true,
-        available: isCodexSdkAvailable()
-      }));
-      break;
-
-    default:
-      console.log(JSON.stringify({
-        success: false,
-        error: 'Unknown system command: ' + command
-      }));
-      process.exit(1);
-  }
-}
-
 const providerRegistry = getDefaultProviderRegistry();
 
 // Execute command
@@ -128,8 +83,8 @@ const providerRegistry = getDefaultProviderRegistry();
   try {
     // Validate provider
     console.error('[DIAG-EXEC] Validating provider...');
-    if (!provider || (provider !== 'system' && !providerRegistry.has(provider))) {
-      console.error('Invalid provider. Use "claude", "codex", or "system"');
+    if (!provider || !providerRegistry.has(provider)) {
+      console.error('Invalid provider. Use "claude", "codex", or "opencode"');
       console.log(JSON.stringify({
         success: false,
         error: 'Invalid provider: ' + provider
@@ -154,11 +109,7 @@ const providerRegistry = getDefaultProviderRegistry();
 
     // Dispatch to the appropriate provider handler
     console.error('[DIAG-EXEC] Dispatching to handler:', provider);
-    if (provider === 'system') {
-      await handleSystemCommand(command, args, stdinData);
-    } else {
-      await providerRegistry.dispatch(provider, command, args, stdinData);
-    }
+    await providerRegistry.dispatch(provider, command, args, stdinData);
     console.error('[DIAG-EXEC] Handler completed successfully');
 
     // IMPORTANT: Do not use process.exit(0) for natural-exit commands -- it terminates the
@@ -168,9 +119,9 @@ const providerRegistry = getDefaultProviderRegistry();
     process.exitCode = 0;
     const exitStrategy = resolveExitStrategy(provider, command);
     if (exitStrategy !== EXIT_STRATEGY.NATURAL) {
-      // network / rewind / history-readonly:各自的句柄(@opencode-ai/sdk undici socket /
-      // MCP 连接 / sql.js db)可能阻止自然退出,按策略延迟强退(history-readonly 200ms 绕过
-      // Node 25 + Windows 的 sql.js UV_HANDLE_CLOSING assert,其余 100ms),留足 stdout flush 时间。
+      // network / rewind / history-readonly:各自的句柄(SDK fetch socket / MCP 连接 /
+      // sql.js db)可能阻止自然退出,按策略延迟强退(history-readonly 200ms 绕过 Node 25 +
+      // Windows 的 sql.js UV_HANDLE_CLOSING assert,其余 100ms),留足 stdout flush 时间。
       setTimeout(() => process.exit(0), exitDelayFor(exitStrategy));
     }
 

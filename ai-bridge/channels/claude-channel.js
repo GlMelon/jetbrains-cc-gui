@@ -2,6 +2,11 @@
 /**
  * Claude channel command handler – isolates all Claude specific command logic
  * away from the shared channel-manager entry point.
+ *
+ * send/sendWithAttachments 经 services/claude/message-service.js(→ message-sender.js)
+ * 调 @anthropic-ai/claude-agent-sdk,服务于 commit message 生成(CommitMessageAiService)
+ * 等一次性子进程任务;会话交互式发送走 ClaudeCliSession(CLI),不经此处。
+ * resetRuntime/getContextUsage(daemon persistent runtime 专属)已随 SDK daemon 模式移除。
  */
 import {
   sendMessage as claudeSendMessage,
@@ -10,9 +15,6 @@ import {
   getMcpServerStatus as claudeGetMcpServerStatus,
   getMcpServerTools as claudeGetMcpServerTools
 } from '../services/claude/message-service.js';
-import {
-  resetRuntimePersistent as claudeResetRuntimePersistent
-} from '../services/claude/persistent-query-service.js';
 import {
   getSessionMessages as claudeGetSessionMessages,
   getLatestUserMessage as claudeGetLatestUserMessage
@@ -108,21 +110,6 @@ export async function handleClaudeCommand(command, args, stdinData) {
       break;
     }
 
-    case 'resetRuntime': {
-      await claudeResetRuntimePersistent(stdinData || {});
-      break;
-    }
-
-    case 'getContextUsage': {
-      // getContextUsage requires a persistent runtime (daemon mode).
-      // In per-process mode, there is no persistent runtime, so return an error.
-      console.log(JSON.stringify({
-        success: false,
-        error: 'getContextUsage requires daemon mode. No persistent runtime available in per-process mode.'
-      }));
-      break;
-    }
-
     default:
       throw new Error(`Unknown Claude command: ${command}`);
   }
@@ -130,7 +117,7 @@ export async function handleClaudeCommand(command, args, stdinData) {
 
 /** @returns {string[]} */
 export function getClaudeCommandList() {
-  return ['send', 'sendWithAttachments', 'getSession', 'getLatestUserMessage', 'rewindFiles', 'getMcpServerStatus', 'getMcpServerTools', 'resetRuntime', 'getContextUsage'];
+  return ['send', 'sendWithAttachments', 'getSession', 'getLatestUserMessage', 'rewindFiles', 'getMcpServerStatus', 'getMcpServerTools'];
 }
 
 export const claudeChannelDescriptor = {
