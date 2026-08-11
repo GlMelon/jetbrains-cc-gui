@@ -5,23 +5,24 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Independent file rewind service for Claude provider.
- * Extracts rewind functionality using NodeService
+ * Independent MCP server query service for Claude provider.
+ * Extracts MCP status/tools query using NodeService
  * for Node.js infrastructure.
  */
-public class ClaudeRewindService {
+public class ClaudeMcpService {
 
-    private static final Logger LOG = Logger.getInstance(ClaudeRewindService.class);
+    private static final Logger LOG = Logger.getInstance(ClaudeMcpService.class);
     private static final Gson gson = new Gson();
 
-    private final ClaudeRewindQueryService rewindQueryService;
+    private final ClaudeMcpQueryService mcpQueryService;
 
-    public ClaudeRewindService() {
+    public ClaudeMcpService() {
         NodeService nodeService = NodeService.getInstance();
-        this.rewindQueryService = new ClaudeRewindQueryService(
+        this.mcpQueryService = new ClaudeMcpQueryService(
                 LOG,
                 gson,
                 nodeService.getNodeDetector(),
@@ -32,7 +33,11 @@ public class ClaudeRewindService {
         );
     }
 
-    public CompletableFuture<JsonObject> rewindFiles(String sessionId, String userMessageId, String cwd) {
-        return rewindQueryService.rewindFiles(sessionId, userMessageId, cwd);
+    public CompletableFuture<List<JsonObject>> getMcpServerStatus(String cwd) {
+        return mcpQueryService.getMcpServerStatus(cwd);
+    }
+
+    public CompletableFuture<JsonObject> getMcpServerTools(String serverId, String cwd) {
+        return mcpQueryService.getMcpServerTools(serverId, cwd);
     }
 }
