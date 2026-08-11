@@ -46,16 +46,13 @@ public final class GetNodePathActionHandler implements FrontendActionHandler<Str
         CompletableFuture.runAsync(() -> {
             try {
                 PropertiesComponent props = PropertiesComponent.getInstance();
-                // §6 对称:三家 SDK bridge 各自持有 NodeDetector 引用(当前同单例,未来可能 per-bridge),
-                // 显式同步 OpenCode 避免遗漏。测试 fixture 中 OpenCode bridge 可能为 null,守卫之。
-                final com.github.claudecodegui.provider.opencode.OpenCodeSDKBridge openCodeBridge = ctx.getOpenCodeSDKBridge();
                 String saved = props.getValue(NODE_PATH_PROPERTY_KEY);
                 String pathToSend = "";
                 String versionToSend = null;
 
                 if (saved != null && !saved.trim().isEmpty()) {
                     String trimmedPath = saved.trim();
-                    NodeDetectionResult result = ctx.getClaudeSDKBridge().verifyAndCacheNodePath(trimmedPath);
+                    NodeDetectionResult result = ctx.getNodeService().verifyAndCacheNodePath(trimmedPath);
                     if (result != null && result.isFound()) {
                         pathToSend = trimmedPath;
                         versionToSend = result.getNodeVersion();
@@ -64,36 +61,24 @@ public final class GetNodePathActionHandler implements FrontendActionHandler<Str
                         LOG.warn("[GetNodePathActionHandler] Saved Node.js path is invalid: " + trimmedPath
                             + ", clearing and triggering re-detection");
                         props.unsetValue(NODE_PATH_PROPERTY_KEY);
-                        ctx.getClaudeSDKBridge().setNodeExecutable(null);
-                        ctx.getCodexSDKBridge().setNodeExecutable(null);
-                        if (openCodeBridge != null) {
-                            openCodeBridge.setNodeExecutable(null);
-                        }
+                        ctx.getNodeService().setNodeExecutable(null);
 
-                        NodeDetectionResult detected = ctx.getClaudeSDKBridge().detectNodeWithDetails();
+                        NodeDetectionResult detected = ctx.getNodeService().detectNodeWithDetails();
                         if (detected != null && detected.isFound() && detected.getNodePath() != null) {
                             pathToSend = detected.getNodePath();
                             versionToSend = detected.getNodeVersion();
                             props.setValue(NODE_PATH_PROPERTY_KEY, pathToSend);
-                            ctx.getClaudeSDKBridge().verifyAndCacheNodePath(pathToSend);
-                            ctx.getCodexSDKBridge().setNodeExecutable(pathToSend);
-                            if (openCodeBridge != null) {
-                                openCodeBridge.setNodeExecutable(pathToSend);
-                            }
+                            ctx.getNodeService().verifyAndCacheNodePath(pathToSend);
                         }
                     }
                 } else {
-                    NodeDetectionResult detected = ctx.getClaudeSDKBridge().detectNodeWithDetails();
+                    NodeDetectionResult detected = ctx.getNodeService().detectNodeWithDetails();
                     if (detected != null && detected.isFound() && detected.getNodePath() != null) {
                         pathToSend = detected.getNodePath();
                         versionToSend = detected.getNodeVersion();
                         props.setValue(NODE_PATH_PROPERTY_KEY, pathToSend);
                         // Use verifyAndCacheNodePath instead of setNodeExecutable to ensure version info is cached
-                        ctx.getClaudeSDKBridge().verifyAndCacheNodePath(pathToSend);
-                        ctx.getCodexSDKBridge().setNodeExecutable(pathToSend);
-                        if (openCodeBridge != null) {
-                            openCodeBridge.setNodeExecutable(pathToSend);
-                        }
+                        ctx.getNodeService().verifyAndCacheNodePath(pathToSend);
                     }
                 }
 
