@@ -2,7 +2,8 @@ import { sendAction, subscribeEvent } from '../bridge/typed';
 import { UPSTREAM, DOWNSTREAM } from '../generated/protocol';
 import { useEffect, useState } from 'react';
 import { registerLegacyAlias } from '../bridge';
-import { migrateLegacyScopedColor, applyChatBackground, applyUserMsgColor, type Theme } from '../utils/appearanceColors';
+import { migrateLegacyScopedColor, applyChatBackground, applyUserMsgColor, readScopedColor, type Theme } from '../utils/appearanceColors';
+import { applyChatBarThemeColor } from '../utils/chatBarTheme';
 
 /**
  * 解析当前实际主题:优先读全局 data-theme(已被解析为亮/暗),回退 Java 注入值,再回退 dark。
@@ -77,8 +78,10 @@ export function useThemeInit() {
     const mountTheme = resolveCurrentTheme();
     migrateLegacyScopedColor('chatBgColor', mountTheme);
     migrateLegacyScopedColor('userMsgColor', mountTheme);
+    migrateLegacyScopedColor('chatBarColor', mountTheme);
     applyChatBackground(mountTheme);
     applyUserMsgColor(mountTheme);
+    applyChatBarThemeColor(readScopedColor('chatBarColor', mountTheme) || '');
 
     // Apply the user's explicit theme choice (light/dark) first
     const savedTheme = localStorage.getItem('theme');
@@ -130,6 +133,7 @@ export function useThemeInit() {
     const currentTheme = resolveCurrentTheme();
     applyChatBackground(currentTheme);
     applyUserMsgColor(currentTheme);
+    applyChatBarThemeColor(readScopedColor('chatBarColor', currentTheme) || '');
   }, [ideTheme]);
 
   // [冷缓存回灌] Java 注入 config.json 后,bootstrap 回灌 localStorage 并派发该事件;重应用当前主题颜色
@@ -138,6 +142,7 @@ export function useThemeInit() {
       const t = resolveCurrentTheme();
       applyChatBackground(t);
       applyUserMsgColor(t);
+      applyChatBarThemeColor(readScopedColor('chatBarColor', t) || '');
     };
     window.addEventListener('appearance-config-applied', handler);
     return () => window.removeEventListener('appearance-config-applied', handler);

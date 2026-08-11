@@ -13,7 +13,7 @@
 export type Theme = 'light' | 'dark';
 
 /** 受主题作用域控制的颜色项 */
-export type ColorBaseKey = 'chatBgColor' | 'userMsgColor';
+export type ColorBaseKey = 'chatBgColor' | 'userMsgColor' | 'chatBarColor';
 
 const HEX_COLOR_REGEX = /^#[0-9a-fA-F]{6}$/;
 
@@ -21,6 +21,7 @@ const HEX_COLOR_REGEX = /^#[0-9a-fA-F]{6}$/;
 const CSS_VARS: Record<ColorBaseKey, string[]> = {
   chatBgColor: ['--bg-chat'],
   userMsgColor: ['--color-message-user-bg', '--color-message-user-fade'],
+  chatBarColor: [],
 };
 
 /** 校验是否为合法的 6 位 hex 颜色(如 `#2b2d30`) */

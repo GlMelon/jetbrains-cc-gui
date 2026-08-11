@@ -25,6 +25,7 @@ interface AppearanceConfigPayload {
   diffTheme?: string;
   chatBgColor?: { light?: string; dark?: string };
   userMsgColor?: { light?: string; dark?: string };
+  chatBarColor?: { light?: string; dark?: string };
 }
 
 function parseThemePreference(raw: unknown): ThemePreference | null {
@@ -82,7 +83,7 @@ export function applyAppearanceConfig(rawConfig: AppearanceConfigPayload | strin
   }
 
   // 按主题分别存储的颜色
-  (['chatBgColor', 'userMsgColor'] as const).forEach((baseKey: ColorBaseKey) => {
+  (['chatBgColor', 'userMsgColor', 'chatBarColor'] as const).forEach((baseKey: ColorBaseKey) => {
     const scoped = config[baseKey];
     if (!scoped || typeof scoped !== 'object') return;
     (['light', 'dark'] as const).forEach((theme: ThemeKey) => {

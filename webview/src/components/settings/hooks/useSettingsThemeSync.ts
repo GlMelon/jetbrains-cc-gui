@@ -12,6 +12,7 @@ import {
 } from '../../../utils/appearanceColors';
 import { sendAction } from '../../../bridge/typed';
 import { UPSTREAM } from '../../../generated/protocol';
+import { applyChatBarThemeColor } from '../../../utils/chatBarTheme';
 
 // Extend window type for IDE theme injection
 declare global {
@@ -32,7 +33,7 @@ function resolveInitialTheme(): Theme {
   return 'dark';
 }
 
-function readScopedColors(baseKey: 'chatBgColor' | 'userMsgColor'): ScopedColors {
+function readScopedColors(baseKey: 'chatBgColor' | 'userMsgColor' | 'chatBarColor'): ScopedColors {
   return {
     light: readScopedColor(baseKey, 'light') ?? '',
     dark: readScopedColor(baseKey, 'dark') ?? '',
@@ -46,6 +47,7 @@ function normalizeAppearanceForCompare(obj: {
   diffTheme: string;
   chatBgColor: ScopedColors;
   userMsgColor: ScopedColors;
+  chatBarColor: ScopedColors;
 }): string {
   return JSON.stringify({
     themePreference: obj.themePreference,
@@ -53,6 +55,7 @@ function normalizeAppearanceForCompare(obj: {
     diffTheme: obj.diffTheme,
     chatBgColor: { light: obj.chatBgColor.light || undefined, dark: obj.chatBgColor.dark || undefined },
     userMsgColor: { light: obj.userMsgColor.light || undefined, dark: obj.userMsgColor.dark || undefined },
+    chatBarColor: { light: obj.chatBarColor.light || undefined, dark: obj.chatBarColor.dark || undefined },
   });
 }
 
@@ -94,6 +97,7 @@ export function useSettingsThemeSync() {
     return readScopedColors('chatBgColor');
   });
   const [userMsgColors, setUserMsgColors] = useState<ScopedColors>(() => readScopedColors('userMsgColor'));
+  const [chatBarColors, setChatBarColors] = useState<ScopedColors>(() => readScopedColors('chatBarColor'));
 
   // Diff theme configuration
   const [diffTheme, setDiffTheme] = useState<DiffThemeMode>(() => getStoredDiffTheme());
@@ -101,12 +105,16 @@ export function useSettingsThemeSync() {
   // 对外暴露"当前 resolvedTheme"对应的颜色值;setter 仅写入当前主题的键
   const chatBgColor = chatBgColors[resolvedTheme];
   const userMsgColor = userMsgColors[resolvedTheme];
+  const chatBarColor = chatBarColors[resolvedTheme];
 
   const setChatBgColor = useCallback((color: string) => {
     setChatBgColors((prev) => ({ ...prev, [resolvedTheme]: color }));
   }, [resolvedTheme]);
   const setUserMsgColor = useCallback((color: string) => {
     setUserMsgColors((prev) => ({ ...prev, [resolvedTheme]: color }));
+  }, [resolvedTheme]);
+  const setChatBarColor = useCallback((color: string) => {
+    setChatBarColors((prev) => ({ ...prev, [resolvedTheme]: color }));
   }, [resolvedTheme]);
 
   // Theme switching handler (supports following IDE theme)
@@ -172,6 +180,17 @@ export function useSettingsThemeSync() {
     applyUserMsgColor(resolvedTheme);
   }, [resolvedTheme, userMsgColors]);
 
+  // [按主题] chat bar 颜色 handler
+  useEffect(() => {
+    const v = chatBarColors[resolvedTheme];
+    if (v) {
+      writeScopedColor('chatBarColor', resolvedTheme, v);
+    } else {
+      clearScopedColor('chatBarColor', resolvedTheme);
+    }
+    applyChatBarThemeColor(v || '');
+  }, [resolvedTheme, chatBarColors]);
+
   // Diff theme handler
   useEffect(() => {
     applyDiffTheme(diffTheme, ideTheme);
@@ -187,6 +206,7 @@ export function useSettingsThemeSync() {
       diffTheme,
       chatBgColor: chatBgColors,
       userMsgColor: userMsgColors,
+      chatBarColor: chatBarColors,
     });
     // 冷缓存回灌触发的那一次 state 变更,其值等于回灌快照 → 跳过回写,防止 ABA 循环
     if (lastHydrationRef.current !== null && lastHydrationRef.current === current) {
@@ -201,10 +221,11 @@ export function useSettingsThemeSync() {
         diffTheme,
         chatBgColor: { light: chatBgColors.light || undefined, dark: chatBgColors.dark || undefined },
         userMsgColor: { light: userMsgColors.light || undefined, dark: userMsgColors.dark || undefined },
+        chatBarColor: { light: chatBarColors.light || undefined, dark: chatBarColors.dark || undefined },
       });
     }, 400);
     return () => window.clearTimeout(handle);
-  }, [themePreference, fontSizeLevel, diffTheme, chatBgColors, userMsgColors]);
+  }, [themePreference, fontSizeLevel, diffTheme, chatBgColors, userMsgColors, chatBarColors]);
 
   // [冷缓存回灌] Java 注入 config.json 后,bootstrap 仅填充缺失键并派发该事件。
   // 从 localStorage 重建 state,并记录回灌快照供持久化 effect 跳过本次回写。
@@ -218,6 +239,7 @@ export function useSettingsThemeSync() {
       const newDiff = getStoredDiffTheme();
       const newChat = readScopedColors('chatBgColor');
       const newUserMsg = readScopedColors('userMsgColor');
+      const newChatBar = readScopedColors('chatBarColor');
 
       lastHydrationRef.current = normalizeAppearanceForCompare({
         themePreference: newThemePreference,
@@ -225,6 +247,7 @@ export function useSettingsThemeSync() {
         diffTheme: newDiff,
         chatBgColor: newChat,
         userMsgColor: newUserMsg,
+        chatBarColor: newChatBar,
       });
 
       setThemePreference(newThemePreference);
@@ -232,6 +255,7 @@ export function useSettingsThemeSync() {
       setDiffTheme(newDiff);
       setChatBgColors(newChat);
       setUserMsgColors(newUserMsg);
+      setChatBarColors(newChatBar);
     };
     window.addEventListener('appearance-config-applied', handler);
     return () => window.removeEventListener('appearance-config-applied', handler);
@@ -249,6 +273,8 @@ export function useSettingsThemeSync() {
     setChatBgColor,
     userMsgColor,
     setUserMsgColor,
+    chatBarColor,
+    setChatBarColor,
     diffTheme,
     setDiffTheme,
   };

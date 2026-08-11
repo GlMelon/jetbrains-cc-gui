@@ -46,6 +46,7 @@ public final class AppearanceSettingsService {
     private static final String APPEARANCE_DIFF_THEME_KEY = "diffTheme";
     private static final String APPEARANCE_CHAT_BG_KEY = "chatBgColor";
     private static final String APPEARANCE_USER_MSG_KEY = "userMsgColor";
+    private static final String APPEARANCE_CHAT_BAR_KEY = "chatBarColor";
     private static final Set<String> VALID_THEME_PREFERENCES = Set.of("system", "light", "dark");
     private static final Set<String> VALID_DIFF_THEMES = Set.of("follow", "editor", "light", "soft-dark");
     private static final Pattern HEX_COLOR_PATTERN = Pattern.compile("^#[0-9a-fA-F]{6}$");
@@ -167,6 +168,10 @@ public final class AppearanceSettingsService {
         JsonObject userMsg = normalizeScopedColors(rawConfig, APPEARANCE_USER_MSG_KEY);
         if (userMsg != null) {
             appearance.add(APPEARANCE_USER_MSG_KEY, userMsg);
+        }
+        JsonObject chatBar = normalizeScopedColors(rawConfig, APPEARANCE_CHAT_BAR_KEY);
+        if (chatBar != null) {
+            appearance.add(APPEARANCE_CHAT_BAR_KEY, chatBar);
         }
 
         return appearance;
