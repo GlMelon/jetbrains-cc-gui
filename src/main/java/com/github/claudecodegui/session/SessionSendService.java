@@ -191,7 +191,11 @@ public class SessionSendService {
         final boolean isCliRuntime = isCliRuntime(currentProvider);
 
         CompletableFuture<Void> future;
-        if (CommonConstants.PROVIDER_CODEX.equals(currentProvider)) {
+        if (CommonConstants.PROVIDER_CLAUDE.equals(currentProvider)) {
+            // Claude 走专属 ClaudeMessageHandler(streaming-json 协议 + 附件/图片富处理)。
+            future = sendToClaude(channelId, input, attachments, openedFilesJson, agentPrompt,
+                    effectivePermissionMode);
+        } else if (CommonConstants.PROVIDER_CODEX.equals(currentProvider)) {
             future = sendToCodex(
                     channelId,
                     input,
@@ -201,8 +205,14 @@ public class SessionSendService {
                     fileTagPaths,
                     effectivePermissionMode
             );
-        } else if (CommonConstants.PROVIDER_OPENCODE.equals(currentProvider)) {
-            future = sendToOpenCode(
+        } else {
+            // OpenCode / Grok / Kimi / Pi 均经各自 CliSession 把上游 CLI 输出归一为统一 MSG_* 协议,
+            // 共用 CodexMessageHandler + buildCodexContextAppend + passthrough normalizer。
+            // 修复:此前 else 兜底走 sendToClaude 且硬编码 PROVIDER_CLAUDE,致 Grok/Kimi/Pi
+            // 静默按 Claude 解析(模型/runtime/normalizer 全错位)——发出去的是 grok run,
+            // 回流却按 Claude streaming-json 归一,且 modelSelection/runtimeKey 全挂 CLAUDE。
+            future = sendToCodexProtocolProvider(
+                    currentProvider,
                     channelId,
                     input,
                     attachments,
@@ -211,9 +221,6 @@ public class SessionSendService {
                     fileTagPaths,
                     effectivePermissionMode
             );
-        } else {
-            future = sendToClaude(channelId, input, attachments, openedFilesJson, agentPrompt,
-                    effectivePermissionMode);
         }
 
         // provider 无关的统一 post-turn 钩子:仅在 CLI 首轮成功后 fire-and-forget 触发标题生成。
@@ -302,7 +309,16 @@ public class SessionSendService {
         ).thenApply(result -> null);
     }
 
-    private CompletableFuture<Void> sendToOpenCode(
+    /**
+     * Codex 协议族通用发送路径:OpenCode / Grok / Kimi / Pi 均经各自 CliSession
+     * (OpenCodeCliSession / GrokCliSession / KimiCliSession / PiCliSession)把上游 CLI 输出
+     * 归一为同一 MSG_* schema(session_id/stream_start/content_delta/thinking_delta/usage/
+     * stream_end/error 等),故共用 CodexMessageHandler + buildCodexContextAppend + passthrough
+     * normalizer(MessageNormalizers 已为四家注册透传归一化器)。无需各建独立 handler。
+     * 绑定运行时会话 epoch,旧进程回调因 epoch 不匹配被丢弃(防串台,与 Claude/Codex 一致)。
+     */
+    private CompletableFuture<Void> sendToCodexProtocolProvider(
+            String provider,
             String channelId,
             String input,
             List<ClaudeSession.Attachment> attachments,
@@ -311,10 +327,6 @@ public class SessionSendService {
             List<String> fileTagPaths,
             String effectivePermissionMode
     ) {
-        // B4:复用 CodexMessageHandler 处理统一 MSG_* 协议。OpenCode 事件经 OpenCodeCliSession(CLI)
-        // / OpenCodeCliSession(CLI)已归一为同一 MSG_* schema(session_id/stream_start/content_delta/
-        // thinking_delta/usage/stream_end/error 等),无需新建 OpenCodeMessageHandler(设计 §9 未列新 handler)。
-        // 绑定运行时会话 epoch,旧 OpenCode 进程回调因 epoch 不匹配被丢弃(防串台,与 Claude/Codex 一致)。
         CodexMessageHandler handler = new CodexMessageHandler(
                 state,
                 callbackFacade.getCallbackHandler(),
@@ -322,19 +334,19 @@ public class SessionSendService {
         );
 
         // 复用 provider 中性的上下文构造(workspace/module/file);buildCodexContextAppend 实为通用,
-        // 并非 Codex 专有——openedFilesJson/fileTagPaths 派生的项目结构上下文对 OpenCode 同样有效。
+        // 并非 Codex 专有——openedFilesJson/fileTagPaths 派生的项目结构上下文对 Codex 协议族同样有效。
         String contextAppend = contextService.buildCodexContextAppend(openedFilesJson, fileTagPaths);
         String finalInput = (input != null ? input : "") + contextAppend;
 
-        EffectiveRuntimeResolver.Runtime runtime = resolveRuntime(CommonConstants.PROVIDER_OPENCODE);
+        EffectiveRuntimeResolver.Runtime runtime = resolveRuntime(provider);
         RuntimeKey key = new RuntimeKey(
-                CommonConstants.PROVIDER_OPENCODE,
+                provider,
                 channelId,
                 channelId,
                 state.getRuntimeSessionEpoch()
         );
-        ModelRegistryConfig.ResolvedModelSelection opencodeModelSelection =
-                resolveModelSelection(CommonConstants.PROVIDER_OPENCODE, state.getModel());
+        ModelRegistryConfig.ResolvedModelSelection modelSelection =
+                resolveModelSelection(provider, state.getModel());
         Boolean thinkingOutputEnabled = readThinkingOutputEnabled();
         SessionRequest request = new SessionRequest(
                 key,
@@ -349,7 +361,7 @@ public class SessionSendService {
                 agentPrompt,
                 effectivePermissionMode,
                 state.getModel(),
-                opencodeModelSelection.actualModel(),
+                modelSelection.actualModel(),
                 state.getReasoningEffort(),
                 state.getPermissionSessionId(),
                 null,
@@ -361,7 +373,7 @@ public class SessionSendService {
         return runtimeRouter.send(
                 request,
                 MessageNormalizers.forRuntime(
-                        CommonConstants.PROVIDER_OPENCODE,
+                        provider,
                         toInvocationMode(runtime.runtimeType()),
                         handler
                 )

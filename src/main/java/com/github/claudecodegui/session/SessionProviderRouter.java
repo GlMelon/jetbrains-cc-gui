@@ -1,5 +1,6 @@
 package com.github.claudecodegui.session;
 
+import com.github.claudecodegui.provider.CliOnlyProviderAdapter;
 import com.github.claudecodegui.provider.ProviderAdapter;
 import com.github.claudecodegui.provider.ProviderId;
 import com.github.claudecodegui.provider.ProviderRegistry;
@@ -17,8 +18,8 @@ import java.util.List;
  * <b>装配 vs 路由(E7 决策·接受并标注)</b>:路由主体({@link #getSessionMessages} /
  * {@link #getInitialSessionHistory} 等)经 {@link ProviderRegistry#require} Map 查表(E3),
  * 新增 provider adapter <b>不需改主体</b>(总则五·开闭已满足),仅装配构造函数加一行 {@code new}。
- * 装配层手工 {@code new ...Adapter} 是无 DI 环境的装配惯例;2 个 adapter 经 {@code List.of}
- * 装进 {@link ProviderRegistry} 容器(容器本身已是注册化结构,新增 adapter 加一行即装配)。
+ * 装配层手工 {@code new ...Adapter} 是无 DI 环境的装配惯例;6 个 adapter(3 全功能 + 3 纯 CLI)
+ * 经 {@code List.of} 装进 {@link ProviderRegistry} 容器(容器本身已是注册化结构,新增 adapter 加一行即装配)。
  * 故评估接受手工装配并标注(E7),非待修复。
  */
 public class SessionProviderRouter {
@@ -37,7 +38,13 @@ private final ProviderRegistry providerRegistry;
         return List.of(
                 new ClaudeProviderAdapter(),
                 new CodexProviderAdapter(),
-                new OpenCodeProviderAdapter()
+                new OpenCodeProviderAdapter(),
+                // Grok / Kimi / Pi:纯 CLI marker provider(无 history/mcp/rewind),通用轻量适配器。
+                // 注册后 getSessionMessages 等经 ProviderRegistry.require 命中,不再 fail-fast;
+                // 其 capabilities 不含 HISTORY,getSessionMessages 走默认 UnsupportedOperationException。
+                new CliOnlyProviderAdapter(ProviderId.GROK, "Grok"),
+                new CliOnlyProviderAdapter(ProviderId.KIMI, "Kimi"),
+                new CliOnlyProviderAdapter(ProviderId.PI, "Pi")
         );
     }
 
