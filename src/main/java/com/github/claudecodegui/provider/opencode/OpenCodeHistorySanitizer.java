@@ -16,8 +16,8 @@ import java.util.List;
  * <p>
  * 抽为 provider.opencode 包内 public 纯函数,供两条消费路径复用:
  * <ul>
- *   <li>回放路径:SessionProviderRouter → OpenCodeProviderAdapter → OpenCodeSDKBridge.getSessionMessages</li>
- *   <li>历史面板:OpenCodeHistoryProviderAdapter.loadMessages → OpenCodeSDKBridge.getSessionMessages</li>
+ *   <li>回放路径:SessionProviderRouter → OpenCodeProviderAdapter → getSessionMessages</li>
+ *   <li>历史面板:OpenCodeHistoryProviderAdapter.loadMessages → getSessionMessages</li>
  * </ul>
  * bridge.getSessionMessages 是共同 choke point,在那里 sanitize 即同时覆盖两路径(历史面板
  * 侧的再次 sanitize 幂等无害)。消息形状(type/raw.role/raw.content[])对应 ai-bridge

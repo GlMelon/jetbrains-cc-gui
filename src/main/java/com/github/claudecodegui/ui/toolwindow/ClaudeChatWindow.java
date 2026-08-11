@@ -10,12 +10,7 @@ import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.permission.PermissionService;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.protocol.UpstreamAction;
-import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
-import com.github.claudecodegui.provider.codex.CodexSDKBridge;
-import com.github.claudecodegui.provider.common.DaemonBridge;
 import com.github.claudecodegui.provider.common.MessageCallback;
-import com.github.claudecodegui.provider.common.ProjectBridgeRegistry;
-import com.github.claudecodegui.provider.common.SharedBridgeReferenceCounter;
 import com.github.claudecodegui.session.ClaudeSession;
 import com.github.claudecodegui.session.SessionCallbackAdapter;
 import com.github.claudecodegui.session.SessionLifecycleManager;
@@ -77,18 +72,6 @@ public class ClaudeChatWindow {
      * main panel.
      */
     private final JPanel mainPanel;
-    /**
-     * claude sdk bridge.
-     */
-    private final ClaudeSDKBridge claudeSDKBridge;
-    /**
-     * codex sdk bridge.
-     */
-    private final CodexSDKBridge codexSDKBridge;
-    /**
-     * opencode sdk bridge.
-     */
-    private final com.github.claudecodegui.provider.opencode.OpenCodeSDKBridge openCodeSDKBridge;
     /**
      * project.
      */
@@ -170,11 +153,6 @@ public class ClaudeChatWindow {
     private final AtomicBoolean taskCompletionNotificationSent = new AtomicBoolean(false);
     private final Alarm notificationAlarm = new Alarm(Alarm.ThreadToUse.SWING_THREAD);
 
-    /**
-     * title event listener.
-     */ // Daemon event listener for AI title forwarding. Held so it can be removed on dispose.
-    private DaemonBridge.DaemonEventListener titleEventListener;
-
     // Coalesces session_updated reloads. SessionState's message list is not
     // thread-safe and loadFromServer() runs async, so concurrent background-task
     // completions must not reload at the same time. Guarded by sessionReloadLock.
@@ -240,11 +218,6 @@ public class ClaudeChatWindow {
 
     public ClaudeChatWindow(Project project, boolean skipRegister) {
         this.project = project;
-        ProjectBridgeRegistry.SharedBridges sharedBridges = ProjectBridgeRegistry.get(project);
-        this.claudeSDKBridge = sharedBridges.getClaudeBridge();
-        this.codexSDKBridge = sharedBridges.getCodexBridge();
-        this.openCodeSDKBridge = sharedBridges.getOpenCodeBridge();
-        SharedBridgeReferenceCounter.retain(project);
         this.settingsService = CodemossSettingsService.getInstance();
         this.htmlLoader = new HtmlLoader(getClass());
         this.mainPanel = new JPanel(new BorderLayout());
@@ -283,7 +256,7 @@ public class ClaudeChatWindow {
                 () -> frontendReady
         );
 
-        this.session = new ClaudeSession(project, claudeSDKBridge, codexSDKBridge, openCodeSDKBridge);
+        this.session = new ClaudeSession(project);
         SessionRuntimeDefaults.applyToSession(project, this.session, settingsService.getModelRegistry());
 
         this.chatWindowDelegate = new ChatWindowDelegate(createDelegateHost());
@@ -298,21 +271,6 @@ public class ClaudeChatWindow {
             @Override
             public Project getProject() {
                 return project;
-            }
-
-            @Override
-            public ClaudeSDKBridge getClaudeSDKBridge() {
-                return claudeSDKBridge;
-            }
-
-            @Override
-            public CodexSDKBridge getCodexSDKBridge() {
-                return codexSDKBridge;
-            }
-
-            @Override
-            public com.github.claudecodegui.provider.opencode.OpenCodeSDKBridge getOpenCodeSDKBridge() {
-                return openCodeSDKBridge;
             }
 
             @Override
@@ -522,14 +480,6 @@ public class ClaudeChatWindow {
 
     public JPanel getContent() {
         return mainPanel;
-    }
-
-    public ClaudeSDKBridge getClaudeSDKBridge() {
-        return claudeSDKBridge;
-    }
-
-    public CodexSDKBridge getCodexSDKBridge() {
-        return codexSDKBridge;
     }
 
     /**
@@ -1065,79 +1015,10 @@ public class ClaudeChatWindow {
         };
         session.setCallback(sessionCallbackAdapter);
 
-        // Wire daemon events directly to frontend (bypasses adapter lifecycle).
-        // Calling through sessionCallbackAdapter would silently drop the event
-        // if setupSessionCallbacks() is invoked again before the title arrives
-        // (adapter.deactivate() → isInactive() → event discarded).
-        // Register only once per ClaudeChatWindow; subsequent setupSessionCallbacks()
-        // calls reuse the existing listener so the bridge keeps a single registration
-        // per window. The listener is removed in dispose().
-        if (this.titleEventListener == null) {
-            this.titleEventListener = (event, data) -> {
-                if ("title_generated".equals(event)) {
-                    String genSessionId = data.has("sessionId") ? data.get("sessionId").getAsString() : null;
-                    String title = data.has("title") ? data.get("title").getAsString() : null;
-                    if (genSessionId != null && title != null) {
-                        ApplicationManager.getApplication().invokeLater(() -> {
-                            if (!disposed) {
-                                // [归一化] updateSessionTitle(sessionId, title) 原为两参数,归一化为单 JSON {sessionId, title}
-                                com.google.gson.JsonObject titlePayload = new com.google.gson.JsonObject();
-                                titlePayload.addProperty("sessionId", genSessionId);
-                                titlePayload.addProperty("title", title);
-                                dispatchEvent(DownstreamEvent.SESSION_TITLE.value(), JsUtils.escapeJs(titlePayload.toString()));
-                            }
-                        });
-                    }
-                } else if ("session_updated".equals(event)) {
-                    // Handle inter-turn session updates (background task completion)
-                    String updatedSessionId = data.has("sessionId") ? data.get("sessionId").getAsString() : null;
-                    if (updatedSessionId == null) {
-                        LOG.warn("[ClaudeChatWindow] session_updated event missing sessionId");
-                        return;
-                    }
-
-                    // Compare with current active session
-                    String currentSessionId = session != null ? session.getSessionId() : null;
-                    if (currentSessionId == null || !currentSessionId.equals(updatedSessionId)) {
-                        // Event is for a different session, ignore
-                        return;
-                    }
-
-                    // If a turn is streaming, DON'T reload now (clearMessages() off
-                    // the EDT would race the streaming append and disturb the live
-                    // bubble). DON'T drop it either, or a background-turn answer would
-                    // stay invisible until the user reopens the session. Park the id
-                    // and drain it at stream end (onStreamEnded).
-                    if (sessionCallbackAdapter != null && streamCoalescer != null && streamCoalescer.isStreamActive()) {
-                        deferredReload.defer(updatedSessionId);
-                        // onStreamEnded drains this at the next stream-end. Also arm the
-                        // safety backstop so a defer that races the stream-end edge — or
-                        // the last fan-out answer with no following stream end — is still
-                        // drained once the stream goes idle (see deferredReloadSafetyTick).
-                        scheduleDeferredReloadSafetyDrain();
-                        LOG.info("[ClaudeChatWindow] session_updated during active turn, deferring reload to stream end");
-                        return;
-                    }
-
-                    LOG.info("[ClaudeChatWindow] session_updated for sessionId=" + updatedSessionId + ", reloading from server");
-
-                    // Reuse the canonical reload path (same as history-load / rewind):
-                    // loadFromServer() reads the session via the bridge, converts each
-                    // record with MessageParser.parseServerMessage(), and pushes a full
-                    // refresh through the callback facade. Coalesced so overlapping
-                    // background-task completions never reload concurrently.
-                    //
-                    // Pass updatedSessionId as the reload target: the session field can
-                    // be reassigned on the EDT (new-session / restart flows) between the
-                    // currentSessionId check above and the reload actually running.
-                    // driveSessionReload() re-validates the id at entry and after
-                    // loadFromServer() returns, so a reload never lands on a session
-                    // that the user has navigated away from.
-                    requestSessionReload(updatedSessionId);
-                }
-            };
-            this.claudeSDKBridge.addDaemonEventListener(this.titleEventListener);
-        }
+        // CLI 模式无常驻 daemon:title_generated 由 CliSessionTitleService 经独立 node 子进程
+        // → SessionCallbackFacade.notifyProtocolEvent(SESSION_TITLE) 直接下行(前端零改);
+        // session_updated(turn 后 reload)是 daemon 专属事件,CLI 下不发出。
+        // 故此处不再注册 daemon event listener。
 
         persistTabSessionState();
     }
@@ -1520,14 +1401,6 @@ public class ClaudeChatWindow {
         if (sessionCallbackAdapter != null) {
             sessionCallbackAdapter.dispose();
         }
-        if (titleEventListener != null && claudeSDKBridge != null) {
-            try {
-                claudeSDKBridge.removeDaemonEventListener(titleEventListener);
-            } catch (Exception e) {
-                LOG.warn("Failed to remove daemon event listener: " + e.getMessage());
-            }
-            titleEventListener = null;
-        }
         webviewWatchdog.stop();
 
         try {
@@ -1563,12 +1436,6 @@ public class ClaudeChatWindow {
             LOG.warn("Failed to clean up session: " + e.getMessage());
         }
 
-        boolean lastBridgeOwner = SharedBridgeReferenceCounter.release(project);
-        if (lastBridgeOwner) {
-            ProjectBridgeRegistry.remove(project);
-            scheduleBridgeProcessCleanup(claudeSDKBridge, codexSDKBridge, project.getName());
-        }
-
         try {
             if (browser != null) {
                 long browserDisposeStartNanos = System.nanoTime();
@@ -1586,59 +1453,6 @@ public class ClaudeChatWindow {
         LOG.info("Window resources fully cleaned up, project: " + project.getName());
     }
 
-    private static void scheduleBridgeProcessCleanup(
-            ClaudeSDKBridge claudeBridge,
-            CodexSDKBridge codexBridge,
-            String projectName
-    ) {
-        LOG.info("Scheduling async bridge process cleanup, project: " + projectName);
-        ApplicationManager.getApplication().executeOnPooledThread(() -> {
-            long cleanupStartNanos = System.nanoTime();
-            LOG.info("Starting async bridge process cleanup, project: " + projectName);
-            cleanupClaudeProcesses(claudeBridge);
-            cleanupCodexProcesses(codexBridge);
-            LOG.info("[TabPerf] Async bridge process cleanup finished in "
-                    + TabPerformanceLogger.elapsedMillis(cleanupStartNanos) + "ms, project: " + projectName);
-            LOG.info("Async bridge process cleanup finished, project: " + projectName);
-        });
-    }
-
-    private static void cleanupClaudeProcesses(ClaudeSDKBridge claudeBridge) {
-        if (claudeBridge == null) {
-            return;
-        }
-        try {
-            long cleanupStartNanos = System.nanoTime();
-            int activeCount = claudeBridge.getActiveProcessCount();
-            if (activeCount > 0) {
-                LOG.info("Cleaning up " + activeCount + " active Claude process(es)...");
-            }
-            claudeBridge.cleanupAllProcesses();
-            LOG.info("[TabPerf] Claude bridge cleanup returned in "
-                    + TabPerformanceLogger.elapsedMillis(cleanupStartNanos) + "ms");
-        } catch (Exception e) {
-            LOG.warn("Failed to clean up Claude processes: " + e.getMessage());
-        }
-    }
-
-    private static void cleanupCodexProcesses(CodexSDKBridge codexBridge) {
-        if (codexBridge == null) {
-            return;
-        }
-        try {
-            long cleanupStartNanos = System.nanoTime();
-            int activeCount = codexBridge.getActiveProcessCount();
-            if (activeCount > 0) {
-                LOG.info("Cleaning up " + activeCount + " active Codex process(es)...");
-            }
-            codexBridge.cleanupAllProcesses();
-            LOG.info("[TabPerf] Codex bridge cleanup returned in "
-                    + TabPerformanceLogger.elapsedMillis(cleanupStartNanos) + "ms");
-        } catch (Exception e) {
-            LOG.warn("Failed to clean up Codex processes: " + e.getMessage());
-        }
-    }
-
     String getCurrentTabName() {
         if (parentContent != null && parentContent.getDisplayName() != null && !parentContent.getDisplayName().trim().isEmpty()) {
             return parentContent.getDisplayName();
@@ -1653,16 +1467,6 @@ public class ClaudeChatWindow {
             @Override
             public Project getProject() {
                 return project;
-            }
-
-            @Override
-            public ClaudeSDKBridge getClaudeSDKBridge() {
-                return claudeSDKBridge;
-            }
-
-            @Override
-            public CodexSDKBridge getCodexSDKBridge() {
-                return codexSDKBridge;
             }
 
             @Override
@@ -1729,21 +1533,6 @@ public class ClaudeChatWindow {
             @Override
             public Project getProject() {
                 return project;
-            }
-
-            @Override
-            public ClaudeSDKBridge getClaudeSDKBridge() {
-                return claudeSDKBridge;
-            }
-
-            @Override
-            public CodexSDKBridge getCodexSDKBridge() {
-                return codexSDKBridge;
-            }
-
-            @Override
-            public com.github.claudecodegui.provider.opencode.OpenCodeSDKBridge getOpenCodeSDKBridge() {
-                return openCodeSDKBridge;
             }
 
             @Override

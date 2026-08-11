@@ -1,8 +1,7 @@
 package com.github.claudecodegui.handler.history;
 
-import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.provider.opencode.OpenCodeHistorySanitizer;
-import com.github.claudecodegui.provider.opencode.OpenCodeSDKBridge;
+import com.github.claudecodegui.provider.opencode.OpenCodeHistoryService;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.google.gson.JsonObject;
 
@@ -10,10 +9,10 @@ import java.util.List;
 import java.util.Set;
 
 final class OpenCodeHistoryProviderAdapter implements HistoryProviderAdapter {
-    private final HandlerContext context;
+    private final OpenCodeHistoryService historyService;
 
-    OpenCodeHistoryProviderAdapter(HandlerContext context) {
-        this.context = context;
+    OpenCodeHistoryProviderAdapter() {
+        this.historyService = new OpenCodeHistoryService();
     }
 
     @Override
@@ -28,8 +27,7 @@ final class OpenCodeHistoryProviderAdapter implements HistoryProviderAdapter {
 
     @Override
     public String loadSessionsJson(String projectPath) {
-        OpenCodeSDKBridge bridge = context.getOpenCodeSDKBridge();
-        return HistorySessionsJsonEnhancer.normalizeSessionsJson(bridge != null ? bridge.getSessionList(projectPath) : "");
+        return HistorySessionsJsonEnhancer.normalizeSessionsJson(historyService.getSessionList(projectPath));
     }
 
     /**
@@ -47,11 +45,7 @@ final class OpenCodeHistoryProviderAdapter implements HistoryProviderAdapter {
             String projectPath,
             HistoryMessageReadPolicy policy
     ) {
-        OpenCodeSDKBridge bridge = context.getOpenCodeSDKBridge();
-        if (bridge == null) {
-            return HistoryMessageBatch.empty();
-        }
-        OpenCodeSDKBridge.SessionHistoryQueryResult result = bridge.getSessionMessages(
+        OpenCodeHistoryService.SessionHistoryQueryResult result = historyService.getSessionMessages(
                 sessionId,
                 projectPath,
                 policy.maxMessageCount(),
@@ -75,11 +69,7 @@ final class OpenCodeHistoryProviderAdapter implements HistoryProviderAdapter {
 
     @Override
     public HistoryArchiveResult archiveSession(String sessionId, String projectPath) {
-        OpenCodeSDKBridge bridge = context.getOpenCodeSDKBridge();
-        if (bridge == null) {
-            return HistoryArchiveResult.none();
-        }
-        return buildArchiveResult(bridge.archiveSession(sessionId));
+        return buildArchiveResult(historyService.archiveSession(sessionId));
     }
 
     static HistoryArchiveResult buildArchiveResult(int archived) {
@@ -91,4 +81,3 @@ final class OpenCodeHistoryProviderAdapter implements HistoryProviderAdapter {
         // OpenCode history is read from SQLite without Java-side index cache.
     }
 }
-

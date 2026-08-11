@@ -108,8 +108,8 @@ public class InputHistoryHandler {
      * Call Node.js input-history-service (single parameter version).
      */
     public String callInputHistoryService(String functionName, String param) throws Exception {
-        String bridgePath = context.getClaudeSDKBridge().getSdkTestDir().getAbsolutePath();
-        String nodePath = context.getClaudeSDKBridge().getNodeExecutable();
+        String bridgePath = context.getNodeService().getSdkTestDir().getAbsolutePath();
+        String nodePath = context.getNodeService().getNodeExecutable();
 
         String servicePath = NodeJsServiceCaller.resolveServicePath(
                 nodePath, bridgePath, "input-history-service.cjs");
@@ -151,8 +151,8 @@ public class InputHistoryHandler {
      * Call Node.js input-history-service (array parameter version, used for recordHistory).
      */
     public String callInputHistoryServiceWithArray(String functionName, String jsonArrayParam) throws Exception {
-        String bridgePath = context.getClaudeSDKBridge().getSdkTestDir().getAbsolutePath();
-        String nodePath = context.getClaudeSDKBridge().getNodeExecutable();
+        String bridgePath = context.getNodeService().getSdkTestDir().getAbsolutePath();
+        String nodePath = context.getNodeService().getNodeExecutable();
 
         String servicePath = NodeJsServiceCaller.resolveServicePath(
                 nodePath, bridgePath, "input-history-service.cjs");
@@ -195,7 +195,7 @@ public class InputHistoryHandler {
         pb.redirectErrorStream(true);
 
         // L7 fix: register with ProcessManager so cleanupAllProcesses sees this child.
-        ProcessManager processManager = context.getClaudeSDKBridge().getProcessManager();
+        ProcessManager processManager = context.getNodeService().getProcessManager();
         String channelId = ProcessManager.newChannelId("input-history");
         Process process = null;
         try {

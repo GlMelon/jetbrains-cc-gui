@@ -5,9 +5,6 @@ import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.config.ModelRegistryConfig;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.notifications.ClaudeNotifier;
-import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
-import com.github.claudecodegui.provider.codex.CodexSDKBridge;
-import com.github.claudecodegui.provider.opencode.OpenCodeSDKBridge;
 import com.github.claudecodegui.session.normalize.MessageNormalizers;
 import com.github.claudecodegui.session.runtime.*;
 import com.github.claudecodegui.settings.CodemossSettingsService;
@@ -46,24 +43,6 @@ public class SessionSendService {
             MessageParser messageParser,
             MessageMerger messageMerger,
             Gson gson,
-            ClaudeSDKBridge claudeSDKBridge,
-            CodexSDKBridge codexSDKBridge,
-            SessionContextService contextService
-    ) {
-        this(project, state, callbackFacade, messageParser, messageMerger, gson,
-                claudeSDKBridge, codexSDKBridge, null, contextService);
-    }
-
-    public SessionSendService(
-            Project project,
-            SessionState state,
-            SessionCallbackFacade callbackFacade,
-            MessageParser messageParser,
-            MessageMerger messageMerger,
-            Gson gson,
-            ClaudeSDKBridge claudeSDKBridge,
-            CodexSDKBridge codexSDKBridge,
-            OpenCodeSDKBridge openCodeSDKBridge,
             SessionContextService contextService
     ) {
         this.project = project;
@@ -73,8 +52,8 @@ public class SessionSendService {
         this.messageMerger = messageMerger;
         this.gson = gson;
         this.contextService = contextService;
-        this.runtimeRouter = new SessionRuntimeRouter(project, claudeSDKBridge, codexSDKBridge, openCodeSDKBridge);
-        this.cliTitleService = new CliSessionTitleService(claudeSDKBridge);
+        this.runtimeRouter = new SessionRuntimeRouter(project);
+        this.cliTitleService = new CliSessionTitleService();
     }
 
     public void prepareContextCollector(EditorContextCollector contextCollector) {
@@ -83,7 +62,7 @@ public class SessionSendService {
     }
 
     public void interruptRuntime(String provider, String channelId, String tabId) {
-        RuntimeType runtimeType = RuntimeType.SDK;
+        RuntimeType runtimeType = RuntimeType.CLI;
         try {
             EffectiveRuntimeResolver.Runtime runtime = EffectiveRuntimeResolver.resolve(
                     provider,
@@ -91,7 +70,7 @@ public class SessionSendService {
             );
             runtimeType = runtime.runtimeType();
         } catch (Exception e) {
-            LOG.warn("[Runtime] Failed to resolve runtime for interrupt, defaulting to SDK: " + e.getMessage());
+            LOG.warn("[Runtime] Failed to resolve runtime for interrupt, defaulting to CLI: " + e.getMessage());
         }
         runtimeRouter.interrupt(ProviderType.fromString(provider), runtimeType, tabId != null ? tabId : channelId);
     }
@@ -332,7 +311,7 @@ public class SessionSendService {
             List<String> fileTagPaths,
             String effectivePermissionMode
     ) {
-        // B4:复用 CodexMessageHandler 处理统一 MSG_* 协议。OpenCode 事件经 OpenCodeSDKBridge(SDK)
+        // B4:复用 CodexMessageHandler 处理统一 MSG_* 协议。OpenCode 事件经 OpenCodeCliSession(CLI)
         // / OpenCodeCliSession(CLI)已归一为同一 MSG_* schema(session_id/stream_start/content_delta/
         // thinking_delta/usage/stream_end/error 等),无需新建 OpenCodeMessageHandler(设计 §9 未列新 handler)。
         // 绑定运行时会话 epoch,旧 OpenCode 进程回调因 epoch 不匹配被丢弃(防串台,与 Claude/Codex 一致)。
@@ -500,9 +479,8 @@ public class SessionSendService {
     }
 
     private static String toInvocationMode(RuntimeType runtimeType) {
-        return runtimeType == RuntimeType.CLI
-                ? CommonConstants.INVOCATION_MODE_CLI
-                : CommonConstants.INVOCATION_MODE_SDK;
+        // SDK 调用模式已移除,恒返回 CLI。
+        return CommonConstants.INVOCATION_MODE_CLI;
     }
 
     private boolean readAutoOpenFileEnabled() {

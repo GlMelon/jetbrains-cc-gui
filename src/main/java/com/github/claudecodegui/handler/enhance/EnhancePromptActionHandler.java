@@ -400,14 +400,14 @@ public final class EnhancePromptActionHandler implements FrontendActionHandler<S
 
         try {
             // Call AI service using a Node.js script
-            String nodeExecutable = ctx.getClaudeSDKBridge().getNodeExecutable();
+            String nodeExecutable = ctx.getNodeService().getNodeExecutable();
             if (nodeExecutable == null) {
                 LOG.error("[EnhancePromptActionHandler] Node.js is not configured");
                 return null;
             }
             LOG.info("[EnhancePromptActionHandler] Node.js path: " + nodeExecutable);
 
-            File bridgeDir = ctx.getClaudeSDKBridge().getSdkTestDir();
+            File bridgeDir = ctx.getNodeService().getSdkTestDir();
             if (bridgeDir == null || !bridgeDir.exists()) {
                 LOG.error("[EnhancePromptActionHandler] AI Bridge directory does not exist");
                 return null;
@@ -459,7 +459,7 @@ public final class EnhancePromptActionHandler implements FrontendActionHandler<S
             //  3. The process is unregistered + force-killed in finally on every exit path.
             // The original code lacked all three, leaking child processes forever when
             // the SDK call hung on a stalled network connection.
-            ProcessManager processManager = ctx.getClaudeSDKBridge().getProcessManager();
+            ProcessManager processManager = ctx.getNodeService().getProcessManager();
             StringBuilder response = new StringBuilder();
             StringBuilder allOutput = new StringBuilder();
             try {

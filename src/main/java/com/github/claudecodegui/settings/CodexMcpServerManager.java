@@ -4,7 +4,6 @@ import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.cli.common.CliConstants;
 import com.github.claudecodegui.mcp.McpCommandRiskEvaluator;
 import com.github.claudecodegui.mcp.McpInstallRejectedException;
-import com.github.claudecodegui.provider.common.DaemonConstants;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.google.gson.JsonArray;
@@ -488,7 +487,7 @@ public class CodexMcpServerManager {
      */
     private JsonObject checkServerStatus(JsonObject server) {
         JsonObject status = new JsonObject();
-        String serverId = server.has("id") ? server.get("id").getAsString() : DaemonConstants.UNKNOWN;
+        String serverId = server.has("id") ? server.get("id").getAsString() : CommonConstants.UNKNOWN;
         String serverName = server.has("name") ? server.get("name").getAsString() : serverId;
 
         status.addProperty("name", serverName);

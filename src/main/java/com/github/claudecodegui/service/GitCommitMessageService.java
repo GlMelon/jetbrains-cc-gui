@@ -3,10 +3,6 @@ package com.github.claudecodegui.service;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.config.ModelRegistryConfig;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
-import com.github.claudecodegui.provider.common.MessageCallback;
-import com.github.claudecodegui.provider.common.SDKResult;
-import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
-import com.github.claudecodegui.provider.codex.CodexSDKBridge;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
@@ -460,135 +456,47 @@ Footer 包含：
     }
 
     /**
-     * 通过 ClaudeSDKBridge 下发 commit 请求。独立为可重写钩子,便于测试验证 actualModel 解析链
-     * (避免真实 bridge 调用)。修复前 callClaudeAPI 直接调 12 参重载,其委托链硬编码
-     * actualModel=null,绕过了 registry 解析。
+     * 通过 CLI 下发 commit 请求。
      */
     protected void sendClaudeCommitMessage(String prompt, String model, String actualModel, CommitMessageCallback callback) {
-        ClaudeSDKBridge bridge = new ClaudeSDKBridge(null);
-        try {
-            // Simple callback handler
-            StringBuilder result = new StringBuilder();
-
-            // 调带 actualModel 的 15 参重载(channelId, message, sessionId, runtimeSessionEpoch,
-            // cwd, attachments, permissionMode, model, actualModel, openedFiles, agentPrompt,
-            // streaming, disableThinking, reasoningEffort, callback)。
-            // - streaming: false (non-streaming, returns complete result at once)
-            // - disableThinking: true (disable thinking mode to avoid verbose reasoning output)
-            bridge.sendMessage(
-                "git-commit-message",      // channelId
-                prompt,                     // message
-                null,                       // sessionId (null = new session)
-                null,                       // runtimeSessionEpoch
-                project.getBasePath(),      // cwd
-                null,                       // attachments (not needed)
-                null,                       // permissionMode (use default)
-                model,                      // model
-                actualModel,                // actualModel (registry 解析,默认 null)
-                null,                       // openedFiles
-                null,                       // agentPrompt
-                false,                      // streaming (non-streaming mode)
-                true,                       // disableThinking (disable thinking mode)
-                null,                       // reasoningEffort
-                new MessageCallback() {
-                    @Override
-                    public void onMessage(String type, String content) {
-                        // Only collect assistant content, ignore thinking/reasoning
-                        if ("content".equals(type) || "assistant".equals(type) || "text".equals(type)) {
-                            // Skip thinking content (typically starts with specific markers)
-                            if (!isThinkingContent(content)) {
-                                result.append(content);
-                            }
-                        }
-                    }
-
-                    @Override
-                    public void onError(String error) {
-                        bridge.shutdownDaemon();
-                        callback.onError(error);
-                    }
-
-                    @Override
-                    public void onComplete(SDKResult sdkResult) {
-                        bridge.shutdownDaemon();
-                        String commitMessage = result.length() > 0
-                                ? result.toString().trim()
-                                : sdkResult.finalResult.trim();
-
-                        if (commitMessage.isEmpty()) {
-                            callback.onError(ClaudeCodeGuiBundle.message("commit.emptyMessage"));
-                        } else {
-                            callback.onSuccess(cleanupCommitMessage(commitMessage));
-                        }
-                    }
+        String cwd = project != null ? project.getBasePath() : null;
+        // 透传 actualModel:用户在 ModelRegistry 把某 role 映射到别的模型时,commit 路径须与
+        // chat 主路径一致走映射后的模型,避免绕过 registry(与 callClaudeAPI 上方的注释意图对齐)。
+        // actualModel 为 null(默认 registry 无自定义映射)时回退到原始 model,零回归。
+        String effectiveModel = (actualModel != null && !actualModel.isEmpty()) ? actualModel : model;
+        new CommitMessageAiService().sendPrompt(CommonConstants.PROVIDER_CLAUDE, prompt, cwd, effectiveModel)
+            .whenComplete((commitMessage, error) -> {
+                if (error != null) {
+                    LOG.error("Failed to call Claude AI", error);
+                    callback.onError(ClaudeCodeGuiBundle.message("commit.callApiFailed") + ": " + error.getMessage());
+                    return;
                 }
-            );
-        } catch (Exception e) {
-            bridge.shutdownDaemon();
-            LOG.error("Failed to call Claude API", e);
-            callback.onError(ClaudeCodeGuiBundle.message("commit.callApiFailed") + ": " + e.getMessage());
-        }
+                if (commitMessage == null || commitMessage.isEmpty()) {
+                    callback.onError(ClaudeCodeGuiBundle.message("commit.emptyMessage"));
+                } else {
+                    callback.onSuccess(cleanupCommitMessage(commitMessage));
+                }
+            });
     }
 
     /**
      * Call the Codex API.
      */
     protected void callCodexAPI(String prompt, String model, CommitMessageCallback callback) {
-        CodexSDKBridge bridge = new CodexSDKBridge(null);
-        try {
-            // Simple callback handler
-            StringBuilder result = new StringBuilder();
-
-            // CodexSDKBridge.sendMessage requires 10 parameters:
-            // (channelId, message, threadId, cwd, attachments, permissionMode, model, agentPrompt, reasoningEffort, callback)
-            bridge.sendMessageWithDaemonPreferred(
-                "git-commit-message",      // channelId
-                prompt,                     // message
-                null,                       // threadId (null = new session)
-                project.getBasePath(),      // cwd
-                null,                       // attachments (not needed)
-                null,                       // permissionMode (use default)
-                model,                      // model
-                null,                       // agentPrompt (not needed)
-                null,                       // reasoningEffort (use default)
-                new MessageCallback() {
-                    @Override
-                    public void onMessage(String type, String content) {
-                        // Only collect assistant content, ignore thinking/reasoning
-                        if ("content".equals(type) || "assistant".equals(type) || "text".equals(type)) {
-                            // Skip thinking content
-                            if (!isThinkingContent(content)) {
-                                result.append(content);
-                            }
-                        }
-                    }
-
-                    @Override
-                    public void onError(String error) {
-                        bridge.cleanupAllProcesses();
-                        callback.onError(error);
-                    }
-
-                    @Override
-                    public void onComplete(SDKResult sdkResult) {
-                        bridge.cleanupAllProcesses();
-                        String commitMessage = result.length() > 0
-                                ? result.toString().trim()
-                                : sdkResult.finalResult.trim();
-
-                        if (commitMessage.isEmpty()) {
-                            callback.onError(ClaudeCodeGuiBundle.message("commit.emptyMessage"));
-                        } else {
-                            callback.onSuccess(cleanupCommitMessage(commitMessage));
-                        }
-                    }
+        String cwd = project != null ? project.getBasePath() : null;
+        new CommitMessageAiService().sendPrompt(CommonConstants.PROVIDER_CODEX, prompt, cwd, model)
+            .whenComplete((commitMessage, error) -> {
+                if (error != null) {
+                    LOG.error("Failed to call Codex AI", error);
+                    callback.onError(ClaudeCodeGuiBundle.message("commit.callApiFailed") + ": " + error.getMessage());
+                    return;
                 }
-            );
-        } catch (Exception e) {
-            bridge.cleanupAllProcesses();
-            LOG.error("Failed to call Codex API", e);
-            callback.onError(ClaudeCodeGuiBundle.message("commit.callApiFailed") + ": " + e.getMessage());
-        }
+                if (commitMessage == null || commitMessage.isEmpty()) {
+                    callback.onError(ClaudeCodeGuiBundle.message("commit.emptyMessage"));
+                } else {
+                    callback.onSuccess(cleanupCommitMessage(commitMessage));
+                }
+            });
     }
 
     /**

@@ -8,8 +8,6 @@ import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.model.SessionTemplate;
 import com.github.claudecodegui.protocol.DownstreamEvent;
-import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
-import com.github.claudecodegui.provider.codex.CodexSDKBridge;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.session.runtime.EffectiveRuntimeResolver;
 import com.github.claudecodegui.session.runtime.RuntimeType;
@@ -73,10 +71,6 @@ public class SessionLifecycleManager {
                 LOG.info("[Lifecycle] createNewSession superseded by a newer reset; abandoning bootstrap");
                 return;
             }
-            if (oldSession != null && shouldResetClaudeDaemonFor(oldSession.getProvider(), resolveCurrentRuntime(oldSession.getProvider()))) {
-                host.getClaudeSDKBridge().resetPersistentRuntime(oldSession.getRuntimeSessionEpoch());
-                LOG.info("[Lifecycle] Requested daemon runtime reset for old epoch=" + oldSession.getRuntimeSessionEpoch());
-            }
             LOG.info("Old session interrupted, creating new session");
 
             ApplicationManager.getApplication().invokeLater(() -> {
@@ -122,10 +116,6 @@ public class SessionLifecycleManager {
             if (host.getSession() != oldSession) {
                 LOG.info("[Lifecycle] createNewSessionFromTemplate superseded by a newer reset; abandoning bootstrap");
                 return;
-            }
-            if (oldSession != null && shouldResetClaudeDaemonFor(oldSession.getProvider(), resolveCurrentRuntime(oldSession.getProvider()))) {
-                host.getClaudeSDKBridge().resetPersistentRuntime(oldSession.getRuntimeSessionEpoch());
-                LOG.info("[Lifecycle] Requested daemon runtime reset for old epoch=" + oldSession.getRuntimeSessionEpoch());
             }
             LOG.info("Old session interrupted, creating new session from template");
 
@@ -217,15 +207,7 @@ public class SessionLifecycleManager {
                 LOG.info("[Lifecycle] loadHistorySession superseded by a newer reset; abandoning bootstrap");
                 return;
             }
-            if (oldSession != null && shouldResetClaudeDaemonFor(oldSession.getProvider(), resolveCurrentRuntime(oldSession.getProvider()))) {
-                host.getClaudeSDKBridge().resetPersistentRuntime(oldSession.getRuntimeSessionEpoch());
-                LOG.info("[Lifecycle] Requested daemon runtime reset before history load for old epoch="
-                        + oldSession.getRuntimeSessionEpoch());
-            }
-
-            ClaudeSession newSession = new ClaudeSession(
-                    host.getProject(), host.getClaudeSDKBridge(), host.getCodexSDKBridge(),
-                    host.getOpenCodeSDKBridge());
+            ClaudeSession newSession = new ClaudeSession(host.getProject());
             newSession.setPermissionMode(previousPermissionMode);
             newSession.setProvider(provider != null && !provider.trim().isEmpty() ? provider : previousProvider);
             newSession.setModel(previousModel);
@@ -240,11 +222,6 @@ public class SessionLifecycleManager {
                                     ? projectPath : determineWorkingDirectory();
             newSession.setSessionInfo(sessionId, workingDir);
             pushSessionRuntimeState(newSession);
-
-            // Prewarm daemon runtime for SDK sessions so /context and first message are fast.
-            if (shouldPrewarmClaudeDaemon(newSession)) {
-                host.getClaudeSDKBridge().prewarmDaemonAsync(workingDir, newSession.getRuntimeSessionEpoch(), sessionId);
-            }
 
             newSession.loadFromServer().thenRun(() -> ApplicationManager.getApplication().invokeLater(() -> {
                 host.callJavaScript("historyLoadComplete");
@@ -404,49 +381,12 @@ public class SessionLifecycleManager {
         }
     }
 
-    private boolean shouldPrewarmClaudeDaemon(ClaudeSession session) {
-        return session != null
-                && ProviderType.CLAUDE.value().equals(session.getProvider())
-                && resolveCurrentRuntime(session.getProvider()) == RuntimeType.SDK;
-    }
-
-    /**
-     * B8: 判断是否应对给定会话触发 Claude daemon reset(resetPersistentRuntime)。
-     * <p>
-     * 旧实现用 {@code !isClaudeCliSession(session)} 过宽:它对 codex/opencode 会话也为真,
-     * 导致切换/重置时误调 {@code claudeSDKBridge.resetPersistentRuntime} 污染 Claude daemon。
-     * 收紧为正向判定——仅当 provider == CLAUDE 且非 CLI(即 Claude SDK)时才重置其专属 daemon。
-     * <p>
-     * 提取为静态纯函数以便单测覆盖(god method 平台耦合无法直接测 createNewSession)。
-     *
-     * @param provider              会话 provider 标识
-     * @param runtime 当前后端策略解析出的运行模式
-     * @return true 表示该会话是 Claude SDK 会话,应重置 Claude daemon
-     */
-    static boolean shouldResetClaudeDaemonFor(String provider, RuntimeType runtime) {
-        return ProviderType.CLAUDE.value().equals(provider)
-                && runtime == RuntimeType.SDK;
-    }
-
-    private RuntimeType resolveCurrentRuntime(String provider) {
-        try {
-            return EffectiveRuntimeResolver.resolve(
-                    provider,
-                    CodemossSettingsService.getInstance().getRuntimePolicy()
-            ).runtimeType();
-        } catch (Exception e) {
-            LOG.warn("[Lifecycle] Failed to resolve current runtime for provider=" + provider + ": " + e.getMessage());
-            return null;
-        }
-    }
-
     private String getCurrentEditorFilePath() {
         return com.github.claudecodegui.util.EditorFileUtils.getCurrentEditorFilePath(this.host.getProject());
     }
 
     private ClaudeSession createDefaultSession() {
-        ClaudeSession session = new ClaudeSession(host.getProject(), host.getClaudeSDKBridge(), host.getCodexSDKBridge(),
-                host.getOpenCodeSDKBridge());
+        ClaudeSession session = new ClaudeSession(host.getProject());
         initializeSessionRuntimeDefaults(session);
         return session;
     }
@@ -576,9 +516,6 @@ public class SessionLifecycleManager {
 
         newSession.setSessionInfo(null, workingDirectory);
         LOG.info(successLogPrefix + workingDirectory + ", epoch=" + newSession.getRuntimeSessionEpoch());
-        if (shouldPrewarmClaudeDaemon(newSession)) {
-            host.getClaudeSDKBridge().prewarmDaemonAsync(workingDirectory, newSession.getRuntimeSessionEpoch());
-        }
         fetchSlashCommandsOnStartup();
         pushSessionRuntimeState(newSession);
 
@@ -610,12 +547,6 @@ public class SessionLifecycleManager {
      */
     public interface SessionHost {
         Project getProject();
-
-        ClaudeSDKBridge getClaudeSDKBridge();
-
-        CodexSDKBridge getCodexSDKBridge();
-
-        com.github.claudecodegui.provider.opencode.OpenCodeSDKBridge getOpenCodeSDKBridge();
 
         ClaudeSession getSession();
 

@@ -26,8 +26,8 @@ public final class UserPathResolver {
 
     /**
      * 成功路径永久缓存。PATH 在进程内不变(由 env 变量决定),{@code resolveUserPath()} 经
-     * {@code CliEnvironmentBuilder.copyPath} / {@code OpenCodeCliResolver.searchInPath} /
-     * {@code OpenCodeDaemonCoordinator} 每轮 send 多次调用,缓存后跳过重复 split/merge/dedup。
+     * {@code CliEnvironmentBuilder.copyPath} / {@code OpenCodeCliResolver.searchInPath} 等
+     * CLI 调用方每轮 send 多次调用,缓存后跳过重复 split/merge/dedup。
      * 范式:{@code OpenCodeCliResolver.cachedExecutable}(double-check + synchronized,只缓存成功)。
      * 只缓存非 null:Unix 下 idePath 可能 null,让失败每轮重试(罕见,无优化必要)。
      */
@@ -39,7 +39,7 @@ public final class UserPathResolver {
 
     /**
      * 返回完整用户 PATH:IDE 进程 PATH + 常见 shim 目录(去重保序)。
-     * 用于 CLI 子进程环境({@code CliEnvironmentBuilder})与 serve 守护进程({@code OpenCodeDaemonCoordinator})。
+     * 用于 CLI 子进程环境({@code CliEnvironmentBuilder})等调用方。
      */
     public static String resolveUserPath() {
         String cached = cachedUserPath;

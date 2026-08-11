@@ -18,7 +18,7 @@ import java.util.function.Consumer;
 
 /**
  * Helper for running a short-lived Node.js child process used by
- * {@link PromptEnhancerHandler}.
+ * {@link PromptEnhancerHandler} and {@code CommitMessageAiService}.
  *
  * <p>This class exists exclusively to make the lifecycle management testable:
  * the original code path inside {@code callAIForEnhancement} used
@@ -50,10 +50,32 @@ public final class PromptEnhancerProcessRunner {
     /**
      * Runs the given pre-configured ProcessBuilder under ProcessManager
      * supervision, writing {@code stdinJson} to the child's stdin and
+     * streaming stdout line-by-line through {@code lineHandler}. Uses the
+     * default channel id {@code "prompt-enhancer"}.
+     *
+     * @see #runWithProcessManager(ProcessBuilder, ProcessManager, String, String, long, long, Consumer)
+     */
+    public static int runWithProcessManager(
+            ProcessBuilder pb,
+            ProcessManager processManager,
+            String stdinJson,
+            long timeoutSeconds,
+            long readerDrainSeconds,
+            Consumer<String> lineHandler
+    ) throws IOException, InterruptedException, TimeoutException {
+        return runWithProcessManager(pb, processManager, "prompt-enhancer",
+                stdinJson, timeoutSeconds, readerDrainSeconds, lineHandler);
+    }
+
+    /**
+     * Runs the given pre-configured ProcessBuilder under ProcessManager
+     * supervision, writing {@code stdinJson} to the child's stdin and
      * streaming stdout line-by-line through {@code lineHandler}.
      *
      * @param pb                  pre-configured Node.js process builder
      * @param processManager      shared registry for cleanup on shutdown
+     * @param channelId           channel id under which the process is registered
+     *                            (visible in the Node Process panel / logs)
      * @param stdinJson           the JSON payload to feed to stdin
      * @param timeoutSeconds      hard wall-clock timeout for the child
      * @param readerDrainSeconds  grace window for the reader to flush after exit
@@ -64,18 +86,19 @@ public final class PromptEnhancerProcessRunner {
     public static int runWithProcessManager(
             ProcessBuilder pb,
             ProcessManager processManager,
+            String channelId,
             String stdinJson,
             long timeoutSeconds,
             long readerDrainSeconds,
             Consumer<String> lineHandler
     ) throws IOException, InterruptedException, TimeoutException {
-        String channelId = ProcessManager.newChannelId("prompt-enhancer");
+        channelId = ProcessManager.newChannelId(channelId);
         Process process = null;
         CompletableFuture<Void> readerFuture = null;
         try {
             process = pb.start();
             processManager.registerProcess(channelId, process);
-            LOG.info("[PromptEnhancer] Process started, PID: " + process.pid()
+            LOG.info("[ProcessRunner] Process started, PID: " + process.pid()
                     + ", channelId: " + channelId);
 
             try (OutputStreamWriter writer = new OutputStreamWriter(
@@ -97,20 +120,20 @@ public final class PromptEnhancerProcessRunner {
                 } catch (IOException e) {
                     // Expected when the stream is force-closed on timeout kill.
                     // Kept at debug so the happy-path log stays clean.
-                    LOG.debug("[PromptEnhancer] reader stream closed: " + e.getMessage());
+                    LOG.debug("[ProcessRunner] reader stream closed: " + e.getMessage());
                 } catch (RuntimeException e) {
                     // Anything else — lineHandler NPE, charset issue, etc. — is a
                     // real bug we must not swallow. Log with stack trace.
-                    LOG.warn("[PromptEnhancer] reader thread failed unexpectedly", e);
+                    LOG.warn("[ProcessRunner] reader thread failed unexpectedly", e);
                 }
             });
 
             boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
             if (!finished) {
-                LOG.warn("[PromptEnhancer] Timeout after " + timeoutSeconds
+                LOG.warn("[ProcessRunner] Timeout after " + timeoutSeconds
                         + "s, force killing PID " + process.pid());
                 PlatformUtils.terminateProcess(process);
-                throw new TimeoutException("Prompt enhancement timed out after "
+                throw new TimeoutException("Process timed out after "
                         + timeoutSeconds + "s");
             }
 
@@ -118,18 +141,18 @@ public final class PromptEnhancerProcessRunner {
             try {
                 readerFuture.get(readerDrainSeconds, TimeUnit.SECONDS);
             } catch (TimeoutException te) {
-                LOG.warn("[PromptEnhancer] Reader didn't drain within "
+                LOG.warn("[ProcessRunner] Reader didn't drain within "
                         + readerDrainSeconds + "s, continuing with partial output");
             } catch (ExecutionException ee) {
                 // The reader thread threw — root cause already logged inside the
                 // async block. Surface it at debug so the chain is traceable but
                 // not noisy.
-                LOG.debug("[PromptEnhancer] Reader execution failed: "
+                LOG.debug("[ProcessRunner] Reader execution failed: "
                         + (ee.getCause() != null ? ee.getCause().getMessage() : ee.getMessage()));
             } catch (CancellationException ce) {
                 // We only cancel readerFuture in the finally block below, which
                 // runs after this try. A cancellation here would be unexpected.
-                LOG.debug("[PromptEnhancer] Reader was cancelled unexpectedly");
+                LOG.debug("[ProcessRunner] Reader was cancelled unexpectedly");
             }
             return exitCode;
 

@@ -1401,31 +1401,6 @@ public class CodemossSettingsService {
         return providerSettingsService.getCodexRuntimeAccessMode();
     }
 
-    public String getClaudeInvocationMode() throws IOException {
-        ProviderRuntimePolicy policy = getRuntimePolicy().of(ProviderType.CLAUDE);
-        return policy != null && policy.defaultRuntime() == RuntimeType.CLI
-                ? CommonConstants.INVOCATION_MODE_CLI
-                : CommonConstants.INVOCATION_MODE_SDK;
-    }
-
-    public void setClaudeInvocationMode(String mode) throws IOException {
-        RuntimeType runtime = CommonConstants.INVOCATION_MODE_CLI.equals(mode) ? RuntimeType.CLI : RuntimeType.SDK;
-        RuntimePolicyConfig policy = getRuntimePolicy().mergeWithDefaults();
-        ProviderRuntimePolicy current = policy.of(ProviderType.CLAUDE);
-        policy.providers().put(
-                ProviderType.CLAUDE,
-                new ProviderRuntimePolicy(current.enabled(), current.supported(), runtime)
-        );
-        var result = setRuntimePolicy(policy);
-        if (!result.isValid()) {
-            throw new IOException("Failed to save Claude runtime policy: " + result.errors());
-        }
-        JsonObject config = readConfig();
-        config.remove(CLAUDE_INVOCATION_MODE_KEY);
-        writeConfig(config);
-        LOG.info("[CodemossSettings] Set Claude invocation mode: " + getClaudeInvocationMode());
-    }
-
     public String getClaudeCliPath() throws IOException {
         JsonObject config = readConfig();
         if (!config.has(CLAUDE_CLI_PATH_KEY) || config.get(CLAUDE_CLI_PATH_KEY).isJsonNull()) {
@@ -1569,48 +1544,6 @@ public class CodemossSettingsService {
         }
     }
 
-    /**
-     * 保存路由策略配置。先校验，errors 非空则拒绝落盘。
-     *
-     * @param policyConfig 待保存的配置
-     * @return 校验结果（errors 非空表示被拒绝）
-     */
-    public com.github.claudecodegui.config.RuntimePolicyValidator.ValidationResult setRuntimePolicy(
-            com.github.claudecodegui.config.RuntimePolicyConfig policyConfig) {
-        var validationResult = com.github.claudecodegui.config.RuntimePolicyValidator.validate(policyConfig);
-        if (!validationResult.isValid()) {
-            LOG.warn("[CodemossSettings] Runtime policy validation failed, not saving: " + validationResult.errors());
-            return validationResult;
-        }
-        try {
-            JsonObject config = readConfig();
-            JsonObject runtimeObj = serializeRuntimePolicy(policyConfig);
-            config.add(RUNTIME_POLICY_KEY, runtimeObj);
-            writeConfig(config);
-            LOG.info("[CodemossSettings] Saved runtime policy config");
-        } catch (Exception e) {
-            LOG.error("[CodemossSettings] Failed to save runtime policy: " + e.getMessage());
-            var errors = new java.util.ArrayList<String>();
-            errors.add("保存失败: " + e.getMessage());
-            return new com.github.claudecodegui.config.RuntimePolicyValidator.ValidationResult(errors, java.util.List.of());
-        }
-        return validationResult;
-    }
-
-    /**
-     * 重置路由策略为默认配置。
-     */
-    public void resetRuntimePolicy() {
-        try {
-            JsonObject config = readConfig();
-            config.remove(RUNTIME_POLICY_KEY);
-            writeConfig(config);
-            LOG.info("[CodemossSettings] Reset runtime policy to default");
-        } catch (Exception e) {
-            LOG.error("[CodemossSettings] Failed to reset runtime policy: " + e.getMessage());
-        }
-    }
-
     private com.github.claudecodegui.config.RuntimePolicyConfig parseRuntimePolicy(JsonObject runtimeObj) {
         var config = new com.github.claudecodegui.config.RuntimePolicyConfig();
         var providers = new java.util.LinkedHashMap<ProviderType,
@@ -1637,9 +1570,7 @@ public class CodemossSettingsService {
                     if (policyObj.has("supported") && policyObj.get("supported").isJsonArray()) {
                         for (var el : policyObj.getAsJsonArray("supported")) {
                             String rtStr = el.getAsString();
-                            if ("SDK".equalsIgnoreCase(rtStr)) {
-                                supported.add(RuntimeType.SDK);
-                            } else if ("CLI".equalsIgnoreCase(rtStr)) {
+                            if ("CLI".equalsIgnoreCase(rtStr)) {
                                 supported.add(RuntimeType.CLI);
                             }
                         }
@@ -1647,9 +1578,7 @@ public class CodemossSettingsService {
                     RuntimeType defaultRt = null;
                     if (policyObj.has("default") && !policyObj.get("default").isJsonNull()) {
                         String defStr = policyObj.get("default").getAsString();
-                        if ("SDK".equalsIgnoreCase(defStr)) {
-                            defaultRt = RuntimeType.SDK;
-                        } else if ("CLI".equalsIgnoreCase(defStr)) {
+                        if ("CLI".equalsIgnoreCase(defStr)) {
                             defaultRt = RuntimeType.CLI;
                         }
                     }
@@ -1674,35 +1603,6 @@ public class CodemossSettingsService {
         }
 
         return config;
-    }
-
-    private JsonObject serializeRuntimePolicy(com.github.claudecodegui.config.RuntimePolicyConfig policyConfig) {
-        JsonObject runtimeObj = new JsonObject();
-        JsonObject providersObj = new JsonObject();
-
-        for (var entry : policyConfig.providers().entrySet()) {
-            String key = entry.getKey().value();
-            com.github.claudecodegui.config.ProviderRuntimePolicy policy = entry.getValue();
-            JsonObject policyObj = new JsonObject();
-            policyObj.addProperty("enabled", policy.enabled());
-
-            var supportedArray = new com.google.gson.JsonArray();
-            if (policy.supported() != null) {
-                for (var rt : policy.supported()) {
-                    supportedArray.add(rt.name());
-                }
-            }
-            policyObj.add("supported", supportedArray);
-
-            if (policy.defaultRuntime() != null) {
-                policyObj.addProperty("default", policy.defaultRuntime().name());
-            }
-
-            providersObj.add(key, policyObj);
-        }
-
-        runtimeObj.add("providers", providersObj);
-        return runtimeObj;
     }
 
     // ==================== Custom Model Pricing Management ====================

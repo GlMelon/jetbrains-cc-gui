@@ -1,5 +1,6 @@
 package com.github.claudecodegui.ui.toolwindow;
 
+import com.github.claudecodegui.bridge.NodeService;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.settings.TabStateService;
@@ -131,28 +132,6 @@ public class ClaudeSDKToolWindow implements ToolWindowFactory, DumbAware {
     }
 
     /**
-     * Broadcast the saved default invocation mode to frontend settings views.
-     * Existing chat sessions keep their session-scoped invocation mode; the
-     * updated default applies when a new session is created.
-     */
-    public static void broadcastInvocationMode(@NotNull Project project, @NotNull String mode) {
-        Set<ClaudeChatWindow> windows = collectProjectChatWindows(project);
-        com.google.gson.JsonObject payload = new com.google.gson.JsonObject();
-        payload.addProperty("invocationMode", mode);
-        String json = payload.toString();
-
-        for (ClaudeChatWindow window : windows) {
-            try {
-                String escaped = com.github.claudecodegui.util.JsUtils.escapeJs(json);
-                window.dispatchEvent(DownstreamEvent.CONFIG_INVOCATION_MODE.value(), escaped);
-            } catch (Exception e) {
-                LOG.warn("[Broadcast] Failed to update invocation mode for tab: " + e.getMessage());
-            }
-        }
-        LOG.info("[Broadcast] Invocation mode '" + mode + "' broadcast to " + windows.size() + " tab(s)");
-    }
-
-    /**
      * 广播模型注册表快照到当前项目所有标签的前端(主窗口 + 标签页 + 分离窗口)。
      *
      * <p>模型注册表是应用级全局数据(所有 tab 共享 {@link com.github.claudecodegui.settings.CodemossSettingsService}
@@ -161,7 +140,7 @@ public class ClaudeSDKToolWindow implements ToolWindowFactory, DumbAware {
      * (get/set/reload)都应经此广播同步到全部 tab 的前端 {@code currentRegistry} 单例。
      *
      * <p>{@code escapedJson} 由调用方预先 {@link com.github.claudecodegui.util.JsUtils#escapeJs} 转义
-     * (escapeJs 为纯字符串操作,循环外做一次即可),与 {@link #broadcastInvocationMode} 对称。
+     * (escapeJs 为纯字符串操作,循环外做一次即可)。
      *
      * @see com.github.claudecodegui.ui.ChatWindowDelegate#sendCurrentModelRegistryToFrontend 新 tab 就绪回灌
      */
@@ -221,12 +200,7 @@ public class ClaudeSDKToolWindow implements ToolWindowFactory, DumbAware {
 
     private static void cleanupWindowProcesses(@NotNull ClaudeChatWindow window) {
         try {
-            if (window.getClaudeSDKBridge() != null) {
-                window.getClaudeSDKBridge().cleanupAllProcesses();
-            }
-            if (window.getCodexSDKBridge() != null) {
-                window.getCodexSDKBridge().cleanupAllProcesses();
-            }
+            NodeService.getInstance().cleanupAllProcesses();
         } catch (Exception e) {
             LOG.error("[ShutdownHook] Error cleaning up processes: " + e.getMessage(), e);
         }

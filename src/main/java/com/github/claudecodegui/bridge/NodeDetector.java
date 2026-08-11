@@ -23,7 +23,7 @@ import java.util.concurrent.TimeoutException;
 /**
  * Node.js detector.
  * Responsible for locating and verifying Node.js executable across various platforms.
- * Implemented as a singleton to share cache across ClaudeSDKBridge and CodexSDKBridge.
+ * Implemented as a singleton to share the Node.js detection cache across providers.
  */
 public class NodeDetector {
 
@@ -61,7 +61,7 @@ public class NodeDetector {
 
     /**
      * Get the singleton instance of NodeDetector.
-     * This ensures that ClaudeSDKBridge and CodexSDKBridge share the same cache.
+     * This ensures all providers share the same Node.js detection cache.
      *
      * @return shared NodeDetector instance
      */

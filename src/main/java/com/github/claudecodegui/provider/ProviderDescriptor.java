@@ -92,7 +92,7 @@ public record ProviderDescriptor(
                 type.cliCommand(),
                 type.cliCommandWindows(),
                 EnumSet.allOf(ProviderCapability.class),
-                EnumSet.of(RuntimeType.SDK, RuntimeType.CLI)
+                EnumSet.of(RuntimeType.CLI)
         );
     }
 

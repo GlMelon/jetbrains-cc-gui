@@ -134,7 +134,7 @@ class ClaudeSessionQueryService {
         command.add(commandName);
         command.add(sessionId);
         // Only translate the cwd to a WSL path when the active node is a WSL binary,
-        // mirroring ClaudeSDKBridge#normalizeCwdForNode; a native node keeps the cwd as-is.
+        // mirroring the original node cwd normalization; a native node keeps the cwd as-is.
         String cwdArg = "";
         if (cwd != null) {
             cwdArg = NodeDetector.isWslPath(node) ? NodeDetector.convertToWslPath(cwd) : cwd;

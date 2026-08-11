@@ -392,17 +392,17 @@ public class SessionActionHandlers {
     }
 
     private String resolveNodeVersion() {
-        String nodeVersion = context.getClaudeSDKBridge().getCachedNodeVersion();
+        String nodeVersion = context.getNodeService().getCachedNodeVersion();
         if (nodeVersion != null) {
             return nodeVersion;
         }
         // Version absent — try to recover using the cached path (path may still be valid).
-        String cachedPath = context.getClaudeSDKBridge().getCachedNodePath();
+        String cachedPath = context.getNodeService().getCachedNodePath();
         if (cachedPath == null || cachedPath.isEmpty()) {
             return null;
         }
         LOG.info("[SessionActionHandlers] Node version cache miss, re-verifying path: " + cachedPath);
-        NodeDetectionResult recovery = context.getClaudeSDKBridge().verifyAndCacheNodePath(cachedPath);
+        NodeDetectionResult recovery = context.getNodeService().verifyAndCacheNodePath(cachedPath);
         if (recovery != null && recovery.isFound()) {
             return recovery.getNodeVersion();
         }
@@ -419,8 +419,7 @@ public class SessionActionHandlers {
                             context.getSettingsService().getRuntimePolicy()
                     );
         } catch (Exception e) {
-            // 与 ClaudeSession.isCliRuntime 保持一致:解析失败(policy 缺失/禁用)默认非 CLI,
-            // 走 SDK 清理路径,避免 IllegalStateException 冒泡中断单次消息处理。
+            // 解析失败(policy 缺失/禁用)默认非 CLI,避免 IllegalStateException 冒泡中断单次消息处理。
             LOG.warn("[Runtime] Failed to resolve CLI mode, defaulting to false: " + e.getMessage());
             return false;
         }

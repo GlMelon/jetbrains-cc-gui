@@ -1,7 +1,6 @@
 package com.github.claudecodegui.handler;
 
 import com.github.claudecodegui.common.CommonConstants;
-import com.github.claudecodegui.provider.common.DaemonConstants;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.handler.core.HandlerContext;
 
@@ -275,20 +274,6 @@ public class ProjectConfigHandler {
         }
     }
 
-    public void handleGetInvocationMode() {
-        respondWithJson(DownstreamEvent.CONFIG_INVOCATION_MODE.value(),
-            () -> jsonOf("invocationMode", settingsService.getClaudeInvocationMode()),
-            jsonOf("invocationMode", CommonConstants.INVOCATION_MODE_SDK),
-            "Failed to get Claude invocation mode");
-    }
-
-    public void handleGetSessionInvocationMode() {
-        respondWithJson(DownstreamEvent.SESSION_INVOCATION_MODE.value(),
-                () -> jsonOf("invocationMode", settingsService.getClaudeInvocationMode()),
-                jsonOf("invocationMode", DaemonConstants.UNKNOWN),
-                "Failed to get Claude invocation mode");
-    }
-
     public void handleGetSessionRuntimeState() {
         respondWithJson(DownstreamEvent.SESSION_RUNTIME_STATE.value(), this::buildSessionRuntimeStateJson, null, "Failed to get session runtime state");
     }
@@ -314,33 +299,6 @@ public class ProjectConfigHandler {
             mode = mode.trim();
         }
         return mode;
-    }
-
-    public void handleSetInvocationMode(String content) {
-        try {
-            JsonObject json = gson.fromJson(content, JsonObject.class);
-            String mode = readString(json, "invocationMode", CommonConstants.INVOCATION_MODE_SDK);
-            settingsService.setClaudeInvocationMode(mode);
-            String savedMode = settingsService.getClaudeInvocationMode();
-            ClaudeSDKToolWindow.broadcastInvocationMode(context.getProject(), savedMode);
-        } catch (Exception e) {
-            LOG.error("[ProjectConfigHandler] Failed to set Claude invocation mode: " + e.getMessage(), e);
-            showError("Failed to save Claude invocation mode: " + e.getMessage());
-        }
-    }
-
-    public void handleSetCliPath(String content) {
-        try {
-            JsonObject json = gson.fromJson(content, JsonObject.class);
-            String path = readString(json, "claudeCliPath", "");
-            settingsService.setClaudeCliPath(path);
-            JsonObject response = new JsonObject();
-            response.addProperty("claudeCliPath", settingsService.getClaudeCliPath());
-            pushJson(DownstreamEvent.CONFIG_CLAUDE_CLI_PATH.value(), response);
-        } catch (Exception e) {
-            LOG.error("[ProjectConfigHandler] Failed to set Claude CLI path: " + e.getMessage(), e);
-            showError("Failed to save Claude CLI path: " + e.getMessage());
-        }
     }
 
     public void handleGetAutoOpenFileEnabled() {

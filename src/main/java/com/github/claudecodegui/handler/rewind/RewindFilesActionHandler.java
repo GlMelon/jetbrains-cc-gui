@@ -3,6 +3,7 @@ package com.github.claudecodegui.handler.rewind;
 import com.github.claudecodegui.handler.core.FrontendActionContext;
 import com.github.claudecodegui.handler.core.FrontendActionHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.provider.claude.ClaudeRewindService;
 import com.github.claudecodegui.protocol.UpstreamAction;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
@@ -18,7 +19,7 @@ import java.util.concurrent.CompletableFuture;
  *
  * <p>逐字搬移 {@code RewindHandler.handleRewindFiles} + {@code showError}:
  * {@code CompletableFuture.runAsync} 异步解析请求 → 校验 sessionId/userMessageId →
- * {@code ClaudeSDKBridge.rewindFiles} → EDT 经 {@code onRewindResult} 回传结果/错误,
+ * {@code ClaudeRewindService.rewindFiles} → EDT 经 {@code onRewindResult} 回传结果/错误,
  * 与旧实现逐字等价。
  *
  * <p>payload 为请求 JSON 字符串(sessionId/userMessageId),{@code payloadType=String},
@@ -73,7 +74,7 @@ public final class RewindFilesActionHandler implements FrontendActionHandler<Str
                 }
 
                 // Call the SDK to rewind files
-                ctx.getClaudeSDKBridge().rewindFiles(sessionId, userMessageId, cwd)
+                new ClaudeRewindService().rewindFiles(sessionId, userMessageId, cwd)
                     .thenAccept(result -> {
                         boolean success = result.has("success") && result.get("success").getAsBoolean();
                         LOG.info("[RewindFilesActionHandler] Rewind result: success=" + success + ", result=" + result);

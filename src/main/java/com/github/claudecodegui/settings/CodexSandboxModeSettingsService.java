@@ -108,7 +108,7 @@ public final class CodexSandboxModeSettingsService {
         // danger-full-access (no sandbox), so a prompt-injected Codex command is contained
         // to the project by default; full access must be an explicit opt-in. Windows keeps
         // danger-full-access as a platform fallback because the Codex sandbox is experimental
-        // there (mirrors CodexSDKBridge.resolveCodexSandboxMode).
+        // there (mirrors resolveCodexSandboxMode).
         return PlatformUtils.isWindows()
                 ? CODEX_SANDBOX_MODE_DANGER_FULL_ACCESS
                 : CODEX_SANDBOX_MODE_WORKSPACE_WRITE;

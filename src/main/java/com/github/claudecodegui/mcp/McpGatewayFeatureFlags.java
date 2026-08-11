@@ -10,7 +10,7 @@ import com.github.claudecodegui.settings.CodemossSettingsService;
  *   <li>JVM -D 总开关 {@code mcpGateway.enabled}:最高优先级运维紧急关停</li>
  *   <li>UI user 开关(行为菜单,默认 true,经 {@code CodemossSettingsService} 持久化):
  *       用户主动关闭后回退直连 MCP,gateway Node 进程被主动停止</li>
- *   <li>JVM -D 子开关 {@code cli.enabled}/{@code sdk.enabled}:仅关对应路径,以总开关为前提</li>
+ *   <li>JVM -D 子开关 {@code cli.enabled}:仅关 CLI 路径,以总开关为前提(SDK 路径随 SDK 模式移除)</li>
  * </ol>
  */
 public final class McpGatewayFeatureFlags {
@@ -48,20 +48,14 @@ public final class McpGatewayFeatureFlags {
                 && Boolean.parseBoolean(System.getProperty(McpGatewayConstants.FEATURE_CLI_ENABLED, "true"));
     }
 
-    public static boolean isSdkEnabled() {
-        return isGatewayEnabled()
-                && isUserEnabled()
-                && Boolean.parseBoolean(System.getProperty(McpGatewayConstants.FEATURE_SDK_ENABLED, "true"));
-    }
-
     /**
-     * gateway 是否处于活跃工作状态(CLI 或 SDK 任一路径启用即 true)。供预热/重载等
-     * "不分运行时路径"的入口({@code refreshConfig} 预热与 MCP 变更重载、{@code BridgePreloader}
-     * 项目打开预热)做 gate:只要 gateway 会被任一 provider 运行时用到,就应预热、就应在 MCP
-     * 增删停时重载。区别于 {@link #isCliEnabled()}/{@link #isSdkEnabled()} 的"单路径"语义——
-     * 避免纯 SDK 模式(cli.enabled=false)用户改 MCP 时 gateway 不重载、SDK 调用用到过期 snapshot。
+     * gateway 是否处于活跃工作状态。供预热/重载等"不分运行时路径"的入口
+     * ({@code refreshConfig} 预热与 MCP 变更重载、{@code BridgePreloader} 项目打开预热)做 gate:
+     * 只要 gateway 会被 provider 运行时用到,就应预热、就应在 MCP 增删停时重载。
+     * SDK 模式移除后仅剩 CLI 路径,故等价于 {@link #isCliEnabled()}(保留独立方法名以维持
+     * 调用方语义清晰,避免每个调用点都内联 isCliEnabled)。
      */
     public static boolean isGatewayActive() {
-        return isCliEnabled() || isSdkEnabled();
+        return isCliEnabled();
     }
 }

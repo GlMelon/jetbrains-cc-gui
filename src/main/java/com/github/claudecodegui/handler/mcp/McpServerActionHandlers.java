@@ -3,7 +3,8 @@ package com.github.claudecodegui.handler.mcp;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.mcp.McpGatewayService;
-import com.github.claudecodegui.provider.common.DaemonConstants;
+import com.github.claudecodegui.common.CommonConstants;
+import com.github.claudecodegui.provider.claude.ClaudeMcpService;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.startup.BridgePreloader;
 import com.github.claudecodegui.util.GsonHolder;
@@ -26,9 +27,11 @@ public class McpServerActionHandlers {
     private static final Logger LOG = Logger.getInstance(McpServerActionHandlers.class);
 
     private final HandlerContext context;
+    private final ClaudeMcpService claudeMcpService;
 
     public McpServerActionHandlers(HandlerContext context) {
         this.context = context;
+        this.claudeMcpService = new ClaudeMcpService();
     }
 
     // --- Response-handling methods (called by typed handlers) ---
@@ -215,7 +218,7 @@ public class McpServerActionHandlers {
                     }
                 }
 
-                context.getClaudeSDKBridge().getMcpServerStatus(cwd)
+                claudeMcpService.getMcpServerStatus(cwd)
                     .thenAccept(statusList -> {
                         Gson gson = GsonHolder.GSON;
                         String statusJson = gson.toJson(statusList);
@@ -224,7 +227,7 @@ public class McpServerActionHandlers {
                         for (JsonObject status : statusList) {
                             if (status.has("name")) {
                                 String serverName = status.get("name").getAsString();
-                                String serverStatus = status.has("status") ? status.get("status").getAsString() : DaemonConstants.UNKNOWN;
+                                String serverStatus = status.has("status") ? status.get("status").getAsString() : CommonConstants.UNKNOWN;
                                 LOG.info("[McpServerActionHandlers] Server: " + serverName + ", Status: " + serverStatus);
                             }
                         }
@@ -295,7 +298,7 @@ public class McpServerActionHandlers {
 
                 String toolsCwd = context.getProject() != null
                         ? context.getProject().getBasePath() : null;
-                context.getClaudeSDKBridge().getMcpServerTools(request.serverId(), toolsCwd)
+                claudeMcpService.getMcpServerTools(request.serverId(), toolsCwd)
                     .thenAccept(result -> {
                         McpServerToolsResponse response = McpServerToolsResponse.fromBridge(request, result);
                         LOG.info("[McpServerActionHandlers] Got tools result for request: " + request.requestId());

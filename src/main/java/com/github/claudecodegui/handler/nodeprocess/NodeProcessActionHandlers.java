@@ -149,8 +149,9 @@ public class NodeProcessActionHandlers {
             String error = null;
             if (pid > 0) {
                 try {
+                    // CLI 模式无常驻 daemon,"重启 daemon" 等价于终止该 per-process 子进程。
                     NodeProcessRegistry registry = NodeProcessRegistry.getInstance(context.getProject());
-                    success = registry.restartDaemonByPid(pid);
+                    success = registry.killByPid(pid);
                 } catch (Exception e) {
                     error = e.getMessage();
                 }

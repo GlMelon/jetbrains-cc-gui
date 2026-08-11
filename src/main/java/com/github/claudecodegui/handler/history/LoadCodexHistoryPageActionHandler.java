@@ -3,11 +3,12 @@ package com.github.claudecodegui.handler.history;
 import com.github.claudecodegui.handler.core.FrontendActionContext;
 import com.github.claudecodegui.handler.core.FrontendActionHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.provider.codex.CodexHistoryPageResult;
+import com.github.claudecodegui.provider.codex.CodexHistoryService;
 import com.github.claudecodegui.protocol.CodexHistoryPageMode;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.protocol.UpstreamAction;
 import com.github.claudecodegui.protocol.payload.CodexHistoryPageErrorPayloadField;
-import com.github.claudecodegui.provider.codex.CodexHistoryPageResult;
 import com.github.claudecodegui.session.ClaudeSession;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.util.GsonHolder;
@@ -56,13 +57,10 @@ public class LoadCodexHistoryPageActionHandler implements FrontendActionHandler<
             dispatchError(handlerContext, requestedSessionId, "The requested session is no longer active");
             return;
         }
-        if (handlerContext.getCodexSDKBridge() == null) {
-            dispatchError(handlerContext, requestedSessionId, "Codex history service is unavailable");
-            return;
-        }
 
+        CodexHistoryService historyService = new CodexHistoryService();
         CompletableFuture.supplyAsync(
-                () -> handlerContext.getCodexSDKBridge().loadHistoryPage(requestedSessionId, beforeTurn),
+                () -> historyService.loadHistoryPage(requestedSessionId, beforeTurn),
                 AppExecutorUtil.getAppExecutorService()
         ).whenComplete((result, error) -> ApplicationManager.getApplication().invokeLater(() -> {
             if (!isCurrentSession(handlerContext, session, requestedSessionId)) {

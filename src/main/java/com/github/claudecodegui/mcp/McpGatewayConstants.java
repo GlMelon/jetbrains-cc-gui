@@ -12,7 +12,6 @@ public final class McpGatewayConstants {
 
     public static final String FEATURE_GATEWAY_ENABLED = "mcpGateway.enabled";
     public static final String FEATURE_CLI_ENABLED = "mcpGateway.cli.enabled";
-    public static final String FEATURE_SDK_ENABLED = "mcpGateway.sdk.enabled";
 
     public static final String DIRECTORY_NAME = "mcp-gateway";
     public static final String CONFIG_DIRECTORY_NAME = "cli-gateway";

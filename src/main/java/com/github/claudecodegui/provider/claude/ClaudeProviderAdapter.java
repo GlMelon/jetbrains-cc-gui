@@ -11,14 +11,14 @@ import java.util.Set;
 
 public class ClaudeProviderAdapter implements ProviderAdapter {
     private static final ProviderViewModel VIEW_MODEL = new ProviderViewModel(ProviderId.CLAUDE, "Claude");
-    private final ClaudeSDKBridge claudeSDKBridge;
+
+    /**
+     * 懒加载历史服务:其构造会拉起 {@link com.github.claudecodegui.bridge.NodeService}(依赖 IntelliJ platform),
+     * 延迟到首次历史读取才初始化,使本 adapter 构造保持轻量、可在无 platform 的单元测试中实例化。
+     */
+    private volatile ClaudeHistoryService historyService;
 
     public ClaudeProviderAdapter() {
-        this(null);
-    }
-
-    public ClaudeProviderAdapter(ClaudeSDKBridge claudeSDKBridge) {
-        this.claudeSDKBridge = claudeSDKBridge;
     }
 
     @Override
@@ -34,7 +34,6 @@ public class ClaudeProviderAdapter implements ProviderAdapter {
     @Override
     public Set<ProviderCapability> capabilities() {
         return Set.of(
-                ProviderCapability.SDK_SESSION,
                 ProviderCapability.CLI_SESSION,
                 ProviderCapability.STREAMING,
                 ProviderCapability.REASONING_THINKING,
@@ -45,24 +44,21 @@ public class ClaudeProviderAdapter implements ProviderAdapter {
     }
 
     @Override
-    public JsonObject launchChannel(String channelId, String sessionId, String cwd) {
-        return requireBridge().launchChannel(channelId, sessionId, cwd);
-    }
-
-    @Override
-    public void interruptChannel(String channelId) {
-        requireBridge().interruptChannel(channelId);
-    }
-
-    @Override
     public List<JsonObject> getSessionMessages(String sessionId, String cwd) {
-        return requireBridge().getSessionMessages(sessionId, cwd);
+        return historyService().getSessionMessages(sessionId, cwd);
     }
 
-    private ClaudeSDKBridge requireBridge() {
-        if (claudeSDKBridge == null) {
-            throw new IllegalStateException("Claude SDK bridge is required for session routing");
+    private ClaudeHistoryService historyService() {
+        ClaudeHistoryService local = historyService;
+        if (local == null) {
+            synchronized (this) {
+                local = historyService;
+                if (local == null) {
+                    local = new ClaudeHistoryService();
+                    historyService = local;
+                }
+            }
         }
-        return claudeSDKBridge;
+        return local;
     }
 }

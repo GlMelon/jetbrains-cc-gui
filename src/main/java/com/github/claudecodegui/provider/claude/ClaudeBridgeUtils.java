@@ -1,6 +1,5 @@
 package com.github.claudecodegui.provider.claude;
 
-import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
 
 import java.io.File;
@@ -14,20 +13,6 @@ import java.nio.charset.StandardCharsets;
 final class ClaudeBridgeUtils {
 
     private ClaudeBridgeUtils() {
-    }
-
-    /**
-     * Build the environment variables block sent to the daemon process.
-     * Used by both {@link ClaudeDaemonCoordinator} and {@link ClaudeDaemonRequestExecutor}.
-     */
-    static JsonObject buildDaemonEnv(String cwd) {
-        JsonObject envVars = new JsonObject();
-        envVars.addProperty("CLAUDE_USE_STDIN", "true");
-        if (isValidCwd(cwd)) {
-            envVars.addProperty("IDEA_PROJECT_PATH", cwd);
-            envVars.addProperty("PROJECT_PATH", cwd);
-        }
-        return envVars;
     }
 
     /**

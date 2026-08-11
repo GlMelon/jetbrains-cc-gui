@@ -36,7 +36,7 @@ public class ProcessManager {
      *
      * <p>Use this when registering a short-lived child process whose channel
      * has no natural identifier (one-shot RPC calls, helper scripts, etc.).
-     * A unique suffix is mandatory: see {@code CodexSDKBridge#getMcpServerTools}
+     * A unique suffix is mandatory: see {@code CodexMcpService#getMcpServerTools}
      * (L10 fix) for why constant channel IDs corrupt the registry under
      * concurrent calls.
      */

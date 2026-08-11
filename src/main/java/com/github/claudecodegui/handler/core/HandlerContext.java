@@ -1,9 +1,7 @@
 package com.github.claudecodegui.handler.core;
 
+import com.github.claudecodegui.bridge.NodeService;
 import com.github.claudecodegui.common.CommonConstants;
-import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
-import com.github.claudecodegui.provider.codex.CodexSDKBridge;
-import com.github.claudecodegui.provider.opencode.OpenCodeSDKBridge;
 import com.github.claudecodegui.session.ClaudeSession;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.intellij.openapi.application.ApplicationManager;
@@ -23,11 +21,9 @@ public class HandlerContext {
     public static final String DEFAULT_PROVIDER = CommonConstants.DEFAULT_PROVIDER;
 
     private final Project project;
-    private final ClaudeSDKBridge claudeSDKBridge;
-    private final CodexSDKBridge codexSDKBridge;
-    private final OpenCodeSDKBridge openCodeSDKBridge;
     private final CodemossSettingsService settingsService;
     private final JsCallback jsCallback;
+    private volatile NodeService nodeService;
     private volatile FrontendReadyChecker frontendReadyChecker;
 
     // Mutable state accessed via getters/setters — volatile for thread safety
@@ -60,32 +56,12 @@ public class HandlerContext {
 
     public HandlerContext(
             Project project,
-            ClaudeSDKBridge claudeSDKBridge,
-            CodexSDKBridge codexSDKBridge,
-            OpenCodeSDKBridge openCodeSDKBridge,
             CodemossSettingsService settingsService,
             JsCallback jsCallback
     ) {
         this.project = project;
-        this.claudeSDKBridge = claudeSDKBridge;
-        this.codexSDKBridge = codexSDKBridge;
-        this.openCodeSDKBridge = openCodeSDKBridge;
         this.settingsService = settingsService;
         this.jsCallback = jsCallback;
-    }
-
-    /**
-     * 向后兼容构造(无 OpenCode bridge)。测试 fixture 与无需 OpenCode 的 handler 用此重载;
-     * {@link #getOpenCodeSDKBridge()} 返回 null,OpenCode 相关 handler 自行 null 守卫。
-     */
-    public HandlerContext(
-            Project project,
-            ClaudeSDKBridge claudeSDKBridge,
-            CodexSDKBridge codexSDKBridge,
-            CodemossSettingsService settingsService,
-            JsCallback jsCallback
-    ) {
-        this(project, claudeSDKBridge, codexSDKBridge, null, settingsService, jsCallback);
     }
 
     // Getters
@@ -93,16 +69,23 @@ public class HandlerContext {
         return project;
     }
 
-    public ClaudeSDKBridge getClaudeSDKBridge() {
-        return claudeSDKBridge;
-    }
-
-    public CodexSDKBridge getCodexSDKBridge() {
-        return codexSDKBridge;
-    }
-
-    public OpenCodeSDKBridge getOpenCodeSDKBridge() {
-        return openCodeSDKBridge;
+    /**
+     * Get the shared Node.js infrastructure service.
+     * Provides Node.js detection, path management, bridge directory access,
+     * and process management without dependency on SDK Bridge classes.
+     */
+    public NodeService getNodeService() {
+        NodeService local = nodeService;
+        if (local == null) {
+            synchronized (this) {
+                local = nodeService;
+                if (local == null) {
+                    local = NodeService.getInstance();
+                    nodeService = local;
+                }
+            }
+        }
+        return local;
     }
 
     public CodemossSettingsService getSettingsService() {

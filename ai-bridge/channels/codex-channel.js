@@ -27,8 +27,7 @@ export async function handleCodexCommand(command, args, stdinData) {
           apiKey,
           reasoningEffort,
           serviceTier,
-          attachments,  // Image attachments (local_image format)
-          mcpGatewayBinding  // MCP Gateway SDK 绑定(来自 Java stdin 注入)
+          attachments  // Image attachments (local_image format)
         } = stdinData;
         await codexSendMessage(
           message,
@@ -40,8 +39,7 @@ export async function handleCodexCommand(command, args, stdinData) {
           apiKey || '',
           (reasoningEffort || 'medium'),
           serviceTier || '',
-          attachments || [],  // Pass attachments to message service
-          mcpGatewayBinding || null  // MCP Gateway SDK 绑定(无则回退真实 MCP)
+          attachments || []  // Pass attachments to message service
         );
       } else {
         await codexSendMessage(args[0], args[1], args[2], args[3], args[4]);

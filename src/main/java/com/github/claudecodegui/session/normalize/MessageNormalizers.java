@@ -17,30 +17,28 @@ import java.util.function.Function;
  * 回退语义(保持与原 if/else 完全一致):
  * <ul>
  *   <li>未知 provider → 回退 {@code claude}(原「非 codex 即 claude」);</li>
- *   <li>未知 runtime → 回退 {@code sdk}(原「非 cli 即 sdk」)。</li>
+ *   <li>未知 runtime → 回退 {@code cli}(SDK 调用模式已移除,仅剩 CLI)。</li>
  * </ul>
  * 两维度独立归一(provider 与 runtime 各自判定已知),确保 {@code codex+未知runtime}
- * 仍路由到 CodexSdk(provider 优先保留),不被错误回退到 Claude。
+ * 仍路由到 Codex CLI(provider 优先保留),不被错误回退到 Claude。
  */
 public final class MessageNormalizers {
 
     /** 默认回退 provider(原 if/else 中「非 codex 即 claude」语义)。 */
     private static final String DEFAULT_PROVIDER = CommonConstants.PROVIDER_CLAUDE;
-    /** 默认回退 runtime(原 if/else 中「非 cli 即 sdk」语义)。 */
-    private static final String DEFAULT_RUNTIME = CommonConstants.INVOCATION_MODE_SDK;
+    /** 默认回退 runtime(SDK 调用模式已移除,仅剩 CLI)。 */
+    private static final String DEFAULT_RUNTIME = CommonConstants.INVOCATION_MODE_CLI;
 
     /**
-     * 归一化器工厂注册表。新增 provider×runtime 组合只需在此加一行 entry。
+     * 归一化器工厂注册表。新增 provider 只需在此加一行 CLI entry。
+     * SDK 调用模式已移除——SDK 专属归一化器注册随之删除。
      */
     private static final List<MessageNormalizerFactory> FACTORIES = List.of(
             entry(CommonConstants.PROVIDER_CLAUDE, CommonConstants.INVOCATION_MODE_CLI, ClaudeCliMessageNormalizer::new),
-            entry(CommonConstants.PROVIDER_CLAUDE, CommonConstants.INVOCATION_MODE_SDK, ClaudeSdkMessageNormalizer::new),
             entry(CommonConstants.PROVIDER_CODEX, CommonConstants.INVOCATION_MODE_CLI, CodexCliMessageNormalizer::new),
-            entry(CommonConstants.PROVIDER_CODEX, CommonConstants.INVOCATION_MODE_SDK, CodexSdkMessageNormalizer::new),
-            // B6: OpenCode 事件经 OpenCodeSDKBridge(SDK)/OpenCodeCliSession(CLI)已归一为统一 MSG_*,
-            // 归一化器仅需透传(与 ClaudeSdkMessageNormalizer 同构);CLI/SDK 复用同一透传实现。
+            // B6: OpenCode 事件经 OpenCodeCliSession 已归一为统一 MSG_*,
+            // 归一化器仅需透传(纯 ForwardingMessageNormalizer 空壳)。
             entry(CommonConstants.PROVIDER_OPENCODE, CommonConstants.INVOCATION_MODE_CLI, OpenCodeMessageNormalizer::new),
-            entry(CommonConstants.PROVIDER_OPENCODE, CommonConstants.INVOCATION_MODE_SDK, OpenCodeMessageNormalizer::new),
             // Grok/Kimi/Pi: CLI-only providers, events normalized by MarkerCliStreamParser in CliSession,
             // normalizer is pure passthrough (same pattern as OpenCode).
             entry(CommonConstants.PROVIDER_GROK, CommonConstants.INVOCATION_MODE_CLI, GrokMessageNormalizer::new),

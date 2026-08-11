@@ -32,6 +32,7 @@ import com.github.claudecodegui.handler.dependency.UpdateDependencyActionHandler
 import com.github.claudecodegui.handler.dependency.CheckDependencyUpdatesActionHandler;
 import com.github.claudecodegui.handler.dependency.GetDependencyVersionsActionHandler;
 import com.github.claudecodegui.handler.dependency.CheckNodeEnvironmentActionHandler;
+import com.github.claudecodegui.handler.cli.CheckCliEnvironmentActionHandler;
 import com.github.claudecodegui.handler.enhance.EnhancePromptActionHandler;
 import com.github.claudecodegui.handler.file.SaveExportedFileActionHandler;
 import com.github.claudecodegui.handler.file.SaveMarkdownActionHandler;
@@ -126,8 +127,6 @@ import com.github.claudecodegui.handler.provider.GetActiveOpenCodeProviderAction
 import com.github.claudecodegui.handler.provider.SortOpenCodeProvidersActionHandler;
 import com.github.claudecodegui.handler.ProjectConfigHandler;
 import com.github.claudecodegui.handler.UserLanguageHandler;
-import com.github.claudecodegui.handler.RuntimePolicyHandler;
-import com.github.claudecodegui.handler.settings.GetClaudeCliPathActionHandler;
 import com.github.claudecodegui.handler.settings.GetCodexSubscriptionQuotaActionHandler;
 import com.github.claudecodegui.handler.settings.FetchProviderModelsActionHandler;
 import com.github.claudecodegui.handler.settings.GetModelRegistryActionHandler;
@@ -166,11 +165,7 @@ import com.github.claudecodegui.handler.settings.GetStreamingEnabledActionHandle
 import com.github.claudecodegui.handler.settings.SetStreamingEnabledActionHandler;
 import com.github.claudecodegui.handler.settings.GetShowThinkingEnabledActionHandler;
 import com.github.claudecodegui.handler.settings.SetShowThinkingEnabledActionHandler;
-import com.github.claudecodegui.handler.settings.GetInvocationModeActionHandler;
-import com.github.claudecodegui.handler.settings.GetSessionInvocationModeActionHandler;
 import com.github.claudecodegui.handler.settings.GetSessionRuntimeStateActionHandler;
-import com.github.claudecodegui.handler.settings.SetInvocationModeActionHandler;
-import com.github.claudecodegui.handler.settings.SetCliPathActionHandler;
 import com.github.claudecodegui.handler.settings.GetCodexSandboxModeActionHandler;
 import com.github.claudecodegui.handler.settings.SetCodexSandboxModeActionHandler;
 import com.github.claudecodegui.handler.settings.GetSendShortcutActionHandler;
@@ -203,11 +198,6 @@ import com.github.claudecodegui.handler.settings.SetProjectCommitPromptActionHan
 import com.github.claudecodegui.handler.settings.SetUserLanguageActionHandler;
 import com.github.claudecodegui.handler.settings.GetUserLanguageActionHandler;
 import com.github.claudecodegui.handler.settings.ClearUserLanguageActionHandler;
-import com.github.claudecodegui.handler.settings.GetRuntimePolicyActionHandler;
-import com.github.claudecodegui.handler.settings.SetRuntimePolicyActionHandler;
-import com.github.claudecodegui.handler.settings.ResetRuntimePolicyActionHandler;
-import com.github.claudecodegui.handler.settings.GetRuntimePolicySchemaActionHandler;
-import com.github.claudecodegui.handler.settings.SetClaudeCliPathActionHandler;
 import com.github.claudecodegui.handler.settings.GetNodePathActionHandler;
 import com.github.claudecodegui.handler.settings.SetNodePathActionHandler;
 import com.github.claudecodegui.handler.clipboard.ReadClipboardActionHandler;
@@ -263,14 +253,13 @@ import com.github.claudecodegui.permission.PermissionService;
 import com.github.claudecodegui.settings.AppearanceConfigService;
 import com.github.claudecodegui.settings.avatar.AvatarConfigService;
 import com.github.claudecodegui.settings.ModelRegistryService;
-import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
-import com.github.claudecodegui.provider.codex.CodexSDKBridge;
-import com.github.claudecodegui.provider.common.MessageCallback;
-import com.github.claudecodegui.provider.common.SDKResult;
 import com.github.claudecodegui.session.SessionLifecycleManager;
 import com.github.claudecodegui.session.StreamMessageCoalescer;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.protocol.DownstreamEvent;
+import com.github.claudecodegui.bridge.NodeService;
+import com.github.claudecodegui.provider.common.MessageCallback;
+import com.github.claudecodegui.provider.common.SDKResult;
 import com.github.claudecodegui.util.JsUtils;
 import com.github.claudecodegui.util.MessageJsonConverter;
 import com.github.claudecodegui.util.ThemeConfigService;
@@ -337,9 +326,6 @@ public class ChatWindowDelegate {
 
     public interface DelegateHost {
         Project getProject();
-        ClaudeSDKBridge getClaudeSDKBridge();
-        CodexSDKBridge getCodexSDKBridge();
-        com.github.claudecodegui.provider.opencode.OpenCodeSDKBridge getOpenCodeSDKBridge();
         ClaudeSession getSession();
         CodemossSettingsService getSettingsService();
         JPanel getMainPanel();
@@ -383,31 +369,28 @@ public class ChatWindowDelegate {
     }
 
     public void loadNodePathFromSettings() {
-        ClaudeSDKBridge claudeSDKBridge = host.getClaudeSDKBridge();
-        CodexSDKBridge codexSDKBridge = host.getCodexSDKBridge();
+        NodeService nodeService = NodeService.getInstance();
         try {
             PropertiesComponent props = PropertiesComponent.getInstance();
             String savedNodePath = props.getValue(NODE_PATH_PROPERTY_KEY);
 
             if (savedNodePath != null && !savedNodePath.trim().isEmpty()) {
                 String path = savedNodePath.trim();
-                claudeSDKBridge.setNodeExecutable(path);
-                codexSDKBridge.setNodeExecutable(path);
-                claudeSDKBridge.verifyAndCacheNodePath(path);
+                nodeService.setNodeExecutable(path);
+                nodeService.verifyAndCacheNodePath(path);
                 LOG.info("Using manually configured Node.js path: " + path);
             } else {
                 LOG.info("No saved Node.js path found, attempting auto-detection...");
                 com.github.claudecodegui.model.NodeDetectionResult detected =
-                    claudeSDKBridge.detectNodeWithDetails();
+                    nodeService.detectNodeWithDetails();
 
                 if (detected != null && detected.isFound() && detected.getNodePath() != null) {
                     String detectedPath = detected.getNodePath();
                     String detectedVersion = detected.getNodeVersion();
 
                     props.setValue(NODE_PATH_PROPERTY_KEY, detectedPath);
-                    claudeSDKBridge.setNodeExecutable(detectedPath);
-                    codexSDKBridge.setNodeExecutable(detectedPath);
-                    claudeSDKBridge.verifyAndCacheNodePath(detectedPath);
+                    nodeService.setNodeExecutable(detectedPath);
+                    nodeService.verifyAndCacheNodePath(detectedPath);
 
                     LOG.info("Auto-detected Node.js: " + detectedPath + " (" + detectedVersion + ")");
                 } else {
@@ -463,24 +446,16 @@ public class ChatWindowDelegate {
     }
 
     public String setupPermissionService() {
-        ClaudeSDKBridge claudeSDKBridge = host.getClaudeSDKBridge();
-        CodexSDKBridge codexSDKBridge = host.getCodexSDKBridge();
+        NodeService nodeService = NodeService.getInstance();
         Project project = host.getProject();
-        String sessionId = claudeSDKBridge.getSessionId();
-
-        if ((sessionId == null || sessionId.isEmpty()) && codexSDKBridge != null) {
-            sessionId = codexSDKBridge.getSessionId();
-        }
+        String sessionId = nodeService.getSessionId();
 
         if (sessionId == null || sessionId.isEmpty()) {
-            LOG.warn("Failed to get session ID from bridges, generating fallback UUID");
+            LOG.warn("Failed to get session ID, generating fallback UUID");
             sessionId = java.util.UUID.randomUUID().toString();
         }
 
-        claudeSDKBridge.setSessionId(sessionId);
-        if (codexSDKBridge != null) {
-            codexSDKBridge.setSessionId(sessionId);
-        }
+nodeService.setSessionId(sessionId);
         LOG.info("Unified bridge sessionId for PermissionService routing: " + sessionId);
 
         PermissionService permissionService = PermissionService.getInstance(project, sessionId);
@@ -501,8 +476,6 @@ public class ChatWindowDelegate {
 
     public void initializeHandlers() {
         Project project = host.getProject();
-        ClaudeSDKBridge claudeSDKBridge = host.getClaudeSDKBridge();
-        CodexSDKBridge codexSDKBridge = host.getCodexSDKBridge();
         CodemossSettingsService settingsService = host.getSettingsService();
 
         HandlerContext.FrontendReadyChecker frontendReadyChecker = () -> host.isFrontendReady();
@@ -517,7 +490,7 @@ public class ChatWindowDelegate {
             }
         };
 
-        HandlerContext handlerContext = new HandlerContext(project, claudeSDKBridge, codexSDKBridge, host.getOpenCodeSDKBridge(), settingsService, jsCallback);
+        HandlerContext handlerContext = new HandlerContext(project, settingsService, jsCallback);
         handlerContext.setSession(host.getSession());
         if (host.getSession() != null) {
             handlerContext.setCurrentProvider(host.getSession().getProvider());
@@ -553,8 +526,6 @@ public class ChatWindowDelegate {
         typedHandlers.add(new GetCodexSubscriptionQuotaActionHandler());
         // 模型拉取 RPC(第三方/代理预设:baseUrl+key → 动态拉取真实模型列表)
         typedHandlers.add(new FetchProviderModelsActionHandler());
-        typedHandlers.add(new GetClaudeCliPathActionHandler());
-        typedHandlers.add(new SetClaudeCliPathActionHandler());
         typedHandlers.add(new GetNodePathActionHandler());
         typedHandlers.add(new SetNodePathActionHandler());
         typedHandlers.add(new ReadClipboardActionHandler());
@@ -603,11 +574,7 @@ public class ChatWindowDelegate {
         typedHandlers.add(new SetStreamingEnabledActionHandler(projectConfigHandler));
         typedHandlers.add(new GetShowThinkingEnabledActionHandler(projectConfigHandler));
         typedHandlers.add(new SetShowThinkingEnabledActionHandler(projectConfigHandler));
-        typedHandlers.add(new GetInvocationModeActionHandler(projectConfigHandler));
-        typedHandlers.add(new GetSessionInvocationModeActionHandler(projectConfigHandler));
         typedHandlers.add(new GetSessionRuntimeStateActionHandler(projectConfigHandler));
-        typedHandlers.add(new SetInvocationModeActionHandler(projectConfigHandler));
-        typedHandlers.add(new SetCliPathActionHandler(projectConfigHandler));
         typedHandlers.add(new GetCodexSandboxModeActionHandler(projectConfigHandler));
         typedHandlers.add(new SetCodexSandboxModeActionHandler(projectConfigHandler));
         typedHandlers.add(new GetSendShortcutActionHandler(projectConfigHandler));
@@ -644,12 +611,6 @@ public class ChatWindowDelegate {
         typedHandlers.add(new SetUserLanguageActionHandler(userLanguageHandler));
         typedHandlers.add(new GetUserLanguageActionHandler(userLanguageHandler));
         typedHandlers.add(new ClearUserLanguageActionHandler(userLanguageHandler));
-        // Runtime policy (B3 slice: runtime-policy)
-        RuntimePolicyHandler runtimePolicyHandler = new RuntimePolicyHandler(handlerContext);
-        typedHandlers.add(new GetRuntimePolicyActionHandler(runtimePolicyHandler));
-        typedHandlers.add(new SetRuntimePolicyActionHandler(runtimePolicyHandler));
-        typedHandlers.add(new ResetRuntimePolicyActionHandler(runtimePolicyHandler));
-        typedHandlers.add(new GetRuntimePolicySchemaActionHandler(runtimePolicyHandler));
 
         // Session action handlers (B2 迁移: send/interrupt/restart)
         SessionActionHandlers sessionActionHandlers = new SessionActionHandlers(handlerContext);
@@ -764,6 +725,9 @@ public class ChatWindowDelegate {
         typedHandlers.add(new CheckDependencyUpdatesActionHandler(dependencyHandlers));
         typedHandlers.add(new GetDependencyVersionsActionHandler(dependencyHandlers));
         typedHandlers.add(new CheckNodeEnvironmentActionHandler(dependencyHandlers));
+
+        // CLI environment action handlers (检测CLI工具安装状态)
+        typedHandlers.add(new CheckCliEnvironmentActionHandler());
 
         // Node process action handlers (B2 迁移: get/kill/kill-all-orphan/restart-daemon)
         NodeProcessActionHandlers nodeProcessHandlers = new NodeProcessActionHandlers(handlerContext);
@@ -1243,5 +1207,6 @@ public class ChatWindowDelegate {
         }
     }
 }
+
 
 

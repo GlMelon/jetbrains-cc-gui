@@ -5,8 +5,7 @@ import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.model.NodeDetectionResult;
 import com.github.claudecodegui.protocol.DownstreamEvent;
-import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
-import com.github.claudecodegui.provider.codex.CodexSDKBridge;
+import com.github.claudecodegui.bridge.NodeService;
 import com.github.claudecodegui.session.ClaudeSession;
 import com.github.claudecodegui.startup.BridgePreloader;
 import com.github.claudecodegui.ui.bootstrap.WebviewBootstrapPayloadFactory;
@@ -64,8 +63,6 @@ public class WebviewInitializer {
      */
     public interface WebviewHost {
         Project getProject();
-        ClaudeSDKBridge getClaudeSDKBridge();
-        CodexSDKBridge getCodexSDKBridge();
         JPanel getMainPanel();
         HtmlLoader getHtmlLoader();
         HandlerContext getHandlerContext();
@@ -133,8 +130,7 @@ public class WebviewInitializer {
             return;
         }
 
-        ClaudeSDKBridge claudeSDKBridge = host.getClaudeSDKBridge();
-        CodexSDKBridge codexSDKBridge = host.getCodexSDKBridge();
+        NodeService nodeService = NodeService.getInstance();
 
         PropertiesComponent props = PropertiesComponent.getInstance();
         String savedNodePath = props.getValue(NODE_PATH_PROPERTY_KEY);
@@ -142,24 +138,22 @@ public class WebviewInitializer {
 
         if (savedNodePath != null && !savedNodePath.trim().isEmpty()) {
             String trimmed = savedNodePath.trim();
-            claudeSDKBridge.setNodeExecutable(trimmed);
-            codexSDKBridge.setNodeExecutable(trimmed);
-            nodeResult = claudeSDKBridge.verifyAndCacheNodePath(trimmed);
+            nodeService.setNodeExecutable(trimmed);
+            nodeResult = nodeService.verifyAndCacheNodePath(trimmed);
             if (nodeResult == null || !nodeResult.isFound()) {
                 showInvalidNodePathPanel(trimmed, nodeResult != null ? nodeResult.getErrorMessage() : null);
                 return;
             }
         } else {
-            nodeResult = claudeSDKBridge.detectNodeWithDetails();
+            nodeResult = nodeService.detectNodeWithDetails();
             if (nodeResult != null && nodeResult.isFound() && nodeResult.getNodePath() != null) {
                 props.setValue(NODE_PATH_PROPERTY_KEY, nodeResult.getNodePath());
-                claudeSDKBridge.setNodeExecutable(nodeResult.getNodePath());
-                codexSDKBridge.setNodeExecutable(nodeResult.getNodePath());
-                claudeSDKBridge.verifyAndCacheNodePath(nodeResult.getNodePath());
+                nodeService.setNodeExecutable(nodeResult.getNodePath());
+                nodeService.verifyAndCacheNodePath(nodeResult.getNodePath());
             }
         }
 
-        if (!claudeSDKBridge.checkEnvironment()) {
+        if (nodeService.getNodeExecutable() == null) {
             if (sharedResolver.isExtractionInProgress()) {
                 LOG.info("[ClaudeSDKToolWindow] checkEnvironment failed but extraction in progress, showing loading panel...");
                 showLoadingPanel();
@@ -185,7 +179,7 @@ public class WebviewInitializer {
         }
 
         if (nodeResult == null) {
-            nodeResult = claudeSDKBridge.detectNodeWithDetails();
+            nodeResult = nodeService.detectNodeWithDetails();
         }
         if (nodeResult != null && nodeResult.isFound() && nodeResult.getNodeVersion() != null) {
             if (!NodeDetector.isVersionSupported(nodeResult.getNodeVersion())) {
@@ -193,13 +187,6 @@ public class WebviewInitializer {
                 return;
             }
         }
-
-        // Prewarm daemon in background so first user message starts faster.
-        // Bind the warm runtime to the current logical session epoch so future new-session
-        // transitions cannot accidentally reuse stale anonymous runtime ownership.
-        claudeSDKBridge.prewarmDaemonAsync(host.getProject().getBasePath(), host.getHandlerContext().getSession() != null
-                ? host.getHandlerContext().getSession().getRuntimeSessionEpoch()
-                : null);
 
         // Check JCEF support before creating browser. Keep the precise status
         // so the fallback panel can distinguish a disabled registry flag from
@@ -738,30 +725,30 @@ public class WebviewInitializer {
     }
 
     public void showErrorPanel() {
-        ClaudeSDKBridge claudeSDKBridge = host.getClaudeSDKBridge();
+        NodeService nodeService = NodeService.getInstance();
         String message = ClaudeCodeGuiBundle.message(
-            "error.nodeNotFound.message", claudeSDKBridge.getNodeExecutable());
+            "error.nodeNotFound.message", nodeService.getNodeExecutable());
 
         JPanel errorPanel = ErrorPanelBuilder.build(
             ClaudeCodeGuiBundle.message("error.nodeNotFound.title"),
             message,
-            claudeSDKBridge.getNodeExecutable(),
+            nodeService.getNodeExecutable(),
             this::handleNodePathSave
         );
         replaceMainContent(errorPanel);
     }
 
     private void showVersionErrorPanel(String currentVersion) {
-        ClaudeSDKBridge claudeSDKBridge = host.getClaudeSDKBridge();
+        NodeService nodeService = NodeService.getInstance();
         int minVersion = NodeDetector.MIN_NODE_MAJOR_VERSION;
         String message = ClaudeCodeGuiBundle.message(
             "error.nodeVersionTooOld.message",
-            currentVersion, String.valueOf(minVersion), claudeSDKBridge.getNodeExecutable());
+            currentVersion, String.valueOf(minVersion), nodeService.getNodeExecutable());
 
         JPanel errorPanel = ErrorPanelBuilder.build(
             ClaudeCodeGuiBundle.message("error.nodeVersionTooOld.title"),
             message,
-            claudeSDKBridge.getNodeExecutable(),
+            nodeService.getNodeExecutable(),
             this::handleNodePathSave
         );
         replaceMainContent(errorPanel);
@@ -914,7 +901,7 @@ public class WebviewInitializer {
             }
         }).thenRun(() -> {
             invokeLaterForToolWindow(() -> {
-                if (host.getClaudeSDKBridge().checkEnvironment()) {
+                if (NodeService.getInstance().getNodeExecutable() != null) {
                     LOG.info("[ClaudeSDKToolWindow] Retry attempt " + (attempt + 1) + " succeeded after extraction completion");
                     reinitializeAfterExtraction();
                 } else {
@@ -928,8 +915,7 @@ public class WebviewInitializer {
      * Handle Node.js path save from the error panel input.
      */
     public void handleNodePathSave(String manualPath) {
-        ClaudeSDKBridge claudeSDKBridge = this.host.getClaudeSDKBridge();
-        CodexSDKBridge codexSDKBridge = this.host.getCodexSDKBridge();
+        NodeService nodeService = NodeService.getInstance();
         JPanel mainPanel = this.host.getMainPanel();
 
         try {
@@ -938,26 +924,23 @@ public class WebviewInitializer {
             if (manualPath == null || manualPath.isEmpty()) {
                 // Clear saved path and trigger auto-detection
                 props.unsetValue(NODE_PATH_PROPERTY_KEY);
-                claudeSDKBridge.setNodeExecutable(null);
-                codexSDKBridge.setNodeExecutable(null);
+                nodeService.setNodeExecutable(null);
                 LOG.info("Cleared manual Node.js path, triggering auto-detection");
 
-                NodeDetectionResult detected = claudeSDKBridge.detectNodeWithDetails();
+                NodeDetectionResult detected = nodeService.detectNodeWithDetails();
                 if (detected != null && detected.isFound() && detected.getNodePath() != null) {
                     String detectedPath = detected.getNodePath();
                     props.setValue(NODE_PATH_PROPERTY_KEY, detectedPath);
-                    claudeSDKBridge.verifyAndCacheNodePath(detectedPath);
-                    codexSDKBridge.setNodeExecutable(detectedPath);
+                    nodeService.verifyAndCacheNodePath(detectedPath);
                     LOG.info("Auto-detected and saved Node.js path: " + detectedPath);
                 }
             } else {
                 // Verify before saving to avoid caching invalid path
-                NodeDetectionResult result = claudeSDKBridge.verifyAndCacheNodePath(manualPath);
+                NodeDetectionResult result = nodeService.verifyAndCacheNodePath(manualPath);
                 if (result != null && result.isFound()) {
                     // Only save if verification succeeds
                     props.setValue(NODE_PATH_PROPERTY_KEY, manualPath);
-                    claudeSDKBridge.setNodeExecutable(manualPath);
-                    codexSDKBridge.setNodeExecutable(manualPath);
+                    nodeService.setNodeExecutable(manualPath);
                     LOG.info("Saved manual Node.js path: " + manualPath);
                 } else {
                     // Verification failed, show error and don't save invalid path

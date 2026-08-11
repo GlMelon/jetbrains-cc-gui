@@ -316,7 +316,7 @@ public class ModelProviderHandler {
      * reaffirmations must keep the warm daemon alive.
      *
      * <p>Package-private so unit tests can verify the full transition matrix
-     * without spinning up a HandlerContext or ClaudeSDKBridge.
+     * without spinning up a HandlerContext.
      */
     static boolean shouldShutdownClaudeDaemonOnProviderSwitch(String previousProvider, String newProvider) {
         if (!CommonConstants.PROVIDER_CLAUDE.equals(previousProvider)) {
@@ -333,30 +333,15 @@ public class ModelProviderHandler {
     }
 
     /**
-     * Shut down the Claude daemon when leaving the Claude family.
-     * Delegates the decision to {@link #shouldShutdownClaudeDaemonOnProviderSwitch}
-     * and only performs the side effect (calling
-     * {@link com.github.claudecodegui.provider.claude.ClaudeSDKBridge#shutdownDaemon()})
-     * when the decision says yes and the bridge is present.
+     * CLI-only:无常驻 Claude daemon,切换 provider 时无需关闭。
+     * <p>保留方法签名与决策函数 {@link #shouldShutdownClaudeDaemonOnProviderSwitch}
+     * (后者仍有单测覆盖其离开 Claude 家族的判定逻辑),仅移除 daemon 关闭副作用——
+     * CLI 模式下每次请求为独立 per-process 子进程,不存在需要重启的常驻 daemon。
      *
-     * @return true when shutdown was actually invoked
+     * @return 恒为 false(CLI 模式下不存在可关闭的 daemon)
      */
     boolean shutdownStaleClaudeDaemonIfLeavingClaude(String previousProvider, String newProvider) {
-        if (!shouldShutdownClaudeDaemonOnProviderSwitch(previousProvider, newProvider)) {
-            return false;
-        }
-        if (context.getClaudeSDKBridge() == null) {
-            return false;
-        }
-        try {
-            context.getClaudeSDKBridge().shutdownDaemon();
-            LOG.info("[ModelProviderHandler] Shut down Claude daemon after switching to: " + newProvider);
-            return true;
-        } catch (Exception e) {
-            LOG.warn("[ModelProviderHandler] Failed to shut down Claude daemon on provider switch: "
-                    + e.getMessage(), e);
-            return false;
-        }
+        return false;
     }
 
     public void handleSetReasoningEffort(String content) {

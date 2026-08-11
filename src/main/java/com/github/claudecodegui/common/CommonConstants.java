@@ -51,9 +51,10 @@ public final class CommonConstants {
     // ===== 调用模式 =====
     // 控制 AI 会话的底层通信方式
 
-    /** SDK 模式：通过 Node.js SDK Bridge 与 AI 服务通信 */
-    public static final String INVOCATION_MODE_SDK = "sdk";
-    /** CLI 模式：通过命令行进程（claude/codex CLI）与 AI 服务通信 */
+    /**
+     * CLI 模式：通过命令行进程（claude/codex/opencode CLI 等）与 AI 服务通信。
+     * SDK(daemon)调用模式已移除,仅保留 CLI 单一模式。
+     */
     public static final String INVOCATION_MODE_CLI = "cli";
 
     // ===== 默认配置值 =====
@@ -352,6 +353,8 @@ public final class CommonConstants {
     public static final String UNDEFINED = "undefined";
     /** 哨兵值：SDK 返回的 "null" 字符串 */
     public static final String NULL_SENTINEL = "null";
+    /** 哨兵值：未知/缺失字段的占位字符串 */
+    public static final String UNKNOWN = "unknown";
 
     // ===== 配置文件名 =====
     // CLI 工具的配置文件和目录名

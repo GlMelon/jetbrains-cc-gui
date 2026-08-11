@@ -1,8 +1,6 @@
 package com.github.claudecodegui.service;
 
-import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
-import com.github.claudecodegui.provider.codex.CodexSDKBridge;
-import com.github.claudecodegui.provider.common.DaemonBridge;
+import com.github.claudecodegui.bridge.NodeService;
 import com.github.claudecodegui.ui.toolwindow.ClaudeChatWindow;
 import com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow;
 import com.github.claudecodegui.util.PlatformUtils;
@@ -32,7 +30,7 @@ import com.github.claudecodegui.common.CommonConstants;
  * <p>Three data sources are unified:
  * <ol>
  *   <li><b>Claude daemon processes</b>: one per {@link ClaudeChatWindow}, accessed via
- *       {@link ClaudeSDKBridge#getCurrentDaemonBridgeForInspection()}.</li>
+ *       the daemon bridge inspection API.</li>
  *   <li><b>Per-channel processes</b>: tracked in each bridge's {@code ProcessManager}.</li>
  *   <li><b>Orphan processes</b>: discovered by scanning {@link ProcessHandle#allProcesses()}
  *       for {@code daemon.js} / {@code channel-manager.js} command lines that don't match
@@ -100,105 +98,33 @@ public final class NodeProcessRegistry implements Disposable {
             }
             String tabName = resolveTabName(window);
             String sessionId = safeGetSessionId(window);
-            // Use the tab's *current* provider (what the user sees) rather than the
-            // physical SDK type. A Claude daemon may still be alive after the user
-            // switched the tab to Codex — labelling it "claude" then would confuse
-            // the user. The physical SDK type is preserved in the command tooltip.
             String tabProvider = safeGetCurrentProvider(window);
 
-            // -- DAEMON entries from ClaudeSDKBridge --
-            ClaudeSDKBridge claudeBridge = safeClaudeBridge(window);
-            if (claudeBridge != null) {
-                DaemonBridge daemon = claudeBridge.getCurrentDaemonBridgeForInspection();
-                if (daemon != null && daemon.isAlive()) {
-                    Process daemonProcess = daemon.getDaemonProcessForInspection();
-                    if (daemonProcess != null && daemonProcess.isAlive()) {
-                        long pid = daemonProcess.pid();
-                        knownPids.add(pid);
-                        ProcessHandle.Info info = safeInfo(daemonProcess);
-                        long startedAt = info != null
-                                ? info.startInstant().map(Instant::toEpochMilli).orElse(-1L)
-                                : -1L;
-                        result.add(NodeProcessInfo.builder()
-                                .kind(NodeProcessInfo.Kind.DAEMON)
-                                .provider(tabProvider)
-                                .pid(pid)
-                                .alive(true)
-                                .startedAtMs(startedAt)
-                                .uptimeMs(startedAt > 0 ? Math.max(0, now - startedAt) : 0L)
-                                .command(extractCommand(info))
-                                .activeRequestCount(daemon.getActiveRequestCount())
-                                .sessionId(sessionId)
-                                .tabName(tabName)
-                                .build());
-
-                        // Also include daemon's child processes (e.g., spawned Claude CLI).
-                        // These are "owned" by us, so add to knownPids to keep them out of orphan list.
-                        try {
-                            daemonProcess.toHandle().descendants().forEach(child -> knownPids.add(child.pid()));
-                        } catch (Exception ignored) {
-                        }
-                    }
+            Map<String, Process> channels = NodeService.getInstance().getProcessManager().getActiveChannelSnapshot();
+            for (Map.Entry<String, Process> entry : channels.entrySet()) {
+                Process p = entry.getValue();
+                if (p == null || !p.isAlive()) {
+                    continue;
                 }
-
-                // -- CHANNEL entries from claudeBridge.processManager --
-                Map<String, Process> claudeChannels = claudeBridge.getProcessManager().getActiveChannelSnapshot();
-                for (Map.Entry<String, Process> entry : claudeChannels.entrySet()) {
-                    Process p = entry.getValue();
-                    if (p == null || !p.isAlive()) {
-                        continue;
-                    }
-                    long pid = p.pid();
-                    knownPids.add(pid);
-                    ProcessHandle.Info info = safeInfo(p);
-                    long startedAt = info != null
-                            ? info.startInstant().map(Instant::toEpochMilli).orElse(-1L)
-                            : -1L;
-                    result.add(NodeProcessInfo.builder()
-                            .kind(NodeProcessInfo.Kind.CHANNEL)
-                            .provider(tabProvider)
-                            .pid(pid)
-                            .alive(true)
-                            .startedAtMs(startedAt)
-                            .uptimeMs(startedAt > 0 ? Math.max(0, now - startedAt) : 0L)
-                            .command(extractCommand(info))
-                            .channelId(entry.getKey())
-                            .sessionId(sessionId)
-                            .tabName(tabName)
-                            .build());
-                }
+                long pid = p.pid();
+                knownPids.add(pid);
+                ProcessHandle.Info info = safeInfo(p);
+                long startedAt = info != null
+                        ? info.startInstant().map(Instant::toEpochMilli).orElse(-1L)
+                        : -1L;
+                result.add(NodeProcessInfo.builder()
+                        .kind(NodeProcessInfo.Kind.CHANNEL)
+                        .provider(tabProvider)
+                        .pid(pid)
+                        .alive(true)
+                        .startedAtMs(startedAt)
+                        .uptimeMs(startedAt > 0 ? Math.max(0, now - startedAt) : 0L)
+                        .command(extractCommand(info))
+                        .channelId(entry.getKey())
+                        .sessionId(sessionId)
+                        .tabName(tabName)
+                        .build());
             }
-
-            // -- CHANNEL entries from codexBridge.processManager (per-message processes) --
-            CodexSDKBridge codexBridge = safeCodexBridge(window);
-            if (codexBridge != null) {
-                Map<String, Process> codexChannels = codexBridge.getProcessManager().getActiveChannelSnapshot();
-                for (Map.Entry<String, Process> entry : codexChannels.entrySet()) {
-                    Process p = entry.getValue();
-                    if (p == null || !p.isAlive()) {
-                        continue;
-                    }
-                    long pid = p.pid();
-                    knownPids.add(pid);
-                    ProcessHandle.Info info = safeInfo(p);
-                    long startedAt = info != null
-                            ? info.startInstant().map(Instant::toEpochMilli).orElse(-1L)
-                            : -1L;
-                    result.add(NodeProcessInfo.builder()
-                            .kind(NodeProcessInfo.Kind.CHANNEL)
-                            .provider(tabProvider)
-                            .pid(pid)
-                            .alive(true)
-                            .startedAtMs(startedAt)
-                            .uptimeMs(startedAt > 0 ? Math.max(0, now - startedAt) : 0L)
-                            .command(extractCommand(info))
-                            .channelId(entry.getKey())
-                            .sessionId(sessionId)
-                            .tabName(tabName)
-                            .build());
-                }
-            }
-
         }
 
         // -- ORPHAN scan --
@@ -348,34 +274,6 @@ public final class NodeProcessRegistry implements Disposable {
     }
 
     /**
-     * Restart the daemon associated with the first ChatWindow that owns the given PID.
-     * If no window owns this daemon (e.g., it's an orphan), falls back to {@link #killByPid}.
-     */
-    public boolean restartDaemonByPid(long pid) {
-        Set<ClaudeChatWindow> windows = ClaudeSDKToolWindow.getAllChatWindowsForProject(project);
-        for (ClaudeChatWindow window : windows) {
-            ClaudeSDKBridge bridge = safeClaudeBridge(window);
-            if (bridge == null) {
-                continue;
-            }
-            DaemonBridge daemon = bridge.getCurrentDaemonBridgeForInspection();
-            if (daemon == null || !daemon.isAlive()) {
-                continue;
-            }
-            Process p = daemon.getDaemonProcessForInspection();
-            if (p == null || p.pid() != pid) {
-                continue;
-            }
-            LOG.info("[NodeProcessRegistry] Restarting daemon for window PID=" + pid);
-            // shutdownDaemon stops the current daemon; next message will lazily start a new one
-            bridge.shutdownDaemon();
-            return true;
-        }
-        // PID didn't match any tracked daemon — fall back to plain kill
-        return killByPid(pid);
-    }
-
-    /**
      * Bulk kill every orphan reported in the current snapshot. Returns the number
      * of processes for which the kill command was successfully dispatched.
      */
@@ -448,22 +346,6 @@ public final class NodeProcessRegistry implements Disposable {
         }
         // Windows fallback: commandLine() may return empty for cross-owner processes
         return info.command().orElse(null);
-    }
-
-    private static @Nullable ClaudeSDKBridge safeClaudeBridge(ClaudeChatWindow window) {
-        try {
-            return window != null ? window.getClaudeSDKBridge() : null;
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    private static @Nullable CodexSDKBridge safeCodexBridge(ClaudeChatWindow window) {
-        try {
-            return window != null ? window.getCodexSDKBridge() : null;
-        } catch (Exception e) {
-            return null;
-        }
     }
 
     private static @Nullable String safeGetSessionId(ClaudeChatWindow window) {

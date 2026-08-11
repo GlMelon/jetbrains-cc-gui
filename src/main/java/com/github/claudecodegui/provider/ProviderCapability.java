@@ -19,9 +19,6 @@ package com.github.claudecodegui.provider;
  * {@code HistoryCapability} 单一管理，避免双源真相漂移。
  */
 public enum ProviderCapability {
-    /** SDK 守护进程会话：launchChannel / interruptChannel。 */
-    SDK_SESSION,
-
     /** CLI 子进程会话。 */
     CLI_SESSION,
 

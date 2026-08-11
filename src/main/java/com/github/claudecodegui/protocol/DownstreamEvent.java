@@ -42,7 +42,6 @@ public enum DownstreamEvent implements ProtocolValue {
     PROVIDER_IMPORT_PREVIEW("provider.import_preview"),
 
     // ── Session ──
-    SESSION_INVOCATION_MODE("session.invocation_mode"),
     SESSION_RUNTIME_STATE("session.runtime_state"),
     SESSION_TITLE("session.title"),
 
@@ -100,8 +99,6 @@ public enum DownstreamEvent implements ProtocolValue {
     // ── Config/Settings ──
     CONFIG_WORKING_DIRECTORY("config.working_directory"),
     CONFIG_CODEX_SANDBOX_MODE("config.codex_sandbox_mode"),
-    CONFIG_INVOCATION_MODE("config.invocation_mode"),
-    CONFIG_CLAUDE_CLI_PATH("config.claude_cli_path"),
     CONFIG_COMMIT_PROMPT("config.commit_prompt"),
     CONFIG_PROMPT_ENHANCER("config.prompt_enhancer"),
     CONFIG_COMMIT_AI("config.commit_ai"),
@@ -113,12 +110,6 @@ public enum DownstreamEvent implements ProtocolValue {
     CONFIG_ASK_USER_QUESTION_NOTIFICATION("config.ask_user_question_notification"),
     CONFIG_MCP_GATEWAY("config.mcp_gateway"),
     CONFIG_SMITHERY_API_KEY("config.smithery_api_key"),
-
-    // ── Runtime Policy ──
-    RUNTIME_POLICY("runtime_policy"),
-    RUNTIME_POLICY_ERROR("runtime_policy_error"),
-    RUNTIME_POLICY_UPDATED("runtime_policy_updated"),
-    RUNTIME_POLICY_SCHEMA("runtime_policy_schema"),
 
     // ── Model Registry ──
     MODEL_REGISTRY("model_registry"),
@@ -162,7 +153,7 @@ public enum DownstreamEvent implements ProtocolValue {
     MCP_MARKET_DETAIL("mcp.market_detail"),
     MCP_MARKET_ERROR("mcp.market_error"),
 
-    // ── Dependency ──
+    // ── Dependency (legacy SDK, kept for backward compat) ──
     DEPENDENCY_STATUS("dependency.status"),
     DEPENDENCY_INSTALL_RESULT("dependency.install_result"),
     DEPENDENCY_UNINSTALL_RESULT("dependency.uninstall_result"),
@@ -170,6 +161,9 @@ public enum DownstreamEvent implements ProtocolValue {
     DEPENDENCY_VERSIONS_LOADED("dependency.versions_loaded"),
     DEPENDENCY_INSTALL_PROGRESS("dependency.install_progress"),
     NODE_ENV_STATUS("node.env_status"),
+
+    // ── CLI Environment ──
+    CLI_ENVIRONMENT_STATUS("cli_environment.status"),
 
     // ── History ──
     HISTORY_EXPORT_DATA("history.export_data"),

@@ -52,11 +52,7 @@ public enum UpstreamAction implements ProtocolValue {
     SET_AUTO_OPEN_FILE_ENABLED("set_auto_open_file_enabled"),
     GET_PERMISSION_DIALOG_TIMEOUT("get_permission_dialog_timeout"),
     SET_PERMISSION_DIALOG_TIMEOUT("set_permission_dialog_timeout"),
-    GET_INVOCATION_MODE("get_invocation_mode"),
-    GET_SESSION_INVOCATION_MODE("get_session_invocation_mode"),
     GET_SESSION_RUNTIME_STATE("get_session_runtime_state"),
-    SET_INVOCATION_MODE("set_invocation_mode"),
-    SET_CLI_PATH("set_cli_path"),
     GET_CODEX_SANDBOX_MODE("get_codex_sandbox_mode"),
     SET_CODEX_SANDBOX_MODE("set_codex_sandbox_mode"),
     GET_COMMIT_GENERATION_ENABLED("get_commit_generation_enabled"),
@@ -78,8 +74,6 @@ public enum UpstreamAction implements ProtocolValue {
     // ── Settings: Path/Directory ──
     GET_NODE_PATH("get_node_path"),
     SET_NODE_PATH("set_node_path"),
-    GET_CLAUDE_CLI_PATH("get_claude_cli_path"),
-    SET_CLAUDE_CLI_PATH("set_claude_cli_path"),
     GET_WORKING_DIRECTORY("get_working_directory"),
     SET_WORKING_DIRECTORY("set_working_directory"),
 
@@ -113,12 +107,6 @@ public enum UpstreamAction implements ProtocolValue {
     AVATAR_GET_CONFIG("avatar.get_config"),
     AVATAR_SET_CONFIG("avatar.set_config"),
     AVATAR_UPLOAD_CUSTOM("avatar.upload_custom"),
-
-    // ── Runtime Policy ──
-    GET_RUNTIME_POLICY("get_runtime_policy"),
-    SET_RUNTIME_POLICY("set_runtime_policy"),
-    RESET_RUNTIME_POLICY("reset_runtime_policy"),
-    GET_RUNTIME_POLICY_SCHEMA("get_runtime_policy_schema"),
 
     // ── Model Registry ──
     GET_MODEL_REGISTRY("get_model_registry"),
@@ -237,7 +225,7 @@ public enum UpstreamAction implements ProtocolValue {
     SORT_OPENCODE_PROVIDERS("sort_opencode_providers"),
     GET_ACTIVE_OPENCODE_PROVIDER("get_active_opencode_provider"),
 
-    // ── Dependency ──
+    // ── Dependency (legacy SDK, kept for backward compat) ──
     GET_DEPENDENCY_STATUS("get_dependency_status"),
     INSTALL_DEPENDENCY("install_dependency"),
     UNINSTALL_DEPENDENCY("uninstall_dependency"),
@@ -245,6 +233,9 @@ public enum UpstreamAction implements ProtocolValue {
     CHECK_DEPENDENCY_UPDATES("check_dependency_updates"),
     GET_DEPENDENCY_VERSIONS("get_dependency_versions"),
     CHECK_NODE_ENVIRONMENT("check_node_environment"),
+
+    // ── CLI Environment ──
+    CHECK_CLI_ENVIRONMENT("check_cli_environment"),
 
     // ── Node Process ──
     GET_NODE_PROCESSES("get_node_processes"),

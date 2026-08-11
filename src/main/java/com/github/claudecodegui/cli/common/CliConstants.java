@@ -215,11 +215,6 @@ public final class CliConstants {
     /** --dangerously-skip-permissions：自动批准非显式拒绝的权限（对应 bypass/yolo）。 */
     public static final String OPENCODE_ARG_DANGER_SKIP = "--dangerously-skip-permissions";
 
-    // opencode serve 守护进程参数（SDK 模式 OpenCodeDaemonCoordinator 使用）
-    public static final String OPENCODE_ARG_SERVE = "serve";
-    public static final String OPENCODE_ARG_PORT = "--port";
-    public static final String OPENCODE_ARG_HOSTNAME = "--hostname";
-
     // ── OpenCode 环境变量 ───────────────────────────────────────────────────────
 
     /** opencode 权限配置（内联 JSON），映射本项目 permissionMode。 */

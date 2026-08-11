@@ -5,11 +5,8 @@ import com.github.claudecodegui.provider.ProviderId;
 import com.github.claudecodegui.provider.ProviderRegistry;
 import com.github.claudecodegui.provider.SessionHistoryLoadResult;
 import com.github.claudecodegui.provider.claude.ClaudeProviderAdapter;
-import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
 import com.github.claudecodegui.provider.codex.CodexProviderAdapter;
-import com.github.claudecodegui.provider.codex.CodexSDKBridge;
 import com.github.claudecodegui.provider.opencode.OpenCodeProviderAdapter;
-import com.github.claudecodegui.provider.opencode.OpenCodeSDKBridge;
 import com.google.gson.JsonObject;
 
 import java.util.List;
@@ -17,8 +14,8 @@ import java.util.List;
 /**
  * Centralizes provider-specific bridge routing for session operations.
  * <p>
- * <b>装配 vs 路由(E7 决策·接受并标注)</b>:路由主体({@link #launchChannel} /
- * {@link #interruptChannel} 等)经 {@link ProviderRegistry#require} Map 查表(E3),
+ * <b>装配 vs 路由(E7 决策·接受并标注)</b>:路由主体({@link #getSessionMessages} /
+ * {@link #getInitialSessionHistory} 等)经 {@link ProviderRegistry#require} Map 查表(E3),
  * 新增 provider adapter <b>不需改主体</b>(总则五·开闭已满足),仅装配构造函数加一行 {@code new}。
  * 装配层手工 {@code new ...Adapter} 是无 DI 环境的装配惯例;2 个 adapter 经 {@code List.of}
  * 装进 {@link ProviderRegistry} 容器(容器本身已是注册化结构,新增 adapter 加一行即装配)。
@@ -26,38 +23,22 @@ import java.util.List;
  */
 public class SessionProviderRouter {
 
-    private final ProviderRegistry providerRegistry;
+private final ProviderRegistry providerRegistry;
 
-    public SessionProviderRouter(ClaudeSDKBridge claudeSDKBridge, CodexSDKBridge codexSDKBridge) {
-        this(claudeSDKBridge, codexSDKBridge, null);
-    }
-
-    public SessionProviderRouter(ClaudeSDKBridge claudeSDKBridge, CodexSDKBridge codexSDKBridge,
-                                 OpenCodeSDKBridge openCodeSDKBridge) {
-        this(new ProviderRegistry(buildAdapterList(claudeSDKBridge, codexSDKBridge, openCodeSDKBridge)));
-    }
-
-    private static List<ProviderAdapter> buildAdapterList(
-            ClaudeSDKBridge claude, CodexSDKBridge codex, OpenCodeSDKBridge opencode) {
-        var adapters = new java.util.ArrayList<ProviderAdapter>();
-        adapters.add(new ClaudeProviderAdapter(claude));
-        adapters.add(new CodexProviderAdapter(codex));
-        if (opencode != null) {
-            adapters.add(new OpenCodeProviderAdapter(opencode));
-        }
-        return List.copyOf(adapters);
+    public SessionProviderRouter() {
+        this(new ProviderRegistry(buildAdapterList()));
     }
 
     public SessionProviderRouter(ProviderRegistry providerRegistry) {
         this.providerRegistry = providerRegistry;
     }
 
-    public JsonObject launchChannel(String provider, String channelId, String sessionId, String cwd) {
-        return adapter(provider).launchChannel(channelId, sessionId, cwd);
-    }
-
-    public void interruptChannel(String provider, String channelId) {
-        adapter(provider).interruptChannel(channelId);
+    private static List<ProviderAdapter> buildAdapterList() {
+        return List.of(
+                new ClaudeProviderAdapter(),
+                new CodexProviderAdapter(),
+                new OpenCodeProviderAdapter()
+        );
     }
 
     public void cleanupProviderSession(String provider, String sessionId, String cwd) {

@@ -31,7 +31,6 @@ import {
   isIgnorableWindowsTerminationNoiseLine,
   buildCodexThreadCacheSignature
 } from './codex-utils.js';
-import { applyCodexGateway, codexGatewayRevision } from './mcp-gateway-binding.js';
 import { collectAgentsInstructions } from './codex-agents-loader.js';
 import { createInitialEventState, processCodexEventStream } from './codex-event-handler.js';
 
@@ -260,9 +259,6 @@ function isCodexUserAbortError(error) {
  * @param {string} [reasoningEffort] - Reasoning effort level (optional)
  * @param {string | null} [serviceTier] - Codex service tier; "fast" matches Codex CLI /fast (optional)
  * @param {Array<any>} [attachments] - Image attachments in local_image format (optional)
- * @param {object | null} [mcpGatewayBinding] - MCP Gateway SDK 绑定(来自 Java McpGatewaySdkBinding 序列化,
- *   {enabled,ready,revision,command});启用时注入 mcp_servers.melon_gateway config overlay 并把
- *   revision 纳入 thread cache 签名(防漂移)。不可用时回退用户真实 MCP(optional)
  * @returns {Promise<void>}
  */
 export async function sendMessage(
@@ -275,8 +271,7 @@ export async function sendMessage(
   apiKey = null,
   reasoningEffort = 'high',
   serviceTier = null,
-  attachments = [],
-  mcpGatewayBinding = null
+  attachments = []
 ) {
   let streamStarted = false;
   let streamEnded = false;
@@ -356,15 +351,10 @@ export async function sendMessage(
       removedCount: removedKeys.length
     }));
 
-    // MCP Gateway (SDK 调用模式):经 codexOptions.config 叠加 mcp_servers.melon_gateway。
-    // Codex SDK 不支持 per-call mcpServers(已查类型确认),只能走 config override;由 SDK
-    // flattenConfigOverrides 展平成 --config 注入底层 CLI。binding 不可用时 applyCodexGateway
-    // 原样返回 codexOptions(引用不变),回退到用户 ~/.codex/config.toml 的真实 MCP。
-    codexOptions = applyCodexGateway(codexOptions, mcpGatewayBinding);
-    const codexRevision = codexGatewayRevision(mcpGatewayBinding);
-    if (codexRevision !== null) {
-      logInfo('CODEX_MCP_GATEWAY', `Gateway bound, revision=${codexRevision}; mcp_servers.melon_gateway overlay applied`);
-    }
+    // MCP Gateway SDK 路径已随 SDK 模式移除:CLI 模式下 gateway 经 -c override 注入底层
+    // Codex CLI(见 CodexCliSession),不经 codexOptions.config。codexRevision 恒 null,
+    // buildCodexThreadCacheSignature 的 gateway 维度退化为不区分(与无 gateway 等价)。
+    const codexRevision = null;
 
     // ============================================================
     // 2. Map Unified Permission Mode to Codex Format

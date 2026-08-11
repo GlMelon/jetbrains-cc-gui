@@ -1,11 +1,10 @@
 // @ts-check
 /**
- * §15.7 B2/B11/B16:OpenCode SDK 消息服务。
+ * §15.7 B2/B11/B16:OpenCode 消息服务(经 @opencode-ai/sdk 连 opencode serve)。
  *
- * 通过 @opencode-ai/sdk 的 `createOpencodeClient({baseUrl})` 连接由
- * `OpenCodeDaemonCoordinator` 常驻的 `opencode serve`,执行 session.create/prompt +
- * event.subscribe(SSE)消费,把真实 SSE 事件经 {@link createOpenCodeEventMapper}
- * 映射为统一 NDJSON 写 stdout,由 Java 侧 `OpenCodeSDKBridge.processOutputLine` 解析。
+ * 通过 @opencode-ai/sdk 的 `createOpencodeClient({baseUrl})` 连接 `opencode serve`,
+ * 执行 session.create/prompt + event.subscribe(SSE)消费,把真实 SSE 事件经
+ * {@link createOpenCodeEventMapper} 映射为统一 NDJSON 写 stdout,由 Java 侧解析。
  *
  * 事件 schema 来自本地 opencode v1.17.11 实跑(见 memory opencode-real-api-contract)。
  *

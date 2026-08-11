@@ -1,10 +1,10 @@
 package com.github.claudecodegui.cli;
 
 import com.github.claudecodegui.bridge.EnvironmentConfigurator;
+import com.github.claudecodegui.bridge.NodeService;
 import com.github.claudecodegui.bridge.ProcessManager;
 import com.github.claudecodegui.handler.PromptEnhancerProcessRunner;
 import com.github.claudecodegui.protocol.DownstreamEvent;
-import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
 import com.github.claudecodegui.session.SessionCallbackFacade;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.util.GsonHolder;
@@ -31,8 +31,8 @@ import java.util.concurrent.CompletableFuture;
  * Claude / Codex / OpenCode 三条 CLI 路径共用本组件——{@code session-title-service.js}
  * 调 Haiku API,本身与对话 provider 解耦。
  *
- * <p>{@link ClaudeSDKBridge} 在此仅作为 Node 可执行文件 / ai-bridge 目录 / {@link ProcessManager}
- * 的共享基础设施提供者(三 provider 共用同一 ai-bridge 目录),非 Claude 特异依赖。
+ * <p>本服务依赖的 Node 可执行文件 / ai-bridge 目录 / {@link ProcessManager}
+ * 等共享基础设施由三 provider 共用(同一 ai-bridge 目录),非 Claude 特异依赖。
  *
  * <p>下行复用既有 {@link DownstreamEvent#SESSION_TITLE} 事件:
  * {@link SessionCallbackFacade#notifyProtocolEvent} → SessionCallbackAdapter.onProtocolEvent
@@ -48,10 +48,10 @@ public class CliSessionTitleService {
     private static final long TITLE_TIMEOUT_SECONDS = 30;
     private static final long READER_DRAIN_SECONDS = 5;
 
-    private final ClaudeSDKBridge sdkBridge;
+    private final NodeService nodeService;
 
-    public CliSessionTitleService(ClaudeSDKBridge sdkBridge) {
-        this.sdkBridge = sdkBridge;
+    public CliSessionTitleService() {
+        this.nodeService = NodeService.getInstance();
     }
 
     /**
@@ -97,12 +97,12 @@ public class CliSessionTitleService {
             LOG.warn("[CliTitle] Failed to read AI title toggle, proceeding: " + e.getMessage());
         }
 
-        final String nodeExecutable = sdkBridge.getNodeExecutable();
+        final String nodeExecutable = nodeService.getNodeExecutable();
         if (nodeExecutable == null || nodeExecutable.isEmpty()) {
             LOG.warn("[CliTitle] Skipping: Node.js executable not configured");
             return;
         }
-        File bridgeDir = sdkBridge.getSdkTestDir();
+        File bridgeDir = nodeService.getSdkTestDir();
         if (bridgeDir == null || !bridgeDir.exists()) {
             LOG.warn("[CliTitle] Skipping: ai-bridge directory unavailable");
             return;
@@ -138,7 +138,7 @@ public class CliSessionTitleService {
             stdinInput.addProperty("cwd", cwd);
         }
 
-        ProcessManager processManager = sdkBridge.getProcessManager();
+        ProcessManager processManager = nodeService.getProcessManager();
         try {
             PromptEnhancerProcessRunner.runWithProcessManager(
                     pb,

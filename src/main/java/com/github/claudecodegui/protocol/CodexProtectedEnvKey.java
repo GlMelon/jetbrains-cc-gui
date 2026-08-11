@@ -15,9 +15,10 @@ import java.util.Optional;
  * <p>值域对齐:前端 {@code CODEX_PROTECTED_ENV_KEYS}(18 个)与后端
  * {@code CodexCliCommandUtils#PROTECTED_ENV_KEYS}(18 个,此前逐字相同)。
  *
- * <p>{@code provider/codex/CodexSDKBridge} 另持有 17 个额外运行时安全变量
- * (NODE_OPTIONS/LD_PRELOAD/PYTHONPATH 等 code-execution / library-injection 防护),
- * 属 SDK 注入路径独有,不在此枚举(单独保留,与基础集区分)。
+ * <p>另有 14 个 code-injection / library-injection 防护变量
+ * (NODE_OPTIONS/LD_PRELOAD/PYTHONPATH/ELECTRON_RUN_AS_NODE 等)不在本枚举,由各
+ * spawn 用户自定义 env 的子进程服务(CodexMcpService 等)以硬编码 Set 持有——它们
+ * 与运行时无关、与 SDK 无关,任何接受用户 env 注入的子进程都须拦截,不随 SDK 移除。
  *
  * <p>⚠️ 修改此文件后需运行 {@code gradle generateProtocol} 更新前端类型。
  */

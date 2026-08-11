@@ -5,7 +5,8 @@ import com.github.claudecodegui.handler.mcp.McpServerToolsRequest;
 import com.github.claudecodegui.handler.mcp.McpServerToolsResponse;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.mcp.McpGatewayService;
-import com.github.claudecodegui.provider.common.DaemonConstants;
+import com.github.claudecodegui.common.CommonConstants;
+import com.github.claudecodegui.provider.codex.CodexMcpService;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.settings.CodexMcpServerManager;
 import com.github.claudecodegui.util.GsonHolder;
@@ -29,10 +30,12 @@ public class CodexMcpServerActionHandlers {
 
     private final HandlerContext context;
     private final CodexMcpServerManager codexMcpServerManager;
+    private final CodexMcpService codexMcpService;
 
     public CodexMcpServerActionHandlers(HandlerContext context, CodexMcpServerManager codexMcpServerManager) {
         this.context = context;
         this.codexMcpServerManager = codexMcpServerManager;
+        this.codexMcpService = new CodexMcpService();
     }
 
     // --- Response-handling methods (called by typed handlers) ---
@@ -86,7 +89,7 @@ public class CodexMcpServerActionHandlers {
                 for (JsonObject status : statusList) {
                     if (status.has("name")) {
                         String serverName = status.get("name").getAsString();
-                        String serverStatus = status.has("status") ? status.get("status").getAsString() : DaemonConstants.UNKNOWN;
+                        String serverStatus = status.has("status") ? status.get("status").getAsString() : CommonConstants.UNKNOWN;
                         LOG.info("[CodexMcpServerActionHandlers] Server: " + serverName + ", Status: " + serverStatus);
                     }
                 }
@@ -139,7 +142,7 @@ public class CodexMcpServerActionHandlers {
             serverConfig = prepareServerConfig(serverConfig, sessionCwd, projectBasePath);
             LOG.info("[CodexMcpServerActionHandlers] Getting tools for Codex MCP server: " + request.serverId());
 
-            context.getCodexSDKBridge().getMcpServerTools(request.serverId(), serverConfig)
+            codexMcpService.getMcpServerTools(request.serverId(), serverConfig)
                 .thenAccept(result -> {
                     sendToolsResponse(McpServerToolsResponse.fromBridge(request, result), gson);
                 })
@@ -162,7 +165,7 @@ public class CodexMcpServerActionHandlers {
             codexMcpServerManager.upsertMcpServer(server);
             refreshGateway();
 
-            String serverId = server.has("id") ? server.get("id").getAsString() : DaemonConstants.UNKNOWN;
+            String serverId = server.has("id") ? server.get("id").getAsString() : CommonConstants.UNKNOWN;
             LOG.info("[CodexMcpServerActionHandlers] Added Codex MCP server: " + serverId);
 
             ApplicationManager.getApplication().invokeLater(() -> {
@@ -186,7 +189,7 @@ public class CodexMcpServerActionHandlers {
             codexMcpServerManager.upsertMcpServer(server);
             refreshGateway();
 
-            String serverId = server.has("id") ? server.get("id").getAsString() : DaemonConstants.UNKNOWN;
+            String serverId = server.has("id") ? server.get("id").getAsString() : CommonConstants.UNKNOWN;
             LOG.info("[CodexMcpServerActionHandlers] Updated Codex MCP server: " + serverId);
 
             ApplicationManager.getApplication().invokeLater(() -> {

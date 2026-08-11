@@ -12,7 +12,7 @@ import java.util.Set;
 /**
  * 路由策略配置。
  * <p>
- * 管理 provider×runtime 矩阵。默认配置中 Claude 与 Codex 对称:均支持 SDK+CLI,默认 SDK。
+ * 管理 provider×runtime 矩阵。SDK 调用模式已移除,所有 provider 仅支持 CLI,默认 CLI。
  * 存储于 ~/.codemoss/config.json 的 "runtime" 节点。
  */
 public class RuntimePolicyConfig {
@@ -21,10 +21,7 @@ public class RuntimePolicyConfig {
 
     /**
      * 构建默认配置。
-     * <ul>
-     *   <li>Claude/Codex/OpenCode: enabled, 支持 SDK+CLI, 默认 SDK</li>
-     *   <li>Grok/Kimi/Pi: enabled, 仅 CLI(纯 CLI provider,无 SDK 实现),默认 CLI</li>
-     * </ul>
+     * <p>所有 6 个 provider:enabled, 仅 CLI(SDK 调用模式已移除),默认 CLI。
      */
     private static final RuntimePolicyConfig DEFAULT = buildDefault();
 
@@ -69,7 +66,7 @@ public class RuntimePolicyConfig {
     }
 
     /**
-     * 返回默认配置(Claude 与 Codex 对称)。
+     * 返回默认配置(所有 provider 仅 CLI)。
      */
     public static RuntimePolicyConfig getDefault() {
         return new RuntimePolicyConfig(new LinkedHashMap<>(DEFAULT.providers()));
@@ -77,11 +74,10 @@ public class RuntimePolicyConfig {
 
     private static RuntimePolicyConfig buildDefault() {
         var m = new LinkedHashMap<ProviderType, ProviderRuntimePolicy>();
-        m.put(ProviderType.CLAUDE, new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK));
-        m.put(ProviderType.CODEX, new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK));
-        m.put(ProviderType.OPENCODE, new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK));
-        // grok/kimi/pi 为纯 CLI provider(无 SDK 实现):仅启用 CLI,默认 CLI。
-        // 未加 entry 会使 EffectiveRuntimeResolver.resolve 抛 "Provider disabled/unknown"。
+        // 所有 provider 仅支持 CLI 模式，移除 SDK 支持
+        m.put(ProviderType.CLAUDE, new ProviderRuntimePolicy(true, Set.of(RuntimeType.CLI), RuntimeType.CLI));
+        m.put(ProviderType.CODEX, new ProviderRuntimePolicy(true, Set.of(RuntimeType.CLI), RuntimeType.CLI));
+        m.put(ProviderType.OPENCODE, new ProviderRuntimePolicy(true, Set.of(RuntimeType.CLI), RuntimeType.CLI));
         m.put(ProviderType.GROK, new ProviderRuntimePolicy(true, Set.of(RuntimeType.CLI), RuntimeType.CLI));
         m.put(ProviderType.KIMI, new ProviderRuntimePolicy(true, Set.of(RuntimeType.CLI), RuntimeType.CLI));
         m.put(ProviderType.PI, new ProviderRuntimePolicy(true, Set.of(RuntimeType.CLI), RuntimeType.CLI));

@@ -2,10 +2,7 @@ package com.github.claudecodegui.session;
 
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.protocol.CodexHistoryPageMode;
-import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
-import com.github.claudecodegui.provider.codex.CodexSDKBridge;
-import com.github.claudecodegui.session.runtime.EffectiveRuntimeResolver;
-import com.github.claudecodegui.settings.CodemossSettingsService;
+import com.github.claudecodegui.provider.claude.ClaudeHistoryService;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -176,20 +173,14 @@ public class ClaudeSession {
         }
     }
 
-    public ClaudeSession(Project project, ClaudeSDKBridge claudeSDKBridge, CodexSDKBridge codexSDKBridge) {
-        this(project, claudeSDKBridge, codexSDKBridge, null);
-    }
-
-    public ClaudeSession(Project project, ClaudeSDKBridge claudeSDKBridge, CodexSDKBridge codexSDKBridge,
-                         com.github.claudecodegui.provider.opencode.OpenCodeSDKBridge openCodeSDKBridge) {
-        // Initialize managers
+    public ClaudeSession(Project project) {
         this.state = new com.github.claudecodegui.session.SessionState();
         this.messageParser = new com.github.claudecodegui.session.MessageParser();
         this.messageMerger = new com.github.claudecodegui.session.MessageMerger();
         this.contextCollector = new com.github.claudecodegui.session.EditorContextCollector(project);
         this.callbackFacade = new SessionCallbackFacade(project);
         this.contextService = new SessionContextService(project, MAX_FILE_SIZE_BYTES);
-        this.providerRouter = new SessionProviderRouter(claudeSDKBridge, codexSDKBridge, openCodeSDKBridge);
+        this.providerRouter = new SessionProviderRouter();
         this.sendService = new SessionSendService(
                 project,
                 state,
@@ -197,11 +188,9 @@ public class ClaudeSession {
                 messageParser,
                 messageMerger,
                 gson,
-                claudeSDKBridge,
-                codexSDKBridge,
-                openCodeSDKBridge,
                 contextService
         );
+        ClaudeHistoryService claudeHistoryService = new ClaudeHistoryService();
         this.messageOrchestrator = new SessionMessageOrchestrator(
                 project,
                 state,
@@ -220,7 +209,7 @@ public class ClaudeSession {
                     }
                     @Override
                     public JsonObject getLatestClaudeUserMessage(String sessionId, String cwd) {
-                        return claudeSDKBridge.getLatestClaudeUserMessage(sessionId, cwd);
+                        return claudeHistoryService.getLatestUserMessage(sessionId, cwd);
                     }
                 }
         );
@@ -312,66 +301,8 @@ public class ClaudeSession {
         state.setError(null);
         state.setChannelId(UUID.randomUUID().toString());
 
-        // CLI 模式无需 SDK daemon launch(会话在首次 send 时由 CliSessionManager 启动),
-        // 直接返回 channelId,跳过 providerRouter.launchChannel 的 SDK bridge 调用。
-        if (isCliRuntime()) {
-            return CompletableFuture.completedFuture(state.getChannelId());
-        }
-
-        return CompletableFuture.supplyAsync(() -> {
-                    try {
-                        // Validate and clean invalid sessionId (e.g., path instead of UUID)
-                        String currentSessionId = state.getSessionId();
-                        if (currentSessionId != null && (currentSessionId.contains("/") || currentSessionId.contains("\\"))) {
-                            LOG.warn("sessionId looks like a path, resetting: " + currentSessionId);
-                            state.setSessionId(null);
-                            currentSessionId = null;
-                        }
-
-                        // Select SDK based on provider
-                        String currentProvider = state.getProvider();
-                        String currentChannelId = state.getChannelId();
-                        String currentCwd = state.getCwd();
-                        JsonObject result = providerRouter.launchChannel(
-                                currentProvider,
-                                currentChannelId,
-                                currentSessionId,
-                                currentCwd
-                        );
-
-                        // Check if sessionId exists and is not null
-                        if (result.has("sessionId") && !result.get("sessionId").isJsonNull()) {
-                            String newSessionId = result.get("sessionId").getAsString();
-                            // Validate sessionId format (should be UUID format)
-                            if (!newSessionId.contains("/") && !newSessionId.contains("\\")) {
-                                state.setSessionId(newSessionId);
-                                callbackFacade.notifySessionIdReceived(newSessionId);
-                            } else {
-                                LOG.warn("Ignoring invalid sessionId: " + newSessionId);
-                            }
-                        }
-
-                        return currentChannelId;
-                    } catch (Exception e) {
-                        state.setError(e.getMessage());
-                        state.setChannelId(null);
-                        callbackFacade.notifyStateChange(state.isBusy(), state.isLoading(), state.getError());
-                        throw new RuntimeException("Failed to launch: " + e.getMessage(), e);
-                    }
-                }).orTimeout(com.github.claudecodegui.config.TimeoutConfig.QUICK_OPERATION_TIMEOUT,
-                        com.github.claudecodegui.config.TimeoutConfig.QUICK_OPERATION_UNIT)
-                .exceptionally(ex -> {
-                    if (ex instanceof java.util.concurrent.TimeoutException) {
-                        String timeoutMsg = "Channel launch timed out (" +
-                                com.github.claudecodegui.config.TimeoutConfig.QUICK_OPERATION_TIMEOUT + "s), please retry";
-                        LOG.warn(timeoutMsg);
-                        state.setError(timeoutMsg);
-                        state.setChannelId(null);
-                        callbackFacade.notifyStateChange(state.isBusy(), state.isLoading(), state.getError());
-                        throw new RuntimeException(timeoutMsg);
-                    }
-                    throw new RuntimeException(ex.getCause());
-                });
+        // CLI 模式:会话在首次 send 时由 CliSessionManager 启动,直接返回 channelId。
+        return CompletableFuture.completedFuture(state.getChannelId());
     }
 
     /**
@@ -504,11 +435,6 @@ public class ClaudeSession {
         return CompletableFuture.runAsync(() -> {
             try {
                 sendService.interruptRuntime(state.getProvider(), state.getChannelId(), state.getChannelId());
-                // CLI 模式下 sendService.interruptRuntime 已路由到 CliSessionManager,
-                // 无需再调用 providerRouter.interruptChannel(SDK bridge,CLI 模式无活跃 channel)。
-                if (!isCliRuntime()) {
-                    providerRouter.interruptChannel(state.getProvider(), state.getChannelId());
-                }
                 state.setError(null);  // Clear previous error state
                 state.setBusy(false);
                 state.setLoading(false);  // Also reset loading state
@@ -611,10 +537,6 @@ public class ClaudeSession {
     public void dispose() {
         String tabId = state.getChannelId();
         LOG.info("[ClaudeSession] Disposing session, channelId=" + tabId);
-        // CLI 模式的会话清理由 CliSessionManager.disposeTab 处理,跳过 SDK bridge 调用。
-        if (!isCliRuntime()) {
-            providerRouter.cleanupProviderSession(state.getProvider(), state.getSessionId(), state.getCwd());
-        }
 
         // Interrupt any active request
         try {
@@ -691,24 +613,6 @@ public class ClaudeSession {
      */
     public String getProvider() {
         return state.getProvider();
-    }
-
-    /**
-     * 当前是否为 CLI 运行模式(不依赖 SDK/ai-bridge daemon)。
-     * CLI 模式下跳过 providerRouter 的 SDK bridge 调用(launchChannel/interruptChannel/cleanupProviderSession),
-     * 它们由 CliSessionManager 在 send/interrupt/disposeTab 时独立处理。
-     */
-    private boolean isCliRuntime() {
-        try {
-            return EffectiveRuntimeResolver
-                    .isCliMode(
-                            state.getProvider(),
-                            CodemossSettingsService.getInstance().getRuntimePolicy()
-                    );
-        } catch (Exception e) {
-            LOG.warn("[Runtime] Failed to resolve CLI runtime state: " + e.getMessage());
-            return false;
-        }
     }
 
     public void setPermissionSessionId(String permissionSessionId) {
