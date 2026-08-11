@@ -217,3 +217,40 @@ Java 端 `McpGatewaySdkBinding` 序列化结果本应经 stdin 注入 Node 端 `
 ### javadoc / 注释悬空引用清理
 
 移除对已删类的文字引用（非 `{@link}` 编译级依赖，不影响 compileJava）：`BridgePreloader`、`CliConstants`、`UserPathResolver`、`OpenCodeHistorySanitizerTest`、`ProtocolEnumCoverageTest`、`ai-bridge opencode/message-service.js`、`webview provider.ts`、`CodexMcpService` 注释。
+
+---
+
+## 补遗二：第二轮逐项核查与残留清理（2026-08-11）
+
+继补遗一后，对 SDK 移除主线做第二轮核查，逐项验证并清理以下残留。验证：`./gradlew compileJava compileTestJava` 通过、webview `tsc --noEmit` 通过、相关单测通过。
+
+### Grok / Kimi / Pi 三 provider 全功能补全
+
+Grok / Kimi / Pi 此前仅作为 CLI-only provider 标记存在，但 `SessionSendService` 未将其路由到实际协议路径——用户选择后会话无法发送。补全：三 provider 经 `CliOnlyProviderAdapter` 复用 Codex CLI 协议路径，并注册到 `SessionProviderRouter`。
+
+- 新增 `provider/CliOnlyProviderAdapter.java`（统一 CLI-only provider 适配）
+- `session/SessionSendService.java`：三 provider 路由到 Codex 协议路径
+- `session/SessionProviderRouter.java`：注册三 provider
+
+### ai-bridge daemon/SDK 残留死代码裁剪
+
+SDK daemon 模式移除后，ai-bridge 中仍有大量仅服务于 daemon 长连接的死代码，且 `@opencode-ai/sdk` 依赖未清理。逐文件核查调用链后删除：
+
+- **整体死文件**：`daemon.js`、`services/claude/persistent-query-service.js`、`services/claude/runtime-lifecycle.js`（+ `.1m-toggle.child.mjs`）、`services/opencode/event-mapper.js`、`services/opencode/message-service.js`，及对应 8 个测试文件
+- **channel 死分支裁剪**：`channels/{claude,codex,opencode}-channel.js` 移除 daemon 专用分支
+- **channel-manager system 分支**：`channel-manager.js` 移除 `system` provider 分支（含 `checkCodexSdk` 等已无意义的系统命令）；删除仅测试该分支的 `test/channel-manager.protocol.test.mjs`
+- **sdk-loader 收敛**：`utils/sdk-loader.js` 移除 opencode SDK 加载（`loadOpencodeSdk` / `isOpencodeSdkAvailable`）、`getSdkStatus` / `requireSdk` / `clearSdkCache`，仅保留 Claude/Codex SDK 的一次性子进程加载；删除 `test/utils/sdk-loader.test.js`
+- **依赖清理**：`package.json` 移除 `@opencode-ai/sdk` 依赖与 `test:sdk-status` 脚本
+
+> `services/codex/message-service.js` 经核查无导入断裂：`sendMessage`（供 `CommitMessageAiService` 调用）与 `getMcpServerTools` 仍活跃，线程缓存为 sendMessage 重试路径的内部支持，保留不动。
+
+### restart_node_daemon 全链删除
+
+CLI 模式无常驻 daemon，「重启 daemon」功能（等价于 kill 单进程）已无独立意义，整条链路删除：
+
+- **Java**：`UpstreamAction.RESTART_NODE_DAEMON` 枚举项、`RestartNodeDaemonActionHandler.java`（包装类整删）、`NodeProcessActionHandlers.handleRestartDaemon` + `RESTART_REFRESH_DELAY_MS` 常量、`ChatWindowDelegate` import/注册/注释、`NodeProcessActionHandlerTest` 契约用例
+- **前端**：`nodeProcessCapabilities.ts` 的 `restartNodeDaemon` 函数与 `NodeProcessKillResult.restart` 字段、`NodeProcessSelect.tsx` 的 restart 按钮/确认对话框/回调（7 处）、`global.d.ts` payload 注释、3 个相关测试的 mock 与用例
+- **i18n**：10 个 locale 各删 `restart` / `restartConfirmTitle` / `restartConfirm` / `restartSuccess` / `restartHint` 5 个 key（共 50 key）；`restartHint` 为块末 key，删除时同步去掉 `killHint` 尾逗号以保持 JSON 合法
+- **协议 SSOT 代码生成**：Java 枚举项删除后，`webview/scripts/generate-protocol-types.mjs` 重新生成 `protocol.ts`（215 upstream，原 216 - 1），`restart_node_daemon` wire 字面量同步消失
+
+> `RESTART_SESSION`（会话重刷，不同功能）与 i18n `restartRequired`（IDEA 重启提示）均保留。
