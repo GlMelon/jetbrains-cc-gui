@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CLI环境检查 - 优化版渲染图</title>
+    <style>
+        :root {
+            --bg-primary: #1e1e1e;
+            --bg-secondary: #252526;
+            --bg-tertiary: #2d2d2d;
+            --text-primary: #cccccc;
+            --text-secondary: #9d9d9d;
+            --text-tertiary: #6e6e6e;
+            --border-primary: #3e3e3e;
+            --border-secondary: #4e4e4e;
+            --accent-primary: #007acc;
+            --accent-hover: #0098ff;
+            --success: #4caf50;
+            --warning: #ffc107;
+            --error: #f44336;
+            --info: #2196f3;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .settings-page {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .section-title {
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+
+        .section-desc {
+            color: var(--text-tertiary);
+            margin-bottom: 24px;
+            font-size: 13px;
+        }
+
+        .header-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .refresh-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--accent-primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .refresh-btn:hover {
+            background: var(--accent-hover);
+        }
+
+        .refresh-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .refresh-icon {
+            width: 14px;
+            height: 14px;
+            border: 2px solid transparent;
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .cli-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .cli-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-primary);
+            border-radius: 8px;
+            padding: 16px;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cli-card:hover {
+            border-color: var(--border-secondary);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        /* 加载状态覆盖层 */
+        .cli-card.loading .cli-details,
+        .cli-card.loading .cli-actions {
+            opacity: 0.4;
+            pointer-events: none;
+        }
+
+        .cli-card.loading::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
+            animation: loading-bar 1.5s ease-in-out infinite;
+        }
+
+        @keyframes loading-bar {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .cli-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .cli-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .cli-icon.claude {
+            background: linear-gradient(135deg, #d97706, #f59e0b);
+            color: white;
+        }
+
+        .cli-icon.codex {
+            background: linear-gradient(135deg, #059669, #10b981);
+            color: white;
+        }
+
+        .cli-icon.opencode {
+            background: linear-gradient(135deg, #7c3aed, #8b5cf6);
+            color: white;
+        }
+
+        .cli-info {
+            flex: 1;
+        }
+
+        .cli-name {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .cli-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .cli-status.installed {
+            background: rgba(76, 175, 80, 0.15);
+            color: var(--success);
+        }
+
+        .cli-status.not-installed {
+            background: rgba(244, 67, 54, 0.15);
+            color: var(--error);
+        }
+
+        .cli-status.checking {
+            background: rgba(33, 150, 243, 0.15);
+            color: var(--info);
+        }
+
+        .cli-status.update-available {
+            background: rgba(255, 193, 7, 0.15);
+            color: var(--warning);
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        /* 检查中的状态点动画 */
+        .status-dot.pulse {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .cli-description {
+            font-size: 13px;
+            color: var(--text-tertiary);
+            margin-top: 4px;
+        }
+
+        .cli-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border-primary);
+            transition: opacity 0.3s ease;
+        }
+
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .detail-label {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .detail-value {
+            font-size: 13px;
+            color: var(--text-primary);
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            word-break: break-all;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .detail-value.version {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .version-badge {
+            padding: 2px 6px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .version-arrow {
+            color: var(--text-tertiary);
+        }
+
+        .update-available {
+            color: var(--info);
+            font-weight: 500;
+        }
+
+        .cli-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            transition: opacity 0.3s ease;
+        }
+
+        .action-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 500;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .action-btn.primary {
+            background: var(--accent-primary);
+            color: white;
+        }
+
+        .action-btn.primary:hover {
+            background: var(--accent-hover);
+        }
+
+        .action-btn.secondary {
+            background: rgba(33, 150, 243, 0.15);
+            color: var(--info);
+        }
+
+        .action-btn.secondary:hover {
+            background: rgba(33, 150, 243, 0.25);
+        }
+
+        .action-btn.install {
+            background: rgba(76, 175, 80, 0.15);
+            color: var(--success);
+        }
+
+        .action-btn.install:hover {
+            background: rgba(76, 175, 80, 0.25);
+        }
+
+        /* 加载骨架屏 */
+        .loading-skeleton {
+            background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--border-primary) 50%, var(--bg-tertiary) 75%);
+            background-size: 200% 100%;
+            animation: skeleton-shimmer 1.5s linear infinite;
+            border-radius: 4px;
+        }
+
+        @keyframes skeleton-shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        .skeleton-line {
+            height: 16px;
+            margin-bottom: 8px;
+        }
+
+        .skeleton-line.short {
+            width: 60%;
+        }
+
+        .skeleton-line.medium {
+            width: 80%;
+        }
+
+        .skeleton-line.long {
+            width: 100%;
+        }
+
+        /* 行内加载动画 - 用于版本等字段 */
+        .inline-loader {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-tertiary);
+            font-size: 12px;
+        }
+
+        .inline-loader .spinner {
+            width: 12px;
+            height: 12px;
+            border: 2px solid var(--border-primary);
+            border-top-color: var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .inline-loader .dots {
+            display: inline-flex;
+            gap: 3px;
+        }
+
+        .inline-loader .dots span {
+            width: 4px;
+            height: 4px;
+            background: var(--accent-primary);
+            border-radius: 50%;
+            animation: dots-bounce 1.4s ease-in-out infinite;
+        }
+
+        .inline-loader .dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .inline-loader .dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes dots-bounce {
+            0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+
+        .section-divider {
+            margin: 32px 0;
+            border: none;
+            border-top: 1px solid var(--border-primary);
+        }
+
+        .section-subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+
+        /* 版本对比显示 */
+        .version-compare {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .version-compare .current {
+            padding: 2px 6px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .version-compare .arrow {
+            color: var(--text-tertiary);
+        }
+
+        .version-compare .latest {
+            padding: 2px 6px;
+            background: rgba(255, 193, 7, 0.15);
+            color: var(--warning);
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        /* 文档链接样式 */
+        .doc-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            color: var(--info);
+            text-decoration: none;
+            font-size: 12px;
+            transition: opacity 0.2s;
+        }
+
+        .doc-link:hover {
+            opacity: 0.8;
+            text-decoration: underline;
+        }
+
+        .doc-link svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        /* 控制面板 */
+        .control-panel {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+            padding: 16px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            border: 1px solid var(--border-primary);
+        }
+
+        .control-btn {
+            padding: 6px 12px;
+            font-size: 12px;
+            border: 1px solid var(--border-primary);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .control-btn:hover {
+            border-color: var(--accent-primary);
+            color: var(--accent-primary);
+        }
+
+        .control-btn.active {
+            background: var(--accent-primary);
+            color: white;
+            border-color: var(--accent-primary);
+        }
+    </style>
+</head>
+<body>
+    <div class="settings-page">
+        <h2 class="section-title">CLI环境检查</h2>
+        <p class="section-desc">检测本地安装的AI CLI工具状态，包括版本信息和安装路径。</p>
+
+        <div class="header-actions">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="font-size: 13px; color: var(--text-secondary);">
+                    上次检查: 2026-08-11 17:13:45
+                </span>
+            </div>
+            <button class="refresh-btn" id="refreshBtn" onclick="toggleLoading()">
+                <span class="refresh-icon" id="refreshIcon"></span>
+                <span id="refreshText">刷新检查</span>
+            </button>
+        </div>
+
+        <!-- 控制面板 - 用于演示 -->
+        <div class="control-panel">
+            <button class="control-btn active" onclick="showState('normal')">正常状态</button>
+            <button class="control-btn" onclick="showState('loading')">加载中状态</button>
+            <button class="control-btn" onclick="showState('error')">错误状态</button>
+        </div>
+
+        <div class="cli-list" id="cliList">
+            <!-- Claude CLI Card - 有更新可用 -->
+            <div class="cli-card" id="card-claude">
+                <div class="cli-header">
+                    <div class="cli-icon claude">C</div>
+                    <div class="cli-info">
+                        <div class="cli-name">
+                            Claude CLI
+                            <span class="cli-status update-available">
+                                <span class="status-dot"></span>
+                                有更新
+                            </span>
+                        </div>
+                        <div class="cli-description">Anthropic Claude 命令行工具</div>
+                    </div>
+                </div>
+                <div class="cli-details">
+                    <div class="detail-item">
+                        <span class="detail-label">当前版本</span>
+                        <span class="detail-value version">
+                            <div class="version-compare">
+                                <span class="current">v2.1.226</span>
+                                <span class="arrow">→</span>
+                                <span class="latest">v2.1.227</span>
+                            </div>
+                        </span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">安装路径</span>
+                        <span class="detail-value">D:\nodejs\claude.cmd</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">安装来源</span>
+                        <span class="detail-value">system</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">官方文档</span>
+                        <span class="detail-value">
+                            <a href="#" class="doc-link">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                                    <polyline points="15 3 21 3 21 9"></polyline>
+                                    <line x1="10" y1="14" x2="21" y2="3"></line>
+                                </svg>
+                                docs.claude.com
+                            </a>
+                        </span>
+                    </div>
+                </div>
+                <div class="cli-actions">
+                    <button class="action-btn primary">更新到 v2.1.227</button>
+                    <button class="action-btn secondary">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                            <polyline points="15 3 21 3 21 9"></polyline>
+                            <line x1="10" y1="14" x2="21" y2="3"></line>
+                        </svg>
+                        查看文档
+                    </button>
+                </div>
+            </div>
+
+            <!-- Codex CLI Card - 已是最新 -->
+            <div class="cli-card" id="card-codex">
+                <div class="cli-header">
+                    <div class="cli-icon codex">X</div>
+                    <div class="cli-info">
+                        <div class="cli-name">
+                            Codex CLI
+                            <span class="cli-status installed">
+                                <span class="status-dot"></span>
+                                已安装
+                            </span>
+                        </div>
+                        <div class="cli-description">OpenAI Codex 命令行工具</div>
+                    </div>
+                </div>
+                <div class="cli-details">
+                    <div class="detail-item">
+                        <span class="detail-label">当前版本</span>
+                        <span class="detail-value version">
+                            <span class="version-badge">v0.147.0</span>
+                        </span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">安装路径</span>
+                        <span class="detail-value">D:\nodejs\codex.cmd</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">安装来源</span>
+                        <span class="detail-value">system</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">官方文档</span>
+                        <span class="detail-value">
+                            <a href="#" class="doc-link">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                                    <polyline points="15 3 21 3 21 9"></polyline>
+                                    <line x1="10" y1="14" x2="21" y2="3"></line>
+                                </svg>
+                                platform.openai.com
+                            </a>
+                        </span>
+                    </div>
+                </div>
+                <div class="cli-actions">
+                    <button class="action-btn secondary">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                            <polyline points="15 3 21 3 21 9"></polyline>
+                            <line x1="10" y1="14" x2="21" y2="3"></line>
+                        </svg>
+                        查看文档
+                    </button>
+                </div>
+            </div>
+
+            <!-- OpenCode CLI Card - 已安装最新版 -->
+            <div class="cli-card" id="card-opencode">
+                <div class="cli-header">
+                    <div class="cli-icon opencode">O</div>
+                    <div class="cli-info">
+                        <div class="cli-name">
+                            OpenCode CLI
+                            <span class="cli-status installed">
+                                <span class="status-dot"></span>
+                                已安装
+                            </span>
+                        </div>
+                        <div class="cli-description">OpenCode AI 命令行工具</div>
+                    </div>
+                </div>
+                <div class="cli-details">
+                    <div class="detail-item">
+                        <span class="detail-label">当前版本</span>
+                        <span class="detail-value version">
+                            <span class="version-badge">v1.18.16</span>
+                        </span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">安装路径</span>
+                        <span class="detail-value">D:\nodejs\opencode.cmd</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">安装来源</span>
+                        <span class="detail-value">system</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">官方文档</span>
+                        <span class="detail-value">
+                            <a href="#" class="doc-link">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                                    <polyline points="15 3 21 3 21 9"></polyline>
+                                    <line x1="10" y1="14" x2="21" y2="3"></line>
+                                </svg>
+                                github.com/opencode
+                            </a>
+                        </span>
+                    </div>
+                </div>
+                <div class="cli-actions">
+                    <button class="action-btn secondary">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                            <polyline points="15 3 21 3 21 9"></polyline>
+                            <line x1="10" y1="14" x2="21" y2="3"></line>
+                        </svg>
+                        查看文档
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <hr class="section-divider">
+
+        <h3 class="section-subtitle">加载状态示例 - 卡片保持显示，版本信息显示加载动画</h3>
+        <div class="cli-card loading" id="card-loading-example">
+            <div class="cli-header">
+                <div class="cli-icon claude">C</div>
+                <div class="cli-info">
+                    <div class="cli-name">
+                        Claude CLI
+                        <span class="cli-status checking">
+                            <span class="status-dot pulse"></span>
+                            检查中
+                        </span>
+                    </div>
+                    <div class="cli-description">Anthropic Claude 命令行工具</div>
+                </div>
+            </div>
+            <div class="cli-details">
+                <div class="detail-item">
+                    <span class="detail-label">当前版本</span>
+                    <span class="detail-value version">
+                        <span class="inline-loader">
+                            <span class="spinner"></span>
+                            <span>检查版本中...</span>
+                        </span>
+                    </span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">安装路径</span>
+                    <span class="detail-value">D:\nodejs\claude.cmd</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">安装来源</span>
+                    <span class="detail-value">system</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">最新版本</span>
+                    <span class="detail-value">
+                        <span class="inline-loader">
+                            <span class="dots">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </span>
+                            <span>获取中...</span>
+                        </span>
+                    </span>
+                </div>
+            </div>
+            <div class="cli-actions" style="opacity: 0.3;">
+                <button class="action-btn primary" disabled>更新</button>
+                <button class="action-btn secondary" disabled>查看文档</button>
+            </div>
+        </div>
+
+        <hr class="section-divider">
+
+        <h3 class="section-subtitle">错误状态示例</h3>
+        <div class="cli-card" style="border-color: rgba(244, 67, 54, 0.3);">
+            <div class="cli-header">
+                <div class="cli-icon" style="background: linear-gradient(135deg, #dc2626, #ef4444); color: white;">!</div>
+                <div class="cli-info">
+                    <div class="cli-name">
+                        Claude CLI
+                        <span class="cli-status not-installed">
+                            <span class="status-dot"></span>
+                            检查失败
+                        </span>
+                    </div>
+                    <div class="cli-description">无法连接到npm registry</div>
+                </div>
+            </div>
+            <div class="cli-details">
+                <div class="detail-item" style="grid-column: 1 / -1;">
+                    <span class="detail-label">错误信息</span>
+                    <span class="detail-value" style="color: var(--error); font-size: 12px;">
+                        ENOTFOUND registry.npmjs.org - 请检查网络连接
+                    </span>
+                </div>
+            </div>
+            <div class="cli-actions">
+                <button class="action-btn secondary">重试检查</button>
+                <button class="action-btn secondary">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                        <polyline points="15 3 21 3 21 9"></polyline>
+                        <line x1="10" y1="14" x2="21" y2="3"></line>
+                    </svg>
+                    查看文档
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isLoading = false;
+
+        function toggleLoading() {
+            isLoading = !isLoading;
+            const cards = document.querySelectorAll('#cliList .cli-card');
+            const btn = document.getElementById('refreshBtn');
+            const icon = document.getElementById('refreshIcon');
+            const text = document.getElementById('refreshText');
+
+            if (isLoading) {
+                btn.disabled = true;
+                text.textContent = '检查中...';
+
+                cards.forEach((card, index) => {
+                    card.classList.add('loading');
+                    // 更新状态为检查中
+                    const status = card.querySelector('.cli-status');
+                    status.className = 'cli-status checking';
+                    status.innerHTML = '<span class="status-dot pulse"></span> 检查中';
+
+                    // 更新版本列为加载动画
+                    const versionSpan = card.querySelector('.detail-value.version');
+                    if (versionSpan) {
+                        versionSpan.dataset.original = versionSpan.innerHTML;
+                        versionSpan.innerHTML = `
+                            <span class="inline-loader">
+                                <span class="spinner"></span>
+                                <span>检查版本中...</span>
+                            </span>
+                        `;
+                    }
+                });
+            } else {
+                btn.disabled = false;
+                text.textContent = '刷新检查';
+
+                cards.forEach(card => {
+                    card.classList.remove('loading');
+                });
+
+                // 恢复 Claude 卡片
+                const claudeCard = document.getElementById('card-claude');
+                claudeCard.querySelector('.cli-status').className = 'cli-status update-available';
+                claudeCard.querySelector('.cli-status').innerHTML = '<span class="status-dot"></span> 有更新';
+                claudeCard.querySelector('.detail-value.version').innerHTML = `
+                    <div class="version-compare">
+                        <span class="current">v2.1.226</span>
+                        <span class="arrow">→</span>
+                        <span class="latest">v2.1.227</span>
+                    </div>
+                `;
+
+                // 恢复 Codex 卡片
+                const codexCard = document.getElementById('card-codex');
+                codexCard.querySelector('.cli-status').className = 'cli-status installed';
+                codexCard.querySelector('.cli-status').innerHTML = '<span class="status-dot"></span> 已安装';
+                codexCard.querySelector('.detail-value.version').innerHTML = '<span class="version-badge">v0.147.0</span>';
+
+                // 恢复 OpenCode 卡片
+                const opencodeCard = document.getElementById('card-opencode');
+                opencodeCard.querySelector('.cli-status').className = 'cli-status installed';
+                opencodeCard.querySelector('.cli-status').innerHTML = '<span class="status-dot"></span> 已安装';
+                opencodeCard.querySelector('.detail-value.version').innerHTML = '<span class="version-badge">v1.18.16</span>';
+            }
+        }
+
+        function showState(state) {
+            const btns = document.querySelectorAll('.control-btn');
+            btns.forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+
+            const cards = document.querySelectorAll('#cliList .cli-card');
+            const loadingExample = document.getElementById('card-loading-example');
+
+            if (state === 'loading') {
+                toggleLoading();
+                if (!isLoading) toggleLoading();
+            } else if (state === 'normal') {
+                if (isLoading) toggleLoading();
+            } else if (state === 'error') {
+                if (isLoading) toggleLoading();
+            }
+        }
+    </script>
+</body>
+</html>

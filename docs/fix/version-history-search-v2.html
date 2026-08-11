@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Version History - 方案2: 侧边栏版本列表</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #1e1e1e;
+      color: #cccccc;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .dialog {
+      width: 900px;
+      height: 600px;
+      background: #252526;
+      border-radius: 12px;
+      border: 1px solid #3c3c3c;
+      display: flex;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+
+    /* 左侧边栏 */
+    .sidebar {
+      width: 280px;
+      background: #2d2d2d;
+      border-right: 1px solid #3c3c3c;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sidebar-header {
+      padding: 20px;
+      border-bottom: 1px solid #3c3c3c;
+    }
+
+    .sidebar-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #e0e0e0;
+      margin-bottom: 12px;
+    }
+
+    .sidebar-search {
+      position: relative;
+    }
+
+    .sidebar-search-icon {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #888;
+      pointer-events: none;
+    }
+
+    .sidebar-search-input {
+      width: 100%;
+      padding: 8px 10px 8px 32px;
+      background: #3c3c3c;
+      border: 1px solid #555;
+      border-radius: 6px;
+      color: #ccc;
+      font-size: 12px;
+    }
+
+    .sidebar-search-input:focus {
+      outline: none;
+      border-color: #007acc;
+    }
+
+    .sidebar-search-input::placeholder {
+      color: #666;
+    }
+
+    .sidebar-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .sidebar-list::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .sidebar-list::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .sidebar-list::-webkit-scrollbar-thumb {
+      background: #424242;
+      border-radius: 3px;
+    }
+
+    .version-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s;
+      margin-bottom: 4px;
+    }
+
+    .version-item:hover {
+      background: #3c3c3c;
+    }
+
+    .version-item.active {
+      background: #094771;
+    }
+
+    .version-item-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #007acc;
+      flex-shrink: 0;
+    }
+
+    .version-item.active .version-item-dot {
+      background: #4ea1ff;
+      box-shadow: 0 0 8px rgba(78, 161, 255, 0.5);
+    }
+
+    .version-item-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .version-item-number {
+      font-size: 14px;
+      font-weight: 600;
+      color: #e0e0e0;
+      margin-bottom: 2px;
+    }
+
+    .version-item-date {
+      font-size: 11px;
+      color: #888;
+    }
+
+    .version-item-badge {
+      padding: 2px 6px;
+      background: #4ec9b0;
+      color: #1e1e1e;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    /* 右侧内容区 */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .main-header {
+      padding: 24px 32px;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      border-bottom: 1px solid #3c3c3c;
+      position: relative;
+    }
+
+    .close-btn {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.08);
+      border: none;
+      border-radius: 6px;
+      color: #ccc;
+      cursor: pointer;
+    }
+
+    .close-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .main-version {
+      font-size: 32px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #4ea1ff, #7c3aed);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 8px;
+    }
+
+    .main-date {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 12px;
+    }
+
+    .main-stats {
+      display: flex;
+      gap: 12px;
+    }
+
+    .stat-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      font-size: 11px;
+    }
+
+    .stat-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    .stat-dot.feature { background: #4ec9b0; }
+    .stat-dot.fix { background: #d7ba7d; }
+    .stat-dot.improve { background: #007acc; }
+
+    .main-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 32px;
+    }
+
+    .main-content::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .main-content::-webkit-scrollbar-track {
+      background: #1e1e1e;
+    }
+
+    .main-content::-webkit-scrollbar-thumb {
+      background: #424242;
+      border-radius: 4px;
+    }
+
+    .section {
+      margin-bottom: 24px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .section-chip {
+      width: 4px;
+      height: 14px;
+      border-radius: 2px;
+    }
+
+    .section-chip.feature { background: #4ec9b0; }
+    .section-chip.fix { background: #d7ba7d; }
+    .section-chip.improve { background: #007acc; }
+
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #e0e0e0;
+    }
+
+    .section-list {
+      padding-left: 20px;
+    }
+
+    .section-list li {
+      font-size: 13px;
+      line-height: 1.8;
+      color: #ccc;
+    }
+
+    .section-list li strong {
+      color: #e0e0e0;
+    }
+
+    /* 底部页码跳转 */
+    .main-footer {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 16px 32px;
+      background: #2d2d2d;
+      border-top: 1px solid #3c3c3c;
+    }
+
+    .page-jump {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .page-jump-label {
+      font-size: 12px;
+      color: #888;
+    }
+
+    .page-input {
+      width: 50px;
+      padding: 6px 8px;
+      background: #3c3c3c;
+      border: 1px solid #555;
+      border-radius: 4px;
+      color: #ccc;
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .page-input:focus {
+      outline: none;
+      border-color: #007acc;
+    }
+
+    .page-total {
+      font-size: 12px;
+      color: #888;
+    }
+
+    .go-btn {
+      padding: 6px 12px;
+      background: #0e639c;
+      border: none;
+      border-radius: 4px;
+      color: #fff;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .go-btn:hover {
+      background: #1177bb;
+    }
+
+    .got-it-btn {
+      padding: 8px 20px;
+      background: #0e639c;
+      border: none;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .got-it-btn:hover {
+      background: #1177bb;
+    }
+
+    /* 预览标签 */
+    .preview-label {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      padding: 8px 16px;
+      background: #d7ba7d;
+      color: #1e1e1e;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      z-index: 100;
+    }
+
+    .design-label {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      padding: 8px 16px;
+      background: #007acc;
+      color: #fff;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      z-index: 100;
+    }
+  </style>
+</head>
+<body>
+  <div class="preview-label">PREVIEW</div>
+  <div class="design-label">方案2: 侧边栏版本列表</div>
+  
+  <div class="dialog">
+    <!-- 左侧边栏 -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-title">版本列表</div>
+        <div class="sidebar-search">
+          <span class="sidebar-search-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="M21 21l-4.35-4.35"/>
+            </svg>
+          </span>
+          <input type="text" class="sidebar-search-input" placeholder="搜索版本...">
+        </div>
+      </div>
+      <div class="sidebar-list">
+        <div class="version-item active">
+          <span class="version-item-dot"></span>
+          <div class="version-item-info">
+            <div class="version-item-number">v0.4.9</div>
+            <div class="version-item-date">2026-07-29</div>
+          </div>
+          <span class="version-item-badge">Latest</span>
+        </div>
+        <div class="version-item">
+          <span class="version-item-dot"></span>
+          <div class="version-item-info">
+            <div class="version-item-number">v0.4.8</div>
+            <div class="version-item-date">2026-07-15</div>
+          </div>
+        </div>
+        <div class="version-item">
+          <span class="version-item-dot"></span>
+          <div class="version-item-info">
+            <div class="version-item-number">v0.4.7</div>
+            <div class="version-item-date">2026-06-28</div>
+          </div>
+        </div>
+        <div class="version-item">
+          <span class="version-item-dot"></span>
+          <div class="version-item-info">
+            <div class="version-item-number">v0.4.6</div>
+            <div class="version-item-date">2026-06-15</div>
+          </div>
+        </div>
+        <div class="version-item">
+          <span class="version-item-dot"></span>
+          <div class="version-item-info">
+            <div class="version-item-number">v0.4.5</div>
+            <div class="version-item-date">2026-06-01</div>
+          </div>
+        </div>
+        <div class="version-item">
+          <span class="version-item-dot"></span>
+          <div class="version-item-info">
+            <div class="version-item-number">v0.4.4</div>
+            <div class="version-item-date">2026-05-18</div>
+          </div>
+        </div>
+        <div class="version-item">
+          <span class="version-item-dot"></span>
+          <div class="version-item-info">
+            <div class="version-item-number">v0.4.3</div>
+            <div class="version-item-date">2026-05-05</div>
+          </div>
+        </div>
+        <div class="version-item">
+          <span class="version-item-dot"></span>
+          <div class="version-item-info">
+            <div class="version-item-number">v0.4.2</div>
+            <div class="version-item-date">2026-04-22</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧内容区 -->
+    <div class="main">
+      <div class="main-header">
+        <button class="close-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+        <div class="main-version">v0.4.9</div>
+        <div class="main-date">2026-07-29</div>
+        <div class="main-stats">
+          <span class="stat-pill">
+            <span class="stat-dot feature"></span>
+            <span>6 Features</span>
+          </span>
+          <span class="stat-pill">
+            <span class="stat-dot improve"></span>
+            <span>2 Improvements</span>
+          </span>
+          <span class="stat-pill">
+            <span class="stat-dot fix"></span>
+            <span>12 Fixes</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="main-content">
+        <div class="section">
+          <div class="section-header">
+            <span class="section-chip feature"></span>
+            <span class="section-title">✨ Features</span>
+          </div>
+          <ul class="section-list">
+            <li>Add a <strong>built-in TokenTracker usage dashboard</strong>, replacing the in-house usage statistics</li>
+            <li>Add <strong>isolated MCP provider tabs</strong>: the MCP settings panel now has separate Claude and Codex tabs</li>
+            <li>Add <strong>importing Codex providers from cc-switch</strong> and provider help dialogs</li>
+            <li>Add <strong>OpenAI official direct connection</strong> and expanded provider presets</li>
+          </ul>
+        </div>
+
+        <div class="section">
+          <div class="section-header">
+            <span class="section-chip improve"></span>
+            <span class="section-title">🔧 Improvements</span>
+          </div>
+          <ul class="section-list">
+            <li>Improve <strong>provider brand icons by base URL</strong></li>
+            <li>Make the <strong>pricing section in the custom-model dialog collapsible</strong></li>
+          </ul>
+        </div>
+
+        <div class="section">
+          <div class="section-header">
+            <span class="section-chip fix"></span>
+            <span class="section-title">🐛 Fixes</span>
+          </div>
+          <ul class="section-list">
+            <li>Fix <strong>streaming UI stability</strong></li>
+            <li>Fix <strong>context-usage display overflow</strong></li>
+            <li>Fix <strong>Webview watchdog startup recovery</strong></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="main-footer">
+        <div class="page-jump">
+          <span class="page-jump-label">跳转到</span>
+          <input type="number" class="page-input" value="1" min="1" max="15">
+          <span class="page-total">/ 15</span>
+          <button class="go-btn">前往</button>
+        </div>
+        <button class="got-it-btn">Got it!</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

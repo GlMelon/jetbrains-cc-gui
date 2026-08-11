@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StatusPanel Mockup</title>
+<style>
+  :root {
+    --bg-primary: #1e1e1e;
+    --bg-chat: #1e1e1e;
+    --bg-secondary: #252526;
+    --bg-tertiary: #2b2d31;
+    --bg-hover: #35373c;
+    --border-primary: #333;
+    --text-primary: #cccccc;
+    --text-secondary: #e0e0e0;
+    --text-muted: #666;
+    --accent-primary: #007fd4;
+    --bg-chat-border: rgba(255, 255, 255, 0.08);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 40px;
+    padding: 20px;
+  }
+
+  .mock-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .mock-label {
+    font-size: 13px;
+    color: var(--text-muted);
+    text-align: center;
+    margin-bottom: 4px;
+  }
+
+  .chat-area {
+    width: 500px;
+    background: var(--bg-chat);
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border-primary);
+  }
+
+  .chat-messages {
+    padding: 20px;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .message-bubble {
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    max-width: 80%;
+  }
+
+  .message-user {
+    background: var(--accent-primary);
+    color: #fff;
+    align-self: flex-end;
+  }
+
+  .message-assistant {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    align-self: flex-start;
+  }
+
+  /* ===== 当前效果：无间距 ===== */
+  .status-panel-current {
+    position: relative;
+    margin: 0;
+    background: var(--bg-chat);
+  }
+
+  .status-panel-tabs-current {
+    display: flex;
+    align-items: center;
+    background: var(--bg-chat);
+    border: 1px solid var(--bg-chat-border);
+    border-radius: 6px;
+    margin: 0 20px 8px 20px;
+    padding: 5px 8px;
+    gap: 0;
+    font-size: 13px;
+  }
+
+  .status-panel-tab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 4px 8px;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 4px;
+    transition: color 0.15s, background-color 0.15s;
+  }
+
+  .status-panel-tab:hover { color: var(--text-primary); background: var(--bg-hover); }
+  .status-panel-tab.active { color: var(--text-primary); font-weight: 600; }
+
+  .popover-current {
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
+    border-radius: 8px;
+    box-shadow: 0 -4px 16px rgba(0,0,0,0.15);
+    overflow: hidden;
+  }
+
+  .popover-content { padding: 10px 14px; font-size: 12px; color: var(--text-secondary); }
+
+  /* ===== 优化效果：有间距 ===== */
+  .status-panel-optimized {
+    position: relative;
+    margin: 0;
+    background: var(--bg-chat);
+  }
+
+  .status-panel-tabs-optimized {
+    display: flex;
+    align-items: center;
+    background: var(--bg-chat);
+    border: 1px solid var(--bg-chat-border);
+    border-radius: 6px;
+    margin: 0 20px 8px 20px;
+    padding: 5px 8px;
+    gap: 0;
+    font-size: 13px;
+  }
+
+  .popover-optimized {
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 20px;
+    right: 20px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
+    border-radius: 8px;
+    box-shadow: 0 -4px 16px rgba(0,0,0,0.15);
+    overflow: hidden;
+  }
+
+  .popover-content { padding: 10px 14px; font-size: 12px; color: var(--text-secondary); }
+
+  .input-area {
+    padding: 9px 20px 12px;
+    border-top: 1px solid var(--border-primary);
+  }
+
+  .input-box {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-primary);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+</style>
+</head>
+<body>
+
+<!-- 当前效果 -->
+<div class="mock-container">
+  <div class="mock-label">当前效果（弹窗无间距）</div>
+  <div class="chat-area">
+    <div class="chat-messages">
+      <div class="message-bubble message-user">请帮我修复这个 bug</div>
+      <div class="message-bubble message-assistant">好的，我来分析一下代码...</div>
+    </div>
+    <div class="status-panel-current">
+      <div class="popover-current">
+        <div class="popover-content">
+          📋 Fix authentication.ts — fix token validation<br>
+          🤖 Explore agent — scanning codebase...
+        </div>
+      </div>
+      <div class="status-panel-tabs-current">
+        <div class="status-panel-tab active">📋 Tasks <span style="color:var(--text-muted);font-size:11px;margin-left:2px">2/3</span></div>
+        <div class="status-panel-tab">🤖 Subagent <span style="color:var(--text-muted);font-size:11px;margin-left:2px">1</span></div>
+        <div class="status-panel-tab">✏️ Edits <span style="color:var(--text-muted);font-size:11px;margin-left:2px">+3 -1</span></div>
+      </div>
+    </div>
+    <div class="input-area">
+      <div class="input-box">输入消息...</div>
+    </div>
+  </div>
+</div>
+
+<!-- 优化效果 -->
+<div class="mock-container">
+  <div class="mock-label">优化效果（弹窗有间距）</div>
+  <div class="chat-area">
+    <div class="chat-messages">
+      <div class="message-bubble message-user">请帮我修复这个 bug</div>
+      <div class="message-bubble message-assistant">好的，我来分析一下代码...</div>
+    </div>
+    <div class="status-panel-optimized">
+      <div class="popover-optimized">
+        <div class="popover-content">
+          📋 Fix authentication.ts — fix token validation<br>
+          🤖 Explore agent — scanning codebase...
+        </div>
+      </div>
+      <div class="status-panel-tabs-optimized">
+        <div class="status-panel-tab active">📋 Tasks <span style="color:var(--text-muted);font-size:11px;margin-left:2px">2/3</span></div>
+        <div class="status-panel-tab">🤖 Subagent <span style="color:var(--text-muted);font-size:11px;margin-left:2px">1</span></div>
+        <div class="status-panel-tab">✏️ Edits <span style="color:var(--text-muted);font-size:11px;margin-left:2px">+3 -1</span></div>
+      </div>
+    </div>
+    <div class="input-area">
+      <div class="input-box">输入消息...</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
