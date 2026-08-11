@@ -236,6 +236,7 @@ public enum UpstreamAction implements ProtocolValue {
 
     // ── CLI Environment ──
     CHECK_CLI_ENVIRONMENT("check_cli_environment"),
+    UPDATE_CLI_TOOL("update_cli_tool"),
 
     // ── Node Process ──
     GET_NODE_PROCESSES("get_node_processes"),
