@@ -179,7 +179,7 @@ public class HistoryDeleteServiceTest {
 
     @Test
     public void abortedDeletionReloadsHistoryAfterOptimisticFrontendRemoval() throws Exception {
-        HandlerContext context = new HandlerContext(null, null, null, null, null);
+        HandlerContext context = new HandlerContext(null, null, null);
         context.setSession(new RecordingClaudeSession("session-1", "codex") {
             @Override
             public CompletableFuture<Void> interrupt() {
@@ -213,7 +213,7 @@ public class HistoryDeleteServiceTest {
         private boolean interrupted;
 
         private RecordingClaudeSession(String sessionId, String provider) {
-            super(null, null, null);
+            super(null);
             this.sessionId = sessionId;
             this.provider = provider;
         }

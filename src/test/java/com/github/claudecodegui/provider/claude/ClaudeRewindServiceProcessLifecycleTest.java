@@ -23,7 +23,7 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 /**
- * Regression test for {@link ClaudeRewindService#rewindFiles} process lifecycle
+ * Regression test for {@link ClaudeRewindQueryService#rewindFiles} process lifecycle
  * (task L6 in {@code .workflow/.scratchpad/NODE_PROCESS_LEAK_FIX_TASKS.md}).
  *
  * <p>The original code spawned a Node.js child without registering it with
@@ -54,7 +54,7 @@ public class ClaudeRewindServiceProcessLifecycleTest {
 
     @Test
     public void rewindFiles_registersAndUnregistersChild() throws Exception {
-        ClaudeRewindService service = new ClaudeRewindService(
+        ClaudeRewindQueryService service = new ClaudeRewindQueryService(
                 Logger.getInstance(ClaudeRewindServiceProcessLifecycleTest.class),
                 new Gson(),
                 node,

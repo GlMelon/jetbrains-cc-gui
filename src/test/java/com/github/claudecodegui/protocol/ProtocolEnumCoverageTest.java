@@ -45,9 +45,9 @@ public class ProtocolEnumCoverageTest {
     @Test
     public void codexProtectedEnvKeyCoversProtocolValues() {
         // A5:CodexProtectedEnvKey SSOT —— Codex 受保护环境变量名 18 个(基础集)。
-        // 对齐前端 isProtectedEnvVarKey 校验集与后端 CodexCliCommandUtils/CodexSDKBridge 基础保护集,
-        // 消除三份手抄。CodexSDKBridge 额外 17 个运行时安全变量(NODE_OPTIONS/LD_PRELOAD 等)
-        // 属 SDK 注入路径独有,不在此枚举(单独保留)。
+        // 对齐前端 isProtectedEnvVarKey 校验集与后端 CodexCliCommandUtils 基础保护集,消除三份手抄。
+        // 另有 14 个 code-injection / library-injection 防护变量(NODE_OPTIONS/LD_PRELOAD 等)与
+        // 运行时无关,由 CodexMcpService 等子进程服务以硬编码 Set 持有,不在此运行时枚举。
         assertEquals("CODEX_USE_STDIN", CodexProtectedEnvKey.CODEX_USE_STDIN.value());
         assertEquals("CODEX_MODEL", CodexProtectedEnvKey.CODEX_MODEL.value());
         assertEquals("CODEX_SANDBOX_MODE", CodexProtectedEnvKey.CODEX_SANDBOX_MODE.value());

@@ -56,7 +56,7 @@ final class SettingsHandlerTestFixtures {
                 sink.add(new String[]{type, payloadJson == null ? "" : payloadJson});
             }
         };
-        HandlerContext ctx = new HandlerContext(null, null, null, service, cb);
+        HandlerContext ctx = new HandlerContext(null, service, cb);
         return new FrontendActionContext(ctx);
     }
 

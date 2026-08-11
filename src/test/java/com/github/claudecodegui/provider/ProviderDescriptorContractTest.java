@@ -21,12 +21,11 @@ public class ProviderDescriptorContractTest {
     public void builtinsReturnsAllProvidersWithExpectedCapabilities() {
         List<ProviderDescriptor> builtins = ProviderDescriptor.builtins();
         assertEquals(6, builtins.size());
-        // claude/codex/opencode:全能力 + SDK/CLI
+        // claude/codex/opencode:全能力 + CLI
         for (ProviderDescriptor d : List.of(
                 ProviderDescriptor.claude(), ProviderDescriptor.codex(), ProviderDescriptor.opencode())) {
-            assertEquals("expected all capabilities for SDK builtin " + d.providerId(),
+            assertEquals("expected all capabilities for builtin " + d.providerId(),
                     EnumSet.allOf(ProviderCapability.class), d.capabilities());
-            assertTrue(d.providerId() + " should support SDK", d.supports(RuntimeType.SDK));
             assertTrue(d.providerId() + " should support CLI", d.supports(RuntimeType.CLI));
         }
         // grok/kimi/pi:纯 CLI provider,仅 CLI_SESSION + STREAMING,无 SDK(上游 CliToolId)
@@ -34,7 +33,6 @@ public class ProviderDescriptorContractTest {
                 ProviderDescriptor.grok(), ProviderDescriptor.kimi(), ProviderDescriptor.pi())) {
             assertEquals("expected CLI-only capabilities for " + d.providerId(),
                     EnumSet.of(ProviderCapability.CLI_SESSION, ProviderCapability.STREAMING), d.capabilities());
-            assertFalse(d.providerId() + " should NOT support SDK", d.supports(RuntimeType.SDK));
             assertTrue(d.providerId() + " should support CLI", d.supports(RuntimeType.CLI));
         }
     }
@@ -52,8 +50,7 @@ public class ProviderDescriptorContractTest {
     public void supportsChecksCapabilityAndRuntime() {
         ProviderDescriptor d = ProviderDescriptor.claude();
         assertTrue(d.supports(ProviderCapability.MCP));
-        assertFalse(d.supports(RuntimeType.valueOf("SDK")) ? false : true); // SDK 支持
-        assertTrue(d.supports(RuntimeType.SDK));
+        assertTrue(d.supports(RuntimeType.CLI));
     }
 
     @Test
@@ -90,14 +87,14 @@ public class ProviderDescriptorContractTest {
     @Test
     public void registryCustomOverridesBuiltinAndAddsNew() {
         ProviderDescriptor overrideClaude = new ProviderDescriptor("CLAUDE", "Claude Override", "claude", "claude.cmd",
-                EnumSet.of(ProviderCapability.SDK_SESSION), EnumSet.of(RuntimeType.SDK));
+                EnumSet.of(ProviderCapability.STREAMING), EnumSet.of(RuntimeType.CLI));
         ProviderDescriptor gemini = new ProviderDescriptor("gemini", "Gemini", "gemini", "gemini.cmd",
                 EnumSet.of(ProviderCapability.CLI_SESSION), EnumSet.of(RuntimeType.CLI));
         ProviderDescriptorRegistry registry = new ProviderDescriptorRegistry(List.of(overrideClaude, gemini));
 
-        // 覆盖:claude 被自定义覆盖(大小写不敏感归一化后同 id)
+        // 覆盖:claude 被自定义覆盖(override 只声明 STREAMING,内置全能力含 MCP → 不再支持 MCP)
         assertEquals("Claude Override", registry.get("claude").displayLabel());
-        assertFalse(registry.get("claude").supports(RuntimeType.CLI));
+        assertFalse(registry.get("claude").supports(ProviderCapability.MCP));
         // 新增:gemini(6 内置 + gemini = 7)
         assertTrue(registry.has("gemini"));
         assertEquals(7, registry.all().size());

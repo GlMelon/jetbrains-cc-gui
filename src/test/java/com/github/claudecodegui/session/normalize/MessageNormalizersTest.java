@@ -18,25 +18,20 @@ public class MessageNormalizersTest {
     public void factoryKeepsProviderAndRuntimeImplementationsIndependent() {
         RecordingCallback delegate = new RecordingCallback();
 
-        assertEquals(ClaudeSdkMessageNormalizer.class,
-                MessageNormalizers.forRuntime("claude", "sdk", delegate).getClass());
+        // SDK 调用模式已移除,仅验证 CLI 归一化器路由。
         assertEquals(ClaudeCliMessageNormalizer.class,
                 MessageNormalizers.forRuntime("claude", "cli", delegate).getClass());
-        assertEquals(CodexSdkMessageNormalizer.class,
-                MessageNormalizers.forRuntime("codex", "sdk", delegate).getClass());
         assertEquals(CodexCliMessageNormalizer.class,
                 MessageNormalizers.forRuntime("codex", "cli", delegate).getClass());
     }
 
     // B6: OpenCode 必须注册专用 normalizer,否则回退到 Claude 归一化器(协议事件错配)。
     @Test
-    public void opencodeNormalizerRegisteredForBothCliAndSdk() {
+    public void opencodeNormalizerRegisteredForCli() {
         RecordingCallback delegate = new RecordingCallback();
 
         assertEquals(OpenCodeMessageNormalizer.class,
                 MessageNormalizers.forRuntime("opencode", "cli", delegate).getClass());
-        assertEquals(OpenCodeMessageNormalizer.class,
-                MessageNormalizers.forRuntime("opencode", "sdk", delegate).getClass());
     }
 
     @Test

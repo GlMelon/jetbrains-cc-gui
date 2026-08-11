@@ -32,7 +32,6 @@ public class SettingsHandlerTypedWiringTest {
                 "get_model_registry", "set_model_registry",
                 "get_model_registry_schema", "set_appearance_config",
                 "get_codex_subscription_quota",
-                "get_claude_cli_path", "set_claude_cli_path",
                 "get_node_path", "set_node_path",
                 // B3 slice: project-config (42)
                 "get_usage_statistics", "get_working_directory", "set_working_directory",
@@ -40,8 +39,7 @@ public class SettingsHandlerTypedWiringTest {
                 "browse_ui_font_file", "get_code_font_config", "set_code_font_config",
                 "browse_code_font_file", "get_streaming_enabled", "set_streaming_enabled",
                 "get_show_thinking_enabled", "set_show_thinking_enabled",
-                "get_invocation_mode", "get_session_invocation_mode",
-                "get_session_runtime_state", "set_invocation_mode", "set_cli_path",
+                "get_session_runtime_state",
                 "get_codex_sandbox_mode", "set_codex_sandbox_mode",
                 "get_send_shortcut", "set_send_shortcut",
                 "get_auto_open_file_enabled", "set_auto_open_file_enabled",
@@ -56,10 +54,7 @@ public class SettingsHandlerTypedWiringTest {
                 "get_prompt_enhancer_config", "set_prompt_enhancer_config",
                 "get_project_commit_prompt", "set_project_commit_prompt",
                 // B3 slice: user-language (3)
-                "set_user_language", "get_user_language", "clear_user_language",
-                // B3 slice: runtime-policy (4)
-                "get_runtime_policy", "set_runtime_policy", "reset_runtime_policy",
-                "get_runtime_policy_schema"
+                "set_user_language", "get_user_language", "clear_user_language"
         }) {
             assertTrue("migrated action '" + migrated
                     + "' must resolve to an UpstreamAction (B3 typed wiring)",
@@ -78,7 +73,7 @@ public class SettingsHandlerTypedWiringTest {
      */
     @Test
     public void wiredDispatcherConstructsWithoutDuplicatesAndMissesUnknown() {
-        HandlerContext ctx = new HandlerContext(null, null, null, null, new HandlerContext.JsCallback() {
+        HandlerContext ctx = new HandlerContext(null, null, new HandlerContext.JsCallback() {
             @Override public void callJavaScript(String functionName, String... args) { }
             @Override public String escapeJs(String str) { return str; }
         });

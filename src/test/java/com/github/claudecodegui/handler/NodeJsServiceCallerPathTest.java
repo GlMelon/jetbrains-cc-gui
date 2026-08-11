@@ -1,11 +1,7 @@
 package com.github.claudecodegui.handler;
 
-import com.github.claudecodegui.bridge.EnvironmentConfigurator;
 import com.github.claudecodegui.bridge.NodeDetector;
-import com.github.claudecodegui.bridge.ProcessManager;
 import com.github.claudecodegui.handler.core.HandlerContext;
-import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
-import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.junit.Assume;
@@ -14,7 +10,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -27,7 +22,6 @@ public class NodeJsServiceCallerPathTest {
     @Rule
     public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-    private TestClaudeSDKBridge bridge;
     private HandlerContext context;
 
     @Before
@@ -50,8 +44,7 @@ public class NodeJsServiceCallerPathTest {
                         + " getAllHistoryData: () => ({ items: ['ok'], counts: {} })"
                         + " };\n");
 
-        bridge = new TestClaudeSDKBridge(bridgeDir.toFile());
-        context = new HandlerContext(null, bridge, null, null, new HandlerContext.JsCallback() {
+        context = new HandlerContext(null, null, new HandlerContext.JsCallback() {
             @Override
             public void callJavaScript(String functionName, String... args) {
             }
@@ -71,7 +64,6 @@ public class NodeJsServiceCallerPathTest {
         JsonObject json = JsonParser.parseString(result).getAsJsonObject();
         assertEquals("session-1", json.get("sessionId").getAsString());
         assertEquals("Quoted title", json.get("title").getAsString());
-        assertEquals(0, bridge.getProcessManager().getActiveProcessCount());
     }
 
     @Test
@@ -81,7 +73,6 @@ public class NodeJsServiceCallerPathTest {
 
         JsonObject json = JsonParser.parseString(result).getAsJsonObject();
         assertEquals("session-2", json.get("sessionId").getAsString());
-        assertEquals(0, bridge.getProcessManager().getActiveProcessCount());
     }
 
     @Test
@@ -91,7 +82,6 @@ public class NodeJsServiceCallerPathTest {
 
         JsonObject json = JsonParser.parseString(result).getAsJsonObject();
         assertEquals("ok", json.getAsJsonArray("items").get(0).getAsString());
-        assertEquals(0, bridge.getProcessManager().getActiveProcessCount());
     }
 
     @Test
@@ -106,34 +96,5 @@ public class NodeJsServiceCallerPathTest {
 
     private static void writeService(Path path, String content) throws IOException {
         Files.writeString(path, content, StandardCharsets.UTF_8);
-    }
-
-    private static final class TestClaudeSDKBridge extends ClaudeSDKBridge {
-        private final File sdkDir;
-        private final ProcessManager processManager = new ProcessManager();
-
-        private TestClaudeSDKBridge(File sdkDir) {
-            this(sdkDir, new CodemossSettingsService());
-        }
-
-        private TestClaudeSDKBridge(File sdkDir, CodemossSettingsService settingsService) {
-            super(new EnvironmentConfigurator(settingsService), settingsService);
-            this.sdkDir = sdkDir;
-        }
-
-        @Override
-        public File getSdkTestDir() {
-            return sdkDir;
-        }
-
-        @Override
-        public String getNodeExecutable() {
-            return "node";
-        }
-
-        @Override
-        public ProcessManager getProcessManager() {
-            return processManager;
-        }
     }
 }

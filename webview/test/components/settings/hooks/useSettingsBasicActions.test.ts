@@ -122,20 +122,4 @@ describe('useSettingsBasicActions', () => {
 
     expect(window.sendToJava).not.toHaveBeenCalled();
   });
-
-  it('sends set_claude_cli_path with path payload when saving', () => {
-    const { result } = renderHook(() => useSettingsBasicActions({}));
-
-    act(() => {
-      result.current.setClaudeCliPath('/usr/local/bin/claude');
-    });
-
-    act(() => {
-      result.current.handleSaveClaudeCliPath();
-    });
-
-    expect(window.sendToJava).toHaveBeenCalledWith(
-      bridgeCall('set_claude_cli_path', '{"path":"/usr/local/bin/claude"}')
-    );
-  });
 });

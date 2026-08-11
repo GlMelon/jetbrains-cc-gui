@@ -180,8 +180,6 @@ public class PermissionActionHandlersTest {
         return new HandlerContext(
                 null,
                 null,
-                null,
-                null,
                 new HandlerContext.JsCallback() {
                     @Override public void callJavaScript(String functionName, String... args) {}
                     @Override public String escapeJs(String str) { return str; }

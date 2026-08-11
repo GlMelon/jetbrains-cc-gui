@@ -35,38 +35,6 @@ public class CodemossSettingsServiceRuntimePolicyTest {
     }
 
     @Test
-    public void shouldExposeClaudeCliModeFromRuntimePolicy() throws Exception {
-        useTemporaryHomeDirectory();
-        writeConfig(configWithRuntime(RuntimeType.CLI, RuntimeType.SDK, RuntimeType.SDK));
-
-        CodemossSettingsService service = new CodemossSettingsService();
-
-        assertEquals(CommonConstants.INVOCATION_MODE_CLI, service.getClaudeInvocationMode());
-    }
-
-    @Test
-    public void shouldPersistClaudeModeOnlyInRuntimePolicy() throws Exception {
-        useTemporaryHomeDirectory();
-        JsonObject config = configWithRuntime(RuntimeType.SDK, RuntimeType.SDK, RuntimeType.SDK);
-        config.addProperty(LEGACY_CLAUDE_MODE_KEY, CommonConstants.INVOCATION_MODE_SDK);
-        writeConfig(config);
-
-        CodemossSettingsService service = new CodemossSettingsService();
-        service.setClaudeInvocationMode(CommonConstants.INVOCATION_MODE_CLI);
-
-        JsonObject persisted = readConfig();
-        assertFalse(persisted.has(LEGACY_CLAUDE_MODE_KEY));
-        assertEquals(
-                RuntimeType.CLI.name(),
-                persisted.getAsJsonObject("runtime")
-                        .getAsJsonObject("providers")
-                        .getAsJsonObject(ProviderType.CLAUDE.value())
-                        .get("default")
-                        .getAsString()
-        );
-    }
-
-    @Test
     public void shouldMigrateLegacyClaudeCliModeWhenRuntimePolicyIsMissing() throws Exception {
         useTemporaryHomeDirectory();
         JsonObject config = new JsonObject();
@@ -81,13 +49,13 @@ public class CodemossSettingsServiceRuntimePolicyTest {
     @Test
     public void shouldPreferRuntimePolicyOverLegacyClaudeMode() throws Exception {
         useTemporaryHomeDirectory();
-        JsonObject config = configWithRuntime(RuntimeType.SDK, RuntimeType.CLI, RuntimeType.CLI);
+        JsonObject config = configWithRuntime(RuntimeType.CLI, RuntimeType.CLI, RuntimeType.CLI);
         config.addProperty(LEGACY_CLAUDE_MODE_KEY, CommonConstants.INVOCATION_MODE_CLI);
         writeConfig(config);
 
         CodemossSettingsService service = new CodemossSettingsService();
 
-        assertEquals(RuntimeType.SDK, service.getRuntimePolicy().of(ProviderType.CLAUDE).defaultRuntime());
+        assertEquals(RuntimeType.CLI, service.getRuntimePolicy().of(ProviderType.CLAUDE).defaultRuntime());
         assertEquals(RuntimeType.CLI, service.getRuntimePolicy().of(ProviderType.CODEX).defaultRuntime());
         assertEquals(RuntimeType.CLI, service.getRuntimePolicy().of(ProviderType.OPENCODE).defaultRuntime());
     }
@@ -112,7 +80,6 @@ public class CodemossSettingsServiceRuntimePolicyTest {
 
     private JsonObject providerPolicy(RuntimeType defaultRuntime) {
         JsonArray supported = new JsonArray();
-        supported.add(RuntimeType.SDK.name());
         supported.add(RuntimeType.CLI.name());
 
         JsonObject policy = new JsonObject();

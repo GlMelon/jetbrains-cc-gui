@@ -20,32 +20,22 @@ public class SessionProviderRouterProviderRegistryTest {
         RecordingProviderAdapter codex = new RecordingProviderAdapter(ProviderId.CODEX);
         SessionProviderRouter router = new SessionProviderRouter(new ProviderRegistry(List.of(claude, codex)));
 
-        JsonObject launchResult = router.launchChannel("codex", "channel-1", "session-1", "/workspace");
-        router.interruptChannel("codex", "channel-1");
         router.cleanupProviderSession("codex", "session-1", "/workspace");
         List<JsonObject> messages = router.getSessionMessages("codex", "session-1", "/workspace");
 
-        assertSame(codex.launchResult, launchResult);
         assertSame(codex.messages, messages);
-        assertEquals(1, codex.launchCalls);
-        assertEquals(1, codex.interruptCalls);
         assertEquals(1, codex.cleanupCalls);
         assertEquals(1, codex.getMessagesCalls);
-        assertEquals(0, claude.launchCalls);
-        assertEquals("channel-1", codex.lastChannelId);
+        assertEquals(0, claude.cleanupCalls);
         assertEquals("session-1", codex.lastSessionId);
         assertEquals("/workspace", codex.lastCwd);
     }
 
     private static final class RecordingProviderAdapter implements ProviderAdapter {
         private final ProviderId providerId;
-        private final JsonObject launchResult = new JsonObject();
         private final List<JsonObject> messages = List.of(new JsonObject());
-        private int launchCalls;
-        private int interruptCalls;
         private int cleanupCalls;
         private int getMessagesCalls;
-        private String lastChannelId;
         private String lastSessionId;
         private String lastCwd;
 
@@ -61,21 +51,6 @@ public class SessionProviderRouterProviderRegistryTest {
         @Override
         public ProviderViewModel viewModel() {
             return new ProviderViewModel(providerId, providerId.value());
-        }
-
-        @Override
-        public JsonObject launchChannel(String channelId, String sessionId, String cwd) {
-            launchCalls++;
-            lastChannelId = channelId;
-            lastSessionId = sessionId;
-            lastCwd = cwd;
-            return launchResult;
-        }
-
-        @Override
-        public void interruptChannel(String channelId) {
-            interruptCalls++;
-            lastChannelId = channelId;
         }
 
         @Override

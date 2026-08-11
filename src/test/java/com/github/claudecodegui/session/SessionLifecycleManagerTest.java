@@ -1,9 +1,6 @@
 package com.github.claudecodegui.session;
 
 import com.github.claudecodegui.handler.core.HandlerContext;
-import com.github.claudecodegui.provider.claude.ClaudeSDKBridge;
-import com.github.claudecodegui.provider.codex.CodexSDKBridge;
-import com.github.claudecodegui.session.runtime.RuntimeType;
 import com.intellij.openapi.project.Project;
 import com.intellij.ui.jcef.JBCefBrowser;
 import org.junit.Test;
@@ -30,34 +27,16 @@ public class SessionLifecycleManagerTest {
         assertEquals(List.of("clearMessages"), host.javaScriptCalls);
     }
 
-    // B8: resetPersistentRuntime(Claude daemon) 只应对 Claude SDK 会话触发。
-    // 旧实现用 !isClaudeCliSession 过宽,对 codex/opencode 会话误调 Claude daemon reset(污染)。
-    @Test
-    public void claudeDaemonResetOnlyTriggersForClaudeSdkSessions() {
-        // Claude SDK → 重置 daemon
-        assertTrue(SessionLifecycleManager.shouldResetClaudeDaemonFor("claude", RuntimeType.SDK));
-
-        // Claude CLI → 不重置(CLI 无 daemon)
-        assertFalse(SessionLifecycleManager.shouldResetClaudeDaemonFor("claude", RuntimeType.CLI));
-
-        // Codex / OpenCode → 不重置(各自的 runtime,不应触碰 Claude daemon)
-        assertFalse(SessionLifecycleManager.shouldResetClaudeDaemonFor("codex", RuntimeType.SDK));
-        assertFalse(SessionLifecycleManager.shouldResetClaudeDaemonFor("codex", RuntimeType.CLI));
-        assertFalse(SessionLifecycleManager.shouldResetClaudeDaemonFor("opencode", RuntimeType.SDK));
-        assertFalse(SessionLifecycleManager.shouldResetClaudeDaemonFor("opencode", RuntimeType.CLI));
-        assertFalse(SessionLifecycleManager.shouldResetClaudeDaemonFor("opencode", null));
-    }
-
     // 修复①:标签页内新建会话应保留本标签页旧会话的 provider/model/permission 等运行时状态,
     // 而非回退全局粘性默认(粘性默认仅供"新标签页"读取上次选择)。
     @Test
     public void applyInheritedRuntimeStatePreservesOldSessionRuntime() {
-        ClaudeSession oldSession = new ClaudeSession(null, null, null, null);
+        ClaudeSession oldSession = new ClaudeSession(null);
         oldSession.setProvider("codex");
         oldSession.setModel("gpt-5.5");
         oldSession.setPermissionMode("acceptEdits");
 
-        ClaudeSession newSession = new ClaudeSession(null, null, null, null);
+        ClaudeSession newSession = new ClaudeSession(null);
 
         SessionLifecycleManager.applyInheritedRuntimeState(newSession, oldSession);
 
@@ -69,7 +48,7 @@ public class SessionLifecycleManagerTest {
     @Test
     public void applyInheritedRuntimeStateHandlesNullTarget() {
         // null target → 防御性 no-op(不 NPE)
-        ClaudeSession source = new ClaudeSession(null, null, null, null);
+        ClaudeSession source = new ClaudeSession(null);
         source.setProvider("codex");
         SessionLifecycleManager.applyInheritedRuntimeState(null, source);
     }
@@ -77,7 +56,7 @@ public class SessionLifecycleManagerTest {
     @Test
     public void applyInheritedRuntimeStateHandlesNullSource() {
         // 无旧会话(首次/新标签页)→ 安全 no-op,保持新会话默认
-        ClaudeSession newSession = new ClaudeSession(null, null, null, null);
+        ClaudeSession newSession = new ClaudeSession(null);
         newSession.setProvider("claude");
 
         SessionLifecycleManager.applyInheritedRuntimeState(newSession, null);
@@ -112,21 +91,6 @@ public class SessionLifecycleManagerTest {
 
         @Override
         public Project getProject() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public ClaudeSDKBridge getClaudeSDKBridge() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public CodexSDKBridge getCodexSDKBridge() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public com.github.claudecodegui.provider.opencode.OpenCodeSDKBridge getOpenCodeSDKBridge() {
             throw new UnsupportedOperationException();
         }
 

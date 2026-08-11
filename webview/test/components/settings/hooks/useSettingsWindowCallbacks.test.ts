@@ -40,7 +40,6 @@ describe('useSettingsWindowCallbacks', () => {
     setCodexConfigLoading: vi.fn(),
     setOpenCodeLoading: vi.fn(),
     setOpenCodeConfigLoading: vi.fn(),
-    setInvocationMode: vi.fn(),
     setCliPath: vi.fn(),
     updateProviders: vi.fn(),
     updateActiveProvider: vi.fn(),
@@ -61,8 +60,6 @@ describe('useSettingsWindowCallbacks', () => {
     cleanupAgentsTimeout: vi.fn(),
     showAlert: vi.fn(),
     addToast: vi.fn(),
-    setClaudeCliPath: vi.fn(),
-    setSavingClaudeCliPath: vi.fn(),
   });
 
   beforeEach(() => {
@@ -190,19 +187,5 @@ describe('useSettingsWindowCallbacks', () => {
       fontBase64: 'AAECA',
       fontFormat: 'truetype',
     }));
-  });
-
-  it('auto-requests Claude CLI path on mount', () => {
-    const deps = createDeps();
-    renderHook(() => useSettingsWindowCallbacks(deps));
-    expect(window.sendToJava).toHaveBeenCalledWith(bridgeCall('get_claude_cli_path'));
-  });
-
-  it('registers Claude CLI path callback and updates state from backend payload', () => {
-    const deps = createDeps();
-    renderHook(() => useSettingsWindowCallbacks(deps));
-    window.updateClaudeCliPath?.(JSON.stringify({ path: '/usr/local/bin/claude' }));
-    expect(deps.setClaudeCliPath).toHaveBeenCalledWith('/usr/local/bin/claude');
-    expect(deps.setSavingClaudeCliPath).toHaveBeenCalledWith(false);
   });
 });

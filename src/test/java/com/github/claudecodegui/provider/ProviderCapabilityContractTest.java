@@ -22,8 +22,8 @@ public class ProviderCapabilityContractTest {
     private static final Set<ProviderCapability> ALL_CAPABILITIES = EnumSet.allOf(ProviderCapability.class);
 
     @Test
-    public void enumDeclaresSevenCapabilities() {
-        assertEquals(7, ProviderCapability.values().length);
+    public void enumDeclaresSixCapabilities() {
+        assertEquals(6, ProviderCapability.values().length);
     }
 
     @Test
@@ -40,7 +40,7 @@ public class ProviderCapabilityContractTest {
     public void adapterSupportsDelegatesToCapabilities() {
         ProviderAdapter claude = new ClaudeProviderAdapter();
         assertTrue(claude.supports(ProviderCapability.MCP));
-        assertTrue(claude.supports(ProviderCapability.SDK_SESSION));
+        assertTrue(claude.supports(ProviderCapability.CLI_SESSION));
     }
 
     @Test
@@ -74,9 +74,9 @@ public class ProviderCapabilityContractTest {
     public void registryCapabilitiesReturnsDeclaredSetForRegisteredProvider() {
         ProviderRegistry registry = new ProviderRegistry(List.of(
                 new DeclaringFakeProviderAdapter(ProviderId.CLAUDE,
-                        ProviderCapability.SDK_SESSION, ProviderCapability.CLI_SESSION)));
+                        ProviderCapability.STREAMING, ProviderCapability.CLI_SESSION)));
         assertEquals(
-                EnumSet.of(ProviderCapability.SDK_SESSION, ProviderCapability.CLI_SESSION),
+                EnumSet.of(ProviderCapability.STREAMING, ProviderCapability.CLI_SESSION),
                 registry.capabilities(ProviderId.CLAUDE));
     }
 

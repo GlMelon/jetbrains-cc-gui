@@ -60,8 +60,6 @@ public class ProjectConfigHandlerCodeFontConfigTest {
     private HandlerContext contextWith(CodemossSettingsService settingsService) {
         return new HandlerContext(
                 null,
-                null,
-                null,
                 settingsService,
                 new HandlerContext.JsCallback() {
                     @Override

@@ -11,7 +11,7 @@ import static org.junit.Assert.assertNotNull;
 /**
  * UserPathResolver 进程生命周期永久缓存测试。
  * <p>resolveUserPath() 经 CliEnvironmentBuilder.copyPath / OpenCodeCliResolver.searchInPath /
- * OpenCodeDaemonCoordinator 每轮 send 多次调用。PATH 在进程内不变,永久缓存(范式 OpenCodeCliResolver)。
+ * OpenCode CLI per-process 每轮 send 多次调用。PATH 在进程内不变,永久缓存(范式 OpenCodeCliResolver)。
  * 只缓存成功(非 null),失败每轮重试。
  */
 public class UserPathResolverCacheTest {

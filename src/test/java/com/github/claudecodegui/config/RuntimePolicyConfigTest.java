@@ -17,19 +17,20 @@ import static org.junit.Assert.assertTrue;
  * <p>
  * 修复存量用户旧 config.json 在「OpenCode 加入路由策略」之前持久化、
  * 缺失 opencode provider 策略 → {@code of(OPENCODE)=null} →
- * {@code EffectiveRuntimeResolver.resolve} 抛 "Provider disabled/unknown: opencode" →
- * CLI 模式被强制回退 SDK(opencode+CLI 请求静默失败 "闪一下 Generating response 就没了")的
- * 向后兼容 bug(2026-06-28 复现)。
+ * {@code EffectiveRuntimeResolver.resolve} 抛 "Provider disabled/unknown: opencode"
+ * → opencode 请求静默失败的向后兼容 bug(2026-06-28 复现)。
+ * <p>
+ * SDK 调用模式已移除,所有 provider 仅 CLI;测试用 CLI 断言。
  */
 public class RuntimePolicyConfigTest {
 
-    /** 模拟存量用户旧 config.json:runtime 只含 claude/codex(用户自定义 default=CLI),缺 opencode。 */
+    /** 模拟存量用户旧 config.json:runtime 只含 claude/codex,缺 opencode。 */
     private static RuntimePolicyConfig legacyConfig() {
         var providers = new LinkedHashMap<ProviderType, ProviderRuntimePolicy>();
         providers.put(ProviderType.CLAUDE,
-                new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.CLI));
+                new ProviderRuntimePolicy(true, Set.of(RuntimeType.CLI), RuntimeType.CLI));
         providers.put(ProviderType.CODEX,
-                new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.CLI));
+                new ProviderRuntimePolicy(true, Set.of(RuntimeType.CLI), RuntimeType.CLI));
         return new RuntimePolicyConfig(providers);
     }
 
@@ -41,18 +42,18 @@ public class RuntimePolicyConfigTest {
         ProviderRuntimePolicy opencode = merged.of(ProviderType.OPENCODE);
         assertNotNull("opencode 策略应被 merge 补全(旧 config 缺失)", opencode);
         assertTrue("opencode 应 enabled", opencode.enabled());
-        assertEquals("opencode 应支持 SDK+CLI", Set.of(RuntimeType.SDK, RuntimeType.CLI), opencode.supported());
-        assertEquals("opencode 默认 SDK", RuntimeType.SDK, opencode.defaultRuntime());
+        assertEquals("opencode 应仅支持 CLI", Set.of(RuntimeType.CLI), opencode.supported());
+        assertEquals("opencode 默认 CLI", RuntimeType.CLI, opencode.defaultRuntime());
     }
 
     @Test
     public void mergeWithDefaults_保留用户对已知provider的自定义() {
-        // 用户 claude/codex 自定义 default=CLI,merge 不应用默认 SDK 覆盖
+        // 用户 claude/codex 条目应被保留(merge 优先用户配置),不被默认覆盖
         RuntimePolicyConfig merged = legacyConfig().mergeWithDefaults();
 
-        assertEquals("claude 保留用户自定义 default=CLI", RuntimeType.CLI,
+        assertEquals("claude 保留用户策略 default=CLI", RuntimeType.CLI,
                 merged.of(ProviderType.CLAUDE).defaultRuntime());
-        assertEquals("codex 保留用户自定义 default=CLI", RuntimeType.CLI,
+        assertEquals("codex 保留用户策略 default=CLI", RuntimeType.CLI,
                 merged.of(ProviderType.CODEX).defaultRuntime());
     }
 
@@ -61,9 +62,9 @@ public class RuntimePolicyConfigTest {
         // 用户显式禁用 codex(enabled=false),merge 不应把它当「缺失」而用默认重新启用
         var providers = new LinkedHashMap<ProviderType, ProviderRuntimePolicy>();
         providers.put(ProviderType.CLAUDE,
-                new ProviderRuntimePolicy(true, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK));
+                new ProviderRuntimePolicy(true, Set.of(RuntimeType.CLI), RuntimeType.CLI));
         providers.put(ProviderType.CODEX,
-                new ProviderRuntimePolicy(false, Set.of(RuntimeType.SDK, RuntimeType.CLI), RuntimeType.SDK));
+                new ProviderRuntimePolicy(false, Set.of(RuntimeType.CLI), RuntimeType.CLI));
         RuntimePolicyConfig merged = new RuntimePolicyConfig(providers).mergeWithDefaults();
 
         assertFalse("codex 用户显式禁用应被保留(不被默认重新启用)", merged.of(ProviderType.CODEX).enabled());

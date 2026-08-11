@@ -13,10 +13,9 @@ import static org.junit.Assert.assertEquals;
  * OpenCodeHistorySanitizer:回放/历史路径后处理 OpenCode 消息,剥除 IDE 拼接到 user 文本的
  * 上下文(## Project Modules、## Opened Files Context 等)。
  * <p>
- * 问题3 根因:OpenCodeSDKBridge.getSessionMessages 是回放路径(SessionProviderRouter→
- * OpenCodeProviderAdapter→bridge)与历史面板路径(OpenCodeHistoryProviderAdapter.loadMessages→
- * bridge)的共同 choke point,此前回放路径未清理 → 回放把 "This project contains multiple modules:"
- * 这类提示词当正文渲染。sanitize 抽为 provider.opencode 包内纯函数,供 bridge 与 adapter 复用。
+ * 问题3 根因:OpenCode 消息提取是回放路径与历史面板路径的共同 choke point,此前回放路径未清理
+ * → 回放把 "This project contains multiple modules:" 这类提示词当正文渲染。sanitize 抽为
+ * provider.opencode 包内纯函数,供回放与历史 adapter 复用。
  */
 public class OpenCodeHistorySanitizerTest {
 
