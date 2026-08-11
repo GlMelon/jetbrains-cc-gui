@@ -62,7 +62,7 @@ const CommunitySection = ({ addToast }: CommunitySectionProps) => {
         <p className={styles.sectionDesc}>{t('settings.versionHistoryDesc')}</p>
         <button
           className={styles.versionHistoryBtn}
-          onClick={openChangelogDialog}
+          onClick={() => openChangelogDialog()}
         >
           <HistoryIcon size={16} />
           {t('settings.versionHistory')}

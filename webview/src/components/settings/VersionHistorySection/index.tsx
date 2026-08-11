@@ -15,8 +15,8 @@ const VersionHistorySection = () => {
     openChangelogDialog();
   }, [openChangelogDialog]);
 
-  const handleCardClick = useCallback(() => {
-    openChangelogDialog();
+  const handleCardClick = useCallback((index: number) => {
+    openChangelogDialog(index);
   }, [openChangelogDialog]);
 
   const versions = useMemo(() => {
@@ -40,7 +40,7 @@ const VersionHistorySection = () => {
       </div>
 
       <div className={styles.timeline}>
-        {versions.map((version) => (
+        {versions.map((version, index) => (
           <HoverLift
             key={version.version}
             lift={3}
@@ -50,7 +50,7 @@ const VersionHistorySection = () => {
           >
             <div
               className={`${styles.versionCard} ${version.isLatest ? styles.latest : ''}`}
-              onClick={handleCardClick}
+              onClick={() => handleCardClick(index)}
             >
               <div className={styles.cardHeader}>
                 <GradientText

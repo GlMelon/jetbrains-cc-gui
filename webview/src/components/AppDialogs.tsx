@@ -61,7 +61,7 @@ export const AppDialogs = ({
     contextUsageDialogOpen, contextUsageIsLoading, contextUsageData, closeContextUsageDialog,
   } = useDialogs();
   const {
-    showChangelogDialog, closeChangelogDialog,
+    showChangelogDialog, closeChangelogDialog, changelogInitialPage,
   } = useUIState();
 
   // ── Dialog stacking guard ──────────────────────────────────────────
@@ -163,6 +163,7 @@ export const AppDialogs = ({
         isOpen={showChangelogNow}
         onClose={closeChangelogDialog}
         entries={CHANGELOG_DATA}
+        initialPage={changelogInitialPage}
       />
       {contextUsageDialogOpen ? (
         <ContextUsageDialog

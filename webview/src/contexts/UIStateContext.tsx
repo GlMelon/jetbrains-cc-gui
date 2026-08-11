@@ -24,7 +24,8 @@ interface UIStateContextValue {
   // Misc dialogs that don't belong to useDialogManagement
   showChangelogDialog: boolean;
   closeChangelogDialog: () => void;
-  openChangelogDialog: () => void;
+  openChangelogDialog: (initialPage?: number) => void;
+  changelogInitialPage: number;
 
   // Active editor context (file + selection)
   contextInfo: ContextInfo | null;
@@ -51,10 +52,8 @@ export function UIStateProvider({ children }: { children: ReactNode }) {
   const [currentView, setCurrentView] = useState<ViewMode>('chat');
   const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab | undefined>(undefined);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  const [showChangelogDialog, setShowChangelogDialog] = useState<boolean>(() => {
-    const lastSeen = localStorage.getItem(LAST_SEEN_VERSION_KEY);
-    return lastSeen !== APP_VERSION;
-  });
+  const [showChangelogDialog, setShowChangelogDialog] = useState<boolean>(false);
+  const [changelogInitialPage, setChangelogInitialPage] = useState<number>(0);
   const [contextInfo, setContextInfo] = useState<ContextInfo | null>(null);
   const [draftInput, setDraftInput] = useState<string>('');
   const [searchOpen, setSearchOpen] = useState<boolean>(false);
@@ -78,14 +77,17 @@ export function UIStateProvider({ children }: { children: ReactNode }) {
     forceWebviewRepaint('changelog-dialog-close');
   }, []);
 
-  const openChangelogDialog = useCallback(() => { setShowChangelogDialog(true); }, []);
+  const openChangelogDialog = useCallback((initialPage?: number) => {
+    setChangelogInitialPage(initialPage ?? 0);
+    setShowChangelogDialog(true);
+  }, []);
 
   const value = useMemo<UIStateContextValue>(
     () => ({
       currentView, setCurrentView,
       settingsInitialTab, setSettingsInitialTab,
       toasts, addToast, dismissToast, clearToasts,
-      showChangelogDialog, closeChangelogDialog, openChangelogDialog,
+      showChangelogDialog, closeChangelogDialog, openChangelogDialog, changelogInitialPage,
       contextInfo, setContextInfo,
       draftInput, setDraftInput,
       searchOpen, setSearchOpen,
@@ -93,7 +95,7 @@ export function UIStateProvider({ children }: { children: ReactNode }) {
     [
       currentView, settingsInitialTab,
       toasts, addToast, dismissToast, clearToasts,
-      showChangelogDialog, closeChangelogDialog, openChangelogDialog,
+      showChangelogDialog, closeChangelogDialog, openChangelogDialog, changelogInitialPage,
       contextInfo, draftInput,
       searchOpen,
     ],
