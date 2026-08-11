@@ -561,6 +561,10 @@
       "lastChecked": "Last Checked",
       "refreshCheck": "Refresh Check",
       "checking": "Checking...",
+      "checkingVersion": "Checking version...",
+      "docUrl": "Documentation",
+      "updateToVersion": "Update to v{{version}}",
+      "viewDocs": "View Documentation",
       "error": "Error detecting CLI status"
     },
     "dependencies": "CLI Tools",
@@ -2210,6 +2214,11 @@
     "title": "What's New",
     "close": "Got it",
     "page": "{{current}} / {{total}}",
+    "versionList": "Versions",
+    "searchPlaceholder": "Search versions...",
+    "noResults": "No matching versions found",
+    "jumpTo": "Go to",
+    "go": "Go",
     "statLabel": {
       "feature": "Features",
       "fix": "Fixes",
