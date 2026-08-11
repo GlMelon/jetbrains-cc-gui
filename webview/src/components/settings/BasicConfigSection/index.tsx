@@ -39,10 +39,6 @@ interface BasicConfigSectionProps {
   onNodePathChange: (path: string) => void;
   onSaveNodePath: () => void;
   savingNodePath: boolean;
-  claudeCliPath?: string;
-  onClaudeCliPathChange?: (path: string) => void;
-  onSaveClaudeCliPath?: () => void;
-  savingClaudeCliPath?: boolean;
   nodeVersion?: string | null;
   minNodeVersion?: number;
   workingDirectory?: string;
@@ -111,11 +107,6 @@ interface BasicConfigSectionProps {
   onAskUserQuestionNotificationEnabledChange?: (enabled: boolean) => void;
   detailedOutputEnabled?: boolean;
   onDetailedOutputEnabledChange?: (enabled: boolean) => void;
-  // Invocation mode configuration
-  invocationMode?: 'sdk' | 'cli';
-  onInvocationModeChange?: (mode: 'sdk' | 'cli') => void;
-  cliPath?: string;
-  onCliPathChange?: (path: string) => void;
   // Permission dialog timeout configuration
   permissionDialogTimeoutSeconds?: number;
   onPermissionDialogTimeoutChange?: (seconds: number) => void;
@@ -231,20 +222,12 @@ const BasicConfigSection = (props: BasicConfigSectionProps) => {
           onNodePathChange={props.onNodePathChange}
           onSaveNodePath={props.onSaveNodePath}
           savingNodePath={props.savingNodePath}
-          claudeCliPath={props.claudeCliPath}
-          onClaudeCliPathChange={props.onClaudeCliPathChange}
-          onSaveClaudeCliPath={props.onSaveClaudeCliPath}
-          savingClaudeCliPath={props.savingClaudeCliPath}
           nodeVersion={props.nodeVersion}
           minNodeVersion={props.minNodeVersion}
           workingDirectory={props.workingDirectory}
           onWorkingDirectoryChange={props.onWorkingDirectoryChange}
           onSaveWorkingDirectory={props.onSaveWorkingDirectory}
           savingWorkingDirectory={props.savingWorkingDirectory}
-          invocationMode={props.invocationMode}
-          onInvocationModeChange={props.onInvocationModeChange}
-          cliPath={props.cliPath}
-          onCliPathChange={props.onCliPathChange}
         />
       )}
     </div>

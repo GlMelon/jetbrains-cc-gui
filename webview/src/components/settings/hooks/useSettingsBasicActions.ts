@@ -51,10 +51,6 @@ export function useSettingsBasicActions({
   const [minNodeVersion, setMinNodeVersion] = useState(18);
   const [savingNodePath, setSavingNodePath] = useState(false);
 
-  // Claude CLI path
-  const [claudeCliPath, setClaudeCliPath] = useState('');
-  const [savingClaudeCliPath, setSavingClaudeCliPath] = useState(false);
-
   // Working directory configuration
   const [workingDirectory, setWorkingDirectory] = useState('');
   const [savingWorkingDirectory, setSavingWorkingDirectory] = useState(false);
@@ -165,12 +161,6 @@ export function useSettingsBasicActions({
     DEFAULT_PROMPT_ENHANCER_CONFIG,
   );
 
-  // Invocation mode configuration
-  // 默认值对齐后端 CodemossSettingsService.getClaudeInvocationMode() 的默认 'sdk',
-  // 避免 settings 回显下发前 UI 短暂显示 cli 与后端不一致。
-  const [invocationMode, setInvocationMode] = useState<'sdk' | 'cli'>('sdk');
-  const [cliPath, setCliPath] = useState<string>('');
-
   // Diff expanded by default handler
   useEffect(() => {
     try {
@@ -189,12 +179,6 @@ export function useSettingsBasicActions({
     const payload = { path: (nodePath || '').trim() };
     sendAction(UPSTREAM.SET_NODE_PATH, JSON.stringify(payload));
   }, [nodePath]);
-
-  const handleSaveClaudeCliPath = useCallback(() => {
-    setSavingClaudeCliPath(true);
-    const payload = { path: (claudeCliPath || '').trim() };
-    sendAction(UPSTREAM.SET_CLAUDE_CLI_PATH, JSON.stringify(payload));
-  }, [claudeCliPath]);
 
   const handleSaveWorkingDirectory = useCallback(() => {
     setSavingWorkingDirectory(true);
@@ -489,18 +473,6 @@ export function useSettingsBasicActions({
     [promptEnhancerConfig],
   );
 
-  const handleInvocationModeChange = useCallback((mode: 'sdk' | 'cli') => {
-    setInvocationMode(mode);
-    const payload = { invocationMode: mode };
-    sendAction(UPSTREAM.SET_INVOCATION_MODE, JSON.stringify(payload));
-  }, []);
-
-  const handleCliPathChange = useCallback((path: string) => {
-    setCliPath(path);
-    const payload = { cliPath: path };
-    sendAction(UPSTREAM.SET_CLI_PATH, JSON.stringify(payload));
-  }, []);
-
   // Commit AI prompt save handler
   const handleSaveCommitPrompt = useCallback(() => {
     setSavingCommitPrompt(true);
@@ -524,10 +496,6 @@ export function useSettingsBasicActions({
     setMinNodeVersion,
     savingNodePath,
     setSavingNodePath,
-    claudeCliPath,
-    setClaudeCliPath,
-    savingClaudeCliPath,
-    setSavingClaudeCliPath,
     workingDirectory,
     setWorkingDirectory,
     savingWorkingDirectory,
@@ -563,7 +531,6 @@ export function useSettingsBasicActions({
     skipNewSessionConfirm,
     setSkipNewSessionConfirm,
     handleSaveNodePath,
-    handleSaveClaudeCliPath,
     handleSaveWorkingDirectory,
     handleUiFontSelectionChange,
     handleSaveUiFontCustomPath,
@@ -612,11 +579,5 @@ export function useSettingsBasicActions({
     setPromptEnhancerConfig,
     handlePromptEnhancerProviderChange,
     handlePromptEnhancerModelChange,
-    invocationMode,
-    setInvocationMode,
-    cliPath,
-    setCliPath,
-    handleInvocationModeChange,
-    handleCliPathChange,
   };
 }

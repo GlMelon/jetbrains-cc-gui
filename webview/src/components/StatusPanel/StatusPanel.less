@@ -2,13 +2,14 @@
 .status-panel {
   position: relative;
   margin: 0 20px 8px 20px;
+  background: var(--bg-chat);
 }
 
 /* Tab Header - Always visible */
 .status-panel-tabs {
   display: flex;
   align-items: center;
-  background: var(--bg-titlebar);
+  background: var(--bg-chat-overlay-light);
   border: 1px solid var(--bg-chat-border);
   border-radius: 6px;
   padding: 5px 8px;
@@ -916,7 +917,6 @@
   text-align: center;
   color: var(--text-muted);
   font-size: 13px;
-  background: var(--bg-titlebar);
 }
 
 /* status-spin 统一定义见 animations.less（已由 app.less 全局 @import） */

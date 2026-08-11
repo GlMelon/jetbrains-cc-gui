@@ -12,10 +12,10 @@ import SettingsHeader from './SettingsHeader';
 import SettingsSidebar, { type SettingsTab } from './SettingsSidebar';
 import BasicConfigSection from './BasicConfigSection';
 import ProviderTabSection from './ProviderTabSection';
-import DependencySection from './DependencySection';
+import CliEnvironmentSection from './CliEnvironmentSection';
 import PlaceholderSection from './PlaceholderSection';
 import PermissionsSection from './PermissionsSection';
-import CommunitySection from './CommunitySection';
+import VersionHistorySection from './VersionHistorySection';
 import AgentSection from './AgentSection';
 import PromptSection from './PromptSection';
 import CommitSection from './CommitSection';
@@ -138,12 +138,6 @@ const SettingsView = ({
     setMinNodeVersion,
     savingNodePath,
     setSavingNodePath,
-    claudeCliPath,
-    setClaudeCliPath,
-    savingClaudeCliPath,
-    setSavingClaudeCliPath,
-    cliPath,
-    setCliPath,
     workingDirectory,
     setWorkingDirectory,
     savingWorkingDirectory,
@@ -176,7 +170,6 @@ const SettingsView = ({
     skipNewSessionConfirm,
     setSkipNewSessionConfirm,
     handleSaveNodePath,
-    handleSaveClaudeCliPath,
     handleSaveWorkingDirectory,
     handleUiFontSelectionChange,
     handleSaveUiFontCustomPath,
@@ -223,10 +216,6 @@ const SettingsView = ({
     handleCommitAiModelChange,
     handlePromptEnhancerProviderChange,
     handlePromptEnhancerModelChange,
-    invocationMode,
-    setInvocationMode,
-    handleInvocationModeChange,
-    handleCliPathChange,
   } = useSettingsBasicActions({
     streamingEnabledProp,
     onStreamingEnabledChangeProp,
@@ -354,9 +343,6 @@ const SettingsView = ({
     setNodeVersion,
     setMinNodeVersion,
     setSavingNodePath,
-    setCliPath,
-    setClaudeCliPath,
-    setSavingClaudeCliPath,
     setWorkingDirectory,
     setSavingWorkingDirectory,
     setCommitPrompt,
@@ -407,7 +393,6 @@ const SettingsView = ({
     setStatusBarWidgetEnabled,
     setTaskCompletionNotificationEnabled,
     setAskUserQuestionNotificationEnabled,
-    setInvocationMode,
   });
 
   // Save provider (wrapper function with validation logic)
@@ -534,14 +519,8 @@ const SettingsView = ({
               onNodePathChange={setNodePath}
               onSaveNodePath={handleSaveNodePath}
               savingNodePath={savingNodePath}
-              claudeCliPath={claudeCliPath}
-              onClaudeCliPathChange={setClaudeCliPath}
-              onSaveClaudeCliPath={handleSaveClaudeCliPath}
-              savingClaudeCliPath={savingClaudeCliPath}
               nodeVersion={nodeVersion}
               minNodeVersion={minNodeVersion}
-              cliPath={cliPath}
-              onCliPathChange={handleCliPathChange}
               workingDirectory={workingDirectory}
               onWorkingDirectoryChange={setWorkingDirectory}
               onSaveWorkingDirectory={handleSaveWorkingDirectory}
@@ -603,8 +582,6 @@ const SettingsView = ({
               }
               detailedOutputEnabled={detailedOutputEnabled}
               onDetailedOutputEnabledChange={handleDetailedOutputEnabledChange}
-              invocationMode={invocationMode}
-              onInvocationModeChange={handleInvocationModeChange}
               permissionDialogTimeoutSeconds={permissionDialogTimeoutSeconds}
               onPermissionDialogTimeoutChange={handlePermissionDialogTimeoutChange}
               currentProvider={currentProvider}
@@ -651,9 +628,9 @@ const SettingsView = ({
             <ModelRegistrySection addToast={addToast} />
           </div>
 
-          {/* SDK dependency management */}
+          {/* CLI environment check */}
           <div style={currentTab === 'dependencies' ? BLOCK_STYLE : NONE_STYLE}>
-            <DependencySection addToast={addToast} isActive={currentTab === 'dependencies'} />
+            <CliEnvironmentSection isActive={currentTab === 'dependencies'} />
           </div>
 
           {/* MCP servers */}
@@ -740,9 +717,9 @@ const SettingsView = ({
             />
           </div>
 
-          {/* Community */}
-          <div style={currentTab === 'community' ? BLOCK_STYLE : NONE_STYLE}>
-            <CommunitySection addToast={addToast} />
+          {/* Version History */}
+          <div style={currentTab === 'versionHistory' ? BLOCK_STYLE : NONE_STYLE}>
+            <VersionHistorySection />
           </div>
         </div>
       </div>

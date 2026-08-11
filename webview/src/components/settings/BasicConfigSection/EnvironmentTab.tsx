@@ -1,7 +1,6 @@
 import styles from './style.module.less';
 import { useTranslation } from 'react-i18next';
-import RuntimePolicySection from './RuntimePolicySection';
-import { CheckIcon, FolderIcon, InfoIcon, RocketIcon, ServerProcessIcon, TerminalIcon, AlertIcon } from '../../Icons';
+import { FolderIcon, InfoIcon, TerminalIcon, AlertIcon } from '../../Icons';
 import { UnifiedLoader } from '../../UnifiedLoader';
 
 const EnvironmentTab = ({
@@ -11,18 +10,10 @@ const EnvironmentTab = ({
   savingNodePath,
   nodeVersion,
   minNodeVersion = 18,
-  claudeCliPath = '',
-  onClaudeCliPathChange = () => {},
-  onSaveClaudeCliPath = () => {},
-  savingClaudeCliPath = false,
   workingDirectory = '',
   onWorkingDirectoryChange = () => {},
   onSaveWorkingDirectory = () => {},
   savingWorkingDirectory = false,
-  invocationMode = 'sdk',
-  onInvocationModeChange = () => {},
-  cliPath = '',
-  onCliPathChange = () => {},
 }: {
   nodePath: string;
   onNodePathChange: (path: string) => void;
@@ -30,18 +21,10 @@ const EnvironmentTab = ({
   savingNodePath: boolean;
   nodeVersion?: string | null;
   minNodeVersion?: number;
-  claudeCliPath?: string;
-  onClaudeCliPathChange?: (path: string) => void;
-  onSaveClaudeCliPath?: () => void;
-  savingClaudeCliPath?: boolean;
   workingDirectory?: string;
   onWorkingDirectoryChange?: (dir: string) => void;
   onSaveWorkingDirectory?: () => void;
   savingWorkingDirectory?: boolean;
-  invocationMode?: 'sdk' | 'cli';
-  onInvocationModeChange?: (mode: 'sdk' | 'cli') => void;
-  cliPath?: string;
-  onCliPathChange?: (path: string) => void;
 }) => {
   const { t } = useTranslation();
 
@@ -61,68 +44,6 @@ const EnvironmentTab = ({
 
   return (
     <div className={styles.tabContent}>
-      {/* Invocation mode configuration */}
-      <div className={styles.streamingSection}>
-        <div className={styles.fieldHeader}>
-          <ServerProcessIcon size={16} />
-          <span className={styles.fieldLabel}>{t('settings.basic.invocationMode.label')}</span>
-        </div>
-        <div className={styles.themeGrid}>
-          <div
-            className={`${styles.themeCard} ${invocationMode === 'sdk' ? styles.active : ''}`}
-            onClick={() => onInvocationModeChange('sdk')}
-          >
-            {invocationMode === 'sdk' && (
-              <div className={styles.checkBadge}>
-                <CheckIcon size={16} />
-              </div>
-            )}
-            <div className={styles.themeCardTitle}>{t('settings.basic.invocationMode.sdk')}</div>
-            <div className={styles.themeCardDesc}>{t('settings.basic.invocationMode.sdkDesc')}</div>
-          </div>
-          <div
-            className={`${styles.themeCard} ${invocationMode === 'cli' ? styles.active : ''}`}
-            onClick={() => onInvocationModeChange('cli')}
-          >
-            {invocationMode === 'cli' && (
-              <div className={styles.checkBadge}>
-                <CheckIcon size={16} />
-              </div>
-            )}
-            <div className={styles.themeCardTitle}>{t('settings.basic.invocationMode.cli')}</div>
-            <div className={styles.themeCardDesc}>{t('settings.basic.invocationMode.cliDesc')}</div>
-          </div>
-        </div>
-        <small className={styles.formHint}>
-          <InfoIcon size={16} />
-          <span>{t('settings.basic.invocationMode.policyHint')}</span>
-        </small>
-        <small className={styles.formHint}>
-          <AlertIcon size={16} />
-          <span>{t('settings.basic.invocationMode.scopeNotice')}</span>
-        </small>
-        {invocationMode === 'cli' && (
-          <div className={styles.nodePathInputWrapper} style={{ marginTop: 8 }}>
-            <input
-              type="text"
-              className={styles.nodePathInput}
-              placeholder={t('settings.basic.invocationMode.cliPathPlaceholder')}
-              value={cliPath}
-              onChange={(e) => onCliPathChange(e.target.value)}
-            />
-          </div>
-        )}
-        {invocationMode === 'cli' && (
-          <small className={styles.formHint}>
-            <InfoIcon size={16} />
-            <span>{t('settings.basic.invocationMode.hint')}</span>
-          </small>
-        )}
-      </div>
-
-      {/* Runtime routing policy (advanced, collapsible) — linked with the invocation mode above */}
-      <RuntimePolicySection invocationMode={invocationMode} />
-
       {/* Node.js path configuration */}
       <div className={styles.nodePathSection}>
         <div className={styles.fieldHeader}>
@@ -164,37 +85,6 @@ const EnvironmentTab = ({
           <span>
             {t('settings.basic.nodePath.hint')} <code>{t('settings.basic.nodePath.hintCommand')}</code> {t('settings.basic.nodePath.hintText')}
           </span>
-        </small>
-      </div>
-
-      {/* Custom Claude CLI path */}
-      <div className={styles.nodePathSection}>
-        <div className={styles.fieldHeader}>
-          <RocketIcon size={16} />
-          <span className={styles.fieldLabel}>{t('settings.basic.claudeCliPath.label')}</span>
-        </div>
-        <div className={styles.nodePathInputWrapper}>
-          <input
-            type="text"
-            className={styles.nodePathInput}
-            placeholder={t('settings.basic.claudeCliPath.placeholder')}
-            value={claudeCliPath}
-            onChange={(e) => onClaudeCliPathChange(e.target.value)}
-          />
-          <button
-            className={styles.saveBtn}
-            onClick={onSaveClaudeCliPath}
-            disabled={savingClaudeCliPath}
-          >
-            {savingClaudeCliPath && (
-              <UnifiedLoader type="spin" size={14} />
-            )}
-            {t('common.save')}
-          </button>
-        </div>
-        <small className={styles.formHint}>
-          <InfoIcon size={16} />
-          <span>{t('settings.basic.claudeCliPath.hint')}</span>
         </small>
       </div>
 

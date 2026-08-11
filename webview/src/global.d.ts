@@ -68,11 +68,6 @@ interface Window {
   showThinkingStatus?: (value: string | boolean) => void;
 
   /**
-   * Update configured default invocation mode.
-   */
-  updateInvocationMode?: (json: string) => void;
-
-  /**
    * Update session-scoped runtime state from the backend authority.
    */
   updateSessionRuntimeState?: (json: string) => void;

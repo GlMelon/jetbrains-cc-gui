@@ -252,7 +252,7 @@ export interface EnvVarEntry {
 /**
  * Maximum length for env var values. Long values risk exceeding the OS
  * ARG_MAX limit when the child process is spawned.
- * Must stay in sync with MAX_ENV_VAR_VALUE_LENGTH in CodexSDKBridge.java.
+ * Must stay in sync with MAX_ENV_VAR_VALUE_LENGTH in CodexMcpService.java.
  */
 export const ENV_VAR_VALUE_MAX_LENGTH = 16 * 1024;
 
@@ -270,7 +270,7 @@ export function isValidEnvVarKey(key: string): boolean {
  *
  * A5 SSOT:由后端 protocol.CodexProtectedEnvKey 枚举经生成链产出
  * (webview/src/generated/protocol.ts#CODEX_PROTECTED_ENV_KEY),消除此处手抄的第二
- * 真相源(与后端 CodexCliCommandUtils/CodexSDKBridge 三处同源)。
+ * 真相源(与后端 CodexProtectedEnvKey 枚举/CodexCliCommandUtils 同源)。
  */
 const CODEX_PROTECTED_ENV_KEYS: ReadonlySet<string> = new Set(
   Object.values(CODEX_PROTECTED_ENV_KEY),

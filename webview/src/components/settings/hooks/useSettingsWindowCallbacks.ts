@@ -26,8 +26,6 @@ export interface SettingsWindowCallbacksDeps {
   setNodeVersion: (version: string | null) => void;
   setMinNodeVersion?: (version: number) => void;
   setWorkingDirectory: (dir: string) => void;
-  setClaudeCliPath?: (path: string) => void;
-  setSavingClaudeCliPath?: (saving: boolean) => void;
   addToast: (message: string, type: 'success' | 'error') => void;
   setEditorFontConfig: (config: any) => void;
   setUiFontConfig: (config: any) => void;
@@ -50,8 +48,6 @@ export interface SettingsWindowCallbacksDeps {
   setStatusBarWidgetEnabled?: (enabled: boolean) => void;
   setTaskCompletionNotificationEnabled?: (enabled: boolean) => void;
   setAskUserQuestionNotificationEnabled?: (enabled: boolean) => void;
-  setInvocationMode: (mode: 'sdk' | 'cli') => void;
-  setCliPath: (path: string) => void;
   updateAgents: (agents: AgentConfig[]) => void;
   handleAgentOperationResult: (result: any) => void;
   handleAgentImportPreviewResult: (previewData: any) => void;
@@ -134,8 +130,6 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
     registerLegacyAlias('updateStatusBarWidgetEnabled', DOWNSTREAM.CONFIG_STATUS_BAR_WIDGET);
     registerLegacyAlias('updateTaskCompletionNotificationEnabled', DOWNSTREAM.CONFIG_TASK_COMPLETION_NOTIFICATION);
     registerLegacyAlias('updateAskUserQuestionNotificationEnabled', DOWNSTREAM.CONFIG_ASK_USER_QUESTION_NOTIFICATION);
-    registerLegacyAlias('updateInvocationMode', DOWNSTREAM.CONFIG_INVOCATION_MODE);
-    registerLegacyAlias('updateClaudeCliPath', DOWNSTREAM.CONFIG_CLAUDE_CLI_PATH);
     registerLegacyAlias('updateAgents', DOWNSTREAM.AGENT_LIST);
     registerLegacyAlias('agentOperationResult', DOWNSTREAM.AGENT_OPERATION_RESULT);
     registerLegacyAlias('agentImportPreviewResult', DOWNSTREAM.AGENT_IMPORT_PREVIEW);
@@ -189,16 +183,6 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
         console.error('[SettingsView] Failed to parse working directory:', error);
         d().setSavingWorkingDirectory(false);
       }
-    }));
-
-    unsubs.push(subscribeEvent(DOWNSTREAM.CONFIG_CLAUDE_CLI_PATH, (jsonStr) => {
-      try {
-        const data = JSON.parse(jsonStr as string);
-        d().setClaudeCliPath?.(data.path || '');
-      } catch (e) {
-        d().setClaudeCliPath?.((jsonStr as string) || '');
-      }
-      d().setSavingClaudeCliPath?.(false);
     }));
 
     unsubs.push(subscribeEvent(DOWNSTREAM.TOAST_SUCCESS, (message) => {
@@ -414,22 +398,6 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
       }
     }));
 
-    // Invocation mode callback
-    unsubs.push(subscribeEvent(DOWNSTREAM.CONFIG_INVOCATION_MODE, (jsonStr) => {
-      try {
-        const data = JSON.parse(jsonStr as string);
-        const mode = data.invocationMode;
-        if (mode === 'sdk' || mode === 'cli') {
-          d().setInvocationMode(mode);
-        }
-        if (data.cliPath !== undefined) {
-          d().setCliPath(data.cliPath);
-        }
-      } catch (error) {
-        console.error('[SettingsView] Failed to parse invocation mode:', error);
-      }
-    }));
-
     // Agent callbacks
     unsubs.push(subscribeEvent(DOWNSTREAM.AGENT_LIST, (jsonStr) => {
       try {
@@ -599,9 +567,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
     sendAction(UPSTREAM.GET_STATUS_BAR_WIDGET_ENABLED);
     sendAction(UPSTREAM.GET_TASK_COMPLETION_NOTIFICATION_ENABLED);
     sendAction(UPSTREAM.GET_ASK_USER_QUESTION_NOTIFICATION_ENABLED);
-    sendAction(UPSTREAM.GET_INVOCATION_MODE);
     sendAction(UPSTREAM.GET_PERMISSION_DIALOG_TIMEOUT);
-    sendAction(UPSTREAM.GET_CLAUDE_CLI_PATH);
 
     return () => {
       d().cleanupAgentsTimeout();

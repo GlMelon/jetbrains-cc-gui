@@ -1,9 +1,8 @@
 import {useMemo, useState} from 'react';
-import { motion } from 'motion/react';
 import styles from './style.module.less';
 import { useTranslation } from 'react-i18next';
 
-export type SettingsTab = 'basic' | 'providers' | 'models' | 'dependencies' | 'permissions' | 'promptEnhancer' | 'commit' | 'mcp' | 'agents' | 'prompts' | 'skills' | 'other' | 'community';
+export type SettingsTab = 'basic' | 'providers' | 'models' | 'dependencies' | 'permissions' | 'promptEnhancer' | 'commit' | 'mcp' | 'agents' | 'prompts' | 'skills' | 'other' | 'versionHistory';
 
 interface SidebarItem {
   key: SettingsTab;
@@ -23,7 +22,7 @@ const sidebarGroups: SidebarGroup[] = [
       { key: 'basic', icon: 'settings', labelKey: 'settings.basic.title' },
       { key: 'providers', icon: 'plug', labelKey: 'settings.providers' },
       { key: 'models', icon: 'list', labelKey: 'settings.models.title' },
-      { key: 'dependencies', icon: 'package', labelKey: 'settings.dependencies' },
+      { key: 'dependencies', icon: 'terminal', labelKey: 'settings.cli.title' },
     ],
   },
   {
@@ -47,7 +46,7 @@ const sidebarGroups: SidebarGroup[] = [
     labelKey: 'settings.sidebar.group.other',
     items: [
       { key: 'other', icon: 'moreHorizontal', labelKey: 'settings.other.title' },
-      { key: 'community', icon: 'messageCircle', labelKey: 'settings.community' },
+      { key: 'versionHistory', icon: 'clock', labelKey: 'settings.versionHistory' },
     ],
   },
 ];
@@ -96,6 +95,12 @@ const iconPaths: Record<string, string> = {
   // Message Circle
   messageCircle:
     '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z"/>',
+  // Clock
+  clock:
+    '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  // Terminal
+  terminal:
+    '<polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/>',
 };
 
 /**
@@ -233,22 +238,6 @@ const SettingsSidebar = ({
                     title={isCollapsed ? label : ''}
                     aria-disabled={isDisabled}
                   >
-                    {currentTab === item.key && (
-                      <motion.div
-                        layoutId="sidebar-active-indicator"
-                        className={styles.sidebarItemActiveBg}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.2, ease: 'easeOut' }}
-                        style={{
-                          position: 'absolute',
-                          inset: 0,
-                          borderRadius: 'inherit',
-                          pointerEvents: 'none',
-                        }}
-                      />
-                    )}
                     <SvgIcon name={item.icon} />
                     <span className={styles.sidebarItemText}>{label}</span>
                     {badge !== undefined && (
