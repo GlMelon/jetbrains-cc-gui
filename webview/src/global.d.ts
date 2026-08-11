@@ -425,11 +425,6 @@ interface Window {
   updateProjectCommitPrompt?: (json: string) => void;
 
   /**
-   * Update sound notification configuration
-   */
-  updateSoundNotificationConfig?: (json: string) => void;
-
-  /**
    * Update AI commit generation enabled state
    */
   updateCommitGenerationEnabled?: (json: string) => void;

@@ -410,28 +410,6 @@
         "enabled": "Enabled",
         "disabled": "Disabled",
         "hint": "When enabled, message footers show estimated turn cost when available and include cache hits inside the input token summary. Token usage remains visible either way."
-      },
-      "soundNotification": {
-        "label": "Task Completion Sound",
-        "enabled": "Enabled",
-        "disabled": "Disabled",
-        "hint": "When enabled, a notification sound will play when AI completes a task, so you'll know even when away from the screen.",
-        "onlyWhenUnfocused": "Play only when IDE is not focused",
-        "onlyWhenUnfocusedHint": "When enabled, the sound will only play when the IDE window is not in focus.",
-        "selectSound": "Notification Sound",
-        "soundDefault": "Default",
-        "soundChime": "Chime",
-        "soundBell": "Bell",
-        "soundDing": "Ding",
-        "soundSuccess": "Success",
-        "soundCustom": "Custom...",
-        "customSound": "Custom Sound File",
-        "customSoundPlaceholder": "Select or enter audio file path",
-        "customSoundHint": "Supports WAV, MP3, AIFF formats",
-        "testSound": "Test",
-        "browse": "Browse",
-        "useDefault": "Use Default",
-        "customSoundSaved": "Custom sound saved"
       }
     },
     "providers": "Provider Management",
