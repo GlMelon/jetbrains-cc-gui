@@ -6,7 +6,6 @@ const nodeProcessMocks = vi.hoisted(() => ({
   fetchNodeProcesses: vi.fn(),
   killAllOrphanProcesses: vi.fn(),
   killNodeProcess: vi.fn(),
-  restartNodeDaemon: vi.fn(),
   subscribeNodeProcessKillResult: vi.fn(() => vi.fn()),
   subscribeNodeProcesses: vi.fn(() => vi.fn()),
 }));

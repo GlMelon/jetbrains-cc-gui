@@ -4,7 +4,6 @@ import {
   installNodeProcessDispatchers,
   killAllOrphanProcesses,
   killNodeProcess,
-  restartNodeDaemon,
   subscribeNodeProcessKillResult,
   subscribeNodeProcesses,
   type NodeProcessSnapshot,
@@ -55,14 +54,6 @@ describe('nodeProcessCapabilities', () => {
     it('killAllOrphanProcesses sends kill_all_orphans event', () => {
       killAllOrphanProcesses();
       expect(sentMessages).toEqual([bridgeCall('kill_all_orphans')]);
-    });
-
-    it('restartNodeDaemon sends pid payload', () => {
-      restartNodeDaemon(987);
-      expect(sentMessages).toHaveLength(1);
-      const parsed = JSON.parse(sentMessages[0]);
-      expect(parsed.type).toBe('restart_node_daemon');
-      expect(JSON.parse(parsed.content)).toEqual({ pid: 987 });
     });
   });
 

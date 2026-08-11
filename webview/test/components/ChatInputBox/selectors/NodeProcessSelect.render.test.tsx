@@ -17,7 +17,6 @@ vi.mock('../../../../src/utils/nodeProcessCapabilities', () => ({
   fetchNodeProcesses: vi.fn(),
   killAllOrphanProcesses: vi.fn(),
   killNodeProcess: vi.fn(),
-  restartNodeDaemon: vi.fn(),
   subscribeNodeProcesses: vi.fn(() => () => undefined),
   subscribeNodeProcessKillResult: vi.fn(() => () => undefined),
 }));

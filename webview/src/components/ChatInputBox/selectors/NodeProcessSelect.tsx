@@ -8,7 +8,6 @@ import {
   fetchNodeProcesses,
   killAllOrphanProcesses,
   killNodeProcess,
-  restartNodeDaemon,
   subscribeNodeProcessKillResult,
   subscribeNodeProcesses,
   type NodeProcessInfo,
@@ -178,7 +177,6 @@ const DROPDOWN_BOTTOM_CLEARANCE_PX = 72;
 
 type PendingConfirm =
   | { kind: 'kill'; proc: NodeProcessInfo }
-  | { kind: 'restart'; proc: NodeProcessInfo }
   | { kind: 'killAll'; orphans: NodeProcessInfo[] };
 
 function getEmbeddedNodeProcessDropdownLayout({
@@ -360,8 +358,6 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
       }
       if (typeof result.killed === 'number' && result.killed > 0) {
         onToast?.(t('config.nodeProcesses.killAllSuccess', { count: result.killed }));
-      } else if (result.success && result.restart) {
-        onToast?.(t('config.nodeProcesses.restartSuccess'));
       } else if (result.success) {
         onToast?.(t('config.nodeProcesses.killSuccess'));
       }
@@ -426,11 +422,6 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
     setPendingConfirm({ kind: 'kill', proc });
   }, [markPending, pendingPids]);
 
-  const handleRestart = useCallback((proc: NodeProcessInfo) => {
-    if (pendingPids.has(proc.pid)) return;
-    setPendingConfirm({ kind: 'restart', proc });
-  }, [pendingPids]);
-
   const handleKillAllOrphans = useCallback(() => {
     if (orphanCount === 0) return;
     setPendingConfirm({ kind: 'killAll', orphans: grouped.orphan });
@@ -443,9 +434,6 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
     if (pendingConfirm.kind === 'kill') {
       markPending(pendingConfirm.proc.pid);
       killNodeProcess(pendingConfirm.proc.pid, pendingConfirm.proc.id);
-    } else if (pendingConfirm.kind === 'restart') {
-      markPending(pendingConfirm.proc.pid);
-      restartNodeDaemon(pendingConfirm.proc.pid);
     } else {
       pendingConfirm.orphans.forEach((p) => markPending(p.pid));
       killAllOrphanProcesses();
@@ -465,13 +453,6 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
         title: t('config.nodeProcesses.killConfirmTitle', { defaultValue: 'Terminate process?' }),
         message: t('config.nodeProcesses.killConfirm', { pid: pendingConfirm.proc.pid }),
         confirmText: t('config.nodeProcesses.kill'),
-      };
-    }
-    if (pendingConfirm.kind === 'restart') {
-      return {
-        title: t('config.nodeProcesses.restartConfirmTitle', { defaultValue: 'Restart daemon?' }),
-        message: t('config.nodeProcesses.restartConfirm'),
-        confirmText: t('config.nodeProcesses.restart'),
       };
     }
     return {
@@ -535,19 +516,6 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
           <span style={PROCESS_META_STYLE}>{metaText}</span>
         </div>
         <div style={PROCESS_ACTIONS_STYLE}>
-          {proc.kind === 'DAEMON' && (
-            <button
-              type="button"
-              className="node-process-icon-button"
-              style={ICON_BUTTON_STYLE}
-              disabled={isPending}
-              onClick={(e) => { e.stopPropagation(); handleRestart(proc); }}
-              title={t('config.nodeProcesses.restart')}
-              aria-label={t('config.nodeProcesses.restart')}
-            >
-              {isPending ? <UnifiedLoader type="spin" size={14} /> : codiconToIcon('codicon-debug-restart', 16)}
-            </button>
-          )}
           <button
             type="button"
             className="node-process-icon-button node-process-icon-button--danger"

@@ -27,12 +27,11 @@ public class NodeProcessActionHandlers {
     private static final Logger LOG = Logger.getInstance(NodeProcessActionHandlers.class);
 
     /**
-     * Delay between dispatching a kill/restart command and refreshing the snapshot.
+     * Delay between dispatching a kill command and refreshing the snapshot.
      * Gives the OS a moment to reap the terminated process so the next snapshot
      * reflects reality. Tuned via scheduled executor — no thread blocked.
      */
     private static final long KILL_REFRESH_DELAY_MS = 200L;
-    private static final long RESTART_REFRESH_DELAY_MS = 500L;
 
     private final HandlerContext context;
     private final Gson gson = GsonHolder.GSON;
@@ -130,47 +129,6 @@ public class NodeProcessActionHandlers {
             pushKillResult(gson.toJson(result));
 
             scheduleRefresh(KILL_REFRESH_DELAY_MS);
-        });
-    }
-
-    public void handleRestartDaemon(String rawContent) {
-        runAsync(() -> {
-            long pid = -1;
-            try {
-                JsonObject payload = gson.fromJson(rawContent, JsonObject.class);
-                if (payload != null && payload.has("pid") && !payload.get("pid").isJsonNull()) {
-                    pid = payload.get("pid").getAsLong();
-                }
-            } catch (Exception e) {
-                LOG.warn("[NodeProcessHandler] restart_node_daemon bad payload: " + e.getMessage());
-            }
-
-            boolean success = false;
-            String error = null;
-            if (pid > 0) {
-                try {
-                    // CLI 模式无常驻 daemon,"重启 daemon" 等价于终止该 per-process 子进程。
-                    NodeProcessRegistry registry = NodeProcessRegistry.getInstance(context.getProject());
-                    success = registry.killByPid(pid);
-                } catch (Exception e) {
-                    error = e.getMessage();
-                }
-            } else {
-                error = "Invalid or missing PID";
-            }
-
-            JsonObject result = new JsonObject();
-            result.addProperty("pid", pid);
-            result.addProperty("success", success);
-            result.addProperty("restart", true);
-            if (error != null) {
-                result.addProperty("error", error);
-            }
-            pushKillResult(gson.toJson(result));
-
-            // Restart needs slightly longer than kill — daemon shutdown drains
-            // in-flight requests before the OS reaps the process.
-            scheduleRefresh(RESTART_REFRESH_DELAY_MS);
         });
     }
 

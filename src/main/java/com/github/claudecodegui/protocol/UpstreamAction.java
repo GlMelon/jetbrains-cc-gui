@@ -241,7 +241,6 @@ public enum UpstreamAction implements ProtocolValue {
     GET_NODE_PROCESSES("get_node_processes"),
     KILL_NODE_PROCESS("kill_node_process"),
     KILL_ALL_ORPHANS("kill_all_orphans"),
-    RESTART_NODE_DAEMON("restart_node_daemon"),
 
     // ── History ──
     LOAD_HISTORY_DATA("load_history_data"),

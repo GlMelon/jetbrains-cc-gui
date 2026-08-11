@@ -805,8 +805,8 @@ interface Window {
   updateNodeProcesses?: (json: string) => void;
 
   /**
-   * Result of a kill_node_process / kill_all_orphans / restart_node_daemon call.
-   * Payload: { pid?, success?, killed?, restart?, error? }
+   * Result of a kill_node_process / kill_all_orphans call.
+   * Payload: { pid?, success?, killed?, error? }
    */
   nodeProcessKillResult?: (json: string) => void;
 

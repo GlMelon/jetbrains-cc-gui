@@ -35,12 +35,4 @@ public class NodeProcessActionHandlerTest {
         Assert.assertEquals("kill_all_orphans", h.action().value());
         Assert.assertEquals(String.class, h.payloadType());
     }
-
-    @Test
-    public void testRestartNodeDaemonActionContract() {
-        RestartNodeDaemonActionHandler h = new RestartNodeDaemonActionHandler(null);
-        Assert.assertEquals(UpstreamAction.RESTART_NODE_DAEMON, h.action());
-        Assert.assertEquals("restart_node_daemon", h.action().value());
-        Assert.assertEquals(String.class, h.payloadType());
-    }
 }

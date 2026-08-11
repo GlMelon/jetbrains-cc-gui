@@ -79,7 +79,6 @@ import com.github.claudecodegui.handler.nodeprocess.NodeProcessActionHandlers;
 import com.github.claudecodegui.handler.nodeprocess.GetNodeProcessesActionHandler;
 import com.github.claudecodegui.handler.nodeprocess.KillNodeProcessActionHandler;
 import com.github.claudecodegui.handler.nodeprocess.KillAllOrphansActionHandler;
-import com.github.claudecodegui.handler.nodeprocess.RestartNodeDaemonActionHandler;
 import com.github.claudecodegui.handler.permission.PermissionActionHandlers;
 import com.github.claudecodegui.handler.permission.PermissionDecisionActionHandler;
 import com.github.claudecodegui.handler.permission.AskUserQuestionResponseActionHandler;
@@ -729,12 +728,11 @@ nodeService.setSessionId(sessionId);
         // CLI environment action handlers (检测CLI工具安装状态)
         typedHandlers.add(new CheckCliEnvironmentActionHandler());
 
-        // Node process action handlers (B2 迁移: get/kill/kill-all-orphan/restart-daemon)
+        // Node process action handlers (B2 迁移: get/kill/kill-all-orphan)
         NodeProcessActionHandlers nodeProcessHandlers = new NodeProcessActionHandlers(handlerContext);
         typedHandlers.add(new GetNodeProcessesActionHandler(nodeProcessHandlers));
         typedHandlers.add(new KillNodeProcessActionHandler(nodeProcessHandlers));
         typedHandlers.add(new KillAllOrphansActionHandler(nodeProcessHandlers));
-        typedHandlers.add(new RestartNodeDaemonActionHandler(nodeProcessHandlers));
 
         // File action handlers (B2 迁移: list/open-file/open-browser/open-class/linkify/resolve-path)
         FileActionHandlers fileHandlers = new FileActionHandlers(handlerContext);

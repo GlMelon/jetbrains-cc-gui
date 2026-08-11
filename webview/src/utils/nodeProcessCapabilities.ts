@@ -51,7 +51,6 @@ export interface NodeProcessKillResult {
   success?: boolean;
   error?: string;
   killed?: number;
-  restart?: boolean;
 }
 
 type SnapshotListener = (snapshot: NodeProcessSnapshot) => void;
@@ -112,9 +111,4 @@ export function killNodeProcess(pid: number, id?: string): void {
 /** Ask the backend to kill every detected orphan process. */
 export function killAllOrphanProcesses(): void {
   sendAction(UPSTREAM.KILL_ALL_ORPHANS);
-}
-
-/** Ask the backend to restart the daemon owning the given PID (falls back to plain kill on miss). */
-export function restartNodeDaemon(pid: number): void {
-  sendAction(UPSTREAM.RESTART_NODE_DAEMON, JSON.stringify({ pid }));
 }
