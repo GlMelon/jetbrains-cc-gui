@@ -226,6 +226,8 @@ const AppearanceTab = ({
   onChatBgColorChange = () => {},
   userMsgColor = '',
   onUserMsgColorChange = () => {},
+  chatBarColor = '',
+  onChatBarColorChange = () => {},
   diffTheme = 'follow',
   onDiffThemeChange = () => {},
   currentProvider,
@@ -258,6 +260,8 @@ const AppearanceTab = ({
   onChatBgColorChange?: (color: string) => void;
   userMsgColor?: string;
   onUserMsgColorChange?: (color: string) => void;
+  chatBarColor?: string;
+  onChatBarColorChange?: (color: string) => void;
   diffTheme?: DiffThemeMode;
   onDiffThemeChange?: (theme: DiffThemeMode) => void;
   currentProvider?: string;
@@ -273,7 +277,7 @@ const AppearanceTab = ({
   const chatBgColorInputRef = useRef<HTMLInputElement>(null);
   const [hexInput, setHexInput] = useState(chatBgColor || '');
   const [userMsgHexInput, setUserMsgHexInput] = useState(userMsgColor || '');
-  const [chatBarHexInput, setChatBarHexInput] = useState(chatBgColor || '');
+  const [chatBarHexInput, setChatBarHexInput] = useState(chatBarColor || '');
   const [selectedUiFontOption, setSelectedUiFontOption] = useState(() => {
     if (!uiFontConfig || uiFontConfig.mode === 'followEditor') return 'followEditor';
     return 'customFile';
@@ -303,8 +307,8 @@ const AppearanceTab = ({
   }, [userMsgColor]);
 
   useEffect(() => {
-    setChatBarHexInput(chatBgColor || '');
-  }, [chatBgColor]);
+    setChatBarHexInput(chatBarColor || '');
+  }, [chatBarColor]);
 
   useEffect(() => {
     if (!uiFontConfig || uiFontConfig.mode === 'followEditor') {
@@ -396,23 +400,23 @@ const AppearanceTab = ({
   };
 
   const handleChatBarPresetClick = (color: string) => {
-    onChatBgColorChange(color === defaultChatBarColor ? '' : color);
+    onChatBarColorChange(color === defaultChatBarColor ? '' : color);
   };
 
   const handleChatBarColorInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onChatBgColorChange(e.target.value);
+    onChatBarColorChange(e.target.value);
   };
 
   const handleChatBarHexInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setChatBarHexInput(value);
     if (/^#[0-9a-fA-F]{6}$/.test(value)) {
-      onChatBgColorChange(value);
+      onChatBarColorChange(value);
     }
   };
 
   const handleResetChatBarColor = () => {
-    onChatBgColorChange('');
+    onChatBarColorChange('');
   };
 
   const isUserMsgPresetActive = (presetColor: string) => {
@@ -426,8 +430,8 @@ const AppearanceTab = ({
   };
 
   const isChatBarPresetActive = (presetColor: string) => {
-    if (presetColor === defaultChatBarColor && !chatBgColor) return true;
-    return chatBgColor.toLowerCase() === presetColor.toLowerCase();
+    if (presetColor === defaultChatBarColor && !chatBarColor) return true;
+    return chatBarColor.toLowerCase() === presetColor.toLowerCase();
   };
 
   const hasSavedCustomFont = Boolean(uiFontConfig?.customFontPath);
@@ -1294,7 +1298,7 @@ const AppearanceTab = ({
       <div className={styles.bgColorSection}>
         <div className={styles.fieldHeader}>
           <span className="codicon codicon-layout" />
-          <span className={styles.fieldLabel}>{t('settings.basic.chatBgColor.label')}</span>
+          <span className={styles.fieldLabel}>{t('settings.basic.chatBarColor.label')}</span>
         </div>
 
         <div className={styles.colorPresets}>
@@ -1323,20 +1327,20 @@ const AppearanceTab = ({
         </div>
 
         <div className={styles.customColorRow}>
-          <span className={styles.customColorLabel}>{t('settings.basic.chatBgColor.custom')}</span>
+          <span className={styles.customColorLabel}>{t('settings.basic.chatBarColor.custom')}</span>
           <div
             className={styles.colorPickerWrapper}
             onClick={() => chatBgColorInputRef.current?.click()}
           >
             <div
               className={styles.colorPickerPreview}
-              style={getSwatchStyle(chatBgColor || defaultChatBarColor)}
+              style={getSwatchStyle(chatBarColor || defaultChatBarColor)}
             />
             <input
               ref={chatBgColorInputRef}
               type="color"
               className={styles.colorPickerInput}
-              value={chatBgColor || defaultChatBarColor}
+              value={chatBarColor || defaultChatBarColor}
               onChange={handleChatBarColorInputChange}
             />
           </div>
@@ -1348,21 +1352,21 @@ const AppearanceTab = ({
             placeholder="#000000"
             maxLength={7}
           />
-          {chatBgColor && (
+          {chatBarColor && (
             <button
               className={styles.resetBtn}
               onClick={handleResetChatBarColor}
-              title={t('settings.basic.chatBgColor.reset')}
+              title={t('settings.basic.chatBarColor.reset')}
             >
               <span className="codicon codicon-discard" />
-              {t('settings.basic.chatBgColor.reset')}
+              {t('settings.basic.chatBarColor.reset')}
             </button>
           )}
         </div>
 
         <small className={styles.formHint}>
           <span className="codicon codicon-info" />
-          <span>{t('settings.basic.chatBgColor.hint')}</span>
+          <span>{t('settings.basic.chatBarColor.hint')}</span>
         </small>
       </div>
 
