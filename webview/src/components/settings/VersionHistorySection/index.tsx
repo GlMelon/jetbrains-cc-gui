@@ -61,7 +61,7 @@ const VersionHistorySection = () => {
                   v{version.version}
                 </GradientText>
                 {version.isLatest && (
-                  <span className={styles.latestBadge}>{t('versionHistory.latest')}</span>
+                  <span className={styles.latestBadge}>{t('settings.versionHistoryLatest')}</span>
                 )}
                 <span className={styles.date}>{version.date}</span>
               </div>
@@ -99,7 +99,7 @@ const VersionHistorySection = () => {
               <ClickSpark>
                 <button className={styles.viewButton}>
                   <HistoryIcon size={14} />
-                  {t('versionHistory.viewDetails')}
+                  {t('settings.versionHistoryViewDetails')}
                   <ChevronRightIcon size={14} />
                 </button>
               </ClickSpark>
@@ -111,7 +111,7 @@ const VersionHistorySection = () => {
       {CHANGELOG_DATA.length > 5 && (
         <ClickSpark>
           <button className={styles.viewAllBtn} onClick={handleViewAll}>
-            {t('versionHistory.viewAll')}
+            {t('settings.versionHistoryViewAll')}
             <ChevronRightIcon size={16} />
           </button>
         </ClickSpark>
