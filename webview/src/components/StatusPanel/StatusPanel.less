@@ -1,7 +1,7 @@
 /* StatusPanel Styles */
 .status-panel {
   position: relative;
-  margin: 0 20px 8px 20px;
+  margin: 0;
   background: var(--bg-chat);
 }
 
@@ -9,9 +9,10 @@
 .status-panel-tabs {
   display: flex;
   align-items: center;
-  background: var(--bg-chat-overlay-light);
+  background: var(--bg-chat);
   border: 1px solid var(--bg-chat-border);
   border-radius: 6px;
+  margin: 0 20px 8px 20px;
   padding: 5px 8px;
   gap: 0;
   overflow-x: auto;
@@ -58,7 +59,7 @@
   gap: 4px;
   padding: 4px 8px;
   font-weight: 500;
-  color: var(--text-muted);
+  color: var(--color-chat-bars-muted-text, var(--text-muted));
   cursor: pointer;
   user-select: none;
   border-radius: 4px;
@@ -77,13 +78,13 @@
   }
 
   &:hover {
-    color: var(--text-primary);
-    background: var(--bg-hover);
+    color: var(--color-chat-bars-text, var(--text-primary));
+    background: var(--color-chat-bars-hover-bg, var(--bg-hover));
   }
 
   &.active {
-    color: var(--text-primary);
-    background: transparent;
+    color: var(--color-chat-bars-text, var(--text-primary));
+    background: var(--color-chat-bars-active-bg, transparent);
     font-weight: 600;
   }
 
@@ -145,8 +146,8 @@
 .status-panel-popover {
   position: absolute;
   bottom: 100%;
-  left: 0;
-  right: 0;
+  left: 20px;
+  right: 20px;
   margin-bottom: 4px;
   background: var(--bg-secondary);
   border: 1px solid var(--border-primary);
