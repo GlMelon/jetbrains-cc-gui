@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Version History Menu Preview</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #1e1e1e;
+      color: #cccccc;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .settings-container {
+      display: flex;
+      height: 100vh;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 240px;
+      background: #252526;
+      border-right: 1px solid #3c3c3c;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .sidebar-search {
+      padding: 12px;
+      border-bottom: 1px solid #3c3c3c;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 6px 10px;
+      background: #3c3c3c;
+      border: 1px solid #555;
+      border-radius: 4px;
+      color: #ccc;
+      font-size: 13px;
+    }
+
+    .search-input::placeholder {
+      color: #888;
+    }
+
+    .sidebar-section {
+      padding: 8px 0;
+    }
+
+    .sidebar-section-label {
+      padding: 4px 16px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #888;
+      text-transform: uppercase;
+    }
+
+    .sidebar-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 16px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .sidebar-item:hover {
+      background: #2a2d2e;
+    }
+
+    .sidebar-item.active {
+      background: #37373d;
+      color: #fff;
+    }
+
+    .sidebar-icon {
+      width: 16px;
+      height: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .sidebar-icon svg {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .sidebar-item-text {
+      font-size: 13px;
+    }
+
+    /* Content */
+    .content {
+      flex: 1;
+      padding: 24px 32px;
+      overflow-y: auto;
+      background: #1e1e1e;
+    }
+
+    .content-header {
+      margin-bottom: 24px;
+    }
+
+    .content-title {
+      font-size: 24px;
+      font-weight: 600;
+      color: #e0e0e0;
+      margin-bottom: 8px;
+    }
+
+    .content-desc {
+      font-size: 13px;
+      color: #888;
+    }
+
+    /* Version Timeline */
+    .version-timeline {
+      position: relative;
+      padding-left: 24px;
+    }
+
+    .version-timeline::before {
+      content: '';
+      position: absolute;
+      left: 7px;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: #3c3c3c;
+    }
+
+    .version-item {
+      position: relative;
+      margin-bottom: 32px;
+      padding: 16px 20px;
+      background: #2d2d2d;
+      border-radius: 8px;
+      border: 1px solid #3c3c3c;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .version-item:hover {
+      border-color: #007acc;
+      box-shadow: 0 2px 8px rgba(0, 122, 204, 0.2);
+    }
+
+    .version-item::before {
+      content: '';
+      position: absolute;
+      left: -21px;
+      top: 20px;
+      width: 12px;
+      height: 12px;
+      background: #007acc;
+      border-radius: 50%;
+      border: 2px solid #1e1e1e;
+    }
+
+    .version-item.latest::before {
+      background: #4ec9b0;
+      box-shadow: 0 0 8px rgba(78, 201, 176, 0.5);
+    }
+
+    .version-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .version-number {
+      font-size: 18px;
+      font-weight: 600;
+      color: #e0e0e0;
+    }
+
+    .version-badge {
+      padding: 2px 8px;
+      background: #007acc;
+      color: #fff;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .version-badge.latest {
+      background: #4ec9b0;
+    }
+
+    .version-date {
+      font-size: 12px;
+      color: #888;
+      margin-left: auto;
+    }
+
+    .version-stats {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+
+    .stat-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #888;
+    }
+
+    .stat-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .stat-dot.features {
+      background: #4ec9b0;
+    }
+
+    .stat-dot.improvements {
+      background: #007acc;
+    }
+
+    .stat-dot.fixes {
+      background: #d7ba7d;
+    }
+
+    .version-content {
+      font-size: 13px;
+      line-height: 1.6;
+      color: #ccc;
+    }
+
+    .version-content h4 {
+      font-size: 13px;
+      font-weight: 600;
+      color: #e0e0e0;
+      margin: 12px 0 8px 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .version-content h4::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 12px;
+      border-radius: 2px;
+    }
+
+    .version-content h4.features::before {
+      background: #4ec9b0;
+    }
+
+    .version-content h4.improvements::before {
+      background: #007acc;
+    }
+
+    .version-content h4.fixes::before {
+      background: #d7ba7d;
+    }
+
+    .version-content ul {
+      margin: 0;
+      padding-left: 16px;
+    }
+
+    .version-content li {
+      margin-bottom: 6px;
+    }
+
+    .version-content code {
+      background: #3c3c3c;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 12px;
+    }
+
+    .view-all-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 16px;
+      padding: 8px 16px;
+      background: #0e639c;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .view-all-btn:hover {
+      background: #1177bb;
+    }
+
+    /* Preview Label */
+    .preview-label {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      padding: 6px 12px;
+      background: #d7ba7d;
+      color: #1e1e1e;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      z-index: 100;
+    }
+  </style>
+</head>
+<body>
+  <div class="preview-label">PREVIEW</div>
+  
+  <div class="settings-container">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-search">
+        <input type="text" class="search-input" placeholder="Search...">
+      </div>
+      
+      <!-- Core -->
+      <div class="sidebar-section">
+        <div class="sidebar-section-label">Core</div>
+        <div class="sidebar-item">
+          <span class="sidebar-icon">
+            <svg viewBox="0 0 24 24"><line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="2" x2="6" y1="14" y2="14"/><line x1="10" x2="14" y1="8" y2="8"/><line x1="18" x2="22" y1="16" y2="16"/></svg>
+          </span>
+          <span class="sidebar-item-text">Basic</span>
+        </div>
+        <div class="sidebar-item">
+          <span class="sidebar-icon">
+            <svg viewBox="0 0 24 24"><path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a6 6 0 0 1-12 0V8z"/></svg>
+          </span>
+          <span class="sidebar-item-text">Providers</span>
+        </div>
+        <div class="sidebar-item">
+          <span class="sidebar-icon">
+            <svg viewBox="0 0 24 24"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>
+          </span>
+          <span class="sidebar-item-text">Models</span>
+        </div>
+        <div class="sidebar-item">
+          <span class="sidebar-icon">
+            <svg viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
+          </span>
+          <span class="sidebar-item-text">CLI</span>
+        </div>
+      </div>
+      
+      <!-- Tools -->
+      <div class="sidebar-section">
+        <div class="sidebar-section-label">Tools</div>
+        <div class="sidebar-item">
+          <span class="sidebar-icon">
+            <svg viewBox="0 0 24 24"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg>
+          </span>
+          <span class="sidebar-item-text">MCP</span>
+        </div>
+        <div class="sidebar-item">
+          <span class="sidebar-icon">
+            <svg viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+          </span>
+          <span class="sidebar-item-text">Permissions</span>
+        </div>
+        <div class="sidebar-item">
+          <span class="sidebar-icon">
+            <svg viewBox="0 0 24 24"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5L12 2z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15z"/></svg>
+          </span>
+          <span class="sidebar-item-text">Prompt Enhancer</span>
+        </div>
+        <div class="sidebar-item">
+          <span class="sidebar-icon">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M3 12h6"/><path d="M15 12h6"/></svg>
+          </span>
+          <span class="sidebar-item-text">Commit</span>
+        </div>
+      </div>
+      
+      <!-- Resources -->
+      <div class="sidebar-section">
+        <div class="sidebar-section-label">Resources</div>
+        <div class="sidebar-item">
+          <span class="sidebar-icon">
+            <svg viewBox="0 0 24 24"><rect x="5" y="7" width="14" height="11" rx="3"/><path d="M12 3v4"/><path d="M8 12h.01"/><path d="M16 12h.01"/><path d="M9 15h6"/><path d="M2.5 11.5H5"/><path d="M19 11.5h2.5"/></svg>
+          </span>
+          <span class="sidebar-item-text">Agents</span>
+        </div>
+        <div class="sidebar-item">
+          <span class="sidebar-icon">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
+          </span>
+          <span class="sidebar-item-text">Prompts</span>
+        </div>
+        <div class="sidebar-item">
+          <span class="sidebar-icon">
+            <svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+          </span>
+          <span class="sidebar-item-text">Skills</span>
+        </div>
+      </div>
+      
+      <!-- Other (Community replaced with Version History) -->
+      <div class="sidebar-section">
+        <div class="sidebar-section-label">Other</div>
+        <div class="sidebar-item">
+          <span class="sidebar-icon">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+          </span>
+          <span class="sidebar-item-text">Other</span>
+        </div>
+        <div class="sidebar-item active">
+          <span class="sidebar-icon">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </span>
+          <span class="sidebar-item-text">Version History</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Content -->
+    <div class="content">
+      <div class="content-header">
+        <h1 class="content-title">Version History</h1>
+        <p class="content-desc">View all version update records and changelogs</p>
+      </div>
+      
+      <div class="version-timeline">
+        <!-- Version 0.4.9 -->
+        <div class="version-item latest">
+          <div class="version-header">
+            <span class="version-number">v0.4.9</span>
+            <span class="version-badge latest">Latest</span>
+            <span class="version-date">2026-07-29</span>
+          </div>
+          <div class="version-stats">
+            <span class="stat-item">
+              <span class="stat-dot features"></span>
+              6 Features
+            </span>
+            <span class="stat-item">
+              <span class="stat-dot improvements"></span>
+              2 Improvements
+            </span>
+            <span class="stat-item">
+              <span class="stat-dot fixes"></span>
+              12 Fixes
+            </span>
+          </div>
+          <div class="version-content">
+            <h4 class="features">✨ Features</h4>
+            <ul>
+              <li>Add a <strong>built-in TokenTracker usage dashboard</strong>, replacing the in-house usage statistics</li>
+              <li>Add <strong>isolated MCP provider tabs</strong>: the MCP settings panel now has separate Claude and Codex tabs</li>
+              <li>Add <strong>importing Codex providers from cc-switch</strong> and provider help dialogs</li>
+              <li>Add <strong>OpenAI official direct connection</strong> and expanded provider presets</li>
+            </ul>
+            
+            <h4 class="improvements">🔧 Improvements</h4>
+            <ul>
+              <li>Improve <strong>provider brand icons by base URL</strong></li>
+              <li>Make the <strong>pricing section in the custom-model dialog collapsible</strong></li>
+            </ul>
+            
+            <h4 class="fixes">🐛 Fixes</h4>
+            <ul>
+              <li>Fix <strong>streaming UI stability</strong></li>
+              <li>Fix <strong>context-usage display overflow</strong></li>
+              <li>Fix <strong>Webview watchdog startup recovery</strong></li>
+            </ul>
+            
+            <button class="view-all-btn">
+              View Full Changelog
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </button>
+          </div>
+        </div>
+        
+        <!-- Version 0.4.8 -->
+        <div class="version-item">
+          <div class="version-header">
+            <span class="version-number">v0.4.8</span>
+            <span class="version-date">2026-07-15</span>
+          </div>
+          <div class="version-stats">
+            <span class="stat-item">
+              <span class="stat-dot features"></span>
+              4 Features
+            </span>
+            <span class="stat-item">
+              <span class="stat-dot improvements"></span>
+              3 Improvements
+            </span>
+            <span class="stat-item">
+              <span class="stat-dot fixes"></span>
+              8 Fixes
+            </span>
+          </div>
+          <div class="version-content">
+            <h4 class="features">✨ Features</h4>
+            <ul>
+              <li>Add <strong>multi-window session management</strong></li>
+              <li>Add <strong>custom theme support</strong></li>
+            </ul>
+            
+            <button class="view-all-btn">
+              View Full Changelog
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </button>
+          </div>
+        </div>
+        
+        <!-- Version 0.4.7 -->
+        <div class="version-item">
+          <div class="version-header">
+            <span class="version-number">v0.4.7</span>
+            <span class="version-date">2026-06-28</span>
+          </div>
+          <div class="version-stats">
+            <span class="stat-item">
+              <span class="stat-dot features"></span>
+              5 Features
+            </span>
+            <span class="stat-item">
+              <span class="stat-dot fixes"></span>
+              6 Fixes
+            </span>
+          </div>
+          <div class="version-content">
+            <h4 class="features">✨ Features</h4>
+            <ul>
+              <li>Add <strong>background task execution</strong></li>
+              <li>Add <strong>session export/import</strong></li>
+            </ul>
+            
+            <button class="view-all-btn">
+              View Full Changelog
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

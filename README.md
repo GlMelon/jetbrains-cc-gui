@@ -14,7 +14,7 @@
 
 </div>
 
-> Originally Claude Code GUI, now renamed to AI Code GUI to support multiple AI coding tools. Regarding security, a        
+> Ori[skills-lock.json](skills-lock.json)ginally Claude Code GUI, now renamed to AI Code GUI to support multiple AI coding tools. Regarding security, a        
   /security-review audit will be conducted before each minor version release, and a comprehensive claude-code-security audit will be performed every 10 minor versions. 
 
 A powerful IntelliJ IDEA plugin that provides a visual interface for **Claude Code**, **OpenAI Codex**, and **OpenCode** triple AI tools, making AI-assisted programming more efficient and intuitive.

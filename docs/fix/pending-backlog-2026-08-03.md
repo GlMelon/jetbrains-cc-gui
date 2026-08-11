@@ -2,7 +2,7 @@
 
 - **生成日期**:2026-08-03
 - **分支**:feature/v0.4.9
-- **来源**:2026-08-03 后端架构清理会话(T1–T14)+ 2026-07-31 全面排查审计(`docs/audit-2026-07-31-findings.md`)
+- **来源**:2026-08-03 后端架构清理会话(T1–T14)+ 2026-07-31 全面排查审计(`audit-2026-07-31-findings.md`)
 - **用途**:本会话已完成项已落地(见文末 §E,待提交)。本文档汇总**未完成 / 延后 / 待决策**的项,每项可独立推进,供后续单独处理。
 - **状态约定**:🔴 中型重构(跨多文件,需专项)｜🟡 架构级/产品决策(需定方向)｜🔵 设计决策(有意为之,非 bug)｜⚪ 待决策(接入 or 删除)
 
@@ -67,7 +67,7 @@
 
 ### B3. SEC-06 riskLevel 不挡 known runner 跑恶意包名 🟡 ✅(2026-08-03 本会话,前端包名二次确认 UI)
 - **来源**:audit P2
-- **位置**:`src/main/java/com/github/claudecodegui/mcp/McpCommandRiskEvaluator.java`(runner 在 npx/uvx/docker 白名单 → 无条件放行)
+- **位置**:`../../src/main/java/com/github/claudecodegui/mcp/McpCommandRiskEvaluator.java`(runner 在 npx/uvx/docker 白名单 → 无条件放行)
 - **问题**:`npx -y evil-trojan-pkg`(postinstall 任意代码执行)、`uvx evil-pkg` 通过闸门。
 - **修复方向**:gate 无法单独覆盖,需 UI 对包名二次确认 + 默认对非官方/低信誉包拒绝。真正修复需包信誉服务(超插件定位)。
 - **规模**:超定位
@@ -142,7 +142,7 @@
 **本会话后续(B1/B2/B3 安全 UI 标注,2026-08-03)**:
 - B1 SEC-03 OpenCode:UI 明示 + 停收 permissionMode。前端双防御(`ButtonArea` 隐藏 ModeSelect + `handleModeSelect` opencode early-return)+ `PlaceholderSection` 明示 + ai-bridge 删 `services/opencode/message-service.js`/`channels/opencode-channel.js` 死透传。CLI L402-404 保留(防御)。10 locale i18n。
 - B2 SEC-04 Codex:fire-then-ask UI 标注降级。`PermissionsSection` 加 `fireThenAskNotice` 横幅 + 纠正 `codexModes.default.tooltip` 误述(原"prompts before"→实际审批在 `item.started` 命令已启动**之后**)。Windows full-access 按产品权衡保留(方向②③ 未做)。10 locale i18n。
-- B3 SEC-06 MCP 包名:前端二次确认 UI。新增 `webview/src/components/mcp/packageRunner.ts`(检测 npx/uvx/uv/pnpm/pnpx/bunx + docker/podman)+ `McpPackageConfirmDialog.tsx`(复用 BaseDialog);拦截 `McpSettingsSection` 三出口(`handleSaveServer`/`handleSelectPreset`/`handleImportServers`,单+批量)。10 locale i18n。
+- B3 SEC-06 MCP 包名:前端二次确认 UI。新增 `../../webview/src/components/mcp/packageRunner.ts`(检测 npx/uvx/uv/pnpm/pnpx/bunx + docker/podman)+ `McpPackageConfirmDialog.tsx`(复用 BaseDialog);拦截 `McpSettingsSection` 三出口(`handleSaveServer`/`handleSelectPreset`/`handleImportServers`,单+批量)。10 locale i18n。
 - 验证:webview `tsc --noEmit` EXIT 0;ai-bridge checkJs **B1 目标文件零错误**(`opencode-channel.js`/`opencode/message-service.js` 均 `// @ts-check`);`npm run build` EXIT 0(claude-chat.html 已同步);i18n gate **B3 零恶化**(所有 locale `mcp.packageConfirm.*` missing=0)。
 - ⚠️ 预存非本会话:ai-bridge checkJs 预存 13 错误(`ipc-server.js`/`read-cc-switch-db.js`/`codex-utils.js`);i18n gate 预存 FAIL(stale baseline + codexPet/settings.pet 158 key 更早会话已删)。
 

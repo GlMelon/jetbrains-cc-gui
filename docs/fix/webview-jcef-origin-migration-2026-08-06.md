@@ -3,7 +3,7 @@
 - **日期**：2026-08-06
 - **范围**：React Bits 引入后前端 WebView 启动黑屏 / 白屏问题
 - **状态**：已完成实现并通过定向验证
-- **相关目录**：`webview/`、`src/main/java/com/github/claudecodegui/ui/`
+- **相关目录**：`../../webview`、`../../src/main/java/com/github/claudecodegui/ui`
 
 ## 1. 背景
 
@@ -86,19 +86,19 @@ https://cc-gui-webview.local/index.html
 
 ### 5.1 前端构建
 
-修改 `webview/vite.config.ts`：
+修改 `../../webview/vite.config.ts`：
 
 - 删除 `vite-plugin-singlefile`；
 - 删除单文件产物兼容处理；
 - 增加 `base: './'`，使入口文件、chunk 和静态资源使用相对路径；
 - 保留标准 Vite 多文件输出。
 
-修改 `webview/package.json`：
+修改 `../../webview/package.json`：
 
 - 删除 `postbuild` 中的 `scripts/copy-dist.mjs`；
 - 删除 `vite-plugin-singlefile` 依赖。
 
-同步更新 `webview/package-lock.json`。
+同步更新 `../../webview/package-lock.json`。
 
 删除：
 
@@ -108,10 +108,10 @@ webview/scripts/copy-dist.mjs
 
 ### 5.2 Gradle 资源打包
 
-修改 `build.gradle`：
+修改 `../../build.gradle`：
 
 - `processResources` 依赖 `buildWebview`；
-- 将 `webview/dist` 复制到插件资源目录的 `webview/` 下；
+- 将 `../../webview/dist` 复制到插件资源目录的 `../../webview` 下；
 - 确保 `index.html`、所有 JS / CSS 文件以及异步 chunk 都会进入最终插件资源。
 
 构建后资源结构类似：
@@ -281,7 +281,7 @@ ERR_*
 2. 不要把 `<script type="module">` 改成 classic script；
 3. 不要通过删除 `import.meta`、动态 `import()` 等语法规避问题；
 4. 新增静态资源类型时，应在 `WebviewResourceRequestHandler` 中补充 MIME 类型；
-5. 修改前端构建目录或入口路径时，要同步检查 `build.gradle`、`HtmlLoader` 和资源处理器；
+5. 修改前端构建目录或入口路径时，要同步检查 `../../build.gradle`、`HtmlLoader` 和资源处理器；
 6. 页面初始化问题优先检查 `idea.log` 中的 `frontend_ready`、`onLoadError` 和资源请求错误；
 7. 修改 WebView 加载逻辑后，应至少执行前端构建、资源处理、相关 Java 测试和一次真实 `runIde` 验证。
 

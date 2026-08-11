@@ -10,7 +10,7 @@ AI Code GUI（原名 Claude Code GUI）是一个基于 IntelliJ 平台的插件�
 
 ### 2.1 后端（Backend）
 - **技术栈**: Java（IntelliJ 插件主体）
-- **目录**: `src/main/java/com/github/claudecodegui/`
+- **目录**: `../../src/main/java/com/github/claudecodegui`
 - **职责**: 承载全部业务逻辑、状态权威与持久化
 - **核心模块**:
   - `handler/` - 前端 action 处理器
@@ -22,13 +22,13 @@ AI Code GUI（原名 Claude Code GUI）是一个基于 IntelliJ 平台的插件�
 
 ### 2.2 前端（Frontend）
 - **技术栈**: React + TypeScript
-- **目录**: `webview/`
+- **目录**: `../../webview`
 - **职责**: 只负责渲染回显与输入采集，无业务逻辑
 - **通信**: 通过 JCEF 双向字符串总线与后端通信
 
 ### 2.3 AI Bridge
 - **技术栈**: Node.js
-- **目录**: `ai-bridge/`
+- **目录**: `../../ai-bridge`
 - **职责**: CLI 进程管理与消息流处理
 - **通信**: 通过 NDJSON 字符串契约与 Java 后端通信
 
@@ -49,9 +49,9 @@ AI Code GUI（原名 Claude Code GUI）是一个基于 IntelliJ 平台的插件�
 
 ### 4.1 协议消息名
 - **唯一来源**: Java 枚举（`UpstreamAction` / `DownstreamEvent`）
-- **生成路径**: `webview/scripts/generate-protocol-types.mjs` 直读 Java 枚举源
-- **产物**: `webview/src/generated/protocol.ts` 与 `protocol-manifest.json`
-- **消费侧**: 前端必须统一从 `webview/src/generated/protocol.ts` 导入常量
+- **生成路径**: `../../webview/scripts/generate-protocol-types.mjs` 直读 Java 枚举源
+- **产物**: `../../webview/src/generated/protocol.ts` 与 `protocol-manifest.json`
+- **消费侧**: 前端必须统一从 `../../webview/src/generated/protocol.ts` 导入常量
 
 ### 4.2 Payload 结构
 - **单一来源**: 后端生成或校验到前端
@@ -207,4 +207,4 @@ npm install
 
 ---
 
-*本指南基于 AGENTS.md 架构开发规范，为开发者提供快速上手指导。详细规范请参考 [AGENTS.md](../AGENTS.md)。*
+*本指南基于 AGENTS.md 架构开发规范，为开发者提供快速上手指导。详细规范请参考 [AGENTS.md](../../AGENTS.md)。*

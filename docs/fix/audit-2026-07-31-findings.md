@@ -165,7 +165,7 @@
 
 ### - [x] ARCH-01  unzipArchive 优先系统解压,绕过 ZipSlip 防御 `[已读原码确认]`
 - **位置**:`src/main/java/com/github/claudecodegui/bridge/BridgeArchiveExtractor.java:110-152`(executeSystemUnzip:Windows `tar -xf`/Unix `unzip`),Java 回退 `unzipWithJava:158-185` 才有 startsWith 校验
-- **问题**:系统 unzip/tar 默认会解压 `../` 到目标外,完全绕过 Java 路径校验。同类 extractTarGz 方法(`:248-249` 注释)已特意禁用系统工具防此问题,zip 路径遗漏。若 ai-bridge zip 源自外部不可信下载则可路径穿越。**需先确认 ai-bridge zip 来源是否可信。**
+- **问题**:系统 unzip/tar 默认会解压 `../..` 到目标外,完全绕过 Java 路径校验。同类 extractTarGz 方法(`:248-249` 注释)已特意禁用系统工具防此问题,zip 路径遗漏。若 ai-bridge zip 源自外部不可信下载则可路径穿越。**需先确认 ai-bridge zip 来源是否可信。**
 - **修复**:对不可信来源禁用系统解压走纯 Java;或系统解压后补做 startsWith 扫描。
 - **来源**:主线
 
