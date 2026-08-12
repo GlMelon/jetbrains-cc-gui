@@ -112,6 +112,11 @@ public final class McpGatewayProcessHandle {
         try {
             if (process.isAlive()) {
                 PlatformUtils.terminateProcessAndWait(process, 3, TimeUnit.SECONDS);
+            } else {
+                // 进程已死(崩溃/超时被杀):gateway 死前 spawn 的 MCP server(node.exe)不会随它一起退出,
+                // 成为孤儿;自愈 ensureStarted 又起新一批 → node.exe 滚雪球。按 ParentProcessId 清理遗孤
+                // (Windows 子进程 ParentProcessId 在父死后仍保留,可查到孤儿)。
+                PlatformUtils.cleanupChildProcesses(process.pid());
             }
         } catch (Exception e) {
             LOG.warn("[McpGateway] Failed to stop process gracefully: " + e.getMessage());

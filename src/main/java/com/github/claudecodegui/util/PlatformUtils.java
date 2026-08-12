@@ -321,14 +321,22 @@ public class PlatformUtils {
      * @param process the process to terminate
      */
     public static void terminateProcess(Process process) {
-        if (process == null || !process.isAlive()) {
+        if (process == null) {
+            return;
+        }
+        long pid = process.pid();
+        // Windows:无论父进程死活,先按 ParentProcessId 清理子进程。taskkill /T 在进程树断裂
+        // (cmd.exe/.cmd shim 中间层提前退出、或父进程已崩溃如 MCP gateway 自愈)时漏杀子进程;
+        // Windows 子进程的 ParentProcessId 在父死后仍保留原值,故父已死也能查到孤儿子进程。
+        if (isWindows()) {
+            cleanupChildProcesses(pid);
+        }
+        if (!process.isAlive()) {
             return;
         }
 
         try {
             if (isWindows()) {
-                // Get the process ID
-                long pid = process.pid();
                 // Use taskkill to terminate the process tree
                 // /F = force termination
                 // /T = terminate the entire process tree (including children)
@@ -529,6 +537,89 @@ public class PlatformUtils {
         } catch (Exception e) {
             LOG.debug("[ProcessCleanup] Failed to clean up conhost.exe processes: " + e.getMessage());
         }
+    }
+
+    /**
+     * 递归终止某 PID 的所有(任意名字的)子进程及后代。
+     *
+     * <p>Windows 子进程的 {@code ParentProcessId} 在父进程死后<b>仍保留原值</b>(Windows 没有 Unix 那样的
+     * reparent),故即便父进程已退出,也能按 {@code ParentProcessId} 查到它遗留的孤儿子进程——这正是
+     * {@code taskkill /F /T} 在进程树断裂时漏杀的场景(① {@code .cmd} shim 的 {@code cmd.exe} 中间层提前
+     * 退出;② 父进程先于 Java terminate 崩溃,如 MCP gateway 自愈重启留下的 MCP server 孤儿)。
+     *
+     * <p>是 {@code taskkill /T} 的<b>兜底</b>而非替代:按 PID 精确查询子进程逐个清理,零误杀,无新依赖。
+     * 查询+解析形态复刻 {@link #cleanupOrphanedConhosts(long)},仅去掉 {@code name='conhost.exe'} 过滤。
+     *
+     * @param parentPid 父进程 PID(死活均可,死进程的孤儿子进程也能被查到)
+     */
+    public static void cleanupChildProcesses(long parentPid) {
+        cleanupChildProcesses(parentPid, 0);
+    }
+
+    private static void cleanupChildProcesses(long parentPid, int depth) {
+        if (!isWindows() || depth > 5) {
+            return;
+        }
+        for (long childPid : queryChildPids(parentPid)) {
+            // 先递归清孙进程(bottom-up),再 taskkill /T 杀该子进程及其剩余子树。
+            cleanupChildProcesses(childPid, depth + 1);
+            try {
+                ProcessBuilder pb = new ProcessBuilder(
+                        "taskkill", "/F", "/T", "/PID", String.valueOf(childPid)
+                );
+                pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
+                pb.redirectError(ProcessBuilder.Redirect.DISCARD);
+                Process killer = pb.start();
+                if (!killer.waitFor(5, TimeUnit.SECONDS)) {
+                    killer.destroyForcibly();
+                }
+            } catch (Exception e) {
+                LOG.debug("[ProcessCleanup] Failed to terminate child PID " + childPid + ": " + e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * 查询 {@code parentPid} 的直接子进程 PID 列表(wmic)。父进程已死时仍可查到孤儿子进程。
+     */
+    private static List<Long> queryChildPids(long parentPid) {
+        List<Long> childPids = new ArrayList<>();
+        try {
+            ProcessBuilder wmicBuilder = new ProcessBuilder(
+                    "wmic", "process", "where",
+                    "ParentProcessId=" + parentPid,
+                    "get", "ProcessId"
+            );
+            wmicBuilder.redirectErrorStream(true);
+
+            Process wmicProcess = wmicBuilder.start();
+            StringBuilder output = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(wmicProcess.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    output.append(line).append("\n");
+                }
+            }
+            wmicProcess.waitFor(10, TimeUnit.SECONDS);
+
+            // 解析输出(跳过表头 "ProcessId" 与空行,余下即子进程 PID)
+            String[] lines = output.toString().split("\n");
+            for (String line : lines) {
+                String trimmed = line.trim();
+                if (trimmed.isEmpty() || trimmed.equals("ProcessId")) {
+                    continue;
+                }
+                try {
+                    childPids.add(Long.parseLong(trimmed));
+                } catch (NumberFormatException e) {
+                    LOG.debug("[ProcessCleanup] Skipping non-numeric child PID: " + trimmed);
+                }
+            }
+        } catch (Exception e) {
+            LOG.debug("[ProcessCleanup] Failed to query child processes of PID " + parentPid + ": " + e.getMessage());
+        }
+        return childPids;
     }
 
     /**
