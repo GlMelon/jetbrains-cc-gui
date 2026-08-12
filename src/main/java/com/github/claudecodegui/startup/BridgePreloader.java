@@ -1,8 +1,10 @@
 package com.github.claudecodegui.startup;
 
 import com.github.claudecodegui.bridge.BridgeDirectoryResolver;
+import com.github.claudecodegui.cli.opencode.OpenCodeCliResolver;
 import com.github.claudecodegui.mcp.McpGatewayFeatureFlags;
 import com.github.claudecodegui.mcp.McpGatewayService;
+import com.github.claudecodegui.session.runtime.CodexCliResolver;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
@@ -73,6 +75,13 @@ public class BridgePreloader implements ProjectActivity {
             try {
                 BridgeDirectoryResolver resolver = getSharedResolver();
 
+                // CLI detector 预热不依赖 ai-bridge 解压,立即并行启动:codex/opencode 的 findExecutable()
+                // 首次会 spawn '<cli> --version' 子进程(.cmd 包装冷启动 ~3s),未预热时这 3s 落在用户
+                // 首条消息的同步 send 路径(实测 [PERF-FIRST-TURN] java-prep codex≈3.2s/opencode≈3.6s)。
+                // 后台预热填 cachedExecutable 后,首条消息命中缓存秒回(第二条 java-prep≈50ms 即证)。
+                CompletableFuture<Void> cliPrewarm = CompletableFuture.runAsync(
+                        BridgePreloader::prewarmCliResolvers);
+
                 // Trigger extraction (non-blocking on this pooled thread)
                 resolver.findSdkDir();
 
@@ -81,6 +90,10 @@ public class BridgePreloader implements ProjectActivity {
                 // 已加载 → 首次 buildCliConfig 因 configHash 相同而 skip(秒回)。
                 // WebviewInitializer 的预热保留作双保险;applySnapshot 的 configHash 幂等保证不重复推送。
                 prewarmMcpGateway(project);
+
+                // detector 预热(并行 ~3s)通常已先于 gateway postSnapshot(>10s)完成,此处仅兜底等待,
+                // 确保即便用户立刻发首条消息,detector 缓存也已就绪。
+                cliPrewarm.join();
 
                 LOG.info("[BridgePreloader] Bridge preload completed for project: " + project.getName());
             } catch (Exception e) {
@@ -106,6 +119,39 @@ public class BridgePreloader implements ProjectActivity {
             LOG.info("[BridgePreloader] MCP Gateway prewarmed for project: " + project.getName());
         } catch (Exception e) {
             LOG.warn("[BridgePreloader] MCP Gateway prewarm failed: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 项目打开时后台并行预热 codex/opencode CLI resolver 缓存。两者 {@code findExecutable()} 首次会
+     * spawn {@code <cli> --version} 子进程验证可执行性 + 取版本(经 .cmd 包装冷启动 ~3s),未预热时
+     * 这段时间落在用户首条消息的同步 send 路径。预热后首条消息命中 {@code cachedExecutable} 秒回。
+     * <p>只预热 codex/opencode:claude detector 冷启动仅 ~227ms(已够快),且其 {@code detectionAttempted}
+     * 失败永久置位有"预热失败致永久不可用"风险,收益不足风险故不预热。
+     * <p>两 resolver 只缓存成功路径(不缓存失败),故预热失败无副作用——首条消息时正常重试检测。
+     */
+    private static void prewarmCliResolvers() {
+        CompletableFuture.allOf(
+                CompletableFuture.runAsync(BridgePreloader::prewarmCodexCli),
+                CompletableFuture.runAsync(BridgePreloader::prewarmOpenCodeCli)
+        ).join();
+    }
+
+    private static void prewarmCodexCli() {
+        try {
+            String path = CodexCliResolver.findExecutable();
+            LOG.info("[BridgePreloader] Codex CLI resolver prewarmed: " + (path != null ? path : "(not found)"));
+        } catch (Exception e) {
+            LOG.warn("[BridgePreloader] Codex CLI resolver prewarm failed: " + e.getMessage(), e);
+        }
+    }
+
+    private static void prewarmOpenCodeCli() {
+        try {
+            String path = OpenCodeCliResolver.findExecutable();
+            LOG.info("[BridgePreloader] OpenCode CLI resolver prewarmed: " + (path != null ? path : "(not found)"));
+        } catch (Exception e) {
+            LOG.warn("[BridgePreloader] OpenCode CLI resolver prewarm failed: " + e.getMessage(), e);
         }
     }
 }
