@@ -7,6 +7,7 @@ import { resolveToolTarget, getToolLineInfo } from '../../utils/toolPresentation
 import { normalizeToolInput } from '../../utils/toolInputNormalization';
 import { useResolvedFileLinkTooltip } from '../../hooks/useResolvedFileLinkTooltip';
 import { DiffIcon, EditIcon, RefreshIcon } from '../Icons';
+import { StatusIndicator } from './StatusIndicator';
 
 interface EditItem {
   toolId?: string;
@@ -289,10 +290,7 @@ const EditFileItem = ({ item, onFileClick, onShowDiff, onRefresh, t }: EditFileI
         </button>
       </div>
 
-      <div
-        className={`tool-status-indicator ${item.isError ? 'error' : item.isCompleted ? 'completed' : 'pending'}`}
-        style={STATUS_INDICATOR_STYLE}
-      />
+      <StatusIndicator isError={item.isError} isCompleted={item.isCompleted} style={STATUS_INDICATOR_STYLE} />
     </div>
   );
 };

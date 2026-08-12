@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { ToolInput, ToolResultBlock } from '../../types';
 import { truncate } from '../../utils/helpers';
 import { SearchIcon, codiconToIcon } from '../Icons';
+import { StatusIndicator } from './StatusIndicator';
 
 interface SearchItem {
   toolName: string;
@@ -230,10 +231,7 @@ const SearchToolGroupBlock = ({ items }: SearchToolGroupBlockProps) => {
               )}
 
               {/* Status indicator */}
-              <div
-                className={`tool-status-indicator ${item.isError ? 'error' : item.isCompleted ? 'completed' : 'pending'}`}
-                style={STATUS_INDICATOR_STYLE}
-              />
+              <StatusIndicator isError={item.isError} isCompleted={item.isCompleted} style={STATUS_INDICATOR_STYLE} />
             </div>
           ))}
         </div>

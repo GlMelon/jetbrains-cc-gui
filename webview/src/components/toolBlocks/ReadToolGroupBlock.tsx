@@ -6,6 +6,7 @@ import { useResolvedFileLinkTooltip } from '../../hooks/useResolvedFileLinkToolt
 import { getFileIcon, getFolderIcon } from '../../utils/fileIcons';
 import { getToolLineInfo, resolveToolTarget } from '../../utils/toolPresentation';
 import { FileCodeIcon } from '../Icons';
+import { StatusIndicator } from './StatusIndicator';
 
 interface FileItem {
   filePath: string;
@@ -162,10 +163,7 @@ const FileListItem = ({ item, onFileClick }: FileListItemProps) => {
           {item.lineInfo}
         </span>
       )}
-      <div
-        className={`tool-status-indicator ${item.isError ? 'error' : item.isCompleted ? 'completed' : 'pending'}`}
-        style={STATUS_INDICATOR_STYLE}
-      />
+      <StatusIndicator isError={item.isError} isCompleted={item.isCompleted} style={STATUS_INDICATOR_STYLE} />
     </div>
   );
 };

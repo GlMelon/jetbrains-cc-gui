@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ToolInput, ToolResultBlock } from '../../types';
 import { CheckIcon, AlertIcon, XCircleIcon } from '../Icons';
+import { StatusIndicator } from './StatusIndicator';
 
 interface BashItem {
   command: string;
@@ -183,11 +184,7 @@ const BashToolGroupBlock = ({ items, deniedToolIds }: BashToolGroupBlockProps) =
                     >
                       {item.description || truncateCommand(item.command)}
                     </span>
-                    <div
-                      className={`tool-status-indicator ${
-                        item.isError ? 'error' : item.isCompleted ? 'completed' : 'pending'
-                      }`}
-                    />
+                    <StatusIndicator isError={item.isError} isCompleted={item.isCompleted} />
                   </div>
 
                   {/* Expanded detail */}

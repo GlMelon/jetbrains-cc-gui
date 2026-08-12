@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { ToolInput, ToolResultBlock } from '../../types';
 import { normalizeToolName } from '../../utils/toolConstants';
 import { sendBridgeEvent } from '../../utils/bridge';
+import { StatusIndicator } from './StatusIndicator';
 import {
   extractResultText,
   isAsyncAgentInput,
@@ -222,7 +223,7 @@ const TaskExecutionBlock = memo(function TaskExecutionBlock({ name, input, resul
         </div>
 
         <div className="task-header-right">
-          <div className={`tool-status-indicator ${isError ? 'error' : isCompleted ? 'completed' : 'pending'}`} />
+          <StatusIndicator isError={isError} isCompleted={isCompleted} />
         </div>
       </div>
 

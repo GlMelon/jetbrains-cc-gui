@@ -1,5 +1,5 @@
 import { type ReactNode, useState, useEffect, useRef } from 'react';
-import { ProgressRing } from '../react-bits';
+import { StatusIndicator } from './StatusIndicator';
 
 /**
  * Animation duration constants for tool block state transitions.
@@ -111,27 +111,4 @@ export function ToolBlockShell({
   );
 }
 
-/**
- * StatusIndicator - 工具状态指示器。
- *
- * 统一状态点的 className 逻辑(样式唯一定义见 tools.less):
- * - error: 红色实心点
- * - completed: 绿色实心点
- * - pending: 旋转环(warning 色, tool-status-spin),表示"执行中"
- */
-interface StatusIndicatorProps {
-  /** 工具是否出错 */
-  isError: boolean;
-  /** 工具是否已完成 */
-  isCompleted: boolean;
-}
-
-function StatusIndicator({ isError, isCompleted }: StatusIndicatorProps) {
-  const statusClass = isError ? 'error' : isCompleted ? 'completed' : 'pending';
-  
-  if (!isError && !isCompleted) {
-    return <ProgressRing size={12} strokeWidth={2} duration={0.85} className={`tool-status-indicator ${statusClass}`} />;
-  }
-  
-  return <div className={`tool-status-indicator ${statusClass}`} />;
-}
+// StatusIndicator 已提取为共享组件 ./StatusIndicator（pending 态用 react-bits SpinLoader）。

@@ -10,6 +10,7 @@ import { getFileIcon, getFolderIcon } from '../../utils/fileIcons';
 import { isCommandToolName, parseCommandType } from '../../utils/toolCommandPath';
 import { getToolLineInfo, resolveToolTarget, summarizeToolCommand, extractPathsFromPatch } from '../../utils/toolPresentation';
 import { codiconToIcon } from '../Icons';
+import { StatusIndicator } from './StatusIndicator';
 
 const SUMMARY_FILE_STYLE: React.CSSProperties = {
   display: 'inline-flex',
@@ -397,7 +398,7 @@ const GenericToolBlock = memo(function GenericToolBlock({ name, input, result, t
           )}
         </div>
 
-        <div className={`tool-status-indicator ${isError ? 'error' : isCompleted ? 'completed' : 'pending'}`} />
+        <StatusIndicator isError={isError} isCompleted={isCompleted} />
       </div>
       {hasExpandableContent && (
         <div className={`task-details-accordion ${expanded ? 'expanded' : ''}`}>

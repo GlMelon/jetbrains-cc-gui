@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { ClaudeContentBlock, ToolResultBlock } from '../../types';
 import { normalizeToolName } from '../../utils/toolConstants';
 import { sendBridgeEvent } from '../../utils/bridge';
+import { StatusIndicator } from './StatusIndicator';
 import { getPersistedExpanded, setPersistedExpanded } from '../../utils/expandedState';
 import {
   extractResultText,
@@ -196,7 +197,7 @@ const AgentGroupBlock = memo(function AgentGroupBlock({
         </div>
 
         <div className="task-header-right">
-          <div className={`tool-status-indicator ${isError ? 'error' : isCompleted ? 'completed' : 'pending'}`} />
+          <StatusIndicator isError={isError} isCompleted={isCompleted} />
           <span className={`codicon agent-group-chevron ${expanded ? 'codicon-chevron-up' : 'codicon-chevron-down'}`} />
         </div>
       </div>
