@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>输入区工具栏 · 统一高度与间距 Mockup</title>
+<style>
+  /* ============ 主题变量（还原真实项目） ============ */
+  :root, [data-theme="dark"] {
+    --chip: #32343a;
+    --chip-border: #464950;
+    --chip-hover: #3a3d44;
+    --text-primary: #cccccc;
+    --text-secondary: #888888;
+    --button-area-bg: linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+    --button-area-border: rgba(255,255,255,0.05);
+    --input-bg: #1e1e1e;
+    --input-border: #3e3e42;
+    --accent: #007fd4;
+    --page-bg: #181818;
+    --page-text: #ddd;
+    --page-muted: #888;
+    --divider: rgba(255,255,255,0.08);
+  }
+  [data-theme="light"] {
+    --chip: #e6e6e6;
+    --chip-border: #cccccc;
+    --chip-hover: #d8d8d8;
+    --text-primary: #333333;
+    --text-secondary: #666666;
+    --button-area-bg: linear-gradient(135deg, rgba(0,0,0,0.02), rgba(0,0,0,0.01));
+    --button-area-border: rgba(0,0,0,0.08);
+    --input-bg: #ffffff;
+    --input-border: #d0d0d0;
+    --accent: #0078d4;
+    --page-bg: #f4f4f4;
+    --page-text: #222;
+    --page-muted: #777;
+    --divider: rgba(0,0,0,0.10);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    background: var(--page-bg);
+    color: var(--page-text);
+    min-height: 100vh;
+    padding: 32px 20px 60px;
+    transition: background .2s, color .2s;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; }
+
+  h1 { font-size: 19px; font-weight: 700; margin-bottom: 6px; }
+  .sub { color: var(--page-muted); font-size: 13px; line-height: 1.6; margin-bottom: 24px; }
+
+  /* ============ 主题切换 ============ */
+  .toolbar-top {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 28px;
+  }
+  .theme-toggle {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 14px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--divider); background: var(--chip);
+    color: var(--text-primary); font-size: 13px; user-select: none;
+  }
+
+  /* ============ 标签 ============ */
+  .label-row { display: flex; align-items: baseline; gap: 10px; margin: 26px 0 10px; }
+  .tag {
+    font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px;
+    letter-spacing: .3px;
+  }
+  .tag-bad   { background: #5a2a2a; color: #ff9b9b; }
+  .tag-good  { background: #1f3d2a; color: #7adba0; }
+  .tag-rec   { background: #2a3a5a; color: #8db4ff; }
+  .label-title { font-size: 14px; font-weight: 600; }
+  .label-desc  { font-size: 12px; color: var(--page-muted); }
+
+  /* ============ 输入框外壳（还原真实容器） ============ */
+  .chat-box {
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 8px 30px rgba(0,0,0,.25);
+  }
+  /* 模拟输入区主体（留白） */
+  .input-body {
+    padding: 22px 14px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    min-height: 72px;
+  }
+  .input-body .ph { opacity: .55; }
+
+  /* ============ 工具栏 ============ */
+  .button-area {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 4px 8px;
+    border-top: 1px solid var(--button-area-border);
+    background: var(--button-area-bg);
+    font-family: inherit;
+  }
+  .button-area-left { display: flex; align-items: center; flex: 1; min-width: 0; }
+  .button-area-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  .button-divider { width: 1px; height: 16px; background: var(--chip-border); opacity: .5; }
+
+  /* —— 单个 chip 按钮（还原 .selector-button，不含统一高度） —— */
+  .selector-button {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 10px;
+    background: var(--chip);
+    border: 1px solid var(--chip-border);
+    border-radius: 5px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .selector-button:hover { background: var(--chip-hover); color: var(--text-primary); }
+  .selector-button.provider-compact { padding: 5px 8px; gap: 0; }
+  .selector-button .ic { display: inline-flex; }
+  .selector-button svg { width: 14px; height: 14px; stroke: currentColor; stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+  .provider-dot {
+    width: 16px; height: 16px; border-radius: 50%;
+    background: linear-gradient(135deg, #d97757, #c25c3a);
+    display: inline-flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 9px; font-weight: 700;
+  }
+
+  /* ============ 高度标尺（仅 mockup 可视化用） ============ */
+  .ruler-area { position: relative; }
+  .ruler {
+    position: absolute; top: -14px; left: 8px; right: 8px;
+    display: flex; gap: 0; pointer-events: none;
+  }
+  .ruler .h-line {
+    flex: 1; border-top: 1px dashed var(--accent); opacity: .0;
+  }
+  .ruler.on .h-line { opacity: .55; }
+  .ruler .h-tag {
+    position: absolute; top: -16px; right: 0;
+    font-size: 10px; color: var(--accent); background: var(--input-bg);
+    padding: 0 4px;
+  }
+
+  /* ============ 增强公式：统一高度 + 间距 ============ */
+  /* 方案A：固定高度 + gap */
+  .variant-a .selector-button {
+    height: 28px;             /* ← 统一高度 */
+    box-sizing: border-box;
+  }
+  .variant-a .button-area-left { gap: 8px; }   /* ← 间距 */
+
+  /* 方案B：固定高度 + 竖线分隔（组间） */
+  .variant-b .selector-button {
+    height: 28px;
+    box-sizing: border-box;
+  }
+  .variant-b .button-area-left { gap: 6px; }
+  .variant-b .vsep {
+    width: 1px; height: 16px; background: var(--chip-border); opacity: .55;
+    margin: 0 2px;
+  }
+
+  /* —— 当前(坏)状态：刻意制造高度差，还原真实 bug —— */
+  .variant-current .selector-button { /* 不设高度，纯图标更矮 */ }
+  .variant-current .icon-only { padding-top: 6px; padding-bottom: 6px; }
+  .variant-current .button-area-left { gap: 0; }
+
+  /* ============ 右侧按钮 ============ */
+  .icon-btn {
+    width: 28px; height: 28px; border-radius: 6px; border: none;
+    background: transparent; color: var(--text-secondary); cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .icon-btn:hover { background: var(--chip-hover); color: var(--text-primary); }
+  .icon-btn svg { width: 16px; height: 16px; stroke: currentColor; stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .send-btn {
+    width: 28px; height: 28px; border-radius: 6px; border: none;
+    background: var(--accent); color: #fff; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .send-btn svg { width: 15px; height: 15px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* ============ 说明卡 ============ */
+  .notes {
+    margin-top: 30px; padding: 16px 18px; border-radius: 10px;
+    background: var(--chip); border: 1px solid var(--chip-border);
+    font-size: 13px; line-height: 1.8; color: var(--text-primary);
+  }
+  .notes h3 { font-size: 13px; margin-bottom: 8px; }
+  .notes ul { padding-left: 20px; }
+  .notes li { margin: 3px 0; }
+  .notes code {
+    background: rgba(127,127,127,.25); padding: 1px 6px; border-radius: 4px;
+    font-family: 'Consolas', monospace; font-size: 12px;
+  }
+  .kv { color: var(--page-muted); }
+
+  .pick { margin-top: 18px; font-size: 13px; color: var(--page-muted); }
+  .pick b { color: var(--text-primary); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="toolbar-top">
+    <div>
+      <h1>输入区工具栏 · 统一高度 + 间距</h1>
+      <div class="sub">设置 · 供应商 · 权限模式 · 模型 · 推理程度 五个控件对齐与间距调整预览</div>
+    </div>
+    <div class="theme-toggle" onclick="toggleTheme()">
+      <span id="themeLabel">🌙 深色</span>
+    </div>
+  </div>
+
+  <!-- ============ 当前状态（问题） ============ -->
+  <div class="label-row">
+    <span class="tag tag-bad">当前</span>
+    <span class="label-title">无间距 + 高度参差</span>
+    <span class="label-desc">纯图标按钮(设置/供应商)比带文字按钮矮 ~2px；控件之间紧贴无空隙</span>
+  </div>
+  <div class="chat-box variant-current">
+    <div class="input-body"><span class="ph">输入消息…</span></div>
+    <div class="button-area">
+      <div class="button-area-left">
+        <!-- 设置：纯图标，刻意矮一点 -->
+        <button class="selector-button icon-only" title="设置">
+          <span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+        </button>
+        <!-- 供应商：纯图标 compact -->
+        <button class="selector-button provider-compact icon-only" title="供应商">
+          <span class="provider-dot">C</span>
+        </button>
+        <!-- 权限模式：图标+文字+箭头 -->
+        <button class="selector-button">
+          <span class="ic"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+          <span>默认</span>
+          <span class="ic"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
+        </button>
+        <!-- 模型：图标+文字+箭头 -->
+        <button class="selector-button">
+          <span class="provider-dot">C</span>
+          <span>Sonnet</span>
+          <span class="ic"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
+        </button>
+        <!-- 推理程度：图标+文字+箭头 -->
+        <button class="selector-button">
+          <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 14l3-3"/><path d="M3 18a9 9 0 0 1 18 0"/></svg></span>
+          <span>高</span>
+          <span class="ic"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
+        </button>
+      </div>
+      <div class="button-area-right">
+        <div class="button-divider"></div>
+        <button class="icon-btn" title="增强提示"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z"/></svg></button>
+        <button class="send-btn" title="发送"><svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 方案A（推荐） ============ -->
+  <div class="label-row">
+    <span class="tag tag-rec">推荐</span>
+    <span class="tag tag-good">方案 A</span>
+    <span class="label-title">统一高度 28px + gap 8px</span>
+    <span class="label-desc">最简洁：所有 chip 定死 28px 高，控件间 8px 间距，无多余分隔线</span>
+  </div>
+  <div class="chat-box variant-a">
+    <div class="input-body"><span class="ph">输入消息…</span></div>
+    <div class="button-area">
+      <div class="button-area-left">
+        <button class="selector-button" title="设置">
+          <span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+        </button>
+        <button class="selector-button provider-compact" title="供应商">
+          <span class="provider-dot">C</span>
+        </button>
+        <button class="selector-button">
+          <span class="ic"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+          <span>默认</span>
+          <span class="ic"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
+        </button>
+        <button class="selector-button">
+          <span class="provider-dot">C</span>
+          <span>Sonnet</span>
+          <span class="ic"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
+        </button>
+        <button class="selector-button">
+          <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 14l3-3"/><path d="M3 18a9 9 0 0 1 18 0"/></svg></span>
+          <span>高</span>
+          <span class="ic"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
+        </button>
+      </div>
+      <div class="button-area-right">
+        <div class="button-divider"></div>
+        <button class="icon-btn" title="增强提示"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z"/></svg></button>
+        <button class="send-btn" title="发送"><svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 方案B ============ -->
+  <div class="label-row">
+    <span class="tag tag-good">方案 B</span>
+    <span class="label-title">统一高度 28px + 竖线分组分隔</span>
+    <span class="label-desc">设置 | 供应商 | 模式/模型/推理 三组之间用细竖线区隔，组内紧凑</span>
+  </div>
+  <div class="chat-box variant-b">
+    <div class="input-body"><span class="ph">输入消息…</span></div>
+    <div class="button-area">
+      <div class="button-area-left">
+        <button class="selector-button" title="设置">
+          <span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+        </button>
+        <span class="vsep"></span>
+        <button class="selector-button provider-compact" title="供应商">
+          <span class="provider-dot">C</span>
+        </button>
+        <span class="vsep"></span>
+        <button class="selector-button">
+          <span class="ic"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+          <span>默认</span>
+          <span class="ic"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
+        </button>
+        <button class="selector-button">
+          <span class="provider-dot">C</span>
+          <span>Sonnet</span>
+          <span class="ic"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
+        </button>
+        <button class="selector-button">
+          <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 14l3-3"/><path d="M3 18a9 9 0 0 1 18 0"/></svg></span>
+          <span>高</span>
+          <span class="ic"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
+        </button>
+      </div>
+      <div class="button-area-right">
+        <div class="button-divider"></div>
+        <button class="icon-btn" title="增强提示"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z"/></svg></button>
+        <button class="send-btn" title="发送"><svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 说明 ============ -->
+  <div class="notes">
+    <h3>📋 改动说明</h3>
+    <ul>
+      <li><b>根因① 高度不一</b>：5 个控件共享 <code>.selector-button</code>（<code>padding:5px 10px</code>），但「设置/供应商」是纯图标、其余带文字，<b>无显式高度</b>导致纯图标按钮矮 2~3px。</li>
+      <li><b>根因② 无间距</b>：容器 <code>.button-area-left{gap:0}</code>，且组件里的 <code>&lt;span class="selector-separator"/&gt;</code> 这个类<b>在 CSS 里从未定义</b>，是零宽空标签 → 控件紧贴。</li>
+      <li><b>修复</b>：给 <code>.selector-button</code> 加 <code>height:28px; box-sizing:border-box</code>；给 <code>.button-area-left</code> 加 <code>gap</code>（方案A=8px / 方案B=6px+竖线）。</li>
+      <li class="kv">影响范围：仅 <code>toolbar.css</code> + <code>selectors.css</code> 两处样式，零 JS / DOM 结构改动，窄屏容器查询自适应不受影响。</li>
+    </ul>
+  </div>
+
+  <div class="pick">
+    👉 请确认：<b>选方案 A（纯间距）还是方案 B（间距+竖线分组）？</b> 确认后我直接改 <code>toolbar.css</code> / <code>selectors.css</code>。
+  </div>
+
+</div>
+
+<script>
+  function toggleTheme() {
+    const html = document.documentElement;
+    const dark = html.getAttribute('data-theme') !== 'light';
+    html.setAttribute('data-theme', dark ? 'light' : 'dark');
+    document.getElementById('themeLabel').textContent = dark ? '☀️ 浅色' : '🌙 深色';
+  }
+</script>
+</body>
+</html>
