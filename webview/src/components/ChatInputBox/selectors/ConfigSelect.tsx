@@ -31,11 +31,6 @@ const WRAPPER_STYLE: React.CSSProperties = {
   display: 'inline-block',
 };
 
-const TOGGLE_BUTTON_STYLE: React.CSSProperties = {
-  marginLeft: '5px',
-  marginRight: '-2px',
-};
-
 const SUBMENU_BASE_STYLE: React.CSSProperties = {
   position: 'absolute',
   left: '100%',
@@ -392,7 +387,6 @@ export const ConfigSelect = ({
         ref={buttonRef}
         className="selector-button"
         onClick={handleToggle}
-        style={TOGGLE_BUTTON_STYLE}
         title={t('settings.configure', 'Configure')}
       >
         <SettingsIcon size={16} />

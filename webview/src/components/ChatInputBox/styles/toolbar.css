@@ -20,10 +20,18 @@
 .button-area-left {
   display: flex;
   align-items: center;
-    gap: 0;
+    /* 控件间统一间距(设置│供应商│模式│模型│推理)。 */
+    gap: 3px;
   flex: 1;
   min-width: 0;
   overflow: visible;
+}
+
+/* ButtonArea 里插入的 <span class="selector-separator" /> 历史上未定义任何样式
+   (零宽空标签),间距现由 .button-area-left 的 gap 统一控制。置为不占位,避免
+   每个空 span 两侧各产生一个 gap 导致间距翻倍。 */
+.selector-separator {
+  display: none;
 }
 
 .button-area-right {

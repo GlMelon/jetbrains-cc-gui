@@ -5,6 +5,10 @@
   display: flex;
   align-items: center;
   gap: 5px;
+  /* 统一高度：纯图标(设置/供应商)与带文字按钮(模式/模型/推理)对齐，
+     避免无显式高度时由内容行高撑出 2~3px 参差。 */
+  height: 28px;
+  box-sizing: border-box;
   padding: 5px 10px;
   background: var(--chip);
   border: 1px solid var(--chip-border);
