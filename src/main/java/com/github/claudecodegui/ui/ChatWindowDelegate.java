@@ -224,6 +224,7 @@ import com.github.claudecodegui.handler.mcp.UpdateMcpServerActionHandler;
 import com.github.claudecodegui.handler.mcp.DeleteMcpServerActionHandler;
 import com.github.claudecodegui.handler.mcp.ToggleMcpServerActionHandler;
 import com.github.claudecodegui.handler.mcp.ValidateMcpServerActionHandler;
+import com.github.claudecodegui.handler.mcp.ReloadMcpGatewayActionHandler;
 import com.github.claudecodegui.handler.importer.McpServerImportHandler;
 import com.github.claudecodegui.handler.mcp.McpMarketActionHandlers;
 import com.github.claudecodegui.handler.mcp.SearchMcpMarketActionHandler;
@@ -656,6 +657,7 @@ nodeService.setSessionId(sessionId);
         typedHandlers.add(new DeleteMcpServerActionHandler(mcpServerHandlers));
         typedHandlers.add(new ToggleMcpServerActionHandler(mcpServerHandlers));
         typedHandlers.add(new ValidateMcpServerActionHandler(mcpServerHandlers));
+        typedHandlers.add(new ReloadMcpGatewayActionHandler(mcpServerHandlers));
 
         // MCP 市场 (Smithery Registry): 搜索 + 详情 + 一键安装 (Bearer key 后端持有,前端只存掩码)
         McpMarketActionHandlers mcpMarketHandlers = new McpMarketActionHandlers(handlerContext);

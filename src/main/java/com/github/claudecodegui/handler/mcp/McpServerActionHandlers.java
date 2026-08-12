@@ -266,6 +266,34 @@ public class McpServerActionHandlers {
         }
     }
 
+    /**
+     * 手动重载 MCP Gateway(用户点"重载 Gateway"):硬重置 + 重建。自动加载失败时用。
+     * 异步执行(pooled 线程,参照 ProjectConfigHandler.handleSetMcpGatewayEnabled 的模式);
+     * 成功发 {@code TOAST_SUCCESS_I18N}(i18n key)+ 推 gateway 状态,失败发 {@code TOAST_ERROR}(带原因)。
+     */
+    void handleReloadMcpGateway() {
+        if (context.getProject() == null) {
+            return;
+        }
+        String projectPath = context.getProject().getBasePath();
+        CompletableFuture.runAsync(() -> {
+            try {
+                McpGatewayService.getInstance(context.getProject()).reloadGateway(projectPath);
+                publishGatewayStatus();
+                ApplicationManager.getApplication().invokeLater(() ->
+                        context.dispatchEvent(DownstreamEvent.TOAST_SUCCESS_I18N.value(),
+                                context.escapeJs("mcp.gatewayReloaded")));
+            } catch (Exception e) {
+                LOG.warn("[McpServerActionHandlers] Failed to reload MCP Gateway: " + e.getMessage(), e);
+                publishGatewayStatus();
+                ApplicationManager.getApplication().invokeLater(() -> {
+                    String msg = ClaudeCodeGuiBundle.message("mcp.gatewayReloadFailed", e.getMessage());
+                    context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs(msg));
+                });
+            }
+        });
+    }
+
     private void publishGatewayStatus() {
         try {
             if (context.getProject() == null) {

@@ -317,9 +317,39 @@ public final class McpGatewayService implements Disposable {
             }
             processHandle = null;
             bridgeClient = null;
-            currentSnapshot = null;
-            currentRevision = 0L;
-            exitTimestamps.clear();
+            resetSnapshotState();
+        }
+    }
+
+    /**
+     * 重置 snapshot 状态(纯内存,无 IO):清 currentSnapshot / currentRevision / exitTimestamps。
+     * 提取自 {@link #stopGateway} 供 {@link #reloadGateway} 复用,使"重载强制重推"语义可单测
+     * (reset 后 applySnapshot 因 currentSnapshot==null 不 skip → 重新 post)。
+     */
+    void resetSnapshotState() {
+        currentSnapshot = null;
+        currentRevision = 0L;
+        exitTimestamps.clear();
+    }
+
+    /**
+     * 手动硬重载(用户在 MCP 面板点"重载 Gateway"):停旧进程 + 清状态 + 重建进程 + 强制重推 snapshot。
+     * 用于自动加载失败的恢复——{@code onExit} 风暴保护放弃重建、配置错反复崩溃、snapshot 空载等场景。
+     * <p>语义 = {@link #stopGateway} + {@link #ensureStarted} + {@link #applySnapshot}:stopGateway 停进程
+     * 并 revision 归零,ensureStarted 起新进程,applySnapshot 因 currentSnapshot==null 强制 post(不 skip)。
+     * 不复用 {@link #refreshConfig}(它内部吞异常,失败时无法准确反馈给调用方)——此处直接调 throws 版方法,
+     * ensureStarted 失败(gateway 起不来)向上抛,由 handler 发失败 toast。并发 buildCliConfig 由同一把 lock 串行化。
+     *
+     * @throws Exception ensureStarted / applySnapshot 失败(端口冲突、脚本路径错、postSnapshot 超时等)
+     */
+    public void reloadGateway(String projectPath) throws Exception {
+        if (!McpGatewayFeatureFlags.isGatewayActive()) {
+            throw new IllegalStateException("MCP Gateway is disabled");
+        }
+        synchronized (lock) {
+            stopGateway();
+            ensureStarted(projectPath);
+            applySnapshot(projectPath);
         }
     }
 

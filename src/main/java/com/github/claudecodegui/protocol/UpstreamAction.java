@@ -9,7 +9,7 @@ import java.util.Optional;
  *
  * <p>命名规则:枚举常量为 UPPER_SNAKE_CASE,协议值为 snake_case。
  *
- * <p>⚠️ 修改此文件后需运行 {@code gradle generateProtocol} 更新前端类型。
+ * <p>⚠️ 修改此文件后需运行 {@code webview/scripts/generate-protocol-types.mjs}(或 {@code npm run build})更新前端类型。
  */
 public enum UpstreamAction implements ProtocolValue {
 
@@ -133,6 +133,7 @@ public enum UpstreamAction implements ProtocolValue {
     DELETE_MCP_SERVER("delete_mcp_server"),
     TOGGLE_MCP_SERVER("toggle_mcp_server"),
     VALIDATE_MCP_SERVER("validate_mcp_server"),
+    RELOAD_MCP_GATEWAY("reload_mcp_gateway"),
 
     // ── MCP Server (Codex) ──
     GET_CODEX_MCP_SERVERS("get_codex_mcp_servers"),
