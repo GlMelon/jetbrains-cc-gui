@@ -41,6 +41,7 @@ import { SkillMarketDialog } from './SkillMarketDialog';
 import { SkillEditorDialog } from './SkillEditorDialog';
 import { ToastContainer, type ToastMessage } from '../Toast';
 import { UnifiedLoader } from '../UnifiedLoader';
+import { HoverLift } from '../react-bits';
 
 interface SkillsSettingsSectionProps {
   currentProvider?: string;
@@ -709,9 +710,9 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
         {filteredSkills.map((skill, index) => {
           const isGlobal = skill.scope === SKILL_SCOPE.GLOBAL || skill.scope === SKILL_SCOPE.USER;
           return (
+            <HoverLift key={skill.id} lift={3} shadowIntensity={0.8} duration={200}>
             <div
-              key={skill.id}
-              className={`item-card card-lift-hover ${expandedSkills.has(skill.id) ? 'expanded' : ''} ${!skill.enabled ? 'disabled' : ''}`}
+              className={`item-card ${expandedSkills.has(skill.id) ? 'expanded' : ''} ${!skill.enabled ? 'disabled' : ''}`}
               style={{ '--stagger-delay': `${index * 50}ms` } as React.CSSProperties}
             >
               {/* 卡片行 */}
@@ -797,6 +798,7 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
                 </div>
               )}
             </div>
+            </HoverLift>
           );
         })}
 

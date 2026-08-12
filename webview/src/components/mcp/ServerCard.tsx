@@ -88,7 +88,7 @@ export function ServerCard({
   return (
     <HoverLift lift={3} shadowIntensity={0.8} duration={200}>
     <div 
-      className={`item-card card-lift-hover ${isExpanded ? 'expanded' : ''} ${!enabled ? 'disabled' : ''}`}
+      className={`item-card ${isExpanded ? 'expanded' : ''} ${!enabled ? 'disabled' : ''}`}
       style={{ '--stagger-delay': `${animationIndex * 50}ms` } as React.CSSProperties}
     >
       {/* 卡片行 */}
