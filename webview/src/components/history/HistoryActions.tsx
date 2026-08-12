@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import type { TFunction } from 'i18next';
-import { TaskIcon, CheckAllIcon, ClearAllIcon, TrashIcon, CloseIcon, SyncIcon, SearchDeepIcon, InboxIcon } from '../Icons';
+import { TaskIcon, CheckAllIcon, ClearAllIcon, TrashIcon, CloseIcon, SearchDeepIcon, InboxIcon } from '../Icons';
+import { SpinLoader } from '../react-bits';
 
 interface HistoryActionsProps {
   isSelectionMode: boolean;
@@ -104,7 +105,7 @@ export const HistoryActions = memo(({
         title={t('history.deepSearchTooltip')}
         aria-label={t('history.deepSearchTooltip')}
       >
-        {isDeepSearching ? <SyncIcon size={14} spinning /> : <SearchDeepIcon size={14} />}
+        {isDeepSearching ? <SpinLoader variant="ring" size={14} color="currentColor" /> : <SearchDeepIcon size={14} />}
       </button>
     </div>
   );

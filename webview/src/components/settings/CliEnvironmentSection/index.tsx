@@ -172,7 +172,7 @@ const CliEnvironmentSection = ({ isActive }: CliEnvironmentSectionProps) => {
                 <span className={`${styles.detailValue} ${styles.version}`}>
                   {showVersionLoading ? (
                     <span className={styles.inlineLoader}>
-                      <span className={styles.spinner}></span>
+                      <SpinLoader variant="ring" size={12} strokeWidth={2} duration={0.8} color="var(--accent-primary)" />
                       <span>{t('settings.cli.checkingVersion')}</span>
                     </span>
                   ) : (

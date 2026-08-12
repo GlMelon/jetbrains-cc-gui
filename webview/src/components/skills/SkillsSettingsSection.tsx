@@ -610,7 +610,7 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
             disabled={loading}
             title={t('chat.refresh')}
           >
-            <RefreshIcon size={16} className={loading ? 'spinning' : ''} />
+            {loading ? <UnifiedLoader type="spin" size={16} /> : <RefreshIcon size={16} />}
           </button>
           <div className="add-dropdown" ref={dropdownRef}>
             <button

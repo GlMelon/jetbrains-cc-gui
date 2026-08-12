@@ -119,18 +119,14 @@
     transition: background-color var(--dur-hover) var(--ease-smooth);
 }
 
-/* Pending: render a rotating ring spinner instead of a solid pulsing dot,
-   so users immediately recognize "the tool is executing" rather than
-   misreading it as a static dot stuck at the bottom of the message list. */
+/* Pending: 旋转环现由 react-bits SpinLoader 内联渲染(根 div 挂 .tool-status-indicator.pending),
+   颜色 var(--color-warning)、尺寸 12px、spin-ring 动画均由组件内联负责。
+   此处仅保留尺寸/圆角/透明底兜底;旧的 tool-status-spin 关键帧已随 CSS spinner 一并移除。 */
 .tool-status-indicator.pending {
     width: 12px;
     height: 12px;
     background-color: transparent;
-    border: 2px solid var(--color-warning);
-    border-top-color: transparent;
     border-radius: 50%;
-    animation: tool-status-spin 0.85s linear infinite;
-    will-change: transform;
 }
 
 .tool-status-indicator.completed {
@@ -139,10 +135,6 @@
 
 .tool-status-indicator.error {
     background-color: var(--color-error);
-}
-
-@keyframes tool-status-spin {
-    to { transform: rotate(360deg); }
 }
 
 /* Streaming list-item entrance — each freshly appended tool item fades and

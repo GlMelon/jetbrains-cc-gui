@@ -15,6 +15,8 @@ export interface SpinLoaderProps {
   className?: string;
   /** Whether the loader is active (default: true) */
   active?: boolean;
+  /** Additional inline styles (merged after defaults, takes precedence) */
+  style?: React.CSSProperties;
 }
 
 const DOT_COUNT = 8;
@@ -39,6 +41,7 @@ export const SpinLoader = ({
   variant = 'ring',
   className = '',
   active = true,
+  style,
 }: SpinLoaderProps) => {
   const dots = useMemo(() => makeArray(DOT_COUNT), []);
   const bars = useMemo(() => makeArray(BAR_COUNT), []);
@@ -53,6 +56,7 @@ export const SpinLoader = ({
           position: 'relative',
           width: `${size}px`,
           height: `${size}px`,
+          ...style,
         }}
         role="status"
         aria-label="Loading"
@@ -99,6 +103,7 @@ export const SpinLoader = ({
           alignItems: 'center',
           gap: `${size * 0.1}px`,
           height: `${size}px`,
+          ...style,
         }}
         role="status"
         aria-label="Loading"
@@ -144,6 +149,7 @@ export const SpinLoader = ({
         borderRightColor: color,
         animation: `spin-ring ${duration}s linear infinite`,
         willChange: 'transform',
+        ...style,
       }}
       role="status"
       aria-label="Loading"

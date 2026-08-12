@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import ConfirmDialog from '../../ConfirmDialog';
 import { getAppViewport } from '../../../utils/viewport';
 import { InfoIcon, TrashIcon, codiconToIcon } from '../../Icons';
+import { SpinLoader } from '../../react-bits';
 import {
   fetchNodeProcesses,
   killAllOrphanProcesses,
@@ -595,7 +596,7 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
           onClick={(e) => { e.stopPropagation(); requestRefresh(); }}
           title={t('config.nodeProcesses.refresh')}
         >
-          <span className={`codicon codicon-refresh ${loading ? 'codicon-modifier-spin' : ''}`} />
+          {loading ? <SpinLoader variant="ring" size={14} color="currentColor" /> : <span className="codicon codicon-refresh" />}
         </button>
       </div>
 
