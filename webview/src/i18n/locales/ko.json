@@ -1170,6 +1170,9 @@
   "mcp": {
     "title": "MCP 서버",
     "whatIsMcp": "MCP란?",
+    "reloadGateway": "게이트웨이 새로고침",
+    "gatewayReloaded": "MCP Gateway가 새로고침됨",
+    "reloadGatewayTooltip": "MCP Gateway 프로세스 재시작(자동 로드 실패 시 사용); 진행 중인 대화가 중단될 수 있습니다",
     "refreshStatus": "서버 상태 새로고침",
     "add": "추가",
     "manualConfig": "수동 설정",

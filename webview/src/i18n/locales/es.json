@@ -1079,6 +1079,9 @@
   "mcp": {
     "title": "Servidores MCP",
     "whatIsMcp": "¿Qué es MCP?",
+    "reloadGateway": "Recargar Gateway",
+    "gatewayReloaded": "MCP Gateway recargado",
+    "reloadGatewayTooltip": "Reiniciar el proceso de MCP Gateway (usar cuando la carga automática falla); las conversaciones en curso pueden interrumpirse",
     "refreshStatus": "Actualizar estado del servidor",
     "add": "Añadir",
     "manualConfig": "Configuración manual",

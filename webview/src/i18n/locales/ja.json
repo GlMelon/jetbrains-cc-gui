@@ -1084,6 +1084,9 @@
   "mcp": {
     "title": "MCPサーバー",
     "whatIsMcp": "MCPとは?",
+    "reloadGateway": "ゲートウェイを再読み込み",
+    "gatewayReloaded": "MCP Gateway を再読み込みしました",
+    "reloadGatewayTooltip": "MCP Gateway プロセスを再起動(自動読み込み失敗時に使用);進行中の会話が中断する場合があります",
     "refreshStatus": "サーバーステータスを更新",
     "add": "追加",
     "manualConfig": "手動設定",

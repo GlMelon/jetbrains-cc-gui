@@ -1086,6 +1086,9 @@
   "mcp": {
     "title": "MCP 伺服器",
     "whatIsMcp": "什麼是 MCP?",
+    "reloadGateway": "重載 Gateway",
+    "gatewayReloaded": "MCP Gateway 已重載",
+    "reloadGatewayTooltip": "重啟 MCP Gateway 行程(自動載入失敗時使用);進行中的對話可能中斷",
     "refreshStatus": "重新整理伺服器狀態",
     "add": "新增",
     "manualConfig": "手動配置",

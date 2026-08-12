@@ -3,11 +3,11 @@
  * Supports both Claude and Codex modes
  */
 
-import { useState, useRef, useMemo, useCallback } from 'react';
+import { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { McpServer, McpPreset } from '../../types/mcp';
-import { sendAction } from '../../bridge/typed';
-import { UPSTREAM } from '../../generated/protocol';
+import { sendAction, subscribeEvent } from '../../bridge/typed';
+import { UPSTREAM, DOWNSTREAM } from '../../generated/protocol';
 import { McpServerDialog } from './McpServerDialog';
 import { McpMarketDialog } from './McpMarketDialog';
 import { McpPresetDialog } from './McpPresetDialog';
@@ -164,6 +164,32 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
     setRefreshLogs([]);
     addLog(t('mcp.logs.cleared'), 'info');
   }, [addLog, t]);
+
+  // Gateway 手动重载(自动加载失败时恢复,免重启 IDE)。loading 由后端 reload 完成后下发的
+  // MCP_GATEWAY_STATUS 信号清除,辅以 60s 兜底超时(与 REUSE_PROBE_TIMEOUT 同量级,防后端异常不发状态)。
+  const [gatewayReloading, setGatewayReloading] = useState(false);
+  const reloadTimerRef = useRef<number | null>(null);
+
+  const handleReloadGateway = useCallback(() => {
+    setGatewayReloading(true);
+    if (reloadTimerRef.current) window.clearTimeout(reloadTimerRef.current);
+    reloadTimerRef.current = window.setTimeout(() => setGatewayReloading(false), 60000);
+    sendAction(UPSTREAM.RELOAD_MCP_GATEWAY, {});
+  }, []);
+
+  useEffect(() => {
+    const unsub = subscribeEvent(DOWNSTREAM.MCP_GATEWAY_STATUS, () => {
+      setGatewayReloading(false);
+      if (reloadTimerRef.current) {
+        window.clearTimeout(reloadTimerRef.current);
+        reloadTimerRef.current = null;
+      }
+    });
+    return () => {
+      unsub();
+      if (reloadTimerRef.current) window.clearTimeout(reloadTimerRef.current);
+    };
+  }, []);
 
   // Use server data hook
   const {
@@ -506,6 +532,16 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
             aria-label={t('mcp.refreshStatus')}
           >
             {loading || statusLoading ? <UnifiedLoader type="spin" size={16} /> : <RefreshIcon size={16} />}
+          </button>
+          {/* 重载 Gateway(自动加载失败时手动恢复) */}
+          <button
+            className="icon-btn"
+            onClick={handleReloadGateway}
+            disabled={gatewayReloading || loading || statusLoading}
+            title={t('mcp.reloadGatewayTooltip')}
+            aria-label={t('mcp.reloadGateway')}
+          >
+            {gatewayReloading ? <UnifiedLoader type="spin" size={16} /> : <span className="codicon codicon-debug-restart" />}
           </button>
           {/* 手动配置(幽灵按钮) */}
           <button

@@ -1079,6 +1079,9 @@
   "mcp": {
     "title": "MCP सर्वर",
     "whatIsMcp": "MCP क्या है?",
+    "reloadGateway": "गेटवे रीलोड करें",
+    "gatewayReloaded": "MCP Gateway रीलोड हो गया",
+    "reloadGatewayTooltip": "MCP Gateway प्रक्रिया पुनरारंभ करें (स्वतः लोड विफल होने पर उपयोग करें); चल रही बातचीत बाधित हो सकती है",
     "refreshStatus": "सर्वर स्थिति रीफ्रेश करें",
     "add": "जोड़ें",
     "manualConfig": "मैनुअल कॉन्फ़िगरेशन",

@@ -1104,6 +1104,9 @@
   "mcp": {
     "title": "MCP-серверы",
     "whatIsMcp": "Что такое MCP?",
+    "reloadGateway": "Перезагрузить шлюз",
+    "gatewayReloaded": "MCP Gateway перезагружен",
+    "reloadGatewayTooltip": "Перезапустить процесс MCP Gateway (использовать при сбое автозагрузки); текущие диалоги могут прерваться",
     "refreshStatus": "Обновить статус серверов",
     "add": "Добавить",
     "manualConfig": "Ручная настройка",
