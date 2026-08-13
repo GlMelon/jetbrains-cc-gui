@@ -292,6 +292,22 @@
   margin-top: 2px;
 }
 
+/* OpenCode 原生管控徽标:opencode provider 下 plan/acceptEdits 不传 flag(无对应能力),
+   由 opencode.json 原生配置管控。小 chip 紧贴描述块右侧,与选中勾标记共列。 */
+.mode-native-badge {
+  flex-shrink: 0;
+  align-self: center;
+  margin-left: 8px;
+  padding: 1px 6px;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  background: var(--chip);
+  border: 1px solid var(--chip-border);
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
 .selector-option.disabled {
   opacity: 0.5;
   cursor: not-allowed !important;

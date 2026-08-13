@@ -440,7 +440,7 @@
     "permissions": "權限配置",
     "permissionsDesc": "管理 Claude Code 的檔案存取和操作權限",
     "openCodePermissionsDesc": "OpenCode permissions are managed by opencode itself",
-    "openCodePermissionNotice": "OpenCode tool calls are governed by opencode's native policy. This plugin does not intercept or enforce permissions for OpenCode, so the permission mode selector is hidden here.",
+    "openCodePermissionNotice": "OpenCode permissions are governed by its native config (opencode.json: allow/ask/deny). The toolbar Auto mode maps to opencode --auto (auto-approve anything not explicitly denied); other modes pass no flag and defer to your opencode config.",
     "permissionsPanel": {
       "fireThenAskNotice": "Codex command approvals are requested after a command has already started (post-hoc abort). Denying a request aborts the turn, but the command may have already begun executing — a weaker guarantee than a pre-execution prompt."
     },
@@ -1610,7 +1610,9 @@
       "label": "Auto Mode",
       "tooltip": "Bypass all permission checks",
       "description": "Fully automated, bypassing all permission checks [Use with caution]"
-    }
+    },
+    "nativeBadge": "原生管控",
+    "nativeBadgeTooltip": "OpenCode 沒有與此模式等效的 flag;選擇後不傳任何 flag,工具呼叫由你的 opencode.json 權限設定(allow/ask/deny)管控。"
   },
   "codexModes": {
     "default": {

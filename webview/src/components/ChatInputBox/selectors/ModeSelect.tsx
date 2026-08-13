@@ -17,6 +17,11 @@ const DROPDOWN_STYLE: React.CSSProperties = {
 const MODE_INFO_STYLE: React.CSSProperties = { display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, overflow: 'hidden' };
 const MODE_TEXT_STYLE: React.CSSProperties = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
 
+// OpenCode 系列(opencode/grok/kimi/pi 共用 OpenCode CLI 内核)无 plan/acceptEdits 能力:
+// 这两个模式不传 flag,由 opencode.json 原生权限配置(allow/ask/deny)管控。
+// 在下拉项右侧标「原生管控」徽标,让"选了但不传 flag"的行为对用户可见。
+const OPENCODE_FAMILY = new Set(['opencode', 'grok', 'kimi', 'pi']);
+
 function getModeOptionStyle(disabled: boolean): React.CSSProperties {
   return {
     opacity: disabled ? 0.5 : 1,
@@ -174,6 +179,11 @@ export const ModeSelect = ({ value, onChange, provider }: ModeSelectProps) => {
                 <span style={MODE_TEXT_STYLE}>{getModeText(mode.id, 'label')}</span>
                 <span className="mode-description" style={MODE_TEXT_STYLE}>{getModeText(mode.id, 'description')}</span>
               </div>
+              {OPENCODE_FAMILY.has(provider || '') && (mode.id === 'plan' || mode.id === 'acceptEdits') && (
+                <span className="mode-native-badge" title={t('modes.nativeBadgeTooltip')}>
+                  {t('modes.nativeBadge')}
+                </span>
+              )}
               {mode.id === value && (
                 <CheckIcon size={14} className="check-mark" />
               )}

@@ -613,7 +613,7 @@
     "permissions": "权限配置",
     "permissionsDesc": "管理 Claude Code 的文件访问和操作权限",
     "openCodePermissionsDesc": "OpenCode 的权限由 opencode 自身管理",
-    "openCodePermissionNotice": "OpenCode 的工具调用由 opencode 原生策略管控。本插件不拦截、不强制 OpenCode 的权限,因此权限模式选择器在此已隐藏。",
+    "openCodePermissionNotice": "OpenCode 的权限由其原生配置(opencode.json 的 allow/ask/deny)管控。工具栏的 Auto 模式对应 opencode --auto(自动批准未被显式拒绝的操作);其余模式不传 flag,沿用你的 opencode 配置。",
     "codexPermissionsDesc": "管理 Codex 的权限和沙箱策略",
     "permissionsPanel": {
       "codexSandboxTitle": "Codex 沙箱模式",
@@ -2034,7 +2034,9 @@
       "label": "自动模式",
       "tooltip": "绕过所有权限检查",
       "description": "完全自动化，绕过所有权限检查【谨慎使用】"
-    }
+    },
+    "nativeBadge": "原生管控",
+    "nativeBadgeTooltip": "OpenCode 没有与此模式等价的 flag;选择后不传任何 flag,工具调用由你的 opencode.json 权限配置(allow/ask/deny)管控。"
   },
   "codexModes": {
     "default": {

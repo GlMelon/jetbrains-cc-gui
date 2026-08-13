@@ -438,7 +438,7 @@
     "permissions": "権限",
     "permissionsDesc": "Claude Codeのファイルアクセスおよび操作権限を管理",
     "openCodePermissionsDesc": "OpenCode permissions are managed by opencode itself",
-    "openCodePermissionNotice": "OpenCode tool calls are governed by opencode's native policy. This plugin does not intercept or enforce permissions for OpenCode, so the permission mode selector is hidden here.",
+    "openCodePermissionNotice": "OpenCode permissions are governed by its native config (opencode.json: allow/ask/deny). The toolbar Auto mode maps to opencode --auto (auto-approve anything not explicitly denied); other modes pass no flag and defer to your opencode config.",
     "permissionsPanel": {
       "fireThenAskNotice": "Codex command approvals are requested after a command has already started (post-hoc abort). Denying a request aborts the turn, but the command may have already begun executing — a weaker guarantee than a pre-execution prompt."
     },
@@ -1608,7 +1608,9 @@
       "label": "自動モード",
       "tooltip": "すべての権限チェックをバイパス",
       "description": "完全自動、すべての権限チェックをバイパス[注意して使用]"
-    }
+    },
+    "nativeBadge": "Native",
+    "nativeBadgeTooltip": "OpenCode has no equivalent flag for this mode; no flag is passed and your opencode.json permission config (allow/ask/deny) governs tool calls."
   },
   "codexModes": {
     "default": {

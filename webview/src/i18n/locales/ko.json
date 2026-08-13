@@ -438,7 +438,7 @@
     "permissions": "권한",
     "permissionsDesc": "Claude Code 파일 접근 및 작업 권한 관리",
     "openCodePermissionsDesc": "OpenCode permissions are managed by opencode itself",
-    "openCodePermissionNotice": "OpenCode tool calls are governed by opencode's native policy. This plugin does not intercept or enforce permissions for OpenCode, so the permission mode selector is hidden here.",
+    "openCodePermissionNotice": "OpenCode permissions are governed by its native config (opencode.json: allow/ask/deny). The toolbar Auto mode maps to opencode --auto (auto-approve anything not explicitly denied); other modes pass no flag and defer to your opencode config.",
     "codexPermissionsDesc": "Codex 권한 및 샌드박스 정책 관리",
     "promptEnhancer": {
       "title": "Prompt Enhancer",
@@ -1690,7 +1690,9 @@
       "label": "자동 모드",
       "tooltip": "모든 권한 검사 우회",
       "description": "완전 자동화, 모든 권한 검사를 우회합니다 [주의하여 사용]"
-    }
+    },
+    "nativeBadge": "Native",
+    "nativeBadgeTooltip": "OpenCode has no equivalent flag for this mode; no flag is passed and your opencode.json permission config (allow/ask/deny) governs tool calls."
   },
   "codexModes": {
     "default": {
