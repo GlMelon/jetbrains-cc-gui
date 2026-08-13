@@ -22,6 +22,9 @@ import com.github.claudecodegui.handler.codex.UpdateCodexMcpServerActionHandler;
 import com.github.claudecodegui.handler.codex.DeleteCodexMcpServerActionHandler;
 import com.github.claudecodegui.handler.codex.ToggleCodexMcpServerActionHandler;
 import com.github.claudecodegui.handler.codex.ValidateCodexMcpServerActionHandler;
+import com.github.claudecodegui.handler.opencode.OpenCodeMcpServerActionHandlers;
+import com.github.claudecodegui.handler.opencode.GetOpenCodeMcpServersActionHandler;
+import com.github.claudecodegui.handler.opencode.GetOpenCodeMcpServerStatusActionHandler;
 import com.github.claudecodegui.handler.UsagePushService;
 import com.github.claudecodegui.handler.context.GetContextUsageActionHandler;
 import com.github.claudecodegui.handler.dependency.DependencyActionHandlers;
@@ -33,6 +36,7 @@ import com.github.claudecodegui.handler.dependency.CheckDependencyUpdatesActionH
 import com.github.claudecodegui.handler.dependency.GetDependencyVersionsActionHandler;
 import com.github.claudecodegui.handler.dependency.CheckNodeEnvironmentActionHandler;
 import com.github.claudecodegui.handler.cli.CheckCliEnvironmentActionHandler;
+import com.github.claudecodegui.handler.cli.InstallCliToolActionHandler;
 import com.github.claudecodegui.handler.enhance.EnhancePromptActionHandler;
 import com.github.claudecodegui.handler.file.SaveExportedFileActionHandler;
 import com.github.claudecodegui.handler.file.SaveMarkdownActionHandler;
@@ -678,6 +682,14 @@ nodeService.setSessionId(sessionId);
         typedHandlers.add(new ToggleCodexMcpServerActionHandler(codexMcpServerHandlers));
         typedHandlers.add(new ValidateCodexMcpServerActionHandler(codexMcpServerHandlers));
 
+        // OpenCode MCP server action handlers (只读: server 列表 + 实时连接状态)
+        // 与 Claude/Codex 不同:OpenCode channel 无 getMcpServerStatus,连接状态改取 MCP Gateway
+        // 聚合状态(McpGatewayService.statusJson)过滤 sourceProvider=="opencode";server 列表读
+        // ~/.config/opencode/opencode.json 的 mcp 字段。不含增删改/工具列表(只读 + 多层合并,与定位冲突)。
+        OpenCodeMcpServerActionHandlers opencodeMcpServerHandlers = new OpenCodeMcpServerActionHandlers(handlerContext);
+        typedHandlers.add(new GetOpenCodeMcpServersActionHandler(opencodeMcpServerHandlers));
+        typedHandlers.add(new GetOpenCodeMcpServerStatusActionHandler(opencodeMcpServerHandlers));
+
         // Agent action handlers (B2 迁移: agent CRUD + selection + import/export)
         AgentActionHandlers agentHandlers = new AgentActionHandlers(handlerContext);
         typedHandlers.add(new GetAgentsActionHandler(agentHandlers));
@@ -729,6 +741,7 @@ nodeService.setSessionId(sessionId);
 
         // CLI environment action handlers (检测CLI工具安装状态)
         typedHandlers.add(new CheckCliEnvironmentActionHandler());
+        typedHandlers.add(new InstallCliToolActionHandler());
 
         // Node process action handlers (B2 迁移: get/kill/kill-all-orphan)
         NodeProcessActionHandlers nodeProcessHandlers = new NodeProcessActionHandlers(handlerContext);

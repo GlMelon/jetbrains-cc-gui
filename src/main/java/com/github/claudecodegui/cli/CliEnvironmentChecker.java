@@ -46,6 +46,24 @@ public class CliEnvironmentChecker {
             "OpenCode 命令行工具",
             "opencode-ai"
         ),
+        new CliToolDefinition(
+            ProviderType.GROK.value(),
+            "Grok CLI",
+            "xAI Grok 命令行工具",
+            "@xai-official/grok"
+        ),
+        new CliToolDefinition(
+            ProviderType.KIMI.value(),
+            "Kimi CLI",
+            "Moonshot Kimi 命令行工具",
+            "@moonshot-ai/kimi-code"
+        ),
+        new CliToolDefinition(
+            ProviderType.PI.value(),
+            "Pi CLI",
+            "Inflection Pi 命令行工具",
+            "@earendil-works/pi-coding-agent"
+        ),
     };
 
     /**
@@ -106,13 +124,19 @@ public class CliEnvironmentChecker {
                 status.setVersion(version);
             }
 
-            // 4. 获取最新版本（从npm registry）
-            String latestVersion = getLatestVersionFromNpm(tool.npmPackage);
+            // 4. 获取最新版本（从npm registry）—— 仅当声明了 npm 包名时才查询。
+            // grok/kimi/pi 的 npmPackage=null(非 npm 分发或未验证),跳过 npm view,
+            // 否则 getLatestVersionFromNpm(null) 会 NPE(ProcessBuilder 拒绝 null 参数),
+            // 触发下方 catch 污染整张卡片状态;且对不存在的包每次空等最长 10s。
+            String latestVersion = null;
+            if (tool.npmPackage != null && !tool.npmPackage.isBlank()) {
+                latestVersion = getLatestVersionFromNpm(tool.npmPackage);
+            }
             if (latestVersion != null) {
                 status.setLatestVersion(latestVersion);
-                
+
                 // 检查是否有更新
-                if (version != null && latestVersion != null) {
+                if (version != null) {
                     status.setHasUpdate(!version.equals(latestVersion));
                 }
             }
@@ -336,6 +360,96 @@ public class CliEnvironmentChecker {
         }
 
         return null;
+    }
+
+    /**
+     * 获取CLI工具的安装命令
+     */
+    public String getInstallCommand(String toolName) {
+        for (CliToolDefinition tool : CLI_TOOLS) {
+            if (tool.name.equals(toolName) && tool.npmPackage != null) {
+                String npm = PlatformUtils.isWindows() ? "npm.cmd" : "npm";
+                return npm + " install -g " + tool.npmPackage + "@latest";
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 安装CLI工具
+     */
+    public CliEnvironmentStatus installCliTool(String toolName) {
+        CliToolDefinition toolDef = null;
+        for (CliToolDefinition tool : CLI_TOOLS) {
+            if (tool.name.equals(toolName)) {
+                toolDef = tool;
+                break;
+            }
+        }
+
+        if (toolDef == null) {
+            CliEnvironmentStatus errorStatus = new CliEnvironmentStatus(toolName, toolName, "", null);
+            errorStatus.setError("未知的CLI工具: " + toolName);
+            return errorStatus;
+        }
+
+        if (toolDef.npmPackage == null || toolDef.npmPackage.isBlank()) {
+            CliEnvironmentStatus errorStatus = new CliEnvironmentStatus(
+                toolDef.name, toolDef.displayName, toolDef.description, toolDef.npmPackage
+            );
+            errorStatus.setError(toolDef.displayName + " 不支持通过npm安装");
+            return errorStatus;
+        }
+
+        Process process = null;
+        try {
+            String npm = PlatformUtils.isWindows() ? "npm.cmd" : "npm";
+            ProcessBuilder pb = new ProcessBuilder(npm, "install", "-g", toolDef.npmPackage + "@latest");
+            pb.redirectErrorStream(true);
+            process = pb.start();
+
+            boolean finished = process.waitFor(120, TimeUnit.SECONDS);
+            if (!finished) {
+                process.destroyForcibly();
+                CliEnvironmentStatus errorStatus = new CliEnvironmentStatus(
+                    toolDef.name, toolDef.displayName, toolDef.description, toolDef.npmPackage
+                );
+                errorStatus.setError("安装超时");
+                return errorStatus;
+            }
+
+            int exitCode = process.exitValue();
+            if (exitCode != 0) {
+                StringBuilder output = new StringBuilder();
+                try (BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        output.append(line).append("\n");
+                    }
+                }
+                CliEnvironmentStatus errorStatus = new CliEnvironmentStatus(
+                    toolDef.name, toolDef.displayName, toolDef.description, toolDef.npmPackage
+                );
+                errorStatus.setError("安装失败: " + output.toString().trim());
+                return errorStatus;
+            }
+
+            // 安装成功，重新检测环境
+            return checkCliEnvironment(toolDef);
+
+        } catch (Exception e) {
+            LOG.error("[CliEnvironmentChecker] Failed to install " + toolName, e);
+            CliEnvironmentStatus errorStatus = new CliEnvironmentStatus(
+                toolDef.name, toolDef.displayName, toolDef.description, toolDef.npmPackage
+            );
+            errorStatus.setError("安装过程中出错: " + e.getMessage());
+            return errorStatus;
+        } finally {
+            if (process != null && process.isAlive()) {
+                process.destroyForcibly();
+            }
+        }
     }
 
     /**

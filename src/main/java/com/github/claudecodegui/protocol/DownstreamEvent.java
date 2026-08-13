@@ -145,6 +145,10 @@ public enum DownstreamEvent implements ProtocolValue {
     CODEX_MCP_SERVER_TOGGLED("codex.mcp.server_toggled"),
     CODEX_MCP_SERVER_VALIDATED("codex.mcp.server_validated"),
 
+    // ── MCP Server (OpenCode) ── 只读:server 列表 + 实时连接状态(经 MCP Gateway 聚合;OpenCode channel 无 getMcpServerStatus,改用 gateway /status 数据源)
+    OPENCODE_MCP_SERVER_LIST("opencode.mcp.server_list"),
+    OPENCODE_MCP_SERVER_STATUS("opencode.mcp.server_status"),
+
     // ── MCP Import ── Copilot 配置解析预览(对称 parse_copilot_mcp_config 上行;承载 servers/error)
     MCP_IMPORT_PREVIEW("mcp.import_preview"),
 
@@ -164,6 +168,7 @@ public enum DownstreamEvent implements ProtocolValue {
 
     // ── CLI Environment ──
     CLI_ENVIRONMENT_STATUS("cli_environment.status"),
+    CLI_INSTALL_RESULT("cli_environment.install_result"),
 
     // ── History ──
     HISTORY_EXPORT_DATA("history.export_data"),

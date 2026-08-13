@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { HoverLift } from '../../react-bits/HoverLift';
 import { SpinLoader } from '../../react-bits/SpinLoader';
 import { ProviderModelIcon } from '../../shared/ProviderModelIcon';
-import { RefreshIcon, AlertIcon, ExternalLinkIcon } from '../../Icons';
+import { RefreshIcon, AlertIcon, ExternalLinkIcon, DownloadIcon } from '../../Icons';
 import styles from './style.module.less';
 
 interface CliEnvironmentStatus {
@@ -16,6 +16,7 @@ interface CliEnvironmentStatus {
   latestVersion?: string;
   installPath?: string;
   installSource?: string;
+  npmPackage?: string;
   hasUpdate?: boolean;
   errorMessage?: string;
 }
@@ -38,14 +39,14 @@ const CLI_TOOLS: CliToolConfig[] = [
     nameKey: 'settings.cli.claudeName',
     description: 'settings.cli.claudeDescription',
     icon: 'claude',
-    docUrl: 'https://docs.anthropic.com/en/docs/claude-code/overview',
+    docUrl: 'https://code.claude.com/docs/',
   },
   {
     id: 'codex',
     nameKey: 'settings.cli.codexName',
     description: 'settings.cli.codexDescription',
     icon: 'codex',
-    docUrl: 'https://platform.openai.com/docs/guides/codex',
+    docUrl: 'https://developers.openai.com/codex',
   },
   {
     id: 'opencode',
@@ -53,6 +54,27 @@ const CLI_TOOLS: CliToolConfig[] = [
     description: 'settings.cli.opencodeDescription',
     icon: 'opencode',
     docUrl: 'https://github.com/opencode-ai/opencode',
+  },
+  {
+    id: 'grok',
+    nameKey: 'settings.cli.grokName',
+    description: 'settings.cli.grokDescription',
+    icon: 'grok',
+    docUrl: 'https://docs.x.ai/build/overview',
+  },
+  {
+    id: 'kimi',
+    nameKey: 'settings.cli.kimiName',
+    description: 'settings.cli.kimiDescription',
+    icon: 'kimi',
+    docUrl: 'https://moonshotai.github.io/kimi-code/en/',
+  },
+  {
+    id: 'pi',
+    nameKey: 'settings.cli.piName',
+    description: 'settings.cli.piDescription',
+    icon: 'pi',
+    docUrl: 'https://pi.dev/docs/latest',
   },
 ];
 
@@ -63,6 +85,7 @@ const CliEnvironmentSection = ({ isActive }: CliEnvironmentSectionProps) => {
   const [checking, setChecking] = useState(false);
   const [lastChecked, setLastChecked] = useState<string>('');
   const [checkingTools, setCheckingTools] = useState<Set<string>>(new Set());
+  const [installingTools, setInstallingTools] = useState<Set<string>>(new Set());
   const isActiveRef = useRef(isActive);
 
   useEffect(() => {
@@ -85,6 +108,29 @@ const CliEnvironmentSection = ({ isActive }: CliEnvironmentSectionProps) => {
         setLoading(false);
         setChecking(false);
         setCheckingTools(new Set());
+      }
+    }));
+
+    unsubs.push(subscribeEvent(DOWNSTREAM.CLI_INSTALL_RESULT, (jsonStr) => {
+      try {
+        const result = JSON.parse(jsonStr as string);
+        const { toolId, success, error, status } = result;
+        setInstallingTools((prev) => {
+          const next = new Set(prev);
+          next.delete(toolId);
+          return next;
+        });
+        
+        if (success && status) {
+          setCliStatus((prev) => ({
+            ...prev,
+            [toolId]: status,
+          }));
+        } else if (error) {
+          console.error(`[CliEnvironmentSection] Install failed for ${toolId}:`, error);
+        }
+      } catch (error) {
+        console.error('[CliEnvironmentSection] Failed to parse install result:', error);
       }
     }));
 
@@ -129,6 +175,11 @@ const CliEnvironmentSection = ({ isActive }: CliEnvironmentSectionProps) => {
     sendAction(UPSTREAM.UPDATE_CLI_TOOL, { toolId });
   }, []);
 
+  const handleInstall = useCallback((toolId: string) => {
+    setInstallingTools((prev) => new Set(prev).add(toolId));
+    sendAction(UPSTREAM.INSTALL_CLI_TOOL, { toolId });
+  }, []);
+
   const handleOpenDoc = useCallback((url: string) => {
     window.open(url, '_blank');
   }, []);
@@ -136,6 +187,7 @@ const CliEnvironmentSection = ({ isActive }: CliEnvironmentSectionProps) => {
   const renderCard = (tool: CliToolConfig, status?: CliEnvironmentStatus, isChecking = false) => {
     const statusInfo = status ? getStatusInfo(status) : null;
     const isToolChecking = isChecking || checkingTools.has(tool.id);
+    const isToolInstalling = installingTools.has(tool.id);
     const showVersionLoading = isToolChecking && status?.installed;
 
     return (
@@ -228,6 +280,20 @@ const CliEnvironmentSection = ({ isActive }: CliEnvironmentSectionProps) => {
 
           {!isToolChecking && (
             <div className={styles.cliActions}>
+              {!status?.installed && status?.npmPackage && (
+                <button
+                  className={`${styles.actionBtn} ${styles.primary}`}
+                  onClick={() => handleInstall(tool.id)}
+                  disabled={isToolInstalling}
+                >
+                  {isToolInstalling ? (
+                    <SpinLoader size={12} />
+                  ) : (
+                    <DownloadIcon size={14} />
+                  )}
+                  {isToolInstalling ? t('settings.cli.installing') : t('settings.cli.install')}
+                </button>
+              )}
               {status?.hasUpdate && status.latestVersion && (
                 <button
                   className={`${styles.actionBtn} ${styles.primary}`}
