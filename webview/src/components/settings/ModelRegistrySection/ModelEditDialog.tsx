@@ -9,10 +9,10 @@ import type { ModelRegistryItem } from '../../../utils/modelRegistry';
 import { DEFAULT_CONTEXT_WINDOW, ONE_MILLION_CONTEXT_WINDOW } from '../../../components/ChatInputBox/types';
 
 // 与 ModelRegistrySection 内 EMPTY_MODEL 保持同构的弹窗默认表单(解耦,各自维护)
-type Provider = 'claude' | 'codex' | 'opencode';
+type Provider = 'claude' | 'codex' | 'opencode' | 'grok' | 'kimi' | 'pi';
 type Role = NonNullable<ModelRegistryItem['role']>;
 
-const PROVIDERS: Provider[] = ['claude', 'codex', 'opencode'];
+const PROVIDERS: Provider[] = ['claude', 'codex', 'opencode', 'grok', 'kimi', 'pi'];
 const ROLES: Role[] = ['sonnet', 'opus', 'fable', 'haiku'];
 
 const EMPTY_FORM: ModelRegistryItem = {

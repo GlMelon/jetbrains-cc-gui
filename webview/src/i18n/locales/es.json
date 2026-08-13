@@ -529,7 +529,14 @@
     "codexFeatureUnavailable": "Esta sección de configuración aún no está disponible en Codex. Cambia a Claude Code.",
     "sidebar": {
       "expand": "Expand Sidebar",
-      "collapse": "Collapse Sidebar"
+      "collapse": "Collapse Sidebar",
+      "group": {
+        "core": "Principal",
+        "ai": "IA",
+        "integration": "Integración",
+        "resources": "Recursos",
+        "other": "Otros"
+      }
     },
     "versionHistory": "Historial de versiones",
     "versionHistoryDesc": "Ver todos los registros de actualizaciones de versiones y registros de cambios",

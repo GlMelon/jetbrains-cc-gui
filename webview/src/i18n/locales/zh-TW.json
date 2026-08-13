@@ -536,7 +536,14 @@
     "codexFeatureUnavailable": "Codex 暫未適配此功能，請切換到 Claude Code 使用",
     "sidebar": {
       "expand": "Expand Sidebar",
-      "collapse": "Collapse Sidebar"
+      "collapse": "Collapse Sidebar",
+      "group": {
+        "core": "核心",
+        "ai": "AI功能",
+        "integration": "整合",
+        "resources": "資源",
+        "other": "其他"
+      }
     },
     "versionHistory": "版本記錄",
     "versionHistoryDesc": "查看所有版本更新記錄和變更日誌",

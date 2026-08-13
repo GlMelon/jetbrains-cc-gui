@@ -553,6 +553,12 @@
       "codexDescription": "OpenAI Codex 命令行工具，用于 AI 代码生成",
       "opencodeName": "OpenCode CLI",
       "opencodeDescription": "OpenCode AI 命令行工具，支持多模型",
+      "grokName": "Grok CLI",
+      "grokDescription": "xAI Grok 命令行工具，用于 AI 编程",
+      "kimiName": "Kimi CLI",
+      "kimiDescription": "Moonshot Kimi 命令行工具，用于 AI 编程",
+      "piName": "Pi CLI",
+      "piDescription": "Inflection Pi 命令行工具，用于 AI 编程",
       "installed": "已安装",
       "notInstalled": "未安装",
       "updateAvailable": "有更新",
@@ -567,6 +573,8 @@
       "docUrl": "官方文档",
       "updateToVersion": "更新到 v{{version}}",
       "viewDocs": "查看文档",
+      "install": "安装",
+      "installing": "安装中...",
       "error": "检测 CLI 状态时出错"
     },
     "dependencies": "CLI 工具",
@@ -718,7 +726,8 @@
       "search": "搜索设置...",
       "group": {
         "core": "核心",
-        "tools": "工具",
+        "ai": "AI功能",
+        "integration": "集成",
         "resources": "资源",
         "other": "其他"
       }
@@ -1491,6 +1500,7 @@
     "docs": "文档",
     "noServers": "暂无 MCP 服务器",
     "addServerHint": "点击「添加」按钮添加服务器",
+    "opencodeReadonlyHint": "只读 · 来自 ~/.config/opencode/opencode.json。可用 opencode mcp add 或手动编辑文件，重启会话后生效。",
     "loading": "加载中...",
     "deleteTitle": "删除 MCP 服务器",
     "deleteMessage": "确定要删除服务器 \"{{name}}\" 吗？\n\n此操作无法撤销。",

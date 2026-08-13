@@ -551,6 +551,12 @@
       "codexDescription": "OpenAI Codex command-line tool for AI-powered code generation",
       "opencodeName": "OpenCode CLI",
       "opencodeDescription": "OpenCode AI command-line tool for multi-model support",
+      "grokName": "Grok CLI",
+      "grokDescription": "xAI Grok command-line tool for AI-powered coding",
+      "kimiName": "Kimi CLI",
+      "kimiDescription": "Moonshot Kimi command-line tool for AI-powered coding",
+      "piName": "Pi CLI",
+      "piDescription": "Inflection Pi command-line tool for AI-powered coding",
       "installed": "Installed",
       "notInstalled": "Not Installed",
       "updateAvailable": "Update Available",
@@ -565,6 +571,8 @@
       "docUrl": "Documentation",
       "updateToVersion": "Update to v{{version}}",
       "viewDocs": "View Documentation",
+      "install": "Install",
+      "installing": "Installing...",
       "error": "Error detecting CLI status"
     },
     "dependencies": "CLI Tools",
@@ -711,7 +719,8 @@
       "search": "Search settings...",
       "group": {
         "core": "Core",
-        "tools": "Tools",
+        "ai": "AI",
+        "integration": "Integration",
         "resources": "Resources",
         "other": "Other"
       }
@@ -1474,6 +1483,7 @@
     "docs": "Docs",
     "noServers": "No MCP servers",
     "addServerHint": "Click 'Add' button to add a server",
+    "opencodeReadonlyHint": "Read-only · from ~/.config/opencode/opencode.json. Use `opencode mcp add` or edit the file manually, then restart the session to apply.",
     "loading": "Loading...",
     "deleteTitle": "Delete MCP server",
     "deleteMessage": "Are you sure you want to delete server \"{{name}}\"?\n\nThis action cannot be undone.",

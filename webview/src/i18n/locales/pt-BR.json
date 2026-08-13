@@ -567,7 +567,14 @@
     "codexFeatureUnavailable": "Esta seção de configurações ainda não está disponível no Codex. Por favor, mude para Claude Code.",
     "sidebar": {
       "expand": "Expandir Barra Lateral",
-      "collapse": "Recolher Barra Lateral"
+      "collapse": "Recolher Barra Lateral",
+      "group": {
+        "core": "Principal",
+        "ai": "IA",
+        "integration": "Integração",
+        "resources": "Recursos",
+        "other": "Outros"
+      }
     },
     "versionHistory": "Histórico de Versões",
     "versionHistoryDesc": "Visualizar todos os registros de atualização de versão e logs de alterações",

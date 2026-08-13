@@ -22,24 +22,29 @@ const sidebarGroups: SidebarGroup[] = [
       { key: 'basic', icon: 'settings', labelKey: 'settings.basic.title' },
       { key: 'providers', icon: 'plug', labelKey: 'settings.providers' },
       { key: 'models', icon: 'list', labelKey: 'settings.models.title' },
-      { key: 'dependencies', icon: 'terminal', labelKey: 'settings.cli.title' },
     ],
   },
   {
-    labelKey: 'settings.sidebar.group.tools',
+    labelKey: 'settings.sidebar.group.ai',
     items: [
-      { key: 'mcp', icon: 'server', labelKey: 'settings.mcp' },
-      { key: 'permissions', icon: 'shield', labelKey: 'settings.permissions' },
       { key: 'promptEnhancer', icon: 'sparkles', labelKey: 'settings.promptEnhancer.title' },
       { key: 'commit', icon: 'gitCommit', labelKey: 'settings.commit.title' },
+      { key: 'permissions', icon: 'shield', labelKey: 'settings.permissions' },
+    ],
+  },
+  {
+    labelKey: 'settings.sidebar.group.integration',
+    items: [
+      { key: 'mcp', icon: 'server', labelKey: 'settings.mcp' },
+      { key: 'agents', icon: 'bot', labelKey: 'settings.agents' },
+      { key: 'skills', icon: 'bookOpen', labelKey: 'settings.skills' },
     ],
   },
   {
     labelKey: 'settings.sidebar.group.resources',
     items: [
-      { key: 'agents', icon: 'bot', labelKey: 'settings.agents' },
       { key: 'prompts', icon: 'fileText', labelKey: 'settings.prompts' },
-      { key: 'skills', icon: 'bookOpen', labelKey: 'settings.skills' },
+      { key: 'dependencies', icon: 'terminal', labelKey: 'settings.cli.title' },
     ],
   },
   {
@@ -124,7 +129,8 @@ const SvgIcon = ({ name }: { name: string }) => (
 // Fallback group labels (used if i18n keys are not yet registered)
 const GROUP_LABEL_FALLBACKS: Record<string, string> = {
   'settings.sidebar.group.core': 'Core',
-  'settings.sidebar.group.tools': 'Tools',
+  'settings.sidebar.group.ai': 'AI',
+  'settings.sidebar.group.integration': 'Integration',
   'settings.sidebar.group.resources': 'Resources',
   'settings.sidebar.group.other': 'Other',
 };

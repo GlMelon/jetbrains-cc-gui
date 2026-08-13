@@ -533,7 +533,14 @@
     "codexFeatureUnavailable": "이 설정 섹션은 Codex에서 아직 사용할 수 없습니다. Claude Code로 전환해주세요.",
     "sidebar": {
       "expand": "사이드바 펼치기",
-      "collapse": "사이드바 접기"
+      "collapse": "사이드바 접기",
+      "group": {
+        "core": "핵심",
+        "ai": "AI",
+        "integration": "통합",
+        "resources": "리소스",
+        "other": "기타"
+      }
     },
     "versionHistory": "버전 히스토리",
     "versionHistoryDesc": "모든 버전 업데이트 기록과 변경 로그 보기",

@@ -534,7 +534,14 @@
     "codexFeatureUnavailable": "Codexではこの設定セクションは未対応です。Claude Codeに切り替えてください。",
     "sidebar": {
       "expand": "Expand Sidebar",
-      "collapse": "Collapse Sidebar"
+      "collapse": "Collapse Sidebar",
+      "group": {
+        "core": "コア",
+        "ai": "AI",
+        "integration": "統合",
+        "resources": "リソース",
+        "other": "その他"
+      }
     },
     "versionHistory": "バージョン履歴",
     "versionHistoryDesc": "すべてのバージョン更新記録と変更履歴を表示",

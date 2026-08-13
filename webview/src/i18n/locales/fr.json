@@ -529,7 +529,14 @@
     "codexFeatureUnavailable": "Cette section des paramètres n'est pas encore disponible dans Codex. Passez à Claude Code.",
     "sidebar": {
       "expand": "Expand Sidebar",
-      "collapse": "Collapse Sidebar"
+      "collapse": "Collapse Sidebar",
+      "group": {
+        "core": "Principal",
+        "ai": "IA",
+        "integration": "Intégration",
+        "resources": "Ressources",
+        "other": "Autres"
+      }
     },
     "versionHistory": "Historique des versions",
     "versionHistoryDesc": "Voir tous les enregistrements de mises à jour de versions et les journaux de modifications",

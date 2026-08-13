@@ -529,7 +529,14 @@
     "codexFeatureUnavailable": "यह सेटिंग अनुभाग अभी Codex में उपलब्ध नहीं है। कृपया Claude Code पर स्विच करें।",
     "sidebar": {
       "expand": "Expand Sidebar",
-      "collapse": "Collapse Sidebar"
+      "collapse": "Collapse Sidebar",
+      "group": {
+        "core": "मूल",
+        "ai": "AI",
+        "integration": "एकीकरण",
+        "resources": "संसाधन",
+        "other": "अन्य"
+      }
     },
     "versionHistory": "संस्करण इतिहास",
     "versionHistoryDesc": "सभी संस्करण अपडेट रिकॉर्ड और परिवर्तन लॉग देखें",

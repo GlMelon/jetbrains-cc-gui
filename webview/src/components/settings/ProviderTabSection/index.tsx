@@ -8,23 +8,32 @@ import type {
 import ProviderManageSection from '../ProviderManageSection';
 import CodexProviderSection from '../CodexProviderSection';
 import OpenCodeProviderSection from '../OpenCodeProviderSection';
+import GrokProviderSection from '../GrokProviderSection';
+import KimiProviderSection from '../KimiProviderSection';
+import PiProviderSection from '../PiProviderSection';
 import styles from './style.module.less';
 import { useRovingTabs } from '../../shared/useRovingTabs';
 
 const BLOCK_STYLE: React.CSSProperties = { display: 'block', animation: 'fadeIn 0.2s ease-out' };
 const NONE_STYLE: React.CSSProperties = { display: 'none' };
 
-type ProviderTab = 'claude' | 'codex' | 'opencode';
-const PROVIDER_TABS: readonly ProviderTab[] = ['claude', 'codex', 'opencode'];
+type ProviderTab = 'claude' | 'codex' | 'opencode' | 'grok' | 'kimi' | 'pi';
+const PROVIDER_TABS: readonly ProviderTab[] = ['claude', 'codex', 'opencode', 'grok', 'kimi', 'pi'];
 const PROVIDER_TAB_IDS: Record<ProviderTab, string> = {
   claude: 'tab-claude-providers',
   codex: 'tab-codex-providers',
   opencode: 'tab-opencode-providers',
+  grok: 'tab-grok-providers',
+  kimi: 'tab-kimi-providers',
+  pi: 'tab-pi-providers',
 };
 const PROVIDER_PANEL_IDS: Record<ProviderTab, string> = {
   claude: 'panel-claude-providers',
   codex: 'panel-codex-providers',
   opencode: 'panel-opencode-providers',
+  grok: 'panel-grok-providers',
+  kimi: 'panel-kimi-providers',
+  pi: 'panel-pi-providers',
 };
 
 // SVG tab icon paths (24×24 viewBox, stroke-based)
@@ -36,6 +45,12 @@ const tabIconPaths: Record<string, string> = {
   codex: '<polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/>',
   // OpenCode - code brackets
   opencode: '<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>',
+  // Grok - lightning bolt
+  grok: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+  // Kimi - chat bubble
+  kimi: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  // Pi - circle with dots
+  pi: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
   // Plugin puzzle
   plugin: '<path d="M12 2v6M6 8h12M8 8v8a4 4 0 0 0 8 0V8"/>',
 };
@@ -96,7 +111,12 @@ const ProviderTabSection = ({
   const { t } = useTranslation();
 
   const [activeTab, setActiveTab] = useState<ProviderTab>(() =>
-    currentProvider === 'codex' ? 'codex' : currentProvider === 'opencode' ? 'opencode' : 'claude',
+    currentProvider === 'codex' ? 'codex'
+      : currentProvider === 'opencode' ? 'opencode'
+        : currentProvider === 'grok' ? 'grok'
+          : currentProvider === 'kimi' ? 'kimi'
+            : currentProvider === 'pi' ? 'pi'
+              : 'claude',
   );
   const { getTabProps } = useRovingTabs({
     values: PROVIDER_TABS,
@@ -179,6 +199,75 @@ const ProviderTabSection = ({
           </span>
           {t('settings.providerTab.opencode')}
         </button>
+        <button
+          {...getTabProps('grok')}
+          id={PROVIDER_TAB_IDS.grok}
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'grok'}
+          aria-controls={PROVIDER_PANEL_IDS.grok}
+          className={`${styles.tabBtn} ${activeTab === 'grok' ? styles.active : ''}`}
+          onClick={() => setActiveTab('grok')}
+        >
+          <span className={styles.tabIcon}>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              dangerouslySetInnerHTML={{ __html: tabIconPaths.grok }}
+            />
+          </span>
+          {t('settings.providerTab.grok', 'Grok')}
+        </button>
+        <button
+          {...getTabProps('kimi')}
+          id={PROVIDER_TAB_IDS.kimi}
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'kimi'}
+          aria-controls={PROVIDER_PANEL_IDS.kimi}
+          className={`${styles.tabBtn} ${activeTab === 'kimi' ? styles.active : ''}`}
+          onClick={() => setActiveTab('kimi')}
+        >
+          <span className={styles.tabIcon}>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              dangerouslySetInnerHTML={{ __html: tabIconPaths.kimi }}
+            />
+          </span>
+          {t('settings.providerTab.kimi', 'Kimi')}
+        </button>
+        <button
+          {...getTabProps('pi')}
+          id={PROVIDER_TAB_IDS.pi}
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'pi'}
+          aria-controls={PROVIDER_PANEL_IDS.pi}
+          className={`${styles.tabBtn} ${activeTab === 'pi' ? styles.active : ''}`}
+          onClick={() => setActiveTab('pi')}
+        >
+          <span className={styles.tabIcon}>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              dangerouslySetInnerHTML={{ __html: tabIconPaths.pi }}
+            />
+          </span>
+          {t('settings.providerTab.pi', 'Pi')}
+        </button>
       </div>
 
       {/* Use display to preserve component state across tab switches */}
@@ -235,6 +324,33 @@ const ProviderTabSection = ({
           onRevokeOpenCodeLocalConfigAuthorization={onRevokeOpenCodeLocalConfigAuthorization}
           showHeader={false}
         />
+      </div>
+
+      <div
+        id={PROVIDER_PANEL_IDS.grok}
+        role="tabpanel"
+        aria-labelledby={PROVIDER_TAB_IDS.grok}
+        style={activeTab === 'grok' ? BLOCK_STYLE : NONE_STYLE}
+      >
+        <GrokProviderSection showHeader={false} />
+      </div>
+
+      <div
+        id={PROVIDER_PANEL_IDS.kimi}
+        role="tabpanel"
+        aria-labelledby={PROVIDER_TAB_IDS.kimi}
+        style={activeTab === 'kimi' ? BLOCK_STYLE : NONE_STYLE}
+      >
+        <KimiProviderSection showHeader={false} />
+      </div>
+
+      <div
+        id={PROVIDER_PANEL_IDS.pi}
+        role="tabpanel"
+        aria-labelledby={PROVIDER_TAB_IDS.pi}
+        style={activeTab === 'pi' ? BLOCK_STYLE : NONE_STYLE}
+      >
+        <PiProviderSection showHeader={false} />
       </div>
     </div>
   );
