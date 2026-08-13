@@ -28,10 +28,6 @@ contact_links:
     url: https://github.com/zhukunpenglinyutong/jetbrains-cc-gui/issues/1097
     about: WSL 环境和远程 SSH 服务器支持需求
 
-  - name: 🔵 #1098 Gemini / 其他 AI 工具支持
-    url: https://github.com/zhukunpenglinyutong/jetbrains-cc-gui/issues/1098
-    about: Gemini CLI、OpenCode 等其他 AI 工具支持
-
   - name: 🔵 #1099 UI / 字体 / 主题优化
     url: https://github.com/zhukunpenglinyutong/jetbrains-cc-gui/issues/1099
     about: 字体、主题、配色、布局等 UI 体验问题

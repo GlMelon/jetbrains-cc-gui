@@ -18,22 +18,22 @@ public class ProviderDescriptorLoaderTest {
 
     @Test
     public void parsesValidCustomProvider() {
-        JsonObject gemini = new JsonObject();
-        gemini.addProperty("id", "gemini");
-        gemini.addProperty("label", "Gemini");
-        gemini.addProperty("cliCommand", "gemini");
-        gemini.addProperty("cliCommandWindows", "gemini.cmd");
-        gemini.add("capabilities", strArray("CLI_SESSION", "STREAMING", "HISTORY"));
-        gemini.add("runtimes", strArray("CLI"));
+        JsonObject acme = new JsonObject();
+        acme.addProperty("id", "acme");
+        acme.addProperty("label", "Acme");
+        acme.addProperty("cliCommand", "acme");
+        acme.addProperty("cliCommandWindows", "acme.cmd");
+        acme.add("capabilities", strArray("CLI_SESSION", "STREAMING", "HISTORY"));
+        acme.add("runtimes", strArray("CLI"));
 
-        List<ProviderDescriptor> result = ProviderDescriptorLoader.fromJsonArray(arr(gemini));
+        List<ProviderDescriptor> result = ProviderDescriptorLoader.fromJsonArray(arr(acme));
 
         assertEquals(1, result.size());
         ProviderDescriptor d = result.get(0);
-        assertEquals("gemini", d.providerId());
-        assertEquals("Gemini", d.displayLabel());
-        assertEquals("gemini", d.cliCommand());
-        assertEquals("gemini.cmd", d.cliCommandWindows());
+        assertEquals("acme", d.providerId());
+        assertEquals("Acme", d.displayLabel());
+        assertEquals("acme", d.cliCommand());
+        assertEquals("acme.cmd", d.cliCommandWindows());
         assertEquals(EnumSet.of(ProviderCapability.CLI_SESSION, ProviderCapability.STREAMING, ProviderCapability.HISTORY),
                 d.capabilities());
         assertTrue(d.supports(RuntimeType.CLI));

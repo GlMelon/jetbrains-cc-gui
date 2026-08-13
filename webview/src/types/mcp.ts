@@ -43,7 +43,6 @@ export interface McpServerSpec {
 interface McpApps {
   claude: boolean;
   codex: boolean;
-  gemini: boolean;
 }
 
 /**

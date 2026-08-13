@@ -13,7 +13,6 @@ export type ModelVendor =
   | 'claude'
   | 'openai'
   | 'opencode'
-  | 'gemini'
   | 'qwen'
   | 'deepseek'
   | 'kimi'
@@ -60,7 +59,6 @@ const MODEL_VENDOR_PATTERNS: ReadonlyArray<readonly [RegExp, ModelVendor]> = [
   // International model vendors
   [/claude|anthropic/i, 'claude'],
   [/gpt[-\s]|^gpt\d|^o[134]-|^o[134]\b|openai/i, 'openai'],
-  [/gemini/i, 'gemini'],
   [/mistral|mixtral|codestral|pixtral/i, 'mistral'],
   [/llama|meta[-/]/i, 'meta'],
   [/cohere|command[-\s]?[ra]/i, 'cohere'],
@@ -87,7 +85,6 @@ const BASE_URL_VENDOR_PATTERNS: ReadonlyArray<readonly [RegExp, ModelVendor]> = 
   [/opencode\.ai/i, 'opencode'],
   [/openrouter\.ai/i, 'openrouter'],
   [/api\.anthropic\.com/i, 'claude'],
-  [/googleapis\.com/i, 'gemini'],
   [/api\.openai\.com/i, 'openai'],
 ];
 
@@ -99,7 +96,6 @@ const PROVIDER_TO_VENDOR: Record<string, ModelVendor> = {
   claude: 'claude',
   codex: 'openai',
   opencode: 'opencode',
-  gemini: 'gemini',
   qwen: 'qwen',
   deepseek: 'deepseek',
   kimi: 'kimi',

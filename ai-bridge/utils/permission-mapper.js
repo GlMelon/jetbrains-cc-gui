@@ -217,7 +217,7 @@ export class CodexPermissionMapper {
 export class PermissionMapperFactory {
   /**
    * Get permission mapper for a specific provider
-   * @param {'claude'|'codex'|'gemini'} provider
+   * @param {'claude'|'codex'} provider
    * @returns {typeof ClaudePermissionMapper | typeof CodexPermissionMapper}
    */
   static getMapper(provider) {
@@ -226,9 +226,6 @@ export class PermissionMapperFactory {
         return ClaudePermissionMapper;
       case 'codex':
         return CodexPermissionMapper;
-      case 'gemini':
-        // TODO: Implement GeminiPermissionMapper when adding Gemini support
-        throw new Error('Gemini permission mapping not yet implemented');
       default:
         throw new Error(`Unknown provider: ${provider}`);
     }
@@ -236,7 +233,7 @@ export class PermissionMapperFactory {
 
   /**
    * Quick conversion: unified → provider-specific
-   * @param {'claude'|'codex'|'gemini'} provider
+   * @param {'claude'|'codex'} provider
    * @param {string} unifiedMode
    * @returns {string|object} Provider-specific permission config
    */
@@ -247,7 +244,7 @@ export class PermissionMapperFactory {
 
   /**
    * Quick conversion: provider-specific → unified
-   * @param {'claude'|'codex'|'gemini'} provider
+   * @param {'claude'|'codex'} provider
    * @param {any} providerConfig - Provider-specific permission config (shape varies by provider)
    * @returns {string} Unified permission mode
    */

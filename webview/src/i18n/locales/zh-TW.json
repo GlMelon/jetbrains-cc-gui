@@ -1650,9 +1650,6 @@
     "codex": {
       "label": "Codex"
     },
-    "gemini": {
-      "label": "Gemini Cli"
-    },
     "opencode": {
       "label": "OpenCode"
     }

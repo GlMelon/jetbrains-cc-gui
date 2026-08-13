@@ -66,9 +66,9 @@ public class ProviderDescriptorContractTest {
 
     @Test
     public void descriptorNormalizesProviderIdToLowercase() {
-        ProviderDescriptor d = new ProviderDescriptor("Gemini", "Gemini", "gemini", "gemini.cmd",
+        ProviderDescriptor d = new ProviderDescriptor("Acme", "Acme", "acme", "acme.cmd",
                 EnumSet.of(ProviderCapability.CLI_SESSION), EnumSet.of(RuntimeType.CLI));
-        assertEquals("gemini", d.providerId());
+        assertEquals("acme", d.providerId());
     }
 
     @Test
@@ -88,15 +88,15 @@ public class ProviderDescriptorContractTest {
     public void registryCustomOverridesBuiltinAndAddsNew() {
         ProviderDescriptor overrideClaude = new ProviderDescriptor("CLAUDE", "Claude Override", "claude", "claude.cmd",
                 EnumSet.of(ProviderCapability.STREAMING), EnumSet.of(RuntimeType.CLI));
-        ProviderDescriptor gemini = new ProviderDescriptor("gemini", "Gemini", "gemini", "gemini.cmd",
+        ProviderDescriptor acme = new ProviderDescriptor("acme", "Acme", "acme", "acme.cmd",
                 EnumSet.of(ProviderCapability.CLI_SESSION), EnumSet.of(RuntimeType.CLI));
-        ProviderDescriptorRegistry registry = new ProviderDescriptorRegistry(List.of(overrideClaude, gemini));
+        ProviderDescriptorRegistry registry = new ProviderDescriptorRegistry(List.of(overrideClaude, acme));
 
         // 覆盖:claude 被自定义覆盖(override 只声明 STREAMING,内置全能力含 MCP → 不再支持 MCP)
         assertEquals("Claude Override", registry.get("claude").displayLabel());
         assertFalse(registry.get("claude").supports(ProviderCapability.MCP));
-        // 新增:gemini(6 内置 + gemini = 7)
-        assertTrue(registry.has("gemini"));
+        // 新增:acme(6 内置 + acme = 7)
+        assertTrue(registry.has("acme"));
         assertEquals(7, registry.all().size());
     }
 
@@ -109,14 +109,14 @@ public class ProviderDescriptorContractTest {
 
     @Test
     public void registryWithCapabilityFiltersInOrder() {
-        ProviderDescriptor gemini = new ProviderDescriptor("gemini", "Gemini", "gemini", "gemini.cmd",
+        ProviderDescriptor acme = new ProviderDescriptor("acme", "Acme", "acme", "acme.cmd",
                 EnumSet.of(ProviderCapability.CLI_SESSION), EnumList());
-        ProviderDescriptorRegistry registry = new ProviderDescriptorRegistry(List.of(gemini));
+        ProviderDescriptorRegistry registry = new ProviderDescriptorRegistry(List.of(acme));
 
-        // claude/codex/opencode 声明 MCP(全能力);grok/kimi/pi 与 gemini 只声明 CLI_SESSION
+        // claude/codex/opencode 声明 MCP(全能力);grok/kimi/pi 与 acme 只声明 CLI_SESSION
         List<ProviderDescriptor> mcpProviders = registry.withCapability(ProviderCapability.MCP);
         assertEquals(3, mcpProviders.size());
-        // 6 内置(claude/codex/opencode 全能力含 CLI_SESSION;grok/kimi/pi cliBuiltin 含 CLI_SESSION)+ gemini = 7
+        // 6 内置(claude/codex/opencode 全能力含 CLI_SESSION;grok/kimi/pi cliBuiltin 含 CLI_SESSION)+ acme = 7
         List<ProviderDescriptor> cliOnlyProviders = registry.withCapability(ProviderCapability.CLI_SESSION);
         assertEquals(7, cliOnlyProviders.size());
     }

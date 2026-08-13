@@ -66,7 +66,7 @@ interface ProviderSelectProps {
 
 /**
  * ProviderSelect - AI provider selector component
- * Supports switching between Claude, Codex, Gemini, and other providers
+ * Supports switching between Claude, Codex, and other providers
  * compact mode: icon-only button for toolbar use
  */
 export const ProviderSelect = ({ value, onChange, compact = false }: ProviderSelectProps) => {

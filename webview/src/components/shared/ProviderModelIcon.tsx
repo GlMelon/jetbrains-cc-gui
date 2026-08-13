@@ -11,8 +11,6 @@
 import ClaudeColor from '@lobehub/icons/es/Claude/components/Color';
 import ClaudeMono from '@lobehub/icons/es/Claude/components/Mono';
 import OpenAIMono from '@lobehub/icons/es/OpenAI/components/Mono';
-import GeminiColor from '@lobehub/icons/es/Gemini/components/Color';
-import GeminiMono from '@lobehub/icons/es/Gemini/components/Mono';
 import QwenColor from '@lobehub/icons/es/Qwen/components/Color';
 import QwenMono from '@lobehub/icons/es/Qwen/components/Mono';
 import DeepSeekColor from '@lobehub/icons/es/DeepSeek/components/Color';
@@ -96,8 +94,6 @@ const VENDOR_ICON_MAP: Record<
     <OpenAIMono size={size} />,
   opencode: (size, colored) =>
     <OpenCodeIcon size={size} colored={colored} />,
-  gemini: (size, colored) =>
-    colored ? <GeminiColor size={size} /> : <GeminiMono size={size} />,
   qwen: (size, colored) =>
     colored ? <QwenColor size={size} /> : <QwenMono size={size} />,
   deepseek: (size, colored) =>

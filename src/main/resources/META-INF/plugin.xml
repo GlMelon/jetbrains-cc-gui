@@ -53,7 +53,7 @@
             <li>即时获得 AI 驱动的代码辅助和智能建议</li>
         </ul>
 
-        <p><em>Keywords: Claude, Claude Code, Codex, OpenCode, Gemini, Code Generation, AI Coding</em></p>
+        <p><em>Keywords: Claude, Claude Code, Codex, OpenCode, Code Generation, AI Coding</em></p>
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>

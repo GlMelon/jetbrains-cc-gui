@@ -308,7 +308,6 @@ export const AVAILABLE_PROVIDERS: ProviderInfo[] = [
   { id: 'grok', label: 'Grok', icon: 'codicon-terminal', enabled: true },
   { id: 'kimi', label: 'Kimi', icon: 'codicon-terminal', enabled: true },
   { id: 'pi', label: 'Pi', icon: 'codicon-terminal', enabled: true },
-  { id: 'gemini', label: 'Gemini Cli', icon: 'codicon-terminal', enabled: false },
 ];
 
 /**

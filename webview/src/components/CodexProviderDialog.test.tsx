@@ -63,7 +63,6 @@ describe('CodexProviderDialog', () => {
     expect(document.querySelector('[data-provider-icon="bailian-coding"]')).toBeTruthy();
     expect(document.querySelector('[data-provider-icon="opencode-go"]')).toBeTruthy();
     expect(screen.queryByRole('radio', { name: /PackyCode/i })).toBeNull();
-    expect(screen.queryByRole('radio', { name: /Gemini/i })).toBeNull();
   });
 
   it('applies a Codex preset into config.toml and auth.json', () => {

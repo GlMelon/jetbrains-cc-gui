@@ -39,7 +39,6 @@ export const WelcomeScreen = memo(function WelcomeScreen({
   const providerLabels: Record<string, string> = {
     claude: t('providers.claude.label'),
     codex: t('providers.codex.label'),
-    gemini: t('providers.gemini.label'),
     opencode: t('providers.opencode.label'),
   };
 
