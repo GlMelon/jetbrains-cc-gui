@@ -35,10 +35,11 @@ interface RuntimeProviderSelectProps {
 
 type RuntimeProvider = ProviderConfig | CodexProviderConfig | OpenCodeProviderConfig;
 
-type ProviderKind = 'claude' | 'codex' | 'opencode';
+type ProviderKind = 'claude' | 'codex' | 'opencode' | 'grok' | 'kimi' | 'pi';
 
 const isProviderKind = (provider: string): provider is ProviderKind =>
-  provider === 'claude' || provider === 'codex' || provider === 'opencode';
+  provider === 'claude' || provider === 'codex' || provider === 'opencode'
+  || provider === 'grok' || provider === 'kimi' || provider === 'pi';
 
 const parseProviderList = (json: string): RuntimeProvider[] => {
   const parsed = JSON.parse(json);
@@ -57,6 +58,9 @@ export const RuntimeProviderSelect = ({ currentProvider, embedded = false, trigg
     claude: [],
     codex: [],
     opencode: [],
+    grok: [],
+    kimi: [],
+    pi: [],
   });
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -72,7 +76,13 @@ export const RuntimeProviderSelect = ({ currentProvider, embedded = false, trigg
     ? 'codex'
     : currentProvider === 'opencode'
       ? 'opencode'
-      : 'claude';
+      : currentProvider === 'grok'
+        ? 'grok'
+        : currentProvider === 'kimi'
+          ? 'kimi'
+          : currentProvider === 'pi'
+            ? 'pi'
+            : 'claude';
   const visibleProviders = providersByKind[providerKind];
   const activeProvider = useMemo(
     () => visibleProviders.find((provider) => provider.isActive),
@@ -109,10 +119,21 @@ export const RuntimeProviderSelect = ({ currentProvider, embedded = false, trigg
       sendAction(UPSTREAM.GET_CODEX_PROVIDERS);
     } else if (kind === 'opencode') {
       sendAction(UPSTREAM.GET_OPENCODE_PROVIDERS);
+    } else if (kind === 'grok' || kind === 'kimi' || kind === 'pi') {
+      // CLI-only providers: no backend provider management, show fixed native config option
+      setLoading(false);
+      setProvidersByKind((previous) => ({
+        ...previous,
+        [kind]: [{
+          id: `__${kind}_native_config__`,
+          name: t('settings.provider.nativeCliConfig', { defaultValue: 'Native CLI Config' }),
+          isActive: true,
+        }],
+      }));
     } else {
       sendAction(UPSTREAM.GET_PROVIDERS);
     }
-  }, []);
+  }, [t]);
 
   const handleToggle = useCallback((event: React.MouseEvent) => {
     event.stopPropagation();
@@ -132,6 +153,8 @@ export const RuntimeProviderSelect = ({ currentProvider, embedded = false, trigg
       sendAction(UPSTREAM.SWITCH_CODEX_PROVIDER, JSON.stringify({ id: provider.id }));
     } else if (providerKind === 'opencode') {
       sendAction(UPSTREAM.SWITCH_OPENCODE_PROVIDER, JSON.stringify({ id: provider.id }));
+    } else if (providerKind === 'grok' || providerKind === 'kimi' || providerKind === 'pi') {
+      // CLI-only providers: no backend switch action needed, just close the dropdown
     } else {
       sendAction(UPSTREAM.SWITCH_PROVIDER, JSON.stringify({ id: provider.id }));
     }

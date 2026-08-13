@@ -31,7 +31,7 @@ const EMPTY_MODEL: ModelRegistryItem = {
 export default function ModelRegistrySection({ addToast }: ModelRegistrySectionProps) {
   const { t } = useTranslation();
   const [registry, setRegistry] = useState<ModelRegistryPayload>(() => getModelRegistrySnapshot());
-  const [providerFilter, setProviderFilter] = useState<'all' | 'claude' | 'codex' | 'opencode'>('all');
+  const [providerFilter, setProviderFilter] = useState<'all' | 'claude' | 'codex' | 'opencode' | 'grok' | 'kimi' | 'pi'>('all');
   const [editing, setEditing] = useState<ModelRegistryItem | null>(null);
   const [editingOriginalKey, setEditingOriginalKey] = useState<string | null>(null);
 
@@ -81,7 +81,7 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
     return registry.items.filter((model) => model.provider === providerFilter);
   }, [providerFilter, registry.items]);
 
-  const startAdd = useCallback((provider: 'claude' | 'codex' | 'opencode' = 'claude') => {
+  const startAdd = useCallback((provider: 'claude' | 'codex' | 'opencode' | 'grok' | 'kimi' | 'pi' = 'claude') => {
     setEditing(provider === 'claude'
       ? { ...EMPTY_MODEL, provider, id: '', role: 'sonnet', actualModel: '' }
       : { ...EMPTY_MODEL, provider, id: '', role: undefined, actualModel: '' });
@@ -138,7 +138,7 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
 
       <div className={styles.toolbar}>
         <div className={styles.filters}>
-          {(['all', 'claude', 'codex', 'opencode'] as const).map((provider) => (
+          {(['all', 'claude', 'codex', 'opencode', 'grok', 'kimi', 'pi'] as const).map((provider) => (
             <button
               key={provider}
               className={`${styles.filterButton} ${providerFilter === provider ? styles.active : ''}`}
@@ -150,7 +150,7 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
           ))}
         </div>
         <div className={styles.actions}>
-          <button className="btn btn-secondary btn-sm" onClick={() => startAdd(providerFilter === 'codex' ? 'codex' : providerFilter === 'opencode' ? 'opencode' : 'claude')}>
+          <button className="btn btn-secondary btn-sm" onClick={() => startAdd(providerFilter === 'all' ? 'claude' : providerFilter)}>
             <PlusIcon size={16} aria-hidden="true" />
             {t('common.add', 'Add')}
           </button>
