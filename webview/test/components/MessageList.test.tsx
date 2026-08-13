@@ -13,11 +13,13 @@ vi.mock('../../src/components/MessageItem', () => ({
     message,
     withinResponseGroup,
     renderMode,
+    suppressAssistantResponseStatus,
   }: {
     messageKey: string;
     message: ClaudeMessage;
     withinResponseGroup?: boolean;
     renderMode?: string;
+    suppressAssistantResponseStatus?: boolean;
   }) => (
     <div
       data-testid="message-item"
@@ -25,8 +27,11 @@ vi.mock('../../src/components/MessageItem', () => ({
       data-type={message.type}
       data-within-response-group={withinResponseGroup ? 'true' : 'false'}
       data-render-mode={renderMode ?? 'full'}
+      data-suppress-assistant-response-status={suppressAssistantResponseStatus ? 'true' : 'false'}
     >
-      {message.content}
+      {message.__assistantResponseStatus && !suppressAssistantResponseStatus
+        ? message.__assistantResponseStatus.title
+        : message.content}
     </div>
   ),
 }));
@@ -628,6 +633,103 @@ describe('MessageList response grouping', () => {
     expect(responseContent?.contains(streamingFooter ?? null)).toBe(true);
     expect(responseContent?.lastElementChild).toBe(streamingFooter);
     expect(responseGroup?.querySelectorAll('[data-testid="usage-stats"]')).toHaveLength(0);
+  });
+
+  it('hides an earlier response status when grouped text output begins streaming', () => {
+    const messages: ClaudeMessage[] = [
+      { type: 'user', content: 'please explain', id: 'u-1' },
+      {
+        type: 'assistant',
+        content: '',
+        id: 'a-1',
+        __responseId: 'response-1',
+        __assistantResponseStatus: {
+          phase: 'thinking',
+          providerLabel: 'Codex',
+          title: 'Understanding your request',
+          description: 'Reading the prompt and relevant context',
+          active: true,
+        },
+      },
+      {
+        type: 'assistant',
+        content: 'partial answer',
+        id: 'a-2',
+        isStreaming: true,
+        __responseId: 'response-1',
+      },
+    ];
+    const endRef = createRef<HTMLDivElement>();
+
+    render(
+      <MessageList
+        messages={messages}
+        streamingActive={true}
+        isThinking={false}
+        loading={true}
+        loadingStartTime={Date.now()}
+        queueDisplayState="NONE"
+        queueAheadCount={0}
+        t={t}
+        getMessageText={noopGetText}
+        getContentBlocks={noopGetBlocks}
+        findToolResult={noopFindToolResult}
+        extractMarkdownContent={noopExtractMd}
+        messagesEndRef={endRef}
+      />,
+    );
+
+    expect(screen.getByTestId('streaming-footer')).toBeTruthy();
+    expect(screen.queryByText('Understanding your request')).toBeNull();
+    const groupedItems = screen
+      .getAllByTestId('message-item')
+      .filter((item) => item.getAttribute('data-within-response-group') === 'true');
+    expect(
+      groupedItems.every(
+        (item) => item.getAttribute('data-suppress-assistant-response-status') === 'true',
+      ),
+    ).toBe(true);
+  });
+
+  it('does not show streaming footer for a thinking-only response group', () => {
+    const messages: ClaudeMessage[] = [
+      { type: 'user', content: 'please explain', id: 'u-1' },
+      {
+        type: 'assistant',
+        content: 'internal thought',
+        id: 'a-1',
+        isStreaming: true,
+        __responseId: 'response-1',
+        raw: { content: [{ type: 'thinking', thinking: 'internal thought' }] },
+      },
+    ];
+    const endRef = createRef<HTMLDivElement>();
+    const getBlocks = (message: ClaudeMessage): ClaudeContentBlock[] =>
+      Array.isArray(
+        message.raw && typeof message.raw === 'object' ? message.raw.content : undefined,
+      )
+        ? (message.raw as { content: ClaudeContentBlock[] }).content
+        : [];
+
+    render(
+      <MessageList
+        messages={messages}
+        streamingActive={true}
+        isThinking={true}
+        loading={true}
+        loadingStartTime={Date.now()}
+        queueDisplayState="NONE"
+        queueAheadCount={0}
+        t={t}
+        getMessageText={noopGetText}
+        getContentBlocks={getBlocks}
+        findToolResult={noopFindToolResult}
+        extractMarkdownContent={noopExtractMd}
+        messagesEndRef={endRef}
+      />,
+    );
+
+    expect(screen.queryByTestId('streaming-footer')).toBeNull();
   });
 
   it('does not show streaming footer for a status-only response group placeholder', () => {

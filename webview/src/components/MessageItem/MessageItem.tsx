@@ -36,6 +36,7 @@ import { extractMessageUsage } from '../../utils/messageUsage';
 import { CopyIcon } from '../Icons';
 import { AssistantResponseStatus } from './AssistantResponseStatus';
 import { AssistantStreamingFooter } from './AssistantStreamingFooter';
+import { hasAssistantTextOutput } from './assistantTextOutput';
 import type { AvatarConfig } from '../../types/avatar';
 
 type GroupedBlock =
@@ -261,6 +262,7 @@ export const MessageItem = memo(function MessageItem({
   loadingStartTime,
   withinResponseGroup = false,
   renderMode = 'full',
+  suppressAssistantResponseStatus = false,
   shouldAnimateIn = false,
   shouldAnimateOut = false,
 }: {
@@ -292,6 +294,8 @@ export const MessageItem = memo(function MessageItem({
   withinResponseGroup?: boolean;
   /** Render only message blocks, without avatar, bubble, copy button, or usage stats. */
   renderMode?: 'full' | 'response-segment';
+  /** Hide a stale response-phase placeholder after grouped answer text starts streaming. */
+  suppressAssistantResponseStatus?: boolean;
   /** Play the messageFadeIn entry animation on this card. Set only on the card's
    *  first logical appearance so React remounts never replay the animation. */
   shouldAnimateIn?: boolean;
@@ -392,8 +396,9 @@ export const MessageItem = memo(function MessageItem({
     !shouldSuppressStreamingConnectHint &&
     blocks.length === 0 &&
     !(message.content && message.content.trim().length > 0);
+  const hasTextOutput = hasAssistantTextOutput(message, blocks);
   const shouldShowStreamingFooter =
-    message.type === 'assistant' && isMessageStreaming && !isEmptyStreamingPlaceholder;
+    message.type === 'assistant' && isMessageStreaming && hasTextOutput;
 
   // Ref to track the last auto-expanded thinking block index to avoid overriding user interaction
   const lastAutoExpandedIndexRef = useRef<number>(-1);
@@ -482,6 +487,8 @@ export const MessageItem = memo(function MessageItem({
     }
 
     if (isEmptyStreamingPlaceholder) {
+      if (suppressAssistantResponseStatus) return null;
+
       const providerLabel = getProviderDisplayName(currentProvider, t);
       return (
         <AssistantResponseStatus

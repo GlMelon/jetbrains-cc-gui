@@ -31,7 +31,9 @@ vi.mock('../../../src/components/MessageItem/ContentBlockRenderer', () => ({
     onToggleThinking: (blockIndex: number) => void;
   }) => (
     <div
-      data-testid={block.type === 'thinking' ? `thinking-${blockIndex}` : `content-block-${block.type}`}
+      data-testid={
+        block.type === 'thinking' ? `thinking-${blockIndex}` : `content-block-${block.type}`
+      }
       data-expanded={block.type === 'thinking' ? String(isThinkingExpanded) : undefined}
       onClick={block.type === 'thinking' ? () => onToggleThinking(blockIndex) : undefined}
     >
@@ -42,7 +44,9 @@ vi.mock('../../../src/components/MessageItem/ContentBlockRenderer', () => ({
 }));
 
 vi.mock('../../../src/components/MessageItem/ProviderNotConfiguredCard', () => ({
-  ProviderNotConfiguredCard: () => <div data-testid="provider-not-configured-card">provider-card</div>,
+  ProviderNotConfiguredCard: () => (
+    <div data-testid="provider-not-configured-card">provider-card</div>
+  ),
   isProviderNotConfiguredError: () => false,
 }));
 
@@ -97,7 +101,10 @@ const getContentBlocks = (message: ClaudeMessage): ClaudeContentBlock[] => {
   return content as ClaudeContentBlock[];
 };
 
-const findToolResult = (_toolId: string | undefined, _messageIndex: number): ToolResultBlock | null => null;
+const findToolResult = (
+  _toolId: string | undefined,
+  _messageIndex: number,
+): ToolResultBlock | null => null;
 
 function renderMessageItem(
   message: ClaudeMessage,
@@ -117,7 +124,7 @@ function renderMessageItem(
       findToolResult={findToolResult}
       extractMarkdownContent={extractMarkdownContent}
       {...overrides}
-    />
+    />,
   );
 }
 
@@ -290,6 +297,71 @@ describe('MessageItem copy button visibility', () => {
     expect(document.querySelector('.assistant-response-status-elapsed')).toBeNull();
   });
 
+  it('suppresses an empty assistant response status after grouped text output starts', () => {
+    const message: ClaudeMessage = {
+      type: 'assistant',
+      content: '',
+      isStreaming: true,
+      __assistantResponseStatus: {
+        phase: 'thinking',
+        providerLabel: 'Codex',
+        title: 'Understanding your request',
+        description: 'Reading the prompt and relevant context',
+        active: true,
+      },
+    };
+
+    renderMessageItem(message, {
+      isLast: true,
+      streamingActive: true,
+      suppressAssistantResponseStatus: true,
+    });
+
+    expect(screen.queryByText('Understanding your request')).toBeNull();
+    expect(screen.queryByText('Reading the prompt and relevant context')).toBeNull();
+  });
+
+  it('does not show the streaming footer for thinking-only output', () => {
+    const message: ClaudeMessage = {
+      type: 'assistant',
+      content: 'internal thought',
+      isStreaming: true,
+      raw: {
+        content: [{ type: 'thinking', thinking: 'internal thought' }],
+      } as any,
+    };
+
+    renderMessageItem(message, {
+      isLast: true,
+      streamingActive: true,
+    });
+
+    expect(screen.getByTestId('thinking-0')).toBeTruthy();
+    expect(document.querySelector('.assistant-streaming-footer')).toBeNull();
+    expect(screen.queryByText('正在流式输出')).toBeNull();
+  });
+
+  it('shows the streaming footer after a real text block arrives', () => {
+    const message: ClaudeMessage = {
+      type: 'assistant',
+      content: 'answer text',
+      isStreaming: true,
+      raw: {
+        content: [
+          { type: 'thinking', thinking: 'internal thought' },
+          { type: 'text', text: 'answer text' },
+        ],
+      } as any,
+    };
+
+    renderMessageItem(message, {
+      isLast: true,
+      streamingActive: true,
+    });
+
+    expect(screen.getByText('正在流式输出')).toBeTruthy();
+  });
+
   it('does not render assistant response status elapsed time while active', () => {
     vi.useFakeTimers();
     const message: ClaudeMessage = {
@@ -384,7 +456,12 @@ describe('MessageItem copy button visibility', () => {
       raw: {
         content: [
           { type: 'thinking', thinking: 'analyzing request' },
-          { type: 'tool_use', id: 'tool-1', name: 'shell_command', input: { command: 'git status' } },
+          {
+            type: 'tool_use',
+            id: 'tool-1',
+            name: 'shell_command',
+            input: { command: 'git status' },
+          },
           { type: 'text', text: 'final answer' },
         ],
       } as any,
@@ -398,7 +475,9 @@ describe('MessageItem copy button visibility', () => {
     expect(screen.getByTestId('content-block-text')).toBeTruthy();
     expect(document.querySelector('.assistant-message-section-thinking')).toBeNull();
     expect(document.querySelector('.assistant-message-section-tools')).toBeNull();
-    expect(document.querySelector('.assistant-message-answer-section')?.getAttribute('aria-label')).toBe('输出');
+    expect(
+      document.querySelector('.assistant-message-answer-section')?.getAttribute('aria-label'),
+    ).toBe('输出');
   });
 
   it('defaults only the last historical thinking block to expanded', () => {
@@ -525,7 +604,9 @@ describe('MessageItem copy button visibility', () => {
     renderMessageItem(message);
 
     expect(screen.getByTestId('content-block-text')).toBeTruthy();
-    expect(screen.getByTestId('content-block-provider_error').textContent).toContain('provider_error:服务暂时不可用');
+    expect(screen.getByTestId('content-block-provider_error').textContent).toContain(
+      'provider_error:服务暂时不可用',
+    );
     expect(document.querySelector('.message.assistant')).toBeTruthy();
     expect(document.querySelector('.message.error')).toBeNull();
   });
@@ -551,7 +632,11 @@ describe('MessageItem avatar & connect label reflect provider', () => {
   });
 
   it('labels the user avatar with the localized user label', () => {
-    const message: ClaudeMessage = { type: 'user', content: 'hi', timestamp: new Date(0).toISOString() };
+    const message: ClaudeMessage = {
+      type: 'user',
+      content: 'hi',
+      timestamp: new Date(0).toISOString(),
+    };
     renderMessageItem(message);
     expect(screen.getByText('You')).toBeTruthy();
   });

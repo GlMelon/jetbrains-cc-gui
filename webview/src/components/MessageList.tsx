@@ -17,6 +17,7 @@ import { MessageItem, CopyButton } from './MessageItem';
 import { MessageAvatar } from './MessageItem/MessageAvatar';
 import { MessageUsageStats } from './MessageItem/MessageUsageStats';
 import { AssistantStreamingFooter } from './MessageItem/AssistantStreamingFooter';
+import { hasAssistantTextOutput } from './MessageItem/assistantTextOutput';
 import { useStreamingAnnouncement } from './shared/useStreamingAnnouncement';
 import WaitingIndicator from './WaitingIndicator';
 import { ContextMenu } from './ContextMenu';
@@ -683,13 +684,12 @@ export const MessageList = memo(
             const streamingTailMessage = isStreamingGroup
               ? unit.items[unit.items.length - 1]?.message
               : undefined;
-            const streamingTailHasRenderableContent = Boolean(
-              streamingTailMessage &&
-              (extractMarkdownContent(streamingTailMessage).trim().length > 0 ||
-                getMessageText(streamingTailMessage).trim().length > 0 ||
-                getContentBlocks(streamingTailMessage).length > 0),
-            );
-            const shouldShowStreamingFooter = isStreamingGroup && streamingTailHasRenderableContent;
+            const streamingGroupHasTextOutput =
+              isStreamingGroup &&
+              unit.items.some(({ message }) =>
+                hasAssistantTextOutput(message, getContentBlocks(message)),
+              );
+            const shouldShowStreamingFooter = streamingGroupHasTextOutput;
             const groupCopyableText = unit.items
               .map(({ message }) => extractMarkdownContent(message))
               .map((text) => text.trim())
@@ -755,6 +755,7 @@ export const MessageList = memo(
                               loadingStartTime={loadingStartTime}
                               withinResponseGroup={true}
                               renderMode="response-segment"
+                              suppressAssistantResponseStatus={shouldShowStreamingFooter}
                             />
                           </div>
                         );
