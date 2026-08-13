@@ -82,7 +82,7 @@ public class OpenCodeCliSessionCommandTest {
     }
 
     @Test
-    public void b15_bypassPermissionModeAddsDangerouslySkipPermissions() {
+    public void b15_bypassPermissionModeAddsAutoFlag() {
         CliSendRequest bypass = new CliSendRequest(
                 "tab-1", CommonConstants.PROVIDER_OPENCODE, "hi",
                 null, "/work", List.of(), new JsonObject(), List.of(),
@@ -92,14 +92,17 @@ public class OpenCodeCliSessionCommandTest {
         OpenCodeCliSession session = new OpenCodeCliSession("t");
         List<String> cmd = session.buildRunCommand(bypass, null, List.of());
 
-        assertTrue("bypass → --dangerously-skip-permissions", cmd.contains("--dangerously-skip-permissions"));
+        // bypass → opencode 官方 --auto(自动批准未被 deny 的请求);opencode 无 --dangerously-skip-permissions。
+        assertTrue("bypass → --auto", cmd.contains("--auto"));
+        assertFalse("bypass must NOT use Claude/Codex --dangerously-skip-permissions (opencode 不识别)",
+                cmd.contains("--dangerously-skip-permissions"));
     }
 
     @Test
-    public void b13_defaultPermissionModeDoesNotSkipPermissions() {
+    public void b13_defaultPermissionModeDoesNotAddAutoFlag() {
         OpenCodeCliSession session = new OpenCodeCliSession("t");
         List<String> cmd = session.buildRunCommand(baseRequest(), null, List.of());
-        assertFalse("default mode must NOT skip permissions", cmd.contains("--dangerously-skip-permissions"));
+        assertFalse("default mode must NOT add --auto", cmd.contains("--auto"));
     }
 
     @Test

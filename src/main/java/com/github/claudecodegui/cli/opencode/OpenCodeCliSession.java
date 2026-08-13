@@ -40,7 +40,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *   <li>B13:续接(-s)失败时(session 失效),清空 sessionId 重试一次首轮流程。</li>
  *   <li>B14:进程经 {@link CliProcessHandle} 管理,interrupt 走 PlatformUtils.terminateProcess(替代裸 destroyForcibly)。</li>
  *   <li>B15:能力透传(model/-m、reasoningEffort/--variant、图片附件/-f、permissionMode bypass→
- *       --dangerously-skip-permissions、cwd/--dir)。</li>
+ *       --auto、cwd/--dir)。</li>
  * </ul>
  * 事件解析委托 {@link OpenCodeCliStreamParser}。
  */
@@ -175,8 +175,9 @@ public class OpenCodeCliSession implements CliSession {
         if (gatewayConfig != null && gatewayConfig.usable()) {
             cliEnv.putAll(gatewayConfig.environment());
         }
-        // §7.2:非 bypass 模式的 OPENCODE_PERMISSION 精确 JSON schema 需 §16 实测确认,暂不臆造;
-        // 依赖 --dangerously-skip-permissions(bypass)与 opencode 默认询问语义。
+        // §7.2:非 bypass 模式由 opencode 原生 permission 配置(opencode.json 的 allow/ask/deny)管控,
+        // 插件不传 flag;bypass 对应 opencode 官方 --auto(自动批准未被 deny 的请求)。
+        // 见 https://opencode.ai/docs/permissions/ 。
 
         if (request.cwd() != null && !request.cwd().isBlank()) {
             File cwd = new File(request.cwd());
@@ -400,7 +401,8 @@ public class OpenCodeCliSession implements CliSession {
             }
         }
         if (CommonConstants.PERMISSION_MODE_BYPASS.equals(request.permissionMode())) {
-            cmd.add(CliConstants.OPENCODE_ARG_DANGER_SKIP);
+            // opencode 官方 bypass 等价物:--auto 自动批准未被 deny 的请求(见 CliConstants.OPENCODE_ARG_AUTO)。
+            cmd.add(CliConstants.OPENCODE_ARG_AUTO);
         }
         if (request.cwd() != null && !request.cwd().isBlank()) {
             cmd.add(CliConstants.OPENCODE_ARG_DIR);

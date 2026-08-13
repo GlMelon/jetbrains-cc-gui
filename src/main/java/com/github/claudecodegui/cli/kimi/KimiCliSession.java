@@ -40,7 +40,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *   <li>B13:续接(-s)失败时(session 失效),清空 sessionId 重试一次首轮流程。</li>
  *   <li>B14:进程经 {@link CliProcessHandle} 管理,interrupt 走 PlatformUtils.terminateProcess(替代裸 destroyForcibly)。</li>
  *   <li>B15:能力透传(model/-m、reasoningEffort/--variant、图片附件/-f、permissionMode bypass→
- *       --dangerously-skip-permissions、cwd/--dir)。</li>
+ *       --auto、cwd/--dir)。</li>
  * </ul>
  * 事件解析委托 {@link KimiCliStreamParser}。
  */
@@ -378,7 +378,7 @@ public class KimiCliSession implements CliSession {
             }
         }
         if (CommonConstants.PERMISSION_MODE_BYPASS.equals(request.permissionMode())) {
-            cmd.add(CliConstants.OPENCODE_ARG_DANGER_SKIP);
+            cmd.add(CliConstants.OPENCODE_ARG_AUTO);
         }
         if (request.cwd() != null && !request.cwd().isBlank()) {
             cmd.add(CliConstants.OPENCODE_ARG_DIR);

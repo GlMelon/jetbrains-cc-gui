@@ -212,8 +212,11 @@ public final class CliConstants {
     public static final String OPENCODE_ARG_AGENT = "--agent";
     /** --attach：连接运行中的 opencode serve（避免 MCP 冷启动）。 */
     public static final String OPENCODE_ARG_ATTACH = "--attach";
-    /** --dangerously-skip-permissions：自动批准非显式拒绝的权限（对应 bypass/yolo）。 */
-    public static final String OPENCODE_ARG_DANGER_SKIP = "--dangerously-skip-permissions";
+    /** --auto:自动批准未被 opencode permission 配置显式拒绝(deny)的权限请求(对应 bypass/yolo)。
+     *  opencode 官方 bypass 等价物,见 https://opencode.ai/docs/permissions/ 。
+     *  注:opencode 无 --dangerously-skip-permissions(那是 Claude/Codex 的 flag,opencode 不识别),
+     *  早期误用此 flag 已修正为 --auto。 */
+    public static final String OPENCODE_ARG_AUTO = "--auto";
 
     // ── OpenCode 环境变量 ───────────────────────────────────────────────────────
 
