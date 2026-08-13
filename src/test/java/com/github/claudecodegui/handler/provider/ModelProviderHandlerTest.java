@@ -241,7 +241,7 @@ public class ModelProviderHandlerTest {
     @Test
     public void shouldShutdownDaemonWhenSwitchingFromClaudeToUnknownProvider() {
         // Future-proof: any non-claude target after Claude qualifies as leave-claude.
-        assertTrue(ModelProviderHandler.shouldShutdownClaudeDaemonOnProviderSwitch("claude", "gemini"));
+        assertTrue(ModelProviderHandler.shouldShutdownClaudeDaemonOnProviderSwitch("claude", "custom-provider"));
     }
 
     @Test
