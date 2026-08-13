@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 import type {
   ChatInputBoxHandle,
   ChatInputBoxProps,
+  ModelInfo,
   PermissionMode,
 } from './types.js';
 import { CLAUDE_ROLE_MODEL_IDS } from './types.js';
@@ -62,6 +63,7 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
     {
       isLoading = false,
       selectedModel = CLAUDE_ROLE_MODEL_IDS.sonnet,
+      selectedModelIdentifier,
       permissionMode = 'default',
       currentProvider = 'claude',
       usagePercentage = 0,
@@ -552,8 +554,8 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
      * Handle model select
      */
     const handleModelSelect = useCallback(
-      (modelId: string) => {
-        onModelSelect?.(modelId);
+      (model: ModelInfo) => {
+        onModelSelect?.(model);
       },
       [onModelSelect]
     );
@@ -710,6 +712,7 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
           isLoading={isLoading}
           isEnhancing={isEnhancing}
           selectedModel={selectedModel}
+          selectedModelIdentifier={selectedModelIdentifier}
           permissionMode={permissionMode}
           currentProvider={currentProvider}
           reasoningEffort={reasoningEffort}

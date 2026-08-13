@@ -14,6 +14,7 @@ interface ModelProviderContextValue {
   // Provider / model state
   currentProvider: ProviderState['currentProvider'];
   selectedModel: ProviderState['selectedModel'];
+  selectedModelIdentifier: ProviderState['selectedModelIdentifier'];
   permissionMode: ProviderState['permissionMode'];
   selectedAgent: ProviderState['selectedAgent'];
   sdkStatusLoaded: ProviderState['sdkStatusLoaded'];
@@ -61,6 +62,7 @@ export function ModelProviderProvider({
   const memoized = useMemo(() => value, [
     value.currentProvider,
     value.selectedModel,
+    value.selectedModelIdentifier,
     value.permissionMode,
     value.selectedAgent,
     value.sdkStatusLoaded,

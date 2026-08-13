@@ -12,7 +12,9 @@ import type { CodexCustomModel, CodexProviderConfig, ProviderType } from '../typ
  * 不再手写 id/label/contextWindow/actualModel/supports1MContext/enabled/readOnly
  * (统一来自 wire)。
  */
-export interface ModelRegistryItem extends ModelRegistryPayloadWire {
+export interface ModelRegistryItem extends Omit<ModelRegistryPayloadWire, 'identifier'> {
+  /** Absent only on unsaved local settings drafts; backend registry entries always provide it. */
+  identifier?: string;
   provider: ProviderType;
   role?: 'sonnet' | 'opus' | 'fable' | 'haiku';
   /** A2:后端权威下发的支持 reasoning 级别(派生自 role;仅 claude + role 已知时下发)。 */
@@ -151,9 +153,10 @@ export function resetModelRegistryForTests(): void {
 export function getModelsForProvider(provider: string): ModelInfo[] {
   const normalizedProvider = normalizeProvider(provider);
   return currentRegistry.items
-    .filter((model) => model.provider === normalizedProvider && model.enabled !== false)
+    .filter((model) => model.provider === normalizedProvider && model.enabled !== false && Boolean(model.identifier))
     .map((model) => ({
       id: strip1MContextSuffix(model.id),
+      identifier: model.identifier as string,
       label: model.label || strip1MContextSuffix(model.id),
       description: formatRegistryDescription(model),
       contextWindow: model.contextWindow,
@@ -185,7 +188,9 @@ export function createCodexCatalogModels(
   })];
 }
 
-function normalizeCodexCatalog(catalog: CodexCustomModel[] | undefined): ModelInfo[] {
+type LocalCatalogModel = Omit<ModelInfo, 'identifier'>;
+
+function normalizeCodexCatalog(catalog: CodexCustomModel[] | undefined): LocalCatalogModel[] {
   if (!Array.isArray(catalog)) {
     return [];
   }
@@ -209,7 +214,7 @@ function extractCodexCurrentModel(configToml: string | undefined): string {
   return match?.[1]?.trim() ?? '';
 }
 
-function toCodexRegistryItem(model: ModelInfo): ModelRegistryItem {
+function toCodexRegistryItem(model: LocalCatalogModel): ModelRegistryItem {
   const contextWindow = model.contextWindow ?? DEFAULT_CONTEXT_WINDOW;
   return {
     ...model,
@@ -234,9 +239,10 @@ export function parseModelRegistryPayload(raw: unknown): ModelRegistryPayload | 
       }
       const obj = item as Record<string, unknown>;
       const id = typeof obj.id === 'string' ? obj.id.trim() : '';
+      const identifier = typeof obj.identifier === 'string' ? obj.identifier.trim() : '';
       const provider = obj.provider === 'codex' ? 'codex' : obj.provider === 'claude' ? 'claude' : obj.provider === 'opencode' ? 'opencode' : obj.provider === 'grok' ? 'grok' : obj.provider === 'kimi' ? 'kimi' : obj.provider === 'pi' ? 'pi' : null;
       const rawContextWindow = typeof obj.contextWindow === 'number' ? obj.contextWindow : undefined;
-      if (!id || !provider) {
+      if (!id || !identifier || !provider) {
         continue;
       }
       const contextWindow = rawContextWindow !== undefined && rawContextWindow > 0
@@ -249,6 +255,7 @@ export function parseModelRegistryPayload(raw: unknown): ModelRegistryPayload | 
         : undefined;
       items.push({
         id,
+        identifier,
         provider,
         role,
         label,

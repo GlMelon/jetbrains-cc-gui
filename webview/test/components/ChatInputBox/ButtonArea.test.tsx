@@ -7,7 +7,8 @@ import {CLAUDE_ROLE_MODEL_IDS} from '../../../src/components/ChatInputBox/types'
 const mocks = vi.hoisted(() => ({
   modelSelectProps: [] as Array<{
     value: string;
-    onChange: (modelId: string) => void;
+    selectedIdentifier?: string;
+    onChange: (model: ModelInfo) => void;
     models: ModelInfo[];
     currentProvider: string;
   }>,
@@ -34,7 +35,8 @@ vi.mock('../../../src/components/ChatInputBox/selectors', () => ({
   ReasoningSelect: () => null,
   ModelSelect: (props: {
     value: string;
-    onChange: (modelId: string) => void;
+    selectedIdentifier?: string;
+    onChange: (model: ModelInfo) => void;
     models: ModelInfo[];
     currentProvider: string;
   }) => {
@@ -44,7 +46,7 @@ vi.mock('../../../src/components/ChatInputBox/selectors', () => ({
       <button
         data-testid="model-select"
         type="button"
-        onClick={() => props.onChange(firstModel.id)}
+        onClick={() => props.onChange(firstModel)}
       >
         {firstModel.label}
       </button>
@@ -58,6 +60,7 @@ describe('ButtonArea model mapping', () => {
   // A3:applyModelMapping 读 registryModel.role;registryModels 需含 provider/role。
   const sonnetModel: ModelInfo & { provider: string; role: string } = {
     id: CLAUDE_ROLE_MODEL_IDS.sonnet,
+    identifier: 'claude-claude-role-sonnet',
     label: 'Sonnet',
     description: 'Sonnet role',
     contextWindow: 200_000,
@@ -94,6 +97,22 @@ describe('ButtonArea model mapping', () => {
 
     fireEvent.click(screen.getByTestId('model-select'));
 
-    expect(onModelSelect).toHaveBeenCalledWith(CLAUDE_ROLE_MODEL_IDS.sonnet, 200_000);
+    // onChange 现在透传整个 ModelInfo(identifier 精确,不再按裸 id + contextWindow 二次查找)
+    expect(onModelSelect).toHaveBeenCalledWith(
+      expect.objectContaining({ id: CLAUDE_ROLE_MODEL_IDS.sonnet, identifier: 'claude-claude-role-sonnet' }),
+    );
+  });
+
+  it('透传 selectedModelIdentifier 到 ModelSelect 用于精确选中', () => {
+    render(
+      <ButtonArea
+        currentProvider="opencode"
+        selectedModel="glm-5.2"
+        selectedModelIdentifier="opencode-openglm-glm-5.2"
+        onModelSelect={vi.fn()}
+      />,
+    );
+
+    expect(mocks.modelSelectProps.at(-1)?.selectedIdentifier).toBe('opencode-openglm-glm-5.2');
   });
 });

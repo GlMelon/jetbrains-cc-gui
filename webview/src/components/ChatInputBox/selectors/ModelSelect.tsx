@@ -27,7 +27,8 @@ const MAX_VISIBLE_MODEL_OPTIONS = 100;
 
 interface ModelSelectProps {
   value: string;
-  onChange: (modelId: string) => void;
+  selectedIdentifier?: string;
+  onChange: (model: ModelInfo) => void;
   models?: ModelInfo[];
   currentProvider?: string;
 }
@@ -82,7 +83,7 @@ const resolveModelIdForIcon = (
  * ModelSelect - Model selector component
  * Supports switching between Sonnet 4.5, Opus 4.5, and other models, including Codex models
  */
-export const ModelSelect = ({ value, onChange, models = [], currentProvider = 'claude' }: ModelSelectProps) => {
+export const ModelSelect = ({ value, selectedIdentifier, onChange, models = [], currentProvider = 'claude' }: ModelSelectProps) => {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -99,7 +100,9 @@ export const ModelSelect = ({ value, onChange, models = [], currentProvider = 'c
   // Strip [1m] suffix for finding the model in the list
   const strippedValue = strip1MContextSuffix(value);
   const hasModels = models.length > 0;
-  const exactSelectedModel = models.find(m => m.id === strippedValue);
+  const exactSelectedModel = selectedIdentifier
+    ? models.find((model) => model.identifier === selectedIdentifier)
+    : models.find((model) => model.id === strippedValue);
   // Guard against empty models (e.g. Codex provider before config.toml is set):
   // models[0] would be undefined and crash on .id access. Fall back to a null placeholder.
   const resolvedModel: ModelInfo | null = hasModels
@@ -107,19 +110,9 @@ export const ModelSelect = ({ value, onChange, models = [], currentProvider = 'c
     : null;
   const modelMapping = readClaudeModelMapping();
 
-  const isSelectedModel = (modelId: string): boolean => {
-    if (modelId === strippedValue) {
-      return true;
-    }
-    if (currentProvider !== 'claude') {
-      return false;
-    }
-    if (exactSelectedModel) {
-      return false;
-    }
-    // A3:不再归一化比较;仅剥离 [1m] 后缀做精确匹配。
-    return strip1MContextSuffix(modelId) === strippedValue;
-  };
+  const isSelectedModel = (model: ModelInfo): boolean => selectedIdentifier
+    ? model.identifier === selectedIdentifier
+    : model === exactSelectedModel;
 
   const getModelLabel = (model: ModelInfo, show1MContext = false): string => {
     // 仅内置 Claude role 模型(claude-role-*)套用全局 role→实际模型名映射,
@@ -196,8 +189,8 @@ export const ModelSelect = ({ value, onChange, models = [], currentProvider = 'c
   /**
    * Select model
    */
-  const handleSelect = useCallback((modelId: string) => {
-    onChange(modelId);
+  const handleSelect = useCallback((model: ModelInfo) => {
+    onChange(model);
     setIsOpen(false);
     setSearchQuery('');
   }, [onChange]);
@@ -284,9 +277,9 @@ export const ModelSelect = ({ value, onChange, models = [], currentProvider = 'c
           )}
           {visibleModels.map((model) => (
             <div
-              key={model.id}
-              className={`selector-option ${isSelectedModel(model.id) ? 'selected' : ''}`}
-              onClick={() => handleSelect(model.id)}
+              key={model.identifier}
+              className={`selector-option ${isSelectedModel(model) ? 'selected' : ''}`}
+              onClick={() => handleSelect(model)}
             >
               <ProviderModelIcon
                 providerId={currentProvider}
@@ -300,7 +293,7 @@ export const ModelSelect = ({ value, onChange, models = [], currentProvider = 'c
                   <span className="model-description" style={MODEL_TEXT_STYLE}>{getModelDescription(model)}</span>
                 )}
               </div>
-              {isSelectedModel(model.id) && (
+              {isSelectedModel(model) && (
                 <CheckIcon size={16} className="check-mark" />
               )}
             </div>

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
 import {
   isValidPermissionMode,
   strip1MContextSuffix,
@@ -31,6 +32,7 @@ const isCodexFastMode = (value: unknown): value is CodexFastMode =>
 export function useModelStatePersistence(options: {
   // Cross-slice load setters (run once on mount)
   setCurrentProvider: (value: string) => void;
+  setSelectedModelIdentifiers: Dispatch<SetStateAction<Record<string, string>>>;
   setSelectedClaudeModel: (value: string) => void;
   setSelectedCodexModel: (value: string) => void;
   setSelectedOpenCodeModel: (value: string) => void;
@@ -45,6 +47,7 @@ export function useModelStatePersistence(options: {
   setCodexFastMode: (value: CodexFastMode) => void;
   // Cross-slice save deps (re-saves on any change)
   currentProvider: string;
+  selectedModelIdentifiers: Record<string, string>;
   selectedClaudeModel: string;
   selectedCodexModel: string;
   selectedOpenCodeModel: string;
@@ -63,6 +66,7 @@ export function useModelStatePersistence(options: {
 }) {
   const {
     setCurrentProvider,
+    setSelectedModelIdentifiers,
     setSelectedClaudeModel,
     setSelectedCodexModel,
     setSelectedOpenCodeModel,
@@ -76,6 +80,7 @@ export function useModelStatePersistence(options: {
     setReasoningEffort,
     setCodexFastMode,
     currentProvider,
+    selectedModelIdentifiers,
     selectedClaudeModel,
     selectedCodexModel,
     selectedOpenCodeModel,
@@ -116,6 +121,15 @@ export function useModelStatePersistence(options: {
         if (['claude', 'codex', 'opencode', 'grok', 'kimi', 'pi'].includes(state.provider)) {
           restoredProvider = state.provider;
           setCurrentProvider(state.provider);
+        }
+
+        if (state.modelIdentifiers && typeof state.modelIdentifiers === 'object') {
+          const identifiers = Object.fromEntries(
+            Object.entries(state.modelIdentifiers).filter(
+              ([, value]) => typeof value === 'string' && value.trim().length > 0,
+            ),
+          ) as Record<string, string>;
+          setSelectedModelIdentifiers(identifiers);
         }
 
         if (isValidPermissionMode(state.claudePermissionMode)) {
@@ -192,6 +206,7 @@ export function useModelStatePersistence(options: {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         provider: currentProvider,
+        modelIdentifiers: selectedModelIdentifiers,
         claudeModel: selectedClaudeModel,
         codexModel: selectedCodexModel,
         opencodeModel: selectedOpenCodeModel,
@@ -209,6 +224,7 @@ export function useModelStatePersistence(options: {
     }
   }, [
     currentProvider,
+    selectedModelIdentifiers,
     selectedClaudeModel,
     selectedCodexModel,
     selectedOpenCodeModel,

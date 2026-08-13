@@ -202,6 +202,7 @@ const App = () => {
   const {
     currentProvider,
     selectedModel,
+    selectedModelIdentifier,
     permissionMode,
     selectedAgent,
     sdkStatusLoaded,
@@ -729,6 +730,7 @@ const App = () => {
           value={{
             currentProvider,
             selectedModel,
+            selectedModelIdentifier,
             permissionMode,
             selectedAgent,
             sdkStatusLoaded,

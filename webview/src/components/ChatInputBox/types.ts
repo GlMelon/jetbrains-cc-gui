@@ -231,6 +231,8 @@ export function isValidPermissionMode(mode: string | undefined | null): mode is 
  */
 export interface ModelInfo {
   id: string;
+  /** Backend-issued opaque identifier used only for exact UI selection. */
+  identifier: string;
   label: string;
   description?: string;
     /** Base context window size in tokens; undefined = use backend default (200K) */
@@ -407,6 +409,8 @@ export interface ChatInputBoxProps {
   isLoading?: boolean;
   /** Current model */
   selectedModel?: string;
+  /** Opaque identifier of the selected model registry entry. */
+  selectedModelIdentifier?: string;
   /** Current permission mode */
   permissionMode?: PermissionMode;
   /** Current provider */
@@ -456,7 +460,7 @@ export interface ChatInputBoxProps {
   /** Switch mode */
   onModeSelect?: (mode: PermissionMode) => void;
   /** Switch model */
-  onModelSelect?: (modelId: string, contextWindow?: number) => void;
+  onModelSelect?: (model: ModelInfo) => void;
   /** Switch provider */
   onProviderSelect?: (providerId: string) => void;
   /** Current reasoning effort */
@@ -538,6 +542,8 @@ export interface ButtonAreaProps {
   isEnhancing?: boolean;
   /** Current model */
   selectedModel?: string;
+  /** Opaque identifier of the selected model registry entry. */
+  selectedModelIdentifier?: string;
   /** Current mode */
   permissionMode?: PermissionMode;
   /** Current provider */
@@ -549,7 +555,7 @@ export interface ButtonAreaProps {
   onSubmit?: () => void;
   onStop?: () => void;
   onModeSelect?: (mode: PermissionMode) => void;
-  onModelSelect?: (modelId: string, contextWindow?: number) => void;
+  onModelSelect?: (model: ModelInfo) => void;
   onProviderSelect?: (providerId: string) => void;
   /** Switch reasoning effort callback */
   onReasoningChange?: (effort: ReasoningEffort) => void;

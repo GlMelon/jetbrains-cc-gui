@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import type { TFunction } from 'i18next';
-import type { CodexFastMode, DropdownItemData, DropdownPosition, PermissionMode, ReasoningEffort, SelectedAgent } from './types.js';
+import type { CodexFastMode, DropdownItemData, DropdownPosition, ModelInfo, PermissionMode, ReasoningEffort, SelectedAgent } from './types.js';
 import type { TooltipState } from './hooks/useTooltip.js';
 import { ButtonArea } from './ButtonArea.js';
 import { CompletionDropdown } from './Dropdown/index.js';
@@ -23,6 +23,7 @@ export const ChatInputBoxFooter = memo(function ChatInputBoxFooter({
   isLoading,
   isEnhancing,
   selectedModel,
+  selectedModelIdentifier,
   permissionMode,
   currentProvider,
   reasoningEffort,
@@ -57,13 +58,14 @@ export const ChatInputBoxFooter = memo(function ChatInputBoxFooter({
   isLoading: boolean;
   isEnhancing: boolean;
   selectedModel: string;
+  selectedModelIdentifier?: string;
   permissionMode: PermissionMode;
   currentProvider: string;
   reasoningEffort: ReasoningEffort;
   onSubmit: () => void;
   onStop?: () => void;
   onModeSelect?: (mode: PermissionMode) => void;
-  onModelSelect?: (modelId: string) => void;
+  onModelSelect?: (model: ModelInfo) => void;
   onProviderSelect?: (providerId: string) => void;
   onReasoningChange?: (effort: ReasoningEffort) => void;
   onEnhancePrompt: () => void;
@@ -103,6 +105,7 @@ export const ChatInputBoxFooter = memo(function ChatInputBoxFooter({
         isLoading={isLoading}
         isEnhancing={isEnhancing}
         selectedModel={selectedModel}
+        selectedModelIdentifier={selectedModelIdentifier}
         permissionMode={permissionMode}
         currentProvider={currentProvider}
         reasoningEffort={reasoningEffort}

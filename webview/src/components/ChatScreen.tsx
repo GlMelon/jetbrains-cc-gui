@@ -155,6 +155,7 @@ export const ChatScreen = ({
   const {
     currentProvider,
     selectedModel,
+    selectedModelIdentifier,
     permissionMode,
     selectedAgent,
     currentSdkInstalled,
@@ -354,6 +355,7 @@ export const ChatScreen = ({
           ref={chatInputRef}
           isLoading={loading}
           selectedModel={selectedModel}
+          selectedModelIdentifier={selectedModelIdentifier}
           permissionMode={permissionMode}
           currentProvider={currentProvider}
           usagePercentage={usagePercentage}

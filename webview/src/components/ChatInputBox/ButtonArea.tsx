@@ -1,7 +1,7 @@
 import {memo, useCallback, useEffect, useMemo, useState} from 'react';
 import {useTranslation} from 'react-i18next';
 import type {ButtonAreaProps, ModelInfo, PermissionMode, ReasoningEffort} from './types';
-import {CLAUDE_ROLE_MODEL_IDS, strip1MContextSuffix} from './types';
+import {CLAUDE_ROLE_MODEL_IDS} from './types';
 import {ConfigSelect, ModelSelect, ModeSelect, ProviderSelect, ReasoningSelect} from './selectors';
 import {readClaudeModelMapping, resolveMappedModelName} from '../../utils/claudeModelMapping';
 import {getModelsForProvider, getModelRegistrySnapshot, requestModelRegistry, subscribeModelRegistry} from '../../utils/modelRegistry';
@@ -18,6 +18,7 @@ export const ButtonArea = memo(function ButtonArea({
   isLoading = false,
   isEnhancing = false,
   selectedModel = CLAUDE_ROLE_MODEL_IDS.sonnet,
+  selectedModelIdentifier,
   permissionMode = 'default',
   currentProvider = 'claude',
   reasoningEffort = 'high',
@@ -132,13 +133,9 @@ export const ButtonArea = memo(function ButtonArea({
   /**
    * Handle model selection
    */
-  const handleModelSelect = useCallback((modelId: string) => {
-      // Strip [1m] suffix and look up contextWindow from the merged model list
-      const stripped = strip1MContextSuffix(modelId);
-      const modelInfo = availableModels.find(m => m.id === stripped);
-      // Pass clean model ID (no [1m]) to the bridge
-      onModelSelect?.(stripped, modelInfo?.contextWindow);
-  }, [onModelSelect, availableModels]);
+  const handleModelSelect = useCallback((model: ModelInfo) => {
+    onModelSelect?.(model);
+  }, [onModelSelect]);
 
   /**
    * Handle provider selection
@@ -187,7 +184,7 @@ export const ButtonArea = memo(function ButtonArea({
           <ModeSelect value={permissionMode} onChange={handleModeSelect} provider={currentProvider} />
         )}
         <span className="selector-separator" />
-        <ModelSelect value={selectedModel} onChange={handleModelSelect} models={availableModels} currentProvider={currentProvider} />
+        <ModelSelect value={selectedModel} selectedIdentifier={selectedModelIdentifier} onChange={handleModelSelect} models={availableModels} currentProvider={currentProvider} />
         <span className="selector-separator" />
         <ReasoningSelect value={reasoningEffort} onChange={handleReasoningChange} selectedModel={selectedModel} currentProvider={currentProvider} />
       </div>

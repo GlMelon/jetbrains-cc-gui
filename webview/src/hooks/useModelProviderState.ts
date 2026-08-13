@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { TFunction } from 'i18next';
 import { DOWNSTREAM } from '../generated/protocol';
 import { subscribeEvent } from '../bridge/typed';
-import type { PermissionMode } from '../components/ChatInputBox/types';
+import type { ModelInfo, PermissionMode } from '../components/ChatInputBox/types';
 import { DEFAULT_CONTEXT_WINDOW, strip1MContextSuffix } from '../components/ChatInputBox/types';
 import { useClaudeProvider } from './providers/useClaudeProvider';
 import { useCodexProvider } from './providers/useCodexProvider';
@@ -40,6 +40,7 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
   // ── Cross-slice state owned by the orchestrator ──
   const [currentProvider, setCurrentProvider] = useState('claude');
   const [permissionMode, setPermissionMode] = useState<PermissionMode>('default');
+  const [selectedModelIdentifiers, setSelectedModelIdentifiers] = useState<Record<string, string>>({});
 
   // External-facing ref so window callbacks can read the latest provider
   // without re-binding. Render-time assignment avoids the useRef + useEffect
@@ -88,6 +89,7 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
   // ── Persistence: load on mount + save on change ──
   useModelStatePersistence({
     setCurrentProvider,
+    setSelectedModelIdentifiers,
     setSelectedClaudeModel,
     setSelectedCodexModel,
     setSelectedOpenCodeModel,
@@ -101,6 +103,7 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
     setReasoningEffort,
     setCodexFastMode,
     currentProvider,
+    selectedModelIdentifiers,
     selectedClaudeModel,
     selectedCodexModel,
     selectedOpenCodeModel,
@@ -130,6 +133,7 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
           : currentProvider === 'pi'
             ? selectedPiModel
             : selectedClaudeModel;
+  const selectedModelIdentifier = selectedModelIdentifiers[currentProvider];
   const currentSdkInstalled = useMemo(
     () => isSdkInstalled(currentProvider),
     [isSdkInstalled, currentProvider],
@@ -158,6 +162,7 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
       const selection = data as {
         provider?: string;
         selectedModel?: string;
+        identifier?: string;
         effectiveContextWindow?: number;
         supportsLongContext?: boolean;
       };
@@ -167,6 +172,18 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
       }
       const provider = normalizeProvider(selection.provider);
       setCurrentProvider(provider);
+      setSelectedModelIdentifiers((previous) => {
+        const identifier = typeof selection.identifier === 'string' ? selection.identifier.trim() : '';
+        if (identifier) {
+          return previous[provider] === identifier ? previous : { ...previous, [provider]: identifier };
+        }
+        if (!(provider in previous)) {
+          return previous;
+        }
+        const next = { ...previous };
+        delete next[provider];
+        return next;
+      });
       if (provider === 'codex') {
         setSelectedCodexModel(selected);
         return;
@@ -232,50 +249,36 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
     sendAction(UPSTREAM.SET_SESSION_MODE, mode);
   }, [currentProvider, setCodexPermissionMode, setClaudePermissionMode, setGrokPermissionMode, setKimiPermissionMode, setPiPermissionMode]);
 
-  const handleModelSelect = useCallback((modelId: string, contextWindow?: number) => {
-    if (currentProvider === 'claude') {
-      const strippedModelId = strip1MContextSuffix(modelId);
-      const registryModels = getModelsForProvider('claude');
-      setSelectedClaudeModel(strippedModelId);
-      const supports1M = registryModels.find((model) => model.id === strippedModelId)?.supports1MContext ?? false;
+  const handleModelSelect = useCallback((model: ModelInfo) => {
+    const modelId = strip1MContextSuffix(model.id);
+    setSelectedModelIdentifiers((previous) => ({ ...previous, [currentProvider]: model.identifier }));
 
+    if (currentProvider === 'claude') {
+      setSelectedClaudeModel(modelId);
+      const supports1M = model.supports1MContext ?? false;
       if (longContextEnabled && !supports1M) {
         setLongContextEnabled(false);
       }
-
       sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
-        model: strippedModelId,
+        model: modelId,
+        identifier: model.identifier,
         longContextEnabled: longContextEnabled && supports1M,
       }));
-    } else if (currentProvider === 'codex') {
-      setSelectedCodexModel(modelId);
-      const registryModels = getModelsForProvider('codex');
-      const modelInfo = registryModels.find((model) => model.id === strip1MContextSuffix(modelId));
-      const effectiveContextWindow = contextWindow ?? modelInfo?.contextWindow;
-      const payload = effectiveContextWindow
-        ? JSON.stringify({model: modelId, contextWindow: effectiveContextWindow})
-        : modelId;
-      sendAction(UPSTREAM.SET_SESSION_MODEL, payload);
-    } else if (currentProvider === 'opencode') {
-      setSelectedOpenCodeModel(modelId);
-      const registryModels = getModelsForProvider('opencode');
-      const modelInfo = registryModels.find((model) => model.id === strip1MContextSuffix(modelId));
-      const effectiveContextWindow = contextWindow ?? modelInfo?.contextWindow;
-      const payload = effectiveContextWindow
-        ? JSON.stringify({model: modelId, contextWindow: effectiveContextWindow})
-        : modelId;
-      sendAction(UPSTREAM.SET_SESSION_MODEL, payload);
-    } else if (currentProvider === 'grok') {
-      setSelectedGrokModel(modelId);
-      sendAction(UPSTREAM.SET_SESSION_MODEL, modelId);
-    } else if (currentProvider === 'kimi') {
-      setSelectedKimiModel(modelId);
-      sendAction(UPSTREAM.SET_SESSION_MODEL, modelId);
-    } else if (currentProvider === 'pi') {
-      setSelectedPiModel(modelId);
-      sendAction(UPSTREAM.SET_SESSION_MODEL, modelId);
+      return;
     }
-  }, [currentProvider, longContextEnabled, setSelectedClaudeModel, setSelectedCodexModel, setSelectedOpenCodeModel, setSelectedGrokModel, setSelectedKimiModel, setSelectedPiModel]);
+
+    if (currentProvider === 'codex') setSelectedCodexModel(modelId);
+    if (currentProvider === 'opencode') setSelectedOpenCodeModel(modelId);
+    if (currentProvider === 'grok') setSelectedGrokModel(modelId);
+    if (currentProvider === 'kimi') setSelectedKimiModel(modelId);
+    if (currentProvider === 'pi') setSelectedPiModel(modelId);
+
+    sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
+      model: modelId,
+      identifier: model.identifier,
+      contextWindow: model.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
+    }));
+  }, [currentProvider, longContextEnabled, setSelectedClaudeModel, setSelectedCodexModel, setSelectedOpenCodeModel, setSelectedGrokModel, setSelectedKimiModel, setSelectedPiModel, setLongContextEnabled]);
 
   const handleProviderSelect = useCallback((providerId: string, contextWindow?: number) => {
     setCurrentProvider(providerId);
@@ -309,11 +312,18 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
               : selectedClaudeModel;
 
     const newProviderModels = getModelsForProvider(providerId);
-
-    const belongsToProvider = newModel
-      && newProviderModels.some((model) => model.id === strip1MContextSuffix(newModel));
-    if (!belongsToProvider && newProviderModels.length > 0) {
-      newModel = newProviderModels[0].id;
+    const savedIdentifier = selectedModelIdentifiers[providerId];
+    const selectedRegistryModel = (savedIdentifier
+      ? newProviderModels.find((model) => model.identifier === savedIdentifier)
+      : undefined)
+      ?? newProviderModels.find((model) => model.id === strip1MContextSuffix(newModel))
+      ?? newProviderModels[0];
+    if (selectedRegistryModel) {
+      newModel = selectedRegistryModel.id;
+      setSelectedModelIdentifiers((previous) => ({
+        ...previous,
+        [providerId]: selectedRegistryModel.identifier,
+      }));
     }
 
     if (providerId === 'codex') {
@@ -331,7 +341,7 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
     }
 
     if (providerId === 'claude') {
-      const supports1M = newProviderModels.find((model) => model.id === strip1MContextSuffix(newModel))?.supports1MContext ?? false;
+      const supports1M = selectedRegistryModel?.supports1MContext ?? false;
       setLongContextEnabled(supports1M);
       setReasoningEffort('high');
       setCodexFastMode('normal');
@@ -349,13 +359,15 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
     if (providerId === 'claude') {
       sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
         model: newModel,
-        longContextEnabled: longContextEnabled && (newProviderModels.find((model) => model.id === strip1MContextSuffix(newModel))?.supports1MContext ?? false),
+        identifier: selectedRegistryModel?.identifier,
+        longContextEnabled: longContextEnabled && (selectedRegistryModel?.supports1MContext ?? false),
       }));
     } else {
-      const registryContextWindow = newProviderModels.find((model) => model.id === strip1MContextSuffix(newModel))?.contextWindow;
+      const registryContextWindow = selectedRegistryModel?.contextWindow;
       const effectiveContextWindow = contextWindow ?? registryContextWindow ?? DEFAULT_CONTEXT_WINDOW;
       sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
         model: newModel,
+        identifier: selectedRegistryModel?.identifier,
         contextWindow: effectiveContextWindow,
       }));
     }
@@ -372,6 +384,7 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
     selectedKimiModel,
     selectedPiModel,
     longContextEnabled,
+    selectedModelIdentifiers,
     setSelectedClaudeModel,
     setSelectedCodexModel,
     setSelectedOpenCodeModel,
@@ -387,13 +400,17 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
     setLongContextEnabled(enabled);
     if (currentProvider === 'claude') {
       const registryModels = getModelsForProvider('claude');
-      const supports1M = registryModels.find((model) => model.id === strip1MContextSuffix(selectedClaudeModel))?.supports1MContext ?? false;
+      const selectedRegistryModel = (selectedModelIdentifiers.claude
+        ? registryModels.find((model) => model.identifier === selectedModelIdentifiers.claude)
+        : undefined) ?? registryModels.find((model) => model.id === strip1MContextSuffix(selectedClaudeModel));
+      const supports1M = selectedRegistryModel?.supports1MContext ?? false;
       sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
         model: selectedClaudeModel,
+        identifier: selectedRegistryModel?.identifier,
         longContextEnabled: enabled && supports1M,
       }));
     }
-  }, [currentProvider, selectedClaudeModel, setLongContextEnabled]);
+  }, [currentProvider, selectedClaudeModel, selectedModelIdentifiers, setLongContextEnabled]);
 
   useEffect(() => {
     if (modelRegistryVersion === 0) {
@@ -401,20 +418,29 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
     }
 
     const registryModels = getModelsForProvider(currentProvider);
-    const selectedRegistryModel = registryModels.find((model) => (
+    const selectedRegistryModel = (selectedModelIdentifier
+      ? registryModels.find((model) => model.identifier === selectedModelIdentifier)
+      : undefined) ?? registryModels.find((model) => (
       model.id === strip1MContextSuffix(selectedModel)
     ));
     if (!selectedRegistryModel) {
       return;
     }
+    if (selectedModelIdentifier !== selectedRegistryModel.identifier) {
+      setSelectedModelIdentifiers((previous) => ({
+        ...previous,
+        [currentProvider]: selectedRegistryModel.identifier,
+      }));
+    }
 
     if (currentProvider === 'claude') {
-      const supports1M = registryModels.find((model) => model.id === strip1MContextSuffix(selectedClaudeModel))?.supports1MContext ?? false;
+      const supports1M = selectedRegistryModel.supports1MContext ?? false;
       if (longContextEnabled && !supports1M) {
         setLongContextEnabled(false);
       }
       sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
         model: selectedClaudeModel,
+        identifier: selectedRegistryModel.identifier,
         longContextEnabled: longContextEnabled && supports1M,
       }));
       return;
@@ -423,6 +449,7 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
     if (currentProvider === 'opencode') {
       sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
         model: selectedOpenCodeModel,
+        identifier: selectedRegistryModel.identifier,
         contextWindow: selectedRegistryModel.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
       }));
       return;
@@ -431,6 +458,7 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
     if (currentProvider === 'grok') {
       sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
         model: selectedGrokModel,
+        identifier: selectedRegistryModel.identifier,
         contextWindow: selectedRegistryModel.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
       }));
       return;
@@ -439,6 +467,7 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
     if (currentProvider === 'kimi') {
       sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
         model: selectedKimiModel,
+        identifier: selectedRegistryModel.identifier,
         contextWindow: selectedRegistryModel.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
       }));
       return;
@@ -447,6 +476,7 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
     if (currentProvider === 'pi') {
       sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
         model: selectedPiModel,
+        identifier: selectedRegistryModel.identifier,
         contextWindow: selectedRegistryModel.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
       }));
       return;
@@ -454,6 +484,7 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
 
     sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
       model: selectedCodexModel,
+      identifier: selectedRegistryModel.identifier,
       contextWindow: selectedRegistryModel.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
     }));
   }, [
@@ -467,6 +498,7 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
     selectedKimiModel,
     selectedPiModel,
     selectedModel,
+    selectedModelIdentifier,
     setLongContextEnabled,
   ]);
 
@@ -484,6 +516,7 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
     currentProvider, setCurrentProvider,
     permissionMode, setPermissionMode,
     selectedModel,
+    selectedModelIdentifier,
     currentSdkInstalled,
     claudeSdkMeetsMinimum,
     currentProviderRef,
