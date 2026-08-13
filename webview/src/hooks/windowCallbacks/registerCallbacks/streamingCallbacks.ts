@@ -874,6 +874,22 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
             finalRaw = endedBackendRaw;
           }
         }
+        // 补 stamp backend snapshot 的整轮用量(turnUsage/turnCostUsd)到 finalRaw。
+        // finalRaw 常为前端流式累积版,文本比 backend coalescer 快照更全,故上方按文本长度
+        // 二选一往往选中前端版;但前端 raw 从不含 usage(usage 由后端 backfill),会把 backend
+        // raw 里的 turnUsage 一并挤掉,消息卡片 token 统计因此永久为空。此处无条件合并用量
+        // 字段(纯元数据,不影响文本渲染)。
+        if (endedBackendRaw != null && typeof endedBackendRaw === 'object') {
+          const backendUsage = endedBackendRaw as Record<string, unknown>;
+          if (backendUsage.turnUsage != null || backendUsage.turnCostUsd != null) {
+            if (finalRaw != null && typeof finalRaw === 'object') {
+              const merged = { ...(finalRaw as Record<string, unknown>) };
+              if (backendUsage.turnUsage != null) merged.turnUsage = backendUsage.turnUsage;
+              if (backendUsage.turnCostUsd != null) merged.turnCostUsd = backendUsage.turnCostUsd;
+              finalRaw = merged as ClaudeRawMessage;
+            }
+          }
+        }
         newMessages[idx] = {
           ...newMessages[idx],
           content: finalContent,

@@ -35,6 +35,13 @@ const easeOutCubic = (t: number): number => 1 - Math.pow(1 - t, 3);
  * CountUp - An animated number counter.
  * Inspired by react-bits, enhanced with project-specific APIs.
  *
+ * Robustness notes:
+ * - Re-animates whenever `end` changes (no latching guard), so late-arriving
+ *   values (e.g. per-turn usage stamped after streaming ends) animate correctly.
+ * - A setTimeout safety net guarantees the final value is reached even if
+ *   requestAnimationFrame is starved (e.g. JCEF webview backgrounded at mount),
+ *   so the count never freezes at its initial value.
+ *
  * @example
  * <CountUp end={1000} />
  *
@@ -62,10 +69,18 @@ export const CountUp = ({
   style,
 }: CountUpProps) => {
   const [displayValue, setDisplayValue] = useState(start);
-  const [hasStarted, setHasStarted] = useState(false);
+  // triggerOnView=false means the element is considered in view from the start.
+  const [inView, setInView] = useState(!triggerOnView);
   const animationRef = useRef<number | null>(null);
   const startTimeRef = useRef<number | null>(null);
+  // Track the latest displayed value so the next animation starts from there
+  // (keeps a smooth transition when `end` changes mid-animation).
+  const fromRef = useRef(start);
   const containerRef = useRef<HTMLSpanElement>(null);
+  // Keep the latest onComplete in a ref so the animation effect doesn't have to
+  // re-run (and restart) whenever the callback identity changes.
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
 
   const formatNumber = useCallback(
     (value: number): string => {
@@ -77,45 +92,78 @@ export const CountUp = ({
     [decimals, separator]
   );
 
-  const animate = useCallback(
-    (timestamp: number) => {
-      if (!startTimeRef.current) {
+  // (Re)start the animation whenever the target changes. This replaces the old
+  // `hasStarted` latch that silently ignored subsequent `end` changes.
+  useEffect(() => {
+    if (!autoStart || !inView) return;
+
+    if (animationRef.current != null) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
+    startTimeRef.current = null;
+
+    const from = fromRef.current;
+    const to = end;
+
+    // Nothing to animate — snap to the target and bail out (avoids leaving the
+    // display stuck at `start` when from === to).
+    if (from === to) {
+      setDisplayValue(to);
+      onCompleteRef.current?.();
+      return;
+    }
+
+    const animate = (timestamp: number) => {
+      if (startTimeRef.current == null) {
         startTimeRef.current = timestamp;
       }
-
       const elapsed = timestamp - startTimeRef.current;
       const progress = Math.min(elapsed / duration, 1);
       const easedProgress = easing(progress);
-      const currentValue = start + (end - start) * easedProgress;
+      const currentValue = from + (to - from) * easedProgress;
 
       setDisplayValue(currentValue);
 
       if (progress < 1) {
         animationRef.current = requestAnimationFrame(animate);
       } else {
-        onComplete?.();
-      }
-    },
-    [start, end, duration, easing, onComplete]
-  );
-
-  const startAnimation = useCallback(() => {
-    if (hasStarted) return;
-    setHasStarted(true);
-    startTimeRef.current = null;
-    animationRef.current = requestAnimationFrame(animate);
-  }, [hasStarted, animate]);
-
-  useEffect(() => {
-    if (autoStart && !triggerOnView) {
-      startAnimation();
-    }
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
+        // Snap to the exact target to avoid floating-point drift on the last frame.
+        setDisplayValue(to);
+        animationRef.current = null;
+        onCompleteRef.current?.();
       }
     };
-  }, [autoStart, triggerOnView, startAnimation]);
+    animationRef.current = requestAnimationFrame(animate);
+
+    // Safety net: if requestAnimationFrame is starved (the webview can be
+    // backgrounded at mount in JCEF, or the tab is off-screen), force the final
+    // value so the counter never freezes at its initial value. Only acts when
+    // the animation has NOT already completed (animationRef cleared on success),
+    // avoiding a duplicate onComplete/setDisplayValue after a normal finish.
+    const fallbackTimer = window.setTimeout(() => {
+      if (animationRef.current != null) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
+        setDisplayValue(to);
+        onCompleteRef.current?.();
+      }
+    }, duration + 200);
+
+    return () => {
+      if (animationRef.current != null) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
+      }
+      window.clearTimeout(fallbackTimer);
+    };
+  }, [end, duration, easing, autoStart, inView]);
+
+  // Keep fromRef in sync with the latest rendered value so a subsequent
+  // animation (after `end` changes) starts from where we left off.
+  useEffect(() => {
+    fromRef.current = displayValue;
+  }, [displayValue]);
 
   useEffect(() => {
     if (!triggerOnView || !containerRef.current) return;
@@ -123,7 +171,7 @@ export const CountUp = ({
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          startAnimation();
+          setInView(true);
           observer.disconnect();
         }
       },
@@ -132,7 +180,7 @@ export const CountUp = ({
 
     observer.observe(containerRef.current);
     return () => observer.disconnect();
-  }, [triggerOnView, startAnimation]);
+  }, [triggerOnView]);
 
   return (
     <span ref={containerRef} className={`count-up ${className}`} style={style}>
