@@ -1,5 +1,7 @@
 package com.github.claudecodegui.cli;
 
+import com.github.claudecodegui.cli.common.CliConstants;
+import com.github.claudecodegui.cli.common.CliErrorFormatter;
 import com.github.claudecodegui.cli.claude.ClaudeCliSessionFactory;
 import com.github.claudecodegui.cli.codex.CodexCliSessionFactory;
 import com.github.claudecodegui.cli.opencode.OpenCodeCliSessionFactory;
@@ -217,7 +219,7 @@ public class CliSessionManager {
             MessageCallback callback,
             CliSession session
     ) {
-        return session.send(request, adapt(callback))
+        return session.send(request, adapt(callback, request.provider()))
                 .thenApply(v -> SDKResult.success(null))
                 .exceptionally(ex -> {
                     SDKResult r = SDKResult.error(ex.getMessage());
@@ -237,19 +239,76 @@ public class CliSessionManager {
         return ProviderType.fromString(provider).value();
     }
 
-    /** 将 CliSessionCallback 适配为 MessageCallback，统一回调格式。 */
-    private static CliSessionCallback adapt(MessageCallback callback) {
+    /**
+     * 不代表 assistant 产出的"控制/元数据/日志"类消息类型(经 {@link com.github.claudecodegui.cli.common.CliSectionEmitter} 发出的非内容方法)。
+     * <p>
+     * 用于 {@link #isContentBearing(String)} 的黑名单:整轮仅收到这些类型(或完全无 onMessage)说明
+     * CLI 进程未产出任何 AI 内容,属"静默空成功"(典型:provider 服务端调用失败被 exit0 静默吞掉、
+     * 子进程阻塞读 stdin)。黑名单方向安全——漏列某个控制类只会漏报(回到现状),不会误伤合法回合。
+     */
+    private static final Set<String> NON_CONTENT_MESSAGE_TYPES = Set.of(
+            CliConstants.MSG_SESSION_ID,
+            CliConstants.MSG_STREAM_START,
+            CliConstants.MSG_STREAM_END,
+            CliConstants.MSG_MESSAGE_START,
+            CliConstants.MSG_MESSAGE_END,
+            CliConstants.MSG_BLOCK_RESET,
+            CliConstants.CODEX_MSG_STATUS,
+            CliConstants.MSG_USAGE,
+            CliConstants.MSG_RESULT,
+            CliConstants.MSG_SLASH_COMMANDS,
+            CliConstants.MSG_NODE_LOG,
+            CliConstants.MSG_STREAM_EVENT
+    );
+
+    /**
+     * 判定消息类型是否代表 assistant 产出了实质内容(文本/思考/工具)。
+     * 不在 {@link #NON_CONTENT_MESSAGE_TYPES} 黑名单中的类型均视为有产出
+     * (content_delta/thinking_delta/text/tool_use/tool_result/thinking/assistant/content/ai 等)。
+     */
+    static boolean isContentBearing(String type) {
+        return type != null && !NON_CONTENT_MESSAGE_TYPES.contains(type);
+    }
+
+    /**
+     * 将 CliSessionCallback 适配为 MessageCallback，统一回调格式。
+     * <p>
+     * 同时做"静默空成功"检测(所有 CLI provider 通用):若整轮声称 success 且无 error,
+     * 但从未收到任何内容类消息(文本/思考/工具),则降级为错误上报——避免前端只显示完成提示却无正文。
+     * 典型场景:provider 服务端调用失败被 CLI 进程 exit0 静默吞掉(如 opencode 返回空 step_finish)。
+     * SDK 路径不经此适配器,故仅影响 CLI provider。
+     *
+     * @param provider provider 名(诊断信息点名用)
+     */
+    static CliSessionCallback adapt(MessageCallback callback, String provider) {
         return new CliSessionCallback() {
+            // per-turn:整轮是否收到过内容类消息。adapt 实例每次 sendToSession 新建,天然 turn 隔离。
+            boolean producedContent;
+
             @Override
             public void onMessage(String type, String content) {
+                if (isContentBearing(type)) {
+                    producedContent = true;
+                }
                 callback.onMessage(type, content);
             }
+
             @Override
             public void onError(String error) {
                 callback.onError(error);
             }
+
             @Override
             public void onComplete(boolean success, String finalResult, String error) {
+                if (success && (error == null || error.isBlank()) && !producedContent) {
+                    String diag = CliErrorFormatter.formatError(provider,
+                            "进程正常退出但本轮未返回任何内容(无文本/工具/思考输出)。"
+                                    + "常见原因:AI 服务端调用失败被静默吞掉、子进程阻塞读 stdin、"
+                                    + "或 provider/模型配置无效。请在命令行直接运行该 provider 对照验证。");
+                    callback.onError(diag);
+                    callback.onComplete(SDKResult.completed(false, finalResult, diag, false));
+                    return;
+                }
                 callback.onComplete(SDKResult.completed(success, finalResult, error, false));
             }
 
