@@ -67,6 +67,7 @@ public final class ModelRegistryService {
         for (ModelConfig model : registry.models()) {
             JsonObject obj = new JsonObject();
             obj.addProperty("id", model.id());
+            obj.addProperty("identifier", model.identifier());
             obj.addProperty("provider", model.provider());
             obj.addProperty("role", model.role());
             obj.addProperty("label", model.label());
@@ -152,6 +153,7 @@ public final class ModelRegistryService {
                 }
                 JsonObject obj = item.getAsJsonObject();
                 String id = readString(obj, "id");
+                String identifier = readString(obj, "identifier");
                 String provider = readString(obj, "provider");
                 String role = readString(obj, "role");
                 String label = readString(obj, "label");
@@ -165,7 +167,7 @@ public final class ModelRegistryService {
                         && obj.get("supports1MContext").getAsBoolean();
                 boolean enabled = !obj.has("enabled") || obj.get("enabled").isJsonNull()
                         || obj.get("enabled").getAsBoolean();
-                models.add(new ModelConfig(id, provider, role, label, actualModel, description,
+                models.add(new ModelConfig(id, identifier, provider, role, label, actualModel, description,
                         contextWindow, supports1MContext, enabled));
             }
         }

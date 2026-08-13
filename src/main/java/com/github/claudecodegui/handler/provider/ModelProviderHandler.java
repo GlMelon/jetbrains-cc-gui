@@ -44,7 +44,7 @@ public class ModelProviderHandler {
     public void handleSetModel(String content) {
         try {
             ModelChangeRequest req = parseModelChange(content);
-            applyModelChange(req.model(), req.contextWindowOverride(), req.longContextEnabled(), false);
+            applyModelChange(req.model(), req.identifier(), req.contextWindowOverride(), req.longContextEnabled(), false);
         } catch (Exception e) {
             LOG.error("[ModelProviderHandler] Failed to set model: " + e.getMessage(), e);
         }
@@ -53,7 +53,7 @@ public class ModelProviderHandler {
     public void handleSetSessionModel(String content) {
         try {
             ModelChangeRequest req = parseModelChange(content);
-            applyModelChange(req.model(), req.contextWindowOverride(), req.longContextEnabled(), true);
+            applyModelChange(req.model(), req.identifier(), req.contextWindowOverride(), req.longContextEnabled(), true);
         } catch (Exception e) {
             LOG.error("[ModelProviderHandler] Failed to set session model: " + e.getMessage(), e);
         }
@@ -70,6 +70,7 @@ public class ModelProviderHandler {
      */
     private static ModelChangeRequest parseModelChange(String content) {
         String model;
+        String identifier = null;
         Integer contextWindowOverride = null;
         boolean longContextEnabled = false;
 
@@ -77,6 +78,9 @@ public class ModelProviderHandler {
         if (trimmed.startsWith("{")) {
             JsonObject json = GsonHolder.GSON.fromJson(trimmed, JsonObject.class);
             model = json.has("model") ? json.get("model").getAsString() : "";
+            if (json.has("identifier") && !json.get("identifier").isJsonNull()) {
+                identifier = json.get("identifier").getAsString();
+            }
             if (json.has("contextWindow") && !json.get("contextWindow").isJsonNull()) {
                 contextWindowOverride = json.get("contextWindow").getAsInt();
             }
@@ -89,11 +93,12 @@ public class ModelProviderHandler {
         } else {
             model = content;
         }
-        return new ModelChangeRequest(model, contextWindowOverride, longContextEnabled);
+        return new ModelChangeRequest(model, identifier, contextWindowOverride, longContextEnabled);
     }
 
     /** set_model / set_session_model 上行 payload 的解析结果。 */
-    private record ModelChangeRequest(String model, Integer contextWindowOverride, boolean longContextEnabled) {
+    private record ModelChangeRequest(String model, String identifier, Integer contextWindowOverride,
+                                      boolean longContextEnabled) {
     }
 
     /**
@@ -113,7 +118,7 @@ public class ModelProviderHandler {
      * @param isSessionOnly       true for set_session_model(仅影响 provider 来源,见
      *                            {@link #confirmedProviderForModelChange};不再守卫全局默认更新)
      */
-    private void applyModelChange(String model, Integer contextWindowOverride,
+    private void applyModelChange(String model, String identifier, Integer contextWindowOverride,
                                   boolean longContextEnabled, boolean isSessionOnly) {
         LOG.info("[ModelProviderHandler] Setting model to: " + model
                 + (contextWindowOverride != null ? " (contextWindow=" + contextWindowOverride + ")" : ""));
@@ -137,6 +142,7 @@ public class ModelProviderHandler {
                 .resolve(new ModelSelectionRequest(
                         confirmedProvider,
                         model,
+                        identifier,
                         contextWindowOverride,
                         longContextEnabled
                 ));
@@ -182,6 +188,9 @@ public class ModelProviderHandler {
             JsonObject confirmedPayload = new JsonObject();
             confirmedPayload.addProperty("modelId", confirmedModel);
             confirmedPayload.addProperty("provider", confirmedProvider);
+            if (confirmedSelection.identifier() != null) {
+                confirmedPayload.addProperty("identifier", confirmedSelection.identifier());
+            }
             context.dispatchEvent(DownstreamEvent.MODEL_CONFIRMED.value(), context.escapeJs(gson.toJson(confirmedPayload)));
             context.dispatchEvent(
                     DownstreamEvent.MODEL_SELECTION.value(),
@@ -232,6 +241,9 @@ public class ModelProviderHandler {
         JsonObject payload = new JsonObject();
         payload.addProperty("provider", selection.provider());
         payload.addProperty("selectedModel", selection.selectedModel());
+        if (selection.identifier() != null) {
+            payload.addProperty("identifier", selection.identifier());
+        }
         payload.addProperty("storedModel", selection.storedModel());
         payload.addProperty("resolvedActualModel", selection.resolvedActualModel());
         payload.addProperty("effectiveContextWindow", selection.effectiveContextWindow());

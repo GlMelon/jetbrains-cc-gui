@@ -26,6 +26,7 @@ import java.util.Set;
  */
 public enum ModelRegistryPayloadField {
     ID("id", "string", false),
+    IDENTIFIER("identifier", "string", false),
     PROVIDER("provider", "string", false),
     ROLE("role", "string", true),
     LABEL("label", "string", false),

@@ -67,7 +67,7 @@ public final class ReadOnlyDefaultModels {
         List<ModelConfig> result = new ArrayList<>(readOnly);
         Set<String> readOnlyKeys = new HashSet<>();
         for (ModelConfig ro : readOnly) {
-            readOnlyKeys.add(dedupKey(ro.provider(), ro.id()));
+            readOnlyKeys.add(dedupKey(ro));
         }
         for (ModelConfig user : userLayer.models()) {
             boolean isReservedRole = CommonConstants.PROVIDER_CLAUDE.equals(user.provider())
@@ -75,9 +75,9 @@ public final class ReadOnlyDefaultModels {
             if (isReservedRole) {
                 continue; // role 保留键:只读恒胜,跳过用户层(去重覆盖,不删磁盘)
             }
-            String key = dedupKey(user.provider(), user.id());
+            String key = dedupKey(user);
             if (readOnlyKeys.contains(key)) {
-                result.removeIf(m -> dedupKey(m.provider(), m.id()).equals(key)); // codex 用户优先
+                result.removeIf(m -> dedupKey(m).equals(key)); // codex 用户优先
             }
             result.add(user);
         }
@@ -89,6 +89,11 @@ public final class ReadOnlyDefaultModels {
         String normalizedProvider = provider == null ? "" : provider.toLowerCase(Locale.ROOT);
         String baseId = ModelRegistryConfig.stripCapacitySuffix(id).toLowerCase(Locale.ROOT);
         return normalizedProvider + ":" + baseId;
+    }
+
+    /** identifier 是跨 provider/source 的唯一去重键。 */
+    public static String dedupKey(ModelConfig model) {
+        return model.identifier();
     }
 
     private static ModelConfig roleDefault(ClaudeRole role, String actualModel) {

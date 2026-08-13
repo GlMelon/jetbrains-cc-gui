@@ -22,7 +22,7 @@ public class DefaultModelCapabilityResolver implements ModelCapabilityResolver {
         String provider = normalizeProvider(request.provider());
         String selectedModel = ModelRegistryConfig.stripCapacitySuffix(request.selectedModel());
         ModelRegistryConfig.ResolvedModelSelection registrySelection =
-                registry.resolveModelSelection(provider, selectedModel);
+                registry.resolveModelSelection(provider, selectedModel, request.identifier());
         String resolvedActualModel = resolveActualModel(selectedModel, registrySelection);
 
         boolean supportsLongContext = supportsLongContext(selectedModel, registrySelection);
@@ -46,6 +46,7 @@ public class DefaultModelCapabilityResolver implements ModelCapabilityResolver {
         return new ModelSelectionResult(
                 provider,
                 selectedModel,
+                registrySelection.identifier(),
                 storedModel,
                 resolvedActualModel,
                 effectiveContextWindow,
@@ -68,7 +69,7 @@ public class DefaultModelCapabilityResolver implements ModelCapabilityResolver {
             ModelRegistryConfig.ResolvedModelSelection selection
     ) {
         int configuredLimit = selection.contextWindow() > 0 ? selection.contextWindow() : CommonConstants.DEFAULT_CONTEXT_WINDOW;
-        if (registry.find(provider, selectedModel).isPresent()) {
+        if (selection.identifier() != null || registry.find(provider, selectedModel).isPresent()) {
             return configuredLimit;
         }
         return contextLimit(resolvedActualModel);

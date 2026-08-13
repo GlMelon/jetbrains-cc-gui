@@ -116,15 +116,15 @@ public final class ModelRegistrySettingsService {
     private ModelConfigValidator.ValidationResult checkNoNewConflictsWithReadOnly(ModelRegistryConfig incoming) {
         java.util.Set<String> currentKeys = new java.util.HashSet<>();
         for (ModelConfig model : readPersistedUserLayer().models()) {
-            currentKeys.add(ReadOnlyDefaultModels.dedupKey(model.provider(), model.id()));
+            currentKeys.add(ReadOnlyDefaultModels.dedupKey(model));
         }
         java.util.Set<String> readOnlyKeys = new java.util.HashSet<>();
         for (ModelConfig model : ReadOnlyDefaultModels.compute()) {
-            readOnlyKeys.add(ReadOnlyDefaultModels.dedupKey(model.provider(), model.id()));
+            readOnlyKeys.add(ReadOnlyDefaultModels.dedupKey(model));
         }
         java.util.List<String> errors = new java.util.ArrayList<>();
         for (ModelConfig model : incoming.models()) {
-            String key = ReadOnlyDefaultModels.dedupKey(model.provider(), model.id());
+            String key = ReadOnlyDefaultModels.dedupKey(model);
             if (readOnlyKeys.contains(key) && !currentKeys.contains(key)) {
                 errors.add("模型 " + model.id() + " 与配置文件默认模型冲突,无法新增");
             }
@@ -156,6 +156,7 @@ public final class ModelRegistrySettingsService {
                 }
                 JsonObject obj = item.getAsJsonObject();
                 String id = readString(obj, "id");
+                String identifier = readString(obj, "identifier");
                 String provider = readString(obj, "provider");
                 String role = readString(obj, "role");
                 String label = readString(obj, "label");
@@ -167,7 +168,7 @@ public final class ModelRegistrySettingsService {
                 boolean supports1MContext = obj.has("supports1MContext")
                         && obj.get("supports1MContext").getAsBoolean();
                 boolean enabled = !obj.has("enabled") || obj.get("enabled").getAsBoolean();
-                models.add(new ModelConfig(id, provider, role, label, actualModel,
+                models.add(new ModelConfig(id, identifier, provider, role, label, actualModel,
                         description, contextWindow, supports1MContext, enabled));
             }
         }
@@ -180,6 +181,7 @@ public final class ModelRegistrySettingsService {
         for (ModelConfig model : registry.models()) {
             JsonObject obj = new JsonObject();
             obj.addProperty("id", model.id());
+            obj.addProperty("identifier", model.identifier());
             obj.addProperty("provider", model.provider());
             obj.addProperty("role", model.role());
             obj.addProperty("label", model.label());

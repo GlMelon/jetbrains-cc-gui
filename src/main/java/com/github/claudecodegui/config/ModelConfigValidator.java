@@ -2,11 +2,11 @@ package com.github.claudecodegui.config;
 
 import com.github.claudecodegui.common.ClaudeRole;
 import com.github.claudecodegui.common.CommonConstants;
+import com.github.claudecodegui.session.runtime.ProviderType;
 
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -39,9 +39,7 @@ public final class ModelConfigValidator {
         }
 
         Set<String> seen = new HashSet<>();
-        boolean hasEnabledClaude = false;
-        boolean hasEnabledCodex = false;
-        boolean hasEnabledOpenCode = false;
+        boolean hasEnabledModel = false;
         for (ModelConfig rawModel : config.models()) {
             if (rawModel == null) {
                 errors.add("model entry cannot be null");
@@ -55,8 +53,11 @@ public final class ModelConfigValidator {
             if (model.id().length() > MAX_MODEL_ID_LENGTH) {
                 errors.add("model id is too long: " + model.id());
             }
-            if (!CommonConstants.PROVIDER_CLAUDE.equals(model.provider()) && !CommonConstants.PROVIDER_CODEX.equals(model.provider()) && !CommonConstants.PROVIDER_OPENCODE.equals(model.provider())) {
-                errors.add("model provider must be claude, codex, or opencode: " + model.id());
+            if (model.identifier().isBlank()) {
+                errors.add("model identifier is required: " + model.id());
+            }
+            if (ProviderType.fromValue(model.provider()).isEmpty()) {
+                errors.add("unsupported model provider: " + model.provider() + " (model " + model.id() + ")");
             }
             if (CommonConstants.PROVIDER_CLAUDE.equals(model.provider())) {
                 if (!isClaudeRole(model.role())) {
@@ -66,9 +67,8 @@ public final class ModelConfigValidator {
             if (CommonConstants.PROVIDER_CODEX.equals(model.provider()) && !model.role().isBlank()) {
                 errors.add("codex model role must be empty: " + model.id());
             }
-            String duplicateKey = model.provider() + "\n" + model.id().toLowerCase(Locale.ROOT);
-            if (!seen.add(duplicateKey)) {
-                errors.add("duplicate model id for provider " + model.provider() + ": " + model.id());
+            if (!seen.add(model.identifier())) {
+                errors.add("duplicate model identifier: " + model.identifier());
             }
             if (model.contextWindow() < MIN_CONTEXT_WINDOW || model.contextWindow() > MAX_CONTEXT_WINDOW) {
                 errors.add("contextWindow out of range for " + model.id());
@@ -77,18 +77,10 @@ public final class ModelConfigValidator {
                     && model.contextWindow() < CommonConstants.ONE_MILLION_CONTEXT_WINDOW) {
                 errors.add("supports1MContext requires contextWindow >= 1000000 for " + model.id());
             }
-            if (model.enabled() && CommonConstants.PROVIDER_CLAUDE.equals(model.provider())) {
-                hasEnabledClaude = true;
-            }
-            if (model.enabled() && CommonConstants.PROVIDER_CODEX.equals(model.provider())) {
-                hasEnabledCodex = true;
-            }
-            if (model.enabled() && CommonConstants.PROVIDER_OPENCODE.equals(model.provider())) {
-                hasEnabledOpenCode = true;
-            }
+            hasEnabledModel |= model.enabled();
         }
 
-        if (!hasEnabledClaude && !hasEnabledCodex && !hasEnabledOpenCode) {
+        if (!hasEnabledModel) {
             errors.add("at least one model must be enabled");
         }
 

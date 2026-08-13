@@ -50,24 +50,45 @@ public class ModelRegistryConfig {
                 .findFirst();
     }
 
+    /** identifier 是后端下发的不透明唯一值，只做完整匹配，禁止按分隔符反向解析。 */
+    public Optional<ModelConfig> findByIdentifier(String identifier) {
+        if (identifier == null || identifier.isBlank()) {
+            return Optional.empty();
+        }
+        String normalizedIdentifier = identifier.trim();
+        return models.stream()
+                .filter(ModelConfig::enabled)
+                .filter(model -> model.identifier().equalsIgnoreCase(normalizedIdentifier))
+                .findFirst();
+    }
+
     public ResolvedModelSelection resolveModelSelection(String provider, String selectedModel) {
+        return resolveModelSelection(provider, selectedModel, null);
+    }
+
+    public ResolvedModelSelection resolveModelSelection(String provider, String selectedModel, String identifier) {
         String normalizedProvider = normalizeProvider(provider);
         String selected = selectedModel == null ? "" : selectedModel.trim();
         String baseSelected = stripCapacitySuffix(selected);
-        Optional<ModelConfig> configured = find(normalizedProvider, selected);
+        Optional<ModelConfig> configured = findByIdentifier(identifier)
+                .filter(candidate -> candidate.provider().equals(normalizedProvider));
+        if (configured.isEmpty()) {
+            configured = find(normalizedProvider, selected);
+        }
         ModelConfig model = configured.orElse(null);
 
         // per-provider 策略查表(总则五·开闭 / E4):取代原 codex/claude if 分支,
         // 新增 provider 只需在 STRATEGIES 注册策略,本方法路由主体不变。
         ModelSelectionStrategy strategy = STRATEGIES.get(normalizedProvider);
         if (strategy == null) {
-            // 理论不可达:normalizeProvider 已归一到 claude/codex 之一
+            // 理论不可达:所有 ProviderType 均须在 STRATEGIES 注册。
             throw new IllegalStateException("No model selection strategy for provider: " + normalizedProvider);
         }
         String role = strategy.resolveRole(model, baseSelected);
         String actual = strategy.resolveActualModel(model, selected, baseSelected);
         return new ResolvedModelSelection(
                 selected,
+                model != null ? model.identifier() : null,
                 role,
                 actual,
                 model != null ? model.contextWindow() : CommonConstants.DEFAULT_CONTEXT_WINDOW,
@@ -88,6 +109,7 @@ public class ModelRegistryConfig {
 
     public record ResolvedModelSelection(
             String selectedModel,
+            String identifier,
             String role,
             String actualModel,
             int contextWindow,
@@ -179,11 +201,14 @@ public class ModelRegistryConfig {
         String resolveActualModel(ModelConfig model, String selected, String baseSelected);
     }
 
-    /** 策略注册表:provider → 策略。归一后的 provider 必命中(normalizeProvider 保证 claude/codex/opencode)。 */
+    /** 策略注册表:provider → 策略。归一后的所有 ProviderType 均必须命中。 */
     private static final Map<String, ModelSelectionStrategy> STRATEGIES = Map.of(
             CommonConstants.PROVIDER_CLAUDE, claudeStrategy(),
             CommonConstants.PROVIDER_CODEX, codexStrategy(),
-            CommonConstants.PROVIDER_OPENCODE, opencodeStrategy()
+            CommonConstants.PROVIDER_OPENCODE, opencodeStrategy(),
+            CommonConstants.PROVIDER_GROK, cliStrategy(CommonConstants.PROVIDER_GROK),
+            CommonConstants.PROVIDER_KIMI, cliStrategy(CommonConstants.PROVIDER_KIMI),
+            CommonConstants.PROVIDER_PI, cliStrategy(CommonConstants.PROVIDER_PI)
     );
 
     private static ModelSelectionStrategy claudeStrategy() {
@@ -254,6 +279,27 @@ public class ModelRegistryConfig {
                 }
                 String actual = applyRequestCapacity(selected, model.actualModel());
                 return actual.isBlank() ? null : actual;
+            }
+        };
+    }
+
+    private static ModelSelectionStrategy cliStrategy(String provider) {
+        return new ModelSelectionStrategy() {
+            @Override
+            public String provider() {
+                return provider;
+            }
+
+            @Override
+            public String resolveRole(ModelConfig model, String baseSelected) {
+                return null;
+            }
+
+            @Override
+            public String resolveActualModel(ModelConfig model, String selected, String baseSelected) {
+                return model != null && !model.actualModel().isBlank()
+                        ? model.actualModel()
+                        : baseSelected;
             }
         };
     }
