@@ -17,10 +17,10 @@ import java.util.Set;
  * <pre>{@code
  * "customProviders": [
  *   {
- *     "id": "gemini",
- *     "label": "Gemini",
- *     "cliCommand": "gemini",
- *     "cliCommandWindows": "gemini.cmd",
+ *     "id": "custom-provider",
+ *     "label": "Custom Provider",
+ *     "cliCommand": "custom-provider",
+ *     "cliCommandWindows": "custom-provider.cmd",
  *     "capabilities": ["CLI_SESSION", "STREAMING", "HISTORY"],
  *     "runtimes": ["CLI"]
  *   }

@@ -72,7 +72,6 @@ public final class McpServerImportService {
         JsonObject apps = new JsonObject();
         apps.addProperty("claude", !isCodexMode);
         apps.addProperty("codex", isCodexMode);
-        apps.addProperty("gemini", false);
 
         String name = getString(source, "name");
 

@@ -187,7 +187,6 @@ public class CodexMcpServerManager {
         JsonObject apps = new JsonObject();
         apps.addProperty(CommonConstants.PROVIDER_CLAUDE, false);
         apps.addProperty(ProviderType.CODEX.value(), true);
-        apps.addProperty("gemini", false);
         server.add("apps", apps);
 
         return server;
