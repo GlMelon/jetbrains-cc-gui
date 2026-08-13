@@ -398,7 +398,6 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
       apps: {
         claude: !isCodexMode,
         codex: isCodexMode,
-        gemini: false,
       },
       homepage: preset.homepage,
       docs: preset.docs,

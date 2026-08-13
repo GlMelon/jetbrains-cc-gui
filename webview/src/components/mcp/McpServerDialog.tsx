@@ -119,7 +119,7 @@ export function McpServerDialog({ server, existingIds = [], currentProvider = 'c
             id,
             name: serverConfig.name || id,
             server: serverSpec as McpServerSpec,
-            apps: { claude: !isCodexMode, codex: isCodexMode, gemini: false },
+            apps: { claude: !isCodexMode, codex: isCodexMode },
             enabled: true,
           });
         }
@@ -131,7 +131,7 @@ export function McpServerDialog({ server, existingIds = [], currentProvider = 'c
           id,
           name: parsed.name || id,
           server: serverSpec as McpServerSpec,
-          apps: { claude: !isCodexMode, codex: isCodexMode, gemini: false },
+          apps: { claude: !isCodexMode, codex: isCodexMode },
           enabled: true,
         });
       }

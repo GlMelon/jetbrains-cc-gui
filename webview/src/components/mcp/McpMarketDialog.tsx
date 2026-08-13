@@ -179,7 +179,7 @@ export function McpMarketDialog({ isCodexMode, onClose, onSelect }: McpMarketDia
       description: server.description || '',
       tags: [server.remote ? 'remote' : 'stdio', 'smithery'],
       server: spec,
-      apps: { claude: !isCodexMode, codex: isCodexMode, gemini: false },
+      apps: { claude: !isCodexMode, codex: isCodexMode },
       homepage: server.homepage,
       enabled: true,
     };
