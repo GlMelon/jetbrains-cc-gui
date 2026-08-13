@@ -335,7 +335,8 @@ public class ClaudeCliStreamParser {
 
         // 提取 usage
         if (obj.has("usage")) {
-            sectionEmitter(callback).usage(obj.get("usage").toString());
+            String usageRaw = obj.get("usage").toString();
+            sectionEmitter(callback).usage(usageRaw);
         }
 
         boolean isErrorResult = obj.has("is_error") && obj.get("is_error").isJsonPrimitive() && obj.get("is_error").getAsBoolean();
