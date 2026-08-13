@@ -16,6 +16,8 @@ import { McpHelpDialog } from './McpHelpDialog';
 import { McpConfirmDialog } from './McpConfirmDialog';
 import { McpPackageConfirmDialog, type PackageConfirmItem } from './McpPackageConfirmDialog';
 import { McpLogDialog } from './McpLogDialog';
+import { OpenCodeMcpPanel } from './OpenCodeMcpPanel';
+import { OpenCodeIcon } from '../shared/OpenCodeIcon';
 import { ToastContainer, type ToastMessage } from '../Toast';
 import { copyToClipboard } from '../../utils/copyUtils';
 
@@ -83,8 +85,20 @@ export function McpSettingsSection({ currentProvider = 'claude' }: McpSettingsSe
           <span className="codicon codicon-terminal" aria-hidden="true" />
           Codex
         </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={selectedProvider === 'opencode'}
+          className={selectedProvider === 'opencode' ? 'active' : ''}
+          onClick={() => selectProvider('opencode')}
+        >
+          <OpenCodeIcon size={16} />
+          OpenCode
+        </button>
       </div>
-      <McpProviderPanel key={selectedProvider} currentProvider={selectedProvider} />
+      {selectedProvider === 'opencode'
+        ? <OpenCodeMcpPanel key="opencode" />
+        : <McpProviderPanel key={selectedProvider} currentProvider={selectedProvider} />}
     </div>
   );
 }

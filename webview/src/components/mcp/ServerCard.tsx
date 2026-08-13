@@ -45,6 +45,7 @@ export function ServerCard({
   onCopyUrl,
   onToolHover,
   animationIndex = 0,
+  readOnly = false,
 }: {
   server: McpServer;
   isExpanded: boolean;
@@ -63,6 +64,7 @@ export function ServerCard({
   onCopyUrl: (url: string) => void;
   onToolHover: (tool: McpTool | null, position?: { x: number; y: number }) => void;
   animationIndex?: number;
+  readOnly?: boolean;
 }) {
   const statusInfo = getServerStatusInfo(server, serverStatus);
   const status = statusInfo?.status;
@@ -122,6 +124,7 @@ export function ServerCard({
             )}
           </div>
         </div>
+        {!readOnly && (
         <div className="card-actions" onClick={(e) => e.stopPropagation()}>
           <button
             className="act-btn"
@@ -154,6 +157,7 @@ export function ServerCard({
             <span className="toggle-slider"></span>
           </label>
         </div>
+        )}
       </div>
 
       {/* 展开内容 */}
