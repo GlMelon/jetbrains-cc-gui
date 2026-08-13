@@ -105,7 +105,6 @@ export function useServerManagement({
       apps: {
         claude: isCodexMode ? (server.apps?.claude ?? false) : enabled,
         codex: isCodexMode ? enabled : (server.apps?.codex ?? false),
-        gemini: server.apps?.gemini ?? false,
       }
     };
 
