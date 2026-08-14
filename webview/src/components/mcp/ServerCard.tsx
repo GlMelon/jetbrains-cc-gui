@@ -184,15 +184,18 @@ export function ServerCard({
             )}
           </div>
 
-          {/* 工具 chip 流(替换原侧边栏布局) */}
-          <ServerToolsPanel
-            toolsInfo={toolsInfo}
-            isConnected={isConnected}
-            isCodexMode={isCodexMode}
-            t={t}
-            onLoadTools={onLoadTools}
-            onToolHover={onToolHover}
-          />
+          {/* 工具 chip 流(替换原侧边栏布局)。只读面板(OpenCode)无工具列表能力,
+              跳过渲染以免出现「点击加载工具」死按钮(空回调 + 无 toolsInfo)。 */}
+          {!readOnly && (
+            <ServerToolsPanel
+              toolsInfo={toolsInfo}
+              isConnected={isConnected}
+              isCodexMode={isCodexMode}
+              t={t}
+              onLoadTools={onLoadTools}
+              onToolHover={onToolHover}
+            />
+          )}
 
           {server.tags && server.tags.length > 0 && (
             <div className="expand-tags">
