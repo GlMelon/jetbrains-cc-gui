@@ -42,6 +42,7 @@ import { useUIState } from './contexts/UIStateContext';
 import { useDialogs } from './contexts/DialogContext';
 import { AppDialogs } from './components/AppDialogs';
 import { DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS } from './utils/permissionDialogTimeout';
+import { collectTaskEventsFromMessages } from './utils/taskNotificationMessage';
 import {
   getDetailedOutputEnabled,
   setDetailedOutputEnabled,
@@ -477,6 +478,31 @@ const App = () => {
     setCustomSessionTitle,
     setPermissionDialogTimeoutSeconds,
   });
+
+  // ── Recover taskEvents from task-notification user messages ──
+  // Recent Claude Code delivers a background agent's terminal report as a
+  // <task-notification> XML inside a plain user message instead of as an SDK
+  // task_notification event. The live SDK path (window.onTaskEvent →
+  // setTaskEvents) covers the happy path; this effect recovers events that path
+  // missed — both on history replay (no live stream) and when a live stream
+  // skips the terminal event. Derived entries never overwrite ones already set
+  // live by a real SDK event, and a no-op bailout avoids a state churn rerender
+  // when no new event is found.
+  useEffect(() => {
+    const derived = collectTaskEventsFromMessages(messages);
+    if (Object.keys(derived).length === 0) return;
+    setTaskEvents((prev) => {
+      let changed = false;
+      const next: typeof prev = { ...prev };
+      for (const [id, event] of Object.entries(derived)) {
+        if (!prev[id]) {
+          next[id] = event;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [messages, setTaskEvents]);
 
   // ── Message processing ──
   const { getMessageText, getContentBlocks, mergedMessages, sentAttachmentsRef } =
