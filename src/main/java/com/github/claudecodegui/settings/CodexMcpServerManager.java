@@ -9,19 +9,15 @@ import com.github.claudecodegui.util.PlatformUtils;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.SystemInfo;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -653,7 +649,7 @@ public class CodexMcpServerManager {
     private String performStdioHandshake(Process process, String serverName) {
         ExecutorService executor = Executors.newSingleThreadExecutor();
         try {
-            writeMcpStdioMessage(process.getOutputStream(), MCP_INIT_REQUEST);
+            McpStdioMessageCodec.writeNdjson(process.getOutputStream(), MCP_INIT_REQUEST);
 
             Future<JsonObject> responseFuture = executor.submit(() -> readInitializeResponse(process));
             JsonObject response = responseFuture.get(STDIO_HANDSHAKE_TIMEOUT_MS, TimeUnit.MILLISECONDS);
@@ -675,7 +671,7 @@ public class CodexMcpServerManager {
 
             if (response.has("result")) {
                 try {
-                    writeMcpStdioMessage(process.getOutputStream(), MCP_INITIALIZED_NOTIFICATION);
+                    McpStdioMessageCodec.writeNdjson(process.getOutputStream(), MCP_INITIALIZED_NOTIFICATION);
                 } catch (IOException e) {
                     LOG.debug("[CodexMcpServerManager] Failed to send initialized notification for " + serverName + ": " + e.getMessage());
                 }
@@ -705,82 +701,11 @@ public class CodexMcpServerManager {
      */
     private JsonObject readInitializeResponse(Process process) {
         try {
-            return readMcpStdioMessage(process.getInputStream());
+            return McpStdioMessageCodec.read(process.getInputStream());
         } catch (IOException e) {
             LOG.debug("[CodexMcpServerManager] IO error reading STDIO response: " + e.getMessage());
             return null;
         }
-    }
-
-    private void writeMcpStdioMessage(java.io.OutputStream outputStream, String jsonPayload) throws IOException {
-        byte[] payloadBytes = jsonPayload.getBytes(StandardCharsets.UTF_8);
-        String header = "Content-Length: " + payloadBytes.length + "\r\n\r\n";
-        outputStream.write(header.getBytes(StandardCharsets.US_ASCII));
-        outputStream.write(payloadBytes);
-        outputStream.flush();
-    }
-
-    private JsonObject readMcpStdioMessage(InputStream inputStream) throws IOException {
-        Map<String, String> headers = new LinkedHashMap<>();
-        String line;
-        while ((line = readAsciiLine(inputStream)) != null) {
-            if (line.isEmpty()) {
-                break;
-            }
-
-            int separatorIndex = line.indexOf(':');
-            if (separatorIndex <= 0) {
-                continue;
-            }
-
-            String name = line.substring(0, separatorIndex).trim().toLowerCase(Locale.ROOT);
-            String value = line.substring(separatorIndex + 1).trim();
-            headers.put(name, value);
-        }
-
-        String contentLengthValue = headers.get("content-length");
-        if (contentLengthValue == null || contentLengthValue.isEmpty()) {
-            return null;
-        }
-
-        int contentLength;
-        try {
-            contentLength = Integer.parseInt(contentLengthValue);
-        } catch (NumberFormatException e) {
-            return null;
-        }
-
-        byte[] payload = inputStream.readNBytes(contentLength);
-        if (payload.length != contentLength) {
-            return null;
-        }
-
-        try {
-            return JsonParser.parseString(new String(payload, StandardCharsets.UTF_8)).getAsJsonObject();
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    private String readAsciiLine(InputStream inputStream) throws IOException {
-        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-        int current;
-        boolean sawAnyByte = false;
-        while ((current = inputStream.read()) != -1) {
-            sawAnyByte = true;
-            if (current == '\n') {
-                break;
-            }
-            if (current != '\r') {
-                buffer.write(current);
-            }
-        }
-
-        if (!sawAnyByte && current == -1) {
-            return null;
-        }
-
-        return buffer.toString(StandardCharsets.US_ASCII);
     }
 
     /**

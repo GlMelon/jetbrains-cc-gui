@@ -423,6 +423,12 @@ public final class CommonConstants {
     public static final String MCP_TRANSPORT_SSE = "sse";
     /** MCP 服务器连接状态：已连接 */
     public static final String MCP_STATUS_CONNECTED = "connected";
+    /** MCP 服务器连接状态：连接失败 */
+    public static final String MCP_STATUS_FAILED = "failed";
+    /** MCP 服务器连接状态：等待连接 */
+    public static final String MCP_STATUS_PENDING = "pending";
+    /** MCP 服务器连接状态：已禁用 */
+    public static final String MCP_STATUS_DISABLED = "disabled";
 
     // ===== 前端请求动作类型（前端→后端 message type） =====
     // 前端通过 JSON message 的 type 字段标识请求的动作，由对应 Handler 路由处理。

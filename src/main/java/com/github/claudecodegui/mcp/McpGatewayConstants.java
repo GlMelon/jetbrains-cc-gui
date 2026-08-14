@@ -29,6 +29,8 @@ public final class McpGatewayConstants {
     public static final String KEY_SOURCE_PROVIDER = "sourceProvider";
     public static final String KEY_SERVER_ID = "serverId";
     public static final String KEY_ENABLED = "enabled";
+    public static final String KEY_STATE = "state";
+    public static final String KEY_LAST_ERROR = "lastError";
     public static final String KEY_TRANSPORT = "transport";
     public static final String KEY_CONFIG = "config";
     public static final String KEY_STATE_FILE = "stateFile";
@@ -55,4 +57,10 @@ public final class McpGatewayConstants {
     public static final String TRANSPORT_STDIO = "stdio";
     public static final String TRANSPORT_HTTP = "http";
     public static final String TRANSPORT_SSE = "sse";
+
+    public static final String STATE_READY = "READY";
+    public static final String STATE_DEGRADED = "DEGRADED";
+    public static final String STATE_STARTING = "STARTING";
+    public static final String STATE_BACKOFF = "BACKOFF";
+    public static final String STATE_STOPPED = "STOPPED";
 }

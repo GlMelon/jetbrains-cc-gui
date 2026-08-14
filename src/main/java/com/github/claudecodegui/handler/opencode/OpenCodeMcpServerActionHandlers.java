@@ -3,6 +3,7 @@ package com.github.claudecodegui.handler.opencode;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.config.OpenCodeConfigReader;
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.mcp.McpGatewayConstants;
 import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.settings.OpenCodeSettingsManager;
@@ -17,7 +18,9 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -77,10 +80,15 @@ public class OpenCodeMcpServerActionHandlers {
     void handleGetMcpServerStatus() {
         CompletableFuture.runAsync(() -> {
             try {
+                List<JsonObject> configuredServers = OpenCodeConfigReader.readMcpServers();
                 Project project = context.getProject();
-                List<JsonObject> result = project == null
-                    ? new ArrayList<>()
-                    : extractOpenCodeStatus(McpGatewayService.getInstance(project).statusJson());
+                String gatewayStatusJson = "{}";
+                if (project != null) {
+                    McpGatewayService gateway = McpGatewayService.getInstance(project);
+                    gateway.refreshConfig(project.getBasePath());
+                    gatewayStatusJson = gateway.statusJson();
+                }
+                List<JsonObject> result = mergeOpenCodeStatuses(configuredServers, gatewayStatusJson);
                 Gson gson = GsonHolder.GSON;
                 String json = gson.toJson(result);
 
@@ -233,42 +241,88 @@ public class OpenCodeMcpServerActionHandlers {
      * 每个 HealthEntry = {@code {serverId,sourceProvider,state,lastError,...}}。过滤
      * {@code sourceProvider=="opencode"}，把 gateway state 映射到前端 {@code McpServerStatusInfo.status} 词表。
      */
-    private static List<JsonObject> extractOpenCodeStatus(String statusJson) {
+    static List<JsonObject> mergeOpenCodeStatuses(List<JsonObject> configuredServers, String statusJson) {
+        Map<String, JsonObject> gatewayStatuses = extractOpenCodeStatusById(statusJson);
         List<JsonObject> result = new ArrayList<>();
+        if (configuredServers == null) {
+            return result;
+        }
+
+        for (JsonObject configured : configuredServers) {
+            if (configured == null || !configured.has(CommonConstants.JSON_KEY_ID)
+                    || !configured.get(CommonConstants.JSON_KEY_ID).isJsonPrimitive()) {
+                continue;
+            }
+            String serverId = configured.get(CommonConstants.JSON_KEY_ID).getAsString();
+            if (serverId.isBlank()) {
+                continue;
+            }
+
+            boolean enabled = !configured.has(McpGatewayConstants.KEY_ENABLED)
+                    || configured.get(McpGatewayConstants.KEY_ENABLED).getAsBoolean();
+            JsonObject status = enabled ? gatewayStatuses.get(serverId) : null;
+            if (status == null) {
+                status = new JsonObject();
+                status.addProperty(CommonConstants.JSON_KEY_NAME, serverId);
+                status.addProperty(CommonConstants.JSON_KEY_STATUS, enabled
+                        ? CommonConstants.MCP_STATUS_PENDING
+                        : CommonConstants.MCP_STATUS_DISABLED);
+            }
+            result.add(status);
+        }
+        return result;
+    }
+
+    private static Map<String, JsonObject> extractOpenCodeStatusById(String statusJson) {
+        Map<String, JsonObject> result = new LinkedHashMap<>();
         if (statusJson == null || statusJson.isBlank() || "{}".equals(statusJson.trim())) {
             return result;
         }
         try {
             JsonObject root = JsonParser.parseString(statusJson).getAsJsonObject();
-            if (!root.has("servers") || !root.get("servers").isJsonArray()) {
+            if (!root.has(McpGatewayConstants.KEY_SERVERS)
+                    || !root.get(McpGatewayConstants.KEY_SERVERS).isJsonArray()) {
                 return result;
             }
-            for (JsonElement el : root.getAsJsonArray("servers")) {
-                if (!el.isJsonObject()) {
-                    continue;
-                }
-                JsonObject s = el.getAsJsonObject();
-                String src = s.has("sourceProvider") ? s.get("sourceProvider").getAsString() : "";
-                if (!CommonConstants.PROVIDER_OPENCODE.equals(src)) {
-                    continue;
-                }
-                String serverId = s.has("serverId") ? s.get("serverId").getAsString() : "";
-                String state = s.has("state") ? s.get("state").getAsString() : "";
-                String mapped = mapGatewayState(state);
+            for (JsonElement element : root.getAsJsonArray(McpGatewayConstants.KEY_SERVERS)) {
+                try {
+                    JsonObject server = element.getAsJsonObject();
+                    String sourceProvider = getPrimitiveString(server, McpGatewayConstants.KEY_SOURCE_PROVIDER);
+                    if (!CommonConstants.PROVIDER_OPENCODE.equals(sourceProvider)) {
+                        continue;
+                    }
+                    String serverId = getPrimitiveString(server, McpGatewayConstants.KEY_SERVER_ID);
+                    if (serverId == null || serverId.isBlank()) {
+                        continue;
+                    }
+                    String mapped = mapGatewayState(getPrimitiveString(server, McpGatewayConstants.KEY_STATE));
 
-                JsonObject info = new JsonObject();
-                info.addProperty("name", serverId);
-                info.addProperty("status", mapped);
-                if ("failed".equals(mapped)
-                        && s.has("lastError") && s.get("lastError").isJsonPrimitive()) {
-                    info.addProperty("error", s.get("lastError").getAsString());
+                    JsonObject info = new JsonObject();
+                    info.addProperty(CommonConstants.JSON_KEY_NAME, serverId);
+                    info.addProperty(CommonConstants.JSON_KEY_STATUS, mapped);
+                    if (CommonConstants.MCP_STATUS_FAILED.equals(mapped)) {
+                        String lastError = getPrimitiveString(server, McpGatewayConstants.KEY_LAST_ERROR);
+                        if (lastError != null && !lastError.isBlank()) {
+                            info.addProperty(CommonConstants.JSON_KEY_ERROR, lastError);
+                        }
+                    }
+                    result.put(serverId, info);
+                } catch (Exception entryError) {
+                    LOG.warn("[OpenCodeMcpServerActionHandlers] Ignoring malformed gateway status entry: "
+                            + entryError.getMessage());
                 }
-                result.add(info);
             }
         } catch (Exception e) {
             LOG.warn("[OpenCodeMcpServerActionHandlers] Failed to parse gateway status: " + e.getMessage());
         }
         return result;
+    }
+
+    private static String getPrimitiveString(JsonObject object, String key) {
+        if (object == null || key == null || !object.has(key) || !object.get(key).isJsonPrimitive()) {
+            return null;
+        }
+        return object.get(key).getAsString();
     }
 
     /**
@@ -277,19 +331,19 @@ public class OpenCodeMcpServerActionHandlers {
      */
     private static String mapGatewayState(String state) {
         if (state == null) {
-            return "pending";
+            return CommonConstants.MCP_STATUS_PENDING;
         }
         switch (state) {
-            case "READY":
-            case "DEGRADED":
-                return "connected";
-            case "BACKOFF":
-                return "failed";
-            case "STOPPED":
-                return "disabled";
-            case "STARTING":
+            case McpGatewayConstants.STATE_READY:
+            case McpGatewayConstants.STATE_DEGRADED:
+                return CommonConstants.MCP_STATUS_CONNECTED;
+            case McpGatewayConstants.STATE_BACKOFF:
+                return CommonConstants.MCP_STATUS_FAILED;
+            case McpGatewayConstants.STATE_STOPPED:
+                return CommonConstants.MCP_STATUS_DISABLED;
+            case McpGatewayConstants.STATE_STARTING:
             default:
-                return "pending";
+                return CommonConstants.MCP_STATUS_PENDING;
         }
     }
 }
