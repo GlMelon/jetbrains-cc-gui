@@ -8,18 +8,30 @@ import { existsSync } from 'fs';
 import { readFile } from 'fs/promises';
 import { setupApiKey, buildCliEnv, buildWebviewControlledSettingsOverride } from '../../config/api-config.js';
 import { getClaudeProjectSessionFilePath, getRealHomeDir, selectWorkingDirectory } from '../../utils/path-utils.js';
-import { ensureClaudeSdk, hasClaudeProjectSessionFile, waitForClaudeProjectSessionFile, isNoConversationFoundError } from './message-utils.js';
+import { hasClaudeProjectSessionFile, waitForClaudeProjectSessionFile, isNoConversationFoundError } from './message-utils.js';
 import { getActiveQueryResult, getActiveSessionIds } from './message-session-registry.js';
 import { getClaudeCliPathOverride } from '../../utils/claude-cli-path.js';
 
 /**
  * 通过 Claude SDK 把会话文件回退到指定用户消息对应的检查点。
+ * NOTE: SDK has been removed. File rewind is not available in CLI-only mode.
  * @param {string} sessionId       会话 ID
  * @param {string} userMessageId   目标用户消息 ID
  * @param {string|null} [cwd=null] 工作目录
  * @returns {Promise<void>}
  */
 export async function rewindFiles(sessionId, userMessageId, cwd = null) {
+  // SDK has been removed — file rewind functionality is not available in CLI-only mode.
+  // The rewind feature requires the Claude SDK's query() function and rewindFiles() method,
+  // which are not available via CLI spawning.
+  const errorMsg = 'File rewind is not available in CLI-only mode. The Claude SDK has been removed.';
+  console.error('[REWIND_ERROR]', errorMsg);
+  console.log(JSON.stringify({
+    success: false,
+    error: errorMsg
+  }));
+  return;
+
   /** @type {any} */
   let result = null;
   try {

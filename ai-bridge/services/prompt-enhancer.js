@@ -12,12 +12,8 @@
 
 import { pathToFileURL } from 'node:url';
 
-import {
-  loadClaudeSdk,
-  isClaudeSdkAvailable,
-  loadCodexSdk,
-  isCodexSdkAvailable,
-} from '../utils/sdk-loader.js';
+// NOTE: SDK imports removed — Claude/Codex SDK no longer available in CLI-only mode.
+// Prompt enhancement via direct SDK is disabled; CLI handles this internally.
 import { setupApiKey, buildCliEnv, buildWebviewControlledSettingsOverride } from '../config/api-config.js';
 import { resolveClaudeEnhanceModelName } from '../utils/model-utils.js';
 import { getRealHomeDir } from '../utils/path-utils.js';
@@ -51,11 +47,6 @@ import { buildCodexCliEnvironment } from './codex/codex-utils.js';
  * @typedef {{ provider: string; model: string; resolutionSource: string; actualModel: string | undefined }} PromptEnhancerRuntimeConfig
  */
 
-/** @type {any} */
-let claudeSdk = null;
-/** @type {any} */
-let codexSdk = null;
-
 const DEFAULT_PROMPT_ENHANCER_CONFIG = {
   provider: null,
   effectiveProvider: 'claude',
@@ -70,28 +61,26 @@ const DEFAULT_PROMPT_ENHANCER_CONFIG = {
   },
 };
 
+/**
+ * Ensure Claude SDK is loaded.
+ * NOTE: SDK has been removed. This function always throws in CLI-only mode.
+ */
 async function ensureClaudeSdk() {
-  if (!claudeSdk) {
-    if (!isClaudeSdkAvailable()) {
-      const error = /** @type {Error & { code: string }} */ (new Error('Claude Code SDK not installed. Please install via Settings > Dependencies.'));
-      error.code = 'SDK_NOT_INSTALLED';
-      throw error;
-    }
-    claudeSdk = await loadClaudeSdk();
-  }
-  return claudeSdk;
+  throw new Error(
+    'Claude Code SDK is no longer available in CLI-only mode. ' +
+    'Prompt enhancement is handled internally by the CLI process.'
+  );
 }
 
+/**
+ * Ensure Codex SDK is loaded.
+ * NOTE: SDK has been removed. This function always throws in CLI-only mode.
+ */
 async function ensureCodexSdk() {
-  if (!codexSdk) {
-    if (!isCodexSdkAvailable()) {
-      const error = /** @type {Error & { code: string }} */ (new Error('Codex SDK not installed. Please install via Settings > Dependencies.'));
-      error.code = 'SDK_NOT_INSTALLED';
-      throw error;
-    }
-    codexSdk = await loadCodexSdk();
-  }
-  return codexSdk;
+  throw new Error(
+    'Codex SDK is no longer available in CLI-only mode. ' +
+    'Prompt enhancement is handled internally by the CLI process.'
+  );
 }
 
 // Context length limits (in characters) to avoid exceeding model token limits
@@ -324,8 +313,9 @@ export function resolvePromptEnhancerRuntimeConfig({ promptEnhancerConfig, legac
   }
 
   const config = normalizePromptEnhancerConfig(promptEnhancerConfig);
-  const claudeSdkInstalled = isClaudeSdkAvailable();
-  const codexSdkInstalled = isCodexSdkAvailable();
+
+  // NOTE: SDK availability checks removed — SDK no longer available in CLI-only mode.
+  // Prompt enhancement is handled internally by the CLI process.
 
   if (config.effectiveProvider === 'codex') {
     return {
@@ -346,21 +336,11 @@ export function resolvePromptEnhancerRuntimeConfig({ promptEnhancerConfig, legac
   }
 
   if (config.provider === 'codex') {
-    if (!codexSdkInstalled) {
-      throw new Error('Codex prompt enhancer is unavailable because the Codex SDK is not installed. Please install it in Settings > Dependencies.');
-    }
     throw new Error('Codex prompt enhancer is unavailable because no active Codex provider is configured.');
   }
 
   if (config.provider === 'claude') {
-    if (!claudeSdkInstalled) {
-      throw new Error('Claude Code prompt enhancer is unavailable because the Claude Code SDK is not installed. Please install it in Settings > Dependencies.');
-    }
     throw new Error('Claude Code prompt enhancer is unavailable because no active Claude Code provider is configured.');
-  }
-
-  if (!codexSdkInstalled && !claudeSdkInstalled) {
-    throw new Error('No available prompt enhancer provider is configured because both Claude Code and Codex SDKs are not installed.');
   }
 
   throw new Error('No available prompt enhancer provider is configured. Please configure Codex or Claude Code in Settings.');

@@ -1,6 +1,7 @@
 // @ts-check
 /**
  * Anthropic SDK direct message sender.
+ * NOTE: SDK has been removed. This module is no longer functional in CLI-only mode.
  * Fallback for third-party API proxies that don't support the Claude Agent SDK.
  */
 
@@ -9,11 +10,13 @@ import { loadClaudeSettings, getCliUserAgent } from '../../config/api-config.js'
 import { selectWorkingDirectory } from '../../utils/path-utils.js';
 import { resolveModelFromSettings } from '../../utils/model-utils.js';
 import { loadSessionHistory, persistJsonlMessage } from './session-service.js';
-import { ensureAnthropicSdk, ensureBedrockSdk, truncateErrorContent } from './message-utils.js';
+// NOTE: SDK imports removed — Anthropic/Bedrock SDK no longer available in CLI-only mode.
+import { truncateErrorContent } from './message-utils.js';
 import { buildContentBlocks } from './attachment-service.js';
 
 /**
  * 通过 Anthropic SDK 直接发送消息(第三方 API 代理不支持 Claude Agent SDK 时的回退路径)。
+ * NOTE: SDK has been removed. This function always throws in CLI-only mode.
  * @param {string} message         消息文本
  * @param {string} resumeSessionId 续接的会话 ID
  * @param {string} cwd             工作目录
@@ -25,11 +28,17 @@ import { buildContentBlocks } from './attachment-service.js';
  * @param {any[]} [attachments=[]] 附件列表(外部 stdin 数据,松散类型)
  * @returns {Promise<void>}
  */
-export async function sendMessageWithAnthropicSDK(message, resumeSessionId, cwd, permissionMode, model, apiKey, baseUrl, authType, attachments = []) {
+export async function sendMessageWithAnthropicSDK(_message, _resumeSessionId, _cwd, _permissionMode, _model, _apiKey, _baseUrl, _authType, _attachments = []) {
+  // SDK has been removed — direct Anthropic SDK message sending is not available in CLI-only mode.
+  const errorMsg = 'Direct Anthropic SDK is not available in CLI-only mode. Use the standard CLI message sender instead.';
+  console.error('[SEND_ERROR]', JSON.stringify({ error: errorMsg }));
+  console.log(JSON.stringify({ success: false, error: errorMsg }));
+  return;
+
   try {
-    // Dynamically load Anthropic SDK
-    const anthropicModule = await ensureAnthropicSdk();
-    const Anthropic = anthropicModule.default || anthropicModule.Anthropic || anthropicModule;
+    // SDK removed — this code path is no longer reachable
+    const anthropicModule = null; // await ensureAnthropicSdk();
+    const Anthropic = null;
 
     const workingDirectory = selectWorkingDirectory(cwd);
     try {

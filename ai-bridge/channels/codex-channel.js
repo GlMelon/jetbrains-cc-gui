@@ -2,10 +2,9 @@
 /**
  * Codex channel command handler – keeps Codex specific logic separated.
  *
- * send 经 services/codex/message-service.js 调 @openai/codex-sdk,服务于 commit message
+ * send 经 services/codex/message-service.js 调用 Codex CLI（不再使用 SDK），服务于 commit message
  * 生成(CommitMessageAiService);会话交互式发送走 CodexCliSession(CLI),不经此处。
- * clearThreadCache(SDK thread 缓存清理)已随 SDK 会话模式移除——CLI 模式每次 spawn 新进程,
- * 无跨进程 thread 缓存。
+ * SDK 已完全移除，所有功能通过 CLI 子进程实现。
  */
 import { sendMessage as codexSendMessage, getMcpServerTools as codexGetMcpServerTools } from '../services/codex/message-service.js';
 

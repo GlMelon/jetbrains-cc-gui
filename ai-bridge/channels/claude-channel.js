@@ -4,9 +4,9 @@
  * away from the shared channel-manager entry point.
  *
  * send/sendWithAttachments 经 services/claude/message-service.js(→ message-sender.js)
- * 调 @anthropic-ai/claude-agent-sdk,服务于 commit message 生成(CommitMessageAiService)
+ * 调用 Claude CLI（不再使用 SDK），服务于 commit message 生成(CommitMessageAiService)
  * 等一次性子进程任务;会话交互式发送走 ClaudeCliSession(CLI),不经此处。
- * resetRuntime/getContextUsage(daemon persistent runtime 专属)已随 SDK daemon 模式移除。
+ * SDK 已完全移除，所有功能通过 CLI 子进程实现。
  */
 import {
   sendMessage as claudeSendMessage,

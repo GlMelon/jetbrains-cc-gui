@@ -33,49 +33,15 @@ const FALLBACK_CLI_VERSION = '2.1.88';
 let _cachedCliVersion = null;
 
 /**
- * Resolve CLI version from the installed SDK's manifest.json.
- * The SDK bundles a manifest.json with ` "version": "<cli-version>" }`.
- * Falls back to converting the SDK package version (0.x.y -> x.1.y),
- * then to the hardcoded fallback.
+ * Resolve CLI version.
+ * NOTE: SDK has been removed. Returns the fallback version or environment variable.
+ * Previously this read from the SDK's manifest.json, but SDK is no longer available.
  * @returns {string}
  */
 function resolveCliVersionFromSdk() {
   if (_cachedCliVersion) return _cachedCliVersion;
 
-  try {
-    const depsBase = join(getCodemossDir(), 'dependencies');
-    const sdkDir = join(depsBase, 'claude-sdk', 'node_modules', '@anthropic-ai', 'claude-agent-sdk');
-
-    // Try manifest.json first (contains the bundled CLI version)
-    const manifestPath = join(sdkDir, 'manifest.json');
-    if (existsSync(manifestPath)) {
-      const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-      if (manifest?.version) {
-        // 取局部 const 承载 any(manifest.version),避免 _cachedCliVersion(string|null)
-        // 在赋值 any 后保持声明类型导致 return 处 string|null 不能赋给 @returns {string}。
-        const version = manifest.version;
-        _cachedCliVersion = version;
-        return version;
-      }
-    }
-
-    // Fallback: derive from SDK package.json version (0.x.y -> x.1.y)
-    // e.g., SDK 0.2.88 -> CLI 2.1.88
-    const pkgPath = join(sdkDir, 'package.json');
-    if (existsSync(pkgPath)) {
-      const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
-      if (pkg?.version) {
-        const parts = pkg.version.split('.');
-        if (parts.length >= 3) {
-          _cachedCliVersion = `${parts[1]}.1.${parts[2]}`;
-          return _cachedCliVersion;
-        }
-      }
-    }
-  } catch {
-    // Ignore errors, use fallback
-  }
-
+  // SDK removed — use fallback version
   _cachedCliVersion = FALLBACK_CLI_VERSION;
   return _cachedCliVersion;
 }

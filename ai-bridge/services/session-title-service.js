@@ -1,16 +1,17 @@
 // @ts-check
 /**
  * Session title generation service.
- * Generates AI titles for sessions using Haiku API.
+ * Generates AI titles for sessions using Claude CLI spawning.
  * Follows CLI's generate_session_title flow but runs independently in ai-bridge.
  */
 
 import { appendFile, mkdir, access, open as fsOpen, stat as fsStat, readFile } from 'fs/promises';
 import { join, basename } from 'path';
+import { spawn } from 'child_process';
 import { setupApiKey, loadClaudeSettings, getCliUserAgent } from '../config/api-config.js';
-import { ensureAnthropicSdk, ensureBedrockSdk } from './claude/message-utils.js';
 import { resolveModelFromSettings } from '../utils/model-utils.js';
 import { getClaudeDir, getCodemossDir } from '../utils/path-utils.js';
+import { getClaudeCliPathOverride } from '../utils/claude-cli-path.js';
 import { pathToFileURL } from 'node:url';
 
 const DEFAULT_HAIKU_MODEL = 'claude-haiku-4-5-20251001';
@@ -203,43 +204,21 @@ function resolveHaikuModel() {
 }
 
 /**
- * Create an Anthropic client based on the auth configuration.
- * @param {Record<string, any>} config - API config from setupApiKey()
- * @returns {Promise<any>} Anthropic client instance (SDK loaded dynamically)
+ * Resolve the Claude CLI executable path.
+ * @returns {string}
  */
-async function createAnthropicClient(config) {
-  const cliHeaders = {
-    'x-app': 'cli',
-    'User-Agent': getCliUserAgent()
-  };
+function resolveClaudeCliPath() {
+  const override = getClaudeCliPathOverride();
+  if (override) return override;
 
-  if (config.authType === 'aws_bedrock') {
-    const bedrockModule = await ensureBedrockSdk();
-    const AnthropicBedrock = bedrockModule.AnthropicBedrock || bedrockModule.default || bedrockModule;
-    return new AnthropicBedrock({ defaultHeaders: cliHeaders });
-  }
+  const envPath = process.env.CLAUDE_CODE_PATH;
+  if (envPath && envPath.trim()) return envPath.trim();
 
-  const anthropicModule = await ensureAnthropicSdk();
-  const Anthropic = anthropicModule.default || anthropicModule.Anthropic || anthropicModule;
-
-  if (config.authType === 'auth_token') {
-    return new Anthropic({
-      authToken: config.apiKey,
-      apiKey: null,
-      baseURL: config.baseUrl || undefined,
-      defaultHeaders: cliHeaders
-    });
-  }
-
-  return new Anthropic({
-    apiKey: config.apiKey,
-    baseURL: config.baseUrl || undefined,
-    defaultHeaders: cliHeaders
-  });
+  return 'claude';
 }
 
 /**
- * Call Haiku API to generate a title.
+ * Call Claude CLI to generate a title.
  * @param {string} userMessage - The user's first message text
  * @returns {Promise<string|null>} Generated title or null
  */
@@ -257,67 +236,122 @@ async function callHaikuApi(userMessage) {
     return null;
   }
 
-  const client = await createAnthropicClient(config);
+  const cliPath = resolveClaudeCliPath();
   const model = resolveHaikuModel();
-  logTitleEvent('info', 'Calling Haiku API, model: ' + model);
+  logTitleEvent('info', 'Calling Claude CLI for title generation, model: ' + model);
 
-  const controller = new AbortController();
-  const timeoutHandle = setTimeout(() => controller.abort(), HAIKU_API_TIMEOUT_MS);
+  // Build the prompt for title generation
+  const prompt = `Generate a concise title (3-7 words) for this coding session. The title must be in the SAME LANGUAGE as the user's message.
 
-  let response;
-  try {
-    response = await client.messages.create(
-      {
-        model,
-        max_tokens: 128,
-        messages: [{ role: 'user', content: userMessage }],
-        system: SESSION_TITLE_PROMPT,
+User message:
+${userMessage.substring(0, 2000)}
+
+Return ONLY the title text, no JSON formatting, no quotes.`;
+
+  return new Promise((resolve) => {
+    const timeoutMs = HAIKU_API_TIMEOUT_MS;
+    let timeoutId = null;
+    let resolved = false;
+
+    const child = spawn(cliPath, [
+      '-p', prompt,
+      '--output-format', 'text',
+      '--model', model,
+      '--max-turns', '1',
+      '--dangerously-skip-permissions',
+    ], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        NO_COLOR: '1',
       },
-      { signal: controller.signal }
-    );
-  } catch (err) {
-    if (controller.signal.aborted) {
-      logTitleEvent('warn', 'Haiku API call aborted after ' + HAIKU_API_TIMEOUT_MS + 'ms timeout');
-      return null;
-    }
-    throw err;
-  } finally {
-    clearTimeout(timeoutHandle);
-  }
+    });
 
-  const text = (response.content || [])
-    .filter((/** @type {{ type: string; text?: string }} */ b) => b.type === 'text')
-    .map((/** @type {{ type: string; text?: string }} */ b) => b.text)
-    .join('')
-    .trim();
+    let stdout = '';
+    let stderr = '';
 
-  if (!text) {
-    logTitleEvent('warn', 'Haiku API returned empty response');
-    return null;
-  }
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk.toString();
+    });
 
-  try {
-    const parsed = JSON.parse(text);
-    if (parsed.title && typeof parsed.title === 'string') {
-      return parsed.title.trim() || null;
-    }
-    logTitleEvent('warn', 'Haiku API response missing "title" field: ' + text.substring(0, 200));
-    return null;
-  } catch {
-    const jsonMatch = text.match(/\{[^}]*"title"\s*:\s*"[^"]*"[^}]*\}/);
-    if (jsonMatch) {
-      try {
-        const parsed = JSON.parse(jsonMatch[0]);
-        if (parsed.title && typeof parsed.title === 'string') {
-          return parsed.title.trim() || null;
-        }
-      } catch {
-        // fall through
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.on('error', (error) => {
+      if (!resolved) {
+        resolved = true;
+        if (timeoutId) clearTimeout(timeoutId);
+        logTitleEvent('error', 'Claude CLI spawn error: ' + (error?.message || String(error)));
+        resolve(null);
       }
-    }
-    logTitleEvent('warn', 'Failed to parse Haiku API response as JSON: ' + text.substring(0, 200));
-    return null;
-  }
+    });
+
+    child.on('close', (code) => {
+      if (!resolved) {
+        resolved = true;
+        if (timeoutId) clearTimeout(timeoutId);
+
+        if (code !== 0) {
+          logTitleEvent('warn', 'Claude CLI exited with code ' + code + ', stderr: ' + stderr.substring(0, 200));
+          resolve(null);
+          return;
+        }
+
+        const text = stdout.trim();
+        if (!text) {
+          logTitleEvent('warn', 'Claude CLI returned empty response');
+          resolve(null);
+          return;
+        }
+
+        // Try to parse as JSON first
+        try {
+          const parsed = JSON.parse(text);
+          if (parsed.title && typeof parsed.title === 'string') {
+            resolve(parsed.title.trim() || null);
+            return;
+          }
+        } catch {
+          // Not JSON, use as plain text
+        }
+
+        // Try to extract JSON from text
+        const jsonMatch = text.match(/\{[^}]*"title"\s*:\s*"[^"]*"[^}]*\}/);
+        if (jsonMatch) {
+          try {
+            const parsed = JSON.parse(jsonMatch[0]);
+            if (parsed.title && typeof parsed.title === 'string') {
+              resolve(parsed.title.trim() || null);
+              return;
+            }
+          } catch {
+            // fall through
+          }
+        }
+
+        // Use the text directly as title (strip quotes if present)
+        let title = text;
+        if (title.startsWith('"') && title.endsWith('"')) {
+          title = title.slice(1, -1);
+        }
+        if (title.startsWith("'") && title.endsWith("'")) {
+          title = title.slice(1, -1);
+        }
+
+        resolve(title.trim() || null);
+      }
+    });
+
+    timeoutId = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        child.kill('SIGTERM');
+        logTitleEvent('warn', 'Claude CLI call aborted after ' + timeoutMs + 'ms timeout');
+        resolve(null);
+      }
+    }, timeoutMs);
+  });
 }
 
 /**

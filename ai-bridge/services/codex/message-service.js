@@ -1,125 +1,92 @@
 // @ts-check
 /**
- * Codex Message Service — Slim Coordinator
+ * Codex Message Service — CLI-based implementation
  *
- * Handles message sending through Codex SDK (@openai/codex-sdk).
- * Provides unified interface that matches Claude's message service.
+ * Spawns the local Codex CLI (`codex`) in headless streaming-json mode and
+ * maps its NDJSON output onto the shared bridge marker protocol.
  *
- * Key Differences from Claude:
- * - Uses threadId instead of sessionId
- * - Permission model: skipGitRepoCheck + sandbox (not permissionMode string)
- * - Events: thread.*, turn.*, item.* (not system/assistant/user/result)
- * - Supports images via local_image type (requires file paths)
- *
- * All event-processing logic lives in codex-event-handler.js.
- * Utility functions are split across codex-utils.js, codex-agents-loader.js,
- * codex-patch-parser.js, and codex-command-utils.js.
+ * Replaces the previous SDK-based implementation that used @openai/codex-sdk.
  *
  * @author Crafted with geek spirit
  */
 
+import { spawn, spawnSync } from 'child_process';
+import { randomUUID } from 'crypto';
+import { createInterface } from 'readline';
 import { CodexPermissionMapper } from '../../utils/permission-mapper.js';
 import { getMcpServerTools as getMcpServerToolsImpl } from '../claude/mcp-status/index.js';
 import {
   logDebug, logInfo, logWarn,
-  ensureCodexSdk,
   normalizeCodexPermissionMode,
   resolveSandboxModeOverride,
   resolveApprovalPolicyOverride,
   buildCodexCliEnvironment,
   buildErrorPayload,
-  isIgnorableWindowsTerminationNoiseLine,
-  buildCodexThreadCacheSignature
 } from './codex-utils.js';
 import { collectAgentsInstructions } from './codex-agents-loader.js';
-import { createInitialEventState, processCodexEventStream } from './codex-event-handler.js';
 
-const CODEX_RUN_NOISE_FILTER_PATCHED = Symbol.for('ccgui.codex.runNoiseFilterPatched');
+// ========== Constants ==========
+
 const CODEX_THREAD_MAX_IDLE_MS = 30 * 60 * 1000;
-const CODEX_THREAD_CACHE_MAX_SIZE = 4;
-const codexThreadCache = new Map();
 
-// Module-level abort controller for the currently active Codex turn.
+// ========== CLI Path Resolution ==========
+
+/**
+ * Resolve the Codex CLI executable path.
+ * @returns {string}
+ */
+function resolveCodexCliPath() {
+  const envPath = process.env.CODEX_CODE_PATH;
+  if (envPath && envPath.trim()) return envPath.trim();
+  return 'codex';
+}
+
+/**
+ * Synchronous path probe — returns true if the CLI binary exists and is executable.
+ * @param {string} bin
+ */
+function probeCliBin(bin) {
+  try {
+    const r = spawnSync(bin, ['--version'], {
+      timeout: 5000,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env, NO_COLOR: '1' },
+    });
+    return r.status === 0;
+  } catch {
+    return false;
+  }
+}
+
+// ========== Process Lifecycle ==========
+
+/**
+ * Kill child process tree.
+ * @param {import('child_process').ChildProcess} child
+ */
+function killChildTree(child) {
+  if (!child || child.killed) return;
+  try {
+    if (process.platform === 'win32') {
+      child.kill();
+    } else {
+      try {
+        process.kill(-child.pid, 'SIGTERM');
+      } catch {
+        child.kill('SIGTERM');
+      }
+    }
+  } catch (_) { /* ignore */ }
+}
+
+// ========== Abort Support ==========
+
 /** @type {AbortController | null} */
 let activeCodexAbortController = null;
 let activeCodexTurnInProgress = false;
 let activeCodexAbortRequested = false;
 /** @type {Promise<void> | null} */
 let activeCodexTurnCompletionPromise = null;
-
-function cleanupStaleCodexThreads() {
-  const now = Date.now();
-  for (const [threadId, entry] of codexThreadCache.entries()) {
-    if (!entry || typeof entry !== 'object') {
-      codexThreadCache.delete(threadId);
-      continue;
-    }
-    if (now - (entry.lastUsedAt || 0) > CODEX_THREAD_MAX_IDLE_MS) {
-      codexThreadCache.delete(threadId);
-    }
-  }
-}
-
-const _codexThreadCleanupTimer = setInterval(() => {
-  cleanupStaleCodexThreads();
-}, 5 * 60 * 1000);
-_codexThreadCleanupTimer.unref();
-
-/**
- * @param {string} threadId
- * @param {any} thread
- * @param {string} signature
- * @param {any} codex
- * @returns {void}
- */
-function rememberCodexThread(threadId, thread, signature, codex) {
-  if (!threadId || !thread) {
-    return;
-  }
-  if (codexThreadCache.has(threadId)) {
-    codexThreadCache.delete(threadId);
-  }
-  while (codexThreadCache.size >= CODEX_THREAD_CACHE_MAX_SIZE) {
-    const oldestKey = codexThreadCache.keys().next().value;
-    if (!oldestKey) {
-      break;
-    }
-    codexThreadCache.delete(oldestKey);
-  }
-  codexThreadCache.set(threadId, {
-    thread,
-    signature,
-    codex,
-    lastUsedAt: Date.now()
-  });
-}
-
-/**
- * @param {string} threadId
- * @param {string} signature
- * @returns {any}
- */
-function acquireCachedCodexThread(threadId, signature) {
-  const entry = codexThreadCache.get(threadId);
-  if (!entry) {
-    return null;
-  }
-  if (entry.signature !== signature || !entry.thread) {
-    codexThreadCache.delete(threadId);
-    return null;
-  }
-  entry.lastUsedAt = Date.now();
-  return entry.thread;
-}
-
-/** @param {string | null} [threadId] @returns {void} */
-export function resetCodexThreadCache(threadId = null) {
-  if (threadId && typeof threadId === 'string' && threadId.trim() !== '') {
-    codexThreadCache.delete(threadId.trim());
-    return;
-  }
-  codexThreadCache.clear();
-}
 
 export async function abortCurrentCodexTurn() {
   activeCodexAbortRequested = true;
@@ -137,89 +104,10 @@ export function waitForCodexTurnCompletion() {
   return activeCodexTurnCompletionPromise || Promise.resolve();
 }
 
-/** @param {string} signature @returns {void} */
-export function invalidateCodexThreadCacheForSignature(signature) {
-  if (!signature) {
-    return;
-  }
-  for (const [threadId, entry] of codexThreadCache.entries()) {
-    if (entry?.signature === signature) {
-      codexThreadCache.delete(threadId);
-    }
-  }
-}
-
-export function getCodexThreadCacheSizeForTest() {
-  return codexThreadCache.size;
-}
-
-/** @param {string} line @returns {boolean} */
-export function isIgnorableCodexEventNoiseLine(line) {
-  return isIgnorableWindowsTerminationNoiseLine(line);
-}
-
-/**
- * @param {AsyncIterable<string>} source
- * @param {(line: string) => void} [onNoise]
- * @returns {AsyncGenerator<string, void, unknown>}
- */
-export async function* filterCodexExperimentalJsonLines(source, onNoise = (/** @type {string} */ _line) => {}) {
-  for await (const item of source) {
-    if (isIgnorableCodexEventNoiseLine(item)) {
-      onNoise(item);
-      continue;
-    }
-    yield item;
-  }
-}
-
-/** @param {any} codex @returns {void} */
-function installCodexRunNoiseFilter(codex) {
-  const execInstance = codex?.exec;
-  const execProto = execInstance ? Object.getPrototypeOf(execInstance) : null;
-  if (!execProto || typeof execProto.run !== 'function') {
-    logWarn('CODEX_JSON_STREAM', 'Cannot install noise filter: exec.run not found on prototype');
-    return;
-  }
-  if (execProto[CODEX_RUN_NOISE_FILTER_PATCHED]) {
-    return;
-  }
-
-  const originalRun = execProto.run;
-  execProto.run = function patchedCodexRun(/** @type {any[]} */ ...args) {
-    const source = originalRun.apply(this, args);
-    return filterCodexExperimentalJsonLines(source, (/** @type {string} */ line) => {
-      logWarn('CODEX_JSON_STREAM', `Filtered non-JSON stdout line from Codex CLI: ${line}`);
-    });
-  };
-  Object.defineProperty(execProto, CODEX_RUN_NOISE_FILTER_PATCHED, {
-    value: true,
-    configurable: false,
-    enumerable: false,
-    writable: false
-  });
-}
-
 /** @param {any} error @returns {boolean} */
-function isNoRolloutResumeError(error) {
-  const message = `${error?.message || ''}\n${error?.stack || ''}`;
-  return message.includes('thread/resume') && message.includes('no rollout found');
-}
-
-/** @param {any} Codex @param {Record<string, any>} codexOptions @returns {any} */
-function createCodexInstance(Codex, codexOptions) {
-  const codex = new Codex(codexOptions);
-  installCodexRunNoiseFilter(codex);
-  return codex;
-}
-
-/** @param {Record<string, any>} threadOptions @param {string | null} cwd @returns {Record<string, any>} */
-function buildNewThreadOptionsFromResume(threadOptions, cwd) {
-  const newThreadOptions = { ...threadOptions };
-  if (cwd && cwd.trim() !== '') {
-    newThreadOptions.workingDirectory = cwd;
-  }
-  return newThreadOptions;
+function isCodexUserAbortError(error) {
+  const message = `${error?.name || ''}\n${error?.code || ''}\n${error?.message || ''}`;
+  return /AbortError|ABORT_ERR|aborted|abort|cancel|interrupt/i.test(message);
 }
 
 /** @returns {Error & { code: string }} */
@@ -236,29 +124,112 @@ function throwIfCodexAbortRequested() {
   }
 }
 
-/** @param {any} error @returns {boolean} */
-function isCodexUserAbortError(error) {
-  const message = `${error?.name || ''}\n${error?.code || ''}\n${error?.message || ''}`;
-  return /AbortError|ABORT_ERR|aborted|abort|cancel|interrupt/i.test(message);
-}
-
-// ---------------------------------------------------------------------------
-// sendMessage
-// ---------------------------------------------------------------------------
+// ========== CLI Stream Parser ==========
 
 /**
- * Send message to Codex (with optional thread resumption)
+ * Parse a single stream-json line from Codex CLI.
+ * @param {string} line
+ * @returns {{ kind: string; [key: string]: any }}
+ */
+function parseStreamLine(line) {
+  if (!line || !line.trim()) return { kind: 'other' };
+  let value;
+  try {
+    value = JSON.parse(line);
+  } catch {
+    return { kind: 'other' };
+  }
+  if (!value || typeof value !== 'object') return { kind: 'other' };
+
+  const type = typeof value.type === 'string' ? value.type : '';
+  switch (type) {
+    case 'message':
+      return { kind: 'message', content: value.content, role: value.role };
+    case 'result':
+      return { kind: 'result', threadId: value.thread_id, success: value.success, error: value.error, usage: value.usage };
+    case 'error':
+      return { kind: 'error', message: value.message || value.error };
+    case 'usage':
+      return { kind: 'usage', usage: value.usage };
+    default:
+      return { kind: 'other', raw: value };
+  }
+}
+
+// ========== CLI Argument Builder ==========
+
+/**
+ * Build Codex CLI arguments.
+ * @param {object} params
+ * @param {string} params.message
+ * @param {string} [params.threadId]
+ * @param {string} [params.model]
+ * @param {string} [params.reasoningEffort]
+ * @param {string} [params.approvalPolicy]
+ * @param {string} [params.sandboxMode]
+ * @returns {string[]}
+ */
+function buildCodexArgs({ message, threadId, model, reasoningEffort, approvalPolicy, sandboxMode }) {
+  const args = [
+    '-p', message || '',
+    '--output-format', 'stream-json',
+  ];
+
+  if (model) {
+    args.push('-m', model);
+  }
+
+  if (reasoningEffort) {
+    args.push('--reasoning-effort', reasoningEffort);
+  }
+
+  if (approvalPolicy) {
+    args.push('--approval-policy', approvalPolicy);
+  }
+
+  if (sandboxMode) {
+    args.push('--sandbox', sandboxMode);
+  }
+
+  if (threadId && threadId.trim()) {
+    args.push('--resume', threadId);
+  } else {
+    const newId = randomUUID();
+    args.push('-s', newId);
+  }
+
+  return args;
+}
+
+// ========== Exported API ==========
+
+/** @param {string | null} [threadId] @returns {void} */
+export function resetCodexThreadCache(threadId = null) {
+  // No-op: thread cache is no longer needed with CLI mode
+}
+
+export function getCodexThreadCacheSizeForTest() {
+  return 0;
+}
+
+/** @param {string} line @returns {boolean} */
+export function isIgnorableCodexEventNoiseLine(_line) {
+  return false;
+}
+
+/**
+ * Send message to Codex via CLI.
  *
  * @param {string} message - User message to send
  * @param {string | null} [threadId] - Thread ID to resume (optional)
  * @param {string | null} [cwd] - Working directory (optional)
  * @param {string | null} [permissionMode] - Unified permission mode (optional)
  * @param {string | null} [model] - Model name (optional)
- * @param {string | null} [baseUrl] - API base URL (optional, for custom endpoints)
- * @param {string | null} [apiKey] - API key (optional, for custom auth)
+ * @param {string | null} [baseUrl] - API base URL (optional, ignored in CLI mode)
+ * @param {string | null} [apiKey] - API key (optional, ignored in CLI mode)
  * @param {string} [reasoningEffort] - Reasoning effort level (optional)
- * @param {string | null} [serviceTier] - Codex service tier; "fast" matches Codex CLI /fast (optional)
- * @param {Array<any>} [attachments] - Image attachments in local_image format (optional)
+ * @param {string | null} [serviceTier] - Codex service tier (optional, ignored in CLI mode)
+ * @param {Array<any>} [attachments] - Image attachments (optional, ignored in CLI mode)
  * @returns {Promise<void>}
  */
 export async function sendMessage(
@@ -275,381 +246,225 @@ export async function sendMessage(
 ) {
   let streamStarted = false;
   let streamEnded = false;
-  /** @type {AbortController | null} */
-  let turnAbortController = null;
+  let turnAbortController = new AbortController();
   let turnCompletionResolve = /** @type {null | (() => void)} */ (null);
   activeCodexTurnCompletionPromise = new Promise(resolve => { turnCompletionResolve = resolve; });
   activeCodexTurnInProgress = true;
   activeCodexAbortRequested = false;
+  activeCodexAbortController = turnAbortController;
+
+  let currentThreadId = threadId || null;
+  let assistantText = '';
+
   const emitStreamEndOnce = () => {
-    if (!streamStarted || streamEnded) {
-      return;
-    }
+    if (!streamStarted || streamEnded) return;
     streamEnded = true;
     console.log('[STREAM_END]');
   };
 
+  const emitMessage = (msg) => {
+    console.log('[MESSAGE]', JSON.stringify(msg));
+  };
+
   try {
     const normalizedPermissionMode = normalizeCodexPermissionMode(permissionMode || 'default');
+    const permissionConfig = CodexPermissionMapper.toProvider(normalizedPermissionMode);
 
-    console.log('[DEBUG] Codex sendMessage called with params:', {
+    // Allow Java side to force sandbox mapping override via env vars
+    const sandboxOverride = resolveSandboxModeOverride();
+    if (sandboxOverride) {
+      permissionConfig.sandbox = sandboxOverride;
+    }
+    const approvalPolicyOverride = resolveApprovalPolicyOverride();
+    if (approvalPolicyOverride) {
+      permissionConfig.approvalPolicy = approvalPolicyOverride;
+    }
+
+    console.log('[DEBUG] Codex sendMessage (CLI mode) called with params:', {
       threadId,
       cwd,
       permissionMode: normalizedPermissionMode,
       model,
       reasoningEffort,
       serviceTier,
-      hasBaseUrl: !!baseUrl,
-      hasApiKey: !!apiKey,
-      attachmentsCount: attachments?.length || 0
     });
 
     console.log('[MESSAGE_START]');
     throwIfCodexAbortRequested();
 
-    // ============================================================
-    // 1. Initialize Codex SDK (dynamic loading)
-    // ============================================================
-
-    const sdk = await ensureCodexSdk();
-    throwIfCodexAbortRequested();
-    const Codex = sdk.Codex || sdk.default || sdk;
-
-    /** @type {Record<string, any>} */
-    let codexOptions = {};
-
-    // Always initialize config with reasoning summaries forced to true
-    // so custom models not in the SDK's known-reasoning-model allowlist
-    // still get thinking/reasoning parameters in API requests.
-    codexOptions.config = {
-      model_supports_reasoning_summaries: true
-    };
-
-    if (baseUrl) {
-      codexOptions.baseUrl = baseUrl;
-    }
-    if (apiKey) {
-      codexOptions.apiKey = apiKey;
-    }
-    if (serviceTier && serviceTier.trim() !== '') {
-      const sdkServiceTier = serviceTier.trim();
-      codexOptions.config = {
-        ...codexOptions.config,
-        features: {
-          fast_mode: true
-        },
-        service_tier: sdkServiceTier
-      };
-      logDebug('Codex', 'Service tier:', sdkServiceTier, 'with fast_mode feature enabled');
-    }
-
-    // Pass a sanitized env to the SDK to avoid inherited CODEX_* pollution
-    const { cliEnv, removedKeys } = buildCodexCliEnvironment(process.env);
-    codexOptions.env = cliEnv;
-    logDebug('PERM_DEBUG', 'Codex CLI env isolation:', JSON.stringify({
-      removedKeys,
-      removedCount: removedKeys.length
-    }));
-
-    // MCP Gateway SDK 路径已随 SDK 模式移除:CLI 模式下 gateway 经 -c override 注入底层
-    // Codex CLI(见 CodexCliSession),不经 codexOptions.config。codexRevision 恒 null,
-    // buildCodexThreadCacheSignature 的 gateway 维度退化为不区分(与无 gateway 等价)。
-    const codexRevision = null;
-
-    // ============================================================
-    // 2. Map Unified Permission Mode to Codex Format
-    // ============================================================
-
-    const permissionConfig = CodexPermissionMapper.toProvider(normalizedPermissionMode);
-
-    logDebug('PERM_DEBUG', 'Codex permission config:', JSON.stringify(permissionConfig));
-    logDebug('PERM_DEBUG', 'Raw env permission overrides:', JSON.stringify({
-      CODEX_SANDBOX_MODE: process.env.CODEX_SANDBOX_MODE || '',
-      CODEX_APPROVAL_POLICY: process.env.CODEX_APPROVAL_POLICY || ''
-    }));
-
-    // Allow Java side to force sandbox mapping override via env vars
-    const sandboxOverride = resolveSandboxModeOverride();
-    if (sandboxOverride) {
-      permissionConfig.sandbox = sandboxOverride;
-      logDebug('PERM_DEBUG', 'Sandbox override from env CODEX_SANDBOX_MODE:', sandboxOverride);
-    }
-    const approvalPolicyOverride = resolveApprovalPolicyOverride();
-    if (approvalPolicyOverride) {
-      permissionConfig.approvalPolicy = approvalPolicyOverride;
-      logDebug('PERM_DEBUG', 'Approval override from env CODEX_APPROVAL_POLICY:', approvalPolicyOverride);
-    }
-
-    // ============================================================
-    // 3. Build Thread Options
-    // ============================================================
-
-    /** @type {Record<string, any>} */
-    const threadOptions = {
-      skipGitRepoCheck: permissionConfig.skipGitRepoCheck,
-      maxTurns: 200
-    };
-
-    if (reasoningEffort && reasoningEffort.trim() !== '') {
-      threadOptions.modelReasoningEffort = reasoningEffort;
-      console.log('[DEBUG] Reasoning effort:', reasoningEffort);
-    }
-
-    if (permissionConfig.approvalPolicy) {
-      threadOptions.approvalPolicy = permissionConfig.approvalPolicy;
-    }
-
-    // CRITICAL: Only set working directory for NEW threads
-    const isResumingThread = threadId && threadId.trim() !== '';
-
-    if (!isResumingThread) {
-      if (cwd && cwd.trim() !== '') {
-        threadOptions.workingDirectory = cwd;
-        console.log('[DEBUG] Working directory:', cwd);
-      }
-    } else {
-      console.log('[DEBUG] Resuming thread - skipping workingDirectory to allow session lookup');
-    }
-
-    if (model && model.trim() !== '') {
-      threadOptions.model = model;
-      console.log('[DEBUG] Model:', model);
-    }
-
-    if (permissionConfig.sandbox) {
-      threadOptions.sandboxMode = permissionConfig.sandbox;
-      console.log('[DEBUG] Sandbox mode:', permissionConfig.sandbox);
-    }
-
-    logDebug('PERM_DEBUG', 'Final Codex threadOptions:', JSON.stringify({
-      permissionMode: normalizedPermissionMode,
-      workingDirectory: threadOptions.workingDirectory,
-      sandboxMode: threadOptions.sandboxMode,
-      approvalPolicy: threadOptions.approvalPolicy,
-      skipGitRepoCheck: threadOptions.skipGitRepoCheck
-    }));
-
-    // ============================================================
-    // 4. Create or Resume Thread
-    // ============================================================
-
-    let activeThreadOptions = threadOptions;
-    let activeThreadSignature = buildCodexThreadCacheSignature(codexOptions, activeThreadOptions, codexRevision);
-    let startedNewThread = !isResumingThread;
-    let thread;
-    if (isResumingThread) {
-      thread = acquireCachedCodexThread(threadId, activeThreadSignature);
-      if (thread) {
-        logInfo('CODEX_THREAD_CACHE', `Reusing cached Codex thread: ${threadId}`);
-      } else {
-        const codex = createCodexInstance(Codex, codexOptions);
-        console.log('[DEBUG] Resuming thread:', threadId);
-        thread = codex.resumeThread(threadId, activeThreadOptions);
-        rememberCodexThread(threadId, thread, activeThreadSignature, codex);
-        logInfo('CODEX_THREAD_CACHE', `Created cached Codex resume thread: ${threadId}`);
-      }
-    } else {
-      const codex = createCodexInstance(Codex, codexOptions);
-      console.log('[DEBUG] Starting new thread');
-      thread = codex.startThread(activeThreadOptions);
-    }
-
-    // ============================================================
-    // 5. Collect AGENTS.md Instructions (only for new threads)
-    // ============================================================
-
-    /** @param {boolean} isNewThread @returns {string} */
-    const buildFinalMessage = (isNewThread) => {
-      let nextMessage = message;
-      if (!isNewThread || !cwd) {
-        return nextMessage;
-      }
-      const agentsInstructions = collectAgentsInstructions(cwd);
-      if (agentsInstructions) {
-        nextMessage = `<agents-instructions>\n${agentsInstructions}\n</agents-instructions>\n\n${message}`;
-        logDebug('AGENTS.md', `Prepended ${agentsInstructions.length} chars of instructions to message`);
-      }
-      return nextMessage;
-    };
-
-    // ============================================================
-    // 6. Build Input and Start Streaming
-    // ============================================================
-
-    /** @param {string} finalMessage @returns {Array<object> | string} */
-    const buildRunInput = (finalMessage) => {
-      if (attachments && Array.isArray(attachments) && attachments.length > 0) {
-        /** @type {any[]} */
-        const input = [{ type: 'text', text: finalMessage }];
-        for (const attachment of attachments) {
-          if (attachment && attachment.type === 'local_image' && attachment.path) {
-            input.push({ type: 'local_image', path: attachment.path });
-            console.log('[DEBUG] Added local_image attachment:', attachment.path);
-          }
-        }
-        console.log('[DEBUG] Using array input format with', input.length, 'entries');
-        return input;
-      }
-      console.log('[DEBUG] Using string input format');
-      return finalMessage;
-    };
-
-    let finalMessage = buildFinalMessage(startedNewThread);
-    let runInput = buildRunInput(finalMessage);
-    turnAbortController = new AbortController();
-    activeCodexAbortController = turnAbortController;
-    if (activeCodexAbortRequested) {
-      turnAbortController.abort();
-      throwIfCodexAbortRequested();
-    }
-    let events;
-    try {
-      ({ events } = await thread.runStreamed(runInput, {
-        signal: turnAbortController.signal
-      }));
-    } catch (error) {
-      if (!isResumingThread || !isNoRolloutResumeError(error)) {
-        throw error;
-      }
-
-      logWarn('CODEX_THREAD_RESUME', `Resume failed with no rollout for ${threadId}; starting a new thread`);
-      resetCodexThreadCache(threadId);
-      activeThreadOptions = buildNewThreadOptionsFromResume(threadOptions, cwd);
-      activeThreadSignature = buildCodexThreadCacheSignature(codexOptions, activeThreadOptions, codexRevision);
-      startedNewThread = true;
-      const codex = createCodexInstance(Codex, codexOptions);
-      thread = codex.startThread(activeThreadOptions);
-      finalMessage = buildFinalMessage(startedNewThread);
-      runInput = buildRunInput(finalMessage);
-      throwIfCodexAbortRequested();
-      ({ events } = await thread.runStreamed(runInput, {
-        signal: turnAbortController.signal
-      }));
-    }
-    console.log('[STREAM_START]');
-    streamStarted = true;
-
-    // ============================================================
-    // 7. Delegate Event Processing to codex-event-handler
-    // ============================================================
-
-    const workingDirectory = cwd && cwd.trim() !== '' ? cwd : undefined;
-
-    /** @param {object} msg */
-    const emitMessage = (msg) => {
-      console.log('[MESSAGE]', JSON.stringify(msg));
-    };
-
-    let state = createInitialEventState(emitMessage);
-
-    let config = {
-      cwd: workingDirectory,
-      threadId: startedNewThread ? null : threadId,
-      threadOptions: activeThreadOptions,
-      normalizedPermissionMode,
-      turnAbortController,
-      onTurnCompleted: emitStreamEndOnce,
-      onTurnFailed: emitStreamEndOnce
-    };
-
-    try {
-      await processCodexEventStream(events, state, config);
-    } catch (error) {
-      if (!isResumingThread || startedNewThread || !isNoRolloutResumeError(error)) {
-        throw error;
-      }
-
-      logWarn('CODEX_THREAD_RESUME', `Resume stream failed with no rollout for ${threadId}; starting a new thread`);
-      resetCodexThreadCache(threadId);
-      activeThreadOptions = buildNewThreadOptionsFromResume(threadOptions, cwd);
-      activeThreadSignature = buildCodexThreadCacheSignature(codexOptions, activeThreadOptions, codexRevision);
-      startedNewThread = true;
-      const codex = createCodexInstance(Codex, codexOptions);
-      thread = codex.startThread(activeThreadOptions);
-      finalMessage = buildFinalMessage(startedNewThread);
-      runInput = buildRunInput(finalMessage);
-      throwIfCodexAbortRequested();
-      ({ events } = await thread.runStreamed(runInput, {
-        signal: turnAbortController.signal
-      }));
-      state = createInitialEventState(emitMessage);
-      config = {
-        ...config,
-        threadId: null,
-        threadOptions: activeThreadOptions
-      };
-      await processCodexEventStream(events, state, config);
-    }
-    emitStreamEndOnce();
-
-    if (state.userAbortObserved) {
-      console.log('[MESSAGE_END]');
-      console.log(JSON.stringify({
-        success: false,
-        error: 'User interrupted',
-        threadId: state.currentThreadId
-      }));
+    // Resolve CLI path
+    const bin = resolveCodexCliPath();
+    if (!probeCliBin(bin)) {
+      const errorPayload = buildErrorPayload(new Error('Codex CLI not found. Install Codex CLI and ensure `codex` is on PATH.'));
+      console.error('[SEND_ERROR]', JSON.stringify(errorPayload));
+      console.log(JSON.stringify(errorPayload));
       return;
     }
 
-    if (state.currentThreadId && state.currentThreadId.trim() !== '') {
-      rememberCodexThread(state.currentThreadId, thread, activeThreadSignature, null);
-      logInfo('CODEX_THREAD_CACHE', `Stored Codex thread in cache: ${state.currentThreadId}`);
+    // Build message with AGENTS.md instructions
+    let finalMessage = message;
+    if (cwd && cwd.trim() !== '') {
+      const agentsInstructions = collectAgentsInstructions(cwd);
+      if (agentsInstructions) {
+        finalMessage = `<agents-instructions>\n${agentsInstructions}\n</agents-instructions>\n\n${message}`;
+        logDebug('AGENTS.md', `Prepended ${agentsInstructions.length} chars of instructions to message`);
+      }
     }
 
-    // ============================================================
-    // 8. Completion Phase
-    // ============================================================
+    // Build CLI args
+    const args = buildCodexArgs({
+      message: finalMessage,
+      threadId: currentThreadId || '',
+      model: model || '',
+      reasoningEffort: reasoningEffort || '',
+      approvalPolicy: permissionConfig.approvalPolicy || '',
+      sandboxMode: permissionConfig.sandbox || '',
+    });
 
-    if (!state.reasoningObserved) {
-      console.warn('[THINKING_HINT]', 'Codex did not return reasoning items. If you still cannot see the thinking process, please refer to docs/codex/docs/config.md for hide_agent_reasoning/show_raw_agent_reasoning settings, and ensure your OpenAI account has been verified.');
+    // If we pre-assigned a new session id, surface it
+    const sessionFlagIndex = args.indexOf('-s');
+    if (sessionFlagIndex >= 0 && args[sessionFlagIndex + 1]) {
+      currentThreadId = args[sessionFlagIndex + 1];
+      console.log(`[SESSION_ID] ${currentThreadId}`);
+    } else if (currentThreadId) {
+      console.log(`[SESSION_ID] ${currentThreadId}`);
     }
 
-    if (!state.suppressNoResponseFallback && state.assistantText.length === 0) {
-      const noResponseMsg = [
-        '\n[WARNING] Codex completed tool executions but did not generate a text response.',
-        'This may happen when:',
-        '- The task was purely about gathering information',
-        '- Codex reached maxTurns limit (200 turns)',
-        '- The query required only command execution',
-        '\nPlease try:',
-        '- Asking a more specific question',
-        '- Requesting explicit analysis or explanation',
-        '- Checking the command outputs above for your answer'
-      ].join('\n');
+    // Build environment
+    const { cliEnv } = buildCodexCliEnvironment(process.env);
+    const env = { ...process.env, ...cliEnv, CODEX_NO_COLOR: '1', CODEX_USE_STDIN: '1' };
 
-      emitMessage({
-        type: 'assistant',
-        message: {
-          role: 'assistant',
-          content: [{ type: 'text', text: noResponseMsg }]
+    const workCwd = cwd && cwd.trim() !== '' ? cwd : process.cwd();
+
+    console.error(`[DEBUG][Codex CLI] spawn ${bin} ${args.slice(0, 4).join(' ')}... promptLen=${finalMessage.length}`);
+
+    console.log('[STREAM_START]');
+    streamStarted = true;
+
+    await new Promise((resolve) => {
+      let child;
+      try {
+        child = spawn(bin, args, {
+          cwd: workCwd,
+          env,
+          stdio: ['pipe', 'pipe', 'pipe'],
+          detached: process.platform !== 'win32',
+        });
+      } catch (error) {
+        const errorPayload = buildErrorPayload(error instanceof Error ? error : new Error(String(error)));
+        console.error('[SEND_ERROR]', JSON.stringify(errorPayload));
+        console.log(JSON.stringify(errorPayload));
+        emitStreamEndOnce();
+        resolve();
+        return;
+      }
+
+      // Wire abort signal to child process
+      turnAbortController.signal.addEventListener('abort', () => {
+        killChildTree(child);
+      });
+
+      const onParentSignal = () => killChildTree(child);
+      process.once('SIGTERM', onParentSignal);
+      process.once('SIGINT', onParentSignal);
+      process.once('SIGHUP', onParentSignal);
+
+      const stdoutRl = createInterface({ input: child.stdout });
+      let stderrTail = '';
+
+      stdoutRl.on('line', (line) => {
+        if (activeCodexAbortRequested) return;
+
+        const event = parseStreamLine(line);
+        switch (event.kind) {
+          case 'message':
+            if (event.content && event.role === 'assistant') {
+              assistantText = typeof event.content === 'string' ? event.content : JSON.stringify(event.content);
+              emitMessage({
+                type: 'assistant',
+                message: { role: 'assistant', content: event.content }
+              });
+            }
+            break;
+          case 'result':
+            if (event.threadId) {
+              currentThreadId = event.threadId;
+              console.log(`[SESSION_ID] ${event.threadId}`);
+            }
+            if (event.error) {
+              const errorPayload = buildErrorPayload(new Error(event.error));
+              console.error('[SEND_ERROR]', JSON.stringify(errorPayload));
+            }
+            break;
+          case 'error':
+            const errPayload = buildErrorPayload(new Error(event.message));
+            console.error('[SEND_ERROR]', JSON.stringify(errPayload));
+            break;
+          case 'usage':
+            if (event.usage) {
+              console.log(`[USAGE] ${JSON.stringify(event.usage)}`);
+            }
+            break;
+          default:
+            break;
         }
       });
-      state.finalResponse = noResponseMsg;
-    }
 
-    console.log('[MESSAGE_END]');
-    console.log(JSON.stringify({
-      success: true,
-      threadId: state.currentThreadId,
-      result: state.finalResponse
-    }));
+      child.stderr.on('data', (chunk) => {
+        const text = chunk.toString();
+        stderrTail = (stderrTail + text).slice(-4000);
+        process.stderr.write(text);
+      });
+
+      child.on('error', (error) => {
+        const hint = error?.code === 'ENOENT'
+          ? 'Codex CLI not found. Install Codex CLI and ensure `codex` is on PATH.'
+          : (error?.message || String(error));
+        const errorPayload = buildErrorPayload(new Error(hint));
+        console.error('[SEND_ERROR]', JSON.stringify(errorPayload));
+        console.log(JSON.stringify(errorPayload));
+      });
+
+      child.on('close', (code, signal) => {
+        process.off('SIGTERM', onParentSignal);
+        process.off('SIGINT', onParentSignal);
+        process.off('SIGHUP', onParentSignal);
+
+        if (activeCodexAbortRequested) {
+          console.log('[MESSAGE_END]');
+          console.log(JSON.stringify({ success: false, error: 'User interrupted', threadId: currentThreadId }));
+        } else if (code !== 0 && signal !== 'SIGTERM' && signal !== 'SIGINT') {
+          const tail = stderrTail.trim().slice(-800);
+          const errorPayload = buildErrorPayload(
+            new Error(`Codex CLI exited with code ${code}${signal ? ` (signal ${signal})` : ''}` + (tail ? `\n${tail}` : ''))
+          );
+          console.error('[SEND_ERROR]', JSON.stringify(errorPayload));
+          console.log(JSON.stringify(errorPayload));
+        } else {
+          console.log('[MESSAGE_END]');
+          console.log(JSON.stringify({
+            success: true,
+            threadId: currentThreadId,
+            result: assistantText
+          }));
+        }
+
+        emitStreamEndOnce();
+        resolve();
+      });
+    });
 
   } catch (error) {
     emitStreamEndOnce();
     if (activeCodexAbortRequested && isCodexUserAbortError(error)) {
       logInfo('CODEX_ABORT', `Codex turn interrupted: ${error instanceof Error ? error.message : error}`);
       console.log('[MESSAGE_END]');
-      console.log(JSON.stringify({
-        success: false,
-        error: 'User interrupted'
-      }));
+      console.log(JSON.stringify({ success: false, error: 'User interrupted' }));
       return;
     }
     const errorObj = error instanceof Error ? error : new Error(String(error));
     console.error('[DEBUG] Error:', errorObj.message);
     console.error('[DEBUG] Error stack:', errorObj.stack);
-
     const errorPayload = buildErrorPayload(errorObj);
     console.error('[SEND_ERROR]', JSON.stringify(errorPayload));
     console.log(JSON.stringify(errorPayload));
@@ -675,7 +490,6 @@ export async function sendMessage(
 
 /**
  * Gets the tools list for a Codex MCP server.
- * Reuses mcp-status-service probing logic to avoid duplicate handshake implementation.
  *
  * @param {string} serverId
  * @param {object} rawServerConfig
@@ -684,24 +498,14 @@ export async function sendMessage(
 export async function getMcpServerTools(serverId, rawServerConfig) {
   try {
     if (!serverId) {
-      const invalid = {
-        success: false,
-        serverId: '',
-        error: 'Missing serverId',
-        tools: []
-      };
+      const invalid = { success: false, serverId: '', error: 'Missing serverId', tools: [] };
       console.log('[MCP_SERVER_TOOLS]' + JSON.stringify(invalid));
       console.log(JSON.stringify(invalid));
       return;
     }
 
     if (!rawServerConfig || typeof rawServerConfig !== 'object') {
-      const invalid = {
-        success: false,
-        serverId,
-        error: 'Missing serverConfig',
-        tools: []
-      };
+      const invalid = { success: false, serverId, error: 'Missing serverConfig', tools: [] };
       console.log('[MCP_SERVER_TOOLS]' + JSON.stringify(invalid));
       console.log(JSON.stringify(invalid));
       return;
@@ -737,13 +541,8 @@ export async function getMcpServerTools(serverId, rawServerConfig) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// normalizeCodexMcpConfig (internal)
-// ---------------------------------------------------------------------------
-
 /**
  * Converts Codex config field names to a format recognized by mcp-status-service.
- *
  * @param {Record<string, any>} raw
  * @returns {Record<string, any>}
  */
@@ -753,12 +552,10 @@ function normalizeCodexMcpConfig(raw) {
   const type = normalized.type || (normalized.url ? 'http' : 'stdio');
   normalized.type = type;
 
-  // Codex: http_headers -> mcp-status: headers
   if (!normalized.headers && normalized.http_headers && typeof normalized.http_headers === 'object') {
     normalized.headers = { ...normalized.http_headers };
   }
 
-  // Codex: env_http_headers (values are env var names) -> headers (resolved values)
   if (normalized.env_http_headers && typeof normalized.env_http_headers === 'object') {
     /** @type {Record<string, string>} */
     const fromEnv = {};
@@ -773,7 +570,6 @@ function normalizeCodexMcpConfig(raw) {
     normalized.headers = { ...(normalized.headers || {}), ...fromEnv };
   }
 
-  // Codex: bearer_token_env_var -> Authorization header
   if (normalized.bearer_token_env_var && typeof normalized.bearer_token_env_var === 'string') {
     const token = process.env[normalized.bearer_token_env_var];
     if (token && !(normalized.headers && normalized.headers.Authorization)) {

@@ -1,63 +1,14 @@
 // @ts-check
 /**
  * Message utility functions.
- * SDK initialization, retry logic, session file helpers, content truncation, and error payloads.
+ * Retry logic, session file helpers, content truncation, and error payloads.
+ *
+ * NOTE: SDK initialization has been removed. Claude/Codex now use CLI spawning.
  */
 
-import { isClaudeSdkAvailable, loadAnthropicSdk, loadBedrockSdk, loadClaudeSdk } from '../../utils/sdk-loader.js';
 import { existsSync } from 'fs';
 import { getClaudeProjectSessionFilePath as resolveClaudeProjectSessionFilePath } from '../../utils/path-utils.js';
 import { loadClaudeSettings } from '../../config/api-config.js';
-
-// SDK cache (module-internal, accessed via ensure* functions)
-// SDK 模块为动态加载的第三方包,形状由各自的 .d.ts 决定,这里按 any 缓存。
-/** @type {any} */
-let claudeSdk = null;
-/** @type {any} */
-let anthropicSdk = null;
-/** @type {any} */
-let bedrockSdk = null;
-
-/**
- * Ensure Claude SDK is loaded
- * @returns {Promise<any>}
- */
-export async function ensureClaudeSdk() {
-  if (!claudeSdk) {
-    if (!isClaudeSdkAvailable()) {
-      const error = /** @type {Error & { code: string; provider: string }} */ (
-        new Error('Claude Code SDK not installed. Please install via Settings > Dependencies.')
-      );
-      error.code = 'SDK_NOT_INSTALLED';
-      error.provider = 'claude';
-      throw error;
-    }
-    claudeSdk = await loadClaudeSdk();
-  }
-  return claudeSdk;
-}
-
-/**
- * Ensure Anthropic SDK is loaded
- * @returns {Promise<any>}
- */
-export async function ensureAnthropicSdk() {
-  if (!anthropicSdk) {
-    anthropicSdk = await loadAnthropicSdk();
-  }
-  return anthropicSdk;
-}
-
-/**
- * Ensure Bedrock SDK is loaded
- * @returns {Promise<any>}
- */
-export async function ensureBedrockSdk() {
-  if (!bedrockSdk) {
-    bedrockSdk = await loadBedrockSdk();
-  }
-  return bedrockSdk;
-}
 
 // ========== Auto-retry configuration for transient API errors ==========
 export const AUTO_RETRY_CONFIG = {

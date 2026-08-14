@@ -2,8 +2,8 @@
 /**
  * OpenCode channel command handler。
  *
- * SDK serve 模式(send/abort 经 @opencode-ai/sdk)已随 SDK 模式移除——会话发送走
- * OpenCodeCliSession(spawn opencode CLI),commit message 不支持 opencode(仅 claude/codex)。
+ * SDK 已完全移除，会话发送走 OpenCodeCliSession(spawn opencode CLI)。
+ * commit message 不支持 opencode(仅 claude/codex)。
  * 此处仅保留历史读取(getSession/listSessions/archiveSession,经 history-service 只读本地
  * SQLite)与 MCP 工具查询(对称空列表),供 channel-manager.js dispatch。
  */

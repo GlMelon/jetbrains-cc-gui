@@ -1,11 +1,25 @@
 // @ts-check
 /**
- * Message sending functions for Claude Agent SDK.
- * Handles plain text messages and multimodal messages with attachments.
+ * Message sending functions — CLI-based implementation.
+ *
+ * Spawns the local Claude CLI (`claude`) in headless streaming-json mode and
+ * maps its NDJSON output onto the shared bridge marker protocol consumed by
+ * `MarkerCliBridge` (Java) and `CommitMessageAiService`.
+ *
+ * Marker contract consumed by callers:
+ *   [CONTENT]      <text>                  — final accumulated assistant text
+ *   [SESSION_ID]   <uuid>                  — session id for resume
+ *   [USAGE]        { ... }                 — token usage
+ *   [SEND_ERROR]   { "error": "..." }      — unrecoverable error
+ *   [CONTENT_DELTA] <json-string>          — streaming delta (when streaming)
+ *   [STREAM_START] / [STREAM_END]          — streaming bookends
+ *   [MESSAGE_START] / [MESSAGE_END]        — outer bookends
  */
 
+import { spawn, spawnSync } from 'child_process';
+import { randomUUID } from 'crypto';
+import { createInterface } from 'readline';
 import {
-  isCustomBaseUrl,
   loadClaudeSettings,
   setupApiKey,
   buildCliEnv,
@@ -13,542 +27,461 @@ import {
 } from '../../config/api-config.js';
 import { selectWorkingDirectory } from '../../utils/path-utils.js';
 import { mapModelIdToSdkName, resolveModelFromSettings, setModelEnvironmentVariables } from '../../utils/model-utils.js';
-import { AsyncStream } from '../../utils/async-stream.js';
-import { canUseTool } from '../../permission-handler.js';
 import { buildContentBlocks, loadAttachments } from './attachment-service.js';
 import { buildIDEContextPrompt } from '../system-prompts.js';
 import { buildQuickFixPrompt } from '../quickfix-prompts.js';
-import { emitAccumulatedUsage, mergeUsage } from '../../utils/usage-utils.js';
-import {
-  ensureClaudeSdk,
-  AUTO_RETRY_CONFIG,
-  isRetryableError,
-  isNoConversationFoundError,
-  sleep,
-  getRetryDelayMs,
-  hasClaudeProjectSessionFile,
-  waitForClaudeProjectSessionFile,
-  truncateToolResultBlock,
-  truncateString,
-  truncateErrorContent,
-  emitUsageTag,
-  buildConfigErrorPayload
-} from './message-utils.js';
 import { createPreToolUseHook } from './permission-mode.js';
 import { loadMcpServersConfigAsRecord } from './mcp-status/config-loader.js';
-import { setActiveQueryResult } from './message-session-registry.js';
-import { normalizeStreamDelta, resolveSnapshotDelta, resetTurnBlockState } from './stream-delta-normalizer.js';
 import { generateSessionTitle } from '../session-title-service.js';
 import { getClaudeCliPathOverride } from '../../utils/claude-cli-path.js';
 
-// ========== Internal helpers for deduplication ==========
+// ========== Constants ==========
+
+const AUTO_RETRY_CONFIG = {
+  maxRetries: 3,
+  retryableStatusCodes: new Set([429, 500, 502, 503, 529]),
+  baseDelayMs: 2000,
+  maxDelayMs: 30000,
+};
 
 const SUPPORTED_EFFORT_LEVELS = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 
-/**
- * 流式累积/快照状态(在 executeWithRetry 与各 emit/process 函数间流转)。
- * 字段在 SDK 消息处理过程中被持续读写,作为可变状态袋按 any 处理。
- * @typedef {Record<string, any>} StreamState
- */
+// ========== CLI Path Resolution ==========
 
 /**
- * @param {string|null|undefined} reasoningEffort
- * @returns {string|null}
+ * Resolve the Claude CLI executable path.
+ * @returns {string}
  */
-function normalizeReasoningEffort(reasoningEffort) {
-  const effort = typeof reasoningEffort === 'string' ? reasoningEffort.trim() : '';
-  return SUPPORTED_EFFORT_LEVELS.has(effort) ? effort : null;
+function resolveClaudeCliPath() {
+  const override = getClaudeCliPathOverride();
+  if (override) return override;
+
+  const envPath = process.env.CLAUDE_CODE_PATH;
+  if (envPath && envPath.trim()) return envPath.trim();
+
+  return 'claude';
 }
 
 /**
- * Resolve Extended Thinking configuration from settings.
- * @param {{ alwaysThinkingEnabled?: boolean; maxThinkingTokens?: number; streamingEnabled?: boolean } | null} settings - Claude settings object
- * @returns {{ alwaysThinkingEnabled: boolean, maxThinkingTokens: number|undefined }}
+ * Synchronous path probe — returns true if the CLI binary exists and is executable.
+ * @param {string} bin
  */
-function resolveThinkingConfig(settings) {
-  const alwaysThinkingEnabled = settings?.alwaysThinkingEnabled ?? true;
-  const configuredMaxThinkingTokens = settings?.maxThinkingTokens
-    || parseInt(process.env.MAX_THINKING_TOKENS || '0', 10)
-    || 10000;
-  return {
-    alwaysThinkingEnabled,
-    maxThinkingTokens: alwaysThinkingEnabled ? configuredMaxThinkingTokens : undefined
-  };
+function probeCliBin(bin) {
+  try {
+    const r = spawnSync(bin, ['--version'], {
+      timeout: 5000,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env, NO_COLOR: '1' },
+    });
+    return r.status === 0;
+  } catch {
+    return false;
+  }
 }
 
-/**
- * buildQueryOptions 入参。
- * @typedef {{
- *   workingDirectory: string,
- *   permissionMode: string,
- *   sdkModelName: string,
- *   maxThinkingTokens: number|undefined,
- *   streamingEnabled: boolean,
- *   systemPromptAppend: string|null,
- *   preToolUseHook: any,
- *   sdkStderrLines: string[],
- *   mcpServers: Record<string, unknown>|null,
- *   modelId: string|null
- * }} BuildQueryOptionsInput
- */
+// ========== Argument Builder ==========
 
 /**
- * Build query options object shared by both send functions.
- * @param {BuildQueryOptionsInput} opts
- * @returns {any}
+ * Build Claude CLI arguments.
+ * @param {object} params
+ * @param {string} params.message
+ * @param {string} [params.sessionId]
+ * @param {string} [params.model]
+ * @param {string} [params.reasoningEffort]
+ * @param {string} [params.permissionMode]
+ * @param {number} [params.maxTurns]
+ * @returns {string[]}
  */
-function buildQueryOptions({ workingDirectory, permissionMode, sdkModelName, maxThinkingTokens, streamingEnabled, systemPromptAppend, preToolUseHook, sdkStderrLines, mcpServers, modelId }) {
-  const claudeCliOverride = getClaudeCliPathOverride();
-  return {
-    cwd: workingDirectory,
-    permissionMode,
-    model: sdkModelName,
-    maxTurns: 100,
-    enableFileCheckpointing: true,
-    env: buildCliEnv(),
-    settings: buildWebviewControlledSettingsOverride(modelId ?? undefined),
-    ...(maxThinkingTokens !== undefined && { maxThinkingTokens }),
-    ...(streamingEnabled && { includePartialMessages: true }),
-    additionalDirectories: Array.from(
-      new Set([workingDirectory, process.env.IDEA_PROJECT_PATH, process.env.PROJECT_PATH].filter(Boolean))
-    ),
-    canUseTool,
-    hooks: { PreToolUse: [{ hooks: [preToolUseHook] }] },
-    settingSources: ['user', 'project', 'local'],
-    // bypassPermissions requires this flag per SDK contract (sdk.d.ts: "Must be set to
-    // true when using permissionMode: 'bypassPermissions'"). Without it a future SDK
-    // version could silently drop bypass and change permission behavior.
-    ...(permissionMode === 'bypassPermissions' && { allowDangerouslySkipPermissions: true }),
-    ...(mcpServers && { mcpServers }),
-    ...(claudeCliOverride && { pathToClaudeCodeExecutable: claudeCliOverride }),
-    systemPrompt: {
-      type: 'preset',
-      preset: 'claude_code',
-      ...(systemPromptAppend && { append: systemPromptAppend })
-    },
-    stderr: (/** @type {string|Buffer|null} */ data) => {
+function buildCliArgs({ message, sessionId, model, reasoningEffort, permissionMode, maxTurns }) {
+  const args = [
+    '-p', message || '',
+    '--output-format', 'stream-json',
+  ];
+
+  if (sessionId) {
+    args.push('--resume', sessionId);
+  }
+
+  if (model) {
+    args.push('--model', model);
+  }
+
+  if (reasoningEffort) {
+    args.push('--reasoning-effort', reasoningEffort);
+  }
+
+  if (permissionMode === 'bypassPermissions') {
+    args.push('--dangerously-skip-permissions');
+  }
+
+  if (maxTurns && maxTurns > 0) {
+    args.push('--max-turns', String(maxTurns));
+  }
+
+  return args;
+}
+
+// ========== CLI Stream Parser ==========
+
+/**
+ * Parse a single stream-json line from Claude CLI.
+ * @param {string} line
+ * @returns {{ kind: string; [key: string]: any }}
+ */
+function parseStreamLine(line) {
+  if (!line || !line.trim()) return { kind: 'other' };
+  let value;
+  try {
+    value = JSON.parse(line);
+  } catch {
+    return { kind: 'other' };
+  }
+  if (!value || typeof value !== 'object') return { kind: 'other' };
+
+  const type = typeof value.type === 'string' ? value.type : '';
+  switch (type) {
+    case 'assistant':
+      return { kind: 'assistant', message: value.message, content: value.content };
+    case 'user':
+      return { kind: 'user', message: value.message, content: value.content };
+    case 'system':
+      return { kind: 'system', session_id: value.session_id, sessionUrl: value.session_url };
+    case 'result':
+      return { kind: 'result', session_id: value.session_id, is_error: value.is_error, result: value.result, cost_usd: value.cost_usd, duration_api_ms: value.duration_api_ms, duration_ms: value.duration_ms };
+    case 'stream_event':
+      return { kind: 'stream_event', event: value.event };
+    case 'error':
+      return { kind: 'error', message: value.message || value.error };
+    default:
+      return { kind: 'other', raw: value };
+  }
+}
+
+// ========== Process Lifecycle ==========
+
+/**
+ * Kill child process tree.
+ * @param {import('child_process').ChildProcess} child
+ */
+function killChildTree(child) {
+  if (!child || child.killed) return;
+  try {
+    if (process.platform === 'win32') {
+      child.kill();
+    } else {
       try {
-        const text = (data ?? '').toString().trim();
-        if (text) {
-          sdkStderrLines.push(text);
-          if (sdkStderrLines.length > 50) sdkStderrLines.shift();
-          console.error(`[SDK-STDERR] ${text}`);
-        }
-      } catch (_) { /* ignore */ }
-    }
-  };
-}
-
-/**
- * Prepare session resume on the options object if a resumeSessionId is provided.
- * @param {any} options          会被原地写入 resume 字段
- * @param {string|null} resumeSessionId
- * @param {string} workingDirectory
- * @returns {Promise<void>}
- */
-async function prepareSessionResume(options, resumeSessionId, workingDirectory) {
-  if (resumeSessionId && resumeSessionId !== '') {
-    options.resume = resumeSessionId;
-    console.log('[RESUMING]', resumeSessionId);
-    if (!hasClaudeProjectSessionFile(resumeSessionId, workingDirectory)) {
-      console.log('[RESUME_WAIT] Waiting for session file to appear before resuming...');
-      await waitForClaudeProjectSessionFile(resumeSessionId, workingDirectory, 2500, 100);
-    }
-  }
-}
-
-/**
- * Load the Claude SDK and return the query function, throwing if unavailable.
- * @param {string} logPrefix
- * @returns {Promise<any>}
- */
-async function loadSdkQueryFunction(logPrefix) {
-  const sdk = await ensureClaudeSdk();
-  console.log(`[DIAG]${logPrefix} SDK loaded, exports:`, sdk ? Object.keys(sdk) : 'null');
-  const queryFn = sdk?.query;
-  if (typeof queryFn !== 'function') {
-    throw new Error('Claude SDK query function not available. Please reinstall dependencies.');
-  }
-  return queryFn;
-}
-
-/**
- * Build the systemPrompt.append content from opened files and agent prompt.
- * @param {any} openedFiles
- * @param {string|null} agentPrompt
- * @param {string} message
- * @returns {string|null}
- */
-function buildSystemPromptAppend(openedFiles, agentPrompt, message) {
-  if (openedFiles && openedFiles.isQuickFix) {
-    return buildQuickFixPrompt(openedFiles, message);
-  }
-  return buildIDEContextPrompt(openedFiles, agentPrompt ?? undefined);
-}
-
-/**
- * Process a single message from the SDK result stream.
- * Handles streaming deltas, assistant content, tool usage, session tracking, and error results.
- * @param {any} msg      SDK 消息对象(形状随事件类型变化,按 any 处理)
- * @param {StreamState} state
- * @param {string} logPrefix
- * @returns {void}
- */
-function processStreamMessage(msg, state, logPrefix) {
-  if (state.streamingEnabled && !state.streamStarted) {
-    process.stdout.write('[STREAM_START]\n');
-    state.streamStarted = true;
-  }
-
-  // Subagent (sidechain) messages carry a non-null parent_tool_use_id pointing
-  // at the main turn's Agent/Task tool_use. Their detailed thinking and tool
-  // calls belong to the sidechain transcript, which the frontend loads
-  // separately via onSubagentHistoryLoaded - so never emit them into the main
-  // session stream, otherwise the subagent's internals pollute the main chat.
-  // Mirrors the parent_tool_use_id gate in persistent-query-service.js, which is
-  // the active path in daemon mode; this branch covers the non-daemon CLI path
-  // (channel-manager.js) and tests, keeping both stream routes consistent.
-  if (msg?.parent_tool_use_id) {
-    return;
-  }
-
-  // Handle stream_event type (streaming deltas from SDK)
-  if (state.streamingEnabled && msg.type === 'stream_event') {
-    state.hasStreamEvents = true;
-    const event = msg.event;
-    if (event) {
-      // Usage tracking during streaming (following CLI's accumulation logic):
-      // - message_start: ACCUMULATE usage across all turns (not reset!)
-      // - message_delta: incremental output_tokens updates
-      // - The accumulatedUsage represents the cumulative total across all turns in multi-turn tool use.
-      if (event.type === 'message_start') {
-        // Turn boundary: re-numbered content blocks. Clear the index-keyed block
-        // maps so the prior turn's accumulator / locked stream-mode cannot corrupt
-        // or duplicate this turn's index-0 block (see resetTurnBlockState). Mirrors
-        // stream-event-processor.js — both streaming paths must reset identically.
-        resetTurnBlockState(state);
-        // Emit BLOCK_RESET — mirrors stream-event-processor.js, see there for rationale.
-        if (state.streamingEnabled) {
-          process.stdout.write('[BLOCK_RESET]\n');
-        }
-        if (event.message?.usage) {
-          // IMPORTANT: Must use mergeUsage(state.accumulatedUsage, ...) to accumulate across turns.
-          // Using mergeUsage(null, ...) would reset and only show the last turn's usage.
-          state.accumulatedUsage = mergeUsage(state.accumulatedUsage, event.message.usage);
-        }
-      }
-      if (event.type === 'message_delta' && event.usage) {
-        state.accumulatedUsage = mergeUsage(state.accumulatedUsage, event.usage);
-        emitAccumulatedUsage(state.accumulatedUsage);
-      }
-      if (event.type === 'content_block_delta' && event.delta) {
-        if (event.delta.type === 'text_delta' && event.delta.text) {
-          const delta = normalizeStreamDelta(state, 'text', event.index, event.delta.text);
-          if (delta) {
-            process.stdout.write(`[CONTENT_DELTA] ${JSON.stringify(delta)}\n`);
-            state.lastAssistantContent += delta;
-          }
-        } else if (event.delta.type === 'thinking_delta' && event.delta.thinking) {
-          const delta = normalizeStreamDelta(state, 'thinking', event.index, event.delta.thinking);
-          if (delta) {
-            process.stdout.write(`[THINKING_DELTA] ${JSON.stringify(delta)}\n`);
-            state.lastThinkingContent += delta;
-          }
-        }
-      }
-      if (event.type === 'content_block_start' && event.content_block?.type === 'thinking') {
-        console.log('[THINKING_START]');
+        process.kill(-child.pid, 'SIGTERM');
+      } catch {
+        child.kill('SIGTERM');
       }
     }
-    return;
-  }
-
-  // Determine whether to output the full [MESSAGE] tag
-  let shouldOutput = true;
-  if (state.streamingEnabled && msg.type === 'assistant') {
-    const c = msg.message?.content;
-    if (!Array.isArray(c) || !c.some(b => b.type === 'tool_use')) shouldOutput = false;
-  }
-  if (shouldOutput) console.log('[MESSAGE]', JSON.stringify(msg));
-
-  // Process assistant content blocks
-  if (msg.type === 'assistant') {
-    const content = msg.message?.content;
-    if (Array.isArray(content)) {
-      for (let i = 0; i < content.length; i += 1) {
-        const block = content[i];
-        if (block.type === 'text') {
-          emitTextDelta(block.text || '', state, i);
-        } else if (block.type === 'thinking') {
-          emitThinkingDelta(block.thinking || block.text || '', state, i);
-        } else if (block.type === 'tool_use') {
-          console.log('[TOOL_USE]', JSON.stringify({ id: block.id, name: block.name }));
-        }
-      }
-    } else if (typeof content === 'string') {
-      emitTextDelta(content, state);
-    }
-  }
-
-  // Emit usage tag for assistant messages.
-  // IMPORTANT: This is the authoritative source for token usage, NOT the accumulatedUsage.
-  // The assistant message's usage field contains the correct cumulative total.
-  // In streaming mode, this overwrites any intermediate [USAGE] values sent during streaming.
-  // The Java backend (ClaudeMessageHandler.handleAssistantMessage) relies on this for correct totals.
-  emitUsageTag(msg);
-
-  // Output tool_result blocks from user messages
-  if (msg.type === 'user') {
-    const content = msg.message?.content ?? msg.content;
-    if (Array.isArray(content)) {
-      for (const block of content) {
-        if (block.type === 'tool_result') {
-          console.log('[TOOL_RESULT]', JSON.stringify(truncateToolResultBlock(block)));
-        }
-      }
-    }
-  }
-
-  // Capture session_id
-  if (msg.type === 'system' && msg.session_id) {
-    state.currentSessionId = msg.session_id;
-    console.log('[SESSION_ID]', msg.session_id);
-    setActiveQueryResult(msg.session_id, state.queryResult);
-  }
-
-  // Error result detection
-  if (msg.type === 'result' && msg.is_error) {
-    console.error(`[DEBUG]${logPrefix ? ` ${logPrefix}` : ''} Received error result:`, JSON.stringify(msg));
-    throw new Error(msg.result || msg.message || 'API request failed');
-  }
+  } catch (_) { /* ignore */ }
 }
 
-/**
- * Emit text content delta with streaming fallback support.
- * @param {string} currentText
- * @param {StreamState} state
- * @param {number} [blockIndex=0]
- * @returns {void}
- */
-function emitTextDelta(currentText, state, blockIndex = 0) {
-  if (!state.streamingEnabled) {
-    console.log('[CONTENT]', truncateErrorContent(currentText));
-    return;
-  }
-  // Single-source the delta through the normalizer (see resolveSnapshotDelta).
-  // Emit gate (unchanged from the tail-fill fix):
-  //   - !hasStreamEvents: pre-stream fallback, emit the whole computed delta
-  //   - hasStreamEvents && hadPrevious: genuine tail-fill / snapshot correction
-  //   - hasStreamEvents && !hadPrevious: stream will deliver this block, suppress
-  const { delta, hadPrevious } = resolveSnapshotDelta(state, 'text', blockIndex, currentText);
-  if (delta && (!state.hasStreamEvents || hadPrevious)) {
-    process.stdout.write(`[CONTENT_DELTA] ${JSON.stringify(delta)}\n`);
-  }
-  state.lastAssistantContent = currentText;
-}
+// ========== Retry Logic ==========
 
 /**
- * Emit thinking content delta with streaming fallback support.
- * @param {string} thinkingText
- * @param {StreamState} state
- * @param {number} [blockIndex=0]
- * @returns {void}
- */
-function emitThinkingDelta(thinkingText, state, blockIndex = 0) {
-  if (!state.streamingEnabled) {
-    console.log('[THINKING]', thinkingText);
-    return;
-  }
-  const { delta, hadPrevious } = resolveSnapshotDelta(state, 'thinking', blockIndex, thinkingText);
-  if (delta && (!state.hasStreamEvents || hadPrevious)) {
-    process.stdout.write(`[THINKING_DELTA] ${JSON.stringify(delta)}\n`);
-  }
-  state.lastThinkingContent = thinkingText;
-}
-
-/**
- * executeWithRetry 入参。
- * @typedef {{
- *   createQueryResult: () => any,
- *   streamingEnabled: boolean,
- *   resumeSessionId: string|null,
- *   workingDirectory: string,
- *   logPrefix: string,
- *   outerStreamState: StreamState,
- *   userMessage: string
- * }} ExecuteWithRetryInput
- */
-
-/**
- * Execute a query call with auto-retry logic for transient API errors.
- * @param {ExecuteWithRetryInput} args
- * @returns {Promise<void>}
- */
-async function executeWithRetry({ createQueryResult, streamingEnabled, resumeSessionId, workingDirectory, logPrefix, outerStreamState, userMessage }) {
-  let retryAttempt = 0;
-  let lastRetryError = null;
-  const lp = logPrefix ? ` ${logPrefix}` : '';
-
-  while (retryAttempt <= AUTO_RETRY_CONFIG.maxRetries) {
-    const state = {
-      currentSessionId: resumeSessionId, messageCount: 0, hasStreamEvents: false,
-      lastAssistantContent: '', lastThinkingContent: '', accumulatedUsage: null,
-      streamingEnabled, streamStarted: outerStreamState.streamStarted,
-      streamEnded: outerStreamState.streamEnded, queryResult: null
-    };
-
-    if (retryAttempt > 0) {
-      console.log(`[RETRY]${lp} Attempt ${retryAttempt}/${AUTO_RETRY_CONFIG.maxRetries} after error: ${lastRetryError?.message || 'unknown'}`);
-    }
-
-    try {
-      let result;
-      try {
-        result = createQueryResult();
-      } catch (queryError) {
-        if (shouldRetry(queryError, retryAttempt, state.messageCount)) {
-          ({ retryAttempt, lastRetryError } = await performRetry(queryError, retryAttempt, state, resumeSessionId, workingDirectory, streamingEnabled, outerStreamState, lp));
-          continue;
-        }
-        throw queryError;
-      }
-
-      state.queryResult = result;
-
-      try {
-        for await (const msg of result) {
-          state.messageCount++;
-          processStreamMessage(msg, state, logPrefix);
-        }
-      } catch (loopError) {
-        logLoopError(loopError, lp);
-        if (shouldRetry(loopError, retryAttempt, state.messageCount)) {
-          ({ retryAttempt, lastRetryError } = await performRetry(loopError, retryAttempt, state, resumeSessionId, workingDirectory, streamingEnabled, outerStreamState, lp));
-          continue;
-        }
-        throw loopError;
-      }
-
-      // Success
-      if (retryAttempt > 0) console.log(`[RETRY]${lp} Success after ${retryAttempt} retry attempt(s)`);
-      if (streamingEnabled && state.streamStarted) {
-        // NOTE: Do NOT emit accumulatedUsage at stream end.
-        // The assistant message's usage (sent via emitUsageTag) is the authoritative final value.
-        // Emitting accumulatedUsage here would send a redundant or potentially stale value.
-        process.stdout.write('[STREAM_END]\n');
-        outerStreamState.streamEnded = true;
-      }
-      outerStreamState.streamStarted = state.streamStarted;
-      console.log('[MESSAGE_END]');
-      console.log(JSON.stringify({ success: true, sessionId: state.currentSessionId }));
-
-      // Fire-and-forget: generate AI title for new sessions (not resumes)
-      if (userMessage && state.currentSessionId && !resumeSessionId) {
-        void generateSessionTitle(userMessage, state.currentSessionId, workingDirectory);
-      }
-
-      break;
-
-    } catch (retryError) {
-      outerStreamState.streamStarted = state.streamStarted;
-      outerStreamState.accumulatedUsage = state.accumulatedUsage;
-      throw retryError;
-    }
-  }
-}
-
-/**
- * Check whether an error qualifies for automatic retry.
+ * Determine if an error is retryable.
  * @param {any} error
- * @param {number} retryAttempt
- * @param {number} messageCount
  * @returns {boolean}
  */
-function shouldRetry(error, retryAttempt, messageCount) {
-  return isRetryableError(error) &&
-    retryAttempt < AUTO_RETRY_CONFIG.maxRetries &&
-    messageCount <= AUTO_RETRY_CONFIG.maxMessagesForRetry;
+function isRetryableError(error) {
+  if (!error) return false;
+  const msg = String(error.message || error);
+  if (/\b429\b|rate.limit|too.many.requests/i.test(msg)) return true;
+  if (/\b5[0-9]{2}\b|ETIMEDOUT|ECONNRESET|socket hang up|fetch failed/i.test(msg)) return true;
+  if (/overloaded|capacity|temporarily.unavailable|API.*error/i.test(msg)) return true;
+  return false;
 }
 
 /**
- * Execute the retry delay + state reset and return updated counters.
- * @param {any} error
- * @param {number} retryAttempt
- * @param {StreamState} state
- * @param {string|null} resumeSessionId
- * @param {string} workingDirectory
- * @param {boolean} streamingEnabled
- * @param {StreamState} outerStreamState
- * @param {string} lp
- * @returns {Promise<{ retryAttempt: number; lastRetryError: any }>}
+ * @param {number} attempt
+ * @returns {number}
  */
-async function performRetry(error, retryAttempt, state, resumeSessionId, workingDirectory, streamingEnabled, outerStreamState, lp) {
-  retryAttempt++;
-  const retryDelayMs = getRetryDelayMs(error);
-  if (isNoConversationFoundError(error) && resumeSessionId && resumeSessionId !== '') {
-    await waitForClaudeProjectSessionFile(resumeSessionId, workingDirectory, 2500, 100);
-  }
-  console.log(`[RETRY]${lp} Will retry (attempt ${retryAttempt}/${AUTO_RETRY_CONFIG.maxRetries}) after ${retryDelayMs}ms delay`);
-  console.log(`[RETRY] Reason: ${error.message || String(error)}, messageCount: ${state.messageCount}`);
-  if (streamingEnabled && state.streamStarted && !state.streamEnded) {
-    state.streamStarted = false;
-    outerStreamState.streamStarted = false;
-  }
-  await sleep(retryDelayMs);
-  return { retryAttempt, lastRetryError: error };
+function getRetryDelayMs(attempt) {
+  const base = AUTO_RETRY_CONFIG.baseDelayMs * Math.pow(2, attempt);
+  return Math.min(base + Math.random() * 1000, AUTO_RETRY_CONFIG.maxDelayMs);
 }
 
-/**
- * Log detailed error information from the message loop.
- * @param {any} error
- * @param {string} lp
- * @returns {void}
- */
-function logLoopError(error, lp) {
-  console.error(`[DEBUG] Error in message loop${lp}:`, error.message);
-  console.error('[DEBUG] Error stack:', error.stack);
-  if (error.code) console.error('[DEBUG] Error code:', error.code);
-  if (error.syscall) console.error('[DEBUG] Error syscall:', error.syscall);
-  if (error.path) console.error('[DEBUG] Error path:', error.path);
-  if (error.spawnargs) console.error('[DEBUG] Error spawnargs:', JSON.stringify(error.spawnargs));
-}
+// ========== Stream State ==========
 
 /**
- * Handle top-level catch for both send functions: emit stream end on error and format error payload.
- * @param {any} error
- * @param {StreamState} streamState
- * @param {string[]} sdkStderrLines
- * @param {string|null} resolvedModel
- * @returns {void}
+ * @typedef {{
+ *   streamStarted: boolean,
+ *   streamEnded: boolean,
+ *   currentSessionId: string|null,
+ *   lastAssistantContent: string,
+ *   accumulatedUsage: any,
+ *   streamingEnabled: boolean
+ * }} StreamState
  */
-function handleSendError(error, streamState, sdkStderrLines, resolvedModel) {
-  if (streamState.streamingEnabled && streamState.streamStarted && !streamState.streamEnded) {
-    // NOTE: Do NOT emit accumulatedUsage at stream end, even on error.
-    // If assistant messages were received, emitUsageTag already sent the correct usage.
-    // If no assistant message was received, the usage would be incomplete anyway.
+
+// ========== Core: Spawn CLI and Stream ==========
+
+/**
+ * Spawn Claude CLI and process its streaming-json output, emitting bridge markers.
+ *
+ * @param {object} params
+ * @param {string} params.message        User prompt
+ * @param {string} [params.sessionId]    Resume session id (optional)
+ * @param {string} [params.cwd]          Working directory
+ * @param {string} [params.permissionMode] 'default' | 'bypassPermissions'
+ * @param {string} [params.model]        Model name/id
+ * @param {string} [params.reasoningEffort] 'low' | 'medium' | 'high'
+ * @param {boolean} [params.streaming]   Enable streaming deltas
+ * @param {any} [params.mcpServers]      MCP servers config
+ * @param {string} [params.systemPromptAppend] Extra system prompt
+ * @returns {Promise<void>}
+ */
+async function spawnCliAndStream({
+  message,
+  sessionId = '',
+  cwd = '',
+  permissionMode = '',
+  model = '',
+  reasoningEffort = '',
+  streaming = false,
+  mcpServers = null,
+  systemPromptAppend = '',
+}) {
+  let streamStarted = false;
+  let streamEnded = false;
+  let resolvedSessionId = sessionId || null;
+  let lastAssistantContent = '';
+  let accumulatedUsage = null;
+
+  const emitStreamEndOnce = () => {
+    if (!streamStarted || streamEnded) return;
+    streamEnded = true;
     process.stdout.write('[STREAM_END]\n');
+    console.log('[MESSAGE_END]');
+  };
+
+  console.log('[MESSAGE_START]');
+  console.log('[STREAM_START]');
+  streamStarted = true;
+
+  // Resolve CLI path
+  const bin = resolveClaudeCliPath();
+  if (!probeCliBin(bin)) {
+    emitSendError('Claude CLI not found. Install Claude Code and ensure `claude` is on PATH, or set CLAUDE_CODE_PATH.');
+    emitStreamEndOnce();
+    return;
   }
-  const payload = buildConfigErrorPayload(error);
-  if (sdkStderrLines.length > 0) {
-    const sdkErrorText = sdkStderrLines.slice(-10).join('\n');
-    payload.error = `SDK-STDERR:\n\`\`\`\n${sdkErrorText}\n\`\`\`\n\n${payload.error}`;
-    payload.details.sdkError = sdkErrorText;
+
+  // Build args
+  const args = buildCliArgs({ message, sessionId, model, reasoningEffort, permissionMode, maxTurns: 100 });
+
+  // If we pre-assigned a new session id, surface it immediately
+  if (!sessionId || !sessionId.trim()) {
+    const newId = randomUUID();
+    resolvedSessionId = newId;
+    args.push('-s', newId);
+    console.log(`[SESSION_ID] ${newId}`);
+  } else {
+    console.log(`[SESSION_ID] ${sessionId}`);
   }
-  // 附加实际发送给上游的模型名:上游网关错误(如 [1211][模型不存在,请检查模型代码])
-  // 通常只含数字错误码,看不出对应哪个模型,这里补上以便用户核对自定义模型的
-  // actualModel 配置是否与网关支持的模型名一致。
-  if (resolvedModel) {
-    payload.details.sentModel = resolvedModel;
-    payload.error = `${payload.error}\n\n> 实际请求的模型: \`${resolvedModel}\``;
+
+  // Build environment
+  const cliEnv = buildCliEnv();
+  const env = { ...process.env, ...cliEnv, CLAUDE_NO_COLOR: '1', CLAUDE_USE_STDIN: '1' };
+
+  // Resolve working directory
+  const workCwd = cwd && cwd !== 'undefined' && cwd !== 'null' ? cwd : process.cwd();
+
+  // Append system prompt
+  const fullMessage = systemPromptAppend
+    ? `${systemPromptAppend}\n\n${message}`
+    : message;
+
+  // Rebuild args with full message
+  const finalArgs = buildCliArgs({ message: fullMessage, sessionId, model, reasoningEffort, permissionMode, maxTurns: 100 });
+  if (!sessionId || !sessionId.trim()) {
+    finalArgs.push('-s', resolvedSessionId);
   }
-  payload.error = truncateString(payload.error);
-  console.error('[SEND_ERROR]', JSON.stringify(payload));
+
+  console.error(`[DEBUG][Claude CLI] spawn ${bin} ${finalArgs.slice(0, 4).join(' ')}... promptLen=${fullMessage.length}`);
+
+  await new Promise((resolve) => {
+    let child;
+    try {
+      child = spawn(bin, finalArgs, {
+        cwd: workCwd,
+        env,
+        stdio: ['pipe', 'pipe', 'pipe'],
+        detached: process.platform !== 'win32',
+      });
+    } catch (error) {
+      const hint = error?.code === 'ENOENT'
+        ? 'Claude CLI not found. Install Claude Code and ensure `claude` is on PATH.'
+        : (error?.message || String(error));
+      emitSendError(`Failed to spawn Claude CLI: ${hint}`);
+      emitStreamEndOnce();
+      resolve();
+      return;
+    }
+
+    const onParentSignal = () => killChildTree(child);
+    process.once('SIGTERM', onParentSignal);
+    process.once('SIGINT', onParentSignal);
+    process.once('SIGHUP', onParentSignal);
+
+    const stdoutRl = createInterface({ input: child.stdout });
+    let stderrTail = '';
+
+    stdoutRl.on('line', (line) => {
+      const event = parseStreamLine(line);
+      switch (event.kind) {
+        case 'assistant': {
+          const content = event.content || event.message?.content;
+          if (typeof content === 'string') {
+            lastAssistantContent = content;
+            if (streaming) {
+              process.stdout.write(`[CONTENT_DELTA] ${JSON.stringify(content)}\n`);
+            }
+          } else if (Array.isArray(content)) {
+            for (const block of content) {
+              if (block.type === 'text' && block.text) {
+                lastAssistantContent += block.text;
+                if (streaming) {
+                  process.stdout.write(`[CONTENT_DELTA] ${JSON.stringify(block.text)}\n`);
+                }
+              }
+            }
+          }
+          // Emit full message for backward compat
+          console.log('[MESSAGE]', JSON.stringify(event.message || event.raw || event));
+          break;
+        }
+        case 'system':
+          if (event.session_id) {
+            resolvedSessionId = event.session_id;
+            console.log(`[SESSION_ID] ${event.session_id}`);
+          }
+          break;
+        case 'result':
+          if (event.session_id) {
+            resolvedSessionId = event.session_id;
+            console.log(`[SESSION_ID] ${event.session_id}`);
+          }
+          if (event.is_error) {
+            emitSendError(event.result || 'Claude returned an error result');
+          }
+          // Accumulate usage from result
+          if (event.cost_usd !== undefined || event.duration_api_ms !== undefined) {
+            accumulatedUsage = {
+              ...(accumulatedUsage || {}),
+              ...(event.cost_usd !== undefined && { cost_usd: event.cost_usd }),
+              ...(event.duration_api_ms !== undefined && { duration_api_ms: event.duration_api_ms }),
+            };
+          }
+          break;
+        case 'stream_event': {
+          const evt = event.event;
+          if (evt?.type === 'message_start' && evt.message?.usage) {
+            accumulatedUsage = mergeUsage(accumulatedUsage, evt.message.usage);
+          }
+          if (evt?.type === 'message_delta' && evt.usage) {
+            accumulatedUsage = mergeUsage(accumulatedUsage, evt.usage);
+          }
+          if (evt?.type === 'content_block_delta' && evt.delta?.type === 'text_delta' && evt.delta.text) {
+            lastAssistantContent += evt.delta.text;
+            if (streaming) {
+              process.stdout.write(`[CONTENT_DELTA] ${JSON.stringify(evt.delta.text)}\n`);
+            }
+          }
+          break;
+        }
+        case 'error':
+          emitSendError(event.message);
+          break;
+        default:
+          break;
+      }
+    });
+
+    child.stderr.on('data', (chunk) => {
+      const text = chunk.toString();
+      stderrTail = (stderrTail + text).slice(-4000);
+      process.stderr.write(text);
+    });
+
+    child.on('error', (error) => {
+      const hint = error?.code === 'ENOENT'
+        ? 'Claude CLI not found. Install Claude Code and ensure `claude` is on PATH.'
+        : (error?.message || String(error));
+      emitSendError(hint);
+    });
+
+    child.on('close', (code, signal) => {
+      process.off('SIGTERM', onParentSignal);
+      process.off('SIGINT', onParentSignal);
+      process.off('SIGHUP', onParentSignal);
+
+      // Emit final content
+      if (lastAssistantContent) {
+        console.log('[CONTENT]', truncateErrorContent(lastAssistantContent));
+      }
+
+      // Emit usage
+      if (accumulatedUsage) {
+        console.log('[USAGE]', JSON.stringify(accumulatedUsage));
+      }
+
+      if (code !== 0 && signal !== 'SIGTERM' && signal !== 'SIGINT') {
+        const tail = stderrTail.trim().slice(-800);
+        emitSendError(
+          `Claude CLI exited with code ${code}${signal ? ` (signal ${signal})` : ''}`
+          + (tail ? `\n${tail}` : '')
+        );
+      }
+
+      emitStreamEndOnce();
+      resolve();
+    });
+  });
 }
 
-// ========== Exported send functions ==========
+// ========== Helper Functions ==========
 
 /**
- * Send a plain text message to Claude Agent SDK.
+ * @param {any} usage
+ * @param {any} incoming
+ * @returns {any}
+ */
+function mergeUsage(usage, incoming) {
+  if (!incoming) return usage;
+  if (!usage) return incoming;
+  return {
+    input_tokens: (usage.input_tokens || 0) + (incoming.input_tokens || 0),
+    output_tokens: (usage.output_tokens || 0) + (incoming.output_tokens || 0),
+    cache_creation_input_tokens: (usage.cache_creation_input_tokens || 0) + (incoming.cache_creation_input_tokens || 0),
+    cache_read_input_tokens: (usage.cache_read_input_tokens || 0) + (incoming.cache_read_input_tokens || 0),
+  };
+}
+
+/**
+ * Truncate very long error content strings for log readability.
+ * @param {string} text
+ * @returns {string}
+ */
+function truncateErrorContent(text) {
+  if (!text || text.length <= 20000) return text || '';
+  return text.slice(0, 20000) + '\n...[truncated]';
+}
+
+/**
+ * Send an error marker to stdout.
+ * @param {string} message
+ */
+function emitSendError(message) {
+  console.log(`[SEND_ERROR] ${JSON.stringify({ error: String(message || 'Unknown Claude error') })}`);
+}
+
+// ========== Exported API ==========
+
+/**
+ * Send a plain text message to Claude via CLI.
  * @param {string} message - The message text
  * @param {string|null} [resumeSessionId=null] - Session ID to resume (optional)
  * @param {string|null} [cwd=null] - Working directory (optional)
@@ -564,71 +497,52 @@ function handleSendError(error, streamState, sdkStderrLines, resolvedModel) {
  */
 export async function sendMessage(message, resumeSessionId = null, cwd = null, permissionMode = null, model = null, actualModel = null, openedFiles = null, agentPrompt = null, streaming = null, disableThinking = false, reasoningEffort = null) {
   console.log('[DIAG] ========== sendMessage() START ==========');
-  console.log('[DIAG] params:', { msgLen: message ? message.length : 0, resumeSessionId: resumeSessionId || '(new)', cwd, permissionMode, model });
 
-  /** @type {string[]} */
-  const sdkStderrLines = [];
-  let streamingEnabled = false;
-  const outerStreamState = { streamStarted: false, streamEnded: false, accumulatedUsage: null };
-  let resolvedModel = null;
   try {
-    const { baseUrl, apiKeySource, baseUrlSource } = /** @type {{ baseUrl: string; apiKeySource: string; baseUrlSource: string }} */ (setupApiKey());
-    if (isCustomBaseUrl(baseUrl)) {
-      console.log('[DEBUG] Custom Base URL detected:', baseUrl);
-    }
-    console.log('[DEBUG] API config:', { apiKeySource, baseUrl: baseUrl || 'https://api.anthropic.com', baseUrlSource });
-    console.log('[MESSAGE_START]');
-
+    const { baseUrl } = setupApiKey();
     const workingDirectory = selectWorkingDirectory(/** @type {string} */ (cwd));
     try { process.chdir(workingDirectory); } catch (/** @type {any} */ e) { console.error('[WARNING] chdir failed:', e.message); }
-    console.log('[DEBUG] Working directory:', workingDirectory);
 
-    const sdkModelName = mapModelIdToSdkName(/** @type {string} */ (model));
     const settings = loadClaudeSettings();
-    resolvedModel = resolveModelFromSettings(/** @type {string} */ (model), settings?.env, actualModel ?? undefined);
-    console.log('[DEBUG] Model:', model, '->', sdkModelName, '(API:', resolvedModel + ')');
+    const resolvedModel = resolveModelFromSettings(/** @type {string} */ (model), settings?.env, actualModel ?? undefined);
     setModelEnvironmentVariables(resolvedModel, model ?? undefined);
-
-    const systemPromptAppend = buildSystemPromptAppend(openedFiles, agentPrompt, message);
 
     const effectivePermissionMode = (!permissionMode || permissionMode === '') ? 'default' : permissionMode;
     const normalizedReasoningEffort = normalizeReasoningEffort(reasoningEffort);
-    const { alwaysThinkingEnabled, maxThinkingTokens: configuredMaxThinkingTokens } = resolveThinkingConfig(settings);
-    // maxThinkingTokens and reasoningEffort are mutually exclusive
-    const maxThinkingTokens = (alwaysThinkingEnabled && !normalizedReasoningEffort) ? configuredMaxThinkingTokens : undefined;
-    streamingEnabled = streaming != null ? streaming : (settings?.streamingEnabled ?? false);
-    console.log('[DEBUG] Config:', { effectivePermissionMode, alwaysThinkingEnabled, maxThinkingTokens, streamingEnabled, reasoningEffort: normalizedReasoningEffort });
+    const streamingEnabled = streaming != null ? streaming : (settings?.streamingEnabled ?? false);
 
-    const preToolUseHook = createPreToolUseHook(effectivePermissionMode, workingDirectory);
-    const mcpServers = await loadMcpServersConfigAsRecord(workingDirectory);
-    const options = buildQueryOptions({ workingDirectory, permissionMode: effectivePermissionMode, sdkModelName, maxThinkingTokens, streamingEnabled, systemPromptAppend, preToolUseHook, sdkStderrLines, mcpServers, modelId: model });
-
-    if (normalizedReasoningEffort) {
-      options.effort = normalizedReasoningEffort;
-      console.log('[DEBUG] Set SDK effort:', normalizedReasoningEffort);
+    // Build system prompt append
+    let systemPromptAppend = '';
+    if (openedFiles && openedFiles.isQuickFix) {
+      systemPromptAppend = buildQuickFixPrompt(openedFiles, message);
+    } else {
+      systemPromptAppend = buildIDEContextPrompt(openedFiles, agentPrompt ?? undefined) || '';
     }
 
-    await prepareSessionResume(options, resumeSessionId, workingDirectory);
+    // Load MCP servers config
+    let mcpServers = null;
+    try {
+      mcpServers = await loadMcpServersConfigAsRecord(workingDirectory);
+    } catch (_) { /* ignore */ }
 
-    const queryFn = await loadSdkQueryFunction('');
-
-    await executeWithRetry({
-      createQueryResult: () => queryFn({ prompt: message, options }),
-      streamingEnabled,
-      resumeSessionId,
-      workingDirectory,
-      logPrefix: '',
-      outerStreamState,
-      userMessage: message
+    await spawnCliAndStream({
+      message,
+      sessionId: resumeSessionId || '',
+      cwd: workingDirectory,
+      permissionMode: effectivePermissionMode,
+      model: resolvedModel || model || '',
+      reasoningEffort: normalizedReasoningEffort || '',
+      streaming: streamingEnabled,
+      mcpServers,
+      systemPromptAppend,
     });
-
   } catch (error) {
-    handleSendError(error, { streamingEnabled, ...outerStreamState }, sdkStderrLines, resolvedModel);
+    emitSendError(error?.message || String(error));
   }
 }
 
 /**
- * Send message with attachments using Claude Agent SDK (multimodal).
+ * Send message with attachments via CLI (multimodal).
  * @param {string} message - The message text
  * @param {string|null} [resumeSessionId=null] - Session ID to resume (optional)
  * @param {string|null} [cwd=null] - Working directory (optional)
@@ -638,11 +552,6 @@ export async function sendMessage(message, resumeSessionId = null, cwd = null, p
  * @returns {Promise<void>}
  */
 export async function sendMessageWithAttachments(message, resumeSessionId = null, cwd = null, permissionMode = null, model = null, stdinData = null) {
-  /** @type {string[]} */
-  const sdkStderrLines = [];
-  let streamingEnabled = false;
-  const outerStreamState = { streamStarted: false, streamEnded: false, accumulatedUsage: null };
-  let resolvedAttachModel = null;
   try {
     setupApiKey();
     console.log('[MESSAGE_START]');
@@ -650,65 +559,61 @@ export async function sendMessageWithAttachments(message, resumeSessionId = null
     const workingDirectory = selectWorkingDirectory(/** @type {string} */ (cwd));
     try { process.chdir(workingDirectory); } catch (/** @type {any} */ e) { console.error('[WARNING] chdir failed:', e.message); }
 
-    const attachments = await loadAttachments(stdinData);
-    const openedFiles = stdinData?.openedFiles || null;
-    const agentPrompt = stdinData?.agentPrompt || null;
-
-    const systemPromptAppend = buildSystemPromptAppend(openedFiles, agentPrompt, message);
-
-    const sdkModelName = mapModelIdToSdkName(/** @type {string} */ (model));
     const settings = loadClaudeSettings();
-    const actualModel = stdinData?.actualModel || null;
-    resolvedAttachModel = resolveModelFromSettings(/** @type {string} */ (model), settings?.env, actualModel ?? undefined);
-    console.log('[DEBUG] (withAttachments) Model:', model, '->', resolvedAttachModel);
-    setModelEnvironmentVariables(resolvedAttachModel, model ?? undefined);
+    const resolvedModel = resolveModelFromSettings(/** @type {string} */ (model), settings?.env);
+    setModelEnvironmentVariables(resolvedModel, model ?? undefined);
 
-    const contentBlocks = await buildContentBlocks(attachments, message, resolvedAttachModel);
-    const userMessage = {
-      type: 'user', session_id: '', parent_tool_use_id: null,
-      message: { role: 'user', content: contentBlocks }
-    };
+    const effectivePermissionMode = (!permissionMode || permissionMode === '') ? 'default' : permissionMode;
+    const normalizedReasoningEffort = normalizeReasoningEffort(null);
 
-    const normalizedPermissionMode = (!permissionMode || permissionMode === '') ? 'default' : permissionMode;
-    const preToolUseHook = createPreToolUseHook(normalizedPermissionMode, workingDirectory);
-
-    const { alwaysThinkingEnabled, maxThinkingTokens: configuredMaxThinkingTokens } = resolveThinkingConfig(settings);
-    const reasoningEffort = normalizeReasoningEffort(stdinData?.reasoningEffort || null);
-    // maxThinkingTokens and reasoningEffort are mutually exclusive
-    const maxThinkingTokens = (alwaysThinkingEnabled && !reasoningEffort) ? configuredMaxThinkingTokens : undefined;
-    const streamingParam = stdinData?.streaming;
-    streamingEnabled = streamingParam != null ? streamingParam : (settings?.streamingEnabled ?? false);
-    console.log('[DEBUG] (withAttachments) Config:', { normalizedPermissionMode, alwaysThinkingEnabled, maxThinkingTokens, streamingEnabled, reasoningEffort });
-
-    const mcpServers = await loadMcpServersConfigAsRecord(workingDirectory);
-    const options = buildQueryOptions({ workingDirectory, permissionMode: normalizedPermissionMode, sdkModelName, maxThinkingTokens, streamingEnabled, systemPromptAppend, preToolUseHook, sdkStderrLines, mcpServers, modelId: model });
-
-    if (reasoningEffort) {
-      options.effort = reasoningEffort;
-      console.log('[DEBUG] (withAttachments) Set SDK effort:', reasoningEffort);
+    // Process attachments into message content
+    let finalMessage = message;
+    if (stdinData) {
+      try {
+        const attachments = await loadAttachments(stdinData);
+        if (attachments && attachments.length > 0) {
+          const contentBlocks = buildContentBlocks(message, attachments);
+          // For CLI, we just include file paths/descriptions in the message
+          finalMessage = message;
+          for (const att of attachments) {
+            if (att.filePath) {
+              finalMessage += `\n\n[File: ${att.filePath}]`;
+            }
+          }
+        }
+      } catch (attError) {
+        console.error('[WARNING] Failed to process attachments:', attError);
+      }
     }
 
-    await prepareSessionResume(options, resumeSessionId, workingDirectory);
-
-    const queryFn = await loadSdkQueryFunction(' (withAttachments)');
-
-    await executeWithRetry({
-      createQueryResult: () => {
-        // Recreate inputStream for each retry (AsyncStream can only be consumed once)
-        const inputStream = new AsyncStream();
-        inputStream.enqueue(userMessage);
-        inputStream.done();
-        return queryFn({ prompt: inputStream, options });
-      },
-      streamingEnabled,
-      resumeSessionId,
-      workingDirectory,
-      logPrefix: '(withAttachments)',
-      outerStreamState,
-      userMessage: message
+    await spawnCliAndStream({
+      message: finalMessage,
+      sessionId: resumeSessionId || '',
+      cwd: workingDirectory,
+      permissionMode: effectivePermissionMode,
+      model: resolvedModel || model || '',
+      reasoningEffort: normalizedReasoningEffort || '',
+      streaming: settings?.streamingEnabled ?? false,
+      mcpServers: null,
+      systemPromptAppend: '',
     });
-
   } catch (error) {
-    handleSendError(error, { streamingEnabled, ...outerStreamState }, sdkStderrLines, resolvedAttachModel);
+    emitSendError(error?.message || String(error));
   }
+}
+
+// ========== Internal Helpers ==========
+
+/**
+ * Normalize reasoning effort level.
+ * @param {string|null} effort
+ * @returns {string}
+ */
+function normalizeReasoningEffort(effort) {
+  if (!effort || typeof effort !== 'string') return '';
+  const normalized = effort.trim().toLowerCase();
+  if (!SUPPORTED_EFFORT_LEVELS.has(normalized)) return '';
+  // Map xhigh/max to high for CLI compatibility
+  if (normalized === 'xhigh' || normalized === 'max') return 'high';
+  return normalized;
 }

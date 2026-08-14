@@ -55,6 +55,32 @@ export async function verifyMcpServerStatus(serverName, serverConfig) {
 }
 
 /**
+ * Verify enabled MCP servers without allowing one rejected probe to discard
+ * the successful results from the remaining servers.
+ * @param {Array<{name: string, config: Record<string, any>}>} enabledServers
+ * @param {(serverName: string, serverConfig: Record<string, any>) => Promise<Record<string, any>>} [verify]
+ * @returns {Promise<Array<Record<string, any>>>}
+ */
+export async function verifyEnabledMcpServers(enabledServers, verify = verifyMcpServerStatus) {
+  const settledResults = await Promise.allSettled(
+    enabledServers.map(({ name, config }) => verify(name, config))
+  );
+
+  return settledResults.map((result, index) => {
+    if (result.status === 'fulfilled') {
+      return result.value;
+    }
+
+    const reason = result.reason;
+    return {
+      name: enabledServers[index].name,
+      status: 'failed',
+      error: reason instanceof Error ? reason.message : String(reason),
+    };
+  });
+}
+
+/**
  * Get the connection status of all MCP servers
  * Includes enabled, disabled, and invalid servers so the frontend gets a complete picture
  * @param {string | null} [cwd] - Current working directory (used to detect project config)
@@ -70,9 +96,7 @@ export async function getMcpServersStatus(cwd = null) {
 
     // Verify all enabled servers in parallel
     const enabledResults = allServers.enabled.length > 0
-      ? await Promise.all(
-          allServers.enabled.map(({ name, config }) => verifyMcpServerStatus(name, config))
-        )
+      ? await verifyEnabledMcpServers(allServers.enabled)
       : [];
 
     // Generate failed status for disabled servers (with reason)

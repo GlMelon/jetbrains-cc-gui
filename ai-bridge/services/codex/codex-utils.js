@@ -4,12 +4,8 @@
  * Logging, environment config, SDK initialization, reconnect helpers, and error handling.
  */
 
-import { loadCodexSdk, isCodexSdkAvailable } from '../../utils/sdk-loader.js';
+// NOTE: SDK imports removed — Codex SDK no longer available in CLI-only mode.
 import { CodexPermissionMapper } from '../../utils/permission-mapper.js';
-
-// SDK cache
-/** @type {any} */
-let codexSdk = null;
 
 // ========== Debug Logging Configuration ==========
 // Log levels: 0 = off, 1 = errors only, 2 = warnings, 3 = info, 4 = debug, 5 = verbose
@@ -177,21 +173,14 @@ export const emitStatusMessage = (emitMessage, message) => {
 
 /**
  * Ensure Codex SDK is loaded.
+ * NOTE: SDK has been removed. This function always throws in CLI-only mode.
+ * @returns {Promise<any>}
  */
-/** @returns {Promise<any>} */
 export async function ensureCodexSdk() {
-  if (!codexSdk) {
-    if (!isCodexSdkAvailable()) {
-      const error = /** @type {Error & { code?: string; provider?: string }} */ (
-        new Error('Codex SDK not installed. Please install via Settings > Dependencies.')
-      );
-      error.code = 'SDK_NOT_INSTALLED';
-      error.provider = 'codex';
-      throw error;
-    }
-    codexSdk = await loadCodexSdk();
-  }
-  return codexSdk;
+  throw new Error(
+    'Codex SDK is no longer available in CLI-only mode. ' +
+    'Please use the CLI-based message sender instead.'
+  );
 }
 
 export const MAX_TOOL_RESULT_CHARS = 20000;
