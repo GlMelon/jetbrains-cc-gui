@@ -7,6 +7,7 @@ import { strip1MContextSuffix } from '../components/ChatInputBox/types';
 import type { Attachment, ChatInputBoxHandle, PermissionMode, SelectedAgent } from '../components/ChatInputBox/types';
 import type { ViewMode } from './useModelProviderState';
 import { getModelsForProvider } from '../utils/modelRegistry';
+import { expandQuoteTokens } from '../components/ChatInputBox/utils/quoteRegistry';
 
 /**
  * Command sets for local handling (shared with App.tsx to avoid duplication)
@@ -279,7 +280,9 @@ export function useMessageSender({
    * Execute message sending (from queue or directly)
    */
   const executeMessage = useCallback((content: string, attachments?: Attachment[]) => {
-    const text = content.replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
+    // Expand inline quote chips (PUA-delimited tokens) into Markdown blockquotes
+    // before sending \u2014 chips are serialized back to tokens by getTextContent.
+    const text = expandQuoteTokens(content).replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
     const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
 
     if (!text && !hasAttachments) return;

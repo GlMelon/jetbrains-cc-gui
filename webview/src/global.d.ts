@@ -303,6 +303,12 @@ interface Window {
   focusChatInput?: () => void;
 
   /**
+   * Insert an inline quote chip into the input - registered by ChatInputBox.
+   * Payload: JSON `{ text }` (falls back to the raw string on parse failure).
+   */
+  addQuotedSnippet?: (payload: string) => void;
+
+  /**
    * Clear selection info
    */
   clearSelectionInfo?: () => void;
