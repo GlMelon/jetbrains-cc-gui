@@ -4,6 +4,7 @@
  * Grok has no official SDK; this channel shells out to the local CLI.
  */
 import { sendMessage as grokSendMessage } from '../services/grok/message-service.js';
+import { listModels as grokListModels } from '../services/grok/models-service.js';
 
 /**
  * Execute a Grok command.
@@ -35,13 +36,17 @@ export async function handleGrokCommand(command, args, stdinData) {
       break;
     }
 
+    case 'listModels':
+      grokListModels();
+      break;
+
     default:
       throw new Error(`Unknown Grok command: ${command}`);
   }
 }
 
 export function getGrokCommandList() {
-  return ['send'];
+  return ['send', 'listModels'];
 }
 
 export const grokChannelDescriptor = {
