@@ -1431,7 +1431,9 @@
   "markdown": {
     "copyCode": "复制代码",
     "copyMessage": "复制消息",
-    "copySuccess": "复制成功"
+    "copySuccess": "复制成功",
+    "quoteMessage": "引用消息",
+    "quoteSuccess": "已引用"
   },
   "mcp": {
     "title": "MCP 服务器",
@@ -1713,6 +1715,7 @@
   "subagent": {
     "process": {
       "title": "Agent 进程",
+      "prompt": "提示词",
       "thought": "思考",
       "otherTools": "其他工具",
       "result": "结果",

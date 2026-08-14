@@ -1414,7 +1414,9 @@
   "markdown": {
     "copyCode": "Copy code",
     "copyMessage": "Copy message",
-    "copySuccess": "Copied!"
+    "copySuccess": "Copied!",
+    "quoteMessage": "Quote message",
+    "quoteSuccess": "Quoted!"
   },
   "mcp": {
     "title": "MCP Servers",
@@ -1696,6 +1698,7 @@
   "subagent": {
     "process": {
       "title": "Agent process",
+      "prompt": "Prompt",
       "thought": "Thought",
       "otherTools": "Other tools",
       "result": "Result",
