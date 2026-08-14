@@ -5,6 +5,7 @@ import com.github.claudecodegui.config.OpenCodeConfigReader;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.protocol.DownstreamEvent;
+import com.github.claudecodegui.settings.OpenCodeSettingsManager;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -33,17 +34,21 @@ import java.util.concurrent.CompletableFuture;
  *       并把 gateway state 词表（READY/DEGRADED/STARTING/BACKOFF/STOPPED）映射到前端词表
  *       （connected/pending/failed/disabled）。这是比 Claude/Codex 的 channel spawn 更优的数据源。</li>
  * </ul>
- * <p>不含增删改/工具列表——OpenCode 多层合并 + 有 {@code opencode mcp add} 无 remove，插件内编辑复杂
- * 且与定位冲突；工具配置后自动暴露给 LLM，无独立列工具命令。
+ * <p>增删改/toggle（2026-08-14 起）：经 {@link OpenCodeSettingsManager} 外科手术式读写 opencode.json
+ * 的 {@code mcp} 段（global 层，保留 provider 等其他段；写前过 {@code McpCommandRiskEvaluator} SEC-01
+ * 闸门），写后刷新 MCP Gateway——对称 Claude/Codex 的 manager 落盘模式（不走 {@code opencode mcp}
+ * CLI，其无 remove 子命令）。工具列表仍不可达——OpenCode 无列工具 API，工具配置后自动暴露给 LLM。
  */
 public class OpenCodeMcpServerActionHandlers {
 
     private static final Logger LOG = Logger.getInstance(OpenCodeMcpServerActionHandlers.class);
 
     private final HandlerContext context;
+    private final OpenCodeSettingsManager settingsManager;
 
     public OpenCodeMcpServerActionHandlers(HandlerContext context) {
         this.context = context;
+        this.settingsManager = new OpenCodeSettingsManager(GsonHolder.GSON);
     }
 
     // --- Response-handling methods (called by typed handlers) ---
@@ -89,6 +94,89 @@ public class OpenCodeMcpServerActionHandlers {
                 );
             }
         });
+    }
+
+    // --- 增删改/toggle(对称 CodexMcpServerActionHandlers,落盘在 OpenCodeSettingsManager) ---
+
+    void handleAddMcpServer(String content) {
+        try {
+            JsonObject server = GsonHolder.GSON.fromJson(content, JsonObject.class);
+            settingsManager.upsertMcpServer(server);
+            refreshGateway();
+            LOG.info("[OpenCodeMcpServerActionHandlers] Added OpenCode MCP server: " + serverIdOf(server));
+            CompletableFuture.runAsync(this::handleGetMcpServers);
+        } catch (Exception e) {
+            LOG.error("[OpenCodeMcpServerActionHandlers] Failed to add OpenCode MCP server: " + e.getMessage(), e);
+            dispatchError("Failed to add OpenCode MCP server: " + e.getMessage());
+        }
+    }
+
+    void handleUpdateMcpServer(String content) {
+        try {
+            JsonObject server = GsonHolder.GSON.fromJson(content, JsonObject.class);
+            settingsManager.upsertMcpServer(server);
+            refreshGateway();
+            LOG.info("[OpenCodeMcpServerActionHandlers] Updated OpenCode MCP server: " + serverIdOf(server));
+            CompletableFuture.runAsync(this::handleGetMcpServers);
+        } catch (Exception e) {
+            LOG.error("[OpenCodeMcpServerActionHandlers] Failed to update OpenCode MCP server: " + e.getMessage(), e);
+            dispatchError("Failed to update OpenCode MCP server: " + e.getMessage());
+        }
+    }
+
+    void handleDeleteMcpServer(String content) {
+        try {
+            JsonObject json = GsonHolder.GSON.fromJson(content, JsonObject.class);
+            String serverId = json.has("id") ? json.get("id").getAsString() : "";
+
+            boolean success = settingsManager.deleteMcpServer(serverId);
+            if (success) {
+                refreshGateway();
+                LOG.info("[OpenCodeMcpServerActionHandlers] Deleted OpenCode MCP server: " + serverId);
+                CompletableFuture.runAsync(this::handleGetMcpServers);
+            } else {
+                LOG.warn("[OpenCodeMcpServerActionHandlers] OpenCode MCP server not found: " + serverId);
+                dispatchError("OpenCode MCP server not found: " + serverId);
+            }
+        } catch (Exception e) {
+            LOG.error("[OpenCodeMcpServerActionHandlers] Failed to delete OpenCode MCP server: " + e.getMessage(), e);
+            dispatchError("Failed to delete OpenCode MCP server: " + e.getMessage());
+        }
+    }
+
+    void handleToggleMcpServer(String content) {
+        try {
+            JsonObject server = GsonHolder.GSON.fromJson(content, JsonObject.class);
+            settingsManager.upsertMcpServer(server);
+            refreshGateway();
+            LOG.info("[OpenCodeMcpServerActionHandlers] Toggled OpenCode MCP server: " + serverIdOf(server)
+                    + " (enabled: " + (!server.has("enabled") || server.get("enabled").getAsBoolean()) + ")");
+            CompletableFuture.runAsync(this::handleGetMcpServers);
+        } catch (Exception e) {
+            LOG.error("[OpenCodeMcpServerActionHandlers] Failed to toggle OpenCode MCP server: " + e.getMessage(), e);
+            dispatchError("Failed to toggle OpenCode MCP server: " + e.getMessage());
+        }
+    }
+
+    private static String serverIdOf(JsonObject server) {
+        return server != null && server.has("id") ? server.get("id").getAsString() : CommonConstants.UNKNOWN;
+    }
+
+    /** 刷新 MCP Gateway 配置(增删改/toggle 后同步 snapshot,对称 Codex 的 refreshGateway)。 */
+    private void refreshGateway() {
+        try {
+            if (context.getProject() != null) {
+                McpGatewayService.getInstance(context.getProject()).refreshConfig(context.getProject().getBasePath());
+            }
+        } catch (Exception e) {
+            LOG.warn("[OpenCodeMcpServerActionHandlers] Failed to refresh MCP Gateway: " + e.getMessage());
+        }
+    }
+
+    private void dispatchError(String message) {
+        ApplicationManager.getApplication().invokeLater(() ->
+            context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs(message))
+        );
     }
 
     // --- Private helpers ---

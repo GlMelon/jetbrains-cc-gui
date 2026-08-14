@@ -145,9 +145,13 @@ public enum UpstreamAction implements ProtocolValue {
     TOGGLE_CODEX_MCP_SERVER("toggle_codex_mcp_server"),
     VALIDATE_CODEX_MCP_SERVER("validate_codex_mcp_server"),
 
-    // ── MCP Server (OpenCode) ── 只读:server 列表(读 ~/.config/opencode/opencode.json)+ 实时连接状态(经 MCP Gateway 聚合,Claude/Codex 走 channel spawn,OpenCode 无该路径故用 gateway)
+    // ── MCP Server (OpenCode) ── 列表/增删改直接读写 ~/.config/opencode/opencode.json 的 mcp 段(global 层,外科手术式保留其他段);实时连接状态经 MCP Gateway 聚合(Claude/Codex 走 channel spawn,OpenCode 无该路径故用 gateway)
     GET_OPENCODE_MCP_SERVERS("get_opencode_mcp_servers"),
     GET_OPENCODE_MCP_SERVER_STATUS("get_opencode_mcp_server_status"),
+    ADD_OPENCODE_MCP_SERVER("add_opencode_mcp_server"),
+    UPDATE_OPENCODE_MCP_SERVER("update_opencode_mcp_server"),
+    DELETE_OPENCODE_MCP_SERVER("delete_opencode_mcp_server"),
+    TOGGLE_OPENCODE_MCP_SERVER("toggle_opencode_mcp_server"),
 
     // ── MCP Import ── 从外部配置(GitHub Copilot 格式)解析导入 MCP 服务器(业务在后端 McpServerImportService,前端只 paste/预览/确认)
     PARSE_COPILOT_MCP_CONFIG("parse_copilot_mcp_config"),

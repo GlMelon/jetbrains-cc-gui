@@ -1,17 +1,19 @@
 /**
- * OpenCode MCP Server 面板（只读）。
+ * OpenCode MCP Server 面板(与 Claude/Codex 的 {@link McpProviderPanel} 对齐的全功能版本)。
  *
- * <p>与 Claude/Codex 的 {@link McpProviderPanel} 差异:OpenCode 的 MCP server 在插件 channel 层
- * 无 getMcpServerStatus/列工具命令,故不复用 useServerData 的 isCodexMode 二元结构与 mcp_/codex_
- * 前缀通道。本面板用独立的 GET_OPENCODE_MCP_* action:
+ * <p>与 McpProviderPanel 的差异:OpenCode 的 MCP server 在插件 channel 层无
+ * getMcpServerStatus/列工具命令,故不复用 useServerData 的 isCodexMode 二元结构与 mcp_/codex_
+ * 前缀通道。本面板用独立的 OPENCODE_MCP_* action:
  * <ul>
  *   <li>server 列表:后端读 {@code ~/.config/opencode/opencode.json} 的 {@code mcp} 字段(global 层),
  *       适配成 McpServer 嵌套形状后经 OPENCODE_MCP_SERVER_LIST 下行。</li>
  *   <li>连接状态:后端取 MCP Gateway 聚合 statusJson,过滤 sourceProvider=="opencode" 并把 gateway
  *       state(READY/DEGRADED/STARTING/BACKOFF/STOPPED)映射到前端词表后经 OPENCODE_MCP_SERVER_STATUS 下行。</li>
+ *   <li>增删改/toggle/手动添加/市场下载:后端外科手术式写 opencode.json 的 mcp 段(保留 provider 等
+ *       其它段),经 SEC-01 闸门 + SEC-06 包名二次确认后落盘并刷新 gateway。仅无工具列表
+ *       (OpenCode 无列工具 API,ServerCard 传 showTools=false)。</li>
  * </ul>
- * <p>不含增删改/工具列表(只读 + OpenCode 多层合并 + 有 mcp add 无 remove,与定位冲突)。展开卡片仍可见
- * command/url 详情(只读展示)。
+ * <p>header 含"刷新状态"按钮;"重载 Gateway"已提升至 {@link McpSettingsSection} 全局操作栏(provider 无关)。
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -20,9 +22,16 @@ import type { McpServer, McpServerStatusInfo } from '../../types/mcp';
 import { sendAction, subscribeEvent } from '../../bridge/typed';
 import { UPSTREAM, DOWNSTREAM } from '../../generated/protocol';
 import { ServerCard } from './ServerCard';
+import { McpServerDialog } from './McpServerDialog';
+import { McpMarketDialog } from './McpMarketDialog';
+import { McpConfirmDialog } from './McpConfirmDialog';
+import { McpPackageConfirmDialog, type PackageConfirmItem } from './McpPackageConfirmDialog';
+import { ToastContainer, type ToastMessage } from '../Toast';
+import { copyToClipboard } from '../../utils/copyUtils';
 import type { McpTool } from './types';
+import { parsePackageRunner } from './packageRunner';
 import { SkeletonList } from '../shared/SkeletonList';
-import { PlugIcon, RefreshIcon, ServerIcon } from '../Icons';
+import { BracesIcon, ExtensionsIcon, PlugIcon, RefreshIcon, ServerIcon } from '../Icons';
 import { UnifiedLoader } from '../UnifiedLoader';
 
 export function OpenCodeMcpPanel() {
@@ -32,6 +41,32 @@ export function OpenCodeMcpPanel() {
   const [loading, setLoading] = useState(true);
   const [statusLoading, setStatusLoading] = useState(false);
   const [expandedServers, setExpandedServers] = useState<Set<string>>(new Set());
+
+  // Dialog state(对称 McpProviderPanel)
+  const [showServerDialog, setShowServerDialog] = useState(false);
+  const [showMarketDialog, setShowMarketDialog] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [editingServer, setEditingServer] = useState<McpServer | null>(null);
+  const [deletingServer, setDeletingServer] = useState<McpServer | null>(null);
+
+  // 市场选中 server → 预填 McpServerDialog(isPreset 新建模式),用户填 API key/headers 后保存走 ADD
+  const [pendingPresetServer, setPendingPresetServer] = useState<McpServer | null>(null);
+
+  // B3/SEC-06:包管理型 / 容器型 runner 安装前的包名二次确认
+  const [pendingPackageApproval, setPendingPackageApproval] = useState<{
+    items: PackageConfirmItem[];
+    onApprove: () => void;
+  } | null>(null);
+
+  // Toast state
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const addToast = useCallback((message: string, type: ToastMessage['type'] = 'info') => {
+    const id = `toast-${Date.now()}-${Math.random()}`;
+    setToasts((prev) => [...prev, { id, message, type }]);
+  }, []);
+  const dismissToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  }, []);
 
   const loadServers = useCallback(() => {
     setLoading(true);
@@ -81,9 +116,14 @@ export function OpenCodeMcpPanel() {
 
     const unsubList = subscribeEvent(DOWNSTREAM.OPENCODE_MCP_SERVER_LIST, (json) => handleListUpdate(json as string));
     const unsubStatus = subscribeEvent(DOWNSTREAM.OPENCODE_MCP_SERVER_STATUS, (json) => handleStatusUpdate(json as string));
+    // gateway 重启完成信号:重拉 server 状态(重启后 health 全变,不重拉则面板停留旧红态)
+    const unsubGatewayStatus = subscribeEvent(DOWNSTREAM.MCP_GATEWAY_STATUS, () => {
+      loadServerStatus();
+    });
     return () => {
       unsubList();
       unsubStatus();
+      unsubGatewayStatus();
     };
   }, [loadServers, loadServerStatus]);
 
@@ -104,6 +144,155 @@ export function OpenCodeMcpPanel() {
       return next;
     });
   }, []);
+
+  // ---- 增删改/toggle/添加(对称 McpProviderPanel,action 换 OPENCODE 通道) ----
+
+  const handleEdit = useCallback((server: McpServer) => {
+    setEditingServer(server);
+    setShowServerDialog(true);
+  }, []);
+
+  const handleDelete = useCallback((server: McpServer) => {
+    setDeletingServer(server);
+    setShowConfirmDialog(true);
+  }, []);
+
+  const confirmDelete = useCallback(() => {
+    if (deletingServer) {
+      sendAction(UPSTREAM.DELETE_OPENCODE_MCP_SERVER, { id: deletingServer.id });
+      addToast(`${t('mcp.deleted')} ${deletingServer.name || deletingServer.id}`, 'success');
+      setTimeout(() => {
+        loadServers();
+      }, 100);
+    }
+    setShowConfirmDialog(false);
+    setDeletingServer(null);
+  }, [deletingServer, addToast, t, loadServers]);
+
+  const cancelDelete = useCallback(() => {
+    setShowConfirmDialog(false);
+    setDeletingServer(null);
+  }, []);
+
+  // B3/SEC-06:单个 server 安装前检测包名,命中包管理 / 容器型 runner 则弹二次确认
+  const requirePackageApproval = useCallback((server: McpServer, onApprove: () => void) => {
+    const info = parsePackageRunner(server.server);
+    if (!info) {
+      onApprove();
+      return;
+    }
+    setPendingPackageApproval({
+      items: [{ serverName: server.name || server.id, info }],
+      onApprove,
+    });
+  }, []);
+
+  const confirmPackageApproval = useCallback(() => {
+    const pending = pendingPackageApproval;
+    setPendingPackageApproval(null);
+    if (pending) {
+      pending.onApprove();
+    }
+  }, [pendingPackageApproval]);
+
+  const cancelPackageApproval = useCallback(() => {
+    setPendingPackageApproval(null);
+  }, []);
+
+  const handleAddManual = useCallback(() => {
+    setEditingServer(null);
+    setShowServerDialog(true);
+  }, []);
+
+  const handleAddFromMarket = useCallback(() => {
+    setShowMarketDialog(true);
+  }, []);
+
+  const handleSelectFromMarket = useCallback((server: McpServer) => {
+    setEditingServer(null);
+    setPendingPresetServer(server);
+    setShowMarketDialog(false);
+    setShowServerDialog(true);
+  }, []);
+
+  // Save server(经 requirePackageApproval:包管理 / 容器 runner 命中则先弹二次确认)。
+  // 后端写 opencode.json 的 mcp 段(apps 等前端专属字段被忽略)。
+  const handleSaveServer = useCallback((server: McpServer) => {
+    requirePackageApproval(server, () => {
+      if (editingServer) {
+        if (editingServer.id !== server.id) {
+          sendAction(UPSTREAM.DELETE_OPENCODE_MCP_SERVER, { id: editingServer.id });
+          sendAction(UPSTREAM.ADD_OPENCODE_MCP_SERVER, server);
+          addToast(`${t('mcp.updated')} ${server.name || server.id}`, 'success');
+        } else {
+          sendAction(UPSTREAM.UPDATE_OPENCODE_MCP_SERVER, server);
+          addToast(`${t('mcp.saved')} ${server.name || server.id}`, 'success');
+        }
+      } else {
+        sendAction(UPSTREAM.ADD_OPENCODE_MCP_SERVER, server);
+        addToast(`${t('mcp.added')} ${server.name || server.id}`, 'success');
+      }
+
+      setTimeout(() => {
+        loadServers();
+      }, 100);
+
+      setShowServerDialog(false);
+      setEditingServer(null);
+      setPendingPresetServer(null);
+    });
+  }, [editingServer, addToast, t, loadServers, requirePackageApproval]);
+
+  // toggle=upsert 整个 server(后端落 enabled 字段;apps 为前端专属字段,后端忽略)
+  const handleToggleServer = useCallback((server: McpServer, enabled: boolean) => {
+    sendAction(UPSTREAM.TOGGLE_OPENCODE_MCP_SERVER, { ...server, enabled });
+    addToast(
+      enabled
+        ? `${t('mcp.enabled')} ${server.name || server.id}`
+        : `${t('mcp.disabled')} ${server.name || server.id}`,
+      'success'
+    );
+    loadServers();
+    loadServerStatus();
+  }, [addToast, t, loadServers, loadServerStatus]);
+
+  // Copy URL
+  const handleCopyUrl = useCallback(async (url: string) => {
+    const success = await copyToClipboard(url);
+    if (success) {
+      addToast(t('mcp.linkCopied'), 'success');
+    } else {
+      addToast(t('mcp.copyFailed'), 'error');
+    }
+  }, [addToast, t]);
+
+  // Copy server config(redact sensitive values in env/headers,对称 McpProviderPanel)
+  const handleCopyConfig = useCallback(async (server: McpServer) => {
+    const { env, headers, ...safeFields } = server.server;
+    const serverConfig: Record<string, unknown> = { ...safeFields };
+    if (env) {
+      serverConfig.env = Object.fromEntries(
+        Object.keys(env).map(k => [k, '***'])
+      );
+    }
+    if (headers) {
+      serverConfig.headers = Object.fromEntries(
+        Object.keys(headers).map(k => [k, '***'])
+      );
+    }
+    const config = {
+      mcpServers: {
+        [server.id]: serverConfig,
+      },
+    };
+    const jsonContent = JSON.stringify(config, null, 2);
+    const success = await copyToClipboard(jsonContent);
+    if (success) {
+      addToast(t('mcp.configCopied'), 'success');
+    } else {
+      addToast(t('mcp.copyFailed'), 'error');
+    }
+  }, [addToast, t]);
 
   return (
     <div className="mcp-settings-section">
@@ -126,12 +315,25 @@ export function OpenCodeMcpPanel() {
           >
             {loading || statusLoading ? <UnifiedLoader type="spin" size={16} /> : <RefreshIcon size={16} />}
           </button>
+          {/* 手动配置(幽灵按钮) */}
+          <button
+            className="btn-ghost"
+            onClick={handleAddManual}
+            title={t('mcp.manualConfig')}
+          >
+            <BracesIcon size={16} />
+            {t('mcp.manualConfig')}
+          </button>
+          {/* 从市场获取(主色按钮) */}
+          <button
+            className="market-btn"
+            onClick={handleAddFromMarket}
+            title={t('mcp.addFromMarket')}
+          >
+            <ExtensionsIcon size={16} />
+            {t('mcp.addFromMarket')}
+          </button>
         </div>
-      </div>
-
-      {/* 只读提示条 */}
-      <div className="opencode-readonly-hint">
-        {t('mcp.opencodeReadonlyHint')}
       </div>
 
       <div className="mcp-panels-container">
@@ -146,15 +348,15 @@ export function OpenCodeMcpPanel() {
                   isCodexMode={false}
                   serverStatus={serverStatus}
                   t={t}
-                  readOnly
+                  showTools={false}
                   onToggleExpand={() => toggleExpand(server.id)}
-                  onToggleServer={() => {}}
-                  onEdit={() => {}}
-                  onDelete={() => {}}
-                  onCopy={() => {}}
+                  onToggleServer={(enabled) => handleToggleServer(server, enabled)}
+                  onEdit={() => handleEdit(server)}
+                  onDelete={() => handleDelete(server)}
+                  onCopy={() => handleCopyConfig(server)}
                   onRefresh={() => {}}
                   onLoadTools={() => {}}
-                  onCopyUrl={() => {}}
+                  onCopyUrl={handleCopyUrl}
                   onToolHover={((_tool: McpTool | null) => {})}
                   animationIndex={index}
                 />
@@ -164,7 +366,7 @@ export function OpenCodeMcpPanel() {
                 <div className="empty-state">
                   <ServerIcon size={16} />
                   <p>{t('mcp.noServers')}</p>
-                  <p className="hint">{t('mcp.opencodeReadonlyHint')}</p>
+                  <p className="hint">{t('mcp.addServerHint')}</p>
                 </div>
               )}
             </div>
@@ -175,6 +377,52 @@ export function OpenCodeMcpPanel() {
           )}
         </div>
       </div>
+
+      {/* Dialogs */}
+      {showServerDialog && (
+        <McpServerDialog
+          server={editingServer ?? pendingPresetServer}
+          isPreset={!!pendingPresetServer}
+          existingIds={servers.map(s => s.id)}
+          currentProvider="opencode"
+          onClose={() => {
+            setShowServerDialog(false);
+            setEditingServer(null);
+            setPendingPresetServer(null);
+          }}
+          onSave={handleSaveServer}
+        />
+      )}
+
+      {showMarketDialog && (
+        <McpMarketDialog
+          isCodexMode={false}
+          onClose={() => setShowMarketDialog(false)}
+          onSelect={handleSelectFromMarket}
+        />
+      )}
+
+      {showConfirmDialog && deletingServer && (
+        <McpConfirmDialog
+          title={t('mcp.deleteTitle')}
+          message={t('mcp.deleteMessage', { name: deletingServer.name || deletingServer.id })}
+          confirmText={t('mcp.deleteConfirm')}
+          cancelText={t('mcp.cancel')}
+          onConfirm={confirmDelete}
+          onCancel={cancelDelete}
+        />
+      )}
+
+      {pendingPackageApproval && (
+        <McpPackageConfirmDialog
+          items={pendingPackageApproval.items}
+          onConfirm={confirmPackageApproval}
+          onCancel={cancelPackageApproval}
+        />
+      )}
+
+      {/* Toast notifications */}
+      <ToastContainer messages={toasts} onDismiss={dismissToast} />
     </div>
   );
 }

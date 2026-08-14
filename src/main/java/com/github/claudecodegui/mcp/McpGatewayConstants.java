@@ -43,6 +43,8 @@ public final class McpGatewayConstants {
     public static final String KEY_TYPE = "type";
     public static final String KEY_ENV = "env";
     public static final String KEY_URL = "url";
+    /** OpenCode 原生配置的环境变量键(opencode.json mcp 字段用 {@code environment},区别于 Gateway 协议的 {@code env})。 */
+    public static final String KEY_ENVIRONMENT_OPENCODE = "environment";
 
     public static final String ARG_STATE_FILE = "--state-file";
     public static final String ARG_REVISION = "--revision";

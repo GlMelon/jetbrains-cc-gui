@@ -46,6 +46,7 @@ export function ServerCard({
   onToolHover,
   animationIndex = 0,
   readOnly = false,
+  showTools = true,
 }: {
   server: McpServer;
   isExpanded: boolean;
@@ -65,6 +66,8 @@ export function ServerCard({
   onToolHover: (tool: McpTool | null, position?: { x: number; y: number }) => void;
   animationIndex?: number;
   readOnly?: boolean;
+  /** 无工具列能力时隐藏工具面板(OpenCode:无列工具 API,空回调会渲染死按钮) */
+  showTools?: boolean;
 }) {
   const statusInfo = getServerStatusInfo(server, serverStatus);
   const status = statusInfo?.status;
@@ -184,9 +187,9 @@ export function ServerCard({
             )}
           </div>
 
-          {/* 工具 chip 流(替换原侧边栏布局)。只读面板(OpenCode)无工具列表能力,
-              跳过渲染以免出现「点击加载工具」死按钮(空回调 + 无 toolsInfo)。 */}
-          {!readOnly && (
+          {/* 工具 chip 流(替换原侧边栏布局)。无工具列能力的面板(OpenCode)用 showTools=false
+              跳过渲染,以免出现「点击加载工具」死按钮(空回调 + 无 toolsInfo)。 */}
+          {!readOnly && showTools && (
             <ServerToolsPanel
               toolsInfo={toolsInfo}
               isConnected={isConnected}

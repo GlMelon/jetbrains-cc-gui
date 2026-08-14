@@ -1485,7 +1485,6 @@
     "docs": "Docs",
     "noServers": "No MCP servers",
     "addServerHint": "Click 'Add' button to add a server",
-    "opencodeReadonlyHint": "Read-only · from ~/.config/opencode/opencode.json. Use `opencode mcp add` or edit the file manually, then restart the session to apply.",
     "loading": "Loading...",
     "deleteTitle": "Delete MCP server",
     "deleteMessage": "Are you sure you want to delete server \"{{name}}\"?\n\nThis action cannot be undone.",

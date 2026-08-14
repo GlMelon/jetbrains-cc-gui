@@ -25,6 +25,10 @@ import com.github.claudecodegui.handler.codex.ValidateCodexMcpServerActionHandle
 import com.github.claudecodegui.handler.opencode.OpenCodeMcpServerActionHandlers;
 import com.github.claudecodegui.handler.opencode.GetOpenCodeMcpServersActionHandler;
 import com.github.claudecodegui.handler.opencode.GetOpenCodeMcpServerStatusActionHandler;
+import com.github.claudecodegui.handler.opencode.AddOpenCodeMcpServerActionHandler;
+import com.github.claudecodegui.handler.opencode.UpdateOpenCodeMcpServerActionHandler;
+import com.github.claudecodegui.handler.opencode.DeleteOpenCodeMcpServerActionHandler;
+import com.github.claudecodegui.handler.opencode.ToggleOpenCodeMcpServerActionHandler;
 import com.github.claudecodegui.handler.UsagePushService;
 import com.github.claudecodegui.handler.context.GetContextUsageActionHandler;
 import com.github.claudecodegui.handler.dependency.DependencyActionHandlers;
@@ -682,13 +686,18 @@ nodeService.setSessionId(sessionId);
         typedHandlers.add(new ToggleCodexMcpServerActionHandler(codexMcpServerHandlers));
         typedHandlers.add(new ValidateCodexMcpServerActionHandler(codexMcpServerHandlers));
 
-        // OpenCode MCP server action handlers (只读: server 列表 + 实时连接状态)
+        // OpenCode MCP server action handlers (server 列表/增删改/toggle + 实时连接状态)
         // 与 Claude/Codex 不同:OpenCode channel 无 getMcpServerStatus,连接状态改取 MCP Gateway
-        // 聚合状态(McpGatewayService.statusJson)过滤 sourceProvider=="opencode";server 列表读
-        // ~/.config/opencode/opencode.json 的 mcp 字段。不含增删改/工具列表(只读 + 多层合并,与定位冲突)。
+        // 聚合状态(McpGatewayService.statusJson)过滤 sourceProvider=="opencode";server 列表与增删改
+        // 直接读写 ~/.config/opencode/opencode.json 的 mcp 字段(global 层,OpenCodeSettingsManager
+        // 外科手术式写入 + SEC-01 闸门)。无工具列表(OpenCode 无列工具 API)。
         OpenCodeMcpServerActionHandlers opencodeMcpServerHandlers = new OpenCodeMcpServerActionHandlers(handlerContext);
         typedHandlers.add(new GetOpenCodeMcpServersActionHandler(opencodeMcpServerHandlers));
         typedHandlers.add(new GetOpenCodeMcpServerStatusActionHandler(opencodeMcpServerHandlers));
+        typedHandlers.add(new AddOpenCodeMcpServerActionHandler(opencodeMcpServerHandlers));
+        typedHandlers.add(new UpdateOpenCodeMcpServerActionHandler(opencodeMcpServerHandlers));
+        typedHandlers.add(new DeleteOpenCodeMcpServerActionHandler(opencodeMcpServerHandlers));
+        typedHandlers.add(new ToggleOpenCodeMcpServerActionHandler(opencodeMcpServerHandlers));
 
         // Agent action handlers (B2 迁移: agent CRUD + selection + import/export)
         AgentActionHandlers agentHandlers = new AgentActionHandlers(handlerContext);

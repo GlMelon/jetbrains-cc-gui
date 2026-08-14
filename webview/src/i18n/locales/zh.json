@@ -1502,7 +1502,6 @@
     "docs": "文档",
     "noServers": "暂无 MCP 服务器",
     "addServerHint": "点击「添加」按钮添加服务器",
-    "opencodeReadonlyHint": "只读 · 来自 ~/.config/opencode/opencode.json。可用 opencode mcp add 或手动编辑文件，重启会话后生效。",
     "loading": "加载中...",
     "deleteTitle": "删除 MCP 服务器",
     "deleteMessage": "确定要删除服务器 \"{{name}}\" 吗？\n\n此操作无法撤销。",

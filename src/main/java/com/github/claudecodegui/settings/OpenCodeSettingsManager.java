@@ -1,8 +1,12 @@
 package com.github.claudecodegui.settings;
 
 import com.github.claudecodegui.common.CommonConstants;
+import com.github.claudecodegui.mcp.McpCommandRiskEvaluator;
+import com.github.claudecodegui.mcp.McpGatewayConstants;
+import com.github.claudecodegui.mcp.McpInstallRejectedException;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -170,6 +174,117 @@ public class OpenCodeSettingsManager {
         writeStringAtomically(configPath, gson.toJson(root));
         LOG.info("[OpenCodeSettingsManager] Surgically merged provider section (" + nativeProviderSection.size()
                 + " providers) into opencode.json, other sections preserved");
+    }
+
+    /**
+     * Upsert(新增或更新)一个 MCP server 到 opencode.json 的 {@code mcp} 段(对称
+     * {@link CodexMcpServerManager#upsertMcpServer},外科手术式只替换 {@code mcp.<id>} 条目)。
+     *
+     * <p>输入是前端 McpServer 嵌套形状({@code {id, server:{command:string, args, env, url, type}}}),
+     * 经 {@link #toNativeMcpEntry} 转为 OpenCode 原生条目({@code command} 数组 + {@code environment})。
+     *
+     * <p>SEC-01 安全闸门:写盘前经 {@link McpCommandRiskEvaluator} 从 command/args 重算风险,危险则抛
+     * {@link McpInstallRejectedException} 拒绝落盘(与 Codex/Claude 入口对称)。
+     *
+     * <p>⚠️与 {@link #writeProviderSectionSurgically} 的 rebuild-from-managed 行为刻意不同:mcp 段是
+     * 用户手写文件,既有 opencode.json 解析失败时 <strong>拒写</strong>(readNativeConfig 抛
+     * IOException 上传),绝不在解析失败时从空重建——否则用户手写的 mcp/其他段被清空。
+     */
+    public void upsertMcpServer(JsonObject server) throws IOException {
+        if (server == null || !server.has("id") || server.get("id").getAsString().isBlank()) {
+            throw new IllegalArgumentException("Server must have a non-blank id");
+        }
+        String serverId = server.get("id").getAsString();
+
+        // SEC-01:前端嵌套 serverSpec(command:string + args)与 Codex 闸门输入同形状,直接复用
+        JsonObject serverSpec = (server.has("server") && server.get("server").isJsonObject())
+                ? server.getAsJsonObject("server") : null;
+        if (McpCommandRiskEvaluator.shouldReject(serverSpec)) {
+            throw new McpInstallRejectedException(
+                    "MCP server '" + serverId + "' rejected: " + McpCommandRiskEvaluator.explainRisk(serverSpec));
+        }
+
+        Path configPath = requireConfigPath();
+        ensureOpenCodeDirectory();
+        JsonObject root = readNativeConfig();
+        JsonObject mcpSection = root.has("mcp") && root.get("mcp").isJsonObject()
+                ? root.getAsJsonObject("mcp") : new JsonObject();
+        mcpSection.add(serverId, toNativeMcpEntry(server));
+        root.add("mcp", mcpSection);
+        writeStringAtomically(configPath, gson.toJson(root));
+        LOG.info("[OpenCodeSettingsManager] Upserted OpenCode MCP server: " + serverId);
+    }
+
+    /**
+     * 从 opencode.json 的 {@code mcp} 段删除一个 server(对称 {@link CodexMcpServerManager#deleteMcpServer})。
+     *
+     * @return serverId 不存在(或无 mcp 段)返回 false,文件不变
+     */
+    public boolean deleteMcpServer(String serverId) throws IOException {
+        Path configPath = requireConfigPath();
+        if (!Files.exists(configPath)) {
+            return false;
+        }
+        JsonObject root = readNativeConfig();
+        if (!root.has("mcp") || !root.get("mcp").isJsonObject()) {
+            return false;
+        }
+        JsonObject mcpSection = root.getAsJsonObject("mcp");
+        if (!mcpSection.has(serverId)) {
+            return false;
+        }
+        mcpSection.remove(serverId);
+        root.add("mcp", mcpSection);
+        writeStringAtomically(configPath, gson.toJson(root));
+        LOG.info("[OpenCodeSettingsManager] Deleted OpenCode MCP server: " + serverId);
+        return true;
+    }
+
+    /**
+     * 前端 McpServer 嵌套形状 → OpenCode 原生 mcp 条目(逆向 {@code OpenCodeMcpServerActionHandlers.
+     * adaptToServerShape}):{@code command:string+args} 合并为数组、{@code env}→{@code environment}、
+     * 前端 transport({@code stdio}/{@code sse}/{@code http})折叠回 {@code local}/{@code remote}。
+     * 前端专属字段(apps/name/description/tags 等)不写入。
+     */
+    private JsonObject toNativeMcpEntry(JsonObject server) {
+        JsonObject entry = new JsonObject();
+        JsonObject spec = (server.has("server") && server.get("server").isJsonObject())
+                ? server.getAsJsonObject("server") : new JsonObject();
+
+        String type = spec.has("type") ? spec.get("type").getAsString() : null;
+        boolean remote = CommonConstants.MCP_TRANSPORT_HTTP.equals(type)
+                || CommonConstants.MCP_TRANSPORT_SSE.equals(type)
+                || (!spec.has("command") && spec.has("url"));
+        entry.addProperty("type", remote ? "remote" : "local");
+
+        if (spec.has("command") && spec.get("command").isJsonPrimitive()) {
+            JsonArray argv = new JsonArray();
+            argv.add(spec.get("command").getAsString());
+            if (spec.has("args") && spec.get("args").isJsonArray()) {
+                for (JsonElement arg : spec.getAsJsonArray("args")) {
+                    argv.add(arg);
+                }
+            }
+            entry.add("command", argv);
+        }
+        if (spec.has(McpGatewayConstants.KEY_ENV) && spec.get(McpGatewayConstants.KEY_ENV).isJsonObject()) {
+            entry.add(McpGatewayConstants.KEY_ENVIRONMENT_OPENCODE, spec.getAsJsonObject(McpGatewayConstants.KEY_ENV));
+        }
+        if (spec.has(McpGatewayConstants.KEY_URL) && spec.get(McpGatewayConstants.KEY_URL).isJsonPrimitive()) {
+            entry.addProperty(McpGatewayConstants.KEY_URL, spec.get(McpGatewayConstants.KEY_URL).getAsString());
+        }
+        if (server.has("enabled")) {
+            entry.addProperty("enabled", server.get("enabled").getAsBoolean());
+        }
+        return entry;
+    }
+
+    private Path requireConfigPath() throws IOException {
+        Path configPath = getOpenCodeJsonPath();
+        if (configPath == null) {
+            throw new IOException("Cannot resolve opencode.json path (home directory is blank)");
+        }
+        return configPath;
     }
 
     /**
