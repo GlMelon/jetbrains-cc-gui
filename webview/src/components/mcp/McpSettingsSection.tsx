@@ -90,49 +90,49 @@ export function McpSettingsSection({ currentProvider = 'claude' }: McpSettingsSe
 
   return (
     <div className="mcp-settings-shell">
-      {/* 全局操作栏(provider 无关:重载 Gateway 重启聚合进程,与当前标签无关) */}
-      <div className="mcp-shared-header">
+      {/* Provider tabs + Gateway reload (provider 无关,重启聚合三 provider 的 gateway 进程) */}
+      <div className="mcp-tabs-bar">
+        <div className="mcp-provider-tabs" role="tablist" aria-label="MCP provider">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={selectedProvider === 'claude'}
+            className={selectedProvider === 'claude' ? 'active' : ''}
+            onClick={() => selectProvider('claude')}
+          >
+            <span className="codicon codicon-hubot" aria-hidden="true" />
+            Claude
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={selectedProvider === 'codex'}
+            className={selectedProvider === 'codex' ? 'active' : ''}
+            onClick={() => selectProvider('codex')}
+          >
+            <span className="codicon codicon-terminal" aria-hidden="true" />
+            Codex
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={selectedProvider === 'opencode'}
+            className={selectedProvider === 'opencode' ? 'active' : ''}
+            onClick={() => selectProvider('opencode')}
+          >
+            <OpenCodeIcon size={16} />
+            OpenCode
+          </button>
+        </div>
         <button
-          className="icon-btn"
+          className="btn-reload-gateway"
           onClick={handleReloadGateway}
           disabled={gatewayReloading}
           title={t('mcp.reloadGatewayTooltip')}
           aria-label={t('mcp.reloadGateway')}
         >
-          {gatewayReloading ? <UnifiedLoader type="spin" size={16} /> : <span className="codicon codicon-debug-restart" />}
-        </button>
-      </div>
-
-      <div className="mcp-provider-tabs" role="tablist" aria-label="MCP provider">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={selectedProvider === 'claude'}
-          className={selectedProvider === 'claude' ? 'active' : ''}
-          onClick={() => selectProvider('claude')}
-        >
-          <span className="codicon codicon-hubot" aria-hidden="true" />
-          Claude
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={selectedProvider === 'codex'}
-          className={selectedProvider === 'codex' ? 'active' : ''}
-          onClick={() => selectProvider('codex')}
-        >
-          <span className="codicon codicon-terminal" aria-hidden="true" />
-          Codex
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={selectedProvider === 'opencode'}
-          className={selectedProvider === 'opencode' ? 'active' : ''}
-          onClick={() => selectProvider('opencode')}
-        >
-          <OpenCodeIcon size={16} />
-          OpenCode
+          {gatewayReloading ? <UnifiedLoader type="spin" size={14} /> : <span className="codicon codicon-debug-restart" />}
+          {t('mcp.reloadGateway')}
         </button>
       </div>
       {selectedProvider === 'opencode'
