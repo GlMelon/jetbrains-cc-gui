@@ -33,6 +33,11 @@ import {
   isNonEmptySessionId,
   safePromptArg,
 } from '../../utils/marker-protocol.js';
+import {
+  buildReadPathPromptWithImages,
+  cleanupMaterializedImagePaths,
+  materializeImageAttachments,
+} from '../../utils/cli-image-input.js';
 
 const THINKING_LEVELS = new Set(['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
 
@@ -112,24 +117,40 @@ function buildPiArgs({ message, sessionId, model, reasoningEffort }) {
  * @param {string} cwd
  * @param {string} model
  * @param {string} [reasoningEffort] mapped to PI `--thinking` level
+ * @param {Array} [attachments] image attachments (fileName/mediaType/data)
  */
 export async function sendMessage(
   message,
   sessionId = '',
   cwd = '',
   model = '',
-  reasoningEffort = ''
+  reasoningEffort = '',
+  attachments = []
 ) {
   beginStream();
 
+  // Materialise image attachments to temp files and inject Read-tool path
+  // references into the prompt. Failures degrade to text-only (imagePaths []).
+  let promptText = message;
+  let imagePaths = [];
+  try {
+    imagePaths = await materializeImageAttachments(attachments);
+    if (imagePaths.length > 0) {
+      promptText = buildReadPathPromptWithImages(promptText, imagePaths);
+      logDebug('image attachments', imagePaths.length, imagePaths);
+    }
+  } catch (err) {
+    console.error('[PI] failed to materialize image attachments:', err?.message || err);
+  }
+
   const bin = resolvePiCliPath();
-  const args = buildPiArgs({ message, sessionId, model, reasoningEffort });
+  const args = buildPiArgs({ message: promptText, sessionId, model, reasoningEffort });
   if (isNonEmptySessionId(sessionId)) {
     emitSessionId(sessionId.trim());
   }
 
   logDebug('spawn', bin, args.slice(0, -1).join(' '),
-    `promptLen=${String(message || '').length}`);
+    `promptLen=${String(promptText || '').length}`);
 
   const env = { ...process.env };
   const home = process.env.HOME || process.env.USERPROFILE || homedir();
@@ -137,64 +158,68 @@ export async function sendMessage(
 
   const workCwd = cwd && cwd !== 'undefined' && cwd !== 'null' ? cwd : process.cwd();
 
-  await runCliStreaming({
-    bin,
-    args,
-    cwd: workCwd,
-    env,
-    label: 'PI',
-    onLine: (line) => {
-      if (!line || !line.trim()) return;
-      let event;
-      try {
-        event = JSON.parse(line);
-      } catch {
-        return;
-      }
-      if (!event || typeof event !== 'object') return;
+  try {
+    await runCliStreaming({
+      bin,
+      args,
+      cwd: workCwd,
+      env,
+      label: 'PI',
+      onLine: (line) => {
+        if (!line || !line.trim()) return;
+        let event;
+        try {
+          event = JSON.parse(line);
+        } catch {
+          return;
+        }
+        if (!event || typeof event !== 'object') return;
 
-      switch (event.type) {
-        case 'session': {
-          const id = typeof event.id === 'string' ? event.id.trim() : '';
-          if (id) emitSessionId(id);
-          break;
-        }
-        case 'message_update': {
-          const update = event.assistantMessageEvent;
-          if (!update || typeof update !== 'object') break;
-          if (update.type === 'text_delta' && typeof update.delta === 'string' && update.delta) {
-            emitJsonStringMarker('[CONTENT_DELTA]', update.delta);
-          } else if (update.type === 'thinking_delta' && typeof update.delta === 'string' && update.delta) {
-            emitJsonStringMarker('[THINKING_DELTA]', update.delta);
+        switch (event.type) {
+          case 'session': {
+            const id = typeof event.id === 'string' ? event.id.trim() : '';
+            if (id) emitSessionId(id);
+            break;
           }
-          break;
-        }
-        case 'tool_execution_start': {
-          emitToolUseMessage({
-            id: typeof event.toolCallId === 'string' ? event.toolCallId : '',
-            name: typeof event.toolName === 'string' ? event.toolName : '',
-            input: event.args && typeof event.args === 'object' ? event.args : {},
-          });
-          break;
-        }
-        case 'tool_execution_end': {
-          emitToolResultMessage({
-            toolUseId: typeof event.toolCallId === 'string' ? event.toolCallId : '',
-            content: extractToolResultText(event.result),
-            isError: Boolean(event.isError),
-          });
-          break;
-        }
-        case 'message_end': {
-          const msg = event.message;
-          if (msg && msg.role === 'assistant' && msg.usage && typeof msg.usage === 'object') {
-            emitUsage(msg.usage);
+          case 'message_update': {
+            const update = event.assistantMessageEvent;
+            if (!update || typeof update !== 'object') break;
+            if (update.type === 'text_delta' && typeof update.delta === 'string' && update.delta) {
+              emitJsonStringMarker('[CONTENT_DELTA]', update.delta);
+            } else if (update.type === 'thinking_delta' && typeof update.delta === 'string' && update.delta) {
+              emitJsonStringMarker('[THINKING_DELTA]', update.delta);
+            }
+            break;
           }
-          break;
+          case 'tool_execution_start': {
+            emitToolUseMessage({
+              id: typeof event.toolCallId === 'string' ? event.toolCallId : '',
+              name: typeof event.toolName === 'string' ? event.toolName : '',
+              input: event.args && typeof event.args === 'object' ? event.args : {},
+            });
+            break;
+          }
+          case 'tool_execution_end': {
+            emitToolResultMessage({
+              toolUseId: typeof event.toolCallId === 'string' ? event.toolCallId : '',
+              content: extractToolResultText(event.result),
+              isError: Boolean(event.isError),
+            });
+            break;
+          }
+          case 'message_end': {
+            const msg = event.message;
+            if (msg && msg.role === 'assistant' && msg.usage && typeof msg.usage === 'object') {
+              emitUsage(msg.usage);
+            }
+            break;
+          }
+          default:
+            break;
         }
-        default:
-          break;
-      }
-    },
-  });
+      },
+    });
+  } finally {
+    await cleanupMaterializedImagePaths(imagePaths);
+  }
 }
