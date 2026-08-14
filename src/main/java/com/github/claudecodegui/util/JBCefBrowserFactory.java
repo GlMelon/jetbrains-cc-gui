@@ -1,5 +1,6 @@
 package com.github.claudecodegui.util;
 
+import com.github.claudecodegui.ui.OsrImeCaretFix;
 import com.intellij.openapi.application.ApplicationInfo;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
@@ -82,6 +83,9 @@ public final class JBCefBrowserFactory {
             JBCefBrowser browser = builder.build();
             configureContextMenu(browser, isDevMode);
             configureKeyboardWorkaround(browser);
+            if (isOffScreenRendering) {
+                configureOsrImeFix(browser);
+            }
             LOG.info("JBCefBrowser created successfully using builder");
             return browser;
         } catch (Exception | LinkageError e) {
@@ -117,6 +121,9 @@ public final class JBCefBrowserFactory {
             JBCefBrowser browser = builder.build();
             configureContextMenu(browser, isDevMode);
             configureKeyboardWorkaround(browser);
+            if (isOffScreenRendering) {
+                configureOsrImeFix(browser);
+            }
             LOG.info("JBCefBrowser created successfully with URL");
             return browser;
         } catch (Exception | LinkageError e) {
@@ -365,6 +372,21 @@ public final class JBCefBrowserFactory {
             return;
         }
         browser.getJBCefClient().addKeyboardHandler(createKeyboardWorkaroundHandler(), browser.getCefBrowser());
+    }
+
+    /**
+     * 安装 OSR IME 合成修复(中文拼音/注音等 CJK 输入法)。
+     *
+     * <p>仅对 OSR 模式组件生效:修复平台 {@code JBCefInputMethodAdapter} 在 OSR 离屏渲染下
+     * IME 光标错位、合成取消事件被丢弃导致 webview 残留预编辑文本的问题。非 OSR 组件
+     * (Windows/macOS 原生模式)install 内部 no-op,无副作用。
+     *
+     * <p>仅在 {@code create()} 已确认 {@code isOffScreenRendering} 时调用——{@code getComponent()}
+     * 会触发 Swing 组件实例化,加守卫避免在非 OSR 平台上提前实例化而破坏 lazy-load。
+     * 移植自 upstream v0.5.3。
+     */
+    private static void configureOsrImeFix(JBCefBrowser browser) {
+        OsrImeCaretFix.install(browser.getComponent());
     }
 
     private static CefKeyboardHandler createKeyboardWorkaroundHandler() {

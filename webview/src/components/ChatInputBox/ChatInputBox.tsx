@@ -22,6 +22,7 @@ import { ResizeHandles } from './ResizeHandles.js';
 import {
   useTextContent,
   useFileTags,
+  useQuoteTags,
   useTooltip,
   useKeyboardNavigation,
   useIMEComposition,
@@ -177,6 +178,9 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
       getTextContent,
       onCloseCompletions: closeAllCompletions,
     });
+
+    // Quote tags hook (renders inline quote chips from quote tokens)
+    const { renderQuoteTags } = useQuoteTags({ editableRef });
 
     // Tooltip hook
     const { tooltip, handleMouseOver, handleMouseLeave } = useTooltip();
@@ -567,6 +571,7 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
       getTextContent,
       adjustHeight,
       renderFileTags,
+      renderQuoteTags,
       setHasContent,
       onInput,
       closeAllCompletions,
