@@ -7,11 +7,13 @@ import com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.util.IconLoader;
 import com.intellij.openapi.wm.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
+import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.concurrent.atomic.AtomicLong;
@@ -21,10 +23,13 @@ import java.util.concurrent.atomic.AtomicReference;
  * Minimalist StatusBar widget for Claude AI
  */
 public class ClaudeStatusBarWidget implements CustomStatusBarWidget, StatusBarWidget, Disposable {
+    private static final int LOGO_ICON_SIZE = 16;
+    private static final Icon LOGO_ICON = createScaledLogoIcon();
+
     private final Project project;
     private StatusBar statusBar;
     private JLabel label;
-    private final AtomicReference<String> textRef = new AtomicReference<>("GUI 🤖");
+    private final AtomicReference<String> textRef = new AtomicReference<>("");
     private final AtomicReference<String> tooltipRef = new AtomicReference<>(ClaudeCodeGuiBundle.message("status.defaultTooltip"));
     private final AtomicLong visibleUntil = new AtomicLong(0);
 
@@ -70,7 +75,8 @@ public class ClaudeStatusBarWidget implements CustomStatusBarWidget, StatusBarWi
     @Override
     public @NotNull JComponent getComponent() {
         if (label == null) {
-            label = new JLabel(textRef.get());
+            label = new JLabel(textRef.get(), LOGO_ICON, SwingConstants.LEFT);
+            label.setIconTextGap(4);
             label.setBorder(BorderFactory.createEmptyBorder(0, 4, 0, 4));
             label.setToolTipText(tooltipRef.get());
             label.addMouseListener(new MouseAdapter() {
@@ -178,9 +184,42 @@ public class ClaudeStatusBarWidget implements CustomStatusBarWidget, StatusBarWi
         if (disposed) { return; }
         if (label != null) {
             label.setText(text);
+            label.setIcon(LOGO_ICON);
             label.setToolTipText(tooltip);
         }
         if (statusBar != null) { statusBar.updateWidget(ID()); }
+    }
+
+    private static Icon createScaledLogoIcon() {
+        Icon raw = IconLoader.getIcon("/icons/logo.svg", ClaudeStatusBarWidget.class);
+        return new Icon() {
+            @Override
+            public int getIconWidth() { return LOGO_ICON_SIZE; }
+
+            @Override
+            public int getIconHeight() { return LOGO_ICON_SIZE; }
+
+            @Override
+            public void paintIcon(Component c, Graphics g, int x, int y) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                try {
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                    int w = raw.getIconWidth();
+                    int h = raw.getIconHeight();
+                    double scale = Math.min((double) LOGO_ICON_SIZE / w, (double) LOGO_ICON_SIZE / h);
+                    int sw = (int) Math.round(w * scale);
+                    int sh = (int) Math.round(h * scale);
+                    int dx = x + (LOGO_ICON_SIZE - sw) / 2;
+                    int dy = y + (LOGO_ICON_SIZE - sh) / 2;
+                    g2.translate(dx, dy);
+                    g2.scale(scale, scale);
+                    raw.paintIcon(c, g2, 0, 0);
+                } finally {
+                    g2.dispose();
+                }
+            }
+        };
     }
 
     public static class Factory implements StatusBarWidgetFactory {

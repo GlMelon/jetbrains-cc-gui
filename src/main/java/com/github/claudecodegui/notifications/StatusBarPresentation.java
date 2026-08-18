@@ -36,7 +36,11 @@ final class StatusBarPresentation {
         String statusLabel = statusLabel(status);
         String modeLabel = modeLabel(mode);
 
-        StringBuilder text = new StringBuilder("GUI ").append(statusIcon(status));
+        StringBuilder text = new StringBuilder();
+        String icon = statusIcon(status);
+        if (!icon.isEmpty()) {
+            text.append(icon);
+        }
         if (!model.isEmpty()) {
             text.append(" [").append(model).append("]");
         }
@@ -44,10 +48,12 @@ final class StatusBarPresentation {
             text.append(" {").append(modeLabel).append("}");
         }
         if (!statusLabel.isEmpty() && !CommonConstants.SESSION_STATUS_READY.equals(status)) {
-            text.append(" ").append(statusLabel);
+            if (!text.isEmpty()) { text.append(" "); }
+            text.append(statusLabel);
         }
         if (!tokenInfo.isEmpty()) {
-            text.append(" ").append(tokenInfo);
+            if (!text.isEmpty()) { text.append(" "); }
+            text.append(tokenInfo);
         }
 
         StringBuilder tooltip = new StringBuilder(ClaudeCodeGuiBundle.message("status.tooltip.status", statusLabel));
