@@ -38,6 +38,7 @@ import { CopyIcon } from '../Icons';
 import { AssistantResponseStatus } from './AssistantResponseStatus';
 import { AssistantStreamingFooter } from './AssistantStreamingFooter';
 import { hasAssistantVisibleOutput } from './assistantTextOutput';
+import { FadeContent } from '../react-bits';
 import type { AvatarConfig } from '../../types/avatar';
 
 type GroupedBlock =
@@ -336,8 +337,8 @@ export const MessageItem = memo(function MessageItem({
   renderMode?: 'full' | 'response-segment';
   /** Hide a stale response-phase placeholder after grouped answer text starts streaming. */
   suppressAssistantResponseStatus?: boolean;
-  /** Play the messageFadeIn entry animation on this card. Set only on the card's
-   *  first logical appearance so React remounts never replay the animation. */
+  /** Play the entry animation (react-bits FadeContent) on this card. Set only on
+   *  the card's first logical appearance so re-renders never replay the animation. */
   shouldAnimateIn?: boolean;
   /** Play the messageFadeOut exit animation on this card (H3). Applied when a
    *  message is being removed from the list and kept in DOM briefly to animate out. */
@@ -796,9 +797,9 @@ export const MessageItem = memo(function MessageItem({
   // 判断是否为用户或助手消息（需要显示头像）
   const showAvatar = message.type === 'user' || message.type === 'assistant';
 
-  return (
+  const root = (
     <div
-      className={`message ${message.type}${isLast ? ' is-last-message' : ''}${isProviderNotConfigured ? ' provider-not-configured' : ''}${withinResponseGroup ? ' in-response-group' : ''}${shouldAnimateIn ? ' animate-in' : ''}${shouldAnimateOut ? ' animate-out' : ''}`}
+      className={`message ${message.type}${isLast ? ' is-last-message' : ''}${isProviderNotConfigured ? ' provider-not-configured' : ''}${withinResponseGroup ? ' in-response-group' : ''}${shouldAnimateOut ? ' animate-out' : ''}`}
       ref={anchorRefCallback}
       data-message-anchor-id={message.type === 'user' ? messageKey : undefined}
     >
@@ -896,5 +897,17 @@ export const MessageItem = memo(function MessageItem({
         </>
       )}
     </div>
+  );
+
+  // Entry animation via react-bits FadeContent (CSS-variable driven, no
+  // wrapper element). Duration/offset mirror the previous messageFadeIn
+  // keyframes (var(--dur-enter)=0.28s, translateY(10px)). The FadeContent
+  // wrapper is UNCONDITIONAL with `disabled` toggling the animation —
+  // conditionally wrapping would flip the element type between renders and
+  // remount the card (replaying the animation we are trying to play once).
+  return (
+    <FadeContent duration={280} offset={10} disabled={!shouldAnimateIn}>
+      {root}
+    </FadeContent>
   );
 });

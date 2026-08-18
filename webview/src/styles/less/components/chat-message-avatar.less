@@ -50,22 +50,13 @@
     border-bottom: none;
 }
 
-/* Entry animation plays ONLY on a card's first logical appearance (see the
-   .animate-in modifier, added once per key by MessageList). Keeping the
-   animation off the base .message rule means a React remount never replays
-   the fade-in — which is what removes the streaming flicker while still
-   preserving the full entry animation for genuinely new messages. */
-.message.animate-in {
-    animation: messageFadeIn var(--dur-enter) var(--ease-out);
-}
+/* Entry animation now driven by react-bits FadeContent in MessageItem
+   (rb-fade-content class, first logical appearance only). Keeping the
+   animation off the base .message rule means a re-render never replays
+   the fade-in. */
 
 .message:last-child {
     border-bottom: none;
-}
-
-@keyframes messageFadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
 }
 
 /* H3: 消息出场动画。仅 opacity 淡出(transform 不变,避免破坏高度与 scroll anchoring)。
@@ -442,11 +433,8 @@
 }
 
 .assistant-response-group {
-    /* animation moved to .assistant-response-group.animate-in (first appearance only) */
-}
-
-.assistant-response-group.animate-in {
-    animation: messageFadeIn var(--dur-enter) var(--ease-out);
+    /* Entry animation now driven by react-bits FadeContent in MessageList
+       (rb-fade-content class, first appearance only). */
 }
 
 .assistant-response-group .assistant-response-content {

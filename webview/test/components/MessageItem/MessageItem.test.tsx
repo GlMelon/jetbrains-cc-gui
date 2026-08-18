@@ -238,7 +238,7 @@ describe('MessageItem copy button visibility', () => {
       streamEndReason: 'stalled',
     };
 
-    renderMessageItem(message);
+    renderMessageItem(message, { detailedOutputEnabled: true });
 
     expect(screen.getByText('等待超时')).toBeTruthy();
     expect(screen.getByText('3:01')).toBeTruthy();
@@ -321,7 +321,7 @@ describe('MessageItem copy button visibility', () => {
     expect(screen.queryByText('Reading the prompt and relevant context')).toBeNull();
   });
 
-  it('does not show the streaming footer for thinking-only output', () => {
+  it('shows the streaming footer for thinking-only output', () => {
     const message: ClaudeMessage = {
       type: 'assistant',
       content: 'internal thought',
@@ -337,8 +337,8 @@ describe('MessageItem copy button visibility', () => {
     });
 
     expect(screen.getByTestId('thinking-0')).toBeTruthy();
-    expect(document.querySelector('.assistant-streaming-footer')).toBeNull();
-    expect(screen.queryByText('正在流式输出')).toBeNull();
+    expect(document.querySelector('.assistant-streaming-footer')).not.toBeNull();
+    expect(screen.getByText('正在流式输出')).toBeTruthy();
   });
 
   it('shows the streaming footer after a real text block arrives', () => {
@@ -533,6 +533,7 @@ describe('MessageItem copy button visibility', () => {
   });
 
   it('renders final usage stats with total tokens and duration', () => {
+    vi.useFakeTimers();
     const message: ClaudeMessage = {
       type: 'assistant',
       content: 'done',
@@ -546,7 +547,13 @@ describe('MessageItem copy button visibility', () => {
       } as any,
     };
 
-    renderMessageItem(message);
+    renderMessageItem(message, { detailedOutputEnabled: true });
+
+    // CountUp animates token counts via rAF + a setTimeout fallback; advance
+    // fake timers past the fallback window so the counts settle on their target.
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
 
     expect(screen.getByText('输入：')).toBeTruthy();
     expect(screen.getByText('100')).toBeTruthy();
@@ -555,6 +562,7 @@ describe('MessageItem copy button visibility', () => {
     expect(screen.getByText('总计：')).toBeTruthy();
     expect(screen.getByText('140')).toBeTruthy();
     expect(screen.getByText('2:03')).toBeTruthy();
+    vi.useRealTimers();
   });
 
   it('renders the streaming connect hint using the OpenCode provider label', () => {

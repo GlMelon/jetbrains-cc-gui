@@ -11,9 +11,10 @@ import {
 import type { TFunction } from 'i18next';
 import type { ClaudeMessage, ClaudeContentBlock, ToolResultBlock } from '../types';
 import type { QueueDisplayState } from '../contexts/MessagesContext';
-import { getMessageKey } from '../utils/messageUtils';
+import { clearMessageKeyAliases, getMessageKey } from '../utils/messageUtils';
 import { extractMessageUsage } from '../utils/messageUsage';
 import { MessageItem, CopyButton } from './MessageItem';
+import { FadeContent } from './react-bits';
 import { MessageAvatar } from './MessageItem/MessageAvatar';
 import { MessageUsageStats } from './MessageItem/MessageUsageStats';
 import { AssistantStreamingFooter } from './MessageItem/AssistantStreamingFooter';
@@ -125,7 +126,7 @@ function getLatestAssistantResponseText(
 
 /**
  * Tracks card keys (group responseId / single message key) that have already
- * played their messageFadeIn entry animation. A card animates ONLY on its first
+ * played their entry (FadeContent) animation. A card animates ONLY on its first
  * logical appearance; subsequent re-renders — including any React remount from
  * streaming structural changes — do NOT replay the animation. This is what
  * removes the streaming "flicker" while keeping the full entry animation.
@@ -405,6 +406,9 @@ export const MessageList = memo(
         sessionBoundaryExitSkipsRef.current = 2;
         setRevealedTurnCount(0);
         animatedEntryKeys.clear();
+        // Key aliases are session-scoped (a `user-<timestamp>` key can legally
+        // repeat across sessions) — clear them with the entry-key set.
+        clearMessageKeyAliases();
       }
       firstMessageBoundaryRef.current = currentBoundary;
     }, [messages]);
@@ -713,9 +717,9 @@ export const MessageList = memo(
               .join('\n\n');
             const groupHasCopyable = groupCopyableText.length > 0;
             return (
+              <FadeContent key={groupKey} duration={280} offset={10} disabled={!groupFirstAppearance}>
               <div
-                key={groupKey}
-                className={`message assistant assistant-response-group${groupFirstAppearance ? ' animate-in' : ''}`}
+                className="message assistant assistant-response-group"
                 data-response-id={unit.responseId}
               >
                 <div className="message-avatar-row">
@@ -798,6 +802,7 @@ export const MessageList = memo(
                   </div>
                 </div>
               </div>
+              </FadeContent>
             );
           }
 
