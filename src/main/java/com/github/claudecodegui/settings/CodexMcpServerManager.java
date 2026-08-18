@@ -24,6 +24,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
 
 /**
  * Codex MCP Server Manager
@@ -464,10 +465,7 @@ public class CodexMcpServerManager {
         try {
             List<JsonObject> servers = getMcpServers();
 
-            for (JsonObject server : servers) {
-                JsonObject status = checkServerStatus(server);
-                statusList.add(status);
-            }
+            statusList.addAll(collectServerStatuses(servers, this::checkServerStatus));
 
             LOG.info("[CodexMcpServerManager] Checked status of " + statusList.size() + " MCP servers");
         } catch (Exception e) {
@@ -475,6 +473,54 @@ public class CodexMcpServerManager {
         }
 
         return statusList;
+    }
+
+    static List<JsonObject> collectServerStatuses(
+            List<JsonObject> servers,
+            Function<JsonObject, JsonObject> statusChecker
+    ) {
+        List<JsonObject> result = new ArrayList<>();
+        if (servers == null || statusChecker == null) {
+            return result;
+        }
+        for (JsonObject server : servers) {
+            try {
+                result.add(statusChecker.apply(server));
+            } catch (Exception e) {
+                JsonObject failed = new JsonObject();
+                failed.addProperty(CommonConstants.JSON_KEY_NAME, getServerDisplayName(server));
+                failed.addProperty(CommonConstants.JSON_KEY_STATUS, CommonConstants.MCP_STATUS_FAILED);
+                if (e.getMessage() != null && !e.getMessage().isBlank()) {
+                    failed.addProperty(CommonConstants.JSON_KEY_ERROR, e.getMessage());
+                }
+                result.add(failed);
+                LOG.warn("[CodexMcpServerManager] Failed to check one MCP server: " + e.getMessage());
+            }
+        }
+        return result;
+    }
+
+    private static String getServerDisplayName(JsonObject server) {
+        if (server == null) {
+            return CommonConstants.UNKNOWN;
+        }
+        String name = getPrimitiveString(server, CommonConstants.JSON_KEY_NAME);
+        if (name != null && !name.isBlank()) {
+            return name;
+        }
+        String id = getPrimitiveString(server, CommonConstants.JSON_KEY_ID);
+        return id == null || id.isBlank() ? CommonConstants.UNKNOWN : id;
+    }
+
+    private static String getPrimitiveString(JsonObject object, String key) {
+        if (!object.has(key) || !object.get(key).isJsonPrimitive()) {
+            return null;
+        }
+        try {
+            return object.get(key).getAsString();
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     /**

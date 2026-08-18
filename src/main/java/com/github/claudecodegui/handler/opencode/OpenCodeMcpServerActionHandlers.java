@@ -258,8 +258,7 @@ public class OpenCodeMcpServerActionHandlers {
                 continue;
             }
 
-            boolean enabled = !configured.has(McpGatewayConstants.KEY_ENABLED)
-                    || configured.get(McpGatewayConstants.KEY_ENABLED).getAsBoolean();
+            boolean enabled = isConfiguredServerEnabled(configured, serverId);
             JsonObject status = enabled ? gatewayStatuses.get(serverId) : null;
             if (status == null) {
                 status = new JsonObject();
@@ -271,6 +270,26 @@ public class OpenCodeMcpServerActionHandlers {
             result.add(status);
         }
         return result;
+    }
+
+    private static boolean isConfiguredServerEnabled(JsonObject configured, String serverId) {
+        if (!configured.has(McpGatewayConstants.KEY_ENABLED)
+                || configured.get(McpGatewayConstants.KEY_ENABLED).isJsonNull()) {
+            return true;
+        }
+        JsonElement enabled = configured.get(McpGatewayConstants.KEY_ENABLED);
+        if (!enabled.isJsonPrimitive()) {
+            LOG.warn("[OpenCodeMcpServerActionHandlers] Invalid enabled value for MCP server " + serverId
+                    + ", treating it as enabled");
+            return true;
+        }
+        try {
+            return enabled.getAsBoolean();
+        } catch (Exception e) {
+            LOG.warn("[OpenCodeMcpServerActionHandlers] Invalid enabled value for MCP server " + serverId
+                    + ", treating it as enabled: " + e.getMessage());
+            return true;
+        }
     }
 
     private static Map<String, JsonObject> extractOpenCodeStatusById(String statusJson) {
