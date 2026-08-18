@@ -2,7 +2,6 @@ package com.github.claudecodegui.ui.toolwindow;
 
 import com.github.claudecodegui.bridge.NodeService;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
-import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.settings.TabStateService;
 import com.github.claudecodegui.startup.BridgePreloader;
 import com.github.claudecodegui.ui.detached.DetachedWindowManager;

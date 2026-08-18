@@ -1,7 +1,5 @@
 package com.github.claudecodegui.session.runtime;
 
-import com.github.claudecodegui.common.CommonConstants;
-
 /**
  * Runtime 维度枚举（路由键之一）。
  * <p>

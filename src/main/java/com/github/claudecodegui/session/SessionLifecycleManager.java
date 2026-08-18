@@ -9,8 +9,6 @@ import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.model.SessionTemplate;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.session.runtime.ProviderType;
-import com.github.claudecodegui.session.runtime.EffectiveRuntimeResolver;
-import com.github.claudecodegui.session.runtime.RuntimeType;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.skill.SlashCommandRegistry;
 import com.github.claudecodegui.util.GsonHolder;
