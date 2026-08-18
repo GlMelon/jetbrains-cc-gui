@@ -14,12 +14,7 @@ import type { UseWindowCallbacksOptions } from '../../useWindowCallbacks';
 import { downloadExportedFile } from '../../../utils/exportedFile';
 import { parseHistoryExportPayload } from '../../../utils/historyExport';
 import { releaseSessionTransition } from '../sessionTransition';
-import { drainPendingDependencyStatus } from '../settingsBootstrap';
 import { registerLegacyAlias } from '../../../bridge';
-import {
-  isDependencyStatusResponse,
-  settleDependencyStatusRequest,
-} from '../../../utils/bridgeStartup';
 
 // Matches session-titles-service.cjs#updateTitle, which rejects longer titles.
 const CUSTOM_TITLE_MAX_LENGTH = 50;
@@ -31,9 +26,6 @@ export function registerSessionAndSdkCallbacks(
   const {
     addToast,
     setCurrentSessionId,
-    setSdkStatus,
-    setSdkStatusLoaded,
-    setSdkStatusError,
     setIsRewinding,
     setRewindDialogOpen,
     setCurrentRewindRequest,
@@ -117,39 +109,6 @@ export function registerSessionAndSdkCallbacks(
     }
   });
 
-  // =========================================================================
-  // SDK Status Callbacks
-  // =========================================================================
-
-  // [归一化] updateDependencyStatus → dependency.status。
-  // bridgeHub 广播:DependencySection 也订阅同 type(本地 state),两者皆被调用,无需手动链式转发。
-  registerLegacyAlias('updateDependencyStatus', DOWNSTREAM.DEPENDENCY_STATUS);
-  subscribeEvent(DOWNSTREAM.DEPENDENCY_STATUS, (jsonStr) => {
-    try {
-        const data = JSON.parse(jsonStr as string);
-      if (!isDependencyStatusResponse(data)) {
-        console.error('[Frontend] Dependency status request failed:', data);
-        const error = typeof data.error === 'string' && data.error.trim()
-          ? data.error
-          : 'dependency_status_unavailable';
-        setSdkStatusLoaded(false);
-        setSdkStatusError(error);
-        settleDependencyStatusRequest('error');
-        return;
-      }
-      setSdkStatus(data);
-      setSdkStatusLoaded(true);
-      setSdkStatusError(null);
-      settleDependencyStatusRequest('ready');
-    } catch (error) {
-      console.error('[Frontend] Failed to parse dependency status:', error);
-setSdkStatusLoaded(false);
-      setSdkStatusError(error instanceof Error ? error.message : 'invalid_dependency_status');
-      settleDependencyStatusRequest('error');
-    }
-  });
-
-  drainPendingDependencyStatus();
 
   // =========================================================================
   // Rewind Result Callback

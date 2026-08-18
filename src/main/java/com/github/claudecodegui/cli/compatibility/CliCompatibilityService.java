@@ -1,6 +1,5 @@
 package com.github.claudecodegui.cli.compatibility;
 
-import com.github.claudecodegui.dependency.VersionComparator;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.intellij.openapi.diagnostic.Logger;
 

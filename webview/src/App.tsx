@@ -206,10 +206,6 @@ const App = () => {
     selectedModelIdentifier,
     permissionMode,
     selectedAgent,
-    sdkStatusLoaded,
-    sdkStatusLoading,
-    sdkStatusError,
-    currentSdkInstalled,
     currentProviderRef,
     activeProviderConfig,
     reasoningEffort,
@@ -235,10 +231,6 @@ const App = () => {
     setShowThinkingEnabledSetting,
     setSendShortcut,
     setAutoOpenFileEnabled,
-    setSdkStatus,
-    setSdkStatusLoaded,
-    setSdkStatusError,
-    retrySdkStatus,
     setSelectedAgent,
     setUsagePercentage,
     setUsageUsedTokens,
@@ -255,7 +247,6 @@ const App = () => {
     handleSendShortcutChange,
     handleAutoOpenFileEnabledChange,
     handleLongContextChange,
-    claudeSdkMeetsMinimum,
   } = useModelProviderState({ addToast, t });
 
   // ── Global drag event interception ──
@@ -432,9 +423,6 @@ const App = () => {
     setShowThinkingEnabledSetting,
     setSendShortcut,
     setAutoOpenFileEnabled,
-    setSdkStatus,
-    setSdkStatusLoaded,
-    setSdkStatusError,
     setIsRewinding,
     setRewindDialogOpen,
     setCurrentRewindRequest,
@@ -532,7 +520,6 @@ const App = () => {
     selectedModel,
     permissionMode,
     selectedAgent,
-    sdkStatusLoaded,
     sentAttachmentsRef,
     chatInputRef,
     messagesContainerRef,
@@ -649,34 +636,6 @@ const App = () => {
     setCurrentView('settings');
   }, [setSettingsInitialTab, setCurrentView]);
 
-  const handleNavigateToSdkSettings = useCallback(() => {
-    setSettingsInitialTab('dependencies');
-    setCurrentView('settings');
-  }, [setSettingsInitialTab, setCurrentView]);
-
-  // Warn once when the installed Claude SDK is below the Fable minimum (0.3.182)
-  // and the Fable tier is selected. Old CLIs don't recognize the 'fable' alias
-  // and pass it through as a literal model name, which 401s on third-party relays
-  // ("model fable" / "No available channel"). `claudeSdkMeetsMinimum` is `undefined`
-  // until the backend reports status or when the SDK isn't installed — never warn
-  // in those cases to avoid false positives.
-  const fableSdkWarningShownRef = useRef(false);
-  useEffect(() => {
-    if (
-      currentProvider === 'claude' &&
-      currentSdkInstalled &&
-      claudeSdkMeetsMinimum === false &&
-      /fable/i.test(selectedModel ?? '') &&
-      !fableSdkWarningShownRef.current
-    ) {
-      fableSdkWarningShownRef.current = true;
-      addToast(t('chat.sdkTooLowForFable'), 'warning', {
-        label: t('chat.updateSdk'),
-        onClick: handleNavigateToSdkSettings,
-      });
-    }
-  }, [currentProvider, currentSdkInstalled, claudeSdkMeetsMinimum, selectedModel, addToast, t, handleNavigateToSdkSettings]);
-
   // ── Rewind handlers ──
   const {
     handleRewindConfirm,
@@ -759,8 +718,6 @@ const App = () => {
             selectedModelIdentifier,
             permissionMode,
             selectedAgent,
-            sdkStatusLoaded,
-            currentSdkInstalled,
             activeProviderConfig,
             reasoningEffort,
             streamingEnabledSetting,
@@ -816,9 +773,6 @@ const App = () => {
             onNavigateToProviderSettings={handleNavigateToProviderSettings}
             onProviderSelect={wrappedHandleProviderSelect}
             sessionTitle={sessionTitle}
-            sdkStatusLoading={sdkStatusLoading}
-            sdkStatusError={sdkStatusError}
-            onRetrySdkStatus={retrySdkStatus}
             detailedOutputEnabled={detailedOutputEnabled}
             avatarConfig={avatarConfig}
             messageQueue={messageQueue}

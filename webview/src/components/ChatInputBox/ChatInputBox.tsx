@@ -104,11 +104,6 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
       onRewind,
       statusPanelExpanded = true,
       onToggleStatusPanel,
-      sdkInstalled = true, // Default to true to avoid disabling input box on initial state
-      sdkStatusLoading = false, // SDK status loading state
-      sdkStatusError = false,
-      onRetrySdkStatus,
-      onInstallSdk,
       addToast,
       messageQueue,
       onRemoveFromQueue,
@@ -404,8 +399,6 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
       invalidateCache,
       attachments,
       isLoading,
-      sdkStatusLoading,
-      sdkInstalled,
       currentProvider,
       clearInput,
       cancelPendingInput: () => {
@@ -421,7 +414,6 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
       dollarCommandCompletion,
       recordInputHistory,
       onSubmit,
-      onInstallSdk,
       addToast,
       t,
     });
@@ -471,8 +463,6 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
       isComposingRef,
       lastCompositionEndTimeRef,
       sendShortcut,
-      sdkStatusLoading,
-      sdkInstalled,
       fileCompletion,
       commandCompletion,
       agentCompletion,
@@ -603,12 +593,7 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
         <ResizeHandles getHandleProps={getHandleProps} nudge={nudge} />
 
         <ChatInputBoxHeader
-          sdkStatusLoading={sdkStatusLoading}
-          sdkStatusError={sdkStatusError}
-          sdkInstalled={sdkInstalled}
           currentProvider={currentProvider}
-          onRetrySdkStatus={onRetrySdkStatus}
-          onInstallSdk={onInstallSdk}
           t={t}
           attachments={attachments}
           onRemoveAttachment={handleRemoveAttachment}

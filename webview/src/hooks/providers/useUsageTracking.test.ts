@@ -1,48 +1,23 @@
 import { act, renderHook } from '@testing-library/react';
-import { retryDependencyStatusRequest } from '../../utils/bridgeStartup';
 import { useUsageTracking } from './useUsageTracking';
 
-vi.mock('../../utils/bridgeStartup', () => ({
-  DEPENDENCY_STATUS_REQUEST_STARTED_EVENT: 'ccg:dependency-status-request-started',
-  retryDependencyStatusRequest: vi.fn(),
-}));
-
 describe('useUsageTracking', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('fails open after a status error and supports an explicit retry', () => {
+  it('exposes usage counters and setters', () => {
     const { result } = renderHook(() => useUsageTracking());
 
-    act(() => {
-      result.current.setSdkStatusError('status unavailable');
-    });
-
-    expect(result.current.sdkStatusLoading).toBe(false);
-    expect(result.current.isSdkInstalled('codex')).toBe(true);
+    expect(result.current.usagePercentage).toBe(0);
+    expect(result.current.usageUsedTokens).toBeUndefined();
+    expect(result.current.usageMaxTokens).toBeUndefined();
+    expect(result.current.tokenDetail).toBeUndefined();
 
     act(() => {
-      result.current.retrySdkStatus();
+      result.current.setUsagePercentage(42);
+      result.current.setUsageUsedTokens(100);
+      result.current.setUsageMaxTokens(200);
     });
 
-    expect(result.current.sdkStatusError).toBeNull();
-    expect(result.current.sdkStatusLoading).toBe(true);
-    expect(retryDependencyStatusRequest).toHaveBeenCalledTimes(1);
-  });
-
-  it('does not let a later query error override an explicit not-installed status', () => {
-    const { result } = renderHook(() => useUsageTracking());
-
-    act(() => {
-      result.current.setSdkStatus({
-        'codex-sdk': { status: 'not_installed', installed: false },
-      });
-      result.current.setSdkStatusLoaded(false);
-      result.current.setSdkStatusError('status unavailable');
-    });
-
-    expect(result.current.isSdkStatusKnown('codex')).toBe(true);
-    expect(result.current.isSdkInstalled('codex')).toBe(false);
+    expect(result.current.usagePercentage).toBe(42);
+    expect(result.current.usageUsedTokens).toBe(100);
+    expect(result.current.usageMaxTokens).toBe(200);
   });
 });

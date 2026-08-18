@@ -77,16 +77,8 @@
     "global": "Global",
     "localProject": "Local",
     "disabled": "Disabled",
-    "sdkNotInstalled": "{{provider}} SDK is not installed. Please install the SDK to start chatting.",
-    "sdkStatusLoading": "Checking SDK status...",
-"sdkStatusCheckDeferred": "{{provider}} SDK status is still loading. Sending will continue and the backend will verify it before execution.",
     "planModeEnabled": "Plan mode enabled",
-    "sdkStatusUnavailable": "Could not check SDK status.",
-    "retrySdkStatus": "Retry",
     "openSourceBanner": "This project is guaranteed to be 100% open source and free (beware of pirated projects)",
-    "goInstallSdk": "Go to Install",
-    "sdkTooLowForFable": "Claude SDK version is too low for the Fable model. Update the Claude Code SDK in Settings.",
-    "updateSdk": "Update SDK",
     "commandNotImplemented": "`{{command}}` feature is not yet implemented.",
     "clearCommandDescription": "Clear conversation history and start a new session",
     "unknownFile": "Unknown file",
@@ -430,7 +422,7 @@
       "codex": "Codex",
       "opencode": "OpenCode"
     },
-"openCodeProvider": {
+    "openCodeProvider": {
       "title": "OpenCode Provider",
       "description": "Manage OpenCode AI feature provider configuration",
       "info": "OpenCode uses a local daemon mode and does not require API key configuration. After installing the OpenCode SDK, you can use the Prompt Enhancer and Commit AI features.",
@@ -523,7 +515,6 @@
       "manage": "Manage Models",
       "pricing": {
         "title": "Pricing (USD per 1M tokens)",
-        "optionalLabel": "Optional",
         "hint": "Optional. Leave a field empty to use the default rate for that token type.",
         "inputLabel": "Input",
         "outputLabel": "Output",
@@ -535,13 +526,6 @@
         "cacheReadShort": "Cache read",
         "invalidValue": "Pricing must be a non-negative number",
         "defaultPricing": "Using default pricing"
-      },
-      "contextWindow": {
-        "label": "Maximum context (K tokens)",
-        "placeholder": "e.g. 500",
-        "hint": "Optional. Enter a whole number of thousands of tokens (500 = 500,000 tokens). Used only for the plugin context usage display.",
-        "invalidValue": "Maximum context must be a positive integer in K units",
-        "summary": "Context: {{value}} tokens"
       },
       "configuredSectionTitle": "Configured Claude models",
       "configuredSectionDesc": "Models from the active Claude provider/settings.json are already in the selector. Only pricing can be changed here.",
@@ -587,12 +571,6 @@
       "title": "CLI Environment Check",
       "description": "Detect locally installed AI CLI tools, including version information and installation paths.",
       "installPolicyTip": "Installation issues? Copy the error to a terminal CLI AI to resolve",
-      "claudeSdkName": "Claude Code SDK",
-      "claudeSdkDescription": "Required for Claude AI features. Includes Claude Code SDK and related dependencies.",
-      "codexSdkName": "Codex SDK",
-      "codexSdkDescription": "Required for Codex AI features. Includes OpenAI Codex SDK.",
-      "opencodeSdkName": "OpenCode SDK",
-      "opencodeSdkDescription": "Required for OpenCode AI features. Includes OpenCode SDK.",
       "loading": "Loading dependency status...",
       "install": "Install",
       "installing": "Installing...",
@@ -1169,32 +1147,6 @@
       "copyToGlobalSuccess": "Copied to global prompts",
       "projectPromptsUnavailable": "Project prompts unavailable in current project"
     },
-    "pluginModels": {
-      "title": "Custom Models",
-      "description": "Custom models added here will be visible under all providers, shown at the top of the model selector",
-      "dialogTitle": "Manage Custom Models",
-      "manage": "Manage Models",
-      "pricing": {
-        "title": "Pricing (USD per 1M tokens)",
-        "hint": "Optional. Leave a field empty to use the default rate for that token type.",
-        "inputLabel": "Input",
-        "outputLabel": "Output",
-        "cacheWriteLabel": "Cache write",
-        "cacheReadLabel": "Cache read",
-        "inputShort": "In",
-        "outputShort": "Out",
-        "cacheWriteShort": "Cache write",
-        "cacheReadShort": "Cache read",
-        "invalidValue": "Pricing must be a non-negative number",
-        "defaultPricing": "Using default pricing"
-      },
-      "configuredSectionTitle": "Configured Claude models",
-      "configuredSectionDesc": "Models from the active Claude provider/settings.json are already in the selector. Only pricing can be changed here.",
-      "configuredEditHint": "This model is managed by the active Claude provider/settings.json. Only pricing can be changed here.",
-      "customSectionTitle": "Custom models",
-      "editPricing": "Edit pricing"
-    },
-    "dependenciesDesc": "Manage AI SDK dependency installations and updates",
     "sponsor": "Sponsor",
     "sponsorDesc": "If this project helps you, consider sponsoring to support ongoing maintenance!",
     "alipay": "Alipay",
@@ -2271,23 +2223,6 @@
       "title": "Session thread is no longer valid",
       "intro": "Creating a new session will resolve this issue. The thread ID for the current session no longer exists on the Codex server.",
       "reason": "Codex clears old threads after a period of time, which can trigger this error when resuming a previous session."
-    },
-    "sdkNativeBinaryMissing": {
-      "title": "SDK installation incomplete — native binary missing",
-      "intro": "This is a known issue with the Taobao npm mirror (not a plugin bug). The mirror hasn't fully synchronized the platform-specific files. You can resolve it manually with either of the options below:",
-      "reason": "This issue will disappear automatically once the Taobao mirror finishes syncing — no further action needed.",
-      "solutions": {
-        "switchRegistry": {
-          "title": "Option 1: Temporarily switch to the official registry and reinstall",
-          "step0": "1. Run this in your terminal (switch to the official npm registry):",
-          "step1": "2. Open the plugin's Dependency Management settings and click Reinstall:",
-          "step2": "3. After the reinstall completes, switch back to the Taobao mirror:"
-        },
-        "downgrade": {
-          "title": "Option 2: Roll back to an older version",
-          "step0": "In Dependency Management, switch the SDK version to v0.2.112 or earlier. Restart IDEA after switching."
-        }
-      }
     },
     "spawnEbusy": {
       "title": "spawn EBUSY — child process failed to launch",

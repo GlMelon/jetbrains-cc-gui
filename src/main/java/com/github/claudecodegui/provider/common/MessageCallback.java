@@ -3,8 +3,8 @@ package com.github.claudecodegui.provider.common;
 import com.github.claudecodegui.session.ClaudeSession;
 
 /**
- * SDK message callback interface.
- * Used for streaming responses from AI providers (Claude/Codex).
+ * Provider message callback interface.
+ * Used for streaming responses from AI providers (Claude/Codex/OpenCode/Grok/Kimi/Pi) via CLI.
  */
 public interface MessageCallback {
     /**

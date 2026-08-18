@@ -17,8 +17,6 @@ interface ModelProviderContextValue {
   selectedModelIdentifier: ProviderState['selectedModelIdentifier'];
   permissionMode: ProviderState['permissionMode'];
   selectedAgent: ProviderState['selectedAgent'];
-  sdkStatusLoaded: ProviderState['sdkStatusLoaded'];
-  currentSdkInstalled: ProviderState['currentSdkInstalled'];
   activeProviderConfig: ProviderState['activeProviderConfig'];
   showThinkingEnabledSetting: ProviderState['showThinkingEnabledSetting'];
   reasoningEffort: ProviderState['reasoningEffort'];
@@ -65,8 +63,6 @@ export function ModelProviderProvider({
     value.selectedModelIdentifier,
     value.permissionMode,
     value.selectedAgent,
-    value.sdkStatusLoaded,
-    value.currentSdkInstalled,
     value.activeProviderConfig,
     value.showThinkingEnabledSetting,
     value.reasoningEffort,

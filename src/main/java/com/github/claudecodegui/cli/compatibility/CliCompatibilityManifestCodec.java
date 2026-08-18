@@ -1,6 +1,5 @@
 package com.github.claudecodegui.cli.compatibility;
 
-import com.github.claudecodegui.dependency.VersionComparator;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.google.gson.Gson;
 import com.google.gson.JsonParseException;

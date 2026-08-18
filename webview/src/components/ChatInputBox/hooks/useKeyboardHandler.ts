@@ -23,8 +23,6 @@ export function useKeyboardHandler({
   isComposingRef,
   lastCompositionEndTimeRef,
   sendShortcut,
-  sdkStatusLoading,
-  sdkInstalled,
   fileCompletion,
   commandCompletion,
   agentCompletion,
@@ -40,8 +38,6 @@ export function useKeyboardHandler({
   isComposingRef: MutableRefObject<boolean>;
   lastCompositionEndTimeRef: MutableRefObject<number>;
   sendShortcut: 'enter' | 'cmdEnter';
-  sdkStatusLoading: boolean;
-  sdkInstalled: boolean;
   fileCompletion: CompletionWithKeyDown;
   commandCompletion: CompletionWithKeyDown;
   agentCompletion: CompletionWithKeyDown;
@@ -150,7 +146,6 @@ export function useKeyboardHandler({
       if (!isSendKey) return;
 
       e.preventDefault();
-      if (sdkStatusLoading || !sdkInstalled) return;
 
       submittedOnEnterRef.current = true;
       handleSubmit();
@@ -167,8 +162,6 @@ export function useKeyboardHandler({
       inlineCompletion,
       lastCompositionEndTimeRef,
       sendShortcut,
-      sdkStatusLoading,
-      sdkInstalled,
       submittedOnEnterRef,
       completionSelectedRef,
       handleSubmit,

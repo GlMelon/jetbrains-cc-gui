@@ -1,11 +1,7 @@
 package com.github.claudecodegui.handler.session;
 
-import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.common.CommonConstants;
-import com.github.claudecodegui.dependency.DependencyManager;
-import com.github.claudecodegui.dependency.SdkDefinition;
 import com.github.claudecodegui.handler.core.HandlerContext;
-import com.github.claudecodegui.model.NodeDetectionResult;
 import com.github.claudecodegui.notifications.ClaudeNotifier;
 import com.github.claudecodegui.session.ClaudeSession;
 import com.github.claudecodegui.session.SessionState;
@@ -37,41 +33,13 @@ public class SessionActionHandlers {
     private static final Logger LOG = Logger.getInstance(SessionActionHandlers.class);
 
     private final HandlerContext context;
-    private final DependencyManager dependencyManager;
-
     public SessionActionHandlers(HandlerContext context) {
         this.context = context;
-        this.dependencyManager = new DependencyManager(NodeDetector.getInstance());
     }
 
     // --- Response-handling methods (called by typed handlers) ---
 
     void handleSendMessage(String content) {
-        boolean requiresNodeRuntime = !isCliModeActive();
-        String nodeVersion = requiresNodeRuntime ? this.resolveNodeVersion() : null;
-        if (requiresNodeRuntime && nodeVersion == null) {
-            ApplicationManager.getApplication().invokeLater(() -> {
-                context.callJavaScript("addErrorMessage", context.escapeJs("未检测到有效的 Node.js 版本，请在设置中配置或重新打开工具窗口。"));
-            });
-            return;
-        }
-        if (requiresNodeRuntime && !NodeDetector.isVersionSupported(nodeVersion)) {
-            int minVersion = NodeDetector.MIN_NODE_MAJOR_VERSION;
-            ApplicationManager.getApplication().invokeLater(() -> {
-                context.callJavaScript("addErrorMessage", context.escapeJs(
-                        "Node.js 版本过低 (" + nodeVersion + ")，插件需要 v" + minVersion + " 或更高版本才能正常运行。请在设置中配置正确的 Node.js 路径。"));
-            });
-            return;
-        }
-
-        String sdkValidationMessage = validateRequiredSdk();
-        if (sdkValidationMessage != null) {
-            ApplicationManager.getApplication().invokeLater(() -> {
-                context.callJavaScript("addErrorMessage", context.escapeJs(sdkValidationMessage));
-            });
-            return;
-        }
-
         // [FIX] Parse JSON format to extract text, agent info and file tags
         String prompt;
         String agentPrompt = null;
@@ -313,32 +281,6 @@ public class SessionActionHandlers {
         List<String> fileTagPaths,
         String requestedPermissionMode
     ) {
-        // Version check (consistent with handleSendMessage)
-        boolean requiresNodeRuntime = !isCliModeActive();
-        String nodeVersion = requiresNodeRuntime ? this.resolveNodeVersion() : null;
-        if (requiresNodeRuntime && nodeVersion == null) {
-            ApplicationManager.getApplication().invokeLater(() -> {
-                context.callJavaScript("addErrorMessage", context.escapeJs("未检测到有效的 Node.js 版本，请在设置中配置或重新打开工具窗口。"));
-            });
-            return;
-        }
-
-        String sdkValidationMessage = validateRequiredSdk();
-        if (sdkValidationMessage != null) {
-            ApplicationManager.getApplication().invokeLater(() -> {
-                context.callJavaScript("addErrorMessage", context.escapeJs(sdkValidationMessage));
-            });
-            return;
-        }
-        if (requiresNodeRuntime && !NodeDetector.isVersionSupported(nodeVersion)) {
-            int minVersion = NodeDetector.MIN_NODE_MAJOR_VERSION;
-            ApplicationManager.getApplication().invokeLater(() -> {
-                context.callJavaScript("addErrorMessage", context.escapeJs(
-                        "Node.js 版本过低 (" + nodeVersion + ")，插件需要 v" + minVersion + " 或更高版本才能正常运行。请在设置中配置正确的 Node.js 路径。"));
-            });
-            return;
-        }
-
         final String finalAgentPrompt = agentPrompt;
         final List<String> finalFileTagPaths = fileTagPaths;
         final String finalRequestedPermissionMode = requestedPermissionMode;
@@ -391,24 +333,6 @@ public class SessionActionHandlers {
         });
     }
 
-    private String resolveNodeVersion() {
-        String nodeVersion = context.getNodeService().getCachedNodeVersion();
-        if (nodeVersion != null) {
-            return nodeVersion;
-        }
-        // Version absent — try to recover using the cached path (path may still be valid).
-        String cachedPath = context.getNodeService().getCachedNodePath();
-        if (cachedPath == null || cachedPath.isEmpty()) {
-            return null;
-        }
-        LOG.info("[SessionActionHandlers] Node version cache miss, re-verifying path: " + cachedPath);
-        NodeDetectionResult recovery = context.getNodeService().verifyAndCacheNodePath(cachedPath);
-        if (recovery != null && recovery.isFound()) {
-            return recovery.getNodeVersion();
-        }
-        return null;
-    }
-
     private boolean isCliModeActive() {
         try {
             ClaudeSession currentSession = context.getSession();
@@ -423,34 +347,6 @@ public class SessionActionHandlers {
             LOG.warn("[Runtime] Failed to resolve CLI mode, defaulting to false: " + e.getMessage());
             return false;
         }
-    }
-
-    private String validateRequiredSdk() {
-        ClaudeSession currentSession = context.getSession();
-        String provider = currentSession != null ? currentSession.getProvider() : context.getCurrentProvider();
-
-        if (provider == null || provider.isBlank()) {
-            provider = CommonConstants.PROVIDER_CLAUDE;
-        }
-
-        if (CommonConstants.PROVIDER_CLAUDE.equals(provider) && isCliModeActive()) {
-            return null;
-        }
-
-        SdkDefinition sdkDefinition = SdkDefinition.fromProvider(provider);
-        if (sdkDefinition == null) {
-            return null;
-        }
-
-        try {
-            if (dependencyManager.isInstalled(sdkDefinition.getId())) {
-                return null;
-            }
-        } catch (Exception e) {
-            LOG.warn("[SessionActionHandlers] Failed to verify SDK installation for provider " + provider + ": " + e.getMessage(), e);
-        }
-
-        return sdkDefinition.getDisplayName() + " 未安装或不可用，请前往设置中的 Dependencies 页面安装后再发送消息。";
     }
 
     private String determineWorkingDirectory() {

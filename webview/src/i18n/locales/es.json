@@ -75,12 +75,7 @@
     "global": "Global",
     "localProject": "Local",
     "disabled": "Deshabilitado",
-    "sdkNotInstalled": "{{provider}} SDK no está instalado. Instala el SDK para comenzar a chatear.",
-    "sdkStatusLoading": "Checking SDK status...",
-    "sdkStatusUnavailable": "No se pudo comprobar el estado del SDK.",
-    "retrySdkStatus": "Reintentar",
     "openSourceBanner": "Este proyecto garantiza ser 100% de código abierto y gratuito (cuidado con los proyectos pirateados)",
-    "goInstallSdk": "Ir a instalar",
     "commandNotImplemented": "La función `{{command}}` aún no está implementada.",
     "clearCommandDescription": "Borrar historial de conversación e iniciar nueva sesión",
     "unknownFile": "Unknown file",
@@ -411,10 +406,6 @@
       "title": "Gestión de dependencias SDK",
       "description": "Gestionar dependencias de AI SDK. Instala el SDK requerido antes del primer uso.",
       "installPolicyTip": "¿Problemas de instalación? Copia el error a un CLI AI de terminal para resolverlo",
-      "claudeSdkName": "Claude Code SDK",
-      "claudeSdkDescription": "Requerido para funciones de Claude AI. Incluye Claude Code SDK y dependencias relacionadas.",
-      "codexSdkName": "Codex SDK",
-      "codexSdkDescription": "Requerido para funciones de Codex AI. Incluye OpenAI Codex SDK.",
       "loading": "Cargando estado de dependencias...",
       "install": "Instalar",
       "installing": "Instalando...",
@@ -842,7 +833,6 @@
       "customPrompts": "Custom Prompts",
       "loadFailed": "Load failed"
     },
-    "dependenciesDesc": "Gestionar instalaciones y actualizaciones de dependencias AI SDK",
     "sponsor": "Sponsor",
     "sponsorDesc": "If this project helps you, consider sponsoring to support ongoing maintenance!",
     "alipay": "Alipay",
@@ -1760,23 +1750,6 @@
       "title": "El hilo de sesión ya no es válido",
       "intro": "Crear una nueva sesión resolverá este problema. El ID de hilo de la sesión actual ya no existe en el servidor de Codex.",
       "reason": "Codex elimina los hilos antiguos después de un tiempo, lo que puede provocar este error al reanudar una sesión anterior."
-    },
-    "sdkNativeBinaryMissing": {
-      "title": "Instalación del SDK incompleta — falta el binario nativo",
-      "intro": "Este es un problema conocido del mirror npm de Taobao (no es un error del plugin). El mirror no ha sincronizado completamente los archivos específicos de la plataforma. Puedes resolverlo manualmente con cualquiera de las siguientes opciones:",
-      "reason": "Este problema desaparecerá automáticamente cuando el mirror de Taobao termine de sincronizarse — no es necesario hacer nada más.",
-      "solutions": {
-        "switchRegistry": {
-          "title": "Opción 1: Cambia temporalmente al registro oficial y reinstala",
-          "step0": "1. Ejecuta en tu terminal (cambiar al registro oficial de npm):",
-          "step1": "2. Abre la configuración de Gestión de dependencias del plugin y haz clic en Reinstalar:",
-          "step2": "3. Una vez completada la reinstalación, vuelve al mirror de Taobao:"
-        },
-        "downgrade": {
-          "title": "Opción 2: Volver a una versión anterior",
-          "step0": "En Gestión de dependencias, cambia la versión del SDK a v0.2.112 o anterior. Reinicia IDEA después del cambio."
-        }
-      }
     },
     "spawnEbusy": {
       "title": "spawn EBUSY — error al iniciar el proceso hijo",

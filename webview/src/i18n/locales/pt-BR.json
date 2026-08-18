@@ -75,12 +75,7 @@
     "global": "Global",
     "localProject": "Local",
     "disabled": "Desativado",
-    "sdkNotInstalled": "O SDK de {{provider}} não está instalado. Por favor, instale o SDK para iniciar o chat.",
-    "sdkStatusLoading": "Verificando status do SDK...",
-    "sdkStatusUnavailable": "Não foi possível verificar o status do SDK.",
-    "retrySdkStatus": "Tentar novamente",
     "openSourceBanner": "Este projeto é garantidamente 100% open source e gratuito (cuidado com projetos piratas)",
-    "goInstallSdk": "Ir para Instalação",
     "commandNotImplemented": "O recurso `{{command}}` ainda não foi implementado.",
     "clearCommandDescription": "Limpar histórico de conversa e iniciar uma nova sessão",
     "unknownFile": "Arquivo desconhecido",
@@ -438,10 +433,6 @@
       "title": "Gerenciamento de Dependências do SDK",
       "description": "Gerenciar dependências de SDK de IA. Instale o SDK necessário antes do primeiro uso.",
       "installPolicyTip": "Problemas na instalação? Copie o erro para um CLI de IA no terminal para resolver",
-      "claudeSdkName": "Claude Code SDK",
-      "claudeSdkDescription": "Necessário para os recursos de IA do Claude. Inclui o Claude Code SDK e dependências relacionadas.",
-      "codexSdkName": "Codex SDK",
-      "codexSdkDescription": "Necessário para os recursos de IA do Codex. Inclui o OpenAI Codex SDK.",
       "loading": "Carregando status das dependências...",
       "install": "Instalar",
       "installing": "Instalando...",
@@ -985,7 +976,6 @@
       "copyToGlobalSuccess": "Copiado para prompts globais",
       "projectPromptsUnavailable": "Prompts do projeto indisponíveis no projeto atual"
     },
-    "dependenciesDesc": "Gerenciar instalações e atualizações de dependências de SDK de IA",
     "sponsor": "Patrocinar",
     "sponsorDesc": "Se este projeto te ajudou, considere patrocinar para apoiar a manutenção contínua!",
     "alipay": "Alipay",
@@ -1922,23 +1912,6 @@
       "title": "O thread da sessão não é mais válido",
       "intro": "Criar uma nova sessão resolverá esse problema. O ID de thread da sessão atual não existe mais no servidor Codex.",
       "reason": "O Codex limpa threads antigos após um período, o que pode acionar esse erro ao retomar uma sessão anterior."
-    },
-    "sdkNativeBinaryMissing": {
-      "title": "Instalação do SDK incompleta — binário nativo ausente",
-      "intro": "Este é um problema conhecido do mirror npm da Taobao (não é um bug do plugin). O mirror não sincronizou completamente os arquivos específicos da plataforma. Você pode resolver isso manualmente com qualquer uma das opções abaixo:",
-      "reason": "Este problema desaparecerá automaticamente quando o mirror da Taobao concluir a sincronização — nenhuma ação adicional é necessária.",
-      "solutions": {
-        "switchRegistry": {
-          "title": "Opção 1: alterne temporariamente para o registro oficial e reinstale",
-          "step0": "1. Execute em seu terminal (alternar para o registro npm oficial):",
-          "step1": "2. Abra as configurações de Gerenciamento de Dependências do plugin e clique em Reinstalar:",
-          "step2": "3. Após a conclusão da reinstalação, retorne ao mirror da Taobao:"
-        },
-        "downgrade": {
-          "title": "Opção 2: reverter para uma versão anterior",
-          "step0": "Em Gerenciamento de Dependências, altere a versão do SDK para v0.2.112 ou anterior. Reinicie o IDEA após a alteração."
-        }
-      }
     },
     "spawnEbusy": {
       "title": "spawn EBUSY — falha ao iniciar o processo filho",

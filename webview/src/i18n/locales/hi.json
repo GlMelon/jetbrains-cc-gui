@@ -75,12 +75,7 @@
     "global": "वैश्विक",
     "localProject": "स्थानीय",
     "disabled": "अक्षम",
-    "sdkNotInstalled": "{{provider}} SDK इंस्टॉल नहीं है। चैट शुरू करने के लिए कृपया SDK इंस्टॉल करें।",
-    "sdkStatusLoading": "Checking SDK status...",
-    "sdkStatusUnavailable": "SDK स्थिति की जांच नहीं हो सकी।",
-    "retrySdkStatus": "पुनः प्रयास करें",
     "openSourceBanner": "यह प्रोजेक्ट 100% ओपन सोर्स और मुफ़्त है (नकली प्रोजेक्ट से सावधान रहें)",
-    "goInstallSdk": "इंस्टॉल करने जाएं",
     "commandNotImplemented": "`{{command}}` सुविधा अभी तक लागू नहीं की गई है।",
     "clearCommandDescription": "बातचीत इतिहास साफ़ करें और नया सत्र शुरू करें",
     "unknownFile": "Unknown file",
@@ -411,10 +406,6 @@
       "title": "SDK निर्भरता प्रबंधन",
       "description": "AI SDK निर्भरताएं प्रबंधित करें। पहली बार उपयोग करने से पहले आवश्यक SDK इंस्टॉल करें।",
       "installPolicyTip": "इंस्टॉलेशन में समस्या? त्रुटि को टर्मिनल CLI AI में कॉपी करके हल करें",
-      "claudeSdkName": "Claude Code SDK",
-      "claudeSdkDescription": "Claude AI सुविधाओं के लिए आवश्यक। Claude Code SDK और संबंधित निर्भरताएं शामिल हैं।",
-      "codexSdkName": "Codex SDK",
-      "codexSdkDescription": "Codex AI सुविधाओं के लिए आवश्यक। OpenAI Codex SDK शामिल है।",
       "loading": "निर्भरता स्थिति लोड हो रही है...",
       "install": "इंस्टॉल करें",
       "installing": "इंस्टॉल हो रहा है...",
@@ -842,7 +833,6 @@
       "customPrompts": "Custom Prompts",
       "loadFailed": "Load failed"
     },
-    "dependenciesDesc": "AI SDK निर्भरताओं की इंस्टॉलेशन और अपडेट प्रबंधित करें",
     "sponsor": "Sponsor",
     "sponsorDesc": "If this project helps you, consider sponsoring to support ongoing maintenance!",
     "alipay": "Alipay",
@@ -1754,23 +1744,6 @@
       "title": "सत्र थ्रेड अब मान्य नहीं है",
       "intro": "नया सत्र बनाने से यह समस्या हल हो जाएगी। वर्तमान सत्र का थ्रेड ID Codex सर्वर पर अब मौजूद नहीं है।",
       "reason": "Codex कुछ समय बाद पुराने थ्रेड को हटा देता है, जिससे पिछले सत्र को फिर से शुरू करते समय यह त्रुटि हो सकती है।"
-    },
-    "sdkNativeBinaryMissing": {
-      "title": "SDK स्थापना अधूरी — नेटिव बाइनरी अनुपस्थित",
-      "intro": "यह Taobao npm मिरर की एक ज्ञात समस्या है (प्लगइन बग नहीं)। मिरर ने प्लेटफ़ॉर्म-विशिष्ट फ़ाइलों को पूरी तरह सिंक नहीं किया है। आप नीचे दिए गए विकल्पों में से किसी एक से इसे मैन्युअल रूप से हल कर सकते हैं:",
-      "reason": "Taobao मिरर के सिंक पूरा होने पर यह समस्या स्वतः ही गायब हो जाएगी — चिंता की कोई बात नहीं है।",
-      "solutions": {
-        "switchRegistry": {
-          "title": "विकल्प 1: अस्थायी रूप से आधिकारिक रजिस्ट्री पर स्विच करें और पुनः इंस्टॉल करें",
-          "step0": "1. अपने टर्मिनल में चलाएं (आधिकारिक npm रजिस्ट्री पर स्विच करें):",
-          "step1": "2. प्लगइन की निर्भरता प्रबंधन सेटिंग्स खोलें और पुनः इंस्टॉल पर क्लिक करें:",
-          "step2": "3. पुनः इंस्टॉलेशन पूरा होने के बाद, Taobao मिरर पर वापस स्विच करें:"
-        },
-        "downgrade": {
-          "title": "विकल्प 2: पुराने संस्करण पर वापस जाएं",
-          "step0": "निर्भरता प्रबंधन में SDK संस्करण को v0.2.112 या उससे पहले के संस्करण पर स्विच करें। स्विच करने के बाद IDEA को पुनरारंभ करें।"
-        }
-      }
     },
     "spawnEbusy": {
       "title": "spawn EBUSY — चाइल्ड प्रोसेस शुरू करने में विफल",

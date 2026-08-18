@@ -986,28 +986,8 @@ interface Window {
   handleDiffResult?: (json: string) => void;
 
   // ============================================================================
-  // Dependency Management Callbacks
+  // Node Environment Callbacks (CLI mcp-gateway/favorites still need Node.js)
   // ============================================================================
-
-  /**
-   * Update dependency status callback
-   */
-  updateDependencyStatus?: (json: string) => void;
-
-  /**
-   * Dependency install progress callback
-   */
-  dependencyInstallProgress?: (json: string) => void;
-
-  /**
-   * Dependency install result callback
-   */
-  dependencyInstallResult?: (json: string) => void;
-
-  /**
-   * Dependency uninstall result callback
-   */
-  dependencyUninstallResult?: (json: string) => void;
 
   /**
    * Node environment status callback
@@ -1024,31 +1004,6 @@ interface Window {
    */
   runNodeEnvironmentStressTest?: (count?: number) => void;
 
-  /**
-   * Dependency update available callback
-   */
-  dependencyUpdateAvailable?: (json: string) => void;
-
-  /**
-   * Dependency versions loaded callback
-   */
-  dependencyVersionsLoaded?: (json: string) => void;
-
-  /**
-   * Pending dependency versions payload before settings initialization
-   */
-  __pendingDependencyVersions?: string;
-
-  /**
-   * Pending dependency updates payload before settings initialization
-   */
-  __pendingDependencyUpdates?: string;
-
-  /**
-   * Pending dependency status payload before React initialization
-   */
-  __pendingDependencyStatus?: string;
-  __dependencyStatusState?: 'pending' | 'ready' | 'error';
   __ccgOnBridgeReady?: () => void;
 
   /**

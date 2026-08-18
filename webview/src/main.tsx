@@ -167,9 +167,5 @@ waitForBridge(() => {
   debugLog('[Main] Sending refresh_slash_commands request');
   sendAction(UPSTREAM.REFRESH_SLASH_COMMANDS);
 
-  // Ensure SDK dependency status is fetched on initial load (not only after opening Settings).
-  debugLog('[Main] Requesting dependency status');
-  sendAction(UPSTREAM.GET_DEPENDENCY_STATUS);
-
   sendAction(UPSTREAM.GET_LINKIFY_CAPABILITIES);
 });

@@ -76,13 +76,8 @@
     "global": "全域",
     "localProject": "本地專案",
     "disabled": "已停用",
-    "sdkNotInstalled": "{{provider}} SDK 尚未安裝，請先安裝 SDK 才能開始對話",
-    "sdkStatusLoading": "Checking SDK status...",
     "planModeEnabled": "已啟用規劃模式",
-    "sdkStatusUnavailable": "無法檢查 SDK 狀態。",
-    "retrySdkStatus": "重試",
     "openSourceBanner": "本專案保證100%開源和免費（謹防盜版項目）",
-    "goInstallSdk": "前往安裝",
     "commandNotImplemented": "`{{command}}` 功能尚未實現。",
     "clearCommandDescription": "清除對話歷史並新建會話",
     "unknownFile": "Unknown file",
@@ -413,10 +408,6 @@
       "title": "SDK 依賴管理",
       "description": "管理 AI SDK 依賴套件。首次使用時需要安裝對應的 SDK。",
       "installPolicyTip": "安裝遇到問題？可將報錯複製給終端CLI AI 解決",
-      "claudeSdkName": "Claude Code SDK",
-      "claudeSdkDescription": "Claude AI 功能所需。包含 Claude Code SDK 及相關依賴。",
-      "codexSdkName": "Codex SDK",
-      "codexSdkDescription": "Codex AI 功能所需。包含 OpenAI Codex SDK。",
       "loading": "正在載入依賴狀態...",
       "install": "安裝",
       "installing": "安裝中...",
@@ -849,7 +840,6 @@
       "customPrompts": "Custom Prompts",
       "loadFailed": "Load failed"
     },
-    "dependenciesDesc": "管理 AI SDK 依賴套件的安裝和更新",
     "sponsor": "贊助支持",
     "sponsorDesc": "如果這個項目對你有幫助，歡迎贊助支持，你的支持是我持續維護的動力！",
     "alipay": "支付寶",
@@ -1767,23 +1757,6 @@
       "title": "工作階段執行緒已失效",
       "intro": "新建工作階段即可解決此問題。目前工作階段的執行緒 ID 在 Codex 伺服器端已不存在。",
       "reason": "Codex 服務端會在一段時間後清除舊執行緒，繼續上一次工作階段時可能觸發此錯誤。"
-    },
-    "sdkNativeBinaryMissing": {
-      "title": "SDK 安裝不完整 — 缺少 native 二進位檔",
-      "intro": "這是淘寶 npm 鏡像源的已知問題（非外掛 bug）。鏡像源未完整同步 platform 檔案。可手動按以下方案處理：",
-      "reason": "淘寶源同步完成後此問題會自動消失，無需擔心。",
-      "solutions": {
-        "switchRegistry": {
-          "title": "方案一：暫時切換官方源重新安裝",
-          "step0": "1. 在終端機執行（切換到 npm 官方源）：",
-          "step1": "2. 開啟外掛設定中的「相依性管理」，點選重新安裝：",
-          "step2": "3. 重新安裝完成後，切回淘寶源："
-        },
-        "downgrade": {
-          "title": "方案二：版本回退",
-          "step0": "在「相依性管理」中將 SDK 版本切換到 v0.2.112 或更早版本，切換後需要重新啟動 IDEA。"
-        }
-      }
     },
     "spawnEbusy": {
       "title": "spawn EBUSY — 子處理程序啟動失敗",

@@ -16,7 +16,6 @@ import {
 } from '../contexts/SubagentContext';
 import { useMessages } from '../contexts/MessagesContext';
 import { useModelProvider } from '../contexts/ModelProviderContext';
-import type { ProviderState } from '../contexts/ModelProviderContext';
 import { useSession } from '../contexts/SessionContext';
 import { useUIState } from '../contexts/UIStateContext';
 import { extractMarkdownContent } from '../utils/copyUtils';
@@ -87,11 +86,6 @@ subagentHistoryCtxValue: Record<string, SubagentHistoryResponse>;
   detailedOutputEnabled?: boolean;
   avatarConfig?: AvatarConfig | null;
 
-  // SDK status (not yet in ModelProviderContext — passed from App)
-  sdkStatusLoading: ProviderState['sdkStatusLoading'];
-  sdkStatusError: ProviderState['sdkStatusError'];
-  onRetrySdkStatus: ProviderState['retrySdkStatus'];
-
   sessionTitle: string;
 
   // Message queue
@@ -143,9 +137,6 @@ export const ChatScreen = ({
   onProviderSelect,
   detailedOutputEnabled = false,
   avatarConfig,
-  sdkStatusLoading,
-  sdkStatusError,
-  onRetrySdkStatus,
   messageQueue,
   onRemoveFromQueue,
 }: ChatScreenProps) => {
@@ -158,7 +149,6 @@ export const ChatScreen = ({
     selectedModelIdentifier,
     permissionMode,
     selectedAgent,
-    currentSdkInstalled,
     reasoningEffort,
     streamingEnabledSetting,
     showThinkingEnabledSetting,
@@ -369,14 +359,6 @@ export const ChatScreen = ({
               ? t('chat.inputPlaceholderCmdEnter')
               : t('chat.inputPlaceholderEnter')
           }
-          sdkInstalled={currentSdkInstalled}
-          sdkStatusLoading={sdkStatusLoading}
-          sdkStatusError={sdkStatusError !== null}
-          onRetrySdkStatus={onRetrySdkStatus}
-          onInstallSdk={() => {
-            setSettingsInitialTab('dependencies');
-            setCurrentView('settings');
-          }}
           value={draftInput}
           onInput={setDraftInput}
           onSubmit={handleSubmit}

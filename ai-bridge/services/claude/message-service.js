@@ -8,12 +8,10 @@
  *   - permission-mode.js: Unified tool permission policy and PreToolUse hook
  *   - message-session-registry.js: Active session state
  *   - message-sender.js: sendMessage, sendMessageWithAttachments
- *   - message-sender-anthropic.js: sendMessageWithAnthropicSDK
  */
 
 // Re-export send functions
 export { sendMessage, sendMessageWithAttachments } from './message-sender.js';
-export { sendMessageWithAnthropicSDK } from './message-sender-anthropic.js';
 
 // Re-export session registry functions
 export {

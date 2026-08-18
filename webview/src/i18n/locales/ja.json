@@ -75,12 +75,7 @@
     "global": "グローバル",
     "localProject": "ローカル",
     "disabled": "無効",
-    "sdkNotInstalled": "{{provider}} SDKがインストールされていません。チャットを開始するにはSDKをインストールしてください。",
-    "sdkStatusLoading": "Checking SDK status...",
-    "sdkStatusUnavailable": "SDK の状態を確認できませんでした。",
-    "retrySdkStatus": "再試行",
     "openSourceBanner": "このプロジェクトは100%オープンソースかつ無料を保証します（海賊版プロジェクトにご注意ください）",
-    "goInstallSdk": "インストールへ",
     "commandNotImplemented": "`{{command}}` 機能はまだ実装されていません。",
     "clearCommandDescription": "会話履歴をクリアして新しいセッションを開始",
     "unknownFile": "Unknown file",
@@ -411,10 +406,6 @@
       "title": "SDK依存関係管理",
       "description": "AI SDK依存関係を管理します。初回使用前に必要なSDKをインストールしてください。",
       "installPolicyTip": "インストールに問題がある場合、エラーをターミナルCLI AIにコピーして解決できます",
-      "claudeSdkName": "Claude Code SDK",
-      "claudeSdkDescription": "Claude AI機能に必要です。Claude Code SDKと関連依存関係が含まれます。",
-      "codexSdkName": "Codex SDK",
-      "codexSdkDescription": "Codex AI機能に必要です。OpenAI Codex SDKが含まれます。",
       "loading": "依存関係の状態を読み込み中...",
       "install": "インストール",
       "installing": "インストール中...",
@@ -847,7 +838,6 @@
       "customPrompts": "Custom Prompts",
       "loadFailed": "Load failed"
     },
-    "dependenciesDesc": "AI SDK依存関係のインストールと更新を管理",
     "sponsor": "Sponsor",
     "sponsorDesc": "If this project helps you, consider sponsoring to support ongoing maintenance!",
     "alipay": "Alipay",
@@ -1765,23 +1755,6 @@
       "title": "セッションスレッドが無効です",
       "intro": "新しいセッションを作成することでこの問題を解決できます。現在のセッションのスレッド ID は Codex サーバーに存在しなくなりました。",
       "reason": "Codex は一定時間後に古いスレッドを削除するため、前のセッションを再開しようとするとこのエラーが発生することがあります。"
-    },
-    "sdkNativeBinaryMissing": {
-      "title": "SDK のインストールが不完全 — ネイティブバイナリが見つかりません",
-      "intro": "これは Taobao npm ミラーの既知の問題です（プラグインのバグではありません）。ミラーが platform 固有のファイルを完全に同期していません。以下のいずれかの方法で手動で対応できます：",
-      "reason": "Taobao ミラーが同期を完了すると、この問題は自動的に解消されます。心配する必要はありません。",
-      "solutions": {
-        "switchRegistry": {
-          "title": "方法 1：一時的に公式レジストリに切り替えて再インストール",
-          "step0": "1. ターミナルで実行（npm 公式レジストリへ切り替え）：",
-          "step1": "2. プラグインの「依存関係管理」設定を開き、再インストールをクリック：",
-          "step2": "3. 再インストール完了後、Taobao ミラーに戻す："
-        },
-        "downgrade": {
-          "title": "方法 2：バージョンをロールバック",
-          "step0": "「依存関係管理」で SDK バージョンを v0.2.112 以前に切り替えてください。切り替え後は IDEA の再起動が必要です。"
-        }
-      }
     },
     "spawnEbusy": {
       "title": "spawn EBUSY — 子プロセスの起動に失敗",

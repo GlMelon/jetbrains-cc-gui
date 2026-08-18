@@ -31,14 +31,7 @@ import com.github.claudecodegui.handler.opencode.DeleteOpenCodeMcpServerActionHa
 import com.github.claudecodegui.handler.opencode.ToggleOpenCodeMcpServerActionHandler;
 import com.github.claudecodegui.handler.UsagePushService;
 import com.github.claudecodegui.handler.context.GetContextUsageActionHandler;
-import com.github.claudecodegui.handler.dependency.DependencyActionHandlers;
-import com.github.claudecodegui.handler.dependency.GetDependencyStatusActionHandler;
-import com.github.claudecodegui.handler.dependency.InstallDependencyActionHandler;
-import com.github.claudecodegui.handler.dependency.UninstallDependencyActionHandler;
-import com.github.claudecodegui.handler.dependency.UpdateDependencyActionHandler;
-import com.github.claudecodegui.handler.dependency.CheckDependencyUpdatesActionHandler;
-import com.github.claudecodegui.handler.dependency.GetDependencyVersionsActionHandler;
-import com.github.claudecodegui.handler.dependency.CheckNodeEnvironmentActionHandler;
+import com.github.claudecodegui.handler.node.NodeEnvironmentActionHandler;
 import com.github.claudecodegui.handler.cli.CheckCliEnvironmentActionHandler;
 import com.github.claudecodegui.handler.cli.InstallCliToolActionHandler;
 import com.github.claudecodegui.handler.enhance.EnhancePromptActionHandler;
@@ -741,15 +734,8 @@ nodeService.setSessionId(sessionId);
         typedHandlers.add(new ImportPromptsFileActionHandler(promptHandlers));
         typedHandlers.add(new SaveImportedPromptsActionHandler(promptHandlers));
 
-        // Dependency action handlers (B2 迁移: SDK install/uninstall/update/versions/node env)
-        DependencyActionHandlers dependencyHandlers = new DependencyActionHandlers(handlerContext);
-        typedHandlers.add(new GetDependencyStatusActionHandler(dependencyHandlers));
-        typedHandlers.add(new InstallDependencyActionHandler(dependencyHandlers));
-        typedHandlers.add(new UninstallDependencyActionHandler(dependencyHandlers));
-        typedHandlers.add(new UpdateDependencyActionHandler(dependencyHandlers));
-        typedHandlers.add(new CheckDependencyUpdatesActionHandler(dependencyHandlers));
-        typedHandlers.add(new GetDependencyVersionsActionHandler(dependencyHandlers));
-        typedHandlers.add(new CheckNodeEnvironmentActionHandler(dependencyHandlers));
+        // Node environment action handler (迁自 dependency CHECK_NODE_ENVIRONMENT,CLI mcp-gateway 需 Node)
+        typedHandlers.add(new NodeEnvironmentActionHandler());
 
         // CLI environment action handlers (检测CLI工具安装状态)
         typedHandlers.add(new CheckCliEnvironmentActionHandler());

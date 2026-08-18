@@ -36,7 +36,6 @@ export function useMessageSender({
   currentProvider,
   selectedModel,
   selectedAgent,
-  sdkStatusLoaded,
   sentAttachmentsRef,
   chatInputRef,
   messagesContainerRef,
@@ -60,7 +59,6 @@ export function useMessageSender({
   selectedModel: string;
   permissionMode: PermissionMode;
   selectedAgent: SelectedAgent | null;
-  sdkStatusLoaded: boolean;
   sentAttachmentsRef: RefObject<Map<string, Array<{ fileName: string; mediaType: string }>>>;
   chatInputRef: RefObject<ChatInputBoxHandle | null>;
   messagesContainerRef: RefObject<HTMLDivElement | null>;
@@ -287,17 +285,6 @@ export function useMessageSender({
 
     if (!text && !hasAttachments) return;
 
-    // SDK status preflight is best-effort only. If the async status query is still
-    // unresolved, allow the send and let the backend perform the authoritative check.
-    if (!sdkStatusLoaded) {
-      addToast(
-        t('chat.sdkStatusCheckDeferred', {
-          provider: getProviderDisplayName(currentProvider),
-          defaultValue: '{{provider}} SDK status is still loading. Sending will continue and the backend will verify it before execution.',
-        }),
-        'info',
-      );
-    }
     // Build user message content blocks
     const userContentBlocks = buildUserContentBlocks(text, attachments);
     if (userContentBlocks.length === 0) return;
@@ -360,7 +347,6 @@ export function useMessageSender({
     // Send message to backend
     sendMessageToBackend(text, attachments, agentInfo, fileTagsInfo);
   }, [
-    sdkStatusLoaded,
     currentProvider,
     selectedAgent,
     buildUserContentBlocks,

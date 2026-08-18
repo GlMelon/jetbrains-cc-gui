@@ -4,8 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * SDK response result.
- * Contains the outcome of an AI provider operation.
+ * AI provider operation result (DTO consumed by the CLI adapter layer).
+ * Contains the outcome of a provider turn.
  */
 public class SDKResult {
     public boolean success;

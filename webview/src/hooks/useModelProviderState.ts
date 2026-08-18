@@ -1,6 +1,6 @@
 import { sendAction } from '../bridge/typed';
 import { UPSTREAM } from '../generated/protocol';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { TFunction } from 'i18next';
 import { DOWNSTREAM } from '../generated/protocol';
 import { subscribeEvent } from '../bridge/typed';
@@ -48,9 +48,6 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
   const currentProviderRef = useRef(currentProvider);
   currentProviderRef.current = currentProvider;
 
-  // SDK status from backend (populated via bootstrap or dependency status events)
-  const [sdkStatus, setSdkStatus] = useState<Record<string, { installed: boolean; version?: string; meetsMinimumVersion?: boolean }>>({});
-
   // ── Provider-specific sub-hooks ──
   const claude = useClaudeProvider();
   const codex = useCodexProvider();
@@ -58,7 +55,7 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
   const grok = useGrokProvider();
   const kimi = useKimiProvider();
   const pi = usePiProvider();
-  const { isSdkInstalled, isSdkStatusKnown, ...usage } = useUsageTracking();
+  const usage = useUsageTracking();
   const settings = useProviderSettings({ addToast, t });
 
   const {
@@ -134,21 +131,6 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
             ? selectedPiModel
             : selectedClaudeModel;
   const selectedModelIdentifier = selectedModelIdentifiers[currentProvider];
-  const currentSdkInstalled = useMemo(
-    () => isSdkInstalled(currentProvider),
-    [isSdkInstalled, currentProvider],
-  );
-  const currentSdkStatusError = useMemo(
-    () => usage.sdkStatusError !== null && !isSdkStatusKnown(currentProvider)
-      ? usage.sdkStatusError
-      : null,
-    [currentProvider, isSdkStatusKnown, usage.sdkStatusError],
-  );
-  // Whether the installed Claude SDK meets the minimum version required for the
-  // selected model's tier (Fable needs >= 0.3.182). `undefined` means the backend
-  // hasn't reported it (SDK not installed, or an old plugin version without the
-  // field) — callers must only warn on an explicit `false` to avoid false positives.
-  const claudeSdkMeetsMinimum = sdkStatus?.['claude-sdk']?.meetsMinimumVersion;
 
   const [modelRegistryVersion, setModelRegistryVersion] = useState(0);
   useEffect(() => subscribeModelRegistry(() => setModelRegistryVersion((version) => version + 1)), []);
@@ -211,18 +193,6 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
       // Ignore malformed backend selection events; existing state remains authoritative for display.
     }
   }), [setLongContextEnabled, setSelectedClaudeModel, setSelectedCodexModel, setSelectedOpenCodeModel, setSelectedGrokModel, setSelectedKimiModel, setSelectedPiModel]);
-
-  // Subscribe to dependency status updates to populate sdkStatus
-  useEffect(() => subscribeEvent(DOWNSTREAM.DEPENDENCY_STATUS, (json) => {
-    try {
-      const data = typeof json === 'string' ? JSON.parse(json) : json;
-      if (data && typeof data === 'object') {
-        setSdkStatus(data);
-      }
-    } catch {
-      // Ignore malformed dependency status events
-    }
-  }), []);
 
   // ── Cross-provider handlers ──
   const handleModeSelect = useCallback((mode: PermissionMode) => {
@@ -511,14 +481,10 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
     ...pi,
     ...usage,
     ...settings,
-    sdkStatus,
-    sdkStatusError: currentSdkStatusError,
     currentProvider, setCurrentProvider,
     permissionMode, setPermissionMode,
     selectedModel,
     selectedModelIdentifier,
-    currentSdkInstalled,
-    claudeSdkMeetsMinimum,
     currentProviderRef,
     handleModeSelect,
     handleModelSelect,

@@ -503,16 +503,6 @@ export interface ChatInputBoxProps {
   /** Toggle StatusPanel expand/collapse */
   onToggleStatusPanel?: () => void;
 
-  /** SDK installed status (disable input when not installed) */
-  sdkInstalled?: boolean;
-  /** SDK status loading state */
-  sdkStatusLoading?: boolean;
-  /** SDK status query failed; chat remains available until the user retries */
-  sdkStatusError?: boolean;
-  /** Retry SDK status query callback */
-  onRetrySdkStatus?: () => void;
-  /** Go to install SDK callback */
-  onInstallSdk?: () => void;
   /** Show toast message */
   addToast?: (message: string, type: 'info' | 'success' | 'warning' | 'error') => void;
 

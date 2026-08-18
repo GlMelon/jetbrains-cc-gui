@@ -6,7 +6,6 @@ import com.github.claudecodegui.config.ModelConfigValidator;
 import com.github.claudecodegui.config.ModelRegistryConfig;
 import com.github.claudecodegui.config.ProviderRuntimePolicy;
 import com.github.claudecodegui.config.RuntimePolicyConfig;
-import com.github.claudecodegui.dependency.DependencyManager;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.model.DeleteResult;
 import com.github.claudecodegui.model.PromptScope;
@@ -1227,14 +1226,15 @@ public class CodemossSettingsService {
 
     private boolean isAiFeatureProviderAvailable(String provider) {
         try {
-            DependencyManager dependencyManager = new DependencyManager();
+            // CLI 模式下用可执行文件,不再依赖 npm SDK 包;provider 可用性由配置存在性判断,
+            // exe 检测在 spawn 时完成(findCliExecutable)。
             if (CommonConstants.PROVIDER_CODEX.equals(provider)) {
-                return getActiveCodexProvider() != null && dependencyManager.isInstalled("codex-sdk");
+                return getActiveCodexProvider() != null;
             }
             if (CommonConstants.PROVIDER_OPENCODE.equals(provider)) {
-                return dependencyManager.isInstalled("opencode-sdk");
+                return true;
             }
-            return getActiveClaudeProvider() != null && dependencyManager.isInstalled("claude-sdk");
+            return getActiveClaudeProvider() != null;
         } catch (Exception e) {
             LOG.warn("[CodemossSettings] Failed to resolve AI feature availability for " + provider + ": " + e.getMessage());
             return false;

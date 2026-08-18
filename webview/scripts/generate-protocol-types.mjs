@@ -108,10 +108,6 @@ const codexProtectedEnvKeyJavaPath = resolve(
   __dirname,
   '../../src/main/java/com/github/claudecodegui/protocol/CodexProtectedEnvKey.java',
 );
-const versionActionJavaPath = resolve(
-  __dirname,
-  '../../src/main/java/com/github/claudecodegui/dependency/VersionAction.java',
-);
 const commonConstantsJavaPath = resolve(
   __dirname,
   '../../src/main/java/com/github/claudecodegui/common/CommonConstants.java',
@@ -153,7 +149,6 @@ const REQUIRED_JAVA_SOURCES = [
   skillDocumentResultPayloadJavaPath,
   skillDocumentSavePayloadJavaPath,
   codexProtectedEnvKeyJavaPath,
-  versionActionJavaPath,
   commonConstantsJavaPath,
   permissionDialogTimeoutSettingsJavaPath,
 ];
@@ -273,14 +268,6 @@ ${(manifest.codexProtectedEnvKey ?? []).map((k) => `  ${k.name}: '${k.value}' as
 } as const;
 
 export type CodexProtectedEnvKey = typeof CODEX_PROTECTED_ENV_KEY[keyof typeof CODEX_PROTECTED_ENV_KEY];
-
-// ── Version Action (business enum SSOT, A6) ──
-
-export const VERSION_ACTION = {
-${(manifest.versionAction ?? []).map((a) => `  ${a.name}: '${a.value}' as const,`).join('\n')}
-} as const;
-
-export type VersionAction = typeof VERSION_ACTION[keyof typeof VERSION_ACTION];
 
 // ── Int Constants (business defaults SSOT, C5) ──
 
@@ -430,7 +417,6 @@ function generateManifestFromJavaSources() {
     historyExportFormat: parseJavaEnumProtocol(historyExportFormatJavaPath),
     codexHistoryPageMode: parseJavaEnumProtocol(codexHistoryPageModeJavaPath),
     codexProtectedEnvKey: parseJavaEnumProtocol(codexProtectedEnvKeyJavaPath),
-    versionAction: parseJavaEnumProtocol(versionActionJavaPath),
     intConstants: [
       ...parseIntConstants(
         readFileSync(commonConstantsJavaPath, 'utf-8'),
@@ -507,10 +493,6 @@ export type HistoryExportFormat = string;
 export const CODEX_PROTECTED_ENV_KEY: Record<string, string> = {};
 export type CodexProtectedEnvKey = string;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const VERSION_ACTION: Record<string, string> = {};
-export type VersionAction = string;
-
 // C5 int constants — stub 默认值与后端一致(从 Java 重新生成获取真值)
 export const DEFAULT_CONTEXT_WINDOW = 200000 as const;
 export const ONE_MILLION_CONTEXT_WINDOW = 1000000 as const;
@@ -579,7 +561,7 @@ function main(args = process.argv.slice(2)) {
     writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8');
     content = generateFromManifest(manifest);
     console.log(
-      `[generate-protocol-types] Generated from Java sources (${manifest.upstream.length} upstream, ${manifest.downstream.length} downstream, ${manifest.permissionMode?.length ?? 0} permissionMode, ${manifest.reasoningEffort?.length ?? 0} reasoningEffort, ${manifest.providerType?.length ?? 0} providerType, ${manifest.skillScope?.length ?? 0} skillScope, ${manifest.skillFieldControl?.length ?? 0} skillFieldControl, ${manifest.historyExportFormat?.length ?? 0} historyExportFormat, ${manifest.codexProtectedEnvKey?.length ?? 0} codexProtectedEnvKey, ${manifest.versionAction?.length ?? 0} versionAction, ${manifest.intConstants?.length ?? 0} intConstants, ${manifest.payloadSchemas?.modelRegistry?.fields?.length ?? 0} modelRegistry payload fields, ${manifest.payloadSchemas?.webviewBootstrap?.fields?.length ?? 0} webviewBootstrap payload fields, ${manifest.payloadSchemas?.historyExport?.fields?.length ?? 0} historyExport payload fields, ${manifest.payloadSchemas?.historyCapabilities?.fields?.length ?? 0} historyCapabilities payload fields, ${manifest.payloadSchemas?.historyArchiveResult?.fields?.length ?? 0} historyArchiveResult payload fields, ${manifest.payloadSchemas?.skillDocumentField?.fields?.length ?? 0} skillDocumentField payload fields, ${manifest.payloadSchemas?.skillDocumentResult?.fields?.length ?? 0} skillDocumentResult payload fields, ${manifest.payloadSchemas?.skillDocumentSave?.fields?.length ?? 0} skillDocumentSave payload fields)`,
+      `[generate-protocol-types] Generated from Java sources (${manifest.upstream.length} upstream, ${manifest.downstream.length} downstream, ${manifest.permissionMode?.length ?? 0} permissionMode, ${manifest.reasoningEffort?.length ?? 0} reasoningEffort, ${manifest.providerType?.length ?? 0} providerType, ${manifest.skillScope?.length ?? 0} skillScope, ${manifest.skillFieldControl?.length ?? 0} skillFieldControl, ${manifest.historyExportFormat?.length ?? 0} historyExportFormat, ${manifest.codexProtectedEnvKey?.length ?? 0} codexProtectedEnvKey, ${manifest.intConstants?.length ?? 0} intConstants, ${manifest.payloadSchemas?.modelRegistry?.fields?.length ?? 0} modelRegistry payload fields, ${manifest.payloadSchemas?.webviewBootstrap?.fields?.length ?? 0} webviewBootstrap payload fields, ${manifest.payloadSchemas?.historyExport?.fields?.length ?? 0} historyExport payload fields, ${manifest.payloadSchemas?.historyCapabilities?.fields?.length ?? 0} historyCapabilities payload fields, ${manifest.payloadSchemas?.historyArchiveResult?.fields?.length ?? 0} historyArchiveResult payload fields, ${manifest.payloadSchemas?.skillDocumentField?.fields?.length ?? 0} skillDocumentField payload fields, ${manifest.payloadSchemas?.skillDocumentResult?.fields?.length ?? 0} skillDocumentResult payload fields, ${manifest.payloadSchemas?.skillDocumentSave?.fields?.length ?? 0} skillDocumentSave payload fields)`,
     );
   } else if (mode === 'manifest') {
     if (!existsSync(manifestPath)) {

@@ -4,13 +4,9 @@ import type { Attachment, SelectedAgent, QueuedMessage } from './types.js';
 import { AttachmentList } from './AttachmentList.js';
 import { ContextBar } from './ContextBar.js';
 import { MessageQueue } from './MessageQueue.js';
-import { UnifiedLoader } from '../UnifiedLoader';
 
 export const ChatInputBoxHeader = memo(function ChatInputBoxHeader({
-  sdkStatusLoading,
-  sdkInstalled,
   currentProvider,
-  onInstallSdk,
   t,
   attachments,
   onRemoveAttachment,
@@ -37,12 +33,7 @@ export const ChatInputBoxHeader = memo(function ChatInputBoxHeader({
   onRequestEnableFileContext,
   selectedModel,
 }: {
-  sdkInstalled: boolean;
-  sdkStatusLoading: boolean;
-  sdkStatusError?: boolean;
-  onRetrySdkStatus?: () => void;
   currentProvider: string;
-  onInstallSdk?: () => void;
   t: TFunction;
   attachments: Attachment[];
   onRemoveAttachment: (id: string) => void;
@@ -85,35 +76,6 @@ export const ChatInputBoxHeader = memo(function ChatInputBoxHeader({
           >
             &#x2715;
           </button>
-        </div>
-      )}
-
-      {/* SDK status loading or not installed warning bar */}
-      {(sdkStatusLoading || !sdkInstalled) && (
-        <div className={`sdk-warning-bar ${sdkStatusLoading ? 'sdk-loading' : ''}`}>
-          {sdkStatusLoading ? (
-            <UnifiedLoader type="spin" size={14} />
-          ) : (
-            <span className="codicon codicon-warning" />
-          )}
-          <span className="sdk-warning-text">
-            {sdkStatusLoading
-              ? t('chat.sdkStatusLoading')
-              : t('chat.sdkNotInstalled', {
-                  provider: currentProvider === 'codex' ? 'Codex' : 'Claude Code',
-                })}
-          </span>
-          {!sdkStatusLoading && (
-            <button
-              className="sdk-install-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                onInstallSdk?.();
-              }}
-            >
-              {t('chat.goInstallSdk')}
-            </button>
-          )}
         </div>
       )}
 

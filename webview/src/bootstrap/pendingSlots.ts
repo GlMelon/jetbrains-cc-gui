@@ -130,26 +130,6 @@ export function registerPendingSlots() {
     },
   );
 
-  // --- updateDependencyStatus ---
-  preRegisterWindowSlot(
-    'updateDependencyStatus',
-    '__pendingDependencyStatus',
-    (json: string) => {
-      debugLog('[Main] Storing pending dependency status, length=' + (json ? json.length : 0));
-      window.__pendingDependencyStatus = json;
-    },
-  );
-
-  // --- dependencyUpdateAvailable ---
-  preRegisterWindowSlot(
-    'dependencyUpdateAvailable',
-    '__pendingDependencyUpdates',
-    (json: string) => {
-      debugLog('[Main] Storing pending dependency updates, length=' + (json ? json.length : 0));
-      window.__pendingDependencyUpdates = json;
-    },
-  );
-
   // --- updateStreamingEnabled ---
   preRegisterWindowSlot(
     'updateStreamingEnabled',
