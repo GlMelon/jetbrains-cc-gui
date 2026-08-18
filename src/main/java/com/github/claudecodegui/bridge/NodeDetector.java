@@ -909,4 +909,38 @@ public class NodeDetector {
         int major = parseMajorVersion(version);
         return major >= MIN_NODE_MAJOR_VERSION;
     }
+
+    /**
+     * Checks whether the Node.js environment is available (cache → find → verify).
+     *
+     * <p>迁自原 {@code DependencyManager.checkNodeEnvironment}。CLI 的 mcp-gateway/favorites/titles
+     * 仍需 Node,故保留:缓存优先 → {@link #findNodeExecutable()} → {@link #verifyAndCacheNodePath}。</p>
+     */
+    public boolean checkEnvironment() {
+        try {
+            String cachedPath = getCachedNodePath();
+            String cachedVersion = getCachedNodeVersion();
+            if (cachedPath != null && cachedVersion != null) {
+                return true;
+            }
+
+            String nodePath = findNodeExecutable();
+            if (nodePath == null) {
+                return false;
+            }
+
+            // findNodeExecutable() already verifies and caches on successful detection.
+            NodeDetectionResult cached = getCachedDetectionResult();
+            if (cached != null && cached.isFound()) {
+                return true;
+            }
+
+            // Fallback case: verify and cache in a single call (avoids double process spawn).
+            NodeDetectionResult fallbackResult = verifyAndCacheNodePath(nodePath);
+            return fallbackResult.isFound();
+        } catch (Exception e) {
+            LOG.warn("[NodeDetector] Node.js environment check failed: " + e.getMessage());
+            return false;
+        }
+    }
 }
