@@ -37,7 +37,7 @@ import { extractMessageUsage } from '../../utils/messageUsage';
 import { CopyIcon } from '../Icons';
 import { AssistantResponseStatus } from './AssistantResponseStatus';
 import { AssistantStreamingFooter } from './AssistantStreamingFooter';
-import { hasAssistantTextOutput } from './assistantTextOutput';
+import { hasAssistantVisibleOutput } from './assistantTextOutput';
 import type { AvatarConfig } from '../../types/avatar';
 
 type GroupedBlock =
@@ -455,9 +455,12 @@ export const MessageItem = memo(function MessageItem({
     !shouldSuppressStreamingConnectHint &&
     blocks.length === 0 &&
     !(message.content && message.content.trim().length > 0);
-  const hasTextOutput = hasAssistantTextOutput(message, blocks);
+  // The streaming footer appears with the FIRST renderable output of the turn
+  // (thinking block, tool/MCP call, or text) — not only when answer text lands.
   const shouldShowStreamingFooter =
-    message.type === 'assistant' && isMessageStreaming && hasTextOutput;
+    message.type === 'assistant' &&
+    isMessageStreaming &&
+    hasAssistantVisibleOutput(message, blocks);
 
   // Ref to track the last auto-expanded thinking block index to avoid overriding user interaction
   const lastAutoExpandedIndexRef = useRef<number>(-1);
@@ -860,9 +863,7 @@ export const MessageItem = memo(function MessageItem({
               <MessageUsageStats
                 inputTokens={messageUsage?.inputTokens ?? null}
                 outputTokens={messageUsage?.outputTokens ?? null}
-                cacheCreationTokens={messageUsage?.cacheCreationTokens ?? null}
                 cacheReadTokens={messageUsage?.cacheReadTokens ?? null}
-                costUsd={messageUsage?.costUsd ?? null}
                 detailedOutputEnabled={detailedOutputEnabled}
                 durationMs={typeof message.durationMs === 'number' ? message.durationMs : null}
                 durationLabelKey={durationLabelKey}
@@ -885,9 +886,7 @@ export const MessageItem = memo(function MessageItem({
             <MessageUsageStats
               inputTokens={messageUsage?.inputTokens ?? null}
               outputTokens={messageUsage?.outputTokens ?? null}
-              cacheCreationTokens={messageUsage?.cacheCreationTokens ?? null}
               cacheReadTokens={messageUsage?.cacheReadTokens ?? null}
-              costUsd={messageUsage?.costUsd ?? null}
               detailedOutputEnabled={detailedOutputEnabled}
               durationMs={typeof message.durationMs === 'number' ? message.durationMs : null}
               durationLabelKey={durationLabelKey}

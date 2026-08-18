@@ -1,15 +1,13 @@
 import { memo } from 'react';
 import type { TFunction } from 'i18next';
 
-import { formatDurationMs, formatTokenCount, formatUsdCost } from '../../utils/messageUsage';
+import { formatDurationMs, formatTokenCount } from '../../utils/messageUsage';
 import { CountUp } from '../react-bits';
 
 interface MessageUsageStatsProps {
   inputTokens: number | null;
   outputTokens: number | null;
-  cacheCreationTokens?: number | null;
   cacheReadTokens?: number | null;
-  costUsd?: number | null;
   detailedOutputEnabled?: boolean;
   durationMs: number | null;
   t: TFunction;
@@ -20,33 +18,33 @@ interface MessageUsageStatsProps {
 
 /**
  * Usage stats bar displayed after each completed assistant message.
- * The default view stays compact; cache details and backend-computed cost are opt-in.
+ * Controlled by detailedOutputEnabled setting - when enabled, shows the full usage area;
+ * when disabled, hides the entire usage area.
  */
 export const MessageUsageStats = memo(function MessageUsageStats({
   inputTokens,
   outputTokens,
-  cacheCreationTokens = null,
   cacheReadTokens = null,
-  costUsd = null,
   detailedOutputEnabled = false,
   durationMs,
   t,
   durationLabelKey = 'chat.usageStats.duration',
   animateCounts = true,
 }: MessageUsageStatsProps) {
+  // detailedOutputEnabled controls the entire usage area visibility
+  if (!detailedOutputEnabled) return null;
+
   const hasTokens =
     (inputTokens !== null && inputTokens > 0) || (outputTokens !== null && outputTokens > 0);
   const hasDuration = durationMs !== null && durationMs > 0;
   const totalTokens = (inputTokens ?? 0) + (outputTokens ?? 0);
-  const showCacheCreation =
-    detailedOutputEnabled && cacheCreationTokens !== null && cacheCreationTokens > 0;
-  const showCacheRead = detailedOutputEnabled && cacheReadTokens !== null && cacheReadTokens > 0;
-  const showCost = detailedOutputEnabled && costUsd !== null && costUsd > 0;
+  const showCacheRead = cacheReadTokens !== null && cacheReadTokens > 0;
 
-  if (!hasTokens && !hasDuration && !showCost) return null;
+  if (!hasTokens && !hasDuration) return null;
 
   return (
     <div className="usage-stats">
+      {/* Input tokens */}
       {hasTokens && inputTokens !== null && inputTokens > 0 && (
         <div className="usage-item type-in">
           <svg
@@ -72,6 +70,7 @@ export const MessageUsageStats = memo(function MessageUsageStats({
         </div>
       )}
 
+      {/* Output tokens */}
       {hasTokens && outputTokens !== null && outputTokens > 0 && (
         <div className="usage-item type-out">
           <svg
@@ -97,6 +96,27 @@ export const MessageUsageStats = memo(function MessageUsageStats({
         </div>
       )}
 
+      {/* Cache read tokens */}
+      {showCacheRead && (
+        <div className="usage-item type-cache-read">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M21 21v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4" />
+            <polyline points="7 11 12 6 17 11" />
+            <line x1="12" y1="6" x2="12" y2="18" />
+          </svg>
+          <span>{t('chat.usageStats.cacheRead')}</span>
+          <span className="usage-value">{formatTokenCount(cacheReadTokens)}</span>
+        </div>
+      )}
+
+      {/* Total tokens */}
       {hasTokens && totalTokens > 0 && (
         <div className="usage-item type-total">
           <svg
@@ -122,27 +142,7 @@ export const MessageUsageStats = memo(function MessageUsageStats({
         </div>
       )}
 
-      {showCacheCreation && (
-        <div className="usage-item type-cache-write">
-          <span>{t('usage.cacheWrite')}</span>
-          <span className="usage-value">{formatTokenCount(cacheCreationTokens)}</span>
-        </div>
-      )}
-
-      {showCacheRead && (
-        <div className="usage-item type-cache-read">
-          <span>{t('usage.cacheRead')}</span>
-          <span className="usage-value">{formatTokenCount(cacheReadTokens)}</span>
-        </div>
-      )}
-
-      {showCost && (
-        <div className="usage-item type-cost">
-          <span>{t('usage.totalCost')}</span>
-          <span className="usage-value">{formatUsdCost(costUsd)}</span>
-        </div>
-      )}
-
+      {/* Duration */}
       {hasDuration && (
         <div className="usage-item type-duration">
           <svg

@@ -9,9 +9,7 @@ const t = ((key: string) => key) as TFunction;
 const baseProps = {
   inputTokens: 37_000,
   outputTokens: 353,
-  cacheCreationTokens: 10,
   cacheReadTokens: 36_310,
-  costUsd: 0.00893125,
   durationMs: 65_000,
   t,
 };
@@ -19,35 +17,42 @@ const baseProps = {
 describe('MessageUsageStats detailed output', () => {
   afterEach(cleanup);
 
-  it('keeps cache and cost details hidden by default', () => {
+  it('hides entire usage area when detailedOutputEnabled is false', () => {
     render(<MessageUsageStats {...baseProps} detailedOutputEnabled={false} />);
+
+    expect(screen.queryByText('chat.usageStats.input')).toBeNull();
+    expect(screen.queryByText('chat.usageStats.output')).toBeNull();
+    expect(screen.queryByText('chat.usageStats.cacheRead')).toBeNull();
+    expect(screen.queryByText('chat.usageStats.total')).toBeNull();
+    expect(screen.queryByText('chat.usageStats.duration')).toBeNull();
+  });
+
+  it('shows usage area with cacheRead when detailedOutputEnabled is true', () => {
+    render(<MessageUsageStats {...baseProps} detailedOutputEnabled />);
 
     expect(screen.getByText('chat.usageStats.input')).toBeTruthy();
     expect(screen.getByText('chat.usageStats.output')).toBeTruthy();
+    expect(screen.getByText('chat.usageStats.cacheRead')).toBeTruthy();
     expect(screen.getByText('chat.usageStats.total')).toBeTruthy();
     expect(screen.getByText('chat.usageStats.duration')).toBeTruthy();
-    expect(screen.queryByText('usage.cacheWrite')).toBeNull();
-    expect(screen.queryByText('usage.cacheRead')).toBeNull();
-    expect(screen.queryByText('usage.totalCost')).toBeNull();
   });
 
-  it('shows backend-provided cache and cost details when enabled', () => {
-    render(<MessageUsageStats {...baseProps} detailedOutputEnabled />);
+  it('hides cacheRead when cacheReadTokens is null or zero', () => {
+    render(<MessageUsageStats {...baseProps} cacheReadTokens={0} detailedOutputEnabled />);
 
-    expect(screen.getByText('usage.cacheWrite')).toBeTruthy();
-    expect(screen.getByText('usage.cacheRead')).toBeTruthy();
-    expect(screen.getByText('usage.totalCost')).toBeTruthy();
-    expect(screen.getByText('$0.0089')).toBeTruthy();
+    expect(screen.getByText('chat.usageStats.input')).toBeTruthy();
+    expect(screen.getByText('chat.usageStats.output')).toBeTruthy();
+    expect(screen.queryByText('chat.usageStats.cacheRead')).toBeNull();
   });
 
   it('updates immediately when the canonical setting changes', () => {
     const { rerender } = render(<MessageUsageStats {...baseProps} detailedOutputEnabled={false} />);
 
-    expect(screen.queryByText('usage.totalCost')).toBeNull();
+    expect(screen.queryByText('chat.usageStats.input')).toBeNull();
 
     rerender(<MessageUsageStats {...baseProps} detailedOutputEnabled />);
 
-    expect(screen.getByText('usage.totalCost')).toBeTruthy();
-    expect(screen.getByText('usage.cacheRead')).toBeTruthy();
+    expect(screen.getByText('chat.usageStats.input')).toBeTruthy();
+    expect(screen.getByText('chat.usageStats.cacheRead')).toBeTruthy();
   });
 });
