@@ -1,5 +1,6 @@
 package com.github.claudecodegui.util;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.session.ClaudeSession;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -36,6 +37,7 @@ public class MessageJsonConverterTest {
         raw.addProperty("type", "assistant");
         raw.addProperty("sessionId", "session-1");
         raw.addProperty("parentUuid", "parent-1");
+        raw.addProperty(CommonConstants.JSON_KEY_REWINDABLE, true);
         raw.add("message", message);
         JsonObject turnUsage = new JsonObject();
         turnUsage.addProperty("input_tokens", 1200);
@@ -57,6 +59,7 @@ public class MessageJsonConverterTest {
         JsonObject transportRaw = transportMessages.get(0).getAsJsonObject().getAsJsonObject("raw");
         assertEquals("uuid-1", transportRaw.get("uuid").getAsString());
         assertEquals("assistant", transportRaw.get("type").getAsString());
+        assertTrue(transportRaw.get(CommonConstants.JSON_KEY_REWINDABLE).getAsBoolean());
         assertFalse(transportRaw.has("sessionId"));
         assertFalse(transportRaw.has("parentUuid"));
 
