@@ -237,8 +237,51 @@ public class ClaudeCliStreamParser {
             }
             emitStreamStartIfNeeded(callback);
             emitMessageStartIfNeeded(callback);
+        } else if (CliConstants.SUBTYPE_API_RETRY.equals(subtype)) {
+            // API 端点 5xx/529 过载:CLI 静默指数退避重试(最多 10 次、总挂起可达数分钟),
+            // 不上报则前端一直停在"正在理解问题"无任何感知(2026-08-18 BigModel 529 实测)。
+            emitApiRetryNotice(obj, callback);
         }
         // subtype="status" (如 "requesting") 跳过
+    }
+
+    /** api_retry 去重标记:一轮(parser 实例)只提示一次,避免 10 连发刷屏;文案已含进度语义。 */
+    private boolean apiRetryNoticeEmitted;
+
+    private void emitApiRetryNotice(JsonObject obj, MessageCallback callback) {
+        if (apiRetryNoticeEmitted) {
+            return;
+        }
+        apiRetryNoticeEmitted = true;
+        int attempt = readIntField(obj, "attempt");
+        int maxRetries = readIntField(obj, "max_retries");
+        String errorStatus = getString(obj, "error_status");
+        String error = getString(obj, "error");
+        StringBuilder text = new StringBuilder("API 服务暂时不可用");
+        if (errorStatus != null && !errorStatus.isBlank()) {
+            text.append("(HTTP ").append(errorStatus);
+            if (error != null && !error.isBlank()) {
+                text.append(" ").append(error);
+            }
+            text.append(")");
+        }
+        if (attempt > 0) {
+            text.append(",CLI 正在自动重试(第 ").append(attempt);
+            if (maxRetries > 0) {
+                text.append("/").append(maxRetries);
+            }
+            text.append(" 次),期间对话会挂起,请稍候或中断后重发");
+        }
+        sectionEmitter(callback).status(text.toString());
+    }
+
+    private static int readIntField(JsonObject obj, String key) {
+        try {
+            return obj.has(key) && obj.get(key).isJsonPrimitive()
+                    ? obj.get(key).getAsInt() : -1;
+        } catch (Exception e) {
+            return -1;
+        }
     }
 
     private void handleAssistant(JsonObject obj, MessageCallback callback) {
