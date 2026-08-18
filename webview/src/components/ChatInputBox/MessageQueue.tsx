@@ -1,5 +1,6 @@
 import type { QueuedMessage } from '../../hooks/useMessageQueue';
 import { CloseIcon } from '../Icons';
+import { AnimatedList } from '../react-bits';
 
 /**
  * MessageQueue - Displays queued messages above input box
@@ -18,7 +19,8 @@ export function MessageQueue({ queue, onRemove }: {
   return (
     <div className="message-queue">
       {/* Render in reverse order so newest is at bottom (closest to input) */}
-      {[...queue].reverse().map((item, reversedIndex) => {
+      <AnimatedList stagger={40} offset={6}>
+        {[...queue].reverse().map((item, reversedIndex) => {
         // Calculate actual queue position (1-based, from bottom)
         const queuePosition = queue.length - reversedIndex;
         return (
@@ -36,8 +38,8 @@ export function MessageQueue({ queue, onRemove }: {
             </button>
           </div>
         );
-      })}
+        })}
+      </AnimatedList>
     </div>
   );
 }
-

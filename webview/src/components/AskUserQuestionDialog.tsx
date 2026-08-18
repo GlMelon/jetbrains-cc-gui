@@ -6,7 +6,7 @@ import { DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS } from '../utils/permissionDi
 import { isEditableEventTarget } from '../utils/isEditableEventTarget';
 import './AskUserQuestionDialog.css';
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon, CircleFilledIcon, CircleIcon, ClockIcon, AlertIcon } from './Icons';
-import { ClickSpark } from './react-bits';
+import { ClickSpark, FadeContent } from './react-bits';
 
 // Special marker to identify the "Other" option
 const OTHER_OPTION_MARKER = '__OTHER__';
@@ -300,10 +300,12 @@ const AskUserQuestionDialog = ({
 
         {/* Timeout warning notice */}
         {isTimeWarning && !isCollapsed && (
-          <div className="timeout-warning-banner">
-            <AlertIcon size={16} />
-            <span>{t('askUserQuestion.timeoutWarning', '请尽快回答，对话框将在 {{seconds}} 秒后自动关闭', { seconds: remainingSeconds })}</span>
-          </div>
+          <FadeContent duration={180} offset={8}>
+            <div className="timeout-warning-banner">
+              <AlertIcon size={16} />
+              <span>{t('askUserQuestion.timeoutWarning', '请尽快回答，对话框将在 {{seconds}} 秒后自动关闭', { seconds: remainingSeconds })}</span>
+            </div>
+          </FadeContent>
         )}
 
         {/* Brief hint in collapsed state */}

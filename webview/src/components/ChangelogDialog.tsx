@@ -4,7 +4,7 @@ import type { ChangelogEntry } from '../version/changelog';
 import { summarizeChangelog, escapeHtml, type ChangelogSummary } from '../version/changelogSummary';
 import { BaseDialog } from './shared/BaseDialog';
 import { CloseIcon, SearchIcon } from './Icons';
-import { GradientText, ClickSpark } from './react-bits';
+import { AnimatedList, GradientText, ClickSpark } from './react-bits';
 
 interface ChangelogDialogProps {
   isOpen: boolean;
@@ -207,14 +207,11 @@ const ChangelogDialog = ({ isOpen, onClose, entries, initialPage = 0 }: Changelo
 
           {/* Body:分语言块,每块渲染其 sections(彩色 chip + 标题 + 列表) */}
           <div className="wn-b-body">
-            {contentParts.map((part, idx) => {
+            <AnimatedList stagger={100} duration={200} offset={8}>
+              {contentParts.map((part, idx) => {
               const summary = summarizeChangelog(part);
               return (
-                <div 
-                  key={idx} 
-                  className="wn-b-lang"
-                  style={{ '--stagger-delay': `${idx * 100}ms` } as React.CSSProperties}
-                >
+                <div key={idx} className="wn-b-lang">
                   {idx > 0 && <hr className="wn-b-divider" />}
                   {summary.loose.length > 0 && (
                     <div className="wn-b-loose">
@@ -241,7 +238,8 @@ const ChangelogDialog = ({ isOpen, onClose, entries, initialPage = 0 }: Changelo
                   ))}
                 </div>
               );
-            })}
+              })}
+            </AnimatedList>
           </div>
 
           {/* Footer:页码跳转 + Got it */}

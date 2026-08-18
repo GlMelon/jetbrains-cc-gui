@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { Attachment, AttachmentListProps } from './types';
 import { isImageAttachment } from './types';
 import { codiconToIcon } from '../Icons';
+import { AnimatedList } from '../react-bits';
 
 /**
  * AttachmentList - Attachment list component
@@ -70,13 +71,13 @@ export const AttachmentList = ({
   return (
     <>
       <div className="attachment-list">
-        {attachments.map((attachment, index) => (
+        <AnimatedList stagger={40} offset={6}>
+          {attachments.map((attachment) => (
           <div
             key={attachment.id}
             className="attachment-item"
             onClick={() => handleClick(attachment)}
             title={attachment.fileName}
-            style={{ '--stagger-delay': `${index * 50}ms` } as React.CSSProperties}
           >
             {isImageAttachment(attachment) ? (
               <img
@@ -101,7 +102,8 @@ export const AttachmentList = ({
               ×
             </button>
           </div>
-        ))}
+          ))}
+        </AnimatedList>
       </div>
 
       {/* Image preview dialog */}
@@ -130,4 +132,3 @@ export const AttachmentList = ({
     </>
   );
 };
-

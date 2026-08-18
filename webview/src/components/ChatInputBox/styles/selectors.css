@@ -424,20 +424,11 @@
   background: var(--button-hover);
 }
 
-/* conic-gradient 圆环 */
-.ring-indicator .ring {
-  position: absolute;
+.ring-indicator .ring-progress {
+  position: absolute !important;
   inset: 2px;
-  border-radius: 50%;
-}
-
-/* 圆环内圆切孔 */
-.ring-indicator .ring::before {
-  content: "";
-  position: absolute;
-  inset: 2.5px;
-  border-radius: 50%;
-  background: var(--context-bar-bg);
+  pointer-events: none;
+  z-index: 0;
 }
 
 /* 中心百分比文字 */

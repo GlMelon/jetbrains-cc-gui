@@ -4,6 +4,7 @@ import type { AgentConfig } from '../../../types/agent';
 import styles from './style.module.less';
 import { DownloadIcon, EditIcon, UploadIcon, KebabVerticalIcon, PlusIcon, RobotIcon, TrashIcon } from '../../Icons';
 import { UnifiedLoader } from '../../UnifiedLoader';
+import { FadeContent } from '../../react-bits';
 
 interface AgentSectionProps {
   agents: AgentConfig[];
@@ -96,7 +97,8 @@ export default function AgentSection({
         ) : (
           <div className={styles.agentList}>
             {agents.map((agent, index) => (
-              <div key={agent.id} className={styles.agentCard} style={{ animation: 'fadeIn 0.3s ease-out both', animationDelay: `${index * 50}ms` }}>
+              <FadeContent key={agent.id} delay={index * 50}>
+                <div className={styles.agentCard}>
                 <div className={styles.agentIcon}>
                   <RobotIcon size={16} />
                 </div>
@@ -137,7 +139,8 @@ export default function AgentSection({
                     </div>
                   )}
                 </div>
-              </div>
+                </div>
+              </FadeContent>
             ))}
           </div>
         )}

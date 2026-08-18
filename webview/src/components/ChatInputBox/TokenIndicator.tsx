@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import type { TokenIndicatorProps } from './types';
 import { ArrowDownIcon, ArrowUpIcon, DatabaseIcon, LayersIcon, CacheWriteIcon, type IconSize } from '../Icons';
 import { formatCapacity } from '../../utils/formatNumber';
+import { ProgressRing } from '../react-bits';
 
 // SVG Icon component for token detail metrics
 const TokenIcon = ({ name, size = 14 }: { name: string; size?: IconSize }) => {
@@ -66,8 +67,6 @@ export const TokenIndicator = ({
   const maxText = formatTokens(maxTokens);
   const tooltipPct = `${(Math.round(percentage * 10) / 10).toFixed(1)}%`;
 
-  // mini-ring 的 conic-gradient 角度
-  const conicAngle = Math.max(0, Math.min(100, percentage));
   // 根据等级选择 mini-ring 颜色
   const ringColor =
     levelClass === 'level-high' ? '#d9534f' :
@@ -186,12 +185,15 @@ export const TokenIndicator = ({
       aria-valuemax={100}
       aria-valuenow={Math.max(0, Math.min(100, Math.round(percentage)))}
     >
-      {/* Conic-gradient ring */}
-      <span
-        className="ring"
-        style={{
-          background: `conic-gradient(${ringColor} 0 ${conicAngle}%, var(--ring-track) ${conicAngle}% 100%)`,
-        }}
+      {/* React Bits progress ring; the parent remains the meter semantic owner. */}
+      <ProgressRing
+        className="ring-progress"
+        size={20}
+        strokeWidth={2.5}
+        progress={Math.max(0, Math.min(100, percentage)) / 100}
+        color={ringColor}
+        trackColor="var(--ring-track)"
+        decorative
       />
       {/* Centered percentage text */}
       <span className="ring-pct">{labelPct}%</span>
@@ -202,4 +204,3 @@ export const TokenIndicator = ({
     </div>
   );
 };
-

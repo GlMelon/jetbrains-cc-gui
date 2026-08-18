@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { FadeContent } from '../react-bits';
 import './ContextMenu.css';
 
 /**
@@ -72,41 +73,43 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
   const menuStyle: React.CSSProperties = { left: pos.left, top: pos.top };
 
   return createPortal(
-    <div
-      ref={menuRef}
-      className={`context-menu ${isExiting ? 'context-menu-exit' : ''}`}
-      role="menu"
-      aria-label="Context menu"
-      style={menuStyle}
-    >
-      {items.map((item, i) =>
-        item.separator ? (
-          <div key={`sep-${i}`} className="context-menu-separator" role="separator" />
-        ) : (
-          <div
-            key={`item-${i}`}
-            className={`context-menu-item${item.disabled ? ' disabled' : ''}`}
-            role="menuitem"
-            aria-disabled={item.disabled || false}
-            tabIndex={item.disabled ? -1 : 0}
-            onClick={() => {
-              if (!item.disabled) {
-                item.action();
-                handleClose();
-              }
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !item.disabled) {
-                item.action();
-                handleClose();
-              }
-            }}
-          >
-            {item.label}
-          </div>
-        )
-      )}
-    </div>,
+    <FadeContent disabled={isExiting} duration={160} offset={4}>
+      <div
+        ref={menuRef}
+        className={`context-menu ${isExiting ? 'context-menu-exit' : ''}`}
+        role="menu"
+        aria-label="Context menu"
+        style={menuStyle}
+      >
+        {items.map((item, i) =>
+          item.separator ? (
+            <div key={`sep-${i}`} className="context-menu-separator" role="separator" />
+          ) : (
+            <div
+              key={`item-${i}`}
+              className={`context-menu-item${item.disabled ? ' disabled' : ''}`}
+              role="menuitem"
+              aria-disabled={item.disabled || false}
+              tabIndex={item.disabled ? -1 : 0}
+              onClick={() => {
+                if (!item.disabled) {
+                  item.action();
+                  handleClose();
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !item.disabled) {
+                  item.action();
+                  handleClose();
+                }
+              }}
+            >
+              {item.label}
+            </div>
+          )
+        )}
+      </div>
+    </FadeContent>,
     document.body
   );
 }

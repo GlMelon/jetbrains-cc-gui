@@ -148,22 +148,10 @@
   box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.15);
   overflow: hidden;
   z-index: 100;
-  animation: popover-slide-up var(--dur-hover) ease-out;
 }
 
 .status-panel-popover-exit {
   animation: popover-slide-down var(--dur-hover) ease-in forwards;
-}
-
-@keyframes popover-slide-up {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 @keyframes popover-slide-down {
@@ -211,8 +199,6 @@
   min-height: 32px;
   gap: 8px;
   transition: background-color 0.15s ease;
-  animation: fadeInUp var(--dur-enter) var(--ease-out) both;
-  animation-delay: var(--stagger-delay, 0ms);
 
   &:hover {
     background: var(--bg-hover);
@@ -376,8 +362,6 @@
 
 .subagent-item-wrapper {
   border-radius: 4px;
-  animation: fadeInUp var(--dur-enter) var(--ease-out) both;
-  animation-delay: var(--stagger-delay, 0ms);
 }
 
 .subagent-item {
@@ -785,8 +769,6 @@
   border: 1px solid var(--border-primary);
   border-radius: 8px;
   transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-  animation: fadeInUp var(--dur-enter) var(--ease-out) both;
-  animation-delay: var(--stagger-delay, 0ms);
 
   &:hover {
     background: var(--bg-hover);

@@ -15,6 +15,8 @@ export interface ProgressRingProps {
   className?: string;
   /** Whether the loader is active (default: true) */
   active?: boolean;
+  /** Render as a decorative visual without progressbar semantics. */
+  decorative?: boolean;
 }
 
 /**
@@ -35,6 +37,7 @@ export const ProgressRing = ({
   duration = 1,
   className = '',
   active = true,
+  decorative = false,
 }: ProgressRingProps) => {
   if (!active) return null;
 
@@ -50,10 +53,14 @@ export const ProgressRing = ({
         height: `${size}px`,
         position: 'relative',
       }}
-      role="progressbar"
-      aria-valuenow={progress !== null ? Math.round(progress * 100) : undefined}
-      aria-valuemin={0}
-      aria-valuemax={100}
+      {...(decorative
+        ? { 'aria-hidden': true }
+        : {
+            role: 'progressbar',
+            'aria-valuenow': progress !== null ? Math.round(progress * 100) : undefined,
+            'aria-valuemin': 0,
+            'aria-valuemax': 100,
+          })}
     >
       <svg
         width={size}

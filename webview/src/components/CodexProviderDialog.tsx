@@ -12,6 +12,7 @@ import EnvVarEditor from './EnvVarEditor';
 import { GuidedProviderDialog, type GuidedStep } from './shared/GuidedProviderDialog';
 import { fetchProviderModels } from '../utils/bridge';
 import { ProviderModelIcon } from './shared/ProviderModelIcon';
+import { FadeContent } from './react-bits';
 
 const OFFICIAL_DIRECT_PRESET_ID = 'official_direct';
 const OFFICIAL_CODEX_PROVIDER_NAME = 'Official Codex Direct';
@@ -538,16 +539,17 @@ wire_api = "responses"`);
                 </small>
                 <div style={FETCHED_LIST_STYLE}>
                   {fetchedModels.map((m, index) => (
-                    <button
-                      key={m}
-                      type="button"
-                      className="preset-btn"
-                      style={{ ...FETCHED_CHIP_STYLE, animation: 'fadeIn 0.3s ease-out both', animationDelay: `${index * 50}ms` }}
-                      onClick={() => handleAppendModel(m)}
-                      title={m}
-                    >
-                      {m}
-                    </button>
+                    <FadeContent key={m} delay={index * 50}>
+                      <button
+                        type="button"
+                        className="preset-btn"
+                        style={FETCHED_CHIP_STYLE}
+                        onClick={() => handleAppendModel(m)}
+                        title={m}
+                      >
+                        {m}
+                      </button>
+                    </FadeContent>
                   ))}
                 </div>
               </div>

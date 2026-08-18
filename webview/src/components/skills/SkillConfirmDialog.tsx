@@ -1,5 +1,5 @@
 import { AlertIcon, CloseIcon } from '../Icons';
-import { ClickSpark } from '../react-bits';
+import { ClickSpark, FadeContent } from '../react-bits';
 interface SkillConfirmDialogProps {
   title: string;
   message: string;
@@ -29,8 +29,10 @@ export function SkillConfirmDialog({
   };
 
   return (
-    <div className="skill-dialog-backdrop" onClick={handleBackdropClick}>
-      <div className="skill-dialog confirm-dialog">
+    <FadeContent duration={160} offset={0}>
+      <div className="skill-dialog-backdrop" onClick={handleBackdropClick}>
+        <FadeContent duration={200} offset={12}>
+          <div className="skill-dialog confirm-dialog">
         {/* Title bar */}
         <div className="dialog-header">
           <h3>{title}</h3>
@@ -58,7 +60,9 @@ export function SkillConfirmDialog({
             </button>
           </ClickSpark>
         </div>
+          </div>
+        </FadeContent>
       </div>
-    </div>
+    </FadeContent>
   );
 }

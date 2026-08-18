@@ -12,6 +12,7 @@ import UndoConfirmDialog from './UndoConfirmDialog';
 import DiscardAllDialog from './DiscardAllDialog';
 import type { TabType, StatusPanelProps } from './types';
 import { UnifiedLoader } from '../UnifiedLoader';
+import { FadeContent } from '../react-bits';
 import './StatusPanel.less';
 
 const StatusPanel = memo(function StatusPanel({ todos, fileChanges, subagents, subagentHistories, currentSessionId, currentProvider, expanded = true, isStreaming = false, onUndoFile, onDiscardAll, onKeepAll }: StatusPanelProps) {
@@ -324,9 +325,15 @@ const StatusPanel = memo(function StatusPanel({ todos, fileChanges, subagents, s
 
       {/* Popover Content */}
       {openPopover && (
-        <div className={`status-panel-popover ${isPopoverExiting ? 'status-panel-popover-exit' : ''}`}>
-          {renderPopoverContent()}
-        </div>
+        <FadeContent
+          disabled={isPopoverExiting}
+          duration={150}
+          offset={8}
+        >
+          <div className={`status-panel-popover ${isPopoverExiting ? 'status-panel-popover-exit' : ''}`}>
+            {renderPopoverContent()}
+          </div>
+        </FadeContent>
       )}
 
       {/* Dialogs */}

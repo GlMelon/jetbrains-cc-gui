@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Skeleton } from '../react-bits';
 
 export interface SkeletonListProps {
   label?: string;
@@ -21,10 +22,10 @@ export interface SkeletonListProps {
  */
 const DEFAULT_ITEM = (
   <>
-    <div className="skeleton-bar skeleton-bar-icon" />
+    <Skeleton className="skeleton-bar skeleton-bar-icon" variant="pulse" sizing="css" />
     <div className="skeleton-bar-group">
-      <div className="skeleton-bar skeleton-bar-title" />
-      <div className="skeleton-bar skeleton-bar-sub" />
+      <Skeleton className="skeleton-bar skeleton-bar-title" variant="pulse" sizing="css" />
+      <Skeleton className="skeleton-bar skeleton-bar-sub" variant="pulse" sizing="css" />
     </div>
   </>
 );

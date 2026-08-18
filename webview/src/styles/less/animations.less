@@ -161,12 +161,7 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Toast 进入/退出（与弹窗同款过冲缓动） */
-@keyframes toast-pop-in {
-  from { opacity: 0; transform: translateX(30px) scale(0.95); }
-  to { opacity: 1; transform: translateX(0) scale(1); }
-}
-
+/* Toast 退出（进入动画已由 react-bits FadeContent 接管） */
 @keyframes toast-pop-out {
   from { opacity: 1; transform: translateX(0) scale(1); }
   to { opacity: 0; transform: translateX(20px) scale(0.98); }
@@ -193,18 +188,6 @@
   100% {
     opacity: 0;
     transform: translateX(100%);
-  }
-}
-
-/* Scale in animation */
-@keyframes scaleIn {
-  0% {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
   }
 }
 

@@ -17,7 +17,7 @@ import { MessageItem, CopyButton } from './MessageItem';
 import { MessageAvatar } from './MessageItem/MessageAvatar';
 import { MessageUsageStats } from './MessageItem/MessageUsageStats';
 import { AssistantStreamingFooter } from './MessageItem/AssistantStreamingFooter';
-import { hasAssistantTextOutput } from './MessageItem/assistantTextOutput';
+import { hasAssistantVisibleOutput } from './MessageItem/assistantTextOutput';
 import { useStreamingAnnouncement } from './shared/useStreamingAnnouncement';
 import WaitingIndicator from './WaitingIndicator';
 import { ContextMenu } from './ContextMenu';
@@ -512,6 +512,18 @@ export const MessageList = memo(
       [messages, shouldCollapse, collapsedCount],
     );
 
+    // Index of the most recent assistant message. While a turn is in flight a
+    // tool_result user message may temporarily sit after the active streaming
+    // group, so streaming-tail checks compare against this index instead of
+    // the absolute last message — otherwise the responding indicator would
+    // vanish for the whole gap between a tool call and its follow-up.
+    const lastAssistantIndex = useMemo(() => {
+      for (let index = messages.length - 1; index >= 0; index -= 1) {
+        if (messages[index]?.type === 'assistant') return index;
+      }
+      return -1;
+    }, [messages]);
+
     const visibleMessageUnits = useMemo((): VisibleMessageUnit[] => {
       const units: VisibleMessageUnit[] = [];
       let visibleIndex = 0;
@@ -676,20 +688,24 @@ export const MessageList = memo(
             if (groupFirstAppearance) {
               animatedEntryKeys.add(groupKey);
             }
-            // A group is "streaming" while its last segment is still the active
-            // streaming tail — copy is hidden then to avoid copying partial text.
+            // A group is "streaming" while its last segment is the most recent
+            // assistant message AND the turn is still active — a tool_result
+            // user message may follow it mid-turn without ending the response.
+            // Copy is hidden then to avoid copying partial text.
             const isStreamingGroup =
               streamingActive &&
-              unit.items[unit.items.length - 1].messageIndex === messages.length - 1;
+              unit.items[unit.items.length - 1].messageIndex === lastAssistantIndex;
             const streamingTailMessage = isStreamingGroup
               ? unit.items[unit.items.length - 1]?.message
               : undefined;
-            const streamingGroupHasTextOutput =
+            // The footer follows the first renderable block of the turn
+            // (thinking / tool / MCP / text), not only text output.
+            const streamingGroupHasVisibleOutput =
               isStreamingGroup &&
               unit.items.some(({ message }) =>
-                hasAssistantTextOutput(message, getContentBlocks(message)),
+                hasAssistantVisibleOutput(message, getContentBlocks(message)),
               );
-            const shouldShowStreamingFooter = streamingGroupHasTextOutput;
+            const shouldShowStreamingFooter = streamingGroupHasVisibleOutput;
             const groupCopyableText = unit.items
               .map(({ message }) => extractMarkdownContent(message))
               .map((text) => text.trim())
@@ -772,9 +788,7 @@ export const MessageList = memo(
                       <MessageUsageStats
                         inputTokens={usage.inputTokens}
                         outputTokens={usage.outputTokens}
-                        cacheCreationTokens={usage.cacheCreationTokens}
                         cacheReadTokens={usage.cacheReadTokens}
-                        costUsd={usage.costUsd}
                         detailedOutputEnabled={detailedOutputEnabled}
                         durationMs={usage.durationMs}
                         durationLabelKey={usage.durationLabelKey}

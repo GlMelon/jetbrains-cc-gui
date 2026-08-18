@@ -19,6 +19,14 @@ export interface SkeletonProps {
   className?: string;
   /** Whether the skeleton is active (default: true) */
   active?: boolean;
+  /**
+   * 'inline' (default): width/height/backgroundColor are applied as inline styles
+   * on the bar element. 'css': sizing and colors come from the caller's own CSS
+   * (theme variables), so the bar renders with `background: none` and no inline
+   * dimensions — this avoids double-applied percentage widths and hardcoded
+   * rgba backgrounds that clash with light themes.
+   */
+  sizing?: 'inline' | 'css';
 }
 
 /**
@@ -40,6 +48,7 @@ export const Skeleton = ({
   gap = '8px',
   className = '',
   active = true,
+  sizing = 'inline',
 }: SkeletonProps) => {
   const skeletons = useMemo(() => Array.from({ length: lines }, (_, i) => i), [lines]);
 
@@ -74,6 +83,7 @@ export const Skeleton = ({
         display: 'flex',
         flexDirection: 'column',
         gap,
+        ...(sizing === 'css' ? { background: 'none' } : null),
       }}
       aria-busy="true"
       aria-label="Loading"
@@ -81,13 +91,17 @@ export const Skeleton = ({
       {skeletons.map((i) => (
         <span
           key={i}
-          style={{
-            width: i === skeletons.length - 1 && lines > 1 ? '60%' : width,
-            height,
-            borderRadius,
-            backgroundColor: 'rgba(255,255,255,0.06)',
-            ...getAnimationStyle(),
-          }}
+          style={
+            sizing === 'css'
+              ? getAnimationStyle()
+              : {
+                  width: i === skeletons.length - 1 && lines > 1 ? '60%' : width,
+                  height,
+                  borderRadius,
+                  backgroundColor: 'rgba(255,255,255,0.06)',
+                  ...getAnimationStyle(),
+                }
+          }
         />
       ))}
       <style>{`

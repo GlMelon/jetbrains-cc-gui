@@ -432,7 +432,6 @@
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  animation: fadeIn var(--dur-hover) ease;
 }
 
 .editorDialog {
@@ -442,18 +441,6 @@
   width: 90%;
   max-width: 480px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  animation: slideIn 0.2s ease;
-}
-
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 .editorHeader {

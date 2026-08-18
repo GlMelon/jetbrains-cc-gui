@@ -58,7 +58,6 @@
   align-items: center;
   justify-content: center;
   z-index: 2000;
-  animation: fadeIn var(--dur-enter) ease-out;
 }
 
 /* fadeIn 统一定义见 animations.less（已由 app.less 全局 @import） */
@@ -72,7 +71,6 @@
   max-height: 80vh;
   display: flex;
   flex-direction: column;
-  animation: slideUp var(--dur-enter) ease-out;
 }
 
 .prompt-enhancer-header {
@@ -291,4 +289,3 @@
 [data-theme="light"] .enhanced-prompt {
   background: rgba(0, 120, 212, 0.08);
 }
-

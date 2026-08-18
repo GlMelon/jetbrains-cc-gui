@@ -4,7 +4,7 @@
 // 基础样式
 @import "less/base.less";
 
-// 公共 @keyframes（dialog-pop-in/out、char-pop、stream-block-in、toast-pop-in/out）
+// 公共 @keyframes（dialog-pop-in/out、char-pop、stream-block-in、toast-pop-out）
 // 被 components 直接引用，必须参与编译，否则 animation 引用不存在的 keyframe 会
 // 静默失效 → 弹窗/Toast/逐字/消息动画全部“瞬间完成、像掉帧”。
 // 顺序约定：放在 components 之前，使同名 keyframes（spin/fadeIn 等）以组件内定义为准。

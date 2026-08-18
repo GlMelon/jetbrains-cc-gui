@@ -734,7 +734,7 @@
 .skeleton-bar {
     border-radius: 4px;
     background: var(--border-primary);
-    animation: skeleton-pulse 1.4s ease-in-out infinite;
+    flex-shrink: 0;
 }
 
 .skeleton-bar-icon {
@@ -758,16 +758,6 @@
 .skeleton-bar-sub {
     width: 25%;
     height: 10px;
-}
-
-@keyframes skeleton-pulse {
-    0%,
-    100% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.4;
-    }
 }
 
 /* 动画(spin 等关键帧统一定义见 animations.less,此处仅保留用法) */

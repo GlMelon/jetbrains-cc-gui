@@ -7,6 +7,7 @@ import DualViewSwitcher, { type DualViewMode } from './shared/DualViewSwitcher';
 import { openCodeAdvancedAdapter, type OpenCodeAdvancedFormState } from './shared/dualView/adapters';
 import OpenCodeAdvancedForm from './shared/OpenCodeAdvancedForm';
 import { fetchProviderModels } from '../utils/bridge';
+import { FadeContent } from './react-bits';
 
 const FORM_HEADER_STYLE: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'center' };
 const FORMAT_BUTTON_STYLE: React.CSSProperties = { padding: '4px 8px', fontSize: '12px' };
@@ -339,16 +340,17 @@ export default function OpenCodeProviderDialog({
                 </small>
                 <div style={FETCHED_LIST_STYLE}>
                   {fetchedModels.map((m, index) => (
-                    <button
-                      key={m}
-                      type="button"
-                      className="preset-btn"
-                      style={{ ...FETCHED_CHIP_STYLE, animation: 'fadeIn 0.3s ease-out both', animationDelay: `${index * 50}ms` }}
-                      onClick={() => handleAppendModel(m)}
-                      title={m}
-                    >
-                      {m}
-                    </button>
+                    <FadeContent key={m} delay={index * 50}>
+                      <button
+                        type="button"
+                        className="preset-btn"
+                        style={FETCHED_CHIP_STYLE}
+                        onClick={() => handleAppendModel(m)}
+                        title={m}
+                      >
+                        {m}
+                      </button>
+                    </FadeContent>
                   ))}
                 </div>
               </div>

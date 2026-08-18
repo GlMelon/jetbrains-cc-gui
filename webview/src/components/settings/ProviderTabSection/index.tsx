@@ -13,8 +13,9 @@ import KimiProviderSection from '../KimiProviderSection';
 import PiProviderSection from '../PiProviderSection';
 import styles from './style.module.less';
 import { useRovingTabs } from '../../shared/useRovingTabs';
+import { FadeContent } from '../../react-bits';
 
-const BLOCK_STYLE: React.CSSProperties = { display: 'block', animation: 'fadeIn 0.2s ease-out' };
+const BLOCK_STYLE: React.CSSProperties = { display: 'block' };
 const NONE_STYLE: React.CSSProperties = { display: 'none' };
 
 type ProviderTab = 'claude' | 'codex' | 'opencode' | 'grok' | 'kimi' | 'pi';
@@ -271,87 +272,99 @@ const ProviderTabSection = ({
       </div>
 
       {/* Use display to preserve component state across tab switches */}
-      <div
-        id={PROVIDER_PANEL_IDS.claude}
-        role="tabpanel"
-        aria-labelledby={PROVIDER_TAB_IDS.claude}
-        style={activeTab === 'claude' ? BLOCK_STYLE : NONE_STYLE}
-      >
-        <ProviderManageSection
-          providers={providers}
-          loading={loading}
-          onAddProvider={onAddProvider}
-          onEditProvider={onEditProvider}
-          onDeleteProvider={onDeleteProvider}
-          onSwitchProvider={onSwitchProvider}
-          addToast={addToast}
-          showHeader={false}
-        />
-      </div>
+      <FadeContent disabled={activeTab !== 'claude'} duration={180} offset={8}>
+        <div
+          id={PROVIDER_PANEL_IDS.claude}
+          role="tabpanel"
+          aria-labelledby={PROVIDER_TAB_IDS.claude}
+          style={activeTab === 'claude' ? BLOCK_STYLE : NONE_STYLE}
+        >
+          <ProviderManageSection
+            providers={providers}
+            loading={loading}
+            onAddProvider={onAddProvider}
+            onEditProvider={onEditProvider}
+            onDeleteProvider={onDeleteProvider}
+            onSwitchProvider={onSwitchProvider}
+            addToast={addToast}
+            showHeader={false}
+          />
+        </div>
+      </FadeContent>
 
-      <div
-        id={PROVIDER_PANEL_IDS.codex}
-        role="tabpanel"
-        aria-labelledby={PROVIDER_TAB_IDS.codex}
-        style={activeTab === 'codex' ? BLOCK_STYLE : NONE_STYLE}
-      >
-        <CodexProviderSection
-          codexProviders={codexProviders}
-          codexLoading={codexLoading}
-          onAddCodexProvider={onAddCodexProvider}
-          onEditCodexProvider={onEditCodexProvider}
-          onDeleteCodexProvider={onDeleteCodexProvider}
-          onSwitchCodexProvider={onSwitchCodexProvider}
-          onRevokeCodexLocalConfigAuthorization={onRevokeCodexLocalConfigAuthorization}
-          addToast={addToast}
-          showHeader={false}
-        />
-      </div>
+      <FadeContent disabled={activeTab !== 'codex'} duration={180} offset={8}>
+        <div
+          id={PROVIDER_PANEL_IDS.codex}
+          role="tabpanel"
+          aria-labelledby={PROVIDER_TAB_IDS.codex}
+          style={activeTab === 'codex' ? BLOCK_STYLE : NONE_STYLE}
+        >
+          <CodexProviderSection
+            codexProviders={codexProviders}
+            codexLoading={codexLoading}
+            onAddCodexProvider={onAddCodexProvider}
+            onEditCodexProvider={onEditCodexProvider}
+            onDeleteCodexProvider={onDeleteCodexProvider}
+            onSwitchCodexProvider={onSwitchCodexProvider}
+            onRevokeCodexLocalConfigAuthorization={onRevokeCodexLocalConfigAuthorization}
+            addToast={addToast}
+            showHeader={false}
+          />
+        </div>
+      </FadeContent>
 
-      <div
-        id={PROVIDER_PANEL_IDS.opencode}
-        role="tabpanel"
-        aria-labelledby={PROVIDER_TAB_IDS.opencode}
-        style={activeTab === 'opencode' ? BLOCK_STYLE : NONE_STYLE}
-      >
-        <OpenCodeProviderSection
-          openCodeProviders={openCodeProviders}
-          openCodeLoading={openCodeLoading}
-          onAddOpenCodeProvider={onAddOpenCodeProvider}
-          onEditOpenCodeProvider={onEditOpenCodeProvider}
-          onDeleteOpenCodeProvider={onDeleteOpenCodeProvider}
-          onSwitchOpenCodeProvider={onSwitchOpenCodeProvider}
-          onRevokeOpenCodeLocalConfigAuthorization={onRevokeOpenCodeLocalConfigAuthorization}
-          showHeader={false}
-        />
-      </div>
+      <FadeContent disabled={activeTab !== 'opencode'} duration={180} offset={8}>
+        <div
+          id={PROVIDER_PANEL_IDS.opencode}
+          role="tabpanel"
+          aria-labelledby={PROVIDER_TAB_IDS.opencode}
+          style={activeTab === 'opencode' ? BLOCK_STYLE : NONE_STYLE}
+        >
+          <OpenCodeProviderSection
+            openCodeProviders={openCodeProviders}
+            openCodeLoading={openCodeLoading}
+            onAddOpenCodeProvider={onAddOpenCodeProvider}
+            onEditOpenCodeProvider={onEditOpenCodeProvider}
+            onDeleteOpenCodeProvider={onDeleteOpenCodeProvider}
+            onSwitchOpenCodeProvider={onSwitchOpenCodeProvider}
+            onRevokeOpenCodeLocalConfigAuthorization={onRevokeOpenCodeLocalConfigAuthorization}
+            showHeader={false}
+          />
+        </div>
+      </FadeContent>
 
-      <div
-        id={PROVIDER_PANEL_IDS.grok}
-        role="tabpanel"
-        aria-labelledby={PROVIDER_TAB_IDS.grok}
-        style={activeTab === 'grok' ? BLOCK_STYLE : NONE_STYLE}
-      >
-        <GrokProviderSection showHeader={false} />
-      </div>
+      <FadeContent disabled={activeTab !== 'grok'} duration={180} offset={8}>
+        <div
+          id={PROVIDER_PANEL_IDS.grok}
+          role="tabpanel"
+          aria-labelledby={PROVIDER_TAB_IDS.grok}
+          style={activeTab === 'grok' ? BLOCK_STYLE : NONE_STYLE}
+        >
+          <GrokProviderSection showHeader={false} />
+        </div>
+      </FadeContent>
 
-      <div
-        id={PROVIDER_PANEL_IDS.kimi}
-        role="tabpanel"
-        aria-labelledby={PROVIDER_TAB_IDS.kimi}
-        style={activeTab === 'kimi' ? BLOCK_STYLE : NONE_STYLE}
-      >
-        <KimiProviderSection showHeader={false} />
-      </div>
+      <FadeContent disabled={activeTab !== 'kimi'} duration={180} offset={8}>
+        <div
+          id={PROVIDER_PANEL_IDS.kimi}
+          role="tabpanel"
+          aria-labelledby={PROVIDER_TAB_IDS.kimi}
+          style={activeTab === 'kimi' ? BLOCK_STYLE : NONE_STYLE}
+        >
+          <KimiProviderSection showHeader={false} />
+        </div>
+      </FadeContent>
 
-      <div
-        id={PROVIDER_PANEL_IDS.pi}
-        role="tabpanel"
-        aria-labelledby={PROVIDER_TAB_IDS.pi}
-        style={activeTab === 'pi' ? BLOCK_STYLE : NONE_STYLE}
-      >
-        <PiProviderSection showHeader={false} />
-      </div>
+      <FadeContent disabled={activeTab !== 'pi'} duration={180} offset={8}>
+        <div
+          id={PROVIDER_PANEL_IDS.pi}
+          role="tabpanel"
+          aria-labelledby={PROVIDER_TAB_IDS.pi}
+          style={activeTab === 'pi' ? BLOCK_STYLE : NONE_STYLE}
+        >
+          <PiProviderSection showHeader={false} />
+        </div>
+      </FadeContent>
     </div>
   );
 };

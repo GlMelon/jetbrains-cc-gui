@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import styles from './style.module.less';
 import { InfoIcon, MinusIcon, PlusIcon, CloseIcon } from '../../Icons';
+import { FadeContent } from '../../react-bits';
 
 interface HistoryItemEditorProps {
   isOpen: boolean;
@@ -80,12 +81,14 @@ export function HistoryItemEditor({
       : t('settings.other.historyCompletion.editor.editTitle');
 
   return (
-    <div className={styles.editorOverlay} onClick={onClose}>
-      <div
-        className={styles.editorDialog}
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={handleKeyDown}
-      >
+    <FadeContent duration={160} offset={0}>
+      <div className={styles.editorOverlay} onClick={onClose}>
+        <FadeContent duration={200} offset={10}>
+          <div
+            className={styles.editorDialog}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={handleKeyDown}
+          >
         <div className={styles.editorHeader}>
           <h4 className={styles.editorTitle}>{title}</h4>
           <button
@@ -161,8 +164,9 @@ export function HistoryItemEditor({
             {t('common.save')}
           </button>
         </div>
+          </div>
+        </FadeContent>
       </div>
-    </div>
+    </FadeContent>
   );
 }
-

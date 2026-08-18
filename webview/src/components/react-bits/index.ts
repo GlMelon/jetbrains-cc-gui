@@ -1,3 +1,5 @@
+import './animations.css';
+
 // Loaders
 export { PulseLoader } from './PulseLoader';
 export { RippleLoader } from './RippleLoader';
@@ -7,6 +9,8 @@ export { BounceLoader } from './BounceLoader';
 export { OrbitLoader } from './OrbitLoader';
 export { Skeleton } from './Skeleton';
 export { ProgressRing } from './ProgressRing';
+export { FadeContent } from './FadeContent';
+export { AnimatedList } from './AnimatedList';
 
 // Interaction
 export { HoverLift } from './HoverLift';
@@ -32,6 +36,8 @@ export type { BounceLoaderProps } from './BounceLoader';
 export type { OrbitLoaderProps } from './OrbitLoader';
 export type { SkeletonProps } from './Skeleton';
 export type { ProgressRingProps } from './ProgressRing';
+export type { FadeContentProps } from './FadeContent';
+export type { AnimatedListProps } from './AnimatedList';
 export type { HoverLiftProps } from './HoverLift';
 export type { TypewriterTextProps } from './TypewriterText';
 export type { ShinyTextProps } from './ShinyText';

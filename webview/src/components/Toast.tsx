@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { CloseIcon } from './Icons';
+import { FadeContent } from './react-bits';
 
 export interface ToastAction {
   label: string;
@@ -73,32 +74,33 @@ const Toast: React.FC<ToastProps> = ({ message, onDismiss, duration = 1000, anim
   */
 
   return (
-    <div 
-      ref={toastRef}
-      className={`toast toast-${message.type || 'info'} ${isExiting ? 'toast-exit' : ''}`}
-      style={{ '--stagger-delay': `${animationIndex * 50}ms` } as React.CSSProperties}
-    >
-      <div className="toast-content">
-        <span className="toast-message">{message.message}</span>
-        {message.action && (
+    <FadeContent disabled={isExiting} duration={200} delay={animationIndex * 50} offset={8}>
+      <div
+        ref={toastRef}
+        className={`toast toast-${message.type || 'info'} ${isExiting ? 'toast-exit' : ''}`}
+      >
+        <div className="toast-content">
+          <span className="toast-message">{message.message}</span>
+          {message.action && (
+            <button
+              className="toast-action"
+              onClick={() => {
+                message.action?.onClick();
+                handleDismiss();
+              }}
+            >
+              {message.action.label}
+            </button>
+          )}
           <button
-            className="toast-action"
-            onClick={() => {
-              message.action?.onClick();
-              handleDismiss();
-            }}
+            className="toast-close"
+            onClick={handleDismiss}
           >
-            {message.action.label}
+            <CloseIcon size={16} />
           </button>
-        )}
-        <button
-          className="toast-close"
-          onClick={handleDismiss}
-        >
-          <CloseIcon size={16} />
-        </button>
+        </div>
       </div>
-    </div>
+    </FadeContent>
   );
 };
 
@@ -141,4 +143,3 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({ messages, onDism
     </div>
   );
 };
-

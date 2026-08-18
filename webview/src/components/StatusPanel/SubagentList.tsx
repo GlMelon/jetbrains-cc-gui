@@ -1,11 +1,13 @@
 import { sendAction } from '../../bridge/typed';
 import { UPSTREAM } from '../../generated/protocol';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type React from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import type { SubagentHistoryResponse, SubagentInfo } from '../../types';
 import SubagentProcessDetails from './SubagentProcessDetails';
 import { RobotIcon, CheckCircleIcon, XCircleIcon, CircleIcon, ChevronDownIcon, ClockIcon, LayersIcon } from '../Icons';
+import { AnimatedList } from '../react-bits';
 
 interface SubagentListProps {
   subagents: SubagentInfo[];
@@ -22,7 +24,10 @@ interface SubagentRowProps {
   canLoad: boolean;
   onToggle: (id: string) => void;
   t: TFunction;
-  animationIndex?: number;
+  /** Forwarded by AnimatedList so the enter animation reaches the DOM node. */
+  className?: string;
+  /** Forwarded by AnimatedList so the enter animation reaches the DOM node. */
+  style?: React.CSSProperties;
 }
 
 // Render status icon based on type
@@ -64,7 +69,7 @@ function formatDuration(ms?: number): string | null {
   return `${minutes}m ${remainingSeconds}s`;
 }
 
-const SubagentRow = memo(({ subagent, isExpanded, history, canLoad, onToggle, t, animationIndex }: SubagentRowProps) => {
+const SubagentRow = memo(({ subagent, isExpanded, history, canLoad, onToggle, t, className, style }: SubagentRowProps) => {
   const statusClass = `status-${subagent.status}`;
 
   const handleClick = useCallback(() => {
@@ -75,8 +80,8 @@ const SubagentRow = memo(({ subagent, isExpanded, history, canLoad, onToggle, t,
 
   return (
     <div
-      className={`subagent-item-wrapper ${statusClass}`}
-      style={{ '--stagger-delay': `${(animationIndex ?? 0) * 50}ms` } as React.CSSProperties}
+      className={`subagent-item-wrapper ${statusClass} ${className || ''}`.trim()}
+      style={style}
     >
       <button
         type="button"
@@ -198,7 +203,8 @@ const SubagentList = memo(({ subagents, histories = {}, currentSessionId, curren
 
   return (
     <div className="subagent-list">
-      {subagents.map((subagent, index) => {
+      <AnimatedList stagger={50} offset={8}>
+        {subagents.map((subagent, index) => {
         const history = historyById[subagent.id] ?? (subagent.agentId ? historyById[subagent.agentId] : undefined);
         // Index fallback guards against rare cases where the bridge emits a
         // subagent without a stable id; without it React surfaces a duplicate-key
@@ -212,10 +218,10 @@ const SubagentList = memo(({ subagents, histories = {}, currentSessionId, curren
             canLoad={canLoad}
             onToggle={handleToggleRow}
             t={t}
-            animationIndex={index}
           />
         );
-      })}
+        })}
+      </AnimatedList>
     </div>
   );
 });

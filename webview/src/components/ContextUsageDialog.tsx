@@ -2,7 +2,7 @@ import { useEffect, useRef, useMemo, useCallback, useId, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import './ContextUsageDialog.css';
 import { clampUsagePercentage } from '../utils/usagePercentage';
-import { SpinLoader } from './react-bits';
+import { FadeContent, SpinLoader } from './react-bits';
 
 export interface ContextUsageData {
   categories: Array<{
@@ -219,41 +219,45 @@ const ContextUsageDialog = memo(function ContextUsageDialog({
   // Loading state
   if (isLoading || !data) {
     return (
-      <div className="context-usage-overlay" onMouseDown={handleCloseMouseDown}>
-        <div
-          className="context-usage-dialog context-usage-loading"
-          ref={dialogRef}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby={titleId}
-          aria-describedby={descriptionId}
-          tabIndex={-1}
-          onMouseDown={handleDialogMouseDown}
-        >
-          <div className="context-usage-header">
-            <h3 id={titleId} className="context-usage-title">
-              {t('contextUsage.title', { defaultValue: 'Context Usage' })}
-            </h3>
-            <button
-              ref={closeButtonRef}
-              type="button"
-              className="context-usage-close"
-              onMouseDown={handleCloseMouseDown}
-              onClick={handleCloseClick}
-              title={t('common.close', { defaultValue: 'Close' })}
-              aria-label={t('common.close', { defaultValue: 'Close' })}
+      <FadeContent duration={160} offset={0}>
+        <div className="context-usage-overlay" onMouseDown={handleCloseMouseDown}>
+          <FadeContent duration={180} offset={10}>
+            <div
+              className="context-usage-dialog context-usage-loading"
+              ref={dialogRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={titleId}
+              aria-describedby={descriptionId}
+              tabIndex={-1}
+              onMouseDown={handleDialogMouseDown}
             >
-              ×
-            </button>
-          </div>
-          <div className="context-usage-loading-body">
-            <SpinLoader size={32} strokeWidth={3} duration={1} />
-            <span id={descriptionId} className="context-usage-loading-text">
-              {t('contextUsage.loading', { defaultValue: 'Loading context usage...' })}
-            </span>
-          </div>
+              <div className="context-usage-header">
+                <h3 id={titleId} className="context-usage-title">
+                  {t('contextUsage.title', { defaultValue: 'Context Usage' })}
+                </h3>
+                <button
+                  ref={closeButtonRef}
+                  type="button"
+                  className="context-usage-close"
+                  onMouseDown={handleCloseMouseDown}
+                  onClick={handleCloseClick}
+                  title={t('common.close', { defaultValue: 'Close' })}
+                  aria-label={t('common.close', { defaultValue: 'Close' })}
+                >
+                  ×
+                </button>
+              </div>
+              <div className="context-usage-loading-body">
+                <SpinLoader size={32} strokeWidth={3} duration={1} />
+                <span id={descriptionId} className="context-usage-loading-text">
+                  {t('contextUsage.loading', { defaultValue: 'Loading context usage...' })}
+                </span>
+              </div>
+            </div>
+          </FadeContent>
         </div>
-      </div>
+      </FadeContent>
     );
   }
 
@@ -273,17 +277,19 @@ const ContextUsageDialog = memo(function ContextUsageDialog({
   const safePercentage = clampUsagePercentage(percentage);
 
   return (
-    <div className="context-usage-overlay" onMouseDown={handleCloseMouseDown}>
-      <div
-        className="context-usage-dialog"
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={descriptionId}
-        tabIndex={-1}
-        onMouseDown={handleDialogMouseDown}
-      >
+    <FadeContent duration={160} offset={0}>
+      <div className="context-usage-overlay" onMouseDown={handleCloseMouseDown}>
+        <FadeContent duration={180} offset={10}>
+          <div
+            className="context-usage-dialog"
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            aria-describedby={descriptionId}
+            tabIndex={-1}
+            onMouseDown={handleDialogMouseDown}
+          >
         {/* Header */}
         <div className="context-usage-header">
           <h3 id={titleId} className="context-usage-title">
@@ -482,8 +488,10 @@ const ContextUsageDialog = memo(function ContextUsageDialog({
             />
           )}
         </div>
+          </div>
+        </FadeContent>
       </div>
-    </div>
+    </FadeContent>
   );
 });
 

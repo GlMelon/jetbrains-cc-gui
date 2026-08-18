@@ -4,6 +4,7 @@ import type { TodoItem } from '../../types';
 import { statusClassMap } from './types';
 import { CircleIcon, CheckIcon } from '../Icons';
 import { UnifiedLoader } from '../UnifiedLoader';
+import { AnimatedList } from '../react-bits';
 
 interface TodoListProps {
   todos: TodoItem[];
@@ -46,16 +47,13 @@ const TodoList = memo(({ todos }: TodoListProps) => {
 
   return (
     <div className="status-panel-todo-list">
-      {todos.map((todo, index) => {
+      <AnimatedList stagger={50} offset={8}>
+        {todos.map((todo, index) => {
         const status = todo.status ?? 'pending';
         const statusClass = statusClassMap[status] ?? '';
 
         return (
-          <div
-            key={todo.id ?? index}
-            className={`status-panel-todo-item ${statusClass}`}
-            style={{ '--stagger-delay': `${index * 50}ms` } as React.CSSProperties}
-          >
+          <div key={todo.id ?? index} className={`status-panel-todo-item ${statusClass}`}>
             <div className={`status-panel-todo-icon ${statusClass}`}>
               {renderStatusIcon(status)}
             </div>
@@ -69,7 +67,8 @@ const TodoList = memo(({ todos }: TodoListProps) => {
             </div>
           </div>
         );
-      })}
+        })}
+      </AnimatedList>
     </div>
   );
 });

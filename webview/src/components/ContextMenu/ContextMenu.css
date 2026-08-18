@@ -7,7 +7,6 @@
   border-radius: 4px;
   padding: 4px 0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  animation: menu-in var(--dur-enter) var(--ease-out) both;
 }
 
 .context-menu-exit {

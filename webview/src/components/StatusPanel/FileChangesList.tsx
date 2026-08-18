@@ -7,6 +7,7 @@ import { showEditableDiff, openFile } from '../../utils/bridge';
 import FileIcon from './FileIcon';
 import { TrashIcon, UndoIcon, DiffViewIcon, KeepAllIcon } from '../Icons';
 import { UnifiedLoader } from '../UnifiedLoader';
+import { AnimatedList } from '../react-bits';
 
 interface FileChangesListProps {
   fileChanges: FileChangeSummary[];
@@ -24,10 +25,13 @@ interface FileChangeRowProps {
   onShowDiff: (fileChange: FileChangeSummary) => void;
   onUndo: (fileChange: FileChangeSummary) => void;
   t: TFunction;
-  animationIndex?: number;
+  /** Forwarded by AnimatedList so the enter animation reaches the DOM node. */
+  className?: string;
+  /** Forwarded by AnimatedList so the enter animation reaches the DOM node. */
+  style?: React.CSSProperties;
 }
 
-const FileChangeRow = memo(({ fileChange, isUndoing, onOpen, onShowDiff, onUndo, t, animationIndex }: FileChangeRowProps) => {
+const FileChangeRow = memo(({ fileChange, isUndoing, onOpen, onShowDiff, onUndo, t, className, style }: FileChangeRowProps) => {
   const status = String(fileChange.status || 'M');
   const statusClass = status === 'A' ? 'added' : 'modified';
 
@@ -51,10 +55,7 @@ const FileChangeRow = memo(({ fileChange, isUndoing, onOpen, onShowDiff, onUndo,
   }, [onUndo, fileChange]);
 
   return (
-    <div
-      className="file-change-item"
-      style={{ '--stagger-delay': `${(animationIndex ?? 0) * 50}ms` } as React.CSSProperties}
-    >
+    <div className={['file-change-item', className].filter(Boolean).join(' ')} style={style}>
       {/* Status indicator (A/M) */}
       <span className={`file-change-status status-${statusClass}`}>
         {status}
@@ -169,7 +170,8 @@ const FileChangesList = memo(({
 
       {/* File list */}
       <div className="file-changes-list">
-        {fileChanges.map((fileChange, index) => (
+        <AnimatedList stagger={50} offset={8}>
+          {fileChanges.map((fileChange) => (
           <FileChangeRow
             key={fileChange.filePath}
             fileChange={fileChange}
@@ -178,9 +180,9 @@ const FileChangesList = memo(({
             onShowDiff={handleShowDiff}
             onUndo={onUndoClick}
             t={t}
-            animationIndex={index}
           />
-        ))}
+          ))}
+        </AnimatedList>
       </div>
     </div>
   );

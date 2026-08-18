@@ -11,7 +11,6 @@
   align-items: center;
   justify-content: center;
   z-index: 1200;
-  animation: fadeIn var(--dur-enter) ease-out;
 }
 
 .context-usage-dialog {
@@ -23,7 +22,6 @@
   max-width: 560px;
   max-height: 80vh;
   overflow-y: auto;
-  animation: context-slide-in var(--dur-enter) ease-out;
 }
 
 .context-usage-header {
@@ -240,18 +238,4 @@
 .context-usage-table td:last-child {
   text-align: right;
   font-variant-numeric: tabular-nums;
-}
-
-/* 本地 -20px 变体,与 animations.less 公共版(-10px)区分。H4-B 消歧完成:改名 context-slide-in,
-   不再与全局 slideIn 冲突。permission.less 的 slideIn 现明确引用 animations.less(-10px),
-   行为从被覆盖的不确定变为确定(-10px)。 */
-@keyframes context-slide-in {
-  from {
-    transform: translateY(-20px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
 }
