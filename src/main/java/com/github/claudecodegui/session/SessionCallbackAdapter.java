@@ -52,6 +52,8 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
     private volatile boolean streamEndSignalSent = false;
     private volatile String responseStatusProviderLabel = null;
     private volatile long responseStatusTurnStartedAtMillis = 0L;
+    /** 最近下发的 phase value,用于 onResponsePhase 同 phase 连续去重(防 CLI/SessionSend 双路重复下发闪烁)。 */
+    private volatile String lastSentResponsePhase = null;
     private volatile boolean thinkingPhaseSent = false;
     private volatile boolean respondingPhaseSent = false;
     private volatile boolean toolingPhaseSent = false;
@@ -246,7 +248,20 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
         if (payload.providerLabel() != null && !payload.providerLabel().trim().isEmpty()) {
             responseStatusProviderLabel = payload.providerLabel().trim();
         }
-        sendResponsePhase(payload);
+        // 同 phase 连续去重:CLI 路径中 SessionSendService 的 CONNECTING 与 CliSession 上报的
+        // CONNECTING 中间隔 MCP_SYNCING(不连续),不会误杀;真正的连续重复(同 phase 反复触发)才跳过。
+        if (payload.phase().equals(lastSentResponsePhase)) {
+            return;
+        }
+        // 统一用 responseStatusTurnStartedAtMillis(QUEUED 时设)重算 elapsedMs,使
+        // MCP_SYNCING/CONNECTING(handler 传 0)与 UNDERSTANDING(adapter 自发)共享同一 turn 起点。
+        long elapsedMs = responseStatusTurnStartedAtMillis > 0
+                ? Math.max(0L, System.currentTimeMillis() - responseStatusTurnStartedAtMillis)
+                : payload.elapsedMs();
+        AssistantResponseStatusPayload normalized = new AssistantResponseStatusPayload(
+                payload.phase(), payload.providerLabel(), payload.title(), payload.description(),
+                elapsedMs, payload.active());
+        sendResponsePhase(normalized);
     }
 
     @Override
@@ -386,6 +401,7 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
     }
 
     private void sendResponsePhase(AssistantResponseStatusPayload payload) {
+        lastSentResponsePhase = payload.phase();
         String json = GsonHolder.GSON.toJson(payload);
         ApplicationManager.getApplication().invokeLater(() -> {
             if (isInactive()) {

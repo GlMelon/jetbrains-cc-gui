@@ -85,6 +85,18 @@ public final class CliConstants {
     public static final String MSG_SLASH_COMMANDS = "slash_commands";
     /** Node.js 进程日志转发事件。 */
     public static final String MSG_NODE_LOG = "node_log";
+    /**
+     * 响应阶段状态事件:复用 onMessage 通道下发 {@link com.github.claudecodegui.session.AssistantResponsePhase}
+     * 的 value(如 {@code mcp_syncing}/{@code connecting}),或特殊信号 {@link #PHASE_API_RETRY}。
+     * CLI send 路径在 gateway 构建/spawn 等真实边界上报,使前端状态条按 CLI 启动时间线细分阶段。
+     */
+    public static final String MSG_RESPONSE_PHASE = "response_phase";
+    /**
+     * api_retry 信号:API 端点 5xx/529 过载,CLI 静默指数退避重试中。
+     * handler 收到后构造 UNDERSTANDING phase + 重试 description 覆盖,使顶部状态条解释静默挂起。
+     * 与 {@link #SUBTYPE_API_RETRY} 同源,后者是 stream-json 协议层 subtype,此为回调通道信号。
+     */
+    public static final String PHASE_API_RETRY = "api_retry";
 
     // ── Codex 专有协议事件类型（Codex message-service wire 协议） ──────────────
 

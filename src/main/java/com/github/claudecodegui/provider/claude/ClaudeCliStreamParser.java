@@ -273,6 +273,9 @@ public class ClaudeCliStreamParser {
             text.append(" 次),期间对话会挂起,请稍候或中断后重发");
         }
         sectionEmitter(callback).status(text.toString());
+        // 同步把顶部状态条切到 UNDERSTANDING + 重试 description,使 init 后静默挂起可解释
+        // (status 文本仍走原通道,此处只覆盖响应阶段指示器)。见 CliConstants.PHASE_API_RETRY。
+        callback.onMessage(CliConstants.MSG_RESPONSE_PHASE, CliConstants.PHASE_API_RETRY);
     }
 
     private static int readIntField(JsonObject obj, String key) {

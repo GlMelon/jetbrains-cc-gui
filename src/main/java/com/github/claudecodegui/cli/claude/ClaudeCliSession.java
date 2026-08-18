@@ -12,6 +12,7 @@ import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.history.ClaudeSessionEntrypointRewriter;
 import com.github.claudecodegui.handler.history.SessionEntrypoint;
 import com.github.claudecodegui.mcp.McpGatewayCliConfig;
+import com.github.claudecodegui.session.AssistantResponsePhase;
 import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.provider.claude.ClaudeCliDetector;
 import com.github.claudecodegui.provider.claude.ClaudeCliStreamParser;
@@ -419,7 +420,9 @@ public class ClaudeCliSession implements CliSession {
                         prompt.contains(CliConstants.PROMPT_READ_IMAGE),
                         previewPrompt(prompt)));
 
+                callback.onMessage(CliConstants.MSG_RESPONSE_PHASE, AssistantResponsePhase.MCP_SYNCING.value());
                 McpGatewayCliConfig gatewayConfig = buildGatewayConfig(request);
+                callback.onMessage(CliConstants.MSG_RESPONSE_PHASE, AssistantResponsePhase.CONNECTING.value());
 
                 // 长驻优先(设计文档 §3.2):命中/首建则本轮经长驻进程完成,失败静默降级 one-shot
                 if (trySendPersistent(request, callback, cliPath, blocks, prompt, addDirs, gatewayConfig, sendStartNanos)) {

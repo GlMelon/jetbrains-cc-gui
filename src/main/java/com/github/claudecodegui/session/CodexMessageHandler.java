@@ -3,6 +3,7 @@ package com.github.claudecodegui.session;
 import com.github.claudecodegui.cli.common.CliConstants;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.CodexMessageConverter;
+import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.SDKResult;
 import com.github.claudecodegui.session.ClaudeSession.Message;
@@ -182,10 +183,38 @@ public class CodexMessageHandler implements MessageCallback {
             case CliConstants.MSG_MESSAGE_END:
                 handleMessageEnd();
                 break;
+            case CliConstants.MSG_RESPONSE_PHASE:
+                handleResponsePhase(content);
+                break;
             default:
                 LOG.debug("CodexMessageHandler: Unhandled message type: " + type);
                 break;
         }
+    }
+
+    /**
+     * Handle a response-phase status signal forwarded from the CLI send path
+     * (MCP_SYNCING / CONNECTING) or the api_retry signal. Mirrors ClaudeMessageHandler:
+     * reuses the onMessage channel so CLI sessions report real startup boundaries.
+     */
+    private void handleResponsePhase(String content) {
+        String phaseValue = content != null ? content.trim() : "";
+        if (phaseValue.isEmpty()) {
+            return;
+        }
+        String provider = state.getProvider();
+        if (CliConstants.PHASE_API_RETRY.equals(phaseValue)) {
+            callbackHandler.notifyResponsePhase(AssistantResponseStatusPayload.forProviderWithDescription(
+                    AssistantResponsePhase.UNDERSTANDING, provider, 0L,
+                    ClaudeCodeGuiBundle.message("assistant.response.phase.apiRetry.description")));
+            return;
+        }
+        AssistantResponsePhase phase = AssistantResponsePhase.fromValue(phaseValue);
+        if (phase == null) {
+            return;
+        }
+        callbackHandler.notifyResponsePhase(
+                AssistantResponseStatusPayload.forProvider(phase, provider, 0L));
     }
 
     /**

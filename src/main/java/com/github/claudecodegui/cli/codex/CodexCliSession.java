@@ -7,6 +7,7 @@ import com.github.claudecodegui.cli.CliSessionExecutor;
 import com.github.claudecodegui.cli.common.*;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.mcp.McpGatewayCliConfig;
+import com.github.claudecodegui.session.AssistantResponsePhase;
 import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.session.runtime.CodexCliResolver;
 import com.github.claudecodegui.session.runtime.ProviderType;
@@ -173,7 +174,9 @@ public class CodexCliSession implements CliSession {
                         + ", attachmentsMs=" + elapsedMillis(attachmentsStartNanos)
                         + ", thread=" + Thread.currentThread().getName());
                 boolean requestHasImages = !images.isEmpty();
+                callback.onMessage(CliConstants.MSG_RESPONSE_PHASE, AssistantResponsePhase.MCP_SYNCING.value());
                 McpGatewayCliConfig gatewayConfig = buildGatewayConfig(request);
+                callback.onMessage(CliConstants.MSG_RESPONSE_PHASE, AssistantResponsePhase.CONNECTING.value());
                 List<String> gatewayOverrideArgs = (gatewayConfig != null && gatewayConfig.usable())
                         ? gatewayConfig.overrideArgs() : List.of();
                 LOG.info("[CliConcurrencyDiag][CodexCliSession] building command"

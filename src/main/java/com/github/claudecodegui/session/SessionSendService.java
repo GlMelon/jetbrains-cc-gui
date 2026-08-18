@@ -162,14 +162,8 @@ public class SessionSendService {
         }
 
         String currentProvider = state.getProvider();
-        if (responseStatusTurnStartedAtMillis <= 0L) {
-            responseStatusTurnStartedAtMillis = System.currentTimeMillis();
-        }
-        callbackFacade.notifyResponsePhase(AssistantResponseStatusPayload.forProvider(
-                AssistantResponsePhase.CONNECTING,
-                currentProvider,
-                responseStatusTurnStartedAtMillis
-        ));
+        // SDK 已移除,send 恒走 CLI;CONNECTING/MCP_SYNCING 由 CliSession.send 内部按真实边界
+        // 自报(buildGatewayConfig 前后),此处不再预发 CONNECTING,避免 CLI 路径 CONNECTING 双发闪烁。
         String sessionModeBeforeSend = state.getPermissionMode();
         String normalizedRequestedMode = normalizeRequestedPermissionMode(requestedPermissionMode);
         String effectivePermissionMode = resolveEffectivePermissionMode(

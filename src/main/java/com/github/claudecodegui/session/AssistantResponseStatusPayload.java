@@ -46,6 +46,33 @@ public record AssistantResponseStatusPayload(
         );
     }
 
+    /**
+     * 带 description 覆盖的工厂:用于 api_retry 等需要动态文案的场景。phase 的 title 仍取
+     * Bundle,description 用 {@code descriptionOverride}(为 null 时回退 Bundle 默认)。
+     */
+    public static AssistantResponseStatusPayload forProviderWithDescription(
+            AssistantResponsePhase phase,
+            String provider,
+            long turnStartedAtMillis,
+            String descriptionOverride
+    ) {
+        AssistantResponsePhase safePhase = phase != null ? phase : AssistantResponsePhase.CONNECTING;
+        long elapsedMs = turnStartedAtMillis > 0
+                ? Math.max(0L, System.currentTimeMillis() - turnStartedAtMillis)
+                : 0L;
+        String description = descriptionOverride != null && !descriptionOverride.isEmpty()
+                ? descriptionOverride
+                : ClaudeCodeGuiBundle.message(safePhase.descriptionKey());
+        return new AssistantResponseStatusPayload(
+                safePhase.value(),
+                safeProviderLabel(providerLabel(provider)),
+                ClaudeCodeGuiBundle.message(safePhase.titleKey()),
+                description,
+                elapsedMs,
+                safePhase.active()
+        );
+    }
+
     private static String providerLabel(String provider) {
         if (CommonConstants.PROVIDER_CODEX.equals(provider)
                 || CommonConstants.PROVIDER_OPENCODE.equals(provider)

@@ -3,6 +3,7 @@ package com.github.claudecodegui.session;
 import com.github.claudecodegui.cli.common.CliConstants;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.provider.ModelProviderHandler;
+import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.notifications.ClaudeNotifier;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.settings.CodemossSettingsService;
@@ -213,7 +214,38 @@ public class ClaudeMessageHandler implements MessageCallback {
                 // Forward Node.js logs to frontend console
                 callbackHandler.notifyNodeLog(content);
                 break;
+            case CliConstants.MSG_RESPONSE_PHASE:
+                handleResponsePhase(content);
+                break;
         }
+    }
+
+    /**
+     * Handle a response-phase status signal forwarded from the CLI send path
+     * (MCP_SYNCING / CONNECTING) or the api_retry signal. Reuses the onMessage
+     * channel so CLI sessions can report real startup boundaries without a
+     * dedicated callback. elapsedMs is normalized by SessionCallbackAdapter.
+     */
+    private void handleResponsePhase(String content) {
+        String phaseValue = content != null ? content.trim() : "";
+        if (phaseValue.isEmpty()) {
+            return;
+        }
+        String provider = state.getProvider();
+        if (CliConstants.PHASE_API_RETRY.equals(phaseValue)) {
+            // api_retry:保持 UNDERSTANDING phase(前端 phase class 不变),description 覆盖为重试文案,
+            // 使顶部状态条解释 init 后静默挂起(2026-08-18 BigModel 529 实测)。
+            callbackHandler.notifyResponsePhase(AssistantResponseStatusPayload.forProviderWithDescription(
+                    AssistantResponsePhase.UNDERSTANDING, provider, 0L,
+                    ClaudeCodeGuiBundle.message("assistant.response.phase.apiRetry.description")));
+            return;
+        }
+        AssistantResponsePhase phase = AssistantResponsePhase.fromValue(phaseValue);
+        if (phase == null) {
+            return;
+        }
+        callbackHandler.notifyResponsePhase(
+                AssistantResponseStatusPayload.forProvider(phase, provider, 0L));
     }
 
     /**

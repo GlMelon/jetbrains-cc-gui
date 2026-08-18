@@ -7,6 +7,7 @@ import com.github.claudecodegui.cli.CliSessionExecutor;
 import com.github.claudecodegui.cli.common.*;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.mcp.McpGatewayCliConfig;
+import com.github.claudecodegui.session.AssistantResponsePhase;
 import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.ui.toolwindow.TabPerformanceLogger;
@@ -148,7 +149,9 @@ public class GrokCliSession implements CliSession {
             long sendStartNanos
     ) throws Exception {
         GrokCliStreamParser parser = new GrokCliStreamParser(callback);
+        callback.onMessage(CliConstants.MSG_RESPONSE_PHASE, AssistantResponsePhase.MCP_SYNCING.value());
         McpGatewayCliConfig gatewayConfig = buildGatewayConfig(request);
+        callback.onMessage(CliConstants.MSG_RESPONSE_PHASE, AssistantResponsePhase.CONNECTING.value());
         String effectiveSessionDisplay = effectiveSessionId != null ? effectiveSessionId : "(new)";
         LOG.info("[CliConcurrencyDiag][GrokCliSession] building command"
                 + ": tabId=" + tabId
