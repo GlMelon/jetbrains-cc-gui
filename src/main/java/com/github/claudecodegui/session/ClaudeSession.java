@@ -166,6 +166,14 @@ public class ClaudeSession {
         default void onUserMessageUuidPatched(String content, String uuid) {
         }
 
+        /**
+         * Variant carrying rewind availability so CLI-mode turns (no history reload)
+         * can mark the just-sent user message rewindable; defaults to non-rewindable.
+         */
+        default void onUserMessageUuidPatched(String content, String uuid, boolean rewindable) {
+            onUserMessageUuidPatched(content, uuid);
+        }
+
         default void onQueueDisplayStateChanged(QueueDisplayState state, int aheadCount) {
         }
 

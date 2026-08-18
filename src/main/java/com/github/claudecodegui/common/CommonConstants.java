@@ -116,6 +116,8 @@ public final class CommonConstants {
     public static final String MSG_TYPE_AI = "ai";
     /** 错误消息类型(前端会话消息:错误反馈,与 ClaudeSession.Message.Type.ERROR 对齐) */
     public static final String MSG_TYPE_ERROR = "error";
+    /** Claude 历史消息类型：文件检查点快照 */
+    public static final String MSG_TYPE_FILE_HISTORY_SNAPSHOT = "file-history-snapshot";
 
     // ===== 内容块类型 =====
     // message.content 数组中各内容块的 type 字段值
@@ -200,6 +202,12 @@ public final class CommonConstants {
     public static final String JSON_KEY_STATUS = "status";
     /** JSON 字段：消息 UUID */
     public static final String JSON_KEY_UUID = "uuid";
+    /** JSON 字段：关联消息 ID */
+    public static final String JSON_KEY_MESSAGE_ID = "messageId";
+    /** JSON 字段：文件历史检查点快照 */
+    public static final String JSON_KEY_SNAPSHOT = "snapshot";
+    /** JSON 字段：文件检查点是否可回退 */
+    public static final String JSON_KEY_REWINDABLE = "rewindable";
     /** JSON 字段：工具调用关联 ID */
     public static final String JSON_KEY_TOOL_USE_ID = "tool_use_id";
     /** JSON 字段：是否为元消息 */

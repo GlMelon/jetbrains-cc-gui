@@ -529,6 +529,18 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
     }
 
     @Override
+    public void onUserMessageUuidPatched(String content, String uuid, boolean rewindable) {
+        if (isInactive()) {
+            return;
+        }
+        jsTarget.callJavaScript(
+                "patchMessageUuid",
+                JsUtils.escapeJs(content),
+                JsUtils.escapeJs(uuid),
+                String.valueOf(rewindable));
+    }
+
+    @Override
     public void onQueueDisplayStateChanged(ClaudeSession.SessionCallback.QueueDisplayState state, int aheadCount) {
         if (isInactive()) {
             return;

@@ -2,10 +2,9 @@
 /**
  * 进程退出策略(纯函数,便于单测;channel-manager.js 顶层 IIFE 有副作用无法直接测)。
  *
- * 四类策略(按退出时机区分):
+ * 三类策略(按退出时机区分):
  * - network         网络类(opencode send/abort):@opencode-ai/sdk + undici keep-alive
  *                   socket 可能挂事件循环 → 短延迟强退
- * - rewind          rewindFiles(任意 provider):恢复 SDK 会话,MCP 连接可能保持开启 → 短延迟强退
  * - history-readonly 只读历史类(opencode getSession/listSessions):sql.js 读本地 db,
  *                   Node 25 + Windows 下进程退出可能触发 UV_HANDLE_CLOSING assertion
  *                   (stderr 崩溃,stdout JSON 已 flush)→ 略长延迟留足 flush 时间
@@ -13,21 +12,20 @@
  */
 
 /**
- * 退出策略字面量联合(四类常量的值域)。
- * @typedef {'network' | 'rewind' | 'history-readonly' | 'natural'} ExitStrategy
+ * 退出策略字面量联合(三类常量的值域)。
+ * @typedef {'network' | 'history-readonly' | 'natural'} ExitStrategy
  */
 
-/** @type {Readonly<{ NETWORK: ExitStrategy; REWIND: ExitStrategy; HISTORY_READONLY: ExitStrategy; NATURAL: ExitStrategy }>} */
+/** @type {Readonly<{ NETWORK: ExitStrategy; HISTORY_READONLY: ExitStrategy; NATURAL: ExitStrategy }>} */
 const STRATEGY_VALUES = {
   NETWORK: 'network',
-  REWIND: 'rewind',
   HISTORY_READONLY: 'history-readonly',
   NATURAL: 'natural',
 };
 
 /**
- * 四类退出策略常量(冻结)。值域见 {@link ExitStrategy}。
- * @satisfies {Readonly<{ NETWORK: ExitStrategy; REWIND: ExitStrategy; HISTORY_READONLY: ExitStrategy; NATURAL: ExitStrategy }>}
+ * 三类退出策略常量(冻结)。值域见 {@link ExitStrategy}。
+ * @satisfies {Readonly<{ NETWORK: ExitStrategy; HISTORY_READONLY: ExitStrategy; NATURAL: ExitStrategy }>}
  */
 export const EXIT_STRATEGY = Object.freeze(STRATEGY_VALUES);
 
@@ -48,9 +46,6 @@ const NETWORK_PROVIDER = 'opencode';
  * @returns {ExitStrategy} 退出策略
  */
 export function resolveExitStrategy(provider, command) {
-  if (command === 'rewindFiles') {
-    return EXIT_STRATEGY.REWIND;
-  }
   if (provider === NETWORK_PROVIDER && command !== undefined && NETWORK_COMMANDS.has(command)) {
     return EXIT_STRATEGY.NETWORK;
   }

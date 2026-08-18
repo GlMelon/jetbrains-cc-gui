@@ -7,12 +7,6 @@ test('resolveExitStrategy: opencode 网络命令(send/abort)归类为 network �
   assert.equal(resolveExitStrategy('opencode', 'abort'), 'network');
 });
 
-test('resolveExitStrategy: rewindFiles 不区分 provider 归类为 rewind 强退', () => {
-  assert.equal(resolveExitStrategy('claude', 'rewindFiles'), 'rewind');
-  assert.equal(resolveExitStrategy('codex', 'rewindFiles'), 'rewind');
-  assert.equal(resolveExitStrategy('opencode', 'rewindFiles'), 'rewind');
-});
-
 test('resolveExitStrategy: opencode 只读历史命令(getSession/listSessions)归类为 history-readonly', () => {
   assert.equal(resolveExitStrategy('opencode', 'getSession'), 'history-readonly');
   assert.equal(resolveExitStrategy('opencode', 'listSessions'), 'history-readonly');

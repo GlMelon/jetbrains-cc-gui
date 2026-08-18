@@ -11,7 +11,6 @@
 import {
   sendMessage as claudeSendMessage,
   sendMessageWithAttachments as claudeSendMessageWithAttachments,
-  rewindFiles as claudeRewindFiles,
   getMcpServerStatus as claudeGetMcpServerStatus,
   getMcpServerTools as claudeGetMcpServerTools
 } from '../services/claude/message-service.js';
@@ -82,21 +81,6 @@ export async function handleClaudeCommand(command, args, stdinData) {
       await claudeGetLatestUserMessage(args[0], /** @type {any} */ (args[1]));
       break;
 
-    case 'rewindFiles': {
-      const sessionId = stdinData?.sessionId || args[0];
-      const userMessageId = stdinData?.userMessageId || args[1];
-      const cwd = stdinData?.cwd || args[2] || null;
-      if (!sessionId || !userMessageId) {
-        console.log(JSON.stringify({
-          success: false,
-          error: 'Missing required parameters: sessionId and userMessageId'
-        }));
-        return;
-      }
-      await claudeRewindFiles(sessionId, userMessageId, cwd);
-      break;
-    }
-
     case 'getMcpServerStatus': {
       const cwd = stdinData?.cwd || args[0] || null;
       await claudeGetMcpServerStatus(cwd);
@@ -117,7 +101,7 @@ export async function handleClaudeCommand(command, args, stdinData) {
 
 /** @returns {string[]} */
 export function getClaudeCommandList() {
-  return ['send', 'sendWithAttachments', 'getSession', 'getLatestUserMessage', 'rewindFiles', 'getMcpServerStatus', 'getMcpServerTools'];
+  return ['send', 'sendWithAttachments', 'getSession', 'getLatestUserMessage', 'getMcpServerStatus', 'getMcpServerTools'];
 }
 
 export const claudeChannelDescriptor = {

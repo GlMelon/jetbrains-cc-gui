@@ -1,5 +1,6 @@
 package com.github.claudecodegui.provider.claude;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import org.junit.Test;
@@ -10,9 +11,42 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class ClaudeSessionQueryServiceTest {
+
+    @Test
+    public void normalizeClaudeHistoryMessagesMarksCheckpointsRegardlessOfRowOrder() {
+        String firstMessageId = "11111111-1111-4111-8111-111111111111";
+        String secondMessageId = "22222222-2222-4222-8222-222222222222";
+        String unavailableMessageId = "33333333-3333-4333-8333-333333333333";
+
+        JsonArray rows = new JsonArray();
+        rows.add(createCheckpoint(firstMessageId, false));
+        rows.add(createUserMessage("first", firstMessageId));
+        rows.add(createUserMessage("second", secondMessageId));
+        rows.add(createCheckpoint(secondMessageId, true));
+        rows.add(createUserMessage("legacy", unavailableMessageId));
+
+        var normalized = ClaudeSessionQueryService.normalizeClaudeHistoryMessages(rows);
+
+        assertEquals(3, normalized.size());
+        assertTrue(normalized.get(0).get(CommonConstants.JSON_KEY_REWINDABLE).getAsBoolean());
+        assertTrue(normalized.get(1).get(CommonConstants.JSON_KEY_REWINDABLE).getAsBoolean());
+        assertFalse(normalized.get(2).get(CommonConstants.JSON_KEY_REWINDABLE).getAsBoolean());
+    }
+
+    @Test
+    public void normalizeClaudeHistoryMessagesMarksLegacyUsersAsNotRewindable() {
+        JsonArray rows = new JsonArray();
+        rows.add(createUserMessage("legacy", "44444444-4444-4444-8444-444444444444"));
+
+        var normalized = ClaudeSessionQueryService.normalizeClaudeHistoryMessages(rows);
+
+        assertEquals(1, normalized.size());
+        assertFalse(normalized.get(0).get(CommonConstants.JSON_KEY_REWINDABLE).getAsBoolean());
+    }
 
     @Test
     public void normalizeClaudeHistoryMessageRestoresImageBlocksAndKeepsUserText() throws IOException {
@@ -186,6 +220,10 @@ public class ClaudeSessionQueryServiceTest {
     }
 
     private JsonObject createUserMessage(String text) {
+        return createUserMessage(text, null);
+    }
+
+    private JsonObject createUserMessage(String text, String messageId) {
         JsonObject textBlock = new JsonObject();
         textBlock.addProperty("type", "text");
         textBlock.addProperty("text", text);
@@ -199,7 +237,22 @@ public class ClaudeSessionQueryServiceTest {
 
         JsonObject raw = new JsonObject();
         raw.addProperty("type", "user");
+        if (messageId != null) {
+            raw.addProperty(CommonConstants.JSON_KEY_UUID, messageId);
+        }
         raw.add("message", message);
         return raw;
+    }
+
+    private JsonObject createCheckpoint(String messageId, boolean nestedOnly) {
+        JsonObject checkpoint = new JsonObject();
+        checkpoint.addProperty(CommonConstants.JSON_KEY_TYPE, CommonConstants.MSG_TYPE_FILE_HISTORY_SNAPSHOT);
+        JsonObject snapshot = new JsonObject();
+        snapshot.addProperty(CommonConstants.JSON_KEY_MESSAGE_ID, messageId);
+        checkpoint.add(CommonConstants.JSON_KEY_SNAPSHOT, snapshot);
+        if (!nestedOnly) {
+            checkpoint.addProperty(CommonConstants.JSON_KEY_MESSAGE_ID, messageId);
+        }
+        return checkpoint;
     }
 }

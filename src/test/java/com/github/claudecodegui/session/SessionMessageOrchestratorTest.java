@@ -52,7 +52,80 @@ public class SessionMessageOrchestratorTest {
         assertTrue(localUserMessage.raw.has("uuid"));
         assertEquals("uuid-123", localUserMessage.raw.get("uuid").getAsString());
         assertEquals(0, callback.messageUpdates.size());
-        assertEquals(List.of("Explain this diff|uuid-123"), callback.messageUuidPatches);
+        assertEquals(List.of("Explain this diff|uuid-123|false"), callback.messageUuidPatches);
+    }
+
+    @Test
+    public void updateUserMessageUuidsStampsRewindableFromHistoryCheckpointFlag() {
+        SessionState state = new SessionState();
+        state.setProvider("claude");
+        state.setSessionId("session-1");
+        state.setCwd("/workspace");
+
+        JsonObject localRaw = new JsonObject();
+        ClaudeSession.Message localUserMessage = new ClaudeSession.Message(ClaudeSession.Message.Type.USER, "Explain this diff", localRaw);
+        state.addMessage(localUserMessage);
+
+        RecordingCallback callback = new RecordingCallback();
+        SessionCallbackFacade callbackFacade = new SessionCallbackFacade(null);
+        callbackFacade.setCallback(callback);
+
+        RecordingHistoryAccess historyAccess = new RecordingHistoryAccess();
+        JsonObject historyUserMessage = createHistoryUserMessage("uuid-456", "Explain this diff");
+        historyUserMessage.addProperty("rewindable", true);
+        historyAccess.latestClaudeUserMessage = historyUserMessage;
+
+        SessionMessageOrchestrator orchestrator = new SessionMessageOrchestrator(
+                state,
+                new MessageParser(),
+                callbackFacade,
+                historyAccess,
+                (usedTokens, maxTokens) -> {
+                },
+                0,
+                0
+        );
+
+        orchestrator.updateUserMessageUuids();
+
+        assertTrue(localUserMessage.raw.has("rewindable"));
+        assertTrue(localUserMessage.raw.get("rewindable").getAsBoolean());
+        assertEquals(List.of("Explain this diff|uuid-456|true"), callback.messageUuidPatches);
+    }
+
+    @Test
+    public void updateUserMessageUuidsOmitsRewindableWhenHistoryLacksCheckpointFlag() {
+        SessionState state = new SessionState();
+        state.setProvider("claude");
+        state.setSessionId("session-1");
+        state.setCwd("/workspace");
+
+        JsonObject localRaw = new JsonObject();
+        ClaudeSession.Message localUserMessage = new ClaudeSession.Message(ClaudeSession.Message.Type.USER, "Explain this diff", localRaw);
+        state.addMessage(localUserMessage);
+
+        RecordingCallback callback = new RecordingCallback();
+        SessionCallbackFacade callbackFacade = new SessionCallbackFacade(null);
+        callbackFacade.setCallback(callback);
+
+        RecordingHistoryAccess historyAccess = new RecordingHistoryAccess();
+        historyAccess.latestClaudeUserMessage = createHistoryUserMessage("uuid-789", "Explain this diff");
+
+        SessionMessageOrchestrator orchestrator = new SessionMessageOrchestrator(
+                state,
+                new MessageParser(),
+                callbackFacade,
+                historyAccess,
+                (usedTokens, maxTokens) -> {
+                },
+                0,
+                0
+        );
+
+        orchestrator.updateUserMessageUuids();
+
+        assertFalse(localUserMessage.raw.has("rewindable"));
+        assertEquals(List.of("Explain this diff|uuid-789|false"), callback.messageUuidPatches);
     }
 
     @Test
@@ -427,6 +500,11 @@ public class SessionMessageOrchestratorTest {
         @Override
         public void onUserMessageUuidPatched(String content, String uuid) {
             messageUuidPatches.add(content + "|" + uuid);
+        }
+
+        @Override
+        public void onUserMessageUuidPatched(String content, String uuid, boolean rewindable) {
+            messageUuidPatches.add(content + "|" + uuid + "|" + rewindable);
         }
 
         @Override

@@ -14,7 +14,7 @@ import {
   finalizeTodosForSettledTurn,
   sliceLatestConversationTurn,
 } from '../utils/turnScope';
-import { FILE_MODIFY_TOOL_NAMES, isToolName } from '../utils/toolConstants';
+import { PROVIDER_TYPE } from '../generated/protocol';
 import { useSubagents } from './useSubagents';
 import { useFileChanges } from './useFileChanges';
 import { useFileChangesManagement } from './useFileChangesManagement';
@@ -188,49 +188,20 @@ export function useChatComputations({
     return [];
   }, [latestTurnMessages, messages, getContentBlocks, streamingActive]);
 
-  // A9 降级标注(架构债登记簿 §A9,随 A7):本函数是「UI 可用性判定」——决定某用户消息的
-  // Rewind 按钮是否可点(其后是否存在文件修改类工具调用)。依赖 A7 的 FILE_MODIFY_TOOL_NAMES
-  // 展示分类。真实回滚动作在后端 rewind_files;此处仅为前端 UI 启用态判定,可接受前端做。
-  // 随 A7 降级:工具分类已定为展示分类,此判定消费前端分类即可,无需后端下发。
-  const canRewindFromMessageIndex = useCallback(
-    (userMessageIndex: number) => {
-      if (userMessageIndex < 0 || userMessageIndex >= mergedMessages.length) return false;
-      const current = mergedMessages[userMessageIndex];
-      if (current.type !== 'user') return false;
-      if ((current.content || '').trim() === '[tool_result]') return false;
-      const raw = current.raw;
-      if (raw && typeof raw !== 'string') {
-        const content = raw.content ?? raw.message?.content;
-        if (Array.isArray(content) && content.some((block) => block && block.type === 'tool_result')) {
-          return false;
-        }
-      }
-      for (let i = userMessageIndex + 1; i < mergedMessages.length; i += 1) {
-        const msg = mergedMessages[i];
-        if (msg.type === 'user') break;
-        const blocks = getContentBlocks(msg);
-        for (const block of blocks) {
-          if (block.type !== 'tool_use') continue;
-          if (isToolName(block.name, FILE_MODIFY_TOOL_NAMES)) return true;
-        }
-      }
-      return false;
-    },
-    [mergedMessages, getContentBlocks],
-  );
-
   const rewindableMessages = useMemo((): RewindableMessage[] => {
     // 流式期冻结:mergedMessages 每帧追加流式增量,但 rewindable 集合只依赖已 settled 的历史
     // 用户消息结构。返回上次 settled 快照(相同引用),避免每帧重算 + 触发消费组件重渲染。
     if (streamingActive) return prevRewindableRef.current;
     const result: RewindableMessage[] = [];
-    if (currentProvider !== 'claude') {
+    if (currentProvider !== PROVIDER_TYPE.CLAUDE) {
       prevRewindableRef.current = result;
       return result;
     }
     for (let i = 0; i < mergedMessages.length - 1; i++) {
-      if (!canRewindFromMessageIndex(i)) continue;
       const message = mergedMessages[i];
+      if (message.type !== 'user') continue;
+      if (!message.raw || typeof message.raw === 'string') continue;
+      if (message.raw.rewindable !== true) continue;
       const content = message.content || getMessageText(message);
       const timestamp = message.timestamp ? formatTime(message.timestamp) : undefined;
       const messagesAfterCount = mergedMessages.length - i - 1;
@@ -238,7 +209,7 @@ export function useChatComputations({
     }
     prevRewindableRef.current = result;
     return result;
-  }, [mergedMessages, currentProvider, canRewindFromMessageIndex, getMessageText, streamingActive]);
+  }, [mergedMessages, currentProvider, getMessageText, streamingActive]);
 
   const sessionTitle = useMemo(() => {
     // 流式期冻结:标题取决于 customSessionTitle / 首条用户消息,与流式增量无关。

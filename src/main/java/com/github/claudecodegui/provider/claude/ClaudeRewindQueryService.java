@@ -1,217 +1,190 @@
 package com.github.claudecodegui.provider.claude;
 
-import com.github.claudecodegui.bridge.EnvironmentConfigurator;
-import com.github.claudecodegui.bridge.NodeDetector;
-import com.github.claudecodegui.bridge.ProcessManager;
+import com.github.claudecodegui.cli.CliSessionExecutor;
+import com.github.claudecodegui.cli.common.CliConstants;
+import com.github.claudecodegui.cli.common.CliEnvironmentBuilder;
+import com.github.claudecodegui.cli.common.CliProcessLifecycle;
+import com.github.claudecodegui.cli.common.CliSettings;
 import com.github.claudecodegui.util.PlatformUtils;
-import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 
 /**
- * Executes Claude file rewind commands.
+ * Executes Claude file checkpoint restoration through the Claude CLI.
  */
 class ClaudeRewindQueryService {
 
-    private static final String CHANNEL_SCRIPT = "channel-manager.js";
-
-    /** Hard wall-clock timeout for the rewind Node.js process. */
-    private static final long REWIND_TIMEOUT_SECONDS = 60;
-    /** Grace window for the async reader thread to drain stdout after the child exits. */
-    private static final long READER_DRAIN_SECONDS = 5;
+    static final long REWIND_TIMEOUT_MS = 60_000L;
 
     private final Logger log;
-    private final Gson gson;
-    private final NodeDetector nodeDetector;
-    private final Supplier<File> sdkDirSupplier;
-    private final ProcessManager processManager;
-    private final EnvironmentConfigurator envConfigurator;
-    private final ClaudeJsonOutputExtractor outputExtractor;
+    private final Supplier<String> cliExecutableSupplier;
+    private final long timeoutMs;
 
-    ClaudeRewindQueryService(
-            Logger log,
-            Gson gson,
-            NodeDetector nodeDetector,
-            Supplier<File> sdkDirSupplier,
-            ProcessManager processManager,
-            EnvironmentConfigurator envConfigurator,
-            ClaudeJsonOutputExtractor outputExtractor
-    ) {
+    ClaudeRewindQueryService(Logger log, Supplier<String> cliExecutableSupplier) {
+        this(log, cliExecutableSupplier, REWIND_TIMEOUT_MS);
+    }
+
+    ClaudeRewindQueryService(Logger log, Supplier<String> cliExecutableSupplier, long timeoutMs) {
         this.log = log;
-        this.gson = gson;
-        this.nodeDetector = nodeDetector;
-        this.sdkDirSupplier = sdkDirSupplier;
-        this.processManager = processManager;
-        this.envConfigurator = envConfigurator;
-        this.outputExtractor = outputExtractor;
+        this.cliExecutableSupplier = cliExecutableSupplier;
+        this.timeoutMs = timeoutMs;
     }
 
     CompletableFuture<JsonObject> rewindFiles(String sessionId, String userMessageId, String cwd) {
-        return CompletableFuture.supplyAsync(() -> {
-            JsonObject response = new JsonObject();
-
-            try {
-                String node = nodeDetector.findNodeExecutable();
-                File workDir = sdkDirSupplier.get();
-                if (workDir == null || !workDir.exists()) {
-                    response.addProperty("success", false);
-                    response.addProperty("error", "Bridge directory not ready or invalid");
-                    return response;
-                }
-
-                log.info("[Rewind] Starting rewind operation");
-                log.info("[Rewind] Session ID: " + sessionId);
-                log.info("[Rewind] Target message ID: " + userMessageId);
-
-                JsonObject stdinInput = new JsonObject();
-                stdinInput.addProperty("sessionId", sessionId);
-                stdinInput.addProperty("userMessageId", userMessageId);
-                stdinInput.addProperty("cwd", cwd != null ? cwd : "");
-                String stdinJson = gson.toJson(stdinInput);
-
-                String scriptPath = new File(workDir, CHANNEL_SCRIPT).getAbsolutePath();
-                List<String> command = NodeDetector.buildNodeScriptCommand(node, scriptPath);
-                command.add("claude");
-                command.add("rewindFiles");
-
-                ProcessBuilder pb = new ProcessBuilder(command);
-                pb.directory(ClaudeBridgeUtils.resolveWorkingDirectory(workDir, cwd));
-                pb.redirectErrorStream(true);
-
-                Map<String, String> env = pb.environment();
-                envConfigurator.configureProjectPath(env, cwd);
-                File processTempDir = processManager.prepareClaudeTempDir();
-                envConfigurator.configureTempDir(env, processTempDir);
-                env.put("CLAUDE_USE_STDIN", "true");
-                envConfigurator.updateProcessEnvironment(pb, node);
-
-                // L6 fix: register with ProcessManager so cleanupAllProcesses sees this child.
-                // M3 fix: explicit reader drain mirroring PromptEnhancerProcessRunner so
-                // reader exceptions are categorised (IOException = expected on kill;
-                // RuntimeException = real bug) instead of being swallowed wholesale.
-                String channelId = ProcessManager.newChannelId("claude-rewind");
-                Process process = null;
-                CompletableFuture<String> outputFuture = null;
-                boolean finished = false;
-                int exitCode = -1;
-                try {
-                    process = pb.start();
-                    processManager.registerProcess(channelId, process);
-                    log.info("[Rewind] Process started, PID: " + process.pid());
-
-                    ClaudeBridgeUtils.writeStdin(stdinJson, process);
-
-                    final Process finalProcess = process;
-                    outputFuture = CompletableFuture.supplyAsync(() -> {
-                        StringBuilder output = new StringBuilder();
-                        try (BufferedReader reader = new BufferedReader(
-                                new InputStreamReader(finalProcess.getInputStream(), StandardCharsets.UTF_8))) {
-                            String line;
-                            while ((line = reader.readLine()) != null) {
-                                log.info("[Rewind] Output: " + line);
-                                output.append(line).append("\n");
-                            }
-                        } catch (IOException e) {
-                            // Expected when the stream is force-closed on timeout kill.
-                            log.debug("[Rewind] reader stream closed: " + e.getMessage());
-                        } catch (RuntimeException e) {
-                            log.warn("[Rewind] reader thread failed unexpectedly", e);
-                        }
-                        return output.toString();
-                    });
-
-                    finished = process.waitFor(REWIND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-                    if (!finished) {
-                        PlatformUtils.terminateProcess(process);
-                        exitCode = -1;
-                    } else {
-                        exitCode = process.exitValue();
-                    }
-                    log.info("[Rewind] Process exited with code: " + exitCode);
-
-                    String outputStr = drainReader(outputFuture);
-
-                    String jsonStr = outputExtractor.extractLastJsonLine(outputStr);
-                    if (jsonStr != null) {
-                        try {
-                            return gson.fromJson(jsonStr, JsonObject.class);
-                        } catch (Exception e) {
-                            log.warn("[Rewind] Failed to parse JSON: " + e.getMessage());
-                        }
-                    }
-
-                    response.addProperty("success", exitCode == 0);
-                    if (exitCode != 0) {
-                        response.addProperty("error", !finished
-                                ? "Rewind process timeout"
-                                : "Process exited with code: " + exitCode);
-                    }
-                    return response;
-                } finally {
-                    if (process != null) {
-                        if (process.isAlive()) {
-                            PlatformUtils.terminateProcess(process);
-                        }
-                        processManager.unregisterProcess(channelId, process);
-                    }
-                    if (outputFuture != null && !outputFuture.isDone()) {
-                        outputFuture.cancel(true);
-                    }
-                }
-            } catch (Exception e) {
-                log.error("[Rewind] Exception: " + e.getMessage(), e);
-                response.addProperty("success", false);
-                response.addProperty("error", e.getMessage());
-                return response;
-            }
-        });
+        return CompletableFuture.supplyAsync(
+                () -> executeRewind(sessionId, userMessageId, cwd),
+                CliSessionExecutor.executor()
+        );
     }
 
-    /**
-     * Drains the async reader future with categorised failure handling.
-     *
-     * <p>{@link TimeoutException} means stdout is still flowing past the drain
-     * window — accept partial output rather than block indefinitely.
-     * {@link ExecutionException} means the reader thread itself threw; the
-     * root cause has already been logged inside the async block, so we
-     * surface only a short message here.
-     * {@link CancellationException} would only occur if the finally block ran
-     * before this method, which the control flow prevents — log defensively.
-     */
-    private String drainReader(CompletableFuture<String> outputFuture) {
+    private JsonObject executeRewind(String sessionId, String userMessageId, String cwd) {
+        Process process = null;
         try {
-            return outputFuture.get(READER_DRAIN_SECONDS, TimeUnit.SECONDS).trim();
-        } catch (TimeoutException te) {
-            log.warn("[Rewind] Reader didn't drain within " + READER_DRAIN_SECONDS
-                    + "s, continuing with partial output");
-            return "";
-        } catch (ExecutionException ee) {
-            log.debug("[Rewind] Reader execution failed: "
-                    + (ee.getCause() != null ? ee.getCause().getMessage() : ee.getMessage()));
-            return "";
-        } catch (CancellationException ce) {
-            log.debug("[Rewind] Reader was cancelled unexpectedly");
-            return "";
-        } catch (InterruptedException ie) {
+            String cliExecutable = cliExecutableSupplier.get();
+            if (cliExecutable == null || cliExecutable.isBlank()) {
+                return failure("CLI_NOT_FOUND", "Claude CLI not found");
+            }
+
+            List<String> command = buildCommand(cliExecutable, sessionId, userMessageId);
+            log.info("[Rewind] Starting Claude CLI file rewind for session " + sessionId
+                    + " at user message " + userMessageId);
+
+            ProcessBuilder processBuilder = new ProcessBuilder(command);
+            processBuilder.redirectErrorStream(true);
+            processBuilder.directory(resolveWorkingDirectory(cwd));
+            configureEnvironment(processBuilder.environment(), cwd);
+
+            process = processBuilder.start();
+            // --rewind-files is a standalone operation. Close stdin immediately so
+            // the CLI never waits for a prompt or an EOF that will not arrive.
+            process.getOutputStream().close();
+
+            StringBuilder output = new StringBuilder();
+            Process rewindProcess = process;
+            CompletableFuture<Void> drainFuture = CliProcessLifecycle.drainAsync(
+                    rewindProcess,
+                    () -> drainOutput(rewindProcess, output)
+            );
+            CliProcessLifecycle.Outcome outcome = CliProcessLifecycle.await(
+                    rewindProcess,
+                    drainFuture,
+                    timeoutMs
+            );
+
+            String outputText = output.toString().trim();
+            if (outcome.timedOut()) {
+                return failure("PROCESS_TIMEOUT", "Claude file rewind timed out");
+            }
+            if (outcome.exitCode() != 0) {
+                return failure(
+                        classifyError(outputText),
+                        outputText.isBlank()
+                                ? "Claude CLI exited with code " + outcome.exitCode()
+                                : outputText
+                );
+            }
+
+            JsonObject result = new JsonObject();
+            result.addProperty("success", true);
+            if (!outputText.isBlank()) {
+                result.addProperty("message", outputText);
+            }
+            return result;
+        } catch (InterruptedException error) {
             Thread.currentThread().interrupt();
-            log.debug("[Rewind] Reader drain interrupted");
-            return "";
+            return failure("PROCESS_INTERRUPTED", "Claude file rewind was interrupted");
+        } catch (Exception error) {
+            log.warn("[Rewind] Claude CLI file rewind failed", error);
+            String message = error.getMessage();
+            return failure(
+                    "PROCESS_FAILED",
+                    message == null || message.isBlank() ? "Claude file rewind failed" : message
+            );
+        } finally {
+            CliProcessLifecycle.terminate(process);
         }
     }
 
-}
+    static List<String> buildCommand(String cliExecutable, String sessionId, String userMessageId) {
+        List<String> command = new ArrayList<>();
+        command.add(cliExecutable);
+        command.add(CliConstants.ARG_P);
+        command.add(CliConstants.ARG_RESUME);
+        command.add(sessionId);
+        command.add(CliConstants.ARG_REWIND_FILES);
+        command.add(userMessageId);
+        return command;
+    }
 
+    private static void configureEnvironment(Map<String, String> environment, String cwd) {
+        environment.clear();
+        environment.putAll(CliEnvironmentBuilder.buildBaseEnvironment());
+        environment.putAll(CliSettings.readClaudeCliEnvironment());
+        environment.put(
+                CliConstants.ENV_CLAUDE_ENABLE_SDK_FILE_CHECKPOINTING,
+                CliConstants.ENV_TRUE
+        );
+        environment.put(CliConstants.ARG_NO_COLOR, CliConstants.ENV_ENABLED);
+        CliEnvironmentBuilder.configureProjectPath(environment, cwd);
+    }
+
+    private static File resolveWorkingDirectory(String cwd) {
+        if (cwd != null && !cwd.isBlank()) {
+            File requested = new File(cwd);
+            if (requested.isDirectory()) {
+                return requested;
+            }
+        }
+        File home = new File(PlatformUtils.getHomeDirectory());
+        return home.isDirectory() ? home : new File(System.getProperty("user.dir"));
+    }
+
+    private static void drainOutput(Process process, StringBuilder output) throws Exception {
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (output.length() > 0) {
+                    output.append('\n');
+                }
+                output.append(line);
+            }
+        }
+    }
+
+    private static String classifyError(String output) {
+        String normalized = output == null ? "" : output.toLowerCase(java.util.Locale.ROOT);
+        if (normalized.contains("no conversation") || normalized.contains("conversation not found")) {
+            return "SESSION_NOT_FOUND";
+        }
+        if (normalized.contains("not a user message") || normalized.contains("user message uuid")) {
+            return "INVALID_USER_MESSAGE_ID";
+        }
+        if (normalized.contains("checkpoint") || normalized.contains("cannot rewind")
+                || normalized.contains("can't rewind")) {
+            return "CHECKPOINT_NOT_FOUND";
+        }
+        if (normalized.contains("not a uuid") || normalized.contains("invalid uuid")) {
+            return "INVALID_SESSION_ID";
+        }
+        return "PROCESS_FAILED";
+    }
+
+    private static JsonObject failure(String errorCode, String message) {
+        JsonObject result = new JsonObject();
+        result.addProperty("success", false);
+        result.addProperty("errorCode", errorCode);
+        result.addProperty("error", message);
+        return result;
+    }
+}

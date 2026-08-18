@@ -174,6 +174,15 @@ public class CallbackHandler {
         }
     }
 
+    /**
+     * Variant carrying rewind availability (CLI-mode turns never reload history).
+     */
+    public void notifyUserMessageUuidPatched(String content, String uuid, boolean rewindable) {
+        if (callback != null) {
+            callback.onUserMessageUuidPatched(content, uuid, rewindable);
+        }
+    }
+
     public void notifyQueueDisplayStateChanged(ClaudeSession.SessionCallback.QueueDisplayState state, int aheadCount) {
         if (callback != null) {
             callback.onQueueDisplayStateChanged(state, aheadCount);

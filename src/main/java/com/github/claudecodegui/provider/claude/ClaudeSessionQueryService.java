@@ -3,6 +3,7 @@ package com.github.claudecodegui.provider.claude;
 import com.github.claudecodegui.bridge.EnvironmentConfigurator;
 import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.bridge.ProcessManager;
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.util.AttachmentStorageService;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.github.claudecodegui.util.UserMessageSanitizer;
@@ -17,7 +18,9 @@ import java.io.File;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
@@ -73,14 +76,11 @@ class ClaudeSessionQueryService {
             JsonObject jsonResult = runSessionQuery("getSession", sessionId, cwd, "getSessionMessages");
 
             if (jsonResult.has("success") && jsonResult.get("success").getAsBoolean()) {
-                List<JsonObject> messages = new ArrayList<>();
                 if (jsonResult.has("messages")) {
                     JsonArray messagesArray = jsonResult.getAsJsonArray("messages");
-                    for (var msg : messagesArray) {
-                        messages.add(normalizeClaudeHistoryMessage(msg.getAsJsonObject()));
-                    }
+                    return normalizeClaudeHistoryMessages(messagesArray);
                 }
-                return messages;
+                return new ArrayList<>();
             }
 
             String errorMsg = (jsonResult.has("error") && !jsonResult.get("error").isJsonNull())
@@ -94,13 +94,99 @@ class ClaudeSessionQueryService {
         }
     }
 
+    /**
+     * Converts raw Claude JSONL rows into transcript messages and annotates user
+     * messages from the authoritative file-history checkpoints. Snapshot rows may
+     * appear before or after their matching user row, so collection and annotation
+     * intentionally happen in two passes.
+     */
+    static List<JsonObject> normalizeClaudeHistoryMessages(JsonArray messagesArray) {
+        List<JsonObject> messages = new ArrayList<>();
+        if (messagesArray == null || messagesArray.size() == 0) {
+            return messages;
+        }
+
+        Set<String> checkpointMessageIds = new HashSet<>();
+        for (JsonElement element : messagesArray) {
+            if (!element.isJsonObject()) {
+                continue;
+            }
+            JsonObject rawMessage = element.getAsJsonObject();
+            if (!hasStringProperty(rawMessage, CommonConstants.JSON_KEY_TYPE,
+                    CommonConstants.MSG_TYPE_FILE_HISTORY_SNAPSHOT)) {
+                continue;
+            }
+
+            String messageId = getStringProperty(rawMessage, CommonConstants.JSON_KEY_MESSAGE_ID);
+            if (messageId == null
+                    && rawMessage.has(CommonConstants.JSON_KEY_SNAPSHOT)
+                    && rawMessage.get(CommonConstants.JSON_KEY_SNAPSHOT).isJsonObject()) {
+                messageId = getStringProperty(
+                        rawMessage.getAsJsonObject(CommonConstants.JSON_KEY_SNAPSHOT),
+                        CommonConstants.JSON_KEY_MESSAGE_ID);
+            }
+            if (messageId != null && !messageId.isBlank()) {
+                checkpointMessageIds.add(messageId);
+            }
+        }
+
+        for (JsonElement element : messagesArray) {
+            if (!element.isJsonObject()) {
+                continue;
+            }
+            JsonObject rawMessage = element.getAsJsonObject();
+            if (hasStringProperty(rawMessage, CommonConstants.JSON_KEY_TYPE,
+                    CommonConstants.MSG_TYPE_FILE_HISTORY_SNAPSHOT)) {
+                continue;
+            }
+
+            JsonObject annotatedMessage = rawMessage;
+            if (hasStringProperty(rawMessage, CommonConstants.JSON_KEY_TYPE, CommonConstants.MSG_TYPE_USER)) {
+                annotatedMessage = rawMessage.deepCopy();
+                String userMessageId = getStringProperty(rawMessage, CommonConstants.JSON_KEY_UUID);
+                annotatedMessage.addProperty(
+                        CommonConstants.JSON_KEY_REWINDABLE,
+                        userMessageId != null && checkpointMessageIds.contains(userMessageId));
+            }
+            messages.add(normalizeClaudeHistoryMessage(annotatedMessage));
+        }
+        return messages;
+    }
+
+    private static boolean hasStringProperty(JsonObject object, String propertyName, String expectedValue) {
+        String value = getStringProperty(object, propertyName);
+        return expectedValue.equals(value);
+    }
+
+    private static String getStringProperty(JsonObject object, String propertyName) {
+        if (object == null || !object.has(propertyName) || object.get(propertyName).isJsonNull()) {
+            return null;
+        }
+        JsonElement value = object.get(propertyName);
+        if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString()) {
+            return null;
+        }
+        return value.getAsString();
+    }
+
     JsonObject getLatestUserMessage(String sessionId, String cwd) {
         try {
             JsonObject jsonResult = runSessionQuery("getLatestUserMessage", sessionId, cwd, "getLatestUserMessage");
 
             if (jsonResult.has("success") && jsonResult.get("success").getAsBoolean()) {
                 if (jsonResult.has("message") && jsonResult.get("message").isJsonObject()) {
-                    return normalizeClaudeHistoryMessage(jsonResult.getAsJsonObject("message"));
+                    JsonObject latestUserMessage = normalizeClaudeHistoryMessage(
+                            jsonResult.getAsJsonObject("message"));
+                    // CLI-mode turns never reload history, so rewindable availability must ride
+                    // along with the uuid sync instead of the history-load annotation pass.
+                    if (latestUserMessage != null
+                            && jsonResult.has("messageHasCheckpoint")
+                            && !jsonResult.get("messageHasCheckpoint").isJsonNull()) {
+                        latestUserMessage.addProperty(
+                                CommonConstants.JSON_KEY_REWINDABLE,
+                                jsonResult.get("messageHasCheckpoint").getAsBoolean());
+                    }
+                    return latestUserMessage;
                 }
                 return null;
             }

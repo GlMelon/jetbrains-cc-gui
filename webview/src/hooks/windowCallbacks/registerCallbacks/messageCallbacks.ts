@@ -614,7 +614,7 @@ export function registerMessageCallbacks(
     window.showSummary?.(pendingSummary);
   }
 
-  window.patchMessageUuid = (content, uuid) => {
+  window.patchMessageUuid = (content, uuid, rewindable) => {
     if (window.__sessionTransitioning) return;
     if (!content || !uuid) return;
 
@@ -630,11 +630,14 @@ export function registerMessageCallbacks(
           .join('\n');
         if ((message.content || '') !== content && rawText !== content) continue;
 
+        // CLI-mode turns never reload history; rewindable rides along the uuid patch.
+        const extraRawFields = rewindable === true ? { rewindable: true } : {};
         const raw: ClaudeMessage['raw'] =
           typeof message.raw === 'object' && message.raw
-            ? { ...message.raw, uuid }
+            ? { ...message.raw, uuid, ...extraRawFields }
             : {
                 uuid,
+                ...extraRawFields,
                 message: {
                   content: [{ type: 'text' as const, text: message.content || content }],
                 },

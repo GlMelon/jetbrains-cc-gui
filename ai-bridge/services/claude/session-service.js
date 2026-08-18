@@ -170,6 +170,9 @@ export async function getLatestUserMessage(sessionId, cwd = null) {
     const startByte = Math.max(0, stat.size - TAIL_BYTES);
 
     let latestUserMessage = null;
+    // file-history-snapshot rows may precede their user row, so collect checkpoint
+    // messageIds across the whole tail window and resolve rewindability at the end.
+    const checkpointMessageIds = new Set();
     const rl = createInterface({
       input: createReadStream(sessionFile, { encoding: 'utf8', start: startByte }),
       crlfDelay: Infinity
@@ -182,6 +185,13 @@ export async function getLatestUserMessage(sessionId, cwd = null) {
       if (!line.trim()) continue;
       try {
         const message = JSON.parse(line);
+        if (message?.type === 'file-history-snapshot') {
+          const messageId = message.messageId ?? message.snapshot?.messageId;
+          if (typeof messageId === 'string' && messageId) {
+            checkpointMessageIds.add(messageId);
+          }
+          continue;
+        }
         if (isUserTextMessage(message)) {
           latestUserMessage = message;
         }
@@ -192,7 +202,14 @@ export async function getLatestUserMessage(sessionId, cwd = null) {
 
     console.log(JSON.stringify({
       success: true,
-      message: latestUserMessage
+      message: latestUserMessage,
+      // CLI-mode turns never re-load history, so the Java layer patches rewindable
+      // onto the in-flight message from this flag (see getLatestUserMessage callers).
+      messageHasCheckpoint: Boolean(
+        latestUserMessage &&
+        typeof latestUserMessage.uuid === 'string' &&
+        checkpointMessageIds.has(latestUserMessage.uuid)
+      )
     }));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

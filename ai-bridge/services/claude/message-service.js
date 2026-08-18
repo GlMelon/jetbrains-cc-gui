@@ -9,13 +9,11 @@
  *   - message-session-registry.js: Active session state
  *   - message-sender.js: sendMessage, sendMessageWithAttachments
  *   - message-sender-anthropic.js: sendMessageWithAnthropicSDK
- *   - message-rewind.js: rewindFiles
  */
 
 // Re-export send functions
 export { sendMessage, sendMessageWithAttachments } from './message-sender.js';
 export { sendMessageWithAnthropicSDK } from './message-sender-anthropic.js';
-export { rewindFiles } from './message-rewind.js';
 
 // Re-export session registry functions
 export {

@@ -1,11 +1,11 @@
 // @ts-check
 /**
  * Session registry for active query results.
- * Shared state extracted to avoid circular dependencies between message-sender,
- * message-rewind, and message-service modules.
+ * Shared state extracted to avoid circular dependencies between message-sender
+ * and message-service modules.
  */
 
-// Store active query results for rewind operations
+// Store active query results for persistent daemon session operations
 // Key: sessionId, Value: { queryResult, createdAt }
 const activeQueryResults = new Map();
 
@@ -45,7 +45,7 @@ export function getActiveSessionIds() {
 }
 
 /**
- * Check if a session has an active query result for rewind operations
+ * Check if a session has an active query result
  * @param {string} sessionId - Session ID to check
  * @returns {boolean} True if session has active query result
  */

@@ -88,7 +88,7 @@ Handles all `window.xxx` callback registrations for Java bridge communication.
 - Dialog callbacks (showPermissionDialog, showAskUserQuestionDialog)
 - Context callbacks (addSelectionInfo, addCodeSnippet, clearSelectionInfo)
 - Agent callbacks (onSelectedAgentReceived, onSelectedAgentChanged)
-- Rewind callback (onRewindResult)
+- Rewind event (`rewind.result`)
 
 **Dependencies:**
 - All state setters from App.tsx

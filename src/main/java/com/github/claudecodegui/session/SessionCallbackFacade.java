@@ -92,6 +92,13 @@ public class SessionCallbackFacade {
         callbackHandler.notifyUserMessageUuidPatched(content, uuid);
     }
 
+    /**
+     * Variant carrying rewind availability (CLI-mode turns never reload history).
+     */
+    public void notifyUserMessageUuidPatched(String content, String uuid, boolean rewindable) {
+        callbackHandler.notifyUserMessageUuidPatched(content, uuid, rewindable);
+    }
+
     public void notifyQueueDisplayStateChanged(ClaudeSession.SessionCallback.QueueDisplayState state, int aheadCount) {
         callbackHandler.notifyQueueDisplayStateChanged(state, aheadCount);
     }

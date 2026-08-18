@@ -3,7 +3,7 @@
  *
  * Registers window bridge callbacks for session management, SDK dependency status,
  * and rewind result: setSessionId, addToast, typed history export data,
- * updateDependencyStatus, onRewindResult.
+ * updateDependencyStatus, rewind.result.
  */
 
 import { sendAction, subscribeEvent } from '../../../bridge/typed';
@@ -155,9 +155,9 @@ setSdkStatusLoaded(false);
   // Rewind Result Callback
   // =========================================================================
 
-  window.onRewindResult = (json: string) => {
+  subscribeEvent(DOWNSTREAM.REWIND_RESULT, (json) => {
     try {
-      const result = JSON.parse(json);
+      const result = JSON.parse(json as string);
       setIsRewinding(false);
       if (result.success) {
         setRewindDialogOpen(false);
@@ -173,7 +173,7 @@ setSdkStatusLoaded(false);
       setCurrentRewindRequest(null);
       window.addToast?.(tRef.current('rewind.parseError'), 'error');
     }
-  };
+  });
 
   // =========================================================================
   // SDK-to-CLI Session Conversion Result Callback

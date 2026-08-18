@@ -1,35 +1,28 @@
 package com.github.claudecodegui.provider.claude;
 
-import com.github.claudecodegui.bridge.NodeService;
-import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
 
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Independent file rewind service for Claude provider.
- * Extracts rewind functionality using NodeService
- * for Node.js infrastructure.
+ * Claude CLI file checkpoint restoration facade.
  */
 public class ClaudeRewindService {
 
     private static final Logger LOG = Logger.getInstance(ClaudeRewindService.class);
-    private static final Gson gson = new Gson();
 
     private final ClaudeRewindQueryService rewindQueryService;
 
     public ClaudeRewindService() {
-        NodeService nodeService = NodeService.getInstance();
-        this.rewindQueryService = new ClaudeRewindQueryService(
+        this(new ClaudeRewindQueryService(
                 LOG,
-                gson,
-                nodeService.getNodeDetector(),
-                nodeService::getSdkTestDir,
-                nodeService.getProcessManager(),
-                nodeService.getEnvConfigurator(),
-                new ClaudeJsonOutputExtractor()
-        );
+                () -> ClaudeCliDetector.getInstance().findCliExecutable()
+        ));
+    }
+
+    ClaudeRewindService(ClaudeRewindQueryService rewindQueryService) {
+        this.rewindQueryService = rewindQueryService;
     }
 
     public CompletableFuture<JsonObject> rewindFiles(String sessionId, String userMessageId, String cwd) {

@@ -190,9 +190,10 @@ public class MessageJsonConverter {
 
     private static JsonObject buildTransportRaw(JsonObject raw) {
         JsonObject transport = new JsonObject();
-        copyFieldIfPresent(raw, transport, "uuid");
-        copyFieldIfPresent(raw, transport, "type");
-        copyFieldIfPresent(raw, transport, "isMeta");
+        copyFieldIfPresent(raw, transport, CommonConstants.JSON_KEY_UUID);
+        copyFieldIfPresent(raw, transport, CommonConstants.JSON_KEY_TYPE);
+        copyFieldIfPresent(raw, transport, CommonConstants.JSON_KEY_IS_META);
+        copyFieldIfPresent(raw, transport, CommonConstants.JSON_KEY_REWINDABLE);
         copyFieldIfPresent(raw, transport, "text");
         // Compact-related fields for filtering compact summary messages
         copyFieldIfPresent(raw, transport, "isCompactSummary");

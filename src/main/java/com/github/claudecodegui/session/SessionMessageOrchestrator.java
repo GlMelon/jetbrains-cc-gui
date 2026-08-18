@@ -122,7 +122,8 @@ public class SessionMessageOrchestrator {
                 if (matchedMessage != null && matchedMessage.raw != null && matchedMessage.raw.has("uuid")) {
                     callbackFacade.notifyUserMessageUuidPatched(
                             matchedMessage.content != null ? matchedMessage.content : "",
-                            matchedMessage.raw.get("uuid").getAsString()
+                            matchedMessage.raw.get("uuid").getAsString(),
+                            isRewindable(matchedMessage)
                     );
                     return;
                 }
@@ -221,11 +222,24 @@ public class SessionMessageOrchestrator {
                     localMsg.raw = createDefaultUserRaw(localMsg.content);
                 }
                 localMsg.raw.addProperty("uuid", uuid);
+                // CLI-mode turns never reload history; the checkpoint flag read from the
+                // JSONL tail must be stamped here so the frontend sees the turn as rewindable.
+                if (historyMessage.has("rewindable")
+                        && !historyMessage.get("rewindable").isJsonNull()) {
+                    localMsg.raw.addProperty("rewindable", historyMessage.get("rewindable").getAsBoolean());
+                }
             }
             return localMsg;
         }
 
         return null;
+    }
+
+    private static boolean isRewindable(ClaudeSession.Message message) {
+        return message.raw != null
+                && message.raw.has("rewindable")
+                && !message.raw.get("rewindable").isJsonNull()
+                && message.raw.get("rewindable").getAsBoolean();
     }
 
     static JsonObject createDefaultUserRaw(String content) {
