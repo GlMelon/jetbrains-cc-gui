@@ -8,10 +8,11 @@
 import { appendFile, mkdir, access, open as fsOpen, stat as fsStat, readFile } from 'fs/promises';
 import { join, basename } from 'path';
 import { spawn } from 'child_process';
-import { setupApiKey, loadClaudeSettings, getCliUserAgent } from '../config/api-config.js';
+import { setupApiKey, loadClaudeSettings, buildCliEnv } from '../config/api-config.js';
 import { resolveModelFromSettings } from '../utils/model-utils.js';
 import { getClaudeDir, getCodemossDir } from '../utils/path-utils.js';
 import { getClaudeCliPathOverride } from '../utils/claude-cli-path.js';
+import { isWindowsCmdShim } from '../utils/cli-path.js';
 import { pathToFileURL } from 'node:url';
 
 const DEFAULT_HAIKU_MODEL = 'claude-haiku-4-5-20251001';
@@ -30,21 +31,6 @@ const HAIKU_API_TIMEOUT_MS = 15000;
 function isValidSessionId(sessionId) {
   return typeof sessionId === 'string' && SESSION_ID_PATTERN.test(sessionId);
 }
-
-const SESSION_TITLE_PROMPT = `Generate a concise title (3-7 words) for this coding session. The title must be in the SAME LANGUAGE as the user's message.
-
-Return JSON: {"title": "..."}
-
-English examples:
-{"title": "Fix login button on mobile"}
-{"title": "Refactor API error handling"}
-
-Chinese examples:
-{"title": "修复登录按钮移动端问题"}
-{"title": "重构API错误处理逻辑"}
-
-Bad: {"title": "Code changes"} (too vague)
-Bad: {"title": "修复登录按钮在移动设备上不响应的问题"} (too long)`;
 
 // --- Logging ---
 // Title generation runs fire-and-forget after the daemon request completes,
@@ -218,24 +204,57 @@ function resolveClaudeCliPath() {
 }
 
 /**
+ * Build the one-shot Claude CLI request used for title generation.
+ *
+ * Keeping this separate from the process lifecycle makes the CLI contract
+ * explicit and prevents title generation from drifting away from the normal
+ * Claude CLI spawn path.
+ *
+ * @param {object} params
+ * @param {string} params.cliPath
+ * @param {string} params.model
+ * @param {string} params.prompt
+ * @param {string|null|undefined} params.cwd
+ * @param {NodeJS.ProcessEnv} [params.env]
+ * @returns {{ args: string[], options: import('child_process').SpawnOptionsWithStdioTuple<'ignore', 'pipe', 'pipe'> }}
+ */
+export function buildTitleCliRequest({ cliPath, model, prompt, cwd, env }) {
+  const workingDirectory = typeof cwd === 'string' && cwd.trim() ? cwd : process.cwd();
+  const childEnv = {
+    ...(env || buildCliEnv()),
+    CLAUDE_NO_COLOR: '1',
+    NO_COLOR: '1',
+  };
+
+  return {
+    args: [
+      '-p', prompt,
+      '--output-format', 'text',
+      '--model', model,
+      '--max-turns', '1',
+      '--dangerously-skip-permissions',
+    ],
+    options: {
+      cwd: workingDirectory,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: childEnv,
+      detached: process.platform !== 'win32',
+      // Windows npm `.cmd`/`.bat` shims cannot be spawned without a shell.
+      shell: isWindowsCmdShim(cliPath),
+    },
+  };
+}
+
+/**
  * Call Claude CLI to generate a title.
  * @param {string} userMessage - The user's first message text
+ * @param {string|null} cwd - Working directory for the Claude CLI
  * @returns {Promise<string|null>} Generated title or null
  */
-async function callHaikuApi(userMessage) {
-  const config = /** @type {{ authType: string; apiKey?: string; baseUrl?: string }} */ (setupApiKey());
-
-  // CLI login uses SDK-native OAuth which the direct Anthropic SDK doesn't support.
-  if (config.authType === 'cli_login') {
-    logTitleEvent('info', 'Skipping title generation: CLI login mode not supported for direct API calls');
-    return null;
-  }
-
-  if (!config.apiKey && config.authType !== 'api_key_helper') {
-    logTitleEvent('info', 'Skipping title generation: no API key available (authType: ' + config.authType + ')');
-    return null;
-  }
-
+async function callHaikuApi(userMessage, cwd) {
+  // Synchronize plugin-managed settings into the environment, but let the CLI
+  // itself resolve authentication (including CLI login/OAuth and cloud modes).
+  setupApiKey();
   const cliPath = resolveClaudeCliPath();
   const model = resolveHaikuModel();
   logTitleEvent('info', 'Calling Claude CLI for title generation, model: ' + model);
@@ -250,31 +269,26 @@ Return ONLY the title text, no JSON formatting, no quotes.`;
 
   return new Promise((resolve) => {
     const timeoutMs = HAIKU_API_TIMEOUT_MS;
+    /** @type {ReturnType<typeof setTimeout> | null} */
     let timeoutId = null;
     let resolved = false;
 
-    const child = spawn(cliPath, [
-      '-p', prompt,
-      '--output-format', 'text',
-      '--model', model,
-      '--max-turns', '1',
-      '--dangerously-skip-permissions',
-    ], {
-      stdio: ['pipe', 'pipe', 'pipe'],
-      env: {
-        ...process.env,
-        NO_COLOR: '1',
-      },
+    const { args, options } = buildTitleCliRequest({
+      cliPath,
+      model,
+      prompt,
+      cwd,
     });
+    const child = spawn(cliPath, args, options);
 
     let stdout = '';
     let stderr = '';
 
-    child.stdout.on('data', (chunk) => {
+    child.stdout?.on('data', (chunk) => {
       stdout += chunk.toString();
     });
 
-    child.stderr.on('data', (chunk) => {
+    child.stderr?.on('data', (chunk) => {
       stderr += chunk.toString();
     });
 
@@ -437,16 +451,16 @@ export async function generateSessionTitle(userMessage, sessionId, cwd) {
       }
     }
 
-    const title = await callHaikuApi(input);
+    const title = await callHaikuApi(input, cwd);
     if (title) {
       // saveAiTitle returning false signals an FS error; don't retry — disk
       // problems are usually persistent and a retry storm helps no one.
       await saveAiTitle(sessionId, title, cwd);
       return true;
     }
-    // callHaikuApi returns null for permanent skips (cli_login, missing key,
-    // unparseable response). Treat as "already attempted" so the caller does
-    // not reset its guard and re-call on the next turn.
+    // callHaikuApi returns null for an unavailable CLI or unparseable response.
+    // Treat as "already attempted" so the caller does not reset its guard and
+    // re-call on the next turn.
     logTitleEvent('info', 'Title generation returned no result for session ' + sessionId);
     return true;
   } catch (e) {
