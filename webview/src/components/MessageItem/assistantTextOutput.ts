@@ -20,3 +20,18 @@ export function hasAssistantTextOutput(
 
   return typeof message.content === 'string' && message.content.trim().length > 0;
 }
+
+/**
+ * Returns whether an assistant message has produced any renderable output
+ * (thinking, tool_use/MCP, or text). The streaming footer follows this so the
+ * "responding" indicator appears with the FIRST block of a turn — a thinking
+ * block or a tool call — instead of waiting for answer text to land.
+ */
+export function hasAssistantVisibleOutput(
+  message: ClaudeMessage,
+  blocks: ClaudeContentBlock[],
+): boolean {
+  if (message.type !== 'assistant') return false;
+  if (blocks.length > 0) return true;
+  return hasAssistantTextOutput(message, blocks);
+}
