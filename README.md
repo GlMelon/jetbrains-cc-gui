@@ -14,8 +14,7 @@
 
 </div>
 
-> Ori[skills-lock.json](skills-lock.json)ginally Claude Code GUI, now renamed to AI Code GUI to support multiple AI coding tools. Regarding security, a        
-  /security-review audit will be conducted before each minor version release, and a comprehensive claude-code-security audit will be performed every 10 minor versions. 
+> Originally Claude Code GUI, now renamed to AI Code GUI to support multiple AI coding tools. Regarding security, a /security-review audit will be conducted before each minor version release, and a comprehensive claude-code-security audit will be performed every 10 minor versions. 
 
 A powerful IntelliJ IDEA plugin that provides a visual interface for **Claude Code**, **OpenAI Codex**, and **OpenCode** triple AI tools, making AI-assisted programming more efficient and intuitive.
 
@@ -65,6 +64,35 @@ A powerful IntelliJ IDEA plugin that provides a visual interface for **Claude Co
 
 ---
 
+## Architecture
+
+The project adopts a **three-layer runtime architecture**:
+
+### Layers
+
+- **Backend** — IntelliJ plugin (Java, `src/main/java/com/github/claudecodegui/`). Hosts all business logic, authoritative state, and persistence. Implements strict separation of concerns: every business calculation, capability judgment, data normalization, and decision lives here.
+- **Frontend** — React + TypeScript webview (`webview/`). Embedded via JCEF, responsible **only** for rendering and input collection. No business logic, no hardcoded business data tables, no capability judgment functions.
+- **ai-bridge** — Independent Node.js process (`ai-bridge/`). Handles CLI process management and message streaming. Communicates with the backend via NDJSON over stdin/stdout.
+
+### Communication
+
+| Direction | Mechanism | Contract |
+|---|---|---|
+| Frontend → Backend (upstream) | `window.sendToJava({type, content})` | `UpstreamAction` enum, dispatched via `FrontendActionHandler<T>` |
+| Backend → Frontend (downstream) | `window.__bridge.dispatch(type, payload)` | `DownstreamEvent` enum constants |
+| Java ↔ ai-bridge | stdin/stdout NDJSON lines | `BaseSDKBridge.executeStreamingCommand` → `channel-manager.js` |
+
+### Design Principles
+
+- **Separation of concerns**: Frontend renders; backend owns all business logic (highest priority).
+- **Single Source of Truth (SSOT)**: Protocol message names, payload structures, and enum values are generated from Java enums to frontend TypeScript types via a `prebuild` hook — no hand-written string literals on either side.
+- **Open-Closed Principle**: New capabilities are added via strategy registry + adapter interfaces (`FrontendActionHandler<T>`, `ProviderAdapter`, `SessionRuntime`), not by modifying dispatcher core logic.
+- **Provider symmetry**: All 3 AI providers (Claude, Codex, OpenCode) × 2 invocation modes (SDK daemon, CLI subprocess) = 6 call paths share equivalent cross-cutting logic (env injection, interrupt/abort, cwd fallback, etc.).
+
+For detailed architecture guidelines, see [AGENTS.md](AGENTS.md).
+
+---
+
 ## Project Status
 
 The project is under active development with continuous updates. For version history and iteration progress, please read [CHANGELOG.md](CHANGELOG.md)
@@ -87,6 +115,8 @@ cd webview
 npm install
 ```
 
+This also runs the `prebuild` hook that generates protocol types from Java enums into `webview/src/generated/protocol.ts`.
+
 ### 2. Install ai-bridge Dependencies
 
 ```bash
@@ -94,18 +124,19 @@ cd ai-bridge
 npm install
 ```
 
-# 编译
+### 3. Compile Backend
+
 ```bash
 ./gradlew compileJava
 ```
-### 3. Debug Plugin
 
-# 编译
+### 4. Debug Plugin
+
 ```bash
 ./gradlew clean runIde
 ```
-
-### 4. Build Plugin
+3
+### 5. Build Plugin
 
 ```sh
 ./gradlew clean buildPlugin

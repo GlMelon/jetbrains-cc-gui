@@ -14,9 +14,11 @@
 
 </div>
 
-> 原名：Claude Code GUI，现更名为 AI Code GUI 以支持多种AI编码工具。对于安全方面，后续每个小版本发版前都进行 /security-review 审查，每隔10个小版本进行一次整体的 claude-code-security 审查
+> 原名：Claude Code GUI，现更名为 AI Code GUI 以支持多种AI编码工具。对于安全方面，后续每个小版本发版前都进行
+> /security-review 审查，每隔10个小版本进行一次整体的 claude-code-security 审查
 
-一个功能强大的 IntelliJ IDEA 插件，为开发者提供 **Claude Code**、**OpenAI Codex** 和 **OpenCode** 三 AI 工具的可视化操作界面，让 AI 辅助编程变得更加高效和直观。
+一个功能强大的 IntelliJ IDEA 插件，为开发者提供 **Claude Code**、 **OpenAI Codex** 和 **OpenCode** 三 AI 工具的可视化操作界面，让
+AI 辅助编程变得更加高效和直观。
 
 <img width="850" alt="Image" src="/docs/img/banner.png" />
 
@@ -31,11 +33,13 @@
 ## 核心特性
 
 ### 三 AI 引擎支持
+
 - **Claude Code** - Anthropic 官方 AI 编程助手，支持 Opus 4.5 等多模型
 - **OpenAI Codex** - OpenAI 强大的代码生成引擎
 - **OpenCode** - 开源 AI 编程助手，支持灵活的模型配置
 
 ### 智能对话功能
+
 - 上下文感知的 AI 编程助手
 - 支持 @文件引用，精准指定代码上下文
 - 图片发送支持，可视化描述需求
@@ -43,11 +47,13 @@
 - 强化提示词，优化 AI 理解能力
 
 ### Agent 智能体
+
 - 内置 Agent 系统，自动化执行复杂任务
 - Skills 斜杠命令系统（/init, /review 等）
 - MCP 服务器支持，扩展 AI 能力边界
 
 ### 开发者体验
+
 - 完善的权限管理和安全控制
 - 代码 DIFF 对比功能
 - 文件跳转和代码导航
@@ -56,11 +62,41 @@
 - 国际化支持（中/英文自动切换）
 
 ### 会话管理
+
 - 历史会话记录和搜索
 - 会话收藏功能
 - 消息导出支持
 - 供应商管理（兼容 cc-switch）
 - 使用统计分析
+
+---
+
+## 架构设计
+
+本项目采用**三层运行时架构**：
+
+### 分层说明
+
+- **后端** — IntelliJ 插件主体 (Java, `src/main/java/com/github/claudecodegui/`)。承载全部业务逻辑、状态权威与持久化。所有数据计算、能力判定、数据归一化与决策均在此完成。
+- **前端** — React + TypeScript webview (`webview/`)。通过 JCEF 嵌入 IDE，**只负责**渲染回显与输入采集，不包含任何业务逻辑。
+- **ai-bridge** — 独立 Node.js 进程 (`ai-bridge/`)。负责 CLI 进程管理与消息流处理，通过 stdin/stdout 的 NDJSON 与后端通信。
+
+### 通信机制
+
+| 方向 | 方式 | 契约 |
+|---|---|---|
+| 前端 → 后端（上行） | `window.sendToJava({type, content})` | `UpstreamAction` 枚举，经 `FrontendActionHandler<T>` 派发 |
+| 后端 → 前端（下行） | `window.__bridge.dispatch(type, payload)` | `DownstreamEvent` 枚举常量 |
+| Java ↔ ai-bridge | stdin/stdout NDJSON 行协议 | `BaseSDKBridge.executeStreamingCommand` → `channel-manager.js` |
+
+### 设计原则
+
+- **前后端职责分离**：前端只做渲染，后端统一处理所有业务逻辑（最高优先级）。
+- **单一真相源 (SSOT)**：协议消息名、payload 结构、枚举值由 Java 枚举通过 `prebuild` 钩子自动生成前端 TypeScript 类型，两端不手写字符串字面量。
+- **开闭原则**：通过策略注册表 + Adapter 接口（`FrontendActionHandler<T>`、`ProviderAdapter`、`SessionRuntime`）扩展能力，不改核心分派逻辑。
+- **Provider 对称性**：3 个 AI provider（Claude、Codex、OpenCode）× 2 种调用模式（SDK daemon、CLI 子进程）= 6 条调用路径共享等价的横切处理逻辑。
+
+详细架构规范请参见 [AGENTS.md](AGENTS.md)。
 
 ---
 
@@ -76,31 +112,37 @@
 
 ---
 
-
 ## 本地开发调试
 
-### 1.安装前端依赖
+### 1. 安装前端依赖
 
 ```bash
 cd webview
 npm install
 ```
 
-### 2.安装ai-bridge依赖
+安装过程会自动执行 `prebuild` 钩子，从 Java 枚举生成协议类型到 `webview/src/generated/protocol.ts`。
+
+### 2. 安装 ai-bridge 依赖
 
 ```bash
 cd ai-bridge
 npm install
 ```
 
-### 3.调试插件
+### 3. 编译后端
 
-在 IDEA 中运行：
+```bash
+./gradlew compileJava
+```
+
+### 4. 调试插件
+
 ```bash
 ./gradlew clean runIde
 ```
 
-### 4.构建插件
+### 5. 构建插件
 
 ```sh
 ./gradlew clean buildPlugin
@@ -137,13 +179,13 @@ MIT
       <a href="https://github.com/gadfly3173">
         <img src="https://avatars.githubusercontent.com/u/28685179?size=100" width="100" height="100" alt="gadfly3173" style="border-radius: 50%; border: 3px solid #ff6b35; box-shadow: 0 0 15px rgba(255, 107, 53, 0.6);" />
       </a>
-      <div">🔥🔥🔥</div>
+      <div>🔥🔥🔥</div>
     </td>
     <td align="center">
       <a href="https://github.com/song782360037">
         <img src="https://avatars.githubusercontent.com/u/66980578?size=100" width="100" height="100" alt="song782360037" style="border-radius: 50%;" />
       </a>
-      <div">🔥</div>
+      <div>🔥</div>
     </td>
     <td align="center">
       <a href="https://github.com/hpstream">
@@ -277,7 +319,8 @@ https://atomgit.com/zhukunpenglinyutong/idea-claude-code-gui
 
 ## 致谢
 
-最近有很多博主自发推荐本项目，心中十分感激，再次感谢《沉默的王二》《macrozheng》《JavaGuide》《Java知音》《鲲鹏talk 公众号》《程序员青戈》等博主推荐本项目，我会继续努力迭代，让大家用起来更舒适。
+最近有很多博主自发推荐本项目，心中十分感激，再次感谢《沉默的王二》《macrozheng》《JavaGuide》《Java知音》《鲲鹏talk
+公众号》《程序员青戈》等博主推荐本项目，我会继续努力迭代，让大家用起来更舒适。
 
 ---
 
