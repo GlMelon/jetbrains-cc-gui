@@ -44,6 +44,7 @@ export interface SettingsWindowCallbacksDeps {
   setProjectCommitPrompt: (prompt: string) => void;
   setCommitGenerationEnabled?: (enabled: boolean) => void;
   setMcpGatewayEnabled?: (enabled: boolean) => void;
+  setCliPersistentEnabled?: (enabled: boolean) => void;
   setAiTitleGenerationEnabled?: (enabled: boolean) => void;
   setStatusBarWidgetEnabled?: (enabled: boolean) => void;
   setTaskCompletionNotificationEnabled?: (enabled: boolean) => void;
@@ -358,6 +359,16 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
       }
     }));
 
+    // CLI persistent sessions config callback
+    unsubs.push(subscribeEvent(DOWNSTREAM.CONFIG_CLI_PERSISTENT, (jsonStr) => {
+      try {
+        const data = JSON.parse(jsonStr as string);
+        d().setCliPersistentEnabled?.(data.cliPersistentEnabled ?? true);
+      } catch (error) {
+        console.error('[SettingsView] Failed to parse CLI persistent config:', error);
+      }
+    }));
+
     // AI session title generation config callback
     unsubs.push(subscribeEvent(DOWNSTREAM.CONFIG_AI_TITLE_GENERATION, (jsonStr) => {
       try {
@@ -563,6 +574,7 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
     sendAction(UPSTREAM.GET_PROMPT_ENHANCER_CONFIG);
     sendAction(UPSTREAM.GET_COMMIT_GENERATION_ENABLED);
     sendAction(UPSTREAM.GET_MCP_GATEWAY_ENABLED);
+    sendAction(UPSTREAM.GET_CLI_PERSISTENT_ENABLED);
     sendAction(UPSTREAM.GET_AI_TITLE_GENERATION_ENABLED);
     sendAction(UPSTREAM.GET_STATUS_BAR_WIDGET_ENABLED);
     sendAction(UPSTREAM.GET_TASK_COMPLETION_NOTIFICATION_ENABLED);

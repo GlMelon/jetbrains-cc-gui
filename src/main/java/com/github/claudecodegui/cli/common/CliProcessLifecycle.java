@@ -41,7 +41,15 @@ public final class CliProcessLifecycle {
     }
 
     public static Outcome await(Process process, CompletableFuture<Void> drainFuture) throws Exception {
-        boolean exited = process.waitFor(CliConstants.CLI_REQUEST_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        return await(process, drainFuture, CliConstants.CLI_REQUEST_TIMEOUT_MS);
+    }
+
+    public static Outcome await(
+            Process process,
+            CompletableFuture<Void> drainFuture,
+            long requestTimeoutMs
+    ) throws Exception {
+        boolean exited = process.waitFor(requestTimeoutMs, TimeUnit.MILLISECONDS);
         boolean timedOut = !exited;
         if (timedOut) {
             terminate(process);

@@ -39,9 +39,16 @@ import {
 } from './hooks';
 
 import styles from './style.module.less';
+import { FadeContent } from '../react-bits';
 
-const BLOCK_STYLE: React.CSSProperties = { display: 'block', animation: 'fadeIn 0.2s ease-out' };
+const BLOCK_STYLE: React.CSSProperties = { display: 'block' };
 const NONE_STYLE: React.CSSProperties = { display: 'none' };
+
+const SettingsTabPanel = ({ active, children }: { active: boolean; children: React.ReactNode }) => (
+  <FadeContent disabled={!active} duration={180} offset={8}>
+    <div style={active ? BLOCK_STYLE : NONE_STYLE}>{children}</div>
+  </FadeContent>
+);
 
 interface SettingsViewProps {
   onClose: () => void;
@@ -196,6 +203,9 @@ const SettingsView = ({
     mcpGatewayEnabled,
     setMcpGatewayEnabled,
     handleMcpGatewayEnabledChange,
+    cliPersistentEnabled,
+    setCliPersistentEnabled,
+    handleCliPersistentEnabledChange,
     aiTitleGenerationEnabled,
     setAiTitleGenerationEnabled,
     handleAiTitleGenerationEnabledChange,
@@ -391,6 +401,7 @@ const SettingsView = ({
     onSendShortcutChangeProp,
     setCommitGenerationEnabled,
     setMcpGatewayEnabled,
+    setCliPersistentEnabled,
     setAiTitleGenerationEnabled,
     setStatusBarWidgetEnabled,
     setTaskCompletionNotificationEnabled,
@@ -510,7 +521,7 @@ const SettingsView = ({
           className={`${styles.settingsContent} ${currentTab === 'providers' ? styles.providerSettingsContent : ''}`}
         >
           {/* Basic configuration */}
-          <div style={currentTab === 'basic' ? BLOCK_STYLE : NONE_STYLE}>
+          <SettingsTabPanel active={currentTab === 'basic'}>
             <BasicConfigSection
               theme={themePreference}
               onThemeChange={setThemePreference}
@@ -561,6 +572,8 @@ const SettingsView = ({
               }}
               mcpGatewayEnabled={mcpGatewayEnabled}
               onMcpGatewayEnabledChange={handleMcpGatewayEnabledChange}
+              cliPersistentEnabled={cliPersistentEnabled}
+              onCliPersistentEnabledChange={handleCliPersistentEnabledChange}
               statusBarWidgetEnabled={statusBarWidgetEnabled}
               onStatusBarWidgetEnabledChange={(enabled) => {
                 handleStatusBarWidgetEnabledChange(enabled);
@@ -595,10 +608,10 @@ const SettingsView = ({
               onUploadAssistantAvatar={onUploadAssistantAvatar}
               onUploadUserAvatar={onUploadUserAvatar}
             />
-          </div>
+          </SettingsTabPanel>
 
           {/* Provider management (Claude + Codex internal tab switching) */}
-          <div style={currentTab === 'providers' ? BLOCK_STYLE : NONE_STYLE}>
+          <SettingsTabPanel active={currentTab === 'providers'}>
             <ProviderTabSection
               currentProvider={currentProvider}
               providers={providers}
@@ -625,25 +638,25 @@ const SettingsView = ({
               }
               addToast={addToast}
             />
-          </div>
+          </SettingsTabPanel>
 
           {/* Model registry */}
-          <div style={currentTab === 'models' ? BLOCK_STYLE : NONE_STYLE}>
+          <SettingsTabPanel active={currentTab === 'models'}>
             <ModelRegistrySection addToast={addToast} />
-          </div>
+          </SettingsTabPanel>
 
           {/* CLI environment check */}
-          <div style={currentTab === 'dependencies' ? BLOCK_STYLE : NONE_STYLE}>
+          <SettingsTabPanel active={currentTab === 'dependencies'}>
             <CliEnvironmentSection isActive={currentTab === 'dependencies'} />
-          </div>
+          </SettingsTabPanel>
 
           {/* MCP servers */}
-          <div style={currentTab === 'mcp' ? BLOCK_STYLE : NONE_STYLE}>
+          <SettingsTabPanel active={currentTab === 'mcp'}>
             <PlaceholderSection type="mcp" currentProvider={currentProvider} />
-          </div>
+          </SettingsTabPanel>
 
           {/* Permissions configuration */}
-          <div style={currentTab === 'permissions' ? BLOCK_STYLE : NONE_STYLE}>
+          <SettingsTabPanel active={currentTab === 'permissions'}>
             {currentProvider === 'codex' ? (
               <PermissionsSection
                 codexSandboxMode={codexSandboxMode}
@@ -652,19 +665,19 @@ const SettingsView = ({
             ) : (
               <PlaceholderSection type="permissions" currentProvider={currentProvider} />
             )}
-          </div>
+          </SettingsTabPanel>
 
           {/* Prompt enhancer configuration */}
-          <div style={currentTab === 'promptEnhancer' ? BLOCK_STYLE : NONE_STYLE}>
+          <SettingsTabPanel active={currentTab === 'promptEnhancer'}>
             <PromptEnhancerSection
               promptEnhancerConfig={promptEnhancerConfig}
               onPromptEnhancerProviderChange={handlePromptEnhancerProviderChange}
               onPromptEnhancerModelChange={handlePromptEnhancerModelChange}
             />
-          </div>
+          </SettingsTabPanel>
 
           {/* Commit AI configuration */}
-          <div style={currentTab === 'commit' ? BLOCK_STYLE : NONE_STYLE}>
+          <SettingsTabPanel active={currentTab === 'commit'}>
             <CommitSection
               commitAiConfig={commitAiConfig}
               onCommitAiProviderChange={handleCommitAiProviderChange}
@@ -678,10 +691,10 @@ const SettingsView = ({
               savingCommitPrompt={savingCommitPrompt}
               savingProjectCommitPrompt={savingProjectCommitPrompt}
             />
-          </div>
+          </SettingsTabPanel>
 
           {/* Agents */}
-          <div style={currentTab === 'agents' ? BLOCK_STYLE : NONE_STYLE}>
+          <SettingsTabPanel active={currentTab === 'agents'}>
             <AgentSection
               agents={agents}
               loading={agentsLoading}
@@ -691,23 +704,23 @@ const SettingsView = ({
               onExport={handleExportAgents}
               onImport={handleImportAgentsFile}
             />
-          </div>
+          </SettingsTabPanel>
 
           {/* Prompts */}
-          <div style={currentTab === 'prompts' ? BLOCK_STYLE : NONE_STYLE}>
+          <SettingsTabPanel active={currentTab === 'prompts'}>
             <PromptSection
               currentProvider={currentProvider}
               onSuccess={(msg) => addToast(msg, 'success')}
             />
-          </div>
+          </SettingsTabPanel>
 
           {/* Skills */}
-          <div style={currentTab === 'skills' ? BLOCK_STYLE : NONE_STYLE}>
+          <SettingsTabPanel active={currentTab === 'skills'}>
             <SkillsSettingsSection currentProvider={currentProvider} />
-          </div>
+          </SettingsTabPanel>
 
           {/* Other settings */}
-          <div style={currentTab === 'other' ? BLOCK_STYLE : NONE_STYLE}>
+          <SettingsTabPanel active={currentTab === 'other'}>
             <OtherSettingsSection
               historyCompletionEnabled={historyCompletionEnabled}
               onHistoryCompletionEnabledChange={(enabled) => {
@@ -719,12 +732,12 @@ const SettingsView = ({
                 );
               }}
             />
-          </div>
+          </SettingsTabPanel>
 
           {/* Version History */}
-          <div style={currentTab === 'versionHistory' ? BLOCK_STYLE : NONE_STYLE}>
+          <SettingsTabPanel active={currentTab === 'versionHistory'}>
             <VersionHistorySection />
-          </div>
+          </SettingsTabPanel>
         </div>
       </div>
 

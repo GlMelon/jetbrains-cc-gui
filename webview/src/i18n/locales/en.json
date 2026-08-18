@@ -112,6 +112,7 @@
     "usageStats": {
       "input": "Input:",
       "output": "Output:",
+      "cacheRead": "Cache:",
       "total": "Total:",
       "duration": "Duration:",
       "tokensUnit": "tokens"
@@ -321,6 +322,12 @@
         "disabled": "Disabled",
         "hint": "Keeps a resident MCP prewarm process to speed up the first request of each session. Turning it off falls back to direct MCP connections (the first request may be slightly slower)."
       },
+      "cliPersistent": {
+        "label": "CLI Persistent Sessions",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "hint": "Keeps the CLI process resident per tab so follow-up messages skip the cold start (claude only for now). Turning it off falls back to a one-shot process per message; idle resident processes are reclaimed immediately."
+      },
       "statusBarWidget": {
         "label": "Status Bar Info Display",
         "enabled": "Enabled",
@@ -406,10 +413,10 @@
         "userPreviewMessage": "User messages preview with the selected avatar."
       },
       "detailedOutput": {
-        "label": "Detailed Output Information",
+        "label": "Show Token Usage",
         "enabled": "Enabled",
         "disabled": "Disabled",
-        "hint": "When enabled, message footers show estimated turn cost when available and include cache hits inside the input token summary. Token usage remains visible either way."
+        "hint": "When enabled, shows input/output tokens, cache hits, total tokens, and duration below each assistant message."
       }
     },
     "providers": "Provider Management",
@@ -1372,13 +1379,22 @@
       "groups": {
         "daemon": "Daemon Processes",
         "channel": "Active Conversations",
-        "orphan": "Orphan Processes"
+        "orphan": "Orphan Processes",
+        "cliSession": "CLI Sessions"
       },
       "kind": {
         "daemonShort": "Daemon",
         "channelShort": "Channel",
-        "orphanShort": "Orphan"
+        "orphanShort": "Orphan",
+        "cliSessionShort": "CLI Session"
       },
+      "state": {
+        "idle": "idle",
+        "streaming": "streaming"
+      },
+      "autoManaged": "auto-managed",
+      "protectedHint": "Read-only: lifecycle is managed automatically (idle sessions are reclaimed; tab/project close stops the process)",
+      "protectedKillRejected": "CLI session processes are managed automatically and cannot be killed manually",
       "kill": "Kill",
       "interrupt": "Stop",
       "killAll": "Clean up orphans ({{count}})",

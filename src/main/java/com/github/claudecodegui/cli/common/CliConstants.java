@@ -23,6 +23,41 @@ public final class CliConstants {
     /** 进程退出后等待 stdout drain 完成的最大时长。 */
     public static final long OUTPUT_DRAIN_TIMEOUT_MS = 5_000L;
 
+    // ── 长驻会话(CLI persistent process)常量 ──────────────────────────────────
+    // 设计文档: docs/feat/claude-daemon-mode-design.md §4.1/§4.3/§4.5。
+
+    /** 优雅关闭:stdin EOF 后等待 CLI 自然退出的上限,超时走 terminateProcess 兜底。 */
+    public static final long CLI_GRACEFUL_CLOSE_TIMEOUT_MS = 5_000L;
+    /** 空闲回收阈值:超过此时长无活动的长驻进程静默优雅关闭。 */
+    public static final long CLI_PERSISTENT_IDLE_TIMEOUT_MS = 30 * 60 * 1000L;
+    /** 空闲回收扫描间隔。 */
+    public static final long CLI_PERSISTENT_SWEEP_INTERVAL_MS = 5 * 60 * 1000L;
+    /** 单项目长驻 CLI 进程上限,超限新 tab 自动降级 one-shot(不报错不打扰)。 */
+    public static final int CLI_PERSISTENT_MAX_PROCESSES = 8;
+    /** abort 兜底:interrupt control_request 写入后此时长无 result 回应则杀进程树。 */
+    public static final long CLI_INTERRUPT_FALLBACK_MS = 3_000L;
+    /** 长驻 spawn 后的速死观察窗(命令行/认证错误立即退出在此窗内暴露;活进程等满窗口,仅首条消息付)。 */
+    public static final long CLI_PERSISTENT_READY_WINDOW_MS = 300L;
+    /** 项目 dispose 清理时单个进程的优雅关闭等待上限(短等待+强杀兜底,避免阻塞项目关闭)。 */
+    public static final long CLI_DISPOSE_CLOSE_TIMEOUT_MS = 1_000L;
+    /** 坏槽位重建:连续 spawn 失败次数上限,达到后该键进入冷却窗口(实施计划 §6.15 不无限重启)。 */
+    public static final int CLI_PERSISTENT_REBUILD_MAX_FAILURES = 3;
+    /** 坏槽位重建冷却窗口:连续失败达上限后,该键在此窗口内不再尝试 spawn,消息直接走 one-shot。 */
+    public static final long CLI_PERSISTENT_REBUILD_COOLDOWN_MS = 60_000L;
+    /** 轮外协议事件 WARN 限流:每进程最多打此条数,之后降 debug(§6.14 可观测化,防刷屏)。 */
+    public static final int CLI_PERSISTENT_ORPHAN_WARN_LIMIT = 5;
+
+    // ── 长驻路径决策日志 reason 值(实施计划 §6.16-4 path/fallbackReason 字段) ──
+
+    /** 门禁关闭(总开关/user 开关/provider 子开关)。 */
+    public static final String PATH_REASON_FLAG_DISABLED = "flag_disabled";
+    /** CLI 版本按最新 compatibility manifest 判定不兼容(§6.16-3 版本门禁)。 */
+    public static final String PATH_REASON_VERSION_INCOMPATIBLE = "version_incompatible";
+    /** acquire 未命中(指纹漂移/崩溃槽/超限/冷却),细节见 registry 日志。 */
+    public static final String PATH_REASON_REGISTRY_MISS = "registry_miss";
+    /** startTurn 即时失败(进程死/stdin 写入失败):消息未递交,静默降级 one-shot 安全。 */
+    public static final String PATH_REASON_START_FAILED = "start_failed";
+
     // ── I18N 消息键 ────────────────────────────────────────────────────────────
 
     public static final String I18N_REQUEST_INTERRUPTED = "__I18N__:chat.requestInterrupted";
@@ -146,10 +181,13 @@ public final class CliConstants {
     public static final String DELTA_INPUT_JSON = "input_json_delta";
     /** system 事件 subtype：init 提取 session_id，status（如 requesting）跳过。 */
     public static final String SUBTYPE_INIT = "init";
+    /** system 事件 subtype：api_retry = API 端点 5xx/529 过载，CLI 静默指数退避重试中。 */
+    public static final String SUBTYPE_API_RETRY = "api_retry";
 
     // ── Claude CLI 参数 ────────────────────────────────────────────────────────
 
     public static final String ARG_P = "-p";
+    public static final String ARG_INPUT_FORMAT = "--input-format";
     public static final String ARG_OUTPUT_FORMAT = "--output-format";
     public static final String ARG_STREAM_JSON = "stream-json";
     public static final String ARG_VERBOSE = "--verbose";
@@ -161,7 +199,14 @@ public final class CliConstants {
     public static final String ARG_MCP_CONFIG = "--mcp-config";
     public static final String ARG_ADD_DIR = "--add-dir";
     public static final String ARG_RESUME = "--resume";
+    public static final String ARG_REWIND_FILES = "--rewind-files";
     public static final String ARG_NO_COLOR = "NO_COLOR";
+
+    /** Enables file checkpoints for Claude's non-interactive (-p) CLI mode. */
+    public static final String ENV_CLAUDE_ENABLE_SDK_FILE_CHECKPOINTING =
+            "CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING";
+    public static final String ENV_TRUE = "true";
+    public static final String ENV_ENABLED = "1";
 
     // ── Codex CLI 参数 ─────────────────────────────────────────────────────────
 

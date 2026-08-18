@@ -24,6 +24,7 @@ public final class AiFeatureToggleSettingsService {
     private static final String MCP_GATEWAY_KEY = "mcpGatewayEnabled";
     private static final String STATUS_BAR_WIDGET_KEY = "statusBarWidgetEnabled";
     private static final String AI_TITLE_GENERATION_KEY = "aiTitleGenerationEnabled";
+    private static final String CLI_PERSISTENT_KEY = "cliPersistentEnabled";
 
     public AiFeatureToggleSettingsService(ConfigStore configStore, PasswordStore passwordStore) {
         this.configStore = configStore;
@@ -133,5 +134,25 @@ public final class AiFeatureToggleSettingsService {
     public void setAiTitleGenerationEnabled(boolean enabled) throws IOException {
         configStore.update(config -> config.addProperty(AI_TITLE_GENERATION_KEY, enabled));
         LOG.info("[AiFeatureToggle] Set AI title generation enabled: " + enabled);
+    }
+
+    // ==================== CLI persistent session ====================
+
+    /**
+     * Get whether CLI persistent sessions (long-lived CLI process per tab) are user-enabled
+     * (default true). Closing this falls back to one-shot CLI processes.
+     */
+    public boolean getCliPersistentEnabled() throws IOException {
+        JsonObject config = configStore.read();
+        if (config.has(CLI_PERSISTENT_KEY) && !config.get(CLI_PERSISTENT_KEY).isJsonNull()) {
+            return config.get(CLI_PERSISTENT_KEY).getAsBoolean();
+        }
+        return true;
+    }
+
+    /** Set whether CLI persistent sessions are user-enabled. */
+    public void setCliPersistentEnabled(boolean enabled) throws IOException {
+        configStore.update(config -> config.addProperty(CLI_PERSISTENT_KEY, enabled));
+        LOG.info("[AiFeatureToggle] Set CLI persistent enabled: " + enabled);
     }
 }

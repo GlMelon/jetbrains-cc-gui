@@ -78,7 +78,7 @@
     "disabled": "已停用",
     "sdkNotInstalled": "{{provider}} SDK 尚未安裝，請先安裝 SDK 才能開始對話",
     "sdkStatusLoading": "Checking SDK status...",
-"planModeEnabled": "已啟用規劃模式",
+    "planModeEnabled": "已啟用規劃模式",
     "sdkStatusUnavailable": "無法檢查 SDK 狀態。",
     "retrySdkStatus": "重試",
     "openSourceBanner": "本專案保證100%開源和免費（謹防盜版項目）",
@@ -101,6 +101,7 @@
     "usageStats": {
       "input": "輸入：",
       "output": "輸出：",
+      "cacheRead": "快取：",
       "total": "總計：",
       "duration": "耗時：",
       "tokensUnit": "tokens"
@@ -364,10 +365,16 @@
         "userPreviewMessage": "用户消息会使用当前选择的头像。"
       },
       "detailedOutput": {
-        "label": "詳細輸出資訊",
+        "label": "顯示 Token 用量",
         "enabled": "已開啟",
         "disabled": "已關閉",
-        "hint": "開啟後，訊息底部會在可用時顯示本輪預估費用，並在輸入 Token 中標明快取命中。Token 消耗資訊始終保持顯示。"
+        "hint": "開啟後，在每條助手訊息下方顯示輸入/輸出 Token、快取命中、總計和耗時資訊。"
+      },
+      "cliPersistent": {
+        "label": "CLI 常駐會話",
+        "enabled": "已開啟",
+        "disabled": "已關閉",
+        "hint": "每個分頁保持 CLI 行程常駐，後續訊息免付冷啟動開銷（目前僅 claude）。關閉後每則訊息回落為一次性行程，閒置常駐行程立即回收。"
       }
     },
     "providers": "供應商管理",
@@ -376,14 +383,13 @@
       "claude": "Claude Code",
       "codex": "Codex"
     },
-"pluginModels": {
+    "pluginModels": {
       "title": "自訂模型",
       "description": "在此新增的自訂模型將在所有供應商下可見，顯示在模型選擇清單的最前面",
       "dialogTitle": "管理自訂模型",
       "manage": "管理模型",
       "pricing": {
         "title": "價格（美元/百萬 tokens）",
-        "optionalLabel": "非必填",
         "hint": "選填。留空某項會使用該 token 類型的預設費率。",
         "inputLabel": "輸入",
         "outputLabel": "輸出",
@@ -395,13 +401,6 @@
         "cacheReadShort": "快取讀取",
         "invalidValue": "價格必須是非負數字",
         "defaultPricing": "使用預設價格"
-      },
-      "contextWindow": {
-        "label": "最大上下文（K tokens）",
-        "placeholder": "例如 500",
-        "hint": "選填。請輸入整數 K 值（500 = 500,000 tokens），僅用於外掛顯示上下文用量。",
-        "invalidValue": "最大上下文必須是正整數（單位 K）",
-        "summary": "上下文：{{value}} tokens"
       },
       "configuredSectionTitle": "已設定的 Claude 模型",
       "configuredSectionDesc": "這些模型來自目前 Claude 供應商或 settings.json，已經會顯示在模型選擇器中。這裡只能修改價格。",
@@ -850,31 +849,6 @@
       "customPrompts": "Custom Prompts",
       "loadFailed": "Load failed"
     },
-    "pluginModels": {
-      "title": "自訂模型",
-      "description": "在此新增的自訂模型將在所有供應商下可見，顯示在模型選擇清單的最前面",
-      "dialogTitle": "管理自訂模型",
-      "manage": "管理模型",
-      "pricing": {
-        "title": "價格（美元/百萬 tokens）",
-        "hint": "選填。留空某項會使用該 token 類型的預設費率。",
-        "inputLabel": "輸入",
-        "outputLabel": "輸出",
-        "cacheWriteLabel": "快取寫入",
-        "cacheReadLabel": "快取讀取",
-        "inputShort": "輸入",
-        "outputShort": "輸出",
-        "cacheWriteShort": "快取寫入",
-        "cacheReadShort": "快取讀取",
-        "invalidValue": "價格必須是非負數字",
-        "defaultPricing": "使用預設價格"
-      },
-      "configuredSectionTitle": "已設定的 Claude 模型",
-      "configuredSectionDesc": "這些模型來自目前 Claude 供應商或 settings.json，已經會顯示在模型選擇器中。這裡只能修改價格。",
-      "configuredEditHint": "此模型由目前 Claude 供應商或 settings.json 管理，只能在這裡修改價格。",
-      "customSectionTitle": "自訂模型",
-      "editPricing": "編輯價格"
-    },
     "dependenciesDesc": "管理 AI SDK 依賴套件的安裝和更新",
     "sponsor": "贊助支持",
     "sponsorDesc": "如果這個項目對你有幫助，歡迎贊助支持，你的支持是我持續維護的動力！",
@@ -1059,13 +1033,22 @@
       "groups": {
         "daemon": "常駐進程",
         "channel": "進行中對話",
-        "orphan": "孤立進程"
+        "orphan": "孤立進程",
+        "cliSession": "CLI 常駐會話"
       },
       "kind": {
         "daemonShort": "Daemon",
         "channelShort": "對話",
-        "orphanShort": "孤立"
+        "orphanShort": "孤立",
+        "cliSessionShort": "常駐會話"
       },
+      "state": {
+        "idle": "閒置",
+        "streaming": "回覆中"
+      },
+      "autoManaged": "自動管理",
+      "protectedHint": "唯讀：生命週期自動管理（閒置會話自動回收；關閉分頁/專案即停止行程）",
+      "protectedKillRejected": "CLI 常駐會話行程由外掛自動管理，不支援手動終止",
       "kill": "終止",
       "interrupt": "中斷",
       "killAll": "清理所有孤立進程 ({{count}})",

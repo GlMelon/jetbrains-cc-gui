@@ -5,6 +5,8 @@ import com.github.claudecodegui.cli.CliSession;
 import com.github.claudecodegui.cli.CliSessionCallback;
 import com.github.claudecodegui.cli.CliSessionExecutor;
 import com.github.claudecodegui.cli.common.*;
+import com.github.claudecodegui.cli.compatibility.CliCompatibilityDecision;
+import com.github.claudecodegui.cli.compatibility.CliCompatibilityService;
 import com.github.claudecodegui.common.ClaudeRole;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.history.ClaudeSessionEntrypointRewriter;
@@ -33,6 +35,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -62,12 +65,19 @@ public class ClaudeCliSession implements CliSession {
     private volatile CliProcessHandle activeHandle;
     private final AtomicBoolean userInterrupted = new AtomicBoolean(false);
 
+    // ── 长驻会话(设计文档 §3/§4):registry 为 null 时永远走 one-shot(自然降级) ──
+    private static final String PROVIDER_CLAUDE = "claude";
+    private final CliPersistentProcessRegistry registry;
+    private final ClaudePersistentSendPath persistentSendPath;
+    // 当前活跃长驻进程(用于 interrupt 分派 interruptTurn;轮结束后置空)
+    private volatile CliPersistentProcess activePersistentProcess;
+
     public ClaudeCliSession(String tabId) {
-        this(tabId, null);
+        this(tabId, null, new ClaudeSessionEntrypointRewriter(), null);
     }
 
     public ClaudeCliSession(String tabId, McpGatewayService gatewayService) {
-        this(tabId, gatewayService, new ClaudeSessionEntrypointRewriter());
+        this(tabId, gatewayService, new ClaudeSessionEntrypointRewriter(), null);
     }
 
     ClaudeCliSession(
@@ -75,10 +85,21 @@ public class ClaudeCliSession implements CliSession {
             McpGatewayService gatewayService,
             ClaudeSessionEntrypointRewriter entrypointRewriter
     ) {
+        this(tabId, gatewayService, entrypointRewriter, null);
+    }
+
+    ClaudeCliSession(
+            String tabId,
+            McpGatewayService gatewayService,
+            ClaudeSessionEntrypointRewriter entrypointRewriter,
+            CliPersistentProcessRegistry registry
+    ) {
         this.tabId = tabId;
         this.mcpConfig = new CliMcpConfig(tabId);
         this.gatewayService = gatewayService;
         this.entrypointRewriter = entrypointRewriter;
+        this.registry = registry;
+        this.persistentSendPath = new ClaudePersistentSendPath(this);
     }
 
     private static long elapsedMillis(long startNanos) {
@@ -87,6 +108,15 @@ public class ClaudeCliSession implements CliSession {
 
     public void interrupt() {
         userInterrupted.set(true);
+        // 长驻轮进行中:进程保留式中断(§4.3),写 interrupt control_request 即返回
+        CliPersistentProcess persistent = activePersistentProcess;
+        if (persistent != null) {
+            long startNanos = System.nanoTime();
+            persistent.interruptTurn();
+            LOG.info("[TabPerf] ClaudeCliSession.interrupt (persistent) returned in " + TabPerformanceLogger.elapsedMillis(
+                    startNanos) + "ms: tab=" + tabId);
+            return;
+        }
         CliProcessHandle h = activeHandle;
         if (h != null) {
             long startNanos = System.nanoTime();
@@ -101,6 +131,11 @@ public class ClaudeCliSession implements CliSession {
     public void dispose() {
         long startNanos = System.nanoTime();
         interrupt();
+        // 长驻槽位释放:tab 关闭 → 关闭并移除该 tab 的长驻进程(§3.2)
+        CliPersistentProcessRegistry persistentRegistry = registry;
+        if (persistentRegistry != null) {
+            persistentRegistry.release(tabId, PROVIDER_CLAUDE);
+        }
         long cleanupStartNanos = System.nanoTime();
         mcpConfig.cleanup();
         LOG.info("[TabPerf] ClaudeCliSession MCP cleanup returned in " + TabPerformanceLogger.elapsedMillis(
@@ -136,7 +171,7 @@ public class ClaudeCliSession implements CliSession {
         return CliErrorFormatter.formatExitError("Claude", exitCode, diagnostic);
     }
 
-    private boolean isResultLine(String line) {
+    static boolean isResultLine(Gson gson, String line) {
         try {
             JsonObject obj = gson.fromJson(line, JsonObject.class);
             return obj != null && CliConstants.MSG_RESULT.equals(getString(obj, "type"));
@@ -173,9 +208,31 @@ public class ClaudeCliSession implements CliSession {
             String mcpConfigFilePath,
             String currentSessionId
     ) {
+        return buildCommand(cliPath, request, addDirs, profile, hasMcpServers,
+                mcpConfigFilePath, currentSessionId, false);
+    }
+
+    /**
+     * 命令构建完整版。{@code streamJsonInput}=true 时额外加 {@code --input-format stream-json},
+     * 供长驻模式使用(设计文档 §4.1:stdin 走 stream-json user 消息行,保留 -p)。
+     */
+    static List<String> buildCommand(
+            String cliPath,
+            CliSendRequest request,
+            List<String> addDirs,
+            ClaudeCliModelResolver.ResolvedModel profile,
+            boolean hasMcpServers,
+            String mcpConfigFilePath,
+            String currentSessionId,
+            boolean streamJsonInput
+    ) {
         List<String> cmd = new ArrayList<>();
         cmd.add(cliPath);
         cmd.add(CliConstants.ARG_P);
+        if (streamJsonInput) {
+            cmd.add(CliConstants.ARG_INPUT_FORMAT);
+            cmd.add(CliConstants.ARG_STREAM_JSON);
+        }
         cmd.add(CliConstants.ARG_OUTPUT_FORMAT);
         cmd.add(CliConstants.ARG_STREAM_JSON);
         cmd.add(CliConstants.ARG_VERBOSE);
@@ -319,10 +376,6 @@ public class ClaudeCliSession implements CliSession {
         return CliSessionExecutor.runAsync(() -> {
             long sendStartNanos = System.nanoTime();
             List<File> tempFiles = new ArrayList<>();
-            StringBuilder diagnostic = new StringBuilder();
-            AtomicBoolean completedWithStructuredError = new AtomicBoolean(false);
-            Process process = null;
-            CliProcessHandle currentHandle = null;
             try {
                 LOG.info(String.format(
                         "[CliConcurrencyDiag][ClaudeCliSession] send task started: tabId=%s, requestSessionId=%s, currentSessionId=%s, cwd=%s, thread=%s",
@@ -367,115 +420,279 @@ public class ClaudeCliSession implements CliSession {
                         previewPrompt(prompt)));
 
                 McpGatewayCliConfig gatewayConfig = buildGatewayConfig(request);
-                LOG.info("[CliConcurrencyDiag][ClaudeCliSession] building command" + ": tabId=" + tabId + ", elapsedMs=" + elapsedMillis(
-                        sendStartNanos) + ", thread=" + Thread.currentThread().getName());
-                List<String> cmd = buildCommand(cliPath, request, prompt, addDirs, gatewayConfig);
-                LOG.info("[CliConcurrencyDiag][ClaudeCliSession] command prepared" + ": tabId=" + tabId + ", elapsedMs=" + elapsedMillis(
-                        sendStartNanos) + ", thread=" + Thread.currentThread().getName());
-                LOG.info("[ClaudeCliSession][" + tabId + "] Command (prompt via stdin): " + String.join(" ", cmd));
 
-                ProcessBuilder pb = new ProcessBuilder(cmd);
-                pb.redirectErrorStream(true);
-                Map<String, String> cliEnv = pb.environment();
-                cliEnv.clear();
-                cliEnv.putAll(CliEnvironmentBuilder.buildBaseEnvironment());
-                cliEnv.putAll(CliSettings.readClaudeCliEnvironment());
-                configureRequestModelEnvironment(cliEnv, request, ClaudeCliModelResolver.resolveProfile(
-                        request.model()
-                ));
-                cliEnv.put(CliConstants.ARG_NO_COLOR, "1");
-                CliEnvironmentBuilder.configureClaudePermissionEnv(
-                        cliEnv,
-                        getPermissionDirectory(),
-                        getPermissionSessionId(request),
-                        getPermissionSafetyNetMs()
-                );
-                CliEnvironmentBuilder.configureProjectPath(cliEnv, request.cwd());
-                CliEnvironmentBuilder.applyExtraEnv(cliEnv, request.extraEnv());
-                if (gatewayConfig != null && gatewayConfig.usable()) {
-                    cliEnv.putAll(gatewayConfig.environment());
+                // 长驻优先(设计文档 §3.2):命中/首建则本轮经长驻进程完成,失败静默降级 one-shot
+                if (trySendPersistent(request, callback, cliPath, blocks, prompt, addDirs, gatewayConfig, sendStartNanos)) {
+                    return;
                 }
 
-                // CWD 设置放在 pb.start() 紧前面，避免 TOCTOU 竞态：
-                // 如果目录在 check 和 start 之间被删除，Windows CreateProcess 会报
-                // "系统找不到指定的路径" (ERROR_PATH_NOT_FOUND)。
-                if (request.cwd() != null && !request.cwd().isBlank()) {
-                    File cwd = new File(request.cwd());
-                    if (cwd.isDirectory()) {
-                        pb.directory(cwd);
-                    } else {
-                        LOG.warn("[ClaudeCliSession][" + tabId + "] CWD does not exist, falling back to home: " + request.cwd());
-                        File homeDir = new File(PlatformUtils.getHomeDirectory());
-                        if (homeDir.isDirectory()) {
-                            pb.directory(homeDir);
-                        }
-                    }
-                }
-
-                LOG.info("[CliConcurrencyDiag][ClaudeCliSession] starting process" + ": tabId=" + tabId + ", elapsedMs=" + elapsedMillis(
-                        sendStartNanos) + ", thread=" + Thread.currentThread()
-                        .getName());
-                process = pb.start();
-                currentHandle = new CliProcessHandle(process, "claude-tab-" + tabId);
-                activeHandle = currentHandle;
-                LOG.info("[CliConcurrencyDiag][ClaudeCliSession] process started" + ": tabId=" + tabId + ", elapsedMs=" + elapsedMillis(
-                        sendStartNanos) + ", thread=" + Thread.currentThread()
-                        .getName());
-                if (userInterrupted.get()) {
-                    currentHandle.interrupt();
-                } else {
-                    writePromptToStdin(process, prompt);
-                }
-                LOG.debug(
-                        "[CliConcurrencyDiag][ClaudeCliSession] prompt written to stdin" + ": tabId=" + tabId + ", promptChars=" + prompt.length() + ", elapsedMs=" + elapsedMillis(
-                                sendStartNanos) + ", thread=" + Thread.currentThread()
-                                .getName());
-                AtomicBoolean interruptHandled = new AtomicBoolean(false);
-                Process runningProcess = process;
-                CompletableFuture<Void> outputDrain = CliProcessLifecycle.drainAsync(
-                        runningProcess,
-                        () -> readOutput(runningProcess, callback, diagnostic, sendStartNanos,
-                                completedWithStructuredError, interruptHandled)
-                );
-                CliProcessLifecycle.Outcome outcome = CliProcessLifecycle.await(process, outputDrain);
-                int exitCode = outcome.exitCode();
-                boolean interrupted = wasInterrupted();
-                LOG.info(
-                        "[CliConcurrencyDiag][ClaudeCliSession] process exited" + ": tabId=" + tabId + ", exitCode=" + exitCode + ", " +
-                                "interrupted=" + interrupted + ", elapsedMs=" + elapsedMillis(
-                                 sendStartNanos) + ", thread=" + Thread.currentThread()
-                                 .getName());
-                this.normalizeCliSessionEntrypoint(request);
-
-                if (outcome.timedOut() && !interrupted && !resultEmitted) {
-                    String err = "Claude CLI request timed out";
-                    callback.onError(err);
-                    callback.onComplete(false, null, err);
-                } else if (shouldEmitInterruptedCompletion(interruptHandled)) {
-                    callback.onInterrupted(null, CliConstants.I18N_REQUEST_INTERRUPTED);
-                } else if (shouldReportExitError(exitCode, completedWithStructuredError.get())) {
-                    String err = buildExitError(exitCode, diagnostic);
-                    maybeResetSessionAfterResumeFailure(diagnostic);
-                    callback.onError(err);
-                    callback.onComplete(false, null, err);
-                }
+                sendOneShot(request, callback, cliPath, prompt, addDirs, gatewayConfig, sendStartNanos);
             } catch (Exception e) {
                 LOG.warn("[ClaudeCliSession][" + tabId + "] send failed", e);
-                if (wasInterrupted()) {
+                if (userInterrupted.get()) {
                     callback.onInterrupted(null, CliConstants.I18N_REQUEST_INTERRUPTED);
                 } else {
                     callback.onError(e.getMessage());
                     callback.onComplete(false, null, e.getMessage());
                 }
             } finally {
-                CliProcessLifecycle.terminate(process);
-                if (activeHandle == currentHandle) {
-                    activeHandle = null;
-                }
                 cleanupTempFiles(tempFiles);
                 userInterrupted.set(false);
             }
         });
+    }
+
+    /**
+     * 长驻发送路径(设计文档 §3.2 静默加载策略)。返回 true 表示本轮已由长驻路径收尾
+     * (成功/中断/报错皆算);返回 false 表示未使用长驻且消息尚未递交 CLI(门禁关/版本
+     * 不兼容/未命中/startTurn 即时失败),上层继续走 one-shot,当前消息不受影响。
+     * 已递交后的轮失败一律报错收尾不重发(transcript 交错防护)。
+     */
+    private boolean trySendPersistent(
+            CliSendRequest request,
+            CliSessionCallback callback,
+            String cliPath,
+            List<CliAttachmentHandler.ContentBlock> blocks,
+            String prompt,
+            List<String> addDirs,
+            McpGatewayCliConfig gatewayConfig,
+            long sendStartNanos
+    ) {
+        CliPersistentProcessRegistry registry = this.registry;
+        if (registry == null || !CliPersistentFeatureFlags.isClaudeEnabled()) {
+            LOG.info("[CliPathDecision] tab=" + tabId + ", path=one-shot, reason="
+                    + CliConstants.PATH_REASON_FLAG_DISABLED);
+            return false;
+        }
+        // 版本门禁(§6.16-3):CLI 版本按最新 compatibility manifest 不再兼容时长驻降级。
+        // send 流程刚完成 findCliExecutable,此处 version 通常非空;null(未检测)不拦截。
+        // 用 evaluate 而非 isVersionAccepted:后者对 AHEAD_ALLOWED(允许但警告)也打 WARN,
+        // 每轮 send 重复刷屏;此处仅在真正 !allowed 降级时记一条。
+        String cliVersion = ClaudeCliDetector.getInstance().getCachedCliVersion();
+        if (cliVersion != null) {
+            CliCompatibilityDecision decision =
+                    CliCompatibilityService.getInstance().evaluate(ProviderType.CLAUDE, cliVersion);
+            if (!decision.allowed()) {
+                LOG.warn("[CliPathDecision] tab=" + tabId + ", path=one-shot, reason="
+                        + CliConstants.PATH_REASON_VERSION_INCOMPATIBLE + ", cliVersion=" + cliVersion
+                        + ", status=" + decision.status());
+                return false;
+            }
+        }
+        Map<String, String> env = buildCliEnvironment(request, gatewayConfig);
+        CliProcessSpec spec = persistentSendPath.buildSpec(cliPath, request, addDirs, gatewayConfig, env);
+        CliPersistentProcess process = registry.acquire(tabId, PROVIDER_CLAUDE, spec);
+        if (process == null) {
+            // 未命中(指纹漂移/回收后/崩溃槽/超限/冷却):当前消息 one-shot,后台按新 spec 静默重建
+            LOG.info("[CliPathDecision] tab=" + tabId + ", path=one-shot, reason="
+                    + CliConstants.PATH_REASON_REGISTRY_MISS);
+            registry.rebuildInBackground(tabId, PROVIDER_CLAUDE, spec);
+            return false;
+        }
+
+        ClaudePersistentSendPath.TurnContext turnContext = persistentSendPath.createTurnContext(callback, process);
+        activePersistentProcess = process;
+        CliPersistentProcess.TurnHandle turn = null;
+        try {
+            String messageLine = persistentSendPath.buildUserMessageLine(prompt, blocks);
+            turn = process.startTurn(messageLine, turnContext.handler);
+            LOG.info("[CliPathDecision] tab=" + tabId + ", path=persistent, turnId=" + turn.turnId());
+            LOG.info("[CliConcurrencyDiag][ClaudeCliSession] persistent turn started" + ": tabId=" + tabId
+                    + ", turnId=" + turn.turnId()
+                    + ", elapsedMs=" + elapsedMillis(sendStartNanos) + ", pid=" + process.pid()
+                    + ", thread=" + Thread.currentThread().getName());
+            if (userInterrupted.get()) {
+                // startTurn 与 interrupt() 的竞态窗口兜底:interrupt 可能先于轮登记到达
+                process.interruptTurn();
+            }
+            SDKResult turnResult = turn.future().get();
+            LOG.info("[CliConcurrencyDiag][ClaudeCliSession] persistent turn finished" + ": tabId=" + tabId
+                    + ", turnId=" + turn.turnId()
+                    + ", elapsedMs=" + elapsedMillis(sendStartNanos)
+                    + ", success=" + (turnResult != null && turnResult.success)
+                    + ", interrupted=" + (turnResult != null && turnResult.interrupted)
+                    + ", thread=" + Thread.currentThread().getName());
+            this.normalizeCliSessionEntrypoint(request);
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            callback.onInterrupted(turnContext.assistantText(), CliConstants.I18N_REQUEST_INTERRUPTED);
+            return true;
+        } catch (ExecutionException e) {
+            return handlePersistentTurnFailure(callback, process, spec, turnContext, turn, e.getCause());
+        } catch (Exception e) {
+            // startTurn 即时失败(进程死/写入失败):消息未递交,静默降级 one-shot + 后台重建
+            LOG.warn("[ClaudeCliSession][" + tabId + "] persistent turn failed to start", e);
+            LOG.info("[CliPathDecision] tab=" + tabId + ", path=one-shot, reason="
+                    + CliConstants.PATH_REASON_START_FAILED);
+            registry.rebuildInBackground(tabId, PROVIDER_CLAUDE, spec);
+            return false;
+        } finally {
+            activePersistentProcess = null;
+        }
+    }
+
+    /**
+     * 长驻轮 future 异常收尾(进程崩溃/轮超时强杀/interrupt 兜底杀/EOF)。
+     * 中断标记 → 按中断语义收尾;其余(消息已递交 CLI 后失败)一律报错收尾不重发:
+     * CLI 消费 stdin 后即把 user 消息写入 transcript,静默 one-shot 重发会造成同文 user
+     * 行交错,故零输出也不再重试(实施计划 §6.14 的防交错取舍)。下条消息经 acquire
+     * 未命中自然走 one-shot 自愈;后台重建让长驻尽快恢复。
+     */
+    private boolean handlePersistentTurnFailure(
+            CliSessionCallback callback,
+            CliPersistentProcess process,
+            CliProcessSpec spec,
+            ClaudePersistentSendPath.TurnContext turnContext,
+            CliPersistentProcess.TurnHandle turn,
+            Throwable cause
+    ) {
+        String reason = cause != null ? cause.getMessage() : "unknown";
+        LOG.warn("[ClaudeCliSession][" + tabId + "] persistent turn failed: pid=" + process.pid()
+                + ", turnId=" + (turn != null ? turn.turnId() : "-")
+                + ", reason=" + reason);
+        if ((turn != null && turn.wasInterrupted()) || userInterrupted.get()) {
+            // interrupt 3s 兜底杀进程等:按中断语义收尾
+            callback.onInterrupted(turnContext.assistantText(), CliConstants.I18N_REQUEST_INTERRUPTED);
+            return true;
+        }
+        registry.rebuildInBackground(tabId, PROVIDER_CLAUDE, spec);
+        String err = CliErrorFormatter.formatError("Claude", reason);
+        callback.onError(err);
+        callback.onComplete(false, turnContext.producedOutput() ? turnContext.assistantText() : null, err);
+        return true;
+    }
+
+    /** one-shot 发送(原有路径):每轮独立进程 + --resume 续接。 */
+    private void sendOneShot(
+            CliSendRequest request,
+            CliSessionCallback callback,
+            String cliPath,
+            String prompt,
+            List<String> addDirs,
+            McpGatewayCliConfig gatewayConfig,
+            long sendStartNanos
+    ) {
+        StringBuilder diagnostic = new StringBuilder();
+        AtomicBoolean completedWithStructuredError = new AtomicBoolean(false);
+        Process process = null;
+        CliProcessHandle currentHandle = null;
+        try {
+            LOG.info("[CliConcurrencyDiag][ClaudeCliSession] building command" + ": tabId=" + tabId + ", elapsedMs=" + elapsedMillis(
+                    sendStartNanos) + ", thread=" + Thread.currentThread().getName());
+            List<String> cmd = buildCommand(cliPath, request, prompt, addDirs, gatewayConfig);
+            LOG.info("[CliConcurrencyDiag][ClaudeCliSession] command prepared" + ": tabId=" + tabId + ", elapsedMs=" + elapsedMillis(
+                    sendStartNanos) + ", thread=" + Thread.currentThread().getName());
+            LOG.info("[ClaudeCliSession][" + tabId + "] Command (prompt via stdin): " + String.join(" ", cmd));
+
+            ProcessBuilder pb = new ProcessBuilder(cmd);
+            pb.redirectErrorStream(true);
+            Map<String, String> cliEnv = pb.environment();
+            cliEnv.clear();
+            cliEnv.putAll(buildCliEnvironment(request, gatewayConfig));
+
+            // CWD 设置放在 pb.start() 紧前面，避免 TOCTOU 竞态：
+            // 如果目录在 check 和 start 之间被删除，Windows CreateProcess 会报
+            // "系统找不到指定的路径" (ERROR_PATH_NOT_FOUND)。
+            if (request.cwd() != null && !request.cwd().isBlank()) {
+                File cwd = new File(request.cwd());
+                if (cwd.isDirectory()) {
+                    pb.directory(cwd);
+                } else {
+                    LOG.warn("[ClaudeCliSession][" + tabId + "] CWD does not exist, falling back to home: " + request.cwd());
+                    File homeDir = new File(PlatformUtils.getHomeDirectory());
+                    if (homeDir.isDirectory()) {
+                        pb.directory(homeDir);
+                    }
+                }
+            }
+
+            LOG.info("[CliConcurrencyDiag][ClaudeCliSession] starting process" + ": tabId=" + tabId + ", elapsedMs=" + elapsedMillis(
+                    sendStartNanos) + ", thread=" + Thread.currentThread()
+                    .getName());
+            process = pb.start();
+            currentHandle = new CliProcessHandle(process, "claude-tab-" + tabId);
+            activeHandle = currentHandle;
+            LOG.info("[CliConcurrencyDiag][ClaudeCliSession] process started" + ": tabId=" + tabId + ", elapsedMs=" + elapsedMillis(
+                    sendStartNanos) + ", thread=" + Thread.currentThread()
+                    .getName());
+            if (userInterrupted.get()) {
+                currentHandle.interrupt();
+            } else {
+                writePromptToStdin(process, prompt);
+            }
+            LOG.debug(
+                    "[CliConcurrencyDiag][ClaudeCliSession] prompt written to stdin" + ": tabId=" + tabId + ", promptChars=" + prompt.length() + ", elapsedMs=" + elapsedMillis(
+                            sendStartNanos) + ", thread=" + Thread.currentThread()
+                            .getName());
+            AtomicBoolean interruptHandled = new AtomicBoolean(false);
+            Process runningProcess = process;
+            CompletableFuture<Void> outputDrain = CliProcessLifecycle.drainAsync(
+                    runningProcess,
+                    () -> readOutput(runningProcess, callback, diagnostic, sendStartNanos,
+                            completedWithStructuredError, interruptHandled)
+            );
+            CliProcessLifecycle.Outcome outcome = CliProcessLifecycle.await(process, outputDrain);
+            int exitCode = outcome.exitCode();
+            boolean interrupted = wasInterrupted();
+            LOG.info(
+                    "[CliConcurrencyDiag][ClaudeCliSession] process exited" + ": tabId=" + tabId + ", exitCode=" + exitCode + ", " +
+                            "interrupted=" + interrupted + ", elapsedMs=" + elapsedMillis(
+                             sendStartNanos) + ", thread=" + Thread.currentThread()
+                             .getName());
+            this.normalizeCliSessionEntrypoint(request);
+
+            if (outcome.timedOut() && !interrupted && !resultEmitted) {
+                String err = "Claude CLI request timed out";
+                callback.onError(err);
+                callback.onComplete(false, null, err);
+            } else if (shouldEmitInterruptedCompletion(interruptHandled)) {
+                callback.onInterrupted(null, CliConstants.I18N_REQUEST_INTERRUPTED);
+            } else if (shouldReportExitError(exitCode, completedWithStructuredError.get())) {
+                String err = buildExitError(exitCode, diagnostic);
+                maybeResetSessionAfterResumeFailure(diagnostic);
+                callback.onError(err);
+                callback.onComplete(false, null, err);
+            }
+        } catch (Exception e) {
+            LOG.warn("[ClaudeCliSession][" + tabId + "] one-shot send failed", e);
+            if (wasInterrupted()) {
+                callback.onInterrupted(null, CliConstants.I18N_REQUEST_INTERRUPTED);
+            } else {
+                callback.onError(e.getMessage());
+                callback.onComplete(false, null, e.getMessage());
+            }
+        } finally {
+            CliProcessLifecycle.terminate(process);
+            if (activeHandle == currentHandle) {
+                activeHandle = null;
+            }
+        }
+    }
+
+    /**
+     * CLI 环境链(one-shot 与长驻共用):基础环境 + 用户覆盖 + 模型通道 + 权限/项目路径 +
+     * extra env + MCP gateway 注入。
+     */
+    private Map<String, String> buildCliEnvironment(CliSendRequest request, McpGatewayCliConfig gatewayConfig) {
+        Map<String, String> cliEnv = new HashMap<>();
+        cliEnv.putAll(CliEnvironmentBuilder.buildBaseEnvironment());
+        cliEnv.putAll(CliSettings.readClaudeCliEnvironment());
+        cliEnv.put(CliConstants.ENV_CLAUDE_ENABLE_SDK_FILE_CHECKPOINTING, CliConstants.ENV_TRUE);
+        configureRequestModelEnvironment(cliEnv, request, ClaudeCliModelResolver.resolveProfile(request.model()));
+        cliEnv.put(CliConstants.ARG_NO_COLOR, "1");
+        CliEnvironmentBuilder.configureClaudePermissionEnv(
+                cliEnv,
+                getPermissionDirectory(),
+                getPermissionSessionId(request),
+                getPermissionSafetyNetMs()
+        );
+        CliEnvironmentBuilder.configureProjectPath(cliEnv, request.cwd());
+        CliEnvironmentBuilder.applyExtraEnv(cliEnv, request.extraEnv());
+        if (gatewayConfig != null && gatewayConfig.usable()) {
+            cliEnv.putAll(gatewayConfig.environment());
+        }
+        return cliEnv;
     }
 
     private void normalizeCliSessionEntrypoint(CliSendRequest request) {
@@ -536,6 +753,31 @@ public class ClaudeCliSession implements CliSession {
         userInterrupted.set(false);
         resultEmitted = false;
         mcpNoticeEmitted = false;
+    }
+
+    // ── 长驻路径(ClaudePersistentSendPath)包私有访问面 ─────────────────────
+
+    Gson gson() {
+        return gson;
+    }
+
+    CliMcpConfig mcpConfig() {
+        return mcpConfig;
+    }
+
+    String tabId() {
+        return tabId;
+    }
+
+    /** 长驻/one-shot 输出回调发现 session_id 时回填(session 续接与进程面板元数据共用入口)。 */
+    void recordCliSessionId(String id) {
+        if (id != null && !id.isBlank()) {
+            this.sessionId = id;
+        }
+    }
+
+    boolean isUserInterrupted() {
+        return userInterrupted.get();
     }
 
     /**
@@ -634,7 +876,7 @@ public class ClaudeCliSession implements CliSession {
                 parser.parseLine(line, mcb, result, assistantContent, hadError, false);
 
                 // result 事件 = 本轮结束
-                if (isResultLine(line) && !resultEmitted) {
+                if (isResultLine(gson, line) && !resultEmitted) {
                     if (sessionId != null) {
                         callback.onMessage(CliConstants.MSG_SESSION_ID, sessionId);
                     }
@@ -684,7 +926,7 @@ public class ClaudeCliSession implements CliSession {
      * 跨 provider 污染(如 OpenCode 的 ses_ 前缀)若绕过 setProvider 隔离再次混入,
      * Claude CLI 会报 "ses_xxx is not a UUID" 并崩溃,此处关键词+格式双保险使其自愈。
      */
-    private void maybeResetSessionAfterResumeFailure(CharSequence diagnostic) {
+    void maybeResetSessionAfterResumeFailure(CharSequence diagnostic) {
         if (sessionId == null) {
             return;
         }

@@ -95,9 +95,12 @@ public final class McpGatewayService implements Disposable {
             return McpGatewayCliConfig.disabled("MCP Gateway CLI feature disabled");
         }
         synchronized (lock) {
+            long startNanos = System.nanoTime();
             try {
                 ensureStarted(projectPath);
+                long afterEnsureNanos = System.nanoTime();
                 refreshConfig(projectPath);
+                long afterRefreshNanos = System.nanoTime();
                 File bridgeDir = BridgePreloader.getSharedResolver().findSdkDir();
                 if (bridgeDir == null) {
                     return McpGatewayCliConfig.disabled("ai-bridge directory unavailable");
@@ -105,13 +108,24 @@ public final class McpGatewayService implements Disposable {
                 String node = NodeDetector.getInstance().findNodeExecutable();
                 Path stdioClient = bridgeDir.toPath().resolve(McpGatewayConstants.STDIO_CLIENT_SCRIPT_PATH);
                 List<String> command = NodeDetector.buildNodeScriptCommand(node, stdioClient.toString());
-                return configWriter.write(provider, tabId, currentRevision, stateFile, command,
-                        realServerIds(currentSnapshot, provider));
+                List<String> serverIds = realServerIds(currentSnapshot, provider);
+                // Phase 0 埋点(实施计划 §6.1 gateway_*):区分 gateway 就绪等待与 snapshot 刷新等待,
+                // 使"每轮是否重付 MCP 初始化成本"可直接从日志归因。
+                LOG.info("[McpGatewayPerf] buildCliConfig: provider=" + provider.value() + ", tabId=" + tabId
+                        + ", ensureMs=" + elapsedMillis(startNanos, afterEnsureNanos)
+                        + ", refreshMs=" + elapsedMillis(afterEnsureNanos, afterRefreshNanos)
+                        + ", totalMs=" + elapsedMillis(startNanos, afterRefreshNanos)
+                        + ", servers=" + serverIds.size() + ", revision=" + currentRevision);
+                return configWriter.write(provider, tabId, currentRevision, stateFile, command, serverIds);
             } catch (Exception e) {
                 LOG.warn("[McpGateway] Falling back to direct MCP config: " + e.getMessage(), e);
                 return McpGatewayCliConfig.disabled(e.getMessage());
             }
         }
+    }
+
+    private static long elapsedMillis(long startNanos, long endNanos) {
+        return (endNanos - startNanos) / 1_000_000;
     }
 
     public void refreshConfig(String projectPath) {
@@ -138,9 +152,13 @@ public final class McpGatewayService implements Disposable {
      * same fixed revision for a given turn.
      */
     void applySnapshot(String projectPath) throws Exception {
+        long startNanos = System.nanoTime();
         long candidateRevision = currentRevision == 0L ? 1L : currentRevision + 1L;
         McpGatewayConfigSnapshot candidate = collector.collect(candidateRevision, projectPath);
+        long collectEndNanos = System.nanoTime();
         if (currentSnapshot != null && currentSnapshot.configHash().equals(candidate.configHash())) {
+            LOG.info("[McpGatewayPerf] applySnapshot skipped (configHash unchanged): collectMs="
+                    + elapsedMillis(startNanos, collectEndNanos) + ", revision=" + candidateRevision);
             return;
         }
         // 必须先 post 成功再提交本地 currentSnapshot/currentRevision:首次 /snapshot 会触发 Node 侧
@@ -152,6 +170,10 @@ public final class McpGatewayService implements Disposable {
         bridgeClient.postSnapshot(candidate);
         currentRevision = candidateRevision;
         currentSnapshot = candidate;
+        LOG.info("[McpGatewayPerf] applySnapshot committed: collectMs="
+                + elapsedMillis(startNanos, collectEndNanos)
+                + ", postMs=" + elapsedMillis(collectEndNanos, System.nanoTime())
+                + ", revision=" + candidateRevision);
     }
 
     public String statusJson() {

@@ -99,6 +99,7 @@
     "usageStats": {
       "input": "入力：",
       "output": "出力：",
+      "cacheRead": "キャッシュ：",
       "total": "合計：",
       "duration": "所要時間：",
       "tokensUnit": "tokens"
@@ -362,10 +363,16 @@
         "userPreviewMessage": "User messages preview with the selected avatar."
       },
       "detailedOutput": {
-        "label": "詳細な出力情報",
+        "label": "トークン使用量を表示",
         "enabled": "有効",
         "disabled": "無効",
-        "hint": "有効にすると、利用可能な場合にメッセージ下部へターンの推定コストを表示し、入力 Token の概要内にキャッシュヒットを含めます。Token 消費量は常に表示されます。"
+        "hint": "有効にすると、各アシスタントメッセージの下に入力/出力トークン、キャッシュヒット、合計、所要時間を表示します。"
+      },
+      "cliPersistent": {
+        "label": "CLI 常駐セッション",
+        "enabled": "有効",
+        "disabled": "無効",
+        "hint": "タブごとに CLI プロセスを常駐させ、2 回目以降のメッセージでコールドスタートを回避します（現在は claude のみ）。オフにするとメッセージごとにワンショットプロセスへ戻り、アイドル中の常駐プロセスは即時回収されます。"
       }
     },
     "providers": "プロバイダー管理",
@@ -374,14 +381,13 @@
       "claude": "Claude Code",
       "codex": "Codex"
     },
-"pluginModels": {
+    "pluginModels": {
       "title": "カスタムモデル",
       "description": "ここで追加されたカスタムモデルは、すべてのプロバイダーで表示され、モデル選択リストの先頭に表示されます",
       "dialogTitle": "カスタムモデル管理",
       "manage": "モデル管理",
       "pricing": {
         "title": "料金（USD/100万トークン）",
-        "optionalLabel": "任意",
         "hint": "任意です。空欄の項目はそのトークン種別の既定レートを使用します。",
         "inputLabel": "入力",
         "outputLabel": "出力",
@@ -393,13 +399,6 @@
         "cacheReadShort": "キャッシュ読み取り",
         "invalidValue": "料金は0以上の数値で入力してください",
         "defaultPricing": "既定料金を使用中"
-      },
-      "contextWindow": {
-        "label": "最大コンテキスト（Kトークン）",
-        "placeholder": "例: 500",
-        "hint": "任意。トークン数を千単位の整数で入力します（500 = 500,000トークン）。プラグインの使用量表示にのみ使用されます。",
-        "invalidValue": "最大コンテキストはK単位の正の整数で入力してください",
-        "summary": "コンテキスト: {{value}} トークン"
       },
       "configuredSectionTitle": "設定済みの Claude モデル",
       "configuredSectionDesc": "現在の Claude プロバイダーまたは settings.json のモデルは既にモデル選択リストに表示されています。ここでは料金のみ変更できます。",
@@ -848,31 +847,6 @@
       "customPrompts": "Custom Prompts",
       "loadFailed": "Load failed"
     },
-    "pluginModels": {
-      "title": "カスタムモデル",
-      "description": "ここで追加されたカスタムモデルは、すべてのプロバイダーで表示され、モデル選択リストの先頭に表示されます",
-      "dialogTitle": "カスタムモデル管理",
-      "manage": "モデル管理",
-      "pricing": {
-        "title": "料金（USD/100万トークン）",
-        "hint": "任意です。空欄の項目はそのトークン種別の既定レートを使用します。",
-        "inputLabel": "入力",
-        "outputLabel": "出力",
-        "cacheWriteLabel": "キャッシュ書き込み",
-        "cacheReadLabel": "キャッシュ読み取り",
-        "inputShort": "入力",
-        "outputShort": "出力",
-        "cacheWriteShort": "キャッシュ書き込み",
-        "cacheReadShort": "キャッシュ読み取り",
-        "invalidValue": "料金は0以上の数値で入力してください",
-        "defaultPricing": "既定料金を使用中"
-      },
-      "configuredSectionTitle": "設定済みの Claude モデル",
-      "configuredSectionDesc": "現在の Claude プロバイダーまたは settings.json のモデルは既にモデル選択リストに表示されています。ここでは料金のみ変更できます。",
-      "configuredEditHint": "このモデルは現在の Claude プロバイダーまたは settings.json で管理されています。ここでは料金のみ変更できます。",
-      "customSectionTitle": "カスタムモデル",
-      "editPricing": "料金を編集"
-    },
     "dependenciesDesc": "AI SDK依存関係のインストールと更新を管理",
     "sponsor": "Sponsor",
     "sponsorDesc": "If this project helps you, consider sponsoring to support ongoing maintenance!",
@@ -1057,13 +1031,22 @@
       "groups": {
         "daemon": "デーモンプロセス",
         "channel": "進行中の会話",
-        "orphan": "孤児プロセス"
+        "orphan": "孤児プロセス",
+        "cliSession": "CLI 常駐セッション"
       },
       "kind": {
         "daemonShort": "Daemon",
         "channelShort": "会話",
-        "orphanShort": "孤児"
+        "orphanShort": "孤児",
+        "cliSessionShort": "常駐セッション"
       },
+      "state": {
+        "idle": "アイドル",
+        "streaming": "応答中"
+      },
+      "autoManaged": "自動管理",
+      "protectedHint": "読み取り専用：ライフサイクルは自動管理されます（アイドルセッションは回収、タブ/プロジェクトを閉じると停止）",
+      "protectedKillRejected": "CLI 常駐セッションは自動管理されるため、手動での終了はできません",
       "kill": "終了",
       "interrupt": "中断",
       "killAll": "孤児を全てクリーンアップ ({{count}})",

@@ -32,6 +32,8 @@ const BehaviorTab = ({
   onCommitGenerationEnabledChange = () => {},
   mcpGatewayEnabled = true,
   onMcpGatewayEnabledChange = () => {},
+  cliPersistentEnabled = true,
+  onCliPersistentEnabledChange = () => {},
   statusBarWidgetEnabled = true,
   onStatusBarWidgetEnabledChange = () => {},
   aiTitleGenerationEnabled = true,
@@ -61,6 +63,8 @@ const BehaviorTab = ({
   onCommitGenerationEnabledChange?: (enabled: boolean) => void;
   mcpGatewayEnabled?: boolean;
   onMcpGatewayEnabledChange?: (enabled: boolean) => void;
+  cliPersistentEnabled?: boolean;
+  onCliPersistentEnabledChange?: (enabled: boolean) => void;
   statusBarWidgetEnabled?: boolean;
   onStatusBarWidgetEnabledChange?: (enabled: boolean) => void;
   aiTitleGenerationEnabled?: boolean;
@@ -283,6 +287,34 @@ const BehaviorTab = ({
         <small className={styles.formHint}>
           <InfoIcon size={16} />
           <span>{t('settings.basic.mcpGateway.hint')}</span>
+        </small>
+      </div>
+
+      {/* CLI persistent sessions toggle — 长驻 CLI 会话开关(daemon-mode §7 用户层回退)。
+          关闭后每条消息回退 one-shot 进程(关闭即回收空闲长驻进程);开启无需重启,
+          首条消息同步拉起。仅影响 claude(Phase 1)。 */}
+      <div className={styles.streamingSection}>
+        <div className={styles.fieldHeader}>
+          <span className="codicon codicon-terminal" aria-hidden="true" />
+          <span className={styles.fieldLabel}>{t('settings.basic.cliPersistent.label')}</span>
+        </div>
+        <label className={styles.toggleWrapper}>
+          <input
+            type="checkbox"
+            className={styles.toggleInput}
+            checked={cliPersistentEnabled}
+            onChange={(e) => onCliPersistentEnabledChange(e.target.checked)}
+          />
+          <span className={styles.toggleSlider} />
+          <span className={styles.toggleLabel}>
+            {cliPersistentEnabled
+              ? t('settings.basic.cliPersistent.enabled')
+              : t('settings.basic.cliPersistent.disabled')}
+          </span>
+        </label>
+        <small className={styles.formHint}>
+          <InfoIcon size={16} />
+          <span>{t('settings.basic.cliPersistent.hint')}</span>
         </small>
       </div>
 

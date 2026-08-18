@@ -67,6 +67,8 @@ public enum UpstreamAction implements ProtocolValue {
     SET_ASK_USER_QUESTION_NOTIFICATION_ENABLED("set_ask_user_question_notification_enabled"),
     GET_MCP_GATEWAY_ENABLED("get_mcp_gateway_enabled"),
     SET_MCP_GATEWAY_ENABLED("set_mcp_gateway_enabled"),
+    GET_CLI_PERSISTENT_ENABLED("get_cli_persistent_enabled"),
+    SET_CLI_PERSISTENT_ENABLED("set_cli_persistent_enabled"),
     // ── MCP Market (Smithery Registry): API Key 配置读取/写入 ──
     GET_SMITHERY_API_KEY("get_smithery_api_key"),
     SET_SMITHERY_API_KEY("set_smithery_api_key"),

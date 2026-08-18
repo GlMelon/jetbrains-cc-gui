@@ -5,11 +5,14 @@ package com.github.claudecodegui.service;
  * Aggregates daemon processes, per-channel processes, and orphan processes
  * detected via system-level ProcessHandle scanning.
  *
- * <p>Three kinds:
+ * <p>Four kinds:
  * <ul>
  *   <li>{@link Kind#DAEMON}: long-running Claude daemon process (per ChatWindow)</li>
  *   <li>{@link Kind#CHANNEL}: per-request process tracked in a ProcessManager</li>
  *   <li>{@link Kind#ORPHAN}: detected via ProcessHandle.allProcesses() but not in any registry</li>
+ *   <li>{@link Kind#CLI_SESSION}: persistent CLI session process
+ *       ({@code CliPersistentProcessRegistry}, daemon-mode design §5.1) — read-only,
+ *       protected from kill</li>
  * </ul>
  *
  * <p>Serialized to JSON via Gson for the webview's Node Process Management panel.
@@ -19,7 +22,8 @@ public final class NodeProcessInfo {
     public enum Kind {
         DAEMON,
         CHANNEL,
-        ORPHAN
+        ORPHAN,
+        CLI_SESSION
     }
 
     /** Synthetic identifier — used by the panel to dedupe entries across snapshots. */

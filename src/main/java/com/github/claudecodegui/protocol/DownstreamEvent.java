@@ -44,6 +44,7 @@ public enum DownstreamEvent implements ProtocolValue {
     // ── Session ──
     SESSION_RUNTIME_STATE("session.runtime_state"),
     SESSION_TITLE("session.title"),
+    REWIND_RESULT("rewind.result"),
 
     // ── RPC ──
     // 请求/响应两侧归一化:请求用上行 action resolve_file_path(UpstreamAction.RESOLVE_FILE_PATH),
@@ -109,6 +110,7 @@ public enum DownstreamEvent implements ProtocolValue {
     CONFIG_TASK_COMPLETION_NOTIFICATION("config.task_completion_notification"),
     CONFIG_ASK_USER_QUESTION_NOTIFICATION("config.ask_user_question_notification"),
     CONFIG_MCP_GATEWAY("config.mcp_gateway"),
+    CONFIG_CLI_PERSISTENT("config.cli_persistent"),
     CONFIG_SMITHERY_API_KEY("config.smithery_api_key"),
 
     // ── Model Registry ──

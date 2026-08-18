@@ -998,6 +998,25 @@ public class CodemossSettingsService {
     }
 
     /**
+     * Get whether CLI persistent sessions (long-lived CLI process per tab) are user-enabled.
+     *
+     * @return whether persistent sessions are user-enabled, default is true
+     */
+    public boolean getCliPersistentEnabled() throws IOException {
+        return aiFeatureToggleSettingsService.getCliPersistentEnabled();
+    }
+
+    /**
+     * Set whether CLI persistent sessions are user-enabled. Closing this falls back to
+     * one-shot CLI processes (每轮重新启动 CLI,恢复现状冷启动开销).
+     *
+     * @param enabled whether to enable
+     */
+    public void setCliPersistentEnabled(boolean enabled) throws IOException {
+        aiFeatureToggleSettingsService.setCliPersistentEnabled(enabled);
+    }
+
+    /**
      * Get the Smithery Registry API key (used by MCP market to search/fetch server configs).
      *
      * @return the API key, or empty string if not configured

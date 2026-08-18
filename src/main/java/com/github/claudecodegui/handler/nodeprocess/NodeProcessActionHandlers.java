@@ -82,7 +82,13 @@ public class NodeProcessActionHandlers {
             if (pid > 0) {
                 try {
                     NodeProcessRegistry registry = NodeProcessRegistry.getInstance(context.getProject());
-                    success = registry.killByPid(pid);
+                    // CLI_SESSION 保护预检(§5.2):透传 cli_session_protected 错误码供前端渲染保护提示
+                    String protectedReason = registry.checkKillProtected(pid);
+                    if (protectedReason != null) {
+                        error = protectedReason;
+                    } else {
+                        success = registry.killByPid(pid);
+                    }
                 } catch (Exception e) {
                     error = e.getMessage();
                 }
@@ -166,6 +172,7 @@ public class NodeProcessActionHandlers {
         int daemonCount = 0;
         int channelCount = 0;
         int orphanCount = 0;
+        int cliSessionCount = 0;
 
         JsonArray array = new JsonArray();
         for (NodeProcessInfo info : processes) {
@@ -208,6 +215,9 @@ public class NodeProcessActionHandlers {
                 case ORPHAN:
                     orphanCount++;
                     break;
+                case CLI_SESSION:
+                    cliSessionCount++;
+                    break;
             }
         }
 
@@ -215,6 +225,7 @@ public class NodeProcessActionHandlers {
         totals.addProperty("daemon", daemonCount);
         totals.addProperty("channel", channelCount);
         totals.addProperty("orphan", orphanCount);
+        totals.addProperty("cliSession", cliSessionCount);
         totals.addProperty("all", processes.size());
 
         JsonObject root = new JsonObject();

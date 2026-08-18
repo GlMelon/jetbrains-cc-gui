@@ -44,8 +44,9 @@ interface Window {
 
   /**
    * Patch a single message UUID without re-sending the full message list.
+   * The optional rewindable flag marks CLI-mode turns (no history reload) rewindable.
    */
-  patchMessageUuid?: (content: string, uuid: string) => void;
+  patchMessageUuid?: (content: string, uuid: string, rewindable?: boolean) => void;
 
   /**
    * Update status message
@@ -962,11 +963,6 @@ interface Window {
   __cancelPendingUpdateMessages?: () => void;
   /** Currently active streaming scope key: provider:tabId:turnId. */
   __activeStreamScopeKey?: string | null;
-
-  /**
-   * Rewind result callback - returns the result of a rewind operation
-   */
-  onRewindResult?: (json: string) => void;
 
   /**
    * Undo file result callback - returns the result of a single-file undo operation

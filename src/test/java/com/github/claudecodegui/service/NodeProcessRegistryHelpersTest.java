@@ -2,8 +2,10 @@ package com.github.claudecodegui.service;
 
 import org.junit.Test;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
@@ -160,5 +162,51 @@ public class NodeProcessRegistryHelpersTest {
         // Even if a bogus non-positive value somehow lands in the set, it is never killable.
         assertFalse(NodeProcessRegistry.isPidOwned(0L, owned));
         assertFalse(NodeProcessRegistry.isPidOwned(-1L, owned));
+    }
+
+    // ============================================================================
+    // CLI_SESSION kill protection (daemon-mode design §5.2) — persistent session
+    // processes are lifecycle-managed by CliPersistentProcessRegistry (idle sweep,
+    // tab/project close); a manual kill would only leave a dirty slot behind.
+    // ============================================================================
+
+    @Test
+    public void isProtectedKindProtectsCliSessionOnly() {
+        assertTrue(NodeProcessRegistry.isProtectedKind(NodeProcessInfo.Kind.CLI_SESSION));
+        assertFalse(NodeProcessRegistry.isProtectedKind(NodeProcessInfo.Kind.DAEMON));
+        assertFalse(NodeProcessRegistry.isProtectedKind(NodeProcessInfo.Kind.CHANNEL));
+        assertFalse(NodeProcessRegistry.isProtectedKind(NodeProcessInfo.Kind.ORPHAN));
+    }
+
+    @Test
+    public void isProtectedKindHandlesNullKind() {
+        // kindOfPid returns null for unknown PIDs — must degrade to "not protected"
+        // rather than throw, so the kill path keeps its ownership guard semantics.
+        assertFalse(NodeProcessRegistry.isProtectedKind(null));
+    }
+
+    @Test
+    public void kindOfPidResolvesKindFromSnapshot() {
+        List<NodeProcessInfo> snapshot = Arrays.asList(
+                NodeProcessInfo.builder().kind(NodeProcessInfo.Kind.CHANNEL).pid(100L).build(),
+                NodeProcessInfo.builder().kind(NodeProcessInfo.Kind.CLI_SESSION).pid(200L).build());
+        assertEquals(NodeProcessInfo.Kind.CHANNEL, NodeProcessRegistry.kindOfPid(100L, snapshot));
+        assertEquals(NodeProcessInfo.Kind.CLI_SESSION, NodeProcessRegistry.kindOfPid(200L, snapshot));
+    }
+
+    @Test
+    public void kindOfPidReturnsNullForUnknownPidAndDegenerateSnapshots() {
+        List<NodeProcessInfo> snapshot = Collections.singletonList(
+                NodeProcessInfo.builder().kind(NodeProcessInfo.Kind.CLI_SESSION).pid(200L).build());
+        assertNull(NodeProcessRegistry.kindOfPid(99999L, snapshot));
+        assertNull(NodeProcessRegistry.kindOfPid(200L, Collections.emptyList()));
+        assertNull(NodeProcessRegistry.kindOfPid(200L, null));
+    }
+
+    @Test
+    public void killProtectedConstantMatchesFrontendContract() {
+        // Wire contract with NodeProcessSelect.tsx (KILL_PROTECTED_CLI_SESSION) —
+        // the frontend renders a dedicated rejection toast off this exact string.
+        assertEquals("cli_session_protected", NodeProcessRegistry.KILL_PROTECTED_CLI_SESSION);
     }
 }

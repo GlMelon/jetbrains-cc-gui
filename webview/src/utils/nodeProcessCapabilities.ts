@@ -13,7 +13,7 @@ import { sendAction } from '../bridge/typed';
 import { UPSTREAM } from '../generated/protocol';
 import { createCallbackChannel } from './createCallbackChannel';
 
-export type NodeProcessKind = 'DAEMON' | 'CHANNEL' | 'ORPHAN';
+export type NodeProcessKind = 'DAEMON' | 'CHANNEL' | 'ORPHAN' | 'CLI_SESSION';
 
 export interface NodeProcessInfo {
   id: string;
@@ -36,6 +36,7 @@ export interface NodeProcessTotals {
   daemon: number;
   channel: number;
   orphan: number;
+  cliSession: number;
   all: number;
 }
 
@@ -52,6 +53,9 @@ export interface NodeProcessKillResult {
   error?: string;
   killed?: number;
 }
+
+/** 后端 CLI_SESSION kill 拒绝码(daemon-mode §5.2),前端据此渲染保护提示。 */
+export const KILL_PROTECTED_CLI_SESSION = 'cli_session_protected';
 
 type SnapshotListener = (snapshot: NodeProcessSnapshot) => void;
 type KillResultListener = (result: NodeProcessKillResult) => void;

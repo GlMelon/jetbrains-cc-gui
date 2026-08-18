@@ -1,0 +1,24 @@
+@keyframes rb-fade-content-enter {
+  from {
+    opacity: 0;
+    transform: translateY(var(--rb-fade-offset, 8px));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rb-fade-content {
+  animation: rb-fade-content-enter var(--rb-fade-duration, 300ms) var(--ease-out, ease-out)
+    var(--rb-fade-delay, 0ms) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rb-fade-content {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}

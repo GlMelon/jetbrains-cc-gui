@@ -7,6 +7,7 @@ import { InfoIcon, TrashIcon, codiconToIcon } from '../../Icons';
 import { SpinLoader } from '../../react-bits';
 import {
   fetchNodeProcesses,
+  KILL_PROTECTED_CLI_SESSION,
   killAllOrphanProcesses,
   killNodeProcess,
   subscribeNodeProcessKillResult,
@@ -52,6 +53,12 @@ const GROUP_HEADER_STYLE: React.CSSProperties = {
 const GROUP_HEADER_ORPHAN_STYLE: React.CSSProperties = {
   ...GROUP_HEADER_STYLE,
   color: 'var(--error-color, #d9534f)',
+};
+
+// CLI_SESSION 分组头:只读受保护(自动管理),蓝色与 kindColor 对齐
+const GROUP_HEADER_CLI_SESSION_STYLE: React.CSSProperties = {
+  ...GROUP_HEADER_STYLE,
+  color: '#58a6ff',
 };
 
 const PROCESS_ROW_STYLE: React.CSSProperties = {
@@ -252,6 +259,7 @@ function formatBytes(bytes: number): string {
 }
 
 function providerIcon(provider?: string, kind?: string): string {
+  if (kind === 'CLI_SESSION') return 'codicon-terminal';
   if (kind === 'ORPHAN') return 'codicon-warning';
   if (provider === 'claude') return 'codicon-server-process';
   if (provider === 'codex') return 'codicon-comment-discussion';
@@ -262,6 +270,7 @@ function kindColor(kind: string): string {
   if (kind === 'DAEMON') return '#3fb950';
   if (kind === 'CHANNEL') return '#d29922';
   if (kind === 'ORPHAN') return '#d9534f';
+  if (kind === 'CLI_SESSION') return '#58a6ff';
   return 'var(--text-secondary)';
 }
 
@@ -354,7 +363,11 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
 
     const unsubKill = subscribeNodeProcessKillResult((result) => {
       if (result.error) {
-        onToast?.(t('config.nodeProcesses.killFailed', { error: result.error }));
+        // 后端保护拒绝码渲染为友好提示(§5.2),其余错误原样透出
+        const message = result.error === KILL_PROTECTED_CLI_SESSION
+          ? t('config.nodeProcesses.protectedKillRejected')
+          : t('config.nodeProcesses.killFailed', { error: result.error });
+        onToast?.(message);
         return;
       }
       if (typeof result.killed === 'number' && result.killed > 0) {
@@ -390,13 +403,15 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
     const daemon: NodeProcessInfo[] = [];
     const channel: NodeProcessInfo[] = [];
     const orphan: NodeProcessInfo[] = [];
-    if (!snapshot) return { daemon, channel, orphan };
+    const cliSession: NodeProcessInfo[] = [];
+    if (!snapshot) return { daemon, channel, orphan, cliSession };
     for (const proc of snapshot.processes) {
       if (proc.kind === 'DAEMON') daemon.push(proc);
       else if (proc.kind === 'CHANNEL') channel.push(proc);
       else if (proc.kind === 'ORPHAN') orphan.push(proc);
+      else if (proc.kind === 'CLI_SESSION') cliSession.push(proc);
     }
-    return { daemon, channel, orphan };
+    return { daemon, channel, orphan, cliSession };
   }, [snapshot]);
 
   const orphanCount = grouped.orphan.length;
@@ -465,14 +480,20 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
 
   const renderRow = (proc: NodeProcessInfo) => {
     const isPending = pendingPids.has(proc.pid);
+    // CLI_SESSION rows are read-only (daemon-mode design §5.2): lifecycle is owned
+    // by CliPersistentProcessRegistry (idle reclaim / tab close / project close),
+    // so no kill button — just a lock badge hinting the protection.
+    const isCliSession = proc.kind === 'CLI_SESSION';
     // The leading icon's color already encodes provider (claude=green, codex=yellow,
-    // orphan=red), so the title only carries the parts that are not already implied
-    // visually. Provider stays in the hover tooltip below for completeness.
+    // orphan=red, cli-session=blue), so the title only carries the parts that are
+    // not already implied visually. Provider stays in the hover tooltip below.
     const titleParts: string[] = [];
     if (proc.kind === 'DAEMON') {
       titleParts.push(t(`config.nodeProcesses.kind.daemonShort`, { defaultValue: 'Daemon' }));
     } else if (proc.kind === 'CHANNEL') {
       titleParts.push(t(`config.nodeProcesses.kind.channelShort`, { defaultValue: 'Channel' }));
+    } else if (proc.kind === 'CLI_SESSION') {
+      titleParts.push(t(`config.nodeProcesses.kind.cliSessionShort`, { defaultValue: 'CLI Session' }));
     } else {
       titleParts.push(t(`config.nodeProcesses.kind.orphanShort`, { defaultValue: 'Orphan' }));
     }
@@ -483,7 +504,17 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
     if (typeof proc.heapUsed === 'number' && proc.heapUsed > 0) {
       metaParts.push(formatBytes(proc.heapUsed));
     }
-    if (proc.activeRequestCount > 0) {
+    if (isCliSession) {
+      // 状态点:STREAMING=1 / IDLE=0(activeRequestCount 由后端映射)
+      metaParts.push(proc.activeRequestCount > 0
+        ? t('config.nodeProcesses.state.streaming', { defaultValue: 'streaming' })
+        : t('config.nodeProcesses.state.idle', { defaultValue: 'idle' }));
+      if (proc.sessionId) {
+        metaParts.push(proc.sessionId.length > 8
+          ? `${proc.sessionId.slice(0, 8)}…`
+          : proc.sessionId);
+      }
+    } else if (proc.activeRequestCount > 0) {
       metaParts.push(t('config.nodeProcesses.activeRequests', {
         count: proc.activeRequestCount,
         defaultValue: '{{count}} active',
@@ -499,6 +530,11 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
     tooltipLines.push(metaText);
     if (proc.command) {
       tooltipLines.push(proc.command);
+    }
+    if (isCliSession) {
+      tooltipLines.push(t('config.nodeProcesses.protectedHint', {
+        defaultValue: 'Managed automatically — idle sessions are reclaimed',
+      }));
     }
     const rowTooltip = tooltipLines.join('\n');
 
@@ -517,17 +553,26 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
           <span style={PROCESS_META_STYLE}>{metaText}</span>
         </div>
         <div style={PROCESS_ACTIONS_STYLE}>
-          <button
-            type="button"
-            className="node-process-icon-button node-process-icon-button--danger"
-            style={ICON_BUTTON_DANGER_STYLE}
-            disabled={isPending}
-            onClick={(e) => { e.stopPropagation(); handleKill(proc); }}
-            title={t(killHintKey)}
-            aria-label={t(killHintKey)}
-          >
-            {isPending ? <UnifiedLoader type="spin" size={14} /> : codiconToIcon(killIconClass, 16)}
-          </button>
+          {isCliSession ? (
+            <span
+              style={{ ...PROCESS_LEADING_ICON_STYLE, color: kindColor(proc.kind) }}
+              title={t('config.nodeProcesses.protectedHint')}
+            >
+              {codiconToIcon('codicon-lock', 14)}
+            </span>
+          ) : (
+            <button
+              type="button"
+              className="node-process-icon-button node-process-icon-button--danger"
+              style={ICON_BUTTON_DANGER_STYLE}
+              disabled={isPending}
+              onClick={(e) => { e.stopPropagation(); handleKill(proc); }}
+              title={t(killHintKey)}
+              aria-label={t(killHintKey)}
+            >
+              {isPending ? <UnifiedLoader type="spin" size={14} /> : codiconToIcon(killIconClass, 16)}
+            </button>
+          )}
         </div>
       </div>
     );
@@ -623,6 +668,12 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
             grouped.channel,
             GROUP_HEADER_STYLE,
             'codicon-comment-discussion',
+          )}
+          {renderGroup(
+            `${t('config.nodeProcesses.groups.cliSession')} · ${t('config.nodeProcesses.autoManaged')}`,
+            grouped.cliSession,
+            GROUP_HEADER_CLI_SESSION_STYLE,
+            'codicon-terminal',
           )}
           {renderGroup(
             t('config.nodeProcesses.groups.orphan'),

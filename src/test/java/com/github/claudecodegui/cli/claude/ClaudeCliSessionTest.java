@@ -31,12 +31,24 @@ public class ClaudeCliSessionTest {
         ));
 
         int processExitIndex = source.indexOf("CliProcessLifecycle.Outcome outcome = CliProcessLifecycle.await");
-        int rewriteIndex = source.indexOf("this.normalizeCliSessionEntrypoint(request)");
+        // 长驻路径(trySendPersistent)在 one-shot 之前也有等价 normalize 调用;
+        // 本断言只关心 one-shot 路径:从 await 之后查找 normalize 调用。
+        int rewriteIndex = source.indexOf("this.normalizeCliSessionEntrypoint(request)", processExitIndex);
 
         assertTrue(processExitIndex >= 0);
         assertTrue(rewriteIndex > processExitIndex);
         assertFalse(source.contains("ENV_CLAUDE_CODE_ENTRYPOINT"));
         assertTrue(source.contains("Set.of(SessionEntrypoint.SDK_CLI)"));
+    }
+
+    @Test
+    public void cliSendEnablesClaudeFileCheckpointingForPrintModeSessions() throws Exception {
+        String source = Files.readString(Paths.get(
+                "src", "main", "java", "com", "github", "claudecodegui", "cli", "claude", "ClaudeCliSession.java"
+        ));
+
+        assertTrue(source.contains("CliConstants.ENV_CLAUDE_ENABLE_SDK_FILE_CHECKPOINTING"));
+        assertTrue(source.contains("CliConstants.ENV_TRUE"));
     }
 
     @Test

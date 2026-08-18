@@ -99,6 +99,7 @@
     "usageStats": {
       "input": "Entrada：",
       "output": "Salida：",
+      "cacheRead": "Caché：",
       "total": "Total：",
       "duration": "Duración：",
       "tokensUnit": "tokens"
@@ -362,10 +363,16 @@
         "userPreviewMessage": "User messages preview with the selected avatar."
       },
       "detailedOutput": {
-        "label": "Información de salida detallada",
+        "label": "Mostrar uso de tokens",
         "enabled": "Activado",
         "disabled": "Desactivado",
-        "hint": "Cuando está activada, el pie de cada mensaje muestra el coste estimado del turno cuando esté disponible e incluye los aciertos de caché dentro del resumen de tokens de entrada. El uso de tokens siempre permanece visible."
+        "hint": "Cuando está activada, muestra tokens de entrada/salida, aciertos de caché, total y duración debajo de cada mensaje del asistente."
+      },
+      "cliPersistent": {
+        "label": "Sesiones CLI persistentes",
+        "enabled": "Activado",
+        "disabled": "Desactivado",
+        "hint": "Mantiene el proceso CLI residente por pestaña para que los mensajes siguientes eviten el arranque en frío (solo claude por ahora). Al desactivarlo, cada mensaje vuelve a un proceso de un solo uso; los procesos residentes inactivos se reclaman de inmediato."
       }
     },
     "providers": "Gestión de proveedores",
@@ -374,14 +381,13 @@
       "claude": "Claude Code",
       "codex": "Codex"
     },
-"pluginModels": {
+    "pluginModels": {
       "title": "Modelos personalizados",
       "description": "Los modelos personalizados agregados aquí serán visibles en todos los proveedores, mostrados en la parte superior de la lista de selección de modelos",
       "dialogTitle": "Gestionar modelos personalizados",
       "manage": "Gestionar modelos",
       "pricing": {
         "title": "Precio (USD por 1M tokens)",
-        "optionalLabel": "Opcional",
         "hint": "Opcional. Deja un campo vacío para usar la tarifa predeterminada de ese tipo de token.",
         "inputLabel": "Entrada",
         "outputLabel": "Salida",
@@ -393,13 +399,6 @@
         "cacheReadShort": "Lectura de caché",
         "invalidValue": "El precio debe ser un número no negativo",
         "defaultPricing": "Usando el precio predeterminado"
-      },
-      "contextWindow": {
-        "label": "Contexto máximo (K tokens)",
-        "placeholder": "p. ej. 500",
-        "hint": "Opcional. Introduce un número entero de miles de tokens (500 = 500.000 tokens). Solo se usa para mostrar el uso de contexto del plugin.",
-        "invalidValue": "El contexto máximo debe ser un entero positivo en unidades K",
-        "summary": "Contexto: {{value}} tokens"
       },
       "configuredSectionTitle": "Modelos de Claude configurados",
       "configuredSectionDesc": "Los modelos del proveedor de Claude activo o settings.json ya aparecen en el selector. Aquí solo se puede modificar el precio.",
@@ -843,31 +842,6 @@
       "customPrompts": "Custom Prompts",
       "loadFailed": "Load failed"
     },
-    "pluginModels": {
-      "title": "Modelos personalizados",
-      "description": "Los modelos personalizados agregados aquí serán visibles en todos los proveedores, mostrados en la parte superior de la lista de selección de modelos",
-      "dialogTitle": "Gestionar modelos personalizados",
-      "manage": "Gestionar modelos",
-      "pricing": {
-        "title": "Precio (USD por 1M tokens)",
-        "hint": "Opcional. Deja un campo vacío para usar la tarifa predeterminada de ese tipo de token.",
-        "inputLabel": "Entrada",
-        "outputLabel": "Salida",
-        "cacheWriteLabel": "Escritura de caché",
-        "cacheReadLabel": "Lectura de caché",
-        "inputShort": "Entrada",
-        "outputShort": "Salida",
-        "cacheWriteShort": "Escritura de caché",
-        "cacheReadShort": "Lectura de caché",
-        "invalidValue": "El precio debe ser un número no negativo",
-        "defaultPricing": "Usando el precio predeterminado"
-      },
-      "configuredSectionTitle": "Modelos de Claude configurados",
-      "configuredSectionDesc": "Los modelos del proveedor de Claude activo o settings.json ya aparecen en el selector. Aquí solo se puede modificar el precio.",
-      "configuredEditHint": "Este modelo está gestionado por el proveedor de Claude activo o settings.json. Aquí solo se puede modificar el precio.",
-      "customSectionTitle": "Modelos personalizados",
-      "editPricing": "Editar precio"
-    },
     "dependenciesDesc": "Gestionar instalaciones y actualizaciones de dependencias AI SDK",
     "sponsor": "Sponsor",
     "sponsorDesc": "If this project helps you, consider sponsoring to support ongoing maintenance!",
@@ -1052,13 +1026,22 @@
       "groups": {
         "daemon": "Procesos daemon",
         "channel": "Conversaciones activas",
-        "orphan": "Procesos huérfanos"
+        "orphan": "Procesos huérfanos",
+        "cliSession": "Sesiones CLI persistentes"
       },
       "kind": {
         "daemonShort": "Daemon",
         "channelShort": "Canal",
-        "orphanShort": "Huérfano"
+        "orphanShort": "Huérfano",
+        "cliSessionShort": "Sesión CLI"
       },
+      "state": {
+        "idle": "inactivo",
+        "streaming": "respondiendo"
+      },
+      "autoManaged": "gestión automática",
+      "protectedHint": "Solo lectura: el ciclo de vida se gestiona automáticamente (las sesiones inactivas se reclaman; cerrar pestaña/proyecto detiene el proceso)",
+      "protectedKillRejected": "Los procesos de sesión CLI se gestionan automáticamente y no se pueden terminar manualmente",
       "kill": "Terminar",
       "interrupt": "Detener",
       "killAll": "Limpiar huérfanos ({{count}})",

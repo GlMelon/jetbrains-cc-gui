@@ -1,6 +1,8 @@
 package com.github.claudecodegui.service;
 
 import com.github.claudecodegui.bridge.NodeService;
+import com.github.claudecodegui.cli.common.CliPersistentProcess;
+import com.github.claudecodegui.cli.common.CliPersistentProcessRegistry;
 import com.github.claudecodegui.ui.toolwindow.ClaudeChatWindow;
 import com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow;
 import com.github.claudecodegui.util.PlatformUtils;
@@ -127,6 +129,34 @@ public final class NodeProcessRegistry implements Disposable {
             }
         }
 
+        // -- CLI persistent sessions (daemon-mode design §5.1) --
+        // 长驻 CLI 进程由 CliPersistentProcessRegistry 槽位追踪,合并进面板只读展示。
+        // pid 计入 knownPids:即使 orphan 扫描的 hint 匹配到其命令行,也不会重复报为孤儿。
+        try {
+            for (CliPersistentProcess.PersistentProcessInfo info
+                    : CliPersistentProcessRegistry.getInstance(project).describeAll()) {
+                if (info.pid() <= 0) {
+                    continue;
+                }
+                knownPids.add(info.pid());
+                long uptime = info.startedAtMs() > 0 ? Math.max(0, now - info.startedAtMs()) : 0L;
+                result.add(NodeProcessInfo.builder()
+                        .kind(NodeProcessInfo.Kind.CLI_SESSION)
+                        .provider(info.provider())
+                        .pid(info.pid())
+                        .alive(info.state() != CliPersistentProcess.State.DEAD)
+                        .startedAtMs(info.startedAtMs())
+                        .uptimeMs(uptime)
+                        .channelId(info.tabId())
+                        .sessionId(info.sessionId())
+                        .activeRequestCount(info.state() == CliPersistentProcess.State.STREAMING ? 1 : 0)
+                        .build());
+            }
+        } catch (Exception e) {
+            // 面板展示不得因长驻注册表异常整体失败,降级为不显示该分组
+            LOG.warn("[NodeProcessRegistry] persistent CLI describe failed: " + e.getMessage());
+        }
+
         // -- ORPHAN scan --
         // Find Node processes that look like ours but don't appear in any registry.
         // CRITICAL: we MUST only consider processes whose parent PID is this JVM.
@@ -237,18 +267,59 @@ public final class NodeProcessRegistry implements Disposable {
         if (pid <= 0) {
             return false;
         }
-        if (!isPidOwned(pid, snapshotPids())) {
+        List<NodeProcessInfo> snapshot = snapshot();
+        if (!isPidOwned(pid, pidsOf(snapshot))) {
             LOG.warn("[NodeProcessRegistry] Refusing to kill PID " + pid
                     + " — not tracked by this JVM's snapshot");
+            return false;
+        }
+        // CLI_SESSION 双层防护第一层(§5.2 真正防线):长驻会话进程由 registry 生命周期
+        // 管理(空闲回收/tab 关闭/项目关闭),手动 kill 只会留下 dirty 槽位。
+        if (isProtectedKind(kindOfPid(pid, snapshot))) {
+            LOG.warn("[NodeProcessRegistry] Refusing to kill PID " + pid
+                    + " — cli_session_protected");
             return false;
         }
         return terminateTrackedPid(pid);
     }
 
-    /** Collect the PID set of every process in the current snapshot. */
-    private Set<Long> snapshotPids() {
+    /**
+     * Kill 前检查目标是否为受保护的 CLI_SESSION 进程(§5.2)。
+     * 返回错误码 {@code cli_session_protected}(前端提示用),非保护目标返回 null。
+     * killByPid 内部另有同判定闸门——此处仅供 handler 预检以透传具体拒绝原因。
+     */
+    public @Nullable String checkKillProtected(long pid) {
+        if (pid <= 0) {
+            return null;
+        }
+        return isProtectedKind(kindOfPid(pid, snapshot())) ? KILL_PROTECTED_CLI_SESSION : null;
+    }
+
+    /** CLI_SESSION 拒绝码(§5.2):前端据 此渲染保护提示。 */
+    public static final String KILL_PROTECTED_CLI_SESSION = "cli_session_protected";
+
+    /** 受保护不可手动 kill 的 kind 判定(§5.2)。静态纯函数供单测。 */
+    static boolean isProtectedKind(NodeProcessInfo.Kind kind) {
+        return kind == NodeProcessInfo.Kind.CLI_SESSION;
+    }
+
+    /** 在快照中按 pid 查找 kind;找不到返回 null。静态纯函数供单测。 */
+    static @Nullable NodeProcessInfo.Kind kindOfPid(long pid, List<NodeProcessInfo> snapshot) {
+        if (snapshot == null) {
+            return null;
+        }
+        for (NodeProcessInfo info : snapshot) {
+            if (info.getPid() == pid) {
+                return info.getKind();
+            }
+        }
+        return null;
+    }
+
+    /** Collect the PID set of every process in the given snapshot. */
+    private static Set<Long> pidsOf(List<NodeProcessInfo> snapshot) {
         Set<Long> pids = new HashSet<>();
-        for (NodeProcessInfo info : snapshot()) {
+        for (NodeProcessInfo info : snapshot) {
             pids.add(info.getPid());
         }
         return pids;

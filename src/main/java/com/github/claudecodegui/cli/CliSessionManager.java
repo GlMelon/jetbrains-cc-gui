@@ -2,6 +2,7 @@ package com.github.claudecodegui.cli;
 
 import com.github.claudecodegui.cli.common.CliConstants;
 import com.github.claudecodegui.cli.common.CliErrorFormatter;
+import com.github.claudecodegui.cli.common.CliPersistentProcessRegistry;
 import com.github.claudecodegui.cli.claude.ClaudeCliSessionFactory;
 import com.github.claudecodegui.cli.codex.CodexCliSessionFactory;
 import com.github.claudecodegui.cli.opencode.OpenCodeCliSessionFactory;
@@ -73,11 +74,13 @@ public class CliSessionManager {
     }
 
     /**
-     * Project-aware装配:CLI sessions 可获取 Project-scoped MCP Gateway。
+     * Project-aware装配:CLI sessions 可获取 Project-scoped MCP Gateway;
+     * claude 额外注入 Project-scoped 长驻进程注册表(设计文档 §4.4,Phase 1 仅 claude)。
      */
     public CliSessionManager(Project project) {
         this(List.of(
-                new ClaudeCliSessionFactory(McpGatewayService.getInstance(project)),
+                new ClaudeCliSessionFactory(McpGatewayService.getInstance(project),
+                        CliPersistentProcessRegistry.getInstance(project)),
                 new CodexCliSessionFactory(McpGatewayService.getInstance(project)),
                 new OpenCodeCliSessionFactory(McpGatewayService.getInstance(project)),
                 new GrokCliSessionFactory(),

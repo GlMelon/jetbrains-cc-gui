@@ -145,6 +145,8 @@ export interface ClaudeRawMessage {
   content?: string | ClaudeContentOrResultBlock[];
   message?: { content?: string | ClaudeContentOrResultBlock[] };
   type?: string;
+  /** Backend-derived Claude file checkpoint availability. */
+  rewindable?: boolean;
   /** Origin indicates message source - used to filter synthetic messages */
   origin?: { kind: string };
   isMeta?: boolean;

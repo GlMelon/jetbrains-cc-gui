@@ -76,7 +76,6 @@ import com.github.claudecodegui.handler.history.LoadSubagentSessionActionHandler
 import com.github.claudecodegui.handler.history.ConvertToCliSessionActionHandler;
 import com.github.claudecodegui.handler.PermissionModeHandler;
 import com.github.claudecodegui.handler.InputHistoryHandler;
-import com.github.claudecodegui.handler.UsagePushService;
 import com.github.claudecodegui.handler.provider.ModelProviderHandler;
 import com.github.claudecodegui.model.selection.DefaultModelCapabilityResolver;
 import com.github.claudecodegui.model.selection.ModelSelectionRequest;
@@ -185,6 +184,8 @@ import com.github.claudecodegui.handler.settings.GetCommitGenerationEnabledActio
 import com.github.claudecodegui.handler.settings.SetCommitGenerationEnabledActionHandler;
 import com.github.claudecodegui.handler.settings.GetMcpGatewayEnabledActionHandler;
 import com.github.claudecodegui.handler.settings.SetMcpGatewayEnabledActionHandler;
+import com.github.claudecodegui.handler.settings.GetCliPersistentEnabledActionHandler;
+import com.github.claudecodegui.handler.settings.SetCliPersistentEnabledActionHandler;
 import com.github.claudecodegui.handler.settings.GetStatusBarWidgetEnabledActionHandler;
 import com.github.claudecodegui.handler.settings.SetStatusBarWidgetEnabledActionHandler;
 import com.github.claudecodegui.handler.settings.GetTaskCompletionNotificationEnabledActionHandler;
@@ -595,6 +596,8 @@ nodeService.setSessionId(sessionId);
         typedHandlers.add(new SetCommitGenerationEnabledActionHandler(projectConfigHandler));
         typedHandlers.add(new GetMcpGatewayEnabledActionHandler(projectConfigHandler));
         typedHandlers.add(new SetMcpGatewayEnabledActionHandler(projectConfigHandler));
+        typedHandlers.add(new GetCliPersistentEnabledActionHandler(projectConfigHandler));
+        typedHandlers.add(new SetCliPersistentEnabledActionHandler(projectConfigHandler));
         typedHandlers.add(new GetSmitheryApiKeyActionHandler(projectConfigHandler));
         typedHandlers.add(new SetSmitheryApiKeyActionHandler(projectConfigHandler));
         typedHandlers.add(new GetStatusBarWidgetEnabledActionHandler(projectConfigHandler));

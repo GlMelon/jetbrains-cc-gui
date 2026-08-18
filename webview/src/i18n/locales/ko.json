@@ -99,6 +99,7 @@
     "usageStats": {
       "input": "입력：",
       "output": "출력：",
+      "cacheRead": "캐시：",
       "total": "합계：",
       "duration": "소요 시간：",
       "tokensUnit": "tokens"
@@ -362,10 +363,16 @@
         "userPreviewMessage": "User messages preview with the selected avatar."
       },
       "detailedOutput": {
-        "label": "자세한 출력 정보",
+        "label": "토큰 사용량 표시",
         "enabled": "켜짐",
         "disabled": "꺼짐",
-        "hint": "켜면 사용 가능한 경우 메시지 하단에 이번 턴의 예상 비용을 표시하고 입력 Token 요약 안에 캐시 히트를 함께 표시합니다. Token 사용량은 항상 표시됩니다."
+        "hint": "켜면 각 어시스턴트 메시지 아래에 입출력 토큰, 캐시 히트, 합계, 소요 시간을 표시합니다."
+      },
+      "cliPersistent": {
+        "label": "CLI 상시 세션",
+        "enabled": "켜짐",
+        "disabled": "꺼짐",
+        "hint": "탭별로 CLI 프로세스를 상시 유지하여 이후 메시지의 콜드 스타트를 건너뜁니다(현재는 claude만). 끄면 메시지마다 일회성 프로세스로 되돌아가고 유휴 상시 프로세스는 즉시 회수됩니다."
       }
     },
     "providers": "제공자 관리",
@@ -374,14 +381,13 @@
       "claude": "Claude Code",
       "codex": "Codex"
     },
-"pluginModels": {
+    "pluginModels": {
       "title": "사용자 지정 모델",
       "description": "여기에 추가된 사용자 지정 모델은 모든 제공자에 표시되며, 모델 선택기 상단에 나타납니다",
       "dialogTitle": "사용자 지정 모델 관리",
       "manage": "모델 관리",
       "pricing": {
         "title": "가격(USD/100만 토큰)",
-        "optionalLabel": "선택",
         "hint": "선택 사항입니다. 비워 두면 해당 토큰 유형의 기본 요금을 사용합니다.",
         "inputLabel": "입력",
         "outputLabel": "출력",
@@ -393,13 +399,6 @@
         "cacheReadShort": "캐시 읽기",
         "invalidValue": "가격은 0 이상의 숫자여야 합니다",
         "defaultPricing": "기본 요금 사용 중"
-      },
-      "contextWindow": {
-        "label": "최대 컨텍스트(K 토큰)",
-        "placeholder": "예: 500",
-        "hint": "선택 사항입니다. 토큰을 천 단위의 정수로 입력하세요(500 = 500,000 토큰). 플러그인의 사용량 표시에만 사용됩니다.",
-        "invalidValue": "최대 컨텍스트는 K 단위의 양의 정수여야 합니다",
-        "summary": "컨텍스트: {{value}} 토큰"
       },
       "configuredSectionTitle": "구성된 Claude 모델",
       "configuredSectionDesc": "현재 Claude 제공자 또는 settings.json의 모델은 이미 모델 선택기에 표시됩니다. 여기서는 가격만 변경할 수 있습니다.",
@@ -934,31 +933,6 @@
       "copyToGlobalSuccess": "전역 프롬프트로 복사됨",
       "projectPromptsUnavailable": "현재 프로젝트에서 프로젝트 프롬프트를 사용할 수 없습니다"
     },
-    "pluginModels": {
-      "title": "사용자 지정 모델",
-      "description": "여기에 추가된 사용자 지정 모델은 모든 제공자에 표시되며, 모델 선택기 상단에 나타납니다",
-      "dialogTitle": "사용자 지정 모델 관리",
-      "manage": "모델 관리",
-      "pricing": {
-        "title": "가격(USD/100만 토큰)",
-        "hint": "선택 사항입니다. 비워 두면 해당 토큰 유형의 기본 요금을 사용합니다.",
-        "inputLabel": "입력",
-        "outputLabel": "출력",
-        "cacheWriteLabel": "캐시 쓰기",
-        "cacheReadLabel": "캐시 읽기",
-        "inputShort": "입력",
-        "outputShort": "출력",
-        "cacheWriteShort": "캐시 쓰기",
-        "cacheReadShort": "캐시 읽기",
-        "invalidValue": "가격은 0 이상의 숫자여야 합니다",
-        "defaultPricing": "기본 요금 사용 중"
-      },
-      "configuredSectionTitle": "구성된 Claude 모델",
-      "configuredSectionDesc": "현재 Claude 제공자 또는 settings.json의 모델은 이미 모델 선택기에 표시됩니다. 여기서는 가격만 변경할 수 있습니다.",
-      "configuredEditHint": "이 모델은 현재 Claude 제공자 또는 settings.json에서 관리됩니다. 여기서는 가격만 변경할 수 있습니다.",
-      "customSectionTitle": "사용자 지정 모델",
-      "editPricing": "가격 편집"
-    },
     "dependenciesDesc": "AI SDK 의존성 설치 및 업데이트 관리",
     "sponsor": "후원",
     "sponsorDesc": "이 프로젝트가 도움이 되셨다면, 지속적인 유지보수를 위해 후원을 고려해주세요!",
@@ -966,7 +940,21 @@
     "wechatPay": "WeChat Pay",
     "paypal": "PayPal",
     "comingSoon": "곧 출시 예정...",
-    "promptsDesc": "자주 사용하는 프롬프트 템플릿을 관리하여 채팅 중 빠르게 삽입"
+    "promptsDesc": "자주 사용하는 프롬프트 템플릿을 관리하여 채팅 중 빠르게 삽입",
+    "cli": {
+      "grokName": "Grok CLI",
+      "grokDescription": "AI 코딩을 위한 xAI Grok 명령줄 도구",
+      "kimiName": "Kimi CLI",
+      "kimiDescription": "AI 코딩을 위한 Moonshot Kimi 명령줄 도구",
+      "piName": "Pi CLI",
+      "piDescription": "AI 코딩을 위한 Inflection Pi 명령줄 도구",
+      "checkingVersion": "버전 확인 중...",
+      "docUrl": "문서",
+      "updateToVersion": "v{{version}}으로 업데이트",
+      "viewDocs": "문서 보기",
+      "install": "설치",
+      "installing": "설치 중..."
+    }
   },
   "history": {
     "sessionDeleted": "세션 삭제됨",
@@ -1143,13 +1131,22 @@
       "groups": {
         "daemon": "데몬 프로세스",
         "channel": "진행 중인 대화",
-        "orphan": "고아 프로세스"
+        "orphan": "고아 프로세스",
+        "cliSession": "CLI 상시 세션"
       },
       "kind": {
         "daemonShort": "Daemon",
         "channelShort": "대화",
-        "orphanShort": "고아"
+        "orphanShort": "고아",
+        "cliSessionShort": "상시 세션"
       },
+      "state": {
+        "idle": "유휴",
+        "streaming": "응답 중"
+      },
+      "autoManaged": "자동 관리",
+      "protectedHint": "읽기 전용: 수명 주기는 자동 관리됩니다(유휴 세션은 회수, 탭/프로젝트 종료 시 프로세스 중지)",
+      "protectedKillRejected": "CLI 상시 세션 프로세스는 자동 관리되므로 수동 종료할 수 없습니다",
       "kill": "종료",
       "interrupt": "중단",
       "killAll": "모든 고아 정리 ({{count}})",
@@ -1172,7 +1169,9 @@
   "markdown": {
     "copyCode": "코드 복사",
     "copyMessage": "메시지 복사",
-    "copySuccess": "복사됨!"
+    "copySuccess": "복사됨!",
+    "quoteMessage": "메시지 인용",
+    "quoteSuccess": "인용됨!"
   },
   "mcp": {
     "title": "MCP 서버",
@@ -1848,7 +1847,12 @@
   "changelog": {
     "title": "새로운 기능",
     "close": "확인",
-    "page": "{{current}} / {{total}}"
+    "page": "{{current}} / {{total}}",
+    "versionList": "버전",
+    "searchPlaceholder": "버전 검색...",
+    "noResults": "일치하는 버전이 없습니다",
+    "jumpTo": "이동 위치",
+    "go": "이동"
   },
   "error": {
     "providerNotConfigured": "제공자가 설정되지 않았습니다",
@@ -1903,5 +1907,10 @@
     "inProgress": "진행 중 {{completed}}/{{total}} 작업",
     "allCompleted": "모두 완료 {{completed}}/{{total}} 작업",
     "stopped": "중단됨"
+  },
+  "subagent": {
+    "process": {
+      "prompt": "프롬프트"
+    }
   }
 }

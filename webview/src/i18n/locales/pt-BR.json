@@ -99,6 +99,7 @@
     "usageStats": {
       "input": "Entrada：",
       "output": "Saída：",
+      "cacheRead": "Cache：",
       "total": "Total：",
       "duration": "Duração：",
       "tokensUnit": "tokens"
@@ -385,10 +386,16 @@
         "userPreviewMessage": "User messages preview with the selected avatar."
       },
       "detailedOutput": {
-        "label": "Informações detalhadas de saída",
+        "label": "Mostrar uso de tokens",
         "enabled": "Ativado",
         "disabled": "Desativado",
-        "hint": "Quando ativado, o rodapé das mensagens mostra o custo estimado do turno quando disponível e inclui os acertos de cache no resumo de tokens de entrada. O uso de tokens permanece sempre visível."
+        "hint": "Quando ativado, mostra tokens de entrada/saída, acertos de cache, total e duração abaixo de cada mensagem do assistente."
+      },
+      "cliPersistent": {
+        "label": "Sessões CLI persistentes",
+        "enabled": "Ativado",
+        "disabled": "Desativado",
+        "hint": "Mantém o processo CLI residente por aba para que as mensagens seguintes evitem o cold start (apenas claude por enquanto). Ao desativar, cada mensagem volta a um processo único; processos residentes ociosos são recuperados imediatamente."
       }
     },
     "providers": "Gerenciamento de Provedores",
@@ -401,14 +408,13 @@
       "claude": "Claude Code",
       "codex": "Codex"
     },
-"pluginModels": {
+    "pluginModels": {
       "title": "Modelos Personalizados",
       "description": "Modelos personalizados adicionados aqui serão visíveis em todos os provedores, exibidos no topo do seletor de modelos",
       "dialogTitle": "Gerenciar Modelos Personalizados",
       "manage": "Gerenciar Modelos",
       "pricing": {
         "title": "Preço (USD por 1M tokens)",
-        "optionalLabel": "Opcional",
         "hint": "Opcional. Deixe um campo vazio para usar a tarifa padrão desse tipo de token.",
         "inputLabel": "Entrada",
         "outputLabel": "Saída",
@@ -420,13 +426,6 @@
         "cacheReadShort": "Leitura de cache",
         "invalidValue": "O preço deve ser um número não negativo",
         "defaultPricing": "Usando o preço padrão"
-      },
-      "contextWindow": {
-        "label": "Contexto máximo (K tokens)",
-        "placeholder": "ex.: 500",
-        "hint": "Opcional. Informe um número inteiro de milhares de tokens (500 = 500.000 tokens). Usado apenas para exibir o uso de contexto no plugin.",
-        "invalidValue": "O contexto máximo deve ser um inteiro positivo em unidades K",
-        "summary": "Contexto: {{value}} tokens"
       },
       "configuredSectionTitle": "Modelos Claude configurados",
       "configuredSectionDesc": "Os modelos do provedor Claude ativo ou do settings.json já aparecem no seletor. Aqui só é possível alterar o preço.",
@@ -986,31 +985,6 @@
       "copyToGlobalSuccess": "Copiado para prompts globais",
       "projectPromptsUnavailable": "Prompts do projeto indisponíveis no projeto atual"
     },
-    "pluginModels": {
-      "title": "Modelos Personalizados",
-      "description": "Modelos personalizados adicionados aqui serão visíveis em todos os provedores, exibidos no topo do seletor de modelos",
-      "dialogTitle": "Gerenciar Modelos Personalizados",
-      "manage": "Gerenciar Modelos",
-      "pricing": {
-        "title": "Preço (USD por 1M tokens)",
-        "hint": "Opcional. Deixe um campo vazio para usar a tarifa padrão desse tipo de token.",
-        "inputLabel": "Entrada",
-        "outputLabel": "Saída",
-        "cacheWriteLabel": "Gravação de cache",
-        "cacheReadLabel": "Leitura de cache",
-        "inputShort": "Entrada",
-        "outputShort": "Saída",
-        "cacheWriteShort": "Gravação de cache",
-        "cacheReadShort": "Leitura de cache",
-        "invalidValue": "O preço deve ser um número não negativo",
-        "defaultPricing": "Usando o preço padrão"
-      },
-      "configuredSectionTitle": "Modelos Claude configurados",
-      "configuredSectionDesc": "Os modelos do provedor Claude ativo ou do settings.json já aparecem no seletor. Aqui só é possível alterar o preço.",
-      "configuredEditHint": "Este modelo é gerenciado pelo provedor Claude ativo ou pelo settings.json. Aqui só é possível alterar o preço.",
-      "customSectionTitle": "Modelos personalizados",
-      "editPricing": "Editar preço"
-    },
     "dependenciesDesc": "Gerenciar instalações e atualizações de dependências de SDK de IA",
     "sponsor": "Patrocinar",
     "sponsorDesc": "Se este projeto te ajudou, considere patrocinar para apoiar a manutenção contínua!",
@@ -1018,7 +992,21 @@
     "wechatPay": "WeChat Pay",
     "paypal": "PayPal",
     "comingSoon": "Em breve...",
-    "promptsDesc": "Gerenciar templates de prompts comuns para inserção rápida durante o chat"
+    "promptsDesc": "Gerenciar templates de prompts comuns para inserção rápida durante o chat",
+    "cli": {
+      "grokName": "Grok CLI",
+      "grokDescription": "Ferramenta de linha de comando xAI Grok para codificação com IA",
+      "kimiName": "Kimi CLI",
+      "kimiDescription": "Ferramenta de linha de comando Moonshot Kimi para codificação com IA",
+      "piName": "Pi CLI",
+      "piDescription": "Ferramenta de linha de comando Inflection Pi para codificação com IA",
+      "checkingVersion": "Verificando versão...",
+      "docUrl": "Documentação",
+      "updateToVersion": "Atualizar para v{{version}}",
+      "viewDocs": "Ver documentação",
+      "install": "Instalar",
+      "installing": "Instalando..."
+    }
   },
   "history": {
     "sessionDeleted": "Sessão excluída",
@@ -1196,13 +1184,22 @@
       "groups": {
         "daemon": "Processos daemon",
         "channel": "Conversas em andamento",
-        "orphan": "Processos órfãos"
+        "orphan": "Processos órfãos",
+        "cliSession": "Sessões CLI persistentes"
       },
       "kind": {
         "daemonShort": "Daemon",
         "channelShort": "Canal",
-        "orphanShort": "Órfão"
+        "orphanShort": "Órfão",
+        "cliSessionShort": "Sessão CLI"
       },
+      "state": {
+        "idle": "ocioso",
+        "streaming": "respondendo"
+      },
+      "autoManaged": "gerenciamento automático",
+      "protectedHint": "Somente leitura: o ciclo de vida é gerenciado automaticamente (sessões ociosas são recuperadas; fechar aba/projeto encerra o processo)",
+      "protectedKillRejected": "Os processos de sessão CLI são gerenciados automaticamente e não podem ser encerrados manualmente",
       "kill": "Encerrar",
       "interrupt": "Interromper",
       "killAll": "Limpar órfãos ({{count}})",
@@ -1225,7 +1222,9 @@
   "markdown": {
     "copyCode": "Copiar código",
     "copyMessage": "Copiar mensagem",
-    "copySuccess": "Copiado!"
+    "copySuccess": "Copiado!",
+    "quoteMessage": "Citar mensagem",
+    "quoteSuccess": "Citado!"
   },
   "mcp": {
     "title": "Servidores MCP",
@@ -1902,7 +1901,12 @@
   "changelog": {
     "title": "Novidades",
     "close": "Entendido",
-    "page": "{{current}} / {{total}}"
+    "page": "{{current}} / {{total}}",
+    "versionList": "Versões",
+    "searchPlaceholder": "Pesquisar versões...",
+    "noResults": "Nenhuma versão correspondente encontrada",
+    "jumpTo": "Ir para",
+    "go": "Ir"
   },
   "error": {
     "providerNotConfigured": "Provedor Não Configurado",
@@ -1957,5 +1961,10 @@
     "inProgress": "Em Andamento {{completed}}/{{total}} tarefas",
     "allCompleted": "Todas Concluídas {{completed}}/{{total}} tarefas",
     "stopped": "Parado"
+  },
+  "subagent": {
+    "process": {
+      "prompt": "Prompt"
+    }
   }
 }

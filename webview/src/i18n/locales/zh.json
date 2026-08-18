@@ -114,6 +114,7 @@
     "usageStats": {
       "input": "输入：",
       "output": "输出：",
+      "cacheRead": "缓存：",
       "total": "总计：",
       "duration": "耗时：",
       "tokensUnit": "tokens"
@@ -323,6 +324,12 @@
         "disabled": "已关闭",
         "hint": "启用常驻 MCP 预热进程以加速每个会话的首次请求；关闭后改用直连 MCP（首次请求会略慢）。"
       },
+      "cliPersistent": {
+        "label": "CLI 长驻会话",
+        "enabled": "已开启",
+        "disabled": "已关闭",
+        "hint": "每个标签页保持 CLI 进程常驻，后续消息免付冷启动开销（目前仅 claude）。关闭后每条消息回退为一次性进程，空闲长驻进程立即回收。"
+      },
       "statusBarWidget": {
         "label": "状态栏信息展示",
         "enabled": "已开启",
@@ -408,10 +415,10 @@
         "userPreviewMessage": "用户消息会使用当前选择的头像。"
       },
       "detailedOutput": {
-        "label": "详细输出信息",
+        "label": "显示 Token 用量",
         "enabled": "已开启",
         "disabled": "已关闭",
-        "hint": "开启后，消息底部会在可用时显示本轮预估费用，并在输入 Token 中标明缓存命中。Token 消耗信息始终保持显示。"
+        "hint": "开启后，在每条助手消息下方显示输入/输出 Token、缓存命中、总计和耗时信息。"
       }
     },
     "providers": "供应商管理",
@@ -423,7 +430,10 @@
     "providerTab": {
       "claude": "Claude Code",
       "codex": "Codex",
-      "opencode": "OpenCode"
+      "opencode": "OpenCode",
+      "grok": "Grok",
+      "kimi": "Kimi",
+      "pi": "Pi"
     },
 "openCodeProvider": {
       "title": "OpenCode 供应商",
@@ -474,6 +484,27 @@
         "localConfigDisableTitle": "取消本地 OpenCode 配置授权",
         "localConfigDisableMessage": "插件将停止读取 ~/.config/opencode/opencode.json。"
       }
+    },
+    "grokProvider": {
+      "title": "Grok 供应商",
+      "description": "管理 Grok AI 功能的供应商配置",
+      "cliConfig": "原生 CLI 配置",
+      "cliConfigDesc": "Grok 使用原生 CLI 配置 (~/.grok)。供应商设置通过 Grok CLI 直接管理。",
+      "info": "Grok 是一个仅支持 CLI 的供应商。身份验证和配置由 Grok CLI 工具处理。要配置 Grok，请在终端运行 \"grok\" 并按照设置说明操作。"
+    },
+    "kimiProvider": {
+      "title": "Kimi 供应商",
+      "description": "管理 Kimi AI 功能的供应商配置",
+      "cliConfig": "原生 CLI 配置",
+      "cliConfigDesc": "Kimi 使用原生 CLI 配置。供应商设置通过 Kimi CLI 直接管理。",
+      "info": "Kimi 是一个仅支持 CLI 的供应商。身份验证和配置由 Kimi CLI 工具处理。要配置 Kimi，请在终端运行 \"kimi\" 并按照设置说明操作。"
+    },
+    "piProvider": {
+      "title": "Pi 供应商",
+      "description": "管理 Pi AI 功能的供应商配置",
+      "cliConfig": "原生 CLI 配置",
+      "cliConfigDesc": "Pi 使用原生 CLI 配置 (~/.pi)。供应商设置通过 Pi CLI 直接管理。",
+      "info": "Pi 是一个仅支持 CLI 的供应商。身份验证和配置由 Pi CLI 工具处理。要配置 Pi，请在终端运行 \"pi\" 并按照设置说明操作。"
     },
     "models": {
       "title": "模型配置",
@@ -1389,13 +1420,22 @@
       "groups": {
         "daemon": "守护进程",
         "channel": "进行中对话",
-        "orphan": "孤立进程"
+        "orphan": "孤立进程",
+        "cliSession": "CLI 长驻会话"
       },
       "kind": {
         "daemonShort": "Daemon",
         "channelShort": "对话",
-        "orphanShort": "孤立"
+        "orphanShort": "孤立",
+        "cliSessionShort": "长驻会话"
       },
+      "state": {
+        "idle": "空闲",
+        "streaming": "回复中"
+      },
+      "autoManaged": "自动管理",
+      "protectedHint": "只读：生命周期自动管理（空闲会话自动回收；关闭标签页/项目即停止进程）",
+      "protectedKillRejected": "CLI 长驻会话进程由插件自动管理，不支持手动终止",
       "kill": "终止",
       "interrupt": "中断",
       "killAll": "清理所有孤立进程 ({{count}})",

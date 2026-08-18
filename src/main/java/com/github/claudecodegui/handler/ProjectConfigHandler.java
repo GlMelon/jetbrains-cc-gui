@@ -1,6 +1,7 @@
 package com.github.claudecodegui.handler;
 
 import com.github.claudecodegui.common.CommonConstants;
+import com.github.claudecodegui.cli.common.CliPersistentProcessRegistry;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.handler.core.HandlerContext;
 
@@ -12,7 +13,6 @@ import com.github.claudecodegui.session.ClaudeSession;
 import com.github.claudecodegui.provider.claude.ClaudeHistoryReader;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.provider.codex.CodexHistoryReader;
-import com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow;
 import com.github.claudecodegui.util.FontConfigService;
 import com.github.claudecodegui.util.ThemeConfigService;
 import com.github.claudecodegui.util.GsonHolder;
@@ -827,6 +827,42 @@ public class ProjectConfigHandler {
         } catch (Exception e) {
             LOG.error("[ProjectConfigHandler] Failed to set MCP gateway enabled: " + e.getMessage(), e);
             showError("Failed to save MCP gateway config");
+        }
+    }
+
+    public void handleGetCliPersistentEnabled() {
+        respondWithJson(DownstreamEvent.CONFIG_CLI_PERSISTENT.value(),
+            () -> jsonOf("cliPersistentEnabled", settingsService.getCliPersistentEnabled()),
+            jsonOf("cliPersistentEnabled", true),
+            "Failed to get CLI persistent enabled");
+    }
+
+    /**
+     * 行为菜单 CLI 长驻会话开关写入(daemon-mode 设计 §7 回退开关的用户层)。
+     * 存盘 + 下行回灌 + 副作用:关闭时立即回收 IDLE 长驻进程(STREAMING 轮自然收尾后
+     * 由周期空闲扫描兜底);开启时无需预热(首条消息同步 spawn,§3.2)。
+     * 用户开关与两层 {@code -D} 系统开关独立生效(三层 AND 门禁,§7)。
+     */
+    public void handleSetCliPersistentEnabled(String content) {
+        try {
+            JsonObject json = gson.fromJson(content, JsonObject.class);
+            boolean enabled = readBoolean(json, "cliPersistentEnabled", true);
+            settingsService.setCliPersistentEnabled(enabled);
+            LOG.info("[ProjectConfigHandler] Set CLI persistent enabled: " + enabled);
+            pushJson(DownstreamEvent.CONFIG_CLI_PERSISTENT.value(), jsonOf("cliPersistentEnabled", enabled));
+            if (!enabled) {
+                ApplicationManager.getApplication().executeOnPooledThread(() -> {
+                    try {
+                        CliPersistentProcessRegistry.getInstance(context.getProject()).reclaimIdleProcessesNow();
+                    } catch (Exception e) {
+                        LOG.warn("[ProjectConfigHandler] CLI persistent toggle side-effect failed: "
+                                + e.getMessage(), e);
+                    }
+                });
+            }
+        } catch (Exception e) {
+            LOG.error("[ProjectConfigHandler] Failed to set CLI persistent enabled: " + e.getMessage(), e);
+            showError("Failed to save CLI persistent config");
         }
     }
 

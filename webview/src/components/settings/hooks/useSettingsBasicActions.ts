@@ -135,6 +135,9 @@ export function useSettingsBasicActions({
   // MCP Gateway acceleration toggle (default: true; off falls back to direct MCP)
   const [mcpGatewayEnabled, setMcpGatewayEnabled] = useState<boolean>(true);
 
+  // CLI persistent sessions toggle (default: true; off falls back to one-shot per message)
+  const [cliPersistentEnabled, setCliPersistentEnabled] = useState<boolean>(true);
+
   // AI session title generation toggle (default: true)
   const [aiTitleGenerationEnabled, setAiTitleGenerationEnabled] = useState<boolean>(true);
 
@@ -337,6 +340,13 @@ export function useSettingsBasicActions({
     setMcpGatewayEnabled(enabled);
     const payload = { mcpGatewayEnabled: enabled };
     sendAction(UPSTREAM.SET_MCP_GATEWAY_ENABLED, JSON.stringify(payload));
+  }, []);
+
+  // CLI persistent sessions toggle change handler — 关闭回收 IDLE 长驻进程回 one-shot,开启无需预热
+  const handleCliPersistentEnabledChange = useCallback((enabled: boolean) => {
+    setCliPersistentEnabled(enabled);
+    const payload = { cliPersistentEnabled: enabled };
+    sendAction(UPSTREAM.SET_CLI_PERSISTENT_ENABLED, JSON.stringify(payload));
   }, []);
 
   // AI session title generation toggle change handler
@@ -555,6 +565,9 @@ export function useSettingsBasicActions({
     mcpGatewayEnabled,
     setMcpGatewayEnabled,
     handleMcpGatewayEnabledChange,
+    cliPersistentEnabled,
+    setCliPersistentEnabled,
+    handleCliPersistentEnabledChange,
     aiTitleGenerationEnabled,
     setAiTitleGenerationEnabled,
     handleAiTitleGenerationEnabledChange,
