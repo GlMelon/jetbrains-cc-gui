@@ -702,3 +702,70 @@ ai-bridge/test/mcp-gateway/ipc-server-snapshot-timing.test.mjs
 - MCP Gateway 的异步快照、基线埋点和 Phase 3 fallback 是本文档重点补充内容。
 
 实施时应先以本文档拆任务，再回到既有设计文档核对 Claude stream-json 的具体协议细节。
+
+## 14. 实施状态与后续待办
+
+> 本节为 2026-08-18 落地后的剩余项索引，供后续逐项完成。已完成项的勾选状态见 §12，此处只列**未完成**与**已决不做**。
+
+### 14.1 已完成概要
+
+- **Phase 1 主体 + 补强**：长驻进程层、双路径发送、interrupt 下放、LRU 逐出、重建冷却、turnId、版本门禁、已递交不重发、gateway/轮级埋点。提交 `879e16eb`。
+- **Phase 0 埋点**：`[McpGatewayPerf]` / `[CliTurnPerf]` / `[CliPathDecision]` / 诊断测试。提交 `879e16eb` + `7405de79`。
+- **相关修复**：fable 角色映射（`a05fda0f`）、api_retry 529 提示（`7405de79`）。
+- 完整提交序列：`a05fda0f..c9e5825e`（14 个主题提交），工作区已清空。
+
+### 14.2 待完成清单
+
+#### Phase 0：基线矩阵（前置已就绪）
+
+| 项 | 内容 | 前置 | 建议做法 | 验收 |
+|---|---|---|---|---|
+| §6.2 场景矩阵 | 8 场景 × 10 次 × p50/p95 | 无（埋点已就位） | 写驱动脚本（`.ps1`/`.mjs`）发 10 轮、grep `idea.log` 的 `[CliTurnPerf]`/`[McpGatewayPerf]`/`[CliPathDecision]` 行计算分位数 | 八场景均有 p50/p95，且能区分 `spawn_to_init` / gateway / API 静默期 |
+
+#### §9.1 量化验收（依赖 §6.2 数据）
+
+| 项 | 指标 | 验收口径 |
+|---|---|---|
+| 次轮 write→init | p95 < 500ms | 同 tab 第二条消息的 `[CliTurnPerf] system_init: sinceTurnStartMs` |
+| abort 回执 | p95 < 100ms | `[TabPerf] interrupt (persistent) returned in Xms` |
+| fallback 续接 | 100% 成功 | 指纹漂移/进程崩溃后 `--resume` 续接无丢上下文 |
+
+> 沙箱重建后用户侧三项实测（非代码）：同 tab 第二条（验证次轮收益）、切 fable（命令行应变 `--model glm-5.2[1M]`）、529 场景的重试提示。
+
+#### Phase 2：MCP Gateway 解耦（数据驱动缓做）
+
+**前置**：先用 §0 埋点采真实数据确认 gateway 是否构成瓶颈——稳态已实测 `buildCliConfig totalMs≈4ms`、冷加载 4.1s 已被预热线程移出发送路径。**若数据证明需做**，再按 §6.10–6.13 落地：
+
+- [ ] 拆 `ensureStarted()` / `getCurrentSnapshot()` / `refreshSnapshotAsync()` 三操作
+- [ ] snapshot fresh/stale/empty 语义 + 版本号 + stale-while-revalidate
+- [ ] per-server `initialize/listTools` 独立 deadline + 耗时/错误分类
+- [ ] `Promise.allSettled` 产生部分成功快照、增量发布（不阻塞已可用 server）
+- [ ] 重复 refresh 去重合并（当前 `refreshing` 标志返回陈旧值，改为 join 在飞 promise）
+
+> 重点文件见 §6.12；测试 `server-supervisor-refresh.test.mjs` 待补。
+
+#### Phase 3：补尾
+
+- [ ] 轮外协议事件**自动降级**：当前仅可观测（WARN 限流，§6.14 取舍）。若日志频繁出现轮外 `result/assistant` 行且伴随轮异常，再评估自动降级触发。
+- [ ] Windows `.cmd` stdin 不稳定显式识别：当前靠杀树兜底。若 `.cmd` 下出现写入卡死，补 stdin 写入超时探测。
+- [x] ~~§6.16-5 灰度机制~~（已决不做，见 §12 说明）
+
+#### Phase 1：测试补尾
+
+- [ ] §8.1 的 spawn 成功路径、状态转换、idle 回收单测：需可跨平台 spawn 的回 echo 程序或集成测试框架。当前靠并发隔离（`CliSessionManagerConcurrencyTest`）+ 失败契约（`CliPersistentProcessRegistryTest`）兜底。
+
+#### Phase 4：provider 对齐（独立批次）
+
+- [ ] Codex `app-server` 长驻对齐（设计文档 Phase 3）
+- [ ] OpenCode `serve` 长驻对齐（设计文档 Phase 2，复用 SDK 时代契约）
+
+**前置**：Phase 1 数据稳定后评估优先级——codex 检测器预热后首轮 339ms 紧迫性最低；opencode serve 的 HTTP+SSE 多会话是本职，复用既有契约路径。
+
+### 14.3 已决不做（避免后人重新评估）
+
+| 项 | 理由 |
+|---|---|
+| §6.16-5 远端灰度配置 | 超出插件「简易配置」定位；`-D cliPersistent.claude.enabled` 子开关已覆盖按 provider 关停 |
+| registry key 四维 / 六态状态机 | 刻意简化为 `(tabId, provider)` + IDLE/STREAMING/DEAD，设计文档 §4.2/§4.4 背书；SDK 路径已移除，runtimeMode 维度不存在 |
+| 自研 daemon + 直调 API | 认证断崖/能力断崖/会话体系断裂，设计文档附录 A 已否决 |
+
