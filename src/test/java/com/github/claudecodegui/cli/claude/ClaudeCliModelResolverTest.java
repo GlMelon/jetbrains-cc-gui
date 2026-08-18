@@ -131,4 +131,33 @@ public class ClaudeCliModelResolverTest {
         assertFalse(resolved.capabilities().supportsAddDir());
         assertFalse(resolved.capabilities().supportsPartialMessages());
     }
+
+    // ── Fable 角色(修复回归:resolver 私有 family 检测曾漏 fable,导致切 fable 仍用 main model) ──
+
+    @Test
+    public void shouldMapFableRoleToFableModelEnv() {
+        JsonObject env = new JsonObject();
+        env.addProperty("ANTHROPIC_MODEL", "glm-5.3[1M]");
+        env.addProperty("ANTHROPIC_DEFAULT_FABLE_MODEL", "glm-5.2[1M]");
+
+        assertEquals("glm-5.2[1M]", ClaudeCliModelResolver.resolveMapped("claude-role-fable", env));
+    }
+
+    @Test
+    public void shouldFallBackToOpusModelWhenFableEnvMissing() {
+        JsonObject env = new JsonObject();
+        env.addProperty("ANTHROPIC_MODEL", "glm-5.3[1M]");
+        env.addProperty("ANTHROPIC_DEFAULT_OPUS_MODEL", "glm-5.3-opus");
+
+        // FABLE 未配时回退 Opus 通道(对齐 ClaudeRole.FABLE.envKeys fallback 顺序)
+        assertEquals("glm-5.3-opus", ClaudeCliModelResolver.resolveMapped("claude-role-fable", env));
+    }
+
+    @Test
+    public void shouldPreserveLongContextSuffixWhenMappingFable() {
+        JsonObject env = new JsonObject();
+        env.addProperty("ANTHROPIC_DEFAULT_FABLE_MODEL", "glm-5.2");
+
+        assertEquals("glm-5.2[1m]", ClaudeCliModelResolver.resolveMapped("claude-role-fable[1m]", env));
+    }
 }

@@ -17,12 +17,13 @@ final class ClaudeCliModelResolver {
     private static final String SUFFIX_1M = "[1m]";
 
     /** 模型家族枚举，用于统一 resolveMapped 和 readCapabilityOverride 中的分派逻辑。 */
-    private enum ModelFamily { OPUS, HAIKU, SONNET, OTHER }
+    private enum ModelFamily { OPUS, HAIKU, SONNET, FABLE, OTHER }
 
     private static ModelFamily detectFamily(String normalizedModel) {
         if (normalizedModel.contains("opus")) { return ModelFamily.OPUS; }
         if (normalizedModel.contains("haiku")) { return ModelFamily.HAIKU; }
         if (normalizedModel.contains("sonnet")) { return ModelFamily.SONNET; }
+        if (normalizedModel.contains("fable")) { return ModelFamily.FABLE; }
         return ModelFamily.OTHER;
     }
 
@@ -70,6 +71,10 @@ final class ClaudeCliModelResolver {
                                readEnvValue(env, CommonConstants.ENV_ANTHROPIC_SMALL_FAST_MODEL),
                                readEnvValue(env, CommonConstants.ENV_ANTHROPIC_DEFAULT_HAIKU_MODEL));
             case SONNET -> readEnvValue(env, CommonConstants.ENV_ANTHROPIC_DEFAULT_SONNET_MODEL);
+            // Fable 回退 Opus 通道(与 ClaudeRole.FABLE.envKeys 的 fallback 顺序对齐)
+            case FABLE  -> firstNonBlank(
+                               readEnvValue(env, CommonConstants.ENV_ANTHROPIC_DEFAULT_FABLE_MODEL),
+                               readEnvValue(env, CommonConstants.ENV_ANTHROPIC_DEFAULT_OPUS_MODEL));
             case OTHER  -> null;
         };
 
@@ -151,6 +156,10 @@ final class ClaudeCliModelResolver {
                                readEnvValue(env, CommonConstants.ENV_ANTHROPIC_SMALL_FAST_MODEL_CAPABILITIES),
                                readEnvValue(env, CommonConstants.ENV_ANTHROPIC_DEFAULT_HAIKU_MODEL_CAPABILITIES));
             case SONNET -> readEnvValue(env, CommonConstants.ENV_ANTHROPIC_DEFAULT_SONNET_MODEL_CAPABILITIES);
+            // Fable 回退 Opus 能力通道(与 ClaudeRole.FABLE.capsEnvKeys 对齐)
+            case FABLE  -> firstNonBlank(
+                               readEnvValue(env, CommonConstants.ENV_ANTHROPIC_DEFAULT_FABLE_MODEL_CAPABILITIES),
+                               readEnvValue(env, CommonConstants.ENV_ANTHROPIC_DEFAULT_OPUS_MODEL_CAPABILITIES));
             case OTHER  -> isCanonicalClaudeModel(resolvedModel)
                                ? readEnvValue(env, CommonConstants.ENV_ANTHROPIC_DEFAULT_SONNET_MODEL_CAPABILITIES)
                                : null;
