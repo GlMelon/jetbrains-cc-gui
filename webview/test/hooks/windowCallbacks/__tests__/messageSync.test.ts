@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import type { MutableRefObject } from 'react';
 import type { ClaudeMessage } from '../../../../src/types';
+import { clearMessageKeyAliases, getMessageKey } from '../../../../src/utils/messageUtils';
 import {
   OPTIMISTIC_MESSAGE_TIME_WINDOW,
   appendOptimisticMessageIfMissing,
@@ -20,6 +21,12 @@ import {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+// appendOptimisticMessageIfMissing registers module-level key aliases as a
+// side effect — isolate every test against leakage from earlier tests.
+beforeEach(() => {
+  clearMessageKeyAliases();
+});
 
 const ref = <T>(value: T): MutableRefObject<T> => ({ current: value });
 
@@ -311,6 +318,38 @@ describe('appendOptimisticMessageIfMissing', () => {
     const result = appendOptimisticMessageIfMissing(prev, next);
     expect(result).toHaveLength(1);
     expect(result[0]).toBe(backendMsg);
+  });
+
+  it('registers a key alias so a uuid-carrying backend message keeps the optimistic key', () => {
+    // The "sent message flickers" fix: the optimistic bubble renders under
+    // `user-<ISO>`; the backend confirmation carries a uuid and would compute
+    // a different React key (→ remount + entry-animation replay + 160ms exit
+    // ghost). The alias keeps getMessageKey stable across the swap.
+    const ts = new Date().toISOString();
+    const optimistic = makeUserMsg('hello world', { isOptimistic: true, timestamp: ts });
+    const backendMsg = makeUserMsg('hello world', {
+      timestamp: Date.now(),
+      raw: { uuid: 'backend-uuid-1' },
+    });
+    const optimisticKey = getMessageKey(optimistic, 0);
+    expect(getMessageKey(backendMsg, 0)).toBe('backend-uuid-1'); // pre-alias sanity
+
+    appendOptimisticMessageIfMissing([optimistic], [backendMsg]);
+
+    expect(getMessageKey(backendMsg, 0)).toBe(optimisticKey);
+  });
+
+  it('registers a key alias for backend messages matched without a uuid', () => {
+    // Backend snapshot uses a millisecond timestamp while the optimistic copy
+    // used an ISO string — both compute `user-<ts>` keys that differ.
+    const ts = new Date().toISOString();
+    const optimistic = makeUserMsg('hello world', { isOptimistic: true, timestamp: ts });
+    const backendMsg = makeUserMsg('hello world', { timestamp: Date.now() });
+    const optimisticKey = getMessageKey(optimistic, 0);
+
+    appendOptimisticMessageIfMissing([optimistic], [backendMsg]);
+
+    expect(getMessageKey(backendMsg, 0)).toBe(optimisticKey);
   });
 
   it('matches the latest backend user message by content even when confirmation is delayed', () => {

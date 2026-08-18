@@ -48,14 +48,69 @@ export {
 export type { LocalizeMessageFn } from './contentBlockNormalize';
 
 /**
+ * Render-identity alias registry: maps a message's computed key (e.g. a backend
+ * uuid) to the canonical key of the logically-same message that was already
+ * rendered under a different identity (e.g. the optimistic copy's
+ * `user-<ISO-timestamp>` key).
+ *
+ * Registered when the optimistic user message is replaced by its backend
+ * confirmation (appendOptimisticMessageIfMissing) and when patchMessageUuid
+ * stamps a uuid onto an already-rendered message. Because getMessageKey()
+ * resolves aliases before returning, the React list key stays constant across
+ * those identity transitions — the card is NOT remounted, so its entry
+ * animation does not replay and the H3 exit animation does not ghost it
+ * (the "sent message flickers once" symptom).
+ *
+ * Module-level like MessageList's animatedEntryKeys; both are cleared together
+ * on session switch to keep keys session-scoped.
+ */
+const messageKeyAliasRoot = new Map<string, string>();
+
+/**
+ * Map `aliasKey` onto the canonical identity of `canonicalKey`. Both sides are
+ * resolved through the registry first so chains collapse onto one root and
+ * cycles are impossible. No-op for identical keys.
+ */
+export function registerMessageKeyAlias(aliasKey: string, canonicalKey: string): void {
+  const alias = resolveMessageKeyAlias(aliasKey);
+  const canonical = resolveMessageKeyAlias(canonicalKey);
+  if (alias === canonical) return;
+  messageKeyAliasRoot.set(alias, canonical);
+}
+
+/**
+ * Resolve a key to its canonical (registry-root) identity. Unregistered keys
+ * return themselves.
+ */
+export function resolveMessageKeyAlias(key: string): string {
+  let current = key;
+  const seen = new Set<string>();
+  while (messageKeyAliasRoot.has(current) && !seen.has(current)) {
+    seen.add(current);
+    current = messageKeyAliasRoot.get(current) as string;
+  }
+  return current;
+}
+
+/** Clear all key aliases (called on session switch, alongside animatedEntryKeys). */
+export function clearMessageKeyAliases(): void {
+  messageKeyAliasRoot.clear();
+}
+
+/**
  * Generate a stable key for a message, used for React list keys and anchor navigation.
  * Prefer raw.uuid > __turnId > type-timestamp > fallback to type-index.
+ * The computed key is resolved through the alias registry so a message whose
+ * identity was enriched in place (uuid patched / optimistic→backend swap)
+ * keeps the key it was first rendered under.
  */
 export function getMessageKey(message: ClaudeMessage, index: number): string {
   const rawObj = typeof message.raw === 'object' ? message.raw as Record<string, unknown> : null;
-  if (typeof rawObj?.uuid === 'string' && rawObj.uuid) return rawObj.uuid;
-  if (message.__turnId !== undefined) return `turn-${message.__turnId}`;
-  return message.timestamp ? `${message.type}-${message.timestamp}` : `${message.type}-${index}`;
+  let key: string;
+  if (typeof rawObj?.uuid === 'string' && rawObj.uuid) key = rawObj.uuid;
+  else if (message.__turnId !== undefined) key = `turn-${message.__turnId}`;
+  else key = message.timestamp ? `${message.type}-${message.timestamp}` : `${message.type}-${index}`;
+  return resolveMessageKeyAlias(key);
 }
 
 interface MessageKeyRecord {

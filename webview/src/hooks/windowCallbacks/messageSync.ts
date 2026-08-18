@@ -8,6 +8,7 @@
 
 import type { MutableRefObject } from 'react';
 import type { ClaudeContentOrResultBlock, ClaudeMessage, ClaudeRawMessage } from '../../types';
+import { getMessageKey, registerMessageKeyAlias } from '../../utils/messageUtils';
 
 const UPLOADED_ATTACHMENT_PLACEHOLDER_RE = /^\[Uploaded(?:\s[\s\S]*)?\]$/;
 
@@ -141,6 +142,18 @@ export const appendOptimisticMessageIfMissing = (
     }
     return [...nextList, optimisticMsg];
   }
+
+  // Backend message matched the optimistic message. Register the backend
+  // message's computed key (uuid / backend timestamp) as an alias of the
+  // optimistic message's key so getMessageKey keeps returning the key the
+  // card was first rendered under. Without this, swapping the optimistic
+  // bubble for its backend confirmation changes the React list key → the
+  // card remounts → the entry animation replays and the H3 exit animation
+  // ghosts the old copy for 160ms (the "sent message flickers" symptom).
+  registerMessageKeyAlias(
+    getMessageKey(nextList[matchedIndex], matchedIndex),
+    getMessageKey(optimisticMsg, matchedIndex),
+  );
 
   // Backend message matched the optimistic message.  Preserve attachment and
   // image blocks from the optimistic message into the backend message's raw

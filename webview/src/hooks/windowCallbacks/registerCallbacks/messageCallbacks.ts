@@ -14,6 +14,7 @@ import type { ClaudeMessage } from '../../../types';
 import type { ContextUsageData } from '../../../components/ContextUsageDialog';
 import type { QueueDisplayState } from '../../../contexts/MessagesContext';
 import { debugError } from '../../../utils/debug';
+import { getMessageKey, registerMessageKeyAlias } from '../../../utils/messageUtils';
 import { appendOptimisticMessageIfMissing, ensureStreamingAssistantInList, getRawUuid, preserveAssistantResponseGrouping, preserveLastAssistantIdentity, preserveLatestMessagesOnShrink, preserveStreamingAssistantContent, stripDuplicateTrailingToolMessages } from '../messageSync';
 import { releaseSessionTransition } from '../sessionTransition';
 import { parseSequence } from '../parseSequence';
@@ -648,6 +649,12 @@ export function registerMessageCallbacks(
           ...message,
           raw,
         };
+        // Stamping the uuid changes the computed key (uuid outranks timestamp
+        // in getMessageKey). Register the pre-patch key as canonical so the
+        // card keeps its React key — no remount, no entry-animation replay.
+        // Idempotent under StrictMode's double-invoked updaters (same-keyed
+        // Map.set), so this module-level side effect is safe here.
+        registerMessageKeyAlias(getMessageKey(next[i], i), getMessageKey(message, i));
         return next;
       }
 

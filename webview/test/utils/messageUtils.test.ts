@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { ClaudeMessage } from '../../src/types';
 import {
   getMessageKey,
+  registerMessageKeyAlias,
+  resolveMessageKeyAlias,
+  clearMessageKeyAliases,
   reconcileMessageKeys,
   getContentBlocks,
   mergeConsecutiveAssistantMessages,
@@ -71,6 +74,53 @@ describe('getMessageKey', () => {
   it('falls back to type-index when no uuid, __turnId, or timestamp', () => {
     const msg: ClaudeMessage = { type: 'assistant', content: 'hi' };
     expect(getMessageKey(msg, 7)).toBe('assistant-7');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Message key alias registry — render-identity stability across the
+// optimistic→backend swap and in-place uuid patches
+// ---------------------------------------------------------------------------
+
+describe('message key alias registry', () => {
+  it('returns an unregistered key unchanged', () => {
+    expect(resolveMessageKeyAlias('user-2024-01-01T00:00:00.000Z')).toBe(
+      'user-2024-01-01T00:00:00.000Z',
+    );
+  });
+
+  it('getMessageKey resolves through the registry after registration', () => {
+    const optimisticKey = getMessageKey(makeMsg('user', 'hi', { timestamp: '2024-01-01T00:00:00.000Z' }), 0);
+    const backendMsg = makeMsg('user', 'hi', {
+      timestamp: 1704067200000,
+      raw: { uuid: 'backend-uuid' } as any,
+    });
+    registerMessageKeyAlias('backend-uuid', optimisticKey);
+
+    expect(getMessageKey(backendMsg, 0)).toBe(optimisticKey);
+    clearMessageKeyAliases();
+  });
+
+  it('collapses alias chains onto one root', () => {
+    registerMessageKeyAlias('a', 'b');
+    registerMessageKeyAlias('b', 'c');
+    expect(resolveMessageKeyAlias('a')).toBe('c');
+    expect(resolveMessageKeyAlias('b')).toBe('c');
+    clearMessageKeyAliases();
+  });
+
+  it('is a no-op when registering an alias whose canonical already maps the other way', () => {
+    registerMessageKeyAlias('x', 'root');
+    registerMessageKeyAlias('root', 'x');
+    expect(resolveMessageKeyAlias('x')).toBe('root');
+    expect(resolveMessageKeyAlias('root')).toBe('root');
+    clearMessageKeyAliases();
+  });
+
+  it('clearMessageKeyAliases removes all mappings', () => {
+    registerMessageKeyAlias('a', 'b');
+    clearMessageKeyAliases();
+    expect(resolveMessageKeyAlias('a')).toBe('a');
   });
 });
 
