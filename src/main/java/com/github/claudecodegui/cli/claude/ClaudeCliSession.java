@@ -1,5 +1,6 @@
 package com.github.claudecodegui.cli.claude;
 
+import com.github.claudecodegui.bridge.NodeService;
 import com.github.claudecodegui.cli.CliSendRequest;
 import com.github.claudecodegui.cli.CliSession;
 import com.github.claudecodegui.cli.CliSessionCallback;
@@ -275,6 +276,17 @@ public class ClaudeCliSession implements CliSession {
         if (resumeId != null && !resumeId.isBlank()) {
             cmd.add(CliConstants.ARG_RESUME);
             cmd.add(resumeId);
+        }
+
+        // Inject a PreToolUse hook via --settings so the CLI bridges tool-permission
+        // requests to the plugin's file-IPC + frontend dialog chain (see
+        // ClaudeCliHookSettings). Single injection point covers BOTH the persistent
+        // path (ClaudePersistentSendPath.buildSpec delegates here with streamJsonInput=true)
+        // AND one-shot (sendOneShot). Best-effort: null → fall back to pre-fix behavior.
+        String hookSettings = ClaudeCliHookSettings.getSettingsPath();
+        if (hookSettings != null) {
+            cmd.add(CliConstants.ARG_SETTINGS);
+            cmd.add(hookSettings);
         }
 
         return cmd;
@@ -991,9 +1003,17 @@ public class ClaudeCliSession implements CliSession {
         if (cached != null && !cached.isBlank()) {
             return cached;
         }
-        String generated = java.util.UUID.randomUUID().toString();
-        cliPermissionSessionId = generated;
-        return generated;
+        // Fallback aligns with the PermissionService key (NodeService.sessionId, set
+        // by ChatWindowDelegate.setupPermissionService) rather than a fresh UUID, so the
+        // hook-written request-<sid>.json is matched by the Java watcher's sessionId
+        // filter. A fresh UUID would desync CLAUDE_SESSION_ID from PermissionService and
+        // the dialog would still never fire even with the hook now injected.
+        String sid = NodeService.getInstance().getSessionId();
+        if (sid == null || sid.isBlank()) {
+            sid = java.util.UUID.randomUUID().toString();
+        }
+        cliPermissionSessionId = sid;
+        return sid;
     }
 
     private long getPermissionSafetyNetMs() {

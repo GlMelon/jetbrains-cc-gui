@@ -206,6 +206,8 @@ public final class CliConstants {
     public static final String ARG_INCLUDE_PARTIAL = "--include-partial-messages";
     public static final String ARG_PERMISSION_MODE = "--permission-mode";
     public static final String ARG_DANGEROUS_SKIP = "--dangerously-skip-permissions";
+    /** Injects a settings file (additive merge, high precedence) — used to attach the PreToolUse hook. */
+    public static final String ARG_SETTINGS = "--settings";
     public static final String ARG_MODEL = "--model";
     public static final String ARG_EFFORT = "--effort";
     public static final String ARG_MCP_CONFIG = "--mcp-config";
