@@ -170,10 +170,17 @@ public class ModelProviderHandler {
             usagePushService.clearUsageDisplay();
         }
 
-        // Store contextWindow override for later use by message handlers
-        context.setCurrentModelContextWindow(contextWindowOverride);
+        // Store resolved context window for later use by message handlers (usage tracking).
+        // For Claude models, frontend sends longContextEnabled (not contextWindow), so
+        // contextWindowOverride is null. Use the resolver's maxTokens (which accounts for
+        // longContextEnabled + supports1M) so that getEffectiveMaxTokens() returns the
+        // correct value when USAGE_UPDATE is computed.
+        int effectiveContextWindow = contextWindowOverride != null && contextWindowOverride > 0
+                ? contextWindowOverride
+                : selection.maxTokens();
+        context.setCurrentModelContextWindow(effectiveContextWindow);
         if (context.getSession() != null) {
-            context.getSession().getState().setContextWindowOverride(contextWindowOverride);
+            context.getSession().getState().setContextWindowOverride(effectiveContextWindow);
         }
 
         int newMaxTokens = selection.maxTokens();
