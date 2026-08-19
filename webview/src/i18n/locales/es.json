@@ -99,6 +99,22 @@
       "duration": "Duración：",
       "tokensUnit": "tokens"
     },
+    "sessionCapabilities": {
+      "title": "Capacidades de la sesión",
+      "open": "Abrir capacidades de la sesión",
+      "close": "Cerrar capacidades",
+      "dismiss": "Descartar capacidades",
+      "loading": "Actualizando instantánea…",
+      "summary": "{{count}} capacidades visibles para esta sesión",
+      "mcp": "Servidores MCP",
+      "skills": "Habilidades",
+      "emptyMcp": "No se observaron servidores MCP.",
+      "emptySkills": "No se observaron habilidades.",
+      "error": "No se pudieron cargar las capacidades de la sesión.",
+      "updatedAt": "Actualizado {{time}}",
+      "notUpdated": "Aún no actualizado",
+      "refresh": "Actualizar"
+    },
     "search": {
       "ariaLabel": "Buscar en la conversación",
       "placeholder": "Buscar en la conversación…",

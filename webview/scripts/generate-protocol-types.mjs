@@ -104,6 +104,18 @@ const skillDocumentSavePayloadJavaPath = resolve(
   __dirname,
   '../../src/main/java/com/github/claudecodegui/protocol/payload/SkillDocumentSavePayloadField.java',
 );
+const sessionMcpCapabilityPayloadJavaPath = resolve(
+  __dirname,
+  '../../src/main/java/com/github/claudecodegui/protocol/payload/SessionMcpCapabilityPayloadField.java',
+);
+const sessionSkillCapabilityPayloadJavaPath = resolve(
+  __dirname,
+  '../../src/main/java/com/github/claudecodegui/protocol/payload/SessionSkillCapabilityPayloadField.java',
+);
+const sessionCapabilitiesPayloadJavaPath = resolve(
+  __dirname,
+  '../../src/main/java/com/github/claudecodegui/protocol/payload/SessionCapabilitiesPayloadField.java',
+);
 const codexProtectedEnvKeyJavaPath = resolve(
   __dirname,
   '../../src/main/java/com/github/claudecodegui/protocol/CodexProtectedEnvKey.java',
@@ -148,6 +160,9 @@ const REQUIRED_JAVA_SOURCES = [
   skillDocumentFieldPayloadJavaPath,
   skillDocumentResultPayloadJavaPath,
   skillDocumentSavePayloadJavaPath,
+  sessionMcpCapabilityPayloadJavaPath,
+  sessionSkillCapabilityPayloadJavaPath,
+  sessionCapabilitiesPayloadJavaPath,
   codexProtectedEnvKeyJavaPath,
   commonConstantsJavaPath,
   permissionDialogTimeoutSettingsJavaPath,
@@ -441,6 +456,9 @@ function generateManifestFromJavaSources() {
       skillDocumentField: parsePayloadSchema(skillDocumentFieldPayloadJavaPath),
       skillDocumentResult: parsePayloadSchema(skillDocumentResultPayloadJavaPath),
       skillDocumentSave: parsePayloadSchema(skillDocumentSavePayloadJavaPath),
+      sessionMcpCapability: parsePayloadSchema(sessionMcpCapabilityPayloadJavaPath),
+      sessionSkillCapability: parsePayloadSchema(sessionSkillCapabilityPayloadJavaPath),
+      sessionCapabilities: parsePayloadSchema(sessionCapabilitiesPayloadJavaPath),
     },
   };
 }
@@ -527,6 +545,37 @@ export interface HistoryArchiveResultPayloadWire {
   archivedSessionIds: readonly string[];
   failedSessionIds: readonly string[];
 }
+
+export interface SessionMcpCapabilityPayloadWire {
+  id: string;
+  name: string;
+  provider: string;
+  state: string;
+  lastError: string | null;
+  lastSuccessAt: number | null;
+  failureCount: number;
+  observed: boolean;
+}
+
+export interface SessionSkillCapabilityPayloadWire {
+  id: string;
+  name: string;
+  scope: string;
+  state: string;
+  observed: boolean;
+  source: string;
+}
+
+export interface SessionCapabilitiesPayloadWire {
+  sessionId: string;
+  runtimeEpoch: string;
+  provider: string;
+  observedAt: number;
+  mcpAvailable: boolean;
+  mcpError: string | null;
+  mcp: SessionMcpCapabilityPayloadWire[];
+  skills: SessionSkillCapabilityPayloadWire[];
+}
 `;
 }
 
@@ -561,7 +610,7 @@ function main(args = process.argv.slice(2)) {
     writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8');
     content = generateFromManifest(manifest);
     console.log(
-      `[generate-protocol-types] Generated from Java sources (${manifest.upstream.length} upstream, ${manifest.downstream.length} downstream, ${manifest.permissionMode?.length ?? 0} permissionMode, ${manifest.reasoningEffort?.length ?? 0} reasoningEffort, ${manifest.providerType?.length ?? 0} providerType, ${manifest.skillScope?.length ?? 0} skillScope, ${manifest.skillFieldControl?.length ?? 0} skillFieldControl, ${manifest.historyExportFormat?.length ?? 0} historyExportFormat, ${manifest.codexProtectedEnvKey?.length ?? 0} codexProtectedEnvKey, ${manifest.intConstants?.length ?? 0} intConstants, ${manifest.payloadSchemas?.modelRegistry?.fields?.length ?? 0} modelRegistry payload fields, ${manifest.payloadSchemas?.webviewBootstrap?.fields?.length ?? 0} webviewBootstrap payload fields, ${manifest.payloadSchemas?.historyExport?.fields?.length ?? 0} historyExport payload fields, ${manifest.payloadSchemas?.historyCapabilities?.fields?.length ?? 0} historyCapabilities payload fields, ${manifest.payloadSchemas?.historyArchiveResult?.fields?.length ?? 0} historyArchiveResult payload fields, ${manifest.payloadSchemas?.skillDocumentField?.fields?.length ?? 0} skillDocumentField payload fields, ${manifest.payloadSchemas?.skillDocumentResult?.fields?.length ?? 0} skillDocumentResult payload fields, ${manifest.payloadSchemas?.skillDocumentSave?.fields?.length ?? 0} skillDocumentSave payload fields)`,
+      `[generate-protocol-types] Generated from Java sources (${manifest.upstream.length} upstream, ${manifest.downstream.length} downstream, ${manifest.permissionMode?.length ?? 0} permissionMode, ${manifest.reasoningEffort?.length ?? 0} reasoningEffort, ${manifest.providerType?.length ?? 0} providerType, ${manifest.skillScope?.length ?? 0} skillScope, ${manifest.skillFieldControl?.length ?? 0} skillFieldControl, ${manifest.historyExportFormat?.length ?? 0} historyExportFormat, ${manifest.codexProtectedEnvKey?.length ?? 0} codexProtectedEnvKey, ${manifest.intConstants?.length ?? 0} intConstants, ${manifest.payloadSchemas?.modelRegistry?.fields?.length ?? 0} modelRegistry payload fields, ${manifest.payloadSchemas?.webviewBootstrap?.fields?.length ?? 0} webviewBootstrap payload fields, ${manifest.payloadSchemas?.historyExport?.fields?.length ?? 0} historyExport payload fields, ${manifest.payloadSchemas?.historyCapabilities?.fields?.length ?? 0} historyCapabilities payload fields, ${manifest.payloadSchemas?.historyArchiveResult?.fields?.length ?? 0} historyArchiveResult payload fields, ${manifest.payloadSchemas?.skillDocumentField?.fields?.length ?? 0} skillDocumentField payload fields, ${manifest.payloadSchemas?.skillDocumentResult?.fields?.length ?? 0} skillDocumentResult payload fields, ${manifest.payloadSchemas?.skillDocumentSave?.fields?.length ?? 0} skillDocumentSave payload fields, ${manifest.payloadSchemas?.sessionMcpCapability?.fields?.length ?? 0} sessionMcpCapability payload fields, ${manifest.payloadSchemas?.sessionSkillCapability?.fields?.length ?? 0} sessionSkillCapability payload fields, ${manifest.payloadSchemas?.sessionCapabilities?.fields?.length ?? 0} sessionCapabilities payload fields)`,
     );
   } else if (mode === 'manifest') {
     if (!existsSync(manifestPath)) {

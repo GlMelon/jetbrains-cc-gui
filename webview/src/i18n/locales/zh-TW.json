@@ -101,6 +101,22 @@
       "duration": "耗時：",
       "tokensUnit": "tokens"
     },
+    "sessionCapabilities": {
+      "title": "工作階段能力",
+      "open": "開啟工作階段能力",
+      "close": "關閉能力",
+      "dismiss": "關閉能力面板",
+      "loading": "正在重新整理快照…",
+      "summary": "此工作階段可見 {{count}} 項能力",
+      "mcp": "MCP 伺服器",
+      "skills": "技能",
+      "emptyMcp": "未觀察到 MCP 伺服器。",
+      "emptySkills": "未觀察到技能。",
+      "error": "無法載入工作階段能力。",
+      "updatedAt": "更新於 {{time}}",
+      "notUpdated": "尚未更新",
+      "refresh": "重新整理"
+    },
     "search": {
       "ariaLabel": "在對話中搜尋",
       "placeholder": "在對話中搜尋...",

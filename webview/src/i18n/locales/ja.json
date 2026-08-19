@@ -99,6 +99,22 @@
       "duration": "所要時間：",
       "tokensUnit": "tokens"
     },
+    "sessionCapabilities": {
+      "title": "セッションの機能",
+      "open": "セッションの機能を開く",
+      "close": "機能を閉じる",
+      "dismiss": "機能を閉じる",
+      "loading": "スナップショットを更新中…",
+      "summary": "このセッションで利用可能な機能は {{count}} 件です",
+      "mcp": "MCP サーバー",
+      "skills": "スキル",
+      "emptyMcp": "確認された MCP サーバーはありません。",
+      "emptySkills": "確認されたスキルはありません。",
+      "error": "セッションの機能を読み込めません。",
+      "updatedAt": "更新日時 {{time}}",
+      "notUpdated": "未更新",
+      "refresh": "更新"
+    },
     "search": {
       "ariaLabel": "会話内を検索",
       "placeholder": "会話内を検索...",

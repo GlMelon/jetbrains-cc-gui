@@ -111,6 +111,22 @@
       "duration": "耗时：",
       "tokensUnit": "tokens"
     },
+    "sessionCapabilities": {
+      "title": "会话能力",
+      "open": "打开会话能力",
+      "close": "关闭能力",
+      "dismiss": "关闭能力面板",
+      "loading": "正在刷新快照…",
+      "summary": "当前会话可见 {{count}} 项能力",
+      "mcp": "MCP 服务",
+      "skills": "技能",
+      "emptyMcp": "未发现 MCP 服务。",
+      "emptySkills": "未发现技能。",
+      "error": "无法加载会话能力。",
+      "updatedAt": "更新于 {{time}}",
+      "notUpdated": "尚未更新",
+      "refresh": "刷新"
+    },
     "search": {
       "ariaLabel": "在对话中搜索",
       "placeholder": "在对话中搜索…",

@@ -1,7 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { TFunction } from 'i18next';
 
-import { BackIcon, SearchIcon, PlusIcon, NewTabIcon, HistoryIcon, SettingsIcon, CheckIcon, CloseIcon, EditIcon } from '../Icons';
+import {
+  BackIcon,
+  SearchIcon,
+  PlusIcon,
+  NewTabIcon,
+  HistoryIcon,
+  SettingsIcon,
+  CheckIcon,
+  CloseIcon,
+  EditIcon,
+  ToolsIcon,
+} from '../Icons';
 
 export interface ChatHeaderProps {
   currentView: 'chat' | 'history' | 'settings';
@@ -15,6 +26,8 @@ export interface ChatHeaderProps {
   onOpenSearch?: () => void;
   onTitleChange?: (title: string) => void;
   titleEditable?: boolean;
+  onOpenCapabilities?: () => void;
+  capabilitiesCount?: number;
 }
 
 export function ChatHeader({
@@ -29,6 +42,8 @@ export function ChatHeader({
   onOpenSearch,
   onTitleChange,
   titleEditable = false,
+  onOpenCapabilities,
+  capabilitiesCount,
 }: ChatHeaderProps): React.ReactElement | null {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
@@ -65,24 +80,30 @@ export function ChatHeader({
     setEditing(false);
   }, []);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      commitEdit();
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      cancelEdit();
-    }
-  }, [commitEdit, cancelEdit]);
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        commitEdit();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        cancelEdit();
+      }
+    },
+    [commitEdit, cancelEdit],
+  );
 
-  const handleBlur = useCallback((e: React.FocusEvent<HTMLInputElement>) => {
-    // If focus moves to save/cancel button inside edit container, let that button handle it
-    const editContainer = e.currentTarget.closest('.session-title-edit-mode');
-    if (editContainer && editContainer.contains(e.relatedTarget as Node)) {
-      return;
-    }
-    commitEdit();
-  }, [commitEdit]);
+  const handleBlur = useCallback(
+    (e: React.FocusEvent<HTMLInputElement>) => {
+      // If focus moves to save/cancel button inside edit container, let that button handle it
+      const editContainer = e.currentTarget.closest('.session-title-edit-mode');
+      if (editContainer && editContainer.contains(e.relatedTarget as Node)) {
+        return;
+      }
+      commitEdit();
+    },
+    [commitEdit],
+  );
 
   if (currentView === 'settings') {
     return null;
@@ -112,17 +133,23 @@ export function ChatHeader({
             <button className="session-title-save-btn" onClick={commitEdit} aria-label="Save title">
               <CheckIcon size={14} />
             </button>
-            <button className="session-title-cancel-btn" onClick={cancelEdit} aria-label="Cancel editing">
+            <button
+              className="session-title-cancel-btn"
+              onClick={cancelEdit}
+              aria-label="Cancel editing"
+            >
               <CloseIcon size={14} />
             </button>
           </div>
         ) : (
           <div className="session-title-wrapper">
-            <div className="session-title">
-              {sessionTitle}
-            </div>
+            <div className="session-title">{sessionTitle}</div>
             {titleEditable && (
-              <button className="session-title-edit-btn" onClick={startEditing} aria-label="Edit session title">
+              <button
+                className="session-title-edit-btn"
+                onClick={startEditing}
+                aria-label="Edit session title"
+              >
                 <EditIcon size={14} />
               </button>
             )}
@@ -136,37 +163,58 @@ export function ChatHeader({
               <button
                 className="icon-button"
                 onClick={onOpenSearch}
-                data-tooltip={t('chat.search.openTooltip', { defaultValue: 'Search in conversation' })}
-                aria-label={t('chat.search.openTooltip', { defaultValue: 'Search in conversation' })}
+                data-tooltip={t('chat.search.openTooltip', {
+                  defaultValue: 'Search in conversation',
+                })}
+                aria-label={t('chat.search.openTooltip', {
+                  defaultValue: 'Search in conversation',
+                })}
               >
                 <SearchIcon size={16} />
               </button>
             )}
-            <button className="icon-button" onClick={onNewSession} data-tooltip={t('common.newSession')}>
-              <PlusIcon size={16} />
-            </button>
             <button
               className="icon-button"
-              onClick={onNewTab}
-              data-tooltip={t('common.newTab')}
+              onClick={onNewSession}
+              data-tooltip={t('common.newSession')}
             >
+              <PlusIcon size={16} />
+            </button>
+            <button className="icon-button" onClick={onNewTab} data-tooltip={t('common.newTab')}>
               <NewTabIcon size={16} />
             </button>
             {onOpenSearch && (
               <button
                 className="icon-button"
                 onClick={onOpenSearch}
-                data-tooltip={t('chat.search.openTooltip', { defaultValue: 'Search in conversation' })}
-                aria-label={t('chat.search.openTooltip', { defaultValue: 'Search in conversation' })}
+                data-tooltip={t('chat.search.openTooltip', {
+                  defaultValue: 'Search in conversation',
+                })}
+                aria-label={t('chat.search.openTooltip', {
+                  defaultValue: 'Search in conversation',
+                })}
               >
                 <span className="codicon codicon-search" />
               </button>
             )}
-            <button
-              className="icon-button"
-              onClick={onHistory}
-              data-tooltip={t('common.history')}
-            >
+            {onOpenCapabilities && (
+              <button
+                className="icon-button session-capabilities-trigger"
+                onClick={onOpenCapabilities}
+                data-tooltip={t('chat.sessionCapabilities.open', {
+                  defaultValue: 'Open session capabilities',
+                })}
+                aria-label={t('chat.sessionCapabilities.open', {
+                  defaultValue: 'Open session capabilities',
+                })}
+              >
+                <ToolsIcon size={16} />
+                {typeof capabilitiesCount === 'number' && capabilitiesCount > 0 && (
+                  <span className="session-capabilities-trigger-count">{capabilitiesCount}</span>
+                )}
+              </button>
+            )}
+            <button className="icon-button" onClick={onHistory} data-tooltip={t('common.history')}>
               <HistoryIcon size={16} />
             </button>
             <button

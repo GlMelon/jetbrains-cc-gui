@@ -99,6 +99,22 @@
       "duration": "소요 시간：",
       "tokensUnit": "tokens"
     },
+    "sessionCapabilities": {
+      "title": "세션 기능",
+      "open": "세션 기능 열기",
+      "close": "기능 닫기",
+      "dismiss": "기능 닫기",
+      "loading": "스냅샷 새로 고침 중…",
+      "summary": "이 세션에서 확인된 기능 {{count}}개",
+      "mcp": "MCP 서버",
+      "skills": "스킬",
+      "emptyMcp": "확인된 MCP 서버가 없습니다.",
+      "emptySkills": "확인된 스킬이 없습니다.",
+      "error": "세션 기능을 불러올 수 없습니다.",
+      "updatedAt": "업데이트됨 {{time}}",
+      "notUpdated": "아직 업데이트되지 않음",
+      "refresh": "새로 고침"
+    },
     "search": {
       "ariaLabel": "대화에서 검색",
       "placeholder": "대화에서 검색...",

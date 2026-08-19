@@ -26,6 +26,7 @@ public enum UpstreamAction implements ProtocolValue {
     TAB_LOADING_CHANGED("tab_loading_changed"),
     TAB_STATUS_CHANGED("tab_status_changed"),
     REFRESH_SLASH_COMMANDS("refresh_slash_commands"),
+    GET_SESSION_CAPABILITIES("get_session_capabilities"),
 
     // ── Settings: Mode/Model/Provider ──
     GET_MODE("get_mode"),

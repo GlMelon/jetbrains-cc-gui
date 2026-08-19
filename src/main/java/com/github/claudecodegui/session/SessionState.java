@@ -94,6 +94,7 @@ public class SessionState {
 
     // Slash commands — volatile for cross-thread visibility (same reason as permissionMode/model/provider)
     private volatile List<String> slashCommands = new ArrayList<>();
+    private volatile SessionSkillSnapshot skillSnapshot = SessionSkillSnapshot.empty();
 
     // PSI context collection toggle
     private boolean psiContextEnabled = true;
@@ -179,6 +180,14 @@ public class SessionState {
 
     public List<String> getSlashCommands() {
         return new ArrayList<>(slashCommands);
+    }
+
+    public SessionSkillSnapshot getSkillSnapshot() {
+        return skillSnapshot;
+    }
+
+    public void setSkillSnapshot(SessionSkillSnapshot skillSnapshot) {
+        this.skillSnapshot = skillSnapshot == null ? SessionSkillSnapshot.empty() : skillSnapshot;
     }
 
 

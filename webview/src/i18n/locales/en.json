@@ -109,6 +109,22 @@
       "duration": "Duration:",
       "tokensUnit": "tokens"
     },
+    "sessionCapabilities": {
+      "title": "Session capabilities",
+      "open": "Open session capabilities",
+      "close": "Close capabilities",
+      "dismiss": "Dismiss capabilities",
+      "loading": "Refreshing snapshot…",
+      "summary": "{{count}} capabilities visible to this session",
+      "mcp": "MCP servers",
+      "skills": "Skills",
+      "emptyMcp": "No MCP servers observed.",
+      "emptySkills": "No skills observed.",
+      "error": "Unable to load session capabilities.",
+      "updatedAt": "Updated {{time}}",
+      "notUpdated": "Not updated yet",
+      "refresh": "Refresh"
+    },
     "search": {
       "ariaLabel": "Search in conversation",
       "placeholder": "Search in conversation…",

@@ -301,6 +301,9 @@ public class SessionLifecycleManager {
 
         String currentFilePath = getCurrentEditorFilePath();
         var commands = SlashCommandRegistry.getCommands(provider, cwd, currentFilePath);
+        if (currentSession != null) {
+            currentSession.setSkillSnapshot(SessionSkillSnapshot.fromCommands(commands));
+        }
         String commandsJson = SlashCommandRegistry.toJson(commands);
 
         host.setFetchedSlashCommandsCount(commands.size());

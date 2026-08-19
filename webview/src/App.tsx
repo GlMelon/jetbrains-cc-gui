@@ -32,12 +32,14 @@ import { applyDiffTheme, getStoredDiffTheme } from './utils/diffTheme';
 import type { Attachment, ChatInputBoxHandle } from './components/ChatInputBox/types';
 import { ChatHeader } from './components/ChatHeader';
 import { ChatScreen } from './components/ChatScreen';
+import { SessionCapabilitiesDrawer } from './components/SessionCapabilitiesDrawer';
 import { AnimatedView } from './components/AnimatedView';
 import type { MessageListRevealHandle } from './components/ConversationSearch/types';
 import { ModelProviderProvider } from './contexts/ModelProviderContext';
 import { useSubagentContextValues, useSetTaskEvents } from './contexts/SubagentContext';
 import { useMessages } from './contexts/MessagesContext';
 import { useSession } from './contexts/SessionContext';
+import { useSessionCapabilities } from './hooks/useSessionCapabilities';
 import { useUIState } from './contexts/UIStateContext';
 import { useDialogs } from './contexts/DialogContext';
 import { AppDialogs } from './components/AppDialogs';
@@ -390,6 +392,13 @@ const App = () => {
 
   useHistoryLoader({ currentView, currentProvider });
 
+  const sessionCapabilities = useSessionCapabilities(currentSessionId, currentProvider);
+  const [sessionCapabilitiesOpen, setSessionCapabilitiesOpen] = useState(false);
+
+  useEffect(() => {
+    if (currentView !== 'chat') setSessionCapabilitiesOpen(false);
+  }, [currentView]);
+
   // ── Window callbacks (bridge communication) ──
   const setTaskEvents = useSetTaskEvents();
   useWindowCallbacks({
@@ -675,6 +684,11 @@ const App = () => {
         }}
         onOpenSearch={() => setSearchOpen(true)}
         titleEditable
+        onOpenCapabilities={() => setSessionCapabilitiesOpen(true)}
+        capabilitiesCount={
+          (sessionCapabilities.data?.mcp.length ?? 0) +
+          (sessionCapabilities.data?.skills.length ?? 0)
+        }
         onTitleChange={(newTitle: string) => {
           setCustomSessionTitle(newTitle);
           if (currentSessionId) {
@@ -683,120 +697,129 @@ const App = () => {
         }}
       />
 
+      <SessionCapabilitiesDrawer
+        open={sessionCapabilitiesOpen && currentView === 'chat'}
+        data={sessionCapabilities.data}
+        loading={sessionCapabilities.loading}
+        error={sessionCapabilities.error}
+        onClose={() => setSessionCapabilitiesOpen(false)}
+        onRefresh={sessionCapabilities.request}
+      />
+
       <AnimatePresence mode="wait">
         {currentView === 'settings' ? (
           <AnimatedView key="settings">
-        <SettingsView
-          onClose={() => setCurrentView('chat')}
-          initialTab={settingsInitialTab}
-          currentProvider={currentProvider}
-          streamingEnabled={streamingEnabledSetting}
-          onStreamingEnabledChange={handleStreamingEnabledChange}
-          showThinkingEnabled={showThinkingEnabledSetting}
-          onShowThinkingEnabledChange={handleShowThinkingEnabledChange}
-          sendShortcut={sendShortcut}
-          onSendShortcutChange={handleSendShortcutChange}
-          autoOpenFileEnabled={autoOpenFileEnabled}
-          onAutoOpenFileEnabledChange={handleAutoOpenFileEnabledChange}
-          detailedOutputEnabled={detailedOutputEnabled}
-          onDetailedOutputEnabledChange={handleDetailedOutputEnabledChange}
-          permissionDialogTimeoutSeconds={permissionDialogTimeoutSeconds}
-          onPermissionDialogTimeoutChange={setPermissionDialogTimeoutSeconds}
-          avatarConfig={avatarConfig}
-          onAssistantAvatarChange={setAssistantAvatarSelection}
-          onUserAvatarChange={setUserAvatarSelection}
-          onUploadAssistantAvatar={uploadAssistantAvatar}
-          onUploadUserAvatar={uploadUserAvatar}
-        />
+            <SettingsView
+              onClose={() => setCurrentView('chat')}
+              initialTab={settingsInitialTab}
+              currentProvider={currentProvider}
+              streamingEnabled={streamingEnabledSetting}
+              onStreamingEnabledChange={handleStreamingEnabledChange}
+              showThinkingEnabled={showThinkingEnabledSetting}
+              onShowThinkingEnabledChange={handleShowThinkingEnabledChange}
+              sendShortcut={sendShortcut}
+              onSendShortcutChange={handleSendShortcutChange}
+              autoOpenFileEnabled={autoOpenFileEnabled}
+              onAutoOpenFileEnabledChange={handleAutoOpenFileEnabledChange}
+              detailedOutputEnabled={detailedOutputEnabled}
+              onDetailedOutputEnabledChange={handleDetailedOutputEnabledChange}
+              permissionDialogTimeoutSeconds={permissionDialogTimeoutSeconds}
+              onPermissionDialogTimeoutChange={setPermissionDialogTimeoutSeconds}
+              avatarConfig={avatarConfig}
+              onAssistantAvatarChange={setAssistantAvatarSelection}
+              onUserAvatarChange={setUserAvatarSelection}
+              onUploadAssistantAvatar={uploadAssistantAvatar}
+              onUploadUserAvatar={uploadUserAvatar}
+            />
           </AnimatedView>
         ) : currentView === 'chat' ? (
           <AnimatedView key="chat">
-        <ModelProviderProvider
-          value={{
-            currentProvider,
-            selectedModel,
-            selectedModelIdentifier,
-            permissionMode,
-            selectedAgent,
-            activeProviderConfig,
-            reasoningEffort,
-            streamingEnabledSetting,
-            showThinkingEnabledSetting,
-            sendShortcut,
-            autoOpenFileEnabled,
-            longContextEnabled,
-            usagePercentage,
-            usageUsedTokens,
-            usageMaxTokens,
-            tokenDetail,
-            handleModeSelect,
-            handleModelSelect,
-            handleAgentSelect,
-            handleReasoningChange,
-            handleStreamingEnabledChange,
-            handleShowThinkingEnabledChange,
-            handleAutoOpenFileEnabledChange,
-            handleLongContextChange,
-          }}
-        >
-          <ChatScreen
-            mergedMessages={mergedMessages}
-            getMessageText={getMessageText}
-            getContentBlocks={getContentBlocks}
-            findToolResult={findToolResult}
-            getToolResultRaw={getToolResultRaw}
-            subagents={subagents}
-            globalTodos={globalTodos}
-            filteredFileChanges={filteredFileChanges}
-            subagentHistoryCtxValue={subagentHistoryCtxValue}
-            sessionIdCtxValue={sessionIdCtxValue}
-            chatInputRef={chatInputRef}
-            messagesContainerRef={messagesContainerRef}
-            messagesEndRef={messagesEndRef}
-            inputAreaRef={inputAreaRef}
-            messageNodeMapRef={messageNodeMapRef}
-            userCollapsedRef={userCollapsedRef}
-            messageListRef={messageListRef}
-            isAutoScrollingRef={isAutoScrollingRef}
-            isUserAtBottomRef={isUserAtBottomRef}
-            anchorCollapsedCount={anchorCollapsedCount}
-            setAnchorCollapsedCount={setAnchorCollapsedCount}
-            onMessageNodeRef={handleMessageNodeRef}
-            statusPanelExpanded={statusPanelExpanded}
-            forceStatusUpdate={forceStatusUpdate}
-            onUndoFile={handleUndoFile}
-            onDiscardAll={onDiscardAll}
-            onKeepAll={handleKeepAll}
-            onSubmit={handleSubmit}
-            onInterrupt={interruptSession}
-            onRewind={handleOpenRewindSelectDialog}
-            onNavigateToProviderSettings={handleNavigateToProviderSettings}
-            onProviderSelect={wrappedHandleProviderSelect}
-            sessionTitle={sessionTitle}
-            detailedOutputEnabled={detailedOutputEnabled}
-            avatarConfig={avatarConfig}
-            messageQueue={messageQueue}
-            onRemoveFromQueue={dequeueMessage}
-          />
-        </ModelProviderProvider>
+            <ModelProviderProvider
+              value={{
+                currentProvider,
+                selectedModel,
+                selectedModelIdentifier,
+                permissionMode,
+                selectedAgent,
+                activeProviderConfig,
+                reasoningEffort,
+                streamingEnabledSetting,
+                showThinkingEnabledSetting,
+                sendShortcut,
+                autoOpenFileEnabled,
+                longContextEnabled,
+                usagePercentage,
+                usageUsedTokens,
+                usageMaxTokens,
+                tokenDetail,
+                handleModeSelect,
+                handleModelSelect,
+                handleAgentSelect,
+                handleReasoningChange,
+                handleStreamingEnabledChange,
+                handleShowThinkingEnabledChange,
+                handleAutoOpenFileEnabledChange,
+                handleLongContextChange,
+              }}
+            >
+              <ChatScreen
+                mergedMessages={mergedMessages}
+                getMessageText={getMessageText}
+                getContentBlocks={getContentBlocks}
+                findToolResult={findToolResult}
+                getToolResultRaw={getToolResultRaw}
+                subagents={subagents}
+                globalTodos={globalTodos}
+                filteredFileChanges={filteredFileChanges}
+                subagentHistoryCtxValue={subagentHistoryCtxValue}
+                sessionIdCtxValue={sessionIdCtxValue}
+                chatInputRef={chatInputRef}
+                messagesContainerRef={messagesContainerRef}
+                messagesEndRef={messagesEndRef}
+                inputAreaRef={inputAreaRef}
+                messageNodeMapRef={messageNodeMapRef}
+                userCollapsedRef={userCollapsedRef}
+                messageListRef={messageListRef}
+                isAutoScrollingRef={isAutoScrollingRef}
+                isUserAtBottomRef={isUserAtBottomRef}
+                anchorCollapsedCount={anchorCollapsedCount}
+                setAnchorCollapsedCount={setAnchorCollapsedCount}
+                onMessageNodeRef={handleMessageNodeRef}
+                statusPanelExpanded={statusPanelExpanded}
+                forceStatusUpdate={forceStatusUpdate}
+                onUndoFile={handleUndoFile}
+                onDiscardAll={onDiscardAll}
+                onKeepAll={handleKeepAll}
+                onSubmit={handleSubmit}
+                onInterrupt={interruptSession}
+                onRewind={handleOpenRewindSelectDialog}
+                onNavigateToProviderSettings={handleNavigateToProviderSettings}
+                onProviderSelect={wrappedHandleProviderSelect}
+                sessionTitle={sessionTitle}
+                detailedOutputEnabled={detailedOutputEnabled}
+                avatarConfig={avatarConfig}
+                messageQueue={messageQueue}
+                onRemoveFromQueue={dequeueMessage}
+              />
+            </ModelProviderProvider>
           </AnimatedView>
-      ) : (
+        ) : (
           <AnimatedView key="history">
-        <HistoryView
-          historyData={historyData}
-          currentProvider={currentProvider}
-          onLoadSession={loadHistorySession}
-          onDeleteSession={deleteHistorySession}
-          onDeleteSessions={deleteHistorySessions}
-          onArchiveSessions={archiveHistorySessions}
-          onExportSession={exportHistorySession}
-          onPrintSessionPdf={printSessionPdf}
-          onToggleFavorite={toggleFavoriteSession}
-          onUpdateTitle={updateHistoryTitle}
-          onConvertToCliSession={convertToCliSession}
-        />
+            <HistoryView
+              historyData={historyData}
+              currentProvider={currentProvider}
+              onLoadSession={loadHistorySession}
+              onDeleteSession={deleteHistorySession}
+              onDeleteSessions={deleteHistorySessions}
+              onArchiveSessions={archiveHistorySessions}
+              onExportSession={exportHistorySession}
+              onPrintSessionPdf={printSessionPdf}
+              onToggleFavorite={toggleFavoriteSession}
+              onUpdateTitle={updateHistoryTitle}
+              onConvertToCliSession={convertToCliSession}
+            />
           </AnimatedView>
-      )}
+        )}
       </AnimatePresence>
 
       <div id="image-preview-root" />

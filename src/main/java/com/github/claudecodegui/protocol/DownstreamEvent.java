@@ -45,6 +45,7 @@ public enum DownstreamEvent implements ProtocolValue {
     SESSION_RUNTIME_STATE("session.runtime_state"),
     SESSION_TITLE("session.title"),
     REWIND_RESULT("rewind.result"),
+    SESSION_CAPABILITIES("session.capabilities"),
 
     // ── RPC ──
     // 请求/响应两侧归一化:请求用上行 action resolve_file_path(UpstreamAction.RESOLVE_FILE_PATH),

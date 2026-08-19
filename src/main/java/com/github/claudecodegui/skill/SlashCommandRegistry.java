@@ -30,7 +30,16 @@ public final class SlashCommandRegistry {
     /**
      * A slash command with name (including / prefix), description, and source.
      */
-    public record SlashCommand(String name, String description, String source) {
+    public record SlashCommand(
+            String name,
+            String description,
+            String source,
+            SlashCommandKind kind,
+            String scope
+    ) {
+        public SlashCommand(String name, String description, String source) {
+            this(name, description, source, SlashCommandKind.COMMAND, source);
+        }
     }
 
     /**
@@ -50,29 +59,29 @@ public final class SlashCommandRegistry {
     // 'local-jsx' commands (TUI UI) that have GUI equivalents are included
     // Bundled skills from CLI that are userInvocable and work in GUI environment
     public static final List<SlashCommand> CLAUDE_BUILTIN = List.of(
-            new SlashCommand("/compact", "Summarize conversation to free context", "builtin"),
-            new SlashCommand("/context", "Visualize current context usage as a colored grid", "builtin"),
-            new SlashCommand("/goal", "Keep working across turns until the goal condition is met", "builtin"),
-            new SlashCommand("/init", "Initialize a new CLAUDE.md file with codebase documentation", "builtin"),
-            new SlashCommand("/plan", "Switch to plan mode", "builtin"),
-            new SlashCommand("/resume", "Resume a previous conversation", "builtin"),
-            new SlashCommand("/review", "Review a pull request", "builtin"),
+            new SlashCommand("/compact", "Summarize conversation to free context", "builtin", SlashCommandKind.BUILTIN, "builtin"),
+            new SlashCommand("/context", "Visualize current context usage as a colored grid", "builtin", SlashCommandKind.BUILTIN, "builtin"),
+            new SlashCommand("/goal", "Keep working across turns until the goal condition is met", "builtin", SlashCommandKind.BUILTIN, "builtin"),
+            new SlashCommand("/init", "Initialize a new CLAUDE.md file with codebase documentation", "builtin", SlashCommandKind.BUILTIN, "builtin"),
+            new SlashCommand("/plan", "Switch to plan mode", "builtin", SlashCommandKind.BUILTIN, "builtin"),
+            new SlashCommand("/resume", "Resume a previous conversation", "builtin", SlashCommandKind.BUILTIN, "builtin"),
+            new SlashCommand("/review", "Review a pull request", "builtin", SlashCommandKind.BUILTIN, "builtin"),
             // Bundled skills (userInvocable, no ANT-only restriction)
-            new SlashCommand("/batch", "Execute large-scale changes in parallel across isolated worktrees", "bundled"),
-            new SlashCommand("/claude-api", "Build apps with the Claude API or Anthropic SDK", "bundled"),
-            new SlashCommand("/debug", "Enable debug logging and diagnose session issues", "bundled"),
-            new SlashCommand("/loop", "Run a prompt or command on a recurring interval", "bundled"),
-            new SlashCommand("/simplify", "Review changed code for reuse, quality, and efficiency", "bundled"),
-            new SlashCommand("/update-config", "Configure settings.json (hooks, permissions, env vars)", "bundled")
+            new SlashCommand("/batch", "Execute large-scale changes in parallel across isolated worktrees", "bundled", SlashCommandKind.SKILL, "bundled"),
+            new SlashCommand("/claude-api", "Build apps with the Claude API or Anthropic SDK", "bundled", SlashCommandKind.SKILL, "bundled"),
+            new SlashCommand("/debug", "Enable debug logging and diagnose session issues", "bundled", SlashCommandKind.SKILL, "bundled"),
+            new SlashCommand("/loop", "Run a prompt or command on a recurring interval", "bundled", SlashCommandKind.SKILL, "bundled"),
+            new SlashCommand("/simplify", "Review changed code for reuse, quality, and efficiency", "bundled", SlashCommandKind.SKILL, "bundled"),
+            new SlashCommand("/update-config", "Configure settings.json (hooks, permissions, env vars)", "bundled", SlashCommandKind.SKILL, "bundled")
     );
 
     // Codex built-in commands (GUI-relevant only; CLI-only ones like /status, /model, /quit are excluded)
     public static final List<SlashCommand> CODEX_BUILTIN = List.of(
-            new SlashCommand("/compact", "Summarize conversation to free tokens", "builtin"),
-            new SlashCommand("/diff", "Show pending changes diff including untracked files", "builtin"),
-            new SlashCommand("/init", "Generate an AGENTS.md scaffold", "builtin"),
-            new SlashCommand("/plan", "Switch to plan mode", "builtin"),
-            new SlashCommand("/review", "Review working tree changes", "builtin")
+            new SlashCommand("/compact", "Summarize conversation to free tokens", "builtin", SlashCommandKind.BUILTIN, "builtin"),
+            new SlashCommand("/diff", "Show pending changes diff including untracked files", "builtin", SlashCommandKind.BUILTIN, "builtin"),
+            new SlashCommand("/init", "Generate an AGENTS.md scaffold", "builtin", SlashCommandKind.BUILTIN, "builtin"),
+            new SlashCommand("/plan", "Switch to plan mode", "builtin", SlashCommandKind.BUILTIN, "builtin"),
+            new SlashCommand("/review", "Review working tree changes", "builtin", SlashCommandKind.BUILTIN, "builtin")
     );
 
     /**
@@ -200,7 +209,7 @@ public final class SlashCommandRegistry {
                 globalCmdCommands = scanCommandsAsCommands(
                         claudeDir + File.separator + "commands", "user");
                 globalSkillCommands = scanSkillsAsCommands(
-                        claudeDir + File.separator + "skills", "user", null, currentFile);
+                        claudeDir + File.separator + "skills", "user", null, currentFile, "user");
             }
 
             if (cwd != null && !cwd.isEmpty()) {
@@ -278,7 +287,7 @@ public final class SlashCommandRegistry {
                 String name = skill.has("name") ? skill.get("name").getAsString() : "";
                 String desc = skill.has("description") ? skill.get("description").getAsString() : "";
                 if (!name.isEmpty()) {
-                    merged.put("$" + name, new SlashCommand("$" + name, desc, "codex-skill"));
+                    merged.put("$" + name, new SlashCommand("$" + name, desc, "codex-skill", SlashCommandKind.SKILL, scope));
                 }
             }
         }
@@ -298,7 +307,7 @@ public final class SlashCommandRegistry {
         Map<String, SlashCommand> merged = new LinkedHashMap<>();
         for (SkillScanDir scanDir : scanDirs) {
             List<SlashCommand> commands = scanSkillsAsCommands(
-                    scanDir.path(), source, namespacePrefix, currentFilePath);
+                    scanDir.path(), source, namespacePrefix, currentFilePath, scanDir.scope());
             for (SlashCommand cmd : commands) {
                 merged.putIfAbsent(cmd.name(), cmd);
             }
@@ -364,6 +373,16 @@ public final class SlashCommandRegistry {
             String namespacePrefix,
             Path currentFilePath
     ) {
+        return scanSkillsAsCommands(dirPath, source, namespacePrefix, currentFilePath, source);
+    }
+
+    static List<SlashCommand> scanSkillsAsCommands(
+            String dirPath,
+            String source,
+            String namespacePrefix,
+            Path currentFilePath,
+            String scope
+    ) {
         if (dirPath == null || dirPath.isEmpty()) {
             return List.of();
         }
@@ -406,7 +425,7 @@ public final class SlashCommandRegistry {
                 commandSource = "plugin:" + namespacePrefix;
             }
 
-            commands.add(new SlashCommand(commandName, metadata.description(), commandSource));
+            commands.add(new SlashCommand(commandName, metadata.description(), commandSource, SlashCommandKind.SKILL, scope));
         }
         return commands;
     }

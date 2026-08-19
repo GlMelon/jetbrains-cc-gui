@@ -259,6 +259,14 @@ public class ClaudeSession {
         return state;
     }
 
+    public SessionSkillSnapshot getSkillSnapshot() {
+        return state.getSkillSnapshot();
+    }
+
+    public void setSkillSnapshot(SessionSkillSnapshot snapshot) {
+        state.setSkillSnapshot(snapshot);
+    }
+
     public String getSummary() {
         return state.getSummary();
     }

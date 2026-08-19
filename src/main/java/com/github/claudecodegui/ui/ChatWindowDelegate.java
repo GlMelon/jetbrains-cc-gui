@@ -210,6 +210,7 @@ import com.github.claudecodegui.handler.session.SendMessageActionHandler;
 import com.github.claudecodegui.handler.session.SendMessageWithAttachmentsActionHandler;
 import com.github.claudecodegui.handler.session.InterruptSessionActionHandler;
 import com.github.claudecodegui.handler.session.RestartSessionActionHandler;
+import com.github.claudecodegui.handler.session.GetSessionCapabilitiesActionHandler;
 import com.github.claudecodegui.handler.window.WindowActionHandlers;
 import com.github.claudecodegui.handler.window.HeartbeatActionHandler;
 import com.github.claudecodegui.handler.window.TabLoadingChangedActionHandler;
@@ -622,6 +623,7 @@ nodeService.setSessionId(sessionId);
         typedHandlers.add(new SendMessageWithAttachmentsActionHandler(sessionActionHandlers));
         typedHandlers.add(new InterruptSessionActionHandler(sessionActionHandlers));
         typedHandlers.add(new RestartSessionActionHandler(sessionActionHandlers));
+        typedHandlers.add(new GetSessionCapabilitiesActionHandler());
 
         // Window action handlers (B2 迁移: heartbeat + tab status + session lifecycle)
         WindowActionHandlers windowHandlers = new WindowActionHandlers(new WindowActionHandlers.Callback() {

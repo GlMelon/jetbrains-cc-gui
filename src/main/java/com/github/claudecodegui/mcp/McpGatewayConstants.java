@@ -7,6 +7,7 @@ package com.github.claudecodegui.mcp;
  * API do not grow their own string tables.
  */
 public final class McpGatewayConstants {
+    public static final String EMPTY_JSON_OBJECT = "{}";
     private McpGatewayConstants() {
     }
 
@@ -31,6 +32,8 @@ public final class McpGatewayConstants {
     public static final String KEY_ENABLED = "enabled";
     public static final String KEY_STATE = "state";
     public static final String KEY_LAST_ERROR = "lastError";
+    public static final String KEY_LAST_SUCCESS_AT = "lastSuccessAt";
+    public static final String KEY_FAILURE_COUNT = "failureCount";
     public static final String KEY_TRANSPORT = "transport";
     public static final String KEY_CONFIG = "config";
     public static final String KEY_STATE_FILE = "stateFile";
