@@ -276,7 +276,32 @@ export const CLAUDE_ROLE_MODEL_IDS = {
 // C5 SSOT:context window 默认值由后端 CommonConstants 经生成链产出
 // (generated/protocol.ts#DEFAULT_CONTEXT_WINDOW / ONE_MILLION_CONTEXT_WINDOW),
 // 此处 re-export 消除手抄(原 200_000 / 1_000_000 与后端逐字重复的第二真相源)。
-export { DEFAULT_CONTEXT_WINDOW, ONE_MILLION_CONTEXT_WINDOW } from '../../generated/protocol';
+import { DEFAULT_CONTEXT_WINDOW, ONE_MILLION_CONTEXT_WINDOW } from '../../generated/protocol';
+export { DEFAULT_CONTEXT_WINDOW, ONE_MILLION_CONTEXT_WINDOW };
+
+// Provider 级别默认上下文窗口（与后端 CommonConstants 保持一致）
+const CLAUDE_DEFAULT_CONTEXT_WINDOW = 200_000;
+const CODEX_DEFAULT_CONTEXT_WINDOW = 200_000;
+const OPENCODE_DEFAULT_CONTEXT_WINDOW = 200_000;
+const GROK_DEFAULT_CONTEXT_WINDOW = 256_000;
+const KIMI_DEFAULT_CONTEXT_WINDOW = 256_000;
+const PI_DEFAULT_CONTEXT_WINDOW = 200_000;
+
+/**
+ * 获取指定 provider 的默认上下文窗口大小。
+ * 与后端 CommonConstants.getDefaultContextWindowForProvider 保持一致。
+ */
+export function getDefaultContextWindowForProvider(provider: string): number {
+  switch (provider) {
+    case 'claude': return CLAUDE_DEFAULT_CONTEXT_WINDOW;
+    case 'codex': return CODEX_DEFAULT_CONTEXT_WINDOW;
+    case 'opencode': return OPENCODE_DEFAULT_CONTEXT_WINDOW;
+    case 'grok': return GROK_DEFAULT_CONTEXT_WINDOW;
+    case 'kimi': return KIMI_DEFAULT_CONTEXT_WINDOW;
+    case 'pi': return PI_DEFAULT_CONTEXT_WINDOW;
+    default: return DEFAULT_CONTEXT_WINDOW;
+  }
+}
 
 export const GROK_DEFAULT_MODEL_ID = 'grok';
 export const KIMI_DEFAULT_MODEL_ID = 'auto';

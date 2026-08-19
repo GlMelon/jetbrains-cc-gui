@@ -2,7 +2,7 @@ import { DOWNSTREAM, UPSTREAM } from '../generated/protocol';
 import type { ModelRegistryPayloadWire } from '../generated/protocol';
 import { sendAction, subscribeEvent } from '../bridge/typed';
 import type { ModelInfo, ReasoningEffort } from '../components/ChatInputBox/types';
-import { DEFAULT_CONTEXT_WINDOW, ONE_MILLION_CONTEXT_WINDOW, REASONING_LEVELS, strip1MContextSuffix } from '../components/ChatInputBox/types';
+import { ONE_MILLION_CONTEXT_WINDOW, REASONING_LEVELS, strip1MContextSuffix, getDefaultContextWindowForProvider } from '../components/ChatInputBox/types';
 import type { CodexCustomModel, CodexProviderConfig, ProviderType } from '../types/provider';
 
 /**
@@ -184,7 +184,7 @@ export function createCodexCatalogModels(
   return [toCodexRegistryItem({
     id: currentModel,
     label: currentModel,
-    contextWindow: DEFAULT_CONTEXT_WINDOW,
+    contextWindow: getDefaultContextWindowForProvider('codex'),
   })];
 }
 
@@ -201,7 +201,7 @@ function normalizeCodexCatalog(catalog: CodexCustomModel[] | undefined): LocalCa
       description: typeof model.description === 'string' ? model.description : undefined,
       contextWindow: typeof model.contextWindow === 'number' && model.contextWindow > 0
         ? model.contextWindow
-        : DEFAULT_CONTEXT_WINDOW,
+        : getDefaultContextWindowForProvider('codex'),
     }))
     .filter((model) => model.id);
 }
@@ -215,7 +215,7 @@ function extractCodexCurrentModel(configToml: string | undefined): string {
 }
 
 function toCodexRegistryItem(model: LocalCatalogModel): ModelRegistryItem {
-  const contextWindow = model.contextWindow ?? DEFAULT_CONTEXT_WINDOW;
+  const contextWindow = model.contextWindow ?? getDefaultContextWindowForProvider('codex');
   return {
     ...model,
     provider: 'codex',
@@ -247,7 +247,7 @@ export function parseModelRegistryPayload(raw: unknown): ModelRegistryPayload | 
       }
       const contextWindow = rawContextWindow !== undefined && rawContextWindow > 0
         ? rawContextWindow
-        : DEFAULT_CONTEXT_WINDOW;
+        : getDefaultContextWindowForProvider(provider);
       const label = typeof obj.label === 'string' && obj.label.trim() ? obj.label.trim() : id;
       const role = parseClaudeRole(obj.role);
       const actualModel = typeof obj.actualModel === 'string' && obj.actualModel.trim()

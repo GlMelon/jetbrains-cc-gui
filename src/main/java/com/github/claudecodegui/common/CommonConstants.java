@@ -81,6 +81,42 @@ public final class CommonConstants {
     public static final int DEFAULT_CONTEXT_WINDOW = 200_000;
     /** Number of complete Codex user turns loaded per history page. */
     public static final int CODEX_HISTORY_PAGE_SIZE = 30;
+
+    // ===== Provider 级别默认上下文窗口 =====
+    // 基于官方文档的各 provider 默认 context window 值
+
+    /** Claude 默认上下文窗口（200K，支持 1M 扩展） */
+    public static final int CLAUDE_DEFAULT_CONTEXT_WINDOW = 200_000;
+    /** Codex 默认上下文窗口（200K，GPT-5.x 系列支持更高） */
+    public static final int CODEX_DEFAULT_CONTEXT_WINDOW = 200_000;
+    /** OpenCode 默认上下文窗口（200K，取决于底层模型） */
+    public static final int OPENCODE_DEFAULT_CONTEXT_WINDOW = 200_000;
+    /** Grok 默认上下文窗口（256K，不同模型差异较大） */
+    public static final int GROK_DEFAULT_CONTEXT_WINDOW = 256_000;
+    /** Kimi 默认上下文窗口（256K，K2.6） */
+    public static final int KIMI_DEFAULT_CONTEXT_WINDOW = 256_000;
+    /** Pi 默认上下文窗口（200K，取决于底层模型） */
+    public static final int PI_DEFAULT_CONTEXT_WINDOW = 200_000;
+
+    /**
+     * 获取指定 provider 的默认上下文窗口大小。
+     *
+     * @param provider provider 标识（"claude" / "codex" / "opencode" / "grok" / "kimi" / "pi"）
+     * @return 该 provider 的官方默认上下文窗口（token 数），未知 provider 回退 {@link #DEFAULT_CONTEXT_WINDOW}
+     */
+    public static int getDefaultContextWindowForProvider(String provider) {
+        if (provider == null) return DEFAULT_CONTEXT_WINDOW;
+        return switch (provider) {
+            case PROVIDER_CLAUDE -> CLAUDE_DEFAULT_CONTEXT_WINDOW;
+            case PROVIDER_CODEX -> CODEX_DEFAULT_CONTEXT_WINDOW;
+            case PROVIDER_OPENCODE -> OPENCODE_DEFAULT_CONTEXT_WINDOW;
+            case PROVIDER_GROK -> GROK_DEFAULT_CONTEXT_WINDOW;
+            case PROVIDER_KIMI -> KIMI_DEFAULT_CONTEXT_WINDOW;
+            case PROVIDER_PI -> PI_DEFAULT_CONTEXT_WINDOW;
+            default -> DEFAULT_CONTEXT_WINDOW;
+        };
+    }
+
     /**
      * 长上下文（1M）窗口阈值（token 数）。
      * <p>判定 supports1MContext / 1M 切换 / 配置校验的边界 —— 全局 SSOT。

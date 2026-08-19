@@ -68,11 +68,11 @@ public class DefaultModelCapabilityResolver implements ModelCapabilityResolver {
             String resolvedActualModel,
             ModelRegistryConfig.ResolvedModelSelection selection
     ) {
-        int configuredLimit = selection.contextWindow() > 0 ? selection.contextWindow() : CommonConstants.DEFAULT_CONTEXT_WINDOW;
+        int configuredLimit = selection.contextWindow() > 0 ? selection.contextWindow() : CommonConstants.getDefaultContextWindowForProvider(provider);
         if (selection.identifier() != null || registry.find(provider, selectedModel).isPresent()) {
             return configuredLimit;
         }
-        return contextLimit(resolvedActualModel);
+        return contextLimit(provider, resolvedActualModel);
     }
 
     private String resolveStoredModel(String selectedModel, boolean supportsLongContext, boolean requestsOneMillion) {
@@ -93,14 +93,14 @@ public class DefaultModelCapabilityResolver implements ModelCapabilityResolver {
         return role != null && role.supports1MContext();
     }
 
-    private int contextLimit(String model) {
+    private int contextLimit(String provider, String model) {
         int suffixLimit = parseCapacitySuffix(model);
         if (suffixLimit > 0) {
             return suffixLimit;
         }
 
         ClaudeRole role = ClaudeRole.fromModelId(model);
-        return role != null ? role.contextWindow() : CommonConstants.DEFAULT_CONTEXT_WINDOW;
+        return role != null ? role.contextWindow() : CommonConstants.getDefaultContextWindowForProvider(provider);
     }
 
     private int parseCapacitySuffix(String model) {

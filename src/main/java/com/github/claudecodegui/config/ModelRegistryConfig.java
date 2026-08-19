@@ -91,7 +91,7 @@ public class ModelRegistryConfig {
                 model != null ? model.identifier() : null,
                 role,
                 actual,
-                model != null ? model.contextWindow() : CommonConstants.DEFAULT_CONTEXT_WINDOW,
+                model != null ? model.contextWindow() : CommonConstants.getDefaultContextWindowForProvider(normalizedProvider),
                 model != null && model.supports1MContext()
         );
     }

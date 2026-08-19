@@ -194,8 +194,7 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
               {model.description && <div className={styles.modelDescription}>{model.description}</div>}
             </div>
             <div className={styles.metaCell}>
-              <span>{formatCapacity(model.contextWindow, DEFAULT_CONTEXT_WINDOW)}</span>
-              {model.supports1MContext && <span>1M</span>}
+              {model.supports1MContext ? <span>1M</span> : <span>{formatCapacity(model.contextWindow, DEFAULT_CONTEXT_WINDOW)}</span>}
             </div>
             <div className={styles.rowActions}>
               {model.readOnly ? (

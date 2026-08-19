@@ -5,7 +5,7 @@ import type { TFunction } from 'i18next';
 import { DOWNSTREAM } from '../generated/protocol';
 import { subscribeEvent } from '../bridge/typed';
 import type { ModelInfo, PermissionMode } from '../components/ChatInputBox/types';
-import { DEFAULT_CONTEXT_WINDOW, strip1MContextSuffix } from '../components/ChatInputBox/types';
+import { strip1MContextSuffix, getDefaultContextWindowForProvider } from '../components/ChatInputBox/types';
 import { useClaudeProvider } from './providers/useClaudeProvider';
 import { useCodexProvider } from './providers/useCodexProvider';
 import { useOpenCodeProvider } from './providers/useOpenCodeProvider';
@@ -246,7 +246,7 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
     sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
       model: modelId,
       identifier: model.identifier,
-      contextWindow: model.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
+      contextWindow: model.contextWindow ?? getDefaultContextWindowForProvider(currentProvider),
     }));
   }, [currentProvider, longContextEnabled, setSelectedClaudeModel, setSelectedCodexModel, setSelectedOpenCodeModel, setSelectedGrokModel, setSelectedKimiModel, setSelectedPiModel, setLongContextEnabled]);
 
@@ -334,7 +334,7 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
       }));
     } else {
       const registryContextWindow = selectedRegistryModel?.contextWindow;
-      const effectiveContextWindow = contextWindow ?? registryContextWindow ?? DEFAULT_CONTEXT_WINDOW;
+      const effectiveContextWindow = contextWindow ?? registryContextWindow ?? getDefaultContextWindowForProvider(currentProvider);
       sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
         model: newModel,
         identifier: selectedRegistryModel?.identifier,
@@ -420,7 +420,7 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
       sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
         model: selectedOpenCodeModel,
         identifier: selectedRegistryModel.identifier,
-        contextWindow: selectedRegistryModel.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
+        contextWindow: selectedRegistryModel.contextWindow ?? getDefaultContextWindowForProvider('opencode'),
       }));
       return;
     }
@@ -429,7 +429,7 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
       sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
         model: selectedGrokModel,
         identifier: selectedRegistryModel.identifier,
-        contextWindow: selectedRegistryModel.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
+        contextWindow: selectedRegistryModel.contextWindow ?? getDefaultContextWindowForProvider('grok'),
       }));
       return;
     }
@@ -438,7 +438,7 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
       sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
         model: selectedKimiModel,
         identifier: selectedRegistryModel.identifier,
-        contextWindow: selectedRegistryModel.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
+        contextWindow: selectedRegistryModel.contextWindow ?? getDefaultContextWindowForProvider('kimi'),
       }));
       return;
     }
@@ -447,7 +447,7 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
       sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
         model: selectedPiModel,
         identifier: selectedRegistryModel.identifier,
-        contextWindow: selectedRegistryModel.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
+        contextWindow: selectedRegistryModel.contextWindow ?? getDefaultContextWindowForProvider('pi'),
       }));
       return;
     }
@@ -455,7 +455,7 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
     sendAction(UPSTREAM.SET_SESSION_MODEL, JSON.stringify({
       model: selectedCodexModel,
       identifier: selectedRegistryModel.identifier,
-      contextWindow: selectedRegistryModel.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
+      contextWindow: selectedRegistryModel.contextWindow ?? getDefaultContextWindowForProvider('codex'),
     }));
   }, [
     currentProvider,
