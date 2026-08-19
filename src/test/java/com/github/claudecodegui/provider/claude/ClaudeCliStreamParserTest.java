@@ -30,6 +30,37 @@ public class ClaudeCliStreamParserTest {
     }
 
     @Test
+    public void assistantMcpToolUsePreservesFullServerQualifiedName() {
+        // CLI gateway/直连模式下 MCP 工具的 tool_use name 形如 mcp__server__tool,
+        // 前端 McpToolBlock 依赖此完整名字做 parseMcpToolName 路由。parser 不得
+        // 对 mcp__ 前缀做截断/过滤(回归防护:曾有人误加工具名白名单)。
+        ClaudeCliStreamParser parser = new ClaudeCliStreamParser(new Gson());
+        RecordingCallback callback = new RecordingCallback();
+        String line = "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"tool_use\",\"id\":\"call_1\",\"name\":\"mcp__dbx__dbx_list_connections\",\"input\":{}}]}}";
+
+        parser.parseLine(line, callback, new SDKResult(), new StringBuilder(), new AtomicBoolean(false), false);
+
+        assertEquals("tool_use", callback.events.get(0).type);
+        assertTrue(callback.events.get(0).content.contains("\"name\":\"mcp__dbx__dbx_list_connections\""));
+    }
+
+    @Test
+    public void assistantSkillToolUseIsForwardedUntouched() {
+        // CLI 2.1.23x+ skill 触发形态:tool_use name="Skill" + input{skill,args}。
+        // parser 透传原块,前端 ContentBlockRenderer 再路由到 SkillBlock。此处锁定
+        // parser 不对 name="Skill" 做特殊处理(历史遗留的 Skill 工具不应被吞)。
+        ClaudeCliStreamParser parser = new ClaudeCliStreamParser(new Gson());
+        RecordingCallback callback = new RecordingCallback();
+        String line = "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"tool_use\",\"id\":\"call_2\",\"name\":\"Skill\",\"input\":{\"skill\":\"playwright\",\"args\":\"open example.com\"}}]}}";
+
+        parser.parseLine(line, callback, new SDKResult(), new StringBuilder(), new AtomicBoolean(false), false);
+
+        assertEquals("tool_use", callback.events.get(0).type);
+        assertTrue(callback.events.get(0).content.contains("\"name\":\"Skill\""));
+        assertTrue(callback.events.get(0).content.contains("\"skill\":\"playwright\""));
+    }
+
+    @Test
     public void assistantServerToolUseEmitsNormalizedToolUseEvent() {
         ClaudeCliStreamParser parser = new ClaudeCliStreamParser(new Gson());
         RecordingCallback callback = new RecordingCallback();
