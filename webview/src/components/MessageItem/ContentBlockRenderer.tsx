@@ -529,6 +529,28 @@ export const ContentBlockRenderer = memo(function ContentBlockRenderer({
       return null;
     }
 
+    // Skill 工具调用(CLI 2.1.23x+ 形态:tool_use name="Skill", input 携带 skill/args)。
+    // 旧版 CLI 的 <command-message>+<skill-format> 标签回显已被 CLI 废除,现仅存于
+    // 历史会话 JSONL;实时流中的 skill 触发都走此处,路由到专属卡片避免落入
+    // GenericToolBlock 失去 skill 标识。
+    if (toolName === 'skill') {
+      const input = block.input ?? {};
+      const skillName = typeof input.skill === 'string' && input.skill
+        ? input.skill
+        : (block.name ?? '');
+      return (
+        <SkillBlock
+          block={{
+            type: 'skill_use',
+            name: skillName,
+            command: block.name,
+            args: typeof input.args === 'string' ? input.args : undefined,
+            source: 'tool-use',
+          }}
+        />
+      );
+    }
+
     if (!isStreaming && isTransientInternalToolName(block.name)) {
       return null;
     }

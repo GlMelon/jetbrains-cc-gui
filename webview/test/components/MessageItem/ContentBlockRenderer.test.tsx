@@ -193,6 +193,40 @@ describe('ContentBlockRenderer tool cards', () => {
     expect(document.querySelector('.tool-title-summary')?.textContent).toMatch(/\.\.\.$/);
   });
 
+  it('routes Skill tool_use (CLI 2.1.23x+ native form) to the skill card', () => {
+    renderBlock(
+      {
+        type: 'tool_use',
+        id: 'call_skill_1',
+        name: 'Skill',
+        input: { skill: 'playwright', args: '打开 example.com' },
+      },
+      () => ({
+        type: 'tool_result',
+        tool_use_id: 'call_skill_1',
+        content: 'Launching skill: playwright',
+      }),
+    );
+
+    expect(screen.getByText('Skill: playwright')).toBeTruthy();
+    expect(screen.getByText('skill')).toBeTruthy();
+    expect(document.querySelector('.skill-tool-card')).toBeTruthy();
+    // input.skill 缺失时回退到工具名,不渲染空卡片
+    expect(document.body.textContent).not.toContain('Skill: Skill');
+  });
+
+  it('falls back to tool name when Skill input.skill is absent', () => {
+    renderBlock({
+      type: 'tool_use',
+      id: 'call_skill_2',
+      name: 'Skill',
+      input: {},
+    });
+
+    expect(screen.getByText('Skill: Skill')).toBeTruthy();
+    expect(document.querySelector('.skill-tool-card')).toBeTruthy();
+  });
+
   it('renders MCP tool cards even when input is missing', () => {
     renderBlock(
       {
@@ -209,7 +243,8 @@ describe('ContentBlockRenderer tool cards', () => {
 
     expect(screen.getByText('MCP: idea_mcp.search_symbols')).toBeTruthy();
     expect(screen.getByText('mcp')).toBeTruthy();
-    expect(screen.getByText('idea_mcp')).toBeTruthy();
+    // server 名在 badge 与详情 field 两处渲染,用 getAllByText 断言存在性
+    expect(screen.getAllByText('idea_mcp').length).toBeGreaterThan(0);
     expect(document.querySelector('.mcp-tool-card')).toBeTruthy();
   });
 });
