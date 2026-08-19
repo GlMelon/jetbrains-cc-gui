@@ -7,8 +7,8 @@ import MarkdownBlock from './MarkdownBlock';
 import { useDialogResize } from '../hooks/useDialogResize';
 import { isEditableEventTarget } from '../utils/isEditableEventTarget';
 import { BaseDialog } from './shared/BaseDialog';
-import { ChevronDownIcon, ChevronUpIcon, ClockIcon, AlertIcon } from './Icons';
-import { ClickSpark } from './react-bits';
+import { ChevronDownIcon, ChevronUpIcon, AlertIcon } from './Icons';
+import { ClickSpark, GradientText, ProgressRing } from './react-bits';
 
 export interface PermissionRequest {
   channelId: string;
@@ -175,8 +175,27 @@ const PermissionDialog = ({
     return translated;
   };
 
+  // Infer a type/risk badge from the tool name (MCP / 执行 / 编辑)
+  const getToolBadge = (toolName: string): { label: string; cls: string } | null => {
+    if (!toolName) return null;
+    if (toolName.startsWith('mcp__')) return { label: 'MCP', cls: 'u-badge--info' };
+    if (toolName === 'Bash' || toolName === 'Agent' || toolName === 'Task') {
+      return { label: t('permission.badge.exec', '执行'), cls: 'u-badge--warn' };
+    }
+    if (['Edit', 'Write', 'MultiEdit', 'NotebookEdit', 'CreateDirectory', 'MoveFile', 'CopyFile'].includes(toolName)) {
+      return { label: t('permission.badge.edit', '编辑'), cls: 'u-badge--success' };
+    }
+    return null;
+  };
+
   const commandContent = getCommandContent();
   const workingDirectory = getWorkingDirectory();
+  const toolBadge = getToolBadge(request.toolName);
+  const ringProgress = timeoutSeconds > 0 ? Math.max(0, remainingSeconds / timeoutSeconds) : 0;
+  const ringColor = isTimeWarning
+    ? 'var(--text-warning, #e0b341)'
+    : 'var(--accent-primary, #6d8cff)';
+  const hasEmptyContent = !commandContent.trim();
 
   return (
     <BaseDialog
@@ -191,13 +210,22 @@ const PermissionDialog = ({
         className="permission-dialog-v3"
         style={dialogHeight ? { height: dialogHeight, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' as const } : undefined}
       >
+        <div className="u-aurora-strip" />
         <div className="permission-dialog-v3-resize-handle" onPointerDown={handleResizeStart} />
         <div className="permission-dialog-v3-header-row">
-          <h3 className="permission-dialog-v3-title">{getToolTitle(request.toolName)}</h3>
-          <span className={`countdown-timer ${isTimeWarning ? 'warning' : ''}`}>
-            <ClockIcon size={16} />
-            <span className="countdown-time">{formatCountdown(remainingSeconds)}</span>
-          </span>
+          <h3 className="permission-dialog-v3-title" style={{ flex: 'none' }}>
+            <GradientText colors={['#6d8cff', '#b06cff']} angle={90}>
+              {getToolTitle(request.toolName)}
+            </GradientText>
+          </h3>
+          {toolBadge && (
+            <span className={`u-badge ${toolBadge.cls}`}>{toolBadge.label}</span>
+          )}
+          <span style={{ flex: 1 }} />
+          <div className="u-ring" style={{ width: 34, height: 34 }} title={formatCountdown(remainingSeconds)}>
+            <ProgressRing size={34} strokeWidth={3} progress={ringProgress} color={ringColor} decorative />
+            <span className="u-ring-num">{formatCountdown(remainingSeconds)}</span>
+          </div>
         </div>
         {isTimeWarning && (
           <div className="timeout-warning-banner">
@@ -226,7 +254,14 @@ const PermissionDialog = ({
               className="permission-dialog-v3-command-content"
               style={dialogHeight ? { maxHeight: 'none' } : undefined}
             >
-              <MarkdownBlock content={commandContent} isStreaming={false} />
+              {hasEmptyContent ? (
+                <div className="permission-empty-params">
+                  <span className="permission-empty-params-dot" />
+                  {t('permission.noParams', '此调用无参数,可安全执行')}
+                </div>
+              ) : (
+                <MarkdownBlock content={commandContent} isStreaming={false} />
+              )}
             </div>
           </div>
         </div>

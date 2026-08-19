@@ -5,8 +5,8 @@ import { useDialogCountdownTimeout } from '../hooks/useDialogCountdownTimeout';
 import { DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS } from '../utils/permissionDialogTimeout';
 import { isEditableEventTarget } from '../utils/isEditableEventTarget';
 import './AskUserQuestionDialog.css';
-import { CheckIcon, ChevronDownIcon, ChevronUpIcon, CircleFilledIcon, CircleIcon, ClockIcon, AlertIcon } from './Icons';
-import { ClickSpark, FadeContent } from './react-bits';
+import { CheckIcon, ChevronDownIcon, ChevronUpIcon, CircleFilledIcon, CircleIcon, AlertIcon } from './Icons';
+import { ClickSpark, FadeContent, GradientText, ProgressRing } from './react-bits';
 
 // Special marker to identify the "Other" option
 const OTHER_OPTION_MARKER = '__OTHER__';
@@ -95,6 +95,11 @@ const AskUserQuestionDialog = ({
   const dialogTitle = isCodexRequest
     ? t('askUserQuestion.codexTitle', 'Codex 有一些问题想问你')
     : t('askUserQuestion.title', 'Claude 有一些问题想问你');
+
+  const ringProgress = timeoutSeconds > 0 ? Math.max(0, remainingSeconds / timeoutSeconds) : 0;
+  const ringColor = isTimeWarning
+    ? 'var(--text-warning, #e0b341)'
+    : 'var(--accent-primary, #6d8cff)';
 
   const handleCancel = useCallback(() => {
     if (request && markSubmitted()) {
@@ -282,10 +287,14 @@ const AskUserQuestionDialog = ({
   return (
     <div className={`permission-dialog-overlay ${isCollapsed ? 'collapsed-mode' : ''}`}>
       <div className={`ask-user-question-dialog ${isCollapsed ? 'collapsed' : 'expanded'} ${isTimeWarning ? 'time-warning' : ''}`}>
+        <div className="u-aurora-strip" />
         {/* Header area - with collapse/expand button */}
         <div className="ask-user-question-dialog-header">
           <h3 className="ask-user-question-dialog-title">
-            {dialogTitle}
+            <GradientText colors={['#6d8cff', '#b06cff']} angle={90}>{dialogTitle}</GradientText>
+            <span className="u-badge u-badge--info" style={{ marginLeft: 8, verticalAlign: 'middle' }}>
+              {t('askUserQuestion.badge', '提问')}
+            </span>
           </h3>
           <button
             className="collapse-toggle-button"
@@ -341,11 +350,11 @@ const AskUserQuestionDialog = ({
                   total: normalizedQuestions.length,
                 })}
               </span>
-              {/* Countdown display */}
-              <span className={`countdown-timer ${isTimeWarning ? 'warning' : ''}`}>
-                <ClockIcon size={16} />
-                <span className="countdown-time">{formatCountdown(remainingSeconds)}</span>
-              </span>
+              {/* Countdown ring (react-bits ProgressRing + overlay number) */}
+              <div className="u-ring" style={{ width: 34, height: 34 }} title={formatCountdown(remainingSeconds)}>
+                <ProgressRing size={34} strokeWidth={3} progress={ringProgress} color={ringColor} decorative />
+                <span className="u-ring-num">{formatCountdown(remainingSeconds)}</span>
+              </div>
             </div>
 
             {/* Question area */}

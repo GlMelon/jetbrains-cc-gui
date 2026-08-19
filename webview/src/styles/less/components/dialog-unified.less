@@ -1,0 +1,97 @@
+/* =========================================================================
+   dialog-unified.less — 确认/交互弹窗统一设计语言(react-bits 风格)
+   被 PermissionDialog / PlanApprovalDialog / AskUserQuestionDialog / ConfirmDialog 共享。
+   与 react-bits 组件 GradientText / ProgressRing / ClickSpark 配合使用:
+     - 标题渐变:组件 <GradientText>(hex colors),无需此处样式
+     - 倒计时圆环:组件 <ProgressRing> + 此处 .u-ring 容器叠加数字
+     - 顶部光带:.u-aurora-strip(CSS 渐变流光,替代 canvas Aurora,更轻、无 hex 限制)
+     - 类型徽标:.u-badge(--info/--success/--warn/--accent)
+   ========================================================================= */
+
+/* ---------- 类型徽标 ---------- */
+.u-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  line-height: 1.4;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.u-badge::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+.u-badge--info    { color: var(--color-info, #5aa6ff);    border-color: rgba(90,166,255,.35);  background: rgba(90,166,255,.10); }
+.u-badge--success { color: var(--color-success, #4ec9a8);  border-color: rgba(78,201,168,.35);  background: rgba(78,201,168,.10); }
+.u-badge--warn    { color: var(--text-warning, #e0b341);   border-color: rgba(224,179,65,.35);  background: rgba(224,179,65,.10); }
+.u-badge--accent  { color: var(--accent-primary, #6d8cff); border-color: rgba(109,140,255,.35); background: rgba(109,140,255,.10); }
+
+/* ---------- 顶部流光带(替代 Aurora canvas) ---------- */
+/* 用作弹窗卡片顶部第一个子元素;<div class="u-aurora-strip"/> */
+.u-aurora-strip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg,
+    transparent,
+    var(--accent-primary, #6d8cff),
+    var(--accent-primary-hover, #b06cff),
+    transparent);
+  background-size: 200% 100%;
+  opacity: 0.85;
+  pointer-events: none;
+  z-index: 2;
+  border-radius: inherit;
+  animation: u-aurora-flow 6s linear infinite;
+}
+@keyframes u-aurora-flow {
+  to { background-position: 200% 0; }
+}
+/* 尊重减少动效 */
+@media (prefers-reduced-motion: reduce) {
+  .u-aurora-strip { animation: none; }
+}
+
+/* ---------- ProgressRing 倒计时容器(圆环 + 居中数字) ---------- */
+.u-ring {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.u-ring > .u-ring-num {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+
+/* ---------- 统一按钮 hover 抬升(替代 HoverLift 组件,避免与 ClickSpark 双层包裹) ---------- */
+.u-btn-lift {
+  transition: transform var(--dur-hover, 0.18s) cubic-bezier(0.22, 1, 0.36, 1),
+              background-color 0.15s ease,
+              border-color 0.15s ease,
+              box-shadow 0.15s ease;
+}
+.u-btn-lift:hover {
+  transform: translateY(-2px);
+}

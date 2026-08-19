@@ -574,7 +574,9 @@
     color: var(--text-primary);
     font-size: 13px;
     cursor: pointer;
-    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+                background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease,
+                box-shadow 0.15s ease;
     text-align: center;
     /* 不要撑满，自然宽度 */
     flex: 0 0 auto;
@@ -583,6 +585,8 @@
 .permission-dialog-v3-option:hover {
     background: var(--bg-active);
     border-color: var(--border-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
 }
 
 .permission-dialog-v3-option.selected {
@@ -704,5 +708,29 @@
 
 .timeout-warning-banner .codicon {
     font-size: 16px;
+    flex-shrink: 0;
+}
+
+/* ===== 统一设计语言补充(react-bits 风格) ===== */
+/* GradientText 标题:让渐变 span 在 h3 里正常显示 */
+.permission-dialog-v3-title .gradient-text {
+    font-size: 15px;
+    font-weight: 700;
+}
+
+/* 空参数友好提示(替代空白/{} 显示) */
+.permission-empty-params {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    color: var(--text-muted);
+    padding: 4px 2px;
+}
+.permission-empty-params-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-success, #4ec9a8);
     flex-shrink: 0;
 }

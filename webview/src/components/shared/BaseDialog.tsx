@@ -194,11 +194,14 @@ export function DialogHeader({
   icon,
   onClose,
   children,
+  badge,
 }: {
   title: ReactNode;
   icon?: ReactNode;
   onClose?: () => void;
   children?: ReactNode;
+  /** Optional type/risk badge rendered inside the h3, after the title. */
+  badge?: ReactNode;
 }) {
   const { t } = useTranslation();
   return (
@@ -206,6 +209,7 @@ export function DialogHeader({
       <h3>
         {icon && <span style={{ marginRight: '8px' }}>{icon}</span>}
         {title}
+        {badge && <span style={{ marginLeft: 8, verticalAlign: 'middle' }}>{badge}</span>}
       </h3>
       {onClose && (
         <button

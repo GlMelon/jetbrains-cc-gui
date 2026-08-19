@@ -8,7 +8,7 @@ import { useDialogResize } from '../hooks/useDialogResize';
 import { isEditableEventTarget } from '../utils/isEditableEventTarget';
 import './PlanApprovalDialog.css';
 import { ChevronDownIcon, ChevronUpIcon, CircleFilledIcon, CircleIcon, ClockIcon, AlertIcon } from './Icons';
-import { ClickSpark } from './react-bits';
+import { ClickSpark, GradientText, ProgressRing } from './react-bits';
 
 export interface PlanApprovalRequest {
   requestId: string;
@@ -103,6 +103,11 @@ const PlanApprovalDialog = ({
     setSelectedMode(modeId);
   };
 
+  const ringProgress = timeoutSeconds > 0 ? Math.max(0, remainingSeconds / timeoutSeconds) : 0;
+  const ringColor = isTimeWarning
+    ? 'var(--text-warning, #e0b341)'
+    : 'var(--accent-primary, #6d8cff)';
+
   // Render collapsed mode
   if (isCollapsed) {
     return (
@@ -136,6 +141,7 @@ const PlanApprovalDialog = ({
         className="plan-approval-dialog"
         style={dialogHeight ? { height: dialogHeight, maxHeight: '90vh' } : undefined}
       >
+        <div className="u-aurora-strip" />
         {/* Resize handle at the top edge */}
         <div className="plan-approval-resize-handle" onPointerDown={handleResizeStart} />
         {/* Timeout warning notice */}
@@ -150,18 +156,23 @@ const PlanApprovalDialog = ({
         <div className="plan-approval-dialog-header">
           <div className="header-left">
             <h3 className="plan-approval-dialog-title">
-              {t('planApproval.title', '计划已准备就绪')}
+              <GradientText colors={['#6d8cff', '#b06cff']} angle={90}>
+                {t('planApproval.title', '计划已准备就绪')}
+              </GradientText>
+              <span className="u-badge u-badge--accent" style={{ marginLeft: 8, verticalAlign: 'middle' }}>
+                {t('planApproval.badge', '计划')}
+              </span>
             </h3>
             <p className="plan-approval-dialog-subtitle">
               {t('planApproval.subtitle', 'Claude 已完成规划，准备执行。')}
             </p>
           </div>
           <div className="header-right">
-            {/* Countdown display */}
-            <span className={`countdown-timer ${isTimeWarning ? 'warning' : ''}`}>
-              <ClockIcon size={16} />
-              <span className="countdown-time">{formatCountdown(remainingSeconds)}</span>
-            </span>
+            {/* Countdown ring (react-bits ProgressRing + overlay number) */}
+            <div className="u-ring" style={{ width: 34, height: 34 }} title={formatCountdown(remainingSeconds)}>
+              <ProgressRing size={34} strokeWidth={3} progress={ringProgress} color={ringColor} decorative />
+              <span className="u-ring-num">{formatCountdown(remainingSeconds)}</span>
+            </div>
             {/* Collapse button */}
             <button
               className="collapse-button"

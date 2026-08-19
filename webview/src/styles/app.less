@@ -1,47 +1,49 @@
 // 变量定义
-@import "less/variables.less";
+@import 'less/variables.less';
 
 // 基础样式
-@import "less/base.less";
+@import 'less/base.less';
 
 // 公共 @keyframes（dialog-pop-in/out、char-pop、stream-block-in、toast-pop-out）
 // 被 components 直接引用，必须参与编译，否则 animation 引用不存在的 keyframe 会
 // 静默失效 → 弹窗/Toast/逐字/消息动画全部“瞬间完成、像掉帧”。
 // 顺序约定：放在 components 之前，使同名 keyframes（spin/fadeIn 等）以组件内定义为准。
-@import "less/animations.less";
+@import 'less/animations.less';
 
 // 组件样式
-@import "less/components/header.less";
-@import "less/components/menu.less";
-@import "less/components/toast.less";
-@import "less/components/message.less";
-@import "less/components/history.less";
-@import "less/components/loading.less";
-@import "less/components/input.less";
-@import "less/components/todo.less";
-@import "less/components/task.less";
-@import "less/components/buttons.less";
-@import "less/components/provider.less";
-@import "less/components/settings.less";
-@import "less/components/dialogs.less";
-@import "less/components/permission.less";
-@import "less/components/preview.less";
-@import "less/components/tools.less";
-@import "less/components/config-info.less";
-@import "less/components/mcp.less";
-@import "less/components/skills.less";
-@import "less/components/scroll-control.less";
-@import "less/components/collapsible-markdown.less";
-@import "less/components/agent-dialog.less";
-@import "less/components/model-edit-dialog.less";
-@import "less/components/rewind.less";
-@import "less/components/welcome.less";
-@import "less/components/changelog-dialog.less";
-@import "less/components/conversation-search.less";
-@import "less/components/dual-view.less";
+@import 'less/components/header.less';
+@import 'less/components/menu.less';
+@import 'less/components/toast.less';
+@import 'less/components/message.less';
+@import 'less/components/history.less';
+@import 'less/components/loading.less';
+@import 'less/components/input.less';
+@import 'less/components/todo.less';
+@import 'less/components/task.less';
+@import 'less/components/buttons.less';
+@import 'less/components/provider.less';
+@import 'less/components/settings.less';
+@import 'less/components/dialogs.less';
+@import 'less/components/permission.less';
+@import 'less/components/dialog-unified.less';
+@import 'less/components/preview.less';
+@import 'less/components/tools.less';
+@import 'less/components/config-info.less';
+@import 'less/components/mcp.less';
+@import 'less/components/skills.less';
+@import 'less/components/scroll-control.less';
+@import 'less/components/collapsible-markdown.less';
+@import 'less/components/agent-dialog.less';
+@import 'less/components/model-edit-dialog.less';
+@import 'less/components/rewind.less';
+@import 'less/components/welcome.less';
+@import 'less/components/changelog-dialog.less';
+@import 'less/components/conversation-search.less';
+@import 'less/components/dual-view.less';
 
 // 聊天消息头像样式
-@import "less/components/chat-message-avatar.less";
+@import 'less/components/chat-message-avatar.less';
 
 // 响应式适配
-@import "less/responsive.less";
+@import 'less/responsive.less';
+@import 'less/components/session-capabilities.less';

@@ -103,6 +103,7 @@ export const AppDialogs = ({
         message={t('chat.confirmNewSession')}
         confirmText={t('common.confirm')}
         cancelText={t('common.cancel')}
+        badge={<span className="u-badge u-badge--accent">{t('chat.badgeSession', '会话')}</span>}
         onConfirm={handleConfirmNewSessionWithSkip}
         onCancel={onCancelNewSession}
       >
