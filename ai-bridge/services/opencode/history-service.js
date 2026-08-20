@@ -766,7 +766,16 @@ export async function archiveSession(params = {}) {
     const archived = db.getRowsModified();
     // sql.js 是内存数据库,写操作仅落在内存 db 对象上,必须显式 export 回文件才算持久化
     // (只读的 getSessionList/getSessionMessages 无需此步)。幂等:已归档行 archived=0,export 仍写出(内容无变化)。
-    writeFileSync(dbPath, Buffer.from(db.export()));
+    try {
+      writeFileSync(dbPath, Buffer.from(db.export()));
+    } catch (writeError) {
+      // 写入失败时提供详细错误信息，但数据库已正确关闭
+      return { 
+        success: false, 
+        error: `Failed to write database: ${writeError instanceof Error ? writeError.message : String(writeError)}`,
+        archived 
+      };
+    }
     return { success: true, archived };
   } finally {
     db.close();

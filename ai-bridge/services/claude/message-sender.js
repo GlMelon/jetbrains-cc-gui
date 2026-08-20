@@ -161,14 +161,29 @@ function parseStreamLine(line) {
 
 /**
  * Kill child process tree.
+ * On Windows, uses taskkill /F /T to kill the entire process tree.
+ * On Unix, uses process group kill to terminate all child processes.
  * @param {import('child_process').ChildProcess} child
  */
 function killChildTree(child) {
   if (!child || child.killed) return;
   try {
     if (process.platform === 'win32') {
-      child.kill();
+      // Windows: use taskkill to kill the entire process tree
+      try {
+        const pid = child.pid;
+        if (pid) {
+          spawnSync('taskkill', ['/F', '/T', '/PID', String(pid)], {
+            stdio: 'ignore',
+            timeout: 5000,
+          });
+        }
+      } catch (_) {
+        // Fallback: kill the main process if taskkill fails
+        child.kill();
+      }
     } else {
+      // Unix: kill the entire process group
       try {
         process.kill(-child.pid, 'SIGTERM');
       } catch {
