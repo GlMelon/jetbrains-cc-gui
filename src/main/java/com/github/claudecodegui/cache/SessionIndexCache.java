@@ -1,5 +1,7 @@
 package com.github.claudecodegui.cache;
 
+import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.components.Service;
 import com.intellij.openapi.diagnostic.Logger;
 
 import java.io.IOException;
@@ -13,16 +15,20 @@ import java.util.stream.Stream;
 /**
  * In-memory cache for session indexes.
  * Caches historical session lists to avoid reading from the filesystem on every access.
+ *
+ * <p>Registered as an application-level service via {@code @Service(Service.Level.APP)}.
+ * The platform manages instantiation; callers resolve the singleton through {@link #getInstance()}.
  */
+@Service(Service.Level.APP)
 public class SessionIndexCache {
 
     private static final Logger LOG = Logger.getInstance(SessionIndexCache.class);
 
-    // Singleton
-    private static final SessionIndexCache INSTANCE = new SessionIndexCache();
-
     // Cache TTL: 5 minutes
     private static final long CACHE_TTL_MS = 5 * 60 * 1000;
+
+    // Cache size limit: maximum number of project entries per cache
+    private static final int MAX_CACHE_SIZE = 100;
 
     // Claude cache: projectPath -> CacheEntry
     private final Map<String, CacheEntry<?>> claudeCache = new ConcurrentHashMap<>();
@@ -30,12 +36,38 @@ public class SessionIndexCache {
     // Codex cache: projectPath -> CacheEntry
     private final Map<String, CacheEntry<?>> codexCache = new ConcurrentHashMap<>();
 
-    private SessionIndexCache() {
-        // Private constructor
+    /**
+     * Public no-arg constructor: required for platform {@code applicationService} registration.
+     */
+    public SessionIndexCache() {
     }
 
+    /**
+     * Resolve the shared SessionIndexCache instance.
+     * Prefers the platform-managed application service; falls back to a lazily created
+     * instance for edge cases (early bootstrap / isolated unit tests).
+     */
     public static SessionIndexCache getInstance() {
-        return INSTANCE;
+        try {
+            SessionIndexCache service =
+                    ApplicationManager.getApplication().getService(SessionIndexCache.class);
+            if (service != null) {
+                return service;
+            }
+        } catch (RuntimeException ignored) {
+            // ApplicationManager unavailable (isolated tests / plugin bootstrap).
+        }
+        return Holder.INSTANCE;
+    }
+
+    /**
+     * Fallback instance for edge cases where the platform service is not resolvable.
+     */
+    private static final class Holder {
+        private static final SessionIndexCache INSTANCE = new SessionIndexCache();
+
+        private Holder() {
+        }
     }
 
     /**
@@ -151,6 +183,12 @@ public class SessionIndexCache {
     public <T> void updateClaudeCache(String projectPath, Path projectDir, List<T> sessions) {
         long dirModified = getDirModifiedTime(projectDir);
         CacheEntry<T> entry = new CacheEntry<>(sessions, dirModified);
+        
+        // 检查缓存大小上限，如果超过则移除最旧的条目
+        if (claudeCache.size() >= MAX_CACHE_SIZE && !claudeCache.containsKey(projectPath)) {
+            evictOldestEntry(claudeCache);
+        }
+        
         claudeCache.put(projectPath, entry);
         LOG.info("[SessionIndexCache] Claude cache updated for " + projectPath + ", sessions: " + sessions.size());
     }
@@ -186,6 +224,12 @@ public class SessionIndexCache {
     public <T> void updateCodexCache(String projectPath, Path sessionsDir, List<T> sessions) {
         FileTreeFingerprint fingerprint = getJsonlFileTreeFingerprint(sessionsDir);
         CacheEntry<T> entry = new CacheEntry<>(sessions, fingerprint.latestModified, fingerprint.fileCount, fingerprint.totalFileSize);
+        
+        // 检查缓存大小上限，如果超过则移除最旧的条目
+        if (codexCache.size() >= MAX_CACHE_SIZE && !codexCache.containsKey(projectPath)) {
+            evictOldestEntry(codexCache);
+        }
+        
         codexCache.put(projectPath, entry);
         LOG.info("[SessionIndexCache] Codex cache updated for " + projectPath + ", sessions: " + sessions.size());
     }
@@ -215,6 +259,28 @@ public class SessionIndexCache {
     public void clearAllCodexCache() {
         codexCache.clear();
         LOG.info("[SessionIndexCache] All Codex caches cleared");
+    }
+
+    /**
+     * Evicts the oldest entry from the cache when size limit is reached.
+     * Removes the entry with the oldest cacheCreatedAt time.
+     */
+    private <T> void evictOldestEntry(Map<String, CacheEntry<?>> cache) {
+        String oldestKey = null;
+        long oldestTime = Long.MAX_VALUE;
+        
+        for (Map.Entry<String, CacheEntry<?>> entry : cache.entrySet()) {
+            CacheEntry<?> cacheEntry = entry.getValue();
+            if (cacheEntry.getCacheCreatedAt() < oldestTime) {
+                oldestTime = cacheEntry.getCacheCreatedAt();
+                oldestKey = entry.getKey();
+            }
+        }
+        
+        if (oldestKey != null) {
+            cache.remove(oldestKey);
+            LOG.info("[SessionIndexCache] Evicted oldest cache entry: " + oldestKey);
+        }
     }
 
     /**

@@ -5,6 +5,8 @@ import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.util.TextSanitizer;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.components.Service;
 import com.intellij.openapi.diagnostic.Logger;
 
 import java.io.IOException;
@@ -19,7 +21,11 @@ import java.util.stream.Stream;
  * Session index file manager.
  * Handles reading, writing, and incremental updates of index files.
  * Index file location: ~/.codemoss/cache/
+ *
+ * <p>Registered as an application-level service via {@code @Service(Service.Level.APP)}.
+ * The platform manages instantiation; callers resolve the singleton through {@link #getInstance()}.
  */
+@Service(Service.Level.APP)
 public class SessionIndexManager {
 
     private static final Logger LOG = Logger.getInstance(SessionIndexManager.class);
@@ -48,7 +54,10 @@ public class SessionIndexManager {
         return Paths.get(NodeDetector.resolveHomeForFileOps(), ".codemoss", "cache");
     }
 
-    private SessionIndexManager() {
+    /**
+     * Public no-arg constructor: required for platform {@code applicationService} registration.
+     */
+    public SessionIndexManager() {
         this(defaultCacheDir());
     }
 
@@ -57,12 +66,32 @@ public class SessionIndexManager {
         ensureCacheDir();
     }
 
-    private static final class Holder {
-        private static final SessionIndexManager INSTANCE = new SessionIndexManager();
+    /**
+     * Resolve the shared SessionIndexManager instance.
+     * Prefers the platform-managed application service; falls back to a lazily created
+     * instance for edge cases (early bootstrap / isolated unit tests).
+     */
+    public static SessionIndexManager getInstance() {
+        try {
+            SessionIndexManager service =
+                    ApplicationManager.getApplication().getService(SessionIndexManager.class);
+            if (service != null) {
+                return service;
+            }
+        } catch (RuntimeException ignored) {
+            // ApplicationManager unavailable (isolated tests / plugin bootstrap).
+        }
+        return Holder.INSTANCE;
     }
 
-    public static SessionIndexManager getInstance() {
-        return Holder.INSTANCE;
+    /**
+     * Fallback instance for edge cases where the platform service is not resolvable.
+     */
+    private static final class Holder {
+        private static final SessionIndexManager INSTANCE = new SessionIndexManager();
+
+        private Holder() {
+        }
     }
 
     /**

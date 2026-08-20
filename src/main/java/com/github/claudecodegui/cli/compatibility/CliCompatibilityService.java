@@ -1,13 +1,23 @@
 package com.github.claudecodegui.cli.compatibility;
 
 import com.github.claudecodegui.session.runtime.ProviderType;
+import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.components.Service;
 import com.intellij.openapi.diagnostic.Logger;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
-/** Backend facade for provider CLI version parsing and manifest-based compatibility decisions. */
+/**
+ * Backend facade for provider CLI version parsing and manifest-based compatibility decisions.
+ *
+ * <p>Registered as an application-level service via {@code @Service(Service.Level.APP)}.
+ * The platform manages instantiation and disposal; callers resolve the singleton through
+ * {@link #getInstance()}, which prefers the platform-managed instance and falls back to
+ * a lazily created instance for edge cases (early bootstrap / isolated unit tests).
+ */
+@Service(Service.Level.APP)
 public final class CliCompatibilityService {
 
     private static final Logger LOG = Logger.getInstance(CliCompatibilityService.class);
@@ -16,7 +26,14 @@ public final class CliCompatibilityService {
     private final CliVersionParserRegistry parserRegistry;
     private final AtomicReference<CliCompatibilityManifestSnapshot> snapshot;
 
-    public CliCompatibilityService(
+    /**
+     * Public no-arg constructor: required for platform {@code applicationService} registration.
+     */
+    public CliCompatibilityService() {
+        this(new CliCompatibilityManifestRepository(), CliVersionParserRegistry.defaults());
+    }
+
+    CliCompatibilityService(
             CliCompatibilityManifestRepository repository,
             CliVersionParserRegistry parserRegistry) {
         this.repository = repository;
@@ -24,7 +41,21 @@ public final class CliCompatibilityService {
         this.snapshot = new AtomicReference<>(repository.load());
     }
 
+    /**
+     * Resolve the shared CliCompatibilityService. Prefers the platform-managed application
+     * service (auto-disposed on plugin unload / IDE shutdown); falls back to a lazily created
+     * instance when the application is not yet resolvable.
+     */
     public static CliCompatibilityService getInstance() {
+        try {
+            CliCompatibilityService service =
+                    ApplicationManager.getApplication().getService(CliCompatibilityService.class);
+            if (service != null) {
+                return service;
+            }
+        } catch (RuntimeException ignored) {
+            // ApplicationManager unavailable (isolated tests / plugin bootstrap).
+        }
         return Holder.INSTANCE;
     }
 
@@ -129,6 +160,10 @@ public final class CliCompatibilityService {
                 snapshot.source());
     }
 
+    /**
+     * Fallback instance for edge cases where the platform service is not resolvable
+     * (early bootstrap / isolated unit tests).
+     */
     private static final class Holder {
         private static final CliCompatibilityService INSTANCE = new CliCompatibilityService(
                 new CliCompatibilityManifestRepository(), CliVersionParserRegistry.defaults());
