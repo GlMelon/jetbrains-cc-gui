@@ -158,7 +158,7 @@ public class CodemossSettingsService {
 
         // Watch external config changes (for example cc-switch) and refresh frontend state.
         try {
-            ConfigFileWatcherService.getInstance().ensureStarted(pathManager.getConfigDir());
+            ConfigFileWatcherService.getInstance().ensureStarted(pathManager.getConfigDir().toString());
         } catch (Exception e) {
             LOG.debug("[CodemossSettings] ConfigFileWatcherService not started (no Application context): "
                     + e.getMessage());

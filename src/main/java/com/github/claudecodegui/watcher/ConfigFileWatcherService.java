@@ -4,28 +4,26 @@ import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow;
 import com.github.claudecodegui.util.JsUtils;
+import com.github.claudecodegui.util.PlatformUtils;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ProjectManager;
 import com.intellij.openapi.util.Disposer;
+import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.openapi.vfs.VirtualFileManager;
+import com.intellij.openapi.vfs.newvfs.BulkFileListener;
+import com.intellij.openapi.vfs.newvfs.events.VFileContentChangeEvent;
+import com.intellij.openapi.vfs.newvfs.events.VFileCreateEvent;
+import com.intellij.openapi.vfs.newvfs.events.VFileDeleteEvent;
+import com.intellij.openapi.vfs.newvfs.events.VFileEvent;
 import com.intellij.util.Alarm;
+import com.intellij.util.messages.MessageBusConnection;
+import org.jetbrains.annotations.NotNull;
 
-import java.io.IOException;
-import java.nio.file.ClosedWatchServiceException;
-import java.nio.file.FileSystems;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.WatchEvent;
-import java.nio.file.WatchKey;
-import java.nio.file.WatchService;
+import java.util.List;
 import java.util.function.BiConsumer;
-
-import static java.nio.file.StandardWatchEventKinds.ENTRY_CREATE;
-import static java.nio.file.StandardWatchEventKinds.ENTRY_DELETE;
-import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
-import static java.nio.file.StandardWatchEventKinds.OVERFLOW;
 
 /**
  * 监听 {@code ~/.codemoss/config.json} 的外部修改(cc-switch 切 provider/模型),debounce 后
@@ -35,23 +33,21 @@ import static java.nio.file.StandardWatchEventKinds.OVERFLOW;
  * {@link CodemossSettingsService} 刻意不加缓存(配置即时性优先于 ~20ms IO),本服务只做
  * 「检测 + 通知」,<b>绝不写 config</b>(避免与 {@code ConfigRepository} 的 write-time CAS 交互)。
  *
- * <p><b>底座</b>:nio {@link WatchService}(抄 {@code PermissionRequestWatcher};home 目录 VFS
- * 覆盖不可靠)+ debounce 调度器(生产用 {@link Alarm} SWING_THREAD;测试可注入不依赖 Application
- * 的实现)合并 atomic-replace / 重复事件 / OVERFLOW 抖动。
+ * <p><b>底座</b>:IntelliJ {@link VirtualFileManager} + {@link BulkFileListener}(
+ * 与 {@link PromptFileWatcher} 保持一致), debounce 调度器(生产用 {@link Alarm} SWING_THREAD;
+ * 测试可注入不依赖 Application 的实现)合并 atomic-replace / 重复事件抖动。
  *
  * <p><b>生命周期</b>:applicationService + {@link Disposable},IDE 关闭时由容器级联 dispose。
  *
- * <p><b>§861 坑对照</b>:atomic replace 与重复事件由 debounce 合并;OVERFLOW 强制全量刷新;
- * delete/recreate 命中 ENTRY_DELETE/CREATE(fresh read 返空则跳过广播);dispose/IDE shutdown 由
+ * <p><b>§861 坑对照</b>:atomic replace 与重复事件由 debounce 合并;delete/recreate 命中
+ * VFileDeleteEvent/VFileCreateEvent(fresh read 返空则跳过广播);dispose/IDE shutdown 由
  * Disposable 兜底;不信任事件 payload,真相靠 {@link #broadcastModelRegistryToAllProjects} 的 fresh read。
  */
-public class ConfigFileWatcherService implements Disposable {
+public class ConfigFileWatcherService implements Disposable, BulkFileListener {
 
     private static final Logger LOG = Logger.getInstance(ConfigFileWatcherService.class);
-    private static final String CONFIG_FILE_NAME = "config.json";
     /** 默认 debounce(毫秒):合并 atomic-replace / 重复事件抖动。包级可见供测试引用。 */
     static final long DEFAULT_DEBOUNCE_MS = 200;
-    private static final long THREAD_JOIN_MS = 1000;
 
     /** 应用级单例(applicationService)。 */
     public static ConfigFileWatcherService getInstance() {
@@ -67,14 +63,14 @@ public class ConfigFileWatcherService implements Disposable {
     /** config 变更 debounce 后调用(生产=广播 MODEL_REGISTRY;测试=CountDownLatch)。 */
     private final Runnable onChangeCallback;
 
-    private volatile boolean running = false;
     private volatile boolean disposed = false;
-    private volatile WatchService watchService;
-    private volatile Thread watchThread;
+    private volatile boolean started = false;
+    private MessageBusConnection connection;
+    private String watchedConfigPath;
 
     /**
      * 容器构造(applicationService):默认 debounce + Alarm 调度 + 生产广播回调。<b>不启动</b>——
-     * 等 {@link #ensureStarted(Path)} 传入 configDir(由 {@link CodemossSettingsService} 构造期注入,
+     * 等 {@link #ensureStarted(String)} 传入 configDirPath(由 {@link CodemossSettingsService} 构造期注入,
      * 避免与 CSS 互相 {@code getInstance()} 形成构造期循环)。
      */
     public ConfigFileWatcherService() {
@@ -105,95 +101,68 @@ public class ConfigFileWatcherService implements Disposable {
     }
 
     /**
-     * 幂等启动:注册 configDir 并启动 watch 线程。目录不存在则创建。已运行/已 dispose 则跳过。
+     * 幂等启动:订阅 VFS 变更事件。已启动/已 dispose 则跳过。
+     *
+     * @param configDirPath 监听的配置目录路径(如 ~/.codemoss)
      */
-    public synchronized void ensureStarted(Path configDir) {
-        if (running || disposed) {
+    public synchronized void ensureStarted(String configDirPath) {
+        if (started || disposed) {
             return;
         }
-        try {
-            Files.createDirectories(configDir);
-            WatchService created = FileSystems.getDefault().newWatchService();
-            try {
-                configDir.register(created, ENTRY_CREATE, ENTRY_MODIFY, ENTRY_DELETE);
-                watchService = created;
-            } catch (IOException e) {
-                try {
-                    created.close();
-                } catch (IOException closeException) {
-                    e.addSuppressed(closeException);
-                }
-                throw e;
-            }
-        } catch (IOException e) {
-            watchService = null;
-            LOG.warn("[ConfigFileWatcher] Failed to register WatchService on " + configDir
-                    + ": " + e.getMessage(), e);
-            return;
-        }
-        running = true;
-        WatchService service = watchService;
-        watchThread = new Thread(() -> watchLoop(service), "ConfigFileWatcher");
-        watchThread.setDaemon(true);
-        watchThread.start();
-        LOG.debug("[ConfigFileWatcher] Started watching " + configDir);
+
+        this.watchedConfigPath = configDirPath + "/" + "config.json";
+
+        // 在应用级消息总线上订阅 VFS 变更事件
+        connection = ApplicationManager.getApplication().getMessageBus().connect(parentDisposable);
+        connection.subscribe(VirtualFileManager.VFS_CHANGES, this);
+
+        started = true;
+        LOG.debug("[ConfigFileWatcher] Started watching " + watchedConfigPath + " via VFS API");
     }
 
     /**
-     * watch 线程主循环:阻塞 {@code take()} → drain 事件 → 过滤 config.json / OVERFLOW → debounce。
-     * {@link ClosedWatchServiceException} 为 dispose 期间预期退出。
+     * BulkFileListener 回调:处理 VFS 文件变更事件。
+     * 过滤 config.json 的创建/修改/删除事件,debounce 后触发刷新。
      */
-    private void watchLoop(WatchService service) {
-        try {
-            while (running && !disposed) {
-                WatchKey key;
-                try {
-                    key = service.take();
-                } catch (ClosedWatchServiceException e) {
-                    // dispose 期间 watchService.close() 触发,干净退出。
-                    break;
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
+    @Override
+    public void after(@NotNull List<? extends VFileEvent> events) {
+        if (disposed || watchedConfigPath == null) {
+            return;
+        }
 
-                boolean configChanged = false;
-                for (WatchEvent<?> event : key.pollEvents()) {
-                    if (event.kind() == OVERFLOW) {
-                        configChanged = true; // 强制全量刷新(config 场景不能漏)
-                        continue;
-                    }
-                    Object context = event.context();
-                    if (context != null && CONFIG_FILE_NAME.equals(context.toString())) {
-                        configChanged = true;
-                    }
-                }
-                if (!key.reset()) {
-                    break;
-                }
+        boolean configChanged = false;
+        for (VFileEvent event : events) {
+            VirtualFile file = event.getFile();
+            if (file == null) {
+                continue;
+            }
 
-                if (configChanged) {
-                    scheduleRefresh();
-                }
+            String filePath = file.getPath();
+            if (!watchedConfigPath.equals(filePath)) {
+                continue;
             }
-        } finally {
-            running = false;
-            closeQuietly(service);
-            if (watchService == service) {
-                watchService = null;
+
+            // 处理所有类型的文件变更事件
+            if (event instanceof VFileContentChangeEvent ||
+                event instanceof VFileCreateEvent ||
+                event instanceof VFileDeleteEvent) {
+                configChanged = true;
+                LOG.debug("[ConfigFileWatcher] Detected config change: " + event.getClass().getSimpleName());
+                break;
             }
-            Thread currentThread = Thread.currentThread();
-            if (watchThread == currentThread) {
-                watchThread = null;
-            }
+        }
+
+        if (configChanged) {
+            scheduleRefresh();
         }
     }
 
     /**
-     * nio 线程调用:经注入的 scheduler 做 trailing-edge debounce(合并连续抖动),delay 后在调度线程
+     * debounce 调度:经注入的 scheduler 做 trailing-edge debounce(合并连续抖动),delay 后在调度线程
      * 触发 onChangeCallback(生产=Alarm→EDT)。dispose 竞态由 catch 兜底。
+     * 包级可见供测试调用。
      */
-    private void scheduleRefresh() {
+    void scheduleRefresh() {
         if (disposed) {
             return;
         }
@@ -243,35 +212,24 @@ public class ConfigFileWatcherService implements Disposable {
             return;
         }
         disposed = true;
-        running = false;
-        WatchService service = watchService;
-        Thread thread = watchThread;
-        watchService = null;
-        watchThread = null;
-        closeQuietly(service); // 让阻塞中的 take() 抛 ClosedWatchServiceException 退出
-        if (thread != null) {
-            thread.interrupt();
+        started = false;
+
+        // 断开 VFS 消息总线连接
+        if (connection != null) {
             try {
-                thread.join(THREAD_JOIN_MS);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+                connection.disconnect();
+            } catch (Exception ignored) {
+                // 已释放,安全
             }
+            connection = null;
         }
+
         try {
             Disposer.dispose(parentDisposable); // 级联释放 Alarm
         } catch (Exception ignored) {
             // 已释放(如容器级联),安全。
         }
-    }
 
-    private static void closeQuietly(WatchService service) {
-        if (service == null) {
-            return;
-        }
-        try {
-            service.close();
-        } catch (IOException e) {
-            LOG.warn("[ConfigFileWatcher] Error closing WatchService", e);
-        }
+        LOG.debug("[ConfigFileWatcher] Disposed");
     }
 }
