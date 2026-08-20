@@ -15,6 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 长驻 CLI 进程注册表(设计文档 §4.4/§4.5,Phase 1: claude)。
@@ -62,7 +63,18 @@ public final class CliPersistentProcessRegistry implements Disposable {
     private final Set<SlotKey> everCreated = ConcurrentHashMap.newKeySet();
 
     /** 同键并发重建防抖(每键至多一个重建任务在跑)。 */
-    private final Set<SlotKey> pendingRebuilds = ConcurrentHashMap.newKeySet();
+    private final ConcurrentHashMap<SlotKey, Long> pendingRebuilds = new ConcurrentHashMap<>();
+
+    /** 每键生命周期代数:release/回收后使已排队的后台任务失效,避免关闭 tab 后重新拉起 CLI。 */
+    private final ConcurrentHashMap<SlotKey, Long> generations = new ConcurrentHashMap<>();
+
+    /** 注册表生命周期代数:dispose 后使所有未完成后台任务失效。 */
+    private final AtomicLong lifecycleEpoch = new AtomicLong();
+
+    /** release/dispose 与后台任务提交槽位之间的提交闸门。 */
+    private final Object lifecycleLock = new Object();
+
+    private volatile boolean disposed;
 
     /** 每键 spawn 健康度:连续失败计数 + 冷却截止时刻(§6.15 坏槽位不无限重启)。 */
     private final ConcurrentHashMap<SlotKey, RebuildHealth> rebuildHealth = new ConcurrentHashMap<>();
@@ -96,6 +108,9 @@ public final class CliPersistentProcessRegistry implements Disposable {
      */
     public CliPersistentProcess acquire(String tabId, String provider, CliProcessSpec spec) {
         SlotKey key = new SlotKey(tabId, provider);
+        if (disposed) {
+            return null;
+        }
         Slot slot = slots.get(key);
         if (slot != null) {
             if (slot.process.isUsable() && slot.fingerprint.equals(spec.fingerprint())) {
@@ -127,12 +142,34 @@ public final class CliPersistentProcessRegistry implements Disposable {
             return null;
         }
         // tab 首条消息:同步 spawn(一次性 ~3.4s,与 one-shot 相同不劣化,§3.2)。
-        CliPersistentProcess process = spawnTracked(key, tabId, provider, spec);
+        long epoch = lifecycleEpoch.get();
+        long generation = currentGeneration(key);
+        CliPersistentProcess process = spawnTracked(key, tabId, provider, spec, epoch, generation);
         if (process == null) {
             return null;
         }
-        slots.put(key, new Slot(process, spec.fingerprint()));
-        everCreated.add(key);
+        Slot existing;
+        boolean closeProcess;
+        synchronized (lifecycleLock) {
+            if (!isCurrent(key, epoch, generation)) {
+                existing = null;
+                closeProcess = true;
+            } else {
+                existing = slots.putIfAbsent(key, new Slot(process, spec.fingerprint()));
+                closeProcess = existing != null;
+                if (!closeProcess) {
+                    everCreated.add(key);
+                }
+            }
+        }
+        if (closeProcess) {
+            process.closeGracefully(CliConstants.CLI_DISPOSE_CLOSE_TIMEOUT_MS);
+            if (existing != null && existing.process.isUsable()
+                    && existing.fingerprint.equals(spec.fingerprint())) {
+                return existing.process;
+            }
+            return null;
+        }
         return process;
     }
 
@@ -142,14 +179,26 @@ public final class CliPersistentProcessRegistry implements Disposable {
      */
     public void rebuildInBackground(String tabId, String provider, CliProcessSpec spec) {
         SlotKey key = new SlotKey(tabId, provider);
-        if (isCoolingDown(key)) {
-            return;
+        final long epoch;
+        final long generation;
+        synchronized (lifecycleLock) {
+            if (disposed || isCoolingDown(key)) {
+                return;
+            }
+            epoch = lifecycleEpoch.get();
+            generation = currentGeneration(key);
+            if (pendingRebuilds.putIfAbsent(key, generation) != null) {
+                return;
+            }
         }
-        if (!pendingRebuilds.add(key)) {
-            return;
-        }
-        CliSessionExecutor.runAsync(() -> {
+        try {
+            CliSessionExecutor.runAsync(() -> {
+                CliPersistentProcess oldProcess = null;
+            CliPersistentProcess replacedProcess = null;
             try {
+                if (!isCurrent(key, epoch, generation)) {
+                    return;
+                }
                 Slot existing = slots.get(key);
                 if (existing != null
                         && existing.process.isUsable()
@@ -159,29 +208,66 @@ public final class CliPersistentProcessRegistry implements Disposable {
                 if (isCoolingDown(key)) {
                     return;
                 }
-                if (!ensureCapacity(tabId, provider)) {
+                if (!isCurrent(key, epoch, generation) || !ensureCapacity(tabId, provider)) {
                     return;
                 }
-                if (existing != null && slots.remove(key, existing)) {
-                    existing.process.closeGracefully();
+                if (existing != null) {
+                    synchronized (lifecycleLock) {
+                        if (!isCurrent(key, epoch, generation)) {
+                            return;
+                        }
+                        if (slots.remove(key, existing)) {
+                            oldProcess = existing.process;
+                        }
+                    }
+                    if (oldProcess != null) {
+                        oldProcess.closeGracefully();
+                        oldProcess = null;
+                    }
                 }
-                CliPersistentProcess process = spawnTracked(key, tabId, provider, spec);
+                CliPersistentProcess process = spawnTracked(key, tabId, provider, spec, epoch, generation);
                 if (process != null) {
-                    slots.put(key, new Slot(process, spec.fingerprint()));
-                    everCreated.add(key);
+                    boolean closeSpawned = false;
+                    synchronized (lifecycleLock) {
+                        if (!isCurrent(key, epoch, generation)) {
+                            closeSpawned = true;
+                        } else {
+                            Slot replaced = slots.put(key, new Slot(process, spec.fingerprint()));
+                            if (replaced != null && replaced.process != process) {
+                                replacedProcess = replaced.process;
+                            }
+                            everCreated.add(key);
+                        }
+                    }
+                    if (closeSpawned) {
+                        process.closeGracefully(CliConstants.CLI_DISPOSE_CLOSE_TIMEOUT_MS);
+                    }
+                    if (replacedProcess != null) {
+                        replacedProcess.closeGracefully(CliConstants.CLI_DISPOSE_CLOSE_TIMEOUT_MS);
+                    }
                 }
-            } finally {
-                pendingRebuilds.remove(key);
-            }
-        });
+                } finally {
+                    pendingRebuilds.remove(key, generation);
+                }
+            });
+        } catch (RuntimeException e) {
+            pendingRebuilds.remove(key, generation);
+            LOG.warn("[CliPersistentProcessRegistry] failed to schedule background rebuild: tab="
+                    + tabId + ", provider=" + provider, e);
+        }
     }
 
     /** tab 关闭(CliSession.dispose 链路):关闭并移除该 tab+provider 的长驻进程。 */
     public void release(String tabId, String provider) {
         SlotKey key = new SlotKey(tabId, provider);
-        Slot slot = slots.remove(key);
-        everCreated.remove(key);
-        pendingRebuilds.remove(key);
+        Slot slot;
+        synchronized (lifecycleLock) {
+            advanceGeneration(key);
+            slot = slots.remove(key);
+            everCreated.remove(key);
+            pendingRebuilds.remove(key);
+            rebuildHealth.remove(key);
+        }
         if (slot != null) {
             slot.process.closeGracefully();
         }
@@ -202,14 +288,27 @@ public final class CliPersistentProcessRegistry implements Disposable {
      * 开关只影响新消息路由:门禁关后 acquire 不再命中,已死/已回收槽位不重建。
      */
     public void reclaimIdleProcessesNow() {
-        for (Map.Entry<SlotKey, Slot> entry : slots.entrySet()) {
-            Slot slot = entry.getValue();
-            if (slot.process.describe().state() == CliPersistentProcess.State.IDLE
-                    && slots.remove(entry.getKey(), slot)) {
+        List<CliPersistentProcess> toClose = new ArrayList<>();
+        synchronized (lifecycleLock) {
+            for (Map.Entry<SlotKey, Slot> entry : slots.entrySet()) {
+                Slot slot = entry.getValue();
+                if (slot.process.describe().state() != CliPersistentProcess.State.IDLE
+                        || !slots.remove(entry.getKey(), slot)) {
+                    continue;
+                }
+                advanceGeneration(entry.getKey());
+                rebuildHealth.remove(entry.getKey());
+                toClose.add(slot.process);
                 LOG.info("[CliPersistentProcessRegistry] reclaiming IDLE process on toggle-off: tab="
                         + entry.getKey().tabId() + ", provider=" + entry.getKey().provider());
-                slot.process.closeGracefully();
             }
+            for (SlotKey key : pendingRebuilds.keySet()) {
+                advanceGeneration(key);
+                rebuildHealth.remove(key);
+            }
+        }
+        for (CliPersistentProcess process : toClose) {
+            process.closeGracefully();
         }
     }
 
@@ -221,17 +320,23 @@ public final class CliPersistentProcessRegistry implements Disposable {
      */
     @Override
     public void dispose() {
-        sweeper.shutdownNow();
-        for (Map.Entry<SlotKey, Slot> entry : slots.entrySet()) {
-            Slot slot = entry.getValue();
-            if (slots.remove(entry.getKey(), slot)) {
+        List<Slot> toClose;
+        synchronized (lifecycleLock) {
+            disposed = true;
+            lifecycleEpoch.incrementAndGet();
+            sweeper.shutdownNow();
+            toClose = new ArrayList<>(slots.values());
+            slots.clear();
+            everCreated.clear();
+            pendingRebuilds.clear();
+            rebuildHealth.clear();
+            generations.clear();
+        }
+        for (Slot slot : toClose) {
+            if (slot != null) {
                 slot.process.closeGracefully(CliConstants.CLI_DISPOSE_CLOSE_TIMEOUT_MS);
             }
         }
-        slots.clear();
-        everCreated.clear();
-        pendingRebuilds.clear();
-        rebuildHealth.clear();
     }
 
     // ── private ────────────────────────────────────────────────────────────────
@@ -286,7 +391,15 @@ public final class CliPersistentProcessRegistry implements Disposable {
         if (oldest == null) {
             return false;
         }
-        if (slots.remove(oldest.getKey(), oldest.getValue())) {
+        boolean removed;
+        synchronized (lifecycleLock) {
+            removed = slots.remove(oldest.getKey(), oldest.getValue());
+            if (removed) {
+                advanceGeneration(oldest.getKey());
+                rebuildHealth.remove(oldest.getKey());
+            }
+        }
+        if (removed) {
             LOG.info("[CliPersistentProcessRegistry] evicting least-recently-used IDLE process (capacity pressure): tab="
                     + oldest.getKey().tabId() + ", provider=" + oldest.getKey().provider());
             oldest.getValue().process.closeGracefully(CliConstants.CLI_DISPOSE_CLOSE_TIMEOUT_MS);
@@ -298,7 +411,17 @@ public final class CliPersistentProcessRegistry implements Disposable {
     /** 该键是否处于重建冷却窗口(§6.15)。 */
     private boolean isCoolingDown(SlotKey key) {
         RebuildHealth health = rebuildHealth.get(key);
-        return health != null && health.cooldownUntilMs > System.currentTimeMillis();
+        if (health == null) {
+            return false;
+        }
+        if (health.cooldownUntilMs <= 0L) {
+            return false;
+        }
+        if (health.cooldownUntilMs > System.currentTimeMillis()) {
+            return true;
+        }
+        rebuildHealth.remove(key, health);
+        return false;
     }
 
     /** 测试观测钩子:指定 tab+provider 是否处于重建冷却窗口。 */
@@ -307,25 +430,61 @@ public final class CliPersistentProcessRegistry implements Disposable {
     }
 
     /** 带健康度记账的 spawn:成功清零失败计数,失败累计并在达上限时开启冷却窗口。 */
-    private CliPersistentProcess spawnTracked(SlotKey key, String tabId, String provider, CliProcessSpec spec) {
+    private CliPersistentProcess spawnTracked(
+            SlotKey key,
+            String tabId,
+            String provider,
+            CliProcessSpec spec,
+            long epoch,
+            long generation
+    ) {
         CliPersistentProcess process = spawn(tabId, provider, spec);
         if (process != null) {
-            rebuildHealth.remove(key);
-        } else {
-            rebuildHealth.compute(key, (k, health) -> {
-                RebuildHealth h = health != null ? health : new RebuildHealth();
-                h.consecutiveFailures++;
-                if (h.consecutiveFailures >= CliConstants.CLI_PERSISTENT_REBUILD_MAX_FAILURES) {
-                    h.cooldownUntilMs = System.currentTimeMillis()
-                            + CliConstants.CLI_PERSISTENT_REBUILD_COOLDOWN_MS;
-                    LOG.warn("[CliPersistentProcessRegistry] rebuild cooldown activated (consecutiveFailures="
-                            + h.consecutiveFailures + ", cooldownMs=" + CliConstants.CLI_PERSISTENT_REBUILD_COOLDOWN_MS
-                            + ", one-shot until expiry): tab=" + tabId + ", provider=" + provider);
+            boolean stale;
+            synchronized (lifecycleLock) {
+                stale = !isCurrent(key, epoch, generation);
+                if (!stale) {
+                    rebuildHealth.remove(key);
                 }
-                return h;
-            });
+            }
+            if (stale) {
+                process.closeGracefully(CliConstants.CLI_DISPOSE_CLOSE_TIMEOUT_MS);
+                return null;
+            }
+        } else {
+            synchronized (lifecycleLock) {
+                if (!isCurrent(key, epoch, generation)) {
+                    return null;
+                }
+                rebuildHealth.compute(key, (k, health) -> {
+                    RebuildHealth h = health != null ? health : new RebuildHealth();
+                    h.consecutiveFailures++;
+                    if (h.consecutiveFailures >= CliConstants.CLI_PERSISTENT_REBUILD_MAX_FAILURES) {
+                        h.cooldownUntilMs = System.currentTimeMillis()
+                                + CliConstants.CLI_PERSISTENT_REBUILD_COOLDOWN_MS;
+                        LOG.warn("[CliPersistentProcessRegistry] rebuild cooldown activated (consecutiveFailures="
+                                + h.consecutiveFailures + ", cooldownMs=" + CliConstants.CLI_PERSISTENT_REBUILD_COOLDOWN_MS
+                                + ", one-shot until expiry): tab=" + tabId + ", provider=" + provider);
+                    }
+                    return h;
+                });
+            }
         }
         return process;
+    }
+
+    private long currentGeneration(SlotKey key) {
+        return generations.getOrDefault(key, 0L);
+    }
+
+    private boolean isCurrent(SlotKey key, long epoch, long generation) {
+        return !disposed
+                && lifecycleEpoch.get() == epoch
+                && currentGeneration(key) == generation;
+    }
+
+    private void advanceGeneration(SlotKey key) {
+        generations.merge(key, 1L, Long::sum);
     }
 
     private CliPersistentProcess spawn(String tabId, String provider, CliProcessSpec spec) {
@@ -349,23 +508,45 @@ public final class CliPersistentProcessRegistry implements Disposable {
     private void sweepIdleProcesses() {
         try {
             long now = System.currentTimeMillis();
+            List<CliPersistentProcess> toClose = new ArrayList<>();
             for (Map.Entry<SlotKey, Slot> entry : slots.entrySet()) {
                 Slot slot = entry.getValue();
                 if (!slot.process.isAlive()) {
-                    if (slots.remove(entry.getKey(), slot)) {
+                    boolean removed;
+                    synchronized (lifecycleLock) {
+                        removed = slots.remove(entry.getKey(), slot);
+                        if (removed) {
+                            advanceGeneration(entry.getKey());
+                            rebuildHealth.remove(entry.getKey());
+                        }
+                    }
+                    if (removed) {
                         LOG.info("[CliPersistentProcessRegistry] removed dead persistent process: tab="
                                 + entry.getKey().tabId() + ", provider=" + entry.getKey().provider());
                     }
                     continue;
                 }
                 long idleMs = now - slot.process.lastActiveAtMs();
-                if (idleMs > CliConstants.CLI_PERSISTENT_IDLE_TIMEOUT_MS
-                        && slots.remove(entry.getKey(), slot)) {
+                if (idleMs > CliConstants.CLI_PERSISTENT_IDLE_TIMEOUT_MS) {
+                    boolean removed;
+                    synchronized (lifecycleLock) {
+                        removed = slots.remove(entry.getKey(), slot);
+                        if (removed) {
+                            advanceGeneration(entry.getKey());
+                            rebuildHealth.remove(entry.getKey());
+                        }
+                    }
+                    if (!removed) {
+                        continue;
+                    }
                     LOG.info("[CliPersistentProcessRegistry] reclaiming idle persistent process (idleMs="
                             + idleMs + "): tab=" + entry.getKey().tabId()
                             + ", provider=" + entry.getKey().provider());
-                    slot.process.closeGracefully();
+                    toClose.add(slot.process);
                 }
+            }
+            for (CliPersistentProcess process : toClose) {
+                process.closeGracefully();
             }
         } catch (Exception e) {
             // 周期任务永不因单次异常终止(scheduleWithFixedDelay 语义),此处防御性兜底。

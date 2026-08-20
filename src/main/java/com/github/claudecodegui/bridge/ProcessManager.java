@@ -50,8 +50,24 @@ public class ProcessManager {
      * {@link #registerProcess(String, Process)}.
      */
     public void beginChannel(String channelId) {
+        beginChannel(channelId, true);
+    }
+
+    /**
+     * Marks a channel as starting without clearing a cancellation already
+     * requested by its owner. This is used when a caller creates the channel
+     * before dispatching work and may cancel it before the worker reaches the
+     * process runner.
+     */
+    public void beginChannelPreservingInterrupt(String channelId) {
+        beginChannel(channelId, false);
+    }
+
+    private void beginChannel(String channelId, boolean clearInterrupt) {
         if (channelId != null) {
-            interruptedChannels.remove(channelId);
+            if (clearInterrupt) {
+                interruptedChannels.remove(channelId);
+            }
             startingChannels.add(channelId);
         }
     }
@@ -61,8 +77,22 @@ public class ProcessManager {
      * process can be registered. Active process registrations are untouched.
      */
     public void finishChannelStart(String channelId) {
+        finishChannelStart(channelId, false);
+    }
+
+    /**
+     * Completes the pre-registration state for a channel.
+     *
+     * @param channelId channel identifier
+     * @param startupFailed whether process creation failed before registration;
+     *                      only that path may discard a pending cancellation
+     */
+    public void finishChannelStart(String channelId, boolean startupFailed) {
         if (channelId != null) {
             startingChannels.remove(channelId);
+            if (startupFailed && !activeChannelProcesses.containsKey(channelId)) {
+                interruptedChannels.remove(channelId);
+            }
         }
     }
 
@@ -99,6 +129,7 @@ public class ProcessManager {
             activeChannelProcesses.remove(channelId, process);
             channelStartTimes.remove(channelId);
             startingChannels.remove(channelId);
+            interruptedChannels.remove(channelId);
         }
     }
 

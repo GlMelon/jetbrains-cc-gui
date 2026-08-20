@@ -14,13 +14,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Supplier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import com.intellij.util.concurrency.AppExecutorUtil;
 
 /**
  * Provider 无关的长驻 CLI 进程句柄(Phase 1: claude stream-json 交互模式)。
@@ -49,12 +50,8 @@ public final class CliPersistentProcess {
 
     private static final Logger LOG = Logger.getInstance(CliPersistentProcess.class);
 
-    /** 轮超时与 interrupt 兜底调度器(守护线程;超时杀进程必须在本类内完成,进程句柄私有)。 */
-    private static final ScheduledExecutorService SCHEDULER = Executors.newSingleThreadScheduledExecutor(runnable -> {
-        Thread thread = new Thread(runnable, "AICG-CLI-Persistent-Timer");
-        thread.setDaemon(true);
-        return thread;
-    });
+    /** 轮超时与 interrupt 兜底调度器，交由 IntelliJ Application 生命周期管理。 */
+    private static final ScheduledExecutorService SCHEDULER = AppExecutorUtil.getAppScheduledExecutorService();
 
     // ── 嵌套类型 ───────────────────────────────────────────────────────────────
 
@@ -120,6 +117,7 @@ public final class CliPersistentProcess {
         final AtomicBoolean interrupted = new AtomicBoolean(false);
         /** 轮短标识:日志按轮归因(§6.7)。 */
         final String turnId;
+        volatile ScheduledFuture<?> interruptFallback;
 
         ActiveTurn(TurnLineHandler handler, String turnId) {
             this.handler = handler;
@@ -142,9 +140,11 @@ public final class CliPersistentProcess {
 
     private volatile Process process;
     private volatile OutputStreamWriter stdinWriter;
+    private volatile Thread readerThread;
     private final AtomicReference<ActiveTurn> currentTurn = new AtomicReference<>();
     /** closeGracefully 已调用(此后不可再开新轮)。 */
     private volatile boolean closed;
+    private final AtomicBoolean closeStarted = new AtomicBoolean();
     /** 强杀兜底已触发,槽位不可复用(dirty)。 */
     private volatile boolean dirty;
     /** 轮外协议事件 WARN 限流计数(§6.14 可观测化,防协议错配场景刷屏)。 */
@@ -177,6 +177,8 @@ public final class CliPersistentProcess {
         if (closed) {
             throw new IllegalStateException("Persistent process already closed: tab=" + tabId);
         }
+        Process started = null;
+        Thread reader = null;
         try {
             ProcessBuilder pb = new ProcessBuilder(cmd);
             pb.redirectErrorStream(true);
@@ -187,32 +189,56 @@ public final class CliPersistentProcess {
             if (cwd != null && !cwd.isBlank()) {
                 pb.directory(new File(cwd));
             }
-            Process started = pb.start();
+            started = pb.start();
             process = started;
             stdinWriter = new OutputStreamWriter(started.getOutputStream(), StandardCharsets.UTF_8);
-            if (started.waitFor(readyTimeoutMs, TimeUnit.MILLISECONDS)) {
+
+            // Start draining stdout before waiting for the ready window. A CLI may emit a
+            // large startup banner/diagnostic and block on a full pipe otherwise.
+            reader = new Thread(this::runReaderLoop,
+                    "AICG-CLI-Persistent-Reader-" + provider + "-" + tabId);
+            reader.setDaemon(true);
+            readerThread = reader;
+            reader.start();
+
+            long timeoutMs = Math.max(0L, readyTimeoutMs);
+            if (started.waitFor(timeoutMs, TimeUnit.MILLISECONDS)) {
                 LOG.warn("[CliPersistentProcess] CLI exited during ready window: provider=" + provider
                         + ", tab=" + tabId + ", exitCode=" + safeExitCode(started));
                 closeWriterQuietly();
+                terminateAndAwait(started);
+                joinReader(reader);
+                clearProcessReferences(started, reader);
                 return false;
             }
-            Thread reader = new Thread(this::runReaderLoop,
-                    "AICG-CLI-Persistent-Reader-" + provider + "-" + tabId);
-            reader.setDaemon(true);
-            reader.start();
+            if (closed) {
+                closeGracefully(CliConstants.CLI_DISPOSE_CLOSE_TIMEOUT_MS);
+                return false;
+            }
             LOG.info("[CliPersistentProcess] started: provider=" + provider + ", tab=" + tabId
                     + ", pid=" + started.pid());
             return true;
         } catch (InterruptedException e) {
+            closeWriterQuietly();
+            if (reader != null) {
+                reader.interrupt();
+            }
+            terminateAndAwait(started != null ? started : process);
+            joinReader(reader);
+            clearProcessReferences(started != null ? started : process, reader);
             Thread.currentThread().interrupt();
             LOG.warn("[CliPersistentProcess] start interrupted: provider=" + provider + ", tab=" + tabId, e);
             return false;
         } catch (Exception e) {
-            LOG.warn("[CliPersistentProcess] start failed: provider=" + provider + ", tab=" + tabId, e);
-            Process started = process;
-            if (started != null && started.isAlive()) {
-                PlatformUtils.terminateProcess(started);
+            closeWriterQuietly();
+            if (reader != null) {
+                reader.interrupt();
             }
+            Process target = started != null ? started : process;
+            terminateAndAwait(target);
+            joinReader(reader);
+            clearProcessReferences(target, reader);
+            LOG.warn("[CliPersistentProcess] start failed: provider=" + provider + ", tab=" + tabId, e);
             return false;
         }
     }
@@ -242,23 +268,38 @@ public final class CliPersistentProcess {
      * 到期即 terminateProcess 兜底(异步关闭有孤儿残留风险,故仍同步强杀收尾)。
      */
     public void closeGracefully(long waitTimeoutMs) {
-        closed = true;
-        Process p = process;
-        failActiveTurn("persistent process closed: tab=" + tabId);
-        if (p == null) {
+        if (!closeStarted.compareAndSet(false, true)) {
             return;
         }
+        closed = true;
+        ActiveTurn turn = currentTurn.get();
+        cancelInterruptFallback(turn);
+        Process p = process;
+        failActiveTurn("persistent process closed: tab=" + tabId);
         closeWriterQuietly();
+        Thread reader = readerThread;
+        if (reader != null && reader != Thread.currentThread()) {
+            reader.interrupt();
+        }
+        if (p == null) {
+            joinReader(reader);
+            clearProcessReferences(null, reader);
+            return;
+        }
+        long timeoutMs = Math.max(0L, waitTimeoutMs);
         try {
-            if (!p.waitFor(waitTimeoutMs, TimeUnit.MILLISECONDS)) {
+            if (!p.waitFor(timeoutMs, TimeUnit.MILLISECONDS)) {
                 LOG.info("[CliPersistentProcess] graceful close timed out, terminating: provider="
                         + provider + ", tab=" + tabId + ", pid=" + p.pid());
                 PlatformUtils.terminateProcess(p);
                 p.waitFor(CliConstants.PROCESS_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
             }
         } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
             PlatformUtils.terminateProcess(p);
+            Thread.currentThread().interrupt();
+        } finally {
+            joinReader(reader);
+            clearProcessReferences(p, reader);
         }
         LOG.info("[CliPersistentProcess] closed: provider=" + provider + ", tab=" + tabId
                 + ", pid=" + p.pid() + ", alive=" + p.isAlive());
@@ -273,11 +314,27 @@ public final class CliPersistentProcess {
      * @throws IllegalStateException 已有活跃轮(上层 per-tab inFlight 链之外的防御断言)
      */
     public TurnHandle startTurn(String stdinLine, TurnLineHandler handler) {
+        if (handler == null) {
+            throw new IllegalArgumentException("turn handler must not be null");
+        }
+        if (closed || dirty || !isAlive()) {
+            throw new IllegalStateException(
+                    "Persistent CLI process is not usable: provider=" + provider + ", tab=" + tabId);
+        }
         ActiveTurn turn = new ActiveTurn(handler, newTurnId());
         if (!currentTurn.compareAndSet(null, turn)) {
             throw new IllegalStateException(
                     "Concurrent turn on persistent CLI process: provider=" + provider
                             + ", tab=" + tabId + " — per-tab inFlight must serialize sends");
+        }
+        if (closed || dirty || !isAlive()) {
+            if (currentTurn.compareAndSet(turn, null)) {
+                turn.future.completeExceptionally(new IllegalStateException(
+                        "Persistent CLI process became unusable: provider=" + provider + ", tab=" + tabId));
+            }
+            killForcibly("process became unusable before turn start");
+            throw new IllegalStateException(
+                    "Persistent CLI process became unusable: provider=" + provider + ", tab=" + tabId);
         }
         lastActiveAtMs = System.currentTimeMillis();
         // 轮超时:超时即轮卡死,须杀进程(进程句柄私有,只能在此处理)。
@@ -288,17 +345,11 @@ public final class CliPersistentProcess {
             }
         });
         try {
-            if (!isAlive()) {
-                throw new IllegalStateException(
-                        "Persistent CLI process not alive: provider=" + provider + ", tab=" + tabId);
-            }
-            writeStdinLine(stdinLine);
+            writeStdinLine(stdinLine == null ? "" : stdinLine);
             LOG.info("[CliPersistentProcess] turn started: provider=" + provider + ", tab=" + tabId
                     + ", turnId=" + turn.turnId + ", pid=" + safePid());
         } catch (Exception e) {
-            if (currentTurn.compareAndSet(turn, null)) {
-                turn.future.completeExceptionally(e);
-            }
+            killForcibly("turn start failed: " + e.getMessage());
         }
         return new TurnHandle(turn.future, turn.interrupted, turn.turnId);
     }
@@ -342,7 +393,7 @@ public final class CliPersistentProcess {
             killForcibly("interrupt write failed");
             return;
         }
-        SCHEDULER.schedule(() -> {
+        turn.interruptFallback = SCHEDULER.schedule(() -> {
             if (!turn.future.isDone() && !closed && currentTurn.get() == turn) {
                 LOG.warn("[CliPersistentProcess] interrupt fallback (no result response in "
                         + CliConstants.CLI_INTERRUPT_FALLBACK_MS + "ms), killing: provider=" + provider
@@ -395,27 +446,37 @@ public final class CliPersistentProcess {
         }
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
+            BoundedLine line;
+            while ((line = readBoundedLine(reader)) != null) {
+                if (line.truncated()) {
+                    LOG.warn("[CliPersistentProcess] stdout line exceeded limit: provider=" + provider
+                            + ", tab=" + tabId + ", maxBytes=" + CliOutputLimits.MAX_LINE_BYTES);
+                    killForcibly("stdout line exceeded " + CliOutputLimits.MAX_LINE_BYTES + " bytes");
+                    break;
+                }
+                String text = line.text();
                 ActiveTurn turn = currentTurn.get();
                 if (turn == null) {
-                    logLineOutsideTurn(line);
+                    logLineOutsideTurn(text);
                     continue;
                 }
                 SDKResult result;
                 try {
-                    result = turn.handler.onLine(line, turn.interrupted.get());
+                    result = turn.handler.onLine(text, turn.interrupted.get());
                 } catch (Exception e) {
                     LOG.warn("[CliPersistentProcess] turn handler failed: provider=" + provider
                             + ", tab=" + tabId, e);
                     if (currentTurn.compareAndSet(turn, null)) {
                         lastActiveAtMs = System.currentTimeMillis();
+                        cancelInterruptFallback(turn);
                         turn.future.completeExceptionally(e);
                     }
-                    continue;
+                    killForcibly("turn handler failed");
+                    break;
                 }
                 if (result != null && currentTurn.compareAndSet(turn, null)) {
                     lastActiveAtMs = System.currentTimeMillis();
+                    cancelInterruptFallback(turn);
                     turn.future.complete(result);
                 }
             }
@@ -423,8 +484,43 @@ public final class CliPersistentProcess {
             LOG.warn("[CliPersistentProcess] reader loop ended: provider=" + provider
                     + ", tab=" + tabId + ", error=" + e.getMessage());
         }
-        // stdout 关闭(进程退出前兆):未完成轮异常收尾,由上层走 one-shot 兜底。
-        failActiveTurn("persistent CLI process stdout closed before turn result: tab=" + tabId);
+        try {
+            // stdout 关闭(进程退出前兆):未完成轮异常收尾,由上层走 one-shot 兜底。
+            failActiveTurn("persistent CLI process stdout closed before turn result: tab=" + tabId);
+        } finally {
+            if (readerThread == Thread.currentThread()) {
+                readerThread = null;
+            }
+        }
+    }
+
+    private static BoundedLine readBoundedLine(BufferedReader reader) throws IOException {
+        StringBuilder line = new StringBuilder(Math.min(CliOutputLimits.MAX_LINE_BYTES, 8192));
+        char[] buffer = new char[8192];
+        boolean truncated = false;
+        int read;
+        while ((read = reader.read(buffer)) != -1) {
+            for (int i = 0; i < read; i++) {
+                char ch = buffer[i];
+                if (ch == '\n') {
+                    return new BoundedLine(line.toString(), truncated);
+                }
+                if (!truncated) {
+                    if (line.length() < CliOutputLimits.MAX_LINE_BYTES) {
+                        line.append(ch);
+                    } else {
+                        truncated = true;
+                    }
+                }
+            }
+        }
+        if (line.isEmpty() && !truncated) {
+            return null;
+        }
+        return new BoundedLine(line.toString(), truncated);
+    }
+
+    private record BoundedLine(String text, boolean truncated) {
     }
 
     /**
@@ -476,23 +572,79 @@ public final class CliPersistentProcess {
      */
     private void killForcibly(String reason) {
         dirty = true;
+        closeWriterQuietly();
+        Thread reader = readerThread;
+        if (reader != null && reader != Thread.currentThread()) {
+            reader.interrupt();
+        }
         Process p = process;
         ActiveTurn turn = currentTurn.get();
         LOG.warn("[CliPersistentProcess] killing forcibly: provider=" + provider + ", tab="
                 + tabId + ", turnId=" + (turn != null ? turn.turnId : "-")
                 + ", pid=" + safePid() + ", reason=" + reason);
-        if (p != null && p.isAlive()) {
-            PlatformUtils.terminateProcess(p);
-        }
         failActiveTurn("persistent CLI process killed: " + reason);
+        terminateAndAwait(p);
+        joinReader(reader);
+        clearProcessReferences(p, reader);
     }
 
     private void failActiveTurn(String reason) {
         ActiveTurn turn = currentTurn.getAndSet(null);
         if (turn != null) {
             lastActiveAtMs = System.currentTimeMillis();
+            cancelInterruptFallback(turn);
             turn.future.completeExceptionally(new IllegalStateException(
                     reason + " [turnId=" + turn.turnId + "]"));
+        }
+    }
+
+    private static void cancelInterruptFallback(ActiveTurn turn) {
+        if (turn == null) {
+            return;
+        }
+        ScheduledFuture<?> fallback = turn.interruptFallback;
+        if (fallback != null) {
+            fallback.cancel(false);
+            turn.interruptFallback = null;
+        }
+    }
+
+    private void joinReader(Thread reader) {
+        if (reader == null || reader == Thread.currentThread()) {
+            return;
+        }
+        try {
+            reader.join(Math.max(100L, Math.min(CliConstants.PROCESS_WAIT_TIMEOUT_MS, 1_000L)));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private void terminateAndAwait(Process target) {
+        if (target == null) {
+            return;
+        }
+        if (target.isAlive()) {
+            PlatformUtils.terminateProcess(target);
+        }
+        try {
+            target.waitFor(CliConstants.PROCESS_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+
+    private void clearProcessReferences(Process target, Thread reader) {
+        if (target == null || process == target) {
+            process = null;
+        }
+        if (reader == null || readerThread == reader || reader == Thread.currentThread()) {
+            readerThread = null;
+        }
+        if (stdinWriter == null) {
+            interruptLineSupplier = null;
+            sessionId = null;
         }
     }
 

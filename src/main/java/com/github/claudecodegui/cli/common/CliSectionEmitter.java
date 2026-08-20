@@ -68,7 +68,10 @@ public final class CliSectionEmitter {
 
     public void content(String text) {
         if (text != null && !text.isEmpty()) {
-            sink.emit(CliConstants.MSG_CONTENT, text);
+            String bounded = text.length() > CliOutputLimits.MAX_ASSISTANT_CHARS
+                    ? text.substring(0, CliOutputLimits.MAX_ASSISTANT_CHARS)
+                    : text;
+            sink.emit(CliConstants.MSG_CONTENT, bounded);
         }
     }
 
@@ -76,8 +79,11 @@ public final class CliSectionEmitter {
         if (text == null || text.isEmpty()) {
             return;
         }
-        assistantContent.append(text);
-        sink.emit(CliConstants.MSG_CONTENT_DELTA, text);
+        String accepted = CliOutputLimits.appendBounded(
+                assistantContent, text, CliOutputLimits.MAX_ASSISTANT_CHARS);
+        if (!accepted.isEmpty()) {
+            sink.emit(CliConstants.MSG_CONTENT_DELTA, accepted);
+        }
     }
 
     public void thinkingStart() {
@@ -86,31 +92,34 @@ public final class CliSectionEmitter {
 
     public void thinkingDelta(String text) {
         if (text != null && !text.isEmpty()) {
-            sink.emit(CliConstants.MSG_THINKING_DELTA, text);
+            String bounded = text.length() > CliOutputLimits.MAX_REASONING_CHARS
+                    ? text.substring(0, CliOutputLimits.MAX_REASONING_CHARS)
+                    : text;
+            sink.emit(CliConstants.MSG_THINKING_DELTA, bounded);
         }
     }
 
     public void toolUse(JsonObject block) {
         if (block != null) {
-            sink.emit(CommonConstants.MSG_TYPE_TOOL_USE, block.toString());
+            sink.emit(CommonConstants.MSG_TYPE_TOOL_USE, CliOutputLimits.boundedJsonString(block));
         }
     }
 
     public void toolResult(JsonObject block) {
         if (block != null) {
-            sink.emit(CommonConstants.MSG_TYPE_TOOL_RESULT, block.toString());
+            sink.emit(CommonConstants.MSG_TYPE_TOOL_RESULT, CliOutputLimits.boundedJsonString(block));
         }
     }
 
     public void assistantRaw(JsonObject message) {
         if (message != null) {
-            sink.emit(CommonConstants.MSG_TYPE_ASSISTANT, message.toString());
+            sink.emit(CommonConstants.MSG_TYPE_ASSISTANT, CliOutputLimits.boundedJsonString(message));
         }
     }
 
     public void userRaw(JsonObject message) {
         if (message != null) {
-            sink.emit(CommonConstants.MSG_TYPE_USER, message.toString());
+            sink.emit(CommonConstants.MSG_TYPE_USER, CliOutputLimits.boundedJsonString(message));
         }
     }
 }

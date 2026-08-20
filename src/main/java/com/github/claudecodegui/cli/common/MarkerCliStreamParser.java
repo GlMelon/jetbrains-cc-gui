@@ -236,10 +236,14 @@ public class MarkerCliStreamParser {
             message = "[SEND_ERROR] (no payload)";
         }
         hasError = true;
+        if (errorDiagnostic.length() >= CliOutputLimits.MAX_DIAGNOSTIC_CHARS) {
+            return;
+        }
         if (errorDiagnostic.length() > 0) {
             errorDiagnostic.append('\n');
         }
-        errorDiagnostic.append(message);
+        CliOutputLimits.appendBounded(
+                errorDiagnostic, message, CliOutputLimits.MAX_DIAGNOSTIC_CHARS);
     }
 
     // ── 工具方法 ──────────────────────────────────────────────────────────────
