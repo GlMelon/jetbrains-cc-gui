@@ -156,6 +156,14 @@ class PermissionDialogRouter {
             return null;
         }
 
+        // 清理已 disposed 的 Project 条目
+        cleanupDisposedProjects(dialogShowers);
+
+        if (dialogShowers.isEmpty()) {
+            debugLog.accept(logPrefix, "All registered projects were disposed");
+            return null;
+        }
+
         if (dialogShowers.size() == 1) {
             Map.Entry<Project, T> entry = dialogShowers.entrySet().iterator().next();
             debugLog.accept(logPrefix, "Single project registered: " + entry.getKey().getName());
@@ -198,6 +206,17 @@ class PermissionDialogRouter {
 
         debugLog.accept(logPrefix, "No matching project found, using preferred dialog shower");
         return getPreferredDialogShower(dialogShowers);
+    }
+
+    private <T> void cleanupDisposedProjects(Map<Project, T> dialogShowers) {
+        dialogShowers.entrySet().removeIf(entry -> {
+            Project project = entry.getKey();
+            if (project.isDisposed()) {
+                debugLog.accept("CLEANUP", "Removed disposed project from dialog shower map: " + project.getName());
+                return true;
+            }
+            return false;
+        });
     }
 
     private <T> T getPreferredDialogShower(Map<Project, T> showers) {

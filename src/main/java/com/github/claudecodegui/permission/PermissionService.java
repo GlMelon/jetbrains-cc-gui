@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.Disposable;
 import com.intellij.openapi.project.Project;
 
 import javax.swing.*;
@@ -16,7 +17,7 @@ import com.github.claudecodegui.util.GsonHolder;
 /**
  * Permission service - handles permission requests from the Node.js process
  */
-public class PermissionService {
+public class PermissionService implements Disposable {
 
     private static final Logger LOG = Logger.getInstance(PermissionService.class);
 
@@ -205,6 +206,16 @@ public class PermissionService {
 
     public void stop() {
         requestWatcher.stop();
+        fileProtocol.cleanupSessionFiles();
+        processingRequests.clear();
+        decisionStore.clear();
+        decisionListener = null;
+        LOG.info("PermissionService stopped and resources cleaned up for session: " + sessionId);
+    }
+
+    @Override
+    public void dispose() {
+        stop();
     }
 
     long getLastActivityTime() {

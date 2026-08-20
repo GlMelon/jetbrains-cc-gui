@@ -95,6 +95,13 @@ class PermissionFileProtocol {
             deleteFiles("ask-user-question-" + sessionId + "-");
             deleteFiles("plan-approval-" + sessionId + "-");
 
+            // 清理所有未处理的 pendingRequestTokens
+            int pendingCount = pendingRequestTokens.size();
+            pendingRequestTokens.clear();
+            if (pendingCount > 0) {
+                debugLog.accept("CLEANUP", "Cleared " + pendingCount + " pending request tokens");
+            }
+
             debugLog.accept("CLEANUP", "Session-specific permission files cleanup complete");
         } catch (Exception e) {
             debugLog.accept("CLEANUP_ERROR", "Error during cleanup: " + e.getMessage());

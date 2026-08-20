@@ -55,6 +55,7 @@ class PermissionSessionRegistry {
 
     static synchronized void removeInstance(String sessionId) {
         if (sessionId == null || sessionId.isEmpty()) {
+            removeLegacyInstance();
             return;
         }
         PermissionService removed = INSTANCES_BY_SESSION_ID.remove(sessionId);
@@ -62,6 +63,14 @@ class PermissionSessionRegistry {
             removed.stop();
             LOG.info(String.format("PermissionService instance removed for sessionId=%s, remaining instances=%d",
                     sessionId, INSTANCES_BY_SESSION_ID.size()));
+        }
+    }
+
+    private static synchronized void removeLegacyInstance() {
+        if (legacyInstance != null) {
+            legacyInstance.stop();
+            legacyInstance = null;
+            LOG.info("Legacy PermissionService instance removed");
         }
     }
 
