@@ -3,6 +3,7 @@ package com.github.claudecodegui.provider.claude;
 import com.github.claudecodegui.cache.SessionIndexCache;
 import com.github.claudecodegui.cache.SessionIndexManager;
 import com.github.claudecodegui.util.PathUtils;
+import com.intellij.util.concurrency.AppExecutorUtil;
 import com.intellij.openapi.diagnostic.Logger;
 
 import java.io.IOException;
@@ -12,7 +13,6 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
@@ -33,10 +33,12 @@ class ClaudeHistoryIndexService {
     private static final int READ_BATCH_SIZE = 32;
 
     /**
-     * Dedicated thread pool for lite-read I/O to avoid starving the IDE's common ForkJoinPool.
+     * IntelliJ-managed executor for lite-read I/O. The application owns its
+     * lifecycle, so history indexing does not leave static plugin threads behind
+     * when the plugin is unloaded or the IDE shuts down.
      */
     private static final ExecutorService LITE_READ_POOL =
-            Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+            AppExecutorUtil.getAppExecutorService();
 
     private static final Pattern UUID_PATTERN = Pattern.compile(
             "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",

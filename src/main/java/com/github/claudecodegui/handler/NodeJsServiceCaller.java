@@ -6,8 +6,10 @@ import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.util.PlatformUtils;
 
 import java.io.ByteArrayOutputStream;
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -218,6 +220,11 @@ public class NodeJsServiceCaller {
     String executeNodeScript(ProcessBuilder pb) throws Exception {
         String channelId = ProcessManager.newChannelId("node-service");
         Process process = null;
+        Thread stdoutReader = null;
+        Thread stderrDrain = null;
+        InputStream stdoutStream = null;
+        InputStream stderrStream = null;
+        OutputStream stdinStream = null;
         try {
             process = pb.start();
             processManager.registerProcess(channelId, process);
@@ -227,15 +234,20 @@ public class NodeJsServiceCaller {
             // happens-before,单写者→单读者,安全)。
             StringBuilder stderrBuf = new StringBuilder();
             CapturedOutput stdout = new CapturedOutput();
+            stdinStream = process.getOutputStream();
+            stdoutStream = process.getInputStream();
+            stderrStream = process.getErrorStream();
             // process 经两次赋值(= null / = pb.start())非 effectively final,lambda 无法捕获;
             // 此处取 effectively final 别名 proc 供读/drain 线程捕获。
             final Process proc = process;
 
-            Thread stdoutReader = new Thread(
-                    () -> readStdoutCapped(proc, proc.getInputStream(), stdout),
+            final InputStream procStdout = stdoutStream;
+            final InputStream procStderr = stderrStream;
+            stdoutReader = new Thread(
+                    () -> readStdoutCapped(proc, procStdout, stdout),
                     "node-stdout-reader");
-            Thread stderrDrain = new Thread(
-                    () -> drainStream(proc.getErrorStream(), stderrBuf),
+            stderrDrain = new Thread(
+                    () -> drainStream(procStderr, stderrBuf),
                     "node-stderr-drain");
             stdoutReader.setDaemon(true);
             stderrDrain.setDaemon(true);
@@ -269,10 +281,17 @@ public class NodeJsServiceCaller {
             String[] lines = stdout.builder.toString().split("\n");
             return lines.length > 0 ? lines[lines.length - 1] : "{}";
         } finally {
+            closeQuietly(stdinStream);
             if (process != null) {
                 if (process.isAlive()) {
                     PlatformUtils.terminateProcess(process);
                 }
+            }
+            closeQuietly(stdoutStream);
+            closeQuietly(stderrStream);
+            joinQuietly(stdoutReader, READER_JOIN_SECONDS);
+            joinQuietly(stderrDrain, READER_JOIN_SECONDS);
+            if (process != null) {
                 processManager.unregisterProcess(channelId, process);
             }
         }
@@ -364,6 +383,17 @@ public class NodeJsServiceCaller {
             t.join(TimeUnit.SECONDS.toMillis(seconds));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+        }
+    }
+
+    private static void closeQuietly(Closeable closeable) {
+        if (closeable == null) {
+            return;
+        }
+        try {
+            closeable.close();
+        } catch (IOException ignored) {
+            // The process may have closed the stream already.
         }
     }
 

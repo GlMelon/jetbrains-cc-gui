@@ -92,7 +92,34 @@ public final class PromptEnhancerProcessRunner {
             long readerDrainSeconds,
             Consumer<String> lineHandler
     ) throws IOException, InterruptedException, TimeoutException {
-        channelId = ProcessManager.newChannelId(channelId);
+        return runWithRegisteredChannel(
+                pb,
+                processManager,
+                ProcessManager.newChannelId(channelId),
+                stdinJson,
+                timeoutSeconds,
+                readerDrainSeconds,
+                lineHandler);
+    }
+
+    /**
+     * Same lifecycle runner as the regular overload, but keeps the supplied
+     * channel id unchanged so an owner can cancel the exact process while the
+     * task is running or still waiting to start.
+     */
+    public static int runWithRegisteredChannel(
+            ProcessBuilder pb,
+            ProcessManager processManager,
+            String channelId,
+            String stdinJson,
+            long timeoutSeconds,
+            long readerDrainSeconds,
+            Consumer<String> lineHandler
+    ) throws IOException, InterruptedException, TimeoutException {
+        if (channelId == null || channelId.isEmpty()) {
+            throw new IllegalArgumentException("channelId must not be empty");
+        }
+        processManager.beginChannelPreservingInterrupt(channelId);
         Process process = null;
         CompletableFuture<Void> readerFuture = null;
         try {
@@ -157,6 +184,7 @@ public final class PromptEnhancerProcessRunner {
             return exitCode;
 
         } finally {
+            processManager.finishChannelStart(channelId, process == null);
             if (process != null) {
                 if (process.isAlive()) {
                     PlatformUtils.terminateProcess(process);

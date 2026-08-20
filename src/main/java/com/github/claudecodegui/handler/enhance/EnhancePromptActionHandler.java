@@ -12,6 +12,7 @@ import com.github.claudecodegui.service.GitCommitMessageService;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import com.intellij.openapi.Disposable;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Document;
@@ -22,12 +23,16 @@ import com.intellij.openapi.fileEditor.FileEditor;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileEditor.TextEditor;
 import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.util.concurrency.AppExecutorUtil;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import static java.util.Map.entry;
@@ -43,10 +48,13 @@ import static java.util.Map.entry;
  *
  * @see com.github.claudecodegui.handler.PromptEnhancerHandler 旧实现（待删除）
  */
-public final class EnhancePromptActionHandler implements FrontendActionHandler<String> {
+public final class EnhancePromptActionHandler implements FrontendActionHandler<String>, Disposable {
 
     private static final Logger LOG = Logger.getInstance(EnhancePromptActionHandler.class);
     private static final Gson gson = GsonHolder.GSON;
+
+    private final Set<FutureTask<Void>> pendingTasks = ConcurrentHashMap.newKeySet();
+    private volatile boolean disposed;
 
     // Hard timeout for the enhancement Node.js process. Without this, a network-stalled
     // SDK call would block the calling thread forever and leak the child process.
@@ -152,15 +160,22 @@ public final class EnhancePromptActionHandler implements FrontendActionHandler<S
     @Override
     public void handle(String payload, FrontendActionContext context) {
         HandlerContext ctx = context.handlerContext();
-        CompletableFuture.runAsync(() -> {
+        if (!isActive(ctx)) {
+            return;
+        }
+
+        FutureTask<Void> task = new FutureTask<>(() -> {
             try {
+                if (!isActive(ctx)) {
+                    return null;
+                }
                 JsonObject payloadObj = gson.fromJson(payload, JsonObject.class);
                 String originalPrompt = payloadObj.has("prompt") ? payloadObj.get("prompt").getAsString() : "";
                 String legacyModel = payloadObj.has("model") ? payloadObj.get("model").getAsString() : null;
 
                 if (originalPrompt.isEmpty()) {
                     sendEnhanceResult(ctx, false, "", "Prompt is empty");
-                    return;
+                    return null;
                 }
 
                 LOG.info("[EnhancePromptActionHandler] Starting prompt enhancement: " + originalPrompt.substring(0, Math.min(50, originalPrompt.length())) + "...");
@@ -201,6 +216,9 @@ public final class EnhancePromptActionHandler implements FrontendActionHandler<S
                     LOG.info("[EnhancePromptActionHandler] Failed to collect editor context");
                 }
 
+                if (!isActive(ctx)) {
+                    return null;
+                }
                 // Call AI service for enhancement (passing context information)
                 JsonObject promptEnhancerConfig = ctx.getSettingsService().getPromptEnhancerConfig();
                 String enhancedPrompt = callAIForEnhancement(ctx, originalPrompt, legacyModel, contextObj, promptEnhancerConfig);
@@ -208,16 +226,49 @@ public final class EnhancePromptActionHandler implements FrontendActionHandler<S
                 if (enhancedPrompt != null && !enhancedPrompt.isEmpty()) {
                     LOG.info("[EnhancePromptActionHandler] Enhancement successful");
                     sendEnhanceResult(ctx, true, enhancedPrompt, null);
-                } else {
+                } else if (isActive(ctx)) {
                     LOG.warn("[EnhancePromptActionHandler] Enhancement failed: empty result returned");
                     sendEnhanceResult(ctx, false, "", "Enhancement failed: empty result returned");
                 }
 
             } catch (Exception e) {
-                LOG.error("[EnhancePromptActionHandler] Prompt enhancement failed: " + e.getMessage(), e);
-                sendEnhanceResult(ctx, false, "", "Enhancement failed: " + e.getMessage());
+                if (!disposed && !Thread.currentThread().isInterrupted() && !ctx.isDisposed()) {
+                    LOG.error("[EnhancePromptActionHandler] Prompt enhancement failed: " + e.getMessage(), e);
+                    sendEnhanceResult(ctx, false, "", "Enhancement failed: " + e.getMessage());
+                }
             }
-        });
+            return null;
+        }) {
+            @Override
+            protected void done() {
+                pendingTasks.remove(this);
+            }
+        };
+
+        pendingTasks.add(task);
+        if (!isActive(ctx)) {
+            task.cancel(true);
+            return;
+        }
+        try {
+            AppExecutorUtil.getAppExecutorService().execute(task);
+        } catch (RejectedExecutionException e) {
+            pendingTasks.remove(task);
+            LOG.debug("[EnhancePromptActionHandler] Enhancement task rejected: " + e.getMessage());
+        }
+    }
+
+    private boolean isActive(HandlerContext ctx) {
+        return !disposed && ctx != null && !ctx.isDisposed();
+    }
+
+    @Override
+    public void dispose() {
+        disposed = true;
+        for (FutureTask<Void> task : pendingTasks) {
+            task.cancel(true);
+        }
+        pendingTasks.clear();
     }
 
     /**
@@ -501,6 +552,9 @@ public final class EnhancePromptActionHandler implements FrontendActionHandler<S
      * Send the enhancement result to the frontend.
      */
     private void sendEnhanceResult(HandlerContext ctx, boolean success, String enhancedPrompt, String error) {
+        if (!isActive(ctx)) {
+            return;
+        }
         JsonObject result = new JsonObject();
         result.addProperty("success", success);
         result.addProperty("enhancedPrompt", enhancedPrompt);
@@ -511,7 +565,9 @@ public final class EnhancePromptActionHandler implements FrontendActionHandler<S
         String resultJson = gson.toJson(result);
 
         ApplicationManager.getApplication().invokeLater(() -> {
-            ctx.dispatchEvent(DownstreamEvent.PROMPT_ENHANCED.value(), ctx.escapeJs(resultJson));
+            if (isActive(ctx)) {
+                ctx.dispatchEvent(DownstreamEvent.PROMPT_ENHANCED.value(), ctx.escapeJs(resultJson));
+            }
         });
     }
 }

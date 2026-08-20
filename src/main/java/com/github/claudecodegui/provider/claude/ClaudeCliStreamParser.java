@@ -3,6 +3,7 @@ package com.github.claudecodegui.provider.claude;
 import com.github.claudecodegui.cli.common.CliConstants;
 import com.github.claudecodegui.cli.common.CliSectionEmitter;
 import com.github.claudecodegui.cli.common.CliErrorFormatter;
+import com.github.claudecodegui.cli.common.CliOutputLimits;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.SDKResult;
@@ -326,7 +327,9 @@ public class ClaudeCliStreamParser {
     }
 
     private JsonObject normalizeServerToolUse(JsonObject block) {
-        JsonObject normalized = block == null ? new JsonObject() : block.deepCopy();
+        JsonObject normalized = block == null
+                ? new JsonObject()
+                : CliOutputLimits.boundedJsonObjectCopy(block);
         normalized.addProperty(CommonConstants.JSON_KEY_TYPE, CommonConstants.BLOCK_TYPE_TOOL_USE);
 
         String name = getString(normalized, CommonConstants.JSON_KEY_NAME);
@@ -392,9 +395,10 @@ public class ClaudeCliStreamParser {
             resultText = obj.get("result").getAsString();
             if (!resultText.isEmpty() && assistantContent.length() == 0) {
                 // 没有通过 delta 收到内容时，使用 result
-                assistantContent.append(resultText);
-                markImageUnderstandingObserved(resultText);
-                sectionEmitter(callback).content(resultText);
+                String accepted = CliOutputLimits.appendBounded(
+                        assistantContent, resultText, CliOutputLimits.MAX_ASSISTANT_CHARS);
+                markImageUnderstandingObserved(accepted);
+                sectionEmitter(callback).content(accepted);
             }
         }
 
@@ -444,7 +448,8 @@ public class ClaudeCliStreamParser {
             return;
         }
 
-        pendingTextBlock.append(text);
+        CliOutputLimits.appendBounded(
+                pendingTextBlock, text, CliOutputLimits.MAX_PENDING_TEXT_BLOCK_CHARS);
         String candidate = pendingTextBlock.toString();
         if (isToolTraceText(candidate)) {
             currentTextBlockRoute = TextBlockRoute.TOOL_TRACE;
