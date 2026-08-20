@@ -6,6 +6,9 @@ import com.intellij.openapi.diagnostic.Logger;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.Closeable;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -24,13 +27,21 @@ public final class McpGatewayProcessHandle {
     private static final Logger LOG = Logger.getInstance(McpGatewayProcessHandle.class);
 
     private final Process process;
+    private final OutputStream stdin;
+    private final InputStream stdout;
+    private final InputStream stderr;
+    private final Thread stdoutDrainThread;
+    private final Thread stderrDrainThread;
     private final AtomicBoolean stopped = new AtomicBoolean(false);
     private volatile Runnable exitCallback;
 
     private McpGatewayProcessHandle(Process process) {
         this.process = process;
-        drain(process.getInputStream(), false);
-        drain(process.getErrorStream(), true);
+        this.stdin = process.getOutputStream();
+        this.stdout = process.getInputStream();
+        this.stderr = process.getErrorStream();
+        this.stdoutDrainThread = drain(stdout, false);
+        this.stderrDrainThread = drain(stderr, true);
         // Opt3:进程退出(正常/异常)时 onExit 触发(commonPool 线程)。onProcessExit 读 exitCallback,
         // 主动 stop 已置 null 则跳过。原实现零 onExit 监听 → gateway 崩溃 Java 不感知。
         process.onExit().whenComplete((p, t) -> onProcessExit());
@@ -110,6 +121,7 @@ public final class McpGatewayProcessHandle {
         // 主动 stop:清回调防 onExit 误触发自愈(与调用方 setOnExitCallback(null) 双重协同)。
         exitCallback = null;
         try {
+            closeQuietly(stdin);
             if (process.isAlive()) {
                 PlatformUtils.terminateProcessAndWait(process, 3, TimeUnit.SECONDS);
             } else {
@@ -124,10 +136,18 @@ public final class McpGatewayProcessHandle {
                 process.destroyForcibly();
             } catch (Exception ignored) {
             }
+        } finally {
+            // Closing the process pipes is required even when the process has already
+            // exited: a drain thread may otherwise remain blocked on read() until the
+            // OS reclaims the process handle.
+            closeQuietly(stdout);
+            closeQuietly(stderr);
+            joinQuietly(stdoutDrainThread);
+            joinQuietly(stderrDrainThread);
         }
     }
 
-    private static void drain(InputStream stream, boolean error) {
+    private static Thread drain(InputStream stream, boolean error) {
         Thread thread = new Thread(() -> {
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
                 String line;
@@ -144,5 +164,28 @@ public final class McpGatewayProcessHandle {
         }, "mcp-gateway-drain");
         thread.setDaemon(true);
         thread.start();
+        return thread;
+    }
+
+    private static void closeQuietly(Closeable closeable) {
+        if (closeable == null) {
+            return;
+        }
+        try {
+            closeable.close();
+        } catch (IOException ignored) {
+            // The process may have closed the pipe already.
+        }
+    }
+
+    private static void joinQuietly(Thread thread) {
+        if (thread == null || thread == Thread.currentThread()) {
+            return;
+        }
+        try {
+            thread.join(TimeUnit.SECONDS.toMillis(2));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 }

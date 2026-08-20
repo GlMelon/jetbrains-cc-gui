@@ -75,6 +75,7 @@ public class CodexMcpService {
         return CompletableFuture.supplyAsync(() -> {
             String channelId = ProcessManager.newChannelId("__codex_mcp_tools__");
             Process process = null;
+            Thread readerThread = null;
             long startTime = System.currentTimeMillis();
             LOG.info("[CodexMcpTools] Starting getMcpServerTools, serverId=" + serverId);
 
@@ -127,7 +128,7 @@ public class CodexMcpService {
                 java.util.concurrent.atomic.AtomicReference<String> toolsJson = new java.util.concurrent.atomic.AtomicReference<>(null);
                 final StringBuilder output = new StringBuilder();
 
-                Thread readerThread = new Thread(() -> {
+                readerThread = new Thread(() -> {
                     try (BufferedReader reader = new BufferedReader(
                             new InputStreamReader(finalProcess.getInputStream(), StandardCharsets.UTF_8))) {
                         String line;
@@ -145,6 +146,7 @@ public class CodexMcpService {
                         readerDone.set(true);
                     }
                 });
+                readerThread.setDaemon(true);
                 readerThread.start();
 
                 long deadline = System.currentTimeMillis() + MCP_TOOLS_TIMEOUT_MS;
@@ -156,6 +158,8 @@ public class CodexMcpService {
                 if (process.isAlive()) {
                     PlatformUtils.terminateProcessAndWait(process, 3, TimeUnit.SECONDS);
                 }
+                closeProcessStreams(process);
+                joinReader(readerThread);
 
                 String capturedTools = toolsJson.get();
                 if (found.get() && capturedTools != null && !capturedTools.isEmpty()) {
@@ -195,16 +199,44 @@ public class CodexMcpService {
                 return errorResult;
             } finally {
                 if (process != null) {
+                    closeProcessStreams(process);
                     try {
                         if (process.isAlive()) {
                             PlatformUtils.terminateProcessAndWait(process, 3, TimeUnit.SECONDS);
                         }
+                        joinReader(readerThread);
                     } finally {
                         nodeService.getProcessManager().unregisterProcess(channelId, process);
                     }
                 }
             }
         });
+    }
+
+    private static void closeProcessStreams(Process process) {
+        try {
+            process.getOutputStream().close();
+        } catch (Exception ignored) {
+        }
+        try {
+            process.getInputStream().close();
+        } catch (Exception ignored) {
+        }
+        try {
+            process.getErrorStream().close();
+        } catch (Exception ignored) {
+        }
+    }
+
+    private static void joinReader(Thread readerThread) {
+        if (readerThread == null || readerThread == Thread.currentThread()) {
+            return;
+        }
+        try {
+            readerThread.join(1_000L);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private String extractLastJsonLine(String outputStr) {

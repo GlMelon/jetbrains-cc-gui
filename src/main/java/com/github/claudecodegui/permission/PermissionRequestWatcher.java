@@ -32,8 +32,8 @@ class PermissionRequestWatcher {
     private final BiConsumer<String, String> debugLog;
 
     private volatile boolean running;
-    private Thread watchThread;
-    private WatchService watchService;
+    private volatile Thread watchThread;
+    private volatile WatchService watchService;
 
     PermissionRequestWatcher(
             Path permissionDir,
@@ -48,7 +48,8 @@ class PermissionRequestWatcher {
     }
 
     void start(RequestHandler handler) {
-        if (running) {
+        Thread existingThread = watchThread;
+        if (running || (existingThread != null && existingThread.isAlive())) {
             debugLog.accept("START", "Already running, skipping start");
             return;
         }
@@ -64,20 +65,26 @@ class PermissionRequestWatcher {
 
     void stop() {
         running = false;
-        if (watchService != null) {
+        WatchService service = watchService;
+        watchService = null;
+        if (service != null) {
             try {
-                watchService.close();
+                service.close();
             } catch (IOException e) {
                 LOG.warn("Error closing WatchService", e);
             }
         }
-        if (watchThread != null) {
-            watchThread.interrupt();
+        Thread thread = watchThread;
+        if (thread != null) {
+            thread.interrupt();
             try {
-                watchThread.join(1000);
+                thread.join(1000);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 LOG.error("Error occurred", e);
+            }
+            if (!thread.isAlive() && watchThread == thread) {
+                watchThread = null;
             }
         }
     }
@@ -85,15 +92,20 @@ class PermissionRequestWatcher {
     private void watchLoop(RequestHandler handler) {
         debugLog.accept("WATCH_LOOP", "Starting watch loop on: " + permissionDir);
 
-        // Register WatchService
+        WatchService localWatchService = null;
         try {
             File dir = permissionDir.toFile();
             if (!dir.exists()) {
                 dir.mkdirs();
             }
-            watchService = FileSystems.getDefault().newWatchService();
-            permissionDir.register(watchService, ENTRY_CREATE, ENTRY_MODIFY);
+            localWatchService = FileSystems.getDefault().newWatchService();
+            watchService = localWatchService;
+            permissionDir.register(localWatchService, ENTRY_CREATE, ENTRY_MODIFY);
         } catch (IOException e) {
+            closeWatchService(localWatchService);
+            if (watchService == localWatchService) {
+                watchService = null;
+            }
             debugLog.accept("WATCH_ERROR", "Failed to register WatchService: " + e.getMessage());
             LOG.error("Failed to register WatchService", e);
             running = false;
@@ -103,9 +115,10 @@ class PermissionRequestWatcher {
         // Initial scan of existing files (matches old polling behavior on first iteration)
         scanForFiles(handler);
 
-        while (running) {
-            try {
-                WatchKey key = watchService.take();
+        try {
+            while (running) {
+                try {
+                    WatchKey key = localWatchService.take();
 
                 // Drain all pending events
                 boolean hasEvents = false;
@@ -134,9 +147,28 @@ class PermissionRequestWatcher {
                     Thread.currentThread().interrupt();
                     break;
                 }
+                }
             }
+        } finally {
+            closeWatchService(localWatchService);
+            if (watchService == localWatchService) {
+                watchService = null;
+            }
+            if (watchThread == Thread.currentThread()) {
+                watchThread = null;
+            }
+            debugLog.accept("WATCH_LOOP", "Watch loop ended");
         }
-        debugLog.accept("WATCH_LOOP", "Watch loop ended");
+    }
+
+    private static void closeWatchService(WatchService service) {
+        if (service == null) {
+            return;
+        }
+        try {
+            service.close();
+        } catch (IOException ignored) {
+        }
     }
 
     private void scanForFiles(RequestHandler handler) {

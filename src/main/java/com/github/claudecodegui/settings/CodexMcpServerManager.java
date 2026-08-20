@@ -693,7 +693,11 @@ public class CodexMcpServerManager {
      * Perform a simple MCP initialize handshake over STDIO to verify the server is working.
      */
     private String performStdioHandshake(Process process, String serverName) {
-        ExecutorService executor = Executors.newSingleThreadExecutor();
+        ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "CodexMcpHandshake-" + serverName);
+            thread.setDaemon(true);
+            return thread;
+        });
         try {
             McpStdioMessageCodec.writeNdjson(process.getOutputStream(), MCP_INIT_REQUEST);
 
@@ -733,6 +737,12 @@ public class CodexMcpServerManager {
             LOG.info("[CodexMcpServerManager] Handshake failed for " + serverName + ": " + e.getMessage());
             return CliConstants.CODEX_STATUS_FAILED;
         } finally {
+            // Closing the pipe first also unblocks a reader stuck in a native stream read;
+            // shutdownNow() alone cannot reliably interrupt ProcessInputStream.read().
+            try {
+                process.getInputStream().close();
+            } catch (IOException ignored) {
+            }
             executor.shutdownNow();
             try {
                 executor.awaitTermination(1, TimeUnit.SECONDS);
@@ -774,8 +784,9 @@ public class CodexMcpServerManager {
             pb.command("which", commandName);
         }
 
+        Process process = null;
         try {
-            Process process = pb.start();
+            process = pb.start();
             boolean finished = process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS);
             if (!finished) {
                 PlatformUtils.terminateProcessAndWait(process, 1, TimeUnit.SECONDS);
@@ -785,6 +796,21 @@ public class CodexMcpServerManager {
             return process.exitValue() == 0;
         } catch (Exception e) {
             return false;
+        } finally {
+            if (process != null) {
+                try {
+                    process.getInputStream().close();
+                } catch (IOException ignored) {
+                }
+                try {
+                    process.getOutputStream().close();
+                } catch (IOException ignored) {
+                }
+                try {
+                    process.getErrorStream().close();
+                } catch (IOException ignored) {
+                }
+            }
         }
     }
 

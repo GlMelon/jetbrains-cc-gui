@@ -214,6 +214,7 @@ class ClaudeMcpQueryService {
             String logPrefix
     ) {
         Process process = null;
+        Thread readerThread = null;
         long startTime = System.currentTimeMillis();
 
         try {
@@ -247,7 +248,7 @@ class ClaudeMcpQueryService {
             AtomicReference<String> markerJson = new AtomicReference<>(null);
             final StringBuilder output = new StringBuilder();
 
-            Thread readerThread = new Thread(() -> {
+            readerThread = new Thread(() -> {
                 try (BufferedReader reader = new BufferedReader(
                         new InputStreamReader(finalProcess.getInputStream(), StandardCharsets.UTF_8))) {
                     String line;
@@ -265,6 +266,7 @@ class ClaudeMcpQueryService {
                     markerLatch.countDown();
                 }
             });
+            readerThread.setDaemon(true);
             readerThread.start();
 
             markerLatch.await(65, TimeUnit.SECONDS);
@@ -273,21 +275,51 @@ class ClaudeMcpQueryService {
             if (process.isAlive()) {
                 PlatformUtils.terminateProcessAndWait(process, 3, TimeUnit.SECONDS);
             }
+            closeProcessStreams(process);
+            joinReader(readerThread);
 
             return new MarkerResult(markerJson.get(), output.toString().trim(), elapsed);
         } catch (Exception e) {
             log.error(logPrefix + " Exception: " + e.getMessage());
             return new MarkerResult(null, "", System.currentTimeMillis() - startTime);
         } finally {
-                if (process != null) {
-                    try {
-                        if (process.isAlive()) {
-                            PlatformUtils.terminateProcessAndWait(process, 3, TimeUnit.SECONDS);
-                        }
-                    } finally {
-                        processManager.unregisterProcess(channelId, process);
+            if (process != null) {
+                closeProcessStreams(process);
+                try {
+                    if (process.isAlive()) {
+                        PlatformUtils.terminateProcessAndWait(process, 3, TimeUnit.SECONDS);
                     }
+                    joinReader(readerThread);
+                } finally {
+                    processManager.unregisterProcess(channelId, process);
                 }
+            }
+        }
+    }
+
+    private static void closeProcessStreams(Process process) {
+        try {
+            process.getOutputStream().close();
+        } catch (Exception ignored) {
+        }
+        try {
+            process.getInputStream().close();
+        } catch (Exception ignored) {
+        }
+        try {
+            process.getErrorStream().close();
+        } catch (Exception ignored) {
+        }
+    }
+
+    private static void joinReader(Thread readerThread) {
+        if (readerThread == null || readerThread == Thread.currentThread()) {
+            return;
+        }
+        try {
+            readerThread.join(1_000L);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 
