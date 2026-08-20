@@ -5,6 +5,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
+import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.components.Service;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -13,32 +15,82 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Backend authority for reading and safely editing provider-owned SKILL.md files. */
+/**
+ * Backend authority for reading and safely editing provider-owned SKILL.md files.
+ *
+ * <p>Registered as an application-level service via {@code @Service(Service.Level.APP)}.
+ * The platform manages instantiation; callers resolve the singleton through {@link #getInstance()}.
+ */
+@Service(Service.Level.APP)
 public final class SkillDocumentService {
 
-    private static final SkillDocumentService INSTANCE =
-            new SkillDocumentService(new AtomicSkillDocumentWriter());
     private static final int MAX_BODY_LENGTH = 1_048_576;
     private static final int MAX_PATHS = 256;
-    // FIX: Use ConcurrentHashMap to prevent memory leaks. Old HashMap never evicted entries,
-    // causing slow memory growth in long-running IDE sessions.
-    private static final Map<Path, Object> FILE_LOCKS = new java.util.concurrent.ConcurrentHashMap<>();
+    // Bounded LRU: per-file edit locks. Access-order LinkedHashMap with a size cap so that
+    // long-running sessions touching many distinct SKILL.md paths do not accumulate lock
+    // entries indefinitely (mirrors AttachmentResourceService#ATTACHMENT_RESOURCES). 256 is
+    // far above any realistic concurrent-edit file count, so eviction cannot starve a lock
+    // that is still held by an in-flight save.
+    // NOTE: Moved to instance field (was static) to ensure lock map is released when the
+    // platform service is disposed, preventing potential memory leaks from stale lock objects.
+    private static final int MAX_FILE_LOCKS = 256;
+    private final Map<Path, Object> FILE_LOCKS =
+            Collections.synchronizedMap(new LinkedHashMap<Path, Object>(64, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<Path, Object> eldest) {
+                    return size() > MAX_FILE_LOCKS;
+                }
+            });
 
     private final SkillDocumentCodec codec = new SkillDocumentCodec();
     private final SkillDocumentWriter writer;
+
+    /**
+     * Public no-arg constructor: required for platform {@code applicationService} registration.
+     */
+    public SkillDocumentService() {
+        this(new AtomicSkillDocumentWriter());
+    }
 
     SkillDocumentService(SkillDocumentWriter writer) {
         this.writer = writer;
     }
 
+    /**
+     * Resolve the shared SkillDocumentService instance.
+     * Prefers the platform-managed application service; falls back to a lazily created
+     * instance for edge cases (early bootstrap / isolated unit tests).
+     */
     public static SkillDocumentService getInstance() {
-        return INSTANCE;
+        try {
+            SkillDocumentService service =
+                    ApplicationManager.getApplication().getService(SkillDocumentService.class);
+            if (service != null) {
+                return service;
+            }
+        } catch (RuntimeException ignored) {
+            // ApplicationManager unavailable (isolated tests / plugin bootstrap).
+        }
+        return Holder.INSTANCE;
+    }
+
+    /**
+     * Fallback instance for edge cases where the platform service is not resolvable.
+     */
+    private static final class Holder {
+        private static final SkillDocumentService INSTANCE =
+                new SkillDocumentService(new AtomicSkillDocumentWriter());
+
+        private Holder() {
+        }
     }
 
     public JsonObject read(String provider, SkillDocumentIdentity identity, String cwd) {
@@ -318,10 +370,13 @@ public final class SkillDocumentService {
         return value;
     }
 
-    private static Object lockFor(Path file) {
+    private Object lockFor(Path file) {
         Path normalized = file.toAbsolutePath().normalize();
-        // ConcurrentHashMap.computeIfAbsent is atomic, no external sync needed
-        return FILE_LOCKS.computeIfAbsent(normalized, ignored -> new Object());
+        // synchronizedMap guards each method individually but NOT computeIfAbsent across them;
+        // hold the monitor so access-order update + LRU eviction stay consistent.
+        synchronized (FILE_LOCKS) {
+            return FILE_LOCKS.computeIfAbsent(normalized, ignored -> new Object());
+        }
     }
 
     private static String revision(String content) {

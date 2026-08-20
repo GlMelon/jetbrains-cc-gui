@@ -6,6 +6,7 @@ import com.intellij.notification.Notification;
 import com.intellij.notification.NotificationGroupManager;
 import com.intellij.notification.NotificationType;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.components.Service;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import org.jetbrains.annotations.NotNull;
@@ -15,55 +16,55 @@ import org.jetbrains.annotations.Nullable;
  * System notification service.
  * Provides IDE native notifications for task completion.
  *
+ * <p>Registered as an application-level service via {@code @Service(Service.Level.APP)}.
+ * The platform manages instantiation; callers resolve the singleton through {@link #getInstance()}.
+ *
  * @author melon
  */
+@Service(Service.Level.APP)
 public class SystemNotificationService {
 
-    /**
-     * log.
-     */
     private static final Logger LOG = Logger.getInstance(SystemNotificationService.class);
 
-    /**
-     * max message length.
-     */
     private static final int MAX_MESSAGE_LENGTH = 220;
-    /**
-     * max title length.
-     */ // Tightened so titles fit on a single 14pt-bold line in WINDOW_WIDTH for both
+    // Tightened so titles fit on a single 14pt-bold line in WINDOW_WIDTH for both
     // CJK and Latin scripts, avoiding HTML JLabel height-measurement issues
     // that can clip wrapped titles inside BoxLayout.
     private static final int MAX_TITLE_LENGTH = 35;
-    /**
-     * message ellipsis tail.
-     */
     private static final int MESSAGE_ELLIPSIS_TAIL = 3;
-    /**
-     * instance.
-     */
-    private static volatile SystemNotificationService instance;
 
     /**
-     * System Notification Service
-     *
+     * Public no-arg constructor: required for platform {@code applicationService} registration.
      */
-    private SystemNotificationService() {
+    public SystemNotificationService() {
     }
 
     /**
-     * Get Instance
-     *
-     * @return system notification service
+     * Resolve the shared SystemNotificationService instance.
+     * Prefers the platform-managed application service; falls back to a lazily created
+     * instance for edge cases (early bootstrap / isolated unit tests).
      */
     public static SystemNotificationService getInstance() {
-        if (instance == null) {
-            synchronized (SystemNotificationService.class) {
-                if (instance == null) {
-                    instance = new SystemNotificationService();
-                }
+        try {
+            SystemNotificationService service =
+                    ApplicationManager.getApplication().getService(SystemNotificationService.class);
+            if (service != null) {
+                return service;
             }
+        } catch (RuntimeException ignored) {
+            // ApplicationManager unavailable (isolated tests / plugin bootstrap).
         }
-        return instance;
+        return Holder.INSTANCE;
+    }
+
+    /**
+     * Fallback instance for edge cases where the platform service is not resolvable.
+     */
+    private static final class Holder {
+        private static final SystemNotificationService INSTANCE = new SystemNotificationService();
+
+        private Holder() {
+        }
     }
 
     /**

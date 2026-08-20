@@ -8,6 +8,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.components.Service;
 import com.intellij.openapi.diagnostic.Logger;
 
 import java.awt.Graphics2D;
@@ -34,14 +36,16 @@ import javax.imageio.ImageIO;
 
 /**
  * Persists attachment files and tracks session-to-resource references.
+ *
+ * <p>Registered as an application-level service via {@code @Service(Service.Level.APP)}.
+ * The platform manages instantiation; callers resolve the singleton through {@link #getInstance()}.
  */
+@Service(Service.Level.APP)
 public final class AttachmentStorageService {
 
     private static final Logger LOG = Logger.getInstance(AttachmentStorageService.class);
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final int THUMBNAIL_MAX_EDGE = 360;
-
-    private static final AttachmentStorageService INSTANCE = new AttachmentStorageService(new ConfigPathManager());
 
     private final ConfigPathManager pathManager;
     private final Path attachmentRoot;
@@ -49,7 +53,14 @@ public final class AttachmentStorageService {
     private final Path indexDir;
     private final Path pendingDir;
 
-    private AttachmentStorageService(ConfigPathManager pathManager) {
+    /**
+     * Public no-arg constructor: required for platform {@code applicationService} registration.
+     */
+    public AttachmentStorageService() {
+        this(new ConfigPathManager());
+    }
+
+    AttachmentStorageService(ConfigPathManager pathManager) {
         this.pathManager = pathManager;
         Path configDir = pathManager.getConfigDir();
         this.attachmentRoot = configDir.resolve("attachments");
@@ -58,8 +69,33 @@ public final class AttachmentStorageService {
         this.pendingDir = attachmentRoot.resolve("pending");
     }
 
+    /**
+     * Resolve the shared AttachmentStorageService instance.
+     * Prefers the platform-managed application service; falls back to a lazily created
+     * instance for edge cases (early bootstrap / isolated unit tests).
+     */
     public static AttachmentStorageService getInstance() {
-        return INSTANCE;
+        try {
+            AttachmentStorageService service =
+                    ApplicationManager.getApplication().getService(AttachmentStorageService.class);
+            if (service != null) {
+                return service;
+            }
+        } catch (RuntimeException ignored) {
+            // ApplicationManager unavailable (isolated tests / plugin bootstrap).
+        }
+        return Holder.INSTANCE;
+    }
+
+    /**
+     * Fallback instance for edge cases where the platform service is not resolvable.
+     */
+    private static final class Holder {
+        private static final AttachmentStorageService INSTANCE =
+                new AttachmentStorageService(new ConfigPathManager());
+
+        private Holder() {
+        }
     }
 
     public PersistedAttachment persistImageAttachment(
