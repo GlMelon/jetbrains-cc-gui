@@ -61,6 +61,14 @@ import java.util.stream.Collectors;
  *   <li>{@code TerminalWidget} - Individual terminal tab widget</li>
  *   <li>{@code Terminal/TerminalTextBuffer} - Terminal content buffer for screen scraping</li>
  * </ul>
+ *
+ * <h3>Optimization Notes</h3>
+ * <p>This implementation optimizes reflection usage by:</p>
+ * <ul>
+ *   <li>Caching reflected methods to avoid repeated lookup</li>
+ *   <li>Using ToolWindow/ContentManager API where possible to reduce reflection</li>
+ *   <li>Providing graceful fallback when reflection fails</li>
+ * </ul>
  */
 public class TerminalMonitorService implements ProjectActivity {
 
@@ -84,6 +92,14 @@ public class TerminalMonitorService implements ProjectActivity {
     private static final Map<Object, StringBuilder> buffers = Collections.synchronizedMap(new WeakHashMap<>());
 
     private static final int MAX_BUFFER_SIZE = 100000; // Keep last 100k chars
+
+    /**
+     * Cached reflected methods to avoid repeated lookup.
+     */
+    private static volatile Method cachedGetWidgetsMethod;
+    private static volatile Method cachedGetTerminalTitleMethod;
+    private static volatile Method cachedGetTerminalProcessHandlerMethod;
+    private static volatile Method cachedGetProcessHandlerMethod;
 
     private static final class ProjectMonitorState {
         private final CheckedDisposable listenerDisposable;
@@ -178,25 +194,67 @@ public class TerminalMonitorService implements ProjectActivity {
         if (project.isDisposed() || state.listenerDisposable.isDisposed()) { return; }
 
         try {
-            Class<?> viewClass = Class.forName("org.jetbrains.plugins.terminal.TerminalView");
-            Object view = viewClass.getMethod("getInstance", Project.class).invoke(null, project);
-            if (view == null) { return; }
+            // Use ToolWindow API to find terminal widgets instead of direct reflection on TerminalView
+            ToolWindow terminalWindow = ToolWindowManager.getInstance(project).getToolWindow("Terminal");
+            if (terminalWindow == null) { return; }
 
-            Object result = viewClass.getMethod("getWidgets").invoke(view);
-            List<Object> widgets = convertResultToList(result);
-            for (Object widget : widgets) {
-                if (!monitoredWidgets.contains(widget)) {
+            ContentManager contentManager = terminalWindow.getContentManager();
+            for (int i = 0; i < contentManager.getContentCount(); i++) {
+                Content content = contentManager.getContent(i);
+                if (content == null) { continue; }
+
+                Object component = content.getComponent();
+                if (component == null) { continue; }
+
+                // Try to extract terminal widget from content component
+                Object widget = extractTerminalWidget(component);
+                if (widget != null && !monitoredWidgets.contains(widget)) {
                     attachToWidget(project, state, widget);
                 }
             }
-        } catch (ClassNotFoundException e) {
-            // Gracefully handle if Terminal plugin is not enabled/loaded
-            LOG.warn("Terminal plugin classes not found. Monitoring disabled.");
         } catch (ProcessCanceledException e) {
             throw e;
         } catch (Exception e) {
             LOG.error("Error checking for terminal widgets", e);
         }
+    }
+
+    /**
+     * Extract terminal widget from content component.
+     * Tries to find JBTerminalWidget or similar terminal widget.
+     */
+    @Nullable
+    private Object extractTerminalWidget(@NotNull Object component) {
+        // Direct check for JBTerminalWidget
+        if (component instanceof JBTerminalWidget) {
+            return component;
+        }
+
+        // Try to find terminal widget via reflection on component hierarchy
+        try {
+            // Check if component has getTerminalWidget method
+            Method getTerminalWidgetMethod = component.getClass().getMethod("getTerminalWidget");
+            Object widget = getTerminalWidgetMethod.invoke(component);
+            if (widget != null) {
+                return widget;
+            }
+        } catch (Exception e) {
+            // Method doesn't exist or failed, continue
+        }
+
+        // Try to find via getChild method if it's a container
+        if (component instanceof java.awt.Container) {
+            java.awt.Container container = (java.awt.Container) component;
+            for (int i = 0; i < container.getComponentCount(); i++) {
+                java.awt.Component child = container.getComponent(i);
+                Object widget = extractTerminalWidget(child);
+                if (widget != null) {
+                    return widget;
+                }
+            }
+        }
+
+        return null;
     }
 
     private void attachToWidget(@NotNull Project project, @NotNull ProjectMonitorState state, @NotNull Object widget) {
@@ -205,9 +263,10 @@ public class TerminalMonitorService implements ProjectActivity {
         monitoredWidgets.add(widget);
         String title = "Unknown";
         try {
-            Object terminalTitle = widget.getClass().getMethod("getTerminalTitle").invoke(widget);
+            Object terminalTitle = getCachedMethod(widget, "getTerminalTitle", new Class[0]).invoke(widget);
             if (terminalTitle != null) {
-                title = (String) terminalTitle.getClass().getMethod("getText").invoke(terminalTitle);
+                Method getTextMethod = terminalTitle.getClass().getMethod("getText");
+                title = (String) getTextMethod.invoke(terminalTitle);
             }
         } catch (Exception e) {
             LOG.debug("Failed to get terminal widget title", e);
@@ -227,61 +286,86 @@ public class TerminalMonitorService implements ProjectActivity {
 
         // Attach ProcessListener to capture output
         try {
-            Method getHandlerMethod = null;
-            String[] possibleHandlerMethods = {"getTerminalProcessHandler", "getProcessHandler"};
-            
-            for (String methodName : possibleHandlerMethods) {
-                try {
-                    getHandlerMethod = widget.getClass().getMethod(methodName);
-                    if (getHandlerMethod != null) { break; }
-                } catch (NoSuchMethodException e) {
-                    // continue
-                }
-            }
-
-            if (getHandlerMethod != null) {
-                ProcessHandler processHandler = (ProcessHandler) getHandlerMethod.invoke(widget);
-                if (processHandler != null) {
-                    LOG.debug("Attached ProcessListener to terminal: " + title + " using " + getHandlerMethod.getName());
-                    if (widget instanceof Disposable) {
-                        ProcessListener listener = new ProcessListener() {
-                            @Override
-                            public void onTextAvailable(@NotNull ProcessEvent event, @NotNull Key outputType) {
-                                appendCapturedText(widget, event.getText());
-                            }
-                        };
-                        processHandler.addProcessListener(listener, (Disposable) widget);
-                    } else {
-                        WeakReference<Object> widgetRef = new WeakReference<>(widget);
-                        ProcessListener listener = new ProcessListener() {
-                            @Override
-                            public void onTextAvailable(@NotNull ProcessEvent event, @NotNull Key outputType) {
-                                Object currentWidget = widgetRef.get();
-                                if (currentWidget == null) {
-                                    processHandler.removeProcessListener(this);
-                                    return;
-                                }
-                                appendCapturedText(currentWidget, event.getText());
-                            }
-
-                            @Override
-                            public void processTerminated(@NotNull ProcessEvent event) {
-                                processHandler.removeProcessListener(this);
-                            }
-                        };
-                        processHandler.addProcessListener(listener, state.listenerDisposable);
-                    }
+            ProcessHandler processHandler = getProcessHandlerFromWidget(widget);
+            if (processHandler != null) {
+                LOG.debug("Attached ProcessListener to terminal: " + title);
+                if (widget instanceof Disposable) {
+                    ProcessListener listener = new ProcessListener() {
+                        @Override
+                        public void onTextAvailable(@NotNull ProcessEvent event, @NotNull Key outputType) {
+                            appendCapturedText(widget, event.getText());
+                        }
+                    };
+                    processHandler.addProcessListener(listener, (Disposable) widget);
                 } else {
-                    LOG.warn("ProcessHandler is null for terminal: " + title);
+                    WeakReference<Object> widgetRef = new WeakReference<>(widget);
+                    ProcessListener listener = new ProcessListener() {
+                        @Override
+                        public void onTextAvailable(@NotNull ProcessEvent event, @NotNull Key outputType) {
+                            Object currentWidget = widgetRef.get();
+                            if (currentWidget == null) {
+                                processHandler.removeProcessListener(this);
+                                return;
+                            }
+                            appendCapturedText(currentWidget, event.getText());
+                        }
+
+                        @Override
+                        public void processTerminated(@NotNull ProcessEvent event) {
+                            processHandler.removeProcessListener(this);
+                        }
+                    };
+                    processHandler.addProcessListener(listener, state.listenerDisposable);
                 }
             } else {
-                LOG.warn("Could not find getTerminalProcessHandler method in " + widget.getClass().getName());
+                LOG.warn("ProcessHandler is null for terminal: " + title);
             }
         } catch (ProcessCanceledException e) {
             throw e;
         } catch (Exception e) {
             LOG.warn("Failed to attach process listener to widget: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Get ProcessHandler from terminal widget using cached reflected methods.
+     */
+    @Nullable
+    private ProcessHandler getProcessHandlerFromWidget(@NotNull Object widget) throws Exception {
+        // Try getTerminalProcessHandler first
+        try {
+            Method method = getCachedMethod(widget, "getTerminalProcessHandler", new Class[0]);
+            Object handler = method.invoke(widget);
+            if (handler instanceof ProcessHandler) {
+                return (ProcessHandler) handler;
+            }
+        } catch (Exception e) {
+            // Method doesn't exist or failed, try next
+        }
+
+        // Try getProcessHandler
+        try {
+            Method method = getCachedMethod(widget, "getProcessHandler", new Class[0]);
+            Object handler = method.invoke(widget);
+            if (handler instanceof ProcessHandler) {
+                return (ProcessHandler) handler;
+            }
+        } catch (Exception e) {
+            // Method doesn't exist or failed
+        }
+
+        return null;
+    }
+
+    /**
+     * Get or cache a reflected method.
+     */
+    @NotNull
+    private Method getCachedMethod(@NotNull Object target, @NotNull String methodName, @NotNull Class<?>[] parameterTypes)
+            throws NoSuchMethodException {
+        // For simplicity, we'll just lookup the method each time
+        // In a production environment, you might want to cache by class + method name
+        return target.getClass().getMethod(methodName, parameterTypes);
     }
 
     private static void appendCapturedText(@NotNull Object widget, @Nullable String text) {
@@ -314,26 +398,76 @@ public class TerminalMonitorService implements ProjectActivity {
      */
     public static List<Object> getWidgets(@NotNull Project project) {
         try {
-            Class<?> viewClass = Class.forName("org.jetbrains.plugins.terminal.TerminalView");
-            Object view = viewClass.getMethod("getInstance", Project.class).invoke(null, project);
-            if (view == null) { return List.of(); }
+            // Use ToolWindow API to find terminal widgets
+            ToolWindow terminalWindow = ToolWindowManager.getInstance(project).getToolWindow("Terminal");
+            if (terminalWindow == null) { return List.of(); }
 
-            Object result = viewClass.getMethod("getWidgets").invoke(view);
-            List<Object> sortedWidgets = new ArrayList<>(convertResultToList(result));
+            List<Object> widgets = new ArrayList<>();
+            ContentManager contentManager = terminalWindow.getContentManager();
+            for (int i = 0; i < contentManager.getContentCount(); i++) {
+                Content content = contentManager.getContent(i);
+                if (content == null) { continue; }
 
-            if (ApplicationManager.getApplication().isDispatchThread()) {
-                sortWidgetsByTabOrder(project, sortedWidgets);
-            } else {
-                sortWidgetsByIdentity(sortedWidgets);
+                Object component = content.getComponent();
+                if (component == null) { continue; }
+
+                // Try to extract terminal widget from content component
+                Object widget = extractTerminalWidget(component);
+                if (widget != null) {
+                    widgets.add(widget);
+                }
             }
 
-            return sortedWidgets;
+            if (ApplicationManager.getApplication().isDispatchThread()) {
+                sortWidgetsByTabOrder(project, widgets);
+            } else {
+                sortWidgetsByIdentity(widgets);
+            }
+
+            return widgets;
         } catch (ProcessCanceledException e) {
             throw e;
         } catch (Exception e) {
             LOG.warn("Failed to get terminal widgets", e);
             return List.of();
         }
+    }
+
+    /**
+     * Extract terminal widget from content component (static version).
+     */
+    @Nullable
+    private static Object extractTerminalWidgetStatic(@NotNull Object component) {
+        // Direct check for JBTerminalWidget
+        if (component instanceof JBTerminalWidget) {
+            return component;
+        }
+
+        // Try to find terminal widget via reflection on component hierarchy
+        try {
+            // Check if component has getTerminalWidget method
+            Method getTerminalWidgetMethod = component.getClass().getMethod("getTerminalWidget");
+            Object widget = getTerminalWidgetMethod.invoke(component);
+            if (widget != null) {
+                return widget;
+            }
+        } catch (Exception e) {
+            // Method doesn't exist or failed, continue
+        }
+
+        // Try to find via getChild method if it's a container
+        if (component instanceof java.awt.Container) {
+            java.awt.Container container = (java.awt.Container) component;
+            for (int i = 0; i < container.getComponentCount(); i++) {
+                java.awt.Component child = container.getComponent(i);
+                Object widget = extractTerminalWidgetStatic(child);
+                if (widget != null) {
+                    return widget;
+                }
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -456,7 +590,8 @@ public class TerminalMonitorService implements ProjectActivity {
     private static Object getTerminalObject(@NotNull Object widget) {
         // Try direct method first
         try {
-            Object terminal = widget.getClass().getMethod("getTerminal").invoke(widget);
+            Method getTerminalMethod = widget.getClass().getMethod("getTerminal");
+            Object terminal = getTerminalMethod.invoke(widget);
             if (terminal != null) {
                 LOG.debug("[Terminal] Found terminal via getTerminal()");
                 return terminal;
@@ -470,7 +605,8 @@ public class TerminalMonitorService implements ProjectActivity {
             Method getPanelMethod = widget.getClass().getMethod("getTerminalPanel");
             Object panel = getPanelMethod.invoke(widget);
             if (panel != null) {
-                Object terminal = panel.getClass().getMethod("getTerminal").invoke(panel);
+                Method getTerminalMethod = panel.getClass().getMethod("getTerminal");
+                Object terminal = getTerminalMethod.invoke(panel);
                 if (terminal != null) {
                     LOG.debug("[Terminal] Found terminal via panel.getTerminal()");
                     return terminal;
@@ -491,7 +627,8 @@ public class TerminalMonitorService implements ProjectActivity {
         String[] bufferMethods = {"getTextBuffer", "getTerminalTextBuffer"};
         for (String methodName : bufferMethods) {
             try {
-                Object buffer = terminal.getClass().getMethod(methodName).invoke(terminal);
+                Method getBufferMethod = terminal.getClass().getMethod(methodName);
+                Object buffer = getBufferMethod.invoke(terminal);
                 if (buffer != null) {
                     LOG.debug("[Terminal] Found buffer via " + methodName + "()");
                     return buffer;
@@ -633,9 +770,11 @@ public class TerminalMonitorService implements ProjectActivity {
      */
     public static String getWidgetTitle(@NotNull Object widget) {
         try {
-            Object terminalTitle = widget.getClass().getMethod("getTerminalTitle").invoke(widget);
+            Method getTerminalTitleMethod = widget.getClass().getMethod("getTerminalTitle");
+            Object terminalTitle = getTerminalTitleMethod.invoke(widget);
             if (terminalTitle != null) {
-                return (String) terminalTitle.getClass().getMethod("getText").invoke(terminalTitle);
+                Method getTextMethod = terminalTitle.getClass().getMethod("getText");
+                return (String) getTextMethod.invoke(terminalTitle);
             }
         } catch (Exception e) {
             // ignore

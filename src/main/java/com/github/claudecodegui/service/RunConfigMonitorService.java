@@ -1,5 +1,6 @@
 package com.github.claudecodegui.service;
 
+import com.intellij.execution.ExecutionManager;
 import com.intellij.execution.process.ProcessEvent;
 import com.intellij.execution.process.ProcessHandler;
 import com.intellij.execution.process.ProcessListener;
@@ -12,13 +13,6 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.startup.ProjectActivity;
 import com.intellij.openapi.util.Disposer;
 import com.intellij.openapi.util.Key;
-import com.intellij.openapi.wm.ToolWindow;
-import com.intellij.openapi.wm.ToolWindowManager;
-import com.intellij.openapi.wm.ex.ToolWindowManagerListener;
-import com.intellij.ui.content.Content;
-import com.intellij.ui.content.ContentManager;
-import com.intellij.ui.content.ContentManagerEvent;
-import com.intellij.ui.content.ContentManagerListener;
 import kotlin.Unit;
 import kotlin.coroutines.Continuation;
 import org.jetbrains.annotations.NotNull;
@@ -31,24 +25,38 @@ import java.util.*;
  * Service to monitor Run/Debug service output.
  * This service attaches listeners to all active and new Run configurations.
  *
- * Unlike TerminalMonitorService which monitors terminal widgets,
+ * <h3>Implementation Notes</h3>
+ * <p>This service uses IntelliJ platform APIs to monitor run configurations:</p>
+ * <ul>
+ *   <li>{@link ExecutionManager} - Listens for execution events (process started/terminated)</li>
+ *   <li>{@link RunContentManager} - Accesses run content descriptors</li>
+ *   <li>{@link ProcessHandler} - Captures process output</li>
+ * </ul>
+ *
+ * <p>Unlike TerminalMonitorService which monitors terminal widgets,
  * this service monitors Run/Debug configurations (e.g., Spring Boot services,
- * application runs, Gradle/Maven tasks, etc.)
+ * application runs, Gradle/Maven tasks, etc.)</p>
+ *
+ * <h3>Optimization Notes</h3>
+ * <p>This implementation optimizes by:</p>
+ * <ul>
+ *   <li>Using {@link ExecutionManager} to listen for execution events instead of ToolWindow polling</li>
+ *   <li>Using {@link RunContentManager} to access run content descriptors</li>
+ *   <li>Minimizing reflection usage by preferring public platform APIs</li>
+ * </ul>
  */
 public class RunConfigMonitorService implements ProjectActivity {
 
     private static final Logger LOG = Logger.getInstance(RunConfigMonitorService.class);
 
     /**
-     * Disposable that owns the MessageBusConnection and all ContentManagerListeners
+     * Disposable that owns the MessageBusConnection and all listeners
      * registered by this service. It is registered with the project so that, even if
      * no explicit dispose() runs, project disposal still releases every listener
      * (preventing the listener accumulation that previously depended on tool-window
-     * teardown alone). WeakHashMap keys let an unreachable ContentManager be GC'd.
+     * teardown alone).
      */
     private final Disposable parentDisposable = Disposer.newDisposable("RunConfigMonitorService");
-    private final Map<ContentManager, ContentManagerListener> attachedManagers =
-            Collections.synchronizedMap(new java.util.WeakHashMap<>());
 
     /**
      * Buffer storage for run configuration output using WeakHashMap.
@@ -76,9 +84,6 @@ public class RunConfigMonitorService implements ProjectActivity {
         // project closes, regardless of whether an explicit dispose() runs.
         try {
             Disposer.register(project, parentDisposable);
-            // Remove every tracked ContentManagerListener when the parent is disposed,
-            // so listeners never outlive the project even if a tool window lingers.
-            Disposer.register(parentDisposable, () -> disposeListeners());
         } catch (Exception alreadyRegistered) {
             // Already bound (defensive against duplicate execute); safe to ignore.
         }
@@ -86,100 +91,59 @@ public class RunConfigMonitorService implements ProjectActivity {
         return Unit.INSTANCE;
     }
 
-    /**
-     * Detach and forget every ContentManagerListener we registered. Called from the
-     * parentDisposable cleanup so project close releases all listeners deterministically.
-     */
-    private void disposeListeners() {
-        synchronized (attachedManagers) {
-            for (Map.Entry<ContentManager, ContentManagerListener> entry : attachedManagers.entrySet()) {
-                try {
-                    entry.getKey().removeContentManagerListener(entry.getValue());
-                } catch (Exception ignored) {
-                    // ContentManager may already be disposed; nothing to do.
-                }
-            }
-            attachedManagers.clear();
-        }
-    }
-
     private void monitorRunConfigurations(@NotNull Project project) {
-        // Listen for Run ToolWindow changes. Connect through parentDisposable so the
-        // connection is torn down with the project instead of leaking.
-        project.getMessageBus().connect(parentDisposable)
-                .subscribe(ToolWindowManagerListener.TOPIC, new ToolWindowManagerListener() {
-            @Override
-            public void stateChanged(@NotNull ToolWindowManager toolWindowManager) {
-                setupRunListener(project);
-            }
-        });
+        // Use ExecutionManager to listen for execution events
+        // This is more efficient than polling ToolWindow changes
+        try {
+            ExecutionManager executionManager = ExecutionManager.getInstance(project);
+            
+            // Subscribe to execution events via MessageBus
+            // ExecutionManager.EXECUTION_TOPIC provides events when processes start/terminate
+            project.getMessageBus().connect(parentDisposable)
+                    .subscribe(ExecutionManager.EXECUTION_TOPIC, new ExecutionManager.ExecutionListener() {
+                        @Override
+                        public void processStarted(@NotNull String executorId, @NotNull ExecutionEnvironment env) {
+                            LOG.debug("Process started: " + env.getRunProfile().getName());
+                            // Delay attachment to allow RunContentDescriptor to be fully initialized
+                            com.intellij.util.concurrency.AppExecutorUtil.getAppScheduledExecutorService()
+                                .schedule(() -> ApplicationManager.getApplication().invokeLater(() -> {
+                                    if (currentProject != null && !currentProject.isDisposed()) {
+                                        attachToExistingDescriptors(currentProject);
+                                    }
+                                }), 500, java.util.concurrent.TimeUnit.MILLISECONDS);
+                        }
 
-        // Initial check
-        setupRunListener(project);
-    }
-
-    private void setupRunListener(@NotNull Project project) {
-        // Monitor the "Run" tool window
-        ToolWindow runWindow = ToolWindowManager.getInstance(project).getToolWindow("Run");
-        if (runWindow != null) {
-            attachContentListener(runWindow, "Run");
+                        @Override
+                        public void processTerminated(@NotNull String executorId, @NotNull ExecutionEnvironment env) {
+                            LOG.debug("Process terminated: " + env.getRunProfile().getName());
+                        }
+                    });
+            
+            LOG.debug("ExecutionManager listener attached for project: " + project.getName());
+        } catch (Exception e) {
+            LOG.warn("Failed to attach ExecutionManager listener, falling back to ToolWindow polling", e);
+            // Fallback to ToolWindow polling if ExecutionManager is not available
+            monitorRunConfigurationsViaToolWindow(project);
         }
 
-        // Also monitor the "Debug" tool window
-        ToolWindow debugWindow = ToolWindowManager.getInstance(project).getToolWindow("Debug");
-        if (debugWindow != null) {
-            attachContentListener(debugWindow, "Debug");
-        }
-
-        // Monitor "Services" tool window (for Spring Boot, etc.)
-        ToolWindow servicesWindow = ToolWindowManager.getInstance(project).getToolWindow("Services");
-        if (servicesWindow != null) {
-            attachContentListener(servicesWindow, "Services");
-        }
-
-        // Attach to existing run descriptors
+        // Also attach to existing descriptors
         attachToExistingDescriptors(project);
     }
 
-    private void attachContentListener(ToolWindow toolWindow, String windowName) {
-        if (toolWindow == null) { return; }
-
-        ContentManager contentManager = toolWindow.getContentManager();
-        if (contentManager == null) { return; }
-
-        // Check if already attached
-        if (attachedManagers.containsKey(contentManager)) {
-            return;
-        }
-
-        ContentManagerListener listener = new ContentManagerListener() {
+    /**
+     * Fallback method: Monitor run configurations via ToolWindow polling.
+     * Used when ExecutionManager is not available.
+     */
+    private void monitorRunConfigurationsViaToolWindow(@NotNull Project project) {
+        // Listen for Run ToolWindow changes
+        project.getMessageBus().connect(parentDisposable)
+                .subscribe(com.intellij.openapi.wm.ToolWindowManagerListener.TOPIC, 
+                    new com.intellij.openapi.wm.ex.ToolWindowManagerListener() {
             @Override
-            public void contentAdded(@NotNull ContentManagerEvent event) {
-                LOG.debug("Content added to " + windowName + ": " + event.getContent().getDisplayName());
-                // Small delay to allow the content to be fully initialized
-                // Use AppExecutorUtil instead of deprecated Alarm() constructor
-                com.intellij.util.concurrency.AppExecutorUtil.getAppScheduledExecutorService()
-                    .schedule(() -> ApplicationManager.getApplication().invokeLater(() -> {
-                        if (currentProject != null && !currentProject.isDisposed()) {
-                            attachToExistingDescriptors(currentProject);
-                        }
-                    }), 500, java.util.concurrent.TimeUnit.MILLISECONDS);
+            public void stateChanged(@NotNull com.intellij.openapi.wm.ToolWindowManager toolWindowManager) {
+                attachToExistingDescriptors(project);
             }
-
-            @Override
-            public void contentRemoved(@NotNull ContentManagerEvent event) {
-                LOG.debug("Content removed from " + windowName + ": " + event.getContent().getDisplayName());
-            }
-        };
-        contentManager.addContentManagerListener(listener);
-        attachedManagers.put(contentManager, listener);
-
-        LOG.debug("ContentManager listener attached for: " + windowName);
-        
-        // Check existing content
-        for (Content content : contentManager.getContents()) {
-            LOG.debug("Existing content in " + windowName + ": " + content.getDisplayName());
-        }
+        });
     }
 
     private void attachToExistingDescriptors(@NotNull Project project) {
@@ -247,7 +211,6 @@ public class RunConfigMonitorService implements ProjectActivity {
                 @Override
                 public void processTerminated(@NotNull ProcessEvent event) {
                     // Clean up after a delay to allow final output to be captured
-                    // Use AppExecutorUtil instead of deprecated Alarm() constructor
                     com.intellij.util.concurrency.AppExecutorUtil.getAppScheduledExecutorService()
                         .schedule(() -> {
                             monitoredHandlers.remove(processHandler);
