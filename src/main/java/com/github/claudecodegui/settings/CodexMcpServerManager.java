@@ -693,11 +693,7 @@ public class CodexMcpServerManager {
      * Perform a simple MCP initialize handshake over STDIO to verify the server is working.
      */
     private String performStdioHandshake(Process process, String serverName) {
-        ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
-            Thread thread = new Thread(runnable, "CodexMcpHandshake-" + serverName);
-            thread.setDaemon(true);
-            return thread;
-        });
+        ExecutorService executor = com.intellij.util.concurrency.AppExecutorUtil.getAppExecutorService();
         try {
             McpStdioMessageCodec.writeNdjson(process.getOutputStream(), MCP_INIT_REQUEST);
 

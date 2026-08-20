@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -85,11 +84,7 @@ public final class CliPersistentProcessRegistry implements Disposable {
         long cooldownUntilMs;
     }
 
-    private final ScheduledExecutorService sweeper = Executors.newSingleThreadScheduledExecutor(runnable -> {
-        Thread thread = new Thread(runnable, "AICG-CLI-Persistent-Sweeper");
-        thread.setDaemon(true);
-        return thread;
-    });
+    private final ScheduledExecutorService sweeper = com.intellij.util.concurrency.AppExecutorUtil.getAppScheduledExecutorService();
 
     public static CliPersistentProcessRegistry getInstance(@NotNull Project project) {
         return project.getService(CliPersistentProcessRegistry.class);

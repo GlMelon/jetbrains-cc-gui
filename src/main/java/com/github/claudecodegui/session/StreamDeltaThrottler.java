@@ -2,10 +2,8 @@ package com.github.claudecodegui.session;
 
 import com.github.claudecodegui.cli.common.CliOutputLimits;
 
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -127,14 +125,7 @@ public final class StreamDeltaThrottler {
         private volatile boolean disposed;
 
         private ExecutorScheduler() {
-            this.executor = Executors.newSingleThreadScheduledExecutor(new ThreadFactory() {
-                @Override
-                public Thread newThread(Runnable runnable) {
-                    Thread thread = new Thread(runnable, "StreamDeltaThrottler");
-                    thread.setDaemon(true);
-                    return thread;
-                }
-            });
+            this.executor = com.intellij.util.concurrency.AppExecutorUtil.getAppScheduledExecutorService();
         }
 
         @Override
@@ -157,6 +148,15 @@ public final class StreamDeltaThrottler {
             disposed = true;
             cancel();
             executor.shutdownNow();
+            try {
+                // 等待线程实际终止，避免频繁创建/销毁时的线程资源重叠
+                if (!executor.awaitTermination(100, TimeUnit.MILLISECONDS)) {
+                    LOG.debug("StreamDeltaThrottler executor did not terminate within 100ms");
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                LOG.debug("StreamDeltaThrottler awaitTermination interrupted");
+            }
         }
     }
 }
