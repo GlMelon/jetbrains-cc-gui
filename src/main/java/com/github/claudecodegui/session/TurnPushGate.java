@@ -1,5 +1,7 @@
 package com.github.claudecodegui.session;
 
+import com.github.claudecodegui.cli.common.CliOutputLimits;
+
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
@@ -60,7 +62,8 @@ public final class TurnPushGate {
             return true;
         }
         if (delta != null && !delta.isEmpty()) {
-            contentBuffer.append(delta);
+            CliOutputLimits.appendBounded(
+                    contentBuffer, delta, CliOutputLimits.MAX_ASSISTANT_CHARS);
         }
         return false;
     }

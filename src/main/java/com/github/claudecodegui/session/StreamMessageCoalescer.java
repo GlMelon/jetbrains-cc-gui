@@ -12,6 +12,7 @@ import com.intellij.ui.jcef.JBCefBrowser;
 import com.intellij.util.Alarm;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongConsumer;
 
 /**
@@ -19,7 +20,7 @@ import java.util.function.LongConsumer;
  * Batches rapid onMessageUpdate callbacks into periodic UI refreshes
  * to avoid overwhelming the JCEF browser.
  */
-public class StreamMessageCoalescer {
+public class StreamMessageCoalescer implements Disposable {
 
     private static final Logger LOG = Logger.getInstance(StreamMessageCoalescer.class);
     private static final int UPDATE_INTERVAL_MS = 50;
@@ -63,6 +64,7 @@ public class StreamMessageCoalescer {
     private final Alarm updateAlarm;
     private final Alarm heartbeatAlarm;
     private volatile boolean streamActive = false;
+    private volatile boolean disposed = false;
     private volatile boolean updateScheduled = false;
     private volatile long lastUpdateAtMs = 0L;
     private volatile long updateSequence = 0L;
@@ -76,6 +78,68 @@ public class StreamMessageCoalescer {
     private volatile List<ClaudeSession.Message> lastDeliveredSnapshot = null;
     // usage 增量去重:流式期间重复推送相同 usage 的引用缓存(详见 sendToWebView 去重逻辑)。
     private volatile JsonObject lastPushedUsageRef = null;
+
+    /**
+     * ApplicationManager's pooled executor is not a bounded executor. Keep at
+     * most one JSON serialization task in flight and retain only the newest
+     * request, otherwise a slow JCEF/JSON path can queue a large number of
+     * message snapshots and keep the whole conversation reachable.
+     */
+    private boolean serializationInFlight = false;
+    private SerializationRequest pendingSerialization = null;
+    /** The pooled task is kept behind a clearable holder so dispose() can release its snapshot. */
+    private SerializationTask queuedSerializationTask;
+    /** The EDT queue captures only this clearable holder, never the JSON string directly. */
+    private DeliveryHolder queuedDelivery;
+
+    private static final class SerializationTask {
+        private final AtomicReference<SerializationRequest> request;
+
+        private SerializationTask(SerializationRequest request) {
+            this.request = new AtomicReference<>(request);
+        }
+
+        private SerializationRequest take() {
+            return request.getAndSet(null);
+        }
+
+        private void clear() {
+            request.set(null);
+        }
+    }
+
+    private record DeliveryPayload(SerializationRequest request, String escapedMessagesJson) {
+    }
+
+    private static final class DeliveryHolder {
+        private SerializationRequest request;
+        private String escapedMessagesJson;
+        private boolean cleared;
+
+        private synchronized void set(SerializationRequest request, String escapedMessagesJson) {
+            if (cleared) {
+                return;
+            }
+            this.request = request;
+            this.escapedMessagesJson = escapedMessagesJson;
+        }
+
+        private synchronized DeliveryPayload take() {
+            if (cleared || request == null || escapedMessagesJson == null) {
+                return null;
+            }
+            DeliveryPayload payload = new DeliveryPayload(request, escapedMessagesJson);
+            request = null;
+            escapedMessagesJson = null;
+            return payload;
+        }
+
+        private synchronized void clear() {
+            cleared = true;
+            request = null;
+            escapedMessagesJson = null;
+        }
+    }
 
     private final JsCallbackTarget callbackTarget;
 
@@ -102,6 +166,16 @@ public class StreamMessageCoalescer {
             List<ClaudeSession.Message> messages,
             int baseIndex,
             boolean tailUpdate
+    ) {}
+
+    private record SerializationRequest(
+            List<ClaudeSession.Message> originalMessages,
+            List<ClaudeSession.Message> messages,
+            long sequence,
+            LongConsumer afterSendOnEdt,
+            int tailBaseIndex,
+            boolean tailUpdate,
+            int originalMessageCount
     ) {}
 
     public StreamMessageCoalescer(JsCallbackTarget callbackTarget) {
@@ -131,13 +205,16 @@ public class StreamMessageCoalescer {
      * Enqueue a message update for coalesced delivery.
      */
     public void enqueue(List<ClaudeSession.Message> messages) {
-        if (callbackTarget.isDisposed()) {
+        if (messages == null || disposed || callbackTarget.isDisposed()) {
             return;
         }
         // Defensive copy: the caller's list may be mutated on another thread,
         // so we snapshot it here to guarantee a consistent read in sendToWebView.
         final List<ClaudeSession.Message> snapshot = List.copyOf(messages);
         synchronized (lock) {
+            if (disposed) {
+                return;
+            }
             pendingMessages = snapshot;
         }
         schedulePush();
@@ -153,6 +230,9 @@ public class StreamMessageCoalescer {
      */
     public void onStreamStart() {
         synchronized (lock) {
+            if (disposed) {
+                return;
+            }
             streamActive = true;
         }
         startHeartbeat();
@@ -162,8 +242,14 @@ public class StreamMessageCoalescer {
      * Notify that a stream has ended.
      */
     public void onStreamEnd() {
+        if (disposed) {
+            return;
+        }
         heartbeatAlarm.cancelAllRequests();
         synchronized (lock) {
+            if (disposed) {
+                return;
+            }
             streamActive = false;
             lastPayloadChars = 0;  // Reset so post-stream flush uses normal interval
         }
@@ -171,7 +257,11 @@ public class StreamMessageCoalescer {
         // deferred during streaming (e.g. a background session_updated reload).
         // Done outside the lock: the host may synchronously schedule EDT work,
         // and holding `lock` across a foreign callback risks lock-ordering issues.
-        callbackTarget.onStreamEnded();
+        try {
+            callbackTarget.onStreamEnded();
+        } catch (Exception e) {
+            LOG.warn("Failed to notify stream end: " + e.getMessage(), e);
+        }
     }
 
     /**
@@ -181,6 +271,9 @@ public class StreamMessageCoalescer {
         updateAlarm.cancelAllRequests();
         heartbeatAlarm.cancelAllRequests();
         synchronized (lock) {
+            if (disposed) {
+                return;
+            }
             streamActive = false;
             updateScheduled = false;
             pendingMessages = null;
@@ -201,13 +294,16 @@ public class StreamMessageCoalescer {
      * Flush any pending messages immediately and optionally run a callback afterwards.
      */
     public void flush(LongConsumer afterFlushOnEdt) {
-        if (callbackTarget.isDisposed()) {
+        if (disposed || callbackTarget.isDisposed()) {
             return;
         }
 
         final List<ClaudeSession.Message> snapshot;
         final long sequence;
         synchronized (lock) {
+            if (disposed) {
+                return;
+            }
             updateAlarm.cancelAllRequests();
             updateScheduled = false;
             snapshot = pendingMessages != null ? pendingMessages : lastSnapshot;
@@ -218,7 +314,7 @@ public class StreamMessageCoalescer {
         if (snapshot == null) {
             if (afterFlushOnEdt != null) {
                 final long finalSequence = sequence;
-                ApplicationManager.getApplication().invokeLater(() -> afterFlushOnEdt.accept(finalSequence));
+                scheduleOnEdt(() -> afterFlushOnEdt.accept(finalSequence), null);
             }
             return;
         }
@@ -229,7 +325,34 @@ public class StreamMessageCoalescer {
     /**
      * Dispose internal resources.
      */
+    @Override
     public void dispose() {
+        synchronized (lock) {
+            if (disposed) {
+                return;
+            }
+            disposed = true;
+            streamActive = false;
+            updateScheduled = false;
+            pendingMessages = null;
+            lastSnapshot = null;
+            lastDeliveredSnapshot = null;
+            lastPushedUsageRef = null;
+            lastPayloadChars = 0;
+            ++updateSequence;
+            pendingSerialization = null;
+            serializationInFlight = false;
+            SerializationTask serializationTask = queuedSerializationTask;
+            queuedSerializationTask = null;
+            DeliveryHolder deliveryHolder = queuedDelivery;
+            queuedDelivery = null;
+            if (serializationTask != null) {
+                serializationTask.clear();
+            }
+            if (deliveryHolder != null) {
+                deliveryHolder.clear();
+            }
+        }
         try {
             updateAlarm.cancelAllRequests();
             updateAlarm.dispose();
@@ -270,7 +393,7 @@ public class StreamMessageCoalescer {
     }
 
     private void schedulePush() {
-        if (callbackTarget.isDisposed()) {
+        if (disposed || callbackTarget.isDisposed()) {
             return;
         }
 
@@ -297,7 +420,7 @@ public class StreamMessageCoalescer {
                 sequence = updateSequence;
             }
 
-            if (callbackTarget.isDisposed()) {
+            if (disposed || callbackTarget.isDisposed()) {
                 return;
             }
 
@@ -309,7 +432,7 @@ public class StreamMessageCoalescer {
             synchronized (lock) {
                 hasPending = pendingMessages != null;
             }
-            if (hasPending && !callbackTarget.isDisposed()) {
+            if (hasPending && !disposed && !callbackTarget.isDisposed()) {
                 schedulePush();
             }
         }, delayMs);
@@ -323,124 +446,282 @@ public class StreamMessageCoalescer {
         // Keep the snapshot for potential re-flush after webview reload/recreate.
         // Only a snapshot actually delivered to the webview can prove that an
         // omitted prefix is stable enough for an indexed tail update.
-        final List<ClaudeSession.Message> deliveredSnapshot;
+        final SerializationRequest request;
+        SerializationRequest requestToStart = null;
         synchronized (lock) {
-            deliveredSnapshot = lastDeliveredSnapshot;
+            if (disposed) {
+                return;
+            }
+            MessageTransport transport = selectMessageTransport(messages, lastDeliveredSnapshot);
             lastSnapshot = messages;
+            request = new SerializationRequest(
+                    messages,
+                    transport.messages(),
+                    sequence,
+                    afterSendOnEdt,
+                    transport.baseIndex(),
+                    transport.tailUpdate(),
+                    messages.size()
+            );
+            if (serializationInFlight) {
+                if (pendingSerialization != null) {
+                    SerializationRequest previous = pendingSerialization;
+                    LongConsumer mergedCallback = mergeCallbacks(previous, request);
+                    pendingSerialization = new SerializationRequest(
+                            request.originalMessages(),
+                            request.messages(),
+                            request.sequence(),
+                            mergedCallback,
+                            request.tailBaseIndex(),
+                            request.tailUpdate(),
+                            request.originalMessageCount()
+                    );
+                } else {
+                    pendingSerialization = request;
+                }
+            } else {
+                serializationInFlight = true;
+                requestToStart = request;
+            }
+        }
+        if (requestToStart != null) {
+            startSerialization(requestToStart);
+        }
+    }
+
+    private static LongConsumer mergeCallbacks(
+            SerializationRequest previous,
+            SerializationRequest newest
+    ) {
+        LongConsumer previousCallback = previous.afterSendOnEdt();
+        LongConsumer newestCallback = newest.afterSendOnEdt();
+        if (previousCallback == null) {
+            return newestCallback;
+        }
+        if (newestCallback == null) {
+            return sequence -> previousCallback.accept(previous.sequence());
+        }
+        return sequence -> {
+            previousCallback.accept(previous.sequence());
+            newestCallback.accept(sequence);
+        };
+    }
+
+    private void startSerialization(SerializationRequest request) {
+        if (disposed) {
+            finishSerialization();
+            return;
+        }
+        SerializationTask task = new SerializationTask(request);
+        synchronized (lock) {
+            if (disposed) {
+                task.clear();
+                return;
+            }
+            queuedSerializationTask = task;
+        }
+        try {
+            ApplicationManager.getApplication().executeOnPooledThread(() -> {
+                synchronized (lock) {
+                    if (queuedSerializationTask == task) {
+                        queuedSerializationTask = null;
+                    }
+                }
+                SerializationRequest taskRequest = task.take();
+                if (taskRequest == null) {
+                    finishSerialization();
+                    return;
+                }
+                serializeAndSchedule(taskRequest);
+            });
+        } catch (RuntimeException e) {
+            synchronized (lock) {
+                if (queuedSerializationTask == task) {
+                    queuedSerializationTask = null;
+                }
+            }
+            SerializationRequest failedRequest = task.take();
+            LOG.warn("Failed to schedule message serialization: " + e.getMessage(), e);
+            if (failedRequest != null) {
+                runAfterSend(failedRequest);
+            }
+            finishSerialization();
+        }
+    }
+
+    private void serializeAndSchedule(SerializationRequest request) {
+        if (disposed) {
+            finishSerialization();
+            return;
+        }
+        final int payloadChars;
+        final long payloadBuildMs;
+        final String escapedMessagesJson;
+        try {
+            long buildStartedAt = System.nanoTime();
+            String messagesJson = MessageJsonConverter.convertMessagesToJson(request.messages());
+            payloadChars = messagesJson.length();
+            escapedMessagesJson = JsUtils.escapeJs(messagesJson);
+            payloadBuildMs = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(
+                    System.nanoTime() - buildStartedAt
+            );
+
+            lastPayloadChars = payloadChars;
+            if (payloadChars >= LARGE_UPDATE_PAYLOAD_CHARS || payloadBuildMs >= SLOW_PAYLOAD_BUILD_MS) {
+                LOG.info("[WebviewTransport] updateMessages payload chars=" + payloadChars
+                        + ", messages=" + request.originalMessageCount()
+                        + ", transportedMessages=" + request.messages().size()
+                        + ", tailBaseIndex=" + request.tailBaseIndex()
+                        + ", buildMs=" + payloadBuildMs
+                        + ", sequence=" + request.sequence());
+            } else if (LOG.isDebugEnabled()) {
+                LOG.debug("[WebviewTransport] updateMessages payload chars=" + payloadChars
+                        + ", messages=" + request.originalMessageCount()
+                        + ", transportedMessages=" + request.messages().size()
+                        + ", buildMs=" + payloadBuildMs
+                        + ", sequence=" + request.sequence());
+            }
+        } catch (Exception e) {
+            LOG.warn("Failed to serialize messages for streaming update: " + e.getMessage(), e);
+            runAfterSend(request);
+            finishSerialization();
+            return;
         }
 
-        MessageTransport transport = selectMessageTransport(messages, deliveredSnapshot);
-        final boolean tailUpdate = transport.tailUpdate();
-        final int tailBaseIndex = transport.baseIndex();
-        final List<ClaudeSession.Message> transportMessages = transport.messages();
+        if (disposed) {
+            finishSerialization();
+            return;
+        }
 
-        ApplicationManager.getApplication().executeOnPooledThread(() -> {
-            final int payloadChars;
-            final long payloadBuildMs;
-            final String escapedMessagesJson;
-            try {
-                long buildStartedAt = System.nanoTime();
-                String messagesJson = MessageJsonConverter.convertMessagesToJson(transportMessages);
-                payloadChars = messagesJson.length();
-                escapedMessagesJson = JsUtils.escapeJs(messagesJson);
-                payloadBuildMs = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - buildStartedAt);
+        DeliveryHolder deliveryHolder = new DeliveryHolder();
+        deliveryHolder.set(request, escapedMessagesJson);
+        synchronized (lock) {
+            if (disposed) {
+                deliveryHolder.clear();
+                finishSerialization();
+                return;
+            }
+            queuedDelivery = deliveryHolder;
+        }
+        Runnable delivery = () -> deliverOnEdt(deliveryHolder);
 
-                // FIX: Record payload size for adaptive throttling
-                lastPayloadChars = payloadChars;
-
-                if (payloadChars >= LARGE_UPDATE_PAYLOAD_CHARS || payloadBuildMs >= SLOW_PAYLOAD_BUILD_MS) {
-                    LOG.info("[WebviewTransport] updateMessages payload chars=" + payloadChars
-                            + ", messages=" + messages.size()
-                            + ", transportedMessages=" + transportMessages.size()
-                            + ", tailBaseIndex=" + tailBaseIndex
-                            + ", buildMs=" + payloadBuildMs
-                            + ", sequence=" + sequence);
-                } else if (LOG.isDebugEnabled()) {
-                    LOG.debug("[WebviewTransport] updateMessages payload chars=" + payloadChars
-                            + ", messages=" + messages.size()
-                            + ", transportedMessages=" + transportMessages.size()
-                            + ", buildMs=" + payloadBuildMs
-                            + ", sequence=" + sequence);
+        if (!scheduleOnEdt(delivery, request)) {
+            synchronized (lock) {
+                if (queuedDelivery == deliveryHolder) {
+                    queuedDelivery = null;
                 }
-            } catch (Exception e) {
-                LOG.warn("Failed to serialize messages for streaming update: " + e.getMessage(), e);
-                if (afterSendOnEdt != null) {
-                    final long finalSequence = sequence;
-                    ApplicationManager.getApplication().invokeLater(() -> afterSendOnEdt.accept(finalSequence));
-                }
+            }
+            deliveryHolder.clear();
+            runAfterSend(request);
+            finishSerialization();
+        }
+    }
+
+    private void deliverOnEdt(DeliveryHolder deliveryHolder) {
+        synchronized (lock) {
+            if (queuedDelivery == deliveryHolder) {
+                queuedDelivery = null;
+            }
+        }
+        DeliveryPayload payload = deliveryHolder.take();
+        if (payload == null) {
+            finishSerialization();
+            return;
+        }
+        SerializationRequest request = payload.request();
+        String escapedMessagesJson = payload.escapedMessagesJson();
+        try {
+            if (disposed || callbackTarget.isDisposed()) {
                 return;
             }
 
-            ApplicationManager.getApplication().invokeLater(() -> {
-                if (callbackTarget.isDisposed()) {
-                    // FIX: Still run afterSendOnEdt even when disposed, so that
-                    // onStreamEnd/showLoading(false) callbacks execute and clear
-                    // streaming state. Without this, a dispose race leaves the
-                    // frontend permanently stuck in "responding" state.
-                    if (afterSendOnEdt != null) {
-                        afterSendOnEdt.accept(sequence);
-                    }
+            synchronized (lock) {
+                if (disposed || request.sequence() != updateSequence) {
                     return;
                 }
+            }
 
+            try {
+                if (request.tailUpdate()) {
+                    callbackTarget.callJavaScript(
+                            "updateMessageTail",
+                            escapedMessagesJson,
+                            String.valueOf(request.tailBaseIndex()),
+                            String.valueOf(request.sequence()));
+                } else {
+                    callbackTarget.callJavaScript(
+                            "updateMessages",
+                            escapedMessagesJson,
+                            String.valueOf(request.sequence())
+                    );
+                }
                 synchronized (lock) {
-                    if (sequence != updateSequence) {
-                        // Message is stale — skip the webview push, but still
-                        // run the after-send callback (e.g. onStreamEnd cleanup)
-                        // so the frontend is not stuck in streaming state.
-                        if (afterSendOnEdt != null) {
-                            afterSendOnEdt.accept(sequence);
-                        }
-                        return;
+                    if (!disposed && request.sequence() == updateSequence) {
+                        lastDeliveredSnapshot = request.originalMessages();
                     }
                 }
-
-                // FIX: Wrap callJavaScript in try-catch so that a JCEF failure
-                // (e.g., large payload rejection, disposed browser race) does not
-                // prevent afterSendOnEdt from running.  When afterSendOnEdt carries
-                // the onStreamEnd signal, failing to run it permanently freezes the UI.
-                try {
-                    if (tailUpdate) {
-                        callbackTarget.callJavaScript(
-                                "updateMessageTail",
-                                escapedMessagesJson,
-                                String.valueOf(tailBaseIndex),
-                                String.valueOf(sequence));
-                    } else {
-                        callbackTarget.callJavaScript(
-                                "updateMessages", escapedMessagesJson, String.valueOf(sequence));
-                    }
-                    synchronized (lock) {
-                        if (sequence == updateSequence) {
-                            lastDeliveredSnapshot = messages;
-                        }
-                    }
-                    // usage 增量去重:流式 delta 不含 usage(仅回合末 result 才有),若每次 updateMessages
-                    // 都全量推送 usage,是稳态 ~30/s 的冗余 IPC + CPU。usage 变化总伴随新 JSON 对象引用
-                    // (回合制,result 新建 usage 对象),故引用相等即可安全跳过整个推送。新会话由
-                    // resetStreamState 清缓存,跨回合靠新 usage 引用自然触发重推。
-                    JsonObject currentUsage = TokenUsageUtils.findLastUsageFromSessionMessages(messages);
-                    if (currentUsage != lastPushedUsageRef) {
-                        lastPushedUsageRef = currentUsage;
-                        MessageJsonConverter.pushUsageUpdateFromMessages(
-                                messages,
-                                callbackTarget.getHandlerContext(),
-                                callbackTarget.getBrowser(),
-                                callbackTarget.isDisposed()
-                        );
-                    }
-                } catch (Exception e) {
-                    LOG.warn("Failed to push updateMessages to webview (payload chars="
-                            + escapedMessagesJson.length() + "): " + e.getMessage(), e);
+                JsonObject currentUsage = TokenUsageUtils.findLastUsageFromSessionMessages(request.originalMessages());
+                if (currentUsage != lastPushedUsageRef) {
+                    lastPushedUsageRef = currentUsage;
+                    MessageJsonConverter.pushUsageUpdateFromMessages(
+                            request.originalMessages(),
+                            callbackTarget.getHandlerContext(),
+                            callbackTarget.getBrowser(),
+                            callbackTarget.isDisposed()
+                    );
                 }
-
-                if (afterSendOnEdt != null) {
-                    afterSendOnEdt.accept(sequence);
-                }
-            });
-        });
+            } catch (Exception e) {
+                LOG.warn("Failed to push updateMessages to webview (payload chars="
+                        + escapedMessagesJson.length() + "): " + e.getMessage(), e);
+            }
+        } finally {
+            runAfterSend(request);
+            finishSerialization();
+        }
     }
 
+    private boolean scheduleOnEdt(Runnable runnable, SerializationRequest request) {
+        if (disposed) {
+            return false;
+        }
+        try {
+            ApplicationManager.getApplication().invokeLater(runnable);
+            return true;
+        } catch (RuntimeException e) {
+            LOG.warn("Failed to schedule webview callback on EDT"
+                    + (request != null ? " (sequence=" + request.sequence() + ")" : "")
+                    + ": " + e.getMessage(), e);
+            return false;
+        }
+    }
+    private void runAfterSend(SerializationRequest request) {
+        if (request.afterSendOnEdt() == null) {
+            return;
+        }
+        try {
+            request.afterSendOnEdt().accept(request.sequence());
+        } catch (Exception e) {
+            LOG.warn("Failed to run after-send callback: " + e.getMessage(), e);
+        }
+    }
+
+    private void finishSerialization() {
+        SerializationRequest next;
+        synchronized (lock) {
+            if (disposed) {
+                pendingSerialization = null;
+                serializationInFlight = false;
+                return;
+            }
+            next = pendingSerialization;
+            pendingSerialization = null;
+            if (next == null) {
+                serializationInFlight = false;
+                return;
+            }
+        }
+        startSerialization(next);
+    }
     static MessageTransport selectMessageTransport(
             List<ClaudeSession.Message> messages,
             List<ClaudeSession.Message> previousMessages
@@ -490,11 +771,11 @@ public class StreamMessageCoalescer {
     }
 
     private void scheduleHeartbeat() {
-        if (!streamActive || callbackTarget.isDisposed()) {
+        if (disposed || !streamActive || callbackTarget.isDisposed()) {
             return;
         }
         heartbeatAlarm.addRequest(() -> {
-            if (!streamActive || callbackTarget.isDisposed()) {
+            if (disposed || !streamActive || callbackTarget.isDisposed()) {
                 return;
             }
             try {

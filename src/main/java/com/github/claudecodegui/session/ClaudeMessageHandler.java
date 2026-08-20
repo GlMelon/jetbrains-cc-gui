@@ -1,6 +1,7 @@
 package com.github.claudecodegui.session;
 
 import com.github.claudecodegui.cli.common.CliConstants;
+import com.github.claudecodegui.cli.common.CliOutputLimits;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.provider.ModelProviderHandler;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
@@ -481,16 +482,21 @@ public class ClaudeMessageHandler implements MessageCallback {
             if (!isStreaming) {
                 assistantContent.setLength(0);
                 if (aggregatedText != null) {
-                    assistantContent.append(aggregatedText);
+                    CliOutputLimits.appendBounded(
+                            assistantContent, aggregatedText, CliOutputLimits.MAX_ASSISTANT_CHARS);
                 }
                 currentAssistantMessage.content = assistantContent.toString();
                 replayDedup.reset();
             } else if (streamingText.length() > assistantContent.length()) {
                 // Conservative sync: if full text is longer, update accumulator (prevents delta loss edge cases)
                 assistantContent.setLength(0);
-                assistantContent.append(streamingText);
+                CliOutputLimits.appendBounded(
+                        assistantContent, streamingText, CliOutputLimits.MAX_ASSISTANT_CHARS);
                 currentAssistantMessage.content = assistantContent.toString();
-                replayDedup.beginContentReplay(streamingText, ReplayDeduplicator.replayOffset(previousAssistantContent.length(), replayDedup.contentOffset()));
+                String boundedStreamingText = assistantContent.toString();
+                replayDedup.beginContentReplay(
+                        boundedStreamingText,
+                        ReplayDeduplicator.replayOffset(previousAssistantContent.length(), replayDedup.contentOffset()));
             }
             currentAssistantMessage.raw = mergedRaw;
 
@@ -588,7 +594,8 @@ public class ClaudeMessageHandler implements MessageCallback {
             LOG.debug("Thinking completed, generating response");
         }
 
-        assistantContent.append(content);
+        CliOutputLimits.appendBounded(
+                assistantContent, content, CliOutputLimits.MAX_ASSISTANT_CHARS);
 
         if (currentAssistantMessage == null) {
             currentAssistantMessage = new Message(Message.Type.ASSISTANT, assistantContent.toString());
@@ -631,14 +638,19 @@ public class ClaudeMessageHandler implements MessageCallback {
         }
 
         // Accumulate content for the final message
-        assistantContent.append(novelContent);
+        String acceptedContent = CliOutputLimits.appendBounded(
+                assistantContent, novelContent, CliOutputLimits.MAX_ASSISTANT_CHARS);
+        if (acceptedContent.isEmpty()) {
+            LOG.debug("Assistant content limit reached, dropping further content delta");
+            return;
+        }
 
         ensureCurrentAssistantMessageExists();
         currentAssistantMessage.content = assistantContent.toString();
-        applyTextDeltaToRaw(novelContent);
+        applyTextDeltaToRaw(acceptedContent);
         textSegmentActive = true;
 
-        callbackHandler.notifyContentDelta(novelContent);
+        callbackHandler.notifyContentDelta(acceptedContent);
         // During streaming, skip the full message update: the delta channel
         // (onContentDelta at 33ms) provides real-time character-by-character
         // display via .content, and pushing large JSON payloads through JCEF
@@ -1028,12 +1040,17 @@ public class ClaudeMessageHandler implements MessageCallback {
             LOG.debug("Skipping replayed thinking delta (len=" + content.length() + ")");
             return;
         }
-        boolean applied = applyThinkingDeltaToRaw(novelContent);
+        String acceptedThinking = limitThinkingDelta(novelContent);
+        if (acceptedThinking.isEmpty()) {
+            LOG.debug("Assistant reasoning limit reached, dropping further thinking delta");
+            return;
+        }
+        boolean applied = applyThinkingDeltaToRaw(acceptedThinking);
         if (applied) {
             thinkingSegmentActive = true;
             // CRITICAL: Only notify frontend when delta was actually applied.
             // Frontend has no dedup and will accumulate, causing duplication.
-            callbackHandler.notifyThinkingDelta(novelContent);
+            callbackHandler.notifyThinkingDelta(acceptedThinking);
             // During streaming, onThinkingDelta drives the visible thinking
             // block. Full message snapshots are reserved for structural changes
             // and stream end to avoid racing cumulative frontend buffers.
@@ -1299,8 +1316,27 @@ public class ClaudeMessageHandler implements MessageCallback {
                 ? target.get(CommonConstants.JSON_KEY_THINKING).getAsString()
                 : "";
 
-        target.addProperty(CommonConstants.JSON_KEY_THINKING, existing + delta);
+        StringBuilder bounded = new StringBuilder(Math.min(
+                CliOutputLimits.MAX_REASONING_CHARS, existing.length() + delta.length()));
+        CliOutputLimits.appendBounded(
+                bounded, existing, CliOutputLimits.MAX_REASONING_CHARS);
+        CliOutputLimits.appendBounded(
+                bounded, delta, CliOutputLimits.MAX_REASONING_CHARS);
+        target.addProperty(CommonConstants.JSON_KEY_THINKING, bounded.toString());
         return true;
+    }
+
+    private String limitThinkingDelta(String delta) {
+        if (currentAssistantMessage == null || currentAssistantMessage.raw == null) {
+            return delta.length() > CliOutputLimits.MAX_REASONING_CHARS
+                    ? delta.substring(0, CliOutputLimits.MAX_REASONING_CHARS) : delta;
+        }
+        String existing = ReplayDeduplicator.extractThinkingContent(currentAssistantMessage.raw);
+        int remaining = CliOutputLimits.MAX_REASONING_CHARS - existing.length();
+        if (remaining <= 0) {
+            return "";
+        }
+        return delta.length() <= remaining ? delta : delta.substring(0, remaining);
     }
 
 }

@@ -1,5 +1,6 @@
 package com.github.claudecodegui.session;
 
+import com.github.claudecodegui.cli.common.CliOutputLimits;
 import com.github.claudecodegui.common.CommonConstants;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -21,25 +22,26 @@ public class MessageMerger {
      */
     public JsonObject mergeAssistantMessage(JsonObject existingRaw, JsonObject newRaw) {
         if (newRaw == null) {
-            return existingRaw != null ? existingRaw.deepCopy() : null;
+            return existingRaw != null ? boundedCopy(existingRaw) : null;
         }
 
+        JsonObject boundedNewRaw = boundedCopy(newRaw);
         if (existingRaw == null) {
-            return newRaw.deepCopy();
+            return boundedNewRaw;
         }
 
-        JsonObject merged = existingRaw.deepCopy();
+        JsonObject merged = boundedCopy(existingRaw);
 
         // Merge top-level fields (except "message")
-        for (Map.Entry<String, JsonElement> entry : newRaw.entrySet()) {
+        for (Map.Entry<String, JsonElement> entry : boundedNewRaw.entrySet()) {
             if ("message".equals(entry.getKey())) {
                 continue;
             }
             merged.add(entry.getKey(), entry.getValue());
         }
 
-        JsonObject incomingMessage = newRaw.has("message") && newRaw.get("message").isJsonObject()
-            ? newRaw.getAsJsonObject("message")
+        JsonObject incomingMessage = boundedNewRaw.has("message") && boundedNewRaw.get("message").isJsonObject()
+            ? boundedNewRaw.getAsJsonObject("message")
             : null;
 
         if (incomingMessage == null) {
@@ -60,7 +62,10 @@ public class MessageMerger {
 
         mergeAssistantContentArray(mergedMessage, incomingMessage);
         merged.add("message", mergedMessage);
-        return merged;
+        // Merging can combine an already bounded snapshot with new keyed blocks.
+        // Apply the aggregate cap once more so a long-running turn cannot grow
+        // the retained raw tree without limit.
+        return boundedCopy(merged);
     }
 
     /**
@@ -120,6 +125,18 @@ public class MessageMerger {
         }
 
         targetMessage.add("content", baseContent);
+    }
+
+    /**
+     * Copy a raw message with structural and string limits. Gson's deepCopy is
+     * otherwise unbounded: a provider can keep adding large tool input/output
+     * fields or deeply nested metadata to every cumulative assistant snapshot.
+     * The returned tree remains valid JSON; only oversized string values,
+     * excessive nodes, and excessive nesting are reduced.
+     */
+    private JsonObject boundedCopy(JsonObject source) {
+        JsonElement copy = CliOutputLimits.boundedJsonCopy(source);
+        return copy.isJsonObject() ? copy.getAsJsonObject() : new JsonObject();
     }
 
     /**

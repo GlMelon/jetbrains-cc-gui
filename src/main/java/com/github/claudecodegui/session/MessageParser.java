@@ -1,5 +1,6 @@
 package com.github.claudecodegui.session;
 
+import com.github.claudecodegui.cli.common.CliOutputLimits;
 import com.github.claudecodegui.common.CommonConstants;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -47,24 +48,26 @@ public class MessageParser {
             // Unwrap normalized envelope: if envelope contains "raw", use it as the actual raw payload
             JsonObject actualRaw = msg.has("raw") && msg.get("raw").isJsonObject()
                     ? msg.getAsJsonObject("raw") : msg;
+            JsonObject boundedRaw = CliOutputLimits.boundedJsonObjectCopy(actualRaw);
             String content = extractMessageContent(msg);
             // Check if it contains a tool_result
             if (content == null || content.trim().isEmpty()) {
                 if (hasToolResult(actualRaw)) {
-                    return new ClaudeSession.Message(ClaudeSession.Message.Type.USER, CommonConstants.TOOL_RESULT_PLACEHOLDER, actualRaw);
+                    return new ClaudeSession.Message(ClaudeSession.Message.Type.USER, CommonConstants.TOOL_RESULT_PLACEHOLDER, boundedRaw);
                 }
                 if (hasImageContent(actualRaw)) {
-                    return new ClaudeSession.Message(ClaudeSession.Message.Type.USER, "", actualRaw);
+                    return new ClaudeSession.Message(ClaudeSession.Message.Type.USER, "", boundedRaw);
                 }
                 return null;
             }
-            return new ClaudeSession.Message(ClaudeSession.Message.Type.USER, content, actualRaw);
+            return new ClaudeSession.Message(ClaudeSession.Message.Type.USER, content, boundedRaw);
         } else if (CommonConstants.MSG_TYPE_ASSISTANT.equals(type)) {
             String content = extractMessageContent(msg);
             // Unwrap normalized envelope: if envelope contains "raw", use it as the actual raw payload
             JsonObject actualRaw = msg.has("raw") && msg.get("raw").isJsonObject()
                     ? msg.getAsJsonObject("raw") : msg;
-            return new ClaudeSession.Message(ClaudeSession.Message.Type.ASSISTANT, content, actualRaw);
+            JsonObject boundedRaw = CliOutputLimits.boundedJsonObjectCopy(actualRaw);
+            return new ClaudeSession.Message(ClaudeSession.Message.Type.ASSISTANT, content, boundedRaw);
         }
 
         return null;
@@ -196,7 +199,7 @@ public class MessageParser {
      */
     private String extractContentFromElement(JsonElement contentElement) {
         if (contentElement.isJsonPrimitive()) {
-            return contentElement.getAsString();
+            return boundedContent(contentElement.getAsString());
         }
 
         if (contentElement.isJsonArray()) {
@@ -206,9 +209,10 @@ public class MessageParser {
         if (contentElement.isJsonObject()) {
             JsonObject contentObj = contentElement.getAsJsonObject();
             if (contentObj.has("text") && !contentObj.get("text").isJsonNull()) {
-                return contentObj.get("text").getAsString();
+                return boundedContent(contentObj.get("text").getAsString());
             }
-            LOG.warn("Content is an object but has no 'text' field: " + contentObj.toString());
+            LOG.warn("Content is an object but has no 'text' field (fields="
+                    + contentObj.size() + ")");
         }
 
         return "";
@@ -219,7 +223,6 @@ public class MessageParser {
      */
     private String extractFromArrayContent(JsonArray contentArray) {
         StringBuilder sb = new StringBuilder();
-        boolean hasContent = false;
 
         for (int i = 0; i < contentArray.size(); i++) {
             JsonElement element = contentArray.get(i);
@@ -231,10 +234,13 @@ public class MessageParser {
 
                 if (CommonConstants.BLOCK_TYPE_TEXT.equals(blockType) && block.has("text") && !block.get("text").isJsonNull()) {
                     if (sb.length() > 0) {
-                        sb.append("\n");
+                        CliOutputLimits.appendBounded(sb, "\n", CliOutputLimits.MAX_ASSISTANT_CHARS);
                     }
-                    sb.append(block.get("text").getAsString());
-                    hasContent = true;
+                    CliOutputLimits.appendBounded(
+                            sb,
+                            block.get("text").getAsString(),
+                            CliOutputLimits.MAX_ASSISTANT_CHARS
+                    );
                 } else if ("tool_use".equals(blockType)) {
                     // Skip tool_use block, don't display tool usage text
                 } else if ("thinking".equals(blockType)) {
@@ -246,14 +252,23 @@ public class MessageParser {
                 String text = element.getAsString();
                 if (text != null && !text.trim().isEmpty()) {
                     if (sb.length() > 0) {
-                        sb.append("\n");
+                        CliOutputLimits.appendBounded(sb, "\n", CliOutputLimits.MAX_ASSISTANT_CHARS);
                     }
-                    sb.append(text);
-                    hasContent = true;
+                    CliOutputLimits.appendBounded(sb, text, CliOutputLimits.MAX_ASSISTANT_CHARS);
                 }
+            }
+            if (sb.length() >= CliOutputLimits.MAX_ASSISTANT_CHARS) {
+                break;
             }
         }
 
         return sb.toString();
+    }
+
+    private String boundedContent(String content) {
+        if (content == null || content.length() <= CliOutputLimits.MAX_ASSISTANT_CHARS) {
+            return content;
+        }
+        return content.substring(0, CliOutputLimits.MAX_ASSISTANT_CHARS);
     }
 }

@@ -79,6 +79,12 @@ public class SessionSendService {
         runtimeRouter.disposeTab(tabId);
     }
 
+    /** Release all resources owned by this session send service. */
+    public void dispose() {
+        cliTitleService.dispose();
+        runtimeRouter.dispose();
+    }
+
     public void updateSessionStateForSend(ClaudeSession.Message userMessage, String normalizedInput) {
         state.addMessage(userMessage);
         callbackFacade.notifyMessageUpdate(state.getMessages());

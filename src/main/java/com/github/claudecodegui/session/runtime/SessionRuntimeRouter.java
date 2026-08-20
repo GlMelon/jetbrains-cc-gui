@@ -57,4 +57,9 @@ public class SessionRuntimeRouter {
         registry.all().forEach(r -> r.disposeTab(tabId));
     }
 
+    /** Release all CLI sessions owned by this router. */
+    public void dispose() {
+        cliManager.dispose();
+    }
+
 }

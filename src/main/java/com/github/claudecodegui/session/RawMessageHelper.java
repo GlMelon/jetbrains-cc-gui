@@ -1,5 +1,6 @@
 package com.github.claudecodegui.session;
 
+import com.github.claudecodegui.cli.common.CliOutputLimits;
 import com.github.claudecodegui.common.CommonConstants;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -84,7 +85,13 @@ public final class RawMessageHelper {
                 && !target.get(CommonConstants.JSON_KEY_TEXT).isJsonNull()
                 ? target.get(CommonConstants.JSON_KEY_TEXT).getAsString()
                 : "";
-        target.addProperty(CommonConstants.JSON_KEY_TEXT, existing + delta);
+        StringBuilder bounded = new StringBuilder(Math.min(
+                CliOutputLimits.MAX_ASSISTANT_CHARS, existing.length() + delta.length()));
+        CliOutputLimits.appendBounded(
+                bounded, existing, CliOutputLimits.MAX_ASSISTANT_CHARS);
+        CliOutputLimits.appendBounded(
+                bounded, delta, CliOutputLimits.MAX_ASSISTANT_CHARS);
+        target.addProperty(CommonConstants.JSON_KEY_TEXT, bounded.toString());
     }
 
     /**
@@ -113,7 +120,13 @@ public final class RawMessageHelper {
                 && !target.get(CommonConstants.JSON_KEY_THINKING).isJsonNull()
                 ? target.get(CommonConstants.JSON_KEY_THINKING).getAsString()
                 : "";
-        String next = existing + delta;
+        StringBuilder bounded = new StringBuilder(Math.min(
+                CliOutputLimits.MAX_REASONING_CHARS, existing.length() + delta.length()));
+        CliOutputLimits.appendBounded(
+                bounded, existing, CliOutputLimits.MAX_REASONING_CHARS);
+        CliOutputLimits.appendBounded(
+                bounded, delta, CliOutputLimits.MAX_REASONING_CHARS);
+        String next = bounded.toString();
         target.addProperty(CommonConstants.JSON_KEY_THINKING, next);
         target.addProperty(CommonConstants.JSON_KEY_TEXT, next);
     }

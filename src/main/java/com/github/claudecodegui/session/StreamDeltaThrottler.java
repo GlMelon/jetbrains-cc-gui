@@ -1,5 +1,7 @@
 package com.github.claudecodegui.session;
 
+import com.github.claudecodegui.cli.common.CliOutputLimits;
+
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -59,7 +61,8 @@ public final class StreamDeltaThrottler {
 
         final long delayMs;
         synchronized (lock) {
-            pending.append(delta);
+            CliOutputLimits.appendBounded(
+                    pending, delta, CliOutputLimits.MAX_PENDING_DELTA_CHARS);
             if (scheduled) {
                 return;
             }

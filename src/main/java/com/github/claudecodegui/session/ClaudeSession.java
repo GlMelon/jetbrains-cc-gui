@@ -561,16 +561,11 @@ public class ClaudeSession {
             LOG.debug("[ClaudeSession] Interrupt during dispose failed: " + e.getMessage());
         }
 
-        // 释放 runtime tab 资源:取消进行中的 CLI send future 并释放 CLI 子进程/会话。
-        // 此前注释声称"CLI 清理由 CliSessionManager.disposeTab 处理",但 dispose 链从未调用它,
-        // 导致关闭 tab 时 CLI 子进程/会话泄漏(孤儿进程)。SDK runtime 的 disposeTab 是 no-op
-        // (共享 daemon 不按 tab 释放),只有 CLI runtime 实际生效。
+        // 释放 runtime、标题任务以及 CLI manager，避免 tab/window 关闭后异步任务继续持有 UI 引用。
         try {
-            if (tabId != null) {
-                sendService.cleanupRuntimeTab(tabId);
-            }
+            sendService.dispose();
         } catch (Exception e) {
-            LOG.warn("[ClaudeSession] cleanupRuntimeTab during dispose failed: " + e.getMessage());
+            LOG.warn("[ClaudeSession] send service dispose failed: " + e.getMessage());
         }
 
         // Clear callback reference to break: callbackFacade -> UI

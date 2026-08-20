@@ -1,6 +1,7 @@
 package com.github.claudecodegui.session;
 
 import com.github.claudecodegui.cli.common.CliConstants;
+import com.github.claudecodegui.cli.common.CliOutputLimits;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.CodexMessageConverter;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
@@ -386,9 +387,12 @@ public class CodexMessageHandler implements MessageCallback {
             if (currentAssistantMessage != null) {
                 com.google.gson.JsonObject mergedRaw = messageMerger.mergeAssistantMessage(currentAssistantMessage.raw, parsed.raw);
                 if (!isStreaming) {
-                    currentAssistantMessage.content = parsed.content;
                     assistantContent.setLength(0);
-                    assistantContent.append(parsed.content != null ? parsed.content : "");
+                    CliOutputLimits.appendBounded(
+                            assistantContent,
+                            parsed.content != null ? parsed.content : "",
+                            CliOutputLimits.MAX_ASSISTANT_CHARS);
+                    currentAssistantMessage.content = assistantContent.toString();
                 }
                 currentAssistantMessage.raw = mergedRaw;
             } else {
@@ -397,7 +401,11 @@ public class CodexMessageHandler implements MessageCallback {
                     currentAssistantMessage.content = assistantContent.toString();
                 } else {
                     assistantContent.setLength(0);
-                    assistantContent.append(parsed.content != null ? parsed.content : "");
+                    CliOutputLimits.appendBounded(
+                            assistantContent,
+                            parsed.content != null ? parsed.content : "",
+                            CliOutputLimits.MAX_ASSISTANT_CHARS);
+                    currentAssistantMessage.content = assistantContent.toString();
                 }
                 state.addMessage(parsed);
             }
@@ -1098,12 +1106,17 @@ public class CodexMessageHandler implements MessageCallback {
             return;
         }
 
-        assistantContent.append(novelContent);
+        String acceptedContent = CliOutputLimits.appendBounded(
+                assistantContent, novelContent, CliOutputLimits.MAX_ASSISTANT_CHARS);
+        if (acceptedContent.isEmpty()) {
+            LOG.debug("Codex assistant content limit reached, dropping further content delta");
+            return;
+        }
         ensureCurrentAssistantMessageExists();
         currentAssistantMessage.content = assistantContent.toString();
-        applyTextDeltaToRaw(novelContent);
+        applyTextDeltaToRaw(acceptedContent);
 
-        callbackHandler.notifyContentDelta(novelContent);
+        callbackHandler.notifyContentDelta(acceptedContent);
         // During streaming, skip full message update to avoid JCEF IPC overload.
         // Content deltas (via onContentDelta) provide real-time character display;
         // pushing full JSON on every delta would block the renderer and stall deltas.
@@ -1130,8 +1143,13 @@ public class CodexMessageHandler implements MessageCallback {
         }
 
         ensureCurrentAssistantMessageExists();
-        applyThinkingDeltaToRaw(novelContent);
-        callbackHandler.notifyThinkingDelta(novelContent);
+        String acceptedThinking = limitThinkingDelta(novelContent);
+        if (acceptedThinking.isEmpty()) {
+            LOG.debug("Codex reasoning limit reached, dropping further thinking delta");
+            return;
+        }
+        applyThinkingDeltaToRaw(acceptedThinking);
+        callbackHandler.notifyThinkingDelta(acceptedThinking);
         // Only push full message update when not streaming (same pattern as content delta)
         if (!isStreaming) {
             callbackHandler.notifyMessageUpdate(state.getMessages());
@@ -1180,6 +1198,16 @@ public class CodexMessageHandler implements MessageCallback {
      */
     private void applyThinkingDeltaToRaw(String delta) {
         RawMessageHelper.applyThinkingDelta(currentAssistantMessage.raw, delta);
+    }
+
+    private String limitThinkingDelta(String delta) {
+        String existing = currentAssistantMessage != null && currentAssistantMessage.raw != null
+                ? ReplayDeduplicator.extractThinkingContent(currentAssistantMessage.raw) : "";
+        int remaining = CliOutputLimits.MAX_REASONING_CHARS - existing.length();
+        if (remaining <= 0) {
+            return "";
+        }
+        return delta.length() <= remaining ? delta : delta.substring(0, remaining);
     }
 
     /**
