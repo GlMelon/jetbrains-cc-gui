@@ -86,6 +86,37 @@
              MODEL_REGISTRY to all open projects' frontends. Application-scoped Disposable. -->
         <applicationService serviceImplementation="com.github.claudecodegui.watcher.ConfigFileWatcherService"/>
         <applicationService serviceImplementation="com.github.claudecodegui.cli.CliSessionExecutor"/>
+        <!-- Application-scoped Disposable: platform auto-disposes on plugin unload / IDE
+             shutdown, cleaning up child processes (ProcessManager). Replaces the
+             hand-rolled singleton + Runtime.addShutdownHook-only cleanup that left
+             orphan processes when the plugin was unloaded without exiting the JVM. -->
+        <applicationService serviceImplementation="com.github.claudecodegui.bridge.NodeService"/>
+        <!-- Application-scoped Disposable: parents the LafManager MessageBusConnection to the
+             service itself so the platform releases it on plugin unload / IDE shutdown.
+             Replaces the hand-rolled static listener that leaked the connection whenever the
+             plugin was disabled without exiting the JVM. -->
+        <applicationService serviceImplementation="com.github.claudecodegui.util.ThemeConfigService"/>
+
+        <!-- CLI compatibility service: provider CLI version parsing and manifest-based compatibility decisions -->
+        <applicationService serviceImplementation="com.github.claudecodegui.cli.compatibility.CliCompatibilityService"/>
+        <!-- System notification service: IDE native notifications for task completion -->
+        <applicationService serviceImplementation="com.github.claudecodegui.util.SystemNotificationService"/>
+        <!-- Attachment storage service: persists attachment files and tracks session-to-resource references -->
+        <applicationService serviceImplementation="com.github.claudecodegui.util.AttachmentStorageService"/>
+        <!-- Skill document service: backend authority for reading and safely editing provider-owned SKILL.md files -->
+        <applicationService serviceImplementation="com.github.claudecodegui.skill.SkillDocumentService"/>
+        <!-- Claude CLI detector: detects and verifies the Claude CLI executable -->
+        <applicationService serviceImplementation="com.github.claudecodegui.provider.claude.ClaudeCliDetector"/>
+        <!-- Node.js detector: locates and verifies Node.js executable across various platforms -->
+        <applicationService serviceImplementation="com.github.claudecodegui.bridge.NodeDetector"/>
+        <!-- Session index manager: handles reading, writing, and incremental updates of index files -->
+        <applicationService serviceImplementation="com.github.claudecodegui.cache.SessionIndexManager"/>
+        <!-- Session index cache: in-memory cache for session indexes -->
+        <applicationService serviceImplementation="com.github.claudecodegui.cache.SessionIndexCache"/>
+        <!-- Custom model context window provider: reads user-configured model context windows -->
+        <applicationService serviceImplementation="com.github.claudecodegui.provider.CustomModelContextWindowProvider"/>
+        <!-- Custom pricing provider: reads user-configured model pricing -->
+        <applicationService serviceImplementation="com.github.claudecodegui.provider.CustomPricingProvider"/>
 
         <!-- AI Code GUI tool window (includes history feature) -->
         <toolWindow id="AICG"

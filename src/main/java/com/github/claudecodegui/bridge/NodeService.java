@@ -2,6 +2,8 @@ package com.github.claudecodegui.bridge;
 
 import com.github.claudecodegui.model.NodeDetectionResult;
 import com.github.claudecodegui.startup.BridgePreloader;
+import com.intellij.openapi.Disposable;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.util.concurrency.AppExecutorUtil;
 
@@ -15,18 +17,29 @@ import java.io.File;
  * This service is designed to be used by Handler layer and other components
  * that need Node.js infrastructure without requiring SDK Bridge.
  */
-public class NodeService {
+public class NodeService implements Disposable {
 
     private static final Logger LOG = Logger.getInstance(NodeService.class);
-    private static volatile NodeService instance;
+    /**
+     * Fallback instance: only used before the platform service is resolvable
+     * (very early bootstrap / isolated unit tests). Mirrors {@code CliSessionExecutor}'s
+     * FALLBACK pattern. The platform-owned service (resolved via getService) is the
+     * authoritative singleton at runtime; this field only holds the fallback.
+     */
+    private static volatile NodeService fallbackInstance;
     private static final Object lock = new Object();
 
     private final NodeDetector nodeDetector;
     private final ProcessManager processManager;
     private final EnvironmentConfigurator envConfigurator;
+    private volatile boolean disposed;
 
-    /** Private constructor to enforce singleton pattern. */
-    private NodeService() {
+    /**
+     * Public no-arg constructor: required for platform {@code applicationService}
+     * registration (see plugin.xml). Mirrors {@code CliSessionExecutor} /
+     * {@code ConfigFileWatcherService}.
+     */
+    public NodeService() {
         this.nodeDetector = NodeDetector.getInstance();
         this.processManager = new ProcessManager();
         this.envConfigurator = new EnvironmentConfigurator();
@@ -35,26 +48,59 @@ public class NodeService {
     }
 
     /**
-     * Get the singleton instance of NodeService.
+     * Resolve the shared NodeService. Prefers the platform-managed application service
+     * (auto-disposed on plugin unload / IDE shutdown — the authoritative cleanup hook
+     * for child processes); falls back to a lazily created instance when the application
+     * is not yet resolvable (early bootstrap / isolated unit tests), mirroring
+     * {@code CliSessionExecutor.sharedExecutor()}'s try/catch fallback.
      */
     public static NodeService getInstance() {
-        if (instance == null) {
+        try {
+            NodeService service = ApplicationManager.getApplication().getService(NodeService.class);
+            if (service != null) {
+                return service;
+            }
+        } catch (RuntimeException ignored) {
+            // ApplicationManager unavailable (isolated tests / plugin bootstrap).
+        }
+        // Fallback: hand-rolled double-checked singleton for edge cases where the
+        // platform service is not resolvable. This instance is NOT on the Disposer tree;
+        // its processes rely on the JVM-shutdown hook + daemon threads.
+        if (fallbackInstance == null) {
             synchronized (lock) {
-                if (instance == null) {
-                    instance = new NodeService();
+                if (fallbackInstance == null) {
+                    fallbackInstance = new NodeService();
                 }
             }
         }
-        return instance;
+        return fallbackInstance;
     }
 
     /**
-     * Reset the singleton instance (for testing only).
+     * Reset the fallback singleton (testing only). The platform service is managed by
+     * the container and cannot be reset here; only the hand-rolled fallback instance
+     * (used when getService is unavailable) is cleared.
      */
     @org.jetbrains.annotations.TestOnly
     public static void resetInstance() {
         synchronized (lock) {
-            instance = null;
+            fallbackInstance = null;
+        }
+    }
+
+    @Override
+    public void dispose() {
+        if (disposed) {
+            return;
+        }
+        disposed = true;
+        // Authoritative cleanup on plugin unload / IDE shutdown. cleanupAllProcesses is
+        // idempotent, so the JVM-shutdown hook in ClaudeSDKToolWindow (which calls the
+        // same method) running later is a harmless no-op double-insurance.
+        try {
+            processManager.cleanupAllProcesses();
+        } catch (Exception e) {
+            LOG.warn("[NodeService] Error during dispose cleanup: " + e.getMessage(), e);
         }
     }
 

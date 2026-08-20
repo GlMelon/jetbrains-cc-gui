@@ -4,6 +4,8 @@ import com.github.claudecodegui.model.NodeDetectionResult;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.github.claudecodegui.util.ShellExecutor;
 import com.github.claudecodegui.util.WslPathUtil;
+import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.components.Service;
 import com.intellij.openapi.diagnostic.Logger;
 
 import java.io.BufferedReader;
@@ -23,8 +25,12 @@ import java.util.concurrent.TimeoutException;
 /**
  * Node.js detector.
  * Responsible for locating and verifying Node.js executable across various platforms.
- * Implemented as a singleton to share the Node.js detection cache across providers.
+ *
+ * <p>Registered as an application-level service via {@code @Service(Service.Level.APP)}.
+ * The platform manages instantiation; callers resolve the singleton through {@link #getInstance()}.
+ * This ensures all providers share the same Node.js detection cache.
  */
+@Service(Service.Level.APP)
 public class NodeDetector {
 
     private static final Logger LOG = Logger.getInstance(NodeDetector.class);
@@ -48,54 +54,6 @@ public class NodeDetector {
             "%LOCALAPPDATA%\\Programs\\nodejs\\node.exe"
     };
 
-    // ============================================================================
-    // Singleton Implementation
-    // ============================================================================
-
-    private static volatile NodeDetector instance;
-    private static final Object lock = new Object();
-
-    /** Private constructor to enforce singleton pattern. */
-    private NodeDetector() {
-    }
-
-    /**
-     * Get the singleton instance of NodeDetector.
-     * This ensures all providers share the same Node.js detection cache.
-     *
-     * @return shared NodeDetector instance
-     */
-    public static NodeDetector getInstance() {
-        if (instance == null) {
-            synchronized (lock) {
-                if (instance == null) {
-                    instance = new NodeDetector();
-                }
-            }
-        }
-        return instance;
-    }
-
-    /**
-     * Reset the singleton instance.
-     * This method is intended for testing purposes only to reset
-     * the shared state between test cases.
-     *
-     * <p>WARNING: Calling this in production code will clear the cached
-     * Node.js path and may cause performance degradation. All existing
-     * references to the old instance will become stale.</p>
-     */
-    @org.jetbrains.annotations.TestOnly
-    public static void resetInstance() {
-        synchronized (lock) {
-            instance = null;
-        }
-    }
-
-    // ============================================================================
-    // Instance Fields
-    // ============================================================================
-
     // Cache fields - volatile to ensure visibility across threads in this singleton
     private volatile String cachedNodeExecutable = null;
     private volatile NodeDetectionResult cachedDetectionResult = null;
@@ -104,6 +62,57 @@ public class NodeDetector {
     private final Object cacheLock = new Object();
     // Executor for in-flight detection. Defaults to ForkJoinPool.commonPool().
     private volatile Executor detectionExecutor = ForkJoinPool.commonPool();
+
+    /**
+     * Public no-arg constructor: required for platform {@code applicationService} registration.
+     */
+    public NodeDetector() {
+    }
+
+    /**
+     * Resolve the shared NodeDetector instance.
+     * Prefers the platform-managed application service; falls back to a lazily created
+     * instance for edge cases (early bootstrap / isolated unit tests).
+     *
+     * @return shared NodeDetector instance
+     */
+    public static NodeDetector getInstance() {
+        try {
+            NodeDetector service =
+                    ApplicationManager.getApplication().getService(NodeDetector.class);
+            if (service != null) {
+                return service;
+            }
+        } catch (RuntimeException ignored) {
+            // ApplicationManager unavailable (isolated tests / plugin bootstrap).
+        }
+        return Holder.INSTANCE;
+    }
+
+    /**
+     * Fallback instance for edge cases where the platform service is not resolvable.
+     */
+    private static final class Holder {
+        private static final NodeDetector INSTANCE = new NodeDetector();
+
+        private Holder() {
+        }
+    }
+
+    /**
+     * Reset the singleton instance (testing only).
+     * This method is intended for testing purposes only to reset
+     * the shared state between test cases.
+     *
+     * <p>WARNING: Calling this in production code will clear the cached
+     * Node.js path and may cause performance degradation.</p>
+     */
+    @org.jetbrains.annotations.TestOnly
+    public static void resetInstance() {
+        Holder.INSTANCE.cachedNodeExecutable = null;
+        Holder.INSTANCE.cachedDetectionResult = null;
+        Holder.INSTANCE.inFlightDetection = null;
+    }
 
     /**
      * Finds Node.js executable path.
