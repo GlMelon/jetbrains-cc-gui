@@ -1,6 +1,5 @@
 package com.github.claudecodegui.ui.toolwindow;
 
-import com.github.claudecodegui.bridge.NodeService;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.settings.TabStateService;
 import com.github.claudecodegui.startup.BridgePreloader;
@@ -30,9 +29,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -52,7 +48,6 @@ public class ClaudeSDKToolWindow implements ToolWindowFactory, DumbAware {
     public static final String TOOL_WINDOW_DISPLAY_NAME = "AI Code GUI";
     private static final Map<Project, ClaudeChatWindow> instances = new ConcurrentHashMap<>();
     private static final Map<Content, ClaudeChatWindow> contentToWindowMap = new ConcurrentHashMap<>();
-    private static volatile boolean shutdownHookRegistered = false;
     private static final String TAB_NAME_PREFIX = "AI";
     /** Matches tab names like "AI1", "AI1..." (answering) or "AI1 (completed)" — extracts the numeric part. */
     private static final java.util.regex.Pattern TAB_NAME_PATTERN =
@@ -180,14 +175,6 @@ public class ClaudeSDKToolWindow implements ToolWindowFactory, DumbAware {
         return collectProjectChatWindows(project);
     }
 
-    private static Set<ClaudeChatWindow> collectAllChatWindows() {
-        Set<ClaudeChatWindow> windows = Collections.newSetFromMap(new java.util.IdentityHashMap<>());
-        windows.addAll(instances.values());
-        windows.addAll(contentToWindowMap.values());
-        windows.addAll(DetachedWindowManager.getAllDetachedChatWindows());
-        return windows;
-    }
-
     private static String resolveRestoredTabName(@NotNull TabStateService tabStateService, int index) {
         String savedName = tabStateService.getTabName(index);
         if (savedName != null && !savedName.isEmpty()) {
@@ -195,14 +182,6 @@ public class ClaudeSDKToolWindow implements ToolWindowFactory, DumbAware {
             return savedName;
         }
         return TAB_NAME_PREFIX + (index + 1);
-    }
-
-    private static void cleanupWindowProcesses(@NotNull ClaudeChatWindow window) {
-        try {
-            NodeService.getInstance().cleanupAllProcesses();
-        } catch (Exception e) {
-            LOG.error("[ShutdownHook] Error cleaning up processes: " + e.getMessage(), e);
-        }
     }
 
     private static void disposeProjectChatWindows(@NotNull Project project) {
@@ -220,6 +199,14 @@ public class ClaudeSDKToolWindow implements ToolWindowFactory, DumbAware {
                 }
             }
         }
+        
+        // 清理静态映射中该项目的所有条目
+        instances.remove(project);
+        contentToWindowMap.entrySet().removeIf(entry -> {
+            ClaudeChatWindow window = entry.getValue();
+            return window != null && project.equals(window.getProject());
+        });
+        LOG.info("[ToolWindow] Cleaned up static mappings for project: " + project.getName());
     }
 
     /**
@@ -250,8 +237,6 @@ public class ClaudeSDKToolWindow implements ToolWindowFactory, DumbAware {
 
     @Override
     public void createToolWindowContent(@NotNull Project project, @NotNull ToolWindow toolWindow) {
-        registerShutdownHook();
-
         ContentFactory contentFactory = ContentFactory.getInstance();
         ContentManager contentManager = toolWindow.getContentManager();
 
@@ -600,39 +585,6 @@ public class ClaudeSDKToolWindow implements ToolWindowFactory, DumbAware {
         chatWindow.restorePersistedTabSessionState(savedState, loadImmediately);
         LOG.info("[TabManager] Restored tab " + tabIndex + " session binding from storage"
                 + (savedState.pinned ? " (pinned)" : ""));
-    }
-
-    private static synchronized void registerShutdownHook() {
-        if (shutdownHookRegistered) {
-            return;
-        }
-        shutdownHookRegistered = true;
-
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            LOG.info("[ShutdownHook] IDEA is shutting down, cleaning up all Node.js processes...");
-
-            ExecutorService executor = Executors.newSingleThreadExecutor();
-            try {
-                Future<?> future = executor.submit(() -> {
-                    for (ClaudeChatWindow window : collectAllChatWindows()) {
-                        if (window != null) {
-                            cleanupWindowProcesses(window);
-                        }
-                    }
-                });
-
-                future.get(3, TimeUnit.SECONDS);
-                LOG.info("[ShutdownHook] Node.js process cleanup completed");
-            } catch (TimeoutException e) {
-                LOG.warn("[ShutdownHook] Process cleanup timed out (3s), forcing exit");
-            } catch (Exception e) {
-                LOG.error("[ShutdownHook] Process cleanup failed: " + e.getMessage());
-            } finally {
-                executor.shutdownNow();
-            }
-        }, "Claude-Process-Cleanup-Hook"));
-
-        LOG.info("[ShutdownHook] JVM Shutdown Hook registered");
     }
 
     private static final CodeSnippetManager codeSnippetManager = new CodeSnippetManager(instances, contentToWindowMap);
