@@ -70,6 +70,33 @@ public class ProcessManagerStaleChannelTest {
     }
 
     @Test
+    public void failedChannelStartClearsPendingInterrupt() {
+        ProcessManager manager = new ProcessManager();
+        String channelId = "failed-start";
+
+        manager.beginChannelPreservingInterrupt(channelId);
+        manager.interruptChannel(channelId);
+        manager.finishChannelStart(channelId, true);
+
+        assertFalse(manager.wasInterrupted(channelId));
+    }
+
+    @Test
+    public void failedChannelStartDoesNotClearInterruptForRegisteredProcess() {
+        ProcessManager manager = new ProcessManager();
+        String channelId = "registered-process";
+        FakeProcess process = new FakeProcess(true);
+
+        manager.beginChannelPreservingInterrupt(channelId);
+        manager.interruptChannel(channelId);
+        manager.registerProcess(channelId, process);
+        manager.finishChannelStart(channelId, true);
+
+        assertTrue(manager.wasInterrupted(channelId));
+        manager.unregisterProcess(channelId, process);
+    }
+
+    @Test
     public void cleanupStaleChannelProcessesMultipleChannels() throws InterruptedException {
         ProcessManager manager = new ProcessManager();
         FakeProcess staleProc = new FakeProcess(true);

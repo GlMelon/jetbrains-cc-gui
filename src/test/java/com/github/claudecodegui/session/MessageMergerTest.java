@@ -310,4 +310,23 @@ public class MessageMergerTest {
         assertEquals("text A", mergedContent.get(0).getAsJsonObject().get("text").getAsString());
         assertEquals("text B", mergedContent.get(1).getAsJsonObject().get("text").getAsString());
     }
+
+    @Test
+    public void mergeAssistantMessageBoundsLargeRawStringWithoutBreakingJson() {
+        MessageMerger merger = new MessageMerger();
+        JsonObject largeToolBlock = toolUseBlock("large-1", "run_command");
+        largeToolBlock.addProperty("input", "x".repeat(600 * 1024));
+
+        JsonObject merged = merger.mergeAssistantMessage(null, assistantMessage(largeToolBlock));
+        JsonObject resultBlock = merged.getAsJsonObject("message")
+                .getAsJsonArray("content")
+                .get(0)
+                .getAsJsonObject();
+
+        assertTrue(resultBlock.get("input").getAsString().length()
+                <= com.github.claudecodegui.cli.common.CliOutputLimits.MAX_RAW_STRING_CHARS);
+        assertTrue(merged.isJsonObject());
+        assertTrue(merged.toString().length()
+                <= com.github.claudecodegui.cli.common.CliOutputLimits.MAX_RAW_JSON_CHARS);
+    }
 }
