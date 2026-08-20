@@ -250,7 +250,7 @@ public class CodexCliSession implements CliSession {
                 Process runningProcess = process;
                 CompletableFuture<Void> outputDrain = CliProcessLifecycle.drainAsync(runningProcess, () -> {
                     try (InputStream rawIn = runningProcess.getInputStream()) {
-                        ByteArrayOutputStream lineBuf = new ByteArrayOutputStream();
+                        CliOutputLimits.LineBuffer lineBuf = new CliOutputLimits.LineBuffer();
                         byte[] readBuf = new byte[8192];
                         int n;
                         boolean firstOutputLogged = false;
@@ -1558,12 +1558,16 @@ public class CodexCliSession implements CliSession {
      * Windows 上 Node.js 管道输出是 UTF-8，但 cmd.exe 错误信息可能是 GBK 编码。
      */
     private void processLine(
-            ByteArrayOutputStream lineBuf,
+            CliOutputLimits.LineBuffer lineBuf,
             StringBuilder diagnostic,
             CliSessionCallback callback,
             StringBuilder assistantContent,
             StringBuilder cliError
     ) {
+        if (lineBuf.isTruncated()) {
+            lineBuf.reset();
+            throw new IllegalStateException("CLI stdout line exceeded " + CliOutputLimits.MAX_LINE_BYTES + " bytes");
+        }
         byte[] bytes = lineBuf.toByteArray();
         lineBuf.reset();
         // 去掉尾部 \r

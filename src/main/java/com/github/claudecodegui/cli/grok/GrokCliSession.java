@@ -214,7 +214,7 @@ public class GrokCliSession implements CliSession {
             }
             CompletableFuture<Void> outputDrain = CliProcessLifecycle.drainAsync(process, () -> {
                 try (InputStream rawIn = process.getInputStream()) {
-                    ByteArrayOutputStream lineBuf = new ByteArrayOutputStream();
+                    CliOutputLimits.LineBuffer lineBuf = new CliOutputLimits.LineBuffer();
                     byte[] readBuf = new byte[8192];
                     int n;
                     boolean firstOutputLogged = false;
@@ -447,7 +447,11 @@ public class GrokCliSession implements CliSession {
 
     // ── output line handling ──────────────────────────────────────────────────
 
-    private void processLine(ByteArrayOutputStream lineBuf, GrokCliStreamParser parser, StringBuilder diagnostic) {
+    private void processLine(CliOutputLimits.LineBuffer lineBuf, GrokCliStreamParser parser, StringBuilder diagnostic) {
+        if (lineBuf.isTruncated()) {
+            lineBuf.reset();
+            throw new IllegalStateException("CLI stdout line exceeded " + CliOutputLimits.MAX_LINE_BYTES + " bytes");
+        }
         byte[] bytes = lineBuf.toByteArray();
         lineBuf.reset();
         int len = bytes.length;

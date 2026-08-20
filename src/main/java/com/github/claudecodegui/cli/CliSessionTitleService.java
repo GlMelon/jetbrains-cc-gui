@@ -16,7 +16,9 @@ import com.intellij.openapi.diagnostic.Logger;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * CLI 模式 AI 会话标题生成服务(provider 无关)。
@@ -49,6 +51,29 @@ public class CliSessionTitleService {
     private static final long READER_DRAIN_SECONDS = 5;
 
     private final NodeService nodeService;
+    private final Set<PendingTitleTask> pendingTasks = ConcurrentHashMap.newKeySet();
+    private volatile boolean disposed;
+
+    private static final class PendingTitleTask {
+        private final ProcessManager processManager;
+        private final String channelId;
+        private volatile CompletableFuture<?> future;
+
+        private PendingTitleTask(ProcessManager processManager, String channelId) {
+            this.processManager = processManager;
+            this.channelId = channelId;
+        }
+
+        private void cancel() {
+            CompletableFuture<?> currentFuture = future;
+            if (currentFuture != null) {
+                currentFuture.cancel(true);
+            }
+            // This also covers the window where the Java task has been
+            // cancelled before ProcessBuilder.start() registers the process.
+            processManager.interruptChannel(channelId);
+        }
+    }
 
     public CliSessionTitleService() {
         this.nodeService = NodeService.getInstance();
@@ -74,7 +99,7 @@ public class CliSessionTitleService {
                                    String sessionId,
                                    String cwd,
                                    SessionCallbackFacade callbackFacade) {
-        if (!isCliRuntime || !isFirstTurn) {
+        if (disposed || !isCliRuntime || !isFirstTurn) {
             return;
         }
         if (callbackFacade == null) {
@@ -108,8 +133,24 @@ public class CliSessionTitleService {
             return;
         }
 
-        CompletableFuture.runAsync(() -> runTitleGeneration(
-                nodeExecutable, bridgeDir, userMessage, sessionId, cwd, callbackFacade));
+        ProcessManager processManager = nodeService.getProcessManager();
+        String channelId = ProcessManager.newChannelId("cli-session-title");
+        PendingTitleTask pendingTask = new PendingTitleTask(processManager, channelId);
+        pendingTasks.add(pendingTask);
+        if (disposed) {
+            pendingTasks.remove(pendingTask);
+            processManager.finishChannelStart(channelId);
+            return;
+        }
+
+        CompletableFuture<Void> task = CliSessionExecutor.runAsync(() -> runTitleGeneration(
+                nodeExecutable, bridgeDir, userMessage, sessionId, cwd, callbackFacade,
+                processManager, channelId));
+        pendingTask.future = task;
+        task.whenComplete((ignored, error) -> pendingTasks.remove(pendingTask));
+        if (disposed) {
+            pendingTask.cancel();
+        }
     }
 
     private void runTitleGeneration(String nodeExecutable,
@@ -117,7 +158,13 @@ public class CliSessionTitleService {
                                     String userMessage,
                                     String sessionId,
                                     String cwd,
-                                    SessionCallbackFacade callbackFacade) {
+                                    SessionCallbackFacade callbackFacade,
+                                    ProcessManager processManager,
+                                    String channelId) {
+        if (disposed) {
+            processManager.finishChannelStart(channelId);
+            return;
+        }
         List<String> command = new ArrayList<>();
         command.add(nodeExecutable);
         command.add(new File(bridgeDir, "services/session-title-service.js").getAbsolutePath());
@@ -138,11 +185,11 @@ public class CliSessionTitleService {
             stdinInput.addProperty("cwd", cwd);
         }
 
-        ProcessManager processManager = nodeService.getProcessManager();
         try {
-            PromptEnhancerProcessRunner.runWithProcessManager(
+            PromptEnhancerProcessRunner.runWithRegisteredChannel(
                     pb,
                     processManager,
+                    channelId,
                     gson.toJson(stdinInput),
                     TITLE_TIMEOUT_SECONDS,
                     READER_DRAIN_SECONDS,
@@ -159,6 +206,9 @@ public class CliSessionTitleService {
      * sessionId, title}} 行;捕获后下发 SESSION_TITLE 事件。
      */
     private void handleStdoutLine(String line, String sessionId, SessionCallbackFacade callbackFacade) {
+        if (disposed) {
+            return;
+        }
         if (line == null || line.isEmpty() || line.charAt(0) != '{') {
             // 非 JSON 行(进程 stderr 合并行、空行)忽略。
             return;
@@ -183,6 +233,9 @@ public class CliSessionTitleService {
             String payloadJson = gson.toJson(payload);
             LOG.info("[CliTitle] AI title generated for session " + sessionId + ": " + title);
             ApplicationManager.getApplication().invokeLater(() -> {
+                if (disposed || callbackFacade == null) {
+                    return;
+                }
                 try {
                     callbackFacade.notifyProtocolEvent(
                             DownstreamEvent.SESSION_TITLE.value(), payloadJson);
@@ -193,5 +246,16 @@ public class CliSessionTitleService {
         } catch (Exception e) {
             LOG.debug("[CliTitle] Unparseable stdout line: " + line);
         }
+    }
+
+    public void dispose() {
+        if (disposed) {
+            return;
+        }
+        disposed = true;
+        for (PendingTitleTask task : pendingTasks) {
+            task.cancel();
+        }
+        pendingTasks.clear();
     }
 }

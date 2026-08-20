@@ -27,9 +27,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -871,9 +869,16 @@ public class ClaudeCliSession implements CliSession {
             }
         };
 
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+        try (CliOutputLimits.BoundedLineReader reader =
+                     new CliOutputLimits.BoundedLineReader(process.getInputStream())) {
             String line;
             while ((line = reader.readLine()) != null) {
+                if (reader.lastLineTruncated()) {
+                    LOG.warn("[ClaudeCliSession][" + tabId + "] stdout line exceeded "
+                            + CliOutputLimits.MAX_LINE_BYTES + " bytes; terminating process");
+                    process.destroyForcibly();
+                    throw new IllegalStateException("Claude CLI stdout line exceeded memory limit");
+                }
                 if (firstOutputLogged.compareAndSet(false, true)) {
                     LOG.info(
                             "[CliConcurrencyDiag][ClaudeCliSession] first stdout line" + ": tabId=" + tabId + ", elapsedMs=" + elapsedMillis(

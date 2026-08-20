@@ -2,6 +2,7 @@ package com.github.claudecodegui.cli.opencode;
 
 import com.github.claudecodegui.cli.CliSessionCallback;
 import com.github.claudecodegui.cli.common.CliConstants;
+import com.github.claudecodegui.cli.common.CliOutputLimits;
 import com.github.claudecodegui.cli.common.CliSectionEmitter;
 import com.github.claudecodegui.cli.common.GatewayDownMatcher;
 import com.github.claudecodegui.cli.common.McpErrorMatcher;
@@ -62,7 +63,7 @@ public class OpenCodeCliStreamParser {
     private final StringBuilder assistantContent = new StringBuilder();
     // 累积 reasoning 文本,增量去重(对称 ai-bridge/services/opencode/event-mapper.js delta)。
     // reasoning 事件由 --thinking flag 触发(opencode run 默认不输出推理文本,见 buildRunCommand)。
-    private String reasoningText = "";
+    private final StringBuilder reasoningText = new StringBuilder();
     private boolean thinkingActivated; // 首个 reasoning 合成思考激活态(一次性,对称 CLI thinkingStart)
 
     public OpenCodeCliStreamParser(CliSessionCallback callback) {
@@ -108,7 +109,7 @@ public class OpenCodeCliStreamParser {
         receivedAnyEvent = false;
         errorDiagnostic.setLength(0);
         assistantContent.setLength(0);
-        reasoningText = "";
+        reasoningText.setLength(0);
         thinkingActivated = false;
     }
 
@@ -228,14 +229,17 @@ public class OpenCodeCliStreamParser {
     private void handleReasoning(JsonObject event) {
         JsonObject part = asObject(event, "part");
         String text = part != null ? getString(part, "text") : null;
-        String delta = deltaOf(reasoningText, text);
+        String delta = deltaOf(reasoningText.toString(), text);
         if (!thinkingActivated) {
             thinkingActivated = true;
             emitter.thinkingStart();
         }
         if (delta != null) {
-            reasoningText += delta;
-            emitter.thinkingDelta(delta);
+            String accepted = CliOutputLimits.appendBounded(
+                    reasoningText, delta, CliOutputLimits.MAX_REASONING_CHARS);
+            if (!accepted.isEmpty()) {
+                emitter.thinkingDelta(accepted);
+            }
         }
     }
 
@@ -331,10 +335,14 @@ public class OpenCodeCliStreamParser {
             return;
         }
         hasError = true;
+        if (errorDiagnostic.length() >= CliOutputLimits.MAX_DIAGNOSTIC_CHARS) {
+            return;
+        }
         if (errorDiagnostic.length() > 0) {
             errorDiagnostic.append('\n');
         }
-        errorDiagnostic.append(message);
+        CliOutputLimits.appendBounded(
+                errorDiagnostic, message, CliOutputLimits.MAX_DIAGNOSTIC_CHARS);
     }
 
     private JsonObject buildUsage(JsonObject tokens) {

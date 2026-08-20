@@ -18,11 +18,14 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * CLI 模式统一入口。每个 Tab 拥有独立的 ClaudeCliSession / CodexCliSession。
@@ -54,9 +57,15 @@ public class CliSessionManager {
      * 无防护时迟到 send 会经 {@code sessions.computeIfAbsent} 重建 CliSession 并重启 CLI 子进程。
      * 标记后 {@link #send} 入口直接拒绝,杜绝"已关闭 tab 的迟到请求复活会话"。
      * <p>
-     * tabId 一经销毁不复用(开新 tab 用新 tabId),故无需清理。
+     * 标记会在 manager 生命周期结束时清空；运行期也会定期清理过期/超量标记，
+     * 避免异常的 tab 创建/销毁风暴把 tombstone 集合无限扩大。
      */
-    private final Set<String> disposedTabs = ConcurrentHashMap.newKeySet();
+    private static final long DISPOSED_TAB_TTL_MILLIS = TimeUnit.HOURS.toMillis(6);
+    private static final int MAX_DISPOSED_TAB_MARKERS = 2048;
+    private static final AtomicLong DISPOSED_TAB_CLEANUP_TICK = new AtomicLong();
+
+    private final ConcurrentHashMap<String, Long> disposedTabs = new ConcurrentHashMap<>();
+    private volatile boolean disposed;
 
     /**
      * CLI 会话工厂注册表:provider → factory。装配期填充(fail-fast 校验重复),
@@ -104,8 +113,9 @@ public class CliSessionManager {
 
     public CompletableFuture<SDKResult> send(CliSendRequest request, MessageCallback callback) {
         String tabId = request.tabId();
+        cleanupDisposedTabsIfNeeded();
         // 已销毁的 tab:拒绝迟到 send,避免经 resolveSession 重建 CliSession / 重启 CLI 子进程。
-        if (disposedTabs.contains(tabId)) {
+        if (isDisposedTab(tabId)) {
             String error = "Session disposed, send rejected: tab=" + tabId;
             SDKResult errorResult = SDKResult.error(error);
             callback.onError(error);
@@ -121,7 +131,7 @@ public class CliSessionManager {
             // 之间完整执行(标记+清 inFlight),此时 prev 已为 null,串行链不会复活会话;但若放行,dispatchSend
             // 异步仍会经 resolveSession→computeIfAbsent 重建 CliSession 并重启 CLI 子进程→孤儿。重检后直接拒绝,
             // 不调度 dispatchSend。(dispatchSend 另有末道守卫,覆盖 compute 通过后 disposeTab 才执行的窗口。)
-            if (disposedTabs.contains(tabId)) {
+            if (isDisposedTab(tabId)) {
                 String error = "Session disposed, send rejected: tab=" + tabId;
                 SDKResult errorResult = SDKResult.error(error);
                 callback.onError(error);
@@ -147,7 +157,7 @@ public class CliSessionManager {
         // STREAM-01 末道守卫:dispatchSend 经 thenComposeAsync 异步执行,可能在 send 入口/锁区检查通过之后、
         // disposeTab 完整执行(sessions 已清)之后才到达。此时 resolveSession→computeIfAbsent 会重建 CliSession
         // 并重启 CLI 子进程→孤儿。重检 disposedTabs 直接拒绝。
-        if (disposedTabs.contains(tabId)) {
+        if (isDisposedTab(tabId)) {
             String error = "Session disposed, send rejected (async dispatch): tab=" + tabId;
             SDKResult errorResult = SDKResult.error(error);
             callback.onError(error);
@@ -193,7 +203,8 @@ public class CliSessionManager {
 
     public void disposeTab(String tabId) {
         // 标记已销毁:拦截本方法返回后迟到的 send(见 send 入口检查)。
-        disposedTabs.add(tabId);
+        cleanupDisposedTabsIfNeeded();
+        disposedTabs.put(tabId, System.currentTimeMillis());
         // 先取消该 tab 进行中的 send future:防止 dispose 后队列里残留的串行 send 再次启动 CLI 子进程,
         // 也避免 dispose() 释放的 CliSession 被正在运行的 send 继续写入(并发损坏/孤儿进程)。
         CompletableFuture<SDKResult> inflight = inFlight.remove(tabId);
@@ -216,6 +227,58 @@ public class CliSessionManager {
     }
 
     // ── private ──────────────────────────────────────────────────────────────
+
+    private boolean isDisposedTab(String tabId) {
+        if (disposed) {
+            return true;
+        }
+        Long disposedAt = disposedTabs.get(tabId);
+        if (disposedAt == null) {
+            return false;
+        }
+        if (System.currentTimeMillis() - disposedAt <= DISPOSED_TAB_TTL_MILLIS) {
+            return true;
+        }
+        return disposedTabs.remove(tabId, disposedAt);
+    }
+
+    private void cleanupDisposedTabsIfNeeded() {
+        long tick = DISPOSED_TAB_CLEANUP_TICK.incrementAndGet();
+        if ((tick & 0x3F) != 0 && disposedTabs.size() <= MAX_DISPOSED_TAB_MARKERS) {
+            return;
+        }
+        long cutoff = System.currentTimeMillis() - DISPOSED_TAB_TTL_MILLIS;
+        for (Map.Entry<String, Long> entry : disposedTabs.entrySet()) {
+            if (entry.getValue() < cutoff) {
+                disposedTabs.remove(entry.getKey(), entry.getValue());
+            }
+        }
+        while (disposedTabs.size() > MAX_DISPOSED_TAB_MARKERS) {
+            Map.Entry<String, Long> oldest = null;
+            for (Map.Entry<String, Long> entry : disposedTabs.entrySet()) {
+                if (oldest == null || entry.getValue() < oldest.getValue()) {
+                    oldest = entry;
+                }
+            }
+            if (oldest == null || !disposedTabs.remove(oldest.getKey(), oldest.getValue())) {
+                break;
+            }
+        }
+    }
+
+    /**
+     * 释放 manager 所拥有的全部 CLI session 和异步状态。
+     * manager 释放后即使有迟到的异步 send，也不能重新创建 session 或启动进程。
+     */
+    public void dispose() {
+        disposed = true;
+        for (String tabId : sessions.keySet()) {
+            disposeTab(tabId);
+        }
+        inFlight.clear();
+        sessions.clear();
+        disposedTabs.clear();
+    }
 
     private CompletableFuture<SDKResult> sendToSession(
             CliSendRequest request,
