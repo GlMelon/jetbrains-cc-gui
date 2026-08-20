@@ -4,6 +4,8 @@ import com.github.claudecodegui.cli.compatibility.CliCompatibilityService;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.util.PlatformUtils;
+import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.components.Service;
 import com.intellij.openapi.diagnostic.Logger;
 
 import java.io.BufferedReader;
@@ -16,7 +18,11 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Detects and verifies the Claude CLI executable.
+ *
+ * <p>Registered as an application-level service via {@code @Service(Service.Level.APP)}.
+ * The platform manages instantiation; callers resolve the singleton through {@link #getInstance()}.
  */
+@Service(Service.Level.APP)
 public class ClaudeCliDetector {
 
     private static final Logger LOG = Logger.getInstance(ClaudeCliDetector.class);
@@ -32,25 +38,42 @@ public class ClaudeCliDetector {
             "/opt/homebrew/bin/claude",
     };
 
-    private static volatile ClaudeCliDetector instance;
-    private static final Object lock = new Object();
-
     private volatile String cachedCliPath;
     private volatile String cachedCliVersion;
     private volatile boolean detectionAttempted;
 
-    private ClaudeCliDetector() {
+    /**
+     * Public no-arg constructor: required for platform {@code applicationService} registration.
+     */
+    public ClaudeCliDetector() {
     }
 
+    /**
+     * Resolve the shared ClaudeCliDetector instance.
+     * Prefers the platform-managed application service; falls back to a lazily created
+     * instance for edge cases (early bootstrap / isolated unit tests).
+     */
     public static ClaudeCliDetector getInstance() {
-        if (instance == null) {
-            synchronized (lock) {
-                if (instance == null) {
-                    instance = new ClaudeCliDetector();
-                }
+        try {
+            ClaudeCliDetector service =
+                    ApplicationManager.getApplication().getService(ClaudeCliDetector.class);
+            if (service != null) {
+                return service;
             }
+        } catch (RuntimeException ignored) {
+            // ApplicationManager unavailable (isolated tests / plugin bootstrap).
         }
-        return instance;
+        return Holder.INSTANCE;
+    }
+
+    /**
+     * Fallback instance for edge cases where the platform service is not resolvable.
+     */
+    private static final class Holder {
+        private static final ClaudeCliDetector INSTANCE = new ClaudeCliDetector();
+
+        private Holder() {
+        }
     }
 
     /**

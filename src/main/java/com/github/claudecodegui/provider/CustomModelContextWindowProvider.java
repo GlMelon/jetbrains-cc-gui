@@ -4,6 +4,8 @@ import com.github.claudecodegui.settings.ConfigPathManager;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.components.Service;
 import com.intellij.openapi.diagnostic.Logger;
 
 import java.io.IOException;
@@ -17,7 +19,11 @@ import java.util.OptionalInt;
 
 /**
  * Reads user-configured model context windows from {@code ~/.codemoss/config.json}.
+ *
+ * <p>Registered as an application-level service via {@code @Service(Service.Level.APP)}.
+ * The platform manages instantiation; callers resolve the singleton through {@link #getInstance()}.
  */
+@Service(Service.Level.APP)
 public final class CustomModelContextWindowProvider {
 
     private static final Logger LOG = Logger.getInstance(CustomModelContextWindowProvider.class);
@@ -25,13 +31,14 @@ public final class CustomModelContextWindowProvider {
     private static final String CODEX_PROVIDER = "codex";
     private static final int TOKENS_PER_K = 1_000;
 
-    private static volatile CustomModelContextWindowProvider instance;
-
     private final ConfigPathManager pathManager;
     private final Gson gson;
     private volatile CachedContextWindows cache;
 
-    private CustomModelContextWindowProvider() {
+    /**
+     * Public no-arg constructor: required for platform {@code applicationService} registration.
+     */
+    public CustomModelContextWindowProvider() {
         this(new ConfigPathManager());
     }
 
@@ -40,23 +47,38 @@ public final class CustomModelContextWindowProvider {
         this.gson = new Gson();
     }
 
+    /**
+     * Resolve the shared CustomModelContextWindowProvider instance.
+     * Prefers the platform-managed application service; falls back to a lazily created
+     * instance for edge cases (early bootstrap / isolated unit tests).
+     */
     public static CustomModelContextWindowProvider getInstance() {
-        CustomModelContextWindowProvider local = instance;
-        if (local == null) {
-            synchronized (CustomModelContextWindowProvider.class) {
-                local = instance;
-                if (local == null) {
-                    local = new CustomModelContextWindowProvider();
-                    instance = local;
-                }
+        try {
+            CustomModelContextWindowProvider service =
+                    ApplicationManager.getApplication().getService(CustomModelContextWindowProvider.class);
+            if (service != null) {
+                return service;
             }
+        } catch (RuntimeException ignored) {
+            // ApplicationManager unavailable (isolated tests / plugin bootstrap).
         }
-        return local;
+        return Holder.INSTANCE;
+    }
+
+    /**
+     * Fallback instance for edge cases where the platform service is not resolvable.
+     */
+    private static final class Holder {
+        private static final CustomModelContextWindowProvider INSTANCE =
+                new CustomModelContextWindowProvider();
+
+        private Holder() {
+        }
     }
 
     @org.jetbrains.annotations.TestOnly
     public static void setInstanceForTests(CustomModelContextWindowProvider testInstance) {
-        instance = testInstance;
+        Holder.INSTANCE.cache = testInstance != null ? testInstance.cache : null;
     }
 
     @org.jetbrains.annotations.TestOnly

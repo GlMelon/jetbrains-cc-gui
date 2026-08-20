@@ -5,6 +5,8 @@ import com.github.claudecodegui.settings.ModelPricing;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.components.Service;
 import com.intellij.openapi.diagnostic.Logger;
 
 import java.io.IOException;
@@ -21,6 +23,9 @@ import java.util.Set;
  * Reads user-configured model pricing from {@code ~/.codemoss/config.json}
  * and exposes it to the usage aggregators.
  *
+ * <p>Registered as an application-level service via {@code @Service(Service.Level.APP)}.
+ * The platform manages instantiation; callers resolve the singleton through {@link #getInstance()}.
+ *
  * <p>The usage-cost consumers are created in many
  * places without dependency injection, so this provider is a process-wide singleton that reads
  * the config file lazily and caches the parsed result keyed by the file's last-modified time.
@@ -32,12 +37,11 @@ import java.util.Set;
  * IDs still fall back to the aggregators' hardcoded tables unless the frontend explicitly
  * sends a matching pricing entry.
  */
+@Service(Service.Level.APP)
 public final class CustomPricingProvider {
 
     private static final Logger LOG = Logger.getInstance(CustomPricingProvider.class);
     private static final String ROOT_KEY = "customModelPricing";
-
-    private static volatile CustomPricingProvider instance;
 
     private final ConfigPathManager pathManager;
     private final Gson gson;
@@ -45,7 +49,10 @@ public final class CustomPricingProvider {
     /** Cached parsed pricing, together with the mtime of the file it was parsed from. */
     private volatile CachedPricing cache;
 
-    private CustomPricingProvider() {
+    /**
+     * Public no-arg constructor: required for platform {@code applicationService} registration.
+     */
+    public CustomPricingProvider() {
         this(new ConfigPathManager());
     }
 
@@ -54,18 +61,32 @@ public final class CustomPricingProvider {
         this.gson = new Gson();
     }
 
+    /**
+     * Resolve the shared CustomPricingProvider instance.
+     * Prefers the platform-managed application service; falls back to a lazily created
+     * instance for edge cases (early bootstrap / isolated unit tests).
+     */
     public static CustomPricingProvider getInstance() {
-        CustomPricingProvider local = instance;
-        if (local == null) {
-            synchronized (CustomPricingProvider.class) {
-                local = instance;
-                if (local == null) {
-                    local = new CustomPricingProvider();
-                    instance = local;
-                }
+        try {
+            CustomPricingProvider service =
+                    ApplicationManager.getApplication().getService(CustomPricingProvider.class);
+            if (service != null) {
+                return service;
             }
+        } catch (RuntimeException ignored) {
+            // ApplicationManager unavailable (isolated tests / plugin bootstrap).
         }
-        return local;
+        return Holder.INSTANCE;
+    }
+
+    /**
+     * Fallback instance for edge cases where the platform service is not resolvable.
+     */
+    private static final class Holder {
+        private static final CustomPricingProvider INSTANCE = new CustomPricingProvider();
+
+        private Holder() {
+        }
     }
 
     /**
@@ -75,7 +96,7 @@ public final class CustomPricingProvider {
      */
     @org.jetbrains.annotations.TestOnly
     public static void setInstanceForTests(CustomPricingProvider testInstance) {
-        instance = testInstance;
+        Holder.INSTANCE.cache = testInstance != null ? testInstance.cache : null;
     }
 
     /**
