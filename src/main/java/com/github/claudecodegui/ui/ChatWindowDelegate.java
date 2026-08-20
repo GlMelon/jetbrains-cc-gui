@@ -360,6 +360,7 @@ public class ChatWindowDelegate {
 
     private final DelegateHost host;
     private PromptActionHandlers promptHandlers; // B2 迁移: 需要 dispose 停止 FileWatcher
+    private EnhancePromptActionHandler enhancePromptActionHandler;
     private HistoryRefreshService historyRefreshService;
     private TabAnswerStatus currentTabStatus = TabAnswerStatus.IDLE;
     private ProviderType currentTabProviderType = null;
@@ -536,7 +537,8 @@ nodeService.setSessionId(sessionId);
         typedHandlers.add(new CreateNewTabActionHandler());
         typedHandlers.add(new RewindFilesActionHandler());
         typedHandlers.add(new GetContextUsageActionHandler());
-        typedHandlers.add(new EnhancePromptActionHandler());
+        this.enhancePromptActionHandler = new EnhancePromptActionHandler();
+        typedHandlers.add(enhancePromptActionHandler);
         typedHandlers.add(new SaveMarkdownActionHandler());
         typedHandlers.add(new SaveJsonActionHandler());
         typedHandlers.add(new SaveExportedFileActionHandler());
@@ -1211,6 +1213,10 @@ nodeService.setSessionId(sessionId);
     }
 
     public void dispose() {
+        if (enhancePromptActionHandler != null) {
+            enhancePromptActionHandler.dispose();
+            enhancePromptActionHandler = null;
+        }
         if (promptHandlers != null) {
             promptHandlers.dispose();
         }

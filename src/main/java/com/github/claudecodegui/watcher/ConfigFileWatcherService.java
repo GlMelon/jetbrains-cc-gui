@@ -69,8 +69,8 @@ public class ConfigFileWatcherService implements Disposable {
 
     private volatile boolean running = false;
     private volatile boolean disposed = false;
-    private WatchService watchService;
-    private Thread watchThread;
+    private volatile WatchService watchService;
+    private volatile Thread watchThread;
 
     /**
      * 容器构造(applicationService):默认 debounce + Alarm 调度 + 生产广播回调。<b>不启动</b>——
@@ -113,15 +113,27 @@ public class ConfigFileWatcherService implements Disposable {
         }
         try {
             Files.createDirectories(configDir);
-            watchService = FileSystems.getDefault().newWatchService();
-            configDir.register(watchService, ENTRY_CREATE, ENTRY_MODIFY, ENTRY_DELETE);
+            WatchService created = FileSystems.getDefault().newWatchService();
+            try {
+                configDir.register(created, ENTRY_CREATE, ENTRY_MODIFY, ENTRY_DELETE);
+                watchService = created;
+            } catch (IOException e) {
+                try {
+                    created.close();
+                } catch (IOException closeException) {
+                    e.addSuppressed(closeException);
+                }
+                throw e;
+            }
         } catch (IOException e) {
+            watchService = null;
             LOG.warn("[ConfigFileWatcher] Failed to register WatchService on " + configDir
                     + ": " + e.getMessage(), e);
             return;
         }
         running = true;
-        watchThread = new Thread(this::watchLoop, "ConfigFileWatcher");
+        WatchService service = watchService;
+        watchThread = new Thread(() -> watchLoop(service), "ConfigFileWatcher");
         watchThread.setDaemon(true);
         watchThread.start();
         LOG.debug("[ConfigFileWatcher] Started watching " + configDir);
@@ -131,34 +143,48 @@ public class ConfigFileWatcherService implements Disposable {
      * watch 线程主循环:阻塞 {@code take()} → drain 事件 → 过滤 config.json / OVERFLOW → debounce。
      * {@link ClosedWatchServiceException} 为 dispose 期间预期退出。
      */
-    private void watchLoop() {
-        while (running && !disposed) {
-            WatchKey key;
-            try {
-                key = watchService.take();
-            } catch (ClosedWatchServiceException e) {
-                // dispose 期间 watchService.close() 触发,干净退出。
-                break;
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
-            }
-
-            boolean configChanged = false;
-            for (WatchEvent<?> event : key.pollEvents()) {
-                if (event.kind() == OVERFLOW) {
-                    configChanged = true; // 强制全量刷新(config 场景不能漏)
-                    continue;
+    private void watchLoop(WatchService service) {
+        try {
+            while (running && !disposed) {
+                WatchKey key;
+                try {
+                    key = service.take();
+                } catch (ClosedWatchServiceException e) {
+                    // dispose 期间 watchService.close() 触发,干净退出。
+                    break;
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
                 }
-                Object context = event.context();
-                if (context != null && CONFIG_FILE_NAME.equals(context.toString())) {
-                    configChanged = true;
+
+                boolean configChanged = false;
+                for (WatchEvent<?> event : key.pollEvents()) {
+                    if (event.kind() == OVERFLOW) {
+                        configChanged = true; // 强制全量刷新(config 场景不能漏)
+                        continue;
+                    }
+                    Object context = event.context();
+                    if (context != null && CONFIG_FILE_NAME.equals(context.toString())) {
+                        configChanged = true;
+                    }
+                }
+                if (!key.reset()) {
+                    break;
+                }
+
+                if (configChanged) {
+                    scheduleRefresh();
                 }
             }
-            key.reset();
-
-            if (configChanged) {
-                scheduleRefresh();
+        } finally {
+            running = false;
+            closeQuietly(service);
+            if (watchService == service) {
+                watchService = null;
+            }
+            Thread currentThread = Thread.currentThread();
+            if (watchThread == currentThread) {
+                watchThread = null;
             }
         }
     }
@@ -218,17 +244,15 @@ public class ConfigFileWatcherService implements Disposable {
         }
         disposed = true;
         running = false;
-        if (watchService != null) {
+        WatchService service = watchService;
+        Thread thread = watchThread;
+        watchService = null;
+        watchThread = null;
+        closeQuietly(service); // 让阻塞中的 take() 抛 ClosedWatchServiceException 退出
+        if (thread != null) {
+            thread.interrupt();
             try {
-                watchService.close(); // 让阻塞中的 take() 抛 ClosedWatchServiceException 退出
-            } catch (IOException e) {
-                LOG.warn("[ConfigFileWatcher] Error closing WatchService", e);
-            }
-        }
-        if (watchThread != null) {
-            watchThread.interrupt();
-            try {
-                watchThread.join(THREAD_JOIN_MS);
+                thread.join(THREAD_JOIN_MS);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
@@ -237,6 +261,17 @@ public class ConfigFileWatcherService implements Disposable {
             Disposer.dispose(parentDisposable); // 级联释放 Alarm
         } catch (Exception ignored) {
             // 已释放(如容器级联),安全。
+        }
+    }
+
+    private static void closeQuietly(WatchService service) {
+        if (service == null) {
+            return;
+        }
+        try {
+            service.close();
+        } catch (IOException e) {
+            LOG.warn("[ConfigFileWatcher] Error closing WatchService", e);
         }
     }
 }

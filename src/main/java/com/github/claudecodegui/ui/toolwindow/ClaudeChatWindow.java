@@ -1391,6 +1391,13 @@ public class ClaudeChatWindow {
                 session != null ? session.getSessionId() : null);
         this.disposed = true;
 
+        // Stop all queued webview callbacks and release JCEF bridge handles
+        // before session teardown starts. Otherwise extraction/reload callbacks
+        // can retain this window and race with the browser/session disposal.
+        if (webviewInitializer != null) {
+            webviewInitializer.dispose();
+        }
+
         notificationAlarm.cancelAllRequests();
         chatWindowDelegate.dispose();
         editorContextTracker.dispose();
@@ -1436,6 +1443,10 @@ public class ClaudeChatWindow {
         }
 
         try {
+            if (webviewInitializer != null) {
+                webviewInitializer.disposeBridges();
+            }
+
             if (browser != null) {
                 long browserDisposeStartNanos = System.nanoTime();
                 browser.dispose();

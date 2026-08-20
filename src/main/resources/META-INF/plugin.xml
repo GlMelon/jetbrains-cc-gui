@@ -85,6 +85,7 @@
         <!-- S3-3 B4: watches ~/.codemoss/config.json for external edits (cc-switch) and pushes
              MODEL_REGISTRY to all open projects' frontends. Application-scoped Disposable. -->
         <applicationService serviceImplementation="com.github.claudecodegui.watcher.ConfigFileWatcherService"/>
+        <applicationService serviceImplementation="com.github.claudecodegui.cli.CliSessionExecutor"/>
 
         <!-- AI Code GUI tool window (includes history feature) -->
         <toolWindow id="AICG"

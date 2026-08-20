@@ -99,8 +99,10 @@ public class WebviewWatchdog {
     /**
      * Start the watchdog scheduler.
      */
-    public void start() {
-        if (watchdogFuture != null) {
+    public synchronized void start() {
+        if (watchdogFuture != null
+                && !watchdogFuture.isCancelled()
+                && !watchdogFuture.isDone()) {
             return;
         }
 
@@ -116,10 +118,11 @@ public class WebviewWatchdog {
     /**
      * Stop the watchdog scheduler.
      */
-    public void stop() {
-        if (watchdogFuture != null) {
-            watchdogFuture.cancel(true);
-            watchdogFuture = null;
+    public synchronized void stop() {
+        ScheduledFuture<?> future = watchdogFuture;
+        watchdogFuture = null;
+        if (future != null) {
+            future.cancel(true);
         }
     }
 

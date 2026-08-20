@@ -43,6 +43,7 @@ import java.awt.dnd.DropTargetDropEvent;
 import java.io.File;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -77,6 +78,8 @@ public class WebviewInitializer {
     }
 
     private final WebviewHost host;
+    private final AtomicBoolean disposed = new AtomicBoolean();
+    private final AtomicBoolean recreateQueued = new AtomicBoolean();
 
     private final Object bridgeLock = new Object();
 
@@ -96,7 +99,7 @@ public class WebviewInitializer {
      * Create and configure UI components (browser, JS bridge, drag-and-drop).
      */
     public void createUIComponents() {
-        if (this.host.isDisposed()) {
+        if (isLifecycleDisposed()) {
             return;
         }
         JBCefBrowser existingBrowser = this.host.getBrowser();
@@ -121,6 +124,9 @@ public class WebviewInitializer {
 
             // Register async callback to reinitialize when extraction completes
             sharedResolver.getExtractionFuture().thenAcceptAsync(ready -> {
+                if (isLifecycleDisposed()) {
+                    return;
+                }
                 if (ready) {
                     reinitializeAfterExtraction();
                 } else {
@@ -158,6 +164,9 @@ public class WebviewInitializer {
                 LOG.info("[ClaudeSDKToolWindow] checkEnvironment failed but extraction in progress, showing loading panel...");
                 showLoadingPanel();
                 sharedResolver.getExtractionFuture().thenAcceptAsync(ready -> {
+                    if (isLifecycleDisposed()) {
+                        return;
+                    }
                     if (ready) {
                         reinitializeAfterExtraction();
                     } else {
@@ -854,13 +863,26 @@ public class WebviewInitializer {
         LOG.info("[ClaudeSDKToolWindow] Showing loading panel while bridge extracts...");
     }
 
+    private boolean isLifecycleDisposed() {
+        return disposed.get() || host.isDisposed();
+    }
+
     private void invokeLaterForToolWindow(@NotNull Runnable runnable) {
-        Project project = this.host.getProject();
-        if (project != null && !project.isDisposed()) {
-            ToolWindowManager.getInstance(project).invokeLater(runnable);
+        if (isLifecycleDisposed()) {
             return;
         }
-        ApplicationManager.getApplication().invokeLater(runnable);
+        Runnable guardedRunnable = () -> {
+            if (isLifecycleDisposed()) {
+                return;
+            }
+            runnable.run();
+        };
+        Project project = this.host.getProject();
+        if (project != null && !project.isDisposed()) {
+            ToolWindowManager.getInstance(project).invokeLater(guardedRunnable);
+            return;
+        }
+        ApplicationManager.getApplication().invokeLater(guardedRunnable);
     }
 
     /**
@@ -881,6 +903,9 @@ public class WebviewInitializer {
      * Retry environment check with exponential backoff strategy.
      */
     private void retryCheckEnvironmentWithBackoff(int attempt) {
+        if (isLifecycleDisposed()) {
+            return;
+        }
         final int MAX_RETRIES = 3;
         final int[] BACKOFF_DELAYS_MS = {100, 200, 400};
 
@@ -894,13 +919,22 @@ public class WebviewInitializer {
         LOG.info("[ClaudeSDKToolWindow] Retry attempt " + (attempt + 1) + "/" + MAX_RETRIES + ", waiting " + delayMs + "ms...");
 
         CompletableFuture.runAsync(() -> {
+            if (isLifecycleDisposed()) {
+                return;
+            }
             try {
                 Thread.sleep(delayMs);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
         }).thenRun(() -> {
+            if (isLifecycleDisposed()) {
+                return;
+            }
             invokeLaterForToolWindow(() -> {
+                if (isLifecycleDisposed()) {
+                    return;
+                }
                 if (NodeService.getInstance().getNodeExecutable() != null) {
                     LOG.info("[ClaudeSDKToolWindow] Retry attempt " + (attempt + 1) + " succeeded after extraction completion");
                     reinitializeAfterExtraction();
@@ -1022,49 +1056,74 @@ public class WebviewInitializer {
      * Recreate the webview from scratch (dispose old, create new).
      */
     public void recreateWebview(String reason) {
-        ApplicationManager.getApplication().invokeLater(() -> {
-            if (host.isDisposed()) { return; }
-
-            int invalidationGeneration = invalidateCurrentPage();
-            host.activatePageGeneration(invalidationGeneration);
-            host.setFrontendReady(false);
-            JPanel mainPanel = host.getMainPanel();
-            JBCefBrowser browser = host.getBrowser();
+        if (isLifecycleDisposed() || !recreateQueued.compareAndSet(false, true)) {
+            return;
+        }
+        invokeLaterForToolWindow(() -> {
             try {
-                if (browser != null) {
-                    try {
-                        mainPanel.remove(browser.getComponent());
-                    } catch (Exception ignored) {
-                    }
-                    // Release the JS bridges before the browser itself so the
-                    // native callback handles do not outlive the browser.
-                    this.disposeBridges();
-                    host.getHandlerContext().setBrowser(null);
-                    host.setBrowser(null);
-                    try {
-                        browser.dispose();
-                    } catch (Exception | LinkageError e) {
-                        LOG.debug("[WebviewWatchdog] Failed to dispose old browser: " + e.getMessage(), e);
-                    }
+                if (isLifecycleDisposed()) {
+                    return;
                 }
 
-                LOG.info("[WebviewWatchdog] Recreating webview (" + reason + ")");
-                mainPanel.removeAll();
-                createUIComponents();
-                mainPanel.revalidate();
-                mainPanel.repaint();
-            } catch (Exception e) {
-                LOG.warn("[WebviewWatchdog] Recreate failed: " + e.getMessage(), e);
-                // An exception reaching here escaped createUIComponents' internal
-                // handler (which already routes JCEF remote NPEs to the restart
-                // panel). mainPanel was already cleared above, so without a
-                // terminal panel the tab would be left permanently blank.
-                // Use a generic restart panel instead of JCEF-remote-specific,
-                // since the error could be from remove/dispose/revalidate rather
-                // than JCEF itself.
-                showWebviewRecoveryFailedPanel();
+                int invalidationGeneration = invalidateCurrentPage();
+                host.activatePageGeneration(invalidationGeneration);
+                host.setFrontendReady(false);
+                JPanel mainPanel = host.getMainPanel();
+                JBCefBrowser browser = host.getBrowser();
+                try {
+                    if (browser != null) {
+                        try {
+                            mainPanel.remove(browser.getComponent());
+                        } catch (Exception ignored) {
+                        }
+                        // Release the JS bridges before the browser itself so the
+                        // native callback handles do not outlive the browser.
+                        this.disposeBridges();
+                        if (host.getHandlerContext() != null) {
+                            host.getHandlerContext().setBrowser(null);
+                        }
+                        host.setBrowser(null);
+                        try {
+                            browser.dispose();
+                        } catch (Exception | LinkageError e) {
+                            LOG.debug("[WebviewWatchdog] Failed to dispose old browser: " + e.getMessage(), e);
+                        }
+                    }
+
+                    LOG.info("[WebviewWatchdog] Recreating webview (" + reason + ")");
+                    mainPanel.removeAll();
+                    createUIComponents();
+                    mainPanel.revalidate();
+                    mainPanel.repaint();
+                } catch (Exception e) {
+                    LOG.warn("[WebviewWatchdog] Recreate failed: " + e.getMessage(), e);
+                    // An exception reaching here escaped createUIComponents' internal
+                    // handler (which already routes JCEF remote NPEs to the restart
+                    // panel). mainPanel was already cleared above, so without a
+                    // terminal panel the tab would be left permanently blank.
+                    // Use a generic restart panel instead of JCEF-remote-specific,
+                    // since the error could be from remove/dispose/revalidate
+                    // rather than JCEF itself.
+                    if (!isLifecycleDisposed()) {
+                        showWebviewRecoveryFailedPanel();
+                    }
+                }
+            } finally {
+                recreateQueued.set(false);
             }
         });
+    }
+
+    /**
+     * Stops all future webview work and releases the current JCEF bridges.
+     * This method is idempotent and must be called before the browser is disposed.
+     */
+    public void dispose() {
+        if (!disposed.compareAndSet(false, true)) {
+            return;
+        }
+        recreateQueued.set(false);
+        disposeBridges();
     }
 
     /**
