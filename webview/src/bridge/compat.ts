@@ -16,6 +16,7 @@
  */
 
 import { bridgeHub } from './hub';
+import type { Unsubscribe } from './types';
 
 /**
  * 旧 window 回调名(去 window. 前缀) → 总线 type 的映射。
@@ -29,10 +30,33 @@ let installed = false;
  *
  * 安装后,window.<legacyName>(json) 等价于 window.__bridge.dispatch(<type>, json)。
  */
-export function registerLegacyAlias(legacyName: string, type: string): void {
-  if (typeof window === 'undefined') return;
+export function registerLegacyAlias(legacyName: string, type: string): Unsubscribe {
+  if (typeof window === 'undefined') return () => {};
+  const win = window as unknown as Record<string, unknown>;
+  installed = true;
+  const previousType = legacyToType.get(legacyName);
+  const hadPreviousValue = Object.prototype.hasOwnProperty.call(win, legacyName);
+  const previousValue = win[legacyName];
+  const installedAlias = (payloadJson?: string) => {
+    bridgeHub.dispatch(type, payloadJson);
+  };
   legacyToType.set(legacyName, type);
-  installAlias(legacyName, type);
+  win[legacyName] = installedAlias;
+
+  return bridgeHub.trackCleanup(() => {
+    // Do not remove a newer registration that replaced this alias.
+    if (win[legacyName] !== installedAlias || legacyToType.get(legacyName) !== type) return;
+    if (previousType !== undefined) {
+      legacyToType.set(legacyName, previousType);
+    } else {
+      legacyToType.delete(legacyName);
+    }
+    if (hadPreviousValue) {
+      win[legacyName] = previousValue;
+    } else {
+      try { delete win[legacyName]; } catch { /* ignore */ }
+    }
+  });
 }
 
 /**
@@ -65,13 +89,4 @@ export function isCompatInstalled(): boolean {
   return installed;
 }
 
-/** 安装单个别名转发函数。 */
-function installAlias(legacyName: string, type: string): void {
-  installed = true;
-  const win = window as unknown as Record<string, unknown>;
-  // 转发函数:接收任意参数,按旧约定第 1 个参数为 payloadJson(字符串)。
-  // 兼容旧回调「多参数」签名:仅取首个作为 payload(与现有绝大多数 window.xxx(json) 一致)。
-  win[legacyName] = (payloadJson?: string) => {
-    bridgeHub.dispatch(type, payloadJson);
-  };
-}
+

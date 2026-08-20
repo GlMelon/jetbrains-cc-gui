@@ -8,6 +8,7 @@
 
 import type { MutableRefObject } from 'react';
 import { forceWebviewRepaint } from '../../utils/forceWebviewRepaint';
+import { clearAllStreamScopeStates } from './streamScopeState';
 
 /**
  * Clear all transient UI state (streaming refs + React state flags).
@@ -32,6 +33,11 @@ export const buildResetTransientUiState = (opts: {
   contentUpdateTimeoutRef: MutableRefObject<number | null>;
   thinkingUpdateTimeoutRef: MutableRefObject<number | null>;
 
+  // Session-scoped maps / registries
+  setSubagentHistories?: React.Dispatch<React.SetStateAction<Record<string, import('../../types').SubagentHistoryResponse>>>;
+  setTaskEvents?: React.Dispatch<React.SetStateAction<import('../../types').TaskEventMap>>;
+  clearPendingSubagentHistoryChunks?: () => void;
+
   // Turn tracking ref (for streaming assistant isolation)
   streamingTurnIdRef: MutableRefObject<number>;
 }) => {
@@ -53,6 +59,11 @@ export const buildResetTransientUiState = (opts: {
     // increasing across sessions so that stale messages from an old session can never
     // collide with a new session's turn IDs (and React keys like "turn-N" stay unique).
     opts.streamingTurnIdRef.current = -1;
+    opts.setSubagentHistories?.({});
+    opts.setTaskEvents?.({});
+    opts.clearPendingSubagentHistoryChunks?.();
+    window.__deniedToolIds?.clear();
+    clearAllStreamScopeStates();
     // Clear stream-end idempotency guard to avoid stale state across sessions.
     window.__streamEndProcessedTurnId = undefined;
     if (opts.contentUpdateTimeoutRef.current != null) {

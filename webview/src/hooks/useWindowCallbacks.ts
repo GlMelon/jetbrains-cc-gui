@@ -134,7 +134,7 @@ export function useWindowCallbacks(options: UseWindowCallbacksOptions): void {
   }, [t]);
 
   useEffect(() => {
-    registerWindowCallbacks(options, tRef);
+    return registerWindowCallbacks(options, tRef);
     // Callbacks are registered once on mount; re-registration would cause duplicate handlers.
     // Options object reference is intentionally excluded from deps.
   }, []); // eslint-disable-line react-hooks/exhaustive-deps

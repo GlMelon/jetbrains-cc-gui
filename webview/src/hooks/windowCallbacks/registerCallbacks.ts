@@ -36,6 +36,8 @@ import { registerSessionAndSdkCallbacks } from './registerCallbacks/sessionCallb
 import { registerUsageModeCallbacks } from './registerCallbacks/usageModeCallbacks';
 import { registerPermissionCallbacks } from './registerCallbacks/permissionCallbacks';
 import { registerAgentAndSelectionCallbacks } from './registerCallbacks/agentCallbacks';
+import { bridgeHub } from '../../bridge';
+import { clearAllStreamScopeStates } from './streamScopeState';
 
 function areSubagentMessagesEquivalent(
   previousMessages: unknown[] | undefined,
@@ -47,27 +49,57 @@ function areSubagentMessagesEquivalent(
 
 const pendingSubagentHistoryChunks = new Map<string, string[]>();
 const MAX_PENDING_SUBAGENT_HISTORY_TRANSFERS = 16;
+const MAX_PENDING_SUBAGENT_HISTORY_CHUNKS = 512;
+const MAX_PENDING_SUBAGENT_HISTORY_CHARS = 4 * 1024 * 1024;
+const PENDING_SUBAGENT_HISTORY_TIMEOUT_MS = 30_000;
+const pendingSubagentHistoryTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+function removePendingSubagentHistory(transferId: string): void {
+  pendingSubagentHistoryChunks.delete(transferId);
+  const timer = pendingSubagentHistoryTimers.get(transferId);
+  if (timer != null) {
+    clearTimeout(timer);
+    pendingSubagentHistoryTimers.delete(transferId);
+  }
+}
+
+function clearPendingSubagentHistoryChunks(): void {
+  for (const timer of pendingSubagentHistoryTimers.values()) clearTimeout(timer);
+  pendingSubagentHistoryTimers.clear();
+  pendingSubagentHistoryChunks.clear();
+}
 
 function appendSubagentHistoryChunk(transferId: string, chunk: string, isFinal: string | boolean): void {
   if (!transferId) return;
   const chunks = pendingSubagentHistoryChunks.get(transferId) ?? [];
+  if (chunks.length >= MAX_PENDING_SUBAGENT_HISTORY_CHUNKS
+    || chunks.reduce((total, value) => total + value.length, 0) + chunk.length > MAX_PENDING_SUBAGENT_HISTORY_CHARS) {
+    removePendingSubagentHistory(transferId);
+    return;
+  }
   chunks.push(chunk);
   if (isFinal === true || isFinal === 'true') {
-    pendingSubagentHistoryChunks.delete(transferId);
+    removePendingSubagentHistory(transferId);
     window.onSubagentHistoryLoaded?.(chunks.join(''));
     return;
   }
   if (pendingSubagentHistoryChunks.size >= MAX_PENDING_SUBAGENT_HISTORY_TRANSFERS) {
     const oldestTransferId = pendingSubagentHistoryChunks.keys().next().value;
-    if (oldestTransferId) pendingSubagentHistoryChunks.delete(oldestTransferId);
+    if (oldestTransferId) removePendingSubagentHistory(oldestTransferId);
   }
   pendingSubagentHistoryChunks.set(transferId, chunks);
+  const existingTimer = pendingSubagentHistoryTimers.get(transferId);
+  if (existingTimer != null) clearTimeout(existingTimer);
+  pendingSubagentHistoryTimers.set(transferId, setTimeout(() => {
+    removePendingSubagentHistory(transferId);
+  }, PENDING_SUBAGENT_HISTORY_TIMEOUT_MS));
 }
 
 export function registerWindowCallbacks(
   options: UseWindowCallbacksOptions,
   tRef: MutableRefObject<UseWindowCallbacksOptions['t']>,
-): void {
+): () => void {
+  const cleanupBridgeScope = bridgeHub.beginCleanupScope();
   // -------------------------------------------------------------------------
   // Session transition helpers
   // -------------------------------------------------------------------------
@@ -88,6 +120,9 @@ export function registerWindowCallbacks(
     contentUpdateTimeoutRef: options.contentUpdateTimeoutRef,
     thinkingUpdateTimeoutRef: options.thinkingUpdateTimeoutRef,
     streamingTurnIdRef: options.streamingTurnIdRef,
+    setSubagentHistories: options.setSubagentHistories,
+    setTaskEvents: options.setTaskEvents,
+    clearPendingSubagentHistoryChunks,
   });
 
   // Expose as single entry point for session transition cleanup.
@@ -203,4 +238,24 @@ if (existing && existing.success === result.success
 
   startActiveProviderRequest();
   startSessionRuntimeStateRequest();
+
+  return () => {
+    cleanupBridgeScope();
+    clearPendingSubagentHistoryChunks();
+    window.__cancelPendingUpdateMessages?.();
+    if (window.__stallWatchdogInterval != null) {
+      clearInterval(window.__stallWatchdogInterval);
+      window.__stallWatchdogInterval = null;
+    }
+    if (window.__streamingDeltaRenderingFrame != null) {
+      cancelAnimationFrame(window.__streamingDeltaRenderingFrame);
+      window.__streamingDeltaRenderingFrame = undefined;
+    }
+    window.__deniedToolIds?.clear();
+    clearAllStreamScopeStates();
+    window.__resetTransientUiState = undefined;
+    window.onSubagentHistoryChunk = undefined;
+    window.onSubagentHistoryLoaded = undefined;
+    window.onTaskEvent = undefined;
+  };
 }

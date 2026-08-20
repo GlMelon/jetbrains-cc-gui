@@ -65,6 +65,39 @@ class BridgeHub {
 
   /** RPC: requestId → cancel 回调(仅供 reset 时批量取消,不参与路由)。 */
   private readonly pendingRequests = new Map<string, () => void>();
+  /** Active lifecycle scopes used by React hooks to release subscriptions on unmount. */
+  private readonly cleanupScopes = new Set<Set<Unsubscribe>>();
+
+  /**
+   * Starts a cleanup scope. Every subscription created while the scope is active
+   * is automatically attached to it, so a remounted webview cannot retain the
+   * previous hook's closures.
+   */
+  beginCleanupScope(): Unsubscribe {
+    const cleanups = new Set<Unsubscribe>();
+    this.cleanupScopes.add(cleanups);
+    let closed = false;
+    return () => {
+      if (closed) return;
+      closed = true;
+      this.cleanupScopes.delete(cleanups);
+      for (const cleanup of cleanups) cleanup();
+      cleanups.clear();
+    };
+  }
+
+  /** Register a cleanup in every currently active scope. */
+  trackCleanup(cleanup: Unsubscribe): Unsubscribe {
+    let active = true;
+    const tracked = () => {
+      if (!active) return;
+      active = false;
+      for (const scope of this.cleanupScopes) scope.delete(tracked);
+      cleanup();
+    };
+    for (const scope of this.cleanupScopes) scope.add(tracked);
+    return tracked;
+  }
 
   // -------------------------------------------------------------------------
   // 订阅(广播 + passthrough)
@@ -85,7 +118,7 @@ class BridgeHub {
       this.listenersByType.set(type, set);
     }
     set.add(listener as BridgeListener);
-    return () => {
+    return this.trackCleanup(() => {
       const s = this.listenersByType.get(type);
       if (s) {
         s.delete(listener as BridgeListener);
@@ -93,7 +126,7 @@ class BridgeHub {
           this.listenersByType.delete(type);
         }
       }
-    };
+    });
   }
 
   /**
@@ -107,10 +140,10 @@ class BridgeHub {
     }
     this.passthroughTypes.add(type);
     this.passthroughByType.set(type, handler as BridgeListener);
-    return () => {
+    return this.trackCleanup(() => {
       this.passthroughByType.delete(type);
       this.passthroughTypes.delete(type);
-    };
+    });
   }
 
   // -------------------------------------------------------------------------
@@ -144,6 +177,11 @@ class BridgeHub {
         settled = true;
         clearTimeout(timeoutId);
         unsubscribe();
+        // Release the correlation entry on every terminal path (response,
+        // timeout, cancellation and bridge reset). Keeping it here prevents
+        // the map from retaining one closure per RPC for the lifetime of the
+        // webview.
+        this.pendingRequests.delete(requestId);
         action();
       };
 
@@ -362,3 +400,6 @@ function sendUpstream(type: string, payload: Record<string, unknown>): void {
     // 序列化失败:静默,由 request() 超时兜底。
   }
 }
+
+
+

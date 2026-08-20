@@ -93,6 +93,18 @@ export const clearStreamScopeState = (scopeKey: string | null | undefined): void
   }
 };
 
+/** Clear every stream scope and cancel all queued animation frames. */
+export const clearAllStreamScopeStates = (): void => {
+  for (const state of streamScopeStates.values()) {
+    if (state.pendingUpdateRaf != null) {
+      cancelAnimationFrame(state.pendingUpdateRaf);
+      state.pendingUpdateRaf = null;
+    }
+  }
+  streamScopeStates.clear();
+  window.__activeStreamScopeKey = null;
+};
+
 export const queueScopedPendingUpdate = (
   scopeKey: string | null | undefined,
   json: string,

@@ -1,4 +1,4 @@
-import { type RefObject, useCallback, useMemo, useRef } from 'react';
+import { type RefObject, useCallback, useEffect, useMemo, useRef } from 'react';
 import type { TFunction } from 'i18next';
 import type {
   ClaudeMessage,
@@ -96,6 +96,15 @@ export function useChatComputations({
   // 避免触发下游消费组件(标题栏 / Rewind 列表)每帧重渲染。
   const prevRewindableRef = useRef<RewindableMessage[]>([]);
   const prevSessionTitleRef = useRef<string>('');
+  const previousSessionIdRef = useRef<string | null>(currentSessionId);
+
+  useEffect(() => {
+    if (previousSessionIdRef.current === currentSessionId) return;
+    previousSessionIdRef.current = currentSessionId;
+    toolResultRawMapRef.current.clear();
+    prevRewindableRef.current = [];
+    prevSessionTitleRef.current = '';
+  }, [currentSessionId]);
 
   const findToolResult = useCallback((toolUseId?: string, messageIndex?: number): ToolResultBlock | null => {
     if (!toolUseId || typeof messageIndex !== 'number') return null;
@@ -243,3 +252,4 @@ export function useChatComputations({
     sessionTitle,
   };
 }
+
