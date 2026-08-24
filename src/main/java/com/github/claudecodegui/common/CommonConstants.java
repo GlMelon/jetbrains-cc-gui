@@ -81,6 +81,8 @@ public final class CommonConstants {
     public static final int DEFAULT_CONTEXT_WINDOW = 200_000;
     /** Number of complete Codex user turns loaded per history page. */
     public static final int CODEX_HISTORY_PAGE_SIZE = 30;
+    /** Number of complete Claude user turns loaded per history page(语义对齐 CODEX_HISTORY_PAGE_SIZE). */
+    public static final int CLAUDE_HISTORY_PAGE_SIZE = 30;
 
     // ===== Provider 级别默认上下文窗口 =====
     // 基于官方文档的各 provider 默认 context window 值
@@ -105,7 +107,7 @@ public final class CommonConstants {
      * @return 该 provider 的官方默认上下文窗口（token 数），未知 provider 回退 {@link #DEFAULT_CONTEXT_WINDOW}
      */
     public static int getDefaultContextWindowForProvider(String provider) {
-        if (provider == null) return DEFAULT_CONTEXT_WINDOW;
+        if (provider == null) { return DEFAULT_CONTEXT_WINDOW; }
         return switch (provider) {
             case PROVIDER_CLAUDE -> CLAUDE_DEFAULT_CONTEXT_WINDOW;
             case PROVIDER_CODEX -> CODEX_DEFAULT_CONTEXT_WINDOW;

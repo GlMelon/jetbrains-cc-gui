@@ -96,7 +96,6 @@ repositories {
 
 dependencies {
     implementation 'com.google.code.gson:gson:2.10.1'
-    implementation 'javazoom:jlayer:1.0.1'
     implementation 'org.snakeyaml:snakeyaml-engine:3.0.1'
     // tar.gz 解压(Skills 市场 GitHub tarball):系统 tar 不可用时纯 Java 兜底
     implementation 'org.apache.commons:commons-compress:1.27.1'

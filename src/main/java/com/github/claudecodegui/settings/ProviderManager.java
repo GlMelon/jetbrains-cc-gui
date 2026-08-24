@@ -3,7 +3,10 @@ package com.github.claudecodegui.settings;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.bridge.NodeDetector;
+import com.github.claudecodegui.bridge.NodeService;
+import com.github.claudecodegui.bridge.ProcessManager;
 import com.github.claudecodegui.model.DeleteResult;
+import com.github.claudecodegui.util.PlatformUtils;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -19,6 +22,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 /**
@@ -28,6 +32,7 @@ import java.util.function.Function;
 public class ProviderManager {
     private static final Logger LOG = Logger.getInstance(ProviderManager.class);
     private static final String BACKUP_FILE_NAME = "config.json.bak";
+    private static final long READ_DB_TIMEOUT_SECONDS = 30;
     public static final String DISABLED_PROVIDER_ID = "__disabled__";
     public static final String LOCAL_SETTINGS_PROVIDER_ID = "__local_settings_json__";
     public static final String CLI_LOGIN_PROVIDER_ID = "__cli_login__";
@@ -565,21 +570,38 @@ public class ProviderManager {
 
             LOG.info("[ProviderManager] Executing command: " + nodePath + " " + scriptPath + " " + dbPath);
 
-            // Start the process
+            // Start the process and register it with the process ledger:
+            // - bounded waitFor() covers "stdout reached EOF but the process won't exit";
+            // - registration covers "node hangs while stdout stays open" — the readLine() loop below then
+            //   blocks indefinitely (pre-existing behavior), but the process is visible in the process
+            //   panel and killed by IDE-shutdown cleanup instead of escaping every cleanup path.
+            // This was the only unbounded+unregistered combination left in the codebase (see NodeJsServiceCaller).
             Process process = pb.start();
-
-            // Read output
+            String channelId = ProcessManager.newChannelId("cc-switch-db-read");
+            ProcessManager processManager = NodeService.getInstance().getProcessManager();
+            processManager.registerProcess(channelId, process);
             StringBuilder output = new StringBuilder();
-            try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(process.getInputStream(), java.nio.charset.StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    output.append(line);
+            try {
+                // Read output (drains stdout to EOF, keeping the pipe from filling up)
+                try (BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(process.getInputStream(), java.nio.charset.StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        output.append(line);
+                    }
                 }
-            }
 
-            // Wait for process to finish
-            int exitCode = process.waitFor();
+                // Wait for process to finish (bounded; kill the tree on timeout)
+                if (!process.waitFor(READ_DB_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                    LOG.warn("[ProviderManager] Node.js script timed out after " + READ_DB_TIMEOUT_SECONDS
+                            + "s, killing process tree");
+                    PlatformUtils.terminateProcess(process);
+                    throw new IOException("Node.js script timed out after " + READ_DB_TIMEOUT_SECONDS + "s");
+                }
+            } finally {
+                processManager.unregisterProcess(channelId, process);
+            }
+            int exitCode = process.exitValue();
 
             String jsonOutput = output.toString();
             LOG.info("[ProviderManager] Node.js output: " + jsonOutput);

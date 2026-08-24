@@ -4,7 +4,6 @@ import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow;
 import com.github.claudecodegui.util.JsUtils;
-import com.github.claudecodegui.util.PlatformUtils;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;

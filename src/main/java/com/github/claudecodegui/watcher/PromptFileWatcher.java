@@ -134,8 +134,9 @@ public class PromptFileWatcher implements BulkFileListener {
             return;
         }
 
-        // Create connection tied to project lifecycle (auto-disposed on project close)
-        connection = project.getMessageBus().connect();
+        // Connection parented to the project so the platform disconnects it on
+        // project close even if stopWatching() is never reached on an error path.
+        connection = project.getMessageBus().connect(project);
         connection.subscribe(VirtualFileManager.VFS_CHANGES, this);
 
         LOG.info("[PromptFileWatcher] Started watching prompt files");

@@ -9,6 +9,7 @@ import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.IconLoader;
 import com.intellij.openapi.wm.*;
+import com.intellij.util.Alarm;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -40,8 +41,9 @@ public class ClaudeStatusBarWidget implements CustomStatusBarWidget, StatusBarWi
     private final AtomicReference<String> currentMode = new AtomicReference<>(CommonConstants.PERMISSION_MODE_DEFAULT);
     private final AtomicReference<String> currentAgent = new AtomicReference<>("");
 
-    // Timer management for proper resource cleanup
-    private Timer hideTimer;
+    // Auto-hide scheduler; parent=this lets the platform release the Alarm
+    // on the Disposer tree when the widget is disposed.
+    private final Alarm hideAlarm = new Alarm(Alarm.ThreadToUse.SWING_THREAD, this);
 
     // Track disposed state to prevent operations after disposal
     private volatile boolean disposed = false;
@@ -101,10 +103,9 @@ public class ClaudeStatusBarWidget implements CustomStatusBarWidget, StatusBarWi
     @Override
     public void dispose() {
         disposed = true;
-        if (hideTimer != null) {
-            hideTimer.stop();
-            hideTimer = null;
-        }
+        // Cancel any pending hide; the Alarm itself is released by the platform
+        // (parent=this on the Disposer tree) when the widget is disposed.
+        hideAlarm.cancelAllRequests();
         this.statusBar = null;
     }
 
@@ -149,16 +150,13 @@ public class ClaudeStatusBarWidget implements CustomStatusBarWidget, StatusBarWi
 
     public void show(String text, String tooltip, long durationMs) {
         if (disposed) { return; }
-        // Stop any existing timer to prevent resource leaks
-        if (hideTimer != null) {
-            hideTimer.stop();
-        }
+        // Cancel any pending hide request so a new show restarts the schedule
+        hideAlarm.cancelAllRequests();
         this.visibleUntil.set(System.currentTimeMillis() + durationMs);
         // Temporary override
         updateLabel(text, tooltip);
-        hideTimer = new Timer((int) durationMs, e -> hide());
-        hideTimer.setRepeats(false);
-        hideTimer.start();
+        // Alarm requests are non-repeating by default, equivalent to setRepeats(false)
+        hideAlarm.addRequest(this::hide, (int) durationMs);
     }
 
     public void hide() {
@@ -248,10 +246,10 @@ public class ClaudeStatusBarWidget implements CustomStatusBarWidget, StatusBarWi
             return new ClaudeStatusBarWidget(project);
         }
 
-        @Override
-        public void disposeWidget(@NotNull StatusBarWidget widget) {
-            widget.dispose();
-        }
+        // disposeWidget is intentionally NOT overridden: the platform default runs
+        // Disposer.dispose(widget), which cascades to the hideAlarm registered with
+        // parent=this and then invokes dispose() (whose cancelAllRequests is a
+        // harmless second safety net).
 
         @Nullable
         public static ClaudeStatusBarWidget getWidget(@NotNull Project project) {

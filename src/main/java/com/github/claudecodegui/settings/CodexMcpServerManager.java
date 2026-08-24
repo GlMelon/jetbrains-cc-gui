@@ -20,7 +20,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -733,17 +732,12 @@ public class CodexMcpServerManager {
             LOG.info("[CodexMcpServerManager] Handshake failed for " + serverName + ": " + e.getMessage());
             return CliConstants.CODEX_STATUS_FAILED;
         } finally {
-            // Closing the pipe first also unblocks a reader stuck in a native stream read;
-            // shutdownNow() alone cannot reliably interrupt ProcessInputStream.read().
+            // Closing the pipe unblocks a reader stuck in a native stream read;
+            // interruption alone cannot reliably interrupt ProcessInputStream.read().
+            // The executor is the shared app-wide pool and must never be shut down here.
             try {
                 process.getInputStream().close();
             } catch (IOException ignored) {
-            }
-            executor.shutdownNow();
-            try {
-                executor.awaitTermination(1, TimeUnit.SECONDS);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
             }
         }
     }
