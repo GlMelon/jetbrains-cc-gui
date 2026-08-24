@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Session capabilities 弹窗化 · 方案对比（react-bits 动效增强版）</title>
+<style>
+  /* ============ 主题变量(取自 webview/src/styles/less/variables.less) ============ */
+  :root, [data-theme="dark"] {
+    --bg-primary: #1e1e1e;
+    --bg-chat: var(--bg-primary);
+    --bg-secondary: #252526;
+    --bg-tertiary: #2b2d31;
+    --bg-elevated: #2d2d2d;
+    --bg-hover: #35373c;
+    --bg-titlebar: #323233;
+    --text-primary: #cccccc;
+    --text-secondary: #e0e0e0;
+    --text-tertiary: #858585;
+    --text-muted: #666;
+    --border-primary: #333;
+    --border-secondary: #3e3e42;
+    --accent-primary: #007fd4;
+    --color-success: #4caf50;
+    --color-warning: #ff9800;
+    --color-info: #64b5f6;
+    --color-danger: #ef7c88;
+    --overlay-mask-bg: rgba(0, 0, 0, 0.40);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+    --hover-shadow: 0 4px 8px rgba(0, 0, 0, 0.45), 0 2px 4px rgba(0, 0, 0, 0.35);
+    --ease-pop: cubic-bezier(0.34, 1.6, 0.64, 1);
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  [data-theme="light"] {
+    --bg-primary: #ffffff;
+    --bg-chat: var(--bg-primary);
+    --bg-secondary: #f3f3f3;
+    --bg-tertiary: #eaeaea;
+    --bg-elevated: #ffffff;
+    --bg-hover: #e8e8e8;
+    --bg-titlebar: #e8e8e8;
+    --text-primary: #333333;
+    --text-secondary: #1a1a1a;
+    --text-tertiary: #555555;
+    --text-muted: #666666;
+    --border-primary: #d0d0d0;
+    --border-secondary: #e0e0e0;
+    --accent-primary: #0078d4;
+    --color-success: #2e7d32;
+    --color-warning: #ed6c02;
+    --color-info: #0288d1;
+    --color-danger: #d32f2f;
+    --overlay-mask-bg: rgba(0, 0, 0, 0.30);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.18);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12);
+    --hover-shadow: 0 4px 8px rgba(0, 0, 0, 0.10), 0 2px 4px rgba(0, 0, 0, 0.06);
+    --ease-pop: cubic-bezier(0.34, 1.6, 0.64, 1);
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: var(--bg-chat);
+    color: var(--text-primary);
+    padding: 24px;
+    transition: background 0.25s, color 0.25s;
+  }
+
+  /* ============ 页面骨架 ============ */
+  .page-header { max-width: 1180px; margin: 0 auto 20px; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .page-header h1 { font-size: 22px; font-weight: 600; }
+  .page-header h1 .gradient-text {
+    background: linear-gradient(90deg, #7c5cff, #2dd4bf);
+    background-size: 200% 200%;
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent; -webkit-text-fill-color: transparent;
+    animation: gradient-shift 3s ease infinite;
+  }
+  @keyframes gradient-shift { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+  .page-header p { color: var(--text-tertiary); font-size: 13px; margin-top: 6px; line-height: 1.6; }
+  .toolbar-btns { display: flex; gap: 8px; }
+  .btn {
+    border: 1px solid var(--border-secondary); background: var(--bg-secondary); color: var(--text-primary);
+    padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px;
+    transition: background 0.15s, transform 0.15s var(--ease-pop);
+  }
+  .btn:hover { background: var(--bg-hover); }
+  .btn:active { transform: scale(0.96); }
+  .btn.primary { background: var(--accent-primary); border-color: var(--accent-primary); color: #fff; }
+
+  .section { max-width: 1180px; margin: 28px auto; }
+  .section > h2 { font-size: 16px; font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+  .section > h2 .tag {
+    font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 999px;
+    background: rgba(124, 92, 255, 0.15); color: #a78bfa; border: 1px solid rgba(124, 92, 255, 0.3);
+  }
+  [data-theme="light"] .section > h2 .tag { color: #6d28d9; }
+  .section > .desc { color: var(--text-tertiary); font-size: 12.5px; margin-bottom: 14px; line-height: 1.7; }
+  .section > .desc code { background: var(--bg-tertiary); padding: 1px 5px; border-radius: 4px; font-size: 11.5px; }
+
+  /* ============ 手机画布（模拟 460px 窄工具窗口） ============ */
+  .canvas-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 20px; }
+  .canvas-block { border: 1px solid var(--border-primary); border-radius: 12px; overflow: hidden; background: var(--bg-secondary); }
+  .canvas-caption { padding: 10px 14px; font-size: 12.5px; color: var(--text-tertiary); border-top: 1px solid var(--border-primary); line-height: 1.7; }
+  .canvas-caption b { color: var(--text-primary); }
+  .phone {
+    position: relative; width: 100%; height: 480px; background: var(--bg-primary);
+    overflow: hidden; border-bottom: 1px solid var(--border-primary);
+  }
+  .phone-header {
+    position: absolute; top: 0; left: 0; right: 0; height: 50px; z-index: 20;
+    background: var(--bg-titlebar); border-bottom: 1px solid var(--border-primary);
+    display: flex; align-items: center; justify-content: space-between; padding: 0 12px;
+  }
+  .phone-header .title { font-size: 13px; font-weight: 600; }
+  .icon-btn {
+    position: relative; width: 30px; height: 30px; border-radius: 6px; border: none; cursor: pointer;
+    background: transparent; color: var(--text-primary); font-size: 15px; display: inline-flex;
+    align-items: center; justify-content: center; transition: background 0.15s, transform 0.15s var(--ease-pop);
+  }
+  .icon-btn:hover { background: var(--bg-hover); }
+  .icon-btn:active { transform: scale(0.9); }
+  .chat-mock { position: absolute; inset: 50px 0 0 0; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+  .msg { max-width: 78%; padding: 8px 12px; border-radius: 10px; font-size: 12.5px; line-height: 1.6; }
+  .msg.user { align-self: flex-end; background: var(--accent-primary); color: #fff; border-bottom-right-radius: 3px; }
+  .msg.ai { align-self: flex-start; background: var(--bg-secondary); border: 1px solid var(--border-primary); border-bottom-left-radius: 3px; }
+
+  /* ============ 基线：现状右侧抽屉 ============ */
+  .drawer-backdrop { position: absolute; inset: 50px 0 0 0; background: var(--overlay-mask-bg); z-index: 25; }
+  .session-capabilities-drawer {
+    position: absolute; top: 50px; right: 0; bottom: 0; z-index: 26;
+    width: min(360px, calc(100vw - 16px));
+    background: var(--bg-secondary); border-left: 1px solid var(--border-primary);
+    box-shadow: var(--shadow-lg); display: flex; flex-direction: column;
+    animation: drawer-in 240ms var(--ease-out) both;
+  }
+  @keyframes drawer-in { from { transform: translateX(24px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  @media (max-width: 600px) { .session-capabilities-drawer.narrow-demo { width: 100%; } }
+
+  /* ============ 方案 A · 居中模态弹窗（BaseDialog 设计语言） ============ */
+  .dialog-overlay {
+    position: absolute; inset: 0; z-index: 30;
+    background: var(--overlay-mask-bg);
+    backdrop-filter: blur(6px) saturate(115%);
+    -webkit-backdrop-filter: blur(6px) saturate(115%);
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+    animation: overlay-in 200ms ease both;
+  }
+  @keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }
+  .dialog-base {
+    position: relative; width: 340px; max-width: 100%; max-height: calc(100% - 24px);
+    background: var(--bg-elevated); border: 1px solid var(--border-secondary);
+    border-radius: 12px; box-shadow: var(--shadow-lg);
+    display: flex; flex-direction: column; overflow: hidden;
+    animation: dialog-pop 320ms var(--ease-pop) both;
+  }
+  @keyframes dialog-pop { from { transform: scale(0.92) translateY(10px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
+  .aurora-strip {
+    height: 3px; flex-shrink: 0;
+    background: linear-gradient(90deg, #7c5cff, #2dd4bf, #7c5cff);
+    background-size: 200% 100%;
+    animation: aurora-slide 4s linear infinite;
+  }
+  @keyframes aurora-slide { from { background-position: 0% 0; } to { background-position: 200% 0; } }
+  .dlg-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px 8px; }
+  .dlg-head .t { font-size: 14px; font-weight: 600; }
+  .dlg-sub { padding: 0 14px 10px; font-size: 12px; color: var(--text-tertiary); }
+  .dlg-body { flex: 1; overflow-y: auto; padding: 4px 14px 12px; }
+  .summary-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .sum-card {
+    border: 1px solid var(--border-primary); border-radius: 8px; padding: 10px 12px;
+    background: var(--bg-secondary);
+  }
+  .sum-card .num { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .sum-card.mcp .num { color: #2dd4bf; }
+  .sum-card.skill .num { color: #7c5cff; }
+  .sum-card .lbl { font-size: 11.5px; color: var(--text-tertiary); margin-top: 2px; }
+  .group-title { font-size: 12px; font-weight: 600; color: var(--text-tertiary); margin: 10px 0 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .cap-item {
+    display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+    border: 1px solid var(--border-primary); border-radius: 8px; margin-bottom: 6px;
+    background: var(--bg-secondary); cursor: default;
+    /* HoverLift (react-bits): lift=4, duration=200ms */
+    transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
+    will-change: transform;
+  }
+  .cap-item:hover { transform: translateY(-4px); box-shadow: var(--hover-shadow); border-color: var(--border-secondary); }
+  .cap-icon {
+    width: 28px; height: 28px; border-radius: 7px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 14px;
+  }
+  .cap-icon.mcp { background: rgba(45, 212, 191, 0.14); color: #2dd4bf; }
+  .cap-icon.skill { background: rgba(124, 92, 255, 0.14); color: #a78bfa; }
+  .cap-meta { flex: 1; min-width: 0; }
+  .cap-name { font-size: 12.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cap-desc { font-size: 11px; color: var(--text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cap-badge { font-size: 10.5px; padding: 2px 8px; border-radius: 999px; flex-shrink: 0; }
+  .cap-badge.on { background: rgba(76, 175, 80, 0.14); color: var(--color-success); }
+  .cap-badge.off { background: var(--bg-tertiary); color: var(--text-tertiary); }
+  .dlg-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--border-primary); }
+  .foot-time { font-size: 11.5px; color: var(--text-tertiary); display: flex; align-items: center; gap: 6px; }
+  .foot-btns { display: flex; gap: 6px; }
+  .mini-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--border-secondary); background: var(--bg-secondary); color: var(--text-primary);
+    font-size: 12px; padding: 5px 10px; border-radius: 6px; cursor: pointer;
+    transition: background 0.15s, transform 0.15s var(--ease-pop);
+  }
+  .mini-btn:hover { background: var(--bg-hover); }
+  .mini-btn:active { transform: scale(0.95); }
+
+  /* ============ react-bits · SpinLoader（ring, spin .7s linear infinite） ============ */
+  .spin-ring {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 2px solid transparent; border-top-color: currentColor; border-right-color: currentColor;
+    animation: rb-spin 0.7s linear infinite; display: inline-block; flex-shrink: 0;
+  }
+  @keyframes rb-spin { to { transform: rotate(360deg); } }
+
+  /* ============ react-bits · FadeContent / AnimatedList（rb-fade-content-enter） ============ */
+  .rb-fade-content { animation: rb-fade-content-enter var(--rb-fade-duration, 300ms) var(--ease-out, ease-out) var(--rb-fade-delay, 0ms) both; }
+  @keyframes rb-fade-content-enter { from { opacity: 0; transform: translateY(var(--rb-fade-offset, 8px)); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ============ react-bits · ClickSpark（spark-fly 600ms ease-out forwards） ============ */
+  .click-spark-host { position: relative; }
+  .spark {
+    position: absolute; border-radius: 50%; pointer-events: none; z-index: 60;
+    animation: spark-fly 600ms ease-out forwards;
+  }
+  @keyframes spark-fly {
+    0% { transform: translate(0, 0) scale(1); opacity: 1; }
+    100% { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; }
+  }
+
+  /* ============ 方案 B · 锚定 Popover ============ */
+  .popover {
+    position: absolute; top: 54px; right: 10px; z-index: 30; width: 300px; max-height: 400px;
+    background: var(--bg-elevated); border: 1px solid var(--border-secondary); border-radius: 10px;
+    box-shadow: var(--shadow-lg); display: flex; flex-direction: column; overflow: hidden;
+    animation: pop-in 260ms var(--ease-pop) both; transform-origin: top right;
+  }
+  @keyframes pop-in { from { transform: scale(0.9) translateY(-6px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
+  .popover::before {
+    content: ""; position: absolute; top: -5px; right: 18px; width: 9px; height: 9px;
+    background: var(--bg-elevated); border-left: 1px solid var(--border-secondary); border-top: 1px solid var(--border-secondary);
+    transform: rotate(45deg);
+  }
+
+  /* ============ 方案 C · 内联推入面板 ============ */
+  .inline-panel {
+    position: absolute; top: 50px; left: 0; right: 0; z-index: 26; max-height: 300px;
+    background: var(--bg-secondary); border-bottom: 1px solid var(--border-primary);
+    box-shadow: var(--shadow-md); display: flex; flex-direction: column; overflow: hidden;
+    animation: panel-in 280ms var(--ease-out) both;
+  }
+  @keyframes panel-in { from { transform: translateY(-16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .inline-panel .panel-inner { overflow-y: auto; padding: 10px 14px 12px; }
+
+  /* ============ 表格 ============ */
+  table.cmp { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 10px; }
+  table.cmp th, table.cmp td { border: 1px solid var(--border-primary); padding: 8px 10px; text-align: left; vertical-align: top; line-height: 1.6; }
+  table.cmp th { background: var(--bg-tertiary); font-weight: 600; white-space: nowrap; }
+  table.cmp td code { background: var(--bg-tertiary); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+  .rec { display: inline-block; font-size: 10.5px; padding: 1px 7px; border-radius: 999px; background: rgba(76, 175, 80, 0.15); color: var(--color-success); font-weight: 600; }
+
+  .note-box {
+    border: 1px solid var(--border-primary); border-left: 3px solid #7c5cff;
+    border-radius: 8px; padding: 12px 14px; font-size: 12.5px; line-height: 1.8;
+    color: var(--text-secondary); background: var(--bg-secondary); margin-top: 12px;
+  }
+  .note-box b { color: var(--text-primary); }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div>
+    <h1>Session capabilities <span class="gradient-text">弹窗化方案对比</span></h1>
+    <p>react-bits 动效增强版 · 每个画布模拟 460px 窄工具窗口 · 点击画布右上角 🛠 按钮体验完整动效链路</p>
+  </div>
+  <div class="toolbar-btns">
+    <button class="btn" id="themeToggle">🌗 切换主题</button>
+    <button class="btn primary" id="replayAll">▶ 重播全部动效</button>
+  </div>
+</div>
+
+<!-- ==================== 根因回顾 ==================== -->
+<div class="section">
+  <h2>根因回顾</h2>
+  <p class="desc">
+    现状抽屉 <code>session-capabilities.less</code> 中 <code>.session-capabilities-drawer</code> 为右侧固定面板，
+    <code>width: min(360px, calc(100vw - 16px))</code>，且 <code>@media (max-width: 600px)</code> 时退化为 <code>width: 100%</code> ——
+    工具窗口常态宽度低于 600px，因此几乎总是呈现「全屏」观感。以下三个方案均将内容 DOM 保持不变、仅替换容器形态。
+  </p>
+</div>
+
+<!-- ==================== 基线 ==================== -->
+<div class="section">
+  <h2>基线 · 现状右侧抽屉</h2>
+  <p class="desc">窄窗口下抽屉占满整个可视区域，聊天流被完全遮挡。</p>
+  <div class="canvas-row">
+    <div class="canvas-block">
+      <div class="phone" id="cvBase">
+        <div class="phone-header">
+          <span class="title">Claude Code</span>
+          <button class="icon-btn click-spark-host" data-open="baseDrawer" title="会话能力">🛠</button>
+        </div>
+        <div class="chat-mock">
+          <div class="msg user">帮我看看这个报错</div>
+          <div class="msg ai">好的，我先检查一下 MCP 服务状态…</div>
+        </div>
+        <div class="drawer-backdrop" data-close="baseDrawer" style="display:none;"></div>
+        <div class="session-capabilities-drawer narrow-demo" id="baseDrawer" style="display:none;">
+          <div class="dlg-head"><span class="t">会话能力</span><button class="icon-btn" data-close="baseDrawer">✕</button></div>
+          <div class="dlg-sub">当前会话可见 5 项能力</div>
+          <div class="dlg-body" data-cap-list></div>
+        </div>
+      </div>
+      <div class="canvas-caption"><b>现状</b>：右侧固定抽屉，&lt;600px 时 width:100%，全屏感强、遮挡聊天流。</div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 方案 A ==================== -->
+<div class="section">
+  <h2>方案 A · 居中模态弹窗 <span class="rec">推荐</span> <span class="tag">react-bits 全家桶</span></h2>
+  <p class="desc">
+    复用 BaseDialog 设计语言（毛玻璃遮罩 + <code>--ease-pop</code> 过冲弹出 + aurora 光带）。
+    动效链路：<b>ClickSpark</b> 点击火花 → <b>dialog-pop</b> 弹窗弹出 → summary 数字 <b>CountUp</b> 滚动 → 能力列表 <b>AnimatedList</b>(stagger 50ms) 依次滑入 → 条目 <b>HoverLift</b> 悬浮抬升 → 刷新时 <b>SpinLoader</b> 旋转。
+  </p>
+  <div class="canvas-row">
+    <div class="canvas-block">
+      <div class="phone" id="cvA">
+        <div class="phone-header">
+          <span class="title">Claude Code</span>
+          <button class="icon-btn click-spark-host" data-open="aModal" data-spark title="会话能力">🛠</button>
+        </div>
+        <div class="chat-mock">
+          <div class="msg user">帮我看看这个报错</div>
+          <div class="msg ai">好的，我先检查一下 MCP 服务状态…</div>
+        </div>
+        <div class="dialog-overlay" data-close="aModal" id="aOverlay" style="display:none;">
+          <div class="dialog-base" id="aModal">
+            <div class="aurora-strip"></div>
+            <div class="dlg-head"><span class="t">会话能力</span><button class="icon-btn" data-close="aModal">✕</button></div>
+            <div class="dlg-sub">当前会话可见 <b data-countup="5">0</b> 项能力</div>
+            <div class="dlg-body">
+              <div class="summary-row">
+                <div class="sum-card mcp rb-fade-content anim-item" style="--rb-fade-delay:0ms"><div class="num" data-countup="3">0</div><div class="lbl">MCP 服务</div></div>
+                <div class="sum-card skill rb-fade-content anim-item" style="--rb-fade-delay:50ms"><div class="num" data-countup="2">0</div><div class="lbl">技能</div></div>
+              </div>
+              <div class="group-title">MCP 服务</div>
+              <div data-cap-list data-group="mcp"></div>
+              <div class="group-title">技能</div>
+              <div data-cap-list data-group="skill"></div>
+            </div>
+            <div class="dlg-foot">
+              <span class="foot-time"><span id="aRefreshSpin" style="display:none;color:var(--accent-primary)" class="spin-ring"></span>更新于 <span data-clock>14:32:05</span></span>
+              <div class="foot-btns">
+                <button class="mini-btn" data-refresh="aRefreshSpin">⟳ 刷新</button>
+                <button class="mini-btn" data-close="aModal">关闭能力</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="canvas-caption"><b>方案 A</b>：居中模态。遮罩毛玻璃模糊聊天流，弹窗 340px 居中，Esc / 点遮罩 / ✕ 关闭。与项目 BaseDialog 视觉语言完全一致。</div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 方案 B ==================== -->
+<div class="section">
+  <h2>方案 B · 锚定 Popover <span class="tag">轻量</span></h2>
+  <p class="desc">从 header 🛠 按钮下方弹出小面板（transform-origin: top right），零遮罩不挡聊天流，点击外部即关。内部同样使用 AnimatedList + HoverLift。</p>
+  <div class="canvas-row">
+    <div class="canvas-block">
+      <div class="phone" id="cvB">
+        <div class="phone-header">
+          <span class="title">Claude Code</span>
+          <button class="icon-btn click-spark-host" data-open="bPop" data-spark title="会话能力">🛠</button>
+        </div>
+        <div class="chat-mock">
+          <div class="msg user">帮我看看这个报错</div>
+          <div class="msg ai">好的，我先检查一下 MCP 服务状态…</div>
+          <div class="msg user">MCP 都连上了吗？</div>
+        </div>
+        <div class="popover" id="bPop" style="display:none;">
+          <div class="dlg-head" style="padding:10px 12px 6px;"><span class="t" style="font-size:13px;">会话能力</span><button class="icon-btn" style="width:24px;height:24px;font-size:12px;" data-close="bPop">✕</button></div>
+          <div class="dlg-sub" style="padding:0 12px 8px;font-size:11.5px;">当前会话可见 5 项能力</div>
+          <div class="dlg-body" style="padding:0 10px 10px;" data-cap-list></div>
+          <div class="dlg-foot" style="padding:8px 12px;">
+            <span class="foot-time">更新于 <span data-clock>14:32:05</span></span>
+            <button class="mini-btn" data-refresh="bRefreshSpin"><span id="bRefreshSpin" style="display:none;" class="spin-ring"></span>⟳ 刷新</button>
+          </div>
+        </div>
+      </div>
+      <div class="canvas-caption"><b>方案 B</b>：锚定弹出。最轻量，但 300px 宽度下长名称截断更多；适合快速查看而非管理。</div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 方案 C ==================== -->
+<div class="section">
+  <h2>方案 C · 内联推入面板 <span class="tag">无遮挡</span></h2>
+  <p class="desc">header 下方展开内联面板，聊天流被推下而非遮盖（<code>translateY(-16px)</code> 滑入）。适合希望保持上下文可见的场景。</p>
+  <div class="canvas-row">
+    <div class="canvas-block">
+      <div class="phone" id="cvC">
+        <div class="phone-header">
+          <span class="title">Claude Code</span>
+          <button class="icon-btn click-spark-host" data-open="cPanel" data-spark title="会话能力">🛠</button>
+        </div>
+        <div class="chat-mock" style="top:50px;">
+          <div class="msg user">帮我看看这个报错</div>
+          <div class="msg ai">好的，我先检查一下 MCP 服务状态…</div>
+        </div>
+        <div class="inline-panel" id="cPanel" style="display:none;">
+          <div class="dlg-head" style="padding:10px 14px 4px;"><span class="t" style="font-size:13px;">会话能力</span><button class="icon-btn" style="width:24px;height:24px;font-size:12px;" data-close="cPanel">✕</button></div>
+          <div class="dlg-sub" style="padding:0 14px 6px;font-size:11.5px;">当前会话可见 5 项能力</div>
+          <div class="panel-inner" data-cap-list></div>
+        </div>
+      </div>
+      <div class="canvas-caption"><b>方案 C</b>：内联推入。聊天流始终部分可见，但纵向空间占用大，能力多时仍需内部滚动。</div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== react-bits 动效映射表 ==================== -->
+<div class="section">
+  <h2>react-bits 动效映射表（实现时可逐项对号入座）</h2>
+  <table class="cmp">
+    <tr><th>页面动效</th><th>react-bits 组件</th><th>关键参数（与源码一致）</th><th>落地位置</th></tr>
+    <tr><td>点击火花</td><td><code>ClickSpark.tsx</code></td><td>particleCount=8~10 · colors [#4ea1ff,#ff6b6b,#ffd93d,#6bcb77] · size 2-6px · velocity 50-150 · 600ms ease-out · <code>spark-fly</code> translate(--dx,--dy) scale(0)</td><td>header 🛠 触发按钮</td></tr>
+    <tr><td>弹窗弹出</td><td>—（BaseDialog 既有）</td><td><code>dialog-pop</code> scale(.92)+translateY(10px) → 1，320ms <code>--ease-pop</code></td><td>方案 A dialog-base</td></tr>
+    <tr><td>数字滚动</td><td><code>CountUp.tsx</code></td><td>rAF + easeOutCubic <code>1-(1-t)^3</code> · end 变化重放 · setTimeout 兜底防 JCEF 后台冻结</td><td>summary 卡片数字、「N 项能力」</td></tr>
+    <tr><td>列表滑入</td><td><code>AnimatedList.tsx</code> + <code>FadeContent.tsx</code></td><td>stagger=50ms · duration=300ms · offset=8px · <code>rb-fade-content-enter</code> both</td><td>能力条目、summary 卡片</td></tr>
+    <tr><td>悬浮抬升</td><td><code>HoverLift.tsx</code></td><td>lift=4px · duration=200ms ease · hover 阴影 0 4px 8px + 0 2px 4px</td><td>能力条目 cap-item</td></tr>
+    <tr><td>刷新旋转</td><td><code>SpinLoader.tsx</code></td><td>ring 14px · border 2px transparent(top/right currentColor) · <code>rb-spin</code> .7s linear infinite</td><td>footer 刷新按钮旁</td></tr>
+    <tr><td>光带流动</td><td>—（agent-dialog aurora）</td><td><code>aurora-slide</code> background-position 0→200%，4s linear infinite</td><td>方案 A 顶部 3px 光带</td></tr>
+  </table>
+  <div class="note-box">
+    <b>实现要点</b>：① 所有动效均为纯 CSS animation / CSS 变量驱动，无需新增依赖；② <code>FadeContent</code> 是「装饰子元素不加 wrapper」的设计，直接套在现有 <code>&lt;CapabilityItem&gt;</code> 上即可，不破坏 flex 布局；③ <code>CountUp</code> 自带 rAF 饥饿兜底（JCEF webview 后台挂载场景不会冻在 0）；④ 打开弹窗时按 index 重设 <code>--rb-fade-delay</code> 即可重放入场动画；⑤ 全部动效已含 <code>prefers-reduced-motion</code> 降级。
+  </div>
+</div>
+
+<!-- ==================== 对比表 ==================== -->
+<div class="section">
+  <h2>方案对比与推荐</h2>
+  <table class="cmp">
+    <tr><th>维度</th><th>A · 居中模态 <span class="rec">推荐</span></th><th>B · Popover</th><th>C · 内联面板</th></tr>
+    <tr><td>视觉一致性</td><td>★ 与 BaseDialog/MCP 确认框同语言</td><td>☆ 新形态</td><td>☆ 新形态</td></tr>
+    <tr><td>空间利用</td><td>340px 定宽居中，窄宽窗都稳定</td><td>300px，锚定右上</td><td>全宽，纵向挤压聊天</td></tr>
+    <tr><td>遮挡程度</td><td>遮罩模糊（有意图的聚焦）</td><td>几乎无遮挡</td><td>零遮挡但推挤布局</td></tr>
+    <tr><td>实现成本</td><td>低（容器替换，内容复用 Drawer DOM）</td><td>低（需处理锚定/外点关闭）</td><td>中（App 布局需让位）</td></tr>
+    <tr><td>动效承载</td><td>pop + backdrop-blur + aurora 最完整</td><td>pop-in 单一</td><td>slide-in 单一</td></tr>
+  </table>
+  <div class="note-box"><b>推荐结论</b>：主线落 <b>方案 A</b>（居中模态）；若后续需要「边聊边瞄一眼能力」的低打扰入口，可将方案 B 作为二级快捷视图叠加，两者共用同一内容组件。</div>
+</div>
+
+<script>
+  /* ============ 能力数据（真实 i18n 文案） ============ */
+  const CAPS = {
+    mcp: [
+      { icon: "🔌", name: "context7", desc: "文档检索 · 已连接", badge: "已连接", on: true },
+      { icon: "🎭", name: "playwright", desc: "浏览器自动化 · 已连接", badge: "已连接", on: true },
+      { icon: "🧠", name: "serena", desc: "语义代码检索 · 未启用", badge: "未启用", on: false },
+    ],
+    skill: [
+      { icon: "⚡", name: "commit", desc: "提交信息生成", badge: "可用", on: true },
+      { icon: "🔍", name: "review", desc: "代码评审", badge: "可用", on: true },
+    ],
+  };
+
+  function capItemHTML(c, i) {
+    return `<div class="cap-item rb-fade-content anim-item" style="--rb-fade-delay:${i * 50}ms">
+      <div class="cap-icon ${c.on ? (c.badge.includes("连接") ? "mcp" : "skill") : "skill"}">${c.icon}</div>
+      <div class="cap-meta"><div class="cap-name">${c.name}</div><div class="cap-desc">${c.desc}</div></div>
+      <span class="cap-badge ${c.on ? "on" : "off"}">${c.badge}</span>
+    </div>`;
+  }
+  function renderLists() {
+    document.querySelectorAll("[data-cap-list]").forEach((el) => {
+      if (el.dataset.group === "mcp") el.innerHTML = CAPS.mcp.map(capItemHTML).join("");
+      else if (el.dataset.group === "skill") el.innerHTML = CAPS.skill.map(capItemHTML).join("");
+      else el.innerHTML = [...CAPS.mcp, ...CAPS.skill].map(capItemHTML).join("");
+    });
+  }
+  renderLists();
+
+  /* ============ 开关逻辑 ============ */
+  const openState = {};
+  function setOpen(id, open) {
+    openState[id] = open;
+    const map = { baseDrawer: ["#baseDrawer", "#cvBase .drawer-backdrop"], aModal: ["#aOverlay"], bPop: ["#bPop"], cPanel: ["#cPanel"] };
+    (map[id] || []).forEach((sel) => { const n = document.querySelector(sel); if (n) n.style.display = open ? "" : "none"; });
+    if (open) {
+      replayStagger(id === "baseDrawer" ? "#baseDrawer" : "#" + id);
+      runCountUps(id === "aModal" ? "#aModal" : "#" + id);
+    }
+  }
+  document.querySelectorAll("[data-open]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      const id = btn.dataset.open;
+      if (btn.dataset.spark !== undefined) spawnSparks(btn, e);
+      setOpen(id, !openState[id]);
+    });
+  });
+  document.querySelectorAll("[data-close]").forEach((el) => {
+    el.addEventListener("click", () => setOpen(el.dataset.close, false));
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") Object.keys(openState).forEach((k) => openState[k] && setOpen(k, false));
+  });
+
+  /* ============ react-bits · ClickSpark（vanilla 复刻） ============ */
+  function spawnSparks(host, e) {
+    const colors = ["#4ea1ff", "#ff6b6b", "#ffd93d", "#6bcb77"];
+    const rect = host.getBoundingClientRect();
+    const x = e.clientX - rect.left, y = e.clientY - rect.top;
+    for (let i = 0; i < 10; i++) {
+      const s = document.createElement("span");
+      s.className = "spark";
+      const angle = Math.random() * Math.PI * 2;
+      const velocity = 50 + Math.random() * 100;
+      const size = 2 + Math.random() * 4;
+      s.style.cssText = `left:${x}px;top:${y}px;width:${size}px;height:${size}px;background:${colors[(Math.random() * colors.length) | 0]};--dx:${Math.cos(angle) * velocity}px;--dy:${Math.sin(angle) * velocity}px;`;
+      host.appendChild(s);
+      setTimeout(() => s.remove(), 650);
+    }
+  }
+
+  /* ============ react-bits · CountUp（easeOutCubic） ============ */
+  function countUpEl(el, end, duration = 900) {
+    const t0 = performance.now();
+    (function frame(t) {
+      const p = Math.min((t - t0) / duration, 1);
+      el.textContent = Math.round(end * (1 - Math.pow(1 - p, 3)));
+      if (p < 1) requestAnimationFrame(frame);
+    })(performance.now());
+  }
+  function runCountUps(scopeSel) {
+    const scope = document.querySelector(scopeSel);
+    if (!scope) return;
+    scope.querySelectorAll("[data-countup]").forEach((el) => countUpEl(el, +el.dataset.countup));
+  }
+
+  /* ============ AnimatedList 重播（重设 delay + 强制 reflow） ============ */
+  function replayStagger(scopeSel) {
+    const scope = document.querySelector(scopeSel);
+    if (!scope) return;
+    scope.querySelectorAll(".anim-item").forEach((el) => {
+      el.style.animation = "none";
+      void el.offsetWidth;
+      el.style.animation = "";
+    });
+  }
+  document.getElementById("replayAll").addEventListener("click", () => {
+    ["#baseDrawer", "#aModal", "#bPop", "#cPanel"].forEach((sel) => { replayStagger(sel); runCountUps(sel); });
+    ["#aModal", "#bPop", "#cPanel"].forEach((sel) => {
+      const n = document.querySelector(sel);
+      if (!n) return;
+      n.style.animation = "none"; void n.offsetWidth; n.style.animation = "";
+    });
+  });
+
+  /* ============ 刷新模拟（SpinLoader 900ms） ============ */
+  document.querySelectorAll("[data-refresh]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const spin = document.getElementById(btn.dataset.refresh);
+      if (!spin) return;
+      spin.style.display = "";
+      setTimeout(() => {
+        spin.style.display = "none";
+        document.querySelectorAll("#" + btn.dataset.refresh.replace("Spin", "") + " [data-clock], [data-clock]").forEach((c) => {
+          c.textContent = new Date().toLocaleTimeString("zh-CN", { hour12: false });
+        });
+        replayStagger("#" + btn.closest(".phone").id.replace("cv", "") );
+      }, 900);
+    });
+  });
+
+  /* ============ 主题切换 ============ */
+  document.getElementById("themeToggle").addEventListener("click", () => {
+    const html = document.documentElement;
+    html.dataset.theme = html.dataset.theme === "dark" ? "light" : "dark";
+  });
+
+  /* 初始打开基线抽屉便于对比 */
+  setOpen("baseDrawer", true);
+</script>
+</body>
+</html>
