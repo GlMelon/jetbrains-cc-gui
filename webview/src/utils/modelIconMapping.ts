@@ -23,6 +23,8 @@ export type ModelVendor =
   | 'bailian'
   | 'longcat'
   | 'opencode'
+  | 'pi'
+  | 'omp'
   | 'doubao'
   | 'spark'
   | 'hunyuan'
@@ -95,7 +97,6 @@ const BASE_URL_VENDOR_PATTERNS: ReadonlyArray<readonly [RegExp, ModelVendor]> = 
 const PROVIDER_TO_VENDOR: Record<string, ModelVendor> = {
   claude: 'claude',
   codex: 'openai',
-  opencode: 'opencode',
   qwen: 'qwen',
   deepseek: 'deepseek',
   kimi: 'kimi',
@@ -107,10 +108,17 @@ const PROVIDER_TO_VENDOR: Record<string, ModelVendor> = {
   bailian: 'bailian',
   'bailian-coding': 'bailian',
   longcat: 'longcat',
+  // Runtime CLI provider id (ProviderSelect, BlinkingLogo — logo follows CLI only)
+  opencode: 'opencode',
+  // Managed Codex/Claude preset that uses OpenCode-Go endpoints
   'opencode-go': 'opencode',
+  // Runtime CLI provider id (ProviderSelect, BlinkingLogo, CliSection)
+  pi: 'pi',
+  omp: 'omp',
+  // DeepSeek Harness — brand follows DeepSeek.
+  dsh: 'deepseek',
   openrouter: 'openrouter',
   grok: 'grok',
-  pi: 'grok',
 };
 
 /**

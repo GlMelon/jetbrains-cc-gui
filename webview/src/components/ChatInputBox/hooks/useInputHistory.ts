@@ -43,6 +43,17 @@ type KeyEventLike = {
   stopPropagation: () => void;
 };
 
+export interface UseInputHistoryOptions {
+  editableRef: EditableRef;
+  getTextContent: () => string;
+  handleInput: (inputType?: string) => void;
+}
+
+export interface UseInputHistoryReturn {
+  record: (text: string) => void;
+  handleKeyDown: (e: KeyEventLike) => boolean;
+}
+
 /**
  * Provides input history navigation for the chat input box.
  *
@@ -55,11 +66,7 @@ export function useInputHistory({
   editableRef,
   getTextContent,
   handleInput,
-}: {
-  editableRef: EditableRef;
-  getTextContent: () => string;
-  handleInput: (isComposingFromEvent?: boolean) => void;
-}): { record: (text: string) => void; handleKeyDown: (e: KeyEventLike) => boolean } {
+}: UseInputHistoryOptions): UseInputHistoryReturn {
   const historyRef = useRef<string[]>([]);
   const historyIndexRef = useRef<number>(-1);
   const draftRef = useRef<string>('');
@@ -88,7 +95,7 @@ export function useInputHistory({
       } catch {
         // Defensive: JCEF/IME edge cases can throw on DOM selection APIs.
       } finally {
-        handleInput(false);
+        handleInput();
       }
     },
     [editableRef, handleInput]

@@ -2,6 +2,7 @@ package com.github.claudecodegui.session;
 
 
 import com.github.claudecodegui.common.CommonConstants;
+import com.github.claudecodegui.util.PlatformUtils;
 
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -26,6 +27,10 @@ public class SessionState {
         modes.add(CommonConstants.PERMISSION_MODE_ACCEPT_EDITS);
         modes.add(CommonConstants.PERMISSION_MODE_AUTO_EDIT);
         modes.add(CommonConstants.PERMISSION_MODE_BYPASS);
+        // omp model-role modes (`omp --model smol|slow`); only offered by the
+        // webview for the omp provider, but validated here so set_mode accepts them.
+        modes.add("smol");
+        modes.add("slow");
         VALID_PERMISSION_MODES = Collections.unmodifiableSet(modes);
 
         Set<String> providers = new HashSet<>();
@@ -37,6 +42,9 @@ public class SessionState {
         providers.add(CommonConstants.PROVIDER_GROK);
         providers.add(CommonConstants.PROVIDER_KIMI);
         providers.add(CommonConstants.PROVIDER_PI);
+        // omp/dsh:上游 v0.5.4 新增的纯 CLI provider,纳入白名单供 setProvider 持久化。
+        providers.add(CommonConstants.PROVIDER_OMP);
+        providers.add(CommonConstants.PROVIDER_DSH);
         VALID_PROVIDERS = Collections.unmodifiableSet(providers);
     }
 
@@ -47,6 +55,42 @@ public class SessionState {
         return mode != null && VALID_PERMISSION_MODES.contains(mode.trim());
     }
 
+
+    /**
+     * Check whether the given DSH agent preset id is recognized.
+     */
+    public static boolean isValidDshPreset(String preset) {
+        if (preset == null) {
+            return false;
+        }
+        String normalized = preset.trim();
+        // Keep aligned with DSH_PRESET_IDS in ai-bridge/services/dsh/preset-overlay.js
+        // (router-standard ships with the dsh-routing-suite user presets).
+        return normalized.isEmpty()
+                || Set.of("standard", "code", "minimal", "cordis", "router-standard").contains(normalized)
+                || discoverUserDshPresetIds().contains(normalized);
+    }
+
+    public static List<String> discoverUserDshPresetIds() {
+        List<String> ids = new ArrayList<>();
+        String dshHome = System.getenv("DSH_HOME");
+        java.nio.file.Path dshRoot = dshHome != null && !dshHome.trim().isEmpty()
+                ? java.nio.file.Paths.get(dshHome.trim())
+                : java.nio.file.Paths.get(PlatformUtils.getHomeDirectory(), ".dsh");
+        java.nio.file.Path root = dshRoot.resolve(".agent-presets");
+        try (java.nio.file.DirectoryStream<java.nio.file.Path> stream =
+                     java.nio.file.Files.newDirectoryStream(root)) {
+            for (java.nio.file.Path entry : stream) {
+                if (java.nio.file.Files.isDirectory(entry)
+                        && java.nio.file.Files.isRegularFile(entry.resolve("agent.cordis.yml"))) {
+                    ids.add(entry.getFileName().toString());
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        java.util.Collections.sort(ids);
+        return ids;
+    }
 
     // Session identifiers
     private volatile String sessionId;
@@ -91,6 +135,8 @@ public class SessionState {
     private volatile String codexServiceTier = null;
     // Context window override from frontend (null = use backend default)
     private volatile Integer contextWindowOverride;
+    // DSH agent preset id ("" = no overlay; see ai-bridge/services/dsh/preset-overlay.js)
+    private volatile String dshPreset = "";
 
     // Slash commands — volatile for cross-thread visibility (same reason as permissionMode/model/provider)
     private volatile List<String> slashCommands = new ArrayList<>();
@@ -172,6 +218,10 @@ public class SessionState {
 
     public String getCodexServiceTier() {
         return codexServiceTier;
+    }
+
+    public String getDshPreset() {
+        return dshPreset;
     }
 
     public String getRuntimeSessionEpoch() {
@@ -260,7 +310,50 @@ public class SessionState {
     }
 
     public void setModel(String model) {
-        this.model = model;
+        this.model = normalizeRetiredModelId(model);
+    }
+
+    /**
+     * Migrate retired Claude model ids to their live replacement on write.
+     *
+     * <p>Persisted tab state (.idea/claudeCodeTabState.xml) and history sessions keep
+     * whatever model id was saved forever. When a model is retired from the API
+     * (sonnet-4-6, sonnet-4-7, ...), restoring such a tab would otherwise spawn a CLI
+     * pinned to a dead model that fails on every send ("It may not exist or you may
+     * not have access to it") - see #1678. Migrating here self-heals restored tabs
+     * without touching the persisted XML.</p>
+     *
+     * @param model raw model id (may be null, blank, carry a [1m] suffix, or be retired)
+     * @return the model id to store - retired ids mapped to their live replacement,
+     *         anything else (including non-Claude ids) passed through unchanged
+     */
+    public static String normalizeRetiredModelId(String model) {
+        if (model == null) {
+            return null;
+        }
+        String trimmed = model.trim();
+        if (trimmed.isEmpty()) {
+            // Blank input normalizes to "" like every other path returns trimmed.
+            return trimmed;
+        }
+        String base = trimmed;
+        boolean oneM = false;
+        if (base.endsWith("[1m]")) {
+            base = base.substring(0, base.length() - "[1m]".length());
+            oneM = true;
+        }
+        switch (base) {
+            case "claude-sonnet-4-6":
+            case "claude-sonnet-4-7":
+                base = "claude-sonnet-5";
+                break;
+            case "claude-opus-4-6":
+                base = "claude-opus-4-8";
+                break;
+            default:
+                return trimmed;
+        }
+        return oneM ? base + "[1m]" : base;
     }
 
     public void setProvider(String provider) {
@@ -297,6 +390,12 @@ public class SessionState {
         this.codexServiceTier = codexServiceTier;
     }
 
+    public void setDshPreset(String preset) {
+        if (isValidDshPreset(preset)) {
+            this.dshPreset = preset.trim();
+        }
+    }
+
     public void setRuntimeSessionEpoch(String runtimeSessionEpoch) {
         if (runtimeSessionEpoch == null || runtimeSessionEpoch.trim().isEmpty()) {
             this.runtimeSessionEpoch = UUID.randomUUID().toString();
@@ -326,19 +425,17 @@ public class SessionState {
     }
 
     /**
-     * Get effective max tokens: use frontend override if set, capped at model's actual limit.
-     * For known models (registered or ClaudeRole enum), the override is capped.
-     * For unknown models, the override is trusted as-is.
+     * Get effective max tokens: use the context window override if set, otherwise the model's default limit.
+     *
+     * <p>override 唯一写入点是 {@code ModelProviderHandler.applyModelChange},其值已是 resolver
+     * 权威解析结果(claude 路径 = min(前端请求, registry/角色上限,1M 判定);codex 路径 = registry
+     * 条目窗口),此处直接信任,不再按 model 重复 cap。重复 cap 会因 state.model 已剥容量后缀、
+     * 且 registry.find 同样剥后缀(带 [1m] 的独立条目永远查不到),对「base 条目 200k +
+     * [1m] 条目 1M」的双条目自定义模型命中 base 条目,把 resolver 解析出的 1M 错误压回 200k。
      */
     public int getEffectiveMaxTokens() {
         if (contextWindowOverride != null && contextWindowOverride > 0) {
-            if (!com.github.claudecodegui.handler.provider.ModelProviderHandler.isKnownModel(null, model)) {
-                return contextWindowOverride;
-            }
-            int modelMaxLimit = com.github.claudecodegui.handler.provider.ModelProviderHandler
-                    .getModelContextLimit(model);
-            // Cap at model's actual limit for known models
-            return Math.min(contextWindowOverride, modelMaxLimit);
+            return contextWindowOverride;
         }
         return com.github.claudecodegui.handler.provider.ModelProviderHandler.getModelContextLimit(model);
     }

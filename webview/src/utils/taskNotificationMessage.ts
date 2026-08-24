@@ -1,4 +1,4 @@
-import type { ClaudeMessage, TaskEvent, TaskEventMap } from '../types';
+import type { ClaudeMessage, TaskEvent, TaskEventMap, TaskEventStatus } from '../types';
 
 // Recent Claude Code terminates a background Agent by injecting a
 // <task-notification> XML as the content of a plain user message in the main
@@ -8,8 +8,8 @@ import type { ClaudeMessage, TaskEvent, TaskEventMap } from '../types';
 // launch ack text. This marker is the cheapest possible reject for non-carriers.
 const TASK_NOTIFICATION_MARKER = '<task-notification>';
 
-const STATUS_ALIASES: Record<string, TaskEvent['status']> = { killed: 'stopped' };
-const VALID_TERMINAL_STATUSES = new Set<TaskEvent['status']>(['completed', 'failed', 'stopped']);
+const STATUS_ALIASES: Record<string, TaskEventStatus> = { killed: 'stopped' };
+const VALID_TERMINAL_STATUSES = new Set<TaskEventStatus>(['completed', 'failed', 'stopped']);
 
 function extractTag(xml: string, tag: string): string | undefined {
   const open = `<${tag}>`;

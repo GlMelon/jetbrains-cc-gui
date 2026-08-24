@@ -3,14 +3,20 @@
 
 /**
  * AI Bridge Channel Manager
- * Unified bridge entry point for Claude and Codex SDKs
+ * Unified bridge entry point for Claude/Codex SDKs and CLI providers
  *
  * Command format:
  *   node channel-manager.js <provider> <command> [args...]
  *
  * Provider:
- *   claude - Claude Agent SDK (@anthropic-ai/claude-agent-sdk)
- *   codex  - Codex SDK (@openai/codex-sdk)
+ *   claude   - Claude Agent SDK (@anthropic-ai/claude-agent-sdk)
+ *   codex    - Codex SDK (@openai/codex-sdk)
+ *   grok     - Grok CLI (no SDK; spawns local `grok` binary)
+ *   kimi     - Kimi CLI (no SDK; spawns local `kimi` binary)
+ *   opencode - OpenCode CLI (no SDK; spawns local `opencode` binary)
+ *   pi       - PI CLI (no SDK; spawns local `pi` binary)
+ *   omp      - OMP CLI (no SDK; spawns local `omp` binary)
+ *   dsh      - DeepSeek Harness (Host RPC + WS mux against local `dsh web`)
  *
  * Commands:
  *   send                - Send a message (parameters passed via stdin as JSON)
@@ -28,6 +34,28 @@ import { readStdinData } from './utils/stdin-utils.js';
 import { getDefaultProviderRegistry } from './channels/provider-registry.js';
 import { injectStartupEnvVars, configureCliIdentity } from './config/api-config.js';
 import { resolveExitStrategy, exitDelayFor, EXIT_STRATEGY } from './utils/exit-strategy.js';
+
+/**
+ * Write a JSON payload to stdout and exit once the bytes are flushed.
+ *
+ * `console.log` followed by `process.exit` races the stdout buffer: for a
+ * piped stdout the underlying `process.stdout.write` is asynchronous, and
+ * `process.exit` does not wait for it to drain, truncating the JSON. Writing
+ * explicitly and exiting in the flush callback guarantees the payload reaches
+ * the OS pipe first. The timeout fallback ensures the process still terminates
+ * if the callback never fires (e.g. a broken pipe).
+ */
+function writeJsonAndExit(payload, code = 0) {
+  let exited = false;
+  const exitNow = () => {
+    if (!exited) {
+      exited = true;
+      process.exit(code);
+    }
+  };
+  process.stdout.write(JSON.stringify(payload) + '\n', 'utf8', exitNow);
+  setTimeout(exitNow, 5000);
+}
 
 // Sync proxy/TLS settings and AWS credentials from ~/.claude/settings.json
 // BEFORE any network activity, but only for explicitly authorized Local
@@ -59,20 +87,18 @@ console.error('[DIAG-ENTRY] Args:', args);
 // Error handling
 process.on('uncaughtException', (error) => {
   console.error('[UNCAUGHT_ERROR]', error.message);
-  console.log(JSON.stringify({
+  writeJsonAndExit({
     success: false,
     error: error.message
-  }));
-  process.exit(1);
+  }, 1);
 });
 
 process.on('unhandledRejection', (reason) => {
   console.error('[UNHANDLED_REJECTION]', reason);
-  console.log(JSON.stringify({
+  writeJsonAndExit({
     success: false,
     error: String(reason)
-  }));
-  process.exit(1);
+  }, 1);
 });
 
 const providerRegistry = getDefaultProviderRegistry();
@@ -84,22 +110,22 @@ const providerRegistry = getDefaultProviderRegistry();
     // Validate provider
     console.error('[DIAG-EXEC] Validating provider...');
     if (!provider || !providerRegistry.has(provider)) {
-      console.error('Invalid provider. Use "claude", "codex", or "opencode"');
-      console.log(JSON.stringify({
+      console.error('Invalid provider. Use "claude", "codex", "grok", "kimi", "opencode", "pi", "omp", or "dsh"');
+      writeJsonAndExit({
         success: false,
         error: 'Invalid provider: ' + provider
-      }));
-      process.exit(1);
+      }, 1);
+      return;
     }
 
     // Validate command
     if (!command) {
       console.error('No command specified');
-      console.log(JSON.stringify({
+      writeJsonAndExit({
         success: false,
         error: 'No command specified'
-      }));
-      process.exit(1);
+      }, 1);
+      return;
     }
 
     // Read stdin data
@@ -128,10 +154,9 @@ const providerRegistry = getDefaultProviderRegistry();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error('[COMMAND_ERROR]', message);
-    console.log(JSON.stringify({
+    writeJsonAndExit({
       success: false,
       error: message
-    }));
-    process.exit(1);
+    }, 1);
   }
 })();

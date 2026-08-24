@@ -28,7 +28,10 @@ export const logWarn = (/** @type {string} */ tag, /** @type {any[]} */ ...args)
 export const logInfo = (/** @type {string} */ tag, /** @type {any[]} */ ...args) => debugLog(3, tag, ...args);
 export const logDebug = (/** @type {string} */ tag, /** @type {any[]} */ ...args) => debugLog(4, tag, ...args);
 export const VALID_SANDBOX_MODES = new Set(['read-only', 'workspace-write', 'danger-full-access']);
-export const VALID_APPROVAL_POLICIES = new Set(['never', 'on-request', 'on-failure', 'untrusted']);
+export const VALID_APPROVAL_POLICIES = new Set(['never', 'on-request', 'on-failure']);
+// Note: 'untrusted' was removed in Codex CLI v0.149.0 - its semantics were merged
+// into 'on-request'. Passing it makes new CLI versions exit with
+// "approval_policy = \"untrusted\" is no longer supported; remove this setting" (#1702).
 export const CODEX_CLI_ENV_BLOCKLIST = new Set([
   'CODEX_USE_STDIN',
   'CODEX_APPROVAL_POLICY',

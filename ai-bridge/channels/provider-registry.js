@@ -5,6 +5,8 @@ import { opencodeChannelDescriptor } from './opencode-channel.js';
 import { grokChannelDescriptor } from './grok-channel.js';
 import { kimiChannelDescriptor } from './kimi-channel.js';
 import { piChannelDescriptor } from './pi-channel.js';
+import { ompChannelDescriptor } from './omp-channel.js';
+import { dshChannelDescriptor } from './dsh-channel.js';
 
 /**
  * Provider channel descriptor:provider 名 + 支持命令列表 + dispatch 入口。
@@ -74,6 +76,8 @@ export function getDefaultProviderRegistry() {
     grokChannelDescriptor,
     kimiChannelDescriptor,
     piChannelDescriptor,
+    ompChannelDescriptor,
+    dshChannelDescriptor,
   ]);
 }
 

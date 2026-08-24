@@ -124,6 +124,14 @@ public class SessionSendService {
             resolvedMode = CommonConstants.PERMISSION_MODE_DEFAULT;
         }
 
+        // Codex 与纯 CLI provider(grok/kimi/pi/opencode/omp/dsh)没有 Claude 的 plan 模式等价物,
+        // plan 统一降级为 default(与前端 normalizeCliPermissionMode 双保险)。
+        // 例外:omp 的 "plan" 是 model role(`omp --model plan`)而非 Claude plan 模式,保留原值。
+        if (CommonConstants.PERMISSION_MODE_PLAN.equals(resolvedMode)
+                && !"claude".equals(provider)
+                && !CommonConstants.PROVIDER_OMP.equals(provider)) {
+            return CommonConstants.PERMISSION_MODE_DEFAULT;
+        }
         return resolvedMode;
     }
 
@@ -148,6 +156,36 @@ public class SessionSendService {
             return null;
         }
         return ClaudeCodeGuiBundle.message("error.codexLocalAccessNotAuthorized");
+    }
+
+    /**
+     * sendMessageToProvider with an optional per-message DSH agent preset
+     * (per-message preset switching — upstream v0.5.4). Non-blank presets are
+     * persisted into {@link SessionState} before the send; the DSH runtime
+     * reads the effective preset from there when building its CLI args.
+     */
+    public CompletableFuture<Void> sendMessageToProvider(
+            String channelId,
+            String input,
+            List<ClaudeSession.Attachment> attachments,
+            JsonObject openedFilesJson,
+            String externalAgentPrompt,
+            List<String> fileTagPaths,
+            String requestedPermissionMode,
+            String requestedDshPreset
+    ) {
+        if (requestedDshPreset != null && !requestedDshPreset.trim().isEmpty()) {
+            state.setDshPreset(requestedDshPreset);
+        }
+        return sendMessageToProvider(
+                channelId,
+                input,
+                attachments,
+                openedFilesJson,
+                externalAgentPrompt,
+                fileTagPaths,
+                requestedPermissionMode
+        );
     }
 
     public CompletableFuture<Void> sendMessageToProvider(

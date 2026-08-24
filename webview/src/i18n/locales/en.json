@@ -49,6 +49,7 @@
     "removeAttachment": "Remove attachment",
     "closePreview": "Close preview",
     "loadingDropdown": "Loading...",
+    "modelsLoadFailed": "Failed to load models. Click to retry",
     "stopGeneration": "Stop generation",
     "queueWaiting": "Queued, {{count}} request(s) ahead",
     "imagePreview": "Preview",
@@ -305,17 +306,26 @@
         "provider": {
           "claude": "Claude Code",
           "codex": "Codex",
-          "opencode": "OpenCode"
+          "grok": "Grok CLI",
+          "kimi": "Kimi CLI",
+          "opencode": "OpenCode",
+          "pi": "PI CLI",
+          "omp": "OMP CLI"
         },
         "currentProviderAuto": "Currently using automatic selection: {{provider}}",
         "currentProviderManual": "Currently using manually selected provider: {{provider}}",
         "currentProviderUnavailable": "The selected provider is currently unavailable: {{provider}}",
+        "modeLabel": "Selection mode",
+        "modeAuto": "Auto",
+        "modeManual": "Manual",
+        "autoSummary": "Follows the current chat CLI · currently {{provider}}",
+        "autoUnavailable": "No CLI is available right now. Switch to Manual to pick one.",
         "resetToDefault": "Restore Default"
       },
       "diffExpanded": {
-        "label": "Expand Diffs by Default",
-        "enabled": "Expanded",
-        "disabled": "Collapsed",
+        "label": "Expand diffs by default",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
         "hint": "When enabled, code diffs in chat will be expanded by default. When disabled, diffs start collapsed and can be expanded by clicking."
       },
       "commitGeneration": {
@@ -343,13 +353,13 @@
         "hint": "When enabled, shows current model and mode info in the IDE status bar (e.g. GUI [Opus] {Auto}). When disabled, the widget is hidden."
       },
       "taskCompletionNotification": {
-        "label": "Task Completion Notification",
+        "label": "Task completion system notification",
         "enabled": "Enabled",
         "disabled": "Disabled",
         "hint": "When enabled, shows a system notification when AI task completes. When disabled, no notification appears."
       },
       "askUserQuestionNotification": {
-        "label": "Ask User Question Notification",
+        "label": "Question system notification",
         "enabled": "Enabled",
         "disabled": "Disabled",
         "hint": "When enabled, shows a system notification when Claude asks you a question, so you won't miss it. When disabled, no notification appears."
@@ -428,7 +438,7 @@
       }
     },
     "providers": "Provider Management",
-    "providersDesc": "Manage Claude and Codex API provider configurations and switch between different API service providers",
+    "providersDesc": "Manage Claude and Codex API provider configurations, switch API service providers, and check local CLI tool installation status",
     "promptEnhancer": {
       "title": "Prompt Enhancer",
       "description": "Choose which provider and model should be used when enhancing prompts before sending them."
@@ -436,6 +446,7 @@
     "providerTab": {
       "claude": "Claude Code",
       "codex": "Codex",
+      "cli": "CLI",
       "opencode": "OpenCode"
     },
     "openCodeProvider": {
@@ -580,7 +591,79 @@
       "viewDocs": "View Documentation",
       "install": "Install",
       "installing": "Installing...",
-      "error": "Error detecting CLI status"
+      "error": "Error detecting CLI status",
+      "hint": "These CLIs must be installed and configured in your system terminal. The plugin only detects installation status and version — it will never install them for you. Confirm each CLI works in the terminal before coming back here to use it.",
+      "refresh": "Re-check",
+      "retry": "Retry",
+      "loading": "Checking CLI installation status…",
+      "loadFailed": "Detection failed. Please try again.",
+      "status": {
+        "installed": "Installed",
+        "notInstalled": "Not installed"
+      },
+      "viewInstallGuide": "Install guide",
+      "howToInstall": "View install guide",
+      "copy": "Copy",
+      "copied": "Copied to clipboard",
+      "copyFailed": "Failed to copy",
+      "tools": {
+        "grok": {
+          "name": "Grok CLI",
+          "description": "xAI Grok terminal coding agent"
+        },
+        "kimi": {
+          "name": "Kimi CLI",
+          "description": "Moonshot Kimi Code CLI"
+        },
+        "opencode": {
+          "name": "OpenCode",
+          "description": "Open-source terminal AI coding agent"
+        },
+        "pi": {
+          "name": "PI CLI",
+          "description": "Minimal terminal coding agent with multi-provider model support"
+        },
+        "omp": {
+          "name": "OMP CLI",
+          "description": "Oh My Pi terminal coding agent with multi-provider model support"
+        },
+        "dsh": {
+          "name": "DeepSeek Harness",
+          "description": "DeepSeek terminal agent harness (persistent dsh web host)"
+        }
+      },
+      "installDialog": {
+        "title": "Install {{name}}",
+        "lead": "Install {{name}} in your system terminal first and make sure `{{binary}}` is available, then come back and click Re-check. This plugin will not run the installer for you.",
+        "stepOpenTerminal": "Open your system terminal (Terminal / iTerm / PowerShell, etc.)",
+        "stepRunCommand": "Copy and run the install command below",
+        "stepVerify": "After install, run `{{binary}} --version` to verify",
+        "stepReturn": "Return here and click Re-check",
+        "primaryCommand": "Recommended install command (macOS / Linux)",
+        "windowsCommand": "Windows (PowerShell)",
+        "altCommand": "Alternative install method",
+        "openDocs": "Open official docs"
+      },
+      "listTitle": "Local CLI tools",
+      "summary": "{{installed}} / {{total}} installed",
+      "moreComingSoon": "More coming soon",
+      "copyPath": "Copy path",
+      "dsh": {
+        "cardTitle": "DeepSeek Harness (DSH)",
+        "hint": "One persistent local dsh web host serves all sessions; the plugin adopts a running host instead of spawning a second one.",
+        "state": {
+          "checking": "Checking…",
+          "notInstalled": "Not installed",
+          "notRunning": "Not running",
+          "connected": "Connected"
+        },
+        "adopted": "adopted",
+        "adoptedHint": "Adopted an already-running host; it is never stopped by the plugin.",
+        "openWebUi": "Open DSH Web UI",
+        "startHost": "Start host",
+        "stopHost": "Stop host (plugin-spawned only)",
+        "autoStart": "Auto-start when needed"
+      }
     },
     "dependencies": "CLI Tools",
     "dependency": {
@@ -660,7 +743,12 @@
         "providerUnavailable": "Unavailable",
         "currentProviderAuto": "Currently using auto selection: {{provider}}",
         "currentProviderManual": "Currently using the manually selected provider: {{provider}}",
-        "currentProviderUnavailable": "The selected provider is currently unavailable: {{provider}}"
+        "currentProviderUnavailable": "The selected provider is currently unavailable: {{provider}}",
+        "modeLabel": "Selection mode",
+        "modeAuto": "Auto",
+        "modeManual": "Manual",
+        "autoSummary": "Follows the current chat CLI · currently {{provider}}",
+        "autoUnavailable": "No CLI is available right now. Switch to Manual to pick one."
       }
     },
     "agents": "Agents",
@@ -1204,7 +1292,7 @@
     "loading": "Loading history...",
     "loadFailed": "Load failed",
     "noSessions": "No history sessions",
-    "noSessionsDesc": "No Claude session records found in current project",
+    "noSessionsDesc": "No session records found in current project",
     "totalSessions": "{{count}} sessions · {{total}} messages",
     "messageCount": "{{count}} messages",
     "searchPlaceholder": "Search session titles...",
@@ -1379,6 +1467,7 @@
       "killHint": "Force terminate this Node process"
     },
     "clickToCopy": "Click to copy",
+    "officialDocs": "Official Docs",
     "switch": "Switch",
     "codexQuota": {
       "title": "Codex quota",
@@ -1401,6 +1490,10 @@
     "copySuccess": "Copied!",
     "quoteMessage": "Quote message",
     "quoteSuccess": "Quoted!"
+  },
+  "contextMenu": {
+    "copy": "Copy",
+    "quote": "Quote"
   },
   "mcp": {
     "title": "MCP Servers",
@@ -1722,6 +1815,8 @@
     "discardAllSuccess": "All changes discarded",
     "discardAllFailed": "Discard failed: {{error}}",
     "keepAllSuccess": "All changes kept, tracking reset",
+    "multiAgentBadge": "Multi-agent",
+    "multiAgentEdited": "{{count}} agents edited this file in this session — review carefully",
     "todoTab": "Plan",
     "filesTab": "File Changes",
     "blockedBy": "Blocked by: {{ids}}",
@@ -1929,6 +2024,9 @@
     "searchPlaceholder": "Search models",
     "noModelsFound": "No models found",
     "hiddenModelCount": "+ {{count}} more models. Type to search.",
+    "pinned": "Pinned",
+    "pin": "Pin",
+    "unpin": "Unpin",
     "longContext": {
       "label": "1M",
       "tooltipEnabled": "Toggle 1M context window on/off",
@@ -1943,11 +2041,7 @@
       },
       "sonnet5": {
         "label": "Sonnet 5",
-        "description": "Sonnet 5 · Upgraded Sonnet model"
-      },
-      "sonnet47": {
-        "label": "Sonnet 4.7",
-        "description": "Sonnet 4.7 · Use the default model"
+        "description": "Sonnet 5 · Use the default model"
       },
       "opus5": {
         "label": "Opus 5",
@@ -1990,6 +2084,12 @@
       "gpt54": {
         "label": "GPT-5.4",
         "description": "Latest frontier model with enhanced capabilities."
+      }
+    },
+    "grok": {
+      "grok46": {
+        "label": "Grok 4.6",
+        "description": "xAI Grok 4.6"
       }
     }
   },
@@ -2039,6 +2139,28 @@
       "description": "Hands-off mode. Codex executes edits and shell commands immediately."
     }
   },
+  "ompModes": {
+    "default": {
+      "label": "Default",
+      "tooltip": "Use the selected model (or OMP auto)",
+      "description": "Uses the model chosen in the model dropdown, or the OMP CLI default when set to Auto."
+    },
+    "smol": {
+      "label": "Smol",
+      "tooltip": "Fast model role (omp --model smol)",
+      "description": "Runs this conversation with the model configured for omp's smol role. Overrides the model dropdown."
+    },
+    "slow": {
+      "label": "Slow",
+      "tooltip": "Reasoning model role (omp --model slow)",
+      "description": "Runs this conversation with the model configured for omp's slow role. Overrides the model dropdown."
+    },
+    "plan": {
+      "label": "Plan",
+      "tooltip": "Planning model role (omp --model plan)",
+      "description": "Runs this conversation with the model configured for omp's plan role. Overrides the model dropdown."
+    }
+  },
   "providers": {
     "claude": {
       "label": "Claude Code"
@@ -2057,6 +2179,17 @@
     },
     "pi": {
       "label": "Pi"
+    },
+    "omp": {
+      "label": "OMP CLI"
+    },
+    "beta": {
+      "badge": "Beta",
+      "title": "Beta Feature",
+      "message": "This feature is still in Beta. If you encounter any bugs, please report them to the author promptly."
+    },
+    "dsh": {
+      "label": "DeepSeek Harness"
     }
   },
   "promptEnhancer": {
@@ -2071,7 +2204,18 @@
     "tooltipFull": "Rewrite prompt to provide more context and improve agent responses",
     "enhanceFailed": "Failed to enhance prompt",
     "emptyPrompt": "Please enter a prompt first",
-    "copyEnhanced": "Copy Enhanced"
+    "copyEnhanced": "Copy Enhanced",
+    "modeLabel": "Mode",
+    "modeAuto": "Auto",
+    "modeManual": "Manual",
+    "modeUnavailable": "Unavailable",
+    "providerLabel": "CLI",
+    "providerUnresolved": "No CLI resolved",
+    "modelLabel": "Model",
+    "modelUnresolved": "Default model",
+    "openSettings": "Configure",
+    "openSettingsTooltip": "Open prompt enhancer settings",
+    "resolvingUsage": "Resolving runtime config…"
   },
   "fileContext": {
     "placeholder": "File Context",
@@ -2294,6 +2438,32 @@
     "fast": {
       "label": "Fast",
       "description": "Codex fast response mode (uses additional credits)"
+    }
+  },
+  "dshPresets": {
+    "title": "Select DeepSeek Harness agent preset",
+    "none": {
+      "label": "Default",
+      "description": "dsh default headless composition (full toolset)"
+    },
+    "standard": {
+      "label": "Standard",
+      "description": "Full coding agent with the standard toolset"
+    },
+    "code": {
+      "label": "PTC",
+      "description": "Standard capabilities with Code Mode"
+    },
+    "minimal": {
+      "label": "Minimal",
+      "description": "Bash and str_replace_editor only"
+    },
+    "cordis": {
+      "label": "Creator",
+      "description": "Standard capabilities plus composition authoring"
+    },
+    "user": {
+      "description": "Custom preset installed under the DSH home"
     }
   }
 }

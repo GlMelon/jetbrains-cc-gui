@@ -21,8 +21,9 @@
     border: 1px solid var(--border-secondary);
     border-radius: 8px;
     box-shadow: var(--shadow-modal);
-    min-width: 400px;
-    max-width: 500px;
+    /* min() 防窄视口溢出(upstream 修复) */
+    min-width: min(400px, 100%);
+    max-width: min(500px, 100%);
 }
 
 /* ConfirmDialog 的消息正文(<p class="confirm-dialog-message">) */

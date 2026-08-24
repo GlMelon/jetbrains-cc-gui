@@ -13,6 +13,7 @@ import com.intellij.openapi.diagnostic.Logger;
  */
 public class MessageParser {
     private static final Logger LOG = Logger.getInstance(MessageParser.class);
+    private static final String NO_RESPONSE_REQUESTED = "No response requested.";
 
     /**
      * Parse a server-returned message.
@@ -41,6 +42,12 @@ public class MessageParser {
         // Filter out command messages - only for user messages
         // Assistant messages may contain these tags in code examples
         if (shouldFilterCommandMessage(msg, type)) {
+            return null;
+        }
+
+        // Claude Code uses this assistant placeholder for commands that do not need a response.
+        if (CommonConstants.MSG_TYPE_ASSISTANT.equals(type)
+                && NO_RESPONSE_REQUESTED.equals(extractMessageContent(msg).trim())) {
             return null;
         }
 

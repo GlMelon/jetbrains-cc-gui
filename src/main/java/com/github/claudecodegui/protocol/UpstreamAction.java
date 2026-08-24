@@ -237,15 +237,6 @@ public enum UpstreamAction implements ProtocolValue {
     SORT_OPENCODE_PROVIDERS("sort_opencode_providers"),
     GET_ACTIVE_OPENCODE_PROVIDER("get_active_opencode_provider"),
 
-    // ── Dependency (legacy SDK, kept for backward compat) ──
-    GET_DEPENDENCY_STATUS("get_dependency_status"),
-    INSTALL_DEPENDENCY("install_dependency"),
-    UNINSTALL_DEPENDENCY("uninstall_dependency"),
-    UPDATE_DEPENDENCY("update_dependency"),
-    CHECK_DEPENDENCY_UPDATES("check_dependency_updates"),
-    GET_DEPENDENCY_VERSIONS("get_dependency_versions"),
-    CHECK_NODE_ENVIRONMENT("check_node_environment"),
-
     // ── CLI Environment ──
     CHECK_CLI_ENVIRONMENT("check_cli_environment"),
     UPDATE_CLI_TOOL("update_cli_tool"),

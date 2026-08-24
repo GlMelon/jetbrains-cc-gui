@@ -30,6 +30,7 @@ import { mapModelIdToSdkName, resolveModelFromSettings, setModelEnvironmentVaria
 import { buildContentBlocks, loadAttachments } from './attachment-service.js';
 import { buildIDEContextPrompt } from '../system-prompts.js';
 import { buildQuickFixPrompt } from '../quickfix-prompts.js';
+import { extractResultError } from './message-utils.js';
 import { createPreToolUseHook } from './permission-mode.js';
 import { loadMcpServersConfigAsRecord } from './mcp-status/config-loader.js';
 import { generateSessionTitle } from '../session-title-service.js';
@@ -285,7 +286,7 @@ async function spawnCliAndStream({
   }
 
   // Build args
-  const args = buildCliArgs({ message, sessionId, model, reasoningEffort, permissionMode, maxTurns: 100 });
+  const args = buildCliArgs({ message, sessionId, model, reasoningEffort, permissionMode, maxTurns: 1000 });
 
   // If we pre-assigned a new session id, surface it immediately
   if (!sessionId || !sessionId.trim()) {
@@ -310,7 +311,7 @@ async function spawnCliAndStream({
     : message;
 
   // Rebuild args with full message
-  const finalArgs = buildCliArgs({ message: fullMessage, sessionId, model, reasoningEffort, permissionMode, maxTurns: 100 });
+  const finalArgs = buildCliArgs({ message: fullMessage, sessionId, model, reasoningEffort, permissionMode, maxTurns: 1000 });
   if (!sessionId || !sessionId.trim()) {
     finalArgs.push('-s', resolvedSessionId);
   }
@@ -380,7 +381,10 @@ async function spawnCliAndStream({
             console.log(`[SESSION_ID] ${event.session_id}`);
           }
           if (event.is_error) {
-            emitSendError(event.result || 'Claude returned an error result');
+            // The result event carries the real failure text in its errors array
+            // (subtype != "success"); extractResultError reads it so the actual
+            // error surfaces instead of a generic fallback.
+            emitSendError(extractResultError(event));
           }
           // Accumulate usage from result
           if (event.cost_usd !== undefined || event.duration_api_ms !== undefined) {

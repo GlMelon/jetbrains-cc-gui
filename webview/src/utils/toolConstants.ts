@@ -18,7 +18,21 @@ export const READ_TOOL_NAMES = new Set(['read', 'read_file', 'read_multiple_file
 // Edit/file modification tools
 // 含 OpenCode 的 `write`(创建新文件)/`create_file`,对齐 FILE_MODIFY_TOOL_NAMES,
 // 否则 OpenCode 写文件操作会落 GenericToolBlock 而非 EditToolBlock(展示样式不一致)。
-export const EDIT_TOOL_NAMES = new Set(['edit', 'edit_file', 'replace_string', 'write_to_file', 'apply_patch', 'write', 'create_file']);
+export const EDIT_TOOL_NAMES = new Set([
+  'edit',
+  'edit_file',
+  'replace_string',
+  'write_to_file',
+  'apply_patch',
+  'write',
+  'create_file',
+  'multiedit',
+  // Grok / Cursor-style names (UI often shows "Search Replace")
+  'search_replace',
+  'searchreplace',
+  'str_replace',
+  'strreplace',
+]);
 
 // Bash/command execution tools
 export const BASH_TOOL_NAMES = new Set(['bash', 'run_terminal_cmd', 'exec_command', 'execute_command', 'shell_command']);
@@ -42,12 +56,27 @@ export const FILE_MODIFY_TOOL_NAMES = new Set([
   'write_to_file',
   'notebookedit',
   'create_file',
+  'multiedit',
+  // Grok / Cursor-style names (UI often shows "Search Replace")
+  'search_replace',
+  'searchreplace',
+  'str_replace',
+  'strreplace',
+  'apply_patch',
 ]);
 
+/**
+ * Normalize tool names for set membership checks.
+ * - lowercases
+ * - strips MCP prefix mcp__server__tool → tool
+ * - spaces / hyphens → underscores ("Search Replace" → "search_replace")
+ * Does NOT split camelCase (TaskCreate stays "taskcreate") so existing sets keep working.
+ */
 export function normalizeToolName(toolName: string): string {
-  const lower = toolName.toLowerCase();
-  const mcpMatch = /^mcp__(.+?)__(.+)$/.exec(lower);
-  return mcpMatch ? mcpMatch[2] : lower;
+  const lower = toolName.toLowerCase().trim();
+  const mcpMatch = /^mcp__[^_]+__(.+)$/.exec(lower);
+  const base = mcpMatch ? mcpMatch[1] : lower;
+  return base.replace(/[\s-]+/g, '_');
 }
 
 export function parseMcpToolName(toolName: string | undefined): { server: string; tool: string } | null {
@@ -81,4 +110,27 @@ export function isTransientInternalToolName(toolName: string | undefined): boole
   return TRANSIENT_INTERNAL_TOOL_NAMES.has(lower) || TRANSIENT_INTERNAL_TOOL_NAMES.has(normalizeToolName(lower));
 }
 
+/**
+ * Whether a content block is a tool_use that renders nothing in the message
+ * list (TodoWrite, TaskCreate, update_plan, and transient internal tools once
+ * streaming ends). Mirrors the null-return branches in ContentBlockRenderer so
+ * callers can filter such blocks before rendering - their arrival otherwise
+ * re-renders the message and shifts the streaming thinking block's last-block
+ * status, which flickered the thinking block. Pass the message's streaming
+ * flag so the transient-internal branch matches the renderer's behavior.
+ */
+export function isNonRenderedToolUse(
+  block: { type?: string; name?: string },
+  isStreaming: boolean,
+): boolean {
+  if (block.type !== 'tool_use') return false;
+  const toolName = normalizeToolName(block.name ?? '');
+  if (toolName === 'todowrite' || toolName === 'update_plan' || TASK_MANAGE_TOOL_NAMES.has(toolName)) {
+    return true;
+  }
+  if (!isStreaming && isTransientInternalToolName(block.name)) {
+    return true;
+  }
+  return false;
+}
 

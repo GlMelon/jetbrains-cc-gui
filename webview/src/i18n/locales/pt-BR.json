@@ -48,6 +48,7 @@
     "removeAttachment": "Remover anexo",
     "closePreview": "Fechar visualização",
     "loadingDropdown": "Carregando...",
+    "modelsLoadFailed": "Falha ao carregar modelos. Clique para tentar novamente",
     "stopGeneration": "Parar geração",
     "imagePreview": "Visualização",
     "context": "Contexto",
@@ -294,16 +295,26 @@
         "providerUnavailable": "Currently unavailable",
         "provider": {
           "claude": "Claude Code",
-          "codex": "Codex"
+          "codex": "Codex",
+          "grok": "Grok CLI",
+          "kimi": "Kimi CLI",
+          "opencode": "OpenCode",
+          "pi": "PI CLI",
+          "omp": "OMP CLI"
         },
         "currentProviderAuto": "Currently using automatic selection: {{provider}}",
         "currentProviderManual": "Currently using manually selected provider: {{provider}}",
-        "currentProviderUnavailable": "The selected provider is currently unavailable: {{provider}}"
+        "currentProviderUnavailable": "The selected provider is currently unavailable: {{provider}}",
+        "modeLabel": "Modo de seleção",
+        "modeAuto": "Auto",
+        "modeManual": "Manual",
+        "autoSummary": "Segue o CLI do chat atual · atualmente {{provider}}",
+        "autoUnavailable": "Nenhum CLI disponível. Mude para Manual para escolher."
       },
       "diffExpanded": {
         "label": "Expandir Diffs por Padrão",
-        "enabled": "Expandido",
-        "disabled": "Recolhido",
+        "enabled": "Ativado",
+        "disabled": "Desativado",
         "hint": "Quando ativado, os diffs de código no chat ficam expandidos por padrão. Quando desativado, os diffs começam recolhidos e podem ser expandidos clicando."
       },
       "commitGeneration": {
@@ -319,13 +330,13 @@
         "hint": "Quando ativado, exibe informações do modelo e modo atual na barra de status da IDE (ex: GUI [Opus] {Auto}). Quando desativado, o widget fica oculto."
       },
       "taskCompletionNotification": {
-        "label": "Notificação de Conclusão de Tarefa",
+        "label": "Notificação do sistema de conclusão de tarefa",
         "enabled": "Ativado",
         "disabled": "Desativado",
         "hint": "Quando ativado, exibe uma notificação do sistema quando a tarefa AI é concluída. Quando desativado, nenhuma notificação aparece."
       },
       "askUserQuestionNotification": {
-        "label": "Notificação de Pergunta ao Usuário",
+        "label": "Notificação do sistema de pergunta",
         "enabled": "Ativado",
         "disabled": "Desativado",
         "hint": "Quando ativado, exibe uma notificação do sistema quando o Claude faz uma pergunta, para que você não a perca. Quando desativado, nenhuma notificação aparece."
@@ -417,7 +428,8 @@
     },
     "providerTab": {
       "claude": "Claude Code",
-      "codex": "Codex"
+      "codex": "Codex",
+      "cli": "CLI"
     },
     "pluginModels": {
       "title": "Modelos Personalizados",
@@ -506,7 +518,12 @@
         "providerUnavailable": "Indisponível",
         "currentProviderAuto": "Usando seleção automática atualmente: {{provider}}",
         "currentProviderManual": "Usando o provedor selecionado manualmente atualmente: {{provider}}",
-        "currentProviderUnavailable": "O provedor selecionado está indisponível no momento: {{provider}}"
+        "currentProviderUnavailable": "O provedor selecionado está indisponível no momento: {{provider}}",
+        "modeLabel": "Modo de seleção",
+        "modeAuto": "Auto",
+        "modeManual": "Manual",
+        "autoSummary": "Segue o CLI do chat atual · atualmente {{provider}}",
+        "autoUnavailable": "Nenhum CLI disponível. Mude para Manual para escolher."
       },
       "prompt": {
         "label": "Prompt Adicional",
@@ -1011,7 +1028,59 @@
       "updateToVersion": "Atualizar para v{{version}}",
       "viewDocs": "Ver documentação",
       "install": "Instalar",
-      "installing": "Instalando..."
+      "installing": "Instalando...",
+      "hint": "These CLIs must be installed and configured in your system terminal. The plugin only detects installation status and version — it will never install them for you. Confirm each CLI works in the terminal before coming back here to use it.",
+      "refresh": "Re-check",
+      "retry": "Retry",
+      "loading": "Checking CLI installation status…",
+      "loadFailed": "Detection failed. Please try again.",
+      "status": {
+        "installed": "Installed",
+        "notInstalled": "Not installed"
+      },
+      "viewInstallGuide": "Install guide",
+      "howToInstall": "Install guide",
+      "copy": "Copy",
+      "copied": "Copied to clipboard",
+      "copyFailed": "Failed to copy",
+      "tools": {
+        "grok": {
+          "name": "Grok CLI",
+          "description": "xAI Grok terminal coding agent"
+        },
+        "kimi": {
+          "name": "Kimi CLI",
+          "description": "Moonshot Kimi Code CLI"
+        },
+        "opencode": {
+          "name": "OpenCode",
+          "description": "Open-source terminal AI coding agent"
+        },
+        "pi": {
+          "name": "PI CLI",
+          "description": "Agente de codificação de terminal minimalista com suporte a múltiplos provedores"
+        },
+        "omp": {
+          "name": "OMP CLI",
+          "description": "Agente de codificação de terminal Oh My Pi com suporte a múltiplos provedores"
+        }
+      },
+      "installDialog": {
+        "title": "Install {{name}}",
+        "lead": "Install {{name}} in your system terminal first and make sure `{{binary}}` is available, then come back and click Re-check. This plugin will not run the installer for you.",
+        "stepOpenTerminal": "Open your system terminal (Terminal / iTerm / PowerShell, etc.)",
+        "stepRunCommand": "Copy and run the install command below",
+        "stepVerify": "After install, run `{{binary}} --version` to verify",
+        "stepReturn": "Return here and click Re-check",
+        "primaryCommand": "Recommended install command (macOS / Linux)",
+        "windowsCommand": "Windows (PowerShell)",
+        "altCommand": "Alternative install method",
+        "openDocs": "Open official docs"
+      },
+      "listTitle": "Ferramentas CLI locais",
+      "summary": "{{installed}} / {{total}} instaladas",
+      "moreComingSoon": "Em breve, mais suporte",
+      "copyPath": "Copiar caminho"
     }
   },
   "history": {
@@ -1047,7 +1116,7 @@
     "loading": "Carregando histórico...",
     "loadFailed": "Falha ao carregar",
     "noSessions": "Sem sessões no histórico",
-    "noSessionsDesc": "Nenhum registro de sessão do Claude encontrado no projeto atual",
+    "noSessionsDesc": "Nenhum registro de sessão encontrado no projeto atual",
     "totalSessions": "{{count}} sessões · {{total}} mensagens",
     "messageCount": "{{count}} mensagens",
     "searchPlaceholder": "Pesquisar títulos de sessão...",
@@ -1222,6 +1291,7 @@
       "killHint": "Forçar a finalização deste processo Node"
     },
     "clickToCopy": "Clique para copiar",
+    "officialDocs": "Documentação oficial",
     "switch": "Alternar",
     "link": "Link"
   },
@@ -1231,6 +1301,10 @@
     "copySuccess": "Copiado!",
     "quoteMessage": "Citar mensagem",
     "quoteSuccess": "Citado!"
+  },
+  "contextMenu": {
+    "copy": "Copiar",
+    "quote": "Citar"
   },
   "mcp": {
     "title": "Servidores MCP",
@@ -1502,6 +1576,8 @@
     "discardAllSuccess": "Todas as alterações descartadas",
     "discardAllFailed": "Falha ao descartar: {{error}}",
     "keepAllSuccess": "Todas as alterações mantidas, rastreamento redefinido",
+    "multiAgentBadge": "Multi-agente",
+    "multiAgentEdited": "{{count}} agentes editaram este arquivo nesta sessão — revise com cuidado",
     "todoTab": "Plano",
     "filesTab": "Alterações de Arquivo",
     "keepAllConfirmTitle": "Manter Tudo",
@@ -1672,6 +1748,9 @@
     "searchPlaceholder": "Pesquisar modelos",
     "noModelsFound": "Nenhum modelo encontrado",
     "hiddenModelCount": "+ {{count}} modelos adicionais. Digite para pesquisar.",
+    "pinned": "Fixados",
+    "pin": "Fixar",
+    "unpin": "Desafixar",
     "longContext": {
       "label": "1M",
       "tooltipEnabled": "Ativar/desativar contexto 1M",
@@ -1686,11 +1765,7 @@
       },
       "sonnet5": {
         "label": "Sonnet 5",
-        "description": "Sonnet 5 · Modelo aprimorado do Sonnet 4.6"
-      },
-      "sonnet47": {
-        "label": "Sonnet 4.7",
-        "description": "Sonnet 4.7 · Usar o modelo padrão"
+        "description": "Sonnet 5 · Usar o modelo padrão"
       },
       "opus5": {
         "label": "Opus 5",
@@ -1782,6 +1857,28 @@
       "description": "Modo autônomo. O Codex executa edições e comandos shell imediatamente."
     }
   },
+  "ompModes": {
+    "default": {
+      "label": "Padrão",
+      "tooltip": "Usa o modelo selecionado (ou OMP auto)",
+      "description": "Usa o modelo escolhido no menu suspenso de modelos, ou o padrão do OMP CLI quando definido como Auto."
+    },
+    "smol": {
+      "label": "Smol",
+      "tooltip": "Função de modelo rápido (omp --model smol)",
+      "description": "Executa esta conversa com o modelo configurado para a função smol do omp. Substitui o menu suspenso de modelos."
+    },
+    "slow": {
+      "label": "Slow",
+      "tooltip": "Função de modelo de raciocínio (omp --model slow)",
+      "description": "Executa esta conversa com o modelo configurado para a função slow do omp. Substitui o menu suspenso de modelos."
+    },
+    "plan": {
+      "label": "Plan",
+      "tooltip": "Função de modelo de planejamento (omp --model plan)",
+      "description": "Executa esta conversa com o modelo configurado para a função plan do omp. Substitui o menu suspenso de modelos."
+    }
+  },
   "providers": {
     "claude": {
       "label": "Claude Code"
@@ -1791,6 +1888,12 @@
     },
     "opencode": {
       "label": "OpenCode"
+    },
+    "pi": {
+      "label": "PI CLI"
+    },
+    "omp": {
+      "label": "OMP CLI"
     }
   },
   "promptEnhancer": {
@@ -1805,7 +1908,18 @@
     "tooltipFull": "Reescrever o prompt para fornecer mais contexto e melhorar as respostas do agente",
     "enhanceFailed": "Falha ao melhorar o prompt",
     "emptyPrompt": "Por favor, insira um prompt primeiro",
-    "copyEnhanced": "Copiar Melhorado"
+    "copyEnhanced": "Copiar Melhorado",
+    "modeLabel": "Modo",
+    "modeAuto": "Auto",
+    "modeManual": "Manual",
+    "modeUnavailable": "Indisponível",
+    "providerLabel": "CLI",
+    "providerUnresolved": "CLI não resolvido",
+    "modelLabel": "Modelo",
+    "modelUnresolved": "Modelo padrão",
+    "openSettings": "Configurar",
+    "openSettingsTooltip": "Abrir configurações do aprimorador de prompt",
+    "resolvingUsage": "Resolvendo configuração…"
   },
   "fileContext": {
     "placeholder": "Contexto do Arquivo",
@@ -1953,7 +2067,21 @@
   },
   "subagent": {
     "process": {
-      "prompt": "Prompt"
+      "prompt": "Prompt",
+      "thought": "Raciocínio",
+      "filesRead_one": "Ler {{count}} arquivo",
+      "filesRead_other": "Ler {{count}} arquivos",
+      "otherTools": "Outras ferramentas",
+      "result": "Resultado",
+      "showFullOutput": "Ver saída completa",
+      "loading": "Carregando processo do agente…",
+      "unavailable": "O log do processo não está disponível até que a sessão tenha um id.",
+      "reportGenerated": "Relatório de análise estruturada gerado",
+      "unitMs": "ms",
+      "unitS": "s",
+      "unitTools": "ferramentas",
+      "unitTokens": "tokens",
+      "title": "Processo do agente"
     }
   }
 }

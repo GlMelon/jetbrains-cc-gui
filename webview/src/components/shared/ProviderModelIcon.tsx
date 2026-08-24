@@ -128,6 +128,12 @@ const VENDOR_ICON_MAP: Record<
     colored ? <CohereColor size={size} /> : <CohereMono size={size} />,
   grok: (size, _colored) =>
     <GrokMono size={size} />,
+  // pi 复用 grok 单色图标(占位,批次 D 补真实 pi 图标)
+  pi: (size, _colored) =>
+    <GrokMono size={size} />,
+  // omp(pi fork)复用 deepseek 单色图标(占位,批次 D 补真实 omp 图标)
+  omp: (size, _colored) =>
+    <GrokMono size={size} />,
   openrouter: (size, _colored) =>
     <OpenRouterMono size={size} />,
   yi: (size, colored) =>

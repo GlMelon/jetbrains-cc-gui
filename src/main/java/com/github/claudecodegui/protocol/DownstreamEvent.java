@@ -160,15 +160,6 @@ public enum DownstreamEvent implements ProtocolValue {
     MCP_MARKET_DETAIL("mcp.market_detail"),
     MCP_MARKET_ERROR("mcp.market_error"),
 
-    // ── Dependency (legacy SDK, kept for backward compat) ──
-    DEPENDENCY_STATUS("dependency.status"),
-    DEPENDENCY_INSTALL_RESULT("dependency.install_result"),
-    DEPENDENCY_UNINSTALL_RESULT("dependency.uninstall_result"),
-    DEPENDENCY_UPDATE_AVAILABLE("dependency.update_available"),
-    DEPENDENCY_VERSIONS_LOADED("dependency.versions_loaded"),
-    DEPENDENCY_INSTALL_PROGRESS("dependency.install_progress"),
-    NODE_ENV_STATUS("node.env_status"),
-
     // ── CLI Environment ──
     CLI_ENVIRONMENT_STATUS("cli_environment.status"),
     CLI_INSTALL_RESULT("cli_environment.install_result"),

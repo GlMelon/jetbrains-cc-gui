@@ -9,12 +9,4 @@ package com.github.claudecodegui.session.runtime;
  */
 public enum RuntimeType {
     CLI;
-
-    /**
-     * 从 invocationMode 字符串转换为 RuntimeType。
-     * SDK 模式移除后恒返回 CLI;保留入参仅为向后兼容既有调用点。
-     */
-    public static RuntimeType fromInvocationMode(String mode) {
-        return CLI;
-    }
 }

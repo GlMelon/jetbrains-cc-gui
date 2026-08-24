@@ -50,6 +50,20 @@ function sanitizeLoadedSize(raw: unknown): SizeState {
   return { wrapperHeightPx };
 }
 
+export function computeResize(
+  start: { startY: number; startWrapperHeightPx: number },
+  current: { y: number },
+  bounds: Bounds
+): { wrapperHeightPx: number } {
+  const dy = current.y - start.startY;
+  // Dragging up (dy < 0) increases height.
+  const nextHeight = start.startWrapperHeightPx - dy;
+
+  return {
+    wrapperHeightPx: clamp(Math.round(nextHeight), bounds.minWrapperHeightPx, bounds.maxWrapperHeightPx),
+  };
+}
+
 /**
  * useResizableChatInputBox
  * - Adds pointer-driven resizing (editable-wrapper height only, width is always 100%)
@@ -157,9 +171,14 @@ export function useResizableChatInputBox({
       const start = startRef.current;
       if (!start) return;
       e.preventDefault();
-      const dy = e.clientY - start.startY;
-      const nextHeight = start.startWrapperHeightPx - dy;
-      const wrapperHeightPx = clamp(Math.round(nextHeight), start.bounds.minWrapperHeightPx, start.bounds.maxWrapperHeightPx);
+      const { wrapperHeightPx } = computeResize(
+        {
+          startY: start.startY,
+          startWrapperHeightPx: start.startWrapperHeightPx,
+        },
+        { y: e.clientY },
+        start.bounds
+      );
 
       setSize({ wrapperHeightPx });
     };

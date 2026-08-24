@@ -31,7 +31,6 @@ import com.github.claudecodegui.handler.opencode.DeleteOpenCodeMcpServerActionHa
 import com.github.claudecodegui.handler.opencode.ToggleOpenCodeMcpServerActionHandler;
 import com.github.claudecodegui.handler.UsagePushService;
 import com.github.claudecodegui.handler.context.GetContextUsageActionHandler;
-import com.github.claudecodegui.handler.node.NodeEnvironmentActionHandler;
 import com.github.claudecodegui.handler.cli.CheckCliEnvironmentActionHandler;
 import com.github.claudecodegui.handler.cli.InstallCliToolActionHandler;
 import com.github.claudecodegui.handler.enhance.EnhancePromptActionHandler;
@@ -737,9 +736,6 @@ nodeService.setSessionId(sessionId);
         typedHandlers.add(new ExportPromptsActionHandler(promptHandlers));
         typedHandlers.add(new ImportPromptsFileActionHandler(promptHandlers));
         typedHandlers.add(new SaveImportedPromptsActionHandler(promptHandlers));
-
-        // Node environment action handler (迁自 dependency CHECK_NODE_ENVIRONMENT,CLI mcp-gateway 需 Node)
-        typedHandlers.add(new NodeEnvironmentActionHandler());
 
         // CLI environment action handlers (检测CLI工具安装状态)
         typedHandlers.add(new CheckCliEnvironmentActionHandler());

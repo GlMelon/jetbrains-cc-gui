@@ -188,7 +188,7 @@ export function useChatComputations({
       if (latestTodos) break;
     }
     if (latestTodos) {
-      return finalizeTodosForSettledTurn(latestTodos, streamingActive);
+      return finalizeTodosForSettledTurn(latestTodos, streamingActive, currentProvider);
     }
     const accumulated = extractAccumulatedTasks(messages, getContentBlocks);
     if (accumulated.length > 0) {

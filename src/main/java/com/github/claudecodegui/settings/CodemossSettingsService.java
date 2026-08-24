@@ -1420,6 +1420,20 @@ public class CodemossSettingsService {
         return providerSettingsService.getCodexRuntimeAccessMode();
     }
 
+    /**
+     * Returns whether the plugin may manage the currently active Codex config.toml.
+     * Managed providers own the active config written by the plugin, while local
+     * CLI configuration still requires explicit authorization.
+     * (Merged from upstream db9874a4b)
+     */
+    public boolean isCodexConfigManagementAllowed() throws IOException {
+        String accessMode = getCodexRuntimeAccessMode();
+        if (CODEX_RUNTIME_ACCESS_CLI_LOGIN.equals(accessMode)) {
+            return isCodexLocalConfigAuthorized();
+        }
+        return CODEX_RUNTIME_ACCESS_MANAGED.equals(accessMode);
+    }
+
     public String getClaudeCliPath() throws IOException {
         JsonObject config = readConfig();
         if (!config.has(CLAUDE_CLI_PATH_KEY) || config.get(CLAUDE_CLI_PATH_KEY).isJsonNull()) {
@@ -1696,5 +1710,358 @@ public class CodemossSettingsService {
         writeConfig(config);
         LOG.info("[CodemossSettings] Set user model context windows for codex"
                 + ": " + (contextWindows == null ? 0 : contextWindows.size()) + " models");
+    }
+
+    // ==================== Grok settings (merged from upstream db9874a4b) ====================
+
+    public static final String GROK_AUTH_METHOD_AUTO = "auto";
+    public static final String GROK_AUTH_METHOD_OAUTH = "oauth";
+    public static final String GROK_AUTH_METHOD_API_KEY = "api_key";
+    public static final String DEFAULT_GROK_AUTH_METHOD = GROK_AUTH_METHOD_OAUTH;
+
+    public String getGrokAuthMethod() throws IOException {
+        JsonObject config = readConfig();
+        if (!config.has("grok") || config.get("grok").isJsonNull()) {
+            return DEFAULT_GROK_AUTH_METHOD;
+        }
+        JsonObject grok = config.getAsJsonObject("grok");
+        if (!grok.has("authMethod") || grok.get("authMethod").isJsonNull()) {
+            return DEFAULT_GROK_AUTH_METHOD;
+        }
+        String method = grok.get("authMethod").getAsString();
+        return normalizeGrokAuthMethod(method);
+    }
+
+    public void setGrokAuthMethod(String method) throws IOException {
+        String normalized = normalizeGrokAuthMethod(method);
+        JsonObject config = readConfig();
+        JsonObject grok = config.has("grok") && !config.get("grok").isJsonNull()
+                ? config.getAsJsonObject("grok")
+                : new JsonObject();
+        grok.addProperty("authMethod", normalized);
+        config.add("grok", grok);
+        writeConfig(config);
+        LOG.info("[CodemossSettingsService] Set grok.authMethod=" + normalized);
+    }
+
+    public String getGrokApiKey() throws IOException {
+        JsonObject config = readConfig();
+        if (!config.has("grok") || config.get("grok").isJsonNull()) {
+            return "";
+        }
+        JsonObject grok = config.getAsJsonObject("grok");
+        if (!grok.has("apiKey") || grok.get("apiKey").isJsonNull()) {
+            return "";
+        }
+        return grok.get("apiKey").getAsString();
+    }
+
+    public void setGrokApiKey(String apiKey) throws IOException {
+        JsonObject config = readConfig();
+        JsonObject grok = config.has("grok") && !config.get("grok").isJsonNull()
+                ? config.getAsJsonObject("grok")
+                : new JsonObject();
+        String value = apiKey != null ? apiKey.trim() : "";
+        if (value.isEmpty()) {
+            grok.remove("apiKey");
+        } else {
+            grok.addProperty("apiKey", value);
+        }
+        config.add("grok", grok);
+        writeConfig(config);
+        LOG.info("[CodemossSettingsService] Updated grok.apiKey (present=" + !value.isEmpty() + ")");
+    }
+
+    public static String normalizeGrokAuthMethod(String method) {
+        if (method == null || method.trim().isEmpty()) {
+            return DEFAULT_GROK_AUTH_METHOD;
+        }
+        String m = method.trim().toLowerCase();
+        if (GROK_AUTH_METHOD_API_KEY.equals(m) || "xai.api_key".equals(m) || "apikey".equals(m)) {
+            return GROK_AUTH_METHOD_API_KEY;
+        }
+        if (GROK_AUTH_METHOD_AUTO.equals(m)) {
+            return GROK_AUTH_METHOD_AUTO;
+        }
+        if (GROK_AUTH_METHOD_OAUTH.equals(m) || "cached_token".equals(m) || "cli_login".equals(m) || "grok.com".equals(m)) {
+            return GROK_AUTH_METHOD_OAUTH;
+        }
+        return DEFAULT_GROK_AUTH_METHOD;
+    }
+
+    public String getGrokApiBaseUrl() throws IOException {
+        return getGrokStringSetting("apiBaseUrl");
+    }
+
+    public void setGrokApiBaseUrl(String url) throws IOException {
+        setGrokStringSetting("apiBaseUrl", url);
+        LOG.info("[CodemossSettingsService] Set grok.apiBaseUrl=" + redactUrl(url));
+    }
+
+    public String getGrokOauthBaseUrl() throws IOException {
+        return getGrokStringSetting("oauthBaseUrl");
+    }
+
+    public void setGrokOauthBaseUrl(String url) throws IOException {
+        setGrokStringSetting("oauthBaseUrl", url);
+        LOG.info("[CodemossSettingsService] Set grok.oauthBaseUrl=" + redactUrl(url));
+    }
+
+    public JsonObject getGrokEnv() throws IOException {
+        JsonObject config = readConfig();
+        if (!config.has("grok") || config.get("grok").isJsonNull()) {
+            return new JsonObject();
+        }
+        JsonObject grok = config.getAsJsonObject("grok");
+        if (grok.has("env") && grok.get("env").isJsonObject()) {
+            return grok.getAsJsonObject("env");
+        }
+        return new JsonObject();
+    }
+
+    public void setGrokEnv(JsonObject env) throws IOException {
+        JsonObject config = readConfig();
+        JsonObject grok = config.has("grok") && !config.get("grok").isJsonNull()
+                ? config.getAsJsonObject("grok")
+                : new JsonObject();
+        if (env == null || env.size() == 0) {
+            grok.remove("env");
+        } else {
+            grok.add("env", env);
+        }
+        config.add("grok", grok);
+        writeConfig(config);
+    }
+
+    public String getGrokGatewayOrigin() throws IOException {
+        return getGrokStringSetting("gatewayOrigin");
+    }
+
+    public void setGrokGatewayOrigin(String origin) throws IOException {
+        setGrokStringSetting("gatewayOrigin", origin);
+        LOG.info("[CodemossSettingsService] Set grok.gatewayOrigin=" + redactUrl(origin));
+    }
+
+    public String resolveGrokBaseUrlForAuth(String authMethod, String explicitBaseUrl) throws IOException {
+        if (explicitBaseUrl != null && !explicitBaseUrl.trim().isEmpty()) {
+            return explicitBaseUrl.trim();
+        }
+        String method = normalizeGrokAuthMethod(authMethod);
+        if (GROK_AUTH_METHOD_API_KEY.equals(method)) {
+            return getGrokApiBaseUrl();
+        }
+        if (GROK_AUTH_METHOD_OAUTH.equals(method)) {
+            return getGrokOauthBaseUrl();
+        }
+        String oauth = getGrokOauthBaseUrl();
+        if (!oauth.isEmpty()) {
+            return oauth;
+        }
+        return getGrokApiBaseUrl();
+    }
+
+    private String getGrokStringSetting(String field) throws IOException {
+        JsonObject config = readConfig();
+        if (!config.has("grok") || config.get("grok").isJsonNull()) {
+            return "";
+        }
+        JsonObject grok = config.getAsJsonObject("grok");
+        if (!grok.has(field) || grok.get(field).isJsonNull()) {
+            return "";
+        }
+        return grok.get(field).getAsString();
+    }
+
+    private void setGrokStringSetting(String field, String value) throws IOException {
+        JsonObject config = readConfig();
+        JsonObject grok = config.has("grok") && !config.get("grok").isJsonNull()
+                ? config.getAsJsonObject("grok")
+                : new JsonObject();
+        String v = value != null ? value.trim() : "";
+        if (v.isEmpty()) {
+            grok.remove(field);
+        } else {
+            grok.addProperty(field, v);
+        }
+        config.add("grok", grok);
+        writeConfig(config);
+    }
+
+    private String redactUrl(String url) {
+        if (url == null || url.trim().isEmpty()) {
+            return "(empty)";
+        }
+        return url.trim();
+    }
+
+    // ==================== DSH connection settings (merged from upstream db9874a4b) ====================
+    // Thin connection only: bin / host / port / autoStart. Provider keys and model
+    // catalog stay in the DSH Web UI ($DSH_HOME); the plugin never writes them.
+
+    private static final String DSH_SECTION_KEY = "dsh";
+    private static final String DSH_DEFAULT_HOST = "127.0.0.1";
+    private static final int DSH_DEFAULT_PORT = 3080;
+
+    public String getDshBin() throws IOException {
+        return getDshStringSetting("bin");
+    }
+
+    public void setDshBin(String value) throws IOException {
+        setDshStringSetting("bin", value);
+    }
+
+    public String getDshHost() throws IOException {
+        String value = getDshStringSetting("host");
+        return value.isEmpty() ? DSH_DEFAULT_HOST : value;
+    }
+
+    public void setDshHost(String value) throws IOException {
+        setDshStringSetting("host", value);
+    }
+
+    public int getDshPort() throws IOException {
+        JsonObject config = readConfig();
+        if (!config.has(DSH_SECTION_KEY) || config.get(DSH_SECTION_KEY).isJsonNull()) {
+            return DSH_DEFAULT_PORT;
+        }
+        JsonObject dsh = config.getAsJsonObject(DSH_SECTION_KEY);
+        if (!dsh.has("port") || dsh.get("port").isJsonNull()) {
+            return DSH_DEFAULT_PORT;
+        }
+        try {
+            int port = dsh.get("port").getAsInt();
+            return port > 0 && port <= 65535 ? port : DSH_DEFAULT_PORT;
+        } catch (Exception e) {
+            return DSH_DEFAULT_PORT;
+        }
+    }
+
+    public void setDshPort(int port) throws IOException {
+        JsonObject config = readConfig();
+        JsonObject dsh = config.has(DSH_SECTION_KEY) && !config.get(DSH_SECTION_KEY).isJsonNull()
+                ? config.getAsJsonObject(DSH_SECTION_KEY)
+                : new JsonObject();
+        if (port > 0 && port <= 65535 && port != DSH_DEFAULT_PORT) {
+            dsh.addProperty("port", port);
+        } else {
+            dsh.remove("port");
+        }
+        config.add(DSH_SECTION_KEY, dsh);
+        writeConfig(config);
+    }
+
+    public boolean getDshAutoStart() throws IOException {
+        JsonObject config = readConfig();
+        if (!config.has(DSH_SECTION_KEY) || config.get(DSH_SECTION_KEY).isJsonNull()) {
+            return true;
+        }
+        JsonObject dsh = config.getAsJsonObject(DSH_SECTION_KEY);
+        if (!dsh.has("autoStart") || dsh.get("autoStart").isJsonNull()) {
+            return true;
+        }
+        try {
+            return dsh.get("autoStart").getAsBoolean();
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
+    public void setDshAutoStart(boolean autoStart) throws IOException {
+        JsonObject config = readConfig();
+        JsonObject dsh = config.has(DSH_SECTION_KEY) && !config.get(DSH_SECTION_KEY).isJsonNull()
+                ? config.getAsJsonObject(DSH_SECTION_KEY)
+                : new JsonObject();
+        if (autoStart) {
+            dsh.remove("autoStart");
+        } else {
+            dsh.addProperty("autoStart", false);
+        }
+        config.add(DSH_SECTION_KEY, dsh);
+        writeConfig(config);
+    }
+
+    private String getDshStringSetting(String field) throws IOException {
+        JsonObject config = readConfig();
+        if (!config.has(DSH_SECTION_KEY) || config.get(DSH_SECTION_KEY).isJsonNull()) {
+            return "";
+        }
+        JsonObject dsh = config.getAsJsonObject(DSH_SECTION_KEY);
+        if (!dsh.has(field) || dsh.get(field).isJsonNull()) {
+            return "";
+        }
+        return dsh.get(field).getAsString();
+    }
+
+    private void setDshStringSetting(String field, String value) throws IOException {
+        JsonObject config = readConfig();
+        JsonObject dsh = config.has(DSH_SECTION_KEY) && !config.get(DSH_SECTION_KEY).isJsonNull()
+                ? config.getAsJsonObject(DSH_SECTION_KEY)
+                : new JsonObject();
+        String v = value != null ? value.trim() : "";
+        if (v.isEmpty()) {
+            dsh.remove(field);
+        } else {
+            dsh.addProperty(field, v);
+        }
+        config.add(DSH_SECTION_KEY, dsh);
+        writeConfig(config);
+    }
+
+    // ==================== Notification focus settings (merged from upstream db9874a4b) ====================
+
+    /**
+     * Get whether the AskUserQuestion reminder sound notification is enabled.
+     *
+     * @return whether the reminder sound is enabled, default is false (opt-in)
+     */
+    public boolean getAskUserQuestionSoundNotificationEnabled() throws IOException {
+        JsonObject config = readConfig();
+
+        if (config.has("askUserQuestionSoundNotificationEnabled")
+                && !config.get("askUserQuestionSoundNotificationEnabled").isJsonNull()) {
+            return config.get("askUserQuestionSoundNotificationEnabled").getAsBoolean();
+        }
+
+        return false;
+    }
+
+    /**
+     * Set whether the AskUserQuestion reminder sound notification is enabled.
+     *
+     * @param enabled whether to enable
+     */
+    public void setAskUserQuestionSoundNotificationEnabled(boolean enabled) throws IOException {
+        JsonObject config = readConfig();
+        config.addProperty("askUserQuestionSoundNotificationEnabled", enabled);
+        writeConfig(config);
+        LOG.info("[CodemossSettings] Set ask user question sound notification enabled: " + enabled);
+    }
+
+    /**
+     * Get whether visual system notifications should only be shown when the IDE is not focused.
+     *
+     * @return whether only-when-unfocused is enabled, default is false
+     */
+    public boolean getSystemNotificationOnlyWhenUnfocused() throws IOException {
+        JsonObject config = readConfig();
+
+        if (config.has("systemNotificationOnlyWhenUnfocused")
+                && !config.get("systemNotificationOnlyWhenUnfocused").isJsonNull()) {
+            return config.get("systemNotificationOnlyWhenUnfocused").getAsBoolean();
+        }
+
+        return false;
+    }
+
+    /**
+     * Set whether visual system notifications should only be shown when the IDE is not focused.
+     *
+     * @param enabled whether to enable
+     */
+    public void setSystemNotificationOnlyWhenUnfocused(boolean enabled) throws IOException {
+        JsonObject config = readConfig();
+        config.addProperty("systemNotificationOnlyWhenUnfocused", enabled);
+        writeConfig(config);
+        LOG.info("[CodemossSettings] Set system notification only when unfocused: " + enabled);
     }
 }

@@ -58,6 +58,126 @@ describe('useFileTags', () => {
     expect(editable.querySelectorAll('.file-tag').length).toBe(0);
   });
 
+  it('does not close completions or rewrite DOM for in-progress @query', () => {
+    const editable = createEditable();
+    editable.textContent = '@b';
+    const textNode = editable.firstChild;
+    const onCloseCompletions = vi.fn();
+
+    const { result } = renderHook(() =>
+      useFileTags({
+        editableRef: { current: editable },
+        getTextContent: () => editable.textContent ?? '',
+        onCloseCompletions,
+      })
+    );
+
+    result.current.renderFileTags();
+
+    // Regression: an in-progress completion query ("@b") must not close the
+    // open dropdown nor touch the DOM (the "flash then disappear" bug).
+    expect(onCloseCompletions).not.toHaveBeenCalled();
+    expect(editable.firstChild).toBe(textNode);
+    expect(editable.querySelectorAll('.file-tag').length).toBe(0);
+  });
+
+  it('preserves an existing file tag when only unrelated raw @ text remains', () => {
+    const editable = createEditable();
+    const existingTag = document.createElement('span');
+    existingTag.className = 'file-tag';
+    existingTag.setAttribute('data-file-path', 'README.md');
+    existingTag.textContent = 'README.md';
+    editable.append(existingTag, document.createTextNode(' @GetMapping("/test")'));
+    const onCloseCompletions = vi.fn();
+
+    const { result } = renderHook(() =>
+      useFileTags({
+        editableRef: { current: editable },
+        // Mirrors useTextContent: existing chips are serialized into @path.
+        getTextContent: () => '@README.md @GetMapping("/test")',
+        onCloseCompletions,
+      })
+    );
+    result.current.pathMappingRef.current.set('README.md', '/project/README.md');
+
+    result.current.renderFileTags();
+
+    expect(editable.querySelector('.file-tag')).toBe(existingTag);
+    expect(onCloseCompletions).not.toHaveBeenCalled();
+  });
+
+  it('renders a new valid raw reference alongside an existing file tag', () => {
+    const editable = createEditable();
+    const existingTag = document.createElement('span');
+    existingTag.className = 'file-tag';
+    existingTag.setAttribute('data-file-path', 'README.md');
+    existingTag.textContent = 'README.md';
+    editable.append(existingTag, document.createTextNode(' @src/a.ts '));
+    mockSelection();
+
+    const { result } = renderHook(() =>
+      useFileTags({
+        editableRef: { current: editable },
+        getTextContent: () => '@README.md @src/a.ts ',
+        onCloseCompletions: vi.fn(),
+      })
+    );
+    result.current.pathMappingRef.current.set('README.md', '/project/README.md');
+    result.current.pathMappingRef.current.set('src/a.ts', '/project/src/a.ts');
+
+    result.current.renderFileTags();
+
+    const paths = Array.from(editable.querySelectorAll('.file-tag'))
+      .map((tag) => tag.getAttribute('data-file-path'));
+    expect(paths).toEqual(['README.md', 'src/a.ts']);
+  });
+
+  it('recognizes a valid raw reference split across adjacent inline elements', () => {
+    const editable = createEditable();
+    const firstPart = document.createElement('span');
+    firstPart.textContent = '@src/';
+    const secondPart = document.createElement('span');
+    secondPart.textContent = 'a.ts ';
+    editable.append(firstPart, secondPart);
+    mockSelection();
+
+    const { result } = renderHook(() =>
+      useFileTags({
+        editableRef: { current: editable },
+        getTextContent: () => '@src/a.ts ',
+        onCloseCompletions: vi.fn(),
+      })
+    );
+    result.current.pathMappingRef.current.set('src/a.ts', '/project/src/a.ts');
+
+    result.current.renderFileTags();
+
+    expect(editable.querySelector('.file-tag')?.getAttribute('data-file-path')).toBe('src/a.ts');
+  });
+
+  it('does not let quote chip decoration authorize a file-tag rebuild', () => {
+    const editable = createEditable();
+    const quoteTag = document.createElement('span');
+    quoteTag.className = 'quote-tag';
+    quoteTag.textContent = '@README.md';
+    editable.append(quoteTag, document.createTextNode(' @GetMapping("/test")'));
+    const onCloseCompletions = vi.fn();
+
+    const { result } = renderHook(() =>
+      useFileTags({
+        editableRef: { current: editable },
+        getTextContent: () => '@README.md @GetMapping("/test")',
+        onCloseCompletions,
+      })
+    );
+    result.current.pathMappingRef.current.set('README.md', '/project/README.md');
+
+    result.current.renderFileTags();
+
+    expect(editable.querySelector('.quote-tag')).toBe(quoteTag);
+    expect(onCloseCompletions).not.toHaveBeenCalled();
+  });
+
   it('renders file tags for paths with spaces', () => {
     const editable = createEditable();
     editable.textContent = '@my file.ts ';
@@ -121,5 +241,42 @@ describe('useFileTags', () => {
 
     expect(editable.querySelectorAll('.file-tag').length).toBe(1);
   });
-});
 
+  it('renders absolute paths with spaces in the filename (not in path mapping)', () => {
+    const editable = createEditable();
+    editable.textContent = '@D:\\workspace\\docs\\chapter6\\第六章 框架开发实践.md ';
+    mockSelection();
+
+    const { result } = setupHook(editable);
+
+    // No pathMappingRef entry: falls back to absolute-path pattern matching.
+    // The space before "框架开发实践.md" must not truncate the path.
+    result.current.renderFileTags();
+
+    expect(editable.querySelectorAll('.file-tag').length).toBe(1);
+    expect(result.current.extractFileTags()).toEqual([
+      {
+        displayPath: 'D:\\workspace\\docs\\chapter6\\第六章 框架开发实践.md',
+        absolutePath: 'D:\\workspace\\docs\\chapter6\\第六章 框架开发实践.md',
+      },
+    ]);
+  });
+
+  it('renders absolute paths with spaces and a line marker (not in path mapping)', () => {
+    const editable = createEditable();
+    editable.textContent = '@D:\\docs\\第六章 框架开发实践.md#L10-20 ';
+    mockSelection();
+
+    const { result } = setupHook(editable);
+
+    result.current.renderFileTags();
+
+    expect(editable.querySelectorAll('.file-tag').length).toBe(1);
+    expect(result.current.extractFileTags()).toEqual([
+      {
+        displayPath: 'D:\\docs\\第六章 框架开发实践.md#L10-20',
+        absolutePath: 'D:\\docs\\第六章 框架开发实践.md#L10-20',
+      },
+    ]);
+  });
+});

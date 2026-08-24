@@ -33,4 +33,11 @@ export { useChatInputSelectionController } from './useChatInputSelectionControll
 export { useOpenSourceBannerState } from './useOpenSourceBannerState.js';
 export { useResetAttachmentsOnSessionChange } from './useResetAttachmentsOnSessionChange.js';
 export { useSpaceKeyListener } from './useSpaceKeyListener.js';
-export { useResizableChatInputBox } from './useResizableChatInputBox.js';
+export { useResizableChatInputBox, computeResize } from './useResizableChatInputBox.js';
+export { useCompositionSafeTagRendering } from './useCompositionSafeTagRendering.js';
+export { useInlineHistoryCompletion } from './useInlineHistoryCompletion.js';
+export {
+  useToolbarSelectorCompact,
+  shouldCollapseToolbarSelectors,
+  TOOLBAR_SELECTOR_MIN_GAP_PX,
+} from './useToolbarSelectorCompact.js';

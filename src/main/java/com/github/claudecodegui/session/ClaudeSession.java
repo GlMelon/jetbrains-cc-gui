@@ -30,6 +30,14 @@ public class ClaudeSession {
 
     private final Gson gson = GsonHolder.GSON;
 
+    /**
+     * Flag set when the user manually interrupts the current turn (clicks Stop).
+     * Checked by {@link com.github.claudecodegui.ui.toolwindow.ClaudeChatWindow#onStreamEnded()}
+     * to suppress the task-completion notification sound for manual stops.
+     * Reset to {@code false} at the start of each new {@link #send} call.
+     */
+    private volatile boolean manuallyInterrupted = false;
+
     // Session state manager
     private final com.github.claudecodegui.session.SessionState state;
 
@@ -48,7 +56,8 @@ public class ClaudeSession {
     private final SessionCallbackFacade callbackFacade;
 
     // Track when the last turn was started
-    private long lastTurnStartedAtMillis;
+    /** Start time of the latest submitted turn, retained across Webview rebuilds. */
+    private volatile long lastTurnStartedAtMillis;
 
     /**
      * Represents a single message in the conversation.
@@ -86,9 +95,20 @@ public class ClaudeSession {
         }
 
         public Type type;
-        public String content;
+        // The streaming handler thread reassigns these on every assistant update
+        // (e.g. `raw = mergedRaw`, `content = builder.toString()`) while
+        // StreamMessageCoalescer serializes the same Message off-EDT — enqueue only
+        // shallow-copies the list, so elements are shared across threads. Without
+        // volatile the serializer could read a stale reference and publish a snapshot
+        // predating a just-reassigned tool_use block, which the frontend's structural
+        // merge (it takes blocks from the new snapshot only) would then freeze as
+        // missing.
+        // This covers the reassignment race, the dominant mutation pattern. Note:
+        // a few call sites still mutate the JsonObject in place (turnUsage / uuid /
+        // usage stamps in ClaudeMessageHandler); those are a separate concern.
+        public volatile String content;
         public long timestamp;
-        public JsonObject raw; // Raw message data from SDK
+        public volatile JsonObject raw; // Raw message data from SDK
 
         public Message(Type type, String content) {
             this.type = type;
@@ -249,6 +269,16 @@ public class ClaudeSession {
         return state.getError();
     }
 
+    /**
+     * Returns whether the current (or most recent) turn was manually interrupted
+     * by the user clicking Stop. Used to suppress the task-completion sound.
+     *
+     * @return {@code true} if the user manually interrupted the current turn
+     */
+    public boolean isManuallyInterrupted() {
+        return manuallyInterrupted;
+    }
+
     public List<Message> getMessages() {
         return state.getMessages();
     }
@@ -347,6 +377,20 @@ public class ClaudeSession {
     }
 
     /**
+     * Send a message with a specific agent prompt, file tags, requested permission mode,
+     * and an optional DSH agent preset (per-message preset switching).
+     */
+    public CompletableFuture<Void> send(
+            String input,
+            String agentPrompt,
+            List<String> fileTagPaths,
+            String requestedPermissionMode,
+            String requestedDshPreset
+    ) {
+        return send(input, null, agentPrompt, fileTagPaths, requestedPermissionMode, requestedDshPreset);
+    }
+
+    /**
      * Send a message with attachments and a specific agent prompt.
      * Used for per-tab independent agent selection.
      *
@@ -378,6 +422,20 @@ public class ClaudeSession {
             List<String> fileTagPaths,
             String requestedPermissionMode
     ) {
+        return send(input, attachments, agentPrompt, fileTagPaths, requestedPermissionMode, null);
+    }
+
+    /**
+     * Send a message with attachments and an optional DSH agent preset.
+     */
+    public CompletableFuture<Void> send(
+            String input,
+            List<Attachment> attachments,
+            String agentPrompt,
+            List<String> fileTagPaths,
+            String requestedPermissionMode,
+            String requestedDshPreset
+    ) {
         LOG.debug("[ClaudeSession][DIAG] send() called, attachments="
                 + (attachments == null ? "NULL" : attachments.size()));
         if (attachments != null) {
@@ -389,6 +447,10 @@ public class ClaudeSession {
                         + ", resourceUrl=" + att.resourceUrl);
             }
         }
+        lastTurnStartedAtMillis = System.currentTimeMillis();
+        // Reset the manual-interrupt flag at the start of a new turn so that
+        // a fresh send is not mistaken for a user-initiated stop.
+        manuallyInterrupted = false;
         String normalizedInput = (input != null) ? input.trim() : "";
         Message userMessage = contextService.buildUserMessage(normalizedInput, attachments);
         sendService.updateSessionStateForSend(userMessage, normalizedInput);
@@ -397,6 +459,7 @@ public class ClaudeSession {
         final String finalAgentPrompt = agentPrompt;
         final List<String> finalFileTagPaths = fileTagPaths;
         final String finalRequestedPermissionMode = requestedPermissionMode;
+        final String finalRequestedDshPreset = requestedDshPreset;
 
         return launchClaude().thenCompose(chId -> {
             if (!state.isPendingSendOperationCurrent(sendInvalidationEpoch)) {
@@ -415,7 +478,8 @@ public class ClaudeSession {
                         openedFilesJson,
                         finalAgentPrompt,
                         finalFileTagPaths,
-                        finalRequestedPermissionMode
+                        finalRequestedPermissionMode,
+                        finalRequestedDshPreset
                 );
             }).thenCompose(v -> {
                 if (!state.isPendingSendOperationCurrent(sendInvalidationEpoch)) {
@@ -441,7 +505,11 @@ public class ClaudeSession {
      */
     public CompletableFuture<Void> interrupt() {
         state.invalidatePendingSendOperations();
-        
+
+        // Mark this turn as manually interrupted so the stream-end handler
+        // suppresses the task-completion notification sound.
+        manuallyInterrupted = true;
+
         // 发送用户取消状态给前端，避免卡片空白
         String provider = state.getProvider();
         callbackFacade.notifyResponsePhase(AssistantResponseStatusPayload.forCancelled(provider));

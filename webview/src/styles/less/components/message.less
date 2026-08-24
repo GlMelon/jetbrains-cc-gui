@@ -567,6 +567,8 @@
 .text-block {
     white-space: pre-wrap;
     word-wrap: break-word;
+    word-break: break-word;
+    overflow-wrap: break-word;
 }
 
 /* Markdown Content */
@@ -575,6 +577,7 @@
     line-height: 1.6;
     color: var(--text-primary);
     word-wrap: break-word;
+    word-break: break-word;
     overflow-wrap: break-word;
     cursor: text;
 }
@@ -621,11 +624,28 @@
 .markdown-content p {
     margin-bottom: 10px;
     word-wrap: break-word;
+    word-break: break-word;
     overflow-wrap: break-word;
     max-width: 100%;
 }
 
 .markdown-content p:last-child {
+    margin-bottom: 0;
+}
+
+/* Block-memoized streaming render: each top-level markdown block is wrapped
+   in .md-block. Keep paragraph spacing between blocks identical to the old
+   single-document render — only the message's final paragraph drops its
+   bottom margin. */
+.markdown-content .md-block > p:last-child {
+    margin-bottom: 10px;
+}
+
+.markdown-content > .md-block:last-child > p:last-child {
+    margin-bottom: 0;
+}
+
+.thinking-content .markdown-content .md-block > p:last-child {
     margin-bottom: 0;
 }
 

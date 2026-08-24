@@ -673,13 +673,16 @@ public class CodexMessageHandler implements MessageCallback {
 
             com.google.gson.JsonObject info = payload.getAsJsonObject("info");
             if (!info.has("last_token_usage") || !info.get("last_token_usage").isJsonObject()) {
-                LOG.debug("Ignoring Codex cumulative token_count without last_token_usage");
+                // total_token_usage is cumulative across the whole session and can
+                // exceed the active model window. It is valid only for Node-side
+                // per-turn delta calculation, never as the current-context numerator.
+                LOG.debug("Ignoring Codex token_count without last_token_usage");
                 return;
             }
+            com.google.gson.JsonObject contextUsage = info.getAsJsonObject("last_token_usage");
 
             // last_token_usage 是当前活跃模型上下文快照(权威 numerator);total_token_usage 是
             // 会话累积计数,可能超过模型窗口,仅可用于 Node 侧 per-turn delta 计算,绝不可作当前上下文。
-            com.google.gson.JsonObject contextUsage = info.getAsJsonObject("last_token_usage");
             int inputTokens = jsonIntOrZero(contextUsage, "input_tokens");
             int outputTokens = jsonIntOrZero(contextUsage, "output_tokens");
             int cachedInputTokens = jsonIntOrZero(contextUsage, "cached_input_tokens");
