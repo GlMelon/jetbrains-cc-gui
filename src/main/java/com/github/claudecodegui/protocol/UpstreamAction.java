@@ -213,6 +213,11 @@ public enum UpstreamAction implements ProtocolValue {
     FETCH_PROVIDER_MODELS("fetch_provider_models"),
     // 拉取 Claude 订阅用量快照(rate_limit_event 缓存,前端 ContextBar plan-usage bar)
     GET_CLAUDE_PLAN_USAGE("get_claude_plan_usage"),
+    // DSH host 生命周期(设置卡启停/状态/配置保存 → window.updateDshStatus)
+    GET_DSH_STATUS("get_dsh_status"),
+    START_DSH_HOST("start_dsh_host"),
+    STOP_DSH_HOST("stop_dsh_host"),
+    SAVE_DSH_SETTINGS("save_dsh_settings"),
 
     // ── Provider (Codex) ──
     GET_CODEX_PROVIDERS("get_codex_providers"),
