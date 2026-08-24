@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -85,13 +86,14 @@ public final class CliPersistentProcessRegistry implements Disposable {
     }
 
     private final ScheduledExecutorService sweeper = com.intellij.util.concurrency.AppExecutorUtil.getAppScheduledExecutorService();
+    private final ScheduledFuture<?> sweeperFuture;
 
     public static CliPersistentProcessRegistry getInstance(@NotNull Project project) {
         return project.getService(CliPersistentProcessRegistry.class);
     }
 
     public CliPersistentProcessRegistry() {
-        sweeper.scheduleWithFixedDelay(this::sweepIdleProcesses,
+        sweeperFuture = sweeper.scheduleWithFixedDelay(this::sweepIdleProcesses,
                 CliConstants.CLI_PERSISTENT_SWEEP_INTERVAL_MS,
                 CliConstants.CLI_PERSISTENT_SWEEP_INTERVAL_MS,
                 TimeUnit.MILLISECONDS);
@@ -319,7 +321,9 @@ public final class CliPersistentProcessRegistry implements Disposable {
         synchronized (lifecycleLock) {
             disposed = true;
             lifecycleEpoch.incrementAndGet();
-            sweeper.shutdownNow();
+            // The sweeper runs on the shared app-wide scheduler which must never
+            // be shut down; cancel the periodic task itself instead.
+            sweeperFuture.cancel(true);
             toClose = new ArrayList<>(slots.values());
             slots.clear();
             everCreated.clear();
