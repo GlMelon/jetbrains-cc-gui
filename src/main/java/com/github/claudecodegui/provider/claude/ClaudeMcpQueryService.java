@@ -8,6 +8,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.util.concurrency.AppExecutorUtil;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -64,6 +65,9 @@ class ClaudeMcpQueryService {
         this.outputExtractor = outputExtractor;
     }
 
+    // getMcpServerStatus/getMcpServerTools 均以显式 executor 落共享后台池:executeMarkerQuery 内
+    // spawn node 子进程并 latch 等待最长 65s,无 executor 会把 ForkJoinPool.commonPool worker
+    // (大小≈CPU核数-1)占住同一时长,并发几个查询就耗尽并行度。
     CompletableFuture<List<JsonObject>> getMcpServerStatus(String cwd) {
         // Return cached result if fresh
         List<JsonObject> cached = cachedStatusResult;
@@ -148,7 +152,7 @@ class ClaudeMcpQueryService {
                 cachedStatusTimestamp = System.currentTimeMillis();
             }
             return servers;
-        });
+        }, AppExecutorUtil.getAppExecutorService());
     }
 
     CompletableFuture<JsonObject> getMcpServerTools(String serverId, String cwd) {
@@ -195,7 +199,7 @@ class ClaudeMcpQueryService {
             errorResult.addProperty("serverId", serverId);
             errorResult.addProperty("error", "Failed to get tools list");
             return errorResult;
-        });
+        }, AppExecutorUtil.getAppExecutorService());
     }
 
     // ============================================================================

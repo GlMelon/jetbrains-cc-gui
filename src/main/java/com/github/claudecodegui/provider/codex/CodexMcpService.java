@@ -12,6 +12,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.util.concurrency.AppExecutorUtil;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -72,6 +73,8 @@ public class CodexMcpService {
     }
 
     public CompletableFuture<JsonObject> getMcpServerTools(String serverId, JsonObject serverConfig) {
+        // 显式 executor:内部 spawn node 子进程并轮询等待(MCP_TOOLS_TIMEOUT_MS=65s),无 executor
+        // 会把 commonPool worker 占住最长 65 秒(同文件 ProcessManager javadoc 的 L10 并发教训)。
         return CompletableFuture.supplyAsync(() -> {
             String channelId = ProcessManager.newChannelId("__codex_mcp_tools__");
             Process process = null;
@@ -210,7 +213,7 @@ public class CodexMcpService {
                     }
                 }
             }
-        });
+        }, AppExecutorUtil.getAppExecutorService());
     }
 
     private static void closeProcessStreams(Process process) {

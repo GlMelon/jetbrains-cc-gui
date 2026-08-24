@@ -3,6 +3,8 @@ package com.github.claudecodegui.handler.history;
 import com.github.claudecodegui.handler.core.FrontendActionContext;
 import com.github.claudecodegui.handler.core.FrontendActionHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.provider.SessionHistoryLoadResult;
+import com.github.claudecodegui.provider.claude.ClaudeHistoryService;
 import com.github.claudecodegui.provider.codex.CodexHistoryPageResult;
 import com.github.claudecodegui.provider.codex.CodexHistoryService;
 import com.github.claudecodegui.protocol.CodexHistoryPageMode;
@@ -16,10 +18,20 @@ import com.google.gson.JsonObject;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.util.concurrency.AppExecutorUtil;
 
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
-/** Loads and prepends one persisted Codex history page. */
+/**
+ * Loads and prepends one persisted history page. 已通用化:CODEX 与 CLAUDE 按 currentProvider
+ * 路由(切片语义两端一致,见 {@code CodexHistoryPageService} / {@code ClaudeHistoryPageService});
+ * action/wire 名保留 codex 兼容既有前端契约,事件与 payload 字段 provider 无关。
+ */
 public class LoadCodexHistoryPageActionHandler implements FrontendActionHandler<CodexHistoryPageRequest> {
+    /** 支持磁盘分页的 provider 白名单(与 isCurrentSession 的 provider 校验同源)。 */
+    private static final Set<String> PAGINATION_PROVIDERS = Set.of(
+            ProviderType.CODEX.value(), ProviderType.CLAUDE.value());
+
     @Override
     public UpstreamAction action() {
         return UpstreamAction.LOAD_CODEX_HISTORY_PAGE;
@@ -47,8 +59,10 @@ public class LoadCodexHistoryPageActionHandler implements FrontendActionHandler<
             dispatchError(handlerContext, requestedSessionId, "beforeTurn must be non-negative");
             return;
         }
-        if (!ProviderType.CODEX.value().equals(handlerContext.getCurrentProvider())) {
-            dispatchError(handlerContext, requestedSessionId, "Codex history pagination is unavailable for the active provider");
+        String currentProvider = handlerContext.getCurrentProvider();
+        if (!PAGINATION_PROVIDERS.contains(currentProvider)) {
+            dispatchError(handlerContext, requestedSessionId,
+                    "History pagination is unavailable for the active provider: " + currentProvider);
             return;
         }
 
@@ -58,11 +72,17 @@ public class LoadCodexHistoryPageActionHandler implements FrontendActionHandler<
             return;
         }
 
-        CodexHistoryService historyService = new CodexHistoryService();
-        CompletableFuture.supplyAsync(
-                () -> historyService.loadHistoryPage(requestedSessionId, beforeTurn),
-                AppExecutorUtil.getAppExecutorService()
-        ).whenComplete((result, error) -> ApplicationManager.getApplication().invokeLater(() -> {
+        CompletableFuture<SessionHistoryLoadResult> pageFuture =
+                ProviderType.CODEX.value().equals(currentProvider)
+                        ? CompletableFuture.supplyAsync(
+                                () -> {
+                                    CodexHistoryPageResult page =
+                                            new CodexHistoryService().loadHistoryPage(requestedSessionId, beforeTurn);
+                                    return new SessionHistoryLoadResult(page.messages(), page.pageInfo());
+                                },
+                                AppExecutorUtil.getAppExecutorService())
+                        : supplyClaudePage(session, requestedSessionId, beforeTurn);
+        pageFuture.whenComplete((result, error) -> ApplicationManager.getApplication().invokeLater(() -> {
             if (!isCurrentSession(handlerContext, session, requestedSessionId)) {
                 return;
             }
@@ -70,32 +90,51 @@ public class LoadCodexHistoryPageActionHandler implements FrontendActionHandler<
                 dispatchError(handlerContext, requestedSessionId, errorMessage(error));
                 return;
             }
-            applyResult(handlerContext, session, requestedSessionId, result);
+            applyResult(handlerContext, session, requestedSessionId, result.messages(), result.pageInfo());
         }));
+    }
+
+    private static CompletableFuture<SessionHistoryLoadResult> supplyClaudePage(
+            ClaudeSession session,
+            String requestedSessionId,
+            Integer beforeTurn
+    ) {
+        String cwd = session.getCwd();
+        return CompletableFuture.supplyAsync(
+                // 低频用户操作,按需构造(ClaudeHistoryService 构造拉起 NodeService,不做字段级缓存)。
+                () -> new ClaudeHistoryService().loadHistoryPage(requestedSessionId, cwd, beforeTurn),
+                AppExecutorUtil.getAppExecutorService()
+        );
     }
 
     private static void applyResult(
             HandlerContext handlerContext,
             ClaudeSession session,
             String requestedSessionId,
-            CodexHistoryPageResult result
+            List<JsonObject> messages,
+            JsonObject pageInfo
     ) {
-        session.applyCodexHistoryPage(result.messages(), CodexHistoryPageMode.PREPEND);
+        // applyCodexHistoryPage 实现是 provider 无关的(parseServerMessage + prependMessages + 全量 notify)。
+        session.applyCodexHistoryPage(messages, CodexHistoryPageMode.PREPEND);
         if (!isCurrentSession(handlerContext, session, requestedSessionId)) {
             return;
         }
         handlerContext.dispatchEvent(
                 DownstreamEvent.HISTORY_CODEX_PAGE_INFO.value(),
-                handlerContext.escapeJs(GsonHolder.GSON.toJson(result.pageInfo()))
+                handlerContext.escapeJs(GsonHolder.GSON.toJson(pageInfo))
         );
     }
 
     static boolean isCurrentSession(HandlerContext context, ClaudeSession expectedSession, String sessionId) {
-        return expectedSession != null
-                && context.getSession() == expectedSession
-                && sessionId.equals(expectedSession.getSessionId())
-                && ProviderType.CODEX.value().equals(expectedSession.getProvider())
-                && ProviderType.CODEX.value().equals(context.getCurrentProvider());
+        if (expectedSession == null
+                || context.getSession() != expectedSession
+                || !sessionId.equals(expectedSession.getSessionId())) {
+            return false;
+        }
+        String sessionProvider = expectedSession.getProvider();
+        String currentProvider = context.getCurrentProvider();
+        return (ProviderType.CODEX.value().equals(sessionProvider) && ProviderType.CODEX.value().equals(currentProvider))
+                || (ProviderType.CLAUDE.value().equals(sessionProvider) && ProviderType.CLAUDE.value().equals(currentProvider));
     }
 
     private static void dispatchError(HandlerContext context, String sessionId, String error) {

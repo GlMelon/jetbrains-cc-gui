@@ -246,15 +246,15 @@ public class ClaudeCliStreamParser {
         // subtype="status" (如 "requesting") 跳过
     }
 
-    /** api_retry 去重标记:一轮(parser 实例)只提示一次,避免 10 连发刷屏;文案已含进度语义。 */
-    private boolean apiRetryNoticeEmitted;
+    /** api_retry 去重:同一 attempt 只下发一次(防连发刷屏);attempt 递增即每次重试都提示。 */
+    private int lastApiRetryAttempt = -1;
 
     private void emitApiRetryNotice(JsonObject obj, MessageCallback callback) {
-        if (apiRetryNoticeEmitted) {
-            return;
-        }
-        apiRetryNoticeEmitted = true;
         int attempt = readIntField(obj, "attempt");
+        if (attempt > 0 && attempt == lastApiRetryAttempt) {
+            return; // 同一 attempt 已下发,防连发刷屏
+        }
+        lastApiRetryAttempt = attempt;
         int maxRetries = readIntField(obj, "max_retries");
         String errorStatus = getString(obj, "error_status");
         String error = getString(obj, "error");
@@ -274,9 +274,11 @@ public class ClaudeCliStreamParser {
             text.append(" 次),期间对话会挂起,请稍候或中断后重发");
         }
         sectionEmitter(callback).status(text.toString());
-        // 同步把顶部状态条切到 UNDERSTANDING + 重试 description,使 init 后静默挂起可解释
-        // (status 文本仍走原通道,此处只覆盖响应阶段指示器)。见 CliConstants.PHASE_API_RETRY。
-        callback.onMessage(CliConstants.MSG_RESPONSE_PHASE, CliConstants.PHASE_API_RETRY);
+        // 把 attempt/max 编码进 phase content(api_retry:attempt:max),透传给 handler,
+        // 由 AssistantResponseStatusPayload.forApiRetry 注入顶部状态卡的重试计数;
+        // 每次 attempt 递增都下发,使顶部状态卡持续刷新"正在重连 N/M"。
+        String phaseContent = CliConstants.PHASE_API_RETRY + ":" + attempt + ":" + maxRetries;
+        callback.onMessage(CliConstants.MSG_RESPONSE_PHASE, phaseContent);
     }
 
     private static int readIntField(JsonObject obj, String key) {

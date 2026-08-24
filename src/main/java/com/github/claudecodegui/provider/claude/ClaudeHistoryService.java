@@ -1,6 +1,7 @@
 package com.github.claudecodegui.provider.claude;
 
 import com.github.claudecodegui.bridge.NodeService;
+import com.github.claudecodegui.provider.SessionHistoryLoadResult;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
@@ -18,6 +19,7 @@ public class ClaudeHistoryService {
     private static final Gson gson = new Gson();
 
     private final ClaudeSessionQueryService sessionQueryService;
+    private final ClaudeHistoryPageService historyPageService;
 
     public ClaudeHistoryService() {
         NodeService nodeService = NodeService.getInstance();
@@ -30,6 +32,7 @@ public class ClaudeHistoryService {
                 nodeService.getEnvConfigurator(),
                 new ClaudeJsonOutputExtractor()
         );
+        this.historyPageService = new ClaudeHistoryPageService(sessionQueryService::getSessionMessages);
     }
 
     /**
@@ -37,6 +40,23 @@ public class ClaudeHistoryService {
      */
     public List<JsonObject> getSessionMessages(String sessionId, String cwd) {
         return sessionQueryService.getSessionMessages(sessionId, cwd);
+    }
+
+    /**
+     * Get the initial page of session history with pagination info.
+     *
+     * <p>异常刻意不上抛转空:保持 Claude 原有「加载失败经 orchestrator 对前端可见」语义,
+     * 由 {@code SessionMessageOrchestrator#loadFromServer} 的 catch 统一处理。
+     */
+    public SessionHistoryLoadResult getInitialSessionHistory(String sessionId, String cwd) {
+        return historyPageService.loadInitialPage(sessionId, cwd);
+    }
+
+    /**
+     * Load an earlier page of session history(经 {@code LoadCodexHistoryPageActionHandler} 路由调用).
+     */
+    public SessionHistoryLoadResult loadHistoryPage(String sessionId, String cwd, int beforeTurn) {
+        return historyPageService.loadEarlierPage(sessionId, cwd, beforeTurn);
     }
 
     /**

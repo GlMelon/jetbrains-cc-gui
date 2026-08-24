@@ -9,6 +9,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.util.concurrency.AppExecutorUtil;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -219,6 +220,8 @@ public class OpenCodeHistoryService {
                 process = pb.start();
                 processManager.registerProcess(channelId, process);
                 Process runningProcess = process;
+                // 显式 executor:drain 线程存活至子进程输出 EOF(上限 HISTORY_QUERY_TIMEOUT_SECONDS=30s),
+                // 无 executor 会占住 commonPool worker 同一时长。
                 outputFuture = CompletableFuture.runAsync(() -> {
                     try (BufferedReader reader = new BufferedReader(
                             new InputStreamReader(runningProcess.getInputStream(), StandardCharsets.UTF_8))) {
@@ -229,7 +232,7 @@ public class OpenCodeHistoryService {
                     } catch (Exception e) {
                         LOG.debug("[OpenCode] " + logTag + " output drain failed: " + e.getMessage());
                     }
-                });
+                }, AppExecutorUtil.getAppExecutorService());
 
                 try (OutputStream stdinStream = process.getOutputStream()) {
                     stdinStream.write(gson.toJson(stdin).getBytes(StandardCharsets.UTF_8));
