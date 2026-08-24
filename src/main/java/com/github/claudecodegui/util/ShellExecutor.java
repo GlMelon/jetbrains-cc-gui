@@ -7,6 +7,7 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
@@ -93,6 +94,7 @@ public final class ShellExecutor {
             int timeoutSeconds,
             boolean useInteractive
     ) {
+        Process process = null;
         try {
             ProcessBuilder pb = new ProcessBuilder(command);
             if (useInteractive) {
@@ -101,56 +103,24 @@ public final class ShellExecutor {
             }
             pb.redirectErrorStream(true);
 
-            Process process = pb.start();
+            process = pb.start();
+            // Drain output on a background thread: waiting before reading can deadlock
+            // once the child fills the OS pipe buffer (~64KB on Windows).
+            OutputReaderHandle reader = startOutputReader(process);
 
-            // Wait for the process to complete (with timeout) to avoid blocking on readLine
             boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
             if (!finished) {
                 LOG.debug(logPrefix + " command timed out");
-                process.destroyForcibly();
+                terminateQuietly(process);
                 return ExecutionResult.timeout();
             }
 
-            // Process has completed, now safe to read output
-            List<String> allLines = new ArrayList<>();
-            List<String> filteredLines = new ArrayList<>();
-            String validOutput = null;
-
-            try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    String trimmed = line.trim();
-                    allLines.add(trimmed);
-
-                    if (lineFilter.test(trimmed)) {
-                        validOutput = trimmed;
-                        // Return on the first valid line
-                        break;
-                    } else if (!trimmed.isEmpty()) {
-                        // Record filtered non-empty lines for debugging
-                        filteredLines.add(trimmed);
-                    }
-                }
-
-                // Read remaining lines
-                while ((line = reader.readLine()) != null) {
-                    allLines.add(line.trim());
-                }
-            }
-
-            // Log filtered lines at DEBUG level
-            if (!filteredLines.isEmpty() && LOG.isDebugEnabled()) {
-                LOG.debug(logPrefix + " filtered lines: " + filteredLines);
-            }
-
-            if (validOutput != null) {
-                return ExecutionResult.success(validOutput, allLines, filteredLines);
-            }
-
-            return ExecutionResult.failure();
+            return collect(reader, lineFilter, logPrefix, true);
         } catch (Exception e) {
             LOG.debug(logPrefix + " execution failed: " + e.getMessage());
+            // waitFor/collect may throw after start; reap the child so it cannot
+            // outlive the probe as a zombie holding the reader thread open.
+            terminateQuietly(process);
             return ExecutionResult.failure();
         }
     }
@@ -170,56 +140,134 @@ public final class ShellExecutor {
             String logPrefix,
             int timeoutSeconds
     ) {
+        Process process = null;
         try {
             ProcessBuilder pb = new ProcessBuilder(command);
             // Set TERM=dumb to suppress extra output from interactive shells
             pb.environment().put("TERM", "dumb");
             pb.redirectErrorStream(true);
 
-            Process process = pb.start();
+            process = pb.start();
+            // Drain output on a background thread (see execute() for rationale)
+            OutputReaderHandle reader = startOutputReader(process);
 
-            // Wait for the process to complete (with timeout)
             boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
             if (!finished) {
                 LOG.debug(logPrefix + " command timed out");
-                process.destroyForcibly();
+                terminateQuietly(process);
                 return ExecutionResult.timeout();
             }
 
-            // Read all output, keeping the last valid value
-            List<String> allLines = new ArrayList<>();
-            List<String> filteredLines = new ArrayList<>();
-            String lastValidValue = null;
+            return collect(reader, lineFilter, logPrefix, false);
+        } catch (Exception e) {
+            LOG.debug(logPrefix + " execution failed: " + e.getMessage());
+            // waitFor/collect may throw after start; reap the child so it cannot
+            // outlive the probe as a zombie holding the reader thread open.
+            terminateQuietly(process);
+            return ExecutionResult.failure();
+        }
+    }
 
+    /**
+     * Handle for the background stdout drain thread started by {@link #startOutputReader}.
+     */
+    private static final class OutputReaderHandle {
+        private final Thread thread;
+        private final List<String> lines;
+
+        private OutputReaderHandle(Thread thread, List<String> lines) {
+            this.thread = thread;
+            this.lines = lines;
+        }
+    }
+
+    /**
+     * Best-effort process termination: destroy and wait briefly so the child
+     * cannot outlive a failed or timed-out probe as a zombie.
+     */
+    private static void terminateQuietly(Process process) {
+        if (process == null) {
+            return;
+        }
+        process.destroyForcibly();
+        try {
+            if (!process.waitFor(300, TimeUnit.MILLISECONDS)) {
+                LOG.debug("process still alive 300ms after destroyForcibly");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    /**
+     * Starts a daemon thread that drains the process stdout into a shared list.
+     * Must be called before {@code waitFor} so a full OS pipe buffer can never
+     * block the child process.
+     */
+    private static OutputReaderHandle startOutputReader(Process process) {
+        // CopyOnWriteArrayList: if the drain thread outlives the join window in
+        // collect() (grandchild processes keep the pipe write end open, or a large
+        // buffer takes over a second to drain), the reader may still be appending
+        // while collect() iterates — a plain ArrayList would corrupt there.
+        List<String> lines = new CopyOnWriteArrayList<>();
+        Thread thread = new Thread(() -> {
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    String trimmed = line.trim();
-                    allLines.add(trimmed);
-
-                    if (lineFilter.test(trimmed)) {
-                        lastValidValue = trimmed;
-                    } else if (!trimmed.isEmpty()) {
-                        filteredLines.add(trimmed);
-                    }
+                    lines.add(line.trim());
                 }
+            } catch (Exception ignored) {
+                // Process destroyed on timeout closes the pipe mid-read; partial output is fine.
             }
+        }, "shell-executor-output-reader");
+        thread.setDaemon(true);
+        thread.start();
+        return new OutputReaderHandle(thread, lines);
+    }
 
-            // Log filtered lines at DEBUG level
-            if (!filteredLines.isEmpty() && LOG.isDebugEnabled()) {
-                LOG.debug(logPrefix + " filtered lines: " + filteredLines);
-            }
-
-            if (lastValidValue != null) {
-                return ExecutionResult.success(lastValidValue, allLines, filteredLines);
-            }
-
-            return ExecutionResult.failure();
-        } catch (Exception e) {
-            LOG.debug(logPrefix + " execution failed: " + e.getMessage());
-            return ExecutionResult.failure();
+    /**
+     * Waits briefly for the drain thread, then applies the filter to the collected lines.
+     *
+     * @param firstMatch true to keep the first matching line, false to keep the last
+     */
+    private static ExecutionResult collect(
+            OutputReaderHandle reader,
+            Predicate<String> lineFilter,
+            String logPrefix,
+            boolean firstMatch
+    ) {
+        try {
+            // The process already exited, so the reader hits EOF almost immediately.
+            reader.thread.join(1000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
+
+        List<String> filteredLines = new ArrayList<>();
+        String validOutput = null;
+        for (String trimmed : reader.lines) {
+            if (lineFilter.test(trimmed)) {
+                validOutput = trimmed;
+                if (firstMatch) {
+                    break;
+                }
+            } else if (!trimmed.isEmpty()) {
+                // Record filtered non-empty lines for debugging
+                filteredLines.add(trimmed);
+            }
+        }
+
+        // Log filtered lines at DEBUG level
+        if (!filteredLines.isEmpty() && LOG.isDebugEnabled()) {
+            LOG.debug(logPrefix + " filtered lines: " + filteredLines);
+        }
+
+        if (validOutput != null) {
+            return ExecutionResult.success(validOutput, List.copyOf(reader.lines), filteredLines);
+        }
+
+        return ExecutionResult.failure();
     }
 
     /**

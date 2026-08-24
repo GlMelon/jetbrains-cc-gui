@@ -21,6 +21,7 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowManager;
+import com.intellij.util.concurrency.AppExecutorUtil;
 import com.intellij.ui.jcef.JBCefBrowser;
 import com.intellij.ui.jcef.JBCefBrowserBase;
 import com.intellij.ui.jcef.JBCefJSQuery;
@@ -132,7 +133,7 @@ public class WebviewInitializer {
                 } else {
                     invokeLaterForToolWindow(this::showErrorPanel);
                 }
-            });
+            }, AppExecutorUtil.getAppExecutorService());
             return;
         }
 
@@ -172,7 +173,7 @@ public class WebviewInitializer {
                     } else {
                         invokeLaterForToolWindow(this::showErrorPanel);
                     }
-                });
+                }, AppExecutorUtil.getAppExecutorService());
                 return;
             }
 
@@ -918,6 +919,7 @@ public class WebviewInitializer {
         int delayMs = BACKOFF_DELAYS_MS[attempt];
         LOG.info("[ClaudeSDKToolWindow] Retry attempt " + (attempt + 1) + "/" + MAX_RETRIES + ", waiting " + delayMs + "ms...");
 
+        // 显式 executor:退避 sleep(100-400ms)不落 commonPool。
         CompletableFuture.runAsync(() -> {
             if (isLifecycleDisposed()) {
                 return;
@@ -927,7 +929,7 @@ public class WebviewInitializer {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
-        }).thenRun(() -> {
+        }, AppExecutorUtil.getAppExecutorService()).thenRun(() -> {
             if (isLifecycleDisposed()) {
                 return;
             }

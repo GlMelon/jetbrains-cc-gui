@@ -1,5 +1,6 @@
 package com.github.claudecodegui.util;
 
+import com.intellij.openapi.util.text.StringUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -47,19 +48,9 @@ public final class LineSeparatorUtil {
         if (content == null || content.isEmpty()) {
             return content == null ? "" : content;
         }
-
-        // First, normalize all line separators to LF
-        // This handles mixed line separators (e.g., \r\n and \n mixed)
-        String normalized = content
-                .replace("\r\n", "\n")  // Windows -> Unix
-                .replace("\r", "\n");   // Old Mac -> Unix
-
-        // If target is not LF, replace with target
-        if (!LF.equals(lineSeparator)) {
-            normalized = normalized.replace("\n", lineSeparator);
-        }
-
-        return normalized;
+        // Platform helper replaces \r\n, \r and \n in one pass — equivalent to the
+        // previous normalize-to-LF-then-retarget hand-rolled replacement.
+        return StringUtil.convertLineSeparators(content, lineSeparator);
     }
 
     /**

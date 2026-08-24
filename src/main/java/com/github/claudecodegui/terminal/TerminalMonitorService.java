@@ -207,7 +207,7 @@ public class TerminalMonitorService implements ProjectActivity {
                 if (component == null) { continue; }
 
                 // Try to extract terminal widget from content component
-                Object widget = extractTerminalWidget(component);
+                Object widget = extractTerminalWidgetStatic(component);
                 if (widget != null && !monitoredWidgets.contains(widget)) {
                     attachToWidget(project, state, widget);
                 }
@@ -217,44 +217,6 @@ public class TerminalMonitorService implements ProjectActivity {
         } catch (Exception e) {
             LOG.error("Error checking for terminal widgets", e);
         }
-    }
-
-    /**
-     * Extract terminal widget from content component.
-     * Tries to find JBTerminalWidget or similar terminal widget.
-     */
-    @Nullable
-    private Object extractTerminalWidget(@NotNull Object component) {
-        // Direct check for JBTerminalWidget
-        if (component instanceof JBTerminalWidget) {
-            return component;
-        }
-
-        // Try to find terminal widget via reflection on component hierarchy
-        try {
-            // Check if component has getTerminalWidget method
-            Method getTerminalWidgetMethod = component.getClass().getMethod("getTerminalWidget");
-            Object widget = getTerminalWidgetMethod.invoke(component);
-            if (widget != null) {
-                return widget;
-            }
-        } catch (Exception e) {
-            // Method doesn't exist or failed, continue
-        }
-
-        // Try to find via getChild method if it's a container
-        if (component instanceof java.awt.Container) {
-            java.awt.Container container = (java.awt.Container) component;
-            for (int i = 0; i < container.getComponentCount(); i++) {
-                java.awt.Component child = container.getComponent(i);
-                Object widget = extractTerminalWidget(child);
-                if (widget != null) {
-                    return widget;
-                }
-            }
-        }
-
-        return null;
     }
 
     private void attachToWidget(@NotNull Project project, @NotNull ProjectMonitorState state, @NotNull Object widget) {
@@ -412,7 +374,7 @@ public class TerminalMonitorService implements ProjectActivity {
                 if (component == null) { continue; }
 
                 // Try to extract terminal widget from content component
-                Object widget = extractTerminalWidget(component);
+                Object widget = extractTerminalWidgetStatic(component);
                 if (widget != null) {
                     widgets.add(widget);
                 }
@@ -434,7 +396,10 @@ public class TerminalMonitorService implements ProjectActivity {
     }
 
     /**
-     * Extract terminal widget from content component (static version).
+     * Extract terminal widget from content component.
+     * Tries JBTerminalWidget first, then a reflection-based lookup down the
+     * Swing component hierarchy. Shared by the monitoring path and the
+     * widget-query path so both always agree.
      */
     @Nullable
     private static Object extractTerminalWidgetStatic(@NotNull Object component) {

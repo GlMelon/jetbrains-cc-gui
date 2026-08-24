@@ -2,9 +2,11 @@ package com.github.claudecodegui.util;
 
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.util.SystemInfo;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.lang.management.ManagementFactory;
 import java.nio.charset.StandardCharsets;
@@ -52,12 +54,13 @@ public class PlatformUtils {
      */
     public static PlatformType getPlatformType() {
         if (cachedPlatformType == null) {
-            String osName = System.getProperty("os.name", "").toLowerCase();
-            if (osName.contains("win")) {
+            // Delegate to the platform's SystemInfo: maintained detection logic
+            // (handles os.name variants we would otherwise guess at).
+            if (SystemInfo.isWindows) {
                 cachedPlatformType = PlatformType.WINDOWS;
-            } else if (osName.contains("mac") || osName.contains("darwin")) {
+            } else if (SystemInfo.isMac) {
                 cachedPlatformType = PlatformType.MACOS;
-            } else if (osName.contains("linux") || osName.contains("nix") || osName.contains("nux")) {
+            } else if (SystemInfo.isLinux) {
                 cachedPlatformType = PlatformType.LINUX;
             } else {
                 cachedPlatformType = PlatformType.UNKNOWN;
@@ -482,53 +485,20 @@ public class PlatformUtils {
         }
 
         try {
-            // Use WMIC to find conhost.exe processes where the parent process matches
-            // WMIC is more reliable than taskkill for finding parent-child relationships
-            ProcessBuilder wmicBuilder = new ProcessBuilder(
-                    "wmic", "process", "where",
-                    "name='conhost.exe' and ParentProcessId=" + parentPid,
-                    "get", "ProcessId"
-            );
-            wmicBuilder.redirectErrorStream(true);
-
-            Process wmicProcess = wmicBuilder.start();
-            StringBuilder output = new StringBuilder();
-
-            try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(wmicProcess.getInputStream(), StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    output.append(line).append("\n");
-                }
-            }
-
-            wmicProcess.waitFor(10, TimeUnit.SECONDS);
-
-            // Parse the output to get PIDs (skip header line)
-            String[] lines = output.toString().split("\n");
+            List<Long> conhostPids = queryProcessPids("name='conhost.exe' and ParentProcessId=" + parentPid);
             int cleanedCount = 0;
 
-            for (String line : lines) {
-                String trimmed = line.trim();
-                if (trimmed.isEmpty() || trimmed.equals("ProcessId")) {
-                    continue; // Skip empty lines and header
-                }
+            for (long conhostPid : conhostPids) {
+                LOG.info("[ProcessCleanup] Terminating orphaned conhost.exe (PID: " + conhostPid +
+                        ", parent: " + parentPid + ")");
 
-                try {
-                    long conhostPid = Long.parseLong(trimmed);
-                    LOG.info("[ProcessCleanup] Terminating orphaned conhost.exe (PID: " + conhostPid +
-                            ", parent: " + parentPid + ")");
-
-                    ProcessBuilder taskkillBuilder = new ProcessBuilder(
-                            "taskkill", "/F", "/PID", String.valueOf(conhostPid)
-                    );
-                    taskkillBuilder.redirectErrorStream(true);
-                    Process taskkillProcess = taskkillBuilder.start();
-                    taskkillProcess.waitFor(5, TimeUnit.SECONDS);
-                    cleanedCount++;
-                } catch (NumberFormatException e) {
-                    LOG.debug("[ProcessCleanup] Skipping non-numeric PID: " + trimmed);
-                }
+                ProcessBuilder taskkillBuilder = new ProcessBuilder(
+                        "taskkill", "/F", "/PID", String.valueOf(conhostPid)
+                );
+                taskkillBuilder.redirectErrorStream(true);
+                Process taskkillProcess = taskkillBuilder.start();
+                taskkillProcess.waitFor(5, TimeUnit.SECONDS);
+                cleanedCount++;
             }
 
             if (cleanedCount > 0) {
@@ -580,105 +550,98 @@ public class PlatformUtils {
     }
 
     /**
-     * 查询 {@code parentPid} 的直接子进程 PID 列表(wmic)。父进程已死时仍可查到孤儿子进程。
+     * 查询 {@code parentPid} 的直接子进程 PID 列表。父进程已死时仍可查到孤儿子进程。
      */
     private static List<Long> queryChildPids(long parentPid) {
-        List<Long> childPids = new ArrayList<>();
-        try {
-            ProcessBuilder wmicBuilder = new ProcessBuilder(
-                    "wmic", "process", "where",
-                    "ParentProcessId=" + parentPid,
-                    "get", "ProcessId"
-            );
-            wmicBuilder.redirectErrorStream(true);
-
-            Process wmicProcess = wmicBuilder.start();
-            StringBuilder output = new StringBuilder();
-            try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(wmicProcess.getInputStream(), StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    output.append(line).append("\n");
-                }
-            }
-            wmicProcess.waitFor(10, TimeUnit.SECONDS);
-
-            // 解析输出(跳过表头 "ProcessId" 与空行,余下即子进程 PID)
-            String[] lines = output.toString().split("\n");
-            for (String line : lines) {
-                String trimmed = line.trim();
-                if (trimmed.isEmpty() || trimmed.equals("ProcessId")) {
-                    continue;
-                }
-                try {
-                    childPids.add(Long.parseLong(trimmed));
-                } catch (NumberFormatException e) {
-                    LOG.debug("[ProcessCleanup] Skipping non-numeric child PID: " + trimmed);
-                }
-            }
-        } catch (Exception e) {
-            LOG.debug("[ProcessCleanup] Failed to query child processes of PID " + parentPid + ": " + e.getMessage());
-        }
-        return childPids;
+        return queryProcessPids("ParentProcessId=" + parentPid);
     }
 
     /**
-     * Clean up all orphaned conhost.exe processes that belong to known plugin processes.
-     * This is useful as a cleanup routine during IDE shutdown or when resetting the plugin.
-     * Searches for conhost.exe processes whose parents are node.exe, claude.exe, or codex.exe.
+     * 按 WQL 条件查询进程 PID 列表(Windows)。
+     * <p>
+     * 优先 wmic;Win11 24H2+ 已从系统移除 wmic.exe,{@code start()} 会抛 IOException
+     * (CreateProcess error=2)——此时回退 PowerShell {@code Get-CimInstance}(同一 WQL
+     * 过滤语法,Win10 1607+ 恒可用)。老系统(wmic 存在)行为零变化。
+     * <p>
+     * 任一路径的输出都解析为「每行一个 PID」(wmic 输出带表头 "ProcessId",跳过;PowerShell
+     * Select-Object -ExpandProperty 无表头)。查询失败返回空列表,由调用方各自的兜底语义消化。
      */
-    public static void cleanupAllPluginConhosts() {
-        if (!isWindows()) {
-            return;
-        }
-
-        LOG.info("[ProcessCleanup] Starting cleanup of all plugin-related conhost.exe processes...");
-
+    private static List<Long> queryProcessPids(String wqlWhere) {
         try {
-            // Find all node.exe and claude.exe processes
+            return queryPidsViaWmic(wqlWhere);
+        } catch (IOException e) {
+            LOG.debug("[ProcessCleanup] wmic unavailable (removed on Win11 24H2+?), falling back to PowerShell: "
+                    + e.getMessage());
+            return queryPidsViaPowerShell(wqlWhere);
+        } catch (Exception e) {
+            LOG.debug("[ProcessCleanup] Failed to query processes (" + wqlWhere + "): " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    private static List<Long> queryPidsViaWmic(String wqlWhere) throws Exception {
+        ProcessBuilder wmicBuilder = new ProcessBuilder(
+                "wmic", "process", "where", wqlWhere, "get", "ProcessId"
+        );
+        wmicBuilder.redirectErrorStream(true);
+
+        Process wmicProcess = wmicBuilder.start();
+        String output = readProcessOutput(wmicProcess, 10, TimeUnit.SECONDS);
+        return parsePidLines(output, true);
+    }
+
+    private static List<Long> queryPidsViaPowerShell(String wqlWhere) {
+        List<Long> pids = new ArrayList<>();
+        try {
             ProcessBuilder psBuilder = new ProcessBuilder(
-                    "wmic", "process", "where",
-                    "name='node.exe' or name='claude.exe' or name='codex.exe'",
-                    "get", "ProcessId"
+                    "powershell", "-NoProfile", "-NonInteractive", "-Command",
+                    "Get-CimInstance Win32_Process -Filter \"" + wqlWhere + "\""
+                            + " | Select-Object -ExpandProperty ProcessId"
             );
             psBuilder.redirectErrorStream(true);
 
             Process psProcess = psBuilder.start();
-            StringBuilder output = new StringBuilder();
-
-            try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(psProcess.getInputStream(), StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    output.append(line).append("\n");
-                }
-            }
-
-            psProcess.waitFor(10, TimeUnit.SECONDS);
-
-            // Parse parent process PIDs and clean their conhost children
-            String[] lines = output.toString().split("\n");
-            int totalCleaned = 0;
-
-            for (String line : lines) {
-                String trimmed = line.trim();
-                if (trimmed.isEmpty() || trimmed.equals("ProcessId")) {
-                    continue;
-                }
-
-                try {
-                    long parentPid = Long.parseLong(trimmed);
-                    cleanupOrphanedConhosts(parentPid);
-                    totalCleaned++;
-                } catch (NumberFormatException e) {
-                    // Skip non-numeric lines
-                }
-            }
-
-            LOG.info("[ProcessCleanup] Completed cleanup of plugin conhost.exe processes");
+            // PowerShell 冷启动比 wmic 慢(1-2s),超时相应放宽
+            String output = readProcessOutput(psProcess, 20, TimeUnit.SECONDS);
+            pids = parsePidLines(output, false);
         } catch (Exception e) {
-            LOG.warn("[ProcessCleanup] Failed to cleanup plugin conhost.exe processes: " + e.getMessage());
+            LOG.debug("[ProcessCleanup] PowerShell process query failed (" + wqlWhere + "): " + e.getMessage());
         }
+        return pids;
+    }
+
+    /** 读完查询进程的全部输出并等待其退出(超时强杀),防输出管道堵塞。 */
+    private static String readProcessOutput(Process process, long timeout, TimeUnit unit) throws Exception {
+        StringBuilder output = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                output.append(line).append("\n");
+            }
+        } finally {
+            if (!process.waitFor(timeout, unit)) {
+                process.destroyForcibly();
+            }
+        }
+        return output.toString();
+    }
+
+    /** 解析「每行一个 PID」输出;{@code skipHeader}=true 时跳过 wmic 表头 "ProcessId"。 */
+    private static List<Long> parsePidLines(String output, boolean skipHeader) {
+        List<Long> pids = new ArrayList<>();
+        for (String line : output.split("\n")) {
+            String trimmed = line.trim();
+            if (trimmed.isEmpty() || (skipHeader && trimmed.equals("ProcessId"))) {
+                continue;
+            }
+            try {
+                pids.add(Long.parseLong(trimmed));
+            } catch (NumberFormatException e) {
+                LOG.debug("[ProcessCleanup] Skipping non-numeric PID line: " + trimmed);
+            }
+        }
+        return pids;
     }
 
     // ==================== Helper Methods ====================

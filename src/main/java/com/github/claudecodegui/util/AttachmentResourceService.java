@@ -6,8 +6,6 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -213,14 +211,9 @@ public final class AttachmentResourceService {
     }
 
     private static String tokenFor(String canonicalPath, long lastModified, long length) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            String source = canonicalPath + '\n' + lastModified + '\n' + length;
-            byte[] hash = digest.digest(source.getBytes(StandardCharsets.UTF_8));
-            return Base64.getUrlEncoder().withoutPadding().encodeToString(hash).substring(0, 32);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 digest is unavailable", e);
-        }
+        String source = canonicalPath + '\n' + lastModified + '\n' + length;
+        byte[] hash = HashingUtil.sha256(source);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(hash).substring(0, 32);
     }
 
     private static String extensionForPath(String path) {
