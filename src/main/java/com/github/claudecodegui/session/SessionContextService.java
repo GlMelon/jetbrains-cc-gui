@@ -12,6 +12,7 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.progress.ProcessCanceledException;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Computable;
+import com.intellij.util.concurrency.AppExecutorUtil;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -183,7 +184,9 @@ public class SessionContextService {
             // 并行后 wall-clock ≈ 最慢的一个文件;结果按原引用顺序拼接(future 列表保序)。
             List<CompletableFuture<String>> readFutures = new ArrayList<>(regularFilePaths.size());
             for (String filePath : regularFilePaths) {
-                readFutures.add(CompletableFuture.supplyAsync(() -> readFileContent(filePath)));
+                // 显式 executor:磁盘 IO 不落 commonPool(大小≈CPU核数-1),多文件并行时避免耗尽并行度。
+                readFutures.add(CompletableFuture.supplyAsync(() -> readFileContent(filePath),
+                        AppExecutorUtil.getAppExecutorService()));
             }
             for (int i = 0; i < regularFilePaths.size(); i++) {
                 String filePath = regularFilePaths.get(i);

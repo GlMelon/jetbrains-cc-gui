@@ -146,17 +146,10 @@ public final class StreamDeltaThrottler {
         private void dispose() {
             if (disposed) { return; }
             disposed = true;
+            // The executor is the shared app-wide scheduler and must never be shut
+            // down here (the platform throws on shutdown of the global pool);
+            // pending work is released via cancel() instead.
             cancel();
-            executor.shutdownNow();
-            try {
-                // 等待线程实际终止，避免频繁创建/销毁时的线程资源重叠
-                if (!executor.awaitTermination(100, TimeUnit.MILLISECONDS)) {
-                    LOG.debug("StreamDeltaThrottler executor did not terminate within 100ms");
-                }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                LOG.debug("StreamDeltaThrottler awaitTermination interrupted");
-            }
         }
     }
 }

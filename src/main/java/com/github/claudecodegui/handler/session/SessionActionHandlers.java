@@ -1,6 +1,5 @@
 package com.github.claudecodegui.handler.session;
 
-import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.notifications.ClaudeNotifier;
 import com.github.claudecodegui.session.ClaudeSession;
@@ -16,6 +15,7 @@ import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.util.concurrency.AppExecutorUtil;
 
 import java.io.File;
 import java.nio.file.Path;
@@ -144,7 +144,7 @@ public class SessionActionHandlers {
                     });
                     return null;
                     });
-        });
+        }, AppExecutorUtil.getAppExecutorService());
     }
 
     void handleSendMessageWithAttachments(String content) {
@@ -330,7 +330,7 @@ public class SessionActionHandlers {
                     });
                     return null;
                     });
-        });
+        }, AppExecutorUtil.getAppExecutorService());
     }
 
     private boolean isCliModeActive() {

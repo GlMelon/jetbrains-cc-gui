@@ -4,7 +4,6 @@ import com.github.claudecodegui.cli.common.CliConstants;
 import com.github.claudecodegui.cli.common.CliOutputLimits;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.provider.ModelProviderHandler;
-import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.notifications.ClaudeNotifier;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.settings.CodemossSettingsService;
@@ -233,12 +232,13 @@ public class ClaudeMessageHandler implements MessageCallback {
             return;
         }
         String provider = state.getProvider();
-        if (CliConstants.PHASE_API_RETRY.equals(phaseValue)) {
-            // api_retry:保持 UNDERSTANDING phase(前端 phase class 不变),description 覆盖为重试文案,
-            // 使顶部状态条解释 init 后静默挂起(2026-08-18 BigModel 529 实测)。
-            callbackHandler.notifyResponsePhase(AssistantResponseStatusPayload.forProviderWithDescription(
-                    AssistantResponsePhase.UNDERSTANDING, provider, 0L,
-                    ClaudeCodeGuiBundle.message("assistant.response.phase.apiRetry.description")));
+        if (phaseValue.equals(CliConstants.PHASE_API_RETRY)
+                || phaseValue.startsWith(CliConstants.PHASE_API_RETRY + ":")) {
+            // api_retry:phase 切到 API_RETRY,description 注入重试计数(attempt/max),前端据此
+            // 切琥珀警示色;每次 attempt 递增都刷新,使静默挂起全程可感知
+            // (2026-08-18 BigModel 529 实测,2026-08-21 改造为每次重试带计数提示)。
+            callbackHandler.notifyResponsePhase(
+                    AssistantResponseStatusPayload.forApiRetryFromContent(provider, 0L, phaseValue));
             return;
         }
         AssistantResponsePhase phase = AssistantResponsePhase.fromValue(phaseValue);

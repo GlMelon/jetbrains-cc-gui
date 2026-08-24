@@ -4,7 +4,6 @@ import com.github.claudecodegui.cli.common.CliConstants;
 import com.github.claudecodegui.cli.common.CliOutputLimits;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.CodexMessageConverter;
-import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.SDKResult;
 import com.github.claudecodegui.session.ClaudeSession.Message;
@@ -204,10 +203,11 @@ public class CodexMessageHandler implements MessageCallback {
             return;
         }
         String provider = state.getProvider();
-        if (CliConstants.PHASE_API_RETRY.equals(phaseValue)) {
-            callbackHandler.notifyResponsePhase(AssistantResponseStatusPayload.forProviderWithDescription(
-                    AssistantResponsePhase.UNDERSTANDING, provider, 0L,
-                    ClaudeCodeGuiBundle.message("assistant.response.phase.apiRetry.description")));
+        if (phaseValue.equals(CliConstants.PHASE_API_RETRY)
+                || phaseValue.startsWith(CliConstants.PHASE_API_RETRY + ":")) {
+            // api_retry:phase 切 API_RETRY + 重试计数 description,镜像 ClaudeMessageHandler。
+            callbackHandler.notifyResponsePhase(
+                    AssistantResponseStatusPayload.forApiRetryFromContent(provider, 0L, phaseValue));
             return;
         }
         AssistantResponsePhase phase = AssistantResponsePhase.fromValue(phaseValue);

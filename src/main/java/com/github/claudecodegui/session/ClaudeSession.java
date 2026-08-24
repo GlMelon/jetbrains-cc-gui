@@ -8,6 +8,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
+import com.intellij.util.concurrency.AppExecutorUtil;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -440,6 +441,11 @@ public class ClaudeSession {
      */
     public CompletableFuture<Void> interrupt() {
         state.invalidatePendingSendOperations();
+        
+        // 发送用户取消状态给前端，避免卡片空白
+        String provider = state.getProvider();
+        callbackFacade.notifyResponsePhase(AssistantResponseStatusPayload.forCancelled(provider));
+        
         if (state.getChannelId() == null) {
             state.setError(null);
             state.setBusy(false);
@@ -448,6 +454,8 @@ public class ClaudeSession {
             return CompletableFuture.completedFuture(null);
         }
 
+        // 显式 executor:interruptRuntime 走 ProcessManager 终止链(Windows taskkill /T + waitFor
+        // 3s + 2s),无 executor 会把 commonPool worker 占住数秒。
         return CompletableFuture.runAsync(() -> {
             try {
                 sendService.interruptRuntime(state.getProvider(), state.getChannelId(), state.getChannelId());
@@ -467,7 +475,7 @@ public class ClaudeSession {
                 state.setLoading(false);  // Also reset loading on error
                 callbackFacade.notifyStateChange(state.isBusy(), state.isLoading(), state.getError());
             }
-        });
+        }, AppExecutorUtil.getAppExecutorService());
     }
 
     /**

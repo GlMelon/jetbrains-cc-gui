@@ -4,7 +4,8 @@ import com.github.claudecodegui.mcp.McpGatewayConstants;
 import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.protocol.payload.SessionCapabilitiesPayloadField;
 import com.github.claudecodegui.protocol.payload.SessionMcpCapabilityPayloadField;
-import com.github.claudecodegui.util.GsonHolder;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
@@ -21,6 +22,15 @@ public final class SessionCapabilityService {
     private static final String ID_SEPARATOR = ":";
     private static final String MCP_STATUS_ERROR = "Unable to read MCP Gateway status";
 
+    /**
+     * 必须 serializeNulls:payload 契约中 lastError/lastSuccessAt/mcpError 是可空字段,
+     * 前端校验器按 string|null/number|null 严格判型。Gson 默认(不序列化 null)会把
+     * JsonNull 元素的键整个吞掉,前端收到的是 undefined 而非 null,整包被判失败
+     * ("无法加载会话能力")。见 2026-08-21 排查:default Gson 输出 {"id":"x"},
+     * serializeNulls 输出 {"id":"x","lastError":null}。
+     */
+    private static final Gson NULLS_GSON = new GsonBuilder().serializeNulls().create();
+
     private SessionCapabilityService() {
     }
 
@@ -29,7 +39,7 @@ public final class SessionCapabilityService {
         JsonObject payload = new JsonObject();
         if (session == null) {
             addEmptySession(payload, observedAt);
-            return GsonHolder.GSON.toJson(payload);
+            return NULLS_GSON.toJson(payload);
         }
 
         payload.addProperty(SessionCapabilitiesPayloadField.SESSION_ID.wireKey(), safe(session.getSessionId()));
@@ -72,7 +82,7 @@ public final class SessionCapabilityService {
         }
         payload.add(SessionCapabilitiesPayloadField.MCP.wireKey(), mcp);
         payload.add(SessionCapabilitiesPayloadField.SKILLS.wireKey(), session.getSkillSnapshot().toJson());
-        return GsonHolder.GSON.toJson(payload);
+        return NULLS_GSON.toJson(payload);
     }
 
     private static void addEmptySession(JsonObject payload, long observedAt) {
@@ -111,12 +121,12 @@ public final class SessionCapabilityService {
                 SessionMcpCapabilityPayloadField.STATE.wireKey(),
                 mapState(stringValue(server, McpGatewayConstants.KEY_STATE))
         );
-        copyNullable(
+        copyStringOrNull(
                 item,
                 SessionMcpCapabilityPayloadField.LAST_ERROR.wireKey(),
                 server.get(McpGatewayConstants.KEY_LAST_ERROR)
         );
-        copyNullable(
+        copyNumberOrNull(
                 item,
                 SessionMcpCapabilityPayloadField.LAST_SUCCESS_AT.wireKey(),
                 server.get(McpGatewayConstants.KEY_LAST_SUCCESS_AT)
@@ -141,8 +151,28 @@ public final class SessionCapabilityService {
         return value != null && value.isJsonPrimitive() ? value.getAsString() : null;
     }
 
-    private static void copyNullable(JsonObject target, String key, JsonElement value) {
-        target.add(key, value == null ? JsonNull.INSTANCE : value.deepCopy());
+    /**
+     * 类型安全的字符串透传:gateway 健康字段一旦类型漂移(对象/数字等),原样深拷贝会
+     * 让前端严格校验整包判失败("Unable to load session capabilities"),故非字符串
+     * 原语降级为其文本形式,缺失/非原语置 null。
+     */
+    private static void copyStringOrNull(JsonObject target, String key, JsonElement value) {
+        if (value != null && value.isJsonPrimitive() && value.getAsJsonPrimitive().isString()) {
+            target.add(key, value.deepCopy());
+        } else if (value != null && value.isJsonPrimitive()) {
+            target.addProperty(key, value.getAsString());
+        } else {
+            target.add(key, JsonNull.INSTANCE);
+        }
+    }
+
+    /** 同 {@link #copyStringOrNull},数字版:非数字原语(如字符串化时间戳)一律置 null。 */
+    private static void copyNumberOrNull(JsonObject target, String key, JsonElement value) {
+        if (value != null && value.isJsonPrimitive() && value.getAsJsonPrimitive().isNumber()) {
+            target.add(key, value.deepCopy());
+        } else {
+            target.add(key, JsonNull.INSTANCE);
+        }
     }
 
     private static void copyNumber(JsonObject target, String key, JsonElement value) {

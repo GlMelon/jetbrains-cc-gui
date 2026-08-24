@@ -73,6 +73,66 @@ public record AssistantResponseStatusPayload(
         );
     }
 
+    /**
+     * api_retry 重试态工厂:title 仍取 understanding("等待模型响应"),description 注入重试
+     * 计数(attempt/max),phase 为 {@link AssistantResponsePhase#API_RETRY},供前端据此切琥珀
+     * 警示色,使 CLI 静默指数退避重试期间(init 后挂起)可感知。attempt/max 无效时计数回退为 "?"。
+     *
+     * @param provider            provider code
+     * @param turnStartedAtMillis turn 起始毫秒(前端计时器自算,可传 0)
+     * @param attempt             当前重试次序(1-based,<=0 视为未知)
+     * @param maxRetries          最大重试次数(<=0 视为未知)
+     */
+    public static AssistantResponseStatusPayload forApiRetry(
+            String provider, long turnStartedAtMillis, int attempt, int maxRetries) {
+        long elapsedMs = turnStartedAtMillis > 0
+                ? Math.max(0L, System.currentTimeMillis() - turnStartedAtMillis)
+                : 0L;
+        String attemptStr = attempt > 0 ? String.valueOf(attempt) : "?";
+        String maxStr = maxRetries > 0 ? String.valueOf(maxRetries) : "?";
+        String description = ClaudeCodeGuiBundle.message(
+                AssistantResponsePhase.API_RETRY.descriptionKey(), attemptStr, maxStr);
+        return new AssistantResponseStatusPayload(
+                AssistantResponsePhase.API_RETRY.value(),
+                safeProviderLabel(providerLabel(provider)),
+                ClaudeCodeGuiBundle.message(AssistantResponsePhase.API_RETRY.titleKey()),
+                description,
+                elapsedMs,
+                AssistantResponsePhase.API_RETRY.active()
+        );
+    }
+
+    /**
+     * 从 api_retry phase content(格式 {@code api_retry[:attempt[:maxRetries]]})构造重试态 payload。
+     * content 无冒号或数字解析失败时,对应字段回退 -1(进而显示为 "?")。
+     * 调用方应先用 {@code content.startsWith("api_retry")} 守卫。
+     */
+    public static AssistantResponseStatusPayload forApiRetryFromContent(
+            String provider, long turnStartedAtMillis, String content) {
+        int attempt = -1;
+        int maxRetries = -1;
+        if (content != null) {
+            int colon = content.indexOf(':');
+            if (colon >= 0) {
+                String[] parts = content.substring(colon + 1).split(":");
+                attempt = safeParseInt(parts, 0);
+                maxRetries = safeParseInt(parts, 1);
+            }
+        }
+        return forApiRetry(provider, turnStartedAtMillis, attempt, maxRetries);
+    }
+
+    private static int safeParseInt(String[] parts, int index) {
+        if (index < 0 || index >= parts.length) {
+            return -1;
+        }
+        try {
+            return Integer.parseInt(parts[index].trim());
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
     private static String providerLabel(String provider) {
         if (CommonConstants.PROVIDER_CODEX.equals(provider)
                 || CommonConstants.PROVIDER_OPENCODE.equals(provider)
@@ -89,5 +149,20 @@ public record AssistantResponseStatusPayload(
             return PROVIDER_LABEL_AI;
         }
         return providerLabel.trim();
+    }
+
+    /**
+     * 用户取消时的工厂:phase 为 {@link AssistantResponsePhase#ERROR},description 为"用户已取消"。
+     * 用于 interrupt 后向前端展示友好的取消提示,避免卡片空白。
+     */
+    public static AssistantResponseStatusPayload forCancelled(String provider) {
+        return new AssistantResponseStatusPayload(
+                AssistantResponsePhase.ERROR.value(),
+                safeProviderLabel(providerLabel(provider)),
+                ClaudeCodeGuiBundle.message(AssistantResponsePhase.ERROR.titleKey()),
+                ClaudeCodeGuiBundle.message("assistant.response.cancelled"),
+                0L,
+                AssistantResponsePhase.ERROR.active()
+        );
     }
 }

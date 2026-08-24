@@ -11,6 +11,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
+import com.intellij.util.concurrency.AppExecutorUtil;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -89,10 +90,11 @@ public class SessionMessageOrchestrator {
             return CompletableFuture.completedFuture(null);
         }
 
+        // 显式 executor:内部 sleep + 最多 MAX_UUID_SYNC_RETRIES 次重试读历史文件,秒级阻塞不落 commonPool。
         return CompletableFuture.runAsync(() -> {
             sleep(initialUuidSyncDelayMs);
             updateUserMessageUuids();
-        });
+        }, AppExecutorUtil.getAppExecutorService());
     }
 
     void updateUserMessageUuids() {
@@ -187,7 +189,7 @@ public class SessionMessageOrchestrator {
                 state.setLoading(false);
                 callbackFacade.notifyStateChange(state.isBusy(), state.isLoading(), state.getError());
             }
-        });
+        }, AppExecutorUtil.getAppExecutorService());
     }
 
     private ClaudeSession.Message patchMatchingUserMessage(JsonObject historyMessage) {

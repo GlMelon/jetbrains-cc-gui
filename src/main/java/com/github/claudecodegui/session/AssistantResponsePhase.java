@@ -33,6 +33,18 @@ public enum AssistantResponsePhase {
             "assistant.response.phase.understanding.description",
             true
     ),
+    /**
+     * API 端点 5xx/529 过载重试阶段:CLI 静默指数退避重试中(最多 N 次,总挂起可达数分钟)。
+     * 视觉上仍属"等待模型响应"态(title 复用 understanding),但 description 由
+     * {@link AssistantResponseStatusPayload#forApiRetry} 注入重试计数(attempt/max),
+     * 前端据此 phase 值切琥珀警示色,使 init 后静默挂起可感知。见 CliConstants.PHASE_API_RETRY。
+     */
+    API_RETRY(
+            "api_retry",
+            "assistant.response.phase.understanding.title",
+            "assistant.response.phase.apiRetry.description",
+            true
+    ),
     THINKING(
             "thinking",
             "assistant.response.phase.thinking.title",

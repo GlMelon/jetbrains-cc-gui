@@ -93,8 +93,9 @@ public final class CliConstants {
     public static final String MSG_RESPONSE_PHASE = "response_phase";
     /**
      * api_retry 信号:API 端点 5xx/529 过载,CLI 静默指数退避重试中。
-     * handler 收到后构造 UNDERSTANDING phase + 重试 description 覆盖,使顶部状态条解释静默挂起。
-     * 与 {@link #SUBTYPE_API_RETRY} 同源,后者是 stream-json 协议层 subtype,此为回调通道信号。
+     * content 形如 {@code api_retry:attempt:maxRetries}(attempt 递增即每次重试都下发,使顶部状态卡
+     * 持续刷新"正在重连 N/M")。handler 收到后构造 {@code API_RETRY} phase + 带计数 description,
+     * 前端据此切琥珀警示色,使静默挂起全程可感知。与 {@link #SUBTYPE_API_RETRY} 同源。
      */
     public static final String PHASE_API_RETRY = "api_retry";
 
