@@ -1147,11 +1147,10 @@ export const ClearAllIcon = createIcon(
   </>
 );
 
-export const SyncIcon: React.FC<IconProps & { spinning?: boolean }> = ({
+export const SyncIcon: React.FC<IconProps> = ({
   size = 16,
   className,
   style,
-  spinning = false,
 }) => (
   <svg
     width={size}
@@ -1163,11 +1162,7 @@ export const SyncIcon: React.FC<IconProps & { spinning?: boolean }> = ({
     strokeLinecap="round"
     strokeLinejoin="round"
     className={className}
-    style={{
-      ...style,
-      animation: spinning ? 'icon-spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite' : undefined,
-      willChange: spinning ? 'transform' : undefined,
-    }}
+    style={style}
   >
     <path d="M21 2v6h-6" />
     <path d="M3 12a9 9 0 0115.36-6.36L21 8" />

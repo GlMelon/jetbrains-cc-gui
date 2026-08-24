@@ -334,10 +334,6 @@
 }
 
 /* Node process management panel */
-.node-process-dropdown svg.spinning {
-  animation: spin 1s linear infinite;
-}
-
 .node-process-icon-button {
   background: transparent;
   border: none;

@@ -16,16 +16,12 @@
    唯一生效入口为 base.less 的 @media (prefers-reduced-motion: reduce) 块，
    以便 *, *::before, *::after 全站继承，避免每个组件各写一份。 */
 
-/* 旋转动画 — 统一为 spin，status-spin / icon-spin 为向后兼容别名 */
+/* 旋转动画 — 统一为 spin，status-spin 为向后兼容别名 */
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
 @keyframes status-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-@keyframes icon-spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }

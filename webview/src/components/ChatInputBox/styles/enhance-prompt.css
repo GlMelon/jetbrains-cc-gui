@@ -40,10 +40,6 @@
   stroke-linejoin: round;
 }
 
-.enhance-prompt-button svg.spinning {
-  animation: spin 1s linear infinite;
-}
-
 /* ============================================================
    Enhance Prompt Dialog
    ============================================================ */
@@ -206,10 +202,6 @@
   align-items: center;
   gap: 8px;
   color: var(--text-secondary);
-}
-
-.prompt-loading .codicon-loading {
-  animation: spin 1s linear infinite;
 }
 
 @keyframes twinkle {

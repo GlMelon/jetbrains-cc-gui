@@ -16,16 +16,11 @@ export { AnimatedList } from './AnimatedList';
 export { HoverLift } from './HoverLift';
 
 // Text Animations
-export { TypewriterText } from './TypewriterText';
-export { ShinyText } from './ShinyText';
 export { GradientText } from './GradientText';
 export { CountUp } from './CountUp';
 
 // Effects
 export { ClickSpark } from './ClickSpark';
-
-// UI Components
-export { Aurora } from './Aurora';
 
 // Types
 export type { PulseLoaderProps } from './PulseLoader';
@@ -39,9 +34,6 @@ export type { ProgressRingProps } from './ProgressRing';
 export type { FadeContentProps } from './FadeContent';
 export type { AnimatedListProps } from './AnimatedList';
 export type { HoverLiftProps } from './HoverLift';
-export type { TypewriterTextProps } from './TypewriterText';
-export type { ShinyTextProps } from './ShinyText';
 export type { GradientTextProps } from './GradientText';
 export type { CountUpProps } from './CountUp';
 export type { ClickSparkProps } from './ClickSpark';
-export type { AuroraProps } from './Aurora';
