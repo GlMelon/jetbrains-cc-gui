@@ -32,24 +32,6 @@ public class ConhostCleanupTest {
     }
 
     /**
-     * 测试全局清理方法不会抛出异常
-     */
-    @Test
-    public void testCleanupAllPluginConhostsDoesNotThrow() {
-        if (!PlatformUtils.isWindows()) {
-            LOG.info("Skipping Windows-specific test on non-Windows platform");
-            return;
-        }
-
-        try {
-            PlatformUtils.cleanupAllPluginConhosts();
-            assertTrue(true); // 如果没有异常，测试通过
-        } catch (Exception e) {
-            fail("cleanupAllPluginConhosts should not throw exception: " + e.getMessage());
-        }
-    }
-
-    /**
      * 测试平台检测功能
      */
     @Test

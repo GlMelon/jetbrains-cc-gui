@@ -45,6 +45,10 @@ public class NodeService implements Disposable {
         this.envConfigurator = new EnvironmentConfigurator();
         // Inject IntelliJ's managed executor into NodeDetector for in-flight detection tasks.
         this.nodeDetector.setDetectionExecutor(AppExecutorUtil.getAppExecutorService());
+        // Start the ledger watchdog: reaps channel processes whose owning thread died
+        // without unregistering (previously dead code — see cleanupStaleChannelProcesses).
+        // Cancelled by ProcessManager.cleanupAllProcesses() in dispose().
+        this.processManager.startStaleChannelSweeper();
     }
 
     /**
@@ -64,8 +68,10 @@ public class NodeService implements Disposable {
             // ApplicationManager unavailable (isolated tests / plugin bootstrap).
         }
         // Fallback: hand-rolled double-checked singleton for edge cases where the
-        // platform service is not resolvable. This instance is NOT on the Disposer tree;
-        // its processes rely on the JVM-shutdown hook + daemon threads.
+        // platform service is not resolvable (isolated tests / plugin bootstrap).
+        // This instance is NOT on the Disposer tree: its child processes have no
+        // cleanup path of their own; production code always goes through the
+        // platform service above, whose dispose() reaps everything.
         if (fallbackInstance == null) {
             synchronized (lock) {
                 if (fallbackInstance == null) {
@@ -94,9 +100,9 @@ public class NodeService implements Disposable {
             return;
         }
         disposed = true;
-        // Authoritative cleanup on plugin unload / IDE shutdown. cleanupAllProcesses is
-        // idempotent, so the JVM-shutdown hook in ClaudeSDKToolWindow (which calls the
-        // same method) running later is a harmless no-op double-insurance.
+        // Authoritative cleanup on plugin unload / IDE shutdown — the single path
+        // that reaps every child process registered with the ProcessManager.
+        // cleanupAllProcesses itself is idempotent.
         try {
             processManager.cleanupAllProcesses();
         } catch (Exception e) {
@@ -185,13 +191,6 @@ public class NodeService implements Disposable {
      */
     public ProcessManager getProcessManager() {
         return processManager;
-    }
-
-    /**
-     * Clean up all active child processes.
-     */
-    public void cleanupAllProcesses() {
-        processManager.cleanupAllProcesses();
     }
 
     /**

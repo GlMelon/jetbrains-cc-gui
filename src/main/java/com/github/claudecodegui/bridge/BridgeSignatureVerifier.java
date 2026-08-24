@@ -1,14 +1,12 @@
 package com.github.claudecodegui.bridge;
 
+import com.github.claudecodegui.util.HashingUtil;
 import com.intellij.openapi.diagnostic.Logger;
 
-import java.io.BufferedInputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.security.MessageDigest;
 
 /**
  * Computes and verifies the ai-bridge archive signature so the resolver can
@@ -80,28 +78,7 @@ final class BridgeSignatureVerifier {
 
         LOG.info("[BridgeResolver] Calculating archive hash at runtime (fallback mode)");
         try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] buffer = new byte[8192];
-
-            try (FileInputStream fis = new FileInputStream(file);
-                 BufferedInputStream bis = new BufferedInputStream(fis)) {
-                int bytesRead;
-                while ((bytesRead = bis.read(buffer)) != -1) {
-                    digest.update(buffer, 0, bytesRead);
-                }
-            }
-
-            byte[] hashBytes = digest.digest();
-            StringBuilder hexString = new StringBuilder();
-            for (byte b : hashBytes) {
-                String hex = Integer.toHexString(0xff & b);
-                if (hex.length() == 1) {
-                    hexString.append('0');
-                }
-                hexString.append(hex);
-            }
-
-            return hexString.toString();
+            return HashingUtil.sha256Hex(file);
         } catch (Exception e) {
             LOG.warn("[BridgeResolver] Failed to calculate file hash: " + e.getMessage());
             return null;

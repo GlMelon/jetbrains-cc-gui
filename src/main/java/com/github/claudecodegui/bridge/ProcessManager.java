@@ -3,6 +3,7 @@ package com.github.claudecodegui.bridge;
 import com.github.claudecodegui.session.runtime.RuntimeKey;
 import com.intellij.openapi.diagnostic.Logger;
 import com.github.claudecodegui.util.PlatformUtils;
+import com.intellij.util.concurrency.AppExecutorUtil;
 
 import java.io.File;
 import java.io.IOException;
@@ -13,6 +14,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -30,6 +32,14 @@ public class ProcessManager {
     private final Set<String> startingChannels = ConcurrentHashMap.newKeySet();
     private final Map<RuntimeKey, Process> activeRuntimeProcesses = new ConcurrentHashMap<>();
     private final Set<RuntimeKey> interruptedRuntimes = ConcurrentHashMap.newKeySet();
+    /**
+     * 账本泄漏 watchdog 的周期任务句柄({@link #startStaleChannelSweeper()})。
+     * 共享调度器只 cancel 绝不 shutdown(平台 override 为 notAllowedMethodCall)。
+     */
+    private volatile ScheduledFuture<?> staleChannelSweeperFuture;
+    /** channel 进程合法存活上限:CLI 轮 15min 硬超时 + 收尾余量;超过即视为账本泄漏。 */
+    private static final long STALE_CHANNEL_MAX_AGE_MS = TimeUnit.MINUTES.toMillis(30);
+    private static final long STALE_CHANNEL_SWEEP_PERIOD_MINUTES = 10;
 
     /**
      * Generates a unique channel ID by appending a random UUID to {@code prefix}.
@@ -295,12 +305,46 @@ public class ProcessManager {
     }
 
     /**
+     * Starts the stale-channel ledger sweeper: every {@value #STALE_CHANNEL_SWEEP_PERIOD_MINUTES}
+     * minutes, {@link #cleanupStaleChannelProcesses(long, long)} reaps channel processes whose
+     * owning thread died without unregistering. Idempotent; cancelled by
+     * {@link #cleanupAllProcesses()} at lifecycle end.
+     */
+    public synchronized void startStaleChannelSweeper() {
+        if (staleChannelSweeperFuture != null) {
+            return;
+        }
+        staleChannelSweeperFuture = AppExecutorUtil.getAppScheduledExecutorService()
+                .scheduleWithFixedDelay(this::sweepStaleChannelsQuietly,
+                        STALE_CHANNEL_SWEEP_PERIOD_MINUTES, STALE_CHANNEL_SWEEP_PERIOD_MINUTES, TimeUnit.MINUTES);
+    }
+
+    /**
+     * 周期包装:共享调度器上抛出的异常会被静默吞掉并取消后续执行,故这里兜住一切 Throwable,
+     * 保证 sweeper 周期任务永不因单次失败而停摆。
+     */
+    private void sweepStaleChannelsQuietly() {
+        try {
+            cleanupStaleChannelProcesses(STALE_CHANNEL_MAX_AGE_MS, System.currentTimeMillis());
+        } catch (Throwable t) {
+            LOG.debug("[ProcessManager] Stale-channel sweep failed (will retry next cycle): " + t.getMessage());
+        }
+    }
+
+    /**
      * Cleans up all active child processes.
      * Should be called when the plugin is unloaded or IDEA is shutting down.
      */
     public void cleanupAllProcesses() {
         LOG.info("[ProcessManager] Cleaning up all active processes...");
         int count = 0;
+
+        // 停掉账本 watchdog(共享调度器只 cancel 不 shutdown)
+        ScheduledFuture<?> sweeper = staleChannelSweeperFuture;
+        staleChannelSweeperFuture = null;
+        if (sweeper != null) {
+            sweeper.cancel(false);
+        }
 
         for (Map.Entry<String, Process> entry : activeChannelProcesses.entrySet()) {
             String channelId = entry.getKey();
@@ -333,10 +377,9 @@ public class ProcessManager {
         // Clean up stale temp files on shutdown (safe for concurrent sessions)
         cleanupStaleTempFiles();
 
-        // Clean up any orphaned conhost.exe processes on Windows
-        if (PlatformUtils.isWindows()) {
-            PlatformUtils.cleanupAllPluginConhosts();
-        }
+        // 注:不再做全系统 conhost 扫描(cleanupAllPluginConhosts 已删除)——上面 terminateProcess
+        // 链路内部已按 pid 清理每个被杀进程的 conhost 孤儿;全系统按进程名(node/claude/codex)
+        // 扫描会误杀用户自己运行的无关进程的 conhost。
 
         LOG.info("[ProcessManager] Cleanup complete. Terminated " + count + " processes.");
     }
@@ -394,6 +437,12 @@ public class ProcessManager {
     /**
      * Manual cleanup method for orphaned conhost.exe processes.
      * Can be called manually to clean up accumulated conhost.exe processes.
+     * <p>
+     * Only touches processes registered in this plugin's ledger (dead ones included —
+     * conhost lookup is by ParentProcessId, which survives the parent's exit, so a dead
+     * parent's orphaned conhost is still findable). Never scans the whole system by
+     * process name: killing conhosts of node/claude/codex processes the user runs
+     * themselves would break unrelated programs.
      */
     public void manualConhostCleanup() {
         if (!PlatformUtils.isWindows()) {
@@ -404,14 +453,15 @@ public class ProcessManager {
         LOG.info("[ProcessManager] Starting manual conhost.exe cleanup...");
         int cleanedCount = 0;
 
-        // Clean up conhosts for currently active processes
+        // Clean up conhosts for ledger processes (dead included — orphan scenario is precisely
+        // "conhost outlived its dead parent"; isAlive() filtering would skip exactly those).
         for (Map.Entry<String, Process> entry : activeChannelProcesses.entrySet()) {
             String channelId = entry.getKey();
             Process process = entry.getValue();
 
-            if (process != null && process.isAlive()) {
+            if (process != null) {
                 long pid = process.pid();
-                LOG.info("[ProcessManager] Cleaning conhosts for active process (channel: " + channelId + ", PID: " + pid + ")");
+                LOG.info("[ProcessManager] Cleaning conhosts for ledger process (channel: " + channelId + ", PID: " + pid + ")");
                 PlatformUtils.cleanupOrphanedConhosts(pid);
                 cleanedCount++;
             }
@@ -421,18 +471,15 @@ public class ProcessManager {
             RuntimeKey key = entry.getKey();
             Process process = entry.getValue();
 
-            if (process != null && process.isAlive()) {
+            if (process != null) {
                 long pid = process.pid();
-                LOG.info("[ProcessManager] Cleaning conhosts for active runtime (key: " + key + ", PID: " + pid + ")");
+                LOG.info("[ProcessManager] Cleaning conhosts for ledger runtime (key: " + key + ", PID: " + pid + ")");
                 PlatformUtils.cleanupOrphanedConhosts(pid);
                 cleanedCount++;
             }
         }
 
-        // Clean up all plugin-related conhosts
-        PlatformUtils.cleanupAllPluginConhosts();
-
-        LOG.info("[ProcessManager] Manual conhost.exe cleanup completed");
+        LOG.info("[ProcessManager] Manual conhost.exe cleanup completed for " + cleanedCount + " ledger processes");
     }
 
     private void terminateProcess(String label, Process process) {
@@ -526,6 +573,11 @@ public class ProcessManager {
      * <p>
      * Thread-safe: uses ConcurrentHashMap iterators and does not throw on concurrent
      * modification. Missed entries in one pass are acceptable for a safety-net scan.
+     * <p>
+     * Periodically invoked by the stale-channel sweeper started via
+     * {@link #startStaleChannelSweeper()} (shared scheduler, cancelled in
+     * {@link #cleanupAllProcesses()}) — previously this method had no production
+     * caller, leaving the ledger's safety net dead code.
      */
     public int cleanupStaleChannelProcesses(long maxAgeMs, long now) {
         int cleaned = 0;

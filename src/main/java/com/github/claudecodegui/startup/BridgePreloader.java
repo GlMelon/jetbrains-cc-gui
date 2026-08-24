@@ -79,6 +79,10 @@ public class BridgePreloader implements ProjectActivity {
                 // 首次会 spawn '<cli> --version' 子进程(.cmd 包装冷启动 ~3s),未预热时这 3s 落在用户
                 // 首条消息的同步 send 路径(实测 [PERF-FIRST-TURN] java-prep codex≈3.2s/opencode≈3.6s)。
                 // 后台预热填 cachedExecutable 后,首条消息命中缓存秒回(第二条 java-prep≈50ms 即证)。
+                // Deliberately on ForkJoinPool.commonPool: the enclosing thread is an
+                // AppExecutorUtil pooled thread and prewarmCliResolvers() joins below,
+                // so submitting onto the shared app pool here would risk pool self-wait
+                // under saturation. Two one-shot probes on commonPool are harmless.
                 CompletableFuture<Void> cliPrewarm = CompletableFuture.runAsync(
                         BridgePreloader::prewarmCliResolvers);
 
