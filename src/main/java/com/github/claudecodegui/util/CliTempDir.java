@@ -1,9 +1,12 @@
 package com.github.claudecodegui.util;
 
+import com.intellij.openapi.util.io.FileUtil;
+
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 
 /**
  * CLI 专用临时目录工具,使 cli 包无需依赖 ai-bridge 的 {@code bridge.ProcessManager}。
@@ -33,6 +36,22 @@ public final class CliTempDir {
             return tempPath.toFile();
         } catch (Exception ignored) {
             return null;
+        }
+    }
+
+    /**
+     * 逐个删除临时附件文件,忽略 null 与不存在项。
+     * 使用平台 {@link FileUtil#delete}(处理 Windows 只读属性并带重试),
+     * 比裸 {@code File.delete()} 删除成功率高。
+     */
+    public static void deleteFilesQuietly(List<File> files) {
+        if (files == null) {
+            return;
+        }
+        for (File f : files) {
+            if (f != null && f.exists()) {
+                FileUtil.delete(f);
+            }
         }
     }
 }

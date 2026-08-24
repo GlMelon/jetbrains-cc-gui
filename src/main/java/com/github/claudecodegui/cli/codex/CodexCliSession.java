@@ -1,5 +1,6 @@
 package com.github.claudecodegui.cli.codex;
 
+import com.github.claudecodegui.util.CliTempDir;
 import com.github.claudecodegui.cli.CliSendRequest;
 import com.github.claudecodegui.cli.CliSession;
 import com.github.claudecodegui.cli.CliSessionCallback;
@@ -20,7 +21,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -345,7 +345,7 @@ public class CodexCliSession implements CliSession {
                 if (activeHandle == currentHandle) {
                     activeHandle = null;
                 }
-                cleanupTempFiles(tempFiles);
+                CliTempDir.deleteFilesQuietly(tempFiles);
                 userInterrupted.set(false);
             }
         });
@@ -1608,17 +1608,6 @@ public class CodexCliSession implements CliSession {
                 return decoded;
             }
             return new String(bytes, 0, len, fallback);
-        }
-    }
-
-    private static void cleanupTempFiles(List<File> files) {
-        for (File f : files) {
-            try {
-                if (f != null && f.exists()) {
-                    f.delete();
-                }
-            } catch (Exception ignored) {
-            }
         }
     }
 }

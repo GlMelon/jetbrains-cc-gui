@@ -254,7 +254,8 @@ public class ClaudePersistentSendPathTest {
                 path.createTurnContext(callback, detachedProcess());
 
         // api_retry(CLI 对 5xx/529 过载的静默指数退避):必须转成 status 非阻塞提示,
-        // 否则前端停在"正在理解问题"毫无感知(2026-08-18 BigModel 529 实测)
+        // 否则前端停在"正在理解问题"毫无感知(2026-08-18 BigModel 529 实测)。
+        // 2026-08-21:改为 per-attempt 下发,每次重试都刷新顶部状态卡"正在重连 N/M"。
         assertNull(context.handler.onLine(
                 "{\"type\":\"system\",\"subtype\":\"api_retry\",\"attempt\":1,\"max_retries\":10,"
                         + "\"retry_delay_ms\":531,\"error_status\":529,\"error\":\"overloaded\","
@@ -262,13 +263,25 @@ public class ClaudePersistentSendPathTest {
                 false));
         assertTrue(callback.messages.stream().anyMatch(m ->
                 m.startsWith("status:") && m.contains("529") && m.contains("1/10")));
+        // phase 通道编码 attempt/max(api_retry:1:10),透传给 handler 构造带计数的状态卡
+        assertTrue(callback.messages.stream().anyMatch(m ->
+                m.equals("response_phase:api_retry:1:10")));
 
-        // 同轮后续重试不重复刷屏(每轮一次去重)
+        // attempt 递增:再次重试必须再次下发,使顶部状态卡持续刷新重试计数
         context.handler.onLine(
                 "{\"type\":\"system\",\"subtype\":\"api_retry\",\"attempt\":2,\"max_retries\":10,"
                         + "\"error_status\":529,\"error\":\"overloaded\"}",
                 false);
-        assertEquals(1, callback.messages.stream().filter(m -> m.startsWith("status:")).count());
+        assertEquals(2, callback.messages.stream().filter(m -> m.startsWith("status:")).count());
+        assertTrue(callback.messages.stream().anyMatch(m ->
+                m.equals("response_phase:api_retry:2:10")));
+
+        // 同一 attempt 连发不重复刷屏(per-attempt 去重防连发)
+        context.handler.onLine(
+                "{\"type\":\"system\",\"subtype\":\"api_retry\",\"attempt\":2,\"max_retries\":10,"
+                        + "\"error_status\":529,\"error\":\"overloaded\"}",
+                false);
+        assertEquals(2, callback.messages.stream().filter(m -> m.startsWith("status:")).count());
     }
 
     @Test

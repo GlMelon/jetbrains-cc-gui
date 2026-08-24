@@ -1,5 +1,6 @@
 package com.github.claudecodegui.cli.grok;
 
+import com.github.claudecodegui.util.CliTempDir;
 import com.github.claudecodegui.cli.CliSendRequest;
 import com.github.claudecodegui.cli.CliSession;
 import com.github.claudecodegui.cli.CliSessionCallback;
@@ -16,7 +17,6 @@ import com.github.claudecodegui.util.PlatformUtils;
 import com.google.gson.Gson;
 import com.intellij.openapi.diagnostic.Logger;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -128,7 +128,7 @@ public class GrokCliSession implements CliSession {
             } finally {
                 activeHandle = null;
                 userInterrupted.set(false);
-                cleanupTempFiles(tempFiles);
+                CliTempDir.deleteFilesQuietly(tempFiles);
             }
         });
     }
@@ -493,17 +493,6 @@ public class GrokCliSession implements CliSession {
                 return decoded;
             }
             return new String(bytes, 0, len, fallback);
-        }
-    }
-
-    private static void cleanupTempFiles(List<File> files) {
-        for (File f : files) {
-            try {
-                if (f != null && f.exists()) {
-                    f.delete();
-                }
-            } catch (Exception ignored) {
-            }
         }
     }
 

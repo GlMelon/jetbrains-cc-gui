@@ -1,5 +1,6 @@
 package com.github.claudecodegui.cli.claude;
 
+import com.github.claudecodegui.util.CliTempDir;
 import com.github.claudecodegui.bridge.NodeService;
 import com.github.claudecodegui.cli.CliSendRequest;
 import com.github.claudecodegui.cli.CliSession;
@@ -362,17 +363,6 @@ public class ClaudeCliSession implements CliSession {
         return new ArrayList<>(dirs);
     }
 
-    private static void cleanupTempFiles(List<File> files) {
-        for (File f : files) {
-            try {
-                if (f != null && f.exists()) {
-                    f.delete();
-                }
-            } catch (Exception ignored) {
-            }
-        }
-    }
-
     private static String getString(JsonObject obj, String key) {
         if (obj == null || !obj.has(key) || obj.get(key)
                 .isJsonNull()) {
@@ -449,7 +439,7 @@ public class ClaudeCliSession implements CliSession {
                     callback.onComplete(false, null, e.getMessage());
                 }
             } finally {
-                cleanupTempFiles(tempFiles);
+                CliTempDir.deleteFilesQuietly(tempFiles);
                 userInterrupted.set(false);
             }
         });

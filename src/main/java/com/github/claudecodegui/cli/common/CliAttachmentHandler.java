@@ -195,7 +195,7 @@ public class CliAttachmentHandler {
             return null;
         }
         // PR #1191 review M3: put CLI temp attachments under the same managed
-        // directory as the rest of the plugin so cleanupTempFiles' allow-list
+        // directory as the rest of the plugin so the deleteFilesQuietly cleanup
         // covers them and they don't pollute the system /tmp.
         File tempDir = CliTempDir.getManagedTempDir();
         File tmp = tempDir != null
