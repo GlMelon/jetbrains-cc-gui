@@ -143,6 +143,23 @@ export function registerWindowCallbacks(
 
   window.onSubagentHistoryChunk = appendSubagentHistoryChunk;
 
+  // 有界对象累积:超过 maxEntries 时按插入序丢弃最旧 key(对象 key 顺序即插入序)。
+  // 轮询型注册表(subagentHistories/taskEvents)会话内只增不减,多后台 agent + 长
+  // sidechain 时防无界增长;被逐出的条目下轮轮询回来时会被重新插入,无功能损失。
+  const withBoundedEntries = <T extends Record<string, unknown>>(
+    prev: T,
+    key: string,
+    value: T[keyof T],
+    maxEntries: number,
+  ): T => {
+    const next = { ...prev, [key]: value };
+    const keys = Object.keys(next);
+    for (let i = 0; i < keys.length - maxEntries; i += 1) {
+      delete next[keys[i]];
+    }
+    return next;
+  };
+
   window.onSubagentHistoryLoaded = (json: string) => {
     try {
       if (!options.setSubagentHistories) return;
@@ -166,7 +183,8 @@ if (existing && existing.success === result.success
           && areSubagentMessagesEquivalent(existing.messages, result.messages)) {
           return prev;
         }
-        return { ...prev, [key]: result };
+        // 条目含全量 messages,单条可达数百 KB;64 个后台 sidechain 已远超实际 UI 展示需求
+        return withBoundedEntries(prev, key, result, 64);
       });
     } catch {
       // Ignore malformed callback payloads; the request can be retried by reopening the Agent row.
@@ -212,7 +230,8 @@ if (existing && existing.success === result.success
         ) {
           return prev;
         }
-        return { ...prev, [toolUseId]: taskEvent };
+        // 条目小(纯状态摘要),上限放宽
+        return withBoundedEntries(prev, toolUseId, taskEvent, 128);
       });
     } catch {
       // Ignore malformed task event payloads. A task_notification is terminal,

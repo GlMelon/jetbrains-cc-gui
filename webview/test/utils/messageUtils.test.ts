@@ -24,6 +24,7 @@ import {
   buildCompactNotification,
   TASK_STATUS_COLORS,
   normalizeBlocks as normalizeContentBlocks,
+  shareTextBlockReference,
 } from '../../src/utils/messageUtils';
 import { parseMcpToolName } from '../../src/utils/toolConstants';
 
@@ -1366,5 +1367,85 @@ describe('buildCompactNotification', () => {
     const result = buildCompactNotification(messages);
     expect(result).not.toBeNull();
     expect(result!.content).toBe('/compact');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// shareTextBlockReference — content/raw 文本引用共享
+//
+// 注:JS 字符串是原始值,===/toBe 均为值比较,无法从外部断言「引用已共享」
+// (手工 interning 的堆收益)。此处断言行为安全契约:值恒不变、消息对象
+// 身份不变、多 text block / 不等 / 无 raw 等形态一律原样返回。
+// ---------------------------------------------------------------------------
+
+describe('shareTextBlockReference', () => {
+  const rawBlocksMsg = (text: string, extraBlocks: any[] = []) =>
+    makeMsg('assistant', text, {
+      raw: { content: [{ type: 'text', text }, ...extraBlocks] } as any,
+    });
+
+  it('keeps values intact and returns the same message for a single equal text block', () => {
+    const msg = rawBlocksMsg('hello world');
+    const returned = shareTextBlockReference(msg);
+    expect(returned).toBe(msg);
+    expect(msg.content).toBe('hello world');
+    expect((msg.raw as any).content[0].text).toBe('hello world');
+    expect((msg.raw as any).content[0].type).toBe('text');
+  });
+
+  it('supports the nested raw.message.content shape', () => {
+    const msg = makeMsg('assistant', 'nested text', {
+      raw: { message: { content: [{ type: 'text', text: 'nested text' }] } } as any,
+    });
+    const returned = shareTextBlockReference(msg);
+    expect(returned).toBe(msg);
+    expect((msg.raw as any).message.content[0].text).toBe('nested text');
+  });
+
+  it('leaves messages with multiple text blocks untouched', () => {
+    const msg = rawBlocksMsg('firstsecond', [
+      { type: 'text', text: 'second' },
+    ]);
+    // 两个 text block:content 为拼接文本,无法与分段共享引用
+    const returned = shareTextBlockReference(msg);
+    expect(returned).toBe(msg);
+    expect((msg.raw as any).content[0].text).toBe('firstsecond');
+    expect((msg.raw as any).content[1].text).toBe('second');
+  });
+
+  it('leaves messages with non-equal text untouched', () => {
+    const msg = makeMsg('assistant', 'top-level content', {
+      raw: { content: [{ type: 'text', text: 'block text differs' }] } as any,
+    });
+    const returned = shareTextBlockReference(msg);
+    expect(returned).toBe(msg);
+    expect((msg.raw as any).content[0].text).toBe('block text differs');
+    expect(msg.content).toBe('top-level content');
+  });
+
+  it('skips thinking blocks when counting text blocks', () => {
+    const msg = makeMsg('assistant', 'body', {
+      raw: {
+        content: [
+          { type: 'thinking', thinking: 'deep', text: 'deep' },
+          { type: 'text', text: 'body' },
+        ],
+      } as any,
+    });
+    const returned = shareTextBlockReference(msg);
+    expect(returned).toBe(msg);
+    expect((msg.raw as any).content[1].text).toBe('body');
+  });
+
+  it('is safe for messages without raw, string raw, or empty content', () => {
+    const noRaw = makeMsg('user', 'plain');
+    expect(shareTextBlockReference(noRaw)).toBe(noRaw);
+
+    const stringRaw = makeMsg('user', 'plain', { raw: 'plain' as any });
+    expect(shareTextBlockReference(stringRaw)).toBe(stringRaw);
+
+    const empty = rawBlocksMsg('');
+    expect(shareTextBlockReference(empty)).toBe(empty);
+    expect((empty.raw as any).content[0].text).toBe('');
   });
 });

@@ -61,7 +61,9 @@ export function UIStateProvider({ children }: { children: ReactNode }) {
   const addToast = useCallback((message: string, type: ToastMessage['type'] = 'info', action?: ToastAction) => {
     if (message === DEFAULT_STATUS || !message) return;
     const id = `toast-${Date.now()}-${Math.random()}`;
-    setToasts((prev) => [...prev, { id, message, type, action }]);
+    // 并发上限:错误风暴瞬间推送几十条时防峰值堆积(每条都渲染 FadeContent);
+    // 正常路径靠 Toast 自动消失回收,这里只截断极端峰值
+    setToasts((prev) => [...prev, { id, message, type, action }].slice(-8));
   }, []);
 
   const dismissToast = useCallback((id: string) => {

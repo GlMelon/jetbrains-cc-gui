@@ -974,3 +974,56 @@ export function mergeConsecutiveAssistantMessages(
 
   return result;
 }
+
+/**
+ * content/raw 文本引用共享(2026-08-21 P2 内存收敛项)。
+ *
+ * wire 上同一段文本携带两份(顶层 `content` 与 raw 内容块里的 text block),
+ * JSON.parse 会为它们分配两个独立字符串对象,消息常驻 React state 后堆内
+ * 双份。当消息恰好含一个 text block 且其 text 与 `message.content` 严格
+ * 全等时,把 block.text 重新指向 content 的同一引用 —— V8 堆内此后只保留
+ * 一份(手工 interning)。流式路径 syncTextBlocksWithContent 已是引用赋值,
+ * 天然单份;本函数覆盖非流式稳态(历史加载/全量快照/tail 推送)。
+ *
+ * 只 mutate 消息对象自身的 block 字段,值恒不变(引用重指),对渲染、
+ * WeakMap 缓存(键为消息/raw 对象)、导出等一切消费方透明。已共享的
+ * 消息走引用全等快速路径 O(1);多 text block 消息(拼接 content 与
+ * 分段 text 无法共享引用)保持原样。
+ */
+export function shareTextBlockReference(message: ClaudeMessage): ClaudeMessage {
+  const content = message.content;
+  const raw = message.raw;
+  if (typeof content !== 'string' || content.length === 0 || !raw || typeof raw !== 'object') {
+    return message;
+  }
+  const blocks = Array.isArray(raw.content)
+    ? raw.content
+    : raw.message && Array.isArray(raw.message.content)
+      ? raw.message.content
+      : null;
+  if (!blocks) {
+    return message;
+  }
+
+  let textBlockIndex = -1;
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i] as { type?: unknown } | null;
+    if (block && block.type === 'text') {
+      if (textBlockIndex >= 0) {
+        return message;
+      }
+      textBlockIndex = i;
+    }
+  }
+  if (textBlockIndex < 0) {
+    return message;
+  }
+
+  const textBlock = blocks[textBlockIndex] as { type?: unknown; text?: unknown };
+  // 引用全等(已共享)时 === 零成本短路;否则一次 O(len) 值比较。
+  if (typeof textBlock.text !== 'string' || textBlock.text !== content) {
+    return message;
+  }
+  textBlock.text = content;
+  return message;
+}

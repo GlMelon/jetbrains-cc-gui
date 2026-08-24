@@ -275,10 +275,10 @@ describe('MessageItem copy button visibility', () => {
       content: '',
       isStreaming: true,
       __assistantResponseStatus: {
-        phase: 'thinking',
+        phase: 'api_retry',
         providerLabel: 'Codex',
-        title: '正在思考',
-        description: '正在分析上下文',
+        title: '正在等待模型响应',
+        description: '服务暂时不可用，正在自动重试（2/5），请稍候',
         elapsedMs: 2800,
         active: true,
       },
@@ -290,8 +290,8 @@ describe('MessageItem copy button visibility', () => {
       currentProvider: 'codex',
     });
 
-    expect(screen.getByText('正在思考')).toBeTruthy();
-    expect(screen.getByText('正在分析上下文')).toBeTruthy();
+    expect(screen.getByText('正在等待模型响应')).toBeTruthy();
+    expect(screen.getByText('服务暂时不可用，正在自动重试（2/5），请稍候')).toBeTruthy();
     expect(screen.getAllByText('Codex').length).toBeGreaterThan(0);
     expect(screen.queryByText('2s')).toBeNull();
     expect(document.querySelector('.assistant-response-status-elapsed')).toBeNull();

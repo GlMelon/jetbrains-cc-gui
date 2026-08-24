@@ -577,9 +577,11 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
     if (!isStreamingRef.current) return;
     window.__lastStreamActivityAt = Date.now();
     streamingContentRef.current += delta;
+    // 注:scopeState.content 不再累加完整文本副本——它此前只写不读(渲染来源是
+    // streamingContentRef),保留它在流式期间会与 ref 各持一份完整文本,单 turn 超大输出
+    // (工具返回 10MB 文本)时把瞬时内存放大近一倍。这里只追踪活跃度(供 stall 判定/逐出)。
     const scopeState = getActiveScopeState();
     if (scopeState) {
-      scopeState.content += delta;
       scopeState.lastActivityAt = Date.now();
       markScopeActivity(getActiveStreamScopeKey());
     }
@@ -594,9 +596,9 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
     if (!isStreamingRef.current) return;
     window.__lastStreamActivityAt = Date.now();
     streamingThinkingRef.current += delta;
+    // 同上:scopeState.thinking 不再累加副本,只追踪活跃度。
     const scopeState = getActiveScopeState();
     if (scopeState) {
-      scopeState.thinking += delta;
       scopeState.lastActivityAt = Date.now();
       markScopeActivity(getActiveStreamScopeKey());
     }

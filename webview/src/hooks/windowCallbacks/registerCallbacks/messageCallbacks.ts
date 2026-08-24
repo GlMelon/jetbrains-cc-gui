@@ -14,7 +14,7 @@ import type { ClaudeMessage } from '../../../types';
 import type { ContextUsageData } from '../../../components/ContextUsageDialog';
 import type { QueueDisplayState } from '../../../contexts/MessagesContext';
 import { debugError } from '../../../utils/debug';
-import { getMessageKey, registerMessageKeyAlias } from '../../../utils/messageUtils';
+import { getMessageKey, registerMessageKeyAlias, shareTextBlockReference } from '../../../utils/messageUtils';
 import { appendOptimisticMessageIfMissing, ensureStreamingAssistantInList, getRawUuid, preserveAssistantResponseGrouping, preserveLastAssistantIdentity, preserveLatestMessagesOnShrink, preserveStreamingAssistantContent, stripDuplicateTrailingToolMessages } from '../messageSync';
 import { releaseSessionTransition } from '../sessionTransition';
 import { parseSequence } from '../parseSequence';
@@ -107,7 +107,9 @@ export function registerMessageCallbacks(
       options.currentProviderRef.current,
     );
     const withResponseGrouping = preserveAssistantResponseGrouping(prevList, withoutDuplicateToolTail);
-    return ensureStreamingAssistantPreserved(prevList, withResponseGrouping);
+    // content/raw 引用共享:updateMessages 全部分支与 updateMessageTail 的公共出口。
+    // 稳态推送走 smartMerge 引用复用(已共享,O(1) 短路),新对象才做一次值比较。
+    return ensureStreamingAssistantPreserved(prevList, withResponseGrouping).map(shareTextBlockReference);
   };
 
   // During streaming, buffer updateMessages calls and process only the latest

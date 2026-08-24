@@ -13,6 +13,32 @@ type StreamScopeState = {
 
 const streamScopeStates = new Map<string, StreamScopeState>();
 
+// 上限兜底:正常清理是事件驱动的(turn 结束走 onStreamEnd、会话切换走 clearAll),
+// 若 STREAM_END 事件彻底丢失且 stall watchdog 又被竞态清掉,entry 连同整 turn 文本
+// 会永久驻留。超过上限时逐出「非流式中且非 active」的最旧 entry(按 lastActivityAt);
+// 流式中的绝不逐出——宁可暂时超上限也不打断活跃流。
+const MAX_STREAM_SCOPE_STATES = 32;
+
+const evictStaleStreamScopes = (): void => {
+  while (streamScopeStates.size >= MAX_STREAM_SCOPE_STATES) {
+    let oldestKey: string | null = null;
+    let oldestActivityAt = Infinity;
+    for (const [key, state] of streamScopeStates) {
+      if (state.isStreaming || key === getActiveStreamScopeKey()) {
+        continue;
+      }
+      if (state.lastActivityAt < oldestActivityAt) {
+        oldestActivityAt = state.lastActivityAt;
+        oldestKey = key;
+      }
+    }
+    if (oldestKey == null) {
+      return;
+    }
+    clearStreamScopeState(oldestKey);
+  }
+};
+
 const normalizeScopeKey = (value: string | null | undefined): string | null => {
   if (typeof value !== 'string') {
     return null;
@@ -46,6 +72,7 @@ export const getOrCreateStreamScopeState = (scopeKey: string): StreamScopeState 
   if (existing) {
     return existing;
   }
+  evictStaleStreamScopes();
   const state: StreamScopeState = {
     content: '',
     thinking: '',
