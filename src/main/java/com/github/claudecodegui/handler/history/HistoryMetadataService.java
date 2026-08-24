@@ -7,6 +7,7 @@ import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.util.concurrency.AppExecutorUtil;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.ReentrantLock;
@@ -51,7 +52,7 @@ class HistoryMetadataService {
             } catch (Exception e) {
                 LOG.error("[HistoryHandler] 切换收藏状态失败: " + e.getMessage(), e);
             }
-        });
+        }, AppExecutorUtil.getAppExecutorService());
     }
 
     /**
@@ -100,7 +101,7 @@ class HistoryMetadataService {
             } finally {
                 titleFileLock.unlock();
             }
-        });
+        }, AppExecutorUtil.getAppExecutorService());
     }
 
     /**
@@ -118,6 +119,6 @@ class HistoryMetadataService {
             } finally {
                 titleFileLock.unlock();
             }
-        });
+        }, AppExecutorUtil.getAppExecutorService());
     }
 }

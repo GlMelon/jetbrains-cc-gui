@@ -12,6 +12,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.util.concurrency.AppExecutorUtil;
 
 import java.awt.*;
 import java.io.File;
@@ -138,7 +139,7 @@ final class FileExportUtils {
                 String errorDetail = e.getMessage() != null ? e.getMessage() : ClaudeCodeGuiBundle.message("file.saveFailed");
                 notifyError(ctx, ClaudeCodeGuiBundle.message("file.saveFailedWithReason", errorDetail));
             }
-        });
+        }, AppExecutorUtil.getAppExecutorService());
     }
 
     private static JsonObject parseObject(String jsonContent) {

@@ -8,6 +8,7 @@ import com.github.claudecodegui.util.PlatformUtils;
 
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.util.concurrency.AppExecutorUtil;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -51,7 +52,7 @@ public class InputHistoryHandler {
                     context.dispatchEvent(DownstreamEvent.INPUT_HISTORY_LOADED.value(), context.escapeJs("{\"items\":[],\"counts\":{}}"));
                 });
             }
-        });
+        }, AppExecutorUtil.getAppExecutorService());
     }
 
     /**
@@ -68,7 +69,7 @@ public class InputHistoryHandler {
             } catch (Exception e) {
                 LOG.error("[InputHistoryHandler] Failed to record input history: " + e.getMessage(), e);
             }
-        });
+        }, AppExecutorUtil.getAppExecutorService());
     }
 
     /**
@@ -85,7 +86,7 @@ public class InputHistoryHandler {
             } catch (Exception e) {
                 LOG.error("[InputHistoryHandler] Failed to delete input history item: " + e.getMessage(), e);
             }
-        });
+        }, AppExecutorUtil.getAppExecutorService());
     }
 
     /**
@@ -101,7 +102,7 @@ public class InputHistoryHandler {
             } catch (Exception e) {
                 LOG.error("[InputHistoryHandler] Failed to clear input history: " + e.getMessage(), e);
             }
-        });
+        }, AppExecutorUtil.getAppExecutorService());
     }
 
     /**

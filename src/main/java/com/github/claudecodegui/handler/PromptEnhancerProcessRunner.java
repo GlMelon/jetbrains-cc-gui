@@ -3,6 +3,7 @@ package com.github.claudecodegui.handler;
 import com.github.claudecodegui.bridge.ProcessManager;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.util.concurrency.AppExecutorUtil;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -135,6 +136,8 @@ public final class PromptEnhancerProcessRunner {
             }
 
             // Async stdout drain — see class javadoc for rationale.
+            // 显式 executor:reader 存活至子进程输出 EOF(上限 timeoutSeconds,CLI 首条消息的
+            // AI 标题生成等高频路径),无 executor 会占住 commonPool worker 同一时长。
             final Process finalProcess = process;
             readerFuture = CompletableFuture.runAsync(() -> {
                 try (BufferedReader reader = new BufferedReader(
@@ -153,7 +156,7 @@ public final class PromptEnhancerProcessRunner {
                     // real bug we must not swallow. Log with stack trace.
                     LOG.warn("[ProcessRunner] reader thread failed unexpectedly", e);
                 }
-            });
+            }, AppExecutorUtil.getAppExecutorService());
 
             boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
             if (!finished) {

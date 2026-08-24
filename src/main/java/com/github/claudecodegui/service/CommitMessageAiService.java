@@ -7,6 +7,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.util.concurrency.AppExecutorUtil;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -41,6 +42,9 @@ public class CommitMessageAiService {
      * Send a prompt to the AI provider and collect the response.
      */
     public CompletableFuture<String> sendPrompt(String provider, String prompt, String cwd, String model) {
+        // 显式 executor:内部 spawn channel-manager.js 子进程并阻塞至完成(TIMEOUT_SECONDS=120s),
+        // 无 executor 会落在 ForkJoinPool.commonPool(大小≈CPU核数-1),commit 高频路径并发几次就
+        // 耗尽并行度,且与平台其余 commonPool 使用者互相拖累。
         return CompletableFuture.supplyAsync(() -> {
             try {
                 String node = nodeService.getNodeDetector().findNodeExecutable();
@@ -158,7 +162,7 @@ public class CommitMessageAiService {
             } catch (Exception e) {
                 throw new RuntimeException("AI service call failed: " + e.getMessage(), e);
             }
-        });
+        }, AppExecutorUtil.getAppExecutorService());
     }
 
     private String extractLastJson(String output) {

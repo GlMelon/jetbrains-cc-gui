@@ -15,6 +15,7 @@ import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.util.concurrency.AppExecutorUtil;
 
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -53,7 +54,8 @@ public final class RewindFilesActionHandler implements FrontendActionHandler<Str
     @Override
     public void handle(String payload, FrontendActionContext context) {
         HandlerContext handlerContext = context.handlerContext();
-        CompletableFuture.runAsync(() -> handleAsync(payload, handlerContext));
+        CompletableFuture.runAsync(() -> handleAsync(payload, handlerContext),
+                AppExecutorUtil.getAppExecutorService());
     }
 
     private void handleAsync(String payload, HandlerContext context) {

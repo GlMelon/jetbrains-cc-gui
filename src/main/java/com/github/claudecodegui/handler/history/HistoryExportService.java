@@ -11,6 +11,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.intellij.ide.BrowserUtil;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.util.concurrency.AppExecutorUtil;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -43,7 +44,8 @@ class HistoryExportService {
     }
 
     void handleExportSession(String content, String currentProvider) {
-        CompletableFuture.runAsync(() -> exportSession(content, currentProvider));
+        CompletableFuture.runAsync(() -> exportSession(content, currentProvider),
+                AppExecutorUtil.getAppExecutorService());
     }
 
     /**
@@ -52,7 +54,8 @@ class HistoryExportService {
      * (same budget + sanitizer as the HTML download) — no PDF library, no binary transport.
      */
     void handlePrintSessionPdf(String content, String currentProvider) {
-        CompletableFuture.runAsync(() -> printSessionPdf(content, currentProvider));
+        CompletableFuture.runAsync(() -> printSessionPdf(content, currentProvider),
+                AppExecutorUtil.getAppExecutorService());
     }
 
     private void exportSession(String content, String currentProvider) {

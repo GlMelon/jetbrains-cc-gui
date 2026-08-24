@@ -14,6 +14,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.project.Project;
 import com.intellij.util.concurrency.AppExecutorUtil;
 
 import java.util.List;
@@ -319,12 +320,23 @@ public class CodexMcpServerActionHandlers {
     }
 
     private void refreshGateway() {
-        try {
-            if (context.getProject() != null) {
-                McpGatewayService.getInstance(context.getProject()).refreshConfig(context.getProject().getBasePath());
-            }
-        } catch (Exception e) {
-            LOG.warn("[CodexMcpServerActionHandlers] Failed to refresh MCP Gateway: " + e.getMessage());
+        // 异步化:refreshConfig 在 synchronized(lock) 内跑 ensureStarted(60s 复用探测窗)+applySnapshot(60s 超时),
+        // 而本类增/改/删 handler 在 webview 消息分发线程(MessageDispatchGate 监视器内)调用本方法——同步执行会在
+        // gateway 不健康时把整个 webview↔Java 消息通道串行卡住 ~130s。改投共享后台池,与
+        // ProjectConfigHandler.handleSetMcpGatewayEnabled 的异步模式对齐(设置写入已在调用方同步完成)。
+        Project project = context.getProject();
+        if (project == null) {
+            return;
         }
+        CompletableFuture.runAsync(() -> {
+            if (project.isDisposed()) {
+                return;
+            }
+            try {
+                McpGatewayService.getInstance(project).refreshConfig(project.getBasePath());
+            } catch (Exception e) {
+                LOG.warn("[CodexMcpServerActionHandlers] Failed to refresh MCP Gateway: " + e.getMessage());
+            }
+        }, AppExecutorUtil.getAppExecutorService());
     }
 }

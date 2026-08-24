@@ -1,5 +1,6 @@
 package com.github.claudecodegui.service;
 
+import com.github.claudecodegui.util.HashingUtil;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -8,12 +9,9 @@ import com.google.gson.JsonParser;
 import com.intellij.openapi.diagnostic.Logger;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 
 /**
  * Skills 市场安装锁文件(skills-lock.json)读写 + SHA-256 哈希校验。
@@ -132,20 +130,7 @@ public class SkillLockService {
         if (file == null || !Files.isRegularFile(file)) {
             throw new IOException("File not found for hashing: " + file);
         }
-        MessageDigest md;
-        try {
-            md = MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException e) {
-            throw new IOException("SHA-256 unavailable", e);
-        }
-        try (InputStream is = Files.newInputStream(file)) {
-            byte[] buffer = new byte[8192];
-            int len;
-            while ((len = is.read(buffer)) != -1) {
-                md.update(buffer, 0, len);
-            }
-        }
-        return toHex(md.digest());
+        return HashingUtil.sha256Hex(file);
     }
 
     /**
@@ -209,12 +194,4 @@ public class SkillLockService {
         }
     }
 
-    private static String toHex(byte[] bytes) {
-        StringBuilder sb = new StringBuilder(bytes.length * 2);
-        for (byte b : bytes) {
-            sb.append(Character.forDigit((b >> 4) & 0xF, 16));
-            sb.append(Character.forDigit(b & 0xF, 16));
-        }
-        return sb.toString();
-    }
 }

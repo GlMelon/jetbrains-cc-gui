@@ -14,6 +14,7 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.fileChooser.FileChooser;
 import com.intellij.openapi.fileChooser.FileChooserDescriptor;
 import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.util.concurrency.AppExecutorUtil;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -93,7 +94,7 @@ public class ProviderImportExportSupport {
                     LOG.error("[ProviderHandler] " + errorDetails, e);
                     sendErrorToFrontend(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("provider.ccswitch.readFailedTitle"), errorDetails);
                 }
-            });
+            }, AppExecutorUtil.getAppExecutorService());
         });
     }
 
@@ -201,7 +202,7 @@ public class ProviderImportExportSupport {
                         LOG.error("[ProviderHandler] " + errorDetails, e);
                         sendErrorToFrontend(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("provider.ccswitch.readFailedTitle"), errorDetails);
                     }
-                });
+                }, AppExecutorUtil.getAppExecutorService());
 
             } catch (Exception e) {
                 String errorDetails = com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("provider.ccswitch.fileChooserFailed") + ": " + e.getMessage();
@@ -244,7 +245,7 @@ public class ProviderImportExportSupport {
                 LOG.error("Failed to save imported providers", e);
                 sendErrorToFrontend(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("provider.ccswitch.saveFailedTitle"), e.getMessage());
             }
-        });
+        }, AppExecutorUtil.getAppExecutorService());
     }
 
     /**
@@ -322,7 +323,7 @@ public class ProviderImportExportSupport {
                     LOG.error("[ProviderHandler] " + errorDetails, e);
                     sendCodexErrorToFrontend(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("provider.codexCcswitch.readFailedTitle"), errorDetails);
                 }
-            });
+            }, AppExecutorUtil.getAppExecutorService());
         });
     }
 
@@ -418,7 +419,7 @@ public class ProviderImportExportSupport {
                         LOG.error("[ProviderHandler] " + errorDetails, e);
                         sendCodexErrorToFrontend(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("provider.codexCcswitch.readFailedTitle"), errorDetails);
                     }
-                });
+                }, AppExecutorUtil.getAppExecutorService());
 
             } catch (Exception e) {
                 String errorDetails = com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("provider.codexCcswitch.fileChooserFailed") + ": " + e.getMessage();
@@ -461,7 +462,7 @@ public class ProviderImportExportSupport {
                 LOG.error("Failed to save imported Codex providers", e);
                 sendCodexErrorToFrontend(com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("provider.codexCcswitch.saveFailedTitle"), e.getMessage());
             }
-        });
+        }, AppExecutorUtil.getAppExecutorService());
     }
 
     /**

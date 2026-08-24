@@ -27,6 +27,7 @@ import com.intellij.openapi.fileChooser.FileChooser;
 import com.intellij.openapi.fileChooser.FileChooserDescriptor;
 import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.util.concurrency.AppExecutorUtil;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -975,6 +976,6 @@ public class ProjectConfigHandler {
                 LOG.error("[ProjectConfigHandler] Failed to get usage statistics: " + e.getMessage(), e);
                 showError("Failed to get statistics: " + e.getMessage());
             }
-        });
+        }, AppExecutorUtil.getAppExecutorService());
     }
 }

@@ -1,9 +1,11 @@
 package com.github.claudecodegui.service;
 
+import com.intellij.execution.ExecutionListener;
 import com.intellij.execution.ExecutionManager;
 import com.intellij.execution.process.ProcessEvent;
 import com.intellij.execution.process.ProcessHandler;
 import com.intellij.execution.process.ProcessListener;
+import com.intellij.execution.runners.ExecutionEnvironment;
 import com.intellij.execution.ui.RunContentDescriptor;
 import com.intellij.execution.ui.RunContentManager;
 import com.intellij.openapi.Disposable;
@@ -100,9 +102,9 @@ public class RunConfigMonitorService implements ProjectActivity {
             // Subscribe to execution events via MessageBus
             // ExecutionManager.EXECUTION_TOPIC provides events when processes start/terminate
             project.getMessageBus().connect(parentDisposable)
-                    .subscribe(ExecutionManager.EXECUTION_TOPIC, new ExecutionManager.ExecutionListener() {
+                    .subscribe(ExecutionManager.EXECUTION_TOPIC, new ExecutionListener() {
                         @Override
-                        public void processStarted(@NotNull String executorId, @NotNull ExecutionEnvironment env) {
+                        public void processStarted(@NotNull String executorId, @NotNull ExecutionEnvironment env, @NotNull ProcessHandler handler) {
                             LOG.debug("Process started: " + env.getRunProfile().getName());
                             // Delay attachment to allow RunContentDescriptor to be fully initialized
                             com.intellij.util.concurrency.AppExecutorUtil.getAppScheduledExecutorService()
@@ -114,7 +116,7 @@ public class RunConfigMonitorService implements ProjectActivity {
                         }
 
                         @Override
-                        public void processTerminated(@NotNull String executorId, @NotNull ExecutionEnvironment env) {
+                        public void processTerminated(@NotNull String executorId, @NotNull ExecutionEnvironment env, @NotNull ProcessHandler handler, int exitCode) {
                             LOG.debug("Process terminated: " + env.getRunProfile().getName());
                         }
                     });
@@ -137,7 +139,7 @@ public class RunConfigMonitorService implements ProjectActivity {
     private void monitorRunConfigurationsViaToolWindow(@NotNull Project project) {
         // Listen for Run ToolWindow changes
         project.getMessageBus().connect(parentDisposable)
-                .subscribe(com.intellij.openapi.wm.ToolWindowManagerListener.TOPIC, 
+                .subscribe(com.intellij.openapi.wm.ex.ToolWindowManagerListener.TOPIC,
                     new com.intellij.openapi.wm.ex.ToolWindowManagerListener() {
             @Override
             public void stateChanged(@NotNull com.intellij.openapi.wm.ToolWindowManager toolWindowManager) {

@@ -46,6 +46,14 @@ public class OpenCodeMcpServerActionHandlers {
 
     private static final Logger LOG = Logger.getInstance(OpenCodeMcpServerActionHandlers.class);
 
+    /**
+     * Gateway status aggregation is blocking IO (config read + gateway refresh) and is
+     * fired from handler dispatch; running it on ForkJoinPool.commonPool() competes
+     * with the IDE's common-pool consumers, so route to the shared app pool instead.
+     */
+    private static final java.util.concurrent.ExecutorService ASYNC_POOL =
+            com.intellij.util.concurrency.AppExecutorUtil.getAppExecutorService();
+
     private final HandlerContext context;
     private final OpenCodeSettingsManager settingsManager;
 
@@ -101,7 +109,7 @@ public class OpenCodeMcpServerActionHandlers {
                     context.dispatchEvent(DownstreamEvent.OPENCODE_MCP_SERVER_STATUS.value(), context.escapeJs("[]"))
                 );
             }
-        });
+        }, ASYNC_POOL);
     }
 
     // --- 增删改/toggle(对称 CodexMcpServerActionHandlers,落盘在 OpenCodeSettingsManager) ---
@@ -112,7 +120,7 @@ public class OpenCodeMcpServerActionHandlers {
             settingsManager.upsertMcpServer(server);
             refreshGateway();
             LOG.info("[OpenCodeMcpServerActionHandlers] Added OpenCode MCP server: " + serverIdOf(server));
-            CompletableFuture.runAsync(this::handleGetMcpServers);
+            CompletableFuture.runAsync(this::handleGetMcpServers, ASYNC_POOL);
         } catch (Exception e) {
             LOG.error("[OpenCodeMcpServerActionHandlers] Failed to add OpenCode MCP server: " + e.getMessage(), e);
             dispatchError("Failed to add OpenCode MCP server: " + e.getMessage());
@@ -125,7 +133,7 @@ public class OpenCodeMcpServerActionHandlers {
             settingsManager.upsertMcpServer(server);
             refreshGateway();
             LOG.info("[OpenCodeMcpServerActionHandlers] Updated OpenCode MCP server: " + serverIdOf(server));
-            CompletableFuture.runAsync(this::handleGetMcpServers);
+            CompletableFuture.runAsync(this::handleGetMcpServers, ASYNC_POOL);
         } catch (Exception e) {
             LOG.error("[OpenCodeMcpServerActionHandlers] Failed to update OpenCode MCP server: " + e.getMessage(), e);
             dispatchError("Failed to update OpenCode MCP server: " + e.getMessage());
@@ -141,7 +149,7 @@ public class OpenCodeMcpServerActionHandlers {
             if (success) {
                 refreshGateway();
                 LOG.info("[OpenCodeMcpServerActionHandlers] Deleted OpenCode MCP server: " + serverId);
-                CompletableFuture.runAsync(this::handleGetMcpServers);
+                CompletableFuture.runAsync(this::handleGetMcpServers, ASYNC_POOL);
             } else {
                 LOG.warn("[OpenCodeMcpServerActionHandlers] OpenCode MCP server not found: " + serverId);
                 dispatchError("OpenCode MCP server not found: " + serverId);
@@ -159,7 +167,7 @@ public class OpenCodeMcpServerActionHandlers {
             refreshGateway();
             LOG.info("[OpenCodeMcpServerActionHandlers] Toggled OpenCode MCP server: " + serverIdOf(server)
                     + " (enabled: " + (!server.has("enabled") || server.get("enabled").getAsBoolean()) + ")");
-            CompletableFuture.runAsync(this::handleGetMcpServers);
+            CompletableFuture.runAsync(this::handleGetMcpServers, ASYNC_POOL);
         } catch (Exception e) {
             LOG.error("[OpenCodeMcpServerActionHandlers] Failed to toggle OpenCode MCP server: " + e.getMessage(), e);
             dispatchError("Failed to toggle OpenCode MCP server: " + e.getMessage());

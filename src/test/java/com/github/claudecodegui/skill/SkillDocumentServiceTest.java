@@ -1,6 +1,7 @@
 package com.github.claudecodegui.skill;
 
 import com.github.claudecodegui.session.runtime.ProviderType;
+import com.github.claudecodegui.util.HashingUtil;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import org.junit.Test;
@@ -10,9 +11,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
@@ -277,12 +275,7 @@ public class SkillDocumentServiceTest {
     }
 
     private String revision(String content) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(content.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 is unavailable", e);
-        }
+        return HashingUtil.sha256Hex(content);
     }
 
     private String validSource() {

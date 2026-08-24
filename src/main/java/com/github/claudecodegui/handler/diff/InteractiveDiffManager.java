@@ -157,8 +157,10 @@ public class InteractiveDiffManager {
         AtomicBoolean actionApplied = new AtomicBoolean(false);
         AtomicReference<ScheduledFuture<?>> rejectFutureRef = new AtomicReference<>();
 
-        // Set up window event listener first (before creating buttons that reference connection)
-        MessageBusConnection connection = project.getMessageBus().connect();
+        // Set up window event listener first (before creating buttons that reference connection).
+        // Parented to the project: the apply/reject/fileClosed paths below disconnect
+        // eagerly; this parent is the leak-proof backstop if none of them fires.
+        MessageBusConnection connection = project.getMessageBus().connect(project);
 
         // Create Apply/Reject actions for toolbar (ApplyAlways only for permission review)
         final DocumentContent finalProposedContent = proposedDiffContent;

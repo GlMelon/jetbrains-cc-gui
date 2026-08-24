@@ -104,7 +104,7 @@ public class FileActionHandlers {
             } catch (Exception e) {
                 LOG.error("[FileHandler] Failed to list files: " + e.getMessage(), e);
             }
-        });
+        }, AppExecutorUtil.getAppExecutorService());
     }
 
     public void handleOpenFile(String content) {

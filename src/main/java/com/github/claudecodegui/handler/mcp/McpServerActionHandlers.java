@@ -12,6 +12,8 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.project.Project;
+import com.intellij.util.concurrency.AppExecutorUtil;
 
 import java.util.List;
 import java.util.Map;
@@ -252,18 +254,29 @@ public class McpServerActionHandlers {
                     context.dispatchEvent(DownstreamEvent.MCP_SERVER_STATUS.value(), context.escapeJs("[]"));
                 });
             }
-        });
+        }, AppExecutorUtil.getAppExecutorService());
     }
 
     private void refreshGateway() {
-        try {
-            if (context.getProject() != null) {
-                String projectPath = context.getProject().getBasePath();
-                McpGatewayService.getInstance(context.getProject()).refreshConfig(projectPath);
-            }
-        } catch (Exception e) {
-            LOG.warn("[McpServerActionHandlers] Failed to refresh MCP Gateway: " + e.getMessage());
+        // 异步化:refreshConfig 在 synchronized(lock) 内跑 ensureStarted(60s 复用探测窗)+applySnapshot(60s 超时),
+        // 而增/改/删 handler 在 webview 消息分发线程(MessageDispatchGate 监视器内)调用本方法——同步执行会在
+        // gateway 不健康时把整个 webview↔Java 消息通道串行卡住 ~130s。改投共享后台池,与同文件
+        // handleReloadMcpGateway / ProjectConfigHandler.handleSetMcpGatewayEnabled 的异步模式对齐。
+        // 设置写入已在调用方同步完成,MCP_SERVER_* 事件不依赖 gateway 刷新结果,即时派发安全。
+        Project project = context.getProject();
+        if (project == null) {
+            return;
         }
+        CompletableFuture.runAsync(() -> {
+            if (project.isDisposed()) {
+                return;
+            }
+            try {
+                McpGatewayService.getInstance(project).refreshConfig(project.getBasePath());
+            } catch (Exception e) {
+                LOG.warn("[McpServerActionHandlers] Failed to refresh MCP Gateway: " + e.getMessage());
+            }
+        }, AppExecutorUtil.getAppExecutorService());
     }
 
     /**
@@ -291,7 +304,7 @@ public class McpServerActionHandlers {
                     context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs(msg));
                 });
             }
-        });
+        }, AppExecutorUtil.getAppExecutorService());
     }
 
     private void publishGatewayStatus() {
@@ -343,7 +356,7 @@ public class McpServerActionHandlers {
                     + e.getMessage(), e);
                 sendToolsResponse(McpServerToolsResponse.error(request, e.getMessage()), gson);
             }
-        });
+        }, AppExecutorUtil.getAppExecutorService());
     }
 
     private void sendToolsResponse(McpServerToolsResponse response, Gson gson) {

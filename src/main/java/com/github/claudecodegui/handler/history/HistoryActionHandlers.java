@@ -9,6 +9,7 @@ import com.intellij.openapi.Disposable;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.Disposer;
 import com.intellij.util.Alarm;
+import com.intellij.util.concurrency.AppExecutorUtil;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -73,7 +74,8 @@ public class HistoryActionHandlers implements HistoryRefreshService, Disposable 
         LOG.debug("[HistoryHandler] 处理: load_history_data, provider=" + content);
         this.currentProvider = content != null && !content.isEmpty() ? content : CommonConstants.PROVIDER_CLAUDE;
         String providerSnapshot = this.currentProvider;
-        CompletableFuture.runAsync(() -> historyWorkflowService.refresh(providerSnapshot));
+        CompletableFuture.runAsync(() -> historyWorkflowService.refresh(providerSnapshot),
+                AppExecutorUtil.getAppExecutorService());
     }
 
     public void handleLoadSession(String content) {
@@ -86,7 +88,8 @@ public class HistoryActionHandlers implements HistoryRefreshService, Disposable 
         String providerSnapshot = this.currentProvider;
         HistoryDeleteService.quiesceActiveSessionForDeletion(
                 context.getSession(), List.of(content), providerSnapshot)
-                .thenRunAsync(() -> historyWorkflowService.deleteOne(providerSnapshot, content))
+                .thenRunAsync(() -> historyWorkflowService.deleteOne(providerSnapshot, content),
+                        AppExecutorUtil.getAppExecutorService())
                 .exceptionally(error -> {
                     restoreHistoryAfterAbortedDeletion(providerSnapshot, error);
                     return null;
@@ -104,7 +107,8 @@ public class HistoryActionHandlers implements HistoryRefreshService, Disposable 
         LOG.info("[HistoryHandler] Batch delete sessionIds: " + HistoryDeleteService.sessionIdsToJson(sessionIds));
         HistoryDeleteService.quiesceActiveSessionForDeletion(
                 context.getSession(), sessionIds, providerSnapshot)
-                .thenRunAsync(() -> historyWorkflowService.deleteMany(providerSnapshot, sessionIds))
+                .thenRunAsync(() -> historyWorkflowService.deleteMany(providerSnapshot, sessionIds),
+                        AppExecutorUtil.getAppExecutorService())
                 .exceptionally(error -> {
                     restoreHistoryAfterAbortedDeletion(providerSnapshot, error);
                     return null;
@@ -127,7 +131,7 @@ public class HistoryActionHandlers implements HistoryRefreshService, Disposable 
                     DownstreamEvent.HISTORY_ARCHIVE_RESULT.value(),
                     result.toPayload().toString()
             );
-        });
+        }, AppExecutorUtil.getAppExecutorService());
     }
 
     public void handleExportSession(String content) {
@@ -162,7 +166,7 @@ public class HistoryActionHandlers implements HistoryRefreshService, Disposable 
         CompletableFuture.runAsync(() -> {
             historyWorkflowService.clearCache(providerSnapshot);
             historyWorkflowService.refresh(providerSnapshot);
-        });
+        }, AppExecutorUtil.getAppExecutorService());
     }
 
     public void handleLoadSubagentSession(String content) {

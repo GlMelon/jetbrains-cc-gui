@@ -7,6 +7,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.util.concurrency.AppExecutorUtil;
 
 import java.io.File;
 import java.util.concurrent.CompletableFuture;
@@ -54,7 +55,7 @@ public class RefreshFileHandler implements DiffActionHandler {
 
             LOG.info("Refreshing file: " + filePath);
 
-            CompletableFuture.runAsync(() -> refreshFile(filePath));
+            CompletableFuture.runAsync(() -> refreshFile(filePath), AppExecutorUtil.getAppExecutorService());
         } catch (Exception e) {
             LOG.error("Failed to parse refresh_file request: " + e.getMessage(), e);
         }

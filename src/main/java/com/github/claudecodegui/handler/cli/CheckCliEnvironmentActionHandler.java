@@ -9,6 +9,7 @@ import com.github.claudecodegui.protocol.UpstreamAction;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.util.concurrency.AppExecutorUtil;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -70,6 +71,6 @@ public class CheckCliEnvironmentActionHandler implements FrontendActionHandler<J
                     context.handlerContext().escapeJs(GsonHolder.GSON.toJson(errorResponse))
                 );
             }
-        });
+        }, AppExecutorUtil.getAppExecutorService());
     }
 }
