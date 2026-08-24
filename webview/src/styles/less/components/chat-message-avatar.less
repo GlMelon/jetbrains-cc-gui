@@ -1213,18 +1213,19 @@
     background: var(--assistant-reference-code-bg);
 }
 
-/* ===== 工具栏按钮风格的连接状态指示器 ===== */
+/* ===== 连接状态指示器（扁平风格 + 换行布局） ===== */
 .assistant-response-status {
     display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 6px;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 4px 8px;
     font-size: 12px;
     line-height: 20px;
     color: var(--text-secondary, #a6adc8);
     border: none;
     background: transparent;
     user-select: none;
+    min-width: 0;
 }
 
 /* 状态图标 */
@@ -1232,24 +1233,77 @@
     font-size: 13px;
     line-height: 1;
     flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 3px;
+}
+
+/* 内容容器 */
+.assistant-response-status .ars-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+/* 标题行：标题+计时同行 */
+.assistant-response-status .ars-title-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
 }
 
 /* 文字 */
 .assistant-response-status .ars-text {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-weight: 600;
+    color: var(--text-secondary, #e0e0e0);
 }
-.assistant-response-status .ars-desc {
-    color: var(--text-tertiary, #6c7086);
+
+.assistant-response-status .ars-sep {
+    color: var(--text-muted, #666);
+    margin: 0 2px;
+}
+
+.assistant-response-status .ars-timer {
+    color: var(--text-tertiary, #858585);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+}
+
+/* 额外信息行（如重试提示） */
+.assistant-response-status .ars-extra {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
     font-size: 11px;
-    margin-left: 2px;
+    color: var(--color-warning, #f59e0b);
+    font-variant-numeric: tabular-nums;
 }
 
 /* 状态颜色 */
 .assistant-response-status.state-connecting { color: var(--accent-primary, #7aa2f7); }
 .assistant-response-status.state-done      { color: var(--green, #a6da95); }
 .assistant-response-status.state-error     { color: var(--red, #ed8796); }
+
+/* done/error 图标颜色 */
+.assistant-response-status.state-done .ars-icon { color: var(--green, #a6da95); }
+.assistant-response-status.state-error .ars-icon { color: var(--red, #ed8796); }
+
+/* api_retry 重试态 */
+.assistant-response-status.phase-api_retry {
+    border-color: rgba(245, 158, 11, 0.34);
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(245, 158, 11, 0.03));
+}
+.assistant-response-status.phase-api_retry .ars-extra {
+    color: #f59e0b;
+    font-weight: 500;
+}
 
 /* prefers-reduced-motion 由 base.less 全局收口（H7）。 */
 

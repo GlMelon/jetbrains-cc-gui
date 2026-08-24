@@ -394,6 +394,7 @@ const App = () => {
 
   const sessionCapabilities = useSessionCapabilities(currentSessionId, currentProvider);
   const [sessionCapabilitiesOpen, setSessionCapabilitiesOpen] = useState(false);
+  const capabilitiesTriggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (currentView !== 'chat') setSessionCapabilitiesOpen(false);
@@ -689,6 +690,7 @@ const App = () => {
           (sessionCapabilities.data?.mcp.length ?? 0) +
           (sessionCapabilities.data?.skills.length ?? 0)
         }
+        capabilitiesTriggerRef={capabilitiesTriggerRef}
         onTitleChange={(newTitle: string) => {
           setCustomSessionTitle(newTitle);
           if (currentSessionId) {
@@ -702,6 +704,7 @@ const App = () => {
         data={sessionCapabilities.data}
         loading={sessionCapabilities.loading}
         error={sessionCapabilities.error}
+        triggerRef={capabilitiesTriggerRef}
         onClose={() => setSessionCapabilitiesOpen(false)}
         onRefresh={sessionCapabilities.request}
       />

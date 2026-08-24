@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import { createRef } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { SessionCapabilitiesDrawer } from '../../src/components/SessionCapabilitiesDrawer';
 import type { SessionCapabilities } from '../../src/hooks/useSessionCapabilities';
@@ -47,6 +48,8 @@ const snapshot: SessionCapabilities = {
 };
 
 describe('SessionCapabilitiesDrawer', () => {
+  const triggerRef = createRef<HTMLButtonElement>();
+
   it('renders MCP and skill capabilities from the backend snapshot', () => {
     render(
       <SessionCapabilitiesDrawer
@@ -54,6 +57,7 @@ describe('SessionCapabilitiesDrawer', () => {
         data={snapshot}
         loading={false}
         error={false}
+        triggerRef={triggerRef}
         onClose={() => undefined}
         onRefresh={() => undefined}
       />,
@@ -75,6 +79,7 @@ describe('SessionCapabilitiesDrawer', () => {
         data={snapshot}
         loading={false}
         error={false}
+        triggerRef={triggerRef}
         onClose={onClose}
         onRefresh={onRefresh}
       />,
@@ -97,6 +102,7 @@ describe('SessionCapabilitiesDrawer', () => {
         data={snapshot}
         loading={false}
         error={false}
+        triggerRef={triggerRef}
         onClose={() => undefined}
         onRefresh={() => undefined}
       />,

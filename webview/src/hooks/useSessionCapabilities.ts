@@ -50,6 +50,13 @@ function isSkillCapability(value: unknown): value is SessionSkillCapability {
   );
 }
 
+/**
+ * sendAction 失败时的重试延迟。window.sendToJava 由 onLoadEnd 的 JSQuery 注入,
+ * 与 React 挂载/会话恢复存在竞态(settingsBootstrap 对同一竞态已采用相同重试模式);
+ * 不重试会把启动窗口期的瞬时不可用固化为 error 状态。
+ */
+const SEND_RETRY_DELAYS_MS = [100, 200, 400, 800];
+
 function parseCapabilities(payload: unknown): SessionCapabilities | null {
   let value: unknown = payload;
   if (typeof payload === 'string') {
@@ -86,12 +93,25 @@ export function useSessionCapabilities(currentSessionId: string | null, currentP
     return subscribeEvent<string>(DOWNSTREAM.SESSION_CAPABILITIES, (payload) => {
       const parsed = parseCapabilities(payload);
       if (!parsed) {
+        // 排查痛点:此前静默失败,无法分辨是 payload 有毒字段还是管道问题。
+        // 输出原始 payload 便于从 webview console(转发至 idea.log)定位毒字段。
+        console.error('[sessionCapabilities] payload rejected by strict validator:', payload);
         setLoading(false);
         setError(true);
         return;
       }
-      if (!currentSessionId || parsed.sessionId !== currentSessionId) return;
-      if (currentProvider && parsed.provider !== currentProvider) return;
+      if (!currentSessionId || parsed.sessionId !== currentSessionId) {
+        // 排查诊断:静默 return 会让人误以为「没收到事件」。匹配失败时输出对比,
+        // 用于发现 sessionId/provider 双轨体系不同步(记忆:sessionId 按 provider 解耦技术债)。
+        console.warn('[sessionCapabilities] sessionId mismatch, ignored:',
+          `parsed=${parsed.sessionId} current=${currentSessionId}`);
+        return;
+      }
+      if (currentProvider && parsed.provider !== currentProvider) {
+        console.warn('[sessionCapabilities] provider mismatch, ignored:',
+          `parsed=${parsed.provider} current=${currentProvider}`);
+        return;
+      }
       setData(parsed);
       setLoading(false);
       setError(false);
@@ -101,10 +121,18 @@ export function useSessionCapabilities(currentSessionId: string | null, currentP
   const request = useCallback(() => {
     setLoading(true);
     setError(false);
-    if (!sendAction(UPSTREAM.GET_SESSION_CAPABILITIES)) {
+    // sendToJava 未就绪(webview 早期/重载竞态)时按延迟梯度补发;
+    // 全部失败才落 error,避免把启动窗口期的瞬时不可用固化为错误。
+    const attempt = (index: number) => {
+      if (sendAction(UPSTREAM.GET_SESSION_CAPABILITIES)) return;
+      if (index < SEND_RETRY_DELAYS_MS.length) {
+        setTimeout(() => attempt(index + 1), SEND_RETRY_DELAYS_MS[index]);
+        return;
+      }
       setLoading(false);
       setError(true);
-    }
+    };
+    attempt(0);
   }, []);
 
   useEffect(() => {

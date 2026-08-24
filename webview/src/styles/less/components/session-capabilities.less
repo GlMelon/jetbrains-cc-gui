@@ -1,40 +1,43 @@
-/* Session capabilities drawer */
-.session-capabilities-backdrop {
+/* Session capabilities popover */
+.session-capabilities-popover {
     position: fixed;
-    inset: 50px 0 0;
-    z-index: 80;
-    border: 0;
-    background: rgba(0, 0, 0, 0.22);
-    cursor: default;
-    animation: session-capabilities-fade-in 160ms ease-out;
-}
-
-.session-capabilities-drawer {
-    position: fixed;
-    top: 50px;
-    right: 0;
-    bottom: 0;
-    z-index: 81;
+    z-index: 85;
+    width: 300px;
+    max-height: calc(100vh - 100px);
     display: flex;
     flex-direction: column;
-    width: min(360px, calc(100vw - 16px));
-    min-width: 280px;
     background: var(--bg-secondary, var(--bg-chat));
-    border-left: 1px solid var(--border-primary);
-    box-shadow: -18px 0 42px rgba(0, 0, 0, 0.28);
-    animation: session-capabilities-slide-in 180ms var(--ease-smooth, ease-out);
+    border: 1px solid var(--border-secondary, var(--border-primary));
+    border-radius: 10px;
+    box-shadow: var(--shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.5));
+    transform-origin: top right;
+    animation: session-capabilities-pop-in 220ms var(--ease-pop, cubic-bezier(0.34, 1.6, 0.64, 1));
+    overflow: hidden;
 }
 
-.session-capabilities-drawer-header {
+.session-capabilities-popover::before {
+    content: '';
+    position: absolute;
+    top: -5px;
+    right: 17px;
+    width: 9px;
+    height: 9px;
+    background: var(--bg-secondary, var(--bg-chat));
+    border-left: 1px solid var(--border-secondary, var(--border-primary));
+    border-top: 1px solid var(--border-secondary, var(--border-primary));
+    transform: rotate(45deg);
+}
+
+.session-capabilities-popover-header {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: 12px;
-    padding: 18px 16px 14px;
+    padding: 13px 14px 11px;
     border-bottom: 1px solid var(--border-primary);
 }
 
-.session-capabilities-drawer-title {
+.session-capabilities-popover-title {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -42,7 +45,7 @@
     font-size: 14px;
 }
 
-.session-capabilities-drawer-title-icon,
+.session-capabilities-popover-title-icon,
 .session-capability-item-icon {
     display: inline-grid;
     place-items: center;
@@ -50,14 +53,14 @@
     border-radius: 6px;
 }
 
-.session-capabilities-drawer-title-icon {
+.session-capabilities-popover-title-icon {
     width: 25px;
     height: 25px;
     color: var(--accent-primary);
     background: var(--color-button-accent-bg, rgba(124, 108, 255, 0.16));
 }
 
-.session-capabilities-drawer-header p {
+.session-capabilities-popover-header p {
     margin-top: 4px;
     color: var(--text-tertiary);
     font-size: 11px;
@@ -67,11 +70,11 @@
     flex: 0 0 auto;
 }
 
-.session-capabilities-drawer-body {
+.session-capabilities-popover-body {
     flex: 1;
     min-height: 0;
     overflow: auto;
-    padding: 14px 16px 18px;
+    padding: 12px 14px 14px;
 }
 
 .session-capabilities-summary-grid {
@@ -239,15 +242,6 @@
     padding: 18px 0;
 }
 
-.session-capabilities-spinner {
-    width: 13px;
-    height: 13px;
-    border: 2px solid var(--border-secondary);
-    border-top-color: var(--accent-primary);
-    border-radius: 50%;
-    animation: session-capabilities-spin 800ms linear infinite;
-}
-
 .session-capabilities-notice {
     display: flex;
     align-items: flex-start;
@@ -266,12 +260,12 @@
     color: var(--color-danger, #ef7c88);
 }
 
-.session-capabilities-drawer-footer {
+.session-capabilities-popover-footer {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-    padding: 11px 16px;
+    padding: 9px 14px;
     border-top: 1px solid var(--border-primary);
     color: var(--text-tertiary);
     font-size: 10px;
@@ -293,40 +287,19 @@
     opacity: 0.55;
 }
 
-@keyframes session-capabilities-slide-in {
-    from {
-        transform: translateX(100%);
-    }
-    to {
-        transform: translateX(0);
-    }
-}
-
-@keyframes session-capabilities-fade-in {
+@keyframes session-capabilities-pop-in {
     from {
         opacity: 0;
+        transform: scale(0.92) translateY(-4px);
     }
     to {
         opacity: 1;
-    }
-}
-
-@keyframes session-capabilities-spin {
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-@media (max-width: 600px) {
-    .session-capabilities-drawer {
-        width: 100%;
-        min-width: 0;
+        transform: scale(1) translateY(0);
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .session-capabilities-backdrop,
-    .session-capabilities-drawer {
+    .session-capabilities-popover {
         animation: none;
     }
 

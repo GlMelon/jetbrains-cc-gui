@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { SpinLoader } from './react-bits/SpinLoader';
 import { AlertIcon, CloseIcon, RefreshIcon, ServerIcon, ToolsIcon } from './Icons';
 import type {
   SessionCapabilities,
@@ -12,6 +13,7 @@ export interface SessionCapabilitiesDrawerProps {
   data: SessionCapabilities | null;
   loading: boolean;
   error: boolean;
+  triggerRef: React.RefObject<HTMLButtonElement | null>;
   onClose: () => void;
   onRefresh: () => void;
 }
@@ -88,19 +90,65 @@ export function SessionCapabilitiesDrawer({
   data,
   loading,
   error,
+  triggerRef,
   onClose,
   onRefresh,
 }: SessionCapabilitiesDrawerProps): React.ReactElement | null {
   const { t } = useTranslation();
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  const updatePosition = useCallback(() => {
+    if (!triggerRef.current || !popoverRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const popover = popoverRef.current;
+    const viewportWidth = window.innerWidth;
+    const popoverWidth = popover.offsetWidth;
+
+    let left = rect.right - popoverWidth;
+    if (left < 8) left = 8;
+    if (left + popoverWidth > viewportWidth - 8) left = viewportWidth - popoverWidth - 8;
+
+    popover.style.position = 'fixed';
+    popover.style.top = `${rect.bottom + 6}px`;
+    popover.style.left = `${left}px`;
+  }, [triggerRef]);
 
   useEffect(() => {
     if (!open) return undefined;
+
+    updatePosition();
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
     };
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (
+        popoverRef.current &&
+        !popoverRef.current.contains(target) &&
+        triggerRef.current &&
+        !triggerRef.current.contains(target)
+      ) {
+        onClose();
+      }
+    };
+
+    const handleResize = () => {
+      if (!open) return;
+      onClose();
+    };
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, open]);
+    document.addEventListener('pointerdown', handlePointerDown, true);
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('pointerdown', handlePointerDown, true);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [onClose, open, triggerRef, updatePosition]);
 
   if (!open) return null;
 
@@ -109,21 +157,16 @@ export function SessionCapabilitiesDrawer({
   const total = mcp.length + skills.length;
 
   return (
-    <>
-      <button
-        type="button"
-        className="session-capabilities-backdrop"
-        aria-label={t('chat.sessionCapabilities.dismiss', { defaultValue: 'Dismiss capabilities' })}
-        onClick={onClose}
-      />
-      <aside
-        className="session-capabilities-drawer"
-        aria-label={t('chat.sessionCapabilities.title', { defaultValue: 'Session capabilities' })}
-      >
-        <header className="session-capabilities-drawer-header">
+    <div
+      ref={popoverRef}
+      className="session-capabilities-popover"
+      role="dialog"
+      aria-label={t('chat.sessionCapabilities.title', { defaultValue: 'Session capabilities' })}
+    >
+        <header className="session-capabilities-popover-header">
           <div>
-            <div className="session-capabilities-drawer-title">
-              <span className="session-capabilities-drawer-title-icon" aria-hidden="true">
+            <div className="session-capabilities-popover-title">
+              <span className="session-capabilities-popover-title-icon" aria-hidden="true">
                 <ToolsIcon size={16} />
               </span>
               <strong>
@@ -149,7 +192,7 @@ export function SessionCapabilitiesDrawer({
           </button>
         </header>
 
-        <div className="session-capabilities-drawer-body">
+        <div className="session-capabilities-popover-body">
           {error && (
             <div className="session-capabilities-notice is-error" role="alert">
               <AlertIcon size={14} />
@@ -168,7 +211,7 @@ export function SessionCapabilitiesDrawer({
           )}
           {!data && loading && (
             <div className="session-capabilities-loading" aria-live="polite">
-              <span className="session-capabilities-spinner" aria-hidden="true" />
+              <SpinLoader size={13} strokeWidth={2} duration={0.8} color="var(--accent-primary)" />
               {t('chat.sessionCapabilities.loading', { defaultValue: 'Refreshing snapshot…' })}
             </div>
           )}
@@ -206,7 +249,7 @@ export function SessionCapabilitiesDrawer({
           )}
         </div>
 
-        <footer className="session-capabilities-drawer-footer">
+        <footer className="session-capabilities-popover-footer">
           <span>
             {data?.observedAt
               ? t('chat.sessionCapabilities.updatedAt', {
@@ -225,7 +268,6 @@ export function SessionCapabilitiesDrawer({
             {t('chat.sessionCapabilities.refresh', { defaultValue: 'Refresh' })}
           </button>
         </footer>
-      </aside>
-    </>
+      </div>
   );
 }

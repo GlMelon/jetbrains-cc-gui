@@ -28,6 +28,7 @@ export interface ChatHeaderProps {
   titleEditable?: boolean;
   onOpenCapabilities?: () => void;
   capabilitiesCount?: number;
+  capabilitiesTriggerRef?: React.RefObject<HTMLButtonElement | null>;
 }
 
 export function ChatHeader({
@@ -44,6 +45,7 @@ export function ChatHeader({
   titleEditable = false,
   onOpenCapabilities,
   capabilitiesCount,
+  capabilitiesTriggerRef,
 }: ChatHeaderProps): React.ReactElement | null {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
@@ -199,6 +201,7 @@ export function ChatHeader({
             )}
             {onOpenCapabilities && (
               <button
+                ref={capabilitiesTriggerRef}
                 className="icon-button session-capabilities-trigger"
                 onClick={onOpenCapabilities}
                 data-tooltip={t('chat.sessionCapabilities.open', {
