@@ -46,6 +46,11 @@ public enum ProviderType implements ProtocolValue {
     GROK("grok", "Grok", "grok", "grok.cmd"),
     KIMI("kimi", "Kimi", "kimi", "kimi.cmd"),
     PI("pi", "Pi", "pi", "pi.cmd"),
+    // omp/dsh:上游 v0.5.4 新增纯 CLI provider。OMP 是 pi 的 fork(输出 NDJSON,经 ai-bridge channel 转换);
+    // DSH 走本地 dsh web host RPC(经 ai-bridge channel 触发)。Java 侧均经 ChannelCliSession spawn channel-manager,
+    // cliCommand 仅为占位(channel-manager 路径由 NodeService 解析,不直接 spawn 该二进制)。
+    OMP("omp", "OMP", "omp", "omp.cmd"),
+    DSH("dsh", "DeepSeek Harness", "dsh", "dsh.cmd"),
     ;
 
     private final String value;
@@ -121,6 +126,8 @@ public enum ProviderType implements ProtocolValue {
             case CommonConstants.PROVIDER_GROK -> GROK;
             case CommonConstants.PROVIDER_KIMI -> KIMI;
             case CommonConstants.PROVIDER_PI -> PI;
+            case CommonConstants.PROVIDER_OMP -> OMP;
+            case CommonConstants.PROVIDER_DSH -> DSH;
             default -> CLAUDE;
         };
     }

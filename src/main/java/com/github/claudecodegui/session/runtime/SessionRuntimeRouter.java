@@ -34,6 +34,8 @@ public class SessionRuntimeRouter {
         registry.register(new GrokCliSessionRuntime(cliManager));
         registry.register(new KimiCliSessionRuntime(cliManager));
         registry.register(new PiCliSessionRuntime(cliManager));
+        registry.register(new OmpCliSessionRuntime(cliManager));
+        registry.register(new DshCliSessionRuntime(cliManager));
     }
 
     /**

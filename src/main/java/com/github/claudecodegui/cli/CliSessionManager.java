@@ -78,7 +78,9 @@ public class CliSessionManager {
     public CliSessionManager() {
         this(List.of(new ClaudeCliSessionFactory(), new CodexCliSessionFactory(),
                 new OpenCodeCliSessionFactory(), new GrokCliSessionFactory(),
-                new KimiCliSessionFactory(), new PiCliSessionFactory()));
+                new KimiCliSessionFactory(), new PiCliSessionFactory(),
+                new com.github.claudecodegui.cli.omp.OmpCliSessionFactory(),
+                new com.github.claudecodegui.cli.dsh.DshCliSessionFactory()));
     }
 
     /**
@@ -93,7 +95,9 @@ public class CliSessionManager {
                 new OpenCodeCliSessionFactory(McpGatewayService.getInstance(project)),
                 new GrokCliSessionFactory(),
                 new KimiCliSessionFactory(),
-                new PiCliSessionFactory()
+                new PiCliSessionFactory(),
+                new com.github.claudecodegui.cli.omp.OmpCliSessionFactory(),
+                new com.github.claudecodegui.cli.dsh.DshCliSessionFactory()
         ));
     }
 

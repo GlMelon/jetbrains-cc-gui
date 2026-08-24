@@ -333,6 +333,10 @@ export const AVAILABLE_PROVIDERS: ProviderInfo[] = [
   { id: 'grok', label: 'Grok', icon: 'codicon-terminal', enabled: true },
   { id: 'kimi', label: 'Kimi', icon: 'codicon-terminal', enabled: true },
   { id: 'pi', label: 'Pi', icon: 'codicon-terminal', enabled: true },
+  // omp(pi fork,marker CLI via ai-bridge)/dsh(host RPC via ai-bridge):上游 v0.5.4 新增,
+  // 后端经 ChannelCliSession spawn channel-manager.js,前端 beta 标记(promptEnhancer/commitAi 的 provider 白名单另见 aiFeatureConfig)
+  { id: 'omp', label: 'OMP', icon: 'codicon-terminal', enabled: true },
+  { id: 'dsh', label: 'DeepSeek Harness', icon: 'codicon-terminal', enabled: true },
 ];
 
 /**
