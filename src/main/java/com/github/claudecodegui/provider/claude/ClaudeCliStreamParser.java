@@ -242,6 +242,11 @@ public class ClaudeCliStreamParser {
             // API 端点 5xx/529 过载:CLI 静默指数退避重试(最多 10 次、总挂起可达数分钟),
             // 不上报则前端一直停在"正在理解问题"无任何感知(2026-08-18 BigModel 529 实测)。
             emitApiRetryNotice(obj, callback);
+        } else if ("rate_limit".equals(subtype) && obj.has("rate_limit_info")) {
+            // Claude 订阅用量(真实 OAuth 后端输出 system subtype=rate_limit,代理后端无):
+            // cache rate_limit_info 供 get_claude_plan_usage 轮询下发到 ContextBar plan-usage bar。
+            // 不输出时 cache 不触发,resolvePlanUsagePayload 返回 unavailable,bar 隐藏(符合 upstream 设计)。
+            ClaudePlanUsageService.cacheRateLimitInfo(obj.getAsJsonObject("rate_limit_info"));
         }
         // subtype="status" (如 "requesting") 跳过
     }
