@@ -1,12 +1,11 @@
 package com.github.claudecodegui.mcp;
 
 import com.github.claudecodegui.util.GsonHolder;
+import com.github.claudecodegui.util.HashingUtil;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.util.HexFormat;
 import java.util.List;
 
 /**
@@ -55,9 +54,7 @@ public record McpGatewayConfigSnapshot(
         }
         canonical.add(McpGatewayConstants.KEY_SERVERS, arr);
         try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(GsonHolder.GSON.toJson(canonical).getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(hash);
+            return HashingUtil.sha256Hex(GsonHolder.GSON.toJson(canonical).getBytes(StandardCharsets.UTF_8));
         } catch (Exception e) {
             throw new IllegalStateException("Unable to compute MCP Gateway config hash", e);
         }

@@ -111,3 +111,39 @@ test('stdin error (EPIPE after process exit) does not crash gateway', async () =
   assert.ok(client.errored, 'stdin error 应置 errored(进程已死)');
   client.close();
 });
+
+// M5:tools/call 内腿超时与外腿(gateway 60s)对齐。15s 默认值只该约束 initialize/listTools
+// (catalog refresh 场景);慢工具调用若在内腿被 15s 掐断,外腿 60s 的余量形同虚设。
+// 期望:①callTool 用 CALL_TOOL_TIMEOUT_MS 而非 15s 默认;②config.request_timeout_ms 显式配置仍最优先。
+
+test('callTool uses the longer CALL_TOOL_TIMEOUT_MS instead of the 15s default', async () => {
+  // monkey-patch 静态常量为短值,避免测试真等 55s;测完还原
+  const original = StdioMcpClient.CALL_TOOL_TIMEOUT_MS;
+  StdioMcpClient.CALL_TOOL_TIMEOUT_MS = 300;
+  try {
+    const client = new StdioMcpClient(
+      { serverId: 'slow', sourceProvider: 'claude', config: { command: 'fake', args: [] } },
+      { spawnFn: () => createFakeProcess() },
+    );
+    const start = Date.now();
+    await assert.rejects(client.callTool('query_db', {}), /timeout.*300ms/);
+    const elapsed = Date.now() - start;
+    // 应在 300ms 档超时,远小于 15s 默认(若仍用默认值,elapsed 会 ≥15000)
+    assert.ok(elapsed < 5000, `callTool 应在 300ms 档超时,实际 ${elapsed}ms(疑似仍用 15s 默认)`);
+    client.close();
+  } finally {
+    StdioMcpClient.CALL_TOOL_TIMEOUT_MS = original;
+  }
+});
+
+test('callTool honors explicit config.request_timeout_ms over CALL_TOOL_TIMEOUT_MS', async () => {
+  const client = new StdioMcpClient(
+    { serverId: 'slow', sourceProvider: 'claude', config: { command: 'fake', args: [], request_timeout_ms: 100 } },
+    { spawnFn: () => createFakeProcess() },
+  );
+  const start = Date.now();
+  await assert.rejects(client.callTool('query_db', {}), /timeout.*100ms/);
+  const elapsed = Date.now() - start;
+  assert.ok(elapsed < 5000, `应按用户配置 100ms 超时,实际 ${elapsed}ms`);
+  client.close();
+});

@@ -26,6 +26,10 @@ export class StdioMcpClient {
   // 单次 JSON-RPC 请求默认超时(ms)。单个 MCP server 挂起不应拖垮整个 gateway catalog
   // refresh(否则放大首次延迟)。config.request_timeout_ms 或 request 第三参可覆盖。
   static DEFAULT_REQUEST_TIMEOUT_MS = 15000;
+  // tools/call 专用默认超时(ms):工具调用(慢 DB 查询/网页抓取)天然比 initialize/listTools 慢,
+  // 15s 会在外腿(gateway TOOLS_CALL_TIMEOUT_MS=60s)远未到时先误杀慢工具。与外腿对齐并留 5s
+  // 转发余量;用户显式配置的 config.request_timeout_ms 仍最优先。
+  static CALL_TOOL_TIMEOUT_MS = 55000;
 
   /** @type {StdioMcpSpec} */ spec;
   /** @type {Map<number, PendingRequest>} */ pending;
@@ -107,7 +111,8 @@ export class StdioMcpClient {
    * @param {Record<string, unknown> | null | undefined} args
    */
   async callTool(name, args) {
-    return this.request('tools/call', { name, arguments: args ?? {} });
+    return this.request('tools/call', { name, arguments: args ?? {} },
+      this.requestTimeoutMs ?? StdioMcpClient.CALL_TOOL_TIMEOUT_MS);
   }
 
   /**

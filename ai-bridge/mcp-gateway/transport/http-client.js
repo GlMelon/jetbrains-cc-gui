@@ -11,6 +11,9 @@ export class HttpMcpClient {
   // 单次 JSON-RPC 请求默认超时(ms)。慢/挂的 HTTP MCP server 不应无限期等待,否则拖垮整个
   // gateway catalog refresh。config.request_timeout_ms 或 request 第三参可覆盖。
   static DEFAULT_REQUEST_TIMEOUT_MS = 15000;
+  // tools/call 专用默认超时(ms):与 stdio-client 对称,慢工具不在外腿(gateway 60s)到时前被
+  // 内腿 15s 误杀;用户显式配置的 config.request_timeout_ms 仍最优先。
+  static CALL_TOOL_TIMEOUT_MS = 55000;
 
   /** @param {HttpMcpSpec} spec */
   constructor(spec) {
@@ -40,7 +43,8 @@ export class HttpMcpClient {
    * @param {Record<string, unknown> | null | undefined} args
    */
   async callTool(name, args) {
-    return this.request('tools/call', { name, arguments: args ?? {} });
+    return this.request('tools/call', { name, arguments: args ?? {} },
+      this.requestTimeoutMs ?? HttpMcpClient.CALL_TOOL_TIMEOUT_MS);
   }
 
   /**

@@ -95,7 +95,17 @@ export class ServerSupervisor {
           this.client = null;
         }
         const newClient = createMcpClient(this.spec);
-        await newClient.initialize();
+        try {
+          await newClient.initialize();
+        } catch (err) {
+          // initialize 失败(典型:npx 型 server 首次下载超过 15s 超时)时,createMcpClient 已在构造器内
+          // spawn 的子进程必须先 close 再 rethrow——否则 newClient 无任何引用、优雅关停也杀不到它,
+          // 子进程泄漏,且 this.client 保持 null,下次 refresh/applySnapshot 会再 spawn 一个。
+          try {
+            newClient.close();
+          } catch {}
+          throw err;
+        }
         this.client = newClient;
       }
       // await 后 this.client 字段缩窄会丢失,提取局部 const 并补一次等价守卫

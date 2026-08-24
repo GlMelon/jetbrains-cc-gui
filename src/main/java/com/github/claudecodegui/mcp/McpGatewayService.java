@@ -5,10 +5,14 @@ import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.settings.ConfigPathManager;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.startup.BridgePreloader;
+import com.github.claudecodegui.util.GsonHolder;
+import com.github.claudecodegui.util.PlatformUtils;
+import com.google.gson.JsonObject;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.components.Service;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
+import com.intellij.util.concurrency.AppExecutorUtil;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
@@ -20,6 +24,7 @@ import java.util.ArrayDeque;
 import java.util.Base64;
 import java.util.Deque;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -205,6 +210,7 @@ public final class McpGatewayService implements Disposable {
         // 此处作兜底:真走到重建时确保旧进程被显式停止。
         stopExistingProcess();
         Files.createDirectories(gatewayDir);
+        cleanupStaleGatewayFromPreviousRun();
         Files.deleteIfExists(stateFile);
 
         File bridgeDir = BridgePreloader.getSharedResolver().findSdkDir();
@@ -235,8 +241,10 @@ public final class McpGatewayService implements Disposable {
 
     /**
      * gateway 进程意外退出时的自愈回调(由 {@code McpGatewayProcessHandle.onProcessExit} 在 commonPool 触发)。
-     * <p>异步化(CompletableFuture.runAsync)避免阻塞 onExit 的 commonPool 线程;内部 synchronized(lock)
-     * 与现有调用方互斥。{@code setOnExitCallback(null)} 是首选屏障,此处 {@code processHandle==null}
+     * <p>自愈体(ensureStarted 最长 60s+10s + applySnapshot 60s,均在锁内)投共享后台池执行——
+     * 不能留在 onExit 的回调线程(自愈风暴时占满 commonPool),也不应无 executor 落回 commonPool
+     * (等价换线程,风暴闸门限 3 并发只是缓解)。内部 synchronized(lock) 与现有调用方互斥。
+     * {@code setOnExitCallback(null)} 是首选屏障,此处 {@code processHandle==null}
      * 早退是竞态兜底——onExit 已在飞时读到的 callback 仍可能非 null,而 stopGateway 已置 processHandle=null。
      */
     private void onGatewayProcessExit() {
@@ -273,7 +281,7 @@ public final class McpGatewayService implements Disposable {
                             + " (next send will cold-start a fresh gateway)");
                 }
             }
-        });
+        }, AppExecutorUtil.getAppExecutorService());
     }
 
     private void stopExistingProcess() {
@@ -285,6 +293,55 @@ public final class McpGatewayService implements Disposable {
             } catch (Exception e) {
                 LOG.debug("[McpGateway] Failed to stop stale process handle on rebuild: " + e.getMessage());
             }
+        }
+    }
+
+    /**
+     * 清场上次 JVM 异常退出(崩溃/强杀)遗留的孤儿 gateway。
+     * <p>
+     * gateway 是 JVM 的分离子进程,JVM 死后无人回收;重启后的新 JVM 也看不到它(孤儿面板按
+     * parentPid 归属校验只认本 JVM)。旧 state file 里存着上次 gateway 的 pid——正常退出路径
+     * (JS 侧 SIGINT/SIGTERM、Java 侧 dispose)都会删 state file,所以「state file 存在 + 其中
+     * pid 对应进程还活着 + 父进程已死」基本等价于上次崩溃遗留。此时按 pid 杀整棵树
+     * (gateway + 其 MCP server 子进程),防孤儿随崩溃次数累积滚雪球。
+     * <p>
+     * 双重防误杀:①pid 可能已被系统复用,校验进程可执行名必须含 node(gateway 恒为 node 进程);
+     * ②父进程还活着说明是另一个 IDE 窗口正在管理的活 gateway(同项目双开共享 per-project
+     * state file 路径),不越权击杀——只清「父进程已死」的真孤儿(与 Unix 孤儿定义一致)。
+     * 任何失败只记 debug 日志,不阻塞 ensureStarted 主流程。
+     */
+    private void cleanupStaleGatewayFromPreviousRun() {
+        if (stateFile == null || !Files.exists(stateFile)) {
+            return;
+        }
+        try {
+            JsonObject state = GsonHolder.GSON.fromJson(Files.readString(stateFile), JsonObject.class);
+            if (state == null || !state.has("pid")) {
+                return;
+            }
+            long pid = state.get("pid").getAsLong();
+            if (pid <= 0) {
+                return;
+            }
+            Optional<ProcessHandle> handle = ProcessHandle.of(pid);
+            if (handle.isEmpty()) {
+                return; // 进程已死,残留的 state file 由随后的 deleteIfExists 收尾
+            }
+            ProcessHandle gateway = handle.get();
+            String command = gateway.info().command().orElse("");
+            String exeName = command.substring(Math.max(command.lastIndexOf('/'), command.lastIndexOf('\\')) + 1).toLowerCase();
+            if (!exeName.contains("node")) {
+                LOG.info("[McpGateway] Stale state file points at non-node pid " + pid + " (" + command + "), skipping cleanup");
+                return;
+            }
+            if (gateway.parent().map(ProcessHandle::isAlive).orElse(false)) {
+                LOG.info("[McpGateway] Gateway pid " + pid + " still has a live parent (another IDE instance?), leaving it alone");
+                return;
+            }
+            LOG.warn("[McpGateway] Killing orphaned gateway process tree from previous session, pid=" + pid);
+            PlatformUtils.terminateProcessTree(pid);
+        } catch (Exception e) {
+            LOG.debug("[McpGateway] Stale gateway cleanup skipped: " + e.getMessage());
         }
     }
 
