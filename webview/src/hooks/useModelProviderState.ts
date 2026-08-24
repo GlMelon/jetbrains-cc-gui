@@ -41,6 +41,7 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
   const [currentProvider, setCurrentProvider] = useState('claude');
   const [permissionMode, setPermissionMode] = useState<PermissionMode>('default');
   const [selectedModelIdentifiers, setSelectedModelIdentifiers] = useState<Record<string, string>>({});
+  const [dshPreset, setDshPreset] = useState('');
 
   // External-facing ref so window callbacks can read the latest provider
   // without re-binding. Render-time assignment avoids the useRef + useEffect
@@ -366,6 +367,10 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
     setCodexFastMode,
   ]);
 
+  const handleDshPresetChange = useCallback((preset: string) => {
+    setDshPreset(preset);
+  }, []);
+
   const handleLongContextChange = useCallback((enabled: boolean) => {
     setLongContextEnabled(enabled);
     if (currentProvider === 'claude') {
@@ -490,5 +495,7 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
     handleModelSelect,
     handleProviderSelect,
     handleLongContextChange,
+    dshPreset,
+    handleDshPresetChange,
   };
 }

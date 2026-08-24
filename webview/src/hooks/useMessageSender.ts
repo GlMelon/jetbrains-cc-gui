@@ -35,6 +35,7 @@ export function useMessageSender({
   addToast,
   currentProvider,
   selectedModel,
+  dshPreset,
   selectedAgent,
   sentAttachmentsRef,
   chatInputRef,
@@ -58,6 +59,7 @@ export function useMessageSender({
   currentProvider: string;
   selectedModel: string;
   permissionMode: PermissionMode;
+  dshPreset: string;
   selectedAgent: SelectedAgent | null;
   sentAttachmentsRef: RefObject<Map<string, Array<{ fileName: string; mediaType: string }>>>;
   chatInputRef: RefObject<ChatInputBoxHandle | null>;
@@ -253,6 +255,7 @@ export function useMessageSender({
           })),
           agent: agentInfo,
           fileTags: fileTagsInfo,
+          dshPreset: dshPreset || undefined,
         });
         sendAction(UPSTREAM.SEND_MESSAGE_WITH_ATTACHMENTS, payload);
       } catch (error) {
@@ -261,6 +264,7 @@ export function useMessageSender({
           text,
           agent: agentInfo,
           fileTags: fileTagsInfo,
+          dshPreset: dshPreset || undefined,
         });
         sendAction(UPSTREAM.SEND_MESSAGE, fallbackPayload);
       }
@@ -269,10 +273,11 @@ export function useMessageSender({
         text,
         agent: agentInfo,
         fileTags: fileTagsInfo,
+        dshPreset: dshPreset || undefined,
       });
       sendAction(UPSTREAM.SEND_MESSAGE, payload);
     }
-  }, []);
+  }, [dshPreset]);
 
   /**
    * Execute message sending (from queue or directly)

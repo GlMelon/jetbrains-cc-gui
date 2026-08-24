@@ -26,6 +26,8 @@ export const ChatInputBoxFooter = memo(function ChatInputBoxFooter({
   selectedModelIdentifier,
   permissionMode,
   currentProvider,
+  dshPreset,
+  onDshPresetChange,
   reasoningEffort,
   onSubmit,
   onStop,
@@ -61,6 +63,8 @@ export const ChatInputBoxFooter = memo(function ChatInputBoxFooter({
   selectedModelIdentifier?: string;
   permissionMode: PermissionMode;
   currentProvider: string;
+  dshPreset?: string;
+  onDshPresetChange?: (preset: string) => void;
   reasoningEffort: ReasoningEffort;
   onSubmit: () => void;
   onStop?: () => void;
@@ -108,6 +112,8 @@ export const ChatInputBoxFooter = memo(function ChatInputBoxFooter({
         selectedModelIdentifier={selectedModelIdentifier}
         permissionMode={permissionMode}
         currentProvider={currentProvider}
+        dshPreset={dshPreset}
+        onDshPresetChange={onDshPresetChange}
         reasoningEffort={reasoningEffort}
         onSubmit={onSubmit}
         onStop={onStop}

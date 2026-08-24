@@ -40,6 +40,10 @@ interface ModelProviderContextValue {
   handleStreamingEnabledChange: ProviderState['handleStreamingEnabledChange'];
   handleAutoOpenFileEnabledChange: ProviderState['handleAutoOpenFileEnabledChange'];
   handleLongContextChange: ProviderState['handleLongContextChange'];
+
+  // DSH preset (dsh provider only)
+  dshPreset: ProviderState['dshPreset'];
+  handleDshPresetChange: ProviderState['handleDshPresetChange'];
 }
 
 const ModelProviderContext = createContext<ModelProviderContextValue | null>(null);
@@ -82,6 +86,8 @@ export function ModelProviderProvider({
     value.handleStreamingEnabledChange,
     value.handleAutoOpenFileEnabledChange,
     value.handleLongContextChange,
+    value.dshPreset,
+    value.handleDshPresetChange,
   ]);
 
   return (

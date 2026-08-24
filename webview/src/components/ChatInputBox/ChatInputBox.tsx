@@ -67,6 +67,8 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
       selectedModelIdentifier,
       permissionMode = 'default',
       currentProvider = 'claude',
+      dshPreset,
+      onDshPresetChange,
       usagePercentage = 0,
       usageUsedTokens,
       usageMaxTokens,
@@ -705,6 +707,8 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
           selectedModelIdentifier={selectedModelIdentifier}
           permissionMode={permissionMode}
           currentProvider={currentProvider}
+          dshPreset={dshPreset}
+          onDshPresetChange={onDshPresetChange}
           reasoningEffort={reasoningEffort}
           codexFastMode={codexFastMode}
           onSubmit={handleSubmit}

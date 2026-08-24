@@ -165,6 +165,8 @@ export const ChatScreen = ({
     handleShowThinkingEnabledChange,
     handleStreamingEnabledChange,
     handleAutoOpenFileEnabledChange,
+    dshPreset,
+    handleDshPresetChange,
   } = useModelProvider();
 
   const {
@@ -407,6 +409,8 @@ export const ChatScreen = ({
           onRemoveFromQueue={onRemoveFromQueue}
           autoOpenFileEnabled={autoOpenFileEnabled}
           onAutoOpenFileEnabledChange={handleAutoOpenFileEnabledChange}
+          dshPreset={dshPreset}
+          onDshPresetChange={handleDshPresetChange}
         />
       </div>
     </div>

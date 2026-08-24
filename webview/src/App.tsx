@@ -249,6 +249,8 @@ const App = () => {
     handleSendShortcutChange,
     handleAutoOpenFileEnabledChange,
     handleLongContextChange,
+    dshPreset,
+    handleDshPresetChange,
   } = useModelProviderState({ addToast, t });
 
   // ── Global drag event interception ──
@@ -529,6 +531,7 @@ const App = () => {
     currentProvider,
     selectedModel,
     permissionMode,
+    dshPreset,
     selectedAgent,
     sentAttachmentsRef,
     chatInputRef,
@@ -763,6 +766,8 @@ const App = () => {
                 handleShowThinkingEnabledChange,
                 handleAutoOpenFileEnabledChange,
                 handleLongContextChange,
+                dshPreset,
+                handleDshPresetChange,
               }}
             >
               <ChatScreen

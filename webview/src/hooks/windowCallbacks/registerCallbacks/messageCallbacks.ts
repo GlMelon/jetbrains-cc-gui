@@ -453,8 +453,13 @@ export function registerMessageCallbacks(
   window.updateMessages = (json, sequenceArg) => {
     // During session transition, ignore message updates from stale session
     // callbacks to prevent cleared messages from being restored
-    if (window.__sessionTransitioning) return;
     const sequence = parseSequence(sequenceArg);
+    if (window.__sessionTransitioning) {
+      // 不丢弃历史快照:stash 到 __deferredTransitionUpdateMessages,由 sessionTransition
+      // 释放时 flush 重放(upstream 修复:Grok 全量卸载竞态导致历史空白)。
+      window.__deferredTransitionUpdateMessages = { json, sequence };
+      return;
+    }
     const minAcceptedSequence = window.__minAcceptedUpdateSequence ?? 0;
     if (sequence != null && sequence < minAcceptedSequence) {
       return;

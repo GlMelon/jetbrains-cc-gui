@@ -340,6 +340,46 @@ export const AVAILABLE_PROVIDERS: ProviderInfo[] = [
 ];
 
 /**
+ * Built-in DSH (DeepSeek Harness) agent preset ids. User-installed presets
+ * discovered from the DSH home are merged at runtime via
+ * {@link getUserDshPresetOptions} (reading {@link window.__INITIAL_DSH_PRESETS__}).
+ */
+export const DSH_PRESETS = ['standard', 'code', 'minimal', 'cordis', 'router-standard'] as const;
+
+/**
+ * Build the full DSH preset option list by merging built-in presets with
+ * user-installed presets injected via {@link window.__INITIAL_DSH_PRESETS__}.
+ * Deduplicates by id. Returns `{id, label}` pairs; the actual display text
+ * is resolved via i18n `t('dshPresets.{id}.label')` in the selector component,
+ * with `label` (the raw id) as the defaultValue fallback.
+ */
+export function getUserDshPresetOptions(): { id: string; label: string }[] {
+  const seen = new Set<string>();
+  const options: { id: string; label: string }[] = [];
+
+  const add = (id: string) => {
+    if (!id || seen.has(id)) return;
+    seen.add(id);
+    options.push({ id, label: id });
+  };
+
+  for (const preset of DSH_PRESETS) {
+    add(preset);
+  }
+
+  const userPresets = typeof window !== 'undefined' ? window.__INITIAL_DSH_PRESETS__ : undefined;
+  if (Array.isArray(userPresets)) {
+    for (const preset of userPresets) {
+      if (typeof preset === 'string') {
+        add(preset);
+      }
+    }
+  }
+
+  return options;
+}
+
+/**
  * Reasoning effort(adaptive thinking)的支持情况按模型的 role 判断,不再使用
  * model-id 白名单:sonnet/opus/fable 支持全集 5 档(含 xhigh/max),haiku 仅
  * low/medium/high(3 档)。判断逻辑见 ReasoningSelect +
@@ -443,6 +483,10 @@ export interface ChatInputBoxProps {
   permissionMode?: PermissionMode;
   /** Current provider */
   currentProvider?: string;
+  /** Current DSH preset (dsh provider only) */
+  dshPreset?: string;
+  /** DSH preset change callback */
+  onDshPresetChange?: (preset: string) => void;
   /** Usage percentage */
   usagePercentage?: number;
   /** Used context tokens */
@@ -568,6 +612,10 @@ export interface ButtonAreaProps {
   currentProvider?: string;
   /** Current reasoning effort */
   reasoningEffort?: ReasoningEffort;
+  /** Current DSH preset (dsh provider only) */
+  dshPreset?: string;
+  /** DSH preset change callback */
+  onDshPresetChange?: (preset: string) => void;
 
   // Event callbacks
   onSubmit?: () => void;

@@ -2,7 +2,7 @@ import {memo, useCallback, useEffect, useMemo, useState} from 'react';
 import {useTranslation} from 'react-i18next';
 import type {ButtonAreaProps, ModelInfo, PermissionMode, ReasoningEffort} from './types';
 import {CLAUDE_ROLE_MODEL_IDS} from './types';
-import {ConfigSelect, ModelSelect, ModeSelect, ProviderSelect, ReasoningSelect} from './selectors';
+import {ConfigSelect, DshPresetSelect, ModelSelect, ModeSelect, ProviderSelect, ReasoningSelect} from './selectors';
 import {readClaudeModelMapping, resolveMappedModelName} from '../../utils/claudeModelMapping';
 import {getModelsForProvider, getModelRegistrySnapshot, requestModelRegistry, subscribeModelRegistry} from '../../utils/modelRegistry';
 import {SendIcon, SparklesIcon, StopIcon} from '../Icons';
@@ -36,6 +36,8 @@ export const ButtonArea = memo(function ButtonArea({
   selectedAgent,
   onAgentSelect,
   onOpenAgentSettings,
+  dshPreset,
+  onDshPresetChange,
 }: ButtonAreaProps) {
   const { t } = useTranslation();
   // const fileInputRef = useRef<HTMLInputElement>(null);
@@ -180,6 +182,9 @@ export const ButtonArea = memo(function ButtonArea({
           compact
         />
         <ModeSelect value={permissionMode} onChange={handleModeSelect} provider={currentProvider} />
+        {currentProvider === 'dsh' && (
+          <DshPresetSelect dshPreset={dshPreset || ''} onDshPresetChange={onDshPresetChange!} />
+        )}
         <span className="selector-separator" />
         <ModelSelect value={selectedModel} selectedIdentifier={selectedModelIdentifier} onChange={handleModelSelect} models={availableModels} currentProvider={currentProvider} />
         <span className="selector-separator" />
