@@ -177,6 +177,7 @@ import com.github.claudecodegui.handler.settings.SetCommitGenerationEnabledActio
 import com.github.claudecodegui.handler.settings.GetMcpGatewayEnabledActionHandler;
 import com.github.claudecodegui.handler.settings.SetMcpGatewayEnabledActionHandler;
 import com.github.claudecodegui.handler.settings.GetCliPersistentEnabledActionHandler;
+import com.github.claudecodegui.handler.provider.claude.ClaudePlanUsageActionHandler;
 import com.github.claudecodegui.handler.settings.SetCliPersistentEnabledActionHandler;
 import com.github.claudecodegui.handler.settings.GetStatusBarWidgetEnabledActionHandler;
 import com.github.claudecodegui.handler.settings.SetStatusBarWidgetEnabledActionHandler;
@@ -592,6 +593,7 @@ nodeService.setSessionId(sessionId);
         typedHandlers.add(new GetMcpGatewayEnabledActionHandler(projectConfigHandler));
         typedHandlers.add(new SetMcpGatewayEnabledActionHandler(projectConfigHandler));
         typedHandlers.add(new GetCliPersistentEnabledActionHandler(projectConfigHandler));
+        typedHandlers.add(new ClaudePlanUsageActionHandler());
         typedHandlers.add(new SetCliPersistentEnabledActionHandler(projectConfigHandler));
         typedHandlers.add(new GetSmitheryApiKeyActionHandler(projectConfigHandler));
         typedHandlers.add(new SetSmitheryApiKeyActionHandler(projectConfigHandler));

@@ -211,6 +211,8 @@ public enum UpstreamAction implements ProtocolValue {
     SAVE_IMPORTED_PROVIDERS("save_imported_providers"),
     // 拉取第三方/代理 OpenAI 兼容 models 列表(RPC:业务逻辑下沉后端,前端只做入口)
     FETCH_PROVIDER_MODELS("fetch_provider_models"),
+    // 拉取 Claude 订阅用量快照(rate_limit_event 缓存,前端 ContextBar plan-usage bar)
+    GET_CLAUDE_PLAN_USAGE("get_claude_plan_usage"),
 
     // ── Provider (Codex) ──
     GET_CODEX_PROVIDERS("get_codex_providers"),

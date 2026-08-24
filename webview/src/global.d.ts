@@ -1036,6 +1036,12 @@ interface Window {
    */
   updateCliStatus?: (json: string) => void;
 
+  /**
+   * Claude subscription plan-usage snapshot (rate_limit_event cache, ContextBar indicator).
+   * Payload: { present, utilizationPct?, capacityPct?, resetAt?, window?, windows?[] }.
+   */
+  updateClaudePlanUsage?: (json: string) => void;
+
   __ccgOnBridgeReady?: () => void;
 
   /**
