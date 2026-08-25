@@ -5,6 +5,7 @@ import org.junit.Test;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
 public class SessionStateTest {
@@ -169,9 +170,14 @@ public class SessionStateTest {
     }
 
     @Test
-    public void defaultModelIsTheLiveSonnet5() {
+    public void defaultModelIsNeverARetiredId() {
         SessionState state = new SessionState();
-        // The initial value must never be a retired id (#1678).
-        assertEquals("claude-sonnet-5", state.getModel());
+        // 本地默认模型走 role 体系(claude-role-sonnet),非 upstream 的具体 model id。
+        // 保留 upstream #1678 测试意图:初始值绝不能是任一 retired id(会被 normalizeRetiredModelId
+        // 迁移的 sonnet-4-6/4-7/opus-4-6),否则新会话默认落在死模型上。
+        String model = state.getModel();
+        assertNotEquals("claude-sonnet-4-6", model);
+        assertNotEquals("claude-sonnet-4-7", model);
+        assertNotEquals("claude-opus-4-6", model);
     }
 }
