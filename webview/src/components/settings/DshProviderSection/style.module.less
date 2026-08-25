@@ -1,0 +1,123 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.header {
+  margin-bottom: 4px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sectionDesc {
+  margin: 4px 0 0;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border-color, rgba(128, 128, 128, 0.3));
+  border-radius: 8px;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.stateDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+
+  &.on {
+    background: #2ea043;
+  }
+
+  &.off {
+    background: #6e7681;
+  }
+}
+
+.stateText {
+  font-weight: 500;
+}
+
+.versionBadge,
+.adoptedBadge {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: rgba(110, 118, 129, 0.2);
+}
+
+.buttonRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.btn,
+.btnPrimary {
+  padding: 4px 12px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color, rgba(128, 128, 128, 0.4));
+  background: transparent;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.btnPrimary {
+  background: var(--button-bg, #3b82f6);
+  color: #fff;
+  border-color: transparent;
+}
+
+.toggleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 8px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+
+  span {
+    opacity: 0.7;
+  }
+
+  input {
+    padding: 4px 8px;
+    font-size: 12px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color, rgba(128, 128, 128, 0.4));
+    background: transparent;
+  }
+}

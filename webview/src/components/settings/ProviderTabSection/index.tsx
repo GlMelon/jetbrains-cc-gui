@@ -9,6 +9,8 @@ import ProviderManageSection from '../ProviderManageSection';
 import CodexProviderSection from '../CodexProviderSection';
 import OpenCodeProviderSection from '../OpenCodeProviderSection';
 import GrokProviderSection from '../GrokProviderSection';
+import OmpProviderSection from '../OmpProviderSection';
+import DshProviderSection from '../DshProviderSection';
 import KimiProviderSection from '../KimiProviderSection';
 import PiProviderSection from '../PiProviderSection';
 import styles from './style.module.less';
@@ -18,8 +20,8 @@ import { FadeContent } from '../../react-bits';
 const BLOCK_STYLE: React.CSSProperties = { display: 'block' };
 const NONE_STYLE: React.CSSProperties = { display: 'none' };
 
-type ProviderTab = 'claude' | 'codex' | 'opencode' | 'grok' | 'kimi' | 'pi';
-const PROVIDER_TABS: readonly ProviderTab[] = ['claude', 'codex', 'opencode', 'grok', 'kimi', 'pi'];
+type ProviderTab = 'claude' | 'codex' | 'opencode' | 'grok' | 'kimi' | 'pi' | 'omp' | 'dsh';
+const PROVIDER_TABS: readonly ProviderTab[] = ['claude', 'codex', 'opencode', 'grok', 'kimi', 'pi', 'omp', 'dsh'];
 const PROVIDER_TAB_IDS: Record<ProviderTab, string> = {
   claude: 'tab-claude-providers',
   codex: 'tab-codex-providers',
@@ -27,6 +29,8 @@ const PROVIDER_TAB_IDS: Record<ProviderTab, string> = {
   grok: 'tab-grok-providers',
   kimi: 'tab-kimi-providers',
   pi: 'tab-pi-providers',
+  omp: 'tab-omp-providers',
+  dsh: 'tab-dsh-providers',
 };
 const PROVIDER_PANEL_IDS: Record<ProviderTab, string> = {
   claude: 'panel-claude-providers',
@@ -35,6 +39,8 @@ const PROVIDER_PANEL_IDS: Record<ProviderTab, string> = {
   grok: 'panel-grok-providers',
   kimi: 'panel-kimi-providers',
   pi: 'panel-pi-providers',
+  omp: 'panel-omp-providers',
+  dsh: 'panel-dsh-providers',
 };
 
 // SVG tab icon paths (24×24 viewBox, stroke-based)
@@ -117,7 +123,9 @@ const ProviderTabSection = ({
         : currentProvider === 'grok' ? 'grok'
           : currentProvider === 'kimi' ? 'kimi'
             : currentProvider === 'pi' ? 'pi'
-              : 'claude',
+              : currentProvider === 'omp' ? 'omp'
+                : currentProvider === 'dsh' ? 'dsh'
+                  : 'claude',
   );
   const { getTabProps } = useRovingTabs({
     values: PROVIDER_TABS,
@@ -269,6 +277,52 @@ const ProviderTabSection = ({
           </span>
           {t('settings.providerTab.pi', 'Pi')}
         </button>
+        <button
+          {...getTabProps('omp')}
+          id={PROVIDER_TAB_IDS.omp}
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'omp'}
+          aria-controls={PROVIDER_PANEL_IDS.omp}
+          className={`${styles.tabBtn} ${activeTab === 'omp' ? styles.active : ''}`}
+          onClick={() => setActiveTab('omp')}
+        >
+          <span className={styles.tabIcon}>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              dangerouslySetInnerHTML={{ __html: tabIconPaths.grok }}
+            />
+          </span>
+          {t('settings.providerTab.omp', 'OMP')}
+        </button>
+        <button
+          {...getTabProps('dsh')}
+          id={PROVIDER_TAB_IDS.dsh}
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'dsh'}
+          aria-controls={PROVIDER_PANEL_IDS.dsh}
+          className={`${styles.tabBtn} ${activeTab === 'dsh' ? styles.active : ''}`}
+          onClick={() => setActiveTab('dsh')}
+        >
+          <span className={styles.tabIcon}>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              dangerouslySetInnerHTML={{ __html: tabIconPaths.grok }}
+            />
+          </span>
+          {t('settings.providerTab.dsh', 'DeepSeek Harness')}
+        </button>
       </div>
 
       {/* Use display to preserve component state across tab switches */}
@@ -363,6 +417,28 @@ const ProviderTabSection = ({
           style={activeTab === 'pi' ? BLOCK_STYLE : NONE_STYLE}
         >
           <PiProviderSection showHeader={false} />
+        </div>
+      </FadeContent>
+
+      <FadeContent disabled={activeTab !== 'omp'} duration={180} offset={8}>
+        <div
+          id={PROVIDER_PANEL_IDS.omp}
+          role="tabpanel"
+          aria-labelledby={PROVIDER_TAB_IDS.omp}
+          style={activeTab === 'omp' ? BLOCK_STYLE : NONE_STYLE}
+        >
+          <OmpProviderSection showHeader={false} />
+        </div>
+      </FadeContent>
+
+      <FadeContent disabled={activeTab !== 'dsh'} duration={180} offset={8}>
+        <div
+          id={PROVIDER_PANEL_IDS.dsh}
+          role="tabpanel"
+          aria-labelledby={PROVIDER_TAB_IDS.dsh}
+          style={activeTab === 'dsh' ? BLOCK_STYLE : NONE_STYLE}
+        >
+          <DshProviderSection showHeader={false} />
         </div>
       </FadeContent>
     </div>
