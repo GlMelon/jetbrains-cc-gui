@@ -79,6 +79,8 @@
     "openSourceBanner": "이 프로젝트는 100% 오픈소스이며 무료입니다 (유사품에 주의하세요)",
     "commandNotImplemented": "`{{command}}` 기능은 아직 구현되지 않았습니다.",
     "clearCommandDescription": "대화 기록을 지우고 새 세션을 시작합니다",
+    "helpCommandTitle": "사용 가능한 명령",
+    "helpCommandEmpty": "아직 사용 가능한 명령이 없습니다.",
     "unknownFile": "알 수 없는 파일",
     "streamingConnected": "{{provider}} 연결됨, 질문을 이해하는 중",
     "streamingResponse": "응답 스트리밍 중",

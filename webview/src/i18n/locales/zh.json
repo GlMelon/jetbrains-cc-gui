@@ -84,6 +84,8 @@
     "openSourceBanner": "本项目保证100%开源和免费（谨防盗版项目）",
     "commandNotImplemented": "`{{command}}` 功能暂未实现。",
     "clearCommandDescription": "清除对话历史并新建会话",
+    "helpCommandTitle": "可用命令",
+    "helpCommandEmpty": "暂无可用命令。",
     "unknownFile": "未知文件",
     "streamingConnected": "AI 已成功连接，正在理解问题",
     "streamingResponse": "正在流式输出",

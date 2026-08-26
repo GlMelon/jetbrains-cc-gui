@@ -79,6 +79,8 @@
     "openSourceBanner": "यह प्रोजेक्ट 100% ओपन सोर्स और मुफ़्त है (नकली प्रोजेक्ट से सावधान रहें)",
     "commandNotImplemented": "`{{command}}` सुविधा अभी तक लागू नहीं की गई है।",
     "clearCommandDescription": "बातचीत इतिहास साफ़ करें और नया सत्र शुरू करें",
+    "helpCommandTitle": "उपलब्ध कमांड",
+    "helpCommandEmpty": "अभी कोई कमांड उपलब्ध नहीं है।",
     "unknownFile": "Unknown file",
     "streamingConnected": "{{provider}} कनेक्ट हो गया, आपके प्रश्न को समझ रहा है",
     "streamingResponse": "उत्तर स्ट्रीम किया जा रहा है",

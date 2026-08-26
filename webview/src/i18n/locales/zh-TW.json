@@ -81,6 +81,8 @@
     "openSourceBanner": "本專案保證100%開源和免費（謹防盜版項目）",
     "commandNotImplemented": "`{{command}}` 功能尚未實現。",
     "clearCommandDescription": "清除對話歷史並新建會話",
+    "helpCommandTitle": "可用命令",
+    "helpCommandEmpty": "目前沒有可用的命令。",
     "unknownFile": "Unknown file",
     "streamingConnected": "AI 已成功連接，正在理解問題",
     "streamingResponse": "正在串流輸出",

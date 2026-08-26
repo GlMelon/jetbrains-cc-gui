@@ -79,6 +79,8 @@
     "openSourceBanner": "Этот проект гарантированно 100% с открытым исходным кодом и бесплатный (остерегайтесь пиратских проектов)",
     "commandNotImplemented": "Функция `{{command}}` ещё не реализована.",
     "clearCommandDescription": "Очистить историю и начать новый чат",
+    "helpCommandTitle": "Доступные команды",
+    "helpCommandEmpty": "Команды пока недоступны.",
     "unknownFile": "Неизвестный файл",
     "streamingConnected": "{{provider}} обрабатывает запрос",
     "streamingResponse": "Потоковая передача ответа",
