@@ -76,9 +76,23 @@ function modeKey(kind, blockIndex) {
  * @param {string} previous 已累积内容
  * @param {string} incoming 本次到达内容
  * @param {StreamMode | undefined} mode 当前块已锁定的流式模式
+ * @param {'stream' | 'snapshot' | undefined} origin delta 来源通道
  * @returns {{ novel: string, next: string, mode: StreamMode | undefined }}
  */
-function computeNovelDelta(previous, incoming, mode) {
+function getPayloadMap(turnState, fieldName) {
+  if (!(turnState[fieldName] instanceof Map)) {
+    turnState[fieldName] = new Map();
+  }
+  return turnState[fieldName];
+}
+
+function isPrefixRelated(existing, incoming) {
+  return existing === incoming
+    || existing.startsWith(incoming)
+    || incoming.startsWith(existing);
+}
+
+function computeNovelDelta(previous, incoming, mode, origin) {
   if (!incoming) {
     return { novel: '', next: previous, mode };
   }
@@ -135,9 +149,10 @@ function computeNovelDelta(previous, incoming, mode) {
  * @param {'text' | 'thinking'} kind   块类型
  * @param {number | string} index      块索引
  * @param {unknown} incoming           原始 delta 内容(非字符串视为空串)
+ * @param {'stream' | 'snapshot' | undefined} origin delta 来源通道
  * @returns {string} 新增内容(可能为空串)
  */
-export function normalizeStreamDelta(turnState, kind, index, incoming) {
+export function normalizeStreamDelta(turnState, kind, index, incoming, origin) {
   const text = typeof incoming === 'string' ? incoming : '';
   const key = kind === 'thinking' ? 'thinkingBlockContentByIndex' : 'textBlockContentByIndex';
   const blockMap = getBlockMap(turnState, key);
@@ -147,9 +162,26 @@ export function normalizeStreamDelta(turnState, kind, index, incoming) {
   const modeMap = getModeMap(turnState);
   const mKey = modeKey(kind, blockIndex);
   const mode = modeMap.get(mKey);
+  const streamPayloads = getPayloadMap(turnState, 'lastStreamDeltaByKey');
+  const snapshotPayloads = getPayloadMap(turnState, 'lastSnapshotPayloadByKey');
 
-  const result = computeNovelDelta(previous, text, mode);
+  // The SDK may yield one assistant message per content block after the live
+  // stream delta has already been delivered. Those messages carry the block
+  // fragment again rather than a cumulative snapshot. Treat an exact replay
+  // from either channel as already rendered; otherwise the Java layer sees the
+  // same thinking fragment twice.
+  const replayedSnapshot = origin === 'snapshot'
+    && (streamPayloads.get(mKey) === text || snapshotPayloads.get(mKey) === text);
+  const result = replayedSnapshot
+    ? { novel: '', next: previous, mode }
+    : computeNovelDelta(previous, text, mode, origin);
   blockMap.set(blockIndex, result.next);
+  if (origin === 'stream' && text) {
+    streamPayloads.set(mKey, text);
+  }
+  if (origin === 'snapshot' && text) {
+    snapshotPayloads.set(mKey, text);
+  }
   if (result.mode && result.mode !== mode) {
     modeMap.set(mKey, result.mode);
   }
@@ -188,6 +220,68 @@ export function resolveSnapshotDelta(turnState, kind, index, snapshot) {
 }
 
 /**
+ * Detect a new assistant content block carried by a non-streaming snapshot.
+ *
+ * Claude Code normalizes one assistant message per content block, so several
+ * messages can share a response ID while carrying unrelated thinking text.
+ * The live stream path has explicit message/content-block boundaries; this
+ * helper supplies the same boundary for providers that only yield snapshots.
+ *
+ * @returns {boolean} whether the caller must emit a BLOCK_RESET marker first
+ */
+export function prepareAssistantSnapshotBlock(turnState, kind, index, incoming, message) {
+  if (!turnState.streamingEnabled || typeof incoming !== 'string' || incoming.length === 0) {
+    return false;
+  }
+
+  const messageId = message?.message?.id;
+  if (typeof messageId !== 'string' || messageId.length === 0) {
+    return false;
+  }
+
+  const messageUuid = typeof message?.uuid === 'string'
+    ? message.uuid
+    : typeof message?.message?.uuid === 'string' ? message.message.uuid : null;
+  const blockIndex = getBlockIndex(index);
+  const key = modeKey(kind, blockIndex);
+  const blockMap = getBlockMap(
+    turnState,
+    kind === 'thinking' ? 'thinkingBlockContentByIndex' : 'textBlockContentByIndex',
+  );
+  const previous = blockMap.get(blockIndex) || '';
+  const previousMessageId = turnState.lastAssistantMessageId;
+  const previousBlockUuid = turnState.lastAssistantBlockUuid;
+  const sameResponse = previousMessageId === messageId;
+  const streamPayloads = getPayloadMap(turnState, 'lastStreamDeltaByKey');
+  const snapshotPayloads = getPayloadMap(turnState, 'lastSnapshotPayloadByKey');
+  const isReplay = streamPayloads.get(key) === incoming || snapshotPayloads.get(key) === incoming;
+  const mode = turnState.blockStreamModeByKey instanceof Map
+    ? turnState.blockStreamModeByKey.get(key)
+    : undefined;
+  const uuidChanged = Boolean(messageUuid && previousBlockUuid && messageUuid !== previousBlockUuid);
+
+  let startsNewBlock = false;
+  if (previous && previousMessageId && previousMessageId !== messageId) {
+    startsNewBlock = true;
+  } else if (previous && sameResponse && !isReplay) {
+    // A UUID change identifies the next normalized content-block message even
+    // when two thinking summaries happen to share a prefix. A divergent
+    // unkeyed snapshot is otherwise a new block unless cumulative snapshot mode
+    // explicitly tells us it is a correction of the current block.
+    const related = isPrefixRelated(previous, incoming);
+    const isSnapshotCorrection = mode === 'snapshot' && !uuidChanged;
+    startsNewBlock = uuidChanged || (!related && !isSnapshotCorrection);
+  }
+
+  if (startsNewBlock) {
+    resetTurnBlockState(turnState);
+  }
+  turnState.lastAssistantMessageId = messageId;
+  turnState.lastAssistantBlockUuid = messageUuid;
+  return startsNewBlock;
+}
+
+/**
  * Reset all per-block streaming bookkeeping at an assistant-turn boundary.
  *
  * The content maps and the mode map are keyed by block INDEX, but every
@@ -210,4 +304,8 @@ export function resetTurnBlockState(turnState) {
   turnState.textBlockContentByIndex = new Map();
   turnState.thinkingBlockContentByIndex = new Map();
   turnState.blockStreamModeByKey = new Map();
+  turnState.lastStreamDeltaByKey = new Map();
+  turnState.lastSnapshotPayloadByKey = new Map();
+  turnState.lastAssistantMessageId = null;
+  turnState.lastAssistantBlockUuid = null;
 }

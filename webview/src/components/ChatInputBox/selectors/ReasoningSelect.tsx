@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  REASONING_LEVELS,
-  type ReasoningEffort,
-} from '../types';
-import { PROVIDER_IDS } from '../../../types/provider';
-import { getModelSupportedReasoningLevels, subscribeModelRegistry } from '../../../utils/modelRegistry';
+import { REASONING_LEVELS, type ReasoningEffort } from '../types';
+import { useReasoningEffortGuard } from '../reasoningUtils';
 import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon, ReasoningGaugeIcon } from '../../Icons';
 
@@ -29,6 +25,8 @@ const DROPDOWN_STYLE: React.CSSProperties = {
   overflowX: 'hidden',
 };
 const LEVEL_INFO_STYLE: React.CSSProperties = { display: 'flex', flexDirection: 'column', flex: 1 };
+/** Five two-line rows; only the viewport should clip, not a 300px design cap. */
+const SUBMENU_MAX_HEIGHT_PX = 480;
 
 interface ReasoningSelectProps {
   value: ReasoningEffort;
@@ -36,6 +34,9 @@ interface ReasoningSelectProps {
   disabled?: boolean;
   selectedModel?: string;
   currentProvider?: string;
+  embedded?: boolean;
+  triggerRef?: React.RefObject<HTMLElement | null>;
+  onClose?: () => void;
 }
 
 /**
@@ -52,63 +53,37 @@ interface ReasoningSelectProps {
  *
  * registry 未加载时返回 null,组件隐藏(loading 态,registry 下发后回填)。
  */
-export const ReasoningSelect = ({ value, onChange, disabled, selectedModel, currentProvider }: ReasoningSelectProps) => {
+export const ReasoningSelect = ({
+  value,
+  onChange,
+  disabled,
+  selectedModel,
+  currentProvider,
+  embedded = false,
+  triggerRef,
+  onClose,
+}: ReasoningSelectProps) => {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { positionedStyle, recalculate } = useDropdownPosition({
-    buttonRef,
+  const { positionedStyle, maxHeight, maxWidth, recalculate } = useDropdownPosition({
+    buttonRef: (embedded ? triggerRef : buttonRef) as React.RefObject<HTMLElement | null>,
     dropdownRef,
     isOpen,
     preferredAlignment: 'right',
+    submenu: embedded,
+    minWidth: embedded ? 180 : 200,
+    maxWidth: 280,
+    submenuMaxHeight: SUBMENU_MAX_HEIGHT_PX,
   });
 
-  // 订阅 model registry 更新,确保 registry 异步加载完成后重新渲染
-  const [registryVersion, setRegistryVersion] = useState(0);
-  useEffect(() => {
-    return subscribeModelRegistry(() => setRegistryVersion((v) => v + 1));
-  }, []);
-
-  // A2:能力来自后端权威下发的 supportedReasoningLevels(派生自 role,见 ClaudeRole.reasoningLevels)。
-  // 不再在前端按 role 硬编码级别规则——sonnet/opus/fable=5 档、haiku=3 档,均由后端定义。
-  // registryVersion 依赖确保 registry 加载完成后重新计算
-  const supportedLevels = currentProvider === PROVIDER_IDS.CLAUDE && selectedModel && registryVersion >= 0
-    ? getModelSupportedReasoningLevels(selectedModel)
-    : null;
-
-  // Claude:有后端下发的级别才显示;未选模型时 fallback 显示全部(向后兼容)。
-  // Codex/OpenCode:展示全集 5 档(后端 capability 下发前的统一行为)。
-  const supportsEffort = currentProvider !== PROVIDER_IDS.CLAUDE
-    || !selectedModel
-    || (!!supportedLevels && supportedLevels.length > 0);
-  const isVisible = currentProvider !== PROVIDER_IDS.CLAUDE || !selectedModel || supportsEffort;
-
-  const availableLevels = REASONING_LEVELS.filter(level => {
-    // Codex/OpenCode:展示全集 5 档(与 Claude 对齐;模型不支持的高档由 CLI/模型层 clamp)。
-    if (currentProvider !== PROVIDER_IDS.CLAUDE) {
-      return true;
-    }
-    // Claude:按后端 supportedReasoningLevels(派生自 role)过滤——sonnet/opus/fable=5 档、haiku=3 档。
-    if (!selectedModel) {
-      return true;
-    }
-    if (!supportedLevels) {
-      return false;
-    }
-    return supportedLevels.includes(level.id);
-  });
-
-  const currentLevel = availableLevels.find(l => l.id === value) || availableLevels[availableLevels.length - 2] || availableLevels[0];
-
-  useEffect(() => {
-    if (!isVisible || availableLevels.some(level => level.id === value)) {
-      return;
-    }
-    if (currentLevel) {
-      onChange(currentLevel.id);
-    }
-  }, [availableLevels, currentLevel, isVisible, onChange, value]);
+  const { isVisible, availableLevels, currentLevel } = useReasoningEffortGuard(
+    value,
+    onChange,
+    selectedModel,
+    currentProvider,
+  );
 
   /**
    * Get translated text for reasoning level
@@ -138,13 +113,14 @@ export const ReasoningSelect = ({ value, onChange, disabled, selectedModel, curr
   const handleSelect = useCallback((effort: ReasoningEffort) => {
     onChange(effort);
     setIsOpen(false);
-  }, [onChange]);
+    onClose?.();
+  }, [onChange, onClose]);
 
   /**
    * Close on outside click
    */
   useEffect(() => {
-    if (!isOpen) return;
+    if (embedded || !isOpen) return;
 
     const handleClickOutside = (e: MouseEvent) => {
       if (
@@ -165,35 +141,35 @@ export const ReasoningSelect = ({ value, onChange, disabled, selectedModel, curr
       clearTimeout(timer);
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isOpen]);
+  }, [embedded, isOpen]);
 
   useLayoutEffect(() => {
-    if (isOpen) {
+    if (embedded || isOpen) {
       recalculate();
     }
-  }, [isOpen, recalculate]);
+  }, [embedded, isOpen, recalculate]);
 
   if (!isVisible) return null;
+  if (!currentLevel) return null;
 
-  return (
-    <div style={RELATIVE_INLINE_BLOCK_STYLE}>
-      <button
-        ref={buttonRef}
-        className="selector-button"
-        onClick={handleToggle}
-        disabled={disabled}
-        title={t('reasoning.title', { defaultValue: 'Select reasoning depth' })}
-      >
-        <ReasoningGaugeIcon level={REASONING_GAUGE_LEVEL[currentLevel.id]} size={16} />
-        <span className="selector-button-text">{getReasoningText(currentLevel.id, 'label')}</span>
-        {isOpen ? <ChevronUpIcon size={16} style={CHEVRON_ICON_STYLE} /> : <ChevronDownIcon size={16} style={CHEVRON_ICON_STYLE} />}
-      </button>
+  const dropdownStyle: React.CSSProperties = embedded
+    ? {
+        minWidth: 0,
+        maxWidth: maxWidth ?? 280,
+        ...(maxHeight != null
+          ? { maxHeight: `${maxHeight}px`, overflowY: 'auto' as const }
+          : { overflowY: 'visible' as const }),
+        ...positionedStyle,
+      }
+    : { ...DROPDOWN_STYLE, ...positionedStyle };
 
-      {isOpen && (
+  const renderDropdown = () => (
         <div
           ref={dropdownRef}
           className="selector-dropdown"
-          style={{ ...DROPDOWN_STYLE, ...positionedStyle }}
+          data-testid="reasoning-selector-dropdown"
+          style={dropdownStyle}
+          onMouseEnter={(e) => e.stopPropagation()}
         >
           {availableLevels.map((level) => (
             <div
@@ -213,7 +189,27 @@ export const ReasoningSelect = ({ value, onChange, disabled, selectedModel, curr
             </div>
           ))}
         </div>
-      )}
+  );
+
+  if (embedded) {
+    return renderDropdown();
+  }
+
+  return (
+    <div style={RELATIVE_INLINE_BLOCK_STYLE}>
+      <button
+        ref={buttonRef}
+        className="selector-button"
+        onClick={handleToggle}
+        disabled={disabled}
+        title={t('reasoning.title', { defaultValue: 'Select reasoning depth' })}
+      >
+        <span className="codicon codicon-lightbulb" />
+        <span className="selector-button-text">{getReasoningText(currentLevel.id, 'label')}</span>
+        <span className={`codicon codicon-chevron-${isOpen ? 'up' : 'down'}`} style={CHEVRON_ICON_STYLE} />
+      </button>
+
+      {isOpen && renderDropdown()}
     </div>
   );
 };

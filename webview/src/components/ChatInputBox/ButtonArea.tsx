@@ -1,12 +1,70 @@
-import {memo, useCallback, useEffect, useMemo, useState} from 'react';
-import {useTranslation} from 'react-i18next';
-import type {ButtonAreaProps, ModelInfo, PermissionMode, ReasoningEffort} from './types';
-import {CLAUDE_ROLE_MODEL_IDS} from './types';
-import {ConfigSelect, DshPresetSelect, ModelSelect, ModeSelect, ProviderSelect, ReasoningSelect} from './selectors';
-import {readClaudeModelMapping, resolveMappedModelName} from '../../utils/claudeModelMapping';
-import {getModelsForProvider, getModelRegistrySnapshot, requestModelRegistry, subscribeModelRegistry} from '../../utils/modelRegistry';
-import {SendIcon, SparklesIcon, StopIcon} from '../Icons';
-import {ClickSpark, SpinLoader} from '../react-bits';
+import { useCallback, useMemo, useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { ButtonAreaProps, CodexFastMode, ModelInfo, PermissionMode, ReasoningEffort } from './types';
+import { DEFAULT_CLAUDE_MODEL_ID } from './types';
+import { ConfigSelect, ModeSelect, ModelConfigSelect, ProviderSelect } from './selectors';
+import { STORAGE_KEYS, validateCodexCustomModels } from '../../types/provider';
+import type { CodexCustomModel } from '../../types/provider';
+import { readClaudeModelMapping, resolveMappedModelName } from '../../utils/claudeModelMapping';
+import { getModelsForProvider, getModelRegistrySnapshot, requestModelRegistry, subscribeModelRegistry } from '../../utils/modelRegistry';
+import { useCliModels, useOmpRoles } from '../../hooks/providers/useCliModels';
+import { useToolbarSelectorCompact } from './hooks/useToolbarSelectorCompact';
+import { resolveProviderModels } from './resolveProviderModels';
+
+/**
+ * Get custom Codex model list from localStorage
+ * Uses runtime type validation for data safety
+ */
+function getCustomCodexModels(): ModelInfo[] {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return [];
+  }
+  try {
+    const stored = window.localStorage.getItem(STORAGE_KEYS.CODEX_CUSTOM_MODELS);
+    if (!stored) {
+      return [];
+    }
+    const parsed = JSON.parse(stored);
+    // Use runtime type validation
+    const validModels = validateCodexCustomModels(parsed);
+    return validModels.map(m => ({
+      id: m.id,
+      label: m.label || m.id,
+      description: m.description,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Get custom Claude model list from localStorage
+ * Uses runtime type validation for data safety
+ */
+function getCustomClaudeModels(): ModelInfo[] {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return [];
+  }
+  try {
+    const stored = window.localStorage.getItem(STORAGE_KEYS.CLAUDE_CUSTOM_MODELS);
+    if (!stored) {
+      return [];
+    }
+    const parsed = JSON.parse(stored) as CodexCustomModel[];
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed
+      .filter((m): m is CodexCustomModel => !!m && typeof m === 'object' && typeof m.id === 'string' && m.id.trim().length > 0)
+      .map(m => ({
+        id: m.id,
+        label: m.label || m.id,
+        description: m.description,
+      }));
+  } catch {
+    return [];
+  }
+}
 
 /**
  * ButtonArea - Bottom toolbar component
@@ -183,13 +241,24 @@ export const ButtonArea = memo(function ButtonArea({
           compact
         />
         <ModeSelect value={permissionMode} onChange={handleModeSelect} provider={currentProvider} />
-        {currentProvider === 'dsh' && (
-          <DshPresetSelect dshPreset={dshPreset || ''} onDshPresetChange={onDshPresetChange!} />
-        )}
-        <span className="selector-separator" />
-        <ModelSelect value={selectedModel} selectedIdentifier={selectedModelIdentifier} openSignal={modelSelectOpenSignal} onChange={handleModelSelect} models={availableModels} currentProvider={currentProvider} />
-        <span className="selector-separator" />
-        <ReasoningSelect value={reasoningEffort} onChange={handleReasoningChange} selectedModel={selectedModel} currentProvider={currentProvider} />
+        <ModelConfigSelect
+          selectedModel={selectedModel}
+          onModelSelect={handleModelSelect}
+          models={availableModels}
+          currentProvider={currentProvider}
+          loading={cliModelsLoading}
+          error={cliModelsError}
+          onRetry={() => refreshCliModels(currentProvider)}
+          onAddModel={onAddModel}
+          longContextEnabled={longContextEnabled}
+          onLongContextChange={onLongContextChange}
+          reasoningEffort={reasoningEffort}
+          onReasoningChange={handleReasoningChange}
+          codexFastMode={codexFastMode}
+          onCodexFastModeChange={handleCodexFastModeChange}
+          dshPreset={dshPreset}
+          onDshPresetChange={handleDshPresetChange}
+        />
       </div>
 
       {/* Right side: tool buttons */}

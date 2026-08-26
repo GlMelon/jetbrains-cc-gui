@@ -918,7 +918,7 @@
         },
         "dsh": {
           "name": "DeepSeek Harness",
-          "description": "DeepSeek 終端智慧體宿主（常駐 dsh web）"
+          "description": "DeepSeek 終端智慧體 CLI（dsh）"
         }
       },
       "installDialog": {
@@ -938,7 +938,10 @@
       "moreComingSoon": "即將支援更多",
       "copyPath": "複製路徑",
       "dsh": {
-        "cardTitle": "DeepSeek Harness (DSH)",
+        "groupTitle": "DeepSeek Harness",
+        "cliRowTitle": "CLI 安裝",
+        "cardTitle": "本機宿主",
+        "rowHint": "啟動或接管本機 dsh web",
         "hint": "DSH 由本機一個常駐 dsh web 宿主承載所有工作階段；外掛會接管已在執行的宿主，而不會重複啟動。",
         "state": {
           "checking": "檢測中…",
@@ -951,7 +954,8 @@
         "openWebUi": "開啟 DSH Web UI",
         "startHost": "立即啟動",
         "stopHost": "關閉（僅限外掛啟動的宿主）",
-        "autoStart": "需要時自動啟動"
+        "autoStart": "需要時自動啟動",
+        "moreActions": "更多"
       }
     },
     "sponsor": "贊助支持",
@@ -1711,29 +1715,40 @@
       }
     }
   },
+  "modelConfig": {
+    "title": "模型設定",
+    "context": "1M 上下文",
+    "contextDefault": "預設",
+    "effort": "思考強度",
+    "speed": "速度",
+    "preset": "預設組合",
+    "model": "模型"
+  },
   "modes": {
     "default": {
-      "label": "Default Mode",
-      "tooltip": "Standard permission behavior",
-      "description": "Requires manual confirmation for each operation, suitable for cautious use"
+      "label": "預設模式",
+      "shortLabel": "預設",
+      "tooltip": "標準權限行為",
+      "description": "需要手動確認每個操作，適合謹慎使用"
     },
     "plan": {
-      "label": "Plan Mode",
-      "tooltip": "Plan mode - read-only analysis",
-      "description": "Uses only read-only tools, generates plan for user approval"
+      "label": "規劃模式",
+      "shortLabel": "規劃",
+      "tooltip": "規劃模式——唯讀分析",
+      "description": "僅使用唯讀工具，產生計劃供使用者審批後執行"
     },
     "acceptEdits": {
-      "label": "Agent Mode",
-      "tooltip": "Automatically accept file edits",
-      "description": "Automatically accept file creation/editing, reducing confirmation steps"
+      "label": "代理模式",
+      "shortLabel": "代理",
+      "tooltip": "自動接受檔案編輯",
+      "description": "自動接受檔案建立/編輯，減少確認步驟"
     },
     "bypassPermissions": {
-      "label": "Auto Mode",
-      "tooltip": "Bypass all permission checks",
-      "description": "Fully automated, bypassing all permission checks [Use with caution]"
-    },
-    "nativeBadge": "原生管控",
-    "nativeBadgeTooltip": "OpenCode 沒有與此模式等效的 flag;選擇後不傳任何 flag,工具呼叫由你的 opencode.json 權限設定(allow/ask/deny)管控。"
+      "label": "自動模式",
+      "shortLabel": "自動",
+      "tooltip": "略過所有權限檢查",
+      "description": "完全自動化，略過所有權限檢查【請謹慎使用】"
+    }
   },
   "codexModes": {
     "default": {

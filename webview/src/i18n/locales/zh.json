@@ -662,7 +662,7 @@
         },
         "dsh": {
           "name": "DeepSeek Harness",
-          "description": "DeepSeek 终端智能体宿主（常驻 dsh web）"
+          "description": "DeepSeek 终端智能体 CLI（dsh）"
         }
       },
       "installDialog": {
@@ -682,7 +682,10 @@
       "moreComingSoon": "即将支持更多",
       "copyPath": "复制路径",
       "dsh": {
-        "cardTitle": "DeepSeek Harness (DSH)",
+        "groupTitle": "DeepSeek Harness",
+        "cliRowTitle": "CLI 安装",
+        "cardTitle": "本机宿主",
+        "rowHint": "启动或接管本机 dsh web",
         "hint": "DSH 由本机一个常驻 dsh web 宿主承载所有会话；插件会接管已在运行的宿主，而不会重复启动。",
         "state": {
           "checking": "检测中…",
@@ -695,7 +698,8 @@
         "openWebUi": "打开 DSH Web UI",
         "startHost": "立即启动",
         "stopHost": "关闭（仅限插件启动的宿主）",
-        "autoStart": "需要时自动启动"
+        "autoStart": "需要时自动启动",
+        "moreActions": "更多"
       }
     },
     "dependencies": "CLI 工具",
@@ -2141,24 +2145,37 @@
       }
     }
   },
+  "modelConfig": {
+    "title": "模型设置",
+    "context": "1M 上下文",
+    "contextDefault": "默认",
+    "effort": "思考强度",
+    "speed": "速度",
+    "preset": "预设",
+    "model": "模型"
+  },
   "modes": {
     "default": {
       "label": "默认模式",
+      "shortLabel": "默认",
       "tooltip": "标准权限行为",
       "description": "需要手动确认每个操作，适合谨慎使用"
     },
     "plan": {
       "label": "规划模式",
+      "shortLabel": "规划",
       "tooltip": "规划模式——只读分析",
       "description": "仅使用只读工具，生成计划供用户审批后执行"
     },
     "acceptEdits": {
       "label": "代理模式",
+      "shortLabel": "代理",
       "tooltip": "自动接受文件编辑",
       "description": "自动接受文件创建/编辑，减少确认步骤"
     },
     "bypassPermissions": {
       "label": "自动模式",
+      "shortLabel": "自动",
       "tooltip": "绕过所有权限检查",
       "description": "完全自动化，绕过所有权限检查【谨慎使用】"
     },
@@ -2168,11 +2185,13 @@
   "codexModes": {
     "default": {
       "label": "建议模式",
-      "tooltip": "Codex approval_policy=untrusted：每条命令和写操作都需要你审批确认。",
+      "shortLabel": "建议",
+      "tooltip": "Codex approval_policy=on-request：执行命令或写文件前都会弹窗确认。",
       "description": "最安全的选择，每一步都需要你亲自批准。"
     },
     "plan": {
       "label": "规划模式",
+      "shortLabel": "规划",
       "tooltip": "规划模式——只读分析",
       "description": "仅使用只读工具，生成计划供用户审批后执行"
     },

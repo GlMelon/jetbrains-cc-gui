@@ -18,31 +18,30 @@ const PRESET_INFO_STYLE: React.CSSProperties = { display: 'flex', flexDirection:
 const PRESET_TEXT_STYLE: React.CSSProperties = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
 
 interface DshPresetSelectProps {
-  dshPreset: string;
-  onDshPresetChange: (preset: string) => void;
+  value: string;
+  onChange: (preset: string) => void;
+  embedded?: boolean;
+  triggerRef?: React.RefObject<HTMLElement | null>;
+  onClose?: () => void;
 }
 
-const BUILT_IN_PRESETS = new Set<string>(DSH_PRESETS);
-
-/**
- * DshPresetSelect - DSH agent preset selector (dsh provider only).
- *
- * Shows a "Default" (none) option plus built-in presets (DSH_PRESETS) and any
- * user-installed presets discovered from the DSH home (window.__INITIAL_DSH_PRESETS__).
- * Labels/descriptions are resolved via i18n keys `dshPresets.{id}.label` /
- * `dshPresets.{id}.description`; user presets fall back to the raw id and
- * `dshPresets.user.description`.
- */
-export const DshPresetSelect = ({ dshPreset, onDshPresetChange }: DshPresetSelectProps) => {
+export const DshPresetSelect = ({
+  value,
+  onChange,
+  embedded = false,
+  triggerRef,
+  onClose,
+}: DshPresetSelectProps) => {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { positionedStyle, recalculate } = useDropdownPosition({
-    buttonRef,
+  const { positionedStyle, maxHeight, maxWidth, recalculate } = useDropdownPosition({
+    buttonRef: (embedded ? triggerRef : buttonRef) as React.RefObject<HTMLElement | null>,
     dropdownRef,
-    isOpen,
-    preferredAlignment: 'right',
+    minWidth: 260,
+    maxWidth: 360,
+    submenu: embedded,
   });
 
   const presetOptions = useMemo(() => getUserDshPresetOptions(), []);
@@ -79,10 +78,11 @@ export const DshPresetSelect = ({ dshPreset, onDshPresetChange }: DshPresetSelec
   const handleSelect = useCallback((preset: string) => {
     onDshPresetChange(preset);
     setIsOpen(false);
-  }, [onDshPresetChange]);
+    onClose?.();
+  }, [onChange, onClose]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (embedded || !isOpen) return undefined;
 
     const handleClickOutside = (e: MouseEvent) => {
       if (
@@ -103,41 +103,32 @@ export const DshPresetSelect = ({ dshPreset, onDshPresetChange }: DshPresetSelec
       clearTimeout(timer);
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isOpen]);
+  }, [embedded, isOpen]);
 
   useLayoutEffect(() => {
-    if (isOpen) {
+    if (embedded || isOpen) {
       recalculate();
     }
-  }, [isOpen, recalculate]);
+  }, [embedded, isOpen, recalculate]);
 
-  const allOptions = useMemo(() => [
-    { id: '', label: getPresetLabel(''), description: getPresetDescription('') },
-    ...presetOptions.map((opt) => ({
-      id: opt.id,
-      label: getPresetLabel(opt.id),
-      description: getPresetDescription(opt.id),
-    })),
-  ], [presetOptions, getPresetLabel, getPresetDescription]);
+  const dropdownStyle: React.CSSProperties = embedded
+    ? {
+        minWidth: 0,
+        maxWidth: maxWidth ?? 360,
+        ...(maxHeight != null
+          ? { maxHeight: `${Math.min(300, maxHeight)}px`, overflowY: 'auto' as const }
+          : { overflowY: 'visible' as const }),
+        ...positionedStyle,
+      }
+    : { ...DROPDOWN_STYLE, ...positionedStyle };
 
-  return (
-    <div style={RELATIVE_INLINE_BLOCK_STYLE}>
-      <button
-        ref={buttonRef}
-        className="selector-button mode-active-highlight"
-        onClick={handleToggle}
-        title={t('dshPresets.title')}
-      >
-        <RobotIcon size={14} />
-        <span className="selector-button-text">{getPresetLabel(dshPreset)}</span>
-        {isOpen ? <ChevronUpIcon size={14} style={CHEVRON_ICON_STYLE} /> : <ChevronDownIcon size={14} style={CHEVRON_ICON_STYLE} />}
-      </button>
-
-      {isOpen && (
+  const renderDropdown = () => (
         <div
           ref={dropdownRef}
           className="selector-dropdown"
-          style={{ ...DROPDOWN_STYLE, ...positionedStyle }}
+          data-testid="dsh-preset-dropdown"
+          style={dropdownStyle}
+          onMouseEnter={(event) => event.stopPropagation()}
         >
           {allOptions.map((opt) => (
             <div
@@ -159,7 +150,26 @@ export const DshPresetSelect = ({ dshPreset, onDshPresetChange }: DshPresetSelec
             </div>
           ))}
         </div>
-      )}
+  );
+
+  if (embedded) {
+    return renderDropdown();
+  }
+
+  return (
+    <div style={{ position: 'relative', display: 'inline-block' }}>
+      <button
+        ref={buttonRef}
+        className="selector-button"
+        onClick={handleToggle}
+        title={t('dshPresets.title', { defaultValue: getPresetText(currentPreset.id, 'description') })}
+      >
+        <span className="codicon codicon-robot" />
+        <span className="selector-button-text">{getPresetText(currentPreset.id, 'label')}</span>
+        <span className={`codicon codicon-chevron-${isOpen ? 'up' : 'down'}`} style={CHEVRON_ICON_STYLE} />
+      </button>
+
+      {isOpen && renderDropdown()}
     </div>
   );
 };

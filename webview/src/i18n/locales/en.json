@@ -636,7 +636,7 @@
         },
         "dsh": {
           "name": "DeepSeek Harness",
-          "description": "DeepSeek terminal agent harness (persistent dsh web host)"
+          "description": "DeepSeek terminal agent CLI (dsh)"
         }
       },
       "installDialog": {
@@ -656,7 +656,10 @@
       "moreComingSoon": "More coming soon",
       "copyPath": "Copy path",
       "dsh": {
-        "cardTitle": "DeepSeek Harness (DSH)",
+        "groupTitle": "DeepSeek Harness",
+        "cliRowTitle": "CLI install",
+        "cardTitle": "Local host",
+        "rowHint": "Start or adopt the local dsh web host",
         "hint": "One persistent local dsh web host serves all sessions; the plugin adopts a running host instead of spawning a second one.",
         "state": {
           "checking": "Checking…",
@@ -669,7 +672,8 @@
         "openWebUi": "Open DSH Web UI",
         "startHost": "Start host",
         "stopHost": "Stop host (plugin-spawned only)",
-        "autoStart": "Auto-start when needed"
+        "autoStart": "Auto-start when needed",
+        "moreActions": "More"
       }
     },
     "dependencies": "CLI Tools",
@@ -2100,24 +2104,37 @@
       }
     }
   },
+  "modelConfig": {
+    "title": "Model settings",
+    "context": "1M Context",
+    "contextDefault": "Default",
+    "effort": "Effort",
+    "speed": "Speed",
+    "preset": "Preset",
+    "model": "Model"
+  },
   "modes": {
     "default": {
       "label": "Default Mode",
+      "shortLabel": "Default",
       "tooltip": "Standard permission behavior",
       "description": "Requires manual confirmation for each operation, suitable for cautious use"
     },
     "plan": {
       "label": "Plan Mode",
+      "shortLabel": "Plan",
       "tooltip": "Plan mode - read-only analysis",
       "description": "Uses only read-only tools, generates plan for user approval"
     },
     "acceptEdits": {
       "label": "Agent Mode",
+      "shortLabel": "Agent",
       "tooltip": "Automatically accept file edits",
       "description": "Automatically accept file creation/editing, reducing confirmation steps"
     },
     "bypassPermissions": {
       "label": "Auto Mode",
+      "shortLabel": "Auto",
       "tooltip": "Bypass all permission checks",
       "description": "Fully automated, bypassing all permission checks [Use with caution]"
     },
@@ -2132,6 +2149,7 @@
     },
     "plan": {
       "label": "Plan Mode",
+      "shortLabel": "Plan",
       "tooltip": "Plan mode - read-only analysis",
       "description": "Uses only read-only tools, generates plan for user approval"
     },

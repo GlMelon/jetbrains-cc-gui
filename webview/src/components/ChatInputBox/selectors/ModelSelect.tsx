@@ -8,8 +8,21 @@ import type { ModelInfo } from '../types';
 import { readClaudeModelMapping, resolveMappedModelName } from '../../../utils/claudeModelMapping';
 import { ProviderModelIcon } from '../../shared/ProviderModelIcon';
 import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
-import { getModelRegistrySnapshot } from '../../../utils/modelRegistry';
-import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from '../../Icons';
+import Switch from 'antd/es/switch';
+import {
+  MODEL_ID_TO_MAPPING_KEY,
+  resolveModelDescription,
+  resolveModelDisplayLabel,
+  resolveModelIdForIcon,
+} from '../modelLabelUtils';
+import {
+  buildModelDropdownSections,
+  MAX_VISIBLE_MODEL_OPTIONS,
+  PINNED_GROUP_ID,
+  readPinnedModelIds,
+  shouldShowModelSearch,
+  togglePinnedModelId,
+} from '../modelSelectUtils';
 
 const RELATIVE_INLINE_BLOCK_STYLE: React.CSSProperties = { position: 'relative', display: 'inline-block' };
 const CHEVRON_ICON_STYLE: React.CSSProperties = { fontSize: '10px', marginLeft: '2px' };
@@ -33,70 +46,65 @@ interface ModelSelectProps {
   onChange: (model: ModelInfo) => void;
   models?: ModelInfo[];
   currentProvider?: string;
+  /** True while CLI providers (OpenCode / Kimi) are still fetching model catalogs. */
+  loading?: boolean;
+  /** Set when the CLI model catalog fetch failed (or timed out); row offers retry. */
+  error?: string | null;
+  /** Retries the CLI model catalog fetch for the current provider. */
+  onRetry?: () => void;
+  onAddModel?: () => void;
+  longContextEnabled?: boolean;
+  onLongContextChange?: (enabled: boolean) => void;
+  /** Render only the dropdown, positioned as a fly-out from triggerRef. */
+  embedded?: boolean;
+  triggerRef?: React.RefObject<HTMLElement | null>;
+  onClose?: () => void;
+  /** Hide the 1M toggle when the parent menu already exposes it. */
+  hideLongContextToggle?: boolean;
 }
 
-// A1:DEFAULT_MODEL_MAP(基于已删除的 AVAILABLE_MODELS/CLAUDE_MODELS)已移除。
-// 模型 label 由后端 ModelConfig.label 权威下发 + i18n labelKey 翻译,无需前端默认表对比。
-
-const MODEL_LABEL_KEYS: Record<string, string> = {
-  [CLAUDE_ROLE_MODEL_IDS.sonnet]: 'models.claude.roles.sonnet.label',
-  [CLAUDE_ROLE_MODEL_IDS.opus]: 'models.claude.roles.opus.label',
-  [CLAUDE_ROLE_MODEL_IDS.fable]: 'models.claude.roles.fable.label',
-  [CLAUDE_ROLE_MODEL_IDS.haiku]: 'models.claude.roles.haiku.label',
-};
-
-const MODEL_DESCRIPTION_KEYS: Record<string, string> = {
-  [CLAUDE_ROLE_MODEL_IDS.sonnet]: 'models.claude.roles.sonnet.description',
-  [CLAUDE_ROLE_MODEL_IDS.opus]: 'models.claude.roles.opus.description',
-  [CLAUDE_ROLE_MODEL_IDS.fable]: 'models.claude.roles.fable.description',
-  [CLAUDE_ROLE_MODEL_IDS.haiku]: 'models.claude.roles.haiku.description',
-};
-
-// D5:角色解析收口——用 registry 的 role 字段(后端权威下发)判定内置 Claude 模型并取角色,
-// 替代 MODEL_ID_TO_MAPPING_KEY 离线表;映射名解析复用 utils/claudeModelMapping.resolveMappedModelName
-// (与 ButtonArea.applyModelMapping 共用单一入口,顺带移除 opus_1m 死代码分支)。
-function getRoleForModelId(modelId: string): string | undefined {
-  return getModelRegistrySnapshot().items.find((it) => it.provider === 'claude' && it.id === modelId)?.role;
-}
-
-// A3(2026-06-23):getRoleModelLabel(从 id 离线推导 role 名作 label 兜底)已移除。
-// label 兜底改用后端下发的 model.label(见 getModelLabel)。
-
-/**
- * Resolve the display model name for icon matching.
- * For mapped Claude models, returns the mapped name; otherwise the original ID.
- */
-const resolveModelIdForIcon = (
-  modelId: string,
-  modelMapping: Record<string, string | undefined>,
-): string => {
-  const role = getRoleForModelId(modelId);
-  if (!role) {
-    return modelId;
-  }
-  const mapped = resolveMappedModelName(role, modelMapping);
-  if (mapped) {
-    return mapped;
-  }
-  return modelId;
+const LOADING_OPTION_STYLE: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 6,
+  cursor: 'default',
 };
 
 /**
  * ModelSelect - Model selector component
  * Supports switching between Sonnet 4.5, Opus 4.5, and other models, including Codex models
  */
-export const ModelSelect = ({ value, selectedIdentifier, openSignal, onChange, models = [], currentProvider = 'claude' }: ModelSelectProps) => {
+export const ModelSelect = ({
+  value,
+  onChange,
+  models = AVAILABLE_MODELS,
+  currentProvider = 'claude',
+  loading = false,
+  error = null,
+  onRetry,
+  onAddModel,
+  longContextEnabled = true,
+  onLongContextChange,
+  embedded = false,
+  triggerRef,
+  onClose,
+  hideLongContextToggle = false,
+}: ModelSelectProps) => {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { positionedStyle, maxHeight, recalculate } = useDropdownPosition({
-    buttonRef,
+  const { positionedStyle, maxHeight, maxWidth, recalculate } = useDropdownPosition({
+    buttonRef: (embedded ? triggerRef : buttonRef) as React.RefObject<HTMLElement | null>,
     dropdownRef,
     isOpen,
     preferredAlignment: 'right',
+    submenu: embedded,
+    minWidth: embedded ? 220 : 200,
+    maxWidth: 360,
+    submenuMaxHeight: DROPDOWN_MAX_HEIGHT_PX,
   });
 
   // Strip [1m] suffix for finding the model in the list
@@ -117,48 +125,17 @@ export const ModelSelect = ({ value, selectedIdentifier, openSignal, onChange, m
     : model === exactSelectedModel;
 
   const getModelLabel = (model: ModelInfo, show1MContext = false): string => {
-    // 仅内置 Claude role 模型(claude-role-*)套用全局 role→实际模型名映射,
-    // 显示用户在映射里配置的实际模型名。
-    // 自定义 Claude 模型(如 mimo-v2.5,虽也带 role=sonnet,但有自身 actualModel/label)
-    // 不应被 role 映射覆盖——否则会与内置 sonnet 显示成相同的映射名,用户无法区分/选择。
-    // (与 ButtonArea.applyModelMapping 的语义保持一致:自定义模型保留自身 label。)
-    const isBuiltinRoleModel = (
-      Object.values(CLAUDE_ROLE_MODEL_IDS) as readonly string[]
-    ).includes(model.id);
-    if (isBuiltinRoleModel) {
-      const role = getRoleForModelId(model.id);
-      if (role) {
-        const mappedName = resolveMappedModelName(role, modelMapping);
-        if (mappedName) {
-          // Strip [1m] suffix from mapped name for clean display
-          const cleanName = strip1MContextSuffix(mappedName);
-          return append1MContextSuffix(cleanName, model.id, show1MContext);
-        }
-      }
-    }
-
-    const labelKey = MODEL_LABEL_KEYS[model.id];
-
-    if (labelKey) {
-      // A3:label 兜底用后端下发的 model.label,不再从 id 离线推导 role 名。
-      const fallback = model.label ?? model.id;
-      return append1MContextSuffix(t(labelKey, { defaultValue: fallback }), model.id, show1MContext);
-    }
-
-    return append1MContextSuffix(model.label ?? '', model.id, show1MContext);
-  };
-
-  const append1MContextSuffix = (label: string, _modelId: string, _show1MContext: boolean): string => {
-    // 1M context suffix removed - configuration is now centralized in settings
-    return label;
+    return resolveModelDisplayLabel(model, {
+      t,
+      currentProvider,
+      modelMapping,
+      show1MContext,
+      longContextEnabled,
+    });
   };
 
   const getModelDescription = (model: ModelInfo): string | undefined => {
-    const descriptionKey = MODEL_DESCRIPTION_KEYS[model.id];
-    if (descriptionKey) {
-      return t(descriptionKey, { defaultValue: model.description ?? '' });
-    }
-    return model.description;
+    return resolveModelDescription(model, t);
   };
 
   const normalizedSearchQuery = deferredSearchQuery.trim().toLowerCase();
@@ -203,13 +180,14 @@ export const ModelSelect = ({ value, selectedIdentifier, openSignal, onChange, m
     onChange(model);
     setIsOpen(false);
     setSearchQuery('');
-  }, [onChange]);
+    onClose?.();
+  }, [onChange, onClose]);
 
   /**
    * Close on outside click
    */
   useEffect(() => {
-    if (!isOpen) return;
+    if (embedded || !isOpen) return;
 
     const handleClickOutside = (e: MouseEvent) => {
       if (
@@ -232,46 +210,47 @@ export const ModelSelect = ({ value, selectedIdentifier, openSignal, onChange, m
       clearTimeout(timer);
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isOpen]);
+  }, [embedded, isOpen]);
 
   useLayoutEffect(() => {
-    if (isOpen) {
+    if (embedded || isOpen) {
       recalculate();
     }
-  }, [isOpen, filteredModels.length, recalculate]);
+  }, [embedded, isOpen, filteredModels.length, pinnedIds.length, loading, recalculate]);
 
-  return (
-    <div style={RELATIVE_INLINE_BLOCK_STYLE}>
-      <button
-        ref={buttonRef}
-        className="selector-button"
-        onClick={handleToggle}
-        disabled={!hasModels}
-        title={resolvedModel
-          ? t('chat.currentModel', { model: getModelLabel(resolvedModel, true) })
-          : t('chat.noModelConfigured', 'No model configured')}
-      >
-        {resolvedModel ? (
-          <>
-            <ProviderModelIcon
-              providerId={currentProvider}
-              modelId={resolveModelIdForIcon(resolvedModel.id, modelMapping)}
-              size={14}
-              colored
-            />
-            <span className="selector-button-text">{getModelLabel(resolvedModel, true)}</span>
-          </>
-        ) : (
-          <span className="selector-button-text">{t('chat.noModelConfigured', 'No model configured')}</span>
-        )}
-        {isOpen ? <ChevronUpIcon size={16} style={CHEVRON_ICON_STYLE} /> : <ChevronDownIcon size={16} style={CHEVRON_ICON_STYLE} />}
-      </button>
+  const renderSectionLabel = (sectionId: string, sectionLabel: string): string => {
+    if (sectionId === PINNED_GROUP_ID) {
+      return t('models.pinned', { defaultValue: 'Pinned' });
+    }
+    return sectionLabel;
+  };
 
-      {isOpen && (
+  const dropdownMaxHeight = maxHeight
+    ? `${Math.min(DROPDOWN_MAX_HEIGHT_PX, maxHeight)}px`
+    : `${DROPDOWN_MAX_HEIGHT_PX}px`;
+  const dropdownStyle: React.CSSProperties = embedded
+    ? {
+        minWidth: 0,
+        maxWidth: maxWidth ?? 360,
+        maxHeight: dropdownMaxHeight,
+        overflowX: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        ...positionedStyle,
+      }
+    : {
+        ...DROPDOWN_STYLE,
+        ...positionedStyle,
+        maxHeight: dropdownMaxHeight,
+      };
+
+  const renderDropdown = () => (
         <div
           ref={dropdownRef}
-          className="selector-dropdown"
-          style={{ ...DROPDOWN_STYLE, ...positionedStyle, maxHeight, overflowY: 'auto' }}
+          className="selector-dropdown model-selector-dropdown"
+          data-testid="model-selector-dropdown"
+          style={dropdownStyle}
+          onMouseEnter={(e) => e.stopPropagation()}
         >
           {showSearch && (
             <div className="selector-search-row">
@@ -303,26 +282,148 @@ export const ModelSelect = ({ value, selectedIdentifier, openSignal, onChange, m
                   <span className="model-description" style={MODEL_TEXT_STYLE}>{getModelDescription(model)}</span>
                 )}
               </div>
-              {isSelectedModel(model) && (
-                <CheckIcon size={16} className="check-mark" />
-              )}
-            </div>
-          ))}
-          {visibleModels.length === 0 && (
-            <div className="selector-option selector-option-status">
-              {t('models.noModelsFound', { defaultValue: 'No models found' })}
-            </div>
-          )}
-          {hiddenModelCount > 0 && (
-            <div className="selector-option selector-option-status" data-testid="model-hidden-count">
-              {t('models.hiddenModelCount', {
-                count: hiddenModelCount,
-                defaultValue: `+ ${hiddenModelCount} more models. Type to search.`,
-              })}
-            </div>
-          )}
+            )}
+            {!loading && error && (
+              <div
+                className="selector-option selector-option-status"
+                data-testid="model-load-error"
+                style={{ ...LOADING_OPTION_STYLE, cursor: onRetry ? 'pointer' : 'default' }}
+                title={error}
+                onClick={() => onRetry?.()}
+              >
+                <span className="codicon codicon-warning" />
+                <span style={{ flex: 1, minWidth: 0 }}>{t('chat.modelsLoadFailed')}</span>
+                <span className="codicon codicon-refresh" />
+              </div>
+            )}
+            {sections.map((section) => (
+              <div key={section.id} className="model-selector-section" data-testid={`model-section-${section.id}`}>
+                {section.label !== '' || section.id === PINNED_GROUP_ID ? (
+                  <div className="model-selector-group-header" data-testid={`model-group-${section.id}`}>
+                    {section.id === PINNED_GROUP_ID && (
+                      <span className="codicon codicon-pinned model-selector-group-icon" />
+                    )}
+                    <span>{renderSectionLabel(section.id, section.label)}</span>
+                  </div>
+                ) : null}
+                {section.models.map((model) => {
+                  const isPinned = pinnedSet.has(model.id);
+                  return (
+                    <div
+                      key={model.id}
+                      className={`selector-option ${isSelectedModel(model.id) ? 'selected' : ''}`}
+                      onClick={() => handleSelect(model.id)}
+                      data-testid={`model-option-${model.id}`}
+                    >
+                      <ProviderModelIcon
+                        providerId={currentProvider}
+                        modelId={resolveModelIdForIcon(model.id, currentProvider === 'claude' ? modelMapping : {}, MODEL_ID_TO_MAPPING_KEY)}
+                        size={16}
+                        colored
+                      />
+                      <div style={MODEL_OPTION_INFO_STYLE}>
+                        <span style={MODEL_TEXT_STYLE}>{getModelLabel(model, false)}</span>
+                        {getModelDescription(model) && (
+                          <span className="model-description" style={MODEL_TEXT_STYLE}>{getModelDescription(model)}</span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        className={`model-pin-button ${isPinned ? 'is-pinned' : ''}`}
+                        data-testid={`model-pin-${model.id}`}
+                        title={isPinned
+                          ? t('models.unpin', { defaultValue: 'Unpin' })
+                          : t('models.pin', { defaultValue: 'Pin' })}
+                        aria-label={isPinned
+                          ? t('models.unpin', { defaultValue: 'Unpin' })
+                          : t('models.pin', { defaultValue: 'Pin' })}
+                        onClick={(e) => handleTogglePin(e, model.id)}
+                      >
+                        <span className={`codicon ${isPinned ? 'codicon-pinned' : 'codicon-pin'}`} />
+                      </button>
+                      {isSelectedModel(model.id) && (
+                        <span className="codicon codicon-check check-mark" />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+            {visibleModelCount === 0 && !loading && (
+              <div className="selector-option selector-option-status">
+                {t('models.noModelsFound', { defaultValue: 'No models found' })}
+              </div>
+            )}
+            {hiddenModelCount > 0 && (
+              <div className="selector-option selector-option-status" data-testid="model-hidden-count">
+                {t('models.hiddenModelCount', {
+                  count: hiddenModelCount,
+                  defaultValue: `+ ${hiddenModelCount} more models. Type to search.`,
+                })}
+              </div>
+            )}
+            {!hideLongContextToggle && currentProvider === 'claude' && onLongContextChange && (
+              <>
+                <div className="selector-divider" />
+                <div
+                  className="selector-option"
+                  style={LONG_CONTEXT_OPTION_STYLE}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <span style={LONG_CONTEXT_LABEL_STYLE}>{t('models.longContext.shortLabel')}</span>
+                  <Switch
+                    size="small"
+                    checked={modelSupports1MContext(value) ? longContextEnabled : false}
+                    disabled={!modelSupports1MContext(value)}
+                    onChange={onLongContextChange}
+                  />
+                </div>
+              </>
+            )}
+            {onAddModel && (
+              <>
+                <div className="selector-divider" />
+                <div
+                  className="selector-option selector-option-add"
+                  onClick={() => {
+                    onAddModel();
+                    setIsOpen(false);
+                    setSearchQuery('');
+                    onClose?.();
+                  }}
+                >
+                  <span className="codicon codicon-add selector-add-icon" />
+                  <span>{t('models.addModel')}</span>
+                </div>
+              </>
+            )}
+          </div>
         </div>
-      )}
+  );
+
+  if (embedded) {
+    return renderDropdown();
+  }
+
+  return (
+    <div style={RELATIVE_INLINE_BLOCK_STYLE}>
+      <button
+        ref={buttonRef}
+        className="selector-button"
+        onClick={handleToggle}
+        title={t('chat.currentModel', { model: getModelLabel(currentModel, true) })}
+      >
+        <ProviderModelIcon
+          providerId={currentProvider}
+          modelId={resolveModelIdForIcon(currentModel.id, currentProvider === 'claude' ? modelMapping : {}, MODEL_ID_TO_MAPPING_KEY)}
+          size={12}
+          colored
+        />
+        <span className="selector-button-text">{getModelLabel(currentModel, true)}</span>
+        <span className={`codicon codicon-chevron-${isOpen ? 'up' : 'down'}`} style={CHEVRON_ICON_STYLE} />
+      </button>
+
+      {isOpen && renderDropdown()}
     </div>
   );
 };

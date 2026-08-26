@@ -45,11 +45,17 @@ import com.intellij.util.Alarm;
 import javax.swing.SwingUtilities;
 import org.cef.browser.CefBrowser;
 
-import java.awt.BorderLayout;
-import java.awt.Component;
-import java.awt.Container;
-
-import java.util.concurrent.atomic.AtomicBoolean;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
+import java.awt.event.HierarchyEvent;
+import java.awt.event.HierarchyListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.swing.JComponent;
 import javax.swing.JPanel;
@@ -131,9 +137,23 @@ public class ClaudeChatWindow {
      * frontend ready.
      */
     private volatile boolean frontendReady = false;
-    /**
-     * slash commands fetched.
-     */
+    private final FrontendReadyTransitionTracker frontendReadyTransitions =
+            new FrontendReadyTransitionTracker();
+    private final SurfaceRefreshCoordinator surfaceRefreshCoordinator =
+            new SurfaceRefreshCoordinator();
+    private final SurfacePresentationCoordinator surfacePresentationCoordinator =
+            new SurfacePresentationCoordinator();
+    private final Disposable surfaceRefreshAlarmDisposable =
+            Disposer.newDisposable("ccgui-osr-frame-fence-timeout");
+    private final Alarm surfaceRefreshAlarm =
+            new Alarm(Alarm.ThreadToUse.SWING_THREAD, surfaceRefreshAlarmDisposable);
+    private final SurfaceAttemptTimeoutOwner surfaceAttemptTimeoutOwner =
+            new SurfaceAttemptTimeoutOwner();
+    private volatile int activePageGeneration;
+    private volatile boolean hasEverBeenFrontendReady = false;
+    private final PendingCodeSnippetBuffer pendingCodeSnippetBuffer = new PendingCodeSnippetBuffer();
+    private final PendingFileReferencesBuffer pendingFileReferencesBuffer =
+            new PendingFileReferencesBuffer();
     private volatile boolean slashCommandsFetched = false;
     /**
      * restored history load started.
@@ -155,6 +175,8 @@ public class ClaudeChatWindow {
     private final Alarm notificationAlarm =
             new Alarm(Alarm.ThreadToUse.SWING_THREAD, notificationAlarmDisposable);
 
+    // Shared serializer for structured bridges (Gson instances are thread-safe).
+    private static final Gson GSON = new Gson();
     // Coalesces session_updated reloads. SessionState's message list is not
     // thread-safe and loadFromServer() runs async, so concurrent background-task
     // completions must not reload at the same time. Guarded by sessionReloadLock.
@@ -719,8 +741,556 @@ public class ClaudeChatWindow {
     }
 
     public void addCodeSnippetFromExternal(String selectionInfo) {
-        addCodeSnippet(selectionInfo);
+        if (selectionInfo == null || selectionInfo.isEmpty()) {
+            return;
+        }
+        // offer() returns the snippet to emit now, or null when it was deferred
+        // until the frontend signals readiness (see flushPendingCodeSnippet).
+        String toEmit = pendingCodeSnippetBuffer.offer(selectionInfo, frontendReady);
+        if (toEmit != null) {
+            addCodeSnippet(toEmit);
+        }
     }
+
+    /**
+     * Add project-tree paths through the dedicated structured file-reference
+     * bridge, buffering the batch until the WebView is ready when necessary.
+     */
+    public void addFileReferencesFromExternal(List<String> filePaths) {
+        if (filePaths == null || filePaths.isEmpty()) {
+            return;
+        }
+        List<String> toEmit = pendingFileReferencesBuffer.offer(filePaths, frontendReady);
+        if (toEmit != null) {
+            addFileReferences(toEmit);
+        }
+    }
+
+    private void flushPendingCodeSnippet() {
+        String snippet = pendingCodeSnippetBuffer.takePending();
+        if (snippet != null) {
+            addCodeSnippet(snippet);
+        }
+    }
+
+    private void flushPendingFileReferences() {
+        List<String> filePaths = pendingFileReferencesBuffer.takePending();
+        if (filePaths != null) {
+            addFileReferences(filePaths);
+        }
+    }
+
+    private void updateFrontendReadyState(boolean ready) {
+        FrontendReadyTransition transition = frontendReadyTransitions.update(ready);
+        frontendReady = ready;
+        if (!ready) {
+            surfaceRefreshCoordinator.invalidate();
+            cancelScheduledOsrSurfaceRefresh();
+            return;
+        }
+        hasEverBeenFrontendReady = true;
+        flushPendingCodeSnippet();
+        flushPendingFileReferences();
+        ApplicationManager.getApplication().invokeLater(() -> {
+            completeFrontendReadyUiUpdate(
+                    disposed,
+                    transition.becameReady(),
+                    () -> frontendReadyTransitions.isCurrentReady(transition.epoch()),
+                    () -> requestSurfaceRefresh(
+                            browser, transition.epoch(), 0L, "frontend_ready"),
+                    this::isWebviewActive,
+                    () -> tryConsumePendingSurfaceRefresh("frontend_ready"),
+                    this::loadRestoredHistoryIfNeeded
+            );
+        });
+    }
+
+    /**
+     * Starts native publication after React has committed a restored-history snapshot.
+     * The event does not claim that Chromium or OSR has painted; the OSR frame fence establishes
+     * that separately from real paint callbacks. The bridge generation gate rejects messages
+     * from obsolete pages before this method runs, while the ready epoch rejects queued stale work.
+     */
+    private void onHistoryRenderComplete(long commitEpoch) {
+        long readyEpoch = frontendReadyTransitions.currentEpoch();
+        JBCefBrowser acknowledgingBrowser = browser;
+        if (acknowledgingBrowser == null) {
+            return;
+        }
+        CefBrowser acknowledgingCefBrowser;
+        try {
+            acknowledgingCefBrowser = acknowledgingBrowser.getCefBrowser();
+        } catch (Exception | LinkageError e) {
+            LOG.debug("Ignoring history DOM acknowledgment without a live CEF browser", e);
+            return;
+        }
+        int acknowledgingGeneration = activePageGeneration;
+        ApplicationManager.getApplication().invokeLater(() -> completeHistoryRenderUiUpdate(
+                disposed,
+                () -> isHistoryRenderOwnerCurrent(
+                        acknowledgingBrowser,
+                        acknowledgingCefBrowser,
+                        acknowledgingGeneration,
+                        readyEpoch),
+                () -> {
+                    LOG.info("[WebviewSurface] Queuing native surface refresh after history DOM commit");
+                    requestSurfaceRefresh(
+                            acknowledgingBrowser,
+                            readyEpoch,
+                            Math.max(1L, commitEpoch),
+                            "history_dom_committed");
+                    tryConsumePendingSurfaceRefresh("history_dom_committed");
+                }
+        ));
+    }
+
+    private boolean isHistoryRenderOwnerCurrent(
+            JBCefBrowser acknowledgingBrowser,
+            CefBrowser acknowledgingCefBrowser,
+            int acknowledgingGeneration,
+            long readyEpoch
+    ) {
+        if (disposed || !frontendReadyTransitions.isCurrentReady(readyEpoch)) {
+            return false;
+        }
+        JBCefBrowser currentBrowser = browser;
+        CefBrowser currentCefBrowser;
+        try {
+            currentCefBrowser = currentBrowser == null ? null : currentBrowser.getCefBrowser();
+        } catch (Exception | LinkageError e) {
+            return false;
+        }
+        return historyRenderOwnerMatches(
+                acknowledgingBrowser,
+                acknowledgingCefBrowser,
+                acknowledgingGeneration,
+                currentBrowser,
+                currentCefBrowser,
+                activePageGeneration);
+    }
+
+    /** Verifies browser, native browser and page-generation ownership of a queued history ack. */
+    static boolean historyRenderOwnerMatches(
+            Object acknowledgingBrowser,
+            Object acknowledgingCefBrowser,
+            int acknowledgingGeneration,
+            Object currentBrowser,
+            Object currentCefBrowser,
+            int currentGeneration
+    ) {
+        return acknowledgingBrowser != null
+                && acknowledgingBrowser == currentBrowser
+                && acknowledgingCefBrowser != null
+                && acknowledgingCefBrowser == currentCefBrowser
+                && acknowledgingGeneration == currentGeneration;
+    }
+
+    /** Applies a history-render refresh only while the acknowledging page is still current. */
+    static void completeHistoryRenderUiUpdate(
+            boolean disposed,
+            BooleanSupplier readyTransitionStillCurrent,
+            Runnable requestRefresh
+    ) {
+        if (disposed || !readyTransitionStillCurrent.getAsBoolean()) {
+            return;
+        }
+        requestRefresh.run();
+    }
+
+    /**
+     * Applies deferred frontend-ready UI work using state re-sampled on the EDT.
+     * Only the first still-active ready transition repaints the native JCEF surface.
+     */
+    static void completeFrontendReadyUiUpdate(
+            boolean disposed,
+            boolean becameReady,
+            BooleanSupplier readyTransitionStillCurrent,
+            Runnable requestPublication,
+            BooleanSupplier webviewActive,
+            Runnable tryPublish,
+            Runnable loadRestoredHistory
+    ) {
+        if (disposed) {
+            return;
+        }
+        if (becameReady && readyTransitionStillCurrent.getAsBoolean()) {
+            requestPublication.run();
+            if (webviewActive.getAsBoolean()) {
+                tryPublish.run();
+            }
+        }
+        loadRestoredHistory.run();
+    }
+
+    /**
+     * Tracks frontend-ready transitions so deferred EDT work can reject an older page transition.
+     * Repeated reports of the same state retain the current epoch.
+     */
+    static final class FrontendReadyTransitionTracker {
+        private boolean ready;
+        private long epoch;
+
+        synchronized FrontendReadyTransition update(boolean nextReady) {
+            boolean stateChanged = ready != nextReady;
+            if (stateChanged) {
+                ready = nextReady;
+                epoch++;
+            }
+            return new FrontendReadyTransition(stateChanged && ready, epoch);
+        }
+
+        synchronized boolean isCurrentReady(long capturedEpoch) {
+            return ready && capturedEpoch == epoch;
+        }
+
+        synchronized long currentEpoch() {
+            return epoch;
+        }
+    }
+
+    /** Surface action selected when an already-created chat Tab becomes active. */
+    enum TabActivationSurfaceAction {
+        NONE,
+        PUBLISH_PENDING,
+        PRESENT_CACHED,
+        WINDOWED_REFRESH
+    }
+
+    /** Captures whether a transition became ready and the epoch that owns its deferred work. */
+    static final class FrontendReadyTransition {
+        private final boolean becameReady;
+        private final long epoch;
+
+        private FrontendReadyTransition(boolean becameReady, long epoch) {
+            this.becameReady = becameReady;
+            this.epoch = epoch;
+        }
+
+        boolean becameReady() {
+            return becameReady;
+        }
+
+        long epoch() {
+            return epoch;
+        }
+    }
+
+    /**
+     * Retains one native-surface refresh request until its browser and ready epoch can
+     * complete a valid resize. Newer page requests replace obsolete pending work.
+     */
+    static final class SurfaceRefreshCoordinator {
+        private PendingSurfaceRefresh pending;
+        private boolean refreshInProgress;
+
+        synchronized void request(Object browserIdentity, long readyEpoch, String reason) {
+            if (browserIdentity == null) {
+                return;
+            }
+            if (pending != null
+                    && pending.browserIdentity == browserIdentity
+                    && pending.readyEpoch == readyEpoch) {
+                pending = new PendingSurfaceRefresh(
+                        browserIdentity, readyEpoch, reason);
+                return;
+            }
+            pending = new PendingSurfaceRefresh(browserIdentity, readyEpoch, reason);
+        }
+
+        boolean tryConsume(
+                Object currentBrowserIdentity,
+                long currentReadyEpoch,
+                BooleanSupplier eligible,
+                BooleanSupplier refreshAction
+        ) {
+            PendingSurfaceRefresh candidate;
+            synchronized (this) {
+                if (refreshInProgress) {
+                    return false;
+                }
+                candidate = pending;
+                if (candidate == null) {
+                    return false;
+                }
+                if (candidate.browserIdentity != currentBrowserIdentity
+                        || candidate.readyEpoch != currentReadyEpoch) {
+                    pending = null;
+                    return false;
+                }
+            }
+            if (!eligible.getAsBoolean()) {
+                return false;
+            }
+            synchronized (this) {
+                if (refreshInProgress || pending != candidate) {
+                    return false;
+                }
+                refreshInProgress = true;
+            }
+
+            boolean refreshed;
+            try {
+                refreshed = refreshAction.getAsBoolean();
+            } finally {
+                synchronized (this) {
+                    refreshInProgress = false;
+                }
+            }
+            synchronized (this) {
+                if (!refreshed || pending != candidate) {
+                    return false;
+                }
+                pending = null;
+                return true;
+            }
+        }
+
+        synchronized boolean hasPending() {
+            return pending != null;
+        }
+
+        synchronized boolean hasPendingFor(Object browserIdentity, long readyEpoch) {
+            if (pending == null) {
+                return false;
+            }
+            if (pending.browserIdentity != browserIdentity
+                    || pending.readyEpoch != readyEpoch) {
+                pending = null;
+                return false;
+            }
+            return true;
+        }
+
+        synchronized boolean completeCurrent(Object browserIdentity, long readyEpoch) {
+            if (!hasPendingFor(browserIdentity, readyEpoch)) {
+                return false;
+            }
+            pending = null;
+            return true;
+        }
+
+        synchronized String pendingReason() {
+            return pending == null ? null : pending.reason;
+        }
+
+        synchronized void invalidate() {
+            pending = null;
+        }
+    }
+
+    /**
+     * Retains a lightweight request to present an already-published OSR backing image.
+     * This state is intentionally independent from content publication serials: showing a
+     * cached frame must never manufacture Chromium damage or advance SurfaceFrameFence.
+     */
+    static final class SurfacePresentationCoordinator {
+        private PendingSurfacePresentation pending;
+        private boolean presentationInProgress;
+
+        synchronized void request(
+                Object browserIdentity,
+                Object cefBrowserIdentity,
+                int pageGeneration,
+                long readyEpoch
+        ) {
+            if (browserIdentity == null || cefBrowserIdentity == null) {
+                return;
+            }
+            pending = new PendingSurfacePresentation(
+                    browserIdentity, cefBrowserIdentity, pageGeneration, readyEpoch);
+        }
+
+        boolean tryConsume(
+                Object currentBrowserIdentity,
+                Object currentCefBrowserIdentity,
+                int currentPageGeneration,
+                long currentReadyEpoch,
+                BooleanSupplier eligible,
+                BooleanSupplier presentationAction
+        ) {
+            PendingSurfacePresentation candidate;
+            synchronized (this) {
+                if (presentationInProgress) {
+                    return false;
+                }
+                candidate = pending;
+                if (candidate == null) {
+                    return false;
+                }
+                if (!candidate.matches(
+                        currentBrowserIdentity,
+                        currentCefBrowserIdentity,
+                        currentPageGeneration,
+                        currentReadyEpoch)) {
+                    pending = null;
+                    return false;
+                }
+            }
+            if (!eligible.getAsBoolean()) {
+                return false;
+            }
+            synchronized (this) {
+                if (presentationInProgress || pending != candidate) {
+                    return false;
+                }
+                presentationInProgress = true;
+            }
+
+            boolean presented;
+            try {
+                presented = presentationAction.getAsBoolean();
+            } finally {
+                synchronized (this) {
+                    presentationInProgress = false;
+                }
+            }
+            synchronized (this) {
+                if (!presented || pending != candidate) {
+                    return false;
+                }
+                pending = null;
+                return true;
+            }
+        }
+
+        synchronized boolean hasPending() {
+            return pending != null;
+        }
+
+        synchronized void invalidate() {
+            pending = null;
+        }
+    }
+
+    /**
+     * Owns exactly one timeout runnable for one concrete OSR attempt.
+     * An obsolete callback can remove only its own timeout and can never cancel a newer attempt.
+     */
+    static final class SurfaceAttemptTimeoutOwner {
+        private Object owner;
+        private Runnable task;
+
+        synchronized InstallResult install(Object expectedOwner, Runnable nextTask) {
+            if (expectedOwner == null || nextTask == null) {
+                return new InstallResult(false, null);
+            }
+            if (owner != null && owner != expectedOwner) {
+                return new InstallResult(false, null);
+            }
+            Runnable previousTask = task;
+            owner = expectedOwner;
+            task = nextTask;
+            return new InstallResult(true, previousTask);
+        }
+
+        synchronized boolean claim(Object expectedOwner, Runnable expectedTask) {
+            if (owner != expectedOwner || task != expectedTask) {
+                return false;
+            }
+            owner = null;
+            task = null;
+            return true;
+        }
+
+        synchronized Runnable remove(Object expectedOwner) {
+            if (owner != expectedOwner) {
+                return null;
+            }
+            Runnable removed = task;
+            owner = null;
+            task = null;
+            return removed;
+        }
+
+        synchronized Runnable clear() {
+            Runnable removed = task;
+            owner = null;
+            task = null;
+            return removed;
+        }
+
+        synchronized boolean isOwnedBy(Object expectedOwner, Runnable expectedTask) {
+            return owner == expectedOwner && task == expectedTask;
+        }
+
+        /** Result of installing or replacing the timeout for the same exact attempt. */
+        static final class InstallResult {
+            private final boolean accepted;
+            private final Runnable previousTask;
+
+            private InstallResult(boolean accepted, Runnable previousTask) {
+                this.accepted = accepted;
+                this.previousTask = previousTask;
+            }
+
+            boolean accepted() {
+                return accepted;
+            }
+
+            Runnable previousTask() {
+                return previousTask;
+            }
+        }
+    }
+
+    /** Timeout runnable that must atomically claim ownership before releasing its attempt. */
+    private final class SurfaceTimeoutTask implements Runnable {
+        private final SurfaceFrameFence.Attempt attempt;
+
+        private SurfaceTimeoutTask(SurfaceFrameFence.Attempt attempt) {
+            this.attempt = attempt;
+        }
+
+        @Override
+        public void run() {
+            if (surfaceAttemptTimeoutOwner.claim(attempt, this)) {
+                releaseTimedOutOsrAttempt(attempt);
+            }
+        }
+    }
+
+    /** Identifies the browser page that owns a deferred surface refresh. */
+    private static final class PendingSurfaceRefresh {
+        private final Object browserIdentity;
+        private final long readyEpoch;
+        private final String reason;
+        private PendingSurfaceRefresh(Object browserIdentity, long readyEpoch, String reason) {
+            this.browserIdentity = browserIdentity;
+            this.readyEpoch = readyEpoch;
+            this.reason = reason;
+        }
+    }
+
+    /** Identifies one cached-surface presentation without creating content publication work. */
+    private static final class PendingSurfacePresentation {
+        private final Object browserIdentity;
+        private final Object cefBrowserIdentity;
+        private final int pageGeneration;
+        private final long readyEpoch;
+
+        private PendingSurfacePresentation(
+                Object browserIdentity,
+                Object cefBrowserIdentity,
+                int pageGeneration,
+                long readyEpoch
+        ) {
+            this.browserIdentity = browserIdentity;
+            this.cefBrowserIdentity = cefBrowserIdentity;
+            this.pageGeneration = pageGeneration;
+            this.readyEpoch = readyEpoch;
+        }
+
+        private boolean matches(
+                Object currentBrowserIdentity,
+                Object currentCefBrowserIdentity,
+                int currentPageGeneration,
+                long currentReadyEpoch
+        ) {
+            return browserIdentity == currentBrowserIdentity
+                    && cefBrowserIdentity == currentCefBrowserIdentity
+                    && pageGeneration == currentPageGeneration
+                    && readyEpoch == currentReadyEpoch;
+        }    }
 
     public void updateTabStatus(ChatWindowDelegate.TabAnswerStatus status) {
         chatWindowDelegate.updateTabStatus(status);
@@ -1377,7 +1947,29 @@ public class ClaudeChatWindow {
         }
     }
 
-    public void focusInputPane() {
+    private void addFileReferences(List<String> filePaths) {
+        if (filePaths == null || filePaths.isEmpty()) {
+            return;
+        }
+
+        // Gson emits a JavaScript array literal, preserving each complete path
+        // (including spaces) as one typed callback argument.
+        String pathsJson = GSON.toJson(filePaths);
+        // This method can run on a bridge callback thread (frontend-ready
+        // flush), so touch the Swing component on the EDT.
+        ApplicationManager.getApplication().invokeLater(() -> {
+            JBCefBrowser targetBrowser = this.browser;
+            if (!this.disposed && targetBrowser != null) {
+                targetBrowser.getComponent().requestFocus();
+            }
+        });
+        executeJavaScriptCode("window.insertFileReferencesAtCursor?.(" + pathsJson + ");");
+    }
+
+    /**
+     * Focus the chat input field in the frontend.
+     * Called when Ctrl+Alt+K activates the panel without a selection.
+     */    public void focusInputPane() {
         if (disposed || browser == null) {
             return;
         }

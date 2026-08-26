@@ -25,6 +25,7 @@ import java.awt.Component;
 import java.awt.GridBagLayout;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -591,6 +592,14 @@ public class ClaudeChatToolWindow implements ToolWindowFactory, DumbAware {
 
     public static void addSelectionFromExternal(Project project, String selectionInfo) {
         codeSnippetManager.addSelectionFromExternal(project, selectionInfo);
+    }
+
+    /**
+     * Send project-tree file references to the selected chat tab as structured
+     * paths, keeping spaces inside a path separate from multi-file routing.
+     */
+    public static void addFileReferencesFromExternal(Project project, List<String> filePaths) {
+        codeSnippetManager.addFileReferencesFromExternal(project, filePaths);
     }
 
     /**

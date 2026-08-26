@@ -64,12 +64,13 @@ export const RuntimeProviderSelect = ({ currentProvider, embedded = false, trigg
   });
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { positionedStyle, maxHeight: viewportMaxHeight, recalculate } = useDropdownPosition({
+  const { positionedStyle, maxHeight: viewportMaxHeight, maxWidth, recalculate } = useDropdownPosition({
     buttonRef: (embedded ? triggerRef : buttonRef) as React.RefObject<HTMLElement | null>,
     dropdownRef,
     submenu: embedded,
     isOpen,
     minWidth: embedded ? 260 : 200,
+    maxWidth: 360,
   });
 
   const providerKind: ProviderKind = currentProvider === 'codex'
@@ -309,8 +310,8 @@ export const RuntimeProviderSelect = ({ currentProvider, embedded = false, trigg
 
   const dropdownMaxHeight = viewportMaxHeight ? `${Math.min(300, viewportMaxHeight)}px` : '300px';
   const dropdownStyle: React.CSSProperties = {
-    minWidth: '260px',
-    maxWidth: '360px',
+    minWidth: embedded ? 0 : 260,
+    maxWidth: maxWidth ?? 360,
     maxHeight: dropdownMaxHeight,
     overflowY: 'auto',
     ...positionedStyle,

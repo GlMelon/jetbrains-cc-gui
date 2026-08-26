@@ -32,11 +32,7 @@ const WRAPPER_STYLE: React.CSSProperties = {
 };
 
 const SUBMENU_BASE_STYLE: React.CSSProperties = {
-  position: 'absolute',
-  left: '100%',
-  top: 0,
-  zIndex: 10001,
-  minWidth: '320px',
+  minWidth: 0,
   maxWidth: '360px',
   maxHeight: '300px',
   overflowY: 'auto',
@@ -166,11 +162,12 @@ export const ConfigSelect = ({
     dropdownRef,
     isOpen,
   });
-  const { positionedStyle: agentSubmenuPositionedStyle, maxHeight: agentSubmenuMaxHeight, recalculate: agentSubmenuRecalculate } = useDropdownPosition({
+  const { positionedStyle: agentSubmenuPositionedStyle, maxHeight: agentSubmenuMaxHeight, maxWidth: agentSubmenuMaxWidth, recalculate: agentSubmenuRecalculate } = useDropdownPosition({
     buttonRef: agentTriggerRef,
     dropdownRef: agentSubmenuRef,
     submenu: true,
-    minWidth: 320,
+    minWidth: 260,
+    maxWidth: 360,
     submenuMaxHeight: 300,
     submenuBottomClearance: 96,
   });
@@ -321,6 +318,7 @@ export const ConfigSelect = ({
       className="selector-dropdown"
       style={{
         ...SUBMENU_BASE_STYLE,
+        maxWidth: agentSubmenuMaxWidth ?? 360,
         ...agentSubmenuPositionedStyle,
         maxHeight: submenuMaxHeightPx,
       }}
