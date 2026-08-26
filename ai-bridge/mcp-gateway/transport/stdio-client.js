@@ -1,6 +1,7 @@
 // @ts-check
 import { spawn } from 'node:child_process';
 import { FramedReader, writeMessage } from '../framing.js';
+import { killChildTree } from '../../utils/kill-tree.js';
 
 /**
  * @typedef {{ command?: string; args?: string[]; cwd?: string; env?: Record<string, string>; request_timeout_ms?: number }} StdioMcpConfig
@@ -165,7 +166,8 @@ export class StdioMcpClient {
       stdin.end();
     } catch {}
     try {
-      this.process.kill();
+      // Windows 下 MCP server 常经 cmd.exe 包装启动:杀整树,而非仅杀包装壳。
+      killChildTree(this.process, this.spec.serverId);
     } catch {}
   }
 

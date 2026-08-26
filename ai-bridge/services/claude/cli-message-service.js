@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * Claude CLI Message Service - Replaces SDK-based message sending
+ * Claude CLI Message Service
  *
  * Spawns the local Claude CLI in headless mode and maps streaming-json
  * NDJSON events onto the shared bridge marker protocol:
@@ -33,13 +33,10 @@ import {
   emitSessionId,
   isNonEmptySessionId,
 } from '../../utils/marker-protocol.js';
+import { killChildTree } from '../../utils/kill-tree.js';
 
 function logDebug(...args) {
   console.error('[DEBUG][Claude CLI]', ...args);
-}
-
-function logWarn(...args) {
-  console.error('[WARN][Claude CLI]', ...args);
 }
 
 /**
@@ -109,27 +106,6 @@ function buildClaudeArgs({ message, sessionId, model, reasoningEffort, streaming
   }
 
   return args;
-}
-
-/**
- * Kill child process tree.
- * @param {import('child_process').ChildProcess} child
- */
-function killChildTree(child) {
-  if (!child || child.killed) return;
-  try {
-    if (process.platform === 'win32') {
-      child.kill();
-    } else {
-      try {
-        process.kill(-child.pid, 'SIGTERM');
-      } catch {
-        child.kill('SIGTERM');
-      }
-    }
-  } catch (error) {
-    logWarn('Failed to kill claude child:', error?.message || error);
-  }
 }
 
 /**
@@ -228,7 +204,7 @@ export async function sendMessage(
       return;
     }
 
-    const onParentSignal = () => killChildTree(child);
+    const onParentSignal = () => killChildTree(child, 'Claude CLI');
     process.once('SIGTERM', onParentSignal);
     process.once('SIGINT', onParentSignal);
     process.once('SIGHUP', onParentSignal);

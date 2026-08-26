@@ -5,6 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { getStdioServerTools } from '../../../../services/claude/mcp-status/stdio-tools-getter.js';
+import { MAX_MESSAGE_BYTES } from '../../../../mcp-gateway/framing.js';
 
 test('starts the MCP server in its configured working directory', async () => {
   const workingDirectory = await mkdtemp(path.join(os.tmpdir(), 'ccg-mcp-cwd-'));
@@ -51,6 +52,35 @@ lines.on('line', (line) => {
     assert.equal(result.error, null);
     assert.equal(result.tools.length, 1);
     assert.equal(path.resolve(result.tools[0].description), path.resolve(workingDirectory));
+  } finally {
+    await rm(workingDirectory, {
+      recursive: true,
+      force: true,
+      maxRetries: 5,
+      retryDelay: 100
+    });
+  }
+});
+
+test('fails instead of growing the stdout buffer beyond MAX_MESSAGE_BYTES', async () => {
+  const workingDirectory = await mkdtemp(path.join(os.tmpdir(), 'ccg-mcp-cap-'));
+  const serverScript = path.join(workingDirectory, 'server.mjs');
+  // Server floods stdout with more than MAX_MESSAGE_BYTES and never emits a
+  // newline: the client must terminate with an error, not accumulate unbounded.
+  await writeFile(serverScript, `
+const flood = 'a'.repeat(${MAX_MESSAGE_BYTES + 1024});
+process.stdout.write(flood);
+setInterval(() => {}, 1000);
+`, 'utf8');
+
+  try {
+    const result = await getStdioServerTools('flood-test', {
+      command: process.execPath,
+      args: [serverScript],
+    });
+
+    assert.match(result.error ?? '', /exceeds/);
+    assert.deepEqual(result.tools, []);
   } finally {
     await rm(workingDirectory, {
       recursive: true,

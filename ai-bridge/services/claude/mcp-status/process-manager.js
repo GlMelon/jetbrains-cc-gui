@@ -7,6 +7,7 @@
 import { log } from './logger.js';
 import { parseServerInfo } from './server-info-parser.js';
 import { hasValidMcpResponse, createInitializeRequest } from './mcp-protocol.js';
+import { killChildTree } from '../../../utils/kill-tree.js';
 
 const MAX_PROCESS_OUTPUT_BUFFER_SIZE = 1024 * 1024;
 
@@ -81,23 +82,31 @@ export function safeKillProcess(child, serverName) {
 
   try {
     if (isProcessRunning(child)) {
-      child.kill('SIGTERM');
-      // If SIGTERM doesn't kill it, send SIGKILL after 500ms
-      // Use unref() so this timer won't prevent the parent process from exiting
-      const killTimer = setTimeout(() => {
-        try {
-          if (isProcessRunning(child)) {
-            child.kill('SIGKILL');
-            log('debug', `Force killed process for ${serverName}`);
+      if (process.platform === 'win32') {
+        // Windows verification spawns may go through a cmd.exe wrapper
+        // (shell:true for .cmd/.bat/npx); kill the whole tree, not just the
+        // wrapper shell. taskkill /F is already forced, so no SIGKILL
+        // escalation is needed on this platform.
+        killChildTree(child, serverName);
+      } else {
+        child.kill('SIGTERM');
+        // If SIGTERM doesn't kill it, send SIGKILL after 500ms
+        // Use unref() so this timer won't prevent the parent process from exiting
+        const killTimer = setTimeout(() => {
+          try {
+            if (isProcessRunning(child)) {
+              child.kill('SIGKILL');
+              log('debug', `Force killed process for ${serverName}`);
+            }
+          } catch (e) {
+            log('debug', `SIGKILL failed for ${serverName}:`, e instanceof Error ? e.message : String(e));
           }
-        } catch (e) {
-          log('debug', `SIGKILL failed for ${serverName}:`, e instanceof Error ? e.message : String(e));
-        }
-      }, 500);
-      killTimer.unref();
-      const clearKillTimer = () => clearTimeout(killTimer);
-      child.once?.('exit', clearKillTimer);
-      child.once?.('close', clearKillTimer);
+        }, 500);
+        killTimer.unref();
+        const clearKillTimer = () => clearTimeout(killTimer);
+        child.once?.('exit', clearKillTimer);
+        child.once?.('close', clearKillTimer);
+      }
     }
   } catch (e) {
     log('debug', `Failed to kill process for ${serverName}:`, e instanceof Error ? e.message : String(e));

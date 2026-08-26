@@ -28,6 +28,7 @@ import { spawn } from 'child_process';
 import { randomUUID } from 'crypto';
 import { createInterface } from 'readline';
 import { resolveGrokCliPath } from '../../utils/grok-cli-path.js';
+import { killChildTree } from '../../utils/kill-tree.js';
 import {
   createToolTailState,
   emitToolSignals,
@@ -195,24 +196,6 @@ function buildGrokArgs({ message, sessionId, model, reasoningEffort }) {
   return args;
 }
 
-function killChildTree(child) {
-  if (!child || child.killed) return;
-  try {
-    if (process.platform === 'win32') {
-      child.kill();
-    } else {
-      // Kill process group when possible (spawned with detached:true + new group).
-      try {
-        process.kill(-child.pid, 'SIGTERM');
-      } catch {
-        child.kill('SIGTERM');
-      }
-    }
-  } catch (error) {
-    logWarn('Failed to kill grok child:', error?.message || error);
-  }
-}
-
 /**
  * Send a message via Grok CLI and stream markers to stdout.
  *
@@ -324,7 +307,7 @@ export async function sendMessage(
       return;
     }
 
-    const onParentSignal = () => killChildTree(child);
+    const onParentSignal = () => killChildTree(child, 'Grok');
     process.once('SIGTERM', onParentSignal);
     process.once('SIGINT', onParentSignal);
     process.once('SIGHUP', onParentSignal);

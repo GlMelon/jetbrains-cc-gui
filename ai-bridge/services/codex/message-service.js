@@ -5,8 +5,6 @@
  * Spawns the local Codex CLI (`codex`) in headless streaming-json mode and
  * maps its NDJSON output onto the shared bridge marker protocol.
  *
- * Replaces the previous SDK-based implementation that used @openai/codex-sdk.
- *
  * @author Crafted with geek spirit
  */
 
@@ -24,6 +22,7 @@ import {
   buildErrorPayload,
 } from './codex-utils.js';
 import { collectAgentsInstructions } from './codex-agents-loader.js';
+import { killChildTree } from '../../utils/kill-tree.js';
 
 // ========== Constants ==========
 
@@ -59,25 +58,8 @@ function probeCliBin(bin) {
 }
 
 // ========== Process Lifecycle ==========
-
-/**
- * Kill child process tree.
- * @param {import('child_process').ChildProcess} child
- */
-function killChildTree(child) {
-  if (!child || child.killed) return;
-  try {
-    if (process.platform === 'win32') {
-      child.kill();
-    } else {
-      try {
-        process.kill(-child.pid, 'SIGTERM');
-      } catch {
-        child.kill('SIGTERM');
-      }
-    }
-  } catch (_) { /* ignore */ }
-}
+//
+// Process-tree kill is shared: see utils/kill-tree.js.
 
 // ========== Abort Support ==========
 

@@ -44,7 +44,8 @@ const CONTENT_LENGTH_RE = /content-length:\s*(\d+)/i;
 const LSP_PEEK = 32;
 const LSP_HEAD_RE = /^\s*content-length:/i;
 // 项12:单条 MCP 消息体字节上限,防超大 Content-Length 声明(声明 1GB body 等收满)或无换行 NDJSON 流无限累积撑爆内存。
-const MAX_MESSAGE_BYTES = 16 * 1024 * 1024;
+// 导出供其他 stdio 客户端(services/claude/mcp-status/stdio-tools-getter.js)对齐同一上限(SSOT)。
+export const MAX_MESSAGE_BYTES = 16 * 1024 * 1024;
 
 /**
  * 把一条 JSON-RPC 消息编码为 stdio 帧字节。

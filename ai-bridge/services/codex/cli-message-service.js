@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * Codex CLI Message Service - Replaces SDK-based message sending
+ * Codex CLI Message Service
  *
  * Spawns the local Codex CLI in headless mode and maps streaming-json
  * NDJSON events onto the shared bridge marker protocol:
@@ -29,13 +29,10 @@ import {
   emitSessionId,
   isNonEmptySessionId,
 } from '../../utils/marker-protocol.js';
+import { killChildTree } from '../../utils/kill-tree.js';
 
 function logDebug(...args) {
   console.error('[DEBUG][Codex CLI]', ...args);
-}
-
-function logWarn(...args) {
-  console.error('[WARN][Codex CLI]', ...args);
 }
 
 /**
@@ -109,27 +106,6 @@ function buildCodexArgs({ message, threadId, model, reasoningEffort, approvalPol
   }
 
   return args;
-}
-
-/**
- * Kill child process tree.
- * @param {import('child_process').ChildProcess} child
- */
-function killChildTree(child) {
-  if (!child || child.killed) return;
-  try {
-    if (process.platform === 'win32') {
-      child.kill();
-    } else {
-      try {
-        process.kill(-child.pid, 'SIGTERM');
-      } catch {
-        child.kill('SIGTERM');
-      }
-    }
-  } catch (error) {
-    logWarn('Failed to kill codex child:', error?.message || error);
-  }
 }
 
 /**
@@ -224,7 +200,7 @@ export async function sendMessage(
       return;
     }
 
-    const onParentSignal = () => killChildTree(child);
+    const onParentSignal = () => killChildTree(child, 'Codex CLI');
     process.once('SIGTERM', onParentSignal);
     process.once('SIGINT', onParentSignal);
     process.once('SIGHUP', onParentSignal);
@@ -318,15 +294,4 @@ function resolveCodexCliPath() {
  */
 function emitSendError(message) {
   console.log(`[SEND_ERROR] ${JSON.stringify({ error: String(message || 'Unknown Codex error') })}`);
-}
-
-/**
- * Get sessions for project (stub implementation).
- * @param {string} projectPath
- * @returns {Promise<string>}
- */
-export async function getSessionsForProjectAsJson(projectPath) {
-  // CLI mode doesn't support session listing via SDK
-  // Return empty array as JSON
-  return JSON.stringify([]);
 }

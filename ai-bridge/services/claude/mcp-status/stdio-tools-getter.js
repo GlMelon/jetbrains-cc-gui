@@ -10,6 +10,7 @@ import { log } from './logger.js';
 import { validateCommand, hasUnsafeShellMetacharacters } from './command-validator.js';
 import { safeKillProcess } from './process-manager.js';
 import { MCP_PROTOCOL_VERSION, MCP_CLIENT_INFO } from './mcp-protocol.js';
+import { MAX_MESSAGE_BYTES } from '../../../mcp-gateway/framing.js';
 
 /**
  * Partial MCP server config used by STDIO clients.
@@ -135,6 +136,16 @@ export async function getStdioServerTools(serverName, serverConfig) {
     // Handle stdout - MCP protocol messages
     child?.stdout?.on('data', (/** @type {Buffer} */ data) => {
       state.buffer += data.toString();
+
+      // Buffer cap aligned with mcp-gateway/framing.js MAX_MESSAGE_BYTES (16MB):
+      // a server that never emits a newline would otherwise grow the buffer
+      // without bound. On overflow, terminate like FramedReader does (drop and
+      // fail) instead of accumulating.
+      if (state.buffer.length > MAX_MESSAGE_BYTES) {
+        state.buffer = '';
+        finalize(null, `MCP message exceeds ${MAX_MESSAGE_BYTES} bytes`);
+        return;
+      }
 
       const lines = state.buffer.split('\n');
       state.buffer = lines.pop() || '';

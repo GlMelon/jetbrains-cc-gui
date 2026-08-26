@@ -26,7 +26,7 @@ import {
   buildWebviewControlledSettingsOverride,
 } from '../../config/api-config.js';
 import { selectWorkingDirectory } from '../../utils/path-utils.js';
-import { mapModelIdToSdkName, resolveModelFromSettings, setModelEnvironmentVariables } from '../../utils/model-utils.js';
+import { resolveModelFromSettings, setModelEnvironmentVariables } from '../../utils/model-utils.js';
 import { buildContentBlocks, loadAttachments } from './attachment-service.js';
 import { buildIDEContextPrompt } from '../system-prompts.js';
 import { buildQuickFixPrompt } from '../quickfix-prompts.js';
@@ -35,6 +35,7 @@ import { createPreToolUseHook } from './permission-mode.js';
 import { loadMcpServersConfigAsRecord } from './mcp-status/config-loader.js';
 import { generateSessionTitle } from '../session-title-service.js';
 import { getClaudeCliPathOverride } from '../../utils/claude-cli-path.js';
+import { killChildTree } from '../../utils/kill-tree.js';
 
 // ========== Constants ==========
 
@@ -159,40 +160,9 @@ function parseStreamLine(line) {
 }
 
 // ========== Process Lifecycle ==========
-
-/**
- * Kill child process tree.
- * On Windows, uses taskkill /F /T to kill the entire process tree.
- * On Unix, uses process group kill to terminate all child processes.
- * @param {import('child_process').ChildProcess} child
- */
-function killChildTree(child) {
-  if (!child || child.killed) return;
-  try {
-    if (process.platform === 'win32') {
-      // Windows: use taskkill to kill the entire process tree
-      try {
-        const pid = child.pid;
-        if (pid) {
-          spawnSync('taskkill', ['/F', '/T', '/PID', String(pid)], {
-            stdio: 'ignore',
-            timeout: 5000,
-          });
-        }
-      } catch (_) {
-        // Fallback: kill the main process if taskkill fails
-        child.kill();
-      }
-    } else {
-      // Unix: kill the entire process group
-      try {
-        process.kill(-child.pid, 'SIGTERM');
-      } catch {
-        child.kill('SIGTERM');
-      }
-    }
-  } catch (_) { /* ignore */ }
-}
+//
+// Process-tree kill is shared: see utils/kill-tree.js (Windows taskkill /F /T
+// kills the cmd.exe wrapper's whole tree, Unix process-group SIGTERM).
 
 // ========== Retry Logic ==========
 

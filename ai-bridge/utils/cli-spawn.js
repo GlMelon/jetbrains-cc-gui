@@ -6,23 +6,7 @@ import { spawn } from 'child_process';
 import { createInterface } from 'readline';
 import { emitSendError, endStream } from './marker-protocol.js';
 import { resolveCliSpawn } from './cli-path.js';
-
-function killChildTree(child, label) {
-  if (!child || child.killed) return;
-  try {
-    if (process.platform === 'win32') {
-      child.kill();
-    } else {
-      try {
-        process.kill(-child.pid, 'SIGTERM');
-      } catch {
-        child.kill('SIGTERM');
-      }
-    }
-  } catch (error) {
-    console.error(`[WARN][${label}] Failed to kill child:`, error?.message || error);
-  }
-}
+import { killChildTree } from './kill-tree.js';
 
 /**
  * Spawn a CLI, stream stdout lines, map stderr for diagnostics.

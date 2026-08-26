@@ -48,7 +48,14 @@ test('safeKillProcess escalates to SIGKILL when the process remains alive', asyn
 
   await new Promise((resolve) => setTimeout(resolve, 550));
 
-  assert.deepEqual(child.signals, ['SIGTERM', 'SIGKILL']);
+  if (process.platform === 'win32') {
+    // Windows uses taskkill /F /T via killChildTree (already a forced tree
+    // kill; the fake child has no pid so it hits the child.kill fallback).
+    // No SIGKILL escalation timer exists on this platform.
+    assert.deepEqual(child.signals, ['SIGTERM']);
+  } else {
+    assert.deepEqual(child.signals, ['SIGTERM', 'SIGKILL']);
+  }
 });
 
 test('safeKillProcess cancels SIGKILL escalation after close', async () => {
