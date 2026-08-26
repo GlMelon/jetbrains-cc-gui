@@ -615,10 +615,14 @@ export const MessageList = memo(
       // 检测消失的消息
       const prevMap = prevUnitMapRef.current;
       const newExiting = new Map(exitingMessages);
+      // 仅当退出集合内容实际变化时才 setState:流式 tick 每 ~33ms 触发本 effect,
+      // 无条件 setExitingMessages(恒为新 Map 引用)会造成每 tick 双倍渲染。
+      let exitingChanged = false;
       for (const [key, data] of prevMap) {
         if (!currentMap.has(key) && !newExiting.has(key) && !exitingTimeoutsRef.current.has(key)) {
           // 消息消失：加入 exiting 集合,播放退出动画
           newExiting.set(key, data);
+          exitingChanged = true;
           const timeout = setTimeout(() => {
             setExitingMessages((prev) => {
               const next = new Map(prev);
@@ -635,10 +639,12 @@ export const MessageList = memo(
         if (currentMap.has(key)) {
           clearTimeout(timeout);
           exitingTimeoutsRef.current.delete(key);
-          newExiting.delete(key);
+          exitingChanged = newExiting.delete(key) || exitingChanged;
         }
       }
-      setExitingMessages(newExiting);
+      if (exitingChanged) {
+        setExitingMessages(newExiting);
+      }
       prevUnitMapRef.current = currentMap;
     }, [visibleMessageUnits]);
 

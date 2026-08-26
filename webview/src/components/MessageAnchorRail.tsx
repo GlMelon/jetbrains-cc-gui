@@ -113,10 +113,23 @@ export const MessageAnchorRail = memo(function MessageAnchorRail({
   const scrollAttemptTokenRef = useRef(0);
   const localizeMessage = useMemo(() => createLocalizeMessage(t), [t]);
 
-  const userMessages = useMemo(
-    () => buildUserMessageItems(messages, localizeMessage, t),
-    [localizeMessage, messages, t],
-  );
+  // 面板关闭时跳过全量构建(取较轻量方案):流式期间 messages 每 ~33ms 换新引用,
+  // 直接依赖 messages 的 buildUserMessageItems(逐条文本提取/归一化/格式化)会每 tick
+  // 全量重算。关闭时只需角标计数,沿用上次快照;用户消息条数变化或面板打开时才重建。
+  const builtSnapshotRef = useRef<{ userCount: number; items: UserMessageItem[] } | null>(null);
+  const userMessages = useMemo(() => {
+    let userCount = 0;
+    for (const message of messages) {
+      if (message.type === 'user') userCount += 1;
+    }
+    const snapshot = builtSnapshotRef.current;
+    if (!open && snapshot && snapshot.userCount === userCount) {
+      return snapshot.items;
+    }
+    const items = buildUserMessageItems(messages, localizeMessage, t);
+    builtSnapshotRef.current = { userCount, items };
+    return items;
+  }, [open, messages, localizeMessage, t]);
   const filteredMessages = useMemo(() => {
     const keyword = query.trim().toLocaleLowerCase();
     if (!keyword) return userMessages;

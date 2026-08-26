@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import type { ClaudeMessage, ToolResultBlock } from '../types';
 import { debugLog } from '../utils/debug';
 import { clearLedgerMeta } from '../utils/sessionFileLedger';
+import { gcSessionScopedKeys, touchSessionScopedKey } from '../utils/sessionStorageGc';
 
 /**
  * Manages file change tracking: processedFiles, baseMessageIndex,
@@ -37,10 +38,9 @@ export function useFileChangesManagement({
       // Persist to localStorage
       if (currentSessionId) {
         try {
-          localStorage.setItem(
-            `processed-files-${currentSessionId}`,
-            JSON.stringify(newList)
-          );
+          const key = `processed-files-${currentSessionId}`;
+          localStorage.setItem(key, JSON.stringify(newList));
+          touchSessionScopedKey(key);
         } catch (e) {
           console.error('Failed to persist processed files:', e);
         }
@@ -59,10 +59,9 @@ export function useFileChangesManagement({
       const sessionId = currentSessionIdRef.current;
       if (sessionId) {
         try {
-          localStorage.setItem(
-            `processed-files-${sessionId}`,
-            JSON.stringify(newList)
-          );
+          const key = `processed-files-${sessionId}`;
+          localStorage.setItem(key, JSON.stringify(newList));
+          touchSessionScopedKey(key);
         } catch (e) {
           console.error('Failed to persist processed files:', e);
         }
@@ -80,10 +79,9 @@ export function useFileChangesManagement({
 
       if (currentSessionId) {
         try {
-          localStorage.setItem(
-            `processed-files-${currentSessionId}`,
-            JSON.stringify(newList)
-          );
+          const key = `processed-files-${currentSessionId}`;
+          localStorage.setItem(key, JSON.stringify(newList));
+          touchSessionScopedKey(key);
         } catch (e) {
           console.error('Failed to persist processed files:', e);
         }
@@ -102,7 +100,9 @@ export function useFileChangesManagement({
 
     if (currentSessionId) {
       try {
-        localStorage.setItem(`keep-all-base-${currentSessionId}`, String(newBaseIndex));
+        const keepAllKey = `keep-all-base-${currentSessionId}`;
+        localStorage.setItem(keepAllKey, String(newBaseIndex));
+        touchSessionScopedKey(keepAllKey);
         localStorage.removeItem(`processed-files-${currentSessionId}`);
         clearLedgerMeta(currentSessionId);
       } catch (e) {
@@ -161,18 +161,11 @@ export function useFileChangesManagement({
       return;
     }
 
-    // Cleanup old localStorage entries to prevent infinite growth
-    const MAX_STORED_SESSIONS = 50;
-    try {
-      const keysToCheck = Object.keys(localStorage)
-        .filter(k => k.startsWith('processed-files-') || k.startsWith('keep-all-base-'));
-      if (keysToCheck.length > MAX_STORED_SESSIONS) {
-        const toRemove = keysToCheck.slice(0, keysToCheck.length - MAX_STORED_SESSIONS);
-        toRemove.forEach(k => localStorage.removeItem(k));
-      }
-    } catch {
-      // Ignore cleanup errors
-    }
+    // Reclaim stale session-scoped localStorage keys (processed-files-* /
+    // keep-all-base-* / session-file-ledger-meta-*): per-session keys used to
+    // grow unbounded; gcSessionScopedKeys applies a 400-key LRU cap + 24h TTL
+    // (same paradigm as fileTouchRegistry).
+    gcSessionScopedKeys();
 
     // Restore processed files from localStorage
     try {

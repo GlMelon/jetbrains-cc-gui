@@ -12,6 +12,7 @@
 import type { EditOperation, FileChangeStatus, FileChangeSummary } from '../types/fileChanges';
 import { getFileName } from './helpers';
 import { normalizeToolName } from './toolConstants';
+import { touchSessionScopedKey } from './sessionStorageGc';
 
 /** Write-style tools that replace entire file content */
 const WRITE_TOOL_NAMES = new Set(['write', 'write_file', 'create_file', 'write_to_file']);
@@ -349,7 +350,9 @@ export interface LedgerPersistMeta {
 
 export function saveLedgerMeta(sessionId: string, meta: LedgerPersistMeta): void {
   try {
-    localStorage.setItem(ledgerStorageKey(sessionId), JSON.stringify(meta));
+    const key = ledgerStorageKey(sessionId);
+    localStorage.setItem(key, JSON.stringify(meta));
+    touchSessionScopedKey(key);
   } catch {
     // quota / private mode
   }

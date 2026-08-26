@@ -3,6 +3,7 @@ import type { TFunction } from 'i18next';
 import type {
   ClaudeMessage,
   ClaudeRawMessage,
+  TodoItem,
   ToolResultBlock,
 } from '../types';
 import type { GetToolResultRawFn } from '../contexts/SubagentContext';
@@ -96,6 +97,11 @@ export function useChatComputations({
   // 避免触发下游消费组件(标题栏 / Rewind 列表)每帧重渲染。
   const prevRewindableRef = useRef<RewindableMessage[]>([]);
   const prevSessionTitleRef = useRef<string>('');
+  // 内容签名稳定化缓存:latestTurnMessages(长度 + 元素引用)与 globalTodos(JSON 签名)
+  // 在内容未变时返回上次引用,避免流式 tick 的新数组引用击穿 StatusPanel memo。
+  const prevLatestTurnRef = useRef<ClaudeMessage[]>([]);
+  const prevGlobalTodosRef = useRef<TodoItem[]>([]);
+  const prevGlobalTodosSigRef = useRef<string>('[]');
   const previousSessionIdRef = useRef<string | null>(currentSessionId);
 
   useEffect(() => {
@@ -151,6 +157,7 @@ export function useChatComputations({
   const fileChanges = useFileChanges({
     messages, getContentBlocks, findToolResult,
     startFromIndex: fileChangeMgmt.baseMessageIndex,
+    streamingActive,
   });
 
   const filteredFileChanges = useMemo(() => {
@@ -158,7 +165,17 @@ export function useChatComputations({
     return fileChanges.filter((fc) => !fileChangeMgmt.processedFiles.includes(fc.filePath));
   }, [fileChanges, fileChangeMgmt.processedFiles]);
 
-  const latestTurnMessages = useMemo(() => sliceLatestConversationTurn(messages), [messages]);
+  const latestTurnMessages = useMemo(() => {
+    const next = sliceLatestConversationTurn(messages);
+    const prev = prevLatestTurnRef.current;
+    // 内容签名(长度 + 元素引用逐一同):turn 内消息对象均未变化时返回上次引用,
+    // 下游 useSubagents / globalTodos 的 memo 不被无意义的新数组引用击穿。
+    if (next.length === prev.length && next.every((m, i) => m === prev[i])) {
+      return prev;
+    }
+    prevLatestTurnRef.current = next;
+    return next;
+  }, [messages]);
 
   const latestTurnSubagents = useSubagents({
     messages: latestTurnMessages,
@@ -173,6 +190,7 @@ export function useChatComputations({
   );
 
   const globalTodos = useMemo(() => {
+    let result: TodoItem[];
     let latestTodos: ReturnType<typeof extractTodosFromToolUse> = null;
     for (let i = latestTurnMessages.length - 1; i >= 0; i--) {
       const msg = latestTurnMessages[i];
@@ -188,13 +206,20 @@ export function useChatComputations({
       if (latestTodos) break;
     }
     if (latestTodos) {
-      return finalizeTodosForSettledTurn(latestTodos, streamingActive, currentProvider);
+      result = finalizeTodosForSettledTurn(latestTodos, streamingActive, currentProvider);
+    } else {
+      const accumulated = extractAccumulatedTasks(messages, getContentBlocks);
+      result = accumulated.length > 0 ? accumulated : [];
     }
-    const accumulated = extractAccumulatedTasks(messages, getContentBlocks);
-    if (accumulated.length > 0) {
-      return accumulated;
+    // 内容签名稳定化:流式 tick 大多不改变 todos 内容,签名一致时返回上次引用,
+    // 避免每 tick 新数组引用击穿 StatusPanel memo;todos 实际变化时仍即时更新。
+    const sig = JSON.stringify(result);
+    if (sig === prevGlobalTodosSigRef.current) {
+      return prevGlobalTodosRef.current;
     }
-    return [];
+    prevGlobalTodosSigRef.current = sig;
+    prevGlobalTodosRef.current = result;
+    return result;
   }, [latestTurnMessages, messages, getContentBlocks, streamingActive]);
 
   const rewindableMessages = useMemo((): RewindableMessage[] => {

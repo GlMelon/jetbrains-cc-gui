@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ClaudeMessage, ClaudeContentBlock, ToolResultBlock } from '../types';
 import type { FileChangeSummary } from '../types/fileChanges';
 import type { SubagentHistoryResponse } from '../types/subagent';
@@ -15,6 +15,7 @@ import {
   diffLineStats,
   ledgerEntriesToSummaries,
   type LedgerOp,
+  type SessionFileLedgerEntry,
 } from '../utils/sessionFileLedger';
 import {
   isMultiActorPath,
@@ -329,6 +330,14 @@ interface UseFileChangesParams {
   subagentHistories?: Record<string, SubagentHistoryResponse>;
   /** Current chat tab session id — for cross-tab multi-agent marks */
   currentSessionId?: string | null;
+  /**
+   * While true, the ledger rebuild is frozen (same pattern as the rewindable/
+   * sessionTitle freeze in useChatComputations): streaming ticks replace the
+   * messages array every ~33ms, and rebuilding the diff ledger per tick runs
+   * LCS O(m×n) outside diffCache plus localStorage I/O in the enrich effect.
+   * File stats settle once streaming ends.
+   */
+  streamingActive?: boolean;
 }
 
 /**
@@ -382,11 +391,20 @@ export function useFileChanges({
   startFromIndex = 0,
   subagentHistories,
   currentSessionId = null,
+  streamingActive = false,
 }: UseFileChangesParams): FileChangeSummary[] {
+  // 流式期冻结快照(参照 useChatComputations rewindable/sessionTitle 模式):
+  // 流式 tick 每 ~33ms 换 messages 引用,冻结期间返回上次 settled 的 base 引用,
+  // 跳过账本重建;流式结束后 memo 依赖(streamingActive)变化,用最新 messages 重算。
+  const frozenBaseRef = useRef<{ entries: SessionFileLedgerEntry[]; summaries: FileChangeSummary[] } | null>(null);
+
   // Pure derivation: messages → ledger entries → summaries. No side effects in
   // this memo (localStorage touch recording lives in the effect below), so
   // StrictMode double-invocation and per-message streaming renders stay cheap.
   const base = useMemo(() => {
+    if (streamingActive && frozenBaseRef.current) {
+      return frozenBaseRef.current;
+    }
     const ops: LedgerOp[] = [];
     const agentKeysAfterBase = new Set<string>();
 
@@ -440,10 +458,15 @@ export function useFileChanges({
 
     const entries = buildSessionFileLedger(ops);
     const summaries = ledgerEntriesToSummaries(entries);
-    return { entries, summaries };
-  }, [messages, getContentBlocks, findToolResult, startFromIndex, subagentHistories]);
+    const result = { entries, summaries };
+    frozenBaseRef.current = result;
+    return result;
+  }, [messages, getContentBlocks, findToolResult, startFromIndex, subagentHistories, streamingActive]);
 
   const [enriched, setEnriched] = useState<FileChangeSummary[]>(base.summaries);
+  // 上次已完成 touch 记录 + 富化的输入指纹:ops 集合未变化时跳过
+  // loadFileTouchMap ×2 + recordFileTouches(含 localStorage.setItem 磁盘 I/O)。
+  const lastRecordedRef = useRef<{ sessionId: string; summaries: FileChangeSummary[] } | null>(null);
 
   // Cross-tab / multi-agent: persist who touched each path, then enrich badges.
   // Recording is idempotent per actor key, so re-runs on new entries are safe;
@@ -452,7 +475,18 @@ export function useFileChanges({
   useEffect(() => {
     const { entries, summaries } = base;
     if (!currentSessionId || summaries.length === 0) {
+      lastRecordedRef.current = null;
       setEnriched((prev) => (sameFileChangeSummaries(prev, summaries) ? prev : summaries));
+      return;
+    }
+
+    const lastRecorded = lastRecordedRef.current;
+    if (
+      lastRecorded
+      && lastRecorded.sessionId === currentSessionId
+      && sameFileChangeSummaries(lastRecorded.summaries, summaries)
+    ) {
+      // ops 集合未实际变化:跳过本次 localStorage 写入与富化,保留现有 enriched。
       return;
     }
 
@@ -468,6 +502,7 @@ export function useFileChanges({
       agentsByPath,
     );
     const mapAfter = loadFileTouchMap();
+    lastRecordedRef.current = { sessionId: currentSessionId, summaries };
 
     const next = summaries.map((s) => {
       const crossMulti = isMultiActorPath(s.filePath, mapAfter);
