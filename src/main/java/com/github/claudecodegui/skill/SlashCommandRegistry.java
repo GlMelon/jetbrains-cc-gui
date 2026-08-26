@@ -12,9 +12,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Merges built-in slash commands with skill-derived commands per provider.
@@ -29,16 +31,28 @@ public final class SlashCommandRegistry {
 
     /**
      * A slash command with name (including / prefix), description, and source.
+     *
+     * <p>{@code localAction} (nullable) marks commands the plugin handles locally
+     * instead of forwarding to the CLI; values come from {@link LocalSlashAction}.
      */
     public record SlashCommand(
             String name,
             String description,
             String source,
             SlashCommandKind kind,
-            String scope
+            String scope,
+            String localAction
     ) {
         public SlashCommand(String name, String description, String source) {
             this(name, description, source, SlashCommandKind.COMMAND, source);
+        }
+
+        public SlashCommand(String name, String description, String source, SlashCommandKind kind, String scope) {
+            this(name, description, source, kind, scope, null);
+        }
+
+        public SlashCommand withLocalAction(String action) {
+            return new SlashCommand(name, description, source, kind, scope, action);
         }
     }
 
@@ -54,9 +68,10 @@ public final class SlashCommandRegistry {
     public record PluginPath(String pluginName, String path, String type) {
     }
 
-    // Claude built-in commands (GUI-relevant only; CLI-only and frontend-local ones are excluded)
-    // Includes commands that work via SDK or are handled by frontend locally
-    // 'local-jsx' commands (TUI UI) that have GUI equivalents are included
+    // Claude built-in commands forwarded to the CLI (GUI-relevant only; CLI-only ones are excluded).
+    // Plugin-local commands (/clear /resume /model /help ...) live in LOCAL_COMMANDS instead and are
+    // annotated with a localAction via LOCAL_ACTION_RULES; 'local-jsx' commands (TUI UI) that have GUI
+    // equivalents are included
     // Bundled skills from CLI that are userInvocable and work in GUI environment
     public static final List<SlashCommand> CLAUDE_BUILTIN = List.of(
             new SlashCommand("/compact", "Summarize conversation to free context", "builtin", SlashCommandKind.BUILTIN, "builtin"),
@@ -64,7 +79,6 @@ public final class SlashCommandRegistry {
             new SlashCommand("/goal", "Keep working across turns until the goal condition is met", "builtin", SlashCommandKind.BUILTIN, "builtin"),
             new SlashCommand("/init", "Initialize a new CLAUDE.md file with codebase documentation", "builtin", SlashCommandKind.BUILTIN, "builtin"),
             new SlashCommand("/plan", "Switch to plan mode", "builtin", SlashCommandKind.BUILTIN, "builtin"),
-            new SlashCommand("/resume", "Resume a previous conversation", "builtin", SlashCommandKind.BUILTIN, "builtin"),
             new SlashCommand("/review", "Review a pull request", "builtin", SlashCommandKind.BUILTIN, "builtin"),
             // Bundled skills (userInvocable, no ANT-only restriction)
             new SlashCommand("/batch", "Execute large-scale changes in parallel across isolated worktrees", "bundled", SlashCommandKind.SKILL, "bundled"),
@@ -82,6 +96,50 @@ public final class SlashCommandRegistry {
             new SlashCommand("/init", "Generate an AGENTS.md scaffold", "builtin", SlashCommandKind.BUILTIN, "builtin"),
             new SlashCommand("/plan", "Switch to plan mode", "builtin", SlashCommandKind.BUILTIN, "builtin"),
             new SlashCommand("/review", "Review working tree changes", "builtin", SlashCommandKind.BUILTIN, "builtin")
+    );
+
+    // Plugin-local commands: handled by the plugin itself (see LOCAL_ACTION_RULES), never sent to the CLI.
+    // Merged into every provider's command list; /new /reset /continue are hidden aliases the
+    // frontend accepts when typed but does not show in the completion dropdown.
+    public static final List<SlashCommand> LOCAL_COMMANDS = List.of(
+            new SlashCommand("/clear", "Clear conversation and start a new session", "builtin", SlashCommandKind.BUILTIN, "builtin"),
+            new SlashCommand("/new", "Start a new session (alias of /clear)", "builtin", SlashCommandKind.BUILTIN, "builtin"),
+            new SlashCommand("/reset", "Reset the session (alias of /clear)", "builtin", SlashCommandKind.BUILTIN, "builtin"),
+            new SlashCommand("/resume", "Resume a previous conversation", "builtin", SlashCommandKind.BUILTIN, "builtin"),
+            new SlashCommand("/continue", "Resume the most recent conversation (alias of /resume)", "builtin", SlashCommandKind.BUILTIN, "builtin"),
+            new SlashCommand("/model", "Select a model", "builtin", SlashCommandKind.BUILTIN, "builtin"),
+            new SlashCommand("/help", "Show available commands", "builtin", SlashCommandKind.BUILTIN, "builtin")
+    );
+
+    /**
+     * Local action rule: which {@link LocalSlashAction} a command triggers, and for which
+     * providers (null = all providers). This is the SSOT for "which slash commands the
+     * plugin handles locally instead of forwarding to the CLI" — the frontend reads the
+     * annotated {@code localAction} field from the command payload and only executes the
+     * matching UI action; it does not keep its own command table.
+     */
+    private record LocalActionRule(LocalSlashAction action, Set<ProviderType> providers) {
+        static LocalActionRule all(LocalSlashAction action) {
+            return new LocalActionRule(action, null);
+        }
+
+        static LocalActionRule claudeOnly(LocalSlashAction action) {
+            return new LocalActionRule(action, EnumSet.of(ProviderType.CLAUDE));
+        }
+    }
+
+    private static final Map<String, LocalActionRule> LOCAL_ACTION_RULES = Map.of(
+            "/clear", LocalActionRule.all(LocalSlashAction.NEW_SESSION),
+            "/new", LocalActionRule.all(LocalSlashAction.NEW_SESSION),
+            "/reset", LocalActionRule.all(LocalSlashAction.NEW_SESSION),
+            "/resume", LocalActionRule.all(LocalSlashAction.OPEN_HISTORY),
+            "/continue", LocalActionRule.all(LocalSlashAction.OPEN_HISTORY),
+            // /plan and /context are Claude-only local commands; on Codex/OpenCode they are
+            // forwarded to the CLI as plain text (intentional difference, mirrors the CLI).
+            "/plan", LocalActionRule.claudeOnly(LocalSlashAction.PLAN_MODE),
+            "/context", LocalActionRule.claudeOnly(LocalSlashAction.CONTEXT_USAGE),
+            "/model", LocalActionRule.all(LocalSlashAction.MODEL_PICKER),
+            "/help", LocalActionRule.all(LocalSlashAction.HELP)
     );
 
     /**
@@ -230,8 +288,9 @@ public final class SlashCommandRegistry {
             pluginCmdCommands = PluginCommandScanner.scanPluginCommands(allPluginPaths);
         }
 
-        return mergeCommandsInOrder(
+        List<SlashCommand> merged = mergeCommandsInOrder(
                 builtins,
+                LOCAL_COMMANDS,
                 localCmdCommands,
                 localSkillCommands,
                 additionalCmdCommands,
@@ -242,6 +301,25 @@ public final class SlashCommandRegistry {
                 pluginCmdCommands,
                 pluginSkillCommands
         );
+        return annotateLocalActions(merged, ProviderType.fromString(provider));
+    }
+
+    /**
+     * Annotates commands with their local action per LOCAL_ACTION_RULES for the given provider.
+     * Commands without a matching rule (or not applicable to the provider) keep localAction = null
+     * and are forwarded to the CLI as plain prompt text by the frontend.
+     */
+    static List<SlashCommand> annotateLocalActions(List<SlashCommand> commands, ProviderType provider) {
+        List<SlashCommand> annotated = new ArrayList<>(commands.size());
+        for (SlashCommand cmd : commands) {
+            LocalActionRule rule = LOCAL_ACTION_RULES.get(cmd.name());
+            if (rule != null && (rule.providers() == null || rule.providers().contains(provider))) {
+                annotated.add(cmd.withLocalAction(rule.action().value()));
+            } else {
+                annotated.add(cmd);
+            }
+        }
+        return annotated;
     }
 
     /**
@@ -255,6 +333,9 @@ public final class SlashCommandRegistry {
             obj.addProperty("description", cmd.description());
             if (cmd.source() != null && !cmd.source().isEmpty()) {
                 obj.addProperty("source", cmd.source());
+            }
+            if (cmd.localAction() != null && !cmd.localAction().isEmpty()) {
+                obj.addProperty("localAction", cmd.localAction());
             }
             array.add(obj);
         }
