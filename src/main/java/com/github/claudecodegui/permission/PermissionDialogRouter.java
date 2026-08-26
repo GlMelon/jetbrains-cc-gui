@@ -217,6 +217,13 @@ class PermissionDialogRouter {
             }
             return false;
         });
+        Project activeProject = lastActiveProject;
+        if (activeProject != null && activeProject.isDisposed()) {
+            // lastActiveProject is write-only otherwise; drop the disposed reference
+            // so a closed project is neither retained nor preferred forever.
+            lastActiveProject = null;
+            debugLog.accept("CLEANUP", "Cleared disposed last active project: " + activeProject.getName());
+        }
     }
 
     private <T> T getPreferredDialogShower(Map<Project, T> showers) {

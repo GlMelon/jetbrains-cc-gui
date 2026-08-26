@@ -59,6 +59,9 @@ public class WebviewInitializer {
     private static final int BRIDGE_INJECTION_FAST_RETRY_INTERVAL_MS = 100;
     private static final int BRIDGE_INJECTION_SLOW_RETRY_INTERVAL_MS = 1000;
     private static final int BRIDGE_INJECTION_FAST_RETRY_ATTEMPTS = 50;
+    // Hard stop for fallback retries (50 fast 100ms ticks + slow 1Hz ticks ≈ 4
+    // minutes). Beyond this the webview watchdog / a manual reload takes over.
+    private static final int BRIDGE_INJECTION_MAX_RETRY_ATTEMPTS = 300;
 
     /**
      * Host interface providing access to window-level dependencies.
@@ -510,6 +513,13 @@ public class WebviewInitializer {
                 currentBridges.stopBridgeInjectionTimer(timer);
                 return;
             }
+            if (attempt >= BRIDGE_INJECTION_MAX_RETRY_ATTEMPTS) {
+                LOG.warn("[JCEF] Fallback bridge injection retries exhausted ("
+                        + BRIDGE_INJECTION_MAX_RETRY_ATTEMPTS
+                        + "); stopping timer, leaving recovery to the webview watchdog or a manual reload");
+                currentBridges.stopBridgeInjectionTimer(timer);
+                return;
+            }
             timer.setDelay(bridgeInjectionRetryDelayMs(attempt + 1));
             if (!injectBridgeFallback(browser, currentBridges, pageGeneration, attempt)) {
                 currentBridges.stopBridgeInjectionTimer(timer);
@@ -561,7 +571,8 @@ public class WebviewInitializer {
      * Retry the minimum bootstrap directly in the active page so the frontend
      * can establish its Java bridge and request dependency status. The timer
      * stops as soon as frontend_ready is received. Retries slow down after the
-     * initial five-second startup window.
+     * initial five-second startup window and stop entirely after
+     * BRIDGE_INJECTION_MAX_RETRY_ATTEMPTS attempts.
      */
     private boolean injectBridgeFallback(
             JBCefBrowser browser,

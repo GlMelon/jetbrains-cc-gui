@@ -159,14 +159,31 @@ public class WebviewWatchdogTest {
         assertFalse(watchdog.tryAcquireRecoveryPermit(false));
     }
 
-    /** Verifies that ready runtime pages are not constrained by the startup retry budget. */
+    /** Verifies that runtime recovery uses its own bounded budget, independent of the startup budget. */
     @Test
-    public void runtimeRecoveryIsNotCappedByStartupBudget() {
+    public void runtimeRecoveryUsesItsOwnBoundedBudget() {
         WebviewWatchdog watchdog = createWatchdog();
 
-        for (int attempt = 0; attempt < 10; attempt++) {
+        for (int attempt = 0; attempt < 5; attempt++) {
             assertTrue(watchdog.tryAcquireRecoveryPermit(true));
         }
+        assertFalse(watchdog.tryAcquireRecoveryPermit(true));
+        // The runtime budget does not consume the startup budget.
+        assertTrue(watchdog.tryAcquireRecoveryPermit(false));
+    }
+
+    /** Verifies that frontend readiness restores a previously exhausted runtime budget. */
+    @Test
+    public void frontendReadinessRestoresRuntimeRecoveryBudget() {
+        WebviewWatchdog watchdog = createWatchdog();
+        for (int attempt = 0; attempt < 5; attempt++) {
+            assertTrue(watchdog.tryAcquireRecoveryPermit(true));
+        }
+        assertFalse(watchdog.tryAcquireRecoveryPermit(true));
+
+        watchdog.markFrontendReady();
+
+        assertTrue(watchdog.tryAcquireRecoveryPermit(true));
     }
 
     private static WebviewWatchdog exhaustedWatchdog() {

@@ -31,6 +31,9 @@ public class WebviewWatchdog {
     private static final long STARTUP_READY_TIMEOUT_MS = 15_000L;
     private static final long STARTUP_RECOVERY_COOLDOWN_MS = 15_000L;
     private static final int MAX_STARTUP_RECOVERY_ATTEMPTS = 2;
+    // Runtime recoveries are likewise bounded: each recreate spawns a new CEF
+    // renderer process, so an unhealable JCEF must not cycle processes forever.
+    private static final int MAX_RUNTIME_RECOVERY_ATTEMPTS = 5;
 
     private volatile long lastHeartbeatAtMs;
     private volatile long lastRafAtMs;
@@ -41,6 +44,7 @@ public class WebviewWatchdog {
     private volatile ScheduledFuture<?> watchdogFuture = null;
     private final AtomicBoolean recoveryPending = new AtomicBoolean();
     private final AtomicInteger startupRecoveryAttempts = new AtomicInteger();
+    private final AtomicInteger runtimeRecoveryAttempts = new AtomicInteger();
 
     private final JPanel mainPanel;
     private final BooleanSupplier browserAvailableCheck;
@@ -255,16 +259,14 @@ public class WebviewWatchdog {
     }
 
     boolean tryAcquireRecoveryPermit(boolean frontendReady) {
-        if (frontendReady) {
-            return true;
-        }
-
+        AtomicInteger attemptsCounter = frontendReady ? runtimeRecoveryAttempts : startupRecoveryAttempts;
+        int maxAttempts = frontendReady ? MAX_RUNTIME_RECOVERY_ATTEMPTS : MAX_STARTUP_RECOVERY_ATTEMPTS;
         while (true) {
-            int attempts = startupRecoveryAttempts.get();
-            if (attempts >= MAX_STARTUP_RECOVERY_ATTEMPTS) {
+            int attempts = attemptsCounter.get();
+            if (attempts >= maxAttempts) {
                 return false;
             }
-            if (startupRecoveryAttempts.compareAndSet(attempts, attempts + 1)) {
+            if (attemptsCounter.compareAndSet(attempts, attempts + 1)) {
                 return true;
             }
         }
@@ -274,6 +276,7 @@ public class WebviewWatchdog {
         stallCount = 0;
         lastRecoveryAtMs = 0L;
         startupRecoveryAttempts.set(0);
+        runtimeRecoveryAttempts.set(0);
     }
 
     static long heartbeatTimeoutMs(boolean frontendReady, boolean streaming) {
@@ -360,6 +363,14 @@ public class WebviewWatchdog {
         if (!frontendReady && startupRecoveryAttempts.get() == MAX_STARTUP_RECOVERY_ATTEMPTS) {
             LOG.warn("[WebviewWatchdog] Startup recovery limit reached; "
                     + "waiting for frontend readiness or tab activation before retrying");
+        }
+        if (frontendReady && runtimeRecoveryAttempts.get() == MAX_RUNTIME_RECOVERY_ATTEMPTS) {
+            // The webview still stalls right after this many recoveries, so JCEF
+            // recreation no longer heals it. Stop the watchdog instead of spawning
+            // yet another CEF renderer process; a tool window reload restarts it.
+            LOG.warn("[WebviewWatchdog] Runtime recovery limit reached; stopping watchdog, "
+                    + "reload the tool window to re-enable monitoring");
+            stop();
         }
     }
 }

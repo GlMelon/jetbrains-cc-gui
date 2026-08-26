@@ -150,7 +150,10 @@ public class ClaudeChatWindow {
      * task completion notification sent.
      */
     private final AtomicBoolean taskCompletionNotificationSent = new AtomicBoolean(false);
-    private final Alarm notificationAlarm = new Alarm(Alarm.ThreadToUse.SWING_THREAD);
+    private final Disposable notificationAlarmDisposable =
+            Disposer.newDisposable("ccgui-notification-alarm");
+    private final Alarm notificationAlarm =
+            new Alarm(Alarm.ThreadToUse.SWING_THREAD, notificationAlarmDisposable);
 
     // Coalesces session_updated reloads. SessionState's message list is not
     // thread-safe and loadFromServer() runs async, so concurrent background-task
@@ -1399,6 +1402,7 @@ public class ClaudeChatWindow {
         }
 
         notificationAlarm.cancelAllRequests();
+        Disposer.dispose(notificationAlarmDisposable);
         chatWindowDelegate.dispose();
         editorContextTracker.dispose();
         streamCoalescer.dispose();
