@@ -1,5 +1,6 @@
 package com.github.claudecodegui.handler.provider;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.handler.UsagePushService;
 import com.github.claudecodegui.provider.CustomModelContextWindowProvider;
@@ -51,14 +52,14 @@ public class CustomModelPricingHandler {
             String provider = payload.has("provider") && !payload.get("provider").isJsonNull()
                     ? payload.get("provider").getAsString()
                     : null;
-            if (!"claude".equals(provider) && !"codex".equals(provider)) {
+            if (!CommonConstants.PROVIDER_CLAUDE.equals(provider) && !CommonConstants.PROVIDER_CODEX.equals(provider)) {
                 LOG.warn("[CustomModelPricingHandler] Rejected unknown provider: " + provider);
                 return true;
             }
 
             Map<String, ModelPricing> pricingMap = new LinkedHashMap<>();
             Map<String, Integer> contextWindowMap = new LinkedHashMap<>();
-            boolean supportsContextWindows = "codex".equals(provider);
+            boolean supportsContextWindows = CommonConstants.PROVIDER_CODEX.equals(provider);
             if (payload.has("models") && payload.get("models").isJsonArray()) {
                 JsonArray models = payload.getAsJsonArray("models");
                 for (JsonElement el : models) {

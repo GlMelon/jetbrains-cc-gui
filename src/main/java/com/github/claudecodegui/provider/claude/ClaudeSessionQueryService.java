@@ -224,7 +224,7 @@ class ClaudeSessionQueryService {
 
         List<String> command = NodeDetector.buildNodeScriptCommand(
                 node, new File(workDir, CHANNEL_SCRIPT).getAbsolutePath());
-        command.add("claude");
+        command.add(CommonConstants.PROVIDER_CLAUDE);
         command.add(commandName);
         command.add(sessionId);
         // Only translate the cwd to a WSL path when the active node is a WSL binary,

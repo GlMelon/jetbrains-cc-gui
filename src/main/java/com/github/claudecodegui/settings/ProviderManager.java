@@ -500,7 +500,7 @@ public class ProviderManager {
      * @return the list of parsed providers
      */
     public List<JsonObject> parseProvidersFromCcSwitchDb(String dbPath) throws IOException {
-        return parseProvidersFromCcSwitchDb(dbPath, "claude");
+        return parseProvidersFromCcSwitchDb(dbPath, CommonConstants.PROVIDER_CLAUDE);
     }
 
     /**
@@ -514,7 +514,7 @@ public class ProviderManager {
     public List<JsonObject> parseProvidersFromCcSwitchDb(String dbPath, String appType) throws IOException {
         List<JsonObject> result = new ArrayList<>();
         if (appType == null || appType.trim().isEmpty()) {
-            appType = "claude";
+            appType = CommonConstants.PROVIDER_CLAUDE;
         }
 
         LOG.info("[ProviderManager] Reading cc-switch database via Node.js (app_type=" + appType + "): " + dbPath);

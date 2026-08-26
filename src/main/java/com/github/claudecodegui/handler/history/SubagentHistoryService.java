@@ -1,6 +1,7 @@
 package com.github.claudecodegui.handler.history;
 
 import com.github.claudecodegui.bridge.NodeDetector;
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.util.PathUtils;
 import com.github.claudecodegui.util.JsUtils;
@@ -63,11 +64,11 @@ class SubagentHistoryService {
         response.addProperty("sessionId", sessionId);
         response.addProperty("provider", provider);
 
-        if ("codex".equals(provider)) {
+        if (CommonConstants.PROVIDER_CODEX.equals(provider)) {
             loadCodexSubagentAsync(sessionId, toolUseId, agentPath, response);
             return;
         }
-        if (provider != null && !"claude".equals(provider)) {
+        if (provider != null && !CommonConstants.PROVIDER_CLAUDE.equals(provider)) {
             response.addProperty("success", false);
             response.addProperty("status", "error");
             response.addProperty("error", "Invalid provider");

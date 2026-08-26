@@ -1,6 +1,7 @@
 package com.github.claudecodegui.provider.omp;
 
 import com.github.claudecodegui.bridge.NodeDetector;
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.provider.common.HistoryPathMatcher;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -79,7 +80,7 @@ public class OmpHistoryReader {
         public long firstTimestamp;
         public String cwd;
         public long fileSize;
-        public String provider = "omp";
+        public String provider = CommonConstants.PROVIDER_OMP;
     }
 
     public String getSessionsForProjectAsJson(String projectPath) {
@@ -89,7 +90,7 @@ public class OmpHistoryReader {
             result.put("success", true);
             result.put("sessions", sessions);
             result.put("sessionCount", sessions.size());
-            result.put("provider", "omp");
+            result.put("provider", CommonConstants.PROVIDER_OMP);
             int totalMessages = sessions.stream().mapToInt(s -> s.messageCount).sum();
             result.put("total", totalMessages);
             return gson.toJson(result);
@@ -215,7 +216,7 @@ public class OmpHistoryReader {
             SessionInfo info = new SessionInfo();
             info.sessionId = header.sessionId;
             info.cwd = header.cwd;
-            info.provider = "omp";
+            info.provider = CommonConstants.PROVIDER_OMP;
             info.messageCount = messageCount;
             info.fileSize = Files.size(file);
             info.firstTimestamp = header.timestamp > 0 ? header.timestamp : fileMtime(file);

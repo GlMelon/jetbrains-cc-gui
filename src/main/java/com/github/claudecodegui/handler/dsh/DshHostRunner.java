@@ -1,6 +1,7 @@
 package com.github.claudecodegui.handler.dsh;
 
 import com.github.claudecodegui.bridge.NodeService;
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.provider.dsh.DshEnvSupport;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.util.GsonHolder;
@@ -122,7 +123,7 @@ final class DshHostRunner {
             List<String> cmd = new ArrayList<>();
             cmd.add(node);
             cmd.add(script.getAbsolutePath());
-            cmd.add("dsh");
+            cmd.add(CommonConstants.PROVIDER_DSH);
             cmd.add(command);
 
             ProcessBuilder pb = new ProcessBuilder(cmd);

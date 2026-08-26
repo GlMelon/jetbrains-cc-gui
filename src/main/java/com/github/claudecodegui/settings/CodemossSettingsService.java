@@ -277,8 +277,8 @@ public class CodemossSettingsService {
             String providerId = currentConfig.get("providerId").getAsString();
             try {
                 JsonObject config = readConfig();
-                if (config.has("claude")) {
-                    JsonObject claude = config.getAsJsonObject("claude");
+                if (config.has(CommonConstants.PROVIDER_CLAUDE)) {
+                    JsonObject claude = config.getAsJsonObject(CommonConstants.PROVIDER_CLAUDE);
                     if (claude.has("providers")) {
                         JsonObject providers = claude.getAsJsonObject("providers");
                         if (providers.has(providerId)) {
@@ -718,7 +718,7 @@ public class CodemossSettingsService {
      * Parse Codex provider configurations from cc-switch.db.
      */
     public List<JsonObject> parseCodexProvidersFromCcSwitchDb(String dbPath) throws IOException {
-        return providerSettingsService.parseProvidersFromCcSwitchDb(dbPath, "codex");
+        return providerSettingsService.parseProvidersFromCcSwitchDb(dbPath, CommonConstants.PROVIDER_CODEX);
     }
 
     public int saveProviders(List<JsonObject> providers) throws IOException {
@@ -1676,7 +1676,7 @@ public class CodemossSettingsService {
     }
 
     public void setCustomModelContextWindows(String provider, Map<String, Integer> contextWindows) throws IOException {
-        if (!"codex".equalsIgnoreCase(provider)) {
+        if (!CommonConstants.PROVIDER_CODEX.equalsIgnoreCase(provider)) {
             LOG.warn("[CodemossSettings] Ignored custom context windows for unsupported provider: " + provider);
             return;
         }
@@ -1691,7 +1691,7 @@ public class CodemossSettingsService {
         }
 
         if (contextWindows == null || contextWindows.isEmpty()) {
-            root.remove("codex");
+            root.remove(CommonConstants.PROVIDER_CODEX);
         } else {
             JsonObject providerNode = new JsonObject();
             for (Map.Entry<String, Integer> entry : contextWindows.entrySet()) {
@@ -1701,9 +1701,9 @@ public class CodemossSettingsService {
                 }
             }
             if (providerNode.size() == 0) {
-                root.remove("codex");
+                root.remove(CommonConstants.PROVIDER_CODEX);
             } else {
-                root.add("codex", providerNode);
+                root.add(CommonConstants.PROVIDER_CODEX, providerNode);
             }
         }
 
@@ -1721,10 +1721,10 @@ public class CodemossSettingsService {
 
     public String getGrokAuthMethod() throws IOException {
         JsonObject config = readConfig();
-        if (!config.has("grok") || config.get("grok").isJsonNull()) {
+        if (!config.has(CommonConstants.PROVIDER_GROK) || config.get(CommonConstants.PROVIDER_GROK).isJsonNull()) {
             return DEFAULT_GROK_AUTH_METHOD;
         }
-        JsonObject grok = config.getAsJsonObject("grok");
+        JsonObject grok = config.getAsJsonObject(CommonConstants.PROVIDER_GROK);
         if (!grok.has("authMethod") || grok.get("authMethod").isJsonNull()) {
             return DEFAULT_GROK_AUTH_METHOD;
         }
@@ -1735,21 +1735,21 @@ public class CodemossSettingsService {
     public void setGrokAuthMethod(String method) throws IOException {
         String normalized = normalizeGrokAuthMethod(method);
         JsonObject config = readConfig();
-        JsonObject grok = config.has("grok") && !config.get("grok").isJsonNull()
-                ? config.getAsJsonObject("grok")
+        JsonObject grok = config.has(CommonConstants.PROVIDER_GROK) && !config.get(CommonConstants.PROVIDER_GROK).isJsonNull()
+                ? config.getAsJsonObject(CommonConstants.PROVIDER_GROK)
                 : new JsonObject();
         grok.addProperty("authMethod", normalized);
-        config.add("grok", grok);
+        config.add(CommonConstants.PROVIDER_GROK, grok);
         writeConfig(config);
         LOG.info("[CodemossSettingsService] Set grok.authMethod=" + normalized);
     }
 
     public String getGrokApiKey() throws IOException {
         JsonObject config = readConfig();
-        if (!config.has("grok") || config.get("grok").isJsonNull()) {
+        if (!config.has(CommonConstants.PROVIDER_GROK) || config.get(CommonConstants.PROVIDER_GROK).isJsonNull()) {
             return "";
         }
-        JsonObject grok = config.getAsJsonObject("grok");
+        JsonObject grok = config.getAsJsonObject(CommonConstants.PROVIDER_GROK);
         if (!grok.has("apiKey") || grok.get("apiKey").isJsonNull()) {
             return "";
         }
@@ -1758,8 +1758,8 @@ public class CodemossSettingsService {
 
     public void setGrokApiKey(String apiKey) throws IOException {
         JsonObject config = readConfig();
-        JsonObject grok = config.has("grok") && !config.get("grok").isJsonNull()
-                ? config.getAsJsonObject("grok")
+        JsonObject grok = config.has(CommonConstants.PROVIDER_GROK) && !config.get(CommonConstants.PROVIDER_GROK).isJsonNull()
+                ? config.getAsJsonObject(CommonConstants.PROVIDER_GROK)
                 : new JsonObject();
         String value = apiKey != null ? apiKey.trim() : "";
         if (value.isEmpty()) {
@@ -1767,7 +1767,7 @@ public class CodemossSettingsService {
         } else {
             grok.addProperty("apiKey", value);
         }
-        config.add("grok", grok);
+        config.add(CommonConstants.PROVIDER_GROK, grok);
         writeConfig(config);
         LOG.info("[CodemossSettingsService] Updated grok.apiKey (present=" + !value.isEmpty() + ")");
     }
@@ -1809,10 +1809,10 @@ public class CodemossSettingsService {
 
     public JsonObject getGrokEnv() throws IOException {
         JsonObject config = readConfig();
-        if (!config.has("grok") || config.get("grok").isJsonNull()) {
+        if (!config.has(CommonConstants.PROVIDER_GROK) || config.get(CommonConstants.PROVIDER_GROK).isJsonNull()) {
             return new JsonObject();
         }
-        JsonObject grok = config.getAsJsonObject("grok");
+        JsonObject grok = config.getAsJsonObject(CommonConstants.PROVIDER_GROK);
         if (grok.has("env") && grok.get("env").isJsonObject()) {
             return grok.getAsJsonObject("env");
         }
@@ -1821,15 +1821,15 @@ public class CodemossSettingsService {
 
     public void setGrokEnv(JsonObject env) throws IOException {
         JsonObject config = readConfig();
-        JsonObject grok = config.has("grok") && !config.get("grok").isJsonNull()
-                ? config.getAsJsonObject("grok")
+        JsonObject grok = config.has(CommonConstants.PROVIDER_GROK) && !config.get(CommonConstants.PROVIDER_GROK).isJsonNull()
+                ? config.getAsJsonObject(CommonConstants.PROVIDER_GROK)
                 : new JsonObject();
         if (env == null || env.size() == 0) {
             grok.remove("env");
         } else {
             grok.add("env", env);
         }
-        config.add("grok", grok);
+        config.add(CommonConstants.PROVIDER_GROK, grok);
         writeConfig(config);
     }
 
@@ -1862,10 +1862,10 @@ public class CodemossSettingsService {
 
     private String getGrokStringSetting(String field) throws IOException {
         JsonObject config = readConfig();
-        if (!config.has("grok") || config.get("grok").isJsonNull()) {
+        if (!config.has(CommonConstants.PROVIDER_GROK) || config.get(CommonConstants.PROVIDER_GROK).isJsonNull()) {
             return "";
         }
-        JsonObject grok = config.getAsJsonObject("grok");
+        JsonObject grok = config.getAsJsonObject(CommonConstants.PROVIDER_GROK);
         if (!grok.has(field) || grok.get(field).isJsonNull()) {
             return "";
         }
@@ -1874,8 +1874,8 @@ public class CodemossSettingsService {
 
     private void setGrokStringSetting(String field, String value) throws IOException {
         JsonObject config = readConfig();
-        JsonObject grok = config.has("grok") && !config.get("grok").isJsonNull()
-                ? config.getAsJsonObject("grok")
+        JsonObject grok = config.has(CommonConstants.PROVIDER_GROK) && !config.get(CommonConstants.PROVIDER_GROK).isJsonNull()
+                ? config.getAsJsonObject(CommonConstants.PROVIDER_GROK)
                 : new JsonObject();
         String v = value != null ? value.trim() : "";
         if (v.isEmpty()) {
@@ -1883,7 +1883,7 @@ public class CodemossSettingsService {
         } else {
             grok.addProperty(field, v);
         }
-        config.add("grok", grok);
+        config.add(CommonConstants.PROVIDER_GROK, grok);
         writeConfig(config);
     }
 
@@ -1898,7 +1898,6 @@ public class CodemossSettingsService {
     // Thin connection only: bin / host / port / autoStart. Provider keys and model
     // catalog stay in the DSH Web UI ($DSH_HOME); the plugin never writes them.
 
-    private static final String DSH_SECTION_KEY = "dsh";
     private static final String DSH_DEFAULT_HOST = "127.0.0.1";
     private static final int DSH_DEFAULT_PORT = 3080;
 
@@ -1921,10 +1920,10 @@ public class CodemossSettingsService {
 
     public int getDshPort() throws IOException {
         JsonObject config = readConfig();
-        if (!config.has(DSH_SECTION_KEY) || config.get(DSH_SECTION_KEY).isJsonNull()) {
+        if (!config.has(CommonConstants.PROVIDER_DSH) || config.get(CommonConstants.PROVIDER_DSH).isJsonNull()) {
             return DSH_DEFAULT_PORT;
         }
-        JsonObject dsh = config.getAsJsonObject(DSH_SECTION_KEY);
+        JsonObject dsh = config.getAsJsonObject(CommonConstants.PROVIDER_DSH);
         if (!dsh.has("port") || dsh.get("port").isJsonNull()) {
             return DSH_DEFAULT_PORT;
         }
@@ -1938,24 +1937,24 @@ public class CodemossSettingsService {
 
     public void setDshPort(int port) throws IOException {
         JsonObject config = readConfig();
-        JsonObject dsh = config.has(DSH_SECTION_KEY) && !config.get(DSH_SECTION_KEY).isJsonNull()
-                ? config.getAsJsonObject(DSH_SECTION_KEY)
+        JsonObject dsh = config.has(CommonConstants.PROVIDER_DSH) && !config.get(CommonConstants.PROVIDER_DSH).isJsonNull()
+                ? config.getAsJsonObject(CommonConstants.PROVIDER_DSH)
                 : new JsonObject();
         if (port > 0 && port <= 65535 && port != DSH_DEFAULT_PORT) {
             dsh.addProperty("port", port);
         } else {
             dsh.remove("port");
         }
-        config.add(DSH_SECTION_KEY, dsh);
+        config.add(CommonConstants.PROVIDER_DSH, dsh);
         writeConfig(config);
     }
 
     public boolean getDshAutoStart() throws IOException {
         JsonObject config = readConfig();
-        if (!config.has(DSH_SECTION_KEY) || config.get(DSH_SECTION_KEY).isJsonNull()) {
+        if (!config.has(CommonConstants.PROVIDER_DSH) || config.get(CommonConstants.PROVIDER_DSH).isJsonNull()) {
             return true;
         }
-        JsonObject dsh = config.getAsJsonObject(DSH_SECTION_KEY);
+        JsonObject dsh = config.getAsJsonObject(CommonConstants.PROVIDER_DSH);
         if (!dsh.has("autoStart") || dsh.get("autoStart").isJsonNull()) {
             return true;
         }
@@ -1968,24 +1967,24 @@ public class CodemossSettingsService {
 
     public void setDshAutoStart(boolean autoStart) throws IOException {
         JsonObject config = readConfig();
-        JsonObject dsh = config.has(DSH_SECTION_KEY) && !config.get(DSH_SECTION_KEY).isJsonNull()
-                ? config.getAsJsonObject(DSH_SECTION_KEY)
+        JsonObject dsh = config.has(CommonConstants.PROVIDER_DSH) && !config.get(CommonConstants.PROVIDER_DSH).isJsonNull()
+                ? config.getAsJsonObject(CommonConstants.PROVIDER_DSH)
                 : new JsonObject();
         if (autoStart) {
             dsh.remove("autoStart");
         } else {
             dsh.addProperty("autoStart", false);
         }
-        config.add(DSH_SECTION_KEY, dsh);
+        config.add(CommonConstants.PROVIDER_DSH, dsh);
         writeConfig(config);
     }
 
     private String getDshStringSetting(String field) throws IOException {
         JsonObject config = readConfig();
-        if (!config.has(DSH_SECTION_KEY) || config.get(DSH_SECTION_KEY).isJsonNull()) {
+        if (!config.has(CommonConstants.PROVIDER_DSH) || config.get(CommonConstants.PROVIDER_DSH).isJsonNull()) {
             return "";
         }
-        JsonObject dsh = config.getAsJsonObject(DSH_SECTION_KEY);
+        JsonObject dsh = config.getAsJsonObject(CommonConstants.PROVIDER_DSH);
         if (!dsh.has(field) || dsh.get(field).isJsonNull()) {
             return "";
         }
@@ -1994,8 +1993,8 @@ public class CodemossSettingsService {
 
     private void setDshStringSetting(String field, String value) throws IOException {
         JsonObject config = readConfig();
-        JsonObject dsh = config.has(DSH_SECTION_KEY) && !config.get(DSH_SECTION_KEY).isJsonNull()
-                ? config.getAsJsonObject(DSH_SECTION_KEY)
+        JsonObject dsh = config.has(CommonConstants.PROVIDER_DSH) && !config.get(CommonConstants.PROVIDER_DSH).isJsonNull()
+                ? config.getAsJsonObject(CommonConstants.PROVIDER_DSH)
                 : new JsonObject();
         String v = value != null ? value.trim() : "";
         if (v.isEmpty()) {
@@ -2003,7 +2002,7 @@ public class CodemossSettingsService {
         } else {
             dsh.addProperty(field, v);
         }
-        config.add(DSH_SECTION_KEY, dsh);
+        config.add(CommonConstants.PROVIDER_DSH, dsh);
         writeConfig(config);
     }
 

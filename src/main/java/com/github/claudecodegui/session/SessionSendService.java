@@ -128,7 +128,7 @@ public class SessionSendService {
         // plan 统一降级为 default(与前端 normalizeCliPermissionMode 双保险)。
         // 例外:omp 的 "plan" 是 model role(`omp --model plan`)而非 Claude plan 模式,保留原值。
         if (CommonConstants.PERMISSION_MODE_PLAN.equals(resolvedMode)
-                && !"claude".equals(provider)
+                && !CommonConstants.PROVIDER_CLAUDE.equals(provider)
                 && !CommonConstants.PROVIDER_OMP.equals(provider)) {
             return CommonConstants.PERMISSION_MODE_DEFAULT;
         }

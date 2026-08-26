@@ -3,6 +3,7 @@ package com.github.claudecodegui.provider.dsh;
 import com.github.claudecodegui.bridge.BridgeDirectoryResolver;
 import com.github.claudecodegui.bridge.EnvironmentConfigurator;
 import com.github.claudecodegui.bridge.NodeDetector;
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.startup.BridgePreloader;
 import com.google.gson.Gson;
@@ -55,7 +56,7 @@ public class DshHistoryReader {
         if (payload == null) {
             JsonObject error = new JsonObject();
             error.addProperty("success", false);
-            error.addProperty("provider", "dsh");
+            error.addProperty("provider", CommonConstants.PROVIDER_DSH);
             error.add("sessions", new JsonArray());
             error.addProperty("error", "DSH bridge returned no session list");
             return gson.toJson(error);
@@ -133,7 +134,7 @@ public class DshHistoryReader {
 
             List<String> cmd = new ArrayList<>(NodeDetector.buildNodeScriptCommand(
                     node, script.getAbsolutePath()));
-            cmd.add("dsh");
+            cmd.add(CommonConstants.PROVIDER_DSH);
             cmd.add(command);
 
             ProcessBuilder pb = new ProcessBuilder(cmd);

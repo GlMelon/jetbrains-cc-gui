@@ -1,5 +1,6 @@
 package com.github.claudecodegui.watcher;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.model.PromptScope;
 import com.google.gson.Gson;
@@ -107,8 +108,8 @@ public class PromptFileWatcher implements BulkFileListener {
      */
     private void reloadAndNotify(PromptScope scope) {
         try {
-            notifyProvider(scope, "claude");
-            notifyProvider(scope, "codex");
+            notifyProvider(scope, CommonConstants.PROVIDER_CLAUDE);
+            notifyProvider(scope, CommonConstants.PROVIDER_CODEX);
         } catch (Exception e) {
             LOG.error("[PromptFileWatcher] Failed to reload prompts for scope=" + scope.getValue(), e);
         }

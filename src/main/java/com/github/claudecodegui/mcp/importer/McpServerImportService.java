@@ -1,5 +1,6 @@
 package com.github.claudecodegui.mcp.importer;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
@@ -70,8 +71,8 @@ public final class McpServerImportService {
         }
 
         JsonObject apps = new JsonObject();
-        apps.addProperty("claude", !isCodexMode);
-        apps.addProperty("codex", isCodexMode);
+        apps.addProperty(CommonConstants.PROVIDER_CLAUDE, !isCodexMode);
+        apps.addProperty(CommonConstants.PROVIDER_CODEX, isCodexMode);
 
         String name = getString(source, "name");
 

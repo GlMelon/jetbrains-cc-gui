@@ -1,5 +1,6 @@
 package com.github.claudecodegui.provider;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.settings.ConfigPathManager;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
@@ -28,7 +29,6 @@ public final class CustomModelContextWindowProvider {
 
     private static final Logger LOG = Logger.getInstance(CustomModelContextWindowProvider.class);
     private static final String ROOT_KEY = "customModelContextWindows";
-    private static final String CODEX_PROVIDER = "codex";
     private static final int TOKENS_PER_K = 1_000;
 
     private final ConfigPathManager pathManager;
@@ -97,11 +97,11 @@ public final class CustomModelContextWindowProvider {
         }
 
         String normalizedProvider = normalizeProvider(provider);
-        if (!CODEX_PROVIDER.equals(normalizedProvider)) {
+        if (!CommonConstants.PROVIDER_CODEX.equals(normalizedProvider)) {
             return OptionalInt.empty();
         }
 
-        Integer contextWindow = getOrLoad().forProvider(CODEX_PROVIDER).get(modelId.trim());
+        Integer contextWindow = getOrLoad().forProvider(CommonConstants.PROVIDER_CODEX).get(modelId.trim());
         return contextWindow == null ? OptionalInt.empty() : OptionalInt.of(contextWindow);
     }
 
@@ -141,11 +141,11 @@ public final class CustomModelContextWindowProvider {
             }
 
             JsonObject root = config.getAsJsonObject(ROOT_KEY);
-            if (!root.has(CODEX_PROVIDER) || !root.get(CODEX_PROVIDER).isJsonObject()) {
+            if (!root.has(CommonConstants.PROVIDER_CODEX) || !root.get(CommonConstants.PROVIDER_CODEX).isJsonObject()) {
                 return new CachedContextWindows(mtime, empty);
             }
 
-            JsonObject providerNode = root.getAsJsonObject(CODEX_PROVIDER);
+            JsonObject providerNode = root.getAsJsonObject(CommonConstants.PROVIDER_CODEX);
             Map<String, Integer> modelMap = new HashMap<>();
             for (String modelId : providerNode.keySet()) {
                 Integer contextWindow = readContextWindow(providerNode.get(modelId));
@@ -153,7 +153,7 @@ public final class CustomModelContextWindowProvider {
                     modelMap.put(modelId, contextWindow);
                 }
             }
-            return new CachedContextWindows(mtime, Map.of(CODEX_PROVIDER, Map.copyOf(modelMap)));
+            return new CachedContextWindows(mtime, Map.of(CommonConstants.PROVIDER_CODEX, Map.copyOf(modelMap)));
         } catch (Exception e) {
             LOG.warn("[CustomModelContextWindowProvider] Failed to read config: " + e.getMessage());
             return new CachedContextWindows(mtime, empty);

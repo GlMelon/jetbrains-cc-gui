@@ -30,7 +30,7 @@ public final class TokenUsageUtils {
             return 0;
         }
         int input = usage.has("input_tokens") ? usage.get("input_tokens").getAsInt() : 0;
-        if ("codex".equals(provider)) {
+        if (ProviderType.CODEX.value().equals(provider)) {
             return input;
         }
         int cacheCreation = usage.has("cache_creation_input_tokens")
@@ -121,7 +121,7 @@ public final class TokenUsageUtils {
     }
 
     public static JsonObject findLastUsageFromRawMessages(List<JsonObject> messages, String provider) {
-        boolean preferRootUsage = "codex".equals(provider);
+        boolean preferRootUsage = ProviderType.CODEX.value().equals(provider);
         for (int i = messages.size() - 1; i >= 0; i--) {
             JsonObject msg = messages.get(i);
             if (!msg.has("type") || !"assistant".equals(msg.get("type").getAsString())) { continue; }
@@ -155,7 +155,7 @@ public final class TokenUsageUtils {
             List<ClaudeSession.Message> messages,
             String provider
     ) {
-        boolean preferRootUsage = "codex".equals(provider);
+        boolean preferRootUsage = ProviderType.CODEX.value().equals(provider);
         for (int i = messages.size() - 1; i >= 0; i--) {
             ClaudeSession.Message msg = messages.get(i);
             if (msg.type != ClaudeSession.Message.Type.ASSISTANT || msg.raw == null) { continue; }

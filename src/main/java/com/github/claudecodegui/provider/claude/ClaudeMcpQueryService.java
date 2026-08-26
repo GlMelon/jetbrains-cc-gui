@@ -3,6 +3,7 @@ package com.github.claudecodegui.provider.claude;
 import com.github.claudecodegui.bridge.EnvironmentConfigurator;
 import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.bridge.ProcessManager;
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -233,7 +234,7 @@ class ClaudeMcpQueryService {
 
             String scriptPath = new File(bridgeDir, CHANNEL_SCRIPT).getAbsolutePath();
             List<String> command = NodeDetector.buildNodeScriptCommand(node, scriptPath);
-            command.add("claude");
+            command.add(CommonConstants.PROVIDER_CLAUDE);
             command.add(commandName);
 
             ProcessBuilder pb = new ProcessBuilder(command);

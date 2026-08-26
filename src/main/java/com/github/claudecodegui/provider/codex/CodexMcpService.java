@@ -2,6 +2,7 @@ package com.github.claudecodegui.provider.codex;
 
 import com.github.claudecodegui.bridge.NodeService;
 import com.github.claudecodegui.bridge.ProcessManager;
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.cli.common.CliConstants;
 import com.github.claudecodegui.protocol.CodexProtectedEnvKey;
 import com.github.claudecodegui.settings.CodemossSettingsService;
@@ -106,7 +107,7 @@ public class CodexMcpService {
                 List<String> command = new ArrayList<>();
                 command.add(node);
                 command.add(scriptPath);
-                command.add("codex");
+                command.add(CommonConstants.PROVIDER_CODEX);
                 command.add("getMcpServerTools");
 
                 ProcessBuilder pb = new ProcessBuilder(command);

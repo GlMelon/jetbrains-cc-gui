@@ -1,5 +1,6 @@
 package com.github.claudecodegui.handler.history;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -74,7 +75,7 @@ final class CodexSubagentHistoryLoader {
             throw new IllegalArgumentException("Missing toolUseId and agentPath");
         }
 
-        LookupKey key = new LookupKey("codex", parentSessionId, toolUseId, requestedAgentPath, null);
+        LookupKey key = new LookupKey(CommonConstants.PROVIDER_CODEX,parentSessionId, toolUseId, requestedAgentPath, null);
         Location location = locationCache.get(key);
         if (location == null || !Files.isRegularFile(location.file())) {
             location = resolveLocation(parentSessionId, toolUseId, requestedAgentPath);
@@ -228,7 +229,7 @@ final class CodexSubagentHistoryLoader {
     }
 
     private LookupKey statusLookupKey(String parentSessionId, StatusRequest request) {
-        return new LookupKey("codex", parentSessionId, request.toolUseId(), request.agentPath(), request.agentId());
+        return new LookupKey(CommonConstants.PROVIDER_CODEX,parentSessionId, request.toolUseId(), request.agentPath(), request.agentId());
     }
 
     private StatusResult resolveFailure(

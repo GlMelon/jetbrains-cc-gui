@@ -67,7 +67,6 @@ public class ClaudeCliSession implements CliSession {
     private final AtomicBoolean userInterrupted = new AtomicBoolean(false);
 
     // ── 长驻会话(设计文档 §3/§4):registry 为 null 时永远走 one-shot(自然降级) ──
-    private static final String PROVIDER_CLAUDE = "claude";
     private final CliPersistentProcessRegistry registry;
     private final ClaudePersistentSendPath persistentSendPath;
     // 当前活跃长驻进程(用于 interrupt 分派 interruptTurn;轮结束后置空)
@@ -135,7 +134,7 @@ public class ClaudeCliSession implements CliSession {
         // 长驻槽位释放:tab 关闭 → 关闭并移除该 tab 的长驻进程(§3.2)
         CliPersistentProcessRegistry persistentRegistry = registry;
         if (persistentRegistry != null) {
-            persistentRegistry.release(tabId, PROVIDER_CLAUDE);
+            persistentRegistry.release(tabId, CommonConstants.PROVIDER_CLAUDE);
         }
         long cleanupStartNanos = System.nanoTime();
         mcpConfig.cleanup();
@@ -484,12 +483,12 @@ public class ClaudeCliSession implements CliSession {
         }
         Map<String, String> env = buildCliEnvironment(request, gatewayConfig);
         CliProcessSpec spec = persistentSendPath.buildSpec(cliPath, request, addDirs, gatewayConfig, env);
-        CliPersistentProcess process = registry.acquire(tabId, PROVIDER_CLAUDE, spec);
+        CliPersistentProcess process = registry.acquire(tabId, CommonConstants.PROVIDER_CLAUDE, spec);
         if (process == null) {
             // 未命中(指纹漂移/回收后/崩溃槽/超限/冷却):当前消息 one-shot,后台按新 spec 静默重建
             LOG.info("[CliPathDecision] tab=" + tabId + ", path=one-shot, reason="
                     + CliConstants.PATH_REASON_REGISTRY_MISS);
-            registry.rebuildInBackground(tabId, PROVIDER_CLAUDE, spec);
+            registry.rebuildInBackground(tabId, CommonConstants.PROVIDER_CLAUDE, spec);
             return false;
         }
 
@@ -528,7 +527,7 @@ public class ClaudeCliSession implements CliSession {
             LOG.warn("[ClaudeCliSession][" + tabId + "] persistent turn failed to start", e);
             LOG.info("[CliPathDecision] tab=" + tabId + ", path=one-shot, reason="
                     + CliConstants.PATH_REASON_START_FAILED);
-            registry.rebuildInBackground(tabId, PROVIDER_CLAUDE, spec);
+            registry.rebuildInBackground(tabId, CommonConstants.PROVIDER_CLAUDE, spec);
             return false;
         } finally {
             activePersistentProcess = null;
@@ -559,7 +558,7 @@ public class ClaudeCliSession implements CliSession {
             callback.onInterrupted(turnContext.assistantText(), CliConstants.I18N_REQUEST_INTERRUPTED);
             return true;
         }
-        registry.rebuildInBackground(tabId, PROVIDER_CLAUDE, spec);
+        registry.rebuildInBackground(tabId, CommonConstants.PROVIDER_CLAUDE, spec);
         String err = CliErrorFormatter.formatError("Claude", reason);
         callback.onError(err);
         callback.onComplete(false, turnContext.producedOutput() ? turnContext.assistantText() : null, err);

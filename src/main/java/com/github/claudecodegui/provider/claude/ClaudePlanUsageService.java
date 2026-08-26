@@ -1,5 +1,6 @@
 package com.github.claudecodegui.provider.claude;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
@@ -96,7 +97,7 @@ public final class ClaudePlanUsageService {
         JsonObject out = new JsonObject();
         out.addProperty("ok", true);
         out.addProperty("present", true);
-        out.addProperty("provider", "claude");
+        out.addProperty("provider", CommonConstants.PROVIDER_CLAUDE);
         out.addProperty("source", "sdk-rate-limit");
         out.addProperty("capacity_pct", pct);
         if (resetAt != null) {
@@ -131,7 +132,7 @@ public final class ClaudePlanUsageService {
         JsonObject out = new JsonObject();
         out.addProperty("present", false);
         out.addProperty("unavailable", true);
-        out.addProperty("provider", "claude");
+        out.addProperty("provider", CommonConstants.PROVIDER_CLAUDE);
         out.addProperty("message", message);
         return out;
     }

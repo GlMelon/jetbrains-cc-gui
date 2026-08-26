@@ -89,7 +89,7 @@ final class ClaudePersistentSendPath {
 
     private static String buildFingerprint(CliSendRequest request, List<String> addDirs, String mcpConfigFilePath) {
         return String.join("|",
-                "claude",
+                CommonConstants.PROVIDER_CLAUDE,
                 orDash(request.model()),
                 orDash(request.permissionMode()),
                 orDash(request.cwd()),

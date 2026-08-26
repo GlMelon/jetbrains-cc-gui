@@ -1,6 +1,7 @@
 package com.github.claudecodegui.provider.opencode;
 
 import com.github.claudecodegui.bridge.NodeDetector;
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.provider.common.HistoryPathMatcher;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -104,7 +105,7 @@ public class OpenCodeHistoryReader {
         public long firstTimestamp;
         public String cwd;
         public long fileSize;
-        public String provider = "opencode";
+        public String provider = CommonConstants.PROVIDER_OPENCODE;
         /** Restored model id (e.g. opencode/deepseek-v4-flash-free). Optional. */
         public String model;
         /** OpenCode agent name when known. Optional. */
@@ -118,7 +119,7 @@ public class OpenCodeHistoryReader {
             result.put("success", true);
             result.put("sessions", sessions);
             result.put("sessionCount", sessions.size());
-            result.put("provider", "opencode");
+            result.put("provider", CommonConstants.PROVIDER_OPENCODE);
             int totalMessages = sessions.stream().mapToInt(s -> s.messageCount).sum();
             result.put("total", totalMessages);
             return gson.toJson(result);
@@ -193,7 +194,7 @@ public class OpenCodeHistoryReader {
                     info.firstTimestamp = rs.getLong("time_created");
                     info.lastTimestamp = rs.getLong("time_updated");
                     info.messageCount = rs.getInt("message_count");
-                    info.provider = "opencode";
+                    info.provider = CommonConstants.PROVIDER_OPENCODE;
                     info.model = normalizeOpenCodeModel(rs.getString("model"));
                     info.agent = blankToNull(rs.getString("agent"));
                     if (info.model == null) {
@@ -533,7 +534,7 @@ public class OpenCodeHistoryReader {
             SessionInfo info = new SessionInfo();
             info.sessionId = id;
             info.cwd = text(obj, "directory");
-            info.provider = "opencode";
+            info.provider = CommonConstants.PROVIDER_OPENCODE;
             info.title = text(obj, "title");
             info.agent = blankToNull(text(obj, "agent"));
             if (obj.has("model") && !obj.get("model").isJsonNull()) {

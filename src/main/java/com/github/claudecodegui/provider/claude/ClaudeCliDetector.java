@@ -266,7 +266,7 @@ public class ClaudeCliDetector {
         if (pathEnv == null || pathEnv.isEmpty()) {
             return null;
         }
-        String cliName = PlatformUtils.isWindows() ? "claude.cmd" : "claude";
+        String cliName = ProviderType.CLAUDE.cliCommandForPlatform();
         for (String dir : pathEnv.split(File.pathSeparator)) {
             if (dir == null || dir.isEmpty()) {
                 continue;
