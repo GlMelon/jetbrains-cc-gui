@@ -13,9 +13,11 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
 
-import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
+import java.io.Closeable;
 import java.io.File;
-import java.io.InputStreamReader;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -33,6 +35,12 @@ class ClaudeSessionQueryService {
 
     private static final String CHANNEL_SCRIPT = "channel-manager.js";
     private static final int PROCESS_TIMEOUT_SECONDS = 30;
+    /** stdout 总字节上限(32 MiB)。超阈即丢弃、terminate、抛异常,不保留半条消息。
+     *  取值大于 NodeJsServiceCaller 的 1 MiB:getSession 的大会话历史 payload 合法可达
+     *  数 MB(见 runSessionQuery 中的截断告警注释),1 MiB 会误杀正常大会话。 */
+    private static final int MAX_OUTPUT_BYTES = 32 * 1024 * 1024;
+    /** 读线程 join 上限(秒):进程结束后等待读线程读完管道尾部的宽限。 */
+    private static final long READER_JOIN_SECONDS = 5;
     private static final Pattern VALID_SESSION_ID = Pattern.compile("[a-zA-Z0-9_\\-]+");
     private static final Pattern IMAGE_REFERENCE_PATTERN = Pattern.compile(
             "(?im)^\\s*(?:\\[Image #\\d+:\\s*)?((?:[a-z]:[/\\\\]|/).+?\\.(?:png|jpe?g|gif|webp|bmp|svg))(?:\\])?\\s*$"
@@ -235,34 +243,51 @@ class ClaudeSessionQueryService {
         // L5 fix: register with ProcessManager so cleanupAllProcesses sees this child.
         String channelId = ProcessManager.newChannelId("claude-session-query");
         Process process = null;
-        StringBuilder output = new StringBuilder();
+        Thread stdoutReader = null;
+        InputStream stdoutStream = null;
+        CapturedOutput output = new CapturedOutput();
         try {
             process = pb.start();
             processManager.registerProcess(channelId, process);
 
-            try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    output.append(line).append("\n");
-                }
-            }
+            // S3 同款加固(见 NodeJsServiceCaller.executeNodeScript):stdout 由独立守护
+            // 线程 drain 到有界缓冲,主线程 waitFor 真超时 —— 原实现在主线程 readLine 到
+            // EOF 之后才 waitFor,子进程挂起不关 stdout 时 readLine 永不返回,根本到不了
+            // waitFor,调用线程永久阻塞,超时形同虚设。
+            final Process proc = process;
+            stdoutStream = process.getInputStream();
+            final InputStream procStdout = stdoutStream;
+            stdoutReader = new Thread(
+                    () -> drainStdoutCapped(proc, procStdout, output),
+                    "claude-session-query-reader");
+            stdoutReader.setDaemon(true);
+            stdoutReader.start();
 
             boolean finished = process.waitFor(PROCESS_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             if (!finished) {
                 PlatformUtils.terminateProcess(process);
+                joinQuietly(stdoutReader, READER_JOIN_SECONDS);
                 throw new RuntimeException("Node.js process timed out after " + PROCESS_TIMEOUT_SECONDS + " seconds");
             }
+
+            // 进程已结束:等读线程读完管道尾部,再判定 cap。
+            joinQuietly(stdoutReader, READER_JOIN_SECONDS);
+            if (output.overflow) {
+                throw new RuntimeException("Node.js process output exceeded size cap (max "
+                        + MAX_OUTPUT_BYTES + " bytes)");
+            }
         } finally {
+            if (process != null && process.isAlive()) {
+                PlatformUtils.terminateProcess(process);
+            }
+            closeQuietly(stdoutStream);
+            joinQuietly(stdoutReader, READER_JOIN_SECONDS);
             if (process != null) {
-                if (process.isAlive()) {
-                    PlatformUtils.terminateProcess(process);
-                }
                 processManager.unregisterProcess(channelId, process);
             }
         }
 
-        String outputStr = output.toString().trim();
+        String outputStr = output.builder.toString().trim();
         log.debug("[" + logPrefix + "] Raw output length: " + outputStr.length());
         if (log.isDebugEnabled()) {
             log.debug("[" + logPrefix + "] Raw output (first 300 chars): "
@@ -294,6 +319,65 @@ class ClaudeSessionQueryService {
         log.debug("[" + logPrefix + "] JSON parsed successfully, success="
                 + (jsonResult.has("success") ? jsonResult.get("success").getAsBoolean() : "null"));
         return jsonResult;
+    }
+
+    /**
+     * 分块 drain stdout 到有界缓冲(总字节 {@link #MAX_OUTPUT_BYTES}):超阈即置 overflow
+     * 并 {@code destroyForcibly} 打断子进程(否则子进程会因管道写阻塞而永不退出,令主线程
+     * 在 {@code waitFor} 干等 timeout),主线程抛异常、不保留半条消息。
+     * <p>
+     * {@code output} 由本(读)线程写、主线程在 join 后读(join 建立 happens-before,
+     * 单写者→单读者,安全)。
+     */
+    private static void drainStdoutCapped(Process process, InputStream in, CapturedOutput output) {
+        try {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream(8192);
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = in.read(buf)) != -1) {
+                baos.write(buf, 0, n);
+                if (baos.size() > MAX_OUTPUT_BYTES) {
+                    output.overflow = true;
+                    try {
+                        process.destroyForcibly();
+                    } catch (Exception ignored) {
+                        // 平台感知的进程树清理由主线程 finally 兜底,此处忽略 destroy 异常。
+                    }
+                    return;
+                }
+            }
+            output.builder.append(baos.toString(StandardCharsets.UTF_8));
+        } catch (IOException e) {
+            // 子进程被 terminate 导致流关闭 —— 正常退出路径,不抛。
+        }
+    }
+
+    private static void joinQuietly(Thread t, long seconds) {
+        if (t == null) {
+            return;
+        }
+        try {
+            t.join(TimeUnit.SECONDS.toMillis(seconds));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private static void closeQuietly(Closeable closeable) {
+        if (closeable == null) {
+            return;
+        }
+        try {
+            closeable.close();
+        } catch (IOException ignored) {
+            // The process may have closed the stream already.
+        }
+    }
+
+    /** stdout 捕获结果:原始输出 + 超阈标志。读线程写,主线程 join 后读。 */
+    private static final class CapturedOutput {
+        final StringBuilder builder = new StringBuilder();
+        volatile boolean overflow = false;
     }
 
     static JsonObject normalizeClaudeHistoryMessage(JsonObject originalMessage) {

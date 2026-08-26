@@ -10,7 +10,8 @@ import static org.junit.Assert.assertTrue;
  * 测试 {@link ProcessManager#cleanupStaleChannelProcesses} 兜底清理逻辑。
  *
  * <p>S3 watchdog 核心:自动检测长时间存活(超阈值)的 channel 进程并终止,
- * 防止线程被 kill 等异常场景下进程泄漏。</p>
+ * 防止线程被 kill 等异常场景下进程泄漏;同时摘除已死进程残留的账本条目,
+ * 防止 activeChannelProcesses/channelStartTimes 无限增长。</p>
  */
 public class ProcessManagerStaleChannelTest {
 
@@ -44,15 +45,20 @@ public class ProcessManagerStaleChannelTest {
     }
 
     @Test
-    public void cleanupStaleChannelProcessesSkipsDeadProcess() {
+    public void cleanupStaleChannelProcessesRemovesDeadProcessLedgerEntry() {
         ProcessManager manager = new ProcessManager();
         FakeProcess process = new FakeProcess(false);
         String channelId = "test-channel";
 
         manager.registerProcess(channelId, process);
+        // 已死进程的账本条目也应被 sweeper 摘除(无需等 maxAge),否则 activeChannelProcesses /
+        // channelStartTimes 会无限增长
         int cleaned = manager.cleanupStaleChannelProcesses(100, System.currentTimeMillis() + 200);
 
-        assertEquals(0, cleaned);
+        assertEquals(1, cleaned);
+        // 条目已移除:再次 sweep 不应再找到它
+        assertEquals(0, manager.cleanupStaleChannelProcesses(100, System.currentTimeMillis() + 400));
+        assertEquals(0, manager.getActiveProcessCount());
     }
 
     @Test

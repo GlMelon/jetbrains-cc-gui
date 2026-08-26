@@ -13,16 +13,16 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
 /**
@@ -33,6 +33,10 @@ public class ProviderManager {
     private static final Logger LOG = Logger.getInstance(ProviderManager.class);
     private static final String BACKUP_FILE_NAME = "config.json.bak";
     private static final long READ_DB_TIMEOUT_SECONDS = 30;
+    /** stdout 总字节上限(1 MiB,与 NodeJsServiceCaller 一致)。超阈即丢弃、terminate、抛异常。 */
+    private static final int MAX_OUTPUT_BYTES = 1 * 1024 * 1024;
+    /** 读线程 join 上限(秒):进程结束后等待读线程读完管道尾部的宽限。 */
+    private static final long READER_JOIN_SECONDS = 5;
     public static final String DISABLED_PROVIDER_ID = "__disabled__";
     public static final String LOCAL_SETTINGS_PROVIDER_ID = "__local_settings_json__";
     public static final String CLI_LOGIN_PROVIDER_ID = "__cli_login__";
@@ -571,34 +575,46 @@ public class ProviderManager {
             LOG.info("[ProviderManager] Executing command: " + nodePath + " " + scriptPath + " " + dbPath);
 
             // Start the process and register it with the process ledger:
-            // - bounded waitFor() covers "stdout reached EOF but the process won't exit";
-            // - registration covers "node hangs while stdout stays open" — the readLine() loop below then
-            //   blocks indefinitely (pre-existing behavior), but the process is visible in the process
-            //   panel and killed by IDE-shutdown cleanup instead of escaping every cleanup path.
-            // This was the only unbounded+unregistered combination left in the codebase (see NodeJsServiceCaller).
+            // - stdout 由独立守护线程 drain 到有界缓冲,主线程 waitFor 真超时(同
+            //   NodeJsServiceCaller 范式)——原实现在主线程 readLine 到 EOF 之后才
+            //   waitFor,子进程挂起不关 stdout 时 readLine 永不返回,超时形同虚设;
+            // - registration covers IDE-shutdown cleanup via cleanupAllProcesses.
             Process process = pb.start();
             String channelId = ProcessManager.newChannelId("cc-switch-db-read");
             ProcessManager processManager = NodeService.getInstance().getProcessManager();
             processManager.registerProcess(channelId, process);
-            StringBuilder output = new StringBuilder();
-            try {
-                // Read output (drains stdout to EOF, keeping the pipe from filling up)
-                try (BufferedReader reader = new BufferedReader(
-                        new InputStreamReader(process.getInputStream(), java.nio.charset.StandardCharsets.UTF_8))) {
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        output.append(line);
-                    }
-                }
 
+            StringBuilder output = new StringBuilder();
+            AtomicBoolean overflow = new AtomicBoolean(false);
+            // process 非 effectively final,取别名 proc 供读线程捕获;output/overflow 由
+            // 读线程写、主线程在 join 后读(join 建立 happens-before,单写者→单读者,安全)。
+            final Process proc = process;
+            Thread stdoutReader = new Thread(
+                    () -> drainStdoutCapped(proc, output, overflow),
+                    "cc-switch-db-reader");
+            stdoutReader.setDaemon(true);
+            stdoutReader.start();
+            try {
                 // Wait for process to finish (bounded; kill the tree on timeout)
                 if (!process.waitFor(READ_DB_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
                     LOG.warn("[ProviderManager] Node.js script timed out after " + READ_DB_TIMEOUT_SECONDS
                             + "s, killing process tree");
                     PlatformUtils.terminateProcess(process);
+                    joinQuietly(stdoutReader, READER_JOIN_SECONDS);
                     throw new IOException("Node.js script timed out after " + READ_DB_TIMEOUT_SECONDS + "s");
                 }
+
+                // 进程已结束:等读线程读完管道尾部,再判定 cap。
+                joinQuietly(stdoutReader, READER_JOIN_SECONDS);
+                if (overflow.get()) {
+                    throw new IOException("Node.js script output exceeded size cap (max "
+                            + MAX_OUTPUT_BYTES + " bytes)");
+                }
             } finally {
+                if (process.isAlive()) {
+                    PlatformUtils.terminateProcess(process);
+                }
+                joinQuietly(stdoutReader, READER_JOIN_SECONDS);
                 processManager.unregisterProcess(channelId, process);
             }
             int exitCode = process.exitValue();
@@ -646,6 +662,46 @@ public class ProviderManager {
         }
 
         return result;
+    }
+
+    /**
+     * 分块 drain 子进程 stdout 到有界缓冲(总字节 {@link #MAX_OUTPUT_BYTES}):超阈即置
+     * overflow 并 {@code destroyForcibly} 打断子进程(否则子进程会因管道写阻塞而永不退出,
+     * 令主线程在 {@code waitFor} 干等 timeout),主线程抛异常、不保留半条消息。
+     */
+    private static void drainStdoutCapped(Process process, StringBuilder output, AtomicBoolean overflow) {
+        try {
+            InputStream in = process.getInputStream();
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream(8192);
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = in.read(buf)) != -1) {
+                baos.write(buf, 0, n);
+                if (baos.size() > MAX_OUTPUT_BYTES) {
+                    overflow.set(true);
+                    try {
+                        process.destroyForcibly();
+                    } catch (Exception ignored) {
+                        // 平台感知的进程树清理由主线程 finally 兜底,此处忽略 destroy 异常。
+                    }
+                    return;
+                }
+            }
+            output.append(baos.toString(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (IOException e) {
+            // 子进程被 terminate 导致流关闭 —— 正常退出路径,不抛。
+        }
+    }
+
+    private static void joinQuietly(Thread t, long seconds) {
+        if (t == null) {
+            return;
+        }
+        try {
+            t.join(TimeUnit.SECONDS.toMillis(seconds));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     /**

@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Process manager.
- * Manages child processes related to the Claude SDK.
+ * Manages Node.js child processes spawned for provider CLI channels.
  */
 public class ProcessManager {
 
@@ -564,15 +564,25 @@ public class ProcessManager {
     }
 
     /**
-     * Scans and cleans up stale channel processes that have been alive longer than
-     * {@code maxAgeMs}. Returns the number of processes cleaned.
+     * Scans and cleans up stale channel processes. Returns the number of ledger
+     * entries cleaned.
      * <p>
-     * A channel process is considered stale if it is still alive and its registered
-     * start time exceeds {@code maxAgeMs}. This is a safety net for abnormal scenarios
-     * (e.g. the thread is killed before {@code waitFor} or {@code unregisterProcess}).
-     * <p>
+     * Two cases are cleaned:
+     * <ul>
+     *   <li><b>Dead process</b>: the child already exited but its ledger entry was
+     *       never removed (e.g. the owning thread was killed before
+     *       {@code unregisterProcess}) — the entry is pure garbage and is unregistered
+     *       regardless of age, otherwise {@code activeChannelProcesses} /
+     *       {@code channelStartTimes} would grow without bound.</li>
+     *   <li><b>Alive but over-aged</b>: still alive and its registered start time
+     *       exceeds {@code maxAgeMs} — terminated, then unregistered. This is a safety
+     *       net for abnormal scenarios (e.g. the thread is killed before
+     *       {@code waitFor} or {@code unregisterProcess}).</li>
+     * </ul>
      * Thread-safe: uses ConcurrentHashMap iterators and does not throw on concurrent
-     * modification. Missed entries in one pass are acceptable for a safety-net scan.
+     * modification; {@code unregisterProcess} uses conditional {@code remove(key, value)},
+     * so racing with the owning thread's normal unregister is harmless. Missed entries
+     * in one pass are acceptable for a safety-net scan.
      * <p>
      * Periodically invoked by the stale-channel sweeper started via
      * {@link #startStaleChannelSweeper()} (shared scheduler, cancelled in
@@ -584,15 +594,23 @@ public class ProcessManager {
         for (Map.Entry<String, Process> entry : activeChannelProcesses.entrySet()) {
             String channelId = entry.getKey();
             Process process = entry.getValue();
-            if (process != null && process.isAlive()) {
-                Long startTime = channelStartTimes.get(channelId);
-                if (startTime != null && (now - startTime) > maxAgeMs) {
-                    LOG.warn("[ProcessManager] Watchdog: stale channel process detected: " + channelId
+            if (process == null) {
+                continue;
+            }
+            if (!process.isAlive()) {
+                // 已死进程的账本条目不会被正常 unregister 路径移除(如 owning 线程被 kill),
+                // 由 sweeper 摘除,防 activeChannelProcesses/channelStartTimes 无限增长。
+                unregisterProcess(channelId, process);
+                cleaned++;
+                continue;
+            }
+            Long startTime = channelStartTimes.get(channelId);
+            if (startTime != null && (now - startTime) > maxAgeMs) {
+                LOG.warn("[ProcessManager] Watchdog: stale channel process detected: " + channelId
                         + " (age=" + (now - startTime) + "ms)");
-                    terminateProcess(channelId, process);
-                    unregisterProcess(channelId, process);
-                    cleaned++;
-                }
+                terminateProcess(channelId, process);
+                unregisterProcess(channelId, process);
+                cleaned++;
             }
         }
         return cleaned;
