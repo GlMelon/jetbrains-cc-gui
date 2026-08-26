@@ -24,6 +24,7 @@ export const ChatInputBoxFooter = memo(function ChatInputBoxFooter({
   isEnhancing,
   selectedModel,
   selectedModelIdentifier,
+  modelSelectOpenSignal,
   permissionMode,
   currentProvider,
   dshPreset,
@@ -61,6 +62,8 @@ export const ChatInputBoxFooter = memo(function ChatInputBoxFooter({
   isEnhancing: boolean;
   selectedModel: string;
   selectedModelIdentifier?: string;
+  /** Imperative open signal for the model selector (increment to open; /model command) */
+  modelSelectOpenSignal?: number;
   permissionMode: PermissionMode;
   currentProvider: string;
   dshPreset?: string;
@@ -110,6 +113,7 @@ export const ChatInputBoxFooter = memo(function ChatInputBoxFooter({
         isEnhancing={isEnhancing}
         selectedModel={selectedModel}
         selectedModelIdentifier={selectedModelIdentifier}
+        modelSelectOpenSignal={modelSelectOpenSignal}
         permissionMode={permissionMode}
         currentProvider={currentProvider}
         dshPreset={dshPreset}

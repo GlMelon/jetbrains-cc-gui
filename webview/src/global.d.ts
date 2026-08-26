@@ -569,11 +569,6 @@ interface Window {
   onTokenTrackerResponse?: (json: string) => void;
 
   /**
-   * Update slash commands list (from SDK)
-   */
-  updateSlashCommands?: (json: string) => void;
-
-  /**
    * Update dollar commands list (for $ autocomplete)
    */
   updateDollarCommands?: (json: string) => void;
@@ -582,11 +577,6 @@ interface Window {
    * Pending dollar commands payload before callback registration
    */
   __pendingDollarCommands?: string;
-
-  /**
-   * Pending slash commands payload before provider initialization
-   */
-  __pendingSlashCommands?: string;
 
   /**
    * Pending session ID before App component mounts (for rewind feature)

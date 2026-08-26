@@ -28,6 +28,8 @@ const MAX_VISIBLE_MODEL_OPTIONS = 100;
 interface ModelSelectProps {
   value: string;
   selectedIdentifier?: string;
+  /** Imperative open signal: increment to open the dropdown (used by the /model command) */
+  openSignal?: number;
   onChange: (model: ModelInfo) => void;
   models?: ModelInfo[];
   currentProvider?: string;
@@ -83,7 +85,7 @@ const resolveModelIdForIcon = (
  * ModelSelect - Model selector component
  * Supports switching between Sonnet 4.5, Opus 4.5, and other models, including Codex models
  */
-export const ModelSelect = ({ value, selectedIdentifier, onChange, models = [], currentProvider = 'claude' }: ModelSelectProps) => {
+export const ModelSelect = ({ value, selectedIdentifier, openSignal, onChange, models = [], currentProvider = 'claude' }: ModelSelectProps) => {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -185,6 +187,14 @@ export const ModelSelect = ({ value, selectedIdentifier, onChange, models = [], 
       recalculate();
     }
   }, [isOpen, recalculate]);
+
+  // Imperative open (e.g. /model slash command): open whenever the signal increments.
+  useEffect(() => {
+    if (openSignal) {
+      setIsOpen(true);
+      recalculate();
+    }
+  }, [openSignal, recalculate]);
 
   /**
    * Select model

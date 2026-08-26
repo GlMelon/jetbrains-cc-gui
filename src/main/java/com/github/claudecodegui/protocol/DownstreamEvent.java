@@ -213,6 +213,7 @@ public enum DownstreamEvent implements ProtocolValue {
     FILE_LIST_RESULT("file.list_result"),
 
     // ── Slash ──
+    SLASH_COMMANDS("slash.commands"),
     SLASH_DOLLAR_COMMANDS("slash.dollar_commands"),
 
     // ── Codex ──

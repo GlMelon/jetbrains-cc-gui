@@ -1,11 +1,15 @@
 import { sendAction } from '../../../bridge/typed';
-import { UPSTREAM } from '../../../generated/protocol';
+import { subscribeEvent } from '../../../bridge/typed';
+import { UPSTREAM, DOWNSTREAM } from '../../../generated/protocol';
 import type { CommandItem, DropdownItemData } from '../types';
 import i18n from '../../../i18n/config';
 import { debugError, debugLog, debugWarn } from '../../../utils/debug.js';
 
 /**
- * Local command list (commands to be filtered out)
+ * Local command list (commands to be filtered out of the dropdown).
+ * /new, /reset and /continue are hidden aliases: the backend includes them in the
+ * command list (with localAction) so typed input resolves, but the dropdown only
+ * shows the canonical /clear and /resume entries.
  */
 const HIDDEN_COMMANDS = new Set([
   '/cost',
@@ -14,22 +18,10 @@ const HIDDEN_COMMANDS = new Set([
   '/security-review',
   '/todo',
   '/doctor',
+  '/new',
+  '/reset',
+  '/continue',
 ]);
-
-/**
- * Local new session commands (/clear, /new, /reset are aliases for the same command)
- * These commands are handled directly on the frontend, no need to send to SDK
- */
-const NEW_SESSION_COMMAND_ALIASES = new Set(['/clear', '/new', '/reset']);
-
-function getLocalNewSessionCommands(): CommandItem[] {
-  return [{
-    id: 'clear',
-    label: '/clear',
-    description: i18n.t('chat.clearCommandDescription'),
-    category: 'system',
-  }];
-}
 
 // ============================================================================
 // State Management
@@ -46,6 +38,10 @@ let pendingWaiters: Array<{ resolve: () => void; reject: (error: unknown) => voi
 const MIN_REFRESH_INTERVAL = 2000;
 const LOADING_TIMEOUT = 30000; // Increased to 30s to handle slow initial load for some Windows users
 const MAX_RETRY_COUNT = 3;
+/** Shorter timeout for send-time local command lookup — must not block message sending. */
+const LOCAL_LOOKUP_TIMEOUT = 5000;
+
+const WHITESPACE_REGEX = /\s+/;
 
 // ============================================================================
 // Core Functions
@@ -65,11 +61,13 @@ interface SDKSlashCommand {
   name: string;
   description?: string;
   source?: string;
+  /** Backend-annotated local action (LocalSlashAction value); absent = forward to CLI. */
+  localAction?: string;
 }
 
 export function setupSlashCommandsCallback() {
   if (typeof window === 'undefined') return;
-  if (callbackRegistered && window.updateSlashCommands) return;
+  if (callbackRegistered) return;
 
   const handler = (json: string) => {
     debugLog('[SlashCommand] Received data from backend, length=' + json.length);
@@ -87,6 +85,9 @@ export function setupSlashCommandsCallback() {
               label: cmd.name.startsWith('/') ? cmd.name : `/${cmd.name}`,
               description: formatCommandDescription(cmd.description || '', cmd.source),
               category: getCategoryFromCommand(cmd.name),
+              localAction: typeof cmd.localAction === 'string' && cmd.localAction.length > 0
+                ? cmd.localAction
+                : undefined,
             }));
           } else if (typeof parsed[0] === 'string') {
             const commandNames: string[] = parsed;
@@ -120,21 +121,10 @@ export function setupSlashCommandsCallback() {
     }
   };
 
-  const originalHandler = window.updateSlashCommands;
-
-  window.updateSlashCommands = (json: string) => {
-    handler(json);
-    originalHandler?.(json);
-  };
+  // [归一化] 经 bridgeHub 订阅 slash.commands 事件,替代旧 window.updateSlashCommands 回调。
+  subscribeEvent(DOWNSTREAM.SLASH_COMMANDS, (json) => handler(json as string));
   callbackRegistered = true;
   debugLog('[SlashCommand] Callback registered');
-
-  if (window.__pendingSlashCommands) {
-    debugLog('[SlashCommand] Processing pending commands');
-    const pending = window.__pendingSlashCommands;
-    window.__pendingSlashCommands = undefined;
-    handler(pending);
-  }
 }
 
 function waitForSlashCommands(signal: AbortSignal, timeoutMs: number): Promise<void> {
@@ -219,10 +209,8 @@ function requestRefresh(): boolean {
 function isHiddenCommand(name: string): boolean {
   const normalized = name.startsWith('/') ? name : `/${name}`;
   if (HIDDEN_COMMANDS.has(normalized)) return true;
-  // Hide SDK-returned /clear (use local version instead)
-  if (NEW_SESSION_COMMAND_ALIASES.has(normalized)) return true;
   const baseName = normalized.split(' ')[0];
-  return HIDDEN_COMMANDS.has(baseName) || NEW_SESSION_COMMAND_ALIASES.has(baseName);
+  return HIDDEN_COMMANDS.has(baseName);
 }
 
 function getCategoryFromCommand(name: string): string {
@@ -244,13 +232,11 @@ function formatCommandDescription(description: string, source?: string): string 
 
 function filterCommands(commands: CommandItem[], query: string): CommandItem[] {
   const visibleCommands = commands.filter(cmd => !isHiddenCommand(cmd.label));
-  const localCommands = getLocalNewSessionCommands();
-  const merged = [...localCommands, ...visibleCommands];
 
-  if (!query) return merged;
+  if (!query) return visibleCommands;
 
   const lowerQuery = query.toLowerCase();
-  return merged.filter(cmd =>
+  return visibleCommands.filter(cmd =>
     cmd.label.toLowerCase().includes(lowerQuery) ||
     cmd.description?.toLowerCase().includes(lowerQuery) ||
     cmd.id.toLowerCase().includes(lowerQuery)
@@ -302,6 +288,56 @@ export async function slashCommandProvider(
   }];
 }
 
+/**
+ * Resolve a typed slash command text to a backend-annotated local command.
+ *
+ * The backend (SlashCommandRegistry) is the SSOT for which commands are handled
+ * locally: it annotates the command payload with `localAction`. This lookup only
+ * reads that metadata — no frontend-side command table. Returns null when the
+ * command is unknown or has no local action (i.e. forward to the CLI as plain text),
+ * or when the command list cannot be loaded within LOCAL_LOOKUP_TIMEOUT.
+ */
+export async function resolveLocalSlashCommand(text: string): Promise<CommandItem | null> {
+  if (!text.startsWith('/')) return null;
+  const commandLabel = text.split(WHITESPACE_REGEX)[0].toLowerCase();
+
+  setupSlashCommandsCallback();
+
+  if (loadingState === 'idle' || loadingState === 'failed') {
+    requestRefresh();
+  }
+
+  if (loadingState !== 'success') {
+    const controller = new AbortController();
+    await waitForSlashCommands(controller.signal, LOCAL_LOOKUP_TIMEOUT).catch(() => {});
+  }
+
+  if (loadingState !== 'success') return null;
+
+  const match = cachedSdkCommands.find(cmd => cmd.label.toLowerCase() === commandLabel);
+  return match && match.localAction ? match : null;
+}
+
+/**
+ * List the visible (non-hidden) slash commands for display purposes (e.g. /help).
+ * Ensures the cache is loaded; returns an empty list on failure.
+ */
+export async function listVisibleSlashCommands(): Promise<CommandItem[]> {
+  setupSlashCommandsCallback();
+
+  if (loadingState === 'idle' || loadingState === 'failed') {
+    requestRefresh();
+  }
+
+  if (loadingState !== 'success') {
+    const controller = new AbortController();
+    await waitForSlashCommands(controller.signal, LOCAL_LOOKUP_TIMEOUT).catch(() => {});
+  }
+
+  if (loadingState !== 'success') return [];
+  return filterCommands(cachedSdkCommands, '');
+}
+
 export function commandToDropdownItem(command: CommandItem): DropdownItemData {
   return {
     id: command.id,
@@ -339,4 +375,3 @@ export function preloadSlashCommands(): void {
   // Request refresh -- built-in deduplication protection
   requestRefresh();
 }
-

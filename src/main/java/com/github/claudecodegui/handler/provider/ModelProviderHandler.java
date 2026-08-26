@@ -439,7 +439,7 @@ public class ModelProviderHandler {
 
             ApplicationManager.getApplication().invokeLater(() -> {
                 try {
-                    context.callJavaScript("updateSlashCommands", context.escapeJs(json));
+                    context.dispatchEvent(DownstreamEvent.SLASH_COMMANDS.value(), context.escapeJs(json));
                     if (codexJson != null) {
                         context.dispatchEvent(DownstreamEvent.SLASH_DOLLAR_COMMANDS.value(), context.escapeJs(codexJson));
                     }

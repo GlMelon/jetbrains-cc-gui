@@ -21,6 +21,7 @@ export function useChatInputImperativeHandle({
   clearInput,
   hasContent,
   extractFileTags,
+  openModelSelect,
 }: {
   ref: ForwardedRef<ChatInputBoxHandle>;
   editableRef: MutableRefObject<HTMLDivElement | null>;
@@ -33,6 +34,7 @@ export function useChatInputImperativeHandle({
   clearInput: () => void;
   hasContent: boolean;
   extractFileTags: () => FileTagInfo[];
+  openModelSelect: () => void;
 }): void {
   useImperativeHandle(
     ref,
@@ -64,6 +66,7 @@ export function useChatInputImperativeHandle({
       clear: clearInput,
       hasContent: () => hasContent,
       getFileTags: extractFileTags,
+      openModelSelect,
     }),
     [
       getTextContent,
@@ -76,6 +79,7 @@ export function useChatInputImperativeHandle({
       clearInput,
       hasContent,
       extractFileTags,
+      openModelSelect,
     ]
   );
 }

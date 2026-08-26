@@ -326,7 +326,7 @@ public class SessionLifecycleManager {
 
         ApplicationManager.getApplication().invokeLater(() -> {
             try {
-                host.callJavaScript("updateSlashCommands", JsUtils.escapeJs(commandsJson));
+                host.getHandlerContext().dispatchEvent(DownstreamEvent.SLASH_COMMANDS.value(), JsUtils.escapeJs(commandsJson));
 
                 // Push Codex skills as separate channel for $ autocomplete
                 if (codexSkillsJson != null) {

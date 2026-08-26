@@ -3,38 +3,20 @@ import { UPSTREAM } from '../generated/protocol';
 import { useCallback, type RefObject } from 'react';
 import type { TFunction } from 'i18next';
 import type { ClaudeContentBlock, ClaudeMessage } from '../types';
-import { strip1MContextSuffix } from '../components/ChatInputBox/types';
 import type { Attachment, ChatInputBoxHandle, PermissionMode, SelectedAgent } from '../components/ChatInputBox/types';
-import type { ViewMode } from './useModelProviderState';
-import { getModelsForProvider } from '../utils/modelRegistry';
 import { expandQuoteTokens } from '../components/ChatInputBox/utils/quoteRegistry';
 
 /**
- * Command sets for local handling (shared with App.tsx to avoid duplication)
- */
-export const NEW_SESSION_COMMANDS = new Set(['/new', '/clear', '/reset']);
-export const RESUME_COMMANDS = new Set(['/resume', '/continue']);
-export const PLAN_COMMANDS = new Set(['/plan']);
-export const CONTEXT_COMMANDS = new Set(['/context']);
-
-// Hoisted regex to avoid creating new RegExp on every call
-const WHITESPACE_REGEX = /\s+/;
-
-function createContextUsageRequestId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  return `context-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-/**
  * Handles message building, validation, and sending to the backend.
+ *
+ * Plugin-local slash commands (/clear, /plan, /context, /model, /help, ...) are NOT
+ * handled here — they are resolved via useLocalSlashCommands in App.tsx, driven by
+ * backend-annotated localAction metadata (SSOT: SlashCommandRegistry).
  */
 export function useMessageSender({
   t,
   addToast,
   currentProvider,
-  selectedModel,
   dshPreset,
   selectedAgent,
   sentAttachmentsRef,
@@ -47,12 +29,6 @@ export function useMessageSender({
   setLoading,
   setLoadingStartTime,
   setStreamingActive,
-  setCurrentView,
-  forceCreateNewSession,
-  handleModeSelect,
-  longContextEnabled,
-  openContextUsageDialog,
-  closeContextUsageDialog,
 }: {
   t: TFunction;
   addToast: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
@@ -71,100 +47,10 @@ export function useMessageSender({
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;
   setLoadingStartTime: React.Dispatch<React.SetStateAction<number | null>>;
   setStreamingActive: React.Dispatch<React.SetStateAction<boolean>>;
-  setCurrentView: React.Dispatch<React.SetStateAction<ViewMode>>;
-  forceCreateNewSession: () => void;
-  handleModeSelect?: (mode: PermissionMode) => void;
-  longContextEnabled?: boolean;
-  openContextUsageDialog: (requestId?: string | null, loading?: boolean) => void;
-  closeContextUsageDialog: (requestId?: string | null) => boolean;
 }) {
   const getProviderDisplayName = useCallback((provider: string): string => {
     return provider === 'codex' ? 'Codex' : 'Claude Code';
   }, []);
-
-  /**
-   * Check if the input is a new session command
-   */
-  const checkNewSessionCommand = useCallback((text: string): boolean => {
-    if (!text.startsWith('/')) return false;
-    const command = text.split(/\s+/)[0].toLowerCase();
-    if (NEW_SESSION_COMMANDS.has(command)) {
-      forceCreateNewSession();
-      return true;
-    }
-    return false;
-  }, [forceCreateNewSession]);
-
-  /**
-   * Check for local-handled slash commands (/resume, /plan)
-   * Returns true if the command was handled locally
-   * Note: This is also checked in App.tsx handleSubmit to bypass loading queue
-   */
-  const checkLocalCommand = useCallback((text: string): boolean => {
-    if (!text.startsWith('/')) return false;
-    const command = text.split(/\s+/)[0].toLowerCase();
-
-    // /resume - open history view
-    if (RESUME_COMMANDS.has(command)) {
-      setCurrentView('history');
-      return true;
-    }
-
-    // /plan - switch to plan mode (Claude only; Codex sends as normal text)
-    if (PLAN_COMMANDS.has(command) && currentProvider === 'claude') {
-      if (handleModeSelect) {
-        handleModeSelect('plan');
-        addToast(t('chat.planModeEnabled', { defaultValue: 'Plan mode enabled' }), 'info');
-      }
-      return true;
-    }
-
-    return false;
-  }, [setCurrentView, handleModeSelect, currentProvider, addToast, t]);
-
-  /**
-   * Check for context usage command (/context)
-   * Only available for Claude provider. Opens a dialog to display context window usage.
-   */
-  const checkContextCommand = useCallback((text: string): boolean => {
-    if (!text.startsWith('/')) return false;
-    const command = text.split(WHITESPACE_REGEX)[0].toLowerCase();
-    if (CONTEXT_COMMANDS.has(command)) {
-      if (currentProvider !== 'claude') {
-        addToast(t('chat.commandProviderOnly', {
-          command,
-          provider: 'Claude',
-          defaultValue: `${command} is only available for Claude provider`,
-        }), 'warning');
-        return true;
-      }
-
-      const requestId = createContextUsageRequestId();
-
-      // Open dialog with loading state immediately
-      openContextUsageDialog(requestId, true);
-
-      // D5:不再前端构造 [1m];上送 stripped model + longContextEnabled 意图(已与 supports1M 取并集),
-      // 后端 GetContextUsageActionHandler 据此权威追加 [1m] 后缀(与 set_session_model 范式一致)。
-      const strippedModel = strip1MContextSuffix(selectedModel);
-      // A2:supports1M 读 registry item.supports1MContext(后端权威),取代前端 modelSupports1MContext 字符串推断。
-      const supports1M = getModelsForProvider('claude').find((model) => model.id === strippedModel)?.supports1MContext ?? false;
-      const sent = sendAction(UPSTREAM.GET_CONTEXT_USAGE, JSON.stringify({
-        model: strippedModel,
-        longContextEnabled: (longContextEnabled ?? false) && supports1M,
-        requestId,
-      }));
-
-      if (!sent) {
-        closeContextUsageDialog(requestId);
-        addToast(t('chat.bridgeUnavailable', {
-          defaultValue: 'Bridge is not available right now',
-        }), 'error');
-      }
-      return true;
-    }
-    return false;
-  }, [currentProvider, selectedModel, longContextEnabled, addToast, t, openContextUsageDialog, closeContextUsageDialog]);
 
   /**
    * Check for unimplemented slash commands
@@ -370,21 +256,12 @@ export function useMessageSender({
 
     if (!text && !hasAttachments) return;
 
-    // Check new session commands
-    if (checkNewSessionCommand(text)) return;
-
-    // Check local-handled commands (/resume, /plan)
-    if (checkLocalCommand(text)) return;
-
-    // Check context usage command (/context)
-    if (checkContextCommand(text)) return;
-
     // Check for unimplemented commands
     if (checkUnimplementedCommand(text)) return;
 
     // Execute message
     executeMessage(content, attachments);
-  }, [checkNewSessionCommand, checkLocalCommand, checkContextCommand, checkUnimplementedCommand, executeMessage]);
+  }, [checkUnimplementedCommand, executeMessage]);
 
   /**
    * Interrupt the current session.

@@ -115,7 +115,7 @@ const ChatInputBox = forwardRef<ChatInputBoxHandle, ChatInputBoxProps>((props, r
 
   // 4. Imperative API
   useImperativeHandle(ref, () => ({
-    getValue, setValue, focus, clear, hasContent
+    getValue, setValue, focus, clear, hasContent, getFileTags, openModelSelect
   }));
 
   // 5. Render

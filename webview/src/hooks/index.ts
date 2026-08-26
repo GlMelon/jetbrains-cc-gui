@@ -13,6 +13,7 @@ export { useThemeInit } from './useThemeInit';
 export { useContextActions } from './useContextActions';
 export { useMessageProcessing } from './useMessageProcessing';
 export { useMessageSender } from './useMessageSender';
+export { useLocalSlashCommands } from './useLocalSlashCommands';
 export { useFileChangesManagement } from './useFileChangesManagement';
 export { useModelProviderState } from './useModelProviderState';
 export { useChatComputations } from './useChatComputations';

@@ -18,16 +18,11 @@ import {
   useContextActions,
   useMessageProcessing,
   useMessageSender,
+  useLocalSlashCommands,
   useModelProviderState,
   useChatComputations,
   useAvatarConfig,
 } from './hooks';
-import {
-  NEW_SESSION_COMMANDS,
-  RESUME_COMMANDS,
-  PLAN_COMMANDS,
-  CONTEXT_COMMANDS,
-} from './hooks/useMessageSender';
 import { applyDiffTheme, getStoredDiffTheme } from './utils/diffTheme';
 import type { Attachment, ChatInputBoxHandle } from './components/ChatInputBox/types';
 import { ChatHeader } from './components/ChatHeader';
@@ -543,6 +538,18 @@ const App = () => {
     setLoading,
     setLoadingStartTime,
     setStreamingActive,
+  });
+
+  // ── Plugin-local slash commands (/clear /resume /plan /context /model /help) ──
+  // Which commands are local is decided by the backend (SlashCommandRegistry
+  // annotates the command payload with localAction); this hook only executes the
+  // matching UI action. Commands without localAction fall through to the CLI.
+  const { tryExecuteLocalCommand } = useLocalSlashCommands({
+    t,
+    addToast,
+    selectedModel,
+    chatInputRef,
+    setMessages,
     setCurrentView,
     forceCreateNewSession,
     handleModeSelect,
@@ -558,36 +565,25 @@ const App = () => {
     dequeue: dequeueMessage,
   } = useMessageQueue({ isLoading: loading, onExecute: executeMessage });
 
-  // handleSubmit with queue support (new session and local commands bypass loading check)
+  // handleSubmit with queue support (local slash commands bypass the loading queue)
   const handleSubmit = useCallback(
     (content: string, attachments?: Attachment[]) => {
       const text = content.replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
       const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
       if (!text && !hasAttachments) return;
-      // Local commands work even while loading
+      // Slash commands: resolve backend-annotated local commands first — they
+      // execute immediately, even while loading. Pass-through commands (e.g.
+      // /compact) follow the normal queue path.
       if (text.startsWith('/')) {
-        const command = text.split(/\s+/)[0].toLowerCase();
-        // New session commands
-        if (NEW_SESSION_COMMANDS.has(command)) {
-          forceCreateNewSession();
-          return;
-        }
-        // /resume - open history view
-        if (RESUME_COMMANDS.has(command)) {
-          setCurrentView('history');
-          return;
-        }
-        // /plan - switch to plan mode (Claude only; Codex sends as normal text)
-        if (PLAN_COMMANDS.has(command) && currentProvider === 'claude') {
-          handleModeSelect('plan');
-          addToast(t('chat.planModeEnabled', { defaultValue: 'Plan mode enabled' }), 'info');
-          return;
-        }
-        // /context - handled locally even while loading
-        if (CONTEXT_COMMANDS.has(command)) {
+        void tryExecuteLocalCommand(text).then((handled) => {
+          if (handled) return;
+          if (loading) {
+            enqueueMessage(content, attachments);
+            return;
+          }
           hookHandleSubmit(content, attachments);
-          return;
-        }
+        });
+        return;
       }
       // If loading, add to queue
       if (loading) {
@@ -596,17 +592,7 @@ const App = () => {
       }
       hookHandleSubmit(content, attachments);
     },
-    [
-      loading,
-      enqueueMessage,
-      hookHandleSubmit,
-      forceCreateNewSession,
-      currentProvider,
-      handleModeSelect,
-      setCurrentView,
-      addToast,
-      t,
-    ],
+    [loading, enqueueMessage, hookHandleSubmit, tryExecuteLocalCommand],
   );
 
   // ── Chat-view computations (stage 5 of TASK-P1-01) ──

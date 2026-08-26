@@ -104,6 +104,11 @@ export interface CommandItem {
   description?: string;
   /** Category */
   category?: string;
+  /**
+   * Backend-annotated local action (LocalSlashAction value from SlashCommandRegistry).
+   * Present = the plugin handles this command locally; absent = forward to the CLI.
+   */
+  localAction?: string;
 }
 
 /**
@@ -463,6 +468,8 @@ export interface ChatInputBoxHandle {
   hasContent: () => boolean;
   /** Get file tags from input (for Codex context injection) */
   getFileTags: () => FileTagInfo[];
+  /** Open the model selector dropdown (used by the /model slash command) */
+  openModelSelect: () => void;
 }
 
 // ============================================================
@@ -606,6 +613,8 @@ export interface ButtonAreaProps {
   selectedModel?: string;
   /** Opaque identifier of the selected model registry entry. */
   selectedModelIdentifier?: string;
+  /** Imperative open signal for the model selector dropdown (increment to open; /model command) */
+  modelSelectOpenSignal?: number;
   /** Current mode */
   permissionMode?: PermissionMode;
   /** Current provider */

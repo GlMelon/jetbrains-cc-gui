@@ -101,16 +101,6 @@ export function registerPendingSlots() {
     },
   );
 
-  // --- updateSlashCommands ---
-  preRegisterWindowSlot(
-    'updateSlashCommands',
-    '__pendingSlashCommands',
-    (json: string) => {
-      debugLog('[Main] Storing pending slash commands, length=' + json.length);
-      window.__pendingSlashCommands = json;
-    },
-  );
-
   // --- updateDollarCommands ---
   preRegisterWindowSlot(
     'updateDollarCommands',

@@ -437,6 +437,13 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
       onInput,
     });
 
+    // /model slash command: imperative open signal for the model selector dropdown.
+    // A monotonically increasing counter; ModelSelect opens whenever it changes.
+    const [modelSelectOpenSignal, setModelSelectOpenSignal] = useState(0);
+    const openModelSelect = useCallback(() => {
+      setModelSelectOpenSignal((signal) => signal + 1);
+    }, []);
+
     const {
       focusInput,
       applyInlineCompletion,
@@ -454,6 +461,7 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
       clearInput,
       hasContent,
       extractFileTags,
+      openModelSelect,
       inlineCompletion,
       handleInput,
       ctxMenu,
@@ -705,6 +713,7 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
           isEnhancing={isEnhancing}
           selectedModel={selectedModel}
           selectedModelIdentifier={selectedModelIdentifier}
+          modelSelectOpenSignal={modelSelectOpenSignal}
           permissionMode={permissionMode}
           currentProvider={currentProvider}
           dshPreset={dshPreset}

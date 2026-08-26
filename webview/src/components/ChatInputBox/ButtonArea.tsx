@@ -19,6 +19,7 @@ export const ButtonArea = memo(function ButtonArea({
   isEnhancing = false,
   selectedModel = CLAUDE_ROLE_MODEL_IDS.sonnet,
   selectedModelIdentifier,
+  modelSelectOpenSignal,
   permissionMode = 'default',
   currentProvider = 'claude',
   reasoningEffort = 'high',
@@ -186,7 +187,7 @@ export const ButtonArea = memo(function ButtonArea({
           <DshPresetSelect dshPreset={dshPreset || ''} onDshPresetChange={onDshPresetChange!} />
         )}
         <span className="selector-separator" />
-        <ModelSelect value={selectedModel} selectedIdentifier={selectedModelIdentifier} onChange={handleModelSelect} models={availableModels} currentProvider={currentProvider} />
+        <ModelSelect value={selectedModel} selectedIdentifier={selectedModelIdentifier} openSignal={modelSelectOpenSignal} onChange={handleModelSelect} models={availableModels} currentProvider={currentProvider} />
         <span className="selector-separator" />
         <ReasoningSelect value={reasoningEffort} onChange={handleReasoningChange} selectedModel={selectedModel} currentProvider={currentProvider} />
       </div>
