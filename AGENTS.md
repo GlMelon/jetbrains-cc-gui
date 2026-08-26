@@ -17,7 +17,7 @@
 - **上行**(前端 → 后端):`window.sendToJava({type, content})`,type 取值见 `protocol/UpstreamAction` 枚举。
 - **下行**(后端 → 前端):`window.__bridge.dispatch(type, payload)`,type 取值见 `protocol/DownstreamEvent` 枚举。
 
-**进程边界(Java ↔ ai-bridge)**:NDJSON 字符串契约,**无 Node 类型泄漏**。后端 `BaseSDKBridge.executeStreamingCommand` 以 `node channel-manager.js <provider> <action>` 启动子进程,经 stdin 投递 JSON、读 stdout NDJSON 行通信。ai-bridge 内部 provider 路由已遵循 Adapter 范式(`ai-bridge/channels/provider-registry.js` 用 `Map<provider, descriptor>` + `dispatch()`),是 Node 侧 Docking 正面范例。Java 侧 SDK 桥接层(`BaseSDKBridge` 系列)宜向同一方向对齐:抽象出 Adapter 接口 + `supports(provider)` 路由,使新增 SDK 只需新增实现而无需改多处装配。
+**进程边界(Java ↔ ai-bridge)**:NDJSON 字符串契约,**无 Node 类型泄漏**。后端 CLI 会话层(`cli/common/ChannelCliSession` 等,按 provider 经 `CliSessionFactory` 工厂装配)以 `node channel-manager.js <provider> <action>` 启动子进程,经 stdin 投递 JSON、读 stdout NDJSON 行通信。ai-bridge 内部 provider 路由已遵循 Adapter 范式(`ai-bridge/channels/provider-registry.js` 用 `Map<provider, descriptor>` + `dispatch()`),是 Node 侧 Docking 正面范例;Java 侧 CLI 会话层已对齐同一范式(`CliSessionFactory` 声明 provider 标识 + 注册表装配路由,新增 provider 只增工厂实现,不改分派主体)。旧 `BaseSDKBridge` 系列已随 SDK(daemon)调用模式一并移除。
 
 **受众**:AI agent(生成代码时强制遵循)+ 人类开发者(CR/PR 对照)。
 
@@ -195,20 +195,20 @@
 
 ### 原则
 
-本插件支持 3 个 AI provider(Claude / Codex / OpenCode),每个有 2 种调用模式(SDK daemon / CLI 子进程),共 **6 条调用路径**。每一类横切处理(env 注入、stdin 写入关闭、interrupt / abort 取消、cwd 回退、provider 归一化、调用模式快照、frontend_ready 状态回灌)必须在 **6 条路径上对称、完整、健壮**。新增或修改任何 provider 的某项处理时,**必须**对照另两个 provider 的同项实现,确认三者等价或记录有意差异。
+本插件支持多个 AI provider(以 `ProviderType` 枚举为准:Claude / Codex / OpenCode / Grok / Kimi / Pi / OMP / DSH)。SDK(daemon)调用模式已移除,**全部 provider 统一走 CLI 子进程单一路径**(部分经 `CliPersistentProcess` 长驻复用)。每一类横切处理(env 注入、stdin 写入关闭、interrupt / 取消、cwd 回退、provider 归一化、frontend_ready 状态回灌)必须在**全部 provider 的 CLI 路径上对称、完整、健壮**。新增或修改任何 provider 的某项处理时,**必须**对照既有 provider 的同项实现,确认等价或记录有意差异。
 
 ### 三项要求
 
-- **对称性(Symmetry)**:Claude / Codex / OpenCode 在 SDK 与 CLI 两模式下,对每一类处理逻辑等价。改一处**必须**同步核对其余两处;新增 provider **必须**继承已有 provider 的全部处理项,不得「补一个漏一个」。
-- **完整性(Completeness)**:每类处理**必须**覆盖全部 provider × mode 组合,不得遗漏某条路径。变更时列出「处理项 × provider × mode」矩阵逐格确认;新增处理项时,3 provider × 2 mode 同步落地。
+- **对称性(Symmetry)**:全部 provider 在 CLI 单一路径下,对每一类处理逻辑等价。改一处**必须**同步核对其余 provider;新增 provider **必须**继承已有 provider 的全部处理项,不得「补一个漏一个」。
+- **完整性(Completeness)**:每类处理**必须**覆盖全部 provider 的 CLI 路径,不得遗漏。变更时列出「处理项 × provider」矩阵逐格确认;新增处理项时,全部 provider 同步落地。
 - **健壮性(Robustness)**:
-  - **确定性取消优先**:interrupt / abort 应显式通知 provider 取消(Claude / Codex 的 `sendAbort`、OpenCode 的 `abortSession`),而非仅杀本地进程、依赖客户端断开的非确定副作用。
+  - **确定性取消优先**:interrupt / 取消应确定性地终止 provider 侧进程树(`ProcessManager.terminateProcess` / `CliProcessLifecycle`,Windows 下 `taskkill /F /T` 杀整树),而非仅杀本地包装进程、依赖客户端断开的非确定副作用。
   - **边界与防御**:null / 空值**必须**显式处理(cwd 为 null → home 回退、sessionId 为 null 防御、baseUrl 为空 → 默认 URL 回退、stdin 字段 null → 空串)。
   - **进程生命周期完备**:stdin 写入并关闭(防子进程阻塞读)、stdout 必须 drain(防管道满阻塞)、进程退出必须清理。
 
 ### 为什么
 
-对称性缺失导致的缺陷往往**只在插件实际调用方式下暴露**(直跑某 provider 的某条路径正常,其余路径异常,编译期与单元测试难以覆盖),且典型表现为隐蔽的**单 provider 单路径遗漏**——某项横切处理在部分 provider 已就位、在另一个 provider 却缺位。本准则把「6 路径等价」从隐性约定提升为强制检查项。
+对称性缺失导致的缺陷往往**只在插件实际调用方式下暴露**(直跑某 provider 的路径正常,其余路径异常,编译期与单元测试难以覆盖),且典型表现为隐蔽的**单 provider 单路径遗漏**——某项横切处理在部分 provider 已就位、在另一个 provider 却缺位。本准则把「全 provider 路径等价」从隐性约定提升为强制检查项。
 
 ### 落地指引(本项目)
 
@@ -217,11 +217,10 @@
 | 处理项 | Claude | Codex | OpenCode |
 |---|---|---|---|
 | stdin 写入 + 关闭 | ✓ | ✓ | ✓(`ENV_*_USE_STDIN`) |
-| extraEnv 注入(CLI) | ✓ `CliEnvironmentBuilder.applyExtraEnv` | ✓ | ✓ |
-| interrupt 主动取消 | ✓ `sendAbort` | ✓ `sendAbort` | ✓ `triggerAbort` |
-| cwd null → home 回退(CLI) | ✓ | ✓ | ✓ |
+| extraEnv 注入 | ✓ `CliEnvironmentBuilder.applyExtraEnv` | ✓ | ✓ |
+| interrupt 确定性终止(进程树) | ✓ `ProcessManager.terminateProcess` | ✓ | ✓ |
+| cwd null → home 回退 | ✓ | ✓ | ✓ |
 | provider 归一化(前端) | ✓ | ✓ | ✓ `normalizeProvider` |
-| 调用模式快照语义 | ✓ 纯快照 | ✓ | ✓ |
 | frontend_ready 状态回灌 | ✓ | ✓ | ✓ |
 
 **新增 / 修改 provider 能力的检查流程**:
@@ -229,15 +228,15 @@
 1. 列出本次改动涉及的横切处理项;
 2. 对每项,查 Claude + Codex 的同项实现作为参照;
 3. 确认目标 provider 的实现与参照等价,或记录有意差异及理由;
-4. 补 TDD:纯函数走单元测试;Platform 耦合、无法纯单测的代码用**源码字符串检查**兜底(对称 `ClaudeSDKBridgeRefactorTest` / `OpenCodeSDKBridgeTest` 范式)。
+4. 补 TDD:纯函数走单元测试;Platform 耦合、无法纯单测的代码用**源码字符串检查**兜底(对称 `CliMcpGatewaySymmetryTest` / `PermissionServiceRefactorTest` 范式)。
 
-**例外(架构本质差异,非不对称)**:daemon 生命周期——Claude 是长连接 daemon + 自动重启循环(`MAX_RESTART_ATTEMPTS`);OpenCode 是惰性按需 daemon(`opencode serve`,60s 冷却)。架构模式不同,**不要求**镜像 `restartAttempts` 计数器,但两者**都必须**具备「防无限重试」的等价保护。判定某差异是否属此例外:差异源于「连接 / 调度模型本身不同」而非「实现遗漏」,且已有等价保护机制。
+**例外(架构本质差异,非不对称)**:进程复用策略——部分 provider 经 `CliPersistentProcess` 长驻复用,其余为 one-shot 会话;长驻路径由 `CliPersistentProcessRegistry` 提供「防无限重试」等价保护(重建冷却 `CLI_PERSISTENT_REBUILD_COOLDOWN_MS`、容量上限 + LRU 逐出、空闲 sweeper),one-shot 路径由 `CliProcessLifecycle` 绝对超时 + `ProcessManager` stale sweeper 兜底。架构模式不同,**不要求**镜像同一套计数器,但每条路径**都必须**具备等价的防失控保护。判定某差异是否属此例外:差异源于「连接 / 调度模型本身不同」而非「实现遗漏」,且已有等价保护机制。
 
 ### 合规检查清单
 
-- [ ] 改动涉及某 provider 的某项处理时,是否对照了另两个 provider 的同项实现?是否等价或已记录有意差异?
-- [ ] 该处理项是否覆盖了全部 provider × mode 组合?有无遗漏某条路径?
-- [ ] interrupt / abort 是否确定性取消(显式通知 provider),而非仅杀本地进程?
+- [ ] 改动涉及某 provider 的某项处理时,是否对照了其他 provider 的同项实现?是否等价或已记录有意差异?
+- [ ] 该处理项是否覆盖了全部 provider 的 CLI 路径?有无遗漏?
+- [ ] interrupt / 取消是否确定性终止 provider 侧进程树,而非仅杀本地包装进程?
 - [ ] null / 空值边界(stdin / cwd / sessionId / baseUrl)是否显式处理?
 - [ ] Platform 耦合、无法纯单测的处理,是否用源码字符串检查兜底?
 
@@ -268,9 +267,9 @@
 | 17 | JSON 配置键名是否使用 `ProviderType.X.value()`?有无硬编码字面量 | 五 |
 | 18 | switch case 中的字符串值是否使用常量引用?有无硬编码字面量 | 五 |
 | 19 | 是否存在重复常量定义?是否统一引用 SSOT | 四 |
-| 20 | 改动某 provider 某项处理时,是否对照另两 provider 同项实现?是否等价或已记录差异 | 六 |
-| 21 | 该处理项是否覆盖全部 provider × mode 组合?有无遗漏某条路径 | 六 |
-| 22 | interrupt / abort 是否确定性取消(显式通知 provider),而非仅杀本地进程 | 六 |
+| 20 | 改动某 provider 某项处理时,是否对照其他 provider 同项实现?是否等价或已记录差异 | 六 |
+| 21 | 该处理项是否覆盖全部 provider 的 CLI 路径?有无遗漏 | 六 |
+| 22 | interrupt / 取消是否确定性终止 provider 侧进程树,而非仅杀本地包装进程 | 六 |
 | 23 | null / 空值边界(stdin / cwd / sessionId / baseUrl)是否显式处理 | 六 |
 
 ---
