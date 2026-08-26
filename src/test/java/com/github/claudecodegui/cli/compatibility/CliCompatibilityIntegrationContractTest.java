@@ -20,9 +20,11 @@ public class CliCompatibilityIntegrationContractTest {
         assertIntegration(
                 "src/main/java/com/github/claudecodegui/session/runtime/CodexCliResolver.java",
                 "ProviderType.CODEX");
+        // grok/kimi/pi/opencode 四 provider 的 CLI 检测路径合并到 ProviderCliResolver
+        // (OpenCodeCliResolver 等为薄委托门面),版本门禁断言参数化形式。
         assertIntegration(
-                "src/main/java/com/github/claudecodegui/cli/opencode/OpenCodeCliResolver.java",
-                "ProviderType.OPENCODE");
+                "src/main/java/com/github/claudecodegui/cli/common/ProviderCliResolver.java",
+                "type");
     }
 
     @Test

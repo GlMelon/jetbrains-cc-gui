@@ -7,7 +7,7 @@ import com.github.claudecodegui.protocol.UpstreamAction;
 
 /**
  * Typed handler for {@link UpstreamAction#GET_CLI_PERSISTENT_ENABLED}
- * (行为菜单 CLI 长驻会话开关读取,daemon-mode 设计 §7)。
+ * (行为菜单 CLI 长驻会话开关读取)。
  */
 public class GetCliPersistentEnabledActionHandler implements FrontendActionHandler<String> {
     private final ProjectConfigHandler delegate;

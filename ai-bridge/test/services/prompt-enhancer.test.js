@@ -30,7 +30,7 @@ test('resolvePromptEnhancerRuntimeConfig prefers Codex when auto mode has both p
 
 // ---------- resolvePromptEnhancerRuntimeConfig: actualModel 透传 (Bug 3) ----------
 //
-// Bug 3:registry 解析的 actualModel 必须经 runtimeConfig 透传给 enhancePromptWithClaude/Codex
+// Bug 3:registry 解析的 actualModel 必须经 runtimeConfig 透传给 enhance 调用路径
 // (后者优先用它下发,使 promptEnhancer 与 chat/commitAi 同源)。这两个测试锁定
 // "runtimeConfig 必含 actualModel 字段"契约,防止未来重构静默丢失该数据流。
 

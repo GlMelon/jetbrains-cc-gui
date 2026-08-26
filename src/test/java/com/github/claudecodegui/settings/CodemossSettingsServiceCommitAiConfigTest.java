@@ -27,12 +27,10 @@ public class CodemossSettingsServiceCommitAiConfigTest {
     }
 
     @Test
-    public void shouldDefaultCommitAiToCodexWhenBothProvidersAreConfiguredAndInstalled() throws Exception {
+    public void shouldDefaultCommitAiToCodexWhenBothProvidersAreConfigured() throws Exception {
         Path tempHome = Files.createTempDirectory("commit-ai-default-codex-home");
         useTemporaryHomeDirectory(tempHome);
         writeConfig(tempHome, "claude-a", "codex-a");
-        installSdk(tempHome, "claude-sdk", "@anthropic-ai/claude-agent-sdk", "0.2.88");
-        installSdk(tempHome, "codex-sdk", "@openai/codex-sdk", "0.117.0");
 
         CodemossSettingsService service = new CodemossSettingsService();
 
@@ -48,7 +46,6 @@ public class CodemossSettingsServiceCommitAiConfigTest {
         Path tempHome = Files.createTempDirectory("commit-ai-default-claude-home");
         useTemporaryHomeDirectory(tempHome);
         writeConfig(tempHome, "claude-a", "");
-        installSdk(tempHome, "claude-sdk", "@anthropic-ai/claude-agent-sdk", "0.2.88");
 
         CodemossSettingsService service = new CodemossSettingsService();
 
@@ -63,8 +60,6 @@ public class CodemossSettingsServiceCommitAiConfigTest {
         Path tempHome = Files.createTempDirectory("commit-ai-manual-home");
         useTemporaryHomeDirectory(tempHome);
         writeConfig(tempHome, "claude-a", "codex-a");
-        installSdk(tempHome, "claude-sdk", "@anthropic-ai/claude-agent-sdk", "0.2.88");
-        installSdk(tempHome, "codex-sdk", "@openai/codex-sdk", "0.117.0");
 
         CodemossSettingsService service = new CodemossSettingsService();
 
@@ -99,8 +94,6 @@ public class CodemossSettingsServiceCommitAiConfigTest {
         Path tempHome = Files.createTempDirectory("commit-ai-isolated-home");
         useTemporaryHomeDirectory(tempHome);
         writeConfig(tempHome, "claude-a", "codex-a");
-        installSdk(tempHome, "claude-sdk", "@anthropic-ai/claude-agent-sdk", "0.2.88");
-        installSdk(tempHome, "codex-sdk", "@openai/codex-sdk", "0.117.0");
 
         CodemossSettingsService service = new CodemossSettingsService();
         invokeSetPromptEnhancerConfig(service, "claude", "claude-role-opus", "prompt-codex-model");
@@ -224,23 +217,6 @@ public class CodemossSettingsServiceCommitAiConfigTest {
                 tempHome.resolve(".codemoss").resolve("config.json"),
                 config.toString()
         );
-    }
-
-    private void installSdk(Path tempHome, String sdkId, String npmPackage, String version) throws Exception {
-        Path packageDir = tempHome.resolve(".codemoss")
-                .resolve("dependencies")
-                .resolve(sdkId)
-                .resolve("node_modules");
-
-        for (String segment : npmPackage.split("/")) {
-            packageDir = packageDir.resolve(segment);
-        }
-
-        Files.createDirectories(packageDir);
-        JsonObject pkgJson = new JsonObject();
-        pkgJson.addProperty("name", npmPackage);
-        pkgJson.addProperty("version", version);
-        Files.writeString(packageDir.resolve("package.json"), pkgJson.toString());
     }
 
     private String getCachedHomeDirectory() throws Exception {

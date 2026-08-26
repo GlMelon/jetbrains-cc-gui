@@ -7,7 +7,7 @@ import com.google.gson.JsonObject;
 /**
  * Deduplicates streaming deltas that were already included via conservative full-message sync.
  *
- * <p>Not thread-safe. All methods must be called from the SDK callback thread.
+ * <p>Not thread-safe. All methods must be called from the CLI callback thread.
  * Field visibility to EDT is guaranteed by the happens-before relationship
  * established through {@code ApplicationManager.invokeLater()}.
  */

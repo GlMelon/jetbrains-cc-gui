@@ -1,7 +1,6 @@
-package com.github.claudecodegui.cli.kimi;
+package com.github.claudecodegui.cli.common;
 
 import com.github.claudecodegui.cli.compatibility.CliCompatibilityService;
-import com.github.claudecodegui.cli.common.UserPathResolver;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.util.PlatformUtils;
 
@@ -11,71 +10,77 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Resolves the Kimi CLI executable.
+ * 参数化 CLI 可执行文件解析器(grok/kimi/pi/opencode 共用)。
+ * <p>
+ * 合并自原 GrokCliResolver/KimiCliResolver/PiCliResolver(三者归一化后仅 ProviderType 与
+ * npm 目录名不同)。差异点全部参数化:
+ * <ul>
+ *   <li>{@code type.cliCommandWindows()/cliCommand()} —— 候选可执行名与 resolve 裸名;</li>
+ *   <li>{@code npmDir} —— npm 全局结构下的包目录(grok/kimi/pi 为裸名,opencode 为 {@code "opencode-ai"})。</li>
+ * </ul>
+ * 缓存按 {@link ProviderType} 隔离(静态 map + per-type 锁),成功路径缓存、失败每轮重试,
+ * 对称原各 Resolver 的 DCL 语义。{@code OpenCodeCliResolver} 以薄委托共享本类缓存
+ * (BridgePreloader 预热与会话解析走同一份缓存)。
  */
-public final class KimiCliResolver {
+public final class ProviderCliResolver {
 
-    private KimiCliResolver() {
+    /** 成功路径缓存:CLI 是 one-shot 架构,findExecutable 每轮 send 都被调用,命中缓存跳过全部 verify。 */
+    private static final Map<ProviderType, String> CACHED_EXECUTABLES = new ConcurrentHashMap<>();
+    /** 缓存 CLI 版本字符串(对称 ClaudeCliDetector.cachedCliVersion)。 */
+    private static final Map<ProviderType, String> CACHED_VERSIONS = new ConcurrentHashMap<>();
+
+    private final ProviderType type;
+    private final String npmDir;
+
+    public ProviderCliResolver(ProviderType type, String npmDir) {
+        this.type = type;
+        this.npmDir = npmDir;
     }
 
-    /**
-     * 成功路径缓存。CLI 是 one-shot 架构(每轮 send 新建 session),{@code findExecutable()} 每轮都被调用,
-     * 而内部 {@link #verify(String)} 会 spawn 'kimi --version' 子进程,
-     * 且 {@link #resolveNativeExecutable()} 最多调 2 次 verify(shim + 原生 .exe)。命中缓存后跳过全部
-     * verify 流程,消除每轮 ~3-6s 的 pre-spawn 开销(对称 ClaudeCliDetector.cachedCliPath)。
-     * 只缓存成功路径(不缓存失败):本 resolver 无用户配置入口来打破"首次时序致永久失败"僵局,
-     * 故保守地让未安装场景每轮重试(失败本就会快速报错,无需优化)。
-     */
-    private static volatile String cachedExecutable;
-    private static final Object CACHE_LOCK = new Object();
-
-    /** 缓存 CLI 版本字符串(对称 ClaudeCliDetector.cachedCliVersion)。 */
-    private static volatile String cachedVersion;
-
-    public static String findExecutable() {
-        String cached = cachedExecutable;
+    public String findExecutable() {
+        String cached = CACHED_EXECUTABLES.get(type);
         if (cached != null) {
             return cached;
         }
-        synchronized (CACHE_LOCK) {
-            if (cachedExecutable != null) {
-                return cachedExecutable;
+        synchronized (type) {
+            cached = CACHED_EXECUTABLES.get(type);
+            if (cached != null) {
+                return cached;
             }
             String result = doFindExecutable();
             if (result != null) {
-                cachedExecutable = result;
+                CACHED_EXECUTABLES.put(type, result);
             }
             return result;
         }
     }
 
     /** 测试钩子:直接注入缓存路径,跳过 verify(验证缓存命中语义)。 */
-    static void __setCachedExecutableForTests(String path) {
-        synchronized (CACHE_LOCK) {
-            cachedExecutable = path;
+    public static void __setCachedExecutableForTests(ProviderType type, String path) {
+        synchronized (type) {
+            CACHED_EXECUTABLES.put(type, path);
         }
     }
 
     /** 测试钩子:清空缓存,强制下次 findExecutable 重新检测。 */
-    static void __clearCacheForTests() {
-        synchronized (CACHE_LOCK) {
-            cachedExecutable = null;
-            cachedVersion = null;
+    public static void __clearCacheForTests(ProviderType type) {
+        synchronized (type) {
+            CACHED_EXECUTABLES.remove(type);
+            CACHED_VERSIONS.remove(type);
         }
     }
 
-    /**
-     * 返回缓存的 CLI 版本字符串,或 null(未检测 / 检测失败)。
-     * 对称 ClaudeCliDetector.getCachedCliVersion()。
-     */
-    public static String getCachedVersion() {
-        return cachedVersion;
+    /** 返回该 provider 缓存的 CLI 版本字符串,或 null(未检测 / 检测失败)。 */
+    public static String getCachedVersion(ProviderType type) {
+        return CACHED_VERSIONS.get(type);
     }
 
-    private static String doFindExecutable() {
+    private String doFindExecutable() {
         // 优先:原生二进制(绕过 .cmd 批处理包装)
         String nativeExe = resolveNativeExecutable();
         if (nativeExe != null) {
@@ -84,11 +89,11 @@ public final class KimiCliResolver {
 
         List<String> candidates = new ArrayList<>();
         if (PlatformUtils.isWindows()) {
-            candidates.add(ProviderType.KIMI.cliCommandWindows());
-            candidates.add("kimi.exe");
-            candidates.add("kimi.bat");
+            candidates.add(type.cliCommandWindows());
+            candidates.add(type.cliCommand() + ".exe");
+            candidates.add(type.cliCommand() + ".bat");
         } else {
-            candidates.add(ProviderType.KIMI.cliCommand());
+            candidates.add(type.cliCommand());
         }
 
         for (String candidate : candidates) {
@@ -98,17 +103,19 @@ public final class KimiCliResolver {
             }
         }
 
-        return ProviderType.KIMI.cliCommandForPlatform();
+        return type.cliCommandForPlatform();
     }
 
     /**
-     * 从 kimi shim 路径推断 npm 全局结构下的原生二进制入口
-     * ({@code <shim-dir>/node_modules/kimi/bin/kimi.exe})。纯路径逻辑,不验证可执行性。
+     * 从 CLI shim 路径推断 npm 全局结构下的原生二进制入口
+     * ({@code <shim-dir>/node_modules/<npmDir>/bin/<exeName>.exe})。纯路径逻辑,不验证可执行性。
      *
-     * @param shimPath kimi shim(kimi.cmd/kimi)的绝对或相对路径
+     * @param shimPath shim(cliCommand.cmd / 裸名)的绝对或相对路径
+     * @param npmDir   npm 包目录名(如 {@code grok} / {@code opencode-ai})
+     * @param exeName  原生二进制名(= {@code cliCommand()},如 {@code grok} / {@code opencode})
      * @return 原生 .exe 绝对路径;结构不存在或入参无效时返回 null
      */
-    static String inferNativeExecutablePath(String shimPath) {
+    public static String inferNativeExecutablePath(String shimPath, String npmDir, String exeName) {
         if (shimPath == null || shimPath.isBlank()) {
             return null;
         }
@@ -117,31 +124,31 @@ public final class KimiCliResolver {
             return null;
         }
         File nativeExe = new File(shimDir,
-                "node_modules" + File.separator + "kimi" + File.separator + "bin" + File.separator + "kimi.exe");
+                "node_modules" + File.separator + npmDir + File.separator + "bin" + File.separator + exeName + ".exe");
         return nativeExe.exists() ? nativeExe.getAbsolutePath() : null;
     }
 
     /**
-     * 解析 kimi 原生二进制入口(仅 Windows),绕过 .cmd/.bat 批处理包装。直接 spawn 原生 .exe
+     * 解析原生二进制入口(仅 Windows),绕过 .cmd/.bat 批处理包装。直接 spawn 原生 .exe
      * 避免:① 多行 prompt 位置参数经 cmd.exe 包装被截断(--format json 等参数丢失 → exit0 无事件流);
      * ② stdin EOF 经 .cmd 包装传播不可靠(redirectInput(NUL) 在 .cmd 包装下仍可能不彻底)。
      */
-    private static String resolveNativeExecutable() {
+    private String resolveNativeExecutable() {
         if (!PlatformUtils.isWindows()) {
             return null;
         }
-        String shim = resolve(ProviderType.KIMI.cliCommandWindows());
+        String shim = resolve(type.cliCommandWindows());
         if (shim == null) {
-            shim = resolve("kimi");
+            shim = resolve(type.cliCommand());
         }
-        String inferred = inferNativeExecutablePath(shim);
+        String inferred = inferNativeExecutablePath(shim, npmDir, type.cliCommand());
         if (inferred == null) {
             return null;
         }
         return verify(inferred) != null ? inferred : null;
     }
 
-    static String resolve(String candidate) {
+    String resolve(String candidate) {
         if (candidate == null || candidate.isBlank()) {
             return null;
         }
@@ -158,9 +165,9 @@ public final class KimiCliResolver {
         return null;
     }
 
-    private static String searchInPath(String candidate) {
+    private String searchInPath(String candidate) {
         // 用 UserPathResolver 解析用户真实 PATH(IDE PATH + npm/scoop/volta 等 shim),
-        // 修复 Windows 下经 npm 全局 / scoop / volta 装的 kimi 在 IDE PATH 找不到 → fallback 裸名 → serve 启动失败。
+        // 修复 Windows 下经 npm 全局 / scoop / volta 装的 CLI 在 IDE PATH 找不到 → fallback 裸名 → 启动失败。
         String pathEnv = UserPathResolver.resolveUserPath();
         if (pathEnv == null || pathEnv.isBlank()) {
             return null;
@@ -187,9 +194,8 @@ public final class KimiCliResolver {
     /**
      * 验证 CLI 可执行性并捕获版本字符串。
      * 对称 ClaudeCliDetector.verifyCliPath: 返回 stdout 首行版本串,或 null(失败)。
-     * 版本缓存经 {@link #getCachedVersion()} 读取。
      */
-    private static String verify(String path) {
+    private String verify(String path) {
         try {
             ProcessBuilder pb;
             String lower = path.toLowerCase();
@@ -212,8 +218,8 @@ public final class KimiCliResolver {
             if (process.exitValue() == 0 && version != null) {
                 String trimmed = version.trim();
                 if (!trimmed.isEmpty() && CliCompatibilityService.getInstance()
-                        .isVersionAccepted(ProviderType.KIMI, trimmed)) {
-                    cachedVersion = trimmed;
+                        .isVersionAccepted(type, trimmed)) {
+                    CACHED_VERSIONS.put(type, trimmed);
                     return trimmed;
                 }
                 return null;

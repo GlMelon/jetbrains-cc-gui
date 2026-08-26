@@ -2,7 +2,7 @@ package com.github.claudecodegui.provider.claude;
 
 import com.github.claudecodegui.cli.common.CliErrorFormatter;
 import com.github.claudecodegui.provider.common.MessageCallback;
-import com.github.claudecodegui.provider.common.SDKResult;
+import com.github.claudecodegui.provider.common.CliResult;
 import com.google.gson.Gson;
 import org.junit.Test;
 
@@ -24,7 +24,7 @@ public class ClaudeCliStreamParserTest {
         RecordingCallback callback = new RecordingCallback();
         String line = "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"tool_use\",\"id\":\"toolu_1\",\"name\":\"Read\",\"input\":{\"file_path\":\"README.md\"}}]}}";
 
-        parser.parseLine(line, callback, new SDKResult(), new StringBuilder(), new AtomicBoolean(false), false);
+        parser.parseLine(line, callback, new CliResult(), new StringBuilder(), new AtomicBoolean(false), false);
 
         assertEquals("tool_use", callback.events.get(0).type);
     }
@@ -38,7 +38,7 @@ public class ClaudeCliStreamParserTest {
         RecordingCallback callback = new RecordingCallback();
         String line = "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"tool_use\",\"id\":\"call_1\",\"name\":\"mcp__dbx__dbx_list_connections\",\"input\":{}}]}}";
 
-        parser.parseLine(line, callback, new SDKResult(), new StringBuilder(), new AtomicBoolean(false), false);
+        parser.parseLine(line, callback, new CliResult(), new StringBuilder(), new AtomicBoolean(false), false);
 
         assertEquals("tool_use", callback.events.get(0).type);
         assertTrue(callback.events.get(0).content.contains("\"name\":\"mcp__dbx__dbx_list_connections\""));
@@ -53,7 +53,7 @@ public class ClaudeCliStreamParserTest {
         RecordingCallback callback = new RecordingCallback();
         String line = "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"tool_use\",\"id\":\"call_2\",\"name\":\"Skill\",\"input\":{\"skill\":\"playwright\",\"args\":\"open example.com\"}}]}}";
 
-        parser.parseLine(line, callback, new SDKResult(), new StringBuilder(), new AtomicBoolean(false), false);
+        parser.parseLine(line, callback, new CliResult(), new StringBuilder(), new AtomicBoolean(false), false);
 
         assertEquals("tool_use", callback.events.get(0).type);
         assertTrue(callback.events.get(0).content.contains("\"name\":\"Skill\""));
@@ -66,7 +66,7 @@ public class ClaudeCliStreamParserTest {
         RecordingCallback callback = new RecordingCallback();
         String line = "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"server_tool_use\",\"id\":\"srv_1\",\"name\":\"web_search\",\"input\":{\"query\":\"mcp display\"}}]}}";
 
-        parser.parseLine(line, callback, new SDKResult(), new StringBuilder(), new AtomicBoolean(false), false);
+        parser.parseLine(line, callback, new CliResult(), new StringBuilder(), new AtomicBoolean(false), false);
 
         assertEquals("tool_use", callback.events.get(0).type);
         assertTrue(callback.events.get(0).content.contains("\"type\":\"tool_use\""));
@@ -80,7 +80,7 @@ public class ClaudeCliStreamParserTest {
         RecordingCallback callback = new RecordingCallback();
         String line = "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"server_tool_use\",\"name\":\"web_search\"}]}}";
 
-        parser.parseLine(line, callback, new SDKResult(), new StringBuilder(), new AtomicBoolean(false), false);
+        parser.parseLine(line, callback, new CliResult(), new StringBuilder(), new AtomicBoolean(false), false);
 
         assertEquals("tool_use", callback.events.get(0).type);
         assertTrue(callback.events.get(0).content.contains("\"type\":\"tool_use\""));
@@ -95,7 +95,7 @@ public class ClaudeCliStreamParserTest {
         RecordingCallback callback = new RecordingCallback();
         String line = "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_start\",\"content_block\":{\"type\":\"server_tool_use\",\"name\":\"web_search\"}}}";
 
-        parser.parseLine(line, callback, new SDKResult(), new StringBuilder(), new AtomicBoolean(false), false);
+        parser.parseLine(line, callback, new CliResult(), new StringBuilder(), new AtomicBoolean(false), false);
 
         assertEquals("tool_use", callback.events.get(0).type);
         assertTrue(callback.events.get(0).content.contains("\"type\":\"tool_use\""));
@@ -110,8 +110,8 @@ public class ClaudeCliStreamParserTest {
         String streamLine = "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_start\",\"content_block\":{\"type\":\"server_tool_use\",\"name\":\"web_search\"}}}";
         String snapshotLine = "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"server_tool_use\",\"name\":\"web_search\"}]}}";
 
-        parser.parseLine(streamLine, callback, new SDKResult(), new StringBuilder(), new AtomicBoolean(false), false);
-        parser.parseLine(snapshotLine, callback, new SDKResult(), new StringBuilder(), new AtomicBoolean(false), false);
+        parser.parseLine(streamLine, callback, new CliResult(), new StringBuilder(), new AtomicBoolean(false), false);
+        parser.parseLine(snapshotLine, callback, new CliResult(), new StringBuilder(), new AtomicBoolean(false), false);
 
         assertEquals(1, callback.contentsOfType("tool_use").size());
     }
@@ -124,7 +124,7 @@ public class ClaudeCliStreamParserTest {
         parser.parseLine(
                 "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_start\",\"content_block\":{\"type\":\"thinking\"}}}",
                 callback,
-                new SDKResult(),
+                new CliResult(),
                 new StringBuilder(),
                 new AtomicBoolean(false),
                 true
@@ -132,7 +132,7 @@ public class ClaudeCliStreamParserTest {
         parser.parseLine(
                 "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"plan\"}}}",
                 callback,
-                new SDKResult(),
+                new CliResult(),
                 new StringBuilder(),
                 new AtomicBoolean(false),
                 true
@@ -150,7 +150,7 @@ public class ClaudeCliStreamParserTest {
     public void toolTraceTextAroundServerToolUseEmitsThinkingDeltaNotContentDelta() {
         ClaudeCliStreamParser parser = new ClaudeCliStreamParser(new Gson());
         RecordingCallback callback = new RecordingCallback();
-        SDKResult result = new SDKResult();
+        CliResult result = new CliResult();
         StringBuilder assistantContent = new StringBuilder();
 
         parser.parseLine("{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_start\",\"content_block\":{\"type\":\"text\"}}}", callback, result, assistantContent, new AtomicBoolean(false), false);
@@ -175,8 +175,8 @@ public class ClaudeCliStreamParserTest {
         RecordingCallback callback = new RecordingCallback();
         StringBuilder assistantContent = new StringBuilder();
 
-        parser.parseLine("{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_start\",\"content_block\":{\"type\":\"text\"}}}", callback, new SDKResult(), assistantContent, new AtomicBoolean(false), false);
-        parser.parseLine(textDelta("Output: final answer"), callback, new SDKResult(), assistantContent, new AtomicBoolean(false), false);
+        parser.parseLine("{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_start\",\"content_block\":{\"type\":\"text\"}}}", callback, new CliResult(), assistantContent, new AtomicBoolean(false), false);
+        parser.parseLine(textDelta("Output: final answer"), callback, new CliResult(), assistantContent, new AtomicBoolean(false), false);
 
         assertEquals(List.of("Output: final answer"), callback.contentsOfType("content_delta"));
         assertTrue(callback.contentsOfType("thinking_delta").isEmpty());
@@ -189,8 +189,8 @@ public class ClaudeCliStreamParserTest {
         RecordingCallback callback = new RecordingCallback();
         StringBuilder assistantContent = new StringBuilder();
 
-        parser.parseLine("{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_start\",\"content_block\":{\"type\":\"text\"}}}", callback, new SDKResult(), assistantContent, new AtomicBoolean(false), false);
-        parser.parseLine(textDelta("**Summary:** normal answer"), callback, new SDKResult(), assistantContent, new AtomicBoolean(false), false);
+        parser.parseLine("{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_start\",\"content_block\":{\"type\":\"text\"}}}", callback, new CliResult(), assistantContent, new AtomicBoolean(false), false);
+        parser.parseLine(textDelta("**Summary:** normal answer"), callback, new CliResult(), assistantContent, new AtomicBoolean(false), false);
 
         assertEquals(List.of("**Summary:** normal answer"), callback.contentsOfType("content_delta"));
         assertTrue(callback.contentsOfType("thinking_delta").isEmpty());
@@ -201,7 +201,7 @@ public class ClaudeCliStreamParserTest {
     public void outputLabelAfterToolTraceBlockCanStillBeFinalContent() {
         ClaudeCliStreamParser parser = new ClaudeCliStreamParser(new Gson());
         RecordingCallback callback = new RecordingCallback();
-        SDKResult result = new SDKResult();
+        CliResult result = new CliResult();
         StringBuilder assistantContent = new StringBuilder();
 
         parser.parseLine("{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_start\",\"content_block\":{\"type\":\"text\"}}}", callback, result, assistantContent, new AtomicBoolean(false), false);
@@ -223,7 +223,7 @@ public class ClaudeCliStreamParserTest {
     public void errorResultDoesNotEmitAssistantContentAndMarksFailure() {
         ClaudeCliStreamParser parser = new ClaudeCliStreamParser(new Gson());
         RecordingCallback callback = new RecordingCallback();
-        SDKResult result = new SDKResult();
+        CliResult result = new CliResult();
         StringBuilder assistantContent = new StringBuilder();
 
         String line = "{\"type\":\"result\",\"subtype\":\"success\",\"is_error\":true," + "\"api_error_status\":429," + "\"result\":\"API Error: Request rejected (429) · [1308][已达到 5 小时的使用上限。]\"}";
@@ -240,7 +240,7 @@ public class ClaudeCliStreamParserTest {
     public void imageToolResultFollowedByApiErrorReportsUnsupportedVision() {
         ClaudeCliStreamParser parser = new ClaudeCliStreamParser(new Gson());
         RecordingCallback callback = new RecordingCallback();
-        SDKResult result = new SDKResult();
+        CliResult result = new CliResult();
         StringBuilder assistantContent = new StringBuilder();
         AtomicBoolean hadSendError = new AtomicBoolean(false);
 
@@ -278,7 +278,7 @@ public class ClaudeCliStreamParserTest {
     public void imageToolResultWithoutAnyAssistantOutputReportsUnsupportedVision() {
         ClaudeCliStreamParser parser = new ClaudeCliStreamParser(new Gson());
         RecordingCallback callback = new RecordingCallback();
-        SDKResult result = new SDKResult();
+        CliResult result = new CliResult();
         StringBuilder assistantContent = new StringBuilder();
         AtomicBoolean hadSendError = new AtomicBoolean(false);
 
@@ -317,7 +317,7 @@ public class ClaudeCliStreamParserTest {
     public void imageToolResultWithAssistantOutputDoesNotReportUnsupportedVision() {
         ClaudeCliStreamParser parser = new ClaudeCliStreamParser(new Gson());
         RecordingCallback callback = new RecordingCallback();
-        SDKResult result = new SDKResult();
+        CliResult result = new CliResult();
         StringBuilder assistantContent = new StringBuilder();
         AtomicBoolean hadSendError = new AtomicBoolean(false);
 
@@ -370,7 +370,7 @@ public class ClaudeCliStreamParserTest {
     public void imageToolResultFollowedOnlyByMetaPlanningTextStillReportsUnsupportedVision() {
         ClaudeCliStreamParser parser = new ClaudeCliStreamParser(new Gson());
         RecordingCallback callback = new RecordingCallback();
-        SDKResult result = new SDKResult();
+        CliResult result = new CliResult();
         StringBuilder assistantContent = new StringBuilder();
         AtomicBoolean hadSendError = new AtomicBoolean(false);
 
@@ -432,7 +432,7 @@ public class ClaudeCliStreamParserTest {
         }
 
         @Override
-        public void onComplete(SDKResult result) {
+        public void onComplete(CliResult result) {
         }
 
         private List<String> contentsOfType(String type) {

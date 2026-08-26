@@ -2,7 +2,6 @@ package com.github.claudecodegui.settings;
 
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.session.runtime.ProviderType;
-import com.github.claudecodegui.session.runtime.RuntimeType;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -15,10 +14,16 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+/**
+ * 路由策略读取测试。
+ * <p>
+ * runtime 维度已消除(SDK 调用模式已移除):策略仅剩 enabled 一维;
+ * 存量 config.json 的 legacy claudeInvocationMode 键与 supported/default 字段
+ * 由解析侧忽略(向后兼容)。
+ */
 public class CodemossSettingsServiceRuntimePolicyTest {
     private static final String LEGACY_CLAUDE_MODE_KEY = "claudeInvocationMode";
 
@@ -35,7 +40,8 @@ public class CodemossSettingsServiceRuntimePolicyTest {
     }
 
     @Test
-    public void shouldMigrateLegacyClaudeCliModeWhenRuntimePolicyIsMissing() throws Exception {
+    public void shouldIgnoreLegacyClaudeCliModeWhenRuntimePolicyIsMissing() throws Exception {
+        // legacy claudeInvocationMode 键不再参与迁移:无 runtime 节点时直接回退默认策略。
         useTemporaryHomeDirectory();
         JsonObject config = new JsonObject();
         config.addProperty(LEGACY_CLAUDE_MODE_KEY, CommonConstants.INVOCATION_MODE_CLI);
@@ -43,49 +49,44 @@ public class CodemossSettingsServiceRuntimePolicyTest {
 
         CodemossSettingsService service = new CodemossSettingsService();
 
-        assertEquals(RuntimeType.CLI, service.getRuntimePolicy().of(ProviderType.CLAUDE).defaultRuntime());
+        assertTrue(service.getRuntimePolicy().of(ProviderType.CLAUDE).enabled());
+        assertTrue(service.getRuntimePolicy().of(ProviderType.CODEX).enabled());
     }
 
     @Test
-    public void shouldPreferRuntimePolicyOverLegacyClaudeMode() throws Exception {
+    public void shouldParseEnabledAndIgnoreLegacyRuntimeFields() throws Exception {
+        // 存量 config.json 的 legacy supported/default 字段被忽略,只读 enabled。
         useTemporaryHomeDirectory();
-        JsonObject config = configWithRuntime(RuntimeType.CLI, RuntimeType.CLI, RuntimeType.CLI);
-        config.addProperty(LEGACY_CLAUDE_MODE_KEY, CommonConstants.INVOCATION_MODE_CLI);
-        writeConfig(config);
-
-        CodemossSettingsService service = new CodemossSettingsService();
-
-        assertEquals(RuntimeType.CLI, service.getRuntimePolicy().of(ProviderType.CLAUDE).defaultRuntime());
-        assertEquals(RuntimeType.CLI, service.getRuntimePolicy().of(ProviderType.CODEX).defaultRuntime());
-        assertEquals(RuntimeType.CLI, service.getRuntimePolicy().of(ProviderType.OPENCODE).defaultRuntime());
-    }
-
-    private JsonObject configWithRuntime(
-            RuntimeType claudeRuntime,
-            RuntimeType codexRuntime,
-            RuntimeType openCodeRuntime
-    ) {
         JsonObject providers = new JsonObject();
-        providers.add(ProviderType.CLAUDE.value(), providerPolicy(claudeRuntime));
-        providers.add(ProviderType.CODEX.value(), providerPolicy(codexRuntime));
-        providers.add(ProviderType.OPENCODE.value(), providerPolicy(openCodeRuntime));
+        providers.add(ProviderType.CLAUDE.value(), legacyProviderPolicy(true));
+        providers.add(ProviderType.CODEX.value(), legacyProviderPolicy(true));
+        providers.add(ProviderType.OPENCODE.value(), legacyProviderPolicy(false));
 
         JsonObject runtime = new JsonObject();
         runtime.add("providers", providers);
 
         JsonObject config = new JsonObject();
         config.add("runtime", runtime);
-        return config;
+        config.addProperty(LEGACY_CLAUDE_MODE_KEY, CommonConstants.INVOCATION_MODE_CLI);
+        writeConfig(config);
+
+        CodemossSettingsService service = new CodemossSettingsService();
+
+        assertTrue(service.getRuntimePolicy().of(ProviderType.CLAUDE).enabled());
+        assertTrue(service.getRuntimePolicy().of(ProviderType.CODEX).enabled());
+        assertFalse("opencode 显式 enabled=false 应被保留",
+                service.getRuntimePolicy().of(ProviderType.OPENCODE).enabled());
     }
 
-    private JsonObject providerPolicy(RuntimeType defaultRuntime) {
+    /** 模拟存量 config.json 的 provider 策略条目:enabled + legacy supported/default 字段。 */
+    private JsonObject legacyProviderPolicy(boolean enabled) {
         JsonArray supported = new JsonArray();
-        supported.add(RuntimeType.CLI.name());
+        supported.add("CLI");
 
         JsonObject policy = new JsonObject();
-        policy.addProperty("enabled", true);
+        policy.addProperty("enabled", enabled);
         policy.add("supported", supported);
-        policy.addProperty("default", defaultRuntime.name());
+        policy.addProperty("default", "CLI");
         return policy;
     }
 
@@ -100,11 +101,6 @@ public class CodemossSettingsServiceRuntimePolicyTest {
 
     private void writeConfig(JsonObject config) throws Exception {
         Files.writeString(configPath(), new Gson().toJson(config), StandardCharsets.UTF_8);
-    }
-
-    private JsonObject readConfig() throws Exception {
-        assertTrue(Files.exists(configPath()));
-        return new Gson().fromJson(Files.readString(configPath(), StandardCharsets.UTF_8), JsonObject.class);
     }
 
     private Path configPath() {

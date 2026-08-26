@@ -63,26 +63,6 @@ public final class RuntimePolicyValidator {
         cfg.providers().forEach((provider, policy) -> {
             if (policy == null) {
                 errors.add(provider + " 的策略配置不能为空");
-                return;
-            }
-
-            if (policy.enabled()) {
-                // 已启用但未配置 runtime
-                if (policy.supported() == null || policy.supported().isEmpty()) {
-                    errors.add(provider + " 已启用但未配置 runtime");
-                }
-
-                // 默认 runtime 不在支持列表内
-                if (policy.defaultRuntime() != null
-                        && policy.supported() != null
-                        && !policy.supported().contains(policy.defaultRuntime())) {
-                    errors.add(provider + " 默认 runtime 不在支持列表内");
-                }
-
-                // 默认 runtime 为空
-                if (policy.defaultRuntime() == null) {
-                    errors.add(provider + " 的默认 runtime 不能为空");
-                }
             }
         });
 

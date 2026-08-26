@@ -663,7 +663,7 @@ function nodeQueryFirstUserText(db, sessionId) {
  * @returns {Promise<any>}
  */
 export async function getSessionList(params = {}) {
-  // 枚举 OpenCode 会话(对称 Codex getSessionsForProjectAsJson,字段对齐 Codex SessionInfo)。
+  // 枚举 OpenCode 会话,字段对齐 Codex SessionInfo。
   const projectPath = params.projectPath || params.cwd || '';
   const dbPath = params.dbPath || defaultDbPath();
   if (!existsSync(dbPath)) {

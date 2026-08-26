@@ -3,6 +3,8 @@ package com.github.claudecodegui.session;
 import com.github.claudecodegui.cli.CliSessionTitleService;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.config.ModelRegistryConfig;
+import com.github.claudecodegui.config.ProviderRuntimePolicy;
+import com.github.claudecodegui.config.RuntimePolicyConfig;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.notifications.ClaudeNotifier;
 import com.github.claudecodegui.session.normalize.MessageNormalizers;
@@ -62,17 +64,8 @@ public class SessionSendService {
     }
 
     public void interruptRuntime(String provider, String channelId, String tabId) {
-        RuntimeType runtimeType = RuntimeType.CLI;
-        try {
-            EffectiveRuntimeResolver.Runtime runtime = EffectiveRuntimeResolver.resolve(
-                    provider,
-                    CodemossSettingsService.getInstance().getRuntimePolicy()
-            );
-            runtimeType = runtime.runtimeType();
-        } catch (Exception e) {
-            LOG.warn("[Runtime] Failed to resolve runtime for interrupt, defaulting to CLI: " + e.getMessage());
-        }
-        runtimeRouter.interrupt(ProviderType.fromString(provider), runtimeType, tabId != null ? tabId : channelId);
+        // runtime 维度已消除(SDK 调用模式已移除):interrupt 直接按 provider 路由,不再先解析 runtime。
+        runtimeRouter.interrupt(ProviderType.fromString(provider), tabId != null ? tabId : channelId);
     }
 
     public void cleanupRuntimeTab(String tabId) {
@@ -226,7 +219,7 @@ public class SessionSendService {
         // CLI 标题生成所需的首轮判据:send 前 sessionId 为空即新会话首轮。
         // 首轮 CLI 的 sessionId 是流解析后才确定的,故 post-success 时从 state 重新读取权威值。
         final String sessionIdBeforeSend = state.getSessionId();
-        final boolean isCliRuntime = isCliRuntime(currentProvider);
+        final boolean isProviderSendable = isProviderSendable(currentProvider);
 
         CompletableFuture<Void> future;
         if (CommonConstants.PROVIDER_CLAUDE.equals(currentProvider)) {
@@ -268,7 +261,7 @@ public class SessionSendService {
                 return;
             }
             cliTitleService.maybeGenerateTitle(
-                    isCliRuntime,
+                    isProviderSendable,
                     sessionIdBeforeSend == null,
                     input,
                     state.getSessionId(),
@@ -305,7 +298,7 @@ public class SessionSendService {
         String contextAppend = contextService.buildCodexContextAppend(openedFilesJson, fileTagPaths);
         String finalInput = (input != null ? input : "") + contextAppend;
 
-        EffectiveRuntimeResolver.Runtime runtime = resolveRuntime(CommonConstants.PROVIDER_CODEX);
+        ProviderType providerType = resolveProvider(CommonConstants.PROVIDER_CODEX);
         RuntimeKey key = new RuntimeKey(
                 CommonConstants.PROVIDER_CODEX,
                 channelId,
@@ -317,8 +310,7 @@ public class SessionSendService {
         Boolean thinkingOutputEnabled = readThinkingOutputEnabled();
         SessionRequest request = new SessionRequest(
                 key,
-                runtime.provider(),
-                runtime.runtimeType(),
+                providerType,
                 finalInput,
                 state.getSessionId(),
                 state.getCwd(),
@@ -339,11 +331,7 @@ public class SessionSendService {
 
         return runtimeRouter.send(
                 request,
-                MessageNormalizers.forRuntime(
-                        CommonConstants.PROVIDER_CODEX,
-                        toInvocationMode(runtime.runtimeType()),
-                        handler
-                )
+                MessageNormalizers.forProvider(CommonConstants.PROVIDER_CODEX, handler)
         ).thenApply(result -> null);
     }
 
@@ -376,7 +364,7 @@ public class SessionSendService {
         String contextAppend = contextService.buildCodexContextAppend(openedFilesJson, fileTagPaths);
         String finalInput = (input != null ? input : "") + contextAppend;
 
-        EffectiveRuntimeResolver.Runtime runtime = resolveRuntime(provider);
+        ProviderType providerType = resolveProvider(provider);
         RuntimeKey key = new RuntimeKey(
                 provider,
                 channelId,
@@ -388,8 +376,7 @@ public class SessionSendService {
         Boolean thinkingOutputEnabled = readThinkingOutputEnabled();
         SessionRequest request = new SessionRequest(
                 key,
-                runtime.provider(),
-                runtime.runtimeType(),
+                providerType,
                 finalInput,
                 state.getSessionId(),
                 state.getCwd(),
@@ -410,11 +397,7 @@ public class SessionSendService {
 
         return runtimeRouter.send(
                 request,
-                MessageNormalizers.forRuntime(
-                        provider,
-                        toInvocationMode(runtime.runtimeType()),
-                        handler
-                )
+                MessageNormalizers.forProvider(provider, handler)
         ).thenApply(result -> null);
     }
 
@@ -467,11 +450,10 @@ public class SessionSendService {
                 + ", model=" + currentModel
                 + ", actualModel=" + (modelSelection.actualModel() != null ? modelSelection.actualModel() : "(registry-fallback)"));
 
-        EffectiveRuntimeResolver.Runtime runtime = resolveRuntime(CommonConstants.PROVIDER_CLAUDE);
+        ProviderType providerType = resolveProvider(CommonConstants.PROVIDER_CLAUDE);
         SessionRequest request = new SessionRequest(
                 new RuntimeKey(CommonConstants.PROVIDER_CLAUDE, channelId, channelId, runtimeSessionEpoch),
-                runtime.provider(),
-                runtime.runtimeType(),
+                providerType,
                 input,
                 state.getSessionId(),
                 state.getCwd(),
@@ -492,26 +474,37 @@ public class SessionSendService {
 
         return runtimeRouter.send(
                 request,
-                MessageNormalizers.forRuntime(CommonConstants.PROVIDER_CLAUDE, toInvocationMode(runtime.runtimeType()), handler)
+                MessageNormalizers.forProvider(CommonConstants.PROVIDER_CLAUDE, handler)
         ).thenApply(result -> null);
     }
 
-    private EffectiveRuntimeResolver.Runtime resolveRuntime(String provider) {
-        return EffectiveRuntimeResolver.resolve(
-                provider,
-                CodemossSettingsService.getInstance().getRuntimePolicy()
-        );
+    /**
+     * 解析 provider 并按路由策略检查其已启用(SDK 调用模式已移除,runtime 维度已消除,
+     * 仅保留 provider enabled 防御语义)。provider 未启用/未知时抛 IllegalStateException。
+     */
+    private ProviderType resolveProvider(String provider) {
+        ProviderType providerType = ProviderType.fromString(provider);
+        RuntimePolicyConfig policy = CodemossSettingsService.getInstance().getRuntimePolicy();
+        RuntimePolicyConfig effectivePolicy = policy != null
+                ? policy.mergeWithDefaults()
+                : RuntimePolicyConfig.getDefault();
+        ProviderRuntimePolicy providerPolicy = effectivePolicy.of(providerType);
+        if (providerPolicy == null || !providerPolicy.enabled()) {
+            throw new IllegalStateException("Provider disabled/unknown: " + providerType.value());
+        }
+        return providerType;
     }
 
     /**
-     * 判断给定 provider 当前解析到的运行时是否为 CLI。供 CLI 标题生成钩子使用:
-     * 解析失败时保守返回 false(不触发标题,与 SDK 行为一致)。
+     * 判断给定 provider 是否可发送(provider 有效且按路由策略已启用)。供 CLI 标题生成钩子使用:
+     * 解析失败时保守返回 false(不触发标题,与原 isCliRuntime 行为一致)。
      */
-    private boolean isCliRuntime(String provider) {
+    private boolean isProviderSendable(String provider) {
         try {
-            return resolveRuntime(provider).runtimeType() == RuntimeType.CLI;
+            resolveProvider(provider);
+            return true;
         } catch (Exception e) {
-            LOG.warn("[CliTitle] Failed to resolve runtime for title trigger, skipping: " + e.getMessage());
+            LOG.warn("[CliTitle] Failed to resolve provider for title trigger, skipping: " + e.getMessage());
             return false;
         }
     }
@@ -526,11 +519,6 @@ public class SessionSendService {
                     + e.getMessage());
             return ModelRegistryConfig.getDefault().resolveModelSelection(provider, selectedModel);
         }
-    }
-
-    private static String toInvocationMode(RuntimeType runtimeType) {
-        // SDK 调用模式已移除,恒返回 CLI。
-        return CommonConstants.INVOCATION_MODE_CLI;
     }
 
     private boolean readAutoOpenFileEnabled() {

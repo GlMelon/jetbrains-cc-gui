@@ -86,6 +86,7 @@ const CliEnvironmentSection = ({ isActive }: CliEnvironmentSectionProps) => {
   const [lastChecked, setLastChecked] = useState<string>('');
   const [checkingTools, setCheckingTools] = useState<Set<string>>(new Set());
   const [installingTools, setInstallingTools] = useState<Set<string>>(new Set());
+  const [updatingTools, setUpdatingTools] = useState<Set<string>>(new Set());
   const isActiveRef = useRef(isActive);
 
   useEffect(() => {
@@ -120,6 +121,12 @@ const CliEnvironmentSection = ({ isActive }: CliEnvironmentSectionProps) => {
           next.delete(toolId);
           return next;
         });
+        // 更新与安装共用 CLI_INSTALL_RESULT 回执(后端 UpdateCliToolActionHandler)
+        setUpdatingTools((prev) => {
+          const next = new Set(prev);
+          next.delete(toolId);
+          return next;
+        });
         
         if (success && status) {
           setCliStatus((prev) => ({
@@ -149,7 +156,8 @@ const CliEnvironmentSection = ({ isActive }: CliEnvironmentSectionProps) => {
   const handleRefresh = useCallback(() => {
     setChecking(true);
     setCheckingTools(new Set(CLI_TOOLS.map((t) => t.id)));
-    sendAction(UPSTREAM.CHECK_CLI_ENVIRONMENT);
+    // force=true:手动"刷新检测"绕过后端缓存强制全量重检(用户可能刚安装完 CLI)
+    sendAction(UPSTREAM.CHECK_CLI_ENVIRONMENT, { force: true });
   }, []);
 
   const getStatusInfo = (status: CliEnvironmentStatus) => {
@@ -172,6 +180,7 @@ const CliEnvironmentSection = ({ isActive }: CliEnvironmentSectionProps) => {
   };
 
   const handleUpdate = useCallback((toolId: string) => {
+    setUpdatingTools((prev) => new Set(prev).add(toolId));
     sendAction(UPSTREAM.UPDATE_CLI_TOOL, { toolId });
   }, []);
 
@@ -188,6 +197,7 @@ const CliEnvironmentSection = ({ isActive }: CliEnvironmentSectionProps) => {
     const statusInfo = status ? getStatusInfo(status) : null;
     const isToolChecking = isChecking || checkingTools.has(tool.id);
     const isToolInstalling = installingTools.has(tool.id);
+    const isToolUpdating = updatingTools.has(tool.id);
     const showVersionLoading = isToolChecking && status?.installed;
 
     return (
@@ -298,8 +308,14 @@ const CliEnvironmentSection = ({ isActive }: CliEnvironmentSectionProps) => {
                 <button
                   className={`${styles.actionBtn} ${styles.primary}`}
                   onClick={() => handleUpdate(tool.id)}
+                  disabled={isToolUpdating || isToolInstalling}
                 >
-                  {t('settings.cli.updateToVersion', { version: status.latestVersion })}
+                  {isToolUpdating ? (
+                    <SpinLoader size={12} />
+                  ) : null}
+                  {isToolUpdating
+                    ? t('settings.cli.updating')
+                    : t('settings.cli.updateToVersion', { version: status.latestVersion })}
                 </button>
               )}
               <button

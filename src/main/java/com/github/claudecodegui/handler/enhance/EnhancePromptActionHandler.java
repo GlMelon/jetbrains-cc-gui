@@ -57,7 +57,7 @@ public final class EnhancePromptActionHandler implements FrontendActionHandler<S
     private volatile boolean disposed;
 
     // Hard timeout for the enhancement Node.js process. Without this, a network-stalled
-    // SDK call would block the calling thread forever and leak the child process.
+    // provider call would block the calling thread forever and leak the child process.
     private static final long ENHANCE_TIMEOUT_SECONDS = 60;
     // Grace window after the process exits, for the async reader thread to drain stdout.
     private static final long READER_DRAIN_SECONDS = 5;
@@ -458,7 +458,7 @@ public final class EnhancePromptActionHandler implements FrontendActionHandler<S
             }
             LOG.info("[EnhancePromptActionHandler] Node.js path: " + nodeExecutable);
 
-            File bridgeDir = ctx.getNodeService().getSdkTestDir();
+            File bridgeDir = ctx.getNodeService().getBridgeDir();
             if (bridgeDir == null || !bridgeDir.exists()) {
                 LOG.error("[EnhancePromptActionHandler] AI Bridge directory does not exist");
                 return null;
@@ -509,7 +509,7 @@ public final class EnhancePromptActionHandler implements FrontendActionHandler<S
             //  2. A hard 60s timeout actually kills hung Node processes.
             //  3. The process is unregistered + force-killed in finally on every exit path.
             // The original code lacked all three, leaking child processes forever when
-            // the SDK call hung on a stalled network connection.
+            // the provider call hung on a stalled network connection.
             ProcessManager processManager = ctx.getNodeService().getProcessManager();
             StringBuilder response = new StringBuilder();
             StringBuilder allOutput = new StringBuilder();

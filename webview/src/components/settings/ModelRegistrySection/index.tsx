@@ -11,6 +11,7 @@ import styles from './style.module.less';
 import { EditIcon, LockIcon, PlusIcon, TrashIcon } from '../../Icons';
 import ModelEditDialog from './ModelEditDialog';
 import { FadeContent } from '../../react-bits';
+import { useCliInstallStatus } from '../../../hooks/useCliInstallStatus';
 
 interface ModelRegistrySectionProps {
   addToast: (message: string, type: 'info' | 'success' | 'warning' | 'error') => void;
@@ -35,6 +36,9 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
   const [providerFilter, setProviderFilter] = useState<'all' | 'claude' | 'codex' | 'opencode' | 'grok' | 'kimi' | 'pi'>('all');
   const [editing, setEditing] = useState<ModelRegistryItem | null>(null);
   const [editingOriginalKey, setEditingOriginalKey] = useState<string | null>(null);
+  // CLI 安装门控(方案A):未安装 provider 的筛选标记「未安装」;
+  // 仅当该 provider 无存量模型时禁用筛选(禁空筛选无损失),有存量模型仍可查看/编辑(不锁存量配置)
+  const cliInstall = useCliInstallStatus();
 
   useEffect(() => {
     requestModelRegistry();
@@ -139,16 +143,31 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
 
       <div className={styles.toolbar}>
         <div className={styles.filters}>
-          {(['all', 'claude', 'codex', 'opencode', 'grok', 'kimi', 'pi'] as const).map((provider) => (
+          {(['all', 'claude', 'codex', 'opencode', 'grok', 'kimi', 'pi'] as const).map((provider) => {
+            const cliMissing = provider !== 'all' && cliInstall.isNotInstalled(provider);
+            const hasModels = provider === 'all' || registry.items.some((m) => m.provider === provider);
+            const filterBlocked = cliMissing && !hasModels;
+            return (
             <button
               key={provider}
-              className={`${styles.filterButton} ${providerFilter === provider ? styles.active : ''}`}
-              onClick={() => setProviderFilter(provider)}
+              className={`${styles.filterButton} ${providerFilter === provider ? styles.active : ''} ${filterBlocked ? styles.filterBlocked : ''}`}
+              onClick={() => {
+                if (filterBlocked) {
+                  addToast(t('settings.cli.providerNotInstalledToast', {
+                    name: t(`providers.${provider}.label`, provider),
+                  }), 'warning');
+                  return;
+                }
+                setProviderFilter(provider);
+              }}
+              title={cliMissing ? t('settings.cli.notInstalled') : undefined}
             >
               {provider !== 'all' && <ProviderModelIcon providerId={provider} size={14} colored />}
               {provider === 'all' ? t('common.all', 'All') : provider}
+              {cliMissing && <span className={styles.filterBadge}>{t('settings.cli.notInstalled')}</span>}
             </button>
-          ))}
+            );
+          })}
         </div>
         <div className={styles.actions}>
           <button className="btn btn-secondary btn-sm" onClick={() => startAdd(providerFilter === 'all' ? 'claude' : providerFilter)}>

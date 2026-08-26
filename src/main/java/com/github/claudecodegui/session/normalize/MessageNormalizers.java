@@ -10,69 +10,60 @@ import java.util.function.Function;
 /**
  * 消息归一化器注册表入口(总则五·开闭 / E2)。
  * <p>
- * 按 (provider, runtime) 从 {@link MessageNormalizerFactory} 注册表查表创建归一化器,
- * 取代原先二级嵌套 if/else。新增 provider×runtime 组合只需在 {@link #FACTORIES} 加一行
- * entry,forRuntime 路由主体不变。
+ * 按 provider 从 {@link MessageNormalizerFactory} 注册表查表创建归一化器,
+ * 取代原先二级嵌套 if/else。新增 provider 只需在 {@link #FACTORIES} 加一行
+ * entry,forProvider 路由主体不变。
  * <p>
- * 回退语义(保持与原 if/else 完全一致):
- * <ul>
- *   <li>未知 provider → 回退 {@code claude}(原「非 codex 即 claude」);</li>
- *   <li>未知 runtime → 回退 {@code cli}(SDK 调用模式已移除,仅剩 CLI)。</li>
- * </ul>
- * 两维度独立归一(provider 与 runtime 各自判定已知),确保 {@code codex+未知runtime}
- * 仍路由到 Codex CLI(provider 优先保留),不被错误回退到 Claude。
+ * SDK 调用模式已移除,runtime 维度已消除——归一化器按 provider 单维路由。
+ * 回退语义(保持与原 if/else 完全一致):未知 provider → 回退 {@code claude}
+ * (原「非 codex 即 claude」)。
  */
 public final class MessageNormalizers {
 
     /** 默认回退 provider(原 if/else 中「非 codex 即 claude」语义)。 */
     private static final String DEFAULT_PROVIDER = CommonConstants.PROVIDER_CLAUDE;
-    /** 默认回退 runtime(SDK 调用模式已移除,仅剩 CLI)。 */
-    private static final String DEFAULT_RUNTIME = CommonConstants.INVOCATION_MODE_CLI;
 
     /**
-     * 归一化器工厂注册表。新增 provider 只需在此加一行 CLI entry。
+     * 归一化器工厂注册表。新增 provider 只需在此加一行 entry。
      * SDK 调用模式已移除——SDK 专属归一化器注册随之删除。
      */
     private static final List<MessageNormalizerFactory> FACTORIES = List.of(
-            entry(CommonConstants.PROVIDER_CLAUDE, CommonConstants.INVOCATION_MODE_CLI, ClaudeCliMessageNormalizer::new),
-            entry(CommonConstants.PROVIDER_CODEX, CommonConstants.INVOCATION_MODE_CLI, CodexCliMessageNormalizer::new),
+            entry(CommonConstants.PROVIDER_CLAUDE, ClaudeCliMessageNormalizer::new),
+            entry(CommonConstants.PROVIDER_CODEX, CodexCliMessageNormalizer::new),
             // B6: OpenCode 事件经 OpenCodeCliSession 已归一为统一 MSG_*,
             // 归一化器仅需透传(纯 ForwardingMessageNormalizer 空壳)。
-            entry(CommonConstants.PROVIDER_OPENCODE, CommonConstants.INVOCATION_MODE_CLI, OpenCodeMessageNormalizer::new),
+            entry(CommonConstants.PROVIDER_OPENCODE, OpenCodeMessageNormalizer::new),
             // Grok/Kimi/Pi: CLI-only providers, events normalized by MarkerCliStreamParser in CliSession,
             // normalizer is pure passthrough (same pattern as OpenCode).
-            entry(CommonConstants.PROVIDER_GROK, CommonConstants.INVOCATION_MODE_CLI, GrokMessageNormalizer::new),
-            entry(CommonConstants.PROVIDER_KIMI, CommonConstants.INVOCATION_MODE_CLI, KimiMessageNormalizer::new),
-            entry(CommonConstants.PROVIDER_PI, CommonConstants.INVOCATION_MODE_CLI, PiMessageNormalizer::new)
+            entry(CommonConstants.PROVIDER_GROK, GrokMessageNormalizer::new),
+            entry(CommonConstants.PROVIDER_KIMI, KimiMessageNormalizer::new),
+            entry(CommonConstants.PROVIDER_PI, PiMessageNormalizer::new)
     );
 
     private MessageNormalizers() {
     }
 
-    public static MessageCallback forRuntime(String provider, String runtime, MessageCallback delegate) {
+    public static MessageCallback forProvider(String provider, MessageCallback delegate) {
         String normalizedProvider = normalize(provider);
-        String normalizedRuntime = normalize(runtime);
-        return resolve(normalizedProvider, normalizedRuntime).create(delegate);
+        return resolve(normalizedProvider).create(delegate);
     }
 
     /**
      * 解析归一化器工厂(E2·开闭路由):
      * <ol>
      *   <li>未知 provider 回退 {@link #DEFAULT_PROVIDER};</li>
-     *   <li>未知 runtime 回退 {@link #DEFAULT_RUNTIME}(两维度独立);</li>
      *   <li>注册表精确 {@link MessageNormalizerFactory#supports} 匹配。</li>
      * </ol>
      */
-    private static MessageNormalizerFactory resolve(String provider, String runtime) {
+    private static MessageNormalizerFactory resolve(String provider) {
         String effectiveProvider = knownProvider(provider) ? provider : DEFAULT_PROVIDER;
-        String effectiveRuntime = knownRuntime(runtime) ? runtime : DEFAULT_RUNTIME;
         for (MessageNormalizerFactory factory : FACTORIES) {
-            if (factory.supports(effectiveProvider, effectiveRuntime)) {
+            if (factory.supports(effectiveProvider)) {
                 return factory;
             }
         }
         throw new IllegalStateException(
-                "No message normalizer for provider=" + provider + ", runtime=" + runtime);
+                "No message normalizer for provider=" + provider);
     }
 
     private static boolean knownProvider(String provider) {
@@ -84,30 +75,16 @@ public final class MessageNormalizers {
         return false;
     }
 
-    private static boolean knownRuntime(String runtime) {
-        for (MessageNormalizerFactory factory : FACTORIES) {
-            if (factory.runtime().equals(runtime)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private static String normalize(String value) {
         return value != null ? value.trim().toLowerCase(Locale.ROOT) : "";
     }
 
     private static MessageNormalizerFactory entry(
-            String provider, String runtime, Function<MessageCallback, MessageCallback> constructor) {
+            String provider, Function<MessageCallback, MessageCallback> constructor) {
         return new MessageNormalizerFactory() {
             @Override
             public String provider() {
                 return provider;
-            }
-
-            @Override
-            public String runtime() {
-                return runtime;
             }
 
             @Override

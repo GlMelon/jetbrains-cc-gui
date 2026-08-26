@@ -20,7 +20,7 @@ final class BridgeArchiveLocator {
 
     private static final Logger LOG = Logger.getInstance(BridgeArchiveLocator.class);
 
-    static final String SDK_ARCHIVE_NAME = "ai-bridge.zip";
+    static final String BRIDGE_ARCHIVE_NAME = "ai-bridge.zip";
 
     /**
      * Resolution result: the plugin directory plus plugin version used for the
@@ -48,7 +48,7 @@ final class BridgeArchiveLocator {
             }
         }
 
-        LOG.debug("[BridgeResolver] Could not resolve plugin directory containing " + SDK_ARCHIVE_NAME);
+        LOG.debug("[BridgeResolver] Could not resolve plugin directory containing " + BRIDGE_ARCHIVE_NAME);
         return null;
     }
 
@@ -131,7 +131,7 @@ final class BridgeArchiveLocator {
      * @return the archive file, or {@code null} if it cannot be found.
      */
     static File locateArchive(File pluginDir) {
-        File archiveFile = new File(pluginDir, SDK_ARCHIVE_NAME);
+        File archiveFile = new File(pluginDir, BRIDGE_ARCHIVE_NAME);
         LOG.info("[BridgeResolver] Looking for archive: " + archiveFile.getAbsolutePath());
         LOG.info("[BridgeResolver] Archive exists: " + archiveFile.exists());
         if (archiveFile.exists()) {
@@ -179,20 +179,20 @@ final class BridgeArchiveLocator {
 
                 File maybeTopPlugins = new File(parent, "plugins");
                 if (maybeTopPlugins.exists() && maybeTopPlugins.isDirectory()) {
-                    fallbackCandidates.add(new File(maybeTopPlugins, BridgePathLocator.PLUGIN_DIR_NAME + File.separator + SDK_ARCHIVE_NAME));
-                    fallbackCandidates.add(new File(maybeTopPlugins, PlatformUtils.getPluginId() + File.separator + SDK_ARCHIVE_NAME));
+                    fallbackCandidates.add(new File(maybeTopPlugins, BridgePathLocator.PLUGIN_DIR_NAME + File.separator + BRIDGE_ARCHIVE_NAME));
+                    fallbackCandidates.add(new File(maybeTopPlugins, PlatformUtils.getPluginId() + File.separator + BRIDGE_ARCHIVE_NAME));
                 }
 
                 // system/config siblings under this parent
                 File maybeSystemPlugins = new File(parent, "system/plugins");
                 File maybeConfigPlugins = new File(parent, "config/plugins");
                 if (maybeSystemPlugins.exists() && maybeSystemPlugins.isDirectory()) {
-                    fallbackCandidates.add(new File(maybeSystemPlugins, BridgePathLocator.PLUGIN_DIR_NAME + File.separator + SDK_ARCHIVE_NAME));
-                    fallbackCandidates.add(new File(maybeSystemPlugins, PlatformUtils.getPluginId() + File.separator + SDK_ARCHIVE_NAME));
+                    fallbackCandidates.add(new File(maybeSystemPlugins, BridgePathLocator.PLUGIN_DIR_NAME + File.separator + BRIDGE_ARCHIVE_NAME));
+                    fallbackCandidates.add(new File(maybeSystemPlugins, PlatformUtils.getPluginId() + File.separator + BRIDGE_ARCHIVE_NAME));
                 }
                 if (maybeConfigPlugins.exists() && maybeConfigPlugins.isDirectory()) {
-                    fallbackCandidates.add(new File(maybeConfigPlugins, BridgePathLocator.PLUGIN_DIR_NAME + File.separator + SDK_ARCHIVE_NAME));
-                    fallbackCandidates.add(new File(maybeConfigPlugins, PlatformUtils.getPluginId() + File.separator + SDK_ARCHIVE_NAME));
+                    fallbackCandidates.add(new File(maybeConfigPlugins, BridgePathLocator.PLUGIN_DIR_NAME + File.separator + BRIDGE_ARCHIVE_NAME));
+                    fallbackCandidates.add(new File(maybeConfigPlugins, PlatformUtils.getPluginId() + File.separator + BRIDGE_ARCHIVE_NAME));
                 }
 
                 ancestor = parent;

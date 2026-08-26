@@ -39,7 +39,7 @@ public class PathUtils {
      *
      * <p>This mirrors Node's {@code path.resolve()} (used by the ai-bridge when it
      * decides the working directory), so the {@code ~/.claude/projects/<key>}
-     * directory derived on the Java side matches the one the Claude SDK writes to.
+     * directory derived on the Java side matches the one the Claude CLI writes to.
      * {@code getCanonicalPath()} is deliberately avoided: it resolves
      * symlinks/junctions and may change case, which would re-introduce divergence.
      *
@@ -55,7 +55,7 @@ public class PathUtils {
         // //wsl.localhost/... form IntelliJ's getBasePath() returns on Windows) must NOT be run
         // through Paths.get(...).toAbsolutePath(): the leading "//" collapses and the path resolves
         // drive-relative (C:\wsl.localhost\...), producing a different ~/.claude/projects/<key>
-        // than the SDK writes to. See WslPathUtil.resolveHomeForFileOps for the same hazard.
+        // than the CLI writes to. See WslPathUtil.resolveHomeForFileOps for the same hazard.
         if (isWslUncPath(path)) {
             return normalizeWslUncLexically(path);
         }
@@ -67,13 +67,13 @@ public class PathUtils {
     }
 
     /**
-     * Guard a provider daemon's requested working directory against the project
+     * Guard a provider CLI process's requested working directory against the project
      * base so it cannot be pointed outside the project.
      *
      * <p>Returns {@code null} when there is no project base to guard against, in
      * which case the caller should keep the original cwd. When the cwd is missing
      * or resolves outside the project base, the project base is returned (clamping
-     * the daemon back inside the project). When the cwd already resolves inside
+     * the process back inside the project). When the cwd already resolves inside
      * (or equal to) the project base, the cwd is returned verbatim so legitimate
      * sub-directory selections are preserved. Comparison is done on normalized
      * absolute paths (so trailing-slash / relative differences don't bypass the

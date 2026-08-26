@@ -2,7 +2,7 @@ package com.github.claudecodegui.action.tab;
 
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.settings.TabStateService;
-import com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow;
+import com.github.claudecodegui.ui.toolwindow.ClaudeChatToolWindow;
 import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.ToggleAction;
@@ -20,8 +20,7 @@ import org.jetbrains.annotations.Nullable;
  * Toggles the pinned (close-protected) state of the currently selected tab.
  *
  * <p>A pinned tab cannot be closed via the ContentManager close button, and the state is
- * persisted in {@link TabStateService} so it survives IDE restart. Runtime (SDK/CLI) is
- * intentionally not part of tab state — it is a global per-provider policy.</p>
+ * persisted in {@link TabStateService} so it survives IDE restart.</p>
  */
 public class PinTabAction extends ToggleAction implements DumbAware {
 
@@ -43,7 +42,7 @@ public class PinTabAction extends ToggleAction implements DumbAware {
     @Override
     public boolean isSelected(@NotNull AnActionEvent e) {
         Content selected = selectedContent(e.getProject());
-        return selected != null && ClaudeSDKToolWindow.isPinned(selected);
+        return selected != null && ClaudeChatToolWindow.isPinned(selected);
     }
 
     @Override
@@ -62,7 +61,7 @@ public class PinTabAction extends ToggleAction implements DumbAware {
         int tabIndex = contentManager.getIndexOfContent(selected);
         // Mirror the persisted state into the per-Content runtime flag so the closeable
         // decision and the next persistTabSessionState snapshot stay consistent.
-        selected.putUserData(ClaudeSDKToolWindow.PINNED_KEY, state);
+        selected.putUserData(ClaudeChatToolWindow.PINNED_KEY, state);
         if (tabIndex >= 0) {
             TabStateService.getInstance(project).setPinned(tabIndex, state);
         }
@@ -89,7 +88,7 @@ public class PinTabAction extends ToggleAction implements DumbAware {
             return null;
         }
         ToolWindow toolWindow = ToolWindowManager.getInstance(project)
-                .getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
+                .getToolWindow(ClaudeChatToolWindow.TOOL_WINDOW_ID);
         return toolWindow == null ? null : toolWindow.getContentManagerIfCreated();
     }
 }

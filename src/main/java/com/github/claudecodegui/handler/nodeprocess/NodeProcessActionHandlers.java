@@ -82,7 +82,7 @@ public class NodeProcessActionHandlers {
             if (pid > 0) {
                 try {
                     NodeProcessRegistry registry = NodeProcessRegistry.getInstance(context.getProject());
-                    // CLI_SESSION 保护预检(§5.2):透传 cli_session_protected 错误码供前端渲染保护提示
+                    // CLI_SESSION 保护预检:透传 cli_session_protected 错误码供前端渲染保护提示
                     String protectedReason = registry.checkKillProtected(pid);
                     if (protectedReason != null) {
                         error = protectedReason;

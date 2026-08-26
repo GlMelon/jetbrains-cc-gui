@@ -146,7 +146,7 @@ export function buildSessionMessagesPayload(sessionFile) {
     // not real user input: rendered in the chat they read as a phantom
     // message, and their uuid makes getLatestUserMessage return them as the
     // "latest user message", starving the rewind uuid-sync for the user's
-    // real last message. The live stream never carries them (the daemon
+    // real last message. The live stream never carries them (the bridge
     // consumes them inter-turn), so dropping them here keeps reloaded
     // history consistent with the live view.
     .filter(msg => !(msg.type === 'user' && isInterruptionMarker(msg)))

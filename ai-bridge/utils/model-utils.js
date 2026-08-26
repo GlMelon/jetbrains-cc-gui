@@ -8,7 +8,7 @@
  */
 
 /**
- * 模型相关常量：集中管理 role 名、role→SDK modelId 映射、环境变量名、模型前缀。
+ * 模型相关常量：集中管理 role 名、role→CLI modelId 映射、环境变量名、模型前缀。
  * 与后端 Java CommonConstants.ENV_ANTHROPIC_* / DEFAULT_MODEL('claude-role-sonnet') 对齐。
  */
 export const MODEL_CONSTANTS = Object.freeze({
@@ -19,7 +19,7 @@ export const MODEL_CONSTANTS = Object.freeze({
     HAIKU: 'haiku',
     FABLE: 'fable',
   }),
-  /** 角色 → SDK 识别的 role modelId（getClaudeRoleFromModelId 匹配的 role selector）。 */
+  /** 角色 → 内部 role modelId（getClaudeRoleFromModelId 匹配的 role selector）。 */
   ROLE_MODEL_ID: Object.freeze({
     FABLE: 'claude-role-fable',
     OPUS: 'claude-role-opus',
@@ -41,11 +41,11 @@ export const MODEL_CONSTANTS = Object.freeze({
 const { ROLE, ROLE_MODEL_ID, ENV, CLAUDE_PREFIX } = MODEL_CONSTANTS;
 
 /**
- * Map a full model ID to the short name expected by the Claude SDK.
+ * Map a full model ID to the short name expected by the Claude CLI.
  * @param {string} modelId - Internal role model ID (e.g. 'claude-role-sonnet')
- * @returns {string} SDK model name (e.g. 'sonnet')
+ * @returns {string} CLI model name (e.g. 'sonnet')
  */
-export function mapModelIdToSdkName(modelId) {
+export function mapModelIdToCliName(modelId) {
   if (!modelId || typeof modelId !== 'string') {
     return ROLE.SONNET; // Default to sonnet
   }
@@ -102,7 +102,7 @@ export function getClaudeRoleFromModelId(modelId) {
  *
  * IMPORTANT: The `[1m]` suffix is controlled by the input modelId from the
  * webview, not by stale settings.env mappings.
- * The 1M context window is selected by the Claude Code SDK based on whether the
+ * The 1M context window is selected by the Claude Code CLI based on whether the
  * model name ends with `[1m]` (it reads `process.env.ANTHROPIC_DEFAULT_*_MODEL`).
  * If the request enables 1M, preserve or append the suffix on the mapped model.
  * If the request disables 1M, strip any suffix from the mapped value so an old
@@ -174,19 +174,19 @@ export function resolveModelFromSettings(modelId, userEnv, actualModel = null) {
 }
 
 /**
- * Resolve the Claude SDK model name to send for prompt enhancement (Bug 3 fix).
+ * Resolve the model name to send to the Claude CLI for prompt enhancement (Bug 3 fix).
  *
  * promptEnhancer(cllaude 路径)下发的模型名必须与 chat/commitAi 同源 —— 优先用
  * registry 解析的 actualModel(具体模型 id,如 glm-5.2),而非仅靠 role→bucket
  * 映射 + settings.json env 间接解析。当 registry actualModel 与 settings.json env
- * (cc-switch 写入)不同步时,旧逻辑(mapModelIdToSdkName → bucket)会用错模型。
+ * (cc-switch 写入)不同步时,旧逻辑(mapModelIdToCliName → bucket)会用错模型。
  *
  * actualModel 优先 + [1m] 处理语义与 {@link resolveModelFromSettings} 一致,但回退是
- * bucket name(promptEnhancer 的 SDK `model` 参数需要 bucket selector,而非 role id 原值)。
+ * bucket name(promptEnhancer 下发的 `model` 需要 bucket selector,而非 role id 原值)。
  *
  * @param {string} model - Internal role model ID (e.g. 'claude-role-sonnet'), may carry [1m]
  * @param {string} [actualModel] - registry-resolved concrete model id
- * @returns {string} SDK model name (actualModel[±1m], or bucket name fallback)
+ * @returns {string} CLI model name (actualModel[±1m], or bucket name fallback)
  */
 export function resolveClaudeEnhanceModelName(model, actualModel) {
   const requestHas1M = /\[1m\]$/i.test(model || '');
@@ -198,16 +198,16 @@ export function resolveClaudeEnhanceModelName(model, actualModel) {
   if (actualModel && String(actualModel).trim()) {
     return applySuffix(String(actualModel).trim());
   }
-  return mapModelIdToSdkName(model);
+  return mapModelIdToCliName(model);
 }
 
 /**
- * Set SDK environment variables based on the model name.
- * The Claude SDK uses short names (opus/sonnet/haiku) as model selectors,
+ * Set model environment variables for the Claude CLI child process.
+ * The Claude CLI uses short names (opus/sonnet/haiku) as model selectors,
  * while the specific version is determined by ANTHROPIC_DEFAULT_*_MODEL environment variables.
  *
  * NOTE: This function mutates process.env as a side effect, which is required by the
- * Claude SDK's model resolution mechanism. This is safe in the current single-request
+ * Claude CLI's model resolution mechanism. This is safe in the current single-request
  * architecture but should be revisited if concurrent request handling is introduced.
  *
  * @param {string} modelId - The resolved model name to set as env var value (e.g. 'MiniMax-M2.5' or 'claude-opus-4-6')
@@ -228,7 +228,7 @@ export function setModelEnvironmentVariables(modelId, baseModelId) {
   process.env[ENV.ANTHROPIC_MODEL] = modelId;
 
   // Set the corresponding environment variable based on model type
-  // so the SDK knows which specific version to use
+  // so the CLI knows which specific version to use
   if (role === ROLE.FABLE) {
     process.env[ENV.DEFAULT_FABLE_MODEL] = modelId;
     process.env[ENV.DEFAULT_OPUS_MODEL] = modelId;
@@ -242,8 +242,8 @@ export function setModelEnvironmentVariables(modelId, baseModelId) {
     console.log(`[MODEL_ENV] Set ${ENV.DEFAULT_HAIKU_MODEL} =`, modelId);
   } else {
     // Covers 'sonnet' and any non-Anthropic model names (e.g. 'qwen3.5-plus', 'deepseek-v3')
-    // Since mapModelIdToSdkName() defaults to 'sonnet' for unknown models,
-    // the SDK will look up ANTHROPIC_DEFAULT_SONNET_MODEL for the actual model name
+    // Since mapModelIdToCliName() defaults to 'sonnet' for unknown models,
+    // the CLI will look up ANTHROPIC_DEFAULT_SONNET_MODEL for the actual model name
     process.env[ENV.DEFAULT_SONNET_MODEL] = modelId;
     console.log(`[MODEL_ENV] Set ${ENV.DEFAULT_SONNET_MODEL} =`, modelId);
   }
@@ -281,5 +281,5 @@ export function modelSupportsVision(modelId) {
 }
 
 // Note: getClaudeCliPath() has been removed.
-// Now using the SDK's built-in cli.js (at node_modules/@anthropic-ai/claude-agent-sdk/cli.js).
-// This avoids system CLI path issues on Windows (ENOENT errors) and keeps the version aligned with the SDK.
+// CLI path resolution now lives in claude-cli-path.js (CLAUDE_CODE_PATH override)
+// plus the spawn helpers that fall back to the `claude` executable on PATH.

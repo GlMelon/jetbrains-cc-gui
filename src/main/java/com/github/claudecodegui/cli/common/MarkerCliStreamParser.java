@@ -29,7 +29,7 @@ import com.intellij.openapi.diagnostic.Logger;
  * </ul>
  * 每次发送构造新实例,持有本次运行的全部可变状态。
  */
-public class MarkerCliStreamParser {
+public class MarkerCliStreamParser implements CliStreamParser {
 
     private static final Logger LOG = Logger.getInstance(MarkerCliStreamParser.class);
 

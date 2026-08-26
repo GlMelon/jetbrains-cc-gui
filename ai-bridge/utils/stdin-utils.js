@@ -1,7 +1,7 @@
 // @ts-check
 /**
  * Stdin reader utility module (unified version).
- * Supports Claude SDK, Codex SDK, and CLI channels (Grok / Kimi / OpenCode).
+ * Shared by all provider CLI channels (Claude / Codex / Grok / Kimi / OpenCode / ...).
  */
 
 const STDIN_ENV_BY_PROVIDER = {

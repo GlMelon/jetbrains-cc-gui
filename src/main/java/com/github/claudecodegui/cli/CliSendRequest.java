@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * CLI 模式发送请求，完全独立于 SDK。
+ * CLI 模式发送请求。
  */
 public record CliSendRequest(
         String tabId,

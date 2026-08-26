@@ -11,9 +11,9 @@ import os from 'os';
 import crypto from 'crypto';
 import { modelSupportsVision } from '../../utils/model-utils.js';
 
-// Image temp directory shared across the daemon's lifetime.
+// Image temp directory shared across the bridge process lifetime.
 const TEMP_IMAGE_SUBDIR = 'cc-gui-images';
-// Files older than 24h are removed at daemon startup to bound disk growth.
+// Files older than 24h are removed at bridge startup to bound disk growth.
 const TEMP_IMAGE_TTL_MS = 24 * 60 * 60 * 1000;
 
 /**
@@ -22,7 +22,7 @@ const TEMP_IMAGE_TTL_MS = 24 * 60 * 60 * 1000;
  */
 
 /**
- * 内容块(Anthropic SDK 消息内容)。
+ * 内容块(Claude 消息内容)。
  * @typedef {{ type: string; text?: string; source?: { type: string; media_type: string; data: string } }} ContentBlock
  */
 
@@ -188,7 +188,7 @@ async function saveImageToTemp(base64Data, mediaType, fileName) {
 }
 
 /**
- * Best-effort cleanup of old temp image files (>24h old). Called at daemon
+ * Best-effort cleanup of old temp image files (>24h old). Called at bridge
  * startup so failed/abandoned writes from previous sessions don't accumulate.
  * Errors are swallowed — cleanup is non-critical.
  *

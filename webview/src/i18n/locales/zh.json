@@ -459,7 +459,7 @@
     "openCodeProvider": {
       "title": "OpenCode 供应商",
       "description": "管理 OpenCode AI 功能的供应商配置",
-      "info": "OpenCode 使用本地守护进程模式，无需配置 API Key。安装 OpenCode SDK 后即可使用增强提示词和 Commit AI 功能。",
+      "info": "OpenCode 使用本地守护进程模式，无需配置 API Key。安装 OpenCode CLI 后即可使用增强提示词和 Commit AI 功能。",
       "dialog": {
         "addTitle": "添加 OpenCode Provider",
         "editTitle": "编辑 Provider：{{name}}",
@@ -589,6 +589,11 @@
       "editPricing": "编辑价格"
     },
     "cli": {
+      "providerNotInstalledToast": "{{name}} CLI 未安装，请先在 设置 → CLI 环境 中安装",
+      "recheck": "重新检测 CLI 环境",
+      "rechecking": "检测中…",
+
+      "updating": "更新中…",
       "title": "CLI 环境检查",
       "description": "检测本地安装的 AI CLI 工具状态，包括版本信息和安装路径。",
       "claudeName": "Claude CLI",
@@ -2437,9 +2442,9 @@
           "step0": "在终端运行下面的命令查看版本号。建议使用 Node 22 或当前最新 LTS 版本 — 用户反馈 Node 24 报错较多，请优先使用 20 或 22："
         },
         "reinstallLatestSdk": {
-          "title": "方案二：用 npm 官方源重装最新版 SDK",
+          "title": "方案二：用 npm 官方源重装最新版 CLI",
           "step0": "1. 切换到 npm 官方源（淘宝源可能未同步最新版本，请勿使用淘宝源安装）：",
-          "step1": "2. 打开「依赖管理」重装最新版 SDK："
+          "step1": "2. 打开「依赖管理」重装最新版 CLI："
         }
       }
     }

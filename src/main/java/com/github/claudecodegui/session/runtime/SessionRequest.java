@@ -7,15 +7,14 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 统一请求 DTO，合并 CLI 请求字段与 SDK 散参数。
+ * 统一请求 DTO，合并 CLI 请求字段。
  * <p>
  * 作为 SessionRuntime.send() 的入参，由 SessionSendService 构造，
- * 各实现类按需取字段转发给底层 bridge / CLI session。
+ * 各实现类按需取字段转发给底层 CLI session。
  */
 public record SessionRequest(
         RuntimeKey key,
         ProviderType provider,
-        RuntimeType runtimeType,
         String message,
         String sessionId,
         String cwd,
@@ -36,7 +35,6 @@ public record SessionRequest(
     public SessionRequest(
             RuntimeKey key,
             ProviderType provider,
-            RuntimeType runtimeType,
             String message,
             String sessionId,
             String cwd,
@@ -56,7 +54,6 @@ public record SessionRequest(
         this(
                 key,
                 provider,
-                runtimeType,
                 message,
                 sessionId,
                 cwd,
@@ -82,9 +79,6 @@ public record SessionRequest(
         }
         if (provider == null) {
             throw new IllegalArgumentException("provider is required");
-        }
-        if (runtimeType == null) {
-            throw new IllegalArgumentException("runtimeType is required");
         }
         message = message != null ? message : "";
         attachments = attachments != null ? List.copyOf(attachments) : List.of();

@@ -12,13 +12,8 @@
 
 import { pathToFileURL } from 'node:url';
 
-// NOTE: SDK imports removed — Claude/Codex SDK no longer available in CLI-only mode.
-// Prompt enhancement via direct SDK is disabled; CLI handles this internally.
-import { setupApiKey, buildCliEnv, buildWebviewControlledSettingsOverride } from '../config/api-config.js';
-import { resolveClaudeEnhanceModelName } from '../utils/model-utils.js';
-import { getRealHomeDir } from '../utils/path-utils.js';
-import { getClaudeCliPathOverride } from '../utils/claude-cli-path.js';
-import { buildCodexCliEnvironment } from './codex/codex-utils.js';
+// NOTE: Direct SDK invocation has been removed (CLI-only mode).
+// Prompt enhancement via this process always fails; the CLI handles it internally.
 
 /**
  * Related-file entry supplied by the IDE for prompt enhancement.
@@ -60,28 +55,6 @@ const DEFAULT_PROMPT_ENHANCER_CONFIG = {
     codex: false,
   },
 };
-
-/**
- * Ensure Claude SDK is loaded.
- * NOTE: SDK has been removed. This function always throws in CLI-only mode.
- */
-async function ensureClaudeSdk() {
-  throw new Error(
-    'Claude Code SDK is no longer available in CLI-only mode. ' +
-    'Prompt enhancement is handled internally by the CLI process.'
-  );
-}
-
-/**
- * Ensure Codex SDK is loaded.
- * NOTE: SDK has been removed. This function always throws in CLI-only mode.
- */
-async function ensureCodexSdk() {
-  throw new Error(
-    'Codex SDK is no longer available in CLI-only mode. ' +
-    'Prompt enhancement is handled internally by the CLI process.'
-  );
-}
 
 // Context length limits (in characters) to avoid exceeding model token limits
 const MAX_SELECTED_CODE_LENGTH = 2000;
@@ -314,9 +287,6 @@ export function resolvePromptEnhancerRuntimeConfig({ promptEnhancerConfig, legac
 
   const config = normalizePromptEnhancerConfig(promptEnhancerConfig);
 
-  // NOTE: SDK availability checks removed — SDK no longer available in CLI-only mode.
-  // Prompt enhancement is handled internally by the CLI process.
-
   if (config.effectiveProvider === 'codex') {
     return {
       provider: 'codex',
@@ -347,84 +317,6 @@ export function resolvePromptEnhancerRuntimeConfig({ promptEnhancerConfig, legac
 }
 
 /**
- * Enhance the prompt via the Claude Agent SDK.
- * @param {string} originalPrompt
- * @param {string} systemPrompt
- * @param {string} model
- * @param {string | undefined} actualModel
- * @param {PromptEnhancerContext | undefined} context
- * @returns {Promise<string>}
- */
-async function enhancePromptWithClaude(originalPrompt, systemPrompt, model, actualModel, context) {
-  const sdk = await ensureClaudeSdk();
-  const { query } = sdk;
-
-  const config = /** @type {{ authType: string; baseUrl?: string }} */ (setupApiKey());
-  console.log(`[PromptEnhancer] Auth type: ${config.authType}`);
-  console.log(`[PromptEnhancer] Base URL: ${config.baseUrl || 'https://api.anthropic.com'}`);
-
-  // Bug 3:优先用 registry 解析的 actualModel(与 chat/commitAi 同源),否则 role→bucket。
-  const sdkModelName = resolveClaudeEnhanceModelName(model, actualModel);
-  console.log(`[PromptEnhancer] Claude model mapping: ${model} -> ${sdkModelName}${actualModel ? ` (registry actualModel: ${actualModel})` : ''}`);
-
-  const workingDirectory = getRealHomeDir();
-  const fullPrompt = buildFullPrompt(originalPrompt, context);
-  console.log(`[PromptEnhancer] Full prompt length: ${fullPrompt.length}`);
-
-  const claudeCliOverride = getClaudeCliPathOverride();
-  const options = {
-    cwd: workingDirectory,
-    // Prompt enhancement only rewrites text — it must never execute tools. Use default
-    // mode with a deny-all canUseTool, and do NOT load project/local settings (whose
-    // permissions.allow could otherwise auto-approve a prompt-injected tool call).
-    permissionMode: 'default',
-    model: sdkModelName,
-    maxTurns: 1,
-    env: buildCliEnv(),
-    settings: buildWebviewControlledSettingsOverride(model),
-    systemPrompt,
-    settingSources: ['user'],
-    canUseTool: async () => ({ behavior: 'deny', message: 'Prompt enhancement does not execute tools' }),
-    ...(claudeCliOverride && { pathToClaudeCodeExecutable: claudeCliOverride }),
-  };
-
-  console.log('[PromptEnhancer] Calling Claude Agent SDK...');
-
-  const result = query({
-    prompt: fullPrompt,
-    options,
-  });
-
-  let responseText = '';
-  let messageCount = 0;
-
-  for await (const msg of result) {
-    messageCount += 1;
-    console.log(`[PromptEnhancer] Claude message #${messageCount}, type: ${msg.type}`);
-
-    if (msg.type === 'assistant') {
-      const content = msg.message?.content;
-      if (Array.isArray(content)) {
-        for (const block of content) {
-          if (block.type === 'text') {
-            responseText += block.text;
-          }
-        }
-      } else if (typeof content === 'string') {
-        responseText += content;
-      }
-    }
-  }
-
-  console.log(`[PromptEnhancer] Claude response text length: ${responseText.length}`);
-  if (responseText.trim()) {
-    return responseText.trim();
-  }
-
-  throw new Error('Claude enhancement response is empty');
-}
-
-/**
  * Compute the appended delta between two agent message snapshots (Codex streaming).
  * @param {string | undefined} previousText
  * @param {string | undefined} nextText
@@ -441,83 +333,10 @@ export function extractAppendedDelta(previousText, nextText) {
 }
 
 /**
- * Enhance the prompt via the Codex SDK.
- * @param {string} originalPrompt
- * @param {string} systemPrompt
- * @param {string} model
- * @param {string | undefined} actualModel
- * @param {PromptEnhancerContext | undefined} context
- * @returns {Promise<string>}
- */
-async function enhancePromptWithCodex(originalPrompt, systemPrompt, model, actualModel, context) {
-  const sdk = await ensureCodexSdk();
-  const Codex = sdk.Codex || sdk.default || sdk;
-  const { cliEnv } = buildCodexCliEnvironment(process.env);
-  const codex = new Codex({ env: cliEnv });
-
-  const workingDirectory = getRealHomeDir();
-  const systemPromptText = (systemPrompt || '').trim();
-  const fullPrompt = [
-    systemPromptText,
-    '',
-    buildFullPrompt(originalPrompt, context),
-    '',
-    'Remember: output only the optimized prompt text with no explanation.',
-  ].join('\n');
-  console.log(`[PromptEnhancer] Full prompt length: ${fullPrompt.length}`);
-
-  // Bug 3:优先 registry actualModel(codex 具体模型 id),否则原 model。
-  const codexModel = (actualModel && String(actualModel).trim()) ? String(actualModel).trim() : model;
-
-  const thread = codex.startThread({
-    skipGitRepoCheck: true,
-    maxTurns: 1,
-    workingDirectory,
-    model: codexModel,
-    sandboxMode: 'read-only',
-    approvalPolicy: 'never',
-  });
-
-  console.log(`[PromptEnhancer] Calling Codex SDK with model: ${model}`);
-
-  const { events } = await thread.runStreamed(fullPrompt);
-  let responseText = '';
-  let lastAgentMessage = '';
-
-  for await (const event of events) {
-    console.log(`[PromptEnhancer] Codex event: ${event.type}`);
-    if (event.type === 'item.updated' || event.type === 'item.completed') {
-      const item = event.item;
-      if (item?.type === 'agent_message' && typeof item.text === 'string') {
-        const delta = extractAppendedDelta(lastAgentMessage, item.text);
-        if (delta) {
-          responseText += delta;
-        }
-        lastAgentMessage = item.text;
-      }
-      continue;
-    }
-
-    if (event.type === 'turn.failed') {
-      throw new Error(event.error?.message || 'Codex enhancement turn failed');
-    }
-
-    if (event.type === 'error') {
-      throw new Error(event.message || 'Codex enhancement failed');
-    }
-  }
-
-  const finalText = responseText.trim() || lastAgentMessage.trim();
-  console.log(`[PromptEnhancer] Codex response text length: ${finalText.length}`);
-  if (finalText) {
-    return finalText;
-  }
-
-  throw new Error('Codex enhancement response is empty');
-}
-
-/**
  * Dispatch enhancement to the configured provider.
+ * NOTE: Direct SDK invocation has been removed (CLI-only mode), so this always
+ * throws — the CLI process handles prompt enhancement internally. The error
+ * text is preserved so the Java-side failure surface stays unchanged.
  * @param {string} originalPrompt
  * @param {string} systemPrompt
  * @param {PromptEnhancerRuntimeConfig} runtimeConfig
@@ -525,10 +344,11 @@ async function enhancePromptWithCodex(originalPrompt, systemPrompt, model, actua
  * @returns {Promise<string>}
  */
 async function enhancePrompt(originalPrompt, systemPrompt, runtimeConfig, context) {
-  if (runtimeConfig.provider === 'codex') {
-    return enhancePromptWithCodex(originalPrompt, systemPrompt, runtimeConfig.model, runtimeConfig.actualModel, context);
-  }
-  return enhancePromptWithClaude(originalPrompt, systemPrompt, runtimeConfig.model, runtimeConfig.actualModel, context);
+  const providerLabel = runtimeConfig.provider === 'codex' ? 'Codex SDK' : 'Claude Code SDK';
+  throw new Error(
+    `${providerLabel} is no longer available in CLI-only mode. ` +
+    'Prompt enhancement is handled internally by the CLI process.'
+  );
 }
 
 /**

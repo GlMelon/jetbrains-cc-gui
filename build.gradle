@@ -595,18 +595,16 @@ tasks.register('packageAiBridge', Exec) {
     }
 
     // Use system zip command, -r for recursive, -y to preserve symlinks
-    // Exclude SDK packages (they will be installed on-demand by users to ~/.codemoss/dependencies/)
+    // Exclude pnpm store layout if present (dependencies are installed via npm)
     if (System.getProperty('os.name').toLowerCase().contains('windows')) {
-        // Windows: Use PowerShell to exclude SDK packages
+        // Windows: Use PowerShell to apply exclusion patterns
         // Create temporary PowerShell script file to avoid escaping issues
         def tempScript = File.createTempFile('ai-bridge-pack', '.ps1')
         tempScript.deleteOnExit()
 
         def scriptContent = '''
             $excludePatterns = @(
-                '*node_modules\\.pnpm*',
-                '*node_modules\\@anthropic-ai*',
-                '*node_modules\\@openai*'
+                '*node_modules\\.pnpm*'
             )
             $tempDir = Join-Path $env:TEMP "ai-bridge-temp-$(Get-Random)"
             New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
@@ -647,12 +645,10 @@ tasks.register('packageAiBridge', Exec) {
         commandLine 'powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', tempScript.absolutePath
     } else {
         // Unix/Linux/macOS: Use zip command to preserve permissions
-        // Exclude SDK package directories
+        // Exclude pnpm store layout if present
         commandLine 'zip', '-r', '-y', aiBridgeArchive.absolutePath,
             '.',
-            '-x', '*/node_modules/.pnpm/*',
-            '-x', '*/node_modules/@anthropic-ai/*',
-            '-x', '*/node_modules/@openai/*'
+            '-x', '*/node_modules/.pnpm/*'
     }
 
     doLast {

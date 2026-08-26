@@ -1,11 +1,8 @@
 // @ts-check
 /**
  * Codex utility functions.
- * Logging, environment config, SDK initialization, reconnect helpers, and error handling.
+ * Logging, environment config, reconnect helpers, and error handling.
  */
-
-// NOTE: SDK imports removed — Codex SDK no longer available in CLI-only mode.
-import { CodexPermissionMapper } from '../../utils/permission-mapper.js';
 
 // ========== Debug Logging Configuration ==========
 // Log levels: 0 = off, 1 = errors only, 2 = warnings, 3 = info, 4 = debug, 5 = verbose
@@ -174,18 +171,6 @@ export const emitStatusMessage = (emitMessage, message) => {
   emitMessage({ type: 'status', message: status });
 };
 
-/**
- * Ensure Codex SDK is loaded.
- * NOTE: SDK has been removed. This function always throws in CLI-only mode.
- * @returns {Promise<any>}
- */
-export async function ensureCodexSdk() {
-  throw new Error(
-    'Codex SDK is no longer available in CLI-only mode. ' +
-    'Please use the CLI-based message sender instead.'
-  );
-}
-
 export const MAX_TOOL_RESULT_CHARS = 20000;
 export const RAW_EVENT_LOG_MAX_CHARS = 12000;
 
@@ -309,36 +294,4 @@ export function buildErrorPayload(error) {
       isNetworkError
     }
   };
-}
-
-/**
- * 为 Codex 线程缓存生成复用签名。codexOptions/threadOptions 的关键字段 + 可选的
- * mcpGatewayRevision(MCP Gateway 启用时)序列化为稳定字符串。revision 维度确保 gateway
- * 工具目录变化(revision 递增)时线程缓存失效、重建 codex 实例,避免复用过期 gateway 工具集
- * (与 Claude 的 mcpGatewaySchemaRevision 进 runtime 签名对称)。
- *
- * @param {object} codexOptions - Codex SDK 顶层选项(baseUrl/apiKey/env/config...)
- * @param {object} threadOptions - 线程选项(model/sandboxMode/workingDirectory...)
- * @param {number|null} [mcpGatewayRevision] - MCP Gateway revision;null/省略时不参与签名(向后兼容)
- * @returns {string} 稳定的 JSON 签名字符串
- */
-/**
- * @param {any} codexOptions
- * @param {any} threadOptions
- * @param {number | string | null | undefined} [mcpGatewayRevision]
- * @returns {string}
- */
-export function buildCodexThreadCacheSignature(codexOptions, threadOptions, mcpGatewayRevision) {
-  return JSON.stringify({
-    baseUrl: codexOptions?.baseUrl || '',
-    apiKey: codexOptions?.apiKey || '',
-    env: codexOptions?.env || {},
-    model: threadOptions?.model || '',
-    sandboxMode: threadOptions?.sandboxMode || '',
-    workingDirectory: threadOptions?.workingDirectory || '',
-    skipGitRepoCheck: !!threadOptions?.skipGitRepoCheck,
-    modelReasoningEffort: threadOptions?.modelReasoningEffort || '',
-    approvalPolicy: threadOptions?.approvalPolicy || '',
-    mcpGatewayRevision: mcpGatewayRevision || '',
-  });
 }

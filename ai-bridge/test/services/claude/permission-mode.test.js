@@ -4,9 +4,9 @@ import assert from 'node:assert/strict';
 import { createPreToolUseHook } from '../../../services/claude/permission-mode.js';
 import { validateHookOutput, assertSdkAcceptsHookOutput } from '../../../services/claude/permission-mode-schema.js';
 
-// Wrap the hook so every test invocation also runs SDK-shape validation.
+// Wrap the hook so every test invocation also runs hook-shape validation.
 // This is the regression guard for PR #1121 → #1126 → #1213: returning a value
-// the SDK's Zod schema rejects (e.g. permissionDecision: 'continue', which is
+// the CLI's hook schema rejects (e.g. permissionDecision: 'continue', which is
 // not in HookPermissionDecision = 'allow'|'deny'|'ask'|'defer').
 function makeHook(mode = 'default', cwd = '/tmp/test-cwd') {
   const raw = createPreToolUseHook({ value: mode }, cwd);
@@ -66,11 +66,11 @@ test('default mode: read-only helper tools (BashOutput, NotebookRead) yield "con
     ['NotebookRead', { notebook_path: '/tmp/test-cwd/nb.ipynb' }],
   ]) {
     const result = await hook({ tool_name: toolName, tool_input: toolInput });
-    assert.equal(result?.continue, true, `expected ${toolName} to yield to the SDK`);
+    assert.equal(result?.continue, true, `expected ${toolName} to yield to the CLI`);
   }
 });
 
-test('bypassPermissions mode: Bash yields "continue" (SDK mode-check auto-allows)', async () => {
+test('bypassPermissions mode: Bash yields "continue" (CLI mode-check auto-allows)', async () => {
   const hook = makeHook('bypassPermissions');
   const result = await hook({
     tool_name: 'Bash',
@@ -79,7 +79,7 @@ test('bypassPermissions mode: Bash yields "continue" (SDK mode-check auto-allows
   assert.equal(result?.continue, true);
 });
 
-test('acceptEdits mode: Edit inside CWD yields "continue" (SDK mode-check auto-accepts)', async () => {
+test('acceptEdits mode: Edit inside CWD yields "continue" (CLI mode-check auto-accepts)', async () => {
   const cwd = '/tmp/test-cwd';
   const hook = makeHook('acceptEdits', cwd);
   const result = await hook({
@@ -113,14 +113,14 @@ test('default mode: read-only MCP tool (verb allowlist) yields "continue"', asyn
   const hook = makeHook('default');
   for (const toolName of ['mcp__some-server__search_docs', 'mcp__context7__get_library', 'mcp__db__list_tables']) {
     const result = await hook({ tool_name: toolName, tool_input: { query: 'x' } });
-    assert.equal(result?.continue, true, `expected ${toolName} to yield to the SDK`);
+    assert.equal(result?.continue, true, `expected ${toolName} to yield to the CLI`);
   }
 });
 
 test('default mode: non-read-only MCP tool returns "ask" so a settings.json allow-rule cannot silently auto-approve it', async () => {
   const hook = makeHook('default');
   // Names lacking "Write"/"Edit" (delete_file, run_command, exec) must NOT be treated as
-  // read-only: the old blocklist heuristic let them yield to the SDK, where a project/local
+  // read-only: the old blocklist heuristic let them yield to the CLI, where a project/local
   // .claude/settings.json allow-rule (attacker-controllable) could auto-approve them silently.
   for (const toolName of ['mcp__fs__delete_file', 'mcp__shell__run_command', 'mcp__db__execute', 'mcp__some-server__some-tool']) {
     const result = await hook({ tool_name: toolName, tool_input: {} });
@@ -166,7 +166,7 @@ test('plan mode: read-only MCP tool yields "continue"', async () => {
 
 test('plan mode: non-read-only MCP tool is denied (plan mode is read-only; must not be auto-yielded)', async () => {
   const hook = makeHook('plan');
-  // The old blocklist yielded these to the SDK during plan mode; a destructive MCP tool must
+  // The old blocklist yielded these to the CLI during plan mode; a destructive MCP tool must
   // instead fall through to the plan-mode deny.
   for (const toolName of ['mcp__fs__delete_file', 'mcp__shell__run_command']) {
     const result = await hook({ tool_name: toolName, tool_input: {} });
@@ -198,7 +198,7 @@ test('plan mode: non-allowed tool falls through to plan-specific deny', async ()
 // This ensures dialogs appear even in subagent contexts and bypassPermissions mode.
 
 for (const mode of ['default', 'plan', 'bypassPermissions', 'acceptEdits']) {
-  test(`${mode} mode: AskUserQuestion is intercepted (not YIELD_TO_SDK)`, async () => {
+  test(`${mode} mode: AskUserQuestion is intercepted (not YIELD_TO_CLI)`, async () => {
     let intercepted = false;
     const hook = createPreToolUseHook({ value: mode }, '/tmp/test-cwd', null, {
       canUseTool: async (toolName, toolInput) => {
@@ -217,7 +217,7 @@ for (const mode of ['default', 'plan', 'bypassPermissions', 'acceptEdits']) {
   });
 }
 
-test('default mode: ExitPlanMode is intercepted (not YIELD_TO_SDK)', async () => {
+test('default mode: ExitPlanMode is intercepted (not YIELD_TO_CLI)', async () => {
   let intercepted = false;
   const hook = createPreToolUseHook({ value: 'default' }, '/tmp/test-cwd', null, {
     requestPlanApproval: async (toolInput) => {
@@ -235,7 +235,7 @@ test('default mode: ExitPlanMode is intercepted (not YIELD_TO_SDK)', async () =>
   assert.equal(result?.hookSpecificOutput?.permissionDecision, 'deny');
 });
 
-// ======== SDK-shape validator self-tests ========
+// ======== hook-shape validator self-tests ========
 // These prove the schema mirror in permission-mode-schema.js would have caught
 // the PR #1121/#1126 bug that PR #1213 fixed. If they fail, the validator no
 // longer guards against the historical regression.
@@ -279,11 +279,11 @@ test('schema: accepts the four valid HookPermissionDecision values', () => {
   }
 });
 
-test('schema: accepts top-level continue:true (the yield-to-SDK shape)', () => {
+test('schema: accepts top-level continue:true (the yield-to-CLI shape)', () => {
   assert.equal(validateHookOutput({ continue: true }).ok, true);
 });
 
-test('schema: accepts undefined / empty / null (SDK treats as no-opinion)', () => {
+test('schema: accepts undefined / empty / null (CLI treats as no-opinion)', () => {
   assert.equal(validateHookOutput(undefined).ok, true);
   assert.equal(validateHookOutput(null).ok, true);
   assert.equal(validateHookOutput({}).ok, true);

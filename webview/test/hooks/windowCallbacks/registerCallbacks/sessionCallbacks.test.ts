@@ -3,7 +3,7 @@ import type { MutableRefObject } from 'react';
 import { bridgeHub } from '../../../../src/bridge';
 import { DOWNSTREAM } from '../../../../src/generated/protocol';
 import type { UseWindowCallbacksOptions } from '../../../../src/hooks/useWindowCallbacks';
-import { registerSessionAndSdkCallbacks } from '../../../../src/hooks/windowCallbacks/registerCallbacks/sessionCallbacks';
+import { registerSessionCallbacks } from '../../../../src/hooks/windowCallbacks/registerCallbacks/sessionCallbacks';
 
 const t = ((key: string) => key) as UseWindowCallbacksOptions['t'];
 
@@ -11,8 +11,6 @@ function createOptions(): UseWindowCallbacksOptions {
   return {
     addToast: vi.fn(),
     setCurrentSessionId: vi.fn(),
-    setSdkStatus: vi.fn(),
-    setSdkStatusLoaded: vi.fn(),
     setIsRewinding: vi.fn(),
     setRewindDialogOpen: vi.fn(),
     setCurrentRewindRequest: vi.fn(),
@@ -26,7 +24,7 @@ function createOptions(): UseWindowCallbacksOptions {
   } as unknown as UseWindowCallbacksOptions;
 }
 
-describe('registerSessionAndSdkCallbacks history archive result', () => {
+describe('registerSessionCallbacks history archive result', () => {
   beforeEach(() => {
     bridgeHub.reset();
     bridgeHub.markReady();
@@ -37,7 +35,7 @@ describe('registerSessionAndSdkCallbacks history archive result', () => {
     const options = createOptions();
     const tRef = { current: t } as MutableRefObject<UseWindowCallbacksOptions['t']>;
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    registerSessionAndSdkCallbacks(options, tRef);
+    registerSessionCallbacks(options, tRef);
     const payload = {
       success: true,
       requestedSessionIds: ['history-1'],

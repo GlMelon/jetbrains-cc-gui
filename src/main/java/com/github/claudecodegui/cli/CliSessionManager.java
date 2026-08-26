@@ -10,7 +10,7 @@ import com.github.claudecodegui.cli.grok.GrokCliSessionFactory;
 import com.github.claudecodegui.cli.kimi.KimiCliSessionFactory;
 import com.github.claudecodegui.cli.pi.PiCliSessionFactory;
 import com.github.claudecodegui.provider.common.MessageCallback;
-import com.github.claudecodegui.provider.common.SDKResult;
+import com.github.claudecodegui.provider.common.CliResult;
 import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.ui.toolwindow.TabPerformanceLogger;
@@ -28,7 +28,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * CLI 模式统一入口。每个 Tab 拥有独立的 ClaudeCliSession / CodexCliSession。
- * 完全不依赖 SDK / ai-bridge。
  * <p>
  * 面向 {@link CliSession} 接口容器，按 (tabId, provider) 解析。
  * <p>
@@ -47,7 +46,7 @@ public class CliSessionManager {
     private final ConcurrentHashMap<String, ConcurrentHashMap<String, CliSession>> sessions = new ConcurrentHashMap<>();
 
     // 每个 tab 当前进行中的 send future,用于 per-tab 串行化,避免并发竞态。
-    private final ConcurrentHashMap<String, CompletableFuture<SDKResult>> inFlight = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, CompletableFuture<CliResult>> inFlight = new ConcurrentHashMap<>();
 
     /**
      * 已销毁的 tabId 集合:拦截 {@link #disposeTab} 之后迟到的 send。
@@ -85,7 +84,7 @@ public class CliSessionManager {
 
     /**
      * Project-aware装配:CLI sessions 可获取 Project-scoped MCP Gateway;
-     * claude 额外注入 Project-scoped 长驻进程注册表(设计文档 §4.4,Phase 1 仅 claude)。
+     * claude 额外注入 Project-scoped 长驻进程注册表(Phase 1 仅 claude)。
      */
     public CliSessionManager(Project project) {
         this(List.of(
@@ -114,13 +113,13 @@ public class CliSessionManager {
         this.factories = map;
     }
 
-    public CompletableFuture<SDKResult> send(CliSendRequest request, MessageCallback callback) {
+    public CompletableFuture<CliResult> send(CliSendRequest request, MessageCallback callback) {
         String tabId = request.tabId();
         cleanupDisposedTabsIfNeeded();
         // 已销毁的 tab:拒绝迟到 send,避免经 resolveSession 重建 CliSession / 重启 CLI 子进程。
         if (isDisposedTab(tabId)) {
             String error = "Session disposed, send rejected: tab=" + tabId;
-            SDKResult errorResult = SDKResult.error(error);
+            CliResult errorResult = CliResult.error(error);
             callback.onError(error);
             callback.onComplete(errorResult);
             return CompletableFuture.completedFuture(errorResult);
@@ -136,25 +135,25 @@ public class CliSessionManager {
             // 不调度 dispatchSend。(dispatchSend 另有末道守卫,覆盖 compute 通过后 disposeTab 才执行的窗口。)
             if (isDisposedTab(tabId)) {
                 String error = "Session disposed, send rejected: tab=" + tabId;
-                SDKResult errorResult = SDKResult.error(error);
+                CliResult errorResult = CliResult.error(error);
                 callback.onError(error);
                 callback.onComplete(errorResult);
-                CompletableFuture<SDKResult> rejected = CompletableFuture.completedFuture(errorResult);
+                CompletableFuture<CliResult> rejected = CompletableFuture.completedFuture(errorResult);
                 rejected.whenComplete((r, ex) -> inFlight.remove(tabId, rejected));
                 return rejected;
             }
             // 等前一个 send 完成(吞掉异常以放行后续),再开始当前 send。
-            CompletableFuture<SDKResult> waitChain = (prev != null)
+            CompletableFuture<CliResult> waitChain = (prev != null)
                     ? prev.exceptionally(ex -> null)
                     : CompletableFuture.completedFuture(null);
-            CompletableFuture<SDKResult> next = waitChain.thenComposeAsync(
+            CompletableFuture<CliResult> next = waitChain.thenComposeAsync(
                     v -> dispatchSend(request, callback), CliSessionExecutor.executor());
             next.whenComplete((r, ex) -> inFlight.remove(tabId, next));
             return next;
         });
     }
 
-    private CompletableFuture<SDKResult> dispatchSend(CliSendRequest request, MessageCallback callback) {
+    private CompletableFuture<CliResult> dispatchSend(CliSendRequest request, MessageCallback callback) {
         String tabId = request.tabId();
         String provider = request.provider();
         // STREAM-01 末道守卫:dispatchSend 经 thenComposeAsync 异步执行,可能在 send 入口/锁区检查通过之后、
@@ -162,7 +161,7 @@ public class CliSessionManager {
         // 并重启 CLI 子进程→孤儿。重检 disposedTabs 直接拒绝。
         if (isDisposedTab(tabId)) {
             String error = "Session disposed, send rejected (async dispatch): tab=" + tabId;
-            SDKResult errorResult = SDKResult.error(error);
+            CliResult errorResult = CliResult.error(error);
             callback.onError(error);
             callback.onComplete(errorResult);
             return CompletableFuture.completedFuture(errorResult);
@@ -210,7 +209,7 @@ public class CliSessionManager {
         disposedTabs.put(tabId, System.currentTimeMillis());
         // 先取消该 tab 进行中的 send future:防止 dispose 后队列里残留的串行 send 再次启动 CLI 子进程,
         // 也避免 dispose() 释放的 CliSession 被正在运行的 send 继续写入(并发损坏/孤儿进程)。
-        CompletableFuture<SDKResult> inflight = inFlight.remove(tabId);
+        CompletableFuture<CliResult> inflight = inFlight.remove(tabId);
         if (inflight != null) {
             inflight.cancel(true);
         }
@@ -283,15 +282,15 @@ public class CliSessionManager {
         disposedTabs.clear();
     }
 
-    private CompletableFuture<SDKResult> sendToSession(
+    private CompletableFuture<CliResult> sendToSession(
             CliSendRequest request,
             MessageCallback callback,
             CliSession session
     ) {
         return session.send(request, adapt(callback, request.provider()))
-                .thenApply(v -> SDKResult.success(null))
+                .thenApply(v -> CliResult.success(null))
                 .exceptionally(ex -> {
-                    SDKResult r = SDKResult.error(ex.getMessage());
+                    CliResult r = CliResult.error(ex.getMessage());
                     callback.onError(ex.getMessage());
                     callback.onComplete(r);
                     return r;
@@ -345,7 +344,7 @@ public class CliSessionManager {
      * 同时做"静默空成功"检测(所有 CLI provider 通用):若整轮声称 success 且无 error,
      * 但从未收到任何内容类消息(文本/思考/工具),则降级为错误上报——避免前端只显示完成提示却无正文。
      * 典型场景:provider 服务端调用失败被 CLI 进程 exit0 静默吞掉(如 opencode 返回空 step_finish)。
-     * SDK 路径不经此适配器,故仅影响 CLI provider。
+     * 该适配器仅作用于 CLI 会话回调路径。
      *
      * @param provider provider 名(诊断信息点名用)
      */
@@ -375,15 +374,15 @@ public class CliSessionManager {
                                     + "常见原因:AI 服务端调用失败被静默吞掉、子进程阻塞读 stdin、"
                                     + "或 provider/模型配置无效。请在命令行直接运行该 provider 对照验证。");
                     callback.onError(diag);
-                    callback.onComplete(SDKResult.completed(false, finalResult, diag, false));
+                    callback.onComplete(CliResult.completed(false, finalResult, diag, false));
                     return;
                 }
-                callback.onComplete(SDKResult.completed(success, finalResult, error, false));
+                callback.onComplete(CliResult.completed(success, finalResult, error, false));
             }
 
             @Override
             public void onInterrupted(String finalResult, String message) {
-                callback.onComplete(SDKResult.completed(false, finalResult, message, true));
+                callback.onComplete(CliResult.completed(false, finalResult, message, true));
             }
         };
     }

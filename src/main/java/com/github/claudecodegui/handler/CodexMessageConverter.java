@@ -38,7 +38,7 @@ public class CodexMessageConverter {
 
     /**
      * Client-side orchestration calls persisted in Codex JSONL but never exposed as
-     * ordinary tool cards by the live SDK event stream. Replaying them would leak
+     * ordinary tool cards by the live CLI event stream. Replaying them would leak
      * implementation details such as exec JavaScript and wait cell identifiers.
      */
     private static final Set<String> HIDDEN_HISTORY_TOOL_NAMES = Set.of(

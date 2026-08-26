@@ -89,10 +89,10 @@ public class NodeProcessRegistryHelpersTest {
         assertNull(NodeProcessRegistry.detectProviderFromCmd(null));
     }
 
-    // Grok/Gemini are the providers added by the persistent GrokSDKBridge /
-    // Gemini runtime work. Mislabeling their live channel-manager daemon as an
-    // orphan is exactly the "Kill all orphans tears down a live ACP turn"
-    // hazard, so their classification branches must stay pinned.
+    // Grok/Gemini are the providers added by the persistent ACP runtime work.
+    // Mislabeling their live channel-manager process as an orphan is exactly
+    // the "Kill all orphans tears down a live ACP turn" hazard, so their
+    // classification branches must stay pinned.
 
     @Test
     public void detectProviderClassifiesGrokChannelManager() {
@@ -229,7 +229,7 @@ public class NodeProcessRegistryHelpersTest {
     }
 
     // ============================================================================
-    // CLI_SESSION kill protection (daemon-mode design §5.2) — persistent session
+    // CLI_SESSION kill protection — persistent session
     // processes are lifecycle-managed by CliPersistentProcessRegistry (idle sweep,
     // tab/project close); a manual kill would only leave a dirty slot behind.
     // ============================================================================

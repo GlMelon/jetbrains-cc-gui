@@ -3,7 +3,7 @@ package com.github.claudecodegui.action.tab;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.settings.TabStateService;
 import com.github.claudecodegui.ui.toolwindow.ClaudeChatWindow;
-import com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow;
+import com.github.claudecodegui.ui.toolwindow.ClaudeChatToolWindow;
 import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
@@ -54,7 +54,7 @@ public class RenameTabAction extends AnAction implements DumbAware {
             return;
         }
 
-        ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
+        ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow(ClaudeChatToolWindow.TOOL_WINDOW_ID);
         if (toolWindow == null) {
             LOG.warn("[RenameTabAction] Tool window not found");
             return;
@@ -96,7 +96,7 @@ public class RenameTabAction extends AnAction implements DumbAware {
         selectedContent.setDisplayName(newName);
 
         // Update originalTabName so status indicators won't revert to the old name
-        ClaudeChatWindow chatWindow = ClaudeSDKToolWindow.getChatWindowForContent(selectedContent);
+        ClaudeChatWindow chatWindow = ClaudeChatToolWindow.getChatWindowForContent(selectedContent);
         if (chatWindow != null) {
             chatWindow.setOriginalTabName(newName);
         }
@@ -119,7 +119,7 @@ public class RenameTabAction extends AnAction implements DumbAware {
             return;
         }
 
-        ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
+        ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow(ClaudeChatToolWindow.TOOL_WINDOW_ID);
         if (toolWindow == null) {
             e.getPresentation().setEnabledAndVisible(false);
             return;

@@ -18,7 +18,7 @@ import java.util.function.Consumer;
 
 /**
  * Lightweight AI service for commit message generation.
- * Spawns channel-manager.js directly to send prompts, without SDK Bridge dependency.
+ * Spawns channel-manager.js directly to send prompts.
  * Supports both Claude and Codex providers.
  *
  * <p>Process lifecycle (async stdout drain, hard timeout, exit-code + fatal-error-line
@@ -48,7 +48,7 @@ public class CommitMessageAiService {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 String node = nodeService.getNodeDetector().findNodeExecutable();
-                File bridgeDir = nodeService.getSdkTestDir();
+                File bridgeDir = nodeService.getBridgeDir();
                 if (bridgeDir == null || !bridgeDir.exists()) {
                     throw new RuntimeException("Bridge directory not ready");
                 }
@@ -118,8 +118,8 @@ public class CommitMessageAiService {
                     } else if (line.startsWith("[UNCAUGHT_ERROR]")
                             || line.startsWith("[STARTUP_ERROR]")
                             || line.startsWith("[COMMAND_ERROR]")) {
-                        // node 侧致命错误:原 BaseSDKBridge.drainOutput 将这些前缀视作致命,
-                        // 迁移后须继续识别,否则启动/未捕获异常会被误报为 "empty message"。
+                        // node 侧致命错误:历史上的 daemon 桥接层将这些前缀视作致命,
+                        // CLI 迁移后须继续识别,否则启动/未捕获异常会被误报为 "empty message"。
                         fatalError.compareAndSet(null, "AI service fatal error: " + line);
                     }
                 };

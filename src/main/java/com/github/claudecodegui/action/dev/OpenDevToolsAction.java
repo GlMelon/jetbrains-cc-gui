@@ -1,7 +1,7 @@
 package com.github.claudecodegui.action.dev;
 
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
-import com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow;
+import com.github.claudecodegui.ui.toolwindow.ClaudeChatToolWindow;
 import com.github.claudecodegui.util.JBCefBrowserFactory;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -280,7 +280,7 @@ public class OpenDevToolsAction extends AnAction {
 
     @Nullable
     private JBCefBrowser findBrowserInToolWindow(Project project) {
-        ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
+        ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow(ClaudeChatToolWindow.TOOL_WINDOW_ID);
         if (toolWindow == null) {
             return null;
         }

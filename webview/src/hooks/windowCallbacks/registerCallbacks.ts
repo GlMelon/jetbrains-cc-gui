@@ -32,7 +32,7 @@ import { buildResetTransientUiState } from './sessionTransition';
 import { startActiveProviderRequest, startSessionRuntimeStateRequest } from './settingsBootstrap';
 import { registerMessageCallbacks } from './registerCallbacks/messageCallbacks';
 import { registerStreamingCallbacks } from './registerCallbacks/streamingCallbacks';
-import { registerSessionAndSdkCallbacks } from './registerCallbacks/sessionCallbacks';
+import { registerSessionCallbacks } from './registerCallbacks/sessionCallbacks';
 import { registerUsageModeCallbacks } from './registerCallbacks/usageModeCallbacks';
 import { registerPermissionCallbacks } from './registerCallbacks/permissionCallbacks';
 import { registerAgentAndSelectionCallbacks } from './registerCallbacks/agentCallbacks';
@@ -136,7 +136,7 @@ export function registerWindowCallbacks(
 
   registerMessageCallbacks(options, resetTransientUiState);
   registerStreamingCallbacks(options);
-  registerSessionAndSdkCallbacks(options, tRef);
+  registerSessionCallbacks(options, tRef);
   registerUsageModeCallbacks(options);
   registerPermissionCallbacks(options);
   registerAgentAndSelectionCallbacks(options);

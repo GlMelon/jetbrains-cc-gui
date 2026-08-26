@@ -4,7 +4,7 @@ import com.github.claudecodegui.cli.CliSessionCallback;
 import com.github.claudecodegui.cli.common.CliAttachmentHandler;
 import com.github.claudecodegui.cli.common.CliConstants;
 import com.github.claudecodegui.cli.common.CliPersistentProcess;
-import com.github.claudecodegui.provider.common.SDKResult;
+import com.github.claudecodegui.provider.common.CliResult;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -29,7 +29,7 @@ import static org.junit.Assert.assertTrue;
  * stream-json user message line construction, and turn handler result semantics.
  *
  * <p>These pin the provider-side protocol contract that {@code CliPersistentProcess} itself
- * must not know (§6.4 boundary): the interrupt control_request shape lives here and only here.
+ * must not know: the interrupt control_request shape lives here and only here.
  */
 public class ClaudePersistentSendPathTest {
 
@@ -76,14 +76,14 @@ public class ClaudePersistentSendPathTest {
         return GsonHolder.GSON.fromJson(line, JsonObject.class);
     }
 
-    // ── interrupt 协议行(§4.3 V1 定稿格式) ──────────────────────────────────
+    // ── interrupt 协议行(V1 定稿格式) ──────────────────────────────────
 
     @Test
     public void buildInterruptRequestMatchesControlRequestContract() {
         String line = ClaudePersistentSendPath.buildInterruptRequest();
         JsonObject obj = parse(line);
         assertEquals("control_request", obj.get("type").getAsString());
-        // subtype 必须嵌在 request 对象内(顶层平铺会触发 CLI 解析报错,§4.3)
+        // subtype 必须嵌在 request 对象内(顶层平铺会触发 CLI 解析报错)
         JsonObject request = obj.getAsJsonObject("request");
         assertEquals("interrupt", request.get("subtype").getAsString());
         // request_id 为合法 UUID 且每次生成新值(中断回执匹配用)
@@ -196,7 +196,7 @@ public class ClaudePersistentSendPathTest {
         ClaudePersistentSendPath.TurnContext context =
                 path.createTurnContext(callback, detachedProcess());
 
-        SDKResult result = context.handler.onLine(
+        CliResult result = context.handler.onLine(
                 "{\"type\":\"result\",\"subtype\":\"success\",\"result\":\"final answer\","
                         + "\"is_error\":false,\"session_id\":\"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\"}",
                 false);
@@ -216,8 +216,8 @@ public class ClaudePersistentSendPathTest {
         ClaudePersistentSendPath.TurnContext context =
                 path.createTurnContext(callback, detachedProcess());
 
-        // 被中断轮以 result 收尾(§4.3):interrupted 标记优先于 result 内容语义
-        SDKResult result = context.handler.onLine(
+        // 被中断轮以 result 收尾:interrupted 标记优先于 result 内容语义
+        CliResult result = context.handler.onLine(
                 "{\"type\":\"result\",\"subtype\":\"error_during_execution\",\"is_error\":true,"
                         + "\"session_id\":\"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\"}",
                 true);
@@ -235,7 +235,7 @@ public class ClaudePersistentSendPathTest {
         ClaudePersistentSendPath.TurnContext context =
                 path.createTurnContext(callback, detachedProcess());
 
-        SDKResult result = context.handler.onLine(
+        CliResult result = context.handler.onLine(
                 "{\"type\":\"result\",\"subtype\":\"error_during_execution\",\"is_error\":true,"
                         + "\"session_id\":\"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\"}",
                 false);

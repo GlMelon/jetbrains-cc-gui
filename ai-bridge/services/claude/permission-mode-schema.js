@@ -1,19 +1,21 @@
 // @ts-check
 /**
- * Minimal runtime validator mirroring the subset of @anthropic-ai/claude-agent-sdk
- * hook return shapes that createPreToolUseHook actually produces.
+ * Minimal runtime validator mirroring the subset of Claude Code hook return
+ * shapes (PreToolUse hook JSON protocol) that createPreToolUseHook actually
+ * produces.
  *
- * The SDK does NOT export its internal Zod schema, so we maintain a mirror here.
- * Keep in sync with sdk.d.ts on SDK upgrades. The pieces this validator covers:
+ * The CLI does NOT export its internal schema, so we maintain a mirror here
+ * (originally derived from the claude-agent-sdk sdk.d.ts; the CLI hook
+ * protocol kept the same shapes). The pieces this validator covers:
  *
- *   - HookPermissionDecision = 'allow' | 'deny' | 'ask' | 'defer' (sdk.d.ts:763)
- *   - PreToolUseHookSpecificOutput (sdk.d.ts:1999)
- *   - SyncHookJSONOutput (sdk.d.ts:5527)
- *   - AsyncHookJSONOutput (sdk.d.ts:118)
+ *   - HookPermissionDecision = 'allow' | 'deny' | 'ask' | 'defer'
+ *   - PreToolUseHookSpecificOutput
+ *   - SyncHookJSONOutput
+ *   - AsyncHookJSONOutput
  *
  * Why this exists: PR #1121 → #1126 → #1213 all introduced or carried the
  * invalid value `permissionDecision: 'continue'` because tests only asserted
- * "what the hook returned" instead of "would the SDK accept what the hook
+ * "what the hook returned" instead of "would the CLI accept what the hook
  * returned." This validator gives tests a way to assert the latter.
  */
 
@@ -93,7 +95,7 @@ function validatePreToolUseHookSpecificOutput(value, path) {
   }
   for (const key of Object.keys(value)) {
     if (!PRE_TOOL_USE_KEYS.has(key)) {
-      return fail(`${path}.${key}`, 'unknown key (would be rejected by SDK Zod schema)');
+      return fail(`${path}.${key}`, 'unknown key (would be rejected by the CLI hook schema)');
     }
   }
   return { ok: true };
@@ -103,7 +105,7 @@ function validatePreToolUseHookSpecificOutput(value, path) {
  * Validate a value as one of: SyncHookJSONOutput | AsyncHookJSONOutput | undefined.
  * Returns { ok: true } or { ok: false, error: string }.
  *
- * The createPreToolUseHook contract allows returning undefined (SDK treats it as
+ * The createPreToolUseHook contract allows returning undefined (the CLI treats it as
  * "continue with defaults"), an empty object, or any of the documented shapes.
  *
  * @param {any} output 待校验的 hook 输出(外部/未类型化 JSON,故按 any 接收)
@@ -159,7 +161,7 @@ export function validateHookOutput(output) {
 
 /**
  * Helper for tests: throws an AssertionError-shaped Error if the hook output
- * would be rejected by the SDK. Use after every hook invocation in tests.
+ * would be rejected by the CLI. Use after every hook invocation in tests.
  *
  * @param {any} output 待断言的 hook 输出
  * @returns {void}
@@ -167,6 +169,6 @@ export function validateHookOutput(output) {
 export function assertSdkAcceptsHookOutput(output) {
   const r = validateHookOutput(output);
   if (!r.ok) {
-    throw new Error(`SDK would reject hook output (${r.error}). Got: ${JSON.stringify(output)}`);
+    throw new Error(`CLI would reject hook output (${r.error}). Got: ${JSON.stringify(output)}`);
   }
 }

@@ -3,7 +3,7 @@
  *
  * Recent Claude Code terminates a background (run_in_background) Agent by
  * injecting a <task-notification> XML into the main session instead of
- * emitting a task_notification SDK event. The XML's <result> tag carries the
+ * emitting a task_notification stream event. The XML's <result> tag carries the
  * agent's finalMessage (its full report); the <summary> tag is only a one-liner
  * like `Agent "desc" finished`. Without parsing this XML the frontend subagent
  * card never sees the report and stays stuck on the launch ack text ("Async

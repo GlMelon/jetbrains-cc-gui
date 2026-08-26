@@ -48,6 +48,10 @@
   --chip: #32343a;
   --chip-border: #464950;
   --chip-hover: #3a3d44;
+  /* CLI 未安装 badge(琥珀系,区别于错误红与成功绿) */
+  --cli-badge-bg: rgba(224, 160, 60, 0.16);
+  --cli-badge-border: rgba(224, 160, 60, 0.4);
+  --cli-badge-text: #e0a03c;
   /* Button area background */
   --button-area-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
   --button-area-border: rgba(255, 255, 255, 0.05);
@@ -84,6 +88,10 @@
   --chip: #e0e0e0;
   --chip-border: #cccccc;
   --chip-hover: #d5d5d5;
+  /* CLI 未安装 badge(琥珀系,浅色下加深保证对比度) */
+  --cli-badge-bg: rgba(178, 106, 0, 0.10);
+  --cli-badge-border: rgba(178, 106, 0, 0.35);
+  --cli-badge-text: #9a5b00;
   /* Button area background */
   --button-area-bg: linear-gradient(135deg, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.01));
   --button-area-border: rgba(0, 0, 0, 0.08);

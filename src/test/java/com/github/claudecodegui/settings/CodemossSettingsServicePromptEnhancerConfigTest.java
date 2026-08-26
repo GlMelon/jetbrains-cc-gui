@@ -31,12 +31,10 @@ public class CodemossSettingsServicePromptEnhancerConfigTest {
     }
 
     @Test
-    public void shouldDefaultToCodexWhenBothProvidersAreConfiguredAndInstalled() throws Exception {
+    public void shouldDefaultToCodexWhenBothProvidersAreConfigured() throws Exception {
         Path tempHome = Files.createTempDirectory("prompt-enhancer-default-codex-home");
         useTemporaryHomeDirectory(tempHome);
         writeConfig(tempHome, "claude-a", "codex-a");
-        installSdk(tempHome, "claude-sdk", "@anthropic-ai/claude-agent-sdk", "0.2.88");
-        installSdk(tempHome, "codex-sdk", "@openai/codex-sdk", "0.117.0");
 
         CodemossSettingsService service = new CodemossSettingsService();
 
@@ -52,7 +50,6 @@ public class CodemossSettingsServicePromptEnhancerConfigTest {
         Path tempHome = Files.createTempDirectory("prompt-enhancer-default-claude-home");
         useTemporaryHomeDirectory(tempHome);
         writeConfig(tempHome, "claude-a", "");
-        installSdk(tempHome, "claude-sdk", "@anthropic-ai/claude-agent-sdk", "0.2.88");
 
         CodemossSettingsService service = new CodemossSettingsService();
 
@@ -67,8 +64,6 @@ public class CodemossSettingsServicePromptEnhancerConfigTest {
         Path tempHome = Files.createTempDirectory("prompt-enhancer-manual-home");
         useTemporaryHomeDirectory(tempHome);
         writeConfig(tempHome, "claude-a", "codex-a");
-        installSdk(tempHome, "claude-sdk", "@anthropic-ai/claude-agent-sdk", "0.2.88");
-        installSdk(tempHome, "codex-sdk", "@openai/codex-sdk", "0.117.0");
 
         CodemossSettingsService service = new CodemossSettingsService();
 
@@ -106,7 +101,6 @@ public class CodemossSettingsServicePromptEnhancerConfigTest {
         // registry 内置 Claude 模型用 role id(claude-role-sonnet),两者 id 不一致会触发前端
         // AiFeatureProviderModelPanel 的兜底 prepend,在下拉里多出一个幽灵项。读取时应归一化成 role id。
         writePromptEnhancerConfig(tempHome, "claude", "claude-sonnet-4-6", "gpt-5.4");
-        installSdk(tempHome, "claude-sdk", "@anthropic-ai/claude-agent-sdk", "0.2.88");
 
         CodemossSettingsService service = new CodemossSettingsService();
 
@@ -123,7 +117,6 @@ public class CodemossSettingsServicePromptEnhancerConfigTest {
         useTemporaryHomeDirectory(tempHome);
         // role id 已与 registry id 体系一致,归一化不应改动它。
         writePromptEnhancerConfig(tempHome, "claude", "claude-role-opus", "gpt-5.4");
-        installSdk(tempHome, "claude-sdk", "@anthropic-ai/claude-agent-sdk", "0.2.88");
 
         CodemossSettingsService service = new CodemossSettingsService();
 
@@ -137,7 +130,6 @@ public class CodemossSettingsServicePromptEnhancerConfigTest {
         Path tempHome = Files.createTempDirectory("prompt-enhancer-write-canonical-home");
         useTemporaryHomeDirectory(tempHome);
         writeConfig(tempHome, "claude-a", "");
-        installSdk(tempHome, "claude-sdk", "@anthropic-ai/claude-agent-sdk", "0.2.88");
 
         CodemossSettingsService service = new CodemossSettingsService();
 
@@ -162,7 +154,6 @@ public class CodemossSettingsServicePromptEnhancerConfigTest {
         // 用户自定义了一个与官方 canonical 同前缀(claude-sonnet-*)的模型,并已注册到 registry。
         // 安全网:它在 registry 中,绝不能被误归一化成 claude-role-sonnet。
         writePromptEnhancerConfig(tempHome, "claude", "claude-sonnet-myfinetune", "gpt-5.4");
-        installSdk(tempHome, "claude-sdk", "@anthropic-ai/claude-agent-sdk", "0.2.88");
 
         CodemossSettingsService service = new CodemossSettingsService();
         ModelConfig customModel = new ModelConfig(
@@ -280,23 +271,6 @@ public class CodemossSettingsServicePromptEnhancerConfigTest {
         config.add("codex", codex);
 
         return config;
-    }
-
-    private void installSdk(Path tempHome, String sdkId, String npmPackage, String version) throws Exception {
-        Path packageDir = tempHome.resolve(".codemoss")
-                .resolve("dependencies")
-                .resolve(sdkId)
-                .resolve("node_modules");
-
-        for (String segment : npmPackage.split("/")) {
-            packageDir = packageDir.resolve(segment);
-        }
-
-        Files.createDirectories(packageDir);
-        JsonObject pkgJson = new JsonObject();
-        pkgJson.addProperty("name", npmPackage);
-        pkgJson.addProperty("version", version);
-        Files.writeString(packageDir.resolve("package.json"), pkgJson.toString());
     }
 
     private String getCachedHomeDirectory() throws Exception {

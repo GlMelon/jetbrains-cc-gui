@@ -197,8 +197,8 @@ function runBuildCliEnv(tempHome) {
       cwd: path.resolve('.'),
       env: {
         ...buildChildEnv(tempHome),
-        // Verify the "drop inherited copy" path: the daemon may itself carry
-        // the flag from a parent host. buildCliEnv must clear it for cloud
+        // Verify the "drop inherited copy" path: this bridge process may itself
+        // carry the flag from a parent host. buildCliEnv must clear it for cloud
         // providers even when it is already in process.env.
         CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST: '1',
         CLAUDE_CODE_EFFORT_LEVEL: 'max',
@@ -440,7 +440,7 @@ test('setupApiKey CLI login takes priority over existing API keys (no fallback)'
   assert.equal(result.ok, true);
   assert.equal(result.result.authType, 'cli_login');
   assert.equal(result.result.apiKey, null);
-  assert.equal(result.result.apiKeySource, 'CLI login (SDK native auth)');
+  assert.equal(result.result.apiKeySource, 'CLI login (CLI native auth)');
 });
 
 test('setupApiKey honors legacy CCGUI_CLI_LOGIN_AUTHORIZED flag for backwards compatibility', () => {

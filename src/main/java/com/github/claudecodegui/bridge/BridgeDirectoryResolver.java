@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Bridge directory resolver.
- * Responsible for locating and managing the ai-bridge directory (unified bridge for Claude and Codex SDKs).
+ * Responsible for locating and managing the ai-bridge directory (unified bridge for the provider CLIs).
  *
  * <p>This class is the public facade. Path discovery, archive extraction, and
  * signature verification are delegated to package-private helpers
@@ -28,17 +28,17 @@ import java.util.concurrent.atomic.AtomicReference;
 public class BridgeDirectoryResolver {
 
     private static final Logger LOG = Logger.getInstance(BridgeDirectoryResolver.class);
-    private static final String SDK_DIR_NAME = BridgePathLocator.SDK_DIR_NAME;
+    private static final String BRIDGE_DIR_NAME = BridgePathLocator.BRIDGE_DIR_NAME;
     private static final String BRIDGE_VERSION_FILE = ".bridge-version";
 
-    private volatile File cachedSdkDir = null;
+    private volatile File cachedBridgeDir = null;
     /**
-     * Directory path manually set via setSdkDir(), with the highest priority.
-     * Difference from cachedSdkDir:
-     * - manuallySdkDir: Explicitly set by the user via setSdkDir(), never overridden by auto-discovery
-     * - cachedSdkDir: Cached directory found through any means (manual or automatic)
+     * Manually set directory path, with the highest priority.
+     * Difference from cachedBridgeDir:
+     * - manualBridgeDir: Explicitly set manual path, never overridden by auto-discovery
+     * - cachedBridgeDir: Cached directory found through any means (manual or automatic)
      */
-    private volatile File manuallySdkDir = null;
+    private volatile File manualBridgeDir = null;
     private final Object bridgeExtractionLock = new Object();
 
     // Extraction state management
@@ -57,31 +57,31 @@ public class BridgeDirectoryResolver {
      * Find the claude-bridge directory.
      * Priority: manually set path > configured path > embedded path > cached path > fallback
      */
-    public File findSdkDir() {
-        // 快路径:cachedSdkDir 已有效则直接返回,跳过 Priority 1(resolveConfiguredBridgeDir 配置查找)
+    public File findBridgeDir() {
+        // 快路径:cachedBridgeDir 已有效则直接返回,跳过 Priority 1(resolveConfiguredBridgeDir 配置查找)
         // 与 Priority 2(ensureEmbeddedBridgeExtracted 插件定位 + 签名校验)的重复 IO。
-        // setSdkDir 已同步写 cachedSdkDir=manuallySdkDir,故 cached 有效已覆盖 manually 最高优先级;
+        // manualBridgeDir 写入时同步 cachedBridgeDir=manualBridgeDir,故 cached 有效已覆盖 manually 最高优先级;
         // configured 路径来自 env var(进程级快照,运行时不可变)或 config(改动罕见 + 通常重启),
-        // cached 陈旧窗口可忽略。findSdkDir 在 SDK bridge 重连 / gateway 重启路径被多次调用,
+        // cached 陈旧窗口可忽略。findBridgeDir 在 bridge 重连 / gateway 重启路径被多次调用,
         // 快路径省去每次重复的 isValidBridgeDir + 签名校验。
-        File cachedFast = this.cachedSdkDir;
+        File cachedFast = this.cachedBridgeDir;
         if (cachedFast != null && isValidBridgeDir(cachedFast)) {
             return cachedFast;
         }
 
-        // Priority 0: Manually set path (via setSdkDir(), highest priority)
-        if (this.manuallySdkDir != null && isValidBridgeDir(this.manuallySdkDir)) {
-            LOG.debug("[BridgeResolver] Using manually set path: " + this.manuallySdkDir.getAbsolutePath());
-            this.cachedSdkDir = this.manuallySdkDir;
-            return this.cachedSdkDir;
+        // Priority 0: Manually set path (highest priority)
+        if (this.manualBridgeDir != null && isValidBridgeDir(this.manualBridgeDir)) {
+            LOG.debug("[BridgeResolver] Using manually set path: " + this.manualBridgeDir.getAbsolutePath());
+            this.cachedBridgeDir = this.manualBridgeDir;
+            return this.cachedBridgeDir;
         }
 
         // Priority 1: Configured path
         File configuredDir = BridgePathLocator.resolveConfiguredBridgeDir();
         if (configuredDir != null) {
             LOG.debug("[BridgeResolver] Using configured path: " + configuredDir.getAbsolutePath());
-            this.cachedSdkDir = configuredDir;
-            return this.cachedSdkDir;
+            this.cachedBridgeDir = configuredDir;
+            return this.cachedBridgeDir;
         }
 
         // Check if extraction is already in progress (avoid triggering it again)
@@ -97,8 +97,8 @@ public class BridgeDirectoryResolver {
             // Verify that node_modules exists
             File nodeModules = new File(embeddedDir, "node_modules");
             LOG.debug("[BridgeResolver] node_modules exists: " + nodeModules.exists());
-            this.cachedSdkDir = embeddedDir;
-            return this.cachedSdkDir;
+            this.cachedBridgeDir = embeddedDir;
+            return this.cachedBridgeDir;
         }
 
         // Re-check: if ensureEmbeddedBridgeExtracted() triggered background extraction (EDT thread scenario),
@@ -109,9 +109,9 @@ public class BridgeDirectoryResolver {
         }
 
         // Priority 3: Use cached path (if it exists and is valid)
-        if (this.cachedSdkDir != null && isValidBridgeDir(this.cachedSdkDir)) {
-            LOG.debug("[BridgeResolver] Using cached path: " + this.cachedSdkDir.getAbsolutePath());
-            return this.cachedSdkDir;
+        if (this.cachedBridgeDir != null && isValidBridgeDir(this.cachedBridgeDir)) {
+            LOG.debug("[BridgeResolver] Using cached path: " + this.cachedBridgeDir.getAbsolutePath());
+            return this.cachedBridgeDir;
         }
 
         LOG.debug("[BridgeResolver] Embedded path not found, trying fallback search...");
@@ -122,15 +122,15 @@ public class BridgeDirectoryResolver {
 
         // 1. Current working directory
         File currentDir = new File(System.getProperty("user.dir"));
-        BridgePathLocator.addCandidate(possibleDirs, new File(currentDir, SDK_DIR_NAME));
+        BridgePathLocator.addCandidate(possibleDirs, new File(currentDir, BRIDGE_DIR_NAME));
 
         // 2. Project root directory (the current directory may be in a subdirectory)
         File parent = currentDir.getParentFile();
         while (parent != null && parent.exists()) {
             boolean hasIdeaDir = new File(parent, ".idea").exists();
-            boolean hasBridgeDir = new File(parent, SDK_DIR_NAME).exists();
+            boolean hasBridgeDir = new File(parent, BRIDGE_DIR_NAME).exists();
             if (hasIdeaDir || hasBridgeDir) {
-                BridgePathLocator.addCandidate(possibleDirs, new File(parent, SDK_DIR_NAME));
+                BridgePathLocator.addCandidate(possibleDirs, new File(parent, BRIDGE_DIR_NAME));
                 if (hasIdeaDir) {
                     break;
                 }
@@ -150,11 +150,11 @@ public class BridgeDirectoryResolver {
         // Find the first valid directory
         for (File dir : possibleDirs) {
             if (isValidBridgeDir(dir)) {
-                this.cachedSdkDir = dir;
-                LOG.info("[BridgeResolver] Using fallback path: " + this.cachedSdkDir.getAbsolutePath());
-                File nodeModules = new File(this.cachedSdkDir, "node_modules");
+                this.cachedBridgeDir = dir;
+                LOG.info("[BridgeResolver] Using fallback path: " + this.cachedBridgeDir.getAbsolutePath());
+                File nodeModules = new File(this.cachedBridgeDir, "node_modules");
                 LOG.debug("[BridgeResolver] node_modules exists: " + nodeModules.exists());
-                return this.cachedSdkDir;
+                return this.cachedBridgeDir;
             }
         }
 
@@ -222,7 +222,7 @@ public class BridgeDirectoryResolver {
                 return null;
             }
 
-            File extractedDir = new File(pluginDir, SDK_DIR_NAME);
+            File extractedDir = new File(pluginDir, BRIDGE_DIR_NAME);
             LOG.info("[BridgeResolver] Extracted dir path: " + extractedDir.getAbsolutePath());
             LOG.info("[BridgeResolver] Extracted dir exists: " + extractedDir.exists());
 
@@ -238,7 +238,7 @@ public class BridgeDirectoryResolver {
             LOG.info("[BridgeResolver] signatureMatches: " + signatureMatches);
 
             if (isValid && signatureMatches) {
-                this.cachedSdkDir = extractedDir;
+                this.cachedBridgeDir = extractedDir;
                 // Ensure waiters are notified even if the directory already exists
                 this.extractionState.compareAndSet(ExtractionState.NOT_STARTED, ExtractionState.COMPLETED);
                 if (!this.extractionReadyFuture.isDone()) {
@@ -249,7 +249,7 @@ public class BridgeDirectoryResolver {
 
             synchronized (this.bridgeExtractionLock) {
                 if (isValidBridgeDir(extractedDir) && BridgeSignatureVerifier.bridgeSignatureMatches(versionFile, signature)) {
-                    this.cachedSdkDir = extractedDir;
+                    this.cachedBridgeDir = extractedDir;
                     // Ensure waiters are notified
                     this.extractionState.compareAndSet(ExtractionState.NOT_STARTED, ExtractionState.COMPLETED);
                     if (!this.extractionReadyFuture.isDone()) {
@@ -269,7 +269,7 @@ public class BridgeDirectoryResolver {
 
                 if (currentState == ExtractionState.COMPLETED && isValidBridgeDir(extractedDir)) {
                     // Already extracted and valid
-                    this.cachedSdkDir = extractedDir;
+                    this.cachedBridgeDir = extractedDir;
                     // Ensure waiters are notified
                     if (!this.extractionReadyFuture.isDone()) {
                         this.extractionReadyFuture.complete(true);
@@ -319,7 +319,7 @@ public class BridgeDirectoryResolver {
                         if (isValidBridgeDir(extractedDir) && BridgeSignatureVerifier.bridgeSignatureMatches(versionFile, signature)) {
                             LOG.info("[BridgeResolver] Existing extraction is valid, skipping delete+extract");
                             this.extractionState.set(ExtractionState.COMPLETED);
-                            this.cachedSdkDir = extractedDir;
+                            this.cachedBridgeDir = extractedDir;
                             CompletableFuture<File> future = this.extractionFutureRef.get();
                             if (future != null) {
                                 future.complete(extractedDir);
@@ -346,7 +346,7 @@ public class BridgeDirectoryResolver {
                         if (validatedDir != null) {
                             LOG.info("[BridgeResolver] Validation succeeded!");
                             this.extractionState.set(ExtractionState.COMPLETED);
-                            this.cachedSdkDir = validatedDir;
+                            this.cachedBridgeDir = validatedDir;
                             CompletableFuture<File> future = this.extractionFutureRef.get();
                             if (future != null) {
                                 future.complete(validatedDir);
@@ -434,7 +434,7 @@ public class BridgeDirectoryResolver {
             File result = future.join(); // Block until completion
             LOG.info("[BridgeResolver] Extraction completed, result: " + (result != null ? result.getAbsolutePath() : "null"));
             if (result != null) {
-                this.cachedSdkDir = result;
+                this.cachedBridgeDir = result;
             }
             return result;
         } catch (Exception e) {
@@ -470,7 +470,7 @@ public class BridgeDirectoryResolver {
                             indicator.setFraction(1.0);
                             indicator.setText("Using existing extraction");
                             BridgeDirectoryResolver.this.extractionState.set(ExtractionState.COMPLETED);
-                            BridgeDirectoryResolver.this.cachedSdkDir = extractedDir;
+                            BridgeDirectoryResolver.this.cachedBridgeDir = extractedDir;
                             CompletableFuture<File> future = BridgeDirectoryResolver.this.extractionFutureRef.get();
                             if (future != null) {
                                 future.complete(extractedDir);
@@ -504,7 +504,7 @@ public class BridgeDirectoryResolver {
                             LOG.info("[BridgeResolver] Background extraction completed successfully");
                             // Mark as completed and cache the directory
                             BridgeDirectoryResolver.this.extractionState.set(ExtractionState.COMPLETED);
-                            BridgeDirectoryResolver.this.cachedSdkDir = validatedDir;
+                            BridgeDirectoryResolver.this.cachedBridgeDir = validatedDir;
                             CompletableFuture<File> future = BridgeDirectoryResolver.this.extractionFutureRef.get();
                             if (future != null) {
                                 future.complete(validatedDir);
@@ -564,35 +564,22 @@ public class BridgeDirectoryResolver {
     }
 
     /**
-     * Manually sets the claude-bridge directory path.
-     * This path has the highest priority and overrides configured and embedded paths.
-     * Once set, findSdkDir() will preferentially return this path.
-     *
-     * @param path the directory path
-     */
-    public void setSdkDir(String path) {
-        this.manuallySdkDir = new File(path);
-        this.cachedSdkDir = this.manuallySdkDir;
-        LOG.debug("[BridgeResolver] Manually set SDK directory to: " + path);
-    }
-
-    /**
      * Gets the currently used claude-bridge directory.
      */
-    public File getSdkDir() {
-        if (this.cachedSdkDir == null) {
-            return this.findSdkDir();
+    public File getBridgeDir() {
+        if (this.cachedBridgeDir == null) {
+            return this.findBridgeDir();
         }
-        return this.cachedSdkDir;
+        return this.cachedBridgeDir;
     }
 
     /**
      * Clears all caches, including manually set paths and auto-discovered caches.
-     * After calling this, the next findSdkDir() will re-execute the full path discovery logic.
+     * After calling this, the next findBridgeDir() will re-execute the full path discovery logic.
      */
     public void clearCache() {
-        this.cachedSdkDir = null;
-        this.manuallySdkDir = null;
+        this.cachedBridgeDir = null;
+        this.manualBridgeDir = null;
         this.extractionState.set(ExtractionState.NOT_STARTED);
         this.extractionFutureRef.set(null);
         this.extractionReadyFuture = new CompletableFuture<>();
@@ -604,11 +591,11 @@ public class BridgeDirectoryResolver {
      */
     public boolean isExtractionComplete() {
         ExtractionState state = extractionState.get();
-        if (state == ExtractionState.COMPLETED && cachedSdkDir != null) {
-            return isValidBridgeDir(cachedSdkDir);
+        if (state == ExtractionState.COMPLETED && cachedBridgeDir != null) {
+            return isValidBridgeDir(cachedBridgeDir);
         }
         // Also check if we have a valid configured or cached dir without extraction
-        if (cachedSdkDir != null && isValidBridgeDir(cachedSdkDir)) {
+        if (cachedBridgeDir != null && isValidBridgeDir(cachedBridgeDir)) {
             return true;
         }
         return false;
@@ -628,7 +615,7 @@ public class BridgeDirectoryResolver {
 
         // If extraction hasn't started yet, trigger it on a background thread
         if (extractionState.get() == ExtractionState.NOT_STARTED) {
-            // The next call to findSdkDir will trigger extraction
+            // The next call to findBridgeDir will trigger extraction
             // For now, return the ready future which will be completed when extraction finishes
         }
 

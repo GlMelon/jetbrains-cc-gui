@@ -26,7 +26,7 @@ public class ClaudeCliSessionFactory implements CliSessionFactory {
     }
 
     /**
-     * Project-aware 构造:注入长驻进程注册表(设计文档 §4.4)。
+     * Project-aware 构造:注入长驻进程注册表。
      * registry 为 null(测试/无 Project 路径)时 ClaudeCliSession 永远走 one-shot,自然降级。
      */
     public ClaudeCliSessionFactory(McpGatewayService gatewayService, CliPersistentProcessRegistry persistentRegistry) {

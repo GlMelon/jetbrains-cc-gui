@@ -2,7 +2,7 @@ package com.github.claudecodegui.watcher;
 
 import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.settings.CodemossSettingsService;
-import com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow;
+import com.github.claudecodegui.ui.toolwindow.ClaudeChatToolWindow;
 import com.github.claudecodegui.util.JsUtils;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.application.ApplicationManager;
@@ -196,7 +196,7 @@ public class ConfigFileWatcherService implements Disposable, BulkFileListener {
         String escaped = JsUtils.escapeJs(registryJson);
         for (Project project : ProjectManager.getInstance().getOpenProjects()) {
             try {
-                ClaudeSDKToolWindow.broadcastModelRegistry(
+                ClaudeChatToolWindow.broadcastModelRegistry(
                         project, DownstreamEvent.MODEL_REGISTRY.value(), escaped);
             } catch (Exception e) {
                 LOG.warn("[ConfigFileWatcher] Failed to broadcast model registry to project "

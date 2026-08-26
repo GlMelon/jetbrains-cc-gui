@@ -238,7 +238,7 @@ public enum ClaudeRole {
      * 将解析出的真实模型写入该角色的全部模型覆盖环境变量。
      * <p>
      * 用于 {@code ClaudeCliSession.configureRequestModelEnvironment}:当用户选择某角色时,
-     * 把解析后的实际模型名同时写入主通道与 fallback 通道,确保 CLI/SDK 在所有读取路径下一致。
+     * 把解析后的实际模型名同时写入主通道与 fallback 通道,确保 CLI 在所有读取路径下一致。
      *
      * @param env           待写入的环境变量 Map(为 null 时安全跳过)
      * @param resolvedModel 解析后的真实模型名(为 null 时安全跳过)

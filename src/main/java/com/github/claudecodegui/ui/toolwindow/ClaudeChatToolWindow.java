@@ -38,12 +38,12 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 
 /**
- * Claude SDK chat tool window.
+ * Claude chat tool window.
  * Implements DumbAware to allow usage during index building.
  */
-public class ClaudeSDKToolWindow implements ToolWindowFactory, DumbAware {
+public class ClaudeChatToolWindow implements ToolWindowFactory, DumbAware {
 
-    private static final Logger LOG = Logger.getInstance(ClaudeSDKToolWindow.class);
+    private static final Logger LOG = Logger.getInstance(ClaudeChatToolWindow.class);
     public static final String TOOL_WINDOW_ID = "AICG";
     public static final String TOOL_WINDOW_DISPLAY_NAME = "AI Code GUI";
     private static final Map<Project, ClaudeChatWindow> instances = new ConcurrentHashMap<>();
@@ -251,7 +251,7 @@ public class ClaudeSDKToolWindow implements ToolWindowFactory, DumbAware {
 
             ApplicationManager.getApplication().executeOnPooledThread(() -> {
                 try {
-                    BridgePreloader.getSharedResolver().findSdkDir();
+                    BridgePreloader.getSharedResolver().findBridgeDir();
                     CompletableFuture<Boolean> future = BridgePreloader.waitForBridgeAsync();
                     Boolean ready = future.get(60, TimeUnit.SECONDS);
 

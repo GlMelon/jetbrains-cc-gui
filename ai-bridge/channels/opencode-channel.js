@@ -40,7 +40,7 @@ export async function handleOpenCodeCommand(command, args, stdinData) {
     }
 
     case 'listSessions': {
-      // 枚举 OpenCode 会话(对称 Codex getSessionsForProjectAsJson);projectPath 为空返回全部。
+      // 枚举 OpenCode 会话;projectPath 为空返回全部。
       const projectPath = stdinData?.projectPath || stdinData?.cwd || '';
       const result = await getSessionList({ projectPath, dbPath: stdinData?.dbPath });
       console.log(JSON.stringify(result));

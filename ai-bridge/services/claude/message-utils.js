@@ -2,8 +2,6 @@
 /**
  * Message utility functions.
  * Retry logic, session file helpers, content truncation, and error payloads.
- *
- * NOTE: SDK initialization has been removed. Claude/Codex now use CLI spawning.
  */
 
 import { existsSync } from 'fs';
@@ -47,7 +45,7 @@ export function isRetryableError(error) {
     return true;
   }
 
-  // Claude SDK errors may expose transient HTTP status codes without the
+  // Claude CLI errors may expose transient HTTP status codes without the
   // generic "API request failed" prefix that the retry policy used before.
   return /\b(?:429|500|502|503|504|529)\b/.test(msg);
 }
@@ -135,7 +133,7 @@ export function truncateString(str, maxLen = 1000) {
 }
 
 /**
- * Error prefixes that indicate the content is an error message from SDK or API.
+ * Error prefixes that indicate the content is an error message from the CLI or API.
  * When content starts with one of these prefixes and exceeds maxLen, it will be truncated.
  */
 export const ERROR_CONTENT_PREFIXES = [
@@ -160,24 +158,24 @@ export function truncateErrorContent(content, maxLen = 1000) {
 }
 
 /**
- * Extract the human-readable error text from an SDK error result message.
- * Mirrors the Claude Agent SDK's own precedence (see sdk.mjs): a result whose
- * subtype is "success" carries its text in `result`, all other error results
+ * Extract the human-readable error text from a Claude CLI error result message
+ * (stream-json format). Upstream precedence: a result whose subtype is
+ * "success" carries its text in `result`, all other error results
  * report in the `errors` array. Reading only `result`/`message` silently
  * dropped the real failure and left users staring at a generic fallback.
- * @param {object} msg - The SDK result message
+ * @param {object} msg - The CLI result message
  * @returns {string} The best available error text, or a generic fallback
  */
 export function extractResultError(msg) {
   if (!msg) return 'API request failed';
-  // Mirror the SDK's own precedence (sdk.mjs): an error result whose subtype is
+  // Mirror upstream precedence: an error result whose subtype is
   // "success" carries its text in `result`; every other error result reports in
   // the `errors` array. Reading the wrong field silently lost the real failure.
   if (msg.subtype === 'success') {
     return msg.result || msg.message || 'API request failed';
   }
   if (Array.isArray(msg.errors) && msg.errors.length > 0) {
-    // The SDK joins with `|| void 0`, so an all-blank errors array must not
+    // Upstream joins with `|| void 0`, so an all-blank errors array must not
     // surface as an empty string — fall through to the generic fallback.
     const joined = msg.errors.map((r) => String(r).trim()).filter(Boolean).join('; ');
     if (joined) return joined;
@@ -195,7 +193,7 @@ export function extractResultError(msg) {
  * NOTE: Uses process.stdout.write for consistent buffering with other IPC messages.
  * The Java backend parses stdout lines starting with "[USAGE]" to extract token metrics.
  *
- * @param {any} msg - SDK 消息对象(仅在 type === 'assistant' 时读取 message.usage)
+ * @param {any} msg - CLI 消息对象(仅在 type === 'assistant' 时读取 message.usage)
  * @returns {void}
  */
 export function emitUsageTag(msg) {

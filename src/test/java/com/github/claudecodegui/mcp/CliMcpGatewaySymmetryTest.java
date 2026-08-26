@@ -12,7 +12,8 @@ public class CliMcpGatewaySymmetryTest {
     public void allCliProvidersReferenceGatewayService() throws Exception {
         assertContains("src/main/java/com/github/claudecodegui/cli/claude/ClaudeCliSession.java");
         assertContains("src/main/java/com/github/claudecodegui/cli/codex/CodexCliSession.java");
-        assertContains("src/main/java/com/github/claudecodegui/cli/opencode/OpenCodeCliSession.java");
+        // opencode(及合并进的 grok/kimi/pi)的 gateway 接入已上移到公共基类。
+        assertContains("src/main/java/com/github/claudecodegui/cli/common/AbstractRunOnceCliSession.java");
     }
 
     @Test

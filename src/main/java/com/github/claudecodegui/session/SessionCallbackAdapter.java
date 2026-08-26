@@ -40,7 +40,7 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
     private final StreamDeltaThrottler contentDeltaThrottler;
     private final StreamDeltaThrottler thinkingDeltaThrottler;
     /**
-     * 统一推送层开关:让"流式输出"与"思考区"两 toggle 对所有 provider/调用模式(SDK/CLI)生效。
+     * 统一推送层开关:让"流式输出"与"思考区"两 toggle 对所有 provider 生效。
      * 流式 off → content delta 进 per-turn buffer,turn/段边界一次性 flush 全量;
      * 思考区 off → 丢弃 thinking delta 与 thinking-status(模型照常思考,只控显示)。
      * 纯逻辑组件,单测见 {@link TurnPushGateTest}。
@@ -504,7 +504,7 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
 
     /**
      * Keep usage counters non-negative before they cross the JavaScript bridge.
-     * Malformed or incomplete SDK usage payloads must not produce negative values
+     * Malformed or incomplete usage payloads must not produce negative values
      * in the context tooltip.
      */
     static int normalizeUsageValue(int value) {

@@ -1,7 +1,7 @@
 package com.github.claudecodegui.action;
 
 import com.github.claudecodegui.ui.toolwindow.ClaudeChatWindow;
-import com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow;
+import com.github.claudecodegui.ui.toolwindow.ClaudeChatToolWindow;
 import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
@@ -61,7 +61,7 @@ public abstract class ChatToolWindowAction extends AnAction implements DumbAware
      */
     private boolean isChatToolWindowActive(@NotNull Project project) {
         ToolWindowManager twm = ToolWindowManager.getInstance(project);
-        ToolWindow toolWindow = twm.getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
+        ToolWindow toolWindow = twm.getToolWindow(ClaudeChatToolWindow.TOOL_WINDOW_ID);
         return toolWindow != null && toolWindow.isActive();
     }
 
@@ -71,15 +71,15 @@ public abstract class ChatToolWindowAction extends AnAction implements DumbAware
     @Nullable
     protected ClaudeChatWindow getActiveChatWindow(@NotNull Project project) {
         ToolWindowManager twm = ToolWindowManager.getInstance(project);
-        ToolWindow toolWindow = twm.getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
+        ToolWindow toolWindow = twm.getToolWindow(ClaudeChatToolWindow.TOOL_WINDOW_ID);
         if (toolWindow != null) {
             Content selectedContent = toolWindow.getContentManager().getSelectedContent();
             if (selectedContent != null) {
-                ClaudeChatWindow window = ClaudeSDKToolWindow.getChatWindowForContent(selectedContent);
+                ClaudeChatWindow window = ClaudeChatToolWindow.getChatWindowForContent(selectedContent);
                 if (window != null) { return window; }
             }
         }
         // Fallback to legacy single-window lookup
-        return ClaudeSDKToolWindow.getChatWindow(project);
+        return ClaudeChatToolWindow.getChatWindow(project);
     }
 }

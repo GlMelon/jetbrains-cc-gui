@@ -34,7 +34,9 @@ public final class CliVersionParserRegistry {
                 new OpenCodeCliVersionParser(),
                 new GrokCliVersionParser(),
                 new KimiCliVersionParser(),
-                new PiCliVersionParser()));
+                new PiCliVersionParser(),
+                new OmpCliVersionParser(),
+                new DshCliVersionParser()));
     }
 
     public Optional<String> parse(ProviderType provider, String rawVersion) {

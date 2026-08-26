@@ -121,7 +121,7 @@
         <!-- AI Code GUI tool window (includes history feature) -->
         <toolWindow id="AICG"
                     anchor="right"
-                    factoryClass="com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow"
+                    factoryClass="com.github.claudecodegui.ui.toolwindow.ClaudeChatToolWindow"
                     icon="/icons/logo.svg"
                     canCloseContents="true"/>
 

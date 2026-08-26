@@ -53,7 +53,7 @@ final class ClaudeCliHookSettings {
                 LOG.warn("[ClaudeCliHookSettings] Node executable not resolved; skipping hook injection");
                 return null;
             }
-            File aiBridgeDir = NodeService.getInstance().getSdkTestDir();
+            File aiBridgeDir = NodeService.getInstance().getBridgeDir();
             if (aiBridgeDir == null || !aiBridgeDir.isDirectory()) {
                 LOG.warn("[ClaudeCliHookSettings] ai-bridge directory not resolved; skipping hook injection");
                 return null;

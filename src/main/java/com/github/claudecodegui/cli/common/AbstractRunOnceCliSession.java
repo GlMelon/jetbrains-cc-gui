@@ -1,17 +1,16 @@
-package com.github.claudecodegui.cli.grok;
+package com.github.claudecodegui.cli.common;
 
-import com.github.claudecodegui.util.CliTempDir;
 import com.github.claudecodegui.cli.CliSendRequest;
 import com.github.claudecodegui.cli.CliSession;
 import com.github.claudecodegui.cli.CliSessionCallback;
 import com.github.claudecodegui.cli.CliSessionExecutor;
-import com.github.claudecodegui.cli.common.*;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.mcp.McpGatewayCliConfig;
-import com.github.claudecodegui.session.AssistantResponsePhase;
 import com.github.claudecodegui.mcp.McpGatewayService;
+import com.github.claudecodegui.session.AssistantResponsePhase;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.ui.toolwindow.TabPerformanceLogger;
+import com.github.claudecodegui.util.CliTempDir;
 import com.github.claudecodegui.util.GsonHolder;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.google.gson.Gson;
@@ -21,7 +20,10 @@ import java.io.File;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
-import java.nio.charset.*;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -30,49 +32,88 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Grok CLI 会话:每个 Tab 独立实例,使用 {@code grok run "<msg>" --format json}
- * (one-shot per turn,marker 事件流)。通过从事件流提取 {@code sessionID} 并以 {@code -s} 续接实现多轮对话。
- * 完全不依赖 SDK / ai-bridge(设计 §7)。
+ * 一次性 CLI 会话模板基类(grok/kimi/pi/opencode 共用)。
+ * <p>
+ * 合并自原 GrokCliSession/KimiCliSession/PiCliSession 三胞胎(归一化后仅 ProviderType 一行之差)
+ * 与 OpenCodeCliSession(真实差异仅 3 处,均经钩子保留)。会话骨架:每轮 send spawn
+ * {@code <cli> run "<msg>" --format json} 一次性子进程,从事件流提取 sessionID 并以
+ * {@code -s} 续接实现多轮对话(设计 §7)。
  * <p>
  * 实现要点(对应设计 §7.1-7.5 / B1,B9,B13,B14,B15):
  * <ul>
- *   <li>B1:不预创建 session。{@code grok run} 隐式创建会话,sessionID 从事件流 [SESSION_ID] 提取。</li>
+ *   <li>B1:不预创建 session。{@code <cli> run} 隐式创建会话,sessionID 从事件流提取。</li>
  *   <li>B9:消息作为位置参数传入,不再双写 stdin(消除 createSession/prompt 双写)。</li>
  *   <li>B13:续接(-s)失败时(session 失效),清空 sessionId 重试一次首轮流程。</li>
  *   <li>B14:进程经 {@link CliProcessHandle} 管理,interrupt 走 PlatformUtils.terminateProcess(替代裸 destroyForcibly)。</li>
  *   <li>B15:能力透传(model/-m、reasoningEffort/--variant、图片附件/-f、permissionMode bypass→
- *       --auto、cwd/--dir)。</li>
+ *       --auto、cwd/--dir;opencode 另有 --thinking)。</li>
  * </ul>
- * 事件解析委托 {@link GrokCliStreamParser}。
+ * 子类职责:
+ * <ul>
+ *   <li>必须:{@link #createParser(CliSessionCallback)} 绑定协议解析器
+ *       (marker 协议用 {@code MarkerRunOnceCliSession},NDJSON 用 opencode 子类);</li>
+ *   <li>可选:覆写 {@link #dispatchLine}(行分流,默认 marker 版)、
+ *       {@link #appendExtraRunFlags}(能力 flag 追加)、{@link #npmDir()}(npm 包目录)。</li>
+ * </ul>
  */
-public class GrokCliSession implements CliSession {
+public abstract class AbstractRunOnceCliSession implements CliSession {
 
-    private static final Logger LOG = Logger.getInstance(GrokCliSession.class);
+    private static final Logger LOG = Logger.getInstance(AbstractRunOnceCliSession.class);
     private static final Charset WINDOWS_CHINESE_CHARSET = Charset.forName("GBK");
 
-    private final String tabId;
+    protected final String tabId;
+    protected final ProviderType providerType;
     private final Gson gson = GsonHolder.GSON;
     private final CliAttachmentHandler attachmentHandler = new CliAttachmentHandler();
     private final McpGatewayService gatewayService;
 
-    // 当前 session ID(从事件流 [SESSION_ID] 标记提取,续接时以 -s 传入)
+    // 当前 session ID(从事件流提取,续接时以 -s 传入)
     private volatile String sessionId;
     // 当前活跃进程(用于中断)
     private volatile CliProcessHandle activeHandle;
     private final AtomicBoolean userInterrupted = new AtomicBoolean(false);
+    // CLI 可执行解析器(懒初始化,npmDir 钩子依赖子类状态故不在构造期创建)
+    private volatile ProviderCliResolver resolver;
 
-    public GrokCliSession(String tabId) {
-        this(tabId, null);
-    }
-
-    public GrokCliSession(String tabId, McpGatewayService gatewayService) {
+    protected AbstractRunOnceCliSession(ProviderType providerType, String tabId, McpGatewayService gatewayService) {
+        this.providerType = providerType;
         this.tabId = tabId;
         this.gatewayService = gatewayService;
     }
 
-    private static long elapsedMillis(long startNanos) {
-        return (System.nanoTime() - startNanos) / 1_000_000;
+    // ── 钩子 ──────────────────────────────────────────────────────────────────
+
+    /** 创建本次运行的协议解析器(marker / NDJSON 由子类决定)。 */
+    protected abstract CliStreamParser createParser(CliSessionCallback callback);
+
+    /** provider 显示名(日志、错误格式化、进程名),默认取 {@link ProviderType#displayLabel()}。 */
+    protected String providerLabel() {
+        return providerType.displayLabel();
     }
+
+    /** npm 全局结构下的包目录名,默认取裸名(grok/kimi/pi);opencode 为 "opencode-ai" 须覆写。 */
+    protected String npmDir() {
+        return providerType.cliCommand();
+    }
+
+    /**
+     * 事件行分流(在行缓冲/解码之后调用)。默认 marker 协议:所有行交解析器,
+     * 非 {@code [} 行(启动 banner / 错误噪声)额外收集到 diagnostic。
+     * NDJSON 协议(opencode)覆写:非 {@code {} 行发 MCP 降级提示 + 收集 diagnostic 且不进解析器。
+     */
+    protected void dispatchLine(String line, CliStreamParser parser, StringBuilder diagnostic) {
+        parser.parseLine(line);
+        if (!line.trim().startsWith("[")) {
+            CliErrorFormatter.appendDiagnosticLine(diagnostic, line);
+        }
+    }
+
+    /** 能力 flag 追加点(variant 之后、附件之前)。默认空;opencode 覆写加 --thinking。 */
+    protected void appendExtraRunFlags(CliSendRequest request, List<String> cmd) {
+        // 默认无额外 flag
+    }
+
+    // ── 会话骨架(全部公共) ─────────────────────────────────────────────────────
 
     @Override
     public CompletableFuture<Void> send(CliSendRequest request, CliSessionCallback callback) {
@@ -82,31 +123,31 @@ public class GrokCliSession implements CliSession {
             List<File> tempFiles = new ArrayList<>();
             StringBuilder diagnostic = new StringBuilder();
             try {
-                LOG.info("[CliConcurrencyDiag][GrokCliSession] send task started"
+                LOG.info("[CliConcurrencyDiag][" + sessionTag() + "] send task started"
                         + ": tabId=" + tabId
                         + ", sessionId=" + (sessionId != null ? sessionId : "(none)")
                         + ", cwd=" + (request.cwd() != null ? request.cwd() : "(none)")
                         + ", thread=" + Thread.currentThread().getName());
-                // 图片附件物化为磁盘文件
+                // 图片附件物化为磁盘文件(跨重试复用同一批临时文件,finally 统一清理)
                 List<File> attachFiles;
                 try {
                     long attachmentsStartNanos = System.nanoTime();
                     attachFiles = attachmentHandler.processForCodex(request.attachments(), tempFiles);
-                    LOG.info("[CliConcurrencyDiag][GrokCliSession] attachments prepared"
+                    LOG.info("[CliConcurrencyDiag][" + sessionTag() + "] attachments prepared"
                             + ": tabId=" + tabId
                             + ", files=" + attachFiles.size()
                             + ", elapsedMs=" + elapsedMillis(sendStartNanos)
                             + ", attachmentsMs=" + elapsedMillis(attachmentsStartNanos)
                             + ", thread=" + Thread.currentThread().getName());
                 } catch (Exception e) {
-                    LOG.warn("[GrokCliSession][" + tabId + "] process attachments failed", e);
+                    LOG.warn("[" + sessionTag() + "][" + tabId + "] process attachments failed", e);
                     attachFiles = List.of();
                 }
 
                 // B13:续接失败时清空 sessionId 重试一次首轮流程(设计 §7.4)。
                 boolean retry = runOnce(request, callback, sessionId, attachFiles, diagnostic, sendStartNanos);
                 if (retry) {
-                    LOG.info("[CliConcurrencyDiag][GrokCliSession] continuation session invalidated; retrying as fresh turn"
+                    LOG.info("[CliConcurrencyDiag][" + sessionTag() + "] continuation session invalidated; retrying as fresh turn"
                             + ": tabId=" + tabId
                             + ", elapsedMs=" + elapsedMillis(sendStartNanos)
                             + ", thread=" + Thread.currentThread().getName());
@@ -117,11 +158,11 @@ public class GrokCliSession implements CliSession {
                     }
                 }
             } catch (Exception e) {
-                LOG.warn("[GrokCliSession][" + tabId + "] send failed", e);
+                LOG.warn("[" + sessionTag() + "][" + tabId + "] send failed", e);
                 if (wasInterrupted()) {
                     callback.onInterrupted(null, CliConstants.I18N_REQUEST_INTERRUPTED);
                 } else {
-                    String err = CliErrorFormatter.formatError("Grok", e.getMessage());
+                    String err = CliErrorFormatter.formatError(providerLabel(), e.getMessage());
                     callback.onError(err);
                     callback.onComplete(false, null, err);
                 }
@@ -134,7 +175,7 @@ public class GrokCliSession implements CliSession {
     }
 
     /**
-     * 执行一次 {@code grok run}。返回 true 表示发生了续接 session 失效、应作为首轮重试
+     * 执行一次 {@code <cli> run}。返回 true 表示发生了续接 session 失效、应作为首轮重试
      * (此时**未**调用 onComplete/onError,交由调用方重试后报告);false 表示已报告最终结果或被中断。
      *
      * @param effectiveSessionId 续接 session id;null 表示首轮(不加 -s)
@@ -148,23 +189,23 @@ public class GrokCliSession implements CliSession {
             StringBuilder diagnostic,
             long sendStartNanos
     ) throws Exception {
-        GrokCliStreamParser parser = new GrokCliStreamParser(callback);
+        CliStreamParser parser = createParser(callback);
         callback.onMessage(CliConstants.MSG_RESPONSE_PHASE, AssistantResponsePhase.MCP_SYNCING.value());
         McpGatewayCliConfig gatewayConfig = buildGatewayConfig(request);
         callback.onMessage(CliConstants.MSG_RESPONSE_PHASE, AssistantResponsePhase.CONNECTING.value());
         String effectiveSessionDisplay = effectiveSessionId != null ? effectiveSessionId : "(new)";
-        LOG.info("[CliConcurrencyDiag][GrokCliSession] building command"
+        LOG.info("[CliConcurrencyDiag][" + sessionTag() + "] building command"
                 + ": tabId=" + tabId
                 + ", effectiveSessionId=" + effectiveSessionDisplay
                 + ", elapsedMs=" + elapsedMillis(sendStartNanos)
                 + ", thread=" + Thread.currentThread().getName());
         List<String> cmd = buildRunCommand(request, effectiveSessionId, attachFiles);
-        LOG.info("[CliConcurrencyDiag][GrokCliSession] command prepared"
+        LOG.info("[CliConcurrencyDiag][" + sessionTag() + "] command prepared"
                 + ": tabId=" + tabId
                 + ", effectiveSessionId=" + effectiveSessionDisplay
                 + ", elapsedMs=" + elapsedMillis(sendStartNanos)
                 + ", thread=" + Thread.currentThread().getName());
-        LOG.info("[GrokCliSession][" + tabId + "] Command: " + String.join(" ", cmd));
+        LOG.info("[" + sessionTag() + "][" + tabId + "] Command: " + String.join(" ", cmd));
 
         ProcessBuilder pb = new ProcessBuilder(cmd);
         pb.redirectErrorStream(true);
@@ -183,7 +224,7 @@ public class GrokCliSession implements CliSession {
             if (cwd.isDirectory()) {
                 pb.directory(cwd);
             } else {
-                LOG.warn("[GrokCliSession][" + tabId + "] CWD does not exist, falling back to home: " + request.cwd());
+                LOG.warn("[" + sessionTag() + "][" + tabId + "] CWD does not exist, falling back to home: " + request.cwd());
                 File homeDir = new File(PlatformUtils.getHomeDirectory());
                 if (homeDir.isDirectory()) {
                     pb.directory(homeDir);
@@ -191,21 +232,23 @@ public class GrokCliSession implements CliSession {
             }
         }
 
-        // 可靠 stdin EOF:redirectInput 重定向到空设备(NUL / /dev/null)
+        // 可靠 stdin EOF:redirectInput 重定向到空设备(NUL / /dev/null),在 OS 句柄层给子进程
+        // 空 stdin(立即 EOF)。经 .cmd → cmd.exe 包装时管道 close 的 EOF 传播不可靠
+        // (stdin 打开=挂起 exit0 空;redirectInput=快速返回事件流,对照实验验证)。
         pb.redirectInput(stdinNullSink());
 
-        LOG.info("[CliConcurrencyDiag][GrokCliSession] starting process"
+        LOG.info("[CliConcurrencyDiag][" + sessionTag() + "] starting process"
                 + ": tabId=" + tabId
                 + ", effectiveSessionId=" + effectiveSessionDisplay
                 + ", elapsedMs=" + elapsedMillis(sendStartNanos)
                 + ", thread=" + Thread.currentThread().getName());
         Process process = pb.start();
-        LOG.info("[CliConcurrencyDiag][GrokCliSession] process started"
+        LOG.info("[CliConcurrencyDiag][" + sessionTag() + "] process started"
                 + ": tabId=" + tabId
                 + ", effectiveSessionId=" + effectiveSessionDisplay
                 + ", elapsedMs=" + elapsedMillis(sendStartNanos)
                 + ", thread=" + Thread.currentThread().getName());
-        CliProcessHandle currentHandle = new CliProcessHandle(process, "grok-tab-" + tabId);
+        CliProcessHandle currentHandle = new CliProcessHandle(process, providerType.cliCommand() + "-tab-" + tabId);
         activeHandle = currentHandle;
 
         try {
@@ -224,7 +267,7 @@ public class GrokCliSession implements CliSession {
                             if (b == '\n') {
                                 if (!firstOutputLogged) {
                                     firstOutputLogged = true;
-                                    LOG.info("[CliConcurrencyDiag][GrokCliSession] first stdout line buffer reached"
+                                    LOG.info("[CliConcurrencyDiag][" + sessionTag() + "] first stdout line buffer reached"
                                             + ": tabId=" + tabId
                                             + ", effectiveSessionId=" + effectiveSessionDisplay
                                             + ", elapsedMs=" + elapsedMillis(sendStartNanos)
@@ -244,66 +287,67 @@ public class GrokCliSession implements CliSession {
 
             CliProcessLifecycle.Outcome outcome = CliProcessLifecycle.await(process, outputDrain);
             int exitCode = outcome.exitCode();
-        LOG.info("[CliConcurrencyDiag][GrokCliSession] process exited"
-                + ": tabId=" + tabId
-                + ", effectiveSessionId=" + effectiveSessionDisplay
-                + ", exitCode=" + exitCode
-                + ", elapsedMs=" + elapsedMillis(sendStartNanos)
-                + ", thread=" + Thread.currentThread().getName());
+            LOG.info("[CliConcurrencyDiag][" + sessionTag() + "] process exited"
+                    + ": tabId=" + tabId
+                    + ", effectiveSessionId=" + effectiveSessionDisplay
+                    + ", exitCode=" + exitCode
+                    + ", elapsedMs=" + elapsedMillis(sendStartNanos)
+                    + ", thread=" + Thread.currentThread().getName());
 
-        if (outcome.timedOut() && !wasInterrupted()) {
-            String err = CliErrorFormatter.formatError("Grok", "CLI request timed out");
+            if (outcome.timedOut() && !wasInterrupted()) {
+                String err = CliErrorFormatter.formatError(providerLabel(), "CLI request timed out");
+                callback.onError(err);
+                callback.onComplete(false, parser.accumulatedText(), err);
+                return false;
+            }
+
+            if (wasInterrupted()) {
+                callback.onInterrupted(parser.accumulatedText(), CliConstants.I18N_REQUEST_INTERRUPTED);
+                return false;
+            }
+
+            // 从事件流捕获 session id(首轮提取后续接复用)
+            if (parser.capturedSessionId() != null) {
+                sessionId = parser.capturedSessionId();
+            }
+
+            if (exitCode == 0 && !parser.hasError()) {
+                if (!parser.streamEnded()) {
+                    if (isSilentEmptyFailure(parser)) {
+                        String cliName = providerType.cliCommand();
+                        String err = CliErrorFormatter.formatError(providerLabel(),
+                                "进程退出但未返回任何内容(exit=0,无事件流)。"
+                                        + "常见原因:子进程阻塞读 stdin,或 " + cliName + "/provider 内部错误。"
+                                        + "请在命令行执行 " + cliName + " run 并重定向空 stdin 对照验证,检查 " + cliName + " 配置与 provider。");
+                        callback.onError(err);
+                        callback.onComplete(false, parser.accumulatedText(), err);
+                        return false;
+                    }
+                    // 异常路径未收到流结束标记但有事件/内容,补发流结束以解除前端阻塞
+                    callback.onMessage(CliConstants.MSG_STREAM_END, "");
+                    callback.onMessage(CliConstants.MSG_MESSAGE_END, "");
+                }
+                callback.onComplete(true, parser.accumulatedText(), null);
+                return false;
+            }
+
+            // 错误路径:优先取解析器收集的 error 诊断,回退到非协议噪声行
+            String errDiag = parser.errorDiagnostic();
+            if (errDiag == null || errDiag.isEmpty()) {
+                errDiag = diagnostic.toString();
+            }
+
+            // B13:仅续接(-s)场景检测 session 失效 → 重试首轮
+            if (effectiveSessionId != null && looksLikeSessionInvalidation(errDiag)) {
+                return true;
+            }
+
+            String err = errDiag.isBlank()
+                    ? CliErrorFormatter.formatExitError(providerLabel(), exitCode, diagnostic)
+                    : CliErrorFormatter.formatError(providerLabel(), errDiag);
             callback.onError(err);
             callback.onComplete(false, parser.accumulatedText(), err);
             return false;
-        }
-
-        if (wasInterrupted()) {
-            callback.onInterrupted(parser.accumulatedText(), CliConstants.I18N_REQUEST_INTERRUPTED);
-            return false;
-        }
-
-        // 从事件流捕获 session id(首轮提取后续接复用)
-        if (parser.capturedSessionId() != null) {
-            sessionId = parser.capturedSessionId();
-        }
-
-        if (exitCode == 0 && !parser.hasError()) {
-            if (!parser.streamEnded()) {
-                if (isSilentEmptyFailure(parser)) {
-                    String err = CliErrorFormatter.formatError("Grok",
-                            "进程退出但未返回任何内容(exit=0,无事件流)。"
-                                    + "常见原因:子进程阻塞读 stdin,或 grok/provider 内部错误。"
-                                    + "请在命令行执行 grok run 并重定向空 stdin 对照验证,检查 grok 配置与 provider。");
-                    callback.onError(err);
-                    callback.onComplete(false, parser.accumulatedText(), err);
-                    return false;
-                }
-                // 异常路径未收到 [STREAM_END] 但有事件/内容,补发流结束以解除前端阻塞
-                callback.onMessage(CliConstants.MSG_STREAM_END, "");
-                callback.onMessage(CliConstants.MSG_MESSAGE_END, "");
-            }
-            callback.onComplete(true, parser.accumulatedText(), null);
-            return false;
-        }
-
-        // 错误路径:优先取解析器收集的 error 诊断,回退到非 JSON 噪声行
-        String errDiag = parser.errorDiagnostic();
-        if (errDiag == null || errDiag.isEmpty()) {
-            errDiag = diagnostic.toString();
-        }
-
-        // B13:仅续接(-s)场景检测 session 失效 → 重试首轮
-        if (effectiveSessionId != null && looksLikeSessionInvalidation(errDiag)) {
-            return true;
-        }
-
-        String err = errDiag.isBlank()
-                ? CliErrorFormatter.formatExitError("Grok", exitCode, diagnostic)
-                : CliErrorFormatter.formatError("Grok", errDiag);
-        callback.onError(err);
-        callback.onComplete(false, parser.accumulatedText(), err);
-        return false;
         } finally {
             CliProcessLifecycle.terminate(process);
             if (activeHandle == currentHandle) {
@@ -319,7 +363,7 @@ public class GrokCliSession implements CliSession {
         if (h != null) {
             long startNanos = System.nanoTime();
             h.interrupt();
-            LOG.info("[TabPerf] GrokCliSession.interrupt returned in "
+            LOG.info("[TabPerf] " + sessionTag() + ".interrupt returned in "
                     + TabPerformanceLogger.elapsedMillis(startNanos) + "ms: tab=" + tabId);
         }
     }
@@ -327,6 +371,12 @@ public class GrokCliSession implements CliSession {
     @Override
     public void dispose() {
         interrupt();
+    }
+
+    // ── 内部支撑 ──────────────────────────────────────────────────────────────
+
+    private String sessionTag() {
+        return providerLabel() + "CliSession";
     }
 
     private boolean wasInterrupted() {
@@ -338,17 +388,30 @@ public class GrokCliSession implements CliSession {
         if (gatewayService == null) {
             return McpGatewayCliConfig.disabled("No MCP Gateway service");
         }
-        return gatewayService.buildCliConfig(ProviderType.GROK, tabId, request.cwd());
+        return gatewayService.buildCliConfig(providerType, tabId, request.cwd());
+    }
+
+    private ProviderCliResolver resolver() {
+        ProviderCliResolver r = resolver;
+        if (r == null) {
+            synchronized (this) {
+                if (resolver == null) {
+                    resolver = new ProviderCliResolver(providerType, npmDir());
+                }
+                r = resolver;
+            }
+        }
+        return r;
     }
 
     // ── command builder ──────────────────────────────────────────────────────
 
     /**
-     * 构造 {@code grok run "<msg>" --format json [-s sessionId] [能力 flags]}。
+     * 构造 {@code <cli> run "<msg>" --format json [-s sessionId] [能力 flags]}。
      * 消息作为 run 之后的首个位置参数(B9:消除旧实现的 stdin 双写)。
      */
-    List<String> buildRunCommand(CliSendRequest request, String effectiveSessionId, List<File> attachFiles) {
-        String executable = GrokCliResolver.findExecutable();
+    public List<String> buildRunCommand(CliSendRequest request, String effectiveSessionId, List<File> attachFiles) {
+        String executable = resolver().findExecutable();
         List<String> cmd = new ArrayList<>();
         cmd.add(executable);
         cmd.add(CliConstants.OPENCODE_ARG_RUN);
@@ -367,11 +430,12 @@ public class GrokCliSession implements CliSession {
             cmd.add(CliConstants.OPENCODE_ARG_MODEL);
             cmd.add(model);
         }
-        String variant = grokVariant(request.reasoningEffort());
+        String variant = mapReasoningVariant(request.reasoningEffort());
         if (variant != null) {
             cmd.add(CliConstants.OPENCODE_ARG_VARIANT);
             cmd.add(variant);
         }
+        appendExtraRunFlags(request, cmd);
         if (attachFiles != null) {
             for (File f : attachFiles) {
                 if (f != null) {
@@ -381,6 +445,7 @@ public class GrokCliSession implements CliSession {
             }
         }
         if (CommonConstants.PERMISSION_MODE_BYPASS.equals(request.permissionMode())) {
+            // bypass 等价物:--auto 自动批准未被 deny 的请求(opencode 官方语义,grok/kimi/pi 同构)。
             cmd.add(CliConstants.OPENCODE_ARG_AUTO);
         }
         if (request.cwd() != null && !request.cwd().isBlank()) {
@@ -391,10 +456,10 @@ public class GrokCliSession implements CliSession {
     }
 
     /**
-     * reasoningEffort → grok --variant(设计 §7.2):
+     * reasoningEffort → --variant(设计 §7.2,四 provider 一致):
      * low→minimal, medium→省略(默认), high→high, xhigh/max→max。
      */
-    private static String grokVariant(String reasoningEffort) {
+    static String mapReasoningVariant(String reasoningEffort) {
         if (reasoningEffort == null || reasoningEffort.isBlank()) {
             return null;
         }
@@ -447,7 +512,7 @@ public class GrokCliSession implements CliSession {
 
     // ── output line handling ──────────────────────────────────────────────────
 
-    private void processLine(CliOutputLimits.LineBuffer lineBuf, GrokCliStreamParser parser, StringBuilder diagnostic) {
+    private void processLine(CliOutputLimits.LineBuffer lineBuf, CliStreamParser parser, StringBuilder diagnostic) {
         if (lineBuf.isTruncated()) {
             lineBuf.reset();
             throw new IllegalStateException("CLI stdout line exceeded " + CliOutputLimits.MAX_LINE_BYTES + " bytes");
@@ -465,11 +530,7 @@ public class GrokCliSession implements CliSession {
         if (line == null || line.isBlank()) {
             return;
         }
-        // 非 marker 行(启动 banner / 错误噪声)收集到 diagnostic,供错误上报;marker 行交解析器
-        parser.parseLine(line);
-        if (!line.trim().startsWith("[")) {
-            CliErrorFormatter.appendDiagnosticLine(diagnostic, line);
-        }
+        dispatchLine(line, parser, diagnostic);
     }
 
     /**
@@ -483,7 +544,7 @@ public class GrokCliSession implements CliSession {
         try {
             CharBuffer cb = utf8Decoder.decode(ByteBuffer.wrap(bytes, 0, len));
             return cb.toString();
-        } catch (CharacterCodingException e) {
+        } catch (java.nio.charset.CharacterCodingException e) {
             Charset fallback = Charset.defaultCharset();
             if (WINDOWS_CHINESE_CHARSET.equals(fallback)) {
                 return new String(bytes, 0, len, fallback);
@@ -510,19 +571,23 @@ public class GrokCliSession implements CliSession {
 
     /**
      * 子进程 stdin 空设备:Windows {@code NUL} / Unix {@code /dev/null},
-     * 供 {@link ProcessBuilder#redirectInput} 在 OS 句柄层给 grok 空 stdin(立即 EOF)。
+     * 供 {@link ProcessBuilder#redirectInput} 在 OS 句柄层给子进程空 stdin(立即 EOF)。
      */
     private static File stdinNullSink() {
         return new File(PlatformUtils.isWindows() ? "NUL" : "/dev/null");
     }
 
     /**
-     * 判定是否"静默空失败":grok 进程 exit0,但整轮未解析到任何有效事件
-     * ({@code !receivedAnyEvent},即无 sessionID / 文本 / [STREAM_END])。
-     * 此组合表明 grok 未产出事件流(典型:阻塞读 stdin / 内部静默错误),
+     * 判定是否"静默空失败":进程 exit0,但整轮未解析到任何有效事件
+     * ({@code !receivedAnyEvent},即无 sessionID / 文本 / 流结束标记)。
+     * 此组合表明 CLI 未产出事件流(典型:阻塞读 stdin / 内部静默错误),
      * 应上报错误而非静默空完成。
      */
-    static boolean isSilentEmptyFailure(GrokCliStreamParser parser) {
+    public static boolean isSilentEmptyFailure(CliStreamParser parser) {
         return !parser.receivedAnyEvent();
+    }
+
+    private static long elapsedMillis(long startNanos) {
+        return (System.nanoTime() - startNanos) / 1_000_000;
     }
 }

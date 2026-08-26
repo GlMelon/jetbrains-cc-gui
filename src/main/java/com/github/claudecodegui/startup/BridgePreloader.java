@@ -87,7 +87,7 @@ public class BridgePreloader implements ProjectActivity {
                         BridgePreloader::prewarmCliResolvers);
 
                 // Trigger extraction (non-blocking on this pooled thread)
-                resolver.findSdkDir();
+                resolver.findBridgeDir();
 
                 // ai-bridge 解压完成后,后台预热 MCP Gateway(若 isGatewayActive)。这是"插件启动预热":
                 // 比打开工具窗口更早,让用户打开 AICG 窗口/发首条消息时 gateway 进程已起、各 MCP server
@@ -112,7 +112,7 @@ public class BridgePreloader implements ProjectActivity {
      * 项目打开时后台预热 MCP Gateway。在 ai-bridge 解压完成后的同一个 pooled 线程内执行,
      * 不阻塞 EDT;{@link McpGatewayService#refreshConfig} 内部会 ensureStarted(最多等一个
      * cold-start)+ applySnapshot(同步等各 MCP server initialize/listTools,首次较慢但用户无感)。
-     * {@code isGatewayActive} 守卫:gateway 整体禁用(CLI/SDK 都关)时 no-op,避免空跑。
+     * {@code isGatewayActive} 守卫:gateway 整体禁用时 no-op,避免空跑。
      */
     private static void prewarmMcpGateway(@NotNull Project project) {
         if (project.isDisposed() || !McpGatewayFeatureFlags.isGatewayActive()) {

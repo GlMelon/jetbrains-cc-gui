@@ -162,7 +162,7 @@ Footer 包含：
             // 2. Build the full prompt (built-in + user's additional prompt + diff)
             String fullPrompt = buildFullPrompt(diff);
 
-            // 3. Call the AI SDK
+            // 3. Call the AI service
             callAIService(fullPrompt, callback);
 
         } catch (IOException e) {

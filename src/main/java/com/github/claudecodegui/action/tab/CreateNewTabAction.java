@@ -2,7 +2,7 @@ package com.github.claudecodegui.action.tab;
 
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.ui.toolwindow.ClaudeChatWindow;
-import com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow;
+import com.github.claudecodegui.ui.toolwindow.ClaudeChatToolWindow;
 import com.github.claudecodegui.ui.toolwindow.TabPerformanceLogger;
 import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
@@ -47,7 +47,7 @@ public class CreateNewTabAction extends AnAction {
         }
 
         ToolWindow toolWindow = ToolWindowManager.getInstance(project)
-                .getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
+                .getToolWindow(ClaudeChatToolWindow.TOOL_WINDOW_ID);
         if (toolWindow == null) {
             LOG.error("[CreateNewTabAction] Tool window not found");
             return;
@@ -59,7 +59,7 @@ public class CreateNewTabAction extends AnAction {
         long createWindowElapsedMs = TabPerformanceLogger.elapsedMillis(createWindowStartNanos);
 
         // Create a tab name in the format "AIN"
-        String tabName = ClaudeSDKToolWindow.getNextTabName(toolWindow);
+        String tabName = ClaudeChatToolWindow.getNextTabName(toolWindow);
 
         // Create and add the new tab content
         ContentFactory contentFactory = ContentFactory.getInstance();

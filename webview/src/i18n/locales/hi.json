@@ -431,7 +431,7 @@
       "customSectionTitle": "कस्टम मॉडल",
       "editPricing": "मूल्य संपादित करें"
     },
-    "dependencies": "SDK निर्भरताएं",
+    "dependencies": "CLI टूल्स",
     "dependency": {
       "title": "SDK निर्भरता प्रबंधन",
       "description": "AI SDK निर्भरताएं प्रबंधित करें। पहली बार उपयोग करने से पहले आवश्यक SDK इंस्टॉल करें।",
@@ -869,6 +869,11 @@
       "loadFailed": "Load failed"
     },
     "cli": {
+      "providerNotInstalledToast": "{{name}} CLI इंस्टॉल नहीं है। पहले सेटिंग्स → CLI वातावरण में इंस्टॉल करें",
+      "recheck": "CLI वातावरण पुनः जाँचें",
+      "rechecking": "जाँच हो रही है…",
+
+      "updating": "अपडेट हो रहा है…",
       "hint": "These CLIs must be installed and configured in your system terminal. The plugin only detects installation status and version — it will never install them for you. Confirm each CLI works in the terminal before coming back here to use it.",
       "refresh": "Re-check",
       "retry": "Retry",
@@ -1891,9 +1896,9 @@
           "step0": "अपना संस्करण देखने के लिए टर्मिनल में नीचे दिया गया कमांड चलाएँ। Node 22 या वर्तमान LTS की अनुशंसा की जाती है — उपयोगकर्ताओं ने Node 24 पर कई समस्याएँ बताई हैं, इसलिए Node 20 या 22 को प्राथमिकता दें:"
         },
         "reinstallLatestSdk": {
-          "title": "विकल्प 2: आधिकारिक npm रजिस्ट्री से नवीनतम SDK पुनः इंस्टॉल करें",
+          "title": "विकल्प 2: आधिकारिक npm रजिस्ट्री से नवीनतम CLI पुनः इंस्टॉल करें",
           "step0": "1. आधिकारिक npm रजिस्ट्री पर स्विच करें (Taobao मिरर का उपयोग न करें — हो सकता है उसके पास नवीनतम संस्करण न हो):",
-          "step1": "2. निर्भरता प्रबंधन खोलें और नवीनतम SDK पुनः इंस्टॉल करें:"
+          "step1": "2. निर्भरता प्रबंधन खोलें और नवीनतम CLI पुनः इंस्टॉल करें:"
         }
       }
     }

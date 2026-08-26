@@ -24,7 +24,6 @@ public final class CliConstants {
     public static final long OUTPUT_DRAIN_TIMEOUT_MS = 5_000L;
 
     // ── 长驻会话(CLI persistent process)常量 ──────────────────────────────────
-    // 设计文档: docs/feat/claude-daemon-mode-design.md §4.1/§4.3/§4.5。
 
     /** 优雅关闭:stdin EOF 后等待 CLI 自然退出的上限,超时走 terminateProcess 兜底。 */
     public static final long CLI_GRACEFUL_CLOSE_TIMEOUT_MS = 5_000L;
@@ -40,18 +39,18 @@ public final class CliConstants {
     public static final long CLI_PERSISTENT_READY_WINDOW_MS = 300L;
     /** 项目 dispose 清理时单个进程的优雅关闭等待上限(短等待+强杀兜底,避免阻塞项目关闭)。 */
     public static final long CLI_DISPOSE_CLOSE_TIMEOUT_MS = 1_000L;
-    /** 坏槽位重建:连续 spawn 失败次数上限,达到后该键进入冷却窗口(实施计划 §6.15 不无限重启)。 */
+    /** 坏槽位重建:连续 spawn 失败次数上限,达到后该键进入冷却窗口(不无限重启)。 */
     public static final int CLI_PERSISTENT_REBUILD_MAX_FAILURES = 3;
     /** 坏槽位重建冷却窗口:连续失败达上限后,该键在此窗口内不再尝试 spawn,消息直接走 one-shot。 */
     public static final long CLI_PERSISTENT_REBUILD_COOLDOWN_MS = 60_000L;
-    /** 轮外协议事件 WARN 限流:每进程最多打此条数,之后降 debug(§6.14 可观测化,防刷屏)。 */
+    /** 轮外协议事件 WARN 限流:每进程最多打此条数,之后降 debug(防刷屏)。 */
     public static final int CLI_PERSISTENT_ORPHAN_WARN_LIMIT = 5;
 
-    // ── 长驻路径决策日志 reason 值(实施计划 §6.16-4 path/fallbackReason 字段) ──
+    // ── 长驻路径决策日志 reason 值(path/fallbackReason 字段) ──
 
     /** 门禁关闭(总开关/user 开关/provider 子开关)。 */
     public static final String PATH_REASON_FLAG_DISABLED = "flag_disabled";
-    /** CLI 版本按最新 compatibility manifest 判定不兼容(§6.16-3 版本门禁)。 */
+    /** CLI 版本按最新 compatibility manifest 判定不兼容(版本门禁)。 */
     public static final String PATH_REASON_VERSION_INCOMPATIBLE = "version_incompatible";
     /** acquire 未命中(指纹漂移/崩溃槽/超限/冷却),细节见 registry 日志。 */
     public static final String PATH_REASON_REGISTRY_MISS = "registry_miss";

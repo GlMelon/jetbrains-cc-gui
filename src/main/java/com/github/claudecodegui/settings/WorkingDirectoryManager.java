@@ -82,7 +82,7 @@ public class WorkingDirectoryManager {
      * <p>This is the single source of truth used by both the session launchers and
      * the history readers. Keying history off this value (instead of the raw IDE
      * base path) ensures the {@code ~/.claude/projects/<key>} directory the GUI reads
-     * matches the one the SDK writes to when a custom working directory is set.
+     * matches the one the CLI writes to when a custom working directory is set.
      *
      * <p>Resolution order:
      * <ol>

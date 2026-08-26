@@ -3,7 +3,7 @@ package com.github.claudecodegui.session.runtime;
 import com.github.claudecodegui.cli.CliSendRequest;
 import com.github.claudecodegui.cli.CliSessionManager;
 import com.github.claudecodegui.provider.common.MessageCallback;
-import com.github.claudecodegui.provider.common.SDKResult;
+import com.github.claudecodegui.provider.common.CliResult;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -26,12 +26,7 @@ public class DshCliSessionRuntime implements SessionRuntime {
     }
 
     @Override
-    public RuntimeType runtimeType() {
-        return RuntimeType.CLI;
-    }
-
-    @Override
-    public CompletableFuture<SDKResult> send(SessionRequest req, MessageCallback callback) {
+    public CompletableFuture<CliResult> send(SessionRequest req, MessageCallback callback) {
         CliSendRequest cliReq = toCliSendRequest(req);
         return cliManager.send(cliReq, callback);
     }

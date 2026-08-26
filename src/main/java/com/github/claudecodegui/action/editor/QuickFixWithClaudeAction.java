@@ -3,9 +3,9 @@ package com.github.claudecodegui.action.editor;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.notifications.ClaudeNotifier;
 import com.github.claudecodegui.provider.common.MessageCallback;
-import com.github.claudecodegui.provider.common.SDKResult;
+import com.github.claudecodegui.provider.common.CliResult;
 import com.github.claudecodegui.ui.toolwindow.ClaudeChatWindow;
-import com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow;
+import com.github.claudecodegui.ui.toolwindow.ClaudeChatToolWindow;
 import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
@@ -227,7 +227,7 @@ public class QuickFixWithClaudeAction extends AnAction implements DumbAware {
     }
 
     private void executeQuickFix(@NotNull Project project, @NotNull Editor editor, @NotNull String userPrompt) {
-        ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
+        ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow(ClaudeChatToolWindow.TOOL_WINDOW_ID);
         if (toolWindow == null) {
             ClaudeNotifier.showError(project, ClaudeCodeGuiBundle.message("quickfix.toolWindowNotFound"));
             return;
@@ -241,7 +241,7 @@ public class QuickFixWithClaudeAction extends AnAction implements DumbAware {
 
         // 2. Add as a new tab in the tool window with "AIN" naming format
         ContentFactory contentFactory = ContentFactory.getInstance();
-        String tabName = ClaudeSDKToolWindow.getNextTabName(toolWindow);
+        String tabName = ClaudeChatToolWindow.getNextTabName(toolWindow);
         Content content = contentFactory.createContent(quickFixWindow.getContent(), tabName, false);
         content.setCloseable(true);
         quickFixWindow.setParentContent(content);
@@ -263,7 +263,7 @@ public class QuickFixWithClaudeAction extends AnAction implements DumbAware {
             }
 
             @Override
-            public void onComplete(SDKResult result) {
+            public void onComplete(CliResult result) {
                 com.github.claudecodegui.service.QuickFixService.handleAIResponse(project, editor, result.finalResult);
             }
         });

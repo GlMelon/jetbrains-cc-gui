@@ -9,7 +9,7 @@ interface CompletionLike {
 /**
  * useSubmitHandler - Submit logic for the chat input box
  *
- * - Validates SDK state and empty input
+ * - Validates empty input
  * - Records input history
  * - Clears input/attachments for responsiveness
  * - Defers onSubmit to allow UI update
@@ -55,7 +55,6 @@ export function useSubmitHandler({
   dollarCommandCompletion: CompletionLike;
   recordInputHistory: (text: string) => void;
   onSubmit?: (content: string, attachmentsToSend?: Attachment[]) => void;
-  onInstallSdk?: () => void;
   addToast?: (message: string, type: 'info' | 'warning' | 'error' | 'success') => void;
   t: (key: string, options?: Record<string, unknown>) => string;
 }) {

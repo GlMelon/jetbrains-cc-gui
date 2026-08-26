@@ -19,7 +19,7 @@ import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.provider.claude.ClaudeCliDetector;
 import com.github.claudecodegui.provider.claude.ClaudeCliStreamParser;
 import com.github.claudecodegui.provider.common.MessageCallback;
-import com.github.claudecodegui.provider.common.SDKResult;
+import com.github.claudecodegui.provider.common.CliResult;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.ui.toolwindow.TabPerformanceLogger;
 import com.github.claudecodegui.util.GsonHolder;
@@ -66,7 +66,7 @@ public class ClaudeCliSession implements CliSession {
     private volatile CliProcessHandle activeHandle;
     private final AtomicBoolean userInterrupted = new AtomicBoolean(false);
 
-    // ── 长驻会话(设计文档 §3/§4):registry 为 null 时永远走 one-shot(自然降级) ──
+    // ── 长驻会话:registry 为 null 时永远走 one-shot(自然降级) ──
     private final CliPersistentProcessRegistry registry;
     private final ClaudePersistentSendPath persistentSendPath;
     // 当前活跃长驻进程(用于 interrupt 分派 interruptTurn;轮结束后置空)
@@ -108,7 +108,7 @@ public class ClaudeCliSession implements CliSession {
 
     public void interrupt() {
         userInterrupted.set(true);
-        // 长驻轮进行中:进程保留式中断(§4.3),写 interrupt control_request 即返回
+        // 长驻轮进行中:进程保留式中断,写 interrupt control_request 即返回
         CliPersistentProcess persistent = activePersistentProcess;
         if (persistent != null) {
             long startNanos = System.nanoTime();
@@ -131,7 +131,7 @@ public class ClaudeCliSession implements CliSession {
     public void dispose() {
         long startNanos = System.nanoTime();
         interrupt();
-        // 长驻槽位释放:tab 关闭 → 关闭并移除该 tab 的长驻进程(§3.2)
+        // 长驻槽位释放:tab 关闭 → 关闭并移除该 tab 的长驻进程
         CliPersistentProcessRegistry persistentRegistry = registry;
         if (persistentRegistry != null) {
             persistentRegistry.release(tabId, CommonConstants.PROVIDER_CLAUDE);
@@ -214,7 +214,7 @@ public class ClaudeCliSession implements CliSession {
 
     /**
      * 命令构建完整版。{@code streamJsonInput}=true 时额外加 {@code --input-format stream-json},
-     * 供长驻模式使用(设计文档 §4.1:stdin 走 stream-json user 消息行,保留 -p)。
+     * 供长驻模式使用(stdin 走 stream-json user 消息行,保留 -p)。
      */
     static List<String> buildCommand(
             String cliPath,
@@ -423,7 +423,7 @@ public class ClaudeCliSession implements CliSession {
                 McpGatewayCliConfig gatewayConfig = buildGatewayConfig(request);
                 callback.onMessage(CliConstants.MSG_RESPONSE_PHASE, AssistantResponsePhase.CONNECTING.value());
 
-                // 长驻优先(设计文档 §3.2):命中/首建则本轮经长驻进程完成,失败静默降级 one-shot
+                // 长驻优先:命中/首建则本轮经长驻进程完成,失败静默降级 one-shot
                 if (trySendPersistent(request, callback, cliPath, blocks, prompt, addDirs, gatewayConfig, sendStartNanos)) {
                     return;
                 }
@@ -445,7 +445,7 @@ public class ClaudeCliSession implements CliSession {
     }
 
     /**
-     * 长驻发送路径(设计文档 §3.2 静默加载策略)。返回 true 表示本轮已由长驻路径收尾
+     * 长驻发送路径(静默加载策略)。返回 true 表示本轮已由长驻路径收尾
      * (成功/中断/报错皆算);返回 false 表示未使用长驻且消息尚未递交 CLI(门禁关/版本
      * 不兼容/未命中/startTurn 即时失败),上层继续走 one-shot,当前消息不受影响。
      * 已递交后的轮失败一律报错收尾不重发(transcript 交错防护)。
@@ -466,7 +466,7 @@ public class ClaudeCliSession implements CliSession {
                     + CliConstants.PATH_REASON_FLAG_DISABLED);
             return false;
         }
-        // 版本门禁(§6.16-3):CLI 版本按最新 compatibility manifest 不再兼容时长驻降级。
+        // 版本门禁:CLI 版本按最新 compatibility manifest 不再兼容时长驻降级。
         // send 流程刚完成 findCliExecutable,此处 version 通常非空;null(未检测)不拦截。
         // 用 evaluate 而非 isVersionAccepted:后者对 AHEAD_ALLOWED(允许但警告)也打 WARN,
         // 每轮 send 重复刷屏;此处仅在真正 !allowed 降级时记一条。
@@ -507,7 +507,7 @@ public class ClaudeCliSession implements CliSession {
                 // startTurn 与 interrupt() 的竞态窗口兜底:interrupt 可能先于轮登记到达
                 process.interruptTurn();
             }
-            SDKResult turnResult = turn.future().get();
+            CliResult turnResult = turn.future().get();
             LOG.info("[CliConcurrencyDiag][ClaudeCliSession] persistent turn finished" + ": tabId=" + tabId
                     + ", turnId=" + turn.turnId()
                     + ", elapsedMs=" + elapsedMillis(sendStartNanos)
@@ -538,7 +538,7 @@ public class ClaudeCliSession implements CliSession {
      * 长驻轮 future 异常收尾(进程崩溃/轮超时强杀/interrupt 兜底杀/EOF)。
      * 中断标记 → 按中断语义收尾;其余(消息已递交 CLI 后失败)一律报错收尾不重发:
      * CLI 消费 stdin 后即把 user 消息写入 transcript,静默 one-shot 重发会造成同文 user
-     * 行交错,故零输出也不再重试(实施计划 §6.14 的防交错取舍)。下条消息经 acquire
+     * 行交错,故零输出也不再重试(防交错取舍)。下条消息经 acquire
      * 未命中自然走 one-shot 自愈;后台重建让长驻尽快恢复。
      */
     private boolean handlePersistentTurnFailure(
@@ -829,7 +829,7 @@ public class ClaudeCliSession implements CliSession {
         ClaudeCliStreamParser parser = new ClaudeCliStreamParser(gson);
         parser.resetState();
         StringBuilder assistantContent = new StringBuilder();
-        SDKResult result = new SDKResult();
+        CliResult result = new CliResult();
         AtomicBoolean hadError = new AtomicBoolean(false);
         AtomicBoolean firstOutputLogged = new AtomicBoolean(false);
 
@@ -853,7 +853,7 @@ public class ClaudeCliSession implements CliSession {
             }
 
             @Override
-            public void onComplete(SDKResult r) {
+            public void onComplete(CliResult r) {
                 // 由 readOutput 统一触发
             }
         };

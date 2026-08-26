@@ -12,8 +12,7 @@ import java.util.Locale;
  * <p>
  * 匹配保持保守:必须含明确的 MCP 失败信号,避免误伤普通 error/command failed。
  * <p>
- * 调用点:Codex CLI 诊断分支 + ERROR/TURN_FAILED 事件、Codex SDK {@code [SEND_ERROR]}、
- * OpenCode CLI {@code handleError}、OpenCode SDK {@code MSG_TYPE_ERROR}。
+ * 调用点:各 provider CLI 的诊断分支与 ERROR/TURN_FAILED/handleError 事件。
  */
 public final class McpErrorMatcher {
 

@@ -1,10 +1,12 @@
 package com.github.claudecodegui.handler.session;
 
+import com.github.claudecodegui.config.ProviderRuntimePolicy;
+import com.github.claudecodegui.config.RuntimePolicyConfig;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.notifications.ClaudeNotifier;
 import com.github.claudecodegui.session.ClaudeSession;
 import com.github.claudecodegui.session.SessionState;
-import com.github.claudecodegui.session.runtime.EffectiveRuntimeResolver;
+import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.util.AttachmentStorageService;
 import com.github.claudecodegui.util.GsonHolder;
 import com.github.claudecodegui.util.PlatformUtils;
@@ -191,7 +193,7 @@ public class SessionActionHandlers {
                             attachment.thumbnailUrl = persisted.thumbnailUrl();
                             attachment.attachmentHash = persisted.hash();
                             // Image is now on disk — free the base64 string from the pipeline.
-                            // Downstream (SDK/CLI) reads from localPath; display uses resourceUrl.
+                            // Downstream (CLI) reads from localPath; display uses resourceUrl.
                             attachment.data = null;
                             LOG.debug(String.format(
                                     "[ClaudeImageDiag][SessionActionHandlers] persisted image att[%d]: localPath=%s, resourceUrl=%s, thumbnailUrl=%s, hash=%s",
@@ -337,11 +339,15 @@ public class SessionActionHandlers {
         try {
             ClaudeSession currentSession = context.getSession();
             String provider = currentSession != null ? currentSession.getProvider() : context.getCurrentProvider();
-            return EffectiveRuntimeResolver
-                    .isCliMode(
-                            provider,
-                            context.getSettingsService().getRuntimePolicy()
-                    );
+            // runtime 维度已消除(SDK 调用模式已移除,CLI 为唯一路径):
+            // 等价的 enabled 检查——provider 有效且按路由策略启用即为 true。
+            ProviderType providerType = ProviderType.fromString(provider);
+            RuntimePolicyConfig policy = context.getSettingsService().getRuntimePolicy();
+            RuntimePolicyConfig effectivePolicy = policy != null
+                    ? policy.mergeWithDefaults()
+                    : RuntimePolicyConfig.getDefault();
+            ProviderRuntimePolicy providerPolicy = effectivePolicy.of(providerType);
+            return providerPolicy != null && providerPolicy.enabled();
         } catch (Exception e) {
             // 解析失败(policy 缺失/禁用)默认非 CLI,避免 IllegalStateException 冒泡中断单次消息处理。
             LOG.warn("[Runtime] Failed to resolve CLI mode, defaulting to false: " + e.getMessage());

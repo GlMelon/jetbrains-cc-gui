@@ -7,7 +7,7 @@ import com.github.claudecodegui.handler.provider.ModelProviderHandler;
 import com.github.claudecodegui.notifications.ClaudeNotifier;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.settings.CodemossSettingsService;
-import com.github.claudecodegui.provider.common.SDKResult;
+import com.github.claudecodegui.provider.common.CliResult;
 import com.github.claudecodegui.provider.claude.ClaudePlanUsageService;
 import com.github.claudecodegui.session.ClaudeSession.Message;
 import com.github.claudecodegui.util.ClaudeHistoryWriter;
@@ -48,7 +48,7 @@ public class ClaudeMessageHandler implements MessageCallback {
     // Whether the AI is currently in thinking mode
     private boolean isThinking = false;
 
-    // Streaming state tracking — volatile because these fields are written on the SDK
+    // Streaming state tracking — volatile because these fields are written on the CLI
     // callback thread and read on EDT. Visibility is guaranteed by volatile; atomicity
     // is not required because each field is independently read/written (no compound ops).
     // EDT reads happen inside invokeLater() Runnables submitted after the write.
@@ -59,7 +59,7 @@ public class ClaudeMessageHandler implements MessageCallback {
     private volatile String lastReportedError = null;
 
     // Streaming segment state (used to split text/thinking around tool calls).
-    // Written on SDK callback thread, read on EDT via invokeLater() happens-before.
+    // Written on CLI callback thread, read on EDT via invokeLater() happens-before.
     private volatile boolean textSegmentActive = false;
     private volatile boolean thinkingSegmentActive = false;
 
@@ -254,7 +254,7 @@ public class ClaudeMessageHandler implements MessageCallback {
     }
 
     /**
-     * Handle an error from the SDK.
+     * Handle an error from the CLI stream.
      */
     @Override
     public void onError(String error) {
@@ -328,7 +328,7 @@ public class ClaudeMessageHandler implements MessageCallback {
      * Handle completion of a response turn.
      */
     @Override
-    public void onComplete(SDKResult result) {
+    public void onComplete(CliResult result) {
         if (isStaleRuntimeEpoch()) {
             LOG.debug("Ignoring stale Claude callback completion for epoch: " + expectedRuntimeSessionEpoch);
             return;
@@ -362,7 +362,7 @@ public class ClaudeMessageHandler implements MessageCallback {
             return;
         }
 
-        // If streaming was active but [STREAM_END] was never received (e.g., SDK error,
+        // If streaming was active but [STREAM_END] was never received (e.g., CLI error,
         // timeout, or process interruption), we must explicitly end the stream here.
         // Without this, the StreamMessageCoalescer remains in streamActive=true state,
         // which causes SessionCallbackAdapter.onStateChange() to suppress showLoading(false),
@@ -394,12 +394,12 @@ public class ClaudeMessageHandler implements MessageCallback {
 
         callbackHandler.notifyQueueDisplayStateChanged(state.getQueueDisplayState(), state.getQueueAheadCount());
         callbackHandler.notifyStateChange(state.isBusy(), state.isLoading(), state.getError());
-        // Sync status bar: when onComplete fires without stream_end (SDK error, timeout, etc.)
+        // Sync status bar: when onComplete fires without stream_end (CLI error, timeout, etc.)
         // the status bar would otherwise remain stuck in the last status (e.g., "waiting").
         ClaudeNotifier.clearStatus(project);
     }
 
-    private void handleInterruptedCompletion(SDKResult result) {
+    private void handleInterruptedCompletion(CliResult result) {
         boolean wasStreaming = isStreaming;
         isStreaming = false;
         textSegmentActive = false;
@@ -670,7 +670,7 @@ public class ClaudeMessageHandler implements MessageCallback {
     }
 
     /**
-     * Handle session ID received from the SDK.
+     * Handle session ID received from the CLI stream.
      */
     private void handleSessionId(String content) {
         String currentSessionId = state.getSessionId();
@@ -685,8 +685,8 @@ public class ClaudeMessageHandler implements MessageCallback {
     }
 
     /**
-     * Handle user message from SDK.
-     * SDK-returned user messages contain a uuid that needs to be applied to existing user messages.
+     * Handle user message from the CLI stream.
+     * CLI-returned user messages contain a uuid that needs to be applied to existing user messages.
      * Messages containing tool_result need to be added to the message list.
      */
     private void handleUserMessage(String content) {

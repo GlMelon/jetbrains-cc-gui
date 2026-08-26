@@ -1,7 +1,7 @@
 package com.github.claudecodegui.cli;
 
 import com.github.claudecodegui.provider.common.MessageCallback;
-import com.github.claudecodegui.provider.common.SDKResult;
+import com.github.claudecodegui.provider.common.CliResult;
 import org.junit.Test;
 
 import java.util.List;
@@ -18,8 +18,8 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.fail;
 
 /**
- * 会话隔离并发验收(实施计划 §9.1「两会话并发互相阻塞 = 0 次,必须有自动化测试」;
- * 设计文档 §2.3 红线——旧 SDK daemon 因全局串行链导致跨会话堵塞,不得复刻)。
+ * 会话隔离并发验收(两会话并发互相阻塞 = 0 次,必须有自动化测试;
+ * 红线——旧 SDK daemon 因全局串行链导致跨会话堵塞,不得复刻)。
  *
  * <p>用可阻塞的假 {@link CliSession} 精确控制轮完成时机(CountDownLatch,非盲 sleep 计时):
  * <ul>
@@ -94,7 +94,7 @@ public class CliSessionManagerConcurrencyTest {
         }
 
         @Override
-        public void onComplete(SDKResult result) {
+        public void onComplete(CliResult result) {
         }
     };
 
@@ -124,14 +124,14 @@ public class CliSessionManagerConcurrencyTest {
         PerTabBlockingFactory factory = new PerTabBlockingFactory();
         CliSessionManager manager = new CliSessionManager(List.of(factory));
 
-        CompletableFuture<SDKResult> slow = manager.send(request("tab-slow", "slow-msg"), NOOP_CALLBACK);
+        CompletableFuture<CliResult> slow = manager.send(request("tab-slow", "slow-msg"), NOOP_CALLBACK);
         // 等慢会话真正进入 send(占住一个执行线程),确保并发窗口成立
         // (会话在 dispatchSend 异步线程内才创建,轮询须容忍尚未建出的窗口)
         waitFor("slow session send started",
                 () -> sendStarts(factory, "tab-slow") >= 1);
 
         factory.seedNonBlocking("tab-fast");
-        CompletableFuture<SDKResult> fast = manager.send(request("tab-fast", "fast-msg"), NOOP_CALLBACK);
+        CompletableFuture<CliResult> fast = manager.send(request("tab-fast", "fast-msg"), NOOP_CALLBACK);
 
         // 红线:慢会话未完成期间,快会话必须能独立完成(跨会话零阻塞)
         fast.get(10, TimeUnit.SECONDS);
@@ -147,11 +147,11 @@ public class CliSessionManagerConcurrencyTest {
         PerTabBlockingFactory factory = new PerTabBlockingFactory();
         CliSessionManager manager = new CliSessionManager(List.of(factory));
 
-        CompletableFuture<SDKResult> first = manager.send(request("tab-serial", "msg-1"), NOOP_CALLBACK);
+        CompletableFuture<CliResult> first = manager.send(request("tab-serial", "msg-1"), NOOP_CALLBACK);
         waitFor("first send started",
                 () -> sendStarts(factory, "tab-serial") >= 1);
 
-        CompletableFuture<SDKResult> second = manager.send(request("tab-serial", "msg-2"), NOOP_CALLBACK);
+        CompletableFuture<CliResult> second = manager.send(request("tab-serial", "msg-2"), NOOP_CALLBACK);
 
         // 同 tab 串行:第二条在第一条完成前不得开始(留 300ms 观察窗,防偶发调度延迟误判)
         Thread.sleep(300);

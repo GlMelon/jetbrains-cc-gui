@@ -3,7 +3,7 @@
  * 进程退出策略(纯函数,便于单测;channel-manager.js 顶层 IIFE 有副作用无法直接测)。
  *
  * 三类策略(按退出时机区分):
- * - network         网络类(opencode send/abort):@opencode-ai/sdk + undici keep-alive
+ * - network         网络类(opencode send/abort):CLI 子进程 / HTTP keep-alive
  *                   socket 可能挂事件循环 → 短延迟强退
  * - history-readonly 只读历史类(opencode getSession/listSessions):sql.js 读本地 db,
  *                   Node 25 + Windows 下进程退出可能触发 UV_HANDLE_CLOSING assertion

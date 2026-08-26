@@ -1,7 +1,7 @@
 package com.github.claudecodegui.cli;
 
 import com.github.claudecodegui.provider.common.MessageCallback;
-import com.github.claudecodegui.provider.common.SDKResult;
+import com.github.claudecodegui.provider.common.CliResult;
 import org.junit.Test;
 
 import java.util.List;
@@ -54,7 +54,7 @@ public class CliSessionManagerTest {
     private static class NoopCallback implements MessageCallback {
         @Override public void onMessage(String type, String content) {}
         @Override public void onError(String error) {}
-        @Override public void onComplete(SDKResult result) {}
+        @Override public void onComplete(CliResult result) {}
     }
 
     private static class CountingFactory implements CliSessionFactory {

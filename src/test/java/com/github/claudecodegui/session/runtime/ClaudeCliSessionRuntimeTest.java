@@ -22,7 +22,6 @@ public class ClaudeCliSessionRuntimeTest {
         SessionRequest req = new SessionRequest(
                 key,
                 ProviderType.CLAUDE,
-                RuntimeType.CLI,
                 "hello",
                 "sess-1",
                 "/cwd",

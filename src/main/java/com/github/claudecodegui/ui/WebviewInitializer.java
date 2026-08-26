@@ -123,7 +123,7 @@ public class WebviewInitializer {
 
         // Check if bridge extraction is in progress (non-blocking check)
         if (sharedResolver.isExtractionInProgress()) {
-            LOG.info("[ClaudeSDKToolWindow] Bridge extraction in progress, showing loading panel...");
+            LOG.info("[ClaudeChatToolWindow] Bridge extraction in progress, showing loading panel...");
             showLoadingPanel();
 
             // Register async callback to reinitialize when extraction completes
@@ -165,7 +165,7 @@ public class WebviewInitializer {
 
         if (nodeService.getNodeExecutable() == null) {
             if (sharedResolver.isExtractionInProgress()) {
-                LOG.info("[ClaudeSDKToolWindow] checkEnvironment failed but extraction in progress, showing loading panel...");
+                LOG.info("[ClaudeChatToolWindow] checkEnvironment failed but extraction in progress, showing loading panel...");
                 showLoadingPanel();
                 sharedResolver.getExtractionFuture().thenAcceptAsync(ready -> {
                     if (isLifecycleDisposed()) {
@@ -181,7 +181,7 @@ public class WebviewInitializer {
             }
 
             if (sharedResolver.isExtractionComplete()) {
-                LOG.info("[ClaudeSDKToolWindow] checkEnvironment failed but extraction just completed, retrying initialization with exponential backoff...");
+                LOG.info("[ClaudeChatToolWindow] checkEnvironment failed but extraction just completed, retrying initialization with exponential backoff...");
                 retryCheckEnvironmentWithBackoff(0);
                 showLoadingPanel();
                 return;
@@ -872,7 +872,7 @@ public class WebviewInitializer {
             ClaudeCodeGuiBundle.message("toolwindow.extractingDesc")
         );
         replaceMainContent(panel);
-        LOG.info("[ClaudeSDKToolWindow] Showing loading panel while bridge extracts...");
+        LOG.info("[ClaudeChatToolWindow] Showing loading panel while bridge extracts...");
     }
 
     private boolean isLifecycleDisposed() {
@@ -902,7 +902,7 @@ public class WebviewInitializer {
      */
     private void reinitializeAfterExtraction() {
         invokeLaterForToolWindow(() -> {
-            LOG.info("[ClaudeSDKToolWindow] Bridge extraction complete, reinitializing UI...");
+            LOG.info("[ClaudeChatToolWindow] Bridge extraction complete, reinitializing UI...");
             JPanel mainPanel = host.getMainPanel();
             mainPanel.removeAll();
             createUIComponents();
@@ -922,13 +922,13 @@ public class WebviewInitializer {
         final int[] BACKOFF_DELAYS_MS = {100, 200, 400};
 
         if (attempt >= MAX_RETRIES) {
-            LOG.warn("[ClaudeSDKToolWindow] All " + MAX_RETRIES + " retry attempts failed after extraction completion");
+            LOG.warn("[ClaudeChatToolWindow] All " + MAX_RETRIES + " retry attempts failed after extraction completion");
             invokeLaterForToolWindow(this::showErrorPanel);
             return;
         }
 
         int delayMs = BACKOFF_DELAYS_MS[attempt];
-        LOG.info("[ClaudeSDKToolWindow] Retry attempt " + (attempt + 1) + "/" + MAX_RETRIES + ", waiting " + delayMs + "ms...");
+        LOG.info("[ClaudeChatToolWindow] Retry attempt " + (attempt + 1) + "/" + MAX_RETRIES + ", waiting " + delayMs + "ms...");
 
         // 显式 executor:退避 sleep(100-400ms)不落 commonPool。
         CompletableFuture.runAsync(() -> {
@@ -949,7 +949,7 @@ public class WebviewInitializer {
                     return;
                 }
                 if (NodeService.getInstance().getNodeExecutable() != null) {
-                    LOG.info("[ClaudeSDKToolWindow] Retry attempt " + (attempt + 1) + " succeeded after extraction completion");
+                    LOG.info("[ClaudeChatToolWindow] Retry attempt " + (attempt + 1) + " succeeded after extraction completion");
                     reinitializeAfterExtraction();
                 } else {
                     retryCheckEnvironmentWithBackoff(attempt + 1);

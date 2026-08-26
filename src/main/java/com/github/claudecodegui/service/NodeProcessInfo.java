@@ -2,16 +2,19 @@ package com.github.claudecodegui.service;
 
 /**
  * DTO representing a single Node.js process tracked by the management panel.
- * Aggregates daemon processes, per-channel processes, and orphan processes
- * detected via system-level ProcessHandle scanning.
+ * Aggregates per-channel processes, persistent CLI session processes, and orphan
+ * processes detected via system-level ProcessHandle scanning.
  *
  * <p>Four kinds:
  * <ul>
- *   <li>{@link Kind#DAEMON}: long-running Claude daemon process (per ChatWindow)</li>
+ *   <li>{@link Kind#DAEMON}: legacy Claude daemon process. The SDK(daemon) invocation
+ *       mode has been removed; this kind is retained only so the panel can still
+ *       identify (and let the user clean up) daemon processes left behind by older
+ *       plugin versions.</li>
  *   <li>{@link Kind#CHANNEL}: per-request process tracked in a ProcessManager</li>
  *   <li>{@link Kind#ORPHAN}: detected via ProcessHandle.allProcesses() but not in any registry</li>
  *   <li>{@link Kind#CLI_SESSION}: persistent CLI session process
- *       ({@code CliPersistentProcessRegistry}, daemon-mode design §5.1) — read-only,
+ *       ({@code CliPersistentProcessRegistry}) — read-only,
  *       protected from kill</li>
  * </ul>
  *
@@ -50,10 +53,10 @@ public final class NodeProcessInfo {
     /** Command line as reported by ProcessHandle.Info, or null when unavailable. */
     private final String command;
 
-    /** For DAEMON only: heap memory reported by the daemon's status response. -1 when unknown. */
+    /** For legacy DAEMON entries: heap memory reported by the old daemon's status response. -1 when unknown. */
     private final long heapUsedBytes;
 
-    /** For DAEMON only: number of in-flight requests being processed by the daemon. */
+    /** For legacy DAEMON entries: number of in-flight requests reported by the old daemon. */
     private final int activeRequestCount;
 
     /** For CHANNEL only: the channelId in ProcessManager.activeChannelProcesses. */

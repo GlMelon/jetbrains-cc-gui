@@ -13,8 +13,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 /**
- * Round-trip tests for the {@code grok.env} custom-environment persistence that
- * {@code GrokSDKBridge} injects into daemon processes. A saved key/value pair
+ * Round-trip tests for the {@code grok.env} custom-environment persistence used
+ * by the Grok CLI session path. A saved key/value pair
  * must survive a fresh service instance, so configured env reaches later runs.
  */
 public class CodemossSettingsServiceGrokEnvTest {

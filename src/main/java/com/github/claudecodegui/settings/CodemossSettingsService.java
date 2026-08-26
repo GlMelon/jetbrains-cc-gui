@@ -4,7 +4,6 @@ import com.github.claudecodegui.common.ClaudeRole;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.config.ModelConfigValidator;
 import com.github.claudecodegui.config.ModelRegistryConfig;
-import com.github.claudecodegui.config.ProviderRuntimePolicy;
 import com.github.claudecodegui.config.RuntimePolicyConfig;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.model.DeleteResult;
@@ -13,7 +12,6 @@ import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.settings.credentials.IntelliJPasswordSafeBackend;
 import com.github.claudecodegui.settings.credentials.PasswordStore;
 import com.github.claudecodegui.watcher.ConfigFileWatcherService;
-import com.github.claudecodegui.session.runtime.RuntimeType;
 import com.google.gson.*;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
@@ -34,7 +32,6 @@ public class CodemossSettingsService {
     }
 
     private static final Logger LOG = Logger.getInstance(CodemossSettingsService.class);
-    private static final String CLAUDE_INVOCATION_MODE_KEY = "claudeInvocationMode";
     private static final String CLAUDE_CLI_PATH_KEY = "claudeCliPath";
     public static final String CODEX_RUNTIME_ACCESS_INACTIVE = ProviderRuntimeAccessMode.INACTIVE.value();
     public static final String CODEX_RUNTIME_ACCESS_MANAGED = ProviderRuntimeAccessMode.MANAGED.value();
@@ -1554,17 +1551,7 @@ public class CodemossSettingsService {
             JsonObject config = readConfig();
             if (!config.has(RUNTIME_POLICY_KEY) || !config.get(RUNTIME_POLICY_KEY).isJsonObject()) {
                 LOG.info("[CodemossSettings] No runtime policy config found, using default");
-                RuntimePolicyConfig defaults = RuntimePolicyConfig.getDefault();
-                if (config.has(CLAUDE_INVOCATION_MODE_KEY)
-                        && !config.get(CLAUDE_INVOCATION_MODE_KEY).isJsonNull()
-                        && CommonConstants.INVOCATION_MODE_CLI.equals(config.get(CLAUDE_INVOCATION_MODE_KEY).getAsString())) {
-                    ProviderRuntimePolicy claude = defaults.of(ProviderType.CLAUDE);
-                    defaults.providers().put(
-                            ProviderType.CLAUDE,
-                            new ProviderRuntimePolicy(claude.enabled(), claude.supported(), RuntimeType.CLI)
-                    );
-                }
-                return defaults;
+                return RuntimePolicyConfig.getDefault();
             }
             JsonObject runtimeObj = config.getAsJsonObject(RUNTIME_POLICY_KEY);
             // mergeWithDefaults: 向后兼容。存量 config.json 在新 provider(如 opencode)加入默认策略前
@@ -1598,26 +1585,11 @@ public class CodemossSettingsService {
                 }
                 if (providersObj.get(key).isJsonObject()) {
                     JsonObject policyObj = providersObj.getAsJsonObject(key);
+                    // runtime 维度已消除:只读 enabled;legacy supported/default 字段忽略
+                    // (向后兼容存量 config.json)。
                     boolean enabled = policyObj.has("enabled") && policyObj.get("enabled").getAsBoolean();
-                    var supported = new java.util.HashSet<RuntimeType>();
-                    if (policyObj.has("supported") && policyObj.get("supported").isJsonArray()) {
-                        for (var el : policyObj.getAsJsonArray("supported")) {
-                            String rtStr = el.getAsString();
-                            if ("CLI".equalsIgnoreCase(rtStr)) {
-                                supported.add(RuntimeType.CLI);
-                            }
-                        }
-                    }
-                    RuntimeType defaultRt = null;
-                    if (policyObj.has("default") && !policyObj.get("default").isJsonNull()) {
-                        String defStr = policyObj.get("default").getAsString();
-                        if ("CLI".equalsIgnoreCase(defStr)) {
-                            defaultRt = RuntimeType.CLI;
-                        }
-                    }
                     try {
-                        providers.put(pt, new com.github.claudecodegui.config.ProviderRuntimePolicy(
-                                enabled, supported, defaultRt));
+                        providers.put(pt, new com.github.claudecodegui.config.ProviderRuntimePolicy(enabled));
                     } catch (Exception e) {
                         LOG.warn("[CodemossSettings] Invalid runtime policy for " + key + ": " + e.getMessage());
                     }

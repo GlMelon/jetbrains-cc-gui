@@ -1,7 +1,7 @@
 package com.github.claudecodegui.session.normalize;
 
 import com.github.claudecodegui.provider.common.MessageCallback;
-import com.github.claudecodegui.provider.common.SDKResult;
+import com.github.claudecodegui.provider.common.CliResult;
 import com.github.claudecodegui.session.ClaudeSession;
 import org.junit.Test;
 
@@ -15,23 +15,23 @@ import static org.junit.Assert.assertTrue;
 public class MessageNormalizersTest {
 
     @Test
-    public void factoryKeepsProviderAndRuntimeImplementationsIndependent() {
+    public void factoryKeepsProviderImplementationsIndependent() {
         RecordingCallback delegate = new RecordingCallback();
 
-        // SDK 调用模式已移除,仅验证 CLI 归一化器路由。
+        // SDK 调用模式已移除,runtime 维度已消除,按 provider 单维路由。
         assertEquals(ClaudeCliMessageNormalizer.class,
-                MessageNormalizers.forRuntime("claude", "cli", delegate).getClass());
+                MessageNormalizers.forProvider("claude", delegate).getClass());
         assertEquals(CodexCliMessageNormalizer.class,
-                MessageNormalizers.forRuntime("codex", "cli", delegate).getClass());
+                MessageNormalizers.forProvider("codex", delegate).getClass());
     }
 
     // B6: OpenCode 必须注册专用 normalizer,否则回退到 Claude 归一化器(协议事件错配)。
     @Test
-    public void opencodeNormalizerRegisteredForCli() {
+    public void opencodeNormalizerRegistered() {
         RecordingCallback delegate = new RecordingCallback();
 
         assertEquals(OpenCodeMessageNormalizer.class,
-                MessageNormalizers.forRuntime("opencode", "cli", delegate).getClass());
+                MessageNormalizers.forProvider("opencode", delegate).getClass());
     }
 
     @Test
@@ -64,7 +64,7 @@ public class MessageNormalizersTest {
         }
 
         @Override
-        public void onComplete(SDKResult result) {
+        public void onComplete(CliResult result) {
         }
 
         @Override

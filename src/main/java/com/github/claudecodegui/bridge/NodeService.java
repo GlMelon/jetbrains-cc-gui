@@ -11,11 +11,10 @@ import java.io.File;
 
 /**
  * Independent Node.js infrastructure service.
- * Provides Node.js detection, path management, and bridge directory access
- * without dependency on SDK Bridge classes.
+ * Provides Node.js detection, path management, and bridge directory access.
  *
- * This service is designed to be used by Handler layer and other components
- * that need Node.js infrastructure without requiring SDK Bridge.
+ * This service is designed to be used by the Handler layer and other components
+ * that need Node.js infrastructure.
  */
 public class NodeService implements Disposable {
 
@@ -168,11 +167,11 @@ public class NodeService implements Disposable {
     // ============================================================================
 
     /**
-     * Get the ai-bridge directory (SDK test directory).
+     * Get the ai-bridge directory.
      * This is the directory containing channel-manager.js and other Node.js scripts.
      */
-    public File getSdkTestDir() {
-        return BridgePreloader.getSharedResolver().findSdkDir();
+    public File getBridgeDir() {
+        return BridgePreloader.getSharedResolver().findBridgeDir();
     }
 
     /**

@@ -21,7 +21,7 @@ import java.util.Set;
 
 /**
  * CLI-only settings facade.
- * Keeps CLI runtime/config lookups isolated from SDK bridge environment wiring.
+ * Keeps CLI runtime/config lookups isolated from bridge environment wiring.
  */
 public final class CliSettings {
 

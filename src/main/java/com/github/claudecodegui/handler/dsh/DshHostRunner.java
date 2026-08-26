@@ -59,7 +59,8 @@ final class DshHostRunner {
             JsonObject payload = JsonParser.parseString(content).getAsJsonObject();
             CodemossSettingsService s = CodemossSettingsService.getInstance();
             // 先全部校验,再一次性持久化(避免半写)
-            String bin = null, host = null;
+            String bin = null;
+            String host = null;
             int port = -1;
             boolean hasPort = false;
             boolean autoStart = false;
@@ -67,12 +68,16 @@ final class DshHostRunner {
             if (payload.has("bin")) {
                 bin = asTrimmedString(payload.get("bin"));
                 String e = validateDshBin(bin);
-                if (e != null) return errorPayload(e);
+                if (e != null) {
+                    return errorPayload(e);
+                }
             }
             if (payload.has("host")) {
                 host = asTrimmedString(payload.get("host"));
                 String e = validateDshHost(host);
-                if (e != null) return errorPayload(e);
+                if (e != null) {
+                    return errorPayload(e);
+                }
             }
             if (payload.has("port")) {
                 port = payload.get("port").isJsonPrimitive() ? payload.get("port").getAsInt() : -1;
@@ -82,10 +87,18 @@ final class DshHostRunner {
                 autoStart = payload.get("autoStart").isJsonPrimitive() && payload.get("autoStart").getAsBoolean();
                 hasAutoStart = true;
             }
-            if (bin != null) s.setDshBin(bin);
-            if (host != null) s.setDshHost(host);
-            if (hasPort) s.setDshPort(port);
-            if (hasAutoStart) s.setDshAutoStart(autoStart);
+            if (bin != null) {
+                s.setDshBin(bin);
+            }
+            if (host != null) {
+                s.setDshHost(host);
+            }
+            if (hasPort) {
+                s.setDshPort(port);
+            }
+            if (hasAutoStart) {
+                s.setDshAutoStart(autoStart);
+            }
             return getStatus();
         } catch (Exception e) {
             LOG.warn("[DshHost] saveSettings failed: " + e.getMessage());
@@ -94,7 +107,9 @@ final class DshHostRunner {
     }
 
     private static String asTrimmedString(com.google.gson.JsonElement el) {
-        if (el == null || el.isJsonNull()) return "";
+        if (el == null || el.isJsonNull()) {
+            return "";
+        }
         return el.getAsString().trim();
     }
 
@@ -112,7 +127,7 @@ final class DshHostRunner {
             if (node == null) {
                 return errorPayload("Node.js not found");
             }
-            File bridgeDir = nodeService.getSdkTestDir();
+            File bridgeDir = nodeService.getBridgeDir();
             if (bridgeDir == null || !bridgeDir.isDirectory()) {
                 return errorPayload("Bridge directory not ready");
             }
@@ -192,7 +207,9 @@ final class DshHostRunner {
                             sink.append(line).append('\n');
                         } else {
                             int remaining = maxChars - sink.length();
-                            if (remaining > 0) sink.append(line, 0, Math.min(remaining, line.length())).append('\n');
+                            if (remaining > 0) {
+                                sink.append(line, 0, Math.min(remaining, line.length())).append('\n');
+                            }
                         }
                     }
                 }
@@ -206,9 +223,13 @@ final class DshHostRunner {
     }
 
     private static JsonObject extractJsonObject(String output) {
-        if (output == null) return null;
+        if (output == null) {
+            return null;
+        }
         String trimmed = output.trim();
-        if (trimmed.isEmpty()) return null;
+        if (trimmed.isEmpty()) {
+            return null;
+        }
         try {
             return JsonParser.parseString(trimmed).getAsJsonObject();
         } catch (Exception e) {
@@ -217,17 +238,25 @@ final class DshHostRunner {
     }
 
     static String validateDshBin(String bin) {
-        if (bin == null || bin.isEmpty()) return null;
+        if (bin == null || bin.isEmpty()) {
+            return null;
+        }
         for (int i = 0; i < bin.length(); i++) {
-            if (Character.isISOControl(bin.charAt(i))) return "Invalid DSH bin path (contains control characters)";
+            if (Character.isISOControl(bin.charAt(i))) {
+                return "Invalid DSH bin path (contains control characters)";
+            }
         }
         File candidate = new File(bin);
-        if (candidate.exists() && !candidate.isFile()) return "Invalid DSH bin path (not a regular file): " + bin;
+        if (candidate.exists() && !candidate.isFile()) {
+            return "Invalid DSH bin path (not a regular file): " + bin;
+        }
         return null;
     }
 
     static String validateDshHost(String host) {
-        if (host == null || host.isEmpty()) return null;
+        if (host == null || host.isEmpty()) {
+            return null;
+        }
         for (int i = 0; i < host.length(); i++) {
             char c = host.charAt(i);
             if (Character.isWhitespace(c) || c == '/' || c == '\\' || c == ':') {

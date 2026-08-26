@@ -1,6 +1,5 @@
 package com.github.claudecodegui.provider;
 
-import com.github.claudecodegui.session.runtime.RuntimeType;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -21,15 +20,15 @@ import java.util.Set;
  *     "label": "Custom Provider",
  *     "cliCommand": "custom-provider",
  *     "cliCommandWindows": "custom-provider.cmd",
- *     "capabilities": ["CLI_SESSION", "STREAMING", "HISTORY"],
- *     "runtimes": ["CLI"]
+ *     "capabilities": ["CLI_SESSION", "STREAMING", "HISTORY"]
  *   }
  * ]
  * }</pre>
  *
  * <p><b>容错</b>:缺 id 或解析失败的条目被跳过(不抛异常),保证单个坏配置不阻塞其余 Provider 加载;
- * 未知 capability / runtime 值被忽略(不致整条丢弃);label 缺省回退 id,cliCommand 缺省回退 id,
+ * 未知 capability 值被忽略(不致整条丢弃);label 缺省回退 id,cliCommand 缺省回退 id,
  * cliCommandWindows 缺省回退 {@code cliCommand + ".cmd"}。
+ * runtime 维度已消除:legacy {@code "runtimes"} 字段忽略(向后兼容存量配置)。
  */
 public final class ProviderDescriptorLoader {
 
@@ -66,14 +65,12 @@ public final class ProviderDescriptorLoader {
         String cliCommand = optString(obj, "cliCommand", id);
         String cliCommandWindows = optString(obj, "cliCommandWindows", cliCommand + ".cmd");
         Set<ProviderCapability> capabilities = parseCapabilities(obj.getAsJsonArray("capabilities"));
-        Set<RuntimeType> runtimes = parseRuntimes(obj.getAsJsonArray("runtimes"));
         return new ProviderDescriptor(
                 id,
                 label != null ? label : id,
                 cliCommand,
                 cliCommandWindows,
-                capabilities,
-                runtimes
+                capabilities
         );
     }
 
@@ -102,23 +99,5 @@ public final class ProviderDescriptorLoader {
             }
         }
         return capabilities;
-    }
-
-    private static Set<RuntimeType> parseRuntimes(JsonArray array) {
-        Set<RuntimeType> runtimes = EnumSet.noneOf(RuntimeType.class);
-        if (array == null) {
-            return runtimes;
-        }
-        for (JsonElement element : array) {
-            if (!element.isJsonPrimitive()) {
-                continue;
-            }
-            try {
-                runtimes.add(RuntimeType.valueOf(element.getAsString()));
-            } catch (IllegalArgumentException ignored) {
-                // 未知 runtime 值忽略
-            }
-        }
-        return runtimes;
     }
 }

@@ -14,7 +14,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Plugin update listener that tracks plugin version changes.
  * Bridge extraction is already version/hash-aware, so deleting the live ai-bridge
- * directory here is both unnecessary and risky on Windows while the daemon is active.
+ * directory here is both unnecessary and risky on Windows while CLI child processes are active.
  */
 public class PluginUpdateListener implements ProjectActivity {
 

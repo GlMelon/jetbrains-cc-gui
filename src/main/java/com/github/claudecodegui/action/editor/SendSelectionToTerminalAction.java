@@ -2,7 +2,7 @@ package com.github.claudecodegui.action.editor;
 
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.ui.toolwindow.ClaudeChatWindow;
-import com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow;
+import com.github.claudecodegui.ui.toolwindow.ClaudeChatToolWindow;
 import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
@@ -140,7 +140,7 @@ public class SendSelectionToTerminalAction extends AnAction implements DumbAware
         try {
             // Get the plugin tool window
             ToolWindowManager toolWindowManager = ToolWindowManager.getInstance(project);
-            ToolWindow toolWindow = toolWindowManager.getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
+            ToolWindow toolWindow = toolWindowManager.getToolWindow(ClaudeChatToolWindow.TOOL_WINDOW_ID);
 
             if (toolWindow != null) {
                 // If the window is not visible, activate it first and wait for it to open before sending content
@@ -151,7 +151,7 @@ public class SendSelectionToTerminalAction extends AnAction implements DumbAware
                         ApplicationManager.getApplication().invokeLater(() -> {
                             try {
                                 Thread.sleep(300); // Wait 300ms to ensure the UI is fully loaded
-                                ClaudeSDKToolWindow.addSelectionFromExternal(project, text);
+                                ClaudeChatToolWindow.addSelectionFromExternal(project, text);
                                 LOG.info("窗口已激活并发送内容到项目: " + project.getName());
                             } catch (InterruptedException e) {
                                 Thread.currentThread().interrupt();
@@ -160,7 +160,7 @@ public class SendSelectionToTerminalAction extends AnAction implements DumbAware
                     }, true);
                 } else {
                     // Window is already open, send content directly
-                    ClaudeSDKToolWindow.addSelectionFromExternal(project, text);
+                    ClaudeChatToolWindow.addSelectionFromExternal(project, text);
                     // Ensure the window gains focus
                     toolWindow.activate(null, true);
                     LOG.info("聊天窗口已激活并发送内容到项目: " + project.getName());
@@ -204,12 +204,12 @@ public class SendSelectionToTerminalAction extends AnAction implements DumbAware
      */
     private void activateToolWindow(@NotNull Project project) {
         ToolWindowManager toolWindowManager = ToolWindowManager.getInstance(project);
-        ToolWindow toolWindow = toolWindowManager.getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
+        ToolWindow toolWindow = toolWindowManager.getToolWindow(ClaudeChatToolWindow.TOOL_WINDOW_ID);
         if (toolWindow == null) {
             return;
         }
         toolWindow.activate(() -> {
-            ClaudeChatWindow chatWindow = ClaudeSDKToolWindow.getChatWindow(project);
+            ClaudeChatWindow chatWindow = ClaudeChatToolWindow.getChatWindow(project);
             if (chatWindow != null && !chatWindow.isDisposed()) {
                 chatWindow.focusInputPane();
             }

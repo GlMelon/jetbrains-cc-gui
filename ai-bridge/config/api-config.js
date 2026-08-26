@@ -23,9 +23,9 @@ function debugLog(...args) {
 // ============================================================================
 // CLI Client Identity
 // ============================================================================
-// Simulates CLI client identity so the API treats our SDK calls as CLI traffic.
-// The CLI version is resolved dynamically from the installed SDK's manifest.json,
-// which embeds the CLI version that was bundled with the SDK.
+// Simulates CLI client identity so the API treats our CLI subprocess traffic as
+// first-party CLI traffic. The CLI version falls back to a pinned value unless
+// overridden via the CLAUDE_CLI_VERSION env var.
 
 const FALLBACK_CLI_VERSION = '2.1.88';
 
@@ -33,26 +33,23 @@ const FALLBACK_CLI_VERSION = '2.1.88';
 let _cachedCliVersion = null;
 
 /**
- * Resolve CLI version.
- * NOTE: SDK has been removed. Returns the fallback version or environment variable.
- * Previously this read from the SDK's manifest.json, but SDK is no longer available.
+ * Resolve the fallback CLI version (cached).
  * @returns {string}
  */
-function resolveCliVersionFromSdk() {
+function resolveFallbackCliVersion() {
   if (_cachedCliVersion) return _cachedCliVersion;
 
-  // SDK removed — use fallback version
   _cachedCliVersion = FALLBACK_CLI_VERSION;
   return _cachedCliVersion;
 }
 
 /**
  * Get the CLI version for User-Agent header.
- * Priority: CLAUDE_CLI_VERSION env var > SDK manifest > SDK version conversion > fallback
+ * Priority: CLAUDE_CLI_VERSION env var > built-in fallback
  * @returns {string} CLI version string (e.g., "2.1.88")
  */
 export function getCliVersion() {
-  return process.env.CLAUDE_CLI_VERSION || resolveCliVersionFromSdk();
+  return process.env.CLAUDE_CLI_VERSION || resolveFallbackCliVersion();
 }
 
 /**
@@ -110,8 +107,8 @@ const MODEL_ROUTING_ENV_VARS = [
   'CLAUDE_CODE_SUBAGENT_MODEL',
 ];
 
-// Reasoning / context controls: explicit SDK options in this bridge. Claude Code
-// gives env vars higher priority than SDK args, so stale settings values must be
+// Reasoning / context controls: set explicitly per request by this bridge. Claude Code
+// gives env vars higher priority than inline settings, so stale settings values must be
 // neutralized — stripped from the child env (buildCliEnv) and overridden inline
 // (buildWebviewControlledSettingsOverride). The 1M flag is set per request from
 // the selected model.
@@ -130,8 +127,8 @@ const WEBVIEW_CONTROLLED_ENV_VAR_SET = new Set(
   WEBVIEW_CONTROLLED_ENV_VARS.map((varName) => varName.toUpperCase())
 );
 
-// Subset stripped from the SDK child env: the reasoning/context controls must
-// reach the CLI only via SDK options + the inline settings override, never
+// Subset stripped from the CLI child env: the reasoning/context controls must
+// reach the CLI only via the inline settings override, never
 // inherited from process.env.
 const CLI_ENV_OVERRIDE_VAR_SET = new Set(
   REASONING_CONTROL_ENV_VARS.map((varName) => varName.toUpperCase())
@@ -148,8 +145,8 @@ export function isWebviewControlledEnvVar(varName) {
 // Security (C): environment variables that can hijack process startup or load arbitrary
 // native/JS code. These must NEVER be accepted from request params / settings.json env,
 // otherwise a malicious project's .claude/settings.json {env:{NODE_OPTIONS:'--require ...'}}
-// would achieve code execution in the daemon or any child process the SDK spawns.
-// NOTE: PATH is intentionally NOT listed — the daemon's legitimate PATH is supplied by the
+// would achieve code execution in this bridge process or any child process it spawns.
+// NOTE: PATH is intentionally NOT listed — the bridge's legitimate PATH is supplied by the
 // Java EnvironmentConfigurator, and blanket-rejecting PATH would risk breaking it.
 const DANGEROUS_ENV_VAR_SET = new Set([
   'NODE_OPTIONS',
@@ -241,13 +238,14 @@ function shouldHostManageProvider() {
 }
 
 /**
- * Build a clean env object for SDK child processes that identifies as CLI.
+ * Build a clean env object for the Claude CLI child process.
  *
- * The SDK's query() checks `options.env` — if absent, it copies process.env
- * (which includes CLAUDE_AGENT_SDK_VERSION set by the SDK itself).
- * By passing our own env, we control exactly what the child process sees.
+ * We pass our own curated env to the CLI subprocess instead of letting it
+ * inherit process.env blindly, so we control exactly what the child sees
+ * (e.g. CLAUDE_AGENT_SDK_VERSION is stripped defensively — it is an upstream
+ * env marker that must never leak into CLI traffic).
  *
- * @returns {Record<string, string | undefined>} Environment variables object for options.env
+ * @returns {Record<string, string | undefined>} Environment variables object for the child process
  */
 export function buildCliEnv() {
   /** @type {Record<string, string | undefined>} */
@@ -255,7 +253,7 @@ export function buildCliEnv() {
   // When a cloud provider owns routing, the host must NOT advertise provider
   // management: otherwise Claude Code strips CLAUDE_CODE_USE_BEDROCK (and
   // peers) from settings → 403. We skip setting it AND drop any copy inherited
-  // from this process's own env (the daemon may itself have been spawned under
+  // from this process's own env (this bridge may itself have been spawned under
   // the flag, e.g. when run from inside another Claude Code host).
   const hostManaged = shouldHostManageProvider();
   const skipKeys = new Set([...CLI_ENV_OVERRIDE_VAR_SET, 'CLAUDE_AGENT_SDK_VERSION']);
@@ -283,7 +281,7 @@ export function buildCliEnv() {
 /**
  * Configure process.env for CLI client identity at startup.
  * Sets CLAUDE_CODE_ENTRYPOINT and USER_TYPE, deletes CLAUDE_AGENT_SDK_VERSION.
- * Call once at process startup before any SDK loading.
+ * Call once at process startup before spawning any CLI child process.
  */
 export function configureCliIdentity() {
   if (!process.env.CLAUDE_CODE_ENTRYPOINT) {
@@ -307,7 +305,7 @@ export function configureCliIdentity() {
  * Linux app launcher) do NOT inherit the user's shell environment. Variables
  * configured in settings.json therefore never reach process.env, causing
  * Bedrock auth and proxy/TLS settings to silently fail. Reading them here
- * ensures every subprocess the daemon spawns (the claude binary, MCP servers,
+ * ensures every subprocess this bridge spawns (the claude binary, MCP servers,
  * Bash tool, etc.) sees the correct env.
  *
  * For corporate SSL-inspection proxies, prefer NODE_EXTRA_CA_CERTS (path to
@@ -442,9 +440,9 @@ function canUseLocalSettingsEnv(runtimeState) {
  *
  * This covers proxy/TLS configuration and AWS credentials for Bedrock. It must
  * be called as early as possible in every Node.js entry point — before any
- * HTTPS connection is made (including SDK preloading) — so that authorized
- * Local settings / CLI Login modes can use corporate proxies, custom CA
- * setups, and Bedrock credentials safely.
+ * HTTPS connection is made — so that authorized Local settings / CLI Login
+ * modes can use corporate proxies, custom CA setups, and Bedrock credentials
+ * safely.
  *
  * Users behind corporate SSL-inspection proxies should prefer setting:
  *   { "env": { "NODE_EXTRA_CA_CERTS": "/path/to/ca-bundle.pem" } }
@@ -551,7 +549,7 @@ export function setupApiKey() {
   }
 
   // HIGHEST PRIORITY: CLI login mode. When user explicitly opted in via plugin UI,
-  // strictly use SDK native OAuth flow. No fallback to other auth methods.
+  // strictly use the CLI's native OAuth flow. No fallback to other auth methods.
   //
   // Source of truth: ~/.codemoss/config.json (claude.current === "__cli_login__"),
   // surfaced by getClaudeRuntimeState() above. We deliberately do NOT consult
@@ -562,7 +560,7 @@ export function setupApiKey() {
   const cliLoginAuthorized =
     runtimeState.access === 'cli_login' || settings?.env?.CCGUI_CLI_LOGIN_AUTHORIZED === '1';
   if (cliLoginAuthorized) {
-    // Use empty string assignment instead of delete so the SDK falls through to
+    // Use empty string assignment instead of delete so the CLI falls through to
     // its native OAuth flow without inheriting stale values from prior requests.
     process.env.ANTHROPIC_API_KEY = '';
     process.env.ANTHROPIC_AUTH_TOKEN = '';
@@ -571,7 +569,7 @@ export function setupApiKey() {
       process.env.ANTHROPIC_BASE_URL = baseUrl;
     }
 
-    return { apiKey: null, baseUrl, authType: 'cli_login', apiKeySource: 'CLI login (SDK native auth)', baseUrlSource };
+    return { apiKey: null, baseUrl, authType: 'cli_login', apiKeySource: 'CLI login (CLI native auth)', baseUrlSource };
   }
 
   // Prefer ANTHROPIC_AUTH_TOKEN (Bearer auth), fall back to ANTHROPIC_API_KEY (x-api-key auth).
@@ -594,7 +592,7 @@ export function setupApiKey() {
     debugLog('[DEBUG] No API Key found in settings.json, checking for apiKeyHelper...');
 
     // Check for apiKeyHelper in managed settings or user settings before giving up.
-    // The SDK handles apiKeyHelper execution natively, so we just need to not throw.
+    // The CLI handles apiKeyHelper execution natively, so we just need to not throw.
     const managedSettings = loadManagedSettings();
     const hasApiKeyHelper = managedSettings?.apiKeyHelper || settings?.apiKeyHelper;
 

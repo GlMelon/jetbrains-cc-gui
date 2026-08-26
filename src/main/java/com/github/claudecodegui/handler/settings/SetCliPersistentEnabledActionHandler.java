@@ -7,7 +7,7 @@ import com.github.claudecodegui.protocol.UpstreamAction;
 
 /**
  * Typed handler for {@link UpstreamAction#SET_CLI_PERSISTENT_ENABLED}
- * (行为菜单 CLI 长驻会话开关写入;关闭时立即回收 IDLE 长驻进程,daemon-mode 设计 §7)。
+ * (行为菜单 CLI 长驻会话开关写入;关闭时立即回收 IDLE 长驻进程)。
  */
 public class SetCliPersistentEnabledActionHandler implements FrontendActionHandler<String> {
     private final ProjectConfigHandler delegate;

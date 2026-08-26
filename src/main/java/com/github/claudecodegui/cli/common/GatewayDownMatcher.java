@@ -17,8 +17,8 @@ package com.github.claudecodegui.cli.common;
  * (stdio-client 包装层降级标记)。前者跳过单个 server,后者整轮 gateway 工具降级。文案不同,
  * 接入时 GatewayDownMatcher 应<b>先判</b>(标记前缀更明确,不会被 McpErrorMatcher 的保守匹配误归类)。
  *
- * <p>调用点:三 provider CLI 的 MCP 错误降级分支 + Codex/OpenCode SDK 的 error 事件,
- * 对称复用 McpErrorMatcher.MCP_SKIPPED_NOTICE 的 6 接点。
+ * <p>调用点:三 provider CLI 的 MCP 错误降级分支,
+ * 对称复用 McpErrorMatcher.MCP_SKIPPED_NOTICE 的降级语义。
  */
 public final class GatewayDownMatcher {
 

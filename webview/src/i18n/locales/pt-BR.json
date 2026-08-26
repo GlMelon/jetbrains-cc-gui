@@ -458,7 +458,7 @@
       "customSectionTitle": "Modelos personalizados",
       "editPricing": "Editar preço"
     },
-    "dependencies": "Dependências do SDK",
+    "dependencies": "Ferramentas CLI",
     "dependency": {
       "title": "Gerenciamento de Dependências do SDK",
       "description": "Gerenciar dependências de SDK de IA. Instale o SDK necessário antes do primeiro uso.",
@@ -1019,6 +1019,11 @@
     "comingSoon": "Em breve...",
     "promptsDesc": "Gerenciar templates de prompts comuns para inserção rápida durante o chat",
     "cli": {
+      "providerNotInstalledToast": "A CLI do {{name}} não está instalada. Instale-a primeiro em Configurações → Ambiente CLI",
+      "recheck": "Verificar novamente o ambiente CLI",
+      "rechecking": "Verificando…",
+
+      "updating": "Atualizando…",
       "grokName": "Grok CLI",
       "grokDescription": "Ferramenta de linha de comando xAI Grok para codificação com IA",
       "kimiName": "Kimi CLI",
@@ -2055,9 +2060,9 @@
           "step0": "Execute o comando abaixo em um terminal para ver sua versão. Node 22 ou a LTS atual é recomendado — usuários relataram muitos problemas no Node 24, então prefira Node 20 ou 22:"
         },
         "reinstallLatestSdk": {
-          "title": "Opção 2: Reinstale o SDK mais recente a partir do registro npm oficial",
+          "title": "Opção 2: Reinstale a CLI mais recente a partir do registro npm oficial",
           "step0": "1. Mude para o registro npm oficial (evite o mirror da Taobao — pode não ter a versão mais recente):",
-          "step1": "2. Abra Gerenciamento de Dependências e reinstale o SDK mais recente:"
+          "step1": "2. Abra Gerenciamento de Dependências e reinstale a CLI mais recente:"
         }
       }
     }

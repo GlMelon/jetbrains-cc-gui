@@ -211,8 +211,6 @@ public final class TabStateService implements PersistentStateComponent<TabStateS
         /**
          * Whether the tab is pinned (protected from accidental close).
          * Independent of session binding — a tab can be pinned with no session.
-         * Runtime (SDK/CLI) is intentionally NOT here: it is a global per-provider
-         * policy resolved by {@code EffectiveRuntimeResolver}, not a per-tab attribute.
          */
         public boolean pinned;
 

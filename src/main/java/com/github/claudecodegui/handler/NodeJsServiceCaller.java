@@ -93,7 +93,7 @@ public class NodeJsServiceCaller {
     public String callNodeJsFavoritesService(String functionName, String sessionId) throws Exception {
         validateFunctionName(functionName, ALLOWED_FAVORITES_FUNCTIONS);
 
-        String bridgePath = context.getNodeService().getSdkTestDir().getAbsolutePath();
+        String bridgePath = context.getNodeService().getBridgeDir().getAbsolutePath();
         String nodePath = context.getNodeService().getNodeExecutable();
         String servicePath = resolveServicePath(nodePath, bridgePath, "favorites-service.cjs");
 
@@ -117,7 +117,7 @@ public class NodeJsServiceCaller {
     public String callNodeJsTitlesService(String functionName) throws Exception {
         validateFunctionName(functionName, ALLOWED_TITLES_FUNCTIONS);
 
-        String bridgePath = context.getNodeService().getSdkTestDir().getAbsolutePath();
+        String bridgePath = context.getNodeService().getBridgeDir().getAbsolutePath();
         String nodePath = context.getNodeService().getNodeExecutable();
         String servicePath = resolveServicePath(nodePath, bridgePath, "session-titles-service.cjs");
 
@@ -140,7 +140,7 @@ public class NodeJsServiceCaller {
     public String callNodeJsTitlesServiceWithParams(String functionName, String sessionId, String customTitle) throws Exception {
         validateFunctionName(functionName, ALLOWED_TITLES_FUNCTIONS);
 
-        String bridgePath = context.getNodeService().getSdkTestDir().getAbsolutePath();
+        String bridgePath = context.getNodeService().getBridgeDir().getAbsolutePath();
         String nodePath = context.getNodeService().getNodeExecutable();
         String servicePath = resolveServicePath(nodePath, bridgePath, "session-titles-service.cjs");
 
@@ -163,7 +163,7 @@ public class NodeJsServiceCaller {
      * Call Node.js session-titles-service to delete a title (single parameter version).
      */
     public String callNodeJsDeleteTitle(String sessionId) throws Exception {
-        String bridgePath = context.getNodeService().getSdkTestDir().getAbsolutePath();
+        String bridgePath = context.getNodeService().getBridgeDir().getAbsolutePath();
         String nodePath = context.getNodeService().getNodeExecutable();
         String servicePath = resolveServicePath(nodePath, bridgePath, "session-titles-service.cjs");
 

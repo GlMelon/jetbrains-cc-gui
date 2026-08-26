@@ -1,7 +1,7 @@
 package com.github.claudecodegui.util;
 
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
-import com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow;
+import com.github.claudecodegui.ui.toolwindow.ClaudeChatToolWindow;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
@@ -37,7 +37,7 @@ public final class SelectionTextUtils {
 
     private static final ToolWindowProvider DEFAULT_TOOL_WINDOW_PROVIDER = SelectionTextUtils::createDefaultToolWindowProvider;
     private static final Scheduler DEFAULT_SCHEDULER = SelectionTextUtils::defaultScheduler;
-    private static final ChatInputSender DEFAULT_CHAT_INPUT_SENDER = ClaudeSDKToolWindow::addSelectionFromExternal;
+    private static final ChatInputSender DEFAULT_CHAT_INPUT_SENDER = ClaudeChatToolWindow::addSelectionFromExternal;
     private static final ErrorNotifier DEFAULT_ERROR_NOTIFIER = SelectionTextUtils::notifyError;
 
     private static ToolWindowProvider toolWindowProvider = DEFAULT_TOOL_WINDOW_PROVIDER;
@@ -195,7 +195,7 @@ public final class SelectionTextUtils {
         if (project == null) {
             return null;
         }
-        ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
+        ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow(ClaudeChatToolWindow.TOOL_WINDOW_ID);
         if (toolWindow == null) {
             return null;
         }

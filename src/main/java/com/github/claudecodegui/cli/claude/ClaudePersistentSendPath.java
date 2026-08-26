@@ -11,7 +11,7 @@ import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.mcp.McpGatewayCliConfig;
 import com.github.claudecodegui.provider.claude.ClaudeCliStreamParser;
 import com.github.claudecodegui.provider.common.MessageCallback;
-import com.github.claudecodegui.provider.common.SDKResult;
+import com.github.claudecodegui.provider.common.CliResult;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -28,7 +28,7 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * claude 长驻发送路径(设计文档 §4.1/§4.2):与 one-shot 并列的纯辅助层,无自身状态。
+ * claude 长驻发送路径:与 one-shot 并列的纯辅助层,无自身状态。
  *
  * <p>职责三件事:
  * <ol>
@@ -40,7 +40,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *       图片附件映射为原生 image content block(base64),prompt 文本仍保留
  *       {@code [Image #N]} 锚点与 Read 指令(transcript 可读性,与 one-shot 等价);</li>
  *   <li>{@link #createTurnContext}:把 {@link ClaudeCliStreamParser} + {@link CliSessionCallback}
- *       适配成 {@link CliPersistentProcess.TurnLineHandler}——result 行产出 {@link SDKResult}
+ *       适配成 {@link CliPersistentProcess.TurnLineHandler}——result 行产出 {@link CliResult}
  *       结束本轮,中断标记映射 {@code onInterrupted} 语义。</li>
  * </ol>
  *
@@ -60,7 +60,7 @@ final class ClaudePersistentSendPath {
     // ── ① CliProcessSpec ──────────────────────────────────────────────────────
 
     /**
-     * 组装长驻进程启动规格。指纹(§4.4)= provider + model + permission-mode + cwd + add-dirs +
+     * 组装长驻进程启动规格。指纹 = provider + model + permission-mode + cwd + add-dirs +
      * mcp-config 路径,另含 reasoning-effort(同为命令行参数,影响进程行为,不纳入会语义漂移)。
      */
     CliProcessSpec buildSpec(
@@ -121,7 +121,7 @@ final class ClaudePersistentSendPath {
     }
 
     /**
-     * interrupt control_request 行(§4.3 V1 实测定稿:subtype 必须嵌在 request 对象内,
+     * interrupt control_request 行(V1 实测定稿:subtype 必须嵌在 request 对象内,
      * 顶层放 method 或平铺 subtype 均触发 CLI 解析报错)。provider 协议格式由本 Adapter
      * 独占,{@code CliPersistentProcess} 经 {@code CliProcessSpec.interruptLineSupplier} 取用。
      */
@@ -133,7 +133,7 @@ final class ClaudePersistentSendPath {
     // ── ② stdin user 消息行 ───────────────────────────────────────────────────
 
     /**
-     * 构建 stream-json 输入的 user 消息行(§4.1)。TEXT 附件已由
+     * 构建 stream-json 输入的 user 消息行。TEXT 附件已由
      * {@code buildPrompt} 并入 prompt 文本,此处只处理图片:one-shot 模式 CLI 只能经
      * Read 工具读文件,而 stream-json input 原生支持 image content block,直接附上
      * base64 数据让模型即时可见(锚点文本保留,历史回显与 Read 深读仍可用)。
@@ -216,7 +216,7 @@ final class ClaudePersistentSendPath {
     // ── ③ 轮事件适配(TurnLineHandler) ────────────────────────────────────────
 
     /**
-     * 轮级时间点埋点(§6.1 补尾):system.init、首个 assistant/stream 事件、首个 text delta
+     * 轮级时间点埋点:system.init、首个 assistant/stream 事件、首个 text delta
      * 首次到达时各打一条 [CliTurnPerf],使「写入→init」「init→首事件」「首事件→首文本」
      * 可直接从日志归因(此前只有进程级 started/finished,切不出 API 静默期)。
      */
@@ -283,7 +283,7 @@ final class ClaudePersistentSendPath {
 
     /**
      * 为一轮构建逐行处理器(与 one-shot {@code readOutput} 语义逐条对齐):
-     * MCP 降级过滤 → parser 分发 → result 行收尾(result 事件即轮完成信号,§4.1)。
+     * MCP 降级过滤 → parser 分发 → result 行收尾(result 事件即轮完成信号)。
      *
      * @param process 长驻进程(session_id 发现后回填元数据,进程面板展示用)
      */
@@ -291,7 +291,7 @@ final class ClaudePersistentSendPath {
         Gson gson = session.gson();
         ClaudeCliStreamParser parser = new ClaudeCliStreamParser(gson);
         parser.resetState();
-        SDKResult result = new SDKResult();
+        CliResult result = new CliResult();
         StringBuilder diagnostic = new StringBuilder();
         StringBuilder assistantContent = new StringBuilder();
         AtomicBoolean hadError = new AtomicBoolean(false);
@@ -316,7 +316,7 @@ final class ClaudePersistentSendPath {
             }
 
             @Override
-            public void onComplete(SDKResult r) {
+            public void onComplete(CliResult r) {
                 // 由 TurnLineHandler 在 result 行统一触发
             }
         };
@@ -334,7 +334,7 @@ final class ClaudePersistentSendPath {
             CliErrorFormatter.appendDiagnosticLine(diagnostic, line);
             parser.parseLine(line, mcb, result, assistantContent, hadError, false);
 
-            // result 事件 = 本轮结束(进程不退出,§4.1)
+            // result 事件 = 本轮结束(进程不退出)
             if (!ClaudeCliSession.isResultLine(gson, line)) {
                 return null;
             }
@@ -342,19 +342,19 @@ final class ClaudePersistentSendPath {
             if (sessionId != null) {
                 callback.onMessage(CliConstants.MSG_SESSION_ID, sessionId);
             }
-            // 被中断轮以 result subtype=error_during_execution 收尾(§4.3 V1 实测),
+            // 被中断轮以 result subtype=error_during_execution 收尾(V1 实测),
             // 覆盖为中断语义而非错误。
             if (interrupted || session.isUserInterrupted()) {
                 callback.onInterrupted(assistantContent.toString(), CliConstants.I18N_REQUEST_INTERRUPTED);
-                return SDKResult.completed(false, assistantContent.toString(), null, true);
+                return CliResult.completed(false, assistantContent.toString(), null, true);
             }
             boolean success = !hadError.get() && result.success;
             if (!success) {
-                // resume 失败自愈(§4.6):重置 sessionId 使下轮重新开始,与 one-shot 对齐
+                // resume 失败自愈:重置 sessionId 使下轮重新开始,与 one-shot 对齐
                 session.maybeResetSessionAfterResumeFailure(diagnostic);
             }
             callback.onComplete(success, success ? assistantContent.toString() : null, success ? null : result.error);
-            return SDKResult.completed(success, assistantContent.toString(), result.error, false);
+            return CliResult.completed(success, assistantContent.toString(), result.error, false);
         };
 
         return new TurnContext(handler, assistantContent, hadError);

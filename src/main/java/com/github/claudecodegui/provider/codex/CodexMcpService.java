@@ -85,7 +85,7 @@ public class CodexMcpService {
 
             try {
                 String node = nodeService.getNodeDetector().findNodeExecutable();
-                File bridgeDir = nodeService.getSdkTestDir();
+                File bridgeDir = nodeService.getBridgeDir();
                 if (bridgeDir == null || !bridgeDir.exists()) {
                     JsonObject errorResult = new JsonObject();
                     errorResult.addProperty("serverId", serverId);

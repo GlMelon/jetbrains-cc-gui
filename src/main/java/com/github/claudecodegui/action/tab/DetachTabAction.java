@@ -4,7 +4,7 @@ import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.ui.detached.DetachedChatFrame;
 import com.github.claudecodegui.ui.detached.DetachedWindowManager;
 import com.github.claudecodegui.ui.toolwindow.ClaudeChatWindow;
-import com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow;
+import com.github.claudecodegui.ui.toolwindow.ClaudeChatToolWindow;
 import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
@@ -48,7 +48,7 @@ public class DetachTabAction extends AnAction implements DumbAware {
             return;
         }
 
-        ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
+        ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow(ClaudeChatToolWindow.TOOL_WINDOW_ID);
         if (toolWindow == null) {
             LOG.warn("[DetachTabAction] Tool window not found");
             return;
@@ -67,7 +67,7 @@ public class DetachTabAction extends AnAction implements DumbAware {
         }
 
         // Get the ClaudeChatWindow associated with this content
-        ClaudeChatWindow chatWindow = ClaudeSDKToolWindow.getChatWindowForContent(selectedContent);
+        ClaudeChatWindow chatWindow = ClaudeChatToolWindow.getChatWindowForContent(selectedContent);
         if (chatWindow == null) {
             LOG.warn("[DetachTabAction] Cannot find ClaudeChatWindow for content: " + selectedContent.getDisplayName());
             Messages.showErrorDialog(
@@ -121,7 +121,7 @@ public class DetachTabAction extends AnAction implements DumbAware {
             // Mark content as detaching to prevent contentRemoved listener
             // from disposing the ClaudeChatWindow or showing confirmation dialog.
             // Use try-finally to guarantee the flag is always cleared.
-            ClaudeSDKToolWindow.markContentAsDetaching(content);
+            ClaudeChatToolWindow.markContentAsDetaching(content);
             try {
                 // Verify content is still in the ContentManager (may have been removed between
                 // actionPerformed and invokeLater execution)
@@ -162,7 +162,7 @@ public class DetachTabAction extends AnAction implements DumbAware {
                         ClaudeCodeGuiBundle.message("action.detachTab.error.title")
                 );
             } finally {
-                ClaudeSDKToolWindow.unmarkContentAsDetaching(content);
+                ClaudeChatToolWindow.unmarkContentAsDetaching(content);
             }
         });
     }
@@ -175,7 +175,7 @@ public class DetachTabAction extends AnAction implements DumbAware {
             return;
         }
 
-        ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
+        ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow(ClaudeChatToolWindow.TOOL_WINDOW_ID);
         if (toolWindow == null) {
             e.getPresentation().setEnabledAndVisible(false);
             return;

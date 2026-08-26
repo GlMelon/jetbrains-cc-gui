@@ -8,7 +8,7 @@ import static org.junit.Assert.assertTrue;
 
 /**
  * Unit tests for {@link ClaudeCliSession#isResultLine} — the persistent-mode
- * turn-termination predicate (daemon-mode design §4.1): a {@code "type":"result"}
+ * turn-termination predicate: a {@code "type":"result"}
  * line ends the current turn while the process stays resident. False positives
  * would truncate turns early; false negatives would hang the turn.
  */
@@ -24,7 +24,7 @@ public class ClaudeCliSessionResultLineTest {
 
     @Test
     public void matchesResultLineWithErrorSubtype() {
-        // 被中断轮以 error_during_execution 收尾(§4.3 V1 实测),仍须判定为轮结束
+        // 被中断轮以 error_during_execution 收尾(V1 实测),仍须判定为轮结束
         assertTrue(ClaudeCliSession.isResultLine(GSON,
                 "{\"type\":\"result\",\"subtype\":\"error_during_execution\"}"));
     }

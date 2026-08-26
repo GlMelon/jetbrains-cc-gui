@@ -109,7 +109,7 @@ public class InputHistoryHandler {
      * Call Node.js input-history-service (single parameter version).
      */
     public String callInputHistoryService(String functionName, String param) throws Exception {
-        String bridgePath = context.getNodeService().getSdkTestDir().getAbsolutePath();
+        String bridgePath = context.getNodeService().getBridgeDir().getAbsolutePath();
         String nodePath = context.getNodeService().getNodeExecutable();
 
         String servicePath = NodeJsServiceCaller.resolveServicePath(
@@ -152,7 +152,7 @@ public class InputHistoryHandler {
      * Call Node.js input-history-service (array parameter version, used for recordHistory).
      */
     public String callInputHistoryServiceWithArray(String functionName, String jsonArrayParam) throws Exception {
-        String bridgePath = context.getNodeService().getSdkTestDir().getAbsolutePath();
+        String bridgePath = context.getNodeService().getBridgeDir().getAbsolutePath();
         String nodePath = context.getNodeService().getNodeExecutable();
 
         String servicePath = NodeJsServiceCaller.resolveServicePath(

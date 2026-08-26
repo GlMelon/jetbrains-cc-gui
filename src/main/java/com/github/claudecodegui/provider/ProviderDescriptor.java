@@ -1,7 +1,6 @@
 package com.github.claudecodegui.provider;
 
 import com.github.claudecodegui.session.runtime.ProviderType;
-import com.github.claudecodegui.session.runtime.RuntimeType;
 import com.github.claudecodegui.util.PlatformUtils;
 
 import java.util.EnumSet;
@@ -13,7 +12,7 @@ import java.util.Set;
 /**
  * Provider 描述符 —— F1 / S4-1C+「配置驱动 Provider 扩展」的地基。
  *
- * <p>描述一个 Provider 的可配置元信息:协议 id、显示名、CLI 命令、声明能力、支持的 runtime。
+ * <p>描述一个 Provider 的可配置元信息:协议 id、显示名、CLI 命令、声明能力。
  * 与编译时固定的 {@link ProviderType} 枚举正交:{@code ProviderType} 是协议线上 provider 值的
  * SSOT(三内置 Provider),而本描述符支持<b>运行时</b>通过配置扩展 Provider 集合(自定义 Provider),
  * 无需第三方 JVM 代码 / 沙箱(JDK17 SecurityManager 已废弃,见 S4-1C+ 决策)。
@@ -22,14 +21,16 @@ import java.util.Set;
  * {@link ProviderCapability}(全能力声明),保证与既有装配行为等价;自定义 Provider 从配置 JSON 加载,
  * 经 {@link ProviderDescriptorRegistry} 聚合后供通用 SessionRuntime(由 CLI 命令模板驱动)消费,
  * 实现「添加 Provider 无需改约 32 个静态接触点」的目标(替代 AGENTS.md E7 手工装配)。
+ *
+ * <p>SDK 调用模式已移除,runtime 维度已消除——所有 Provider 统一 CLI 子进程,
+ * 描述符不再声明 supportedRuntimes。
  */
 public record ProviderDescriptor(
         String providerId,
         String displayLabel,
         String cliCommand,
         String cliCommandWindows,
-        Set<ProviderCapability> capabilities,
-        Set<RuntimeType> supportedRuntimes
+        Set<ProviderCapability> capabilities
 ) {
     public ProviderDescriptor {
         Objects.requireNonNull(providerId, "providerId");
@@ -41,7 +42,6 @@ public record ProviderDescriptor(
         Objects.requireNonNull(cliCommand, "cliCommand");
         Objects.requireNonNull(cliCommandWindows, "cliCommandWindows");
         capabilities = capabilities == null ? Set.of() : Set.copyOf(capabilities);
-        supportedRuntimes = supportedRuntimes == null ? Set.of() : Set.copyOf(supportedRuntimes);
     }
 
     /** 平台相关 CLI 命令(Windows 用 cliCommandWindows,其他用 cliCommand),对齐 {@link ProviderType#cliCommandForPlatform()}。 */
@@ -53,11 +53,7 @@ public record ProviderDescriptor(
         return capabilities.contains(capability);
     }
 
-    public boolean supports(RuntimeType runtime) {
-        return supportedRuntimes.contains(runtime);
-    }
-
-    /** 内置 Claude Provider 描述符(复用 ProviderType SSOT,声明全能力 + SDK/CLI)。 */
+    /** 内置 Claude Provider 描述符(复用 ProviderType SSOT,声明全能力)。 */
     public static ProviderDescriptor claude() {
         return builtin(ProviderType.CLAUDE);
     }
@@ -70,17 +66,17 @@ public record ProviderDescriptor(
         return builtin(ProviderType.OPENCODE);
     }
 
-    /** Grok Provider 描述符(纯 CLI,无 SDK 实现;marker 协议流式)。 */
+    /** Grok Provider 描述符(marker 协议流式)。 */
     public static ProviderDescriptor grok() {
         return cliBuiltin(ProviderType.GROK);
     }
 
-    /** Kimi Provider 描述符(纯 CLI,无 SDK 实现;marker 协议流式)。 */
+    /** Kimi Provider 描述符(marker 协议流式)。 */
     public static ProviderDescriptor kimi() {
         return cliBuiltin(ProviderType.KIMI);
     }
 
-    /** Pi Provider 描述符(纯 CLI,无 SDK 实现;marker 协议流式)。 */
+    /** Pi Provider 描述符(marker 协议流式)。 */
     public static ProviderDescriptor pi() {
         return cliBuiltin(ProviderType.PI);
     }
@@ -91,15 +87,14 @@ public record ProviderDescriptor(
                 type.displayLabel(),
                 type.cliCommand(),
                 type.cliCommandWindows(),
-                EnumSet.allOf(ProviderCapability.class),
-                EnumSet.of(RuntimeType.CLI)
+                EnumSet.allOf(ProviderCapability.class)
         );
     }
 
     /**
-     * 纯 CLI 内置 Provider 描述符:仅声明 CLI_SESSION + STREAMING(marker 协议提供流式增量),
-     * supportedRuntimes 仅 CLI(无 SDK 实现)。reasoning/history/skills/mcp 等能力按 Stage 3
-     * 各 provider 实际接入再补充,此处保守声明避免过度承诺。
+     * 纯 CLI 内置 Provider 描述符:仅声明 CLI_SESSION + STREAMING(marker 协议提供流式增量)。
+     * reasoning/history/skills/mcp 等能力按 Stage 3 各 provider 实际接入再补充,
+     * 此处保守声明避免过度承诺。
      */
     private static ProviderDescriptor cliBuiltin(ProviderType type) {
         return new ProviderDescriptor(
@@ -107,8 +102,7 @@ public record ProviderDescriptor(
                 type.displayLabel(),
                 type.cliCommand(),
                 type.cliCommandWindows(),
-                EnumSet.of(ProviderCapability.CLI_SESSION, ProviderCapability.STREAMING),
-                EnumSet.of(RuntimeType.CLI)
+                EnumSet.of(ProviderCapability.CLI_SESSION, ProviderCapability.STREAMING)
         );
     }
 

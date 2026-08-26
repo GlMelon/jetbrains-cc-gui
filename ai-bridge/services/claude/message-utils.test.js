@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 
 import { extractResultError, isRetryableError } from './message-utils.js';
 
-// Regression guard for the "API request failed" masking bug: the Claude Agent
-// SDK reports the real error text in the `errors` array (or in `result` when
-// subtype is "success"), never in a generic message. These cases pin down the
-// exact precedence so a real failure can no longer be silently dropped.
+// Regression guard for the "API request failed" masking bug: the Claude CLI
+// result message reports the real error text in the `errors` array (or in
+// `result` when subtype is "success"), never in a generic message. These cases
+// pin down the exact precedence so a real failure can no longer be silently
+// dropped.
 
 test('extractResultError: reads the errors array for a normal error result', () => {
   const msg = {
@@ -29,7 +30,7 @@ test('extractResultError: falls back when the errors array is entirely blank', (
   assert.equal(extractResultError(msg), 'API request failed');
 });
 
-test('extractResultError: prefers `result` when subtype is "success" (SDK precedence)', () => {
+test('extractResultError: prefers `result` when subtype is "success" (upstream precedence)', () => {
   const msg = {
     type: 'result',
     is_error: true,
@@ -51,7 +52,7 @@ test('extractResultError: falls back to the generic text for an empty message', 
   assert.equal(extractResultError(undefined), 'API request failed');
 });
 
-test('isRetryableError recognizes retryable SDK errors after detailed extraction', () => {
+test('isRetryableError recognizes retryable CLI errors after detailed extraction', () => {
   const rateLimitError = new Error(extractResultError({
     subtype: 'error_during_execution',
     errors: ['rate_limit_error: 429 Too Many Requests'],

@@ -21,7 +21,7 @@ final class BridgePathLocator {
 
     private static final Logger LOG = Logger.getInstance(BridgePathLocator.class);
 
-    static final String SDK_DIR_NAME = "ai-bridge";
+    static final String BRIDGE_DIR_NAME = "ai-bridge";
     static final String NODE_SCRIPT = "channel-manager.js";
     static final String PLUGIN_DIR_NAME = "Ai-Code-Gui";
     static final String BRIDGE_PATH_PROPERTY = "claude.bridge.path";
@@ -64,7 +64,7 @@ final class BridgePathLocator {
         try {
             File pluginDir = PluginMetadata.getPluginDirectory(BridgePathLocator.class);
             if (pluginDir != null) {
-                addCandidate(possibleDirs, new File(pluginDir, SDK_DIR_NAME));
+                addCandidate(possibleDirs, new File(pluginDir, BRIDGE_DIR_NAME));
             }
         } catch (Throwable t) {
             LOG.debug("[BridgeResolver] Cannot infer from plugin descriptor: " + t.getMessage());
@@ -73,15 +73,15 @@ final class BridgePathLocator {
         try {
             String pluginsRoot = PathManager.getPluginsPath();
             if (!pluginsRoot.isEmpty()) {
-                addCandidate(possibleDirs, Paths.get(pluginsRoot, PLUGIN_DIR_NAME, SDK_DIR_NAME).toFile());
-                addCandidate(possibleDirs, Paths.get(pluginsRoot, PlatformUtils.getPluginId(), SDK_DIR_NAME).toFile());
+                addCandidate(possibleDirs, Paths.get(pluginsRoot, PLUGIN_DIR_NAME, BRIDGE_DIR_NAME).toFile());
+                addCandidate(possibleDirs, Paths.get(pluginsRoot, PlatformUtils.getPluginId(), BRIDGE_DIR_NAME).toFile());
             }
 
             String systemPath = PathManager.getSystemPath();
             if (!systemPath.isEmpty()) {
                 Path sandboxPath = Paths.get(systemPath, "plugins");
-                addCandidate(possibleDirs, sandboxPath.resolve(PLUGIN_DIR_NAME).resolve(SDK_DIR_NAME).toFile());
-                addCandidate(possibleDirs, sandboxPath.resolve(PlatformUtils.getPluginId()).resolve(SDK_DIR_NAME).toFile());
+                addCandidate(possibleDirs, sandboxPath.resolve(PLUGIN_DIR_NAME).resolve(BRIDGE_DIR_NAME).toFile());
+                addCandidate(possibleDirs, sandboxPath.resolve(PlatformUtils.getPluginId()).resolve(BRIDGE_DIR_NAME).toFile());
             }
         } catch (Throwable t) {
             LOG.debug("[BridgeResolver] Cannot infer from plugin path: " + t.getMessage());
@@ -98,7 +98,7 @@ final class BridgePathLocator {
             File location = new File(codeSource.getLocation().toURI());
             File classDir = location.getParentFile();
             while (classDir != null && classDir.exists()) {
-                addCandidate(possibleDirs, new File(classDir, SDK_DIR_NAME));
+                addCandidate(possibleDirs, new File(classDir, BRIDGE_DIR_NAME));
                 String name = classDir.getName();
                 if (PLUGIN_DIR_NAME.equals(name) || PlatformUtils.getPluginId().equals(name)) {
                     break;
@@ -133,9 +133,6 @@ final class BridgePathLocator {
     /**
      * Validate whether a directory is a valid bridge directory.
      * Checks for the existence of the core script and node_modules.
-     *
-     * Note: AI SDKs such as @anthropic-ai/claude-agent-sdk are not bundled in ai-bridge.
-     * They are loaded dynamically from ~/.codemoss/dependencies/, so SDK presence is not checked here.
      */
     static boolean isValidBridgeDir(File dir) {
         LOG.debug("[BridgeResolver] Validating bridge dir: " + (dir != null ? dir.getAbsolutePath() : "null"));
@@ -169,9 +166,6 @@ final class BridgePathLocator {
             return false;
         }
         LOG.debug("[BridgeResolver] node_modules found");
-
-        // AI SDKs (@anthropic-ai/claude-agent-sdk, @openai/codex-sdk, etc.)
-        // are loaded dynamically from ~/.codemoss/dependencies/, no need to check within ai-bridge
 
         return true;
     }

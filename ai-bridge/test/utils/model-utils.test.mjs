@@ -2,25 +2,25 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  mapModelIdToSdkName,
+  mapModelIdToCliName,
   resolveModelFromSettings,
   resolveClaudeEnhanceModelName,
   setModelEnvironmentVariables,
   modelSupportsVision,
 } from '../../utils/model-utils.js';
 
-// --- mapModelIdToSdkName ------------------------------------------------
+// --- mapModelIdToCliName ------------------------------------------------
 
-test('mapModelIdToSdkName maps Claude families to short SDK names', () => {
-  assert.equal(mapModelIdToSdkName('claude-role-sonnet'), 'sonnet');
-  assert.equal(mapModelIdToSdkName('claude-role-opus'), 'opus');
-  assert.equal(mapModelIdToSdkName('claude-role-fable'), 'opus');
-  assert.equal(mapModelIdToSdkName('claude-role-haiku'), 'haiku');
-  // Unknown / explicit IDs fall back to sonnet (because the SDK uses
+test('mapModelIdToCliName maps Claude families to short CLI names', () => {
+  assert.equal(mapModelIdToCliName('claude-role-sonnet'), 'sonnet');
+  assert.equal(mapModelIdToCliName('claude-role-opus'), 'opus');
+  assert.equal(mapModelIdToCliName('claude-role-fable'), 'opus');
+  assert.equal(mapModelIdToCliName('claude-role-haiku'), 'haiku');
+  // Unknown / explicit IDs fall back to sonnet (because the CLI uses
   // ANTHROPIC_DEFAULT_SONNET_MODEL as the lookup target for arbitrary names).
-  assert.equal(mapModelIdToSdkName('mimo-v2.5-pro'), 'sonnet');
-  assert.equal(mapModelIdToSdkName(''), 'sonnet');
-  assert.equal(mapModelIdToSdkName(null), 'sonnet');
+  assert.equal(mapModelIdToCliName('mimo-v2.5-pro'), 'sonnet');
+  assert.equal(mapModelIdToCliName(''), 'sonnet');
+  assert.equal(mapModelIdToCliName(null), 'sonnet');
 });
 
 // --- resolveModelFromSettings -------------------------------------------
@@ -139,7 +139,7 @@ test('resolveModelFromSettings does NOT remap non-Anthropic model IDs', () => {
 //   `claude-role-sonnet[1m]` to the backend. If `settings.json` contains a
 //   provider mapping like `ANTHROPIC_DEFAULT_SONNET_MODEL=glm-4.7` (no [1m]),
 //   the old resolver returned `'glm-4.7'`, silently dropping the suffix.
-//   The Claude SDK then read the env var without [1m] and did NOT enable the
+//   The Claude CLI then read the env var without [1m] and did NOT enable the
 //   1M context window even though the toggle was on.
 // Fix: make the request modelId the source of truth. Preserve/append [1m] when
 // the toggle is on, and strip stale mapping suffixes when the toggle is off.
@@ -149,7 +149,7 @@ test('resolveModelFromSettings preserves [1m] suffix when mapping value lacks it
   assert.equal(
     resolveModelFromSettings('claude-role-sonnet[1m]', env),
     'glm-4.7[1m]',
-    'request asked for 1M, mapping must keep the [1m] suffix so the SDK enables 1M context'
+    'request asked for 1M, mapping must keep the [1m] suffix so the CLI enables 1M context'
   );
 });
 
@@ -243,13 +243,13 @@ test('modelSupportsVision only matches the canonical claude- prefix', () => {
 //
 // Bug 3 修复:promptEnhancer(claude 路径)下发模型名必须与 chat/commitAi 同源 ——
 // 优先用 registry 解析的 actualModel(具体模型 id,如 glm-5.2),而非仅靠
-// mapModelIdToSdkName(role→bucket)+ settings.json env 间接解析。当 registry
+// mapModelIdToCliName(role→bucket)+ settings.json env 间接解析。当 registry
 // actualModel 与 settings.json env(cc-switch 写入)不同步时,旧逻辑会用错模型。
 // 语义与 resolveModelFromSettings 的 actualModel 优先 + [1m] 处理一致,但回退是
-// bucket name(promptEnhancer 的 SDK model 参数需要 bucket,而非 role id 原值)。
+// bucket name(promptEnhancer 下发的 model 需要 bucket,而非 role id 原值)。
 
 test('resolveClaudeEnhanceModelName prefers actualModel over role bucket mapping', () => {
-  // actualModel=glm-5.2 必须直传,绕过 mapModelIdToSdkName('claude-role-sonnet')='sonnet'
+  // actualModel=glm-5.2 必须直传,绕过 mapModelIdToCliName('claude-role-sonnet')='sonnet'
   assert.equal(resolveClaudeEnhanceModelName('claude-role-sonnet', 'glm-5.2'), 'glm-5.2');
   assert.equal(resolveClaudeEnhanceModelName('claude-role-opus', 'mimo-v2.5-pro'), 'mimo-v2.5-pro');
 });
@@ -263,7 +263,7 @@ test('resolveClaudeEnhanceModelName falls back to bucket name when actualModel a
 });
 
 test('resolveClaudeEnhanceModelName appends request [1m] suffix onto actualModel', () => {
-  // 用户开了 1M toggle(model 含 [1m]),actualModel 须带 [1m] 让 SDK 启用 1M context
+  // 用户开了 1M toggle(model 含 [1m]),actualModel 须带 [1m] 让 CLI 启用 1M context
   assert.equal(resolveClaudeEnhanceModelName('claude-role-sonnet[1m]', 'glm-5.2'), 'glm-5.2[1m]');
 });
 

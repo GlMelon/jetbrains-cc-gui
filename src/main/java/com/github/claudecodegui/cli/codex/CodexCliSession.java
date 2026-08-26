@@ -36,7 +36,6 @@ import java.util.regex.Pattern;
 /**
  * Codex CLI 会话：每个 Tab 独立实例，使用 codex exec --json（one-shot per turn）。
  * 通过 resume --last 实现多轮连续对话。
- * 完全不依赖 SDK / ai-bridge。
  */
 public class CodexCliSession implements CliSession {
 
@@ -790,7 +789,7 @@ public class CodexCliSession implements CliSession {
         //  一次性输出——后者正是用户报"codex 无流式答完才显示"的根因。
         //  历史上曾因"工具前协调文本可能含工具转录"而走缓冲→thinking 降级,
         //  这违反契约:agent_message 语义即正文,不因后续可能出现 tool 而降级。
-        //  行为对齐 Claude CLI 与 ai-bridge SDK(codex-event-handler.js)路径。
+        //  行为对齐 Claude CLI 与 ai-bridge channel 路径。
         //  回滚此段 = 纯文本回答断流式回归。勿让 handleAgentMessageItem 写入
         //  pendingAgentMessageText(其已降级为恒空的安全网)。
         // ═══════════════════════════════════════════════════════════════════════

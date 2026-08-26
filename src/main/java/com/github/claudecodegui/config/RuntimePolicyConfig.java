@@ -3,16 +3,15 @@ package com.github.claudecodegui.config;
 
 
 import com.github.claudecodegui.session.runtime.ProviderType;
-import com.github.claudecodegui.session.runtime.RuntimeType;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * 路由策略配置。
  * <p>
- * 管理 provider×runtime 矩阵。SDK 调用模式已移除,所有 provider 仅支持 CLI,默认 CLI。
+ * 管理各 provider 的启用策略。SDK 调用模式已移除,runtime 维度已消除,
+ * 所有 provider 统一走 CLI 子进程,策略仅剩 enabled 一维。
  * 存储于 ~/.codemoss/config.json 的 "runtime" 节点。
  */
 public class RuntimePolicyConfig {
@@ -21,7 +20,7 @@ public class RuntimePolicyConfig {
 
     /**
      * 构建默认配置。
-     * <p>所有 6 个 provider:enabled, 仅 CLI(SDK 调用模式已移除),默认 CLI。
+     * <p>6 个 provider 全部 enabled(SDK 调用模式已移除,统一 CLI 单一路径)。
      */
     private static final RuntimePolicyConfig DEFAULT = buildDefault();
 
@@ -53,9 +52,8 @@ public class RuntimePolicyConfig {
      * 保留用户对已知 provider 的自定义(含显式 enabled=false 的禁用)。
      * <p>
      * 修复存量用户旧 config.json 在「OpenCode 加入路由策略」之前持久化、缺失 opencode →
-     * {@code of(OPENCODE)=null} → {@code EffectiveRuntimeResolver.resolve} 抛
-     * "Provider disabled/unknown: opencode" → opencode+CLI 请求被强制回退 SDK 静默失败的
-     * 向后兼容 bug(2026-06-28 复现)。
+     * {@code of(OPENCODE)=null} → 路由层抛 "Provider disabled/unknown: opencode"
+     * 的向后兼容 bug(2026-06-28 复现)。
      *
      * @return 合并后的完整策略(默认基底 + 本配置覆盖)
      */
@@ -66,7 +64,7 @@ public class RuntimePolicyConfig {
     }
 
     /**
-     * 返回默认配置(所有 provider 仅 CLI)。
+     * 返回默认配置(所有 provider enabled)。
      */
     public static RuntimePolicyConfig getDefault() {
         return new RuntimePolicyConfig(new LinkedHashMap<>(DEFAULT.providers()));
@@ -74,13 +72,13 @@ public class RuntimePolicyConfig {
 
     private static RuntimePolicyConfig buildDefault() {
         var m = new LinkedHashMap<ProviderType, ProviderRuntimePolicy>();
-        // 所有 provider 仅支持 CLI 模式，移除 SDK 支持
-        m.put(ProviderType.CLAUDE, new ProviderRuntimePolicy(true, Set.of(RuntimeType.CLI), RuntimeType.CLI));
-        m.put(ProviderType.CODEX, new ProviderRuntimePolicy(true, Set.of(RuntimeType.CLI), RuntimeType.CLI));
-        m.put(ProviderType.OPENCODE, new ProviderRuntimePolicy(true, Set.of(RuntimeType.CLI), RuntimeType.CLI));
-        m.put(ProviderType.GROK, new ProviderRuntimePolicy(true, Set.of(RuntimeType.CLI), RuntimeType.CLI));
-        m.put(ProviderType.KIMI, new ProviderRuntimePolicy(true, Set.of(RuntimeType.CLI), RuntimeType.CLI));
-        m.put(ProviderType.PI, new ProviderRuntimePolicy(true, Set.of(RuntimeType.CLI), RuntimeType.CLI));
+        // 所有 provider 默认启用,统一 CLI 单一路径
+        m.put(ProviderType.CLAUDE, new ProviderRuntimePolicy(true));
+        m.put(ProviderType.CODEX, new ProviderRuntimePolicy(true));
+        m.put(ProviderType.OPENCODE, new ProviderRuntimePolicy(true));
+        m.put(ProviderType.GROK, new ProviderRuntimePolicy(true));
+        m.put(ProviderType.KIMI, new ProviderRuntimePolicy(true));
+        m.put(ProviderType.PI, new ProviderRuntimePolicy(true));
         return new RuntimePolicyConfig(m);
     }
 }

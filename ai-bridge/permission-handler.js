@@ -1,7 +1,7 @@
 // @ts-check
 /**
  * Permission Handler — thin coordinator.
- * Provides the `canUseTool` callback for Claude SDK.
+ * Provides the `canUseTool` callback wired into the Claude CLI PreToolUse hook.
  *
  * IPC primitives: ./permission-ipc.js
  * Path safety:    ./permission-safety.js
@@ -18,7 +18,7 @@ import {
 import { rewriteToolInputPaths, isDangerousPath, collectToolInputPaths } from './permission-safety.js';
 
 /**
- * Claude SDK canUseTool 返回的权限裁决。
+ * canUseTool 返回的权限裁决(经 PreToolUse hook 回传给 Claude CLI)。
  * @typedef {{ behavior: 'allow' | 'deny'; updatedInput?: any; message?: string }} PermissionResult
  */
 
@@ -96,13 +96,13 @@ export { requestPlanApproval, requestPermissionFromJava };
 
 /**
  * canUseTool callback function.
- * Used by Claude SDK.
+ * Consumed by the PreToolUse hook wiring (hooks/pre-tool-use-hook.js, permission-mode.js).
  * Signature: (toolName: string, input: ToolInput, options: { signal: AbortSignal; suggestions?: PermissionUpdate[] }) => Promise<PermissionResult>
- * SDK expected return format: { behavior: 'allow' | 'deny', updatedInput?: object, message?: string }
+ * Expected return format: { behavior: 'allow' | 'deny', updatedInput?: object, message?: string }
  *
  * @param {string} toolName  工具名
  * @param {any} input        工具入参(各工具 schema 不同,保持 any)
- * @param {any} [options]    SDK 选项({ signal, suggestions?, ... })
+ * @param {any} [options]    hook 选项({ signal, suggestions?, ... })
  * @returns {Promise<PermissionResult>}
  */
 export async function canUseTool(toolName, input, options = {}) {

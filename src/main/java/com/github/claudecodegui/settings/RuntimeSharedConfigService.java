@@ -7,7 +7,7 @@ import java.util.List;
 
 /**
  * Shared configuration facade.
- * Exposes plugin-managed MCP/skills configuration as plain data for both CLI and SDK runtimes.
+ * Exposes plugin-managed MCP/skills configuration as plain data for the CLI runtime.
  * This service owns configuration aggregation only; runtime environment/process behavior stays separate.
  */
 public class RuntimeSharedConfigService {

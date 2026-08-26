@@ -4,7 +4,7 @@ import com.github.claudecodegui.bridge.NodeService;
 import com.github.claudecodegui.cli.common.CliPersistentProcess;
 import com.github.claudecodegui.cli.common.CliPersistentProcessRegistry;
 import com.github.claudecodegui.ui.toolwindow.ClaudeChatWindow;
-import com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow;
+import com.github.claudecodegui.ui.toolwindow.ClaudeChatToolWindow;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.components.Service;
@@ -31,12 +31,15 @@ import com.github.claudecodegui.common.CommonConstants;
  *
  * <p>Three data sources are unified:
  * <ol>
- *   <li><b>Claude daemon processes</b>: one per {@link ClaudeChatWindow}, accessed via
- *       the daemon bridge inspection API.</li>
  *   <li><b>Per-channel processes</b>: tracked in each bridge's {@code ProcessManager}.</li>
+ *   <li><b>Persistent CLI session processes</b>: tracked by
+ *       {@code CliPersistentProcessRegistry}, merged read-only into the panel.</li>
  *   <li><b>Orphan processes</b>: discovered by scanning {@link ProcessHandle#allProcesses()}
  *       for {@code daemon.js} / {@code channel-manager.js} command lines that don't match
- *       any registered process — the root cause of "node piling up" user complaints.</li>
+ *       any registered process — the root cause of "node piling up" user complaints.
+ *       The {@code daemon.js} hint identifies daemon processes left behind by older
+ *       plugin versions (the SDK daemon invocation mode has been removed); matching
+ *       leftovers surface as orphans so the user can clean them up.</li>
  * </ol>
  *
  * <p>The service is read-only with respect to process lifecycle (use {@link #killByPid} for
@@ -50,6 +53,8 @@ public final class NodeProcessRegistry implements Disposable {
     /**
      * Substrings used to identify Node processes that look like ours.
      * Used by the orphan scanner; intentionally narrow to avoid false positives.
+     * {@code daemon.js} only matches leftovers from the removed SDK daemon mode
+     * (older plugin versions); the current CLI mode spawns channel-manager.js.
      */
     private static final String[] OWNED_PROCESS_HINTS = {
             "daemon.js",
@@ -92,7 +97,7 @@ public final class NodeProcessRegistry implements Disposable {
         List<NodeProcessInfo> result = new ArrayList<>();
         Set<Long> knownPids = new HashSet<>();
 
-        Set<ClaudeChatWindow> windows = ClaudeSDKToolWindow.getAllChatWindowsForProject(project);
+        Set<ClaudeChatWindow> windows = ClaudeChatToolWindow.getAllChatWindowsForProject(project);
 
         for (ClaudeChatWindow window : windows) {
             if (window == null) {
@@ -129,7 +134,7 @@ public final class NodeProcessRegistry implements Disposable {
             }
         }
 
-        // -- CLI persistent sessions (daemon-mode design §5.1) --
+        // -- CLI persistent sessions --
         // 长驻 CLI 进程由 CliPersistentProcessRegistry 槽位追踪,合并进面板只读展示。
         // pid 计入 knownPids:即使 orphan 扫描的 hint 匹配到其命令行,也不会重复报为孤儿。
         try {
@@ -161,7 +166,7 @@ public final class NodeProcessRegistry implements Disposable {
         // Find Node processes that look like ours but don't appear in any registry.
         // CRITICAL: we MUST only consider processes whose parent PID is this JVM.
         // When multiple IDEs (e.g. IDEA + PyCharm) both run AI Code GUI, each instance's
-        // daemons would otherwise show up in every other instance's panel — and
+        // node subprocesses would otherwise show up in every other instance's panel — and
         // "Kill all orphans" would terminate live work in foreign IDEs. Each JVM
         // is responsible only for its own children.
         final long currentJvmPid;
@@ -257,7 +262,7 @@ public final class NodeProcessRegistry implements Disposable {
      * successfully — does not guarantee the process is fully reaped yet.
      *
      * <p>Ownership guard: only PIDs that appear in this JVM's own {@link #snapshot()}
-     * are eligible. Snapshot entries are either registry-tracked (daemon/channel) or
+     * are eligible. Snapshot entries are either registry-tracked (channel/CLI session) or
      * orphans that already passed the {@link #isOwnedByJvm} parent-PID check. Without
      * this guard a malformed or hostile frontend payload could ask us to terminate an
      * arbitrary process tree on the host (the PID arrives untrusted via
@@ -273,7 +278,7 @@ public final class NodeProcessRegistry implements Disposable {
                     + " — not tracked by this JVM's snapshot");
             return false;
         }
-        // CLI_SESSION 双层防护第一层(§5.2 真正防线):长驻会话进程由 registry 生命周期
+        // CLI_SESSION 双层防护第一层(真正防线):长驻会话进程由 registry 生命周期
         // 管理(空闲回收/tab 关闭/项目关闭),手动 kill 只会留下 dirty 槽位。
         if (isProtectedKind(kindOfPid(pid, snapshot))) {
             LOG.warn("[NodeProcessRegistry] Refusing to kill PID " + pid
@@ -284,7 +289,7 @@ public final class NodeProcessRegistry implements Disposable {
     }
 
     /**
-     * Kill 前检查目标是否为受保护的 CLI_SESSION 进程(§5.2)。
+     * Kill 前检查目标是否为受保护的 CLI_SESSION 进程。
      * 返回错误码 {@code cli_session_protected}(前端提示用),非保护目标返回 null。
      * killByPid 内部另有同判定闸门——此处仅供 handler 预检以透传具体拒绝原因。
      */
@@ -295,10 +300,10 @@ public final class NodeProcessRegistry implements Disposable {
         return isProtectedKind(kindOfPid(pid, snapshot())) ? KILL_PROTECTED_CLI_SESSION : null;
     }
 
-    /** CLI_SESSION 拒绝码(§5.2):前端据 此渲染保护提示。 */
+    /** CLI_SESSION 拒绝码:前端据此渲染保护提示。 */
     public static final String KILL_PROTECTED_CLI_SESSION = "cli_session_protected";
 
-    /** 受保护不可手动 kill 的 kind 判定(§5.2)。静态纯函数供单测。 */
+    /** 受保护不可手动 kill 的 kind 判定。静态纯函数供单测。 */
     static boolean isProtectedKind(NodeProcessInfo.Kind kind) {
         return kind == NodeProcessInfo.Kind.CLI_SESSION;
     }
@@ -384,6 +389,8 @@ public final class NodeProcessRegistry implements Disposable {
             return null;
         }
         String lower = cmd.toLowerCase();
+        // daemon.js: leftover process from the removed SDK daemon mode (older plugin
+        // versions); such daemons were Claude-only, hence PROVIDER_CLAUDE.
         if (lower.contains("daemon.js")) {
             return CommonConstants.PROVIDER_CLAUDE;
         }

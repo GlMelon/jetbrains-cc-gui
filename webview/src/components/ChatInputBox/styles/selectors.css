@@ -313,6 +313,50 @@
   cursor: not-allowed !important;
 }
 
+/* ── CLI 未安装门控(方案A) ───────────────────────────
+   与 .disabled(featureComingSoon)叠加:provider 标签划线 +
+   琥珀「未安装」badge;hover 不给高亮,强化不可选语义 */
+.selector-option.cli-not-installed:hover {
+  background: transparent;
+}
+
+.provider-label.struck {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--text-muted);
+}
+
+.cli-not-installed-badge {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  line-height: 1;
+  padding: 3px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: var(--cli-badge-bg, rgba(224, 160, 60, 0.16));
+  border: 1px solid var(--cli-badge-border, rgba(224, 160, 60, 0.4));
+  color: var(--cli-badge-text, #e0a03c);
+}
+
+.cli-not-installed-badge .badge-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* 下拉底部「重新检测 CLI 环境」操作行 */
+.selector-option.selector-option-recheck {
+  color: var(--text-secondary);
+}
+
+.selector-option.selector-option-recheck.disabled {
+  opacity: 0.6;
+}
+
 .selector-divider {
   height: 1px;
   background: var(--dropdown-border);

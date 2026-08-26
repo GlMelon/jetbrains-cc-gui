@@ -163,7 +163,7 @@ try {
 /**
  * Remove stale permission/ask/plan request AND response files left in the IPC
  * directory from a previous (crashed) run of this session. Prevents the Java
- * side from re-processing orphaned request files on the next daemon launch and
+ * side from re-processing orphaned request files on the next bridge launch and
  * bounds tmpdir growth across many sessions.
  */
 function cleanupStaleSessionFiles() {

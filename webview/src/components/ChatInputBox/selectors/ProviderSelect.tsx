@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CheckIcon, ChevronDownIcon, ChevronRightIcon, ChevronUpIcon, GaugeIcon } from '../../Icons';;
+import { CheckIcon, ChevronDownIcon, ChevronRightIcon, ChevronUpIcon, GaugeIcon, RefreshIcon } from '../../Icons';;
 import { useTranslation } from 'react-i18next';
 import { AVAILABLE_PROVIDERS } from '../types';
 import { ProviderModelIcon } from '../../shared/ProviderModelIcon';
@@ -10,6 +10,8 @@ import {
   type CodexSubscriptionQuotaSnapshot,
 } from '../../../utils/codexSubscriptionQuotaCapabilities';
 import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
+import { useCliInstallStatus } from '../../../hooks/useCliInstallStatus';
+import { SpinLoader } from '../../react-bits';
 
 const RELATIVE_INLINE_BLOCK_STYLE: React.CSSProperties = { position: 'relative', display: 'inline-block' };
 const CHEVRON_ICON_STYLE: React.CSSProperties = { fontSize: '10px', marginLeft: '2px' };
@@ -80,6 +82,9 @@ export const ProviderSelect = ({ value, onChange, compact = false }: ProviderSel
   // Distance (px) from the Codex row's bottom edge up to the floating quota panel,
   // so it hovers just above the entire dropdown instead of overlapping provider rows.
   const [submenuBottom, setSubmenuBottom] = useState(0);
+  // CLI 安装门控(方案A):未安装的 provider 置灰+标记+点击提示;「重新检测」行强制刷新
+  const cliInstall = useCliInstallStatus();
+  const [rechecking, setRechecking] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { positionedStyle, recalculate } = useDropdownPosition({ buttonRef, dropdownRef, isOpen });
@@ -143,10 +148,34 @@ export const ProviderSelect = ({ value, onChange, compact = false }: ProviderSel
       return;
     }
 
+    // CLI 未安装门控:确认未安装(检测就绪且 installed=false)时拦截切换并提示,
+    // 保持下拉打开以便选择其它 provider。未知(未就绪/omp/dsh 不在检测范围)放行。
+    if (cliInstall.isNotInstalled(providerId)) {
+      showToastMessage(t('settings.cli.providerNotInstalledToast', {
+        name: t(`providers.${providerId}.label`),
+      }));
+      return;
+    }
+
     // Provider available, perform switch
     onChange?.(providerId);
     setIsOpen(false);
-  }, [onChange, showToastMessage]);
+  }, [onChange, showToastMessage, cliInstall, t]);
+
+  /**
+   * 「重新检测 CLI 环境」:绕过后端缓存强制全量重检。
+   * rechecking 在检测结果事件回包(cliInstall.version 递增)后复位。
+   */
+  const handleRecheckClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (rechecking) return;
+    setRechecking(true);
+    cliInstall.recheck();
+  }, [rechecking, cliInstall]);
+
+  useEffect(() => {
+    setRechecking(false);
+  }, [cliInstall.version]);
 
   /**
    * Close on outside click
@@ -311,16 +340,20 @@ export const ProviderSelect = ({ value, onChange, compact = false }: ProviderSel
             className="selector-dropdown"
             style={{ ...DROPDOWN_STYLE, ...positionedStyle }}
           >
-            {AVAILABLE_PROVIDERS.map((provider) => (
+            {AVAILABLE_PROVIDERS.map((provider) => {
+              // CLI 未安装门控(方案A):置灰+划线+badge;检测未知时 cliMissing=false 放行
+              const cliMissing = provider.enabled && cliInstall.isNotInstalled(provider.id);
+              return (
               <div
                 key={provider.id}
-                className={`selector-option ${provider.id === value ? 'selected' : ''} ${!provider.enabled ? 'disabled' : ''}`}
+                className={`selector-option ${provider.id === value ? 'selected' : ''} ${!provider.enabled || cliMissing ? 'disabled' : ''} ${cliMissing ? 'cli-not-installed' : ''}`}
                 onClick={() => handleSelect(provider.id)}
                 style={{
-                  ...getProviderOptionStyle(!!provider.enabled),
+                  ...getProviderOptionStyle(!!provider.enabled && !cliMissing),
                   ...(provider.id === 'codex' ? { position: 'relative' } : {}),
                 }}
                 data-provider-id={provider.id}
+                title={cliMissing ? t('settings.cli.notInstalled') : undefined}
                 onMouseEnter={(e) => {
                   if (provider.id === 'codex') {
                     // Float the quota panel just above the entire dropdown so it
@@ -345,7 +378,13 @@ export const ProviderSelect = ({ value, onChange, compact = false }: ProviderSel
                 <span className="provider-model-icon">
                   <ProviderModelIcon providerId={provider.id} size={16} colored />
                 </span>
-                <span>{getProviderLabel(provider.id)}</span>
+                <span className={cliMissing ? 'provider-label struck' : 'provider-label'}>{getProviderLabel(provider.id)}</span>
+                {cliMissing && (
+                  <span className="cli-not-installed-badge">
+                    <span className="badge-dot" />
+                    {t('settings.cli.notInstalled')}
+                  </span>
+                )}
                 {provider.id === value && (
                   <CheckIcon size={16} className="check-mark" />
                 )}
@@ -359,7 +398,21 @@ export const ProviderSelect = ({ value, onChange, compact = false }: ProviderSel
                   renderCodexQuotaSubmenu()
                 )}
               </div>
-            ))}
+              );
+            })}
+            <div className="selector-divider" />
+            <div
+              className={`selector-option selector-option-recheck ${rechecking ? 'disabled' : ''}`}
+              onClick={handleRecheckClick}
+              title={t('settings.cli.recheck')}
+            >
+              {rechecking ? (
+                <SpinLoader variant="ring" size={12} strokeWidth={2} duration={0.8} />
+              ) : (
+                <RefreshIcon size={14} />
+              )}
+              <span>{rechecking ? t('settings.cli.rechecking') : t('settings.cli.recheck')}</span>
+            </div>
           </div>
         )}
       </div>

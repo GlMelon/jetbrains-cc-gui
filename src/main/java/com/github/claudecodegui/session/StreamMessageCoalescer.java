@@ -55,7 +55,7 @@ public class StreamMessageCoalescer implements Disposable {
 
     // FIX: Heartbeat interval during streaming.  During tool execution phases
     // (command execution, file operations, etc.), no content deltas or message
-    // updates arrive from the SDK.  Without a heartbeat, the frontend stall
+    // updates arrive from the CLI stream.  Without a heartbeat, the frontend stall
     // watchdog may falsely trigger and prematurely end the streaming state.
     // This lightweight signal keeps the frontend watchdog alive.
     private static final int HEARTBEAT_INTERVAL_MS = 10_000;       // 10s
@@ -763,7 +763,7 @@ public class StreamMessageCoalescer implements Disposable {
      * Start (or restart) the periodic heartbeat during streaming.
      * Sends a lightweight JS signal to the frontend to prevent the stall
      * watchdog from falsely triggering during tool execution phases where
-     * no content deltas or message updates arrive from the SDK.
+     * no content deltas or message updates arrive from the CLI stream.
      */
     private void startHeartbeat() {
         heartbeatAlarm.cancelAllRequests();

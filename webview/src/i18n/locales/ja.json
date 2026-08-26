@@ -431,7 +431,7 @@
       "customSectionTitle": "カスタムモデル",
       "editPricing": "料金を編集"
     },
-    "dependencies": "SDK依存関係",
+    "dependencies": "CLIツール",
     "dependency": {
       "title": "SDK依存関係管理",
       "description": "AI SDK依存関係を管理します。初回使用前に必要なSDKをインストールしてください。",
@@ -874,6 +874,11 @@
       "loadFailed": "Load failed"
     },
     "cli": {
+      "providerNotInstalledToast": "{{name}} CLI がインストールされていません。設定 → CLI 環境 で先にインストールしてください",
+      "recheck": "CLI 環境を再検出",
+      "rechecking": "検出中…",
+
+      "updating": "更新中…",
       "hint": "These CLIs must be installed and configured in your system terminal. The plugin only detects installation status and version — it will never install them for you. Confirm each CLI works in the terminal before coming back here to use it.",
       "refresh": "Re-check",
       "retry": "Retry",
@@ -1921,9 +1926,9 @@
           "step0": "ターミナルで以下のコマンドを実行してバージョンを確認してください。Node 22 または現在の最新 LTS を推奨します — Node 24 では多数のエラー報告があるため、Node 20 または 22 をご利用ください："
         },
         "reinstallLatestSdk": {
-          "title": "方法 2：npm 公式レジストリから最新の SDK を再インストール",
+          "title": "方法 2：npm 公式レジストリから最新の CLI を再インストール",
           "step0": "1. npm 公式レジストリに切り替える（Taobao ミラーは最新版に同期されていない可能性があります、使用しないでください）：",
-          "step1": "2. 「依存関係管理」を開いて最新の SDK を再インストール："
+          "step1": "2. 「依存関係管理」を開いて最新の CLI を再インストール："
         }
       }
     }

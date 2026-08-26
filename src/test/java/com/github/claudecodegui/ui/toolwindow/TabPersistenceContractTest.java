@@ -20,7 +20,7 @@ import static org.junit.Assert.assertTrue;
 public class TabPersistenceContractTest {
 
     private static final Path SDK_TW = Path.of(
-            "src/main/java/com/github/claudecodegui/ui/toolwindow/ClaudeSDKToolWindow.java");
+            "src/main/java/com/github/claudecodegui/ui/toolwindow/ClaudeChatToolWindow.java");
     private static final Path CHAT_WINDOW = Path.of(
             "src/main/java/com/github/claudecodegui/ui/toolwindow/ClaudeChatWindow.java");
     private static final Path TAB_STATE = Path.of(
@@ -48,7 +48,7 @@ public class TabPersistenceContractTest {
     public void persistCapturesPinnedFromParentContent() throws Exception {
         String source = read(CHAT_WINDOW);
         assertTrue("persistTabSessionState must capture pinned from parentContent",
-                source.contains("snapshot.pinned = parentContent != null && ClaudeSDKToolWindow.isPinned(parentContent)"));
+                source.contains("snapshot.pinned = parentContent != null && ClaudeChatToolWindow.isPinned(parentContent)"));
     }
 
     @Test
@@ -72,7 +72,7 @@ public class TabPersistenceContractTest {
         assertTrue("PinTabAction must be a toggle action for menu selected-state",
                 source.contains("extends ToggleAction"));
         assertTrue("must mirror pinned into PINNED_KEY",
-                source.contains("ClaudeSDKToolWindow.PINNED_KEY"));
+                source.contains("ClaudeChatToolWindow.PINNED_KEY"));
         assertTrue("must persist via TabStateService.setPinned",
                 source.contains("setPinned(tabIndex, state)"));
         assertTrue("must update closeable after toggle",

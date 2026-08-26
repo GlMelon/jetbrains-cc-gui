@@ -107,16 +107,16 @@ function extractFilePaths(toolName, toolInput) {
 const INTERACTIVE_TOOLS = new Set(['AskUserQuestion']);
 const VALID_PERMISSION_MODES = new Set(['default', 'plan', 'acceptEdits', 'bypassPermissions']);
 
-// Yield to the SDK's native permission flow (settings.json deny/allow/ask rules,
-// mode-check, canUseTool fallback). Maps to SyncHookJSONOutput.continue in sdk.d.ts.
-// Frozen so accidental mutation cannot leak across hook invocations.
-const YIELD_TO_SDK = Object.freeze({ continue: true });
+// Yield to the Claude CLI's native permission flow (settings.json deny/allow/ask
+// rules, mode-check, canUseTool fallback). Maps to SyncHookJSONOutput.continue in
+// the hook protocol. Frozen so accidental mutation cannot leak across hook invocations.
+const YIELD_TO_CLI = Object.freeze({ continue: true });
 
 export {
   PLAN_MODE_ALLOWED_TOOLS,
   INTERACTIVE_TOOLS,
   VALID_PERMISSION_MODES,
-  YIELD_TO_SDK
+  YIELD_TO_CLI
 };
 
 /**
@@ -127,7 +127,7 @@ export {
 export function normalizePermissionMode(permissionMode) {
   if (!permissionMode || permissionMode === '') return 'default';
   if (VALID_PERMISSION_MODES.has(permissionMode)) return permissionMode;
-  console.warn('[DAEMON] Unknown permission mode, falling back to default:', permissionMode);
+  console.warn('[PERMISSION] Unknown permission mode, falling back to default:', permissionMode);
   return 'default';
 }
 
@@ -135,7 +135,7 @@ export function normalizePermissionMode(permissionMode) {
  * 创建 PreToolUse 钩子,根据权限模式与工具名决定 allow/deny/ask/yield。
  *
  * @param {string | { value: string } | null | undefined} permissionModeState
- *   权限模式:字符串(只读快照)或可变状态对象 { value }(daemon 运行时跨 turn 保持)。
+ *   权限模式:字符串(只读快照)或可变状态对象 { value }(长驻 CLI 运行时跨 turn 保持)。
  * @param {string|null} [cwd=null] 工作目录
  * @param {null | ((mode: string) => void | Promise<void>)} [onModeChange=null] 模式变更回调
  * @param {{ canUseTool?: any; requestPlanApproval?: any }} [dependencies={}] 可注入的依赖(测试用)
@@ -195,7 +195,7 @@ export function createPreToolUseHook(permissionModeState, cwd = null, onModeChan
     // to write the permission file and show the Java-side dialog. This applies to ALL
     // permission modes (including bypassPermissions) and ALL contexts (main session AND
     // subagents spawned by Agent/Task tools). Without this explicit interception, the
-    // hook returns YIELD_TO_SDK which in bypassPermissions mode auto-approves without
+    // hook returns YIELD_TO_CLI which in bypassPermissions mode auto-approves without
     // calling canUseTool, and in subagent child processes may not forward to the parent
     // canUseTool callback at all.
     if (toolName === 'AskUserQuestion') {
@@ -274,9 +274,9 @@ export function createPreToolUseHook(permissionModeState, cwd = null, onModeChan
     if (currentPermissionMode === 'plan') {
       // Step 1: ExitPlanMode is now handled above (intercepted for ALL modes)
 
-      // Step 2: Safe always-allow tools yield to SDK so settings.json deny rules can fire.
+      // Step 2: Safe always-allow tools yield to the CLI so settings.json deny rules can fire.
       if (SAFE_ALWAYS_ALLOW_TOOLS.has(toolName)) {
-        return YIELD_TO_SDK;
+        return YIELD_TO_CLI;
       }
 
       // Step 3: Agent/Task are auto-approved in plan mode, matching CLI behavior.
@@ -365,13 +365,13 @@ export function createPreToolUseHook(permissionModeState, cwd = null, onModeChan
 
       // Step 5: Plan mode specific allowed tools (read-only exploration tools)
       if (PLAN_MODE_ALLOWED_TOOLS.has(toolName)) {
-        return YIELD_TO_SDK;
+        return YIELD_TO_CLI;
       }
 
       // Step 6: Auto-approve read-only MCP tools (positive verb allowlist; see isReadOnlyMcpTool).
       // Destructive/ambiguous MCP tools fall through to the plan-mode deny below — plan mode is read-only.
       if (isReadOnlyMcpTool(toolName)) {
-        return YIELD_TO_SDK;
+        return YIELD_TO_CLI;
       }
 
       // Everything else is blocked in plan mode
@@ -385,7 +385,7 @@ export function createPreToolUseHook(permissionModeState, cwd = null, onModeChan
     }
 
     // ======== DEFAULT MODE ========
-    // Safe/read-only tools yield to the SDK so deny rules (for example Read(./.env))
+    // Safe/read-only tools yield to the CLI so deny rules (for example Read(./.env))
     // still apply; an allow-rule for a read-only tool is harmless.
     //
     // Tools with side effects return 'ask'. A no-opinion yield WOULD fall through to
@@ -402,7 +402,7 @@ export function createPreToolUseHook(permissionModeState, cwd = null, onModeChan
       // whose name lacks 'Write'/'Edit' must NOT be yielded, or a project/local settings.json
       // allow-rule could silently auto-approve it. Anything else routes through 'ask'.
       if (SAFE_ALWAYS_ALLOW_TOOLS.has(toolName) || isReadOnlyMcpTool(toolName)) {
-        return YIELD_TO_SDK;
+        return YIELD_TO_CLI;
       }
       return {
         hookSpecificOutput: {
@@ -417,7 +417,7 @@ export function createPreToolUseHook(permissionModeState, cwd = null, onModeChan
     // acceptEdits auto-accepts FILE EDITS only. Command execution (Bash) and sub-agent
     // launches (Agent) must still be confirmed and must NOT be auto-approved by a project
     // allow-rule, so route them through canUseTool via 'ask'. Edits fall through to the
-    // SDK's native acceptEdits handling below.
+    // CLI's native acceptEdits handling below.
     if (currentPermissionMode === 'acceptEdits' && EXECUTION_TOOLS.has(toolName)) {
       return {
         hookSpecificOutput: {
@@ -428,7 +428,7 @@ export function createPreToolUseHook(permissionModeState, cwd = null, onModeChan
       };
     }
 
-    // acceptEdits (file edits) and bypassPermissions yield to the SDK's native flow.
-    return YIELD_TO_SDK;
+    // acceptEdits (file edits) and bypassPermissions yield to the CLI's native flow.
+    return YIELD_TO_CLI;
   };
 }

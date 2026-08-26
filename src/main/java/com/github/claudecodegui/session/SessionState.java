@@ -129,7 +129,7 @@ public class SessionState {
     private volatile String model = CommonConstants.DEFAULT_MODEL;
     private volatile String provider = CommonConstants.DEFAULT_PROVIDER;
     private volatile String permissionSessionId = null;
-    // Reasoning effort (thinking depth). Null means "do not override SDK/settings".
+    // Reasoning effort (thinking depth). Null means "do not override CLI/settings".
     private volatile String reasoningEffort = null;
     // Codex service tier: null = use Codex defaults, "fast" = Codex /fast.
     private volatile String codexServiceTier = null;
@@ -364,7 +364,7 @@ public class SessionState {
         if (VALID_PROVIDERS.contains(trimmed)) {
             // 跨 provider 切换时清空 sessionId:三 provider 的 session 协议/格式互不兼容
             // (Claude/Codex=UUID, OpenCode=ses_xxx),复用会让 claude --resume 收到非 UUID 崩溃。
-            // 同 provider 内(SDK↔CLI 调用模式切换)格式一致,保留以支持会话续接。
+            // 同 provider 内格式一致,保留 sessionId 以支持会话续接。
             if (!trimmed.equals(this.provider)) {
                 this.sessionId = null;
             }

@@ -2,9 +2,9 @@
 /**
  * Resolves the user-configured Claude Code CLI executable, if any.
  *
- * The Java daemon sets CLAUDE_CODE_PATH when the user has provided a custom
- * path in Settings > Basic. When set, the Claude Agent SDK is told to spawn
- * that binary instead of its bundled CLI via `pathToClaudeCodeExecutable`.
+ * The Java side sets CLAUDE_CODE_PATH when the user has provided a custom
+ * path in Settings > Basic. When set, the bridge spawns that binary instead
+ * of the `claude` executable resolved from PATH.
  *
  * Returns null when unset/blank so callers can spread the field conditionally.
  *

@@ -1,6 +1,5 @@
 package com.github.claudecodegui.provider;
 
-import com.github.claudecodegui.session.runtime.RuntimeType;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import org.junit.Test;
@@ -13,6 +12,8 @@ import static org.junit.Assert.assertTrue;
 
 /**
  * ProviderDescriptorLoader 配置解析与容错测试。
+ * <p>
+ * runtime 维度已消除:legacy {@code "runtimes"} 字段应被忽略(向后兼容存量配置)。
  */
 public class ProviderDescriptorLoaderTest {
 
@@ -24,7 +25,7 @@ public class ProviderDescriptorLoaderTest {
         acme.addProperty("cliCommand", "acme");
         acme.addProperty("cliCommandWindows", "acme.cmd");
         acme.add("capabilities", strArray("CLI_SESSION", "STREAMING", "HISTORY"));
-        acme.add("runtimes", strArray("CLI"));
+        acme.add("runtimes", strArray("CLI")); // legacy 字段:应被忽略
 
         List<ProviderDescriptor> result = ProviderDescriptorLoader.fromJsonArray(arr(acme));
 
@@ -36,7 +37,7 @@ public class ProviderDescriptorLoaderTest {
         assertEquals("acme.cmd", d.cliCommandWindows());
         assertEquals(EnumSet.of(ProviderCapability.CLI_SESSION, ProviderCapability.STREAMING, ProviderCapability.HISTORY),
                 d.capabilities());
-        assertTrue(d.supports(RuntimeType.CLI));
+        assertTrue(d.supports(ProviderCapability.CLI_SESSION));
     }
 
     @Test
@@ -52,7 +53,6 @@ public class ProviderDescriptorLoaderTest {
         assertEquals("mistral", d.cliCommand()); // cliCommand 缺省回退 id
         assertEquals("mistral.cmd", d.cliCommandWindows()); // 缺省 cliCommand + ".cmd"
         assertTrue(d.capabilities().isEmpty());
-        assertTrue(d.supportedRuntimes().isEmpty());
     }
 
     @Test
@@ -74,11 +74,11 @@ public class ProviderDescriptorLoaderTest {
     }
 
     @Test
-    public void ignoresUnknownCapabilityAndRuntimeValues() {
+    public void ignoresUnknownCapabilityAndLegacyRuntimeValues() {
         JsonObject d = new JsonObject();
         d.addProperty("id", "weird");
         JsonArray caps = strArray("CLI_SESSION", "NOT_A_REAL_CAPABILITY");
-        JsonArray runtimes = strArray("CLI", "NOT_A_RUNTIME");
+        JsonArray runtimes = strArray("CLI", "NOT_A_RUNTIME"); // legacy 字段:应被忽略
         d.add("capabilities", caps);
         d.add("runtimes", runtimes);
 
@@ -86,7 +86,6 @@ public class ProviderDescriptorLoaderTest {
 
         assertEquals(1, result.size());
         assertEquals(EnumSet.of(ProviderCapability.CLI_SESSION), result.get(0).capabilities());
-        assertEquals(EnumSet.of(RuntimeType.CLI), result.get(0).supportedRuntimes());
     }
 
     @Test

@@ -1,6 +1,6 @@
 package com.github.claudecodegui.session;
 
-import com.github.claudecodegui.provider.common.SDKResult;
+import com.github.claudecodegui.provider.common.CliResult;
 import com.github.claudecodegui.session.ClaudeSession.Message;
 import com.google.gson.Gson;
 import org.junit.Test;
@@ -33,7 +33,7 @@ public class ClaudeMessageHandlerInterruptedTest {
 
         handler.onMessage("stream_start", "");
 
-        SDKResult result = SDKResult.error("__I18N__:chat.requestInterrupted");
+        CliResult result = CliResult.error("__I18N__:chat.requestInterrupted");
         result.interrupted = true;
         handler.onComplete(result);
 

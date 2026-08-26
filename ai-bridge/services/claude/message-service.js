@@ -2,9 +2,9 @@
 /**
  * Message sending service module — coordinator.
  *
- * Responsible for sending messages through Claude Agent SDK.
+ * Responsible for sending messages through the Claude Code CLI.
  * Re-exports all public API from focused submodules:
- *   - message-utils.js: SDK init, retry, truncation, error payloads
+ *   - message-utils.js: retry, truncation, error payloads
  *   - permission-mode.js: Unified tool permission policy and PreToolUse hook
  *   - message-session-registry.js: Active session state
  *   - message-sender.js: sendMessage, sendMessageWithAttachments
@@ -32,7 +32,7 @@ import {
 } from './mcp-status/index.js';
 
 // NOTE: getSlashCommands() was removed — slash commands are now resolved
-// locally by Java SlashCommandRegistry (no SDK/bridge call needed).
+// locally by Java SlashCommandRegistry (no bridge call needed).
 
 /**
  * Get MCP server connection status.

@@ -15,8 +15,8 @@ import static org.junit.Assert.assertTrue;
  * Unit tests for {@link CliPersistentProcessRegistry} slot bookkeeping.
  *
  * <p>Spawn-success paths need a real resident CLI process, which is out of unit-test
- * scope — here we pin the failure/no-op contracts that the one-shot fallback relies on
- * (daemon-mode design §3.2): a spawn failure must degrade to {@code null} (never throw),
+ * scope — here we pin the failure/no-op contracts that the one-shot fallback relies on:
+ * a spawn failure must degrade to {@code null} (never throw),
  * and every lifecycle entry point must tolerate empty/unknown slot state.
  */
 public class CliPersistentProcessRegistryTest {
@@ -61,7 +61,7 @@ public class CliPersistentProcessRegistryTest {
 
     @Test
     public void reclaimIdleProcessesNowToleratesEmptyRegistry() {
-        // §7 开关关闭副作用在空注册表上必须是 no-op
+        // 开关关闭副作用在空注册表上必须是 no-op
         freshRegistry().reclaimIdleProcessesNow();
     }
 
@@ -83,7 +83,7 @@ public class CliPersistentProcessRegistryTest {
     @Test
     public void consecutiveSpawnFailuresActivateRebuildCooldown() {
         CliPersistentProcessRegistry registry = freshRegistry();
-        // 连续失败达上限(CLI_PERSISTENT_REBUILD_MAX_FAILURES)后进入冷却窗口(§6.15)
+        // 连续失败达上限(CLI_PERSISTENT_REBUILD_MAX_FAILURES)后进入冷却窗口
         for (int i = 0; i < CliConstants.CLI_PERSISTENT_REBUILD_MAX_FAILURES; i++) {
             assertNull(registry.acquire("tab-cooldown", "claude", unspawnableSpec()));
         }

@@ -3,19 +3,19 @@
 
 /**
  * AI Bridge Channel Manager
- * Unified bridge entry point for Claude/Codex SDKs and CLI providers
+ * Unified bridge entry point driving CLI subprocesses for all providers
  *
  * Command format:
  *   node channel-manager.js <provider> <command> [args...]
  *
  * Provider:
- *   claude   - Claude Agent SDK (@anthropic-ai/claude-agent-sdk)
- *   codex    - Codex SDK (@openai/codex-sdk)
- *   grok     - Grok CLI (no SDK; spawns local `grok` binary)
- *   kimi     - Kimi CLI (no SDK; spawns local `kimi` binary)
- *   opencode - OpenCode CLI (no SDK; spawns local `opencode` binary)
- *   pi       - PI CLI (no SDK; spawns local `pi` binary)
- *   omp      - OMP CLI (no SDK; spawns local `omp` binary)
+ *   claude   - Claude Code CLI (spawns local `claude` binary)
+ *   codex    - Codex CLI (spawns local `codex` binary)
+ *   grok     - Grok CLI (spawns local `grok` binary)
+ *   kimi     - Kimi CLI (spawns local `kimi` binary)
+ *   opencode - OpenCode CLI (spawns local `opencode` binary)
+ *   pi       - PI CLI (spawns local `pi` binary)
+ *   omp      - OMP CLI (spawns local `omp` binary)
  *   dsh      - DeepSeek Harness (Host RPC + WS mux against local `dsh web`)
  *
  * Commands:
@@ -64,7 +64,7 @@ function writeJsonAndExit(payload, code = 0) {
 // errors, and Bedrock auth fails for desktop-launched IDEs.
 injectStartupEnvVars();
 
-// Configure CLI client identity before any SDK loading
+// Configure CLI client identity before spawning any CLI child process
 configureCliIdentity();
 
 // Diagnostic logging: startup info
@@ -145,7 +145,7 @@ const providerRegistry = getDefaultProviderRegistry();
     process.exitCode = 0;
     const exitStrategy = resolveExitStrategy(provider, command);
     if (exitStrategy !== EXIT_STRATEGY.NATURAL) {
-      // network / rewind / history-readonly:各自的句柄(SDK fetch socket / MCP 连接 /
+      // network / rewind / history-readonly:各自的句柄(CLI fetch socket / MCP 连接 /
       // sql.js db)可能阻止自然退出,按策略延迟强退(history-readonly 200ms 绕过 Node 25 +
       // Windows 的 sql.js UV_HANDLE_CLOSING assert,其余 100ms),留足 stdout flush 时间。
       setTimeout(() => process.exit(0), exitDelayFor(exitStrategy));

@@ -5,6 +5,7 @@ import styles from './style.module.less';
 import { AVAILABLE_PROVIDERS } from '../ChatInputBox/types';
 import { ProviderModelIcon } from '../shared/ProviderModelIcon';
 import { CheckIcon } from '../Icons';
+import { useCliInstallStatus } from '../../hooks/useCliInstallStatus';
 
 const ROOT_STYLE: React.CSSProperties = {
   position: 'relative',
@@ -48,6 +49,8 @@ export const BlinkingLogo = ({ provider, modelId, onProviderChange }: BlinkingLo
   const [toastMessage, setToastMessage] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  // CLI 安装门控(方案A):与 ProviderSelect 同一判定,未知放行
+  const cliInstall = useCliInstallStatus();
 
   useEffect(() => {
     if (provider !== prevProviderRef.current || modelId !== prevModelIdRef.current) {
@@ -116,6 +119,14 @@ export const BlinkingLogo = ({ provider, modelId, onProviderChange }: BlinkingLo
       return;
     }
 
+    // CLI 未安装门控:拦截切换并提示(与 ProviderSelect 一致),保持菜单打开
+    if (cliInstall.isNotInstalled(providerId)) {
+      showToastMessage(t('settings.cli.providerNotInstalledToast', {
+        name: t(`providers.${providerId}.label`),
+      }));
+      return;
+    }
+
     if (onProviderChange) {
       onProviderChange(providerId);
     }
@@ -166,23 +177,33 @@ export const BlinkingLogo = ({ provider, modelId, onProviderChange }: BlinkingLo
             exit={{ opacity: 0, y: -8, scale: 0.95 }}
             transition={{ duration: 0.15, ease: 'easeOut' }}
           >
-            {AVAILABLE_PROVIDERS.map((p) => (
+            {AVAILABLE_PROVIDERS.map((p) => {
+              const cliMissing = p.enabled && cliInstall.isNotInstalled(p.id);
+              return (
               <div
                 key={p.id}
-                className={`selector-option ${p.id === provider ? 'selected' : ''} ${!p.enabled ? 'disabled' : ''}`}
+                className={`selector-option ${p.id === provider ? 'selected' : ''} ${!p.enabled || cliMissing ? 'disabled' : ''} ${cliMissing ? 'cli-not-installed' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   handleSelect(p.id);
                 }}
-                style={getProviderOptionStyle(!!p.enabled)}
+                style={getProviderOptionStyle(!!p.enabled && !cliMissing)}
+                title={cliMissing ? t('settings.cli.notInstalled') : undefined}
               >
                 <ProviderModelIcon providerId={p.id} size={16} colored />
-                <span>{getProviderLabel(p.id)}</span>
+                <span className={cliMissing ? 'provider-label struck' : 'provider-label'}>{getProviderLabel(p.id)}</span>
+                {cliMissing && (
+                  <span className="cli-not-installed-badge">
+                    <span className="badge-dot" />
+                    {t('settings.cli.notInstalled')}
+                  </span>
+                )}
                 {p.id === provider && (
                   <CheckIcon size={16} className="check-mark" />
                 )}
               </div>
-            ))}
+              );
+            })}
           </motion.div>
         )}
       </AnimatePresence>

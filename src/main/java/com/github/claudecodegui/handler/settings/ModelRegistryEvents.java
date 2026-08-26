@@ -3,7 +3,7 @@ package com.github.claudecodegui.handler.settings;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.settings.ModelRegistryResult;
-import com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow;
+import com.github.claudecodegui.ui.toolwindow.ClaudeChatToolWindow;
 import com.github.claudecodegui.util.JsUtils;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -12,7 +12,7 @@ import com.intellij.openapi.project.Project;
 /**
  * 模型注册表下行事件的装配 + 跨 tab 广播(DRY)。
  *
- * <p>所有 registry 下发(get/set/reload)统一经 {@link ClaudeSDKToolWindow#broadcastModelRegistry}
+ * <p>所有 registry 下发(get/set/reload)统一经 {@link ClaudeChatToolWindow#broadcastModelRegistry}
  * 广播到当前项目全部标签——registry 是应用级全局数据,任意 tab 触发的读取/变更都应同步到所有 tab 的
  * 前端 {@code currentRegistry} 单例,解决多标签 webview 单例隔离下的下拉不同步问题。
  */
@@ -49,6 +49,6 @@ final class ModelRegistryEvents {
             ctx.dispatchEvent(type, payloadJson);
             return;
         }
-        ClaudeSDKToolWindow.broadcastModelRegistry(project, type, JsUtils.escapeJs(payloadJson));
+        ClaudeChatToolWindow.broadcastModelRegistry(project, type, JsUtils.escapeJs(payloadJson));
     }
 }

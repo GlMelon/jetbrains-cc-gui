@@ -1,9 +1,9 @@
 /**
  * sessionCallbacks.ts
  *
- * Registers window bridge callbacks for session management, SDK dependency status,
- * and rewind result: setSessionId, addToast, typed history export data,
- * updateDependencyStatus, rewind.result.
+ * Registers window bridge callbacks for session management, history export/archive
+ * result, rewind result, and SDK-to-CLI session conversion result: setSessionId,
+ * addToast, session.title, history export data, rewind.result, onConversionResult.
  */
 
 import { sendAction, subscribeEvent } from '../../../bridge/typed';
@@ -19,7 +19,7 @@ import { registerLegacyAlias } from '../../../bridge';
 // Matches session-titles-service.cjs#updateTitle, which rejects longer titles.
 const CUSTOM_TITLE_MAX_LENGTH = 50;
 
-export function registerSessionAndSdkCallbacks(
+export function registerSessionCallbacks(
   options: UseWindowCallbacksOptions,
   tRef: MutableRefObject<UseWindowCallbacksOptions['t']>,
 ): void {

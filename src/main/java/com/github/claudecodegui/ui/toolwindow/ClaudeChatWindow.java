@@ -107,8 +107,8 @@ public class ClaudeChatWindow {
      * browser.
      */
     private JBCefBrowser browser;
-    // volatile: read from the daemon reader thread by the session_updated listener
-    // and its loadFromServer continuation, while reassigned on the EDT.
+    // volatile: read from background reader threads and the loadFromServer
+    // continuation, while reassigned on the EDT.
     private volatile ClaudeSession session;
     /**
      * webview watchdog.
@@ -166,7 +166,7 @@ public class ClaudeChatWindow {
     private final DeferredReload deferredReload = new DeferredReload();
     // Backstop for the parked reload. onStreamEnded is the fast drain path, but it
     // is edge-triggered: a defer that lands just after the stream-end edge (a
-    // cross-thread check-then-act between the daemon reader's isStreamActive() read
+    // cross-thread check-then-act between the defer caller's isStreamActive() read
     // and the stream reader's streamActive=false + drain), or the LAST background
     // answer of a fan-out with no following stream end, would otherwise never be
     // drained — the answer stays invisible forever. This alarm re-checks after a
@@ -397,14 +397,14 @@ public class ClaudeChatWindow {
 
     public void setParentContent(Content content) {
         if (this.parentContent != null && this.parentContent != content) {
-            ClaudeSDKToolWindow.unregisterContentMapping(this.parentContent);
+            ClaudeChatToolWindow.unregisterContentMapping(this.parentContent);
             LOG.debug("[MultiTab] Unregistered old Content -> ClaudeChatWindow mapping");
         }
 
         this.parentContent = content;
         if (content != null) {
             content.putUserData(ToolWindow.SHOW_CONTENT_ICON, true);
-            ClaudeSDKToolWindow.registerContentMapping(content, this);
+            ClaudeChatToolWindow.registerContentMapping(content, this);
             LOG.debug("[MultiTab] Registered Content -> ClaudeChatWindow mapping for: " + content.getDisplayName());
 
             if (this.originalTabName == null) {
@@ -458,7 +458,7 @@ public class ClaudeChatWindow {
             if (contentManager != null && contentManager.getIndexOfContent(content) >= 0) {
                 contentManager.setSelectedContent(content);
                 ToolWindow toolWindow = ToolWindowManager.getInstance(project)
-                        .getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
+                        .getToolWindow(ClaudeChatToolWindow.TOOL_WINDOW_ID);
                 if (toolWindow != null
                         && toolWindow.getContentManager() == contentManager
                         && !toolWindow.isActive()) {
@@ -571,9 +571,9 @@ public class ClaudeChatWindow {
     /**
      * Returns the provider this tab is currently using ("claude" or "codex").
      * Used by NodeProcessRegistry to label processes with the user-facing provider
-     * rather than the underlying SDK type (a Claude daemon may still be alive
-     * after the user switched the tab to Codex — the panel reflects the tab's
-     * intent, not the lingering SDK).
+     * rather than any lingering child process (a Claude CLI process may still be
+     * draining after the user switched the tab to Codex — the panel reflects the
+     * tab's intent, not the lingering process).
      */
     public String getCurrentProvider() {
         HandlerContext ctx = this.handlerContext;
@@ -892,7 +892,7 @@ public class ClaudeChatWindow {
         try {
             if (project != null && !project.isDisposed()) {
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
+                    ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow(ClaudeChatToolWindow.TOOL_WINDOW_ID);
                     if (toolWindow != null && toolWindow.isVisible()) {
                         toolWindow.hide();
                     }
@@ -1059,7 +1059,7 @@ public class ClaudeChatWindow {
      * making background-turn answers appear at the next turn boundary instead of
      * only after the user reopens the session.
      *
-     * <p>Thread-safety: {@code defer} is called from the daemon event thread,
+     * <p>Thread-safety: {@code defer} is called from background callback threads,
      * {@code takeIfRunnable} from the coalescer's onStreamEnded hook; both are
      * fully synchronized so a defer/drain interleave never loses or duplicates a
      * pending reload. {@code take} atomically reads-clears-and-gates in one
@@ -1227,7 +1227,7 @@ public class ClaudeChatWindow {
      * Returns true iff the window currently holds the session identified by
      * {@code sessionId} (i.e. it has not been replaced by a new-session /
      * restart flow on the EDT). The session field is volatile, so this read is
-     * safe from the daemon-reader and loadFromServer() continuation threads.
+     * safe from background reader and loadFromServer() continuation threads.
      */
     private boolean isSessionActive(String sessionId) {
         ClaudeSession current = session;
@@ -1305,7 +1305,7 @@ public class ClaudeChatWindow {
     }
 
     private void registerInstance() {
-        ClaudeSDKToolWindow.registerWindow(project, this);
+        ClaudeChatToolWindow.registerWindow(project, this);
     }
 
     private void interruptDueToPermissionDenial() {
@@ -1346,7 +1346,7 @@ public class ClaudeChatWindow {
         snapshot.model = session.getModel();
         snapshot.permissionMode = session.getPermissionMode();
         snapshot.reasoningEffort = session.getReasoningEffort();
-        snapshot.pinned = parentContent != null && ClaudeSDKToolWindow.isPinned(parentContent);
+        snapshot.pinned = parentContent != null && ClaudeChatToolWindow.isPinned(parentContent);
 
         TabStateService.getInstance(project).saveTabSessionState(tabIndex, snapshot);
         SessionRuntimeDefaults.rememberProvider(project, snapshot.provider);
@@ -1431,11 +1431,11 @@ public class ClaudeChatWindow {
         handlerContext.setDisposed(true);
 
         if (parentContent != null) {
-            ClaudeSDKToolWindow.unregisterContentMapping(parentContent);
+            ClaudeChatToolWindow.unregisterContentMapping(parentContent);
             LOG.debug("[MultiTab] Removed Content -> ClaudeChatWindow mapping during dispose");
         }
 
-        ClaudeSDKToolWindow.unregisterWindow(project, this);
+        ClaudeChatToolWindow.unregisterWindow(project, this);
 
         try {
             long sessionDisposeStartNanos = System.nanoTime();

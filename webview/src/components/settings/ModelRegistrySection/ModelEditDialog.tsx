@@ -7,6 +7,7 @@ import { EditIcon, PlusIcon } from '../../Icons';
 import { ClickSpark } from '../../react-bits';
 import type { ModelRegistryItem } from '../../../utils/modelRegistry';
 import { DEFAULT_CONTEXT_WINDOW, ONE_MILLION_CONTEXT_WINDOW } from '../../../components/ChatInputBox/types';
+import { useCliInstallStatus } from '../../../hooks/useCliInstallStatus';
 
 // 与 ModelRegistrySection 内 EMPTY_MODEL 保持同构的弹窗默认表单(解耦,各自维护)
 type Provider = 'claude' | 'codex' | 'opencode' | 'grok' | 'kimi' | 'pi';
@@ -45,6 +46,9 @@ export default function ModelEditDialog({ isOpen, editing, editingOriginalKey, o
   const { t } = useTranslation();
   const isEditing = editingOriginalKey !== null;
   const [form, setForm] = useState<ModelRegistryItem>(EMPTY_FORM);
+  // CLI 未安装门控(方案A):新增时禁选未安装 provider 的分段;
+  // 编辑存量时不禁当前项(否则无法保存既有配置)
+  const cliInstall = useCliInstallStatus();
 
   // 打开/编辑目标变化时回填(取消态 isOpen=false 不回填,保留旧值无副作用)
   useEffect(() => {
@@ -94,17 +98,22 @@ export default function ModelEditDialog({ isOpen, editing, editingOriginalKey, o
         <div className="form-group">
           <label>{t('settings.models.dialog.provider', '供应商')}</label>
           <div className="model-segmented">
-            {PROVIDERS.map((p) => (
+            {PROVIDERS.map((p) => {
+              const cliMissing = cliInstall.isNotInstalled(p) && form.provider !== p;
+              return (
               <button
                 key={p}
                 type="button"
                 className={`seg ${provider === p ? 'active' : ''}`}
                 onClick={() => update({ provider: p })}
+                disabled={cliMissing}
+                title={cliMissing ? t('settings.cli.notInstalled') : undefined}
               >
                 <ProviderModelIcon providerId={p} size={14} colored />
                 <span>{t(`providers.${p}.label`, p)}</span>
               </button>
-            ))}
+              );
+            })}
           </div>
         </div>
 

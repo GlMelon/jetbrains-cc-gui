@@ -18,7 +18,7 @@ final class BridgeSignatureVerifier {
 
     private static final Logger LOG = Logger.getInstance(BridgeSignatureVerifier.class);
 
-    static final String SDK_HASH_FILE_NAME = "ai-bridge.hash";
+    static final String BRIDGE_HASH_FILE_NAME = "ai-bridge.hash";
 
     private BridgeSignatureVerifier() {
     }
@@ -43,7 +43,7 @@ final class BridgeSignatureVerifier {
      * @return The hash string, or null if file doesn't exist or read fails
      */
     static String readPrecomputedHash(File pluginDir) {
-        File hashFile = new File(pluginDir, SDK_HASH_FILE_NAME);
+        File hashFile = new File(pluginDir, BRIDGE_HASH_FILE_NAME);
         if (!hashFile.exists()) {
             LOG.debug("[BridgeResolver] Precomputed hash file not found: " + hashFile.getAbsolutePath());
             return null;

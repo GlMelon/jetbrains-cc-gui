@@ -3,6 +3,7 @@ package com.github.claudecodegui.cli.opencode;
 import com.github.claudecodegui.cli.CliSessionCallback;
 import com.github.claudecodegui.cli.common.CliConstants;
 import com.github.claudecodegui.cli.common.CliOutputLimits;
+import com.github.claudecodegui.cli.common.CliStreamParser;
 import com.github.claudecodegui.cli.common.CliSectionEmitter;
 import com.github.claudecodegui.cli.common.GatewayDownMatcher;
 import com.github.claudecodegui.cli.common.McpErrorMatcher;
@@ -34,7 +35,7 @@ import com.intellij.openapi.diagnostic.Logger;
  *   <li>{@code error} → 收集到 {@link #errorDiagnostic()},由会话层在结束时上报</li>
  * </ul>
  */
-public class OpenCodeCliStreamParser {
+public class OpenCodeCliStreamParser implements CliStreamParser {
 
     private static final Logger LOG = Logger.getInstance(OpenCodeCliStreamParser.class);
     private static final String EVENT_STEP_START = "step_start";
@@ -330,7 +331,7 @@ public class OpenCodeCliStreamParser {
             message = event.toString();
         }
         // MCP 连接失败(本地 server 未启动):降级为非阻塞提示,不标记 hasError/缓冲为回合错误。
-        // 镜像 Codex CLI 诊断分支与 Codex SDK [SEND_ERROR] 的降级处理(Principle 6 对称)。
+        // 镜像 Codex CLI 诊断分支的降级处理(Principle 6 对称)。
         if (emitMcpNoticeIfMatched(message)) {
             return;
         }

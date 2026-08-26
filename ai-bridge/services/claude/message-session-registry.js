@@ -5,7 +5,7 @@
  * and message-service modules.
  */
 
-// Store active query results for persistent daemon session operations
+// Store active query results for persistent CLI session operations
 // Key: sessionId, Value: { queryResult, createdAt }
 const activeQueryResults = new Map();
 
@@ -68,7 +68,7 @@ export function removeSession(sessionId) {
 }
 
 /**
- * Register an active query object for a session (used by persistent daemon runtime).
+ * Register an active query object for a session (used by the persistent CLI runtime).
  * @param {string} sessionId
  * @param {object} queryResult
  */

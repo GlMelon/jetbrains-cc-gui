@@ -71,7 +71,7 @@ public class OpenCodeHistoryService {
             return SessionHistoryQueryResult.empty();
         }
         try {
-            File bridgeDir = nodeService.getSdkTestDir();
+            File bridgeDir = nodeService.getBridgeDir();
             if (bridgeDir == null) {
                 LOG.warn("[OpenCode] Bridge directory not ready, cannot load history");
                 return SessionHistoryQueryResult.empty();
@@ -130,7 +130,7 @@ public class OpenCodeHistoryService {
      */
     public String getSessionList(String projectPath) {
         try {
-            File bridgeDir = nodeService.getSdkTestDir();
+            File bridgeDir = nodeService.getBridgeDir();
             if (bridgeDir == null) {
                 LOG.warn("[OpenCode] Bridge directory not ready, cannot list sessions");
                 return "";
@@ -171,7 +171,7 @@ public class OpenCodeHistoryService {
             return 0;
         }
         try {
-            File bridgeDir = nodeService.getSdkTestDir();
+            File bridgeDir = nodeService.getBridgeDir();
             if (bridgeDir == null) {
                 LOG.warn("[OpenCode] Bridge directory not ready, cannot archive session");
                 return 0;

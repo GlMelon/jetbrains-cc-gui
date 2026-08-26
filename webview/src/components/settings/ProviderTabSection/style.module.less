@@ -60,6 +60,33 @@
       color: #ffffff;
     }
   }
+
+  /* CLI 未安装门控(方案A):置灰不可进入 */
+  &.tabBlocked {
+    opacity: 0.5;
+    cursor: not-allowed;
+
+    &:hover {
+      background: transparent;
+      color: var(--text-secondary);
+
+      .tabIcon {
+        color: var(--text-tertiary);
+      }
+    }
+  }
+}
+
+/* 「未安装」mini badge(琥珀系,与输入区 selector badge 同视觉语言) */
+.tabBadge {
+  font-size: 10px;
+  line-height: 1;
+  padding: 3px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: var(--cli-badge-bg, rgba(224, 160, 60, 0.16));
+  border: 1px solid var(--cli-badge-border, rgba(224, 160, 60, 0.4));
+  color: var(--cli-badge-text, #e0a03c);
 }
 
 .tabIcon {

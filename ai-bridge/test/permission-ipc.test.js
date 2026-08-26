@@ -64,8 +64,9 @@ test('log metadata helpers do not include raw permission payload values', () => 
 });
 
 // The Node bridge passes the result of this helper straight back to the Claude
-// SDK as the "this tool may run" boolean. A truthy-but-not-strictly-true value
-// (string "true", number 1, partially written file) historically would have
+// CLI (via the PreToolUse hook) as the "this tool may run" boolean. A
+// truthy-but-not-strictly-true value (string "true", number 1, partially
+// written file) historically would have
 // been read as allow; pin the strict contract so a corrupted response file
 // can never escalate into an accidental permission grant.
 
@@ -100,23 +101,4 @@ test('parsePermissionAllowResponse rejects malformed and empty payloads', () => 
   assert.equal(parsePermissionAllowResponse('not json'), false);
   assert.equal(parsePermissionAllowResponse('{"allow":tru'), false);
   assert.equal(parsePermissionAllowResponse('null'), false);
-});
-
-// Regression: AskUserQuestion / permission IPC routes by the stable tab routing
-// key in CLAUDE_SESSION_ID (set when the daemon is launched). The real Claude
-// SDK conversation sessionId must never overwrite that env for a single request
-// — otherwise Node writes ask-user-question-<sdkId>-*.json while Java watches
-// ask-user-question-<routingId>-*.json and the dialog never appears.
-test('daemon must not overwrite CLAUDE_SESSION_ID with params.sessionId', async () => {
-  const { readFile } = await import('node:fs/promises');
-  const { fileURLToPath } = await import('node:url');
-  const { dirname, join } = await import('node:path');
-  const daemonSource = await readFile(
-    join(dirname(fileURLToPath(import.meta.url)), 'daemon.js'),
-    'utf8'
-  );
-  assert.doesNotMatch(
-    daemonSource,
-    /process\.env\.CLAUDE_SESSION_ID\s*=\s*params\.sessionId/
-  );
 });

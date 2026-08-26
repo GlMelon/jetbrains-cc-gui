@@ -18,20 +18,20 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * 长驻 CLI 进程注册表(设计文档 §4.4/§4.5,Phase 1: claude)。
+ * 长驻 CLI 进程注册表(Phase 1: claude)。
  *
  * <p>槽位模型:tab = 进程的物理隔离——{@code (tabId, provider)} 二级键(与
  * {@code CliSessionManager.sessions} 结构对齐)各至多一个 {@link CliPersistentProcess}。
  * 无跨会话队列:同 tab 内消息由上层 per-tab inFlight 链天然串行,跨 tab 完全并行。
  *
- * <p>acquire 语义(§3.2 静默加载策略):
+ * <p>acquire 语义(静默加载策略):
  * <ul>
  *   <li>槽位命中且可用且指纹匹配 → 返回进程(次轮 0.2s);</li>
  *   <li>tab 首条消息(无槽位无历史)→ 同步 spawn 一次性 ~3.4s,与 one-shot 现状相同不劣化;</li>
  *   <li>其余未命中(指纹漂移/进程崩溃/空闲回收后/超限/冷却)→ 返回 null,上层当前消息走
  *       one-shot 并调 {@link #rebuildInBackground} 静默重建,下条消息恢复长驻。超限时先尝试
- *       LRU 逐出最久未用的空闲槽位(§6.5 规则 5);连续 spawn 失败达上限的键进入冷却窗口,
- *       窗口内不再尝试 spawn(§6.15 坏槽位不无限重启)。</li>
+ *       LRU 逐出最久未用的空闲槽位;连续 spawn 失败达上限的键进入冷却窗口,
+ *       窗口内不再尝试 spawn(坏槽位不无限重启)。</li>
  * </ul>
  *
  * <p>空闲回收:{@link CliConstants#CLI_PERSISTENT_SWEEP_INTERVAL_MS} 周期扫描,idle 超过
@@ -76,7 +76,7 @@ public final class CliPersistentProcessRegistry implements Disposable {
 
     private volatile boolean disposed;
 
-    /** 每键 spawn 健康度:连续失败计数 + 冷却截止时刻(§6.15 坏槽位不无限重启)。 */
+    /** 每键 spawn 健康度:连续失败计数 + 冷却截止时刻(坏槽位不无限重启)。 */
     private final ConcurrentHashMap<SlotKey, RebuildHealth> rebuildHealth = new ConcurrentHashMap<>();
 
     /** 可变健康度状态(经 {@code rebuildHealth.compute} 原子更新)。 */
@@ -113,7 +113,7 @@ public final class CliPersistentProcessRegistry implements Disposable {
             if (slot.process.isUsable() && slot.fingerprint.equals(spec.fingerprint())) {
                 return slot.process;
             }
-            // miss 原因细分(§6.16-4 可观测性):指纹漂移 vs 槽位不可用,便于事后归因
+            // miss 原因细分(可观测性):指纹漂移 vs 槽位不可用,便于事后归因
             if (slot.process.isUsable()) {
                 LOG.info("[CliPersistentProcessRegistry] fingerprint drift, one-shot + rebuild: tab="
                         + tabId + ", provider=" + provider
@@ -125,20 +125,20 @@ public final class CliPersistentProcessRegistry implements Disposable {
             // 指纹漂移或进程不可用(崩溃/dirty):当前消息走 one-shot,重建交给上层调 rebuildInBackground。
             return null;
         }
-        // 坏槽位冷却期(§6.15):连续 spawn 失败达上限后,窗口内不再尝试,消息直接 one-shot。
+        // 坏槽位冷却期:连续 spawn 失败达上限后,窗口内不再尝试,消息直接 one-shot。
         if (isCoolingDown(key)) {
             LOG.info("[CliPersistentProcessRegistry] rebuild cooling down, degrading to one-shot: tab="
                     + tabId + ", provider=" + provider);
             return null;
         }
-        // 空闲回收/崩溃后再次使用:走 one-shot + 后台重建(§3.2),不在此同步 spawn。
+        // 空闲回收/崩溃后再次使用:走 one-shot + 后台重建,不在此同步 spawn。
         if (everCreated.contains(key)) {
             return null;
         }
         if (!ensureCapacity(tabId, provider)) {
             return null;
         }
-        // tab 首条消息:同步 spawn(一次性 ~3.4s,与 one-shot 相同不劣化,§3.2)。
+        // tab 首条消息:同步 spawn(一次性 ~3.4s,与 one-shot 相同不劣化)。
         long epoch = lifecycleEpoch.get();
         long generation = currentGeneration(key);
         CliPersistentProcess process = spawnTracked(key, tabId, provider, spec, epoch, generation);
@@ -270,7 +270,7 @@ public final class CliPersistentProcessRegistry implements Disposable {
         }
     }
 
-    /** 进程面板元数据(§5.1,NodeProcessRegistry.snapshot 合并用)。 */
+    /** 进程面板元数据(NodeProcessRegistry.snapshot 合并用)。 */
     public List<CliPersistentProcess.PersistentProcessInfo> describeAll() {
         List<CliPersistentProcess.PersistentProcessInfo> infos = new ArrayList<>();
         for (Slot slot : slots.values()) {
@@ -280,7 +280,7 @@ public final class CliPersistentProcessRegistry implements Disposable {
     }
 
     /**
-     * 立即回收所有 IDLE 长驻进程(§7 行为开关关闭副作用)。
+     * 立即回收所有 IDLE 长驻进程(行为开关关闭副作用)。
      * STREAMING 轮不打断——进行中的回复自然收尾后由周期空闲扫描兜底回收。
      * 开关只影响新消息路由:门禁关后 acquire 不再命中,已死/已回收槽位不重建。
      */
@@ -351,7 +351,7 @@ public final class CliPersistentProcessRegistry implements Disposable {
     }
 
     /**
-     * 容量保障(§6.5 规则 5):未超限直接放行;超限时先尝试 LRU 逐出最久未用的空闲槽位
+     * 容量保障:未超限直接放行;超限时先尝试 LRU 逐出最久未用的空闲槽位
      * 再复查;无可回收候选(全部 STREAMING/不可用)才返回 false(上层降级 one-shot)。
      */
     private boolean ensureCapacity(String tabId, String provider) {
@@ -407,7 +407,7 @@ public final class CliPersistentProcessRegistry implements Disposable {
         return false;
     }
 
-    /** 该键是否处于重建冷却窗口(§6.15)。 */
+    /** 该键是否处于重建冷却窗口。 */
     private boolean isCoolingDown(SlotKey key) {
         RebuildHealth health = rebuildHealth.get(key);
         if (health == null) {
@@ -500,9 +500,9 @@ public final class CliPersistentProcessRegistry implements Disposable {
     }
 
     /**
-     * 空闲回收扫描(§4.5):进程已死 → 移除槽位;idle 超阈值 → 静默优雅关闭。
+     * 空闲回收扫描:进程已死 → 移除槽位;idle 超阈值 → 静默优雅关闭。
      * 与 acquire 的竞态无害:回收关掉的进程若恰被 acquire 返回,轮协议写入/读取失败
-     * 会异常收尾,上层自愈走 one-shot(§3.2 崩溃行)。
+     * 会异常收尾,上层自愈走 one-shot(崩溃行)。
      */
     private void sweepIdleProcesses() {
         try {

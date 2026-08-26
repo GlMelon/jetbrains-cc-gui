@@ -19,7 +19,7 @@ tags: 后端, 协议枚举, handler, provider
 ### Provider 适配器
 
 - **ProviderAdapter** 接口 + **ProviderRegistry**（`Map<ProviderId, ProviderAdapter>`）
-- **SessionRuntime** 接口 + `default supports(ProviderType, RuntimeType)` + **SessionRuntimeRegistry**
+- **SessionRuntime** 接口（以 `provider()` 声明路由键）+ **SessionRuntimeRegistry**（`Map<ProviderType, SessionRuntime>` 查表）
 
 ---
 

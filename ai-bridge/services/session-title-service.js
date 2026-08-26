@@ -21,7 +21,7 @@ const MAX_SANITIZED_LENGTH = 200;
 // Aligns with Java HistoryDeleteService.SESSION_ID_PATTERN — alphanumeric,
 // dot, dash, underscore. Defeats path-traversal payloads in upstream payloads.
 const SESSION_ID_PATTERN = /^[A-Za-z0-9._-]+$/;
-// Safety net for Haiku calls — avoids hung requests holding daemon resources.
+// Safety net for Haiku calls — avoids hung requests holding bridge resources.
 const HAIKU_API_TIMEOUT_MS = 15000;
 
 /**
@@ -33,10 +33,10 @@ function isValidSessionId(sessionId) {
 }
 
 // --- Logging ---
-// Title generation runs fire-and-forget after the daemon request completes,
+// Title generation runs fire-and-forget after the request completes,
 // so activeRequestId is null. Output structured JSON via process.stdout.write
-// which the daemon passes through for lines starting with '{'.
-// DaemonBridge.java handles "title_log" events with appropriate log levels.
+// which the bridge passes through for lines starting with '{'.
+// CliSessionTitleService.java handles "title_log" events with appropriate log levels.
 
 /**
  * @param {string} level
@@ -54,8 +54,9 @@ function logTitleEvent(level, message) {
 }
 
 /**
- * Emit a title_generated daemon event so the Java layer can forward the
- * AI title to the frontend for immediate display in the chat header.
+ * Emit a title_generated event (protocol type 'daemon' — the literal is part of
+ * the Java↔bridge contract and intentionally unchanged) so the Java layer can
+ * forward the AI title to the frontend for immediate display in the chat header.
  */
 /**
  * @param {string} sessionId
@@ -402,7 +403,7 @@ async function saveAiTitle(sessionId, title, cwd) {
 /**
  * Generate and save an AI title for the session.
  * Called when a session turn ends successfully.
- * Fire-and-forget: errors are logged to IDEA via structured daemon events.
+ * Fire-and-forget: errors are logged to IDEA via structured events.
  *
  * @param {string} userMessage - The user's first message text (already extracted)
  * @param {string} sessionId - Session ID
@@ -464,7 +465,7 @@ export async function generateSessionTitle(userMessage, sessionId, cwd) {
     logTitleEvent('info', 'Title generation returned no result for session ' + sessionId);
     return true;
   } catch (e) {
-    // Thrown errors come from the SDK / network layer and are typically
+    // Thrown errors come from the CLI / network layer and are typically
     // transient — return false so callers may reset their guard and retry.
     logTitleEvent('error', 'Title generation failed: ' + (e instanceof Error ? e.message : String(e)));
     return false;
@@ -492,11 +493,12 @@ async function readStdin() {
 /**
  * 独立可执行入口:供 CLI 模式由 Java 侧以一次性子进程调用(双重角色,仿 prompt-enhancer.js)。
  *
- * daemon 路径(message-sender.js / persistent-query-service.js)通过 import 直接调
+ * 会话内路径(message-sender.js)通过 import 直接调
  * generateSessionTitle,不会触发此 main —— 由 import.meta.url 守卫隔离。
  *
  * stdin: { userMessage, sessionId, cwd }
- * stdout: generateSessionTitle 内部经 emitTitleGenerated 写出 title_generated daemon 事件行,
+ * stdout: generateSessionTitle 内部经 emitTitleGenerated 写出 title_generated 事件行
+ *         ({type:'daemon'} 为前后端契约字面量,保留不变),
  *         Java 侧 PromptEnhancerProcessRunner 的 lineHandler 解析该行并下发 SESSION_TITLE。
  *
  * @returns {Promise<void>}

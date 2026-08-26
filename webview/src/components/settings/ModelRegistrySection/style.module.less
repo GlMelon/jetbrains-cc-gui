@@ -63,6 +63,24 @@
     background: var(--accent-primary);
     color: #fff;
   }
+
+  /* CLI 未安装且无存量模型:禁用筛选(方案A门控) */
+  &.filterBlocked {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+/* 「未安装」mini badge(琥珀系,与输入区 selector badge 同视觉语言) */
+.filterBadge {
+  font-size: 10px;
+  line-height: 1;
+  padding: 3px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: var(--cli-badge-bg, rgba(224, 160, 60, 0.16));
+  border: 1px solid var(--cli-badge-border, rgba(224, 160, 60, 0.4));
+  color: var(--cli-badge-text, #e0a03c);
 }
 
 .table {

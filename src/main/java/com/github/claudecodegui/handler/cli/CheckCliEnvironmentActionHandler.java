@@ -34,12 +34,15 @@ public class CheckCliEnvironmentActionHandler implements FrontendActionHandler<J
 
     @Override
     public void handle(JsonObject payload, FrontendActionContext context) {
-        LOG.info("[CliEnvironment] Handling CHECK_CLI_ENVIRONMENT request");
+        // force=true:用户手动"刷新检测/重新检测",绕过后端缓存强制全量重检;
+        // 默认 false:命中 TTL 缓存直接返回(启动时常驻 UI 的首次拉取靠它秒回)。
+        boolean force = payload != null && payload.has("force") && payload.get("force").getAsBoolean();
+
+        LOG.info("[CliEnvironment] Handling CHECK_CLI_ENVIRONMENT request (force=" + force + ")");
 
         CompletableFuture.runAsync(() -> {
             try {
-                CliEnvironmentChecker checker = new CliEnvironmentChecker();
-                List<CliEnvironmentStatus> statuses = checker.checkAllCliEnvironments();
+                List<CliEnvironmentStatus> statuses = CliEnvironmentChecker.getStatusesCached(force);
 
                 // 以 CLI 工具名(如 claude/codex/opencode)为 key 的扁平 map,
                 // 匹配前端 Record<string, CliEnvironmentStatus> 契约 —— 前端按 cliStatus[tool.id] 取值。

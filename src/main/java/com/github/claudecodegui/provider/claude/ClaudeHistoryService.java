@@ -27,7 +27,7 @@ public class ClaudeHistoryService {
                 LOG,
                 gson,
                 nodeService.getNodeDetector(),
-                nodeService::getSdkTestDir,
+                nodeService::getBridgeDir,
                 nodeService.getProcessManager(),
                 nodeService.getEnvConfigurator(),
                 new ClaudeJsonOutputExtractor()

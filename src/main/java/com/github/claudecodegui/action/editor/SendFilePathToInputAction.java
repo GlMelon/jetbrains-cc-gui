@@ -1,7 +1,7 @@
 package com.github.claudecodegui.action.editor;
 
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
-import com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow;
+import com.github.claudecodegui.ui.toolwindow.ClaudeChatToolWindow;
 import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
@@ -120,7 +120,7 @@ public class SendFilePathToInputAction extends AnAction implements DumbAware {
         try {
             // Get the plugin tool window
             ToolWindowManager toolWindowManager = ToolWindowManager.getInstance(project);
-            ToolWindow toolWindow = toolWindowManager.getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
+            ToolWindow toolWindow = toolWindowManager.getToolWindow(ClaudeChatToolWindow.TOOL_WINDOW_ID);
 
             if (toolWindow != null) {
                 // If window is not visible, activate it first, then send content after it opens
@@ -132,7 +132,7 @@ public class SendFilePathToInputAction extends AnAction implements DumbAware {
                             ApplicationManager.getApplication().invokeLater(() -> {
                                 try {
                                     if (project.isDisposed()) { return; }
-                                    ClaudeSDKToolWindow.addSelectionFromExternal(project, filePaths);
+                                    ClaudeChatToolWindow.addSelectionFromExternal(project, filePaths);
                                     LOG.info("Window activated and sent file paths to project: " + project.getName());
                                 } catch (Exception ex) {
                                     LOG.warn("Failed to send file paths after activation: " + ex.getMessage(), ex);
@@ -142,7 +142,7 @@ public class SendFilePathToInputAction extends AnAction implements DumbAware {
                     }, true);
                 } else {
                     // Window is already visible, send content directly
-                    ClaudeSDKToolWindow.addSelectionFromExternal(project, filePaths);
+                    ClaudeChatToolWindow.addSelectionFromExternal(project, filePaths);
                     // Ensure window gets focus
                     toolWindow.activate(null, true);
                     LOG.info("Chat window activated and sent file paths to project: " + project.getName());

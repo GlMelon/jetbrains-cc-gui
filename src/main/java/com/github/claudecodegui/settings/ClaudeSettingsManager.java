@@ -213,7 +213,7 @@ public class ClaudeSettingsManager {
      *
      * Historical behavior (REMOVED): this method used to write CCGUI_CLI_LOGIN_AUTHORIZED=1
      * AND DELETE the user's ANTHROPIC_API_KEY / ANTHROPIC_AUTH_TOKEN from
-     * ~/.claude/settings.json so that the Claude SDK would fall through to its native
+     * ~/.claude/settings.json so that Claude Code would fall through to its native
      * OAuth flow. That destructively wiped user-configured keys with no recovery path.
      *
      * Current behavior: this is a no-op. The single source of truth for CLI login mode

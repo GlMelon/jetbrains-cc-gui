@@ -1,7 +1,7 @@
 package com.github.claudecodegui.cli;
 
 /**
- * CLI 会话事件回调，不依赖 SDK 层。
+ * CLI 会话事件回调。
  * type 值与 MessageCallback 保持一致，便于适配层转换。
  */
 public interface CliSessionCallback {

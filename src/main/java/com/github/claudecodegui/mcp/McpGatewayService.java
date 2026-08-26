@@ -106,7 +106,7 @@ public final class McpGatewayService implements Disposable {
                 long afterEnsureNanos = System.nanoTime();
                 refreshConfig(projectPath);
                 long afterRefreshNanos = System.nanoTime();
-                File bridgeDir = BridgePreloader.getSharedResolver().findSdkDir();
+                File bridgeDir = BridgePreloader.getSharedResolver().findBridgeDir();
                 if (bridgeDir == null) {
                     return McpGatewayCliConfig.disabled("ai-bridge directory unavailable");
                 }
@@ -114,7 +114,7 @@ public final class McpGatewayService implements Disposable {
                 Path stdioClient = bridgeDir.toPath().resolve(McpGatewayConstants.STDIO_CLIENT_SCRIPT_PATH);
                 List<String> command = NodeDetector.buildNodeScriptCommand(node, stdioClient.toString());
                 List<String> serverIds = realServerIds(currentSnapshot, provider);
-                // Phase 0 埋点(实施计划 §6.1 gateway_*):区分 gateway 就绪等待与 snapshot 刷新等待,
+                // Phase 0 埋点(gateway_*):区分 gateway 就绪等待与 snapshot 刷新等待,
                 // 使"每轮是否重付 MCP 初始化成本"可直接从日志归因。
                 LOG.info("[McpGatewayPerf] buildCliConfig: provider=" + provider.value() + ", tabId=" + tabId
                         + ", ensureMs=" + elapsedMillis(startNanos, afterEnsureNanos)
@@ -134,9 +134,9 @@ public final class McpGatewayService implements Disposable {
     }
 
     public void refreshConfig(String projectPath) {
-        // gate 用 isGatewayActive(cli||sdk)而非 isCliEnabled:预热(CLI/SDK 运行时都受益)与 MCP
-        // 增删停重载(Claude/Codex handler)都不分运行时路径,纯 SDK 模式(cli.enabled=false)用户
-        // 改 MCP 也需同步到 gateway,否则 SDK 调用会用到过期 snapshot。
+        // gate 用 isGatewayActive(等价 isCliEnabled,SDK 模式移除后仅剩 CLI 路径):
+        // 预热与 MCP 增删停重载(Claude/Codex handler)都不分 provider,任何启用 gateway
+        // 的配置下改 MCP 都需同步到 gateway,否则 CLI 调用会用到过期 snapshot。
         if (!McpGatewayFeatureFlags.isGatewayActive()) {
             return;
         }
@@ -152,9 +152,8 @@ public final class McpGatewayService implements Disposable {
 
     /**
      * Collects the latest snapshot and pushes it to the Gateway process, bumping the
-     * revision only when the config hash actually changes. Shared by the CLI refresh
-     * path (CLI-gated) and the SDK binding path (SDK-gated) so both runtimes see the
-     * same fixed revision for a given turn.
+     * revision only when the config hash actually changes. Shared by all refresh
+     * entry points so every CLI turn sees the same fixed revision.
      */
     void applySnapshot(String projectPath) throws Exception {
         long startNanos = System.nanoTime();
@@ -213,7 +212,7 @@ public final class McpGatewayService implements Disposable {
         cleanupStaleGatewayFromPreviousRun();
         Files.deleteIfExists(stateFile);
 
-        File bridgeDir = BridgePreloader.getSharedResolver().findSdkDir();
+        File bridgeDir = BridgePreloader.getSharedResolver().findBridgeDir();
         if (bridgeDir == null) {
             throw new IllegalStateException("ai-bridge directory unavailable");
         }

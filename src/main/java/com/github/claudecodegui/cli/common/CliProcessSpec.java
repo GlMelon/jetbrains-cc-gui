@@ -8,7 +8,7 @@ import java.util.function.Supplier;
  * 长驻 CLI 进程启动规格:指纹 + spawn 材料 + provider 协议钩子。
  *
  * <p>指纹(provider 层拼接)仅包含影响进程行为语义的字段——provider + model +
- * permission-mode + cwd + add-dirs + mcp-config 路径(设计文档 §4.4)。指纹不匹配时
+ * permission-mode + cwd + add-dirs + mcp-config 路径。指纹不匹配时
  * 不复用旧进程:当前消息走 one-shot,后台按新指纹重建。命令行/环境由 provider 层
  * 按现有 one-shot 链路构建(仅额外加 {@code --input-format stream-json}),Registry 不感知。
  *

@@ -207,7 +207,7 @@ public class CodexSettingsManager {
 
     /**
      * Atomic write helper: write to a temp file in the same directory, then replace the target.
-     * Prevents consumers (e.g., Codex SDK/CLI) from observing a partially written file.
+     * Prevents consumers (e.g., the Codex CLI) from observing a partially written file.
      */
     private void writeStringAtomically(Path target, String content) throws IOException {
         ensureCodexDirectory();
@@ -360,7 +360,7 @@ public class CodexSettingsManager {
             }
         }
 
-        // Clear config.toml — empty file means Codex SDK uses official defaults
+        // Clear config.toml — empty file means the Codex CLI uses official defaults
         writeConfigTomlRaw("");
 
         // auth.json is left untouched — it already contains the OAuth tokens from 'codex login'

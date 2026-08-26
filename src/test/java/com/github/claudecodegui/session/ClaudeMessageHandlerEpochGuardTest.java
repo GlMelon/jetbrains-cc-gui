@@ -30,7 +30,7 @@ public class ClaudeMessageHandlerEpochGuardTest {
         handler.onMessage("content_delta", "stale");
         handler.onQueueDisplayStateChanged(ClaudeSession.SessionCallback.QueueDisplayState.PROCESSING, 0);
         handler.onError("stale error");
-        handler.onComplete(new com.github.claudecodegui.provider.common.SDKResult());
+        handler.onComplete(new com.github.claudecodegui.provider.common.CliResult());
 
         assertTrue(callbackHandler.contentDeltas.isEmpty());
         assertEquals(0, callbackHandler.queueUpdates);

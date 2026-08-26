@@ -27,8 +27,7 @@ import java.util.Optional;
  *   <li>{@link #fromValue(String)} —— SSOT 严格往返,值不匹配返回 {@link Optional#empty()},
  *       范式对齐 {@code PermissionMode}/{@code ReasoningEffort}。</li>
  *   <li>{@link #fromString(String)} —— 历史宽容解析(null/未知 → {@code CLAUDE}),
- *       路由层依赖此默认(见 {@code SessionSendService}/{@code EffectiveRuntimeResolver}/
- *       {@code SettingsHandler}),保留不变。</li>
+ *       路由层依赖此默认(见 {@code SessionSendService}),保留不变。</li>
  * </ul>
  *
  * <p>注:本枚举留在 {@code session.runtime} 包(SSOT 语义不要求物理位置必须在 {@code protocol}
@@ -42,7 +41,7 @@ public enum ProviderType implements ProtocolValue {
     CLAUDE("claude", "Claude", "claude", "claude.cmd"),
     CODEX("codex", "Codex", "codex", "codex.cmd"),
     OPENCODE("opencode", "OpenCode", "opencode", "opencode.cmd"),
-    // grok/kimi/pi 为纯 CLI provider(上游 CliToolId,无 SDK 实现);cliCommand 对齐上游 binaryName。
+    // grok/kimi/pi 为纯 CLI provider(上游 CliToolId);cliCommand 对齐上游 binaryName。
     GROK("grok", "Grok", "grok", "grok.cmd"),
     KIMI("kimi", "Kimi", "kimi", "kimi.cmd"),
     PI("pi", "Pi", "pi", "pi.cmd"),
@@ -113,7 +112,7 @@ public enum ProviderType implements ProtocolValue {
     /**
      * 从 provider 字符串转换为 ProviderType(历史宽容解析)。
      * 兼容现有字符串常量 {@link CommonConstants#PROVIDER_CLAUDE}/{@link CommonConstants#PROVIDER_CODEX}。
-     * null/未知 → {@code CLAUDE}(路由层依赖此默认,见 SessionSendService/EffectiveRuntimeResolver)。
+     * null/未知 → {@code CLAUDE}(路由层依赖此默认,见 SessionSendService)。
      * <p>如需严格校验(值不匹配即失败而非降级),改用 {@link #fromValue(String)}。
      */
     public static ProviderType fromString(String provider) {

@@ -33,6 +33,7 @@ import com.github.claudecodegui.handler.UsagePushService;
 import com.github.claudecodegui.handler.context.GetContextUsageActionHandler;
 import com.github.claudecodegui.handler.cli.CheckCliEnvironmentActionHandler;
 import com.github.claudecodegui.handler.cli.InstallCliToolActionHandler;
+import com.github.claudecodegui.handler.cli.UpdateCliToolActionHandler;
 import com.github.claudecodegui.handler.enhance.EnhancePromptActionHandler;
 import com.github.claudecodegui.handler.file.SaveExportedFileActionHandler;
 import com.github.claudecodegui.handler.file.SaveMarkdownActionHandler;
@@ -263,7 +264,7 @@ import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.bridge.NodeService;
 import com.github.claudecodegui.provider.common.MessageCallback;
-import com.github.claudecodegui.provider.common.SDKResult;
+import com.github.claudecodegui.provider.common.CliResult;
 import com.github.claudecodegui.util.JsUtils;
 import com.github.claudecodegui.util.MessageJsonConverter;
 import com.github.claudecodegui.util.ThemeConfigService;
@@ -441,7 +442,7 @@ public class ChatWindowDelegate {
         try {
             CodemossSettingsService settingsService = host.getSettingsService();
             if (settingsService.isLocalProviderActive()) {
-                LOG.info("[ClaudeSDKToolWindow] Local provider active, skipping startup sync");
+                LOG.info("[ClaudeChatToolWindow] Local provider active, skipping startup sync");
                 return;
             }
             settingsService.applyActiveProviderToClaudeSettings();
@@ -747,6 +748,7 @@ nodeService.setSessionId(sessionId);
         // CLI environment action handlers (检测CLI工具安装状态)
         typedHandlers.add(new CheckCliEnvironmentActionHandler());
         typedHandlers.add(new InstallCliToolActionHandler());
+        typedHandlers.add(new UpdateCliToolActionHandler());
 
         // Node process action handlers (B2 迁移: get/kill/kill-all-orphan)
         NodeProcessActionHandlers nodeProcessHandlers = new NodeProcessActionHandlers(handlerContext);
@@ -1012,7 +1014,7 @@ nodeService.setSessionId(sessionId);
                 ClaudeSession.Message last = messages.get(messages.size() - 1);
                 if (last.type == ClaudeSession.Message.Type.ASSISTANT && last.content != null) {
                     ApplicationManager.getApplication().invokeLater(() -> {
-                        callback.onComplete(SDKResult.success(last.content));
+                        callback.onComplete(CliResult.success(last.content));
                     });
                 }
             }

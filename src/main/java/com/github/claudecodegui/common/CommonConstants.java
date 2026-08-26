@@ -27,11 +27,11 @@ public final class CommonConstants {
     public static final String PROVIDER_CODEX = "codex";
     /** OpenCode AI 提供者标识 */
     public static final String PROVIDER_OPENCODE = "opencode";
-    /** Grok AI 提供者标识(纯 CLI,无 SDK 实现 —— 上游 CliToolId) */
+    /** Grok AI 提供者标识(纯 CLI provider —— 上游 CliToolId) */
     public static final String PROVIDER_GROK = "grok";
-    /** Kimi AI 提供者标识(纯 CLI,无 SDK 实现 —— 上游 CliToolId) */
+    /** Kimi AI 提供者标识(纯 CLI provider —— 上游 CliToolId) */
     public static final String PROVIDER_KIMI = "kimi";
-    /** Pi AI 提供者标识(纯 CLI,无 SDK 实现 —— 上游 CliToolId) */
+    /** Pi AI 提供者标识(纯 CLI provider —— 上游 CliToolId) */
     public static final String PROVIDER_PI = "pi";
     /** OMP AI 提供者标识(纯 CLI marker 协议,pi 的 fork —— 上游 v0.5.4 引入) */
     public static final String PROVIDER_OMP = "omp";
@@ -132,7 +132,7 @@ public final class CommonConstants {
     public static final int ONE_MILLION_CONTEXT_WINDOW = 1_000_000;
 
     // ===== JSON 消息类型 =====
-    // SDK 回调消息的 type 字段值，用于路由到对应的处理方法
+    // CLI 流式回调消息的 type 字段值，用于路由到对应的处理方法
 
     /** 用户消息类型 */
     public static final String MSG_TYPE_USER = "user";
@@ -301,7 +301,7 @@ public final class CommonConstants {
     public static final String TOOL_RESULT_PLACEHOLDER = "[tool_result]";
 
     // ===== 命令消息标签 =====
-    // SDK 返回的消息中可能包含的 XML 标签，用于过滤内部命令消息
+    // CLI 返回的消息中可能包含的 XML 标签，用于过滤内部命令消息
 
     /** 命令消息开始标签 */
     public static final String TAG_COMMAND_MESSAGE_OPEN = "<command-message>";
@@ -397,11 +397,11 @@ public final class CommonConstants {
     public static final String ENV_HOMEPATH = "HOMEPATH";
 
     // ===== 哨兵值 =====
-    // SDK 输出中用于表示无效或未定义的特殊字符串
+    // CLI 输出中用于表示无效或未定义的特殊字符串
 
-    /** 哨兵值：SDK 返回的 "undefined" 字符串 */
+    /** 哨兵值：CLI 返回的 "undefined" 字符串 */
     public static final String UNDEFINED = "undefined";
-    /** 哨兵值：SDK 返回的 "null" 字符串 */
+    /** 哨兵值：CLI 返回的 "null" 字符串 */
     public static final String NULL_SENTINEL = "null";
     /** 哨兵值：未知/缺失字段的占位字符串 */
     public static final String UNKNOWN = "unknown";

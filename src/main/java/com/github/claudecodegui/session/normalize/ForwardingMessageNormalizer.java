@@ -1,7 +1,7 @@
 package com.github.claudecodegui.session.normalize;
 
 import com.github.claudecodegui.provider.common.MessageCallback;
-import com.github.claudecodegui.provider.common.SDKResult;
+import com.github.claudecodegui.provider.common.CliResult;
 import com.github.claudecodegui.session.ClaudeSession;
 
 abstract class ForwardingMessageNormalizer implements MessageCallback {
@@ -22,7 +22,7 @@ abstract class ForwardingMessageNormalizer implements MessageCallback {
     }
 
     @Override
-    public void onComplete(SDKResult result) {
+    public void onComplete(CliResult result) {
         delegate.onComplete(result);
     }
 

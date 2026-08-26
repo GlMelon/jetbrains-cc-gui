@@ -5,7 +5,7 @@ import com.github.claudecodegui.cli.common.CliOutputLimits;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.CodexMessageConverter;
 import com.github.claudecodegui.provider.common.MessageCallback;
-import com.github.claudecodegui.provider.common.SDKResult;
+import com.github.claudecodegui.provider.common.CliResult;
 import com.github.claudecodegui.session.ClaudeSession.Message;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.util.ClaudeHistoryWriter;
@@ -219,7 +219,7 @@ public class CodexMessageHandler implements MessageCallback {
     }
 
     /**
-     * Handle an error from the SDK.
+     * Handle an error from the CLI stream.
      *
      * @param error error
      */
@@ -283,7 +283,7 @@ public class CodexMessageHandler implements MessageCallback {
      * @param result result
      */
     @Override
-    public void onComplete(SDKResult result) {
+    public void onComplete(CliResult result) {
         if (isStaleRuntimeEpoch()) {
             LOG.debug("Ignoring stale Codex onComplete (runtime session switched)");
             return;
@@ -314,7 +314,7 @@ public class CodexMessageHandler implements MessageCallback {
         callbackHandler.notifyStateChange(state.isBusy(), state.isLoading(), state.getError());
     }
 
-    private void handleInterruptedCompletion(SDKResult result) {
+    private void handleInterruptedCompletion(CliResult result) {
         boolean streamEndedBeforeComplete = streamEndedThisTurn;
         boolean wasStreaming = isStreaming;
 

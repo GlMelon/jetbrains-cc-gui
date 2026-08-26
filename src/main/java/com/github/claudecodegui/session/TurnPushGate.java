@@ -6,9 +6,8 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
 /**
- * 推送层统一开关,让"流式输出"和"思考区"两个 toggle 对所有 provider / 所有调用模式
- * (SDK/CLI)统一生效。挂在 {@link SessionCallbackAdapter} 与前端之间,不依赖各 provider
- * SDK 的原生能力。
+ * 推送层统一开关,让"流式输出"和"思考区"两个 toggle 对所有 provider 统一生效。
+ * 挂在 {@link SessionCallbackAdapter} 与前端之间,不依赖各 provider CLI 的原生能力。
  *
  * <ul>
  *   <li><b>流式 off</b>:content delta 不再增量下发,而是进 per-turn buffer,在 turn 边界

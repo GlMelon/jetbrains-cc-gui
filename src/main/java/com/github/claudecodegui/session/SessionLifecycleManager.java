@@ -64,7 +64,7 @@ public class SessionLifecycleManager {
 
         interruptFuture.thenRun(() -> {
             // 并发守卫:若自本次 reset 发起后 host.session 已被更新的 reset 替换,放弃本次 bootstrap,
-            // 避免本次创建的 newSession 被覆盖而未 dispose(CLI 子进程/SDK bridge 泄漏)。
+            // 避免本次创建的 newSession 被覆盖而未 dispose(CLI 子进程泄漏)。
             if (host.getSession() != oldSession) {
                 LOG.info("[Lifecycle] createNewSession superseded by a newer reset; abandoning bootstrap");
                 return;
@@ -110,7 +110,7 @@ public class SessionLifecycleManager {
 
         interruptFuture.thenRun(() -> {
             // 并发守卫:若自本次 reset 发起后 host.session 已被更新的 reset 替换,放弃本次 bootstrap,
-            // 避免本次创建的 newSession 被覆盖而未 dispose(CLI 子进程/SDK bridge 泄漏)。
+            // 避免本次创建的 newSession 被覆盖而未 dispose(CLI 子进程泄漏)。
             if (host.getSession() != oldSession) {
                 LOG.info("[Lifecycle] createNewSessionFromTemplate superseded by a newer reset; abandoning bootstrap");
                 return;
@@ -200,7 +200,7 @@ public class SessionLifecycleManager {
 
         interruptFuture.thenRun(() -> {
             // 并发守卫:若自本次 reset 发起后 host.session 已被更新的 reset 替换,放弃本次 bootstrap,
-            // 避免本次创建的 newSession 被覆盖而未 dispose(CLI 子进程/SDK bridge 泄漏)。
+            // 避免本次创建的 newSession 被覆盖而未 dispose(CLI 子进程泄漏)。
             if (host.getSession() != oldSession) {
                 LOG.info("[Lifecycle] loadHistorySession superseded by a newer reset; abandoning bootstrap");
                 return;
@@ -281,7 +281,7 @@ public class SessionLifecycleManager {
     }
 
     /**
-     * Fetch slash commands using local registry (no SDK/API call needed).
+     * Fetch slash commands using local registry (no AI call needed).
      * Merges built-in commands with skill-derived commands per provider.
      */
     public void fetchSlashCommandsOnStartup() {

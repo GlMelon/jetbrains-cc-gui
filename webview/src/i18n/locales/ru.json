@@ -431,7 +431,7 @@
       "customSectionTitle": "Пользовательские модели",
       "editPricing": "Изменить стоимость"
     },
-    "dependencies": "Зависимости SDK",
+    "dependencies": "Инструменты CLI",
     "dependency": {
       "title": "Управление зависимостями SDK",
       "description": "Управление зависимостями AI SDK. Установите необходимый SDK перед первым использованием.",
@@ -879,6 +879,11 @@
       "loadFailed": "Ошибка загрузки"
     },
     "cli": {
+      "providerNotInstalledToast": "CLI {{name}} не установлена. Сначала установите её в разделе Настройки → CLI-среда",
+      "recheck": "Перепроверить CLI-среду",
+      "rechecking": "Проверка…",
+
+      "updating": "Обновление…",
       "hint": "These CLIs must be installed and configured in your system terminal. The plugin only detects installation status and version — it will never install them for you. Confirm each CLI works in the terminal before coming back here to use it.",
       "refresh": "Re-check",
       "retry": "Retry",
@@ -1916,9 +1921,9 @@
           "step0": "Выполните команду ниже в терминале, чтобы увидеть свою версию. Рекомендуется Node 22 или текущая LTS — пользователи сообщили о многих проблемах с Node 24, поэтому отдавайте предпочтение Node 20 или 22:"
         },
         "reinstallLatestSdk": {
-          "title": "Вариант 2: Переустановите последний SDK из официального реестра npm",
+          "title": "Вариант 2: Переустановите последнюю CLI из официального реестра npm",
           "step0": "1. Переключитесь на официальный реестр npm (избегайте зеркала Taobao — у него может не быть последней версии):",
-          "step1": "2. Откройте управление зависимостями и переустановите последний SDK:"
+          "step1": "2. Откройте управление зависимостями и переустановите последнюю CLI:"
         }
       }
     }

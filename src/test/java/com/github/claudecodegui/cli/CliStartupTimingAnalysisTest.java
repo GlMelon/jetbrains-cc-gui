@@ -119,7 +119,7 @@ public class CliStartupTimingAnalysisTest {
 
         // 模拟 Claude CLI 输出: system.init 事件
         String initLine = "{\"type\":\"system\",\"subtype\":\"init\",\"session_id\":\"test-uuid-1234\"}";
-        parser.parseLine(initLine, cb, new com.github.claudecodegui.provider.common.SDKResult(),
+        parser.parseLine(initLine, cb, new com.github.claudecodegui.provider.common.CliResult(),
                 new StringBuilder(), new AtomicBoolean(false), false);
 
         assertTrue("system.init 应触发 stream_start", streamStartEmitted.get());
@@ -146,7 +146,7 @@ public class CliStartupTimingAnalysisTest {
         };
 
         String messageStartLine = "{\"type\":\"stream_event\",\"event\":{\"type\":\"message_start\"}}";
-        parser.parseLine(messageStartLine, cb, new com.github.claudecodegui.provider.common.SDKResult(),
+        parser.parseLine(messageStartLine, cb, new com.github.claudecodegui.provider.common.CliResult(),
                 new StringBuilder(), new AtomicBoolean(false), false);
 
         assertTrue("message_start 事件应触发 stream_start", streamStartEmitted.get());
@@ -346,14 +346,17 @@ public class CliStartupTimingAnalysisTest {
 
     @Test
     public void sdkModeIsRemovedCliIsSoleRuntime() throws Exception {
-        // 验证 SDK 模式已完全移除,CLI 是唯一运行时
+        // 验证 SDK 模式已完全移除,CLI 是唯一运行时:runtime 维度已消除,
+        // SessionSendService 不再引用 EffectiveRuntimeResolver / RuntimeType / toInvocationMode。
         String source = java.nio.file.Files.readString(java.nio.file.Paths.get(
                 "src", "main", "java", "com", "github", "claudecodegui", "session", "SessionSendService.java"
         ));
-        assertTrue("toInvocationMode 应恒返回 CLI",
-                source.contains("return CommonConstants.INVOCATION_MODE_CLI"));
-        assertTrue("SDK 调用模式已移除",
-                source.contains("SDK 调用模式已移除"));
+        assertFalse("EffectiveRuntimeResolver 应已删除",
+                source.contains("EffectiveRuntimeResolver"));
+        assertFalse("RuntimeType 应已删除",
+                source.contains("RuntimeType"));
+        assertFalse("toInvocationMode 应已删除(SDK 调用模式已移除,CLI 单一路径)",
+                source.contains("toInvocationMode"));
     }
 
     // ── 9. 验证进程 stdout 读取阻塞特性 ─────────────────────────────
@@ -414,7 +417,7 @@ public class CliStartupTimingAnalysisTest {
         }
 
         @Override
-        public void onComplete(com.github.claudecodegui.provider.common.SDKResult r) {
+        public void onComplete(com.github.claudecodegui.provider.common.CliResult r) {
         }
     }
 }

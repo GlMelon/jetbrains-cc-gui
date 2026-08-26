@@ -23,12 +23,12 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * CLI 模式 AI 会话标题生成服务(provider 无关)。
  *
- * <p>SDK 模式下标题由 daemon 在轮次结束后 fire-and-forget 调用
+ * <p>历史:已移除的 SDK daemon 模式下,标题由 daemon 在轮次结束后 fire-and-forget 调用
  * {@code ai-bridge/services/session-title-service.js#generateSessionTitle} 生成;
- * CLI 模式每轮是一次性子进程,不经过 daemon,故由本服务在 CLI 轮次成功完成后,
+ * 现行 CLI 唯一路径每轮是一次性子进程,不经过常驻进程,故由本服务在 CLI 轮次成功完成后,
  * 以独立 node 子进程复用同一 {@code session-title-service.js} 生成标题。
  *
- * <p>触发条件(CLI 运行时 + 首轮 + 成功 + 配置开启)由 {@link com.github.claudecodegui.session.SessionSendService}
+ * <p>触发条件(provider 可发送 + 首轮 + 成功 + 配置开启)由 {@link com.github.claudecodegui.session.SessionSendService}
  * 在 provider 无关的公共出口经 {@code whenComplete} 钩子统一判定后传入本服务;
  * Claude / Codex / OpenCode 三条 CLI 路径共用本组件——{@code session-title-service.js}
  * 调 Haiku API,本身与对话 provider 解耦。
@@ -38,7 +38,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p>下行复用既有 {@link DownstreamEvent#SESSION_TITLE} 事件:
  * {@link SessionCallbackFacade#notifyProtocolEvent} → SessionCallbackAdapter.onProtocolEvent
- * → dispatchEvent,与 SDK 模式走同一前端入口,前端零改动。
+ * → dispatchEvent,沿用既有前端入口,前端零改动。
  */
 public class CliSessionTitleService {
 
@@ -86,20 +86,20 @@ public class CliSessionTitleService {
      * sessionId / userMessage / 配置开关 / Node 基础设施可用性的二次校验,然后
      * fire-and-forget 起子进程。标题失败不影响对话(锦上添花能力)。
      *
-     * @param isCliRuntime   当前 provider 解析到的运行时是否为 CLI
+     * @param isProviderSendable 当前 provider 是否可解析、可发送(调用方 SessionSendService 判定)
      * @param isFirstTurn    本次发送是否为新会话首轮(send 前 sessionId 为空)
      * @param userMessage    首轮用户消息文本(标题生成的输入)
      * @param sessionId      轮次完成后解析到的会话 ID(首轮由 CLI 流输出捕获)
      * @param cwd            工作目录(定位 ~/.claude/projects/<sanitized-cwd>/<sessionId>.jsonl)
      * @param callbackFacade 用于回传 SESSION_TITLE 事件
      */
-    public void maybeGenerateTitle(boolean isCliRuntime,
+    public void maybeGenerateTitle(boolean isProviderSendable,
                                    boolean isFirstTurn,
                                    String userMessage,
                                    String sessionId,
                                    String cwd,
                                    SessionCallbackFacade callbackFacade) {
-        if (disposed || !isCliRuntime || !isFirstTurn) {
+        if (disposed || !isProviderSendable || !isFirstTurn) {
             return;
         }
         if (callbackFacade == null) {
@@ -127,7 +127,7 @@ public class CliSessionTitleService {
             LOG.warn("[CliTitle] Skipping: Node.js executable not configured");
             return;
         }
-        File bridgeDir = nodeService.getSdkTestDir();
+        File bridgeDir = nodeService.getBridgeDir();
         if (bridgeDir == null || !bridgeDir.exists()) {
             LOG.warn("[CliTitle] Skipping: ai-bridge directory unavailable");
             return;
@@ -204,6 +204,9 @@ public class CliSessionTitleService {
      * 解析 node 子进程 stdout 行。{@code session-title-service.js} 经
      * {@code emitTitleGenerated} 写出 {@code {type:'daemon', event:'title_generated',
      * sessionId, title}} 行;捕获后下发 SESSION_TITLE 事件。
+     *
+     * <p>注意:{@code type:'daemon'} 是前后端既有协议名(SDK daemon 模式移除前的遗留),
+     * 仅为 stdout 行格式约定,值不可改——ai-bridge 侧 emit 与前端均依赖该字面量。
      */
     private void handleStdoutLine(String line, String sessionId, SessionCallbackFacade callbackFacade) {
         if (disposed) {
@@ -220,7 +223,7 @@ public class CliSessionTitleService {
             }
             String event = obj.has("event") ? obj.get("event").getAsString() : null;
             if (!"title_generated".equals(event)) {
-                // title_log 等其他 daemon 事件忽略。
+                // title_log 等其他协议事件忽略。
                 return;
             }
             String title = obj.has("title") ? obj.get("title").getAsString() : null;

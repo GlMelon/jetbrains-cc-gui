@@ -106,7 +106,7 @@ public class ModelProviderHandler {
      *
      * <p>[1m] suffix handling:
      * <ul>
-     *   <li>Claude models (non-Haiku): append [1m] when contextWindow >= 1M (CLI and SDK recognize it)</li>
+     *   <li>Claude models (non-Haiku): append [1m] when contextWindow >= 1M (the Claude CLI recognizes it)</li>
      *   <li>Non-Claude models: do NOT append [1m] (CLI may not recognize it → model name mismatch error)</li>
      *   <li>Haiku: never append [1m] (does not support 1M context)</li>
      * </ul>
@@ -281,17 +281,6 @@ public class ModelProviderHandler {
                 usagePushService.clearUsageDisplay();
             }
 
-            // Bug fix (Node process leak L2): when the tab moves AWAY from Claude
-            // to another SDK family (currently only Codex), the lingering Claude
-            // daemon would otherwise stay alive for the rest of the tab's lifetime.
-            // The daemon caches process.env, so even if the user comes back to
-            // Claude with refreshed credentials, the cached env would persist —
-            // shutting it down here forces the next Claude message to spawn a
-            // fresh daemon. The daemon restart on return is lazy (deferred to
-            // the next claude.send call), so users pay ~5–10s only when they
-            // actually send the next Claude message.
-            shutdownStaleClaudeDaemonIfLeavingClaude(previousProvider, provider);
-
             refreshSlashCommandsForProvider(provider);
             usagePushService.refreshContextBar();
         } catch (Exception e) {
@@ -302,7 +291,6 @@ public class ModelProviderHandler {
     public void handleSetSessionProvider(String content) {
         try {
             String provider = parseProvider(content);
-            String previousProvider = context.getCurrentProvider();
 
             LOG.info("[ModelProviderHandler] Setting session provider to: " + provider);
             // 会话级 provider 切换也更新全局默认(粘性),与 set_model 的全局默认更新
@@ -314,53 +302,11 @@ public class ModelProviderHandler {
                 SessionRuntimeDefaults.rememberModel(context.getProject(), provider, context.getSession().getModel());
             }
 
-            // 与 handleSetProvider 保持一致:离开 Claude 家族时清理残留 daemon,
-            // 避免切走后 claude daemon 在会话剩余生命周期内泄漏。
-            shutdownStaleClaudeDaemonIfLeavingClaude(previousProvider, provider);
-
             refreshSlashCommandsForProvider(provider);
             usagePushService.refreshContextBar();
         } catch (Exception e) {
             LOG.error("[ModelProviderHandler] Failed to set session provider: " + e.getMessage(), e);
         }
-    }
-
-    /**
-     * Pure decision predicate: should we shut down the Claude daemon when the
-     * tab provider transitions from {@code previousProvider} to {@code newProvider}?
-     *
-     * <p>Returns true only on Claude → non-Claude transitions. Same-direction
-     * reaffirmations (e.g. {@code set_provider("codex")} fired again on every
-     * message send) must not restart the daemon, and Claude → Claude
-     * reaffirmations must keep the warm daemon alive.
-     *
-     * <p>Package-private so unit tests can verify the full transition matrix
-     * without spinning up a HandlerContext.
-     */
-    static boolean shouldShutdownClaudeDaemonOnProviderSwitch(String previousProvider, String newProvider) {
-        if (!CommonConstants.PROVIDER_CLAUDE.equals(previousProvider)) {
-            return false;
-        }
-        // Empty/null newProvider means "not set yet" (initialization, race), NOT
-        // "user moved away from Claude". Treating it as a leave-claude transition
-        // would cause spurious daemon restarts (~5–10s) when set_provider arrives
-        // before the tab has fully booted.
-        if (newProvider == null || newProvider.isEmpty() || CommonConstants.PROVIDER_CLAUDE.equals(newProvider)) {
-            return false;
-        }
-        return true;
-    }
-
-    /**
-     * CLI-only:无常驻 Claude daemon,切换 provider 时无需关闭。
-     * <p>保留方法签名与决策函数 {@link #shouldShutdownClaudeDaemonOnProviderSwitch}
-     * (后者仍有单测覆盖其离开 Claude 家族的判定逻辑),仅移除 daemon 关闭副作用——
-     * CLI 模式下每次请求为独立 per-process 子进程,不存在需要重启的常驻 daemon。
-     *
-     * @return 恒为 false(CLI 模式下不存在可关闭的 daemon)
-     */
-    boolean shutdownStaleClaudeDaemonIfLeavingClaude(String previousProvider, String newProvider) {
-        return false;
     }
 
     public void handleSetReasoningEffort(String content) {

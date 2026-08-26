@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Provider-specific gateway injection payload for one CLI/SDK turn.
+ * Provider-specific gateway injection payload for one CLI turn.
  *
  * <p>三种注入机制(按 provider):
  * <ul>

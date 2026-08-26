@@ -27,7 +27,7 @@ public interface MessageCallback {
      *
      * @param result The final result
      */
-    void onComplete(SDKResult result);
+    void onComplete(CliResult result);
 
     default void onQueueDisplayStateChanged(ClaudeSession.SessionCallback.QueueDisplayState state, int aheadCount) {
     }

@@ -18,7 +18,7 @@ export function truncateString(str, maxLen = 1000) {
   return str.substring(0, maxLen) + `... [truncated, total ${str.length} chars]`;
 }
 
-// Patterns covering common credential shapes that can leak through SDK
+// Patterns covering common credential shapes that can leak through CLI
 // stderr / stack traces. Each entry pairs a regex with its replacement string.
 // Patterns that need to preserve a leading label (Bearer, Authorization:, etc.)
 // use a $1 capture-group reference; bare token patterns substitute the entire
@@ -76,7 +76,7 @@ export function truncateErrorContent(content, maxLen = 1000) {
 
 /**
  * 工具结果块(truncate tool result block)。支持 string content 与 array content
- * (Anthropic SDK 工具结果可以是文本数组,逐项截断 text 子块)。
+ * (Anthropic 消息的工具结果可以是文本数组,逐项截断 text 子块)。
  *
  * @param {any} block 工具结果块
  * @returns {any} 截断后的块(原块未超长则原样返回)

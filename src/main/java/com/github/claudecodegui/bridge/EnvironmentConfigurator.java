@@ -268,7 +268,7 @@ public class EnvironmentConfigurator {
             CLAUDE_PERMISSION_SAFETY_NET_ENV
     };
 
-    /** Appends permission-bridge keys to WSLENV so they reach the daemon inside WSL. */
+    /** Appends permission-bridge keys to WSLENV so they reach the CLI child process inside WSL. */
     private static void propagateWslEnv(Map<String, String> env, boolean isWsl) {
         if (!isWsl) {
             return;

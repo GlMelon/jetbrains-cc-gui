@@ -108,7 +108,7 @@ public class ClaudeSession {
         // usage stamps in ClaudeMessageHandler); those are a separate concern.
         public volatile String content;
         public long timestamp;
-        public volatile JsonObject raw; // Raw message data from SDK
+        public volatile JsonObject raw; // Raw message data from the CLI stream
 
         public Message(Type type, String content) {
             this.type = type;

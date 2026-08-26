@@ -454,7 +454,7 @@
     "openCodeProvider": {
       "title": "OpenCode Provider",
       "description": "Manage OpenCode AI feature provider configuration",
-      "info": "OpenCode uses a local daemon mode and does not require API key configuration. After installing the OpenCode SDK, you can use the Prompt Enhancer and Commit AI features.",
+      "info": "OpenCode uses a local daemon mode and does not require API key configuration. After installing the OpenCode CLI, you can use the Prompt Enhancer and Commit AI features.",
       "dialog": {
         "addTitle": "Add OpenCode Provider",
         "editTitle": "Edit Provider: {{name}}",
@@ -563,6 +563,11 @@
       "editPricing": "Edit pricing"
     },
     "cli": {
+      "providerNotInstalledToast": "{{name}} CLI is not installed. Install it in Settings → CLI Environment first.",
+      "recheck": "Re-check CLI environment",
+      "rechecking": "Checking…",
+
+      "updating": "Updating…",
       "title": "CLI Environment Check",
       "description": "Detect locally installed AI CLI tools, including version information and installation paths.",
       "claudeName": "Claude CLI",
@@ -2396,9 +2401,9 @@
           "step0": "Run the command below in a terminal to see your version. Node 22 or the current LTS is recommended — users have reported many issues on Node 24, so prefer Node 20 or 22:"
         },
         "reinstallLatestSdk": {
-          "title": "Option 2: Reinstall the latest SDK from the official npm registry",
+          "title": "Option 2: Reinstall the latest CLI from the official npm registry",
           "step0": "1. Switch to the official npm registry (avoid the Taobao mirror — it may not have the latest version):",
-          "step1": "2. Open Dependency Management and reinstall the latest SDK:"
+          "step1": "2. Open Dependency Management and reinstall the latest CLI:"
         }
       }
     }

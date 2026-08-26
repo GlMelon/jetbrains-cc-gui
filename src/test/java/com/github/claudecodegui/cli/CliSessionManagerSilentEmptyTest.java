@@ -3,7 +3,7 @@ package com.github.claudecodegui.cli;
 import com.github.claudecodegui.cli.common.CliConstants;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.provider.common.MessageCallback;
-import com.github.claudecodegui.provider.common.SDKResult;
+import com.github.claudecodegui.provider.common.CliResult;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -22,7 +22,7 @@ public class CliSessionManagerSilentEmptyTest {
     private static final class CapturingCallback implements MessageCallback {
         final List<String> messageTypes = new ArrayList<>();
         final List<String> errors = new ArrayList<>();
-        final List<SDKResult> completions = new ArrayList<>();
+        final List<CliResult> completions = new ArrayList<>();
 
         @Override
         public void onMessage(String type, String content) {
@@ -35,7 +35,7 @@ public class CliSessionManagerSilentEmptyTest {
         }
 
         @Override
-        public void onComplete(SDKResult result) {
+        public void onComplete(CliResult result) {
             completions.add(result);
         }
     }

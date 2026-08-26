@@ -98,7 +98,7 @@ public class ChannelCliSession implements CliSession {
             callback.onComplete(false, null, err);
             return;
         }
-        File bridgeDir = nodeService.getSdkTestDir();
+        File bridgeDir = nodeService.getBridgeDir();
         File channelManager = new File(bridgeDir, "channel-manager.js");
         if (!channelManager.isFile()) {
             String err = CliErrorFormatter.formatError(providerType.displayLabel(),
@@ -236,13 +236,25 @@ public class ChannelCliSession implements CliSession {
     private byte[] buildStdinJson(CliSendRequest request) {
         JsonObject json = new JsonObject();
         json.addProperty("message", request.message());
-        if (request.sessionId() != null) json.addProperty("sessionId", request.sessionId());
-        if (request.cwd() != null) json.addProperty("cwd", request.cwd());
+        if (request.sessionId() != null) {
+            json.addProperty("sessionId", request.sessionId());
+        }
+        if (request.cwd() != null) {
+            json.addProperty("cwd", request.cwd());
+        }
         String model = request.actualModel() != null ? request.actualModel() : request.model();
-        if (model != null) json.addProperty("model", model);
-        if (request.permissionMode() != null) json.addProperty("permissionMode", request.permissionMode());
-        if (request.reasoningEffort() != null) json.addProperty("reasoningEffort", request.reasoningEffort());
-        if (request.agentPrompt() != null) json.addProperty("agentPrompt", request.agentPrompt());
+        if (model != null) {
+            json.addProperty("model", model);
+        }
+        if (request.permissionMode() != null) {
+            json.addProperty("permissionMode", request.permissionMode());
+        }
+        if (request.reasoningEffort() != null) {
+            json.addProperty("reasoningEffort", request.reasoningEffort());
+        }
+        if (request.agentPrompt() != null) {
+            json.addProperty("agentPrompt", request.agentPrompt());
+        }
         if (request.attachments() != null && !request.attachments().isEmpty()) {
             json.add("attachments", gson.toJsonTree(request.attachments()));
         }
@@ -287,10 +299,16 @@ public class ChannelCliSession implements CliSession {
         byte[] bytes = lineBuf.toByteArray();
         lineBuf.reset();
         int len = bytes.length;
-        if (len > 0 && bytes[len - 1] == '\r') len--;
-        if (len == 0) return;
+        if (len > 0 && bytes[len - 1] == '\r') {
+            len--;
+        }
+        if (len == 0) {
+            return;
+        }
         String line = new String(bytes, 0, len, StandardCharsets.UTF_8);
-        if (line.isBlank()) return;
+        if (line.isBlank()) {
+            return;
+        }
         parser.parseLine(line);
         if (!line.trim().startsWith("[")) {
             CliErrorFormatter.appendDiagnosticLine(diagnostic, line);

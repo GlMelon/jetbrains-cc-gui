@@ -29,7 +29,7 @@ const HIDDEN_COMMANDS = new Set([
 
 type LoadingState = 'idle' | 'loading' | 'success' | 'failed';
 
-let cachedSdkCommands: CommandItem[] = [];
+let cachedSlashCommands: CommandItem[] = [];
 let loadingState: LoadingState = 'idle';
 let lastRefreshTime = 0;
 let callbackRegistered = false;
@@ -48,7 +48,7 @@ const WHITESPACE_REGEX = /\s+/;
 // ============================================================================
 
 export function resetSlashCommandsState() {
-  cachedSdkCommands = [];
+  cachedSlashCommands = [];
   loadingState = 'idle';
   lastRefreshTime = 0;
   retryCount = 0;
@@ -57,7 +57,7 @@ export function resetSlashCommandsState() {
   debugLog('[SlashCommand] State reset');
 }
 
-interface SDKSlashCommand {
+interface BackendSlashCommand {
   name: string;
   description?: string;
   source?: string;
@@ -79,8 +79,8 @@ export function setupSlashCommandsCallback() {
       if (Array.isArray(parsed)) {
         if (parsed.length > 0) {
           if (typeof parsed[0] === 'object' && parsed[0] !== null && 'name' in parsed[0]) {
-            const sdkCommands: SDKSlashCommand[] = parsed;
-            commands = sdkCommands.map(cmd => ({
+            const backendCommands: BackendSlashCommand[] = parsed;
+            commands = backendCommands.map(cmd => ({
               id: cmd.name.replace(/^\//, ''),
               label: cmd.name.startsWith('/') ? cmd.name : `/${cmd.name}`,
               description: formatCommandDescription(cmd.description || '', cmd.source),
@@ -100,7 +100,7 @@ export function setupSlashCommandsCallback() {
           }
         }
 
-        cachedSdkCommands = commands;
+        cachedSlashCommands = commands;
         loadingState = 'success';
         retryCount = 0;
         pendingWaiters.forEach(w => w.resolve());
@@ -268,7 +268,7 @@ export async function slashCommandProvider(
   }
 
   if (loadingState === 'success') {
-    return filterCommands(cachedSdkCommands, query);
+    return filterCommands(cachedSlashCommands, query);
   }
 
   if (retryCount >= MAX_RETRY_COUNT) {
@@ -314,7 +314,7 @@ export async function resolveLocalSlashCommand(text: string): Promise<CommandIte
 
   if (loadingState !== 'success') return null;
 
-  const match = cachedSdkCommands.find(cmd => cmd.label.toLowerCase() === commandLabel);
+  const match = cachedSlashCommands.find(cmd => cmd.label.toLowerCase() === commandLabel);
   return match && match.localAction ? match : null;
 }
 
@@ -335,7 +335,7 @@ export async function listVisibleSlashCommands(): Promise<CommandItem[]> {
   }
 
   if (loadingState !== 'success') return [];
-  return filterCommands(cachedSdkCommands, '');
+  return filterCommands(cachedSlashCommands, '');
 }
 
 export function commandToDropdownItem(command: CommandItem): DropdownItemData {

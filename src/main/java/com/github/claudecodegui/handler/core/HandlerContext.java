@@ -72,7 +72,7 @@ public class HandlerContext {
     /**
      * Get the shared Node.js infrastructure service.
      * Provides Node.js detection, path management, bridge directory access,
-     * and process management without dependency on SDK Bridge classes.
+     * and process management.
      */
     public NodeService getNodeService() {
         NodeService local = nodeService;

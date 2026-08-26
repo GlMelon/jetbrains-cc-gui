@@ -11,7 +11,7 @@ import java.util.List;
  * <p>
  * Claude keys skills by {@code scope} + {@code name} and toggles enabled state
  * via directory move ({@code ~/.claude/skills} ↔ {@code ~/.codemoss/skills}).
- * The SDK auto-discovers skills in those directories, so no runtime injection is
+ * The Claude CLI auto-discovers skills in those directories, so no runtime injection is
  * needed. {@code cwd} is treated as the workspace root.
  */
 public final class ClaudeSkillProvider implements UnifiedSkillService {

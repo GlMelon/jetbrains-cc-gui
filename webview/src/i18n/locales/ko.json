@@ -431,7 +431,7 @@
       "customSectionTitle": "사용자 지정 모델",
       "editPricing": "가격 편집"
     },
-    "dependencies": "SDK 의존성",
+    "dependencies": "CLI 도구",
     "dependency": {
       "title": "SDK 의존성 관리",
       "description": "AI SDK 의존성을 관리합니다. 처음 사용하기 전에 필요한 SDK를 설치하세요.",
@@ -967,6 +967,11 @@
     "comingSoon": "곧 출시 예정...",
     "promptsDesc": "자주 사용하는 프롬프트 템플릿을 관리하여 채팅 중 빠르게 삽입",
     "cli": {
+      "providerNotInstalledToast": "{{name}} CLI가 설치되어 있지 않습니다. 설정 → CLI 환경에서 먼저 설치하세요",
+      "recheck": "CLI 환경 재검사",
+      "rechecking": "검사 중…",
+
+      "updating": "업데이트 중…",
       "grokName": "Grok CLI",
       "grokDescription": "AI 코딩을 위한 xAI Grok 명령줄 도구",
       "kimiName": "Kimi CLI",
@@ -2007,9 +2012,9 @@
           "step0": "터미널에서 아래 명령어를 실행하여 버전을 확인하세요. Node 22 또는 현재 LTS를 권장합니다 — Node 24에서 많은 오류가 보고되었으므로 Node 20 또는 22를 우선 사용하세요:"
         },
         "reinstallLatestSdk": {
-          "title": "방법 2: npm 공식 레지스트리에서 최신 SDK 재설치",
+          "title": "방법 2: npm 공식 레지스트리에서 최신 CLI 재설치",
           "step0": "1. npm 공식 레지스트리로 전환 (Taobao 미러는 최신 버전이 없을 수 있으므로 사용하지 마세요):",
-          "step1": "2. '종속성 관리'를 열고 최신 SDK를 재설치:"
+          "step1": "2. '종속성 관리'를 열고 최신 CLI를 재설치:"
         }
       }
     }

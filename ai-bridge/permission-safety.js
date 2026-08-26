@@ -98,7 +98,7 @@ export function rewriteToolInputPaths(toolName, input) {
 
 // (removed 2026-08-03) acceptEdits CWD 校验块(checkPathSafetyForAutoEdit / isAcceptEditsAllowed /
 // isPathInWorkingDirectory / DANGEROUS_AUTO_EDIT_FILES|DIRS)—— 全仓 grep 确认零活跃调用方:
-// acceptEdits 下 EDIT_TOOLS 直接 YIELD_TO_SDK(见 permission-handler.js canUseTool),不经此 Node
+// acceptEdits 下 EDIT_TOOLS 直接 YIELD_TO_CLI(见 permission-handler.js canUseTool),不经此 Node
 // 侧校验;真正的 acceptEdits 约束在后端 mode 映射。audit P3-SEC 低危。
 
 /**

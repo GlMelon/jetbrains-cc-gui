@@ -712,7 +712,7 @@ public class ProviderManager {
         com.github.claudecodegui.bridge.BridgeDirectoryResolver resolver =
                 com.github.claudecodegui.startup.BridgePreloader.getSharedResolver();
 
-        File aiBridgeDir = resolver.findSdkDir();
+        File aiBridgeDir = resolver.findBridgeDir();
 
         // If null is returned, extraction may be in progress in the background; wait for completion
         if (aiBridgeDir == null) {
@@ -722,7 +722,7 @@ public class ProviderManager {
                     // Wait for extraction to complete (up to 60 seconds)
                     Boolean ready = resolver.getExtractionFuture().get(60, java.util.concurrent.TimeUnit.SECONDS);
                     if (ready != null && ready) {
-                        aiBridgeDir = resolver.getSdkDir();
+                        aiBridgeDir = resolver.getBridgeDir();
                     }
                 } catch (java.util.concurrent.TimeoutException e) {
                     throw new IOException("ai-bridge extraction timed out, please try again later", e);

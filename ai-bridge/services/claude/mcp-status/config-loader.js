@@ -274,12 +274,12 @@ export async function loadMcpServersConfig(cwd = null) {
 }
 
 /**
- * Load enabled MCP server config and return as a Record<name, config> for the
- * Claude Agent SDK's `mcpServers` option.
+ * Load enabled MCP server config and return as a Record<name, config> suitable
+ * for passing to the Claude CLI (e.g. via `--mcp-config`).
  *
  * Returns null (rather than an empty object) when no servers are enabled, so
  * callers can naturally write `...(mcpServers && { mcpServers })` to omit the
- * field from SDK options entirely.
+ * field entirely.
  *
  * @param {string | null} [cwd] - Current working directory (used for project detection)
  * @returns {Promise<Record<string, Record<string, any>> | null>}

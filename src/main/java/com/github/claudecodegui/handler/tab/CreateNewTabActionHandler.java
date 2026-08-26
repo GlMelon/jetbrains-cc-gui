@@ -6,7 +6,7 @@ import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.protocol.UpstreamAction;
 import com.github.claudecodegui.settings.TabStateService;
 import com.github.claudecodegui.ui.toolwindow.ClaudeChatWindow;
-import com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow;
+import com.github.claudecodegui.ui.toolwindow.ClaudeChatToolWindow;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.wm.ToolWindow;
@@ -49,7 +49,7 @@ public final class CreateNewTabActionHandler implements FrontendActionHandler<St
             try {
                 // Get the tool window
                 ToolWindow toolWindow = ToolWindowManager.getInstance(project)
-                        .getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
+                        .getToolWindow(ClaudeChatToolWindow.TOOL_WINDOW_ID);
                 if (toolWindow == null) {
                     LOG.error("[CreateNewTabActionHandler] Tool window not found");
                     ctx.callJavaScript("addErrorMessage", ctx.escapeJs("无法找到 AICG 工具窗口"));
@@ -60,9 +60,9 @@ public final class CreateNewTabActionHandler implements FrontendActionHandler<St
                 Content selectedContent = contentManager.getSelectedContent();
                 ClaudeChatWindow sourceWindow = selectedContent == null
                         ? null
-                        : ClaudeSDKToolWindow.getChatWindowForContent(selectedContent);
+                        : ClaudeChatToolWindow.getChatWindowForContent(selectedContent);
                 if (sourceWindow == null) {
-                    sourceWindow = ClaudeSDKToolWindow.getChatWindow(project);
+                    sourceWindow = ClaudeChatToolWindow.getChatWindow(project);
                 }
 
                 // Create a new chat window instance with skipRegister=true (don't replace the main instance)
@@ -82,7 +82,7 @@ public final class CreateNewTabActionHandler implements FrontendActionHandler<St
                     tabName = savedName;
                     LOG.info("[CreateNewTabActionHandler] Restored tab name from storage: " + tabName);
                 } else {
-                    tabName = ClaudeSDKToolWindow.getNextTabName(toolWindow);
+                    tabName = ClaudeChatToolWindow.getNextTabName(toolWindow);
                 }
 
                 // Create and add the new tab content

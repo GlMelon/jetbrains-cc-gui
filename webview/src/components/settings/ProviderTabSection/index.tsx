@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type {
   ProviderConfig,
@@ -16,6 +16,7 @@ import PiProviderSection from '../PiProviderSection';
 import styles from './style.module.less';
 import { useRovingTabs } from '../../shared/useRovingTabs';
 import { FadeContent } from '../../react-bits';
+import { useCliInstallStatus } from '../../../hooks/useCliInstallStatus';
 
 const BLOCK_STYLE: React.CSSProperties = { display: 'block' };
 const NONE_STYLE: React.CSSProperties = { display: 'none' };
@@ -127,10 +128,28 @@ const ProviderTabSection = ({
                 : currentProvider === 'dsh' ? 'dsh'
                   : 'claude',
   );
+  // CLI 未安装门控(方案A):6 个 CLI 类 tab 未安装→置灰+badge+拦截进入;
+  // omp/dsh 不在 CLI 检测范围,判定天然放行
+  const cliInstall = useCliInstallStatus();
+  const cliBlocked = useCallback(
+    (tab: ProviderTab) => cliInstall.isNotInstalled(tab),
+    [cliInstall],
+  );
+  const handleTabActivate = useCallback((tab: ProviderTab) => {
+    if (cliBlocked(tab)) {
+      addToast(t('settings.cli.providerNotInstalledToast', {
+        name: t(`providers.${tab}.label`, tab),
+      }), 'warning');
+      // 返回 false:useRovingTabs 保持焦点在原 tab(拒绝键盘切换)
+      return false;
+    }
+    setActiveTab(tab);
+    return undefined;
+  }, [cliBlocked, addToast, t]);
   const { getTabProps } = useRovingTabs({
     values: PROVIDER_TABS,
     activeValue: activeTab,
-    onActivate: setActiveTab,
+    onActivate: handleTabActivate,
   });
 
   return (
@@ -146,8 +165,9 @@ const ProviderTabSection = ({
           role="tab"
           aria-selected={activeTab === 'claude'}
           aria-controls={PROVIDER_PANEL_IDS.claude}
-          className={`${styles.tabBtn} ${activeTab === 'claude' ? styles.active : ''}`}
-          onClick={() => setActiveTab('claude')}
+          aria-disabled={cliBlocked('claude')}
+          className={`${styles.tabBtn} ${activeTab === 'claude' ? styles.active : ''} ${cliBlocked('claude') ? styles.tabBlocked : ''}`}
+          onClick={() => handleTabActivate('claude')}
         >
           <span className={styles.tabIcon}>
             <svg
@@ -161,6 +181,7 @@ const ProviderTabSection = ({
             />
           </span>
           {t('settings.providerTab.claude')}
+          {cliBlocked('claude') && <span className={styles.tabBadge}>{t('settings.cli.notInstalled')}</span>}
         </button>
         <button
           {...getTabProps('codex')}
@@ -169,8 +190,9 @@ const ProviderTabSection = ({
           role="tab"
           aria-selected={activeTab === 'codex'}
           aria-controls={PROVIDER_PANEL_IDS.codex}
-          className={`${styles.tabBtn} ${activeTab === 'codex' ? styles.active : ''}`}
-          onClick={() => setActiveTab('codex')}
+          aria-disabled={cliBlocked('codex')}
+          className={`${styles.tabBtn} ${activeTab === 'codex' ? styles.active : ''} ${cliBlocked('codex') ? styles.tabBlocked : ''}`}
+          onClick={() => handleTabActivate('codex')}
         >
           <span className={styles.tabIcon}>
             <svg
@@ -184,6 +206,7 @@ const ProviderTabSection = ({
             />
           </span>
           {t('settings.providerTab.codex')}
+          {cliBlocked('codex') && <span className={styles.tabBadge}>{t('settings.cli.notInstalled')}</span>}
         </button>
         <button
           {...getTabProps('opencode')}
@@ -192,8 +215,9 @@ const ProviderTabSection = ({
           role="tab"
           aria-selected={activeTab === 'opencode'}
           aria-controls={PROVIDER_PANEL_IDS.opencode}
-          className={`${styles.tabBtn} ${activeTab === 'opencode' ? styles.active : ''}`}
-          onClick={() => setActiveTab('opencode')}
+          aria-disabled={cliBlocked('opencode')}
+          className={`${styles.tabBtn} ${activeTab === 'opencode' ? styles.active : ''} ${cliBlocked('opencode') ? styles.tabBlocked : ''}`}
+          onClick={() => handleTabActivate('opencode')}
         >
           <span className={styles.tabIcon}>
             <svg
@@ -207,6 +231,7 @@ const ProviderTabSection = ({
             />
           </span>
           {t('settings.providerTab.opencode')}
+          {cliBlocked('opencode') && <span className={styles.tabBadge}>{t('settings.cli.notInstalled')}</span>}
         </button>
         <button
           {...getTabProps('grok')}
@@ -215,8 +240,9 @@ const ProviderTabSection = ({
           role="tab"
           aria-selected={activeTab === 'grok'}
           aria-controls={PROVIDER_PANEL_IDS.grok}
-          className={`${styles.tabBtn} ${activeTab === 'grok' ? styles.active : ''}`}
-          onClick={() => setActiveTab('grok')}
+          aria-disabled={cliBlocked('grok')}
+          className={`${styles.tabBtn} ${activeTab === 'grok' ? styles.active : ''} ${cliBlocked('grok') ? styles.tabBlocked : ''}`}
+          onClick={() => handleTabActivate('grok')}
         >
           <span className={styles.tabIcon}>
             <svg
@@ -230,6 +256,7 @@ const ProviderTabSection = ({
             />
           </span>
           {t('settings.providerTab.grok', 'Grok')}
+          {cliBlocked('grok') && <span className={styles.tabBadge}>{t('settings.cli.notInstalled')}</span>}
         </button>
         <button
           {...getTabProps('kimi')}
@@ -238,8 +265,9 @@ const ProviderTabSection = ({
           role="tab"
           aria-selected={activeTab === 'kimi'}
           aria-controls={PROVIDER_PANEL_IDS.kimi}
-          className={`${styles.tabBtn} ${activeTab === 'kimi' ? styles.active : ''}`}
-          onClick={() => setActiveTab('kimi')}
+          aria-disabled={cliBlocked('kimi')}
+          className={`${styles.tabBtn} ${activeTab === 'kimi' ? styles.active : ''} ${cliBlocked('kimi') ? styles.tabBlocked : ''}`}
+          onClick={() => handleTabActivate('kimi')}
         >
           <span className={styles.tabIcon}>
             <svg
@@ -253,6 +281,7 @@ const ProviderTabSection = ({
             />
           </span>
           {t('settings.providerTab.kimi', 'Kimi')}
+          {cliBlocked('kimi') && <span className={styles.tabBadge}>{t('settings.cli.notInstalled')}</span>}
         </button>
         <button
           {...getTabProps('pi')}
@@ -261,8 +290,9 @@ const ProviderTabSection = ({
           role="tab"
           aria-selected={activeTab === 'pi'}
           aria-controls={PROVIDER_PANEL_IDS.pi}
-          className={`${styles.tabBtn} ${activeTab === 'pi' ? styles.active : ''}`}
-          onClick={() => setActiveTab('pi')}
+          aria-disabled={cliBlocked('pi')}
+          className={`${styles.tabBtn} ${activeTab === 'pi' ? styles.active : ''} ${cliBlocked('pi') ? styles.tabBlocked : ''}`}
+          onClick={() => handleTabActivate('pi')}
         >
           <span className={styles.tabIcon}>
             <svg
@@ -276,6 +306,7 @@ const ProviderTabSection = ({
             />
           </span>
           {t('settings.providerTab.pi', 'Pi')}
+          {cliBlocked('pi') && <span className={styles.tabBadge}>{t('settings.cli.notInstalled')}</span>}
         </button>
         <button
           {...getTabProps('omp')}
@@ -284,8 +315,9 @@ const ProviderTabSection = ({
           role="tab"
           aria-selected={activeTab === 'omp'}
           aria-controls={PROVIDER_PANEL_IDS.omp}
-          className={`${styles.tabBtn} ${activeTab === 'omp' ? styles.active : ''}`}
-          onClick={() => setActiveTab('omp')}
+          aria-disabled={cliBlocked('omp')}
+          className={`${styles.tabBtn} ${activeTab === 'omp' ? styles.active : ''} ${cliBlocked('omp') ? styles.tabBlocked : ''}`}
+          onClick={() => handleTabActivate('omp')}
         >
           <span className={styles.tabIcon}>
             <svg
@@ -299,6 +331,7 @@ const ProviderTabSection = ({
             />
           </span>
           {t('settings.providerTab.omp', 'OMP')}
+          {cliBlocked('omp') && <span className={styles.tabBadge}>{t('settings.cli.notInstalled')}</span>}
         </button>
         <button
           {...getTabProps('dsh')}
@@ -307,8 +340,9 @@ const ProviderTabSection = ({
           role="tab"
           aria-selected={activeTab === 'dsh'}
           aria-controls={PROVIDER_PANEL_IDS.dsh}
-          className={`${styles.tabBtn} ${activeTab === 'dsh' ? styles.active : ''}`}
-          onClick={() => setActiveTab('dsh')}
+          aria-disabled={cliBlocked('dsh')}
+          className={`${styles.tabBtn} ${activeTab === 'dsh' ? styles.active : ''} ${cliBlocked('dsh') ? styles.tabBlocked : ''}`}
+          onClick={() => handleTabActivate('dsh')}
         >
           <span className={styles.tabIcon}>
             <svg
@@ -322,6 +356,7 @@ const ProviderTabSection = ({
             />
           </span>
           {t('settings.providerTab.dsh', 'DeepSeek Harness')}
+          {cliBlocked('dsh') && <span className={styles.tabBadge}>{t('settings.cli.notInstalled')}</span>}
         </button>
       </div>
 

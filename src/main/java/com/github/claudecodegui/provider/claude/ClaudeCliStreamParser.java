@@ -6,7 +6,7 @@ import com.github.claudecodegui.cli.common.CliErrorFormatter;
 import com.github.claudecodegui.cli.common.CliOutputLimits;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.provider.common.MessageCallback;
-import com.github.claudecodegui.provider.common.SDKResult;
+import com.github.claudecodegui.provider.common.CliResult;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -182,7 +182,7 @@ public class ClaudeCliStreamParser {
     public void parseLine(
             String line,
             MessageCallback callback,
-            SDKResult result,
+            CliResult result,
             StringBuilder assistantContent,
             AtomicBoolean hadSendError,
             boolean suppressThinking
@@ -385,7 +385,7 @@ public class ClaudeCliStreamParser {
         }
     }
 
-    private void handleResult(JsonObject obj, MessageCallback callback, SDKResult result, StringBuilder assistantContent) {
+    private void handleResult(JsonObject obj, MessageCallback callback, CliResult result, StringBuilder assistantContent) {
         flushPendingTextBlock(callback, assistantContent, false);
         String resultText = null;
 

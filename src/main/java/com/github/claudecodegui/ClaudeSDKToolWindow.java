@@ -4,6 +4,7 @@ package com.github.claudecodegui;
  * Binary-compatibility shim for users upgrading from v0.3, where the tool window
  * factory lived in the root package. Keep the old class name loadable so cached
  * IDE metadata does not fail with ClassNotFoundException during upgrade.
+ * The current implementation is {@link com.github.claudecodegui.ui.toolwindow.ClaudeChatToolWindow}.
  */
-public class ClaudeSDKToolWindow extends com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow {
+public class ClaudeSDKToolWindow extends com.github.claudecodegui.ui.toolwindow.ClaudeChatToolWindow {
 }

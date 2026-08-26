@@ -161,7 +161,7 @@
 - 任何对接外部系统 / CLI / 第三方能力的代码,**禁止**用 `if (type == X) ... else if (type == Y)` 硬编码分支。必须定义 Adapter 接口 + `support()` 路由 + 注入集合。
 - 易变的协议参数(URL、token 获取、字段映射)外置为配置文件,而非写死在代码里。
 - 设计新模块时,先识别「哪些点将来会变」,为它们留接口。
-- **已落地范例(可参照)**:`SessionRuntime` 接口 + `default supports(ProviderType, RuntimeType)` + `SessionRuntimeRegistry`(`Map<Key, SessionRuntime>` 查表,路由代码零 if/else);`ProviderAdapter` 接口 + `ProviderRegistry`(`Map<ProviderId, ProviderAdapter>`,fail-fast 重复检测);`ModelConfig` record(配置驱动模型清单);`RuntimePolicyConfig`(外置到 `~/.codemoss/config.json` 的配置外置范例)。
+- **已落地范例(可参照)**:`SessionRuntime` 接口(以 `provider()` 声明路由键)+ `SessionRuntimeRegistry`(`Map<ProviderType, SessionRuntime>` 查表,路由代码零 if/else);`ProviderAdapter` 接口 + `ProviderRegistry`(`Map<ProviderId, ProviderAdapter>`,fail-fast 重复检测);`ModelConfig` record(配置驱动模型清单);`RuntimePolicyConfig`(外置到 `~/.codemoss/config.json` 的配置外置范例)。
 
 ### 合规检查清单
 

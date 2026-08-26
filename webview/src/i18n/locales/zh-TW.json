@@ -433,7 +433,7 @@
       "customSectionTitle": "自訂模型",
       "editPricing": "編輯價格"
     },
-    "dependencies": "SDK 依賴",
+    "dependencies": "CLI 工具",
     "dependency": {
       "title": "SDK 依賴管理",
       "description": "管理 AI SDK 依賴套件。首次使用時需要安裝對應的 SDK。",
@@ -876,6 +876,11 @@
       "loadFailed": "Load failed"
     },
     "cli": {
+      "providerNotInstalledToast": "{{name}} CLI 未安裝，請先在 設定 → CLI 環境 中安裝",
+      "recheck": "重新偵測 CLI 環境",
+      "rechecking": "偵測中…",
+
+      "updating": "更新中…",
       "hint": "以下 CLI 需在系統終端自行安裝並完成設定。外掛只負責偵測是否已安裝及版本號，不會替你自動安裝。請先在終端確認可正常使用，再回到此處使用。",
       "refresh": "Re-check",
       "retry": "Retry",
@@ -1957,9 +1962,9 @@
           "step0": "在終端機執行以下指令查看版本號。建議使用 Node 22 或目前最新 LTS 版本 — 使用者反饋 Node 24 報錯較多，請優先使用 20 或 22："
         },
         "reinstallLatestSdk": {
-          "title": "方案二：用 npm 官方源重新安裝最新版 SDK",
+          "title": "方案二：用 npm 官方源重新安裝最新版 CLI",
           "step0": "1. 切換到 npm 官方源（淘寶源可能未同步最新版本，請勿使用淘寶源安裝）：",
-          "step1": "2. 開啟「相依性管理」重新安裝最新版 SDK："
+          "step1": "2. 開啟「相依性管理」重新安裝最新版 CLI："
         }
       }
     }

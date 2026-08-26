@@ -9,7 +9,7 @@ public class LegacyToolWindowCompatibilityTest {
     @Test
     public void legacyToolWindowClassRemainsAssignableToCurrentImplementation() {
         assertTrue(
-            com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow.class
+            com.github.claudecodegui.ui.toolwindow.ClaudeChatToolWindow.class
                 .isAssignableFrom(ClaudeSDKToolWindow.class)
         );
     }

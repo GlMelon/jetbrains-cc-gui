@@ -417,7 +417,7 @@ public class ClaudeMessageHandlerDedupTest {
 
     @Test
     public void onCompleteWithStructuredErrorAddsProviderErrorBlockToAssistantMessage() {
-        com.github.claudecodegui.provider.common.SDKResult result = new com.github.claudecodegui.provider.common.SDKResult();
+        com.github.claudecodegui.provider.common.CliResult result = new com.github.claudecodegui.provider.common.CliResult();
         result.success = false;
         result.error = "当前模型不支持图片识别，或该服务商的 Claude Code 兼容接口不支持图片工具结果。";
 

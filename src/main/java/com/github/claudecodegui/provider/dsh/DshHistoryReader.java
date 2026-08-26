@@ -121,7 +121,7 @@ public class DshHistoryReader {
         try {
             String node = nodeDetector.findNodeExecutable();
             BridgeDirectoryResolver resolver = BridgePreloader.getSharedResolver();
-            File bridgeDir = resolver != null ? resolver.findSdkDir() : null;
+            File bridgeDir = resolver != null ? resolver.findBridgeDir() : null;
             if (bridgeDir == null || !bridgeDir.exists()) {
                 LOG.warn("[DSH] Bridge directory not ready");
                 return null;

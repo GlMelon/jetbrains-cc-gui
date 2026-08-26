@@ -2,7 +2,7 @@ package com.github.claudecodegui.ui.detached;
 
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.ui.toolwindow.ClaudeChatWindow;
-import com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow;
+import com.github.claudecodegui.ui.toolwindow.ClaudeChatToolWindow;
 import com.intellij.ide.ui.LafManager;
 import com.intellij.ide.ui.LafManagerListener;
 import com.intellij.openapi.Disposable;
@@ -51,10 +51,10 @@ public class DetachedChatFrame extends JFrame {
      * @param content The Content to detach
      */
     public DetachedChatFrame(Project project, Content content) {
-        super(ClaudeSDKToolWindow.TOOL_WINDOW_DISPLAY_NAME + " - " + content.getDisplayName());
+        super(ClaudeChatToolWindow.TOOL_WINDOW_DISPLAY_NAME + " - " + content.getDisplayName());
         this.project = project;
         this.originalTabName = content.getDisplayName();
-        this.chatWindow = ClaudeSDKToolWindow.getChatWindowForContent(content);
+        this.chatWindow = ClaudeChatToolWindow.getChatWindowForContent(content);
 
         if (chatWindow == null) {
             LOG.error("[DetachedChatFrame] Cannot find ClaudeChatWindow for content: " + originalTabName);
@@ -62,7 +62,7 @@ public class DetachedChatFrame extends JFrame {
         }
 
         // Get original tab index before removing from ContentManager
-        ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
+        ToolWindow toolWindow = ToolWindowManager.getInstance(project).getToolWindow(ClaudeChatToolWindow.TOOL_WINDOW_ID);
         if (toolWindow != null) {
             ContentManager contentManager = toolWindow.getContentManager();
             this.originalTabIndex = contentManager.getIndexOfContent(content);
@@ -230,7 +230,7 @@ public class DetachedChatFrame extends JFrame {
                 }
 
                 ToolWindow toolWindow = ToolWindowManager.getInstance(this.project)
-                        .getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
+                        .getToolWindow(ClaudeChatToolWindow.TOOL_WINDOW_ID);
                 if (toolWindow == null) {
                     LOG.error("[DetachedChatFrame] Tool window not found");
                     Messages.showErrorDialog(
@@ -324,7 +324,7 @@ public class DetachedChatFrame extends JFrame {
     private void syncTabStateWithToolWindow() {
         try {
             ToolWindow toolWindow = ToolWindowManager.getInstance(this.project)
-                    .getToolWindow(ClaudeSDKToolWindow.TOOL_WINDOW_ID);
+                    .getToolWindow(ClaudeChatToolWindow.TOOL_WINDOW_ID);
             if (toolWindow != null) {
                 int actualCount = toolWindow.getContentManager().getContentCount();
                 com.github.claudecodegui.settings.TabStateService.getInstance(this.project)

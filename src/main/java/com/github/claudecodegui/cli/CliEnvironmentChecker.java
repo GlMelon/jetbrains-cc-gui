@@ -69,6 +69,38 @@ public class CliEnvironmentChecker {
      */
     private static final Pattern VERSION_PATTERN = Pattern.compile("(\\d+\\.\\d+\\.\\d+(?:-[a-zA-Z0-9.]+)?)");
 
+    // ── 检测结果缓存 ──────────────────────────────────────────────
+    // 全量检测 = 6 个 CLI × (可执行文件探测 + --version + npm view),秒级耗时;
+    // 供应商下拉/模型列表/供应商页签等常驻 UI 消费安装状态,不能每次都全量重检。
+    // TTL 内直接复用缓存;force(用户点击"重新检测/刷新")绕过缓存强制重检。
+    private static final long CACHE_TTL_MS = 5 * 60 * 1000;
+    private static final Object CACHE_LOCK = new Object();
+    private static volatile List<CliEnvironmentStatus> cachedStatuses;
+    private static volatile long cachedAtMillis;
+
+    /**
+     * 带缓存的全量检测(在后台线程调用,内部有锁串行化并发请求)。
+     *
+     * @param force true 时绕过缓存强制重检并更新缓存(用户手动刷新);
+     *              false 时 TTL 内直接返回缓存
+     */
+    public static List<CliEnvironmentStatus> getStatusesCached(boolean force) {
+        synchronized (CACHE_LOCK) {
+            if (!force && isCacheFresh()) {
+                return cachedStatuses;
+            }
+            List<CliEnvironmentStatus> fresh = new CliEnvironmentChecker().checkAllCliEnvironments();
+            cachedStatuses = fresh;
+            cachedAtMillis = System.currentTimeMillis();
+            return fresh;
+        }
+    }
+
+    private static boolean isCacheFresh() {
+        return cachedStatuses != null
+            && (System.currentTimeMillis() - cachedAtMillis) < CACHE_TTL_MS;
+    }
+
     /**
      * 检查所有CLI环境
      */
@@ -123,8 +155,9 @@ public class CliEnvironmentChecker {
             }
 
             // 4. 获取最新版本（从npm registry）—— 仅当声明了 npm 包名时才查询。
-            // grok/kimi/pi 的 npmPackage=null(非 npm 分发或未验证),跳过 npm view,
-            // 否则 getLatestVersionFromNpm(null) 会 NPE(ProcessBuilder 拒绝 null 参数),
+            // 当前 CLI_TOOLS 六家均有真实 npmPackage;本判空仅防御未来新增
+            // 非 npm 分发条目(声明为 null/blank):npmPackage=null 会使
+            // getLatestVersionFromNpm(null) NPE(ProcessBuilder 拒绝 null 参数),
             // 触发下方 catch 污染整张卡片状态;且对不存在的包每次空等最长 10s。
             String latestVersion = null;
             if (tool.npmPackage != null && !tool.npmPackage.isBlank()) {

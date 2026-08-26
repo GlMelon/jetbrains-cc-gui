@@ -20,7 +20,7 @@ import java.util.Set;
 
 /**
  * Merges built-in slash commands with skill-derived commands per provider.
- * Produces a deduplicated command list in the same JSON format as the SDK.
+ * Produces a deduplicated command list in the same JSON format as the CLI.
  */
 public final class SlashCommandRegistry {
 

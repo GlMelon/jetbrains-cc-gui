@@ -3,7 +3,7 @@ package com.github.claudecodegui.cli.common;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 
 /**
- * CLI 长驻会话模式的三层功能门禁(设计文档 §7 回退开关)。
+ * CLI 长驻会话模式的三层功能门禁(回退开关)。
  * <p>
  * 仿 {@link com.github.claudecodegui.mcp.McpGatewayFeatureFlags},三层 AND 关系,默认全开:
  * <ol>

@@ -1,6 +1,6 @@
 package com.github.claudecodegui.session;
 
-import com.github.claudecodegui.provider.common.SDKResult;
+import com.github.claudecodegui.provider.common.CliResult;
 import com.github.claudecodegui.session.ClaudeSession.Message;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -128,7 +128,7 @@ public class CodexMessageHandlerTest {
         CodexMessageHandler handler = new CodexMessageHandler(state, callbackHandler);
         handler.onMessage("stream_start", "");
 
-        SDKResult result = SDKResult.error("__I18N__:chat.requestInterrupted");
+        CliResult result = CliResult.error("__I18N__:chat.requestInterrupted");
         result.interrupted = true;
         handler.onComplete(result);
 
@@ -346,7 +346,7 @@ public class CodexMessageHandlerTest {
         CodexMessageHandler handler = new CodexMessageHandler(state, callbackHandler);
         handler.onMessage("stream_start", "");
         handler.onMessage("content_delta", "partial");
-        handler.onComplete(new SDKResult());
+        handler.onComplete(new CliResult());
 
         assertEquals(1, callback.streamStartCount);
         assertEquals(1, callback.streamEndCount);
@@ -390,7 +390,7 @@ public class CodexMessageHandlerTest {
 
         CodexMessageHandler handler = new CodexMessageHandler(state, callbackHandler);
         handler.onMessage("assistant", "{\"message\":{\"content\":[{\"type\":\"text\",\"text\":\"done\"}]}}");
-        handler.onComplete(new SDKResult());
+        handler.onComplete(new CliResult());
 
         assertEquals(0, callback.streamStartCount);
         assertEquals(0, callback.streamEndCount);
@@ -909,7 +909,7 @@ public class CodexMessageHandlerTest {
         state.rotateRuntimeSessionEpoch();
 
         handler.onError("stale error");
-        handler.onComplete(new SDKResult());
+        handler.onComplete(new CliResult());
 
         assertTrue("stale onError must not clear busy", state.isBusy());
         assertTrue("stale onComplete must not clear loading", state.isLoading());

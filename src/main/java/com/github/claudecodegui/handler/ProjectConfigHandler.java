@@ -839,10 +839,10 @@ public class ProjectConfigHandler {
     }
 
     /**
-     * 行为菜单 CLI 长驻会话开关写入(daemon-mode 设计 §7 回退开关的用户层)。
+     * 行为菜单 CLI 长驻会话开关写入。
      * 存盘 + 下行回灌 + 副作用:关闭时立即回收 IDLE 长驻进程(STREAMING 轮自然收尾后
-     * 由周期空闲扫描兜底);开启时无需预热(首条消息同步 spawn,§3.2)。
-     * 用户开关与两层 {@code -D} 系统开关独立生效(三层 AND 门禁,§7)。
+     * 由周期空闲扫描兜底);开启时无需预热(首条消息同步 spawn)。
+     * 用户开关与两层 {@code -D} 系统开关独立生效(三层 AND 门禁)。
      */
     public void handleSetCliPersistentEnabled(String content) {
         try {

@@ -1,6 +1,6 @@
 package com.github.claudecodegui.cli.common;
 
-import com.github.claudecodegui.provider.common.SDKResult;
+import com.github.claudecodegui.provider.common.CliResult;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.intellij.openapi.diagnostic.Logger;
 
@@ -34,13 +34,13 @@ import com.intellij.util.concurrency.AppExecutorUtil;
  *   <li>优雅关闭(stdin EOF → 限时等待 → terminateProcess 兜底)与元数据描述。</li>
  * </ol>
  *
- * <p><b>轮协议</b>(设计文档 §4.1):CLI 启动后先等 stdin、init 在首条消息之后才发,
+ * <p><b>轮协议</b>:CLI 启动后先等 stdin、init 在首条消息之后才发,
  * 因此 spawn 存活即就绪。轮完成信号从「进程退出」改为「result 事件」——每轮 turn
  * 结束 CLI 输出 result 行但进程不退出。同一进程同一时刻只允许一个活跃轮:上层
  * {@code CliSessionManager} 的 per-tab inFlight 链保证不重叠,此处再以 CAS 断言防御
  * (抛错优于静默交错)。
  *
- * <p><b>abort</b>(设计文档 §4.3,V1 实测定稿):经 provider 注入的
+ * <p><b>abort</b>(V1 实测定稿):经 provider 注入的
  * {@code interruptLineSupplier}(随 {@link CliProcessSpec} 绑定,本类不内置协议格式)取得
  * interrupt 协议行写入 stdin,进程保留;被中断轮以 result subtype=error_during_execution
  * 收尾即中断成功。兜底:interrupt 写入后 {@link CliConstants#CLI_INTERRUPT_FALLBACK_MS}
@@ -56,12 +56,12 @@ public final class CliPersistentProcess {
     // ── 嵌套类型 ───────────────────────────────────────────────────────────────
 
     /**
-     * 长驻进程生命周期状态(进程面板展示用)。spawn 即就绪(CLI 先等 stdin,§4.1),
+     * 长驻进程生命周期状态(进程面板展示用)。spawn 即就绪(CLI 先等 stdin),
      * 故无 STARTING 中间态:槽内进程要么空闲、要么轮进行中、要么已死(待空闲扫描移除)。
      */
     public enum State {IDLE, STREAMING, DEAD}
 
-    /** 进程面板元数据(注册到 NodeProcessRegistry 用,设计文档 §5.1)。 */
+    /** 进程面板元数据(注册到 NodeProcessRegistry 用)。 */
     public record PersistentProcessInfo(
             long pid,
             String provider,
@@ -76,28 +76,28 @@ public final class CliPersistentProcess {
     /**
      * Provider 侧逐行处理器:读行线程对每行 stdout 调用一次。
      * 实现方须同步分发(回归调,无缓冲无排队);仅当该行为本轮结束行(result 事件)时
-     * 返回非 null 的 {@link SDKResult},否则返回 null 表示轮继续。
+     * 返回非 null 的 {@link CliResult},否则返回 null 表示轮继续。
      *
      * @param interrupted 本轮是否已被 interruptTurn 标记中断(result 行据此映射中断语义)
      */
     @FunctionalInterface
     public interface TurnLineHandler {
-        SDKResult onLine(String line, boolean interrupted);
+        CliResult onLine(String line, boolean interrupted);
     }
 
     /** 轮句柄:暴露轮 future、turnId 与中断标记。 */
     public static final class TurnHandle {
-        private final CompletableFuture<SDKResult> future;
+        private final CompletableFuture<CliResult> future;
         private final AtomicBoolean interrupted;
         private final String turnId;
 
-        private TurnHandle(CompletableFuture<SDKResult> future, AtomicBoolean interrupted, String turnId) {
+        private TurnHandle(CompletableFuture<CliResult> future, AtomicBoolean interrupted, String turnId) {
             this.future = future;
             this.interrupted = interrupted;
             this.turnId = turnId;
         }
 
-        public CompletableFuture<SDKResult> future() {
+        public CompletableFuture<CliResult> future() {
             return future;
         }
 
@@ -105,7 +105,7 @@ public final class CliPersistentProcess {
             return interrupted.get();
         }
 
-        /** 本轮短标识(日志归因用,实施计划 §6.7/§9.2 的 turnId 字段)。 */
+        /** 本轮短标识(日志归因用的 turnId 字段)。 */
         public String turnId() {
             return turnId;
         }
@@ -113,9 +113,9 @@ public final class CliPersistentProcess {
 
     private static final class ActiveTurn {
         final TurnLineHandler handler;
-        final CompletableFuture<SDKResult> future = new CompletableFuture<>();
+        final CompletableFuture<CliResult> future = new CompletableFuture<>();
         final AtomicBoolean interrupted = new AtomicBoolean(false);
-        /** 轮短标识:日志按轮归因(§6.7)。 */
+        /** 轮短标识:日志按轮归因。 */
         final String turnId;
         volatile ScheduledFuture<?> interruptFallback;
 
@@ -147,11 +147,11 @@ public final class CliPersistentProcess {
     private final AtomicBoolean closeStarted = new AtomicBoolean();
     /** 强杀兜底已触发,槽位不可复用(dirty)。 */
     private volatile boolean dirty;
-    /** 轮外协议事件 WARN 限流计数(§6.14 可观测化,防协议错配场景刷屏)。 */
+    /** 轮外协议事件 WARN 限流计数(防协议错配场景刷屏)。 */
     private final AtomicInteger orphanProtocolWarnCount = new AtomicInteger();
     /**
      * provider 中断协议行构造器(经 {@link CliProcessSpec} 注入):本类不内置任何 provider
-     * 协议格式(§6.4 职责边界)。null = 无进程保留式中断,interrupt 直接杀进程兜底。
+     * 协议格式(职责边界)。null = 无进程保留式中断,interrupt 直接杀进程兜底。
      */
     private volatile Supplier<String> interruptLineSupplier;
 
@@ -168,7 +168,7 @@ public final class CliPersistentProcess {
     // ── 生命周期 ───────────────────────────────────────────────────────────────
 
     /**
-     * 启动长驻进程。spawn 即就绪(CLI 先等 stdin,init 在首条消息后才发,§4.1 时序),
+     * 启动长驻进程。spawn 即就绪(CLI 先等 stdin,init 在首条消息后才发),
      * {@code readyTimeoutMs} 仅作速死观察窗:CLI 因参数/认证问题立即退出时及时返回 false。
      *
      * @return true 表示进程存活(就绪);false 表示观察窗内已退出
@@ -255,7 +255,7 @@ public final class CliPersistentProcess {
     }
 
     /**
-     * 优雅关闭(默认等待):关闭 stdin(EOF)→ CLI 自然退出(§4.1 实测)→
+     * 优雅关闭(默认等待):关闭 stdin(EOF)→ CLI 自然退出(实测)→
      * {@link CliConstants#CLI_GRACEFUL_CLOSE_TIMEOUT_MS} 未退则 terminateProcess 兜底
      * (复用 Windows 父死孤儿清理基建)。可能阻塞至多 ~5s,空闲回收/关闭 tab 须在可阻塞线程调用。
      */
@@ -355,7 +355,7 @@ public final class CliPersistentProcess {
     }
 
     /**
-     * 中断当前轮(§4.3 进程保留式中断):经 provider 注入的 {@code interruptLineSupplier}
+     * 中断当前轮(进程保留式中断):经 provider 注入的 {@code interruptLineSupplier}
      * 取协议行写入 stdin,标记中断;被中断轮以 result(error_during_execution)收尾,
      * future 正常完成。provider 未注入协议行(无进程保留式中断)或写入失败 → 直接杀进程兜底。
      * 兜底:{@link CliConstants#CLI_INTERRUPT_FALLBACK_MS} 无 result 回应 → 杀进程 + dirty。
@@ -425,7 +425,7 @@ public final class CliPersistentProcess {
         return lastActiveAtMs;
     }
 
-    /** 进程面板元数据快照(§5.1)。 */
+    /** 进程面板元数据快照。 */
     public PersistentProcessInfo describe() {
         State state = currentTurn.get() != null ? State.STREAMING
                 : isAlive() ? State.IDLE : State.DEAD;
@@ -460,7 +460,7 @@ public final class CliPersistentProcess {
                     logLineOutsideTurn(text);
                     continue;
                 }
-                SDKResult result;
+                CliResult result;
                 try {
                     result = turn.handler.onLine(text, turn.interrupted.get());
                 } catch (Exception e) {
@@ -525,7 +525,7 @@ public final class CliPersistentProcess {
 
     /**
      * 轮外行分流:协议事件(result/assistant/system 类)在无活跃轮时到达,通常是 CLI 版本/
-     * 协议错配的信号(实施计划 §6.14「无法归属到当前 turn 的协议消息」)。保守落地:
+     * 协议错配的信号(无法归属到当前 turn 的协议消息)。保守落地:
      * 可观测化(WARN,每进程限流 {@link CliConstants#CLI_PERSISTENT_ORPHAN_WARN_LIMIT} 条防刷屏)
      * 但<b>不自动降级</b>——中断收尾后的迟到行属正常拖尾,自动降级误伤率高于收益;
      * 持续出现且伴随轮异常时,人工据此判断是否版本回退。非协议噪声行维持 debug 级丢弃。

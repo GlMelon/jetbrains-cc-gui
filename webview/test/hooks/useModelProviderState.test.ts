@@ -22,23 +22,6 @@ describe('useModelProviderState', () => {
     resetModelRegistryForTests();
   });
 
-  it('uses one SDK status state for callbacks and computed install status', () => {
-    const { result } = renderHook(() => useModelProviderState({ addToast, t }));
-
-    expect(result.current.sdkStatusLoaded).toBe(false);
-    expect(result.current.currentSdkInstalled).toBe(false);
-
-    act(() => {
-      result.current.setSdkStatus({
-        'claude-sdk': { status: 'installed' },
-      });
-      result.current.setSdkStatusLoaded(true);
-    });
-
-    expect(result.current.sdkStatusLoaded).toBe(true);
-    expect(result.current.currentSdkInstalled).toBe(true);
-  });
-
   it('uses registry model capability when selecting a third-party Claude 1M model', () => {
     __setModelRegistryForTests({
       items: [{
