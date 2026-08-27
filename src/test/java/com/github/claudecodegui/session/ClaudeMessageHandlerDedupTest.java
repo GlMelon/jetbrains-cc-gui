@@ -504,6 +504,7 @@ public class ClaudeMessageHandlerDedupTest {
         @Override
         public void notifyMessageUpdate(List<ClaudeSession.Message> messages) {
             messageUpdates.add(messages);
+            messageUpdateCount++;
         }
 
         @Override
@@ -514,11 +515,6 @@ public class ClaudeMessageHandlerDedupTest {
         @Override
         public void notifyThinkingDelta(String delta) {
             thinkingDeltas.add(delta);
-        }
-
-        @Override
-        public void notifyMessageUpdate(List<ClaudeSession.Message> messages) {
-            messageUpdateCount++;
         }
 
         @Override

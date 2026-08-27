@@ -201,8 +201,9 @@ public class SessionCallbackAdapterStreamEndTest {
                 null,
                 jsTarget,
                 null,
+                () -> { },
                 () -> true,
-                null
+                () -> true
         );
 
         // Deltas arrive and sit in the throttlers' 33ms window...
