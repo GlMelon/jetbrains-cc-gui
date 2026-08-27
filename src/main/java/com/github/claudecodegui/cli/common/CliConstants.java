@@ -282,6 +282,66 @@ public final class CliConstants {
     /** opencode 权限配置（内联 JSON），映射本项目 permissionMode。 */
     public static final String ENV_OPENCODE_PERMISSION = "OPENCODE_PERMISSION";
 
+    // ── Grok CLI 参数（headless 模式,对齐 docs.x.ai/build/cli/headless-scripting） ──
+    // 真实命令：grok -p <prompt> --output-format streaming-json --always-approve
+    //          [-m <profile>] [--reasoning-effort low|medium|high] (-s <new-uuid> | -r <existing-uuid>)
+    // 会话存 ~/.grok/sessions/<encodeURIComponent(cwd)>/<sessionId>/。
+
+    /** -p/--single：发送单条 prompt（headless）。 */
+    public static final String GROK_ARG_PROMPT = "-p";
+    /** --output-format：输出格式。 */
+    public static final String GROK_ARG_OUTPUT_FORMAT = "--output-format";
+    /** --output-format streaming-json：NDJSON 事件流（text/thought/end/error）。 */
+    public static final String GROK_FORMAT_STREAMING_JSON = "streaming-json";
+    /** -m/--model：~/.grok/config.toml 的 [model."..."] profile 名（非上游模型 id）。 */
+    public static final String GROK_ARG_MODEL = "-m";
+    /** --reasoning-effort：推理强度（low/medium/high）。 */
+    public static final String GROK_ARG_REASONING_EFFORT = "--reasoning-effort";
+    /** -s/--session-id：创建或恢复命名 headless 会话（首轮预分配 UUID 用）。 */
+    public static final String GROK_ARG_SESSION_ID = "-s";
+    /** -r/--resume：恢复既有会话。 */
+    public static final String GROK_ARG_RESUME = "-r";
+    /**
+     * --always-approve：自动批准工具执行。headless 流式模式无审批交互通道，
+     * 无论前端 permissionMode 如何都必带（有意差异:与 opencode 的 --auto 条件注入不同,
+     * grok headless 不带此 flag 会卡在 TUI 审批提示）。
+     */
+    public static final String GROK_ARG_ALWAYS_APPROVE = "--always-approve";
+
+    // ── Kimi Code CLI 参数（非交互模式,对齐 kimi-command 官方参考） ─────────────
+    // 真实命令：kimi --output-format stream-json --prompt <text> [--model <alias>] [--session <id>]
+    // 非 -p 模式默认 auto 权限;thinking 不写入 JSONL(官方限制,思考区暂不支持)。
+    // 会话存 $KIMI_CODE_HOME/sessions/<workDirKey>/<sessionId>/。
+
+    /** --prompt/-p：单条 prompt 非交互执行。 */
+    public static final String KIMI_ARG_PROMPT = "--prompt";
+    /** --output-format：输出格式（仅可与 --prompt 组合）。 */
+    public static final String KIMI_ARG_OUTPUT_FORMAT = "--output-format";
+    /** --output-format stream-json：JSONL 事件流（assistant/tool/meta role 行）。 */
+    public static final String KIMI_FORMAT_STREAM_JSON = "stream-json";
+    /** --model/-m：模型别名（省略用 config default_model）。 */
+    public static final String KIMI_ARG_MODEL = "--model";
+    /** --session/-S：续接指定 session id（--continue 互斥）。 */
+    public static final String KIMI_ARG_SESSION = "--session";
+
+    // ── Pi CLI 参数（print + JSON 事件流模式,对齐 pi.dev/docs usage/json） ──────
+    // 真实命令：pi --print --mode json "<positional-message>" [--model <pattern>]
+    //          [--session-id <id>] [--thinking off..max]
+    // 会话存 ~/.pi/agent/sessions/（JSONL 公开格式）;MCP 故意不内置（设计原则）。
+
+    /** --print/-p：打印响应后退出。 */
+    public static final String PI_ARG_PRINT = "--print";
+    /** --model：模型 pattern 或 ID（支持 provider/id 与 :thinking 简写）。 */
+    public static final String PI_ARG_MODEL = "--model";
+    /** --mode json：全部会话事件以 JSON lines 输出。 */
+    public static final String PI_ARG_MODE = "--mode";
+    /** --mode 值：json 事件流。 */
+    public static final String PI_FORMAT_JSON = "json";
+    /** --session-id：使用指定会话文件或部分 UUID。 */
+    public static final String PI_ARG_SESSION_ID = "--session-id";
+    /** --thinking：思考级别（off/minimal/low/medium/high/xhigh/max），由 reasoningEffort 映射。 */
+    public static final String PI_ARG_THINKING = "--thinking";
+
     // ── Sandbox 模式值 ─────────────────────────────────────────────────────────
 
     public static final String SANDBOX_READ_ONLY = "read-only";

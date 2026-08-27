@@ -51,9 +51,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * 子类职责:
  * <ul>
  *   <li>必须:{@link #createParser(CliSessionCallback)} 绑定协议解析器
- *       (marker 协议用 {@code MarkerRunOnceCliSession},NDJSON 用 opencode 子类);</li>
+ *       (opencode 用 {@code OpenCodeCliStreamParser},grok/kimi/pi 各绑定自有方言解析器,
+ *       并按需覆写 {@code buildRunCommand} 为原生 CLI 参数布局);</li>
  *   <li>可选:覆写 {@link #dispatchLine}(行分流,默认 marker 版)、
- *       {@link #appendExtraRunFlags}(能力 flag 追加)、{@link #npmDir()}(npm 包目录)。</li>
+ *       {@link #buildRunCommand}(命令布局,默认 opencode 版)、
+ *       {@link #appendExtraRunFlags}(能力 flag 追加)、{@link #npmDir()}(npm 包目录)、
+ *       {@link #onStartAuxiliary}/{@link #onStopAuxiliary}(辅助监视器,grok 工具尾随用)。</li>
  * </ul>
  */
 public abstract class AbstractRunOnceCliSession implements CliSession {
@@ -111,6 +114,22 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
     /** 能力 flag 追加点(variant 之后、附件之前)。默认空;opencode 覆写加 --thinking。 */
     protected void appendExtraRunFlags(CliSendRequest request, List<String> cmd) {
         // 默认无额外 flag
+    }
+
+    /**
+     * 辅助监视器启动钩子:进程已就绪且 stdout drain 开启前调用一次。默认空;
+     * grok 覆写以尾随 chat_history.jsonl 工具事件(stdout 无工具事件,见 GrokToolHistoryTailer)。
+     */
+    protected void onStartAuxiliary(Process process, CliStreamParser parser) {
+        // 默认无辅助监视器
+    }
+
+    /**
+     * 辅助监视器停止钩子:await 返回后、结果判定(timeout/interrupt/成功补发流结束)前调用,
+     * 保证尾部信号先于流结束判定进入解析器。实现必须幂等(异常路径可能未 start)。
+     */
+    protected void onStopAuxiliary() {
+        // 默认无辅助监视器
     }
 
     // ── 会话骨架(全部公共) ─────────────────────────────────────────────────────
@@ -250,6 +269,7 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
                 + ", thread=" + Thread.currentThread().getName());
         CliProcessHandle currentHandle = new CliProcessHandle(process, providerType.cliCommand() + "-tab-" + tabId);
         activeHandle = currentHandle;
+        onStartAuxiliary(process, parser);
 
         try {
             if (userInterrupted.get()) {
@@ -293,6 +313,8 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
                     + ", exitCode=" + exitCode
                     + ", elapsedMs=" + elapsedMillis(sendStartNanos)
                     + ", thread=" + Thread.currentThread().getName());
+            // 停辅助监视器并做最终信号 drain(须先于流结束判定:尾部 tool_result 应在 stream_end 之前进入)
+            onStopAuxiliary();
 
             if (outcome.timedOut() && !wasInterrupted()) {
                 String err = CliErrorFormatter.formatError(providerLabel(), "CLI request timed out");
@@ -391,7 +413,8 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
         return gatewayService.buildCliConfig(providerType, tabId, request.cwd());
     }
 
-    private ProviderCliResolver resolver() {
+    /** CLI 可执行解析器(含 npm 全局结构原生 exe 解析/版本门控),方言子类共用。 */
+    protected ProviderCliResolver resolver() {
         ProviderCliResolver r = resolver;
         if (r == null) {
             synchronized (this) {
@@ -472,7 +495,11 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
         };
     }
 
-    private String buildPromptText(CliSendRequest request) {
+    /**
+     * prompt 位置参数文本组合(消息 + 打开文件 + @文件引用 + agent 角色),
+     * 由各方言 {@code buildRunCommand} 复用(opencode 默认布局与 grok/kimi/pi 方言共用)。
+     */
+    protected String buildPromptText(CliSendRequest request) {
         StringBuilder sb = new StringBuilder(request.message());
         if (request.openedFiles() != null && !request.openedFiles().isJsonNull() && request.openedFiles().size() > 0) {
             sb.append(CliConstants.PROMPT_OPENED_FILES).append(gson.toJson(request.openedFiles()));
@@ -487,6 +514,17 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
             sb.append(CliConstants.PROMPT_AGENT_ROLE).append(request.agentPrompt());
         }
         return sb.toString();
+    }
+
+    /**
+     * argv 选项注入防御:位置参数文本以 {@code -} 开头时前置空格(对称 ai-bridge safePromptArg),
+     * 防止用户消息被 CLI 解析为 flag。
+     */
+    protected static String safePromptArg(String text) {
+        if (text != null && text.startsWith("-")) {
+            return " " + text;
+        }
+        return text == null ? "" : text;
     }
 
     /**

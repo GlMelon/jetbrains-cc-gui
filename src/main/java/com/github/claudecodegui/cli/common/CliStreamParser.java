@@ -3,8 +3,10 @@ package com.github.claudecodegui.cli.common;
 /**
  * CLI 流解析器统一契约,由 {@link AbstractRunOnceCliSession} 持有。
  * <p>
- * {@link MarkerCliStreamParser}(marker 协议,grok/kimi/pi)与
- * {@code OpenCodeCliStreamParser}(NDJSON 事件流)的公共方法集。
+ * 实现者:{@link MarkerCliStreamParser}(marker 协议,omp/dsh 经 channel 模式)、
+ * {@code OpenCodeCliStreamParser}(NDJSON 事件流)、
+ * {@code GrokCliStreamParser}(streaming-json+marker 合成)、
+ * {@code KimiCliStreamParser}/{@code PiCliStreamParser}(各自 JSON 事件方言)。
  * 每次发送构造新实例,持有本次运行的全部可变状态(非线程安全)。
  */
 public interface CliStreamParser {

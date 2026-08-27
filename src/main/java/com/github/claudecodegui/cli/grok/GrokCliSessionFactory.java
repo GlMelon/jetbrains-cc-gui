@@ -3,16 +3,14 @@ package com.github.claudecodegui.cli.grok;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.cli.CliSession;
 import com.github.claudecodegui.cli.CliSessionFactory;
-import com.github.claudecodegui.cli.common.MarkerRunOnceCliSession;
 import com.github.claudecodegui.mcp.McpGatewayService;
-import com.github.claudecodegui.session.runtime.ProviderType;
 
 /**
  * Grok CLI 会话工厂(E1·开闭路由化)。
  * <p>
  * 声明 provider 路由键 {@link CommonConstants#PROVIDER_GROK},
  * 由 {@link com.github.claudecodegui.cli.CliSessionManager} 注册表查表调用。
- * 会话实现合并至 {@link MarkerRunOnceCliSession}(marker 协议,grok/kimi/pi 共用)。
+ * 会话实现为 {@link GrokRunOnceCliSession}(headless streaming-json 方言,直 spawn 原生 CLI)。
  */
 public class GrokCliSessionFactory implements CliSessionFactory {
     private final McpGatewayService gatewayService;
@@ -32,6 +30,6 @@ public class GrokCliSessionFactory implements CliSessionFactory {
 
     @Override
     public CliSession create(String tabId) {
-        return new MarkerRunOnceCliSession(ProviderType.GROK, tabId, gatewayService);
+        return new GrokRunOnceCliSession(tabId, gatewayService);
     }
 }
