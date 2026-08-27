@@ -16,6 +16,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Pi CLI 直 spawn 会话({@code --print --mode json} 方言)。
@@ -76,6 +78,7 @@ public class PiRunOnceCliSession extends AbstractRunOnceCliSession {
         if (attachFiles != null && !attachFiles.isEmpty()) {
             prompt = CliImagePromptInjections.buildReadPathPromptWithImages(prompt, attachFiles);
         }
+        prompt = reformatFileLineReferences(prompt);
 
         List<String> cmd = new ArrayList<>();
         cmd.add(resolver().findExecutable());
@@ -117,6 +120,31 @@ public class PiRunOnceCliSession extends AbstractRunOnceCliSession {
         }
         String lower = trimmed.toLowerCase(Locale.ROOT);
         return MODEL_SENTINELS.contains(lower) ? null : trimmed;
+    }
+
+    /**
+     * Claude 风格行号引用重写:{@code @path#L1[-L2]} → {@code @path (lines 1[-2])}。
+     * pi 无法解析该形态(pi 不展开 prompt 内 @-mention,token 对模型只是纯文本);
+     * 重写后 mention 可解析、行号信息以 prose 保留(对称 ai-bridge utils/file-line-references.js,
+     * omp 侧同款修复落在 ai-bridge omp/message-service.js)。
+     */
+    private static final Pattern LINE_REFERENCE_PATTERN =
+            Pattern.compile("@([^\\s@]+)#L(\\d+)(?:-L?(\\d+))?");
+
+    static String reformatFileLineReferences(String text) {
+        if (text == null || text.isEmpty()) {
+            return text;
+        }
+        Matcher matcher = LINE_REFERENCE_PATTERN.matcher(text);
+        StringBuilder result = new StringBuilder();
+        while (matcher.find()) {
+            String replacement = matcher.group(3) != null
+                    ? "@" + matcher.group(1) + " (lines " + matcher.group(2) + "-" + matcher.group(3) + ")"
+                    : "@" + matcher.group(1) + " (lines " + matcher.group(2) + ")";
+            matcher.appendReplacement(result, Matcher.quoteReplacement(replacement));
+        }
+        matcher.appendTail(result);
+        return result.toString();
     }
 
     /** reasoningEffort → pi --thinking level(小写归一后白名单校验)。 */

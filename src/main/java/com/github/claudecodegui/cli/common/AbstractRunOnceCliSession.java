@@ -579,11 +579,14 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
     }
 
     /**
-     * argv 选项注入防御:位置参数文本以 {@code -} 开头时前置空格(对称 ai-bridge safePromptArg),
-     * 防止用户消息被 CLI 解析为 flag。
+     * argv 选项注入防御:位置参数文本以 {@code -} 或 {@code @} 开头时前置空格(对称 ai-bridge
+     * safePromptArg),防止用户消息被 CLI 解析为 flag 或文件参数。
+     * <p>前导 {@code @} 与 {@code -} 同源防御:pi/omp 的 parseArgs 把任何以 {@code @} 开头的
+     * argv token 归类为文件参数(fileArgs → processFileArguments → "Error: File not found" + exit 1);
+     * 前置空格使 token 留在 messages 中,mention 仍可解析(omp 的 mention 正则允许 @ 前空白)。
      */
     protected static String safePromptArg(String text) {
-        if (text != null && text.startsWith("-")) {
+        if (text != null && (text.startsWith("-") || text.startsWith("@"))) {
             return " " + text;
         }
         return text == null ? "" : text;
