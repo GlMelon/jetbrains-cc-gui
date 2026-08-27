@@ -42,10 +42,10 @@ public class ProviderDescriptorContractTest {
                 ProviderDescriptor.kimi().capabilities());
         assertFalse("kimi must not declare thinking until official stream-json emits it",
                 ProviderDescriptor.kimi().supports(ProviderCapability.REASONING_THINKING));
-        // pi:CLI_SESSION + STREAMING + REASONING_THINKING;无 HISTORY(暂无归档外置读取面)
+        // pi:CLI_SESSION + STREAMING + REASONING_THINKING + HISTORY(session JSONL 公开规范)
         assertEquals("expected pi capabilities",
                 EnumSet.of(ProviderCapability.CLI_SESSION, ProviderCapability.STREAMING,
-                        ProviderCapability.REASONING_THINKING),
+                        ProviderCapability.REASONING_THINKING, ProviderCapability.HISTORY),
                 ProviderDescriptor.pi().capabilities());
     }
 

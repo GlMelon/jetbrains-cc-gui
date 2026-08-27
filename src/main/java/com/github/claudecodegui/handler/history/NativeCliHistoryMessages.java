@@ -93,6 +93,14 @@ public final class NativeCliHistoryMessages {
         return block;
     }
 
+    /** thinking wire 块(pi thinking content → Claude 兼容形状)。 */
+    public static JsonObject thinkingBlock(String thinking) {
+        JsonObject block = new JsonObject();
+        block.addProperty("type", "thinking");
+        block.addProperty("thinking", thinking);
+        return block;
+    }
+
     // ── JSONL 字段容错提取 ─────────────────────────────────────────────────────
 
     public static String primitiveString(JsonObject obj, String key) {

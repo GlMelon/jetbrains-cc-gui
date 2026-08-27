@@ -81,9 +81,10 @@ public record ProviderDescriptor(
         return cliBuiltin(ProviderType.KIMI, ProviderCapability.HISTORY);
     }
 
-    /** Pi Provider 描述符(JSON 事件流 + 思考区(thinking_delta 一等公民))。pi 无历史归档外置面暂不声明。 */
+    /** Pi Provider 描述符(JSON 事件流 + 思考区(thinking_delta 一等公民)+ 历史(session JSONL 公开规范))。 */
     public static ProviderDescriptor pi() {
-        return cliBuiltin(ProviderType.PI, ProviderCapability.REASONING_THINKING);
+        return cliBuiltin(ProviderType.PI,
+                ProviderCapability.REASONING_THINKING, ProviderCapability.HISTORY);
     }
 
     private static ProviderDescriptor builtin(ProviderType type) {

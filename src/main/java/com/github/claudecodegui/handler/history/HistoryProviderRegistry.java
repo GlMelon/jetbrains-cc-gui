@@ -25,7 +25,8 @@ final class HistoryProviderRegistry {
                 new CodexHistoryProviderAdapter(),
                 new OpenCodeHistoryProviderAdapter(),
                 new GrokHistoryProviderAdapter(),
-                new KimiHistoryProviderAdapter()
+                new KimiHistoryProviderAdapter(),
+                new PiHistoryProviderAdapter()
         ));
     }
 
